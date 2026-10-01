@@ -39,10 +39,10 @@ const strip = (src: string) =>
   src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
 const MATRIX = strip(
-  readFileSync(join(WEB, 'app/vendors/_components/vendor-tier-matrix.tsx'), 'utf8'),
+  readFileSync(join(WEB, 'app/for-suppliers/_components/vendor-tier-matrix.tsx'), 'utf8'),
 );
 const DELTAS = strip(
-  readFileSync(join(WEB, 'app/vendors/_components/vendor-tier-deltas.tsx'), 'utf8'),
+  readFileSync(join(WEB, 'app/for-suppliers/_components/vendor-tier-deltas.tsx'), 'utf8'),
 );
 const OVERLAY = strip(
   readFileSync(join(WEB, 'app/_components/home/HomeOverlays.tsx'), 'utf8'),

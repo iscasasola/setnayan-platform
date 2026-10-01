@@ -150,7 +150,11 @@ function TriageRow({
             className="truncate text-xs"
             style={{ color: accent ?? 'var(--sn-ink-500)' }}
           >
-            {open && item.ageLabel ? item.ageLabel : item.description}
+            {open && item.ageLabel
+              ? item.ageLabel
+              : item.count === null
+                ? 'Couldn’t count this queue — open it to check'
+                : item.description}
           </span>
         </span>
 
@@ -351,8 +355,22 @@ export function QueuesTriageFeed({
     The count is DERIVED from the rows actually rendered, never typed, so a
     queue added or removed cannot make this sentence stale.
   */
+  /*
+    🚨 "ALL QUEUES CLEAR" WAS PRINTED OVER QUEUES NOBODY COUNTED (admin audit
+    2026-09-30, row 5). A refused count arrives as `count: null`, `totalOpen`
+    sums it as 0, and the page announced an all-clear — the exact sentence the
+    owner is trained to stop reading at. Derived from the rendered rows, like
+    `queueCount`, so a queue added later is covered without anyone remembering.
+  */
+  const unreadCount = items.filter((i) => i.count === null).length;
+  const unreadNote =
+    unreadCount > 0
+      ? `${formatCount(unreadCount)} ${unreadCount === 1 ? 'queue' : 'queues'} couldn’t be read — refresh to try again.`
+      : null;
   const subtitle =
-    totalOpen === 0
+    unreadNote && totalOpen === 0
+      ? unreadNote
+      : totalOpen === 0
       ? `Nothing waiting in the ${formatCount(queueCount)} ${queueCount === 1 ? 'queue' : 'queues'} tracked here. ` +
         `Other admin surfaces are not counted on this page — see All surfaces.`
       : `${totalOpen} ${totalOpen === 1 ? 'item needs' : 'items need'} your attention across the ` +
@@ -429,7 +447,16 @@ export function QueuesTriageFeed({
       <TriageStrip items={items} />
       <LaneChips items={items} lane={lane} basePath={basePath} />
 
-      {totalOpen === 0 && (
+      {unreadNote ? (
+        <div
+          role="alert"
+          className="mb-4 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink"
+        >
+          {unreadNote} This is not an all-clear.
+        </div>
+      ) : null}
+
+      {totalOpen === 0 && !unreadNote && (
         <div
           className="sn-tile mb-4 flex items-center gap-3 p-4"
           style={{ color: 'var(--sn-ink-900)' }}

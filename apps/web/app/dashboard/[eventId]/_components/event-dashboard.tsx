@@ -60,6 +60,9 @@ import {
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { cockpitEnabled } from '@/lib/setnayan-ai-cockpit-flag';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
+import { seatAccessWord } from '@/lib/guest-access';
+import { fetchDelegateActivity } from '@/lib/delegate-activity.server';
+import { delegateActivityWhen } from '@/lib/delegate-activity';
 import {
   resolveSetnayanAiPaywallEnabled,
 } from '@/lib/integration-config';
@@ -162,7 +165,7 @@ const CONFIRMED_VENDOR_SET = new Set([
  * lib/day-of-mode.ts precisely because a bare Date parse already broke a
  * countdown once; it is asked here rather than re-derived.
  */
-function daysUntil(eventDate: string | null, tz?: string): number | null {
+export function daysUntil(eventDate: string | null, tz?: string): number | null {
   if (!eventDate) return null;
   const eventMs = eventDateToEpoch(eventDate, tz);
   if (!Number.isFinite(eventMs)) return null;
@@ -320,6 +323,7 @@ export async function EventDashboard({
     papicHome,
     checklistProgress,
     handoversRes,
+    helperActivity,
   ] = await Promise.all([
     // Event row — lean select of exactly what this surface reads, with the
     // Overview's fallback-to-'*' pattern for migration drift.
@@ -554,7 +558,7 @@ export async function EventDashboard({
           adminClient
             .from('event_moderators')
             .select(
-              'moderator_id, user_id, role_subtype, display_label, invitation_email, accepted_at, invitation_token',
+              'moderator_id, user_id, guest_id, role_subtype, display_label, invitation_email, accepted_at, invitation_token',
             )
             .eq('event_id', eventId)
             .is('removed_at', null)
@@ -564,14 +568,20 @@ export async function EventDashboard({
         const mods = (modsRes.data ?? []) as Array<{
           moderator_id: string;
           user_id: string | null;
+          guest_id: string | null;
           role_subtype: string;
           display_label: string | null;
           invitation_email: string | null;
           accepted_at: string | null;
           invitation_token: string | null;
         }>;
-        const acceptedMods = mods.filter((m) => m.accepted_at);
-        const pendingMods = mods.filter((m) => !m.accepted_at && m.invitation_token);
+        // ⚠ LIVE IS `user_id`, NEVER `accepted_at` (migration 20271251336140):
+        // event_moderators.accepted_at is DEFAULT now(), so it is stamped on a
+        // seat nobody has joined yet. Split on the timestamp, a guest-list seat
+        // still waiting for its guest read "active" here under an email or
+        // "Host" — the same bug the Hosts page was fixed for (2026-09-30).
+        const acceptedMods = mods.filter((m) => m.user_id);
+        const pendingMods = mods.filter((m) => !m.user_id && (m.guest_id || m.invitation_token));
         // An accepted host may also hold an event_members row — keep the
         // richer moderator row (it carries the role) and drop the duplicate.
         const acceptedIds = new Set(acceptedMods.map((m) => m.user_id).filter(Boolean));
@@ -602,8 +612,11 @@ export async function EventDashboard({
             ).map((u) => [u.user_id, { display_name: u.display_name, email: u.email }]),
           );
         }
+        // The guest list's Access word (Co-host · Limited helper); the hired
+        // planner keeps its own label.
         const modRoleLabel = (m: { role_subtype: string; display_label: string | null }) =>
           m.display_label ??
+          seatAccessWord(m.role_subtype) ??
           (isRoleSubtype(m.role_subtype) ? ROLE_SUBTYPE_LABEL[m.role_subtype] : 'Host');
         return [
           ...owners.map((m) => ({
@@ -673,8 +686,32 @@ export async function EventDashboard({
       .is('couple_acknowledged_at', null)
       .order('delivered_at', { ascending: false })
       .limit(4),
-
+    // ── "What your helpers did" (the Hosts fold, owner 2026-09-30) ─────────
+    // The Hosts page's delegate activity, moved: the last few lines of the
+    // SAME stream (`fetchDelegateActivity`, the `log_delegate_write` rows),
+    // read-only. Couple only, as it was on Hosts ("your coordinator did X"),
+    // so the viewer's own membership is asked first and a coordinator pays no
+    // read. A person who has since lost access still appears — what they did
+    // stays as a record (owner: "archive files that people can track").
+    (async () => {
+      const { data: me, error: meError } = await supabase
+        .from('event_members')
+        .select('member_type')
+        .eq('event_id', eventId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+      if (meError) {
+        logQueryError('EventDashboard.helperActivity.member', meError, { event_id: eventId }, 'graceful_degrade');
+      }
+      if ((me as { member_type?: string } | null)?.member_type !== 'couple') return null;
+      return fetchDelegateActivity(adminClient, eventId, 5);
+    })(),
   ]);
+
+  // The helpers feed shows when there is something to say: lines, or that we
+  // could not look (never an empty "nothing" that might be a refusal).
+  const helperActivityShown =
+    helperActivity !== null && (!helperActivity.measured || helperActivity.lines.length > 0);
 
   const event = eventRes.data;
   if (!event) notFound();
@@ -2848,8 +2885,11 @@ export async function EventDashboard({
           <div className="grid gap-3.5 sm:grid-cols-2">
             {/* Hosts — every account managing this event. The add-host entry
              *  moved here from the account switcher (owner 2026-07-12) so the
-             *  couple sees who can run their event right on the Overview;
-             *  the full invite/permission surface stays at /hosts. */}
+             *  couple sees who can run their event right on the Overview.
+             *  Since the Hosts fold (owner 2026-09-30) access is SET on the
+             *  guest list (the Access column), so that is where the door goes,
+             *  and the Hosts page's "your coordinator did X" is the short
+             *  read-only feed at the foot of this card. */}
             <ExpandCard
               cardClassName="sn-tile"
               title="Hosts"
@@ -2859,8 +2899,8 @@ export async function EventDashboard({
                   {hostAccounts.length === 1 ? 'account' : 'accounts'}
                 </span>
               }
-              fullHref={`${base}/hosts`}
-              fullLabel="Add a host"
+              fullHref={`${base}/guests`}
+              fullLabel="Set access on the guest list"
               preview={
                 /* A collapsed card's preview used to REPEAT the count already
                    in its own header and add "expand to see …" — an instruction
@@ -2877,31 +2917,61 @@ export async function EventDashboard({
                 )
               }
             >
-              {hostAccounts.length > 1
-                ? hostAccounts.map((account) => (
-                    <div
-                      key={account.key}
-                      className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
-                    >
-                      <span className="min-w-0 truncate font-semibold text-ink">
-                        {account.name}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate text-ink/50">
-                        {account.roleLabel}
-                      </span>
-                      <span
-                        className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
-                        style={
-                          account.state === 'invited'
-                            ? chipToneStyle.warm
-                            : chipToneStyle.ok
-                        }
-                      >
-                        {account.state}
-                      </span>
+              {hostAccounts.length > 1 || helperActivityShown ? (
+                <>
+                  {hostAccounts.length > 1
+                    ? hostAccounts.map((account) => (
+                        <div
+                          key={account.key}
+                          className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                        >
+                          <span className="min-w-0 truncate font-semibold text-ink">
+                            {account.name}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-ink/50">
+                            {account.roleLabel}
+                          </span>
+                          <span
+                            className="whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold"
+                            style={
+                              account.state === 'invited'
+                                ? chipToneStyle.warm
+                                : chipToneStyle.ok
+                            }
+                          >
+                            {account.state}
+                          </span>
+                        </div>
+                      ))
+                    : null}
+                  {helperActivityShown && helperActivity ? (
+                    <div className="border-t border-ink/5 pt-2.5" data-helper-activity>
+                      <p className="text-[11.5px] font-bold uppercase tracking-[0.08em] text-ink/50">
+                        What your helpers did
+                      </p>
+                      {!helperActivity.measured ? (
+                        <p className="py-1.5 text-[13px] text-ink/60">
+                          We couldn&rsquo;t load this just now. Reload to try again.
+                        </p>
+                      ) : (
+                        <ul>
+                          {helperActivity.lines.map((line) => (
+                            <li key={line.key} className="flex items-baseline gap-2.5 py-1.5 text-[13px]">
+                              <span className="min-w-0 flex-1 text-ink/80">
+                                <span className="font-semibold text-ink">{line.who}</span> {line.did}
+                                {line.note ? <span className="text-ink/55"> — {line.note}</span> : null}
+                              </span>
+                              <span className="whitespace-nowrap font-mono text-[10.5px] text-ink/45">
+                                {delegateActivityWhen(line.at, venueTz)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                  ))
-                : null}
+                  ) : null}
+                </>
+              ) : null}
             </ExpandCard>
 
             {/* Your team — vendor-bearing types only. On a vendor-free type the
@@ -2912,7 +2982,7 @@ export async function EventDashboard({
             {marketplaceEnabled ? (
             <ExpandCard
               cardClassName="sn-tile"
-              title="Your team"
+              title="Suppliers"
               badge={
                 /* Event-type-scoped: the "of 21" denominator is the wedding
                  *  plan-group count — wrong for a debut/christening/corporate

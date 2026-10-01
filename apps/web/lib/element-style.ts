@@ -47,6 +47,7 @@
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey, type HubFontKey } from '@/lib/hub-fonts';
 import { contrastRatio } from '@/lib/hub-legibility';
 import { adaptHubRuns } from '@/lib/element-runs-adapt';
+import { isHubDateFormat, isHubTimeFormat } from '@/lib/hub-part-words';
 
 /* ── THE ELEMENTS ───────────────────────────────────────────────────────── */
 
@@ -167,15 +168,19 @@ const TEXT_FIELDS = [
   'hidden',
 ] as const satisfies readonly HubElementField[];
 export const HUB_ELEMENT_FIELDS: Record<HubElementKey, readonly HubElementField[]> = {
-  eyebrow: TEXT_FIELDS,
+  // ✍ Its words are the couple's (`word`, absent = the card's own) — typed in
+  // place on the canvas (tap-to-type, `lib/type-in-place.ts`).
+  eyebrow: ['word', ...TEXT_FIELDS],
   mark: ['size', 'motion', 'hidden'],
   names: TEXT_FIELDS,
   // One word between two lines: no alignment or spacing of its own — it sits
   // where the names put it — but the word itself is the couple's.
   joiner: ['word', 'font', 'weight', 'italic', 'underline', 'color', 'size', 'motion', 'hidden'],
-  line: TEXT_FIELDS,
-  date: TEXT_FIELDS,
-  time: TEXT_FIELDS,
+  line: ['word', ...TEXT_FIELDS],
+  // 🗓 How the fact is written (`format`, Format ▾ — `lib/hub-date-formats.ts`);
+  // the fact itself is Details'.
+  date: [...TEXT_FIELDS, 'format'],
+  time: [...TEXT_FIELDS, 'format'],
   // Its words are the couple's (`word`, absent = the card's own words).
   link: ['word', ...TEXT_FIELDS],
   // The event's own venue — style only; the words live in Details.
@@ -234,7 +239,8 @@ export type HubElementField =
   | 'leading'
   | 'tracking'
   | 'hidden'
-  | 'word';
+  | 'word'
+  | 'format';
 
 /**
  * SIZE, AS A BOUNDED SCALE RELATIVE TO THE ELEMENT'S OWN SIZE — a − / +
@@ -423,10 +429,25 @@ export function sanitizeHubPartLine(raw: unknown): string | null {
   return w;
 }
 
-/** A part's own words, by the part — the joiner's word, or one line (the link, the caption). */
+/**
+ * ✍ ONE SENTENCE OF THE COUPLE'S OWN — the small line on top and the
+ * invitation line (tap-to-type). The same rule as a line, a little longer: the
+ * printed invitation's opening lines run to ~85 letters and are offered there.
+ */
+export const HUB_PART_SENTENCE_MAX = 120;
+export function sanitizeHubPartSentence(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const w = raw.replace(/\s+/g, ' ').trim();
+  if (w.length === 0 || w.length > HUB_PART_SENTENCE_MAX) return null;
+  if (/[\p{Cc}\p{Cf}\p{Co}\p{Cn}]/u.test(w)) return null;
+  return w;
+}
+
+/** A part's own words, by the part — the joiner's word, one line (the link, the caption) or one sentence. */
 export function sanitizeHubElementWord(raw: unknown, key: HubElementKey): string | null {
   if (key === 'joiner') return sanitizeHubJoinerWord(raw);
   if (key === 'link' || key === 'caption') return sanitizeHubPartLine(raw);
+  if (key === 'eyebrow' || key === 'line') return sanitizeHubPartSentence(raw);
   return null;
 }
 
@@ -544,6 +565,11 @@ export type HubElementStyle = {
    * (`sanitizeHubPartLine`).
    */
   word?: string;
+  /**
+   * 🗓 How the date or the time is written (Format ▾): one of the closed
+   * lists in `lib/hub-part-words.ts`; absent = the page's own words.
+   */
+  format?: string;
   motion?: HubElementMotion;
   /** Runs, sorted, never overlapping — only with `of`. */
   runs?: HubElementRun[];
@@ -729,6 +755,9 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
   if (fields.includes('hidden') && src.hidden === true) out.hidden = true;
   const word = fields.includes('word') ? sanitizeHubElementWord(src.word, key) : null;
   if (word) out.word = word;
+  if (fields.includes('format') && (key === 'date' ? isHubDateFormat(src.format) : isHubTimeFormat(src.format))) {
+    out.format = src.format as string;
+  }
   if (fields.includes('motion')) {
     const motion =
       src.motion !== undefined

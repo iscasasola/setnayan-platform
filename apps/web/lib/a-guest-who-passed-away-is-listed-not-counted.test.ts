@@ -113,6 +113,9 @@ test('no invitation or Save the Date is emailed to a guest who passed away', () 
   const invite = card.slice(card.indexOf('export async function inviteGuestByEmailAction'), card.indexOf('export async function updateGuest'));
   assert.match(invite, /\.select\('[^']*\bpassed_away\b[^']*'\)/, 'the sign-in-link email does not read the flag');
   assert.match(invite, /if \(guest\?\.passed_away === true\) \{\s*return redirect\(/, 'the sign-in-link email is sent to them');
+  // …and the card's Invite (message + ticket) is never offered for them either.
+  const body = read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx');
+  assert.match(body, /!guest\.passed_away && !isCouple \? \(\s*<SendInvite/, 'Invite is offered for a guest who passed away');
 });
 
 test('the guest card is where the couple sets it — never for the couple themselves', () => {
@@ -145,7 +148,8 @@ test('the prints: "the late <name>" in the parents’ lines, and "In loving memo
 
   const set = read('lib/print-set.server.ts');
   assert.match(set, /deceased: p\.id !== null && passedAway\.has\(p\.id\)/, 'the parents’ lines never read the flag');
-  assert.match(set, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, \$\{PASSED_AWAY\}`\)/, 'the entourage read for the prints does not select the flag');
+  // (+ `${ENTOURAGE_COUPLE_FIELDS}` after it since 2026-09-30 — who is a real couple.)
+  assert.match(set, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, \$\{PASSED_AWAY\}[^`]*`\)/, 'the entourage read for the prints does not select the flag');
 
   const g = (id: string, first: string, passed: boolean): RegistryGuest => ({
     guest_id: id,

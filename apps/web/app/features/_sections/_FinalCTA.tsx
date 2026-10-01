@@ -45,7 +45,7 @@ export function FinalCTA({ locale }: { locale: MarketingLocale }) {
               <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </Link>
             <Link
-              href="/vendors"
+              href="/for-suppliers"
               className="text-sm font-medium text-ink/65 underline-offset-4 hover:text-ink hover:underline"
             >
               {c.ctaSecondary}

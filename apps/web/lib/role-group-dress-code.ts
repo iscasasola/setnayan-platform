@@ -74,7 +74,8 @@ import {
   type RoleAttireMap,
   type RoleAttireRule,
 } from './role-dress-code';
-import { ROLE_GROUP_LABELS, roleGroupOf, type RoleGroup } from './role-groups';
+import { ROLE_GROUP_LABELS, roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
+import type { RoleNames } from './role-names';
 import { roleLabel } from './entourage';
 import type { GuestRole } from './guests';
 
@@ -173,12 +174,12 @@ export function resolveAttireFor(
  * Returns the labels a person recognises ("Ninang"), not role keys, because it
  * is written to be read by a couple and not by us.
  */
-export function groupOverrides(group: RoleGroup, roles: RoleAttireMap): string[] {
+export function groupOverrides(group: RoleGroup, roles: RoleAttireMap, names?: RoleNames | null): string[] {
   const out: string[] = [];
   for (const key of Object.keys(roles) as GuestRole[]) {
     if (!roles[key]) continue;
     if (roleGroupOf(key) !== group) continue;
-    out.push(roleLabel(key) ?? key);
+    out.push(roleLabel(key, names) ?? key);
   }
   return out.sort((a, b) => a.localeCompare(b));
 }
@@ -215,6 +216,8 @@ export function resolveGuestAttireWithGroups(input: {
   groups: GroupAttireMap;
   palette: Parameters<typeof resolveGuestDressCode>[0]['palette'];
   sideColor?: string | null;
+  /** The couple's words for roles (owner 2026-09-30). */
+  names?: RoleNames | null;
 }): { panel: ReturnType<typeof resolveGuestDressCode>; source: 'role' | 'group' | null } {
   const won = resolveAttireFor(input.role, input.roles, input.groups);
   const effective: RoleAttireMap = won && input.role ? { [input.role]: won.rule } : {};
@@ -224,14 +227,15 @@ export function resolveGuestAttireWithGroups(input: {
       roles: effective,
       palette: input.palette,
       sideColor: input.sideColor ?? null,
+      names: input.names ?? null,
     }),
     source: won?.source ?? null,
   };
 }
 
 /** The group a reader's answer came from, in words — for the provenance line. */
-export function groupLabelOf(role: GuestRole | null | undefined): string | null {
+export function groupLabelOf(role: GuestRole | null | undefined, names?: RoleNames | null): string | null {
   if (!role || role === 'guest') return null;
   const g = roleGroupOf(role);
-  return g === 'guest' ? null : (ROLE_GROUP_LABELS[g] ?? null);
+  return g === 'guest' ? null : roleGroupLabel(g, names);
 }

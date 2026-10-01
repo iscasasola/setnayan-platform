@@ -35,6 +35,7 @@ import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, type KnownProvider } from '@/lib/sign-in-door';
+import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
 
 export type SignInCardProps = {
   /** Post-sign-in destination. '/' lets the action route by account_type. */
@@ -72,6 +73,11 @@ export type SignInCardProps = {
    * the /login ROUTE, which really does have nothing behind it.
    */
   onSignedIn?: () => void;
+  /**
+   * `next` opens an event (`getLoginView`): the card speaks to a GUEST — no
+   * "Welcome back", no "couples and vendors" (guest text audit 2026-09-30).
+   */
+  forGuest?: boolean;
 };
 
 export function SignInCard({
@@ -86,6 +92,7 @@ export function SignInCard({
   prefilledEmail = '',
   onNavigate,
   onSignedIn,
+  forGuest = false,
 }: SignInCardProps) {
   const inPlace = Boolean(onSignedIn);
   const [state, submitInPlace] = useActionState(
@@ -122,11 +129,21 @@ export function SignInCard({
 
   return (
     <>
-      <div className="hr-ov-eyebrow">Welcome back</div>
-      <h2 className="hr-ov-title">Sign in to Setnayan.</h2>
-      <p className="hr-ov-sub">
-        One account for couples and vendors. Pick up right where you left off.
-      </p>
+      {forGuest ? (
+        <>
+          <div className="hr-ov-eyebrow">{GUEST_SIGN_IN_WORDS.eyebrow}</div>
+          <h2 className="hr-ov-title">{GUEST_SIGN_IN_WORDS.title}</h2>
+          <p className="hr-ov-sub">{GUEST_SIGN_IN_WORDS.sub}</p>
+        </>
+      ) : (
+        <>
+          <div className="hr-ov-eyebrow">Welcome back</div>
+          <h2 className="hr-ov-title">Sign in to Setnayan.</h2>
+          <p className="hr-ov-sub">
+            One account for couples and suppliers. Pick up right where you left off.
+          </p>
+        </>
+      )}
 
       {shownError ? (
         <p role="alert" className="hr-si-banner hr-si-banner--error">
@@ -183,7 +200,7 @@ export function SignInCard({
             type="email"
             autoComplete="email"
             inputMode="email"
-            placeholder="you@setnayan.com"
+            placeholder="you@email.com"
             defaultValue={prefilledEmail}
             required
             className="hr-si-input"

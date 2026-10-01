@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { submitRsvp } from '../actions';
 import { PlusOneSeatPanels } from './rsvp-plus-ones';
+import { seatNameFailure } from '@/lib/seat-name-words';
 
 /**
  * "ADD NAME" — IN PLACE, ON ME (prototype `rsvp_plus_ones_2026-09-29.html`,
@@ -42,7 +43,8 @@ export function AddNameInPlace({
 }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
-  const [failed, setFailed] = useState(false);
+  // The reason, not a flag: the action RETURNS why a name did not save.
+  const [failed, setFailed] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -50,14 +52,16 @@ export function AddNameInPlace({
     const form = formRef.current;
     if (!form || !typed.trim()) return;
     const fd = new FormData(form);
-    setFailed(false);
+    setFailed(null);
     startTransition(async () => {
       try {
         await submitRsvp(eventId, guestId, fd);
         // Success re-renders this row as NAMED (the action revalidates the
         // page), which unmounts these boxes — nothing to close by hand.
-      } catch {
-        setFailed(true);
+      } catch (err) {
+        // The real reason — never "check your connection" for a save the
+        // server refused (guest text audit 2026-09-30).
+        setFailed(seatNameFailure(err));
       }
     });
   };
@@ -88,7 +92,7 @@ export function AddNameInPlace({
           type="button"
           onClick={() => {
             setOpen(false);
-            setFailed(false);
+            setFailed(null);
           }}
           className="inline-flex min-h-[44px] items-center px-2 text-sm text-ink/60 underline underline-offset-4"
         >
@@ -115,7 +119,7 @@ export function AddNameInPlace({
         />
         {failed ? (
           <p role="alert" className="text-sm text-terracotta-700">
-            Their name did not save — check your connection and try again.
+            {failed}
           </p>
         ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">

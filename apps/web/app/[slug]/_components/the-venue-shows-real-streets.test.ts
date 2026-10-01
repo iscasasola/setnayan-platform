@@ -149,17 +149,15 @@ test('the guest venue section renders the shipped map, and draws no second one',
   );
 });
 
-test('the decorative band survives ONLY as the no-coordinates fallback', () => {
-  // Not a style nit: if the gradient still rendered unconditionally the map
-  // would sit under a 128px decorative slab, and if it vanished entirely then
-  // events with no coordinates would lose the header they have today.
+test('the map shows only with coordinates — and there is no decorative band at all', () => {
+  // ✏ The design moved (owner 2026-09-30, DECISION_LOG "A VENUE'S PHOTO COMES
+  // FROM ITS SUPPLIER…": "No photo ⇒ a clean text card, never an empty tinted
+  // band"). The band used to be the no-coordinates fallback; on `cale-ice` it
+  // read as a picture that never loaded. The venue's own photo takes its place
+  // when there is one (`the-venue-card-shows-the-suppliers-photo.test.ts`).
   const src = code(WIDGET);
-  assert.match(src, /hasCoords \? \(/, 'the backdrop must branch on having coordinates');
-  assert.match(
-    src,
-    /bg-gradient-to-br from-veil via-paper-deep to-gild\/25/,
-    'the no-coordinates fallback band was removed — events without a pin lose their venue header',
-  );
+  assert.match(src, /hasCoords \? \(\s*<VendorLocationMap/, 'the map must branch on having coordinates');
+  assert.doesNotMatch(src, /bg-gradient-to/, 'an empty tinted band came back — with no photo the card is text only');
 });
 
 test('"Venue to be confirmed" never appears above a map that confirms it', () => {

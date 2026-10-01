@@ -1,6 +1,7 @@
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { TOURS, type TourKey } from '@/lib/tours';
+import { RSVP_STAGE_KEY, RSVP_STAGE_LABEL } from '@/lib/rsvp-stage-shared';
 import type { MakerDevice } from './maker-context';
 
 /**
@@ -45,14 +46,22 @@ export const MAKER_DETAILS_LABEL = 'Details';
 
 export type MakerBarItem =
   | { key: 'details'; label: string; group: 'made-once'; kind: 'tool' }
+  /** 🗳 The RSVP stage — a stage of the bar, but a page of the Maker (not a
+   *  lifecycle phase: `rsvp` is the INVITATION's phase key), so pressing it
+   *  opens its own three parts (`maker-rsvp-stage.tsx`) like Details does. */
+  | { key: typeof RSVP_STAGE_KEY; label: string; group: 'stages'; kind: 'tool' }
   | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' };
 
 export const MAKER_BAR: readonly MakerBarItem[] = [
-  // The four stages of the one link, in the order it lives through them…
-  ...PUBLIC_STAGE_ORDER.map(
-    (phase) =>
-      ({ key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' }) as const,
-  ),
+  // The stages of the one link, in the order it lives through them — with the
+  // RSVP stage between Save the Date and the Invitation (owner 2026-09-30, the
+  // re-plan's top nav: "Save the Date · RSVP · Invitation · The Day · Post Event")…
+  ...PUBLIC_STAGE_ORDER.flatMap((phase) => [
+    { key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' } as const,
+    ...(phase === 'save_the_date'
+      ? [{ key: RSVP_STAGE_KEY, label: RSVP_STAGE_LABEL, group: 'stages', kind: 'tool' } as const]
+      : []),
+  ]),
   // …then Details, where everything made once lives (Option B).
   { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
 ];

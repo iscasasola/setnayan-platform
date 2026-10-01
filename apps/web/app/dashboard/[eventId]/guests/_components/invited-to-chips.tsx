@@ -44,6 +44,7 @@ export function InvitedToChips({
   roleSelectId,
   initialRole,
   initialBlocks,
+  look = 'chips',
 }: {
   /** DOM id of the role <select> on the same page. Used to wire change events. */
   roleSelectId: string;
@@ -55,6 +56,9 @@ export function InvitedToChips({
    * instead.
    */
   initialBlocks?: InvitedToBlock[];
+  /** 'toggles' — one yes/no switch per part of the day (the guest card, owner
+   *  2026-09-30: "Yes/No = toggles"). Default: the chips the new-guest form draws. */
+  look?: 'chips' | 'toggles';
 }) {
   const [blocks, setBlocks] = useState<Set<InvitedToBlock>>(
     () => new Set(initialBlocks ?? defaultInvitedToForRole(initialRole)),
@@ -83,6 +87,25 @@ export function InvitedToChips({
       return next;
     });
   };
+
+  if (look === 'toggles') {
+    return (
+      <div className="divide-y divide-ink/[0.06] rounded-xl bg-white/60">
+        {INVITED_TO_BLOCKS.map((block) => (
+          <label key={block} className="flex min-h-[44px] cursor-pointer items-center justify-between gap-3 px-3 text-sm text-ink">
+            {INVITED_TO_LABELS[block]}
+            <input
+              type="checkbox"
+              name={`invited_${block}`}
+              checked={blocks.has(block)}
+              onChange={() => toggle(block)}
+              className="sn-switch"
+            />
+          </label>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap gap-2">

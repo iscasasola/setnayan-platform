@@ -35,7 +35,6 @@ const read = (rel: string) => stripComments(readFileSync(resolve(HERE, rel), 'ut
 const SHEETS = [
   '../app/vendor-dashboard/services/_components/canvas-maker.tsx',
   '../app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx',
-  '../app/dashboard/[eventId]/vendors/_components/team-summary-chip.tsx',
 ] as const;
 
 for (const rel of SHEETS) {

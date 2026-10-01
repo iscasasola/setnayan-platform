@@ -9,6 +9,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveSiteNav, type NavInput, type NavSlot, type VendorKit } from './site-nav';
+import { STAGE_BAR } from './stage-bar';
 
 const base: NavInput = {
   viewer: { kind: 'guest' },
@@ -69,11 +70,12 @@ test('nav · the bar never exceeds five slots, for anyone, in any phase', () => 
               s.length <= 5,
               `${viewer.kind}/${phase} produced ${s.length} slots — the bar holds five`,
             );
-            // Home opens every bar; Me closes every bar that has a Me — which
-            // since 2026-09-27 is everyone WITH a key. A stranger's bar is
-            // Home · Details · Story (owner: "a stranger on the general link
-            // sees only Home · Details · Story — no locked RSVP/Me tabs").
-            assert.equal(s[0]?.key, 'home');
+            // Home opens every bar — on the day, Live does (owner 2026-09-30:
+            // "Live - Welcome - Camera - Gallery - Me"); Me closes every bar that
+            // has a Me — which since 2026-09-27 is everyone WITH a key. A
+            // stranger's bar is Home · Details · Story (owner: "a stranger on the
+            // general link sees only Home · Details · Story — no locked RSVP/Me tabs").
+            assert.equal(s[0]?.key, phase === 'day' ? 'live' : 'home');
             if (viewer.kind === 'public') assert.ok(!keys(s).includes('me'), 'a stranger was given a Me/Join tab');
             else assert.equal(s[s.length - 1]?.key, 'me');
             // A locked slot must always say why.
@@ -131,7 +133,10 @@ test('nav · RULING: a private gallery is NOT DRAWN — announce features, hide 
 test('nav · RULING: "papic button as well" — a live broadcast must not cost the gallery', () => {
   const s = at({ viewer: { kind: 'guest' }, phase: 'day', liveBroadcast: true });
   const k = keys(s);
-  assert.ok(k.includes('watch'), 'no Watch slot during a live broadcast');
+  // 📱 2026-09-30 ("THE DAY'S MENU HAS FIVE: LIVE · WELCOME · CAMERA · GALLERY ·
+  // ME"): the stream is part of Live — never a tab that takes anything's place.
+  assert.deepEqual(k, ['live', 'home', 'camera', 'gallery', 'me'], 'the day’s five, broadcast or not');
+  assert.ok(!k.includes('watch'), 'a Watch tab is back — the day’s stream lives inside Live');
   assert.ok(k.includes('camera'), 'Watch displaced the camera');
   assert.ok(
     k.includes('gallery'),
@@ -220,34 +225,32 @@ test('a stranger has NO camera and NO Me/Join tab — "Get inside" is the one wa
         viewer: { kind: 'public' },
         phase,
         hostAllowsCamera,
-        destinations: { join: '/maria-and-jose/invite', camera: '/papic/guest', rsvp: '/x/invite/reply' },
+        destinations: { join: '/maria-and-jose/invite', camera: '/papic/guest' },
       } as Partial<NavInput>);
       assert.ok(!keys(s).includes('camera'), `a stranger got a camera tab (${phase})`);
       assert.ok(!keys(s).includes('me'), `a stranger got a Me/Join tab (${phase})`);
-      assert.ok(!keys(s).includes('rsvp'), `a stranger got an RSVP tab (${phase})`);
+      assert.ok(!(keys(s) as string[]).includes('rsvp'), `a stranger got an RSVP tab (${phase})`);
     }
   const before = at({ viewer: { kind: 'public' }, phase: 'before', hasStory: true } as Partial<NavInput>);
   assert.deepEqual(keys(before), ['home', 'details', 'story'], 'the stranger bar is Home · Details · Story');
 });
 
-test('the Invitation bar for a guest is Home · Details · Story · RSVP, and Me once they answer (owner 2026-09-27)', () => {
-  // Supersedes the 2026-09-26/27 order Home · Details · RSVP · Story · Me —
-  // DECISION_LOG 2026-09-27, "EACH STAGE DOES ONE JOB": *"Invitation is home,
-  // details, story, RSVP then Me replaces it once answered"*.
+test('the Invitation bar for a guest is ALWAYS the four — Home · Details · Story · Me, no RSVP tab (owner 2026-09-30)', () => {
+  // ⚖ Owner 2026-09-30: *"RSVP does not have 4 tabs under"* — the guest menu is
+  // Welcome · Details · Our Love Story · Me. Supersedes 2026-09-27's "RSVP then
+  // Me replaces it once answered": whether or not they have replied, Me.
   const base = {
     viewer: { kind: 'guest' },
     phase: 'before',
     hasStory: true,
-    destinations: { rsvp: '/maria-and-jose/invite/reply', camera: '/papic/guest' },
-    stageSlots: ['home', 'details', 'story', 'rsvp', 'me'],
+    destinations: { camera: '/papic/guest' },
+    stageSlots: STAGE_BAR.rsvp.slots,
   } as Partial<NavInput>;
-  const s = at(base);
-  assert.deepEqual(keys(s), ['home', 'details', 'story', 'rsvp']);
-  assert.equal(s.find((x) => x.key === 'rsvp')?.href, '/maria-and-jose/invite/reply');
-  assert.deepEqual(keys(at({ ...base, replied: true } as Partial<NavInput>)), ['home', 'details', 'story', 'me']);
-  // No destination → no RSVP tab (never a tab that goes nowhere).
-  const none = at({ viewer: { kind: 'guest' }, phase: 'before', destinations: {} } as Partial<NavInput>);
-  assert.ok(!keys(none).includes('rsvp'));
+  assert.deepEqual(keys(at(base)), ['home', 'details', 'story', 'me']);
+  assert.ok(!(STAGE_BAR.rsvp.slots as readonly string[]).includes('rsvp'), 'the stage still lists an RSVP slot');
+  for (const stage of Object.keys(STAGE_BAR) as Array<keyof typeof STAGE_BAR>) {
+    assert.ok(!(STAGE_BAR[stage].slots as readonly string[]).includes('rsvp'), `${stage} offers an RSVP tab`);
+  }
 });
 
 test('a guest, couple and vendor keep their own in-page Me slot', () => {

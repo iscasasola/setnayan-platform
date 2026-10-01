@@ -19,8 +19,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as React from 'react';
-import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
+import { renderSettled } from './render-settled.test-helper';
 import {
   PREVIEW_IMMUTABLE,
   PREVIEW_UNVERSIONED,
@@ -65,19 +65,10 @@ test('2 · the version follows the inputs — every input, the build, and not th
   assert.notEqual(printPreviewVersion(base, 'b2'), v, 'a new build draws anew');
 });
 
-/* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`): the
-   first pass of a render draws each one's loading slot (`data-lazy-slot`) and
-   asks for its code, as a browser's first paint does. Render again once the
-   pieces have arrived — a bounded wait, and whatever is still a slot then is
-   left in the markup for the assertions to catch. */
-async function renderSettled(el: React.ReactElement): Promise<string> {
-  let html = renderToStaticMarkup(el);
-  for (let i = 0; i < 50 && /data-lazy-slot=/.test(html); i++) {
-    await new Promise((r) => setTimeout(r, 10));
-    html = renderToStaticMarkup(el);
-  }
-  return html;
-}
+/* ⚡ The print pieces load lazily (`launch/_components/details-lazy.tsx`).
+   `renderSettled` waits on the loads themselves, never a clock — see
+   `render-settled.test-helper.ts` for the CI failure that retired the old
+   500ms retry loop. */
 
 async function paintPrints(previewVersion: string | null, pass = 'boarding'): Promise<string> {
   // Prints & Tickets folded into Details (2026-09-28): each piece is an item, its

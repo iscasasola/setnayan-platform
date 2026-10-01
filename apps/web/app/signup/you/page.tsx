@@ -32,6 +32,7 @@ import {
   FORMAL_NAME_PART_MAX,
   type FormalNameField,
 } from '@/lib/formal-name';
+import { PrefixSelect } from '@/app/_components/formal-name-inputs';
 import { saveYou } from './actions';
 import { AccountNameField } from './_components/account-name-field';
 import '@/app/_components/home/home-reskin.css';
@@ -190,17 +191,22 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
                     <label htmlFor={`hr-you-${f}`} className="hr-si-label">
                       {FORMAL_NAME_LABELS[f]}
                     </label>
-                    <input
-                      id={`hr-you-${f}`}
-                      name={f}
-                      defaultValue={me[f] ?? ''}
-                      maxLength={FORMAL_NAME_PART_MAX}
-                      placeholder={f === 'name_prefix' ? 'Mr., Atty.…' : f === 'name_suffix' ? 'Jr., II…' : undefined}
-                      autoComplete={
-                        f === 'first_name' ? 'given-name' : f === 'last_name' ? 'family-name' : 'off'
-                      }
-                      className="hr-si-input"
-                    />
+                    {f === 'name_prefix' ? (
+                      /* 🪪 The guest side's Prefix dropdown (owner 2026-09-30). */
+                      <PrefixSelect id={`hr-you-${f}`} defaultValue={me[f]} className="hr-si-input" />
+                    ) : (
+                      <input
+                        id={`hr-you-${f}`}
+                        name={f}
+                        defaultValue={me[f] ?? ''}
+                        maxLength={FORMAL_NAME_PART_MAX}
+                        placeholder={f === 'name_suffix' ? 'Jr., II…' : undefined}
+                        autoComplete={
+                          f === 'first_name' ? 'given-name' : f === 'last_name' ? 'family-name' : 'off'
+                        }
+                        className="hr-si-input"
+                      />
+                    )}
                   </div>
                 ))}
               </div>

@@ -18,6 +18,7 @@ import {
   type MenuMoment,
   type PrintFormat,
   type PrintFormatId,
+  type PosterPhoto,
   type PrintSetKey,
 } from '@/lib/print-pieces';
 import { freePrints, type FreePrint } from '@/lib/free-prints';
@@ -33,7 +34,7 @@ import {
   type PassCardDesign,
 } from '@/lib/pass-card';
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
-import { PassCardDesignPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
+import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
 import { DetailsGoTo } from './details-go';
 
 /**
@@ -93,6 +94,8 @@ export type PrintsInput = {
    * story comes from and a button opens Details › Love Story in place.
    */
   storyEmpty?: boolean;
+  /** 🖼 The Our Story poster's own photo, when the couple chose one (`print_details.poster_photo`). */
+  posterPhoto?: PosterPhoto | null;
   /** The couple's saved pass card look (`print_details.pass_design`). */
   passDesign?: PassCardDesign;
   /** The zip's file name — `<Couple>-<date>-passes.zip` (`passCardsZipFileName`). */
@@ -264,6 +267,10 @@ export function PrintPieceEditor({
         </div>
       ) : null}
       {children}
+      {/* 🖼 The A3 poster's background — the theme's picture or the couple's own
+          photo (owner 2026-09-29, OWNER ANSWERS (1)). Offered only where there
+          is a Love Story to print. */}
+      {k === 'story-poster' && !storyMissing ? <PosterPhotoPicker eventId={input.eventId} saved={input.posterPhoto ?? null} /> : null}
       {/* ══ THE MENU — its moments and dishes (owner 2026-09-28). ══ */}
       {k === 'menu' && menu ? (
         <PrintMenuEditor
@@ -277,6 +284,7 @@ export function PrintPieceEditor({
       {menuEmpty || storyMissing ? null : (
         <div className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-print-piece-saves={k}>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">This piece</p>
+          <ChangedSincePrinted eventId={input.eventId} piece={k} version={input.previewVersion} />
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="link">
               {themed ? 'Save · Classic (PDF)' : 'Save PDF'}
@@ -315,6 +323,7 @@ export function PassCardsPanel({ input }: { input: PrintsInput }) {
   return (
     <div data-pass-cards="" className="flex flex-col gap-3 border-t border-ink/10 pt-3">
       <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{PASS_CARD_WORDS.section}</p>
+      <ChangedSincePrinted eventId={eventId} piece="passes" version={input.previewVersion} />
       <PassCardDesignPicker
         eventId={eventId}
         saved={passDesign}
@@ -431,6 +440,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
       data-prints-access={!themed ? 'classic' : freeTheme ? 'free-theme' : access.printReady ? 'print-ready' : 'sample'}
       className="flex flex-col gap-3"
     >
+      <ChangedSincePrinted eventId={input.eventId} piece="set" version={input.previewVersion} />
       <p className="text-sm text-ink/75">
         <span data-prints-free-themes="" className="font-semibold text-ink">
           {themeNames(FREE_THEMES)} prints are free and print-ready
@@ -463,7 +473,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
           Whole set · Classic (PDF)
         </PrintSaveButton>
         <PrintSaveButton href={classic('passes')} file={file.classic('passes')}>
-          Every guest&rsquo;s pass · Classic
+          Every guest&rsquo;s {PASS_CARD_WORDS.noun} · Classic
         </PrintSaveButton>
         {themedReady ? (
           <>
@@ -471,7 +481,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
               <span data-prints-print-ready="">Whole set · {t.name} (PDF)</span>
             </PrintSaveButton>
             <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')}>
-              <span data-prints-passes="">Every guest&rsquo;s pass · {t.name}</span>
+              <span data-prints-passes="">Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {t.name}</span>
             </PrintSaveButton>
           </>
         ) : themed ? (

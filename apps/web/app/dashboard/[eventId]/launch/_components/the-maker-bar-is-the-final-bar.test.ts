@@ -29,11 +29,13 @@ import { TOURS } from '@/lib/tours';
  */
 
 /* Owner, 2026-09-28 (Option B): "Save the Date · Invitation · The Day · Post
-   Event · Details" — the stages in their one vocabulary (`PUBLIC_STAGE_LABELS`). */
-const FINAL = ['Save the Date', 'Invitation', 'On the Day', 'Post Event', 'Details'];
+   Event · Details" — the stages in their one vocabulary (`PUBLIC_STAGE_LABELS`).
+   🗳 2026-09-30 re-plan: RSVP becomes a stage of its own, between Save the Date
+   and the Invitation ("Save the Date · RSVP · Invitation · The Day · Post Event"). */
+const FINAL = ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event', 'Details'];
 
 async function paint(
-  opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'details' } | null } = {},
+  opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'details' | 'rsvp-stage' } | null } = {},
 ) {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { MakerBar } = await import('./maker-shell');
@@ -52,7 +54,7 @@ test('the list is the final bar', () => {
   assert.deepEqual(MAKER_BAR.map((i) => i.label), FINAL);
 });
 
-test('the rendered bar has the five items in order and exactly one divider', async () => {
+test('the rendered bar has the six items in order and exactly one divider', async () => {
   const html = await paint();
   const order = FINAL.map((label) => html.indexOf(label.replace('&', '&amp;')));
   for (const [i, at] of order.entries()) assert.ok(at > -1, `"${FINAL[i]}" is missing from the bar`);
@@ -61,7 +63,7 @@ test('the rendered bar has the five items in order and exactly one divider', asy
   }
   assert.equal((html.match(/data-maker-divider/g) ?? []).length, 1, 'one divider, two groups');
   const firstDivider = html.indexOf('data-maker-divider');
-  assert.ok(order[3]! < firstDivider && firstDivider < order[4]!, 'the divider sits between the stages and Details');
+  assert.ok(order[4]! < firstDivider && firstDivider < order[5]!, 'the divider sits between the stages and Details');
   assert.doesNotMatch(html, /Prints &amp; Tickets/, 'Prints & Tickets is part of Details now — not a page of its own');
   // The five pages that moved into Details are not buttons of their own any more.
   for (const gone of ['logo', 'hero', 'reveal', 'love-story', 'rsvp-page']) {
@@ -78,6 +80,7 @@ test('no bar item is a dead button', async () => {
   const html = await paint();
   // Details is a real tool — it opens its page (which holds every print since the fold).
   assert.match(html, /<button[^>]*data-maker-bar-item="details"[^>]*aria-pressed=/, 'Details opens its panel');
+  assert.match(html, /<button[^>]*data-maker-bar-item="rsvp-stage"[^>]*aria-pressed=/, 'the RSVP stage opens its page');
   assert.equal((html.match(/data-maker-bar-item=/g) ?? []).length, FINAL.length, 'every item is a button');
 });
 
@@ -119,4 +122,6 @@ test('ONE highlight in every state — a tool takes it from the stage, and any i
   assert.deepEqual(none, ['rsvp'], 'with no tool open the stage is the one highlight');
   const on = pressed(await paint({ selection: { kind: 'tool', key: 'details' } }));
   assert.deepEqual(on, ['details'], `with Details open, Details alone is highlighted (got ${on.join(', ')})`);
+  const rsvp = pressed(await paint({ selection: { kind: 'tool', key: 'rsvp-stage' } }));
+  assert.deepEqual(rsvp, ['rsvp-stage'], `with the RSVP stage open, it alone is highlighted (got ${rsvp.join(', ')})`);
 });

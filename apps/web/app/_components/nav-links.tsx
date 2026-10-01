@@ -55,7 +55,7 @@ export function NavLinksRow({
     return (
       <div className="flex flex-wrap items-center gap-2">
         {label ? (
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/80">
             {label}
           </p>
         ) : null}
@@ -79,7 +79,7 @@ export function NavLinksRow({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {label ? (
-        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+        <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/80">
           {label}
         </p>
       ) : null}

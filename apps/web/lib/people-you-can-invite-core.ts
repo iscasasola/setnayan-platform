@@ -202,3 +202,16 @@ export function chooseAllShown(
   }
   return next;
 }
+
+/**
+ * May this People-page row be offered on a guest list? Connections: yes. A
+ * loved one (alaga): only when it is a PERSON. Owner, 2026-09-30: *"business and
+ * pets and gadgets are not people. so not allowed to be invited"*. So
+ * 'pet' · 'business' · 'item' · 'other' are never offered, and neither is a
+ * loved one whose kind is unknown (fail closed: the column is NOT NULL DEFAULT
+ * 'person', so a missing value means the read did not carry it).
+ */
+export function isInvitableRosterEntry(p: { kind: string; dependentKind?: string | null }): boolean {
+  if (p.kind !== 'alaga') return true;
+  return p.dependentKind === 'person';
+}

@@ -48,6 +48,7 @@ export default async function LoginPage({
         justSignedUpEmail={view.justSignedUpEmail}
         readyEmail={view.readyEmail}
         prefilledEmail={view.prefilledEmail}
+        forGuest={view.forGuest}
       />
     </main>
   );

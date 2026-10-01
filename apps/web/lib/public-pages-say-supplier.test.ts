@@ -34,7 +34,7 @@ const PUBLIC = [
   'app/page.tsx',
   'app/layout.tsx',
   'app/features',
-  'app/vendors',
+  'app/for-suppliers',
   'app/v',
   'app/blog',
   'app/help',

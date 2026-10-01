@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import type { HubElementKey } from '@/lib/element-style';
@@ -35,7 +35,7 @@ export type MakerDevice = 'desktop' | 'phone' | 'both';
 /** What the inspector is showing. `null` = nothing selected, inspector closed. */
 export type MakerSelection =
   | { kind: 'scene'; id: string; tab?: MakerSceneTab }
-  | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' | 'details' | 'rsvp-page' }
+  | { kind: 'tool'; key: 'logo' | 'hero' | 'reveal' | 'love-story' | 'post-event' | 'details' | 'rsvp-page' | 'rsvp-stage' }
   | { kind: 'main' }
   | { kind: 'row'; key: string }
   /** 📖 One of Post Event's written scenes (Maker Phase 8) — by its scene key. */
@@ -87,6 +87,16 @@ export type MakerState = {
    * component its Details item shows, never a copy. Empty outside the Maker.
    */
   factEditors?: Partial<Record<DetailsItemKey, ReactNode>>;
+  /**
+   * ⚡ The instant scrapbook (`love-story-live.tsx`, its own lazy chunk — see
+   * `maker-shell.tsx`). Handed down HERE rather than imported by the Love Story
+   * page or Details, so the only route that can load it is the Maker's (a route
+   * that can load a chunk adds what it lacks to the webpack runtime every page
+   * downloads).
+   */
+  liveLoveStoryBook?: ComponentType<Record<string, unknown>>;
+  /** ⚡ …and its words panel (Details' Love Story editor, and a stage's tapped story). */
+  liveStoryPanel?: ComponentType<Record<string, unknown>>;
 };
 
 /**

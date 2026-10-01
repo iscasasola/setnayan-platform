@@ -62,33 +62,8 @@ export async function eventOwnsPakanta(
   return false;
 }
 
-/**
- * Has the couple PUBLISHED the seating pack for this event?
- * (event_floor_plan.published_at IS NOT NULL).
- *
- * The publication gate is the privacy boundary on the seat pass: a DRAFT plan
- * must never leak the table label + occupant roster (public table QR) or a
- * guest's room/seat (personal QR) before the couple posts it. Mirrors the
- * publication gate the PR1 free finder uses.
- *
- * Read via the admin client (these are public, RLS-less routes). Graceful-
- * degrade on a missing/legacy floor-plan table or column (42P01 / 42703) →
- * treat as NOT published (fail closed: no roster, friendly "not posted yet"
- * card) — the same posture as fetchFloorPlan + checkOrderOwnership.
- */
-export async function eventSeatingPublished(
-  supabase: SupabaseClient,
-  eventId: string,
-): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('event_floor_plan')
-    .select('published_at')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (error) {
-    if (error.code === '42P01' || error.code === '42703') return false;
-    // Any other read error: fail closed rather than leaking a draft roster.
-    return false;
-  }
-  return Boolean((data as { published_at?: string | null } | null)?.published_at);
-}
+// 🪑 "May guests see their seats?" moved to `lib/guests-may-see-seats.ts`
+// (`guestsMaySeeSeatsFor`) on 2026-09-30 — owner: "seatplan will show on the
+// date of the event". It is no longer the published flag alone: on the event's
+// day seats show with no action from the couple, and before it only the
+// couple's "Show guests their seats early" switch opens them.

@@ -76,7 +76,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .from('vendor_profiles')
     .delete({ count: 'exact' })
     .eq('demo_batch_id', batchId)
-    .eq('is_demo', true);
+    .eq('is_demo', true)
+    // 🔒 ONLY SEEDED ROWS (2026-09-30). A seeded demo shop has no owner
+    // (`user_id` NULL, scripts/seed-demo-vendors.ts). Since DECISION_LOG
+    // 2026-09-29 "LANE 2 §2C" (1) two REAL accounts' shops — SetnaProd and
+    // Saysay — are `is_demo = true` too, and deleting by the flag alone would
+    // erase them, their bookings and their history in one click.
+    .is('user_id', null);
 
   if (error) {
     return NextResponse.json(

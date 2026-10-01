@@ -322,7 +322,9 @@ export function RsvpSheet({
               onClick={closeSheet}
               className="-mr-2 inline-flex min-h-[44px] shrink-0 items-center px-2 text-sm text-ink/60 transition-colors hover:text-ink"
             >
-              Done
+              {/* "Close", not "Done": it closes the sheet and saves nothing
+                  (guest text audit 2026-09-30) — the Save is at the foot. */}
+              Close
             </button>
           </div>
         </div>

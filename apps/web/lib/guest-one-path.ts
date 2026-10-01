@@ -16,12 +16,14 @@
  *   · a signed-in guest on a new device met the ANONYMOUS page — the cookie is
  *     the only thing the render keyed on, and it names one event.
  *
- * This module holds the three decisions those fixes share, so the page, the
- * actions and the reply door cannot answer them differently:
+ * This module holds the decisions those fixes share, so the page, the actions
+ * and the reply door cannot answer them differently:
  *   1. `resolveGuestViewer` — WHO is this viewer on this event: the guest the
  *      cookie names, the seat the signed-in account is bound to, or nobody.
  *   2. `guestAccountState` — the ONE account prompt, and what it says.
- *   3. `shouldSendKeepLink` — does saving the reply also send the sign-in link.
+ *   3. `saveMethodFor` — how "Save to my account" works on THIS device.
+ *
+ * 📵 Saving the reply sends NOTHING (owner 2026-09-29, "NO EMAIL TO GUESTS").
  */
 
 /** The shape `lib/guest-session.ts` signs. Re-declared so this stays pure. */
@@ -73,22 +75,28 @@ export function resolveGuestViewer(input: {
 /**
  * THE ONE ACCOUNT PROMPT on a guest's page, and which sentence it carries.
  *
- *   offer          — no account here yet. "This is me — keep this invitation in
- *                    my account." The address comes from the REPLY (never a
- *                    second box), plus Google / Apple.
- *   link_sent      — a sign-in link is on its way. Nothing to fill in.
+ *   offer          — no account here yet. "Save to my account" by the device's
+ *                    own method (`saveMethodFor`) — never an email.
  *   sign_in        — this seat is already kept in an account, and this browser
  *                    is not signed in to it. One link: sign in.
- *   link_this_seat — signed in, and this seat is free. One press binds it.
+ *   link_this_seat — signed in, and this seat is free. One press binds it —
+ *                    and the press is ASKED first: "This invitation is for
+ *                    <seatName>. Save it to <accountEmail>?" (2026-09-30). A
+ *                    couple seat (`coupleSeat`) offers no press at all: it is
+ *                    kept only by the couple's own accounts (lib/seat-binding.ts).
  *   linked         — "Linked to <email> ✓". Only NOW may the host pitch show.
  *   held_elsewhere — signed in, but the seat is bound to a DIFFERENT account.
  *                    Said plainly, never silently re-bound.
+ *
+ * 📵 NO `link_sent` STATE ANY MORE (owner 2026-09-29, DECISION_LOG "NO EMAIL TO
+ * GUESTS — THE QR AND THE LINK DO EVERYTHING"): *"No email. Either use the qr
+ * and link only"*. Nothing emails a guest a sign-in link, so no screen can say
+ * "Check your email".
  */
 export type GuestAccountState =
-  | { kind: 'offer'; failed?: boolean }
-  | { kind: 'link_sent' }
+  | { kind: 'offer' }
   | { kind: 'sign_in' }
-  | { kind: 'link_this_seat' }
+  | { kind: 'link_this_seat'; seatName: string | null; accountEmail: string | null; coupleSeat: boolean }
   | { kind: 'linked'; accountEmail: string | null }
   | { kind: 'held_elsewhere' };
 
@@ -98,17 +106,23 @@ export function guestAccountState(input: {
   viewerEmail: string | null;
   /** Who `event_members` says holds THIS guest's seat, or null if nobody. */
   seatHolderUserId: string | null;
-  /** A keep-link was already sent to this browser for this event. */
-  linkSentForThisEvent: boolean;
+  /** The seat's name as the couple wrote it — said back before any press binds it. */
+  seatName?: string | null;
+  /** The seat is one of the celebration's own people (bride · groom · celebrant). */
+  seatIsCouple?: boolean;
 }): GuestAccountState {
-  const { viewerUserId, viewerEmail, seatHolderUserId, linkSentForThisEvent } = input;
+  const { viewerUserId, viewerEmail, seatHolderUserId } = input;
   if (viewerUserId) {
     if (seatHolderUserId === viewerUserId) return { kind: 'linked', accountEmail: viewerEmail };
     if (seatHolderUserId) return { kind: 'held_elsewhere' };
-    return { kind: 'link_this_seat' };
+    return {
+      kind: 'link_this_seat',
+      seatName: input.seatName ?? null,
+      accountEmail: viewerEmail,
+      coupleSeat: input.seatIsCouple === true,
+    };
   }
   if (seatHolderUserId) return { kind: 'sign_in' };
-  if (linkSentForThisEvent) return { kind: 'link_sent' };
   return { kind: 'offer' };
 }
 
@@ -120,48 +134,6 @@ export function guestAccountState(input: {
  */
 export function hostPitchShows(state: GuestAccountState): boolean {
   return state.kind === 'linked';
-}
-
-/**
- * May the reply form offer "keep this invitation in my account"? Only in the
- * `offer` state — a sent link is not re-sent from the form, and an account-held
- * seat has nothing to offer.
- */
-export function replyOffersKeep(state: GuestAccountState): boolean {
-  return state.kind === 'offer';
-}
-
-/** Loose on purpose — the address is the guest's to get right; this only stops a typo sending mail. */
-export const KEEP_EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/**
- * Does saving the reply ALSO email the passwordless sign-in link?
- *
- * 🔑 THE EMAIL IS THE LOGIN (owner 2026-09-10), asked ONCE: the reply's own
- * email box is the address the link goes to. There is no second box.
- *
- * 🔒 AND IT IS AN AFFIRMATIVE ACT. Sending this link CREATES a Setnayan account,
- * so it rides on the same unticked "keep this invitation · I agree to the Terms"
- * checkbox the website's sign-up uses (lib/terms-agreement.ts) — never on the
- * mere presence of an address, which the couple may have typed in for them.
- */
-export function shouldSendKeepLink(input: {
-  email: string | null;
-  termsAgreed: boolean;
-  signedIn: boolean;
-  seatHeld: boolean;
-  alreadySent: boolean;
-}): boolean {
-  const email = (input.email ?? '').trim();
-  if (!email || !KEEP_EMAIL_SHAPE.test(email)) return false;
-  if (!input.termsAgreed) return false;
-  // A signed-in guest already has their account (Google / Apple / email)…
-  if (input.signedIn) return false;
-  // …and so does a seat someone has already connected to an account.
-  if (input.seatHeld) return false;
-  // One link per browser per event per day — a second Save is not a second email.
-  if (input.alreadySent) return false;
-  return true;
 }
 
 // ═══ THE GUEST PATHWAY (owner 2026-09-26/27) ═══════════════════════════════
@@ -233,16 +205,21 @@ export function rsvpGate(input: {
  * a choice (owner 2026-09-26, "THE GUEST PATHWAY — ONE BUTTON AT A TIME").
  *
  *   · an in-app webview (Messenger · Instagram · Facebook · LINE · WeChat) →
- *     the emailed link. Google REFUSES OAuth inside these webviews
- *     (`disallowed_useragent`), and most invitations are opened in one;
+ *     `browser`: "Open in your browser". Google REFUSES OAuth inside these
+ *     webviews (`disallowed_useragent`), and most invitations are opened in one.
+ *     The button copies the guest's OWN link and says how to paste it into
+ *     Safari or Chrome, where Apple / Google is one tap;
  *   · an Apple device — iOS Safari, or the Setnayan iOS app → Apple;
  *   · everything else (Android Chrome, a desktop browser) → Google.
  *
- * A provider the deployment has not switched on falls back to the other, then
- * to the email link, which always works — a button must never lead to a
- * provider that answers "not enabled".
+ * A provider the deployment has not switched on falls back to the other; with
+ * neither on, `link` — "Copy my link", the one way back that always works.
+ *
+ * 📵 NEVER AN EMAIL (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS"). The
+ * webview arm used to be the emailed sign-in link; the owner ruled it out on
+ * cost — *"No email. Either use the qr and link only"*.
  */
-export type SaveMethod = 'email' | 'apple' | 'google';
+export type SaveMethod = 'apple' | 'google' | 'browser' | 'link';
 
 const IN_APP_WEBVIEW =
   /FBAN|FBAV|FB_IAB|FBIOS|Instagram|Messenger|\bLine\/|MicroMessenger|Snapchat|musical_ly|BytedanceWebview/i;
@@ -257,14 +234,20 @@ export function saveMethodFor(
   providers: { apple: boolean; google: boolean },
 ): SaveMethod {
   const ua = userAgent ?? '';
-  if (isInAppWebview(ua)) return 'email';
-  if (APPLE_DEVICE.test(ua)) return providers.apple ? 'apple' : providers.google ? 'google' : 'email';
-  return providers.google ? 'google' : providers.apple ? 'apple' : 'email';
+  if (isInAppWebview(ua)) return 'browser';
+  if (APPLE_DEVICE.test(ua)) return providers.apple ? 'apple' : providers.google ? 'google' : 'link';
+  return providers.google ? 'google' : providers.apple ? 'apple' : 'link';
+}
+
+/** Is this method a provider sign-in (one tap), rather than the guest's own link? */
+export function saveMethodSignsIn(method: SaveMethod): method is 'apple' | 'google' {
+  return method === 'apple' || method === 'google';
 }
 
 /** The one line under the Save button — what the device chose, said as a fact, never a choice. */
 export function saveMethodLine(method: SaveMethod): string {
   if (method === 'apple') return 'with Apple · nothing to type';
   if (method === 'google') return 'with Google · nothing to type';
-  return 'we email you a sign-in link · no password needed';
+  if (method === 'browser') return 'copies your link · paste it into Safari or Chrome';
+  return 'your own link · it opens this invitation on any phone';
 }

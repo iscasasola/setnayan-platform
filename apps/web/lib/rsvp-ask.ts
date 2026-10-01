@@ -74,6 +74,106 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    * key here.
    */
   guestReminders?: boolean;
+  /**
+   * 📝 THE RSVP STAGE'S WORDS (owner 2026-09-30, DECISION_LOG "RSVP ANSWERS:
+   * THE COUPLE RENAMES…" and "RE-PLAN REVISIONS — RSVP STAGE PARTS"). DISPLAY
+   * WORDS ONLY — the stored answer stays `attending` / `declined`, so counts,
+   * tickets, reminders and the seat plan never read these. Absent = today's
+   * wording (`RSVP_WORD_DEFAULT`, or the thank-you's own headline). See
+   * `RSVP_WORD_KEYS`.
+   */
+  words?: RsvpWords;
+};
+
+/**
+ * The words a couple may type on the RSVP stage — one per thing a guest reads:
+ *   · `attending` / `declined` — the YES and NO answers on the form;
+ *   · `thanksHeading` / `thanksMessage` — "After they submit" (attending);
+ *   · `declineHeading` / `declineMessage` — "When they decline".
+ * The middle answer is not here: it is off for now (owner 2026-09-30,
+ * "for now OFF"; builder `rd/rsvp-no-maybe`).
+ */
+export const RSVP_WORD_KEYS = [
+  'attending',
+  'declined',
+  'thanksHeading',
+  'thanksMessage',
+  'declineHeading',
+  'declineMessage',
+] as const;
+export type RsvpWordKey = (typeof RSVP_WORD_KEYS)[number];
+export type RsvpWords = Partial<Record<RsvpWordKey, string>>;
+
+/** The longest each may be — an answer is a pill, a heading a title, a message two lines. */
+export const RSVP_WORD_MAX: Record<RsvpWordKey, number> = {
+  attending: 40,
+  declined: 40,
+  thanksHeading: 80,
+  thanksMessage: 240,
+  declineHeading: 80,
+  declineMessage: 240,
+};
+
+/** One typed line, made safe to store: a string, control characters out, spaces folded, capped. */
+export function cleanRsvpWord(key: RsvpWordKey, raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  // eslint-disable-next-line no-control-regex
+  const text = raw.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return null;
+  return text.slice(0, RSVP_WORD_MAX[key]);
+}
+
+/** Only known keys with a non-empty line survive — typed months ago, read as data. */
+export function sanitizeRsvpWords(raw: unknown): RsvpWords {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  const out: RsvpWords = {};
+  for (const key of RSVP_WORD_KEYS) {
+    const text = cleanRsvpWord(key, (raw as Record<string, unknown>)[key]);
+    if (text) out[key] = text;
+  }
+  return out;
+}
+
+/** The couple's words over the RAW stored blob — never re-parsed by a caller. */
+export function readRsvpWords(raw: unknown): RsvpWords {
+  return sanitizeRsvpAskConfig(raw).words ?? {};
+}
+
+/**
+ * TODAY'S WORDING — what a guest reads when the couple typed nothing. The
+ * celebratory pair is the spec's reply-card wording; a solemn event (a wake)
+ * cannot ask anyone to "joyfully accept". Byte-identical to what
+ * `rsvp-widget.tsx` and `thank-you-words.ts` printed before this key existed.
+ */
+export const RSVP_WORD_DEFAULT: Record<'attending' | 'declined', { celebrate: string; solemn: string }> = {
+  attending: { celebrate: 'Joyfully accepts', solemn: 'Will be there' },
+  declined: { celebrate: 'Regretfully declines', solemn: 'Unable to come' },
+};
+
+/** The YES or NO answer's words: the couple's own, else today's. */
+export function rsvpAnswerWord(words: RsvpWords | null | undefined, key: 'attending' | 'declined', solemn: boolean): string {
+  return words?.[key] ?? RSVP_WORD_DEFAULT[key][solemn ? 'solemn' : 'celebrate'];
+}
+
+/**
+ * PREMADE LINES — "type your own, or pick one". ONLY words that already exist
+ * (owner 2026-09-30, "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE": no invented
+ * presets): the answers are the lines the owner's own ruling lists ("RSVP
+ * ANSWERS: THE COUPLE RENAMES…": "Joyfully accepts" · "Wouldn't miss it" ·
+ * "Count me in" / "Regretfully declines" · "Sadly can't make it"), and the
+ * screens after a reply offer only the words those screens and the reply card
+ * already print. A key with no shipped line offers none — type your own.
+ */
+export const RSVP_WORD_LINES: Record<RsvpWordKey, { celebrate: readonly string[]; solemn: readonly string[] }> = {
+  attending: { celebrate: ['Joyfully accepts', 'Wouldn’t miss it', 'Count me in'], solemn: ['Will be there'] },
+  declined: { celebrate: ['Regretfully declines', 'Sadly can’t make it'], solemn: ['Unable to come'] },
+  thanksHeading: { celebrate: ['See you there!'], solemn: ['Thank you'] },
+  thanksMessage: {
+    celebrate: ['Your place is reserved — we can’t wait to celebrate with you.'],
+    solemn: ['Your place is noted — thank you for being with the family.'],
+  },
+  declineHeading: { celebrate: ['Thank you — you’ll be missed'], solemn: ['Thank you'] },
+  declineMessage: { celebrate: [], solemn: [] },
 };
 
 export function isRsvpAskField(v: unknown): v is RsvpAskField {
@@ -83,7 +183,8 @@ export function isRsvpAskField(v: unknown): v is RsvpAskField {
 const CONFIG_MAX_BYTES = 2048;
 
 /**
- * Drop anything that is not a known field with a boolean value. Stored config
+ * Drop anything that is not a known field with a boolean value (the `words`
+ * object keeps only its known, non-empty lines — `sanitizeRsvpWords`). Stored config
  * is data a human saved months ago, not a promise about shape — the same rule
  * `sanitizeRoleAttire` follows for `dress_code_config`.
  */
@@ -103,6 +204,11 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
     }
     if (key === 'guestReminders') {
       if (typeof value === 'boolean') out.guestReminders = value;
+      continue;
+    }
+    if (key === 'words') {
+      const words = sanitizeRsvpWords(value);
+      if (Object.keys(words).length > 0) out.words = words;
       continue;
     }
     if (!isRsvpAskField(key)) continue;
@@ -165,6 +271,40 @@ export function anyoneMayAskToJoin(raw: unknown): boolean {
   return readWhoCanRsvp(raw) === 'anyone';
 }
 
+/**
+ * 🌐 CHOOSING PUBLIC TURNS ON "ASK TO JOIN" (owner 2026-09-29, DECISION_LOG
+ * "DISCOVER BUILD — TWO LAST ANSWERS", item 1: *"yes to both"*). An event listed
+ * on Discover with no way to ask is a dead end — the default "Only my Guest
+ * List" shows a stranger nothing to press.
+ *
+ * So the MOMENT visibility moves INTO `public` from anything else, "Who can
+ * RSVP?" becomes "Anyone, I approve". Returns the config to write, or `null`
+ * when nothing must change:
+ *   · not a transition into public (public → public, or to any other value) —
+ *     the host may have turned requests OFF after going public, and a later
+ *     save must never re-force it;
+ *   · already "Anyone, I approve" — nothing to write.
+ * Every other key the couple set rides through untouched (the same sanitizer
+ * the Maker's RSVP page and the join door read).
+ *
+ * ⚖ ONLY THE HOST'S EXPLICIT SWITCH asks this (`updateLandingPageVisibility`,
+ * the privacy page and the Maker's panel). LAUNCHING A SAVE-THE-DATE also makes
+ * the page public, and it does NOT — owner 2026-09-29 (DECISION_LOG "PUBLIC
+ * EVENTS (PR #6159) — TWO OWNER ANSWERS": "no"): sending a Save-the-Date is not
+ * announcing a public event, so the launch leaves "Who can RSVP?" as it was.
+ */
+export function rsvpAskConfigOnGoingPublic(input: {
+  previousVisibility: string | null | undefined;
+  nextVisibility: string;
+  rawConfig: unknown;
+}): RsvpAskConfig | null {
+  if (input.nextVisibility !== 'public') return null;
+  if (input.previousVisibility === 'public') return null;
+  const current = sanitizeRsvpAskConfig(input.rawConfig);
+  if (current.whoCanRsvp === 'anyone') return null;
+  return { ...current, whoCanRsvp: 'anyone' };
+}
+
 /** "Ask one question at a time" — absent reads as OFF (one scrolling page). */
 export function readOneAtATime(raw: unknown): boolean {
   return sanitizeRsvpAskConfig(raw).oneAtATime === true;
@@ -179,19 +319,56 @@ export function readGuestReminders(raw: unknown): boolean {
   return sanitizeRsvpAskConfig(raw).guestReminders !== false;
 }
 
-export const GUEST_REMINDERS_TIP =
-  'Guests who gave an email get three short reminders — 30 days, 7 days and the day before — each listing only what they have not ticked on their checklist, with a link to their own page. A guest who has not replied is asked to reply by your date first. Off means nobody is emailed. Guests without an email are never emailed either way.';
-
 export const ONE_AT_A_TIME_TIP =
   'OFF: every question on one scrolling page. ON: one question per screen with progress dots and Back — easier for elders and small screens. Same questions either way.';
 
 export const WHO_CAN_RSVP_TIP =
   '“Anyone, I approve” lets people without a key ask to join. They wait in Requests until you Keep, Link or Remove them — nobody gets inside on a name alone.';
 
+/**
+ * THE REPLY-BY LINE A GUEST SEES — the invitation, the reply page and the
+ * reminder email all ask HERE, never `resolveReplyBy`.
+ *
+ * ⚖ Controller decision 2026-09-30, from the owner's same-day birthday: the
+ * invitation printed "Please reply by <a date 30 days before the party>" on an
+ * event created that morning. A guest may only ever be told a date the HOST
+ * SET, and only while it is still ahead of them. So:
+ *   · no host-set date (`guest_list_edit_deadline` NULL)  → no line at all
+ *     (the 30-day default is a SUGGESTION in the Maker, never a printed fact);
+ *   · a host-set date that has passed                       → no line at all;
+ *   · a host-set date today or later                        → that date.
+ * `today` is the event-local `YYYY-MM-DD`; pass `todayYmd()` unless a caller
+ * already has the event's zone.
+ */
+export function guestReplyBy(input: {
+  deadline: string | null | undefined;
+  today: string;
+}): { date: string } | null {
+  const set = (input.deadline ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}/.test(set)) return null;
+  const date = set.slice(0, 10);
+  if (date < input.today) return null;
+  return { date };
+}
+
+/** Today as `YYYY-MM-DD` in `timeZone` (default Asia/Manila — V1 is PH-first). */
+export function todayYmd(timeZone?: string | null, now: Date = new Date()): string {
+  const fmt = (tz: string) =>
+    new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  try {
+    return fmt((timeZone ?? '').trim() || 'Asia/Manila');
+  } catch {
+    return fmt('Asia/Manila');
+  }
+}
+
 /** How far before the day the reply-by date falls when the couple never set one. */
 export const DEFAULT_REPLY_BY_DAYS = 30;
 
 /**
+ * ⚠ HOST-SIDE ONLY (the Maker's editor). A guest-facing surface uses
+ * `guestReplyBy` above, which never prints the default or a passed date.
+ *
  * THE REPLY-BY DATE (brief item 4). The couple's own `guest_list_edit_deadline`
  * always wins and is never overwritten; only when it is unset does the default
  * — 30 days before the event — stand in, marked `isDefault` so the screen can

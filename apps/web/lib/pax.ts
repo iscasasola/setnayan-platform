@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from './supabase/admin';
-import { guestListDeadlineEndMs } from './guest-list-closed';
+import { guestListIsClosed } from './guest-list-closed';
 import { computeAddedPaxSurcharge } from './added-pax-surcharge';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from './guests';
 
@@ -20,7 +20,7 @@ export type HeadcountBasis = 'attending' | 'attending_plus_maybe' | 'invited';
 // ---------------------------------------------------------------------------
 
 // Live headcount on a basis (the count query, shared by resolveLivePax +
-// ensureFinalized so the floor math and the finalize snapshot never diverge).
+// finalizeGuestList so the floor math and the finalize snapshot never diverge).
 async function liveHeadcount(
   supabase: SupabaseClient,
   eventId: string,
@@ -54,112 +54,153 @@ export type FinalizeState = {
 };
 
 /**
- * Lazy auto-finalize (Phase 7, owner decision #6) — cron-free. If the guest-list
- * edit deadline has passed and the event isn't yet locked, stamp
- * guest_count_locked_at + freeze final_pax = max(estimated_pax, headcount). Once
- * locked, the binding count never moves again (late RSVPs / accepted claims
- * can't change a vendor's cost). Idempotent + race-safe (the UPDATE is gated on
- * guest_count_locked_at IS NULL). Returns the finalize state either way.
+ * The guest list's finalize state — a READ, never a write.
+ *
+ * ⚖ OWNER RULING 2026-09-30 (DECISION_LOG): *"i must click a finalize to
+ * finalize it."* This used to be a lazy auto-finalize: past the guest-list
+ * deadline (or `event_date − 14 days` when none was set) the first couple-side
+ * page load stamped `guest_count_locked_at`. On a birthday created ON its own
+ * day that deadline was already two weeks gone, so the host's first visit to
+ * the Guest list locked it, and every add after that was refused. The stamp is
+ * now written ONLY by `finalizeGuestList` below, when the host presses Finalize,
+ * and nothing in this function may write.
  */
-export async function ensureFinalized(
+export async function readFinalizeState(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<FinalizeState> {
   const { data: ev } = await supabase
     .from('events')
-    .select(
-      'estimated_pax, headcount_basis, guest_list_edit_deadline, guest_count_locked_at, final_pax, event_date',
-    )
+    .select('estimated_pax, headcount_basis, guest_count_locked_at, final_pax')
     .eq('event_id', eventId)
     .maybeSingle();
 
   const estimatedPax: number | null = ev?.estimated_pax ?? null;
   const basis = (ev?.headcount_basis ?? 'attending') as HeadcountBasis;
   if (!ev) return { locked: false, finalPax: null, estimatedPax, basis };
+  const locked = guestListIsClosed({ lockedAt: ev.guest_count_locked_at });
+  return { locked, finalPax: locked ? (ev.final_pax ?? null) : null, estimatedPax, basis };
+}
 
-  if (ev.guest_count_locked_at) {
-    return { locked: true, finalPax: ev.final_pax ?? null, estimatedPax, basis };
-  }
-
-  // Effective deadline (end of day): the couple's explicit date, else
-  // FINALIZE_LEAD_DAYS before the event — a sane default so auto-finalize
-  // works out-of-box. No event date + no explicit → never locks. Parsed as UTC
-  // so the lock fires at the same instant regardless of the server's timezone
-  // (review fix: bare "T23:59:59" parses as server-local time).
-  //
-  // ⚠ THIS MATH IS NOT WRITTEN HERE ANY MORE. It moved to
-  // lib/guest-list-closed.ts because the guest-facing event hub has to answer
-  // the same question — "is the list closed?" — and it cannot call this
-  // function: this one WRITES (service-role), and a public page load must not
-  // write. Two copies of the arithmetic would drift into the hub taking
-  // replies the roster has already refused. Derive; never re-type.
-  const deadlineEnd = guestListDeadlineEndMs(
-    ev.guest_list_edit_deadline,
-    ev.event_date,
-  );
-  if (deadlineEnd == null || Date.now() <= deadlineEnd) {
-    return { locked: false, finalPax: null, estimatedPax, basis };
-  }
-  // Deadline passed → finalize now (freeze the binding count). The WRITE goes
-  // through the service-role admin client (not the caller's, which may be the
-  // couple's RLS client) — both so the column-guard trigger
-  // (guard_pax_finalize_columns) permits it AND so a couple can't forge the
-  // lock via the API. The lazy lock is a write-on-read (cron-free, per the
-  // cron-free lock); idempotent + rare.
-  const admin = createAdminClient();
-  const count = await liveHeadcount(admin, eventId, basis);
-  const computed = Math.max(estimatedPax ?? 0, count);
-  // null when a finalized event genuinely has nothing to anchor on (no estimate
-  // AND no guests) — intentional: resolveLivePax then returns null = "no pax to
-  // price", which is correct for an empty finalized event.
-  const computedFinalPax = computed > 0 ? computed : null;
-  await admin
-    .from('events')
-    .update({
-      guest_count_locked_at: new Date().toISOString(),
-      final_pax: computedFinalPax,
-    })
+/**
+ * 🔒 THE FENCE for finalize / reopen: the caller is a HOST (a `couple` member)
+ * of this event. Not "can read the event row": a published event page is
+ * readable far more widely than it is ownable. Read with the caller's OWN
+ * session and scoped by `user_id` explicitly, so RLS is defence in depth and
+ * never the fence (an admin's RLS reaches every event).
+ */
+async function callerHostsEvent(
+  supabase: SupabaseClient,
+  eventId: string,
+  userId: string,
+): Promise<'yes' | 'no' | 'unknown'> {
+  const { data, error } = await supabase
+    .from('event_members')
+    .select('event_id')
     .eq('event_id', eventId)
-    .is('guest_count_locked_at', null);
-  // Re-read the AUTHORITATIVE persisted values (review fix): on a finalize race
-  // the loser's UPDATE matches 0 rows, so trust the DB, not the local compute —
-  // the loser returns the winner's frozen value, never a stale snapshot.
-  const { data: after } = await admin
+    .eq('user_id', userId)
+    .eq('member_type', 'couple')
+    .limit(1);
+  if (error) return 'unknown';
+  return (data ?? []).length > 0 ? 'yes' : 'no';
+}
+
+export type FinalizeResult = { ok: true; state: FinalizeState } | { ok: false; error: string };
+
+/**
+ * The host presses Finalize. Freezes the binding count at
+ * `max(estimated_pax, headcount)` and stamps `guest_count_locked_at`, after
+ * which `guard_guest_edits_when_locked` refuses count changes and guests can no
+ * longer reply.
+ *
+ * The WRITE goes through the service-role client because
+ * `guard_pax_finalize_columns` reverts any other writer: the binding count is
+ * money, and a couple must not be able to PATCH it directly. So the CALLER must
+ * pass the signed-in user, and `callerHostsEvent` refuses anyone who is not a
+ * host of this event before anything is written.
+ */
+export async function finalizeGuestList(
+  supabase: SupabaseClient,
+  eventId: string,
+  userId: string,
+): Promise<FinalizeResult> {
+  const hosts = await callerHostsEvent(supabase, eventId, userId);
+  if (hosts === 'unknown') return { ok: false, error: 'Couldn’t reach your event just now — nothing was changed.' };
+  if (hosts === 'no') return { ok: false, error: 'Only the hosts can finalize this guest list.' };
+  const { data: ev, error } = await supabase
     .from('events')
-    .select('guest_count_locked_at, final_pax')
+    .select('event_id, estimated_pax, headcount_basis, guest_count_locked_at')
     .eq('event_id', eventId)
     .maybeSingle();
-  return {
-    locked: Boolean(after?.guest_count_locked_at),
-    finalPax: after?.final_pax ?? null,
-    estimatedPax,
-    basis,
-  };
+  if (error) return { ok: false, error: 'Couldn’t reach your event just now — nothing was changed.' };
+  if (!ev) return { ok: false, error: 'Couldn’t reach your event just now — nothing was changed.' };
+  const admin = createAdminClient();
+  if (!ev.guest_count_locked_at) {
+    const basis = (ev.headcount_basis ?? 'attending') as HeadcountBasis;
+    const count = await liveHeadcount(admin, eventId, basis);
+    const computed = Math.max(ev.estimated_pax ?? 0, count);
+    const { error: upErr } = await admin
+      .from('events')
+      .update({
+        guest_count_locked_at: new Date().toISOString(),
+        // null when there is genuinely nothing to anchor on (no estimate AND no
+        // guests): resolveLivePax then returns null = "no pax to price".
+        final_pax: computed > 0 ? computed : null,
+      })
+      .eq('event_id', eventId)
+      .is('guest_count_locked_at', null);
+    if (upErr) return { ok: false, error: 'Couldn’t finalize just now — nothing was changed.' };
+  }
+  // Re-read what is actually stored: on a double press the second UPDATE
+  // matches nothing, and the first press's frozen count is the true one.
+  return { ok: true, state: await readFinalizeState(admin, eventId) };
+}
+
+/**
+ * The host reopens a finalized list. Clears the stamp AND the frozen count, so
+ * adds, RSVP changes and guest replies work again and the live count resumes.
+ * Same fence as `finalizeGuestList`.
+ */
+export async function reopenGuestList(
+  supabase: SupabaseClient,
+  eventId: string,
+  userId: string,
+): Promise<FinalizeResult> {
+  const hosts = await callerHostsEvent(supabase, eventId, userId);
+  if (hosts === 'unknown') return { ok: false, error: 'Couldn’t reach your event just now — nothing was changed.' };
+  if (hosts === 'no') return { ok: false, error: 'Only the hosts can reopen this guest list.' };
+  const admin = createAdminClient();
+  const { error: upErr } = await admin
+    .from('events')
+    .update({ guest_count_locked_at: null, final_pax: null })
+    .eq('event_id', eventId);
+  if (upErr) return { ok: false, error: 'Couldn’t reopen just now — nothing was changed.' };
+  return { ok: true, state: await readFinalizeState(admin, eventId) };
 }
 
 /**
  * True when the guest list is finalized — planning edits (add / RSVP / remove)
- * should be blocked. Thin wrapper over ensureFinalized for the guest-mutation
+ * should be blocked. Thin wrapper over readFinalizeState for the guest-mutation
  * pre-checks; the DB trigger guard_guest_edits_when_locked is the backstop.
  */
 export async function guestEditsLocked(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<boolean> {
-  return (await ensureFinalized(supabase, eventId)).locked;
+  return (await readFinalizeState(supabase, eventId)).locked;
 }
 
 /**
  * Live pax = the frozen final_pax once the list is finalized, else
  * max(events.estimated_pax floor, live headcount on the event's basis). Only
- * SURE attending guests count by default (the owner-locked basis). Auto-finalizes
- * lazily. Returns null when there's nothing to anchor on.
+ * SURE attending guests count by default (the owner-locked basis). Never
+ * finalizes anything itself. Returns null when there's nothing to anchor on.
  */
 export async function resolveLivePax(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<number | null> {
-  const fin = await ensureFinalized(supabase, eventId);
+  const fin = await readFinalizeState(supabase, eventId);
   if (fin.locked) return fin.finalPax;
   const headcount = await liveHeadcount(supabase, eventId, fin.basis);
   if (fin.estimatedPax == null && headcount === 0) return null;

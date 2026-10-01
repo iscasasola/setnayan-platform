@@ -48,12 +48,17 @@ const MAKER_FILES = [
   `${C}text-panel.tsx`,
   `${C}scene-slots-panel.tsx`,
   `${C}scene-template-picker.tsx`,
+  // Post Event's preset tiles, split out of the picker to load with its sheet.
+  `${C}post-event-preset-tiles.tsx`,
   // Our Love Story's scrapbook (Maker Phase 7) — opened from the Maker's Love
   // Story tool; a separate page, but the host edits the same public hub there.
   `${S}page.tsx`,
   `${S}_components/love-story-book.tsx`,
   `${S}_components/moment-sheet.tsx`,
   `${S}_components/pick-from-our-events.tsx`,
+  // ⚡ The Maker's instant Love Story (2026-09-30): its words form saves through
+  // the draft itself as it is typed (`editLoveStory` → `hubDraftAction`).
+  `${S}_components/love-story-live.tsx`,
   PAGE,
   'app/dashboard/[eventId]/launch/page.tsx',
   'app/dashboard/[eventId]/launch/_components/hub-stage.tsx',
@@ -106,6 +111,9 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
   // EVENT HUB MAKER): the row is inserted HIDDEN and drafted shown, so guests
   // meet it at Apply (proven in the-maker-adds-a-scene-to-the-draft.test.ts).
   addCustomSection: null,
+  // 2026-09-30 — the draft ITSELF (intent=save): the Maker's instant Love Story
+  // words form is never submitted; each box saves here as it is typed.
+  hubDraftAction: null,
   // 2026-09-29 — the last three Pro tools (owner "yes to all 3"): the song and
   // the hero video, and the gallery, each drafted (`draftEventsAndReturn`).
   updateSiteChrome: null,
@@ -166,7 +174,8 @@ const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; bin
     caller: `${S}page.tsx`,
     binds: /const action = (\w+)\.bind/g,
   },
-  [`${S}_components/moment-sheet.tsx#MomentSheet#action`]: {
+  // `keep` posts the `action` it is handed, and closes the sheet (2026-09-30).
+  [`${S}_components/moment-sheet.tsx#MomentSheet#keep`]: {
     writers: ['loveStoryMomentAction'],
     caller: `${S}page.tsx`,
     binds: /const action = (\w+)\.bind/g,
@@ -238,6 +247,8 @@ const PROP_TO_WRITER: Record<string, string> = {
  */
 const PROP_OVERRIDES: Record<string, Record<string, string>> = {
   [`${C}scene-slots-panel.tsx`]: { saveAction: 'saveCustomSection' },
+  // The instant words form has no action: every box saves through `editLoveStory`.
+  [`${S}_components/love-story-live.tsx`]: { '': 'hubDraftAction' },
 };
 
 type Form = { file: string; component: string; action: string; body: string; line: number };
@@ -323,7 +334,9 @@ test('every form inside the Maker carries exactly one mark — the draft field, 
 
       // The template picker's mark is decided by its caller (`draft`) — held by
       // its own test below, caller by caller.
-      if (f.component === 'SceneTemplatePicker') {
+      // 🎞 Post Event's preset tiles (`PresetTiles`) are the SAME picker's tiles —
+      // its `draft` and its `action`, handed straight down.
+      if (f.component === 'SceneTemplatePicker' || f.component === 'PresetTiles') {
         assert.match(f.body, /\{draft \? <HubDraftField \/> : null\}/, `${where}: the picker's tiles must post draft=1 when drafted`);
         drafted += 1;
         continue;
@@ -460,6 +473,8 @@ test("the canvas preview loads the host's draft (?editor=1)", () => {
 test('the scene template picker: "Change template" and "+ Add a scene" both draft', () => {
   const picker = read(`${C}scene-template-picker.tsx`);
   assert.match(picker, /\{!draft \? <HubSavesImmediately \/> : null\}/, 'a picker that writes live must say it saves immediately');
+  // Post Event's "+" IS the picker (train n: the lazy `PostEventAddScene` wrapper
+  // is gone — only its twelve tiles load lazily), so the scan below sees it.
   let drafted = 0;
   let live = 0;
   for (const file of MAKER_FILES) {
@@ -470,7 +485,8 @@ test('the scene template picker: "Change template" and "+ Add a scene" both draf
       const isDraft = /^\s*draft\s*$/m.test(use) || /\sdraft(?:=\{true\})?[\s/]/.test(use);
       if (isDraft) {
         drafted += 1;
-        if (action === 'addCustomAction' || action === 'addScene.action') {
+        // 🎞 Post Event's twelve presets post the SAME add door (2026-09-29).
+        if (action === 'addCustomAction' || action === 'addScene.action' || action === 'postEventPresets.action') {
           // "+ Add a scene" — addCustomSection's draft door (hidden row, drafted shown).
           assert.match(use, /triggerLabel="\+ Add a scene"/, `${file}: ${action} is the add sheet`);
         } else {
@@ -487,7 +503,8 @@ test('the scene template picker: "Change template" and "+ Add a scene" both draf
   // The slots panel's saveAction really is saveCustomSection.
   assert.match(read(`${C}sections-panel.tsx`), /<SceneSlotsPanel\b[\s\S]*?saveAction=\{saveCustomAction\}/);
   assert.match(read(PAGE), /addScene=[\s\S]*?action: addCustomSection/);
+  assert.match(read(PAGE), /postEventPresets=[\s\S]*?action: addCustomSection/, 'the presets post the add door');
   console.log(`[maker-forms] template pickers: drafted ${drafted} · live ${live}`);
-  assert.equal(drafted, 3);
+  assert.equal(drafted, 4);
   assert.equal(live, 0);
 });

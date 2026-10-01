@@ -83,7 +83,9 @@ test('NOTHING IS GUESSED: an unset role gets a state, not an assumption', () => 
   assert.ok(mine, 'the role and colour are still worth showing');
   assert.equal(mine.style, null);
   assert.equal(mine.styleLabel, null);
-  assert.match(STYLE_UNSET_LINE, /has(n’t| not) said/i);
+  // It says the state, and blames nobody (owner 2026-09-30).
+  assert.match(STYLE_UNSET_LINE, /not set yet/i);
+  assert.doesNotMatch(STYLE_UNSET_LINE, /couple has(n’t| not)/i);
 });
 
 test('a plain guest gets no personal panel at all', () => {
@@ -105,7 +107,8 @@ test('stored config is data, not a promise about shape', () => {
 
 test('the invitation shows a role-holder THEIR line instead of the whole palette', () => {
   const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'dress-code-widget.tsx'), 'utf8');
-  assert.match(src, /\{!mine && palette\.length > 0 \?/, 'the general palette stands down for a role-holder');
+  // (The Welcome page's `part="you"` also stands the general palette down — 2026-09-30.)
+  assert.match(src, /\{(?:part !== 'you' && )?!mine && palette\.length > 0 \?/, 'the general palette stands down for a role-holder');
   assert.match(src, /You are \{mine\?\.roleLabel/, 'and their role is named (the one line — a walker with no outfit reads it too)');
   assert.match(src, /STYLE_UNSET_LINE/, 'an unset style says so rather than showing nothing');
 });

@@ -47,7 +47,7 @@ import {
 import { envFlagEnabled } from '@/lib/env-flag';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Our Services' };
+export const metadata = { title: 'More Services' };
 export const dynamic = 'force-dynamic';
 
 /**
@@ -60,7 +60,7 @@ export const dynamic = 'force-dynamic';
  * `CollectionCard` built by `lib/our-services.ts` from the SAME reads this
  * page already made (ownership, live catalogue prices, the offered/closed
  * gates). Same route, so every old /suite link still lands here; the menu's
- * `studio` row keeps its key and now reads "Our Services".
+ * `studio` row keeps its key and reads "More Services" (2026-09-30).
  *
  * Everything else the Suite carried — recommendations, the other add-ons,
  * the free planning tools and their search — stays below under "More for
@@ -87,8 +87,11 @@ export const dynamic = 'force-dynamic';
  */
 
 /** The surface name — single source of truth so a rename is one edit.
- *  "Suite" until 2026-09-29; now "Our Services" (the route stays /suite). */
-const SUITE_NAME = 'Our Services';
+ *  "Suite" until 2026-09-29; "Our Services" until 2026-09-30; now "More
+ *  Services" (owner: *"it cannot be our services since we have the guestlist,
+ *  your team and event hub maker on the sidebar which is also our services"*).
+ *  The route stays /suite. */
+const SUITE_NAME = 'More Services';
 
 /** Outcome-framed section headers for the "Add to your event" cards (owner:
  *  group by what you get, not by internal category). Maps the locked
@@ -527,8 +530,12 @@ export default async function SuitePage({ params }: Props) {
       // `addOnSellableNow` last: a day-of service on a finished event is not a
       // thing to "set up next", and recommending it would lead straight to a
       // card whose buy path is closed.
+      // `utility` = a retired standalone card (Event → the Event Hub Maker,
+      // Photo Delivery → Papic). The lists below already drop them; the lead
+      // must too, or it recommends a card that has gone home.
       return e
         ? e.status !== 'coming_soon' &&
+            e.studioGroup !== 'utility' &&
             notOurs(e) &&
             surfaceOk(e) &&
             addOnSellableNow(e, lifecyclePhase)

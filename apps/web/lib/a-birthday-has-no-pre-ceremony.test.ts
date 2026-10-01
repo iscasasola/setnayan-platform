@@ -53,7 +53,13 @@ for (const [file, n] of SURFACES) {
   test(`${file}: prints the type through the event-aware rule, never the bare map`, () => {
     const src = read(file);
     const bare = count(src, /SCHEDULE_BLOCK_LABEL\[/g);
-    const aware = count(src, /scheduleBlockLabelFor\([^,()]+,\s*eventType\)/g);
+    // `scheduleKickerFor(type, title, eventType)` is the guest widget's door to
+    // the same rule — it hides a "Custom" or title-repeating kicker, then asks
+    // `scheduleBlockLabelFor` (guest text audit 2026-09-30).
+    const aware = count(
+      src,
+      /(?:scheduleBlockLabelFor\([^,()]+,|scheduleKickerFor\([^,()]+,[^,()]+,)\s*eventType\)/g,
+    );
     console.log(`${file}: bare=${bare} aware=${aware}`);
     assert.equal(bare, 0);
     assert.equal(aware, n);

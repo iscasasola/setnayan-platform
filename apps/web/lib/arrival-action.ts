@@ -93,7 +93,7 @@ export function resolveArrivalAction(input: ArrivalActionInput): ArrivalAction |
   if (isToday && rsvp !== 'declined') {
     return input.hasPass
       ? {
-          label: 'Show your pass',
+          label: 'Show your ticket',
           href: `/${input.slug}#${PASS_ANCHOR}`,
           note: 'It opens the door and finds your table.',
           kind: 'day-of',

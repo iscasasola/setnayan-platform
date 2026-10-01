@@ -90,6 +90,7 @@ export const SPECIALTY_OPTION_LABELS: Readonly<Record<string, string>> = {
   ninong: 'Ninong (godfather)',
   ninang: 'Ninang (godmother)',
   best_man: 'Best man',
+  best_woman: 'Best woman',
   maid_of_honor: 'Maid of honour',
   matron_of_honor: 'Matron of honour',
   bridesmaid: 'Bridesmaid',

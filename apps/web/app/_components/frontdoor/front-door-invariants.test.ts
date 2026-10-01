@@ -334,18 +334,24 @@ test('the shops heading is derived from the shared composer, not hardcoded', () 
       'pass over a page that prints something else entirely',
   );
 
-  // THE DISTINCTION: both outcomes must be reachable and different.
-  // Only the ternary ARMS — the comparison literal ('trending') is not an arm.
-  const armText = decl.slice(decl.indexOf('?') + 1);
+  // THE DISTINCTION: every outcome must be reachable and different.
+  // Only the ternary ARMS — a comparison literal (`=== 'trending'`) is not an arm.
+  // 2026-09-30: THREE arms. The composer's `none` (no shop to show — the normal
+  // state since the two trial shops became `is_demo`, DECISION_LOG 2026-09-29
+  // "LANE 2 §2C" (1)) is headed plain "Shops": "The first shops" over an empty
+  // grid names shops that are not there.
+  const armText = decl.slice(decl.indexOf('?') + 1).replace(/===\s*'[^']+'/g, '');
   const arms = armText.match(/'([^']+)'/g) ?? [];
   assert.equal(
     new Set(arms).size,
-    2,
-    `the two headings must differ and both be present, saw: ${arms.join(', ')}`,
+    3,
+    `the three headings must differ and all be present, saw: ${arms.join(', ')}`,
   );
   assert.ok(
-    arms.some((a) => /trending/i.test(a)) && arms.some((a) => /first/i.test(a)),
-    `expected a Trending arm and a "first shops" arm, saw: ${arms.join(', ')}`,
+    arms.some((a) => /trending/i.test(a)) &&
+      arms.some((a) => /first/i.test(a)) &&
+      arms.some((a) => a === "'Shops'"),
+    `expected a Trending arm, a "first shops" arm and a plain "Shops" arm, saw: ${arms.join(', ')}`,
   );
 });
 

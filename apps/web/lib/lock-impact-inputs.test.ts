@@ -82,7 +82,7 @@ test('a casualty is filed under a real plan-group label, never a raw id', () => 
   const label = planGroupLabelForCategory('venue');
   assert.ok(label.length > 0);
   assert.notEqual(label, 'venue');
-  assert.equal(planGroupLabelForCategory('not_a_real_category'), 'Your team');
+  assert.equal(planGroupLabelForCategory('not_a_real_category'), 'Your suppliers');
 });
 
 // ── savedPlansFromBuildRows ─────────────────────────────────────────────────

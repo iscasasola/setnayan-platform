@@ -78,7 +78,9 @@ test('every row surface resolves its face through the ONE helper', () => {
   });
   assert.deepEqual(
     [...viaHelper].sort(),
-    ['DesktopRow', 'MobileListRow', 'MobileSelfJoinCard', 'SelfJoinDesktopRow'],
+    // ⤷ 2026-09-30: requests are no longer rows (the Fable rows, frame D — one strip
+    // leads to the Requests page), so the two self-join row shapes are gone.
+    ['DesktopRow', 'MobileListRow'],
     `the row surfaces resolving a face through faceFor are: ${viaHelper.join(', ') || 'none'}`,
   );
 });

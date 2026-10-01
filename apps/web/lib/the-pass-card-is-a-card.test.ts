@@ -42,6 +42,7 @@ import { renderInvitationQrPng } from './qr';
 import { decodeQrPayloadFromImage } from './qr-decode';
 import { FREE_QR_LOOK } from './qr-look';
 import { buildChecklist } from './guest-checklist';
+import { ticketShowsTable } from './guests-may-see-seats';
 
 const WEB = join(__dirname, '..');
 const src = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
@@ -115,7 +116,6 @@ test('every refusal after sign-in is the SAME 404 and the same words — no name
   const cases = [
     { target: row({ guest_id: 'g-2' }), bringer: null, isHost: false, why: 'someone else’s card' },
     { target: row({ guest_id: 'g-9', event_id: 'e-2' }), bringer: null, isHost: false, why: 'another event' },
-    { target: row({ entry_source: 'self_added_unlisted' }), bringer: null, isHost: false, why: 'my own, pending' },
     { target: row({ rsvp_status: 'declined' }), bringer: null, isHost: false, why: 'my own, can’t come' },
     { target: row({ guest_id: 'g-3', entry_source: 'self_added_unlisted' }), bringer: null, isHost: true, why: 'a host asking for a pending guest' },
     { target: row({ guest_id: 'g-3', rsvp_status: 'declined' }), bringer: null, isHost: true, why: 'a host asking for a declined guest' },
@@ -127,21 +127,51 @@ test('every refusal after sign-in is the SAME 404 and the same words — no name
   }
 });
 
+test('🔓 a guest’s OWN waiting seat draws the "Request pending" ticket — to that guest only', () => {
+  // Owner 2026-09-29 ("IT IS THEIR DIGITAL TICKET, IN A 'REQUEST PENDING'
+  // STATE") + 2026-09-30 (the Event Hub shows the ticket). The session that
+  // holds the seat already knows it is waiting, so saying so discloses nothing.
+  const session = { guest_id: 'g-1', event_id: 'e-1' };
+  const pending = row({ entry_source: 'self_added_unlisted' });
+  assert.deepEqual(
+    decidePassCardAccess({ session, isHost: false, target: pending, bringer: null, readFailed: false }),
+    { allow: true, as: 'guest', pending: true },
+  );
+  // A plus-one brought by a waiting guest waits with them — the bringer's session sees it pending.
+  const bringer = row({ entry_source: 'self_added_unlisted' });
+  const theirs = row({ guest_id: 'p-1', plus_one_of_guest_id: 'g-1' });
+  assert.deepEqual(
+    decidePassCardAccess({ session, isHost: false, target: theirs, bringer, readFailed: false }),
+    { allow: true, as: 'guest', pending: true },
+  );
+  // Nobody else, and never a host (there is no real ticket to download yet).
+  const other = row({ guest_id: 'g-2', entry_source: 'self_added_unlisted' });
+  assert.equal(decidePassCardAccess({ session, isHost: false, target: other, bringer: null, readFailed: false }).allow, false);
+  assert.equal(decidePassCardAccess({ session: null, isHost: true, target: pending, bringer: null, readFailed: false }).allow, false);
+  // An accepted guest's verdict carries no `pending` at all.
+  assert.deepEqual(decidePassCardAccess({ session, isHost: false, target: row(), bringer: null, readFailed: false }), { allow: true, as: 'guest' });
+  // …and the route draws the pending ticket for that verdict, never the real one.
+  const route = src('app/api/guest/pass-card/route.ts');
+  const branch = route.slice(route.indexOf('if (verdict.pending)'), route.indexOf('const etag'));
+  assert.match(branch, /renderPassCardFor\(kit, target, 'classic', \{ pending: REQUEST_WORDS\.bandSub\(couple\) \}\)/);
+  assert.match(branch, /'Cache-Control': 'private, no-store'/, 'a pending picture is never reused');
+});
+
 // ─── What the file is called ────────────────────────────────────────────────
 
 test('the file is named for the PERSON, then the couple and the day — safe characters only', () => {
   assert.equal(
     passCardFileName({ guestName: 'Maria Santos', eventName: 'Indalecio & Claire', eventDate: '2026-12-18' }),
-    'Maria-Santos-pass-Indalecio-Claire-2026-12-18.png',
+    'Maria-Santos-ticket-Indalecio-Claire-2026-12-18.png',
   );
   assert.equal(
     passCardFileName({ guestName: 'Lola Nena Peñafiel', eventName: 'José and Ñiña', eventDate: '2026-12-18' }),
-    'Lola-Nena-Penafiel-pass-Jose-Nina-2026-12-18.png',
+    'Lola-Nena-Penafiel-ticket-Jose-Nina-2026-12-18.png',
     'accents folded',
   );
   const evil = passCardFileName({ guestName: 'A"\r\nSet-Cookie: x=1', eventName: '../../etc', eventDate: 'not a date' });
   assert.match(evil, /^[A-Za-z0-9-]+\.png$/, 'nothing that can end a header or a path survives');
-  assert.equal(passCardsZipFileName('Indalecio & Claire', '2026-12-18'), 'Indalecio-Claire-2026-12-18-passes.zip');
+  assert.equal(passCardsZipFileName('Indalecio & Claire', '2026-12-18'), 'Indalecio-Claire-2026-12-18-tickets.zip');
   assert.deepEqual(uniqueFileNames(['A-pass.png', 'B-pass.png', 'a-pass.png']), ['A-pass.png', 'B-pass.png', 'a-pass-2.png'], 'two guests of one name never overwrite each other');
 });
 
@@ -171,15 +201,51 @@ function data(over: Partial<PrintSetData> = {}): PrintSetData {
 }
 const PASS: PrintPass = { name: 'Maria Santos', seat: 'Table 7', qrRef: 'qr-g-1', serial: null, arrive: '3:30 PM', party: 1 };
 
-test('an unknown table is OMITTED — never "Table TBA"', () => {
+test('🎟 THE TABLE ON THE DAY — owner 2026-09-30: "their digital Ticket will also update on the date of the event with the seat number"', () => {
+  // The day rule: from 00:00 Manila on the event's date, and never before —
+  // whatever the couple's "show early" switch says (lib/guests-may-see-seats.ts).
+  const day = { eventDate: '2027-03-13', eventDatePrecision: 'day' };
+  assert.equal(ticketShowsTable(day, new Date('2027-03-12T15:59:59Z')), false, '23:59 Manila the night before shows a table');
+  assert.equal(ticketShowsTable(day, new Date('2027-03-12T16:00:00Z')), true, '00:00 Manila on the day shows no table');
+  assert.equal(ticketShowsTable({ ...day, eventDatePrecision: 'month' }, new Date('2027-03-20T00:00:00Z')), false, 'a month-only date has no day to open on');
+  // The drawing draws what the pass carries: a seated guest's card says Table,
+  // then Arrive; an unseated one says Arrive alone.
   assert.deepEqual(passCardFacts(PASS).map((f) => [f.label, f.value]), [['Table', '7'], ['Arrive', '3:30 PM']]);
-  assert.deepEqual(passCardFacts({ ...PASS, seat: null }).map((f) => f.label), ['Arrive']);
   assert.deepEqual(passCardFacts({ ...PASS, seat: null, arrive: null }), []);
+  // …so the readers are the gate: the Digital ticket's kit and the Printed
+  // batch fill `seat` only on the ticket's half of the rule.
+  const kit = stripComments(readFileSync(join(__dirname, 'pass-card.server.ts'), 'utf8'));
+  assert.match(kit, /guestsMaySeeSeatsFor\(admin, eventId, \{ ticket: true \}\)/, 'the Digital ticket reads the seat plan without the day rule');
+  assert.match(kit, /seat: kit\.seats\.get\(g\.guest_id\)\?\.seat \?\? null/, 'the Digital ticket no longer carries the seat it read');
+  const batch = stripComments(readFileSync(join(__dirname, 'print-set.server.ts'), 'utf8'));
+  assert.match(batch, /guestsMaySeeSeatsFor\(admin, eventId, \{ ticket: true \}\)/, 'the Printed tickets read the seat plan on the switch, not the day');
+  // A seat drawn is ink: every look and every printed pass format changes.
+  const look = printLookFor('house');
+  const noSeat: PrintPass = { ...PASS, seat: null, seatNumber: null };
+  const seated: PrintPass = { ...PASS, seat: 'Table 7', seatNumber: '3' };
+  for (const design of PASS_CARD_DESIGNS) {
+    const a = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, seated, design);
+    const b = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, noSeat, design);
+    assert.notDeepEqual(a.ops, b.ops, `Digital ticket · ${design}: the table drew no ink on the day`);
+  }
+  const boarding = Object.values(PRINT_FORMATS).find((f) => f.for === 'pass' && f.style === 'boarding')!;
+  const a = layoutPieceDocs('pass', { look, data: data(), mode: 'print', foil: false, format: boarding.id, pass: seated })[0]!;
+  const b = layoutPieceDocs('pass', { look, data: data(), mode: 'print', foil: false, format: boarding.id, pass: noSeat })[0]!;
+  assert.notDeepEqual(a.ops, b.ops, 'the boarding pass drew no Table · Seat on the day');
+  // Before the day the fields GO — never "Table —".
+  const layout = stripComments(readFileSync(join(__dirname, 'print-layout.ts'), 'utf8'));
+  assert.match(layout, /\.filter\(\(\[label, value\]\) => \(label !== 'Table' && label !== 'Seat'\) \|\| value !== null\)/, 'an unseated boarding pass prints an empty Table field again');
+});
+
+test('an unknown table is OMITTED — never "Table TBA"', () => {
+  assert.deepEqual(passCardFacts({ ...PASS, seat: null }).map((f) => f.label), ['Arrive']);
+  assert.deepEqual(passCardFacts(PASS).map((f) => [f.label, f.value]), [['Table', '7'], ['Arrive', '3:30 PM']]);
   for (const design of PASS_CARD_DESIGNS) {
     const look = printLookFor('house');
     const withTable = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, PASS, design);
     const without = layoutPassCard({ look, data: data(), mode: 'screen', foil: false }, { ...PASS, seat: null }, design);
-    assert.equal(withTable.ops.length - without.ops.length, 2, `${design}: the TABLE label and value are the only ink that goes`);
+    // The Fable ticket (Classic) draws the day's seat as ONE pill in the party line's place.
+    assert.equal(withTable.ops.length - without.ops.length, design === 'classic' ? 1 : 2, `${design}: the table's own ink is the only ink that goes`);
   }
 });
 
@@ -277,10 +343,11 @@ test('the card route decides access BEFORE it draws, and needs the guest’s key
 test('one guest’s card is FREE for the couple — no Pro question on the single route or its button', () => {
   const r = src('app/api/guest/pass-card/route.ts');
   assert.doesNotMatch(r, /printOwnsPro|ownsPro|EventHubPro|makerProMark/, 'the single card never asks about Pro');
-  // Its own file since train m (the Maker loads it lazily — guest-pass-card-link.tsx).
-  const links = src('app/dashboard/[eventId]/guests/_components/guest-pass-card-link.tsx');
-  const at = links.indexOf('export function GuestPassCardLink');
-  assert.ok(at > -1, 'the per-guest pass-card link moved — follow it');
+  // ⤷ 2026-09-30: the card's per-guest save is Save ticket, in the full ticket
+  // view (the Fable guest card, frame F — guest-ticket-parts.tsx).
+  const links = src('app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx');
+  const at = links.indexOf('export function GuestTicketThumb');
+  assert.ok(at > -1, 'the per-guest ticket save moved — follow it');
   const fn = links.slice(at);
   assert.doesNotMatch(fn, /PaidMark|makerProMark|ownsPro/, 'no ◆ on the per-guest download');
 });
@@ -315,34 +382,50 @@ test('the zip holds exactly the guests who HAVE a card — named plus-ones in, p
   assert.match(s, /filterPassCardRows\(rows, asPassCardRow\)/);
 });
 
-test('the TABLE prints only once the seat plan is PUBLISHED — the one flag Find your seat reads', () => {
-  const seats = [{ guest_id: 'maria', table_id: 't7' }, { guest_id: 'ben', table_id: 'vip' }];
-  const tables = [{ table_id: 't7', table_label: '7' }, { table_id: 'vip', table_label: '1', link_group_label: 'VIP Section' }];
-  assert.equal(seatLabelsFrom(false, seats, tables).size, 0, 'unpublished → no table on any card');
-  assert.deepEqual([...seatLabelsFrom(true, seats, tables)], [['maria', 'Table 7'], ['ben', 'VIP Section']], 'published → the table appears');
+test('🪑 THE DIGITAL TICKET CARRIES THE TABLE ON THE DAY — never before (owner 2026-09-30)', () => {
+  // Owner, verbatim: "their digital Ticket will also update on the date of the
+  // event with the seat number" — superseding the same day's "no seat plan on
+  // the digital ticket for the moment".
   const s = src('lib/pass-card.server.ts');
-  const fn = s.slice(s.indexOf('async function readSeatLabels'), s.indexOf('// ─── One card'));
-  assert.match(fn, /const published = await eventSeatingPublished\(admin, eventId\);/, 'the published flag is the seat plan’s own');
-  assert.match(fn, /return seatLabelsFrom\(\s*published,/, 'and it decides');
-  const layout = layoutPassCard({ look: printLookFor('house'), data: data(), mode: 'screen', foil: false }, { ...PASS, seat: seatLabelsFrom(false, seats, tables).get('maria') ?? null });
-  const facts = passCardFacts({ ...PASS, seat: seatLabelsFrom(false, seats, tables).get('maria') ?? null });
-  assert.deepEqual(facts.map((f) => f.label), ['Arrive'], 'the unpublished card carries no Table');
-  assert.ok(layout.ops.length > 0);
+  const fn = s.slice(s.indexOf('export function passCardPass'), s.indexOf('export function passCardDesignFor'));
+  assert.ok(fn.length > 40, 'precondition: found passCardPass — re-point this guard');
+  assert.match(fn, /seat: kit\.seats\.get\(g\.guest_id\)\?\.seat \?\? null,/, 'the digital ticket no longer carries the day’s table');
+  assert.doesNotMatch(s, /eventSeatingPublished/, 'the ticket follows the couple’s "show early" switch — it follows the day only');
+  const facts = passCardFacts({ ...PASS, seat: null });
+  assert.deepEqual(facts.map((f) => f.label), ['Arrive'], 'a ticket with no table draws no Table');
+  const seats = [{ guest_id: 'maria', table_id: 't7' }];
+  const tables = [{ table_id: 't7', table_label: '7' }];
+  assert.equal(seatLabelsFrom(false, seats, tables).size, 0, 'unpublished → no table');
+  assert.deepEqual([...seatLabelsFrom(true, seats, tables)], [['maria', 'Table 7']]);
 });
 
-test('the page withholds the card for pending / can’t come, and says the plain line in its place', () => {
-  const body = src('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /g\.passCard === 'awaiting' \|\| g\.passCard === 'cannotCome' \? passCardLine\(g\.passCard\)/);
-  assert.match(body, /passCardHref=\{g\.passCard === 'pass' \? PASS_CARD_ROUTE : null\}/, 'Save only for a guest with a card');
+test('the Event Hub shows the ticket on Me — pending shows the pending ticket, can’t come says the plain line', () => {
+  // 2026-09-30: the page's own pass block is gone; `GuestTicket` decides by
+  // `passCardEligibility` alone (reused, never re-decided) — guarded in full,
+  // and rendered, by app/[slug]/_components/the-hub-shows-the-ticket.test.ts.
+  const t = src('app/[slug]/_components/guest-ticket.tsx');
+  assert.match(t, /if \(state === 'none'\) return null;/);
+  assert.match(t, /state === 'cannotCome'[\s\S]{0,300}passCardLine\(state\)/, 'can’t come says the one line, no ticket');
+  assert.match(t, /src=\{PASS_CARD_ROUTE\}/, 'the picture is the ticket route');
   const items = buildChecklist({ wear: null, wearNote: null, motif: [], arriveBy: null, venueName: null, mapsHref: null, tableLabel: null, passHref: null });
   assert.equal(items.find((i) => i.key === 'pass'), undefined, 'no "Save to Photos" in the checklist without a card');
 });
 
 test('every user-facing word for the card comes from ONE constant (a rename is one line)', () => {
-  for (const f of ['app/[slug]/_components/your-guests.tsx', 'app/[slug]/_components/guest-code-keepers.tsx', 'app/dashboard/[eventId]/guests/_components/guest-pass-card-link.tsx']) {
+  for (const f of ['app/[slug]/_components/your-guests.tsx', 'app/[slug]/_components/guest-code-keepers.tsx', 'app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx']) {
     const s = src(f);
-    assert.doesNotMatch(s, /'Save all passes'|"Save all passes"|>Save all passes<|label="Save to Photos"/, `${f} spells the words itself`);
+    assert.doesNotMatch(s, /'Save all (passes|tickets)'|"Save all (passes|tickets)"|>Save all (passes|tickets)<|label="Save (to Photos|my ticket)"/, `${f} spells the words itself`);
   }
-  assert.equal(PASS_CARD_WORDS.digital, 'Digital (PNG)');
-  assert.equal(PASS_CARD_WORDS.print, 'Print (PDF)');
+  // 🎫 IT IS A TICKET (owner 2026-09-29, "OWNER ANSWERS — TEN OPEN QUESTIONS" (4)).
+  assert.equal(PASS_CARD_WORDS.digital, 'Digital ticket (PNG)');
+  assert.equal(PASS_CARD_WORDS.print, 'Printed ticket (PDF)');
+  assert.equal(PASS_CARD_WORDS.saveOwn, 'Save my ticket');
+  assert.equal(PASS_CARD_WORDS.saveAll, 'Save all tickets');
+  assert.equal(PASS_CARD_WORDS.yours, 'Your ticket');
+  assert.equal(PASS_CARD_WORDS.downloadAll, 'Download all tickets (.zip)');
+  // …and no guest-facing "pass" is spelt by hand where the card is meant.
+  for (const f of ['app/[slug]/_components/your-guests.tsx', 'app/[slug]/welcome/_components/plus-one-door.tsx']) {
+    const s = src(f);
+    assert.doesNotMatch(s, />[^<{]*\b(Y|y)our pass\b|just show my pass|’s pass\b/, `${f} still calls the ticket a pass`);
+  }
 });

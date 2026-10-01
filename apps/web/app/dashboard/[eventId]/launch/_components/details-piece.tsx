@@ -33,8 +33,34 @@ export function pickDetailsPiece(item: DetailsItemKey, piece: string): void {
   window.dispatchEvent(new CustomEvent<{ item: DetailsItemKey; piece: string }>(DETAILS_PIECE_EVENT, { detail: { item, piece } }));
 }
 
+/**
+ * ⚡ A piece renamed as it is typed (the Programme's moment names, 2026-09-30):
+ * `{ item, piece, label?, sub? }` — the list shows it at once; the next render
+ * of the Maker brings the saved truth and these are dropped.
+ */
+export const DETAILS_PIECE_LABEL_EVENT = 'setnayan:details-piece-label';
+
 export function ItemPieces({ item, pieces }: { item: DetailsItemKey; pieces: readonly ItemPiece[] }) {
   const [picked, setPicked] = useDetailsPiece(item);
+  const [typed, setTyped] = useState<Record<string, { label?: string; sub?: string }>>({});
+  useEffect(() => setTyped({}), [pieces]);
+  useEffect(() => {
+    const onLabel = (e: Event) => {
+      const d = (e as CustomEvent<{ item?: unknown; piece?: unknown; label?: unknown; sub?: unknown }>).detail;
+      if (!d || d.item !== item || typeof d.piece !== 'string') return;
+      const piece = d.piece;
+      setTyped((t) => ({
+        ...t,
+        [piece]: {
+          ...t[piece],
+          ...(typeof d.label === 'string' && d.label.trim() ? { label: d.label } : {}),
+          ...(typeof d.sub === 'string' ? { sub: d.sub } : {}),
+        },
+      }));
+    };
+    window.addEventListener(DETAILS_PIECE_LABEL_EVENT, onLabel);
+    return () => window.removeEventListener(DETAILS_PIECE_LABEL_EVENT, onLabel);
+  }, [item]);
   const first = pieces[0]?.key ?? null;
   const current = picked && pieces.some((p) => p.key === picked) ? picked : first;
   useEffect(() => {
@@ -55,8 +81,8 @@ export function ItemPieces({ item, pieces }: { item: DetailsItemKey; pieces: rea
       {pieces.map((p) => (
         <DetailsPieceButton key={p.key} on={p.key === current} onPick={() => setPicked(p.key, { openEditor: true })} data={p.key}>
           <span className="flex min-w-0 flex-col">
-            <span className="truncate">{p.label}</span>
-            {p.sub ? <small className="truncate text-[11px] opacity-70">{p.sub}</small> : null}
+            <span className="truncate">{typed[p.key]?.label ?? p.label}</span>
+            {(typed[p.key]?.sub ?? p.sub) ? <small className="truncate text-[11px] opacity-70">{typed[p.key]?.sub ?? p.sub}</small> : null}
           </span>
         </DetailsPieceButton>
       ))}

@@ -150,7 +150,7 @@ export const GUIDED_STEPS: readonly StepDef[] = [
   },
   { key: 'prints', round: 2, items: ['download'], title: 'Check your prints', shows: () => 'Your whole set, in your look — save what you need.' },
 
-  { key: 'seat-plan', round: 3, items: SEAT_PLAN_STEP_ITEMS, title: 'Seat plan', shows: () => 'Guests find their table on the day — once you switch it on.' },
+  { key: 'seat-plan', round: 3, items: SEAT_PLAN_STEP_ITEMS, title: 'Seat plan', shows: () => 'Guests find their table on the day.' },
   {
     key: 'day-prints',
     round: 3,
@@ -160,18 +160,39 @@ export const GUIDED_STEPS: readonly StepDef[] = [
   },
 ];
 
-/** Each round's name and the line its Ready screen leads with. */
-export const GUIDED_ROUNDS: Readonly<Record<GuidedRound, { title: string; ready: string }>> = {
+export type GuidedRoundWords = Readonly<Record<GuidedRound, { title: string; ready: string }>>;
+
+/** Each round's name and the line its Ready screen leads with — a celebration's. */
+export const GUIDED_ROUNDS: GuidedRoundWords = {
   1: { title: 'Save the Date', ready: 'Your Save the Date is ready to send' },
   2: { title: 'Invitations', ready: 'Your invitations are ready to send' },
   3: { title: 'The day', ready: 'Your day is set' },
 };
+
+/**
+ * 🕯 A WAKE'S ROUNDS (owner 2026-09-29, DECISION_LOG "OWNER ANSWERS — TEN OPEN
+ * QUESTIONS" (6): per-type round names, YES — wake → "Share the news · Service
+ * details · The day"; christening / debut / birthday keep the celebration's).
+ * Nobody sends a wake a "Save the Date".
+ */
+export const WAKE_ROUNDS: GuidedRoundWords = {
+  1: { title: 'Share the news', ready: 'Your news is ready to share' },
+  2: { title: 'Service details', ready: 'Your service details are ready to share' },
+  3: { title: 'The day', ready: 'Your day is set' },
+};
+
+/** The rounds' words for THIS event — read off its EventWords (`solemn` = the wake). */
+export function guidedRoundsFor(words: Pick<GuidedWords, 'solemn'>): GuidedRoundWords {
+  return words.solemn ? WAKE_ROUNDS : GUIDED_ROUNDS;
+}
 
 export type GuidedStepState = 'done' | 'left' | 'check';
 
 export type GuidedStep = {
   key: GuidedStepKey;
   round: GuidedRound;
+  /** The round's name for THIS event (`guidedRoundsFor`). */
+  roundTitle: string;
   title: string;
   shows: string;
   optional: boolean;
@@ -189,6 +210,8 @@ export type GuidedPlan = {
   steps: GuidedStep[];
   /** The rounds that have at least one step, in order. */
   rounds: GuidedRound[];
+  /** The rounds' names and Ready lines for THIS event (`guidedRoundsFor`). */
+  roundWords: GuidedRoundWords;
 };
 
 /** One item as the plan needs it — the navigator's row (`DetailsItemModel`). */
@@ -207,6 +230,7 @@ export function stepStateOf(dones: ReadonlyArray<boolean | undefined>): GuidedSt
  * items here is not in the plan.
  */
 export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords): GuidedPlan {
+  const roundWords = guidedRoundsFor(words);
   const byKey = new Map(items.map((i) => [i.key as string, i]));
   const steps: GuidedStep[] = [];
   for (const def of GUIDED_STEPS) {
@@ -215,6 +239,7 @@ export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords
     steps.push({
       key: def.key,
       round: def.round,
+      roundTitle: roundWords[def.round].title,
       title: typeof def.title === 'string' ? def.title : def.title(here[0]!.label),
       shows: def.shows(words),
       optional: Boolean(def.optional),
@@ -224,7 +249,7 @@ export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords
     });
   }
   const rounds = ([1, 2, 3] as const).filter((r) => steps.some((s) => s.round === r));
-  return { steps, rounds };
+  return { steps, rounds, roundWords };
 }
 
 /** Every screen, in order: each round's steps, then its Ready screen. */
@@ -331,7 +356,7 @@ export function homeProgress(plan: GuidedPlan): { round: GuidedRound; title: str
     if (!left) continue;
     return {
       round: r,
-      title: GUIDED_ROUNDS[r].title,
+      title: plan.roundWords[r].title,
       done: inRound.filter((s) => s.state !== 'left').length,
       total: inRound.length,
       next: left.key,
@@ -376,10 +401,13 @@ export type GuidedDoneFacts = {
   hero: boolean;
   words: WordsAndPlansInput;
   /**
-   * 🪑 The Seat plan's door (\`event_floor_plan.published_at\`) — its row's done
-   * (\`seatPlanRow\`: "guests see it"). Null/absent = unread (no claim).
+   * 🪑 The Seat plan is ARRANGED — at least one guest is seated
+   * (\`event_seat_assignments\`). Its row's done (\`seatPlanRow\`). Deliberately
+   * NOT whether guests can see it: from 2026-09-30 seats open by themselves on
+   * the event's day, so a visibility "done" could never be finished before the
+   * day (controller ruling). Null/absent = unread (no claim).
    */
-  seatPlanOpen?: boolean | null;
+  seatPlanArranged?: boolean | null;
 };
 
 const EVENT_KEYS = new Set<string>(['names', 'date', 'venues', 'parents', 'march']);
@@ -400,7 +428,7 @@ export function guidedItemDone(key: DetailsItemKey, f: GuidedDoneFacts): boolean
     case 'hero':
       return f.hero;
     case 'seating':
-      return f.seatPlanOpen ?? undefined;
+      return f.seatPlanArranged ?? undefined;
     default:
       return undefined;
   }

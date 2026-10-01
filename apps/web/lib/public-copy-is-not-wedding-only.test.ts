@@ -329,3 +329,69 @@ test('repricing a row moves the copy with it — no figure is hard-coded', () =>
     `the Pakanta line still quotes ${was} after a reprice — that figure is typed into the prose`,
   );
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 4 · THE SITE-WIDE DEFAULT TITLE (root layout + PWA manifest)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// 🔑 2026-09-30. `app/layout.tsx`'s default title read "Setnayan · Filipino
+// wedding planning + verified suppliers" — the tab, the share card and the
+// SERP title of EVERY page that does not set its own. The owner picked "Plan,
+// share and relive every celebration" for the email footer; the site now says
+// the same. These run on COMMENT-STRIPPED source, because layout.tsx's comment
+// above the constants quotes the old wedding title on purpose.
+
+const LAYOUT = path.join(import.meta.dirname, '..', 'app', 'layout.tsx');
+const MANIFEST = path.join(import.meta.dirname, '..', 'public', 'manifest.json');
+const layoutSource = stripComments(readFileSync(LAYOUT, 'utf8'));
+
+/** The literal assigned to `const NAME = '…'` in the stripped layout. */
+function layoutConst(name: string): string {
+  const hit = new RegExp(`const ${name} =\\s*'([^']+)'`).exec(layoutSource)?.[1];
+  assert.ok(hit, `${name} is gone from app/layout.tsx — find where the default title moved before changing this guard`);
+  return hit!;
+}
+
+/** The `baseMetadata` declaration — the object every page inherits. */
+function baseMetadataBlock(): string {
+  const start = layoutSource.indexOf('const baseMetadata');
+  const end = layoutSource.indexOf('export async function generateMetadata', start);
+  assert.ok(start >= 0 && end > start, 'baseMetadata / generateMetadata moved in app/layout.tsx');
+  return layoutSource.slice(start, end);
+}
+
+test('the site-wide default title is the owner\'s tagline, not a wedding-only line', () => {
+  const title = layoutConst('SITE_TITLE');
+  assert.equal(title, 'Setnayan · Plan, share and relive every celebration');
+  assert.ok(!/\bwedding/i.test(title), `the default title sells weddings only: ${JSON.stringify(title)}`);
+});
+
+test('title.default, openGraph and twitter all read the ONE title and description', () => {
+  const block = baseMetadataBlock();
+  assert.match(block, /default:\s*SITE_TITLE\b/, 'title.default no longer reads SITE_TITLE');
+  assert.equal((block.match(/\btitle:\s*SITE_TITLE\b/g) ?? []).length, 2, 'openGraph.title and twitter.title must both read SITE_TITLE');
+  assert.equal((block.match(/\bdescription:\s*SITE_DESCRIPTION\b/g) ?? []).length, 3, 'the root, openGraph and twitter descriptions must all read SITE_DESCRIPTION');
+  // A title/description typed back in as a literal would bypass the constant.
+  // (`alt:` is excluded on purpose — it describes the card's pixels.)
+  const literal = /\b(title|default|description):\s*(['"`])([^'"`]*\bwedding[^'"`]*)\2/i.exec(block);
+  assert.equal(literal, null, `a wedding-only title/description literal is back in baseMetadata: ${JSON.stringify(literal?.[3])}`);
+});
+
+test('the default description names the services, not one event type, and says "supplier"', () => {
+  const desc = layoutConst('SITE_DESCRIPTION');
+  assert.ok(!/\bwedding/i.test(desc), `the default description narrows the product to weddings: ${JSON.stringify(desc)}`);
+  assert.ok(!/\bvendors?\b/i.test(desc), 'the default description says "vendor" — the customer-facing word is "supplier"');
+  assert.ok(/\bsuppliers?\b/i.test(desc), 'the default description no longer mentions suppliers');
+  for (const service of ['Event Hub', 'Papic', 'Live Watch', 'Patiktok', 'Music Maker', 'Setnayan AI']) {
+    assert.ok(desc.includes(service), `the default description no longer names ${service}`);
+  }
+});
+
+test('the installed-app (manifest) description is not a wedding-only claim', () => {
+  const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as { description?: string };
+  const desc = manifest.description ?? '';
+  assert.ok(desc.length > 0, 'public/manifest.json has no description');
+  assert.ok(!/\bwedding/i.test(desc), `the manifest description sells weddings only: ${JSON.stringify(desc)}`);
+  assert.ok(!/\bvendors?\b/i.test(desc), 'the manifest description says "vendor" — the customer-facing word is "supplier"');
+  assert.ok(desc.startsWith('Plan, share and relive every celebration'), 'the manifest description dropped the tagline');
+});

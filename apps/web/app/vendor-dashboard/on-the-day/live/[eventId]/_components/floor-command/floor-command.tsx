@@ -3,7 +3,8 @@ import { ArrowRight, Inbox, QrCode } from 'lucide-react';
 
 import { createClient } from '@/lib/supabase/server';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
-import { eventSeatingPublished } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import {
   FLOOR_REQUESTABLE_AREAS,
@@ -54,7 +55,11 @@ export async function FloorCommand({ eventId, coupleName }: SpecializationSurfac
       fetchRunOfShowBlocks(eventId),
       fetchMyAreaGrants(eventId),
       fetchMyPendingAsk(eventId),
-      eventSeatingPublished(supabase, eventId),
+      // The ONE seat rule (`guestsMaySeeSeatsFor`) — the same one the scan RPC
+      // asks in SQL. Read with the admin client for one boolean: a booked
+      // vendor holds no `events` RLS, so the vendor client could never see the
+      // event's date and would miss that the day has come.
+      guestsMaySeeSeatsFor(createAdminClient(), eventId),
       isDataPrivacyControlActive('coordinator_requests_inbox'),
       // DAY-6 · in the same round-trip as everything else this panel needs.
       // `.catch` rather than a throw: the running order and the seat finder must

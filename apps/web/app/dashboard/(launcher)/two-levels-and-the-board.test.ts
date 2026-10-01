@@ -842,57 +842,53 @@ test('every rail destination stays inside the event you opened', () => {
   }
 });
 
-test('the event rail is the one tree, by moment', () => {
+test('the event rail is the one tree — five rows (Stage D)', () => {
   /*
-    🔄 2026-09-24 — "event menu by moment" (owner-approved; binding drawing
-    `build-sessions/prototypes/event_menu_by_moment_2026-09-24.html`). The
-    Plan · Go live · Also-in-this-event sections became the MOMENTS below. Every
-    key is the key it was; only the grouping and two words moved
-    (Personalization → Details, and the Suite row keeps key 'studio').
-    Studio products are placed by `studioRows`; without them the Look moment is
-    empty and its heading is dropped — which this also pins.
+    🔄 2026-09-29 — Stage D (owner: *"so basically. this is what an event
+    needs. Guestlist · Your Team · Event Hub Maker · Our Services"*). The
+    "by moment" sections (2026-09-24) became ONE list of five rows (the
+    interim Seat plan row left in train n — its Details home is on main).
+    Every key is the key it was; only
+    the words moved (Overview → Home, Guests → Guest list, Suite → Our
+    Services).
   */
   const groups = buildCustomerNavGroups('EVT123', { websiteEnabled: true });
   const keysByGroup = Object.fromEntries(
     groups.map((g) => [g.key, g.items.map((i) => i.key)]),
   );
-  assert.deepEqual(
-    groups.map((g) => g.key),
-    ['event', 'spine', 'book', 'invite', 'day', 'end'],
-    'The moments changed (Look is empty without product rows, so it must not render).',
-  );
+  assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars']);
   assert.deepEqual(keysByGroup.event, ['personalization']);
-  assert.deepEqual(keysByGroup.spine, ['home', 'galleries']);
-  assert.deepEqual(keysByGroup.book, ['explore', 'budget']);
-  assert.deepEqual(keysByGroup.invite, ['guests', 'hosts', 'launch']);
-  assert.deepEqual(keysByGroup.day, ['schedule', 'seat']);
-  assert.deepEqual(keysByGroup.end, ['studio', 'refer']);
+  assert.deepEqual(keysByGroup.pillars, ['home', 'guests', 'explore', 'launch', 'studio']);
   /*
     🚨 PERSONALIZATION AND HOSTS WERE ADDED 2026-08-18 BECAUSE THEY HAD NO DOOR.
-    Both are real, live routes, and the only component linking to either
-    (`_components/profile-menu.tsx`) is imported by NOTHING. 🔑 A LINK IN A
-    COMPONENT NOBODY MOUNTS IS NOT A LINK. They stay in the EVENT's own list —
-    Personalization, renamed Details, now on the event's name row.
+    🔑 A LINK IN A COMPONENT NOBODY MOUNTS IS NOT A LINK. Personalization —
+    renamed Details, drawn as the event's name row — stays in the EVENT's own
+    list. Hosts folded into the Guest list (its parts row was cut in F2), and
+    its old address lands there; the Guest list row lights on it.
   */
   const rows = groups.flatMap((g) => g.items);
   const personalization = rows.find((i) => i.key === 'personalization');
   assert.equal(personalization?.href, '/dashboard/EVT123/details');
   assert.equal(personalization?.label, 'Details', 'Personalization → Details (owner 2026-09-24)');
-  assert.equal(rows.find((i) => i.key === 'hosts')?.href, '/dashboard/EVT123/hosts');
-  /*
-    ⏳ REFER WAS NEVER CLICKABLE FOR A SINGLE DAY until 2026-08-18. 🔒 It keeps
-    the key 'refer' so the event layout's `navHideKeys` gate hides it while the
-    referral programme is off.
-  */
-  assert.equal(rows.find((i) => i.key === 'refer')?.href, '/dashboard/EVT123/refer');
-  /*
-    🔒 BUDGET IS STILL A ROW, NOT A MAIN ROOM (owner 2026-07-10, restated in
-    the 2026-09-24 drawing: *"Still a row, not a main room"*). It sits under
-    Book with the people you pay — and it is never a phone tab.
-  */
-  assert.ok(keysByGroup.book!.includes('budget'));
   assert.ok(
-    !buildCustomerMenuTree('EVT123', { websiteEnabled: true }).some((m) => m.key === 'budget'),
+    rows.find((i) => i.key === 'guests')?.alsoMatch?.includes('/dashboard/EVT123/hosts'),
+    'Hosts has no home on the rail — the Guest list row must claim it',
+  );
+  /*
+    ⏳ REFER A COUPLE → THE ACCOUNT MENU (Stage D). It is no longer an event
+    row; the layout hands `referHref` to the account switcher behind the
+    programme toggle (held in `the-event-menu-is-one-tree.test.ts`).
+  */
+  assert.ok(!rows.some((i) => i.key === 'refer'), 'Refer a couple is an event row again');
+  /*
+    🔒 BUDGET IS NOT A MAIN ROOM (owner 2026-07-10). Since Stage D it is a
+    part of Your Team — never a row, never a phone tab — and its old page
+    lights Your Team.
+  */
+  assert.ok(!rows.some((i) => i.key === 'budget'), 'Budget is a menu row again');
+  assert.ok(rows.find((i) => i.key === 'explore')?.alsoMatch?.includes('/dashboard/EVT123/budget'));
+  assert.ok(
+    !buildCustomerMenuTree('EVT123', { websiteEnabled: true }).some((m) => (m.key as string) === 'budget'),
     'Budget was promoted to a bottom-bar tab. The owner removed that on 2026-07-10.',
   );
 });
@@ -942,9 +938,11 @@ test('the Marketplace row is the one the mobile tabs also carry', () => {
     .flatMap((g) => g.items)
     .find((i) => i.key === 'explore');
   assert.equal(market?.href, '/dashboard/EVT123/vendors');
-  // EVENT-scoped row → "Your Team". The account row (/explore) says "Suppliers"
-  // and is asserted separately; the two must NOT be interchangeable.
-  assert.equal(market?.label, 'Your Team');
+  // EVENT-scoped row → "Suppliers" (owner 2026-10-01, "Home - Guests -
+  // Suppliers - Hub - More"; "Your Team" before). The account row (/explore)
+  // also says "Suppliers" — inside an event the rail FOCUSES on the event and
+  // draws no account rows (2026-09-21), so the two never sit side by side.
+  assert.equal(market?.label, 'Suppliers');
 });
 
 // ── 5 · CREATING A TRIP IS NEVER REFUSED ────────────────────────────────────

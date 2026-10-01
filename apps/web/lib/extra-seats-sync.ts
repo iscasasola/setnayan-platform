@@ -93,8 +93,6 @@ export async function checkExtraSeats(
     if (
       guestListIsClosed({
         lockedAt: ev.guest_count_locked_at as string | null,
-        editDeadline: ev.guest_list_edit_deadline as string | null,
-        eventDate: ev.event_date as string | null,
       })
     ) {
       return { ok: false, error: GUEST_LIST_FINALIZED };

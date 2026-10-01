@@ -34,6 +34,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const STAGES = PUBLIC_STAGE_ORDER.map((p) => PUBLIC_STAGE_LABELS[p]);
 
 const labelOf = (m: ReturnType<typeof makerPlacePick>) => m.options.find((o) => o.key === m.value)?.label;
+const makerPickOpen = labelOf;
 
 test('on a stage, the one picker says the stage — with the live-today dot', () => {
   const m = makerPlacePick({ stage: 'rsvp', liveStage: 'rsvp', openTool: null, hasWork: true });
@@ -54,9 +55,10 @@ test('on Details, the one picker says Details, not the stage behind it', () => {
   assert.equal(makerPlacePick({ stage: 'event', liveStage: null, openTool: 'nope', hasWork: true }).value, 'event');
 });
 
-test('the list is ONE FLAT LIST — the four stages, then Details, nothing else', () => {
+test('the list is ONE FLAT LIST — the stages (RSVP among them), then Details, nothing else', () => {
   const m = makerPlacePick({ stage: 'save_the_date', liveStage: null, openTool: null, hasWork: true });
-  assert.deepEqual(m.options.map((o) => o.label), [...STAGES, 'Details']);
+  // 🗳 2026-09-30 re-plan: the RSVP stage sits between Save the Date and the Invitation.
+  assert.deepEqual(m.options.map((o) => o.label), [STAGES[0], 'RSVP', ...STAGES.slice(1), 'Details']);
   assert.deepEqual(STAGES, ['Save the Date', 'Invitation', 'On the Day', 'Post Event']);
   // No headings: one run, no group name (as PickMenu reads them).
   const runs = pickRuns(m.options.map((o) => ({ key: o.key, group: (o as Record<string, unknown>).group as string | undefined })));
@@ -78,7 +80,13 @@ test('a pick hands back the SAME item the full row presses; Details stays shut t
   assert.equal(makerPlaceItem('nope', true), null);
   const shut = makerPlacePick({ stage: 'rsvp', liveStage: null, openTool: null, hasWork: false });
   assert.ok(shut.options.find((o) => o.key === 'details')?.disabledNote, 'Details says why it is shut');
-  assert.ok(shut.options.filter((o) => o.key !== 'details').every((o) => !o.disabledNote), 'a stage is never shut');
+  // The RSVP stage is the couple's settings, like Details — shut, and saying why.
+  assert.ok(shut.options.find((o) => o.key === 'rsvp-stage')?.disabledNote, 'the RSVP stage says why it is shut');
+  assert.ok(
+    shut.options.filter((o) => o.key !== 'details' && o.key !== 'rsvp-stage').every((o) => !o.disabledNote),
+    'a lifecycle stage is never shut',
+  );
+  assert.equal(makerPickOpen(makerPlacePick({ stage: 'event', liveStage: null, openTool: 'rsvp-stage', hasWork: true })), 'RSVP');
 });
 
 test('the compact nav mounts ONE picker fed by that model; the wide row is untouched', () => {

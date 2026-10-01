@@ -12,9 +12,10 @@
  */
 import { ATTIRE_STYLE_LABEL, type RoleAttireMap, type resolveGuestDressCode } from './role-dress-code';
 import { resolveAttireFor, type GroupAttireMap } from './role-group-dress-code';
-import { ROLE_GROUP_LABELS, roleGroupOf, type RoleGroup } from './role-groups';
+import { ROLE_GROUP_LABELS, roleGroupLabel, roleGroupOf, type RoleGroup } from './role-groups';
 import { roleLabel } from './entourage';
-import { ROLE_LABELS, type GuestRole } from './guests';
+import { guestRoleLabel, ROLE_LABELS, type GuestRole } from './guests';
+import { roleNameMany, type RoleNames } from './role-names';
 import {
   PALETTE_LIMITS,
   PALETTE_ORDER,
@@ -83,16 +84,34 @@ export type EveryoneDressCode = {
  * read as the guest list's own "Guest" and the role group's own "Wedding
  * Party". Both strings already ship; neither is new copy.
  */
-function rowLabel(key: PaletteKey): string {
+function rowLabel(key: PaletteKey, names?: RoleNames | null): string {
   if (key === 'guest') return ROLE_LABELS.guest;
   if (key === 'wedding_party') return ROLE_GROUP_LABELS.wedding_party;
-  return PALETTE_LIMITS[key].label;
+  // ⚖ Owner 2026-09-30: a row named after a role the couple renamed reads
+  // THEIR word ("Bride's Crew", not "Bridesmaids").
+  const role = PALETTE_NAMED_AFTER[key];
+  return (role ? roleNameMany(role, names) : null) ?? PALETTE_LIMITS[key].label;
 }
+
+/** The palette rows whose heading IS a role's word — see `rowLabel`. */
+const PALETTE_NAMED_AFTER: Partial<Record<PaletteKey, GuestRole>> = {
+  bridesmaids: 'bridesmaid',
+  groomsmen: 'groomsman',
+  maid_of_honor: 'maid_of_honor',
+  // The row is labelled "Best Man / Best Woman"; a couple who renamed their
+  // best man sees their word (best_woman shares this row's colours).
+  best_man: 'best_man',
+};
 
 /** Every role in the vocabulary, from the exhaustive `Record` (same reason as ROLE_GROUPS_IN_ORDER). */
 const EVERY_GUEST_ROLE = Object.keys(ROLE_LABELS) as GuestRole[];
 
-function linesFor(key: PaletteKey, roles: RoleAttireMap, groups: GroupAttireMap): EveryoneAttireLine[] {
+function linesFor(
+  key: PaletteKey,
+  roles: RoleAttireMap,
+  groups: GroupAttireMap,
+  names?: RoleNames | null,
+): EveryoneAttireLine[] {
   const out: EveryoneAttireLine[] = [];
   const seenGroups = new Set<RoleGroup>();
   for (const role of EVERY_GUEST_ROLE) {
@@ -107,7 +126,7 @@ function linesFor(key: PaletteKey, roles: RoleAttireMap, groups: GroupAttireMap)
       if (g === 'guest' || seenGroups.has(g)) continue;
       seenGroups.add(g);
       out.push({
-        label: ROLE_GROUP_LABELS[g],
+        label: roleGroupLabel(g, names),
         styleLabel: ATTIRE_STYLE_LABEL[won.rule.style],
         note: won.rule.note ?? null,
         source: 'group',
@@ -115,7 +134,7 @@ function linesFor(key: PaletteKey, roles: RoleAttireMap, groups: GroupAttireMap)
       continue;
     }
     out.push({
-      label: roleLabel(role) ?? ROLE_LABELS[role],
+      label: roleLabel(role, names) ?? guestRoleLabel(role, names),
       styleLabel: ATTIRE_STYLE_LABEL[won.rule.style],
       note: won.rule.note ?? null,
       source: 'role',
@@ -141,6 +160,8 @@ export function dressCodeForEveryone(input: {
   roles: RoleAttireMap;
   groups: GroupAttireMap;
   ceremonyType?: string | null;
+  /** The couple's words for roles (owner 2026-09-30). */
+  names?: RoleNames | null;
 }): EveryoneDressCode {
   const { stored, board, roles, groups } = input;
   const colours = (key: PaletteKey): string[] => {
@@ -155,9 +176,9 @@ export function dressCodeForEveryone(input: {
 
   const rowOf = (key: PaletteKey): EveryoneDressRow | null => {
     const hexes = colours(key);
-    const lines = linesFor(key, roles, groups);
+    const lines = linesFor(key, roles, groups, input.names);
     if (hexes.length === 0 && lines.length === 0) return null;
-    return { key, label: rowLabel(key), hexes, lines };
+    return { key, label: rowLabel(key, input.names), hexes, lines };
   };
 
   const rows: EveryoneDressRow[] = [];

@@ -354,11 +354,16 @@ export async function SocialQueueSurface({
     new Set([...pendingConsents, ...takedowns].map((c) => c.event_id)),
   );
   let eventMap: Record<string, ConsentEvent> = {};
+  let consentEventsFailed = false;
   if (consentEventIds.length > 0) {
-    const { data: eventData } = await admin
+    const { data: eventData, error: eventErr } = await admin
       .from('events')
       .select('event_id,display_name,event_date,monogram_custom_svg,monogram_uploaded_svg')
       .in('event_id', consentEventIds);
+    if (eventErr) {
+      logQueryError('AdminSocialQueuePage (consent events)', eventErr);
+      consentEventsFailed = true;
+    }
     eventMap = Object.fromEntries(
       ((eventData ?? []) as ConsentEvent[]).map((e) => [e.event_id, e]),
     );
@@ -410,22 +415,31 @@ export async function SocialQueueSurface({
   // next 7 days AND at least one couple member opted in. Opted-in users'
   // couple memberships → event ids → events, intersected in JS.
   let anniversaries: Array<{ event_id: string; display_name: string | null; event_date: string }> = [];
+  let anniversariesFailed = false;
   if (optedIn.length > 0) {
-    const { data: memberData } = await admin
+    const { data: memberData, error: memberErr } = await admin
       .from('event_members')
       .select('event_id,user_id')
       .eq('member_type', 'couple')
       .in('user_id', optedIn.map((u) => u.user_id))
       .limit(2000);
+    if (memberErr) {
+      logQueryError('AdminSocialQueuePage (greeting members)', memberErr);
+      anniversariesFailed = true;
+    }
     const memberEventIds = Array.from(
       new Set(((memberData ?? []) as Array<{ event_id: string }>).map((m) => m.event_id)),
     );
     if (memberEventIds.length > 0) {
-      const { data: annivEvents } = await admin
+      const { data: annivEvents, error: annivErr } = await admin
         .from('events')
         .select('event_id,display_name,event_date')
         .in('event_id', memberEventIds)
         .not('event_date', 'is', null);
+      if (annivErr) {
+        logQueryError('AdminSocialQueuePage (anniversary events)', annivErr);
+        anniversariesFailed = true;
+      }
       anniversaries = (
         (annivEvents ?? []) as Array<{
           event_id: string;
@@ -477,6 +491,7 @@ export async function SocialQueueSurface({
         title="Take-downs needed"
         hint="Couple revoked consent — remove the post within 24 hours."
         count={takedowns.length}
+        loadFailed={Boolean(takedownErr)}
         empty="No take-downs pending. Revoked-after-posting consents land here."
       >
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -534,6 +549,7 @@ export async function SocialQueueSurface({
         title="Scheduled"
         hint="Composed by the sweep + slotted by the cadence governor (≤3/day · ≥3h apart · PH prime windows). Pull stops a post; Post now skips the hold but never the content gate."
         count={scheduledPosts.length}
+        loadFailed={Boolean(scheduledErr)}
         empty="Nothing queued — the sweep composes posts from new consents, vendor verifications, milestones, and the evergreen floor."
       >
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -559,6 +575,7 @@ export async function SocialQueueSurface({
         title="Failed"
         hint="The Graph API rejected the dispatch — read the error, fix the cause (token, media URL), then retry or pull."
         count={failedPosts.length}
+        loadFailed={Boolean(failedErr)}
         empty="No failed dispatches. Graph API errors land here with the error text."
       >
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -615,6 +632,7 @@ export async function SocialQueueSurface({
         title="Published"
         hint="The 12 most recent auto-published posts, with permalinks."
         count={publishedPosts.length}
+        loadFailed={Boolean(publishedErr)}
         empty="Nothing auto-published yet — successful dispatches land here."
       >
         <ul className="sn-tile !p-0 divide-y divide-ink/10">
@@ -841,6 +859,7 @@ export async function SocialQueueSurface({
         title="Couple creations — ready to post"
         hint="Consented + past the publish gate (event date + 7 days)."
         count={readyToPost.length}
+        loadFailed={Boolean(pendingErr) || consentEventsFailed}
         empty="Nothing postable yet — consented creations appear here once their event is 7+ days past."
       >
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -922,6 +941,7 @@ export async function SocialQueueSurface({
         title="Waiting on publish gate"
         hint="Consented, but the event isn't 7+ days past yet."
         count={waitingOnGate.length}
+        loadFailed={Boolean(pendingErr) || consentEventsFailed}
         empty="Nothing waiting — every live consent is already postable."
       >
         <ul className="sn-tile !p-0 divide-y divide-ink/10">
@@ -953,6 +973,7 @@ export async function SocialQueueSurface({
         title="New verified vendors"
         hint="Verification celebration features — unnamed for Free, named for Pro+."
         count={vendorQueue.length}
+        loadFailed={Boolean(vendorErr)}
         empty="No vendors waiting — newly verified vendors (who haven't opted out) land here."
       >
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -1037,6 +1058,7 @@ export async function SocialQueueSurface({
         title="Greetings this week"
         hint="Opted-in public greetings — birthdays + wedding anniversaries in the next 7 days. No mark-posted; these recur every year."
         count={birthdays.length + anniversaries.length}
+        loadFailed={Boolean(greetingErr) || anniversariesFailed}
         empty="No opted-in birthdays or anniversaries in the next 7 days."
       >
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -1680,6 +1702,7 @@ function QueueSection({
   hint,
   count,
   empty,
+  loadFailed,
   children,
 }: {
   id?: string;
@@ -1687,17 +1710,28 @@ function QueueSection({
   hint: string;
   count: number;
   empty: string;
+  /**
+   * 🚨 REQUIRED, NOT OPTIONAL (admin audit 2026-09-30, row 8): every list here
+   * used to drop its read error, and a refused take-downs read — a list with a
+   * 24-hour legal clock — said "No take-downs pending." Required so a new
+   * section cannot be added without answering "what if the read fails?".
+   */
+  loadFailed: boolean;
   children: React.ReactNode;
 }) {
   return (
     <section id={id} className="mb-8 space-y-3">
       <div className="space-y-0.5">
         <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          {title} · {formatCount(count)}
+          {title} · {loadFailed ? '—' : formatCount(count)}
         </h2>
         <p className="text-xs text-ink/55">{hint}</p>
       </div>
-      {count === 0 ? (
+      {loadFailed ? (
+        <p role="alert" className="rounded-card bg-[var(--sn-warning-soft)] p-6 text-center text-sm text-ink">
+          Couldn&rsquo;t load this — refresh to try again.
+        </p>
+      ) : count === 0 ? (
         <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
           {empty}
         </p>

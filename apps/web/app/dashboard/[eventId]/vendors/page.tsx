@@ -29,11 +29,9 @@ import { buildBenchStandings } from '@/lib/conversation-list';
 import { resolveLivePax } from '@/lib/pax';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
-import {
-  fetchEventVendors,
-  resolveVendorDisplayName,
-  isVendorNameRevealed,
-} from '@/lib/vendors';
+import { resolveVendorDisplayName, isVendorNameRevealed } from '@/lib/vendors';
+import { readEventVendorsMeasured } from '@/lib/event-vendors-read';
+import { teamRows, type TeamRowFacts } from '@/lib/your-team-rows';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { readUnreadChatCountsByThread } from '@/lib/vendor-unread-threads';
 import { benchUnreadFrom } from '@/lib/bench-unread';
@@ -117,6 +115,7 @@ import {
 } from '@/lib/build-date-window';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
+import { TeamRows } from './_components/team-rows';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
 import { computeBuildGuard, type GuardPick } from '@/lib/merkado-guard';
@@ -141,7 +140,8 @@ import { YOUR_TEAM_BUDGET_PART, yourTeamParts } from '@/lib/pillar-parts';
 // second copy of it (owner 2026-09-29).
 import BudgetPage from '../budget/page';
 
-export const metadata = { title: 'Vendors' };
+// The browser tab says what the screen says ("supplier", never "vendor", in UI).
+export const metadata = { title: 'Suppliers' };
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -231,8 +231,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   if (sp.part === YOUR_TEAM_BUDGET_PART) {
     return (
       <section className="sn-col space-y-6">
-        <PageMasthead title="Your Team" />
-        <PillarPartPicker label="Your Team part" parts={teamParts} current="budget" />
+        <PageMasthead title="Suppliers" />
+        <PillarPartPicker label="Suppliers part" parts={teamParts} current="budget" />
         <BudgetPage
           params={Promise.resolve({ eventId })}
           searchParams={Promise.resolve({ part: YOUR_TEAM_BUDGET_PART })}
@@ -241,7 +241,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     );
   }
   const teamPartPicker = (
-    <PillarPartPicker label="Your Team part" parts={teamParts} current="team" />
+    <PillarPartPicker label="Suppliers part" parts={teamParts} current="team" />
   );
   const supabase = await createClient();
 
@@ -250,8 +250,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // a review_request. Idempotent — flipped rows no longer match.
   await sweepRipeReviewRequests(eventId, user.id);
 
-  const [vendors, eventCtx, photoMaps, changeLines] = await Promise.all([
-    fetchEventVendors(supabase, eventId),
+  const [vendorsRead, eventCtx, photoMaps, changeLines] = await Promise.all([
+    // MEASURED, so a refused read reaches the screen as "Couldn't load your
+    // team" — never as an empty team (lib/event-vendors-read.ts).
+    readEventVendorsMeasured(supabase, eventId),
     supabase
       // SEC-2b: public.events_host, not public.events — this select names a column
       // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -282,6 +284,26 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // so the lines are joined here rather than inside it.
     fetchChangeLinesByVendor(supabase, eventId),
   ]);
+  // ⛔ A REFUSED TEAM READ STOPS HERE. Every surface below — the rows, the
+  // bench, Picks, Plans — is built from these rows, and each would draw the
+  // absence as a fact: "No one on your team yet", "Nothing to lock yet", an
+  // empty bench. Say what happened instead (your-team-read-is-honest.test.ts).
+  if (!vendorsRead.measured) {
+    return (
+      <section className="sn-col space-y-4">
+        <PageMasthead title="Suppliers" />
+        <p aria-hidden className="font-display text-[28px] leading-none text-ink">
+          Suppliers
+        </p>
+        <TeamRows
+          eventId={eventId}
+          state={{ kind: 'unreadable', retryHref: `/dashboard/${eventId}/vendors` }}
+        />
+        {teamPartPicker}
+      </section>
+    );
+  }
+  const vendors = vendorsRead.rows;
   if (changeLines.error) {
     // Non-fatal: the list falls back to the price the lock wrote — exactly what
     // it showed before this read existed — and the refusal is reported.
@@ -1877,6 +1899,86 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // couple's chat notification carries `/dashboard/<eventId>/messages/<threadId>`
   // so the thread id is the last segment, same as the supplier's.
   const unreadRead = await readUnreadChatCountsByThread(supabase, user.id);
+
+  // ── YOUR TEAM, AS ROWS (owner-APPROVED phone design, 2026-10-01) ──────────
+  // Booked first, one next step each. NO NEW READ AND NO NEW STATE: every fact
+  // below was already resolved above for the bench, Picks or Payments, and the
+  // one derivation that turns them into a row is lib/your-team-rows.ts.
+  const teamRowList = (() => {
+    const replanOn = isExploreReplanEnabled();
+    // The supplier's OWN bench card (not an "also covers" copy) — its name,
+    // its category label, and the card's own Lock verdict.
+    const ownCard = new Map<string, { v: ShortlistVendor; label: string }>();
+    for (const folder of shortlistFolders) {
+      for (const tile of folder.tiles) {
+        for (const v of tile.vendors) {
+          if (v.includedWith != null || ownCard.has(v.vendorId)) continue;
+          ownCard.set(v.vendorId, { v, label: tile.label });
+        }
+      }
+    }
+    // Where the plan model placed each pick — the group, its price and the
+    // verification flag the Picks list hands the same lock button.
+    const placed = new Map<
+      string,
+      { groupId: string; label: string; pricePhp: number | null; isVerified?: boolean }
+    >();
+    for (const f of model.folders) {
+      for (const c of f.children) {
+        for (const p of c.picks) {
+          if (placed.has(p.vendor_id)) continue;
+          placed.set(p.vendor_id, {
+            groupId: c.groupId as string,
+            label: c.label,
+            pricePhp: p.rolled_cost_php,
+            isVerified: p.is_verified,
+          });
+        }
+      }
+    }
+    const inBuildIds = new Set([...buildPicksByGroup.values()].flat());
+    const facts: TeamRowFacts[] = vendors.map((row) => {
+      const card = ownCard.get(row.vendor_id);
+      const where = placed.get(row.vendor_id);
+      const ext = enrichmentByVendorId.get(row.vendor_id);
+      const inBuild = inBuildIds.has(row.vendor_id);
+      const blocked = lockBlockedByVendorId.get(row.vendor_id) ?? null;
+      // The card's own Lock verdict when the replan bench is on; flag OFF, the
+      // Picks list's rule — a build pick locks in the group it sits in.
+      const lockGroupId = replanOn
+        ? card
+          ? resolveBenchCardActions({ enabled: true, vendor: card.v, inBuild }).lockGroupId
+          : null
+        : inBuild && !blocked
+          ? (where?.groupId ?? null)
+          : null;
+      return {
+        vendorId: row.vendor_id,
+        name:
+          card?.v.name ??
+          marketplaceCardByVendorId.get(row.vendor_id)?.name ??
+          row.vendor_name ??
+          'Supplier',
+        service: card?.label ?? where?.label ?? null,
+        logoUrl: marketplaceCardByVendorId.get(row.vendor_id)?.logo ?? null,
+        status: row.status,
+        lockRequestState: row.lock_request_state ?? null,
+        lockRequestExpiresAt: row.lock_request_expires_at ?? null,
+        inBuild,
+        lockGroupId,
+        lockBlocked: blocked,
+        inquiryStatus: ext?.inquiry_status ?? card?.v.inquiryStatus ?? null,
+        threadId: ext?.thread_id ?? card?.v.threadId ?? null,
+        pricePhp: where?.pricePhp ?? card?.v.totalCostPhp ?? null,
+        depositStep: depositStepByVendorId.get(row.vendor_id) ?? null,
+        reviewStatus: reviewStatusByVendorId.get(row.vendor_id) ?? null,
+        quoteWaitingOnCouple: standingsByVendorId[row.vendor_id]?.needsYou === true,
+        isVerified: where?.isVerified,
+      };
+    });
+    return teamRows(facts, { eventId, lockHandshakeEnabled: isLockHandshakeEnabled() });
+  })();
+  const teamSlot = <TeamRows eventId={eventId} state={{ kind: 'rows', rows: teamRowList }} />;
   const benchUnread = benchUnreadFrom(unreadRead);
 
   const shortlistMaster = (
@@ -2354,7 +2456,11 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           eventId={eventId}
           initialTab={initialTab}
           premium={aiActive}
-          partPicker={teamPartPicker}
+          teamParts={teamParts}
+          teamSlot={teamSlot}
+          // Arrived aimed below the team (the lock door's `?open=`, a `?tab=`
+          // deep link, a desktop `?inspect=`) → the find area opens first render.
+          initialFindOpen={Boolean(sp.open || sp.inspect || sp.tab)}
           shortlistSlot={shortlistContent}
           buildSlot={buildSlot}
           budgetSlot={<MerkadoBudgetLens eventId={eventId} />}

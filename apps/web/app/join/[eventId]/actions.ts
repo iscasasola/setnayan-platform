@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase/server';
 import { emitNotification } from '@/lib/notification-emit';
 import { readGuestSession, setGuestSession } from '@/lib/guest-session';
 import { recordScan } from '@/lib/scan-trail';
+import { readRememberedRequest, rememberRequestKey } from '@/lib/request-key.server';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import type { GuestRole } from '@/lib/guests';
 import { seedBindAllowed } from '@/lib/guest-claim';
@@ -22,6 +23,8 @@ import {
   requestedSeatsNote,
   type RequestAnswers,
 } from '@/lib/guest-requests';
+import { isCoupleSeat } from '@/lib/seat-binding';
+import { forgetFindState } from '@/lib/find-me.server';
 
 // Sanity ceiling on requests per event. Nobody is admitted by a request any
 // more, but every request is still a row the couple has to read — this bounds
@@ -204,6 +207,8 @@ async function createJoinRequest(
     role: GuestRole;
     userId: string | null;
     avatarUrl: string | null;
+    /** This browser's own open request (its remembered key) — asked again, it is updated, never doubled. */
+    rememberedRequestId?: string | null;
   },
 ): Promise<string | null> {
   const { eventId, answers, userId } = args;
@@ -220,8 +225,10 @@ async function createJoinRequest(
   };
 
   // 1. The same person asking again → their one open request.
-  let existingId: string | null = null;
-  if (userId) {
+  let existingId: string | null = args.rememberedRequestId ?? null;
+  if (existingId) {
+    // (checked below: still a request, not removed)
+  } else if (userId) {
     const { data: claim } = await admin
       .from('guest_claims')
       .select('target_guest_id, status')
@@ -263,16 +270,30 @@ async function createJoinRequest(
 
   // 2. A new request row. One shared name parser (lib/person-name-parse.ts);
   //    last_name is NOT NULL, so a mononym keeps the '—' placeholder.
+  //    Typed in the five boxes (owner 2026-09-30: *"Prefix · First · Middle ·
+  //    Last · Suffix"*), the parts are stored AS TYPED — no parser second-guesses
+  //    what the person split themselves.
   const parsed = parsePersonName(answers.name);
+  const nameColumns = answers.parts
+    ? {
+        first_name: answers.parts.first_name as string,
+        last_name: answers.parts.last_name as string,
+        name_prefix: answers.parts.name_prefix,
+        middle_name: answers.parts.middle_name,
+        name_suffix: answers.parts.name_suffix,
+      }
+    : {
+        first_name: parsed.firstName || answers.name,
+        last_name: parsed.lastName || '—',
+        ...(parsed.prefix ? { name_prefix: parsed.prefix } : {}),
+        ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
+        ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
+      };
   const { data: inserted, error } = await admin
     .from('guests')
     .insert({
       event_id: eventId,
-      first_name: parsed.firstName || answers.name,
-      last_name: parsed.lastName || '—',
-      ...(parsed.prefix ? { name_prefix: parsed.prefix } : {}),
-      ...(parsed.middleName ? { middle_name: parsed.middleName } : {}),
-      ...(parsed.suffix ? { name_suffix: parsed.suffix } : {}),
+      ...nameColumns,
       side: 'both',
       group_category: 'other',
       role: args.role,
@@ -329,8 +350,31 @@ function backToDoor(eventId: string, token: string, error: string): never {
   redirect(`/join/${eventId}?${t}error=${encodeURIComponent(error)}`);
 }
 
-/** "Request sent" — the one screen a request ends on. */
-function requestSent(eventId: string, token: string): never {
+/**
+ * "SENT TO THE COUPLE" — and the requester leaves holding their OWN key (owner
+ * 2026-09-29, DECISION_LOG "A REQUESTER GETS THEIR QR AT ONCE; IT UNLOCKS ONLY
+ * WHEN THE COUPLE ACCEPTS"; prototype guest_ticket_flow_2026-09-29.html frame B).
+ * The request row's own `qr_token` is remembered in THIS browser's request
+ * cookie (never a guest session — lib/request-key.server.ts) and they land on
+ * `/{slug}/request?sent=1`: their Digital ticket marked "Request pending", Save,
+ * and "Copy my link". Without an event address, the door's old "Request sent".
+ */
+async function requestSent(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  token: string,
+  requestId: string,
+): Promise<never> {
+  const [{ data: row }, { data: ev }] = await Promise.all([
+    admin.from('guests').select('qr_token').eq('guest_id', requestId).eq('event_id', eventId).maybeSingle(),
+    admin.from('events').select('slug').eq('event_id', eventId).maybeSingle(),
+  ]);
+  const key = (row?.qr_token as string | null) ?? null;
+  const slug = ((ev?.slug as string | null) ?? '').trim();
+  if (key && slug) {
+    await rememberRequestKey(key);
+    redirect(`/${slug}/request?sent=1`);
+  }
   const t = token ? `&token=${encodeURIComponent(token)}` : '';
   redirect(`/join/${eventId}?sent=1${t}`);
 }
@@ -411,7 +455,7 @@ export async function joinEventAction(eventId: string, token: string, formData: 
   if (accountEmail) {
     const { data: emailSeed } = await admin
       .from('guests')
-      .select('guest_id, role, entry_source')
+      .select('guest_id, role, extra_roles, entry_source')
       .eq('event_id', eventId)
       .eq('entry_source', 'host_seeded')
       .ilike('email', accountEmail)
@@ -421,6 +465,10 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     if (
       emailSeed &&
       emailMayBindRow(emailSeed.entry_source as string) &&
+      // 🔒 A COUPLE SEAT IS NEVER BOUND BY A GUEST DOOR (lib/seat-binding.ts).
+      // The address on it can be one a key-holder typed into the reply form;
+      // a couple member never reaches this line (they returned above).
+      !isCoupleSeat(emailSeed.role as string | null, emailSeed.extra_roles as string[] | null) &&
       !(await seedClaimedByOther(admin, eventId, emailSeed.guest_id, user.id))
     ) {
       if (avatarUrl) await applyAvatar(admin, emailSeed.guest_id as string, avatarUrl, user.id);
@@ -453,15 +501,16 @@ export async function joinEventAction(eventId: string, token: string, formData: 
     avatarUrl,
   });
   if (!requestId) return backToDoor(eventId, token, 'join_failed');
-  return requestSent(eventId, token);
+  return requestSent(admin, eventId, token, requestId);
 }
 
 /**
  * A person WITHOUT an account on the join door (owner 2026-06-20: no account
  * needed). They type their name — the guest list is never shown — answer the
  * RSVP and leave a contact, and that is a REQUEST: no guest session is minted,
- * so nothing opens until the couple Keeps or Links them, and their key is then
- * emailed to them.
+ * so nothing opens until the couple Accepts or Links them. Their key is handed
+ * over on Send (remembered in this browser; 📵 nothing is emailed — 2026-09-29)
+ * and it unlocks the moment the couple accepts.
  *
  * The one arrival that still walks straight on is a device that already HOLDS
  * a key for this event (its guest session) — that person goes to Reply.
@@ -531,6 +580,14 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     return redirect(`/login?next=${encodeURIComponent(back)}`);
   }
 
+  // 2b. This device already SENT a request here → its screen, not a second one.
+  //     A pending key re-asks (updates the one row, below); an accepted, linked
+  //     or declined one has its answer waiting on its own screen.
+  const remembered = await readRememberedRequest(eventId);
+  if (remembered && remembered.state.kind !== 'pending' && remembered.state.kind !== 'none') {
+    return redirect(`/${slug}/request`);
+  }
+
   // 3. This device already HOLDS a key for this event → straight on to Reply.
   //    (The key was issued by the couple — a personal link, a kept request, or
   //    a guest added before 2026-09-27 — never by this form.)
@@ -561,9 +618,12 @@ export async function selfJoinAction(eventId: string, token: string, formData: F
     role,
     userId: null,
     avatarUrl: null,
+    rememberedRequestId: remembered?.state.kind === 'pending' ? remembered.guestId : null,
   });
   if (!requestId) {
     return refuse('join_failed');
   }
-  return requestSent(eventId, token);
+  // The generic QR's name step is finished with (lib/find-me.server.ts).
+  await forgetFindState();
+  return requestSent(admin, eventId, token, requestId);
 }

@@ -49,7 +49,6 @@ const strip = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\{\/\*[\s\S]*?\*\/\}/g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
 const BODY = strip(read('site-body.tsx'));
-const CARD = strip(read('guest-hub-card.tsx'));
 const SHEET = strip(read('rsvp-sheet.tsx'));
 const SHEET_STATE = strip(read('rsvp-sheet-state.ts'));
 
@@ -60,21 +59,38 @@ test('the reply card has an anchor to point at', () => {
   assert.ok(!BODY.includes('id="your-details"'), 'a second element now carries the anchor id');
 });
 
-test('a chip points at it', () => {
-  assert.ok(CARD.includes('href="#your-details"'), 'nothing links to the reply card');
+test('a door points at it — the top control\'s Change, or the line in the reply section', async () => {
+  // Until 2026-09-30 the door was a chip on the "Hi again · Your invitation
+  // summary" card; the owner removed that card (it duplicated the Digital
+  // ticket on Me). Two doors remain, and between them EVERY guest has one:
+  //   · "You're going · Change" / "You said you can't make it · Change" under
+  //     the mark — its href is a sheet anchor (executed below, not grepped);
+  //   · the reply section's own `#your-details` line, shown exactly when the
+  //     top control has NO Change (a guest still owed a reply, the day itself).
+  const { resolveArrivalAction } = await import('@/lib/arrival-action');
+  const { hashOpensSheet } = await import('../_components/rsvp-sheet-state');
+  for (const rsvpStatus of ['attending', 'declined'] as const) {
+    const a = resolveArrivalAction({ slug: 'ana-ben', rsvpStatus, eventDate: '2099-01-01', today: '2026-09-30' });
+    assert.ok(a?.secondary, `${rsvpStatus}: the top control lost its Change`);
+    assert.ok(hashOpensSheet(a!.secondary!.href), `${rsvpStatus}: Change (${a!.secondary!.href}) does not open the reply sheet`);
+  }
+  assert.ok(BODY.includes('href="#your-details"'), 'the reply section lost its own door');
+  const at = BODY.indexOf('href="#your-details"');
+  assert.match(
+    BODY.slice(Math.max(0, at - 200), at),
+    /\{arrivalAction\?\.secondary \? null : \(\s*<a\s*$/,
+    'the reply-section door must render exactly when the top control has no Change — else a guest has none, or two',
+  );
 });
 
-test('🔑 the chip is gated on the card actually being on the page', () => {
-  // The failure this prevents: three of four phases render the summary card
-  // without the reply card, so an ungated chip scrolls to nothing.
-  assert.ok(
-    /detailsCardOnPage \? \([\s\S]{0,400}?href="#your-details"/.test(CARD),
-    'the chip is not gated on detailsCardOnPage — it will point at nothing outside the rsvp phase',
-  );
-  assert.ok(
-    /detailsCardOnPage=\{plan\.rsvpShouldRender\}/.test(BODY),
-    'the gate is not fed from the same value that decides whether the card renders',
-  );
+test('🔑 the door sits inside the same gate as the sheet it opens', () => {
+  // The failure this prevents: a door rendered in a phase where the sheet is
+  // not, scrolling to nothing.
+  const gate = BODY.indexOf("{plan.rsvpShouldRender ? (\n                <section className=\"space-y-4\">");
+  assert.ok(gate > -1, 'the reply section is no longer gated on plan.rsvpShouldRender — re-point this guard');
+  const close = BODY.indexOf('</section>', gate);
+  const door = BODY.indexOf('href="#your-details"', gate);
+  assert.ok(door > gate && door < close, 'the reply-section door escaped the reply section');
 });
 
 test('the anchor lives INSIDE the phase gate, not outside it', () => {
@@ -91,13 +107,13 @@ test('the anchor lives INSIDE the phase gate, not outside it', () => {
 });
 
 test('🔑 both doors land in the SAME sheet', () => {
-  // The brief's hard requirement. The hub card's chip and the arrival action
+  // The brief's hard requirement. The reply-section line and the arrival action
   // (lib/arrival-action.ts) send a guest to two different fragments; if the
   // sheet answers only one of them, the other control silently does nothing.
   // Executed, not grepped — see the-reply-is-a-sheet.test.ts for the parse.
   assert.ok(
     SHEET_STATE.includes("'your-details'"),
-    "the hub card's chip anchor is not in the sheet's anchor list",
+    "the reply-section line's anchor is not in the sheet's anchor list",
   );
   assert.ok(
     SHEET_STATE.includes('SITE_MENU_ANCHORS.me'),

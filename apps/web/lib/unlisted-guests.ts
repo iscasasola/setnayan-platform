@@ -11,12 +11,16 @@
  */
 import type { GuestRole, GuestSide } from '@/lib/guests';
 import { parseGuestInput } from '@/lib/guest-parse';
+import { isCoupleSeat } from '@/lib/seat-binding';
 
 export type LinkCandidate = {
   guest_id: string;
   first_name: string;
   last_name: string;
   display_name: string | null;
+  /** Read so a couple seat is never offered (lib/seat-binding.ts). */
+  role?: string | null;
+  extra_roles?: (string | null)[] | null;
 };
 
 export const candidateName = (c: LinkCandidate): string =>
@@ -26,12 +30,17 @@ export const candidateName = (c: LinkCandidate): string =>
  * Who a joiner may be linked to: guests NO account has claimed yet. A guest
  * someone already signed in as is that person — linking a second account to
  * them is refused by the action anyway, so offering it only produces an error.
+ *
+ * 🔒 NEVER A COUPLE SEAT (2026-09-30). The bride, groom or celebrant row is
+ * "free" to this check — the creator's own couple membership carries no
+ * guest_id — so it was offered as "Same as …" to anybody who asked to join with
+ * a similar name. A couple seat is kept only by the couple's own accounts.
  */
-export function unlinkedCandidates(
-  all: readonly LinkCandidate[],
+export function unlinkedCandidates<T extends LinkCandidate>(
+  all: readonly T[],
   linkedGuestIds: ReadonlySet<string>,
-): LinkCandidate[] {
-  return all.filter((c) => !linkedGuestIds.has(c.guest_id));
+): T[] {
+  return all.filter((c) => !linkedGuestIds.has(c.guest_id) && !isCoupleSeat(c.role, c.extra_roles));
 }
 
 /** Search: every word typed must appear somewhere in the name (any order, any case, accents ignored). */

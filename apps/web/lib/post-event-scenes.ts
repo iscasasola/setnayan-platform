@@ -26,6 +26,15 @@
  * only what is new — which template, what filled it, whether it was skipped, and
  * when it was written (`scenesGeneratedAt`).
  *
+ * ── MANY SMALL SCENES, BEFORE AND AFTER THE DAY (owner 2026-09-25) ──────────
+ * *"the story on that scene 1 of post event is the whole story, what we want is
+ * to cut them into smaller scenes … giving them freedom to add new scenes."*
+ * So Post Event is ALWAYS these scenes: before the day each one is listed as
+ * `waiting` and says what will fill it (`POST_EVENT_WAITING`); after the day
+ * the compile fills the same keys. Every Maker edit to show / hide, order and
+ * each scene's look goes through the Event Hub draft as a drafted copy of the
+ * story's own keys (`lib/post-event-draft.ts`).
+ *
  * ── THE ORDER IS THE PAGE'S ORDER ────────────────────────────────────────────
  * The navigator lists the scenes in the order the canvas draws them (owner
  * 2026-09-25: *"why does the slides not follow the sequence alotted"*): the
@@ -47,6 +56,8 @@
 import { resolveSectionOrder, type EditorialOrderKey } from '@/app/[slug]/_components/editorial/editorial-order';
 import type { SceneTemplateId } from '@/lib/scene-templates';
 import type { StoryViewer } from '@/lib/who-can-see-your-story';
+import type { PostEventArrangement } from '@/lib/post-event-draft';
+import { PHOTO_NOTES_LABEL } from '@/lib/post-event-styles';
 
 /* ── the open-up family ─────────────────────────────────────────────────── */
 
@@ -100,7 +111,21 @@ export function galleryTabsFor(reader: PostEventReader): GalleryTab[] {
 
 /* ── the scenes ─────────────────────────────────────────────────────────── */
 
-export type PostEventSceneStatus = 'auto' | 'skipped' | 'optional';
+/**
+ *   · auto     — filled from what happened.
+ *   · skipped  — after the day, its source had nothing; guests never meet it.
+ *   · optional — absent until the couple chooses it (What comes next).
+ *   · waiting  — 🕰 BEFORE THE DAY (owner 2026-09-25, "POST EVENT IS MANY SMALL
+ *                SCENES"): the scene is already its own tile and says in words
+ *                what will fill it. Never an empty box, and never "skipped" for
+ *                a day that has not happened yet. The Maker's tile reads "Not yet".
+ */
+export type PostEventSceneStatus = 'auto' | 'skipped' | 'optional' | 'waiting';
+
+/** Does a guest meet this scene? Filled, and not hidden. */
+export function postEventSceneDrawn(status: PostEventSceneStatus, hidden: boolean): boolean {
+  return status === 'auto' && !hidden;
+}
 
 /**
  * Which shipped `draft_json.sections` switch a scene answers to, when it has
@@ -119,7 +144,10 @@ export type PostEventSectionSwitch =
   | 'reviews'
   | 'poweredBy'
   | 'vendorsWeLoved'
-  | 'fromTheCouple';
+  | 'fromTheCouple'
+  | 'seating'
+  | 'entourage'
+  | 'beforeAfter';
 
 export type PostEventScene = {
   /** Stable within an event: `cover`, `before`, `ch-3`, `gallery`, … */
@@ -161,6 +189,14 @@ export type PostEventSources = {
   challengeAnswers: number;
   guestColumns: number;
   vendorMedia: number;
+  /** The supplier credits the story draws (`vendors`) — the Supplier Stories' credits. Absent = 0. */
+  team?: number;
+  /** 🪑 Tables on the seat plan (`event_tables`). Absent = 0. */
+  seatingTables?: number;
+  /** 👥 People who hold an entourage role. Absent = 0. */
+  entourage?: number;
+  /** 🎞 A cover chosen for after the day, beside the Save the Date's own. Absent = no. */
+  beforeAfter?: boolean;
   liveWall: { active: boolean; photos: number };
   reviews: number;
   services: number;
@@ -178,6 +214,35 @@ export type CompiledPostEvent = {
   scenes: PostEventScene[];
 };
 
+/**
+ * 🕰 WHAT EACH SCENE SAYS BEFORE THE DAY — in words, on its own tile. A scene
+ * whose source is the day itself cannot be "skipped" before the day happened;
+ * it is waiting, and it says what will fill it (strategy §3: say what is
+ * already true, then name what arrives).
+ */
+export const POST_EVENT_WAITING: Readonly<Record<string, string>> = {
+  before: 'Your Love Story comes first. Add a moment and it appears here.',
+  numbers: 'Your guests and the photos of the day are counted here after the day.',
+  chapters: 'Set the day’s schedule and each moment becomes a chapter here, with its photos.',
+  gallery: 'Your photos appear here. Everything your guests capture on the day files itself by the minute.',
+  film: 'If you broadcast with Live Watch, the replay lands here after the day.',
+  videos: 'Paste a link to your same-day edit or your films, and they play here.',
+  you: 'After the day, each guest opens their own captures here, from their own Papic link.',
+  wishes: 'Wishes appear here as your guests leave them.',
+  asked: 'Ask your guests something. Their answers land here.',
+  letters: 'Guests who write a longer note appear here, once you approve them.',
+  vendors: 'Photos from your suppliers appear here after the day.',
+  wall: 'If you run a Live Photo Wall, its photos appear here.',
+  said: 'What people say about the day appears here.',
+  powered: 'The Setnayan services you use appear here.',
+  loved: 'After the day, pick the suppliers you would book again.',
+  couple: 'Your closing words appear here — write them any time as your special message.',
+  seating: 'Once your seat plan is drawn, each guest finds their own table here after the day.',
+  entourage: 'Give people their roles on your guest list, and your entourage is listed here.',
+  beforeAfter: 'Choose a cover for after the day, and it sits here beside your Save the Date’s.',
+  song: 'Your song appears here.',
+};
+
 const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString('en-PH')} ${n === 1 ? one : many}`;
 
 type Def = Omit<PostEventScene, 'status' | 'note' | 'count' | 'source'> & {
@@ -187,7 +252,7 @@ type Def = Omit<PostEventScene, 'status' | 'note' | 'count' | 'source'> & {
 /** The fixed scenes, in the prototype's numbering (chapters are built apart). */
 const FIXED: Record<string, Def> = {
   cover: {
-    key: 'cover', name: 'Cover', template: 4, open: null, pin: 'first', block: null, switch: null,
+    key: 'cover', name: 'Front Page', template: 4, open: null, pin: 'first', block: null, switch: null,
     fill: (s) => ({
       count: null,
       source:
@@ -198,46 +263,60 @@ const FIXED: Record<string, Def> = {
     }),
   },
   before: {
-    key: 'before', name: 'Before the day', template: 24, open: null, pin: null, block: null, switch: null,
+    key: 'before', name: 'The Road to the Day', template: 24, open: null, pin: null, block: null, switch: null,
     fill: (s) => (s.milestones > 0 ? { count: s.milestones, source: `Our Love Story · ${plural(s.milestones, 'moment')}` } : { skip: 'No Love Story moments yet' }),
   },
   numbers: {
-    key: 'numbers', name: 'By the Numbers', template: 12, open: null, pin: null, block: null, switch: 'byTheNumbers',
+    key: 'numbers', name: 'Statistics', template: 12, open: null, pin: null, block: null, switch: 'byTheNumbers',
     fill: (s) =>
       (s.metrics.photos ?? 0) > 0 || s.metrics.guests > 0
         ? { count: s.metrics.photos ?? s.metrics.guests, source: (s.metrics.photos ?? 0) > 0 ? `${plural(s.metrics.photos ?? 0, 'capture')} · ${plural(s.metrics.guests, 'guest')}` : plural(s.metrics.guests, 'guest') }
         : { skip: 'No guests or captures to count' },
   },
   gallery: {
-    key: 'gallery', name: 'From the Day · Gallery', template: 21, open: 'gallery', pin: null, block: 'gallery', switch: 'gallery',
+    key: 'gallery', name: 'Gallery', template: 21, open: 'gallery', pin: null, block: 'gallery', switch: 'gallery',
     fill: (s) => (s.galleryPhotos > 0 ? { count: s.galleryPhotos, source: `The gallery · ${plural(s.galleryPhotos, 'photo')}` } : { skip: 'No photos from the day yet' }),
   },
   film: {
-    key: 'film', name: 'Watch the Film', template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
-    fill: (s) =>
-      s.broadcast || s.films > 0
-        ? { count: (s.broadcast ? 1 : 0) + s.films, source: [s.broadcast ? 'Live Studio replay' : null, s.films > 0 ? plural(s.films, 'film') : null].filter(Boolean).join(' · ') }
-        : { skip: 'No livestream or film' },
+    /* 🎥 LIVE STREAM (owner 2026-09-26: "Live Studio = Live Stream") — the
+       broadcast replay; the couple's own linked films are VIDEOS, their own
+       scene (prototype types 14 · 15). Both live in the run's `watchFilm` block
+       and answer to its one switch; the film open-up is the replay's when there
+       is one, else the videos'. */
+    key: 'film', name: 'Watch Live', template: 14, open: 'film', pin: null, block: 'watchFilm', switch: 'watchFilm',
+    fill: (s) => (s.broadcast ? { count: 1, source: 'Live Watch replay' } : { skip: 'No livestream on this event' }),
+  },
+  videos: {
+    key: 'videos', name: 'Videos', template: 14, open: null, pin: null, block: 'watchFilm', switch: 'watchFilm',
+    fill: (s) => (s.films > 0 ? { count: s.films, source: `Your films · ${plural(s.films, 'link')}` } : { skip: 'No films linked yet' }),
   },
   you: {
     key: 'you', name: 'Were you there?', template: null, open: 'you', pin: null, block: null, switch: null,
     fill: (s) => ((s.metrics.photos ?? 0) > 0 ? { count: null, source: 'Each guest’s own Papic link · no name field' } : { skip: 'No Papic captures on this event' }),
   },
   wishes: {
-    key: 'wishes', name: 'What They Whispered', template: 23, open: 'wishes', pin: null, block: 'kwento', switch: 'kwento',
+    key: 'wishes', name: PHOTO_NOTES_LABEL, template: 23, open: 'wishes', pin: null, block: 'kwento', switch: 'kwento',
     fill: (s) => (s.kwento > 0 ? { count: s.kwento, source: `Guest wishes · ${plural(s.kwento, 'wish', 'wishes')}` } : { skip: 'No approved wishes yet' }),
   },
   asked: {
-    key: 'asked', name: 'What We Asked', template: 25, open: null, pin: null, block: 'challengeAnswers', switch: 'challengeAnswers',
+    key: 'asked', name: 'Papic Challenge', template: 25, open: null, pin: null, block: 'challengeAnswers', switch: 'challengeAnswers',
     fill: (s) => (s.challengeAnswers > 0 ? { count: s.challengeAnswers, source: `Challenge answers · ${s.challengeAnswers}` } : { skip: 'No shared challenge answers' }),
   },
   letters: {
-    key: 'letters', name: 'Letters to the Editor', template: 22, open: null, pin: null, block: 'guestColumns', switch: 'guestColumns',
+    key: 'letters', name: 'Messages', template: 22, open: null, pin: null, block: 'guestColumns', switch: 'guestColumns',
     fill: (s) => (s.guestColumns > 0 ? { count: s.guestColumns, source: `Guest columns · ${s.guestColumns}` } : { skip: 'No approved guest columns' }),
   },
   vendors: {
-    key: 'vendors', name: 'From Your Vendors', template: 20, open: null, pin: null, block: 'fromVendors', switch: 'fromVendors',
-    fill: (s) => (s.vendorMedia > 0 ? { count: s.vendorMedia, source: `Supplier photos · ${s.vendorMedia}` } : { skip: 'No photos from your suppliers yet' }),
+    key: 'vendors', name: 'Supplier Stories', template: 20, open: null, pin: null, block: 'fromVendors', switch: 'fromVendors',
+    fill: (s) =>
+      s.vendorMedia > 0 || (s.team ?? 0) > 0
+        ? {
+            count: s.vendorMedia + (s.team ?? 0),
+            source: [(s.team ?? 0) > 0 ? plural(s.team ?? 0, 'supplier') : null, s.vendorMedia > 0 ? `${s.vendorMedia} of their photos` : null]
+              .filter(Boolean)
+              .join(' · '),
+          }
+        : { skip: 'No suppliers or their photos yet' },
   },
   wall: {
     key: 'wall', name: 'Live Photo Wall', template: 19, open: null, pin: null, block: 'liveWall', switch: 'liveWall',
@@ -255,15 +334,27 @@ const FIXED: Record<string, Def> = {
     fill: (s) => (s.services > 0 ? { count: s.services, source: `Your orders · ${plural(s.services, 'service')}` } : { skip: 'No Setnayan services on this event' }),
   },
   loved: {
-    key: 'loved', name: 'Vendors We Loved', template: 17, open: null, pin: null, block: 'vendorsWeLoved', switch: 'vendorsWeLoved',
+    key: 'loved', name: 'Suppliers We Loved', template: 17, open: null, pin: null, block: 'vendorsWeLoved', switch: 'vendorsWeLoved',
     fill: (s) => (s.vendorsWeLoved > 0 ? { count: s.vendorsWeLoved, source: `Your recommendations · ${s.vendorsWeLoved}` } : { skip: 'No suppliers recommended yet' }),
   },
+  seating: {
+    key: 'seating', name: 'Where Everyone Sat', template: null, open: null, pin: null, block: 'seating', switch: 'seating',
+    fill: (s) => ((s.seatingTables ?? 0) > 0 ? { count: s.seatingTables ?? 0, source: `Your seat plan · ${plural(s.seatingTables ?? 0, 'table')}` } : { skip: 'No seat plan on this event' }),
+  },
+  entourage: {
+    key: 'entourage', name: 'Entourage', template: null, open: null, pin: null, block: 'entourage', switch: 'entourage',
+    fill: (s) => ((s.entourage ?? 0) > 0 ? { count: s.entourage ?? 0, source: `Your guest list’s roles · ${plural(s.entourage ?? 0, 'person', 'people')}` } : { skip: 'Nobody holds an entourage role' }),
+  },
+  beforeAfter: {
+    key: 'beforeAfter', name: 'Before & After', template: 17, open: null, pin: null, block: 'beforeAfter', switch: 'beforeAfter',
+    fill: (s) => (s.beforeAfter ? { count: null, source: 'Your Save the Date’s cover beside your story’s' } : { skip: 'Your story’s cover is your Save the Date’s — nothing to set beside it' }),
+  },
   couple: {
-    key: 'couple', name: 'From the couple', template: 11, open: null, pin: 'close', block: null, switch: 'fromTheCouple',
+    key: 'couple', name: 'Thank You', template: 11, open: null, pin: 'close', block: null, switch: 'fromTheCouple',
     fill: (s) => (s.specialMessage ? { count: null, source: 'Your closing words' } : { skip: 'Write your closing words and the story ends on them' }),
   },
   song: {
-    key: 'song', name: 'Their Song', template: 8, open: null, pin: 'last', block: null, switch: null,
+    key: 'song', name: 'Song', template: 8, open: null, pin: 'last', block: null, switch: null,
     fill: (s) => (s.song ? { count: null, source: `“${s.song}”` } : { skip: 'No song for the day' }),
   },
 };
@@ -280,6 +371,9 @@ const SCENE_FOR_BLOCK: Record<Exclude<EditorialOrderKey, 'chapters'>, keyof type
   reviews: 'said',
   poweredBy: 'powered',
   vendorsWeLoved: 'loved',
+  seating: 'seating',
+  entourage: 'entourage',
+  beforeAfter: 'beforeAfter',
 };
 
 /**
@@ -291,10 +385,16 @@ export function postEventSceneKeyForBlock(block: EditorialOrderKey): string | nu
   return SCENE_FOR_BLOCK[block] ?? null;
 }
 
-function build(def: Def, s: PostEventSources): PostEventScene {
+function build(def: Def, s: PostEventSources, dayHappened: boolean): PostEventScene {
   const { fill, ...rest } = def;
   const r = fill(s);
-  if ('skip' in r) return { ...rest, status: 'skipped', note: r.skip, count: null, source: '—' };
+  if ('skip' in r) {
+    // Before the day, "nothing yet" is waiting for the day — said, never skipped.
+    const waiting = dayHappened ? null : (POST_EVENT_WAITING[def.key] ?? null);
+    return waiting
+      ? { ...rest, status: 'waiting', note: waiting, count: null, source: '—' }
+      : { ...rest, status: 'skipped', note: r.skip, count: null, source: '—' };
+  }
   return { ...rest, status: 'auto', note: null, count: r.count, source: r.source };
 }
 
@@ -304,11 +404,13 @@ function build(def: Def, s: PostEventSources): PostEventScene {
  * 2 · Photo right, the prototype's rhythm. None → ONE skipped row, never ten
  * empty ones.
  */
-function chapterScenes(s: PostEventSources): PostEventScene[] {
+function chapterScenes(s: PostEventSources, dayHappened: boolean): PostEventScene[] {
   if (s.chapters.length === 0) {
     return [{
-      key: 'chapters', name: 'As the Day Unfolded', template: 1, source: '—', status: 'skipped',
-      note: 'No captures from the day yet', count: null, open: null, pin: null, block: 'chapters', switch: 'gallery',
+      key: 'chapters', name: 'Schedule', template: 1, source: '—',
+      status: dayHappened ? 'skipped' : 'waiting',
+      note: dayHappened ? 'No captures from the day yet' : POST_EVENT_WAITING.chapters!,
+      count: null, open: null, pin: null, block: 'chapters', switch: 'gallery',
     }];
   }
   let photoTurn = 0;
@@ -336,26 +438,40 @@ function chapterScenes(s: PostEventSources): PostEventScene[] {
  * THE COMPILER. Every scene the prototype names, filled from its source or
  * marked skipped. The order returned is the prototype's; `postEventSceneList`
  * puts them in the PAGE's order.
+ *
+ * 🕰 `dayHappened: false` — BEFORE THE DAY (owner 2026-09-25): the SAME scenes,
+ * the SAME keys, each its own tile; a scene with nothing yet is `waiting` and
+ * says what will fill it (`POST_EVENT_WAITING`). After the day the compile
+ * fills these same keys — it never replaces them with others.
  */
-export function compilePostEventScenes(s: PostEventSources, generatedAt: string): CompiledPostEvent {
+export function compilePostEventScenes(
+  s: PostEventSources,
+  generatedAt: string,
+  opts: { dayHappened?: boolean } = {},
+): CompiledPostEvent {
+  const day = opts.dayHappened !== false;
   const scenes: PostEventScene[] = [
-    build(FIXED.cover!, s),
-    build(FIXED.before!, s),
-    build(FIXED.numbers!, s),
-    ...chapterScenes(s),
-    build(FIXED.gallery!, s),
-    build(FIXED.film!, s),
-    build(FIXED.you!, s),
-    build(FIXED.wishes!, s),
-    build(FIXED.asked!, s),
-    build(FIXED.letters!, s),
-    build(FIXED.vendors!, s),
-    build(FIXED.wall!, s),
-    build(FIXED.said!, s),
-    build(FIXED.powered!, s),
-    build(FIXED.loved!, s),
-    build(FIXED.couple!, s),
-    build(FIXED.song!, s),
+    build(FIXED.cover!, s, day),
+    build(FIXED.before!, s, day),
+    build(FIXED.numbers!, s, day),
+    ...chapterScenes(s, day),
+    build(FIXED.gallery!, s, day),
+    build(FIXED.film!, s, day),
+    build(FIXED.videos!, s, day),
+    build(FIXED.you!, s, day),
+    build(FIXED.wishes!, s, day),
+    build(FIXED.asked!, s, day),
+    build(FIXED.letters!, s, day),
+    build(FIXED.vendors!, s, day),
+    build(FIXED.wall!, s, day),
+    build(FIXED.said!, s, day),
+    build(FIXED.powered!, s, day),
+    build(FIXED.loved!, s, day),
+    build(FIXED.seating!, s, day),
+    build(FIXED.entourage!, s, day),
+    build(FIXED.beforeAfter!, s, day),
+    build(FIXED.couple!, s, day),
+    build(FIXED.song!, s, day),
     s.whatsNext
       ? { key: 'next', name: 'What comes next', template: 10, source: s.whatsNext, status: 'auto', note: null, count: null, open: null, pin: 'after', block: null, switch: null }
       : { key: 'next', name: 'What comes next', template: 10, source: '—', status: 'optional', note: 'Absent until you choose what comes next', count: null, open: null, pin: 'after', block: null, switch: null },
@@ -365,6 +481,7 @@ export function compilePostEventScenes(s: PostEventSources, generatedAt: string)
 
 /* ── the stored record, and the lazy compile ────────────────────────────── */
 
+/* The STORED record never holds `waiting` — nothing is written before the day. */
 const STATUSES: ReadonlySet<string> = new Set(['auto', 'skipped', 'optional']);
 
 /** `draft_json.scenes` → the stored scenes, or null when there are none / it is malformed. */
@@ -475,6 +592,11 @@ export function draftToScenes(draftJson: unknown, chapterKeys: readonly string[]
       for (const k of chapterKeys) rows.push({ key: k, hidden: off('gallery') });
       continue;
     }
+    if (block === 'watchFilm') {
+      // The replay and the couple's own films — one block, one switch, two scenes.
+      rows.push({ key: 'film', hidden: off('watchFilm') }, { key: 'videos', hidden: off('watchFilm') });
+      continue;
+    }
     const sceneKey = SCENE_FOR_BLOCK[block as Exclude<EditorialOrderKey, 'chapters'>];
     if (!sceneKey) continue; // a couple's own column — not a scene of the auto story
     rows.push({ key: sceneKey, hidden: off(FIXED[sceneKey]!.switch) });
@@ -498,6 +620,14 @@ export type PostEventMakerRead =
       coverPhotoUrl: string | null;
       /** True when this open wrote (or rewrote) the story. */
       wrote: boolean;
+      /** 🕰 False before the day: the scenes are listed, waiting — nothing was written. */
+      dayHappened: boolean;
+      /**
+       * The story's arrangement AS THE MAKER SHOWS IT — live with the couple's
+       * draft laid over it (`lib/post-event-draft.ts`). The Maker's controls
+       * build their draft saves from this.
+       */
+      arrangement: PostEventArrangement;
     }
   | { ok: false };
 
@@ -514,7 +644,7 @@ export function postEventSceneList(compiled: CompiledPostEvent, draftJson: unkno
   for (const row of draftToScenes(draftJson, chapterKeys)) {
     const sc = byKey.get(row.key);
     if (!sc) continue;
-    const drawn = sc.status === 'auto' && !row.hidden;
+    const drawn = postEventSceneDrawn(sc.status, row.hidden);
     out.push({ ...sc, hidden: row.hidden, position: drawn ? n++ : null });
   }
   return out;

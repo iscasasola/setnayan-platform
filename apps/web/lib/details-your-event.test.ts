@@ -155,7 +155,8 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   assert.match(LOAD, /<EntourageOrderPanel eventId=\{eventId\} view="all" \/>/, 'the order list is the shipped Guest list panel, moved in whole');
   const loaders = read('app/[slug]/_lib/loaders.ts');
   assert.match(loaders, /return buildEntourage\(\s*\(data \?\? \[\]\) as EntourageGuestRow\[\],\s*await loadEntourageSectionOrder\(admin, eventId\),/);
-  assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)\)/);
+  // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)
+  assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)(, names(, style)?)?\)/);
   assert.match(read('app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx'), /orderedGroupKeys\(savedSections\)[\s\S]*?entourageLines\(rows, key\)/);
   // The guest's own line is built from the same groups the section prints.
   const body = read('app/[slug]/_components/site-body.tsx');
@@ -175,12 +176,13 @@ test('"Leave the other side blank" happens IN PLACE — the Guest list’s own u
   assert.match(unpair, /if \(inPlace\) \{[\s\S]*?return;\s*\}\s*redirect\(backToList\(eventId, \{ unpaired: '1' \}\)\);/);
   // The Maker calls that same action, through the Maker's one refresh.
   const march = read(`${L}details-march.tsx`);
-  assert.match(march, /import \{ unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
+  assert.match(march, /import \{ setWalkingPairCouple, unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
   assert.match(march, /await unpairGuestAction\(eventId, pairIds\[0\]!, 'in-place'\);/);
   assert.match(march, /Leave the other side blank/);
-  // …and the Guest list's row form still binds two arguments, so it keeps its redirect.
+  // …and the Guest list's rows no longer offer it at all (owner 2026-09-30:
+  // "walks with" lives only in the Maker's Wedding March).
   const roster = read('app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx');
-  assert.match(roster, /unpairGuestAction\.bind\(null, eventId, guest\.guest_id\)\}/);
+  assert.doesNotMatch(roster, /unpairGuestAction/);
 });
 
 test('/find-date lands on Details › Date with "Help me choose" open — for a couple whose event has an Event Hub', () => {

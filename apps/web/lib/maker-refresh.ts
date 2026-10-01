@@ -27,6 +27,32 @@
  *
  * `createMakerRefresher` is the pure core (`maker-refresh.test.ts` drives it
  * with a fake clock); `makerSave` is the one shared instance the Maker uses.
+ *
+ * ⚡⚡ AND A PICK THE BRIDGE DREW REFRESHES NOTHING AT ALL (owner 2026-09-30:
+ * *"every edit alteration create forces the whole screen to reload and
+ * sometimes take more than 10 seconds to change"* — DECISION_LOG "THE MAKER
+ * RE-PLAN — SPEED FIRST"). MEASURED from the code that day
+ * (`scratchpad/maker-speed/MEASURE.md`): Next.js runs server actions AND
+ * `router.refresh()` through ONE serial queue, so the whole-Maker render one
+ * pick asked for (3–6 s on production) BLOCKED the next pick's save; it then
+ * came back holding the OLDER pick, differed from the canvas hold, and reloaded
+ * the canvas to the older value — and the later save's refresh reloaded it
+ * again. Two picks 1.2 s apart: two whole-Maker renders, two canvas reloads,
+ * the canvas visibly going back, steady ~11 s later.
+ *
+ * 🔑 NOW a `held` save — the bridge already drew it — owes NO render. What the
+ * refresh used to bring back is brought another way:
+ *   · the Apply · Undo · Restore count: the save answers with the bar
+ *     (`bar` on the result, asked with `HUB_DRAFT_BAR_FIELD`) and `makerSave`
+ *     hands it to the toolbar (`MAKER_DRAFT_BAR_EVENT`);
+ *   · the canvases the Maker's panels build on: the client's own copy
+ *     (`lib/maker-draft-store.ts`), never a stale server prop;
+ *   · several quick picks on one part: ONE write (`makerLatestWrite` — the
+ *     latest canvas wins, one in flight, one waiting).
+ * A held burst still refreshes once when something in it asked for a render
+ * the bridge cannot draw (`makerNeedsRender` — a background that changes who
+ * draws the card, words the page must redraw). Every write NOT drawn by the
+ * bridge refreshes exactly as before.
  */
 
 /** How long after the last save lands the refresh waits for another tap. */
@@ -54,8 +80,13 @@ type Clock = {
 };
 
 export type MakerRefresher = {
-  /** Run one save; refresh once when it and every other save in flight have landed. */
-  save<T>(send: () => Promise<T>, refresh: () => void, ok?: (result: T) => boolean): Promise<T>;
+  /**
+   * Run one save; refresh once when it and every other save in flight have
+   * landed — unless it is `held` (the bridge drew it), which owes no refresh.
+   */
+  save<T>(send: () => Promise<T>, refresh: () => void, ok?: (result: T) => boolean, held?: boolean): Promise<T>;
+  /** A held burst must still end in ONE render (the bridge could not draw all of it). */
+  needRender(): void;
   /** Saves still in flight — the shell's "saving" state, and the test's probe. */
   inFlight(): number;
 };
@@ -82,7 +113,7 @@ export function createMakerRefresher(clock: Clock): MakerRefresher {
   };
 
   return {
-    async save(send, refresh, ok = okOf) {
+    async save(send, refresh, ok = okOf, held = false) {
       inFlight += 1;
       if (timer !== null) {
         clock.clear(timer);
@@ -90,13 +121,18 @@ export function createMakerRefresher(clock: Clock): MakerRefresher {
       }
       try {
         const result = await send();
-        if (ok(result)) owed = true;
+        /* ⚡ A held save is already on the canvas: nothing to re-render for it. */
+        if (ok(result) && !held) owed = true;
         return result;
       } finally {
         inFlight -= 1;
         refreshFn = refresh;
         settle();
       }
+    },
+    needRender() {
+      owed = true;
+      settle();
     },
     inFlight: () => inFlight,
   };
@@ -107,14 +143,165 @@ const shared = createMakerRefresher({
   clear: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
 });
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   ⚡ THE LATEST WRITE WINS — many quick picks on one part are ONE save
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * How long a pick waits for the next tap before its save is sent. Every pick
+ * is already on the canvas (the bridge), so the wait is never seen — it only
+ * folds a run of − / + taps into one write.
+ */
+export const MAKER_WRITE_BEAT_MS = 350;
+
+/** What a write that a LATER pick carried resolves to: that later write answers for both. */
+export const SUPERSEDED: unique symbol = Symbol('maker-write-superseded');
+export type Superseded = typeof SUPERSEDED;
+
+type Waiter = { resolve: (v: unknown) => void; reject: (e: unknown) => void };
+type Slot = {
+  timer: Timer | null;
+  /** A write in flight for this key. */
+  flying: boolean;
+  /** The write waiting to go: the newest send, and whoever is waiting on it. */
+  next: { send: () => Promise<unknown>; waiter: Waiter } | null;
+};
+
+export type LatestWriter = {
+  /**
+   * Save `send` for `key` — after a beat, and never beside another write for
+   * the same key. A newer write for the key before this one is sent REPLACES
+   * it: this one then resolves to `SUPERSEDED` (the newer one carries the
+   * whole canvas, so it answers for both).
+   */
+  write<T>(key: string, send: () => Promise<T>): Promise<T | Superseded>;
+  /** Send every write still waiting for its beat, now (before a write that must follow them). */
+  flush(): void;
+  /** Writes waiting or in flight — for `key`, or in all. */
+  pending(key?: string): number;
+};
+
+export function createLatestWriter(clock: Clock, beatMs = MAKER_WRITE_BEAT_MS): LatestWriter {
+  const slots = new Map<string, Slot>();
+  const slotOf = (key: string): Slot => {
+    let s = slots.get(key);
+    if (!s) {
+      s = { timer: null, flying: false, next: null };
+      slots.set(key, s);
+    }
+    return s;
+  };
+  const go = (key: string) => {
+    const s = slotOf(key);
+    if (s.flying || !s.next) return;
+    if (s.timer !== null) {
+      clock.clear(s.timer);
+      s.timer = null;
+    }
+    const { send, waiter } = s.next;
+    s.next = null;
+    s.flying = true;
+    let p: Promise<unknown>;
+    try {
+      p = send();
+    } catch (e) {
+      p = Promise.reject(e);
+    }
+    /* The slot is free BEFORE its waiter hears the answer, so whoever reads
+       `pending` on the answer sees this write as landed. */
+    const land = () => {
+      s.flying = false;
+      /* A pick that came while this one flew goes now if its beat is over. */
+      if (s.next && s.timer === null) go(key);
+      if (!s.flying && !s.next && s.timer === null) slots.delete(key);
+    };
+    p.then(
+      (v) => {
+        land();
+        waiter.resolve(v);
+      },
+      (e) => {
+        land();
+        waiter.reject(e);
+      },
+    );
+  };
+  return {
+    write<T>(key: string, send: () => Promise<T>) {
+      const s = slotOf(key);
+      return new Promise<T | Superseded>((resolve, reject) => {
+        if (s.next) s.next.waiter.resolve(SUPERSEDED);
+        s.next = { send, waiter: { resolve: resolve as (v: unknown) => void, reject } };
+        if (s.timer !== null) clock.clear(s.timer);
+        s.timer = clock.set(() => {
+          s.timer = null;
+          go(key);
+        }, beatMs);
+      });
+    },
+    flush() {
+      for (const [key, s] of slots) {
+        if (s.timer !== null) {
+          clock.clear(s.timer);
+          s.timer = null;
+        }
+        go(key);
+      }
+    },
+    pending(key) {
+      const count = (s: Slot) => (s.flying ? 1 : 0) + (s.next ? 1 : 0);
+      if (key !== undefined) {
+        const s = slots.get(key);
+        return s ? count(s) : 0;
+      }
+      let n = 0;
+      for (const s of slots.values()) n += count(s);
+      return n;
+    },
+  };
+}
+
+const writer = createLatestWriter({
+  set: (fn, ms) => setTimeout(fn, ms),
+  clear: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+});
+
+/**
+ * ⚡ One part's save, folded with the quick picks around it:
+ * `makerSave(() => makerLatestWrite(key, () => save(next)), refresh, { held: true, ok })`.
+ * Resolves to the save's own result, or `SUPERSEDED` when a later pick carried it.
+ */
+export function makerLatestWrite<T>(key: string, send: () => Promise<T>): Promise<T | Superseded> {
+  return writer.write(key, send);
+}
+
+/** Writes for `key` still waiting or in flight — the client's copy of that canvas is newer than the server's. */
+export function makerWritesPending(key?: string): number {
+  return writer.pending(key);
+}
+
 /**
  * Every Maker draft save: `await makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held })`.
  * Returns the action's own result, unchanged. `held` = the bridge already drew
- * it; anything else tells the canvas to reload for the render it brings.
+ * it: no refresh is owed for it (see the docblock). Anything else sends the
+ * picks still waiting first (so it lands after them), tells the canvas to
+ * reload for the render it brings, and refreshes once per burst.
  */
 export function makerSave<T>(send: () => Promise<T>, refresh: () => void, options: MakerSaveOptions<T> = {}): Promise<T> {
   if (!options.held) announceUnheldWrite();
-  return shared.save(send, refresh, options.ok);
+  return shared.save(send, refresh, options.ok, Boolean(options.held)).then((result) => {
+    announceDraftBar(result);
+    return result;
+  });
+}
+
+/**
+ * 🖼 A held burst the bridge could NOT draw all of (a background that changes
+ * who draws the card, words the page must redraw): end it with one render.
+ * Called by the shell wherever it releases the canvas hold.
+ */
+export function makerNeedsRender(): void {
+  shared.needRender();
 }
 
 /**
@@ -129,13 +316,41 @@ export function requestMakerRefresh(): void {
   window.dispatchEvent(new Event(MAKER_REFRESH_EVENT));
 }
 
-/** Maker saves still in flight — the canvas warms no stage while one is (it could miss the save). */
+/**
+ * Maker saves still in flight — the canvas warms no stage while one is (it
+ * could miss the save). A pick still waiting for its beat counts.
+ */
 export function makerSavesInFlight(): number {
-  return shared.inFlight();
+  return shared.inFlight() + writer.pending();
 }
 
-/** Tell the Maker's canvas a write it did not draw is on its way. */
+/**
+ * Tell the Maker's canvas a write it did not draw is on its way — and send
+ * every pick still waiting for its beat FIRST, so the write lands after them
+ * (the router runs actions in the order they are sent).
+ */
 export function announceUnheldWrite(): void {
+  writer.flush();
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(MAKER_UNHELD_WRITE_EVENT));
+}
+
+/* ── the toolbar's count, from the save's own answer ─────────────────────── */
+
+/**
+ * ⚡ A save that answers with the Apply bar: the form field a held Maker pick
+ * sets (`'1'`) so `hubDraftAction` returns `bar` after the write — one request,
+ * and no whole-Maker render to learn the count. Lives here, not in
+ * `lib/hub-draft.ts`, so the pickers that set it pull in nothing more.
+ */
+export const HUB_DRAFT_BAR_FIELD = 'bar';
+
+/** The Apply bar a save answered with (`HubDraftActionResult.bar`), for the toolbar. */
+export const MAKER_DRAFT_BAR_EVENT = 'setnayan:maker-draft-bar';
+
+function announceDraftBar(result: unknown): void {
+  if (typeof window === 'undefined' || !result || typeof result !== 'object') return;
+  const bar = (result as { bar?: unknown }).bar;
+  if (!bar || typeof bar !== 'object') return;
+  window.dispatchEvent(new CustomEvent(MAKER_DRAFT_BAR_EVENT, { detail: bar }));
 }

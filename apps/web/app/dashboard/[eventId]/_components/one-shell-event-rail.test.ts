@@ -234,52 +234,53 @@ test('the account menu is reachable on the couple desktop', () => {
 
 /* ══ 5 · THE MENU IS THE SSOT'S, NOT A NEW IA ════════════════════════════ */
 
-test('the rail reproduces the moments, from the shipped SSOT', () => {
+test('the rail reproduces the five rows, from the shipped SSOT', () => {
   /*
-    🔄 2026-09-24 — "event menu by moment" (owner-approved; binding drawing
-    `event_menu_by_moment_2026-09-24.html`). Plan · Go live · Also in this
-    event became Book · Look · Invite · The day, with the event's name row,
-    the spine (Overview · Papic · Galleries) and the end of the list carrying
-    no heading. The rail still renders whatever the SSOT gives it, so a change
-    here is a change to the couple IA on the rail, ☰ and phone at once.
+    🔄 2026-09-29 — Stage D (owner: *"this is what an event needs. Guestlist ·
+    Your Team · Event Hub Maker · Our Services"*). The "by moment" headings
+    (Book · Look · Invite · The day, 2026-09-24) are gone: the rail is the
+    event's name row, then five plain rows — none with a heading (the interim
+    Seat plan row left in train n; its Details home is on main). The rail still renders whatever the SSOT gives it, so a
+    change here is a change to the couple IA on the rail, ☰ and phone at once.
   */
   const studioRows = [
     { key: 'papic', href: `/dashboard/${EVENT_ID}/studio/papic`, name: 'Papic' },
     { key: 'mood-board', href: `/dashboard/${EVENT_ID}/studio/mood-board`, name: 'Mood Board' },
   ];
   const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, studioRows });
+  assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars'], 'a section beyond the name row and the five');
+  assert.deepEqual(groups.map((g) => g.label), ['', ''], 'the five rows carry no headings');
   assert.deepEqual(
-    groups.map((g) => g.label),
-    ['', '', 'Book', 'Look', 'Invite', 'The day', ''],
-    'The moments changed. Book · Look · Invite · The day is the approved shape; ' +
-      'the name row, the spine and the end of the list carry no heading.',
-  );
-  // …and a moment with nothing in it never draws its heading.
-  const bare = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
-  assert.ok(!bare.some((g) => g.label === 'Look'), 'an empty Look moment drew a heading over nothing');
-});
-
-test('Budget is a row under Book, never a main room — owner 2026-07-10', () => {
-  const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
-  const book = groups.find((g) => g.label === 'Book');
-  assert.ok(book);
-  assert.deepEqual(
-    book.items.map((i) => i.key),
-    ['explore', 'budget'],
-    'Book is Your Team then Budget — the budget fills from what Your Team agrees ' +
-      'to. Budget is still a quiet row (2026-07-10 holds): the drawing says ' +
-      '"Still a row, not a main room".',
+    groups.find((g) => g.key === 'pillars')?.items.map((i) => i.key),
+    ['home', 'guests', 'explore', 'launch', 'studio'],
   );
 });
 
-test('every rail row is a plain leaf — "solid menu with no submenus" (2026-07-15)', () => {
+test('Budget is never a main room — owner 2026-07-10 (a part of Your Team since Stage D)', () => {
+  const rows = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true }).flatMap((g) => g.items);
+  assert.ok(!rows.some((i) => i.key === 'budget'), 'Budget is a menu row again');
+  assert.ok(
+    rows.find((i) => i.key === 'explore')?.alsoMatch?.includes(`/dashboard/${EVENT_ID}/budget`),
+    'the old /budget page must light Your Team, which holds it',
+  );
+});
+
+test('every rail row but More Services is a plain leaf — "solid menu with no submenus" (2026-07-15)', () => {
+  /* 📂 The owner's ONE exception (2026-09-30, DECISION_LOG "THE SIDEBAR ROW
+     'MORE SERVICES' EXPANDS TO THE FIVE"): the `studio` row opens to its five.
+     Every `item.children` read must sit inside that one branch — the branch
+     opens with the `studio` key check and ends at the leaf's `return (`. */
   const src = code(readFileSync(RAIL, 'utf8'));
+  const start = src.indexOf("if (item.key === 'studio' && item.children?.length)");
+  assert.ok(start >= 0, 'the More Services branch is gone — or it is no longer keyed to `studio`');
+  const end = src.indexOf('return (', src.indexOf('</ul>', start));
+  const outside = src.slice(0, start) + src.slice(end);
   assert.doesNotMatch(
-    src,
+    outside,
     /\bitem\.children\b/,
-    'The rail renders NavItem.children, which reverses the owner lock of ' +
-      '2026-07-15 ("solid menu with no submenus") silently, while looking like ' +
-      'a nicety. Sub-navigation lives inside each page.',
+    'The rail renders NavItem.children for a row other than More Services, which ' +
+      'reverses the owner lock of 2026-07-15 ("solid menu with no submenus") ' +
+      'silently, while looking like a nicety. Sub-navigation lives inside each page.',
   );
 });
 

@@ -132,7 +132,7 @@ const STAFF_OR_SHOP_OWN_TREES: ReadonlyArray<{ prefix: string; why: string }> = 
 const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate: RegExp }> =
   new Map([
   [
-    'app/dashboard/[eventId]/hosts/page.tsx',
+    'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/promote-coordinator-card.tsx',
     {
       count: 2,
       why:
@@ -143,12 +143,13 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
         '(2026-09-11) found that contact_email on THAT row is the shop\'s own ' +
         'account email, copied in by a package lock, not a business contact ' +
         'they chose to share — so it is routed to their existing chat thread ' +
-        'instead (see promotableOnPlatform below, which prints no contact field).',
+        'instead (the on-platform branch, which prints no contact field). Moved ' +
+        'here from the Hosts page in the Hosts fold (2026-09-30), whole.',
       // The reason claims BOTH the booked-only query filter AND the
       // off-platform split feed the print — so the bill proves both. Without
       // the isOffPlatformSupplier split, a marketplace-linked coordinator's
       // own account email would print here again (the original N2 defect).
-      gate: /\.eq\('category', 'planner_coordinator'\)\s*\.in\('status', \['contracted', 'deposit_paid', 'delivered', 'complete'\]\)[\s\S]*const promotableOffPlatform = promotable\.filter\(\(c\) => isOffPlatformSupplier\(c\)\);[\s\S]*promotableOffPlatform\.map\(\(c\) => \(/,
+      gate: /const BOOKED = new Set\(\['contracted', 'deposit_paid', 'delivered', 'complete'\]\);[\s\S]*const canPromote =\s*!promotePartlyRefused && BOOKED\.has\(vendor\.status\)[\s\S]*const offPlatform = isOffPlatformSupplier\(vendor\);[\s\S]*\{canPromote && offPlatform \? \(/,
     },
   ],
   [
@@ -207,17 +208,20 @@ const CONTACT_TEXT_BILL: ReadonlyMap<string, { count: number; why: string; gate:
  * Exact in both directions, like the other bills: a new file fails, and a file
  * that stops computing one fails until its line is deleted.
  */
+// ⤷ 2026-09-30: the approved Fable rows dropped the roster's call + email icons
+// ("no email to guests"); the same day the owner's full-width list brought
+// Contact back as a column a header can PICK — the mobile only, one tel:.
 const GUEST_CONTACT_BILL: ReadonlyMap<string, { count: number; why: string }> = new Map([
   [
     'app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx',
     {
-      count: 2,
+      count: 1,
       why:
-        'The roster contact column: one tel: and one mailto: for a GUEST of this ' +
-        'event, not a shop. Owner 2026-09-14 scoped Rule 1 to allow it "only for ' +
-        'the couple and if coordinator is given access" — and this file renders ' +
-        'only inside /dashboard/[eventId]/guests, which is already gated by ' +
-        'guest_list access, so a coordinator without that grant never reaches it.',
+        'The roster Contact column (owner 2026-09-30, a column any header can pick): one ' +
+        'tel: for a GUEST of this event, not a shop — never a mailto:, no email to guests. ' +
+        'Owner 2026-09-14 scoped Rule 1 to allow it "only for the couple and if coordinator ' +
+        'is given access" — and this file renders only inside /dashboard/[eventId]/guests, ' +
+        'which is already gated by guest_list access.',
     },
   ],
 ]);

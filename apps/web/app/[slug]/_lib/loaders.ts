@@ -20,15 +20,21 @@
 // slug-only — see its doc block).
 import { plusOneSeats } from '@/lib/guests';
 import { isPlaceholderSeat } from '@/lib/extra-seats';
+import { linkedSeatIds } from './plus-one-seats.server';
 import { cache } from 'react';
 import { resolveAlbumDoor } from './album-door.server';
 import { HOST_MEMBER_TYPES } from './host-scope';
 import { after } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
+import { loadNameStyle } from '@/lib/name-style.server';
+import type { NameStyle } from '@/lib/name-style';
 import {
   buildEntourage,
   ENTOURAGE_COLUMNS,
+  ENTOURAGE_COUPLE_FIELDS,
   ENTOURAGE_ROLES,
   type EntourageGroup,
   type EntourageGuestRow,
@@ -39,16 +45,19 @@ import { buildSitePaletteVars } from '@/lib/site-palette';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
-import { proSiteVarsFor } from './pro-site-vars';
+import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { asPapicStyle, type PapicStyle } from '@/lib/papic-photo-styles';
 import type { AnnouncementStage } from '@/lib/coordinator-broadcasts';
-import { resolveFaceMode, resolveFaceTagging, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceMode, type PapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
+import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
+import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { dayOfFaceCatchShows, type FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { resolveGuestCamera } from '@/lib/papic-limited';
-import { eventSeatingPublished } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { DEFAULT_STUDIO_ANIM, heroMarkSvg } from '@/lib/hero-monogram-data';
@@ -140,7 +149,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -273,7 +282,10 @@ export function guestLookFrom(
     theme: hub.theme === 'house' ? null : hub.theme,
     art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
     accent: hub.accent,
-    vars: vars && Object.keys(vars).length > 0 ? vars : null,
+    // 🔒 LAST: the plate keeps an ink that reads on the plate paper every layer
+    // above left it with (owner 2026-09-30, "I cannot see the venues properly" —
+    // a dark theme's light plate ink met a mood-board palette's light plate).
+    vars: vars && Object.keys(vars).length > 0 ? pinPlateInk(vars, hub.theme) : null,
     ombre,
   };
 }
@@ -729,7 +741,7 @@ export const loadMedia = cache(
         venue_address: event.venue_address,
       }),
     };
-    const eventVenues = resolveEventVenues(venueBookings, {
+    const resolvedVenues = resolveEventVenues(venueBookings, {
       venue_name: event.venue_name,
       venue_address: event.venue_address,
       venue_latitude: event.venue_latitude,
@@ -738,6 +750,19 @@ export const loadMedia = cache(
       std_film_venue_name: event.std_film_venue_name as string | null,
       ceremony_venue_address: (event as { ceremony_venue_address?: string | null }).ceremony_venue_address ?? null,
     });
+    // 🏛📷 Each venue card's picture (owner 2026-09-30), signed here beside the
+    // other site media. The ref was already checked against the supplier's
+    // CURRENT public photos or this event's own upload folder
+    // (`applyVenueChoices`), and the signer refuses anything outside the public
+    // media bucket. A picture is not the address: a public shop photo (or the
+    // couple's own) names no more than the venue NAME a guest already reads
+    // before replying, so `withheldVenue` leaves it on the card.
+    const eventVenues = await Promise.all(
+      resolvedVenues.map(async (v) => ({
+        ...v,
+        photoUrl: v.photo ? await displayUrlForStoredAsset(siteMediaServeRef(v.photo)).catch(() => null) : null,
+      })),
+    );
 
     // Resolve the couple-curated "Our photos" gallery (Increment A.4) to display
     // URLs up-front so both render paths share the result. events.our_photos is a
@@ -1139,7 +1164,7 @@ export const loadDoorwayFacts = cache(
     );
     const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
     const [seatingPublished, enabledEgiftCount] = await Promise.all([
-      seatingSurfaceEnabled ? eventSeatingPublished(admin, eventId) : Promise.resolve(false),
+      seatingSurfaceEnabled ? guestsMaySeeSeatsFor(admin, eventId) : Promise.resolve(false),
       pabuyaRouteEnabled
         ? fetchEgiftMethods(admin, eventId, { enabledOnly: true }).then((m) => m.length)
         : Promise.resolve(0),
@@ -1182,7 +1207,7 @@ export const loadGuestContext = cache(
     const { data: guest, error: guestError } = await admin
       .from('guests')
       .select(
-        'guest_id, first_name, last_name, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
+        'guest_id, first_name, last_name, name_prefix, middle_name, name_suffix, display_name, role, side, group_category, plus_one_of_guest_id, plus_one_mode, plus_one_name_confirmed_at, plus_one_allowed, plus_one_count, plus_one_name, rsvp_status, meal_preference, dietary_restrictions, guest_note, custom_tags, qr_token, photo_url, photo_source, email, mobile',
       )
       .eq('guest_id', session.guest_id)
       .is('deleted_at', null)
@@ -1345,6 +1370,29 @@ export const loadGuestContext = cache(
       ? null
       : ((wishRow as { face_tagging_wanted?: boolean | null } | null)?.face_tagging_wanted ?? null);
     let needsFaceEnroll = false;
+    // 📸 IS THE FACE SCREEN OPEN RIGHT NOW (owner 2026-09-30 — the selfie is
+    // taken ON THE DAY): askable, and the guest capture window open — the same
+    // resolver the guest camera and the upload route close on. Me's "Face
+    // tagging" row offers the selfie only then. A failed read keeps it shut.
+    let faceStepOpen = false;
+    if (faceTagging.askable) {
+      const { data: gateRow, error: gateErr } = await admin
+        .from('events')
+        .select(GUEST_CAPTURE_GATE_COLUMNS)
+        .eq('event_id', event.event_id)
+        .maybeSingle();
+      if (gateErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select(capture gate)', gateErr);
+      const g = gateRow as { event_date?: string | null; papic_guest_capture_early?: boolean | null; papic_window_start?: string | null; papic_window_end?: string | null } | null;
+      faceStepOpen =
+        !gateErr &&
+        Boolean(g) &&
+        guestCaptureGate({
+          earlyAllowed: g?.papic_guest_capture_early,
+          eventDate: g?.event_date,
+          windowStart: g?.papic_window_start,
+          windowEnd: g?.papic_window_end,
+        }).state === 'open';
+    }
     if (await isDataPrivacyControlActive('face_enrollment')) {
       if (guest.rsvp_status !== 'declined') {
         const { data: liveEnrollment, error: enrollError } = await admin
@@ -1372,7 +1420,9 @@ export const loadGuestContext = cache(
           : dayOfFaceCatchShows({
               // A failed wish read is silence too — never a re-ask of a "No".
               askable: faceTagging.askable && !wishError,
-              enrolled: Boolean(liveEnrollment),
+              // A seat that reuses its account's face here (owner 2026-09-30,
+              // "No selfie needed on the day") has nothing to be asked for.
+              enrolled: Boolean(liveEnrollment) || (await guestReusesAccountFace(admin, event.event_id, guest.guest_id)),
               wish: faceTaggingWish,
             });
       }
@@ -1436,6 +1486,8 @@ export const loadGuestContext = cache(
             // "what did the admin set", not "what runs on this event".
             (styleRow as { face_tagging_declined_by_couple?: boolean | null } | null)
               ?.face_tagging_declined_by_couple,
+            // ⚖ Automatic (owner 2026-09-30): this block runs only with Papic on.
+            papicGuestActive,
           ),
         };
       }
@@ -1446,9 +1498,15 @@ export const loadGuestContext = cache(
     // Graceful-degrade: if the join fails or no assignment exists, tableLabel
     // stays null and the card shows "Not yet assigned" — safe for every event
     // regardless of whether the seating editor has been used.
+    //
+    // 🪑 Read ONLY when guests may see their seats (`doorway.seatingPublished`
+    // is `guestsMaySeeSeatsFor` — on the event's day, or early by the couple's
+    // switch). Every reader of `tableLabel` downstream (the hub card's seat
+    // tile, YourSeatBlock, the door line, the keepsake) then withholds the
+    // table before the day without each having to ask.
     let guestTableLabel: string | null = null;
     let guestTableId: string | null = null;
-    try {
+    if (doorway.seatingPublished) try {
       const { data: assignmentRow } = await admin
         .from('event_seat_assignments')
         .select('table_id')
@@ -1570,6 +1628,7 @@ export const loadGuestContext = cache(
         `${guest.first_name} ${guest.last_name}`.trim(),
       rsvpStatus: guest.rsvp_status,
       tableLabel: guestTableLabel,
+      seatsOpen: seatPassActive,
       mealPreference: guest.meal_preference,
       dietaryRestrictions: guest.dietary_restrictions,
       // "Coming up" follows the host-set run-of-show pointer when the trigger
@@ -1640,6 +1699,7 @@ export const loadGuestContext = cache(
       if (seatErr) {
         logQueryError('loadGuestContext.seats', seatErr, { event_id: event.event_id }, 'graceful_degrade');
       } else {
+        const linked = await linkedSeatIds(admin, event.event_id, (seatRows ?? []).map((r) => r.guest_id as string));
         plusOneSeatRows = (seatRows ?? []).map((r) => {
           const placeholder = isPlaceholderSeat({
             guest_id: r.guest_id as string,
@@ -1651,8 +1711,12 @@ export const loadGuestContext = cache(
             name: placeholder ? null : `${r.first_name ?? ''} ${r.last_name ?? ''}`.trim() || null,
             first: placeholder ? null : ((r.first_name as string | null) ?? null),
             last: placeholder ? null : ((r.last_name as string | null) ?? null),
+            prefix: placeholder ? null : ((r.name_prefix as string | null) ?? null),
+            middle: placeholder ? null : ((r.middle_name as string | null) ?? null),
+            suffix: placeholder ? null : ((r.name_suffix as string | null) ?? null),
             meal: (r.meal_preference as string | null) ?? null,
             dietary: (r.dietary_restrictions as string | null) ?? null,
+            linked: linked.has(r.guest_id as string),
           };
         });
       }
@@ -1677,6 +1741,7 @@ export const loadGuestContext = cache(
       seatMap,
       rsvpFaceMode,
       faceTaggingAskable: faceTagging.askable,
+      faceStepOpen,
       eventVendorCredits,
     };
   },
@@ -1727,6 +1792,29 @@ export const loadEntourageSectionOrder = cache(
   },
 );
 
+/**
+ * The couple's own words for roles (`events.role_names`, owner 2026-09-30 —
+ * Bridesmaid → "Bride's Crew"). Same posture as the section order above: its
+ * own query, and an unreadable value prints the USUAL words, never a broken
+ * page. Cached per request, so the entourage, the dress code and the "You are"
+ * line all read it once.
+ */
+export const loadEventRoleNames = cache(
+  async (admin: AdminClient, eventId: string): Promise<RoleNames> =>
+    loadRoleNames(admin, eventId, 'loadEventRoleNames'),
+);
+
+/**
+ * The event's Name style (`events.print_details.name_style`, owner 2026-09-30
+ * — Full · Middle initial · Surname first). Same posture as the role words: its
+ * own query, cached per request, and an unreadable value prints Full — the
+ * names as they printed before the style existed — never a broken page.
+ */
+export const loadEventNameStyle = cache(
+  async (admin: AdminClient, eventId: string): Promise<NameStyle> =>
+    loadNameStyle(admin, eventId, 'loadEventNameStyle'),
+);
+
 export const loadEntourage = cache(
   async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
@@ -1737,7 +1825,8 @@ export const loadEntourage = cache(
         column the query never names cannot be printed, and the section looked
         correct while dropping "Atty." from a ninong's name.
       */
-      .select(ENTOURAGE_COLUMNS)
+      // + who is a real COUPLE (owner 2026-09-30): walking together alone prints both full names.
+      .select(`${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`)
       .eq('event_id', eventId)
       /*
         🔴 A GUEST THE COUPLE REMOVED IS NOT ON THE INVITATION.
@@ -1773,6 +1862,8 @@ export const loadEntourage = cache(
     return buildEntourage(
       (data ?? []) as EntourageGuestRow[],
       await loadEntourageSectionOrder(admin, eventId),
+      await loadEventRoleNames(admin, eventId),
+      await loadEventNameStyle(admin, eventId),
     );
   },
 );

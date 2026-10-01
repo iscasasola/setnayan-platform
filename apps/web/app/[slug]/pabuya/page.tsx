@@ -6,7 +6,7 @@ import { notFound, redirect } from 'next/navigation';
 import { Logo } from '@/app/_components/logo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventWordsFor } from '../_lib/event-words';
+import { eventWordsFor, giftIsMoneyDance } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
@@ -35,7 +35,7 @@ export const revalidate = 300;
 
 // noindex — payment handles should not be search-indexed.
 export const metadata = {
-  title: 'A blessing',
+  title: 'E-Gifts',
   robots: { index: false, follow: false },
 };
 
@@ -176,6 +176,14 @@ export default async function PabuyaPublicPage({
     Now: withheld if EITHER identifier was present on the row and is absent
     from the card.
   */
+  /* 🎁 SAY ONLY WHAT IS THERE (guest text audit 2026-09-30). The line used to
+     promise "Scan a QR or copy a handle" whatever the couple had set up — a
+     bank-only page offered a QR that did not exist, and "handle" is nobody's
+     word for an account number. It names the ways this couple actually has. */
+  const howToSend = howToSendLine({
+    qr: methods.some((m) => Boolean(m.qrDisplayUrl)),
+    number: methods.some((m) => Boolean(m.handle)),
+  });
   const identifiersWithheld = cards.some(
     (c, i) =>
       (c.handle === null && methods[i]?.handle != null) ||
@@ -218,23 +226,32 @@ export default async function PabuyaPublicPage({
                 Filipino wake — "with gentler wording than a wedding's digital
                 money dance". Pinning cash is the dance's own gesture, so the
                 solemn arm replaces the sentence, not a word in it. */}
-            {words.solemn ? 'A gift of sympathy' : 'The pabuya · digital money dance'}
+            {/* 💃 The money dance is a WEDDING tradition (2026-09-30); every
+                other celebratory type gets the plain eyebrow. */}
+            {words.solemn
+              ? 'A gift of sympathy'
+              : giftIsMoneyDance(words)
+                ? 'The pabuya · digital money dance'
+                : 'The pabuya · E-Gifts'}
           </p>
           <h1 className="mt-2 font-display text-3xl font-medium italic sm:text-4xl">
-            A blessing for {hostName}
+            E-Gifts for {hostName}
           </h1>
           <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-ink/65">
             {words.solemn ? (
               <>
                 A quiet way to help {words.theOrganizer} — wherever you are in
-                the world. Scan a QR or copy a handle and send it straight to
-                their own account.
+                the world.{howToSend ? ` ${howToSend}` : ''}
+              </>
+            ) : giftIsMoneyDance(words) ? (
+              <>
+                Pin your cash on {words.theOrganizer} — wherever you are in the
+                world.{howToSend ? ` ${howToSend}` : ''}
               </>
             ) : (
               <>
-                Pin your cash on {words.theOrganizer} — wherever you are in the
-                world. Scan a QR or copy a handle and send it straight to their
-                own account.
+                Send E-Gifts to {words.theOrganizer} — wherever you are in the
+                world.{howToSend ? ` ${howToSend}` : ''}
               </>
             )}
           </p>
@@ -296,4 +313,12 @@ export default async function PabuyaPublicPage({
       <RoomFooter links={roomLinks} />
     </main>
   );
+}
+
+/** The one sentence on how to send — only the ways this couple set up. */
+function howToSendLine(has: { qr: boolean; number: boolean }): string | null {
+  if (has.qr && has.number) return 'Scan a QR code or copy an account number, and send it straight to their own account.';
+  if (has.qr) return 'Scan a QR code and send it straight to their own account.';
+  if (has.number) return 'Copy an account number and send it straight to their own account.';
+  return null;
 }

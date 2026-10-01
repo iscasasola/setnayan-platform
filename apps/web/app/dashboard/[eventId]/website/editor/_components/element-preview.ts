@@ -26,7 +26,7 @@
  * Pure. No DOM, no React — `element-preview.test.ts` drives every rule here.
  */
 import { hubBackgroundIsMedia, resolveHubBackground, type HubSectionCanvas } from '@/lib/hub-canvas';
-import type { HubElementKey, HubElementStyles } from '@/lib/element-style';
+import { HUB_ELEMENT_LABEL, type HubElementKey, type HubElementStyles } from '@/lib/element-style';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
 
 /* ── 1 · WHAT THE CANVAS IS TOLD ─────────────────────────────────────────── */
@@ -84,6 +84,35 @@ export function revertAfterFailedSave(
   saved: HubSectionCanvas,
 ): HubSectionCanvas | null {
   return latest === failed ? saved : null;
+}
+
+/** What a refused save put back, in the couple's words ("the mark's size"). */
+const CHOICE_WORDS: Record<string, string> = {
+  font: 'font',
+  weight: 'weight',
+  italic: 'italic',
+  underline: 'underline',
+  color: 'colour',
+  size: 'size',
+  align: 'alignment',
+  leading: 'line spacing',
+  tracking: 'letter spacing',
+  hidden: 'show or hide choice',
+  word: 'words',
+  motion: 'animation',
+  style: 'style',
+};
+
+/**
+ * ↩ A REFUSED PICK, IN WORDS — what did not save, and that it was put back
+ * (owner 2026-09-30, SPEED FIRST: "failures revert that one field and say so
+ * in words"): "Your mark: the new size did not save — it is back as it was."
+ */
+export function refusedChoiceWords(el: HubElementKey, choice: string, serverError: string | null): string {
+  const what = CHOICE_WORDS[choice] ?? 'change';
+  const back = what === 'words' ? 'they are back as they were' : 'it is back as it was';
+  const lead = `${HUB_ELEMENT_LABEL[el]}: the new ${what} did not save — ${back}.`;
+  return serverError ? `${lead} ${serverError}` : `${lead} Please try again.`;
 }
 
 /* ── 2 · THE CANVAS HOLD ─────────────────────────────────────────────────── */

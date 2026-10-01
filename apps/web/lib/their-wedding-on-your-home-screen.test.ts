@@ -2,10 +2,13 @@
  * THEIR WEDDING ON YOUR HOME SCREEN — owner, 2026-09-20: teach a guest on a
  * phone to save the invitation as an icon, "so they can access it anytime".
  *
- * The three ways this ships broken, all executed here:
+ * The two ways this ships broken, both executed here:
  *   1. the tile opens OUR app instead of their invitation (start_url/scope);
- *   2. iOS gets an SVG it cannot use, and the guest gets a grey tile;
- *   3. an already-installed guest is taught to install again.
+ *   2. iOS gets an SVG it cannot use, and the guest gets a grey tile.
+ *
+ * (A third — "an already-installed guest is taught to install again" — went
+ * with the on-page teaching card itself, 2026-09-30: the owner removed it from
+ * the Event Hub. See the-event-hub-has-no-home-screen-card.test.ts.)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -13,12 +16,10 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   DEFAULT_ICON_BG,
-  INSTALL_STEPS,
   buildEventIconSvg,
   buildEventManifest,
   homeScreenLabel,
   iconInitials,
-  installPlatform,
   safeHex,
   unwrapMark,
 } from './event-app-icon';
@@ -78,26 +79,6 @@ test('a bad colour never reaches the markup', () => {
   assert.equal(safeHex('red', DEFAULT_ICON_BG), DEFAULT_ICON_BG);
   assert.equal(safeHex('"><script>', DEFAULT_ICON_BG), DEFAULT_ICON_BG);
   assert.equal(safeHex(null, DEFAULT_ICON_BG), DEFAULT_ICON_BG);
-});
-
-test('an installed guest is never taught to install again', () => {
-  assert.equal(installPlatform({ userAgent: 'iPhone Safari', standalone: true }), 'installed');
-  assert.equal(INSTALL_STEPS.installed.length, 0);
-});
-
-test('iOS Safari gets the Share steps; another iOS browser is told the truth', () => {
-  const iphoneSafari =
-    'mozilla/5.0 (iphone; cpu iphone os 17_0 like mac os x) applewebkit/605.1.15 version/17.0 mobile/15e148 safari/604.1';
-  assert.equal(installPlatform({ userAgent: iphoneSafari, standalone: false }), 'ios-safari');
-  assert.match(INSTALL_STEPS['ios-safari'].join(' '), /Add to Home Screen/);
-
-  const iphoneChrome = iphoneSafari.replace('version/17.0', 'crios/120.0');
-  assert.equal(installPlatform({ userAgent: iphoneChrome, standalone: false }), 'ios-other');
-  assert.match(INSTALL_STEPS['ios-other'].join(' '), /only Safari/i, 'Chrome on iOS cannot install');
-
-  const android = 'mozilla/5.0 (linux; android 14; pixel 8) applewebkit/537.36 chrome/120 mobile safari/537.36';
-  assert.equal(installPlatform({ userAgent: android, standalone: false }), 'android');
-  assert.equal(installPlatform({ userAgent: 'mozilla/5.0 (macintosh)', standalone: false }), 'desktop');
 });
 
 test('both public routes ask the visibility question themselves', () => {

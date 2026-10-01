@@ -134,9 +134,11 @@ test('1 · every question on the card is its own step — nothing answerable sit
 test('2 · no card around the reply, the ticket, the pass, the change link or the notices', () => {
   assert.doesNotMatch(WIDGET, /pahina-deckle/, 'the reply card is a card again');
   assert.doesNotMatch(read('[slug]/_components/pahina-keepsake.tsx'), /pahina-deckle/, 'the ticket is a card again');
-  const pass = BODY.slice(BODY.indexOf('const passCard = '), BODY.indexOf('<GuestCodeKeepers', BODY.indexOf('const passCard = ')));
-  assert.doesNotMatch(pass, /shadow-lg|rounded-2xl border|bg-mulberry px-5/, 'the pass sits in a card again');
-  assert.match(pass, /rounded-xl bg-white p-3/, 'the QR itself (the object) must stay');
+  // The pass is the Digital ticket on Me since 2026-09-30 (guest-ticket.tsx):
+  // the ticket picture IS the object, with nothing boxed around it.
+  const pass = read('[slug]/_components/guest-ticket.tsx');
+  assert.doesNotMatch(pass, /shadow-lg|rounded-2xl border|bg-mulberry px-5/, 'the ticket sits in a card again');
+  assert.match(pass, /<TicketPicture\b/, 'the ticket itself (the object) must stay');
   assert.doesNotMatch(read('[slug]/_components/scan-trail-notice.tsx'), /rounded-xl border/);
   assert.doesNotMatch(read('[slug]/_components/face-data-notice.tsx'), /rounded-xl border/);
   const change = BODY.slice(BODY.indexOf('href="#your-details"'), BODY.indexOf('</a>', BODY.indexOf('href="#your-details"')));
@@ -167,10 +169,20 @@ test('4 · flipping a DRAFT switch changes the canvas form, before Apply', async
   const without = resolveRsvpAsk(drafted.rsvp_ask_config);
   const before = await card({ ask: withMeal, oneAtATime: askOneAtATime(live.rsvp_ask_config) });
   const after = await card({ ask: without, oneAtATime: askOneAtATime(drafted.rsvp_ask_config) });
+  // 🗳 Since the RSVP stage (#6176) the canvas DRAWS every question and hides
+  // a switched-off one (`data-rsvp-ask` + `hidden`), so the next flip shows it
+  // on the tap with no new page. Off = hidden on the canvas; on = shown.
+  const shown = (html: string, ask: string) => {
+    const tag = new RegExp(`<[a-z]+[^>]*data-rsvp-ask="${ask}"[^>]*>`).exec(html)?.[0];
+    assert.ok(tag, `the ${ask} question is not drawn on the canvas at all`);
+    return !/\shidden=""/.test(tag!);
+  };
   assert.match(before, /name="meal_preference"/);
-  assert.doesNotMatch(after, /name="meal_preference"/, 'the meal question survives the switch being off');
+  assert.equal(shown(before, 'meal'), true);
+  assert.equal(shown(after, 'meal'), false, 'the meal question survives the switch being off');
   assert.match(before, /name="song_title"/);
-  assert.doesNotMatch(after, /name="song_title"/, 'the song question survives the switch being off');
+  assert.equal(shown(before, 'song_request'), true);
+  assert.equal(shown(after, 'song_request'), false, 'the song question survives the switch being off');
   assert.doesNotMatch(before, /data-rsvp-progress|Back/);
   // Both surfaces read the one value, from the overlaid (draft) event.
   assert.match(REPLY, /const event = overlayHubDraftEvent\(liveEvent as Record<string, unknown>, hostDraft\)/);
@@ -180,13 +192,13 @@ test('4 · flipping a DRAFT switch changes the canvas form, before Apply', async
 
 test('4 · every switched-on question is shown in the canvas, none waiting on "attending"', async () => {
   const html = await card({ ask: {} });
-  for (const name of ['rsvp_status', 'plus_one_first_name_1', 'meal_preference', 'dietary_restrictions', 'song_title', 'guest_note', 'contact_email', 'contact_mobile', 'terms_agreed']) {
+  for (const name of ['rsvp_status', 'plus_one_first_name_1', 'meal_preference', 'dietary_restrictions', 'song_title', 'guest_note', 'contact_mobile', 'terms_agreed']) {
     assert.match(html, new RegExp(`name="${name}"`), `${name} is missing from the canvas`);
   }
   const plus = html.indexOf('id="plus-ones"');
   assert.doesNotMatch(html.slice(plus, plus + 200), /attending-reveal/, 'the canvas hides the plus-one question behind a tap');
   // …in the reference order: answer · who you bring · meal · dietary · song · note · contact · Terms.
-  const order = ['name="rsvp_status"', 'id="plus-ones"', 'name="meal_preference"', 'name="dietary_restrictions"', 'name="song_title"', 'name="guest_note"', 'name="contact_email"', 'name="terms_agreed"'];
+  const order = ['name="rsvp_status"', 'id="plus-ones"', 'name="meal_preference"', 'name="dietary_restrictions"', 'name="song_title"', 'name="guest_note"', 'name="contact_mobile"', 'name="terms_agreed"'];
   const at = order.map((k) => html.indexOf(k));
   assert.deepEqual([...at].sort((a, b) => a - b), at, `the questions are out of order: ${at.join(',')}`);
 });
@@ -246,7 +258,9 @@ test('7 · the one-at-a-time switch: label, knob and value are the same value', 
     assert.match(block, on ? /On · one question per screen/ : /Off · one scrolling page/);
   }
   const SRC = read('dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
-  assert.match(SRC, /setLocal\(JSON\.parse\(currentKey\) as RsvpAskConfig\);/, 'the switch keeps a value the draft no longer holds');
+  // (#6176: re-seeded through `saved.current`, which `seen()` normalises.)
+  assert.match(SRC, /saved\.current = seen\(JSON\.parse\(currentKey\) as RsvpAskConfig\);/);
+  assert.match(SRC, /setLocal\(saved\.current\);\s*\}, \[currentKey\]\);/, 'the switch keeps a value the draft no longer holds');
 });
 
 // ═══ 8 · the preview wears this event's own guest (owner 2026-09-27) ══════

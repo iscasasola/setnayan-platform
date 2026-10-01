@@ -117,11 +117,6 @@ export function sheetDate(ymd: string | null | undefined, withYear = true): stri
   });
 }
 
-/** ₱ with thousands, no centavos — the sheet's one money shape. */
-export function sheetPeso(php: number): string {
-  return `₱${Math.round(php).toLocaleString('en-PH')}`;
-}
-
 /**
  * The date the way onboarding captured it: a committed date (to its
  * precision), a flexible window, a set of candidate dates, or null (not set

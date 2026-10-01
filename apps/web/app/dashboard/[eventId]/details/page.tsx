@@ -26,6 +26,8 @@ import { legacyCommittedVendorsPhp } from '@/lib/budget-page-money';
 import { ORDER_STATUS_LABEL, fetchOrdersForEvent } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { formatPhp, formatPhpRounded } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
@@ -49,7 +51,6 @@ import {
   rsvpQuestions,
   sectionTitle,
   sheetDate,
-  sheetPeso,
   type EventDetailsSectionKey,
 } from '@/lib/event-details-sheet';
 import { PutAwayCard } from './_components/put-away-card';
@@ -138,7 +139,10 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
   const words = eventWordsFromProfile(profile);
   const eventWord = words.eventWord;
   const maker = surfaceEnabled(profile, 'website');
-  const guestsHidden = isDelegateWithoutArea(viewer, 'guest_list');
+  // A helper the couple did not give the guest list reads "Hidden by the couple",
+  // never an empty list — the guest read below is skipped for them.
+  const mayReadGuests = !isDelegateWithoutArea(viewer, 'guest_list');
+  const guestsHidden = !mayReadGuests;
   const suppliersHidden = isDelegateWithoutArea(viewer, 'vendors');
   const moneyHidden = !budgetAccess.mayRead;
 
@@ -173,7 +177,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
               limit: 50,
             }),
           ),
-      guestsHidden ? Promise.resolve(null) : settle(fetchGuestsByEventMeasured(supabase, eventId)),
+      mayReadGuests ? settle(fetchGuestsByEventMeasured(supabase, eventId)) : Promise.resolve(null),
       moneyHidden ? Promise.resolve(null) : settle(fetchOrdersForEvent(supabase, eventId)),
       moneyHidden ? Promise.resolve(null) : settle(getEffectiveVatRatePct(supabase)),
       moneyHidden
@@ -362,7 +366,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
               <Row
                 key={p.id}
                 label={sheetDate(p.date.toISOString(), false) ?? '—'}
-                value={`${p.vendorBusinessName ?? p.subtitle} · ${p.title}${p.amountCentavos != null ? ` ${sheetPeso(p.amountCentavos / 100)}` : ''}`}
+                value={`${p.vendorBusinessName ?? p.subtitle} · ${p.title}${p.amountCentavos != null ? ` ${formatPhp(p.amountCentavos / 100)}` : ''}`}
                 hint="Supplier payment"
               />
             ))
@@ -421,7 +425,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
           <Row
             fact="estimate"
             label="Your estimate"
-            value={estimate != null && estimate > 0 ? `About ${estimate}` : null}
+            value={estimate != null && estimate > 0 ? `About ${formatCount(estimate)}` : null}
             hint="From onboarding"
             lock={bookingLocks && eventWord === 'wedding' ? lockNote('Your guest estimate') : null}
           />
@@ -432,10 +436,10 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
               guestsHidden
                 ? HIDDEN_BY_THE_COUPLE
                 : stats
-                  ? `${stats.total} on your list`
+                  ? `${formatCount(stats.total)} on your list`
                   : COULD_NOT_LOAD
             }
-            hint={stats && stats.plus_ones > 0 ? `${stats.total + stats.plus_ones} expected with their plus-ones` : null}
+            hint={stats && stats.plus_ones > 0 ? `${formatCount(stats.total + stats.plus_ones)} expected with their plus-ones` : null}
           />
           <Row fact="guests-get-in" label="How guests get in" value={getIn.value} hint={getIn.chosen ? null : 'The default — not chosen yet'} />
           <Row label="Guest list closes" value={sheetDate(str('guest_list_edit_deadline'))} />
@@ -453,15 +457,15 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
                 label="Target"
                 value={
                   money
-                    ? [budgetBand, money.target != null && money.target > 0 ? `about ${sheetPeso(money.target)}` : null].filter(Boolean).join(' · ') || null
+                    ? [budgetBand, money.target != null && money.target > 0 ? `about ${formatPhpRounded(money.target)}` : null].filter(Boolean).join(' · ') || null
                     : COULD_NOT_LOAD
                 }
               />
               {money ? (
                 <>
-                  <Row label="Agreed" value={sheetPeso(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} locked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
-                  <Row label="Paid" value={sheetPeso(money.paid)} />
-                  <Row label="Still owed" value={sheetPeso(money.owed)} />
+                  <Row label="Agreed" value={formatPhp(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} locked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
+                  <Row label="Paid" value={formatPhp(money.paid)} />
+                  <Row label="Still owed" value={formatPhp(money.owed)} />
                 </>
               ) : null}
             </>
@@ -498,7 +502,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
               !poolRead.ok
                 ? COULD_NOT_LOAD
                 : pool.applies
-                  ? `${pool.remainingPoints.toLocaleString('en-PH')} of ${pool.totalPoints.toLocaleString('en-PH')} credits left`
+                  ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
                   : 'Not added'
             }
           />
@@ -518,11 +522,11 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
                 <Row
                   key={o.order_id}
                   label={sheetDate(o.created_at) ?? '—'}
-                  value={`${o.description} · ${sheetPeso(grossOf(o) ?? 0)}`}
+                  value={`${o.description} · ${formatPhp(grossOf(o) ?? 0)}`}
                   hint={ORDER_STATUS_LABEL[o.status]}
                 />
               ))}
-              <Row fact="purchases" label="Total paid" value={sheetPeso(totalPaid)} hint="Including VAT" />
+              <Row fact="purchases" label="Total paid" value={formatPhp(totalPaid)} hint="Including VAT" />
             </>
           )}
         </Section>

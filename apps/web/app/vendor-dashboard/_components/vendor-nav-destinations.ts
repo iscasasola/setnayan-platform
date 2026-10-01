@@ -68,6 +68,15 @@
  *     and catering jargon and a florist does not use it; the room's own
  *     heading still may.
  *
+ * ─── RE-CUT 2026-10-01 — FOUR WORDS, THE PHONE'S FOUR ────────────────────
+ * Owner-APPROVED (DECISION_LOG "THE SUPPLIER PHONE APP — APPROVED, WITH THE
+ * THREE RECOMMENDED ANSWERS"): the bar is **Today · Customers · Shop · More**,
+ * and the rail uses the same four words in the same order (the
+ * phone-menu-matches-sidebar rule). `performance` (Insights) and `on-the-day`
+ * (Event Hub) left the menu for More, with Messages; their registry slots
+ * still name their rows there. `overview · customers · shop` kept their keys —
+ * the staff filter, the registry and the badge map read them. `more` is new.
+ *
  * 🔑 THE KEYS DID NOT MOVE, and that is the whole reason this is safe: the
  * staff role filter, the admin's rename registry (`vendor.sidebar.<key>`),
  * the per-section localStorage and the badge map all key off them, and three
@@ -75,7 +84,7 @@
  * `vendor-rail-context.test.ts` pins the pair.
  */
 
-import { Home, ShoppingBag, Users, Gauge, CalendarCheck } from 'lucide-react';
+import { Home, ShoppingBag, Users, MoreHorizontal } from 'lucide-react';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { NavGroup, NavItem, NavBadge } from '@/app/_components/nav/types';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -105,31 +114,28 @@ export const VENDOR_DESTINATIONS: readonly NavItem[] = [
   },
   {
     key: 'customers',
-    label: 'My Customers',
+    label: 'Customers',
     href: '/vendor-dashboard/customers',
     icon: Users,
     matchPrefix: '/vendor-dashboard/customers',
   },
   {
     key: 'shop',
-    label: 'My Shop',
+    label: 'Shop',
     href: '/vendor-dashboard/shop',
     icon: ShoppingBag,
     matchPrefix: '/vendor-dashboard/shop',
   },
   {
-    key: 'performance',
-    label: 'My Performance',
-    href: '/vendor-dashboard/performance',
-    icon: Gauge,
-    matchPrefix: '/vendor-dashboard/performance',
-  },
-  {
-    key: 'on-the-day',
-    label: 'Event Hub',
-    href: '/vendor-dashboard/on-the-day',
-    icon: CalendarCheck,
-    matchPrefix: '/vendor-dashboard/on-the-day',
+    // The rows inside More (Calendar · Earnings & payday · Messages · Insights
+    // · Event Hub · Notifications · Plan) are `lib/vendor-more-rows.ts`, the one
+    // list the phone's More sheet and the /more page both draw. The rail lights
+    // this row on every one of their rooms (`VENDOR_MORE_MATCH`).
+    key: 'more',
+    label: 'More',
+    href: '/vendor-dashboard/more',
+    icon: MoreHorizontal,
+    matchPrefix: '/vendor-dashboard/more',
   },
 ] as const;
 

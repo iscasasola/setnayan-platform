@@ -315,8 +315,8 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
       .join(' · ');
     return { value: null, hint: hint || null, locked: false };
   };
-  const ceremonyVenue = venueRow('ceremony', venuesWon.ceremony, str('std_film_ceremony_name'), str('ceremony_venue_setting'));
-  const receptionVenue = venueRow(
+  const ceremonySheetRow = venueRow('ceremony', venuesWon.ceremony, str('std_film_ceremony_name'), str('ceremony_venue_setting'));
+  const receptionSheetRow = venueRow(
     'reception',
     venuesWon.reception,
     str('venue_name') ?? str('std_film_venue_name'),
@@ -404,15 +404,15 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
               <Row
                 fact="venues"
                 label={eventWord === 'wedding' ? 'Ceremony' : 'Ceremony venue'}
-                value={ceremonyVenue.value}
-                hint={ceremonyVenue.hint}
-                lock={ceremonyVenue.locked ? lockNote(ceremonyVenue.value ?? 'This venue') : null}
+                value={ceremonySheetRow.value}
+                hint={ceremonySheetRow.hint}
+                lock={ceremonySheetRow.locked ? lockNote(ceremonySheetRow.value ?? 'This venue') : null}
               />
               <Row
                 label="Reception"
-                value={receptionVenue.value}
-                hint={receptionVenue.hint}
-                lock={receptionVenue.locked ? lockNote(receptionVenue.value ?? 'This venue') : null}
+                value={receptionSheetRow.value}
+                hint={receptionSheetRow.hint}
+                lock={receptionSheetRow.locked ? lockNote(receptionSheetRow.value ?? 'This venue') : null}
               />
             </>
           ) : (

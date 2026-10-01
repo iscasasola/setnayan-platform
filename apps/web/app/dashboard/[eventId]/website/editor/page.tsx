@@ -125,7 +125,7 @@ import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { ourStoryRenders } from '@/app/[slug]/_components/our-story';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
-import { ENTOURAGE_ROLES } from '@/lib/entourage';
+import { ENTOURAGE_COLUMNS, ENTOURAGE_ROLES } from '@/lib/entourage';
 import { formatEventDate } from '@/lib/events';
 import { nameStyleOfPrintDetails, type NameParts } from '@/lib/name-style';
 import { splitStoredName } from '@/lib/details-your-event';
@@ -529,8 +529,10 @@ export default async function WebsiteEditorPage({
      typed (drafted over live). Read-only; the bar saves through the prints' door. */
   const { data: couplePeople, error: couplePeopleErr } = await supabase
     .from('guests')
-    .select('name_prefix, first_name, middle_name, last_name, name_suffix, role')
+    // The entourage's own list (`ENTOURAGE_COLUMNS`) — the name parts the formal surfaces style.
+    .select(ENTOURAGE_COLUMNS)
     .eq('event_id', eventId)
+    .is('deleted_at', null)
     .in('role', ['bride', 'celebrant', 'groom'])
     .limit(3);
   if (couplePeopleErr) logQueryError('WebsiteEditorPage.couplePeople', couplePeopleErr, { eventId }, 'graceful_degrade');

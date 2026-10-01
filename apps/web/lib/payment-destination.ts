@@ -103,3 +103,60 @@ export function describeDestinationChange(
     .map((f) => `${f}: ${normalise(current[f]) ?? '(unset)'} → ${normalise(submitted[f]) ?? '(unset)'}`)
     .join(' · ');
 }
+
+// ---------------------------------------------------------------------------
+// THE LIST (owner 2026-10-01 — "add a mari bank or uno bank")
+// ---------------------------------------------------------------------------
+//
+// The receiving accounts became an ordered list in ONE jsonb column. The § 9.1
+// line does not move with it: inside each entry, the account NAME and NUMBER
+// (and its QR, via the separate QR door) decide where money lands, and changing
+// them — or adding an account at all — takes a second admin. The entry's label,
+// kind, order and on/off switch do not redirect anything and save at once; a
+// switch that STOPS money must never wait on a quorum (same rule as above).
+//
+// 🔒 THE COLUMN ITSELF IS A DESTINATION COLUMN for the one-door scan: only the
+// gated settings actions may write it, because a write anywhere else could
+// rewrite a number inside it without a request.
+
+/** The jsonb column that holds the receiving-accounts list. */
+export const PAYMENT_ACCOUNT_LIST_COLUMN = 'receiving_accounts' as const;
+
+/** Inside one list entry, the fields that decide WHERE money lands. */
+export const ACCOUNT_DESTINATION_FIELDS = ['account_name', 'number'] as const;
+export type AccountDestinationField = (typeof ACCOUNT_DESTINATION_FIELDS)[number];
+
+/** Inside one list entry, the fields that do NOT (saved without a second admin). */
+export const ACCOUNT_RAIL_CONTROLS = ['label', 'kind', 'enabled', 'order'] as const;
+
+type AccountDestinations = { accountName?: string | null; number?: string | null };
+
+/**
+ * Which destination fields of ONE account a save would change. `stored`
+ * undefined = a NEW account, so every field it sets is a change — adding a
+ * place for money to land is the first redirect, not a free one.
+ */
+export function changedAccountDestinations(
+  stored: AccountDestinations | null | undefined,
+  submitted: AccountDestinations,
+): AccountDestinationField[] {
+  const out: AccountDestinationField[] = [];
+  if (normalise(stored?.accountName) !== normalise(submitted.accountName)) out.push('account_name');
+  if (normalise(stored?.number) !== normalise(submitted.number)) out.push('number');
+  return out;
+}
+
+/** Human-readable, for the approval rationale the second admin will read. */
+export function describeAccountChange(
+  label: string,
+  stored: AccountDestinations | null | undefined,
+  submitted: AccountDestinations,
+): string {
+  const parts = changedAccountDestinations(stored, submitted).map((f) => {
+    const before = f === 'number' ? stored?.number : stored?.accountName;
+    const after = f === 'number' ? submitted.number : submitted.accountName;
+    const name = f === 'number' ? 'number' : 'account name';
+    return `${name}: ${normalise(before) ?? '(unset)'} → ${normalise(after) ?? '(unset)'}`;
+  });
+  return `${stored ? label : `new account ${label}`} — ${parts.join(' · ')}`;
+}

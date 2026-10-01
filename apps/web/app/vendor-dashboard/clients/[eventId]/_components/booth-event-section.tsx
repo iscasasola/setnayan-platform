@@ -15,7 +15,7 @@ import { Store, Check } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { openChannels } from '@/lib/payment-channels';
+import { openRailOptions } from '@/lib/payment-channels';
 import { seating3dEnabled } from '@/lib/seating-3d-flag';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
@@ -64,7 +64,7 @@ export async function BoothEventSection({
     fetchPlatformSettings(supabase),
   ]);
   // The rails the owner has left ON — the buy form offers only these.
-  const openRails = openChannels(settings);
+  const openRails = openRailOptions(settings);
 
   const tierOk = isTierAtLeast(gateRow?.tier_state ?? null, BOOTH_BRANDING_MIN_TIER);
   const verified = gateRow?.verification_state === 'verified';

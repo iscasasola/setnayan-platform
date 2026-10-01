@@ -43,6 +43,14 @@ export type PlatformSettingsRow = {
   gcash_available_as_of: string | null;
   bdo_available_php: number | null;
   bdo_available_as_of: string | null;
+  /**
+   * Setnayan's receiving accounts as an ordered LIST (owner 2026-10-01: "add a
+   * mari bank or uno bank"). Raw jsonb — read it ONLY through
+   * lib/payment-channels.ts (`receivingAccounts`, `openChannels`, …), which
+   * falls back to the fixed BDO/GCash columns above when it is empty.
+   * Fetched by its own tolerant probe; `[]` when unread.
+   */
+  receiving_accounts: unknown;
   default_vat_rate_pct: number;
   /** r2:// ref to the owner-uploaded onboarding background music (owner 2026-06-08). */
   onboarding_bg_music_r2_key: string | null;
@@ -111,6 +119,7 @@ const FALLBACK: PlatformSettingsRow = {
   gcash_available_as_of: null,
   bdo_available_php: null,
   bdo_available_as_of: null,
+  receiving_accounts: [],
   // 0, never 12 — an unreachable settings row must not invent a tax. See getEffectiveVatRatePct.
   default_vat_rate_pct: 0,
   onboarding_bg_music_r2_key: null,
@@ -198,10 +207,15 @@ export async function fetchPlatformSettings(
  *
  * `readFailed` is true ONLY for a refused read. A missing row is not a failure:
  * there is nothing real to overwrite, so saving is how the row gets made.
+ *
+ * `accountsReadFailed` is the same question asked of the receiving-accounts
+ * LIST alone. When it is true the list editor must not offer a single write:
+ * every list action reads, edits and writes the WHOLE array, so a write made
+ * from an unread list would replace the real accounts with the fallback two.
  */
 export async function fetchPlatformSettingsMeasured(
   supabase: SupabaseClient,
-): Promise<{ settings: PlatformSettingsRow; readFailed: boolean }> {
+): Promise<{ settings: PlatformSettingsRow; readFailed: boolean; accountsReadFailed: boolean }> {
   const { data, error } = await supabase
     .from('platform_settings')
     .select(SELECT)
@@ -209,9 +223,9 @@ export async function fetchPlatformSettingsMeasured(
     .maybeSingle();
   if (error) {
     logQueryError('platform-settings: fetchPlatformSettings', error);
-    return { settings: FALLBACK, readFailed: true };
+    return { settings: FALLBACK, readFailed: true, accountsReadFailed: true };
   }
-  if (!data) return { settings: FALLBACK, readFailed: false };
+  if (!data) return { settings: FALLBACK, readFailed: false, accountsReadFailed: false };
 
   // Soft probe — a failure here costs the amount-in-QR nicety and leaves both
   // rails OPEN. Never let it take the core payment details down with it, and
@@ -244,9 +258,37 @@ export async function fetchPlatformSettingsMeasured(
     /* keep the defaults — static QR, both rails open */
   }
 
+  // The receiving-accounts LIST, in a probe of its own for the same reason the
+  // soft columns have one: on a database the migration has not reached, a
+  // missing column must cost the list — and fall back to the two fixed rails
+  // (lib/payment-channels.ts · receivingAccounts) — never the kill switches or
+  // the business identity above it.
+  let receivingAccounts: unknown = [];
+  let accountsReadFailed = false;
+  try {
+    const { data: listRow, error: listError } = await supabase
+      .from('platform_settings')
+      .select('receiving_accounts')
+      .eq('id', 1)
+      .maybeSingle();
+    if (listError) {
+      logQueryError('platform-settings: receiving_accounts', listError, {}, 'graceful_degrade');
+      accountsReadFailed = true;
+    } else {
+      receivingAccounts = (listRow as { receiving_accounts?: unknown } | null)?.receiving_accounts ?? [];
+    }
+  } catch {
+    accountsReadFailed = true;
+  }
+
   return {
-    settings: { ...(data as object), ...soft } as PlatformSettingsRow,
+    settings: {
+      ...(data as object),
+      ...soft,
+      receiving_accounts: receivingAccounts,
+    } as PlatformSettingsRow,
     readFailed: false,
+    accountsReadFailed,
   };
 }
 

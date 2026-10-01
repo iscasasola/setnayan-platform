@@ -79,9 +79,11 @@ export function CustomConfigurator({
   const [comp, setComp] = useState<CustomComposition>(
     activeComposition ?? BASE_COMPOSITION,
   );
-  // Only the rails the owner has left open; BDO first, as before.
-  const rails = (['bdo', 'gcash'] as const).filter((r) => pay.open.includes(r));
-  const [channel, setChannel] = useState<PayChannel>(rails[0] ?? 'bdo');
+  // Only the rails the owner has left open, in the admin's order.
+  const rails = pay.open;
+  const [chosen, setChannel] = useState<PayChannel>(rails[0]?.id ?? '');
+  const channel = rails.some((r) => r.id === chosen) ? chosen : (rails[0]?.id ?? '');
+  const shownAccount = pay.accounts.find((a) => a.id === channel) ?? null;
   const paused = rails.length === 0;
   const [submitting, setSubmitting] = useState(false);
 
@@ -334,34 +336,45 @@ export function CustomConfigurator({
                   Pay with
                 </p>
                 {paused ? <PaymentsPausedNote className="mt-1.5" /> : null}
-                <div className="mt-1.5 grid grid-cols-2 gap-2">
-                  {rails.map((ch) => (
-                    <button
-                      key={ch}
-                      type="button"
-                      onClick={() => setChannel(ch)}
-                      aria-pressed={channel === ch}
-                      className={
-                        'rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ' +
-                        (channel === ch
-                          ? 'border-terracotta bg-terracotta/10 text-ink'
-                          : 'border-ink/15 text-ink/60 hover:border-ink/30')
-                      }
-                    >
-                      {ch === 'bdo' ? 'BDO' : 'GCash'}
-                    </button>
-                  ))}
-                </div>
-                {channel === 'bdo' && pay.bdoNumber?.trim() && (
-                  <p className="mt-1.5 text-[11px] text-ink/50">
-                    {pay.bdoNumber}
-                    {pay.bdoName?.trim() ? ` · ${pay.bdoName}` : ''}
-                  </p>
+                {rails.length > 2 ? (
+                  /* 3+ accounts = ONE dropdown, never a row of pills
+                     (INTERACTION_RULES § 2). */
+                  <select
+                    aria-label="Pay with"
+                    value={channel}
+                    onChange={(e) => setChannel(e.target.value)}
+                    className="input-field mt-1.5 cursor-pointer text-xs"
+                  >
+                    {rails.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="mt-1.5 grid grid-cols-2 gap-2">
+                    {rails.map((r) => (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => setChannel(r.id)}
+                        aria-pressed={channel === r.id}
+                        className={
+                          'rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ' +
+                          (channel === r.id
+                            ? 'border-terracotta bg-terracotta/10 text-ink'
+                            : 'border-ink/15 text-ink/60 hover:border-ink/30')
+                        }
+                      >
+                        {r.label}
+                      </button>
+                    ))}
+                  </div>
                 )}
-                {channel === 'gcash' && pay.gcashNumber?.trim() && (
+                {shownAccount?.number?.trim() && (
                   <p className="mt-1.5 text-[11px] text-ink/50">
-                    {pay.gcashNumber}
-                    {pay.gcashName?.trim() ? ` · ${pay.gcashName}` : ''}
+                    {shownAccount.number}
+                    {shownAccount.accountName?.trim() ? ` · ${shownAccount.accountName}` : ''}
                   </p>
                 )}
               </div>

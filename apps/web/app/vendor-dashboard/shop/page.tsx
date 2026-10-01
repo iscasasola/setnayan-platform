@@ -581,13 +581,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     const tier = await tierRead;
     let branchFeePhp = BRANCH_FEE_PHP;
     // Below Enterprise the manager does not render; `open: []` is never read.
-    let branchPay: PayInfo = {
-      bdoName: null,
-      bdoNumber: null,
-      gcashName: null,
-      gcashNumber: null,
-      open: [],
-    };
+    let branchPay: PayInfo = { accounts: [], open: [] };
     if (isTierAtLeast(tier, 'enterprise')) {
       const [fee, settings] = await Promise.all([
         soft.read('branchFee', () => fetchBranchFeePhp(supabase), BRANCH_FEE_PHP),

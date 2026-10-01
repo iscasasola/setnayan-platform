@@ -33,6 +33,7 @@ export async function loadYourEvent({
   parentCount,
   hostCount,
   helpFirst = false,
+  drafted,
 }: {
   supabase: SupabaseClient;
   admin: SupabaseClient;
@@ -43,9 +44,11 @@ export async function loadYourEvent({
   hostCount: number;
   /** Open Date on "Help me choose" (`?date=help` — where /find-date lands). */
   helpFirst?: boolean;
+  /** The Event Hub draft's `events` columns — the names and the date are shown as drafted. */
+  drafted?: Record<string, unknown>;
 }): Promise<YourEventInput | null> {
   const [base, confirmedVendorCount, nameStyle] = await Promise.all([
-    readYourEventFacts({ admin, eventId, parentCount, hostCount }),
+    readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
     // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
     loadEventNameStyle(admin, eventId),
@@ -136,7 +139,7 @@ export async function loadYourEvent({
     nameStyle,
     names:
       namesWritable && people
-        ? { people, initial: [a, b], keep: { region: row.region ?? '', feel: row.mood_feel_key ?? '' }, wholeForm: null }
+        ? { people, initial: [a, b], wholeForm: null }
         : null,
     date: {
       confirmedVendorCount,

@@ -5,7 +5,7 @@ import { Check } from 'lucide-react';
 import { sanitizeName } from '@/lib/match-criteria';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import type { ScheduleMatrix } from '@/lib/schedule-matrix';
-import { updateEventDate, updateEventMatchCriteria } from '../../actions';
+import { hubDraftAction } from '../../website/hub-draft-actions';
 import { saveAllStdContent } from '../../studio/save-the-date/actions';
 import { GovernedFields } from '../../details/_components/governed-fields';
 import { FindDateCandidates, FindDatePicked, useDateState } from './details-date-finder';
@@ -15,26 +15,30 @@ import { FileUpload } from '@/app/_components/file-upload';
 import type { VenueChoice, VenueSlotKey } from '@/lib/event-venues';
 import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { NAME_STYLE_CHOICES, type NameStyle } from '@/lib/name-style';
+import { saveNameStyle } from '@/lib/name-style-save';
+import { coupleNameColumns } from '@/lib/typed-names';
 
 /**
  * DETAILS › YOUR EVENT — the editors (Details part 2a; owner 2026-09-28,
  * DECISION_LOG "DETAILS IS THE ONE FILL-IN AREA…" + "OPTION B…").
  *
- * 🔑 +0 WRITERS. Every field here saves through the writer its existing screen
- * already uses — the same columns, the same checks (owner: "NO 'GO EDIT IT OVER
- * THERE' LINKS — EDIT IT WHERE YOU ARE"; one source, two doors):
+ * 🔑 +0 WRITERS. Every field here saves through a door that already exists —
+ * the same columns, the same checks (owner: "NO 'GO EDIT IT OVER THERE' LINKS
+ * — EDIT IT WHERE YOU ARE"; one source, two doors):
  *
- *   · Names  → `updateEventMatchCriteria` (the Personalization page's "The
- *     basics"): `bride_name` / `groom_name` and the display name.
- *     ⚠ That writer ALWAYS writes region and feel (an absent key clears them),
- *     so this form posts their CURRENT values back, unchanged. Where the BaZi
- *     birth-data section is live it also purges birth data when its consent
- *     box is not posted — so there the page mounts the shipped form whole
- *     instead of this one (`maker-details.tsx`), never a names-only post.
+ *   · Names  → the Event Hub DRAFT (`hubDraftAction`, owner 2026-10-01 "wait
+ *     for apply": names typed in the Maker are a draft until Apply, like every
+ *     Maker edit) — `bride_name` / `groom_name` and the page's names, composed
+ *     by `coupleNameColumns`, the rule the Personalization page's writer
+ *     (`updateEventMatchCriteria`) writes live. Nothing else is posted, so
+ *     region, feel and birth data are never near it. Where the BaZi
+ *     birth-data section is live the page still mounts the shipped form whole
+ *     (`maker-details.tsx`).
  *   · Date   → `GovernedFields` (only its date row): the booked-supplier
- *     conflict preview, then `updateEventDate`. "Help me choose" is the shipped
- *     Find your date, opened in place; "Use <day>" hands the day to that row.
- *     A month is saved through the same `updateEventDate`.
+ *     conflict preview, then the DRAFT (`saveDate`) — Apply asks
+ *     `updateEventDate`'s own gates (`eventDateRefusal`) when it goes live.
+ *     "Help me choose" is the shipped Find your date, opened in place; "Use
+ *     <day>" hands the day to that row. A month is drafted the same way.
  *   · Venues → `saveAllStdContent` — the typed venue names the Event Hub, the
  *     prints and the Save-the-Date already read (`std_film_ceremony_name`,
  *     `std_film_venue_name`, `std_film_venue_city`; `lib/event-venues.ts`). A
@@ -42,9 +46,27 @@ import { NAME_STYLE_CHOICES, type NameStyle } from '@/lib/name-style';
  *     the couple picks "Enter your own" (owner 2026-09-30); that choice and
  *     each card's photo save through the same action (`venueChoice`).
  *
- * Each writes live and says so (`HubSavesImmediately`) — none of these columns
- * has a draft door; they are the event's facts, not the page's look.
+ * The names and the date wait for Apply (guests, Home and suppliers read the
+ * live row until then); the venues still write live and say so
+ * (`HubSavesImmediately`).
  */
+
+/** What a drafted save says — saved, and when guests see it. */
+const DRAFTED = 'Saved — guests see it when you Apply';
+
+/**
+ * ✍ A typed name or date → the Event Hub DRAFT, through the one draft door
+ * (`hubDraftAction` intent=save — the same door `who-can-reply-ask.tsx` and
+ * every Maker pick use). The Maker then draws once with the draft laid on.
+ * Resolves null when saved, else the reason in words.
+ */
+async function draftFacts(eventId: string, events: Record<string, unknown>): Promise<string | null> {
+  const fd = new FormData();
+  fd.set('intent', 'save');
+  fd.set('patch', JSON.stringify({ events }));
+  const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
+  return r.ok ? null : r.error || 'That did not save. Nothing changed — please try again.';
+}
 
 // ── NAMES ─────────────────────────────────────────────────────────────────────
 
@@ -54,14 +76,11 @@ export function NamesEditor({
   eventId,
   people,
   initial,
-  keep,
 }: {
   eventId: string;
   /** The two people's words from the event type (`peopleLabels`). */
   people: readonly [string, string];
   initial: readonly [PersonName, PersonName];
-  /** Posted back unchanged — the writer clears them when absent. */
-  keep: { region: string; feel: string };
 }) {
   const [a, setA] = useState<PersonName>(initial[0]);
   const [b, setB] = useState<PersonName>(initial[1]);
@@ -72,19 +91,13 @@ export function NamesEditor({
   const save = () => {
     setError(null);
     setSaved(false);
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('bride_first', a.first.trim());
-    fd.set('bride_last', a.last.trim());
-    fd.set('groom_first', b.first.trim());
-    fd.set('groom_last', b.last.trim());
-    fd.set('region', keep.region);
-    fd.set('mood_feel_key', keep.feel);
+    // The Personalization writer's own composition; an all-blank form leaves the page's names alone.
+    const events = coupleNameColumns(a, b);
     start(async () => {
       try {
-        const r = await makerSave(() => updateEventMatchCriteria(fd), requestMakerRefresh);
-        if (r.ok) setSaved(true);
-        else setError(r.message);
+        const refused = await draftFacts(eventId, events);
+        if (refused) setError(refused);
+        else setSaved(true);
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
@@ -127,8 +140,7 @@ export function NamesEditor({
     <section data-details-names="" className="flex flex-col gap-3">
       {row(people[0], a, setA)}
       {row(people[1], b, setB)}
-      <SaveRow pending={pending} saved={saved} error={error} onSave={save} />
-      <HubSavesImmediately />
+      <SaveRow pending={pending} saved={saved} savedText={DRAFTED} error={error} onSave={save} />
     </section>
   );
 }
@@ -161,12 +173,7 @@ export function NameStylePicker({ eventId, saved }: { eventId: string; saved: Na
     setShown(style);
     setError(null);
     start(async () => {
-      const fd = new FormData();
-      fd.set('event_id', eventId);
-      fd.set('style', style);
-      const ok = await fetch('/api/hub-print/name-style', { method: 'POST', body: fd, headers: { accept: 'application/json' } })
-        .then((r) => r.ok)
-        .catch(() => false);
+      const ok = await saveNameStyle(eventId, style);
       if (ok) {
         stored.current = style;
         requestMakerRefresh();
@@ -208,9 +215,9 @@ export function NameStylePicker({ eventId, saved }: { eventId: string; saved: Na
 /**
  * ONE NAME — a single-person event's (a birthday, a debut, a wake): the
  * event's own `display_name`, which the hero, every print and every pass read
- * (owner 2026-09-29, "yes to all 4", item 3). Saved through the same writer as
- * the two names, `updateEventMatchCriteria`, which — when it is posted
- * `celebrant_name` alone — writes `display_name` and nothing else.
+ * (owner 2026-09-29, "yes to all 4", item 3). Drafted like the two names
+ * (owner 2026-10-01, "wait for apply") — `display_name` and nothing else, the
+ * one column `updateEventMatchCriteria`'s `celebrant_name` door writes live.
  */
 export function OneNameEditor({ eventId, initial, hint }: { eventId: string; initial: string; hint: string }) {
   const [name, setName] = useState(initial);
@@ -220,14 +227,16 @@ export function OneNameEditor({ eventId, initial, hint }: { eventId: string; ini
   const save = () => {
     setError(null);
     setSaved(false);
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('celebrant_name', name.trim());
+    const typed = name.replace(/\s+/g, ' ').trim();
+    if (!typed) {
+      setError('Type a name first');
+      return;
+    }
     start(async () => {
       try {
-        const r = await makerSave(() => updateEventMatchCriteria(fd), requestMakerRefresh);
-        if (r.ok) setSaved(true);
-        else setError(r.message);
+        const refused = await draftFacts(eventId, { display_name: typed });
+        if (refused) setError(refused);
+        else setSaved(true);
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
@@ -250,8 +259,7 @@ export function OneNameEditor({ eventId, initial, hint }: { eventId: string; ini
         />
         <span className="text-xs text-ink/60">{hint}</span>
       </label>
-      <SaveRow pending={pending} saved={saved} error={error} onSave={save} />
-      <HubSavesImmediately />
+      <SaveRow pending={pending} saved={saved} savedText={DRAFTED} error={error} onSave={save} />
     </section>
   );
 }
@@ -296,22 +304,18 @@ export function DateEditor({
   const month = (m: string) => {
     if (!/^\d{4}-\d{2}$/.test(m)) return;
     setMonthError(null);
-    const fd = new FormData();
-    fd.set('event_id', eventId);
-    fd.set('event_date', `${m}-01`);
-    fd.set('precision', 'month');
     start(async () => {
       try {
-        // `updateEventDate` throws its refusals (a booked supplier, a past month).
-        await makerSave(async () => {
-          await updateEventDate(fd);
-          return { ok: true as const };
-        }, requestMakerRefresh);
-      } catch (e) {
-        setMonthError(e instanceof Error ? e.message : 'That month did not save. Please try again.');
+        // Drafted — Apply asks the date's gates (a booked supplier, a past month).
+        const refused = await draftFacts(eventId, { event_date: `${m}-01`, event_date_precision: 'month' });
+        if (refused) setMonthError(refused);
+      } catch {
+        setMonthError('That month did not save. Please try again.');
       }
     });
   };
+  /** The governed row's day → the draft (after its booked-supplier preview). */
+  const saveDay = (value: string) => draftFacts(eventId, { event_date: value, event_date_precision: 'day' });
 
   return (
     <section data-details-date="" className="flex flex-col gap-3">
@@ -343,6 +347,7 @@ export function DateEditor({
           labels={{ date: governed.label }}
           proposal={proposal}
           embedded
+          saveDate={saveDay}
         />
       ) : (
         <Suspense fallback={<p className="text-sm text-ink/60">Checking your suppliers’ calendars…</p>}>
@@ -350,7 +355,7 @@ export function DateEditor({
           {nudge}
         </Suspense>
       )}
-      <HubSavesImmediately />
+      <p className="text-[11.5px] text-ink/60">Guests see a new date when you Apply.</p>
     </section>
   );
 }
@@ -662,7 +667,20 @@ function VenuePhotoPicker({
 
 // ── SHARED ────────────────────────────────────────────────────────────────────
 
-function SaveRow({ pending, saved, error, onSave }: { pending: boolean; saved: boolean; error: string | null; onSave: () => void }) {
+function SaveRow({
+  pending,
+  saved,
+  savedText = 'Saved',
+  error,
+  onSave,
+}: {
+  pending: boolean;
+  saved: boolean;
+  /** What "saved" means here — a drafted fact says when guests see it. */
+  savedText?: string;
+  error: string | null;
+  onSave: () => void;
+}) {
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center gap-3">
@@ -672,7 +690,7 @@ function SaveRow({ pending, saved, error, onSave }: { pending: boolean; saved: b
         {saved ? (
           <span role="status" className="inline-flex items-center gap-1 text-xs font-medium text-success-700">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Saved
+            {savedText}
           </span>
         ) : null}
       </div>

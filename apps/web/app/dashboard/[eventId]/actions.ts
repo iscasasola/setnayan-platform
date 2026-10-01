@@ -19,7 +19,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { STEPS, type StepKey } from '@/lib/planner';
 import {
   CONFIRMED_VENDOR_STATUSES,
-  PRECISION_ORDER,
+  eventDateChangeIsGoverned,
+  eventDateRefusal,
   isEventDateInPast,
   type EventDatePrecision,
 } from '@/lib/events';
@@ -29,6 +30,7 @@ import {
   MAX_NAME_LEN,
   sanitizeName,
 } from '@/lib/match-criteria';
+import { coupleNameColumns } from '@/lib/typed-names';
 import { resolveRegion } from '@/lib/region-source';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
@@ -124,29 +126,26 @@ export async function updateEventDate(formData: FormData) {
     .select('event_date, event_date_precision')
     .eq('event_id', eventId)
     .maybeSingle();
-  const priorPrecision: EventDatePrecision = isPrecision(priorRow?.event_date_precision)
-    ? (priorRow!.event_date_precision as EventDatePrecision)
-    : 'year';
-  const wasSet = Boolean(priorRow?.event_date);
-  const dateChanged = wasSet && eventDate !== priorRow?.event_date;
-  const precisionWidens = PRECISION_ORDER[newPrecision] < PRECISION_ORDER[priorPrecision];
-
-  if (wasSet && (dateChanged || precisionWidens)) {
+  // ONE rule for both gates (`eventDateRefusal`, lib/events.ts) — the Event
+  // Hub's Apply asks the same one when it writes a date typed into the draft.
+  const prior = { date: (priorRow?.event_date as string | null | undefined) ?? null, precision: priorRow?.event_date_precision };
+  const next = { date: eventDate, precision: newPrecision };
+  if (eventDateChangeIsGoverned(prior, next)) {
     const { count } = await supabase
       .from('event_vendors')
       .select('vendor_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
-    if ((count ?? 0) > 0) {
-      // Surface the refine-only message when the violation is a precision
-      // widen (this is the new Task #39 path). When the day itself
-      // changed at the same precision, surface the original Task #37 lock
-      // message so the host sees the more specific guidance.
-      if (precisionWidens && !dateChanged) {
-        throw new Error(
-          `Can't widen precision — you have ${count} confirmed vendor${count === 1 ? '' : 's'}. Narrow your date instead (year → month → day), don't broaden it.`,
-        );
-      }
+    const refusal = eventDateRefusal(prior, next, count ?? 0);
+    // Surface the refine-only message when the violation is a precision
+    // widen (the Task #39 path). When the day itself changed, surface the
+    // original Task #37 lock message — the more specific guidance.
+    if (refusal === 'widens') {
+      throw new Error(
+        `Can't widen precision — you have ${count} confirmed vendor${count === 1 ? '' : 's'}. Narrow your date instead (year → month → day), don't broaden it.`,
+      );
+    }
+    if (refusal === 'locked') {
       throw new Error(
         `Date is locked — ${count} confirmed vendor${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
       );
@@ -586,15 +585,16 @@ export async function updateEventMatchCriteria(
   let groomName: string | null;
   let recomputedDisplay: string;
   if (formData.has('bride_first') || formData.has('groom_first')) {
-    const cap = (v: FormDataEntryValue | null) =>
-      (typeof v === 'string' ? sanitizeName(v).trim() : '').slice(0, MAX_NAME_LEN);
-    const brideFirst = cap(formData.get('bride_first'));
-    const brideLast = cap(formData.get('bride_last'));
-    const groomFirst = cap(formData.get('groom_first'));
-    const groomLast = cap(formData.get('groom_last'));
-    brideName = [brideFirst, brideLast].filter(Boolean).join(' ') || null;
-    groomName = [groomFirst, groomLast].filter(Boolean).join(' ') || null;
-    recomputedDisplay = [brideFirst, groomFirst].filter(Boolean).join(' & ');
+    // ONE composition (`coupleNameColumns`, lib/typed-names.ts) — the Maker's
+    // Names editor drafts exactly these columns through it (2026-10-01).
+    const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
+    const cols = coupleNameColumns(
+      { first: str(formData.get('bride_first')), last: str(formData.get('bride_last')) },
+      { first: str(formData.get('groom_first')), last: str(formData.get('groom_last')) },
+    );
+    brideName = cols.bride_name;
+    groomName = cols.groom_name;
+    recomputedDisplay = cols.display_name ?? '';
   } else {
     // Legacy path (pre-split form). Combined names, display from full names.
     const brideRaw = formData.get('bride_name');

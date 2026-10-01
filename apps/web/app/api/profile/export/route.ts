@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
 import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
+import { readOwnFaceEnrollments } from '@/lib/export-own-face-enrollments';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import {
@@ -354,17 +355,15 @@ export async function GET() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
     // The subject's OWN biometric face-enrollment METADATA (iteration 0012).
-    // guest_reads_own_face_enrollment RLS scopes SELECT to guest rows the
-    // subject owns via event_members. We deliberately EXCLUDE face_vector (the
+    // 🔑 SCOPED TO THE SUBJECT'S OWN GUEST ROWS (event_members.guest_id where
+    // user_id = the session uid), never "rows RLS lets me read": RLS on this
+    // table also admits a HOST every guest's row at their events (and an admin
+    // every row), so the unfiltered read put the face-tagging records of every
+    // guest into the couple's own data file (fixed 2026-10-01). See
+    // lib/export-own-face-enrollments. We deliberately EXCLUDE face_vector (the
     // raw embedding) — the export ships consent/provenance metadata only, per
     // RA 10173 (disclose what biometric data we hold, not the biometric itself).
-    supabase
-      .from('guest_face_enrollments')
-      .select(
-        'enrollment_id, event_id, source, consent_at, consent_source, ' +
-          'revoked_at, quality_score, vector_model, created_at, updated_at',
-      )
-      .order('created_at', { ascending: true }),
+    readOwnFaceEnrollments(supabase, user.id),
     // RA 10173 (2026-07-17) — Alaga (dependents) records: what the subject
     // stores as a guardian, what they claimed as their own profile, and what
     // they handed over (read-only history). Spouse-SHARED rows the OTHER
@@ -385,10 +384,29 @@ export async function GET() {
       .order('created_at', { ascending: true }),
     // Godparent (ninong/ninang) edges — the subject's own rows as guardian
     // plus, via godparents_subject_read, the edges on a profile they claimed.
-    supabase
-      .from('godparents')
-      .select('godparent_id, dependent_id, godparent_name, godparent_email, role, created_at')
-      .order('created_at', { ascending: true }),
+    // 🔑 Both lanes are now EXPLICIT (2026-10-01): godparents_owner_all also
+    // admits `is_admin()` to every row on the platform, so the unfiltered read
+    // put every family's godparent names + emails into an admin's own data
+    // file. The claimed-profile lane is resolved from `dependents` the subject
+    // claimed (claimed_user_id = the session uid), exactly the policy's EXISTS.
+    (async () => {
+      const claimed = await supabase
+        .from('dependents')
+        .select('dependent_id')
+        .eq('claimed_user_id', user.id);
+      if (claimed.error) return { data: [] as unknown[], error: claimed.error };
+      const claimedIds = claimed.data
+        .map((r) => (r as { dependent_id?: string }).dependent_id)
+        .filter((id): id is string => typeof id === 'string');
+      return supabase
+        .from('godparents')
+        .select('godparent_id, dependent_id, godparent_name, godparent_email, role, created_at')
+        .or(
+          `owner_user_id.eq.${user.id}` +
+            (claimedIds.length > 0 ? `,dependent_id.in.(${claimedIds.join(',')})` : ''),
+        )
+        .order('created_at', { ascending: true });
+    })(),
     // RA 10173 (2026-07-17) — samahan memberships: the group's user-chosen
     // name, the subject's role, and when they joined. No kind/category exists
     // by design (owner 2026-07-17 — the platform never classifies groups).

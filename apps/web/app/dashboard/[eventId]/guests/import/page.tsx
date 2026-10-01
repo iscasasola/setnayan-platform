@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { importGuestsCsv } from './actions';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { eventHasSides } from '@/lib/guest-side-question';
+import { guestTemplateFor } from '@/lib/guest-import-file';
 
 export const metadata = { title: 'Import guests' };
 
@@ -20,6 +23,8 @@ export default async function ImportGuestsPage({ params, searchParams }: Props) 
   const errorMessage = search.error ? decodeURIComponent(search.error) : null;
 
   const action = importGuestsCsv.bind(null, eventId);
+  // A wedding gets the file with the Side column; every other type the general one.
+  const template = guestTemplateFor(eventHasSides(await resolveRoleSetForEvent(eventId)));
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-6">
@@ -47,22 +52,18 @@ export default async function ImportGuestsPage({ params, searchParams }: Props) 
       ) : null}
 
       <section className="rounded-lg border border-ink/10 bg-cream p-4">
-        <h2 className="text-sm font-medium uppercase tracking-[0.15em] text-ink/55">
-          Accepted columns
-        </h2>
-        <p className="mt-2 text-sm text-ink/70">
-          <code>first_name</code> · <code>last_name</code> · <code>side</code> · <code>group</code> ·
-          <code> role</code> · <code>household</code> · <code>plus_one_allowed</code> ·
-          <code> email</code> · <code>mobile</code> · <code>rsvp_status</code>
+        <h2 className="text-base font-semibold text-ink">1 · Get the guest list file</h2>
+        <p className="mt-1 text-sm text-ink/70">
+          Fill it in with Excel, Numbers or Google Sheets — one person per row.
         </p>
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm font-medium text-terracotta-700 hover:underline">
-            Show template
-          </summary>
-          <pre className="mt-2 overflow-x-auto rounded bg-ink/5 p-3 text-[11px] leading-relaxed text-ink/80">
-{TEMPLATE_CSV}
-          </pre>
-        </details>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <a href={template.xlsx} download className="button-primary">
+            Download for Excel / Numbers
+          </a>
+          <a href={template.csv} download className="text-sm font-medium text-terracotta-700 hover:underline">
+            CSV
+          </a>
+        </div>
       </section>
 
       <form action={action} className="space-y-4">

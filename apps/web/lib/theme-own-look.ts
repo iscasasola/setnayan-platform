@@ -28,3 +28,27 @@ export const THEME_OWN_LOOK_RESET = {
   site_button_color: null,
   site_font_key: null,
 } as const;
+
+type OwnLookRow = Partial<Record<keyof typeof THEME_OWN_LOOK_RESET, unknown>>;
+
+/**
+ * Does the couple wear their OWN page colour, button colour or typeface, as they
+ * are editing it — the draft's value where the draft holds that column, else
+ * live? A value is an override when it is set to anything but null/blank.
+ */
+export function hasOwnLook(live: OwnLookRow | null | undefined, drafted?: OwnLookRow | null): boolean {
+  return (Object.keys(THEME_OWN_LOOK_RESET) as Array<keyof typeof THEME_OWN_LOOK_RESET>).some((k) => {
+    const v = drafted && k in drafted ? drafted[k] : live?.[k];
+    return v !== null && v !== undefined && !(typeof v === 'string' && v.trim() === '');
+  });
+}
+
+/**
+ * Does a tap on theme `id` send the one-pick save? Always for another theme.
+ * Re-tapping the CURRENT theme sends it only to hand an own look back to the
+ * theme (the same patch, so Undo and Apply behave as for any pick) — and is a
+ * no-op when nothing is overridden.
+ */
+export function themePickSends(id: string, picked: string, ownLook: boolean): boolean {
+  return id !== picked || ownLook;
+}

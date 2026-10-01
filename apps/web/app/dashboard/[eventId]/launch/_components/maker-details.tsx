@@ -189,6 +189,8 @@ export type MakerDetailsProps = {
     tour: boolean;
     /** The couple has chosen a theme (saved or drafted) — the item's "done". */
     chosen: boolean;
+    /** They wear their own page colour, button colour or typeface (`hasOwnLook`) — re-tapping the current theme hands it back. */
+    ownLook?: boolean;
   };
   /** The couple's own prints, in the theme being edited. */
   prints: PrintsInput;
@@ -804,7 +806,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
 
   return (
-    <ThemePickProvider eventId={eventId} current={theme.current}>
+    <ThemePickProvider eventId={eventId} current={theme.current} ownLook={theme.ownLook ?? false}>
       <DetailsWorkspace
         groups={groups}
         bodies={bodies}

@@ -2,9 +2,12 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import type { MarketingLocale } from '@/lib/marketing-i18n';
 
-// Final CTA — primary "Start planning · free" + soft secondary
-// "I'm a vendor →" linking to /vendors. Per the homepage redesign
-// pattern (single primary CTA, visually subordinate secondary).
+// Final CTA — primary "Start planning · free" + soft secondary supplier
+// link. Per the homepage redesign pattern (single primary CTA, visually
+// subordinate secondary). 2026-10-01: the old copy promised "the Setnayan
+// Team will contact you within 24 hours … with a quote" — the concierge
+// flow, not the self-serve sign-up this button opens. Rewritten to what the
+// button does.
 
 const COPY: Record<
   MarketingLocale,
@@ -12,16 +15,16 @@ const COPY: Record<
 > = {
   en: {
     eyebrow: 'Set na ‘yan. · it’s all set.',
-    heading: 'That’s the catalog. Want a quote for your event?',
-    body: 'Apply now and the Setnayan Team will contact you within 24 hours with your activation link and a quote shaped to your guest count, your venue, and the apparatus you actually want.',
+    heading: 'Start free. Add only what your event needs.',
+    body: 'The planning tools are free with every account. Paid features are one price each, listed on the pricing page — nothing is bundled in.',
     ctaPrimary: 'Start planning · free',
     ctaSecondary: 'I’m a supplier →',
   },
   tl: {
     eyebrow: 'Set na ‘yan. · set na lahat.',
-    heading: 'Yan ang catalog. Gusto mo ng quote para sa event mo?',
-    body: 'Mag-apply na, at kokontakin ka ng Setnayan Team within 24 hours, kasama ang activation link mo at isang quote na hinubog para sa guest count mo, sa venue mo, at sa mga apparatus na talagang gusto mo.',
-    ctaPrimary: 'Magsimula · free',
+    heading: 'Magsimula nang libre. Idagdag lang ang kailangan ng event mo.',
+    body: 'Libre ang planning tools sa bawat account. Ang mga bayad na feature ay may kanya-kanyang presyo sa pricing page — walang naka-bundle.',
+    ctaPrimary: 'Magsimula · libre',
     ctaSecondary: 'Supplier ako →',
   },
 };

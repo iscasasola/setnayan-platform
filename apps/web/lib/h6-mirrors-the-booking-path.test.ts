@@ -558,6 +558,8 @@ test('only the bench asks to hide — every other caller is unchanged', () => {
     'app/dashboard/[eventId]/progress/_actions/free-venue-shortlist.ts': ['unchanged'],
     'app/dashboard/[eventId]/vendors/_actions/inline-more-row.ts': ['hides'],
     'app/dashboard/[eventId]/vendors/_actions/unlock-category.ts': ['unchanged'],
+    // Find a supplier (P3) lists a category's suppliers as the search ranks them.
+    'app/dashboard/[eventId]/vendors/categories/page.tsx': ['unchanged'],
     'app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx': ['hides', 'hides'],
     'app/dashboard/[eventId]/vendors/build-3state-fallback-actions.ts': ['unchanged'],
   });

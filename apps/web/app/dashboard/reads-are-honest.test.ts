@@ -665,8 +665,8 @@ const MUST_GATE: Array<{ file: string; why: string; gates: RegExp[] }> = [
   },
   {
     file: '[eventId]/vendors/categories/page.tsx',
-    why: 'offers categories they already have — and Add sends a supplier an inquiry',
-    gates: [/\{picksMeasured \? \(/],
+    why: '"Booked ✓" on nothing, or a refused read reading as "nothing booked"',
+    gates: [/const booked: Set<string> \| null = bookedMeasured \?/, /\{!bookedMeasured \? \(/],
   },
   {
     file: '[eventId]/website/widgets/page.tsx',
@@ -817,8 +817,8 @@ test('a refused read never renders as a count of zero or an emptied money docume
   );
   assert.match(
     cats,
-    /picksMeasured \? \(\s*<UnlockCategoriesList/,
-    'Adding a category sends a supplier an inquiry. An unmeasured read must not ' +
-      'be allowed to offer one — the list is held back, not lengthened.',
+    /const booked: Set<string> \| null = bookedMeasured \? new Set<string>\(\) : null;/,
+    'Find a supplier: a refused booked read must leave `booked` null, so no row ' +
+      'says "Booked ✓" and none reads as "nothing booked" either.',
   );
 });

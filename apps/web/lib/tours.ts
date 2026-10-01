@@ -91,6 +91,16 @@ export type TourKey =
   | 'guest_welcome_v1'
   | 'vendor_welcome_v1'
   // Mini-tours — fire once per user when they first land on the surface.
+  // ── First-visit tours for five everyday surfaces (owner 2026-09-25: every
+  //    feature gets a first-visit tour). Kept as ONE block so it merges
+  //    cleanly beside other sessions' keys. The two `guest_` keys are for
+  //    signed-out guests and mount through `GuestGuidedTour` (localStorage);
+  //    the three `customer_` keys mount through `MiniTour`.
+  | 'guest_papic_camera_v1'
+  | 'guest_papic_me_v1'
+  | 'customer_guest_list_v1'
+  | 'customer_budget_v1'
+  | 'customer_galleries_v1'
   | 'customer_vendors_v1'
   | 'customer_seat_plan_v1'
   | 'customer_papic_v1'
@@ -125,6 +135,11 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'admin_welcome_v1',
   'guest_welcome_v1',
   'vendor_welcome_v1',
+  'guest_papic_camera_v1',
+  'guest_papic_me_v1',
+  'customer_guest_list_v1',
+  'customer_budget_v1',
+  'customer_galleries_v1',
   'customer_vendors_v1',
   'customer_seat_plan_v1',
   'customer_papic_v1',
@@ -347,6 +362,10 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     ],
   },
+  // Copy refreshed 2026-09-30: the old slides still sold "photo-crew seats",
+  // "5 guest cameras free" and "your wedding" — the seat hand-out is retired
+  // and Papic runs on every event type. These words match the Papic page as it
+  // ships: cameras, camera QRs, credits, the shooting days, the library.
   customer_papic_v1: {
     key: 'customer_papic_v1',
     label: 'Papic mini-tour',
@@ -355,22 +374,144 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Camera,
         title: 'Your guests become the photographers',
-        body: 'A few friends you pick shoot freely all night, and — if you add it — every guest can snap candids too. Every shot lands in your private gallery. No app to install.',
+        body: 'Every guest&rsquo;s phone can be a candid camera &mdash; no app to install. Every shot lands in your library.',
       },
       {
-        Icon: Send,
-        title: 'Hand out your photo-crew seats',
-        body: 'Share each seat&rsquo;s link with a friend — their phone becomes a candid camera bound to your wedding. Re-issue a seat anytime. Your first 5 guest cameras are free to try.',
+        Icon: Calendar,
+        title: 'Pick the days first',
+        body: 'Choose when the cameras can shoot. They can start before the day itself, so they catch the preparations too.',
       },
       {
-        Icon: Sparkles,
-        title: 'The right people are found',
-        body: 'Guests who add a selfie are recognized in candid shots — those photos show up in their &ldquo;Photos of you&rdquo;. Your crew can also scan a guest&rsquo;s QR to tag. Either way, every photo reaches you, tagged or not.',
+        Icon: QrCode,
+        title: 'Hand out your camera QRs',
+        body: 'Show the QR codes at the door or print them as cards. Each scan turns a phone into a camera, and you decide how many credits each guest gets.',
       },
       {
         Icon: Images,
-        title: 'Everything lands in your gallery',
-        body: 'Filter by &ldquo;Photos of us&rdquo;, save any shot to your phone, or download the whole gallery as a zip. Connect Google Drive to auto-sync every photo to a folder you own.',
+        title: 'Everything lands in your library',
+        body: 'Filter by &ldquo;Photos of us&rdquo;, save any shot to your phone, or download everything at once. Guests find the photos they are in, too.',
+      },
+    ],
+  },
+  // ── The five first-visit tours (see the TourKey block). Plain words, no
+  //    "wedding", no "couple" — each surface serves every event type.
+  guest_papic_camera_v1: {
+    key: 'guest_papic_camera_v1',
+    label: 'Papic guest camera',
+    blurb: 'A guest’s first look at the camera on their phone.',
+    slides: [
+      {
+        Icon: Camera,
+        title: 'Your phone is a camera now',
+        body: 'Everything you shoot here goes straight to the host&rsquo;s gallery. No app to install, nothing to sign up for.',
+      },
+      {
+        Icon: MousePointerClick,
+        title: 'Tap for a photo, hold for a clip',
+        body: 'Tap the big button for a photo. Press and hold it to record a short clip of up to 10 seconds.',
+      },
+      {
+        Icon: QrCode,
+        title: 'Tag who is in it',
+        body: 'Right after a shot, point at a guest&rsquo;s QR or a table sign, and the photo reaches them too.',
+      },
+      {
+        Icon: Images,
+        title: 'Shoot while there are shots left',
+        body: 'The camera shows how many shots are left. When they run out, it rests &mdash; enjoy the rest of the day.',
+      },
+    ],
+  },
+  guest_papic_me_v1: {
+    key: 'guest_papic_me_v1',
+    label: 'Papic — your camera and photos',
+    blurb: 'A guest’s own camera and the photos they are in, from their personal QR.',
+    slides: [
+      {
+        Icon: Camera,
+        title: 'Your own camera',
+        body: 'Tap <b>Open my camera</b> and your phone shoots straight into the host&rsquo;s gallery.',
+      },
+      {
+        Icon: Images,
+        title: 'Photos of you',
+        body: 'When someone takes a photo you are in, it shows up here, in the order the day happened.',
+      },
+      {
+        Icon: Heart,
+        title: 'Keep them and make them yours',
+        body: 'Tap a photo to save it full size, or download all of yours at once. You can also decorate one, or make a short story from them.',
+      },
+    ],
+  },
+  customer_guest_list_v1: {
+    key: 'customer_guest_list_v1',
+    label: 'Guest list',
+    blurb: 'Adding guests, finding anyone, sending invitations and checking people in.',
+    slides: [
+      {
+        Icon: Users,
+        title: 'Everyone in one list',
+        body: 'Add guests one by one, pick them from your people, or bring a whole list in at once. Each guest gets their own invitation and QR.',
+      },
+      {
+        Icon: ClipboardList,
+        title: 'Find anyone fast',
+        body: 'Search by name, or filter by side, reply, role or group. Tap a name to open that guest&rsquo;s card.',
+      },
+      {
+        Icon: Send,
+        title: 'Send invitations, see replies',
+        body: 'Send each invitation from here and watch the replies come in, guest by guest.',
+      },
+      {
+        Icon: QrCode,
+        title: 'Check-in on the day',
+        body: 'On the day, check guests in here by scanning the QR on their invitation.',
+      },
+    ],
+  },
+  customer_budget_v1: {
+    key: 'customer_budget_v1',
+    label: 'Budget',
+    blurb: 'Setting a total, adjusting each service, and seeing what is agreed and paid.',
+    slides: [
+      {
+        Icon: Wallet,
+        title: 'Start with one number',
+        body: 'Set your total budget and we split it across the services you need, from typical costs.',
+      },
+      {
+        Icon: Settings,
+        title: 'Adjust any service',
+        body: 'Tap a service to choose Save, Standard or Splurge, or type your own amount. Your own number always wins.',
+      },
+      {
+        Icon: Receipt,
+        title: 'See what is agreed and paid',
+        body: 'As you book suppliers, what you have agreed, paid and still owe shows up here on its own.',
+      },
+    ],
+  },
+  customer_galleries_v1: {
+    key: 'customer_galleries_v1',
+    label: 'Galleries',
+    blurb: 'Where every collected photo and recording from the event is found.',
+    slides: [
+      {
+        Icon: Images,
+        title: 'Every photo in one place',
+        body: 'Papic photos, your live stream recording and the photos you add each have their own gallery here.',
+      },
+      {
+        Icon: Calendar,
+        title: 'Collecting, then Ready',
+        body: 'A gallery says <b>Collecting</b> until photos arrive, then <b>Ready</b>. Photos can keep arriving for a few days after the event.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Open one to keep it',
+        body: 'Open a gallery to look through it and download everything.',
       },
     ],
   },

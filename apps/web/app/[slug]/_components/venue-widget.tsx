@@ -4,7 +4,8 @@ import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import type { EventRow } from '../_lib/types';
 import { VENUE_WITHHELD_LINE } from '@/lib/venue-disclosure';
 import { VENUE_ROLE_LABEL, venueSearchQuery, type EventVenue } from '@/lib/event-venues';
-import { VenueFullMap, VenueOneMap } from './venue-styles';
+import type { ScheduleBlockRow } from '@/lib/print-pieces';
+import { PinnedMap, VenueFullPhoto, VenueJourney, locatedVenueCount, venueStopTimes } from './venue-styles';
 
 // ---------------------------------------------------------------------------
 // Additional widgets (closing 0002 deferrals)
@@ -13,10 +14,16 @@ import { VenueFullMap, VenueOneMap } from './venue-styles';
 export function VenueWidget({
   event,
   sceneStyle = null,
+  map = 'one',
+  blocks = null,
 }: {
   event: EventRow;
-  /** 🎨 `map-and-plate` (this, the default) · `one-map` · `full-map` — `venue-styles.tsx`. */
+  /** 🎨 `photo-card` (this, the default) · `full-photo` · `journey` — `venue-styles.tsx`. */
   sceneStyle?: string | null;
+  /** 🏛 The scene's Map switch (`venueMapOfRow`): one map for every place (default) or none. */
+  map?: 'one' | 'none';
+  /** The run of show — The journey reads each stop's time from it (`venueStopTimes`). */
+  blocks?: readonly ScheduleBlockRow[] | null;
 }) {
   // 2026-05-21 — coords-based deep links (Google Maps · Waze · Apple Maps)
   // when the event has a geocoded venue. Falls back to a text-search
@@ -60,16 +67,31 @@ export function VenueWidget({
   // page.tsx and withheld by `withheldVenue` like the event's own columns; a
   // caller that never loaded it falls back to the one venue on the event row.
   const venues: EventVenue[] = event.venues?.length ? event.venues : legacyVenues(event);
-  if (sceneStyle === 'one-map') return <VenueOneMap venues={venues} withheld={Boolean(event.venue_withheld)} />;
-  if (sceneStyle === 'full-map') return <VenueFullMap venues={venues} withheld={Boolean(event.venue_withheld)} />;
+  const withheld = Boolean(event.venue_withheld);
+  const showMap = map !== 'none';
+  if (sceneStyle === 'full-photo') {
+    return <VenueFullPhoto venues={venues} withheld={withheld} showMap={showMap} plateStyle={VENUE_CHIP_GROUND} />;
+  }
+  if (sceneStyle === 'journey') {
+    return (
+      <VenueJourney venues={venues} withheld={withheld} showMap={showMap} plateStyle={VENUE_CHIP_GROUND} times={venueStopTimes(blocks)} />
+    );
+  }
+
+  // 🏛 PHOTO CARD — the default, today's look (VENUE STYLES APPROVED, 2026-09-30).
+  // "Map: One map for both": with ONE located place its map stays inside its
+  // card, exactly as shipped; with two or more, ONE map holds every pin above
+  // the cards instead of a map per card. "No map": none anywhere.
+  const sharedMap = showMap && locatedVenueCount(venues) > 1;
 
   return (
     <section className="space-y-4">
       <p className="pahina-eyebrow">
         <span>{venues.length > 1 ? 'The venues' : 'The venue'}</span>
       </p>
+      {sharedMap ? <PinnedMap venues={venues} /> : null}
       {venues.map((venue) => (
-        <VenuePlate key={venue.role} venue={venue} event={event} />
+        <VenuePlate key={venue.role} venue={venue} event={event} ownMap={showMap && !sharedMap} />
       ))}
       {/* 🔒 CLOSED UNTIL THEY REPLY (owner 2026-09-20 · lib/venue-disclosure.ts).
           The line is not decoration: an address that simply vanishes reads as a
@@ -107,7 +129,7 @@ function legacyVenues(event: EventRow): EventVenue[] {
  */
 const VENUE_CHIP_GROUND = { '--color-cream': 'var(--color-paper-deep)' } as CSSProperties;
 
-function VenuePlate({ venue, event }: { venue: EventVenue; event: EventRow }) {
+function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventRow; ownMap: boolean }) {
   const hasCoords = venue.latitude != null && venue.longitude != null;
   return (
     <div data-venue-role={venue.role}>
@@ -128,7 +150,7 @@ function VenuePlate({ venue, event }: { venue: EventVenue; event: EventRow }) {
           />
         </figure>
       ) : null}
-      {hasCoords ? (
+      {hasCoords && ownMap ? (
         <VendorLocationMap
           latitude={venue.latitude ?? null}
           longitude={venue.longitude ?? null}

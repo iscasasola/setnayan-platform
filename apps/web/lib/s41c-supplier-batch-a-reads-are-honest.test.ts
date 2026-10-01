@@ -235,7 +235,7 @@ test('inline-docs-actions.ts: all three vendor_profiles(_self) reads are logged 
   const selfReturnAt = indexAfter(docs, "if (error || !data) return { raw: null, needsReview: false };", selfLogAt);
   assert.ok(selfAt < selfLogAt && selfLogAt < selfReturnAt);
 
-  const fieldsAt = indexAfter(docs, 'export async function loadVerificationIdentityFields');
+  const fieldsAt = indexAfter(docs, 'async function loadVerificationIdentityFields');
   const fieldsQueryAt = indexAfter(docs, "from('vendor_profiles_self')", fieldsAt);
   const fieldsLogAt = indexAfter(docs, 'logQueryError(', fieldsQueryAt);
   const fieldsReturnAt = indexAfter(docs, 'if (error || !data) return empty;', fieldsLogAt);

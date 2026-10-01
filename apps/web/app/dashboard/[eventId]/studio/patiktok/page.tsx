@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import {
@@ -12,14 +13,15 @@ import {
   Hash,
   Loader2,
   Music,
-  QrCode,
   Smartphone,
   Sparkles,
   XCircle,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { PaidMark } from '@/app/_components/paid-mark';
 import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -46,7 +48,7 @@ import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { InlineCheckoutDrawer } from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import { getTiktokOAuthConfig } from '@/lib/patiktok-tiktok';
-import { disconnectPatiktokTiktok } from './actions';
+import { disconnectPatiktokTiktok, savePatiktokBoothTemplates } from './actions';
 import { ReelRenderer } from './_components/reel-renderer';
 import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
 import { addOnHeroCopy } from '@/lib/add-ons-catalog';
@@ -94,6 +96,9 @@ type Props = {
     tiktok_disconnected?: string;
     tiktok_error?: string;
     missing?: string;
+    /** Set by the booth's "Change primary / backup": pick one template for that slot. */
+    role?: string;
+    other?: string;
   }>;
 };
 
@@ -109,7 +114,14 @@ export default async function PatiktokGallery({
     tiktok_disconnected: tiktokDisconnected,
     tiktok_error: tiktokError,
     missing: tiktokMissing,
+    role: roleParam,
+    other: otherParam,
   } = await searchParams;
+  // Picking a template FOR the booth (audit 2026-09-29: this was ignored, so the
+  // choice never saved). Only a known slot and a known other template count.
+  const boothRole: 'primary' | 'backup' | null =
+    roleParam === 'primary' || roleParam === 'backup' ? roleParam : null;
+  const boothOther = otherParam ? findPatiktokTemplate(otherParam)?.slug ?? null : null;
 
   const supabase = await createClient();
   const {
@@ -150,13 +162,31 @@ export default async function PatiktokGallery({
   }
   const jobs = (jobsRaw ?? []) as RenderJobRow[];
 
+  // Paid owners land on their working booth, not a buy page. Resolve
+  // admin-APPROVED ownership ONCE via the shared bundle-aware reader
+  // (eventSkuActive on the canonical PATIKTOK_COMPILER service_key). Read with
+  // the ADMIN client: orders RLS is purchaser-scoped, so a co-host member who
+  // didn't personally place the order would otherwise see the buy CTA.
+  // Graceful-degrade on a missing/legacy orders table keeps pre-bootstrap DBs on
+  // the buy view rather than crashing.
+  // 💎 This is also THE SAVE GATE for this page (owner 2026-09-29: "yes use for
+  // free. but pay to save and share"): a download link is minted only when it
+  // is true. Same question lib/patiktok-save-gate.ts asks for the actions.
+  const admin = createAdminClient();
+  const patiktokActive = await eventSkuActive(admin, eventId, PATIKTOK_SERVICE_KEY);
+  // A submitted order still under review: the buy door becomes "being confirmed".
+  const patiktokPending =
+    !patiktokActive && (await eventOwnsSku(admin, eventId, PATIKTOK_SERVICE_KEY));
+  const storeShell = await isStoreShellRequest();
+
   // Resolve a fresh presigned download URL for completed reels (the stored
   // output_url presign expires; output_object_key is the durable pointer).
+  // Paid only — an unpaid event gets no link out.
   const downloadUrls: Record<string, string> = {};
   const completedJobs = jobs.filter(
     (j) => j.status === 'completed' && j.output_object_key,
   );
-  if (isR2Configured() && completedJobs.length > 0) {
+  if (patiktokActive && isR2Configured() && completedJobs.length > 0) {
     const entries = await Promise.all(
       completedJobs.map(
         async (j) =>
@@ -203,18 +233,13 @@ export default async function PatiktokGallery({
   const skuRecord = await formatV2Sku(PATIKTOK_SERVICE_KEY).catch(() => null);
   const pricePhp = skuRecord?.price_php ?? null;
 
-  // Paid owners land on their working booth, not a buy page. Resolve
-  // admin-APPROVED ownership ONCE via the shared bundle-aware reader
-  // (eventSkuActive on the canonical PATIKTOK_COMPILER service_key). Read with
-  // the ADMIN client: orders RLS is purchaser-scoped, so a co-host member who
-  // didn't personally place the order would otherwise see the buy CTA.
-  // Graceful-degrade on a missing/legacy orders table keeps pre-bootstrap DBs on
-  // the buy view rather than crashing.
-  const patiktokActive = await eventSkuActive(
-    createAdminClient(),
-    eventId,
-    PATIKTOK_SERVICE_KEY,
-  );
+  // The unpaid preview opens this checkout in place (null for an owner).
+  const saveCheckout = patiktokActive
+    ? null
+    : { pricePhp, settings, pending: patiktokPending, storeShell };
+  // "◆ Save" on an unpaid finished reel points at the save card — only when that
+  // card is mounted (a fragment to a missing id fails silently).
+  const saveCardMounted = !patiktokActive && !storeShell;
 
   return (
     <section className="space-y-6">
@@ -246,7 +271,7 @@ export default async function PatiktokGallery({
       <StudioBuyHero productName={PATIKTOK_HERO.label} promise="Pick the reel templates for your booth" />
       <div className="mt-3 space-y-3">
         <p className="sn-eye">
-          Record · render · download — right in your browser
+          Record and preview free · save and share with Patiktok
         </p>
       </div>
 
@@ -256,12 +281,15 @@ export default async function PatiktokGallery({
           className="inline-flex items-center gap-2 rounded-2xl border border-success-300/70 bg-success-50 px-4 py-3 text-sm text-success-900"
         >
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          Render queued. Render it right here in your browser below — it&rsquo;s
-          ready to download the moment it finishes.
+          {patiktokActive
+            ? 'Render queued. Render it right here in your browser below — it’s ready to download the moment it finishes.'
+            : 'Render queued. Render it right here in your browser below — watching it is free.'}
         </p>
       ) : null}
 
-      {queued ? <ReelRenderer jobId={queued} eventId={eventId} /> : null}
+      {queued ? (
+        <ReelRenderer jobId={queued} eventId={eventId} checkout={saveCheckout} />
+      ) : null}
 
       {tiktokConnected ? (
         <p
@@ -273,7 +301,7 @@ export default async function PatiktokGallery({
           {tiktokGrant?.tiktok_handle
             ? ` — @${tiktokGrant.tiktok_handle}`
             : ''}
-          . Your Patiktok renders will auto-post here.
+          .
         </p>
       ) : null}
 
@@ -293,6 +321,9 @@ export default async function PatiktokGallery({
           className="inline-flex items-start gap-2 rounded-2xl border border-danger-300/70 bg-danger-50 px-4 py-3 text-sm text-danger-900"
         >
           <AlertCircle aria-hidden className="mt-0.5 h-4 w-4" strokeWidth={1.75} />
+          {tiktokError === 'needs_patiktok' ? (
+            <span>Posting to TikTok comes with Patiktok — add it below to connect.</span>
+          ) : (
           <span>
             TikTok connection failed (
             <span className="font-mono text-xs">{tiktokError}</span>
@@ -301,6 +332,7 @@ export default async function PatiktokGallery({
               : ''}
             ). Try again or contact support if this persists.
           </span>
+          )}
         </p>
       ) : null}
 
@@ -314,7 +346,7 @@ export default async function PatiktokGallery({
             one tap from the landing. TikTok auto-post is an OPTIONAL extra here,
             never a gate — only surfaced when the app is configured (dormant).
           */}
-          <BoothLaunchPanel eventId={eventId} />
+          <BoothLaunchPanel eventId={eventId} owned />
           {tiktokAvailable ? (
             <TiktokConnectPanel eventId={eventId} grant={tiktokGrant} />
           ) : null}
@@ -322,26 +354,56 @@ export default async function PatiktokGallery({
             jobs={jobs}
             eventId={eventId}
             downloadUrls={downloadUrls}
+            owned
+            saveCardMounted={false}
           />
         </>
       ) : (
         <>
-          <BuyCard
-            eventId={eventId}
-            pricePhp={pricePhp}
-            settings={settings}
-          />
+          {/*
+            💎 FREE TO USE (owner 2026-09-29: "yes use for free. but pay to save
+            and share"). The booth, the recording and the preview are open to
+            everyone on the event; the card below is the one door, and it opens
+            only onto the save/share half. In the app-store shell the door is
+            absent (lib/store-shell.ts) — the booth still works.
+          */}
+          <BoothLaunchPanel eventId={eventId} owned={false} />
+          {saveCardMounted ? (
+            <SaveShareCard
+              eventId={eventId}
+              pricePhp={pricePhp}
+              settings={settings}
+              pending={patiktokPending}
+            />
+          ) : null}
           <YourRenders
             jobs={jobs}
             eventId={eventId}
             downloadUrls={downloadUrls}
+            owned={false}
+            saveCardMounted={saveCardMounted}
           />
         </>
       )}
 
       <HowItWorks />
 
-      <CategoryChips eventId={eventId} active={activeCategory} />
+      <CategoryChips
+        eventId={eventId}
+        active={activeCategory}
+        boothRole={boothRole}
+        boothOther={boothOther}
+      />
+
+      {boothRole ? (
+        <p
+          role="status"
+          className="rounded-2xl bg-terracotta/10 px-4 py-3 text-sm text-ink/80"
+        >
+          Pick your booth&rsquo;s {boothRole} template — it saves the moment you
+          tap &ldquo;Use as {boothRole}&rdquo;.
+        </p>
+      ) : null}
 
       <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {visibleTemplates.map((t) => (
@@ -350,6 +412,8 @@ export default async function PatiktokGallery({
               eventId={eventId}
               template={t}
               coupleName={event?.display_name ?? ''}
+              boothRole={boothRole}
+              boothOther={boothOther}
             />
           </li>
         ))}
@@ -375,14 +439,14 @@ export default async function PatiktokGallery({
   );
 }
 
-function BoothLaunchPanel({ eventId }: { eventId: string }) {
+function BoothLaunchPanel({ eventId, owned }: { eventId: string; owned: boolean }) {
   return (
     <section className="space-y-4 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="sn-eye inline-flex items-center gap-1.5">
             <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Patiktok is yours
+            {owned ? 'Patiktok is yours' : 'Free to record and preview'}
           </p>
           <h2 className="text-lg font-semibold tracking-tight">
             Your booth is ready to run
@@ -390,6 +454,9 @@ function BoothLaunchPanel({ eventId }: { eventId: string }) {
           <p className="max-w-prose text-sm text-ink/70">
             Open the operator dashboard to pick your primary + backup templates,
             track live submissions, and start recording your guests.
+            {owned
+              ? null
+              : ' Every reel you render plays here for free — saving and sharing it comes with Patiktok.'}
           </p>
         </div>
         <Link
@@ -464,12 +531,18 @@ function TiktokConnectPanel({
 
 function YourRenders({
   jobs,
-  eventId: _eventId,
+  eventId,
   downloadUrls,
+  owned,
+  saveCardMounted,
 }: {
   jobs: ReadonlyArray<RenderJobRow>;
   eventId: string;
+  /** Minted by the page ONLY for a paid event — never a link out otherwise. */
   downloadUrls: Record<string, string>;
+  owned: boolean;
+  /** The ◆ Save anchor exists on this page (unpaid, outside the store shell). */
+  saveCardMounted: boolean;
 }) {
   if (jobs.length === 0) return null;
   return (
@@ -515,9 +588,27 @@ function YourRenders({
                   <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                   Download
                 </a>
+              ) : job.status === 'completed' && !owned && saveCardMounted ? (
+                <a
+                  href="#patiktok-save"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/75 hover:border-mulberry/40 hover:text-mulberry"
+                >
+                  <PaidMark state="try" label="Comes with Patiktok" size="xs" bare />
+                  Save
+                </a>
               ) : job.status === 'completed' ? (
                 <p className="font-mono text-[11px] text-ink/55">Ready</p>
-              ) : null}
+              ) : (
+                // The reel still waiting: queued, a preview never saved, or a
+                // failed render. Open it to render (paid: saves; unpaid: watch).
+                <Link
+                  href={`/dashboard/${eventId}/studio/patiktok?queued=${job.job_id}`}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-2.5 py-1.5 text-xs font-medium text-ink/75 hover:border-mulberry/40 hover:text-mulberry"
+                >
+                  <Film aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  {owned ? 'Render' : 'Preview'}
+                </Link>
+              )}
             </li>
           );
         })}
@@ -573,35 +664,44 @@ function RenderStatusPill({ status }: { status: RenderJobRow['status'] }) {
 }
 
 /**
- * Single Patiktok SKU buy card. One order keyed on PATIKTOK_COMPILER; the inline
- * checkout drawer handles voucher + QR + screenshot. Display price comes from
- * the admin-managed retail catalog (priceLabel); the checkout action re-resolves
- * the authoritative charge server-side — no peso is hardcoded here.
+ * The ONE Patiktok door: save & share. One order keyed on PATIKTOK_COMPILER; the
+ * inline checkout drawer handles voucher + QR + screenshot. Display price comes
+ * from the admin-managed retail catalog (priceLabel); the checkout action
+ * re-resolves the authoritative charge server-side — no peso is hardcoded here.
+ *
+ * 💎 Owner 2026-09-29: "yes use for free. but pay to save and share". So this is
+ * not a gate in front of the booth — the booth is above it, open — it is the
+ * save/share half, marked ◆ PRO (information, never a padlock). Mounted only
+ * outside the app-store shell.
  */
-function BuyCard({
+function SaveShareCard({
   eventId,
   pricePhp,
   settings,
+  pending,
 }: {
   eventId: string;
   /** Admin-managed price in PHP from the V2 retail catalog. null = unreadable. */
   pricePhp: number | null;
   settings: PaymentSettings;
+  /** An order is already submitted and awaiting confirmation. */
+  pending: boolean;
 }) {
   const priceLabel = pricePhp != null ? formatPhp(pricePhp) : null;
-  const triggerLabel = priceLabel ? `Add Patiktok · ${priceLabel}` : 'Add Patiktok';
+  const triggerLabel = priceLabel ? `Save & share · ${priceLabel}` : 'Save & share';
   return (
-    <section className="sn-tile space-y-3 p-5">
+    <section id="patiktok-save" className="sn-tile scroll-mt-24 space-y-3 p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="space-y-1">
-          <p className="sn-eye">
-            In-app service
+          <p className="sn-eye inline-flex items-center gap-1.5">
+            <PaidMark state="try" label="Comes with Patiktok" size="xs" />
+            Save &amp; share
           </p>
-          <h2 className="text-lg font-semibold tracking-tight">Patiktok booth</h2>
+          <h2 className="text-lg font-semibold tracking-tight">Keep your reels</h2>
           <p className="max-w-prose text-sm text-ink/70">
-            Unlimited mimic-station recordings across your event day, polished
-            into post-ready 9:16 reels with Setnayan-owned music. Record, render,
-            and download right in your browser.
+            Recording and watching your reels is free. Add Patiktok to save
+            them without the preview mark, download them and share them —
+            every reel your booth makes, all event day.
           </p>
         </div>
         {priceLabel ? (
@@ -614,21 +714,31 @@ function BuyCard({
         Soft cap: {PATIKTOK_VIDEO_SOFT_CAP} captured videos per booth per day —
         guidance only, not a charge.
       </p>
-      <div className="pt-1">
-        <InlineCheckoutDrawer
-          eventId={eventId}
-          serviceKey={PATIKTOK_SERVICE_KEY}
-          displayName="Patiktok booth"
-          originalPriceCentavos={String(Math.round((pricePhp ?? 0) * 100))}
-          settings={settings}
-          triggerLabel={triggerLabel}
-          triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
-        />
-        <p className="pt-2 text-[11px] text-ink/55">
-          Apply-then-pay · Setnayan confirms inside 24 h after BDO / GCash
-          payment is logged.
+      {pending ? (
+        <p
+          role="status"
+          className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70"
+        >
+          Your Patiktok payment is being confirmed. Once it is, open any reel in
+          &ldquo;Your renders&rdquo; and it saves without the mark.
         </p>
-      </div>
+      ) : (
+        <div className="pt-1">
+          <InlineCheckoutDrawer
+            eventId={eventId}
+            serviceKey={PATIKTOK_SERVICE_KEY}
+            displayName="Patiktok booth"
+            originalPriceCentavos={String(Math.round((pricePhp ?? 0) * 100))}
+            settings={settings}
+            triggerLabel={triggerLabel}
+            triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
+          />
+          <p className="pt-2 text-[11px] text-ink/55">
+            Apply-then-pay · Setnayan confirms inside 24 h after BDO / GCash
+            payment is logged.
+          </p>
+        </div>
+      )}
     </section>
   );
 }
@@ -645,14 +755,17 @@ function HowItWorks() {
       body: 'Browse below and lock in one primary + one backup reel. Setnayan-owned music pairs to each template — no licensing surprises.',
     },
     {
-      Icon: QrCode,
-      title: '2 · Print the booth QR',
-      body: 'We email a print-ready PDF. Hand it to your coordinator or booth operator — they scan it to open the live dashboard.',
+      // Was "2 · Print the booth QR — We email a print-ready PDF". No such PDF
+      // is built (TODO(0017-phase4.2) on the booth page) and nothing is emailed:
+      // the booth is opened by someone signed in to the event. Audit 2026-09-29.
+      Icon: Smartphone,
+      title: '2 · Open the booth on a phone',
+      body: 'Whoever runs the booth signs in to your event on their phone and opens the booth dashboard — your coordinator or a friend can do it.',
     },
     {
-      Icon: Smartphone,
+      Icon: Film,
       title: '3 · Guests cycle through',
-      body: 'Operator picks template per guest, app captures the mimic with face-lock, app compiles all clips into a single 9:16 reel.',
+      body: 'Operator picks template per guest, app captures the mimic with face-lock, app compiles all clips into a single 9:16 reel. Watching it is free; saving and sharing it comes with Patiktok.',
     },
   ];
   return (
@@ -679,41 +792,44 @@ function HowItWorks() {
 function CategoryChips({
   eventId,
   active,
+  boothRole,
+  boothOther,
 }: {
   eventId: string;
   active: PatiktokCategory | 'all';
+  boothRole: 'primary' | 'backup' | null;
+  boothOther: string | null;
 }) {
+  // Filtering while picking for the booth keeps the pick going.
+  const roleQuery = boothRole
+    ? `role=${boothRole}${boothOther ? `&other=${boothOther}` : ''}`
+    : '';
   const items: ReadonlyArray<{ key: PatiktokCategory | 'all'; label: string }> = [
     { key: 'all', label: 'All templates' },
     ...PATIKTOK_CATEGORIES,
   ];
+  // ONE dropdown, not a row of category pills (owner rule 2026-09-28). Each
+  // option is still the same address the pills linked to, so a category
+  // survives a refresh and the page stays server-rendered.
   return (
-    <nav
-      aria-label="Filter templates by category"
-      className="flex flex-wrap gap-2"
-    >
-      {items.map((item) => {
-        const isActive = item.key === active;
-        const href =
-          item.key === 'all'
-            ? `/dashboard/${eventId}/studio/patiktok`
-            : `/dashboard/${eventId}/studio/patiktok?category=${item.key}`;
-        return (
-          <Link
-            key={item.key}
-            href={href}
-            aria-current={isActive ? 'page' : undefined}
-            className={
-              isActive
-                ? 'inline-flex items-center gap-1.5 rounded-full bg-terracotta px-3 py-1 text-xs font-medium text-cream'
-                : 'inline-flex items-center gap-1.5 rounded-full border border-ink/10 bg-cream px-3 py-1 text-xs font-medium text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700'
-            }
-          >
-            <Hash aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav aria-label="Filter templates by category" className="flex items-center gap-2">
+      <Hash aria-hidden className="h-3.5 w-3.5 text-ink/50" strokeWidth={1.75} />
+      <LinkPickMenu
+        label="Template category"
+        value={active}
+        dataAttr="data-patiktok-category"
+        options={items.map((item) => {
+          const query = [item.key === 'all' ? '' : `category=${item.key}`, roleQuery]
+            .filter(Boolean)
+            .join('&');
+          return {
+            key: item.key,
+            label: item.label,
+            href: `/dashboard/${eventId}/studio/patiktok${query ? `?${query}` : ''}`,
+          };
+        })}
+        className="border border-ink/15"
+      />
     </nav>
   );
 }
@@ -722,10 +838,15 @@ function TemplateCard({
   eventId,
   template,
   coupleName,
+  boothRole,
+  boothOther,
 }: {
   eventId: string;
   template: PatiktokTemplate;
   coupleName: string;
+  /** Picking for a booth slot: the button SAVES this template into it. */
+  boothRole: 'primary' | 'backup' | null;
+  boothOther: string | null;
 }) {
   return (
     <article className="sn-row flex h-full flex-col gap-3 overflow-hidden">
@@ -741,13 +862,36 @@ function TemplateCard({
           </span>
         </div>
         <p className="text-xs text-ink/70">{template.vibe}</p>
-        <Link
-          href={`/dashboard/${eventId}/studio/patiktok/${template.slug}`}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-        >
-          <Film className="h-4 w-4" strokeWidth={1.75} />
-          Choose template
-        </Link>
+        {boothRole ? (
+          <form action={savePatiktokBoothTemplates}>
+            <input type="hidden" name="event_id" value={eventId} />
+            <input
+              type="hidden"
+              name="primary"
+              value={boothRole === 'primary' ? template.slug : boothOther ?? ''}
+            />
+            <input
+              type="hidden"
+              name="backup"
+              value={boothRole === 'backup' ? template.slug : boothOther ?? ''}
+            />
+            <SubmitButton
+              className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-70"
+              pendingLabel="Saving…"
+            >
+              <Film className="h-4 w-4" strokeWidth={1.75} />
+              Use as {boothRole}
+            </SubmitButton>
+          </form>
+        ) : (
+          <Link
+            href={`/dashboard/${eventId}/studio/patiktok/${template.slug}`}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
+          >
+            <Film className="h-4 w-4" strokeWidth={1.75} />
+            Choose template
+          </Link>
+        )}
       </div>
     </article>
   );

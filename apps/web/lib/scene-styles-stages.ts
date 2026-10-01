@@ -102,10 +102,13 @@ export const STAGE_SCENE_STYLE_SETS: readonly SceneStyleSet[] = [
   {
     type: 'venue_map',
     label: 'Venue map',
+    // 🏛 VENUE STYLES APPROVED (owner 2026-09-30, `prototypes/venue_styles_2026-09-30_fable.html`):
+    // Photo card (the shipped look, the default) · Full photo · The journey. The
+    // scene's Map switch (`canvas.venueMap`) rides beside this Style.
     styles: [
-      { id: 'map-and-plate', name: 'Map and plate', line: 'One map and one plate per place, stacked.', stages: INV_DAY },
-      { id: 'one-map', name: 'One map, two pins', line: 'Every place on one map, numbered, with a row each.', stages: INV_DAY },
-      { id: 'full-map', name: 'Full map', line: 'The map is the scene; the places float over it.', stages: INV_DAY },
+      { id: 'photo-card', name: 'Photo card', line: 'One card per place: its photo, name, address and directions.', stages: INV_DAY },
+      { id: 'full-photo', name: 'Full photo', line: 'The photo is the card; the name sits on it.', stages: INV_DAY },
+      { id: 'journey', name: 'The journey', line: 'One map, then the day as a route, stop by stop.', stages: INV_DAY },
     ],
   },
   {

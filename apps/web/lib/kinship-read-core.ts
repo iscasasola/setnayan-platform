@@ -103,6 +103,10 @@ const STORED_RELATIONS: ReadonlySet<string> = new Set([
   'godparent',
   'godchild',
   'friend',
+  // Owner 2026-09-29: "add partner (to become a couple)". Left out of this set,
+  // every confirmed partner edge would be dropped here and a partner's parents
+  // would never become biyenan — silently, with a green derivation test.
+  'partner',
 ]);
 
 /**

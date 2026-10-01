@@ -321,6 +321,12 @@ export type HubSectionCanvas = {
    */
   palette?: string;
   /**
+   * 🏛 THE VENUE SCENE'S MAP SWITCH (owner 2026-09-30, "VENUE STYLES APPROVED":
+   * *Map: One map for both / No map*). Only `'none'` is stored; absent = one map
+   * for both, the default. FREE: not a look key. Read by `venueMapOfRow`.
+   */
+  venueMap?: 'none';
+  /**
    * 🎞 A POST EVENT PRESET SCENE (`lib/post-event-presets.ts`) — which of Post
    * Event's twelve presets seeded this scene of the couple's own. NOT `preset`,
    * which is the scene's motion. Its presence puts the scene on Post Event only
@@ -659,6 +665,7 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
   if (style) out.style = style;
   const palette = sanitizeSceneStyleId(canvas.palette);
   if (palette) out.palette = palette;
+  if (canvas.venueMap === 'none') out.venueMap = 'none';
   if (isPostEventPresetId(canvas.postEventPreset)) out.postEventPreset = canvas.postEventPreset;
   const slots = hubSceneSlots(canvas.slots);
   if (slots) out.slots = slots;
@@ -1059,10 +1066,17 @@ export function hasHubCanvas(canvas: HubSectionCanvas): boolean {
      their own scoped style (`hubElementSceneCss`), framed or not. */
   /* 🔗 Nor is a scene's own version of a Details fact (`details`) — it is
      words, drawn by the scene itself; framing it would add motion nobody chose. */
-  /* 🎨 Nor is a style pick (`style`) or a palette look (`palette`) — the scene
-     draws its own style; framing it would bring motion the couple never chose. */
+  /* 🎨 Nor is a style pick (`style`), a palette look (`palette`) or the venue's
+     map switch (`venueMap`) — the scene draws its own style; framing it would
+     bring motion the couple never chose. */
   return Object.keys(canvas).some(
-    (k) => k !== 'elements' && k !== 'details' && k !== 'style' && k !== 'palette' && k !== 'postEventPreset',
+    (k) =>
+      k !== 'elements' &&
+      k !== 'details' &&
+      k !== 'style' &&
+      k !== 'palette' &&
+      k !== 'venueMap' &&
+      k !== 'postEventPreset',
   );
 }
 

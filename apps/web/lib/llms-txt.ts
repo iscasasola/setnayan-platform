@@ -36,6 +36,7 @@ import { AI_TIER_SKU, AI_TIER_FALLBACK_PHP, type AiPriceTier } from './setnayan-
 import { bookingFeeScheduleSummary } from './booking-fee';
 import { FREE_BOOKING_LIMIT } from './booking-fee-lock';
 import { isBookingFeeEnabled } from './booking-fee-gate';
+import { FEATURE_GROUPS, FEATURE_PAGES, featurePaths } from './feature-pages';
 
 export type RetailRow = {
   service_code: string;
@@ -441,6 +442,53 @@ export function liveEventTypesPhrase(): string {
 const ORIGIN = 'https://www.setnayan.com';
 const url = (path: string) => `${ORIGIN}${path}`;
 
+/**
+ * THE FEATURE PAGES, LISTED FOR ANSWER ENGINES (DECISION_LOG 2026-10-01: "llms.txt
+ * … lists every feature page and guide with one-line summaries").
+ *
+ * Rendered from the ONE registry (`lib/feature-pages`) — the summary is each
+ * page's own answer-first paragraph, the sentence the page itself leads with,
+ * so what an assistant quotes and what a visitor reads cannot disagree.
+ *
+ * 🔑 AN UNLISTED PRODUCT STAYS UNLISTED. A feature priced by a code in
+ * `UNLISTED_UNTIL_PROVEN` is left out, AND so is any other feature whose
+ * summary names it — otherwise Patiktok (owner 2026-09-27: "we have never
+ * tried patiktok") would walk back in through a neighbour's sentence. Its page
+ * still exists for people; it is only not described to every model.
+ */
+function unlistedFeatureNames(): string[] {
+  return FEATURE_PAGES.filter(
+    (f) => f.price.kind !== 'free' && f.price.codes.some((c) => UNLISTED_UNTIL_PROVEN.has(c)),
+  ).map((f) => f.name.en);
+}
+
+export function llmsFeaturePages(): ReadonlyArray<{ path: string; name: string; summary: string; group: string }> {
+  const hidden = unlistedFeatureNames();
+  const named = (text: string) => hidden.some((n) => new RegExp(`\\b${n}\\b`, 'i').test(text));
+  return FEATURE_PAGES.filter((f) => !named(`${f.name.en} ${f.answer.en}`)).map((f) => ({
+    path: featurePaths(f.slug).en,
+    name: f.name.en,
+    summary: f.answer.en,
+    group: FEATURE_GROUPS.find((g) => g.key === f.group)?.name.en ?? '',
+  }));
+}
+
+/** The feature routes this file links — the dead-route audit allows exactly these. */
+export function llmsFeatureRoutes(): readonly string[] {
+  return llmsFeaturePages().map((f) => f.path);
+}
+
+function featurePagesSection(): string {
+  const pages = llmsFeaturePages();
+  if (pages.length === 0) return '';
+  const lines = FEATURE_GROUPS.flatMap((g) => {
+    const rows = pages.filter((p) => p.group === g.name.en);
+    if (rows.length === 0) return [];
+    return [`### ${g.name.en}`, '', ...rows.map((p) => `- [${p.name}](${url(p.path)}) — ${p.summary}`), ''];
+  });
+  return `## Feature pages\n\nOne page per feature, each with how it works in three steps, its price from the live catalogue, and a short FAQ. Every page has a Tagalog twin under /tl/features/.\n\n${lines.join('\n')}`;
+}
+
 /** Render the complete llms.txt body. Pure. */
 export function renderLlmsTxt(input: LlmsTxtInput): string {
   const book = buildPriceBook(input);
@@ -490,6 +538,7 @@ Setnayan today is the best way for a Filipino family to plan, run, and remember 
 
 What is LIVE today: every event type listed above; an event automatically becoming its own recurring anniversary with a yearly reminder; the verified vendor marketplace at 0% commission; and the Memories archive. What is DIRECTION, not a shipped feature: the broader multi-generational family graph (children's milestones, godparents, and faith rites across a lifetime). Setnayan is a system of record for celebrations, not for identity or documents.
 
+${featurePagesSection()}
 ## Currently shipped public surfaces
 
 - [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, 0% commission, Filipino vendor stories.

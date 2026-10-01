@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { redirect } from 'next/navigation';
-import { Camera, Radio, Image as ImageIcon, ArrowRight } from 'lucide-react';
+import { Camera, Radio, Image as ImageIcon, ArrowRight, ImageDown, BookHeart } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -12,6 +12,8 @@ import { resolveAddOnState } from '@/lib/add-on-state';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { RevealList } from '@/app/_components/reveal-list';
 import { formatCount } from '@/lib/format-number';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
+import { MiniTour } from '@/app/_components/mini-tour';
 
 export const metadata = { title: 'Galleries' };
 
@@ -278,6 +280,71 @@ export default async function GalleriesHubPage({ params }: Props) {
           );
         })}
       </RevealList>
+
+      {/* 🚪 TWO PAGES THAT HAD NO WAY IN (2026-09-30, a read-only audit).
+          · Photo Delivery (`/studio/photo-delivery`) — its catalogue group is
+            'utility', which Our Services filters out, and its only link was on
+            Memories. It hands the photographer's full gallery to the couple's
+            Google Drive, so it belongs beside the other photo sources.
+          · Memories (`/alaala`) — the Photo Notes your guests left, the most
+            storied moments, and Story Assignments — linked from nowhere at all.
+          These are doorways, not sources: neither claims a "ready" or
+          "collecting" state this page has not measured. */}
+      <section aria-label="More from your day" className="mt-8 space-y-3" data-galleries-more>
+        <h2 className="sn-eye">More from your day</h2>
+        {DOORWAYS(base).map((d) => {
+          const Icon = d.Icon;
+          return (
+            <Link
+              key={d.key}
+              href={d.href}
+              data-galleries-door={d.key}
+              className="sn-row flex min-h-11 items-center justify-between gap-4 p-4 hover:bg-ink/[0.03] sm:p-5"
+            >
+              <span className="flex min-w-0 items-start gap-3">
+                <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-ink/5 text-ink/70">
+                  <Icon aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-ink">{d.name}</span>
+                  <span className="mt-0.5 block text-xs text-ink/55">{d.line}</span>
+                </span>
+              </span>
+              <ArrowRight aria-hidden className="h-4 w-4 shrink-0 text-ink/50" strokeWidth={2} />
+            </Link>
+          );
+        })}
+      </section>
+      {/* First visit only — the shipped MiniTour (owner 2026-09-25). */}
+      <MiniTour tourKey="customer_galleries_v1" />
     </div>
   );
+}
+
+/** The two doorways under the sources. Photo Delivery's words come from its
+ *  catalogue record (the one every Studio row reads), never a second copy. */
+const PHOTO_DELIVERY = addOnHeroCopy('photo-delivery');
+function DOORWAYS(base: string): {
+  key: string;
+  name: string;
+  line: string;
+  href: string;
+  Icon: LucideIcon;
+}[] {
+  return [
+    {
+      key: 'photo-delivery',
+      name: PHOTO_DELIVERY.label,
+      line: PHOTO_DELIVERY.blurb,
+      href: `${base}/studio/photo-delivery`,
+      Icon: ImageDown,
+    },
+    {
+      key: 'memories',
+      name: 'Memories',
+      line: 'The stories your guests left, and who tells each moment.',
+      href: `${base}/alaala`,
+      Icon: BookHeart,
+    },
+  ];
 }

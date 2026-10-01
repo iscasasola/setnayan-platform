@@ -11,6 +11,8 @@ import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
 import { isVendorAddonTieredPricingEnabled } from '@/lib/vendor-addon-tiered-pricing-flag';
 import { resolveVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { deepSearchAiConfigured, type VendorDossier } from '@/lib/vendor-deep-search';
@@ -125,7 +127,13 @@ export async function runVendorDeepSearch(
   const verification =
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
-  const eligibility = deepSearchEligibility({ tier, verification });
+  // The paid-plan requirement is asked through the one flag-aware question —
+  // here, at the final action (Run), and only while the switch is on.
+  const eligibility = deepSearchEligibility({
+    tier,
+    verification,
+    tierPaywall: vendorPaywallApplies(isTierAtLeast(tier, 'solo')),
+  });
   if (!eligibility.ok) {
     return err(DEEP_SEARCH_DENY_MESSAGE[eligibility.reason]);
   }

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { ArrowLeft, Sparkles, Users } from 'lucide-react';
+import { ArrowLeft, HeartHandshake, Sparkles, Users } from 'lucide-react';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBudgetBands } from '@/lib/budget-bands';
 import { safeNext } from '@/lib/auth';
@@ -20,6 +20,7 @@ import {
   type DependentSubjectRow,
 } from '@/lib/create-subjects';
 import { getInPlanningWedding } from './wedding-guard';
+import { readPlanTogether } from '@/lib/plan-together.server';
 import { EventTypePicker } from './_components/event-type-picker';
 /* Retired 2026-05-28 V2 cutover — CONCIERGE_ENABLED import removed.
    V2 has no Concierge choice card on create-event; every new event
@@ -72,6 +73,8 @@ type SearchParams = Promise<{
   event_type?: string;
   samahan?: string;
   existing?: string;
+  /** "Plan an event together" — a confirmed PARTNER connection id (People). */
+  with?: string;
 }>;
 
 export default async function CreateEventPage({ searchParams }: { searchParams: SearchParams }) {
@@ -228,6 +231,14 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
     ];
   }
 
+  // "PLAN AN EVENT TOGETHER" (owner 2026-09-29: "add partner (to become a
+  // couple)"). `?with=` names a connection; it counts only when it is a
+  // CONFIRMED partner connection this account is on — anything else is
+  // dropped silently and the page is the ordinary create step. Nothing is
+  // created here: the two first names are only carried to the name screen.
+  const together =
+    user && !samahan && params.with ? await readPlanTogether(supabase, user.id, params.with) : null;
+
   // Life-event cardinality blocked state (council § 5 card 1): the server
   // action bounced a duplicate in-planning life event here with its id. Fetch
   // the display name so the card can say WHICH celebration is already open —
@@ -252,6 +263,14 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
   // their shipped position directly beneath it.
   const notice = (
     <>
+      {together ? (
+        <p className="sn-tile mb-6 flex items-center gap-2 py-3 text-sm text-ink/75" data-plan-together>
+          <HeartHandshake aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={1.75} />
+          <span>
+            Planning together with <span className="font-medium text-ink">{together.partner}</span>
+          </span>
+        </p>
+      ) : null}
       {samahan ? (
         <p className="sn-tile mb-6 flex items-center gap-2 py-3 text-sm text-ink/75">
           <Users aria-hidden className="h-4 w-4 shrink-0 text-mulberry" strokeWidth={1.75} />
@@ -337,6 +356,7 @@ export default async function CreateEventPage({ searchParams }: { searchParams: 
         hiddenTypeKeys={hiddenTypeKeys}
         subjects={subjects}
         todayISO={today}
+        couple={together}
       />
     </div>
   );

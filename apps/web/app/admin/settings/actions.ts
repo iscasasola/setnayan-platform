@@ -6,6 +6,7 @@ import jsQR from 'jsqr';
 import { revalidatePath, revalidateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deletePublicAsset, uploadPublicAsset } from '@/lib/storage';
 import { R2_BUCKETS, r2Upload } from '@/lib/r2';
@@ -186,11 +187,16 @@ export async function saveAdminDigest(formData: FormData) {
     .from('platform_settings')
     .update({ admin_digest_enabled: enabled, updated_at: new Date().toISOString() })
     .eq('id', 1);
+  // The switch lives on Notifications now, next to the delivery log (row 38).
+  // A failed save says so in words; the database's message goes to the log.
   if (error) {
-    return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent(error.message)}`);
+    logQueryError('admin/settings: saveAdminDigest', error);
+    return redirect(
+      `/admin/settings?tab=notifications&error=${encodeURIComponent('Couldn’t save the digest switch. Try again.')}`,
+    );
   }
   revalidatePath('/admin/settings');
-  redirect('/admin/settings?tab=settings&saved=1');
+  redirect('/admin/settings?tab=notifications');
 }
 
 /**

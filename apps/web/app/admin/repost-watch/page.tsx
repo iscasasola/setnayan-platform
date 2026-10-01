@@ -443,13 +443,12 @@ export default async function AdminRepostWatchPage({
                       </button>
                     </form>
                     <a
-                      // `/admin/vendors/<id>` has no page.tsx — the segment only
-                      // serves /edit, /team and /tokens — so this 404'd on every
-                      // click. /edit is the admin's vendor detail view.
-                      href={`/admin/vendors/${r.flagged_vendor_id}/edit`}
+                      // The supplier's own admin page (2026-10-01). /edit bounced
+                      // every CLAIMED shop to the unfiltered list, losing it.
+                      href={`/admin/vendors/${r.flagged_vendor_id}`}
                       className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
                     >
-                      Open vendor →
+                      Open supplier →
                     </a>
                   </div>
                 )}
@@ -612,11 +611,11 @@ export default async function AdminRepostWatchPage({
                         </button>
                       </form>
                       <a
-                        // Same dead path as above — /edit is the real detail view.
-                        href={`/admin/vendors/${r.vendor_profile_id}/edit`}
+                        // The supplier's own admin page, as above.
+                        href={`/admin/vendors/${r.vendor_profile_id}`}
                         className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
                       >
-                        Open vendor →
+                        Open supplier →
                       </a>
                     </div>
                   )}

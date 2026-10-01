@@ -1443,6 +1443,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       ) : (
         <MiniTour tourKey="customer_guest_invite_v1" />
       )}
+      {/* The Guest list's own first-visit tour (owner 2026-09-25) — after the
+          Invite tour, so the two never stack on one first visit. */}
+      <MiniTour tourKey="customer_guest_list_v1" after="customer_guest_invite_v1" />
     </section>
   );
 

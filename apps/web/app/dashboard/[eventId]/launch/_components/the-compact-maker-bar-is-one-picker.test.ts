@@ -58,7 +58,7 @@ test('on Details, the one picker says Details, not the stage behind it', () => {
 test('the list is ONE FLAT LIST — the stages (RSVP among them), then Details, nothing else', () => {
   const m = makerPlacePick({ stage: 'save_the_date', liveStage: null, openTool: null, hasWork: true });
   // 🗳 2026-09-30 re-plan: the RSVP stage sits between Save the Date and the Invitation.
-  assert.deepEqual(m.options.map((o) => o.label), [STAGES[0], 'RSVP', ...STAGES.slice(1), 'Your info']);
+  assert.deepEqual(m.options.map((o) => o.label), [STAGES[0], 'RSVP', ...STAGES.slice(1), 'Your info', 'Prints']);
   assert.deepEqual(STAGES, ['Save the Date', 'Invitation', 'On the Day', 'Post Event']);
   // No headings: one run, no group name (as PickMenu reads them).
   const runs = pickRuns(m.options.map((o) => ({ key: o.key, group: (o as Record<string, unknown>).group as string | undefined })));
@@ -82,8 +82,11 @@ test('a pick hands back the SAME item the full row presses; Details stays shut t
   assert.ok(shut.options.find((o) => o.key === 'details')?.disabledNote, 'Details says why it is shut');
   // The RSVP stage is the couple's settings, like Details — shut, and saying why.
   assert.ok(shut.options.find((o) => o.key === 'rsvp-stage')?.disabledNote, 'the RSVP stage says why it is shut');
+  // 🖨 Prints is Details open on the prints — shut to a non-couple the same way.
+  assert.ok(shut.options.find((o) => o.key === 'prints')?.disabledNote, 'Prints says why it is shut');
+  assert.equal(makerPlaceItem('prints', false), null, 'Prints is the couple’s alone');
   assert.ok(
-    shut.options.filter((o) => o.key !== 'details' && o.key !== 'rsvp-stage').every((o) => !o.disabledNote),
+    shut.options.filter((o) => o.key !== 'details' && o.key !== 'prints' && o.key !== 'rsvp-stage').every((o) => !o.disabledNote),
     'a lifecycle stage is never shut',
   );
   assert.equal(makerPickOpen(makerPlacePick({ stage: 'event', liveStage: null, openTool: 'rsvp-stage', hasWork: true })), 'RSVP');

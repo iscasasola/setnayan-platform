@@ -279,8 +279,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
       </section>
 
       <footer className="mt-10 rounded-xl border border-ink/10 bg-white/60 px-5 py-4 text-xs text-ink/55">
-        Profile ID <span className="font-mono">{profile.vendor_profile_id}</span> ·
-        Schema source <span className="font-mono">canonical_service_schemas + shared_attribute_groups</span> per iteration 0044.
+        Profile ID <span className="font-mono">{profile.vendor_profile_id}</span>
       </footer>
     </div>
   );

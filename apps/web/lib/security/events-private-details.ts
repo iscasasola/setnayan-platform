@@ -153,7 +153,7 @@ export const MIGRATED_HOST_READERS: readonly string[] = [
   'app/dashboard/[eventId]/_components/event-dashboard.tsx',
   'app/dashboard/[eventId]/wizard-actions.ts',
   'app/dashboard/(account)/create-event/actions.ts',
-  'app/api/profile/export/route.ts',
+  'lib/personal-data-export.ts',
   'lib/checklist-budget.ts',
   'lib/budget-allocation-data.ts',
   'lib/wedding-roadmap-signals.ts',

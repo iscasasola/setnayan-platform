@@ -69,7 +69,6 @@ wedding_* | map-backlog — wedding destination and tradition reference data
 photo_delivery_* | map-backlog — photo delivery artifacts and Drive integration
 user_* | declined — per-user appendages of the ALREADY-MAPPED users node (devices, AI subscription, preferences). Note the family sensor cannot see that `users` is mapped, because the mapped table is plural and the family prefix is singular — the same singular/plural seam as communities vs community_*. These are attributes of a mapped concept, not a new one.
 service_catalog | map-backlog — the SKU catalogue. Arguably belongs under the services node; needs a deliberate call.
-service_categories | map-backlog — category tree; the real FK target of onboarding_refinements.tile_id
 canonical_service_schemas | map-backlog — per-leaf attribute schemas; taxonomy cluster
 faith_vocab | map-backlog — faith and ceremony vocabulary; taxonomy cluster
 vendor_activities | map-backlog — the emcee's ACTIVITY CATALOGUE (shipped 2026-07-29, migration 20271015817050): the vendor authors the activities/games he can run, the couple picks from them (event_activity_picks), and the picks bridge into the timeline. `vendor_lines` (My Lines, 2026-08-04) is the second referencing table, which is what raised it above the hub threshold. It IS a concept and the map should carry it — but a node needs joints with REQUIRED claims to vendor_profiles, event_activity_picks and the schedule blocks, and that is its own modelling pass, not a side effect of the PR that added the second reference. Deliberately NOT declined.

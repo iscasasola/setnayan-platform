@@ -562,13 +562,12 @@ export default async function AdminIntegrityWatchPage({
                       </button>
                     </form>
                     <Link
-                      // `/admin/vendors/<id>` has no page.tsx — the segment only
-                      // serves /edit, /team and /tokens — so this 404'd on every
-                      // click. /edit is the admin's vendor detail view.
-                      href={`/admin/vendors/${r.subject_vendor_id}/edit`}
+                      // The supplier's own admin page (2026-10-01). /edit bounced
+                      // every CLAIMED shop to the unfiltered list, losing it.
+                      href={`/admin/vendors/${r.subject_vendor_id}`}
                       className="text-xs font-medium text-ink/55 underline-offset-2 hover:underline"
                     >
-                      Open vendor →
+                      Open supplier →
                     </Link>
                   </div>
                 )}

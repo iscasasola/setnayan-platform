@@ -27,7 +27,7 @@ import { TierComparisonWidget } from './tier-comparison-widget';
 import { VenueWidget } from './venue-widget';
 import { WhatToBringWidget } from './what-to-bring-widget';
 import type { HubStage } from '@/lib/hub-canvas';
-import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
 
 /**
  * Per-widget renderer for the anonymous public landing path. Mirrors the
@@ -158,7 +158,7 @@ function PublicHideableWidgetBody({
       ) : null;
 
     case 'venue_map':
-      return <VenueWidget event={event} sceneStyle={sceneStyle} />;
+      return <VenueWidget event={event} sceneStyle={sceneStyle} map={venueMapOfRow(widget)} blocks={scheduleBlocks} />;
 
     case 'dress_code':
       /* 🎨 The stranger's door reads the Mood Board too (owner 2026-09-28: "if

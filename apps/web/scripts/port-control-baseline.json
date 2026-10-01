@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "b02235da",
-  "routeCount": 442,
-  "destinations": 953,
-  "actions": 677,
-  "blocks": 5358,
+  "generatedFromRef": "09c498d0",
+  "routeCount": 444,
+  "destinations": 969,
+  "actions": 681,
+  "blocks": 5372,
   "routes": {
     "/": {
       "files": [
@@ -274,6 +274,16 @@
         "Link",
         "SaveVendorButton",
         "VendorHeaderCell"
+      ]
+    },
+    "/(shell)/features/[slug]": {
+      "files": [
+        "(shell)/features/[slug]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "FeaturePageView"
       ]
     },
     "/(shell)/guest-list": {
@@ -716,6 +726,16 @@
         "Link"
       ]
     },
+    "/(shell)/tl/features/[slug]": {
+      "files": [
+        "(shell)/tl/features/[slug]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "FeaturePageView"
+      ]
+    },
     "/(shell)/web-only": {
       "files": [
         "(shell)/web-only/loading.tsx",
@@ -1059,6 +1079,7 @@
         "DetailsBigDate",
         "DetailsCard",
         "DialBar",
+        "DirectionsMenu",
         "DoorCard",
         "DoorPanels",
         "DosAndDonts",
@@ -1082,6 +1103,7 @@
         "EventWordsContext.Provider",
         "EventWordsProvider",
         "EverythingElseSheet",
+        "Eyebrow",
         "FaceDataNotice",
         "FaceReceiptCard",
         "FaceTaggingRow",
@@ -1261,6 +1283,7 @@
         "RoadScene",
         "RoamWatchPicker",
         "RoleFigure",
+        "RoleLabel",
         "RoleNames",
         "RoomFreeze",
         "RoomLink",
@@ -1373,10 +1396,9 @@
         "VendorRow",
         "VendorsWeLoved",
         "Venue",
-        "VenueFullMap",
-        "VenueOneMap",
+        "VenueFullPhoto",
+        "VenueJourney",
         "VenuePlate",
-        "VenueRow",
         "VenueWidget",
         "VideosScene",
         "WallBadge",
@@ -2940,7 +2962,7 @@
         "/admin/integrity-watch?tab=listings",
         "/admin/integrity-watch?tab=prices",
         "/admin/integrity-watch?tab=reviews",
-        "/admin/vendors/[seg]/edit"
+        "/admin/vendors/[seg]"
       ],
       "actions": [
         "rescanAction",
@@ -3490,7 +3512,7 @@
       ],
       "destinations": [
         "/admin/repost-watch?status=[seg]",
-        "/admin/vendors/[seg]/edit"
+        "/admin/vendors/[seg]"
       ],
       "actions": [
         "rescanAllRepostWatch",
@@ -3613,6 +3635,7 @@
         "admin/settings/_components/brand-icon-form.tsx",
         "admin/settings/_components/email-delivery-section.tsx",
         "admin/settings/_components/loader-appearance-card.tsx",
+        "admin/settings/_components/morning-digest-card.tsx",
         "admin/settings/_components/qr-upload-form.tsx",
         "admin/settings/_components/sentry-smoke-test-button.tsx",
         "admin/settings/_components/tin-input.tsx",
@@ -3663,6 +3686,7 @@
         "ListPageSkeleton",
         "LoaderAppearanceCard",
         "LoaderVariant",
+        "MorningDigestCard",
         "NotificationsSurface",
         "PageMasthead",
         "PreviewSwatch",
@@ -4113,7 +4137,8 @@
         "/admin/help",
         "/admin/payments",
         "/admin/user-reports",
-        "/admin/users"
+        "/admin/users",
+        "/admin/users/[seg]/export"
       ],
       "actions": [],
       "blocks": [
@@ -4180,6 +4205,26 @@
       "actions": [],
       "blocks": [
         "AdminInviteResult"
+      ]
+    },
+    "/admin/vendors/[vendorProfileId]": {
+      "files": [
+        "admin/vendors/[vendorProfileId]/page.tsx"
+      ],
+      "destinations": [
+        "/admin/accounts?tab=vendors",
+        "/admin/payouts?filter=all&vendor=[seg]",
+        "/admin/users/[seg]",
+        "/admin/vendors/[seg]/edit",
+        "/admin/vendors/[seg]/plan",
+        "/admin/vendors/[seg]/team",
+        "/admin/verify"
+      ],
+      "actions": [],
+      "blocks": [
+        "ConsoleTable",
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/vendors/[vendorProfileId]/edit": {
@@ -4699,8 +4744,8 @@
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
-        "Icon",
         "Link",
+        "LinkPickMenu",
         "PageMasthead",
         "PhotosTab",
         "SavedVendorCardItem",
@@ -4783,6 +4828,7 @@
         "dashboard/(account)/people/page.tsx"
       ],
       "destinations": [
+        "/dashboard/create-event?with=[seg]",
         "/dashboard/people/[seg]",
         "/dashboard/samahan/[seg]",
         "/dashboard/samahan/new",
@@ -4817,10 +4863,12 @@
         "HTMLButtonElement",
         "HTMLInputElement",
         "LabelCell",
+        "LabelResult",
         "Layer",
         "LifeStorySection",
         "Link",
         "MiniTour",
+        "OutgoingBlock",
         "PageMasthead",
         "PeoplePreview",
         "PeopleRosterView",
@@ -4828,8 +4876,10 @@
         "Person",
         "PersonAvatar",
         "PickMenu",
+        "PlanTogether",
         "Popover",
         "PreviewRow",
+        "RequestRow",
         "RequestsBlock",
         "RowActions",
         "SamahanCell",
@@ -5156,7 +5206,6 @@
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
         "dashboard/[eventId]/_components/pillar-part-picker.tsx",
-        "dashboard/[eventId]/_components/placeholder.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
         "dashboard/[eventId]/_components/reveal-preview.tsx",
@@ -5529,9 +5578,11 @@
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
+        "MiniTour",
         "NoFinalizedVendors",
         "OverspendBanner",
         "PageMasthead",
+        "PickMenu",
         "PinnedStat",
         "RecordCostResult",
         "RecordedCostRow",
@@ -5543,7 +5594,6 @@
         "SuggestMilestonesResult",
         "SummaryStat",
         "SupplierInvite",
-        "TiltButton",
         "TiltEditor",
         "TotalCell",
         "UpcomingRow",
@@ -5808,6 +5858,7 @@
         "Icon",
         "Link",
         "ListPageSkeleton",
+        "MiniTour",
         "PageMasthead",
         "RevealList"
       ]
@@ -6654,6 +6705,7 @@
         "Link",
         "LiveWallControls",
         "PageMasthead",
+        "PickMenu",
         "WallMode",
         "WallModeControl"
       ]
@@ -6683,6 +6735,7 @@
     },
     "/dashboard/[eventId]/messages": {
       "files": [
+        "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/loading.tsx",
         "dashboard/[eventId]/messages/page.tsx"
@@ -6690,19 +6743,22 @@
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/vendors",
+        "/dashboard/[seg]/vendors/categories"
       ],
       "actions": [
+        "returnTo",
         "startThreadByVendorEmail"
       ],
       "blocks": [
         "FeedPageSkeleton",
         "Link",
         "PageMasthead",
+        "PickMenu",
+        "StartThreadPicker",
         "SubmitButton",
         "ThreadArchiveToggle",
-        "ThreadListAvatar",
-        "ThreadListCard"
+        "ThreadListAvatar"
       ]
     },
     "/dashboard/[eventId]/messages/[threadId]": {
@@ -7469,18 +7525,11 @@
     },
     "/dashboard/[eventId]/studio/[addon]": {
       "files": [
-        "dashboard/[eventId]/studio/[addon]/loading.tsx",
         "dashboard/[eventId]/studio/[addon]/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/studio"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "GridPageSkeleton",
-        "IterationPlaceholder",
-        "Link"
-      ]
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/about/[addon]": {
       "files": [
@@ -7974,6 +8023,7 @@
         "PapicStage",
         "PapicWindowPicker",
         "PaymentUnderReview",
+        "PickMenu",
         "PickerFilters",
         "PoolGalleryCard",
         "PoolGalleryToggle",
@@ -8138,19 +8188,21 @@
       "destinations": [
         "/api/tiktok/auth/start?event_id=[seg]",
         "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/patiktok${query ?",
         "/dashboard/[seg]/studio/patiktok/[seg]",
         "/dashboard/[seg]/studio/patiktok/booth",
+        "/dashboard/[seg]/studio/patiktok?queued=[seg]",
         "/help"
       ],
       "actions": [
         "disconnectPatiktokTiktok",
+        "savePatiktokBoothTemplates",
         "submitPatiktokRender"
       ],
       "blocks": [
         "Blob",
         "BoothLaunchPanel",
         "BoothTag",
-        "BuyCard",
         "CategoryChips",
         "GridPageSkeleton",
         "HTMLDivElement",
@@ -8159,14 +8211,18 @@
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
+        "LinkPickMenu",
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
+        "PaidMark",
         "Phase",
         "Preview",
+        "PreviewPanel",
         "ReelRenderer",
         "RenderJobRow",
         "RenderStatusPill",
+        "SaveShareCard",
         "StudioBuyHero",
         "SubmitButton",
         "TagSheet",
@@ -8200,7 +8256,9 @@
         "/dashboard/[seg]/studio/patiktok",
         "/dashboard/[seg]/studio/patiktok/[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "savePatiktokBoothTemplates"
+      ],
       "blocks": [
         "BoothCapture",
         "CapacityStrip",
@@ -8209,6 +8267,7 @@
         "OperatorTips",
         "PageMasthead",
         "RecordCTA",
+        "SubmitButton",
         "TemplateSlot",
         "TemplatesGrid"
       ]
@@ -8223,7 +8282,7 @@
       ],
       "destinations": [
         "/api/oauth/photo-delivery/start?event_id=[seg]&switch=1",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/galleries"
       ],
       "actions": [
         "action",
@@ -8376,42 +8435,20 @@
         "SubmitButton"
       ]
     },
-    "/dashboard/[eventId]/studio/supplies-marketplace": {
-      "files": [
-        "dashboard/[eventId]/studio/supplies-marketplace/_components/cart-drawer.tsx",
-        "dashboard/[eventId]/studio/supplies-marketplace/loading.tsx",
-        "dashboard/[eventId]/studio/supplies-marketplace/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/studio",
-        "/help"
-      ],
-      "actions": [],
-      "blocks": [
-        "CartDrawer",
-        "CategoryChip",
-        "GridPageSkeleton",
-        "HTMLDivElement",
-        "Link",
-        "ProductCard",
-        "StudioBuyHero",
-        "SuppliesMarketplaceBrowser",
-        "SupplyCategoryKey"
-      ]
-    },
     "/dashboard/[eventId]/studio/thank-you": {
       "files": [
         "dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx",
         "dashboard/[eventId]/studio/thank-you/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/studio"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
+        "InlineCheckoutDrawer",
         "PageMasthead",
+        "PaidMark",
         "Phase",
+        "SavePanel",
+        "StudioBuyHero",
         "ThankYouMaker"
       ]
     },
@@ -8495,6 +8532,7 @@
         "dashboard/[eventId]/vendors/_components/build-locked.tsx",
         "dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx",
         "dashboard/[eventId]/vendors/_components/category-search-overlay.tsx",
+        "dashboard/[eventId]/vendors/_components/chats-door.tsx",
         "dashboard/[eventId]/vendors/_components/contact-shortlist-vendor-button.tsx",
         "dashboard/[eventId]/vendors/_components/lock-milestone.tsx",
         "dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx",
@@ -8526,6 +8564,7 @@
       "destinations": [
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
+        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
@@ -8570,6 +8609,7 @@
         "CategorySearchOverlay",
         "CategorySearchResult",
         "ChangePickButton",
+        "ChatsDoor",
         "ChildRail",
         "CompareSheet",
         "ConnectSupplierModal",
@@ -8625,6 +8665,7 @@
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
+        "PickMenu",
         "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
@@ -8821,21 +8862,26 @@
     },
     "/dashboard/[eventId]/vendors/categories": {
       "files": [
-        "dashboard/[eventId]/vendors/categories/_components/unlock-categories-list.tsx",
+        "dashboard/[eventId]/vendors/categories/_components/find-supplier-controls.tsx",
         "dashboard/[eventId]/vendors/categories/loading.tsx",
         "dashboard/[eventId]/vendors/categories/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/vendors",
-        "/signup?next=[seg]"
+        "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "base"
+      ],
       "blocks": [
+        "ContactShortlistVendorButton",
+        "FindFilterMenu",
         "Link",
         "ListPageSkeleton",
-        "SaveGateHint",
-        "SaveToContinue",
-        "UnlockCategoriesList"
+        "PageMasthead",
+        "PickMenu",
+        "SaveToBenchButton",
+        "Suspense"
       ]
     },
     "/dashboard/[eventId]/vendors/packages/[bookingId]": {
@@ -9549,51 +9595,38 @@
     "/features": {
       "files": [
         "features/_PageBody.tsx",
-        "features/_sections/_AnchorNav.tsx",
-        "features/_sections/_Communications.tsx",
-        "features/_sections/_Compliance.tsx",
-        "features/_sections/_DayOfApparatus.tsx",
+        "features/_feature-page.tsx",
+        "features/_feature-price.ts",
+        "features/_icons.ts",
+        "features/_sections/_Ecosystem.tsx",
+        "features/_sections/_FeatureGroups.tsx",
         "features/_sections/_FinalCTA.tsx",
         "features/_sections/_Hero.tsx",
         "features/_sections/_HowItWorks.tsx",
-        "features/_sections/_OutsourcingPacing.tsx",
-        "features/_sections/_PlanningToolkit.tsx",
-        "features/_sections/_StickyMobileCTA.tsx",
-        "features/_sections/_VendorsLedger.tsx",
         "features/_sections/_WhySetnayan.tsx",
         "features/page.tsx"
       ],
       "destinations": [
+        "/blog/[seg]",
         "/for-suppliers",
-        "/pricing",
-        "/signup"
+        "/open-shop",
+        "/signup",
+        "/suppliers"
       ],
       "actions": [],
       "blocks": [
-        "BudgetMock",
-        "Communications",
-        "Compliance",
-        "DayOfApparatus",
-        "FeatureRow",
-        "FeaturesAnchorNav",
+        "EcosystemBand",
+        "FeatureGroups",
         "FeaturesHero",
         "FeaturesPageBody",
         "FinalCTA",
-        "GuestListMock",
-        "HTMLAnchorElement",
-        "HTMLElement",
+        "Fragment",
         "HowItWorks",
         "Icon",
+        "Image",
         "Link",
         "LocaleSwitch",
-        "MockShell",
-        "MoodBoardMock",
-        "OutsourcingPacing",
-        "PlanningToolkit",
-        "ScheduleMock",
-        "SeatingMock",
-        "StickyMobileCTA",
-        "VendorsLedger",
+        "OtherIcon",
         "WhySetnayan"
       ]
     },
@@ -9997,6 +10030,7 @@
         "Ans",
         "ArtState",
         "CountUp",
+        "CoupleCarry",
         "DateCalendar",
         "FreeValueSlider",
         "HTMLAudioElement",
@@ -10287,7 +10321,10 @@
         "papic/decorate/_components/kwento-decorator.tsx",
         "papic/decorate/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/",
+        "/papic/guest"
+      ],
       "actions": [],
       "blocks": [
         "DoorShell",
@@ -10296,7 +10333,9 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
-        "PapicStyle"
+        "Link",
+        "PapicStyle",
+        "PickMenu"
       ]
     },
     "/papic/demo/[token]": {
@@ -10341,6 +10380,7 @@
         "DayOfFaceEnroll",
         "DoorShell",
         "GridPageSkeleton",
+        "GuestGuidedTour",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -10408,6 +10448,7 @@
         "File",
         "FormPageSkeleton",
         "GuestGallery",
+        "GuestGuidedTour",
         "GuestStoryMaker",
         "GuestStoryPlan",
         "Link",
@@ -10435,10 +10476,14 @@
         "papic/pool/_components/pool-grid.tsx",
         "papic/pool/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/",
+        "/papic/me/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "DoorShell",
+        "Link",
         "PoolGrid"
       ]
     },
@@ -10756,9 +10801,9 @@
         "Money",
         "OverspendBanner",
         "PaymentSection",
+        "PickMenu",
         "PriceSourceChip",
         "SummaryStat",
-        "TiltButton",
         "TiltEditor",
         "TourBudgetPlanner",
         "TourVendorItemization"
@@ -11264,7 +11309,8 @@
         "/vendor-dashboard/calendar?pool=[seg]&m=[seg]",
         "/vendor-dashboard/calendar?pool=all&m=[seg]",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/services"
+        "/vendor-dashboard/services",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
         "addManualBlock",
@@ -11600,6 +11646,7 @@
     "/vendor-dashboard/creators": {
       "files": [
         "vendor-dashboard/creators/actions.ts",
+        "vendor-dashboard/creators/loading.tsx",
         "vendor-dashboard/creators/page.tsx"
       ],
       "destinations": [
@@ -11613,11 +11660,12 @@
         "CreatorTierChip",
         "FormFlash",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
+        "PaidMark",
         "RoiRow",
         "SearchParams",
-        "SubmitButton",
-        "VendorTierGate"
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/customers": {
@@ -11683,6 +11731,7 @@
         "DossierView",
         "ListPageSkeleton",
         "PageMasthead",
+        "PaidMark",
         "PaymentsPausedNote",
         "Section",
         "SubmitButton",
@@ -12284,8 +12333,8 @@
         "FormFlash",
         "Icon",
         "Link",
-        "LockedState",
         "PageMasthead",
+        "PaidMark",
         "PaymentMethodType",
         "SubmitButton"
       ]
@@ -12767,6 +12816,7 @@
         "LockedLine",
         "ManageTiles",
         "ManpowerSurface",
+        "PaidMark",
         "PairCard",
         "PanelShell",
         "PaperSide",
@@ -12776,6 +12826,7 @@
         "Pin",
         "PinRow",
         "PlainInput",
+        "PlanNote",
         "ProfileChecklistEditor",
         "PublicLineCard",
         "PublicLineSaveResult",
@@ -12798,7 +12849,6 @@
         "ShopSectionBody",
         "ShopTools",
         "SocialLinksInput",
-        "SoloUpsell",
         "StatTile",
         "StatusChip",
         "StatusLine",

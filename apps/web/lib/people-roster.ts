@@ -3,10 +3,16 @@ import 'server-only';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { peopleConnectionsEnabled, type ConnectionRelation } from '@/lib/people-connections';
+import {
+  CONNECTION_RELATIONS,
+  peopleConnectionsEnabled,
+  relationForViewer,
+  type ConnectionRelation,
+} from '@/lib/people-connections';
 import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { lovedOnesInMyCare, myLovedOnes, spouseIdSet } from '@/lib/my-loved-ones';
+import { labelAskFor, type LabelAsk } from '@/lib/people-label-handshake';
 
 /**
  * people-roster.ts — ONE LIST OF EVERYONE, shaped like the guest list.
@@ -75,6 +81,8 @@ import { lovedOnesInMyCare, myLovedOnes, spouseIdSet } from '@/lib/my-loved-ones
 
 export type RosterState = 'connected' | 'waiting_them' | 'waiting_you' | 'in_your_care';
 
+export type { LabelAsk } from '@/lib/people-label-handshake';
+
 export type RosterPerson = {
   /** Stable React key + the id an action needs. */
   key: string;
@@ -88,8 +96,21 @@ export type RosterPerson = {
    *  may be invited (owner 2026-09-30). Absent on connection rows. */
   dependentKind?: string | null;
   name: string;
-  /** The label. NULL means "on your list, not yet said" — the whole point. */
+  /**
+   * The label, as it reads FROM MY SIDE — what they are to me. NULL means "on
+   * your list, not yet said". On a row somebody else made, the stored word is
+   * turned over (they said I am their Parent → they are my Child); showing the
+   * stored word raw would call a daughter "Parent".
+   */
   relation: ConnectionRelation | null;
+  /** The label as STORED — what the other side of the row said. Only a request
+   *  I am answering needs it ("Ice added you as their Sibling"). */
+  storedRelation: ConnectionRelation | null;
+  /** A label being asked on a connected row — see LabelAsk. */
+  ask: LabelAsk | null;
+  /** Partner rows only: do the two of us already share an event? NULL = not
+   *  read, or not a partner row. Decides "Plan an event together". */
+  sharesAnEvent: boolean | null;
   /** Alaga rows carry their own word ("My child"), which is not a ConnectionRelation. */
   careLabel: string | null;
   state: RosterState;
@@ -120,6 +141,8 @@ export type PeopleRoster = {
     connected: number;
     waitingThem: number;
     waitingYou: number;
+    /** Labels waiting on MY answer — part of the Requests count. */
+    labelAsksForYou: number;
     unlabelled: number;
     /** Alaga in your care — the Alaga view's count. Null = could not be read. */
     alaga: number | null;
@@ -133,12 +156,23 @@ const EMPTY: PeopleRoster = {
   mySamahan: [],
   samahanUnavailable: false,
   connectionsUnavailable: false,
-  counts: { all: 0, connected: 0, waitingThem: 0, waitingYou: 0, unlabelled: 0, alaga: 0, samahan: 0 },
+  counts: {
+    all: 0,
+    connected: 0,
+    waitingThem: 0,
+    waitingYou: 0,
+    labelAsksForYou: 0,
+    unlabelled: 0,
+    alaga: 0,
+    samahan: 0,
+  },
 };
 
 type ConnRow = {
   connection_id: string;
   relation: string | null;
+  proposed_relation: string | null;
+  proposed_status: string | null;
   status: string;
   declared_name: string | null;
   from_person_id: string;
@@ -175,7 +209,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
     const { data, error } = await supabase
       .from('person_connections')
       .select(
-        'connection_id, relation, status, declared_name, from_person_id, to_person_id, created_by_event_id',
+        'connection_id, relation, proposed_relation, proposed_status, status, declared_name, from_person_id, to_person_id, created_by_event_id',
       )
       .or(`from_person_id.eq.${myPerson},to_person_id.eq.${myPerson}`)
       .is('deleted_at', null)
@@ -315,12 +349,35 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
     }
   }
 
+  // ── partners: do we already share an event? ───────────────────────────────
+  // Only for an AGREED partner row, and only to decide one line ("Plan an
+  // event together"). Admin-read, scoped to exactly the two accounts, and
+  // nothing but a boolean leaves this function. A refused read leaves NULL,
+  // which holds the line back rather than offering a door they may have used.
+  const sharedEventByPerson = new Map<string, boolean | null>();
+  {
+    const partnerRows = pendingRows.filter(
+      (r) => r.status === 'confirmed' && r.relation === 'partner',
+    );
+    for (const r of partnerRows) {
+      const otherId = r.from_person_id === myPerson ? r.to_person_id : r.from_person_id;
+      const otherUser = userIdByPerson.get(otherId);
+      if (!otherUser) {
+        sharedEventByPerson.set(otherId, null);
+        continue;
+      }
+      sharedEventByPerson.set(otherId, await shareAnEvent(userId, otherUser));
+    }
+  }
+
   for (const r of pendingRows) {
     const otherId = r.from_person_id === myPerson ? r.to_person_id : r.from_person_id;
     const iDeclared = r.from_person_id === myPerson;
     const state: RosterState =
       r.status === 'confirmed' ? 'connected' : iDeclared ? 'waiting_them' : 'waiting_you';
     const otherUser = userIdByPerson.get(otherId);
+    const stored = asRelation(r.relation);
+    const ask: LabelAsk | null = labelAskFor(r, iDeclared);
     people.push({
       key: r.connection_id,
       kind: 'connection',
@@ -331,7 +388,13 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
       // is the name THEY typed for ME, and printing it as theirs would show me
       // my own name on their request.
       name: names.get(otherId) ?? (iDeclared ? r.declared_name?.trim() : null) ?? 'Someone',
-      relation: (r.relation as ConnectionRelation | null) ?? null,
+      relation: relationForViewer(stored, iDeclared),
+      storedRelation: stored,
+      ask,
+      sharesAnEvent:
+        r.status === 'confirmed' && stored === 'partner'
+          ? (sharedEventByPerson.get(otherId) ?? null)
+          : null,
       careLabel: null,
       state,
       fromEvent: state === 'waiting_you' ? (eventByConnection.get(r.connection_id) ?? null) : null,
@@ -386,6 +449,9 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
         dependentKind: d.dependent_kind,
         name: d.name,
         relation: null,
+        storedRelation: null,
+        ask: null,
+        sharesAnEvent: null,
         careLabel: careLabelFor(d.relationship, d.dependent_kind),
         state: 'in_your_care',
         fromEvent: null,
@@ -401,6 +467,7 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
     connected: connections.filter((p) => p.state === 'connected').length,
     waitingThem: connections.filter((p) => p.state === 'waiting_them').length,
     waitingYou: connections.filter((p) => p.state === 'waiting_you').length,
+    labelAsksForYou: connections.filter((p) => p.ask?.state === 'waiting_you').length,
     unlabelled: connections.filter((p) => p.state !== 'waiting_you' && p.relation === null).length,
     alaga: alagaCount,
     samahan: samahanUnavailable ? null : samahanCount,
@@ -409,7 +476,59 @@ export async function getPeopleRoster(userId: string): Promise<PeopleRoster> {
   return { people, mySamahan, samahanUnavailable, connectionsUnavailable, counts };
 }
 
-/** The alaga's own word, which is not one of the seven stored relations. */
+/** A stored word we recognise, or null — never a cast of whatever arrived. */
+function asRelation(v: string | null): ConnectionRelation | null {
+  return v && (CONNECTION_RELATIONS as readonly string[]).includes(v)
+    ? (v as ConnectionRelation)
+    : null;
+}
+
+/**
+ * Do these two accounts already host an event together — both a couple or
+ * coordinator member, or an accepted co-host, of one event? Admin-read, scoped
+ * to exactly these two ids; only the boolean leaves. NULL = could not read.
+ */
+async function shareAnEvent(me: string, them: string): Promise<boolean | null> {
+  try {
+    const admin = createAdminClient();
+    const [members, mods] = await Promise.all([
+      admin
+        .from('event_members')
+        .select('event_id, user_id')
+        .in('user_id', [me, them])
+        .in('member_type', ['couple', 'coordinator']),
+      admin
+        .from('event_moderators')
+        .select('event_id, user_id')
+        .in('user_id', [me, them])
+        .not('accepted_at', 'is', null)
+        .is('removed_at', null),
+    ]);
+    if (members.error || mods.error) {
+      logQueryError(
+        'getPeopleRoster.sharedEvent',
+        members.error ?? mods.error,
+        {},
+        'graceful_degrade',
+      );
+      return null;
+    }
+    const mine = new Set<string>();
+    const theirs = new Set<string>();
+    for (const r of [...(members.data ?? []), ...(mods.data ?? [])] as Array<{
+      event_id: string;
+      user_id: string;
+    }>) {
+      (r.user_id === me ? mine : theirs).add(r.event_id);
+    }
+    for (const e of mine) if (theirs.has(e)) return true;
+    return false;
+  } catch {
+    return null;
+  }
+}
+
+/** The alaga's own word, which is not one of the stored relations. */
 function careLabelFor(relationship: string | null, kind: string | null): string {
   if (kind && kind !== 'person') {
     return kind === 'pet' ? 'Pet' : kind === 'business' ? 'Business' : 'In my care';
@@ -448,11 +567,14 @@ export async function waitingRequestCount(userId: string): Promise<number | null
   }
   const myPerson = (me as { person_id: string } | null)?.person_id;
   if (!myPerson) return 0;
+  // A request to connect, OR a label asked on a connection I already have —
+  // both wait on my answer, and both live in Requests (owner 2026-09-29: "it
+  // will show to their requests on people as well").
   const { count, error } = await supabase
     .from('person_connections')
     .select('connection_id', { count: 'exact', head: true })
     .eq('to_person_id', myPerson)
-    .eq('status', 'pending')
+    .or('status.eq.pending,proposed_status.eq.pending')
     .is('deleted_at', null);
   if (error) {
     logQueryError('waitingRequestCount.requests', error, {}, 'graceful_degrade');

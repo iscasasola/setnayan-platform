@@ -155,11 +155,17 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   // colours — the same job as "You are <role>" above the personal panel, in
   // the same protected treatment, so it joins the count rather than inventing
   // a second style. The per-role rows below it use a plain label, not this.
+  //
+  // 19 SINCE 2026-10-01 (VENUE STYLES APPROVED — Full photo · The journey).
+  // Each venue in the two new looks is named "Ceremony" / "Reception" exactly as
+  // the shipped Photo card names it, in the same protected treatment — written
+  // ONCE (`RoleLabel` in venue-styles.tsx) for both looks, so the source gains
+  // one line, not two. The treatment is untouched.
   assert.equal(
     gild,
-    18,
+    19,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
+      `carried 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
       `and the reply sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
       `decision — AP-3 must not have crept into them. If a legitimate change ` +
       `moves this number, change it here deliberately and say why.`,

@@ -34,7 +34,6 @@ const SITEMAP = readFileSync(join(APP, 'sitemap-static.xml', 'route.ts'), 'utf8'
 const HOW = readFileSync(join(HERE, '_sections', '_HowItWorks.tsx'), 'utf8');
 const WHY = readFileSync(join(HERE, '_sections', '_WhySetnayan.tsx'), 'utf8');
 const BODY = readFileSync(join(HERE, '_PageBody.tsx'), 'utf8');
-const NAV = readFileSync(join(HERE, '_sections', '_AnchorNav.tsx'), 'utf8');
 
 // Strip comments — a rule EXPLAINED in prose must never satisfy a check.
 //
@@ -156,12 +155,11 @@ test('the page body renders both folded-in sections', () => {
   assert.match(body, /<HowItWorks locale=\{locale\} \/>/);
 });
 
-test('the anchor nav points at sections that exist', () => {
-  // MUTATION: rename a section's `id` without the nav → this fails.
-  // An anchor nav pill that scrolls nowhere is invisible until pressed.
-  const ids = Array.from(code(NAV).matchAll(/\{ id: '([^']+)'/g)).map((m) => m[1]);
-  assert.ok(ids.includes('why-setnayan'), 'nav must offer the Why section');
-  assert.ok(ids.includes('how-it-works'), 'nav must offer the How section');
+test('the folded sections keep the anchors old links point at', () => {
+  // MUTATION: rename a section's `id` → this fails.
+  // The anchor-pill nav left with the 2026-10-01 hub rewrite (a pill row is
+  // banned — INTERACTION_RULES §2), but indexed and shared links still carry
+  // #why-setnayan and #how-it-works, so the ids themselves must survive.
   assert.match(HOW_CODE, /id="how-it-works"/);
   assert.match(code(WHY), /id="why-setnayan"/);
 });

@@ -59,6 +59,7 @@ import { computeBudgetOverspend } from '@/lib/budget-overspend';
 import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
 import { formatPhpRounded } from '@/lib/php';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useSaveLoader } from '@/components/sd-loader';
 import {
   saveAllocationSnapshot,
@@ -610,6 +611,13 @@ function TiltEditor({
   }
 
   const isStandard = !leaf.pinned;
+  const tiltKey: 'save' | 'standard' | 'splurge' | null = isStandard
+    ? 'standard'
+    : leaf.amountPhp === saveAmt && saveAmt > 0
+      ? 'save'
+      : leaf.amountPhp === splurgeAmt && splurgeAmt > 0
+        ? 'splurge'
+        : null;
 
   return (
     <div
@@ -654,33 +662,32 @@ function TiltEditor({
 
         {/* Quick tilts. Standard clears the pin (back to suggested); Splurge /
             Save snap to clean ₱1,000-rounded multiples of the recommendation. */}
-        <div className="mt-5 grid grid-cols-3 gap-2">
-          <TiltButton
-            active={leaf.pinned && leaf.amountPhp === saveAmt && saveAmt > 0}
-            onClick={() => {
-              onSetAmount(saveAmt);
-              setDraft(formatPlain(saveAmt));
+        {/* Save · Standard · Splurge — ONE dropdown (owner rule 2026-09-28: a
+            choice of several is a dropdown, never a pill row). Each option shows
+            its amount; a typed amount that matches none reads "Your own amount". */}
+        <div className="mt-5 flex items-center gap-2">
+          <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Level</span>
+          <PickMenu
+            label="Spending level"
+            value={tiltKey}
+            dataAttr="data-budget-tilt"
+            buttonText={tiltKey ? undefined : 'Your own amount'}
+            options={[
+              { key: 'save', label: `Save · ${formatPhpRounded(saveAmt)}` },
+              { key: 'standard', label: `Standard · ${formatPhpRounded(recommendedAmountPhp)}` },
+              { key: 'splurge', label: `Splurge · ${formatPhpRounded(splurgeAmt)}` },
+            ]}
+            onPick={(key) => {
+              if (key === 'standard') {
+                onReset();
+                setDraft(formatPlain(recommendedAmountPhp));
+                return;
+              }
+              const amt = key === 'save' ? saveAmt : splurgeAmt;
+              onSetAmount(amt);
+              setDraft(formatPlain(amt));
             }}
-            label="Save"
-            sub={formatPhpRounded(saveAmt)}
-          />
-          <TiltButton
-            active={isStandard}
-            onClick={() => {
-              onReset();
-              setDraft(formatPlain(recommendedAmountPhp));
-            }}
-            label="Standard"
-            sub={formatPhpRounded(recommendedAmountPhp)}
-          />
-          <TiltButton
-            active={leaf.pinned && leaf.amountPhp === splurgeAmt && splurgeAmt > 0}
-            onClick={() => {
-              onSetAmount(splurgeAmt);
-              setDraft(formatPlain(splurgeAmt));
-            }}
-            label="Splurge"
-            sub={formatPhpRounded(splurgeAmt)}
+            className="border border-ink/15"
           />
         </div>
 
@@ -747,34 +754,6 @@ function TiltEditor({
         </div>
       </div>
     </div>
-  );
-}
-
-function TiltButton({
-  active,
-  onClick,
-  label,
-  sub,
-}: {
-  active: boolean;
-  onClick: () => void;
-  label: string;
-  sub: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={`flex flex-col items-center justify-center gap-0.5 rounded-xl border px-2 py-3 text-center transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta ${
-        active
-          ? 'border-terracotta bg-terracotta/[0.08] text-terracotta-700'
-          : 'border-ink/15 bg-white text-ink/75 hover:border-terracotta/40 hover:text-ink'
-      }`}
-    >
-      <span className="text-sm font-semibold">{label}</span>
-      <span className="font-mono text-[10px] tabular-nums text-ink/50">{sub}</span>
-    </button>
   );
 }
 

@@ -28,6 +28,8 @@
 import 'server-only';
 import { resolveOAuthClientConfig } from '@/lib/integration-config';
 import { OAUTH_SPECS } from '@/lib/integrations/registry';
+import { patiktokActionAllowed } from '@/lib/patiktok-access';
+import { patiktokSaveUnlocked } from '@/lib/patiktok-save-gate';
 
 const TIKTOK_AUTHORIZE_URL = 'https://www.tiktok.com/v2/auth/authorize/';
 const TIKTOK_TOKEN_URL = 'https://open.tiktokapis.com/v2/oauth/token/';
@@ -174,11 +176,21 @@ export async function fetchTiktokUserInfo(
  *   access_token from `patiktok_oauth_grants` (refreshing if expired). For the
  *   `'setnayan'` target, uses a worker-side refresh token on the master account.
  */
-export async function publishPatiktokCompilation(_input: {
+export async function publishPatiktokCompilation(input: {
   tier: 'setnayan' | 'personal';
   eventId: string;
   renderedMp4Url: string;
   caption: string;
-}): Promise<{ ok: false; reason: 'not-implemented' }> {
+}): Promise<{ ok: false; reason: 'not-implemented' | 'needs-patiktok' }> {
+  // 💎 PAY TO SHARE (owner 2026-09-29). Posting is the share half: refused for
+  // an event without an admin-approved PATIKTOK_COMPILER — FIRST, so whoever
+  // wires the real upload below inherits the gate instead of remembering it.
+  if (
+    !patiktokActionAllowed('post_tiktok', {
+      saveUnlocked: await patiktokSaveUnlocked(input.eventId),
+    })
+  ) {
+    return { ok: false, reason: 'needs-patiktok' };
+  }
   return { ok: false, reason: 'not-implemented' };
 }

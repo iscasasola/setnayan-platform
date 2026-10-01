@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -12,11 +13,15 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import type { BoothGuest, BoothTable } from '../_components/tag-sheet';
 import {
-  PATIKTOK_TEMPLATES,
   PATIKTOK_VIDEO_SOFT_CAP,
-  findPatiktokTemplate,
   type PatiktokTemplate,
 } from '@/lib/patiktok';
+import {
+  patiktokBoothCookieName,
+  resolveBoothTemplates,
+} from '@/lib/patiktok-booth-templates';
+import { SubmitButton } from '@/app/_components/submit-button';
+import { savePatiktokBoothTemplates } from '../actions';
 import { BoothCapture } from '../_components/booth-capture';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -50,6 +55,7 @@ type Props = {
   searchParams: Promise<{
     primary?: string;
     backup?: string;
+    saved?: string;
   }>;
 };
 
@@ -58,7 +64,7 @@ export default async function PatiktokBoothDashboard({
   searchParams,
 }: Props) {
   const { eventId } = await params;
-  const { primary, backup } = await searchParams;
+  const { primary, backup, saved } = await searchParams;
 
   const supabase = await createClient();
   const {
@@ -167,13 +173,15 @@ export default async function PatiktokBoothDashboard({
   }
   const faceEnabled = !faceEnrollCountError && (faceEnrollCount ?? 0) > 0;
 
-  // PATIKTOK_TEMPLATES is statically seeded with at least two entries in
-  // apps/web/lib/patiktok.ts, so the indexed fallbacks are non-null by
-  // construction. The `!` is what tells TS that under noUncheckedIndexedAccess.
-  const primaryTemplate: PatiktokTemplate =
-    (primary ? findPatiktokTemplate(primary) : null) ?? PATIKTOK_TEMPLATES[0]!;
-  const backupTemplate: PatiktokTemplate =
-    (backup ? findPatiktokTemplate(backup) : null) ?? PATIKTOK_TEMPLATES[1]!;
+  // The SAVED pick (audit 2026-09-29: it never saved). An explicit
+  // ?primary=&backup= still wins for older links; otherwise the pick this device
+  // saved via savePatiktokBoothTemplates; otherwise the catalogue's first two.
+  const jar = await cookies();
+  const { primary: primaryTemplate, backup: backupTemplate } = resolveBoothTemplates({
+    primaryParam: primary,
+    backupParam: backup,
+    saved: jar.get(patiktokBoothCookieName(eventId))?.value ?? null,
+  });
 
   return (
     <section className="space-y-6">
@@ -197,6 +205,16 @@ export default async function PatiktokBoothDashboard({
           </>
         }
       />
+
+      {saved ? (
+        <p
+          role="status"
+          className="inline-flex items-center gap-2 rounded-2xl bg-success-50 px-4 py-3 text-sm text-success-900"
+        >
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Saved — {primaryTemplate.name} is your primary, {backupTemplate.name} your backup.
+        </p>
+      ) : null}
 
       <CapacityStrip
         submissions={submissions}
@@ -290,7 +308,6 @@ function TemplatesGrid({
   primary: PatiktokTemplate;
   backup: PatiktokTemplate;
 }) {
-  const swapHref = `/dashboard/${eventId}/studio/patiktok/booth?primary=${backup.slug}&backup=${primary.slug}`;
   return (
     <section className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <TemplateSlot
@@ -305,14 +322,18 @@ function TemplatesGrid({
         role="backup"
         otherSlug={primary.slug}
       />
-      <div className="sm:col-span-2">
-        <Link
-          href={swapHref}
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+      <form action={savePatiktokBoothTemplates} className="sm:col-span-2">
+        {/* The swap SAVES — it used to be a link that changed the URL only. */}
+        <input type="hidden" name="event_id" value={eventId} />
+        <input type="hidden" name="primary" value={backup.slug} />
+        <input type="hidden" name="backup" value={primary.slug} />
+        <SubmitButton
+          className="inline-flex min-h-11 items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink disabled:opacity-70"
+          pendingLabel="Saving…"
         >
           ↔ Swap primary and backup
-        </Link>
-      </div>
+        </SubmitButton>
+      </form>
     </section>
   );
 }
@@ -415,8 +436,8 @@ function OperatorTips() {
       </p>
       <ul className="ml-4 list-disc space-y-1 text-sm text-warn-900/85">
         <li>
-          Re-scan the printed Patiktok QR if the phone runs out of battery —
-          token is persistent for the event-day pack window.
+          Run the booth from a phone signed in to this event — if it runs out
+          of battery, sign in on another phone and open this page again.
         </li>
         <li>
           Two templates max — keep the primary on top, backup ready to swap

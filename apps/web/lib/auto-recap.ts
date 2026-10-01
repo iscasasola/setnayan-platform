@@ -30,6 +30,7 @@ import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { bucketMoments } from '@/lib/kwento-magazine';
 import { getWallSnapshot } from '@/lib/live-wall';
 import { eventSkuActive } from '@/lib/entitlements';
+import { patiktokSaveUnlocked } from '@/lib/patiktok-save-gate';
 import { presignDisplayUrl } from '@/lib/uploads';
 import { isR2Configured, R2_BUCKETS, type R2BucketName } from '@/lib/r2';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
@@ -248,7 +249,10 @@ export async function assembleRecapModel(eventId: string): Promise<RecapModel | 
   // 42P01) or any trouble → no reels, never throws.
   let reelUrls: string[] = [];
   try {
-    if (isR2Configured()) {
+    // 💎 PAY TO SHARE (owner 2026-09-29: "yes use for free. but pay to save and
+    // share"). The recap is a public page — showing a reel there IS sharing it,
+    // so only an event holding an admin-approved PATIKTOK_COMPILER gets them.
+    if (isR2Configured() && (await patiktokSaveUnlocked(eventId))) {
       const admin = createAdminClient();
       const { data, error } = await admin
         .from('patiktok_render_jobs')

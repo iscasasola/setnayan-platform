@@ -6,6 +6,8 @@ import {
   getTiktokOAuthConfig,
 } from '@/lib/patiktok-tiktok';
 import { sealToken } from '@/lib/oauth-token-vault';
+import { patiktokActionAllowed } from '@/lib/patiktok-access';
+import { patiktokSaveUnlocked } from '@/lib/patiktok-save-gate';
 
 // Iteration 0017 Phase 3 — TikTok OAuth callback.
 //
@@ -66,6 +68,17 @@ export async function GET(req: NextRequest) {
   await admin.from('patiktok_oauth_state').delete().eq('state_token', state);
   if (ageMin > STATE_TTL_MIN) {
     return redirectWithError(url, eventId, 'state_expired');
+  }
+
+  // 💎 PAY TO SHARE — the start route already refused an unpaid event; this is
+  // the backstop for a state token minted before a refund, so no credential is
+  // ever stored for an event that may not post. Before the code is exchanged.
+  if (
+    !patiktokActionAllowed('connect_tiktok', {
+      saveUnlocked: await patiktokSaveUnlocked(eventId),
+    })
+  ) {
+    return redirectWithError(url, eventId, 'needs_patiktok');
   }
 
   // 2. Config check

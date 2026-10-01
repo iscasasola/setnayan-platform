@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8023bb096e",
+  "generatedFromRef": "8ffafbb800",
   "routeCount": 441,
-  "destinations": 951,
-  "actions": 677,
-  "blocks": 5359,
+  "destinations": 953,
+  "actions": 679,
+  "blocks": 5354,
   "routes": {
     "/": {
       "files": [
@@ -4695,8 +4695,8 @@
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
+        "Icon",
         "Link",
-        "LinkPickMenu",
         "PageMasthead",
         "PhotosTab",
         "SavedVendorCardItem",
@@ -5524,11 +5524,9 @@
         "Link",
         "ListPageSkeleton",
         "MahrInfoCard",
-        "MiniTour",
         "NoFinalizedVendors",
         "OverspendBanner",
         "PageMasthead",
-        "PickMenu",
         "PinnedStat",
         "RecordCostResult",
         "RecordedCostRow",
@@ -5540,6 +5538,7 @@
         "SuggestMilestonesResult",
         "SummaryStat",
         "SupplierInvite",
+        "TiltButton",
         "TiltEditor",
         "TotalCell",
         "UpcomingRow",
@@ -5790,7 +5789,6 @@
         "Icon",
         "Link",
         "ListPageSkeleton",
-        "MiniTour",
         "PageMasthead",
         "RevealList"
       ]
@@ -6637,7 +6635,6 @@
         "Link",
         "LiveWallControls",
         "PageMasthead",
-        "PickMenu",
         "WallMode",
         "WallModeControl"
       ]
@@ -7958,7 +7955,6 @@
         "PapicStage",
         "PapicWindowPicker",
         "PaymentUnderReview",
-        "PickMenu",
         "PickerFilters",
         "PoolGalleryCard",
         "PoolGalleryToggle",
@@ -8123,19 +8119,21 @@
       "destinations": [
         "/api/tiktok/auth/start?event_id=[seg]",
         "/dashboard/[seg]/studio",
+        "/dashboard/[seg]/studio/patiktok${query ?",
         "/dashboard/[seg]/studio/patiktok/[seg]",
         "/dashboard/[seg]/studio/patiktok/booth",
+        "/dashboard/[seg]/studio/patiktok?queued=[seg]",
         "/help"
       ],
       "actions": [
         "disconnectPatiktokTiktok",
+        "savePatiktokBoothTemplates",
         "submitPatiktokRender"
       ],
       "blocks": [
         "Blob",
         "BoothLaunchPanel",
         "BoothTag",
-        "BuyCard",
         "CategoryChips",
         "GridPageSkeleton",
         "HTMLDivElement",
@@ -8144,15 +8142,17 @@
         "Icon",
         "InlineCheckoutDrawer",
         "Link",
-        "LinkPickMenu",
         "MediaRecorder",
         "MediaStream",
         "MusicTrackOption",
+        "PaidMark",
         "Phase",
         "Preview",
+        "PreviewPanel",
         "ReelRenderer",
         "RenderJobRow",
         "RenderStatusPill",
+        "SaveShareCard",
         "StudioBuyHero",
         "SubmitButton",
         "TagSheet",
@@ -8186,7 +8186,9 @@
         "/dashboard/[seg]/studio/patiktok",
         "/dashboard/[seg]/studio/patiktok/[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "savePatiktokBoothTemplates"
+      ],
       "blocks": [
         "BoothCapture",
         "CapacityStrip",
@@ -8195,6 +8197,7 @@
         "OperatorTips",
         "PageMasthead",
         "RecordCTA",
+        "SubmitButton",
         "TemplateSlot",
         "TemplatesGrid"
       ]
@@ -8611,7 +8614,6 @@
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
-        "PickMenu",
         "PillarPartPicker",
         "PlanBudgetAccordion",
         "PlansRowPick",
@@ -9073,6 +9075,7 @@
         "Measured",
         "MiniTour",
         "MoreExtras",
+        "NameStyle",
         "OpenBrowsePanel",
         "PaidMark",
         "PaletteLookRow",
@@ -10282,8 +10285,7 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
-        "PapicStyle",
-        "PickMenu"
+        "PapicStyle"
       ]
     },
     "/papic/demo/[token]": {
@@ -10328,7 +10330,6 @@
         "DayOfFaceEnroll",
         "DoorShell",
         "GridPageSkeleton",
-        "GuestGuidedTour",
         "HTMLButtonElement",
         "HTMLCanvasElement",
         "Link",
@@ -10396,7 +10397,6 @@
         "File",
         "FormPageSkeleton",
         "GuestGallery",
-        "GuestGuidedTour",
         "GuestStoryMaker",
         "GuestStoryPlan",
         "Link",
@@ -10745,9 +10745,9 @@
         "Money",
         "OverspendBanner",
         "PaymentSection",
-        "PickMenu",
         "PriceSourceChip",
         "SummaryStat",
+        "TiltButton",
         "TiltEditor",
         "TourBudgetPlanner",
         "TourVendorItemization"

@@ -41,6 +41,7 @@ import {
 } from './flow-config';
 import {
   SETUP_CARD_IDS,
+  defaultLookId,
   sanitizeSetupAnswers,
   setupCardAnswered,
   setupDefaults,
@@ -177,6 +178,26 @@ test('a non-wedding type is never offered a Pro look its fence forbids', () => {
     assert.ok(v.looks.every((l) => !l.pro), `${t} offers a Pro look`);
   }
   assert.ok(viewOf(SEEDED.wedding!).looks.some((l) => l.pro), 'a wedding sees its ◆ looks');
+});
+
+test('every seeded type pre-selects a FREE look; a Pro look stays pickable (owner 2026-10-01)', () => {
+  for (const [t, p] of Object.entries(SEEDED)) {
+    const v = viewOf(p);
+    const pre = setupDefaults(v).look;
+    assert.equal(pre, defaultLookId(v), t);
+    const picked = v.looks.find((l) => l.id === pre);
+    assert.ok(picked, `${t} pre-selects a look it offers`);
+    assert.equal(picked!.pro, false, `${t} pre-selects ${pre}, a Pro look`);
+  }
+  // The wedding's own set leads with Velvet (Pro) — it is still listed, still pickable.
+  const w = viewOf(SEEDED.wedding!);
+  assert.equal(w.looks[0]!.id, 'velvet');
+  assert.equal(w.looks[0]!.pro, true);
+  assert.notEqual(setupDefaults(w).look, 'velvet');
+  // A Pro pick on the wire is still honoured.
+  assert.equal(sanitizeSetupAnswers({ look: 'velvet' }, w)!.look, 'velvet');
+  // No free look offered at all: the list's first stands.
+  assert.equal(defaultLookId({ looks: [{ id: 'a', name: 'A', pro: true, own: true }] }), 'a');
 });
 
 // ── 2 · never asks twice ──────────────────────────────────────────────────

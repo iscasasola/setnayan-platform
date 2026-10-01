@@ -7,7 +7,7 @@ import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMa
 import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
-import type { HubDraftActionResult } from '@/lib/hub-draft';
+import type { HubDraftActionResult, HubDraftPatch } from '@/lib/hub-draft';
 import { HUB_ELEMENT_LABEL, withElementChoice, type HubElementKey } from '@/lib/element-style';
 import { HUB_FORMAT_DEFAULT } from '@/lib/hub-date-formats';
 import { formatChoices, formatWords, isTypeCaretPart, withTypedFormat, withTypedWords, wordingLines } from '@/lib/type-in-place';
@@ -15,6 +15,9 @@ import { PickMenu } from './pick-menu';
 import { elementPreview, refusedChoiceWords } from './element-preview';
 import type { ElementDraftAction } from './element-sheet';
 import type { TypeStart } from '@/lib/hub-part-words';
+import { typedDisplayName } from '@/lib/typed-names';
+import { nameStyleChoicesFor, type NameParts, type NameStyle } from '@/lib/name-style';
+import { saveNameStyle } from '@/lib/name-style-save';
 
 /**
  * ✍ THE TYPE BAR — the small floating bar over the words being typed (Maker
@@ -47,15 +50,27 @@ import type { TypeStart } from '@/lib/hub-part-words';
  * now (`typeSync`), so letters typed while it loaded are not lost. It closes
  * on Done (phone), Esc, a tap outside it and its lists, a tap on another part
  * or scene, and Style ▾ (the part's own sheet takes over).
+ *
+ * ✍ THE NAMES (owner 2026-10-01, "wait for apply"). The names are the event's
+ * own (`events.display_name`), not the hero's: typed here they go into the
+ * DRAFT's `events` — the same draft, the same one write path, held the same
+ * way — so guests read them only at Apply, and Undo takes them back. Their
+ * Wording ▾ is the event's Name style (Full · Middle initial · Surname first),
+ * each written in the couple's OWN name (`nameStyleChoicesFor`) — the ONE
+ * setting the prints read, saved through the prints' own door
+ * (`saveNameStyle`), never a second.
  */
 type TypeSession = TypeStart;
-async function saveCanvas(draftAction: ElementDraftAction, eventId: string, canvas: HubSectionCanvas) {
+/** The draft save every change the bar makes goes through — the hero's canvas, or the names. */
+async function saveDraft(draftAction: ElementDraftAction, eventId: string, patch: HubDraftPatch) {
   const fd = new FormData();
   fd.set('intent', 'save');
-  fd.set('patch', JSON.stringify({ widgets: { hero: { canvas } } }));
+  fd.set('patch', JSON.stringify(patch));
   fd.set(HUB_DRAFT_BAR_FIELD, '1');
   return draftAction(eventId, fd);
 }
+/** The names' own queue key — a burst of letters is ONE write, the latest. */
+const NAMES_WRITE_KEY = 'event:display_name';
 
 export type TypeBarProps = {
   eventId: string;
@@ -65,6 +80,8 @@ export type TypeBarProps = {
   heroCanvas: HubSectionCanvas;
   draftAction: ElementDraftAction;
   twoPeople: boolean;
+  /** ✍ The names' Wording ▾: the event's Name style and one of the couple's own names (null = not offered). */
+  names?: { style: NameStyle; person: NameParts | null } | null;
   /** The frames shown — the one typed in is found by its window, to sit the bar over its words. */
   frames: () => Array<HTMLIFrameElement | null>;
   /** To the frames shown (both panes), except the one the words were typed in. */
@@ -141,32 +158,44 @@ export function TypeBar(p: TypeBarProps) {
    * `typedIn` is the frame the words were typed in: the browser already drew
    * them there, and writing them again would move the caret — so it is skipped.
    */
-  const lay = (before: HubSectionCanvas, next: HubSectionCanvas, typedIn: MessageEventSource | null) => {
+  const layMessages = (before: HubSectionCanvas, next: HubSectionCanvas): unknown[] => {
     const messages: unknown[] = [{ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text: shownWords(next) }];
     if (Boolean(before.elements?.[el]?.hidden) !== Boolean(next.elements?.[el]?.hidden)) {
       messages.push(elementPreview(session.key, el, before, next, false));
     }
+    return messages;
+  };
+  /** To every frame — or, when the words were typed in one, to every OTHER frame. */
+  const postToCanvas = (messages: readonly unknown[], typedIn: MessageEventSource | null) => {
     for (const m of messages) {
       if (typedIn) props.current.post(m, typedIn);
       else props.current.broadcast(m);
     }
   };
+  const lay = (before: HubSectionCanvas, next: HubSectionCanvas, typedIn: MessageEventSource | null) =>
+    postToCanvas(layMessages(before, next), typedIn);
 
-  /** ONE write path for every change the bar makes: drawn on the canvas, on the Maker's copy, then saved behind. */
-  const commit = (next: HubSectionCanvas, what: string, typedIn: MessageEventSource | null = null) => {
-    const { heroCanvas, draftAction, eventId } = props.current;
-    const before = draftedCanvasOr('hero', heroCanvas);
-    if (canvasFingerprint(before) === canvasFingerprint(next)) return;
-    lay(before, next, typedIn);
-    noteDraftedCanvas('hero', next, heroCanvas);
-    props.current.onSaving('hero', next);
-    setError(null);
+  /**
+   * ONE write path for every change the bar makes: drawn on the canvas FIRST
+   * (`shown` — every other frame; the one typed in already shows it), then
+   * into the draft after a pause, `held` (no Maker render, no canvas reload;
+   * the Apply count comes back with the save). The latest write for `key` wins.
+   */
+  const write = (
+    key: string,
+    patch: HubDraftPatch,
+    shown: { messages: readonly unknown[]; typedIn: MessageEventSource | null },
+    onSaved: () => void,
+    onRefused: (reason: string) => void,
+  ) => {
+    postToCanvas(shown.messages, shown.typedIn);
+    const { draftAction, eventId } = props.current;
     const tap = ++newest.current;
     void (async () => {
       let res: HubDraftActionResult | typeof SUPERSEDED;
       try {
         res = await makerSave(
-          () => makerLatestWrite(canvasWriteKey('hero'), () => saveCanvas(draftAction, eventId, next)),
+          () => makerLatestWrite(key, () => saveDraft(draftAction, eventId, patch)),
           // Owed only if something else in the burst asked for a render (`makerNeedsRender`).
           requestMakerRefresh,
           { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
@@ -176,19 +205,70 @@ export function TypeBar(p: TypeBarProps) {
       }
       if (res === SUPERSEDED) return;
       if (res.ok) {
-        saved.current = next;
+        onSaved();
         return;
       }
       if (tap !== newest.current) return;
-      /* ↩ Refused: the page, the Maker's copy and the hold go back — and it is said. */
-      const back = saved.current;
-      noteDraftedCanvas('hero', back, props.current.heroCanvas);
-      props.current.onSaving('hero', back);
-      lay(next, back, null);
-      const text = refusedChoiceWords(el, what, res.error || null);
-      setError(text);
-      announceMakerSave({ state: 'error', text });
+      onRefused(res.error);
     })();
+  };
+
+  /** A hero canvas change: drawn on the canvas, on the Maker's copy, then saved behind. */
+  const commit = (next: HubSectionCanvas, what: string, typedIn: MessageEventSource | null = null) => {
+    const { heroCanvas } = props.current;
+    const before = draftedCanvasOr('hero', heroCanvas);
+    if (canvasFingerprint(before) === canvasFingerprint(next)) return;
+    noteDraftedCanvas('hero', next, heroCanvas);
+    props.current.onSaving('hero', next);
+    setError(null);
+    write(
+      canvasWriteKey('hero'),
+      { widgets: { hero: { canvas: next } } },
+      { messages: layMessages(before, next), typedIn },
+      () => {
+        saved.current = next;
+      },
+      (reason) => {
+        /* ↩ Refused: the page, the Maker's copy and the hold go back — and it is said. */
+        const back = saved.current;
+        noteDraftedCanvas('hero', back, props.current.heroCanvas);
+        props.current.onSaving('hero', back);
+        lay(next, back, null);
+        const text = refusedChoiceWords(el, what, reason || null);
+        setError(text);
+        announceMakerSave({ state: 'error', text });
+      },
+    );
+  };
+
+  /**
+   * ✍ THE NAMES, TYPED → `events.display_name` in the DRAFT (never the live
+   * row — guests read them at Apply). The canvas already shows the letters;
+   * the other pane gets them; a refused save puts the last saved names back.
+   */
+  const savedNames = useRef(p.start.text);
+  const typeNames = (text: string) => {
+    const name = typedDisplayName(text, props.current.twoPeople);
+    refusedRef.current = name === null;
+    if (!name) {
+      setError(`${HUB_ELEMENT_LABEL[el]}: type a name on each side — the names cannot be left empty.`);
+      return;
+    }
+    setError(null);
+    write(
+      NAMES_WRITE_KEY,
+      { events: { display_name: name } },
+      { messages: [{ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text: name }], typedIn: session.source },
+      () => {
+        savedNames.current = name;
+      },
+      (reason) => {
+        props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: session.key, el, text: savedNames.current });
+        const text = `Your names did not save${reason ? ` — ${reason}` : ''}. They are back as they were.`;
+        setError(text);
+        announceMakerSave({ state: 'error', text });
+      },
+    );
   };
 
   /** What the page shows for a canvas — the part's words, or its fact in its format. */
@@ -209,8 +289,8 @@ export function TypeBar(p: TypeBarProps) {
   useEffect(
     () => () => {
       if (!refusedRef.current) return;
-      const back = draftedCanvasOr('hero', props.current.heroCanvas);
-      props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: p.start.key, el, text: words(back) });
+      const back = el === 'names' ? savedNames.current : words(draftedCanvasOr('hero', props.current.heroCanvas));
+      props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: p.start.key, el, text: back });
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -218,6 +298,10 @@ export function TypeBar(p: TypeBarProps) {
   useEffect(() => {
     if (!isTypeCaretPart(el) || session.text === lastText.current) return;
     lastText.current = session.text;
+    if (el === 'names') {
+      typeNames(session.text);
+      return;
+    }
     const before = draftedCanvasOr('hero', props.current.heroCanvas);
     const { elements, refused } = withTypedWords(before.elements, el, session.text, session.auto);
     refusedRef.current = refused;
@@ -236,6 +320,33 @@ export function TypeBar(p: TypeBarProps) {
   const style = current.elements?.[el] ?? {};
   const lines = wordingLines(el, { auto: session.auto, twoPeople: p.twoPeople });
   const formats = formatChoices(el, session);
+
+  /* 🔤 THE NAMES' WORDING ▾ — the event's Name style, the three choices only,
+     each in the couple's own name. Shown at once; saved through the prints'
+     door; a refusal puts back the last saved style (only for the latest pick). */
+  const nameChoices = el === 'names' && p.names ? nameStyleChoicesFor(p.names.person) : [];
+  const [nameStyle, setNameStyle] = useState<NameStyle | null>(p.names?.style ?? null);
+  const nameStyleSaved = useRef<NameStyle | null>(p.names?.style ?? null);
+  const nameStyleLatest = useRef<NameStyle | null>(p.names?.style ?? null);
+  const pickNameStyle = (key: string) => {
+    const picked = nameChoices.find((c) => c.key === key)?.key;
+    if (!picked || picked === nameStyleLatest.current) return;
+    nameStyleLatest.current = picked;
+    setNameStyle(picked);
+    setError(null);
+    void saveNameStyle(p.eventId, picked).then((ok) => {
+      if (ok) {
+        nameStyleSaved.current = picked;
+        return;
+      }
+      if (nameStyleLatest.current !== picked) return;
+      nameStyleLatest.current = nameStyleSaved.current;
+      setNameStyle(nameStyleSaved.current);
+      const text = 'That name style did not save — please try again.';
+      setError(text);
+      announceMakerSave({ state: 'error', text });
+    });
+  };
 
   const pickLine = (line: string) => {
     const before = draftedCanvasOr('hero', props.current.heroCanvas);
@@ -324,7 +435,16 @@ export function TypeBar(p: TypeBarProps) {
           <Check aria-hidden className="h-4 w-4" strokeWidth={2} /> Done
         </button>
       ) : null}
-      {lines.length > 0 ? (
+      {nameChoices.length > 0 ? (
+        <PickMenu
+          label={`${HUB_ELEMENT_LABEL[el]} — name style`}
+          dataAttr="data-type-wording"
+          value={nameStyle}
+          buttonText="Wording"
+          options={nameChoices.map((c) => ({ key: c.key, label: c.example, hint: c.label }))}
+          onPick={pickNameStyle}
+        />
+      ) : lines.length > 0 ? (
         <PickMenu
           label={`${HUB_ELEMENT_LABEL[el]} — wording`}
           dataAttr="data-type-wording"

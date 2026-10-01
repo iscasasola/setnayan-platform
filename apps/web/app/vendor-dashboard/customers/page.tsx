@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { CalendarDays, ChevronRight, MessageSquare, PhilippinePeso, Sparkles } from 'lucide-react';
+import { ChevronRight, MessageSquare, PhilippinePeso, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -36,10 +36,20 @@ import {
   customerLaneOf,
   groupByLane,
   holdingByDate,
+  CUSTOMER_LANES,
+  type CustomerLane,
   type PipelineCustomer,
 } from '@/lib/vendor-customer-pipeline';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
-import { CustomersRoster, type RosterRow } from './_components/customers-roster';
+import {
+  CustomersRoster,
+  ROSTER_SHOW,
+  ROSTER_SHOW_LABEL,
+  type RosterRow,
+  type RosterShow,
+} from './_components/customers-roster';
+import { CustomersPick } from './_components/customers-pick';
+import { MiniTour } from '@/app/_components/mini-tour';
 import { rosterView } from './roster-view';
 import { CustomersCalendar } from './_components/customers-calendar';
 import type { FilterOption } from './_components/customers-filter-bar';
@@ -77,7 +87,18 @@ type Props = {
     page?: string;
     /** Name search over the roster, applied before paging. */
     q?: string;
+    /** Which column a phone row shows on its right — Show ▾ (`next` · `money` · `date`). */
+    show?: string;
   }>;
+};
+
+/** Filter ▾'s words — the stage, as the row's pill says it. */
+const LANE_FILTER_LABEL: Record<CustomerLane, string> = {
+  waiting: 'Waiting on you',
+  holding: 'Holding',
+  talking: 'Talking',
+  booked: 'Booked',
+  finished: 'Done',
 };
 
 /*
@@ -565,6 +586,21 @@ async function CustomersPipeline({ searchParams }: Props) {
 
   const dayHrefBase = '/vendor-dashboard/calendar';
 
+  /*
+    Filter ▾ / Show ▾ — each option is a LINK the server builds (a filter you
+    can share, Back works). Picking resets to page 1 and keeps everything else
+    on the page (month, search, open section).
+  */
+  const rosterShow: RosterShow = (ROSTER_SHOW as readonly string[]).includes(search.show ?? '')
+    ? (search.show as RosterShow)
+    : 'next';
+  const pickHref = (key: 'lane' | 'show', value: string | null): string => {
+    const q = new URLSearchParams(keepParamsFrom(search as Record<string, string | undefined>, ['page', key]));
+    if (value) q.set(key, value);
+    const qs = q.toString();
+    return qs ? `?${qs}#customers` : '?#customers';
+  };
+
   return (
     // Glass PR-7: the opaque `--m-paper` body wrapper is dropped — the Atelier
     // wash (`.sn-ambient`, inherited from the shell) shows through the glass tiles.
@@ -583,25 +619,10 @@ async function CustomersPipeline({ searchParams }: Props) {
           QR panel all still render, in the same order, immediately below.
         */}
         {/*
-          🔑 "Book of business" IS BACK, DELIBERATELY. It lived in the old
-          Section-4 header, which this block replaced, and it opens a DIFFERENT
-          view of the same people (the Clients accordion below, with outside
-          clients the roster does not carry). Dropping it would have been a lost
-          control — the thing `lint-port-no-lost-controls` exists to catch, and
-          a redesign is exactly when it happens.
+          🔑 "Book of business" (`?open=clients`) now sits behind the roster's ⋯
+          with the other customer tools (owner-APPROVED 2026-10-01, "THE
+          SUPPLIER PHONE APP", frame 2) — moved one tap away, not removed.
         */}
-        <div className="-mb-1 flex justify-end">
-          <Link
-            href="?open=clients"
-            scroll={false}
-            className="inline-flex items-center gap-1 text-sm font-semibold"
-            style={{ color: 'var(--sn-gold-700)' }}
-          >
-            <CalendarDays className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            Book of business
-          </Link>
-        </div>
-
         <CustomersRoster
           rows={rosterPage.items}
           paged={rosterPage}
@@ -609,15 +630,39 @@ async function CustomersPipeline({ searchParams }: Props) {
           incomplete={rosterIncomplete}
           pagerKeepParams={keepParamsFrom(search as Record<string, string | undefined>, ['page'])}
           searchKeepParams={keepParamsFrom(search as Record<string, string | undefined>, ['page', 'q'])}
-          activeLane={activeLane}
           counts={laneCounts}
           nowMs={rosterNowMs}
           holdingPerDate={holdingPerDate}
-          keepParams={new URLSearchParams(
-            Object.entries({ m: search.m, et: search.et, cat: search.cat, q: search.q }).filter(
-              (e): e is [string, string] => typeof e[1] === 'string',
-            ),
-          ).toString()}
+          show={rosterShow}
+          filter={
+            <CustomersPick
+              label="Filter"
+              value={activeLane ?? 'all'}
+              dataAttr="data-customers-filter"
+              compact
+              options={[
+                { key: 'all', label: `Everyone · ${formatCount(CUSTOMER_LANES.reduce((n, l) => n + laneCounts[l], 0))}`, href: pickHref('lane', null) },
+                ...CUSTOMER_LANES.map((l) => ({
+                  key: l,
+                  label: `${LANE_FILTER_LABEL[l]} · ${formatCount(laneCounts[l])}`,
+                  href: pickHref('lane', l),
+                })),
+              ]}
+            />
+          }
+          showPick={
+            <CustomersPick
+              label="Show"
+              value={rosterShow}
+              dataAttr="data-customers-show"
+              compact
+              options={ROSTER_SHOW.map((k) => ({
+                key: k,
+                label: ROSTER_SHOW_LABEL[k],
+                href: pickHref('show', k === 'next' ? null : k),
+              }))}
+            />
+          }
         />
 
         {/* Sections 1 + 2 — filter row + month calendar (centrepiece).
@@ -995,13 +1040,19 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       {/* The rest folds in — glance-covered or configure-once. Messages folds
           here too (its thread set is already the always-on Bookings queue
           above; opening this section shows the chat/reply view). */}
-      <FeatureAccordion sections={CUSTOMER_SECTIONS} openKey={open}>
-        {open ? (
-          <Suspense fallback={<AccordionSkeleton />}>
-            <CustomerSectionBody open={open} sp={sp} />
-          </Suspense>
-        ) : null}
-      </FeatureAccordion>
+      {/* `#customer-tools` is where the roster's ⋯ doors land. */}
+      <div id="customer-tools" className="scroll-mt-24">
+        <FeatureAccordion sections={CUSTOMER_SECTIONS} openKey={open}>
+          {open ? (
+            <Suspense fallback={<AccordionSkeleton />}>
+              <CustomerSectionBody open={open} sp={sp} />
+            </Suspense>
+          ) : null}
+        </FeatureAccordion>
+      </div>
+
+      {/* First visit only — the shipped MiniTour (every feature gets one). */}
+      <MiniTour tourKey="vendor_customers_v1" after="vendor_welcome_v1" />
     </>
   );
 }

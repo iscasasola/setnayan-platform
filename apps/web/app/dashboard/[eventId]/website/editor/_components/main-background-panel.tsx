@@ -27,6 +27,7 @@ import { ClipTile, PhotoTile, type SceneUpload } from './scene-background-row';
 import { PickMenu } from './pick-menu';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { uploadStill } from '@/lib/upload-still';
+import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
 
 /**
  * BEHIND EVERY SCENE — your hero, and the theme follows its colours
@@ -245,6 +246,7 @@ export function MainBackgroundPanel({
   photoChoices = [],
   videoChoice = null,
   sceneUploads = [],
+  mediaUsedBytes,
 }: {
   eventId: string;
   /** The couple's saved theme. Classic has no moving background at all. */
@@ -264,6 +266,8 @@ export function MainBackgroundPanel({
   photoChoices?: readonly { ref: string; url: string }[];
   videoChoice?: { ref: string; url: string; poster?: string | null } | null;
   sceneUploads?: readonly SceneUpload[];
+  /** 💾 The event's settled `couple_media_bytes` — the 100 MB meter under the upload. Absent = no meter. */
+  mediaUsedBytes?: number;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -515,6 +519,8 @@ export function MainBackgroundPanel({
             disabled={pending}
             label="Upload a photo or clip"
           />
+          {/* 💾 The event's 100 MB of uploads, beside the upload that spends it. */}
+          {typeof mediaUsedBytes === 'number' ? <MakerMediaMeter usedBytes={mediaUsedBytes} /> : null}
           {/* 📐 The owner asked for the best size (2026-10-01). The photo fills
               the screen and is cropped to it, and 99% of guests are on a phone —
               so upright, and at least the size the upload keeps. */}

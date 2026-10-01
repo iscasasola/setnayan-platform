@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { BarChart3, Clapperboard, Send, Sparkles, Users } from 'lucide-react';
+import { PaidMark } from '@/app/_components/paid-mark';
 import { createClient } from '@/lib/supabase/server';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { resolveVendorTier } from '@/lib/vendor-feature-gate';
-import { VendorTierGate } from '../_components/tier-gate';
 import { formatAudienceCount } from '@/lib/creator-audience';
 import { CreatorTierChip } from '@/app/_components/creator-tier-chip';
 import {
@@ -61,22 +62,21 @@ export default async function VendorCreatorsPage({
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
-  // PRO-AND-UP (owner ratification decision #4, 2026-07-16 — Market Intel
-  // precedent; supersedes P1's `tier != 'free'`). Unconditional like the RPC's
-  // own TIER_BELOW_PRO_NO_REACH floor — a sub-Pro vendor sees the upsell, not
-  // the browse. `custom` ranks above enterprise, so isTierAtLeast('pro')
-  // admits pro/enterprise/custom exactly.
+  // PRO-AND-UP to SEND (owner ratification decision #4, 2026-07-16). Until
+  // 2026-09-30 this page returned a full-page upsell for every sub-Pro shop —
+  // a paywall that ignored VENDOR_TIER_FEATURE_GATE, so Creators was the one
+  // supplier surface paywalled in production while the switch was off.
+  //
+  // TRY-FIRST now: every shop may browse creators, set a reach bar and draft an
+  // offer. The ask lives at the final action only. ⚠ It is NOT routed through
+  // vendorPaywallApplies() on purpose: the Pro floor is enforced by the
+  // database itself (offer_creator_reach_hold raises TIER_BELOW_PRO_NO_REACH,
+  // unconditionally), so the switch cannot lift it — a ◆ note that vanished
+  // with the switch off would promise a Send that the database refuses. Lifting
+  // the floor is an owner call + a migration, not a flag.
   const tier = await resolveVendorTier(supabase, profile.vendor_profile_id);
-  if (!isTierAtLeast(tier, 'pro')) {
-    return (
-      <VendorTierGate
-        feature="Creator collabs"
-        requiredTier="pro"
-        blurb="Browse Setnayan storytellers, offer them your promo for a credited feature inside a trusted story, and see the inquiries their chapters drive to you. You keep 100% of every booking."
-        icon={<Clapperboard aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
-      />
-    );
-  }
+  // 🔒 The ◆ note is a purchase hint → absent in the App Store / Play Store shell.
+  const sendNeedsPro = !isTierAtLeast(tier, 'pro') && !(await isStoreShellRequest());
 
   const minReach = Math.max(0, Number.parseInt(search.minReach ?? '0', 10) || 0);
 
@@ -255,6 +255,7 @@ export default async function VendorCreatorsPage({
                 <CreatorCard
                   creator={c}
                   hasPending={pendingCreatorIds.has(c.userId)}
+                  sendNeedsPro={sendNeedsPro}
                 />
               </li>
             ))}
@@ -268,9 +269,12 @@ export default async function VendorCreatorsPage({
 function CreatorCard({
   creator: c,
   hasPending,
+  sendNeedsPro,
 }: {
   creator: EligibleCreator;
   hasPending: boolean;
+  /** The database's Pro floor on sending — see the page body. */
+  sendNeedsPro: boolean;
 }) {
   return (
     <div className="sn-tile space-y-3">
@@ -358,6 +362,12 @@ function CreatorCard({
               days. Discounts settle off-platform — Setnayan never touches the
               money.
             </p>
+            {sendNeedsPro ? (
+              <p className="inline-flex items-center gap-1.5 text-[11px] text-ink/60">
+                <PaidMark state="try" label="Part of Pro — draft it here; Send asks for Pro" size="xs" />
+                Sending an offer is part of Pro. Draft it here — Send asks for the plan.
+              </p>
+            ) : null}
             <SubmitButton
               className="button-primary inline-flex items-center gap-2"
               pendingLabel="Sending…"

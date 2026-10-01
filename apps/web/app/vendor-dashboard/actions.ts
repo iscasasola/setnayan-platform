@@ -1,5 +1,6 @@
 'use server';
 
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { revalidatePath } from 'next/cache';
 import { parseClientRef, vendorOwnedMediaPolicy } from '@/lib/r2-client-ref';
 import { findVendorTextViolation } from '@/lib/service-text-integrity';
@@ -866,32 +867,36 @@ export async function updateVendorWebsiteField(
 
   // SOLO gate — personalizing the page (About / sections / featured services)
   // is a Solo+ benefit. Free/Verified are auto-composed. Server-side backstop.
+  // 💳 Every plan gate below is asked through the ONE flag-aware question
+  // (lib/vendor-feature-gate.ts): while VENDOR_TIER_FEATURE_GATE is off the
+  // save goes through for every plan; while on, THIS is the final action where
+  // the editor (try-first — every control renders) asks for the plan.
   if (
     SOLO_WEBSITE_FIELDS.has(field) &&
-    !micrositeCan(rowTyped?.tier_state).canPersonalize
+    vendorPaywallApplies(micrositeCan(rowTyped?.tier_state).canPersonalize)
   ) {
     return {
       ok: false,
-      error: 'Personalizing your page is a Solo feature — upgrade to customize.',
+      error: 'Personalizing your page is part of Solo. Pick a plan on the Plans page to save it.',
     };
   }
 
   // PRO gate — the premium customization controls reuse the same cap as the
   // custom slug (Pro/Enterprise). The UI hides them for lower tiers; this is
   // the server-side backstop.
-  if (PRO_WEBSITE_FIELDS.has(field) && !caps.customWebsiteName) {
-    return { ok: false, error: 'This is a Pro feature — upgrade to customize.' };
+  if (PRO_WEBSITE_FIELDS.has(field) && vendorPaywallApplies(caps.customWebsiteName)) {
+    return { ok: false, error: 'This is part of Pro. Pick Pro on the Plans page to save it.' };
   }
 
   // ENTERPRISE gate — the video portfolio is a Flagship differentiator. UI hides
   // it below Enterprise; server-side backstop.
   if (
     ENTERPRISE_WEBSITE_FIELDS.has(field) &&
-    !micrositeCan(rowTyped?.tier_state).isEnterprise
+    vendorPaywallApplies(micrositeCan(rowTyped?.tier_state).isEnterprise)
   ) {
     return {
       ok: false,
-      error: 'Video portfolio is an Enterprise feature — upgrade to add films.',
+      error: 'Video portfolio is part of Enterprise. Pick Enterprise on the Plans page to add films.',
     };
   }
 

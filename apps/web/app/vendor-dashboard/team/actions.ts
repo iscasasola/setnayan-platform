@@ -16,7 +16,8 @@ import {
   fetchAdminVendorContext,
   type VendorTeamRole,
 } from '@/lib/vendor-team';
-import { tierCaps, asVendorTier, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import {
   effectiveSeatCap,
   fetchExtraAgentSeats,
@@ -100,7 +101,12 @@ export async function inviteVendorTeamMember(formData: FormData) {
   // allowance — additional admins consume a seat just like agents do. Effective
   // cap = the tier's base agentAccounts + any paid extra seats (Enterprise/Custom
   // ₱250/28d add-on, owner 2026-07-02; 0 for every other tier).
-  const baseCap = tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts;
+  // A plan with 0 seats is a PAYWALL, so it goes through the one flag-aware
+  // allowance — while VENDOR_TIER_FEATURE_GATE is off, the entry plan's seats.
+  const baseCap = vendorAllowance(
+    tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts,
+    entryTierAllowance('agentAccounts'),
+  );
   const extraSeats = await fetchExtraAgentSeats(supabase, ctx.vendorProfileId);
   const seatCap = effectiveSeatCap(baseCap, extraSeats);
   if (seatCap !== Infinity) {
@@ -115,7 +121,7 @@ export async function inviteVendorTeamMember(formData: FormData) {
         : 'Upgrade for more.';
       return err(
         seatCap === 0
-          ? 'Team seats need a paid plan. Get verified or upgrade to add team members.'
+          ? 'Team seats are part of the paid plans. Pick one on the Plans page to add team members.'
           : `You've reached your plan's limit of ${seatCap} team seat${seatCap === 1 ? '' : 's'}. ${moreHint}`,
       );
     }

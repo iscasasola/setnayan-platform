@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7fb6de49",
+  "generatedFromRef": "e35b214740",
   "routeCount": 441,
-  "destinations": 952,
+  "destinations": 953,
   "actions": 677,
-  "blocks": 5354,
+  "blocks": 5357,
   "routes": {
     "/": {
       "files": [
@@ -11249,7 +11249,8 @@
         "/vendor-dashboard/calendar?pool=[seg]&m=[seg]",
         "/vendor-dashboard/calendar?pool=all&m=[seg]",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/services"
+        "/vendor-dashboard/services",
+        "/vendor-dashboard/subscription"
       ],
       "actions": [
         "addManualBlock",
@@ -11585,6 +11586,7 @@
     "/vendor-dashboard/creators": {
       "files": [
         "vendor-dashboard/creators/actions.ts",
+        "vendor-dashboard/creators/loading.tsx",
         "vendor-dashboard/creators/page.tsx"
       ],
       "destinations": [
@@ -11598,11 +11600,12 @@
         "CreatorTierChip",
         "FormFlash",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
+        "PaidMark",
         "RoiRow",
         "SearchParams",
-        "SubmitButton",
-        "VendorTierGate"
+        "SubmitButton"
       ]
     },
     "/vendor-dashboard/customers": {
@@ -11668,6 +11671,7 @@
         "DossierView",
         "ListPageSkeleton",
         "PageMasthead",
+        "PaidMark",
         "PaymentsPausedNote",
         "Section",
         "SubmitButton",
@@ -12269,8 +12273,8 @@
         "FormFlash",
         "Icon",
         "Link",
-        "LockedState",
         "PageMasthead",
+        "PaidMark",
         "PaymentMethodType",
         "SubmitButton"
       ]
@@ -12752,6 +12756,7 @@
         "LockedLine",
         "ManageTiles",
         "ManpowerSurface",
+        "PaidMark",
         "PairCard",
         "PanelShell",
         "PaperSide",
@@ -12761,6 +12766,7 @@
         "Pin",
         "PinRow",
         "PlainInput",
+        "PlanNote",
         "ProfileChecklistEditor",
         "PublicLineCard",
         "PublicLineSaveResult",
@@ -12783,7 +12789,6 @@
         "ShopSectionBody",
         "ShopTools",
         "SocialLinksInput",
-        "SoloUpsell",
         "StatTile",
         "StatusChip",
         "StatusLine",

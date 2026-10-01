@@ -6,6 +6,7 @@
  * component is a build error by design — keep it server-side only.
  */
 import 'server-only';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { decodeQrPayloadFromImage } from '@/lib/qr-decode';
 import { r2GetBytes } from '@/lib/r2';
 import { parseClientRef, vendorPaymentQrPolicy } from '@/lib/r2-client-ref';
@@ -86,7 +87,9 @@ export async function readPublishedMethodsForCouple(opts: {
   const vendorUserId = (vp as { user_id: string } | null)?.user_id ?? null;
   if (!vendorUserId) return { state: 'off_platform', methods: [] };
 
-  const proActive = await isVendorProActive(adminClient, vendorUserId);
+  // Links are a Pro feature → asked through the one flag-aware paywall
+  // question: while VENDOR_TIER_FEATURE_GATE is off every shop's links count.
+  const proActive = !vendorPaywallApplies(await isVendorProActive(adminClient, vendorUserId));
 
   // 3. Read published + approved methods (admin client bypasses owner RLS).
   const { data: rows, error: rowsError } = await adminClient
@@ -148,7 +151,9 @@ export async function readSupplierPayoutReadiness(opts: {
     .select('method_type, is_shown, moderation_status')
     .eq('vendor_profile_id', vendorProfileId);
   if (error) return 'unreadable';
-  const proActive = await isVendorProActive(adminClient, vendorUserId);
+  // Links are a Pro feature → asked through the one flag-aware paywall
+  // question: while VENDOR_TIER_FEATURE_GATE is off every shop's links count.
+  const proActive = !vendorPaywallApplies(await isVendorProActive(adminClient, vendorUserId));
   return payoutReadinessOf((data ?? []) as PayoutMethodFacts[], proActive);
 }
 
@@ -179,7 +184,9 @@ export async function fetchProposalPaymentMethods(opts: {
     const vendorUserId = (vp as { user_id: string } | null)?.user_id ?? null;
     if (!vendorUserId) return [];
 
-    const proActive = await isVendorProActive(adminClient, vendorUserId);
+    // Links are a Pro feature → asked through the one flag-aware paywall
+  // question: while VENDOR_TIER_FEATURE_GATE is off every shop's links count.
+  const proActive = !vendorPaywallApplies(await isVendorProActive(adminClient, vendorUserId));
 
     let q = adminClient
       .from('vendor_payment_methods')

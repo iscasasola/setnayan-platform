@@ -1,5 +1,6 @@
 'use server';
 
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -103,8 +104,10 @@ export async function addPaymentMethod(formData: FormData) {
     }
   } else {
     // link — Pro/Enterprise only
-    const pro = await isVendorProActive(supabase, userId);
-    if (!pro) fail('Payment links are a Pro & Enterprise feature — upgrade to add one.');
+    // The final action — where a Pro-less shop is asked, and only while the
+    // switch is on (vendorPaywallApplies). Off, every shop may add a link.
+    if (vendorPaywallApplies(await isVendorProActive(supabase, userId)))
+      fail('Payment links are part of Pro and Enterprise. Pick one on the Plans page to add this link.');
     const url = str(formData.get('link_url'), 512);
     if (!url) fail('Enter your payment link.');
     const cls = classifyPaymentLink(url);

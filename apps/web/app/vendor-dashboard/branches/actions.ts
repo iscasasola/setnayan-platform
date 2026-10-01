@@ -18,6 +18,7 @@ import {
   branchAutoRadiusKm,
   fetchBranchFeePhp,
 } from '@/lib/vendor-branches';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { reverseGeocodeNominatim } from '@/lib/geo';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -98,8 +99,12 @@ async function requireBranchManager(): Promise<
   }
   // Enterprise-or-higher (Custom runs as Enterprise) — rank-derived so the
   // Custom tier inherits the branch feature without a hard equality edit.
-  if (!isTierAtLeast(tier, 'enterprise')) {
-    return { error: err('Branches are an Enterprise plan feature.') };
+  // The Enterprise requirement is a PLAN PAYWALL, so it is asked through the
+  // one flag-aware question: while VENDOR_TIER_FEATURE_GATE is off any shop may
+  // add a branch (paying the branch's own fee, below); while on, this is where
+  // a non-Enterprise shop is asked for the plan — the final action, try-first.
+  if (vendorPaywallApplies(isTierAtLeast(tier, 'enterprise'))) {
+    return { error: err('Extra branches are part of Enterprise. Pick Enterprise on the Plans page to add one.') };
   }
 
   return { supabase, userId: user.id, vendorProfileId: profile.vendor_profile_id };

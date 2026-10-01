@@ -19,9 +19,12 @@
  * on both sides; nothing here calls `navIconComponent`, so
  * `vendor-nav-boundary.test.ts` has nothing to fear from it.
  *
- * ⚠ THE DOORS ARE THE SHIPPED ROUTES. `/vendor-dashboard/calendar`, `/messages`
- * and `/payday` are redirect stubs into the Customers hub with their section
- * named — linking the stub keeps one owner for where each section lives.
+ * ⚠ THE DOORS NAME THEIR SECTION. Messages and Earnings & payday link the
+ * Customers hub at their own fold through `customerLandingHref` (the anchors
+ * module — ONE table, also read by Today's tiles, the Next card and the old
+ * redirect stubs). They used to link the bare `/messages` and `/payday` stubs,
+ * which dropped the supplier at the top of the roster. Calendar still links its
+ * stub: `/vendor-dashboard/calendar` already lands on the month grid.
  *
  * ⚠ "SETTINGS" IS NOT A ROW. The prototype draws one "Settings · Notifications,
  * plan, team, sign out" row, but the supplier side has no settings page: those
@@ -29,6 +32,7 @@
  * sign-out is the account menu. A "Settings" row would have to open one of them
  * and pretend it was all four, so the rows name the pages that exist.
  */
+import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import {
   BarChart2,
   Bell,
@@ -70,14 +74,14 @@ export const VENDOR_MORE_ROWS: readonly VendorMoreRow[] = [
     key: 'payday',
     label: 'Earnings & payday',
     sub: 'What came in, what is due, when it lands.',
-    href: '/vendor-dashboard/payday',
+    href: customerLandingHref('payday'),
     Icon: Wallet,
   },
   {
     key: 'messages',
     label: 'Messages',
     sub: 'Every conversation in one inbox.',
-    href: '/vendor-dashboard/messages',
+    href: customerLandingHref('messages'),
     Icon: MessageSquare,
   },
   {

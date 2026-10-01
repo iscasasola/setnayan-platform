@@ -56,6 +56,14 @@ export interface OnboardingState {
   kind: OnboardingKind | null;
 
   /**
+   * "Not decided yet" on the approved wedding's "What kind of wedding?" card.
+   * The commit then leaves `ceremony_type_locked_at` NULL — the DB's own
+   * "host has not picked yet" state (migration 20260603000000) — so the host
+   * can still confirm the ceremony from their event home.
+   */
+  ceremonyUndecided: boolean;
+
+  /**
    * Faith picks — single-element array for kind=religious, up to 2 for kind=mixed,
    * empty for kind=civil. Maps to events.ceremony_type (first element) +
    * events.secondary_ceremony_type (second, when present). Screen 4.
@@ -415,6 +423,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   role: null,
   kind: null,
   faith: [],
+  ceremonyUndecided: false,
   brideFirstName: '',
   brideLastName: '',
   groomFirstName: '',

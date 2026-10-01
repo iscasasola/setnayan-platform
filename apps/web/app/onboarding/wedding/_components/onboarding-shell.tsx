@@ -112,6 +112,8 @@ import { trackFailure } from '@/lib/telemetry/track-error';
 import { SDLoader } from '@/components/sd-loader';
 import { formatCount } from '@/lib/format-number';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
+import { WeddingCard } from './wedding-cards';
+import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, weddingFlowScreens, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
   setupDefaults,
@@ -168,7 +170,7 @@ const NO_SETUP_STEPS: readonly SetupCardId[] = [];
    it is the first time this funnel tells a couple that Papic exists at all. The
    2026-06-21 "no paywall in onboarding" lock is untouched; `plan`/`services`/
    `summary` stay filtered out exactly as before. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_entry','setup_guests','setup_more','services_step','congrats','plan','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_entry','setup_guests','setup_more','w_names','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -234,6 +236,18 @@ const REMOVED_SCREENS: ReadonlySet<ScreenId> = new Set([
    passes the same prop, so resume and the progress bar count the same screens. */
 const STORE_SHELL_DROPPED_SCREENS: ReadonlySet<ScreenId> = new Set(['plan', 'services', 'summary', 'services_step']);
 function buildSequence(kind: OnboardingState['kind'], authed: boolean, loveSkipped: boolean, ai: boolean | null, picks: string[], setupSteps: readonly string[], storeShell: boolean): ScreenId[] {
+  // 🧭 THE APPROVED WEDDING ONBOARDING (owner 2026-10-01). Once the seed admits
+  // weddings to the engine (`setupSteps` non-empty) the flow is the approved
+  // cards, in the approved order — `weddingFlowScreens`, one list. Not admitted
+  // → the legacy sequence below, byte-identical to yesterday.
+  if (setupSteps.length > 0) {
+    const screens = weddingFlowScreens({
+      engineCards: setupSteps,
+      skipAccount: authed || ANON_DRAFT_ENABLED,
+      services: SERVICES_STEP_ENABLED && !storeShell,
+    });
+    return screens as ScreenId[];
+  }
   const hasMusician = picks.some((p) => SONG_PICK_CATS.has(p));
   const hasStylist = picks.includes('stylist');
   return FLOW_IDS.filter((id) =>
@@ -286,6 +300,8 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   exp_help:'Continue', exp_source:'Continue', exp_reveal:'Continue',
   // 🎟 The setup cards (G1) — the shared SetupCard, advanced by the chrome Continue.
   setup_where:'Continue', setup_photo:'Continue', setup_look:'Continue', setup_entry:'Continue', setup_guests:'Continue', setup_more:'Continue',
+  // 🧭 The approved wedding cards (lib/onboarding/wedding-cards.ts).
+  w_names:'Continue', w_kind:'Continue', w_area:'Continue', w_pax:'Continue', w_budget:'Continue', w_colours:'Continue',
 };
 /* Which screens show a Skip button. Skippable: team_extras · songs · mood · find · the
    à-la-carte services review — they sort/refine, never gate. The love collection screens
@@ -1308,7 +1324,11 @@ export function OnboardingShell({
   const [setupAnswers, setSetupAnswers] = useState<SetupAnswers | null>(
     setupView ? setupDefaults(setupView) : null,
   );
-  const [state, setState] = useState<OnboardingState>(EMPTY_ONBOARDING_STATE);
+  // The approved wedding opens its guest estimate on the drawn start (150) rather than the
+  // legacy 200; a resumed draft keeps whatever the couple had (it is spread over this).
+  const [state, setState] = useState<OnboardingState>(
+    setupSteps.length > 0 ? { ...EMPTY_ONBOARDING_STATE, pax: ESTIMATE_START } : EMPTY_ONBOARDING_STATE,
+  );
   const [hydrated, setHydrated] = useState(false);
 
   /* ── budget feel-band ladder (DB-backed prop · owner 2026-06-19) ────────────
@@ -1581,6 +1601,12 @@ export function OnboardingShell({
   const seq = useMemo(() => buildSequence(state.kind, authed, state.loveSkipped, state.ai, state.picks, setupSteps, storeShell), [state.kind, authed, state.loveSkipped, state.ai, state.picks, storeShell, setupSteps]);
   const stepClamped = Math.min(Math.max(0, state.step), seq.length - 1);
   const activeId: ScreenId = seq[stepClamped] ?? 'welcome';
+  // 🧭 The approved wedding flow is on once the engine resolved cards for the wedding.
+  const approvedFlow = setupSteps.length > 0;
+  // "n of N" counts the question cards only (the account gate and the services step are not questions).
+  const questionScreens = useMemo(() => seq.filter((id) => WEDDING_QUESTION_SCREENS.has(id)), [seq]);
+  const questionN = Math.max(1, questionScreens.indexOf(activeId) + 1);
+  const questionTotal = Math.max(1, questionScreens.length);
 
   /* PR-4 refine queues — pure derivations of state.picks (the basics in canonical BASIC
      order, the extras in flat-taxonomy order; each filtered to picked ∩ has-a-REFINEMENTS-
@@ -2293,6 +2319,17 @@ export function OnboardingShell({
           state.groomLastName.trim().length > 0 &&
           state.monogramFinalized
         );
+      case 'w_names':
+        // First names are required (they go on the invitation); last names are optional.
+        return state.brideFirstName.trim().length > 0 && state.groomFirstName.trim().length > 0;
+      case 'w_kind':
+        return state.kind !== null && (state.kind === 'civil' || state.faith.length >= 1);
+      case 'w_area':
+        return state.places.length >= 1;
+      case 'w_pax':
+      case 'w_budget':
+      case 'w_colours':
+        return true;
       case 'date':
         return state.dateMode === 'specific' ? state.dateCandidates.length >= 1 : state.windowStart !== null && state.windowEnd !== null;
       case 'region':
@@ -2347,7 +2384,7 @@ export function OnboardingShell({
   /* When the flag is ON the paywall tail (plan/bundle/services/summary) is dropped, so the LAST
      screen (congrats) is the free terminal — its chrome CTA commits → dashboard, not advance. */
   const isLastScreen = stepClamped === seq.length - 1;
-  const nextLabel = isLastScreen && EXPERIENCE_QUIZ_ENABLED
+  const nextLabel = isLastScreen && (EXPERIENCE_QUIZ_ENABLED || approvedFlow)
     ? 'Go to my dashboard'
     : REFINE_SCREENS.has(activeId)
     ? (refinePosClamped < activeRefineQueue.length - 1 ? 'Next service' : 'Continue')
@@ -2643,6 +2680,7 @@ export function OnboardingShell({
       groomLastName: s.groomLastName,
       kind: s.kind,
       faith: s.faith,
+      ceremonyUndecided: s.ceremonyUndecided,
       region: s.region,
       venueLatitude: s.places[0] ? resolvePick(s.places[0]).lat : null,
       venueLongitude: s.places[0] ? resolvePick(s.places[0]).lon : null,
@@ -4360,8 +4398,29 @@ export function OnboardingShell({
                       answers={setupAnswers}
                       onChange={(patch) => setSetupAnswers((a) => (a ? { ...a, ...patch } : a))}
                       onNext={() => go(1)}
-                      n={i + 1}
-                      total={setupSteps.length}
+                      n={approvedFlow ? questionN : i + 1}
+                      total={approvedFlow ? questionTotal : setupSteps.length}
+                    />
+                  ) : null}
+                </section>
+              ))
+            : null}
+
+          {/* 🧭 THE APPROVED WEDDING CARDS (owner 2026-10-01) — the wedding's own
+              questions, in the same frame as the engine's cards. Drawn only while the
+              engine is on, so a wedding the seed has not admitted is byte-identical. */}
+          {approvedFlow
+            ? WEDDING_CARD_IDS.map((card) => (
+                <section key={card} className={`screen${activeId === card ? ' active' : ''}`} id={`screen-${card}`}>
+                  {activeId === card && setupView ? (
+                    <WeddingCard
+                      card={card as WeddingCardId}
+                      state={state}
+                      patch={patch}
+                      n={questionN}
+                      total={questionTotal}
+                      activeFaiths={activeFaiths}
+                      budgetBands={BUDGET_BANDS}
                     />
                   ) : null}
                 </section>
@@ -4385,6 +4444,8 @@ export function OnboardingShell({
                    mount whose commit ignores them. */
                 selection={servicesSelection}
                 onSelectionChange={setServicesStepSelection}
+                /* The approved wedding recommends its nearest pack for the guest estimate. */
+                guests={approvedFlow ? state.pax : null}
               />
             </section>
           ) : null}
@@ -4651,7 +4712,7 @@ export function OnboardingShell({
                 if (!canContinue || committing) return;
                 // Flag ON: the paywall tail is gone, so the last screen (congrats) is the free
                 // terminal — commit straight to the dashboard instead of advancing.
-                if (isLastScreen && EXPERIENCE_QUIZ_ENABLED) { void handleFinish(false); return; }
+                if (isLastScreen && (EXPERIENCE_QUIZ_ENABLED || approvedFlow)) { void handleFinish(false); return; }
                 go(1);
               }}
               disabled={!canContinue || committing}

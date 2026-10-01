@@ -205,6 +205,8 @@ export type OnboardingCommitPayload = {
   kind: 'religious' | 'civil' | 'mixed' | null;
   /** faith picks: [primary] for religious, [primary, secondary] for mixed, [] for civil */
   faith: string[];
+  /** "Not decided yet" — the ceremony is saved but left UNLOCKED (see the insert). */
+  ceremonyUndecided?: boolean;
   region: string | null;
   /** reception-venue anchor coords, derived from the primary location pick (screen 6) → events.venue_latitude/longitude */
   venueLatitude: number | null;
@@ -531,8 +533,10 @@ export async function commitOnboardingWedding(
       ceremony_sub_type: DEFAULT_SUB_TYPE[ceremonyType] ?? null,
       is_mixed_ceremony: isMixed,
       secondary_ceremony_type: secondary,
-      ceremony_type_locked_at: now,
-      ceremony_type_locked_by: user.id,
+      // "Not decided yet" (the approved wedding's kind card) stays UNLOCKED — the
+      // DB's own "host has not picked" state, so the host can still confirm it.
+      ceremony_type_locked_at: payload.ceremonyUndecided === true ? null : now,
+      ceremony_type_locked_by: payload.ceremonyUndecided === true ? null : user.id,
       // -- onboarding-v2 columns (migration 20260719000000) --
       bride_name: brideFullName || null,
       groom_name: groomFullName || null,

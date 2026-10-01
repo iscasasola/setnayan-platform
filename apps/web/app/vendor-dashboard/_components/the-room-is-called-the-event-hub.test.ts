@@ -33,6 +33,10 @@ const OLD = /On the Day/;
 /** Every file that renders the room's NAME to a supplier. */
 const LABEL_SITES = [
   'lib/nav-registry-defaults.ts',
+  // 2026-10-01: the Event Hub left the bar and the rail for More (DECISION_LOG
+  // "THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS").
+  // More's rows are written once, here.
+  'lib/vendor-more-rows.ts',
   'app/vendor-dashboard/_components/vendor-nav-destinations.ts',
   'app/vendor-dashboard/_components/vendor-bottom-nav.tsx',
   'app/vendor-dashboard/_components/vendor-rail-context.tsx',
@@ -106,33 +110,24 @@ test('all six label sites say Event Hub (or its one-word strip caption)', () => 
   assert.equal(slots.length, 2, 'both registry slots must be found — a missed one is a stale label');
   for (const m of slots) assert.equal(m[1], NAME);
 
+  // The More row — the one place the bar and the rail now reach the room from
+  // (owner-APPROVED 2026-10-01: Insights + Event Hub + Messages live in More).
   assert.match(
-    read('app/vendor-dashboard/_components/vendor-nav-destinations.ts'),
+    read('lib/vendor-more-rows.ts'),
     /key: 'on-the-day',\s*\n\s*label: 'Event Hub',/,
   );
-  assert.match(
-    read('app/vendor-dashboard/_components/vendor-bottom-nav.tsx'),
-    /key: 'onday',\s*\n\s*label: 'Event Hub',/,
-  );
-  // The 72px icon strip takes ONE word — "Event Hub".split(' ')[0] is "Event",
-  // which is not a place, so the caption is set explicitly.
-  assert.match(
-    read('app/vendor-dashboard/_components/vendor-rail-context.tsx'),
-    /'on-the-day': 'Hub',/,
-  );
+  // …and the More row follows the bottom-nav slot's rename, so an admin who
+  // renamed the old tab still renames the row.
+  assert.match(read('lib/vendor-more-rows.ts'), /slot: 'vendor\.bottom-nav\.onday'/);
   assert.match(read('app/vendor-dashboard/on-the-day/page.tsx'), /title: 'Event Hub · Vendor'/);
 });
 
 test('🔒 THE KEY AND THE ROUTE ARE UNCHANGED — four systems read them, three silently', () => {
-  assert.match(
-    read('app/vendor-dashboard/_components/vendor-nav-destinations.ts'),
-    /key: 'on-the-day',/,
-  );
+  assert.match(read('lib/vendor-more-rows.ts'), /key: 'on-the-day',/);
   assert.match(read('lib/nav-registry-defaults.ts'), /key: "vendor\.sidebar\.on-the-day",/);
   assert.match(read('lib/nav-registry-defaults.ts'), /key: "vendor\.bottom-nav\.onday",/);
   for (const rel of [
-    'app/vendor-dashboard/_components/vendor-nav-destinations.ts',
-    'app/vendor-dashboard/_components/vendor-bottom-nav.tsx',
+    'lib/vendor-more-rows.ts',
     'lib/nav-registry-defaults.ts',
   ]) {
     assert.ok(

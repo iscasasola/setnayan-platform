@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
+import { NextCard } from '@/app/_components/next-card';
 import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
 
 /**
@@ -83,18 +84,16 @@ export function HomeFirstScreen({
         <p className="font-display text-[22px] leading-tight">{cover.name}</p>
       </div>
 
-      {/* ① THE ONE NEXT CARD — exactly one, with exactly one button. */}
-      <div data-home-next={next.kind} className="sn-glass-bare rounded-2xl p-4">
-        <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">Next</p>
-        <h2 className="mt-1 font-display text-[24px] leading-tight text-ink">{next.title}</h2>
-        <p className="mt-1 text-sm text-ink/65">{next.body}</p>
-        <Link
-          href={nextHref(next.kind, eventId)}
-          className="sn-press mt-3 flex w-full items-center justify-center rounded-full bg-ink px-5 py-3.5 text-[15px] font-semibold text-cream transition hover:bg-ink/90"
-        >
-          {next.action}
-        </Link>
-      </div>
+      {/* ① THE ONE NEXT CARD — exactly one, with exactly one button. The card is
+          the shared `NextCard` (the supplier's Today draws the same one). */}
+      <NextCard
+        marker="data-home-next"
+        kind={next.kind}
+        title={next.title}
+        body={next.body}
+        action={next.action}
+        href={nextHref(next.kind, eventId)}
+      />
 
       {/* ② ALWAYS THERE — the Maker's front door (it left the bar, owner 2026-10-01).
           No "Recommended" badge: owner, 2026-10-01 — the button is always there. */}

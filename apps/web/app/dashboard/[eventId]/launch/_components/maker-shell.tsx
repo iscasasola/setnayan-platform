@@ -36,7 +36,8 @@ import { MakerTour } from './maker-tour';
 import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
-import { prefetchDetailsWhenIdle } from './details-lazy';
+import { registerLiveLoveStory } from './maker-tools';
+import { MakerPreloadLine, useMakerPreload } from './maker-preload-line';
 import dynamic from 'next/dynamic';
 
 /**
@@ -50,9 +51,12 @@ import dynamic from 'next/dynamic';
  * dev lab's), it would need those pieces listed in the webpack runtime every
  * page downloads — measured: +139 bytes over a shared bundle with none spare.
  * The Love Story page and Details' editor reach them through the context.
+ * 🧰 Handed to the Maker's tool registry (`maker-tools.tsx`) so the idle
+ * preload warms them with every other tool — the registry never imports them.
  */
 const LiveLoveStoryBook = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook));
 const LiveStoryPanel = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel));
+registerLiveLoveStory(LiveLoveStoryBook, LiveStoryPanel);
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { makerAddShowsOn } from '@/lib/maker-selection';
@@ -239,11 +243,13 @@ export function MakerShell({
     }
   }, [memoryKey, stage, device, navOpen, selection]);
 
-  /* ⚡ Details' pieces are not in the Maker's first load (`details-lazy.tsx`); once
-     the Maker has loaded and the phone is idle they are fetched, so opening
-     Details — or tapping a fact on the stage — is instant. Only where there is
-     work: a coordinator has no Details. */
-  useEffect(() => (hasWork ? prefetchDetailsWhenIdle() : undefined), [hasWork]);
+  /* ⚡ THE MAKER DOWNLOADS ALL ITS TOOLS RIGHT AFTER IT OPENS (owner 2026-10-02).
+     No tool panel is in the Maker's first load; once the Maker has loaded and
+     the phone is idle, every one (`MAKER_TOOLS`) is fetched and warmed, so the
+     first tap on any tool draws it at once. Shown as a thin line under the top
+     bar; nothing at all with Save-Data on. Only where there is work: a
+     coordinator has no tools to open. */
+  const preload = useMakerPreload(hasWork);
 
   /* A role is read per stage: a new stage starts back on the host's preview. */
   useEffect(() => setViewAsRole(null), [stage]);
@@ -576,6 +582,8 @@ export function MakerShell({
               {applySlot}
             </div>
           ) : null}
+          {/* ➖ The tools' download, as a thin line along the bar's foot (owner 2026-10-02). */}
+          <MakerPreloadLine progress={preload} />
         </header>
 
         {/* 👁 While the switch is on it is SAID, on every width, until stopped. */}

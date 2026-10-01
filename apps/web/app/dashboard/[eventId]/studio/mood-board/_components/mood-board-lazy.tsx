@@ -30,19 +30,3 @@ export const MakeItReal = dynamic(() => import(/* webpackChunkName: "maker-mood-
 export const ShareWithVendorsButton = dynamic(() => import(/* webpackChunkName: "maker-mood-board" */ './share-with-vendors-button').then((m) => m.ShareWithVendorsButton), { loading: SlotButton });
 export const PrintablePdfButton = dynamic(() => import(/* webpackChunkName: "maker-mood-board" */ './printable-pdf-button').then((m) => m.PrintablePdfButton), { loading: SlotButton });
 export const ConceptPdfButton = dynamic(() => import(/* webpackChunkName: "maker-mood-board" */ './concept-pdf-button').then((m) => m.ConceptPdfButton), { loading: SlotButton });
-
-/** The same imports, asked early (the Maker when idle; the Mood Board row on hover or focus). */
-export function prefetchMoodBoard(): Promise<unknown> {
-  return Promise.all([
-    import(/* webpackChunkName: "maker-mood-board" */ './theme-studio'),
-    import(/* webpackChunkName: "maker-mood-board" */ './inspiration-board'),
-    import(/* webpackChunkName: "maker-mood-board" */ './palette-board-context'),
-    import(/* webpackChunkName: "maker-mood-board" */ './palette-section'),
-    import(/* webpackChunkName: "maker-mood-board" */ './part-finalization-panel'),
-    import(/* webpackChunkName: "maker-mood-board" */ './moodboard-board'),
-    import(/* webpackChunkName: "maker-mood-board" */ './make-it-real'),
-    import(/* webpackChunkName: "maker-mood-board" */ './share-with-vendors-button'),
-    import(/* webpackChunkName: "maker-mood-board" */ './printable-pdf-button'),
-    import(/* webpackChunkName: "maker-mood-board" */ './concept-pdf-button'),
-  ]);
-}

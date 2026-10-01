@@ -1,12 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { SlotButton, SlotFill, SlotNone, SlotRows } from './lazy-slot';
-import { prefetchMoodBoard } from '../../studio/mood-board/_components/mood-board-lazy';
-import { prefetchSchedule } from '../../schedule/_components/schedule-lazy';
-import { prefetchEntourage } from '../../guests/_components/entourage-lazy';
-import { prefetchSeating } from '../../seating/_components/seating-lazy';
 
 /**
  * ⚡ DETAILS PIECES LOAD WHEN THEY ARE OPENED — NEVER WITH THE MAKER.
@@ -59,10 +54,13 @@ import { prefetchSeating } from '../../seating/_components/seating-lazy';
  *     placeholder where a card opens today.
  *
  * ⏳ A piece that has not arrived holds its slot (`lazy-slot.tsx`). It is almost
- * never seen: `prefetchDetails()` fetches them all when the Maker is idle, and a
- * navigator row fetches its own item on hover or focus (`prefetchDetailsItem`).
- * Rendered on the server (a Maker opened at `?tool=details`), a piece arrives
- * with the page — `next/dynamic` preloads its code there.
+ * never seen: once the Maker is on screen and the phone is idle, the Maker
+ * WARMS every piece here (`maker-tools.tsx` — the one registry of the Maker's
+ * tools; `lib/warm-dynamic.ts`), so its code is on the phone AND its first
+ * render draws the real piece, not this slot. With Save-Data on, a piece loads
+ * when it is first drawn, as before. Rendered on the server (a Maker opened at
+ * `?tool=details`), a piece arrives with the page — `next/dynamic` preloads its
+ * code there.
  */
 
 /* ── Words · Your Event Hub ─────────────────────────────────────────────── */
@@ -108,8 +106,8 @@ export const MakerRsvpSettings = dynamic(() => import(/* webpackChunkName: "make
 export const MakerRsvpStage = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-rsvp-stage').then((m) => m.MakerRsvpStage), { loading: SlotFill });
 
 /* 🚂 The element sheet (size · font · colour · motion of one scene element) opens
-   on a TAP, never on arrival — so it rides this chunk, prefetched at idle with
-   the rest (`loadDetailsPieces`), instead of the Maker's first load. Moved in the
+   on a TAP, never on arrival — so it rides this chunk, warmed at idle with
+   the rest (`maker-tools.tsx`), instead of the Maker's first load. Moved in the
    2026-09-30 release train to bring the Maker back under its 505KB budget
    (scripts/check-maker-js-budget.mjs) without raising it. */
 export const ElementSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/element-sheet').then((m) => m.ElementSheet), { loading: SlotNone });
@@ -117,10 +115,10 @@ export const ElementSheet = dynamic(() => import(/* webpackChunkName: "maker-det
    canvas (tap-to-type, Maker core part 2); loaded on the first tap, with the element sheet. */
 export const TypeBar = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/type-in-place').then((m) => m.TypeBar), { loading: SlotNone });
 /* 🚂 …and the scene's bound-fact box ("Change it everywhere / Just this scene",
-   #6048/#6176) draws only once a scene is selected — same chunk, same idle prefetch. */
+   #6048/#6176) draws only once a scene is selected — same chunk, same idle warm. */
 export const DetailsBoundField = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/details-bound-field').then((m) => m.DetailsBoundField), { loading: SlotRows });
 /* 🚂 The Look pages' Details editors (Logo · Hero · Reveal, #6166/#6176) — drawn
-   when that Details item is opened; same chunk, same idle prefetch. */
+   when that Details item is opened; same chunk, same idle warm. */
 export const DetailsLookBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookBody), { loading: SlotFill });
 export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookEditor), { loading: SlotRows });
 export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
@@ -145,93 +143,3 @@ export const GuideFoot = dynamic(() => import(/* webpackChunkName: "maker-detail
 /* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
-
-/* ── Prefetch: the same imports, asked early so opening is instant ─────────── */
-
-type Load = () => Promise<unknown>;
-
-/** Every piece above — one chunk (`maker-details`): Details mounts every editor at once. */
-const loadDetailsPieces: Load = () =>
-  Promise.all([
-    import(/* webpackChunkName: "maker-details" */ './qr-look-controls'),
-    import(/* webpackChunkName: "maker-details" */ './special-message-field'),
-    import(/* webpackChunkName: "maker-details" */ '../../pabuya/_components/pabuya-message-editor'),
-    import(/* webpackChunkName: "maker-details" */ './print-preview'),
-    import(/* webpackChunkName: "maker-details" */ './print-menu-editor'),
-    import(/* webpackChunkName: "maker-details" */ './print-choice-picker'),
-    import(/* webpackChunkName: "maker-details" */ './print-save-button'),
-    import(/* webpackChunkName: "maker-details" */ './pass-card-design-picker'),
-    import(/* webpackChunkName: "maker-details" */ './details-your-event'),
-    import(/* webpackChunkName: "maker-details" */ './details-march'),
-    import(/* webpackChunkName: "maker-details" */ './details-people'),
-    import(/* webpackChunkName: "maker-details" */ './parent-cards'),
-    import(/* webpackChunkName: "maker-details" */ './details-tool-pieces'),
-    import(/* webpackChunkName: "maker-details" */ './maker-rsvp-ask'),
-    import(/* webpackChunkName: "maker-details" */ './maker-rsvp-stage'),
-    import(/* webpackChunkName: "maker-details" */ './maker-logo'),
-    import(/* webpackChunkName: "maker-details" */ './maker-reveal'),
-    import(/* webpackChunkName: "maker-details" */ './details-guide'),
-    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel'),
-    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row'),
-    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/pro-panels'),
-    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/element-sheet'),
-    import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/details-bound-field'),
-    import(/* webpackChunkName: "maker-details" */ './details-look-pages'),
-    prefetchEntourage(),
-  ]);
-
-/** The two pages that travel on their own — they are also drawn by their own standalone routes. */
-const ITEM_OWN_CHUNK: Partial<Record<DetailsItemKey, Load>> = {
-  'mood-board': prefetchMoodBoard,
-  schedule: prefetchSchedule,
-  seating: prefetchSeating,
-};
-
-const asked = new Set<Load>();
-function run(load: Load) {
-  if (asked.has(load)) return;
-  asked.add(load);
-  /* A prefetch that fails is only a prefetch: the piece asks again when it renders. */
-  load().catch(() => asked.delete(load));
-}
-
-/** One item — a navigator row on hover or focus. */
-export function prefetchDetailsItem(key: DetailsItemKey) {
-  run(loadDetailsPieces);
-  const own = ITEM_OWN_CHUNK[key];
-  if (own) run(own);
-}
-
-/** Every Details piece — the Maker, once it is idle. */
-export function prefetchDetails() {
-  run(loadDetailsPieces);
-  run(prefetchMoodBoard);
-  run(prefetchSchedule);
-  run(prefetchSeating);
-}
-
-/**
- * Fetch every Details piece once the Maker has loaded and the phone is idle —
- * after the page's own load, never competing with it; not at all when the
- * viewer asked to save data. Returns the cancel.
- */
-export function prefetchDetailsWhenIdle(): () => void {
-  if (typeof window === 'undefined') return () => {};
-  const conn = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-  if (conn?.saveData) return () => {};
-  let idle: number | null = null;
-  let timer: number | null = null;
-  const go = () => {
-    const ric = (window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number }).requestIdleCallback;
-    if (ric) idle = ric(prefetchDetails, { timeout: 5000 });
-    else timer = window.setTimeout(prefetchDetails, 1500);
-  };
-  if (document.readyState === 'complete') go();
-  else window.addEventListener('load', go, { once: true });
-  return () => {
-    window.removeEventListener('load', go);
-    const cic = (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;
-    if (idle !== null) cic?.(idle);
-    if (timer !== null) window.clearTimeout(timer);
-  };
-}

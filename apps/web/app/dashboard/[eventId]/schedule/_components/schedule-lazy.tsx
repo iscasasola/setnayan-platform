@@ -27,17 +27,3 @@ export const ScheduleModeToggle = dynamic(() => import(/* webpackChunkName: "mak
 export const AddPreparationItem = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls').then((m) => m.AddPreparationItem), { loading: SlotButton });
 export const DeletePreparationItemButton = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls').then((m) => m.DeletePreparationItemButton), { loading: SlotButton });
 export const RunOfShowHeader = dynamic(() => import(/* webpackChunkName: "maker-schedule" */ '@/app/_components/run-of-show-header').then((m) => m.RunOfShowHeader), { loading: SlotRows });
-
-/** The same imports, asked early (the Maker when idle; the Schedule row on hover or focus). */
-export function prefetchSchedule(): Promise<unknown> {
-  return Promise.all([
-    import(/* webpackChunkName: "maker-schedule" */ './day-rail'),
-    import(/* webpackChunkName: "maker-schedule" */ './announce-button'),
-    import(/* webpackChunkName: "maker-schedule" */ './day-ui'),
-    import(/* webpackChunkName: "maker-schedule" */ './emcee-script-button'),
-    import(/* webpackChunkName: "maker-schedule" */ './block-time-editor'),
-    import(/* webpackChunkName: "maker-schedule" */ './schedule-mode-toggle'),
-    import(/* webpackChunkName: "maker-schedule" */ './prep-item-controls'),
-    import(/* webpackChunkName: "maker-schedule" */ '@/app/_components/run-of-show-header'),
-  ]);
-}

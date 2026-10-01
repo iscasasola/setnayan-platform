@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import { AppPreload } from '@/app/_components/app-preload';
+import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import {
@@ -157,6 +159,13 @@ export default async function AccountDashboardLayout({
         <HomePillNav
           hasSpaces={switcherData.context.hasVendor || switcherData.context.isAdmin}
           spacesHref={switcherData.context.hasVendor ? '/vendor-dashboard' : '/admin'}
+        />
+        {/* 📲 What the account has, preloaded once the page is idle — the host app for
+            the event they host, the supplier app for a shop (owner 2026-10-02, "THE
+            PRELOAD FOLLOWS WHAT THE ACCOUNT HAS"). From the switcher data this layout
+            already read; nothing for a guest-only account. */}
+        <AppPreload
+          {...appPreloadPlan({ hostEventId: hostedEventOf(switcherData.events), hasShop: switcherData.context.hasVendor })}
         />
       </AppRailShell>
     </div>

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "02878e66",
-  "routeCount": 441,
-  "destinations": 952,
-  "actions": 679,
-  "blocks": 5354,
+  "generatedFromRef": "032a1e5916",
+  "routeCount": 440,
+  "destinations": 948,
+  "actions": 677,
+  "blocks": 5331,
   "routes": {
     "/": {
       "files": [
@@ -5152,7 +5152,6 @@
         "dashboard/[eventId]/_components/payment-plan-rows.tsx",
         "dashboard/[eventId]/_components/payment-under-review.tsx",
         "dashboard/[eventId]/_components/pillar-part-picker.tsx",
-        "dashboard/[eventId]/_components/placeholder.tsx",
         "dashboard/[eventId]/_components/read-refused-notice.tsx",
         "dashboard/[eventId]/_components/reveal-preview-card.tsx",
         "dashboard/[eventId]/_components/reveal-preview.tsx",
@@ -5319,8 +5318,6 @@
         "Money",
         "MoreServicesSheet",
         "MoreSheet",
-        "MoreSheetRow",
-        "NextCard",
         "NikahEssentialsCard",
         "OpenWalletButton",
         "OverviewDecisionInspector",
@@ -6664,6 +6661,7 @@
     },
     "/dashboard/[eventId]/messages": {
       "files": [
+        "dashboard/[eventId]/messages/_components/start-thread-picker.tsx",
         "dashboard/[eventId]/messages/actions.ts",
         "dashboard/[eventId]/messages/loading.tsx",
         "dashboard/[eventId]/messages/page.tsx"
@@ -6671,19 +6669,21 @@
       "destinations": [
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/vendors/categories"
+        "/dashboard/[seg]/vendors"
       ],
       "actions": [
-        "returnTo",
         "startThreadByVendorEmail"
       ],
       "blocks": [
         "FeedPageSkeleton",
         "Link",
         "PageMasthead",
+        "PickMenu",
+        "StartThreadPicker",
         "SubmitButton",
         "ThreadArchiveToggle",
-        "ThreadListAvatar"
+        "ThreadListAvatar",
+        "ThreadListCard"
       ]
     },
     "/dashboard/[eventId]/messages/[threadId]": {
@@ -7450,18 +7450,11 @@
     },
     "/dashboard/[eventId]/studio/[addon]": {
       "files": [
-        "dashboard/[eventId]/studio/[addon]/loading.tsx",
         "dashboard/[eventId]/studio/[addon]/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/studio"
-      ],
+      "destinations": [],
       "actions": [],
-      "blocks": [
-        "GridPageSkeleton",
-        "IterationPlaceholder",
-        "Link"
-      ]
+      "blocks": []
     },
     "/dashboard/[eventId]/studio/about/[addon]": {
       "files": [
@@ -8204,7 +8197,7 @@
       ],
       "destinations": [
         "/api/oauth/photo-delivery/start?event_id=[seg]&switch=1",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/galleries"
       ],
       "actions": [
         "action",
@@ -8357,42 +8350,20 @@
         "SubmitButton"
       ]
     },
-    "/dashboard/[eventId]/studio/supplies-marketplace": {
-      "files": [
-        "dashboard/[eventId]/studio/supplies-marketplace/_components/cart-drawer.tsx",
-        "dashboard/[eventId]/studio/supplies-marketplace/loading.tsx",
-        "dashboard/[eventId]/studio/supplies-marketplace/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/studio",
-        "/help"
-      ],
-      "actions": [],
-      "blocks": [
-        "CartDrawer",
-        "CategoryChip",
-        "GridPageSkeleton",
-        "HTMLDivElement",
-        "Link",
-        "ProductCard",
-        "StudioBuyHero",
-        "SuppliesMarketplaceBrowser",
-        "SupplyCategoryKey"
-      ]
-    },
     "/dashboard/[eventId]/studio/thank-you": {
       "files": [
         "dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx",
         "dashboard/[eventId]/studio/thank-you/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/studio"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
-        "Link",
+        "InlineCheckoutDrawer",
         "PageMasthead",
+        "PaidMark",
         "Phase",
+        "SavePanel",
+        "StudioBuyHero",
         "ThankYouMaker"
       ]
     },
@@ -8476,7 +8447,6 @@
         "dashboard/[eventId]/vendors/_components/build-locked.tsx",
         "dashboard/[eventId]/vendors/_components/cancel-booking-button.tsx",
         "dashboard/[eventId]/vendors/_components/category-search-overlay.tsx",
-        "dashboard/[eventId]/vendors/_components/chats-door.tsx",
         "dashboard/[eventId]/vendors/_components/contact-shortlist-vendor-button.tsx",
         "dashboard/[eventId]/vendors/_components/lock-milestone.tsx",
         "dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx",
@@ -8508,7 +8478,6 @@
       "destinations": [
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
-        "/dashboard/[seg]/messages",
         "/dashboard/[seg]/messages/[seg]",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors/[seg]/review",
@@ -8553,7 +8522,6 @@
         "CategorySearchOverlay",
         "CategorySearchResult",
         "ChangePickButton",
-        "ChatsDoor",
         "ChildRail",
         "CompareSheet",
         "ConnectSupplierModal",
@@ -8805,26 +8773,21 @@
     },
     "/dashboard/[eventId]/vendors/categories": {
       "files": [
-        "dashboard/[eventId]/vendors/categories/_components/find-supplier-controls.tsx",
+        "dashboard/[eventId]/vendors/categories/_components/unlock-categories-list.tsx",
         "dashboard/[eventId]/vendors/categories/loading.tsx",
         "dashboard/[eventId]/vendors/categories/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/messages",
-        "/dashboard/[seg]/vendors"
+        "/dashboard/[seg]/vendors",
+        "/signup?next=[seg]"
       ],
-      "actions": [
-        "base"
-      ],
+      "actions": [],
       "blocks": [
-        "ContactShortlistVendorButton",
-        "FindFilterMenu",
         "Link",
         "ListPageSkeleton",
-        "PageMasthead",
-        "PickMenu",
-        "SaveToBenchButton",
-        "Suspense"
+        "SaveGateHint",
+        "SaveToContinue",
+        "UnlockCategoriesList"
       ]
     },
     "/dashboard/[eventId]/vendors/packages/[bookingId]": {
@@ -9075,7 +9038,6 @@
         "Measured",
         "MiniTour",
         "MoreExtras",
-        "NameStyle",
         "OpenBrowsePanel",
         "PaidMark",
         "PaletteLookRow",
@@ -9920,8 +9882,6 @@
         "ServicesStep",
         "ServicesStepSelection",
         "SetnayanAiValue",
-        "SetupAnswers",
-        "SetupCard",
         "SpecialtyFields",
         "Title"
       ]
@@ -9930,8 +9890,6 @@
       "files": [
         "onboarding/simple/_components/papic-step-field-names.ts",
         "onboarding/simple/_components/papic-step-fields.tsx",
-        "onboarding/simple/_components/simple-setup-field.ts",
-        "onboarding/simple/_components/simple-setup-flow.tsx",
         "onboarding/simple/actions.ts",
         "onboarding/simple/page.tsx"
       ],
@@ -9943,15 +9901,10 @@
         "commitSimpleEvent"
       ],
       "blocks": [
-        "HTMLDivElement",
         "Link",
-        "Paced",
         "PapicStepFields",
         "ServicesStep",
         "ServicesStepSelection",
-        "SetupAnswers",
-        "SetupCard",
-        "SimpleSetupFlow",
         "SubmitButton"
       ]
     },
@@ -10015,8 +9968,6 @@
         "ServicesStepSelection",
         "SetnayanAiValue",
         "SetnayanMark",
-        "SetupAnswers",
-        "SetupCard",
         "Sk",
         "SongBankStep",
         "SongPreviewList",
@@ -10276,7 +10227,10 @@
         "papic/decorate/_components/kwento-decorator.tsx",
         "papic/decorate/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/",
+        "/papic/guest"
+      ],
       "actions": [],
       "blocks": [
         "DoorShell",
@@ -10285,6 +10239,7 @@
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
+        "Link",
         "PapicStyle"
       ]
     },
@@ -10424,10 +10379,14 @@
         "papic/pool/_components/pool-grid.tsx",
         "papic/pool/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/",
+        "/papic/me/[seg]"
+      ],
       "actions": [],
       "blocks": [
         "DoorShell",
+        "Link",
         "PoolGrid"
       ]
     },
@@ -10978,7 +10937,6 @@
         "vendor-dashboard/_components/qr-section.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/spotlight-award-banner.tsx",
-        "vendor-dashboard/_components/supplier-today-first-screen.tsx",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
         "vendor-dashboard/_components/vendor-nav-destinations.ts",
@@ -11001,19 +10959,17 @@
         "/vendor-dashboard",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
-        "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
-        "/vendor-dashboard/customers?lane=waiting",
         "/vendor-dashboard/earnings",
         "/vendor-dashboard/locked-qr",
+        "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]",
-        "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
-        "/vendor-dashboard/payday",
+        "/vendor-dashboard/performance",
         "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/shop",
@@ -11051,6 +11007,7 @@
         "BranchPinMap",
         "BranchRow",
         "CardShell",
+        "CashFlowTile",
         "Collapsible",
         "ComingSoon",
         "Connected",
@@ -11059,7 +11016,9 @@
         "CountUp",
         "DeleteRequestBody",
         "DisputeBody",
+        "EarnedTile",
         "EmptyCard",
+        "EnergyKpi",
         "EventLockedByFee",
         "FeedCard",
         "FieldSaveResult",
@@ -11080,9 +11039,6 @@
         "MediaTile",
         "MeetingBody",
         "MessageBody",
-        "MiniTour",
-        "MoreServicesSheet",
-        "NextCard",
         "NotConnected",
         "NothingToAnswerFeed",
         "OngoingTasks",
@@ -11091,6 +11047,7 @@
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "Pips",
+        "ProgressRing",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
         "QrActions",
@@ -11107,15 +11064,16 @@
         "State",
         "StepRow",
         "SubmitButton",
-        "SupplierTodayFirstScreen",
         "SyncResult",
         "TrackRecordRow",
         "UnreadBellBadge",
         "UpcomingSchedules",
         "VendorBottomNav",
         "VendorDealFacts",
+        "VendorEnergyStats",
         "VendorFirstSteps",
         "VendorRailContext",
+        "VendorTodayFocal",
         "WhatsNewFeed"
       ]
     },
@@ -11301,7 +11259,6 @@
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients/[seg]?tab=details",
-        "/vendor-dashboard/customers?open=availability",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [
@@ -11613,7 +11570,6 @@
       "files": [
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
-        "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
@@ -11636,7 +11592,6 @@
         "CustomerSectionBody",
         "CustomersCalendar",
         "CustomersFilterBar",
-        "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
         "FeatureAccordion",
@@ -11644,9 +11599,7 @@
         "Link",
         "ListPager",
         "MessagesSurface",
-        "MiniTour",
         "PaydaySurface",
-        "PickMenu",
         "ProposalsSurface",
         "R",
         "RosterRow",
@@ -11961,9 +11914,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "Icon",
-        "Link",
-        "ListPageSkeleton"
+        "GridPageSkeleton"
       ]
     },
     "/vendor-dashboard/notifications": {

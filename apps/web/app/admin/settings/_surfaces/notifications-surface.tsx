@@ -19,6 +19,7 @@ import {
 } from '@/lib/notification-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { EmailDeliverySection } from '../_components/email-delivery-section';
+import { MorningDigestCard } from '../_components/morning-digest-card';
 
 /**
  * /admin/notifications — admin in-app notification reader (cross-actor audit
@@ -28,7 +29,7 @@ import { EmailDeliverySection } from '../_components/email-delivery-section';
  * on email (itself gated on RESEND_API_KEY). This reuses the same reader shape
  * as the vendor/couple surfaces; auth is enforced at the admin layout level.
  */
-export async function NotificationsSurface() {
+export async function NotificationsSurface({ error }: { error?: string } = {}) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -52,6 +53,13 @@ export async function NotificationsSurface() {
           instruction for the person reading their alerts. */}
       <PageMasthead title="Notifications" className="mb-6" />
 
+      {/* A failed save from this tab (the digest switch) says so here. */}
+      {error ? (
+        <p role="alert" className="mb-4 rounded-md bg-warn-50 px-4 py-3 text-sm text-warn-900">
+          {error.slice(0, 300)}
+        </p>
+      ) : null}
+
       {/* 🔔 THE CONSOLE CAN REACH YOUR PHONE — added 2026-08-26.
        *
        * Everything else in this admin assumes you OPEN it. Nothing made you.
@@ -70,6 +78,10 @@ export async function NotificationsSurface() {
       <div className="mb-6">
         <PushToggle audience="admin" />
       </div>
+
+      {/* 📨 The morning digest's switch, next to whether it actually went out
+          (row 38 — moved here from Settings, 2026-10-01). */}
+      <MorningDigestCard />
 
       {/* 📬 Did the emails arrive? The admin-home strip links here. */}
       <EmailDeliverySection />

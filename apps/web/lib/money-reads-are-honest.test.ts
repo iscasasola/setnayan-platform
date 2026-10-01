@@ -131,11 +131,10 @@ const RENDERS: { file: string; guard: string; empty: string }[] = [
     guard: '{!methodsMeasured ? (',
     empty: 'No payment options yet.',
   },
-  {
-    file: 'app/vendor-dashboard/_components/overview-sections.tsx',
-    guard: '{!measured ? (',
-    empty: 'No booked installments yet.',
-  },
+  // The Overview's cash-flow tile (`overview-sections.tsx`, "No booked
+  // installments yet.") was replaced on 2026-10-01 by Today's "owed to you"
+  // number and the money line (DECISION_LOG "THE SUPPLIER PHONE APP —
+  // APPROVED"). Their unread branch is pinned in the test below.
   {
     file: 'app/dashboard/[eventId]/studio/papic/_components/guest-contributions-card.tsx',
     guard: 'if (rows === CONTRIBUTIONS_UNREADABLE)',
@@ -155,9 +154,16 @@ for (const r of RENDERS) {
   });
 }
 
-test('the Overview passes the payday measurement through to the tile', () => {
-  const s = src('app/vendor-dashboard/_components/overview-sections.tsx');
-  assert.equal(all(s, 'measured={earnings.paydayMeasured}').length, 1);
+test('the Overview passes the payday measurement through to what it prints', () => {
+  // Since 2026-10-01 the payday figures are Today's "owed to you" number and
+  // the "Confirmed of booked" line — each says "—" when payday was not read,
+  // never ₱0 (`owedToYouPhp` returns null on !paydayMeasured).
+  const s = src('app/vendor-dashboard/page.tsx');
+  assert.equal(all(s, 'owedToYouPhp(earnings)').length, 1);
+  assert.equal(all(s, "owedPhp === null ? '—'").length, 1);
+  assert.match(s, /earnings\.paydayMeasured\s*\?/, 'the "Confirmed of booked" line no longer asks whether payday was read');
+  const today = src('lib/supplier-today.ts');
+  assert.equal(all(today, 'if (!earnings || !earnings.paydayMeasured) return null;').length, 1);
   const lib = src('lib/vendor-overview.ts');
   assert.equal(all(lib, 'paydayMeasured: paydayTotals !== null').length, 1);
 });

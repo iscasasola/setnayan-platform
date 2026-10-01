@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "cee4f809",
+  "generatedFromRef": "7fb6de49",
   "routeCount": 441,
-  "destinations": 949,
+  "destinations": 952,
   "actions": 677,
-  "blocks": 5339,
+  "blocks": 5354,
   "routes": {
     "/": {
       "files": [
@@ -5323,6 +5323,8 @@
         "Money",
         "MoreServicesSheet",
         "MoreSheet",
+        "MoreSheetRow",
+        "NextCard",
         "NikahEssentialsCard",
         "OpenWalletButton",
         "OverviewDecisionInspector",
@@ -9069,6 +9071,7 @@
         "Measured",
         "MiniTour",
         "MoreExtras",
+        "NameStyle",
         "OpenBrowsePanel",
         "PaidMark",
         "PaletteLookRow",
@@ -9913,6 +9916,8 @@
         "ServicesStep",
         "ServicesStepSelection",
         "SetnayanAiValue",
+        "SetupAnswers",
+        "SetupCard",
         "SpecialtyFields",
         "Title"
       ]
@@ -9921,6 +9926,8 @@
       "files": [
         "onboarding/simple/_components/papic-step-field-names.ts",
         "onboarding/simple/_components/papic-step-fields.tsx",
+        "onboarding/simple/_components/simple-setup-field.ts",
+        "onboarding/simple/_components/simple-setup-flow.tsx",
         "onboarding/simple/actions.ts",
         "onboarding/simple/page.tsx"
       ],
@@ -9932,10 +9939,15 @@
         "commitSimpleEvent"
       ],
       "blocks": [
+        "HTMLDivElement",
         "Link",
+        "Paced",
         "PapicStepFields",
         "ServicesStep",
         "ServicesStepSelection",
+        "SetupAnswers",
+        "SetupCard",
+        "SimpleSetupFlow",
         "SubmitButton"
       ]
     },
@@ -9999,6 +10011,8 @@
         "ServicesStepSelection",
         "SetnayanAiValue",
         "SetnayanMark",
+        "SetupAnswers",
+        "SetupCard",
         "Sk",
         "SongBankStep",
         "SongPreviewList",
@@ -10960,6 +10974,7 @@
         "vendor-dashboard/_components/qr-section.tsx",
         "vendor-dashboard/_components/source-breakdown.tsx",
         "vendor-dashboard/_components/spotlight-award-banner.tsx",
+        "vendor-dashboard/_components/supplier-today-first-screen.tsx",
         "vendor-dashboard/_components/tier-gate.tsx",
         "vendor-dashboard/_components/vendor-bottom-nav.tsx",
         "vendor-dashboard/_components/vendor-nav-destinations.ts",
@@ -10982,17 +10997,19 @@
         "/vendor-dashboard",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients",
+        "/vendor-dashboard/clients/[seg]?tab=[seg]",
         "/vendor-dashboard/clients/[seg]?tab=quote",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/contracts",
         "/vendor-dashboard/customers",
+        "/vendor-dashboard/customers?lane=waiting",
         "/vendor-dashboard/earnings",
         "/vendor-dashboard/locked-qr",
-        "/vendor-dashboard/messages",
         "/vendor-dashboard/messages/[seg]",
+        "/vendor-dashboard/more",
         "/vendor-dashboard/notifications",
         "/vendor-dashboard/on-the-day",
-        "/vendor-dashboard/performance",
+        "/vendor-dashboard/payday",
         "/vendor-dashboard/proposals",
         "/vendor-dashboard/reviews",
         "/vendor-dashboard/shop",
@@ -11030,7 +11047,6 @@
         "BranchPinMap",
         "BranchRow",
         "CardShell",
-        "CashFlowTile",
         "Collapsible",
         "ComingSoon",
         "Connected",
@@ -11039,9 +11055,7 @@
         "CountUp",
         "DeleteRequestBody",
         "DisputeBody",
-        "EarnedTile",
         "EmptyCard",
-        "EnergyKpi",
         "EventLockedByFee",
         "FeedCard",
         "FieldSaveResult",
@@ -11062,6 +11076,9 @@
         "MediaTile",
         "MeetingBody",
         "MessageBody",
+        "MiniTour",
+        "MoreServicesSheet",
+        "NextCard",
         "NotConnected",
         "NothingToAnswerFeed",
         "OngoingTasks",
@@ -11070,7 +11087,6 @@
         "PaymentsPausedNote",
         "PayoutMethodNudge",
         "Pips",
-        "ProgressRing",
         "PromoFreeWindowBannerVendor",
         "PushNotificationRegistrar",
         "QrActions",
@@ -11087,16 +11103,15 @@
         "State",
         "StepRow",
         "SubmitButton",
+        "SupplierTodayFirstScreen",
         "SyncResult",
         "TrackRecordRow",
         "UnreadBellBadge",
         "UpcomingSchedules",
         "VendorBottomNav",
         "VendorDealFacts",
-        "VendorEnergyStats",
         "VendorFirstSteps",
         "VendorRailContext",
-        "VendorTodayFocal",
         "WhatsNewFeed"
       ]
     },
@@ -11282,6 +11297,7 @@
         "/vendor-dashboard/bookings",
         "/vendor-dashboard/calendar",
         "/vendor-dashboard/clients/[seg]?tab=details",
+        "/vendor-dashboard/customers?open=availability",
         "/vendor-dashboard/messages/[seg]"
       ],
       "actions": [
@@ -11593,6 +11609,7 @@
       "files": [
         "vendor-dashboard/customers/_components/customers-calendar.tsx",
         "vendor-dashboard/customers/_components/customers-filter-bar.tsx",
+        "vendor-dashboard/customers/_components/customers-pick.tsx",
         "vendor-dashboard/customers/_components/customers-roster.tsx",
         "vendor-dashboard/customers/actions.ts",
         "vendor-dashboard/customers/anchors.ts",
@@ -11615,6 +11632,7 @@
         "CustomerSectionBody",
         "CustomersCalendar",
         "CustomersFilterBar",
+        "CustomersPick",
         "CustomersPipeline",
         "CustomersRoster",
         "FeatureAccordion",
@@ -11622,7 +11640,9 @@
         "Link",
         "ListPager",
         "MessagesSurface",
+        "MiniTour",
         "PaydaySurface",
+        "PickMenu",
         "ProposalsSurface",
         "R",
         "RosterRow",
@@ -11937,7 +11957,9 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "GridPageSkeleton"
+        "Icon",
+        "Link",
+        "ListPageSkeleton"
       ]
     },
     "/vendor-dashboard/notifications": {

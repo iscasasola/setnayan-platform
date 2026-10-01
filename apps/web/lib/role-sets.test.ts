@@ -6,20 +6,25 @@ import {
   MUSLIM_ROLE_SET,
   GENERIC_ROLE_SET,
   SIMPLE_ROLE_SET,
+  BIRTHDAY_ROLE_SET,
+  HANGOUT_ROLE_SET,
   resolveRoleSet,
 } from './role-sets';
 import { roleTier, ROLE_TIER_LABELS } from './seating';
 import { SINGLETON_GUEST_ROLES } from './guests';
 
 // --- resolveRoleSet routing ------------------------------------------------
-test('resolveRoleSet routes wedding → wedding, muslim → muslim, simple → simple, everything else → generic', () => {
+test('resolveRoleSet routes wedding → wedding, muslim → muslim, simple → simple, birthday → birthday, hangout → hangout, everything else → generic', () => {
   assert.equal(resolveRoleSet('wedding'), WEDDING_ROLE_SET);
   assert.equal(resolveRoleSet('wedding_muslim'), MUSLIM_ROLE_SET);
   assert.equal(resolveRoleSet('generic'), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet('simple'), SIMPLE_ROLE_SET);
   assert.equal(resolveRoleSet(null), GENERIC_ROLE_SET);
   assert.equal(resolveRoleSet(undefined), GENERIC_ROLE_SET);
-  assert.equal(resolveRoleSet('birthday'), GENERIC_ROLE_SET); // no row yet → generic
+  // G1 (migration 20271258536791): birthday and hangout/date have their own sets now.
+  assert.equal(resolveRoleSet('birthday'), BIRTHDAY_ROLE_SET);
+  assert.equal(resolveRoleSet('hangout'), HANGOUT_ROLE_SET);
+  assert.equal(resolveRoleSet('debut'), GENERIC_ROLE_SET); // no row yet → generic
 });
 
 // --- MUSLIM_ROLE_SET: Nikah cast, no Catholic sponsors ---------------------

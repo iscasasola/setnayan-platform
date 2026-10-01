@@ -114,14 +114,16 @@ test('every rail row also tells a screen reader, not just the eye', () => {
   look like a lock being broken, which is how a real guard gets weakened by
   somebody in a hurry.
 */
-test('the five destination KEYS are exactly the owner-locked five', () => {
+test('the four destination KEYS are exactly the owner-approved four', () => {
   assert.deepEqual(
     [...VENDOR_DESTINATIONS.map((d) => d.key)].sort(),
-    ['customers', 'on-the-day', 'overview', 'performance', 'shop'],
-    'Owner-locked 2026-07-12 ("overview, my shop, my customers, my performance, ' +
-      'BEO are all 1-page each"). These keys are ALSO the staff role-filter set, ' +
-      'the `vendor.sidebar.<key>` registry slots and the localStorage section ' +
-      'state. Adding a sixth row here is a product change, not a chrome change.',
+    ['customers', 'more', 'overview', 'shop'],
+    'Owner-APPROVED 2026-10-01 (DECISION_LOG 2026-10-01 \"THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS\"): the rail ' +
+      'reads Today · Customers · Shop · More, the phone bar\'s four words; ' +
+      'Insights (`performance`) and Event Hub (`on-the-day`) live in More. ' +
+      'The surviving keys are ALSO the staff role-filter set, the ' +
+      '`vendor.sidebar.<key>` registry slots and the localStorage section ' +
+      'state. Adding a fifth row here is a product change, not a chrome change.',
   );
 });
 
@@ -153,13 +155,13 @@ test('every destination is named the same in the code and in the rename registry
     );
   }
   // A FLOOR, so a renamed slot key cannot empty the loop and report a pass.
-  assert.equal(checked, 5, `only ${checked} of the five destinations had a registry slot`);
+  assert.equal(checked, 4, `only ${checked} of the four destinations had a registry slot`);
 });
 
-test('the rail order is the 2026-08-26 re-cut — people before setup', () => {
+test('the rail order is the 2026-08-26 re-cut — people before setup — then More', () => {
   assert.deepEqual(
     VENDOR_DESTINATIONS.map((d) => d.key),
-    ['overview', 'customers', 'shop', 'performance', 'on-the-day'],
+    ['overview', 'customers', 'shop', 'more'],
     'Owner re-cut 2026-08-26 ("yes i agree"): My Customers sits ahead of My ' +
       'Shop because people are the daily job and setting up a shop is a once. ' +
       'Order is display-only — nothing reads it — so this is the assertion to ' +
@@ -237,15 +239,9 @@ test('a URL belonging to no row lights NOTHING — never the first row', () => {
    4 · STAFF ARE NOT LOCKED OUT OF A PAGE THEY MAY OPEN
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('an owner sees all five', () => {
+test('an owner sees all four', () => {
   const rows = resolveVendorDestinations({ role: 'admin' });
-  assert.deepEqual(rows.map((r) => r.key), [
-    'overview',
-    'customers',
-    'shop',
-    'performance',
-    'on-the-day',
-  ]);
+  assert.deepEqual(rows.map((r) => r.key), ['overview', 'customers', 'shop', 'more']);
 });
 
 test('an agent still gets the two surfaces they may work', () => {
@@ -308,8 +304,8 @@ test('a renamed row keeps its count — the registry runs BEFORE the badges', ()
 
 test('an absent registry fails OPEN to the in-code words, never to a blank menu', () => {
   const rows = resolveVendorDestinations({ role: 'admin', navSlots: undefined });
-  assert.equal(rows.length, 5);
-  assert.equal(rows.find((r) => r.key === 'shop')?.label, 'My Shop');
+  assert.equal(rows.length, 4);
+  assert.equal(rows.find((r) => r.key === 'shop')?.label, 'Shop');
 });
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -39,7 +39,7 @@ import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { SeatDoorLine } from './_components/seat-door-line';
-import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteReplyPath } from '@/lib/invite-arrival';
@@ -1535,6 +1535,7 @@ async function InvitationBody({
     askMeal: resolveRsvpAsk(event.rsvp_ask_config).meal,
     askMobile: resolveRsvpAsk(event.rsvp_ask_config).mobile,
     locked: gateLocked,
+    guestsReply: readGuestsReply(event.rsvp_ask_config),
   });
   // 🚪 "Open the invitation" on the guest's landing page (owner 2026-09-30,
   // prototype guest_landing_page frame 1) opens it BEFORE a reply — the landing

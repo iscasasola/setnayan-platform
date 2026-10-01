@@ -16,6 +16,10 @@ import {
   type SongBankRow,
 } from '@/lib/songs';
 import { generateUniqueSlug } from '@/lib/slugs';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
+import { setupViewForProfile } from '@/lib/onboarding/setup-view';
+import { setupColumns } from '@/lib/onboarding/event-insert';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
@@ -323,6 +327,12 @@ export type OnboardingCommitPayload = {
    * pool grant and the free dedicated camera.
    */
   servicesSelection?: unknown;
+  /**
+   * 🎟 The setup cards' answers (G1). A CLAIM only — re-read key by key against
+   * the wedding's own view (`sanitizeSetupAnswers`) before anything is written,
+   * and ignored entirely until the seed admits weddings to the engine.
+   */
+  setup?: unknown;
 };
 
 export type OnboardingCommitResult =
@@ -487,13 +497,23 @@ export async function commitOnboardingWedding(
   // event, but strip the story signals (empty love_story / null the rest).
   const homeSignalsEnabled = await isDataPrivacyControlActive('home_activity_signals');
 
+  // 🎟 The setup cards (G1): each answer to its real home — the same columns
+  // the generic and Get-together commits write (`setupColumns`).
+  const weddingProfile = await resolveProfile('wedding');
+  const setupAnswers = weddingProfile.onboardingEngine
+    ? sanitizeSetupAnswers(payload.setup, setupViewForProfile(weddingProfile))
+    : null;
+  const setup = setupAnswers ? setupColumns(setupAnswers) : null;
+
   const { data: insertedEvent, error: insertError } = await admin
     .from('events')
     .insert({
       event_type: 'wedding',
       display_name: displayName,
       event_date: null,
-      venue_name: null,
+      venue_name: setup?.venue_name ?? null,
+      ...(setup ? { invite_theme: setup.invite_theme } : {}),
+      ...(setup?.rsvp_ask_config ? { rsvp_ask_config: setup.rsvp_ask_config } : {}),
       venue_address: null,
       slug,
       is_primary: true,
@@ -566,6 +586,7 @@ export async function commitOnboardingWedding(
         search_areas: payload.places ?? [],
         interested_categories: payload.picks ?? [],
         basic_moodboard: payload.basicMoodboard ?? null,
+        ...(setup ? { setup: setup.setup } : {}),
         // Dream Team chapter — per-leaf refinement detail (additive · DISPLAY +
         // future vendor-match). Empty {} until the refine passes ship (PR-4).
         refinements: payload.refinements ?? {},

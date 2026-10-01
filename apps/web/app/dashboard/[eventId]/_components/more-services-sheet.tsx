@@ -20,7 +20,19 @@ import Link from 'next/link';
 import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Sheet } from '@/app/_components/sheet';
+import type { LucideIcon } from 'lucide-react';
 import { EVENT_MENU_ICONS, type EventMenuChild } from '@/lib/customer-menu';
+
+/**
+ * One row. An event's services name their icon (`EventMenuIconName`, resolved
+ * here); the supplier's More rows (`lib/vendor-more-rows.ts`, owner-APPROVED
+ * 2026-10-01 "THE SUPPLIER PHONE APP") arrive with their icon and a one-line
+ * `sub` — the prototype draws "Calendar · Your dates, blocked days and who holds
+ * them." ONE sheet for both; a supplier copy of it would be a second mechanism.
+ */
+export type MoreSheetRow =
+  | (EventMenuChild & { sub?: string })
+  | { key: string; label: string; href: string; sub?: string; Icon: LucideIcon };
 
 export default function MoreServicesSheet({
   open,
@@ -31,7 +43,7 @@ export default function MoreServicesSheet({
   open: boolean;
   onClose: () => void;
   title: string;
-  services: ReadonlyArray<EventMenuChild>;
+  services: ReadonlyArray<MoreSheetRow>;
 }) {
   const startY = useRef<number | null>(null);
   /* 🔑 PORTALLED TO <body>. This mounts inside `<BottomDock>`, whose own
@@ -61,7 +73,7 @@ export default function MoreServicesSheet({
         </h2>
         <ul className="grid gap-1">
           {services.map((s) => {
-            const Icon = EVENT_MENU_ICONS[s.icon];
+            const Icon = 'Icon' in s ? s.Icon : EVENT_MENU_ICONS[s.icon];
             return (
               <li key={s.key}>
                 <Link
@@ -72,7 +84,14 @@ export default function MoreServicesSheet({
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-ink/5 text-ink/70">
                     <Icon aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.75} />
                   </span>
-                  {s.label}
+                  {s.sub ? (
+                    <span className="min-w-0">
+                      <span className="block">{s.label}</span>
+                      <span className="block text-[12.5px] text-ink/55">{s.sub}</span>
+                    </span>
+                  ) : (
+                    s.label
+                  )}
                 </Link>
               </li>
             );

@@ -10,16 +10,24 @@
  */
 
 /** The hero parts a tap opens the type bar on (the mark is a drawing; the venue's words are Details'). */
-export const HUB_TYPE_PARTS = ['eyebrow', 'line', 'joiner', 'link', 'caption', 'date', 'time'] as const;
+export const HUB_TYPE_PARTS = ['eyebrow', 'line', 'names', 'joiner', 'link', 'caption', 'date', 'time'] as const;
 export type HubTypePart = (typeof HUB_TYPE_PARTS)[number];
-/** …of them, the ones whose words are typed right there — a caret in the words. */
+/** …of them, the ones whose words are the hero's OWN — a caret in the words, kept on the canvas. */
 export const HUB_TYPE_WORD_PARTS: readonly string[] = ['eyebrow', 'line', 'joiner', 'link', 'caption'];
+/**
+ * …and the ones whose words are an event FACT — a caret in the words, written
+ * to the event's DRAFT (owner 2026-10-01, "wait for apply"): the names are
+ * `events.display_name`, the same names Details › Names edits. Each person's
+ * name is its own `[data-el-person]` inside the part, so the joiner between
+ * them stays the Joiner's.
+ */
+export const HUB_TYPE_FACT_PARTS: readonly string[] = ['names'];
 
 export function isHubTypePart(el: unknown): el is HubTypePart {
   return typeof el === 'string' && (HUB_TYPE_PARTS as readonly string[]).includes(el);
 }
 export function isTypeCaretPart(el: unknown): boolean {
-  return typeof el === 'string' && HUB_TYPE_WORD_PARTS.includes(el);
+  return typeof el === 'string' && (HUB_TYPE_WORD_PARTS.includes(el) || HUB_TYPE_FACT_PARTS.includes(el));
 }
 
 /**

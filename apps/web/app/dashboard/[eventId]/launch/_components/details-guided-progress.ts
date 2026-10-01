@@ -171,7 +171,7 @@ export async function readGuidedPlan({
   if (scheduleRes.error) logQueryError('HomeGuide.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
   const [profile, ye] = await Promise.all([
     resolveProfile(event.event_type ?? '').catch(() => GENERIC_PROFILE),
-    readYourEventFacts({ admin, eventId, parentCount: parents.length, hostCount: hosts.length }),
+    readYourEventFacts({ admin, eventId, parentCount: parents.length, hostCount: hosts.length, drafted }),
   ]);
   const ctx = { profile, solemn: eventWordsFromProfile(profile).solemn };
   const storyApplies = detailsItemApplies('love-story', ctx);

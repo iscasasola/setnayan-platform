@@ -94,6 +94,7 @@ import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
 import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
 import { readTypeStart, type TypeStart } from '@/lib/hub-part-words';
+import type { NameParts, NameStyle } from '@/lib/name-style';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -283,6 +284,8 @@ export function MakerWork({
     heroPhoto?: boolean;
     /** 🎨 The five fixed parts' style picks, live with the draft laid on (`lib/fixed-scene-styles.ts`). */
     fixedStyles?: FixedSceneStyles;
+    /** ✍ The hero names' Wording ▾ — the event's Name style and one of the couple's own names to show it in. */
+    names?: { style: NameStyle; person: NameParts | null };
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -2377,6 +2380,7 @@ export function MakerWork({
           heroCanvas={elementEditing.canvases.hero ?? {}}
           draftAction={elementEditing.draftAction}
           twoPeople={sceneFormat?.twoPeople !== false}
+          names={sceneFormat?.names ?? null}
           frames={() => [frameRef.current, bothFrameRef.current]}
           post={postToShownCanvases}
           broadcast={broadcastToCanvas}

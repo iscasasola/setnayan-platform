@@ -25,7 +25,7 @@
 import { sceneStyleOptions, sceneStyleTypeOfWidget, resolveSceneStyle } from '@/lib/scene-styles';
 import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
-import { IRow } from './inspector-kit';
+import { IRow, ISeg, ISegmented } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { useSceneCanvas } from './use-scene-canvas';
 import type { ElementDraftAction } from './element-sheet';
@@ -137,10 +137,27 @@ export function SceneStyleCanvasRow({
         onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
       />
     ) : null;
+  /* 🏛 The Venue scene's Map switch (owner 2026-09-30, "VENUE STYLES APPROVED"):
+     two choices are a switch, never a dropdown. "One map for both" is the
+     default and an absence; "No map" stores `canvas.venueMap = 'none'`. */
+  const mapRow =
+    type === 'venue_map' && styleRow ? (
+      <IRow label="Map" data="venue-map">
+        <ISegmented label="Map">
+          <ISeg on={shown.venueMap !== 'none'} disabled={pending} data="venue-map-one" onClick={() => save((c) => { delete c.venueMap; })}>
+            One map for both
+          </ISeg>
+          <ISeg on={shown.venueMap === 'none'} disabled={pending} data="venue-map-none" onClick={() => save((c) => { c.venueMap = 'none'; })}>
+            No map
+          </ISeg>
+        </ISegmented>
+      </IRow>
+    ) : null;
   if (!styleRow && !paletteRow) return null;
   return (
     <>
       {styleRow}
+      {mapRow}
       {paletteRow}
       {/* The Style row says its own error; without it, the Palette row's is said here. */}
       {!styleRow && error ? (

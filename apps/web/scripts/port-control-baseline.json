@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "04722dc8",
-  "routeCount": 443,
-  "destinations": 954,
+  "generatedFromRef": "ad8ee2d433",
+  "routeCount": 441,
+  "destinations": 952,
   "actions": 677,
-  "blocks": 5344,
+  "blocks": 5356,
   "routes": {
     "/": {
       "files": [
@@ -274,16 +274,6 @@
         "Link",
         "SaveVendorButton",
         "VendorHeaderCell"
-      ]
-    },
-    "/(shell)/features/[slug]": {
-      "files": [
-        "(shell)/features/[slug]/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "FeaturePageView"
       ]
     },
     "/(shell)/guest-list": {
@@ -726,16 +716,6 @@
         "Link"
       ]
     },
-    "/(shell)/tl/features/[slug]": {
-      "files": [
-        "(shell)/tl/features/[slug]/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "FeaturePageView"
-      ]
-    },
     "/(shell)/web-only": {
       "files": [
         "(shell)/web-only/loading.tsx",
@@ -1079,6 +1059,7 @@
         "DetailsBigDate",
         "DetailsCard",
         "DialBar",
+        "DirectionsMenu",
         "DoorCard",
         "DoorPanels",
         "DosAndDonts",
@@ -1102,6 +1083,7 @@
         "EventWordsContext.Provider",
         "EventWordsProvider",
         "EverythingElseSheet",
+        "Eyebrow",
         "FaceDataNotice",
         "FaceReceiptCard",
         "FaceTaggingRow",
@@ -1281,6 +1263,7 @@
         "RoadScene",
         "RoamWatchPicker",
         "RoleFigure",
+        "RoleLabel",
         "RoleNames",
         "RoomFreeze",
         "RoomLink",
@@ -1393,10 +1376,9 @@
         "VendorRow",
         "VendorsWeLoved",
         "Venue",
-        "VenueFullMap",
-        "VenueOneMap",
+        "VenueFullPhoto",
+        "VenueJourney",
         "VenuePlate",
-        "VenueRow",
         "VenueWidget",
         "VideosScene",
         "WallBadge",
@@ -9554,38 +9536,51 @@
     "/features": {
       "files": [
         "features/_PageBody.tsx",
-        "features/_feature-page.tsx",
-        "features/_feature-price.ts",
-        "features/_icons.ts",
-        "features/_sections/_Ecosystem.tsx",
-        "features/_sections/_FeatureGroups.tsx",
+        "features/_sections/_AnchorNav.tsx",
+        "features/_sections/_Communications.tsx",
+        "features/_sections/_Compliance.tsx",
+        "features/_sections/_DayOfApparatus.tsx",
         "features/_sections/_FinalCTA.tsx",
         "features/_sections/_Hero.tsx",
         "features/_sections/_HowItWorks.tsx",
+        "features/_sections/_OutsourcingPacing.tsx",
+        "features/_sections/_PlanningToolkit.tsx",
+        "features/_sections/_StickyMobileCTA.tsx",
+        "features/_sections/_VendorsLedger.tsx",
         "features/_sections/_WhySetnayan.tsx",
         "features/page.tsx"
       ],
       "destinations": [
-        "/blog/[seg]",
         "/for-suppliers",
-        "/open-shop",
-        "/signup",
-        "/suppliers"
+        "/pricing",
+        "/signup"
       ],
       "actions": [],
       "blocks": [
-        "EcosystemBand",
-        "FeatureGroups",
+        "BudgetMock",
+        "Communications",
+        "Compliance",
+        "DayOfApparatus",
+        "FeatureRow",
+        "FeaturesAnchorNav",
         "FeaturesHero",
         "FeaturesPageBody",
         "FinalCTA",
-        "Fragment",
+        "GuestListMock",
+        "HTMLAnchorElement",
+        "HTMLElement",
         "HowItWorks",
         "Icon",
-        "Image",
         "Link",
         "LocaleSwitch",
-        "OtherIcon",
+        "MockShell",
+        "MoodBoardMock",
+        "OutsourcingPacing",
+        "PlanningToolkit",
+        "ScheduleMock",
+        "SeatingMock",
+        "StickyMobileCTA",
+        "VendorsLedger",
         "WhySetnayan"
       ]
     },

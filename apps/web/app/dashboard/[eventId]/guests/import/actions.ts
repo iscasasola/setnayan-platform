@@ -5,206 +5,138 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { syncExtraSeats } from '@/lib/extra-seats-sync';
-import { parseCsv } from '@/lib/csv';
-import { normalizeGuestName } from '@/lib/guest-name';
-import { parsePersonName } from '@/lib/person-name-parse';
-import { norm } from '@/lib/guest-dedupe';
-import type {
-  GuestGroupCategory,
-  GuestRole,
-  GuestSide,
-  RsvpStatus,
-} from '@/lib/guests';
-import { plusOnesFromCsv } from '@/lib/guests';
+import { eventHasSides } from '@/lib/guest-side-question';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import {
+  MAX_IMPORT_ROWS,
+  looksLikeSpreadsheetPackage,
+  planGuestImport,
+  readGuestFile,
+  type ExistingGuest,
+  type ImportPlan,
+} from '@/lib/guest-import-file';
 
-const MAX_ROWS = 200;
+/**
+ * What the import page shows between the two clicks. `rows` is the whole
+ * preview (one per row of the file); `csv` is the file's text, carried back
+ * on "Add" so the server re-reads it — the preview is never trusted as input.
+ */
+export type GuestImportState =
+  | { stage: 'idle' }
+  | { stage: 'error'; message: string }
+  | { stage: 'preview'; fileName: string; csv: string; rows: ImportPlan['rows']; counts: ImportPlan['counts'] };
 
-// Iteration 0053 P2: the valid role set is per event type — resolved once
-// (resolveRoleSetForEvent) before the row loop below.
-const SIDE_VALUES: GuestSide[] = ['bride', 'groom', 'both'];
-const GROUP_VALUES: GuestGroupCategory[] = [
-  'family',
-  'friends',
-  'work',
-  'school',
-  'officiant',
-  'other',
-];
-const RSVP_VALUES: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
+const MAX_FILE_BYTES = 1_000_000;
 
-export async function importGuestsCsv(eventId: string, formData: FormData) {
-  const raw = String(formData.get('csv') ?? '').trim();
-  if (!raw) {
-    return redirect(`/dashboard/${eventId}/guests/import?error=empty`);
+async function planFor(eventId: string, csv: string) {
+  const rows = readGuestFile(csv);
+  if (rows.length === 0) return { error: 'We could not find any names in that file. Is the first row the column titles?' } as const;
+  if (rows.length > MAX_IMPORT_ROWS) {
+    return { error: `That file has ${rows.length} rows — up to ${MAX_IMPORT_ROWS} at a time, please split it.` } as const;
   }
-
-  const rows = parseCsv(raw);
-  if (rows.length === 0) {
-    return redirect(`/dashboard/${eventId}/guests/import?error=no_rows`);
-  }
-  if (rows.length > MAX_ROWS) {
-    return redirect(
-      `/dashboard/${eventId}/guests/import?error=${encodeURIComponent('Max 200 rows; got ' + rows.length)}`,
-    );
-  }
-
   const supabase = await createClient();
-
-  // Exact-duplicate keys (normalized first|last) already on this event, so
-  // a re-imported file silently skips the rows already on the list instead
-  // of doubling everyone. Graceful-degrade to "no existing" on error — an
-  // import shouldn't hard-fail just because this pre-check query did.
-  const existingKeys = new Set<string>();
-  {
-    const { data: existing } = await supabase
-      .from('guests')
-      .select('first_name,last_name')
-      .eq('event_id', eventId)
-      .is('deleted_at', null);
-    for (const g of (existing ?? []) as Array<{
-      first_name: string;
-      last_name: string;
-    }>) {
-      existingKeys.add(`${norm(g.first_name)}|${norm(g.last_name)}`);
-    }
-  }
-
-  // Validate + shape every row before writing anything.
-  const roleSet = await resolveRoleSetForEvent(eventId);
-  const valid: Array<Record<string, unknown>> = [];
-  const errors: string[] = [];
-  // Keys seen so far this import — catches the same person listed twice in
-  // the uploaded file itself, not just against the existing list.
-  const seenKeys = new Set<string>();
-  let duplicates = 0;
-
-  rows.forEach((row, index) => {
-    const lineNo = index + 2; // header is line 1
-    // A spreadsheet column is where whole names arrive most often — either a
-    // single "name" column, or a first_name cell that actually holds
-    // "Atty. Bob Casasola Jr.". Parse the two cells as one line so the title
-    // never becomes the given name, then fall back to the raw cells when the
-    // parser found nothing to move.
-    const rawFirst = normalizeGuestName(row.first_name);
-    const rawLast = normalizeGuestName(row.last_name);
-    const parts = parsePersonName(`${rawFirst} ${rawLast}`.trim());
-    const first_name = parts.firstName || rawFirst;
-    const last_name = parts.lastName || rawLast;
-    const name_prefix = parts.prefix || null;
-    const middle_name = parts.middleName || null;
-    const name_suffix = parts.suffix || null;
-    const side = ((row.side ?? '').trim().toLowerCase() || 'both') as GuestSide;
-    const group_category = ((row.group ?? row.group_category ?? '').trim().toLowerCase() ||
-      'friends') as GuestGroupCategory;
-    const role = ((row.role ?? '').trim().toLowerCase() || 'guest') as GuestRole;
-    const email = (row.email ?? '').trim() || null;
-    const mobile = (row.mobile ?? '').trim() || null;
-    // Extra seats, 0–4 (owner 2026-09-21): a number, or yes/true for one.
-    const plus_one_count = plusOnesFromCsv(row);
-    const plus_one_allowed = plus_one_count > 0;
-    const plus_one_name = normalizeGuestName(row.plus_one_name) || (plus_one_allowed ? 'TBA' : null);
-    const household = (row.household ?? '').trim() || null;
-    const rsvp_status = ((row.rsvp_status ?? 'pending').trim().toLowerCase() ||
-      'pending') as RsvpStatus;
-
-    if (!first_name || !last_name) {
-      errors.push(`Line ${lineNo}: missing first_name or last_name`);
-      return;
-    }
-    if (!SIDE_VALUES.includes(side)) {
-      errors.push(
-        `Line ${lineNo}: invalid side "${row.side}" (allowed: ${SIDE_VALUES.join(', ')})`,
-      );
-      return;
-    }
-    if (!GROUP_VALUES.includes(group_category)) {
-      errors.push(
-        `Line ${lineNo}: invalid group "${row.group}" (allowed: ${GROUP_VALUES.join(', ')})`,
-      );
-      return;
-    }
-    if (!roleSet.offeredRoles.includes(role)) {
-      errors.push(`Line ${lineNo}: invalid role "${row.role}"`);
-      return;
-    }
-    if (!RSVP_VALUES.includes(rsvp_status)) {
-      errors.push(`Line ${lineNo}: invalid rsvp_status "${row.rsvp_status}"`);
-      return;
-    }
-
-    // Exact-duplicate skip (same normalized first+last) — within the file
-    // OR already on the event. Fuzzy nickname/typo matches are deliberately
-    // NOT auto-skipped here: a bulk import shouldn't silently drop a
-    // distinct guest on a guess; that judgment stays with the interactive
-    // add forms (quick-add sheet + detailed form).
-    const dupKey = `${norm(first_name)}|${norm(last_name)}`;
-    if (existingKeys.has(dupKey) || seenKeys.has(dupKey)) {
-      duplicates += 1;
-      return;
-    }
-    seenKeys.add(dupKey);
-
-    valid.push({
-      event_id: eventId,
-      first_name,
-      last_name,
-      name_prefix,
-      middle_name,
-      name_suffix,
-      side,
-      group_category,
-      role,
-      email,
-      mobile,
-      plus_one_allowed,
-      plus_one_count,
-      plus_one_name,
-      rsvp_status,
-      photo_consent: true,
-      // Stash household name into notes as a placeholder — households UI lands later.
-      notes: household ? `Household: ${household}` : null,
-    });
-  });
-
-  if (valid.length === 0) {
-    // Nothing new to insert. Distinguish "everyone was already on the list"
-    // (a harmless no-op re-import) from genuine validation failures, so the
-    // host isn't told their file is broken when it isn't.
-    if (duplicates > 0 && errors.length === 0) {
-      return redirect(
-        `/dashboard/${eventId}/guests?imported=0&duplicates=${duplicates}`,
-      );
-    }
-    const payload = errors.slice(0, 5).join(' | ');
-    return redirect(
-      `/dashboard/${eventId}/guests/import?error=${encodeURIComponent('All rows failed validation: ' + payload)}`,
-    );
-  }
-
-  const { data: insertedRows, error: insertErr } = await supabase
+  const { data: existing, error } = await supabase
     .from('guests')
-    .insert(valid)
-    .select('guest_id, plus_one_count');
-  if (insertErr) {
-    return redirect(
-      `/dashboard/${eventId}/guests/import?error=${encodeURIComponent('Insert failed: ' + insertErr.message)}`,
-    );
+    .select('guest_id,first_name,last_name,name_prefix,middle_name,name_suffix,side,group_category,role,mobile,plus_one_count')
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
+  // 🔒 A refused read must not look like an empty list: matching against
+  // "nobody" would turn every update into a duplicate.
+  if (error) return { error: 'We could not read your guest list just now. Try again in a moment.' } as const;
+  const roleSet = await resolveRoleSetForEvent(eventId);
+  const plan = planGuestImport(rows, {
+    offeredRoles: roleSet.offeredRoles,
+    singletonRoles: roleSet.singletonRoles,
+    hasSides: eventHasSides(roleSet),
+    existing: (existing ?? []) as ExistingGuest[],
+  });
+  return { plan, supabase } as const;
+}
+
+/**
+ * ONE action, two steps (no new server action — the route budget):
+ *   mode=preview (default) — read the uploaded file, return the preview;
+ *   mode=add               — re-read the same text, add the new people and
+ *                            update the changed ones, then go to the list.
+ */
+export async function importGuestsCsv(
+  eventId: string,
+  _prev: GuestImportState,
+  formData: FormData,
+): Promise<GuestImportState> {
+  const mode = String(formData.get('mode') ?? 'preview');
+  if (mode === 'reset') return { stage: 'idle' };
+
+  if (mode !== 'add') {
+    const file = formData.get('file');
+    if (!(file instanceof File) || file.size === 0) {
+      return { stage: 'error', message: 'Choose your guest list file first.' };
+    }
+    if (file.size > MAX_FILE_BYTES) return { stage: 'error', message: 'That file is too big for a guest list.' };
+    const text = await file.text();
+    if (looksLikeSpreadsheetPackage(file.name, text.slice(0, 2))) {
+      return {
+        stage: 'error',
+        message:
+          'Save it as CSV first, then upload that. Excel: File › Save As › CSV. Numbers: File › Export To › CSV. Google Sheets: File › Download › CSV.',
+      };
+    }
+    const res = await planFor(eventId, text);
+    if ('error' in res) return { stage: 'error', message: res.error ?? 'Something went wrong.' };
+    return { stage: 'preview', fileName: file.name, csv: text, rows: res.plan.rows, counts: res.plan.counts };
+  }
+
+  const csv = String(formData.get('csv') ?? '');
+  const res = await planFor(eventId, csv);
+  if ('error' in res) return { stage: 'error', message: res.error ?? 'Something went wrong.' };
+  const { plan, supabase } = res;
+
+  const fresh = plan.rows.filter((r) => r.status === 'new' && r.record);
+  const changed = plan.rows.filter((r) => r.status === 'changed' && r.guestId && r.patch);
+  if (fresh.length === 0 && changed.length === 0) {
+    return { stage: 'error', message: 'Nothing to add or change — everyone in the file is already on your list.' };
+  }
+
+  const touched: Array<{ guest_id: string; plus_one_count: number | null }> = [];
+  const reseat: string[] = [];
+  if (fresh.length > 0) {
+    const { data: insertedRows, error: insertErr } = await supabase
+      .from('guests')
+      .insert(fresh.map((r) => ({ ...r.record, event_id: eventId, photo_consent: true })))
+      .select('guest_id, plus_one_count');
+    if (insertErr) return { stage: 'error', message: `We could not add them: ${insertErr.message}` };
+    touched.push(...((insertedRows ?? []) as typeof touched));
+  }
+
+  let updated = 0;
+  let failed = 0;
+  for (const r of changed) {
+    const { error } = await supabase
+      .from('guests')
+      .update(r.patch!)
+      .eq('guest_id', r.guestId!)
+      .eq('event_id', eventId);
+    if (error) failed += 1;
+    else {
+      updated += 1;
+      if (r.patch!.plus_one_count !== undefined) reseat.push(r.guestId!);
+    }
   }
 
   // Smart seat-plan Phase 5: gap-fill the imported guests into provisional seats.
   // ⚖ "+ will have seats beside the person invited" (owner 2026-09-21): each
-  // imported +N gets its N seats. A row that could not get them keeps its
-  // number and the couple can re-set it from the list.
-  for (const r of (insertedRows ?? []) as Array<{ guest_id: string; plus_one_count: number | null }>) {
+  // imported +N gets its N seats; a changed +N re-syncs its seats.
+  for (const r of touched) {
     if ((r.plus_one_count ?? 0) > 0) await syncExtraSeats(supabase, eventId, r.guest_id);
   }
+  // A changed count re-syncs either way — down to zero frees the seats.
+  for (const guestId of reseat) await syncExtraSeats(supabase, eventId, guestId);
   await applyReconcileForEvent(supabase, eventId);
 
   revalidatePath(`/dashboard/${eventId}/guests`);
-  const skipped = errors.length; // invalid rows only (dupes counted separately)
-  const params = new URLSearchParams({ imported: String(valid.length) });
+  const params = new URLSearchParams({ imported: String(fresh.length) });
+  if (updated > 0) params.set('updated', String(updated));
+  const skipped = plan.counts.look + failed;
   if (skipped > 0) params.set('skipped', String(skipped));
-  if (duplicates > 0) params.set('duplicates', String(duplicates));
   return redirect(`/dashboard/${eventId}/guests?${params.toString()}`);
 }

@@ -5,9 +5,10 @@ Owner decision: corpus DECISION_LOG.md, 2026-10-01 rows "GUEST IMPORT = A TEMPLA
 | Step | State |
 |---|---|
 | 1. Download the template (per event type) | DONE — public/templates/*, lib/guest-import-file.ts `guestTemplateFor`, page section "1 · Get the guest list file" |
-| 2. Upload the file (CSV; friendly headers) | in progress |
-| 3. Preview before adding | todo |
-| 4. Upload again to update | todo |
+| 2. Upload the file (CSV; friendly headers) | CODE DONE — import-form.tsx (client, useActionState) + actions.ts mode=preview; .xlsx refused with 'save as CSV' (no xlsx parser in repo) |
+| 3. Preview before adding | CODE DONE — lib/guest-import-file.ts planGuestImport; one row per row, 'need a look' never merged |
+| 4. Upload again to update | CODE DONE — match first+last(+suffix) or mobile+one name; patch only changed non-empty fields; RSVP never overwritten |
+| Verify: typecheck · lint · CI guards · browser | in progress |
 | Housekeeping: 5 root *_PROGRESS.md deleted | DONE |
 
 Guard: apps/web/lib/guest-import-file.test.ts (run from apps/web: `npx tsx --test lib/guest-import-file.test.ts`).

@@ -17,6 +17,7 @@ import { normalizeGuestName } from './guest-name';
 import { parsePersonName } from './person-name-parse';
 import { norm } from './guest-dedupe';
 import { parsePhPhone } from './ph-phone';
+import { formatCount } from './format-number';
 import { SIDELESS_SIDE } from './guest-side-question';
 import {
   GROUP_CATEGORY_LABELS,
@@ -336,7 +337,7 @@ export function planGuestImport(rows: readonly CsvRow[], ctx: ImportContext): Im
     const sameFirstLast = byName.get(nameKey(first_name, last_name)) ?? [];
     const exact = sameFirstLast.filter((g) => norm(g.name_suffix ?? '') === norm(name_suffix ?? ''));
     if (exact.length > 1) {
-      return look(`${exact.length} guests on your list already have this name — edit them on the list instead.`);
+      return look(`${formatCount(exact.length)} guests on your list already have this name — edit them on the list instead.`);
     }
     if (exact.length === 1) {
       match = exact[0]!;

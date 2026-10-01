@@ -45,7 +45,7 @@ const WEB = process.cwd();
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 const html = (el: React.ReactElement) => renderToStaticMarkup(el);
 // A .ts test file cannot hold JSX, so components are made with createElement.
-const h = React.createElement as (type: unknown, props: unknown) => React.ReactElement;
+const h = React.createElement as unknown as (type: unknown, props: unknown) => React.ReactElement;
 
 /** The admin's list after they added a third account. */
 const SETTINGS = {
@@ -220,7 +220,7 @@ test('RENDER: the ledger Reference link has no hidden breakpoint and opens the p
     h(ConsoleTable<{ public_id: string; reference_code: string }>, {
       rows: [{ public_id: 'S89O-7K2M9QX4TB', reference_code: 'SNM51BN2RX' }],
       columns: [LEDGER_REFERENCE_COLUMN],
-      rowKey: (r) => r.public_id,
+      rowKey: (r: { public_id: string }) => r.public_id,
       label: 'Every transaction',
       empty: { Icon: (() => null) as never, title: 'none', blurb: 'none' },
       readPermitted: true,

@@ -12,14 +12,19 @@
  * `ledger-reference-reaches-the-phone.test.ts` renders it and fails if it
  * ever grows a `hidden` breakpoint again.
  */
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 
-import type { ConsoleColumn } from '@/app/admin/_components/console-table';
-
-export const LEDGER_REFERENCE_COLUMN: ConsoleColumn<{
-  public_id: string;
-  reference_code: string;
-}> = {
+// Structurally a ConsoleColumn. It does not import the table (or its type) on
+// purpose: the admin archetype guard counts every file that imports
+// ConsoleTable, and this file renders no table.
+export const LEDGER_REFERENCE_COLUMN: {
+  header: string;
+  mono: boolean;
+  /** NEVER set — a hidden breakpoint here is the phone bug (see above). */
+  hideBelow?: never;
+  cell: (r: { public_id: string; reference_code: string }) => ReactNode;
+} = {
   header: 'Reference',
   mono: true,
   // The row opens the payments desk ON this order — where a payment can be

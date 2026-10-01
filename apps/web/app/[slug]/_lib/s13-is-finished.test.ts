@@ -110,6 +110,14 @@ const ALLOWED: Record<string, string> = {
  */
 const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string }> = [
   {
+    file: '_components/hideable-widget-render.tsx',
+    snippet: "import { dressRiteOf } from '@/lib/chinese-wedding';",
+    why:
+      'A MODULE NAME, not rendered text: `dressRiteOf` resolves the dress-code scene’s rite from ' +
+      'the event’s two rite columns (P6a — a mixed wedding’s INC side keeps its modest note). Keyed ' +
+      'on the LINE, so the rest of this file stays under the guard.',
+  },
+  {
     file: '_lib/everything-else-rows.ts',
     snippet: "viewerKind: 'anonymous' | 'guest' | 'couple' | 'vendor';",
     why:

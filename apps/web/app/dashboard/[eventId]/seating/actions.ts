@@ -470,7 +470,6 @@ export async function autoSeatGuests(formData: FormData) {
     // guest, so auto-seat clusters the same groups the couple sees.
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
-    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
 
   // Anchor the role-tier rings on where the couple actually placed the stage,
@@ -1041,7 +1040,6 @@ export async function lockAndFill(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
-    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
 
   const solved = solveSeatPlan({
@@ -2174,7 +2172,6 @@ export async function autoArrange(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
-    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
   // Honour the couple's saved priority order (Phase 2) and, when keep-apart
   // rules exist, run the constraint-aware solver (Phase 3) instead of the plain
@@ -2330,7 +2327,6 @@ export async function buildSeatingDraft(
     first_name: g.first_name,
     group_id: memberships.get(g.guest_id)?.[0] ?? null,
     seating_priority: g.seating_priority ?? null,
-    pair_with_guest_id: g.pair_with_guest_id ?? null,
   }));
   // Iteration 0053 P4 Unit 6: tier by the event's role set (wedding → identical).
   // priorityOrder passed as null (this call's current effective default) so the

@@ -97,14 +97,19 @@ export default async function AdminBookingFeesPage() {
   // a failure here must not blank the page, because the amounts above are the
   // point and they are already in hand.
   const vendorNames = new Map<string, string>();
-  const paidRefs = new Map<string, { hasProof: boolean; orderId: string }>();
+  const paidRefs = new Map<string, { hasProof: boolean; orderId: string; orderPublicId: string | null }>();
+  // The order and payment reads decide "never billed" — if either was refused we
+  // do not know, and "Never billed" over a supplier who WAS billed is a false
+  // accusation about money.
+  let billingUnread = false;
 
   if (charges.length > 0) {
     const vendorIds = [...new Set(charges.map((c) => c.vendor_profile_id))];
-    const { data: vendors } = await admin
+    const { data: vendors, error: vendorsErr } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', vendorIds);
+    if (vendorsErr) logQueryError('admin/booking-fees (supplier names)', vendorsErr);
     for (const v of (vendors ?? []) as { vendor_profile_id: string; business_name: string | null }[]) {
       if (v.business_name) vendorNames.set(v.vendor_profile_id, v.business_name);
     }
@@ -112,20 +117,28 @@ export default async function AdminBookingFeesPage() {
     // Has the vendor actually sent anything? The fee's order is keyed on the
     // charge, so this is an exact join, not a guess.
     const keys = charges.map((c) => bookingFeeLockServiceKey(c.charge_id));
-    const { data: orders } = await admin
+    const { data: orders, error: ordersErr } = await admin
       .from('orders')
-      .select('order_id, service_key')
+      .select('order_id, public_id, service_key')
       .in('service_key', keys);
-    const orderRows = (orders ?? []) as { order_id: string; service_key: string }[];
+    if (ordersErr) {
+      logQueryError('admin/booking-fees (orders)', ordersErr);
+      billingUnread = true;
+    }
+    const orderRows = (orders ?? []) as { order_id: string; public_id: string | null; service_key: string }[];
 
     if (orderRows.length > 0) {
-      const { data: pays } = await admin
+      const { data: pays, error: paysErr } = await admin
         .from('payments')
         .select('order_id, reference_number, screenshot_url')
         .in(
           'order_id',
           orderRows.map((o) => o.order_id),
         );
+      if (paysErr) {
+        logQueryError('admin/booking-fees (payments)', paysErr);
+        billingUnread = true;
+      }
       const byOrder = new Map<string, { reference_number: string | null; screenshot_url: string | null }>();
       for (const p of (pays ?? []) as {
         order_id: string;
@@ -138,6 +151,7 @@ export default async function AdminBookingFeesPage() {
         const p = byOrder.get(o.order_id);
         paidRefs.set(o.service_key, {
           orderId: o.order_id,
+          orderPublicId: o.public_id ?? null,
           // Same definition of proof the work list uses: non-EMPTY, not merely
           // non-null. A blank string is what an empty form field posts.
           hasProof:
@@ -161,7 +175,7 @@ export default async function AdminBookingFeesPage() {
       createdAt: c.created_at,
     }));
   const notBilled = new Map<string, UnbilledVerdict>();
-  if (unbilledCharges.length > 0) {
+  if (unbilledCharges.length > 0 && !billingUnread) {
     const facts = await gatherUnbilledFacts(admin, unbilledCharges, nowMs);
     for (const c of unbilledCharges) {
       const f = facts.get(c.chargeId);
@@ -197,6 +211,22 @@ export default async function AdminBookingFeesPage() {
         </div>
       ) : null}
 
+      {billingUnread && !unreadable ? (
+        <div className="sn-tile mb-4 flex items-start gap-3 p-4">
+          <AlertTriangle
+            aria-hidden
+            className="mt-0.5 h-5 w-5 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: '#B54708' }}
+          />
+          <p className="text-sm" style={{ color: '#B54708' }}>
+            Could not check which of these have been billed or paid — so each one reads
+            &ldquo;status unknown&rdquo; below. That is <strong>not</strong> the same as
+            &ldquo;never billed&rdquo;. Refresh to try again.
+          </p>
+        </div>
+      ) : null}
+
       {!unreadable && charges.length > 0 ? (
         <div className="sn-tile mb-4 flex flex-wrap items-center gap-x-6 gap-y-2 p-4">
           <span className="text-sm">
@@ -212,10 +242,12 @@ export default async function AdminBookingFeesPage() {
               {notBilled.size} {notBilled.size === 1 ? 'has' : 'have'} never been billed
             </span>
           ) : null}
-          <span className="text-sm text-[color:var(--sn-ink-500)]">
-            {withProof} {withProof === 1 ? 'has' : 'have'} sent proof and{' '}
-            {withProof === 1 ? 'is' : 'are'} waiting on you
-          </span>
+          {billingUnread ? null : (
+            <span className="text-sm text-[color:var(--sn-ink-500)]">
+              {withProof} {withProof === 1 ? 'has' : 'have'} sent proof and{' '}
+              {withProof === 1 ? 'is' : 'are'} waiting on you
+            </span>
+          )}
         </div>
       ) : null}
 
@@ -258,7 +290,7 @@ export default async function AdminBookingFeesPage() {
 
                 <span className="flex min-w-[10rem] flex-1 flex-col gap-0.5">
                   <span className="text-sm font-semibold">
-                    {vendorNames.get(c.vendor_profile_id) ?? 'A vendor'}
+                    {vendorNames.get(c.vendor_profile_id) ?? 'A supplier'}
                   </span>
                   <span className="text-xs text-[color:var(--sn-ink-500)]">
                     {formatCentavosPhp(num(c.amount_charged_centavos))} on a{' '}
@@ -293,9 +325,13 @@ export default async function AdminBookingFeesPage() {
                       <AlertTriangle aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                       Never billed
                     </span>
+                  ) : billingUnread ? (
+                    <span className="text-xs font-semibold" style={{ color: '#B54708' }}>
+                      Status unknown
+                    </span>
                   ) : pay?.hasProof ? (
                     <Link
-                      href="/admin/payments"
+                      href={`/admin/payments?filter=all&q=${encodeURIComponent(pay.orderPublicId ?? c.public_id ?? '')}`}
                       className="rounded-md px-3 py-1.5 text-xs font-semibold"
                       style={{ background: 'var(--sn-cta, #C24E25)', color: '#FFFFFF' }}
                     >

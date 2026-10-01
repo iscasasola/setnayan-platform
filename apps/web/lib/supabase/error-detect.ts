@@ -150,11 +150,30 @@ export function logQueryError(
               (error as SupabaseErrorShape)?.message ?? 'unknown'
             }`,
           );
-    Sentry.captureException(err, {
-      level: severity === 'will_throw' ? 'error' : 'warning',
+    const hint = {
+      level: severity === 'will_throw' ? ('error' as const) : ('warning' as const),
       tags: { call_site: callSite, severity },
       extra: ctx,
-    });
+    };
+    if (typeof window === 'undefined') {
+      Sentry.captureException(err, hint);
+    } else {
+      // ⚡ IN THE BROWSER, ASK FOR THE SDK INSTEAD OF IMPORTING IT (the diet,
+      // 2026-10-01). Client modules reach this file (the event layout's unread
+      // badges → `lib/notifications.ts` / `lib/chat.ts`), and the static import
+      // above put @sentry/core — 13KB gz — in the first load of every event
+      // page, the Maker's included. The browser SDK is loaded lazily anyway
+      // (`deferred-observability.tsx` imports this same module at idle and
+      // inits it), and a capture before that init reached no client either; so
+      // the browser reports exactly what it reported before. The compiler folds
+      // `typeof window` per bundle, so the server keeps the synchronous call
+      // and the browser bundle no longer carries the static import.
+      // 🛡 lib/sentry-stays-out-of-the-first-load.test.ts.
+      void import('@sentry/nextjs').then(
+        (S) => S.captureException(err, hint),
+        () => {},
+      );
+    }
   } catch {
     // Sentry not initialized — console.error above is the fallback.
   }

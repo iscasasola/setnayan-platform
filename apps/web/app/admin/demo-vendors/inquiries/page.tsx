@@ -153,17 +153,17 @@ export default async function DemoInquiriesPage() {
           Icon: MessageSquare,
           title: 'No demo inquiries yet',
           blurb:
-            'Re-seed demo vendors (they get unique contact emails), then — as a couple with an event — open a demo vendor from Explore with the demo flag on, Follow, and Message. The inquiry appears here.',
+            'Re-seed demo suppliers (they get unique contact emails), then — as a couple with an event — open a demo supplier from Explore with the demo flag on, Follow, and Message. The inquiry appears here.',
         }}
         columns={[
           {
-            header: 'Demo vendor',
+            header: 'Demo supplier',
             cell: (t) => (
               <Link
                 href={`/admin/demo-vendors/inquiries/${t.thread_id}`}
                 className="font-medium text-ink hover:text-mulberry"
               >
-                {t.vendor?.business_name ?? 'Demo vendor'}
+                {t.vendor?.business_name ?? 'Demo supplier'}
               </Link>
             ),
           },

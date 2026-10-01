@@ -17,6 +17,8 @@ import { adminAcceptInquiry, adminDeclineInquiry, adminReplyAsVendor } from '../
 import { SubmitButton } from '@/app/_components/submit-button';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../../../_components/read-failed';
 export const metadata = { title: 'Demo inquiry · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -30,11 +32,28 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
   const thread = await fetchThreadById(admin, threadId);
   if (!thread) notFound();
 
-  const { data: vendorRaw } = await admin
+  const { data: vendorRaw, error: vendorError } = await admin
     .from('vendor_profiles')
     .select('business_name, is_demo')
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .maybeSingle();
+  // 🔑 A refused read is not a missing thread: `notFound()` here gave a 404 on a
+  // real demo thread. Say the read failed, and keep the way back.
+  if (vendorError) {
+    logQueryError('DemoInquiryThreadPage (supplier)', vendorError);
+    return (
+      <section className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6 sm:px-6 lg:px-8">
+        <Link
+          href="/admin/demo-vendors/inquiries"
+          className="inline-flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.2em] text-ink/50 hover:text-mulberry"
+        >
+          <ChevronLeft className="h-3.5 w-3.5" />
+          Demo inquiries
+        </Link>
+        <ReadFailed what="this thread’s supplier" />
+      </section>
+    );
+  }
   const vendor = vendorRaw as { business_name: string | null; is_demo: boolean } | null;
   // Demo-only surface — never expose / act on a real vendor's thread here.
   if (!vendor?.is_demo) notFound();
@@ -52,7 +71,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
   } | null;
 
   const messages = await fetchMessages(admin, threadId);
-  const vendorName = vendor.business_name ?? 'Demo vendor';
+  const vendorName = vendor.business_name ?? 'Demo supplier';
   // Demo mirrors production, which stopped masking on the owner's 2026-09-08
   // ruling — one label, accepted or not.
   const coupleLabel = event?.display_name ?? 'Couple';
@@ -74,7 +93,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
           </p>
         ) : null}
         <p className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-mulberry/10 px-2 py-1 text-[12px] text-mulberry-700">
-          Replying as <strong>{vendorName}</strong> · demo vendor
+          Replying as <strong>{vendorName}</strong> · demo supplier
         </p>
       </header>
 
@@ -134,7 +153,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
         <div className="space-y-3 rounded-xl border border-terracotta/30 bg-terracotta/5 p-4">
           <p className="text-sm text-ink">
             <span className="font-semibold">New inquiry.</span> Accept to reply as{' '}
-            {vendorName} (this reveals the vendor name to the couple), or decline.
+            {vendorName} (this reveals the supplier name to the couple), or decline.
           </p>
           <div className="flex flex-wrap gap-2">
             <form action={adminAcceptInquiry}>

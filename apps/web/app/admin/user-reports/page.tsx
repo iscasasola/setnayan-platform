@@ -164,18 +164,18 @@ export default async function AdminUserReportsPage({
   );
 
   const [
-    { data: eventData },
-    { data: reporterData },
-    { data: captureData },
-    { data: chapterData },
-    { data: seatPhotoData },
+    { data: eventData, error: eventLookupError },
+    { data: reporterData, error: reporterLookupError },
+    { data: captureData, error: captureLookupError },
+    { data: chapterData, error: chapterLookupError },
+    { data: seatPhotoData, error: seatPhotoLookupError },
   ] = await Promise.all([
       eventIds.length
         ? admin.from('events').select('event_id, display_name').in('event_id', eventIds)
-        : Promise.resolve({ data: [] as { event_id: string; display_name: string | null }[] }),
+        : Promise.resolve({ data: [] as { event_id: string; display_name: string | null }[], error: null }),
       reporterIds.length
         ? admin.from('users').select('user_id, display_name, email').in('user_id', reporterIds)
-        : Promise.resolve({ data: [] as { user_id: string; display_name: string | null; email: string | null }[] }),
+        : Promise.resolve({ data: [] as { user_id: string; display_name: string | null; email: string | null }[], error: null }),
       photoTargetIds.length
         ? admin
             .from('papic_guest_captures')
@@ -197,13 +197,14 @@ export default async function AdminUserReportsPage({
               full_res_dropped_at: string | null;
               hidden_at: string | null;
             }[],
+            error: null,
           }),
       chapterTargetIds.length
         ? admin
             .from('creator_chapters')
             .select('public_id, title, status, user_id')
             .in('public_id', chapterTargetIds)
-        : Promise.resolve({ data: [] as { public_id: string; title: string | null; status: string | null; user_id: string | null }[] }),
+        : Promise.resolve({ data: [] as { public_id: string; title: string | null; status: string | null; user_id: string | null }[], error: null }),
       /*
         A 'photo' report can name a SEAT photograph (papic_photos) — every
         picture the Story is built from, and what a guest's "take this down"
@@ -228,6 +229,7 @@ export default async function AdminUserReportsPage({
               full_res_dropped_at: string | null;
               hidden_at: string | null;
             }[],
+            error: null,
           }),
     ]);
 
@@ -269,6 +271,19 @@ export default async function AdminUserReportsPage({
       }),
       hidden: Boolean(p.hidden_at),
     });
+
+  // 🔑 A refused lookup is not a fact about the thing looked up: a failed chapter
+  // read used to say "Chapter no longer exists" about a chapter that does.
+  for (const [what, err] of [
+    ['events', eventLookupError],
+    ['reporters', reporterLookupError],
+    ['captures', captureLookupError],
+    ['chapters', chapterLookupError],
+    ['seat photos', seatPhotoLookupError],
+  ] as const) {
+    if (err) logQueryError(`AdminUserReportsPage (${what} lookup)`, err);
+  }
+  const chapterLookupFailed = Boolean(chapterLookupError);
 
   // Chapter meta: title + a deep link to the live page (needs the owner's
   // profile slug). One extra batched users read keyed on the chapters found.
@@ -350,7 +365,7 @@ export default async function AdminUserReportsPage({
         </FormFlash>
       )}
 
-      {rows.length === 0 ? (
+      {listError ? null : rows.length === 0 ? (
         <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No reports in this view.
         </p>
@@ -443,7 +458,9 @@ export default async function AdminUserReportsPage({
                             )}
                           </>
                         ) : (
-                          <span className="text-ink/50">Chapter no longer exists</span>
+                          <span className="text-ink/50">
+                            {chapterLookupFailed ? 'Couldn’t look up this chapter' : 'Chapter no longer exists'}
+                          </span>
                         )}
                         {' '}
                         <span className="font-mono text-[10px] text-ink/45">{r.target_id}</span>

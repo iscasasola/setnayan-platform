@@ -146,7 +146,7 @@ export function CustomComposer({
       <div className="space-y-6">
         {/* Org picker */}
         <div className="rounded-xl border border-ink/10 bg-cream/50 p-4">
-          <label className="mb-1.5 block text-sm font-semibold text-ink">Vendor org</label>
+          <label className="mb-1.5 block text-sm font-semibold text-ink">Supplier org</label>
           <select
             className="input-field h-11 w-full"
             value={selectedVendorId ?? ''}
@@ -155,7 +155,7 @@ export function CustomComposer({
               router.push(v ? `/admin/pricing?tab=custom-plans&vendor=${v}` : '/admin/pricing?tab=custom-plans');
             }}
           >
-            <option value="">Select a vendor org…</option>
+            <option value="">Select a supplier org…</option>
             {vendors.map((v) => (
               <option key={v.id} value={v.id}>
                 {v.name}
@@ -173,7 +173,7 @@ export function CustomComposer({
 
         {!selectedVendorId ? (
           <div className="rounded-xl border border-dashed border-ink/20 bg-white p-8 text-center text-sm text-ink/55">
-            Pick a vendor org above to compose a Custom-tier plan.
+            Pick a supplier org above to compose a Custom-tier plan.
           </div>
         ) : (
           <>
@@ -285,7 +285,7 @@ export function CustomComposer({
               <Knob
                 icon={<Globe className="h-4 w-4" strokeWidth={2} />}
                 label="Custom domain"
-                hint="A branded custom domain for the vendor's public website."
+                hint="A branded custom domain for the supplier's public website."
               >
                 <label className="flex items-center gap-2 text-xs text-ink/70">
                   <input
@@ -301,7 +301,7 @@ export function CustomComposer({
               <Knob
                 icon={<Terminal className="h-4 w-4" strokeWidth={2} />}
                 label="API access"
-                hint="Enterprise SDK — mint API keys + sync leads, bookings, availability, reviews into their own systems. Grant only when the vendor requests it."
+                hint="Enterprise SDK — mint API keys + sync leads, bookings, availability, reviews into their own systems. Grant only when the supplier requests it."
               >
                 <label className="flex items-center gap-2 text-xs text-ink/70">
                   <input
@@ -422,7 +422,7 @@ export function CustomComposer({
           <div className="rounded-2xl border border-ink/12 bg-white p-5 shadow-sm">
             <div className="mb-1 flex items-center gap-2">
               <BadgeCheck className="h-5 w-5 text-ink" strokeWidth={2} />
-              <h2 className="text-base font-semibold text-ink">What this vendor gets</h2>
+              <h2 className="text-base font-semibold text-ink">What this supplier gets</h2>
             </div>
             <p className="mb-4 text-xs text-ink/55">
               Everything in Enterprise, automatically — plus the dialed-in
@@ -597,7 +597,7 @@ export function CustomComposer({
                   Mark active (comp / settled off-platform)
                 </SubmitButton>
                 <p className="mt-1.5 text-[11px] text-ink/45">
-                  Skips payment approval — flips the vendor to Custom immediately.
+                  Skips payment approval — flips the supplier to Custom immediately.
                 </p>
               </form>
             ) : null}

@@ -34,6 +34,9 @@ import {
 
 export type EmceeScriptEvent = {
   displayName: string | null;
+  /** What a nameless event is called in the header — the event's own words
+   *  (`untitledEventName`). Absent → the neutral "The Event", never a wedding's. */
+  untitledName?: string;
   eventDate: string | null;
 };
 
@@ -195,7 +198,7 @@ function programSection(
 }
 
 function header(event: EmceeScriptEvent): string[] {
-  const couple = event.displayName?.trim() || 'The Wedding';
+  const couple = event.displayName?.trim() || event.untitledName || 'The Event';
   const lines = [
     '═══════════════════════════════════════════',
     `  EMCEE / HOST SCRIPT — ${couple}`,

@@ -965,7 +965,7 @@ function PaymentsList({
                     title="Approve this payment?"
                     confirmLabel="Approve · matched"
                     destructive={false}
-                    message="This marks the payment matched (and, if checked, the order paid) — it issues the receipt, unlocks the couple's purchase, and releases the vendor payout. Approve only after you've confirmed the transfer in the bank/GCash inbox."
+                    message="This marks the payment matched (and, if checked, the order paid) — it issues the receipt, unlocks the couple's purchase, and releases the supplier payout. Approve only after you've confirmed the transfer in the bank/GCash inbox."
                     className="space-y-2"
                   >
                     <input type="hidden" name="payment_id" value={p.payment_id} />

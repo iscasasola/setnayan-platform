@@ -9,6 +9,11 @@
 // deploy's caches. Result: returning PWA users never get stranded on the
 // previous build's shell/JS after a deploy.
 //
+// The one cache this does NOT evict is sw.js's IMMUTABLE_CACHE (Next's
+// content-hashed /_next/static/chunks|css|media/ files), whose name carries no
+// VERSION on purpose: an unchanged file keeps its hashed name across deploys,
+// so the phone keeps it (DECISION_LOG 2026-10-02 "…AND STAYS ON THE PHONE").
+//
 // Runs from apps/web (wired into `package.json` "build" before `next build`,
 // so the stamped file is the one `next build` copies into the output).
 //

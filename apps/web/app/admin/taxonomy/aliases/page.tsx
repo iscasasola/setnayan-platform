@@ -4,6 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { KpiStatCard } from '../../_components/kpi-stat-card';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../../_components/read-failed';
 import { approveTradeAlias, rejectTradeAlias, unteachTradeAlias } from './actions';
 
 export const metadata = { title: 'Trade aliases · Admin' };
@@ -60,17 +62,24 @@ export default async function TradeAliasesPage({
   ]);
 
   type Row = { id: number; phrase: string; canonical_service: string; source: string; created_at: string };
+  const pendingUnread = Boolean(pendingRes.error);
+  if (pendingRes.error) logQueryError('AdminTaxonomyAliasesPage (pending)', pendingRes.error);
   const pending = (pendingRes.data ?? []) as Row[];
   const reviewedCount = reviewedCountRes.count ?? 0;
 
   let reviewed: Row[] = [];
+  let reviewedUnread = false;
   if (tab === 'reviewed') {
-    const { data } = await admin
+    const { data, error: reviewedError } = await admin
       .from('canonical_service_aliases')
       .select('id,phrase,canonical_service,source,created_at')
       .not('reviewed_at', 'is', null)
       .order('canonical_service', { ascending: true })
       .limit(500);
+    if (reviewedError) {
+      logQueryError('AdminTaxonomyAliasesPage (reviewed)', reviewedError);
+      reviewedUnread = true;
+    }
     reviewed = (data ?? []) as Row[];
   }
 
@@ -157,13 +166,15 @@ export default async function TradeAliasesPage({
         />
       </form>
 
-      {groups.length === 0 ? (
+      {(tab === 'reviewed' ? reviewedUnread : pendingUnread) ? (
+        <ReadFailed what="the aliases" />
+      ) : groups.length === 0 ? (
         <p className="rounded-lg border border-dashed border-ink/15 px-4 py-8 text-center text-sm text-ink/50">
           {tab === 'reviewed'
             ? 'No reviewed aliases yet.'
             : q
               ? 'Nothing waiting for review matches that filter.'
-              : 'Nothing waiting for review. From the code repo, run \'pnpm -F @setnayan/web exec tsx scripts/seed-trade-aliases.ts\' to mine more words from what we already know about each trade.'}
+              : 'Nothing waiting for review. New words to review appear here as they are found.'}
         </p>
       ) : (
         <ul className="space-y-3">

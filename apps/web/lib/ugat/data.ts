@@ -115,6 +115,12 @@ export interface UgatCounts {
    * "how many people hold access"; for that, count distinct subjects.
    */
   colourgrant: number;
+  /**
+   * Wedding March: every walk row — one per person placed in a march, across
+   * every event. Not "how many walks"; for that, count distinct (event_id,
+   * walk_no).
+   */
+  march: number;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
     vendorTotalOrgs: number;
@@ -222,6 +228,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     signoffRows,
     colourGrantRows,
     colourGrantHostRows,
+    marchRows,
   ] = await Promise.all([
     headCount(admin, 'users'),
     headCount(admin, 'events'),
@@ -299,6 +306,8 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     // that no longer stands.
     headCount(admin, 'event_colour_grants', (q) => q.eq('is_active', true)),
     headCount(admin, 'event_colour_grants_coordinator', (q) => q.eq('is_active', true)),
+    // Wedding March: every person placed in a march (one row each).
+    headCount(admin, 'march_walks'),
   ]);
 
   return {
@@ -327,6 +336,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     gallery: libraryRows,
     signoff: signoffRows,
     colourgrant: colourGrantRows + colourGrantHostRows,
+    march: marchRows,
     detail: {
       vendorTotalOrgs: vendorsTotal,
       billingActiveSubs: activeSubs,
@@ -415,11 +425,11 @@ const TABLE_COLUMNS: Record<UgatTableKey, string[]> = {
   users: ['Name', 'Type', 'Created'],
   events: ['Event', 'Type', 'Date', 'Members'],
   guests: ['Event', 'Invited', 'RSVP’d', 'Declined', 'Pending'],
-  vendors: ['Vendor', 'Tier', 'Verification'],
-  services: ['Service card', 'Vendor', 'Category leaf'],
+  vendors: ['Supplier', 'Tier', 'Verification'],
+  services: ['Service card', 'Supplier', 'Category leaf'],
   orders: ['Reference', 'Service key', 'Status', 'Amount'],
-  threads: ['Event × Vendor', 'Status', 'Last activity'],
-  billing: ['Vendor', 'Kind', 'Detail'],
+  threads: ['Event × Supplier', 'Status', 'Last activity'],
+  billing: ['Supplier', 'Kind', 'Detail'],
   // "Members" is a TALLY column, never a roster — see the communities case.
   communities: ['Group', 'Kind', 'Members'],
 };
@@ -614,14 +624,14 @@ async function loadUgatTableInner(
         base.rows = (data ?? []).map((v: any) => ({
           id: v.public_id ?? v.vendor_profile_id,
           type: 'vendor' as const,
-          name: v.business_name || v.public_id || 'Vendor',
+          name: v.business_name || v.public_id || 'Supplier',
           href: ugatRecordHref({ kind: 'vendor', vendorProfileId: v.vendor_profile_id }),
           status: [
             v.verification_state ?? 'unverified',
             statusTone(v.verification_state ?? 'unverified'),
           ] as [string, 'ok' | 'wait' | 'neutral' | 'report'],
           cells: [
-            v.business_name || v.public_id || 'Vendor',
+            v.business_name || v.public_id || 'Supplier',
             v.tier_state ?? '—',
             v.verification_state ?? 'unverified',
           ],
@@ -726,11 +736,11 @@ async function loadUgatTableInner(
             .select('vendor_profile_id, business_name, public_id')
             .in('vendor_profile_id', vendorIds);
           for (const v of vs ?? [])
-            vendorNames.set(v.vendor_profile_id, v.business_name || v.public_id || 'Vendor');
+            vendorNames.set(v.vendor_profile_id, v.business_name || v.public_id || 'Supplier');
         }
         base.rows = (data ?? []).map((t: any) => {
           const ev = eventNames.get(t.event_id) ?? 'Event';
-          const vn = vendorNames.get(t.vendor_profile_id) ?? 'Vendor';
+          const vn = vendorNames.get(t.vendor_profile_id) ?? 'Supplier';
           return {
             id: t.public_id ?? t.thread_id,
             type: 'thread' as const,
@@ -764,19 +774,19 @@ async function loadUgatTableInner(
             .select('vendor_profile_id, business_name, public_id')
             .in('vendor_profile_id', vids);
           for (const v of vs ?? [])
-            vendorNames.set(v.vendor_profile_id, v.business_name || v.public_id || 'Vendor');
+            vendorNames.set(v.vendor_profile_id, v.business_name || v.public_id || 'Supplier');
         }
         base.rows = (data ?? []).map((s: any) => ({
           id: s.purchase_id,
           type: 'billing' as const,
-          name: vendorNames.get(s.vendor_id) ?? 'Vendor',
+          name: vendorNames.get(s.vendor_id) ?? 'Supplier',
           href: '/admin/subscriptions',
           status: [s.status ?? '—', statusTone(s.status ?? '—')] as [
             string,
             'ok' | 'wait' | 'neutral' | 'report',
           ],
           cells: [
-            vendorNames.get(s.vendor_id) ?? 'Vendor',
+            vendorNames.get(s.vendor_id) ?? 'Supplier',
             `Subscription · ${s.tier ?? '—'}`,
             `${fmtPeso(s.amount_php)} · ${s.billing_cycle ?? '—'}`,
           ],
@@ -983,13 +993,13 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
     .map((v) => ({
       id: v.public_id ?? v.vendor_profile_id,
       type: 'vendor' as const,
-      title: v.business_name || v.public_id || 'Vendor',
+      title: v.business_name || v.public_id || 'Supplier',
       sub: v.business_slug ? `/${v.business_slug}` : (v.public_id ?? ''),
       href: ugatRecordHref({ kind: 'vendor', vendorProfileId: v.vendor_profile_id }),
       score: scoreUgatMatch(v.business_name ?? v.business_slug ?? '', q),
     }))
     .sort((a, b) => b.score - a.score);
-  if (vendorHits.length) groups.push({ category: 'Vendors', hits: vendorHits });
+  if (vendorHits.length) groups.push({ category: 'Suppliers', hits: vendorHits });
 
   const eventHits: UgatSearchHit[] = (events as any[])
     .map((e) => ({
@@ -1111,7 +1121,7 @@ async function runSavedSearchInner(
           .eq('status', 'active');
         return {
           key,
-          question: 'Vendors with an active subscription',
+          question: 'Suppliers with an active subscription',
           table: 'billing',
           count: count ?? 0,
           summary: `${formatCount(count ?? 0)} active subscription${(count ?? 0) === 1 ? '' : 's'} — opening the Billing table.`,
@@ -1164,7 +1174,7 @@ export const UGAT_SAVED_SEARCHES: Array<{
   question: string;
   table: UgatTableKey;
 }> = [
-  { key: 'vendors-active-sub', question: 'Vendors with an active subscription', table: 'billing' },
+  { key: 'vendors-active-sub', question: 'Suppliers with an active subscription', table: 'billing' },
   { key: 'orders-pending', question: 'Orders pending payment', table: 'orders' },
   { key: 'events-this-week', question: 'Events created this week', table: 'events' },
 ];

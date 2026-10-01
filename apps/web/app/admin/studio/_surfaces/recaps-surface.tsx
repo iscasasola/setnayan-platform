@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ExternalLink, Globe } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../../_components/read-failed';
 import { UNNAMED_EDITORIAL_LABEL } from '@/lib/editorial-event-types';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { adminTakedownRecap } from '@/app/admin/recaps/actions';
@@ -30,21 +32,23 @@ export async function RecapsSurface({
 }) {
   const admin = createAdminClient();
 
-  const { data: recapRows } = await admin
+  const { data: recapRows, error: recapError } = await admin
     .from('event_recaps')
     .select('event_id, published_at')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
     .limit(500);
+  if (recapError) logQueryError('RecapsSurface (event_recaps)', recapError);
   const recaps = recapRows ?? [];
 
   const eventIds = recaps.map((r) => r.event_id as string);
-  const { data: evRows } = eventIds.length
+  const { data: evRows, error: evError } = eventIds.length
     ? await admin
         .from('events')
         .select('event_id, slug, display_name, event_date, venue_name')
         .in('event_id', eventIds)
-    : { data: [] as Array<Record<string, unknown>> };
+    : { data: [] as Array<Record<string, unknown>>, error: null };
+  if (evError) logQueryError('RecapsSurface (events)', evError);
   const evById = new Map((evRows ?? []).map((e) => [e.event_id as string, e]));
 
   const rows = recaps
@@ -75,7 +79,10 @@ export async function RecapsSurface({
         </p>
       ) : null}
 
-      {rows.length === 0 ? (
+      {recapError || evError ? (
+        // A refused read is not "No published recaps yet" — public pages could be live.
+        <ReadFailed what="the published recaps" />
+      ) : rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
           <Globe aria-hidden className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-3 text-sm font-medium text-ink">No published recaps yet.</p>

@@ -406,6 +406,21 @@ export async function submitRsvp(
     redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=choose` : '/');
   }
 
+  // 📱 A NUMBER THE COUPLE ASKS FOR IS ASKED OF SOMEBODY WHO IS COMING — AND
+  // ASKED IN THE REPLY, NOT ON A SECOND SCREEN (owner walk-through 2026-10-01: the
+  // sheet showed Mobile with no mark, Save succeeded, and the guest was then
+  // bounced to /invite/reply "One more thing" — `rsvpGate` had been waiting for
+  // the number all along). The box now carries `required` for a yes
+  // (rsvp-widget.tsx), and THIS is the half a crafted post, a no-script phone or a
+  // client-side navigation cannot skip: nothing is saved, and the guest comes back
+  // to the form with the sentence. A decline is never asked for one (`rsvpGate`:
+  // "a decline must not go on to ask for the rest"), and a closed list — where the
+  // gate never closes — takes no new requirement.
+  if (!replyLocked && status === 'attending' && ask.mobile && !contactMobile) {
+    if (toInvite && evRsvp?.slug) redirect(`${inviteReplyPath(evRsvp.slug)}?rsvp=mobile`);
+    redirect(evRsvp?.slug ? `/${evRsvp.slug}?rsvp=mobile` : '/');
+  }
+
   let answerRefused = false;
   if (replyLocked && RSVP_VALUES.includes(status)) {
     answerRefused = Boolean(before) && before!.rsvp_status !== status;

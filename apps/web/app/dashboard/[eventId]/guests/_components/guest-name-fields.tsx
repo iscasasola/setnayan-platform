@@ -51,9 +51,13 @@ export type NamePoolGuest = {
 export function GuestNameFields({
   eventId,
   pool,
+  hasSides = true,
 }: {
   eventId: string;
   pool: NamePoolGuest[];
+  /** False on a sideless event (`eventHasSides`): a possible-duplicate row
+   *  names the role only, never "Both sides". */
+  hasSides?: boolean;
 }) {
   // The couple's own words for roles (owner 2026-09-30).
   const roleNames = useRoleNames();
@@ -202,8 +206,7 @@ export function GuestNameFields({
                 </span>
                 <span className="block truncate text-[11px] text-ink/55">
                   {[g.role, ...g.extra_roles].map((r) => guestRoleLabel(r, roleNames)).join(' · ')}
-                  {' · '}
-                  {SIDE_LABELS[g.side]}
+                  {hasSides ? ` · ${SIDE_LABELS[g.side]}` : null}
                 </span>
               </span>
               <span

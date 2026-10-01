@@ -311,6 +311,27 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
     lands in the gated one, or stops being emitted.
   */
   'booking_fee_waived',
+  /*
+    🗓 THE CLASHING-DATE FLOW (owner 2026-10-01 "A CLASHING DATE GOES TO THE
+    SUPPLIER IN CONFLICT"; Q8 2026-10-02) — `lib/date-change.server.ts`.
+
+    🔑 THE NOTIFICATION AND THIS LINE ARE TWO HALVES OF ONE MECHANISM. The
+    supplier has THREE DAYS to answer before the couple may release their
+    booking; a supplier who is not opening the dashboard is exactly who an
+    in-app badge never reaches. The couple waits on each answer to move their
+    own date; a withdrawn ask removes a card the supplier may be about to
+    press; and a date that moved is a booking that moved.
+    `the-date-change-reaches-the-supplier.test.ts` fails if any of the four
+    drops off this set or lands in MARKETING_GATED_EMAIL_TYPES below.
+
+    ⚠ Deliberately NOT in MARKETING_GATED_EMAIL_TYPES: that set suppresses
+    unless users.marketing_opt_in = TRUE (NOT NULL DEFAULT FALSE) — the mistake
+    that silenced all six lock_request_* types for every user.
+  */
+  'date_change_requested',
+  'date_change_answered',
+  'date_change_closed',
+  'date_moved',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

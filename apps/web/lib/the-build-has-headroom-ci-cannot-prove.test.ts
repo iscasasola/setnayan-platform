@@ -177,6 +177,23 @@ test('source maps are built only when Sentry can upload them', () => {
   );
 });
 
+test('no debug-ID snippet is shipped to phones while no map is uploaded', () => {
+  // The diet (2026-10-01): the Sentry plugin prepends a `_sentryDebugIds` UUID
+  // snippet to every browser chunk unless ITS OWN `sourcemaps.disable` is set —
+  // the withSentryConfig `sourcemaps.disable` above only empties the upload
+  // list. Measured: 7,488 B gz of the Maker's first load, 887 B gz of the
+  // shared bundle, paid by every phone for an ID nothing ever reads.
+  const src = readFileSync(join(process.cwd(), 'next.config.ts'), 'utf8');
+  const gate = /\.\.\.\(sentrySourcemapsCanUpload\(process\.env\)\s*\?\s*\{\}\s*:\s*\{\s*unstable_sentryWebpackPluginOptions:\s*\{\s*sourcemaps:\s*\{\s*disable:\s*true\s*\}\s*\}\s*\}\s*\)/;
+  assert.match(
+    src,
+    gate,
+    'next.config.ts must pass unstable_sentryWebpackPluginOptions.sourcemaps.disable = true ' +
+      'ONLY while sentrySourcemapsCanUpload() is false. Always-on would strip the debug IDs ' +
+      'uploaded maps need; never-on ships a UUID snippet in every chunk for nothing.',
+  );
+});
+
 test('typecheck keeps its own ceiling — it is a separate process', () => {
   const pkg = JSON.parse(
     readFileSync(join(process.cwd(), 'package.json'), 'utf8'),

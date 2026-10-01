@@ -48,6 +48,12 @@ export type MakerNavigatorData = {
   /** The theme's page ground / ink / accent, for tiles with no ground of their own. */
   tint: { canvas: string; ink: string; accent: string };
   /**
+   * 📖 Does this event type have an "Our Love Story" page at all? False for a
+   * type with no two named people (`resolveWeddingOnlyParts` love_story) — a
+   * birthday's Page ▾ never offers it, as its guest bar never does.
+   */
+  hasStory: boolean;
+  /**
    * 📖 POST EVENT (Maker Phase 8) — when the story was written, or that its
    * scenes could not be read (then the one "story after the day" tile stands
    * in, and the navigator SAYS the list is unavailable). Null before the day.
@@ -204,6 +210,7 @@ export function buildMakerNavigatorData(input: {
   }
 
   return {
+    hasStory: input.plan.weddingOnlyParts?.love_story !== false,
     postEvent: pe
       ? {
           generatedAt: pe.generatedAt,

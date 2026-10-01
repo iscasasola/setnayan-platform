@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6559
+# facts: 6594
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     565
-#   col       4791
-#   policy    940
+#   tpriv     568
+#   col       4818
+#   policy    944
 #   view      8
-#   func      251
+#   func      252
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -123,6 +123,8 @@ tpriv	public.event_colour_changes|authenticated	S
 tpriv	public.event_colour_grants_coordinator|authenticated	S
 tpriv	public.event_colour_grants|authenticated	S
 tpriv	public.event_costs|authenticated	SIUD
+tpriv	public.event_date_change_answers|authenticated	S
+tpriv	public.event_date_change_requests|authenticated	S
 tpriv	public.event_day_requests|authenticated	SIU
 tpriv	public.event_editorial|authenticated	SIUD
 tpriv	public.event_egift_methods|anon	SIUD
@@ -266,6 +268,7 @@ tpriv	public.live_studio_roam_zones|anon	SIUD
 tpriv	public.live_studio_roam_zones|authenticated	SIUD
 tpriv	public.manpower_gigs|authenticated	SIUD
 tpriv	public.manual_payment_logs|authenticated	SIUD
+tpriv	public.march_walks|authenticated	SIUD
 tpriv	public.market_funnel_bands|authenticated	SIUD
 tpriv	public.market_price_bands|anon	SIUD
 tpriv	public.market_price_bands|authenticated	SIUD
@@ -1342,6 +1345,27 @@ col	public.event_costs.note	anon=- authenticated=SIU
 col	public.event_costs.paid_php	anon=- authenticated=SIU
 col	public.event_costs.plan_group_id	anon=- authenticated=SIU
 col	public.event_costs.updated_at	anon=- authenticated=SIU
+col	public.event_date_change_answers.answer	anon=- authenticated=S
+col	public.event_date_change_answers.answered_at	anon=- authenticated=S
+col	public.event_date_change_answers.answered_by_user_id	anon=- authenticated=S
+col	public.event_date_change_answers.created_at	anon=- authenticated=S
+col	public.event_date_change_answers.due_at	anon=- authenticated=S
+col	public.event_date_change_answers.event_id	anon=- authenticated=S
+col	public.event_date_change_answers.event_vendor_id	anon=- authenticated=S
+col	public.event_date_change_answers.money_flag_id	anon=- authenticated=S
+col	public.event_date_change_answers.request_id	anon=- authenticated=S
+col	public.event_date_change_answers.vendor_profile_id	anon=- authenticated=S
+col	public.event_date_change_requests.asked_at	anon=- authenticated=S
+col	public.event_date_change_requests.asked_by_user_id	anon=- authenticated=S
+col	public.event_date_change_requests.closed_at	anon=- authenticated=S
+col	public.event_date_change_requests.event_id	anon=- authenticated=S
+col	public.event_date_change_requests.from_date	anon=- authenticated=S
+col	public.event_date_change_requests.from_precision	anon=- authenticated=S
+col	public.event_date_change_requests.proposed_date	anon=- authenticated=S
+col	public.event_date_change_requests.proposed_precision	anon=- authenticated=S
+col	public.event_date_change_requests.request_id	anon=- authenticated=S
+col	public.event_date_change_requests.state	anon=- authenticated=S
+col	public.event_date_change_requests.updated_at	anon=- authenticated=S
 col	public.event_day_requests.author_user_id	anon=- authenticated=SIU
 col	public.event_day_requests.author_vendor_profile_id	anon=- authenticated=SIU
 col	public.event_day_requests.body	anon=- authenticated=SIU
@@ -2686,6 +2710,12 @@ col	public.manual_payment_logs.id	anon=- authenticated=SIU
 col	public.manual_payment_logs.items_ordered	anon=- authenticated=SIU
 col	public.manual_payment_logs.payment_status	anon=- authenticated=SIU
 col	public.manual_payment_logs.reference_number	anon=- authenticated=SIU
+col	public.march_walks.created_at	anon=- authenticated=SIU
+col	public.march_walks.event_id	anon=- authenticated=SIU
+col	public.march_walks.guest_id	anon=- authenticated=SIU
+col	public.march_walks.place_in_walk	anon=- authenticated=SIU
+col	public.march_walks.updated_at	anon=- authenticated=SIU
+col	public.march_walks.walk_no	anon=- authenticated=SIU
 col	public.market_funnel_bands.category	anon=- authenticated=SIU
 col	public.market_funnel_bands.computed_at	anon=- authenticated=SIU
 col	public.market_funnel_bands.conversion_p25	anon=- authenticated=SIU
@@ -5558,6 +5588,8 @@ policy	public.event_colour_grants|event_colour_grants_vendor_read	mode=PERMISSIV
 policy	public.event_costs|event_costs_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
 policy	public.event_costs|event_costs_couple_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids))
 policy	public.event_costs|event_costs_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'budget'::text) = ANY (ARRAY['view'::text, 'edit'::text])) check=NULL
+policy	public.event_date_change_answers|event_date_change_answers_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR is_admin()) check=NULL
+policy	public.event_date_change_requests|event_date_change_requests_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (request_id IN ( SELECT a.request_id FROM event_date_change_answers a)) OR is_admin()) check=NULL
 policy	public.event_day_requests|event_day_requests_coordinator_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((author_user_id = auth.uid()) AND (origin = 'coordinator'::day_request_origin) AND (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)))
 policy	public.event_day_requests|event_day_requests_event_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((author_user_id = auth.uid()) AND (origin = ANY (ARRAY['couple'::day_request_origin, 'host'::day_request_origin, 'coordinator'::day_request_origin])) AND ((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) = 'edit'::text)))
 policy	public.event_day_requests|event_day_requests_event_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_event_ids() AS current_event_ids)) OR (event_id IN ( SELECT current_coordinator_booked_event_ids() AS current_coordinator_booked_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) IS NOT NULL) OR is_admin()) check=NULL
@@ -5822,6 +5854,8 @@ policy	public.manpower_gigs|manpower_gigs_host_posts_open	mode=PERMISSIVE cmd=IN
 policy	public.manpower_gigs|manpower_gigs_host_reads_own_event	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) check=NULL
 policy	public.manpower_gigs|manpower_gigs_team_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.manpower_gigs|manpower_gigs_vendor_reads_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) check=NULL
+policy	public.march_walks|march_walks_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin() OR (moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin() OR (moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text))
+policy	public.march_walks|march_walks_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'guest_list'::text) IS NOT NULL) check=NULL
 policy	public.market_price_bands|market_price_bands_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.is_internal OR u.is_team_member OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.is_internal OR u.is_team_member OR (u.account_type = 'admin'::account_type)))))
 policy	public.market_price_bands|market_price_bands_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(auth.uid() IS NOT NULL) check=NULL
 policy	public.marketing_share_consents|marketing_share_consents_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=is_admin() check=is_admin()
@@ -6343,9 +6377,11 @@ func	public.admin_market_analytics()	secdef=yes exec=authenticated search_path=p
 func	public.advance_schedule_block(p_block_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.agent_assigned_service_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.agent_customer_event_ids()	secdef=yes exec=anon,authenticated search_path=public
+func	public.answer_event_date_change(p_event_vendor_id uuid, p_answer text)	secdef=yes exec=authenticated search_path=public
 func	public.answer_incoming_request(p_guest_id uuid, p_yes boolean)	secdef=yes exec=authenticated search_path=public
 func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind text, p_target_key text, p_target_index smallint, p_new_value text)	secdef=yes exec=authenticated search_path=public
 func	public.approve_vendor_subscription(p_purchase_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
+func	public.ask_event_date_change(p_event_id uuid, p_date date, p_precision text, p_event_vendor_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.assert_seating_lock_held(p_event_id uuid, p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.booking_fee_centavos(p_amount_centavos bigint)	secdef=no exec=anon,authenticated search_path=public
 func	public.booking_fee_free_window_active(p_at timestamp with time zone)	secdef=no exec=anon,authenticated search_path=public
@@ -6360,7 +6396,6 @@ func	public.cancel_vendor_lock_request(p_event_vendor_id uuid)	secdef=yes exec=a
 func	public.cancel_vendor_plan_change()	secdef=yes exec=authenticated search_path=""
 func	public.claim_anon_mint_slot(p_ip_hash text, p_max integer, p_window_seconds integer)	secdef=yes exec=anon,authenticated search_path=pg_catalog, public
 func	public.claim_manpower_gig(p_gig_id uuid)	secdef=yes exec=authenticated search_path=public
-func	public.clear_entourage_order(p_event_id uuid, p_guest_ids uuid[])	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.clear_vendor_payment_plan(p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.cluster_guest_roster(p_event_cluster_id uuid)	secdef=no exec=authenticated search_path=public
 func	public.cluster_timeline(p_event_cluster_id uuid)	secdef=no exec=authenticated search_path=public
@@ -6450,7 +6485,6 @@ func	public.moodboard_set_render_featured(p_render_id uuid, p_featured boolean)	
 func	public.moodboard_set_render_reuse_blocked(p_render_id uuid, p_blocked boolean)	secdef=yes exec=authenticated search_path=public
 func	public.moodboard_set_share_consent(p_event_id uuid, p_consented boolean)	secdef=yes exec=authenticated search_path=public
 func	public.offer_creator_reach_hold(p_vendor_profile_id uuid, p_creator_user_id uuid, p_creator_rate_terms text, p_audience_rate_terms text, p_reach_tokens integer, p_expires_at timestamp with time zone)	secdef=yes exec=anon,authenticated search_path=public
-func	public.pair_guests(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.panood_camera_heartbeat(p_token text)	secdef=yes exec=anon,authenticated search_path=public, pg_temp
 func	public.panood_claim_camera(p_token text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.panood_rtc_can_access(p_topic text)	secdef=yes exec=authenticated search_path=public, pg_temp
@@ -6513,6 +6547,7 @@ func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, 
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.set_vendor_colour_access(p_event_id uuid, p_vendor_id uuid, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.setnayan_ai_price_tier(p_event_type text)	secdef=no exec=anon,authenticated search_path=public
+func	public.settle_event_date_change(p_request_id uuid, p_action text, p_event_vendor_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_deposit_dispute(p_event_vendor_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.settle_vendor_payment_dispute(p_payment_id uuid, p_outcome text, p_note text)	secdef=yes exec=authenticated search_path=public
 func	public.story_dial_bucket_counts(p_event_id uuid, p_window_start timestamp with time zone, p_window_end timestamp with time zone, p_bucket_minutes integer)	secdef=no exec=authenticated search_path=public

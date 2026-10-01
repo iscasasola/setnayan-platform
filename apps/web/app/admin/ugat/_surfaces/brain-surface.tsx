@@ -101,7 +101,7 @@ const TOPIC_FILES: Array<{ filename: string; label: string; tagline: string }> =
   },
   {
     filename: '07_Vendor_Decision_Logic.md',
-    label: '07 · Vendor Decision Logic',
+    label: '07 · Supplier Decision Logic',
     tagline: 'Book-first order · category dependencies · price-vs-tier guidance',
   },
   {
@@ -248,7 +248,7 @@ export async function BrainSurface() {
           role="alert"
           className="mb-6 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          Brain chunks couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
+          Brain chunks couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
         </p>
       ) : null}
 

@@ -6,8 +6,9 @@ import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { stripComments } from '@/lib/strip-comments';
 import { PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
-import { DETAILS_FIRST_PRINT, PRINTS_ITEM_KEYS, isPrintsItem } from '@/lib/maker-details-items';
-import { MAKER_BAR, makerOpenTool, makerPlacePick, makerPrintsDoor } from './maker-bar';
+import { DETAILS_FIRST_ITEM, DETAILS_FIRST_PRINT, PRINTS_ITEM_KEYS, isPrintsItem } from '@/lib/maker-details-items';
+import type { DetailsItemKey } from '@/lib/maker-details-items';
+import { MAKER_BAR, makerDetailsDoor, makerOpenTool, makerPlacePick, makerPressDoor, makerPrintsDoor } from './maker-bar';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -73,7 +74,32 @@ test('by source: the shell highlights one of the two, and pressing Prints opens 
   const shell = src('maker-shell.tsx');
   assert.match(shell, /const openTool = makerOpenTool\(selectedTool, detailsItem\)/);
   assert.match(shell, /: openTool === item\.key;/);
-  assert.match(shell, /if \(item\.key === 'prints'\) \{\s*if \(hasWork\) \{\s*setDetailsItem\(makerPrintsDoor\(detailsItem\)\);\s*select\(\{ kind: 'tool', key: 'details' \}\);/);
+  assert.match(shell, /if \(item\.key === 'prints' \|\| item\.key === 'details'\) \{\s*if \(hasWork\) \{\s*setDetailsItem\(makerPressDoor\(\{ detailsItem \}, item\.key\)\.detailsItem\);\s*select\(\{ kind: 'tool', key: 'details' \}\);/);
   // No second Prints page: the selection union never grew a 'prints' tool.
   assert.doesNotMatch(src('maker-context.tsx'), /'prints'/);
+});
+
+test('pressing Prints, then Details, moves the highlight to Details and opens a non-print item', () => {
+  // The shell's pressBar runs `makerPressDoor` for both doors; drive the same reducer through the sequence.
+  let state: { detailsItem: DetailsItemKey | null; selectedTool: string | null } = { detailsItem: null, selectedTool: null };
+  const press = (key: 'details' | 'prints') => {
+    state = makerPressDoor(state, key);
+  };
+  press('prints');
+  assert.equal(state.detailsItem, DETAILS_FIRST_PRINT);
+  assert.equal(makerOpenTool(state.selectedTool, state.detailsItem), 'prints');
+  press('details');
+  assert.equal(makerOpenTool(state.selectedTool, state.detailsItem), 'details', 'Details looks dead after Prints');
+  assert.equal(isPrintsItem(state.detailsItem), false);
+  assert.equal(state.detailsItem, DETAILS_FIRST_ITEM, 'a fresh press of Details opens this item');
+  // …and Prints again re-opens a print.
+  press('prints');
+  assert.equal(makerOpenTool(state.selectedTool, state.detailsItem), 'prints');
+  // From any print, Details lands off the prints; a non-print item the couple is on is kept.
+  for (const k of PRINTS_ITEM_KEYS) assert.equal(isPrintsItem(makerDetailsDoor(k)), false, k);
+  assert.equal(makerDetailsDoor('hero'), 'hero');
+  assert.equal(makerDetailsDoor(null), DETAILS_FIRST_ITEM);
+  // The phone's picker names Details, not Prints, after that press.
+  press('details');
+  assert.equal(makerPlacePick({ stage: 'rsvp', liveStage: null, openTool: state.selectedTool, detailsItem: state.detailsItem, hasWork: true }).value, 'details');
 });

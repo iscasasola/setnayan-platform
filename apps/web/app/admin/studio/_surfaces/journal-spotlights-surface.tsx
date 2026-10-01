@@ -160,9 +160,9 @@ export async function JournalSpotlightsSurface({
 
       {/* Attach form */}
       <section className="mb-8 sn-tile p-5">
-        <h2 className="text-base font-semibold text-ink">Credit a vendor in an article</h2>
+        <h2 className="text-base font-semibold text-ink">Credit a supplier in an article</h2>
         <p className="mt-1 text-sm text-ink/60">
-          Pick a Journal article and paste the vendor&rsquo;s profile ID. The
+          Pick a Journal article and paste the supplier&rsquo;s profile ID. The
           credit starts as a draft (hidden) until approved.
         </p>
         <form
@@ -188,7 +188,7 @@ export async function JournalSpotlightsSurface({
             </select>
           </label>
           <label className="text-sm">
-            <span className="mb-1 block font-medium text-ink/80">Vendor profile ID</span>
+            <span className="mb-1 block font-medium text-ink/80">Supplier profile ID</span>
             <input
               name="vendor_profile_id"
               required
@@ -234,7 +234,7 @@ export async function JournalSpotlightsSurface({
           Drafts · awaiting approval ({drafts.length})
         </h2>
         {drafts.length === 0 ? (
-          <EmptyRow text="No drafts. Credit a vendor above to get started." />
+          <EmptyRow text="No drafts. Credit a supplier above to get started." />
         ) : (
           <ul className="space-y-3">
             {drafts.map((r) => (
@@ -316,7 +316,7 @@ function SpotlightRow({
         )}
         <div className="min-w-0">
           <p className="truncate font-medium text-ink">
-            {row.business_name ?? 'Unnamed vendor'}
+            {row.business_name ?? 'Unnamed supplier'}
           </p>
           <p className="mt-0.5 truncate text-xs text-ink/55">
             in “{article?.title ?? row.blog_slug}”

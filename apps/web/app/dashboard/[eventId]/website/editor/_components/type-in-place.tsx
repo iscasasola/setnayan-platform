@@ -17,7 +17,7 @@ import type { ElementDraftAction } from './element-sheet';
 import type { TypeStart } from '@/lib/hub-part-words';
 import { typedDisplayName } from '@/lib/typed-names';
 import { nameStyleChoicesFor, type NameParts, type NameStyle } from '@/lib/name-style';
-import { saveNameStyle } from '@/lib/name-style-save';
+import { nameStyleDraftPatch } from '@/lib/name-style-save';
 
 /**
  * ✍ THE TYPE BAR — the small floating bar over the words being typed (Maker
@@ -57,8 +57,9 @@ import { saveNameStyle } from '@/lib/name-style-save';
  * way — so guests read them only at Apply, and Undo takes them back. Their
  * Wording ▾ is the event's Name style (Full · Middle initial · Surname first),
  * each written in the couple's OWN name (`nameStyleChoicesFor`) — the ONE
- * setting the prints read, saved through the prints' own door
- * (`saveNameStyle`), never a second.
+ * setting the prints read, and a pick goes into the SAME draft
+ * (`nameStyleDraftPatch`; owner 2026-10-01, "in event hub maker will only take
+ * effect when pressed apply"), written to the prints' setting at Apply.
  */
 type TypeSession = TypeStart;
 /** The draft save every change the bar makes goes through — the hero's canvas, or the names. */
@@ -71,6 +72,8 @@ async function saveDraft(draftAction: ElementDraftAction, eventId: string, patch
 }
 /** The names' own queue key — a burst of letters is ONE write, the latest. */
 const NAMES_WRITE_KEY = 'event:display_name';
+/** …and the Name style's — two quick picks are ONE write, the latest. */
+const NAME_STYLE_WRITE_KEY = 'event:name-style';
 
 export type TypeBarProps = {
   eventId: string;
@@ -322,8 +325,9 @@ export function TypeBar(p: TypeBarProps) {
   const formats = formatChoices(el, session);
 
   /* 🔤 THE NAMES' WORDING ▾ — the event's Name style, the three choices only,
-     each in the couple's own name. Shown at once; saved through the prints'
-     door; a refusal puts back the last saved style (only for the latest pick). */
+     each in the couple's own name. Shown at once; held in the DRAFT (guests and
+     the prints read it at Apply); a refusal puts back the last saved style
+     (only for the latest pick). */
   const nameChoices = el === 'names' && p.names ? nameStyleChoicesFor(p.names.person) : [];
   const [nameStyle, setNameStyle] = useState<NameStyle | null>(p.names?.style ?? null);
   const nameStyleSaved = useRef<NameStyle | null>(p.names?.style ?? null);
@@ -334,18 +338,22 @@ export function TypeBar(p: TypeBarProps) {
     nameStyleLatest.current = picked;
     setNameStyle(picked);
     setError(null);
-    void saveNameStyle(p.eventId, picked).then((ok) => {
-      if (ok) {
+    write(
+      NAME_STYLE_WRITE_KEY,
+      nameStyleDraftPatch(picked),
+      { messages: [], typedIn: null },
+      () => {
         nameStyleSaved.current = picked;
-        return;
-      }
-      if (nameStyleLatest.current !== picked) return;
-      nameStyleLatest.current = nameStyleSaved.current;
-      setNameStyle(nameStyleSaved.current);
-      const text = 'That name style did not save — please try again.';
-      setError(text);
-      announceMakerSave({ state: 'error', text });
-    });
+      },
+      () => {
+        if (nameStyleLatest.current !== picked) return;
+        nameStyleLatest.current = nameStyleSaved.current;
+        setNameStyle(nameStyleSaved.current);
+        const text = 'That name style did not save — please try again.';
+        setError(text);
+        announceMakerSave({ state: 'error', text });
+      },
+    );
   };
 
   const pickLine = (line: string) => {

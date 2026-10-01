@@ -130,7 +130,8 @@ test('2 · SOURCE: the dropdown is the navigator’s one control, and the list s
   const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
   assert.match(nav, /\{shownPage \? <MakerPagePick pages=\{guestPages\} value=\{shownPage\.key\} onPick=\{jumpToPage\} \/> : null\}/);
   assert.equal((nav.match(/<PickMenu\b|<MakerPagePick\b/g) ?? []).length, 1, 'one dropdown at the top of the navigator');
-  assert.match(SHELL, /const guestPages = makerGuestPages\(stage, list\.shown\.map\(\(t\) => t\.key\)\);/);
+  // + the profile's love_story part (P6a): a birthday's Page ▾ has no Our Love Story.
+  assert.match(SHELL, /const guestPages = makerGuestPages\(stage, list\.shown\.map\(\(t\) => t\.key\), navigator\.hasStory\);/);
   // The navigator's loop reads no page — nothing the dropdown picks can hide a tile.
   const loop = SHELL.slice(SHELL.indexOf('{list.shown.map((tile, i) => {'), SHELL.indexOf('data-maker-tile={tile.key}'));
   assert.ok(loop.length > 0, 'the navigator loop moved — re-anchor this test');

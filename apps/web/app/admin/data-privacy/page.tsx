@@ -9,7 +9,7 @@ import {
   summariseReviews,
 } from '@/lib/provisional-approval';
 import {
-  fetchDataPrivacyControls,
+  fetchDataPrivacyControlsMeasured,
   PRIVACY_CONTROL_GROUP_ORDER,
   PRIVACY_CONTROL_GROUP_LABEL,
   type PrivacyControlRow,
@@ -22,6 +22,7 @@ import { NpcChecklist } from './_components/npc-checklist';
 import { DeletionRunsPanel } from './_components/deletion-runs-panel';
 import { fetchPeriodicJobLedger } from '@/lib/periodic-job-health';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadFailed } from '../_components/read-failed';
 
 export const metadata = { title: 'Data Privacy & NPC Filing · Admin' };
 export const dynamic = 'force-dynamic';
@@ -85,7 +86,7 @@ export default async function DataPrivacyPage({
   const active: TabKey = (TABS.find((t) => t.key === tab)?.key ?? 'controls') as TabKey;
 
   const admin = createAdminClient();
-  const controls = await fetchDataPrivacyControls(admin);
+  const { ok: controlsOk, controls } = await fetchDataPrivacyControlsMeasured(admin);
   // Only read the job ledger for the tab that shows it — this page is
   // force-dynamic and the other four tabs have no use for it.
   const jobLedger = active === 'deletions' ? await fetchPeriodicJobLedger(admin) : null;
@@ -126,9 +127,15 @@ export default async function DataPrivacyPage({
         })}
       </nav>
 
-      {active === 'controls' ? <ControlsBoard controls={controls} /> : null}
+      {/* 🔑 On a refused read every control is the catalog default — "Off". A board
+          full of Off switches is a claim that nothing is protected. */}
+      {active === 'controls' ? (
+        controlsOk ? <ControlsBoard controls={controls} /> : <ReadFailed what="the privacy controls" />
+      ) : null}
 
-      {active === 'coverage' ? <CoveragePanel controls={controls} /> : null}
+      {active === 'coverage' ? (
+        controlsOk ? <CoveragePanel controls={controls} /> : <ReadFailed what="the privacy controls" />
+      ) : null}
 
       {active === 'deletions' && jobLedger ? <DeletionRunsPanel ledger={jobLedger} /> : null}
 

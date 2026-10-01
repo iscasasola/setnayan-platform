@@ -236,7 +236,7 @@ export function CancelBookingButton({
               <p>
                 We&rsquo;ll let{' '}
                 <strong className="font-medium text-ink">{vendorName}</strong>{' '}
-                know and your wedding date opens back up on their calendar.
+                know and your date opens back up on their calendar.
               </p>
               <p className="text-ink/65">
                 You can re-add them via the marketplace anytime if plans

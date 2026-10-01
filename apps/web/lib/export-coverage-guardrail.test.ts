@@ -182,6 +182,19 @@ function exportedTables(routeSrc: string): Set<string> {
  * exporting the row is itself unsafe. These are answers, not debt.
  */
 const DELIBERATE_EXCLUSIONS: Record<string, string> = {
+  // ── added 2026-10-02 with the tables themselves (the clashing-date flow) ──
+  event_date_change_requests:
+    'An EVENT\u2019s ask to its booked suppliers to move the date. Its only ' +
+    'subject-identifying column is `asked_by_user_id` — which partner pressed ' +
+    'the one confirm — and the row is about the event\u2019s date and its ' +
+    'bookings, not about that person: it says "move from X to Y" and goes on ' +
+    'saying so after either partner leaves. The couple see it in full on Home ' +
+    'while it is open. Erasure nulls the stamp (AUTHOR_UUID_NULLS).',
+  event_date_change_answers:
+    'Each booked SUPPLIER\u2019s answer to that ask (Move / Unlock), or the ' +
+    'couple\u2019s Drop after 3 days. `answered_by_user_id` is an actor stamp ' +
+    'on the BOOKING\u2019s record; the data subject is the shop and the event, ' +
+    'not the person who pressed. Erasure nulls the stamp (AUTHOR_UUID_NULLS).',
   // ── added 2026-09-04 with the table itself (MB16) ──
   event_colour_grants:
     'The VENDOR half of the standing colour grant. Its only subject-identifying ' +

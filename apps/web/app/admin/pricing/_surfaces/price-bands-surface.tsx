@@ -101,16 +101,16 @@ export async function PriceBandsSurface({
         <p className="text-sm text-ink/65">
           The market low / median / high per{' '}
           <strong>category × region × guest-count bucket</strong>, computed from
-          published vendor prices. Vendors see where their own price lands inside
+          published supplier prices. Suppliers see where their own price lands inside
           their band (the Price-Position Meter on their My Performance page, Pro and up). Values
           are computed, never hand-set.
         </p>
         <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
           <span className="font-semibold">Behavioral min-N.</span> A bucket only
-          appears once enough <em>distinct</em> vendors have published a price for
+          appears once enough <em>distinct</em> suppliers have published a price for
           it (the platform min-N sample floor). Below the floor it&rsquo;s
           suppressed, so the meter never shows a range built from one or two
-          vendors. Founder-only today → expect few or zero rows until more vendors
+          suppliers. Founder-only today → expect few or zero rows until more suppliers
           list.
         </p>
       </div>
@@ -205,7 +205,7 @@ export async function PriceBandsSurface({
           Icon: Gauge,
           title: 'No bands to show yet',
           blurb:
-            'Either no recompute has run, or every category × region × bucket is still below the min-N sample floor. As more vendors publish prices, recompute and the bands appear here.',
+            'Either no recompute has run, or every category × region × bucket is still below the min-N sample floor. As more suppliers publish prices, recompute and the bands appear here.',
           verifiedNote: 'Verified: read permitted · 0 bands above the floor',
         }}
         columns={[
@@ -254,7 +254,7 @@ export async function PriceBandsSurface({
             cell: (r) => <span className="text-ink/70">{peso(r.high_php)}</span>,
           },
           {
-            header: 'Vendors',
+            header: 'Suppliers',
             align: 'right',
             hideBelow: 'lg',
             cell: (r) => <span className="text-ink/70">{r.sample_n}</span>,

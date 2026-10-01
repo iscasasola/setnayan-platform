@@ -31,10 +31,11 @@ import { guestChecklistItems } from '../_lib/guest-checklist-facts';
 import { daysUntil } from '@/lib/guest-checklist';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
-import { isChineseWedding } from '@/lib/chinese-wedding';
+import { dressRiteOf, isChineseWedding } from '@/lib/chinese-wedding';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { formatBlockTimeRange, type ScheduleBlockRow } from '@/lib/schedule';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
+import { guidedTourView } from '@/app/_components/guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { anyoneMayAskToJoin, readRsvpWords, resolveRsvpAsk } from '@/lib/rsvp-ask';
@@ -1897,7 +1898,7 @@ export async function SiteBody({
               </div>
             ) : null}
             <div id={storySceneShown ? undefined : SITE_MENU_ANCHORS.story} className="scroll-mt-6">
-              {storySceneShown ? null : event.love_story ? (
+              {storySceneShown ? null : !weddingOnly.love_story ? null : event.love_story ? (
                 <OurStory loveStory={event.love_story} variant="full" />
               ) : plan.openBrowse ? (
                 <SectionEmptyPlate kind="story" pastTense={archiveTense} occasion={clientWords.occasion} />
@@ -2086,7 +2087,8 @@ export async function SiteBody({
       : null;
     const menuSections = {
       details: guestBodyRenders && detailsSceneList.length > 0,
-      story: guestBodyRenders && Boolean(event.love_story),
+      // A type with no two people has no love story (same gate as the public page).
+      story: weddingOnly.love_story && guestBodyRenders && Boolean(event.love_story),
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
       // you" strip is deliberately NOT a third answer: it closes with the
@@ -2584,7 +2586,14 @@ export async function SiteBody({
                   the standalone /papic/guest route (still live as the QR-scan fallback +
                   the floating CTA). papicGuest is non-null only behind the active gate +
                   an unblocked guest, resolved on the page. */}
-              {group('live', papicGuest ? (
+              {/* 📷 THE CAMERA'S CONSENT CARD BELONGS TO THE DAY, NOT THE INVITATION
+                  (owner 2026-10-01 walk-through: Welcome opened on "Before you
+                  start shooting" 162 days out; DECISION_LOG face-tagging rows —
+                  Papic asks only when it is on, the selfie only on the day).
+                  Asked of the stage's OWN bar, never a second list: the Event Bar
+                  (`STAGE_BAR`) carries a Camera slot only on The Day and after it,
+                  so a guest on Save the Date / Invitation meets no camera card. */}
+              {group('live', papicGuest && STAGE_BAR[pageStage].slots.includes('camera') ? (
                 <PapicGuestCapture
                   /* Inside the hub: the terms / blocked / no-camera states are
                      ONLY the small card — no full-page frame (owner 2026-09-30,
@@ -2814,7 +2823,7 @@ export async function SiteBody({
                       mark, and one accent per screen is the point of that slice. */}
                   {/* …UNLESS THE TOP CONTROL ALREADY OPENS IT (owner 2026-09-30).
                       "You're going · Change" under the mark links the same sheet
-                      (`#site-me` is a sheet anchor, RSVP_SHEET_ANCHORS), so a
+                      (`#your-details` is the arrival action's href now, RSVP_SHEET_ANCHORS), so a
                       second "Need to change your reply…" was the same door twice.
                       Keyed on the action HAVING a Change, not on its words: on
                       the day, or for a guest still owed a reply, it has none and
@@ -2848,7 +2857,7 @@ export async function SiteBody({
                 words={clientWords}
                 look={{
                   config: event.dress_code_config ?? null,
-                  ceremonyType: event.ceremony_type ?? null,
+                  ceremonyType: dressRiteOf(event),
                   genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                   guestRole: guest.role ?? null,
                   march: marchPlaceOf(entourage, guest.guest_id),
@@ -2889,7 +2898,7 @@ export async function SiteBody({
                   words={clientWords}
                   look={{
                     config: event.dress_code_config ?? null,
-                    ceremonyType: event.ceremony_type ?? null,
+                    ceremonyType: dressRiteOf(event),
                     genderSeparation: (event as { gender_separation?: string | null }).gender_separation ?? null,
                     guestRole: guest.role ?? null,
                     march: marchPlaceOf(entourage, guest.guest_id),
@@ -3053,7 +3062,30 @@ export async function SiteBody({
             ticket"*) — the guest's own section, handed in by page.tsx, then the
             sign-out. A SIBLING of the chapters article, like the reply sheet
             below, so nothing inside it sits under the §6 reveal's transform. */}
-        {tabs.on ? group('me', <div className="space-y-12">{meSection}{signOut}</div>) : null}
+        {/* 📐 THE SAME SIDE GUTTER AS EVERY OTHER GUEST STAGE (`px-4`, inside the
+            `PLATE` column) — Me was the one stage drawn edge to edge: the name,
+            "Not you? Switch", the Save bar and "Photos of you" sat flush on the
+            glass (owner walk-through 2026-10-01).
+            🎫 ME OPENS ON THE TICKET, SHEET CLOSED. `#site-me` no longer raises the
+            reply sheet (rsvp-sheet-state.ts); a guest who has replied changes it
+            with this button, which points at the sheet's own anchor. Gated on the
+            sheet's own gate (`plan.rsvpShouldRender`) so the button and its
+            destination can never disagree about existing. */}
+        {tabs.on ? group('me', (
+          <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
+            {meSection}
+            {plan.rsvpShouldRender && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') ? (
+              <a
+                href="#your-details"
+                data-me-change-reply=""
+                className="button-secondary flex w-full"
+              >
+                {plan.guestListClosed ? 'Update your details' : 'Change your reply'}
+              </a>
+            ) : null}
+            {signOut}
+          </div>
+        )) : null}
         {/* ── THE REPLY SHEET (canvas board 2 · rsvp-sheet.tsx) ─────────────
             🪤 A SIBLING OF THE ARTICLE, NEVER A CHILD OF IT — measured in a
             browser, not reasoned. The §6 reveal puts a `transform` on every
@@ -3133,7 +3165,7 @@ export async function SiteBody({
             `?preview=draft`). Seen live 2026-09-27: "You're invited · STEP 1
             OF 3" mounted inside the Maker's RSVP-page preview and covered it.
             Decided here, on the server — the couple is not a guest arriving. */}
-        {isEditorCanvas ? null : <GuestGuidedTour tourKey="guest_welcome_v1" />}
+        {isEditorCanvas ? null : <GuestGuidedTour tourKey="guest_welcome_v1" tour={guidedTourView('guest_welcome_v1')} />}
         {/* Open-browse menu shell (PR6) — fixed bottom tab bar of in-page
             anchors, SAME structure as anonymousTree. Flag-dark
             (NEXT_PUBLIC_WEBSITE_MENU_ENABLED) + always on for the sample event.

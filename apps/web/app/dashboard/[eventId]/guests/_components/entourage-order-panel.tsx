@@ -43,6 +43,7 @@ import {
   entourageGroupLabel,
   entourageGroupOfRole,
   entourageLines,
+  linesAreArranged,
   orderedGroupKeys,
   sectionsAreArranged,
   ENTOURAGE_ROLES,
@@ -167,9 +168,9 @@ export async function EntourageOrderPanel({
 
   if (lists.length === 0) return null;
 
-  const anyPlaced = lists.some((l) =>
-    l.lines.some((ln) => ln.some((half) => typeof half?.order === 'number')),
-  );
+  // Arranged = printing in anything but the default order (the walks always
+  // carry numbers since the march became its own table, 2026-10-01).
+  const anyPlaced = lists.some((l) => linesAreArranged(l.lines, l.key));
 
   return (
     <section className="mb-4 rounded-xl border border-ink/10 bg-white/70 px-4 py-3">
@@ -226,7 +227,7 @@ export async function EntourageOrderPanel({
                   {headingOf(key)}
                 </h3>
               </div>
-              {lines.some((ln) => ln.some((h) => typeof h?.order === 'number')) ? (
+              {linesAreArranged(lines, key) ? (
                 <span>
                   <MarchButton
                     run={clearEntourageOrder.bind(null, eventId, key)}

@@ -1,6 +1,8 @@
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { fetchRevealConfig } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../../_components/read-failed';
 import {
   resolveStdMedia,
   resolveStdNsfwVerdict,
@@ -39,14 +41,20 @@ import {
  * status alone is how a fail-closed row hides from the one surface that can fix
  * it, and how a grandfathered row would quietly become permanent.
  */
-async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[]> {
+async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[] | null> {
   try {
     const admin = createAdminClient();
-    const { data } = await admin
+    const { data, error } = await admin
       .from('events')
       .select('event_id, public_id, display_name, std_media')
       .filter('std_media->>type', 'eq', 'video')
       .limit(200);
+    // 🔑 `null` = could not look. An EMPTY review queue is the dangerous failure
+    // here — a video nobody could see is a video nobody reviewed.
+    if (error) {
+      logQueryError('RevealStudioSurface (std videos)', error);
+      return null;
+    }
     const rows = (data ?? []) as Array<Record<string, unknown>>;
     if (rows.length === 0) return [];
 
@@ -107,9 +115,10 @@ async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[]> {
         };
       }),
     );
-  } catch {
-    // Pre-migration env / read error → empty queue (panel hides). Never break the page.
-    return [];
+  } catch (e) {
+    // Never break the page — but say the queue could not be read.
+    logQueryError('RevealStudioSurface (std videos)', e);
+    return null;
   }
 }
 
@@ -135,7 +144,13 @@ export async function RevealStudioSurface() {
         save as the house default and go live on couple sites.
       </p>
       <RevealStudio initial={config} />
-      <StdVideoModeration initial={stdVideos} />
+      {stdVideos === null ? (
+        <div className="mt-6">
+          <ReadFailed what="the video review queue — a video waiting for review would not show here" />
+        </div>
+      ) : (
+        <StdVideoModeration initial={stdVideos} />
+      )}
     </div>
   );
 }

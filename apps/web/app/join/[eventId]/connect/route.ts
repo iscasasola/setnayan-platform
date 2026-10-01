@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { connectEventForUser, findSeatToConnect } from '@/lib/event-account-link';
+import { connectEventForUser, findSeatToConnect, seatHeldElsewhere } from '@/lib/event-account-link';
 import { CONNECT_THEN_REPLY, connectQuery, inviteReplyPath } from '@/lib/invite-arrival';
 import { readGuestSession } from '@/lib/guest-session';
 import { emailMayBindRow } from '@/lib/guest-requests';
@@ -85,6 +85,14 @@ export async function GET(
   if (!(await alreadyInside(eventId, user.id))) {
     const seat = await findSeatToConnect(eventId, user.id, user.email ?? null, approved);
     if (seat) {
+      return NextResponse.redirect(new URL(`/join/${eventId}/connect/confirm${carry}`, origin));
+    }
+    // 🔒 ONE INVITATION, ONE ACCOUNT (owner 2026-10-01). The seat this sign-in
+    // reached for is already another account's: nothing binds (the database
+    // refuses it too), and the confirm page SAYS so — "This event QR is already
+    // assigned to someone." — rather than this route dropping them on an
+    // unexplained account home.
+    if (await seatHeldElsewhere(eventId, user.id, user.email ?? null, approved)) {
       return NextResponse.redirect(new URL(`/join/${eventId}/connect/confirm${carry}`, origin));
     }
   }

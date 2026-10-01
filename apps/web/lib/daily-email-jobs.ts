@@ -628,7 +628,7 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
 
   const { data: events } = await admin
     .from('events')
-    .select('event_id, display_name, full_res_drop_warned_at')
+    .select('event_id, display_name, event_type, full_res_drop_warned_at')
     .in('event_id', eventIds)
     .is('full_res_drop_warned_at', null)
     .limit(PAPIC_WARN_MAX_BATCH);
@@ -658,7 +658,11 @@ export async function runPapicDropWarning(): Promise<{ candidates: number; sent:
     const email = (user?.email as string | null) ?? null;
     if (!email) continue;
 
-    const name = (ev.display_name as string | null) ?? 'your wedding';
+    // No name → the event's own word ("Your birthday gallery"), never "your
+    // wedding" (which also read "Your your wedding …" in the subject).
+    const name =
+      (ev.display_name as string | null) ??
+      (await eventWordsFor((ev.event_type as string | null) ?? 'wedding')).eventWord;
     const res = await sendEmail({
       to: email,
       subject: `Your ${name} full-resolution photos — a quick heads-up`,

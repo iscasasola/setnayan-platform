@@ -59,14 +59,14 @@ async function loadDemoThread(admin: SupabaseClient, threadId: string): Promise<
     .maybeSingle();
   const vendorRow = vendor as { is_demo: boolean; business_name: string | null } | null;
   if (!vendorRow?.is_demo) {
-    throw new Error('Not a demo vendor — the responder is demo-only.');
+    throw new Error('Not a demo supplier — the responder is demo-only.');
   }
   return {
     thread_id: thread.thread_id,
     event_id: thread.event_id,
     vendor_profile_id: thread.vendor_profile_id,
     inquiry_status: thread.inquiry_status,
-    vendor_business_name: vendorRow.business_name?.trim() || 'A vendor',
+    vendor_business_name: vendorRow.business_name?.trim() || 'A supplier',
   };
 }
 
@@ -187,10 +187,10 @@ export async function adminDeclineInquiry(formData: FormData): Promise<void> {
     // no vendor name leak, surface the reason if given, point at alternatives.
     await notifyCoupleMembers(admin, thread, {
       type: 'inquiry_declined',
-      title: 'A vendor declined your inquiry',
+      title: 'A supplier declined your inquiry',
       body: reason
-        ? `Why: “${reason}” — browse similar vendors to keep your options open.`
-        : 'They are not available — browse similar vendors to keep your options open.',
+        ? `Why: “${reason}” — browse similar suppliers to keep your options open.`
+        : 'They are not available — browse similar suppliers to keep your options open.',
       relatedUrl: `/dashboard/${thread.event_id}/vendors`,
     });
   }

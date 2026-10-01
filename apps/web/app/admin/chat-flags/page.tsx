@@ -132,7 +132,7 @@ export default async function AdminChatFlagsPage({
   for (const v of vendorData ?? [])
     vendorName.set(
       v.vendor_profile_id,
-      ((v.business_name as string | null) ?? '').trim() || 'a vendor',
+      ((v.business_name as string | null) ?? '').trim() || 'a supplier',
     );
 
   const openCount = rows.filter((r) => r.status === 'open').length;
@@ -148,7 +148,7 @@ export default async function AdminChatFlagsPage({
       <PageMasthead title="Chat contact flags" />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
-          Couple↔vendor chat messages <strong>blocked</strong> for sharing
+          Couple↔supplier chat messages <strong>blocked</strong> for sharing
           off-platform contact info (phone, email, social/messaging links,
           @handles, app names, or &ldquo;add me on&hellip;&rdquo; solicitations).
           The message never reached the other person. This queue shows only the{' '}
@@ -183,14 +183,14 @@ export default async function AdminChatFlagsPage({
         </FormFlash>
       )}
 
-      {rows.length === 0 ? (
+      {listError ? null : rows.length === 0 ? (
         <p className="rounded-md border border-ink/10 bg-white/70 px-4 py-3 text-sm text-ink/65">
           No flags in this view.
         </p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => {
-            const who = r.sender_role === 'vendor' ? 'A vendor' : 'A couple';
+            const who = r.sender_role === 'vendor' ? 'A supplier' : 'A couple';
             const ev = r.event_id ? eventName.get(r.event_id) : null;
             const vn = r.vendor_profile_id ? vendorName.get(r.vendor_profile_id) : null;
             return (

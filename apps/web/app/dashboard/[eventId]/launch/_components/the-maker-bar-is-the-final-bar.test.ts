@@ -32,7 +32,7 @@ import { TOURS } from '@/lib/tours';
    Event · Details" — the stages in their one vocabulary (`PUBLIC_STAGE_LABELS`).
    🗳 2026-09-30 re-plan: RSVP becomes a stage of its own, between Save the Date
    and the Invitation ("Save the Date · RSVP · Invitation · The Day · Post Event"). */
-const FINAL = ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event', 'Details', 'Prints'];
+const FINAL = ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event', 'Your info', 'Prints'];
 
 async function paint(
   opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'details' | 'rsvp-stage' } | null } = {},
@@ -85,7 +85,7 @@ test('no bar item is a dead button', async () => {
 });
 
 test('the tour: the store shell drops the paid slide, and a price is only ever the catalogue’s', async () => {
-  const { makerTourSlides } = await import('./maker-bar');
+  const { makerTourSlides } = await import('./maker-tour-slides');
   const all = TOURS.customer_event_hub_maker_v1.slides;
   assert.ok(all.some((s) => s.sells), 'the Pro slide is marked as selling');
   const shell = makerTourSlides({ storeShell: true, priceLabel: '₱3,500' });

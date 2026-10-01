@@ -76,7 +76,7 @@ export function BookingFeeForm({
   return (
     <form action={formAction} className="rounded-2xl border border-ink/10 p-4">
       <h4 className="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">
-        Vendor booking fee
+        Supplier booking fee
       </h4>
       <p className="mt-1 max-w-prose text-[12.5px] leading-relaxed text-ink/60">
         Charged to the <strong className="text-ink/80">supplier</strong> when Setnayan introduces

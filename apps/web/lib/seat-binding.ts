@@ -78,6 +78,24 @@ export function seatBindRefusal(input: {
 export const COUPLE_SEAT_REFUSED =
   'This invitation belongs to one of the people this celebration is for, so it can only be kept in their own account. If you were sent it by mistake, ask the couple for your own invitation.';
 
+/**
+ * ONE INVITATION, ONE ACCOUNT (owner 2026-10-01, verbatim): *"save to my account.
+ * adds it to a user. if someone tries to sync it to a different email. they
+ * cannot. we will say this event QR is already assigned to someone."*
+ *
+ * Said — exactly this, nothing more — wherever a SECOND account is refused a
+ * seat another account already holds: the invitation's account card and Save
+ * (`held_elsewhere`), and the screen a Google / Apple return lands on
+ * (`/join/{id}/connect/confirm`). The first account keeps it; only the hosts'
+ * Unlink (lib/seat-unlink.ts) releases it. The refusal itself is the database's
+ * partial unique `event_members(event_id, guest_id)` —
+ * tests/db/one-invitation-one-account.db.test.ts.
+ */
+export const SEAT_HELD_ELSEWHERE = {
+  heading: 'This event QR is already assigned to someone.',
+  line: 'If this is your invitation, ask the hosts to check it.',
+} as const;
+
 /** The name a seat is shown under: the couple's display name, else first + last. */
 export function seatDisplayName(seat: {
   display_name?: string | null;

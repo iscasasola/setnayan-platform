@@ -138,18 +138,21 @@ export const NPC_TIER_LABEL: Record<0 | 1 | 2 | 3, string> = {
  * a pre-migration DB returns the full catalog, all not_started. Sorted by
  * sort_order.
  */
-export async function fetchNpcFilingTasks(
+export async function fetchNpcFilingTasksMeasured(
   supabase: SupabaseClient,
-): Promise<NpcTaskRow[]> {
+): Promise<{ ok: boolean; tasks: NpcTaskRow[] }> {
   const byKey = new Map<string, Record<string, unknown>>();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('npc_filing_tasks')
     .select('task_key,status,note,evidence,resolved_at,updated_at');
+  if (error) {
+    console.error('[supabase-error] lib/npc-filing-tasks.ts · from:npc_filing_tasks.select', error);
+  }
   for (const r of (data ?? []) as Record<string, unknown>[]) {
     const k = r.task_key as string | undefined;
     if (k) byKey.set(k, r);
   }
-  return NPC_FILING_TASKS.map((t) => {
+  const tasks = NPC_FILING_TASKS.map((t) => {
     const row = byKey.get(t.key);
     return {
       ...t,
@@ -160,6 +163,15 @@ export async function fetchNpcFilingTasks(
       updatedAt: (row?.updated_at as string | null) ?? null,
     };
   }).sort((a, b) => a.sortOrder - b.sortOrder);
+  // `ok: false` = every task above is the catalog default ("not started"), which
+  // is not a progress count: "0 of N worked down" over a refused read is a claim.
+  return { ok: !error, tasks };
+}
+
+export async function fetchNpcFilingTasks(
+  supabase: SupabaseClient,
+): Promise<NpcTaskRow[]> {
+  return (await fetchNpcFilingTasksMeasured(supabase)).tasks;
 }
 
 /** Is the whole filing still gated? TRUE until the counsel-review task resolves. */

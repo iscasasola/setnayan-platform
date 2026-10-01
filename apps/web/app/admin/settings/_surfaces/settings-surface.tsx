@@ -186,9 +186,9 @@ export async function SettingsSurface({ searchParams }: Props) {
             />
           </Field>
           <Field
-            label="Repost-watch match sensitivity (Hamming distance)"
+            label="Repost-watch match sensitivity"
             htmlFor="repost_watch_hamming_threshold"
-            help="Reverse-image theft watch (lib/vendor-image-repost-watch.ts). Two vendor images flag as a repost when their perceptual hashes differ by ≤ this many bits (0–64). Lower = stricter (near-identical only); higher = looser (more, fuzzier matches). Default 10. Detect-and-flag for /admin/repost-watch review only — never auto-blocks."
+            help="Reverse-image theft watch. Two supplier images flag as a repost when their perceptual hashes differ by ≤ this many bits (0–64). Lower = stricter (near-identical only); higher = looser (more, fuzzier matches). Default 10. Detect-and-flag for /admin/repost-watch review only — never auto-blocks."
           >
             <input
               id="repost_watch_hamming_threshold"
@@ -203,9 +203,9 @@ export async function SettingsSurface({ searchParams }: Props) {
             />
           </Field>
           <Field
-            label="Vendor VALIDATE email"
+            label="Supplier VALIDATE email"
             htmlFor="vendor_validate_email"
-            help='Setnayan-owned inbox vendors email their "VALIDATE <shop name>" message to during verification. Admins mark each received message on the verification queue.'
+            help='Setnayan-owned inbox suppliers email their "VALIDATE <shop name>" message to during verification. Admins mark each received message on the verification queue.'
           >
             <input
               id="vendor_validate_email"
@@ -217,9 +217,9 @@ export async function SettingsSurface({ searchParams }: Props) {
             />
           </Field>
           <Field
-            label="Vendor VALIDATE mobile number"
+            label="Supplier VALIDATE mobile number"
             htmlFor="vendor_validate_phone"
-            help='Setnayan-owned number vendors text their "VALIDATE <shop name>" message to. Leave blank to show "number coming soon" to vendors until one exists.'
+            help='Setnayan-owned number suppliers text their "VALIDATE <shop name>" message to. Leave blank to show "number coming soon" to suppliers until one exists.'
           >
             <input
               id="vendor_validate_phone"
@@ -333,8 +333,7 @@ export async function SettingsSurface({ searchParams }: Props) {
           </div>
           <p className="text-sm text-ink/60">
             Verify production observability is wired and routing alerts correctly.
-            One-shot owner actions — no background sweeps. Punch-list item #19e
-            (Sentry prod smoke test).
+            One-shot owner actions — no background sweeps.
           </p>
         </header>
 

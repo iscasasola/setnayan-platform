@@ -1,8 +1,8 @@
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
-import { TOURS, type TourKey } from '@/lib/tours';
+import type { TourKey } from '@/lib/tours';
 import { RSVP_STAGE_KEY, RSVP_STAGE_LABEL } from '@/lib/rsvp-stage-shared';
-import { DETAILS_FIRST_PRINT, isPrintsItem, type DetailsItemKey } from '@/lib/maker-details-items';
+import { DETAILS_FIRST_ITEM, DETAILS_FIRST_PRINT, isPrintsItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import type { MakerDevice } from './maker-context';
 
 /**
@@ -41,9 +41,11 @@ export type MakerBarGroup = 'made-once' | 'stages';
  * The made-once home of every line of wording (owner 2026-09-25: *"the other
  * lines like the opening message and the thank you message on the egifts must
  * have a place along the Logo, Hero, Reveal, Love Story"*). PROVISIONAL name —
- * the owner may rename it, so it lives in this one constant.
+ * the owner may rename it, so it lives in this one constant. Renamed "Details" →
+ * "Your info" (owner 2026-10-01, "approved, use your defaults"): Event Details is
+ * now the information-only sheet on Event Home, and two "Details" would clash.
  */
-export const MAKER_DETAILS_LABEL = 'Details';
+export const MAKER_DETAILS_LABEL = 'Your info';
 export const MAKER_PRINTS_LABEL = 'Prints';
 
 /**
@@ -53,6 +55,31 @@ export const MAKER_PRINTS_LABEL = 'Prints';
  */
 export function makerPrintsDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
   return detailsItem && isPrintsItem(detailsItem) ? detailsItem : DETAILS_FIRST_PRINT;
+}
+
+/**
+ * 🗂 Where the Details door opens Details: on the item the couple is on, but
+ * never on a print — a print is Prints' (`makerOpenTool`), so pressing Details
+ * right after Prints would keep the highlight on Prints and look dead. A print
+ * (or no item) opens on Details' own first item, the same one a fresh press
+ * opens (`detailsItemFor` → `DETAILS_FIRST_ITEM`).
+ */
+export function makerDetailsDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
+  return detailsItem && !isPrintsItem(detailsItem) ? detailsItem : DETAILS_FIRST_ITEM;
+}
+
+/**
+ * 🖨🗂 THE PRESS of Details or Prints — one reducer, so the shell and its test
+ * run the same code: both doors open the Details page on their own item.
+ */
+export function makerPressDoor(
+  state: { detailsItem: DetailsItemKey | null },
+  key: 'details' | 'prints',
+): { detailsItem: DetailsItemKey; selectedTool: 'details' } {
+  return {
+    detailsItem: key === 'prints' ? makerPrintsDoor(state.detailsItem) : makerDetailsDoor(state.detailsItem),
+    selectedTool: 'details',
+  };
 }
 
 /**
@@ -104,23 +131,10 @@ export const MAKER_SNAP_NOTE =
 
 export const MAKER_TOUR_KEY: TourKey = 'customer_event_hub_maker_v1';
 
-/**
- * The tour slides this viewer is shown — pure, so a test can hold both rules.
- *
- *   · In the app-store shell a slide that SELLS is dropped outright (App Review
- *     3.1.1: no digital price and no paid pitch inside the app).
- *   · Elsewhere its `{price}` token becomes " — ₱X, once" from the live
- *     catalogue, or nothing at all when the catalogue did not answer. A
- *     remembered number is never printed.
- */
-export function makerTourSlides(input: { storeShell: boolean; priceLabel: string | null }) {
-  return TOURS[MAKER_TOUR_KEY].slides
-    .filter((s) => !(input.storeShell && s.sells))
-    .map((s) => ({
-      ...s,
-      body: s.body.replace('{price}', input.priceLabel ? ` &mdash; ${input.priceLabel}, once` : ''),
-    }));
-}
+/* The tour's SLIDES are built on the server — `maker-tour-slides.tsx`, never
+   here: this file is imported by the client shell, and importing `lib/tours.ts`
+   from it put every tour's words in the Maker's first load (the diet,
+   2026-10-01). 🛡 lib/tours-stay-on-the-server.test.ts. */
 
 export function isStagePhase(value: unknown): value is LifecyclePhase {
   return typeof value === 'string' && (PUBLIC_STAGE_ORDER as readonly string[]).includes(value);

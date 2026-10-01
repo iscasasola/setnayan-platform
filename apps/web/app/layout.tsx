@@ -785,11 +785,23 @@ export default async function RootLayout({
         {envFlagEnabled(process.env.NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED) ? (
           <OfflineDaemonMount />
         ) : null}
+        {/*
+          Registers public/sw.js. An afterInteractive script runs AFTER
+          hydration, which is often after `load` has already fired — and a
+          `load` listener added then never runs. Measured on prod 2026-10-02
+          (headless Chromium): /login and / added the listener at
+          readyState=complete and never registered the worker; /pricing, whose
+          load came later, did. So register now when the page has already
+          loaded, else on load. (DECISION_LOG 2026-10-02 "…AND STAYS ON THE
+          PHONE": the code can only stay on the phone if the worker exists.)
+        */}
         <Script id="sw-register" strategy="afterInteractive">
           {`if ('serviceWorker' in navigator) {
-              window.addEventListener('load', function() {
+              var registerSw = function() {
                 navigator.serviceWorker.register('/sw.js').catch(function() {});
-              });
+              };
+              if (document.readyState === 'complete') registerSw();
+              else window.addEventListener('load', registerSw);
             }`}
         </Script>
       </body>

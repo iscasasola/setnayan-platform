@@ -80,7 +80,7 @@ export default async function AdminPaymentOptionsPage() {
   const decorated: CardRow[] = await Promise.all(
     rows.map(async (r) => ({
       ...r,
-      business_name: r.vendor_profiles?.business_name || 'Unnamed vendor',
+      business_name: r.vendor_profiles?.business_name || 'Unnamed supplier',
       qr_display_url:
         r.method_type === 'qr'
           ? await vendorPaymentQrDisplayUrl(r.qr_r2_key, r.vendor_profile_id)
@@ -107,7 +107,7 @@ export default async function AdminPaymentOptionsPage() {
       {error ? (
         <FormFlash tone="error">
           Payment options couldn&apos;t load right now. We&apos;ve logged the
-          issue — refresh in a moment or check Sentry for the full detail.
+          issue — refresh in a moment.
         </FormFlash>
       ) : null}
 
@@ -116,10 +116,10 @@ export default async function AdminPaymentOptionsPage() {
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           Needs review
           <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-900">
-            {needsReview.length}
+            {error ? '—' : needsReview.length}
           </span>
         </h2>
-        {needsReview.length === 0 ? (
+        {error ? null : needsReview.length === 0 ? (
           <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
             Nothing waiting for review — every payment method is approved or
             removed.
@@ -140,14 +140,14 @@ export default async function AdminPaymentOptionsPage() {
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
           Published links &amp; QRs
           <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
-            {published.length}
+            {error ? '—' : published.length}
           </span>
         </h2>
         <p className="mb-3 max-w-2xl text-xs text-ink/55">
           Approved links and QR codes already visible to couples. Re-screen any
           that look off with Hold or Remove.
         </p>
-        {published.length === 0 ? (
+        {error ? null : published.length === 0 ? (
           <p className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-ink/55">
             No approved links or QR codes yet.
           </p>
@@ -210,7 +210,7 @@ function PaymentMethodCard({
 
       {row.note ? (
         <p className="rounded-md border border-ink/15 bg-ink/[0.03] px-3 py-2 text-xs text-ink/75">
-          <span className="font-medium">Vendor note:</span> {row.note}
+          <span className="font-medium">Supplier note:</span> {row.note}
         </p>
       ) : null}
 

@@ -43,6 +43,14 @@ export type SetupAnswers = {
   look: string;
   reply: SetupReply;
   entry: SetupEntry;
+  /**
+   * "Guest list + requests" (a wedding's three-way "How do guests get in?"):
+   * the list is still the door, but anyone with the link may ASK to come and
+   * the hosts say yes or no. Only meaningful while `reply` is 'yes'; it lands in
+   * `rsvp_ask_config.whoCanRsvp = 'anyone'`, the field the Guest list's "Who can
+   * reply?" already reads — never a second setting.
+   */
+  requests: boolean;
   guests: SetupGuests | null;
   logo: YesNo;
   questions: 'defaults' | 'change';
@@ -96,12 +104,31 @@ export function setupDefaults(view: SetupView): SetupAnswers {
     reply: view.replyDefault,
     // The easiest door (owner answer #5, 2026-10-01): one QR for everyone.
     entry: 'one_qr',
+    requests: false,
     guests: view.guestList ? null : 'later',
     logo: 'no',
     questions: 'defaults',
     papic: view.cameraDefault === 'off' ? 'no' : 'yes',
     gifts: view.giftsMode === 'none' ? 'no' : 'yes',
   };
+}
+
+/**
+ * 🎟 A wedding's "How do guests get in?" is ONE dropdown of three (DECISION_LOG
+ * 2026-10-01 "YES TO ALL"): Guest list · Guest list + requests · Open event. It
+ * is a view over the three fields the engine already holds (`reply`, `entry`,
+ * `requests`), so the commit, the Guest list and the guard read ONE shape.
+ */
+export type GuestsIn = 'list' | 'requests' | 'open';
+
+export function guestsInOf(a: Pick<SetupAnswers, 'reply' | 'requests'>): GuestsIn {
+  if (a.reply === 'no') return 'open';
+  return a.requests ? 'requests' : 'list';
+}
+
+export function applyGuestsIn(choice: GuestsIn): Partial<SetupAnswers> {
+  if (choice === 'open') return { reply: 'no', entry: 'one_qr', requests: false };
+  return { reply: 'yes', requests: choice === 'requests' };
 }
 
 /**
@@ -176,6 +203,7 @@ export function sanitizeSetupAnswers(raw: unknown, view: SetupView): SetupAnswer
     look: pick(r.look, looks, d.look),
     reply: pick(r.reply, ['yes', 'no'] as const, d.reply),
     entry: pick(r.entry, SETUP_ENTRIES, d.entry),
+    requests: r.requests === true,
     guests: view.guestList ? pick<SetupGuests | 'none'>(r.guests, SETUP_GUEST_WAYS, 'none') === 'none' ? null : (r.guests as SetupGuests) : 'later',
     logo: view.logoRow ? pick(r.logo, ['yes', 'no'] as const, d.logo) : 'no',
     questions: pick(r.questions, ['defaults', 'change'] as const, d.questions),

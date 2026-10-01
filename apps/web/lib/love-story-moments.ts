@@ -63,7 +63,18 @@ export const LOVE_STORY_PRO_CTA = 'Go Event Hub Pro';
 
 /** Only as exact as they remember — "a year on its own is enough". */
 export type MomentDate = { y: number; m?: number; d?: number };
-export type MomentAnchor = 'met' | 'yes';
+/**
+ * The moments that ARE their chapters. `together` (owner 2026-10-01, DECISION_LOG
+ * "THE LOVE STORY STARTS AS FOUR BASIC CHAPTERS"): *"when did you 2 became
+ * together?"* — chapter 2 of the basic four, between the meeting and the
+ * moments that followed. Same moments, same blob: no second store.
+ */
+export const MOMENT_ANCHORS = ['met', 'together', 'yes'] as const;
+export type MomentAnchor = (typeof MOMENT_ANCHORS)[number];
+
+export function isMomentAnchor(v: unknown): v is MomentAnchor {
+  return typeof v === 'string' && (MOMENT_ANCHORS as readonly string[]).includes(v);
+}
 
 export type LoveStoryMoment = {
   id: string;
@@ -81,12 +92,13 @@ export type LoveStoryMoment = {
   canvas: HubSectionCanvas;
 };
 
-export const LOVE_STORY_CHAPTERS = ['before', 'met', 'falling', 'yes', 'toward'] as const;
+export const LOVE_STORY_CHAPTERS = ['before', 'met', 'together', 'falling', 'yes', 'toward'] as const;
 export type LoveStoryChapter = (typeof LOVE_STORY_CHAPTERS)[number];
 
 export const LOVE_STORY_CHAPTER_LABEL: Record<LoveStoryChapter, string> = {
   before: 'Before us',
   met: 'How we met',
+  together: 'Together',
   falling: 'Falling',
   yes: 'The yes',
   toward: 'Toward the day',
@@ -96,6 +108,7 @@ export const LOVE_STORY_CHAPTER_LABEL: Record<LoveStoryChapter, string> = {
 export const LOVE_STORY_CHAPTER_PROMPT: Record<LoveStoryChapter, string> = {
   before: 'A childhood photo. Your barangay. The dog.',
   met: 'Where you first saw each other — even just the year.',
+  together: 'The day you became a couple — even just the year.',
   falling: 'The trips, the calls, the ordinary days that added up.',
   yes: 'The question, and the answer.',
   toward: 'The fitting. The tasting. The first time you saw the venue.',
@@ -146,7 +159,7 @@ export function readMoment(raw: unknown): LoveStoryMoment | null {
   const media = readMomentMedia(raw.media);
   if (!line && !place && media.length === 0) return null;
   const addedBy = text(raw.added_by, MOMENT_BY_MAX);
-  const anchor = raw.anchor === 'met' || raw.anchor === 'yes' ? raw.anchor : undefined;
+  const anchor = isMomentAnchor(raw.anchor) ? raw.anchor : undefined;
   return {
     id,
     ...(date ? { date } : {}),
@@ -252,12 +265,14 @@ export function compareMomentDates(a: MomentDate | undefined, b: MomentDate | un
 }
 
 /**
- * Which chapter a moment self-sorts into. The two anchors ARE their chapters;
- * everything else finds its place from its date against theirs: before the
- * meeting is Before us, after the yes is Toward the day, the rest is Falling.
+ * Which chapter a moment self-sorts into. The three anchors (met · together ·
+ * yes) ARE their chapters; everything else finds its place from its date
+ * against theirs: before the meeting is Before us, after the yes is Toward the
+ * day, the rest is Falling.
  */
 export function chapterOf(moment: LoveStoryMoment, all: readonly LoveStoryMoment[]): LoveStoryChapter {
   if (moment.anchor === 'met') return 'met';
+  if (moment.anchor === 'together') return 'together';
   if (moment.anchor === 'yes') return 'yes';
   const met = all.find((m) => m.anchor === 'met' && m.date);
   const yes = all.find((m) => m.anchor === 'yes' && m.date);

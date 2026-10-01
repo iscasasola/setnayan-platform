@@ -10,7 +10,12 @@
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { fetchV2CustomerCatalog, fetchV2BundleCatalog, fetchV2VendorCatalog } from '@/lib/v2-catalog';
+import {
+  fetchV2CustomerCatalog,
+  fetchV2BundleCatalog,
+  fetchV2VendorCatalog,
+  supplierSkuCategory,
+} from '@/lib/v2-catalog';
 import { ChevronLeft } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -76,7 +81,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
       )
       .eq('discount_code_id', id)
       .maybeSingle(),
-    fetchV2CustomerCatalog(),
+    fetchV2CustomerCatalog({ forAdmin: true }),
     fetchV2BundleCatalog(),
     fetchV2VendorCatalog(),
     eligibilityResPromise,
@@ -123,10 +128,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
     ...vendors.map((v) => ({
       sku_code: v.sku_code,
       display_name: v.title,
-      category:
-        v.offering_type === 'subscription_monthly'
-          ? 'Vendor subscription'
-          : 'Vendor tokens',
+      category: supplierSkuCategory(v.offering_type),
       price_centavos: Math.round(v.price_php * 100),
     })),
   ].sort((a, b) =>
@@ -134,6 +136,22 @@ export default async function EditDiscountCodePage({ params }: Props) {
       ? a.display_name.localeCompare(b.display_name)
       : a.category.localeCompare(b.category),
   );
+
+  // 🔑 A SERVICE THE CATALOG READ DID NOT RETURN MUST NOT BE DROPPED ON SAVE.
+  // The form saves exactly the boxes it renders. A key already on this code that
+  // is missing from the lists above (retired, switched off, or the catalog read
+  // came back empty) would simply stop being covered the next time anyone pressed
+  // Save — a money change nobody chose. So it is rendered as a ticked row.
+  const knownSkus = new Set(services.map((s) => s.sku_code));
+  for (const key of code.covered_service_keys ?? []) {
+    if (knownSkus.has(key)) continue;
+    services.push({
+      sku_code: key,
+      display_name: `${key} (not in the current list)`,
+      category: 'Already covered by this code',
+      price_centavos: 0,
+    });
+  }
 
   // ⛔ A RETIRED-TYPE VOUCHER IS NOT EDITED, IT IS REFUSED.
   //

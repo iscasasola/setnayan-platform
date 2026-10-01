@@ -215,9 +215,9 @@ test('(4) Home says "Round N · x of y" for the first round with a step still le
   const done = new Set<DetailsItemKey>(['names', 'date', 'venues', 'theme', 'mood-board', 'logo', 'hero', 'parents']);
   const plan = buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? done.has(k) : undefined)), WORDS);
   // Round 1 all done → Round 2: parents done, rsvp + prints are look-overs, love story optional-left.
-  assert.deepEqual(homeProgress(plan), { round: 2, title: 'Invitations', done: 3, total: 7, next: 'march' });
+  assert.deepEqual(homeProgress(plan), { round: 2, title: 'Invitations', done: 3, total: 7, next: 'march', then: 'schedule' });
   const r1 = homeProgress(fresh());
-  assert.deepEqual(r1, { round: 1, title: 'Save the Date', done: 0, total: 7, next: 'names' });
+  assert.deepEqual(r1, { round: 1, title: 'Save the Date', done: 0, total: 7, next: 'names', then: 'date' });
   const all = buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? true : undefined)), WORDS);
   assert.equal(homeProgress(all), null, 'Home still says something is left');
 });
@@ -399,8 +399,9 @@ test('(7) no wedding word, and no "stage" or "scene", on the guided path', () =>
 // names — a wake's rounds are "Share the news · Service details · The day", and
 // every surface that names a round reads the plan's own words.
 test('(8) a wake’s rounds are its own, read off EventWords; the celebration keeps its names', () => {
-  assert.deepEqual(Object.values(guidedRoundsFor({ solemn: true })).map((r) => r.title), ['Share the news', 'Service details', 'The day']);
-  assert.deepEqual(Object.values(guidedRoundsFor({ solemn: false })).map((r) => r.title), ['Save the Date', 'Invitations', 'The day']);
+  // Round 0 ("Finish your Event Hub", the setup) is only ever drawn where its facts are handed in — a wedding.
+  assert.deepEqual(([1, 2, 3] as const).map((r) => guidedRoundsFor({ solemn: true })[r].title), ['Share the news', 'Service details', 'The day']);
+  assert.deepEqual(([1, 2, 3] as const).map((r) => guidedRoundsFor({ solemn: false })[r].title), ['Save the Date', 'Invitations', 'The day']);
   const wake = buildGuidedPlan(items(WEDDING_ITEMS, () => undefined), { ...WORDS, solemn: true });
   assert.equal(wake.roundWords[1].title, 'Share the news');
   assert.ok(wake.steps.every((s) => s.roundTitle === WAKE_ROUNDS[s.round].title), 'a step names a round the wake does not have');

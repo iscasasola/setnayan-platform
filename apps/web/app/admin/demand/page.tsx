@@ -3,6 +3,8 @@ import { RefreshCw, ShieldCheck } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import {
+  DEMAND_RADAR_UNREADABLE,
+  EMPTY_RADAR,
   getAdminDemandRadar,
   maybeRefreshDemandRadar,
 } from '@/lib/demand-radar';
@@ -34,7 +36,7 @@ export default async function AdminDemandPage({
   const sp = await searchParams;
   const supabase = await createClient();
 
-  const [radar, settingsRes] = await Promise.all([
+  const [radarRead, settingsRes] = await Promise.all([
     getAdminDemandRadar(supabase),
     supabase
       .from('platform_settings')
@@ -42,6 +44,9 @@ export default async function AdminDemandPage({
       .eq('id', 1)
       .maybeSingle(),
   ]);
+
+  const radarUnreadable = radarRead === DEMAND_RADAR_UNREADABLE;
+  const radar = radarUnreadable ? EMPTY_RADAR : radarRead;
 
   const floor =
     (settingsRes.data as { radar_min_n_floor?: number } | null)?.radar_min_n_floor ?? 1;
@@ -64,7 +69,7 @@ export default async function AdminDemandPage({
       <p className="max-w-prose text-sm text-ink/70">
         De-identified demand across every market — by month, region, event
         type, and capture look. This is the operator view of the same rollup
-        vendors see, scoped to their own region. Counts only; no couple is ever
+        suppliers see, scoped to their own region. Counts only; no couple is ever
         identifiable.
       </p>
 
@@ -94,7 +99,7 @@ export default async function AdminDemandPage({
               Min-N floor is{' '}
               <span className="font-semibold text-ink">{floor}</span> — cells
               with fewer total signals than this are hidden everywhere, including
-              here. The vendor-facing feed is{' '}
+              here. The supplier-facing feed is{' '}
               <span className="font-semibold text-ink">
                 {vendorFeedEnabled ? 'on' : 'off'}
               </span>
@@ -113,7 +118,7 @@ export default async function AdminDemandPage({
         </form>
       </div>
 
-      <DemandRadarCard radar={radar} marketLabel={null} scope="admin" />
+      <DemandRadarCard radar={radar} marketLabel={null} scope="admin" unreadable={radarUnreadable} />
     </section>
   );
 }

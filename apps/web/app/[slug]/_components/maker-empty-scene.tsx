@@ -21,14 +21,23 @@ import { WhatToBringWidget } from './what-to-bring-widget';
  * One `<section>`, its parts its direct children (`every-widget-is-one-section`).
  * No card: words on the page, set quiet (house rule, DESIGN_BRIEF §3).
  */
-export function MakerEmptyScene({ type, look = null }: { type: WidgetType; look?: ReactNode }) {
+export function MakerEmptyScene({
+  type,
+  look = null,
+  setupLocks = false,
+}: {
+  type: WidgetType;
+  look?: ReactNode;
+  /** 🔓 This event draws "Finish your Event Hub" (`hubSetupApplies`): say which step unlocks the scene. */
+  setupLocks?: boolean;
+}) {
   return (
     <section className="space-y-2 py-4 text-center" data-maker-empty={type}>
       <p className="pahina-eyebrow justify-center" data-maker-empty-prompt="">
         <span>{makerSceneLabel(type)}</span>
       </p>
       <p className="font-pahina text-xl font-light italic text-ink/60" data-maker-empty-prompt="">
-        {makerEmptyPrompt(type)}
+        {makerEmptyPrompt(type, setupLocks)}
       </p>
       {/* ✍ THE SCENE'S REAL LOOK, HIDDEN (owner 2026-09-27: *"needs to show on
           the scene editor"*). While the couple types in the scene's Content box

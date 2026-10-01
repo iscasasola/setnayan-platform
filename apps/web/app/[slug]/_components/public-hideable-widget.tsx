@@ -1,6 +1,7 @@
 import type { EventWords } from '../_lib/event-words';
 import type { RoleNames } from '@/lib/role-names';
-import { isChineseWedding } from '@/lib/chinese-wedding';
+import { dressRiteOf, isChineseWedding } from '@/lib/chinese-wedding';
+import { hubSetupApplies } from '@/lib/hub-setup-locks';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
@@ -89,7 +90,11 @@ export function PublicHideableWidget(props: PublicHideableWidgetProps) {
   return (
     <HubCanvasFrame widget={props.widget} mediaUrls={props.canvasMediaUrls} hubTheme={props.hubTheme} ownClipPlays={props.ownClipPlays}>
       {props.makerEmpty ? (
-        <MakerEmptyScene type={props.widget.widget_type} look={makerWordsLook(props.widget.widget_type)} />
+        <MakerEmptyScene
+          type={props.widget.widget_type}
+          look={makerWordsLook(props.widget.widget_type)}
+          setupLocks={hubSetupApplies(props.event.event_type)}
+        />
       ) : (
         PublicHideableWidgetBody(props)
       )}
@@ -166,7 +171,7 @@ function PublicHideableWidgetBody({
          nobody is identified here — so this is always the general view.
          `role_palette` is already on this row: `loadEventShell` selects it
          with the admin client, the same read the page's theme colours use. */
-      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={event.ceremony_type ?? null} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} />;
+      return <DressCodeWidget words={words} config={event.dress_code_config ?? null} ceremonyType={dressRiteOf(event)} genderSeparation={(event as { gender_separation?: string | null }).gender_separation ?? null} rolePalette={event.role_palette} roleNames={roleNames} hideWhenEmpty={guestView} sceneStyle={sceneStyle} paletteLook={paletteLookOfRow(widget)} />;
 
     case 'photo_moments':
       return <PhotoMomentsWidget words={words} config={event.photo_moments_config} hideWhenEmpty={guestView} bare={bare} sceneStyle={sceneStyle} />;

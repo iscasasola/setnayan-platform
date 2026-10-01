@@ -115,7 +115,7 @@ export type VendorRowProp = {
 
 export type PriceRowProp = RetailRowProp | BundleRowProp | VendorRowProp;
 
-type Family = 'Customer' | 'Bundles' | 'Vendor';
+type Family = 'Customer' | 'Bundles' | 'Supplier';
 /**
  * ⚖ TWO STATES, NOT THREE (owner 2026-08-29 — "remove the old prices").
  *
@@ -132,7 +132,7 @@ type ViewState = 'sale' | 'off';
 function familyOf(row: PriceRowProp): Family {
   if (row.kind === 'retail') return 'Customer';
   if (row.kind === 'bundle') return 'Bundles';
-  return 'Vendor';
+  return 'Supplier';
 }
 
 /**
@@ -291,7 +291,7 @@ export function PriceCatalogBrowser({
       </div>
 
       <div className="mb-4 flex flex-wrap gap-1.5">
-        {(['all', 'Customer', 'Bundles', 'Vendor'] as const).map((s) => (
+        {(['all', 'Customer', 'Bundles', 'Supplier'] as const).map((s) => (
           <button
             key={s}
             type="button"
@@ -516,7 +516,7 @@ function RetiredShelves(props: ShelfListProps) {
           <Shelf
             title="Not checked yet"
             count={unchecked.length}
-            note="bundles + vendor prices — same check, not yet run"
+            note="bundles + supplier prices — same check, not yet run"
           />
           {unchecked.map((r) => (
             <RowCard key={r.code} row={r} {...props} />
@@ -838,7 +838,7 @@ function SaveSection({ row, afterMutate }: { row: PriceRowProp; afterMutate: () 
 
       <div className="border-b border-ink/10 p-4">
         <h4 className="mb-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">
-          What it costs {row.kind === 'vendor' ? 'a vendor' : 'them'}
+          What it costs {row.kind === 'vendor' ? 'a supplier' : 'them'}
         </h4>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>

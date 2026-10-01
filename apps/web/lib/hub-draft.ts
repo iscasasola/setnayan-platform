@@ -141,6 +141,8 @@ import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
+import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
+import type { DateClash } from '@/lib/date-fits-booked';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -388,20 +390,46 @@ export const HUB_DRAFT_GALLERY_MAX = 24;
  * supplier's calendar) — and those keep reading the LIVE row until Apply, which
  * is the point. The list stays narrow: venues, the programme's times, the
  * march and the people are NOT here (each has its own writer and its own rule).
+ *
+ * 🔤 …and (2026-10-01, "in event hub maker will only take effect when pressed
+ * apply") the NAME STYLE — Full · Middle initial · Surname first — picked in the
+ * names' Wording ▾ or Details' Name style ▾:
+ *
+ *   · `print_details` — the event's settings JSON (`lib/print-pieces.ts`), but
+ *     the draft holds ONE KEY of it: `{ name_style }`, and nothing else. The
+ *     blob's other keys (the opening line, the menu, the pass card look, the
+ *     poster photo) are the prints' own and are never drafted, never overlaid
+ *     away and never written by Apply, which MERGES the drafted style into the
+ *     blob as it stands at write time (`hub-draft-actions.ts`) — the same
+ *     posture as `style_preferences` drafted as `{ qr }` only.
  */
-export const HUB_DRAFT_FACT_COLUMNS = ['display_name', 'bride_name', 'groom_name', 'event_date', 'event_date_precision'] as const;
+export const HUB_DRAFT_FACT_COLUMNS = [
+  'display_name',
+  'bride_name',
+  'groom_name',
+  'event_date',
+  'event_date_precision',
+  'print_details',
+] as const;
+
+/** The one key of `print_details` a draft may hold. */
+export const HUB_DRAFT_PRINT_DETAILS_KEY = 'name_style';
 
 /**
  * Apply counts a fact ONCE however many columns carry it (the prototype, frame
  * B: *"Apply counts it once"*) — the names are three columns, the date two.
  */
-export const HUB_DRAFT_FACT_GROUP: Readonly<Record<(typeof HUB_DRAFT_FACT_COLUMNS)[number], 'names' | 'date'>> = {
+export const HUB_DRAFT_FACT_GROUP: Readonly<Record<(typeof HUB_DRAFT_FACT_COLUMNS)[number], HubDraftFact>> = {
   display_name: 'names',
   bride_name: 'names',
   groom_name: 'names',
   event_date: 'date',
   event_date_precision: 'date',
+  print_details: 'name-style',
 };
+
+/** The typed facts a draft counts once each: the names, the date, the name style. */
+export type HubDraftFact = 'names' | 'date' | 'name-style';
 
 export const HUB_DRAFT_EVENT_COLUMNS = [
   'rsvp_backdrop',
@@ -624,6 +652,15 @@ export function sanitizeHubDraftEventValue(
       return isCalendarDay(raw) ? raw : undefined;
     case 'event_date_precision':
       return raw === 'year' || raw === 'month' || raw === 'day' ? raw : undefined;
+    // 🔤 The Name style — ONLY that key of `print_details`, and only one of the
+    // three styles (`NAME_STYLES`); anything else is dropped, never repaired.
+    case 'print_details': {
+      if (!isPlainObject(raw)) return undefined;
+      const style = raw[HUB_DRAFT_PRINT_DETAILS_KEY];
+      return typeof style === 'string' && (NAME_STYLES as readonly string[]).includes(style)
+        ? { [HUB_DRAFT_PRINT_DETAILS_KEY]: style }
+        : undefined;
+    }
   }
 }
 
@@ -853,6 +890,12 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   // 🎨 The fixed parts' drafted picks ride on `style_preferences` too, every
   // other key of it kept — the host's canvas then draws the part in the picked style.
   if (picks) out.style_preferences = stylePreferencesWithDraftedStyles(out.style_preferences, picks);
+  /* 🔤 The drafted Name style is laid INTO the live settings blob, every other
+     key of it kept (the prints' words, menu, pass card look). */
+  if ('print_details' in draft.events) {
+    const live = row.print_details && typeof row.print_details === 'object' && !Array.isArray(row.print_details) ? (row.print_details as Record<string, unknown>) : {};
+    out.print_details = { ...live, ...(draft.events.print_details as Record<string, unknown>) };
+  }
   return out as T;
 }
 
@@ -1055,6 +1098,11 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
         return Object.keys(s).length > 0 ? JSON.stringify(s) : null;
       };
       return refChange(qr(live), qr(next));
+    }
+    case 'print_details': {
+      // Only the Name style is compared — and as the prints read it: absent is Full.
+      const style = (v: unknown) => nameStyleOfPrintDetails(v);
+      return style(live) === style(next) ? refChange('same', 'same') : refChange(style(live), style(next));
     }
     case 'invite_theme': {
       // Compared as guests meet it: never chosen and Classic are the same page,
@@ -1798,7 +1846,14 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
  * draft (`lib/hub-pro-effects.ts`), recomputed from the stored draft — the
  * sheet sends only the effect's id.
  */
-export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop'] as const;
+/**
+ * `date_change` — THE CLASHING-DATE FLOW's couple side (owner 2026-10-01): the
+ * one confirm "Ask them to move or unlock?" and Home's withdraw · keep waiting ·
+ * drop that supplier (`action`, `lib/date-change.ts`). It rides this action
+ * rather than a new export (the server-action budget); it never writes the
+ * live page — the date goes live only through `apply`.
+ */
+export const HUB_DRAFT_INTENTS = ['save', 'apply', 'restore', 'reset', 'undo', 'drop', 'date_change'] as const;
 export type HubDraftIntent = (typeof HUB_DRAFT_INTENTS)[number];
 
 export function isHubDraftIntent(v: unknown): v is HubDraftIntent {
@@ -1831,8 +1886,20 @@ export type HubDraftActionResult =
        * render (`lib/maker-refresh.ts`), so the toolbar's count comes from here.
        */
       bar?: HubDraftBarLive;
+      /** `date_change` only: what happened, in words ("Asked. Your date stays as it is…"). */
+      message?: string;
     }
-  | { ok: false; intent: HubDraftIntent | null; error: string };
+  | {
+      ok: false;
+      intent: HubDraftIntent | null;
+      error: string;
+      /**
+       * 🗓 A day or month a BOOKED supplier cannot do was refused at the pick
+       * (`lib/date-clash.server.ts`): each supplier that clashes, and where to
+       * ask them to move or unlock. `error` is the plain reason.
+       */
+      clash?: DateClash[];
+    };
 
 /**
  * What the toolbar re-reads after a save (`hubDraftBarAfterSave`): the count for
@@ -1861,9 +1928,9 @@ export function hubDraftPanelStaysOpen(result: HubDraftActionResult): boolean {
   return result.held.length > 0;
 }
 
-/** Which typed fact (the names, the date) an `events` column carries — null for every other column. */
-export function hubDraftFactOf(column: HubDraftEventColumn): 'names' | 'date' | null {
-  return (HUB_DRAFT_FACT_GROUP as Partial<Record<string, 'names' | 'date'>>)[column] ?? null;
+/** Which typed fact (the names, the date, the name style) an `events` column carries — null for every other column. */
+export function hubDraftFactOf(column: HubDraftEventColumn): HubDraftFact | null {
+  return (HUB_DRAFT_FACT_GROUP as Partial<Record<string, HubDraftFact>>)[column] ?? null;
 }
 
 /** A sentence-ready name for each draftable `events` column. */
@@ -1899,6 +1966,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   groom_name: 'Your names',
   event_date: 'Your date',
   event_date_precision: 'Your date',
+  print_details: 'Your name style',
 };
 
 /** A sentence-ready name for each fixed part whose style is drafted. */

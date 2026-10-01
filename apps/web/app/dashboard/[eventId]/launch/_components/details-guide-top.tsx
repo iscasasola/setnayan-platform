@@ -5,6 +5,7 @@ import { PickMenu, type PickOption } from '../../website/editor/_components/pick
 import {
   progressLabel,
   progressShare,
+  roundName,
   type GuidedPlan,
   type GuidedRound,
   type GuidedScreen,
@@ -35,7 +36,7 @@ export function screenKey(at: GuidedScreen): string {
 export function screenFromKey(key: string): GuidedScreen | null {
   const [kind, v] = key.split(':');
   if (kind === 'step' && v) return { kind: 'step', step: v as GuidedStep['key'] };
-  if (kind === 'ready' && (v === '1' || v === '2' || v === '3')) return { kind: 'ready', round: Number(v) as GuidedRound };
+  if (kind === 'ready' && (v === '0' || v === '1' || v === '2' || v === '3')) return { kind: 'ready', round: Number(v) as GuidedRound };
   return null;
 }
 
@@ -54,7 +55,7 @@ export function GuideTop({
   tour?: ReactNode;
 }) {
   const options: PickOption[] = plan.rounds.flatMap((r) => {
-    const group = `Round ${r} · ${plan.roundWords[r].title}`;
+    const group = roundName(plan, r);
     return [
       ...plan.steps
         .filter((s) => s.round === r)

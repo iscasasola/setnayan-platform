@@ -21,52 +21,40 @@
  * `the-reply-is-a-sheet.test.ts`. Nothing in this file touches `window`.
  */
 
-import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
-
 /**
- * THE IN-PAGE ANCHORS THAT MEAN "OPEN THE REPLY SHEET".
+ * THE IN-PAGE ANCHOR THAT MEANS "OPEN THE REPLY SHEET".
  *
- * 🔗 TWO DOORS, ONE DESTINATION — the brief's hard requirement. A guest reaches
- * their reply from two places and both must land in the same sheet:
+ * 🔗 ONE ANCHOR, EVERY DOOR. A guest reaches their reply from several controls
+ * and all of them point at `#your-details`: the hub card's chip, the reply
+ * section's own line, the arrival action's RSVP / "Change" label
+ * (`resolveArrivalAction`, lib/arrival-action.ts — its default href is this
+ * anchor), the Home spotlight, and the "Change your reply" button on Me.
  *
- *   · `your-details` — the chip on the guest hub card ("Your details"), shipped
- *     and pinned by `the-reply-card-can-be-reached.test.ts`.
- *   · `SITE_MENU_ANCHORS.me` — where `resolveArrivalAction` (lib/arrival-action.ts)
- *     sends its RSVP label by default. Read from the anchor map rather than
- *     retyped, so the two cannot drift apart; a fragment link to a missing id
- *     fails SILENTLY, which is the quietest failure this page can have.
+ * 🛑 `site-me` IS NOT ON THIS LIST ANY MORE (owner walk-through 2026-10-01).
+ * It used to be: tapping the Me tab (`#site-me`) raised this sheet over the
+ * guest's own ticket — "Change your reply" over the thing they came to see —
+ * every single time, after they had replied. Me is the Digital ticket (DECISION_LOG
+ * 2026-09-30 "THE GUEST'S PASS IS THE DIGITAL TICKET, AND IT LIVES ON ME"), so Me
+ * opens on the ticket with the sheet closed, and changing the reply is a button
+ * there that points here. The file's own earlier note named this as "a one-line
+ * reversal: drop `site-me` from this list and feed `resolveArrivalAction` its
+ * `rsvpHref`" — that is what happened, except the default moved instead of a
+ * per-call input, so no caller can forget it.
  *
  * 🛑 `site-me` ALREADY EXISTS, AND THIS FILE MUST NEVER EMIT A SECOND ONE.
- * The first draft of this slice asserted the opposite — site-body.tsx really
- * does not emit it anywhere in the guest arm, and its own PR11 comment says so
- * in as many words — and concluded the id was dead. It is not:
  * `guest-hub-bar.tsx` renders `<section id="site-me">`, the guest's personal QR
- * section, as a sibling of SiteBody from page.tsx. `bottom-edge.test.ts` exists
- * to keep that single, and it caught the duplicate marker on the first run.
- *
- * 🔑 AN ACCURATE ABSENCE PLUS AN INFERRED LOCATION IS A FALSE FINDING. The grep
- * was right about the file it searched and wrong about the product.
- *
- * So this list is a LISTENER, not a set of ids to create. The sheet opens on the
- * fragment; the browser scrolls to whatever already owns it, or to nothing. That
- * is also why the arrival action works without a line of its own: it already
- * points here.
- *
- * ⚖ AND IT MEANS THE MENU'S "Me" TAB OPENS THE SHEET TOO, during the `rsvp`
- * phase only — the sheet is mounted under `plan.rsvpShouldRender`, so on the day
- * itself (the `event` phase) tapping Me still just shows the QR, with nothing
- * over it. A judgement call, and a one-line one to reverse: drop `site-me` from
- * this list and feed `resolveArrivalAction` its `rsvpHref` input instead
- * (`/${slug}#your-details`), which is the hook that function already exposes.
+ * section; `bottom-edge.test.ts` exists to keep that single. This list is a
+ * LISTENER, not a set of ids to create: the sheet opens on the fragment, and the
+ * browser scrolls to whatever already owns it, or to nothing.
  */
-export const RSVP_SHEET_ANCHORS = ['your-details', SITE_MENU_ANCHORS.me] as const;
+export const RSVP_SHEET_ANCHORS = ['your-details'] as const;
 
 /**
  * Does this location fragment ask for the reply sheet?
  *
  * Tolerant about what it is handed — a bare id, a `#id`, or a whole href — so a
  * caller that has already stripped the `#` is not silently wrong. Strict about
- * what it matches: the id must be one of the two anchors WHOLE, or
+ * what it matches: the id must be the anchor WHOLE, or
  * `#your-details-map` would open a reply form.
  */
 export function hashOpensSheet(hash: string | null | undefined): boolean {

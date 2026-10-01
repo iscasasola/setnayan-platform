@@ -15,7 +15,8 @@
  *              Next card, and on an event day it is THE Next card)
  *   answer   → the oldest answer this shop owes (the Needs-your-answer desk,
  *              already ordered oldest-waiting-first by `fetchVendorOverviewData`
- *              — never re-sorted here)
+ *              — never re-sorted here) — except a date-change request, which
+ *              is first whenever one waits (`nextAnswerOf`: a 3-day deadline)
  *   unread   → the desk could not be fully read and shows nothing: never
  *              "all caught up" over a list that did not load
  *   setup    → the first-steps rail's current step (an unapproved shop)
@@ -40,6 +41,7 @@ import { formatCount } from '@/lib/format-number';
 import { formatLongDate } from '@/lib/format-date';
 import { formatCentavosPhp, formatPhp } from '@/lib/php';
 import { waitingAge } from '@/lib/waiting-age';
+import { dateChangeWhen } from '@/lib/date-change';
 
 export type SupplierNextKind =
   | 'run_day'
@@ -116,6 +118,28 @@ function waitedLine(since: Date | null, now: number): string | null {
   return `${w.label.charAt(0).toUpperCase()}${w.label.slice(1)}.`;
 }
 
+/** "answer within 2 days" · "answer today" · "the 3 days are up" — the request's own deadline. */
+function dueLine(dueAt: string, now: number): string {
+  const hours = Math.ceil((new Date(dueAt).getTime() - now) / 3_600_000);
+  if (!Number.isFinite(hours) || hours <= 0) return 'the 3 days are up';
+  if (hours < 24) return 'answer today';
+  const days = Math.ceil(hours / 24);
+  return `answer within ${days} day${days === 1 ? '' : 's'}`;
+}
+
+/**
+ * 🗓 WHICH ANSWER IS NEXT. The desk is oldest-waiting-first, and the Next card
+ * has always been its first row — EXCEPT a date-change request (owner
+ * 2026-10-01): it carries a 3-day deadline after which the couple may release
+ * the booking, so it is the Next card whenever one is waiting (the soonest
+ * deadline first). Nothing is re-sorted on the desk itself.
+ */
+export function nextAnswerOf<T extends { kind: string }>(needsAnswer: readonly T[]): T | null {
+  const dated = needsAnswer.filter((c) => c.kind === 'date_change') as Array<T & { dueAt?: string }>;
+  if (dated.length > 0) return [...dated].sort((a, b) => String(a.dueAt).localeCompare(String(b.dueAt)))[0]!;
+  return needsAnswer[0] ?? null;
+}
+
 function join(parts: Array<string | null | undefined>): string {
   return parts.filter((p): p is string => Boolean(p && p.trim())).join(' · ');
 }
@@ -164,6 +188,14 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
         body: join([card.eventDate ? formatLongDate(card.eventDate) : null, 'They logged a payment to you']) + '.',
         action: 'Check the deposit',
         target: { to: 'card', eventId: card.eventId, tab: 'quote' },
+      };
+    case 'date_change':
+      return {
+        kind: 'answer',
+        title: 'Date change request',
+        body: `${card.coupleName} asks to move from ${card.fromDate ? dateChangeWhen(card.fromDate, card.fromPrecision) : 'their date'} to ${dateChangeWhen(card.proposedDate, card.proposedPrecision)}. Move, or unlock your service — ${dueLine(card.dueAt, now)}.`,
+        action: 'Answer',
+        target: { to: 'today' },
       };
     case 'delete_request':
       return {

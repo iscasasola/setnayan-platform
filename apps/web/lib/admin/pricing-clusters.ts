@@ -29,8 +29,8 @@ export type PriceCluster =
   | 'Film and music'
   | 'Planning tools'
   | 'Bundles'
-  | 'Vendor plans'
-  | 'Vendor add-ons';
+  | 'Supplier plans'
+  | 'Supplier add-ons';
 
 /**
  * Which cluster a customer product belongs to.
@@ -61,8 +61,8 @@ export function clusterForRetail(serviceCode: string): PriceCluster {
 /** Vendor rows split by what the shop is actually buying. */
 export function clusterForVendor(offeringType: string | null | undefined): PriceCluster {
   const o = (offeringType ?? '').toLowerCase();
-  if (o.startsWith('subscription')) return 'Vendor plans';
-  return 'Vendor add-ons';
+  if (o.startsWith('subscription')) return 'Supplier plans';
+  return 'Supplier add-ons';
 }
 
 /** The order shelves appear in — deliberate, not alphabetical. */
@@ -73,8 +73,8 @@ export const CLUSTER_ORDER: readonly PriceCluster[] = [
   'Film and music',
   'Planning tools',
   'Bundles',
-  'Vendor plans',
-  'Vendor add-ons',
+  'Supplier plans',
+  'Supplier add-ons',
 ];
 
 /**

@@ -742,4 +742,20 @@ export default withSentryConfig(nextConfig, {
     disable: !sentrySourcemapsCanUpload(process.env),
     deleteSourcemapsAfterUpload: true,
   },
+  // ⚡ NO DEBUG IDS WHEN NO MAP WILL BE UPLOADED (the diet, 2026-10-01).
+  // `sourcemaps.disable` above only empties the UPLOAD list; the plugin still
+  // prepends a `_sentryDebugIds` snippet (a fresh UUID, so gzip cannot fold it)
+  // to EVERY browser chunk. A debug ID only pairs an error with an uploaded map,
+  // and no map is ever uploaded while the gate is shut — so each phone paid for
+  // ~150 B × every chunk it downloads, for nothing. MEASURED on a production
+  // build of main b02235da: 7,488 B gz of the Maker's first load (49 of its 57
+  // chunks) and 887 B gz of the shared bundle (all 6 chunks).
+  // The plugin's own `sourcemaps.disable` is what skips the injection; it is
+  // passed ONLY while the gate is shut, because this object is spread over the
+  // plugin's options AFTER the upload settings and would otherwise replace them.
+  // The day uploads open, injection comes back with them, by itself.
+  // 🛡 lib/the-build-has-headroom-ci-cannot-prove.test.ts holds both halves.
+  ...(sentrySourcemapsCanUpload(process.env)
+    ? {}
+    : { unstable_sentryWebpackPluginOptions: { sourcemaps: { disable: true } } }),
 });

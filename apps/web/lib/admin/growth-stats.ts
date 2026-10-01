@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Growth + population statistics for the admin Growth surface (/admin/growth).
@@ -53,7 +54,7 @@ const ENTITY_KEYS: EntityKey[] = [
 
 const ENTITY_LABELS: Record<EntityKey, string> = {
   customers: 'Customers',
-  vendors: 'Vendors',
+  vendors: 'Suppliers',
   services: 'Services',
   events: 'Events',
   guests: 'Guests',
@@ -107,6 +108,8 @@ export type Breakdowns = {
   eventsByRegion: BreakdownRow[];
   /** True if the read hit its row cap — counts are then a sample, not exact. */
   sampled: boolean;
+  /** True when the read failed — the two lists are then EMPTY BECAUSE UNREAD, not because there are no events. */
+  failed?: boolean;
 };
 
 export type GrowthStats = {
@@ -339,8 +342,9 @@ async function fetchBreakdowns(admin: Admin): Promise<Breakdowns> {
       ),
       sampled: rows.length >= BREAKDOWN_ROW_CAP,
     };
-  } catch {
-    return { eventsByType: [], eventsByRegion: [], sampled: false };
+  } catch (e) {
+    logQueryError('growth-stats (breakdowns)', e);
+    return { eventsByType: [], eventsByRegion: [], sampled: false, failed: true };
   }
 }
 
@@ -368,7 +372,9 @@ export async function fetchGrowthStats(range: GrowthRangeKey): Promise<GrowthSta
       try {
         return await buildSeries(admin, key, start, ends);
       } catch (e) {
-        errors.push(`${key}: ${e instanceof Error ? e.message : String(e)}`);
+        // The refusal's own words go to the log; the screen names the section.
+        logQueryError(`growth-stats (series ${key})`, e);
+        errors.push(`${key} growth`);
         return emptySeries(key, ends);
       }
     }),
@@ -399,7 +405,8 @@ export async function fetchGrowthStats(range: GrowthRangeKey): Promise<GrowthSta
       headCount(admin.from('vendor_services').select('*', HEAD).eq('is_active', true)),
     ]);
   } catch (e) {
-    errors.push(`population: ${e instanceof Error ? e.message : String(e)}`);
+    logQueryError('growth-stats (population)', e);
+    errors.push('population totals');
   }
 
   const population: Population = {
@@ -436,7 +443,8 @@ export async function fetchGrowthStats(range: GrowthRangeKey): Promise<GrowthSta
       sampleSize,
     };
   } catch (e) {
-    errors.push(`conversion: ${e instanceof Error ? e.message : String(e)}`);
+    logQueryError('growth-stats (conversion)', e);
+    errors.push('guest conversion');
     conversion = {
       totalGuests: population.guests,
       converted: 0,
@@ -450,6 +458,8 @@ export async function fetchGrowthStats(range: GrowthRangeKey): Promise<GrowthSta
   }
 
   const breakdowns = await fetchBreakdowns(admin);
+  // Empty lists over a failed read read as "no events" — name it in the notice.
+  if (breakdowns.failed) errors.push('events by type and region');
 
   return {
     range: opt.value,

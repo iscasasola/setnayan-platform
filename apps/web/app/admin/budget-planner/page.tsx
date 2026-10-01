@@ -201,7 +201,7 @@ export default async function AdminBudgetPlannerPage() {
         </h2>
         <p className="mb-3 text-sm text-ink/60">
           Set the typical ₱ per service. These are the fallback the planner shows
-          couples when there aren&apos;t enough real vendor prices yet. Leave
+          couples when there aren&apos;t enough real supplier prices yet. Leave
           blank to clear.
         </p>
         <div className="overflow-hidden rounded-2xl border border-ink/10">
@@ -254,7 +254,7 @@ export default async function AdminBudgetPlannerPage() {
           Engine settings
         </h2>
         <p className="mb-3 text-sm text-ink/60">
-          The allocation engine knobs. Sample thresholds decide when real vendor
+          The allocation engine knobs. Sample thresholds decide when real supplier
           medians are trusted over the seeded benchmark; the band is the ±
           tolerance around a target; surplus mode decides what happens to money
           left over after every service is funded.
@@ -287,7 +287,7 @@ export default async function AdminBudgetPlannerPage() {
                 className="input-field mt-1 w-full"
               />
               <span className="mt-1 block text-[11px] text-ink/45">
-                Fewest vendor prices before a market median is used at all.
+                Fewest supplier prices before a market median is used at all.
               </span>
             </label>
             <label className="block">

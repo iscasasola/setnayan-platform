@@ -195,11 +195,11 @@ export async function FunnelsSurface({ searchParams }: Props) {
     funnelFrom(
       {
         key: 'vendor',
-        title: 'Vendor onboarding',
+        title: 'Supplier onboarding',
         blurb: 'Signup → profile complete → first booking thread.',
       },
       [
-        { label: 'Vendor signups', res: vendorSignupsRes },
+        { label: 'Supplier signups', res: vendorSignupsRes },
         { label: 'Profile filled', res: vendorProfileCompleteRes },
         { label: 'First booking thread', res: distinctVendorBookings },
       ],
@@ -242,7 +242,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
       ? {
           key: `vendor_${selectedVendor.vendor_profile_id}`,
           title: `${selectedVendor.business_name} — Quote-to-Booking`,
-          blurb: 'Profile views → inquiries → quotes sent → booked, for this vendor.',
+          blurb: 'Profile views → inquiries → quotes sent → booked, for this supplier.',
           steps: vendorTotals.totals ? buildFunnelSteps(vendorTotals.totals) : null,
           error: vendorTotals.error,
         }
@@ -314,9 +314,9 @@ export async function FunnelsSurface({ searchParams }: Props) {
             <Filter aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
           </span>
           <div className="space-y-0.5">
-            <h2 className="text-base font-semibold text-ink">Vendor drill-down</h2>
+            <h2 className="text-base font-semibold text-ink">Supplier drill-down</h2>
             <p className="text-xs text-ink/70">
-              Pick a vendor to see their views → inquiries → quotes → booked
+              Pick a supplier to see their views → inquiries → quotes → booked
               funnel for the selected range.
             </p>
           </div>
@@ -330,7 +330,7 @@ export async function FunnelsSurface({ searchParams }: Props) {
           <FunnelTable funnel={vendorFunnel} />
         ) : (
           <p className="text-sm text-ink/70">
-            No vendor selected. Pick one above to load their funnel.
+            No supplier selected. Pick one above to load their funnel.
           </p>
         )}
       </section>

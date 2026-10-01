@@ -39,6 +39,7 @@ import { readInChunks } from '@/lib/read-all-pages';
 import {
   readDeclinedDepositIds,
   readBookingsAwaitingCompletion,
+  readDateChangeAsks,
   readDeletionRequests,
   readDepositsAwaitingAcknowledgement,
   readLockAgreementRequests,
@@ -121,6 +122,28 @@ export type WhatsNewCard =
       eventVendorId: string;
       eventDate: string | null;
       requestedAt: string;
+    }
+  /*
+    🗓 A COUPLE ASKS TO MOVE THEIR DATE, AND IT CLASHES WITH THIS SHOP'S
+    CALENDAR (owner 2026-10-01, "A CLASHING DATE GOES TO THE SUPPLIER IN
+    CONFLICT"). Two answers: Move to <date> · Unlock my service. Its own kind:
+    it is neither "will you take this booking?" nor "may it be erased?" — it
+    moves (or releases) a booking the shop already holds, on a 3-day deadline
+    after which the couple may release it themselves.
+  */
+  | {
+      kind: 'date_change';
+      id: string;
+      eventId: string;
+      /** The booked row the answer is given on (a package answers as one). */
+      eventVendorId: string;
+      coupleName: string;
+      fromDate: string | null;
+      fromPrecision: 'day' | 'month' | 'year';
+      proposedDate: string;
+      proposedPrecision: 'day' | 'month' | 'year';
+      askedAt: string;
+      dueAt: string;
     }
   | {
       kind: 'lock';
@@ -451,7 +474,7 @@ export async function fetchVendorOverviewData(
     covers their events too. The deletion card would have inherited the
     identical hole — a supplier asked to release a celebration, not told which.
   */
-  const [lockRead, lockAgreementRead, deletionRead, declinedRead, completionAwaiting] =
+  const [lockRead, lockAgreementRead, deletionRead, declinedRead, completionAwaiting, dateChangeRead] =
     await Promise.all([
       fetchLockRequests(admin, vendorProfileId),
       // Flag-gated so the extra read does not even run while the handshake is
@@ -467,6 +490,9 @@ export async function fetchVendorOverviewData(
       // and this is the exact hole the comment above says the deletion card
       // would otherwise have inherited.
       readBookingsAwaitingCompletion(admin, vendorProfileId),
+      // 🗓 A couple's clashing date, asked of this shop (Move · Unlock). Here
+      // with the others so its event ids reach `fetchEventMeta` (who is asking).
+      readDateChangeAsks(admin, vendorProfileId),
     ]);
   const lockRequests = lockRead.rows;
   const lockAgreementRequests = lockAgreementRead.rows;
@@ -482,7 +508,8 @@ export async function fetchVendorOverviewData(
     !lockRead.complete ||
     !lockAgreementRead.complete ||
     !deletionRead.complete ||
-    !declinedRead.complete;
+    !declinedRead.complete ||
+    !dateChangeRead.complete;
 
   /*
     THE ASK SPLITS BY ITS OWN MATERIALIZED DEADLINE. `fetchLockAgreementRequests`
@@ -510,6 +537,7 @@ export async function fetchVendorOverviewData(
       ...bookingEventIds,
       ...lockAgreementRequests.map((r) => r.eventId),
       ...deletionRequests.map((r) => r.eventId),
+      ...dateChangeRead.rows.map((r) => r.event_id),
       // The four kinds added with the desk. Their event ids all come from rows
       // the vendor's OWN session returned; the meta read is admin-scoped
       // enrichment of ids already proved, never a way to reach a new event.
@@ -612,6 +640,28 @@ export async function fetchVendorOverviewData(
     it carries no deadline that would surface it later. Owner 2026-08-21: an
     unanswered ask stays open forever with one reminder, never auto-agreed.
   */
+  /*
+    🗓 THE DATE-CHANGE ASK — on a 3-day deadline, after which the couple may
+    release the booking; sorted by when it was asked like the other asks.
+  */
+  for (const dc of dateChangeRead.rows) {
+    const meta = eventMeta.get(dc.event_id);
+    const precisionOf = (p: string | null): 'day' | 'month' | 'year' => (p === 'month' || p === 'year' ? p : 'day');
+    whatsNew.push({
+      kind: 'date_change',
+      id: `datechange-${dc.request_id}`,
+      eventId: dc.event_id,
+      eventVendorId: dc.event_vendor_id,
+      coupleName: meta?.displayName ?? 'A couple',
+      fromDate: dc.from_date,
+      fromPrecision: precisionOf(dc.from_precision),
+      proposedDate: dc.proposed_date,
+      proposedPrecision: precisionOf(dc.proposed_precision),
+      askedAt: dc.asked_at,
+      dueAt: dc.due_at,
+    });
+  }
+
   for (const dr of deletionRequests) {
     const meta = eventMeta.get(dr.eventId);
     whatsNew.push({
@@ -1025,6 +1075,8 @@ export function cardTimestamp(card: WhatsNewCard): Date {
       return new Date(card.requestedAt);
     case 'delete_request':
       return new Date(card.requestedAt);
+    case 'date_change':
+      return new Date(card.askedAt);
     // CTRL-B2 build 1. `createdAt` is the day AFTER the celebration, not now —
     // on an oldest-waiting-first desk, stamping it `now` would pin every
     // completion row to the bottom forever and the oldest unmarked event,

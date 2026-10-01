@@ -161,16 +161,20 @@ test('a row that is nothing but whitespace is still dropped', () => {
    same-role sponsor couple, and a bridesmaid with a groomsman — which is the
    case that forced two groups into one, because a pair split across two
    headings can never share a line.
+
+   🚶 Owner 2026-10-01 ("THE WEDDING MARCH IS ITS OWN ENTITY"): who walks with
+   whom is the person's `march_walks` row — `walk` here is its walk_no; people
+   sharing one walk together.
    ══════════════════════════════════════════════════════════════════════════ */
 
 const paired = (
   id: string,
   first: string,
   role: string,
-  pair: string | null,
+  walk: number | null,
 ): EntourageGuestRow => ({
   guest_id: id,
-  pair_with_guest_id: pair,
+  march: walk === null ? null : { walk_no: walk, place_in_walk: 0 },
   first_name: first,
   last_name: 'X',
   role,
@@ -180,8 +184,8 @@ const paired = (
 
 test('a Ninong and his Ninang share one line — him left, her right', () => {
   const [g] = buildEntourage([
-    paired('a', 'Richard', 'principal_sponsor_ninong', 'b'),
-    paired('b', 'Shirley', 'principal_sponsor_ninang', 'a'),
+    paired('a', 'Richard', 'principal_sponsor_ninong', 1),
+    paired('b', 'Shirley', 'principal_sponsor_ninang', 1),
   ]);
   assert.equal(g!.rows.length, 1, 'the pair did not share a line');
   assert.deepEqual(
@@ -194,16 +198,16 @@ test('a Ninong and his Ninang share one line — him left, her right', () => {
 test('…and the Ninang still lands on the right when she is listed first', () => {
   /* Order of arrival must not decide the column when the ROLE can. */
   const [g] = buildEntourage([
-    paired('b', 'Shirley', 'principal_sponsor_ninang', 'a'),
-    paired('a', 'Richard', 'principal_sponsor_ninong', 'b'),
+    paired('b', 'Shirley', 'principal_sponsor_ninang', 1),
+    paired('a', 'Richard', 'principal_sponsor_ninong', 1),
   ]);
   assert.deepEqual(g!.rows[0]!.map((p) => p?.name ?? null), ['Richard X', 'Shirley X']);
 });
 
 test('🔴 a bridesmaid pairs with a GROOMSMAN — the case that merged two groups', () => {
   const groups = buildEntourage([
-    paired('g', 'Gerardine', 'bridesmaid', 'h'),
-    paired('h', 'Gericho', 'groomsman', 'g'),
+    paired('g', 'Gerardine', 'bridesmaid', 1),
+    paired('h', 'Gericho', 'groomsman', 1),
   ]);
   assert.deepEqual(groups.map((x) => x.key), ['bridesmaids_groomsmen'], 'they must share one group');
   assert.deepEqual(groups[0]!.rows[0]!.map((p) => p?.name ?? null), ['Gerardine X', 'Gericho X']);
@@ -211,8 +215,8 @@ test('🔴 a bridesmaid pairs with a GROOMSMAN — the case that merged two grou
 
 test('a same-role pair still pairs — nothing in the role says which side', () => {
   const [g] = buildEntourage([
-    paired('k', 'Katrina', 'candle_sponsor', 'c'),
-    paired('c', 'Christopher', 'candle_sponsor', 'k'),
+    paired('k', 'Katrina', 'candle_sponsor', 1),
+    paired('c', 'Christopher', 'candle_sponsor', 1),
   ]);
   assert.equal(g!.rows.length, 1);
   // Both share a surname, so the given name decides — a stable answer where
@@ -238,23 +242,23 @@ test('the legacy principal_sponsor sits left with an empty right — gender is n
   assert.deepEqual(g!.rows[0]!.map((p) => p?.name ?? null), ['Nelson X', null]);
 });
 
-test('🔑 a HALF-pair prints both people, once each — never drops one', () => {
-  /* A points at B; B points at nobody. Unreachable through pair_guests(), which
-     writes both halves in one statement — this is what the page does if one
-     ever appears anyway. */
+test('🔑 a walk of THREE prints everybody, once each — never drops one', () => {
+  /* The table allows it; no move writes it. If one ever appears, the first two
+     share a line and the third walks alone — "show everybody". */
   const groups = buildEntourage([
-    paired('a', 'Ana', 'candle_sponsor', 'b'),
-    paired('b', 'Ben', 'candle_sponsor', null),
+    paired('a', 'Ana', 'candle_sponsor', 1),
+    paired('b', 'Ben', 'candle_sponsor', 1),
+    paired('c', 'Cy', 'candle_sponsor', 1),
   ]);
   const names = peopleOf(groups[0]!).map((p) => p.name);
-  assert.deepEqual(names.sort(), ['Ana X', 'Ben X'], 'somebody was dropped by a dangling pair');
-  assert.equal(groups[0]!.rows.length, 2, 'a half-pair must not share a line');
+  assert.deepEqual(names.sort(), ['Ana X', 'Ben X', 'Cy X'], 'somebody was dropped by a crowded walk');
+  assert.equal(groups[0]!.rows.length, 2, 'three people are one line of two and one alone');
 });
 
-test('a pointer at somebody outside this group does not steal them', () => {
+test('a walk with somebody outside this group does not steal them', () => {
   const groups = buildEntourage([
-    paired('a', 'Ana', 'candle_sponsor', 'z'),
-    paired('z', 'Zed', 'flower_girl', 'a'),
+    paired('a', 'Ana', 'candle_sponsor', 1),
+    paired('z', 'Zed', 'flower_girl', 1),
   ]);
   const sponsors = groups.find((g) => g.key === 'secondary_sponsors')!;
   // Owner 2026-09-20 split bearers and flower girls into two headings.
@@ -265,8 +269,8 @@ test('a pointer at somebody outside this group does not steal them', () => {
 
 test('nobody is printed twice by pairing', () => {
   const groups = buildEntourage([
-    paired('a', 'Ana', 'candle_sponsor', 'b'),
-    paired('b', 'Ben', 'candle_sponsor', 'a'),
+    paired('a', 'Ana', 'candle_sponsor', 1),
+    paired('b', 'Ben', 'candle_sponsor', 1),
     paired('c', 'Cy', 'veil_sponsor', null),
   ]);
   const names = peopleOf(groups[0]!).map((p) => p.name);
@@ -360,7 +364,7 @@ test('sorting is per ROLE — it never flattens the order inside a group', () =>
 test("a hand-placed name outranks the alphabetical default", () => {
   const groups = buildEntourage([
     row({ guest_id: '1', first_name: 'Ana', last_name: 'Abad', role: 'principal_sponsor_ninang' }),
-    row({ guest_id: '2', first_name: 'Zeny', last_name: 'Zamora', role: 'principal_sponsor_ninang', entourage_order: 0 }),
+    row({ guest_id: '2', first_name: 'Zeny', last_name: 'Zamora', role: 'principal_sponsor_ninang', march: { walk_no: 0 } }),
   ]);
   const names = peopleOf(groups.find((g) => g.key === 'principal_sponsors')!).map((p) => p.name);
   assert.deepEqual(names, ['Zeny Zamora', 'Ana Abad']);
@@ -372,20 +376,20 @@ test('placing SOME names does not scramble the rest', () => {
   // makes the first drag meaningless until the twelfth.
   const groups = buildEntourage([
     row({ guest_id: '1', first_name: 'Ana', last_name: 'Abad', role: 'groomsman' }),
-    row({ guest_id: '2', first_name: 'Boy', last_name: 'Bautista', role: 'groomsman', entourage_order: 1 }),
+    row({ guest_id: '2', first_name: 'Boy', last_name: 'Bautista', role: 'groomsman', march: { walk_no: 1 } }),
     row({ guest_id: '3', first_name: 'Cris', last_name: 'Cruz', role: 'groomsman' }),
-    row({ guest_id: '4', first_name: 'Dino', last_name: 'Dizon', role: 'groomsman', entourage_order: 0 }),
+    row({ guest_id: '4', first_name: 'Dino', last_name: 'Dizon', role: 'groomsman', march: { walk_no: 0 } }),
   ]);
   const names = peopleOf(groups.find((g) => g.key === 'bridesmaids_groomsmen')!).map((p) => p.name);
   assert.deepEqual(names, ['Dino Dizon', 'Boy Bautista', 'Ana Abad', 'Cris Cruz']);
 });
 
 test('🔑 an UNPLACED name is not treated as position zero', () => {
-  // The whole trap: `entourage_order ?? 0` would rank everyone the couple
+  // The whole trap: `walk ?? 0` would rank everyone the couple
   // never touched ABOVE the person they deliberately put first.
   const groups = buildEntourage([
     row({ guest_id: '1', first_name: 'Ana', last_name: 'Abad', role: 'bridesmaid' }),
-    row({ guest_id: '2', first_name: 'Zeny', last_name: 'Zamora', role: 'bridesmaid', entourage_order: 0 }),
+    row({ guest_id: '2', first_name: 'Zeny', last_name: 'Zamora', role: 'bridesmaid', march: { walk_no: 0 } }),
   ]);
   const names = peopleOf(groups.find((g) => g.key === 'bridesmaids_groomsmen')!).map((p) => p.name);
   assert.equal(names[0], 'Zeny Zamora');
@@ -397,7 +401,7 @@ test('holdersOfRoleInPrintOrder is the SAME order the invitation prints', () => 
   // cannot see. Asserting they agree is the only thing that keeps them honest.
   const rows = [
     row({ guest_id: '1', first_name: 'Cris', last_name: 'Cruz', role: 'groomsman' }),
-    row({ guest_id: '2', first_name: 'Ana', last_name: 'Abad', role: 'groomsman', entourage_order: 5 }),
+    row({ guest_id: '2', first_name: 'Ana', last_name: 'Abad', role: 'groomsman', march: { walk_no: 5 } }),
     row({ guest_id: '3', first_name: 'Boy', last_name: 'Bautista', role: 'groomsman' }),
   ];
   const viaHelper = holdersOfRoleInPrintOrder(rows, 'groomsman').map((r) => r.guest_id);
@@ -407,10 +411,11 @@ test('holdersOfRoleInPrintOrder is the SAME order the invitation prints', () => 
   assert.deepEqual(viaHelper, printed);
 });
 
-test('the order column is actually asked for by the query', () => {
-  // 🪤 The sort reads `entourage_order`; the two routes read ENTOURAGE_COLUMNS.
-  // A column missing from that string arrives undefined on EVERY row, so the
-  // override silently does nothing and the page falls back to surnames with
-  // nothing red anywhere.
-  assert.match(ENTOURAGE_COLUMNS, /\bentourage_order\b/);
+test('the walks are actually asked for by the query', () => {
+  // 🪤 The sort and the pairing read the person's walk; the two routes read
+  // ENTOURAGE_COLUMNS. An embed missing from that string arrives undefined on
+  // EVERY row, so every pair splits and the page falls back to surnames with
+  // nothing red anywhere. (Owner 2026-10-01: the march is its own table.)
+  assert.match(ENTOURAGE_COLUMNS, /\bmarch:march_walks\(walk_no, place_in_walk\)/);
+  assert.doesNotMatch(ENTOURAGE_COLUMNS, /\bpair_with_guest_id\b|\bentourage_order\b/, 'a retired guest column is read for the march');
 });

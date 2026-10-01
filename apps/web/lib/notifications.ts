@@ -408,6 +408,18 @@ export type NotificationType =
       news about money nobody is being asked for is not a 2am buzz.
   */
   | 'booking_fee_waived'
+  /* 🗓 THE CLASHING-DATE FLOW (owner 2026-10-01; Q8 2026-10-02) —
+     `lib/date-change.server.ts`. A booked supplier is ASKED to move or unlock
+     (`date_change_requested`); the couple hears each ANSWER
+     (`date_change_answered`); an asked supplier hears their card CLOSED without
+     their answer — withdrawn, or released after 3 days (`date_change_closed`); every booked supplier hears the plain notice
+     when a new date goes live (`date_moved`, "The date moved to <date>"). All
+     four on EMAIL_ENABLED_TYPES, never marketing-gated: each one changes a
+     booking. */
+  | 'date_change_requested'
+  | 'date_change_answered'
+  | 'date_change_closed'
+  | 'date_moved'
   /* The shared Papic pot is empty and guests are being refused AT THE
      CELEBRATION. Only the couple can top it up, and before this nothing
      anywhere told them — the guest's own screen was the only place the fact
@@ -536,6 +548,10 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   // arrives as a surprise charge (owner 2026-09-20, the whole reason the
   // disclosure lane exists).
   booking_fee_waived: 'Booking fee waived',
+  date_change_requested: 'Date change request',
+  date_change_answered: 'A supplier answered your date change',
+  date_change_closed: 'Date change closed',
+  date_moved: 'The date moved',
   papic_pool_spent: 'Guests have run out of Papic shots',
   cohost_added: 'You’re now a co-host',
   event_invitation: 'You’re invited',
@@ -728,6 +744,12 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
     in it, which is the failure this whole lane keeps paying for in reverse.
   */
   booking_fee_waived: 'bg-success-100 text-success-900',
+  // An answer is owed within 3 days — amber, the "action needed" tone.
+  date_change_requested: 'bg-warn-100 text-warn-900',
+  date_change_answered: 'bg-sky-100 text-sky-800',
+  date_change_closed: 'bg-ink/10 text-ink/60',
+  // Information, nothing to decide (Q8).
+  date_moved: 'bg-sky-100 text-sky-800',
   // Warn, not error: nothing is broken — the pot is spent and can be refilled.
   papic_pool_spent: 'bg-warn-100 text-warn-900',
   // A settled good thing, done for them — the mutual-yes emerald.

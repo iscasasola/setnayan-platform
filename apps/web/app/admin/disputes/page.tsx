@@ -99,7 +99,7 @@ type CategoryFilter =
 
 const STATUS_LABEL: Record<DisputeRow['status'], string> = {
   open: 'Open',
-  resolved_for_vendor: 'Resolved · vendor',
+  resolved_for_vendor: 'Resolved · supplier',
   resolved_for_couple: 'Resolved · couple',
   withdrawn: 'Withdrawn',
 };
@@ -126,7 +126,7 @@ const CATEGORY_LABEL: Record<DisputeRow['category'], string> = {
 const STATUS_FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'open', label: 'Open' },
-  { value: 'resolved_for_vendor', label: 'Resolved · vendor' },
+  { value: 'resolved_for_vendor', label: 'Resolved · supplier' },
   { value: 'resolved_for_couple', label: 'Resolved · couple' },
   { value: 'withdrawn', label: 'Withdrawn' },
 ];
@@ -227,7 +227,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   for (const v of vendorData ?? []) {
     vendorMap.set(
       v.vendor_profile_id as string,
-      ((v.business_name as string | null) ?? '').trim() || 'Unnamed vendor',
+      ((v.business_name as string | null) ?? '').trim() || 'Unnamed supplier',
     );
     vendorTierMap.set(
       v.vendor_profile_id as string,
@@ -336,7 +336,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
 
       <p className="mb-6 rounded-md border border-ink/10 bg-white/70 px-3 py-2 text-xs text-ink/70">
         Use <span className="font-semibold">Resolve</span> on any open row to
-        record the outcome (couple / vendor / withdrawn) with a note. The
+        record the outcome (couple / supplier / withdrawn) with a note. The
         opener is notified automatically. A standalone detail page with the
         full evidence trail is the next refresh.
       </p>
@@ -408,7 +408,7 @@ function StatsBanner({
       className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
     >
       <KpiStatCard label="Open" value={stats.open} />
-      <KpiStatCard label="Resolved · vendor" value={stats.resolved_for_vendor} />
+      <KpiStatCard label="Resolved · supplier" value={stats.resolved_for_vendor} />
       <KpiStatCard label="Resolved · couple" value={stats.resolved_for_couple} />
       <KpiStatCard label="Withdrawn" value={stats.withdrawn} />
       <p className="col-span-2 mt-1 text-[11px] text-ink/70 sm:col-span-4">
@@ -515,7 +515,7 @@ function DisputesTable({
         Icon: Gavel,
         title: 'No disputes yet',
         blurb:
-          'Vendors and couples can both open one when a booking goes sideways. Nothing to set up — a row appears here the moment either side files, and the filters above decide which ones you are looking at.',
+          'Suppliers and couples can both open one when a booking goes sideways. Nothing to set up — a row appears here the moment either side files, and the filters above decide which ones you are looking at.',
       }}
       columns={[
         {
@@ -533,10 +533,10 @@ function DisputesTable({
           ),
         },
         {
-          header: 'Vendor',
+          header: 'Supplier',
           cell: (r) => (
             <span className="font-medium text-ink">
-              <span className="block">{vendorMap.get(r.vendor_profile_id) ?? 'Unnamed vendor'}</span>
+              <span className="block">{vendorMap.get(r.vendor_profile_id) ?? 'Unnamed supplier'}</span>
               <TierChip tier={vendorTierMap.get(r.vendor_profile_id) ?? 'free'} />
             </span>
           ),
@@ -579,7 +579,7 @@ function DisputesTable({
                   <details className="mt-2">
                     <summary className="inline-flex cursor-pointer select-none items-center gap-1 text-[11px] font-medium text-mulberry">
                       <Gavel aria-hidden className="h-3 w-3" strokeWidth={2} />
-                      Vendor&apos;s response
+                      Supplier&apos;s response
                     </summary>
                     <p className="mt-1.5 whitespace-pre-wrap rounded-lg border border-terracotta/20 bg-terracotta/[0.04] p-2.5 text-[11px] text-ink/80">
                       {r.vendor_contest}
@@ -663,7 +663,7 @@ function DisputesTable({
                       Choose outcome…
                     </option>
                     <option value="resolved_for_couple">Resolved · couple</option>
-                    <option value="resolved_for_vendor">Resolved · vendor</option>
+                    <option value="resolved_for_vendor">Resolved · supplier</option>
                     <option value="withdrawn">Withdrawn</option>
                   </select>
                   <textarea
@@ -798,7 +798,7 @@ function TierChip({ tier }: { tier: VendorTier }) {
   return (
     <span
       className={`mt-1 inline-flex w-fit items-center rounded-full px-2 py-0.5 font-mono text-[9.5px] uppercase tracking-[0.15em] ${TIER_CHIP_TONE[tier]}`}
-      title={`Vendor tier · ${TIER_LABEL[tier]}`}
+      title={`Supplier tier · ${TIER_LABEL[tier]}`}
     >
       {TIER_LABEL[tier]}
     </span>

@@ -35,6 +35,7 @@ import {
   rsvpSheetHeading,
 } from './rsvp-sheet-state';
 import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { resolveArrivalAction } from '@/lib/arrival-action';
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -84,11 +85,21 @@ test('the hub card’s chip opens the sheet', () => {
 });
 
 test('the arrival action’s RSVP href opens the SAME sheet', () => {
-  // `resolveArrivalAction` sends 'ask' / 'going' / 'declined' to
-  // `/${slug}#${SITE_MENU_ANCHORS.me}`. Read from the anchor map, never
-  // retyped, so a rename cannot leave this passing while the link goes dead.
-  assert.equal(hashOpensSheet(`#${SITE_MENU_ANCHORS.me}`), true);
-  assert.equal(hashOpensSheet(`/some-wedding#${SITE_MENU_ANCHORS.me}`), true);
+  // `resolveArrivalAction` sends 'ask' / 'going' / 'declined' to the sheet's own
+  // anchor (walk-through 2026-10-01: it used to be `#site-me`, which raised the
+  // sheet over the guest's ticket every time they tapped Me). Read from the
+  // action itself, never retyped, so a rename cannot leave this passing while the
+  // link goes dead.
+  for (const rsvpStatus of ['pending', 'attending', 'declined'] as const) {
+    const action = resolveArrivalAction({ slug: 'some-wedding', rsvpStatus, today: '2020-01-01' });
+    assert.ok(action, rsvpStatus);
+    assert.equal(hashOpensSheet(action.href), true, `${rsvpStatus}: ${action.href} does not open the sheet`);
+  }
+});
+
+test('🎫 the Me tab does NOT raise the sheet — Me opens on the ticket', () => {
+  assert.equal(hashOpensSheet(`#${SITE_MENU_ANCHORS.me}`), false);
+  assert.equal(hashOpensSheet(`/some-wedding#${SITE_MENU_ANCHORS.me}`), false);
 });
 
 test('🛑 the sheet does NOT mint a second #site-me element', () => {
@@ -102,8 +113,8 @@ test('🛑 the sheet does NOT mint a second #site-me element', () => {
 test('…and they are the SAME sheet, not two', () => {
   // The requirement is "both must land in the same place". One anchor list,
   // one panel: there is nowhere for a second destination to hide.
-  assert.equal(RSVP_SHEET_ANCHORS.length, 2);
-  assert.equal(new Set(RSVP_SHEET_ANCHORS).size, 2);
+  assert.equal(RSVP_SHEET_ANCHORS.length, 1);
+  assert.equal(new Set(RSVP_SHEET_ANCHORS).size, 1);
   assert.equal((SHEET_CODE.match(/role="dialog"/g) ?? []).length, 1, 'a second panel exists');
 });
 

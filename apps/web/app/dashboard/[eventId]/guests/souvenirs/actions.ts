@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 
 // Souvenir-table actions (owner 2026-06-28). Mirror the check-in desk exactly —
 // the same couple+coordinator actor pair runs the giveaway table, scanning the
@@ -31,6 +32,16 @@ async function assertStationCrew(eventId: string) {
   return user;
 }
 
+/**
+ * "Only the couple or a coordinator…" named a couple at a birthday's door. The
+ * refusal names THIS event's organizer word (EventWords — 'the couple' on a
+ * wedding, byte-identical; 'the celebrant', 'the family'… elsewhere).
+ */
+async function onlyOrganizerOrCoordinator(eventId: string, can: string): Promise<string> {
+  const who = (await eventWordsForEvent(eventId).catch(() => null))?.theOrganizer ?? 'the host';
+  return `Only ${who} or a coordinator can ${can}.`;
+}
+
 /** Mark a guest's souvenir as received. Idempotent — a double-scan is a no-op. */
 export async function markSouvenirReceived(
   eventId: string,
@@ -43,7 +54,7 @@ export async function markSouvenirReceived(
   } catch {
     return {
       ok: false,
-      error: 'Only the couple or a coordinator can confirm souvenirs.',
+      error: await onlyOrganizerOrCoordinator(eventId, 'confirm souvenirs'),
     };
   }
 
@@ -97,7 +108,7 @@ export async function undoSouvenirReceived(
   } catch {
     return {
       ok: false,
-      error: 'Only the couple or a coordinator can undo a souvenir.',
+      error: await onlyOrganizerOrCoordinator(eventId, 'undo a souvenir'),
     };
   }
 

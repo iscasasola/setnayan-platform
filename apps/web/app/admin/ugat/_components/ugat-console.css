@@ -70,6 +70,7 @@
      move one part of the palette (MB16). A cooler, keyed sibling of the
      sign-off hue: same subsystem, a permission rather than an agreement. */
   --ug-e-colourgrant: #5c6b8a; --ug-e-colourgrant-bg: #e8ecf4;
+  --ug-e-march: #8a5c6b; --ug-e-march-bg: #f4e8ec;
 
   /* dark-canvas derivations (obsidian + gold tints only) */
   --ug-canvas-core: #22201d;

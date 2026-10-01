@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
@@ -24,6 +25,7 @@ import {
   vendorDeclineLock,
   vendorAgreeToDeletion,
   vendorDeclineDeletion,
+  vendorAnswerDateChange,
 } from './clients/[eventId]/actions';
 // The desk TAKES these two answers rather than linking away to them. Both are
 // the shipped actions, unchanged in what they enforce: the reply action still
@@ -76,6 +78,7 @@ import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
 import { SupplierTodayFirstScreen } from './_components/supplier-today-first-screen';
 import {
   pickSupplierNext,
+  nextAnswerOf,
   eventsThisWeek,
   owedToYouPhp,
 } from '@/lib/supplier-today';
@@ -188,11 +191,17 @@ export default async function VendorOverviewPage({
     lock_agree?: string;
     lock_decline?: string;
     competing?: string;
+    date_answer?: string;
   }>;
 }) {
   const search = (await searchParams) ?? {};
   const depositAnswer = search.deposit_answer
     ? DEPOSIT_ANSWER_NOTICE[search.deposit_answer] ?? DEPOSIT_ANSWER_NOTICE.error
+    : null;
+
+  // 🗓 Move · Unlock, said out loud (`vendorAnswerDateChange`).
+  const dateAnswer = search.date_answer
+    ? DATE_ANSWER_NOTICE[search.date_answer] ?? DATE_ANSWER_NOTICE.failed
     : null;
 
   // ── THE ANSWER TO A BOOKING ASK, SAID OUT LOUD ───────────────────────────
@@ -429,9 +438,11 @@ export default async function VendorOverviewPage({
   // The shared resolver, never an inline humaniser (`one-word-per-category.test.ts`).
   const categoryWord = firstCategory ? displayServiceLabel(firstCategory) : 'Your shop';
   const shopState = firstSteps ? 'Not live yet' : findability.findable ? 'Live' : 'Not listed';
+  // 🗓 A date-change request (3-day deadline) is the Next card whenever one waits.
+  const nextAnswer = nextAnswerOf(needsAnswer);
   const next = pickSupplierNext({
-    answer: needsAnswer[0] ?? null,
-    answerSince: needsAnswer[0] ? cardTimestamp(needsAnswer[0]) : null,
+    answer: nextAnswer,
+    answerSince: nextAnswer ? cardTimestamp(nextAnswer) : null,
     deskIncomplete,
     upcoming,
     setupStep: firstSteps?.current
@@ -484,6 +495,13 @@ export default async function VendorOverviewPage({
       ) : null}
 
       {/* The outcome of an answer given ON this page, said where it was given. */}
+      {dateAnswer ? (
+        <div role="status" className="sn-tile mb-4 flex items-start gap-3 p-4 text-sm text-ink/80" data-date-answer="">
+          <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} style={{ color: 'var(--sn-gold-700)' }} />
+          <p>{dateAnswer}</p>
+        </div>
+      ) : null}
+
       {depositAnswer ? (
         <div
           role="status"
@@ -649,6 +667,7 @@ export default async function VendorOverviewPage({
         declineLock={vendorDeclineLock}
         agreeDeletion={vendorAgreeToDeletion}
         declineDeletion={vendorDeclineDeletion}
+        answerDateChange={vendorAnswerDateChange}
         postReviewReply={postVendorReply}
         respondMeeting={respondAppointment}
         markServiceComplete={vendorMarkServiceComplete}
@@ -682,6 +701,7 @@ export default async function VendorOverviewPage({
         declineLock={vendorDeclineLock}
         agreeDeletion={vendorAgreeToDeletion}
         declineDeletion={vendorDeclineDeletion}
+        answerDateChange={vendorAnswerDateChange}
         postReviewReply={postVendorReply}
         respondMeeting={respondAppointment}
         markServiceComplete={vendorMarkServiceComplete}

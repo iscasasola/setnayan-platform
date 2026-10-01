@@ -96,7 +96,7 @@ export async function attachSpotlight(formData: FormData): Promise<void> {
   if (!blogSlug) back('error', 'Pick a Journal article.');
   // The Journal is file-based — validate the slug against the in-code registry.
   if (!findBlogArticle(blogSlug)) back('error', 'That article slug is not in the Journal.');
-  if (!UUID_RE.test(vendorId)) back('error', 'Enter a valid vendor profile ID (UUID).');
+  if (!UUID_RE.test(vendorId)) back('error', 'Enter a valid supplier profile ID (UUID).');
   if (!PLACEMENTS.has(placement)) back('error', 'Invalid placement.');
 
   const isSponsored = placement === 'sponsored';
@@ -111,7 +111,7 @@ export async function attachSpotlight(formData: FormData): Promise<void> {
     .select('vendor_profile_id, business_name')
     .eq('vendor_profile_id', vendorId)
     .maybeSingle();
-  if (!vendor) back('error', 'No vendor profile with that ID.');
+  if (!vendor) back('error', 'No supplier profile with that ID.');
 
   // UPSERT on the (blog_slug, vendor_profile_id) unique key — re-attaching the
   // same vendor to the same article updates the placement instead of erroring.

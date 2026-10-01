@@ -221,6 +221,11 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
             tone: 'error' as const,
             text: 'Please choose whether you will be there — yes or no. Your reply has not been saved yet.',
           }
+      : search.rsvp === 'mobile'
+        ? {
+            tone: 'error' as const,
+            text: 'Please add your mobile number so we can reach you. Your reply has not been saved yet.',
+          }
       : search.rsvp === 'terms'
         ? {
             tone: 'error' as const,

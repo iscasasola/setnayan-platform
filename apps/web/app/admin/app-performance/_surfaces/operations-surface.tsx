@@ -118,7 +118,7 @@ export async function OperationsHiringSurface() {
           {signals ? (
             <dl className="mt-3 space-y-2 text-sm">
               <div className="flex items-baseline justify-between">
-                <dt className="text-ink/60">Verified active vendors</dt>
+                <dt className="text-ink/60">Verified active suppliers</dt>
                 <dd className="text-2xl font-semibold text-ink">{signals.verified_active.toLocaleString('en-PH')}</dd>
               </div>
               <div className="flex items-baseline justify-between">
@@ -135,11 +135,7 @@ export async function OperationsHiringSurface() {
             </dl>
           ) : (
             <p className="mt-3 text-sm text-ink/50">
-              Signal data not yet populated. Run{' '}
-              <code className="rounded bg-ink/5 px-1 py-0.5 text-xs">
-                REFRESH MATERIALIZED VIEW public.bottleneck_signals_current
-              </code>
-              .
+              These numbers haven&rsquo;t been calculated yet. They fill in on their own — check back later.
             </p>
           )}
         </div>
@@ -177,7 +173,7 @@ export async function OperationsHiringSurface() {
           <ul className="mt-3 space-y-2 text-sm">
             <SignalRow
               icon={SIGNAL_DOT[signals.verification_signal]}
-              label="Vendor verification"
+              label="Supplier verification"
               detail={`${formatCount(signals.verification_backlog_count)} pending`}
               level={signals.verification_signal}
               threshold={SIGNAL_THRESHOLDS.verification}
@@ -215,13 +211,13 @@ export async function OperationsHiringSurface() {
               <div className="flex items-center gap-2">
                 <span>⚪</span>
                 <span className="font-medium text-ink">Founder time on one function</span>
-                <span className="text-xs text-ink/60">(self-report weekly via /admin/operations-hiring/time-log)</span>
+                <span className="text-xs text-ink/60">(manual — not tracked here yet)</span>
               </div>
               <span className="text-xs text-ink/50">{SIGNAL_THRESHOLDS.founder_time.green}</span>
             </li>
           </ul>
         ) : (
-          <p className="mt-3 text-sm text-ink/50">Signals materialized view empty — refresh needed.</p>
+          <p className="mt-3 text-sm text-ink/50">These signals haven&rsquo;t been calculated yet — check back later.</p>
         )}
       </section>
 
@@ -315,7 +311,7 @@ export async function OperationsHiringSurface() {
           Alerts route to{' '}
           <code className="rounded bg-ink/5 px-1 py-0.5 font-mono">iscasasolaii@gmail.com</code> via 0028 email
           infra (Resend primary, SendGrid fallback). Weekly digest fires Mon 8am PHT. Bottleneck alerts fire when a
-          signal flips yellow → red (suppressed 7 days after fire). Milestone alerts fire when verified-vendor count
+          signal flips yellow → red (suppressed 7 days after fire). Milestone alerts fire when verified-supplier count
           crosses 100 / 1,000 / 5,000 / 25,000. Hiring countdown emails fire T-30 / T-14 / T-7 days from each
           hire-by date in the roadmap above.
         </p>

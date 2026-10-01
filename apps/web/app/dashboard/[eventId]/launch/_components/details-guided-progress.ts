@@ -23,6 +23,101 @@ import {
   type GuidedPlan,
 } from '@/lib/details-guided-flow';
 import { readYourEventFacts } from './details-your-event-facts';
+import { hubSetupApplies, hubSetupRound, type HubSetupFacts, type HubSetupRound } from '@/lib/hub-setup-steps';
+import type { DetailsItemContext } from '@/lib/maker-details-items';
+import { readGuestsReply } from '@/lib/rsvp-ask';
+import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
+import { sanitizeRoleAttire } from '@/lib/role-dress-code';
+
+/* ══ 🧭 "FINISH YOUR EVENT HUB" — THE SETUP'S FACTS (lib/hub-setup-steps.ts) ══
+   ONE derivation, read by the Maker (its What's left) and by Home (the once-
+   offer and the slim card), so the three doors count the same steps. Every
+   fact is a field that already exists — no setup-only column. */
+
+/** The Mood Board carries a dress code — a headline, a line, a do/don't, or any group's or role's style. */
+export function dressCodeIsSet(raw: unknown): boolean {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return false;
+  const c = raw as Record<string, unknown>;
+  const said = (v: unknown) => typeof v === 'string' && v.trim() !== '';
+  const listed = (v: unknown) => Array.isArray(v) && v.some(said);
+  if (said(c.title) || said(c.description) || listed(c.dos) || listed(c.donts)) return true;
+  if (Object.keys(sanitizeGroupAttire(c.groups)).length > 0) return true;
+  return Object.keys(sanitizeRoleAttire(c.roles, () => true)).length > 0;
+}
+
+/**
+ * Which venues the Event Hub shows BY NAME — read off its own resolver's output
+ * (`resolveEventVenues`: locked first, the typed name as the fallback). "One
+ * place" (`both`) answers for both.
+ */
+export function venuesNamedOf(venues: ReadonlyArray<{ role: string; name: string | null }>): { ceremony: boolean; reception: boolean } {
+  const named = (role: 'ceremony' | 'reception') => venues.some((v) => (v.role === role || v.role === 'both') && Boolean(v.name?.trim()));
+  return { ceremony: named('ceremony'), reception: named('reception') };
+}
+
+/** A schedule moment as the setup reads it. */
+export type SetupScheduleBlock = { block_type?: string | null; is_public?: boolean | null; parent_block_id?: string | null };
+
+/**
+ * THE SETUP'S FACTS — each "as the couple is editing it" where the Maker drafts
+ * it (the draft's value, else live), and null where its read failed (no claim).
+ */
+export function hubSetupFactsFrom(input: {
+  /** `rsvp_ask_config` as edited — onboarding's "How do guests get in?" lives in it. */
+  rsvpAsk: unknown;
+  /** Top-level schedule moments; null = unread. */
+  schedule: readonly SetupScheduleBlock[] | null;
+  /** Which venues hold a confirmed (locked) booking; null = unread. */
+  venuesLocked: { ceremony: boolean; reception: boolean } | null;
+  /** The venues the Event Hub resolves (`resolveEventVenues`); null = unread. */
+  venuesShown: ReadonlyArray<{ role: string; name: string | null }> | null;
+  /** The Love Story's moments as edited; null = unread. */
+  loveStoryMoments: number | null;
+  /** `dress_code_config` as edited; undefined = unread. */
+  dressCode: unknown;
+  /** `guest_list_edit_deadline`; undefined = unread. */
+  replyBy: string | null | undefined;
+  /** Guests besides the couple; null = unread. */
+  guests: number | null;
+}): HubSetupFacts {
+  return {
+    guestList: readGuestsReply(input.rsvpAsk),
+    arrival: input.schedule
+      ? input.schedule.some((b) => !b.parent_block_id && b.block_type === 'pre_ceremony' && b.is_public !== false)
+      : null,
+    venuesLocked: input.venuesLocked,
+    venuesNamed: input.venuesShown ? venuesNamedOf(input.venuesShown) : null,
+    loveStoryMoments: input.loveStoryMoments,
+    wear: input.dressCode === undefined ? null : dressCodeIsSet(input.dressCode),
+    replyBy: input.replyBy === undefined ? null : Boolean(input.replyBy),
+    guests: input.guests,
+  };
+}
+
+/**
+ * The setup round for the plan built from saved facts (`guidedPlanFromFacts`):
+ * over the items this event has — `present`, then the type's own rule — exactly
+ * the items that plan draws.
+ */
+export function setupRoundFor(facts: HubSetupFacts | null, present: ReadonlySet<DetailsItemKey>, ctx: DetailsItemContext): HubSetupRound | null {
+  if (!facts) return null;
+  return hubSetupRound(facts, new Set([...present].filter((k) => detailsItemApplies(k, ctx))));
+}
+
+/** Guests on the list besides the couple themselves (the commit seeds the two of them). */
+export async function countSetupGuests(admin: SupabaseClient, eventId: string): Promise<number | null> {
+  const res = await admin
+    .from('guests')
+    .select('guest_id', { count: 'exact', head: true })
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    .or('role.is.null,role.not.in.(bride,groom)');
+  if (res.error) {
+    logQueryError('HubSetup.guests', res.error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  return res.count ?? 0;
+}
 
 /**
  * 🪜 THE GUIDED FLOW'S "DONE", FOR THE PAGES THAT DECIDE BEFORE DETAILS DRAWS
@@ -146,7 +241,7 @@ export async function readGuidedPlan({
   supabase: SupabaseClient;
   admin: SupabaseClient;
   eventId: string;
-}): Promise<GuidedPlan | null> {
+}): Promise<{ plan: GuidedPlan; setupOffered: boolean } | null> {
   const [event, hosts, parents, drafted, scheduleRes, seatDoorRes] = await Promise.all([
     readPrintEvent(admin, eventId),
     readRsvpHosts(eventId),
@@ -159,7 +254,7 @@ export async function readGuidedPlan({
       }),
     supabase
       .from('event_schedule_blocks')
-      .select('block_id', { count: 'exact', head: true })
+      .select('block_type, is_public, parent_block_id')
       .eq('event_id', eventId)
       .is('parent_block_id', null),
     // 🪑 Is the seat plan ARRANGED (a guest seated)? The same count the Maker's
@@ -175,24 +270,56 @@ export async function readGuidedPlan({
   ]);
   const ctx = { profile, solemn: eventWordsFromProfile(profile).solemn };
   const storyApplies = detailsItemApplies('love-story', ctx);
+  const scheduleRows = scheduleRes.error ? null : ((scheduleRes.data ?? []) as SetupScheduleBlock[]);
   const facts = guidedFactsFrom({
     event,
     drafted,
     liveLoveStory: event.love_story,
     yourEvent: ye ? { facts: ye.facts, kind: ye.kind } : null,
     storyApplies,
-    scheduleMoments: scheduleRes.error ? null : (scheduleRes.count ?? 0),
+    scheduleMoments: scheduleRows ? scheduleRows.length : null,
     seatPlanArranged: seatDoorRes.error ? null : (seatDoorRes.count ?? 0) > 0,
   });
-  return guidedPlanFromFacts({
+  /* 🧭 The setup round — only where it is drawn (a wedding), and only then its
+     two extra reads (the reply-by date, the guests' count). */
+  let setup: HubSetupFacts | null = null;
+  if (hubSetupApplies(event.event_type)) {
+    const [deadlineRes, guests] = await Promise.all([
+      admin.from('events').select('guest_list_edit_deadline').eq('event_id', eventId).maybeSingle(),
+      countSetupGuests(admin, eventId),
+    ]);
+    if (deadlineRes.error) logQueryError('HomeGuide.replyBy', deadlineRes.error, { event_id: eventId }, 'graceful_degrade');
+    const offered = ye ? (ye.bookings.offered ?? { ceremony: ye.bookings.ceremony, reception: ye.bookings.reception }) : null;
+    setup = hubSetupFactsFrom({
+      rsvpAsk: 'rsvp_ask_config' in drafted ? drafted.rsvp_ask_config : event.rsvp_ask_config,
+      schedule: scheduleRows,
+      venuesLocked: offered ? { ceremony: offered.ceremony !== null, reception: offered.reception !== null } : null,
+      venuesShown: ye ? ye.venues : null,
+      loveStoryMoments: storyApplies ? (facts.story ? resolveMoments(facts.story).length : null) : 0,
+      dressCode: 'dress_code_config' in drafted ? drafted.dress_code_config : event.dress_code_config,
+      replyBy: deadlineRes.error ? undefined : ((deadlineRes.data as { guest_list_edit_deadline?: string | null } | null)?.guest_list_edit_deadline ?? null),
+      guests,
+    });
+  }
+  const present = guidedPresent({
+    yourEvent: ye ? { kind: ye.kind, namesWritable: ye.namesWritable } : null,
+    storyApplies,
+    hasSlug: Boolean(event.slug),
+    seatPlan: detailsItemApplies('seating', ctx),
+  });
+  const plan = guidedPlanFromFacts({
     ctx,
-    present: guidedPresent({
-      yourEvent: ye ? { kind: ye.kind, namesWritable: ye.namesWritable } : null,
-      storyApplies,
-      hasSlug: Boolean(event.slug),
-      seatPlan: detailsItemApplies('seating', ctx),
-    }),
+    present,
     facts,
     parentsOffered: ye ? parentsOffered(ye.kind) : false,
+    setup: setupRoundFor(setup, present, ctx),
   });
+  /* The once-offer after onboarding ("Start / Later") is for an event the
+     setup-card onboarding made — it leaves its answers in
+     `style_preferences.setup` (`setupColumns`). Older events reach the same
+     steps from the slim card and the Maker's What's left. */
+  const prefs = event.style_preferences;
+  const setupOffered =
+    setup !== null && Boolean(prefs && typeof prefs === 'object' && !Array.isArray(prefs) && (prefs as Record<string, unknown>).setup);
+  return { plan, setupOffered };
 }

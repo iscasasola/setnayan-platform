@@ -56,6 +56,7 @@ import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { TicketPicture } from '../../_components/ticket-picture';
 import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
+import { LandingPreReply } from '../_components/landing-pre-reply';
 
 export const metadata = { title: 'Your invitation', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -381,6 +382,40 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   );
   const soft = 'inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-white/80 px-4 text-sm font-medium text-ink/80 shadow-sm ring-1 ring-ink/10'; // no-card-ok: a pressable pill
 
+  /* ☝️ BEFORE THE REPLY THE LANDING HAS ONE BUTTON (owner 2026-10-01, DECISION_LOG
+     "THE GUEST LANDING BEFORE THE REPLY HAS ONE BUTTON"): the couple's names, the
+     greeting card, "Reply to the invitation", and the faded ticket as a picture.
+     Everything else below — Your guests · How to use it · Open the invitation ·
+     Copy my link · Save to my account (which carries the Terms tick) — is drawn
+     only once a reply exists, further down this same page. Not for a plus-one whose
+     bringer's reply already gave them a FULL ticket: they keep Save, their guests
+     and the account button. */
+  if (unreplied && ticket !== 'full') {
+    return (
+      <>
+        <InAppBar handoff={inApp} />
+        <DoorShell eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : undefined} skin={look.skin}>
+          {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
+          <LandingPreReply
+            message={message}
+            hosts={hosts}
+            replyHref={inviteReplyPath(home)}
+            replyByLabel={replyByLabel}
+            fadedTicket={ticket === 'faded'}
+            ticketSrc={PASS_CARD_ROUTE}
+            awaitingLine={passCard === 'awaiting' ? passCardLine(passCard) : null}
+          />
+          {unlisted && !justIn ? (
+            <DoorNotice>
+              You weren&rsquo;t on the original list, so we&rsquo;ve let the hosts know — they&rsquo;ll
+              confirm you shortly.
+            </DoorNotice>
+          ) : null}
+        </DoorShell>
+      </>
+    );
+  }
+
   return (
     <>
       {/* 1b · INSIDE MESSENGER — a thin bar of ours at the very top, never over the page. */}
@@ -484,8 +519,8 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         ) : null}
 
         {/* 3 · 🎟 THE DIGITAL TICKET — the Fable 3 : 4 ticket (the route's own
-            PNG, the file Save hands over): faded with "Reply to confirm your
-            ticket" until a Yes, full with "Save my ticket" after, none after a
+            PNG, the file Save hands over): faded (a PICTURE, no control — the "Reply to
+            confirm your ticket" pill went 2026-10-01) until a Yes, full with "Save my ticket" after, none after a
             No (`landingTicketOf`). A seat with no ticket keeps the QR panel. */}
         {ticket === 'full' ? (
           <section aria-labelledby="your-ticket" className="space-y-4 text-center" data-landing="ticket" data-landing-ticket="full">
@@ -516,12 +551,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             <div aria-hidden="true" className="pointer-events-none mx-auto w-[min(260px,100%)] select-none overflow-hidden rounded-2xl opacity-[0.42] grayscale">
               <TicketPicture src={PASS_CARD_ROUTE} alt="" fallback={null} />
             </div>
-            <Link
-              href={inviteReplyPath(home)}
-              className="absolute left-1/2 top-[62%] -translate-x-1/2 -translate-y-1/2 whitespace-nowrap rounded-full bg-cream px-4 py-2.5 text-[13px] font-medium text-mulberry shadow-md ring-[1.5px] ring-mulberry"
-            >
-              {LANDING_WORDS.replyToConfirm}
-            </Link>
           </section>
         ) : ticket === 'none' ? null : passCard === 'awaiting' ? (
           <p className="text-sm text-ink/70" data-landing="ticket">{passCardLine(passCard)}</p>

@@ -3412,7 +3412,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
      * considering), and the money goes to the force-majeure admin path with the
      * booking's own terms on it.
      */
-    id: 'J49',
+    id: 'J51',
     claims: [
       { kind: 'table', table: 'event_date_change_requests' },
       { kind: 'table', table: 'event_date_change_answers' },

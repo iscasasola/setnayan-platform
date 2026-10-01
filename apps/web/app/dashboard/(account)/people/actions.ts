@@ -544,7 +544,7 @@ export async function setConnectionLabel(
  * One partner at a time applies: saying yes to a partner while holding one
  * asks to replace, in the same plain words.
  */
-export async function confirmLabel(
+async function confirmLabel(
   connectionId: string,
   opts: { replacePartner?: boolean } = {},
 ): Promise<LabelResult> {
@@ -632,7 +632,7 @@ export async function confirmLabel(
  * no notice goes back; the asker's own row says "<name> didn't confirm", and
  * the connection underneath stays exactly as it was.
  */
-export async function declineLabel(connectionId: string): Promise<ActionResult> {
+async function declineLabel(connectionId: string): Promise<ActionResult> {
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
@@ -722,11 +722,18 @@ export async function resendConnectionInvitation(
   return { ok: true, delivered };
 }
 
-/** The TO-person accepts a pending request (mutual confirmation). */
+/**
+ * The TO-person accepts a pending request (mutual confirmation) — or, with
+ * `label: true`, the label somebody asked of them on a connection they already
+ * share (`confirmLabel` above). ONE exported action, not two: every exported
+ * "use server" function is a Vercel route and the budget is at its ceiling
+ * (lint:server-action-budget), and a label is the same handshake.
+ */
 export async function confirmConnection(
   connectionId: string,
-  opts: { replacePartner?: boolean } = {},
-): Promise<ActionResult | { ok: false; replacePartner: { question: string } }> {
+  opts: { replacePartner?: boolean; label?: boolean } = {},
+): Promise<ActionResult | LabelResult> {
+  if (opts.label === true) return confirmLabel(connectionId, { replacePartner: opts.replacePartner });
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
@@ -809,8 +816,12 @@ export async function confirmConnection(
   return { ok: true };
 }
 
-/** The TO-person declines a pending request. */
-export async function declineConnection(connectionId: string): Promise<ActionResult> {
+/** The TO-person declines a pending request — or, with `label: true`, a label asked of them. */
+export async function declineConnection(
+  connectionId: string,
+  opts: { label?: boolean } = {},
+): Promise<ActionResult> {
+  if (opts.label === true) return declineLabel(connectionId);
   if (!peopleConnectionsEnabled()) return { ok: false, error: 'Connections aren’t available yet.' };
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: 'Please sign in.' };

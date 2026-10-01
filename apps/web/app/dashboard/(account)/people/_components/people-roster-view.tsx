@@ -17,9 +17,7 @@ import {
 } from '@/lib/people-label-handshake';
 import {
   confirmConnection,
-  confirmLabel,
   declineConnection,
-  declineLabel,
   invitePersonToSamahan,
   resendConnectionInvitation,
   setConnectionLabel,
@@ -442,9 +440,7 @@ function RequestRow({
   // question here until they answer it.
   function accept(replacePartner: boolean) {
     run(async () => {
-      const res: AnswerResult = isLabelAsk
-        ? await confirmLabel(id, { replacePartner })
-        : await confirmConnection(id, { replacePartner });
+      const res: AnswerResult = await confirmConnection(id, { replacePartner, label: isLabelAsk });
       if (!res.ok && 'replacePartner' in res) {
         setQuestion(res.replacePartner.question);
         return { ok: true };
@@ -514,7 +510,7 @@ function RequestRow({
             </button>
             <button
               type="button"
-              onClick={() => run(() => (isLabelAsk ? declineLabel(id) : declineConnection(id)))}
+              onClick={() => run(() => declineConnection(id, { label: isLabelAsk }))}
               disabled={pending}
               className="button-secondary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
             >

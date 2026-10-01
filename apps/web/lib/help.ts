@@ -510,7 +510,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'rsvp-from-link',
         title: 'How to RSVP',
-        body: "Tap the RSVP button on your personal page. Pick Yes, No, or Maybe. If your invite allows a plus-one, add their name. You can change your answer up to the couple's RSVP cutoff (usually 1-2 weeks before).",
+        body: "Tap the RSVP button on your personal page. Pick Yes or No. If your invite allows a plus-one, add their name. You can change your answer up to the couple's RSVP cutoff (usually 1-2 weeks before).",
       },
       {
         slug: 'meal-preference',

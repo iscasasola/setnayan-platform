@@ -36,7 +36,7 @@ test('the hub mounts the camera only behind papicGuest', () => {
   const at = BODY.indexOf('<PapicGuestCapture');
   assert.ok(at > 0, 'the hub no longer mounts the camera — update this guard');
   // On a tabbed page (#6197) the mount sits inside its tab's `group('live', …)`;
-  // the gate is the same `papicGuest ? (` either way.
-  assert.match(BODY.slice(Math.max(0, at - 80), at), /\{(?:group\('[a-z]+', )?papicGuest \? \(\s*$/);
+  // the gate is `papicGuest ? (` either way — and, since 2026-10-01, only on a stage whose bar has a Camera slot.
+  assert.match(BODY.slice(Math.max(0, at - 140), at), /\{(?:group\('[a-z]+', )?papicGuest(?: && STAGE_BAR\[pageStage\]\.slots\.includes\('camera'\))? \? \(\s*$/);
   assert.equal(BODY.split('<PapicGuestCapture').length - 1, 1, 'a second mount would need its own canvas gate');
 });

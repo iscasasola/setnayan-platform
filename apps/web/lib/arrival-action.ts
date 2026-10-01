@@ -43,6 +43,9 @@ import { SITE_MENU_ANCHORS } from '@/app/[slug]/_lib/site-menu';
  */
 export const PASS_ANCHOR = 'site-pass';
 
+/** The reply sheet's anchor (`RSVP_SHEET_ANCHORS` in rsvp-sheet-state.ts pins that it opens). */
+export const REPLY_SHEET_ANCHOR = 'your-details';
+
 export type ArrivalAction = {
   /** The accented control's words — the status, not a generic verb. */
   label: string;
@@ -82,7 +85,9 @@ export function resolveArrivalAction(input: ArrivalActionInput): ArrivalAction |
   const rsvp = input.rsvpStatus ?? null;
   if (rsvp === null) return null;
 
-  const rsvpHref = input.rsvpHref ?? `/${input.slug}#${SITE_MENU_ANCHORS.me}`;
+  // The reply SHEET's own anchor — never `#site-me`: Me is the guest's ticket and
+  // must open on it, not under a sheet (rsvp-sheet-state.ts, walk-through 2026-10-01).
+  const rsvpHref = input.rsvpHref ?? `/${input.slug}#${REPLY_SHEET_ANCHOR}`;
   const day = isIsoDay(input.eventDate) ? input.eventDate.slice(0, 10) : null;
   const today = isIsoDay(input.today) ? input.today.slice(0, 10) : null;
 

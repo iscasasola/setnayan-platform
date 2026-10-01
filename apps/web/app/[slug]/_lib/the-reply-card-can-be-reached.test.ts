@@ -115,9 +115,11 @@ test('🔑 both doors land in the SAME sheet', () => {
     SHEET_STATE.includes("'your-details'"),
     "the reply-section line's anchor is not in the sheet's anchor list",
   );
+  // The arrival action's RSVP anchor IS `#your-details` since 2026-10-01 (it was
+  // `#site-me`, which put the sheet over the guest's ticket on every Me tap).
   assert.ok(
-    SHEET_STATE.includes('SITE_MENU_ANCHORS.me'),
-    "the arrival action's RSVP anchor is not in the sheet's anchor list",
+    !SHEET_STATE.includes('SITE_MENU_ANCHORS.me'),
+    'the Me tab is a sheet anchor again — Me must open on the ticket, sheet closed',
   );
 });
 

@@ -131,6 +131,8 @@ test('EVERY href the action can produce resolves to an id the page renders', () 
   for (const m of menu.matchAll(/:\s*'(site-[a-z-]+)'/g)) anchors.add(m[1]!);
   anchors.add(PASS_ANCHOR);
   assert.ok(anchors.size >= 5, `precondition: found the anchor map (${[...anchors].join(',')})`);
+  // The reply sheet's own id (rsvp-sheet.tsx) — the RSVP / Change label's target since 2026-10-01.
+  anchors.add('your-details');
 
   for (const c of cases) {
     const action = resolveArrivalAction({ slug: 'cale-ice', eventDate: '2026-12-18', ...c });

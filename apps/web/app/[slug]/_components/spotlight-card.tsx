@@ -57,7 +57,8 @@ function spotlightContent(
       return {
         eyebrow: 'Your invitation',
         title: `RSVP for the ${occasion}`,
-        href: `#${SITE_MENU_ANCHORS.me}`,
+        // The reply sheet's anchor — Me is the guest's ticket and no longer raises it.
+        href: '#your-details',
       };
     case 'find_invite':
       return {

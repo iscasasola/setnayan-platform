@@ -2585,7 +2585,14 @@ export async function SiteBody({
                   the standalone /papic/guest route (still live as the QR-scan fallback +
                   the floating CTA). papicGuest is non-null only behind the active gate +
                   an unblocked guest, resolved on the page. */}
-              {group('live', papicGuest ? (
+              {/* 📷 THE CAMERA'S CONSENT CARD BELONGS TO THE DAY, NOT THE INVITATION
+                  (owner 2026-10-01 walk-through: Welcome opened on "Before you
+                  start shooting" 162 days out; DECISION_LOG face-tagging rows —
+                  Papic asks only when it is on, the selfie only on the day).
+                  Asked of the stage's OWN bar, never a second list: the Event Bar
+                  (`STAGE_BAR`) carries a Camera slot only on The Day and after it,
+                  so a guest on Save the Date / Invitation meets no camera card. */}
+              {group('live', papicGuest && STAGE_BAR[pageStage].slots.includes('camera') ? (
                 <PapicGuestCapture
                   /* Inside the hub: the terms / blocked / no-camera states are
                      ONLY the small card — no full-page frame (owner 2026-09-30,
@@ -2815,7 +2822,7 @@ export async function SiteBody({
                       mark, and one accent per screen is the point of that slice. */}
                   {/* …UNLESS THE TOP CONTROL ALREADY OPENS IT (owner 2026-09-30).
                       "You're going · Change" under the mark links the same sheet
-                      (`#site-me` is a sheet anchor, RSVP_SHEET_ANCHORS), so a
+                      (`#your-details` is the arrival action's href now, RSVP_SHEET_ANCHORS), so a
                       second "Need to change your reply…" was the same door twice.
                       Keyed on the action HAVING a Change, not on its words: on
                       the day, or for a guest still owed a reply, it has none and
@@ -3054,7 +3061,30 @@ export async function SiteBody({
             ticket"*) — the guest's own section, handed in by page.tsx, then the
             sign-out. A SIBLING of the chapters article, like the reply sheet
             below, so nothing inside it sits under the §6 reveal's transform. */}
-        {tabs.on ? group('me', <div className="space-y-12">{meSection}{signOut}</div>) : null}
+        {/* 📐 THE SAME SIDE GUTTER AS EVERY OTHER GUEST STAGE (`px-4`, inside the
+            `PLATE` column) — Me was the one stage drawn edge to edge: the name,
+            "Not you? Switch", the Save bar and "Photos of you" sat flush on the
+            glass (owner walk-through 2026-10-01).
+            🎫 ME OPENS ON THE TICKET, SHEET CLOSED. `#site-me` no longer raises the
+            reply sheet (rsvp-sheet-state.ts); a guest who has replied changes it
+            with this button, which points at the sheet's own anchor. Gated on the
+            sheet's own gate (`plan.rsvpShouldRender`) so the button and its
+            destination can never disagree about existing. */}
+        {tabs.on ? group('me', (
+          <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
+            {meSection}
+            {plan.rsvpShouldRender && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') ? (
+              <a
+                href="#your-details"
+                data-me-change-reply=""
+                className="button-secondary flex w-full"
+              >
+                {plan.guestListClosed ? 'Update your details' : 'Change your reply'}
+              </a>
+            ) : null}
+            {signOut}
+          </div>
+        )) : null}
         {/* ── THE REPLY SHEET (canvas board 2 · rsvp-sheet.tsx) ─────────────
             🪤 A SIBLING OF THE ARTICLE, NEVER A CHILD OF IT — measured in a
             browser, not reasoned. The §6 reveal puts a `transform` on every

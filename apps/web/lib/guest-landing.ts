@@ -38,7 +38,6 @@ export const LANDING_WORDS = {
   reply: 'Reply to the invitation',
   changeReply: 'Change my reply',
   changedPlans: 'Changed your plans?',
-  replyToConfirm: 'Reply to confirm your ticket',
   saveTicket: 'Save my ticket',
   saveInSafari: 'Open in Safari to save',
   howTitle: 'How to use it',

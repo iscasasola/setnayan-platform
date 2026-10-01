@@ -161,7 +161,7 @@ export function SaveToAccount({
     <SubmitButton
       name="then"
       value="keep"
-      className="button-primary flex min-h-[56px] w-full flex-col items-center justify-center gap-0.5"
+      className="button-primary flex h-auto min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5"
       pendingLabel={method === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
     >
       <span className="text-base">Save to my account</span>

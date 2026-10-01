@@ -175,6 +175,15 @@ type StyleProps = {
   plateStyle: CSSProperties;
 };
 
+/**
+ * "Ceremony" / "Reception" — the venue card's own role label (the protected 0.66rem
+ * eyebrow, `the-invitation-is-not-a-receipt.test.ts`), written ONCE for both
+ * styles here. On the plate it takes the plate's ink; on a photo, the caption's white.
+ */
+function RoleLabel({ role, className = '' }: { role: VenueRole; className?: string }) {
+  return <p className={`font-mono text-[0.66rem] uppercase tracking-[0.28em] ${className}`}>{VENUE_ROLE_LABEL[role]}</p>;
+}
+
 function Eyebrow({ count }: { count: number }) {
   return (
     <p className="pahina-eyebrow">
@@ -197,7 +206,7 @@ export function VenueFullPhoto({ venues, withheld, showMap, plateStyle }: StyleP
       {venues.map((venue) => {
         const words = (
           <>
-            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em]">{VENUE_ROLE_LABEL[venue.role]}</p>
+            <RoleLabel role={venue.role} />
             {venue.name ? <h3 className="font-pahina text-2xl font-light leading-snug tracking-tight">{venue.name}</h3> : null}
           </>
         );
@@ -275,7 +284,7 @@ export function VenueJourney({
               {i < venues.length - 1 ? <span className="absolute bottom-0 top-5 border-l-2 border-dashed border-ink/40" /> : null}
             </span>
             <div className={`min-w-0 space-y-1 ${i < venues.length - 1 ? 'pb-6' : ''}`}>
-              <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/80">{VENUE_ROLE_LABEL[venue.role]}</p>
+              <RoleLabel role={venue.role} className="text-ink/80" />
               {venue.name ? (
                 <h3 className="font-pahina text-xl font-light leading-snug tracking-tight text-ink">{venue.name}</h3>
               ) : null}

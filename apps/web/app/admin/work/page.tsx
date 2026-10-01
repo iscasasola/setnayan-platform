@@ -11,8 +11,8 @@
  *
  * Urgency = the oldest open item's age vs the queue's slaHours (ADMIN_QUEUE_META
  * — owner-tunable). A queue whose timestamp is unavailable degrades to volume
- * ranking; a thrown query fails the whole feed open to "all clear" rather than
- * 500-ing. Renders at every breakpoint (the feed component handles the
+ * ranking; a thrown query degrades every queue to "couldn't be read" (count
+ * null) rather than 500-ing — and NEVER to "all clear". Renders at every breakpoint (the feed component handles the
  * responsive layout) — it's the desktop home as well as the mobile Work tab.
  *
  * Per [[feedback_setnayan_no_dev_text_post_launch]] all copy is brand-voice;
@@ -76,8 +76,9 @@ export default async function AdminWorkLanding({
   // matches app/admin/page.tsx.
   const { userId: viewerUserId } = await requireAdmin();
 
-  // One round-trip per queue (count + oldest-open age). Fails open: a thrown
-  // query degrades the whole feed to "all clear" rather than 500-ing.
+  // One round-trip per queue (count + oldest-open age). A thrown digest leaves
+  // every row at `count: null`, which the feed renders as "couldn't be read" —
+  // never as an all-clear (admin audit 2026-09-30, row 5).
   const digest = await getAdminQueueDigest().catch(() => ({}) as AdminQueueDigest);
   const nowMs = Date.now();
 

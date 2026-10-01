@@ -106,6 +106,14 @@ export default async function AdminBudgetPlannerPage() {
   const benchmarks = (benchmarkRes.data ?? []) as BenchmarkRow[];
   const bandsUnread = Boolean(bandsError);
   const benchmarksUnread = Boolean(benchmarksError);
+  /* 🚨 THE THIRD READ WAS STILL UNBOUND (admin audit 2026-09-30, row 34): a
+     refused config read seeded the engine knobs from CONFIG_FALLBACK and armed
+     "Save settings", which then wrote the fallback over the real config. A
+     MISSING row (error null) is still "not yet seeded" and prefills. */
+  const configUnread = Boolean(configRes.error);
+  if (configRes.error) {
+    logQueryError('AdminBudgetPlannerPage.config', configRes.error, {}, 'graceful_degrade');
+  }
   const configRow = (configRes.data as ConfigRow | null) ?? null;
   const config = {
     min_sample_n: configRow?.min_sample_n ?? CONFIG_FALLBACK.min_sample_n,
@@ -251,6 +259,12 @@ export default async function AdminBudgetPlannerPage() {
           tolerance around a target; surplus mode decides what happens to money
           left over after every service is funded.
         </p>
+        {configUnread ? (
+          <div role="alert" className="mb-3 rounded-card bg-[var(--sn-warning-soft)] p-4 text-sm text-ink">
+            Couldn&rsquo;t load this — refresh to try again. Saving is off until the saved
+            settings load, so the defaults below can&rsquo;t overwrite them.
+          </div>
+        ) : null}
         <form
           action={async (fd: FormData) => {
             'use server';
@@ -349,8 +363,9 @@ export default async function AdminBudgetPlannerPage() {
           </div>
           <div className="mt-5">
             <SubmitButton
-              className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
+              className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800 disabled:cursor-not-allowed disabled:opacity-50"
               pendingLabel="Saving…"
+              disabled={configUnread}
             >
               Save settings
             </SubmitButton>

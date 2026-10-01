@@ -547,8 +547,16 @@ export default async function VendorClientsPage({ searchParams }: Props) {
           incomplete={!blocksRead.complete}
         />
 
+        {/* 📱 The round + on Customers lands HERE, open (owner-APPROVED
+            2026-10-01, "THE SUPPLIER PHONE APP", answer 3: the + adds an outside
+            client). `?add=outside` opens this shipped form; nothing new was
+            built to take an outside client. */}
         {pools.length > 0 ? (
-          <details className="mt-4 rounded-xl border border-ink/10 bg-white/50 p-4">
+          <details
+            id="import-outside"
+            open={search.add === 'outside'}
+            className="mt-4 scroll-mt-24 rounded-xl border border-ink/10 bg-white/50 p-4"
+          >
             <summary className="cursor-pointer text-sm font-semibold">
               Import an outside client · free
             </summary>
@@ -574,7 +582,18 @@ export default async function VendorClientsPage({ searchParams }: Props) {
               </SubmitButton>
             </form>
           </details>
-        ) : null}
+        ) : (
+          // An outside client holds a date on one of your schedules, so with
+          // none set up there is nowhere to hold it. Said, not hidden — the +
+          // on Customers lands here.
+          <p id="import-outside" className="mt-4 scroll-mt-24 text-sm text-ink/65">
+            To add an outside client, set up a schedule first — it holds the
+            date for them.{' '}
+            <Link href="/vendor-dashboard/customers?open=availability" className="font-semibold text-mulberry underline">
+              Set up a schedule
+            </Link>
+          </p>
+        )}
       </div>
 
       {/* KEPT NOTES — history without a name attached to it.

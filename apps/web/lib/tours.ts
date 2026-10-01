@@ -114,7 +114,11 @@ export type TourKey =
   | 'customer_event_menu_v1'
   | 'discover_upcoming_v1'
   | 'admin_users_v1'
-  | 'admin_force_majeure_v1';
+  | 'admin_force_majeure_v1'
+  // The supplier phone app (DECISION_LOG 2026-10-01 "THE SUPPLIER PHONE APP —
+  // APPROVED, WITH THE THREE RECOMMENDED ANSWERS").
+  | 'vendor_today_v1'
+  | 'vendor_customers_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -145,6 +149,8 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'discover_upcoming_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
+  'vendor_today_v1',
+  'vendor_customers_v1',
 ];
 
 export type TourDefinition = {
@@ -269,7 +275,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Briefcase,
-        title: 'My Shop is your storefront',
+        title: 'Shop is your storefront',
         body: 'Build service cards with photos, prices and what&rsquo;s included. Your shop address is yours for good — it goes live to couples once Setnayan approves your shop.',
       },
       {
@@ -285,7 +291,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: ShieldCheck,
         title: 'Get verified',
-        body: 'Verification is what puts your shop in front of couples. Send your documents once from My Shop — Setnayan reviews them, and your page goes live.',
+        body: 'Verification is what puts your shop in front of couples. Send your documents once from Shop — Setnayan reviews them, and your page goes live.',
       },
     ],
   },
@@ -997,6 +1003,55 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Receipt,
         title: 'Four resolution paths',
         body: 'Refund (vendor returns deposit minus expenses), Reschedule (services move to a new date), Substitute (equivalent service later), Partial (some delivered, some refunded). Pick one, both parties get an email.',
+      },
+    ],
+  },
+  // 📱 THE SUPPLIER PHONE APP — the first visit to the new Today and Customers
+  // (owner-APPROVED 2026-10-01). Claims checked against what the pages do: one
+  // Next card (the oldest answer owed, or "Run the day" on an event day), the
+  // bar of four with Messages · Insights · Event Hub in More, and the round +
+  // that opens the shipped "Import an outside client".
+  vendor_today_v1: {
+    key: 'vendor_today_v1',
+    label: 'Supplier — Today mini-tour',
+    blurb: 'The one Next card, the three numbers and the bar of four.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'One thing at a time',
+        body: 'The Next card is the most urgent thing waiting on you — a reply, a booking to answer, or on an event day, running the day. Answer it and the next one takes its place.',
+      },
+      {
+        Icon: Wallet,
+        title: 'Three numbers',
+        body: 'New inquiries, events this week, and what is still owed to you. Tap any of them to see the list behind it.',
+      },
+      {
+        Icon: Settings,
+        title: 'Everything else is in More',
+        body: 'The bar is Today, Customers, Shop and More. Messages, Insights and the Event Hub live in More — one tap away.',
+      },
+    ],
+  },
+  vendor_customers_v1: {
+    key: 'vendor_customers_v1',
+    label: 'Supplier — Customers mini-tour',
+    blurb: 'One row per customer, one next step each, and the round +.',
+    slides: [
+      {
+        Icon: Users,
+        title: 'Who is waiting comes first',
+        body: 'Every customer is one row with their next step on it. The ones waiting on your answer are always at the top.',
+      },
+      {
+        Icon: ClipboardList,
+        title: 'Filter and Show',
+        body: 'Filter narrows the list to one stage. Show picks what each row tells you on the right — the next step, the money, or the date.',
+      },
+      {
+        Icon: Calendar,
+        title: 'Add an outside client',
+        body: 'Took a booking outside Setnayan? The round + adds it, free, so the date is held and you are never double-booked.',
       },
     ],
   },

@@ -263,7 +263,7 @@ export async function fetchPlatformSettingsMeasured(
   // missing column must cost the list — and fall back to the two fixed rails
   // (lib/payment-channels.ts · receivingAccounts) — never the kill switches or
   // the business identity above it.
-  let receivingAccounts: unknown = [];
+  let storedAccountList: unknown = [];
   let accountsReadFailed = false;
   try {
     const { data: listRow, error: listError } = await supabase
@@ -275,7 +275,7 @@ export async function fetchPlatformSettingsMeasured(
       logQueryError('platform-settings: receiving_accounts', listError, {}, 'graceful_degrade');
       accountsReadFailed = true;
     } else {
-      receivingAccounts = (listRow as { receiving_accounts?: unknown } | null)?.receiving_accounts ?? [];
+      storedAccountList = (listRow as { receiving_accounts?: unknown } | null)?.receiving_accounts ?? [];
     }
   } catch {
     accountsReadFailed = true;
@@ -285,7 +285,7 @@ export async function fetchPlatformSettingsMeasured(
     settings: {
       ...(data as object),
       ...soft,
-      receiving_accounts: receivingAccounts,
+      receiving_accounts: storedAccountList,
     } as PlatformSettingsRow,
     readFailed: false,
     accountsReadFailed,

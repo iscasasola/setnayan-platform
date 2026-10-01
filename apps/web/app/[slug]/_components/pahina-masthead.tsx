@@ -188,6 +188,9 @@ export function PahinaMasthead({
     // is ghosted so it can be brought back (`hubElementDeclarations`).
     style: hubElementInlineStyle(elements?.[key], { editor: stampElements }),
   });
+  /** ✍ In the Maker canvas only: each person's name, so a tap types in THAT
+   *  person (`type-in-place-canvas.ts`) and the joiner stays the Joiner's. */
+  const person = (i: 0 | 1) => (stampElements ? { 'data-el-person': String(i) } : {});
   /**
    * ✍ A piece of a part's text, with its runs (one letter, one word in its own
    * face) drawn as spans — server-side, so what a guest sees is exactly what
@@ -350,7 +353,7 @@ export function PahinaMasthead({
               : 'mt-3 font-pahina text-[clamp(2.75rem,14vw,5.5rem)] font-light leading-[0.98] tracking-tight text-ink [overflow-wrap:anywhere] sm:text-[5.5rem]'
         }
       >
-        <span className={design === 'crest' ? undefined : 'block sm:inline'}>{txt('names', names.first, whole, 0)}</span>
+        <span {...person(0)} className={design === 'crest' ? undefined : 'block sm:inline'}>{txt('names', names.first, whole, 0)}</span>
         {names.second ? (
           <>
             <span
@@ -366,7 +369,7 @@ export function PahinaMasthead({
             >
               {txt('names', joinerWord, whole, names.first.length)}
             </span>
-            <span className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
+            <span {...person(1)} className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
               {txt('names', names.second, whole, names.first.length + joinerWord.length)}
             </span>
           </>
@@ -521,13 +524,13 @@ export function PahinaMasthead({
               data-motion="arrive-names"
               className="mt-5 font-pahina text-[2.9rem] font-light leading-[1.06] tracking-tight text-ink"
             >
-              <span className="block">{txt('names', names.first, cardNames, 0)}</span>
+              <span {...person(0)} className="block">{txt('names', names.first, cardNames, 0)}</span>
               {names.second ? (
                 <>
                   <span {...el('joiner')} className="block font-pahina text-[0.5em] italic text-gild" aria-hidden>
                     {txt('names', cardJoiner, cardNames, names.first.length)}
                   </span>
-                  <span className="block">{txt('names', names.second, cardNames, names.first.length + cardJoiner.length)}</span>
+                  <span {...person(1)} className="block">{txt('names', names.second, cardNames, names.first.length + cardJoiner.length)}</span>
                 </>
               ) : null}
             </h1>
@@ -568,13 +571,13 @@ export function PahinaMasthead({
 
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}
       <h1 {...el('names')} data-motion="arrive-names" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
-        <span className="block">{txt('names', names.first, plainNames, 0)}</span>
+        <span {...person(0)} className="block">{txt('names', names.first, plainNames, 0)}</span>
         {names.second ? (
           <>
             <span {...el('joiner')} className="block font-pahina text-[0.42em] italic text-gild" aria-hidden>
               {txt('names', plainJoiner, plainNames, names.first.length)}
             </span>
-            <span className="block">{txt('names', names.second, plainNames, names.first.length + plainJoiner.length)}</span>
+            <span {...person(1)} className="block">{txt('names', names.second, plainNames, names.first.length + plainJoiner.length)}</span>
           </>
         ) : null}
       </h1>

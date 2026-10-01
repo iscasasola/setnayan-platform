@@ -1167,6 +1167,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         parentCount: printParents.length,
         hostCount: rsvpHosts.length,
         helpFirst: one(search.date) === 'help',
+        // ✍ The names and the date as the couple is editing them (drafted until Apply).
+        drafted: draftedEvents,
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;

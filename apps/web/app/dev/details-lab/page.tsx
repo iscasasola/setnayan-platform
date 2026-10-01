@@ -84,7 +84,6 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
               initial: fresh
                 ? [{ first: '', last: '' }, { first: '', last: '' }]
                 : [{ first: 'Claire', last: 'Buanhog' }, { first: 'Indalecio', last: 'Casasola' }],
-              keep: { region: '', feel: '' },
               wholeForm: null,
             }
           : null,

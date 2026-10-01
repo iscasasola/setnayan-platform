@@ -43,6 +43,9 @@
  *           own public page in the Maker, and every "Saves immediately" there
  *           was a half-finished edit a guest could read. See
  *           `HUB_DRAFT_EVENT_COLUMNS` for how the host's preview shows each.
+ *         — and (2026-10-01, "wait for apply") the NAMES and the DATE typed in
+ *           the Maker (`HUB_DRAFT_FACT_COLUMNS`): the host's preview reads both
+ *           off the overlaid row, and Apply re-asks the date's own gates.
  * widgets — per section: `mode` (Auto · Shown · Hidden), `is_visible` (the
  *           navigator's eye — the legacy gate `mode: 'auto'` falls back to),
  *           `display_order`, and the section's whole `canvas` (background, crop,
@@ -137,6 +140,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
 export const HUB_DRAFT_FIELD = 'draft';
@@ -363,6 +367,42 @@ export const HUB_DRAFT_MEDIA_COLUMNS = [
 /** The gallery's size — `updateOurPhotos`' own cap. */
 export const HUB_DRAFT_GALLERY_MAX = 24;
 
+/**
+ * ✍ THE NAMES AND THE DATE TYPED IN THE MAKER (owner 2026-10-01, verbatim
+ * *"wait for apply"* — DECISION_LOG "ELEVEN OWNER ANSWERS" #1). Typed on the
+ * hero (tap-to-type, the `names` part) or in Details › Your event, each is a
+ * DRAFT until Apply like every Maker edit. They join because the host's
+ * preview CAN show them (`app/[slug]/page.tsx` overlays the whole drafted row
+ * before the masthead reads `display_name` and `event_date`):
+ *
+ *   · `display_name` — the page's names: the hero, every print and every pass;
+ *   · `bride_name` · `groom_name` — the two people's "First Last", drafted by
+ *     Details' Names editor through `coupleNameColumns` (lib/typed-names.ts),
+ *     the composition `updateEventMatchCriteria` writes live;
+ *   · `event_date` · `event_date_precision` — `updateEventDate`'s two columns.
+ *     Apply re-asks that writer's gates (`eventDateRefusal`, lib/events.ts):
+ *     never a past date, and a booked supplier's date never moves — a refused
+ *     date STAYS in the draft, said by name.
+ *
+ * Never Pro. Each is also a fact other screens read (Home, the dashboard, a
+ * supplier's calendar) — and those keep reading the LIVE row until Apply, which
+ * is the point. The list stays narrow: venues, the programme's times, the
+ * march and the people are NOT here (each has its own writer and its own rule).
+ */
+export const HUB_DRAFT_FACT_COLUMNS = ['display_name', 'bride_name', 'groom_name', 'event_date', 'event_date_precision'] as const;
+
+/**
+ * Apply counts a fact ONCE however many columns carry it (the prototype, frame
+ * B: *"Apply counts it once"*) — the names are three columns, the date two.
+ */
+export const HUB_DRAFT_FACT_GROUP: Readonly<Record<(typeof HUB_DRAFT_FACT_COLUMNS)[number], 'names' | 'date'>> = {
+  display_name: 'names',
+  bride_name: 'names',
+  groom_name: 'names',
+  event_date: 'date',
+  event_date_precision: 'date',
+};
+
 export const HUB_DRAFT_EVENT_COLUMNS = [
   'rsvp_backdrop',
   'landing_page_hero_image_url',
@@ -387,6 +427,8 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   ...HUB_DRAFT_WORDS_COLUMNS,
   // 💎 THE LAST THREE PRO TOOLS, TRIED FREE (owner 2026-09-29: "yes to all 3").
   ...HUB_DRAFT_MEDIA_COLUMNS,
+  // ✍ THE NAMES AND THE DATE TYPED IN THE MAKER (owner 2026-10-01: "wait for apply").
+  ...HUB_DRAFT_FACT_COLUMNS,
 ] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
@@ -485,7 +527,8 @@ export function sanitizeHubDraftEventValue(
   column: HubDraftEventColumn,
   raw: unknown,
 ): unknown | undefined {
-  if (raw === null) return null;
+  // A page is never nameless, and a date always says how precise it is.
+  if (raw === null) return column === 'display_name' || column === 'event_date_precision' ? undefined : null;
   switch (column) {
     case 'rsvp_backdrop':
       return parseRsvpBackdropConfig(raw) ?? undefined;
@@ -567,7 +610,29 @@ export function sanitizeHubDraftEventValue(
     // are dropped rather than repaired, exactly like every config above.
     case 'rsvp_ask_config':
       return isPlainObject(raw) ? sanitizeRsvpAskConfig(raw) : undefined;
+    // ✍ The names and the date — through the writers' own rules
+    // (`lib/typed-names.ts`; `updateEventDate`'s YYYY-MM-DD and its three
+    // precisions). Whether a date may be WRITTEN (past, a booked supplier) is
+    // Apply's question, asked against live — never dropped here, so a draft
+    // that ages past its date is said at Apply, not silently lost.
+    case 'display_name':
+      return cleanDisplayName(raw) ?? undefined;
+    case 'bride_name':
+    case 'groom_name':
+      return cleanPersonName(raw);
+    case 'event_date':
+      return isCalendarDay(raw) ? raw : undefined;
+    case 'event_date_precision':
+      return raw === 'year' || raw === 'month' || raw === 'day' ? raw : undefined;
   }
+}
+
+/** A real day written YYYY-MM-DD (never "2027-02-30"). */
+function isCalendarDay(raw: unknown): raw is string {
+  if (typeof raw !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+  const [y, m, d] = raw.split('-').map(Number) as [number, number, number];
+  const at = new Date(Date.UTC(y, m - 1, d));
+  return at.getUTCFullYear() === y && at.getUTCMonth() === m - 1 && at.getUTCDate() === d;
 }
 
 const HEX6 = /^#[0-9a-fA-F]{6}$/;
@@ -1706,7 +1771,15 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
   if (!draft) return { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   const plan = planHubDraftApply(draft, live, ownsPro);
   // A held scene's free part is the same scene as its refused twin — one change.
-  const changeCount = plan.apply.filter((i) => !(i.kind !== 'event' && i.freePart)).length + plan.refused.length;
+  // ✍ …and the names (three columns) or the date (two) are ONE change each.
+  const facts = new Set<string>();
+  let changeCount = 0;
+  for (const i of [...plan.apply.filter((i) => !(i.kind !== 'event' && i.freePart)), ...plan.refused]) {
+    const fact = i.kind === 'event' ? hubDraftFactOf(i.column) : null;
+    if (fact && facts.has(fact)) continue;
+    if (fact) facts.add(fact);
+    changeCount += 1;
+  }
   return {
     hasChanges: changeCount > 0,
     changeCount,
@@ -1738,7 +1811,11 @@ export type HubDraftRefusal =
   | 'apply_on_the_web'
   | 'not_your_photo'
   | 'empty_section'
-  | 'missing_section';
+  | 'missing_section'
+  /** 🗓 A drafted date that has already gone by (`eventDateRefusal` → `in_past`). */
+  | 'date_in_past'
+  /** 🗓 A drafted date a booked supplier holds (`eventDateRefusal` → `locked` · `widens`). */
+  | 'date_locked';
 
 export type HubDraftActionResult =
   | {
@@ -1784,6 +1861,11 @@ export function hubDraftPanelStaysOpen(result: HubDraftActionResult): boolean {
   return result.held.length > 0;
 }
 
+/** Which typed fact (the names, the date) an `events` column carries — null for every other column. */
+export function hubDraftFactOf(column: HubDraftEventColumn): 'names' | 'date' | null {
+  return (HUB_DRAFT_FACT_GROUP as Partial<Record<string, 'names' | 'date'>>)[column] ?? null;
+}
+
 /** A sentence-ready name for each draftable `events` column. */
 export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   rsvp_backdrop: 'The RSVP backdrop',
@@ -1811,6 +1893,12 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   dress_code_config: 'Your dress code',
   photo_moments_config: 'Your camera cues',
   rsvp_ask_config: 'What you ask your guests',
+  // The names and the date are ONE change each, however many columns carry them.
+  display_name: 'Your names',
+  bride_name: 'Your names',
+  groom_name: 'Your names',
+  event_date: 'Your date',
+  event_date_precision: 'Your date',
 };
 
 /** A sentence-ready name for each fixed part whose style is drafted. */

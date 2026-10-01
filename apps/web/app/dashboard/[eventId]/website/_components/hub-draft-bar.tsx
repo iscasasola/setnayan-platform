@@ -101,6 +101,8 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   not_your_photo: 'uses a photo that is not in your Event Hub',
   empty_section: 'has nothing in it yet, so it cannot be shown',
   missing_section: 'no longer exists',
+  date_in_past: 'has already gone by — pick a day ahead; it stays in your draft',
+  date_locked: 'is held by a supplier you booked — message them to move it; it stays in your draft',
 };
 
 function useDraftIntent(eventId: string) {

@@ -110,14 +110,15 @@ const PARTS = read(`${L}details-your-event-parts.tsx`);
 // The facts read lives apart from the JSX since train m (Home reads it too): one LOAD, both files.
 const LOAD = read(`${L}details-your-event-load.tsx`) + read(`${L}details-your-event-facts.ts`);
 
-test('every editor saves through the writer its own screen uses — +0 server actions', () => {
+test('every editor saves through a door that already exists — +0 server actions', () => {
   assert.doesNotMatch(EDITORS, /['"]use server['"]/);
-  assert.match(EDITORS, /makerSave\(\(\) => updateEventMatchCriteria\(fd\), requestMakerRefresh\)/, 'names: the Personalization writer');
-  // That writer clears region and feel when absent — they go back unchanged.
-  assert.match(EDITORS, /fd\.set\('region', keep\.region\)/);
-  assert.match(EDITORS, /fd\.set\('mood_feel_key', keep\.feel\)/);
+  // ✍ The names and the date are DRAFTED (owner 2026-10-01, "wait for apply") —
+  // through the one draft door; nothing else (region, feel, birth data) is posted.
+  assert.match(EDITORS, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'names and date: the Event Hub draft');
+  assert.match(EDITORS, /const events = coupleNameColumns\(a, b\);/, 'names: the Personalization writer’s own composition');
+  assert.doesNotMatch(EDITORS, /fd\.set\('region'|fd\.set\('mood_feel_key'/, 'the draft carries the names only');
   assert.match(EDITORS, /<GovernedFields[\s\S]*?only=\{\['date'\]\}[\s\S]*?proposal=\{proposal\}/, 'date: the governed row, conflict preview and all');
-  assert.match(EDITORS, /await updateEventDate\(fd\)/, 'a month goes through the same date writer');
+  assert.match(EDITORS, /event_date_precision: 'month'/, 'a month is drafted with its precision');
   assert.match(EDITORS, /makerSave\(\(\) => saveAllStdContent\(eventId, data\), requestMakerRefresh\)/, 'venues: the typed names the hub already reads');
   assert.match(EDITORS, /const data: Parameters<typeof saveAllStdContent>\[1\] = \{ launchDate \}/, 'the launch date is posted back, never cleared');
   // "Help me choose" is the shipped finder's ranking and words, in the three parts.
@@ -214,9 +215,8 @@ test('(3) a one-person event’s Name writes display_name ALONE — the column t
   const fn = actions.slice(actions.indexOf('export async function updateEventMatchCriteria('));
   assert.ok(fn.indexOf("formData.has('celebrant_name')") > fn.indexOf("return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };"));
   assert.ok(fn.indexOf("formData.has('celebrant_name')") < fn.indexOf('const updatePatch'));
-  // The editor posts celebrant_name alone, through the same writer.
-  assert.match(EDITORS, /fd\.set\('celebrant_name', name\.trim\(\)\);\s*start\(/);
-  assert.match(EDITORS, /makerSave\(\(\) => updateEventMatchCriteria\(fd\), requestMakerRefresh\)/);
+  // The Maker's editor drafts display_name ALONE (owner 2026-10-01, "wait for apply") — the same one column.
+  assert.match(EDITORS, /draftFacts\(eventId, \{ display_name: typed \}\)/);
   assert.match(LOAD, /oneName: people\s*\? null/);
 });
 

@@ -172,6 +172,10 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   // managed in the guest list + the Five-essentials card. So redirect a
   // muslim-primary wedding here, UNLESS it's a mixed ceremony with a non-muslim
   // (e.g. Catholic) secondary leg that legitimately uses sponsors.
+  // PRIMARY-ONLY ON PURPOSE (P6a follow-up audit): lib/chinese-wedding.ts's
+  // `ceremonyMatches` note names exactly this check as the one that must NOT read
+  // both columns — "Muslim is the PRIMARY rite and nothing else carries it" is
+  // the question, and the secondary column is already consulted just below.
   const secondaryCeremony =
     (event as { secondary_ceremony_type?: string | null })
       .secondary_ceremony_type ?? null;

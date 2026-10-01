@@ -1,6 +1,6 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { isChineseWedding } from '@/lib/chinese-wedding';
+import { ceremonyMatches, isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { eventHasSides } from '@/lib/guest-side-question';
@@ -166,7 +166,8 @@ export async function loadGuestCard(
     logQueryError('loadGuestCard.ceremonyRow', ceremonyRowError, { eventId, guestId }, 'graceful_degrade');
   }
   const showTeaCeremony = isChineseWedding(ceremonyRow);
-  const isIncWedding = ceremonyRow?.ceremony_type === 'inc';
+  // Both rite columns — a mixed wedding with an INC side reads as INC here too.
+  const isIncWedding = ceremonyMatches(ceremonyRow, 'inc');
 
   const { data: plusOneRow, error: plusOneRowError } = await supabase
     .from('guests')

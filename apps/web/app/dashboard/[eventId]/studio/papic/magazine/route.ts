@@ -10,6 +10,7 @@ import { resolveStillRef } from '@/lib/papic-display-ref';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { loadEditorialData } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
+import { eventWordsForEvent, untitledEventName } from '@/app/[slug]/_lib/event-words';
 import {
   bucketMoments,
   buildKwentoMagazine,
@@ -234,7 +235,10 @@ export async function GET(
     );
   }
 
-  const displayName = editorial?.displayName ?? 'The Wedding';
+  // A nameless event is titled in its OWN words ("The Wedding", "The Birthday") —
+  // never a wedding's on a birthday's album.
+  const displayName =
+    editorial?.displayName ?? untitledEventName(await eventWordsForEvent(eventId).catch(() => null));
   const pdf = await buildKwentoMagazine({
     coupleNames: displayName,
     eventDateIso: editorial?.eventDate ?? null,

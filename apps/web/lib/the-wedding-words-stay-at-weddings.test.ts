@@ -27,6 +27,8 @@ import { stripComments } from './strip-comments';
 import { makerGuestPages } from './maker-guest-pages';
 import { makerStageList, type MakerStageInput } from './maker-scene-list';
 import { PUBLIC_SITE_PAGES } from './public-site-pages';
+import { untitledEventName } from '../app/[slug]/_lib/event-words';
+import { buildEmceeScript } from './emcee-script';
 import type { InvitationWidgetRow, WidgetType } from './invitation-widgets';
 
 const WEB = join(__dirname, '..');
@@ -110,4 +112,26 @@ test('4 · prints and emails name a wedding only for a wedding', () => {
   assert.match(read('lib/vendor-invite-actions.ts'), /eventWord: \(await eventWordsForEvent\(parent\.event_id\)/);
   assert.doesNotMatch(read('lib/daily-email-jobs.ts'), /\?\? 'your wedding'/);
   assert.doesNotMatch(read('lib/vendor-email-triggers.ts'), /Real Wedding Stor/);
+});
+
+test('5 · (follow-up) the table sign, the album and the emcee script say the event\u2019s own word', () => {
+  const sign = read('app/dashboard/[eventId]/seating/print/route.ts');
+  assert.doesNotMatch(sign, /Scan to visit our wedding/, 'the table sign says "our wedding" to every type');
+  assert.match(sign, /Scan to visit our \$\{eventWords\?\.eventWord \?\? 'event'\}/);
+  assert.match(sign, /<p class="sign-sub">\$\{esc\(signSub\)\}<\/p>/);
+
+  assert.doesNotMatch(read('app/dashboard/[eventId]/studio/papic/magazine/route.ts'), /'The Wedding'/);
+  assert.match(read('app/dashboard/[eventId]/studio/papic/magazine/route.ts'), /untitledEventName\(/);
+  assert.doesNotMatch(read('lib/emcee-script.ts'), /'The Wedding'/);
+  assert.match(read('app/dashboard/[eventId]/schedule/actions.ts'), /untitledName: untitledEventName\(eventWords\)/);
+
+  // EXECUTED: a wedding is byte-identical; a birthday never says wedding; a wake says gathering.
+  assert.equal(untitledEventName({ eventWord: 'wedding', occasion: 'celebration', solemn: false }), 'The Wedding');
+  assert.equal(untitledEventName({ eventWord: 'birthday', occasion: 'celebration', solemn: false }), 'The Birthday');
+  assert.equal(untitledEventName({ eventWord: 'wake', occasion: 'gathering', solemn: true }), 'The Gathering');
+  assert.equal(untitledEventName(null), 'The Event');
+  const script = (untitledName?: string) =>
+    buildEmceeScript({ event: { displayName: null, untitledName, eventDate: null }, blocks: [], guests: [] });
+  assert.match(script('The Birthday'), /EMCEE \/ HOST SCRIPT — The Birthday/);
+  assert.doesNotMatch(script(), /Wedding/, 'a nameless script with no words still says "The Wedding"');
 });

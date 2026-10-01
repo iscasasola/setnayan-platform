@@ -82,7 +82,9 @@ test('3 · the ceremony pickers honour the launch gate', () => {
   assert.deepEqual(ceremonyChoicesFor(all, ['catholic'], 'hindu'), ['catholic', 'hindu', 'mixed'], 'the current rite must stay pickable');
   assert.deepEqual(ceremonyChoicesFor(all, null, null), [...all], 'a failed read must never hide every rite');
 
-  const details = read('app/dashboard/[eventId]/details/page.tsx');
+  // The governed editors moved whole to /details/change ("Event settings") when
+  // /details became the information-only Event Details sheet (#6247).
+  const details = read('app/dashboard/[eventId]/details/change/page.tsx');
   assert.match(details, /activeCeremonies=\{await fetchActiveCeremonyTypes\(supabase\)\}/);
   assert.match(read('app/dashboard/[eventId]/details/_components/governed-fields.tsx'), /CEREMONY_OPTIONS\.filter\(\(o\) => offeredCeremonies\.has\(o\.value\)\)/);
   const date = read('app/dashboard/[eventId]/date-selection/page.tsx');

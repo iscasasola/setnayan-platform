@@ -41,9 +41,11 @@ export type MakerBarGroup = 'made-once' | 'stages';
  * The made-once home of every line of wording (owner 2026-09-25: *"the other
  * lines like the opening message and the thank you message on the egifts must
  * have a place along the Logo, Hero, Reveal, Love Story"*). PROVISIONAL name —
- * the owner may rename it, so it lives in this one constant.
+ * the owner may rename it, so it lives in this one constant. Renamed "Details" →
+ * "Your info" (owner 2026-10-01, "approved, use your defaults"): Event Details is
+ * now the information-only sheet on Event Home, and two "Details" would clash.
  */
-export const MAKER_DETAILS_LABEL = 'Details';
+export const MAKER_DETAILS_LABEL = 'Your info';
 export const MAKER_PRINTS_LABEL = 'Prints';
 
 /**

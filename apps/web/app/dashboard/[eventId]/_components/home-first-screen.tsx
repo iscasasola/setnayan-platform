@@ -79,9 +79,20 @@ export function HomeFirstScreen({
       aria-label="Home"
       className="mx-auto flex w-full max-w-xl flex-col gap-3 max-lg:min-h-[calc(100svh-var(--sn-bottomdock-h,5.5rem)-5rem)]"
     >
-      <div className="rounded-2xl bg-mulberry px-4 py-3 text-cream">
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-cream/75">{cover.eyebrow}</p>
-        <p className="font-display text-[22px] leading-tight">{cover.name}</p>
+      {/* 📋 EVENT DETAILS sits beside the name, on the cover (owner 2026-10-01,
+          "EVENT DETAILS LIVES ON EVENT HOME") — the one information-only sheet. */}
+      <div className="flex items-end justify-between gap-3 rounded-2xl bg-mulberry px-4 py-3 text-cream">
+        <div className="min-w-0">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-cream/75">{cover.eyebrow}</p>
+          <p className="font-display text-[22px] leading-tight">{cover.name}</p>
+        </div>
+        <Link
+          href={`/dashboard/${eventId}/details`}
+          data-home-event-details
+          className="sn-press shrink-0 rounded-full border border-cream/60 px-3 py-1.5 text-[12.5px] text-cream transition hover:bg-cream/10"
+        >
+          Event Details
+        </Link>
       </div>
 
       {/* ① THE ONE NEXT CARD — exactly one, with exactly one button. The card is

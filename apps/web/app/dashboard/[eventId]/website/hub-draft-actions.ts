@@ -46,9 +46,6 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { resolveProfile } from '@/lib/event-type-profile';
-import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { lookProAllows } from '@/lib/hub-look-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -257,22 +254,6 @@ export async function hubDraftAction(
        pictures, a closed list — owner 2026-09-29, answer 3). */
     const sceneIsOwn = (ref: string) => ownRefs.has(ref) || ref.startsWith(ownScenePrefix) || isStdLibrarySrc(ref);
 
-    /* 🎨 A DRAFTED PRO THEME ASKS THE WEDDING FENCE (owner Q7 = A) — the
-       reveal's own answer, `resolveWeddingOnlyParts(p).save_the_date_film`,
-       asked only when a Pro theme is about to be written. The picker never
-       offers one where the fence is shut; a draft is a public POST, so it is
-       asked again here. An unreadable profile is not a wedding. */
-    const draftedTheme = plan.apply.find(
-      (i): i is Extract<HubDraftItem, { kind: 'event' }> => i.kind === 'event' && i.column === 'invite_theme',
-    );
-    const draftedThemeId = draftedTheme ? normalizeThemeId(draftedTheme.value) : null;
-    const themeFenceOpen =
-      draftedThemeId !== null && INVITE_THEMES[draftedThemeId].tier === 'pro'
-        ? await resolveProfile(String(ownRow.event_type ?? ''))
-            .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
-            .catch(() => false)
-        : true;
-
     /* 💎 THE LAST THREE PRO TOOLS (owner 2026-09-29, "yes to all 3"). A drafted
        song, hero video or gallery photo is a public POST like any other, so
        each NEW ref must be an upload into THIS event's own folder — the rule
@@ -294,10 +275,6 @@ export async function hubDraftAction(
         !newMediaIsOwn(item.column, item.value)
       ) {
         held.push({ item, reason: 'not_your_photo' });
-        continue;
-      }
-      if (item.kind === 'event' && item.column === 'invite_theme' && !themeFenceOpen) {
-        held.push({ item, reason: 'not_for_this_celebration' });
         continue;
       }
       if (item.kind === 'event' && item.column === 'landing_page_hero_image_url' && item.value !== null) {

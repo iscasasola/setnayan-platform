@@ -81,24 +81,22 @@ test('a Pro theme is held without Pro; a free one (Classic, Modern, Cyber Neon) 
   assert.equal(planHubDraftApply(pickTheme('vintage'), live('capiz'), false).refused.length, 0);
 });
 
-test('Apply writes the theme on its own — after the host check, the Pro gate and the fence — and counts the row', () => {
+test('Apply writes the theme on its own — after the host check and the Pro gate — and counts the row', () => {
   const src = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   const host = src.indexOf('await requireHostMembershipOrThrow(eventId');
   const gate = src.indexOf('planHubDraftApply(current, live, ownsPro)');
-  const fence = src.indexOf('resolveWeddingOnlyParts(p).save_the_date_film');
   const peel = src.indexOf('delete eventsPatch.invite_theme;');
   const session = src.indexOf(".from('events')\n        .update(eventsPatch)");
   const write = src.indexOf('.update({ invite_theme: themeWrite })');
-  for (const [name, at] of Object.entries({ host, gate, fence, peel, session, write })) {
+  for (const [name, at] of Object.entries({ host, gate, peel, session, write })) {
     assert.ok(at > 0, `${name} is gone — re-anchor this guard`);
   }
-  assert.ok(host < gate && gate < fence && fence < write, 'the theme is written before it is allowed');
+  assert.ok(host < gate && gate < write, 'the theme is written before it is allowed');
   assert.ok(peel < session, 'the theme rides the session UPDATE, which has no grant for it — every column would be refused');
   const tail = src.slice(write, write + 400);
   assert.match(tail, /\.eq\('event_id', eventId\)\s*\.select\('event_id'\)/, 'the theme write does not ask for its row back');
   assert.match(tail, /themeRows\.length === 0/, 'a zero-row theme write would report success');
   assert.match(src, /createAdminClient\(\)\s*\.from\('events'\)\s*\.update\(\{ invite_theme: themeWrite \}\)/);
-  // A Pro theme on a celebration that may not wear one is held, never written.
-  assert.match(src, /held\.push\(\{ item, reason: 'not_for_this_celebration' \}\)/);
-  assert.match(src, /resolveWeddingOnlyParts\(p\)\.save_the_date_film\)\s*\.catch\(\(\) => false\)/, 'an unreadable profile opens a paid theme');
+  // Every event type may wear every theme (2026-10-01): no event-type hold remains.
+  assert.doesNotMatch(src, /resolveWeddingOnlyParts|not_for_this_celebration/);
 });

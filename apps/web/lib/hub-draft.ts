@@ -1738,9 +1738,7 @@ export type HubDraftRefusal =
   | 'apply_on_the_web'
   | 'not_your_photo'
   | 'empty_section'
-  | 'missing_section'
-  /** 🎨 A Pro theme on a celebration that may not wear one (weddings only, owner Q7 = A). */
-  | 'not_for_this_celebration';
+  | 'missing_section';
 
 export type HubDraftActionResult =
   | {

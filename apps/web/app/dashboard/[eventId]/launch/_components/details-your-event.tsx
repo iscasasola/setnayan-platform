@@ -310,7 +310,7 @@ export function DateEditor({
   /* 🗓 A day or month a BOOKED supplier cannot do is refused at the pick — it
      never reaches the draft — and the supplier is named with one way to ask
      them (owner 2026-10-01). `note` is a pick that was kept. */
-  const [clash, setClash] = useState<{ reason: string; list: readonly DateClash[] } | null>(null);
+  const [clash, setClash] = useState<{ reason: string; list: readonly DateClash[]; pick: { date: string; precision: string } } | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [pending, start] = useTransition();
 
@@ -324,7 +324,13 @@ export function DateEditor({
     setNote(null);
     const refused = await draftFactsFull(eventId, events);
     if (!refused) return null;
-    if (refused.clash?.length) setClash({ reason: refused.error, list: refused.clash });
+    if (refused.clash?.length) {
+      setClash({
+        reason: refused.error,
+        list: refused.clash,
+        pick: { date: String(events.event_date ?? ''), precision: String(events.event_date_precision ?? 'day') },
+      });
+    }
     return { error: refused.error, clashed: Boolean(refused.clash?.length) };
   };
 
@@ -338,7 +344,9 @@ export function DateEditor({
       start(async () => {
         try {
           const refused = await draftDate({ event_date: dateKey, event_date_precision: 'day' });
-          if (!refused) setNote('Saved to your draft — a booked supplier still has to agree before it can go live.');
+          // Q8 (owner 2026-10-02): a day every booked supplier can do goes live at
+          // Apply, and each of them is told "The date moved to <date>".
+          if (!refused) setNote('Saved to your draft — your booked suppliers can do this day. They are told when you Apply.');
           else if (!refused.clashed) setMonthError(refused.error);
         } catch {
           setMonthError('That day did not save. Please try again.');
@@ -404,7 +412,7 @@ export function DateEditor({
           {nudge}
         </Suspense>
       )}
-      {clash ? <DateClashNote clash={clash} /> : null}
+      {clash ? <DateClashNote eventId={eventId} clash={clash} /> : null}
       {note ? (
         <p className="text-xs text-ink/65" data-date-note="">
           {note}

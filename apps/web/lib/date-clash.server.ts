@@ -30,6 +30,7 @@ export async function datePickClash({
   date,
   precision,
   live,
+  failClosed = false,
 }: {
   /** The couple's own session (RLS: their event_vendors). */
   supabase: SupabaseClient;
@@ -40,6 +41,13 @@ export async function datePickClash({
   precision: EventDatePrecision;
   /** What is live now — picking it again is not a change, so it is not asked. */
   live: { date: string | null; precision: unknown };
+  /**
+   * The pick fails OPEN (an unread list is not a clash — Apply is the
+   * backstop). Apply itself asks with `failClosed`: an unread supplier list or
+   * calendar THROWS, so a date never goes live on a read that did not happen
+   * (`lib/date-change.server.ts`).
+   */
+  failClosed?: boolean;
 }): Promise<DatePickClash | null> {
   if (date === live.date && precision === (eventDatePrecisionOf(live.precision) ?? 'day')) return null;
   let booked: EventVendorRow[];
@@ -48,11 +56,12 @@ export async function datePickClash({
       (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(v.status),
     );
   } catch (e) {
+    if (failClosed) throw e;
     logQueryError('datePickClash.vendors', e as Error, { eventId }, 'graceful_degrade');
     return null;
   }
   if (booked.length === 0) return null;
-  const matrix = await buildScheduleMatrix({ admin, eventDate: date, precision, picks: schedulePicksFromVendors(booked) });
+  const matrix = await buildScheduleMatrix({ admin, eventDate: date, precision, picks: schedulePicksFromVendors(booked) }, { failClosed });
   const clashes = clashesForMatrix(matrix);
   if (clashes.length === 0) return null;
   return {

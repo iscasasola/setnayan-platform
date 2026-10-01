@@ -330,8 +330,14 @@ test('6e · Apply asks the date’s OWN gates — the one rule `updateEventDate`
   assert.equal(eventDateRefusal(prior, { date: '2027-04-17', precision: 'day' }, 2, NOW), 'locked', 'a booked supplier holds the day');
   assert.equal(eventDateRefusal(prior, { date: '2027-03-13', precision: 'month' }, 2, NOW), 'widens', 'never less precise once booked');
   assert.equal(eventDateRefusal({ date: null, precision: null }, { date: '2027-04-17', precision: 'day' }, 2, NOW), null, 'a first date is never locked');
+  // Q8 (owner 2026-10-02): a date the booked suppliers CLEARED moves — but never wider, never into the past.
+  assert.equal(eventDateRefusal(prior, { date: '2027-04-17', precision: 'day' }, 2, NOW, true), null, 'a cleared date moves with booked suppliers');
+  assert.equal(eventDateRefusal(prior, { date: '2027-04-01', precision: 'month' }, 2, NOW, true), 'widens', 'cleared is never wider');
+  assert.equal(eventDateRefusal(prior, { date: '2026-12-31', precision: 'day' }, 2, NOW, true), 'in_past');
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(action, /const refusal = eventDateRefusal\(priorDate, nextDate, confirmed\);/);
+  assert.match(action, /let refusal = eventDateRefusal\(priorDate, nextDate, confirmed\);/);
+  // …relaxed ONLY when the booked suppliers cleared the date (Q8 / the clashing-date flow, 2026-10-02).
+  assert.match(action, /refusal = eventDateRefusal\(priorDate, nextDate, confirmed, new Date\(\), clearance\.cleared\);/);
   assert.match(action, /if \(dateHeld && isDateItem\(item\)\) \{\s*held\.push\(\{ item, reason: dateHeld \}\);\s*continue;\s*\}/, 'a refused date stays in the draft');
   assert.match(action, /if \(countErr\) return \{ ok: false, intent, error:/, 'an unread supplier count is never "none booked"');
   assert.match(read('app/dashboard/[eventId]/actions.ts'), /const refusal = eventDateRefusal\(prior, next, count \?\? 0\);/, 'the live writer asks the same rule');
@@ -466,7 +472,7 @@ test('8c · the check is the SHIPPED availability read — no second one — ask
   for (const [what, src] of [['date-fits-booked', fits], ['date-clash.server', server], ['the date finder', read(`${L}details-date-finder.tsx`)]] as const) {
     assert.doesNotMatch(src, /budget|price|cost|php|afford/i, `${what} lets money narrow a date choice`);
   }
-  assert.match(server, /buildScheduleMatrix\(\{ admin, eventDate: date, precision, picks: schedulePicksFromVendors\(booked\) \}\)/, 'the matrix the date finder and Compare read');
+  assert.match(server, /buildScheduleMatrix\(\{ admin, eventDate: date, precision, picks: schedulePicksFromVendors\(booked\) \}, \{ failClosed \}\)/, 'the matrix the date finder and Compare read (fail-closed when Apply asks)');
   assert.match(server, /CONFIRMED_VENDOR_STATUSES/, 'only BOOKED suppliers — the set eventDateRefusal governs by');
   assert.match(server, /routes\.dashboard\.vendors\.workspace\(eventId, c\.key\)\}\?tab=chat/, 'Ask … to move or unlock opens that supplier’s own conversation');
   // The save asks BEFORE the draft is written — and answers with the reason and who.
@@ -478,11 +484,13 @@ test('8c · the check is the SHIPPED availability read — no second one — ask
   assert.match(read(`${L}details-date-finder.tsx`), /const fit = fittingDates\(rankWithPin\(m\.dates, pinned\)\);/);
   const editors = read(`${L}details-your-event.tsx`);
   const note = read(`${L}details-date-clash.tsx`);
-  assert.match(note, /'Ask them to move or unlock\?'/, 'the one action, as the owner worded it');
+  assert.match(note, />\s*Ask them to move or unlock\?\s*</, 'the one action, as the owner worded it');
   assert.match(note, /Your date stays as it is\./, 'the event keeps its current date');
   assert.match(note, /href=\{c\.href\}/);
-  assert.match(editors, /<DateClashNote clash=\{clash\} \/>/);
-  assert.match(editors, /if \(refused\.clash\?\.length\) setClash\(/, 'the refusal’s supplier list is shown');
+  assert.match(editors, /<DateClashNote eventId=\{eventId\} clash=\{clash\} \/>/);
+  assert.match(editors, /if \(refused\.clash\?\.length\) \{\s*setClash\(/, 'the refusal’s supplier list is shown');
   // Apply's refusal stays as the backstop.
-  assert.match(action, /const refusal = eventDateRefusal\(priorDate, nextDate, confirmed\);/);
+  assert.match(action, /let refusal = eventDateRefusal\(priorDate, nextDate, confirmed\);/);
+  // …relaxed ONLY when the booked suppliers cleared the date (Q8 / the clashing-date flow, 2026-10-02).
+  assert.match(action, /refusal = eventDateRefusal\(priorDate, nextDate, confirmed, new Date\(\), clearance\.cleared\);/);
 });

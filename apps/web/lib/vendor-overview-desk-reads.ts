@@ -234,3 +234,67 @@ export async function readBookingsAwaitingCompletion(
     complete: read.complete,
   };
 }
+
+/**
+ * 🗓 A DATE-CHANGE REQUEST THIS SHOP STILL OWES AN ANSWER ON (owner 2026-10-01,
+ * "A CLASHING DATE GOES TO THE SUPPLIER IN CONFLICT") — Move to <date> · Unlock
+ * my service. One row per request (a package's rows answer together), the
+ * soonest deadline first. Only OPEN requests: a withdrawn or applied one is not
+ * a question any more.
+ */
+export type DateChangeAskRow = {
+  request_id: string;
+  event_id: string;
+  event_vendor_id: string;
+  due_at: string;
+  proposed_date: string;
+  proposed_precision: string;
+  from_date: string | null;
+  from_precision: string | null;
+  asked_at: string;
+};
+
+export async function readDateChangeAsks(
+  admin: SupabaseClient,
+  vendorProfileId: string,
+): Promise<DeskRead<DateChangeAskRow>> {
+  const read = await readAllPages(
+    async (from, to) => {
+      const { data, error, count } = await admin
+        .from('event_date_change_answers')
+        .select(
+          'request_id, event_id, event_vendor_id, due_at, event_date_change_requests!inner(proposed_date, proposed_precision, from_date, from_precision, asked_at, state)',
+          { count: 'exact' },
+        )
+        .eq('vendor_profile_id', vendorProfileId)
+        .eq('answer', 'asked')
+        .eq('event_date_change_requests.state', 'open')
+        .order('due_at', { ascending: true })
+        .order('event_vendor_id', { ascending: true })
+        .range(from, to);
+      return { rows: data ?? null, error: error ? error.message : null, total: count };
+    },
+    { pageSize: PAGE },
+  );
+  const seen = new Set<string>();
+  const rows: DateChangeAskRow[] = [];
+  for (const raw of read.rows as Array<Record<string, unknown>>) {
+    const joined = raw.event_date_change_requests as Record<string, unknown> | Array<Record<string, unknown>> | null;
+    const req = Array.isArray(joined) ? joined[0] : joined;
+    const requestId = raw.request_id as string;
+    if (!req || seen.has(requestId)) continue;
+    seen.add(requestId);
+    rows.push({
+      request_id: requestId,
+      event_id: raw.event_id as string,
+      event_vendor_id: raw.event_vendor_id as string,
+      due_at: raw.due_at as string,
+      proposed_date: req.proposed_date as string,
+      proposed_precision: req.proposed_precision as string,
+      from_date: (req.from_date as string | null) ?? null,
+      from_precision: (req.from_precision as string | null) ?? null,
+      asked_at: req.asked_at as string,
+    });
+  }
+  return { rows, error: read.error, complete: read.complete };
+}

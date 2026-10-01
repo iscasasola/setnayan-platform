@@ -45,6 +45,7 @@ async function renderFeed(incomplete: boolean, cards: unknown[] = []): Promise<s
       declineLock: noop,
       agreeDeletion: noop,
       declineDeletion: noop,
+      answerDateChange: noop,
       postReviewReply: noop,
       respondMeeting: noop,
       markServiceComplete: noop,

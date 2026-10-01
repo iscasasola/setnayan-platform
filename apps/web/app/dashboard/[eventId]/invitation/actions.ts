@@ -385,7 +385,10 @@ export async function setGuestInvitationSent(
  * were not. `.select()` returns what actually moved, and that — not the length
  * of the request — is what the page is told.
  */
-export async function markGuestsInvitationSent(
+// ⏹ UN-EXPORTED 2026-10-02 (the server-action budget, `lint-server-action-budget.mjs`):
+// nothing imports it — no screen offers the bulk mark yet — and the date-change
+// answer needed the slot. Re-export it in the PR that wires its screen.
+async function markGuestsInvitationSent(
   eventId: string,
   formData: FormData,
 ): Promise<void> {

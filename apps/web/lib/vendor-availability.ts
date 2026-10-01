@@ -445,6 +445,13 @@ export async function getBatchVendorAvailableDays(
   vendorProfileIds: string[],
   rangeStart: Date,
   rangeEnd: Date,
+  /**
+   * 🗓 A GATE MAY NOT FAIL OPEN. Browsing stays open on a flaky read (the
+   * default); a caller that DECIDES something on the answer — the Maker's Apply
+   * moving a booked supplier's date (`lib/date-change.server.ts`) — passes
+   * `failClosed` and gets a throw instead of "everyone is free".
+   */
+  opts: { failClosed?: boolean } = {},
 ): Promise<Map<string, Set<string>>> {
   const result = new Map<string, Set<string>>();
   const windowKeys = dayKeySetFromWindow(rangeStart, rangeEnd);
@@ -464,6 +471,7 @@ export async function getBatchVendorAvailableDays(
   // browsable when the calendar table flakes; the locked-vendor
   // intersection on the parent helper is the load-bearing gate.
   if (error) {
+    if (opts.failClosed) throw new Error(`calendar read failed: ${error.message}`);
     for (const id of vendorProfileIds) {
       result.set(id, new Set(windowKeys));
     }

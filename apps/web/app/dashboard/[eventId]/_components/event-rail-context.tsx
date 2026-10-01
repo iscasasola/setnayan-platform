@@ -32,8 +32,9 @@
  * Services row (key `studio`) expands and collapses to its five services
  * (*"the sidebar will expand and collapse to show these"*; DECISION_LOG "THE
  * SIDEBAR ROW 'MORE SERVICES' EXPANDS TO THE FIVE"). Tapping it only opens or
- * closes it — no navigation — and the open/closed state is remembered on this
- * device. `NavItem.children` is rendered for THAT ROW ONLY; every other row
+ * closes it — no navigation. It is CLOSED by default and opens on a tap or when
+ * the current page is one of its five (owner 2026-10-01); the five sit in ONE
+ * tinted, inset group (`.fd-msub`) so they read as inside More Services. `NavItem.children` is rendered for THAT ROW ONLY; every other row
  * stays a leaf, and a pillar's parts live inside its page (Guest list · Your
  * Team pick theirs from one dropdown; the Maker has Details).
  * `the-event-menu-is-one-tree.test.ts` holds "exactly one row opens".
@@ -58,7 +59,7 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -205,7 +206,7 @@ export function EventRailContext({
     this removes, and it would look like a safety net while doing it.
   */
   const activeKey = useRailActiveKey();
-  const moreOpen = useRememberedOpen();
+  const moreOpen = useMoreOpen(activeKey === 'studio');
 
   return (
     <>
@@ -297,7 +298,7 @@ export function EventRailContext({
                         {rowInner(Icon, item.label)}
                         <span className="fd-mchev" aria-hidden="true" />
                       </button>
-                      <ul id="fd-more-services" hidden={!open} aria-label={item.label}>
+                      <ul id="fd-more-services" className="fd-msub" hidden={!open} aria-label={item.label}>
                         {item.children.map((c) => (
                           <li key={c.key}>
                             <Link href={c.href} className="fd-row fd-mrow fd-mchild">
@@ -354,23 +355,16 @@ function rowInner(Icon: NavItem['icon'], label: string) {
   );
 }
 
-/** More Services' open/closed, remembered on this device (owner 2026-09-30).
- *  Opens by default; storage can throw (private mode) and is then ignored. */
-const MORE_KEY = 'setnayan:rail:more-services';
-function useRememberedOpen(): [boolean, (v: boolean) => void] {
-  const [open, setOpen] = useState(true);
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(MORE_KEY) === '0') setOpen(false);
-    } catch {}
-  }, []);
-  return [
-    open,
-    (v) => {
-      setOpen(v);
-      try {
-        localStorage.setItem(MORE_KEY, v ? '1' : '0');
-      } catch {}
-    },
-  ];
+/** More Services' open/closed. CLOSED by default; a tap opens or closes it,
+ *  and arriving on one of its five pages (`on`) opens it. Not remembered on the
+ *  device any more (owner 2026-10-01, "closed by default"): a remembered "open"
+ *  would bring the five back as eleven rows on the next visit. */
+function useMoreOpen(on: boolean): [boolean, (v: boolean) => void] {
+  const [open, setOpen] = useState(on);
+  const [was, setWas] = useState(on);
+  if (on !== was) {
+    setWas(on);
+    if (on) setOpen(true);
+  }
+  return [open, setOpen];
 }

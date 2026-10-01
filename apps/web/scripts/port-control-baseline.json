@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "93381c203d",
+  "generatedFromRef": "4b0bba7d92",
   "routeCount": 444,
   "destinations": 970,
   "actions": 683,
@@ -13064,7 +13064,6 @@
     },
     "/vendor-dashboard/verify": {
       "files": [
-        "vendor-dashboard/verify/actions.ts",
         "vendor-dashboard/verify/loading.tsx",
         "vendor-dashboard/verify/page.tsx"
       ],

@@ -221,9 +221,6 @@ export const routes = {
           reorder: () => `/api/v1/admin/site-widgets/reorder`,
         },
       },
-      billing: {
-        initializeMaya: () => `/api/v1/billing/initialize-maya`,
-      },
       events: {
         index: () => `/api/v1/events`,
         detail: (eventId: string) => `/api/v1/events/${eventId}`,

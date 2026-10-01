@@ -14,25 +14,28 @@
 # from 3 to 1 — two of its three call sites now log, a third (a pre-migration retry fallback) still returns
 # [] on its own unread error. 125 → 44 real rows. EXPECTED_BASELINE_ROWS in the .db.test.ts must move with
 # this file, on purpose, in the same commit.
+# Cleanup slice B 2026-10-02: 3 unmounted-component rows deleted with their files; 2 rows ADDED because the
+# removed Maya route / supplies pricing lib were the ONLY callers of manual_payment_logs and
+# resolve_supplies_pricing(); the tables/RPC are kept (code-only cleanup) so they now read as no-writer / no-caller. 44 -> 43.
 
-# ══ MONEY — a payment, fee, price or ledger with a missing end (10) ══
+# ══ MONEY — a payment, fee, price or ledger with a missing end (11) ══
 rpc-no-caller	_apply_token_purchase_credit	1	no '_apply_token_purchase_credit' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	confirm_vendor_subscription_by_reference	1	no 'confirm_vendor_subscription_by_reference' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	consume_lead_token_hold	1	no 'consume_lead_token_hold' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	grant_admin_direct_tokens	1	no 'grant_admin_direct_tokens' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
+rpc-no-caller	resolve_supplies_pricing	1	no 'resolve_supplies_pricing' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	concierge_plan_templates	1	no .from('concierge_plan_templates').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
+table-no-writer	manual_payment_logs	1	no .from('manual_payment_logs').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	vendor_ad_subscriptions	1	no .from('vendor_ad_subscriptions').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 notice-no-emitter	vendor_token_purchase_pending	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
 notice-no-emitter	vendor_tokens_credited	1	a notification_type enum label with no member in the TS union — nothing in the app can emit it
-component-no-mount	components/billing/ManualCheckoutModal.tsx	1	no runtime importer in any source file
 result-dropped-silently	lib/booking-fee-settings.server.ts · from:platform_settings.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (6) ══
+# ══ BOOKING LIFECYCLE — inquiry → quote → lock → contract → deposit (5) ══
 rpc-no-caller	current_thread_ids	1	no 'current_thread_ids' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	finalize_guest_claim	1	no 'finalize_guest_claim' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	guest_visible_messages	1	no 'guest_visible_messages' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	set_service_slot_day_capacity	1	no 'set_service_slot_day_capacity' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	feature_reviews	1	no .from('feature_reviews').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-component-no-mount	app/_components/thread-call-launcher-lazy.tsx	1	no runtime importer in any source file
 # ══ COUPLE-FACING — guests, invitations, the celebration itself (13) ══
 rpc-no-caller	open_submit_song_request	1	no 'open_submit_song_request' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	event_feature_policy_override	1	no .from('event_feature_policy_override').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
@@ -47,10 +50,9 @@ result-dropped-silently	lib/vendor-papic-grants.ts · from:vendor_papic_captures
 result-dropped-silently	lib/vendor-papic-grants.ts · from:vendor_papic_portfolio_photos.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-photo-challenge.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 result-dropped-silently	lib/vendor-seats.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
-# ══ SUPPLIER-FACING — shops, services, the vendor dashboard (4) ══
+# ══ SUPPLIER-FACING — shops, services, the vendor dashboard (3) ══
 rpc-no-caller	vendor_meetings_set_updated_at	1	RETURNS trigger and no trigger is bound to it
 table-no-writer	vendor_2307_filings	1	no .from('vendor_2307_filings').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-component-no-mount	app/_components/OfflineSyncProvider.tsx	1	no runtime importer in any source file
 result-dropped-silently	lib/verification-checks-server.ts · from:vendor_profiles.select	1	error read only as a condition; the branch it selects records nothing — no log, throw, message or reference to the reason
 # ══ ADMIN / OPS — the console, jobs, tooling (6) ══
 rpc-no-caller	execute_manpower_telemetry_reward	1	no 'execute_manpower_telemetry_reward' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it

@@ -9,10 +9,10 @@ import { redirect } from 'next/navigation';
  * / withdrawn) the old page's own actions.ts still sets via redirect(), so an
  * in-flight bookmark or an old notification link still lands somewhere true.
  *
- * actions.ts (ensureDraftApplication / updateDocUpload / submitApplication /
- * withdrawApplication) is left in place, unused by this page — grepped
- * 2026-09-11: nothing outside this retired page calls them. Remove them in a
- * later cleanup once that is re-confirmed.
+ * The old actions.ts (ensureDraftApplication / updateDocUpload /
+ * submitApplication / withdrawApplication) was deleted 2026-10-02 (cleanup
+ * slice B) — nothing called it; the papers flow's twins live in
+ * shop/inline-docs-actions.ts.
  */
 type Props = {
   searchParams: Promise<{

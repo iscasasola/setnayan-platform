@@ -1022,9 +1022,9 @@ function ExceptionModal({
               </h3>
               <p className="text-xs leading-snug text-warn-900/85">
                 {vendorName} already has {formatCount(state.existingHoldCount)} confirmed soft
-                holds for your wedding date. They only accept {state.currentLimit}{' '}
-                at a time. Try a different vendor or come back later — they&rsquo;ll
-                free up if another couple doesn&rsquo;t downpay.
+                holds for your date. They only accept {state.currentLimit}{' '}
+                at a time. Try a different supplier or come back later — they&rsquo;ll
+                free up if another client doesn&rsquo;t downpay.
               </p>
             </div>
           )}

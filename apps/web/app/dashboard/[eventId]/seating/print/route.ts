@@ -56,7 +56,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     .from('events')
     // + the QR look's columns: every code on the pack (table signs, place
     // cards) wears the event's look — lib/qr-look.ts.
-    .select(`display_name, slug, event_date, ${QR_LOOK_COLUMNS}`)
+    .select(`display_name, slug, event_date, event_type, ${QR_LOOK_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
   if (!event) return new NextResponse('Event not found', { status: 404 });
@@ -113,7 +113,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const unitGuests = (u: Unit) =>
     u.members.flatMap((m) => seatedByTable.get(m.table_id) ?? []).sort((x, y) => x.name.localeCompare(y.name));
 
-  const coupleNameEarly = event.monogram_text || event.display_name || 'Our Wedding';
+  // A nameless event's pack says "Our Wedding" only on a wedding.
+  const untitled = ((event as { event_type?: string | null }).event_type ?? 'wedding') === 'wedding' ? 'Our Wedding' : 'Our Event';
+  const coupleNameEarly = event.monogram_text || event.display_name || untitled;
   const dateLabelEarly = (() => {
     if (!event.event_date) return null;
     const d = new Date(event.event_date as string);
@@ -174,7 +176,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     ),
   );
 
-  const coupleName = event.monogram_text || event.display_name || 'Our Wedding';
+  const coupleName = event.monogram_text || event.display_name || untitled;
   const dateStr = (() => {
     if (!event.event_date) return '';
     const d = new Date(event.event_date as string);

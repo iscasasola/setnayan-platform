@@ -628,9 +628,9 @@ export function CategorySearchOverlay({
           // last-minute vendors could still take it with Setnayan AI on. Calm,
           // capability-framed unlock — never "locked"/"hidden inventory".
           <div className="lm-cta">
-            <p className="lead">Vendors can still take your date</p>
+            <p className="lead">Suppliers can still take your date</p>
             <p className="sub">
-              Your wedding is close, so {label.toLowerCase()} vendors who book
+              Your date is close, so {label.toLowerCase()} suppliers who book
               last-minute appear with Setnayan AI on.
             </p>
             <a href={`/dashboard/${eventId}/studio/setnayan-ai`}>

@@ -1542,7 +1542,7 @@ export function MakerWork({
   /* 📄 PAGE ▾ — the navigator's one dropdown is the guest's own pages on this
      stage, in the guest bar's own words (owner 2026-09-30, `lib/maker-guest-pages.ts`).
      Each page knows the scenes under it; none is hidden. */
-  const guestPages = makerGuestPages(stage, list.shown.map((t) => t.key));
+  const guestPages = makerGuestPages(stage, list.shown.map((t) => t.key), navigator.hasStory);
   const shownPage = guestPages.find((p) => p.key === tabKey) ?? guestPages.find((p) => !p.leaves) ?? null;
   const selectedPageKey = selectedTile ? (guestPages.find((p) => p.tiles.includes(selectedTile.key))?.key ?? null) : null;
   useEffect(() => {

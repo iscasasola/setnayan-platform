@@ -56,11 +56,15 @@ export function CheckinDesk({
   guests,
   initialCheckins,
   expected,
+  hasSides = true,
 }: {
   eventId: string;
   guests: DeskGuest[];
   initialCheckins: DeskCheckin[];
   expected: number;
+  /** False on a sideless event (`eventHasSides`): the guest line names the
+   *  role only. */
+  hasSides?: boolean;
 }) {
   // The couple's own words for roles (owner 2026-09-30).
   const roleNames = useRoleNames();
@@ -541,8 +545,12 @@ export function CheckinDesk({
               ) : null}
               <h2 className="truncate text-lg font-semibold text-ink">{selected.name}</h2>
               <p className="mt-0.5 text-sm text-ink/60">
-                {SIDE_LABELS[selected.side]}
-                {selected.role !== 'guest' ? ` · ${guestRoleLabel(selected.role, roleNames)}` : ''}
+                {[
+                  hasSides ? SIDE_LABELS[selected.side] : null,
+                  selected.role !== 'guest' ? guestRoleLabel(selected.role, roleNames) : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || guestRoleLabel(selected.role, roleNames)}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/5 px-2.5 py-1 font-medium text-ink/80">

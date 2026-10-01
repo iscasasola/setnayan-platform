@@ -89,10 +89,12 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
   // dropping the ceremony tailoring back to the untailored template.
   const { data: eventRow } = await supabase
     .from('events_host')
-    .select('ceremony_type, event_type, signature_details')
+    .select('ceremony_type, secondary_ceremony_type, event_type, signature_details')
     .eq('event_id', eventId)
     .maybeSingle();
   const ceremonyType = (eventRow?.ceremony_type as string | null | undefined) ?? null;
+  // A mixed wedding's second rite (P6a): the checklist keeps both rites' steps.
+  const secondaryCeremonyType = (eventRow?.secondary_ceremony_type as string | null | undefined) ?? null;
   const eventType = (eventRow?.event_type as string | null | undefined) ?? null;
   const signatureDetails =
     (eventRow?.signature_details as Record<string, unknown> | null | undefined) ?? null;
@@ -144,7 +146,7 @@ export async function ensureChecklistSeeded(eventId: string): Promise<number> {
       : specialtySuggestions;
   const seed = perTypeDef
     ? buildSeedRows(eventId, [...filteredTemplate, ...filteredSuggestions], null) // per-type + captured-signal suggestions
-    : buildChecklistSeed(eventId, ceremonyType); // wedding / unset path, unchanged
+    : buildChecklistSeed(eventId, ceremonyType, secondaryCeremonyType); // wedding / unset path
 
   const rows = (existingRows ?? []) as { template_key: string | null; status: string }[];
   const existingKeys = new Set(

@@ -143,11 +143,18 @@ test('the marketplace reaches the wake — eight borrowed tiles and three of its
   // 10 → 11 on 2026-10-01 (P3): "Chairs & tents" — the rental a family books
   // for a home wake (DECISION_LOG "SUPPLIER INBOX + FIND-A-SUPPLIER DESIGN —
   // APPROVED"), scoped wake · birthday · simple_event. Shared, not the wake's own.
+  //
+  // 11 → 14 on 2026-10-02: the owner approved scoping the thin event types
+  // ("yes scope it"); a wake gained the hall (`reception`), the chapel
+  // (`ceremony_venue`) and coffee (`coffee_espresso`). All shared with
+  // celebrations, none the wake's own.
   assert.deepEqual(ids, [
     // borrowed
     'catering',
+    'ceremony_venue',
     'chairs_tents',
     'choir',
+    'coffee_espresso',
     'coordinator',
     'cremation',
     'florist',
@@ -156,6 +163,7 @@ test('the marketplace reaches the wake — eight borrowed tiles and three of its
     'memorial_park',
     'photo_video',
     'printing',
+    'reception',
   ]);
 });
 

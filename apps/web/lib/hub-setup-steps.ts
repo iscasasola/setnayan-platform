@@ -17,7 +17,7 @@
  * No setup-only table, no copy, no sync job.
  *
  *   B1   When should guests arrive?      → the Schedule's public "Guests arrive" moment
- *   B2   Parish and reception            → the LOCKED venue bookings (only if not locked)
+ *   B2   Parish and reception            → each venue LOCKED, or its typed name (not drawn when both are locked)
  *   B3   Your Love Story (four chapters) → `events.love_story` moments
  *   B4   What everyone wears             → the Mood Board's dress code (`dress_code_config`)
  *   B5–6 What to ask guests · reply-by   → `rsvp_ask_config` questions · `guest_list_edit_deadline`
@@ -81,7 +81,7 @@ export const HUB_SETUP_STEPS: readonly HubSetupStepDef[] = [
     key: 'venues',
     map: 'B2',
     title: 'Parish and reception',
-    shows: 'Your Event Hub follows your locked venues.',
+    shows: 'Your Event Hub shows your locked venues first — or the name you type.',
     short: 'Parish and reception',
     item: 'venues',
     unlocks: 'Directions on the day, and the Parish and Reception cards',
@@ -165,10 +165,6 @@ export const ONBOARDING_A_FIELDS: readonly string[] = [
   'events.mood_feel_key',
 ];
 
-/** Is the setup drawn for this event type? Wedding first (spec: other types after the wedding ships). */
-export function hubSetupApplies(eventType: string | null | undefined): boolean {
-  return eventType === 'wedding';
-}
 
 /**
  * The facts each step's "done" is read from — every one already stored. A null
@@ -180,8 +176,15 @@ export type HubSetupFacts = {
   guestList: boolean;
   /** A public, top-level "Guests arrive" moment (`pre_ceremony`) is on the Schedule. */
   arrival: boolean | null;
-  /** Which venues are LOCKED — a confirmed booking (`event_vendors`, `pickVenueBookingRows`). */
+  /** Which venues are LOCKED — a confirmed booking (`event_vendors`, `pickVenueBookingRows`). Both → the step is not drawn. */
   venuesLocked: { ceremony: boolean; reception: boolean } | null;
+  /**
+   * Which venues the Event Hub SHOWS by name — locked first, the typed name as
+   * the fallback (owner, Lane 2 answer #3; `resolveEventVenues`, the Hub's own
+   * resolver). A couple who types their venue is done; nothing waits forever
+   * on a lock "Enter your own" can never make.
+   */
+  venuesNamed: { ceremony: boolean; reception: boolean } | null;
   /** The Love Story's moments (`resolveMoments`). */
   loveStoryMoments: number | null;
   /** The Mood Board carries a dress code (`dressCodeIsSet`). */
@@ -203,8 +206,12 @@ export function hubSetupDone(key: HubSetupStepKey, f: HubSetupFacts): boolean | 
   switch (key) {
     case 'arrive':
       return f.arrival;
-    case 'venues':
-      return f.venuesLocked ? f.venuesLocked.ceremony && f.venuesLocked.reception : null;
+    case 'venues': {
+      // Each venue: locked, OR shown by its typed name — the Hub's own rule.
+      if (!f.venuesLocked || !f.venuesNamed) return null;
+      const has = (k: 'ceremony' | 'reception') => f.venuesLocked![k] || f.venuesNamed![k];
+      return has('ceremony') && has('reception');
+    }
     case 'love-story':
       return f.loveStoryMoments === null ? null : f.loveStoryMoments > 0;
     case 'wear':
@@ -259,7 +266,7 @@ export function unlockLine(step: Pick<HubSetupStepDef, 'unlocks'>, state: HubSet
   return state === 'done' ? `Unlocked: ${step.unlocks}.` : `Unlocks: ${step.unlocks}.`;
 }
 
-export { HUB_SETUP_LOCKED_SCENES, lockedLine } from './hub-setup-locks';
+export { HUB_SETUP_LOCKED_SCENES, hubSetupApplies, lockedLine } from './hub-setup-locks';
 
 /**
  * THE SETUP ROUND, READY FOR THE PLAN — what `buildGuidedPlan` draws as round 0:

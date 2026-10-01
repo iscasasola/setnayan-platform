@@ -8,6 +8,17 @@
  * step table is not — so the canvas imports only these lines.
  */
 
+/**
+ * Is "Finish your Event Hub" drawn for this event type? Wedding first (spec:
+ * other types after the wedding ships). Lives here, beside the locked lines, so
+ * the canvas can ask it without the step table: a part may read "Locked —
+ * finish ___" ONLY where the setup exists to finish it — a birthday never sees
+ * a lock with no door.
+ */
+export function hubSetupApplies(eventType: string | null | undefined): boolean {
+  return eventType === 'wedding';
+}
+
 /** "Locked — finish Love Story". */
 export function lockedLine(short: string): string {
   return `Locked — finish ${short}`;
@@ -15,8 +26,7 @@ export function lockedLine(short: string): string {
 
 /**
  * The Event Hub scenes a setup step unlocks, as the Maker's canvas names them
- * while they are empty (`makerEmptyPrompt`). Words fit every event type — the
- * canvas does not know which step list it is in.
+ * while they are empty (`makerEmptyPrompt`) — only where `hubSetupApplies`.
  */
 export const HUB_SETUP_LOCKED_SCENES = {
   schedule: 'your Schedule',

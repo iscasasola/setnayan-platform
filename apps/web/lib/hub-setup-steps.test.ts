@@ -65,6 +65,7 @@ const FRESH: HubSetupFacts = {
   guestList: true,
   arrival: false,
   venuesLocked: { ceremony: false, reception: false },
+  venuesNamed: { ceremony: false, reception: false },
   loveStoryMoments: 0,
   wear: false,
   replyBy: false,
@@ -162,7 +163,7 @@ test('the steps are built from what is missing — open event, locked venues, it
   // Both venues locked (onboarding, or a booked supplier): the venue step is not drawn.
   assert.ok(!hubSetupSteps({ ...FRESH, venuesLocked: { ceremony: true, reception: true } }, ALL_ITEMS).some((s) => s.key === 'venues'));
   // One locked, one not: drawn, and still left.
-  const half = hubSetupSteps({ ...FRESH, venuesLocked: { ceremony: false, reception: true } }, ALL_ITEMS);
+  const half = hubSetupSteps({ ...FRESH, venuesLocked: { ceremony: false, reception: true }, venuesNamed: { ceremony: false, reception: true } }, ALL_ITEMS);
   assert.equal(half.find((s) => s.key === 'venues')?.state, 'left');
   // A type with no Love Story item: no Love Story step.
   const noStory = new Set([...ALL_ITEMS].filter((k) => k !== 'love-story'));
@@ -172,6 +173,25 @@ test('the steps are built from what is missing — open event, locked venues, it
   // Wedding first.
   assert.equal(hubSetupApplies('wedding'), true);
   assert.equal(hubSetupApplies('birthday'), false);
+});
+
+test('🏛 B2 is done when each venue is LOCKED or has a TYPED name — the Hub\'s own rule (Lane 2, owner answer #3)', () => {
+  const venues = (f: Partial<HubSetupFacts>) => hubSetupSteps({ ...FRESH, ...f }, ALL_ITEMS).find((s) => s.key === 'venues');
+  // Both typed ("Enter your own" never locks): done — never "Next: Parish and reception" forever.
+  assert.equal(venues({ venuesNamed: { ceremony: true, reception: true } })?.state, 'done');
+  // One locked, the other typed: done.
+  assert.equal(venues({ venuesLocked: { ceremony: true, reception: false }, venuesNamed: { ceremony: true, reception: true } })?.state, 'done');
+  // One typed, the other neither: still left.
+  assert.equal(venues({ venuesNamed: { ceremony: true, reception: false } })?.state, 'left');
+  // Unread: no claim.
+  assert.equal(venues({ venuesNamed: null })?.state, 'check');
+  // The names are read off the Hub's resolver — locked first, typed as fallback; one place answers for both.
+  const p = code(`${D}/launch/_components/details-guided-progress.ts`);
+  assert.match(p, /venuesNamed: input\.venuesShown \? venuesNamedOf\(input\.venuesShown\) : null/);
+  assert.match(p, /v\.role === role \|\| v\.role === 'both'/);
+  assert.match(p, /venuesShown: ye \? ye\.venues : null/, 'Home reads the resolved venues (`resolveEventVenues`)');
+  assert.match(code(`${D}/launch/page.tsx`), /venuesShown: yourEvent \? yourEvent\.venues\.resolved : null/, 'the Maker reads the resolved venues');
+  assert.match(code(`${D}/launch/_components/details-your-event-facts.ts`), /const venues = resolveEventVenues\(bookings, row\)/);
 });
 
 // ── (2) THREE DOORS, ONE SET OF STEPS ──────────────────────────────────────
@@ -284,10 +304,25 @@ test('🔓 every step names what it unlocks — "Unlocked" once done, and never 
 });
 
 test('🔓 the Maker\'s waiting parts read "Locked — finish ___" (its empty-scene mechanism, not a second one)', () => {
-  assert.equal(makerEmptyPrompt('our_love_story'), 'Locked — finish Love Story.');
-  assert.equal(makerEmptyPrompt('venue_map'), 'Locked — finish your venues.');
-  assert.equal(makerEmptyPrompt('schedule'), 'Locked — finish your Schedule.');
-  for (const t of Object.keys(HUB_SETUP_LOCKED_SCENES)) assert.match(makerEmptyPrompt(t as 'schedule'), /^Locked — finish /);
+  assert.equal(makerEmptyPrompt('our_love_story', true), 'Locked — finish Love Story.');
+  assert.equal(makerEmptyPrompt('venue_map', true), 'Locked — finish your venues.');
+  assert.equal(makerEmptyPrompt('schedule', true), 'Locked — finish your Schedule.');
+  for (const t of Object.keys(HUB_SETUP_LOCKED_SCENES)) assert.match(makerEmptyPrompt(t as 'schedule', true), /^Locked — finish /);
   // A scene no setup step unlocks keeps its own prompt.
-  assert.ok(!/^Locked/.test(makerEmptyPrompt('special_message')));
+  assert.ok(!/^Locked/.test(makerEmptyPrompt('special_message', true)));
+});
+
+test('🔓 a lock only where there is a door: no "Locked — finish" on a type without the setup', () => {
+  // Off by default — the previous empty prompts, word for word.
+  assert.equal(makerEmptyPrompt('our_love_story'), 'Add your story.');
+  assert.equal(makerEmptyPrompt('venue_map'), 'Add your venue.');
+  assert.equal(makerEmptyPrompt('schedule'), 'Add the moments of your day in Schedule.');
+  for (const t of Object.keys(HUB_SETUP_LOCKED_SCENES)) assert.ok(!/Locked/.test(makerEmptyPrompt(t as 'schedule')), `${t} locks with no setup`);
+  // Both places that draw the prompt ask the ONE rule (`hubSetupApplies`) of the event's own type.
+  assert.match(code('app/[slug]/_components/public-hideable-widget.tsx'), /setupLocks=\{hubSetupApplies\(props\.event\.event_type\)\}/);
+  assert.match(code('app/[slug]/_components/maker-empty-scene.tsx'), /makerEmptyPrompt\(type, setupLocks\)/);
+  assert.match(code(`${D}/website/editor/page.tsx`), /setupLocks: hubSetupApplies\(/);
+  assert.match(code('lib/maker-scene-list.ts'), /makerEmptyPrompt\(w\.widget_type, input\.setupLocks === true\)/);
+  assert.equal(hubSetupApplies('birthday'), false);
+  assert.equal(hubSetupApplies('wake'), false);
 });

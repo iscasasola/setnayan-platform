@@ -45,6 +45,16 @@ export function dressCodeIsSet(raw: unknown): boolean {
   return Object.keys(sanitizeRoleAttire(c.roles, () => true)).length > 0;
 }
 
+/**
+ * Which venues the Event Hub shows BY NAME — read off its own resolver's output
+ * (`resolveEventVenues`: locked first, the typed name as the fallback). "One
+ * place" (`both`) answers for both.
+ */
+export function venuesNamedOf(venues: ReadonlyArray<{ role: string; name: string | null }>): { ceremony: boolean; reception: boolean } {
+  const named = (role: 'ceremony' | 'reception') => venues.some((v) => (v.role === role || v.role === 'both') && Boolean(v.name?.trim()));
+  return { ceremony: named('ceremony'), reception: named('reception') };
+}
+
 /** A schedule moment as the setup reads it. */
 export type SetupScheduleBlock = { block_type?: string | null; is_public?: boolean | null; parent_block_id?: string | null };
 
@@ -59,6 +69,8 @@ export function hubSetupFactsFrom(input: {
   schedule: readonly SetupScheduleBlock[] | null;
   /** Which venues hold a confirmed (locked) booking; null = unread. */
   venuesLocked: { ceremony: boolean; reception: boolean } | null;
+  /** The venues the Event Hub resolves (`resolveEventVenues`); null = unread. */
+  venuesShown: ReadonlyArray<{ role: string; name: string | null }> | null;
   /** The Love Story's moments as edited; null = unread. */
   loveStoryMoments: number | null;
   /** `dress_code_config` as edited; undefined = unread. */
@@ -74,6 +86,7 @@ export function hubSetupFactsFrom(input: {
       ? input.schedule.some((b) => !b.parent_block_id && b.block_type === 'pre_ceremony' && b.is_public !== false)
       : null,
     venuesLocked: input.venuesLocked,
+    venuesNamed: input.venuesShown ? venuesNamedOf(input.venuesShown) : null,
     loveStoryMoments: input.loveStoryMoments,
     wear: input.dressCode === undefined ? null : dressCodeIsSet(input.dressCode),
     replyBy: input.replyBy === undefined ? null : Boolean(input.replyBy),
@@ -281,6 +294,7 @@ export async function readGuidedPlan({
       rsvpAsk: 'rsvp_ask_config' in drafted ? drafted.rsvp_ask_config : event.rsvp_ask_config,
       schedule: scheduleRows,
       venuesLocked: offered ? { ceremony: offered.ceremony !== null, reception: offered.reception !== null } : null,
+      venuesShown: ye ? ye.venues : null,
       loveStoryMoments: storyApplies ? (facts.story ? resolveMoments(facts.story).length : null) : 0,
       dressCode: 'dress_code_config' in drafted ? drafted.dress_code_config : event.dress_code_config,
       replyBy: deadlineRes.error ? undefined : ((deadlineRes.data as { guest_list_edit_deadline?: string | null } | null)?.guest_list_edit_deadline ?? null),

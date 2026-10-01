@@ -10,15 +10,17 @@ no setup-only table, no new server action.
 first in What's left for a wedding. Each step IS a Maker Details item and writes
 what that item already writes, so the Maker opens filled in:
 B1 When should guests arrive? → the Schedule's public "Guests arrive" moment ·
-B2 Parish and reception → the LOCKED venue bookings (not drawn when both are
-locked) · B3 Your Love Story → `love_story` moments · B4 What everyone wears →
+B2 Parish and reception → done when each venue is LOCKED or has a typed name
+(the Hub's own rule: locked first, the typed name as fallback — owner, Lane 2
+answer #3; not drawn when both are locked) · B3 Your Love Story → `love_story` moments · B4 What everyone wears →
 the Mood Board's `dress_code_config` · B5–6 What to ask guests · reply-by →
 `rsvp_ask_config` questions + `guest_list_edit_deadline` (guest-list paths only) ·
 B7 Your guests' names → the Guest list's template import (guest-list paths only;
 listed on the round's Ready screen). Nothing onboarding asked is a step
 (`ONBOARDING_A_FIELDS`). Every step says what it unlocks ("Unlocks: … / ✓
-Unlocked: …"); the Maker's empty Love Story, Venue and Schedule scenes read
-"Locked — finish ___".
+Unlocked: …"); where the setup exists (`hubSetupApplies` — a wedding) the Maker's empty
+Love Story, Venue and Schedule scenes read "Locked — finish ___"; every other
+type keeps its own empty prompt (no lock with no door).
 
 **Three doors, one set of steps:** offered ONCE right after onboarding — Home's
 Next card is "Before we start" with Start / Later (Later posts the shipped

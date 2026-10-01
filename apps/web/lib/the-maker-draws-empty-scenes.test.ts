@@ -58,11 +58,11 @@ function row(type: WidgetType): InvitationWidgetRow {
   };
 }
 
-async function renderDispatcher(type: WidgetType, opts: { guestView: boolean; makerEmpty: boolean }): Promise<string> {
+async function renderDispatcher(type: WidgetType, opts: { guestView: boolean; makerEmpty: boolean; eventType?: string }): Promise<string> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PublicHideableWidget } = await import('../app/[slug]/_components/public-hideable-widget');
   const event = {
-    event_id: 'e1', slug: 'x', display_name: 'Cale & Ice', event_type: 'wedding', event_date: '2026-12-18',
+    event_id: 'e1', slug: 'x', display_name: 'Cale & Ice', event_type: opts.eventType ?? 'wedding', event_date: '2026-12-18',
     venue_name: null, venue_address: null, venue_latitude: null, venue_longitude: null,
     love_story: null, special_message: null, what_to_bring: null, our_photos: [],
     dress_code_config: null, photo_moments_config: null,
@@ -85,12 +85,16 @@ test('A · in the Maker an EMPTY scene is on the canvas, with its placeholder', 
   for (const type of ['our_love_story', 'venue_map', 'special_message', 'schedule'] as WidgetType[]) {
     const html = await renderDispatcher(type, { guestView: false, makerEmpty: true });
     assert.match(html, new RegExp(`data-maker-empty="${type}"`), `${type}: no placeholder in the Maker`);
-    assert.ok(html.includes(makerEmptyPrompt(type)), `${type}: the placeholder does not say what to add`);
+    // A wedding draws "Finish your Event Hub", so its parts name the step that unlocks them.
+    assert.ok(html.includes(makerEmptyPrompt(type, true)), `${type}: the placeholder does not say what to add`);
+    // A type without the setup keeps the scene's own prompt — never a lock with no door.
+    const birthday = await renderDispatcher(type, { guestView: false, makerEmpty: true, eventType: 'birthday' });
+    assert.ok(birthday.includes(makerEmptyPrompt(type)), `${type}: a birthday lost its own prompt`);
+    assert.ok(!birthday.includes('Locked — finish'), `${type}: a birthday shows a lock with no door`);
   }
-  // 🔓 The Love Story is a step of "Finish your Event Hub" (owner-approved
-  // 2026-10-01): its empty scene names the step that unlocks it.
-  assert.match(makerEmptyPrompt('our_love_story'), /Locked — finish Love Story/);
-  assert.match(makerEmptyPrompt('special_message'), /Write your message/);
+  assert.match(makerEmptyPrompt('our_love_story'), /Add your story/);
+  // 🔓 Only where "Finish your Event Hub" exists (a wedding) does it name the step that unlocks it.
+  assert.match(makerEmptyPrompt('our_love_story', true), /Locked — finish Love Story/);
 });
 
 test('A · for a GUEST the same empty scene draws nothing — no placeholder ever reaches them', async () => {

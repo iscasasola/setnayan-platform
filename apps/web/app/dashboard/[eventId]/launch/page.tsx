@@ -1352,6 +1352,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           rsvpAsk,
           schedule: scheduleMoments as readonly SetupScheduleBlock[] | null,
           venuesLocked: yourEvent ? { ceremony: Boolean(slotOf('ceremony')?.booked), reception: Boolean(slotOf('reception')?.booked) } : null,
+          // What the Hub shows by name — locked first, the typed name as fallback (the Hub's own resolver).
+          venuesShown: yourEvent ? yourEvent.venues.resolved : null,
           loveStoryMoments: detailsItemApplies('love-story', eventContext) ? (guided.story ? resolveMoments(guided.story).length : null) : 0,
           dressCode: 'dress_code_config' in draftedEvents ? draftedEvents.dress_code_config : printEvent.dress_code_config,
           replyBy: deadlineRes.error ? undefined : ((deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null),

@@ -89,3 +89,9 @@ c7ebfc9f7455de94e1423c20fc6c33f4b9ffb33f:docs/FEATURE-BRIEF.md:generic-api-key:8
 8023bb096ed42e2682206d50e8c6bbbd32668ab3:apps/web/lib/choices-are-one-dropdown.test.ts:generic-api-key:140
 8023bb096ed42e2682206d50e8c6bbbd32668ab3:apps/web/lib/tours.ts:generic-api-key:131
 8023bb096ed42e2682206d50e8c6bbbd32668ab3:apps/web/lib/tours.ts:generic-api-key:416
+
+# The diet (C16, #6250): the same two Papic tour-name lines as 6175 above, re-touched
+# when the guest tour started taking a server-built `tour` prop — still a stable tour
+# id (`guest_papic_me_v1`), no credential. Pinned by that commit's fingerprint.
+83d5952968fd75be1ac6bf6ff656461e019889c8:apps/web/app/papic/me/[token]/page.tsx:generic-api-key:299
+83d5952968fd75be1ac6bf6ff656461e019889c8:apps/web/app/papic/me/[token]/page.tsx:generic-api-key:394

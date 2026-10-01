@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6558
+# facts: 6559
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     565
-#   col       4790
+#   col       4791
 #   policy    940
 #   view      8
 #   func      251
@@ -3531,6 +3531,7 @@ col	public.platform_settings.papic_signup_discount_pct	anon=- authenticated=S
 col	public.platform_settings.photo_delivery_oauth_redirect_uri	anon=- authenticated=S
 col	public.platform_settings.radar_enabled	anon=- authenticated=S
 col	public.platform_settings.radar_min_n_floor	anon=- authenticated=S
+col	public.platform_settings.receiving_accounts	anon=- authenticated=S
 col	public.platform_settings.referral_program_enabled	anon=- authenticated=S
 col	public.platform_settings.referral_reward_php	anon=- authenticated=S
 col	public.platform_settings.repost_watch_hamming_threshold	anon=- authenticated=S

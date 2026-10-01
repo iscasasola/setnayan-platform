@@ -185,10 +185,19 @@ export function rsvpGate(input: {
   askMobile: boolean;
   /** `guestListIsClosed(...)` — the final count is locked. */
   locked: boolean;
+  /**
+   * 🎟 `readGuestsReply(event.rsvp_ask_config)` — FALSE when the host answered
+   * "Will guests reply? No" (owner 2026-09-30, "no RSVP needed"). Then the key
+   * opens the door: nobody is stopped at the reply page. OPTIONAL and absent =
+   * true, so every caller written before it keeps today's gate.
+   */
+  guestsReply?: boolean;
 }): RsvpGate {
   const status = input.rsvpStatus ?? 'pending';
   const unanswered = status !== 'attending' && status !== 'declined' && status !== 'maybe';
   if (input.locked) return { kind: 'inside', didntReply: unanswered };
+  // "No reply needed. They get in with a QR." — the key is the whole answer.
+  if (input.guestsReply === false) return { kind: 'inside', didntReply: false };
   // A decliner is not asked for a meal or a number — "a decline must not go on
   // to ask for the rest" (owner 2026-09-11, the reply card's own rule).
   if (status === 'declined') return { kind: 'inside', didntReply: false };

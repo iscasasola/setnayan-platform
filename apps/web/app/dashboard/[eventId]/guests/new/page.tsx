@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { RoleNamesProvider } from '../_components/role-names-context';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { guestGroupsFor } from '@/lib/role-sets';
 import { eventHasSides } from '@/lib/guest-side-question';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -39,7 +40,6 @@ const ERROR_COPY: Record<string, string> = {
 };
 
 const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];
-const GROUP_OPTIONS: GuestGroupCategory[] = ['family', 'friends', 'work', 'school', 'officiant', 'other'];
 const RSVP_OPTIONS: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
 const MEAL_OPTIONS: MealPreference[] = ['no_preference', 'beef', 'chicken', 'fish', 'vegetarian', 'vegan', 'kids'];
 // Iteration 0053 P2: the offered role list is per event type — see
@@ -161,7 +161,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
             id="group_category"
             label="Group *"
             required
-            options={GROUP_OPTIONS.map((v) => ({
+            options={guestGroupsFor(roleSet.key).map((v) => ({
               value: v,
               label: GROUP_CATEGORY_LABELS[v],
             }))}

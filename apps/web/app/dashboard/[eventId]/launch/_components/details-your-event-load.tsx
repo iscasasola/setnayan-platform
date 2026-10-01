@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { dateDisplayOf, marchOffered, yourEventDateLabel } from '@/lib/details-your-event';
-import { VENUE_ROLE_LABEL } from '@/lib/event-venues';
+import { VENUE_ROLE_LABEL, type VenueSlotKey } from '@/lib/event-venues';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { getConfirmedVendorCount } from '@/lib/events';
 import { buildScheduleMatrix, schedulePicksFromVendors, type ScheduleMatrix } from '@/lib/schedule-matrix';
 import { fetchEventVendors } from '@/lib/vendors';
@@ -9,9 +11,10 @@ import { EntourageOrderPanel } from '../../guests/_components/entourage-order-pa
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
 import type { MarchSectionData, MarchSlotData } from './details-march';
-import { roleLabel, type EntourageGroup } from '@/lib/entourage';
+import { isCouple, roleLabel, type EntourageGroup } from '@/lib/entourage';
 import { joinersFor, swapsFor } from '@/lib/march-moves';
 import { readYourEventFacts } from './details-your-event-facts';
+import { loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 
 /**
  * Everything Details › Your event reads, for the couple's own Maker (Details
@@ -30,6 +33,7 @@ export async function loadYourEvent({
   parentCount,
   hostCount,
   helpFirst = false,
+  drafted,
 }: {
   supabase: SupabaseClient;
   admin: SupabaseClient;
@@ -40,10 +44,14 @@ export async function loadYourEvent({
   hostCount: number;
   /** Open Date on "Help me choose" (`?date=help` — where /find-date lands). */
   helpFirst?: boolean;
+  /** The Event Hub draft's `events` columns — the names and the date are shown as drafted. */
+  drafted?: Record<string, unknown>;
 }): Promise<YourEventInput | null> {
-  const [base, confirmedVendorCount] = await Promise.all([
-    readYourEventFacts({ admin, eventId, parentCount, hostCount }),
+  const [base, confirmedVendorCount, nameStyle] = await Promise.all([
+    readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
+    // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
+    loadEventNameStyle(admin, eventId),
   ]);
   if (!base) return null;
   const { row, words, kind, precision, bookings, groups, venues, people, chinese, namesWritable } = base;
@@ -59,34 +67,62 @@ export async function loadYourEvent({
       return null;
     });
 
+  // 🏛📷 Each card's source and photo (owner 2026-09-30): the supplier AS
+  // OFFERED (before an "Enter your own" choice), the couple's choice, and every
+  // photo it can show, signed once here for the panel's thumbnails.
+  const offered = bookings.offered ?? { ceremony: bookings.ceremony, reception: bookings.reception };
+  const choices = bookings.choices ?? {};
+  const sign = async (refs: readonly (string | null | undefined)[]) =>
+    Object.fromEntries(
+      (
+        await Promise.all(
+          [...new Set(refs.filter((r): r is string => Boolean(r)))].map(async (r) => [
+            r,
+            await displayUrlForStoredAsset(siteMediaServeRef(r)).catch(() => null),
+          ]),
+        )
+      ).filter((e): e is [string, string] => Boolean(e[1])),
+    );
+  const slotFor = async (
+    slot: VenueSlotKey,
+    base: Omit<VenueSlot, 'slot' | 'booked' | 'choice' | 'photoUrls'>,
+  ): Promise<VenueSlot> => {
+    const b = offered[slot];
+    const choice = choices[slot] ?? {};
+    const photoUrls = await sign([...(b?.photos ?? []), choice.supplierPhoto, choice.ownPhoto]);
+    return {
+      ...base,
+      slot,
+      booked: b ? { name: b.name, address: b.address, photos: (b.photos ?? []).filter((r) => photoUrls[r]) } : null,
+      choice,
+      photoUrls,
+    };
+  };
   const slots: VenueSlot[] = words.twoPeople
-    ? [
-        {
+    ? await Promise.all([
+        slotFor('ceremony', {
           field: 'filmCeremonyName',
           label: VENUE_ROLE_LABEL.ceremony,
-          booked: bookings.ceremony,
           typed: row.std_film_ceremony_name ?? '',
           addressField: 'ceremonyAddress',
           address: row.ceremony_venue_address ?? '',
-        },
-        {
+        }),
+        slotFor('reception', {
           field: 'filmVenueName',
           label: VENUE_ROLE_LABEL.reception,
-          booked: bookings.reception,
           typed: row.std_film_venue_name ?? '',
           addressField: 'venueAddress',
           address: row.venue_address ?? '',
-        },
-      ]
+        }),
+      ])
     : [
-        {
+        await slotFor('reception', {
           field: 'filmVenueName',
           label: 'Venue',
-          booked: bookings.reception,
           typed: row.std_film_venue_name ?? '',
           addressField: 'venueAddress',
           address: row.venue_address ?? '',
-        },
+        }),
       ];
 
   return {
@@ -100,9 +136,10 @@ export async function loadYourEvent({
           // person the page is named for — so the hint names the places instead.
           hint: `Guests read it on your ${words.eventWord} page, on every print and on every pass.`,
         },
+    nameStyle,
     names:
       namesWritable && people
-        ? { people, initial: [a, b], keep: { region: row.region ?? '', feel: row.mood_feel_key ?? '' }, wholeForm: null }
+        ? { people, initial: [a, b], wholeForm: null }
         : null,
     date: {
       confirmedVendorCount,
@@ -146,7 +183,7 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSectionDa
             kind: 'name',
             id: half.id ?? '',
             name: half.name,
-            role: roleLabel(half.role),
+            role: roleLabel(half.role, g.names),
             swapWith: half.id ? swapsFor(g.rows, g.key, half.id) : [],
           };
         }
@@ -163,6 +200,14 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSectionDa
         label: row.filter((p) => p !== null).map((p) => p!.name).join(' and '),
         step,
         slots: [slot(0), slot(1)] as [MarchSlotData, MarchSlotData],
+        // Walking together is not being a couple (owner 2026-09-30) — the tick's state.
+        couple:
+          row[0] && row[1]
+            ? {
+                on: isCouple(row[0], row[1]),
+                plusOne: row[0].plusOneOf === row[1].id || row[1].plusOneOf === row[0].id,
+              }
+            : null,
       };
     }),
   }));

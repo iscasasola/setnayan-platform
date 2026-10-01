@@ -150,11 +150,14 @@ test('a finished list drops the deadline word and the alarm colours', () => {
 
 // ── 3 · "Review" has a destination ──────────────────────────────────────────
 
-test('the After menu\'s Review entry lands on the team, not the bench', () => {
+test('after the day, the Your Team tab lands on the team, not the bench', () => {
+  // 🔄 Stage D (2026-09-29): the bar is the same five in every phase, so the
+  // after-phase "Review" tab is the Your Team tab (key `explore`) — which,
+  // after the day, still opens the team with its review chips.
   const after = buildCustomerMenuTree('EVT1', { phase: 'after' });
-  const review = after.find((m) => m.key === 'review');
-  assert.ok(review, 'the after phase carries a Review entry');
-  assert.equal(review!.href, '/dashboard/EVT1/vendors?tab=build');
+  const team = after.find((m) => m.key === 'explore');
+  assert.ok(team, 'the after phase carries a Your Team entry');
+  assert.equal(team!.href, '/dashboard/EVT1/vendors?tab=build');
 });
 
 test('the finished-event summary card lands there too, unless there is nobody', () => {

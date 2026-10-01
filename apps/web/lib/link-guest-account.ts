@@ -3,6 +3,8 @@ import 'server-only';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
+import { isCoupleSeat, seatBindRefusal } from '@/lib/seat-binding';
+import { FORMAL_NAME_FIELDS, normalizeNamePart, type FormalName } from '@/lib/formal-name';
 
 /**
  * Persistent guest accounts (PR-E) — link a signed guest session to a new
@@ -25,16 +27,24 @@ import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
  * correct: the signed cookie is the application-level authorization, and we
  * defense-in-depth re-validate the guest row below before writing.
  *
- * ── Shared-device caveat ─────────────────────────────────────────────────
- * A guest session is a 60-day cookie. On a SHARED device, a cached session
- * links to whoever signs up next on that browser. We accept this for the
- * low-assurance "your event photos followed you" growth loop; the partial
- * unique `(event_id, guest_id) WHERE guest_id IS NOT NULL` is the hard
- * backstop — a guest row can only ever be bound to ONE account, so a second
- * person inheriting a stale cookie is rejected as `guest_already_claimed`
- * rather than stealing the binding. Higher-assurance binding (OTP / couple
- * review) goes through `finalize_guest_claim`, which this helper never
- * touches.
+ * ── ONLY ON PURPOSE (2026-09-30 — the owner's own wedding) ────────────────
+ * This used to run on EVERY password login and EVERY signup, binding whatever
+ * seat the 60-day cookie in that browser named. That is how a test account
+ * became the owner's GROOM: the groom row's key had been opened on the device,
+ * sign-out left the guest cookie behind, and the next login bound it. The
+ * "shared-device caveat" this block used to accept was that exact incident,
+ * and the partial unique `(event_id, guest_id)` backstop could not help — the
+ * groom row is always FREE (the creator's couple membership has no guest_id).
+ *
+ * So it is now called ONLY from an act on the seat's own page:
+ *   · `linkThisSeatAction` ("Save to my account", signed in) — the button
+ *     itself asks "This invitation is for <name>. Save it to <email>?";
+ *   · `connectEventForUser`, and only with the guest id the person confirmed
+ *     on `/join/{id}/connect/confirm`.
+ * `seat-links-only-on-purpose.test.ts` fails if login or signup call it again.
+ * Every caller passes `expect.eventId` — a cookie for a DIFFERENT celebration
+ * never binds — and a couple seat is refused unless the account is already one
+ * of the event's couple members (`lib/seat-binding.ts`).
  *
  * ── Contract ─────────────────────────────────────────────────────────────
  * This helper MUST NEVER throw — every caller is an auth flow (signup/login)
@@ -78,13 +88,54 @@ export async function fillAccountNameFromSeat(
     // Best-effort, but never silent: a refused name fill is logged, and the
     // link itself (already written above) still stands.
     if (nameError) console.warn('[link-guest-account] name fill refused:', nameError.message);
+
+    /* 🆕 A FIRST-TIME ACCOUNT STARTS WITH ITS PROFILE FILLED (owner 2026-09-30,
+       DECISION_LOG "A FIRST-TIME ACCOUNT MADE FROM AN INVITATION STARTS WITH ITS
+       PROFILE ALREADY FILLED"). This runs only from an act on the person's OWN
+       seat (see "ONLY ON PURPOSE" above), so the seat's five name parts become
+       the profile's formal name — but ONLY on a profile that has never held one:
+       the update matches only while all five parts are NULL, so a name the
+       person typed is never replaced, and a second run is a no-op. They see it
+       on their profile and edit it there.
+       📷 The photo does NOT travel: a guest's own selfie is a face-tagging
+       enrolment asset that is deleted when they withdraw consent, so sharing
+       its stored object as a profile photo would leave a dead image behind. */
+    const parts = {} as FormalName;
+    for (const f of FORMAL_NAME_FIELDS) parts[f] = normalizeNamePart(seat[f as keyof typeof seat]);
+    if (parts.first_name && parts.last_name && parts.first_name.toLowerCase() !== 'tba') {
+      let fill = admin.from('users').update(parts).eq('user_id', userId);
+      for (const f of FORMAL_NAME_FIELDS) fill = fill.is(f, null);
+      const { error: partsError } = await fill;
+      if (partsError) console.warn('[link-guest-account] formal name fill refused:', partsError.message);
+    }
   } catch {
     // Best-effort — a missing name must never cost somebody their link.
   }
 }
 
+/** Does this account already hold a `couple` membership on this event? False on any doubt. */
+export async function isCoupleMember(
+  admin: ReturnType<typeof createAdminClient>,
+  eventId: string,
+  userId: string,
+): Promise<boolean> {
+  const { data, error } = await admin
+    .from('event_members')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (error) {
+    console.error('[supabase-error] lib/link-guest-account.ts · from:event_members.select', error);
+    return false;
+  }
+  return Boolean(data);
+}
+
 export async function linkGuestSessionToUser(
   userId: string,
+  expect: { eventId: string; guestId?: string },
 ): Promise<{ linked: boolean; reason: string }> {
   try {
     const session = await readGuestSession();
@@ -92,6 +143,11 @@ export async function linkGuestSessionToUser(
 
     // Identity comes ONLY from the signed session — never URL params.
     const { guest_id, event_id } = session;
+    // 🔒 THE SEAT THE PERSON WAS ASKED ABOUT, OR NOTHING. A cookie naming a
+    // different celebration (or a different row than the one confirmed) binds
+    // nothing — the old binder linked whatever the browser happened to hold.
+    if (event_id !== expect.eventId) return { linked: false, reason: 'wrong_event' };
+    if (expect.guestId && guest_id !== expect.guestId) return { linked: false, reason: 'not_confirmed' };
 
     const admin = createAdminClient();
 
@@ -101,13 +157,29 @@ export async function linkGuestSessionToUser(
     // canonical role to mirror onto the membership.
     const { data: guest, error: guestError } = await admin
       .from('guests')
-      .select('guest_id, event_id, role, meal_preference, dietary_restrictions')
+      .select('guest_id, event_id, role, extra_roles, meal_preference, dietary_restrictions')
       .eq('guest_id', guest_id)
       .maybeSingle();
 
     if (guestError) return { linked: false, reason: 'error' };
     if (!guest || guest.event_id !== event_id) {
       return { linked: false, reason: 'guest_not_found' };
+    }
+
+    // 🔒 A COUPLE SEAT IS NEVER BOUND BY A GUEST LINK (lib/seat-binding.ts).
+    // Only an account that is already one of this event's couple members may
+    // hold the bride / groom / celebrant row by this door.
+    if (isCoupleSeat(guest.role as string | null, guest.extra_roles as string[] | null)) {
+      const accountIsCouple = await isCoupleMember(admin, event_id, userId);
+      if (
+        seatBindRefusal({
+          seatRole: guest.role as string | null,
+          seatExtraRoles: guest.extra_roles as string[] | null,
+          accountIsCouple,
+        })
+      ) {
+        return { linked: false, reason: 'couple_seat' };
+      }
     }
 
     // Idempotent insert. `onConflict: 'event_id,user_id'` + ignoreDuplicates

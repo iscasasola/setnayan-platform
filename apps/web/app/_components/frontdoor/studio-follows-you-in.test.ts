@@ -33,11 +33,13 @@
  * 2026-08-21 promise — the products do not disappear when you open a wedding,
  * and they open THAT wedding — is now kept by the event menu, and these tests
  * pin it there:
- *   1 · every product the Studio group would have drawn is a row in the event
- *       menu, and the shell does NOT also draw the group (listed once);
+ *   1 · every product the Studio group would have drawn is reached from the
+ *       event menu — since Stage D (2026-09-29) as a card on Our Services,
+ *       its page claimed by the row that holds it — and the shell does NOT
+ *       also draw the group (listed once);
  *   2 · the shelf has exactly one door, the event menu's `studio` row, now
- *       called "Suite" (the group's "All services" row is dropped, not kept
- *       beside it);
+ *       called "Our Services" (the group's "All services" row is dropped,
+ *       not kept beside it);
  *   3 · "Browse by category" is gone inside an event (owner: Your Team is
  *       where couples search, negotiate and build).
  */
@@ -85,43 +87,35 @@ const LAYOUT = code(read('app', 'dashboard', '[eventId]', 'layout.tsx'));
 
 const EVENT_ID = 'S89E-ABCDEFGHJK';
 
-/* ── 1 · THE PRODUCTS STAY — AT THEIR MOMENTS ─────────────────────────── */
+/* ── 1 · THE PRODUCTS STAY — ON OUR SERVICES (Stage D, 2026-09-29) ───── */
 
-test('inside an event every Studio product is still a row, at its moment', () => {
+test('inside an event every Studio product is still reached, and its page lights the row that holds it', () => {
   const tools = railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile: WEDDING_PROFILE });
   const studioRows = tools.map((t) => ({ key: t.key, href: t.href, name: t.name }));
-  const menu = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, studioRows });
+  const menu = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, seatingEnabled: true, studioRows });
   const rows = menu.flatMap((g) => g.items);
   /*
-    Every product row the group would have drawn, minus the ones a ruling
-    folds into an existing row: `pawebsite` (one door → the Event Hub
-    Controller row), `__all__` (the `studio` row IS the Suite), and — owner
-    2026-09-24, *"remove the 3D Plan menu. since the 3D version is on the
-    seatplan already"* — `pa3d`, ABSORBED into Seat plan.
+    The event menu is five rows now (owner 2026-09-29, "this is what an event
+    needs"): a product is a CARD on Our Services, not a row. What must still
+    hold is that no product is lost — each product page is CLAIMED by a row
+    (Our Services, or the row a ruling folds it into: Seat plan holds 3D
+    Plan; the Event Hub Maker holds the Logo and the Mood Board in Details),
+    so opening it lights the menu. `pawebsite` IS the Maker row's page and
+    `__all__` IS the Our Services row.
   */
+  const studio = rows.find((r) => r.key === 'studio');
+  assert.ok(studio, 'the Our Services row is not in the menu — every product lost its door');
   for (const t of tools) {
     if (t.key === 'pawebsite' || t.key === '__all__') continue;
+    const page = t.href.split('?')[0]!;
     const absorbed = STUDIO_ABSORBED[t.key];
-    if (absorbed) {
-      // Folded is not lost: the host row stands, and CLAIMS the product's page.
-      const host = rows.find((r) => r.key === absorbed.into);
-      assert.ok(host, `${t.key} was absorbed into "${absorbed.into}", which is not in the menu — the product vanished`);
-      assert.ok(
-        host!.alsoMatch?.includes(t.href.split('?')[0]!),
-        `${t.key}'s page (${t.href}) lights nothing — the host row does not claim it`,
-      );
-      assert.ok(!rows.some((r) => r.key === t.key), `${t.key} is drawn beside the row it was folded into`);
-      continue;
-    }
-    const row = rows.find((r) => r.key === t.key);
-    assert.ok(row, `${t.key} vanished from the event menu when the Studio group dissolved`);
-    assert.equal(row!.href, t.href, `${t.key} no longer opens THIS wedding's tool`);
-    assert.equal(row!.studio, true, `${t.key} lost its ✦ — it is a Studio product`);
+    const host = rows.find((r) => r.key === (absorbed?.into ?? 'studio')) ?? studio!;
+    assert.ok(
+      host.alsoMatch?.includes(page),
+      `${t.key}'s page (${t.href}) lights nothing — "${host.key}" does not claim it`,
+    );
+    assert.ok(!rows.some((r) => r.key === t.key), `${t.key} is a menu row again — it is a card on Our Services`);
   }
-  assert.ok(
-    !rows.some((r) => r.key === 'pawebsite' || r.key === '__all__'),
-    'a folded product row came back beside the row it was folded into',
-  );
 });
 
 test('the shell does not ALSO draw the Studio group inside an event', () => {

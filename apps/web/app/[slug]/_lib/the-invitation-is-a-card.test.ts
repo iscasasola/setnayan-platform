@@ -21,11 +21,17 @@ test('a wedding reads like a wedding invitation, from its own words', () => {
   const card = invitationCard({
     words: { solemn: false, twoPeople: true, eventWord: 'wedding' },
     firstStartAt: '2026-12-18T13:30:00+00:00',
+    firstLabel: 'Guests arrive',
   });
   assert.ok(card);
   assert.equal(card.eyebrow, 'Together with their families');
   assert.equal(card.line, 'invite you to celebrate their wedding');
-  assert.match(card.timeLabel ?? '', /^1:30\s?PM$/, 'the programme’s own clock, never shifted');
+  assert.match(card.timeLabel ?? '', /^Guests arrive 1:30\s?PM$/, 'the programme’s own clock, never shifted — and never unlabeled');
+  const bare = invitationCard({
+    words: { solemn: false, twoPeople: true, eventWord: 'wedding' },
+    firstStartAt: '2026-12-18T13:30:00+00:00',
+  });
+  assert.match(bare?.timeLabel ?? '', /^Starts 1:30\s?PM$/, 'a time with no title stood alone under the date');
   assert.equal(card.hubHref, '#site-details');
 });
 

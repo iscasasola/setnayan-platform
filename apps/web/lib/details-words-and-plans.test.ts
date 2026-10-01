@@ -131,8 +131,13 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   assert.match(launch, /<MakerRsvpCanvas questionsSrc=\{rsvpSrc\} repliedSrc=\{rsvpRepliedSrc\}/);
   assert.match(launch, /settings: \(\s*<MakerRsvpSettings\b/);
   const details = read(`${L}/maker-details.tsx`);
-  // Love Story's words are the Story row's own panel (`StoryPanel`, `updateOurStory`).
-  assert.match(details, /'love-story': \(\s*<StoryPanel\s+action=\{updateOurStory\.bind\(null, eventId\)\}/);
+  // Love Story's words: in the Maker the instant panel (2026-09-30, "so hard to
+  // edit … the delay of response is terrible"), handed down by the Maker and
+  // drawing the SHIPPED `LoveStoryChaptersPanel`; without the Maker, the Story
+  // row's own panel (`StoryPanel`, `updateOurStory`).
+  assert.match(details, /'love-story': \(\s*<InMakerLiveStoryPanel panel=\{[^}]*\}\}>\s*<StoryPanel\s+action=\{updateOurStory\.bind\(null, eventId\)\}/);
+  const live = read('app/dashboard/[eventId]/website/our-story/_components/love-story-live.tsx');
+  assert.match(live, /<LoveStoryChaptersPanel story=\{story as LoveStoryBlob\} ownsPro=\{ownsPro\} \/>/);
   // 🧩 Three parts, never a whole page dropped in (DECISION_LOG "A TOOL MOVED
   // INTO THE MAKER IS REBUILT INTO THE THREE PARTS"): the Schedule's rail is
   // the picture and its OWN inspector fills the right column.
@@ -150,9 +155,10 @@ test('Story & plans draw the SHIPPED pages whole — the same components, never 
   assert.match(rail, /\{inspectorSlot \? <InSlot id=\{inspectorSlot\}>\{side\}<\/InSlot> : null\}/);
   assert.match(rail, /isDesktop && !inspectorSlot/, 'the page’s own side column is drawn beside the Maker’s');
   assert.match(rail, /!isDesktop && selected && !inspectorSlot/, 'the phone panel rises over the Maker too');
-  // The first-visit reminder tour rides the RSVP PICTURE (mounted on first open), never the always-mounted editor.
+  // 📵 The reminder tour rode the RSVP picture until 2026-09-29, when guest
+  // reminder emails were switched off (owner: no email to guests) — gone with them.
   const rsvpItem = launch.slice(launch.indexOf('const rsvpItem = {'), launch.indexOf('settings: ('));
-  assert.match(rsvpItem, /<MiniTour tourKey="customer_guest_reminders_v1"/);
+  assert.doesNotMatch(rsvpItem, /customer_guest_reminders_v1/);
 });
 
 test('RSVP links out to nothing: "Reply by" is a date field right there, and the Requests rows are in place', async () => {
@@ -169,7 +175,7 @@ test('RSVP links out to nothing: "Reply by" is a date field right there, and the
     }),
   );
   assert.doesNotMatch(html, /<a\b[^>]*href=/, 'the RSVP settings still link out');
-  const replyBy = html.slice(html.indexOf('data-rsvp-setting="reply-by"'), html.indexOf('data-rsvp-setting="guest-reminders"'));
+  const replyBy = html.slice(html.indexOf('data-rsvp-setting="reply-by"'), html.indexOf('data-rsvp-setting="requests"'));
   assert.match(replyBy, /<input[^>]*type="date"[^>]*value="2026-11-18"/, 'reply-by is not a field here');
   assert.match(replyBy, /data-hub-saves-immediately/, 'a live write must say it saves immediately');
   assert.match(html, /data-rsvp-requests-list=""[\s\S]*data-stub="the-shipped-requests-rows"/, 'the Requests rows are not in place');
@@ -234,7 +240,7 @@ test('🔑 a tapped fact opens the SAME component its Details item shows — one
   assert.match(details, /'love-story': facts\['love-story'\] \?\? \(/, 'the Love Story item draws its own words editor');
   const shell = read(SHELL);
   assert.match(shell, /const node = factEditors\?\.\[item\];/, 'the stage builds its own editor');
-  assert.doesNotMatch(shell, /<SpecialMessageField\b|<StoryPanel\b/, 'the stage draws a second copy of a Details editor');
+  assert.doesNotMatch(shell, /<SpecialMessageField\b|<StoryPanel\b|<LiveStoryPanel\b/, 'the stage draws a second copy of a Details editor');
 
   // RENDER — the stage's inspector, with a special message scene open on
   // Content, draws the very node the Details item was handed.
@@ -267,7 +273,7 @@ test('the shared special message editor posts its one writer, drafted, and previ
 
 test('🧩 a tool’s pieces: LEFT under its item, the picked one’s controls RIGHT — hidden, never unmounted', async () => {
   // The pieces are the tools' own.
-  assert.deepEqual(RSVP_PIECES.map((p) => p.key), ['questions', 'who', 'reply-by', 'reminders', 'requests']);
+  assert.deepEqual(RSVP_PIECES.map((p) => p.key), ['questions', 'who', 'reply-by', 'requests']);
   const settings = read(`${L}/maker-rsvp-ask.tsx`);
   for (const key of RSVP_PIECES.map((p) => p.key)) {
     assert.match(settings, new RegExp(`<DetailsPieceOnly item="rsvp" piece="${key}">`), `RSVP piece ${key} wraps no settings`);

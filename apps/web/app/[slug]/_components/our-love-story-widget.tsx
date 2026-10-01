@@ -1,4 +1,8 @@
 import { loveStoryScenes } from '@/lib/love-story-moments';
+import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
+
+import { LoveStoryYears } from './our-love-story-styles';
+import { OurStory, ourStoryRenders } from './our-story';
 
 /**
  * Our Love Story — the guest render of `events.love_story`.
@@ -29,12 +33,28 @@ import { loveStoryScenes } from '@/lib/love-story-moments';
 export function OurLoveStoryWidget({
   config,
   mediaUrls,
+  sceneStyle = null,
 }: {
   config: unknown;
   mediaUrls?: Readonly<Record<string, string>>;
+  /**
+   * 🎨 `chapters` (this, the default) · `essay` (the shipped `OurStory`
+   * full variant) · `years` (`our-love-story-styles.tsx`). The essay composes
+   * from the onboarding words; a story told only in moments has none of them,
+   * so there it falls back to the chapters rather than drawing nothing.
+   */
+  sceneStyle?: string | null;
 }) {
   const scenes = loveStoryScenes(config);
   if (scenes.length === 0) return null;
+  if (sceneStyle === 'essay' && ourStoryRenders(config)) {
+    return (
+      <div data-scene-style="essay">
+        <OurStory loveStory={config} variant="full" />
+      </div>
+    );
+  }
+  if (sceneStyle === 'years') return <LoveStoryYears scenes={scenes} mediaUrls={mediaUrls} />;
 
   // Pahina chapter grammar (design 2026-07-25 §7). NOTE: this widget carries an
   // unnumbered eyebrow — `OurStory` also renders a story chapter from the same
@@ -43,7 +63,10 @@ export function OurLoveStoryWidget({
   // numbers" neither carries a chapter numeral anymore, so two "Our story"
   // headings never collide on a number; the label alone still reads correctly.
   return (
-    <section className="space-y-10" data-love-story-scenes={scenes.length}>
+    /* 📖 THIS IS THE STORY THE "Our Love Story" TAB LANDS ON (guest text audit
+       2026-09-30): with this scene on the page the prose `OurStory` is not drawn
+       (it told the story a second time), so the tab's anchor is here. */
+    <section id={SITE_MENU_ANCHORS.story} className="scroll-mt-6 space-y-10" data-love-story-scenes={scenes.length}>
       <div>
         <p className="pahina-eyebrow">
           <span>Our love story</span>
@@ -58,9 +81,10 @@ export function OurLoveStoryWidget({
             data-love-template={s.template}
             className="max-w-prose border-l border-ink/12 pl-5"
           >
-            <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
-              {s.when ? `${s.when} · ` : ''}
-              {s.chapterLabel}
+            {/* `data-love-*`: the Maker's canvas lays a moment's words here as they
+                are typed (`applyLoveStoryPreview`, lib/maker-live-preview.ts). */}
+            <p data-love-when="" className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+              {`${s.when ? `${s.when} · ` : ''}${s.chapterLabel}`}
             </p>
             {photos.length > 0 ? (
               <div className={`mt-3 grid gap-2 ${photos.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
@@ -70,8 +94,10 @@ export function OurLoveStoryWidget({
                 ))}
               </div>
             ) : null}
-            <p className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{s.line}</p>
-            {s.place ? <p className="mt-1 text-sm leading-relaxed text-ink/65">{s.place}</p> : null}
+            <p data-love-line="" className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{s.line}</p>
+            <p data-love-place="" hidden={!s.place} className="mt-1 text-sm leading-relaxed text-ink/65">
+              {s.place ?? ''}
+            </p>
           </article>
         );
       })}

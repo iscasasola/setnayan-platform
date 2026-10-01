@@ -44,13 +44,18 @@ import { resolveSiteNav, type NavInput, type NavSlot } from './site-nav';
  *  the bar as separate props (`camera`, `watch`) because they LEAVE the page.
  *  Named here so the difference between the modules is a stated fact rather
  *  than an accident nobody noticed. */
-const OFF_PAGE_SLOTS = ['camera', 'watch'] as const;
+const OFF_PAGE_SLOTS = ['camera'] as const;
+// 📱 (`watch` left this list on 2026-09-30: the day's stream is inside Live —
+// "THE DAY'S MENU HAS FIVE" — so the resolver never emits a Watch tab.)
 
 /** Slots that are a SECOND NAME for an existing anchor. On the Day the second
  *  tab reads "Schedule" and lands on the day's details, whose first scene IS
  *  the schedule (owner 2026-09-27, "EACH STAGE DOES ONE JOB"). It adds a word,
  *  not a destination — so the live anchor map needs no new entry. */
-const ALIAS_SLOTS = { schedule: 'details' } as const;
+const ALIAS_SLOTS = { live: 'home' } as const;
+// 📱 2026-09-30 — "THE DAY'S MENU HAS FIVE: LIVE · WELCOME · CAMERA · GALLERY ·
+// ME": the day's first tab, Live, lands on the top of the page (`#site-home`),
+// as "Now" did. The day's Schedule alias is gone with its tab.
 
 /** `before` is the only phase in which every in-page anchor can appear — the
  *  resolver drops Details and Story once the wedding is happening. This is the

@@ -82,7 +82,7 @@ function guest(over: Record<string, unknown> = {}) {
   };
 }
 
-async function render(replyLocked: boolean, over: Record<string, unknown> = {}) {
+async function render(replyLocked: boolean, over: Record<string, unknown> = {}, props: Record<string, unknown> = {}) {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { RsvpWidget } = await import('../_components/rsvp-widget');
   return renderToStaticMarkup(
@@ -93,6 +93,7 @@ async function render(replyLocked: boolean, over: Record<string, unknown> = {}) 
       eventPublicId: 'S89E-XXXX',
       faceMode: 'mode_b',
       replyLocked,
+      ...props,
     } as never),
   );
 }
@@ -144,20 +145,23 @@ test('a final list keeps the meal, the allergy box and the note editable', async
   assert.match(html, /nut allergy/);
 });
 
-test('a coming guest keeps the selfie step when the list is final', async () => {
-  // 🪤 The selfie is revealed by `:has(rsvp_status=attending:checked)`. With no
+test('a coming guest keeps the tagging question when the list is final', async () => {
+  // 🪤 The question is revealed by `:has(rsvp_status=attending:checked)`. With no
   // radio rendered that selector can NEVER match, so the step would silently
-  // vanish for exactly the guests who are coming.
-  const open = await render(false);
-  const locked = await render(true);
-  const marker = /selfie|Selfie/;
-  assert.match(open, marker);
-  assert.match(locked, marker, 'the selfie step vanished once the answer locked');
+  // vanish for exactly the guests who are coming. (Owner 2026-09-30: the reply
+  // card asks the QUESTION only — the selfie itself is taken on the day.)
+  const ask = { askTagging: true };
+  const marker = /name="face_tagging"/;
+  assert.match(await render(false, {}, ask), marker);
+  assert.match(await render(true, {}, ask), marker, 'the tagging question vanished once the answer locked');
 });
 
-test('a guest who is NOT coming gets no selfie step', async () => {
-  const html = await render(true, { rsvp_status: 'declined' });
-  assert.doesNotMatch(html, /selfie_ref/);
+test('a guest who is NOT coming gets no tagging question — and no card ever draws a selfie', async () => {
+  const html = await render(true, { rsvp_status: 'declined' }, { askTagging: true });
+  assert.doesNotMatch(html, /name="face_tagging"/);
+  for (const locked of [false, true]) {
+    assert.doesNotMatch(await render(locked, {}, { askTagging: true }), /selfie_ref|biometric_consent/);
+  }
 });
 
 test('the button stops claiming to save an RSVP it cannot change', async () => {
@@ -433,11 +437,14 @@ test('⚠ every reported change produces a sentence — no heading with nothing 
 // name — and NOTHING anywhere in the product let a guest supply any of them, so
 // a host without a number had to leave the app and go and ask.
 
-test('🔴 the reply card asks for the three details only the guest knows', () => {
+test('🔴 the reply card asks for the details only the guest knows — and 📵 never an email', () => {
   const w = read('_components/rsvp-widget.tsx');
-  for (const id of ['contact_email', 'contact_mobile', 'contact_display_name']) {
+  for (const id of ['contact_mobile', 'contact_display_name']) {
     assert.match(w, new RegExp(`id="${id}"`), `${id} is gone — the host has to go and ask again`);
   }
+  // Owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS": the reply no longer
+  // asks for an email — nothing is ever mailed to a guest, so none is collected.
+  assert.doesNotMatch(w, /contact_email/, 'the reply asks for an email again');
 });
 
 test('🔒 the field names cannot collide with the sign-in box on the same page', () => {
@@ -470,7 +477,10 @@ test('⚠ the contact details are NOT frozen when the guest list closes', () => 
   const at = src.indexOf('.update({');
   const payload = src.slice(at, src.indexOf('.eq(', at));
   const locked = payload.slice(payload.indexOf('replyLocked'), payload.indexOf('}),'));
-  for (const col of ['email:', 'mobile:', 'display_name:']) {
+  // 📵 `email:` is gone from this payload on purpose (2026-09-29): the reply
+  // collects no email, so it can neither set nor clear one.
+  assert.ok(!/\bemail:/.test(payload), 'the reply writes an email again');
+  for (const col of ['mobile:', 'display_name:']) {
     assert.ok(payload.includes(col), `${col} is not written at all`);
     assert.ok(!locked.includes(col), `${col} is inside the frozen branch — a locked list would refuse it`);
   }
@@ -557,14 +567,16 @@ test("🔴 the guest's own row carries the details the card prefills from", () =
 // Owner, 2026-08-21: "if they have an account, and all details are filled, all
 // they need is to accept the invitation and they can already see the event hub."
 
-test('the contact boxes fold away only when BOTH ways of reaching them are known', () => {
+test('the contact boxes fold away only when the number the couple asks for is known', () => {
+  // 📵 Email is no longer a way of reaching a guest (2026-09-29), so the fold
+  // waits on the one box left that the host would otherwise chase: mobile,
+  // when the couple asks for it.
   const w = read('_components/rsvp-widget.tsx');
   const at = w.indexOf('const detailsAlreadyKnown');
   assert.ok(at > -1, 'the fold condition is gone');
   const cond = w.slice(at, w.indexOf(';', at));
-  assert.match(cond, /knownEmail !== ''/, 'an email is no longer required to fold');
-  assert.match(cond, /knownMobile !== ''/, 'a number is no longer required to fold');
-  assert.match(cond, /&&/, 'either one alone now folds the boxes — the host still has to chase the other');
+  assert.doesNotMatch(cond, /knownEmail/, 'the fold waits on an email nobody is asked for');
+  assert.match(cond, /!askMobile \|\| knownMobile !== ''/, 'a number the couple asks for no longer holds the boxes open');
   // Meal and dietary must NOT gate it: "no preference" and "no allergies" are
   // real answers, and requiring them shows five boxes forever for nothing.
   assert.doesNotMatch(cond, /meal|dietary/i, 'a guest with no allergies is asked forever');
@@ -577,7 +589,7 @@ test('⚠ the folded summary NAMES what is behind it', () => {
   const at = w.indexOf('const knownSummary');
   assert.ok(at > -1, 'the summary is gone — the drawer now hides unnamed values');
   const sum = w.slice(at, w.indexOf(';', w.indexOf('.join(', at)));
-  for (const part of ['knownEmail', 'knownMobile']) {
+  for (const part of ['knownMobile']) {
     assert.ok(sum.includes(part), `${part} is folded away and not named on the summary line`);
   }
   assert.match(w, /\{knownSummary\}/, 'the summary is computed and never rendered');
@@ -588,7 +600,7 @@ test('🔴 both arms render the SAME fields, so folding never drops a value', ()
   // Declaring the boxes once is what stops the two arms drifting apart.
   const w = read('_components/rsvp-widget.tsx');
   assert.equal(
-    (w.match(/id="contact_email"/g) ?? []).length,
+    (w.match(/id="contact_display_name"/g) ?? []).length,
     1,
     'the contact boxes are declared twice — the two arms can now drift apart',
   );

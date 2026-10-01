@@ -62,6 +62,7 @@ const WEDDING_OFFERED: GuestRole[] = [
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
+  'best_woman',
   'bridesmaid',
   // 🔒 RETIRED 2026-09-15 — the plain `principal_sponsor` IS NOT OFFERED.
   // Owner: "we can now successfully remove the Principal Sponsor role since we
@@ -100,6 +101,7 @@ const WEDDING_SELF_CLAIMABLE: GuestRole[] = [
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
+  'best_woman',
   'bridesmaid',
   'groomsman',
   'principal_sponsor_ninong',
@@ -141,6 +143,7 @@ export const WEDDING_ROLE_SET: RoleSet = {
     'maid_of_honor',
     'matron_of_honor',
     'best_man',
+    'best_woman',
     'bridesmaid',
     'groomsman',
     'candle_sponsor',
@@ -191,6 +194,7 @@ const MUSLIM_OFFERED: GuestRole[] = [
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
+  'best_woman',
   'bridesmaid',
   'groomsman',
   'ring_bearer',
@@ -206,6 +210,7 @@ const MUSLIM_SELF_CLAIMABLE: GuestRole[] = [
   'maid_of_honor',
   'matron_of_honor',
   'best_man',
+  'best_woman',
   'bridesmaid',
   'groomsman',
   'ring_bearer',
@@ -235,6 +240,7 @@ export const MUSLIM_ROLE_SET: RoleSet = {
     'maid_of_honor',
     'matron_of_honor',
     'best_man',
+    'best_woman',
     'bridesmaid',
     'groomsman',
     'ring_bearer',
@@ -306,12 +312,53 @@ export const SIMPLE_ROLE_SET: RoleSet = {
   coupleRoles: new Set<string>(), // no couple → no sweetheart exclusion
 };
 
+// --- Birthday · Hangout (G1, owner 2026-09-30) -------------------------------
+// DECISION_LOG "GUEST-LIST ROLES AND GROUPS FOLLOW THE EVENT TYPE": a birthday
+// is celebrant · host · family · guest; a hangout and a date are host · guest.
+// Seeded onto the profiles by migration 20271258536791 (role_set_key), which
+// measured ZERO guests on any birthday, hangout or date event first — no stored
+// role is stranded by the narrower pickers. Tiers reuse the generic rings.
+
+export const BIRTHDAY_ROLE_SET: RoleSet = {
+  ...GENERIC_ROLE_SET,
+  key: 'birthday',
+  offeredRoles: ['celebrant', 'guest', 'host', 'family'],
+  selfClaimableRoles: ['guest', 'family'],
+  tier1Roles: new Set<string>(['celebrant', 'host']),
+};
+
+export const HANGOUT_ROLE_SET: RoleSet = {
+  ...GENERIC_ROLE_SET,
+  key: 'hangout',
+  offeredRoles: ['guest', 'host'],
+  selfClaimableRoles: ['guest'],
+  tier1Roles: new Set<string>(['host']),
+  tier3Roles: new Set<string>(),
+};
+
 export const ROLE_SETS: Record<string, RoleSet> = {
   wedding: WEDDING_ROLE_SET,
   wedding_muslim: MUSLIM_ROLE_SET,
   generic: GENERIC_ROLE_SET,
   simple: SIMPLE_ROLE_SET,
+  birthday: BIRTHDAY_ROLE_SET,
+  hangout: HANGOUT_ROLE_SET,
 };
+
+/**
+ * 🏷 THE DEFAULT GUEST GROUPS FOLLOW THE EVENT TYPE (owner 2026-09-30,
+ * DECISION_LOG "GUEST-LIST ROLES AND GROUPS FOLLOW THE EVENT TYPE"). The one
+ * fixed list used to offer "Officiant" on every type; it is a wedding group.
+ * Every other type gets the same list without it. Keyed by the profile's role
+ * set — the one key every guest picker already resolves through — so it lives
+ * here, client-safe, beside the roles it travels with.
+ */
+export const ALL_GUEST_GROUPS = ['family', 'friends', 'work', 'school', 'officiant', 'other'] as const;
+
+export function guestGroupsFor(roleSetKey: string | null | undefined): (typeof ALL_GUEST_GROUPS)[number][] {
+  const wedding = roleSetKey === 'wedding' || roleSetKey === 'wedding_muslim';
+  return ALL_GUEST_GROUPS.filter((g) => wedding || g !== 'officiant');
+}
 
 /**
  * Resolve the RoleSet for a profile's roleSetKey. 'wedding' → WEDDING_ROLE_SET;

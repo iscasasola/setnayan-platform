@@ -13,32 +13,23 @@ import { stripComments } from '@/lib/strip-comments';
 const C = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components');
 const read = (f: string) => stripComments(readFileSync(join(C, f), 'utf8'));
 
-test('switching search ↔ add never scrolls the page', () => {
+test('opening the add box never scrolls the page', () => {
   // Owner: "there is like an unbalanced motion making the table nudge down a
   // bit when pressed." Measured: a plain focus() scrolls the focused box into
-  // view — 8px with this row tucked under the sticky top bar. The row has just
-  // been CLICKED, so it is on screen; nothing should move but the width.
-  const src = read('find-add-row.tsx');
+  // view. ⤷ 2026-10-01: the name box lives in the round +'s add sheet now, so
+  // the rule follows it there.
+  const src = read('add-guest-sheet.tsx');
   const calls = src.match(/\.focus\(([^)]*)\)/g) ?? [];
   assert.ok(calls.length >= 1, 'found no focus() call — this guard is blind');
   for (const c of calls) {
-    assert.match(c, /preventScroll:\s*true/, `${c} can scroll the page — the table nudges down on every switch`);
+    assert.match(c, /preventScroll:\s*true/, `${c} can scroll the page — the table nudges down on every open`);
   }
 });
 
-test('the sort labels render in capitals, like every other header', () => {
-  // Owner: "make the header all caps." Tailwind's preflight resets
-  // text-transform on every <button>, so the labels that SORT read in mixed
-  // case while the one plain cell, CONTACT, read in capitals.
-  const src = read('arrange-controls.tsx');
-  const sortButton = src.slice(src.indexOf('onClick={() => setSort(column)}'));
-  assert.match(sortButton.slice(0, 600), /\buppercase\b/, 'the sort label lost `uppercase` — preflight resets it on buttons');
-});
-
-test('no cryptic mark beside the grouping box', () => {
-  // Owner: "remove the weird symbol beside the checkbox of role."
-  assert.ok(!read('arrange-controls.tsx').includes('§'), 'the "§" is back beside a header checkbox');
-});
+// ⤷ 2026-09-30 (Fix E): two corrections here guarded `arrange-controls.tsx` —
+// the header's sort labels in capitals and no "§" beside a grouping box. That
+// header was deleted (every column header is ONE slot dropdown now, and Sort ▾
+// above the list is the one place for order), so they left with it.
 
 test('the honoree heading folds like every other one', () => {
   // Owner: "these rows should be able to make the content of that grouping
@@ -52,15 +43,13 @@ test('the honoree heading folds like every other one', () => {
   assert.ok(!/if \(!onToggle \|\| pinned\)/.test(src), 'a pinned heading renders without its fold button again');
 });
 
-test('both icons sit INSIDE their boxes, at the end', () => {
+test('the add icon sits INSIDE its box, at the end', () => {
   // Owner: "place this at the end of the text box inside the search text box
   // and same to the add text box. insert the + inside."
-  for (const [file, icon] of [['guests-search.tsx', 'Search'], ['capture-bar.tsx', 'Plus']] as const) {
-    const src = read(file);
-    const at = src.search(new RegExp(`<${icon}\\s[^>]*absolute right-3`));
-    assert.notEqual(at, -1, `${file}: the ${icon} icon is not inside the box at its end`);
-  }
+  // ⤷ 2026-10-01: the search box left the page for the top bar (owner
+  // 2026-09-30), so only the add half of this correction still lives here.
+  const src = read('capture-bar.tsx');
+  assert.notEqual(src.search(/<Plus\s[^>]*absolute right-3/), -1, 'capture-bar.tsx: the + is not inside the box at its end');
   // …and the text stops before it rather than running under it.
-  assert.match(read('guests-search.tsx'), /className="w-full pr-9"/, 'the search text can run under its icon');
-  assert.match(read('capture-bar.tsx'), /input-field w-full pr-9/, 'the add text can run under its icon');
+  assert.match(src, /input-field w-full pr-9/, 'the add text can run under its icon');
 });

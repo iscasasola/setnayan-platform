@@ -26,14 +26,21 @@
  * Pure — no I/O — so the rules can carry a unit suite.
  */
 import { classifyClaimMatch, MAX_NAME_LENGTH, type SeedCandidate } from '@/lib/guest-claim-core';
+import { formalNameFromForm, type FormalName } from '@/lib/formal-name';
 import { MEAL_LABELS, type MealPreference, type RsvpStatus } from '@/lib/guests';
 import { rsvpAsks, type RsvpAskConfig } from '@/lib/rsvp-ask';
 import { formatCount } from '@/lib/format-number';
+import { isCoupleSeat } from '@/lib/seat-binding';
 
-/** What the guest may answer on the ask-to-join form (the three RSVP choices). */
-export const REQUEST_ANSWERS: readonly { value: Extract<RsvpStatus, 'attending' | 'maybe' | 'declined'>; label: string }[] = [
+/**
+ * What the guest may answer on the ask-to-join form — yes or no, nothing else.
+ * ⚖ NO MIDDLE ANSWER (owner 2026-09-30: "for now. let us fix the RSVP remove
+ * the maybe"). A posted 'maybe' finds no entry here and is refused as
+ * `missing_answer` ("Please tell us whether you will be there."). The column and
+ * its CHECK still allow 'maybe' — the couple's own Guest list can set it.
+ */
+export const REQUEST_ANSWERS: readonly { value: Extract<RsvpStatus, 'attending' | 'declined'>; label: string }[] = [
   { value: 'attending', label: 'Joyfully accepts' },
-  { value: 'maybe', label: 'Undecided, for now' },
   { value: 'declined', label: 'Regretfully declines' },
 ];
 
@@ -41,11 +48,18 @@ export const REQUEST_ANSWERS: readonly { value: Extract<RsvpStatus, 'attending' 
 export const REQUEST_MAX_SEATS = 5;
 
 const MEALS = Object.keys(MEAL_LABELS) as MealPreference[];
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export type RequestAnswers = {
+  /** "First Last" — what a match is suggested on and what the couple is told. */
   name: string;
-  rsvp_status: 'attending' | 'maybe' | 'declined';
+  /**
+   * The five name parts as typed (owner 2026-09-30: *"Prefix · First · Middle ·
+   * Last · Suffix, to stay consistent"*). NULL when the form posted only the
+   * one `name` box (the signed-in "Open my invitation" door, an older page) —
+   * the request row then splits `name` with the shared parser, as before.
+   */
+  parts: FormalName | null;
+  rsvp_status: 'attending' | 'declined';
   seats: number;
   meal_preference: MealPreference;
   dietary_restrictions: string | null;
@@ -61,16 +75,22 @@ const text = (fd: Getter, key: string, max: number): string =>
 
 /**
  * Read the ask-to-join form. Only the questions the couple still asks are
- * read (`ask`), exactly as the RSVP enforces them. Contact is required — an
- * email or a mobile — because Keep/Link has to reach the person with their
- * key; a signed-in asker's account email counts (`accountEmail`).
+ * read (`ask`), exactly as the RSVP enforces them. 📵 No contact is required
+ * any more — the key is handed over on Send (owner 2026-09-29); a signed-in
+ * asker's account email is kept as who they are (`accountEmail`).
  */
 export function readRequestAnswers(
   fd: Getter,
   ask: RsvpAskConfig,
   accountEmail: string | null = null,
 ): { ok: true; value: RequestAnswers } | { ok: false; error: string } {
-  const name = text(fd, 'name', MAX_NAME_LENGTH);
+  // The five boxes when the form drew them (`first_name` posted), else the one.
+  const typedParts = fd.get('first_name') !== null ? formalNameFromForm(fd) : null;
+  // 🔒 First + Last are the required pair — refused here, not only by `required`.
+  if (typedParts && (!typedParts.first_name || !typedParts.last_name)) return { ok: false, error: 'missing_name' };
+  const name = typedParts
+    ? `${typedParts.first_name} ${typedParts.last_name}`.slice(0, MAX_NAME_LENGTH)
+    : text(fd, 'name', MAX_NAME_LENGTH);
   if (!name) return { ok: false, error: 'missing_name' };
 
   const answer = text(fd, 'rsvp_status', 16);
@@ -89,18 +109,19 @@ export function readRequestAnswers(
   const dietary_restrictions = rsvpAsks(ask, 'dietary') ? text(fd, 'dietary_restrictions', 500) || null : null;
   const guest_note = rsvpAsks(ask, 'note') ? text(fd, 'guest_note', 1000) || null : null;
 
-  const typedEmail = text(fd, 'contact_email', 254).toLowerCase();
-  if (typedEmail && !EMAIL_RE.test(typedEmail)) return { ok: false, error: 'bad_email' };
-  const email = typedEmail || (accountEmail ? accountEmail.trim().toLowerCase() : '') || null;
+  // 📵 NO TYPED EMAIL, AND NO CONTACT REQUIRED (owner 2026-09-29, "NO EMAIL TO
+  // GUESTS"): the requester holds their own key from Send (the pending Digital
+  // ticket + their link), so Accept reaches them without an address. A
+  // signed-in asker's account email is still kept — it is who they signed in as.
+  const email = accountEmail ? accountEmail.trim().toLowerCase() : null;
   const mobile = rsvpAsks(ask, 'mobile') ? text(fd, 'contact_mobile', 32) || null : null;
-  if (!email && !mobile) return { ok: false, error: 'missing_contact' };
   // The Terms tick on the request (prototype 7b) — unticked is refused here,
   // not only by the browser's `required`.
   if (String(fd.get('terms') ?? '') !== 'on') return { ok: false, error: 'missing_terms' };
 
   return {
     ok: true,
-    value: { name, rsvp_status: picked.value, seats, meal_preference, dietary_restrictions, guest_note, email, mobile },
+    value: { name, parts: typedParts, rsvp_status: picked.value, seats, meal_preference, dietary_restrictions, guest_note, email, mobile },
   };
 }
 
@@ -124,9 +145,15 @@ export function readRequestedSeats(notes: string | null | undefined): number {
  * A SUGGESTION ONLY — the couple presses Link to act on it. Ambiguous (two
  * people on the list look alike) or no match → null ("No one like this on
  * your list").
+ *
+ * 🔒 NEVER A COUPLE SEAT (2026-09-30): "Same as <the groom>" beside a stranger's
+ * request is one tap from binding a guest to the groom's row.
  */
 export function suggestRequestMatch(name: string, candidates: SeedCandidate[]): SeedCandidate | null {
-  const m = classifyClaimMatch(name, candidates);
+  const m = classifyClaimMatch(
+    name,
+    candidates.filter((c) => !isCoupleSeat(c.role)),
+  );
   return m.kind === 'confident' ? m.candidate : null;
 }
 

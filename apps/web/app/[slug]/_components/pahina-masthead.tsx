@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { formatEventDate } from '@/lib/events';
+import { formatHubDate, formatHubTime } from '@/lib/hub-date-formats';
 import {
   hubElementInlineStyle,
   hubElementMotionAttr,
@@ -147,15 +148,39 @@ export function PahinaMasthead({
     line: string | null;
     /** The first moment's time, the programme's own clock ("1:30 PM"). */
     timeLabel: string | null;
+    /** 🗓 The time's fact, for Format ▾ (`invitationCard`): its start as stored and its title. */
+    timeAt?: string | null;
+    timeTitle?: string | null;
     hubHref: string;
     hubLabel: string;
   };
 }) {
   const names = splitCoupleNames(displayName, twoPeople);
-  const dateLabel = formatEventDate(eventDate);
+  /* 🗓 FORMAT ▾ (tap-to-type): the date and the time written the couple's way
+     (`lib/hub-date-formats.ts`); no format = today's words, byte for byte. */
+  const dateLabel = formatHubDate(eventDate, elements?.date?.format) ?? formatEventDate(eventDate);
+  const ownTime = card?.timeAt ? formatHubTime(card.timeAt, elements?.time?.format) : null;
+  const timeLabel = card?.timeLabel ? (ownTime ? `${(card.timeTitle ?? '').trim() || 'Starts'} ${ownTime}` : card.timeLabel) : null;
+  /* ✍ THE EYEBROW AND THE INVITATION LINE — the couple's own words when they
+     typed some (`HubElementStyle.word`), else the card's, as before. A row the
+     page does not draw (the solemn register's eyebrow) stays undrawn. */
+  const ownEyebrow = elements?.eyebrow?.word ?? null;
+  const lineText = card?.line ? (elements?.line?.word ?? card.line) : null;
+  /* In the Maker canvas only: each part's automatic words (to put back when
+     the couple clears theirs) and the facts Format ▾ writes from. */
+  const namesJoinerAuto = names.joiner === '&' && card ? 'and' : (names.joiner ?? '');
+  const makerFacts: Partial<Record<HubHeroElementKey, Record<string, string>>> = stampElements
+    ? {
+        eyebrow: { 'data-el-word': (card ? card.eyebrow : eyebrow) ?? '' },
+        line: { 'data-el-word': card?.line ?? '' },
+        joiner: { 'data-el-word': namesJoinerAuto },
+        date: { 'data-el-iso': eventDate ?? '' },
+        time: { 'data-el-at': card?.timeAt ?? '', 'data-el-title': card?.timeTitle ?? '' },
+      }
+    : {};
   /** The part's own style and, in the Maker canvas only, its key. */
   const el = (key: HubHeroElementKey) => ({
-    ...(stampElements ? { 'data-el': key } : {}),
+    ...(stampElements ? { 'data-el': key, ...makerFacts[key] } : {}),
     // The part's own motion rides as custom properties; this is the hook the
     // ONE gated rule in globals.css reads (`[data-el-motion]`).
     ...hubElementMotionAttr(elements?.[key]),
@@ -163,6 +188,9 @@ export function PahinaMasthead({
     // is ghosted so it can be brought back (`hubElementDeclarations`).
     style: hubElementInlineStyle(elements?.[key], { editor: stampElements }),
   });
+  /** ✍ In the Maker canvas only: each person's name, so a tap types in THAT
+   *  person (`type-in-place-canvas.ts`) and the joiner stays the Joiner's. */
+  const person = (i: 0 | 1) => (stampElements ? { 'data-el-person': String(i) } : {});
   /**
    * ✍ A piece of a part's text, with its runs (one letter, one word in its own
    * face) drawn as spans — server-side, so what a guest sees is exactly what
@@ -294,20 +322,21 @@ export function PahinaMasthead({
   if (design !== HERO_DESIGN_DEFAULT) {
     const joinerWord = card ? cardJoiner : plainJoiner;
     const whole = card ? cardNames : plainNames;
-    const eyebrowText = card ? card.eyebrow : eyebrow;
+    const eyebrowAuto = card ? card.eyebrow : eyebrow;
+    const eyebrowText = eyebrowAuto ? (ownEyebrow ?? eyebrowAuto) : null;
     const HUB_LINK = hubLink(design === 'letter' ? 'start' : 'center');
-    const TIME = card?.timeLabel ? (
+    const TIME = timeLabel ? (
       <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">
-        {txt('time', card.timeLabel)}
+        {txt('time', timeLabel)}
       </p>
     ) : null;
     const VENUE = !card && venueName ? venuePart(venueName) : null;
-    const LINE = card?.line ? (
+    const LINE = lineText ? (
       <p
         {...el('line')}
         className={`mt-4 text-base leading-relaxed text-ink/80 ${design === 'letter' ? 'max-w-[24ch]' : 'mx-auto max-w-[26ch]'}`}
       >
-        {txt('line', card.line)}
+        {txt('line', lineText)}
       </p>
     ) : null;
     /* The names, stacked on a phone; from `sm` The Marquee and The Crest set
@@ -324,7 +353,7 @@ export function PahinaMasthead({
               : 'mt-3 font-pahina text-[clamp(2.75rem,14vw,5.5rem)] font-light leading-[0.98] tracking-tight text-ink [overflow-wrap:anywhere] sm:text-[5.5rem]'
         }
       >
-        <span className={design === 'crest' ? undefined : 'block sm:inline'}>{txt('names', names.first, whole, 0)}</span>
+        <span {...person(0)} className={design === 'crest' ? undefined : 'block sm:inline'}>{txt('names', names.first, whole, 0)}</span>
         {names.second ? (
           <>
             <span
@@ -340,7 +369,7 @@ export function PahinaMasthead({
             >
               {txt('names', joinerWord, whole, names.first.length)}
             </span>
-            <span className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
+            <span {...person(1)} className={design === 'crest' ? undefined : design === 'marquee' ? 'block sm:inline' : 'block'}>
               {txt('names', names.second, whole, names.first.length + joinerWord.length)}
             </span>
           </>
@@ -481,7 +510,7 @@ export function PahinaMasthead({
         {badgeSlot}
         <div className="mx-auto max-w-md rounded-sm bg-cream p-3 shadow-[0_20px_48px_rgba(30,34,41,0.16)]">
           <div className="border border-gild/45 px-5 pb-7 pt-8">
-            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">{txt('eyebrow', card.eyebrow)}</p>
+            <p {...el('eyebrow')} className="text-xs uppercase tracking-[0.36em] text-ink/60">{txt('eyebrow', ownEyebrow ?? card.eyebrow)}</p>
             {monogramSlot ? (
               <div {...el('mark')} data-motion="arrive-mark" className="mt-5 flex h-[9.5rem] items-center justify-center">
                 {/* The mark renders at its own 80px; the card shows it at
@@ -495,17 +524,17 @@ export function PahinaMasthead({
               data-motion="arrive-names"
               className="mt-5 font-pahina text-[2.9rem] font-light leading-[1.06] tracking-tight text-ink"
             >
-              <span className="block">{txt('names', names.first, cardNames, 0)}</span>
+              <span {...person(0)} className="block">{txt('names', names.first, cardNames, 0)}</span>
               {names.second ? (
                 <>
                   <span {...el('joiner')} className="block font-pahina text-[0.5em] italic text-gild" aria-hidden>
                     {txt('names', cardJoiner, cardNames, names.first.length)}
                   </span>
-                  <span className="block">{txt('names', names.second, cardNames, names.first.length + cardJoiner.length)}</span>
+                  <span {...person(1)} className="block">{txt('names', names.second, cardNames, names.first.length + cardJoiner.length)}</span>
                 </>
               ) : null}
             </h1>
-            {card.line ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{txt('line', card.line)}</p> : null}
+            {lineText ? <p {...el('line')} className="mt-4 text-sm leading-relaxed text-ink/80">{txt('line', lineText)}</p> : null}
             {dateLabel ? (
               /* The face and colour on the part, so the couple's own reach the
                  words (see the designs' DATE above). */
@@ -515,8 +544,8 @@ export function PahinaMasthead({
                 <span aria-hidden className="h-px w-5 bg-gild/60" />
               </p>
             ) : null}
-            {card.timeLabel ? (
-              <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">{txt('time', card.timeLabel)}</p>
+            {timeLabel ? (
+              <p {...el('time')} className="mt-2 text-xs uppercase tracking-[0.24em] text-ink/60">{txt('time', timeLabel)}</p>
             ) : null}
           </div>
         </div>
@@ -534,20 +563,21 @@ export function PahinaMasthead({
           all rather than an empty one with a stray decorative rule. */}
       {eyebrow ? (
         <p {...el('eyebrow')} className="pahina-eyebrow justify-center">
-          <span>{txt('eyebrow', eyebrow)}</span>
+          {/* In the Maker: the words the canvas types into, and the page's own to put back. */}
+          <span {...(stampElements ? { 'data-el-words': '', 'data-el-word': eyebrow } : {})}>{txt('eyebrow', ownEyebrow ?? eyebrow)}</span>
         </p>
       ) : null}
       {monogramSlot ? <div {...el('mark')} data-motion="arrive-mark" className="mt-6 flex justify-center">{monogramSlot}</div> : null}
 
       {/* Stacked names — Fraunces display, italic gild joiner between lines. */}
       <h1 {...el('names')} data-motion="arrive-names" className="mt-6 font-pahina text-[2.9rem] font-light leading-[1.04] tracking-tight text-ink sm:text-6xl">
-        <span className="block">{txt('names', names.first, plainNames, 0)}</span>
+        <span {...person(0)} className="block">{txt('names', names.first, plainNames, 0)}</span>
         {names.second ? (
           <>
             <span {...el('joiner')} className="block font-pahina text-[0.42em] italic text-gild" aria-hidden>
               {txt('names', plainJoiner, plainNames, names.first.length)}
             </span>
-            <span className="block">{txt('names', names.second, plainNames, names.first.length + plainJoiner.length)}</span>
+            <span {...person(1)} className="block">{txt('names', names.second, plainNames, names.first.length + plainJoiner.length)}</span>
           </>
         ) : null}
       </h1>

@@ -538,7 +538,7 @@ test('🚫 no copy anywhere implies a phone or a browser can stream to YouTube',
     );
   }
   // And the honest limit is stated on the admin board, not buried.
-  assert.match(repoFile('app/admin/live-studio-channels/page.tsx'), /does not make Live Studio turnkey/i);
+  assert.match(repoFile('app/admin/live-studio-channels/page.tsx'), /does not make Live Watch turnkey/i);
 });
 
 /* ══════════════════════════════════════════════════════════════════════════════

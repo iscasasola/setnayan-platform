@@ -110,14 +110,15 @@ const PARTS = read(`${L}details-your-event-parts.tsx`);
 // The facts read lives apart from the JSX since train m (Home reads it too): one LOAD, both files.
 const LOAD = read(`${L}details-your-event-load.tsx`) + read(`${L}details-your-event-facts.ts`);
 
-test('every editor saves through the writer its own screen uses — +0 server actions', () => {
+test('every editor saves through a door that already exists — +0 server actions', () => {
   assert.doesNotMatch(EDITORS, /['"]use server['"]/);
-  assert.match(EDITORS, /makerSave\(\(\) => updateEventMatchCriteria\(fd\), requestMakerRefresh\)/, 'names: the Personalization writer');
-  // That writer clears region and feel when absent — they go back unchanged.
-  assert.match(EDITORS, /fd\.set\('region', keep\.region\)/);
-  assert.match(EDITORS, /fd\.set\('mood_feel_key', keep\.feel\)/);
+  // ✍ The names and the date are DRAFTED (owner 2026-10-01, "wait for apply") —
+  // through the one draft door; nothing else (region, feel, birth data) is posted.
+  assert.match(EDITORS, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'names and date: the Event Hub draft');
+  assert.match(EDITORS, /const events = coupleNameColumns\(a, b\);/, 'names: the Personalization writer’s own composition');
+  assert.doesNotMatch(EDITORS, /fd\.set\('region'|fd\.set\('mood_feel_key'/, 'the draft carries the names only');
   assert.match(EDITORS, /<GovernedFields[\s\S]*?only=\{\['date'\]\}[\s\S]*?proposal=\{proposal\}/, 'date: the governed row, conflict preview and all');
-  assert.match(EDITORS, /await updateEventDate\(fd\)/, 'a month goes through the same date writer');
+  assert.match(EDITORS, /event_date_precision: 'month'/, 'a month is drafted with its precision');
   assert.match(EDITORS, /makerSave\(\(\) => saveAllStdContent\(eventId, data\), requestMakerRefresh\)/, 'venues: the typed names the hub already reads');
   assert.match(EDITORS, /const data: Parameters<typeof saveAllStdContent>\[1\] = \{ launchDate \}/, 'the launch date is posted back, never cleared');
   // "Help me choose" is the shipped finder's ranking and words, in the three parts.
@@ -155,7 +156,8 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   assert.match(LOAD, /<EntourageOrderPanel eventId=\{eventId\} view="all" \/>/, 'the order list is the shipped Guest list panel, moved in whole');
   const loaders = read('app/[slug]/_lib/loaders.ts');
   assert.match(loaders, /return buildEntourage\(\s*\(data \?\? \[\]\) as EntourageGuestRow\[\],\s*await loadEntourageSectionOrder\(admin, eventId\),/);
-  assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)\)/);
+  // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)
+  assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)(, names(, style)?)?\)/);
   assert.match(read('app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx'), /orderedGroupKeys\(savedSections\)[\s\S]*?entourageLines\(rows, key\)/);
   // The guest's own line is built from the same groups the section prints.
   const body = read('app/[slug]/_components/site-body.tsx');
@@ -175,12 +177,13 @@ test('"Leave the other side blank" happens IN PLACE — the Guest list’s own u
   assert.match(unpair, /if \(inPlace\) \{[\s\S]*?return;\s*\}\s*redirect\(backToList\(eventId, \{ unpaired: '1' \}\)\);/);
   // The Maker calls that same action, through the Maker's one refresh.
   const march = read(`${L}details-march.tsx`);
-  assert.match(march, /import \{ unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
+  assert.match(march, /import \{ setWalkingPairCouple, unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
   assert.match(march, /await unpairGuestAction\(eventId, pairIds\[0\]!, 'in-place'\);/);
   assert.match(march, /Leave the other side blank/);
-  // …and the Guest list's row form still binds two arguments, so it keeps its redirect.
+  // …and the Guest list's rows no longer offer it at all (owner 2026-09-30:
+  // "walks with" lives only in the Maker's Wedding March).
   const roster = read('app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx');
-  assert.match(roster, /unpairGuestAction\.bind\(null, eventId, guest\.guest_id\)\}/);
+  assert.doesNotMatch(roster, /unpairGuestAction/);
 });
 
 test('/find-date lands on Details › Date with "Help me choose" open — for a couple whose event has an Event Hub', () => {
@@ -212,9 +215,8 @@ test('(3) a one-person event’s Name writes display_name ALONE — the column t
   const fn = actions.slice(actions.indexOf('export async function updateEventMatchCriteria('));
   assert.ok(fn.indexOf("formData.has('celebrant_name')") > fn.indexOf("return { ok: false, code: 'unauthorized', message: 'You are not a host on this event' };"));
   assert.ok(fn.indexOf("formData.has('celebrant_name')") < fn.indexOf('const updatePatch'));
-  // The editor posts celebrant_name alone, through the same writer.
-  assert.match(EDITORS, /fd\.set\('celebrant_name', name\.trim\(\)\);\s*start\(/);
-  assert.match(EDITORS, /makerSave\(\(\) => updateEventMatchCriteria\(fd\), requestMakerRefresh\)/);
+  // The Maker's editor drafts display_name ALONE (owner 2026-10-01, "wait for apply") — the same one column.
+  assert.match(EDITORS, /draftFacts\(eventId, \{ display_name: typed \}\)/);
   assert.match(LOAD, /oneName: people\s*\? null/);
 });
 

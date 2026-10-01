@@ -1,5 +1,6 @@
 'use client';
 
+import { LOVE_STORY_PREVIEW_T as LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW_T as SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
 import { useEffect } from 'react';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
@@ -22,9 +23,12 @@ import {
   type HubElementStyle,
   type HubElementStyles,
 } from '@/lib/element-style';
+import { postEventElementScope } from '@/lib/post-event-styles';
+import { findMakerSection, sectionAfter } from './maker-section-find';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
+import { createCanvasTyping, typeablePart } from './type-in-place-canvas';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -48,6 +52,8 @@ import { applySceneCardPreview } from '@/lib/scene-card-look';
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *   frame  ⇄ parent  t:'type' · 'typeText' · 'typeStop' · 'typeSync' — ✍ tap-to-type
+ *                    (`type-in-place-canvas.ts` has the whole protocol)
  *
  * ✍ `words` IS THE SCENE'S TEXT, LIVE (owner 2026-09-27, writing his own
  * message: *"needs to show on the scene editor"*). The Content box of a scene
@@ -90,39 +96,10 @@ import { applySceneCardPreview } from '@/lib/scene-card-look';
  * no guest's markup carries a key. ⛔ Never inside the RSVP form.
  */
 
-/** Legacy row keys → the DOM ids the site already renders. */
-const SECTION_IDS: Record<string, string> = {
-  home: 'site-home',
-  hero: 'site-home',
-  details: 'site-details',
-  // On the day the Event Bar's "Schedule" tab lands on the day's details.
-  schedule: 'site-details',
-  story: 'site-story',
-  gallery: 'site-gallery',
-  me: 'site-me',
-  'f:entourage': 'site-entourage',
-  'f:story': 'site-story',
-};
-
-/** The section a marker stands in front of: its next element that is not a marker. */
-function sectionAfter(marker: Element): HTMLElement | null {
-  const next = marker.nextElementSibling;
-  if (!next || next.hasAttribute('data-maker-section')) return null;
-  return next as HTMLElement;
-}
-
-/** The element a navigator key points at, or null when this stage draws none. */
-export function findMakerSection(doc: Document, key: string): HTMLElement | null {
-  const marker = doc.querySelector(`[data-maker-section="${CSS.escape(key)}"]`);
-  if (marker) return sectionAfter(marker);
-  const id = SECTION_IDS[key];
-  if (!id) return null;
-  const anchor = doc.getElementById(id);
-  if (!anchor) return null;
-  // A zero-height anchor marks a region; the region is its nearest section-ish ancestor.
-  if (anchor.offsetHeight > 0) return anchor;
-  return (anchor.closest('section, article, div[id]') as HTMLElement | null) ?? anchor;
-}
+/* 📦 `findMakerSection` and `sectionAfter` live in `./maker-section-find` — the
+   Maker imports that small module, never this bridge, so the bridge stays in the
+   guest page's code (see that file). Re-exported here for the bridge's callers. */
+export { findMakerSection } from './maker-section-find';
 
 /** The stage's Event Bar as this canvas drew it, or null when the page carries none. */
 export function readMakerBar(doc: Document): unknown[] | null {
@@ -158,8 +135,11 @@ export function drawnMakerOrder(doc: Document): string[] {
  * one selector list the guest style uses. A part already stamped keeps its key.
  */
 export function stampSceneElements(section: HTMLElement, key: string): number {
-  if (!key.startsWith('w:')) return 0;
-  if (HUB_ELEMENT_EXCLUDED_WIDGETS.includes(key.slice(2))) return 0;
+  /* 🎞 A Post Event scene drawn in its style (`data-post-event-look`) has the
+     same three parts; a shipped Post Event block not yet in a style has none. */
+  const postEvent = key.startsWith('p:') && section.hasAttribute('data-post-event-look');
+  if (!key.startsWith('w:') && !postEvent) return 0;
+  if (!postEvent && HUB_ELEMENT_EXCLUDED_WIDGETS.includes(key.slice(2))) return 0;
   let n = 0;
   for (const el of HUB_SCENE_ELEMENT_KEYS) {
     section.querySelectorAll<HTMLElement>(HUB_SCENE_ELEMENT_SELECTOR[el]).forEach((node) => {
@@ -371,12 +351,18 @@ export function applyElementPreview(
     }
     return parts;
   }
-  if (!key.startsWith('w:')) return [];
+  // 🎞 A Post Event scene's parts are scoped `pe_<scene>` (`postEventElementScope`).
+  const scope = key.startsWith('w:')
+    ? key.slice(2)
+    : key.startsWith('p:') && section.hasAttribute('data-post-event-look')
+      ? postEventElementScope(section.getAttribute('data-post-event-look')!)
+      : null;
+  if (!scope) return [];
   // A ▶ Play leaves an inline `-p` twin that would outrank the new motion.
   if (motion) for (const part of parts) part.style.removeProperty('animation-name');
-  applySceneElementStyles(section, key.slice(2), elements, doc);
+  applySceneElementStyles(section, scope, elements, doc);
   // ✍ …and its runs, cut into the part they were made on (`applySceneRuns`).
-  if (!HUB_ELEMENT_EXCLUDED_WIDGETS.includes(key.slice(2))) applySceneRuns(section, elements, doc);
+  if (key.startsWith('w:') && !HUB_ELEMENT_EXCLUDED_WIDGETS.includes(scope)) applySceneRuns(section, elements, doc);
   return parts;
 }
 
@@ -429,6 +415,11 @@ export function EditorBridge() {
   useEffect(() => {
     const origin = window.location.origin;
     const cleanups: Array<() => void> = [];
+    /* ✍ TAP ANY TEXT, TYPE RIGHT THERE (Maker core part 2): a tap on a hero
+       part's words puts the caret in them; the Maker hears every keystroke and
+       writes it (`type-in-place-canvas.ts`). */
+    const typing = createCanvasTyping(window, (m) => window.parent?.postMessage(m, origin));
+    cleanups.push(() => typing.dispose());
 
     // ── canvas → Maker: a tapped section selects its navigator tile ─────────
     const bind = (el: HTMLElement, key: string) => {
@@ -457,9 +448,21 @@ export function EditorBridge() {
         // never follows it anywhere (see maker-canvas-guard.tsx).
         e.preventDefault();
         e.stopPropagation();
+        // ✍ A tap inside the words being typed only moves the caret.
+        if (typing.inside(e.target)) return;
         // 🔤 A tap ON a part edits that part; anywhere else, the scene.
         const part = tappedElement(e.target, el);
         mark(part);
+        /* ✍ A hero part's words: the caret goes IN them, here, in the tap
+           itself (a phone raises its keyboard only for a focus made in the
+           gesture) — and the Maker's type bar, not its sheet, answers. */
+        const typeEl = typeablePart(part, key);
+        if (part && typeEl) {
+          const at = e as MouseEvent;
+          typing.begin(part, key, typeEl, { x: at.clientX, y: at.clientY });
+          return;
+        }
+        typing.stop();
         // 📱 On a phone the element's sheet rises over the lower canvas, so the
         // part is brought up to where it stays in view while it is edited.
         try {
@@ -510,6 +513,9 @@ export function EditorBridge() {
     const onSelection = () => {
       if (selTimer) window.clearTimeout(selTimer);
       selTimer = window.setTimeout(() => {
+        /* ✍ Letters selected while typing are the caret's, not a pick for the
+           style sheet (Style ▾ opens it, on the whole part). */
+        if (typing.typing()) return;
         const hit = selectionInPart(window.getSelection());
         const section = hit?.part.closest('[data-setnayan-editor-bound="1"]') as HTMLElement | null;
         const marker = section?.previousElementSibling;
@@ -558,7 +564,39 @@ export function EditorBridge() {
         }
         return;
       }
+      /* ⚡ THE LOVE STORY AND THE PROGRAMME, AS THEY ARE TYPED (owner
+         2026-09-30: *"so hard to edit … the delay of response is terrible"*).
+         Page-wide, like the backgrounds above: the Maker's words land on the
+         scenes the server drew (`lib/maker-live-preview.ts`); nothing is
+         fetched and nothing reloads. */
+      if (data && data.source === 'setnayan-editor' && data.t === LOVE_STORY_PREVIEW) {
+        applyLoveStoryPreview(document, (data as { scenes?: unknown }).scenes);
+        return;
+      }
+      if (data && data.source === 'setnayan-editor' && data.t === SCHEDULE_PREVIEW) {
+        applySchedulePreview(document, (data as { moment?: unknown }).moment);
+        return;
+      }
+      /* ✍ Tap-to-type: the Maker ends the typing (Done, Style ▾, a tap
+         outside), or asks for the words as they are now (its bar just loaded). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'typeStop') {
+        typing.stop();
+        return;
+      }
+      if (data && data.source === 'setnayan-editor' && data.t === 'typeSync') {
+        typing.sync();
+        return;
+      }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
+      if (data.t === 'typeText') {
+        /* ✍ A Wording ▾ / Format ▾ pick, the other pane's keystroke, or a
+           refused save's words put back — on the part now. */
+        const text = (data as { text?: unknown }).text;
+        if (typeof data.el === 'string' && typeof text === 'string') {
+          typing.set(findMakerSection(document, data.key), data.el, text.slice(0, 240));
+        }
+        return;
+      }
       const el = findMakerSection(document, data.key);
       if (!el) return;
       if (data.t === 'sceneShow') {

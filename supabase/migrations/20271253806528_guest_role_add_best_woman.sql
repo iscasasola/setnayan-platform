@@ -1,0 +1,25 @@
+-- guest_role_add_best_woman
+-- Created via `pnpm migration:new`. Prefix auto-allocated to sort AFTER every
+-- existing migration.
+--
+-- WHY. Owner, verbatim 2026-09-30: "Also on guestlist (We can pick either best
+-- man or best woman and maid or matron of honor)". The bride's honour attendant
+-- already had two words (`maid_of_honor` / `matron_of_honor`); the groom's had
+-- one. A groom whose closest friend is a woman had to list her as "Best Man".
+--
+-- `best_woman` is the ALTERNATIVE to `best_man`, never a replacement: same
+-- place in the march, same (groom's) column, same colour slot on the Mood Board
+-- (palette key `best_man`, see paletteKeyForRole), same host template. Nothing
+-- makes the two exclusive — a couple may have both, exactly as a maid AND a
+-- matron of honour may both stand (owner ruling 2026-09-14: "they can do as much
+-- as they want").
+--
+-- ⚠ NO BEGIN/COMMIT, AND NOTHING ELSE IN THIS FILE. A newly-added enum value
+-- cannot be referenced in the transaction that adds it — the same pattern as
+-- 20271225194308_guest_role_split_principal_sponsor.sql. Additive and
+-- idempotent; no backfill (nobody holds it yet).
+--
+-- Enum sort order = creation order, so this sorts last. Display order comes from
+-- ROLE_IMPORTANCE in apps/web/lib/role-groups.ts, never from the enum.
+
+ALTER TYPE public.guest_role ADD VALUE IF NOT EXISTS 'best_woman';

@@ -612,7 +612,9 @@ test('⌘K cannot be bound by two palettes at once', () => {
   const OWNERS = [
     join(APP, 'admin', '_components', 'admin-command-palette.tsx'),
     join(APP, 'admin', 'ugat', '_components', 'ugat-console.tsx'),
-    join(APP, 'dashboard', '[eventId]', 'guests', '_components', 'guests-search.tsx'),
+    // ⤷ 2026-10-01: the Guest list's ⌘K moved from its in-page box (deleted)
+    // to the top bar's own guest search, which claims it the same way.
+    join(APP, 'dashboard', '(launcher)', '_components', 'guests-top-search.tsx'),
   ];
   for (const p of OWNERS) {
     assert.ok(

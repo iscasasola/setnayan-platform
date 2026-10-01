@@ -95,7 +95,13 @@ test('the premise: the builder reads gates, and production calls it', () => {
   );
   assert.ok(GATES.length >= 3, `only ${GATES.length} gate(s) parsed — the regex stopped matching`);
   const sites = callSites();
-  assert.ok(sites.length >= 2, `found ${sites.length} call site(s) — the parse found nothing to check`);
+  // 🔄 Stage D (2026-09-29): the section sub-nav is retired, so the phone bar
+  // is the ONE production caller. Zero would mean the parse found nothing.
+  assert.ok(sites.length >= 1, `found ${sites.length} call site(s) — the parse found nothing to check`);
+  assert.ok(
+    sites.some((s) => s.file.endsWith('customer-bottom-nav.tsx')),
+    `the phone bar is not among the parsed callers (${sites.map((s) => s.file).join(', ')})`,
+  );
 });
 
 /* ══ 1 · THE ASSERTION ════════════════════════════════════════════════════ */
@@ -122,7 +128,7 @@ test('🔒 the plan-phase Hub row is present when enabled and absent when not', 
 
   assert.ok(
     keys(true).includes('launch'),
-    'the plan phone roster has no Event Hub Controller row even with the surface enabled',
+    'the phone bar has no Event Hub Maker tab even with the surface enabled',
   );
   // And the gate is a real gate, not decoration — otherwise forwarding it would
   // be pointless and this whole file would be guarding nothing.

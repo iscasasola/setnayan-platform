@@ -546,6 +546,7 @@ export default async function VendorDashboardLayout({
         navSlots={navSlots}
         bookingsBadge={bookingsPending}
         threadsBadge={threadsUnread}
+        storeShell={storeShell}
       />
       {/*
         ── THERE IS NO FAB HERE, AND THAT IS DELIBERATE (owner, 2026-09-22:
@@ -560,10 +561,10 @@ export default async function VendorDashboardLayout({
         the list you are already reading is a door into the room you are
         standing in.
 
-        🪤 THE SIBLING DOORWAYS STILL HAVE ONE, so its absence here reads as an
-        oversight unless this note exists. `AdminNavFab` (admin) and
-        `CustomerNavFab` (the couple) both still mount the shared `NavFab`
-        primitive, which is untouched — only the vendor wrapper was deleted.
+        🪤 THE ADMIN DOORWAY STILL HAS ONE, so its absence here reads as an
+        oversight unless this note exists. `AdminNavFab` still mounts the
+        shared `NavFab` primitive, which is untouched — only the vendor wrapper
+        was deleted (and the couple's `CustomerNavFab`, owner 2026-10-01).
         Do not "restore the missing fab for consistency": three doorways with
         three different jobs is not an inconsistency.
       */}

@@ -153,24 +153,47 @@ test('every capability the shipped editor had is still on the Story Maker', () =
 
 /**
  * ✅ OWNER RULED 2026-09-09: THE PRO GATE STAYS EXACTLY AS SHIPPED. Naming and
- * writing the moments, section order, placing your own columns and featuring
- * guest wishes stay PRO. The prototype drew them ungated; that was an omission,
- * not a repricing, and shipping four paid abilities as free is a repricing
- * nobody chose. This is the guard against doing it by accident.
+ * writing the moments, placing your own columns and featuring guest wishes stay
+ * PRO. The prototype drew them ungated; that was an omission, not a repricing,
+ * and shipping paid abilities as free is a repricing nobody chose. This is the
+ * guard against doing it by accident.
+ *
+ * ✏️ ONE DELIBERATE REPRICING SINCE: SECTION ORDER IS FREE (owner E4
+ * 2026-09-25 — reorder and hide Post Event's scenes free; controller ruling
+ * 2026-09-29 — "the story page's reorder is FREE too", so it matches the Event
+ * Hub Maker). Pinned below in the opposite direction, so the old gate cannot
+ * creep back either.
  */
-test('the four PRO abilities are still gated, on the client AND on the server', () => {
-  const clientGated = [
-    /disabled=\{!isPro \|\| i === 0\}/, // reorder controls
-    /disabled=\{!isPro\}/, // moment name / write-up / wish fields
-  ];
-  for (const re of clientGated) {
-    assert.ok(re.test(editor), `the PRO gate is gone from the editor: ${re}`);
-  }
+/*
+ * 💎 AND SINCE 2026-09-29, TRIED FREE AND ASKED AT APPLY (owner: "◆ marks Pro
+ * and never blocks; there are no padlocks; Apply is the gate"). The three are
+ * STILL Pro — but a couple without Pro can write them: nothing in the editor is
+ * disabled on `isPro`, and the server keeps what they wrote in the Event Hub
+ * DRAFT instead of on the live story, for the Maker's Apply sheet to ask.
+ */
+test('the PRO abilities are still Pro on the server, open on the client — and section order is free', () => {
+  assert.doesNotMatch(editor, /disabled=\{!isPro/, 'a Pro touch is disabled for a couple without Pro — Apply is the gate');
+  assert.doesNotMatch(editor, /state=\{?['"]locked['"]|: 'locked'/, 'a padlock on a Pro touch');
+  // The non-Pro branch drafts them — never onto the live story.
+  const heldBlock = actions.slice(actions.indexOf('if (!isPro) {'), actions.indexOf('const sectionOrder ='));
+  assert.ok(heldBlock.length > 0 && /saveHubDraftPatch\(eventId, \{ editorial: heldPatch \}\)/.test(actions), 'a non-Pro save no longer keeps its Pro touches in the Event Hub draft');
+  assert.doesNotMatch(heldBlock, /draft\.(chapterOverrides|customColumns|reviews)\s*=/, 'a non-Pro save wrote a Pro touch onto the LIVE story');
   // The client flag is presentation only — the SERVER strip is the real gate.
   assert.ok(
-    /if \(isPro\) \{[\s\S]*?chapterOverrides[\s\S]*?sectionOrder[\s\S]*?reviews[\s\S]*?\}/.test(actions),
+    /if \(isPro\) \{[\s\S]*?chapterOverrides[\s\S]*?customColumns[\s\S]*?reviews[\s\S]*?\}/.test(actions),
     'saveEditorial no longer strips the PRO keys from a non-PRO save',
   );
+  // Section order: free on both sides, and the order can only name columns the story holds.
+  const proBlock = actions.match(/if \(isPro\) \{[\s\S]*?\n  \}/)?.[0] ?? '';
+  assert.ok(proBlock.includes('chapterOverrides'), 'the Pro block was not found');
+  assert.ok(!/draft\.sectionOrder =/.test(proBlock), 'section order went back behind Pro on the server');
+  // …the columns it HOLDS, and the ones a couple without Pro is trying (held in the draft).
+  assert.match(
+    actions,
+    /sanitizeSectionOrder\(input\.sectionOrder, \[\s*\.\.\.sanitizeCustomColumns\(draft\.customColumns\)[^\]]*\.\.\.\(heldPatch\?\.customColumns/,
+  );
+  assert.match(editor, /moveSection\(i, -1\)\}\s*disabled=\{i === 0\}/, 'moving a section up went back behind Pro');
+  assert.match(editor, /moveSection\(i, 1\)\}\s*disabled=\{i === sectionOrder\.length - 1\}/, 'moving a section down went back behind Pro');
   assert.ok(
     /isEditorialProActive\(/.test(actions),
     'saveEditorial no longer resolves PRO server-side',

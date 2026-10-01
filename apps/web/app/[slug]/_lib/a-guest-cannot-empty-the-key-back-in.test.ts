@@ -1,4 +1,7 @@
 /**
+ * 📵 2026-09-29: the reply no longer carries an email at all (owner, "NO EMAIL TO
+ * GUESTS") — the key back in can no longer be emptied OR changed by a guest.
+ *
  * A guest may CHANGE the couple's recorded address. A guest may not EMPTY it.
  *
  * 🔒 OWNER RULED 2026-08-23, asked directly: **"No for email, yes for the rest."**
@@ -104,11 +107,13 @@ test('mobile and preferred name stay freely clearable', () => {
   );
 });
 
-test('only ONE of the three contact fields is conditional', () => {
-  assert.equal(
-    (SRC.match(/\.\.\.\(contactEmail \? \{ email: contactEmail \} : \{\}\)/g) || []).length, 1,
-    'the one conditional contact write is expected exactly once',
-  );
+test('📵 the reply never writes the email at all — and no other contact field is conditional', () => {
+  // SUPERSEDED 2026-09-29 (owner, DECISION_LOG "NO EMAIL TO GUESTS"): the reply
+  // no longer asks for an email, so it can neither change nor empty the key
+  // back in — the strongest form of the rule above. The stored address is only
+  // ever the couple's.
+  assert.ok(!/formData\.get\('contact_email'\)/.test(SRC), 'the reply reads an email again');
+  assert.ok(!/\{ email: contactEmail \}/.test(SRC), 'the reply writes an email again');
   // Counts the SHAPE, so a second field made conditional is caught whatever it
   // is named. `contact(Mobile|Name) ?` would be the tell.
   assert.ok(

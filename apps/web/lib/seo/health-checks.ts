@@ -107,7 +107,7 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/explore',
   '/explore/compare',
   '/explore/categories',
-  '/vendors',
+  '/for-suppliers',
   '/open-shop',
   '/v/',
   '/setnayan-ai',

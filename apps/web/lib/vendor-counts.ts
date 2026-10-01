@@ -123,7 +123,10 @@ export async function fetchVendorCountsByService(
   // catalog-mode tile counts. The reconcile migration 20270331400000 marked
   // the founder + every paid vendor 'verified', so no real vendor is dropped.
   if (!includeDemoUnverified) {
-    query = query.eq('verification_state', 'verified');
+    // …and never a demo shop (2026-09-30): the two trial shops are verified AND
+    // `is_demo` (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)), so the gate above
+    // alone would keep counting them on every public tile.
+    query = query.eq('verification_state', 'verified').eq('is_demo', false);
   }
 
   const { data, error } = await query;

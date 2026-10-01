@@ -15,7 +15,7 @@
  * is read-only, the steppers and actions are gone.
  */
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { ArrowUpDown, Send, Trash2, X } from 'lucide-react';
 import { SCHEDULE_BLOCK_TYPES, scheduleBlockLabelFor } from '@/lib/schedule';
 import { fromDatetimeLocalValue } from '@/lib/schedule-datetime-local';
@@ -30,6 +30,11 @@ import {
   wallDateKey,
 } from '@/lib/schedule-rail';
 import type { DayMoment, DayRequest, DaySupplier } from './day-types';
+import { formatBlockTime, formatBlockTimeRange } from '@/lib/schedule';
+import { DETAILS_PIECE_LABEL_EVENT } from '../../launch/_components/details-piece';
+import { CARRIED, momentLatestWrite, postMomentToCanvas } from './schedule-live';
+
+const FIELD_WHAT = { label: 'The name', location: 'The place', notes: 'The note' } as const;
 import { Eyebrow, PickMenu, Stepper, Switch, Tip, toFormData, useDayActions } from './day-ui';
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -50,6 +55,8 @@ export function MomentInspector({
   onDeleted,
   onOverride,
   onRevert,
+  onConfirm,
+  live = false,
 }: {
   eventId: string;
   eventType: string | null;
@@ -67,6 +74,14 @@ export function MomentInspector({
   onDeleted: () => void;
   onOverride: (id: string, patch: Partial<DayMoment>) => void;
   onRevert: (ids: string[]) => void;
+  /** A change that DID save — a later refusal goes back to it (`day-rail.tsx`). */
+  onConfirm?: (id: string, patch: Partial<DayMoment>) => void;
+  /**
+   * ⚡ In the Event Hub Maker (`schedule-live.ts`): a name, place or note is on
+   * the rail and the stage canvases AS IT IS TYPED, and typing and − / + taps
+   * are one save after the pause. Off on the standalone Schedule page.
+   */
+  live?: boolean;
 }) {
   const {
     createScheduleBlock,
@@ -85,18 +100,63 @@ export function MomentInspector({
   const span = spanOf(m.start_at, m.end_at);
   const [partTime, setPartTime] = useState(toDatetimeLocal(dateKey, span.startMin).slice(11));
 
-  function run(ids: string[], action: () => Promise<unknown>, after?: () => void) {
+  /** What did not save, in the couple's words — said, and put back. */
+  const [failed, setFailed] = useState<string | null>(null);
+  const labelBox = useRef<HTMLInputElement>(null);
+  const locationBox = useRef<HTMLInputElement>(null);
+  const notesBox = useRef<HTMLTextAreaElement>(null);
+  /* A refused save put the rail back to what last saved — the boxes follow it. */
+  useEffect(() => {
+    if (save !== 'error') return;
+    if (labelBox.current) labelBox.current.value = m.label;
+    if (locationBox.current) locationBox.current.value = m.location ?? '';
+    if (notesBox.current) notesBox.current.value = m.notes ?? '';
+  }, [save, m.label, m.location, m.notes]);
+  function run(
+    ids: string[],
+    action: () => Promise<unknown>,
+    after?: () => void,
+    saved?: Partial<DayMoment>,
+    what = 'That change',
+  ) {
     setSave('saving');
+    setFailed(null);
     startTransition(async () => {
       try {
-        await action();
+        const out = await action();
+        /* A later keystroke carried this one — its answer decides. */
+        if (out === CARRIED) return;
+        if (saved && ids[0]) onConfirm?.(ids[0], saved);
         setSave('saved');
         after?.();
       } catch {
         onRevert(ids);
+        setFailed(what);
         setSave('error');
       }
     });
+  }
+
+  /** ⚡ One box, typed: on the rail and the canvas now, saved after the pause. */
+  function liveField(field: 'label' | 'location' | 'notes', value: string) {
+    const text = value.trim();
+    if (field === 'label' && text.length === 0) return;
+    const patch: Partial<DayMoment> = { [field]: field === 'label' ? text : text || null };
+    onOverride(m.block_id, patch);
+    postMomentToCanvas({ id: m.block_id, [field]: text });
+    if (field === 'label') {
+      window.dispatchEvent(new CustomEvent(DETAILS_PIECE_LABEL_EVENT, { detail: { item: 'schedule', piece: m.block_id, label: text } }));
+    }
+    run(
+      [m.block_id],
+      () =>
+        momentLatestWrite(m.block_id, field, () =>
+          updateScheduleBlock(toFormData({ event_id: eventId, block_id: m.block_id, [field]: value })),
+        ),
+      undefined,
+      patch,
+      FIELD_WHAT[field],
+    );
   }
 
   function saveField(field: 'label' | 'location' | 'notes', value: string) {
@@ -123,6 +183,16 @@ export function MomentInspector({
       values.end_at = toDatetimeLocal(dateKey, nextEnd);
     }
     onOverride(m.block_id, patch);
+    if (live) {
+      /* ⚡ The new time is on the canvas now; quick − / + taps are ONE save. */
+      const start = patch.start_at ?? m.start_at;
+      postMomentToCanvas({ id: m.block_id, time: formatBlockTimeRange(start, patch.end_at === undefined ? m.end_at : patch.end_at) });
+      window.dispatchEvent(
+        new CustomEvent(DETAILS_PIECE_LABEL_EVENT, { detail: { item: 'schedule', piece: m.block_id, sub: formatBlockTime(start) } }),
+      );
+      run([m.block_id], () => momentLatestWrite(m.block_id, 'times', () => updateScheduleBlock(toFormData(values))), undefined, patch, 'The new time');
+      return;
+    }
     run([m.block_id], () => updateScheduleBlock(toFormData(values)));
   }
 
@@ -199,10 +269,12 @@ export function MomentInspector({
 
       <input
         type="text"
+        ref={labelBox}
         aria-label="What happens"
         defaultValue={m.label}
         readOnly={readOnly}
         maxLength={120}
+        onChange={live ? (e) => liveField('label', e.target.value) : undefined}
         onBlur={(e) => saveField('label', e.target.value)}
         className="w-full border-0 border-b border-ink/15 bg-transparent px-0 pb-1.5 pt-0.5 font-display text-[21px] leading-tight text-ink outline-none focus:border-ink read-only:border-transparent lg:text-2xl"
       />
@@ -448,10 +520,12 @@ export function MomentInspector({
         <Eyebrow>Where</Eyebrow>
         <input
           type="text"
+          ref={locationBox}
           defaultValue={m.location ?? ''}
           readOnly={readOnly}
           maxLength={200}
           placeholder={readOnly ? '' : 'e.g. San Agustin Church, Intramuros'}
+          onChange={live ? (e) => liveField('location', e.target.value) : undefined}
           onBlur={(e) => saveField('location', e.target.value)}
           className="w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink read-only:border-transparent"
         />
@@ -461,9 +535,11 @@ export function MomentInspector({
         <Eyebrow>Notes</Eyebrow>
         <textarea
           rows={2}
+          ref={notesBox}
           defaultValue={m.notes ?? ''}
           readOnly={readOnly}
           placeholder={readOnly ? '' : 'What only the team needs to know'}
+          onChange={live ? (e) => liveField('notes', e.target.value) : undefined}
           onBlur={(e) => saveField('notes', e.target.value)}
           className="w-full resize-none border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[13.5px] leading-normal text-ink outline-none focus:border-ink read-only:border-transparent"
         />
@@ -535,7 +611,9 @@ export function MomentInspector({
           {save === 'saving' ? (
             'Saving…'
           ) : save === 'error' ? (
-            <span className="font-medium text-danger-700">That change did not save. Try again.</span>
+            <span className="font-medium text-danger-700">
+              {failed ?? 'That change'} did not save, so it is back as it was. Try again.
+            </span>
           ) : save === 'saved' ? (
             <>
               <b className="font-semibold text-success-700">Saved</b> · every change saves as you make it

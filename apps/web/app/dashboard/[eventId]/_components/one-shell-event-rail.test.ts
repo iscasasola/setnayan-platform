@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import React from 'react';
 import { activeRailKey } from '@/app/_components/frontdoor/rail-active';
 import type { RailMatchRow } from '@/app/_components/frontdoor/rail-active';
 import { buildCustomerNavGroups } from './customer-nav-config';
@@ -234,52 +235,53 @@ test('the account menu is reachable on the couple desktop', () => {
 
 /* ══ 5 · THE MENU IS THE SSOT'S, NOT A NEW IA ════════════════════════════ */
 
-test('the rail reproduces the moments, from the shipped SSOT', () => {
+test('the rail reproduces the five rows, from the shipped SSOT', () => {
   /*
-    🔄 2026-09-24 — "event menu by moment" (owner-approved; binding drawing
-    `event_menu_by_moment_2026-09-24.html`). Plan · Go live · Also in this
-    event became Book · Look · Invite · The day, with the event's name row,
-    the spine (Overview · Papic · Galleries) and the end of the list carrying
-    no heading. The rail still renders whatever the SSOT gives it, so a change
-    here is a change to the couple IA on the rail, ☰ and phone at once.
+    🔄 2026-09-29 — Stage D (owner: *"this is what an event needs. Guestlist ·
+    Your Team · Event Hub Maker · Our Services"*). The "by moment" headings
+    (Book · Look · Invite · The day, 2026-09-24) are gone: the rail is the
+    event's name row, then five plain rows — none with a heading (the interim
+    Seat plan row left in train n; its Details home is on main). The rail still renders whatever the SSOT gives it, so a
+    change here is a change to the couple IA on the rail, ☰ and phone at once.
   */
   const studioRows = [
     { key: 'papic', href: `/dashboard/${EVENT_ID}/studio/papic`, name: 'Papic' },
     { key: 'mood-board', href: `/dashboard/${EVENT_ID}/studio/mood-board`, name: 'Mood Board' },
   ];
   const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true, studioRows });
+  assert.deepEqual(groups.map((g) => g.key), ['event', 'pillars'], 'a section beyond the name row and the five');
+  assert.deepEqual(groups.map((g) => g.label), ['', ''], 'the five rows carry no headings');
   assert.deepEqual(
-    groups.map((g) => g.label),
-    ['', '', 'Book', 'Look', 'Invite', 'The day', ''],
-    'The moments changed. Book · Look · Invite · The day is the approved shape; ' +
-      'the name row, the spine and the end of the list carry no heading.',
-  );
-  // …and a moment with nothing in it never draws its heading.
-  const bare = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
-  assert.ok(!bare.some((g) => g.label === 'Look'), 'an empty Look moment drew a heading over nothing');
-});
-
-test('Budget is a row under Book, never a main room — owner 2026-07-10', () => {
-  const groups = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true });
-  const book = groups.find((g) => g.label === 'Book');
-  assert.ok(book);
-  assert.deepEqual(
-    book.items.map((i) => i.key),
-    ['explore', 'budget'],
-    'Book is Your Team then Budget — the budget fills from what Your Team agrees ' +
-      'to. Budget is still a quiet row (2026-07-10 holds): the drawing says ' +
-      '"Still a row, not a main room".',
+    groups.find((g) => g.key === 'pillars')?.items.map((i) => i.key),
+    ['home', 'guests', 'explore', 'launch', 'studio'],
   );
 });
 
-test('every rail row is a plain leaf — "solid menu with no submenus" (2026-07-15)', () => {
+test('Budget is never a main room — owner 2026-07-10 (a part of Your Team since Stage D)', () => {
+  const rows = buildCustomerNavGroups(EVENT_ID, { websiteEnabled: true }).flatMap((g) => g.items);
+  assert.ok(!rows.some((i) => i.key === 'budget'), 'Budget is a menu row again');
+  assert.ok(
+    rows.find((i) => i.key === 'explore')?.alsoMatch?.includes(`/dashboard/${EVENT_ID}/budget`),
+    'the old /budget page must light Your Team, which holds it',
+  );
+});
+
+test('every rail row but More Services is a plain leaf — "solid menu with no submenus" (2026-07-15)', () => {
+  /* 📂 The owner's ONE exception (2026-09-30, DECISION_LOG "THE SIDEBAR ROW
+     'MORE SERVICES' EXPANDS TO THE FIVE"): the `studio` row opens to its five.
+     Every `item.children` read must sit inside that one branch — the branch
+     opens with the `studio` key check and ends at the leaf's `return (`. */
   const src = code(readFileSync(RAIL, 'utf8'));
+  const start = src.indexOf("if (item.key === 'studio' && item.children?.length)");
+  assert.ok(start >= 0, 'the More Services branch is gone — or it is no longer keyed to `studio`');
+  const end = src.indexOf('return (', src.indexOf('</ul>', start));
+  const outside = src.slice(0, start) + src.slice(end);
   assert.doesNotMatch(
-    src,
+    outside,
     /\bitem\.children\b/,
-    'The rail renders NavItem.children, which reverses the owner lock of ' +
-      '2026-07-15 ("solid menu with no submenus") silently, while looking like ' +
-      'a nicety. Sub-navigation lives inside each page.',
+    'The rail renders NavItem.children for a row other than More Services, which ' +
+      'reverses the owner lock of 2026-07-15 ("solid menu with no submenus") ' +
+      'silently, while looking like a nicety. Sub-navigation lives inside each page.',
   );
 });
 
@@ -518,4 +520,109 @@ test('the event mark is centred by ONE rule, not once per width', () => {
     'the rule that centres the mark is nested inside a media query, so the ' +
       'mark is centred at some widths and not others — which is the defect.',
   );
+});
+
+/* ══ 10 · MORE SERVICES READS AS A SUB-MENU, NOT FIVE MORE PLACES ═══════════
+   Owner 2026-10-01 (DECISION_LOG "THE SIDEBAR'S MORE SERVICES OPENS AS A
+   VISIBLE SUB-MENU"): *"why do i see a lot of side menu?"* — Setnayan AI ·
+   Papic · Live Studio · Music Maker · Patiktok rendered identical to Home ·
+   Guests · Suppliers · Hub, so the rail read as eleven places.
+
+   🔑 THESE RENDER THE REAL COMPONENT. A source grep would pass the moment the
+   five moved back beside the leaves, or the `hidden` was dropped from the
+   group — both leave every string the grep looks for in the file. */
+
+const FIVE = [
+  { key: 'ai', label: 'Setnayan AI (SAI)', href: `/dashboard/${EVENT_ID}/studio/ai`, icon: 'ai' },
+  { key: 'papic', label: 'Papic', href: `/dashboard/${EVENT_ID}/studio/papic`, icon: 'papic' },
+  { key: 'live', label: 'Live Studio', href: `/dashboard/${EVENT_ID}/studio/live`, icon: 'live' },
+  { key: 'pakanta', label: 'Music Maker', href: `/dashboard/${EVENT_ID}/studio/pakanta`, icon: 'pakanta' },
+  { key: 'patiktok', label: 'Patiktok', href: `/dashboard/${EVENT_ID}/studio/patiktok`, icon: 'patiktok' },
+] as const;
+
+async function paintRail(activeKey: string | null): Promise<string> {
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { EventRailContext } = await import('./event-rail-context');
+  const { RailActiveKeyProvider } = await import('@/app/_components/frontdoor/rail-active-key');
+  return renderToStaticMarkup(
+    React.createElement(
+      // `children` goes as the 3rd argument (react/no-children-prop), which the
+      // component's props type cannot see — hence the widening.
+      RailActiveKeyProvider as unknown as React.ComponentType<{ activeKey: string | null }>,
+      { activeKey },
+      React.createElement(EventRailContext, {
+        eventId: EVENT_ID,
+        eventName: 'A & M',
+        websiteEnabled: true,
+        services: [...FIVE],
+      }),
+    ),
+  );
+}
+
+/** The sub-group's inner markup, and everything outside it. */
+function splitGroup(html: string): { tag: string; inside: string; outside: string } {
+  const m = html.match(/<ul\b[^>]*\bclass="fd-msub"[^>]*>([\s\S]*?)<\/ul>/);
+  assert.ok(m, 'More Services has no `.fd-msub` group — the five are loose rows again.');
+  return { tag: m[0].slice(0, m[0].indexOf('>') + 1), inside: m[1]!, outside: html.replace(m[0], '') };
+}
+
+test('the five sit inside ONE `.fd-msub` group — never beside Home · Guests · Suppliers · Hub', async () => {
+  const { inside, outside } = splitGroup(await paintRail('home'));
+  assert.equal((inside.match(/\bfd-mchild\b/g) ?? []).length, 5, 'the group does not hold exactly the five');
+  for (const f of FIVE) assert.ok(inside.includes(f.label), `${f.label} is not inside the group`);
+  // Not one of them is a sibling of the four top-level rows.
+  assert.ok(!/\bfd-mchild\b/.test(outside), 'a child row renders OUTSIDE the sub-group, beside the top-level rows');
+  for (const f of FIVE) assert.ok(!outside.includes(f.href), `${f.label} also renders as a top-level link`);
+  // The four top-level rows are still plain links, outside the group.
+  const leaves = [...outside.matchAll(/<a\b[^>]*\bclass="fd-row fd-mrow"/g)].length;
+  assert.ok(leaves >= 4, `expected Home · Guests · Suppliers · Hub as top-level rows, saw ${leaves}`);
+  // The only button in the rail is the More Services toggle.
+  assert.equal((outside.match(/<button\b/g) ?? []).length, 1, 'more than one row opens');
+});
+
+test('the group is CLOSED by default, and OPEN when the current page is one of the five', async () => {
+  const closed = await paintRail('home');
+  assert.match(splitGroup(closed).tag, /\bhidden=""/, 'More Services starts open — the rail reads as eleven rows');
+  assert.match(closed, /aria-expanded="false"/, 'the toggle does not say it is closed');
+  for (const lit of ['studio']) {
+    const open = await paintRail(lit);
+    assert.doesNotMatch(splitGroup(open).tag, /\bhidden=/, 'standing on a More Services page leaves the group shut');
+    assert.match(open, /aria-expanded="true"/, 'the toggle does not say it is open');
+  }
+  // A page that is not one of the five does not open it.
+  assert.match(splitGroup(await paintRail(null)).tag, /\bhidden=""/);
+});
+
+test('the group is styled as a tinted, inset panel with a gold line, smaller icons — and labels never truncate', () => {
+  const css = readFileSync(CSS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rule = (sel: string): string => {
+    const m = css.match(new RegExp(`(?:^|\\})\\s*${sel.replace(/[.[\]()]/g, '\\$&')}\\s*\\{([^}]*)\\}`));
+    assert.ok(m, `no \`${sel}\` rule`);
+    return m[1]!;
+  };
+  const grp = rule('.fd-msub');
+  assert.match(grp, /background:/, 'the group has no tint — it does not read as a panel');
+  assert.match(grp, /border-left:\s*2px solid var\(--fd-gold\)/, 'the thin gold line down the group is gone');
+  assert.match(rule('.fd-msub .fd-gi svg'), /width:\s*15px/, 'the children wear full-size icons again');
+  assert.match(css, /@media \(min-width: 1280px\), \(max-width: 1023\.98px\)\s*\{\s*\.fd-msub\s*\{\s*margin-left:/, 'the inset is gone');
+  // The 72px strip's caption WRAPS: an ellipsis there is "More Serv…".
+  const strip = css.slice(css.indexOf('@media (max-width: 1279.98px)'));
+  const cap = strip.slice(strip.indexOf('.fd-row .fd-icon-caption'), strip.indexOf('}', strip.indexOf('.fd-row .fd-icon-caption')));
+  assert.match(cap, /white-space:\s*normal/, 'the strip caption cannot wrap');
+  assert.doesNotMatch(cap, /text-overflow|nowrap/, 'the strip caption truncates — "More Serv…", "Setnayan …", "Music Ma…"');
+});
+
+test('the event mark scales to its slot and its ink is never sliced', () => {
+  const css = readFileSync(CSS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const m = css.match(/\.fd\[data-chrome='app'\] \.fd-rctx-mark svg\s*\{([^}]*)\}/);
+  assert.ok(m, 'the rail mark has no svg-fit rule — a wide lockup spills its slot');
+  assert.match(m[1]!, /max-width:\s*100%/, 'the mark can outgrow its slot');
+  assert.match(m[1]!, /overflow:\s*visible/, 'the svg clips its own glyphs to the viewBox — the M is cut off');
+  assert.doesNotMatch(m[1]!, /\bheight:\s*\d/, 'a fixed pixel height defeats the scale');
+});
+
+test('the rail does not remember More Services open', () => {
+  assert.ok(!/localStorage/.test(code(readFileSync(RAIL, 'utf8'))), 'a remembered "open" makes the default not closed');
 });

@@ -6,6 +6,7 @@ import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { PabuyaManager } from './_components/pabuya-manager';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { PabuyaMessageEditor } from './_components/pabuya-message-editor';
+import { pabuyaTemplatesFor } from '@/lib/pabuya-templates-for';
 
 export const metadata = { title: 'Pabuya · E-Gifts' };
 
@@ -92,12 +93,26 @@ export default async function PabuyaDashboardPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <PageMasthead title="The digital money dance" />
+      {/* 🕊 The money dance is a WEDDING's gift; a wake's is sympathy; every
+          other type uses the product's one name (audit 2026-09-30). */}
+      <PageMasthead
+        title={
+          words.solemn
+            ? 'Gifts of sympathy'
+            : words.eventWord === 'wedding'
+              ? 'The digital money dance'
+              : 'E-Gifts'
+        }
+      />
 
       {/* The couple's own sentence, above their payment details — owner
           2026-09-15. Mounted ABOVE the manager because that is where it sits
           on the public page; a preview that reorders the page is not one. */}
-      <PabuyaMessageEditor eventId={eventId} initialMessage={event?.pabuya_message ?? null} />
+      <PabuyaMessageEditor
+        eventId={eventId}
+        initialMessage={event?.pabuya_message ?? null}
+        templates={pabuyaTemplatesFor(words)}
+      />
 
       <PabuyaManager
         eventId={eventId}

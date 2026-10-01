@@ -21,6 +21,7 @@ import {
   EyeOff,
   Heart,
   Images,
+  Laptop,
   ClipboardList,
   LayoutPanelLeft,
   Maximize2,
@@ -38,6 +39,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  Ticket,
   UserSquare,
   Users,
   UtensilsCrossed,
@@ -103,15 +105,20 @@ export type TourKey =
   | 'customer_print_menu_v1'
   | 'customer_details_guided_v1'
   | 'customer_print_story_poster_v1'
-  | 'customer_guest_reminders_v1'
   | 'customer_schedule_v1'
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
+  | 'customer_guest_invite_v1'
   | 'customer_apply_pro_v1'
+  | 'customer_event_menu_v1'
   | 'discover_upcoming_v1'
   | 'admin_users_v1'
-  | 'admin_force_majeure_v1';
+  | 'admin_force_majeure_v1'
+  // The supplier phone app (DECISION_LOG 2026-10-01 "THE SUPPLIER PHONE APP —
+  // APPROVED, WITH THE THREE RECOMMENDED ANSWERS").
+  | 'vendor_today_v1'
+  | 'vendor_customers_v1';
 
 export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'couple_welcome_v1',
@@ -132,15 +139,18 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_print_menu_v1',
   'customer_details_guided_v1',
   'customer_print_story_poster_v1',
-  'customer_guest_reminders_v1',
   'customer_schedule_v1',
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
   'customer_people_v1',
+  'customer_guest_invite_v1',
   'customer_apply_pro_v1',
+  'customer_event_menu_v1',
   'discover_upcoming_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
+  'vendor_today_v1',
+  'vendor_customers_v1',
 ];
 
 export type TourDefinition = {
@@ -265,7 +275,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Briefcase,
-        title: 'My Shop is your storefront',
+        title: 'Shop is your storefront',
         body: 'Build service cards with photos, prices and what&rsquo;s included. Your shop address is yours for good — it goes live to couples once Setnayan approves your shop.',
       },
       {
@@ -281,7 +291,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: ShieldCheck,
         title: 'Get verified',
-        body: 'Verification is what puts your shop in front of couples. Send your documents once from My Shop — Setnayan reviews them, and your page goes live.',
+        body: 'Verification is what puts your shop in front of couples. Send your documents once from Shop — Setnayan reviews them, and your page goes live.',
       },
     ],
   },
@@ -486,18 +496,18 @@ export const TOURS: Record<TourKey, TourDefinition> = {
      app-store shell drops it. */
   customer_post_event_v1: {
     key: 'customer_post_event_v1',
-    label: 'Post Event — your story, written for you',
-    blurb: 'How the story after the day is written from what happened, scene by scene.',
+    label: 'Post Event — your story after the day, scene by scene',
+    blurb: 'How the story after the day is made of scenes you can style, arrange and add to — written for you from what happened.',
     slides: [
       {
         Icon: BookOpen,
-        title: 'Your story after the day, written for you',
-        body: 'After the day, the Event Hub Maker wrote Post Event from what happened &mdash; the chapters of your day, the gallery, the film, the wishes. There was nothing to type, and every scene says what filled it.',
+        title: 'Post Event is its own scenes',
+        body: 'The story after your day is not one block: the front page, the road to the day, the numbers, each chapter, the gallery, the notes, your thank-you &mdash; each is its own scene here. After the day they are written for you from what happened; there is nothing to type.',
       },
       {
         Icon: EyeOff,
-        title: 'Nothing to show? The scene is skipped',
-        body: 'A part of the day with nothing in it yet &mdash; no reviews, no Live Photo Wall &mdash; is marked <b>Skipped</b>, and your guests never meet an empty box. It appears on its own when something arrives.',
+        title: 'Nothing there yet? It says so',
+        body: 'Before your day, a scene that fills itself from the day is marked <b>Not yet</b> and says what will fill it. After the day, one with nothing in it is <b>Skipped</b>. Your guests never meet an empty box.',
       },
       {
         Icon: Maximize2,
@@ -506,8 +516,18 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Sparkles,
-        title: 'Free — and yours to change',
-        body: 'The written story is free. Hide or reorder its scenes in your story workroom. A Pro theme and your own photos come with Event Hub Pro.',
+        title: 'Free — and yours to change, right here',
+        body: 'Tap a scene to pick its <b>Style</b>, hide it, or move it earlier or later &mdash; all free, all in your draft until you press <b>Apply</b>. Tap any part to change its words.',
+      },
+      {
+        Icon: Users,
+        title: 'Your guests’ bar after the day',
+        body: 'After the day your guests move through the story with <b>Recap · Film · Suppliers · Gallery · Me</b>. A slot with nothing behind it is simply not there, and the camera is put away &mdash; yours stays.',
+      },
+      {
+        Icon: Wand2,
+        title: 'Add scenes made for after the day',
+        body: 'Press <b>+ Add a scene</b> on Post Event for twelve scenes made for the story after the day &mdash; The Toast, Before &amp; After, By Our Count, Since Then and more. Each is &#9670; Event Hub Pro: try one in your draft now, and Pro is asked for when you press <b>Apply</b>. A Pro theme, a part&rsquo;s own font and your own photos come with Pro too.',
         sells: true,
       },
     ],
@@ -708,30 +728,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
     ],
   },
-  /*
-    📮 GUEST REMINDER EMAILS (owner 2026-09-26, "THE LAST 30 DAYS"). Fires the
-    first time the couple opens the Maker's RSVP page after the Maker welcome —
-    the switch lives there. Two slides: what each guest gets, and that the
-    switch is theirs. Mounted inside the RSVP page's controls (launch/page.tsx),
-    so it never stacks on the Maker's own first-visit welcome.
-  */
-  customer_guest_reminders_v1: {
-    key: 'customer_guest_reminders_v1',
-    label: 'Reminder emails for your guests',
-    blurb: 'Three short emails — 30 days, 7 days and the day before — each listing only what a guest has not ticked.',
-    slides: [
-      {
-        Icon: Mailbox,
-        title: 'Your guests are reminded for you',
-        body: 'Every guest who gave an email gets three short reminders &mdash; <strong>30 days</strong>, <strong>7 days</strong> and <strong>the day before</strong>. Each one lists only what they have not ticked on their checklist, and links to their own page. A guest who has not replied is asked to reply by your date first.',
-      },
-      {
-        Icon: CheckCircle2,
-        title: 'The switch is yours',
-        body: 'They are on by default. Turn <strong>Reminder emails</strong> off on this page and nobody is emailed. Guests without an email are never emailed either way &mdash; their invitation is the link you share.',
-      },
-    ],
-  },
+  // 📮 `customer_guest_reminders_v1` retired 2026-09-29 with the switch it
+  // taught — no email to guests (owner ruling, DECISION_LOG "NO EMAIL TO GUESTS").
   /*
     THE SCHEDULE'S FIRST VISIT (Schedule rebuild slice 1, 2026-09-27; owner
     2026-09-25: every feature gets a first-visit tour). One slide per thing the
@@ -824,6 +822,37 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   },
   // People, one place, one picker (owner 2026-09-28, the People redesign —
   // slides ①②③ on frame B of people-redesign.html).
+  /* 📨 THE GUEST LIST'S INVITE COLUMN (owner 2026-09-30: *"the personal QR is
+     found on the guest list … and instructions on how to use it"*). Mounted on
+     the Guest list (`guests/page.tsx`). No "email": Setnayan sends guests
+     nothing — every invite leaves from the couple's own phone. */
+  customer_guest_invite_v1: {
+    key: 'customer_guest_invite_v1',
+    label: 'Guest list — Invite',
+    blurb: 'Sending each guest their own message and Digital ticket from the Invite column.',
+    slides: [
+      {
+        Icon: Ticket,
+        title: 'Each guest has their own ticket',
+        body: 'Every guest on your list has a personal link and Digital ticket. The ticket opens their own invitation, and it is their pass at the door.',
+      },
+      {
+        Icon: Send,
+        title: 'Tap Invite to send it',
+        body: 'Pick Messenger, Viber or any app &mdash; the message and their ticket go together. The row then shows it was sent.',
+      },
+      {
+        Icon: Laptop,
+        title: 'On a computer',
+        body: 'Tap Invite, then <b>Copy message</b> and <b>Copy ticket</b>, and paste both into the chat. Tap <b>Mark as sent</b> when it is on its way.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Replies update here by themselves',
+        body: 'When a guest answers or gets their ticket, this list changes on its own. Nothing to type in.',
+      },
+    ],
+  },
   customer_people_v1: {
     key: 'customer_people_v1',
     label: 'Your people',
@@ -843,6 +872,44 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Heart,
         title: 'Following needs no request',
         body: 'Follow anyone with a public profile. Say yes to an event and you follow its hosts on your own. Only you can see who follows you, and you can unfollow any time &mdash; even someone you’re connected with.',
+      },
+    ],
+  },
+  /* 🧭 THE EVENT MENU — FIVE PLACES (Stage D, owner 2026-09-29: "Home · Guest
+     list · Your Team · Event Hub Maker · Our Services"; "on mobile mode … we
+     want it to be simple and easy to manage"; 2026-09-25: every feature gets a
+     first-visit tour). Mounted on the event's Home (`[eventId]/page.tsx`),
+     after the couple welcome, so the two never stack. Words fit every event
+     type — no "wedding", no "couple". No price is named, so nothing here sells. */
+  customer_event_menu_v1: {
+    key: 'customer_event_menu_v1',
+    label: 'Your event menu',
+    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'Five places for your whole event',
+        body: 'Home, Guests, Suppliers, Hub and More. The same five sit at the bottom of your phone and down the side of your laptop.',
+      },
+      {
+        Icon: Users,
+        title: 'Guests',
+        body: 'Your guests, your hosts and, on the day, check-in. Switch between them from the menu at the top of the page.',
+      },
+      {
+        Icon: Briefcase,
+        title: 'Suppliers',
+        body: 'The suppliers you book and your budget, in one place.',
+      },
+      {
+        Icon: Wand2,
+        title: 'Hub',
+        body: 'Where you make your Event Hub, the invitation and every print. Names, date, schedule, mood board and logo are all in its Details.',
+      },
+      {
+        Icon: Camera,
+        title: 'More Services',
+        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok &mdash; tap More to see all five, and add the ones you want for your day.',
       },
     ],
   },
@@ -936,6 +1003,55 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Receipt,
         title: 'Four resolution paths',
         body: 'Refund (vendor returns deposit minus expenses), Reschedule (services move to a new date), Substitute (equivalent service later), Partial (some delivered, some refunded). Pick one, both parties get an email.',
+      },
+    ],
+  },
+  // 📱 THE SUPPLIER PHONE APP — the first visit to the new Today and Customers
+  // (owner-APPROVED 2026-10-01). Claims checked against what the pages do: one
+  // Next card (the oldest answer owed, or "Run the day" on an event day), the
+  // bar of four with Messages · Insights · Event Hub in More, and the round +
+  // that opens the shipped "Import an outside client".
+  vendor_today_v1: {
+    key: 'vendor_today_v1',
+    label: 'Supplier — Today mini-tour',
+    blurb: 'The one Next card, the three numbers and the bar of four.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'One thing at a time',
+        body: 'The Next card is the most urgent thing waiting on you — a reply, a booking to answer, or on an event day, running the day. Answer it and the next one takes its place.',
+      },
+      {
+        Icon: Wallet,
+        title: 'Three numbers',
+        body: 'New inquiries, events this week, and what is still owed to you. Tap any of them to see the list behind it.',
+      },
+      {
+        Icon: Settings,
+        title: 'Everything else is in More',
+        body: 'The bar is Today, Customers, Shop and More. Messages, Insights and the Event Hub live in More — one tap away.',
+      },
+    ],
+  },
+  vendor_customers_v1: {
+    key: 'vendor_customers_v1',
+    label: 'Supplier — Customers mini-tour',
+    blurb: 'One row per customer, one next step each, and the round +.',
+    slides: [
+      {
+        Icon: Users,
+        title: 'Who is waiting comes first',
+        body: 'Every customer is one row with their next step on it. The ones waiting on your answer are always at the top.',
+      },
+      {
+        Icon: ClipboardList,
+        title: 'Filter and Show',
+        body: 'Filter narrows the list to one stage. Show picks what each row tells you on the right — the next step, the money, or the date.',
+      },
+      {
+        Icon: Calendar,
+        title: 'Add an outside client',
+        body: 'Took a booking outside Setnayan? The round + adds it, free, so the date is held and you are never double-booked.',
       },
     ],
   },

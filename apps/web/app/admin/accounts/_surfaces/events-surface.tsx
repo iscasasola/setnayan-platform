@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { CalendarDays, ScanFace, Trash2 } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -37,8 +38,9 @@ type EventRow = {
  * ⚠ These were "locked — cannot ever store face data" until 2026-08-05. The
  * owner (also the DPO) ruled that face tagging applies to every event type we
  * offer, so the switch now works here too — but the confirmation names the risk
- * and the guardian-consent workflow still does not exist. Mirrors
- * MINOR_HEAVY_EVENT_TYPES in lib/papic-face-mode.ts.
+ * and the guardian-consent workflow still does not exist. Used only for the
+ * admin confirmation copy — face tagging itself resolves on for every type
+ * (owner 2026-10-01, "ELEVEN OWNER ANSWERS" #8).
  */
 const MINOR_HEAVY = new Set(['christening', 'debut']);
 
@@ -384,7 +386,11 @@ export async function EventsSurface({
             header: 'Event',
             cell: (e) => (
               <>
-                <p className="font-medium text-ink">{e.display_name}</p>
+                <p className="font-medium text-ink">
+                  <Link href={`/admin/events/${e.public_id || e.event_id}`} className="underline-offset-2 hover:underline">
+                    {e.display_name}
+                  </Link>
+                </p>
                 {e.archived ? (
                   <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/70">
                     Archived
@@ -454,7 +460,13 @@ export async function EventsSurface({
 
                This is the archetype's per-row form, not a table action: it
                renders inside its own cell and keeps its own confirmation, so the
-               caller has to mean it. There is no actions prop to reach for. */
+               caller has to mean it. There is no actions prop to reach for.
+
+               ⚖ SINCE 2026-09-30 IT IS AN OVERRIDE, NOT THE SWITCH (owner,
+               answering #6195: "automatic"). Face tagging runs by itself on
+               every event whose Papic is active — except christening/debut,
+               which still need this button. "Auto" is that default; "On" is
+               the admin forcing it; the couple's own "off" beats both. */
             header: 'Face tagging',
             align: 'right',
             cell: (e) => (
@@ -462,7 +474,7 @@ export async function EventsSurface({
                 action={setEventFaceMode}
                 message={
                   e.papic_face_mode === 'mode_a'
-                    ? `Turn face auto-tagging OFF for "${e.display_name}"? New photos stop being matched to faces. Descriptors already stored are not deleted by this.`
+                    ? `Remove the admin override for "${e.display_name}"? ${MINOR_HEAVY.has(e.event_type ?? '') ? 'This event type stays off unless you turn it on again.' : 'Face tagging still runs automatically while the event\'s Papic is active.'}`
                     : MINOR_HEAVY.has(e.event_type ?? '')
                       ? `Turn face auto-tagging ON for "${e.display_name}"?\n\n⚠ This is a ${e.event_type} — most of the room is likely to be CHILDREN, and the only thing standing between a child and a face enrolment is a checkbox they can tick themselves. The guardian-consent workflow does not exist yet.\n\nIf you turn this on, use the per-guest "exclude from face recognition" flag on every minor. You are the DPO making this call.`
                       : `Turn face auto-tagging ON for "${e.display_name}"? A face descriptor will be stored for each guest who has ticked biometric consent AND affirmed 18+, and who the host has not excluded. Nobody else. DPIA-relevant — you are the DPO making this call.`
@@ -478,7 +490,9 @@ export async function EventsSurface({
                   title={
                     e.papic_face_mode === 'mode_a'
                       ? 'Face auto-tagging is ON for this event. Click to turn it off.'
-                      : 'Face auto-tagging is OFF. Click to turn it on for consenting adult guests.'
+                      : MINOR_HEAVY.has(e.event_type ?? '')
+                        ? 'Face auto-tagging is OFF for this event type. Click to turn it on for consenting adult guests.'
+                        : 'Automatic: on while the event’s Papic is active. Click to force it on regardless.'
                   }
                   className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium disabled:opacity-60 ${
                     e.papic_face_mode === 'mode_a'
@@ -488,7 +502,7 @@ export async function EventsSurface({
                   pendingLabel="Saving…"
                 >
                   <ScanFace className="h-3 w-3" strokeWidth={2} />
-                  {e.papic_face_mode === 'mode_a' ? 'On' : 'Off'}
+                  {e.papic_face_mode === 'mode_a' ? 'On' : MINOR_HEAVY.has(e.event_type ?? '') ? 'Off' : 'Auto'}
                 </SubmitButton>
               </ConfirmForm>
             ),

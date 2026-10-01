@@ -216,13 +216,15 @@ test('the vision helper returns a CODE and never grows event context', () => {
   );
 });
 
-test('the capture screen owns the sentence, using the resolved words', () => {
+test('the capture screen owns the words, and they name no organiser', () => {
+  // Since 2026-09-30 the face screen's failure words are the design's few
+  // (no face found · too dark · more than one face) — none names an organiser,
+  // so none can say "the couple" at a wake. They still live at the screen.
   const src = read(join('app', '[slug]', '_components', 'selfie-capture.tsx'));
-  assert.ok(/function faceGateHint\(/.test(src), 'the code→sentence map lives at the screen');
-  assert.ok(
-    /faceGateHint\(gate\.reasonCode, w\.theOrganizer\)/.test(src),
-    'the hint must be rendered from the resolved words already in scope here',
-  );
+  assert.ok(/function faceGateHint\(/.test(src), 'the code→words map lives at the screen');
+  assert.ok(/faceGateHint\(gate\.reasonCode\)/.test(src), 'the gate code is no longer turned into words here');
+  const fn = src.slice(src.indexOf('function faceGateHint('), src.indexOf('export function SelfieCapture'));
+  assert.doesNotMatch(fn, /couple|organi[sz]er/i, 'a failure line names the organiser again');
 });
 
 test('the recap resolves BOTH the organiser noun and the event word', () => {

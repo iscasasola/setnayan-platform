@@ -537,19 +537,19 @@ test('wiring: couple-side upsells and web-bought features stay out of the store 
   assert.match(src('app/papic/seat/[token]/page.tsx'), /buyOffered=\{canReloadOwnCamera && !storeShell\}/);
 });
 
-test('/vendors — the supplier price-ladder marketing page — is a refused doorway (2026-09-25 drawer-footer audit)', () => {
+test('/for-suppliers — the supplier price-ladder marketing page — is a refused doorway (2026-09-25 drawer-footer audit)', () => {
   // Probed both ways: true for the page that quotes live vendor tier prices,
   // false for the couple's own event marketplace route that merely shares a
   // path SEGMENT with it (isStoreShellWebOnlyPath matches full paths).
-  assert.equal(isStoreShellWebOnlyPath('/vendors'), true);
-  assert.equal(isStoreShellWebOnlyPath('/vendors/'), true);
-  assert.equal(STORE_SHELL_WEB_ONLY_DOORWAYS.has('/vendors'), true);
+  assert.equal(isStoreShellWebOnlyPath('/for-suppliers'), true);
+  assert.equal(isStoreShellWebOnlyPath('/for-suppliers/'), true);
+  assert.equal(STORE_SHELL_WEB_ONLY_DOORWAYS.has('/for-suppliers'), true);
   assert.equal(isStoreShellWebOnlyPath(`${EV}/vendors`), false, "the couple's in-event marketplace is not this page");
   assert.equal(isStoreShellWebOnlyPath('/vendor-dashboard'), false, "a shared prefix is not a shared path");
 
   const { storeShellHidesHref } = require('./store-shell') as typeof import('./store-shell');
   const here = 'https://www.setnayan.com/';
-  assert.equal(storeShellHidesHref('/vendors', here), true, 'the ☰ drawer footer\'s "For suppliers" link');
+  assert.equal(storeShellHidesHref('/for-suppliers', here), true, 'the ☰ drawer footer\'s "For suppliers" link');
   assert.equal(storeShellHidesHref(`${EV}/vendors`, here), false);
 });
 

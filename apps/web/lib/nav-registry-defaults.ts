@@ -39,7 +39,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "public.site-nav.explore",
     scope: "public",
     area: "marketing-site-nav",
-    route: "/vendors",
+    route: "/explore",
     label: "Explore",
     labelKind: "literal",
     iconKind: "none",
@@ -63,8 +63,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "public.site-nav.for-vendors",
     scope: "public",
     area: "marketing-site-nav",
-    route: "/vendors",
-    label: "For vendors",
+    route: "/for-suppliers",
+    label: "For suppliers",
     labelKind: "literal",
     iconKind: "none",
     lucideName: null,
@@ -140,8 +140,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "public.site-nav.vendors-overlay",
     scope: "public",
     area: "marketing-site-nav",
-    route: "/vendors",
-    label: "Vendors",
+    route: "/for-suppliers",
+    label: "Suppliers",
     labelKind: "literal",
     iconKind: "none",
     lucideName: null,
@@ -351,8 +351,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]",
-    // Renamed Home → Overview (owner-approved product naming; design prototype).
-    label: "Overview",
+    // Overview → Home (Stage D, owner 2026-09-29: "Home · Guest list · Your
+    // Team · Event Hub Maker · Our Services"). Key + route unchanged.
+    label: "Home",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Home",
@@ -364,8 +365,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]",
-    // Renamed Home → Overview (owner-approved product naming; design prototype).
-    label: "Overview",
+    // Overview → Home (Stage D, owner 2026-09-29). Key + route unchanged.
+    label: "Home",
     labelKind: "literal",
     iconKind: "custom",
     lucideName: null,
@@ -377,6 +378,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/guests",
+    // Guests → Guest list (2026-09-29) → Guests (owner 2026-09-30/10-01).
+    // Key unchanged.
     label: "Guests",
     labelKind: "literal",
     iconKind: "lucide",
@@ -389,26 +392,41 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/vendors",
-    // Lineage: Explore → Merkado → Marketplace → Your Team (2026-09-06).
+    // Lineage: Explore → Merkado → Marketplace → Your Team → Suppliers (10-01).
     // ⚠ Keep SHORT — two guards scan ≤400 chars from key to label.
-    label: "Your Team",
+    label: "Suppliers",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
     customRef: null,
     sortOrder: 2,
   },
-  // ⛔ `customer.bottom-nav.studio` RETIRED 2026-09-24. Papic replaced the
-  // Suite tab on the planning bar (owner); the Suite stays in ☰ as the list's
-  // closing row, governed by `customer.sidebar.studio` below.
+  // MORE SERVICES (was Our Services) — the fifth tab (Stage D, owner 2026-09-29). Re-added: it was
+  // retired 2026-09-24 when Papic took the slot; Papic is a card on this page
+  // now. KEY `studio`, matching the menu key customer-bottom-nav.tsx looks up.
+  {
+    key: "customer.bottom-nav.studio",
+    scope: "customer",
+    area: "customer-bottom-nav",
+    route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
+    // The phone bar's short word — "More" (owner 2026-09-30); the rail slot
+    // `customer.sidebar.studio` says "More Services".
+    label: SUITE_NAV_ON ? "More" : "Studio",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "Sparkles",
+    customRef: null,
+    sortOrder: 4,
+  },
   {
     key: "customer.sidebar.studio",
     scope: "customer",
     area: "customer-sidebar",
     // Flag-gated Suite doorway (see SUITE_NAV_ON above) — key stays stable.
     route: SUITE_NAV_ON ? "/dashboard/[eventId]/suite" : "/dashboard/[eventId]/studio",
-    // "Suite" → "Our Services" 2026-09-29 (label only; key + route unchanged).
-    label: SUITE_NAV_ON ? "Our Services" : "Studio",
+    // "Suite" → "Our Services" 2026-09-29 → "More Services" 2026-09-30 (label
+    // only; key + route unchanged).
+    label: SUITE_NAV_ON ? "More Services" : "Studio",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Sparkles",
@@ -420,9 +438,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/vendors",
-    // Lineage: Explore → Merkado → Marketplace → Your Team (2026-09-06).
+    // Lineage: Explore → Merkado → Marketplace → Your Team → Suppliers (10-01).
     // ⚠ Keep SHORT — two guards scan ≤400 chars from key to label.
-    label: "Your Team",
+    label: "Suppliers",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Compass",
@@ -434,6 +452,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/guests",
+    // Guests → Guest list (2026-09-29) → Guests (owner 2026-09-30/10-01).
+    // Key unchanged.
     label: "Guests",
     labelKind: "literal",
     iconKind: "lucide",
@@ -511,61 +531,16 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   // redundant. The full budget surface (/dashboard/[eventId]/budget) stays
   // reachable from the Merkado's Budget tab ("Open budget & payments") + direct
   // links; only the top-level nav entry is gone.
-  // Day-of phase bottom-nav tabs (lifecycle phase 'dayof' in
-  // lib/customer-menu.ts buildCustomerMenuTree). Same `customer.bottom-nav.*`
-  // area + lookup the customer-bottom-nav chokepoint uses for the plan tabs, so
-  // /admin/menus renames/re-icons reach the Day-of roster too. The 'now' anchor
-  // keeps the SetnayanMark in code (custom mark, not registry-icon-overridable),
-  // matching the plan-phase 'home' anchor.
+  // ⛔ THE PHASE-SWAPPING BAR IS RETIRED (Stage D, owner 2026-09-29: *"on
+  // mobile mode. we do not want that sub bottom nav anymore. we want it to be
+  // simple and easy to manage"*). The phone has ONE bar, the same five tabs in
+  // every phase — home · guests · explore · launch · studio — so the day-of and
+  // after slots went in the same commit: `customer.bottom-nav.now`, `.checkin`,
+  // `.papic`, `.schedule`, `.review` and `.galleries` (and `.seats`, retired
+  // 2026-09-24). Left here, /admin/menus would keep offering a rename for six
+  // tabs that no longer render — an edit that saves and reaches no screen.
   {
-    key: "customer.bottom-nav.now",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]",
-    // One page, one word (2026-09-24): the day-of tab said "Now" for the same
-    // address every other phase calls Overview. KEY stays `now`.
-    label: "Overview",
-    labelKind: "literal",
-    iconKind: "custom",
-    lucideName: null,
-    customRef: "SetnayanMark",
-    sortOrder: 10,
-  },
-  {
-    key: "customer.bottom-nav.checkin",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/guests/checkin",
-    label: "Check-in",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "QrCode",
-    customRef: null,
-    sortOrder: 11,
-  },
-  // ⛔ `customer.bottom-nav.seats` RETIRED 2026-09-24 (event menu by moment).
-  // Papic took the day-of Seats slot (owner: *"papic is the life source of
-  // setnayan"*); Seat plan stays in ☰ and in The day's moment strip under the
-  // one word the laptop already used. Left here it would keep /admin/menus
-  // offering a rename for a tab that no longer renders.
-  //
-  // PAPIC — a bottom-bar tab in ALL THREE phases (owner 2026-09-24). Its KEY
-  // is `papic`, matching the tab key in lib/customer-menu.ts, because
-  // customer-bottom-nav.tsx looks the slot up as `customer.bottom-nav.${key}`.
-  {
-    key: "customer.bottom-nav.papic",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/studio/papic",
-    label: "Papic",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Camera",
-    customRef: null,
-    sortOrder: 12,
-  },
-  {
-    // THE EVENT HUB — ONE slot for the one public address, in ALL THREE phases
+    // THE EVENT HUB MAKER — ONE slot for the one public address, in ALL phases
     // (2026-09-02, EH3 · design EVENT_HUB_CONTROLLER_DESIGN_2026-09-02.md § 1.2).
     //
     // ⛔ RETIRED IN THE SAME COMMIT: `customer.bottom-nav.services` (day-of,
@@ -583,61 +558,21 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-bottom-nav",
     route: "/dashboard/[eventId]/launch",
-    label: "Event Hub Maker",
+    // "Hub" (owner 2026-10-01: "Home - Guests - Suppliers - Hub - More") —
+    // the same word as the rail slot `customer.sidebar.launch`.
+    label: "Hub",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Globe",
     customRef: null,
-    sortOrder: 13,
-  },
-  {
-    key: "customer.bottom-nav.schedule",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/schedule",
-    label: "Schedule",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "CalendarClock",
-    customRef: null,
-    sortOrder: 14,
-  },
-  // After phase bottom-nav tabs (lifecycle phase 'after'). The 'home' anchor
-  // reuses the existing `customer.bottom-nav.home` slot above (same key/route),
-  // so only the three post-event tabs need their own slots here.
-  {
-    key: "customer.bottom-nav.review",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/vendors",
-    // Merged into Your Team (2026-09-24) — it opened /vendors?tab=build, which
-    // IS Your Team. KEY stays `review`; only the word and glyph moved.
-    label: "Your Team",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Compass",
-    customRef: null,
-    sortOrder: 15,
-  },
-  // ⛔ `customer.bottom-nav.editorial` RETIRED 2026-09-02 (EH3). The after-phase
+    sortOrder: 3,
+  },  // ⛔ `customer.bottom-nav.editorial` RETIRED 2026-09-02 (EH3). The after-phase
   // tab it governed is now the Event Hub (`customer.bottom-nav.launch` above) —
   // the editorial maker is a door INSIDE the controller ("The story", S5), and
   // the DESKTOP rail keeps its own /story row, which
   // `a-finished-event-shows-its-summary.test.ts` holds open. That guard exists
   // because the maker was orphaned once already: before the after-phase roster
   // took a `phase` argument it "appeared in no menu at all."
-  {
-    key: "customer.bottom-nav.galleries",
-    scope: "customer",
-    area: "customer-bottom-nav",
-    route: "/dashboard/[eventId]/galleries",
-    label: "Galleries",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Images",
-    customRef: null,
-    sortOrder: 17,
-  },
   // customer.sidebar.messages + customer.sidebar.contracts REMOVED 2026-07-10:
   // Overview's Messages/Contracts children were flattened (#3004) — the slots
   // had zero consumers. Messages stays reachable from the Conversations card +
@@ -678,7 +613,9 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "customer",
     area: "customer-sidebar",
     route: "/dashboard/[eventId]/launch",
-    label: "Event Hub Maker",
+    // "Event Hub Maker" → "Hub" (owner 2026-10-01 — the rail and the bar say
+    // the same words). Never the bare guest word "Event Hub".
+    label: "Hub",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Globe",
@@ -1260,7 +1197,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/shop",
-    label: "My Shop",
+    label: "Shop",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "ShoppingBag",
@@ -1273,12 +1210,28 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "vendor",
     area: "vendor-sidebar",
     route: "/vendor-dashboard/customers",
-    label: "My Customers",
+    label: "Customers",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Users",
     customRef: null,
     sortOrder: 1,
+  },
+  {
+    // 📱 The rail's fourth row (2026-10-01, DECISION_LOG "THE SUPPLIER PHONE APP
+    // — APPROVED, WITH THE THREE RECOMMENDED ANSWERS"): the rail reads Today ·
+    // Customers · Shop · More, the phone bar's four words. "My Customers" and
+    // "My Shop" became "Customers" and "Shop" the same day, for the same rule.
+    key: "vendor.sidebar.more",
+    scope: "vendor",
+    area: "vendor-sidebar",
+    route: "/vendor-dashboard/more",
+    label: "More",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "MoreHorizontal",
+    customRef: null,
+    sortOrder: 3,
   },
   {
     // Overview tab (key 'home' — the flat item key stays 'profile', mapped to
@@ -1712,6 +1665,22 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     lucideName: "CalendarCheck",
     customRef: null,
     sortOrder: 5,
+  },
+  {
+    // 📱 The bar's fourth tab (2026-10-01, the supplier phone app): Today ·
+    // Customers · Shop · More. It opens the More sheet; Insights (the
+    // `performance` slot above) and Event Hub (`onday`) left the bar for it,
+    // and those two slots now name their rows INSIDE More.
+    key: "vendor.bottom-nav.more",
+    scope: "vendor",
+    area: "vendor-bottom-nav",
+    route: "/vendor-dashboard/more",
+    label: "More",
+    labelKind: "literal",
+    iconKind: "lucide",
+    lucideName: "MoreHorizontal",
+    customRef: null,
+    sortOrder: 6,
   },
   {
     key: "vendor.topbar.notifications",

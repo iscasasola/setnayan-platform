@@ -77,7 +77,7 @@ test('requestedSource ≠ source (enforced) → pinned-channel notice OVER the p
     notice: 'withheld-cut',
     text: pinnedChannelNotice('Altar'),
   });
-  assert.match(pinnedChannelNotice('Altar'), /^On air: Altar · switching cameras needs the Live Studio unlock$/);
+  assert.match(pinnedChannelNotice('Altar'), /^On air: Altar · switching cameras needs the Live Watch unlock$/);
 });
 
 test('requestedSource === source → no notice (the host is airing what they cut)', () => {

@@ -26,7 +26,6 @@ import {
   resolveSectionOrder,
   customColumnId,
   shippedSections,
-  type ChallengeAnswer,
   type EditorialData,
   type EditorialOrderKey,
 } from './data';
@@ -38,16 +37,17 @@ import {
   editorialGalleryAnchorKey,
   type EditorialPhotoKey,
 } from './gallery-anchor';
-import { LivingMoments, KwentoClip } from './living-moments';
+import { KwentoClip } from './living-moments';
 import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import { storyAudienceAdmits, STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { eventWordsForEvent, type EventWords } from '../../_lib/event-words';
-import { byVoiceWeight, voiceOf, roleLabel } from './voices';
 import {
   resolveEventMonogram,
   HERO_MONOGRAM_COLUMNS,
@@ -65,8 +65,36 @@ import { ROAD_STAGE, deriveStages, neutralStages, paintAtRest } from '@/lib/stor
 import { loadStorySpineFacts, sampleSpineFacts, type StorySpineFacts } from '../story/spine-data';
 import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { galleryTabsFor, postEventReader, postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
+import { POST_EVENT_WAITING, galleryTabsFor, postEventReader, postEventSceneKeyForBlock } from '@/lib/post-event-scenes';
 import { OpenUpScene, OpenUpTabs } from './open-up-layer';
+import type { PostEventDraft } from '@/lib/post-event-draft';
+import { postEventElementScope, postEventLookKey, postEventStyleHome } from '@/lib/post-event-styles';
+import { resolvePostEventStyle } from '@/lib/post-event-style-resolve';
+import { hubElementSceneCss } from '@/lib/element-style';
+import { filmTimecode, mastheadEdition } from '@/lib/story-spine';
+import { guestLayerAdmits } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
+import { loadEntourage } from '../../_lib/loaders';
+import type { EntourageGroup } from '@/lib/entourage';
+import { BeforeAfterScene, EntourageScene, RoadScene, SeatingScene, type RoadEntry } from './post-event-scene-views-3';
+import {
+  FrontPageScene,
+  GalleryPreview,
+  PeWaiting,
+  PostEventSceneFrame,
+  ScheduleScene,
+  StatisticsScene,
+  ThankYouScene,
+} from './post-event-scene-views';
+import { POST_EVENT_SUPPLIERS_ANCHOR, postEventSupplierStoriesDrawn, postEventSuppliersAnchorKey } from './post-event-bar-facts';
+import {
+  ChallengeScene,
+  LiveStreamPreview,
+  MessagesScene,
+  PhotoNotesScene,
+  SupplierStoriesScene,
+  VideosScene,
+} from './post-event-scene-views-2';
+import { PHOTO_NOTES_LABEL } from '@/lib/post-event-styles';
 
 const SHARE_SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
   /\/$/,
@@ -91,7 +119,34 @@ export async function EditorialContent({
   viewer = STRANGER,
   magicTraveller = null,
   makerMarkers = false,
+  draft = null,
+  hostPreview = false,
+  sharedStyles = null,
 }: {
+  /**
+   * 🎨 The style picked on a SECTION that is the same scene on another stage
+   * (`POST_EVENT_STYLE_HOME`: the Schedule and Gallery rows' `canvas.style`),
+   * by widget type — one value across stages. Null → every such scene wears
+   * its default.
+   */
+  sharedStyles?: Readonly<Record<string, string | null>> | null;
+  /**
+   * 💾 THE HOST'S DRAFT OF POST EVENT'S SCENES (owner 2026-09-25 "POST EVENT
+   * IS MANY SMALL SCENES", 2026-09-29 "EVERY STYLE OF EVERY SCENE SHIPS") —
+   * which scenes show, their order, and each scene's look, as drafted in the
+   * Maker (`HubDraft.editorial`). Handed in ONLY for the Maker's canvas and its
+   * whole-stage preview, whose host the page already verified
+   * (`loadHostPreviewDraft`); every guest and stranger gets null, and their
+   * story renders from the live row exactly as before.
+   */
+  draft?: PostEventDraft | null;
+  /**
+   * 🕰 THE COUPLE'S OWN PREVIEW (the Maker's canvas and "Preview the whole
+   * stage"). A scene with nothing in it yet is drawn with the line that says
+   * what fills it — for the couple only. False for every guest: they never
+   * meet an empty scene.
+   */
+  hostPreview?: boolean;
   eventId: string;
   /** Share target for the editorial's own "Share this story" element. Omit for a
    *  real editorial and it falls back to the couple's own /[slug]; the sample
@@ -145,6 +200,13 @@ export async function EditorialContent({
   // sees. Resolved from the event id because this component receives only that;
   // `resolveProfileByEvent` is request-cached, so it costs nothing.
   const w = await eventWordsForEvent(eventId);
+  // The couple's words for roles (owner 2026-09-30) — the column badges say
+  // them. Graceful: unreadable → the usual words. 🔴 A curated SAMPLE has no
+  // event row (see `isSample` below) and is prerendered with no service key —
+  // it is never looked up; it wears the usual words.
+  const roleNames: RoleNames = isSampleEditorialId(eventId)
+    ? {}
+    : await loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames');
   let data: EditorialData | null = null;
   try {
     data = await loadEditorialData(eventId);
@@ -197,6 +259,19 @@ export async function EditorialContent({
     viewer who may read every layer gets the identical object back.
   */
   data = redactStoryLayers(data, viewer);
+
+  /* 💾 The host's drafted arrangement and looks, laid over the story's own keys
+     — the SAME keys, in the SAME shapes, the loader read (`lib/post-event-
+     draft.ts` sanitised them through the page's own readers). Only the order,
+     the switches and each scene's look move; every layer above stays redacted. */
+  if (draft) {
+    data = {
+      ...data,
+      ...(draft.sections !== undefined ? { sections: draft.sections as EditorialData['sections'] } : {}),
+      ...(draft.sectionOrder !== undefined ? { sectionOrder: draft.sectionOrder } : {}),
+      ...(draft.sceneLooks !== undefined ? { sceneLooks: draft.sceneLooks } : {}),
+    };
+  }
 
   let copy: ComposedCopy;
   try {
@@ -454,8 +529,14 @@ export async function EditorialContent({
         displayUrlForStoredAsset(key),
       ).catch(() => []);
 
+  /* 👥 The entourage — the SAME loader the invitation lists it with (public
+     invitation content, owner 2026-09-15). A sample has no guest list. */
+  const entourage: EntourageGroup[] = isSample ? [] : await loadEntourage(createAdminClient(), eventId).catch(() => []);
+
   let own = await loadYourOwnDay(eventId).catch(() => null);
   own ??= { signedIn: false, appearsIn: [], shot: [], said: [], tableLabel: null };
+  /** 🪑 The reader's own table, from their signed session — null for everyone else. */
+  const ownTable = own.tableLabel;
 
   /*
     ═══ THE GALLERY'S TABS FOLLOW THE READER (Maker Phase 8 · owner 2026-09-25) ═══
@@ -498,6 +579,141 @@ export async function EditorialContent({
       ),
   }));
 
+  /*
+    ═══ EACH SCENE IN ITS STYLE (owner 2026-09-29, "EVERY STYLE OF EVERY SCENE
+    SHIPS") ═══ A scene's look is `sceneLooks[<scene>]` (`lib/post-event-draft.ts`):
+    its style — absent = the type's recommended one — its words, and its parts'
+    own font · size · colour, written as the scene's scoped `<style>` by the ONE
+    function every Event Hub section uses (`hubElementSceneCss`).
+  */
+  const looks = data.sceneLooks ?? {};
+  const lookOf = (scene: string) => looks[postEventLookKey(scene)] ?? {};
+  const styleOf = (scene: string) => {
+    const home = postEventStyleHome(scene);
+    return resolvePostEventStyle(scene, home ? sharedStyles?.[home] : lookOf(scene).style, data?.eventType ?? null);
+  };
+  const cssOf = (scene: string) => hubElementSceneCss(postEventElementScope(scene), lookOf(scene).elements ?? null);
+  const wordsOf = (scene: string) => lookOf(scene).words ?? {};
+  /* 🕰 Has the day happened? Compared by Manila calendar date — the scenes that
+     wait for the day say so to the couple only (`hostPreview`). */
+  const lastDay = (data.eventEndDate ?? data.eventDate ?? '').slice(0, 10);
+  const todayManila = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
+  const dayHappened = /^\d{4}-\d{2}-\d{2}$/.test(lastDay) ? todayManila > lastDay : false;
+  const placeholderOf = (scene: string) => (hostPreview && !dayHappened ? (POST_EVENT_WAITING[scene] ?? null) : null);
+  /* 🕰 A scene drawn in its style that has nothing YET — before the day, on the
+     couple's own canvas only: its label and the line that says what fills it,
+     in the scene's own frame, so the navigator's tile has a place to land. */
+  const waitingScene = (scene: string, label: string, shown: boolean, key: string = scene): ReactElement | null => {
+    const style = styleOf(scene);
+    const line = placeholderOf(scene);
+    if (!shown || !style || !line) return null;
+    return (
+      <PostEventSceneFrame key={key} scene={scene} style={style} css={cssOf(scene)}>
+        <div className="py-8">
+          <p className="pahina-eyebrow m-0 font-mono text-xs font-semibold uppercase tracking-[0.22em] text-terracotta-700">
+            {wordsOf(scene).label ?? label}
+          </p>
+          <PeWaiting text={line} />
+        </div>
+      </PostEventSceneFrame>
+    );
+  };
+  const dateDots = data.eventDate && /^\d{4}-\d{2}-\d{2}/.test(data.eventDate)
+    ? `${data.eventDate.slice(8, 10)} · ${data.eventDate.slice(5, 7)} · ${data.eventDate.slice(0, 4)}`
+    : null;
+  const lastChapterLead = data.dayChapters.at(-1)?.media[0];
+  const wishes = data.kwentoQuotes.length;
+  const suppliers = data.vendors.length;
+
+  /* The Front Page — the story's cover, in its style, where the spine's own
+     title used to stand (`StorySpine coverScene`). Its marker travels with it,
+     so the navigator's Cover tile lands on THIS scene, not the whole spine. */
+  /* 🛤 THE ROAD TO THE DAY — their Love Story's moments, then the platform's
+     dated steps the spine already files (the date set, the look saved, the team
+     booked …), guest-layer entries only where this reader may see that layer. */
+  const guestOpen = data.audience ? guestLayerAdmits(data.audience, viewer) : true;
+  const roadEntries: RoadEntry[] = [
+    ...(data.loveStory.milestones ?? [])
+      .filter((m) => m.title && m.title.trim())
+      .map((m, i) => ({ key: `m-${i}`, atMs: null, year: m.year ?? null, title: m.title!.trim(), line: m.note ?? null })),
+    ...spineFacts.road
+      .filter((f) => f.layer === 'host' || guestOpen)
+      .map((f) => ({ key: f.key, atMs: f.atMs, year: null, title: f.title, line: f.body })),
+  ];
+  const dayMs = data.eventDate && Number.isFinite(Date.parse(data.eventDate)) ? Date.parse(data.eventDate) : null;
+  const roadStyle = styleOf('before');
+  const roadScene =
+    roadStyle && (roadEntries.length > 0 || placeholderOf('before')) ? (
+      <>
+        {marker('before')}
+        <PostEventSceneFrame scene="before" style={roadStyle} css={cssOf('before')}>
+          <RoadScene style={roadStyle} entries={roadEntries} dayMs={dayMs} words={wordsOf('before')} placeholder={placeholderOf('before')} />
+        </PostEventSceneFrame>
+      </>
+    ) : null;
+
+  const coverStyle = styleOf('cover');
+  const coverScene = coverStyle ? (
+    <>
+      {marker('cover')}
+      <PostEventSceneFrame scene="cover" style={coverStyle} css={cssOf('cover')} className="mt-4">
+        <FrontPageScene
+          style={coverStyle}
+          words={wordsOf('cover')}
+          facts={{
+            names: data.displayName,
+            vows: w.twoPeople,
+            solemn: w.solemn,
+            eventWord: w.eventWord,
+            dateLong: data.eventDateFormatted,
+            dateDots,
+            venueName: data.venueName,
+            venueCity: data.venueCity,
+            heroPhotoUrl: data.heroPhotoUrl,
+            heroVideoUrl: data.heroVideoUrl,
+            edition: mastheadEdition(data.eventDate, data.editionNo, data.published, data.editionVolume),
+            invited: data.metrics.guests,
+            saidYes: data.metrics.attending,
+            photos: data.metrics.photos,
+            chapters: data.metrics.chapters,
+          }}
+        />
+      </PostEventSceneFrame>
+      {roadScene}
+    </>
+  ) : null;
+
+  /* 🧭 Where the bar's Suppliers slot lands — the FIRST team scene drawn, asked
+     of the SAME predicate the bar asks (`post-event-bar-facts.ts`). */
+  const suppliersAnchor = postEventSuppliersAnchorKey(
+    {
+      sections: data.sections,
+      broadcast: Boolean(data.watchFilmEmbedUrl),
+      films: data.films?.length ?? 0,
+      teamVendors: data.vendors.length,
+      vendorMedia: data.vendorMedia.length,
+      vendorsWeLoved: data.vendorsWeLoved.length,
+    },
+    shippedSections(sectionOrder),
+  );
+  const suppliersId = (key: 'team' | 'fromVendors' | 'vendorsWeLoved') =>
+    suppliersAnchor === key ? { id: POST_EVENT_SUPPLIERS_ANCHOR, className: 'scroll-mt-6' } : {};
+  /* 🤝 Supplier Stories draws the booked team and their frames — the SAME
+     predicate the bar asks (`postEventSupplierStoriesDrawn`); while it does, the
+     article's own team list steps aside so the team is never listed twice. */
+  const supplierStoriesDrawn =
+    postEventSupplierStoriesDrawn({ sections: data.sections, vendorMedia: data.vendorMedia.length, teamVendors: data.vendors.length }) &&
+    styleOf('vendors') !== null;
+  /* 🎥 The replay's chapters, each at its place in the recording (`filmTimecode`
+     — the spine's own arithmetic, never a second one). */
+  const filmHighlights = data.dayChapters
+    .map((c) => {
+      const at = c.atIso ? Date.parse(c.atIso) : Number.NaN;
+      const tc = Number.isFinite(at) ? filmTimecode(at, spineFacts.broadcasts) : null;
+      return tc ? { title: c.title ?? c.time ?? 'A moment', timecode: tc.label } : null;
+    })
+    .filter((h): h is { title: string; timecode: string } => h !== null);
+
   return (
     <div
       data-story-light
@@ -536,8 +752,10 @@ export async function EditorialContent({
         </p>
       ) : null}
 
-      {marker('cover')}
+      {coverScene ? null : marker('cover')}
       <StorySpine
+        coverScene={coverScene}
+        hideRoad={Boolean(coverScene && roadScene)}
         makerMarkers={makerMarkers}
         data={data}
         facts={spineFacts}
@@ -614,7 +832,7 @@ export async function EditorialContent({
 
         {/* Full-width hero — the cover spans the whole row. A baked boomerang
             (Living Hero) plays as a looping GIF-like banner; else the still. */}
-        {data.heroPhotoUrl || data.heroVideoUrl ? (
+        {!coverScene && (data.heroPhotoUrl || data.heroVideoUrl) ? (
           <div className="pt-2">
             <HeroPhoto
               words={w}
@@ -628,11 +846,7 @@ export async function EditorialContent({
         {/* Below the photo: the write-up takes the wide column; the Setnayan
             "By the Numbers" sits in a slim corner sidebar. On mobile both stack
             (story first, numbers as the recap right after). */}
-        <div
-          className={`mt-5 grid grid-cols-1 gap-6 ${
-            isOn('byTheNumbers') ? 'lg:grid-cols-[1.95fr_0.85fr] lg:gap-9' : ''
-          }`}
-        >
+        <div className="mt-5">
           <div className="min-w-0">
             {/* Editorial = post-event SHOWCASE: the love story now lives on the
                 run-up paths (Save the Date / RSVP / Event), not here. We keep
@@ -649,18 +863,39 @@ export async function EditorialContent({
               }
               pullQuote={copy.pullQuote}
             />
-            {isOn('team') && data.vendors.length ? (
-              <TeamBehindTheDay vendors={data.vendors} eventSlug={data.slug} />
+            {isOn('team') && data.vendors.length && !supplierStoriesDrawn ? (
+              <div {...suppliersId('team')}>
+                <TeamBehindTheDay vendors={data.vendors} eventSlug={data.slug} />
+              </div>
             ) : null}
           </div>
-
-          {isOn('byTheNumbers') ? marker('numbers') : null}
-          {isOn('byTheNumbers') ? (
-            <aside className="lg:border-l lg:border-ink/10 lg:pl-8">
-              <ByTheNumbers data={data} words={w} />
-            </aside>
-          ) : null}
         </div>
+
+        {/* 📊 STATISTICS — its own scene, in its style (it was a slim sidebar).
+            Drawn when there is a count to show; the couple alone sees it wait. */}
+        {isOn('byTheNumbers') && (data.metrics.guests > 0 || (data.metrics.photos ?? 0) > 0 || placeholderOf('numbers')) ? marker('numbers') : null}
+        {isOn('byTheNumbers') && (data.metrics.guests > 0 || (data.metrics.photos ?? 0) > 0 || placeholderOf('numbers')) && styleOf('numbers') ? (
+          <PostEventSceneFrame scene="numbers" style={styleOf('numbers')!} css={cssOf('numbers')}>
+            <StatisticsScene
+              style={styleOf('numbers')!}
+              words={wordsOf('numbers')}
+              facts={{
+                invited: data.metrics.guests,
+                saidYes: data.metrics.attending,
+                repliedPct: data.metrics.guests > 0 ? (data.metrics.rsvpPct ?? Math.round((data.metrics.replied / data.metrics.guests) * 100)) : null,
+                photos: data.metrics.photos,
+                wishes,
+                chapters: data.metrics.chapters,
+                suppliers,
+                names: data.firstNames,
+                dateLong: data.eventDateFormatted,
+                venue: [data.venueName, data.venueCity].filter(Boolean).join(' · ') || null,
+                eventWord: w.eventWord,
+                waiting: hostPreview && !dayHappened,
+              }}
+            />
+          </PostEventSceneFrame>
+        ) : null}
 
         {/* ── The reorderable content run (Editorial PRO — "the Editor's Desk")
             ────────────────────────────────────────────────────────────────────
@@ -677,72 +912,79 @@ export async function EditorialContent({
           const nodes: Record<EditorialOrderKey, ReactNode> = {
             // "As the Day Unfolded" (living chapters) or the legacy "Moments"
             // essay fallback — one block, gated by the `gallery` toggle.
+            // 🗓 SCHEDULE — one chapter per event-day block, in its style.
             chapters:
-              photo.chapters === 'living' ? (
-                <div key="chapters" {...anchorProps('chapters')}>
-                  <SectionRule title="As the Day Unfolded" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-                    photos and living moments, in the order they happened
-                  </p>
-                  <LivingMoments chapters={data.dayChapters} names={data.firstNames} />
-                </div>
+              photo.chapters === 'living' && styleOf('chapters') ? (
+                <PostEventSceneFrame
+                  key="chapters"
+                  scene="chapters"
+                  style={styleOf('chapters')!}
+                  css={cssOf('chapters')}
+                  id={anchorProps('chapters').id}
+                >
+                  <ScheduleScene style={styleOf('chapters')!} chapters={data.dayChapters} words={wordsOf('chapters')} placeholder={null} />
+                </PostEventSceneFrame>
+              ) : photo.chapters === null && placeholderOf('chapters') && isOn('gallery') && styleOf('chapters') ? (
+                <PostEventSceneFrame key="chapters" scene="chapters" style={styleOf('chapters')!} css={cssOf('chapters')}>
+                  <ScheduleScene style={styleOf('chapters')!} chapters={[]} words={wordsOf('chapters')} placeholder={placeholderOf('chapters')} />
+                </PostEventSceneFrame>
               ) : photo.chapters === 'essay' ? (
                 <div key="chapters" {...anchorProps('chapters')}>
                   <SectionRule title="Moments" />
                   <MomentsEssay photos={data.essayPhotos} names={data.firstNames} />
                 </div>
               ) : null,
-            // What They Whispered — approved Kwento guest wishes.
+            // 📝 PHOTO NOTES ("Kwento") — a photo WITH what a guest said, in its
+            // style; the whole wall still opens full screen.
             kwento:
-              isOn('kwento') && data.kwentoQuotes.length ? (
-                <div key="kwento">
-                  <SectionRule title="What They Whispered" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-                    best wishes, captured on the day
-                  </p>
-                  {/* 🔓 OPEN-UP (Maker Phase 8): three short blocks in the flow
-                      (template 23); the whole wall opens full screen. */}
+              isOn('kwento') && data.kwentoQuotes.length && styleOf('wishes') ? (
+                <PostEventSceneFrame key="kwento" scene="wishes" style={styleOf('wishes')!} css={cssOf('wishes')}>
                   <OpenUpScene
                     kind="wishes"
-                    title="What They Whispered"
-                    eyebrow={`Approved wishes · ${fmt(data.kwentoQuotes.length)}`}
-                    openLabel={`Read all ${fmt(data.kwentoQuotes.length)} ${data.kwentoQuotes.length === 1 ? 'wish' : 'wishes'}`}
-                    preview={<WishesPreview quotes={data.kwentoQuotes} />}
+                    title={PHOTO_NOTES_LABEL}
+                    eyebrow={`Approved · ${fmt(data.kwentoQuotes.length)}`}
+                    openLabel={`Read all ${fmt(data.kwentoQuotes.length)}`}
+                    preview={
+                      <PhotoNotesScene
+                        style={styleOf('wishes')!}
+                        quotes={data.kwentoQuotes}
+                        label={PHOTO_NOTES_LABEL}
+                        words={wordsOf('wishes')}
+                      />
+                    }
                   >
                     <KwentoWall quotes={data.kwentoQuotes} names={data.firstNames} max={60} />
                   </OpenUpScene>
-                </div>
-              ) : null,
-            // "What We Asked" — Papic Challenge answers (owner 2026-08-21:
-            // challenge answers "have their own column"). The loader applies
-            // four fail-closed consent gates; by the time a row is here it has
-            // been agreed to. [] hides the section entirely.
+                </PostEventSceneFrame>
+              ) : (
+                waitingScene('wishes', PHOTO_NOTES_LABEL, isOn('kwento'), 'kwento')
+              ),
+            // 🙋 PAPIC CHALLENGE — the couple's questions and the guests' answers
+            // (owner 2026-08-21: challenge answers "have their own column"). The
+            // loader applies four fail-closed consent gates; by the time a row is
+            // here it has been agreed to. [] hides the scene entirely.
             challengeAnswers:
-              isOn('challengeAnswers') && data.challengeAnswers.length ? (
-                <div key="challengeAnswers">
-                  <SectionRule title="What We Asked" />
-                  <p className="-mt-4 mb-4 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-                    the questions, and what they did about them
-                  </p>
-                  <ChallengeAnswerColumn answers={data.challengeAnswers} />
-                </div>
-              ) : null,
-            // Letters to the Editor — approved Guest Columns (BUILD ①,
-            // GUEST_COLUMNS_ENABLED; data.guestColumns is absent/[] when off).
+              isOn('challengeAnswers') && data.challengeAnswers.length && styleOf('asked') ? (
+                <PostEventSceneFrame key="challengeAnswers" scene="asked" style={styleOf('asked')!} css={cssOf('asked')}>
+                  <ChallengeScene style={styleOf('asked')!} answers={data.challengeAnswers} words={wordsOf('asked')} />
+                </PostEventSceneFrame>
+              ) : (
+                waitingScene('asked', 'What we asked', isOn('challengeAnswers'), 'challengeAnswers')
+              ),
+            // ✉ MESSAGES — approved Guest Columns (GUEST_COLUMNS_ENABLED;
+            // data.guestColumns is absent/[] when off), approved by the organiser.
             guestColumns:
-              isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 ? (
-                <div key="guestColumns">
-                  <SectionRule title="Letters to the Editor" />
-                  <p className="-mt-4 mb-2 text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-                    columns from the guests, approved by {w.theOrganizer}
-                  </p>
-                  <GuestColumnsWall columns={data.guestColumns ?? []} />
-                </div>
-              ) : null,
+              isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 && styleOf('letters') ? (
+                <PostEventSceneFrame key="guestColumns" scene="letters" style={styleOf('letters')!} css={cssOf('letters')}>
+                  <MessagesScene style={styleOf('letters')!} letters={data.guestColumns ?? []} words={wordsOf('letters')} names={roleNames} />
+                </PostEventSceneFrame>
+              ) : (
+                waitingScene('letters', 'Messages', isOn('guestColumns'), 'guestColumns')
+              ),
             // Shared photos from the day ("From the Day").
-            gallery: photo.gallery ? (
-              <div key="gallery" {...anchorProps('gallery')}>
-                <SectionRule title="From the Day" />
+            // 🖼 GALLERY — the preview in its style; the whole gallery opens up.
+            gallery: photo.gallery && styleOf('gallery') ? (
+              <PostEventSceneFrame key="gallery" scene="gallery" style={styleOf('gallery')!} css={cssOf('gallery')} id={anchorProps('gallery').id}>
                 {/* 🔓 OPEN-UP (Maker Phase 8): a collage of five or six in the
                     flow (template 21); the gallery opens full screen, and its
                     tabs follow the reader — Yours / Everyone's for a guest,
@@ -750,23 +992,47 @@ export async function EditorialContent({
                     for the couple (owner 2026-09-25). */}
                 <OpenUpScene
                   kind="gallery"
-                  title="From the Day"
+                  title={wordsOf('gallery').heading ?? 'From the Day'}
                   eyebrow={`${data.firstNames} · the gallery`}
                   openLabel={`Open the gallery · ${fmt(data.galleryPhotos.length)} ${data.galleryPhotos.length === 1 ? 'photo' : 'photos'}`}
-                  preview={<CollagePreview photos={data.galleryPhotos} names={data.firstNames} />}
+                  preview={
+                    <GalleryPreview
+                      style={styleOf('gallery')!}
+                      photos={data.galleryPhotos}
+                      captures={data.galleryCaptures}
+                      total={data.metrics.photos ?? data.galleryPhotos.length}
+                      names={data.firstNames}
+                      words={wordsOf('gallery')}
+                    />
+                  }
                 >
                   <OpenUpTabs tabs={galleryTabs} />
                 </OpenUpScene>
-              </div>
-            ) : null,
-            // From your vendors — day-of media from the recommended vendor.
-            fromVendors:
-              isOn('fromVendors') && data.vendorMedia.length ? (
-                <div key="fromVendors">
-                  <SectionRule title="From Your Vendors" />
-                  <VendorMediaStrip items={data.vendorMedia} words={w} />
-                </div>
-              ) : null,
+              </PostEventSceneFrame>
+            ) : (
+              waitingScene('gallery', 'From the day', isOn('gallery'))
+            ),
+            // 🤝 SUPPLIER STORIES — the booked team and their own frames from the
+            // day, in its style; ♥ for the ones the couple would book again.
+            fromVendors: supplierStoriesDrawn ? (
+              <PostEventSceneFrame
+                key="fromVendors"
+                scene="vendors"
+                style={styleOf('vendors')!}
+                css={cssOf('vendors')}
+                id={suppliersId('fromVendors').id}
+              >
+                <SupplierStoriesScene
+                  style={styleOf('vendors')!}
+                  team={data.vendors}
+                  media={data.vendorMedia}
+                  loved={data.vendorsWeLoved}
+                  words={wordsOf('vendors')}
+                />
+              </PostEventSceneFrame>
+            ) : (
+              waitingScene('vendors', 'Supplier stories', isOn('fromVendors'), 'fromVendors')
+            ),
             // Live Photo Wall (LIVE_WALL SKU).
             liveWall: photo.liveWall ? (
               <div key="liveWall" {...anchorProps('liveWall')}>
@@ -774,60 +1040,71 @@ export async function EditorialContent({
                 <LivePhotoWall photos={data.photoWallPhotos} photoCount={data.metrics.photos} />
               </div>
             ) : null,
-            // Watch the Film — Live Studio (Panood) replay, gated in data.ts.
-            // The `id` is what the colophon's "Watch the Film" link finally aims
-            // at. That link has been `href="#"` for as long as this section has
-            // existed: the destination was on the same page the whole time and
-            // simply had nothing to anchor to.
+            // 🎥 LIVE STREAM + 🎞 VIDEOS — the broadcast replay and the couple's own
+            // films, each its own scene in its style (owner 2026-09-26: Live
+            // Stream and Videos are two types). ONE film open-up (the bar's Film
+            // slot, `#open-film`) — the replay's when there is one, else the
+            // videos'. The `id` the colophon's "Watch the Film" link aims at stays
+            // on the replay. Each scene carries its own marker (the run loop
+            // leaves this block's to it).
             watchFilm:
               watchFilmShown || (data.films?.length ?? 0) > 0 ? (
-                <div key="watchFilm">
-                  <SectionRule title="Watch the Film" />
-                  {/* 🔓 OPEN-UP (Maker Phase 8): a still with ▶ in the flow
-                      (template 14); the broadcast — the livestream, if they had
-                      one — and their own films open full screen. The anchor the
-                      colophon aims at stays on the preview. */}
-                  <OpenUpScene
-                    kind="film"
-                    id={WATCH_FILM_ANCHOR_ID}
-                    title="Watch the Film"
-                    eyebrow={watchFilmShown ? 'The broadcast, replayed' : 'Your films'}
-                    openLabel="Watch the film"
-                    preview={<FilmPreview still={data.heroPhotoUrl} names={data.firstNames} broadcast={watchFilmShown} />}
-                  >
-                  {watchFilmShown && data.watchFilmEmbedUrl ? (
-                    <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
-                  ) : null}
-                  {/* 🎞 The couple's OWN films — same-day edit, prenup, the
-                      videographer's cut. Deliberately in the same section as the
-                      live replay rather than a new one: to a guest these are all
-                      "the video of the day", and splitting them would ask the
-                      reader to know which was broadcast and which was edited.
-                      Ungated on purpose (owner 2026-09-02) — these are the
-                      couple's own links and must not depend on an unlock. */}
-                  {data.films?.length ? (
-                    <div className="mt-6 grid gap-6 sm:grid-cols-2">
-                      {data.films.map((film) => (
-                        <figure key={`${film.provider}-${film.videoId}`} className="m-0">
-                          <div className="relative aspect-video overflow-hidden rounded-lg bg-black/5">
-                            <iframe
-                              src={film.embedUrl}
-                              title={film.label ?? 'Wedding film'}
-                              loading="lazy"
-                              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                              allowFullScreen
-                              className="absolute inset-0 h-full w-full border-0"
+                <Fragment key="watchFilm">
+                  {watchFilmShown && data.watchFilmEmbedUrl && styleOf('film') ? (
+                    <>
+                      {marker('film')}
+                      <PostEventSceneFrame scene="film" style={styleOf('film')!} css={cssOf('film')}>
+                        <OpenUpScene
+                          kind="film"
+                          id={WATCH_FILM_ANCHOR_ID}
+                          title="Watch Live"
+                          eyebrow="The broadcast, replayed"
+                          openLabel="Watch the replay"
+                          preview={
+                            <LiveStreamPreview
+                              style={styleOf('film')!}
+                              still={data.heroPhotoUrl}
+                              names={data.firstNames}
+                              highlights={filmHighlights}
+                              words={wordsOf('film')}
                             />
-                          </div>
-                          {film.label ? (
-                            <figcaption className="mt-2 text-sm text-ink/70">{film.label}</figcaption>
-                          ) : null}
-                        </figure>
-                      ))}
-                    </div>
+                          }
+                        >
+                          <WatchTheFilm embedUrl={data.watchFilmEmbedUrl} names={data.firstNames} />
+                        </OpenUpScene>
+                      </PostEventSceneFrame>
+                    </>
                   ) : null}
-                  </OpenUpScene>
-                </div>
+                  {/* 🎞 The couple's OWN films — ungated on purpose (owner
+                      2026-09-02): their own links must not depend on an unlock. */}
+                  {data.films?.length && styleOf('videos') ? (
+                    <>
+                      {marker('videos')}
+                      <PostEventSceneFrame scene="videos" style={styleOf('videos')!} css={cssOf('videos')}>
+                        {watchFilmShown ? (
+                          <VideosScene style={styleOf('videos')!} films={data.films} words={wordsOf('videos')} />
+                        ) : (
+                          <OpenUpScene
+                            kind="film"
+                            title="Videos"
+                            eyebrow="Your films"
+                            openLabel="Watch the films"
+                            preview={<VideosScene style={styleOf('videos')!} films={data.films} words={wordsOf('videos')} asPreview />}
+                          >
+                            <VideosScene style="film-grid" films={data.films} words={wordsOf('videos')} />
+                          </OpenUpScene>
+                        )}
+                      </PostEventSceneFrame>
+                    </>
+                  ) : null}
+                </Fragment>
+              ) : placeholderOf('film') && isOn('watchFilm') ? (
+                <Fragment key="watchFilm">
+                  {marker('film')}
+                  {waitingScene('film', 'Watch Live', true)}
+                  {marker('videos')}
+                  {waitingScene('videos', 'Videos', true)}
+                </Fragment>
               ) : null,
             // What they said (reviews). Renders even when empty (empty state).
             reviews: isOn('reviews') ? (
@@ -851,10 +1128,36 @@ export async function EditorialContent({
             // Vendors we loved — the couple's opt-in recommendations.
             vendorsWeLoved:
               isOn('vendorsWeLoved') && data.vendorsWeLoved.length ? (
-                <div key="vendorsWeLoved">
-                  <SectionRule title="Vendors We Loved" />
+                <div key="vendorsWeLoved" {...suppliersId('vendorsWeLoved')}>
+                  <SectionRule title="Suppliers We Loved" />
                   <VendorsWeLoved vendors={data.vendorsWeLoved} />
                 </div>
+              ) : null,
+            // 🪑 WHERE EVERYONE SAT — the seat plan; the reader's own table in gold.
+            seating:
+              isOn('seating') && spineFacts.room.tables.length > 0 && styleOf('seating') ? (
+                <PostEventSceneFrame key="seating" scene="seating" style={styleOf('seating')!} css={cssOf('seating')}>
+                  <SeatingScene style={styleOf('seating')!} room={spineFacts.room} ownTable={ownTable} words={wordsOf('seating')} />
+                </PostEventSceneFrame>
+              ) : (
+                waitingScene('seating', 'Where everyone sat', isOn('seating'))
+              ),
+            // 👥 ENTOURAGE — the roles the couple gave.
+            entourage:
+              isOn('entourage') && entourage.length > 0 && styleOf('entourage') ? (
+                <PostEventSceneFrame key="entourage" scene="entourage" style={styleOf('entourage')!} css={cssOf('entourage')}>
+                  <EntourageScene style={styleOf('entourage')!} groups={entourage} names={data.firstNames} words={wordsOf('entourage')} />
+                </PostEventSceneFrame>
+              ) : (
+                waitingScene('entourage', 'The entourage', isOn('entourage'))
+              ),
+            // 🎞 BEFORE & AFTER — the Save the Date's cover beside the story's own,
+            // only when the couple chose a new cover (one style).
+            beforeAfter:
+              isOn('beforeAfter') && data.coverChosen && data.eventHeroUrl && data.heroPhotoUrl ? (
+                <PostEventSceneFrame key="beforeAfter" scene="beforeAfter" style="two-up" css={cssOf('beforeAfter')}>
+                  <BeforeAfterScene before={data.eventHeroUrl} after={data.heroPhotoUrl} names={data.firstNames} words={wordsOf('beforeAfter')} />
+                </PostEventSceneFrame>
               ) : null,
           };
           // A key is either one of the shipped sections above, or one of the
@@ -868,7 +1171,8 @@ export async function EditorialContent({
             const col = id ? byId.get(id) : undefined;
             if (!col) {
               const node = nodes[k as EditorialOrderKey];
-              const scene = postEventSceneKeyForBlock(k as EditorialOrderKey);
+              // The film block stamps its two scenes' markers itself.
+              const scene = k === 'watchFilm' ? null : postEventSceneKeyForBlock(k as EditorialOrderKey);
               return node && makerMarkers && scene ? (
                 <Fragment key={k}>
                   {marker(scene)}
@@ -891,11 +1195,27 @@ export async function EditorialContent({
             (Editorial_Experience_Spec §7: every editorial closes with the
             couple's words then their song). Pinned after the reorderable run;
             excluded from sectionOrder so no reorder can move them. ------------- */}
-        {isOn('fromTheCouple') && data.specialMessage ? (
+        {/* 💌 THANK YOU — their closing words, in its style. Guests meet it only
+            when there ARE words; the couple alone sees it wait for them. */}
+        {isOn('fromTheCouple') && (data.specialMessage || wordsOf('couple').body || placeholderOf('couple')) && styleOf('couple') ? (
           <>
             {marker('couple')}
-            <SectionRule title={`From ${capitaliseWords(w.theOrganizer)}`} />
-            <FromTheCouple message={data.specialMessage} attribution={data.firstNames} />
+            <PostEventSceneFrame scene="couple" style={styleOf('couple')!} css={cssOf('couple')}>
+              <ThankYouScene
+                style={styleOf('couple')!}
+                words={wordsOf('couple')}
+                placeholder={placeholderOf('couple')}
+                facts={{
+                  message: data.specialMessage,
+                  names: data.firstNames,
+                  from: `From ${capitaliseWords(w.theOrganizer)}`,
+                  photoUrl: (lastChapterLead?.type === 'clip' ? lastChapterLead.posterUrl : lastChapterLead?.url) ?? data.heroPhotoUrl,
+                  saidYes: data.metrics.attending,
+                  photos: data.metrics.photos,
+                  wishes,
+                }}
+              />
+            </PostEventSceneFrame>
           </>
         ) : null}
         {data.song.url || data.song.label ? (
@@ -1224,7 +1544,7 @@ function TeamBehindTheDay({
       {collapsed.length ? (
         <details className="mt-2">
           <summary className="cursor-pointer list-none font-mono text-xs uppercase tracking-[0.16em] text-terracotta-700 hover:text-ink">
-            + {collapsed.length} more {collapsed.length === 1 ? 'vendor' : 'vendors'}
+            + {collapsed.length} more {collapsed.length === 1 ? 'supplier' : 'suppliers'}
           </summary>
           <ul className="m-0 mt-1 list-none p-0">
             {collapsed.map((v, i) => (
@@ -1288,143 +1608,8 @@ function VendorsWeLoved({ vendors }: { vendors: EditorialData['vendorsWeLoved'] 
   );
 }
 
-function ByTheNumbers({
-  data,
-  words: w,
-}: {
-  data: EditorialData;
-  words: EventWords;
-}): ReactElement {
-  const m = data.metrics;
-  /*
-    ── TWO COUNTS OF ONE THING, ON ONE PAGE — FIXED 2026-09-09 (S11) ──────────
 
-    🔴 THE COVER SAID **14 captures** AND THIS BLOCK SAID **15 Photos & moments**,
-    on the same page, about the same fourteen photographs. Established from the
-    QUERIES and then from production, not by preferring the number that looked
-    right:
 
-      · `metrics.photos` counts `papic_photos` with NO `photo_type` filter —
-        every clean, un-hidden capture, **stills AND clips**;
-      · `metrics.clips` counts the same table filtered to `photo_type='clip'` —
-        a strict SUBSET of the first;
-      · the old line added the subset to the superset.
-
-    Measured in the one published story in production: 13 stills + 1 clip. So
-    `photos` = 14, `clips` = 1, and `14 + 1` printed 15. **The one clip was
-    counted twice.**
-
-    ⚠ THE TWO NUMBERS WERE NEVER COUNTING DIFFERENT POPULATIONS UNDER ONE WORD —
-    which was the worse possibility this was checked for. They count NESTED
-    populations, and the arithmetic was the whole defect. The fix is therefore
-    not "make one match the other": `photos` already IS "photos & moments", so
-    this cell shows it, and "Living moments" below still shows the clips on
-    their own as the subset it is.
-  */
-  const photosAndMoments = m.photos ?? (m.clips != null ? m.clips : null);
-  return (
-    <div className="border-2 border-ink">
-      <div className="bg-ink px-2 py-2 text-center font-display text-xl font-bold text-cream">
-        By the Numbers
-      </div>
-      <p className="px-2 pb-0.5 pt-2 text-center font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">
-        Setnayan&rsquo;s hand in the day
-      </p>
-
-      {/* M1 — services planned with Setnayan */}
-      {m.servicesSetnayan > 0 ? (
-        <Stat
-          big={
-            m.servicesTotalDenominator && m.servicesTotalDenominator > 0
-              ? `${m.servicesSetnayan}/${m.servicesTotalDenominator}`
-              : `${m.servicesSetnayan}`
-          }
-          label="services planned with Setnayan"
-        />
-      ) : null}
-
-      {/* M2 — first-pick hit rate */}
-      {m.firstPickDen > 0 ? (
-        <Stat big={`${m.firstPickNum}/${m.firstPickDen}`} label="vendors that were our #1 match" />
-      ) : null}
-
-      {/* M3 — estimated time saved */}
-      <Stat big={`≈${m.hoursSaved}`} unit="hrs" label="of planning time saved" note="estimated" />
-
-      {/* Supporting count strip (2×2). Row 1: guests · photos & moments (stills +
-          living-moment clips; falls back to attending when neither is known).
-          Row 2: living moments (clip count; falls back to #1 picks) · replied. */}
-      <div className="text-center">
-        <div className="grid grid-cols-2 border-b border-ink/15">
-          <StripCell value={fmt(m.guests)} label="Guests" />
-          {photosAndMoments != null ? (
-            <StripCell value={fmt(photosAndMoments)} label="Photos & moments" last />
-          ) : (
-            <StripCell value={m.attending ? fmt(m.attending) : '—'} label="Attending" last />
-          )}
-        </div>
-        <div className="grid grid-cols-2 border-b border-ink/15">
-          {m.clips != null ? (
-            <StripCell value={fmt(m.clips)} label="Living moments" />
-          ) : m.chapters != null ? (
-            <StripCell value={fmt(m.chapters)} label="Chapters" />
-          ) : (
-            <StripCell value={m.firstPickDen > 0 ? fmt(m.firstPickNum) : '—'} label="#1 Picks" />
-          )}
-          <StripCell value={m.rsvpPct != null ? `${m.rsvpPct}%` : '—'} label="Replied" last />
-        </div>
-      </div>
-
-      <p className="px-2 py-2 text-center font-serif text-[13px] italic text-mulberry-600">
-        &ldquo;Set na &rsquo;yan.&rdquo; — your {w.eventWord}, handled.
-      </p>
-    </div>
-  );
-}
-
-function Stat({
-  big,
-  unit,
-  label,
-  note,
-}: {
-  big: string;
-  unit?: string;
-  label: string;
-  note?: string;
-}): ReactElement {
-  return (
-    <div className="border-b border-ink/15 px-3 py-3 text-center">
-      <div className="font-display text-4xl font-bold leading-none text-ink">
-        {big}
-        {unit ? <span className="text-terracotta-700"> {unit}</span> : null}
-      </div>
-      <div className="mt-1 font-serif text-[13.5px] leading-tight text-ink/70">{label}</div>
-      {note ? (
-        <div className="mt-0.5 font-mono text-xs uppercase tracking-[0.18em] text-ink/60">
-          {note}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function StripCell({
-  value,
-  label,
-  last,
-}: {
-  value: string;
-  label: string;
-  last?: boolean;
-}): ReactElement {
-  return (
-    <div className={`px-1 py-2 ${last ? '' : 'border-r border-ink/15'}`}>
-      <b className="block font-display text-lg font-bold leading-none">{value}</b>
-      <span className="font-mono text-xs uppercase tracking-[0.08em] text-ink/60">{label}</span>
-    </div>
-  );
-}
 
 function SectionRule({ title }: { title: string }): ReactElement {
   return (
@@ -1436,24 +1621,6 @@ function SectionRule({ title }: { title: string }): ReactElement {
   );
 }
 
-function FromTheCouple({
-  message,
-  attribution,
-}: {
-  message: string;
-  attribution: string;
-}): ReactElement {
-  return (
-    <blockquote className="mx-auto max-w-2xl border-y-2 border-ink px-2 py-5 text-center">
-      <p className="m-0 font-display text-xl font-medium italic leading-snug text-ink sm:text-2xl">
-        &ldquo;{message}&rdquo;
-      </p>
-      <footer className="mt-3 font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-        &mdash; {attribution}
-      </footer>
-    </blockquote>
-  );
-}
 
 function ReviewsEmptyState(): ReactElement {
   return (
@@ -1591,78 +1758,6 @@ function MomentsEssay({ photos, names }: { photos: string[]; names: string }): R
   );
 }
 
-/**
- * "From Your Vendors" — day-of media the couple's RECOMMENDED vendor
- * (event_vendors.selection_match_rank = 1) submitted for this event. A credited
- * grid: photos render as stills; clips render as muted, looping, GIF-like
- * BOOMERANGS (the editorial video rule — every clip is pre-baked forward+reverse,
- * so the loop never cuts). Each frame credits the vendor. The still is the clip's
- * poster, so there's no black flash before frame one.
- */
-function VendorMediaStrip({
-  items,
-  words: w,
-}: {
-  items: EditorialData['vendorMedia'];
-  words: EventWords;
-}): ReactElement {
-  return (
-    <div className="mt-4 space-y-3">
-      <p className="text-center font-mono text-xs uppercase tracking-[0.16em] text-ink/60">
-        Captured by {w.theOrganizerPossessive} vendors
-      </p>
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {items.slice(0, 6).map((m, i) => (
-          <figure
-            key={`${i}-${m.stillUrl.slice(0, 24)}`}
-            className="relative aspect-[4/5] overflow-hidden rounded-sm bg-ink/10"
-          >
-            {m.type === 'clip' && m.boomerangUrl ? (
-              // eslint-disable-next-line jsx-a11y/media-has-caption
-              <video
-                autoPlay
-                muted
-                loop
-                playsInline
-                poster={m.stillUrl}
-                aria-label={m.caption ?? `${m.vendorName} — a moment from the day`}
-                className="h-full w-full object-cover"
-              >
-                <source src={m.boomerangUrl} />
-              </video>
-            ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={m.stillUrl}
-                alt={m.caption ?? `${m.vendorName} — a moment from the day`}
-                className="h-full w-full object-cover"
-                loading="lazy"
-                decoding="async"
-              />
-            )}
-            <figcaption className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-ink/75 to-transparent px-2.5 pb-1.5 pt-6">
-              <span className="min-w-0">
-                <span className="block truncate font-mono text-xs uppercase tracking-[0.08em] text-cream/90">
-                  {m.vendorName}
-                </span>
-                {m.category ? (
-                  <span className="block truncate font-mono text-xs uppercase tracking-[0.06em] text-cream/55">
-                    {m.category}
-                  </span>
-                ) : null}
-              </span>
-              {m.type === 'clip' ? (
-                <span className="flex-none font-mono text-xs uppercase tracking-[0.08em] text-cream/70">
-                  ◆ loop
-                </span>
-              ) : null}
-            </figcaption>
-          </figure>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 /**
  * "Live Photo Wall" — the LIVE_WALL add-on, surfaced on the recap as a dense
@@ -1722,138 +1817,7 @@ function LivePhotoWall({
  * not author-hidden; anchor gated per source table), so this only paints safe
  * wishes and safe media.
  */
-/**
- * "Letters to the Editor" — approved Guest Columns (guest_columns · BUILD ①).
- * Text-only op-eds: a 2-column masonry of small titled letters, each a serif
- * headline + short body + mono byline. Fails closed upstream (approved + clean
- * + not author-hidden, behind GUEST_COLUMNS_ENABLED) so this only paints
- * couple-approved words.
- */
-function GuestColumnsWall({
-  columns,
-}: {
-  columns: NonNullable<EditorialData['guestColumns']>;
-}): ReactElement {
-  // §5 THE THREE VOICES, built 2026-08-18. Until now every column rendered
-  // identically — same size, same rule, same order — while the spec had always
-  // asked for three distinct weights. Parents lead, the named party follows
-  // with a badge, everyone else fills the masonry.
-  const ordered = byVoiceWeight(columns).slice(0, 6);
-  const parents = ordered.filter((c) => voiceOf(c.role) === 'parents');
-  const rest = ordered.filter((c) => voiceOf(c.role) !== 'parents');
 
-  return (
-    <div className="mt-4">
-      {/* PARENTS — highest weight: large type, centred, full attribution. They
-          get their own block rather than a column in the masonry, because a
-          parent's words carry the most and a masonry cell flattens everything
-          into the same size. */}
-      {parents.map((c, i) => (
-        <article key={`p${i}`} className="mx-auto mb-8 max-w-prose text-center">
-          <h3 className="m-0 font-display text-2xl font-medium italic leading-snug text-ink">
-            {c.title}
-          </h3>
-          <p className="mt-3 font-serif text-lg leading-relaxed text-ink/85">{c.body}</p>
-          {c.author ? (
-            <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
-              {c.author}
-              {roleLabel(c.role) ? ` · ${roleLabel(c.role)}` : ''}
-            </p>
-          ) : null}
-        </article>
-      ))}
-
-      {rest.length ? (
-        <div className="gap-4 [column-fill:_balance] sm:columns-2">
-          {rest.map((c, i) => (
-            <article
-              key={i}
-              className="mb-4 break-inside-avoid border-l-2 border-terracotta/40 pl-4"
-            >
-              <h3 className="m-0 font-display text-lg font-medium italic leading-snug text-ink">
-                {c.title}
-              </h3>
-              <p className="mt-1.5 font-serif text-base leading-snug text-ink/85">{c.body}</p>
-              {c.author ? (
-                <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">
-                  {c.author}
-                  {/* The badge the spec asks for — best man, maid of honour,
-                      principal sponsor. 🔒 It only ever appears beside a NAME:
-                      the reader strips the role in lockstep with the byline,
-                      because there is exactly one maid of honour and a badge
-                      over an unnamed column would identify her anyway. */}
-                  {roleLabel(c.role) ? (
-                    <span className="ml-2 rounded-sm bg-ink/[0.06] px-1.5 py-0.5 text-ink/60">
-                      {roleLabel(c.role)}
-                    </span>
-                  ) : null}
-                </p>
-              ) : null}
-            </article>
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-/**
- * "WHAT WE ASKED" — the challenge column.
- *
- * A newspaper column, not a gallery: the QUESTION is the thing a reader follows,
- * and the answer sits under it. Rendering these as bare tiles would lose the
- * only thing that makes them different from every other photo on the page —
- * somebody was asked something, and this is what they did.
- *
- * ⚠ CLIPS DO NOT AUTOPLAY WITH SOUND. A story column that starts talking at
- * whoever opens the page — often at work, often in a room with other people —
- * is the kind of surprise that gets a tab closed. `controls`, `preload="none"`,
- * and the poster as the resting state.
- */
-function ChallengeAnswerColumn({ answers }: { answers: ChallengeAnswer[] }) {
-  return (
-    <ul className="mx-auto grid max-w-3xl gap-6 sm:grid-cols-2">
-      {answers.map((a, i) => (
-        <li
-          // No stable id crosses the loader boundary — the prompt plus its
-          // position is unique enough for a static list and leaks no capture id.
-          key={`${i}-${a.prompt}`}
-          className="overflow-hidden rounded-2xl border border-ink/10 bg-surface"
-        >
-          <p className="px-4 pt-4 font-mono text-xs uppercase tracking-[0.14em] text-ink/60">
-            we asked
-          </p>
-          <p className="px-4 pb-3 pt-1 text-sm font-medium text-ink">{a.prompt}</p>
-          {a.mediaType === 'clip' ? (
-            <video
-              src={a.url}
-              poster={a.posterUrl ?? undefined}
-              controls
-              playsInline
-              preload="none"
-              className="aspect-[4/5] w-full bg-ink/5 object-cover"
-            />
-          ) : (
-            /* A presigned R2 URL EXPIRES, so next/image would cache a dead
-               transform and bill a transformation on every render — the cost
-               shape flagged 2026-08-08. Plain <img> is deliberate here.
-               ⚠ The disable must sit on the line IMMEDIATELY before the JSX:
-               a three-line comment pushed it out of range and the rule warned
-               anyway, which is a suppression nobody can evaluate. */
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={a.url}
-              alt={`A guest's answer to: ${a.prompt}`}
-              loading="lazy"
-              className="aspect-[4/5] w-full bg-ink/5 object-cover"
-            />
-          )}
-          {a.byline ? <p className="px-4 py-3 text-xs text-ink/60">&mdash; {a.byline}</p> : null}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 function KwentoWall({
   quotes,
@@ -1906,77 +1870,8 @@ function KwentoWall({
    before a tap opens the shipped part full screen. They sit inside the preview's
    button, so nothing in them may be interactive (no links, no players). */
 
-/** Template 21 · Collage of 5–6. */
-function CollagePreview({ photos, names }: { photos: string[]; names: string }): ReactElement {
-  const six = photos.slice(0, 6);
-  return (
-    <div className="mt-4 grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-      {six.map((url, i) => (
-        <figure
-          key={`${i}-${url.slice(0, 24)}`}
-          className={`relative m-0 overflow-hidden rounded-sm bg-ink/10 ${
-            i === 0 ? 'col-span-2 row-span-2' : 'aspect-square'
-          }`}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={url}
-            alt={i === 0 ? `${names} — a moment from the day` : ''}
-            aria-hidden={i === 0 ? undefined : true}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            decoding="async"
-          />
-        </figure>
-      ))}
-    </div>
-  );
-}
 
-/** Template 14 · Full clip — a still with ▶; the player lives in the layer. */
-function FilmPreview({
-  still,
-  names,
-  broadcast,
-}: {
-  still: string | null;
-  names: string;
-  broadcast: boolean;
-}): ReactElement {
-  return (
-    <div className="relative mt-4 aspect-video w-full overflow-hidden rounded-sm bg-ink">
-      {still ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={still} alt="" aria-hidden className="h-full w-full object-cover opacity-70" loading="lazy" decoding="async" />
-      ) : null}
-      <span className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-cream">
-        <span aria-hidden className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-cream/90 text-2xl text-ink shadow-lg">
-          ▶
-        </span>
-        <span className="font-serif text-xl [text-shadow:0_2px_10px_rgba(0,0,0,.6)]">
-          {broadcast ? 'The broadcast, replayed' : `${names} — the film`}
-        </span>
-      </span>
-    </div>
-  );
-}
 
-/** Template 23 · Three short blocks — the first three wishes, cut short. */
-function WishesPreview({ quotes }: { quotes: EditorialData['kwentoQuotes'] }): ReactElement {
-  const cut = (s: string) => (s.length > 140 ? `${s.slice(0, 139).trimEnd()}…` : s);
-  return (
-    <div className="mt-4 grid gap-4 sm:grid-cols-3">
-      {quotes.slice(0, 3).map((q, i) => (
-        <figure key={i} className="m-0 border-l-2 border-terracotta/40 pl-4">
-          <blockquote className="m-0 font-serif text-base italic leading-snug text-ink/85">{cut(q.body)}</blockquote>
-          {q.author ? (
-            <figcaption className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-ink/60">{q.author}</figcaption>
-          ) : null}
-        </figure>
-      ))}
-    </div>
-  );
-}
 
 /**
  * "Watch the Film" — the Live Studio (Panood) broadcast replay. The couple's

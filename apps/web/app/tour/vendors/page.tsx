@@ -198,6 +198,10 @@ export default async function TourVendorsPage() {
     .from('vendor_profiles')
     .select('business_name')
     .eq('is_demo', true)
+    // A SEEDED sample (no owner). Since 2026-09-30 two real accounts' shops are
+    // `is_demo` too (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)); the rule above
+    // — never surface a real vendor's identity — now needs this line to hold.
+    .is('user_id', null)
     .in('public_visibility', ['verified', 'coming_soon'])
     .not('business_name', 'is', null)
     .order('business_name', { ascending: true })
@@ -260,7 +264,7 @@ export default async function TourVendorsPage() {
       </nav>
 
       <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
-        <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Find your team next.</h2>
+        <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Find your suppliers next.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           Start your own wedding on Setnayan and let the AI shortlist for you — free, in minutes.
           Set na &rsquo;yan.

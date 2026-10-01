@@ -239,11 +239,14 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
   // Outside admin demo mode, drop unverified DEMO rows that the .or() admitted
   // — an anonymous public viewer must never see an unverified vendor render as
-  // a full comparison column. (Verified vendors and verified demo vendors are
+  // a full comparison column. (Verified non-demo vendors are
   // unaffected.) Filter BEFORE the redirect check so a comparison that would
   // be all-unverified-demo correctly bounces to /explore instead of rendering.
   if (!inDemoMode) {
-    rows = rows.filter((r) => r.verification_state === 'verified');
+    // …and no demo row at all (2026-09-30): the two trial shops are VERIFIED
+    // demo shops (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1)), so the
+    // verification test alone would still render them to the public.
+    rows = rows.filter((r) => r.verification_state === 'verified' && r.is_demo !== true);
   }
   const demoRows = rows.filter((r) => r.is_demo === true);
 

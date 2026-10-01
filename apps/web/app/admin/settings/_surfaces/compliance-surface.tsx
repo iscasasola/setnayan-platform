@@ -141,6 +141,14 @@ export async function ComplianceSurface() {
     activeFaceCount(),
   ]);
 
+  // 🔒 READS ARE HONEST (2026-09-30). A refused facts read used to seed the
+  // form with blanks, and one Save wrote those blanks over the real DPO / PIC /
+  // registration facts. When it failed, the form is not rendered at all — a
+  // server-side swap, so no client weight is added.
+  const factsReadFailed = Boolean(factsRes.error);
+  if (factsRes.error) {
+    console.error('[supabase-error] app/admin/settings/_surfaces/compliance-surface.tsx · platform_compliance_facts', factsRes.error);
+  }
   const initial = toFormState(factsRes.data as Record<string, unknown> | null);
 
   return (
@@ -182,7 +190,18 @@ export async function ComplianceSurface() {
         </div>
       </section>
 
-      <ComplianceForm initial={initial} />
+      {factsReadFailed ? (
+        <p
+          role="alert"
+          className="rounded-md bg-warn-50 px-4 py-3 text-sm text-warn-900"
+        >
+          Couldn&rsquo;t load the saved compliance facts — refresh to try again.
+          The form is hidden until they load, so blank fields can&rsquo;t
+          overwrite the real ones.
+        </p>
+      ) : (
+        <ComplianceForm initial={initial} />
+      )}
     </section>
   );
 }

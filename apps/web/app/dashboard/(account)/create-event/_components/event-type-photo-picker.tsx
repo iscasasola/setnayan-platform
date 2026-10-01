@@ -15,9 +15,22 @@ import {
  * mobile and desktop."
  *
  * Columns scale with width so the whole roster stays visible without endless
- * scrolling as the type count grows: 2-up on phones, 3-up on tablets, 4-up on
- * desktop, 5-up on wide desktop. NO dots, NO arrows: the photos ARE the
- * affordance.
+ * scrolling as the type count grows: 2-up on phones, then as many as fit. NO
+ * dots, NO arrows: the photos ARE the affordance.
+ *
+ * 🔑 THE COLUMNS FOLLOW THE ROOM THE GRID HAS, NOT THE WINDOW (owner
+ * 2026-09-30: "cannot see the event names"). This picker renders in TWO
+ * frames: the full `/dashboard/create-event` page, and the board's add-flow
+ * side panel (`CreateEventPanel`, 44rem wide) — the same page, imported whole.
+ * The columns used to be viewport breakpoints (`lg:grid-cols-4
+ * xl:grid-cols-5`), so a 1280px+ WINDOW packed five columns into the 44rem
+ * PANEL: ~107px-wide cards, ~134px tall, shorter than the name + tagline +
+ * Begin stack anchored to their bottom — the stack grew UP past the card's
+ * top edge and `overflow-hidden` cut the name off. From `sm` up the count is
+ * now `auto-fill` over an 11rem floor, so a card is never narrower
+ * than that floor in any frame, and the name is sized to the CARD (`cqi`),
+ * not the window. `event-type-cards-fit.spec.ts` renders this file in both
+ * frames at 390/768/1280/1440 and measures every name box inside its card.
  *
  * Types WITHOUT a hero photo (newly enabled / admin-created, no repo asset and
  * no upload) render a branded gradient + emoji placeholder — never a wrong
@@ -63,7 +76,9 @@ export function EventTypePhotoPicker({ types, onSelect, unavailableReasons, clas
     <div
       role="listbox"
       aria-label="Event type"
-      className={`grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 ${className ?? ''}`}
+      // `sm:` switches ON the width-driven count; below it the phone is always
+      // two-up. The 11rem floor is the one the doc comment above explains.
+      className={`grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] sm:gap-4 ${className ?? ''}`}
     >
       {types.map((t, i) => (
         <PhotoTile
@@ -107,7 +122,9 @@ function PhotoTile({
       aria-label={greyedOut ? `${t.label} — ${unavailableReason}` : t.label}
       disabled={!enabled}
       onClick={() => enabled && onSelect(t)}
-      className={`group relative aspect-[4/5] overflow-hidden rounded-2xl text-left shadow-[0_10px_30px_rgba(30,34,41,0.16)] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
+      // `[container-type:inline-size]` makes the CARD the measure for the name's
+      // `cqi` size below — a card-relative size, whatever frame it sits in.
+      className={`group relative aspect-[4/5] overflow-hidden rounded-2xl [container-type:inline-size] text-left shadow-[0_10px_30px_rgba(30,34,41,0.16)] transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-cream ${
         !enabled
           ? 'cursor-not-allowed opacity-60'
           : greyedOut
@@ -144,13 +161,26 @@ function PhotoTile({
           onError={() => setNoPhoto(true)}
         />
       )}
-      {/* legibility scrim */}
-      <div className="absolute inset-0 bg-gradient-to-t from-ink/85 via-ink/25 to-transparent" />
+      {/* Legibility scrim. The name sits 35–65% down the card, where the old
+          `from-ink/85 via-ink/25` was barely a tint: measured over the real
+          photos, white on Travel and Wedding came out ~2:1 — under the 3:1 a
+          large name needs. Holding 60% ink until 60% of the way up measured
+          (2026-09-30, 390/1280, page + panel) every shipped photo at ≥4.2:1
+          under the name and ≥5.3:1 under the tagline, both at the BRIGHTEST
+          5% of pixels, while the top of the photo stays clear. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/60 via-60% to-transparent" />
       <div className="absolute inset-x-0 bottom-0 p-4">
-        <p className="font-sans text-2xl font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)] sm:text-3xl">
+        {/* Size = 14% of the card's width, between 18px and 30px: the widest
+            one-word names (Anniversary, Tournament) fit the card's inner width at
+            every card size the grid can make. `break-words` is the last resort
+            for an admin-typed name longer than any of those. */}
+        <p
+          data-type-name
+          className="break-words font-sans text-[length:clamp(1.125rem,14cqi,1.875rem)] font-semibold italic leading-none text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)]"
+        >
           {t.label}
         </p>
-        <p className="mt-1.5 line-clamp-2 text-[13px] text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-sm">
+        <p data-type-tagline className="mt-1.5 line-clamp-2 text-[13px] text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)] sm:text-sm">
           {greyedOut ? unavailableReason : tagline}
         </p>
         {greyedOut ? (

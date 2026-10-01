@@ -11,8 +11,9 @@
  * is the save. The grammar names only a few roles, so a Role pick stays for the
  * rest; when made it wins over the line.
  */
+import { useRoleNames } from '../_components/role-names-context';
 import { useMemo, useState } from 'react';
-import { ROLE_LABELS, SIDE_LABELS, type GuestRole } from '@/lib/guests';
+import { guestRoleLabel, guestRolePickLabel, SIDE_LABELS, type GuestRole } from '@/lib/guests';
 import { readKeepLine } from '@/lib/unlisted-guests';
 import { formatCount } from '@/lib/format-number';
 
@@ -26,6 +27,8 @@ export function KeepQuickAdd({
   /** Existing group names, lower-cased — so the preview can say "new group". */
   existingGroups: string[];
 }) {
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = useRoleNames();
   const [line, setLine] = useState(defaultLine);
   const [role, setRole] = useState('');
   const read = useMemo(() => readKeepLine(line, role, offeredRoles), [line, role, offeredRoles]);
@@ -54,7 +57,7 @@ export function KeepQuickAdd({
           <>
             <Chip>{[read.value.prefix, read.value.first_name, read.value.middle_name, read.value.last_name, read.value.suffix].filter(Boolean).join(' ')}</Chip>
             <Chip>{SIDE_LABELS[read.value.side]}</Chip>
-            <Chip>{ROLE_LABELS[read.value.role]}</Chip>
+            <Chip>{guestRoleLabel(read.value.role, roleNames)}</Chip>
             {read.value.groups.map((g) => (
               <Chip key={g}>
                 #{g}
@@ -74,7 +77,7 @@ export function KeepQuickAdd({
           <option value="">From the line (or Guest)</option>
           {pickable.map((r) => (
             <option key={r} value={r}>
-              {ROLE_LABELS[r]}
+              {guestRolePickLabel(r, roleNames)}
             </option>
           ))}
         </select>

@@ -8,7 +8,7 @@
  *   1. each stage's scene list matches the table — open browsing ON and OFF;
  *   2. "Two ways to celebrate" is on no stage;
  *   3. the Invitation bar reads RSVP before a reply and Me after it;
- *   4. the On the Day bar reads Now · Schedule · Camera · Gallery · Me;
+ *   4. the On the Day bar reads Live · Welcome · Camera · Gallery · Me (owner 2026-09-30);
  *   5. the Save the Date has no Camera tab;
  *   6. an empty scene is on the Maker canvas and absent for a guest;
  *   +  one source: WIDGET_PHASES is derived from the table, never listed twice.
@@ -57,7 +57,9 @@ const keys = (stage: LifecyclePhase, over: Partial<MakerStageInput> = {}) =>
    your_photos are each guest's own), so the table read by the canvas is: */
 const CANVAS_TABLE: Record<LifecyclePhase, WidgetType[]> = {
   save_the_date: ['countdown', 'our_love_story'], // the gallery is the film's while a film plays (see below)
-  rsvp: ['countdown', 'special_message', 'our_love_story', 'schedule', 'venue_map', 'dress_code', 'what_to_bring'],
+  // 🏠 Reminders (`what_to_bring`) lead: they are on the Welcome page, after the
+  // reply and before Details (owner 2026-09-30 — `lib/invitation-welcome.ts`).
+  rsvp: ['what_to_bring', 'countdown', 'special_message', 'our_love_story', 'schedule', 'venue_map', 'dress_code'],
   event: ['schedule', 'venue_map', 'photo_moments'],
   editorial: ['our_love_story', 'our_photos', 'special_message'],
 };
@@ -131,32 +133,35 @@ const bar = (stage: LifecyclePhase, over: Partial<Parameters<typeof resolveSiteN
     hasDetails: true,
     hasSchedule: true,
     liveBroadcast: false,
-    destinations: { camera: '/papic/guest?from=x', watch: '/x/hub', join: '/x/invite', rsvp: '/x/invite/reply' },
+    destinations: { camera: '/papic/guest?from=x', watch: '/x/hub', join: '/x/invite' },
     stageSlots: STAGE_BAR[stage].slots,
     ...over,
   }).map((s) => s.label);
 
-test('3 · the Invitation bar: Home · Details · Story · RSVP — and RSVP becomes Me once they answer', () => {
-  assert.deepEqual(bar('rsvp', { replied: false }), ['Home', 'Details', 'Story', 'RSVP']);
-  assert.deepEqual(bar('rsvp', { replied: true }), ['Home', 'Details', 'Story', 'Me']);
-  // A stranger: Home · Details · Story, no RSVP and no Me.
-  assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Home', 'Details', 'Story']);
+test('3 · the Invitation bar: Welcome · Details · Our Love Story · Me — always the four, no RSVP tab', () => {
+  // Owner 2026-09-30: *"on Invitation, the menu is Welcome - Details - Our Love
+  // Story - Me"* and *"RSVP does not have 4 tabs under"* — replied or not.
+  assert.deepEqual(bar('rsvp'), ['Welcome', 'Details', 'Our Love Story', 'Me']);
+  // A stranger: Welcome · Details · Our Love Story, no Me.
+  assert.deepEqual(bar('rsvp', { viewer: { kind: 'public' } }), ['Welcome', 'Details', 'Our Love Story']);
   const BODY = stripComments(readFileSync(join(__dirname, '..', 'app/[slug]/_components/site-body.tsx'), 'utf8'));
-  assert.match(BODY, /replied: Boolean\(guest\.rsvp_status\) && guest\.rsvp_status !== 'pending',/, 'the guest bar is told whether they answered');
+  assert.doesNotMatch(BODY, /\breplied: Boolean\(guest\.rsvp_status\)/, 'the bar is told whether they answered again — an RSVP tab is back');
 });
 
-test('4 · the On the Day bar: Now · Schedule · Camera · Gallery · Me', () => {
-  assert.deepEqual(bar('event'), ['Now', 'Schedule', 'Camera', 'Gallery', 'Me']);
-  // While a broadcast runs, Watch takes the Schedule's place (the bar holds five).
-  assert.deepEqual(bar('event', { liveBroadcast: true }), ['Now', 'Watch', 'Camera', 'Gallery', 'Me']);
-  // No schedule → no dead tab.
-  assert.deepEqual(bar('event', { hasSchedule: false }), ['Now', 'Camera', 'Gallery', 'Me']);
+test('4 · the On the Day bar: Live · Welcome · Camera · Gallery · Me', () => {
+  // Owner 2026-09-30, verbatim: *"Live - Welcome - Camera - Gallery - Me"*
+  // (DECISION_LOG "THE DAY'S MENU HAS FIVE") — it supersedes Now · Schedule.
+  assert.deepEqual(bar('event'), ['Live', 'Welcome', 'Camera', 'Gallery', 'Me']);
+  // The stream is part of Live — a broadcast no longer takes a tab of its own.
+  assert.deepEqual(bar('event', { liveBroadcast: true }), ['Live', 'Welcome', 'Camera', 'Gallery', 'Me']);
+  // A reader with no Welcome on the day (no table, look, reminders or gifts) → no dead tab.
+  assert.deepEqual(bar('event', { hasWelcome: false }), ['Live', 'Camera', 'Gallery', 'Me']);
 });
 
-test('5 · the Save the Date: no Camera tab — Home · Story, and Me for a key-holder', () => {
+test('5 · the Save the Date: no Camera tab — Welcome · Our Love Story, and Me for a key-holder', () => {
   const std = bar('save_the_date');
   assert.ok(!std.includes('Camera'), `the Save the Date offers a camera: ${std.join(' · ')}`);
-  assert.deepEqual(std, ['Home', 'Story', 'Me']);
+  assert.deepEqual(std, ['Welcome', 'Our Love Story', 'Me']);
 });
 
 /* ── 6 · empty scenes ──────────────────────────────────────────────────── */

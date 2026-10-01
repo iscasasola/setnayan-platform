@@ -1,4 +1,6 @@
 import { guestFullName, type GuestRole } from '@/lib/guests';
+import { roleNameMany, roleNameOne, type RoleNames } from '@/lib/role-names';
+import { middleInitials, type NameStyle } from '@/lib/name-style';
 
 /**
  * THE ENTOURAGE, AS AN INVITATION PRINTS IT.
@@ -51,12 +53,35 @@ export type EntouragePerson = {
   role: GuestRole;
   /** Their partner's guest id, when the couple paired them. */
   pairId: string | null;
+  /** `guests.plus_one_of_guest_id` — whose +1 this person is. See `isCouple`. */
+  plusOneOf?: string | null;
+  /** `guests.couple_with_guest_id` — ticked "They're a couple" in the Wedding March. See `isCouple`. */
+  coupleWith?: string | null;
   /** `guests.entourage_order` — the LINE's hand-set position, not this person's.
    *  Both halves of a pair carry the same number; see `orderLines`. */
   order: number | null;
   /** True when they are invited to the ceremony and nothing else. They still
    *  walk, and print normally; they simply have no chair. */
   ceremonyOnly: boolean;
+  /**
+   * The name split for a COUPLE's shared-surname line (`isCouple`) — `given` is everything
+   * before the surname ("Hon. Ricardo"), `surname` the last name exactly as
+   * entered. Null when the name cannot be split honestly: a hand-typed
+   * `display_name`, no last name, or a suffix ("Jr." would be lost or misplaced
+   * by "Ricardo & Jessica Villahermosa Jr."). See `lineNames`.
+   */
+  split?: { given: string; surname: string } | null;
+  /**
+   * What an UNPLACED line sorts by — surname, then first name, never a title.
+   * From the name parts where the row has them; see `sortKeyOf`.
+   */
+  sortKey?: { last: string; first: string };
+  /**
+   * 'father' / 'mother' when the name's OWN title says so (Mr. → father; Mrs.,
+   * Ms., Miss → mother), else null. Gender is not stored; the title the couple
+   * typed is the only honest source, and without one nothing is guessed.
+   */
+  parentWord?: 'father' | 'mother' | null;
 };
 
 /**
@@ -75,6 +100,12 @@ export type EntourageGroup = {
   label: string;
   /** The printed lines, in order. */
   rows: EntourageRow[];
+  /**
+   * The role words this group was built with (`events.role_names`, owner
+   * 2026-09-30). Carried so every renderer labels a person with the SAME words
+   * the heading used: `roleLabel(person.role, group.names)`. `{}` = usual words.
+   */
+  names: RoleNames;
 };
 
 /** Everyone in a group, in printed order — the flat view, for counting and tests. */
@@ -111,6 +142,33 @@ type GroupSpec = {
   roles: readonly GuestRole[];
   /** `[left, right]` — roles that belong in each column. Omit when the group has one side. */
   sides?: readonly [readonly GuestRole[], readonly GuestRole[]];
+  /**
+   * Roles this group's HEADING already names, so the page does not repeat them
+   * beside every name. See `roleBesideName`. A role missing from here (a
+   * Matron under "Maid of Honour & Best Man") keeps its word beside the name —
+   * the heading would misdescribe her without it.
+   */
+  headingNames?: readonly GuestRole[];
+  /** Print the group as one small sub-heading per role, names under it. See `roleBlocks`. */
+  byRole?: true;
+  /** A pair the data pairs prints as ONE line on every screen and on the card. See `pairsShareALine`. */
+  pairsOnOneLine?: true;
+  /**
+   * ⚖ THE HEADING FOLLOWS THE COUPLE'S WORDS (owner 2026-09-30). A sided group
+   * whose heading NAMES its roles ("Maid of Honour & Best Man") gives each
+   * column's usual word here; `groupHeading` swaps a column's word for the
+   * couple's own when they renamed a role in it, or when a role in it is one of
+   * `unusual` (a best woman must not stand under "Best Man"). Groups whose
+   * heading is a CATEGORY ("Principal Sponsors", "Bearers") have none, and keep
+   * their heading whatever the roles inside are called.
+   */
+  sideWords?: readonly [string, string];
+  /** Roles whose presence alone changes their column's word — see `sideWords`. */
+  unusual?: readonly GuestRole[];
+  /** In the heading, a renamed role reads as its word for SEVERAL (`many`) or for ONE. */
+  headingForm?: 'one' | 'many';
+  /** A one-role group whose heading IS that role's plural ("Flower Girls"): the couple's `many` replaces it. */
+  headingIsRole?: boolean;
 };
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
@@ -154,9 +212,20 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
   */
   {
     key: 'honour',
-    label: 'Maid of Honour & Best Man',
-    roles: ['maid_of_honor', 'matron_of_honor', 'best_man'],
-    sides: [['maid_of_honor', 'matron_of_honor'], ['best_man']],
+    label: 'Maid of Honor & Best Man',
+    /* ⚖ Owner 2026-09-30: "We can pick either best man or best woman and maid
+       or matron of honor." `best_woman` stands where the best man stands — the
+       groom's column — so she pairs across from the maid/matron exactly as he
+       does. Nothing makes the pairs exclusive: a couple may have both. */
+    roles: ['maid_of_honor', 'matron_of_honor', 'best_man', 'best_woman'],
+    sides: [['maid_of_honor', 'matron_of_honor'], ['best_man', 'best_woman']],
+    sideWords: ['Maid of Honor', 'Best Man'],
+    unusual: ['best_woman'],
+    headingForm: 'one',
+    /* 🚂 Train 2026-09-30 (#6165 + #6170): a best woman makes the heading say
+       "Best Woman" (`unusual`), so the heading names her too — no word beside
+       her name. A Matron keeps hers: the column still reads "Maid of Honor". */
+    headingNames: ['maid_of_honor', 'best_man', 'best_woman'],
   },
   {
     key: 'principal_sponsors',
@@ -187,11 +256,27 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
        would be a guess printed on an invitation. A couple who wants them paired
        re-types the role; nothing here invents it for them. */
     sides: [['principal_sponsor', 'principal_sponsor_ninong'], ['principal_sponsor_ninang']],
+    /* ⚖ OWNER 2026-09-30, looking at this section: *"the sub text Ninong can
+       be removed"*. The heading says Principal Sponsors; a grey "Ninong" under
+       every name said it again. All three roles are principal sponsors, so the
+       heading names every one of them. */
+    headingNames: ['principal_sponsor', 'principal_sponsor_ninong', 'principal_sponsor_ninang'],
+    /* ⚖ OWNER 2026-09-30, asked how a pair should read once the role word was
+       gone: option **1** — each Ninong with his paired Ninang on ONE line, on
+       every screen size and on the printed card: "Hon. Ricardo & Mrs. Jessica
+       Villahermosa". Supersedes the 2026-09-14 two-column pairing for this
+       group; unpaired sponsors still list alone. */
+    pairsOnOneLine: true,
   },
   {
     key: 'secondary_sponsors',
     label: 'Secondary Sponsors',
     roles: ['candle_sponsor', 'veil_sponsor', 'cord_sponsor', 'coin_sponsor'],
+    /* ⚖ OWNER 2026-09-30: grouped BY ROLE — "Candle" once, the pair(s) under
+       it — instead of "Candle Sponsor" beside every name. Here the role is the
+       only thing that tells the pairs apart, so it moves up into a sub-heading
+       rather than disappearing. */
+    byRole: true,
   },
   /*
     ⚖ ONE GROUP, TWO COLUMNS — they were two separate groups until 2026-09-15.
@@ -203,11 +288,21 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
   */
   {
     key: 'bridesmaids_groomsmen',
-    // ⚖ Owner 2026-09-20: "Bride's Crew & Groom's Crew". The roles beside each
-    // name stay Bridesmaid / Groomsman — only the heading is the couple's word.
+    // ⚖ Owner 2026-09-20: "Bride's Crew & Groom's Crew". Since 2026-09-30 no
+    // role prints beside these names (see `headingNames` below); Bridesmaid /
+    // Groomsman are still the words the dress code's "You are …" line uses.
     label: "Bride's Crew & Groom's Crew",
     roles: ['bridesmaid', 'groomsman'],
     sides: [['bridesmaid'], ['groomsman']],
+    /* The Bride's crew ARE the bridesmaids, the Groom's crew the groomsmen —
+       owner 2026-09-30 brief: no "Bridesmaid" repeated under each name. */
+    headingNames: ['bridesmaid', 'groomsman'],
+    // Owner 2026-09-30 option 1: a walking pair shares one line, as the sponsors do.
+    pairsOnOneLine: true,
+    // ⚖ Owner 2026-09-30: a couple who renames Bridesmaid prints THEIR word
+    // here; an untouched column keeps "Bride's Crew" / "Groom's Crew".
+    sideWords: ["Bride's Crew", "Groom's Crew"],
+    headingForm: 'many',
   },
   /* ⚖ Owner 2026-09-20 split these into two headings ("5. Bearers ... 6. Flower
      Girls"). They shared one group until today, which printed a flower girl
@@ -221,6 +316,8 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     key: 'flower_girls',
     label: 'Flower Girls',
     roles: ['flower_girl'],
+    headingNames: ['flower_girl'],
+    headingIsRole: true,
   },
   {
     key: 'ceremony',
@@ -262,9 +359,10 @@ const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   veil_sponsor: 'Veil Sponsor',
   cord_sponsor: 'Cord Sponsor',
   coin_sponsor: 'Coin Sponsor',
-  maid_of_honor: 'Maid of Honour',
-  matron_of_honor: 'Matron of Honour',
+  maid_of_honor: 'Maid of Honor',
+  matron_of_honor: 'Matron of Honor',
   best_man: 'Best Man',
+  best_woman: 'Best Woman',
   bridesmaid: 'Bridesmaid',
   groomsman: 'Groomsman',
   ring_bearer: 'Ring Bearer',
@@ -280,9 +378,202 @@ const ROLE_LABEL: Partial<Record<GuestRole, string>> = {
   wakil: 'Wakil',
 };
 
-/** The label beside one name, or null when this role is not published. */
-export function roleLabel(role: GuestRole): string | null {
-  return ROLE_LABEL[role] ?? null;
+/**
+ * The label beside one name, or null when this role is not published.
+ *
+ * `names` is the event's `events.role_names` (owner 2026-09-30 — a couple may
+ * call their bridesmaids "Bride's Crew"). The couple's word wins; the usual one
+ * is the fallback. 🔑 The PUBLISHED check comes first and is not the couple's
+ * to override: renaming a role never makes an unpublished role print.
+ */
+export function roleLabel(role: GuestRole, names?: RoleNames | null): string | null {
+  const usual = ROLE_LABEL[role];
+  if (!usual) return null;
+  return roleNameOne(role, names) ?? usual;
+}
+
+/**
+ * The heading over one printed group, in THIS couple's words.
+ *
+ * `present` is the set of roles actually printed in the group (so a column's
+ * word describes who is standing in it). With no renames and no `unusual` role
+ * present, the heading is byte-identical to the built-in `label` — a couple who
+ * changed nothing sees nothing change.
+ */
+function groupHeading(
+  spec: GroupSpec,
+  names: RoleNames | null | undefined,
+  present: ReadonlySet<string>,
+): string {
+  if (spec.headingIsRole && spec.roles.length === 1) {
+    return roleNameMany(spec.roles[0], names) ?? spec.label;
+  }
+  if (!spec.sides || !spec.sideWords) return spec.label;
+  const unusual = new Set<string>(spec.unusual ?? []);
+  const words = spec.sides.map((sideRoles, i) => {
+    const here = sideRoles.filter((r) => present.has(r));
+    const custom = here.some((r) => roleNameOne(r, names) !== null || unusual.has(r));
+    if (!custom) return spec.sideWords![i]!;
+    const shown = here.map((r) =>
+      (spec.headingForm === 'many' ? roleNameMany(r, names) : roleNameOne(r, names)) ??
+      (ROLE_LABEL[r] as string),
+    );
+    return [...new Set(shown)].join(' / ');
+  });
+  return words.join(' & ');
+}
+
+/**
+ * THE WORD BESIDE ONE NAME ON THE INVITATION — or null for none.
+ *
+ * ⚖ OWNER 2026-09-30, on the Principal Sponsors: *"the sub text Ninong can be
+ * removed"*. A role is printed beside a name only when nothing else on the page
+ * says it:
+ *   · the heading already names it (`headingNames`) → no;
+ *   · the group prints a sub-heading per role (`byRole`) → no, the sub-heading
+ *     says it once;
+ *   · everyone in the group holds the same role → no, the heading carries it;
+ *   · otherwise (Parents, Immediate Family, Bearers, a Matron under "Maid of
+ *     Honour & Best Man") → yes: there the word is the only way to tell two
+ *     names apart.
+ *
+ * 🔑 THIS IS DISPLAY ONLY. `roleLabel` is untouched — the guest's own "You are
+ * Ninang" line on the dress code, and screen readers (the component keeps the
+ * role as visually-hidden text), still read it.
+ */
+export function roleBesideName(group: EntourageGroup, person: EntouragePerson): string | null {
+  const spec = GROUPS.find((g) => g.key === group.key);
+  if (spec?.byRole) return null;
+  if (spec?.headingNames?.includes(person.role)) return null;
+  const distinct = new Set(peopleOf(group).map((p) => p.role));
+  if (distinct.size <= 1) return null;
+  return parentBesideOne(person, group.names) ?? roleLabel(person.role, group.names);
+}
+
+/**
+ * 👪 ONE NAME IS ONE PARENT (guest text audit 2026-09-30). "Parents of the
+ * Bride" sat beside a single name — a plural beside one person. Beside ONE
+ * name the word is singular: "Father of the Bride" / "Mother of the Bride"
+ * when the typed title says which, "Parent of the Bride" when it does not
+ * (nothing is guessed from a first name). The plural is for two, and the
+ * group heading already carries it. The couple's own word still wins.
+ */
+function parentBesideOne(person: EntouragePerson, names: RoleNames | null | undefined): string | null {
+  if (person.role !== 'bride_parents' && person.role !== 'groom_parents') return null;
+  if (roleNameOne(person.role, names) !== null) return null;
+  const side = person.role === 'bride_parents' ? 'Bride' : 'Groom';
+  const who = person.parentWord === 'father' ? 'Father' : person.parentWord === 'mother' ? 'Mother' : 'Parent';
+  return `${who} of the ${side}`;
+}
+
+/**
+ * The short sub-heading word for a by-role group — "Candle", not "Candle
+ * Sponsor": the section heading above already says Secondary Sponsors.
+ */
+const ROLE_SHORT: Partial<Record<GuestRole, string>> = {
+  candle_sponsor: 'Candle',
+  veil_sponsor: 'Veil',
+  cord_sponsor: 'Cord',
+  coin_sponsor: 'Coin',
+};
+
+/**
+ * How a by-role group is drawn. Owner 2026-09-30 showed both:
+ *   · `stacked` (B, the default) — "Candle" on its own line, the names under it;
+ *   · `inline`  (A) — "Candle: names" on one line.
+ * The Maker will offer this later as a Preset on the Entourage scene; until
+ * then nothing passes it and every page is `stacked`.
+ */
+export type EntourageRoleLayout = 'stacked' | 'inline';
+export const DEFAULT_ENTOURAGE_ROLE_LAYOUT: EntourageRoleLayout = 'stacked';
+
+/** One sub-heading of a by-role group and the lines under it. */
+export type EntourageRoleBlock = { key: string; label: string; rows: EntourageRow[] };
+
+/**
+ * A by-role group (Secondary Sponsors) as one block per role, in the order the
+ * roles first appear in the group's printed lines — so a hand-set march order
+ * still decides which role comes first, and every line keeps its place within
+ * its role. Returns null for a group that does not print by role.
+ *
+ * A pair stays ONE line. A pair whose halves hold two different roles (a
+ * candle sponsor paired with a veil sponsor) gets its own block labelled with
+ * both — "Candle & Veil" — rather than splitting the pair or labelling one
+ * half wrongly.
+ */
+export function roleBlocks(group: EntourageGroup): EntourageRoleBlock[] | null {
+  const spec = GROUPS.find((g) => g.key === group.key);
+  if (!spec?.byRole) return null;
+  const blocks: EntourageRoleBlock[] = [];
+  for (const row of group.rows) {
+    const roles = [...new Set(row.filter((p): p is EntouragePerson => p !== null).map((p) => p.role))].sort(
+      (a, b) => spec.roles.indexOf(a) - spec.roles.indexOf(b),
+    );
+    if (roles.length === 0) continue;
+    const key = roles.join('+');
+    let block = blocks.find((b) => b.key === key);
+    if (!block) {
+      const label = roles.map((r) => roleNameOne(r, group.names) ?? ROLE_SHORT[r] ?? roleLabel(r) ?? r).join(' & ');
+      block = { key, label, rows: [] };
+      blocks.push(block);
+    }
+    block.rows.push(row);
+  }
+  return blocks;
+}
+
+/**
+ * Are the two people on one line a real COUPLE — not merely walking together?
+ *
+ * ⚖ OWNER 2026-09-30 (DECISION_LOG "WALKING TOGETHER IS NOT BEING A COUPLE"):
+ * *"sometimes the principal sponsor are not couples. Or the entourage are also
+ * not couples."* Walking beside someone implies NOTHING about a relationship.
+ * A couple is exactly one of:
+ *   · one is the other's +1 in the Guest list (`plus_one_of_guest_id`);
+ *   · the hosts ticked "They're a couple" on that pair in the Maker's Wedding
+ *     March — `couple_with_guest_id`, read as MUTUAL (A → B and B → A), so a
+ *     tick left over from an earlier pairing can never adopt a new partner.
+ * 🔑 A SHARED SURNAME IS NEVER EVIDENCE. Two Reyes sponsors are two people.
+ */
+export function isCouple(
+  a: Pick<EntouragePerson, 'id' | 'plusOneOf' | 'coupleWith'> | null | undefined,
+  b: Pick<EntouragePerson, 'id' | 'plusOneOf' | 'coupleWith'> | null | undefined,
+): boolean {
+  if (!a?.id || !b?.id || a.id === b.id) return false;
+  if (a.plusOneOf === b.id || b.plusOneOf === a.id) return true;
+  return a.coupleWith === b.id && b.coupleWith === a.id;
+}
+
+/**
+ * The names of one printed line, a pair kept together, in the line's own order
+ * (left then right — Ninong then Ninang, bridesmaid then groomsman).
+ *
+ * ⚖ OWNER 2026-09-30: a walking pair is BOTH FULL NAMES —
+ * *"Dr. Eduardo Bautista & Ms. Carmen Reyes"*. The couple-style short form
+ * *"Hon. Ricardo & Mrs. Jessica Villahermosa"* is for a real couple ONLY:
+ *   · the pair comes from the DATA (`pair_with_guest_id`, via `pairUp`) —
+ *     never guessed from a shared surname;
+ *   · the surname is said once ONLY when they are a couple (`isCouple`) AND
+ *     both surnames match EXACTLY AND both names split cleanly (`split`);
+ *     otherwise both full names, joined by " & " — a shared surname alone
+ *     NEVER shortens (the Oct 1 release did, and that was the bug);
+ *   · titles stay exactly as entered;
+ *   · an unpaired person is just their name.
+ */
+export function lineNames(row: EntourageRow): string {
+  const [l, r] = row;
+  if (l && r) {
+    if (isCouple(l, r) && l.split && r.split && l.split.surname === r.split.surname) {
+      return `${l.split.given} & ${r.name}`;
+    }
+    return `${l.name} & ${r.name}`;
+  }
+  return (l ?? r)?.name ?? '';
+}
+
+/** Does this group print a data-paired couple on ONE line? (Principal Sponsors, the crews.) */
+export function pairsShareALine(group: EntourageGroup): boolean {
+  return GROUPS.find((g) => g.key === group.key)?.pairsOnOneLine === true;
 }
 
 /**
@@ -313,6 +604,18 @@ export function roleLabel(role: GuestRole): string | null {
 export const ENTOURAGE_COLUMNS =
   'guest_id, pair_with_guest_id, display_name, name_prefix, first_name, middle_name, last_name, name_suffix, role, extra_roles, entourage_order';
 
+/**
+ * + what `isCouple` reads — asked for by the readers that PRINT a pair line
+ * (the invitation's section and the Maker's march via `loadEntourage`, the
+ * `/everyone` page, the printed Entourage card):
+ * `${ENTOURAGE_COLUMNS}, ${ENTOURAGE_COUPLE_FIELDS}`.
+ *
+ * Deliberately NOT inside `ENTOURAGE_COLUMNS` (see its "DO NOT WIDEN" note) and
+ * deliberately not named `*_COLUMNS`. A reader that forgets it degrades the SAFE
+ * way — both full names — never the wrong way.
+ */
+export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_id';
+
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
 export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g.roles]);
 
@@ -324,6 +627,10 @@ export type EntourageGuestRow = {
    *  Never write this column directly: mutuality is not expressible as a row
    *  constraint, so two round trips leave a half-pair. */
   pair_with_guest_id?: string | null;
+  /** `guests.plus_one_of_guest_id` — see `ENTOURAGE_COUPLE_FIELDS` / `isCouple`. */
+  plus_one_of_guest_id?: string | null;
+  /** `guests.couple_with_guest_id` — the Wedding March's "They're a couple" tick. */
+  couple_with_guest_id?: string | null;
   display_name?: string | null;
   name_prefix?: string | null;
   first_name?: string | null;
@@ -351,9 +658,12 @@ export type EntourageGuestRow = {
  * ⚠ RETURNS null RATHER THAN AN EMPTY LINE. A row with no usable name is
  * dropped, because a bullet with nothing beside it reads as a person whose name
  * we lost.
+ *
+ * 🔤 `style` — the event's Name style (`lib/name-style.ts`, owner 2026-09-30).
+ * Omitted = Full, the line this printed before the style existed.
  */
-export function personName(row: EntourageGuestRow): string | null {
-  return guestFullName(row);
+export function personName(row: EntourageGuestRow, style?: NameStyle): string | null {
+  return guestFullName(row, style);
 }
 
 /**
@@ -489,9 +799,18 @@ function orderLines(
     const rx = rolePos(x);
     const ry = rolePos(y);
     if (rx !== ry) return rx - ry;
-    return (lead(x)?.name ?? '').localeCompare(lead(y)?.name ?? '', 'en', {
-      sensitivity: 'base',
-    });
+    /* ⚖ Controller 2026-09-30: surname, then first name — never the printed
+       string, whose first word is often a title ("Dr." sorted every doctor
+       above "Antonio Garcia", and "Dr." above "Hon."). See `sortKeyOf`. */
+    const by = (a?: string, b?: string) => (a ?? '').localeCompare(b ?? '', 'en', { sensitivity: 'base' });
+    const kx = lead(x)?.sortKey;
+    const ky = lead(y)?.sortKey;
+    return (
+      by(kx?.last, ky?.last) ||
+      by(kx?.first, ky?.first) ||
+      by(lead(x)?.name, lead(y)?.name) ||
+      by(lead(x)?.id ?? '', lead(y)?.id ?? '')
+    );
   });
 }
 
@@ -506,10 +825,12 @@ function orderLines(
 export function entourageLines(
   rows: readonly EntourageGuestRow[],
   groupKey: string,
+  /** The event's Name style — omitted = Full. It changes the WORDS, never the order. */
+  style?: NameStyle,
 ): EntourageRow[] {
   const spec = GROUPS.find((g) => g.key === groupKey);
   if (!spec) return [];
-  return orderLines(pairUp(peopleForSpec(rows, spec), spec.sides), spec);
+  return orderLines(pairUp(peopleForSpec(rows, spec, style), spec.sides), spec);
 }
 
 /** Every printed group key, in printing order. */
@@ -519,9 +840,23 @@ export const ENTOURAGE_GROUP_KEYS: readonly string[] = GROUPS.map((g) => g.key);
 export const ENTOURAGE_GROUP_LIST: ReadonlyArray<{ key: string; label: string }> =
   GROUPS.map((g) => ({ key: g.key, label: g.label }));
 
-/** The heading the invitation prints above a group — never a raw key. */
-export function entourageGroupLabel(key: string): string | null {
-  return GROUPS.find((g) => g.key === key)?.label ?? null;
+/**
+ * The heading the invitation prints above a group — never a raw key.
+ *
+ * Pass the event's `names` and the group's `rows` and the heading is the
+ * couple's (see `groupHeading`); omit them and it is the built-in heading.
+ */
+export function entourageGroupLabel(
+  key: string,
+  names?: RoleNames | null,
+  rows?: readonly EntourageGuestRow[] | null,
+): string | null {
+  const spec = GROUPS.find((g) => g.key === key);
+  if (!spec) return null;
+  if (!rows) return groupHeading(spec, names, new Set(spec.roles));
+  const present = new Set<string>();
+  for (const line of entourageLines(rows, key)) for (const p of line) if (p) present.add(p.role);
+  return groupHeading(spec, names, present);
 }
 
 /** Which printed group a role belongs to, or null when it never prints. */
@@ -544,27 +879,88 @@ export function columnOfRole(groupKey: string, role: string): 0 | 1 | null {
   return sideOf({ role: role as GuestRole }, spec.sides);
 }
 
+/** 'father' / 'mother' from the typed title (prefix, else the display name's first word). */
+function parentWordOf(row: EntourageGuestRow): 'father' | 'mother' | null {
+  const title = (row.name_prefix ?? row.display_name?.trim().split(/\s+/)[0] ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\.$/, '');
+  if (title === 'mr') return 'father';
+  if (title === 'mrs' || title === 'ms' || title === 'miss') return 'mother';
+  return null;
+}
+
 /** The people of one group, in `spec.roles` order — the sequence pairing sees. */
 function peopleForSpec(
   rows: readonly EntourageGuestRow[],
   spec: GroupSpec,
+  style?: NameStyle,
 ): EntouragePerson[] {
   const people: EntouragePerson[] = [];
   for (const role of spec.roles) {
     for (const row of holdersOfRoleInPrintOrder(rows, role)) {
-      const name = personName(row);
+      const name = personName(row, style);
       if (!name) continue;
       people.push({
         id: row.guest_id ?? null,
         name,
         role,
         pairId: row.pair_with_guest_id ?? null,
+        plusOneOf: row.plus_one_of_guest_id ?? null,
+        coupleWith: row.couple_with_guest_id ?? null,
         order: typeof row.entourage_order === 'number' ? row.entourage_order : null,
         ceremonyOnly: isCeremonyOnly(row),
+        split: splitForPairLine(row, style),
+        sortKey: sortKeyOf(row, name),
+        parentWord: parentWordOf(row),
       });
     }
   }
   return people;
+}
+
+/**
+ * Titles and suffixes that must never decide an order. Only used on the
+ * FALLBACK path — a row with name parts sorts by `last_name` / `first_name`,
+ * which never contain a title.
+ */
+const LEADING_TITLE =
+  /^(?:(?:mr|mrs|ms|miss|mx|dr|dra|hon|atty|engr|arch|rev|fr|msgr|sr|sra|srta|gen|col|capt|maj|lt|prof|judge|justice|sen|gov|mayor|rep|dean|sis|bro)\.?\s+)+/i;
+const TRAILING_SUFFIX = /(?:,?\s+(?:jr|sr|ii|iii|iv|v)\.?)+$/i;
+
+/**
+ * ⚖ CONTROLLER 2026-09-30: a title never decides order. An unplaced line
+ * sorts by SURNAME, then first name — "Dr. Eduardo Bautista" before "Antonio
+ * Garcia", and "Hon." never ahead of "Dr." on the title alone. Name parts
+ * where the row has them; only when `last_name` is missing, the printed name
+ * minus a leading title and a trailing suffix stands in as the surname key.
+ */
+function sortKeyOf(row: EntourageGuestRow, printed: string): { last: string; first: string } {
+  const last = row.last_name?.trim();
+  if (last) return { last, first: row.first_name?.trim() ?? '' };
+  const bare = printed.replace(LEADING_TITLE, '').replace(TRAILING_SUFFIX, '').trim();
+  return { last: bare || printed, first: '' };
+}
+
+/**
+ * See `EntouragePerson.split`.
+ *
+ * 🔤 THE NAME STYLE DECIDES THE GIVEN HALF. Middle initial → "Hon. Ricardo M.";
+ * Surname first puts the surname FIRST, so "Hon. Ricardo M. & Mrs.
+ * Villahermosa, Jessica L." would be nonsense — that style never shares a
+ * surname and prints both names whole.
+ */
+function splitForPairLine(row: EntourageGuestRow, style?: NameStyle): { given: string; surname: string } | null {
+  if (style === 'surname-first') return null;
+  if (row.display_name?.trim()) return null;
+  if (row.name_suffix?.trim()) return null;
+  const surname = row.last_name?.trim();
+  if (!surname) return null;
+  const given = [row.name_prefix, row.first_name, style === 'middle-initial' ? middleInitials(row.middle_name) : row.middle_name]
+    .map((part) => (part ?? '').trim())
+    .filter(Boolean)
+    .join(' ');
+  return given ? { given, surname } : null;
 }
 
 /**
@@ -614,14 +1010,21 @@ export function buildEntourage(
   rows: readonly EntourageGuestRow[],
   /** `events.entourage_section_order` — omitted or NULL prints the built-in order. */
   sectionOrder?: readonly string[] | null,
+  /** `events.role_names` — the couple's words for roles (owner 2026-09-30). Omitted → the usual words. */
+  names?: RoleNames | null,
+  /** `events.print_details.name_style` — the event's Name style (owner 2026-09-30). Omitted → Full. */
+  style?: NameStyle,
 ): EntourageGroup[] {
   const groups: EntourageGroup[] = [];
   const byKey = new Map(GROUPS.map((g) => [g.key, g]));
   for (const key of orderedGroupKeys(sectionOrder)) {
     const spec = byKey.get(key)!;
     // The SAME function the dashboard reorders with — see `entourageLines`.
-    const built = entourageLines(rows, spec.key);
-    if (built.length > 0) groups.push({ key: spec.key, label: spec.label, rows: built });
+    const built = entourageLines(rows, spec.key, style);
+    if (built.length === 0) continue;
+    const present = new Set<string>();
+    for (const line of built) for (const p of line) if (p) present.add(p.role);
+    groups.push({ key: spec.key, label: groupHeading(spec, names, present), rows: built, names: names ?? {} });
   }
   return groups;
 }
@@ -706,14 +1109,14 @@ function pairUp(people: readonly EntouragePerson[], sides: GroupSpec['sides']): 
  * ⛔ The couple themselves are excluded — their names are the masthead, and
  * printing them in a guest list reads as a mistake.
  */
-export function plainGuestNames(rows: readonly EntourageGuestRow[]): string[] {
+export function plainGuestNames(rows: readonly EntourageGuestRow[], style?: NameStyle): string[] {
   const cast = new Set<string>(ENTOURAGE_ROLES);
   const names: string[] = [];
   for (const row of rows) {
     const role = row.role ?? '';
     if (cast.has(role) || role === 'bride' || role === 'groom') continue;
     if ((row.extra_roles ?? []).some((r) => cast.has(r))) continue;
-    const name = personName(row);
+    const name = personName(row, style);
     if (name) names.push(name);
   }
   return names;

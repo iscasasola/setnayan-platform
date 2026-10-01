@@ -32,8 +32,6 @@ import {
 import { postVendorReply } from './reviews/actions';
 import { respondAppointment } from '@/app/_components/appointments-actions';
 import {
-  VendorTodayFocal,
-  VendorEnergyStats,
   WhatsNewFeed,
   NothingToAnswerFeed,
   OngoingTasks,
@@ -75,6 +73,17 @@ import {
   type FeeDisclosure,
 } from '@/lib/booking-fee-disclosure';
 import { BookingFeeBills } from '@/app/_components/booking-fee-notice';
+import { SupplierTodayFirstScreen } from './_components/supplier-today-first-screen';
+import {
+  pickSupplierNext,
+  eventsThisWeek,
+  owedToYouPhp,
+} from '@/lib/supplier-today';
+import { formatPesoCompact } from '@/lib/vendors-plan-budget';
+import { formatPhp } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
+import { displayServiceLabel } from '@/lib/vendors';
+import { MiniTour } from '@/app/_components/mini-tour';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -388,16 +397,11 @@ export default async function VendorOverviewPage({
 
   timer.flush();
 
-  // Hero metrics feed the focal tile below (the designed home for the
-  // inquiries / next-booking / earned trio). The hero itself no longer restates
-  // them as text — that was the same three numbers a few lines above the focal
-  // (deduped 2026-07-16); the hero subline is now a plain orienting lead-in.
+  // The first of the first screen's three numbers ("new inquiries").
   // Reads the ASK half. An inquiry is always an ask, so this number does not
   // move today — but taking it from `whatsNew` would mean the hero counted a
   // list the feed below no longer shows, the moment a kind changes side.
   const heroInquiries = needsAnswer.filter((c) => c.kind === 'inquiry').length;
-  // Unmeasured (ledger read refused or short) is null, never a ₱0 or short year.
-  const heroEarnedPhp = earnings?.earningsMeasured ? earnings.earnedThisYearPhp : null;
 
   // WHY COUPLES CAN'T FIND YOU — decided once, in `lib/vendor-shop-findable.ts`,
   // from the `public_visibility` already on this row (no extra query) and from
@@ -410,33 +414,114 @@ export default async function VendorOverviewPage({
   });
   const findabilityBanner = findabilityNotice(findability);
 
+  /*
+    ── 📱 THE FIRST SCREEN (owner-APPROVED 2026-10-01, DECISION_LOG "THE
+    SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS") ────
+    The shop line → ONE Next card → three numbers → the next three events.
+    Before this, the first inquiry landed under the fold (~900 px down, read off
+    the component order). Nothing below was removed: the desk, the notes, the
+    bills and the lists all still render, in the same order, under "Everything
+    else" (#today-all). The "Today at" tile and the KPI bento are what the Next
+    card and the three numbers replaced.
+  */
+  const owedPhp = owedToYouPhp(earnings);
+  const firstCategory = (profile.services ?? [])[0] as string | undefined;
+  // The shared resolver, never an inline humaniser (`one-word-per-category.test.ts`).
+  const categoryWord = firstCategory ? displayServiceLabel(firstCategory) : 'Your shop';
+  const shopState = firstSteps ? 'Not live yet' : findability.findable ? 'Live' : 'Not listed';
+  const next = pickSupplierNext({
+    answer: needsAnswer[0] ?? null,
+    answerSince: needsAnswer[0] ? cardTimestamp(needsAnswer[0]) : null,
+    deskIncomplete,
+    upcoming,
+    setupStep: firstSteps?.current
+      ? {
+          title: firstSteps.current.title,
+          body: firstSteps.current.body,
+          cta: firstSteps.current.cta,
+          href: firstSteps.current.href,
+        }
+      : null,
+    findability: findabilityBanner
+      ? { title: findabilityBanner.title, body: findabilityBanner.body, cta: findabilityBanner.cta ?? null }
+      : null,
+    fee: todayFeeBills[0]
+      ? { bill: todayFeeBills[0], copy: feeDueCopy(todayFeeBills[0], manilaToday()) }
+      : null,
+    owedPhp,
+    now: Date.now(),
+  });
+
   return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
-      {/* Hero — greeting eyebrow → `.sn-h1` statement → mono stat line (§ 3.3). */}
-      <header className="sn-reveal space-y-1.5">
-        <p className="text-[13px] text-ink/55">
-          Kumusta, {profile.business_name} · {todayLabel()}
-        </p>
-        <h1 className="sn-h1">
-          Your shop, today.
-        </h1>
-        <p className="max-w-[56ch] pt-0.5 text-[12.5px] text-ink/55">
-          {heroInquiries > 0
-            ? 'Here’s what needs you today.'
-            : firstSteps
-              ? // An unverified shop is invisible to every couple, so "you're all
-                // caught up — new leads land here" was a promise that could not
-                // come true: it told a vendor to wait for something that will
-                // never arrive until they finish the steps below.
-                'No couple can find you yet — your first steps are below.'
-              : // ⚠ THE SAME PROMISE, ONE COLUMN OVER. The rail only knows about
-                // `verification_state`; a shop can be approved and still not
-                // listed, and telling that shop to sit tight and wait for leads
-                // is telling it to wait for something that cannot arrive.
-                !findability.findable
-                ? 'No couple can find you yet — see the note below.'
-                : "You're all caught up — new leads land here the moment a couple unlocks you."}
-        </p>
+    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
+      {/* The outcome of a booking ask answered ON this page. A refusal here is
+          the whole point: without it the supplier presses Agree, is refused,
+          and sees the same page with the same card and no explanation. It sits
+          ABOVE the first screen because it answers the tap the supplier just
+          made — text only, nothing to press. */}
+      {lockAnswer ? (
+        <div
+          role="status"
+          className="sn-tile mb-4 flex items-start gap-3 p-4 text-sm text-ink/80"
+        >
+          {lockAnswer.tone === 'refused' ? (
+            <AlertTriangle
+              aria-hidden
+              className="mt-0.5 h-4 w-4 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: 'var(--m-blush-deep)' }}
+            />
+          ) : (
+            <Info
+              aria-hidden
+              className="mt-0.5 h-4 w-4 shrink-0"
+              strokeWidth={1.75}
+              style={{ color: 'var(--sn-gold-700)' }}
+            />
+          )}
+          <p>{lockAnswer.text}</p>
+        </div>
+      ) : null}
+
+      {/* The outcome of an answer given ON this page, said where it was given. */}
+      {depositAnswer ? (
+        <div
+          role="status"
+          className="sn-tile mb-4 flex items-start gap-3 p-4 text-sm text-ink/80"
+        >
+          <Info
+            aria-hidden
+            className="mt-0.5 h-4 w-4 shrink-0"
+            strokeWidth={1.75}
+            style={{ color: 'var(--sn-gold-700)' }}
+          />
+          <p>{depositAnswer}</p>
+        </div>
+      ) : null}
+
+      <SupplierTodayFirstScreen
+        cover={{ eyebrow: `${categoryWord} · ${shopState}`, name: profile.business_name }}
+        next={next}
+        numbers={{
+          inquiries: formatCount(heroInquiries),
+          thisWeek: eventsThisWeek(upcoming),
+          // ₱48K, not ₱48,000 — three numbers share one phone row. The exact
+          // figure is one tap away on Payday.
+          owed: owedPhp === null ? '—' : formatPesoCompact(owedPhp * 100),
+        }}
+        comingUp={upcoming.slice(0, 3)}
+      />
+
+      {/* First visit only — the shipped MiniTour (owner rule: every feature
+          gets a first-visit tour). Waits for the welcome tour so two never
+          stack on one first visit. */}
+      <MiniTour tourKey="vendor_today_v1" after="vendor_welcome_v1" />
+
+      {/* ── EVERYTHING ELSE — one tap below, nothing removed ─────────────── */}
+      <div id="today-all" className="mt-8 scroll-mt-24">
+      <header className="mb-4 space-y-1">
+        <h2 className="sn-sec">Everything else</h2>
+        <p className="text-[12.5px] text-ink/55">{todayLabel()}</p>
         {milestone ? (
           <div className="pt-1.5">
             <span
@@ -462,6 +547,31 @@ export default async function VendorOverviewPage({
         ) : null}
       </header>
 
+      {/*
+        YOUR MONEY — the two figures the old "Today at" tile and cash-flow ring
+        carried, kept one scroll down (owner rule for this redraw: nothing
+        removed). Each opens the ledger it summarises; "—" when a read failed,
+        never ₱0.
+      */}
+      {earnings ? (
+        <div className="mb-6 grid grid-cols-2 gap-2" data-today-money>
+          <Link href="/vendor-dashboard/earnings" className="sn-glass-bare sn-press rounded-xl px-3 py-3">
+            <span className="block text-[11.5px] text-ink/55">Earned this year</span>
+            <span className="block font-display text-[20px] leading-tight text-ink">
+              {earnings.earningsMeasured ? formatPhp(earnings.earnedThisYearPhp) : '—'}
+            </span>
+          </Link>
+          <Link href="/vendor-dashboard/payday" className="sn-glass-bare sn-press rounded-xl px-3 py-3">
+            <span className="block text-[11.5px] text-ink/55">Confirmed of booked</span>
+            <span className="block font-display text-[20px] leading-tight text-ink">
+              {earnings.paydayMeasured
+                ? `${formatPhp(earnings.confirmedPhp)} / ${formatPhp(earnings.expectedPhp)}`
+                : '—'}
+            </span>
+          </Link>
+        </div>
+      ) : null}
+
       {/* Why couples can't find you. Mutually exclusive with the rail below by
           construction — `shopFindability` returns the silent state whenever the
           rail is showing — so this is never a second voice on the same subject.
@@ -470,7 +580,7 @@ export default async function VendorOverviewPage({
           reach it. */}
       {findabilityBanner ? (
         <div
-          className="mt-6 flex items-start gap-3 rounded-xl border px-4 py-3.5"
+          className="mb-6 flex items-start gap-3 rounded-xl border px-4 py-3.5"
           style={{
             borderColor: 'var(--m-orange-3)',
             background: 'var(--m-orange-4)',
@@ -500,72 +610,9 @@ export default async function VendorOverviewPage({
           Renders nothing once the shop is verified (rail is null). */}
       {firstSteps ? <VendorFirstSteps rail={firstSteps} /> : null}
 
-      {/* Focal — "Today at {shop}", the single obsidian tile (§ 1.3). Blooms
-          last; its gold CTA anchors to the What's-new feed below. */}
-      <VendorTodayFocal
-        businessName={profile.business_name}
-        inquiries={heroInquiries}
-        nextBooking={upcoming[0] ?? null}
-        earnedThisYearPhp={heroEarnedPhp}
-      />
-
-      {/* KPI bento — glass tiles, ring sweeps, Space-Mono numerals (real
-          feed-derived counts + real earnings; earnings null → money tiles omitted). */}
-      <div className="mt-6">
-        <VendorEnergyStats
-          whatsNew={whatsNew}
-          ongoing={ongoing}
-          upcoming={upcoming}
-          earnings={earnings}
-        />
-      </div>
-
       {/* Spotlight Award — celebratory banner, shown only when this vendor holds
           at least one current-period award (empty list renders nothing). */}
       <SpotlightAwardBanner awards={spotlightAwards} />
-
-      {/* The outcome of a booking ask answered ON this page. A refusal here is
-          the whole point: without it the supplier presses Agree, is refused,
-          and sees the same page with the same card and no explanation. */}
-      {lockAnswer ? (
-        <div
-          role="status"
-          className="sn-tile mb-6 flex items-start gap-3 p-4 text-sm text-ink/80"
-        >
-          {lockAnswer.tone === 'refused' ? (
-            <AlertTriangle
-              aria-hidden
-              className="mt-0.5 h-4 w-4 shrink-0"
-              strokeWidth={1.75}
-              style={{ color: 'var(--m-blush-deep)' }}
-            />
-          ) : (
-            <Info
-              aria-hidden
-              className="mt-0.5 h-4 w-4 shrink-0"
-              strokeWidth={1.75}
-              style={{ color: 'var(--sn-gold-700)' }}
-            />
-          )}
-          <p>{lockAnswer.text}</p>
-        </div>
-      ) : null}
-
-      {/* The outcome of an answer given ON this page, said where it was given. */}
-      {depositAnswer ? (
-        <div
-          role="status"
-          className="sn-tile mb-6 flex items-start gap-3 p-4 text-sm text-ink/80"
-        >
-          <Info
-            aria-hidden
-            className="mt-0.5 h-4 w-4 shrink-0"
-            strokeWidth={1.75}
-            style={{ color: 'var(--sn-gold-700)' }}
-          />
-          <p>{depositAnswer}</p>
-        </div>
-      ) : null}
 
       {/* The door to "How clients pay you" while a booked couple cannot see
           anywhere to pay. Not when a booking ask is on screen: that card
@@ -645,6 +692,7 @@ export default async function VendorOverviewPage({
 
       {/* 4 · Upcoming schedules — next 5 booked events */}
       <UpcomingSchedules rows={upcoming} />
+      </div>
     </div>
   );
 }

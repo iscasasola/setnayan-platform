@@ -211,7 +211,7 @@ test('in Details the editor draws no panel column, no fixed drawer, no fixed she
   assert.match(md, /seating: <SeatPlanSlot name="place"/);
 });
 
-test('"Guests see this now" opens with publishSeating and closes with the SHIPPED unpublishSeating (+0 actions)', () => {
+test('"Show guests their seats early" opens with publishSeating and closes with the SHIPPED unpublishSeating (+0 actions)', () => {
   const ed = code('seating', '_components', 'seating-editor.tsx');
   const flip = ed.slice(ed.indexOf('const flipDoor = '), ed.indexOf('const doorStrip = '));
   assert.ok(flip.length > 0, 'the door switch is gone');
@@ -221,9 +221,12 @@ test('"Guests see this now" opens with publishSeating and closes with the SHIPPE
   const actions = code('seating', 'actions.ts');
   const un = actions.slice(actions.indexOf('export async function unpublishSeating'));
   assert.match(un.slice(0, 1200), /\.update\(\{ published_at: null,/);
-  // Printing the table signs opens the door in Details too.
+  // 2026-09-30 (owner: "seatplan will show on the date of the event"): the door
+  // is now "Show guests their seats early", and printing the table signs no
+  // longer opens it — it stamps the signs alone (`stampTableSigns`).
   const print = ed.slice(ed.indexOf('const publishAndPrint = '), ed.indexOf('const renameTable = '));
-  assert.match(print, /if \(details\) setDoorOpen\(true\);/);
+  assert.match(print, /await stampTableSigns\(fd\);/);
+  assert.doesNotMatch(stripComments(print), /setDoorOpen\(true\)|publishSeating\(/, 'printing signs must not open seats early');
 });
 
 test('3D is drawn IN the middle part and never leaves Details; it does not drop the 2D editor’s lock', () => {

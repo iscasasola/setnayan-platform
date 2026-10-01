@@ -18,54 +18,46 @@ import { stripComments } from '@/lib/strip-comments';
  * *"href and no form: a control that looked pressable and did nothing."* The
  * same disease in the other direction — that one looked pressable and was
  * inert; these ARE the answer to "where next" and offered no way to get there.
+ *
+ * 📱 2026-10-01 — the KPI bento became THREE NUMBERS on Today's first screen
+ * (DECISION_LOG "THE SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED
+ * ANSWERS": new inquiries · events this week · ₱ owed to you). The property did
+ * not change; the scan moved to `supplier-today-first-screen.tsx`.
  */
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '../..');
 const src = () =>
   stripComments(
-    readFileSync(join(WEB, 'app/vendor-dashboard/_components/overview-sections.tsx'), 'utf8'),
+    readFileSync(join(WEB, 'app/vendor-dashboard/_components/supplier-today-first-screen.tsx'), 'utf8'),
   );
 
-test('every headline count on the vendor overview has a destination', () => {
+/** The three-numbers block, from its marker to the Coming-up block after it. */
+function numbersBlock(): string {
   const s = src();
-  // Slice each <EnergyKpi …/> call and require an href in it. A count is the
-  // answer to "what needs me" — it must say where.
-  // ⚠ THE WINDOW MUST END AT THE ELEMENT'S OWN CLOSING TAG. My first version
-  // was `/<EnergyKpi[\s\S]*?\/>/` and it stopped at the ICON's self-close —
-  // `icon={<Inbox … />}` — several lines before the href, so every tile read as
-  // dead and the guard failed against correct code. A window that ends at the
-  // first plausible boundary rather than the right one is this repo's oldest
-  // guard bug. Anchor on the closing `/>` that sits alone on its own line.
-  const calls = s.match(/<EnergyKpi[\s\S]*?\n\s*\/>/g) ?? [];
-  assert.ok(calls.length >= 3, `only ${calls.length} KPI tiles found — the scan has gone blind`);
-  const dead = calls
-    .filter((c) => !/href=/.test(c))
-    .map((c) => (/label="([^"]+)"/.exec(c)?.[1] ?? c.slice(0, 40)));
-  assert.deepEqual(
-    dead,
-    [],
-    `These counts render a number and go nowhere: ${dead.join(', ')}. A supplier ` +
-      'taps them expecting the list behind the number. Give each an href, or ' +
-      'state in a comment why this one is display-only.',
-  );
-});
+  const a = s.indexOf('data-today-numbers');
+  const b = s.indexOf('data-today-coming-up');
+  assert.ok(a > 0 && b > a, 'the three-numbers block could not be found — the scan has gone blind');
+  return s.slice(a, b);
+}
 
-test('the component can actually BE a link — not just accept the prop', () => {
-  // The failure that would pass the test above: add `href` to the type, never
-  // read it. Keep the call, discard its result — this repo has been beaten by
-  // that exact shape twice.
-  const s = src();
-  assert.match(s, /href \? \(/, 'EnergyKpi takes an href and never branches on it');
-  assert.match(s, /<Link\s+href=\{href\}/, 'the href is not passed to a Link');
+test('every headline count on Today has a destination', () => {
+  const block = numbersBlock();
+  // Every number sits in its own <Link>; a <span>/<div> number would be a count
+  // that goes nowhere.
+  const links = block.match(/<Link\b[^>]*>/g) ?? [];
+  assert.equal(links.length, 3, `${links.length} of the three numbers are links`);
+  for (const l of links) assert.match(l, /href="\/vendor-dashboard[^"]*"/, `a number links nowhere real: ${l}`);
+  for (const word of ['new inquiries', 'events this week', 'owed to you']) {
+    assert.ok(block.includes(word), `the "${word}" number is gone`);
+  }
 });
 
 test('the destinations exist as routes', () => {
-  const s = src();
-  const hrefs = [...s.matchAll(/<EnergyKpi[\s\S]*?href="([^"]+)"[\s\S]*?\n\s*\/>/g)].map((m) => m[1]!);
-  assert.ok(hrefs.length >= 3, `found ${hrefs.length} KPI hrefs`);
+  const hrefs = [...numbersBlock().matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  assert.equal(hrefs.length, 3, `found ${hrefs.length} number hrefs`);
   for (const h of hrefs) {
-    const rel = h.replace(/^\//, '').split('?')[0]!;
+    const rel = h.replace(/^\//, '').split(/[?#]/)[0]!;
     const page = join(WEB, 'app', rel, 'page.tsx');
     assert.ok(
       statSync(page, { throwIfNoEntry: false }),
@@ -75,8 +67,12 @@ test('the destinations exist as routes', () => {
   }
 });
 
-test('the neighbouring money tile still links — the pattern was already here', () => {
-  // EarnedTile is why this was a defect rather than a design: one tile in the
-  // row linked and three did not.
-  assert.match(src(), /href="\/vendor-dashboard\/earnings"/);
+test('the money number goes to the money — Payday', () => {
+  assert.match(numbersBlock(), /href="\/vendor-dashboard\/payday"/);
+});
+
+test('each Coming-up row opens its customer — the list under the numbers links too', () => {
+  const s = src();
+  const coming = s.slice(s.indexOf('data-today-coming-up'));
+  assert.match(coming, /<Link href=\{row\.href\}/, 'a Coming-up row is drawn but goes nowhere');
 });

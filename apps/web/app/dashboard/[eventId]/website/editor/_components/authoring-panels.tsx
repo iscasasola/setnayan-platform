@@ -7,7 +7,6 @@ import { PhotoMomentsEditor } from '../../photo-moments/_components/photo-moment
 import type { DressCodeConfig } from '../../dress-code/actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
-import { unlockLabel } from './unlock-label';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
@@ -32,11 +31,14 @@ export function DressCodePanel({
   eventId,
   config,
   eventNoun,
+  eventRoles = [],
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   config: DressCodeConfig;
   eventNoun: string;
+  /** The roles on this event's guest list — so each role's outfit is set right here. */
+  eventRoles?: React.ComponentProps<typeof DressCodeFields>['eventRoles'];
 }) {
   return (
     <form action={action} className={PANEL}>
@@ -46,7 +48,7 @@ export function DressCodePanel({
         name="return_to"
         value={`/dashboard/${eventId}/website/editor?open=dress-code`}
       />
-      <DressCodeFields config={config} eventNoun={eventNoun} compact />
+      <DressCodeFields config={config} eventNoun={eventNoun} eventRoles={eventRoles} compact />
       <SubmitButton
         pendingLabel="Saving…"
         className="mt-3 inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90"
@@ -239,18 +241,12 @@ export function StdPanel({
 }
 
 /** After / editorial — an honest free-vs-Pro split (owner 2026-07-25). */
-export function EditorialPanel({
-  eventId,
-  ownsPro,
-  unlockHref,
-  priceLabel,
-}: {
-  eventId: string;
-  ownsPro: boolean;
-  unlockHref: string;
-  /** The live catalogue price, formatted — null when the catalogue did not answer. */
-  priceLabel: string | null;
-}) {
+export function EditorialPanel({ ownsPro }: { ownsPro: boolean }) {
+  /* No link-outs (owner 2026-09-29): every Post Event scene is already in the
+     scene list — tap one to show, hide, move, restyle or reword it, right here.
+     The ◆ touches are tried free and asked for at Apply ("Unlock Pro and Apply"),
+     so this panel only says what is free and what is ◆ — it never sends the
+     couple anywhere and never shows a price. */
   return (
     <div className={PANEL}>
       <p className="text-[0.7rem] font-semibold text-success-800">Free — always on</p>
@@ -258,6 +254,7 @@ export function EditorialPanel({
         <li>The After page itself — your wedding&rsquo;s recap page for guests</li>
         <li>Approved wedding photos gathered automatically</li>
         <li>Your thank-you note (Special message)</li>
+        <li>Show, hide, move and restyle each scene — tap it in the scene list</li>
       </ul>
       <p className="mt-2 flex items-center gap-1 text-[0.7rem] font-semibold text-amber-800">
         <PaidMark
@@ -265,27 +262,16 @@ export function EditorialPanel({
           label={paidMarkLabel(ownsPro ? 'unlocked' : 'try', 'Event Hub Pro')}
           size="xs"
         />
-        Event Hub PRO — the editor&rsquo;s desk
+        Event Hub Pro
       </p>
       <ul className="mt-0.5 list-disc pl-4 text-[0.7rem] text-ink/60">
-        <li>Write and arrange the story yourself — chapters, captions, order</li>
-        <li>Curate which photos lead each chapter</li>
-        <li>The magazine-style layout and cover</li>
+        <li>A font or an animation of your own on any scene</li>
+        <li>From your story: named moments, columns of your own, featured guest wishes</li>
       </ul>
-      {ownsPro ? (
-        <Link
-          href={`/dashboard/${eventId}/story`}
-          className="mt-2 inline-flex items-center rounded-full bg-ink px-3.5 py-1.5 text-[0.7rem] font-semibold text-cream hover:bg-ink/90"
-        >
-          Open the editor&rsquo;s desk →
-        </Link>
-      ) : (
-        <Link
-          href={unlockHref}
-          className="mt-2 inline-flex items-center rounded-full bg-amber-400 px-3.5 py-1.5 text-[0.7rem] font-semibold text-ink hover:bg-amber-300"
-        >
-          {unlockLabel(priceLabel)}
-        </Link>
+      {ownsPro ? null : (
+        <p className="mt-2 text-[0.7rem] text-ink/60">
+          Try all of it now — Apply asks for Event Hub Pro when you publish.
+        </p>
       )}
     </div>
   );

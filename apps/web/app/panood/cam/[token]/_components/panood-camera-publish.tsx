@@ -251,7 +251,7 @@ export function PanoodCameraPublish({
       <header className="flex items-center justify-between px-4 pt-[max(env(safe-area-inset-top),1rem)] pb-3">
         <div>
           <p className="font-mono text-[11px] uppercase tracking-[0.25em] text-cream/55">
-            Live Studio · live camera
+            Live Watch · live camera
           </p>
           <h1 className="mt-0.5 text-lg font-semibold tracking-tight">{camLabel}</h1>
         </div>

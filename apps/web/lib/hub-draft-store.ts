@@ -1,4 +1,5 @@
 import 'server-only';
+import { fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -24,6 +25,7 @@ import {
   type HubDraftEventColumn,
   type HubDraftEvents,
   type HubDraftPatch,
+  type HubDraftBarLive,
   type HubDraftSummary,
   type HubLiveState,
 } from '@/lib/hub-draft';
@@ -261,15 +263,32 @@ const WIDGET_LIVE_SELECT ='widget_id, widget_type, is_always_on, is_visible, dis
  * Apply must never classify against a guessed "live".
  */
 export async function readHubLiveState(supabase: SessionClient, eventId: string): Promise<HubLiveState> {
-  const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }] = await Promise.all([
+  const [
+    { data: ev, error: evErr },
+    { data: rows, error: rowsErr },
+    { data: story, error: storyErr },
+    { data: prefs, error: prefsErr },
+  ] = await Promise.all([
     supabase.from('events').select(HUB_DRAFT_EVENT_COLUMNS.join(', ')).eq('event_id', eventId).maybeSingle(),
     supabase.from('invitation_widgets').select(WIDGET_LIVE_SELECT).eq('event_id', eventId),
+    // 📖 Post Event's live arrangement — the story's own row (RLS: the couple's own).
+    supabase.from('event_editorial').select('draft_json').eq('event_id', eventId).maybeSingle(),
+    // 🎨 The fixed parts' live style picks — `events_host`, the couple-scoped read
+    // of `events` (the dashboard reads `style_preferences` through it already).
+    supabase.from('events_host').select('style_preferences').eq('event_id', eventId).maybeSingle(),
   ]);
   if (evErr) throw new Error(`Could not read the live Event Hub: ${evErr.message}`);
   if (rowsErr) throw new Error(`Could not read the live sections: ${rowsErr.message}`);
+  // ⚠ Unread is NOT "the default arrangement": Apply would classify against a
+  // guessed live story and could write a key it never compared. Refuse instead.
+  if (storyErr) throw new Error(`Could not read the live Post Event story: ${storyErr.message}`);
+  // Unread is not "no picks" either — Apply would compare against a guess.
+  if (prefsErr) throw new Error(`Could not read the live scene styles: ${prefsErr.message}`);
   return {
     events: (ev ?? {}) as HubLiveState['events'],
     widgets: (rows ?? []) as unknown as HubLiveState['widgets'],
+    editorial: (story as { draft_json?: unknown } | null)?.draft_json ?? null,
+    fixedStyles: fixedSceneStylesFromPreferences((prefs as { style_preferences?: unknown } | null)?.style_preferences),
   };
 }
 
@@ -293,6 +312,12 @@ export type HubDraftBarData = {
    * Empty in the store shell, where there is no sheet, no price and no pitch.
    */
   proEffects: HubProEffectView[];
+  /**
+   * 👁 Does this viewer own Pro, AS SHOWN (the view switch applied) and outside
+   * the store shell — the toolbar's pick between the two halves of a save's
+   * answer (`hubDraftBarAfterSave`).
+   */
+  ownsPro: boolean;
 };
 
 /**
@@ -317,16 +342,21 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
   let summary: HubDraftSummary = { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   let proEffects: HubProEffectView[] = [];
   let readError = false;
+  /* ⚡ Read even with no draft yet: the toolbar needs it to pick which half of a
+     save's answer (`hubDraftBarAfterSave`) is this viewer's — owner 2026-09-30,
+     SPEED FIRST (a drawn pick brings no render any more). */
+  let ownsProViewed = false;
   try {
-    const draft = await readHubDraft(supabase, eventId);
+    const [draft, ownsPro] = await Promise.all([
+      readHubDraft(supabase, eventId),
+      // Admin client: orders RLS is purchaser-scoped (see lib/hub-look-gate.ts).
+      // 👁 As the viewer is shown it: the bar is a render (its Apply is not —
+      // `hubDraftAction` asks `lookProAllows`, which never reads the switch).
+      asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false)),
+    ]);
+    ownsProViewed = ownsPro;
     if (draft) {
-      const [live, ownsPro] = await Promise.all([
-        readHubLiveState(supabase, eventId),
-        // Admin client: orders RLS is purchaser-scoped (see lib/hub-look-gate.ts).
-        // 👁 As the viewer is shown it: the bar is a render (its Apply is not —
-        // `hubDraftAction` asks `lookProAllows`, which never reads the switch).
-        asViewed(eventCoupleWebsiteProActive(createAdminClient(), eventId).catch(() => false)),
-      ]);
+      const live = await readHubLiveState(supabase, eventId);
       // 📵 In the store shell web-bought Pro is not usable yet (owner 2026-09-25),
       // so a Pro key reads as needing the web even for an owning couple.
       summary = summarizeHubDraft(draft, live, ownsPro && !storeShell);
@@ -350,8 +380,45 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
     proHref: storeShell ? null : `/dashboard/${eventId}/studio/website-pro?from=maker`,
     proEffects,
     readError,
+    ownsPro: ownsProViewed && !storeShell,
   };
 });
+
+/**
+ * ⚡ THE BAR AFTER ONE MAKER SAVE — answered by the save itself (owner
+ * 2026-09-30, SPEED FIRST: a pick the bridge drew brings no render of the
+ * Maker, `lib/maker-refresh.ts`).
+ *
+ * 👁 It asks NOBODY whether the event owns Pro: a server action must never see
+ * the "view as a free couple" switch (`view-as-free-never-changes-a-save.test.ts`),
+ * and the real answer could differ from what the owner is being shown. So it
+ * returns BOTH answers — the summary for a couple without Pro and for one with
+ * it — and the toolbar picks with the render's own `ownsPro` (as viewed, from
+ * `loadHubDraftBarData`). The same `summarizeHubDraft` / `hubDraftProEffects`
+ * the render uses; never a second count. Null when it cannot be read — the
+ * toolbar then keeps what it shows.
+ */
+export async function hubDraftBarAfterSave(
+  supabase: SessionClient,
+  eventId: string,
+  draft: HubDraft,
+): Promise<HubDraftBarLive | null> {
+  try {
+    const live = await readHubLiveState(supabase, eventId);
+    const free = summarizeHubDraft(draft, live, false);
+    const owned = summarizeHubDraft(draft, live, true);
+    const proEffects = hubDraftProEffects(draft, live, false).map(hubProEffectView);
+    let priceLabel: string | null = null;
+    if (free.proCount > 0) {
+      const sku = await formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null);
+      priceLabel = sku?.price_php != null ? formatPhp(sku.price_php) : null;
+    }
+    return { free, owned, proEffects, priceLabel };
+  } catch (e) {
+    console.error('[hub-draft] could not read the bar after a save:', e instanceof Error ? e.message : e);
+    return null;
+  }
+}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    THE GUEST LOADER'S HALF — host-only, inside the editor frame

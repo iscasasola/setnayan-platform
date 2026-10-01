@@ -136,7 +136,7 @@ const SERVICE_LABELS: Record<string, string> = {
   STD_PREMIUM_OPENINGS: 'Cinematic Reveal',
   LIVE_WALL: 'Live Photo Wall',
   PAKANTA: 'Music Maker',
-  PANOOD_SYSTEM: 'Live Studio',
+  PANOOD_SYSTEM: 'Live Watch',
   PAPIC_ADDON_STORIES: 'Guest Stories',
   PAPIC_ADDON_THANK_YOU: 'Thank-You Video',
   // ⚠ OWNER NAMING LOCK 2026-07-30: "we do not have papic guests — we only have
@@ -275,6 +275,10 @@ export type EditorialSections = {
   challengeAnswers: boolean;
   guestColumns: boolean;
   watchFilm: boolean;
+  /** 🎞 Post Event's own scenes (2026-09-29): where everyone sat · the entourage · before & after. */
+  seating: boolean;
+  entourage: boolean;
+  beforeAfter: boolean;
 };
 
 export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
@@ -291,6 +295,9 @@ export const EDITORIAL_SECTION_KEYS: ReadonlyArray<keyof EditorialSections> = [
   'challengeAnswers',
   'guestColumns',
   'watchFilm',
+  'seating',
+  'entourage',
+  'beforeAfter',
 ];
 
 // ── Section ORDER (Editorial PRO — "the Editor's Desk") ──────────────────────
@@ -317,6 +324,7 @@ export {
   sectionOrderToPersist,
 } from './custom-columns';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { readSceneLooks, type PostEventSceneLooks } from '@/lib/post-event-draft';
 export type { CustomColumn };
 export { readCustomColumns };
 
@@ -634,6 +642,19 @@ export type EditorialData = {
   // each, placed in the run above via a `custom:<id>` key. Absent/[] for every
   // editorial that has none, which today is all of them.
   customColumns?: CustomColumn[];
+  /**
+   * 🎞 EACH POST EVENT SCENE'S LOOK (owner 2026-09-29, "EVERY STYLE OF EVERY
+   * SCENE SHIPS") — `draft_json.sceneLooks`: which style a scene is drawn in,
+   * and the couple's own words and part styles for it. Read through the ONE
+   * reader (`readSceneLooks`, `lib/post-event-draft.ts`) the Maker writes with.
+   * Absent/{} = every scene in its recommended style, words written from the day.
+   * It carries no order and no eye — `sections` / `sectionOrder` above are those.
+   */
+  sceneLooks?: PostEventSceneLooks;
+  /** 🎞 The story's cover was chosen for after the day (not the hero) — Before & After's gate. */
+  coverChosen?: boolean;
+  /** The Save the Date's cover (the event's hero), signed — only when `coverChosen`. */
+  eventHeroUrl?: string | null;
 };
 
 export type Review = {
@@ -1446,6 +1467,16 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   // after the hero instead of in front of it. The Maker's Post Event cover
   // scene reads the same order (`lib/post-event-scenes.ts`), so the navigator
   // names the picture this page actually draws.
+  /* 🎞 BEFORE & AFTER (Post Event, 2026-09-29): the story's cover was CHOSEN
+     for after the day (their upload or a curated capture, above) — so the Save
+     the Date's own cover, the hero, is a different picture worth showing beside
+     it. Signed only then: every other story's cover IS the hero. */
+  const coverChosen = Boolean(heroPhotoUrl);
+  let eventHeroUrl: string | null = null;
+  if (coverChosen) {
+    const heroOfEvent = resolveHero(event as Record<string, unknown>).photoRef;
+    if (heroOfEvent) eventHeroUrl = await displayUrlForStoredAsset(heroOfEvent).catch(() => null);
+  }
   if (!heroPhotoUrl) {
     const heroOfEvent = resolveHero(event as Record<string, unknown>).photoRef;
     if (heroOfEvent) {
@@ -2839,6 +2870,9 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
     sections: readSections(draftJson),
     sectionOrder: readSectionOrder(draftJson),
     customColumns: readCustomColumns(draftJson),
+    sceneLooks: readSceneLooks(draftJson.sceneLooks),
+    coverChosen,
+    eventHeroUrl,
   };
 }
 
@@ -3382,7 +3416,7 @@ function mariaAndJuan(): EditorialData {
       { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Studio', 'Music Maker'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Watch', 'Music Maker'],
     galleryPhotos: [
       '/realstories/maria-juan-g1.jpg',
       '/realstories/maria-juan-g2.jpg',
@@ -3715,7 +3749,7 @@ function peterAndMary(): EditorialData {
         { year: '2024', title: 'The proposal', note: 'Sunday lunch, both families in' },
         { year: '2026', title: 'The wedding', note: 'A ridge-top estate in bloom' },
       ],
-      anchors: { song: 'their parents’ favourite', place: 'Tagaytay', injoke: 'isang kanta pa', food: 'lechon, of course' },
+      anchors: { song: 'their parents’ favorite', place: 'Tagaytay', injoke: 'isang kanta pa', food: 'lechon, of course' },
     },
     specialMessage:
       'To all 150 of you who filled this garden — salamat. A full table was the whole point, and you made it overflow.',
@@ -3758,7 +3792,7 @@ function peterAndMary(): EditorialData {
       { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Studio'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Watch'],
     galleryPhotos: [
       '/realstories/peter-mary-g1.jpg',
       '/realstories/peter-mary-g2.jpg',
@@ -3770,7 +3804,7 @@ function peterAndMary(): EditorialData {
       '/realstories/peter-mary-g3.jpg',
     ],
     dayChapters: [],
-    song: { url: null, label: 'their parents’ favourite' },
+    song: { url: null, label: 'their parents’ favorite' },
     photoWallPhotos: [],
     photoWallActive: false,
     challengeAnswers: [],

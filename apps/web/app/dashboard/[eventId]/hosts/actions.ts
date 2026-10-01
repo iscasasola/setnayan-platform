@@ -17,16 +17,36 @@ import {
 } from '@/lib/event-moderators';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
 import { stampCoordinatorConsentRevoked } from '@/lib/coordinator-consent-revoke';
+import { seatIsFullCohost } from '@/lib/guest-access';
+import { seatReturnPath, seatReturnScreen } from '@/lib/seat-return-path';
+
+/**
+ * 🔑 A GRANT IS A COORDINATOR'S, NEVER A CO-HOST'S. A full co-host seat is a
+ * `couple` member (20271251336140) with the same access as the creator —
+ * nothing reads its permissions_json — so writing a budget or photo grant on
+ * one would change nothing and say something ("Hide budget" on the Groom).
+ * The page no longer offers it; this refuses it at the door too.
+ */
+const COHOST_NEEDS_NO_GRANT = 'A co-host already has the same access as you.';
 
 // Iteration 0048 — V1 multi-host invite server actions.
 //
-// Shipped 2026-05-20 alongside the V1 promotion. The hosts page on
-// /dashboard/[eventId]/hosts surfaces the invite form + the list of
-// pending/accepted hosts. These actions are the form posts.
+// Shipped 2026-05-20 alongside the V1 promotion. Since the Hosts fold
+// (2026-09-30) the forms that post here live on the hired planner's supplier
+// workspace (`promote-coordinator-card.tsx`) — `/hosts` itself is redirect-only.
+// These actions stay HERE (moved callers, never a duplicated action: the
+// server-action budget is at its ceiling).
 //
 // Inviter check: caller must be a host — `requireCoupleMembership` below.
 // Every accepted host is a `couple` member (20271251336140); a hired
 // planner (`coordinator`) is not, and cannot add hosts.
+
+/** Every screen a seat action can change, refreshed together. */
+function revalidateSeatScreens(eventId: string, formData: FormData) {
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(seatReturnScreen(formData, eventId));
+}
 
 const INVITE_TTL_DAYS = 7;
 const MS_PER_DAY = 86_400_000;
@@ -112,9 +132,9 @@ export async function inviteHost(formData: FormData) {
       formData.get('coordinator_consent') !== '1'
     ) {
       redirect(
-        `/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(
-          'Data-privacy consent is required to invite a coordinator.',
-        )}`,
+        seatReturnPath(formData, eventId, {
+          invite_error: 'Data-privacy consent is required to invite a coordinator.',
+        }),
       );
     }
 
@@ -134,9 +154,7 @@ export async function inviteHost(formData: FormData) {
     }).select('moderator_id').single();
 
     if (error) {
-      redirect(
-        `/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(error.message.slice(0, 80))}`,
-      );
+      redirect(seatReturnPath(formData, eventId, { invite_error: error.message.slice(0, 80) }));
     }
 
     // Record the RA 10173 consent (corpus spec § 3a) now that the invite row
@@ -169,10 +187,8 @@ export async function inviteHost(formData: FormData) {
       }
     }
 
-    revalidatePath(`/dashboard/${eventId}/hosts`);
-    redirect(
-      `/dashboard/${eventId}/hosts?invite_sent=1&token=${encodeURIComponent(token)}&planner=1`,
-    );
+    revalidateSeatScreens(eventId, formData);
+    redirect(seatReturnPath(formData, eventId, { invite_sent: '1', token, planner: '1' }));
   } catch (e) {
     // redirect() works by throwing a NEXT_REDIRECT error. The success and
     // insert-error redirects above live inside this try, so without this
@@ -182,9 +198,7 @@ export async function inviteHost(formData: FormData) {
     // control-flow error so Next handles it; only genuine failures
     // (Forbidden, bad email/role, DB errors) fall through to invite_error.
     if (isRedirectError(e)) throw e;
-    redirect(
-      `/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent((e as Error).message.slice(0, 80))}`,
-    );
+    redirect(seatReturnPath(formData, eventId, { invite_error: (e as Error).message.slice(0, 80) }));
   }
 }
 
@@ -236,10 +250,13 @@ export async function setDelegateBudget(formData: FormData) {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from('event_moderators')
-    .select('permissions_json')
+    .select('permissions_json, role_subtype')
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  if (row && seatIsFullCohost((row as { role_subtype: string }).role_subtype)) {
+    redirect(seatReturnPath(formData, eventId, { invite_error: COHOST_NEEDS_NO_GRANT }));
+  }
   if (row) {
     const perms = ((row as { permissions_json: ModeratorPermissions | null })
       .permissions_json ?? {
@@ -264,8 +281,8 @@ export async function setDelegateBudget(formData: FormData) {
       .eq('event_id', eventId);
   }
 
-  revalidatePath(`/dashboard/${eventId}/hosts`);
-  redirect(`/dashboard/${eventId}/hosts?grant_updated=1`);
+  revalidateSeatScreens(eventId, formData);
+  redirect(seatReturnPath(formData, eventId, { grant_updated: '1' }));
 }
 
 /**
@@ -301,10 +318,13 @@ export async function setDelegatePhotos(formData: FormData) {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from('event_moderators')
-    .select('permissions_json')
+    .select('permissions_json, role_subtype')
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId)
     .maybeSingle();
+  if (row && seatIsFullCohost((row as { role_subtype: string }).role_subtype)) {
+    redirect(seatReturnPath(formData, eventId, { invite_error: COHOST_NEEDS_NO_GRANT }));
+  }
   if (row) {
     const perms = ((row as { permissions_json: ModeratorPermissions | null })
       .permissions_json ?? {
@@ -329,8 +349,8 @@ export async function setDelegatePhotos(formData: FormData) {
       .eq('event_id', eventId);
   }
 
-  revalidatePath(`/dashboard/${eventId}/hosts`);
-  redirect(`/dashboard/${eventId}/hosts?grant_updated=1`);
+  revalidateSeatScreens(eventId, formData);
+  redirect(seatReturnPath(formData, eventId, { grant_updated: '1' }));
 }
 
 /**
@@ -376,7 +396,7 @@ export async function removeHost(formData: FormData) {
 
   // Self-removal guard — the couple manages their own rows elsewhere.
   if (removedUserId && removedUserId === callerId) {
-    redirect(`/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent('You cannot remove yourself.')}`);
+    redirect(seatReturnPath(formData, eventId, { invite_error: 'You cannot remove yourself.' }));
   }
 
   // 🔑 READ THE ANSWER. A celebrant co-host cannot be removed — the database
@@ -396,7 +416,7 @@ export async function removeHost(formData: FormData) {
     const msg = /celebrant_cohost_locked/.test(removeError.message)
       ? 'A celebrant stays a co-host. A celebrant can change their role first.'
       : 'Could not remove them. Try again.';
-    redirect(`/dashboard/${eventId}/hosts?invite_error=${encodeURIComponent(msg)}`);
+    redirect(seatReturnPath(formData, eventId, { invite_error: msg }));
   }
 
   // Drop the coordinator membership (never a couple row — guarded above by
@@ -415,8 +435,8 @@ export async function removeHost(formData: FormData) {
   // consent row exists (e.g. the gate flag was off at invite time).
   await stampCoordinatorConsentRevoked(admin, eventId, moderatorId);
 
-  revalidatePath(`/dashboard/${eventId}/hosts`);
-  redirect(`/dashboard/${eventId}/hosts?host_removed=1`);
+  revalidateSeatScreens(eventId, formData);
+  redirect(seatReturnPath(formData, eventId, { host_removed: '1' }));
 }
 
 /**
@@ -451,6 +471,6 @@ export async function revokeHostInvite(formData: FormData) {
   // began. Best-effort no-op when no consent row exists.
   await stampCoordinatorConsentRevoked(admin, eventId, moderatorId);
 
-  revalidatePath(`/dashboard/${eventId}/hosts`);
-  redirect(`/dashboard/${eventId}/hosts?invite_revoked=1`);
+  revalidateSeatScreens(eventId, formData);
+  redirect(seatReturnPath(formData, eventId, { invite_revoked: '1' }));
 }

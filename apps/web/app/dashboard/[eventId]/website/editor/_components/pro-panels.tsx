@@ -1,6 +1,7 @@
 'use client';
 
-import { hubFontPreviewStack, hubFontsForPicker } from '@/lib/hub-fonts';
+import { sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { FontPick } from './font-pick';
 import {
   MAGIC_TRAVELLERS,
   MAGIC_TRAVELLER_LABEL,
@@ -214,9 +215,10 @@ export function ColorsPanel({
           R2 on a guest's first paint and a face that fails to load SILENTLY —
           the page simply set in something else, with nothing logged.
 
-          🔑 EACH NAME IS SET IN ITS OWN FACE. A list of font names all rendered
-          in the same type tells the couple nothing; this is the one control on
-          the page where the label IS the preview.
+          🔤 THE ONE FONT DROPDOWN (owner 2026-09-29: "the font across all event
+          hub editor. can be one style") — `FontPick`: Recently used · Most used
+          · All fonts, each name SET IN ITS OWN FACE, "In use" marked. It posts
+          `site_font_key` from a hidden field, exactly as the radios it replaced.
 
           ⛔ "The theme's own" is always first and always available — a couple
           must be able to take a choice back. It posts `''`, which the action
@@ -224,53 +226,15 @@ export function ColorsPanel({
       <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
         <legend className="sr-only">Typeface</legend>
         <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Typeface{mark}</p>
-        <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-          <label className="flex cursor-pointer items-center gap-1.5 rounded-md border border-ink/12 px-2 py-1.5">
-            <input
-              type="radio"
-              name="site_font_key"
-              value=""
-              defaultChecked={!fontKey}
-            />
-            <span className="text-[0.72rem] text-ink/70">The theme&rsquo;s own</span>
-          </label>
-          {/* Every face we ship, on the same shelves as the element Font
-              dropdown (owner 2026-09-27: "use all our fonts"): the five most
-              used first, then Serif · Script · Sans · Display. */}
-          {hubFontsForPicker().flatMap((f, i, all) => [
-            ...(i === 0 || all[i - 1]?.pickGroup !== f.pickGroup
-              ? [
-                  <p
-                    key={`group:${f.pickGroup}`}
-                    data-font-group={f.pickGroup}
-                    className="col-span-2 pt-1.5 text-[0.62rem] font-semibold uppercase tracking-[0.08em] text-ink/50"
-                  >
-                    {f.pickGroup}
-                  </p>,
-                ]
-              : []),
-            <label
-              key={f.key}
-              className="flex cursor-pointer items-center gap-1.5 rounded-md border border-ink/12 px-2 py-1.5"
-            >
-              <input
-                type="radio"
-                name="site_font_key"
-                value={f.key}
-                defaultChecked={fontKey === f.key}
-              />
-              <span className="min-w-0">
-                <span
-                  className="block truncate text-[0.95rem] leading-tight text-ink"
-                  style={{ fontFamily: hubFontPreviewStack(f.key) }}
-                >
-                  {f.label}
-                </span>
-                <span className="block text-[0.62rem] leading-tight text-ink/45">{f.note}</span>
-              </span>
-            </label>,
-          ])}
-        </div>
+        <FontPick
+          eventId={eventId}
+          label="Typeface"
+          name="site_font_key"
+          dataAttr="data-site-font"
+          value={sanitizeHubFontKey(fontKey)}
+          lead="The theme’s own"
+          className="mt-1.5 min-h-11 w-full justify-between border border-ink/15"
+        />
       </fieldset>
 
       {/* ══ MAGIC MOVE ═══════════════════════════════════════════════════

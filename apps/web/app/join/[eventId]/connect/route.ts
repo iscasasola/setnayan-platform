@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { connectEventForUser } from '@/lib/event-account-link';
-import { CONNECT_THEN_REPLY, inviteReplyPath } from '@/lib/invite-arrival';
+import { connectEventForUser, findSeatToConnect } from '@/lib/event-account-link';
+import { CONNECT_THEN_REPLY, connectQuery, inviteReplyPath } from '@/lib/invite-arrival';
 import { readGuestSession } from '@/lib/guest-session';
 import { emailMayBindRow } from '@/lib/guest-requests';
 
@@ -44,6 +44,11 @@ export async function GET(
   // that door rather than on to the site. A KEYWORD, never a path: the door's
   // address is built below from the slug the database returns.
   const thenReply = url.searchParams.get('then') === CONNECT_THEN_REPLY;
+  // The couple's own "send them a sign-in link" signs its return
+  // (lib/seat-link-approval.ts). Opaque here — carried through, verified only
+  // by `findSeatToConnect` against this event, the row and the signed-in email.
+  const approved = url.searchParams.get('approved');
+  const carry = connectQuery({ thenReply, approved });
 
   const supabase = await createClient();
   const {
@@ -54,9 +59,7 @@ export async function GET(
   if (!user) {
     return NextResponse.redirect(
       new URL(
-        `/login?next=${encodeURIComponent(
-          `/join/${eventId}/connect${thenReply ? `?then=${CONNECT_THEN_REPLY}` : ''}`,
-        )}`,
+        `/login?next=${encodeURIComponent(`/join/${eventId}/connect${carry}`)}`,
         origin,
       ),
     );
@@ -71,6 +74,19 @@ export async function GET(
   // session for this event); a key always goes through.
   if (await onlyARequestHoldsThisEmail(eventId, user.id, user.email ?? null)) {
     return NextResponse.redirect(new URL(`/join/${eventId}?sent=1`, origin));
+  }
+
+  // 🔒 BINDING ONLY ON PURPOSE (2026-09-30 — the owner's groom row). An account
+  // that is not yet inside this event is ASKED before any seat becomes theirs:
+  // "This invitation is for <name>. Save it to <email>?" on the confirm page,
+  // whose Yes is the only thing that binds. This route itself binds nothing —
+  // `connectEventForUser` without a confirmed guest id only answers "already
+  // inside?" — so a stale guest pass on a shared phone cannot ride a sign-in.
+  if (!(await alreadyInside(eventId, user.id))) {
+    const seat = await findSeatToConnect(eventId, user.id, user.email ?? null, approved);
+    if (seat) {
+      return NextResponse.redirect(new URL(`/join/${eventId}/connect/confirm${carry}`, origin));
+    }
   }
 
   const { connected } = await connectEventForUser(eventId, user.id, user.email ?? null);
@@ -121,6 +137,18 @@ export async function GET(
   }
 
   return NextResponse.redirect(new URL(dest, origin));
+}
+
+/** Is this account already a member of this event, in any capacity? False on any doubt. */
+async function alreadyInside(eventId: string, userId: string): Promise<boolean> {
+  const { data, error } = await createAdminClient()
+    .from('event_members')
+    .select('id')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) console.error('[supabase-error] app/join/[eventId]/connect/route.ts · from:event_members.select', error);
+  return Boolean(data);
 }
 
 /** The reply sheet's own anchor (rsvp-sheet.tsx `id="your-details"`). */

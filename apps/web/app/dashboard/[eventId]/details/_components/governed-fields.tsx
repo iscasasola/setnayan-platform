@@ -136,6 +136,14 @@ type Props = {
   /** Inside Details: the date finder sits beside this row, so the row does not
    *  send the couple to another page for "more date options". */
   embedded?: boolean;
+  /**
+   * ✍ THE MAKER'S DATE IS A DRAFT (owner 2026-10-01, "wait for apply"): where
+   * given, the date row saves through this — after the SAME booked-supplier
+   * preview — instead of `updateEventDate`, and the caller draws the screen
+   * again (no `router.refresh()` here). Resolves null when saved, else the
+   * reason. Omitted = the Personalization page's live save, unchanged.
+   */
+  saveDate?: (value: string) => Promise<string | null>;
 };
 
 /**
@@ -185,6 +193,7 @@ export function GovernedFields({
   labels,
   proposal = null,
   embedded = false,
+  saveDate,
 }: Props) {
   const router = useRouter();
   const shows = (f: EditableField) => !only || only.includes(f);
@@ -295,7 +304,9 @@ export function GovernedFields({
       const res = await updateGuestCount(fd);
       return res.ok ? null : res.message;
     }
-    // date — updateEventDate throws on its gates
+    // date — the Maker's draft, when it hands one in (Apply asks the gates)…
+    if (saveDate) return saveDate(value);
+    // …else updateEventDate, which throws on its gates
     fd.set('event_date', value);
     fd.set('precision', 'day');
     try {
@@ -315,7 +326,7 @@ export function GovernedFields({
       }
       setSavedField(field);
       close();
-      router.refresh();
+      if (!saveDate) router.refresh();
     });
   }
 
@@ -346,7 +357,7 @@ export function GovernedFields({
         }
         setSavedField(field);
         close();
-        router.refresh();
+        if (!saveDate) router.refresh();
       });
       return;
     }
@@ -370,7 +381,7 @@ export function GovernedFields({
         }
         setSavedField(field);
         close();
-        router.refresh();
+        if (!saveDate) router.refresh();
         return;
       }
       setConflicts(res.conflicts);

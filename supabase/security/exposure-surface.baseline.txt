@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6544
+# facts: 6554
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     565
-#   col       4776
+#   col       4786
 #   policy    940
 #   view      8
 #   func      251
@@ -1457,6 +1457,7 @@ col	public.event_floor_plan.ghost_booths_dismissed	anon=- authenticated=SIU
 col	public.event_floor_plan.ghost_booths_enabled	anon=- authenticated=SIU
 col	public.event_floor_plan.priority_order	anon=- authenticated=SIU
 col	public.event_floor_plan.published_at	anon=- authenticated=SIU
+col	public.event_floor_plan.role_seating	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_enabled	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_x	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_y	anon=- authenticated=SIU
@@ -1799,11 +1800,15 @@ col	public.event_type_onboarding.questions	anon=SIU authenticated=SIU
 col	public.event_type_onboarding.reveal_overrides	anon=SIU authenticated=SIU
 col	public.event_type_onboarding.updated_at	anon=SIU authenticated=SIU
 col	public.event_type_profiles.budget_taxonomy_key	anon=SIU authenticated=SIU
+col	public.event_type_profiles.camera_default	anon=SIU authenticated=SIU
 col	public.event_type_profiles.created_at	anon=SIU authenticated=SIU
 col	public.event_type_profiles.enabled_surfaces	anon=SIU authenticated=SIU
 col	public.event_type_profiles.event_class	anon=SIU authenticated=SIU
 col	public.event_type_profiles.event_type	anon=SIU authenticated=SIU
+col	public.event_type_profiles.gifts_mode	anon=SIU authenticated=SIU
+col	public.event_type_profiles.guest_word	anon=SIU authenticated=SIU
 col	public.event_type_profiles.layer_mode	anon=SIU authenticated=SIU
+col	public.event_type_profiles.look_set	anon=SIU authenticated=SIU
 col	public.event_type_profiles.marketplace_enabled	anon=SIU authenticated=SIU
 col	public.event_type_profiles.monogram_set_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.multi_day	anon=SIU authenticated=SIU
@@ -1812,6 +1817,7 @@ col	public.event_type_profiles.reveal_pack_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.role_set_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.schedule_seed_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.statutory_pack_key	anon=SIU authenticated=SIU
+col	public.event_type_profiles.team_first	anon=SIU authenticated=SIU
 col	public.event_type_profiles.template_pack_key	anon=SIU authenticated=SIU
 col	public.event_type_profiles.terminology	anon=SIU authenticated=SIU
 col	public.event_type_profiles.updated_at	anon=SIU authenticated=SIU
@@ -2167,6 +2173,7 @@ col	public.events.recurs	anon=SIU authenticated=SIU
 col	public.events.region	anon=SIU authenticated=SIU
 col	public.events.reveal_stages	anon=- authenticated=SU
 col	public.events.roadmap_completed	anon=SIU authenticated=SIU
+col	public.events.role_names	anon=- authenticated=S
 col	public.events.role_palette	anon=SIU authenticated=SIU
 col	public.events.rsvp_ask_config	anon=- authenticated=SU
 col	public.events.rsvp_backdrop	anon=SIU authenticated=SIU
@@ -2210,6 +2217,7 @@ col	public.events.story_cover_ref	anon=- authenticated=S
 col	public.events.story_language	anon=SIU authenticated=SIU
 col	public.events.story_tone	anon=SIU authenticated=SIU
 col	public.events.style_preferences	anon=SIU authenticated=SIU
+col	public.events.ticket_url	anon=- authenticated=S
 col	public.events.timezone	anon=SIU authenticated=SIU
 col	public.events.together_since	anon=SIU authenticated=SIU
 col	public.events.tracked_categories	anon=SIU authenticated=SIU
@@ -2402,6 +2410,7 @@ col	public.guests.address	anon=SIU authenticated=SIU
 col	public.guests.attire	anon=SIU authenticated=SIU
 col	public.guests.avatar_config	anon=SIU authenticated=SIU
 col	public.guests.avatar_updated_at	anon=SIU authenticated=SIU
+col	public.guests.couple_with_guest_id	anon=SIU authenticated=SIU
 col	public.guests.created_at	anon=SIU authenticated=SIU
 col	public.guests.custom_tags	anon=SIU authenticated=SIU
 col	public.guests.deleted_at	anon=SIU authenticated=SIU
@@ -3963,6 +3972,7 @@ col	public.user_face_profiles.face_vector	anon=- authenticated=SIU
 col	public.user_face_profiles.id	anon=- authenticated=SIU
 col	public.user_face_profiles.profile_id	anon=- authenticated=SIU
 col	public.user_face_profiles.quality_score	anon=- authenticated=SIU
+col	public.user_face_profiles.reuse_event_ids	anon=- authenticated=SIU
 col	public.user_face_profiles.revoked_at	anon=- authenticated=SIU
 col	public.user_face_profiles.source_event_ids	anon=- authenticated=SIU
 col	public.user_face_profiles.updated_at	anon=- authenticated=SIU

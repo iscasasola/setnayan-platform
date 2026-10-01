@@ -1213,6 +1213,11 @@ const CHECKLIST_EVENT_LABELS: Record<string, { noun: string; title: string }> = 
   // name in the possessive eyebrow — "your wake date" — reads like a sentence
   // about the reader rather than about the day.
   wake: { noun: 'service', title: 'Wake' },
+  // The three public, organizer-run kinds (owner 2026-09-29, DECISION_LOG
+  // "DISCOVER — UNPARKED"). Without these they would render WEDDING chrome.
+  concert: { noun: 'concert', title: 'Concert' },
+  open_house: { noun: 'open house', title: 'Open House' },
+  grand_opening: { noun: 'grand opening', title: 'Grand Opening' },
 };
 
 /**

@@ -30,7 +30,8 @@ test('each `measured` is the READ\'s own verdict, never a typed-in true', () => 
 test('the published gate is read AGAIN with error awareness, not taken from fetchFloorPlan', () => {
   const src = page();
   assert.match(src, /from\('event_floor_plan'\)\.select\('published_at'\)\.eq\('event_id', eventId\)\.maybeSingle\(\)/);
-  assert.match(src, /published: publishedAt != null/);
+  // #6169: "live" is the one seat rule over that read — the day, or the couple's Show early.
+  assert.match(src, /published: guestsMaySeeSeats\(\{\s*shownEarlyAt: publishedAt,/);
   assert.doesNotMatch(src, /floorPlan\.published/, 'fetchFloorPlan cannot say it was refused');
 });
 
@@ -43,7 +44,7 @@ test('the switch posts the SHIPPED actions — one pair of writers for one colum
   const src = page();
   assert.match(src, /<form action=\{unpublishFromControlCentre\}/);
   assert.match(src, /<form action=\{publishFromControlCentre\}/);
-  assert.match(src, /Taking it down hides the 3D walk\. Printed table signs keep working\./);
+  assert.match(src, /Hides the 3D walk until the day\. Printed table signs keep working\./);
 });
 
 test('booths are read with the admin brandedReader, and the host gate is the one definition', () => {

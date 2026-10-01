@@ -60,7 +60,7 @@ export function PanoodFilm() {
         preload="metadata"
         controls={needsControls}
         onError={() => setMissing(true)}
-        aria-label="The Live Studio control room, live"
+        aria-label="The Live Watch control room, live"
         className="h-full w-full object-cover"
       />
     </div>

@@ -17,6 +17,9 @@
  *   ?names=short               "Indalecio & Claire" instead of the long pair
  *   ?link=See+you+there        the couple's own words on the link down (the `link` part)
  *   ?maker=1                   stamp the parts as the Maker canvas does (`data-el`)
+ *   ?type=1                    ✍ tap-to-type on the parts, measured (`type-lab.tsx`; with ?maker=1)
+ *   ?date=tagalog|dmy|…        the date's Format ▾ pick; ?time=24h|words|past the time's
+ *   ?eyebrow=…  ?line=…        the couple's own words on the small line on top / the invitation line
  */
 import { notFound } from 'next/navigation';
 import { PahinaMasthead } from '@/app/[slug]/_components/pahina-masthead';
@@ -29,6 +32,7 @@ import { sanitizeHubElements } from '@/lib/element-style';
 import { HERO_DESIGNS, heroDesignLabel } from '@/lib/hero-design';
 import { HUB_THEMES, INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { LAB_MARK_SVG } from './mark';
+import { TypeLab } from './type-lab';
 
 const LONG = 'Maria Clara Concepcion & Juan Miguel de los Santos';
 const SHORT = 'Indalecio & Claire';
@@ -41,7 +45,14 @@ export default async function HeroLabPage({ searchParams }: { searchParams: Prom
   const photo = one('photo') === '1';
   const onday = one('onday') === '1';
   const displayName = one('names') === 'short' ? SHORT : LONG;
-  const elements = sanitizeHubElements({ link: { word: one('link') } });
+  const elements = sanitizeHubElements({
+    link: { word: one('link') },
+    eyebrow: { word: one('eyebrow') },
+    line: { word: one('line') },
+    date: { format: one('date') },
+    time: { format: one('time') },
+  });
+  const typeLab = one('type') === '1';
   const maker = one('maker') === '1';
   /* ?only=marquee — one design alone, for a screenshot of exactly one hero. */
   const only = HERO_DESIGNS.find((d) => d === one('only')) ?? null;
@@ -83,7 +94,7 @@ export default async function HeroLabPage({ searchParams }: { searchParams: Prom
         data-guest-look=""
         style={skin?.style as React.CSSProperties | undefined}
       >
-        {shown.map((design) => (
+        {(typeLab ? (c: React.ReactNode) => <TypeLab>{c}</TypeLab> : (c: React.ReactNode) => c)(shown.map((design) => (
           <section key={design} data-lab-design={design} className="border-b border-ink/10 pb-10">
             <p className="px-4 pt-6 font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/55">{heroDesignLabel(design)}</p>
             <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 sm:py-10 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
@@ -110,7 +121,7 @@ export default async function HeroLabPage({ searchParams }: { searchParams: Prom
               </div>
             </div>
           </section>
-        ))}
+        )))}
       </div>
     </div>
   );

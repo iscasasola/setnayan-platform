@@ -70,7 +70,7 @@ test('2 · the Guest list keeps ONE quiet line — the theme, and the way to Det
   assert.match(line, /Change in Event Hub Maker ↗/);
   assert.match(line, /INVITE_THEMES\[liveTheme\]\.name/, 'the line names a theme it did not resolve');
   // What guests meet — through the one theme rule, not the pre-selection guess.
-  assert.match(panel, /const liveTheme = resolveInviteTheme\(\{ saved: lookRow\?\.invite_theme \?\? null, ownsPro, mayShowStdFilm \}\)/);
+  assert.match(panel, /const liveTheme = resolveInviteTheme\(\{ saved: lookRow\?\.invite_theme \?\? null, ownsPro \}\)/);
   assert.doesNotMatch(panel, /suggestedInviteTheme/, 'the line names the onboarding guess, not what guests see');
 });
 

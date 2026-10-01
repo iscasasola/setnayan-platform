@@ -10,17 +10,15 @@ import { HUB_THEMES, themeMatchingFeel } from './invite-themes';
 test('the label names the one theme whose feels hold the couple’s feel', () => {
   for (const t of HUB_THEMES.filter((x) => x.ready)) {
     for (const feel of t.feels) {
-      const got = themeMatchingFeel(feel, { mayShowStdFilm: true });
+      const got = themeMatchingFeel(feel);
       assert.ok(got, `feel ${feel} names no theme`);
       assert.ok(HUB_THEMES.find((x) => x.id === got)!.feels.includes(feel));
     }
   }
 });
 
-test('no feel, an unknown feel, or a fenced theme is NO label — never a fallback', () => {
-  assert.equal(themeMatchingFeel(null, { mayShowStdFilm: true }), null);
-  assert.equal(themeMatchingFeel('', { mayShowStdFilm: true }), null);
-  assert.equal(themeMatchingFeel('no-such-feel', { mayShowStdFilm: true }), null);
-  const pro = HUB_THEMES.find((t) => t.ready && t.tier === 'pro' && t.feels.length)!;
-  assert.equal(themeMatchingFeel(pro.feels[0], { mayShowStdFilm: false }), null, 'a theme this celebration cannot wear was suggested');
+test('no feel or an unknown feel is NO label — never a fallback', () => {
+  assert.equal(themeMatchingFeel(null), null);
+  assert.equal(themeMatchingFeel(''), null);
+  assert.equal(themeMatchingFeel('no-such-feel'), null);
 });

@@ -11,7 +11,6 @@ import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
 import { resolveProfile } from '@/lib/event-type-profile';
-import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { QrActions } from '@/app/_components/qr-actions';
 import { svgDataUri } from '@/lib/qr-download';
 import { InviteLink } from './invite-link';
@@ -87,22 +86,11 @@ export async function InvitePanel({
     // failure is logged, so "no theme saved" and "could not read it" never look alike.
     logQueryError('GuestInvitePage (events.invite_theme)', lookError, { event_id: eventId }, 'graceful_degrade');
   }
-  /*
-    🔒 WEDDINGS ONLY (owner Q7 = A, 2026-09-11). The Pro themes are offered only
-    where the event type may carry the Save-the-Date film — the reveal's own
-    fence, `resolveWeddingOnlyParts(profile).save_the_date_film`, asked here so a
-    birthday is never shown four radios that `setInviteTheme` would refuse. An
-    unreadable profile is NOT a wedding: the `.catch` falls to the free door
-    rather than opening a paid one.
-  */
-  const mayShowStdFilm = await resolveProfile((lookRow?.event_type as string | null) ?? '')
-    .then((p) => resolveWeddingOnlyParts(p).save_the_date_film)
-    .catch(() => false);
   /* 🎨 The theme guests meet — read here, CHOSEN in the Event Hub Maker's
      Details (owner 2026-09-28: *"it should not be inside guestlist, it should
      be on event hub maker on details"*). The one theme rule, so this line and
      the door can never name two different looks. */
-  const liveTheme = resolveInviteTheme({ saved: lookRow?.invite_theme ?? null, ownsPro, mayShowStdFilm });
+  const liveTheme = resolveInviteTheme({ saved: lookRow?.invite_theme ?? null, ownsPro });
 
   const [tokenRes, pendingRes, eventRes, askRes] = await Promise.all([
     supabase

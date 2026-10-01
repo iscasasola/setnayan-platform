@@ -6,13 +6,10 @@
  */
 import { profileSetup, type EventTypeProfile } from '@/lib/event-type-profile';
 import { pickableInviteThemes } from '@/lib/invite-themes';
-import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { setupViewFor } from './flow-config';
 import type { SetupView } from './setup-answers';
 
 export function setupViewForProfile(profile: EventTypeProfile): SetupView {
-  const pickable = pickableInviteThemes({
-    mayShowStdFilm: resolveWeddingOnlyParts(profile).save_the_date_film,
-  });
+  const pickable = pickableInviteThemes();
   return setupViewFor(profile, profileSetup(profile), pickable);
 }

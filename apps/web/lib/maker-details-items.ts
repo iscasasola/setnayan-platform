@@ -127,6 +127,19 @@ const MOVED_PAGE_ITEM: Readonly<Record<string, string>> = {
   'rsvp-page': 'rsvp',
 };
 
+/**
+ * 🖨 The items the bar's Prints door lives on — the invitation set, the free
+ * prints for the day and the whole-set download (the navigator's `set`, `day`
+ * and `download` groups). Derived from `DETAILS_ITEM_GROUPS`, never a second list.
+ */
+export const PRINTS_ITEM_KEYS: readonly DetailsItemKey[] = DETAILS_ITEM_GROUPS.filter(
+  (g) => g.group === 'set' || g.group === 'day' || g.group === 'download',
+).flatMap((g) => g.keys);
+
+export function isPrintsItem(key: unknown): boolean {
+  return typeof key === 'string' && (PRINTS_ITEM_KEYS as readonly string[]).includes(key);
+}
+
 /** The Details item a moved page's `?tool=` (or a Maker selection's key) now opens, or null. */
 export function movedPageItem(tool: string | null | undefined): DetailsItemKey | null {
   if (!tool) return null;

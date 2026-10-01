@@ -2,6 +2,7 @@ import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { TOURS, type TourKey } from '@/lib/tours';
 import { RSVP_STAGE_KEY, RSVP_STAGE_LABEL } from '@/lib/rsvp-stage-shared';
+import { DETAILS_FIRST_PRINT, isPrintsItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import type { MakerDevice } from './maker-context';
 
 /**
@@ -43,9 +44,30 @@ export type MakerBarGroup = 'made-once' | 'stages';
  * the owner may rename it, so it lives in this one constant.
  */
 export const MAKER_DETAILS_LABEL = 'Details';
+export const MAKER_PRINTS_LABEL = 'Prints';
+
+/**
+ * 🖨 Where the Prints door opens Details: on the print the couple is already on,
+ * else on the first print — the place an old `?tool=prints` address always
+ * landed (`detailsItemFor`).
+ */
+export function makerPrintsDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
+  return detailsItem && isPrintsItem(detailsItem) ? detailsItem : DETAILS_FIRST_PRINT;
+}
+
+/**
+ * The bar item the open page IS. Details and Prints are one page (Prints is
+ * Details open on a print item), so exactly ONE of the two wears the highlight:
+ * Prints while the open item is a print, Details otherwise.
+ */
+export function makerOpenTool(openTool: string | null, detailsItem: string | null | undefined): string | null {
+  return openTool === 'details' && isPrintsItem(detailsItem) ? 'prints' : openTool;
+}
 
 export type MakerBarItem =
   | { key: 'details'; label: string; group: 'made-once'; kind: 'tool' }
+  /** 🖨 Prints — a door into Details, open on the prints (`isPrintsItem`); never a page of its own. */
+  | { key: 'prints'; label: string; group: 'made-once'; kind: 'tool' }
   /** 🗳 The RSVP stage — a stage of the bar, but a page of the Maker (not a
    *  lifecycle phase: `rsvp` is the INVITATION's phase key), so pressing it
    *  opens its own three parts (`maker-rsvp-stage.tsx`) like Details does. */
@@ -64,6 +86,10 @@ export const MAKER_BAR: readonly MakerBarItem[] = [
   ]),
   // …then Details, where everything made once lives (Option B).
   { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
+  // …and Prints beside it (owner 2026-09-30, "THE MAKER RE-PLAN IS CUT TO ITS
+  // CORE": the top menu is Details | stages | Prints). It opens Details on the
+  // prints — Prints & Tickets stays folded into Details, only the door is here.
+  { key: 'prints', label: MAKER_PRINTS_LABEL, group: 'made-once', kind: 'tool' },
 ];
 
 /**
@@ -129,12 +155,15 @@ export function makerPlacePick(input: {
   liveStage: LifecyclePhase | null;
   /** The key of the page open in the Maker, or null when none is. */
   openTool: string | null;
+  /** The item Details is on — Prints is the open tool while it is a print. */
+  detailsItem?: string | null;
   hasWork: boolean;
   /** Who Details is for, in the event type's own words (`EventWords.theHost` —
    *  "the couple", "the host", "the family"); never a typed noun here. */
   theHost?: string;
 }): { value: string; options: MakerPlaceOption[] } {
-  const open = MAKER_BAR.find((i) => i.kind === 'tool' && i.key === input.openTool) ?? null;
+  const openKey = makerOpenTool(input.openTool, input.detailsItem);
+  const open = MAKER_BAR.find((i) => i.kind === 'tool' && i.key === openKey) ?? null;
   return {
     value: open?.key ?? input.stage,
     options: MAKER_BAR.map((i) =>

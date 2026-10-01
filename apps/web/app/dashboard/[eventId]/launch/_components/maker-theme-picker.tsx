@@ -22,6 +22,7 @@ import {
 } from '@/lib/maker-theme-tiles';
 import { sampleHubTileSrc, themeStillSrc } from '@/lib/theme-sample-stills';
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
+import { THEME_OWN_LOOK_RESET } from '@/lib/theme-own-look';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { ThemePreviewOverlay } from './theme-preview-overlay';
@@ -62,7 +63,9 @@ import { ThemePreviewOverlay } from './theme-preview-overlay';
  * "Use this theme" there is the same pick as tapping the entry.
  *
  * ── ONLY A PICK CHANGES ANYTHING ───────────────────────────────────────────
- * A pick saves `invite_theme` into the DRAFT through the one generic draft
+ * A pick saves `invite_theme` — and hands the page colour, button colour and
+ * typeface back to the theme (`lib/theme-own-look.ts`: one patch, one Undo) —
+ * into the DRAFT through the one generic draft
  * action (`hubDraftAction` intent=save — zero new server actions), so the
  * toolbar's Undo steps it back and Apply puts it live. The canvas then wears it
  * the way every Details edit lands: `makerSave` tells the canvas a write is
@@ -129,7 +132,7 @@ export function ThemePickProvider({ eventId, current, children }: { eventId: str
       try {
         const fd = new FormData();
         fd.set('intent', 'save');
-        fd.set('patch', JSON.stringify({ events: { invite_theme: id } }));
+        fd.set('patch', JSON.stringify({ events: { invite_theme: id, ...THEME_OWN_LOOK_RESET } }));
         r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
       } catch {
         r = { ok: false, error: 'That did not save. Please try again.' };

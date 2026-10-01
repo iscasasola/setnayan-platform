@@ -82,6 +82,7 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
   stations: "Lechon, pasta, carving, dessert — served from stations guests walk up to, instead of a plated course.",
   dance_floor: "The floor itself — LED, mirror, or classic parquet, laid over grass or tile so nobody dances on gravel.",
   outdoor: "Tents, canopies, cooling, ground cover, and wet-weather back-up. At a Philippine wedding this is the plan that saves the day.",
+  chairs_tents: "Monobloc chairs, tables, tents and lights by the dozen — for a home wake or a backyard party.",
   fireworks: "Cold sparks, fountains, or a full sky display for the send-off. Check what your venue and the barangay allow first.",
   digital_services: "Your wedding website, e-invites, QR codes, and a digital guestbook — the paperless half of the invitation.",
   wedding_singer: "One voice, live — the aisle, the signing, the first dance. Send your song list once you have a date.",

@@ -57,6 +57,7 @@ export const BRANCH_TO_VENDOR_CATEGORY: Readonly<Record<string, VendorCategory>>
   lights_sound: 'lights_and_sound',
   dance_floor: 'reception_decor',
   outdoor: 'reception_decor',
+  chairs_tents: 'reception_decor',
   fireworks: 'reception_decor',
   led_wall: 'led_screens',
   // Motion graphics / digital content for screens — produced and run by the same

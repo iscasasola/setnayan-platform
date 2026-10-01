@@ -283,7 +283,7 @@ export function buildFindList(args: {
   const popular = q
     ? []
     : popularKeys.map((k) => byTile.get(k)).filter((c): c is FindCategory => c != null);
-  void solemn;
+
 
   const buckets = new Map<FindGroupId, FindCategory[]>();
   for (const c of all) {

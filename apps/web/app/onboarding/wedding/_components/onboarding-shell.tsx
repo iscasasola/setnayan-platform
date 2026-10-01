@@ -113,6 +113,7 @@ import { SDLoader } from '@/components/sd-loader';
 import { formatCount } from '@/lib/format-number';
 import { SetupCard } from '@/app/onboarding/_shared/setup-card';
 import { WeddingCard } from './wedding-cards';
+import { narrowedByVenues } from '@/lib/onboarding/venue-picks';
 import { ESTIMATE_START, WEDDING_CARD_IDS, WEDDING_QUESTION_SCREENS, weddingFlowScreens, type WeddingCardId } from '@/lib/onboarding/wedding-cards';
 import {
   setupCardAnswered,
@@ -2409,7 +2410,7 @@ export function OnboardingShell({
         mode: 'mixed' as const,
         eyebrow: 'Your two traditions',
         h1: 'Which two traditions?',
-        sub: 'Pick the two faiths you’ll both honor — we’ll match vendors for each and pre-set dietary + protocols for both.',
+        sub: 'Pick the two faiths you’ll both honor — we’ll match suppliers for each.',
         photo: { img: 'wed_mixed', cap: 'An interfaith wedding' },
       };
     }
@@ -2418,7 +2419,7 @@ export function OnboardingShell({
       mode: 'religious' as const,
       eyebrow: 'Your tradition',
       h1: 'Your ceremony tradition',
-      sub: 'We’ll match vendors who know your faith’s protocols — and pre-set things like halal catering.',
+      sub: 'We’ll match suppliers who know your faith’s protocols.',
       // No faith picked yet → neutral placeholder (gradient) instead of defaulting to Catholic.
       photo: firstF ? FAITH_PHOTO[firstF] : { img: 'wed_none', cap: 'Pick your tradition' },
     };
@@ -2692,7 +2693,9 @@ export function OnboardingShell({
           return pesos == null ? null : Math.round(pesos * 100);
         })(),
       dateMode: s.dateMode,
-      dateCandidates: s.dateCandidates,
+      // A picked venue narrows the couple's candidate dates to the ones it is not marked busy on
+      // (DECISION_LOG 2026-10-01 — the chain); a window-mode couple has no candidate dates to narrow.
+      dateCandidates: s.dateMode === 'specific' ? narrowedByVenues(s.dateCandidates, s.venues) : s.dateCandidates,
       windowStart: s.windowStart,
       windowEnd: s.windowEnd,
       monogramFrameKey: MONO_DESIGNS[s.monogramDesign]?.frame ?? null,
@@ -2712,6 +2715,7 @@ export function OnboardingShell({
       // The find-vendor shortlist (real reception venues the couple tapped) —
       // persisted as event_vendors 'considering' so they show on the Services tab.
       shortlist: s.shortlist.map((v) => ({ vendorId: v.vendorId, name: v.name })),
+      venues: s.venues,
       // The full style sub-stepper prefs blob → events.style_preferences for
       // DISPLAY on the Home "Personalized for you" card (the features that
       // matter for the different services). Display only, not vendor matching.

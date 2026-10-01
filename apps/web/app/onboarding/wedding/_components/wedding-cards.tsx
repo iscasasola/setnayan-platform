@@ -20,6 +20,7 @@
  * confirm dialogs; title ≤ 5 words + one line ≤ 12 words, the rest behind ⓘ.
  */
 
+import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { SetupFrame } from '@/app/onboarding/_shared/setup-card';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -43,7 +44,11 @@ import {
 } from '@/lib/onboarding/wedding-cards';
 import { CITIES, TOP30, cityByKey, resolvePick } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
+import { EMPTY_VENUES } from '@/lib/onboarding/venue-picks';
 import type { OnboardingState } from '../types';
+
+// "We already have our venue" loads when the card opens it — its search, map and lists stay out of the card's first paint.
+const WeddingVenues = dynamic(() => import('./wedding-venues').then((m) => m.WeddingVenues), { ssr: false });
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
 const nameOnly = (raw: string) => (raw || '').replace(/[^\p{L}\s'-]/gu, '');
@@ -163,6 +168,10 @@ function AreaCard({ frame, state, patch }: SubProps) {
   const top = TOP30.map((k) => cityByKey(k)).filter((c): c is NonNullable<typeof c> => Boolean(c));
   const rest = CITIES.filter((c) => !TOP30.includes(c.k)).sort((a, b) => a.n.localeCompare(b.n));
   const picked = state.places[0] ?? null;
+  const haveVenue = state.venues.open;
+  // 📍 A couple who already has a venue is not asked the area — it comes from the venue they pick
+  // (DECISION_LOG 2026-10-01). Until a pick gives one, the Area ▾ stays so nobody is stuck.
+  const askArea = !(haveVenue && state.places.length > 0);
   return (
     <SetupFrame
       {...frame}
@@ -170,29 +179,47 @@ function AreaCard({ frame, state, patch }: SubProps) {
       line="The area is enough — it finds you nearby suppliers."
       info="You’ll find your parish and reception with Setnayan. Not booked yet? That’s normal."
     >
-      <PickMenu
-        label="Area"
-        value={picked && cityByKey(picked) ? picked : null}
-        buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
-        options={[
-          ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
-          ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),
-        ]}
-        onPick={(key) => patch({ places: [key], region: resolvePick(key).rk })}
-        dataAttr="data-wedding-area"
-        stickyGroups
-      />
-      <button type="button" className="mt-3 text-sm text-ink/60 underline" onClick={() => setMore((v) => !v)}>
-        {more ? 'Hide more places' : 'More places ›'}
-      </button>
-      {more ? (
-        <div className="mt-3">
-          <LocationStep
-            value={state.places}
-            onChange={(places) => patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })}
+      {askArea ? (
+        <>
+          <PickMenu
+            label="Area"
+            value={picked && cityByKey(picked) ? picked : null}
+            buttonText={picked && !cityByKey(picked) ? 'Another place' : picked ? undefined : 'Pick an area'}
+            options={[
+              ...top.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'Most chosen' })),
+              ...rest.map((c) => ({ key: c.k, label: c.n, hint: c.r, group: 'All places A–Z' })),
+            ]}
+            onPick={(key) => patch({ places: [key], region: resolvePick(key).rk })}
+            dataAttr="data-wedding-area"
+            stickyGroups
           />
-        </div>
-      ) : null}
+          <button type="button" className="mt-3 text-sm text-ink/60 underline" onClick={() => setMore((v) => !v)}>
+            {more ? 'Hide more places' : 'More places ›'}
+          </button>
+          {more ? (
+            <div className="mt-3">
+              <LocationStep
+                value={state.places}
+                onChange={(places) => patch({ places, region: places[0] ? resolvePick(places[0]).rk : null })}
+              />
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-sm text-ink/60" data-wedding-area-from-venue>
+          Your area comes from your venue.
+        </p>
+      )}
+      <button
+        type="button"
+        className="mt-4 block text-sm text-ink/60 underline"
+        aria-expanded={haveVenue}
+        data-wedding-have-venue
+        onClick={() => patch({ venues: haveVenue ? EMPTY_VENUES : { ...EMPTY_VENUES, open: true } })}
+      >
+        {haveVenue ? 'Just the area for now' : 'We already have our venue ›'}
+      </button>
+      {haveVenue ? <WeddingVenues state={state} patch={patch} /> : null}
     </SetupFrame>
   );
 }

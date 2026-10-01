@@ -18,6 +18,7 @@
 
 import type { FaithKey } from '@/lib/faith-registry';
 import type { ExpAxisId } from './_data/experience-personas';
+import { EMPTY_VENUES, type VenueAnswers } from '@/lib/onboarding/venue-picks';
 
 /** Role on the event — Bride / Groom / Someone helping (parent/planner/entourage). */
 export type OnboardingRole = 'bride' | 'groom' | 'helper';
@@ -62,6 +63,9 @@ export interface OnboardingState {
    * can still confirm the ceremony from their event home.
    */
   ceremonyUndecided: boolean;
+
+  /** "We already have our venue" — the parish / reception answers (Lane 2). */
+  venues: VenueAnswers;
 
   /**
    * Faith picks — single-element array for kind=religious, up to 2 for kind=mixed,
@@ -424,6 +428,7 @@ export const EMPTY_ONBOARDING_STATE: OnboardingState = {
   kind: null,
   faith: [],
   ceremonyUndecided: false,
+  venues: EMPTY_VENUES,
   brideFirstName: '',
   brideLastName: '',
   groomFirstName: '',

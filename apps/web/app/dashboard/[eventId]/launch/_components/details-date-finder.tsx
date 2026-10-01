@@ -4,6 +4,7 @@ import { use, useMemo, useState } from 'react';
 import { Star } from 'lucide-react';
 import type { MatrixDate, ScheduleMatrix } from '@/lib/schedule-matrix';
 import { formatCount } from '@/lib/format-number';
+import { fittingDates } from '@/lib/date-fits-booked';
 import {
   CategoryLine,
   comboSummary,
@@ -25,8 +26,8 @@ import { useDetailsPiece } from './details-go';
  *
  * The picked day and the must-have are one shared value for both parts
  * (`useDetailsPiece`). Nothing here writes: "Use <day>" hands the day to the
- * date's own governed save (`DateEditor`), a month goes through the same
- * `updateEventDate`.
+ * date's own governed save (`DateEditor`), a month goes through the same draft.
+ * And only days that fit every BOOKED supplier are offered (`useRanked`).
  */
 
 const TOP = 3;
@@ -56,10 +57,23 @@ export function useDateState(helpFirst = false): [DateState, (patch: Partial<Dat
   return [state, (patch) => setPiece(formatDateState({ ...state, ...patch }))];
 }
 
+/**
+ * The days offered, best first — ONLY those that fit every BOOKED supplier
+ * (owner 2026-10-01: *"only follow the dates that complements"*;
+ * `lib/date-fits-booked.ts`, over the matrix's own `booked` reading). The
+ * couple's one fixed day (`exactDate`) is their own booking, shown as it is.
+ */
 function useRanked(m: ScheduleMatrix) {
   const [{ pin: pinned }] = useDateState(true);
-  return useMemo(() => (m.exactDate ? m.dates : rankWithPin(m.dates, pinned)), [m.dates, m.exactDate, pinned]);
+  return useMemo(() => {
+    if (m.exactDate) return m.dates;
+    const fit = fittingDates(rankWithPin(m.dates, pinned));
+    return fit.map((d, i) => ({ ...d, isBest: i === 0 && d.totalCategories > 0 }));
+  }, [m.dates, m.exactDate, pinned]);
 }
+
+/** Said when no day of the month fits — never an empty list with no reason. */
+const NONE_FIT = 'No Saturday that month works with your booked suppliers. Choose another month on the right.';
 
 /** MIDDLE — the candidate days, best first. */
 export function FindDateCandidates({ matrix }: { matrix: Promise<ScheduleMatrix | null> }) {
@@ -72,6 +86,7 @@ export function FindDateCandidates({ matrix }: { matrix: Promise<ScheduleMatrix 
   if (!m.hasDate) {
     return <p className="text-sm text-ink/65">Choose a month on the right — its Saturdays appear here, ranked by how many of your suppliers are free.</p>;
   }
+  if (ranked.length === 0) return <p className="text-sm text-ink/65" data-find-date-none-fit="">{NONE_FIT}</p>;
   const shown = all ? ranked : ranked.slice(0, TOP);
   const current = picked ?? ranked[0]?.dateKey ?? null;
   return (
@@ -183,6 +198,11 @@ export function FindDatePicked({
             Use {date.label}
           </button>
         </>
+      ) : null}
+      {!date && m.hasDate && !m.exactDate ? (
+        <p className="text-sm text-ink/65" data-find-date-none-fit="">
+          {NONE_FIT}
+        </p>
       ) : null}
       {!m.exactDate && pins.length > 0 ? (
         <div className="flex items-center justify-between gap-3">

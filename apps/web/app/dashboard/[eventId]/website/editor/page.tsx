@@ -1418,7 +1418,7 @@ export default async function WebsiteEditorPage({
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
-        names: { style: nameStyleOfPrintDetails(event.print_details), person: nameExample },
+        names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },
       }}
       rows={rows}
       themes={themes}

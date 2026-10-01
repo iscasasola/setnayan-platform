@@ -41,6 +41,8 @@ import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wed
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
+import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 
 /**
  * Force dynamic rendering · skip static prerender (mirrors /pricing/page.tsx).
@@ -186,8 +188,19 @@ export default async function OnboardingWeddingPage({
     }
   }
 
+  // 🎟 THE SETUP ENGINE (G1) — the wedding's seed admits it
+  // (`profile.onboardingEngine`, migration 20271258536791). This flow already
+  // asks the couple's names and the date (`CREATION_ASKS.wedding`); the cards
+  // are the rest, slotted before the services step. Not admitted → null → the
+  // shell is exactly yesterday's.
+  const weddingProfile = await resolveProfile('wedding');
+  const setupView = weddingProfile.onboardingEngine ? setupViewForProfile(weddingProfile) : null;
+  const setupSteps = setupView ? resolveSetupSteps(setupView, CREATION_ASKS.wedding) : [];
+
   return (
     <OnboardingShell
+      setupView={setupView}
+      setupSteps={setupSteps}
       storeShell={storeShell}
       servicesStepView={servicesStepView}
       servicesStepAiValue={servicesStepAiValue}

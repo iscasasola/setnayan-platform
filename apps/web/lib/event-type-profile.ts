@@ -397,7 +397,8 @@ export const GENERIC_PROFILE: EventTypeProfile = {
   revealPackKey: null,
   budgetTaxonomyKey: null,
   scheduleSeedKey: null,
-  statutoryPackKey: null,  setup: {
+  statutoryPackKey: null,
+  setup: {
     guestWord: 'guests',
     giftsMode: 'gifts',
     teamFirst: [],
@@ -460,7 +461,8 @@ export const SIMPLE_PROFILE: EventTypeProfile = {
   revealPackKey: null,
   budgetTaxonomyKey: null,
   scheduleSeedKey: null,
-  statutoryPackKey: null,  setup: {
+  statutoryPackKey: null,
+  setup: {
     guestWord: 'guests',
     giftsMode: 'none',
     teamFirst: [],
@@ -516,7 +518,8 @@ export const TRAVEL_PROFILE: EventTypeProfile = {
   ),
   layerMode: 'roaming',
   multiDay: true,
-  onboardingFlowKey: 'travel',  setup: { ...genericSetupFallback(), guestWord: 'travellers', giftsMode: 'ambag', lookSet: ['house', 'galeriya'] },
+  onboardingFlowKey: 'travel',
+  setup: { ...genericSetupFallback(), guestWord: 'travellers', giftsMode: 'ambag', lookSet: ['house', 'galeriya'] },
 };
 
 /**

@@ -118,6 +118,13 @@ export const CREATION_ASKS = {
 export type CreationFlow = keyof typeof CREATION_ASKS;
 
 /**
+ * Where the wedding shell slots the engine's cards: after everything it asks
+ * today, right before its services step (and so before congrats). The shell
+ * reads THIS, never its own copy.
+ */
+export const WEDDING_SETUP_INSERT_BEFORE = 'services_step' as const;
+
+/**
  * 🎟 "Will guests reply?" — the default answer by type (DECISION_LOG "THE RSVP
  * IS OPTIONAL…": reply Yes for wedding / debut / gala / corporate; No + one QR
  * for hangout / date / get-together / simple events; owner answer #5 2026-10-01:

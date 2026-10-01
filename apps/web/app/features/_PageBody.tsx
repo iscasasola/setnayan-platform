@@ -4,7 +4,7 @@ import { EcosystemBand } from './_sections/_Ecosystem';
 import { WhySetnayan, WHY_FAQ } from './_sections/_WhySetnayan';
 import { HowItWorks } from './_sections/_HowItWorks';
 import { FinalCTA } from './_sections/_FinalCTA';
-import { featuresHubItemList } from '@/lib/feature-pages/seo';
+import { featuresHubItemList, SITE_URL } from '@/lib/feature-pages/seo';
 import {
   inLanguageTag,
   localeUrl,
@@ -18,10 +18,6 @@ import {
 // JSON-LD `inLanguage`/`url`. This is the "thin routes" half of the
 // dictionary + thin-routes localization architecture (owner, 2026-06-13).
 
-const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(
-  /\/$/,
-  '',
-);
 
 /** EN + Taglish path pair for /features — used by both routes' metadata. */
 export const FEATURES_PATHS: LocalePaths = { en: '/features', tl: '/tl/features' };

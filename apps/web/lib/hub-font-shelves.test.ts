@@ -153,7 +153,8 @@ test('4 · the wiring: the page computes In use from the canvas’s own data; th
   assert.ok(call, 'the page computes fontsInUse with hubFontsInUse');
   assert.match(call, /canvases: elementCanvases/, 'from the SAME canvases the canvas is handed');
   assert.match(page, /canvases: elementCanvases,/, 'which are the ones per-element editing edits');
-  assert.match(page, /const elementCanvases = Object\.fromEntries\(allWidgets\.map/, 'drafted over live (allWidgets)');
+  assert.match(page, /const elementCanvases = \{\s*\.\.\.Object\.fromEntries\(allWidgets\.map/, 'drafted over live (allWidgets)');
+  assert.match(page, /const elementCanvases = \{[\s\S]*?postEventElementScope\(key\)[\s\S]*?\n  \};/, 'and Post Event’s scenes, so a part styled there is In use too');
   assert.match(call, /siteFontKey: \(drafted as/, 'the typeface, drafted over live');
   assert.match(call, /INVITE_THEMES\[currentThemeId/, 'the theme being edited');
   assert.match(call, /logoFonts: await readMakerLogoFonts\(eventId\)/, 'the logo’s layers');
@@ -212,6 +213,8 @@ function sweepFontPickers(files: readonly string[], src: (f: string) => string):
 test('5 · the sweep: only the one dropdown offers faces; every font picker mounts it', () => {
   const files = editorFiles();
   assert.ok(files.length > 100, `the sweep reads the editor (${files.length} files)`);
+  // The tap-to-type bar's Style ▾ hands over to the part's own sheet (its Font row is the one dropdown) — it is swept, never a list of its own.
+  assert.ok(files.includes('app/dashboard/[eventId]/website/editor/_components/type-in-place.tsx'), 'the type bar is swept');
   assert.deepEqual(sweepFontPickers(files, read), [], 'a second font list in the editor — use <FontPick>');
   // The pickers, each anchored by file, with its count printed.
   const mounts = files

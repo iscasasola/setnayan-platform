@@ -34,5 +34,13 @@ duplicates (property), recent = last 5 distinct (property), "In use" equals what
 (property), the page → work area → dropdown wiring, and a sweep: no file in the
 editor offers a list of faces except `font-pick.tsx`.
 
-SPEC IMPACT: `DECISION_LOG.md` row 2026-09-29 "ONE FONT DROPDOWN ACROSS THE
-WHOLE EVENT HUB EDITOR" (recorded in the corpus).
+Brought up to date with `main` on 2026-10-01 (~400 commits): `PickMenu`'s props
+now live in `pick-menu-types.ts`, so `stickyGroups` and the font-row note moved
+there (`pick-menu.tsx` stays comment-free — `pick-menu-stays-inline.test.ts`);
+the page's `elementCanvases` now also carries Post Event's scene scopes, so a
+font set on a Post Event part is "In use" too. The tap-to-type bar (#6209) has no
+font list of its own — its Style ▾ opens the part's sheet, whose Font row is
+`FontPick` — and the sweep now names it.
+
+SPEC IMPACT: None — the DECISION_LOG rows 2026-09-27 and 2026-09-29 already
+record this.

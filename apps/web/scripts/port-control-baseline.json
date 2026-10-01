@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "6c41a5200",
-  "routeCount": 441,
-  "destinations": 948,
+  "generatedFromRef": "16f70a13",
+  "routeCount": 442,
+  "destinations": 956,
   "actions": 677,
-  "blocks": 5328,
+  "blocks": 5335,
   "routes": {
     "/": {
       "files": [
@@ -764,6 +764,7 @@
         "[slug]/_components/day-of-announcement.tsx",
         "[slug]/_components/day-of-banner.tsx",
         "[slug]/_components/day-of-face-enroll.tsx",
+        "[slug]/_components/dress-code-palette-looks.tsx",
         "[slug]/_components/dress-code-styles.tsx",
         "[slug]/_components/dress-code-widget.tsx",
         "[slug]/_components/editor-bridge.tsx",
@@ -1209,6 +1210,7 @@
         "PahinaMasthead",
         "PahinaMotionObserver",
         "PahinaMotionRootFlag",
+        "PaletteLookList",
         "Panel",
         "PanelFade",
         "PapicGuestCapture",
@@ -2938,7 +2940,7 @@
         "/admin/integrity-watch?tab=listings",
         "/admin/integrity-watch?tab=prices",
         "/admin/integrity-watch?tab=reviews",
-        "/admin/vendors/[seg]/edit"
+        "/admin/vendors/[seg]"
       ],
       "actions": [
         "rescanAction",
@@ -3485,7 +3487,7 @@
       ],
       "destinations": [
         "/admin/repost-watch?status=[seg]",
-        "/admin/vendors/[seg]/edit"
+        "/admin/vendors/[seg]"
       ],
       "actions": [
         "rescanAllRepostWatch",
@@ -3608,6 +3610,7 @@
         "admin/settings/_components/brand-icon-form.tsx",
         "admin/settings/_components/email-delivery-section.tsx",
         "admin/settings/_components/loader-appearance-card.tsx",
+        "admin/settings/_components/morning-digest-card.tsx",
         "admin/settings/_components/qr-upload-form.tsx",
         "admin/settings/_components/sentry-smoke-test-button.tsx",
         "admin/settings/_components/tin-input.tsx",
@@ -3658,6 +3661,7 @@
         "ListPageSkeleton",
         "LoaderAppearanceCard",
         "LoaderVariant",
+        "MorningDigestCard",
         "NotificationsSurface",
         "PageMasthead",
         "PreviewSwatch",
@@ -4107,7 +4111,8 @@
         "/admin/help",
         "/admin/payments",
         "/admin/user-reports",
-        "/admin/users"
+        "/admin/users",
+        "/admin/users/[seg]/export"
       ],
       "actions": [],
       "blocks": [
@@ -4174,6 +4179,26 @@
       "actions": [],
       "blocks": [
         "AdminInviteResult"
+      ]
+    },
+    "/admin/vendors/[vendorProfileId]": {
+      "files": [
+        "admin/vendors/[vendorProfileId]/page.tsx"
+      ],
+      "destinations": [
+        "/admin/accounts?tab=vendors",
+        "/admin/payouts?filter=all&vendor=[seg]",
+        "/admin/users/[seg]",
+        "/admin/vendors/[seg]/edit",
+        "/admin/vendors/[seg]/plan",
+        "/admin/vendors/[seg]/team",
+        "/admin/verify"
+      ],
+      "actions": [],
+      "blocks": [
+        "ConsoleTable",
+        "Link",
+        "PageMasthead"
       ]
     },
     "/admin/vendors/[vendorProfileId]/edit": {
@@ -8931,6 +8956,7 @@
         "dashboard/[eventId]/website/editor/_components/maker-navigator-data.ts",
         "dashboard/[eventId]/website/editor/_components/media-panels.tsx",
         "dashboard/[eventId]/website/editor/_components/page-pick.tsx",
+        "dashboard/[eventId]/website/editor/_components/palette-look-row.tsx",
         "dashboard/[eventId]/website/editor/_components/part-inspector.tsx",
         "dashboard/[eventId]/website/editor/_components/pick-menu-place.ts",
         "dashboard/[eventId]/website/editor/_components/pick-menu-types.ts",
@@ -9061,6 +9087,8 @@
         "MoreExtras",
         "OpenBrowsePanel",
         "PaidMark",
+        "PaletteLookRow",
+        "PaletteLookThumb",
         "PartAnimateTab",
         "PartArrangeTab",
         "PartPicker",

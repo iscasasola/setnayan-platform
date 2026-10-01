@@ -197,7 +197,7 @@ export default async function AdminSupplierPage({ params }: Props) {
         <p className="font-mono text-[11px] text-ink/55">{shop.public_id as string}</p>
       </div>
 
-      <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+      <section className="sn-tile p-5">
         <h2 className="mb-3 text-sm font-medium text-ink">Shop</h2>
         <dl className="grid grid-cols-1 gap-x-4 gap-y-3 text-sm sm:grid-cols-2">
           {facts.map((f) => (
@@ -218,7 +218,7 @@ export default async function AdminSupplierPage({ params }: Props) {
       </section>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-2xl border border-ink/10 bg-paper p-5">
+        <div className="sn-tile p-5">
           <h2 className="text-xs text-ink/55">Plan</h2>
           <p className="mt-1 text-base font-medium text-ink">{TIER_LABEL[tier]}</p>
           <p className="text-xs text-ink/55">
@@ -231,7 +231,7 @@ export default async function AdminSupplierPage({ params }: Props) {
             Change plan
           </Link>
         </div>
-        <div className="rounded-2xl border border-ink/10 bg-paper p-5">
+        <div className="sn-tile p-5">
           <h2 className="text-xs text-ink/55">Team</h2>
           <p className="mt-1 text-base font-medium text-ink">{teamCell}</p>
           <Link
@@ -241,7 +241,7 @@ export default async function AdminSupplierPage({ params }: Props) {
             See team
           </Link>
         </div>
-        <div className="rounded-2xl border border-ink/10 bg-paper p-5">
+        <div className="sn-tile p-5">
           <h2 className="text-xs text-ink/55">Verification</h2>
           <p className="mt-1 text-base font-medium text-ink">{VERIFICATION_STATE_LABEL[verification]}</p>
           <p className="text-xs text-ink/55">{applicationCell}</p>

@@ -98,7 +98,7 @@ export default async function EditorialReviewDetailPage({
           </SubmitButton>
         </form>
       ) : !scanFinished ? (
-        <div role="status" className="rounded-lg border border-[--m-ink-border] px-4 py-3 text-sm text-[--m-ink-secondary]">
+        <div role="status" className="px-1 py-1 text-sm text-[--m-ink-secondary]">
           The scan hasn&rsquo;t finished, so this can&rsquo;t be unlocked yet. Re-scan if it seems stuck.
         </div>
       ) : (

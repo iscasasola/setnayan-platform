@@ -414,7 +414,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
         {tab === 'overview' ? (
           <>
             {/* Profile & flags */}
-            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+            <section className="sn-tile p-5">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                 <ShieldCheck className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
                 Profile &amp; flags
@@ -455,7 +455,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
             </section>
 
             {/* Events & roles */}
-            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+            <section className="sn-tile p-5">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                 <CalendarHeart className="h-4 w-4 text-gold" strokeWidth={1.75} aria-hidden />
                 Events &amp; roles
@@ -498,7 +498,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
             </section>
 
             {/* Entitlements / comp grants */}
-            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+            <section className="sn-tile p-5">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                 <Gift className="h-4 w-4 text-mulberry" strokeWidth={1.75} aria-hidden />
                 Entitlements &amp; comps
@@ -543,7 +543,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
 
         {tab === 'money' ? (
           <>
-            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+            <section className="sn-tile p-5">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
                   <Receipt className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
@@ -600,7 +600,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               )}
             </section>
 
-            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+            <section className="sn-tile p-5">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                 <Receipt className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
                 Logged payments
@@ -638,7 +638,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               )}
             </section>
 
-            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+            <section className="sn-tile p-5">
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                 <Receipt className="h-4 w-4 text-mulberry" strokeWidth={1.75} aria-hidden />
                 Refunds
@@ -778,7 +778,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 A plain link to a route handler: no client code, no server
                 action. The file is the one Profile › Download my data makes,
                 minus message text; downloading it is logged above. */}
-            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+            <section className="sn-tile p-5">
               <h2 className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
                 <Download className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
                 Their data
@@ -797,7 +797,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               </a>
             </section>
 
-            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+            <section className="sn-tile p-5">
               <h2 className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
                 <Eye className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
                 Who viewed this account

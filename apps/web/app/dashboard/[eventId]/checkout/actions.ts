@@ -47,7 +47,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { channelLabel, resolveChannel, PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { parseClientRef, inlineCheckoutProofPolicy } from '@/lib/r2-client-ref';
 import { validateAndCalculateVoucher } from '@/lib/vouchers/validate';
 import { appendLedger } from '@/lib/ledger';
@@ -342,7 +342,7 @@ export async function submitOrderAction(
     // destination.
     return {
       ok: false,
-      reason: `${channel === 'gcash' ? 'GCash' : 'BDO'} is temporarily unavailable. Please refresh and choose another payment method.`,
+      reason: `${channelLabel(channelSettings, channel)} is temporarily unavailable. Please refresh and choose another payment method.`,
     };
   }
 

@@ -6,7 +6,7 @@
 import { useActionState } from 'react';
 import { buyBoothBrandingForEvent, type BoothEventActionState } from '../booth-event-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
+import { type OpenRail } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 
 export function BoothEventBuyForm({
@@ -18,7 +18,7 @@ export function BoothEventBuyForm({
   pricePhp: number;
   /** openChannels(settings) — empty = payments paused; the form gives way to
    *  PaymentsPausedNote (the server action refuses the same case). */
-  openRails: readonly PayChannel[];
+  openRails: readonly OpenRail[];
 }) {
   const [state, action] = useActionState<BoothEventActionState, FormData>(buyBoothBrandingForEvent, {
     status: 'idle',
@@ -36,11 +36,9 @@ export function BoothEventBuyForm({
         className="h-11 rounded-md border border-ink/15 bg-white px-3 text-sm text-ink"
       >
         {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-        {(['gcash', 'bdo'] as const)
-          .filter((r) => openRails.includes(r))
-          .map((r) => (
-            <option key={r} value={r}>
-              {PAY_CHANNEL_LABEL[r]}
+        {openRails.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.label}
             </option>
           ))}
       </select>

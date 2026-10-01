@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5245e390",
+  "generatedFromRef": "7fb6de49",
   "routeCount": 441,
-  "destinations": 951,
+  "destinations": 952,
   "actions": 677,
-  "blocks": 5336,
+  "blocks": 5354,
   "routes": {
     "/": {
       "files": [
@@ -3026,6 +3026,7 @@
         "admin/money/page.tsx"
       ],
       "destinations": [
+        "/admin/payments?filter=all&q=[seg]",
         "/admin/receipts",
         "/receipts/[seg]"
       ],
@@ -3266,6 +3267,8 @@
         "ProofImage",
         "ReadFailedNotice",
         "ReceiptReadCard",
+        "RecordPaymentCard",
+        "RecordTarget",
         "RefundForm",
         "Stat",
         "SubmitButton"
@@ -3694,13 +3697,14 @@
         "savePaymentInstruments"
       ],
       "blocks": [
+        "AccountCard",
+        "AccountFields",
         "BackButton",
         "ChannelSwitch",
         "ConsoleTable",
         "Field",
         "FormFlash",
         "PageMasthead",
-        "QrUploadBlock",
         "QrUploadForm",
         "SubmitButton"
       ]
@@ -6444,6 +6448,7 @@
         "FindDateCandidates",
         "FindDatePicked",
         "FineTune",
+        "FontPick",
         "Fragment",
         "GovernedFields",
         "GridPageSkeleton",
@@ -8928,6 +8933,7 @@
         "dashboard/[eventId]/website/editor/_components/element-preview.ts",
         "dashboard/[eventId]/website/editor/_components/element-sheet.tsx",
         "dashboard/[eventId]/website/editor/_components/fixed-scene-style-row.tsx",
+        "dashboard/[eventId]/website/editor/_components/font-pick.tsx",
         "dashboard/[eventId]/website/editor/_components/inspector-kit.tsx",
         "dashboard/[eventId]/website/editor/_components/launch-phase-choices.ts",
         "dashboard/[eventId]/website/editor/_components/main-background-panel.tsx",
@@ -9017,6 +9023,7 @@
         "ErrorLine",
         "FileUpload",
         "FixedSceneStyleRow",
+        "FontPick",
         "Fragment",
         "GalleryPanel",
         "HTMLButtonElement",
@@ -9064,6 +9071,7 @@
         "Measured",
         "MiniTour",
         "MoreExtras",
+        "NameStyle",
         "OpenBrowsePanel",
         "PaidMark",
         "PaletteLookRow",
@@ -9427,6 +9435,9 @@
       "blocks": [
         "DetailsItemKey",
         "DetailsPieceButton",
+        "FontPick",
+        "HubFontKey",
+        "LabFontPick",
         "LookLab",
         "MakerContext.Provider",
         "MakerDetails",
@@ -9905,6 +9916,8 @@
         "ServicesStep",
         "ServicesStepSelection",
         "SetnayanAiValue",
+        "SetupAnswers",
+        "SetupCard",
         "SpecialtyFields",
         "Title"
       ]
@@ -9913,6 +9926,8 @@
       "files": [
         "onboarding/simple/_components/papic-step-field-names.ts",
         "onboarding/simple/_components/papic-step-fields.tsx",
+        "onboarding/simple/_components/simple-setup-field.ts",
+        "onboarding/simple/_components/simple-setup-flow.tsx",
         "onboarding/simple/actions.ts",
         "onboarding/simple/page.tsx"
       ],
@@ -9924,10 +9939,15 @@
         "commitSimpleEvent"
       ],
       "blocks": [
+        "HTMLDivElement",
         "Link",
+        "Paced",
         "PapicStepFields",
         "ServicesStep",
         "ServicesStepSelection",
+        "SetupAnswers",
+        "SetupCard",
+        "SimpleSetupFlow",
         "SubmitButton"
       ]
     },
@@ -9991,6 +10011,8 @@
         "ServicesStepSelection",
         "SetnayanAiValue",
         "SetnayanMark",
+        "SetupAnswers",
+        "SetupCard",
         "Sk",
         "SongBankStep",
         "SongPreviewList",

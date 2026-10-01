@@ -10,7 +10,7 @@ import { parseStage } from '@/lib/pay-stages';
 import { payAmount } from '@/lib/pay-amount';
 import { PayPanel, type ChannelInfo } from './_components/pay-panel';
 import { removeSetupExtras } from './actions';
-import { isChannelOpen } from '@/lib/payment-channels';
+import { openAccounts } from '@/lib/payment-channels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
@@ -164,46 +164,39 @@ export default async function PayPage({ params, searchParams }: Props) {
    * knows, and `qrWords` is the only thing that phrases it.
    */
   //
-  // 🔑 PAINTED HERE, NOT IN THE BROWSER. Both rails are rendered up front
-  // because the payer switches tabs client-side and a tab that has to fetch
-  // its own code re-opens the window this page just closed. Two inline PNGs is
-  // ~10 KB — cheaper than one wrong scan.
-  const [gcashImage, bdoImage] = await Promise.all([
-    mintedQrImage(settings.gcash_qr_payload, payable.amountPhp),
-    mintedQrImage(settings.bdo_qr_payload, payable.amountPhp),
-  ]);
-
-  const gcash: ChannelInfo = {
-    mintedUrl: gcashImage?.dataUrl ?? null,
-    staticUrl: settings.gcash_qr_url,
-    number: settings.gcash_number,
-    name: settings.gcash_account_name,
-    // The ONE rule (switch AND something to pay to), never the flag alone.
-    enabled: isChannelOpen(settings, 'gcash'),
-  };
-  const bdo: ChannelInfo = {
-    mintedUrl: bdoImage?.dataUrl ?? null,
-    staticUrl: settings.bdo_qr_url,
-    number: settings.bdo_account_number,
-    name: settings.bdo_account_name,
-    enabled: isChannelOpen(settings, 'bdo'),
-  };
+  // 🔑 PAINTED HERE, NOT IN THE BROWSER. Every open rail is rendered up front
+  // because the payer switches cards client-side and a card that has to fetch
+  // its own code re-opens the window this page just closed. A few inline PNGs
+  // is ~5 KB each — cheaper than one wrong scan.
+  //
+  // The rails are Setnayan's receiving-accounts LIST, narrowed by the ONE rule
+  // (switch AND something to pay to — `openAccounts`), in the admin's order.
+  const open = openAccounts(settings);
+  const images = await Promise.all(
+    open.map((a) => mintedQrImage(a.qrPayload, payable.amountPhp)),
+  );
+  const rails: ChannelInfo[] = open.map((a, i) => ({
+    id: a.id,
+    label: a.label,
+    kind: a.kind,
+    mintedUrl: images[i]?.dataUrl ?? null,
+    staticUrl: a.qrUrl,
+    number: a.number,
+    name: a.accountName,
+  }));
 
   /**
-   * Step 1 names BOTH rails in one breath, so it may only promise a pre-filled
-   * amount when both OPEN codes carry one — see `everyOpenRailCarriesAmount`.
+   * Step 1 names EVERY rail in one breath, so it may only promise a pre-filled
+   * amount when every OPEN code carries one — see `everyOpenRailCarriesAmount`.
    * The caption beside each code then narrows it to the rail they are on.
    */
   const words = qrWords(
     everyOpenRailCarriesAmount({
       amountPhp: payable.amountPhp,
-      rails: [
-        // ⚠ THE RAIL'S ANSWER IS THE IMAGE WE ACTUALLY PAINTED, not the stored
-        // payload. A payload that mints but fails to RENDER puts the static
-        // code on screen, and the sentence must follow the pixels.
-        { open: gcash.enabled, payload: gcashImage ? settings.gcash_qr_payload : null },
-        { open: bdo.enabled, payload: bdoImage ? settings.bdo_qr_payload : null },
-      ],
+      // ⚠ THE RAIL'S ANSWER IS THE IMAGE WE ACTUALLY PAINTED, not the stored
+      // payload. A payload that mints but fails to RENDER puts the static
+      // code on screen, and the sentence must follow the pixels.
+      rails: open.map((a, i) => ({ open: true, payload: images[i] ? a.qrPayload : null })),
     }),
     payAmount(payable.amountPhp),
     { reference: payable.reference },
@@ -480,8 +473,7 @@ export default async function PayPage({ params, searchParams }: Props) {
         amountPhp={payable.amountPhp}
         reference={payable.reference}
         orderId={payable.orderId}
-        gcash={gcash}
-        bdo={bdo}
+        rails={rails}
         activatesLine={activates}
         summary={summary}
         initialStage={parseStage(search.step)}

@@ -41,6 +41,16 @@ import { OpenWalletButton } from '@/app/_components/open-wallet-button';
 import { mintOrderQr } from '@/lib/emv-qr';
 import { qrWords } from '@/lib/qr-amount-truth';
 import { payAmount } from '@/lib/pay-amount';
+import { openAccounts, type AccountKind, type ChannelSettings } from '@/lib/payment-channels';
+
+/** Which receiving account a card or a block is about — the list's own words. */
+export type RailIdentity = {
+  /** The account id — what the proof form posts as `channel`. */
+  id: string;
+  /** What the payer reads: "GCash", "BDO", "Maribank". */
+  label: string;
+  kind: AccountKind;
+};
 
 /**
  * The slice of `platform_settings` these rails render.
@@ -51,7 +61,7 @@ import { payAmount } from '@/lib/pay-amount';
  * server's `?? true` / static-QR fallbacks — a caller that has not been updated
  * still typechecks and simply serves the uploaded image.
  */
-export type RailInfo = {
+export type RailInfo = RailIdentity & {
   /** Display name on the receiving account. */
   name: string | null;
   /** The number a payer can type instead of scanning. */
@@ -89,17 +99,51 @@ export type PayRailSettings = {
   gcash_qr_payload?: string | null;
   gcash_enabled?: boolean | null;
   bdo_enabled?: boolean | null;
+  /**
+   * The receiving-accounts LIST (owner 2026-10-01). Optional so a caller that
+   * hand-builds this object still typechecks — without it the two fixed rails
+   * above are shown, exactly as before (lib/payment-channels.ts).
+   */
+  receiving_accounts?: unknown;
 };
+
+/**
+ * The badge on a method card. The two rails everyone already recognises keep
+ * their colours; any other account wears its own initials on ink, so a new
+ * bank never borrows another bank's look.
+ */
+function railBadge(rail: RailIdentity): { badge: string; badgeClass: string } {
+  const l = rail.label.toLowerCase();
+  if (rail.id === 'gcash' || l.includes('gcash')) {
+    return { badge: 'G', badgeClass: 'bg-[#0A6CF1] text-white' };
+  }
+  if (rail.id === 'bdo' || /\bbdo\b/.test(l)) {
+    return { badge: 'BDO', badgeClass: 'bg-[#0A2C6B] text-white' };
+  }
+  const initials = rail.label
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 3)
+    .toUpperCase();
+  return { badge: initials || '₱', badgeClass: 'bg-ink text-cream' };
+}
 
 export function ChannelToggle({
   channel,
   onChange,
-  open,
+  rails,
 }: {
-  channel: 'gcash' | 'bdo';
-  onChange: (c: 'gcash' | 'bdo') => void;
-  /** Rails the owner has left open — a closed one is not rendered at all. */
-  open: readonly ('gcash' | 'bdo')[];
+  channel: string;
+  onChange: (c: string) => void;
+  /**
+   * The OPEN accounts, in the admin's order — a closed one is not rendered at
+   * all. Build it with `openRailsFromSettings` / the server's own list; never
+   * hand-write it.
+   */
+  rails: readonly RailIdentity[];
 }) {
   // A rail is closed when its receiving account is at its monthly cap, where
   // transfers FAIL rather than queue. Showing it greyed-out would invite
@@ -111,26 +155,20 @@ export function ChannelToggle({
         Pay manually · available now
       </p>
       <div role="radiogroup" aria-label="Payment method" className="space-y-2.5">
-        {open.includes('gcash') ? (
-        <MethodCard
-          selected={channel === 'gcash'}
-          onSelect={() => onChange('gcash')}
-          badge="G"
-          badgeClass="bg-[#0A6CF1] text-white"
-          title="GCash"
-          desc="Scan our GCash QR, or send to our number"
-        />
-        ) : null}
-        {open.includes('bdo') ? (
-        <MethodCard
-          selected={channel === 'bdo'}
-          onSelect={() => onChange('bdo')}
-          badge="BDO"
-          badgeClass="bg-[#0A2C6B] text-white"
-          title="Bank Transfer — BDO"
-          desc="Scan our BDO QR, or transfer to the account"
-        />
-        ) : null}
+        {rails.map((r) => (
+          <MethodCard
+            key={r.id}
+            selected={channel === r.id}
+            onSelect={() => onChange(r.id)}
+            {...railBadge(r)}
+            title={r.kind === 'bank' ? `Bank Transfer — ${r.label}` : r.label}
+            desc={
+              r.kind === 'bank'
+                ? `Scan our ${r.label} QR, or transfer to the account`
+                : `Scan our ${r.label} QR, or send to our number`
+            }
+          />
+        ))}
       </div>
     </div>
   );
@@ -191,14 +229,12 @@ function MethodCard({
 }
 
 export function PaymentDetailsBlock({
-  channel,
   info,
   referenceCode,
   amountPhp,
   proofHint,
 }: {
-  channel: 'gcash' | 'bdo';
-  /** This rail's account and code — see `railFromSettings` for the adapter. */
+  /** This rail's account and code — see `openRailsFromSettings` for the adapter. */
   info: RailInfo;
   referenceCode: string;
   /** VAT-inclusive gross the payer sends — minted into the QR as tag 54. */
@@ -287,7 +323,9 @@ export function PaymentDetailsBlock({
     );
   }
 
-  const label = channel === 'gcash' ? 'GCash' : 'BDO';
+  const label = info.label;
+  const channel = info.id;
+  const wallet = info.kind === 'ewallet';
 
   return (
     <div className="space-y-3 rounded-2xl border border-ink/10 bg-cream p-4">
@@ -382,7 +420,7 @@ export function PaymentDetailsBlock({
       <div className="flex items-center gap-3">
         <span className="h-px flex-1 bg-ink/10" />
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/40">
-          or {channel === 'gcash' ? 'send to our number' : 'transfer manually'}
+          or {wallet ? 'send to our number' : 'transfer manually'}
         </span>
         <span className="h-px flex-1 bg-ink/10" />
       </div>
@@ -392,7 +430,7 @@ export function PaymentDetailsBlock({
           <div className="flex items-center justify-between gap-3 px-3 py-2.5">
             <span className="min-w-0">
               <span className="block text-[11px] text-ink/50">
-                {channel === 'gcash' ? 'GCash name' : 'Account name'}
+                {wallet ? `${label} name` : 'Account name'}
               </span>
               <span className="block truncate font-mono text-[13px] text-ink">
                 {name}
@@ -404,7 +442,7 @@ export function PaymentDetailsBlock({
         <div className="flex items-center justify-between gap-3 px-3 py-2.5">
           <span className="min-w-0">
             <span className="block text-[11px] text-ink/50">
-              {channel === 'gcash' ? 'GCash number' : 'Account number'}
+              {wallet ? `${label} number` : 'Account number'}
             </span>
             <span className="block truncate font-mono text-[13px] text-ink">
               {number}
@@ -439,25 +477,29 @@ export function PaymentDetailsBlock({
   );
 }
 
-/** platform_settings → the one rail shape these components read. */
-export function railFromSettings(
-  channel: 'gcash' | 'bdo',
-  settings: PayRailSettings,
-  mintedUrl?: string | null,
-): RailInfo {
-  return channel === 'gcash'
-    ? {
-        name: settings.gcash_account_name,
-        number: settings.gcash_number,
-        staticUrl: settings.gcash_qr_url,
-        payload: settings.gcash_qr_payload ?? null,
-        mintedUrl: mintedUrl ?? null,
-      }
-    : {
-        name: settings.bdo_account_name,
-        number: settings.bdo_account_number,
-        staticUrl: settings.bdo_qr_url,
-        payload: settings.bdo_qr_payload ?? null,
-        mintedUrl: mintedUrl ?? null,
-      };
+/**
+ * platform_settings → the OPEN rails, in the admin's order, in the one shape
+ * these components read.
+ *
+ * 🔑 Asks `openAccounts` — the one rule — so a switched-off account never
+ * reaches a card, a code or a printed number, and the receiving-accounts list
+ * (with its fall-back to the two fixed rails) is read in exactly one place.
+ *
+ * `mintedUrls` is keyed by account id: the server-drawn amount-carrying code
+ * for each rail it managed to draw.
+ */
+export function openRailsFromSettings(
+  settings: PayRailSettings | ChannelSettings,
+  mintedUrls?: Readonly<Record<string, string | null | undefined>>,
+): RailInfo[] {
+  return openAccounts(settings as ChannelSettings).map((a) => ({
+    id: a.id,
+    label: a.label,
+    kind: a.kind,
+    name: a.accountName,
+    number: a.number,
+    staticUrl: a.qrUrl,
+    payload: a.qrPayload,
+    mintedUrl: mintedUrls?.[a.id] ?? null,
+  }));
 }

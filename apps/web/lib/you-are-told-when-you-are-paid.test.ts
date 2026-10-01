@@ -170,7 +170,17 @@ test('EVERY surface that takes a buyer’s proof alerts somebody — derived, no
   // A sweep that finds nothing passes silently — floor it.
   assert.ok(obliged.length >= 3, `expected to find the proof surfaces, saw ${obliged.length}`);
 
-  const silent = obliged.filter((rel) => !/notifyAdmins\w+\(/.test(read(rel)));
+  // Reviewed by hand — a reason is required, and anything new defaults to RED.
+  const ADMIN_IS_THE_READER: Record<string, string> = {
+    'app/admin/payments/actions.ts':
+      'Record a payment received (owner 2026-10-01): an ADMIN enters money they saw arrive and ' +
+      'confirms it in the same request through approvePaymentCore, which tells the BUYER. Alerting ' +
+      'admins that an admin just did it would be noise; the customer path still alerts. Held by ' +
+      'app/admin/payments/record-a-payment-received.test.ts (the record runs approvePaymentCore).',
+  };
+  const silent = obliged.filter(
+    (rel) => !(rel in ADMIN_IS_THE_READER) && !/notifyAdmins\w+\(/.test(read(rel)),
+  );
   assert.deepEqual(
     silent,
     [],

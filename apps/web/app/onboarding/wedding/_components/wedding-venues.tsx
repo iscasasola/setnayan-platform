@@ -96,8 +96,8 @@ export function WeddingVenues({ state, patch, search }: { state: OnboardingState
     <div className="mt-4 flex flex-col gap-6" data-wedding-venues>
       <p className="text-xs text-ink/55">
         {dates.length > 0
-          ? `Your dates: ${list(dates.map(dayLabel))}. A venue is shortlisted when you pick it; you lock it from Your Team. Pick either first — the other list narrows to what is free and near.`
-          : 'A venue is shortlisted when you pick it; you lock it from Your Team. Pick either first — the other list narrows to what is near.'}
+          ? `Your dates: ${list(dates.map(dayLabel))}. A venue is shortlisted when you pick it; you lock it from Suppliers. Pick either first — the other list narrows to what is free and near.`
+          : 'A venue is shortlisted when you pick it; you lock it from Suppliers. Pick either first — the other list narrows to what is near.'}
       </p>
       {(['parish', 'reception'] as const).map((role) => (
         <VenueRoleRow
@@ -265,7 +265,7 @@ function VenueRoleRow({
         </button>
       ) : null}
       {pick?.kind === 'listed' ? (
-        <p className="mt-2 text-xs text-ink/55">On your shortlist. You lock it from Your Team, and it shows on your Event Hub once locked.</p>
+        <p className="mt-2 text-xs text-ink/55">On your shortlist. You lock it from Suppliers, and it shows on your Event Hub once locked.</p>
       ) : null}
       {narrowedNote ? <p className="mt-1 text-xs text-ink/55">{narrowedNote}</p> : null}
       {pick?.kind === 'supplier' ? (
@@ -324,7 +324,7 @@ function OwnVenueForm({
         />
       </div>
       <p className="text-xs text-ink/55">
-        Drag the map until the pin sits on the door. Your Event Hub follows this venue from now on. You can add a contact later from Your Team.
+        Drag the map until the pin sits on the door. Your Event Hub follows this venue from now on. You can add a contact later from Suppliers.
       </p>
     </div>
   );

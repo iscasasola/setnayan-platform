@@ -20,6 +20,7 @@ import { useState } from 'react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
+  defaultLookId,
   moreRows,
   setupQuickAnswers,
   type SetupAnswers,
@@ -61,7 +62,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
   function answerQuick(label: string) {
     if (card === 'setup_where') onChange(label === 'At home' ? { where: 'home', whereText: '' } : { where: 'undecided', whereText: '' });
     if (card === 'setup_photo') onChange({ photo: 'theme' });
-    if (card === 'setup_look') onChange({ look: answers.look || view.looks[0]?.id || 'house' });
+    if (card === 'setup_look') onChange({ look: answers.look || defaultLookId(view) });
     if (card === 'setup_entry') onChange({ reply: view.replyDefault, entry: 'one_qr' });
     if (card === 'setup_guests') onChange({ guests: 'later' });
     onNext();

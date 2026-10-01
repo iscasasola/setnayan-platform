@@ -23,8 +23,9 @@ import {
  *    while her ninong attends.
  *  · The pair collapses to ONE line only where the pair is the unit — the
  *    walking-order panel and the printed processional.
- *  · The order belongs to the LINE. Both halves carry the same
- *    `entourage_order`, which is why this needed no schema change.
+ *  · The order belongs to the LINE. Since 2026-10-01 a line is a WALK — its
+ *    people share one `march_walks.walk_no` (owner: "the wedding march is a
+ *    different entity").
  *  · Walking order and seating stay two orderings. Moving a pair never moves a
  *    chair.
  *
@@ -45,9 +46,9 @@ const row = (over: Partial<EntourageGuestRow>): EntourageGuestRow => ({
 /** Two people, mutually paired, in the same printed group. */
 function pairedFixture(): EntourageGuestRow[] {
   return [
-    row({ guest_id: 'ninong', first_name: 'Ramon', last_name: 'Zamora', role: 'principal_sponsor_ninong', pair_with_guest_id: 'ninang' }),
-    row({ guest_id: 'ninang', first_name: 'Rosa', last_name: 'Zamora', role: 'principal_sponsor_ninang', pair_with_guest_id: 'ninong' }),
-    row({ guest_id: 'solo', first_name: 'Ana', last_name: 'Abad', role: 'principal_sponsor_ninang', pair_with_guest_id: null }),
+    row({ guest_id: 'ninong', first_name: 'Ramon', last_name: 'Zamora', role: 'principal_sponsor_ninong', march: { walk_no: 1, place_in_walk: 0 } }),
+    row({ guest_id: 'ninang', first_name: 'Rosa', last_name: 'Zamora', role: 'principal_sponsor_ninang', march: { walk_no: 1, place_in_walk: 1 } }),
+    row({ guest_id: 'solo', first_name: 'Ana', last_name: 'Abad', role: 'principal_sponsor_ninang', march: null }),
   ];
 }
 
@@ -70,11 +71,11 @@ test('🔑 the LINE is ordered, not the role — a pair moves as one', () => {
     This is the defect the build exists for. Ninong and ninang are two different
     ROLES, so ordering each role separately could not express a pair at all:
     "move her up" moved her past other ninangs while he stayed where he was.
-    Both halves carrying the same number is what makes the column able to say
-    this — it always could; nothing was writing it that way.
+    Both people sharing ONE walk (`march_walks`, owner 2026-10-01) is what
+    makes the pair move as one.
   */
   const rows = pairedFixture().map((r) =>
-    r.guest_id === 'solo' ? { ...r, entourage_order: 0 } : { ...r, entourage_order: 1 },
+    r.guest_id === 'solo' ? { ...r, march: { walk_no: 0 } } : r,
   );
   const lines = entourageLines(rows, 'principal_sponsors');
   assert.equal(lines[0]?.[0]?.id ?? lines[0]?.[1]?.id, 'solo', 'the hand-placed single is not first');
@@ -83,10 +84,10 @@ test('🔑 the LINE is ordered, not the role — a pair moves as one', () => {
 });
 
 test('an unplaced line sorts after every placed one, and never as position zero', () => {
-  // `entourage_order ?? 0` would rank everyone untouched ABOVE the line the
-  // couple deliberately put first.
+  // `walk ?? 0` would rank everyone untouched ABOVE the line the couple
+  // deliberately placed. Here the pair has no walk yet; the solo one does.
   const rows = pairedFixture().map((r) =>
-    r.guest_id === 'solo' ? { ...r, entourage_order: 5 } : r,
+    r.guest_id === 'solo' ? { ...r, march: { walk_no: 5 } } : { ...r, march: null },
   );
   const lines = entourageLines(rows, 'principal_sponsors');
   assert.equal(lines[0]?.[0]?.id ?? lines[0]?.[1]?.id, 'solo');
@@ -114,8 +115,8 @@ test('a ceremony-only sponsor still walks, and says so', () => {
 
 test('a pair may not span two printed groups — the two never share a line', () => {
   const rows = [
-    row({ guest_id: 'maid', first_name: 'Mia', last_name: 'Cruz', role: 'maid_of_honor', pair_with_guest_id: 'bearer' }),
-    row({ guest_id: 'bearer', first_name: 'Bo', last_name: 'Cruz', role: 'ring_bearer', pair_with_guest_id: 'maid' }),
+    row({ guest_id: 'maid', first_name: 'Mia', last_name: 'Cruz', role: 'maid_of_honor', march: { walk_no: 0 } }),
+    row({ guest_id: 'bearer', first_name: 'Bo', last_name: 'Cruz', role: 'ring_bearer', march: { walk_no: 0 } }),
   ];
   assert.notEqual(
     entourageGroupOfRole('maid_of_honor'),

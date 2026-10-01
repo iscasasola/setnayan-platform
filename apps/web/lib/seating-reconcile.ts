@@ -69,7 +69,6 @@ export async function applyReconcileForEvent(
       // guest, so reconcile clusters the same groups the couple sees.
       group_id: memberships.get(g.guest_id)?.[0] ?? null,
       seating_priority: g.seating_priority ?? null,
-      pair_with_guest_id: g.pair_with_guest_id ?? null,
     }));
 
     // Pull each reseat target's +1 into the set so a pair re-clusters together.

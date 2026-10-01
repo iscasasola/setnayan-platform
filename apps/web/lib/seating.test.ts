@@ -864,14 +864,15 @@ const xOf = (id: string) => Number(ROW.find((t) => t.table_id === id)!.x_pos);
 const tablesOf = (rows: { guest_id: string; table_id: string }[], ids: string[]) =>
   new Set(ids.map((id) => seatTableOf(rows, id)));
 
-test('auto-seat: every principal sponsor (and their pair) sits at ONE table, whatever their groups', () => {
+test('auto-seat: every principal sponsor (and their +1) sits at ONE table, whatever their groups', () => {
   const sponsors = [
     guest({ guest_id: 'n1', role: 'principal_sponsor_ninong', group_id: 'office' }),
     guest({ guest_id: 'n2', role: 'principal_sponsor_ninang', group_id: 'church' }),
     guest({ guest_id: 'n3', role: 'principal_sponsor_ninong', group_id: null }),
-    guest({ guest_id: 'n4', role: 'principal_sponsor_ninang', group_id: 'office', pair_with_guest_id: 'sp' }),
-    // A sponsor's pair listed as a plain guest, in a different group — comes along.
-    guest({ guest_id: 'sp', role: 'guest', group_id: 'neighbours', pair_with_guest_id: 'n4' }),
+    guest({ guest_id: 'n4', role: 'principal_sponsor_ninang', group_id: 'office' }),
+    // A sponsor's spouse is their +1 (owner 2026-10-01: a walking partner is not
+    // a spouse — the seater no longer reads the march) — comes along.
+    guest({ guest_id: 'sp', role: 'guest', group_id: 'neighbours', plus_one_of_guest_id: 'n4' }),
   ];
   // Fill the room with groups so a scattered seater WOULD split the sponsors.
   const others = Array.from({ length: 12 }, (_, i) =>

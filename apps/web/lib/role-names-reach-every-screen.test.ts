@@ -43,8 +43,8 @@ const CREW: RoleNames = {
 };
 
 const rows: EntourageGuestRow[] = [
-  { guest_id: 'a', pair_with_guest_id: 'b', first_name: 'Ana', last_name: 'Abad', role: 'bridesmaid' },
-  { guest_id: 'b', pair_with_guest_id: 'a', first_name: 'Ben', last_name: 'Bato', role: 'groomsman' },
+  { guest_id: 'a', march: { walk_no: 0 }, first_name: 'Ana', last_name: 'Abad', role: 'bridesmaid' },
+  { guest_id: 'b', march: { walk_no: 0 }, first_name: 'Ben', last_name: 'Bato', role: 'groomsman' },
   { guest_id: 'c', first_name: 'Cara', last_name: 'Cruz', role: 'bridesmaid' },
   { guest_id: 'f', first_name: 'Fe', last_name: 'Flor', role: 'flower_girl' },
   { guest_id: 'm', first_name: 'Mae', last_name: 'Mata', role: 'maid_of_honor' },

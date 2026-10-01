@@ -319,7 +319,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
       >
         <header className="space-y-1">
           <p className="sn-eye">
-            {SPONSOR_TIER_LABEL.principal}s · {targetPairs} pair
+            {SPONSOR_TIER_LABEL.principal}s · {targetPairs} walking pair
             {targetPairs === 1 ? '' : 's'}
           </p>
           <h2 className="font-display text-2xl italic">Ninong & ninang</h2>
@@ -478,11 +478,20 @@ function PrincipalPairRow({
   event: EventMini;
   coupleNames: string;
 }) {
+  /* ⚖ OWNER 2026-10-01 (DECISION_LOG "THE GUEST LIST IS ONE PERSON PER ROW" +
+     "A WALK AND A COUPLE ARE INDEPENDENT"): a principal pair here is two people
+     who WALK together — never a couple. Each keeps their own full name; the
+     line says "walks with", nothing more. */
   return (
-    <div className="sn-row p-3 sm:p-4">
+    <div className="sn-row p-3 sm:p-4" data-principal-walk={pairIndex}>
       <p className="sn-eye mb-2">
-        Pair {pairIndex}
+        Walk {pairIndex}
       </p>
+      {groomSponsor && brideSponsor ? (
+        <p className="mb-2 text-sm text-ink/70" data-walks-with="">
+          {groomSponsor.full_name} walks with {brideSponsor.full_name}
+        </p>
+      ) : null}
       <div className="grid gap-3 sm:grid-cols-2">
         {/* Groom's side */}
         <div className="space-y-2">

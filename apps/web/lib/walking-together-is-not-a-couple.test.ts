@@ -7,16 +7,22 @@
  * own +1"*. The Oct 1 release shortened ANY walking pair with a shared surname
  * into the couple form ("Hon. Ricardo & Mrs. Jessica Villahermosa").
  *
+ * ⚖ TIGHTENED 2026-10-01 (DECISION_LOG "A WALK AND A COUPLE ARE INDEPENDENT"),
+ * verbatim: *"the pair in the wedding march does not mean they are a couple. so
+ * it should be independent from each other."* — and "THE WEDDING MARCH IS ITS
+ * OWN ENTITY" (`march_walks`).
+ *
  * What this holds:
- *   1. a walking pair prints BOTH FULL NAMES unless they are a real couple —
- *      a shared surname alone never shortens;
- *   2. a couple = one is the other's +1, OR both halves carry the Wedding
- *      March's "They're a couple" tick pointing at EACH OTHER (a one-sided or
- *      stale tick is not a couple);
+ *   1. every march line prints BOTH FULL NAMES — a shared surname, a +1 and a
+ *      partner link alike; there is no couple short form in the march;
+ *   2. a couple (`isCouple`) is a fact about the PEOPLE — one is the other's +1,
+ *      or both partner links point at EACH OTHER — and the march never sets it;
  *   3. a +1 is a guest, never entourage — not listed, not offered to walk;
  *   4. the page and the printed card say the same words (one `lineNames`);
- *   5. every reader that prints a pair line asks for what `isCouple` reads;
- *   6. "walks with" is set and shown ONLY in the Maker's Wedding March — the
+ *   5. every reader that prints the march asks for the walks;
+ *   6. the Maker's Wedding March has no "They're a couple" control and no
+ *      action that writes one;
+ *   7. "walks with" is set and shown ONLY in the Maker's Wedding March — the
  *      Guest list rows and the guest card neither show nor edit it.
  */
 import test from 'node:test';
@@ -40,7 +46,7 @@ function g(
 ): EntourageGuestRow {
   return {
     guest_id: id,
-    pair_with_guest_id: null,
+    march: null,
     display_name: null,
     name_prefix: prefix,
     first_name: first,
@@ -49,16 +55,15 @@ function g(
     name_suffix: null,
     role,
     extra_roles: null,
-    entourage_order: null,
     ...more,
   };
 }
 
-/** Ninong `a` walks with Ninang `b`; `extraA` / `extraB` say how (or whether) they are a couple. */
+/** Ninong `a` walks with Ninang `b` (one walk); `extraA` / `extraB` say how (or whether) they are a couple. */
 function sponsors(extraA: Partial<EntourageGuestRow> = {}, extraB: Partial<EntourageGuestRow> = {}) {
   return [
-    g('a', 'principal_sponsor_ninong', 'Hon.', 'Ricardo', 'Villahermosa', { pair_with_guest_id: 'b', ...extraA }),
-    g('b', 'principal_sponsor_ninang', 'Mrs.', 'Jessica', 'Villahermosa', { pair_with_guest_id: 'a', ...extraB }),
+    g('a', 'principal_sponsor_ninong', 'Hon.', 'Ricardo', 'Villahermosa', { march: { walk_no: 0, place_in_walk: 0 }, ...extraA }),
+    g('b', 'principal_sponsor_ninang', 'Mrs.', 'Jessica', 'Villahermosa', { march: { walk_no: 0, place_in_walk: 1 }, ...extraB }),
   ];
 }
 
@@ -73,29 +78,29 @@ test('a walking pair with a SHARED SURNAME but no couple prints both full names'
 
 test('different surnames walking together: both full names (the owner’s own example)', () => {
   const rows = [
-    g('e', 'principal_sponsor_ninong', 'Dr.', 'Eduardo', 'Bautista', { pair_with_guest_id: 'c' }),
-    g('c', 'principal_sponsor_ninang', 'Ms.', 'Carmen', 'Reyes', { pair_with_guest_id: 'e' }),
+    g('e', 'principal_sponsor_ninong', 'Dr.', 'Eduardo', 'Bautista', { march: { walk_no: 0, place_in_walk: 0 } }),
+    g('c', 'principal_sponsor_ninang', 'Ms.', 'Carmen', 'Reyes', { march: { walk_no: 0, place_in_walk: 1 } }),
   ];
   assert.deepEqual(linesOf(rows), ['Dr. Eduardo Bautista & Ms. Carmen Reyes']);
 });
 
-test('a +1 couple shortens — whichever half is the +1', () => {
-  assert.deepEqual(linesOf(sponsors({}, { plus_one_of_guest_id: 'a' })), ['Hon. Ricardo & Mrs. Jessica Villahermosa']);
-  assert.deepEqual(linesOf(sponsors({ plus_one_of_guest_id: 'b' }, {})), ['Hon. Ricardo & Mrs. Jessica Villahermosa']);
+test('⚖ 2026-10-01 · a REAL couple walking together still prints both full names — the march never shortens', () => {
+  const both = ['Hon. Ricardo Villahermosa & Mrs. Jessica Villahermosa'];
+  // A +1, whichever half is the +1.
+  assert.deepEqual(linesOf(sponsors({}, { plus_one_of_guest_id: 'a' })), both);
+  assert.deepEqual(linesOf(sponsors({ plus_one_of_guest_id: 'b' }, {})), both);
+  // A mutual partner link.
+  assert.deepEqual(linesOf(sponsors({ couple_with_guest_id: 'b' }, { couple_with_guest_id: 'a' })), both);
 });
 
-test('a ticked couple ("They’re a couple") shortens — only when BOTH halves point at each other', () => {
-  assert.deepEqual(
-    linesOf(sponsors({ couple_with_guest_id: 'b' }, { couple_with_guest_id: 'a' })),
-    ['Hon. Ricardo & Mrs. Jessica Villahermosa'],
-  );
-  // One-sided (a half-written tick) is not a couple — the safe reading.
-  assert.deepEqual(linesOf(sponsors({ couple_with_guest_id: 'b' }, {})), ['Hon. Ricardo Villahermosa & Mrs. Jessica Villahermosa']);
-  // A tick left over from an earlier partner never adopts the new one.
-  assert.deepEqual(
-    linesOf(sponsors({ couple_with_guest_id: 'x' }, { couple_with_guest_id: 'y' })),
-    ['Hon. Ricardo Villahermosa & Mrs. Jessica Villahermosa'],
-  );
+test('isCouple reads the people, never the walk: +1 or a MUTUAL partner link', () => {
+  assert.equal(isCouple({ id: 'a', plusOneOf: 'b' }, { id: 'b' }), true);
+  assert.equal(isCouple({ id: 'a', coupleWith: 'b' }, { id: 'b', coupleWith: 'a' }), true);
+  // One-sided is not a couple — the safe reading.
+  assert.equal(isCouple({ id: 'a', coupleWith: 'b' }, { id: 'b' }), false);
+  // Walking together (the same walk) says nothing.
+  const [line] = buildEntourage(sponsors()).find((x) => x.key === 'principal_sponsors')!.rows;
+  assert.equal(isCouple(line![0], line![1]), false, 'a shared walk made two people a couple');
 });
 
 test('isCouple: a person is never their own couple; a missing half is not a couple', () => {
@@ -106,15 +111,15 @@ test('isCouple: a person is never their own couple; a missing half is not a coup
 
 test('the crews obey the same rule — a bridesmaid and groomsman who share a surname are not merged', () => {
   const rows = [
-    g('m', 'bridesmaid', null, 'Carla', 'Lim', { pair_with_guest_id: 'n' }),
-    g('n', 'groomsman', null, 'Dan', 'Lim', { pair_with_guest_id: 'm' }),
+    g('m', 'bridesmaid', null, 'Carla', 'Lim', { march: { walk_no: 0, place_in_walk: 0 } }),
+    g('n', 'groomsman', null, 'Dan', 'Lim', { march: { walk_no: 0, place_in_walk: 1 } }),
   ];
   const key = buildEntourage(rows)[0]!.key;
   assert.deepEqual(linesOf(rows, key), ['Carla Lim & Dan Lim']);
 });
 
 test('the printed card says exactly what the page says (one lineNames)', () => {
-  for (const rows of [sponsors(), sponsors({}, { plus_one_of_guest_id: 'a' })]) {
+  for (const rows of [sponsors(), sponsors({}, { plus_one_of_guest_id: 'a' }), sponsors({ couple_with_guest_id: 'b' }, { couple_with_guest_id: 'a' })]) {
     const group = buildEntourage(rows).find((x) => x.key === 'principal_sponsors')!;
     const card = printedEntourageLines(group, false).filter((l) => l.pair).map((l) => l.c);
     assert.deepEqual(card, group.rows.map(lineNames));
@@ -137,7 +142,7 @@ test('⛔ a +1 is a guest, never entourage: not listed, and not offered as someo
   assert.match(offered, /Carmen Reyes/, 'anti-vacuity: the march still offers a real sponsor');
 });
 
-test('every reader that PRINTS a pair line asks for what isCouple reads', () => {
+test('every reader that PRINTS the march asks for the walks (ENTOURAGE_COLUMNS)', () => {
   const readers: Record<string, string> = {
     'the invitation + the Maker (loadEntourage)': 'app/[slug]/_lib/loaders.ts',
     'the /everyone page': 'app/[slug]/everyone/page.tsx',
@@ -145,24 +150,22 @@ test('every reader that PRINTS a pair line asks for what isCouple reads', () => 
   };
   for (const [who, file] of Object.entries(readers)) {
     const code = stripComments(read(file));
-    assert.match(code, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, [^`]*\$\{ENTOURAGE_COUPLE_FIELDS\}[^`]*`\)/, `${who} (${file}) cannot tell a couple from a walking pair`);
+    assert.match(code, /\.select\(`\$\{ENTOURAGE_COLUMNS\}[^`]*`\)/, `${who} (${file}) does not read the walks — every pair would split`);
   }
-  const entourage = read('lib/entourage.ts');
-  assert.match(entourage, /ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_id'/);
+  assert.match(read('lib/entourage.ts'), /march:march_walks\(walk_no, place_in_walk\)'/);
 });
 
-test('the Maker’s Wedding March carries the "They’re a couple" tick, and it writes the couple field', () => {
+test('⛔ the Maker’s Wedding March sets NO couple — no tick, no writer (owner 2026-10-01)', () => {
   const march = stripComments(read('app/dashboard/[eventId]/launch/_components/details-march.tsx'));
-  assert.match(march, /They&rsquo;re a couple/);
-  assert.match(march, /data-march-couple=""/);
-  assert.match(march, /setWalkingPairCouple\(eventId, ids\[0\], ids\[1\], next\)/);
+  assert.doesNotMatch(march, /They(?:&rsquo;|’|')re a couple|data-march-couple|CoupleTick/, 'the march shows a couple control again');
+  assert.doesNotMatch(march, /\bsetWalkingPairCouple\b|couple_with_guest_id/, 'the march writes a couple again');
   const load = stripComments(read('app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx'));
-  assert.match(load, /on: isCouple\(row\[0\], row\[1\]\)/);
+  assert.doesNotMatch(load, /\bisCouple\b|couple:/, 'the march loader computes a couple again');
   const action = stripComments(read('app/dashboard/[eventId]/guests/pair-actions.ts'));
-  assert.match(action, /export async function setWalkingPairCouple\(/);
-  assert.match(action, /couple_with_guest_id: other/);
-  // A walking pair must still be a pair when the tick lands.
-  assert.match(action, /a\.pair_with_guest_id !== bId \|\| b\.pair_with_guest_id !== aId/);
+  assert.doesNotMatch(action, /setWalkingPairCouple|couple_with_guest_id/, 'the retired couple writer is back');
+  // Anti-vacuity: the march's own controls are still there.
+  assert.match(march, /Walks with…/);
+  assert.match(march, /Trade places with…/);
 });
 
 test('"walks with" is not on a Guest list row or the guest card — neither shown nor edited', () => {

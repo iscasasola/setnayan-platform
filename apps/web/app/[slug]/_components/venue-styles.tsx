@@ -266,8 +266,8 @@ export function VenueJourney({
       {showMap ? <PinnedMap venues={venues} route /> : null}
       <ol className="pahina-plate" style={plateStyle}>
         {venues.map((venue, i) => (
-          <li key={venue.role} data-venue-role={venue.role} className="grid grid-cols-[4.25rem_1rem_minmax(0,1fr)] gap-x-2.5">
-            <p className="pt-0.5 font-pahina text-lg leading-none text-ink">
+          <li key={venue.role} data-venue-role={venue.role} className="grid grid-cols-[4.5rem_1rem_minmax(0,1fr)] gap-x-2">
+            <p className="whitespace-nowrap pt-0.5 font-pahina text-base leading-none text-ink">
               {times[venue.role] ?? <span className="font-mono text-xs text-ink/80">{i + 1}</span>}
             </p>
             <span aria-hidden className="relative flex justify-center">

@@ -72,7 +72,7 @@ export function PaletteLookThumb({ look, colours }: { look: PaletteLookId; colou
     inner = (
       <span className="flex items-end gap-[2px]">
         {colours.map((hex, i) => (
-          <i key={i} className="block h-[13px] w-[7px] rounded-b-[4px] shadow-[inset_0_0_0_0.5px_rgba(0,0,0,.15)]" style={bg(hex)} />
+          <i key={i} className="block h-[13px] w-[7px] rounded-b-sm shadow-[inset_0_0_0_0.5px_rgba(0,0,0,.15)]" style={bg(hex)} />
         ))}
       </span>
     );
@@ -86,7 +86,7 @@ export function PaletteLookThumb({ look, colours }: { look: PaletteLookId; colou
     );
   } else if (look === 'chips') {
     inner = (
-      <span className="flex flex-col gap-px rounded-[2px] bg-white p-[2px] shadow-[0_0_0_0.5px_rgba(0,0,0,.12)]">
+      <span className="flex flex-col gap-px rounded-sm bg-white p-[2px] shadow-[0_0_0_0.5px_rgba(0,0,0,.12)]">
         {colours.map((hex, i) => (
           <i key={i} className="block h-[6px] w-[26px]" style={bg(hex)} />
         ))}
@@ -123,7 +123,7 @@ export function PaletteLookThumb({ look, colours }: { look: PaletteLookId; colou
     );
   }
   return (
-    <span data-palette-thumb={look} className="grid h-11 w-[3.25rem] place-items-center rounded-[5px] bg-[#f6f1e7] shadow-[0_0_0_1px_rgba(43,36,28,.1)]">
+    <span data-palette-thumb={look} className="grid h-11 w-[3.25rem] place-items-center rounded-sm bg-[#f6f1e7] shadow-[0_0_0_1px_rgba(43,36,28,.1)]">
       {inner}
     </span>
   );

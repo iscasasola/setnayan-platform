@@ -28,5 +28,10 @@ animation on 2026-09-30 (DECISION_LOG "✂ THE MAKER RE-PLAN IS CUT TO ITS CORE"
   look draws every colour in order at 2 and 7 colours; role rows and the reader's panel follow; the other
   layouts are untouched; no look draws a hook the scroll observer could mark).
 
-SPEC IMPACT: DECISION_LOG.md — "AS BUILT — FIVE PALETTE STYLES" row (what shipped, the stored key, built still per
-the owner's 2026-09-30 cut).
+- **Brought up to date with main (2026-10-01).** Merged ~450 commits of main, keeping its colour names
+  (`colourName`), roleNames, the general/you split and #6137's person in the role's colours — the figure is
+  drawn from the same hexes in every look. The reader's "You are …" colours, which main moved onto the
+  Welcome page (`guest-welcome.tsx`, `part="you"`), follow the Dress code row's look there too
+  (`site-body.tsx` hands it `paletteLookOfRow`). Guards 7 and 8 in `every-palette-look-draws.test.ts`.
+
+SPEC IMPACT: None (DECISION_LOG "AS BUILT — FIVE PALETTE STYLES, PICKED ON THE TOOLBAR" already records what shipped).

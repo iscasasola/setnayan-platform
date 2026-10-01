@@ -546,6 +546,7 @@ export default async function VendorDashboardLayout({
         navSlots={navSlots}
         bookingsBadge={bookingsPending}
         threadsBadge={threadsUnread}
+        storeShell={storeShell}
       />
       {/*
         ── THERE IS NO FAB HERE, AND THAT IS DELIBERATE (owner, 2026-09-22:

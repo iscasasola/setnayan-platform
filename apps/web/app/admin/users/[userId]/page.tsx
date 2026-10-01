@@ -4,6 +4,7 @@ import { after } from 'next/server';
 import {
   ArrowLeft,
   CalendarHeart,
+  Download,
   Eye,
   Gift,
   Lock,
@@ -95,6 +96,15 @@ const ORDER_STATUS_LABEL: Record<string, { label: string; tone: string }> = {
 };
 
 const PAID_STATUSES = new Set(['paid', 'fulfilled']);
+
+/** What each logged view was, in words. An unknown key shows as itself. */
+const ACCESS_SURFACE_LABEL: Record<string, string> = {
+  admin_users_detail: 'Opened in the users list',
+  admin_account_card: 'Opened this account',
+  admin_event_page: 'Opened their event',
+  admin_supplier_page: 'Opened their shop',
+  admin_user_data_export: 'Downloaded their data',
+};
 
 type Props = {
   params: Promise<{ userId: string }>;
@@ -763,6 +773,30 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
 
         {tab === 'governance' ? (
           <>
+            {/* RA 10173 — a "send me my data" request that reached the DPO by
+                email, or from someone who can't sign in (audit 2026-09-30 §2e).
+                A plain link to a route handler: no client code, no server
+                action. The file is the one Profile › Download my data makes,
+                minus message text; downloading it is logged above. */}
+            <section className="rounded-2xl border border-ink/10 bg-paper p-5">
+              <h2 className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
+                <Download className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
+                Their data
+              </h2>
+              <p className="mb-3 text-xs text-ink/55">
+                For a data request sent to us. The same file they get from Profile, without the
+                text of their messages. Downloading it is recorded on this account.
+              </p>
+              <a
+                href={`/admin/users/${userId}/export`}
+                download
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-ink px-4 text-sm font-medium text-cream hover:bg-ink/90"
+              >
+                <Download className="h-4 w-4" strokeWidth={2} aria-hidden />
+                Download their data
+              </a>
+            </section>
+
             <section className="rounded-2xl border border-ink/10 bg-paper p-5">
               <h2 className="mb-1 flex items-center gap-2 text-sm font-medium text-ink">
                 <Eye className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
@@ -787,7 +821,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                         </span>
                         <span className="flex items-center gap-3 text-xs text-ink/55">
                           <span className="font-mono text-[11px] text-ink/45">
-                            {(r.surface as string) ?? '—'}
+                            {ACCESS_SURFACE_LABEL[r.surface as string] ?? (r.surface as string) ?? '—'}
                           </span>
                           <span>{fmtDate(r.created_at as string)}</span>
                         </span>

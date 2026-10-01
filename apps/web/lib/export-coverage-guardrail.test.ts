@@ -88,7 +88,11 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
 const MIGRATIONS = path.resolve(HERE, '..', '..', '..', 'supabase', 'migrations');
-const ROUTE = path.resolve(HERE, '..', 'app', 'api', 'profile', 'export', 'route.ts');
+// The file BUILDER, not the route: lifted 2026-10-01 into lib so the admin
+// "Download their data" door (app/admin/users/[userId]/export) makes the SAME
+// file. Every read the export takes lives here now; both routes only call it.
+// (Named ROUTE still, so the assertions below read exactly as they always did.)
+const ROUTE = path.resolve(HERE, 'personal-data-export.ts');
 
 // ── Parser ───────────────────────────────────────────────────────────────────
 // Extracted 2026-07-26 to lib/security/migration-schema.ts so the RA 10173

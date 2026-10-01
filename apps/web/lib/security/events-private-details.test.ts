@@ -113,7 +113,7 @@ test('the migrated reader list covers the surfaces that render these columns', (
     'app/dashboard/[eventId]/budget/page.tsx',
     'app/dashboard/[eventId]/wizard-actions.ts',
     'app/dashboard/[eventId]/studio/photo-delivery/page.tsx',
-    'app/api/profile/export/route.ts',
+    'lib/personal-data-export.ts',
   ]) {
     assert.ok(MIGRATED_HOST_READERS.includes(f), `${f} dropped off the migrated-reader list`);
   }

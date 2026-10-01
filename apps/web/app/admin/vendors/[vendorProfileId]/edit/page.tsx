@@ -72,12 +72,11 @@ export default async function AdminEditUnclaimedVendorPage({
     .maybeSingle();
   if (!profile) notFound();
 
-  // If the vendor has already claimed (user_id set), bounce admin to
-  // the regular /admin/vendors roster — there's no longer an unclaimed
-  // row to edit here. Admin should use the vendor's own dashboard tools
-  // or the moderation surfaces for already-claimed vendors.
+  // Already claimed (user_id set) → there is no unclaimed row to edit here.
+  // Send the admin to THIS supplier's own page, never the unfiltered roster
+  // (which lost the shop you were looking at — admin audit 2026-09-30 row 26).
   if (profile.user_id) {
-    redirect('/admin/vendors');
+    redirect(`/admin/vendors/${vendorProfileId}`);
   }
 
   return (

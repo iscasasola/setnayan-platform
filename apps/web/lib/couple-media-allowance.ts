@@ -26,7 +26,7 @@
  * Pure. No I/O — the reads and the listing live in
  * `couple-media-allowance.server.ts`.
  */
-import { MAKER_EVENT_MEDIA_BYTES_CAP } from './maker-media-limits';
+import { MAKER_EVENT_MEDIA_BYTES_CAP, formatMakerMediaMB as mb } from './maker-media-limits';
 
 /**
  * Which `events/<eventId>/…` sub-paths count toward the couple's allowance — the
@@ -72,11 +72,6 @@ export const COUPLE_MEDIA_FULL_CODE = 'event_media_full';
  */
 export const COUPLE_MEDIA_IN_FLIGHT_GRACE_MS = 15 * 60 * 1000;
 
-function mb(bytes: number): string {
-  const v = bytes / (1024 * 1024);
-  return v < 10 ? `${(Math.round(v * 10) / 10).toFixed(1)} MB` : `${Math.round(v)} MB`;
-}
-
 /**
  * The plain reason the couple reads (INTERACTION_RULES: failure = the plain
  * reason; the uploader stays open, so picking again IS the "Try again").
@@ -87,7 +82,7 @@ export function coupleMediaFullMessage(
   capBytes: number = MAKER_EVENT_MEDIA_BYTES_CAP,
 ): string {
   const remaining = Math.max(0, capBytes - Math.max(0, usedBytes));
-  // Under 0.1 MB left reads as "0.0 MB left" — say it is full instead.
+  // Under 0.1 MB left reads as "0 MB left" — say it is full instead.
   if (remaining < 0.1 * 1024 * 1024) {
     return `This event has used its ${mb(capBytes)} of uploads. Remove a photo or video to add more.`;
   }

@@ -123,7 +123,7 @@ test('3 · the refusal is the plain reason, and names the room left', () => {
   );
   assert.equal(
     coupleMediaFullMessage(96 * MB, 12 * MB),
-    'This file is 12 MB, and this event has 4.0 MB of its 100 MB of uploads left. Remove a photo or video to make room, or pick a smaller file.',
+    'This file is 12 MB, and this event has 4 MB of its 100 MB of uploads left. Remove a photo or video to make room, or pick a smaller file.',
   );
   assert.equal(COUPLE_MEDIA_FULL_CODE, 'event_media_full');
 });

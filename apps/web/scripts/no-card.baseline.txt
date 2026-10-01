@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 748 files · 2115 lines
+# 735 files · 2078 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -91,7 +91,6 @@
 1 apps/web/app/(shell)/realstories/page.tsx
 1 apps/web/app/[slug]/_components/day-of-announcement.tsx
 1 apps/web/app/[slug]/_components/day-of-banner.tsx
-2 apps/web/app/[slug]/_components/day-of-face-enroll.tsx
 1 apps/web/app/[slug]/_components/editorial/editorial-content.tsx
 2 apps/web/app/[slug]/_components/empty-states.tsx
 1 apps/web/app/[slug]/_components/face-receipt-card.tsx
@@ -105,7 +104,6 @@
 2 apps/web/app/[slug]/_components/photos-of-you-gallery.tsx
 1 apps/web/app/[slug]/_components/private-landing.tsx
 1 apps/web/app/[slug]/_components/public-event-day-bar.tsx
-4 apps/web/app/[slug]/_components/selfie-capture.tsx
 5 apps/web/app/[slug]/_components/site-body.tsx
 1 apps/web/app/[slug]/_components/site-menu-bar.tsx
 4 apps/web/app/[slug]/_components/song-request-card.tsx
@@ -195,7 +193,7 @@
 2 apps/web/app/admin/moodboard-renders/page.tsx
 1 apps/web/app/admin/operations-hiring/_components/smoke-test-panel.tsx
 1 apps/web/app/admin/page.tsx
-3 apps/web/app/admin/pakanta/page.tsx
+2 apps/web/app/admin/pakanta/page.tsx
 1 apps/web/app/admin/pakanta/pakanta-deliver.tsx
 2 apps/web/app/admin/papic-storage/backfill-tiles-button.tsx
 1 apps/web/app/admin/papic-storage/page.tsx
@@ -247,7 +245,7 @@
 5 apps/web/app/admin/ugat/_surfaces/onboarding-surface.tsx
 1 apps/web/app/admin/ugat/_surfaces/wedding-traditions-surface.tsx
 1 apps/web/app/admin/user-reports/page.tsx
-11 apps/web/app/admin/users/[userId]/page.tsx
+4 apps/web/app/admin/users/[userId]/page.tsx
 1 apps/web/app/admin/vendor-partnerships/page.tsx
 3 apps/web/app/admin/vendor-recommendations/_editor.tsx
 3 apps/web/app/admin/vendor-recommendations/page.tsx
@@ -316,7 +314,6 @@
 1 apps/web/app/dashboard/[eventId]/_components/papic-ready-nudge.tsx
 1 apps/web/app/dashboard/[eventId]/_components/payment-plan-rows.tsx
 1 apps/web/app/dashboard/[eventId]/_components/payment-under-review.tsx
-1 apps/web/app/dashboard/[eventId]/_components/placeholder.tsx
 2 apps/web/app/dashboard/[eventId]/_components/reveal-preview-card.tsx
 1 apps/web/app/dashboard/[eventId]/_components/set-date-nudge.tsx
 1 apps/web/app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx
@@ -360,7 +357,7 @@
 1 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-link.tsx
 5 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx
 2 apps/web/app/dashboard/[eventId]/guests/new/page.tsx
-4 apps/web/app/dashboard/[eventId]/guests/page.tsx
+3 apps/web/app/dashboard/[eventId]/guests/page.tsx
 2 apps/web/app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx
 5 apps/web/app/dashboard/[eventId]/guests/souvenirs/_components/souvenir-desk.tsx
 3 apps/web/app/dashboard/[eventId]/guests/tea-ceremony/page.tsx
@@ -399,7 +396,7 @@
 1 apps/web/app/dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx
 1 apps/web/app/dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx
 4 apps/web/app/dashboard/[eventId]/seating/_components/seating-context-dock.tsx
-39 apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx
+38 apps/web/app/dashboard/[eventId]/seating/_components/seating-editor.tsx
 4 apps/web/app/dashboard/[eventId]/seating/_components/seating-frame.tsx
 6 apps/web/app/dashboard/[eventId]/seating/lab/_components/reception-design-editor.tsx
 7 apps/web/app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx
@@ -487,10 +484,7 @@
 1 apps/web/app/dashboard/[eventId]/studio/save-the-date/stamp/wax-stamp-maker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx
 2 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/page.tsx
-4 apps/web/app/dashboard/[eventId]/studio/supplies-marketplace/_components/cart-drawer.tsx
-1 apps/web/app/dashboard/[eventId]/studio/supplies-marketplace/page.tsx
 3 apps/web/app/dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx
-1 apps/web/app/dashboard/[eventId]/studio/thank-you/page.tsx
 2 apps/web/app/dashboard/[eventId]/studio/website-pro/page.tsx
 1 apps/web/app/dashboard/[eventId]/suite/_components/suite-service-card.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-build.tsx
@@ -522,7 +516,6 @@
 2 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/vendor-proposals-card.tsx
 4 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/working-folder-notes.tsx
 28 apps/web/app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx
-2 apps/web/app/dashboard/[eventId]/vendors/categories/_components/unlock-categories-list.tsx
 8 apps/web/app/dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/page.tsx
 1 apps/web/app/dashboard/[eventId]/website/_components/website-pro-lock.tsx
@@ -542,13 +535,7 @@
 3 apps/web/app/dashboard/[eventId]/website/widgets/page.tsx
 4 apps/web/app/download/_download-motion.tsx
 1 apps/web/app/download/page.tsx
-1 apps/web/app/features/_sections/_Communications.tsx
-1 apps/web/app/features/_sections/_Compliance.tsx
-1 apps/web/app/features/_sections/_DayOfApparatus.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx
-1 apps/web/app/features/_sections/_OutsourcingPacing.tsx
-5 apps/web/app/features/_sections/_PlanningToolkit.tsx
-1 apps/web/app/features/_sections/_VendorsLedger.tsx
 3 apps/web/app/features/_sections/_WhySetnayan.tsx
 3 apps/web/app/help/_components/help-search.tsx
 1 apps/web/app/join/[eventId]/success/page.tsx
@@ -608,7 +595,7 @@
 1 apps/web/app/v/[slug]/_components/share-button.tsx
 1 apps/web/app/v/[slug]/_components/verified-price-card.tsx
 11 apps/web/app/v/[slug]/page.tsx
-7 apps/web/app/vendor-dashboard/_components/branch-manager.tsx
+6 apps/web/app/vendor-dashboard/_components/branch-manager.tsx
 2 apps/web/app/vendor-dashboard/_components/branch-pin-map.tsx
 1 apps/web/app/vendor-dashboard/_components/event-locked-by-fee.tsx
 1 apps/web/app/vendor-dashboard/_components/feature-accordion.tsx
@@ -733,7 +720,7 @@
 6 apps/web/app/vendor-dashboard/shop/_components/verify-section.tsx
 1 apps/web/app/vendor-dashboard/shop/_components/visibility-card.tsx
 2 apps/web/app/vendor-dashboard/shop/_components/voice-match-card.tsx
-3 apps/web/app/vendor-dashboard/shop/_components/website-editor.tsx
+2 apps/web/app/vendor-dashboard/shop/_components/website-editor.tsx
 2 apps/web/app/vendor-dashboard/shop/page.tsx
 3 apps/web/app/vendor-dashboard/subscription/_components/ai-addon-card.tsx
 3 apps/web/app/vendor-dashboard/subscription/_components/booth-addon-card.tsx

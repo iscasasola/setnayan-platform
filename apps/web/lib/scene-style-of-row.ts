@@ -36,3 +36,12 @@ export function paletteLookOfRow(row: { config_json?: unknown } | null | undefin
   return resolvePaletteLook(row ? sanitizeHubCanvas(row.config_json).palette : undefined);
 }
 
+
+/**
+ * 🏛 THE VENUE SCENE'S MAP — `canvas.venueMap` (owner 2026-09-30, "VENUE STYLES
+ * APPROVED"): `'one'` = one map for every place (the default, absent) · `'none'`
+ * = no map in any style. Every stage draws it the same.
+ */
+export function venueMapOfRow(row: { config_json?: unknown } | null | undefined): 'one' | 'none' {
+  return row && sanitizeHubCanvas(row.config_json).venueMap === 'none' ? 'none' : 'one';
+}

@@ -3,7 +3,8 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { Gavel, LogOut, Mail, Trash2, UserPlus, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { tierCaps, asVendorTier, canBuyExtraSeats } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import {
   effectiveSeatCap,
   fetchExtraAgentSeats,
@@ -105,7 +106,13 @@ export default async function VendorTeamPage({ searchParams }: Props) {
   // any paid extra seats (Enterprise/Custom ₱250/28d add-on). Only Enterprise +
   // Custom can buy extra seats, so the "Add a seat" card is gated on that.
   const canBuySeats = canBuyExtraSeats(ctx.tierState);
-  const baseSeatCap = tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts;
+  // A plan with 0 seats is a paywall → asked through the one flag-aware
+  // allowance (lib/vendor-feature-gate.ts), the same number the invite action
+  // enforces. Off: the entry plan's seats. On: the plan's own 0.
+  const baseSeatCap = vendorAllowance(
+    tierCaps(asVendorTier(ctx.tierState ?? 'free')).agentAccounts,
+    entryTierAllowance('agentAccounts'),
+  );
   const [extraSeats, seatFeePhp] = await Promise.all([
     fetchExtraAgentSeats(supabase, vendorProfileId),
     canBuySeats ? fetchSeatFeePhp(supabase) : Promise.resolve(0),
@@ -247,8 +254,8 @@ export default async function VendorTeamPage({ searchParams }: Props) {
           Invite a team member
         </h2>
         <p className="text-xs text-ink/55">
-          V1 invites existing Setnayan accounts only — your colleague signs up first (any account
-          type), then you add them here by email.
+          Your colleague needs a Setnayan account first (any kind). Once they&rsquo;ve signed up,
+          add them here by email.
         </p>
         <form action={inviteVendorTeamMember} className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto]">
           <label htmlFor="invite-email" className="block space-y-1">

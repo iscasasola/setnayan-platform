@@ -219,6 +219,9 @@ export type WeddingTile =
   | 'lights_sound'
   | 'dance_floor'
   | 'outdoor'
+  // Chairs & tents (2026-10-01) — the rental a family books for a home wake or
+  // a backyard birthday. Scoped wake · birthday · simple_event in the DB.
+  | 'chairs_tents'
   | 'fireworks'
   | 'led_wall'
   | 'digital_services'
@@ -417,6 +420,7 @@ export const TILE_PARENT: Record<WeddingTile, WeddingFolder> = {
   lights_sound: 'design',
   dance_floor: 'design',
   outdoor: 'design',
+  chairs_tents: 'design',
   fireworks: 'design',
   led_wall: 'design',
   digital_services: 'design',
@@ -505,6 +509,7 @@ export const WEDDING_TILE_ORDER: ReadonlyArray<WeddingTile> = [
   'lights_sound',
   'dance_floor',
   'outdoor',
+  'chairs_tents',
   'fireworks',
   'led_wall',
   'digital_services',
@@ -603,6 +608,7 @@ export const WEDDING_TILE_LABEL: Record<WeddingTile, string> = {
   lights_sound: 'Lights & Sound',
   dance_floor: 'Dance Floor',
   outdoor: 'Outdoor',
+  chairs_tents: 'Chairs & tents',
   fireworks: 'Fireworks',
   led_wall: 'LED Wall',
   digital_services: 'Digital Services',
@@ -686,6 +692,7 @@ export const WEDDING_TILE_SLUG: Record<WeddingTile, string> = {
   lights_sound: 'lights-sound',
   dance_floor: 'dance-floor',
   outdoor: 'outdoor',
+  chairs_tents: 'chairs-tents',
   fireworks: 'fireworks',
   led_wall: 'led-wall',
   digital_services: 'digital-services',
@@ -1110,6 +1117,9 @@ export const TAXONOMY_MAP: Record<string, TaxonomyEntry> = {
   parasol_hat_rental:                { folder: 'design', tile: 'outdoor', phase: 'V1.2', rental: true },
   outdoor_sound_system:              { folder: 'design', tile: 'outdoor', phase: 'V1.2' },
   outdoor_lighting_specialist:       { folder: 'design', tile: 'outdoor', phase: 'V1.2' },
+  chair_table_rental:                { folder: 'design', tile: 'chairs_tents', phase: 'V1.2', rental: true },
+  tent_canopy_rental:                { folder: 'design', tile: 'chairs_tents', phase: 'V1.2', rental: true },
+  event_lights_rental:               { folder: 'design', tile: 'chairs_tents', phase: 'V1.2', rental: true },
   fireworks_pyro:                    { folder: 'design', tile: 'fireworks', phase: 'V1.2' },
   led_video_wall:                    { folder: 'design', tile: 'led_wall', phase: 'V1.2' },
   setnayan_pailaw:                   { folder: 'design', tile: 'digital_services', phase: 'V1.1 base', setnayan: true },

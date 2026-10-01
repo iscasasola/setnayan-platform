@@ -27,7 +27,7 @@ export default async function VendorNotificationsPage() {
         <div className="space-y-2">
           <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Notifications</h1>
           <p className="text-base text-ink/65">
-            Live in-app feed. Email delivery ships once Resend SMTP is wired.
+            Every update about your inquiries, bookings and payments, newest first.
           </p>
         </div>
       </header>

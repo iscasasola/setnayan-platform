@@ -1,11 +1,20 @@
 'use client';
 
 import { Fragment, useRef, useState, useTransition } from 'react';
-import { Check, Plus, Send, X } from 'lucide-react';
+import Link from 'next/link';
+import { CalendarHeart, Check, Plus, Send, X } from 'lucide-react';
 import { Popover } from '@/app/dashboard/[eventId]/guests/_components/overlay-primitives';
 import type { ConnectionRelation } from '@/lib/people-connections';
 import { RELATION_LABEL, connectionRequestSentence } from '@/lib/people-add';
 import type { PeopleRoster, RosterPerson, RosterState } from '@/lib/people-roster';
+import {
+  didNotConfirmLine,
+  isRequestForMe,
+  isWaitingOnThem,
+  labelRequestLine,
+  offersPlanTogether,
+  waitingForLine,
+} from '@/lib/people-label-handshake';
 import {
   confirmConnection,
   declineConnection,
@@ -87,6 +96,7 @@ export const PEOPLE_SECTION_HEADING =
 function chipTint(relation: ConnectionRelation | null): string {
   switch (relation) {
     case 'spouse':
+    case 'partner':
       return 'bg-danger-100 text-danger-900 ring-1 ring-danger-200';
     case 'parent':
     case 'child':
@@ -102,30 +112,36 @@ function chipTint(relation: ConnectionRelation | null): string {
   }
 }
 
+/** Whose move is it — see `isWaitingOnThem` (the one rule, tested). */
+const waitingOnThem = isWaitingOnThem;
+
 /** Section order — the shape of a family, then whose move it is, LAST. */
 const SECTIONS: Array<{ key: string; label: string; match: (p: RosterPerson) => boolean }> = [
   {
     key: 'family',
     label: 'Family',
     match: (p) =>
-      p.state === 'connected' && ['spouse', 'parent', 'child', 'sibling'].includes(p.relation ?? ''),
+      p.state === 'connected' &&
+      !waitingOnThem(p) &&
+      ['partner', 'spouse', 'parent', 'child', 'sibling'].includes(p.relation ?? ''),
   },
   {
     key: 'ritual',
     label: 'Ninong & Ninang',
-    match: (p) => p.state === 'connected' && ['godparent', 'godchild'].includes(p.relation ?? ''),
+    match: (p) =>
+      p.state === 'connected' && !waitingOnThem(p) && ['godparent', 'godchild'].includes(p.relation ?? ''),
   },
   {
     key: 'friends',
     label: 'Friends',
-    match: (p) => p.state === 'connected' && p.relation === 'friend',
+    match: (p) => p.state === 'connected' && !waitingOnThem(p) && p.relation === 'friend',
   },
   {
     key: 'unlabelled',
     label: 'No label yet',
-    match: (p) => p.state === 'connected' && p.relation === null,
+    match: (p) => p.state === 'connected' && !waitingOnThem(p) && p.relation === null,
   },
-  { key: 'waiting_them', label: 'Waiting for them', match: (p) => p.state === 'waiting_them' },
+  { key: 'waiting_them', label: 'Waiting for them', match: waitingOnThem },
 ];
 
 const EMPTY_LINE = 'Nobody here yet. Add the first person above — a name is enough to find them.';
@@ -162,7 +178,13 @@ export function PeopleRosterView({
   // Alaga rows stay in the data (the guest list's sheet reads them) and are
   // never drawn here — the Alaga view owns them.
   const connections = roster.people.filter((p) => p.kind === 'connection');
-  const requests = connections.filter((p) => p.state === 'waiting_you');
+  // EVERY HANDSHAKE WAITING ON ME — a request to connect, or a label somebody
+  // asked on a connection I already have (owner 2026-09-29: "it will show to
+  // their requests on people as well").
+  const requests = connections.filter(isRequestForMe);
+  // …and the ones waiting on THEM, which the Requests view shows too ("the
+  // sender sees their pending ones there too").
+  const outgoing = connections.filter(waitingOnThem);
 
   const messages = (
     <>
@@ -181,7 +203,7 @@ export function PeopleRosterView({
 
   if (mode === 'requests') {
     return (
-      <div className="space-y-4" data-people-view="requests">
+      <div className="space-y-6" data-people-view="requests">
         {requests.length > 0 ? (
           <RequestsBlock requests={requests} pending={pending} run={run} />
         ) : (
@@ -191,6 +213,7 @@ export function PeopleRosterView({
               : 'Nobody is waiting on your answer right now.'}
           </p>
         )}
+        {outgoing.length > 0 ? <OutgoingBlock rows={outgoing} pending={pending} run={run} /> : null}
         {messages}
       </div>
     );
@@ -353,10 +376,20 @@ export function PeopleRosterView({
 }
 
 /**
- * REQUESTS — somebody asked to add you. The owner's words, one row each:
- * *"{name} is trying to add you from your {event} {type} event"* · Accept ·
- * Decline — or, with no event, *"{name} is trying to add you."* The sentence is
- * `connectionRequestSentence`, the same function the bell's title uses.
+ * REQUESTS — everything waiting on MY answer. Two kinds, one list, one pair of
+ * buttons (Accept · Decline, the words this view already uses):
+ *
+ *   · a request to CONNECT — the owner's words, *"{name} is trying to add you
+ *     from your {event} {type} event"*, via `connectionRequestSentence` (the
+ *     bell's title uses the same function). When the request carries a label,
+ *     the label is named too: accepting the request accepts it.
+ *   · a LABEL asked on a connection I already have (owner 2026-09-29:
+ *     *"assigning a label needs a handshake"*) — "Ice added you as their
+ *     Sibling", and, when the word turns over across the edge, "That makes Ice
+ *     your Child".
+ *
+ * One partner at a time: accepting a partner while I hold one comes back as a
+ * QUESTION (replace?), answered in place — never a refusal to decode.
  */
 function RequestsBlock({
   requests,
@@ -375,41 +408,176 @@ function RequestsBlock({
       </h2>
       <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
         {requests.map((p) => (
-          <li key={p.key} className="flex flex-col gap-2.5 py-3 sm:flex-row sm:items-center sm:gap-3">
-            <span className="flex min-w-0 flex-1 items-start gap-2.5">
-              <PersonAvatar name={p.name} />
-              <span className="min-w-0 text-sm leading-snug text-ink" data-request-sentence>
-                {connectionRequestSentence(p.name, p.fromEvent)}
-              </span>
-            </span>
-            <span className="flex shrink-0 gap-2 pl-9 sm:pl-0">
-              <button
-                type="button"
-                onClick={() => run(() => confirmConnection(p.connectionId ?? ''))}
-                disabled={pending}
-                className="button-primary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
-              >
-                <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Accept
-              </button>
-              <button
-                type="button"
-                onClick={() => run(() => declineConnection(p.connectionId ?? ''))}
-                disabled={pending}
-                className="button-secondary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
-              >
-                <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                Decline
-              </button>
-            </span>
-          </li>
+          <RequestRow key={p.key} person={p} pending={pending} run={run} />
         ))}
       </ul>
       <p className="mt-1 text-xs text-ink/55">
-        Accepting connects you — and you follow each other. Nothing connects until you say so.
+        Accepting connects you — and you follow each other. A label counts only once you say yes to it.
       </p>
     </section>
   );
+}
+
+type AnswerResult =
+  | { ok: true; asked?: boolean }
+  | { ok: false; error: string }
+  | { ok: false; replacePartner: { question: string } };
+
+function RequestRow({
+  person: p,
+  pending,
+  run,
+}: {
+  person: RosterPerson;
+  pending: boolean;
+  run: (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
+}) {
+  const [question, setQuestion] = useState<string | null>(null);
+  const isLabelAsk = p.state === 'connected' && p.ask?.state === 'waiting_you';
+  const id = p.connectionId ?? '';
+
+  // Accept — and, if it comes back as the one-partner question, hold the
+  // question here until they answer it.
+  function accept(replacePartner: boolean) {
+    run(async () => {
+      const res: AnswerResult = await confirmConnection(id, { replacePartner, label: isLabelAsk });
+      if (!res.ok && 'replacePartner' in res) {
+        setQuestion(res.replacePartner.question);
+        return { ok: true };
+      }
+      setQuestion(null);
+      return res.ok ? { ok: true } : res;
+    });
+  }
+
+  return (
+    <li
+      className="flex flex-col gap-2.5 py-3 sm:flex-row sm:items-center sm:gap-3"
+      data-request-kind={isLabelAsk ? 'label' : 'connect'}
+    >
+      <span className="flex min-w-0 flex-1 items-start gap-2.5">
+        <PersonAvatar name={p.name} />
+        <span className="min-w-0 text-sm leading-snug text-ink">
+          {isLabelAsk && p.ask ? (
+            <span data-request-sentence>{labelRequestLine(p.name, p.ask.word)}</span>
+          ) : (
+            <>
+              <span data-request-sentence>{connectionRequestSentence(p.name, p.fromEvent)}</span>
+              {p.storedRelation ? (
+                <span className="mt-0.5 block text-[13px] text-ink/65" data-request-label>
+                  {labelRequestLine(p.name, p.storedRelation)}
+                </span>
+              ) : null}
+            </>
+          )}
+          {question ? (
+            <span className="mt-1.5 block text-[13px] text-ink" role="status" data-replace-partner>
+              {question}
+            </span>
+          ) : null}
+        </span>
+      </span>
+      <span className="flex shrink-0 flex-wrap gap-2 pl-9 sm:pl-0">
+        {question ? (
+          <>
+            <button
+              type="button"
+              onClick={() => accept(true)}
+              disabled={pending}
+              className="button-primary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
+            >
+              Yes, change it
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuestion(null)}
+              disabled={pending}
+              className="button-secondary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
+            >
+              Keep as is
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => accept(false)}
+              disabled={pending}
+              className="button-primary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
+            >
+              <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Accept
+            </button>
+            <button
+              type="button"
+              onClick={() => run(() => declineConnection(id, { label: isLabelAsk }))}
+              disabled={pending}
+              className="button-secondary inline-flex min-h-11 items-center gap-1 text-xs disabled:opacity-50"
+            >
+              <X aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+              Decline
+            </button>
+          </>
+        )}
+      </span>
+    </li>
+  );
+}
+
+/**
+ * WAITING FOR THEM — the asks I sent, in the same Requests view (owner
+ * 2026-09-29: the sender sees their pending ones there too). A request to
+ * connect keeps its Send again · Withdraw; a label ask can be taken back.
+ */
+function OutgoingBlock({
+  rows,
+  pending,
+  run,
+}: {
+  rows: RosterPerson[];
+  pending: boolean;
+  run: (fn: () => Promise<{ ok: true } | { ok: false; error: string }>) => void;
+}) {
+  return (
+    <section aria-labelledby="people-outgoing-heading" data-people-outgoing>
+      <h2 id="people-outgoing-heading" className={`mb-2 ${PEOPLE_SECTION_HEADING}`}>
+        Waiting for them <span className="tabular-nums text-ink/35">{formatCount(rows.length)}</span>
+      </h2>
+      <ul className="flex list-none flex-col divide-y divide-ink/[0.07]">
+        {rows.map((p) => {
+          const word = p.ask?.state === 'waiting_them' ? p.ask.word : p.relation;
+          return (
+            <li key={p.key} className="flex items-center gap-2.5 py-3">
+              <PersonAvatar name={p.name} />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-ink">{p.name}</span>
+                <span className="block text-[12.5px] text-ink/60" data-waiting-line>
+                  {word ? `${RELATION_LABEL[word]} · ` : ''}
+                  {waitingForLine(p.name)}
+                </span>
+              </span>
+              {p.state === 'waiting_them' ? null : (
+                <button
+                  type="button"
+                  onClick={() => run(() => setConnectionLabel(p.connectionId ?? '', null).then(plain))}
+                  disabled={pending}
+                  className="min-h-11 shrink-0 px-1 text-xs text-ink/45 underline underline-offset-2 hover:text-ink disabled:opacity-50"
+                >
+                  Take back
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** A label result, narrowed to what `run` reports. */
+function plain(res: AnswerResult): { ok: true } | { ok: false; error: string } {
+  if (res.ok) return { ok: true };
+  return 'error' in res ? res : { ok: false, error: res.replacePartner.question };
 }
 
 /** One word per state, everywhere — "Waiting for them" is never shortened to
@@ -536,6 +704,12 @@ function SamahanCell({
  * The label IS the editor — click the chip, pick the word. (Alaga are not drawn
  * on this list: their word lives in the Alaga view's card, where the age fence
  * and the consent stamps live.)
+ *
+ * On a connection they already accepted, picking a word ASKS for it (owner
+ * 2026-09-29: "assigning a label needs a handshake"): the chip then shows the
+ * asked word with "Waiting for <name> to confirm" — or "<name> didn't confirm"
+ * once they have said no. Picking Partner while you already have one asks to
+ * replace, in place, before anything is written.
  */
 function LabelCell({
   person,
@@ -549,26 +723,38 @@ function LabelCell({
   const [open, setOpen] = useState(false);
   const [busy, startTransition] = useTransition();
   const [failed, setFailed] = useState<string | null>(null);
+  const [question, setQuestion] = useState<{ text: string; next: ConnectionRelation } | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
 
-  const chipClass = `inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${chipTint(
-    person.relation,
-  )}`;
+  const chipClass = (relation: ConnectionRelation | null) =>
+    `inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${chipTint(relation)}`;
   if (!person.canLabel) {
-    // They added YOU — the claim is theirs to word, yours to answer.
+    // They added YOU — the claim is theirs to word, yours to answer. The word
+    // is shown from YOUR side (they said you are their Parent → Child).
     return person.relation ? (
-      <span className={chipClass}>{RELATION_LABEL[person.relation]}</span>
+      <span className={chipClass(person.relation)}>{RELATION_LABEL[person.relation]}</span>
     ) : (
       <span className="text-[12px] text-ink/35">—</span>
     );
   }
 
-  function commit(next: ConnectionRelation | null) {
+  const ask = person.ask && person.ask.state !== 'waiting_you' ? person.ask : null;
+  const current = ask ? ask.word : person.relation;
+
+  function commit(next: ConnectionRelation | null, replacePartner = false) {
     setOpen(false);
     setFailed(null);
     startTransition(async () => {
-      const res = await setConnectionLabel(person.connectionId ?? '', next);
-      if (!res.ok) setFailed(res.error);
+      const res = await setConnectionLabel(person.connectionId ?? '', next, { replacePartner });
+      if (res.ok) {
+        setQuestion(null);
+        return;
+      }
+      if ('replacePartner' in res) {
+        if (next) setQuestion({ text: res.replacePartner.question, next });
+        return;
+      }
+      setFailed(res.error);
     });
   }
 
@@ -581,14 +767,23 @@ function LabelCell({
         disabled={disabled || busy}
         aria-haspopup="menu"
         aria-label={
-          person.relation
-            ? `Change what ${person.name} is to you — currently ${RELATION_LABEL[person.relation]}`
+          current
+            ? `Change what ${person.name} is to you — currently ${RELATION_LABEL[current]}${
+                ask?.state === 'waiting_them' ? ', waiting for them to confirm' : ''
+              }`
             : `Say what ${person.name} is to you`
         }
         className="inline-flex rounded-full outline-none focus-visible:ring-2 focus-visible:ring-terracotta disabled:opacity-50"
       >
-        {person.relation ? (
-          <span className={chipClass}>{RELATION_LABEL[person.relation]}</span>
+        {ask?.state === 'waiting_them' ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full border border-dashed border-ink/30 px-2 py-0.5 text-[11px] font-medium text-ink/65"
+            data-label-asked
+          >
+            {RELATION_LABEL[ask.word]}
+          </span>
+        ) : person.relation ? (
+          <span className={chipClass(person.relation)}>{RELATION_LABEL[person.relation]}</span>
         ) : (
           <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium text-ink/50 border border-dashed border-ink/25">
             <Plus aria-hidden className="h-3 w-3" strokeWidth={2.2} />
@@ -596,7 +791,35 @@ function LabelCell({
           </span>
         )}
       </button>
+      {ask ? (
+        <span className="ml-2 text-[11px] text-ink/55" data-label-ask-state={ask.state}>
+          {ask.state === 'waiting_them' ? waitingForLine(person.name) : didNotConfirmLine(person.name)}
+        </span>
+      ) : null}
       {failed ? <span className="ml-2 text-[11px] text-red-700">{failed}</span> : null}
+      {question ? (
+        <span className="mt-1.5 flex w-full flex-col gap-1.5" role="status" data-replace-partner>
+          <span className="text-[12.5px] leading-snug text-ink">{question.text}</span>
+          <span className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => commit(question.next, true)}
+              disabled={busy}
+              className="button-primary inline-flex min-h-11 items-center text-xs disabled:opacity-50"
+            >
+              Yes, change it
+            </button>
+            <button
+              type="button"
+              onClick={() => setQuestion(null)}
+              disabled={busy}
+              className="button-secondary inline-flex min-h-11 items-center text-xs disabled:opacity-50"
+            >
+              Keep as is
+            </button>
+          </span>
+        </span>
+      ) : null}
       {open ? (
         <Popover anchorRef={triggerRef} onClose={() => setOpen(false)} width={228}>
           <p className="px-2.5 pb-1 pt-1.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
@@ -609,7 +832,7 @@ function LabelCell({
               role="menuitem"
               onClick={() => commit(r)}
               className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors ${
-                person.relation === r
+                current === r
                   ? 'bg-terracotta/10 font-medium text-terracotta-700'
                   : 'text-ink/80 hover:bg-ink/[0.04]'
               }`}
@@ -617,7 +840,7 @@ function LabelCell({
               <span className="min-w-0 flex-1 truncate">{RELATION_LABEL[r]}</span>
             </button>
           ))}
-          {person.relation ? (
+          {current ? (
             <button
               type="button"
               role="menuitem"
@@ -627,12 +850,44 @@ function LabelCell({
               Remove the label
             </button>
           ) : null}
-          <p className="px-2.5 pb-1.5 pt-1 text-[11px] leading-snug text-ink/45">
-            Lolo, lola, pinsan and the in-laws come out of these on their own.
+          <p className="px-2.5 pb-1.5 pt-1 text-[11px] leading-snug text-ink/45" data-label-footnote>
+            Lolo, lola, pinsan, biyenan and the other in-laws come out of these on their own.
+            {person.state === 'connected' ? ` ${person.name.split(/\s+/)[0]} confirms a label before it counts.` : ''}
           </p>
         </Popover>
       ) : null}
     </>
+  );
+}
+
+/**
+ * "TO BECOME A COUPLE" — owner 2026-09-29: *"add partner (to become a
+ * couple)"*. Once BOTH have confirmed the partnership, ONE plain next step:
+ * plan an event together. It opens the existing create-event step with both
+ * names carried — nothing is created until they create it — and where the two
+ * already share an event, nothing is offered: that event is already the thing
+ * they are doing together.
+ */
+function PlanTogether({ person }: { person: RosterPerson }) {
+  if (
+    !offersPlanTogether({
+      relationForViewer: person.relation,
+      connected: person.state === 'connected',
+      askPending: person.ask?.state === 'waiting_them' || person.ask?.state === 'waiting_you',
+      sharesAnEvent: person.sharesAnEvent,
+    })
+  ) {
+    return null;
+  }
+  return (
+    <Link
+      href={`/dashboard/create-event?with=${encodeURIComponent(person.connectionId ?? '')}`}
+      className="inline-flex min-h-11 items-center gap-1 px-1 text-xs font-medium text-mulberry-600 underline underline-offset-2"
+      data-plan-together
+    >
+      <CalendarHeart aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+      Plan an event together
+    </Link>
   );
 }
 
@@ -690,7 +945,8 @@ function RowActions({
 
   if (person.state === 'connected') {
     return (
-      <span className="flex justify-end">
+      <span className="flex flex-wrap items-center justify-end gap-2">
+        <PlanTogether person={person} />
         <button
           type="button"
           onClick={() => run(() => withdrawConnection(id))}

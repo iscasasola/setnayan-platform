@@ -206,9 +206,9 @@ export function AutoReplyCard({
               <h4 className="text-sm font-semibold text-ink">Compatibility auto-accept</h4>
               <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
                 Accepts an inquiry for you when the couple&rsquo;s match score
-                clears your threshold — reserving one token as a hold, exactly
-                like accepting by hand. Out of tokens? It never borrows: the
-                assistant keeps answering and flags the waiting lead instead.
+                clears your threshold, exactly like accepting by hand. When it
+                can&rsquo;t accept, the assistant keeps answering and flags the
+                waiting lead for you instead.
               </p>
             </div>
           </div>
@@ -253,7 +253,7 @@ export function AutoReplyCard({
               Daily auto-accept cap
             </label>
             <p className="mt-0.5 text-xs" style={{ color: 'var(--m-slate)' }}>
-              At most this many auto-accepts (and token holds) per day. Set 0
+              At most this many auto-accepts per day. Set 0
               to pause auto-accepts without switching them off.
             </p>
             <div className="mt-2 flex items-center gap-2">

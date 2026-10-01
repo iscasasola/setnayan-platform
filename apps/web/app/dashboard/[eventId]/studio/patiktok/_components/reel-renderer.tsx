@@ -6,6 +6,15 @@
 // mp4-muxer, MediaRecorder fallback) → upload the MP4 to R2 → finalize the job.
 // The heavy lifting lives in lib/reel-render.ts; this owns the UX (progress,
 // preview, download, retry) and the upload/finalize plumbing.
+//
+// 💎 FREE TO WATCH, PAID TO KEEP (owner 2026-09-29: "yes use for free. but pay
+// to save and share"). The claim reports the SERVER's answer (`saveUnlocked`).
+// Unpaid: the reel renders with a light PREVIEW mark burned in, plays here, and
+// is never uploaded — the "Save & share" beside it opens the shipped Patiktok
+// checkout right there, with the reel still waiting in "Your renders". Paid:
+// the clean reel uploads, finalizes and downloads as before. The upload route
+// and the finalize action refuse an unpaid save on their own, so this file is
+// the courtesy, not the fence.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
@@ -16,15 +25,42 @@ import {
   RotateCcw,
   Sparkles,
 } from 'lucide-react';
-import { findPatiktokTemplate } from '@/lib/patiktok';
+import { findPatiktokTemplate, PATIKTOK_SERVICE_KEY } from '@/lib/patiktok';
 import { renderReel } from '@/lib/reel-render';
+import { PATIKTOK_PREVIEW_WATERMARK } from '@/lib/patiktok-access';
+import { formatPhp } from '@/lib/orders';
+import { PaidMark } from '@/app/_components/paid-mark';
+import {
+  InlineCheckoutDrawer,
+  type InlineCheckoutDrawerProps,
+} from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
 import {
   claimPatiktokRenderJob,
   failPatiktokRenderJob,
   finalizePatiktokRenderJob,
 } from '../actions';
 
-type Phase = 'idle' | 'preparing' | 'rendering' | 'uploading' | 'done' | 'error';
+type Phase =
+  | 'idle'
+  | 'preparing'
+  | 'rendering'
+  | 'uploading'
+  | 'done'
+  | 'preview'
+  | 'error';
+
+/**
+ * What the unpaid preview needs to open the Patiktok checkout in place. Passed
+ * only while the event does not hold Patiktok; `null` for an owner.
+ */
+export type ReelSaveCheckout = {
+  pricePhp: number | null;
+  settings: InlineCheckoutDrawerProps['settings'];
+  /** A Patiktok order is already submitted and awaiting confirmation. */
+  pending: boolean;
+  /** App-store shell: no purchase door at all (lib/store-shell.ts). */
+  storeShell: boolean;
+};
 
 const FALLBACK_PALETTE: readonly [string, string, string, string] = [
   '#0F0F0F',
@@ -36,9 +72,11 @@ const FALLBACK_PALETTE: readonly [string, string, string, string] = [
 export function ReelRenderer({
   jobId,
   eventId,
+  checkout = null,
 }: {
   jobId: string;
   eventId: string;
+  checkout?: ReelSaveCheckout | null;
 }) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState(0);
@@ -69,6 +107,8 @@ export function ReelRenderer({
         slug: claimed.templateSlug,
         name: tpl?.name ?? claimed.templateSlug,
         palette: tpl?.palette ?? FALLBACK_PALETTE,
+        // Unpaid ⇒ a light PREVIEW mark on every frame (never on a paid reel).
+        watermark: claimed.saveUnlocked ? undefined : PATIKTOK_PREVIEW_WATERMARK,
       };
 
       setPhase('rendering');
@@ -80,6 +120,13 @@ export function ReelRenderer({
         onProgress: setProgress,
       });
       setRenderMode(result.renderMode);
+
+      // Unpaid: watch it here; nothing is uploaded or finalized.
+      if (!claimed.saveUnlocked) {
+        setPreviewUrl(URL.createObjectURL(result.blob));
+        setPhase('preview');
+        return;
+      }
 
       setPhase('uploading');
       const presignRes = await fetch('/api/patiktok/upload', {
@@ -93,6 +140,12 @@ export function ReelRenderer({
           sizeBytes: result.blob.size,
         }),
       });
+      if (presignRes.status === 402) {
+        // The server refused the save (not paid) — keep the reel as a preview.
+        setPreviewUrl(URL.createObjectURL(result.blob));
+        setPhase('preview');
+        return;
+      }
       if (!presignRes.ok) {
         const b = (await presignRes.json().catch(() => ({}))) as { error?: string };
         throw new Error(b.error ?? `reel upload presign failed (${presignRes.status})`);
@@ -123,6 +176,10 @@ export function ReelRenderer({
 
       const objUrl = URL.createObjectURL(result.blob);
       setPreviewUrl(objUrl);
+      if (!fin.ok) {
+        setPhase('preview');
+        return;
+      }
       setDownloadUrl(fin.downloadUrl);
       setPhase('done');
     } catch (err) {
@@ -229,6 +286,15 @@ export function ReelRenderer({
         </div>
       ) : null}
 
+      {phase === 'preview' && previewUrl ? (
+        <PreviewPanel
+          previewUrl={previewUrl}
+          eventId={eventId}
+          checkout={checkout}
+          onRenderAgain={run}
+        />
+      ) : null}
+
       {phase === 'error' && errorMsg ? (
         <div className="space-y-2">
           <p
@@ -249,5 +315,83 @@ export function ReelRenderer({
         </div>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * The unpaid reel: watchable here, not downloadable, with the one way to keep
+ * it beside it. ◆ PRO (information, never a padlock) — the couple has already
+ * made something, so the mark sits on the SAVE, not on the booth.
+ */
+function PreviewPanel({
+  previewUrl,
+  eventId,
+  checkout,
+  onRenderAgain,
+}: {
+  previewUrl: string;
+  eventId: string;
+  checkout: ReelSaveCheckout | null;
+  onRenderAgain: () => void;
+}) {
+  const priceLabel = checkout?.pricePhp != null ? formatPhp(checkout.pricePhp) : null;
+  return (
+    <div className="space-y-3">
+      <div className="mx-auto aspect-[9/16] w-full max-w-[280px] overflow-hidden rounded-xl bg-ink">
+        {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
+        <video
+          className="h-full w-full object-cover"
+          src={previewUrl}
+          controls
+          controlsList="nodownload noplaybackrate"
+          disablePictureInPicture
+          playsInline
+          onContextMenu={(e) => e.preventDefault()}
+        />
+      </div>
+      <p className="text-sm text-ink/70">
+        This is your preview — free to watch here, with a light preview mark.
+        Saving it, downloading it and sharing it come with Patiktok.
+      </p>
+      {checkout && !checkout.storeShell ? (
+        checkout.pending ? (
+          <p
+            role="status"
+            className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70"
+          >
+            Your Patiktok payment is being confirmed. Once it is, open this reel
+            from &ldquo;Your renders&rdquo; and it saves without the mark.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            <p className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+              <PaidMark state="try" label="Comes with Patiktok" size="sm" />
+              Save &amp; share
+            </p>
+            <InlineCheckoutDrawer
+              eventId={eventId}
+              serviceKey={PATIKTOK_SERVICE_KEY}
+              displayName="Patiktok booth"
+              originalPriceCentavos={String(Math.round((checkout.pricePhp ?? 0) * 100))}
+              settings={checkout.settings}
+              triggerLabel={priceLabel ? `Save & share · ${priceLabel}` : 'Save & share'}
+              triggerClassName="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
+            />
+            <p className="text-[11px] text-ink/55">
+              This reel waits in &ldquo;Your renders&rdquo; — once Patiktok is
+              confirmed, open it there and it saves without the mark.
+            </p>
+          </div>
+        )
+      ) : null}
+      <button
+        type="button"
+        onClick={onRenderAgain}
+        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
+      >
+        <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+        Render again
+      </button>
+    </div>
   );
 }

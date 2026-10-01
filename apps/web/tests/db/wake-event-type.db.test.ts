@@ -121,7 +121,7 @@ test('the wake names its own onboarding pack in the column', async () => {
   assert.equal(r.rows[0]!.onboarding_flow_key, 'wake');
 });
 
-test('the marketplace reaches the wake — seven borrowed tiles and three of its own', async () => {
+test('the marketplace reaches the wake — eight borrowed tiles and three of its own', async () => {
   const r = await db.query<{ id: string }>(
     `SELECT id FROM public.service_categories
       WHERE 'wake' = ANY(applicable_event_types) ORDER BY id`,
@@ -139,9 +139,14 @@ test('the marketplace reaches the wake — seven borrowed tiles and three of its
   //
   // FLOORED — an empty sweep must not pass — and exact, so a silent widening
   // of the wake's marketplace is a decision someone makes here, on purpose.
+  //
+  // 10 → 11 on 2026-10-01 (P3): "Chairs & tents" — the rental a family books
+  // for a home wake (DECISION_LOG "SUPPLIER INBOX + FIND-A-SUPPLIER DESIGN —
+  // APPROVED"), scoped wake · birthday · simple_event. Shared, not the wake's own.
   assert.deepEqual(ids, [
     // borrowed
     'catering',
+    'chairs_tents',
     'choir',
     'coordinator',
     'cremation',

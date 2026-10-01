@@ -12,9 +12,10 @@ import { useState, useTransition } from 'react';
 import { Loader2 } from 'lucide-react';
 import type { WallMode } from '@/lib/live-wall-logic';
 import { setWallMode } from '../actions';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 const CHOICES: Array<{ value: WallMode | null; label: string; hint: string }> = [
-  { value: null, label: 'Auto', hint: 'follows your wedding date' },
+  { value: null, label: 'Auto', hint: 'follows your event date' },
   { value: 'pre_event', label: 'Teaser', hint: 'join QR + countdown' },
   { value: 'live', label: 'Live', hint: 'photos as they happen' },
   { value: 'recap', label: 'Recap', hint: 'frozen highlight collage' },
@@ -45,27 +46,23 @@ export function WallModeControl({
 
   return (
     <div>
-      <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Wall mode">
-        {CHOICES.map((choice) => {
-          const active = choice.value === override;
-          return (
-            <button
-              key={choice.label}
-              type="button"
-              disabled={pending}
-              onClick={() => pick(choice.value)}
-              title={choice.hint}
-              aria-pressed={active}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-60 ${
-                active
-                  ? 'bg-mulberry text-cream'
-                  : 'border border-ink/15 bg-surface text-ink/70 hover:border-ink/35 hover:text-ink'
-              }`}
-            >
-              {choice.label}
-            </button>
-          );
-        })}
+      {/* ONE dropdown (owner rule 2026-09-28: a choice of several is a
+          dropdown, never a pill row). Each option carries its hint beside it,
+          which the pills could only show on hover. `Auto` is keyed 'auto'
+          because a PickMenu key is a string; it maps back to null. */}
+      <div className="flex items-center gap-2">
+        <PickMenu
+          label="Wall mode"
+          value={override ?? 'auto'}
+          dataAttr="data-wall-mode"
+          options={CHOICES.map((choice) => ({
+            key: choice.value ?? 'auto',
+            label: `${choice.label} — ${choice.hint}`,
+          }))}
+          buttonText={CHOICES.find((c) => c.value === override)?.label}
+          onPick={(key) => pick(key === 'auto' ? null : (key as WallMode))}
+          className="border border-ink/15"
+        />
         {pending ? (
           <Loader2 aria-hidden className="h-4 w-4 animate-spin text-ink/40" strokeWidth={2} />
         ) : null}

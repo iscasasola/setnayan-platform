@@ -77,22 +77,39 @@ export async function fetchPlanGroupScope(
 }
 
 /**
- * PURE. The plan groups a given event type actually books.
+ * PURE. The plan groups a given event type actually books — THE one resolver.
  *
- * `wedding` is byte-identical to `PLAN_GROUPS` as long as every tile's
- * allow-list contains 'wedding' — which it does today, and which
+ * ⚖ THERE WERE TWO until 2026-10-01: this DB-backed one (read only by the
+ * dashboard counts) and a same-named one in `wedding-plan-groups.ts` that read
+ * only the code `eventTypes` field (used by the Suppliers page, event costs and
+ * upcoming items). So the Suppliers page showed Bridal car / Rings / Honeymoon
+ * to a birthday while the dashboard, reading the DB, did not. One rule now:
+ *
+ *   1. the code floor — a group with `eventTypes` shows only where it is named
+ *      (the farewell cards), so a REFUSED scope read still never puts "Choose
+ *      the funeral home" on a wedding;
+ *   2. the DB scope — `service_categories.applicable_event_types` of the
+ *      group's tile, failing OPEN on anything unknown (see the header).
+ *
+ * `scope` defaults to unknown, which reduces this to the code floor alone —
+ * the right reading for a caller that files costs and must never drop a
+ * category a cost may already carry.
+ *
+ * `wedding` is byte-identical to `PLAN_GROUPS`-minus-farewell as long as every
+ * tile's allow-list contains 'wedding' — which it does today, and which
  * `plan-groups-by-event-type.test.ts` pins, because silently shortening the
  * wedding ladder is the one regression that would matter most.
  */
 export function planGroupsForEventType(
-  eventType: string | null,
-  scope: PlanGroupScope,
+  eventType: string | null | undefined,
+  scope: PlanGroupScope = PLAN_GROUP_SCOPE_UNKNOWN,
   groups: ReadonlyArray<PlanGroup> = PLAN_GROUPS,
 ): PlanGroup[] {
   // A null/unknown type is treated as a wedding — the same default the rest of
   // the dashboard uses when `events.event_type` is missing.
   const type = eventType ?? 'wedding';
   return groups.filter((g) => {
+    if (g.eventTypes && !g.eventTypes.includes(type)) return false; // code floor
     const tile = g.catalogTile;
     if (!tile) return true; // no tile ⇒ nothing to scope on ⇒ universal
     if (!scope.has(tile)) return true; // no row ⇒ unknown ⇒ fail open

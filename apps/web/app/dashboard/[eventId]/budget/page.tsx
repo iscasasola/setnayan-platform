@@ -55,6 +55,7 @@ import { YOUR_TEAM_BUDGET_PART, yourTeamBudgetHref } from '@/lib/pillar-parts';
 import { DeniedState } from '@/app/_components/states/denied-state';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { formatCount } from '@/lib/format-number';
+import { MiniTour } from '@/app/_components/mini-tour';
 
 export const metadata = { title: 'Budget' };
 
@@ -673,6 +674,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
           </ul>
         )}
       </div>
+      {/* First visit only — the shipped MiniTour (owner 2026-09-25). */}
+      <MiniTour tourKey="customer_budget_v1" />
     </section>
   );
 }

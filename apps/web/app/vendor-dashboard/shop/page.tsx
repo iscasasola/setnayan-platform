@@ -50,7 +50,10 @@ import {
 } from '@/lib/vendor-branches';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { openRailDetails } from '@/lib/payment-channels';
-import { tierCaps, asVendorTier, isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, isTierAtLeast, entryTierAllowance } from '@/lib/vendor-tier-caps';
+import { vendorAllowance, vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { isVendorSearchGateEnabled } from '@/lib/vendor-search-gate';
+import { PaidMark } from '@/app/_components/paid-mark';
 import { ReachMap } from './_components/reach-map';
 import { ServiceRadiusFields } from './_components/service-radius-fields';
 import { VenueMatchCard } from './_components/venue-match-card';
@@ -182,7 +185,10 @@ type ShopData = {
   isVerified: boolean;
   websiteLive: boolean;
   isProWebsite: boolean;
-  canPersonalize: boolean;
+  /** Server-decided (vendorPaywallApplies): saving a Personalize control asks for Solo. */
+  personalizeAsks: boolean;
+  /** Server-decided (vendorPaywallApplies): saving a Page extra asks for Pro. */
+  proAsks: boolean;
   isEnterpriseWebsite: boolean;
   yearsLabel: string | null;
   microsite: VendorMicrosite;
@@ -847,11 +853,20 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
 
   const activeBranches = branches.filter((b) => b.status === 'active').length;
 
+  // 🔒 The store shell never shows a ◆ purchase hint (lib/store-shell.ts).
+  const noteShell = await isStoreShellRequest();
+
   // Team seat headroom for the Team tile sub-line. Mirrors the seat-cap contract
   // enforced in team/actions.ts: the plan's `agentAccounts` counts only members
   // BEYOND the founding admin (vendor_profiles.user_id), so exclude the founder
-  // from the used count. Infinity = unlimited.
-  const teamSeatCap = tierCaps(asVendorTier(tier)).agentAccounts;
+  // from the used count. Infinity = unlimited. A plan with NO seats is a
+  // paywall, so its number goes through the same flag-aware allowance the
+  // invite action uses — while the switch is off it gets the entry plan's seats
+  // and the tile never says "Upgrade".
+  const teamSeatCap = vendorAllowance(
+    tierCaps(asVendorTier(tier)).agentAccounts,
+    entryTierAllowance('agentAccounts'),
+  );
   const teamSeatsUsed = team.filter((m) => m.user_id !== profile.user_id).length;
   const teamSeatsLeft =
     teamSeatCap === Infinity ? Infinity : Math.max(0, teamSeatCap - teamSeatsUsed);
@@ -859,14 +874,21 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     teamSeatCap === Infinity
       ? 'Unlimited seats'
       : teamSeatCap === 0
-        ? 'Upgrade to add'
+        ? noteShell
+          ? 'Not on your plan'
+          : '◆ Paid plans'
         : teamSeatsLeft > 0
           ? `Add up to ${teamSeatsLeft}`
           : 'Seats full';
-  // Branch headroom: only Enterprise-or-higher may add locations (each is a paid
-  // add-on, no hard cap), everyone else upgrades to unlock. Rank-derived so
-  // Custom (runs as Enterprise) inherits without a hard equality.
-  const branchSub = isTierAtLeast(tier, 'enterprise') ? 'Add locations' : 'Upgrade to add';
+  // Branch headroom: Enterprise-or-higher may add locations (each is a paid
+  // add-on, no hard cap). For every other plan that requirement is a paywall,
+  // asked through vendorPaywallApplies — off, anyone may add one (and pays for
+  // the branch itself at its own checkout); on, the tile wears ◆ and the
+  // branch's own Add step asks for the plan.
+  const branchSub =
+    vendorPaywallApplies(isTierAtLeast(tier, 'enterprise')) && !noteShell
+      ? 'Add locations ◆ Enterprise'
+      : 'Add locations';
 
   // The Hero avatar shows the uploaded logo when present (owner 2026-07-02),
   // falling back to initials. Same presigned URL the Profile row's thumbnail uses.
@@ -898,7 +920,13 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   };
 
   const isProWebsite = tierCaps(asVendorTier(tier)).customWebsiteName;
-  const canPersonalize = micrositeCan(tier).canPersonalize;
+  // 💳 Asked through the ONE flag-aware question — false for everyone while
+  // VENDOR_TIER_FEATURE_GATE is off (see lib/vendor-feature-gate.ts). These
+  // only draw the ◆ note; the save itself is where a plan is asked. 🔒 The
+  // App Store / Play Store shell never shows a purchase hint (lib/store-shell.ts).
+  const personalizeAsks =
+    vendorPaywallApplies(micrositeCan(tier).canPersonalize) && !noteShell;
+  const proAsks = vendorPaywallApplies(isProWebsite) && !noteShell;
   const isEnterpriseWebsite = micrositeCan(tier).isEnterprise;
   const yearsLabel = profile.in_business_since_year
     ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
@@ -938,7 +966,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
       Boolean(profile.business_slug) &&
       isPubliclyVisible(profile.public_visibility),
     isProWebsite,
-    canPersonalize,
+    personalizeAsks,
+    proAsks,
     isEnterpriseWebsite,
     yearsLabel,
     microsite,
@@ -1315,7 +1344,8 @@ async function ShopHome({
               displayHost={DISPLAY_HOST}
               websiteLive={data.websiteLive}
               isPro={data.isProWebsite}
-              canPersonalize={data.canPersonalize}
+              personalizeAsks={data.personalizeAsks}
+              proAsks={data.proAsks}
               about={data.microsite.about}
               sections={data.microsite.sections}
               featuredServiceIds={data.microsite.featuredServiceIds}
@@ -1884,6 +1914,13 @@ async function BranchPanel({
   const storeShell = await isStoreShellRequest();
   const hasCoords = hqLat !== null && hqLng !== null;
   const hasRing = Number.isFinite(reachKm) && reachKm > 0;
+  // "Not shown in searches" is a FACT only while the searchability gate is on
+  // (lib/vendor-search-gate.ts). Off — production today — a plan with no ring
+  // is UNSCOPED: category-search admits it at any distance. Saying otherwise
+  // told findable shops they were hidden.
+  const reachHidden = !hasRing && isVendorSearchGateEnabled();
+  const reachPaywall = vendorPaywallApplies(false) && !storeShell;
+  const branchPaywall = vendorPaywallApplies(isEnterprise);
   const from = city ?? 'your headquarters';
   // Where the branch pin map opens: the vendor's HQ, or Metro Manila as a
   // sensible national fallback when the HQ hasn't been geocoded yet.
@@ -1929,10 +1966,19 @@ async function BranchPanel({
                 likely.&rdquo;
               </>
             ) : (
-              <>
-                Your shop isn&rsquo;t shown in couples&rsquo; searches yet.
-                Upgrade to appear on the map and set your coverage radius.
-              </>
+              reachHidden ? (
+                <>
+                  Your shop isn&rsquo;t shown in couples&rsquo; searches yet.
+                  {reachPaywall
+                    ? ' A paid plan puts you on the map and sets your coverage radius.'
+                    : null}
+                </>
+              ) : (
+                <>
+                  Couples searching anywhere can find you — your plan has no
+                  distance limit. Set how far you travel just below.
+                </>
+              )
             )}
           </p>
           <ServiceRadiusFields
@@ -1947,19 +1993,32 @@ async function BranchPanel({
         </p>
       )}
 
-      {storeShell ? null : isEnterprise ? (
-        <BranchManager
-          branches={branches}
-          feePhp={branchFeePhp}
-          autoRadiusKm={branchAutoRadius}
-          initialCenter={branchMapCenter}
-          pay={branchPay}
-        />
-      ) : (
-        <p className="text-xs" style={{ color: 'var(--m-slate)' }}>
-          Extra branches are an Enterprise feature — each gets its own team and
-          calendar.
-        </p>
+      {/* TRY-FIRST (2026-09-30): the manager mounts for every plan on the web.
+          The Enterprise requirement is asked through vendorPaywallApplies —
+          off, nothing is asked beyond the branch's own fee; on, the ◆ note
+          shows and the Add step (branches/actions.ts) asks for the plan. */}
+      {storeShell ? null : (
+        <>
+          {branchPaywall ? (
+            <p className="flex flex-wrap items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate)' }}>
+              <PaidMark
+                state="try"
+                label="Part of Enterprise — plan it here; adding asks for Enterprise"
+                text="ENTERPRISE"
+                size="xs"
+              />
+              Extra branches are part of Enterprise — each gets its own team and
+              calendar. Plan one here; adding it asks for the plan.
+            </p>
+          ) : null}
+          <BranchManager
+            branches={branches}
+            feePhp={branchFeePhp}
+            autoRadiusKm={branchAutoRadius}
+            initialCenter={branchMapCenter}
+            pay={branchPay}
+          />
+        </>
       )}
     </div>
   );

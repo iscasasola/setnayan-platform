@@ -30,6 +30,7 @@ import {
   type CreateSubject,
 } from '@/lib/create-subjects';
 import { stashHonoree } from '@/lib/onboarding/honoree-handoff';
+import { stashCouple, type CoupleCarry } from '@/lib/onboarding/couple-handoff';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -82,6 +83,7 @@ export function EventTypePicker({
   subjects,
   todayISO,
   notice,
+  couple = null,
 }: {
   types: EventTypeRow[];
   /** Budget feel-bands for the optional budget picker on the inline (non-wedding)
@@ -120,6 +122,11 @@ export function EventTypePicker({
    *  the page) purely so it keeps sitting UNDER the heading now that the
    *  heading is step-dependent — the question changes between "who" and "what". */
   notice?: React.ReactNode;
+  /** "Plan an event together" from People (owner 2026-09-29): the two first
+   *  names of a couple who confirmed each other. Carried into the wedding's
+   *  name screen through sessionStorage — never the URL — and seated there
+   *  only once the person says whether they are the bride or the groom. */
+  couple?: CoupleCarry | null;
 }) {
   const router = useRouter();
   const [selectedKey, setSelectedKey] = useState<EventTypeKey | null>(null);
@@ -199,6 +206,8 @@ export function EventTypePicker({
     // The alaga's record id travels with it so the onboarding path can key the
     // cap on WHO, not on a spelling — the server re-verifies it before writing.
     stashHonoree(subjectHonoreeLabel(subject), subjectHonoreeDependentId(subject));
+    // Only a wedding has a slot for each of the two names; anything else clears.
+    stashCouple(type.key === 'wedding' ? couple : null);
     // Samahan context: community events ALWAYS use the inline form below —
     // it carries the hidden community_id; the tailored onboarding routes
     // don't know about communities (plan §7).

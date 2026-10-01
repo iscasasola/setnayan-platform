@@ -1,12 +1,21 @@
-import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Lock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { eventSkuActive } from '@/lib/entitlements';
+import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { buildThankYouVideoPlan } from '@/lib/thank-you-video';
+import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { resolveServiceSellability } from '@/lib/v2-catalog';
+import { fetchPlatformSettings, getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { ThankYouMaker } from './_components/thank-you-maker';
+import { StudioBuyHero } from '@/app/dashboard/[eventId]/studio/_components/studio-buy-hero';
+import { addOnHeroCopy } from '@/lib/add-ons-catalog';
+import { formatPhp } from '@/lib/orders';
+import { ThankYouMaker, type ThankYouSaveCheckout } from './_components/thank-you-maker';
+
+const SKU_CODE = 'PAPIC_ADDON_THANK_YOU';
+/** Name + promise from the one catalogue record every Studio row reads. */
+const HERO = addOnHeroCopy('thank-you');
 
 export const metadata = { title: 'Thank-You Video · Studio' };
 export const dynamic = 'force-dynamic';
@@ -28,11 +37,22 @@ export const dynamic = 'force-dynamic';
  * that looked like a worker was deleted 2026-08-09 for faking completion) —
  * building against it would have shipped a film that queues forever.
  *
- * ─── UNOWNED IS A LOCKED PANEL, NOT A 404 ──────────────────────────────────
- * The Studio card is visible to everyone, so a 404 here would read as a broken
- * app rather than an unbought upgrade. The panel says what the film is and where
- * to get it — and deliberately renders NO plan, so an unowned visitor triggers
- * no gallery read at all.
+ * ─── UNOWNED: MAKE IT FREE, PAY AT "SAVE TO MY PHONE" (2026-09-30) ────────
+ * This used to be a locked panel: "Add it from your Studio" + "Back to
+ * Studio". But /studio redirects to Our Services, whose Thank-You Video part
+ * opens THIS page again — a loop with no way to buy anywhere in it. Now the
+ * couple makes and watches the film for free, and the price is asked at the
+ * final action — "Save to my phone" opens the shipped `InlineCheckoutDrawer`
+ * in place (owner rules: ◆ Pro never blocks; ask at the final action; no
+ * go-edit-elsewhere links). The same shape Patiktok's pay-to-save uses.
+ *
+ * ⚠ The plan is now built for an unowned visitor too. It runs under the
+ * couple's own RLS client with the public consent gates (see below), so it
+ * reads nothing an owner would not.
+ *
+ * ⚠ The film is encoded in the browser, so "pay to save" is a door, not a
+ * vault: the preview player hides its download control, and the Save button
+ * only exists once the SKU is active. That matches Patiktok's posture.
  */
 export default async function ThankYouVideoPage({
   params,
@@ -47,41 +67,30 @@ export default async function ThankYouVideoPage({
 
   // ⚠ The ENTITLEMENT gate is here, not in the plan builder. Folding a paywall
   // into a data assembler puts the money decision somewhere nobody looks for it.
-  const owned = await eventSkuActive(supabase, eventId, 'PAPIC_ADDON_THANK_YOU');
+  const owned = await eventSkuActive(supabase, eventId, SKU_CODE);
 
-  const backHref = `/dashboard/${eventId}/studio`;
-
+  // Unowned: what "Save to my phone" needs to open the checkout in place.
+  // `eventOwnsSku` counts a submitted order, so owned-but-not-active = a
+  // payment being confirmed (never a second buy). Prices come from the
+  // catalogue only (formatV2Sku → platform_retail_catalog_v2), never typed.
+  let checkout: ThankYouSaveCheckout | null = null;
   if (!owned) {
-    return (
-      <div className="sn-col space-y-6 py-8">
-        <Link
-          href={backHref}
-          className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
-        >
-          <ArrowLeft className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-          Studio
-        </Link>
-        <div className="rounded-3xl border border-ink/10 bg-cream p-6 sm:p-8">
-          <Lock className="h-5 w-5 text-ink/40" strokeWidth={1.75} aria-hidden />
-          <h1 className="sn-h1 mt-3">Thank-You Video</h1>
-          <p className="mt-2 max-w-xl text-base text-ink/65">
-            A short film for the people who came — built from the photos of your
-            day that everyone has agreed to share, set to music, and saved
-            straight to your phone.
-          </p>
-          <p className="mt-4 text-sm text-ink/55">
-            This one is part of your Papic add-ons. Add it from your Studio and
-            it opens here.
-          </p>
-          <Link
-            href={backHref}
-            className="mt-5 inline-flex items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
-          >
-            Back to Studio
-          </Link>
-        </div>
-      </div>
-    );
+    const admin = createAdminClient();
+    const [pendingOrder, sellability, sku, settings, vatRatePct] = await Promise.all([
+      eventOwnsSku(admin, eventId, SKU_CODE).catch(() => false),
+      resolveServiceSellability(SKU_CODE),
+      formatV2Sku(SKU_CODE).catch(() => null),
+      fetchPlatformSettings(supabase),
+      getEffectiveVatRatePct(supabase),
+    ]);
+    checkout = {
+      pending: pendingOrder,
+      priceCentavos:
+        sellability === 'sellable' && sku?.price_centavos != null ? String(sku.price_centavos) : null,
+      pricePhp: sellability === 'sellable' ? (sku?.price_php ?? null) : null,
+      vatRatePct,
+      settings,
+    };
   }
 
   // Runs under the couple's OWN RLS-bound client, and `fetchTeaserFrames` inside
@@ -91,14 +100,24 @@ export default async function ThankYouVideoPage({
 
   return (
     <div className="sn-col space-y-6 py-8">
-      {/* The shared masthead, not a hand-rolled header — this is a NEW page and
-          `lint-page-masthead.mjs` only tolerates the 110 that predate it. It
-          carries the back chevron, so no separate Studio link. */}
-      <PageMasthead
-        title="Thank-You Video"
-      />
+      {/* Unowned, this page now asks for money (at "Save to my phone"), so it
+          opens with the product's name, promise and price — the buy hero.
+          Owned, it is a page the couple lives in: the shared masthead, which
+          carries the back chevron. One h1 either way (opposite arms). */}
+      {checkout && !checkout.pending ? (
+        <StudioBuyHero
+          productName={HERO.label}
+          promise={HERO.blurb}
+          price={checkout.pricePhp != null ? formatPhp(checkout.pricePhp) : undefined}
+          priceNote={
+            checkout.pricePhp != null ? 'Make it free — pay only to save it to your phone' : undefined
+          }
+        />
+      ) : (
+        <PageMasthead title="Thank-You Video" />
+      )}
 
-      <ThankYouMaker plan={plan} />
+      <ThankYouMaker plan={plan} eventId={eventId} checkout={checkout} />
     </div>
   );
 }

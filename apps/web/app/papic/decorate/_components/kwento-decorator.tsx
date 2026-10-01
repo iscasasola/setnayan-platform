@@ -17,9 +17,11 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ImagePlus, Loader2, RotateCw, Smile, Type, Undo2, X } from 'lucide-react';
+import Link from 'next/link';
+import { ArrowLeft, ImagePlus, Loader2, RotateCw, Smile, Type, Undo2, X } from 'lucide-react';
 import { PAPIC_STYLES, cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 const STICKERS = [
   '❤️', '😍', '🥰', '😘', '😂', '🥹', '😭', '🔥',
@@ -27,6 +29,21 @@ const STICKERS = [
   '🕊️', '🦋', '✨', '🌟', '💫', '👑', '🫶', '💯',
 ];
 const TEXT_COLORS = ['#ffffff', '#1f1a17', '#e2725b', '#b3446c', '#d4af37'];
+/** Plain names for the fixed caption colours — the dropdown lists words, with
+ *  a swatch beside each, never a hex code. */
+const TEXT_COLOR_NAMES: Record<string, string> = {
+  '#ffffff': 'White',
+  '#1f1a17': 'Black',
+  '#e2725b': 'Coral',
+  '#b3446c': 'Berry',
+  '#d4af37': 'Gold',
+};
+/** A tiny filled swatch for a `PickMenu` option's picture. */
+function swatchThumb(color: string): string {
+  return `data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="27" height="36"><rect width="27" height="36" fill="${color}"/></svg>`,
+  )}`;
+}
 const MAX_EXPORT_PX = 1440; // cap the long edge → sane JPEG size
 const MIN_SIZE = 0.04;
 const MAX_SIZE = 0.6;
@@ -63,11 +80,14 @@ export function KwentoDecorator({
   eventName,
   canKwento,
   themeColors = [],
+  myPhotosHref,
 }: {
   eventName: string;
   canKwento: boolean;
   /** The couple's mood-board colours, merged into the text swatches. */
   themeColors?: string[];
+  /** The guest's own photos page (/papic/me/[token]) — the way back. */
+  myPhotosHref: string;
 }) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [style, setStyle] = useState<PapicStyle>('ORIG');
@@ -78,6 +98,9 @@ export function KwentoDecorator({
   const [textPill, setTextPill] = useState(false);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  // The one refusal the guest can fix themselves, on another page — so the
+  // message carries the door to it rather than naming a page and stopping.
+  const [termsRequired, setTermsRequired] = useState(false);
   const [done, setDone] = useState(false);
   const [history, setHistory] = useState<Overlay[][]>([]); // undo stack (add/delete)
 
@@ -214,6 +237,7 @@ export function KwentoDecorator({
     if (!img || !img.naturalWidth) return;
     setSaving(true);
     setStatus(null);
+    setTermsRequired(false);
     try {
       const scale = Math.min(1, MAX_EXPORT_PX / Math.max(img.naturalWidth, img.naturalHeight));
       const w = Math.round(img.naturalWidth * scale);
@@ -295,6 +319,7 @@ export function KwentoDecorator({
         setStatus('You’ve used all your photos for this event.');
       } else if (data.status === 'terms_required') {
         setStatus('Please accept the photo terms on the camera page first.');
+        setTermsRequired(true);
       } else {
         setStatus('Couldn’t save — please try again.');
       }
@@ -346,6 +371,13 @@ export function KwentoDecorator({
   return (
     <main className="min-h-screen bg-cream px-4 py-8 text-ink">
       <div className="mx-auto w-full max-w-md">
+        <Link
+          href={myPhotosHref}
+          className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink/70 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Back to my photos
+        </Link>
         <h1 className="text-xl font-semibold tracking-tight">Decorate a photo</h1>
         <p className="mt-1 text-sm text-ink/60">
           Add stickers, text, and a filter, then save it to {eventName}&rsquo;s gallery.
@@ -443,21 +475,18 @@ export function KwentoDecorator({
               })}
             </div>
 
-            {/* Filter picker — the 5 shipped Papic looks. */}
-            <div className="mt-4 flex flex-wrap gap-1.5">
-              {PAPIC_STYLES.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => setStyle(s.id)}
-                  aria-pressed={style === s.id}
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium ${
-                    style === s.id ? 'bg-mulberry text-cream' : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
+            {/* Filter — the 5 shipped Papic looks, as ONE dropdown (owner rule
+                2026-09-28: a choice of several is a dropdown, never a pill row). */}
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-xs font-medium uppercase tracking-wide text-ink/50">Filter</span>
+              <PickMenu
+                label="Photo filter"
+                value={style}
+                dataAttr="data-decorate-filter"
+                options={PAPIC_STYLES.map((s) => ({ key: s.id, label: s.label }))}
+                onPick={(key) => setStyle(key as PapicStyle)}
+                className="border border-ink/15"
+              />
             </div>
 
             {/* Sticker palette. */}
@@ -490,7 +519,9 @@ export function KwentoDecorator({
               </div>
             </div>
 
-            {/* Text tool. */}
+            {/* Text tool. The colour swatches used to sit on this same row, and
+                with five fixed colours plus the event's own they ran past a 375
+                phone. They are one dropdown on the row beneath now. */}
             <div className="mt-3 flex items-center gap-2">
               <Type aria-hidden className="h-4 w-4 flex-none text-ink/50" strokeWidth={2} />
               <input
@@ -501,18 +532,32 @@ export function KwentoDecorator({
                 placeholder="Add a caption…"
                 className="min-w-0 flex-1 rounded-md border border-ink/15 bg-surface px-2.5 py-1.5 text-sm"
               />
-              {Array.from(new Set([...TEXT_COLORS, ...themeColors])).map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => setTextColor(c)}
-                  aria-label={`Text colour ${c}`}
-                  className={`h-5 w-5 flex-none rounded-full border ${
-                    textColor === c ? 'border-ink ring-2 ring-terracotta/50' : 'border-ink/20'
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
+              <button
+                type="button"
+                onClick={addText}
+                className="flex-none rounded-md bg-ink/10 px-2.5 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/15"
+              >
+                Add
+              </button>
+            </div>
+            <div className="mt-2 flex items-center gap-2 pl-6">
+              <span
+                aria-hidden
+                className="h-5 w-5 flex-none rounded-full border border-ink/20"
+                style={{ backgroundColor: textColor }}
+              />
+              <PickMenu
+                label="Caption colour"
+                value={textColor}
+                dataAttr="data-decorate-colour"
+                options={Array.from(new Set([...TEXT_COLORS, ...themeColors])).map((c, i) => ({
+                  key: c,
+                  label: TEXT_COLOR_NAMES[c] ?? `Event colour ${i - TEXT_COLORS.length + 1}`,
+                  thumb: swatchThumb(c),
+                }))}
+                onPick={(c) => setTextColor(c)}
+                className="border border-ink/15"
+              />
               <button
                 type="button"
                 onClick={() => setTextPill((v) => !v)}
@@ -523,13 +568,6 @@ export function KwentoDecorator({
                 }`}
               >
                 Pill
-              </button>
-              <button
-                type="button"
-                onClick={addText}
-                className="flex-none rounded-md bg-ink/10 px-2.5 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/15"
-              >
-                Add
               </button>
             </div>
 
@@ -551,6 +589,14 @@ export function KwentoDecorator({
               <p className={`mt-2 text-center text-sm ${done ? 'text-success-600' : 'text-ink/70'}`}>
                 {status}
               </p>
+            ) : null}
+            {termsRequired && !done ? (
+              <Link
+                href="/papic/guest"
+                className="mt-2 flex min-h-11 w-full items-center justify-center rounded-md border border-ink/15 px-4 py-2.5 text-sm font-medium text-ink hover:border-ink/30"
+              >
+                Open the camera page
+              </Link>
             ) : null}
 
             {/* Slice 2 — the Kwento caption on the saved decorated photo. Only

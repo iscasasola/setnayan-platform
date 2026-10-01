@@ -82,6 +82,7 @@ import {
   type SortReason,
 } from '@/lib/bench-sort';
 import { isLensKey, visibleLenses } from '@/lib/ranking-lenses';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   FREE_VENUE_ASSIST_CHIP,
   isSaiAssistFreeForCategory,
@@ -2753,62 +2754,36 @@ export function ShortlistCategories({
         </div>
       ) : null}
       <div className="sortbar">
-        <span className="sortbar-lbl">Sort by</span>
-        {replan ? (
-          <>
-            {/* The five RANKING LENSES — one scorer, five named weight vectors,
-                every card carrying the reason it is where it is. */}
-            <div className="sortseg" role="group" aria-label="Ranking lens">
-              {lensChips.map((c) => (
-                <button
-                  key={c.key}
-                  type="button"
-                  className={effectiveSort === c.key ? 'on' : undefined}
-                  aria-pressed={effectiveSort === c.key}
-                  disabled={c.disabled}
-                  title={c.reason ?? undefined}
-                  aria-label={c.reason ? `${c.label} — ${c.reason}` : undefined}
-                  onClick={() => setSort(c.key)}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-            <span className="sortsep" aria-hidden />
-            {/* The two PLAIN SORTS, kept visually separate. They are a user job
-                ("just show me the cheapest"), not a recommendation: no score, no
-                reason pill. "Lowest price" could not be a lens even if we wanted
-                it to be — `priceFitScore` ties every in-budget vendor at 1.0, so
-                a "cheapest" weight vector is arithmetically impossible. */}
-            <div className="sortseg" role="group" aria-label="Sort vendors">
-              {BENCH_PLAIN_SORTS.map((s) => (
-                <button
-                  key={s.key}
-                  type="button"
-                  className={effectiveSort === s.key ? 'on' : undefined}
-                  aria-pressed={effectiveSort === s.key}
-                  onClick={() => setSort(s.key)}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : (
-          <div className="sortseg" role="group" aria-label="Sort vendors">
-            {BENCH_SORTS.map((s) => (
-              <button
-                key={s.key}
-                type="button"
-                className={sort === s.key ? 'on' : undefined}
-                aria-pressed={sort === s.key}
-                onClick={() => setSort(s.key)}
-              >
-                {s.label}
-              </button>
-            ))}
-          </div>
-        )}
+        <span className="sortbar-lbl" aria-hidden>Sort by</span>
+        {/* ONE dropdown for every way to order the bench (owner rule 2026-09-28:
+            a choice of several is a dropdown, never a pill row — the seven pills
+            ran off a 375 phone). The two kinds stay visibly apart as two labelled
+            groups: the five RANKING LENSES (one scorer, five weight vectors, every
+            card carrying its reason) and the two PLAIN SORTS, which are a user job
+            ("just show me the cheapest"), not a recommendation. "Lowest price"
+            could not be a lens even if we wanted it to be — `priceFitScore` ties
+            every in-budget vendor at 1.0. A lens the bench cannot offer is listed
+            but not pickable, with its reason beside it. */}
+        <PickMenu
+          label="Sort by"
+          value={replan ? effectiveSort : sort}
+          dataAttr="data-bench-sort"
+          options={
+            replan
+              ? [
+                  ...lensChips.map((c) => ({
+                    key: c.key,
+                    label: c.label,
+                    group: 'Ranked for you',
+                    disabledNote: c.disabled ? (c.reason ?? 'not available here') : undefined,
+                  })),
+                  ...BENCH_PLAIN_SORTS.map((s) => ({ key: s.key, label: s.label, group: 'Simple order' })),
+                ]
+              : BENCH_SORTS.map((s) => ({ key: s.key, label: s.label }))
+          }
+          onPick={(key) => setSort(key as BenchSort)}
+          className="border border-ink/15"
+        />
       </div>
       <div className="bench-search">
         <Search size={16} strokeWidth={1.75} aria-hidden />

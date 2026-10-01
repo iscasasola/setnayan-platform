@@ -815,23 +815,10 @@ export function isHardSinglePickGroup(groupId: PlanGroupId): boolean {
  * their categories array is empty by definition; vendor rows with
  * shared VendorCategory enum values resolve to the primary card.
  */
-/**
- * The plan cards a given event type actually shows.
- *
- * ⚖ A WAKE BORROWED THE WEDDING'S BUDGET SECTIONS UNTIL NOW, so a funeral home
- * landed in "Logistics & Misc" beside the giveaways. Owner 2026-08-27, having
- * ruled that death-care suppliers are listed: *"1 first then 2 after"* — this is
- * the after.
- *
- * An unscoped group belongs to every type (that is every wedding-shaped card
- * here, unchanged). A scoped one shows only where it is named.
- */
-export function planGroupsForEventType(
-  eventType: string | null | undefined,
-): ReadonlyArray<PlanGroup> {
-  const t = eventType ?? 'wedding';
-  return PLAN_GROUPS.filter((g) => !g.eventTypes || g.eventTypes.includes(t));
-}
+// `planGroupsForEventType` lives in `lib/plan-groups-by-event-type.ts` — ONE
+// resolver (the code `eventTypes` floor + the DB tile scope). A second
+// same-named copy here read only the code field, so the Suppliers page and the
+// dashboard disagreed about which categories a birthday books (2026-10-01).
 
 export function planGroupForCategory(
   category: VendorCategory,

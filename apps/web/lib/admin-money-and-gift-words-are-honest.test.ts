@@ -123,9 +123,14 @@ test('the three admin forms seeded from settings cannot Save over the real value
   const ss = src('app/admin/settings/_surfaces/settings-surface.tsx');
   assert.match(ss, /await fetchPlatformSettingsMeasured\(admin\)/);
   assert.doesNotMatch(ss, /\bfetchPlatformSettings\(/, 'settings surface went back to the unmeasured read');
-  // Business identity AND the digest toggle are both seeded from settings.
+  // Business identity is seeded from settings. ✏️ 2026-10-01: the digest
+  // switch moved to Notifications (row 38) — it renders NO form at all while
+  // its settings read failed, checked below.
   const disabled = [...ss.matchAll(/disabled=\{settingsReadFailed\}/g)];
-  assert.equal(disabled.length, 2, 'both settings-seeded Save buttons must be disabled on a refused read');
+  assert.equal(disabled.length, 1, 'the settings-seeded Save button must be disabled on a refused read');
+  const dc = src('app/admin/settings/_components/morning-digest-card.tsx');
+  assert.match(dc, /await fetchPlatformSettingsMeasured\(admin\)/);
+  assert.match(dc, /\{readFailed \? \(/, 'the digest switch is offered on a refused settings read');
 
   const cs = src('app/admin/settings/_surfaces/compliance-surface.tsx');
   assert.match(cs, /const factsReadFailed = Boolean\(factsRes\.error\);/);

@@ -7,7 +7,9 @@
  * farewell cards (EVENT_TYPE_RELIGION_AUDIT footnote 13). It now reads the ONE
  * resolver, `planGroupsForEventType` (code floor + the DB tile scope).
  *
- * Three directions, each sabotaged once when this was written:
+ * Three directions (1 and 3 sabotaged when written — dropping the scope filter,
+ * dropping the pick keeper — each went red; 2 is also pinned by
+ * plan-groups-by-event-type.test.ts):
  *   1. a birthday loses a wedding-only category;
  *   2. 🔒 a wedding's list is unchanged by the scope (every prod allow-list
  *      names 'wedding');

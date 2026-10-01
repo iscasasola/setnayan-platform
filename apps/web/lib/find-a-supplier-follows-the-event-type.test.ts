@@ -6,7 +6,8 @@
  * The page builds its list from the bench's own scope (`buildShortlistFolders`
  * with no vendor rows) and regroups it (`buildFindList`). These rules drive
  * that exact pair over a snapshot whose scopes are set by hand, so a scope
- * leak in EITHER half goes red. Each was sabotaged once when written.
+ * leak in EITHER half goes red. Sabotaged when written: switching off the
+ * bench's event-type filter turned rules 1–3 red.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

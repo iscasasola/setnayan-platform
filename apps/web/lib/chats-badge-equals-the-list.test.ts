@@ -2,7 +2,8 @@
  * GUARD — the chat icon's badge on the Suppliers header equals the Chats list's
  * unread count (P3, 2026-10-01). Both read `readCoupleUnread` and count with
  * `coupleUnreadCount` over the same active-thread predicate; these rules pin
- * the rule itself and that both pages still call it. Sabotaged once each.
+ * the rule itself and that both pages still call it. Sabotaged when written:
+ * counting archived threads (rule 2 red) and an unmeasured read as 0 (rule 3 red).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';

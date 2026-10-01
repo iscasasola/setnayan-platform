@@ -40,7 +40,7 @@ import {
   tileForCategory,
 } from '@/lib/shortlist-taxonomy';
 import { TAXONOMY_MAP } from '@/lib/taxonomy';
-import type { VendorCategory } from '@/lib/wedding-plan-groups';
+import type { VendorCategory } from '@/lib/vendors';
 import {
   fetchVendorCountsByService,
   rollUpCountsToTile,
@@ -72,6 +72,7 @@ type Props = {
 const SERVICES_BY_TILE: ReadonlyMap<string, readonly string[]> = (() => {
   const out = new Map<string, string[]>();
   for (const [service, entry] of Object.entries(TAXONOMY_MAP)) {
+    if (!entry.tile) continue;
     const words = service.replace(/_/g, ' ');
     const arr = out.get(entry.tile);
     if (arr) arr.push(words);
@@ -107,7 +108,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
     resolveProfileByEvent(eventId),
     getTaxonomy(),
   ]);
-  const solemn = profile.register === 'solemn';
+  const solemn = profile.terminology.register === 'solemn';
 
   // The bench's own scope — the ONLY place the category list comes from.
   const folders = buildShortlistFolders({

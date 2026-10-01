@@ -254,9 +254,31 @@ test('the money note stays off a masked row', () => {
 
 test('"Book of business" is still reachable from this page', () => {
   // It lived in the header of the block this redesign replaced. A redesign is
-  // exactly when a control goes missing.
+  // exactly when a control goes missing. Since 2026-10-01 it sits behind the
+  // roster's ⋯ with the other customer tools (DECISION_LOG "THE SUPPLIER PHONE
+  // APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS", frame 2).
   assert.ok(
-    /\?open=clients/.test(pageSrc),
+    /href="\?open=clients[#"&]/.test(rosterSrc) && /Book of business/.test(rosterSrc),
     'the Book of business link was lost in the redesign',
   );
+});
+
+test('the round + on Customers opens the SHIPPED outside-client form (owner answer 3)', () => {
+  // "+ on Customers adds an outside client" — and the shipped way to take one
+  // is Clients' "Import an outside client · free". The + must land on that
+  // form, open; a second add-client form would be a second mechanism.
+  assert.ok(
+    /href="\?open=clients&add=outside#import-outside"/.test(rosterSrc),
+    'the + no longer lands on the shipped outside-client form',
+  );
+  const clients = readFileSync(join(dirname(PAGE), '..', 'clients', 'surface.tsx'), 'utf8');
+  assert.ok(/id="import-outside"/.test(clients), 'the outside-client form lost its #import-outside anchor');
+  assert.ok(/open=\{search\.add === 'outside'\}/.test(clients), '?add=outside no longer opens the form');
+});
+
+test('every ⋯ door lands somewhere on this page', () => {
+  // The ⋯ doors carry `#customer-tools` / `#calendar`; both ids must exist, or
+  // the tap opens a section the reader is never scrolled to.
+  assert.ok(/id="customer-tools"/.test(pageSrc), 'the #customer-tools anchor is gone from the page');
+  assert.ok(/id="calendar"/.test(pageSrc), 'the #calendar anchor is gone from the page');
 });

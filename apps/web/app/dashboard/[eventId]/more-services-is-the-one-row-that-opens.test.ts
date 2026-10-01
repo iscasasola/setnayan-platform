@@ -12,7 +12,7 @@
  *   2. those children ARE `buildOurServices`' cards, in its order;
  *   3. the layout builds them with that builder (not a second list);
  *   4. the rail opens only that row, with a button (no navigation) that says
- *      whether it is open, and remembers it on the device;
+ *      whether it is open; closed by default (2026-10-01), not remembered;
  *   5. the phone bar has no sub-rows — its "More" tab opens the chooser, which
  *      is loaded lazily (the shared bundle has no room).
  */
@@ -104,7 +104,7 @@ test('3 · the layout builds the five with buildOurServices and hands them to bo
   assert.match(src, /<CustomerBottomNav[^>]*services=\{services\}/, 'the phone bar is not handed the five');
 });
 
-test('4 · the rail opens ONLY More Services — a button that expands, remembered per device', () => {
+test('4 · the rail opens ONLY More Services — a button that expands, closed by default', () => {
   const src = read('_components/event-rail-context.tsx');
   assert.match(src, /item\.key === 'studio' && item\.children\?\.length/, 'the open branch is not keyed to `studio`');
   // Exactly one place renders children.
@@ -115,10 +115,12 @@ test('4 · the rail opens ONLY More Services — a button that expands, remember
   assert.ok(!/<Link/.test(branch), 'tapping More Services navigates again');
   assert.match(branch, /aria-expanded=\{open\}/);
   assert.match(branch, /aria-controls="fd-more-services"/);
-  assert.match(src, /<ul id="fd-more-services" hidden=\{!open\}/);
-  // Remembered on this device; storage that throws never breaks the rail.
-  assert.match(src, /try \{\s*if \(localStorage\.getItem\(/);
-  assert.match(src, /try \{\s*localStorage\.setItem\(/);
+  assert.match(src, /<ul id="fd-more-services" className="fd-msub" hidden=\{!open\}/);
+  // CLOSED by default and NOT remembered (owner 2026-10-01): a remembered
+  // "open" would bring the five back as eleven rows on the next visit. It
+  // opens on a tap, or when the lit row is More Services (`studio`).
+  assert.match(src, /useMoreOpen\(activeKey === 'studio'\)/);
+  assert.ok(!/localStorage/.test(src), 'More Services is remembered open again');
 });
 
 test('5 · the phone bar has no sub-rows — its "More" tab opens the chooser sheet', () => {

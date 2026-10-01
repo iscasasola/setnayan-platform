@@ -58,6 +58,7 @@ import { MAKER_CANVAS_POST_EVENT, MAKER_CANVAS_STALE_EVENT } from '@/lib/maker-l
 import { bothLayout, scaledFrame, usePaneSize } from './both-view';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { HubFontKey } from '@/lib/hub-fonts';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
@@ -93,6 +94,7 @@ import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
 import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
 import { readTypeStart, type TypeStart } from '@/lib/hub-part-words';
+import type { NameParts, NameStyle } from '@/lib/name-style';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -282,6 +284,8 @@ export function MakerWork({
     heroPhoto?: boolean;
     /** 🎨 The five fixed parts' style picks, live with the draft laid on (`lib/fixed-scene-styles.ts`). */
     fixedStyles?: FixedSceneStyles;
+    /** ✍ The hero names' Wording ▾ — the event's Name style and one of the couple's own names to show it in. */
+    names?: { style: NameStyle; person: NameParts | null };
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -309,6 +313,8 @@ export function MakerWork({
     palette: ElementPalette;
     /** `hubDraftAction` — the one draft door; every choice is a draft save. */
     draftAction: ElementDraftAction;
+    /** 🔤 The faces the Event Hub renders now (`hubFontsInUse`) — the font dropdowns' "In use". */
+    fontsInUse?: readonly HubFontKey[];
   } | null;
   /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
    *  — the Reveal page previews the first of them. */
@@ -675,6 +681,7 @@ export function MakerWork({
         : null,
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
+      fontsInUse: elementEditing?.fontsInUse ?? [],
     });
   }, [setLookPages, madeOnce, mainBackgroundRow, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
@@ -2373,6 +2380,7 @@ export function MakerWork({
           heroCanvas={elementEditing.canvases.hero ?? {}}
           draftAction={elementEditing.draftAction}
           twoPeople={sceneFormat?.twoPeople !== false}
+          names={sceneFormat?.names ?? null}
           frames={() => [frameRef.current, bothFrameRef.current]}
           post={postToShownCanvases}
           broadcast={broadcastToCanvas}

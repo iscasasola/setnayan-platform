@@ -5,6 +5,7 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import type { HubElementKey } from '@/lib/element-style';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
+import type { HubFontKey } from '@/lib/hub-fonts';
 import type { ElementDraftAction, ElementPalette } from '../../website/editor/_components/element-sheet';
 
 /**
@@ -130,6 +131,12 @@ export type MakerLookPages = {
   } | null;
   /** Where the reveal plays (drafted over live) — its page previews the first. */
   revealStages: readonly LifecyclePhase[];
+  /**
+   * 🔤 Every face this Event Hub renders now (`hubFontsInUse`, over the draft
+   * over live the canvas draws) — each font dropdown marks them "In use"
+   * (`font-pick.tsx`, owner 2026-09-29: "actively used").
+   */
+  fontsInUse?: readonly HubFontKey[];
   /** The guest page's address (`/<slug>`), or null before there is one. */
   publicLandingUrl: string | null;
 };

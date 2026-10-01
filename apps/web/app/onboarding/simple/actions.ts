@@ -16,6 +16,11 @@ import { captureEvent } from '@/lib/analytics';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { getBlockingLifeEvent } from '@/app/dashboard/(account)/create-event/life-event-guard';
 import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { sanitizeSetupAnswers, setupLanding } from '@/lib/onboarding/setup-answers';
+import { setupViewForProfile } from '@/lib/onboarding/setup-view';
+import { setupColumns } from '@/lib/onboarding/event-insert';
+import { SIMPLE_SETUP_FIELD } from './_components/simple-setup-field';
 
 /**
  * commitSimpleEvent — the create commit for a SIMPLE EVENT (owner 2026-06-27).
@@ -85,6 +90,22 @@ export async function commitSimpleEvent(formData: FormData) {
   const admin = createAdminClient();
   const slug = await generateUniqueSlug(admin, display_name);
 
+  // 🎟 The setup cards (G1) — read only once the seed has admitted this type,
+  // and re-read key by key against its own view (the wire is never trusted).
+  // Each answer lands in its real home, the same columns the generic commit
+  // writes (`setupColumns`, lib/onboarding/event-insert.ts).
+  const profile = await resolveProfile('simple_event');
+  let setupRaw: unknown = null;
+  try {
+    setupRaw = JSON.parse(String(formData.get(SIMPLE_SETUP_FIELD) ?? 'null'));
+  } catch {
+    setupRaw = null;
+  }
+  const setupAnswers = profile.onboardingEngine
+    ? sanitizeSetupAnswers(setupRaw, setupViewForProfile(profile))
+    : null;
+  const setup = setupAnswers ? setupColumns(setupAnswers) : null;
+
   const { data: insertedEvent, error: insertError } = await admin
     .from('events')
     .insert({
@@ -93,8 +114,10 @@ export async function commitSimpleEvent(formData: FormData) {
       event_date,
       // We have an exact date → day precision (the column DEFAULTs to 'year').
       event_date_precision: 'day',
-      venue_name: null,
+      venue_name: setup?.venue_name ?? null,
       venue_address: null,
+      ...(setup ? { invite_theme: setup.invite_theme, style_preferences: { setup: setup.setup } } : {}),
+      ...(setup?.rsvp_ask_config ? { rsvp_ask_config: setup.rsvp_ask_config } : {}),
       slug,
       is_primary: true,
       // Wedding-only CHECK columns: NULL/false for a non-wedding type
@@ -197,5 +220,6 @@ export async function commitSimpleEvent(formData: FormData) {
     },
   });
 
-  return redirect(papic.paymentPath ?? `/dashboard/${insertedEvent.event_id}`);
+  // The guests card picks the landing (`setupLanding`); no engine → Home.
+  return redirect(papic.paymentPath ?? setupLanding(insertedEvent.event_id, setupAnswers));
 }

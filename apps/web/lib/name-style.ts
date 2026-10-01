@@ -125,3 +125,16 @@ export function ticketName(
 ): string {
   return styledName(g, style) || part(g.display_name) || 'Guest';
 }
+
+/**
+ * ✍ THE THREE CHOICES, EACH WRITTEN IN THE COUPLE'S OWN NAME — the Maker's
+ * Wording ▾ on the hero's names (owner 2026-10-01, P7): the same three styles
+ * and keys as `NAME_STYLE_CHOICES`, the owner's example swapped for one
+ * person of the event's own (`person`), styled by `styledName` itself. With no
+ * name known yet, the owner's example stays. Exactly three — never a fourth.
+ */
+export function nameStyleChoicesFor(
+  person: NameParts | null | undefined,
+): ReadonlyArray<{ key: NameStyle; label: string; example: string }> {
+  return NAME_STYLE_CHOICES.map((c) => ({ ...c, example: (person ? styledName(person, c.key) : null) ?? c.example }));
+}

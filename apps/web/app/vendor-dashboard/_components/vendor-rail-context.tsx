@@ -39,6 +39,7 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 import type { VendorTeamRole } from '@/lib/vendor-team';
 import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
 import { formatCount } from '@/lib/format-number';
+import { VENDOR_MORE_MATCH } from '@/lib/vendor-more-rows';
 
 /**
  * The word the 72px icon strip shows at 1024–1279, keyed by the STABLE key and
@@ -59,8 +60,7 @@ const CAPTION: Record<string, string> = {
   overview: 'Today',
   shop: 'Shop',
   customers: 'Customers',
-  performance: 'Performance',
-  'on-the-day': 'Hub',
+  more: 'More',
 };
 
 export function VendorRailContext({
@@ -140,7 +140,16 @@ export function VendorRailContext({
     // separately with a `pathname.startsWith(planHref)` would be a second
     // answer to one question AND would light Plan on `/…/subscriptions` — the
     // missing-trailing-slash bug `match-path.ts` names in its own header.
-    [...destinations, ...(planHref ? [{ key: PLAN_KEY, href: planHref }] : [])],
+    [
+      ...destinations,
+      // More's rooms light More — Insights, Event Hub and Notifications live
+      // there since 2026-10-01. Only when this person HAS a More row (staff
+      // do not), so a scoped teammate is never shown a lit row they lack.
+      ...(destinations.some((d) => d.key === 'more')
+        ? VENDOR_MORE_MATCH.map((href) => ({ key: 'more', href }))
+        : []),
+      ...(planHref ? [{ key: PLAN_KEY, href: planHref }] : []),
+    ],
     pathname,
   );
 

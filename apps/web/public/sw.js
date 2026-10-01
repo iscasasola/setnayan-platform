@@ -7,7 +7,35 @@
 // Caches (each with its own LRU + max-age expiration · suffixed by VERSION):
 //   - setnayan-images-v2   CacheFirst        500 entries, 30-day max-age
 //   - setnayan-static-v2   StaleWhileReval.  100 entries,  7-day max-age
+//                          (only NON-content-hashed scripts/styles now — e.g.
+//                          the per-build /_next/static/<buildId>/ manifests)
 //   - setnayan-fonts-v2    CacheFirst         20 entries,  1-year max-age
+//
+// …plus ONE cache that is deliberately NOT suffixed by VERSION:
+//   - setnayan-static-immutable-v1  CacheFirst  1500 entries / 100 MB budget,
+//                          pruned when not requested for 30 days
+//   Holds Next's content-hashed build files (/_next/static/chunks|css|media/).
+//   See "KEEP THE CODE ON THE PHONE" just below.
+//
+// KEEP THE CODE ON THE PHONE (DECISION_LOG 2026-10-02 "A HOST'S WHOLE APP
+// LOADS ONCE, IN THE BACKGROUND… AND STAYS ON THE PHONE", part 2). Before this,
+// every deploy (~6 a day) changed VERSION, and `activate` deleted every cache
+// not in KNOWN_CACHES — so ALL cached code was thrown away and a returning host
+// re-downloaded the whole app. And the browser's own HTTP cache could not
+// help either: every asset URL carries Vercel's `?dpl=<deployment>` skew
+// parameter, which changes per deploy, so the HTTP cache missed too.
+//   A file under /_next/static/chunks|css|media/ is named by a hash of its own
+//   bytes (Next serves it `public, max-age=31536000, immutable`). The same name
+//   can never mean different bytes, so a file that did not change between two
+//   deploys is the SAME file — it is safe to keep forever, keyed by its path
+//   alone (the `?dpl=` query is dropped from the key). A file that DID change
+//   gets a new name, which the new deploy's HTML asks for, so it can never be
+//   served stale. That is why this cache survives deploys while everything
+//   that is NOT content-hashed (shell, offline page, day-of pages, the
+//   per-build manifests, non-hashed files) keeps the per-deploy wipe below —
+//   the 2026-06-14 "stale shell after deploy" bug class stays dead.
+//   Bump the `-v1` suffix BY HAND only if the key format or what this cache
+//   holds changes; never tie it to VERSION.
 //
 // Preserves the existing exclusions (/auth/, /api/, /health, cross-origin,
 // non-GET). App-shell navigations (dashboard / login / auth / marketing) are
@@ -16,7 +44,8 @@
 // day-of guest `/[slug]` navigation is served offline.
 //
 // Listens for `{ type: 'CACHE_BUST' }` postMessages to drop every cache —
-// used by the schema-buster pattern when NEXT_PUBLIC_CACHE_BUSTER bumps.
+// used by the schema-buster pattern when NEXT_PUBLIC_CACHE_BUSTER bumps. That
+// includes the deploy-surviving immutable cache: a bust is the escape hatch.
 //
 // CACHE VERSION — STAMPED PER DEPLOY (no more manual bumps). The build step
 // `scripts/stamp-sw.mjs` rewrites the `const VERSION = '…'` line below to the
@@ -26,7 +55,9 @@
 // byte-compares the script — installs the new worker. `install` calls
 // skipWaiting() and `activate` deletes every cache NOT in KNOWN_CACHES +
 // clients.claim(), so the prior deploy's shell/static/image caches are evicted
-// and fresh assets land within one navigation. This kills the
+// and fresh assets land within one navigation. (The one exception is the
+// content-hashed IMMUTABLE_CACHE, whose name does not contain VERSION — see
+// "KEEP THE CODE ON THE PHONE" above.) This kills the
 // "returning users see the previous build's shell/JS for one load after a
 // deploy" class of bug (the 2026-06-14 stale old-chrome shell was its last
 // instance, then patched by a one-time v3→v4 bump).
@@ -51,6 +82,9 @@ const FONT_CACHE = `setnayan-fonts-${VERSION}`;
 // stale-while-revalidate so a guest at a venue with flaky signal still sees
 // their schedule / table / floorplan from the last good fetch.
 const DAYOF_CACHE = `setnayan-dayof-${VERSION}`;
+// Content-hashed build files. NOT suffixed by VERSION — survives deploys (see
+// "KEEP THE CODE ON THE PHONE" in the header). Never derive this from VERSION.
+const IMMUTABLE_CACHE = 'setnayan-static-immutable-v1';
 
 const KNOWN_CACHES = [
   SHELL_CACHE,
@@ -58,7 +92,41 @@ const KNOWN_CACHES = [
   STATIC_CACHE,
   FONT_CACHE,
   DAYOF_CACHE,
+  IMMUTABLE_CACHE,
 ];
+
+// A Next build file whose NAME is a hash of its bytes: under chunks/, css/ or
+// media/, with a hex content hash (webpack's [contenthash] / Next's media
+// [hash]) in its file name — e.g. chunks/webpack-9041524f5488b3f7.js,
+// css/c627faead13e2e1f.css, media/313510e2713fb214-s.p.woff2. The per-build
+// /_next/static/<buildId>/_buildManifest.js + _ssgManifest.js are NOT matched
+// (their name is fixed, their bytes change per build) and stay per-deploy.
+// A file under these folders WITHOUT a hash in its name is not matched either.
+const IMMUTABLE_PATH = /^\/_next\/static\/(?:chunks|css|media)\/(?:[^/]+\/)*[^/]*[0-9a-f]{8,}[^/]*$/i;
+
+function isImmutableBuildFile(url) {
+  return url.host === self.location.host && IMMUTABLE_PATH.test(url.pathname);
+}
+
+// The cache key is the path alone: Vercel appends `?dpl=<deployment>` to every
+// asset URL and it changes per deploy, but a content-hashed name already pins
+// the bytes — keeping the query in the key would re-download every unchanged
+// file after every deploy, which is the whole problem this cache solves.
+function immutableKey(url) {
+  return url.origin + url.pathname;
+}
+
+// Sized from a production build (2026-10-02): the host app + the Maker + the
+// supplier app (/dashboard + /site-editor + /vendor-dashboard, with every lazy
+// chunk) is ~570 files / ~11 MB; the WHOLE build is 1,181 files / ~20 MB. So
+// 1,500 entries / 100 MB holds every page of the app plus a few deploys' worth
+// of replaced files. Evicted least-recently-requested first when EITHER cap is
+// passed; anything not requested for 30 days is pruned regardless.
+const IMMUTABLE_LIMITS = {
+  maxEntries: 1500,
+  maxBytes: 100 * 1024 * 1024,
+  maxAgeMs: 30 * 24 * 60 * 60 * 1000, // 30 days since last requested
+};
 
 const SHELL_ASSETS = [
   // NOTE: '/' is intentionally NOT precached. The homepage is force-dynamic and
@@ -298,12 +366,238 @@ async function staleWhileRevalidate(cacheName, request) {
   return networkPromise;
 }
 
+// ---------------------------------------------------------------------------
+// IMMUTABLE_CACHE bookkeeping. Unlike the in-memory `lru` maps above (fine for
+// caches that die with each deploy), this cache lives for weeks across many SW
+// restarts and versions — so "when was this last requested" and "how big is
+// it" are PERSISTED, as one small JSON document stored inside the cache itself
+// under IMMUTABLE_INDEX_PATH (so CACHE_BUST, which deletes the cache, deletes
+// the index with it). Shape: { v: 1, entries: { [key]: [lastRequestedMs, bytes] } }.
+// ---------------------------------------------------------------------------
+const IMMUTABLE_INDEX_PATH = '/__setnayan-sw/immutable-index.json';
+// A hit only rewrites the index when the stored time is older than this, so a
+// page load's ~30 chunk hits cost zero writes after the first of the hour.
+const IMMUTABLE_TOUCH_EVERY_MS = 60 * 60 * 1000;
+const IMMUTABLE_FLUSH_DELAY_MS = 1000;
+
+let immutableIndex = null; // Map<key, { at: number, size: number }>
+let immutableIndexLoading = null;
+let immutableFlushPending = null;
+let immutableQueue = Promise.resolve();
+
+function immutableIndexKey() {
+  return self.location.origin + IMMUTABLE_INDEX_PATH;
+}
+
+// Serialises every read-modify-write of the index + cache, so two fetches
+// finishing together can't evict on a half-updated picture.
+function withImmutableLock(fn) {
+  const run = immutableQueue.then(fn, fn);
+  immutableQueue = run.catch(() => undefined);
+  return run;
+}
+
+async function responseSize(response) {
+  try {
+    return (await response.clone().arrayBuffer()).byteLength;
+  } catch {
+    return 0;
+  }
+}
+
+function loadImmutableIndex() {
+  if (immutableIndex) return Promise.resolve(immutableIndex);
+  if (!immutableIndexLoading) {
+    immutableIndexLoading = (async () => {
+      const map = new Map();
+      const cache = await caches.open(IMMUTABLE_CACHE);
+      const indexKey = immutableIndexKey();
+      try {
+        const stored = await cache.match(indexKey);
+        const json = stored ? await stored.json() : null;
+        const entries = json && json.v === 1 && json.entries ? json.entries : {};
+        for (const key of Object.keys(entries)) {
+          const [at, size] = entries[key];
+          map.set(key, { at: Number(at) || 0, size: Number(size) || 0 });
+        }
+      } catch {
+        // Unreadable index — rebuilt from the cache's own keys just below.
+      }
+      // Reconcile with what the cache really holds: drop index rows whose file
+      // is gone; adopt files the index doesn't know (index lost / write raced
+      // a CACHE_BUST) as just-requested, with their real size.
+      const actual = new Set();
+      const now = Date.now();
+      for (const request of await cache.keys()) {
+        if (request.url === indexKey) continue;
+        actual.add(request.url);
+        if (!map.has(request.url)) {
+          const res = await cache.match(request);
+          map.set(request.url, { at: now, size: res ? await responseSize(res) : 0 });
+        }
+      }
+      for (const key of [...map.keys()]) {
+        if (!actual.has(key)) map.delete(key);
+      }
+      immutableIndex = map;
+      return map;
+    })().finally(() => {
+      immutableIndexLoading = null;
+    });
+  }
+  return immutableIndexLoading;
+}
+
+async function writeImmutableIndex() {
+  if (!immutableIndex) return;
+  const entries = {};
+  for (const [key, e] of immutableIndex) entries[key] = [e.at, e.size];
+  const cache = await caches.open(IMMUTABLE_CACHE);
+  await cache.put(
+    immutableIndexKey(),
+    new Response(JSON.stringify({ v: 1, entries }), {
+      headers: { 'Content-Type': 'application/json' },
+    }),
+  );
+}
+
+// Coalesces index writes: every caller in the next second shares one write.
+// Callers hand the returned promise to event.waitUntil so the SW stays alive
+// until it lands.
+function scheduleImmutableIndexFlush() {
+  if (!immutableFlushPending) {
+    immutableFlushPending = new Promise((resolve) => {
+      setTimeout(() => {
+        immutableFlushPending = null;
+        withImmutableLock(writeImmutableIndex).then(resolve, resolve);
+      }, IMMUTABLE_FLUSH_DELAY_MS);
+    });
+  }
+  return immutableFlushPending;
+}
+
+// Prune anything not requested for maxAgeMs, then evict least-recently-
+// requested until BOTH the entry cap and the byte budget hold.
+async function enforceImmutableLimits() {
+  const index = await loadImmutableIndex();
+  const cache = await caches.open(IMMUTABLE_CACHE);
+  const now = Date.now();
+  const victims = [];
+  const kept = [];
+  for (const [key, e] of index) {
+    if (now - e.at > IMMUTABLE_LIMITS.maxAgeMs) victims.push(key);
+    else kept.push([key, e]);
+  }
+  kept.sort((a, b) => a[1].at - b[1].at);
+  let count = kept.length;
+  let bytes = kept.reduce((sum, [, e]) => sum + e.size, 0);
+  let i = 0;
+  while (
+    i < kept.length &&
+    (count > IMMUTABLE_LIMITS.maxEntries || bytes > IMMUTABLE_LIMITS.maxBytes)
+  ) {
+    const [key, e] = kept[i];
+    victims.push(key);
+    count -= 1;
+    bytes -= e.size;
+    i += 1;
+  }
+  for (const key of victims) {
+    await cache.delete(key);
+    index.delete(key);
+  }
+  return victims.length;
+}
+
+// What may be kept forever: a same-origin 200 that is not an HTML page (an
+// error/login page answered with 200 must never be pinned under a chunk's name
+// — a hashed name is never re-fetched once cached).
+function isKeepableBuildFile(response) {
+  if (!response || response.status !== 200 || response.type !== 'basic') return false;
+  if (response.redirected) return false;
+  const type = (response.headers.get('Content-Type') || '').toLowerCase();
+  return !type.includes('text/html');
+}
+
+// CacheFirst for content-hashed build files. `after` collects the background
+// work (store, touch, evict, index flush) for the caller's event.waitUntil.
+async function immutableCacheFirst(request, url, after) {
+  const key = immutableKey(url);
+  let cache;
+  let cached;
+  try {
+    cache = await caches.open(IMMUTABLE_CACHE);
+    cached = await cache.match(key);
+  } catch {
+    // Storage unavailable (private mode, quota, a closing context): behave as
+    // if there were no worker at all rather than failing the script load.
+    return fetch(request);
+  }
+  if (cached) {
+    after.push(
+      withImmutableLock(async () => {
+        const index = await loadImmutableIndex();
+        const now = Date.now();
+        const e = index.get(key);
+        if (e && now - e.at < IMMUTABLE_TOUCH_EVERY_MS) return;
+        index.set(key, { at: now, size: e ? e.size : await responseSize(cached) });
+        after.push(scheduleImmutableIndexFlush());
+      }).catch(() => undefined),
+    );
+    return cached;
+  }
+  const response = await fetch(request);
+  if (isKeepableBuildFile(response)) {
+    const copy = response.clone();
+    after.push(
+      withImmutableLock(async () => {
+        const index = await loadImmutableIndex();
+        const size = await responseSize(copy);
+        await cache.put(key, copy);
+        index.set(key, { at: Date.now(), size });
+        await enforceImmutableLimits();
+        after.push(scheduleImmutableIndexFlush());
+      }).catch(() => undefined),
+    );
+  }
+  return response;
+}
+
+function serveImmutable(event, url) {
+  const after = [];
+  let release;
+  event.waitUntil(
+    new Promise((resolve) => {
+      release = resolve;
+    }),
+  );
+  // `after` can grow while it is being awaited (a store schedules a flush), so
+  // drain until it stops growing, then let the worker sleep.
+  const drain = async () => {
+    let seen = 0;
+    while (seen < after.length) {
+      const batch = after.slice(seen);
+      seen = after.length;
+      await Promise.allSettled(batch);
+    }
+    release();
+  };
+  event.respondWith(
+    immutableCacheFirst(event.request, url, after).finally(() => {
+      drain();
+    }),
+  );
+}
+
 async function clearAllCaches() {
   const keys = await caches.keys();
   await Promise.all(keys.map((key) => caches.delete(key)));
   for (const name of Object.keys(lru)) {
     lru[name].clear();
   }
+  // The immutable cache (and the index stored inside it) is gone too — forget
+  // the in-memory copy so the next request rebuilds it from an empty cache.
+  immutableIndex = null;
 }
 
 self.addEventListener('install', (event) => {
@@ -324,7 +618,14 @@ self.addEventListener('activate', (event) => {
             .map((key) => caches.delete(key)),
         ),
       )
-      .then(() => self.clients.claim()),
+      .then(() => self.clients.claim())
+      // A host back after a month: drop the code nobody has asked for in 30
+      // days now, not only the next time something new is stored. Best-effort.
+      .then(() =>
+        withImmutableLock(async () => {
+          if (await enforceImmutableLimits()) await writeImmutableIndex();
+        }).catch(() => undefined),
+      ),
   );
 });
 
@@ -384,6 +685,16 @@ self.addEventListener('fetch', (event) => {
     url.pathname === '/health' ||
     url.host !== self.location.host
   ) {
+    return;
+  }
+
+  // Content-hashed build files: kept across deploys, CacheFirst. Routed by
+  // PATH, not request.destination — a prefetch/preload asks with an empty
+  // destination and must land in the same place as the <script> that later
+  // uses it. A Range request (media seeking) is left to the network: a 206 is
+  // not cacheable and a whole-file 200 is not what it asked for.
+  if (isImmutableBuildFile(url) && !request.headers.has('range')) {
+    serveImmutable(event, url);
     return;
   }
 

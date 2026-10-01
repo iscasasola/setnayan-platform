@@ -29,6 +29,8 @@ import { IRow } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { useSceneCanvas } from './use-scene-canvas';
 import type { ElementDraftAction } from './element-sheet';
+import { PaletteLookRow } from './palette-look-row';
+import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
 
 export type SceneStyleChoice = { id: string; name: string; line: string; isDefault: boolean };
 
@@ -81,7 +83,16 @@ export function SceneStyleRow({
   );
 }
 
-/** A section row's Style — `canvas.style`, drafted. Null when the scene has no choice here. */
+/**
+ * A section row's Style — `canvas.style`, drafted. Null when the scene has no choice here.
+ *
+ * 🎨 The Dress code scene also carries its palette's LOOK here (`canvas.palette`,
+ * owner 2026-09-29 "FIVE PALETTE STYLES"): a **Palette** row right under Style,
+ * saved through the SAME `useSceneCanvas` so the two picks share one copy of the
+ * canvas. Drawn only where "Our colours" is drawn in the look — the Colours and
+ * roles layout, or a stage with no layouts — and only when there are colours to
+ * show, so a pick is never one that changes nothing.
+ */
 export function SceneStyleCanvasRow({
   eventId,
   widgetType,
@@ -89,6 +100,7 @@ export function SceneStyleCanvasRow({
   stage,
   eventType,
   draftAction,
+  colours = [],
 }: {
   eventId: string;
   widgetType: string;
@@ -96,20 +108,46 @@ export function SceneStyleCanvasRow({
   stage: HubStage;
   eventType: string | null;
   draftAction: ElementDraftAction;
+  /** The couple's Mood Board colours — the Palette dropdown's thumbnails. */
+  colours?: readonly string[];
 }) {
   const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
   const type = sceneStyleTypeOfWidget(widgetType);
   const options = sceneStyleOptions(type, stage, eventType);
-  if (options.length < 2) return null;
+  const layout = resolveSceneStyle(type, stage, shown.style, eventType);
+  const styleRow =
+    options.length < 2 ? null : (
+      <SceneStyleRow
+        options={options}
+        value={layout}
+        recommendedId={recommendedStageSceneStyle(type, stage, eventType)}
+        pending={pending}
+        error={error}
+        /* One row, one value across stages: the pick is stored as chosen. */
+        onPick={(id) => save((c) => { c.style = id; })}
+      />
+    );
+  const paletteRow =
+    type === 'dress_code' && colours.length > 0 && layoutDrawsPaletteLook(layout) ? (
+      <PaletteLookRow
+        value={resolvePaletteLook(shown.palette)}
+        colours={colours}
+        pending={pending}
+        /* Tags is the default, and "Auto is an absence": picking it clears the key. */
+        onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
+      />
+    ) : null;
+  if (!styleRow && !paletteRow) return null;
   return (
-    <SceneStyleRow
-      options={options}
-      value={resolveSceneStyle(type, stage, shown.style, eventType)}
-      recommendedId={recommendedStageSceneStyle(type, stage, eventType)}
-      pending={pending}
-      error={error}
-      /* One row, one value across stages: the pick is stored as chosen. */
-      onPick={(id) => save((c) => { c.style = id; })}
-    />
+    <>
+      {styleRow}
+      {paletteRow}
+      {/* The Style row says its own error; without it, the Palette row's is said here. */}
+      {!styleRow && error ? (
+        <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </>
   );
 }

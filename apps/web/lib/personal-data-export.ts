@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlsForStoredAssets } from '@/lib/uploads';
 import { listOutcome, singleOutcome, collectIncomplete } from '@/lib/export-integrity';
 import { VENDOR_PROFILE_EXPORT_SELECT } from '@/lib/export-vendor-profile-columns';
+import { readOwnFaceEnrollments } from '@/lib/export-own-face-enrollments';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { budgetPaymentProofPolicy } from '@/lib/r2-client-ref';
 import {
@@ -31,8 +32,8 @@ import {
     · app/admin/users/[userId]/export/route.ts — an admin, on the person's
       request. `supabase` is the SERVICE-ROLE client and `preparedBy` is
       'setnayan_admin'. Every read below already filters on the subject's own
-      id, except two that leaned on RLS alone (face enrollments, godparents):
-      those state the policy as a filter on the admin path. The file also
+      id — including face enrollments and godparents, which since #6228 filter
+      on the subject explicitly for BOTH callers instead of leaning on RLS. The file also
       drops message text (see ADMIN_PREPARED_WITHHELD) and says who prepared it.
 
   ⚠ PROPERTY 1 BELOW HAS A SECOND SOURCE NOW, said plainly rather than hidden:
@@ -418,38 +419,14 @@ export async function buildPersonalDataExport(
       .eq('user_id', user.id)
       .order('created_at', { ascending: true }),
     // The subject's OWN biometric face-enrollment METADATA (iteration 0012).
-    // guest_reads_own_face_enrollment RLS scopes SELECT to guest rows the
-    // subject owns via event_members. We deliberately EXCLUDE face_vector (the
-    // raw embedding) — the export ships consent/provenance metadata only, per
-    // RA 10173 (disclose what biometric data we hold, not the biometric itself).
-    //
-    // ADMIN-PREPARED FILES (2026-10-01): `supabase` is the service-role client
-    // there, so RLS no longer narrows this read and an unfiltered select would
-    // hand one person every guest's enrollment on the platform. The admin path
-    // therefore states the scope the policy above describes — the guest rows
-    // the subject's OWN event_members rows point at — as an explicit filter.
-    // The self path is unchanged: the same query, narrowed by RLS as before.
-    (async () => {
-      const faceRead = supabase
-        .from('guest_face_enrollments')
-        .select(
-          'enrollment_id, event_id, source, consent_at, consent_source, ' +
-            'revoked_at, quality_score, vector_model, created_at, updated_at',
-        )
-        .order('created_at', { ascending: true });
-      if (!forAdmin) return faceRead;
-      const ownGuestRows = await supabase
-        .from('event_members')
-        .select('guest_id')
-        .eq('user_id', user.id)
-        .not('guest_id', 'is', null);
-      if (ownGuestRows.error) return { data: [] as unknown[], error: ownGuestRows.error };
-      const guestIds = ownGuestRows.data
-        .map((r) => (r as { guest_id?: string | null }).guest_id)
-        .filter((id): id is string => typeof id === 'string');
-      if (guestIds.length === 0) return { data: [] as unknown[], error: null };
-      return faceRead.in('guest_id', guestIds);
-    })(),
+    // 🔑 SCOPED TO THE SUBJECT'S OWN GUEST ROWS (event_members.guest_id where
+    // user_id = the subject), never "rows RLS lets me read": RLS also admits a
+    // HOST every guest's row at their events, and the service-role client of an
+    // admin-prepared file admits every row on the platform (fixed 2026-10-01,
+    // #6228). One filter for both callers — see lib/export-own-face-enrollments.
+    // face_vector (the raw embedding) is never exported — RA 10173 discloses
+    // what biometric data we hold, not the biometric itself.
+    readOwnFaceEnrollments(supabase, user.id),
     // RA 10173 (2026-07-17) — Alaga (dependents) records: what the subject
     // stores as a guardian, what they claimed as their own profile, and what
     // they handed over (read-only history). Spouse-SHARED rows the OTHER
@@ -469,28 +446,28 @@ export async function buildPersonalDataExport(
       )
       .order('created_at', { ascending: true }),
     // Godparent (ninong/ninang) edges — the subject's own rows as guardian
-    // plus, via godparents_subject_read, the edges on a profile they claimed.
-    // ADMIN-PREPARED FILES (2026-10-01): the two policies spelled out as
-    // filters, because the service-role client consults neither —
-    // godparents_owner_all (owner_user_id = the subject) and
-    // godparents_subject_read (the dependent the subject CLAIMED).
+    // plus the edges on a profile they claimed. 🔑 Both lanes EXPLICIT for both
+    // callers (2026-10-01, #6228): godparents_owner_all also admits is_admin()
+    // to every row, and the service-role client of an admin-prepared file
+    // consults no policy at all. The claimed lane is resolved from `dependents`
+    // the subject claimed (claimed_user_id = the subject), the policy's EXISTS.
     (async () => {
-      const godparentRead = supabase
-        .from('godparents')
-        .select('godparent_id, dependent_id, godparent_name, godparent_email, role, created_at')
-        .order('created_at', { ascending: true });
-      if (!forAdmin) return godparentRead;
       const claimed = await supabase
         .from('dependents')
         .select('dependent_id')
         .eq('claimed_user_id', user.id);
       if (claimed.error) return { data: [] as unknown[], error: claimed.error };
       const claimedIds = claimed.data
-        .map((r) => (r as { dependent_id?: string | null }).dependent_id)
+        .map((r) => (r as { dependent_id?: string }).dependent_id)
         .filter((id): id is string => typeof id === 'string');
-      return claimedIds.length === 0
-        ? godparentRead.eq('owner_user_id', user.id)
-        : godparentRead.or(`owner_user_id.eq.${user.id},dependent_id.in.(${claimedIds.join(',')})`);
+      return supabase
+        .from('godparents')
+        .select('godparent_id, dependent_id, godparent_name, godparent_email, role, created_at')
+        .or(
+          `owner_user_id.eq.${user.id}` +
+            (claimedIds.length > 0 ? `,dependent_id.in.(${claimedIds.join(',')})` : ''),
+        )
+        .order('created_at', { ascending: true });
     })(),
     // RA 10173 (2026-07-17) — samahan memberships: the group's user-chosen
     // name, the subject's role, and when they joined. No kind/category exists

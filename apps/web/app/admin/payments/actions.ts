@@ -12,7 +12,9 @@ import { requireAdminAction as requireAdmin } from '@/lib/admin/require-admin';
 // Idempotent + inert-when-reward-unset (see lib/referrals.ts).
 import { qualifyReferralOnFirstPaidOrder } from '@/lib/referrals';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
+import { guestPaymentRowFor, paymentRowFor } from '@/lib/order-mint-identity';
+import { receivingAccounts } from '@/lib/payment-channels';
 import { paymentProofPolicy } from '@/lib/r2-client-ref';
 import { createClient } from '@/lib/supabase/server';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
@@ -30,7 +32,7 @@ import {
   shouldProvisionOnApproval,
 } from '@/lib/orders';
 import { computeVatFromBase, computeVatFromGross } from '@/lib/receipts';
-import { getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { fetchPlatformSettingsMeasured, getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { captureEvent } from '@/lib/analytics';
 import { guestReceiptName } from '@/lib/papic-guest-buy';
 import {
@@ -71,6 +73,7 @@ import {
 } from '@/lib/pay-back-link';
 import {
   PROMOTABLE_ORDER_STATUSES,
+  canLogPaymentAgainstOrder,
   canPromoteOrderToPaid,
   promotionRefusedReason,
 } from '@/lib/order-promotion-rule';
@@ -132,8 +135,35 @@ async function notifyBuyerIfAny(
   await emitNotification({ userId, ...args });
 }
 
+/**
+ * The desk URL an approve/record lands back on. It CARRIES THE SEARCH (row 13):
+ * an admin who looked one order up and approved it must land on that order,
+ * not on the newest-100 list where it may not even appear.
+ */
+function deskUrl(q: string | null, notice?: string, warn = false): string {
+  const parts = ['filter=all'];
+  if (q) parts.push(`q=${encodeURIComponent(q)}`);
+  if (notice) parts.push(`notice=${encodeURIComponent(notice)}`);
+  if (warn) parts.push('noticeType=warn');
+  return `/admin/payments?${parts.join('&')}`;
+}
+
+/** The search term as the desk sanitises it — never fed raw to a URL. */
+function deskQuery(raw: FormDataEntryValue | null): string | null {
+  if (typeof raw !== 'string') return null;
+  const q = raw.trim().slice(0, 64).replace(/[^A-Za-z0-9@_-]/g, '');
+  return q.length > 0 ? q : null;
+}
+
 export async function approvePayment(formData: FormData) {
   const { userId } = await requireAdmin();
+  const q = deskQuery(formData.get('q'));
+  // ── RECORD A PAYMENT RECEIVED (owner 2026-10-01, admin rows 13–16) ────────
+  // An intent branch, not a new exported action: the server-action budget is
+  // at its ceiling, and recording money an admin SAW arrive is approval with
+  // the "I paid" step done on the customer's behalf.
+  if (formData.get('intent') === 'record') return recordPaymentReceived(userId, q, formData);
+
   const paymentId = formData.get('payment_id');
   const adminNotes = nullIfBlank(formData.get('admin_notes'));
   const promoteOrder = formData.get('promote_order') === 'on';
@@ -155,9 +185,7 @@ export async function approvePayment(formData: FormData) {
     // Shortfall or duplicate — surface the same inline warn notice + URL the guard used
     // before it was hoisted into the core helper. A NEXT_REDIRECT control exit,
     // so (exactly like the prior in-line throw/redirect) nothing below runs.
-    redirect(
-      `/admin/payments?filter=all&notice=${encodeURIComponent(outcome.message)}&noticeType=warn`,
-    );
+    redirect(deskUrl(q, outcome.message, true));
   }
   // The admin's OWN views revalidate synchronously so the queue reflects the
   // approval on this response.
@@ -166,6 +194,149 @@ export async function approvePayment(formData: FormData) {
   // Couple-facing surfaces refresh a beat later, post-response — see the note
   // in approvePaymentCore's provisioning block for why this is deferred.
   after(() => revalidatePath('/dashboard', 'layout'));
+}
+
+/**
+ * Money arrived that nobody logged — a customer who paid and never pressed
+ * "I paid", a transfer the owner spotted in the bank app. The admin records it
+ * here and it goes straight through the SAME approval path.
+ *
+ * 🔑 THE ROW IS THE CUSTOMER'S ROW. It is written by the same helpers, in the
+ * same shape, as the customer's own "I paid" (`logPayment` in
+ * app/dashboard/[eventId]/orders/actions.ts): `paymentRowFor` binds it to the
+ * order's BUYER (or `guestPaymentRowFor` for an order with no account) and
+ * stamps it `pending`. Then `approvePaymentCore` — not a shortcut — flips it,
+ * so the shortfall guard, the duplicate-reference rule, the receipt, payouts
+ * and provisioning all run exactly as they do for any other payment.
+ *
+ * Refused, never guessed: a closed order (the same rule the customer's door
+ * asks), an account that is not one of Setnayan's, an amount that is not a
+ * positive number.
+ */
+async function recordPaymentReceived(
+  adminUserId: string,
+  q: string | null,
+  formData: FormData,
+): Promise<void> {
+  const refuse = (message: string): never => redirect(deskUrl(q, message, true));
+
+  const orderId = nullIfBlank(formData.get('order_id'));
+  if (!orderId) refuse('Pick the order the money was for.');
+  const amount = Number(nullIfBlank(formData.get('amount_php')) ?? NaN);
+  if (!Number.isFinite(amount) || amount <= 0) refuse('Type the amount that arrived.');
+  const paidAtRaw = nullIfBlank(formData.get('paid_at'));
+  const paidAt =
+    paidAtRaw && /^\d{4}-\d{2}-\d{2}$/.test(paidAtRaw) ? paidAtRaw : new Date().toISOString().slice(0, 10);
+  const reference = nullIfBlank(formData.get('reference_number'))?.slice(0, 64) ?? null;
+  const note = nullIfBlank(formData.get('admin_notes'))?.slice(0, 500) ?? null;
+  const idempotencyKey = nullIfBlank(formData.get('client_idempotency_key'))?.slice(0, 64) ?? null;
+
+  const admin = createAdminClient();
+
+  // "Paid into" must be one of OUR accounts — the same id the customer's
+  // picker posts, so the monthly-limit meter counts it (it matches by id).
+  // A switched-OFF account still counts: money can land in it after it closed.
+  const { settings, readFailed, accountsReadFailed } = await fetchPlatformSettingsMeasured(admin);
+  if (readFailed || accountsReadFailed) {
+    refuse('Couldn’t read our receiving accounts just now, so nothing was recorded. Try again.');
+  }
+  const channel = nullIfBlank(formData.get('channel'));
+  if (!channel || !receivingAccounts(settings).some((a) => a.id === channel)) {
+    refuse('Pick which of our accounts the money arrived in.');
+  }
+
+  const { data: orderRow, error: orderErr } = await admin
+    .from('orders')
+    .select('order_id, public_id, user_id, status')
+    .eq('order_id', orderId!)
+    .maybeSingle();
+  if (orderErr) refuse('Couldn’t read that order just now, so nothing was recorded. Try again.');
+  const order = orderRow as
+    | { order_id: string; public_id: string | null; user_id: string | null; status: string }
+    | null;
+  if (!order) refuse('That order no longer exists.');
+  // The customer's own door asks this exact question (CTRL-B1 build 2): money
+  // attached to a closed order is money nothing will ever look at again.
+  if (!canLogPaymentAgainstOrder(order!.status)) {
+    refuse(
+      `This order is “${order!.status}” and is no longer taking payments. Refund the money instead of recording it.`,
+    );
+  }
+
+  const fields = {
+    amount_php: Math.round(amount * 100) / 100,
+    channel: channel!,
+    reference_number: reference,
+    paid_at: paidAt,
+    client_idempotency_key: idempotencyKey,
+  };
+  const moneyWriter = createMoneyWriterClient();
+  const { data: inserted, error: insErr } = await moneyWriter
+    .from('payments')
+    .insert(
+      order!.user_id
+        ? paymentRowFor({ userId: order!.user_id, verifiedOrderId: order!.order_id }, fields)
+        : guestPaymentRowFor({ verifiedOrderId: order!.order_id, userId: null }, fields),
+    )
+    .select('payment_id')
+    .maybeSingle();
+
+  let paymentId = (inserted as { payment_id: string } | null)?.payment_id ?? null;
+  if (insErr) {
+    // 23505 on (order_id, client_idempotency_key) = the first press already
+    // wrote it (a double tap, a retry). Find that row and carry on with it.
+    if ((insErr as { code?: string }).code === '23505' && idempotencyKey) {
+      const { data: prior } = await admin
+        .from('payments')
+        .select('payment_id, status')
+        .eq('order_id', order!.order_id)
+        .eq('client_idempotency_key', idempotencyKey)
+        .maybeSingle();
+      const p = prior as { payment_id: string; status: string } | null;
+      if (p && p.status !== 'pending') {
+        redirect(deskUrl(q ?? order!.public_id, 'That payment is already recorded.'));
+      }
+      paymentId = p?.payment_id ?? null;
+    } else {
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Record a payment received (admin)',
+        file_path: 'app/admin/payments/actions.ts',
+        error_message: insErr.message,
+        payload_snapshot: { orderId: order!.order_id, adminUserId },
+      });
+      refuse('Couldn’t record the payment. Nothing was saved — try again.');
+    }
+  }
+  if (!paymentId) refuse('Couldn’t record the payment. Nothing was saved — try again.');
+
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'payment_recorded_by_admin',
+    target_id: order!.order_id,
+    actor_user_id: adminUserId,
+    metadata: { payment_id: paymentId, public_id: order!.public_id, amount_php: fields.amount_php, channel },
+  });
+  // Non-fatal: the payment row and the ledger written by the core are the record.
+  if (auditErr) console.error('[recordPaymentReceived] audit insert failed (non-fatal):', auditErr);
+
+  const outcome = await approvePaymentCore({
+    admin,
+    userId: adminUserId,
+    paymentId: paymentId!,
+    adminNotes: note ?? 'Recorded by an admin from the payments desk',
+    promoteOrder: true,
+  });
+  revalidatePath('/admin/payments');
+  revalidatePath('/admin/payouts');
+  revalidatePath('/admin/money');
+  after(() => revalidatePath('/dashboard', 'layout'));
+  const back = q ?? order!.public_id;
+  if (!outcome.ok) {
+    // The payment IS recorded and matched; only the order's promotion was held
+    // back, and the message says why (short, duplicate, not promotable).
+    redirect(deskUrl(back, `Recorded. ${outcome.message}`, true));
+  }
+  redirect(deskUrl(back, `Recorded ${formatPhp(fields.amount_php)} and confirmed.`));
 }
 
 /**

@@ -81,7 +81,7 @@ import { CopyButton } from '@/app/_components/copy-button';
 import {
   ChannelToggle,
   PaymentDetailsBlock,
-  railFromSettings,
+  openRailsFromSettings,
 } from '@/app/_components/payment/payment-rails';
 import { useAnonGate } from '@/app/_components/anon-gate/anon-gate-context';
 import { SaveToContinue } from '@/app/_components/anon-gate/save-to-continue';
@@ -96,7 +96,6 @@ import {
   type SubmitOrderResult,
 } from '@/app/dashboard/[eventId]/checkout/actions';
 import { computeVatFromBase } from '@/lib/receipts';
-import { openChannels } from '@/lib/payment-channels';
 
 export type InlineCheckoutDrawerProps = {
   serviceKey: string;
@@ -144,6 +143,12 @@ export type InlineCheckoutDrawerProps = {
      */
     gcash_enabled?: boolean | null;
     bdo_enabled?: boolean | null;
+    /**
+     * Setnayan's receiving-accounts LIST (owner 2026-10-01). Optional so a
+     * caller that has not been updated still typechecks — without it the two
+     * fixed rails above are offered, exactly as before.
+     */
+    receiving_accounts?: unknown;
   };
   /** Optional custom collapsed CTA label · defaults to "Add this service". */
   triggerLabel?: string;
@@ -271,10 +276,13 @@ export function InlineCheckoutDrawer({
   // rather than queuing them — so offering it would send the couple to pay
   // into an account that cannot receive. Recomputed from settings, never
   // hardcoded to 'gcash'.
-  const openRails = useMemo(() => openChannels(settings), [settings]);
-  const [channel, setChannel] = useState<'gcash' | 'bdo'>(
-    () => openRails[0] ?? 'gcash',
-  );
+  //
+  // The rails are Setnayan's receiving-accounts LIST (owner 2026-10-01), the
+  // open ones only, in the admin's order — asked of the ONE rule.
+  const railInfos = useMemo(() => openRailsFromSettings(settings), [settings]);
+  const openRails = useMemo(() => railInfos.map((r) => r.id), [railInfos]);
+  const [channel, setChannel] = useState<string>(() => openRails[0] ?? 'gcash');
+  const shownRail = railInfos.find((r) => r.id === channel) ?? railInfos[0] ?? null;
 
   // If the owner closes the rail this drawer is sitting on (or settings load
   // late), move to one that is open. Without this the couple keeps looking at
@@ -547,7 +555,7 @@ export function InlineCheckoutDrawer({
                 />
 
                 {/* (2) Channel toggle. */}
-                <ChannelToggle channel={channel} onChange={setChannel} open={openRails} />
+                <ChannelToggle channel={channel} onChange={setChannel} rails={railInfos} />
 
                 {/* (3) QR + account block based on channel.
                     Suppressed entirely when every rail is closed — otherwise
@@ -555,9 +563,8 @@ export function InlineCheckoutDrawer({
                     is at its cap and will bounce the transfer. The server
                     refuses such an order anyway; showing the details would
                     just get someone to pay first. */}
-                {openRails.length > 0 ? (
+                {shownRail ? (
                   <PaymentDetailsBlock
-                    channel={channel}
                     /* ⚠ NO `mintedUrl` YET — this drawer still draws its code
                        in the BROWSER, so the static ₱0 code holds the screen
                        until the `qrcode` chunk lands. That is the same window
@@ -567,7 +574,7 @@ export function InlineCheckoutDrawer({
                        the pages that mount the drawer to mint alongside the
                        settings they already fetch — a separate change, listed
                        rather than half-done. */
-                    info={railFromSettings(channel, settings)}
+                    info={shownRail}
                     referenceCode={referenceCode}
                     amountPhp={finalGrossPhp}
                   />
@@ -652,7 +659,9 @@ export function InlineCheckoutDrawer({
                     >
                       {channel === 'gcash'
                         ? 'Reference number from GCash'
-                        : 'InstaPay Invoice No. from your transfer'}
+                        : shownRail?.kind === 'bank'
+                          ? 'InstaPay Invoice No. from your transfer'
+                          : `Reference number from ${shownRail?.label ?? 'your app'}`}
                     </label>
                     {/* Name the EXACT field, per rail. Verified on live
                         transfers 2026-07-31: on GCash→GCash the reference is
@@ -671,14 +680,16 @@ export function InlineCheckoutDrawer({
                       autoComplete="off"
                       inputMode="numeric"
                       placeholder={
-                        channel === 'gcash' ? 'e.g. 0043457367694' : 'e.g. 6991560'
+                        shownRail?.kind === 'bank' ? 'e.g. 6991560' : 'e.g. 0043457367694'
                       }
                       className="input-field"
                     />
                     <p className="mt-1 text-[11px] text-ink/50">
                       {channel === 'gcash'
                         ? 'Open the transaction in GCash and tap the copy icon beside Reference Number.'
-                        : 'On your GCash transfer receipt, copy the InstaPay Invoice No. (not the Ref No. below it).'}{' '}
+                        : shownRail?.kind === 'bank'
+                          ? 'On your GCash transfer receipt, copy the InstaPay Invoice No. (not the Ref No. below it).'
+                          : 'Open the transaction in your app and copy its reference number.'}{' '}
                       Optional · but it lets us confirm your payment much faster.
                     </p>
                   </div>

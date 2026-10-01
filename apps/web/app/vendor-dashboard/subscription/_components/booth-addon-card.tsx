@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Clock, Store } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
+import { type OpenRail } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
   activateVendor3dBooth,
@@ -54,7 +54,7 @@ export type BoothAddonCardProps = {
   /** openChannels(settings) — the rails the owner has left ON. Empty = payments
    *  paused: the paid path shows PaymentsPausedNote and its button is disabled
    *  (the server action refuses the same case). A free grant ignores it. */
-  openRails: readonly PayChannel[];
+  openRails: readonly OpenRail[];
   /** seating3dEnabled() — the 3D Plan master switch (kill-switch, on by default).
    *  When OFF the whole add-on is "Coming soon": no buy CTA renders (and the
    *  server action rejects), because a booth can't render if 3D is switched off. */
@@ -193,12 +193,10 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
                 <legend className="text-xs font-medium text-ink">Pay with</legend>
                 <div className="mt-1.5 flex flex-wrap gap-3">
                   {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-                  {(['bdo', 'gcash'] as const)
-                    .filter((r) => openRails.includes(r))
-                    .map((r, n) => (
-                      <label key={r} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
-                        <input type="radio" name="channel" value={r} defaultChecked={n === 0} />
-                        {PAY_CHANNEL_LABEL[r]}
+                  {openRails.map((r, n) => (
+                      <label key={r.id} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
+                        <input type="radio" name="channel" value={r.id} defaultChecked={n === 0} />
+                        {r.label}
                       </label>
                     ))}
                 </div>

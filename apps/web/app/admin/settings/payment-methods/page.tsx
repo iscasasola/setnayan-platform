@@ -1,4 +1,4 @@
-import { Smartphone, Trash2, Wallet } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, Trash2, Wallet } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BackButton } from '@/app/_components/back-button';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -7,8 +7,11 @@ import {
   channelHeadroom,
   headroomMessage,
   monthStartISO,
-  PAY_CHANNEL_LABEL,
+  PAY_CHANNELS,
+  receivingAccounts,
+  type ReceivingAccount,
 } from '@/lib/payment-channels';
+import { parseTlv } from '@/lib/emv-qr';
 import { formatPhp } from '@/lib/orders';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -46,6 +49,7 @@ type Props = {
     error?: string;
     qr_uploaded?: string;
     qr_removed?: string;
+    notice?: string;
   }>;
 };
 
@@ -77,8 +81,11 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   // below with blanks; one Save would then write those blanks over the real
   // BDO / GCash details every order page reads. `settingsReadFailed` says so
   // and disables Save.
-  const { settings, readFailed: settingsReadFailed } =
-    await fetchPlatformSettingsMeasured(admin);
+  const {
+    settings,
+    readFailed: settingsReadFailed,
+    accountsReadFailed,
+  } = await fetchPlatformSettingsMeasured(admin);
 
   // Setnayan inflow per rail, in TWO windows — the meter needs both.
   //
@@ -174,22 +181,28 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
    */
   const rows = data as PaymentMethodRow[] | null;
 
+  // Setnayan's receiving accounts, in the order customers see them. A refused
+  // read of the LIST turns every list control off: each one rewrites the whole
+  // array, and a write built on the fall-back two would replace the real list.
+  const accounts = receivingAccounts(settings);
+  const listLocked = settingsReadFailed || accountsReadFailed;
+  const cappedRails = PAY_CHANNELS.filter((id) => accounts.some((a) => a.id === id));
+  const notice = typeof search.notice === 'string' ? search.notice.slice(0, 400) : '';
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
       <BackButton href="/admin/settings" label="Back to settings" />
 
       {/* The page starts at its content — the Back to settings link above is
           untouched, because on a phone it is the only way up a level.
-          ⚖ The sentence survives: an edit here changes the account number a
-          couple is told to transfer money to, on order pages, receipts and
-          confirmation emails, immediately. */}
+          ⚖ The sentence survives: an edit here changes the account a customer
+          is told to send money to, on checkout, order pages, receipts and
+          confirmation emails. */}
       <PageMasthead title="Payment methods" />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
-          BDO and GCash account details + QR codes the app shows to couples on
-          order detail pages so they can transfer. Edits propagate everywhere
-          immediately — order pages, receipts, and confirmation emails read
-          from the same row.
+          Where customers send money. They see these accounts at checkout, in
+          this order.
         </p>
       </div>
 
@@ -198,14 +211,15 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           {decodeURIComponent(search.error)}
         </FormFlash>
       ) : null}
+      {notice ? <FormFlash tone="success">{notice}</FormFlash> : null}
       {search.saved ? (
         <FormFlash tone="success">
-          Payment details saved. Live changes show on every order detail page.
+          Saved. Checkout shows the change straight away.
         </FormFlash>
       ) : null}
       {search.qr_uploaded ? (
         <FormFlash tone="success">
-          QR code uploaded. It now shows on order detail pages for couples.
+          QR code uploaded. It now shows at checkout.
         </FormFlash>
       ) : null}
       {search.qr_removed ? (
@@ -217,140 +231,122 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
         </p>
       ) : null}
 
-      {settingsReadFailed ? (
+      {listLocked ? (
         <FormFlash tone="error">
-          Couldn&rsquo;t load the saved payment details — refresh to try again.
-          Saving is off until they load, so blank fields can&rsquo;t overwrite
-          the real ones.
+          Couldn&rsquo;t load the saved accounts — refresh to try again.
+          Changes are off until they load, so nothing can overwrite the real
+          ones.
         </FormFlash>
       ) : null}
 
-      <form action={savePaymentInstruments} className="space-y-8">
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Wallet className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              BDO bank transfer
-            </h2>
-          </div>
-          <Field label="Account name" htmlFor="bdo_account_name">
-            <input
-              id="bdo_account_name"
-              name="bdo_account_name"
-              defaultValue={settings.bdo_account_name ?? ''}
-              className="input-field"
-            />
-          </Field>
-          <Field label="Account number" htmlFor="bdo_account_number">
-            <input
-              id="bdo_account_number"
-              name="bdo_account_number"
-              defaultValue={settings.bdo_account_number ?? ''}
-              placeholder="000-000-000-000"
-              className="input-field font-mono"
-            />
-          </Field>
-          <ChannelSwitch
-            kind="bdo"
-            enabled={settings.bdo_enabled}
-            capPhp={settings.bdo_monthly_cap_php}
-            availablePhp={settings.bdo_available_php}
-            availableAsOf={settings.bdo_available_as_of}
-            inflowSinceAsOfPhp={sinceAsOf.bdo}
-            inflowThisMonthPhp={sinceMonthStart.bdo}
-            inflowMeasured={inflowMeasured}
-            now={now}
+      {/* ── THE LIST (owner 2026-10-01) ───────────────────────────────────── */}
+      <section className="space-y-4" aria-labelledby="our-accounts">
+        <div className="flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
+          <h2
+            id="our-accounts"
+            className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55"
+          >
+            Our accounts
+          </h2>
+        </div>
+        <p className="text-xs text-ink/60">
+          A new account, or a new name, number or QR, goes live when a second
+          admin approves it. Turning an account off, re-ordering and renaming
+          the label save straight away.
+        </p>
+        {accounts.map((a, i) => (
+          <AccountCard
+            key={a.id}
+            account={a}
+            first={i === 0}
+            last={i === accounts.length - 1}
+            only={accounts.length === 1}
+            locked={listLocked}
           />
-        </section>
+        ))}
+      </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Smartphone className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-              GCash
-            </h2>
-          </div>
-          <Field label="Account name" htmlFor="gcash_account_name">
-            <input
-              id="gcash_account_name"
-              name="gcash_account_name"
-              defaultValue={settings.gcash_account_name ?? ''}
-              className="input-field"
-            />
-          </Field>
-          <Field label="GCash number" htmlFor="gcash_number">
-            <input
-              id="gcash_number"
-              name="gcash_number"
-              defaultValue={settings.gcash_number ?? ''}
-              placeholder="+63 917 …"
-              className="input-field font-mono"
-            />
-          </Field>
-          <ChannelSwitch
-            kind="gcash"
-            enabled={settings.gcash_enabled}
-            capPhp={settings.gcash_monthly_cap_php}
-            availablePhp={settings.gcash_available_php}
-            availableAsOf={settings.gcash_available_as_of}
-            inflowSinceAsOfPhp={sinceAsOf.gcash}
-            inflowThisMonthPhp={sinceMonthStart.gcash}
-            inflowMeasured={inflowMeasured}
-            now={now}
-          />
-        </section>
-
-        <div className="flex items-center justify-between gap-3 border-t border-ink/10 pt-4">
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-            Last updated{' '}
-            {new Date(settings.updated_at).toLocaleString()}
-          </p>
+      {/* ── ADD ONE ──────────────────────────────────────────────────────── */}
+      <section className="mt-6 space-y-3 sn-tile p-5" aria-labelledby="add-account">
+        <h3 id="add-account" className="flex items-center gap-2 text-sm font-semibold text-ink">
+          <Plus aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Add an account
+        </h3>
+        <form action={savePaymentInstruments} className="space-y-3">
+          <input type="hidden" name="intent" value="account_save" />
+          <AccountFields />
           <SubmitButton
             className="button-primary inline-flex items-center gap-2"
-            pendingLabel="Saving…"
-            disabled={settingsReadFailed}
+            pendingLabel="Adding…"
+            disabled={listLocked}
           >
-            Save payment details
+            Add account
           </SubmitButton>
-        </div>
-      </form>
+          <p className="text-[11px] text-ink/50">
+            Customers see it once a second admin approves it. Add its QR after.
+          </p>
+        </form>
+      </section>
 
-      <div className="mt-10 space-y-6 border-t border-ink/10 pt-8">
-        <header className="space-y-1">
+      {/* ── MONTHLY LIMITS (GCash + BDO only — their columns predate the list) ── */}
+      {cappedRails.length > 0 ? (
+        <form action={savePaymentInstruments} className="mt-10 space-y-4 border-t border-ink/10 pt-8">
           <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Merchant QR codes
+            Monthly limits
           </h2>
-          <p className="text-sm text-ink/60">
-            Upload a photo or screenshot of your merchant QR code (PNG, JPEG,
-            WebP, GIF, or HEIC, ≤ 6 MB). We&rsquo;ll auto-detect the QR and crop
-            it to a 512×512 square before saving so it renders clean on every
-            couple&rsquo;s order detail page.
-          </p>
-          <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
-            <span className="font-semibold">
-              Upload the plain receiving QR &mdash; the one with NO amount on
-              it.
-            </span>{' '}
-            Setnayan writes each order&rsquo;s exact amount into the code
-            itself, down to the centavo, so the payer never types a figure. If
-            you use the QR your wallet app generates <em>with</em> an amount
-            baked in, that app applies its own minimum (GCash asks for
-            &#8369;100) and every order would be charged that one frozen
-            amount. Our own smallest item sells for &#8369;70, so an
-            amount-baked QR would break it.
-          </p>
-        </header>
+          {cappedRails.map((id) => (
+            <ChannelSwitch
+              key={id}
+              kind={id}
+              label={accounts.find((a) => a.id === id)?.label ?? id}
+              capPhp={id === 'gcash' ? settings.gcash_monthly_cap_php : settings.bdo_monthly_cap_php}
+              availablePhp={id === 'gcash' ? settings.gcash_available_php : settings.bdo_available_php}
+              availableAsOf={id === 'gcash' ? settings.gcash_available_as_of : settings.bdo_available_as_of}
+              inflowSinceAsOfPhp={sinceAsOf[id]}
+              inflowThisMonthPhp={sinceMonthStart[id]}
+              inflowMeasured={inflowMeasured}
+              now={now}
+            />
+          ))}
+          <div className="flex items-center justify-between gap-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+              Last updated {new Date(settings.updated_at).toLocaleString()}
+            </p>
+            <SubmitButton
+              className="button-primary inline-flex items-center gap-2"
+              pendingLabel="Saving…"
+              disabled={settingsReadFailed}
+            >
+              Save limits
+            </SubmitButton>
+          </div>
+        </form>
+      ) : null}
 
-        <QrUploadBlock
-          kind="bdo"
-          label="BDO QR code"
-          currentUrl={settings.bdo_qr_url}
-        />
-        <QrUploadBlock
-          kind="gcash"
-          label="GCash QR code"
-          currentUrl={settings.gcash_qr_url}
-        />
+      <div className="mt-10 space-y-2 border-t border-ink/10 pt-8">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
+          About QR codes
+        </h2>
+        <p className="text-sm text-ink/60">
+          Upload a photo or screenshot of the account&rsquo;s receiving QR
+          (PNG, JPEG, WebP, GIF, or HEIC, ≤ 6 MB). We find the code, crop it
+          square, and read it so each order&rsquo;s amount can be written into
+          it.
+        </p>
+        <p className="rounded-md border border-warn-200/60 bg-warn-50/60 px-3 py-2 text-xs text-warn-900">
+          <span className="font-semibold">
+            Upload the plain receiving QR &mdash; the one with NO amount on
+            it.
+          </span>{' '}
+          Setnayan writes each order&rsquo;s exact amount into the code
+          itself, down to the centavo, so the payer never types a figure. If
+          you use the QR your wallet app generates <em>with</em> an amount
+          baked in, that app applies its own minimum (GCash asks for
+          &#8369;100) and every order would be charged that one frozen
+          amount. Our own smallest item sells for &#8369;70, so an
+          amount-baked QR would break it.
+        </p>
       </div>
 
       <div className="mt-12 space-y-3 border-t border-ink/10 pt-8">
@@ -455,55 +451,220 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
   );
 }
 
-function QrUploadBlock({
-  kind,
-  label,
-  currentUrl,
-}: {
-  kind: 'bdo' | 'gcash';
-  label: string;
-  currentUrl: string | null;
-}) {
-  return (
-    <section className="space-y-3 sn-tile p-5">
-      <h3 className="text-sm font-semibold text-ink">{label}</h3>
+/** What the QR itself says it pays: the merchant name (EMV tag 59). */
+function qrMerchantName(payload: string | null): string | null {
+  if (!payload) return null;
+  try {
+    return parseTlv(payload).find((f) => f.id === '59')?.value.trim() || null;
+  } catch {
+    return null;
+  }
+}
 
-      {currentUrl ? (
-        <div className="flex flex-wrap items-start gap-4">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={currentUrl}
-            alt={`${label} preview`}
-            className="h-40 w-40 rounded-md border border-ink/10 bg-white/70 object-contain"
-          />
-          <div className="flex-1 space-y-2 text-sm text-ink/65">
-            <p>Currently shown to couples on order detail pages.</p>
-            <form action={removeMerchantQr}>
-              <input type="hidden" name="kind" value={kind} />
+const SMALL_BUTTON =
+  'inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-60';
+
+/**
+ * One receiving account: its details, its switch, its place in the order and
+ * its QR. Every control is its OWN form, side by side — never nested — and
+ * each posts one intent to `savePaymentInstruments`.
+ */
+function AccountCard({
+  account,
+  first,
+  last,
+  only,
+  locked,
+}: {
+  account: ReceivingAccount;
+  first: boolean;
+  last: boolean;
+  only: boolean;
+  locked: boolean;
+}) {
+  const qrSays = qrMerchantName(account.qrPayload);
+  return (
+    <section
+      className={`space-y-4 sn-tile p-5 ${account.enabled ? '' : 'opacity-75'}`}
+      aria-label={account.label}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-ink">
+          {account.label}{' '}
+          <span className="font-normal text-ink/55">
+            · {account.kind === 'bank' ? 'Bank' : 'E-wallet'}
+            {account.enabled ? '' : ' · Off'}
+          </span>
+        </h3>
+        <div className="flex flex-wrap items-center gap-2">
+          <form action={savePaymentInstruments}>
+            <input type="hidden" name="intent" value="account_toggle" />
+            <input type="hidden" name="account_id" value={account.id} />
+            <input type="hidden" name="enabled" value={account.enabled ? '0' : '1'} />
+            <SubmitButton className={SMALL_BUTTON} pendingLabel="Saving…" disabled={locked}>
+              {account.enabled ? 'Turn off' : 'Turn on'}
+            </SubmitButton>
+          </form>
+          {!first ? (
+            <form action={savePaymentInstruments}>
+              <input type="hidden" name="intent" value="account_move" />
+              <input type="hidden" name="account_id" value={account.id} />
+              <input type="hidden" name="direction" value="up" />
+              <SubmitButton className={SMALL_BUTTON} pendingLabel="Moving…" disabled={locked}>
+                <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                <span className="sr-only">Move {account.label} up</span>
+              </SubmitButton>
+            </form>
+          ) : null}
+          {!last ? (
+            <form action={savePaymentInstruments}>
+              <input type="hidden" name="intent" value="account_move" />
+              <input type="hidden" name="account_id" value={account.id} />
+              <input type="hidden" name="direction" value="down" />
+              <SubmitButton className={SMALL_BUTTON} pendingLabel="Moving…" disabled={locked}>
+                <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                <span className="sr-only">Move {account.label} down</span>
+              </SubmitButton>
+            </form>
+          ) : null}
+          {!only ? (
+            <form action={savePaymentInstruments}>
+              <input type="hidden" name="intent" value="account_remove" />
+              <input type="hidden" name="account_id" value={account.id} />
               <SubmitButton
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-danger-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className={`${SMALL_BUTTON} hover:text-danger-700`}
                 pendingLabel="Removing…"
+                disabled={locked}
               >
                 <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Remove
               </SubmitButton>
             </form>
-          </div>
+          ) : null}
         </div>
-      ) : (
-        <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-xs text-ink/55">
-          No {label} uploaded yet. Couples will see only account name +
-          number on order detail pages.
-        </p>
-      )}
+      </div>
 
-      <QrUploadForm kind={kind} replace={!!currentUrl} />
+      <form action={savePaymentInstruments} className="space-y-3">
+        <input type="hidden" name="intent" value="account_save" />
+        <input type="hidden" name="account_id" value={account.id} />
+        <AccountFields account={account} />
+        <SubmitButton
+          className="button-primary inline-flex items-center gap-2"
+          pendingLabel="Saving…"
+          disabled={locked}
+        >
+          Save {account.label}
+        </SubmitButton>
+      </form>
+
+      <div className="space-y-3 border-t border-ink/10 pt-4">
+        <h4 className="text-xs font-semibold text-ink/70">QR code</h4>
+        {account.qrUrl ? (
+          <div className="flex flex-wrap items-start gap-4">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={account.qrUrl}
+              alt={`${account.label} QR code`}
+              className="h-40 w-40 rounded-md border border-ink/10 bg-white/70 object-contain"
+            />
+            <div className="flex-1 space-y-2 text-sm text-ink/65">
+              {qrSays ? (
+                <p>
+                  QR says: <strong className="text-ink">{qrSays}</strong>
+                </p>
+              ) : (
+                <p>
+                  We couldn&rsquo;t read this code, so customers see the picture
+                  as it is, without the order amount.
+                </p>
+              )}
+              <form action={removeMerchantQr}>
+                <input type="hidden" name="kind" value={account.id} />
+                <SubmitButton
+                  className={`${SMALL_BUTTON} hover:text-danger-700`}
+                  pendingLabel="Removing…"
+                  disabled={locked}
+                >
+                  <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                  Remove QR
+                </SubmitButton>
+              </form>
+            </div>
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed border-ink/15 bg-white/50 p-3 text-xs text-ink/55">
+            No QR yet. Customers see the account name and number only.
+          </p>
+        )}
+        <QrUploadForm kind={account.id} replace={!!account.qrUrl} />
+      </div>
     </section>
   );
 }
 
+/** Label · Bank or e-wallet · account name · number. Blank for a new account. */
+function AccountFields({ account }: { account?: ReceivingAccount }) {
+  const key = account?.id ?? 'new';
+  return (
+    <>
+      <Field label="Name customers see" htmlFor={`label-${key}`}>
+        <input
+          id={`label-${key}`}
+          name="label"
+          required
+          maxLength={40}
+          defaultValue={account?.label ?? ''}
+          placeholder="Maribank"
+          className="input-field"
+        />
+      </Field>
+      <fieldset className="flex flex-wrap gap-4 text-sm text-ink">
+        <legend className="sr-only">Type of account</legend>
+        <label className="inline-flex min-h-[44px] items-center gap-2">
+          <input
+            type="radio"
+            name="kind"
+            value="bank"
+            defaultChecked={account?.kind === 'bank'}
+          />
+          Bank
+        </label>
+        <label className="inline-flex min-h-[44px] items-center gap-2">
+          <input
+            type="radio"
+            name="kind"
+            value="ewallet"
+            defaultChecked={account ? account.kind === 'ewallet' : true}
+          />
+          E-wallet
+        </label>
+      </fieldset>
+      <Field label="Account name" htmlFor={`account_name-${key}`}>
+        <input
+          id={`account_name-${key}`}
+          name="account_name"
+          maxLength={120}
+          defaultValue={account?.accountName ?? ''}
+          className="input-field"
+        />
+      </Field>
+      <Field label="Account number" htmlFor={`number-${key}`}>
+        <input
+          id={`number-${key}`}
+          name="number"
+          maxLength={64}
+          defaultValue={account?.number ?? ''}
+          placeholder="000-000-000-000"
+          className="input-field font-mono"
+        />
+      </Field>
+    </>
+  );
+}
+
 /**
- * Per-rail kill switch + available-balance meter.
+ * Available-balance meter for the two accounts that have one (GCash, BDO).
+ * The kill switch moved onto each account card in the list.
  *
  * Setnayan receives on PERSONAL accounts (owner 2026-08-01: no business
  * account yet). A personal GCash wallet has a monthly RECEIVING limit —
@@ -524,7 +685,7 @@ function QrUploadBlock({
  */
 function ChannelSwitch({
   kind,
-  enabled,
+  label,
   capPhp,
   availablePhp,
   availableAsOf,
@@ -533,8 +694,9 @@ function ChannelSwitch({
   inflowMeasured,
   now,
 }: {
-  kind: 'gcash' | 'bdo';
-  enabled: boolean;
+  kind: (typeof PAY_CHANNELS)[number];
+  /** The account's name in the list ("GCash"). */
+  label: string;
   capPhp: number | null;
   availablePhp: number | null;
   availableAsOf: string | null;
@@ -544,7 +706,6 @@ function ChannelSwitch({
   inflowMeasured: boolean;
   now: Date;
 }) {
-  const label = PAY_CHANNEL_LABEL[kind];
   const measuredHeadroom = channelHeadroom({
     capPhp,
     availablePhp,
@@ -567,26 +728,11 @@ function ChannelSwitch({
 
   return (
     <div className={`space-y-3 rounded-xl border p-4 ${tone}`}>
-      <label className="flex items-start gap-3">
-        <input
-          type="checkbox"
-          name={`${kind}_enabled`}
-          defaultChecked={enabled}
-          className="mt-0.5 h-4 w-4 accent-[var(--sn-success,green)]"
-        />
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold text-ink">
-            Accept {label} payments
-          </span>
-          <span className="block text-[12px] leading-relaxed text-ink/60">
-            Uncheck to stop offering {label} at checkout — do this the moment
-            the account reaches its monthly limit, because transfers past it{' '}
-            <strong>fail</strong> instead of queuing. Turning both rails off
-            pauses payments entirely, which is deliberate: a working-looking
-            button on a full account is worse than an honest pause.
-          </span>
-        </span>
-      </label>
+      <p className="text-sm font-semibold text-ink">{label}</p>
+      <p className="text-[12px] leading-relaxed text-ink/60">
+        Turn {label} off above the moment it reaches its monthly limit &mdash;
+        transfers past it <strong>fail</strong> instead of queuing.
+      </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <Field

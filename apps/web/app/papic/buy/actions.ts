@@ -14,6 +14,8 @@ import { fetchPapicOneTiers, papicOneOrderRow } from '@/lib/papic-one';
 import { guestOrderRowFor, guestPaymentRowFor } from '@/lib/order-mint-identity';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { eventIsOver } from '@/lib/event-is-over.server';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { receivingAccounts } from '@/lib/payment-channels';
 import { r2Upload } from '@/lib/r2';
 import { encodeR2Ref, R2_BUCKETS } from '@/lib/uploads';
 import {
@@ -518,8 +520,14 @@ export async function submitPapicGuestPayment(formData: FormData) {
       : Number(order?.requested_total_php ?? 0);
   if (!(amountPhp > 0)) back('bad_amount');
 
+  // An account id from Setnayan's receiving-accounts list (owner 2026-10-01),
+  // never a free string — the cap meter matches `channel` exactly. An unknown
+  // value falls to the first account, as the fixed 'gcash' default did.
   const channelRaw = String(formData.get('channel') ?? '').trim().toLowerCase();
-  const channel = channelRaw === 'bdo' ? 'bdo' : 'gcash';
+  const accounts = receivingAccounts(await fetchPlatformSettings(admin));
+  const channel = accounts.some((a) => a.id === channelRaw)
+    ? channelRaw
+    : (accounts[0]?.id ?? 'gcash');
   const referenceNumber = normaliseShortEntry(formData.get('reference_number'));
 
   const payerName = normalisePayerName(formData.get('payer_name'));

@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
 import { railForNewOrder } from '@/lib/rail-for-new-order';
-import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
+import { PAYMENTS_PAUSED_MESSAGE, type PayChannel } from '@/lib/payment-channels';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -117,7 +117,7 @@ async function startBranchPayment(
   vendorProfileId: string,
   branchId: string,
   label: string,
-  channel: 'bdo' | 'gcash',
+  channel: PayChannel,
   feePhp: number,
 ): Promise<{ referenceCode: string } | { error: true }> {
   const referenceCode = generateReferenceCode();

@@ -38,6 +38,7 @@ import { benchUnreadFrom } from '@/lib/bench-unread';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { fetchPlanGroupScope } from '@/lib/plan-groups-by-event-type';
 import { depositStepOf, type DepositStep } from '@/lib/deposit-pay-step';
 import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-allocation-data';
 import { resolvePlanned, suggestedPlanByBucket } from '@/lib/budget-ledger';
@@ -1137,6 +1138,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // PR-H · read here, passed in. The model is a pure core.
     lockHandshakeEnabled: isLockHandshakeEnabled(),
     vendorRows,
+    // Only this event type's categories (Admin › Event type › Scope categories);
+    // a wedding's list is unchanged, a birthday stops seeing Bridal car.
+    eventType: ev?.event_type ?? null,
+    planGroupScope: await fetchPlanGroupScope(supabase),
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
     daysUntilWedding,
     ceremonyType: ev?.ceremony_type ?? null,

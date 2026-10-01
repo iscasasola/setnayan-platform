@@ -20,6 +20,11 @@ import {
   type PlanGroupScope,
 } from './plan-groups-by-event-type';
 
+/** PLAN_GROUPS a type keeps under the CODE floor alone (`eventTypes`, the
+ *  wake's three farewell cards). Derived per group, never from the resolver. */
+const floorFor = (type: string) =>
+  PLAN_GROUPS.filter((g) => !g.eventTypes || g.eventTypes.includes(type));
+
 /** A scope shaped like prod: tiles carry allow-lists, and wedding is in each. */
 const scope: PlanGroupScope = new Map<string, readonly string[] | null>([
   ['ceremony_venue', ['wedding', 'christening']],
@@ -48,9 +53,11 @@ const scope: PlanGroupScope = new Map<string, readonly string[] | null>([
 
 test('🔒 a wedding keeps EVERY plan group', () => {
   const wedding = planGroupsForEventType('wedding', scope);
-  assert.equal(
-    wedding.length,
-    PLAN_GROUPS.length,
+  // Every group but the wake's own farewell cards — the one code-floor scope.
+  assert.ok(floorFor('wedding').length >= 30, 'fixture floor: PLAN_GROUPS collapsed');
+  assert.deepEqual(
+    wedding.map((g) => g.id),
+    floorFor('wedding').map((g) => g.id),
     'narrowing a wedding is worse than the bug this fixes — every prod tile ' +
       'allow-list contains "wedding", so the wedding ladder must be untouched',
   );
@@ -83,7 +90,7 @@ test('FAIL-OPEN: an unreadable scope keeps the whole ladder', () => {
   // A DB hiccup must never silently shorten anyone's checklist.
   assert.deepEqual(
     planGroupsForEventType('birthday', PLAN_GROUP_SCOPE_UNKNOWN).map((g) => g.id),
-    PLAN_GROUPS.map((g) => g.id),
+    floorFor('birthday').map((g) => g.id),
   );
 });
 

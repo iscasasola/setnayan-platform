@@ -527,10 +527,6 @@
   border-left: 2px solid var(--fd-gold);
   border-radius: 0 var(--m-r-sm) var(--m-r-sm) 0;
 }
-.fd-msub .fd-gi {
-  width: 16px;
-  flex-basis: 16px;
-}
 .fd-msub .fd-gi svg {
   width: 15px;
   height: 15px;

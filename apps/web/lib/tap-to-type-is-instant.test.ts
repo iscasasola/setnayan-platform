@@ -462,6 +462,10 @@ test('8c · the check is the SHIPPED availability read — no second one — ask
   for (const [what, src] of [['date-fits-booked', fits], ['date-clash.server', server]] as const) {
     assert.doesNotMatch(src, /vendor_calendar_blocks|getBatchVendorAvailableDays|getVendorAvailableDays/, `${what} reads calendars itself — a second availability check`);
   }
+  // 💸 AVAILABILITY ONLY (owner 2026-10-01, "BUDGET IS FOR TRACKING, NEVER FOR LIMITING"): a date is never excluded for budget reasons.
+  for (const [what, src] of [['date-fits-booked', fits], ['date-clash.server', server], ['the date finder', read(`${L}details-date-finder.tsx`)]] as const) {
+    assert.doesNotMatch(src, /budget|price|cost|php|afford/i, `${what} lets money narrow a date choice`);
+  }
   assert.match(server, /buildScheduleMatrix\(\{ admin, eventDate: date, precision, picks: schedulePicksFromVendors\(booked\) \}\)/, 'the matrix the date finder and Compare read');
   assert.match(server, /CONFIRMED_VENDOR_STATUSES/, 'only BOOKED suppliers — the set eventDateRefusal governs by');
   assert.match(server, /routes\.dashboard\.vendors\.workspace\(eventId, c\.key\)\}\?tab=chat/, 'Ask … to move or unlock opens that supplier’s own conversation');

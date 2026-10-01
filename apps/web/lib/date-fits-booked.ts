@@ -19,6 +19,10 @@
  *     `hubDraftAction`), so no door into the draft (typed, picked, month) can
  *     skip it. Apply's `eventDateRefusal` stays as the backstop.
  *
+ * 💸 AVAILABILITY ONLY — never budget (owner 2026-10-01, "BUDGET IS FOR TRACKING,
+ * NEVER FOR LIMITING"): nothing here reads a price, a plan total or a budget, and
+ * a date is never excluded for money.
+ *
  * Honesty (the matrix's own): a supplier with no calendar on file never clashes,
  * and an off-platform one can't be checked — only a calendar that really blocks
  * the day is a clash.

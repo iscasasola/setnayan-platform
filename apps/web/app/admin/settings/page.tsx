@@ -86,7 +86,7 @@ function activeSurface(
     case 'compliance':
       return <ComplianceSurface />;
     case 'notifications':
-      return <NotificationsSurface />;
+      return <NotificationsSurface error={first(search.error)} />;
     case 'demo-mode':
       return <DemoModeSurface searchParams={Promise.resolve({ toggled: first(search.toggled) })} />;
     default:

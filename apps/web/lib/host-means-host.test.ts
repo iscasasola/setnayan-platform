@@ -133,7 +133,7 @@ function stripComments(src: string): string {
  */
 const REPORTS_MEMBER_TYPE_AS_DATA: ReadonlyArray<{ file: string; select: string; why: string }> = [
   {
-    file: join('app', 'api', 'profile', 'export', 'route.ts'),
+    file: join('lib', 'personal-data-export.ts'),
     select: 'event_id, member_type, joined_via, joined_at',
     why:
       'RA 10173 data export: the subject’s OWN memberships, member_type included as data. ' +

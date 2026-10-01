@@ -609,7 +609,8 @@ export async function reactivateBundleRow(
 }
 
 // ─── Vendor pricing — vendor_billing_catalog ───────────────────────────────
-// Title stays migration-owned (wires tier gates) — unchanged from before.
+// Row 22 (2026-10-01): the title is editable here too. It was "migration-owned
+// (wires tier gates)", but nothing reads it as a key — gates go by sku_code.
 
 export async function saveVendorRow(
   _prev: RowActionState,
@@ -624,13 +625,15 @@ export async function saveVendorRow(
   if (!Number.isFinite(price) || price <= 0) {
     return { ok: false, message: 'Vendor prices must be greater than ₱0.' };
   }
+  const title = String(formData.get('title') ?? '').trim().slice(0, 120);
+  if (!title) return { ok: false, message: 'Give the plan a name suppliers will recognise.' };
   const descRaw = String(formData.get('desc') ?? '').trim();
   const description = descRaw === '' ? null : descRaw;
   const active = formData.get('active') === 'on';
 
   const { data: prior } = await admin
     .from('vendor_billing_catalog')
-    .select('sku_code,description,price_php,is_active')
+    .select('sku_code,title,description,price_php,is_active')
     .eq('sku_code', code)
     .maybeSingle();
   if (!prior) return { ok: false, message: "Couldn't find that row — refresh and try again." };
@@ -638,13 +641,14 @@ export async function saveVendorRow(
   const priceR = round2(price);
   const same =
     Number(prior.price_php) === priceR &&
+    prior.title === title &&
     (prior.description ?? null) === description &&
     prior.is_active === active;
   if (same) return { ok: true, message: 'No changes to save.' };
 
   const { error } = await admin
     .from('vendor_billing_catalog')
-    .update({ price_php: priceR, description, is_active: active, updated_at: new Date().toISOString() })
+    .update({ title, price_php: priceR, description, is_active: active, updated_at: new Date().toISOString() })
     .eq('sku_code', code);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
@@ -652,7 +656,7 @@ export async function saveVendorRow(
     action: 'v2_vendor_sku_edit',
     target_id: code,
     actor_user_id: adminUserId,
-    metadata: { table: 'vendor_billing_catalog', sku_code: code, before: prior, after: { price_php: priceR, description, is_active: active } },
+    metadata: { table: 'vendor_billing_catalog', sku_code: code, before: prior, after: { title, price_php: priceR, description, is_active: active } },
   });
 
   revalidateCatalogSurfaces();

@@ -3380,7 +3380,7 @@ export const UGAT_JOINTS: UgatJoint[] = [
      * mean they are a couple"); the composite FK is what makes a walker a guest
      * OF THIS EVENT without trusting every writer to check.
      */
-    id: 'J49',
+    id: 'J50',
     claims: [
       { kind: 'table', table: 'march_walks' },
       { kind: 'column', table: 'march_walks', column: 'walk_no' },

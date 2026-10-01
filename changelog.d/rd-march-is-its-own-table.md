@@ -24,6 +24,6 @@ A COUPLE".
 - Auto-seat no longer reads a walking pair as a seat-together hint: Rules ▾ "Sit together"
   (the default) already seats the sponsors as one unit, and a spouse is a +1.
 - Sponsors page: a principal pair reads "Walk N · A walks with B" — full names, never a couple.
-- Ugat: `TYPE-MARCH` node + joint `J49` with claims.
+- Ugat: `TYPE-MARCH` node + joint `J50` with claims (renumbered from J49 in the 2026-10-02 train: main already had a J49, the Papic portfolio ledger).
 
 SPEC IMPACT: None (rows already logged in DECISION_LOG 2026-10-01).

@@ -6,7 +6,11 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
 import { readServicesStepView } from '@/lib/onboarding/services-step-server';
 import { PapicStepFields } from './_components/papic-step-fields';
+import { SimpleSetupFlow } from './_components/simple-setup-flow';
 import { commitSimpleEvent } from './actions';
+import { resolveProfile } from '@/lib/event-type-profile';
+import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
+import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 
 export const metadata = { title: 'Create a Simple Event' };
 
@@ -76,6 +80,15 @@ export default async function SimpleOnboardingPage({
       ? await readServicesStepView(supabase, 'simple_event')
       : null;
 
+  // 🎟 THE SETUP ENGINE (G1) — only once the seed has admitted simple_event
+  // (`profile.onboardingEngine`, migration 20271258536791). This form already
+  // asks the name and the date (`CREATION_ASKS.simple`), so the cards are the
+  // rest, between those two fields and the Papic picks. Off → the form is
+  // exactly yesterday's.
+  const profile = await resolveProfile('simple_event');
+  const setupView = profile.onboardingEngine ? setupViewForProfile(profile) : null;
+  const setupSteps = setupView ? resolveSetupSteps(setupView, CREATION_ASKS.simple) : [];
+
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">
       <header className="mb-8 space-y-2">
@@ -89,7 +102,9 @@ export default async function SimpleOnboardingPage({
           Let’s set the date.
         </h1>
         <p className="text-base text-ink/60">
-          A name and a date are all we need — everything else is Setnayan’s in-app services.
+          {setupView
+            ? 'A name and a date, then a few quick picks.'
+            : 'A name and a date are all we need — everything else is Setnayan’s in-app services.'}
         </p>
       </header>
 
@@ -103,52 +118,65 @@ export default async function SimpleOnboardingPage({
       ) : null}
 
       <form action={commitSimpleEvent} className="space-y-6">
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="display_name">
-            Event name <span className="text-terracotta">*</span>
-          </label>
-          <input
-            autoComplete="off"
-            autoFocus
-            className="input-field"
-            id="display_name"
-            name="display_name"
-            placeholder="Our celebration"
-            required
-            type="text"
-          />
-        </div>
+        {/* Paced by the setup engine when the type is admitted; with `view` null
+            it renders the two halves exactly as before, one plain form. */}
+        <SimpleSetupFlow
+          view={setupView}
+          steps={setupSteps}
+          start={
+            <>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-ink" htmlFor="display_name">
+                  Event name <span className="text-terracotta">*</span>
+                </label>
+                <input
+                  autoComplete="off"
+                  autoFocus
+                  className="input-field"
+                  id="display_name"
+                  name="display_name"
+                  placeholder="Our celebration"
+                  required
+                  type="text"
+                />
+              </div>
 
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-ink" htmlFor="event_date">
-            Date <span className="text-terracotta">*</span>
-          </label>
-          <input
-            className="input-field"
-            id="event_date"
-            name="event_date"
-            required
-            type="date"
-          />
-          <p className="text-xs text-ink/50">You can change this later in event settings.</p>
-        </div>
+              <div className="space-y-1.5">
+                <label className="block text-sm font-medium text-ink" htmlFor="event_date">
+                  Date <span className="text-terracotta">*</span>
+                </label>
+                <input
+                  className="input-field"
+                  id="event_date"
+                  name="event_date"
+                  required
+                  type="date"
+                />
+                <p className="text-xs text-ink/50">You can change this later in event settings.</p>
+              </div>
+            </>
+          }
+          finish={
+            <>
+              {/* The Papic picker (owner 2026-08-11). INSIDE the form on purpose — it
+                  posts its picks as hidden inputs, which commitSimpleEvent reads. It
+                  sits ABOVE the submit button because it is now a question being
+                  asked, not a note being left after the decision. */}
+              {servicesStepView ? (
+                <PapicStepFields className="pt-2" view={servicesStepView} />
+              ) : null}
 
-        {/* The Papic picker (owner 2026-08-11). INSIDE the form on purpose — it
-            posts its picks as hidden inputs, which commitSimpleEvent reads. It
-            sits ABOVE the submit button because it is now a question being
-            asked, not a note being left after the decision. */}
-        {servicesStepView ? (
-          <PapicStepFields className="pt-2" view={servicesStepView} />
-        ) : null}
-
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Creating event…">
-            Create event
-          </SubmitButton>
-          <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
-            Cancel
-          </Link>
-        </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Creating event…">
+                  Create event
+                </SubmitButton>
+                <Link className="button-secondary w-full sm:w-auto" href="/dashboard">
+                  Cancel
+                </Link>
+              </div>
+            </>
+          }
+        />
       </form>
     </div>
   );

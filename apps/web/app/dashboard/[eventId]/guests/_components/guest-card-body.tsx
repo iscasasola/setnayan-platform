@@ -99,14 +99,6 @@ import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[gu
  */
 
 const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];
-const GROUP_OPTIONS: GuestGroupCategory[] = [
-  'family',
-  'friends',
-  'work',
-  'school',
-  'officiant',
-  'other',
-];
 const MEAL_OPTIONS: MealPreference[] = [
   'no_preference',
   'beef',
@@ -223,6 +215,7 @@ export function GuestCardBody({
     isCouple,
     hasSides,
     availableRoles,
+    groupOptions,
     isIncWedding,
     showTeaCeremony,
     plusOneStateLabel,
@@ -520,7 +513,7 @@ export function GuestCardBody({
                 name="group_category"
                 label="Group"
                 value={guest.group_category}
-                options={GROUP_OPTIONS.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
+                options={groupOptions.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
               />
             </div>
             {isCouple ? (

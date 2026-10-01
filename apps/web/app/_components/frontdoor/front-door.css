@@ -512,8 +512,33 @@
    children. Its five sit indented under it; the chevron turns when open.
    Before the icon-strip block below on purpose: at 72px `.fd-row`'s own
    padding wins and the chevron is hidden there. */
+/* 🧭 THE FIVE READ AS INSIDE MORE SERVICES (owner 2026-10-01, DECISION_LOG
+   "THE SIDEBAR'S MORE SERVICES OPENS AS A VISIBLE SUB-MENU"): ONE tinted group
+   with a thin gold line down its left edge, smaller icons and a smaller word,
+   so the rail never reads as eleven top-level places. The tint is derived from
+   the rail's own tokens, not a new hex. The inset margin is wide-rail only —
+   see the `min-width:1280px, max-width:1023.98px` block below — because the
+   72px strip has no room to give away. */
+.fd-msub {
+  list-style: none;
+  margin: 2px 0 6px;
+  padding: 3px 0;
+  background: color-mix(in srgb, var(--fd-wash) 38%, var(--fd-cream));
+  border-left: 2px solid var(--fd-gold);
+  border-radius: 0 var(--m-r-sm) var(--m-r-sm) 0;
+}
+.fd-msub .fd-gi svg {
+  width: 15px;
+  height: 15px;
+}
 .fd-mchild {
-  padding-left: 28px;
+  padding-left: 10px;
+  font-size: 13px;
+}
+@media (min-width: 1280px), (max-width: 1023.98px) {
+  .fd-msub {
+    margin-left: 14px;
+  }
 }
 .fd-mchev {
   margin-left: auto;
@@ -1377,9 +1402,12 @@ h2.fd-sechead,
     font-size: 10px;
     line-height: 1.2;
     color: var(--fd-m1);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    /* WRAPS, NEVER TRUNCATES (owner 2026-10-01: "More Serv…", "Setnayan …",
+       "Music Ma…"). Two short words fit on two lines; an ellipsis made three
+       destinations read as broken. The row grows to the caption — its 60px is
+       a floor. */
+    white-space: normal;
+    overflow-wrap: anywhere;
     max-width: 100%;
   }
 }
@@ -1498,7 +1526,8 @@ h2.fd-sechead,
     display: none;
   }
   .fd-rail .fd-mchild {
-    padding-left: 28px;
+    padding-left: 10px;
+    font-size: 13px;
   }
   .fd-scrim {
     position: fixed;
@@ -1985,6 +2014,22 @@ button.fd-ask.quiet {
      it. */
   justify-content: center;
   padding: 10px 12px 0;
+}
+
+/* 🅰 THE MARK FITS WHOLE (owner 2026-10-01: *"logo shrink and adjust so it
+   complete"* — the M of "A & M" was cut at the edge).
+
+   MEASURED (headless Chromium, the four type-only lockups, A & M in a serif):
+   the svg itself never overflowed the slot, but each lockup's viewBox is cropped
+   TIGHT to its glyphs, so a wide capital's outer serif lands up to ~4px outside
+   it — and an svg clips to its viewBox. `overflow: visible` lets the ink finish
+   instead of being sliced; `max-width: 100%` keeps the box inside the slot on
+   a narrow strip, where `shrink-0` on the mark would otherwise let a wide lockup
+   push past it. The viewBox is untouched, so the lockup still scales whole. */
+.fd[data-chrome='app'] .fd-rctx-mark svg {
+  overflow: visible;
+  max-width: 100%;
+  height: auto;
 }
 
 .fd[data-chrome='app'] .fd-rctx {

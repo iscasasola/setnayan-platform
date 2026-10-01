@@ -93,3 +93,15 @@ export function pickRuns<T extends { group?: string }>(options: readonly T[]): {
   }
   return runs;
 }
+
+/** A group heading's classes; `sticky` pins it while its own options scroll under it. */
+export function groupHeadClass(sticky: boolean): string {
+  return `px-3 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50 ${
+    sticky ? 'sticky top-0 z-[1] rounded-lg bg-cream/95' : ''
+  }`;
+}
+
+/** A font row is `content-visibility: auto` — see the notes in `pick-menu-types.ts`. */
+export function fontRowClass(fontFamily: string | undefined): string | undefined {
+  return fontFamily ? '[contain-intrinsic-size:auto_44px] [content-visibility:auto]' : undefined;
+}

@@ -110,6 +110,7 @@ import {
   overlayHubDraftWidgets,
   type HubDraft,
 } from '@/lib/hub-draft';
+import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { HostDraftLook } from './_components/host-draft-look';
 import { resolveHubTheme } from './_lib/hub-look';
 import {
@@ -1364,7 +1365,14 @@ async function InvitationBody({
       already are. If the owner ever wants the entourage held back from the
       open internet on a public event, this is the one line to change.
     */
-    entourage: await loadEntourage(admin, event.event_id),
+    /* 🔤 …in the host's DRAFTED Name style when the couple picked one in the
+       Maker (owner 2026-10-01: nothing takes effect until Apply). `hostDraft` is
+       null for every guest, so a guest always reads the live style. */
+    entourage: await loadEntourage(
+      admin,
+      event.event_id,
+      hostDraft && 'print_details' in hostDraft.events ? nameStyleOfPrintDetails(hostDraft.events.print_details) : undefined,
+    ),
     // Ask-the-band card (SUP-52): only this event's own guest, only live. The
     // check asks the band's own song-desk gate, so it is not run for anybody
     // the card could never render for.

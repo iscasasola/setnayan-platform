@@ -15,6 +15,7 @@ import { isCouple, roleLabel, type EntourageGroup } from '@/lib/entourage';
 import { joinersFor, swapsFor } from '@/lib/march-moves';
 import { readYourEventFacts } from './details-your-event-facts';
 import { loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
+import { nameStyleOfPrintDetails } from '@/lib/name-style';
 
 /**
  * Everything Details › Your event reads, for the couple's own Maker (Details
@@ -53,6 +54,9 @@ export async function loadYourEvent({
     // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
     loadEventNameStyle(admin, eventId),
   ]);
+  /* …shown as DRAFTED when the couple picked one in the Maker (owner 2026-10-01,
+     "in event hub maker will only take effect when pressed apply"). */
+  const shownNameStyle = drafted && 'print_details' in drafted ? nameStyleOfPrintDetails(drafted.print_details) : nameStyle;
   if (!base) return null;
   const { row, words, kind, precision, bookings, groups, venues, people, chinese, namesWritable } = base;
   const [a, b] = base.names;
@@ -136,7 +140,7 @@ export async function loadYourEvent({
           // person the page is named for — so the hint names the places instead.
           hint: `Guests read it on your ${words.eventWord} page, on every print and on every pass.`,
         },
-    nameStyle,
+    nameStyle: shownNameStyle,
     names:
       namesWritable && people
         ? { people, initial: [a, b], wholeForm: null }

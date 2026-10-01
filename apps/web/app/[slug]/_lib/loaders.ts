@@ -1816,7 +1816,9 @@ export const loadEventNameStyle = cache(
 );
 
 export const loadEntourage = cache(
-  async (admin: AdminClient, eventId: string): Promise<EntourageGroup[]> => {
+  /* `nameStyle` — the host's DRAFTED style, for the Maker's canvas only (owner
+     2026-10-01); absent = the style the event has live. */
+  async (admin: AdminClient, eventId: string, nameStyle?: NameStyle): Promise<EntourageGroup[]> => {
     const { data, error } = await admin
       .from('guests')
       /*
@@ -1863,7 +1865,7 @@ export const loadEntourage = cache(
       (data ?? []) as EntourageGuestRow[],
       await loadEntourageSectionOrder(admin, eventId),
       await loadEventRoleNames(admin, eventId),
-      await loadEventNameStyle(admin, eventId),
+      nameStyle ?? (await loadEventNameStyle(admin, eventId)),
     );
   },
 );

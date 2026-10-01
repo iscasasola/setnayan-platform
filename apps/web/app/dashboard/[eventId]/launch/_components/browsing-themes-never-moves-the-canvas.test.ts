@@ -158,7 +158,7 @@ test('3c · nothing happens on hover or scroll — only a pick writes, and it wr
   assert.equal(calls.length, 1, 'the picker writes from more than one place');
   const pickFn = src.slice(src.indexOf('const pick = '), src.indexOf('return (', src.indexOf('const pick = ')));
   assert.match(pickFn, /fd\.set\('intent', 'save'\)/, 'a pick is not a draft save');
-  assert.match(pickFn, /JSON\.stringify\(\{ events: \{ invite_theme: id \} \}\)/);
+  assert.match(pickFn, /JSON\.stringify\(\{ events: \{ invite_theme: id, \.\.\.THEME_OWN_LOOK_RESET \} \}\)/);
   assert.match(pickFn, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'a pick does not land the Details way');
   // Two click handlers: the pick, and the ⤢ that only LOOKS (it opens the preview, never a pick).
   const clicks = [...src.matchAll(/onClick=\{([^}]*\})?[^}]*\}/g)].map((m) => m[0]);

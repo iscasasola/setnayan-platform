@@ -13,6 +13,8 @@ import {
   MAKER_SNAP_NOTE,
   isMakerDevice,
   isStagePhase,
+  makerOpenTool,
+  makerPrintsDoor,
   makerPlaceItem,
   makerPlacePick,
   makerShownDevice,
@@ -362,6 +364,14 @@ export function MakerShell({
       if (selection?.kind === 'tool') select(null);
       return;
     }
+    /* 🖨 Prints is Details, open on the prints (`makerPrintsDoor`) — not a page of its own. */
+    if (item.key === 'prints') {
+      if (hasWork) {
+        setDetailsItem(makerPrintsDoor(detailsItem));
+        select({ kind: 'tool', key: 'details' });
+      }
+      return;
+    }
     if (item.kind === 'tool' && hasWork) select({ kind: 'tool', key: item.key });
   };
 
@@ -452,6 +462,7 @@ export function MakerShell({
               stage={stage}
               liveStage={liveStage}
               selection={selection}
+              detailsItem={detailsItem}
               hasWork={hasWork}
               theHost={theHost}
               onPress={pressBar}
@@ -642,6 +653,7 @@ export function MakerBar({
   stage,
   liveStage,
   selection,
+  detailsItem = null,
   hasWork,
   theHost = 'the host',
   onPress,
@@ -649,6 +661,8 @@ export function MakerBar({
   stage: LifecyclePhase;
   liveStage: LifecyclePhase | null;
   selection: MakerSelection;
+  /** The item Details is on — Prints is the open page while it is a print. */
+  detailsItem?: DetailsItemKey | null;
   hasWork: boolean;
   /** Who Details is for, in the event type's words — "the couple", "the host". */
   theHost?: string;
@@ -755,10 +769,14 @@ export function MakerBar({
       ? `linear-gradient(to right, ${fade.l ? 'transparent' : '#000'} 0, #000 20px, #000 calc(100% - 20px), ${fade.r ? 'transparent' : '#000'} 100%)`
       : undefined;
 
+  /* ONE highlight between Details and Prints: they are one page (`makerOpenTool`). */
+  const selectedTool = selection?.kind === 'tool' ? selection.key : null;
+  const openTool = makerOpenTool(selectedTool, detailsItem);
   const place = makerPlacePick({
     stage,
     liveStage,
-    openTool: selection?.kind === 'tool' ? selection.key : null,
+    openTool: selectedTool,
+    detailsItem,
     hasWork,
     theHost,
   });
@@ -828,7 +846,7 @@ export function MakerBar({
             const on =
               item.kind === 'stage'
                 ? stage === item.key && selection?.kind !== 'tool'
-                : selection?.kind === 'tool' && selection.key === item.key;
+                : openTool === item.key;
             return (
               <button
                 key={item.key}

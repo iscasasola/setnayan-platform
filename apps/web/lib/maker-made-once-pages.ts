@@ -40,7 +40,7 @@ export function isMakerPageKey(value: unknown): value is MakerPageKey {
 
 /** The words above each page's controls. */
 export const MAKER_PAGE_TITLE: Record<MakerPageKey, string> = {
-  details: 'Details',
+  details: 'Your info',
   logo: 'Logo',
   hero: 'Hero',
   reveal: 'Reveal',

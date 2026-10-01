@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "7fb6de49",
-  "routeCount": 441,
-  "destinations": 952,
+  "generatedFromRef": "b02235da",
+  "routeCount": 442,
+  "destinations": 953,
   "actions": 677,
-  "blocks": 5354,
+  "blocks": 5358,
   "routes": {
     "/": {
       "files": [
@@ -5187,6 +5187,7 @@
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
+        "/dashboard/[seg]/details",
         "/dashboard/[seg]/guests/tea-ceremony",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/launch",
@@ -5672,18 +5673,32 @@
       ],
       "actions": [],
       "blocks": [
-        "DetailsForm",
-        "DocRow",
         "EditableField",
         "EditableRow",
         "ErrorNote",
-        "GovernedFields",
         "HTMLFormElement",
         "Link",
         "LockedRow",
         "PageMasthead",
-        "PaxSettingsCard",
-        "PutAwayCard"
+        "PutAwayCard",
+        "Row",
+        "Section",
+        "T"
+      ]
+    },
+    "/dashboard/[eventId]/details/change": {
+      "files": [
+        "dashboard/[eventId]/details/change/loading.tsx",
+        "dashboard/[eventId]/details/change/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DetailsForm",
+        "GovernedFields",
+        "Link",
+        "PageMasthead",
+        "PaxSettingsCard"
       ]
     },
     "/dashboard/[eventId]/disputes": {

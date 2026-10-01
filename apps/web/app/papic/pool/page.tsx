@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Images } from 'lucide-react';
+import { ArrowLeft, Images } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { readGuestSession } from '@/lib/guest-session';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -36,7 +37,7 @@ export default async function PapicPoolPage() {
   const session = await readGuestSession();
   if (!session) {
     return (
-            <DoorShell
+      <DoorShell
         tone="dead_end"
         eyebrow={
           <>
@@ -46,7 +47,15 @@ export default async function PapicPoolPage() {
         }
         title="Open your invitation first."
         sub="Scan your personal QR or open your invite link, then come back here to browse everyone's photos."
-      />
+      >
+        {/* 🚪 A DEAD END STILL HAS A WAY OUT (2026-09-30). This screen ended at
+            the sentence — nothing to press, only the browser's back button.
+            With no session there is no guest to send back to, so the way out
+            is the same fallback /papic/guest uses for a bare visit. */}
+        <Link href="/" className="button-secondary">
+          Back to Setnayan
+        </Link>
+      </DoorShell>
     );
   }
 
@@ -66,6 +75,17 @@ export default async function PapicPoolPage() {
   return (
     <main className="min-h-screen bg-cream px-4 py-8 text-ink">
       <div className="mx-auto w-full max-w-2xl">
+        {/* 🚪 THE WAY BACK (2026-09-30). A guest reaches this page from their own
+            photos page (/papic/me/[token] → the session bridge), and it had no
+            link back — only the browser's back button. The session already
+            names the guest's token, exactly as /papic/guest links it. */}
+        <Link
+          href={`/papic/me/${encodeURIComponent(session.qr_token)}`}
+          className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink/70 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+          Back to my photos
+        </Link>
         {/* The eyebrow said "Everyone's photos" directly above a title ending
             "— the whole gallery". One of the two was the other one, and this is
             a page a guest meets once, on a phone, at a party. */}

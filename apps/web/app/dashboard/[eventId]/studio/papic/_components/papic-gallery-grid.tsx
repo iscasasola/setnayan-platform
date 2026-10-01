@@ -17,6 +17,7 @@ import { setClipShowcaseApproval, setGuestClipShowcaseApproval, setCapturePreser
 import { GalleryCredit } from '@/app/_components/gallery/gallery-credit';
 import { GalleryLightbox } from '@/app/_components/gallery/gallery-lightbox';
 import { formatCount } from '@/lib/format-number';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 // Real Papic gallery grid — the couple's captured photos + clips with working
 // filter chips. Server-fetched (presigned thumbnails) and passed in; this only
@@ -162,25 +163,19 @@ export function PapicGalleryGrid({
 
   return (
     <section className="sn-gal space-y-4 p-4 sm:p-6">
-      <ul className="flex flex-wrap gap-2" role="list" aria-label="Gallery filters">
-        {FILTERS.map((f) => {
-          const active = f.id === filter;
-          return (
-            <li key={f.id}>
-              <button
-                type="button"
-                onClick={() => setFilter(f.id)}
-                aria-pressed={active}
-                className={`sn-gal-chip inline-flex items-center gap-1 rounded-full px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-[0.15em] ${
-                  active ? 'is-on' : ''
-                }`}
-              >
-                {f.label}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+      {/* Show — ONE dropdown (owner rule 2026-09-28: a choice of several is a
+          dropdown, never a pill row). The button carries its own light face,
+          so it stays readable on the obsidian panel. */}
+      <div className="flex items-center gap-2">
+        <span className="sn-gal-soft font-mono text-[10px] font-bold uppercase tracking-[0.15em]">Show</span>
+        <PickMenu
+          label="Gallery filter"
+          value={filter}
+          dataAttr="data-gallery-filter"
+          options={FILTERS.map((f) => ({ key: f.id, label: f.label }))}
+          onPick={(key) => setFilter(key as FilterId)}
+        />
+      </div>
 
       {eventId && photos.length > 0 ? (
         <a

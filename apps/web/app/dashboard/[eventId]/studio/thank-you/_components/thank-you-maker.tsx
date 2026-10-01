@@ -31,10 +31,41 @@ import {
   type ThankYouPlan,
 } from '@/lib/thank-you-video-shared';
 import { formatCount } from '@/lib/format-number';
+import { formatPhp } from '@/lib/orders';
+import { PaidMark } from '@/app/_components/paid-mark';
+import {
+  InlineCheckoutDrawer,
+  type InlineCheckoutDrawerProps,
+} from '@/app/dashboard/[eventId]/_components/inline-checkout-drawer';
+
+/**
+ * What an UNOWNED film needs to be paid for at "Save to my phone" (2026-09-30).
+ * `null` = the event holds the Thank-You Video, and the film saves freely.
+ * Every figure comes from the server's catalogue read — none is typed here.
+ */
+export type ThankYouSaveCheckout = {
+  /** A Thank-You Video order is submitted and being confirmed. */
+  pending: boolean;
+  /** Catalogue price in centavos, as a string; null = not on sale right now. */
+  priceCentavos: string | null;
+  pricePhp: number | null;
+  vatRatePct: number;
+  settings: InlineCheckoutDrawerProps['settings'];
+};
+
+const SKU_CODE = 'PAPIC_ADDON_THANK_YOU';
 
 type Phase = 'idle' | 'rendering' | 'done' | 'error';
 
-export function ThankYouMaker({ plan }: { plan: ThankYouPlan }) {
+export function ThankYouMaker({
+  plan,
+  eventId,
+  checkout = null,
+}: {
+  plan: ThankYouPlan;
+  eventId: string;
+  checkout?: ThankYouSaveCheckout | null;
+}) {
   const [phase, setPhase] = useState<Phase>('idle');
   const [progress, setProgress] = useState(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -130,16 +161,37 @@ export function ThankYouMaker({ plan }: { plan: ThankYouPlan }) {
             <Check className="h-4 w-4 text-success-700" strokeWidth={2} aria-hidden />
             Your film is ready.
           </p>
-          {/* eslint-disable-next-line jsx-a11y/media-has-caption -- a silent-or-music montage with no speech has no captions to provide */}
-          <video src={fileUrl} controls playsInline className="w-full rounded-xl" />
-          <a
-            href={fileUrl}
-            download="setnayan-thank-you.mp4"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
-          >
-            <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
-            Save to my phone
-          </a>
+          {checkout ? (
+            /* UNOWNED — watch it here; the SAVE is the paid step. The player
+               hides its own download control, so the only way to keep the
+               film is the button below, which asks for the payment in place. */
+            <>
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption -- a silent-or-music montage with no speech has no captions to provide */}
+              <video
+                src={fileUrl}
+                controls
+                controlsList="nodownload noplaybackrate"
+                disablePictureInPicture
+                playsInline
+                onContextMenu={(e) => e.preventDefault()}
+                className="w-full rounded-xl"
+              />
+              <SavePanel eventId={eventId} checkout={checkout} />
+            </>
+          ) : (
+            <>
+              {/* eslint-disable-next-line jsx-a11y/media-has-caption -- a silent-or-music montage with no speech has no captions to provide */}
+              <video src={fileUrl} controls playsInline className="w-full rounded-xl" />
+              <a
+                href={fileUrl}
+                download="setnayan-thank-you.mp4"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
+              >
+                <Download className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                Save to my phone
+              </a>
+            </>
+          )}
         </div>
       ) : null}
 
@@ -157,5 +209,51 @@ export function ThankYouMaker({ plan }: { plan: ThankYouPlan }) {
         </button>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * "Save to my phone" for a film the event does not own yet: the one paid step,
+ * opened in place through the shipped checkout drawer. ◆ Pro is information,
+ * never a padlock — the couple has already made the film.
+ */
+function SavePanel({ eventId, checkout }: { eventId: string; checkout: ThankYouSaveCheckout }) {
+  if (checkout.pending) {
+    return (
+      <p role="status" className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70">
+        Your Thank-You Video payment is being confirmed. Once it is, come back and
+        make the film again — it will save straight to your phone.
+      </p>
+    );
+  }
+  if (checkout.priceCentavos == null) {
+    return (
+      <p role="status" className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70">
+        Saving the film isn&rsquo;t on sale right now. You can still watch it here.
+      </p>
+    );
+  }
+  const priceLabel = checkout.pricePhp != null ? formatPhp(checkout.pricePhp) : null;
+  return (
+    <div className="space-y-2">
+      <p className="inline-flex items-center gap-2 text-sm font-medium text-ink">
+        <PaidMark state="try" label="Comes with the Thank-You Video" size="sm" />
+        Save to my phone
+      </p>
+      <InlineCheckoutDrawer
+        eventId={eventId}
+        serviceKey={SKU_CODE}
+        displayName="Thank-You Video"
+        originalPriceCentavos={checkout.priceCentavos}
+        vatRatePct={checkout.vatRatePct}
+        settings={checkout.settings}
+        triggerLabel={priceLabel ? `Save to my phone · ${priceLabel}` : 'Save to my phone'}
+        triggerClassName="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
+      />
+      <p className="text-[11px] text-ink/55">
+        Once your payment is confirmed, make the film again here and it saves
+        straight to your phone.
+      </p>
+    </div>
   );
 }

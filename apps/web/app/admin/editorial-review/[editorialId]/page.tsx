@@ -9,6 +9,9 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { formatCalendarDate } from '@/lib/events';
 export const metadata = { title: 'Editorial review · Admin' };
 
+/** Scan states that have produced a verdict. `pending` / `scanning` have not. */
+const SCAN_FINISHED: readonly string[] = ['clean', 'flagged', 'skipped', 'admin_cleared'];
+
 export default async function EditorialReviewDetailPage({
   params,
 }: {
@@ -38,7 +41,11 @@ export default async function EditorialReviewDetailPage({
     event_date: string | null;
   } | null | undefined;
   const redPending = flags.filter(f => f.severity === 'red' && f.status === 'pending');
-  const canUnlock = redPending.length === 0 && row.scan_status !== 'admin_cleared';
+  // Row 37 (2026-10-01): "no red flags" means something only after a scan has
+  // FINISHED. A pending/scanning editorial has no flags yet, and offering
+  // "Unlock — all red flags resolved" there unlocked text nobody had checked.
+  const scanFinished = SCAN_FINISHED.includes(row.scan_status);
+  const canUnlock = scanFinished && redPending.length === 0 && row.scan_status !== 'admin_cleared';
 
   return (
     <div className="p-6 max-w-3xl mx-auto space-y-6">
@@ -90,14 +97,18 @@ export default async function EditorialReviewDetailPage({
             Unlock for couple — all red flags resolved
           </SubmitButton>
         </form>
+      ) : !scanFinished ? (
+        <div role="status" className="px-1 py-1 text-sm text-[--m-ink-secondary]">
+          The scan hasn&rsquo;t finished, so this can&rsquo;t be unlocked yet. Re-scan if it seems stuck.
+        </div>
       ) : (
         <div className="rounded-lg border border-[color:var(--sn-danger)]/30 bg-[var(--sn-danger-soft)] px-4 py-3 text-sm text-[color:var(--sn-danger)]">
           {redPending.length} red flag{redPending.length > 1 ? 's' : ''} must be resolved before unlocking.
         </div>
       )}
 
-      {/* Re-scan */}
-      {(row.scan_status === 'flagged' || row.scan_status === 'clean' || row.scan_status === 'skipped' || row.scan_status === 'admin_cleared') && (
+      {/* Re-scan — in EVERY state (row 37), including a scan that never ran. */}
+      {(
         <form
           action={async () => {
             'use server';
@@ -113,7 +124,7 @@ export default async function EditorialReviewDetailPage({
       {/* Flags list */}
       {flags.length === 0 ? (
         <div className="rounded-lg border border-[--m-ink-border] px-4 py-8 text-center text-sm text-[--m-ink-tertiary]">
-          No flags — editorial was clean.
+          {scanFinished ? 'No flags — editorial was clean.' : 'No flags yet — the scan hasn’t finished.'}
         </div>
       ) : (
         <div className="space-y-4">

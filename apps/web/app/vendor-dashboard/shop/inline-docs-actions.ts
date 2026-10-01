@@ -858,8 +858,12 @@ export async function saveVerificationIdentityField(
  * What the supplier has typed so far, for the lines beside each paper.
  * Soft-probed as one select: a database missing any of these columns degrades
  * to every value null (the "not sent yet" state), never to a crashed section.
+ *
+ * NOT exported (2026-10-01): only this file calls it, and an export from a
+ * "use server" file is a public route that counts against the 2,048-route
+ * ceiling (lint:server-action-budget) — it was one route for no caller.
  */
-export async function loadVerificationIdentityFields(): Promise<{
+async function loadVerificationIdentityFields(): Promise<{
   values: Record<string, string | null>;
 }> {
   const empty = { values: {} as Record<string, string | null> };

@@ -32,7 +32,7 @@ import { TOURS } from '@/lib/tours';
    Event · Details" — the stages in their one vocabulary (`PUBLIC_STAGE_LABELS`).
    🗳 2026-09-30 re-plan: RSVP becomes a stage of its own, between Save the Date
    and the Invitation ("Save the Date · RSVP · Invitation · The Day · Post Event"). */
-const FINAL = ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event', 'Details'];
+const FINAL = ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event', 'Details', 'Prints'];
 
 async function paint(
   opts: { hasWork?: boolean; liveStage?: 'rsvp' | null; selection?: { kind: 'tool'; key: 'details' | 'rsvp-stage' } | null } = {},

@@ -30,7 +30,7 @@ import { YourPhotosWidget } from './your-photos-widget';
 import { sceneCardClass } from '@/lib/scene-card-look';
 import type { MarchPlace } from '@/lib/march-place';
 import type { HubStage } from '@/lib/hub-canvas';
-import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
+import { sceneStyleOfRow, paletteLookOfRow, venueMapOfRow } from '@/lib/scene-style-of-row';
 import { DetailsBigDate, DetailsCard } from './event-details-styles';
 
 /**
@@ -228,7 +228,7 @@ function HideableWidgetBody({
       ) : null;
 
     case 'venue_map':
-      return <VenueWidget event={event} sceneStyle={sceneStyle} />;
+      return <VenueWidget event={event} sceneStyle={sceneStyle} map={venueMapOfRow(widget)} blocks={scheduleBlocks} />;
 
     case 'dress_code':
       /* 👗 WHO IS ASKING (owner 2026-09-28): a guest is answered for their own

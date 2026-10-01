@@ -50,7 +50,7 @@ async function requireAdmin() {
  * (already actioned by another admin, or cancelled by the user) is caught
  * before we touch anything.
  */
-async function loadPendingRequest(requestId: string) {
+async function loadPendingRequest(requestId: string, expect: 'pending' | 'approved' = 'pending') {
   const admin = createAdminClient();
   const { data: req, error } = await admin
     .from('account_deletion_requests')
@@ -59,7 +59,7 @@ async function loadPendingRequest(requestId: string) {
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!req) throw new Error('Deletion request not found.');
-  if (req.status !== 'pending') {
+  if (req.status !== expect) {
     throw new Error(
       `This request is already ${req.status} — refresh the queue to see the current state.`,
     );
@@ -123,7 +123,44 @@ async function approveRequest(formData: FormData, mode: 'delete' | 'blacklist') 
 }
 
 export async function approveAndDelete(formData: FormData) {
+  // Row 31 (2026-10-01) — an intent branch, not a new action (the server-action
+  // budget is at its ceiling).
+  if (formData.get('intent') === 'rerun') return rerunErasure(formData);
   await approveRequest(formData, 'delete');
+}
+
+/**
+ * RUN ERASURE AGAIN (admin audit row 31). The request is marked approved BEFORE
+ * the erasure runs, on purpose (see approveRequest). The erasure itself is
+ * best-effort per step and never throws — but a throw before it (the admin
+ * guard, a refused read) leaves an APPROVED request on an account that was
+ * never erased, and `loadPendingRequest` only accepted `pending`, so nothing on
+ * this page could finish the job. This re-runs the same erasure for an
+ * approved request whose account still has no `deleted_at`. Erasure is
+ * idempotent (lib/erasure/purge.ts · eraseUserAccount), so a re-run is safe.
+ */
+async function rerunErasure(formData: FormData) {
+  await requireAdmin();
+  const requestId = formData.get('request_id');
+  if (typeof requestId !== 'string' || requestId.length === 0) {
+    throw new Error('Invalid input');
+  }
+  const { admin, req } = await loadPendingRequest(requestId, 'approved');
+  const { data: u, error } = await admin
+    .from('users')
+    .select('deleted_at')
+    .eq('user_id', req.user_id)
+    .maybeSingle();
+  if (error) throw new Error('Couldn’t check the account just now. Refresh and try again.');
+  if ((u as { deleted_at: string | null } | null)?.deleted_at) {
+    redirect('/admin/account-deletions?actioned=already_erased');
+  }
+  const proxyForm = new FormData();
+  proxyForm.set('user_id', req.user_id);
+  await deleteUser(proxyForm);
+  revalidatePath('/admin/account-deletions');
+  revalidatePath('/admin/users');
+  redirect('/admin/account-deletions?actioned=erased_again');
 }
 
 export async function approveAndBlacklist(formData: FormData) {

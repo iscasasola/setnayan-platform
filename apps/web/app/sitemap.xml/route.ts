@@ -50,6 +50,8 @@ export async function GET(): Promise<Response> {
     { slug: 'sitemap-static.xml', lastmod: now },
     { slug: 'sitemap-help.xml', lastmod: now },
     { slug: 'sitemap-blog.xml', lastmod: now },
+    // One page per feature + its Tagalog twin (lib/feature-pages). 2026-10-01.
+    { slug: 'sitemap-features.xml', lastmod: now },
     { slug: 'sitemap-vendors.xml', lastmod: now },
     // The supplier landing pages (event × category × city) — only the ones
     // that pass the gate in lib/supplier-landing.ts. Added 2026-09-27.

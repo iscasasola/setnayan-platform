@@ -137,7 +137,8 @@ export default async function PatiktokTemplateDetail({ params }: Props) {
             <ul className="ml-4 list-disc space-y-1 text-sm text-ink/70">
               <li>Physical X-mark floor sticker (50×50 cm vinyl, shipped 3–5 days)</li>
               <li>Companion signage card explaining the mimic flow</li>
-              <li>Printable booth-operator QR (re-scannable anytime mid-event)</li>
+              {/* "Printable booth-operator QR" was listed here — no such print is
+                  built (TODO(0017-phase4.2) on the booth page). Audit 2026-09-29. */}
               <li>9:16 vertical compilation export, 1080p (or 4K with the 4K Upgrade)</li>
               <li>Downloadable MP4 backup with Setnayan-owned music</li>
             </ul>

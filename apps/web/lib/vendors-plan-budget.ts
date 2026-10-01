@@ -37,8 +37,12 @@ import {
   type PlanGroupId,
   type PlanCardPick,
   type EventVendorRowInput,
-
-  planGroupsForEventType,} from '@/lib/wedding-plan-groups';
+} from '@/lib/wedding-plan-groups';
+import {
+  planGroupsForEventType,
+  PLAN_GROUP_SCOPE_UNKNOWN,
+  type PlanGroupScope,
+} from '@/lib/plan-groups-by-event-type';
 import { lockRequestStateOf } from '@/lib/lock-request-state';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import {
@@ -622,6 +626,12 @@ export function buildPlanBudgetModel(args: {
    * the giveaways.
    */
   eventType?: string | null;
+  /**
+   * The DB tile scope (`fetchPlanGroupScope`) — which categories this event
+   * type books, as the owner set them in Admin › Event type › Scope
+   * categories. Omitted → unknown → only the code floor applies (fail open).
+   */
+  planGroupScope?: PlanGroupScope;
   estimatedBudgetCentavos: number | null;
   daysUntilWedding: number | null;
   ceremonyType: string | null;
@@ -749,7 +759,19 @@ export function buildPlanBudgetModel(args: {
   const tierRank = new Map<string, number>(
     PLAN_GROUP_TIER_ORDER.map((t, i) => [t, i]),
   );
-  const orderedGroups = [...PLAN_GROUPS].sort((a, b) => {
+  // 🔑 ONLY THIS EVENT TYPE'S CATEGORIES (2026-10-01). This loop spread every
+  // PLAN_GROUP, so a birthday was shown Bridal car / Rings / Honeymoon and every
+  // type was shown the wake's three farewell cards. Now: the type's own groups
+  // (code floor + DB scope), PLUS any group that already holds a pick — a
+  // couple's pick never vanishes from their own list.
+  const typeGroups = planGroupsForEventType(
+    args.eventType,
+    args.planGroupScope ?? PLAN_GROUP_SCOPE_UNKNOWN,
+  );
+  const typeGroupIds = new Set<PlanGroupId>(typeGroups.map((g) => g.id));
+  const orderedGroups = PLAN_GROUPS.filter(
+    (g) => typeGroupIds.has(g.id) || (bucketed.get(g.id)?.length ?? 0) > 0,
+  ).sort((a, b) => {
     const ra = tierRank.get(a.tier) ?? 99;
     const rb = tierRank.get(b.tier) ?? 99;
     return ra - rb;
@@ -797,7 +819,7 @@ export function buildPlanBudgetModel(args: {
   // ceremony_venue → `ceremony_venue`; accommodation + reception_venue →
   // `reception`) need their distinct hardcoded labels to stay distinguishable.
   const tileUseCount = new Map<WeddingTile, number>();
-  for (const group of planGroupsForEventType(args.eventType)) {
+  for (const group of typeGroups) {
     if (!group.catalogTile) continue;
     tileUseCount.set(
       group.catalogTile,
@@ -831,7 +853,7 @@ export function buildPlanBudgetModel(args: {
   // Falls back to the hardcoded catalogFolder / tier order whenever the DB
   // snapshot is absent (taxonomy undefined) or a group has no catalogTile.
   const primaryGroupByTile = new Map<WeddingTile, PlanGroupId>();
-  for (const group of planGroupsForEventType(args.eventType)) {
+  for (const group of typeGroups) {
     if (group.catalogTile && !primaryGroupByTile.has(group.catalogTile)) {
       primaryGroupByTile.set(group.catalogTile, group.id);
     }
@@ -968,7 +990,7 @@ export function buildPlanBudgetModel(args: {
   // last, preserving their incoming tier order. No-op when the snapshot is absent.
   if (taxonomy) {
     const groupById = new Map<PlanGroupId, PlanGroup>(
-      planGroupsForEventType(args.eventType).map((g) => [g.id, g]),
+      orderedGroups.map((g) => [g.id, g]),
     );
     for (const [folder, children] of childrenByFolder) {
       const tileSeq = taxonomy.tilesByParent[folder] ?? [];

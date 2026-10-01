@@ -28,7 +28,10 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)); // apps/web/lib
-const ROUTE = path.resolve(HERE, '..', 'app', 'api', 'profile', 'export', 'route.ts');
+// ✏️ RE-POINTED 2026-10-01: the export's reads were lifted out of
+// app/api/profile/export/route.ts into lib/personal-data-export.ts so an admin
+// can prepare the same file (P5a §2e). Same reads, one builder, both callers.
+const ROUTE = path.resolve(HERE, 'personal-data-export.ts');
 const FACE = path.resolve(HERE, 'export-own-face-enrollments.ts');
 
 const UID = String.raw`user\.id`; // the route's server-verified session identity

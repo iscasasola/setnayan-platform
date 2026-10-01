@@ -621,8 +621,8 @@ export function StylistLibraryEditor({
                 ))}
               </div>
               <p className="mt-2 text-[11px] text-ink/55">
-                In production each host&apos;s palette renders here. This is your
-                preview tool to verify the tag regions look right across colors.
+                Each couple sees their own colours here. Try a few to check your
+                tagged areas look right in any palette.
               </p>
             </details>
           </>

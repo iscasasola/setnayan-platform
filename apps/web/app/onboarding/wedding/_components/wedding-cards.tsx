@@ -20,7 +20,6 @@
  * confirm dialogs; title ≤ 5 words + one line ≤ 12 words, the rest behind ⓘ.
  */
 
-import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { SetupFrame } from '@/app/onboarding/_shared/setup-card';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -44,11 +43,9 @@ import {
 } from '@/lib/onboarding/wedding-cards';
 import { CITIES, TOP30, cityByKey, resolvePick } from '../_data/wedding-cities';
 import { LocationStep } from './location-step';
+import { WeddingVenues, type VenueSearch } from './wedding-venues';
 import { EMPTY_VENUES } from '@/lib/onboarding/venue-picks';
 import type { OnboardingState } from '../types';
-
-// "We already have our venue" loads when the card opens it — its search, map and lists stay out of the card's first paint.
-const WeddingVenues = dynamic(() => import('./wedding-venues').then((m) => m.WeddingVenues), { ssr: false });
 
 const peso = (n: number) => `₱${Math.round(n).toLocaleString('en-PH')}`;
 const nameOnly = (raw: string) => (raw || '').replace(/[^\p{L}\s'-]/gu, '');
@@ -80,9 +77,11 @@ type Props = {
   /** Faiths the admin has switched on (`wedding_type_launch_status`); null = read failed. */
   activeFaiths: string[] | null;
   budgetBands: readonly BudgetBand[];
+  /** The wedding's venue search, handed in by the shell (a server action stays out of this module). */
+  searchVenues: VenueSearch;
 };
 
-export function WeddingCard({ card, state, patch, n, total, activeFaiths, budgetBands }: Props) {
+export function WeddingCard({ card, state, patch, n, total, activeFaiths, budgetBands, searchVenues }: Props) {
   const frame = { skin: 'wedding' as const, n, total, dataCard: card };
 
   if (card === 'w_names') {
@@ -154,7 +153,7 @@ export function WeddingCard({ card, state, patch, n, total, activeFaiths, budget
     );
   }
 
-  if (card === 'w_area') return <AreaCard frame={frame} state={state} patch={patch} />;
+  if (card === 'w_area') return <AreaCard frame={frame} state={state} patch={patch} searchVenues={searchVenues} />;
   if (card === 'w_pax') return <PaxCard frame={frame} state={state} patch={patch} />;
   if (card === 'w_budget') return <BudgetCard frame={frame} state={state} patch={patch} budgetBands={budgetBands} />;
   return <ColoursCard frame={frame} state={state} patch={patch} />;
@@ -163,7 +162,7 @@ export function WeddingCard({ card, state, patch, n, total, activeFaiths, budget
 type FrameProps = { skin: 'wedding'; n: number; total: number; dataCard: string };
 type SubProps = { frame: FrameProps; state: OnboardingState; patch: (p: Partial<OnboardingState>) => void };
 
-function AreaCard({ frame, state, patch }: SubProps) {
+function AreaCard({ frame, state, patch, searchVenues }: SubProps & { searchVenues: VenueSearch }) {
   const [more, setMore] = useState(false);
   const top = TOP30.map((k) => cityByKey(k)).filter((c): c is NonNullable<typeof c> => Boolean(c));
   const rest = CITIES.filter((c) => !TOP30.includes(c.k)).sort((a, b) => a.n.localeCompare(b.n));
@@ -219,7 +218,7 @@ function AreaCard({ frame, state, patch }: SubProps) {
       >
         {haveVenue ? 'Just the area for now' : 'We already have our venue ›'}
       </button>
-      {haveVenue ? <WeddingVenues state={state} patch={patch} /> : null}
+      {haveVenue ? <WeddingVenues state={state} patch={patch} search={searchVenues} /> : null}
     </SetupFrame>
   );
 }

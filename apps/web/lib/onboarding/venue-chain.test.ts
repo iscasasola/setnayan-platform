@@ -193,3 +193,14 @@ test('the false "pre-set halal catering" promise is gone from the onboarding she
 test('Your Team offers "Add contact" for a venue that has none', () => {
   assert.match(code('app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/self-added-contact-card.tsx'), /No contact yet\. Add one/);
 });
+
+test('🧱 the venue section adds NO async chunk — the shared bundle has no room for a runtime-manifest entry', () => {
+  // CI's "bundle size check" failed this PR by 0.0KB gzipped when the section was `next/dynamic`:
+  // every `import()` is a chunk-map entry in the webpack runtime EVERY page downloads
+  // (see pick-menu-types.ts, +14 bytes for one chunk). Static imports only.
+  for (const f of ['app/onboarding/wedding/_components/wedding-venues.tsx', 'app/onboarding/wedding/_components/wedding-cards.tsx']) {
+    const src = code(f);
+    assert.ok(!/next\/dynamic|\bimport\(/.test(src), `${f} loads something lazily — that is a new async chunk`);
+  }
+  assert.match(code('app/onboarding/wedding/_components/wedding-venues.tsx'), /import \{ BranchPinMap \} from/);
+});

@@ -4425,6 +4425,7 @@ export function OnboardingShell({
                       total={questionTotal}
                       activeFaiths={activeFaiths}
                       budgetBands={BUDGET_BANDS}
+                      searchVenues={searchOnboardingReceptionVenues}
                     />
                   ) : null}
                 </section>

@@ -22,8 +22,8 @@
  * `searchOnboardingReceptionVenues` — extended, never a second search.
  */
 
-import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { BranchPinMap } from '@/app/vendor-dashboard/_components/branch-pin-map';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { ceremonyChoiceOf } from '@/lib/onboarding/wedding-cards';
 import {
@@ -44,16 +44,13 @@ import {
   type VenueRole,
 } from '@/lib/onboarding/venue-picks';
 import { CITIES, TOP30, cityByKey, kmBetween, resolvePick } from '../_data/wedding-cities';
-import { searchOnboardingReceptionVenues } from '../actions';
+import type { searchOnboardingReceptionVenues } from '../actions';
 import type { OnboardingState } from '../types';
 
-// The map is only needed once "Add it yourself" is chosen — keep it out of the card's first paint.
-const BranchPinMap = dynamic(
-  () => import('@/app/vendor-dashboard/_components/branch-pin-map').then((m) => m.BranchPinMap),
-  { ssr: false, loading: () => <div className="h-[260px] animate-pulse rounded-md bg-ink/5" aria-hidden /> },
-);
 
 type Patch = (p: Partial<OnboardingState>) => void;
+/** The wedding's own venue search (`searchOnboardingReceptionVenues`), handed in by the shell. */
+export type VenueSearch = typeof searchOnboardingReceptionVenues;
 
 const dayLabel = (iso: string) =>
   new Date(`${iso}T00:00:00`).toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
@@ -88,7 +85,7 @@ function pickPin(p: VenuePick | null): Anchor | null {
   return pin ? { lat: pin.lat, lng: pin.lng } : null;
 }
 
-export function WeddingVenues({ state, patch }: { state: OnboardingState; patch: Patch }) {
+export function WeddingVenues({ state, patch, search }: { state: OnboardingState; patch: Patch; search: VenueSearch }) {
   const { venues } = state;
   const dates = useMemo(() => (state.dateMode === 'specific' ? state.dateCandidates.filter(Boolean) : []), [state.dateMode, state.dateCandidates]);
 
@@ -109,6 +106,7 @@ export function WeddingVenues({ state, patch }: { state: OnboardingState; patch:
           label={role === 'parish' ? ceremonyVenueWord(state) : 'Reception'}
           state={state}
           dates={dates}
+          search={search}
           setPick={(pick, extra) => setPick(role, pick, extra)}
         />
       ))}
@@ -121,12 +119,14 @@ function VenueRoleRow({
   label,
   state,
   dates,
+  search,
   setPick,
 }: {
   role: VenueRole;
   label: string;
   state: OnboardingState;
   dates: string[];
+  search: VenueSearch;
   setPick: (pick: VenuePick | null, extra?: Partial<OnboardingState>) => void;
 }) {
   const other: VenueRole = role === 'parish' ? 'reception' : 'parish';
@@ -153,7 +153,7 @@ function VenueRoleRow({
     const mine = ++seq.current;
     const t = window.setTimeout(async () => {
       try {
-        const rows = await searchOnboardingReceptionVenues({
+        const rows = await search({
           role,
           kind: state.kind,
           faith: state.faith,
@@ -186,7 +186,7 @@ function VenueRoleRow({
     }, query ? 300 : 0);
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [role, query, datesKey, state.region, state.kind, state.faith.join(','), state.pax]);
+  }, [role, query, datesKey, state.region, state.kind, state.faith.join(','), state.pax, search]);
 
   const rows: VenueRow[] = useMemo(
     () => chainedList({ all: all ?? [], dates: dateScope, anchor }),

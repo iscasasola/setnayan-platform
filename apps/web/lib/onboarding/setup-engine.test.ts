@@ -86,7 +86,7 @@ const SEEDED: Record<string, EventTypeProfile> = {
 function viewOf(p: EventTypeProfile): SetupView {
   // The same composition as lib/onboarding/setup-view.ts: the wedding fence
   // lets a wedding wear Pro looks; nobody else.
-  return setupViewFor(p, profileSetup(p), pickableInviteThemes({ mayShowStdFilm: p.eventType === 'wedding' }));
+  return setupViewFor(p, profileSetup(p), pickableInviteThemes());
 }
 
 /** The generic wizard's screens for a type with the engine on — the inputs exactly as generic-onboarding.tsx derives them. */
@@ -170,11 +170,11 @@ test('the defaults by type: wedding replies, the casual types come in on one QR'
   }
 });
 
-test('a non-wedding type is never offered a Pro look its fence forbids', () => {
+test('every type may be offered a Pro look (◆) — still Pro, never blocking (2026-10-01)', () => {
   for (const t of ['birthday', 'hangout', 'date', 'simple_event']) {
     const v = viewOf(SEEDED[t]!);
     assert.ok(v.looks.length > 0, t);
-    assert.ok(v.looks.every((l) => !l.pro), `${t} offers a Pro look`);
+    assert.ok(v.looks.some((l) => l.pro), `${t} is shut out of the ◆ looks`);
   }
   assert.ok(viewOf(SEEDED.wedding!).looks.some((l) => l.pro), 'a wedding sees its ◆ looks');
 });
@@ -256,8 +256,8 @@ test('the wire is never trusted: unknown keys and values fall back to the type d
   const view = viewOf(SEEDED.hangout!);
   assert.equal(sanitizeSetupAnswers(undefined, view), null);
   assert.equal(sanitizeSetupAnswers([], view), null);
-  const a = sanitizeSetupAnswers({ look: 'velvet', reply: 'maybe', entry: 'door', gifts: 'yes', logo: 'yes' }, view)!;
-  assert.notEqual(a.look, 'velvet');
+  const a = sanitizeSetupAnswers({ look: 'no-such-look', reply: 'maybe', entry: 'door', gifts: 'yes', logo: 'yes' }, view)!;
+  assert.notEqual(a.look, 'no-such-look');
   assert.equal(a.reply, 'no');
   assert.equal(a.entry, 'one_qr');
   assert.equal(a.gifts, 'no', 'a gift-free type cannot be given a gifts row');

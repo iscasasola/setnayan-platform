@@ -74,11 +74,15 @@ import type { NavSlotLite } from '@/lib/nav-registry-types';
 import { vendorCustomersBadge } from '@/lib/nav-badges';
 import { VENDOR_MORE_MATCH, vendorMoreRows } from '@/lib/vendor-more-rows';
 
-/* The More sheet is the HOST's shipped one (#6205, `more-services-sheet.tsx`),
-   fetched on the first tap with a plain `import()` — never in the first load,
-   and never `next/dynamic` (its loadable runtime is ~4 KB raw; the host's bar
-   learned this against the Maker's ceiling). */
-type MoreSheet = typeof import('@/app/dashboard/[eventId]/_components/more-services-sheet').default;
+/* The More sheet is the HOST's shipped one (#6205, `more-services-sheet.tsx`).
+   ⚠ IMPORTED STATICALLY, ON PURPOSE — measured 2026-10-01. A lazy `import()`
+   here made webpack split the sheet into a SECOND async chunk for this bar, and
+   every async chunk adds an entry to the shared runtime's chunk map: +20 B gz
+   on a shared bundle with ~20 B of headroom (`scripts/check-bundle-size.mjs`).
+   Static, it rides the supplier layout's own chunk — supplier routes only, no
+   shared bytes. (The host's bar keeps its lazy import: its routes carry the
+   Maker's first-load ceiling; these do not.) */
+import MoreServicesSheet from '@/app/dashboard/[eventId]/_components/more-services-sheet';
 
 const VENDOR_BOTTOM_NAV_ITEMS: BottomNavItem[] = [
   {
@@ -208,7 +212,6 @@ export function VendorBottomNav({
   storeShell?: boolean;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
-  const [MoreSheetComp, setSheet] = useState<MoreSheet | null>(null);
   // Role-aware tabs — owner/admin get the full strip; agent/viewer get the
   // scoped subset. ⚠ This comment said "Phase 1: Home + More" until 2026-09-22
   // while the SAME FILE says twice, above, that there is no More tab any more —
@@ -251,13 +254,7 @@ export function VendorBottomNav({
     item.key === 'more'
       ? {
           ...item,
-          onSelect: () => {
-            setMoreOpen(true);
-            if (!MoreSheetComp)
-              void import('@/app/dashboard/[eventId]/_components/more-services-sheet').then((x) =>
-                setSheet(() => x.default),
-              );
-          },
+          onSelect: () => setMoreOpen(true),
         }
       : item,
   );
@@ -265,9 +262,9 @@ export function VendorBottomNav({
   return (
     <>
       <BottomNav items={items} />
-      {/* Mounted only while open — fetched on the first tap, nothing before. */}
-      {moreOpen && MoreSheetComp ? (
-        <MoreSheetComp open onClose={() => setMoreOpen(false)} title="More" services={moreRows} />
+      {/* Mounted only while open. */}
+      {moreOpen ? (
+        <MoreServicesSheet open onClose={() => setMoreOpen(false)} title="More" services={moreRows} />
       ) : null}
     </>
   );

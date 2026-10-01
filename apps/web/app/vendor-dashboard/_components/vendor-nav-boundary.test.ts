@@ -209,3 +209,13 @@ test('More’s rows are written ONCE — the sheet and the /more page both read 
   assert.equal(declaresUseClient(read(join(WEB_ROOT, 'lib', 'vendor-more-rows.ts'))), false);
   assert.doesNotMatch(rows, /\bnavIconComponent\b/, 'More rows resolve a nav icon — that call is client-only');
 });
+
+test('the supplier bar imports the More sheet statically — a lazy import() costs shared bytes', () => {
+  // Measured 2026-10-01: `import()` here split the host's sheet into a second
+  // async chunk, and its runtime chunk-map entry pushed the SHARED bundle past
+  // its ceiling (scripts/check-bundle-size.mjs). Static, it rides the supplier
+  // layout chunk instead.
+  const bar = code(read(join(HERE, 'vendor-bottom-nav.tsx')));
+  assert.match(bar, /^import MoreServicesSheet from '@\/app\/dashboard\/\[eventId\]\/_components\/more-services-sheet';/m);
+  assert.doesNotMatch(bar, /import\(\s*['"][^'"]*more-services-sheet/, 'the More sheet is lazy-imported again');
+});

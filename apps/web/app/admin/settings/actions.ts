@@ -16,10 +16,18 @@ import { clampInt, coerceVariant } from '@/lib/loader-config';
 import { isQrPhPayload } from '@/lib/emv-qr';
 import {
   PAYMENT_DESTINATION_FIELDS,
-  changedDestinationFields,
-  describeDestinationChange,
-  type PaymentDestinationField,
+  changedAccountDestinations,
+  describeAccountChange,
 } from '@/lib/payment-destination';
+import { fetchPlatformSettingsMeasured } from '@/lib/platform-settings';
+import {
+  PAY_CHANNELS,
+  isPayChannel,
+  receivingAccounts,
+  serializeReceivingAccounts,
+  type AccountKind,
+  type ReceivingAccount,
+} from '@/lib/payment-channels';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -227,23 +235,256 @@ export async function saveLoaderAppearance(formData: FormData) {
   redirect('/admin/settings?tab=settings&loader_saved=1');
 }
 
+/**
+ * Where every payment-methods action lands afterwards. One spelling, so an
+ * error, a saved notice and a "needs a second admin" notice all reach the same
+ * page.
+ */
+const PAYMENT_METHODS_PATH = '/admin/settings/payment-methods';
+
+function backToPaymentMethods(query: string): never {
+  return redirect(`${PAYMENT_METHODS_PATH}?${query}`);
+}
+
+/**
+ * Write the receiving-accounts LIST — the only place it is written outside the
+ * § 9.1 executor below.
+ *
+ * 🔑 THE TWO MIGRATED RAILS ARE MIRRORED INTO THEIR OLD SWITCHES. The fixed
+ * `gcash_enabled` / `bdo_enabled` columns are the fallback checkout uses when
+ * the list cannot be read (lib/payment-channels.ts · receivingAccounts). If they
+ * kept saying ON after the owner switched GCash off in the list, a refused read
+ * would quietly re-open an account at its cap. A removed rail mirrors as OFF for
+ * the same reason.
+ */
+async function writeAccountList(
+  admin: ReturnType<typeof createAdminClient>,
+  list: readonly ReceivingAccount[],
+  extra: Record<string, unknown> = {},
+) {
+  // Spelled out by name, not built from `${id}_enabled`: these two columns are
+  // switches, and tests/db/gates-have-handles must be able to see what flips them.
+  const mirrored = (id: (typeof PAY_CHANNELS)[number]) =>
+    list.find((a) => a.id === id)?.enabled ?? false;
+  return admin
+    .from('platform_settings')
+    .update({
+      receiving_accounts: serializeReceivingAccounts(list),
+      gcash_enabled: mirrored('gcash'),
+      bdo_enabled: mirrored('bdo'),
+      ...extra,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', 1);
+}
+
+/** A fresh, readable, unique account id: "maribank-7k2q". */
+function newAccountId(label: string, taken: ReadonlySet<string>): string {
+  const base =
+    label
+      .toLowerCase()
+      .normalize('NFKD')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30) || 'account';
+  for (;;) {
+    const id = `${base}-${randomUUID().replace(/-/g, '').slice(0, 4)}`;
+    if (!taken.has(id)) return id;
+  }
+}
+
+/**
+ * One pending receiving-account change at a time. Two approvals in flight
+ * could be granted by two different admins and the last write would silently
+ * win.
+ */
+async function aChangeIsAlreadyPending(admin: ReturnType<typeof createAdminClient>): Promise<boolean> {
+  const { data } = await admin
+    .from('admin_approval_requests')
+    .select('approval_id')
+    .eq('action_type', 'approve_payment_account_change')
+    .eq('status', 'pending')
+    .maybeSingle();
+  return Boolean(data);
+}
+
+const ALREADY_PENDING =
+  'A change to a receiving account is already waiting on a second admin. Decide that one in Approvals first.';
+
+/**
+ * The receiving-accounts list, edited one account at a time (owner 2026-10-01:
+ * "add a mari bank or uno bank"). Four intents, ONE exported action — the
+ * server-action budget is at its ceiling, and these are one job.
+ *
+ *   account_save   — add an account, or edit one. Its NAME and NUMBER are
+ *                    destinations: changing them, or adding an account at all,
+ *                    opens an approval for a second admin (§ 9.1). Its label
+ *                    and kind save at once.
+ *   account_toggle — the kill switch. Saves at once, never waits on a quorum.
+ *   account_move   — the order checkout shows. Saves at once.
+ *   account_remove — withdraws an option; points no money anywhere new, so it
+ *                    saves at once (like removing a QR). The last account
+ *                    cannot be removed — turn it off instead.
+ *
+ * ⚠ EVERY INTENT READS THE LIST FIRST AND REFUSES ON A FAILED READ. Each one
+ * writes the whole array back, so a write built on an unread list would replace
+ * the real accounts with the fall-back two.
+ */
+async function saveReceivingAccount(
+  adminUserId: string,
+  intent: 'account_save' | 'account_toggle' | 'account_move' | 'account_remove',
+  formData: FormData,
+): Promise<never> {
+  const admin = createAdminClient();
+  const { settings, readFailed, accountsReadFailed } = await fetchPlatformSettingsMeasured(admin);
+  if (readFailed || accountsReadFailed) {
+    return backToPaymentMethods(
+      `error=${encodeURIComponent('Couldn’t read the accounts just now, so nothing was changed. Refresh and try again.')}`,
+    );
+  }
+  const list = receivingAccounts(settings);
+  const id = nullIfBlank(formData.get('account_id'));
+  const at = id ? list.findIndex((a) => a.id === id) : -1;
+  if (id && at < 0) {
+    return backToPaymentMethods(`error=${encodeURIComponent('That account is no longer in the list. Refresh and try again.')}`);
+  }
+
+  if (intent === 'account_toggle') {
+    const next = list.map((a, i) => (i === at ? { ...a, enabled: formData.get('enabled') === '1' } : a));
+    const { error } = await writeAccountList(admin, next);
+    if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+    revalidatePath(PAYMENT_METHODS_PATH);
+    return backToPaymentMethods('saved=1');
+  }
+
+  if (intent === 'account_move') {
+    const to = formData.get('direction') === 'up' ? at - 1 : at + 1;
+    if (at < 0 || to < 0 || to >= list.length) return backToPaymentMethods('saved=1');
+    const next = [...list];
+    [next[at], next[to]] = [next[to]!, next[at]!];
+    const { error } = await writeAccountList(admin, next);
+    if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+    revalidatePath(PAYMENT_METHODS_PATH);
+    return backToPaymentMethods('saved=1');
+  }
+
+  if (intent === 'account_remove') {
+    if (at < 0) return backToPaymentMethods('saved=1');
+    if (list.length <= 1) {
+      return backToPaymentMethods(
+        `error=${encodeURIComponent('Keep at least one account. To stop taking payments, turn it off instead.')}`,
+      );
+    }
+    const removed = list[at]!;
+    const { error } = await writeAccountList(
+      admin,
+      list.filter((_, i) => i !== at),
+    );
+    if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+    // The picture goes only AFTER the list stopped pointing at it.
+    if (removed.qrUrl) await deletePublicAsset({ publicUrl: removed.qrUrl });
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
+      action: 'payment_account_removed',
+      actor_user_id: adminUserId,
+      metadata: { id: removed.id, label: removed.label },
+    });
+    if (auditErr) console.error('[saveReceivingAccount] remove audit insert failed (non-fatal):', auditErr);
+    revalidatePath(PAYMENT_METHODS_PATH);
+    return backToPaymentMethods('saved=1');
+  }
+
+  // ── account_save ─────────────────────────────────────────────────────────
+  const label = nullIfBlank(formData.get('label'))?.slice(0, 40) ?? null;
+  const kind: AccountKind = formData.get('kind') === 'bank' ? 'bank' : 'ewallet';
+  const accountName = nullIfBlank(formData.get('account_name'))?.slice(0, 120) ?? null;
+  const number = nullIfBlank(formData.get('number'))?.slice(0, 64) ?? null;
+  if (!label) {
+    return backToPaymentMethods(`error=${encodeURIComponent('Give the account a name people know, like “Maribank”.')}`);
+  }
+  const stored = at >= 0 ? list[at]! : null;
+  if (!stored && !number) {
+    return backToPaymentMethods(`error=${encodeURIComponent('Add the account number people send money to.')}`);
+  }
+
+  // The parts that point no money anywhere save straight away.
+  let next = list;
+  if (stored && (stored.label !== label || stored.kind !== kind)) {
+    next = list.map((a, i) => (i === at ? { ...a, label, kind } : a));
+    const { error } = await writeAccountList(admin, next);
+    if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
+  }
+
+  // ── VENDOR AGREEMENT § 9.1 · where money lands takes two admins ──────────
+  const changed = changedAccountDestinations(stored, { accountName, number });
+  if (changed.length === 0) {
+    revalidatePath(PAYMENT_METHODS_PATH);
+    return backToPaymentMethods('saved=1');
+  }
+  if (await aChangeIsAlreadyPending(admin)) {
+    return backToPaymentMethods(`error=${encodeURIComponent(ALREADY_PENDING)}`);
+  }
+  const accountId = stored?.id ?? newAccountId(label, new Set(list.map((a) => a.id)));
+  const summary = describeAccountChange(label, stored, { accountName, number });
+  const { error: reqErr } = await admin.from('admin_approval_requests').insert({
+    action_type: 'approve_payment_account_change',
+    payload: {
+      kind: 'account',
+      account: stored
+        ? { id: accountId, account_name: accountName, number }
+        : { id: accountId, label, kind, account_name: accountName, number, is_new: true },
+    },
+    rationale: `Change a receiving account — ${summary}`,
+    initiated_by: adminUserId,
+    // 24 hours, shorter than the 72 the comp and refund gates use. A redirect
+    // of every future payment should not be approvable by someone three days
+    // later who has forgotten why it was proposed.
+    expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+  });
+  if (reqErr) {
+    return backToPaymentMethods(`error=${encodeURIComponent(`Could not open the approval: ${reqErr.message}`)}`);
+  }
+  const { error: auditErr } = await admin.from('admin_audit_log').insert({
+    action: 'payment_account_change_requested',
+    actor_user_id: adminUserId,
+    metadata: { id: accountId, changed, summary },
+  });
+  // Non-fatal: the approval row IS the control, and it is already written.
+  if (auditErr) console.error('[saveReceivingAccount] audit insert failed (non-fatal):', auditErr);
+
+  revalidatePath(PAYMENT_METHODS_PATH);
+  revalidatePath('/admin/approvals');
+  return backToPaymentMethods(
+    `notice=${encodeURIComponent(
+      stored
+        ? `Saved. The new name or number goes live when a second admin approves it in Approvals: ${summary}`
+        : `${label} goes live when a second admin approves it in Approvals.`,
+    )}`,
+  );
+}
+
 export async function savePaymentInstruments(formData: FormData) {
   const { userId: adminUserId } = await requireAdmin();
 
-  // QR URLs are managed via the separate upload/remove actions below — they
-  // aren't included in this update, so re-saving text fields doesn't blow
-  // away an already-uploaded QR.
-  const payload = {
-    bdo_account_name: nullIfBlank(formData.get('bdo_account_name')),
-    bdo_account_number: nullIfBlank(formData.get('bdo_account_number')),
-    gcash_account_name: nullIfBlank(formData.get('gcash_account_name')),
-    gcash_number: nullIfBlank(formData.get('gcash_number')),
-    // Kill switches. An unchecked HTML checkbox posts NOTHING, so absence must
-    // mean OFF here — reading it as "unchanged" would make the switch
-    // impossible to turn off, which is the direction that matters when an
-    // account is at its cap and transfers are bouncing.
-    gcash_enabled: formData.get('gcash_enabled') === 'on',
-    bdo_enabled: formData.get('bdo_enabled') === 'on',
+  const intent = formData.get('intent');
+  if (
+    intent === 'account_save' ||
+    intent === 'account_toggle' ||
+    intent === 'account_move' ||
+    intent === 'account_remove'
+  ) {
+    return saveReceivingAccount(adminUserId, intent, formData);
+  }
+
+  // ── THE MONTHLY LIMITS of the two migrated rails ─────────────────────────
+  // The account names, numbers and switches moved into the list above. What is
+  // left on this form are the receiving caps and balance readings, which exist
+  // for GCash and BDO only (their columns predate the list). None of them is a
+  // destination, so none waits on a second admin.
+  //
+  // ⚠ This branch must never write a destination column again: a field the
+  // form no longer posts reads as blank, and a blank compared against the real
+  // number is a "change" that would open an approval to wipe it.
+  const payload: Record<string, unknown> = {
     gcash_monthly_cap_php: nullIfBlankNumber(formData.get('gcash_monthly_cap_php')),
     bdo_monthly_cap_php: nullIfBlankNumber(formData.get('bdo_monthly_cap_php')),
     updated_at: new Date().toISOString(),
@@ -260,160 +501,60 @@ export async function savePaymentInstruments(formData: FormData) {
   // ONLY when the submitted value actually differs from what is stored.
   //
   // Re-stamping on every save would be the dangerous direction: saving this
-  // form to edit an account NAME would silently reset the clock and discard
-  // every order since, overstating the remaining headroom until a transfer
-  // bounced.
+  // form to edit a cap would silently reset the clock and discard every order
+  // since, overstating the remaining headroom until a transfer bounced.
   //
   // The miss is benign: an owner who re-checks and lands on the same figure
   // keeps the older timestamp, so we keep deducting orders already reflected
   // in it. That UNDER-states remaining and closes the rail early — the safe
   // direction to be wrong in.
-  const { data: currentRow } = await admin
+  const { data: currentRow, error: currentErr } = await admin
     .from('platform_settings')
-    .select('gcash_available_php,bdo_available_php,' + PAYMENT_DESTINATION_FIELDS.join(','))
+    .select('gcash_available_php,bdo_available_php')
     .eq('id', 1)
     .maybeSingle();
+  if (currentErr) {
+    return backToPaymentMethods(
+      `error=${encodeURIComponent('Couldn’t read the saved limits just now, so nothing was changed. Refresh and try again.')}`,
+    );
+  }
   const current = (currentRow ?? {}) as {
     gcash_available_php?: number | string | null;
     bdo_available_php?: number | string | null;
   };
   const nowIso = new Date().toISOString();
 
-  for (const kind of ['gcash', 'bdo'] as const) {
+  for (const kind of PAY_CHANNELS) {
     const submitted = nullIfBlankNumber(formData.get(`${kind}_available_php`));
-    const stored =
-      current[`${kind}_available_php`] == null
-        ? null
-        : Number(current[`${kind}_available_php`]);
-    const changed = submitted !== stored;
+    const storedRaw = current[`${kind}_available_php` as 'gcash_available_php' | 'bdo_available_php'];
+    const stored = storedRaw == null ? null : Number(storedRaw);
     Object.assign(payload, {
       [`${kind}_available_php`]: submitted,
       // Cleared → drop the timestamp too, so a NULL balance can never leave a
       // stale `_as_of` behind for the reset check to trip over.
-      ...(changed ? { [`${kind}_available_as_of`]: submitted == null ? null : nowIso } : {}),
+      ...(submitted !== stored ? { [`${kind}_available_as_of`]: submitted == null ? null : nowIso } : {}),
     });
   }
 
-  // ── VENDOR AGREEMENT § 9.1 · changing WHERE money lands takes two admins ──
-  //
-  // Only the destination fields are gated. The kill switches, caps and
-  // balance readings in this same payload save immediately and deliberately:
-  // see lib/payment-destination.ts for why a control that STOPS money must
-  // never wait on a quorum.
-  // Compare only the destination fields, as their own typed object. The full
-  // payload carries booleans and numbers, and casting it wholesale to a
-  // string map is the kind of cast that compiles a bug rather than catching one.
-  const submittedDestinations: Partial<Record<PaymentDestinationField, string | null>> = {
-    bdo_account_name: payload.bdo_account_name,
-    bdo_account_number: payload.bdo_account_number,
-    gcash_account_name: payload.gcash_account_name,
-    gcash_number: payload.gcash_number,
-  };
-  const storedDestinations = current as Partial<Record<PaymentDestinationField, string | null>>;
-  const changed = changedDestinationFields(storedDestinations, submittedDestinations);
+  const { error } = await admin.from('platform_settings').update(payload).eq('id', 1);
+  if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
 
-  if (changed.length > 0) {
-    const summary = describeDestinationChange(storedDestinations, submittedDestinations);
-
-    // One pending destination change at a time. Two approvals in flight could
-    // be granted by two different admins and the last write would silently win.
-    const { data: alreadyPending } = await admin
-      .from('admin_approval_requests')
-      .select('approval_id')
-      .eq('action_type', 'approve_payment_account_change')
-      .eq('status', 'pending')
-      .maybeSingle();
-    if (alreadyPending) {
-      return redirect(
-        `/admin/settings/payment-methods?error=${encodeURIComponent(
-          'A change to the receiving account is already waiting on a second admin. Decide that one in /admin/approvals first.',
-        )}`,
-      );
-    }
-
-    // 🔑 SAVE EVERYTHING THAT IS NOT A DESTINATION, RIGHT NOW. An admin
-    // correcting a monthly cap must not have that edit held hostage by an
-    // unrelated account-number change sitting in a queue — and silently
-    // discarding it would be worse still.
-    const destinationValues: Record<string, string | null> = {};
-    for (const f of changed) {
-      destinationValues[f] = submittedDestinations[f] ?? null;
-      delete (payload as Record<string, unknown>)[f];
-    }
-
-    const { error: restErr } = await admin
-      .from('platform_settings')
-      .update(payload)
-      .eq('id', 1);
-    if (restErr) {
-      return redirect(
-        `/admin/settings/payment-methods?error=${encodeURIComponent(restErr.message)}`,
-      );
-    }
-
-    const { error: reqErr } = await admin.from('admin_approval_requests').insert({
-      action_type: 'approve_payment_account_change',
-      payload: { kind: 'fields', fields: destinationValues },
-      rationale: `Change the receiving account — ${summary}`,
-      initiated_by: adminUserId,
-      // 24 hours, shorter than the 72 the comp and refund gates use. A
-      // redirect of every future payment should not be approvable by someone
-      // three days later who has forgotten why it was proposed.
-      expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-    });
-    if (reqErr) {
-      return redirect(
-        `/admin/settings/payment-methods?error=${encodeURIComponent(
-          `Could not open the approval: ${reqErr.message}`,
-        )}`,
-      );
-    }
-
-    const { error: auditErr } = await admin.from('admin_audit_log').insert({
-      action: 'payment_account_change_requested',
-      actor_user_id: adminUserId,
-      metadata: { changed, summary },
-    });
-    // Non-fatal: the approval row IS the control, and it is already written.
-    // Losing the audit line must not strand a request that a second admin can
-    // still see — but it must never be silent either, because this is the
-    // paper trail for a change to where money lands.
-    if (auditErr) {
-      console.error('[savePaymentInstruments] audit insert failed (non-fatal):', auditErr);
-    }
-
-    revalidatePath('/admin/settings/payment-methods');
-    revalidatePath('/admin/approvals');
-    return redirect(
-      `/admin/settings/payment-methods?error=${encodeURIComponent(
-        `Everything else was saved. Changing the receiving account needs a second admin (Vendor Agreement § 9.1) — the request is open in /admin/approvals: ${summary}`,
-      )}`,
-    );
-  }
-
-  const { error } = await admin
-    .from('platform_settings')
-    .update(payload)
-    .eq('id', 1);
-  if (error) {
-    return redirect(
-      `/admin/settings/payment-methods?error=${encodeURIComponent(error.message)}`,
-    );
-  }
-
-  revalidatePath('/admin/settings/payment-methods');
+  revalidatePath(PAYMENT_METHODS_PATH);
   revalidatePath('/receipts', 'layout');
-  redirect('/admin/settings/payment-methods?saved=1');
+  redirect(`${PAYMENT_METHODS_PATH}?saved=1`);
 }
 
-type QrKind = 'bdo' | 'gcash';
-
-function qrColumn(kind: QrKind): 'bdo_qr_url' | 'gcash_qr_url' {
+/** The two migrated rails' own QR columns — kept in step with the list. */
+function qrColumn(kind: (typeof PAY_CHANNELS)[number]): 'bdo_qr_url' | 'gcash_qr_url' {
   return kind === 'bdo' ? 'bdo_qr_url' : 'gcash_qr_url';
 }
 
-function qrPayloadColumn(kind: QrKind): 'bdo_qr_payload' | 'gcash_qr_payload' {
+function qrPayloadColumn(kind: (typeof PAY_CHANNELS)[number]): 'bdo_qr_payload' | 'gcash_qr_payload' {
   return kind === 'bdo' ? 'bdo_qr_payload' : 'gcash_qr_payload';
+}
+
+function isLegacyRail(id: string): id is (typeof PAY_CHANNELS)[number] {
+  return (PAY_CHANNELS as readonly string[]).includes(id);
 }
 
 /**
@@ -445,16 +586,39 @@ async function decodeMerchantQrPayload(file: File): Promise<string | null> {
 
 export async function uploadMerchantQr(formData: FormData) {
   const { userId: adminUserId } = await requireAdmin();
-  const kindRaw = formData.get('kind');
-  if (kindRaw !== 'bdo' && kindRaw !== 'gcash') {
-    throw new Error('Invalid QR kind');
-  }
-  const kind: QrKind = kindRaw;
+  // `kind` is the receiving account's id (the list, owner 2026-10-01). It must
+  // name an account Setnayan has — a QR for nothing is refused, not stored.
+  const kind = nullIfBlank(formData.get('kind'));
   const file = formData.get('file');
+  if (!kind) throw new Error('Invalid QR kind');
   if (!(file instanceof File) || file.size === 0) {
-    return redirect(
-      `/admin/settings/payment-methods?error=${encodeURIComponent('Pick a file first')}`,
+    return backToPaymentMethods(`error=${encodeURIComponent('Pick a file first')}`);
+  }
+
+  const admin = createAdminClient();
+  const { settings, readFailed, accountsReadFailed } = await fetchPlatformSettingsMeasured(admin);
+  if (readFailed || accountsReadFailed) {
+    return backToPaymentMethods(
+      `error=${encodeURIComponent('Couldn’t read the accounts just now, so nothing was uploaded. Refresh and try again.')}`,
     );
+  }
+  const account = receivingAccounts(settings).find((a) => a.id === kind);
+  if (!account) {
+    return backToPaymentMethods(`error=${encodeURIComponent('That account is no longer in the list. Refresh and try again.')}`);
+  }
+  // Read the existing URL so the old asset can be cleaned up once the row
+  // points at the new one.
+  const existingUrl = account.qrUrl;
+
+  // ── VENDOR AGREEMENT § 9.1 · a QR IS a receiving account ─────────────────
+  //
+  // 🔑 THIS IS THE DOOR A GATE ON THE TEXT FIELDS WOULD HAVE MISSED. Scanning
+  // the QR is how customers actually send money, so replacing the image
+  // redirects funds exactly as changing the number does — and this action
+  // never touches the number. Protecting one and not the other would have
+  // been a gate with a hole the shape of the real payment path.
+  if (await aChangeIsAlreadyPending(admin)) {
+    return backToPaymentMethods(`error=${encodeURIComponent(ALREADY_PENDING)}`);
   }
 
   const upload = await uploadPublicAsset({
@@ -462,39 +626,11 @@ export async function uploadMerchantQr(formData: FormData) {
     file,
   });
   if (!upload.ok) {
-    return redirect(
-      `/admin/settings/payment-methods?error=${encodeURIComponent(upload.error)}`,
-    );
+    return backToPaymentMethods(`error=${encodeURIComponent(upload.error)}`);
   }
 
-  const admin = createAdminClient();
-
-  // Read the existing URL so we can clean up the old asset after the row is
-  // updated to point at the new one.
-  const { data: existing } = await admin
-    .from('platform_settings')
-    .select(qrColumn(kind))
-    .eq('id', 1)
-    .maybeSingle();
-  const existingUrl: string | null =
-    (existing as Record<string, unknown> | null)?.[qrColumn(kind)] as
-      | string
-      | null
-      | undefined ?? null;
-
   // Decode alongside the URL so the two never disagree: whatever image we
-  // just stored is exactly the payload checkout will re-mint. Writing both in
-  // one UPDATE means there is no window where the URL points at a new QR while
-  // the payload still describes the old account.
-  const payload = await decodeMerchantQrPayload(file);
-
-  // ── VENDOR AGREEMENT § 9.1 · a QR IS a receiving account ─────────────────
-  //
-  // 🔑 THIS IS THE DOOR A GATE ON THE TEXT FIELDS WOULD HAVE MISSED. Scanning
-  // the QR is how customers actually send money, so replacing the image
-  // redirects funds exactly as changing `gcash_number` does — and this action
-  // never touches `gcash_number`. Protecting one and not the other would have
-  // been a gate with a hole the shape of the real payment path.
+  // just stored is exactly the payload checkout will re-mint (lib/emv-qr.ts).
   //
   // The file is already in R2 and the payload already decoded: the approval
   // carries the URL the second admin is agreeing to, so nothing is re-decoded
@@ -503,19 +639,7 @@ export async function uploadMerchantQr(formData: FormData) {
   // ⚠ HONEST COST: a rejected or expired request leaves the uploaded asset
   // orphaned in R2. That is storage, not money, and it is the safe direction —
   // the alternative is deleting an asset the live row might already point at.
-  const { data: alreadyPending } = await admin
-    .from('admin_approval_requests')
-    .select('approval_id')
-    .eq('action_type', 'approve_payment_account_change')
-    .eq('status', 'pending')
-    .maybeSingle();
-  if (alreadyPending) {
-    return redirect(
-      `/admin/settings/payment-methods?error=${encodeURIComponent(
-        'A change to the receiving account is already waiting on a second admin. Decide that one in /admin/approvals first.',
-      )}`,
-    );
-  }
+  const payload = await decodeMerchantQrPayload(file);
 
   const { error: reqErr } = await admin.from('admin_approval_requests').insert({
     action_type: 'approve_payment_account_change',
@@ -526,16 +650,12 @@ export async function uploadMerchantQr(formData: FormData) {
       qr_payload: payload,
       replaces_url: existingUrl,
     },
-    rationale: `Replace the ${kind.toUpperCase()} payment QR — customers scan this to send money`,
+    rationale: `Replace the ${account.label} payment QR — customers scan this to send money`,
     initiated_by: adminUserId,
     expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
   });
   if (reqErr) {
-    return redirect(
-      `/admin/settings/payment-methods?error=${encodeURIComponent(
-        `Could not open the approval: ${reqErr.message}`,
-      )}`,
-    );
+    return backToPaymentMethods(`error=${encodeURIComponent(`Could not open the approval: ${reqErr.message}`)}`);
   }
 
   const { error: qrAuditErr } = await admin.from('admin_audit_log').insert({
@@ -547,57 +667,48 @@ export async function uploadMerchantQr(formData: FormData) {
     console.error('[uploadMerchantQr] audit insert failed (non-fatal):', qrAuditErr);
   }
 
-  revalidatePath('/admin/settings/payment-methods');
+  revalidatePath(PAYMENT_METHODS_PATH);
   revalidatePath('/admin/approvals');
   redirect(
-    `/admin/settings/payment-methods?error=${encodeURIComponent(
-      `The ${kind.toUpperCase()} QR was uploaded but is NOT live yet — replacing a payment QR needs a second admin (Vendor Agreement § 9.1). The request is open in /admin/approvals.`,
+    `${PAYMENT_METHODS_PATH}?notice=${encodeURIComponent(
+      `The ${account.label} QR is uploaded. It goes live when a second admin approves it in Approvals.`,
     )}`,
   );
 }
 
 export async function removeMerchantQr(formData: FormData) {
   await requireAdmin();
-  const kindRaw = formData.get('kind');
-  if (kindRaw !== 'bdo' && kindRaw !== 'gcash') {
-    throw new Error('Invalid QR kind');
-  }
-  const kind: QrKind = kindRaw;
+  const kind = nullIfBlank(formData.get('kind'));
+  if (!kind) throw new Error('Invalid QR kind');
 
   const admin = createAdminClient();
-  const { data: existing } = await admin
-    .from('platform_settings')
-    .select(qrColumn(kind))
-    .eq('id', 1)
-    .maybeSingle();
-  const existingUrl: string | null =
-    (existing as Record<string, unknown> | null)?.[qrColumn(kind)] as
-      | string
-      | null
-      | undefined ?? null;
-
-  // Clear the payload with the URL. Leaving a stale payload behind would let
-  // checkout keep minting codes for an account the admin just removed.
-  const { error } = await admin
-    .from('platform_settings')
-    .update({
-      [qrColumn(kind)]: null,
-      [qrPayloadColumn(kind)]: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', 1);
-  if (error) {
-    return redirect(
-      `/admin/settings/payment-methods?error=${encodeURIComponent(error.message)}`,
+  const { settings, readFailed, accountsReadFailed } = await fetchPlatformSettingsMeasured(admin);
+  if (readFailed || accountsReadFailed) {
+    return backToPaymentMethods(
+      `error=${encodeURIComponent('Couldn’t read the accounts just now, so nothing was removed. Refresh and try again.')}`,
     );
   }
+  const list = receivingAccounts(settings);
+  const account = list.find((a) => a.id === kind);
+  if (!account) return backToPaymentMethods('qr_removed=1');
+  const existingUrl = account.qrUrl;
+
+  // Clear the payload with the URL. Leaving a stale payload behind would let
+  // checkout keep minting codes for an account the admin just removed. The two
+  // migrated rails clear their own columns too, so the fallback agrees.
+  const { error } = await writeAccountList(
+    admin,
+    list.map((a) => (a.id === kind ? { ...a, qrUrl: null, qrPayload: null } : a)),
+    isLegacyRail(kind) ? { [qrColumn(kind)]: null, [qrPayloadColumn(kind)]: null } : {},
+  );
+  if (error) return backToPaymentMethods(`error=${encodeURIComponent(error.message)}`);
 
   if (existingUrl) {
     await deletePublicAsset({ publicUrl: existingUrl });
   }
 
-  revalidatePath('/admin/settings/payment-methods');
-  redirect('/admin/settings/payment-methods?qr_removed=1');
+  revalidatePath(PAYMENT_METHODS_PATH);
+  redirect(`${PAYMENT_METHODS_PATH}?qr_removed=1`);
 }
 
 // ---------------------------------------------------------------------------
@@ -637,6 +748,15 @@ function settingsError(message: string): never {
  * proposed. Re-deriving anything here would mean the two admins could be
  * agreeing to different destinations — which is the whole failure this gate
  * exists to prevent.
+ *
+ * Three payload kinds:
+ *   • 'account' — one entry of the receiving-accounts LIST (owner 2026-10-01):
+ *                 a new account, or a new name/number for an existing one.
+ *   • 'qr'      — a new QR image for one account in the list.
+ *   • 'fields'  — the pre-list shape (the fixed BDO/GCash columns). Kept so a
+ *                 request opened before the list shipped still executes — and
+ *                 it now updates the matching list entry too, or approving it
+ *                 would change a column checkout no longer reads.
  */
 export async function executePaymentAccountChange(
   admin: ReturnType<typeof createAdminClient>,
@@ -649,11 +769,102 @@ export async function executePaymentAccountChange(
   const body = (params.payload ?? {}) as {
     kind?: string;
     fields?: Record<string, string | null>;
+    account?: Record<string, unknown>;
     rail?: string;
     url?: string;
     qr_payload?: string | null;
     replaces_url?: string | null;
   };
+
+  /** The list as it stands NOW — the approval patches one entry of it. */
+  const readList = async (): Promise<ReceivingAccount[]> => {
+    const { settings, readFailed, accountsReadFailed } = await fetchPlatformSettingsMeasured(admin);
+    if (readFailed || accountsReadFailed) {
+      throw new Error('Could not read the receiving accounts — nothing was changed. Try again.');
+    }
+    return receivingAccounts(settings);
+  };
+
+  /**
+   * ⚠ THIS ROW IS THE ONLY PLACE TWO ADMINS ARE RECORDED TOGETHER. Four eyes
+   * that leaves no trace of the second pair is a control nobody can audit
+   * afterwards, so the failure is loud even though it is not fatal — the
+   * money change itself has already succeeded and must not be undone because a
+   * log write did not land.
+   */
+  const recordBothAdmins = async (action: string, metadata: Record<string, unknown>) => {
+    const { error: auditErr } = await admin.from('admin_audit_log').insert({
+      action,
+      actor_user_id: params.confirmingAdminId,
+      metadata: {
+        ...metadata,
+        initiated_by: params.initiatedByAdminId,
+        confirmed_by: params.confirmingAdminId,
+      },
+    });
+    if (auditErr) {
+      console.error(
+        `[executePaymentAccountChange] ${action} audit insert FAILED — the change is live but unrecorded:`,
+        auditErr,
+      );
+    }
+  };
+
+  if (body.kind === 'account') {
+    const acc = body.account ?? {};
+    // Only ever the fields an account change may carry. A payload is data, and
+    // data that names its own target is a write primitive.
+    const allowed = new Set(['id', 'label', 'kind', 'account_name', 'number', 'is_new']);
+    const bad = Object.keys(acc).filter((k) => !allowed.has(k));
+    if (bad.length > 0) {
+      throw new Error(`Payment approval names non-destination column(s): ${bad.join(', ')}`);
+    }
+    const id = typeof acc.id === 'string' ? acc.id : '';
+    if (!isPayChannel(id)) throw new Error('Payment approval has no valid account id');
+    const accountName = typeof acc.account_name === 'string' ? acc.account_name : null;
+    const number = typeof acc.number === 'string' ? acc.number : null;
+
+    const list = await readList();
+    const at = list.findIndex((a) => a.id === id);
+    let next: ReceivingAccount[];
+    if (acc.is_new === true) {
+      if (at >= 0) throw new Error('That account was already added.');
+      const label = typeof acc.label === 'string' && acc.label.trim() ? acc.label.trim().slice(0, 40) : null;
+      if (!label) throw new Error('Payment approval has no account label');
+      next = [
+        ...list,
+        {
+          id,
+          label,
+          kind: acc.kind === 'bank' ? 'bank' : 'ewallet',
+          accountName,
+          number,
+          qrUrl: null,
+          qrPayload: null,
+          enabled: true,
+        },
+      ];
+    } else {
+      if (at < 0) throw new Error('That account is no longer in the list.');
+      next = list.map((a, i) => (i === at ? { ...a, accountName, number } : a));
+    }
+
+    // The two migrated rails keep their fixed columns in step — the fallback
+    // checkout reads when the list cannot be.
+    const legacy: Record<string, string | null> =
+      id === 'gcash'
+        ? { gcash_account_name: accountName, gcash_number: number }
+        : id === 'bdo'
+          ? { bdo_account_name: accountName, bdo_account_number: number }
+          : {};
+    const { error } = await writeAccountList(admin, next, legacy);
+    if (error) throw new Error(`Payment account update failed: ${error.message}`);
+
+    await recordBothAdmins('payment_account_changed', { account: acc });
+    revalidatePath(PAYMENT_METHODS_PATH);
+    revalidatePath('/receipts', 'layout');
+    return;
+  }
 
   if (body.kind === 'fields') {
     const fields = body.fields ?? {};
@@ -667,51 +878,44 @@ export async function executePaymentAccountChange(
       throw new Error(`Payment approval names non-destination column(s): ${bad.join(', ')}`);
     }
 
-    const { error } = await admin
-      .from('platform_settings')
-      .update({ ...fields, updated_at: new Date().toISOString() })
-      .eq('id', 1);
+    // The list entry for each rail named, so the approval changes what
+    // checkout actually reads.
+    const list = await readList();
+    const patch = (id: 'gcash' | 'bdo', nameKey: string, numberKey: string) => (a: ReceivingAccount) =>
+      a.id !== id
+        ? a
+        : {
+            ...a,
+            ...(nameKey in fields ? { accountName: fields[nameKey] ?? null } : {}),
+            ...(numberKey in fields ? { number: fields[numberKey] ?? null } : {}),
+          };
+    const next = list
+      .map(patch('gcash', 'gcash_account_name', 'gcash_number'))
+      .map(patch('bdo', 'bdo_account_name', 'bdo_account_number'));
+
+    const { error } = await writeAccountList(admin, next, { ...fields });
     if (error) throw new Error(`Payment account update failed: ${error.message}`);
 
-    // ⚠ THIS ROW IS THE ONLY PLACE TWO ADMINS ARE RECORDED TOGETHER. Four eyes
-    // that leaves no trace of the second pair is a control nobody can audit
-    // afterwards, so the failure is loud even though it is not fatal — the
-    // money change itself has already succeeded above and must not be undone
-    // because a log write did not land.
-    const { error: auditErr } = await admin.from('admin_audit_log').insert({
-      action: 'payment_account_changed',
-      actor_user_id: params.confirmingAdminId,
-      metadata: {
-        fields,
-        initiated_by: params.initiatedByAdminId,
-        confirmed_by: params.confirmingAdminId,
-      },
-    });
-    if (auditErr) {
-      console.error(
-        '[executePaymentAccountChange] account-change audit insert FAILED — the change is live ' +
-          'but unrecorded:',
-        auditErr,
-      );
-    }
-    revalidatePath('/admin/settings/payment-methods');
+    await recordBothAdmins('payment_account_changed', { fields });
+    revalidatePath(PAYMENT_METHODS_PATH);
     revalidatePath('/receipts', 'layout');
     return;
   }
 
   if (body.kind === 'qr') {
-    const rail = body.rail;
-    if (rail !== 'bdo' && rail !== 'gcash') throw new Error('QR approval has no valid rail');
+    const rail = typeof body.rail === 'string' ? body.rail : '';
+    if (!isPayChannel(rail)) throw new Error('QR approval has no valid rail');
     if (!body.url) throw new Error('QR approval has no uploaded image');
 
-    const { error } = await admin
-      .from('platform_settings')
-      .update({
-        [qrColumn(rail)]: body.url,
-        [qrPayloadColumn(rail)]: body.qr_payload ?? null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', 1);
+    const list = await readList();
+    if (!list.some((a) => a.id === rail)) throw new Error('QR approval names an account that is no longer in the list');
+    const { error } = await writeAccountList(
+      admin,
+      list.map((a) => (a.id === rail ? { ...a, qrUrl: body.url ?? null, qrPayload: body.qr_payload ?? null } : a)),
+      isLegacyRail(rail)
+        ? { [qrColumn(rail)]: body.url, [qrPayloadColumn(rail)]: body.qr_payload ?? null }
+        : {},
+    );
     if (error) throw new Error(`Payment QR update failed: ${error.message}`);
 
     // Clean up the superseded image only AFTER the row points at the new one,
@@ -720,24 +924,8 @@ export async function executePaymentAccountChange(
       await deletePublicAsset({ publicUrl: body.replaces_url });
     }
 
-    const { error: qrAuditErr } = await admin.from('admin_audit_log').insert({
-      action: 'payment_qr_changed',
-      actor_user_id: params.confirmingAdminId,
-      metadata: {
-        rail,
-        url: body.url,
-        initiated_by: params.initiatedByAdminId,
-        confirmed_by: params.confirmingAdminId,
-      },
-    });
-    if (qrAuditErr) {
-      console.error(
-        '[executePaymentAccountChange] QR-change audit insert FAILED — the QR is live but ' +
-          'unrecorded:',
-        qrAuditErr,
-      );
-    }
-    revalidatePath('/admin/settings/payment-methods');
+    await recordBothAdmins('payment_qr_changed', { rail, url: body.url });
+    revalidatePath(PAYMENT_METHODS_PATH);
     return;
   }
 

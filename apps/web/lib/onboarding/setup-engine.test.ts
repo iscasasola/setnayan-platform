@@ -41,6 +41,7 @@ import {
 } from './flow-config';
 import {
   SETUP_CARD_IDS,
+  defaultLookId,
   sanitizeSetupAnswers,
   setupCardAnswered,
   setupDefaults,
@@ -86,7 +87,7 @@ const SEEDED: Record<string, EventTypeProfile> = {
 function viewOf(p: EventTypeProfile): SetupView {
   // The same composition as lib/onboarding/setup-view.ts: the wedding fence
   // lets a wedding wear Pro looks; nobody else.
-  return setupViewFor(p, profileSetup(p), pickableInviteThemes({ mayShowStdFilm: p.eventType === 'wedding' }));
+  return setupViewFor(p, profileSetup(p), pickableInviteThemes());
 }
 
 /** The generic wizard's screens for a type with the engine on — the inputs exactly as generic-onboarding.tsx derives them. */
@@ -170,13 +171,33 @@ test('the defaults by type: wedding replies, the casual types come in on one QR'
   }
 });
 
-test('a non-wedding type is never offered a Pro look its fence forbids', () => {
+test('every type may be offered a Pro look (◆) — still Pro, never blocking (2026-10-01)', () => {
   for (const t of ['birthday', 'hangout', 'date', 'simple_event']) {
     const v = viewOf(SEEDED[t]!);
     assert.ok(v.looks.length > 0, t);
-    assert.ok(v.looks.every((l) => !l.pro), `${t} offers a Pro look`);
+    assert.ok(v.looks.some((l) => l.pro), `${t} is shut out of the ◆ looks`);
   }
   assert.ok(viewOf(SEEDED.wedding!).looks.some((l) => l.pro), 'a wedding sees its ◆ looks');
+});
+
+test('every seeded type pre-selects a FREE look; a Pro look stays pickable (owner 2026-10-01)', () => {
+  for (const [t, p] of Object.entries(SEEDED)) {
+    const v = viewOf(p);
+    const pre = setupDefaults(v).look;
+    assert.equal(pre, defaultLookId(v), t);
+    const picked = v.looks.find((l) => l.id === pre);
+    assert.ok(picked, `${t} pre-selects a look it offers`);
+    assert.equal(picked!.pro, false, `${t} pre-selects ${pre}, a Pro look`);
+  }
+  // The wedding's own set leads with Velvet (Pro) — it is still listed, still pickable.
+  const w = viewOf(SEEDED.wedding!);
+  assert.equal(w.looks[0]!.id, 'velvet');
+  assert.equal(w.looks[0]!.pro, true);
+  assert.notEqual(setupDefaults(w).look, 'velvet');
+  // A Pro pick on the wire is still honoured.
+  assert.equal(sanitizeSetupAnswers({ look: 'velvet' }, w)!.look, 'velvet');
+  // No free look offered at all: the list's first stands.
+  assert.equal(defaultLookId({ looks: [{ id: 'a', name: 'A', pro: true, own: true }] }), 'a');
 });
 
 // ── 2 · never asks twice ──────────────────────────────────────────────────
@@ -256,8 +277,8 @@ test('the wire is never trusted: unknown keys and values fall back to the type d
   const view = viewOf(SEEDED.hangout!);
   assert.equal(sanitizeSetupAnswers(undefined, view), null);
   assert.equal(sanitizeSetupAnswers([], view), null);
-  const a = sanitizeSetupAnswers({ look: 'velvet', reply: 'maybe', entry: 'door', gifts: 'yes', logo: 'yes' }, view)!;
-  assert.notEqual(a.look, 'velvet');
+  const a = sanitizeSetupAnswers({ look: 'no-such-look', reply: 'maybe', entry: 'door', gifts: 'yes', logo: 'yes' }, view)!;
+  assert.notEqual(a.look, 'no-such-look');
   assert.equal(a.reply, 'no');
   assert.equal(a.entry, 'one_qr');
   assert.equal(a.gifts, 'no', 'a gift-free type cannot be given a gifts row');

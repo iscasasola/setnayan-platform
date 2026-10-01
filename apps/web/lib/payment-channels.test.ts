@@ -18,6 +18,10 @@ import {
   phDateISO,
   isPayChannel,
   isChannelOpen,
+  receivingAccounts,
+  openRailOptions,
+  channelLabel,
+  parseReceivingAccounts,
 } from './payment-channels';
 
 const NOW = new Date('2026-08-15T10:00:00+08:00');
@@ -322,4 +326,50 @@ test('isChannelOpen answers per rail and agrees with openChannels', () => {
       assert.equal(isChannelOpen(s, ch), openChannels(s).includes(ch));
     }
   }
+});
+
+/* ── THE LIST (owner 2026-10-01: "add a mari bank or uno bank") ─────────── */
+
+const LIST = [
+  { id: 'maribank-7k2q', kind: 'bank', label: 'Maribank', account_name: 'Setnayan', number: '111', enabled: true },
+  { id: 'gcash', kind: 'ewallet', label: 'GCash', number: '0917', enabled: true },
+  { id: 'uno-1a2b', kind: 'bank', label: 'UNO', number: '222', enabled: false },
+];
+
+test('the list is shown in the order the admin set', () => {
+  assert.deepEqual(openChannels({ receiving_accounts: LIST }), ['maribank-7k2q', 'gcash']);
+  assert.deepEqual(
+    openRailOptions({ receiving_accounts: LIST }).map((r) => r.label),
+    ['Maribank', 'GCash'],
+  );
+});
+
+test('a switched-off listed account is offered nowhere', () => {
+  assert.equal(isChannelOpen({ receiving_accounts: LIST }, 'uno-1a2b'), false);
+  assert.equal(resolveChannel('uno-1a2b', { receiving_accounts: LIST }), 'maribank-7k2q');
+});
+
+test('an EMPTY list falls back to the two old accounts — checkout keeps working', () => {
+  const legacy = { gcash_number: '0917', bdo_account_number: '123' };
+  for (const empty of [[], undefined, null, 'not-an-array']) {
+    assert.deepEqual(openChannels({ ...legacy, receiving_accounts: empty }), ['gcash', 'bdo']);
+  }
+});
+
+test('a malformed or duplicate entry is dropped, never guessed at', () => {
+  const parsed = parseReceivingAccounts([
+    { id: 'gcash', label: 'GCash', number: '1' },
+    { id: 'gcash', label: 'GCash again', number: '2' },
+    { id: 'Bad Id!', label: 'Bad', number: '3' },
+    { id: 'nolabel', number: '4' },
+    null,
+    'x',
+  ]);
+  assert.deepEqual(parsed.map((a) => a.id), ['gcash']);
+});
+
+test('a list account keeps its own name; an unknown id says its id', () => {
+  assert.equal(channelLabel({ receiving_accounts: LIST }, 'maribank-7k2q'), 'Maribank');
+  assert.equal(channelLabel({ receiving_accounts: LIST }, 'gone-0000'), 'gone-0000');
+  assert.equal(receivingAccounts({ receiving_accounts: LIST }).length, 3);
 });

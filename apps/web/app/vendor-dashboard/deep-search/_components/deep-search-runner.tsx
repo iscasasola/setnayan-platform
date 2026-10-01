@@ -6,7 +6,7 @@ import { Search, ShieldCheck, Gift } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
+import { type OpenRail } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
   runVendorDeepSearch,
@@ -38,7 +38,7 @@ export type DeepSearchRunnerProps = {
   /** openChannels(settings) — the rails the owner has left ON. Empty = payments
    *  paused: the paid path shows PaymentsPausedNote and its button is disabled
    *  (the server action refuses the same case). A free grant ignores it. */
-  openRails: readonly PayChannel[];
+  openRails: readonly OpenRail[];
   /** The shop is verified — the one requirement no switch lifts. */
   eligible: boolean;
   /** Server-decided: Run asks for a paid plan (◆ note only; never a lock). */
@@ -123,12 +123,10 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
               <legend className="text-xs font-medium text-ink">Pay with</legend>
               <div className="mt-1.5 flex flex-wrap gap-3">
                 {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-                {(['bdo', 'gcash'] as const)
-                  .filter((r) => openRails.includes(r))
-                  .map((r, n) => (
-                    <label key={r} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
-                      <input type="radio" name="channel" value={r} defaultChecked={n === 0} />
-                      {PAY_CHANNEL_LABEL[r]}
+                {openRails.map((r, n) => (
+                    <label key={r.id} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
+                      <input type="radio" name="channel" value={r.id} defaultChecked={n === 0} />
+                      {r.label}
                     </label>
                   ))}
               </div>

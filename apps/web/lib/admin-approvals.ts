@@ -60,7 +60,7 @@ const NON_PICKER_ACTION_LABEL: Record<string, string> = {
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
   approve_journal_spotlight: 'Publish sponsored journal spotlight',
   approve_large_refund: 'Approve refund over ₱25,000 (money)',
-  approve_payment_account_change: 'Change the BDO/GCash receiving account (money)',
+  approve_payment_account_change: 'Change a receiving account (money)',
   approve_retail_price_change: 'Change what a customer pays for a SKU (money)',
 };
 

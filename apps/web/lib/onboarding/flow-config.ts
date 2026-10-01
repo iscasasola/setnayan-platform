@@ -136,10 +136,10 @@ const REPLY_YES_BY_DEFAULT: ReadonlySet<string> = new Set(['wedding', 'debut', '
 
 /**
  * The profile → everything the cards need. `pickable` is the theme picker's
- * own list for this type — `pickableInviteThemes({ mayShowStdFilm })`, the
- * wedding fence the Details picker already asks — handed in so this module
+ * own list — `pickableInviteThemes()`, every theme for every type (DECISION_LOG
+ * 2026-10-01 "PRO THEMES OPEN TO EVERY EVENT TYPE") — handed in so this module
  * stays free of the theme catalogue: a Pro look is listed (◆, never blocking —
- * Apply asks) only where the type may wear it at all. Server-side caller:
+ * Apply asks). Server-side caller:
  * `lib/onboarding/setup-view.ts`.
  */
 export function setupViewFor(

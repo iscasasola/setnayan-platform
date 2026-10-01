@@ -69,6 +69,7 @@ import { MakerDetails, detailsFactEditors } from './_components/maker-details';
 import { loadYourEvent } from './_components/details-your-event-load';
 import { venuesEditorFor } from './_components/details-your-event-parts';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
+import { hasOwnLook } from '@/lib/theme-own-look';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
@@ -1030,8 +1031,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       findSampleEventId()
         .then((id) => (id ? printInputsVersion(id) : null))
         .catch(() => null),
-      // 💡 The onboarding feel — the gallery's "Suggested for you" label only.
-      printAdmin.from('events').select('mood_feel_key').eq('event_id', eventId).maybeSingle(),
+      // 💡 The onboarding feel — the gallery's "Suggested for you" label only; + the own-look columns (a re-tap of the current theme hands them back).
+      printAdmin.from('events').select('mood_feel_key, site_bg_color, site_button_color, site_font_key').eq('event_id', eventId).maybeSingle(),
       // 💌 The live Love Story (the draft, read below, wins) — Details › Love Story.
       supabase.from('events').select('love_story').eq('event_id', eventId).maybeSingle(),
       // 🗓 The schedule's moments — Details › Schedule's ✓ and its pieces (a refused read says so, never "0").
@@ -1432,6 +1433,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               // Never on the Maker's very first visit — its own welcome is showing.
               tour: !firstVisit,
               chosen: guided.themeChosen,
+              // The look they set themselves (draft over live) — a re-tap of the current theme hands it back.
+              ownLook: hasOwnLook(feelRes.data as Record<string, unknown> | null, draftedEvents),
             }}
             prints={prints}
             menu={{

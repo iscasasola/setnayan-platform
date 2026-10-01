@@ -22,7 +22,7 @@ import {
 } from '@/lib/maker-theme-tiles';
 import { sampleHubTileSrc, themeStillSrc } from '@/lib/theme-sample-stills';
 import { FREE_THEMES, themeNames } from '@/lib/invite-themes';
-import { THEME_OWN_LOOK_RESET } from '@/lib/theme-own-look';
+import { THEME_OWN_LOOK_RESET, themePickSends } from '@/lib/theme-own-look';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { ThemePreviewOverlay } from './theme-preview-overlay';
@@ -101,13 +101,27 @@ function usePick(): Pick {
   return v;
 }
 
-export function ThemePickProvider({ eventId, current, children }: { eventId: string; current: string; children: ReactNode }) {
+export function ThemePickProvider({
+  eventId,
+  current,
+  ownLook = false,
+  children,
+}: {
+  eventId: string;
+  current: string;
+  /** The couple has their own page colour, button colour or typeface set (`hasOwnLook`) — re-tapping the current theme hands it back. */
+  ownLook?: boolean;
+  children: ReactNode;
+}) {
   const [pending, start] = useTransition();
   const [picked, setPicked] = useState(current);
   const [error, setError] = useState<string | null>(null);
   /* 🔁 The draft is the one value: Undo, Apply, Restore or another tab move it,
      and the selection follows. */
   useEffect(() => setPicked(current), [current]);
+  /* 🎨 An own look is handed back by any pick; the page's next read says if they set one again. */
+  const [own, setOwn] = useState(ownLook);
+  useEffect(() => setOwn(ownLook), [ownLook]);
 
   /* ⚡ EVERY TAP COUNTS, THE LAST ONE WINS (owner 2026-09-29: *"make sure 100%
      that there is no slow response on the maker"*). A tap while a save is on
@@ -122,9 +136,11 @@ export function ThemePickProvider({ eventId, current, children }: { eventId: str
     saved.current = current;
   }, [current]);
   const pick = (id: string) => {
-    if (id === picked) return;
+    if (!themePickSends(id, picked, own)) return;
+    const hadOwn = own;
     lastTap.current = id;
     setPicked(id);
+    setOwn(false);
     setError(null);
     queue.current = queue.current.then(async () => {
       if (lastTap.current !== id) return; // overtaken — the newer tap is sent instead
@@ -143,6 +159,7 @@ export function ThemePickProvider({ eventId, current, children }: { eventId: str
       else if (lastTap.current !== id) return;
       if (!r.ok) {
         setPicked(before);
+        setOwn(hadOwn);
         setError(r.error);
       }
     });

@@ -2,7 +2,7 @@ import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { TOURS, type TourKey } from '@/lib/tours';
 import { RSVP_STAGE_KEY, RSVP_STAGE_LABEL } from '@/lib/rsvp-stage-shared';
-import { DETAILS_FIRST_PRINT, isPrintsItem, type DetailsItemKey } from '@/lib/maker-details-items';
+import { DETAILS_FIRST_ITEM, DETAILS_FIRST_PRINT, isPrintsItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import type { MakerDevice } from './maker-context';
 
 /**
@@ -53,6 +53,31 @@ export const MAKER_PRINTS_LABEL = 'Prints';
  */
 export function makerPrintsDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
   return detailsItem && isPrintsItem(detailsItem) ? detailsItem : DETAILS_FIRST_PRINT;
+}
+
+/**
+ * 🗂 Where the Details door opens Details: on the item the couple is on, but
+ * never on a print — a print is Prints' (`makerOpenTool`), so pressing Details
+ * right after Prints would keep the highlight on Prints and look dead. A print
+ * (or no item) opens on Details' own first item, the same one a fresh press
+ * opens (`detailsItemFor` → `DETAILS_FIRST_ITEM`).
+ */
+export function makerDetailsDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
+  return detailsItem && !isPrintsItem(detailsItem) ? detailsItem : DETAILS_FIRST_ITEM;
+}
+
+/**
+ * 🖨🗂 THE PRESS of Details or Prints — one reducer, so the shell and its test
+ * run the same code: both doors open the Details page on their own item.
+ */
+export function makerPressDoor(
+  state: { detailsItem: DetailsItemKey | null },
+  key: 'details' | 'prints',
+): { detailsItem: DetailsItemKey; selectedTool: 'details' } {
+  return {
+    detailsItem: key === 'prints' ? makerPrintsDoor(state.detailsItem) : makerDetailsDoor(state.detailsItem),
+    selectedTool: 'details',
+  };
 }
 
 /**

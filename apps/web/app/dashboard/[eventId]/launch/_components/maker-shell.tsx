@@ -14,7 +14,7 @@ import {
   isMakerDevice,
   isStagePhase,
   makerOpenTool,
-  makerPrintsDoor,
+  makerPressDoor,
   makerPlaceItem,
   makerPlacePick,
   makerShownDevice,
@@ -364,10 +364,11 @@ export function MakerShell({
       if (selection?.kind === 'tool') select(null);
       return;
     }
-    /* 🖨 Prints is Details, open on the prints (`makerPrintsDoor`) — not a page of its own. */
-    if (item.key === 'prints') {
+    /* 🖨🗂 Prints is Details, open on the prints (`makerPrintsDoor`) — not a page of its own;
+       Details opens on its own item, never a print (`makerDetailsDoor`), so the highlight moves. */
+    if (item.key === 'prints' || item.key === 'details') {
       if (hasWork) {
-        setDetailsItem(makerPrintsDoor(detailsItem));
+        setDetailsItem(makerPressDoor({ detailsItem }, item.key).detailsItem);
         select({ kind: 'tool', key: 'details' });
       }
       return;

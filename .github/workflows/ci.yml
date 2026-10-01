@@ -643,6 +643,14 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy-anon-key
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
+      # 🚦 Vercel refuses a production deploy above 2,048 routes
+      # (too_many_routes — 2026-09-23, 2026-09-26, 2026-10-02). The count is
+      # only ever reported by Vercel when a deploy FAILS, so this step computes
+      # it from the build above (calibrated against a real `vercel build`) and
+      # fails above 2,000. apps/web/scripts/check-vercel-route-count.mjs.
+      - name: Check Vercel route count
+        run: node apps/web/scripts/check-vercel-route-count.mjs
+
   bundle-size-check:
     name: bundle size check
     runs-on: ubuntu-latest

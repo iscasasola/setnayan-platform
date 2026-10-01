@@ -229,9 +229,9 @@ export function GenericOnboarding(props: Props) {
     servicesStepAiValue = null,
     todayISO,
     entranceBlocking = null,
-    vendorFree = false,
     setupView = null,
     setupSteps = [],
+    vendorFree = false,
   } = props;
   const engine = setupView !== null;
   const router = useRouter();

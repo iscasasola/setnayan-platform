@@ -17,6 +17,7 @@
  */
 
 import { useState } from 'react';
+import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   moreRows,
@@ -69,7 +70,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
   return (
     <div data-setup-card={card} data-skin={view.skin}>
       <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
-        {n} of {total}
+        {formatCount(n)} of {formatCount(total)}
       </p>
       <div className="mt-2 flex items-start gap-2">
         <h1

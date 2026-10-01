@@ -80,7 +80,9 @@ test('no interested_categories / inquiry dispatch is saved when vendorFree', () 
   const s = src();
   assert.match(
     s,
-    /picks:\s*vendorFree \? \[\] : finalPlan\.picks/,
+    // `|| engine`: with the setup engine on, supplier picks have left onboarding
+    // for every admitted type too (G1) — still never saved for a vendor-free one.
+    /picks:\s*vendorFree(?: \|\| engine)? \? \[\] : finalPlan\.picks/,
     'the commit payload must save no picks (→ style_preferences.interested_categories) for a vendor-free type',
   );
   assert.match(

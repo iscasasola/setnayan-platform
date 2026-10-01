@@ -14,6 +14,9 @@
  *   d · "Your services" (Papic · Setnayan AI, owner 2026-10-01): present, "—"
  *       on a failed read, never the service that is already the Next card,
  *       absent in the store shell.
+ *   e · EACH THING ONCE (owner 2026-10-01, "HOME ON DESKTOP SHOWS EACH THING
+ *       ONCE"): days to go · coming / no reply · Paid / Still owing · the
+ *       Next-vs-"Needs you this week" overlap render exactly once on the Home.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -31,6 +34,7 @@ import {
   glanceCount,
   glanceDays,
   glanceMoney,
+  firstScreenRepeats,
   pickHomeNext,
   type HomeNextInput,
 } from '@/lib/home-first-screen';
@@ -46,6 +50,7 @@ test.before(async () => {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+const DASH = stripComments(readFileSync(join(HERE, '_components', 'event-dashboard.tsx'), 'utf8'));
 
 const NOTHING: HomeNextInput = { guide: null, hasDate: true, noun: 'wedding', papicReady: false, aiOffer: false };
 const GUIDE = { round: 2, roundTitle: 'Invitations', done: 3, total: 7, nextTitle: 'Schedule' };
@@ -192,4 +197,75 @@ test('d · the store shell draws no services row (both are STORE_SHELL_HIDDEN_AD
   assert.equal(count(draw({ services: [] }), 'data-home-services'), 0);
   assert.match(PAGE, /homeServices\(\{[\s\S]*?storeShell,/, 'the page must hand the store-shell answer to the row');
   assert.match(PAGE, /papicReady: Boolean\([^)]*!storeShell\)/, 'the Papic Next card must not send a store-shell user to a web-only page');
+});
+
+/* ══ e · EACH THING ONCE ═════════════════════════════════════════════════════
+   Owner 2026-10-01, on the TEST wedding's Home (desktop) after the first screen
+   shipped: *"you updated the Home of that event but instead of changing it I
+   see dupes on the event."* Measured: days to go ×2 · coming / no reply ×2
+   (three numbers + Guests tile + "N guests haven't replied yet") · money ×2
+   (Paid / Still owing + Budget tile) · Next card ≈ "Needs you this week".
+
+   🪤 `EventDashboard` is `server-only` (async, reads the database) — no test can
+   mount it, so the half of each count that lives in it is held by the GATE on
+   each site, and the sites are COUNTED, so a fifth way to print "days to go"
+   added without a gate is a red test, not a silent dupe. The first screen's
+   half is RENDERED. */
+
+test('e · the first screen states each of the four facts exactly once', () => {
+  const html = draw();
+  for (const [what, needle] of [
+    ['the days-to-go number', '>163<'],
+    ['"days to go"', 'days to go<'],
+    ['"coming"', '>coming<'],
+    ['"no reply"', '>no reply<'],
+    ['Paid', 'Paid<'],
+    ['Still owing', 'Still owing<'],
+  ] as const) {
+    assert.equal(count(html, needle), 1, `${what} is not stated exactly once on the first screen`);
+  }
+});
+
+test('e · what a first screen above removes — and nothing when none is above', () => {
+  const none = firstScreenRepeats(undefined, 5);
+  assert.deepEqual(none, { countdown: false, guests: false, rsvpRow: false, money: false, needsYou: false },
+    'the day-of / after-the-day mounts have no first screen above them — they must render everything');
+  const above = firstScreenRepeats({ nextKind: 'guide', money: true }, 3);
+  assert.deepEqual(above, { countdown: true, guests: true, rsvpRow: true, money: true, needsYou: false },
+    'a first screen above removes days · guests · the RSVP row · the Budget tile, but keeps a decisions COUNT it does not state');
+  // The Budget tile only goes when the first screen actually drew the money line.
+  assert.equal(firstScreenRepeats({ nextKind: 'guide', money: false }, 3).money, false, 'a viewer who cannot see money lost the budget tile too');
+  // "Nothing needs a decision" repeats "You are on track" — and only that pair.
+  assert.equal(firstScreenRepeats({ nextKind: 'plan', money: true }, 0).needsYou, true);
+  assert.equal(firstScreenRepeats({ nextKind: 'plan', money: true }, 2).needsYou, false, 'open decisions are not on the first screen');
+  for (const k of HOME_NEXT_ORDER.filter((k) => k !== 'plan')) {
+    assert.equal(firstScreenRepeats({ nextKind: k, money: true }, 0).needsYou, false, `${k}: Next is not "on track"`);
+  }
+});
+
+test('e · each repeated site in EventDashboard sits behind its gate, and the sites are counted', () => {
+  // The Guests and Budget tiles.
+  assert.match(DASH, /if \(stats\.total > 0 && !eventHasHappened && !repeats\.guests\) \{/, 'the Guests tile is drawn under the first screen again');
+  assert.match(DASH, /if \(!repeats\.money && \(committedCentavos > 0/, 'the Budget tile is drawn under the first screen again');
+  // The countdown numeral and the briefing chip.
+  assert.match(DASH, /repeats\.countdown && \(daysOut === null \|\| daysOut >= 0\) \? null : \(/, 'the wedding-day card counts down again');
+  assert.match(DASH, /daysOut !== null && daysOut >= 0 && !repeats\.countdown \? \(/, 'the briefing chip restates days to go');
+  // The decisions tile, and the RSVP row inside it.
+  assert.match(DASH, /\{repeats\.needsYou \? null : \(\s*<div className="sn-tile">/, '"Needs you this week" repeats the Next card');
+  assert.match(DASH, /\{!repeats\.rsvpRow && shouldChaseRsvps\(/, 'the "haven\'t replied yet" row is back');
+  // COUNTED: every place that prints one of the four facts, so a new one is a decision.
+  assert.equal(count(DASH, "'days to go'"), 1, 'a new "days to go" site — gate it with repeats.countdown and update this count');
+  assert.equal(count(DASH, '`${daysOut} days to go`'), 1, 'a new "N days to go" site — gate it and update this count');
+  assert.equal(count(DASH, '<CountUp value={stats.attending}'), 1, 'a new "coming" site — gate it with repeats.guests');
+  assert.equal(count(DASH, 'formatCount(stats.pending)'), 1, 'a new "no reply" site — gate it with repeats.rsvpRow');
+  assert.equal(count(DASH, 'formatPeso(committedCentavos)'), 2, 'a new money site — gate it with repeats.money');
+});
+
+test('e · only the plan branch tells the dashboard a first screen is above it', () => {
+  assert.equal(count(PAGE, 'firstScreenAbove='), 1, 'the flag is passed in more than one mount');
+  const flagAt = PAGE.indexOf('firstScreenAbove=');
+  const firstScreenAt = PAGE.indexOf('{homeFirstScreen}');
+  assert.ok(firstScreenAt > 0 && flagAt > firstScreenAt, 'the flag is passed by a mount that has no first screen above it (day-of / after the day)');
+  assert.equal(count(PAGE, '<EventDashboard'), 3, 'a new <EventDashboard> mount — does it have a first screen above it?');
+  assert.match(PAGE, /firstScreenAbove=\{\{ nextKind: homeNext\.kind, money: moneyNow !== 'hidden' \}\}/, 'the flag no longer carries the Next kind and whether the money line is drawn');
 });

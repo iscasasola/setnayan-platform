@@ -25,6 +25,7 @@
  *   - the text/html refusal removed                    → "an HTML answer is never pinned"
  *   - the 30-day prune / LRU budget disabled           → "evicts by last request" / "evicts by size"
  *   - the try/catch around opening the cache removed   → "when storage is unavailable…"
+ *   - layout.tsx's load-only registration restored     → "the worker registers even when…"
  */
 
 import { test } from 'node:test';
@@ -398,4 +399,52 @@ test('when storage is unavailable the chunk still loads from the network', async
   const { responded, response } = await a.fetch(CHUNK);
   assert.ok(responded);
   assert.equal(await response?.text(), `// ${CHUNK}`, 'a broken cache never breaks the page');
+});
+
+// ── The worker has to exist first ──────────────────────────────────────────
+// app/layout.tsx registers sw.js from an afterInteractive <Script>, which runs
+// after hydration — often after `load` has fired. Measured on prod 2026-10-02:
+// /login and / added their `load` listener at readyState=complete and never
+// registered the worker at all. The snippet is run here in both orders.
+
+function swRegisterSnippet(): string {
+  const src = readFileSync(path.join(import.meta.dirname, 'layout.tsx'), 'utf8');
+  const m = src.match(/<Script id="sw-register"[^>]*>\s*\{`([\s\S]*?)`\}\s*<\/Script>/);
+  assert.ok(m?.[1], 'app/layout.tsx no longer has the <Script id="sw-register"> template — update this guard');
+  return m[1];
+}
+
+function runSnippet(readyState: string): { registered: number; fireLoad: () => void } {
+  let registered = 0;
+  const loadListeners: (() => void)[] = [];
+  const navigator = {
+    serviceWorker: {
+      register: (url: string) => {
+        assert.equal(url, '/sw.js');
+        registered += 1;
+        return Promise.resolve();
+      },
+    },
+  };
+  const window = {
+    addEventListener: (type: string, fn: () => void) => {
+      if (type === 'load') loadListeners.push(fn);
+    },
+  };
+  vm.runInNewContext(swRegisterSnippet(), { navigator, window, document: { readyState } });
+  return {
+    get registered() {
+      return registered;
+    },
+    fireLoad: () => loadListeners.forEach((fn) => fn()),
+  };
+}
+
+test('the worker registers even when the page finished loading before the script ran', () => {
+  const late = runSnippet('complete');
+  assert.equal(late.registered, 1, 'registered at once when load already fired');
+  const early = runSnippet('interactive');
+  assert.equal(early.registered, 0, 'waits for load when it has not fired yet');
+  early.fireLoad();
+  assert.equal(early.registered, 1, 'registered on load');
 });

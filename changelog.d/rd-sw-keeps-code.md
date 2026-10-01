@@ -23,8 +23,14 @@ THE ACCOUNT HAS").
   host back after a month is cleaned up at once). Last-requested time and size
   are persisted in a small JSON index stored inside that cache — the in-memory
   LRU the other caches use dies with every SW restart. Measured on a production
-  build: host app + Maker + supplier app ≈ 600 files / ~8 MB; the whole build
-  ≈ 1,180 files / ~20 MB.
+  build: host app + Maker + supplier app (with every lazy chunk) ≈ 570 files /
+  ~11 MB; the whole build = 1,181 files / ~20 MB (0 of them without a hash).
+- **The worker now registers on every page** (`app/layout.tsx`): the
+  afterInteractive `<Script id="sw-register">` added a `load` listener, but it
+  runs after hydration — often after `load` already fired. Measured on prod in
+  headless Chromium: `/login` and `/` added the listener at
+  `readyState=complete` and never registered the worker; `/pricing` did. It now
+  registers at once when the page has already loaded, else on load.
 - **Unchanged:** the per-deploy wipe for everything NOT content-hashed (shell,
   offline page, day-of pages, the per-build `_buildManifest`/`_ssgManifest`,
   non-hashed files), so the 2026-06-14 stale-shell class stays dead; no
@@ -33,7 +39,12 @@ THE ACCOUNT HAS").
   serves `/_next/static` as `public, max-age=31536000, immutable` (verified on
   prod); no headers added.
 - **Tests:** `app/sw-keeps-code.test.ts` runs the real sw.js in a `vm` with a
-  fake CacheStorage across two "deploys" — 8 tests, each of 8 sabotages turned
-  at least one red.
+  fake CacheStorage across two "deploys", plus the registration snippet in both
+  load orders — 10 tests; each of 10 sabotages turned at least one red.
+- **Headless check** (Playwright, local `next build` + `next start`, a counting
+  proxy, HTTP cache cleared after the deploy to stand in for prod's per-deploy
+  `?dpl=`): after a simulated redeploy, main's sw.js re-downloaded all 37 code
+  files of `/login`; this branch's re-downloaded 0 (all 32 page requests answered
+  by the worker from `setnayan-static-immutable-v1`).
 
 SPEC IMPACT: None

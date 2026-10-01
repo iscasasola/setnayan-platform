@@ -117,8 +117,8 @@ function immutableKey(url) {
 }
 
 // Sized from a production build (2026-10-02): the host app + the Maker + the
-// supplier app (/dashboard + /vendor-dashboard + /site-editor, with their lazy
-// chunks) is ~600 files / ~8 MB; the WHOLE build is ~1,180 files / ~20 MB. So
+// supplier app (/dashboard + /site-editor + /vendor-dashboard, with every lazy
+// chunk) is ~570 files / ~11 MB; the WHOLE build is 1,181 files / ~20 MB. So
 // 1,500 entries / 100 MB holds every page of the app plus a few deploys' worth
 // of replaced files. Evicted least-recently-requested first when EITHER cap is
 // passed; anything not requested for 30 days is pruned regardless.

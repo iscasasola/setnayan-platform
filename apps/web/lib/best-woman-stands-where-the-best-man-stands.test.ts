@@ -171,8 +171,6 @@ const NAMES_BEST_MAN_ONLY_ON_PURPOSE: Record<string, string> = {
   'app/dashboard/[eventId]/wizard-actions.ts': 'onboarding VIP draft card — fixed fields',
   // A measured 2026-09-24 production reading in a docblock — evidence, frozen.
   'lib/role-group-dress-code.ts': 'frozen measurement in a comment',
-  // A sample CSV row in the importer's help text.
-  'app/dashboard/[eventId]/guests/import/page.tsx': 'example CSV line in help copy',
 };
 
 test('every file that names best_man also names best_woman — or says why not', () => {

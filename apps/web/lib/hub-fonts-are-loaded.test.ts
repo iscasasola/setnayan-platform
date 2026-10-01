@@ -177,19 +177,21 @@ test('⭐ every font family the repo ships is in the dropdown — only the named
   }
 });
 
-test('⭐ the dropdown: five most used, then Serif · Script · Sans · Display — each face once', async () => {
-  const { hubFontsForPicker, HUB_FONTS_MOST_USED, HUB_FONTS_MOST_USED_GROUP, HUB_FONT_GROUPS } = await import('./hub-fonts');
-  const list = hubFontsForPicker();
+test('⭐ the dropdown: Recently used · Most used · All fonts — every face, each once', async () => {
+  const { HUB_FONTS_MOST_USED, HUB_FONT_GROUPS } = await import('./hub-fonts');
+  const { hubFontShelves } = await import('./hub-font-shelves');
+  const list = hubFontShelves();
   assert.equal(list.length, HUB_FONTS.length, 'every face appears');
   assert.equal(new Set(list.map((f) => f.key)).size, list.length, 'and none appears twice');
+  // With nothing picked yet, the measured five lead.
   assert.deepEqual(
-    list.slice(0, 5).map((f) => [f.key, f.pickGroup]),
-    HUB_FONTS_MOST_USED.map((k) => [k, HUB_FONTS_MOST_USED_GROUP]),
+    list.slice(0, 5).map((f) => [f.key, f.shelf]),
+    HUB_FONTS_MOST_USED.map((k) => [k, 'Most used']),
   );
-  // Groups are contiguous, in the stated order, after the five.
-  const order = [...new Set(list.slice(5).map((f) => f.pickGroup))];
-  assert.deepEqual(order, [...HUB_FONT_GROUPS]);
-  for (const f of list.slice(5)) assert.equal(f.pickGroup, f.group, `${f.key} sits on its own shelf`);
+  // "All fonts" keeps the catalogue's kinds together, in their order.
+  const kinds = [...new Set(list.slice(5).map((f) => f.group))];
+  assert.deepEqual(kinds, [...HUB_FONT_GROUPS]);
+  for (const f of list.slice(5)) assert.equal(f.shelf, 'All fonts', `${f.key} sits on All fonts`);
 });
 
 test('⛔ the hook it writes is the one globals.css reads', () => {
@@ -308,20 +310,35 @@ test('⛔ the editor offers every face, and a way back to the theme', async () =
     was, which reads as "the face is missing" when it is the only one present.
     Attribute order is the renderer's business, not this guard's.
   */
+  /*
+    🔤 THE RADIO GRID BECAME THE ONE FONT DROPDOWN (owner 2026-09-29: "the font
+    across all event hub editor. can be one style"). The choice posts from ONE
+    hidden `site_font_key`; the faces are the one shelf list (`hubFontShelves`,
+    every face — `hub-font-shelves.test.ts`), opened on tap, so a static render
+    shows the button, set in the saved face.
+  */
   const inputs = [...html.matchAll(/<input\b[^>]*>/g)].map((m) => m[0]);
-  const radios = inputs.filter((t) => t.includes('name="site_font_key"'));
+  const fields = inputs.filter((t) => t.includes('name="site_font_key"'));
   const valueOf = (tag: string) => /\bvalue="([^"]*)"/.exec(tag)?.[1] ?? null;
-  const offered = new Set(radios.map(valueOf));
-
-  for (const f of HUB_FONTS) {
-    assert.ok(offered.has(f.key), `${f.key} must be offered`);
-  }
-  assert.ok(offered.has(''), 'and a way back to the theme’s own face');
-  // Each name is SET IN its face — the one control where the label is the preview.
+  assert.deepEqual(fields.map(valueOf), ['cinzel'], 'one field, posting exactly the saved face');
+  assert.match(html, /data-site-font=""/, 'the Typeface control is the font dropdown');
+  // Each name is SET IN its face — the button shows the saved one in it.
   assert.match(html, /font-family:var\(--font-cinzel\)/, 'the label previews in its own face');
-  // The saved choice comes back checked, and only it.
-  const checked = radios.filter((t) => /\bchecked\b/.test(t)).map(valueOf);
-  assert.deepEqual(checked, ['cinzel'], `exactly the saved face is checked, saw ${JSON.stringify(checked)}`);
+  // The source: the panel hands the dropdown a way back to the theme, and no list of its own.
+  const panel = readFileSync(
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'editor', '_components', 'pro-panels.tsx'),
+    'utf8',
+  );
+  const pick = /<FontPick\s[\s\S]*?\/>/.exec(panel)?.[0] ?? '';
+  assert.match(pick, /name="site_font_key"/);
+  assert.match(pick, /lead="The theme’s own"/, 'and a way back to the theme’s own face');
+  assert.doesNotMatch(pick, /\boptions=/);
+  // The theme's own posts '' — the action's "clear".
+  const none = renderToStaticMarkup(
+    React.createElement(ColorsPanel, { action: () => {}, eventId: 'E1', rowKey: 'colors', bgColor: null, buttonColor: null, artDirection: 'daylight' as const, fontKey: null }),
+  );
+  const noneFields = [...none.matchAll(/<input\b[^>]*>/g)].map((m) => m[0]).filter((t) => t.includes('name="site_font_key"'));
+  assert.deepEqual(noneFields.map(valueOf), [''], 'no face chosen posts "" (the theme’s own)');
 });
 
 test('⛔ the writer clears with "" and leaves an ABSENT field alone', () => {

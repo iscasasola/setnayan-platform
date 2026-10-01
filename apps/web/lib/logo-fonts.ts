@@ -3,9 +3,9 @@
  * editor's eight-face typeface list: *"on the logo. we need to show all fonts
  * as well like in stages"*).
  *
- * ONE LIST: a text layer picks from `HUB_ELEMENT_FONTS` — the very list the
- * Maker's per-element Font dropdown shows (`lib/element-style.ts`, itself
- * `hubFontsForPicker()` over `HUB_FONTS`). This module does not list fonts; it
+ * ONE LIST: a text layer picks from `HUB_FONTS` — through the very dropdown the
+ * Maker's per-element Font row is (`FontPick`, `font-pick.tsx`, 2026-09-29: one
+ * font dropdown across the editor). This module does not list fonts; it
  * only says, for each of those keys, WHERE ITS OUTLINES ARE.
  *
  * WHY A SECOND FILE PER FACE AT ALL: a text layer is turned into paths in the

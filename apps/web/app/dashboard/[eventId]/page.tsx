@@ -987,6 +987,7 @@ export default async function EventHomePage({
               dayOfActive={dayOfActive}
               lifecyclePhase={lifecyclePhase}
               canViewPapicCounts={canViewPapicCounts}
+              firstScreenAbove={{ nextKind: homeNext.kind, money: moneyNow !== 'hidden' }}
             />
           </div>
         </>

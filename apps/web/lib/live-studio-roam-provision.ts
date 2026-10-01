@@ -3,6 +3,7 @@ import { isYouTubeVideoId } from '@/lib/panood-watch';
 import { liveStudioRoamEnabled, type RoamManifest, type RoamZoneStatus } from '@/lib/live-studio-roam';
 import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
 import { formatCount } from '@/lib/format-number';
+import { LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
 // ⚠ `lib/panood-youtube.ts` and `lib/live-studio-channel-grants.ts` are imported
 // DYNAMICALLY inside provisionRoamBroadcasts, not here. Both carry
 // `import 'server-only'`, and a static edge to either would drag it into this
@@ -190,7 +191,61 @@ export async function mirrorRoamManifest(admin: SupabaseClient, eventId: string)
 }
 
 /**
+ * ⚖ MAY THIS EVENT BE PUT ON A SHARED SETNAYAN CHANNEL AT ALL?
+ *
+ * Owner ruling 2026-09-14 (DECISION_LOG, "SHARED CHANNEL IS OPT-IN AND PRICED"):
+ * a shared channel is **never automatic**. The priced opt-in is the hosted-channel
+ * add-on, `LIVE_STUDIO_HOSTED_CHANNEL` (₱3,000/day, on sale since 2026-09-03), and
+ * that SKU's own docblock says what it buys: WHICH CHANNEL a broadcast goes out on,
+ * nothing else. So this is the existing entitlement check — `eventSkuActive`, with
+ * its admin-approval handshake, comps, promo windows, internal and founder-seat
+ * events — and never a second entitlement system.
+ *
+ * ── THE DEFECT THIS CLOSES (Sep 1–8 audit; prod flag read 2026-10-02) ───────
+ * `NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED` is "true" in production, and until this
+ * existed `checkoutPoolChannel` claimed a channel for ANY event that asked — so every
+ * Live Studio host who pressed Go live was placed on a Setnayan channel holding other
+ * couples' archives, unpaid and unasked. The 2026-09-03 correction row named it;
+ * the copy was fixed to warn everyone, the behaviour was not.
+ *
+ * FAIL CLOSED. An unreadable entitlement is "no": wrongly refusing costs a host the
+ * paste-link route they always had; wrongly granting costs another couple their film.
+ *
+ * Pass a SERVICE-ROLE client — `orders` RLS is purchaser-scoped, and a co-host who
+ * did not place the order must still be recognised.
+ */
+export async function eventHoldsHostedChannel(
+  admin: SupabaseClient,
+  eventId: string,
+): Promise<boolean> {
+  if (!eventId) return false;
+  try {
+    // Dynamic for the same reason as the YouTube/grant modules above: keep this
+    // file's static graph small and runnable under `tsx --test`.
+    const { eventSkuActive } = await import('@/lib/entitlements');
+    return await eventSkuActive(admin, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU);
+  } catch (err) {
+    console.error('[live-studio-roam] hosted-channel entitlement read failed — refusing the shared channel', err, {
+      event_id: eventId,
+    });
+    return false;
+  }
+}
+
+/**
  * Check a Setnayan-owned channel out of the pool for an event's live window.
+ *
+ * ⚖ ENTITLEMENT FIRST, STRUCTURALLY. Every route onto a pool channel —
+ * `resolveEventBroadcastToken` (the go-live token) and `provisionRoamBroadcasts`
+ * (the per-camera broadcasts) — comes through here, so the hosted-channel check
+ * lives HERE rather than at each caller, where the next caller could forget it.
+ * An event without the hosted channel gets null — the same answer as an empty
+ * pool — and its caller falls back to the host's own channel. The check runs
+ * BEFORE the "already holding one?" read on purpose: a channel held without the
+ * entitlement is exactly the state this gate exists to stop, so it is not honoured.
+ * (Ending or reading a broadcast already on a held channel uses
+ * `getHeldChannelAccessToken`, which is deliberately NOT gated — a host must always
+ * be able to stop what is on air.)
  *
  * Idempotent: if the event already holds a channel, that one is returned. Else
  * the first available + verified channel is claimed (status → 'checked_out'). The
@@ -205,6 +260,8 @@ export async function checkoutPoolChannel(
   eventId: string,
 ): Promise<RoamChannelRow | null> {
   if (!eventId) return null;
+  // ⚖ Never automatic — see eventHoldsHostedChannel. Before ANY pool read or write.
+  if (!(await eventHoldsHostedChannel(admin, eventId))) return null;
   const SELECT = 'id, youtube_channel_id, label, status, verified, concurrent_cap';
   try {
     // Already holding one? (idempotent re-provision)
@@ -519,6 +576,9 @@ export async function resolveEventBroadcastToken(
 export type ProvisionFailure =
   | 'flag_off'
   | 'no_zones'
+  // ⚖ The event has no hosted-channel add-on, so it is never put on a shared
+  // Setnayan channel (owner ruling 2026-09-14 — see eventHoldsHostedChannel).
+  | 'not_hosted'
   | 'no_channel_available'
   | 'channel_not_connected'
   | 'youtube_error';
@@ -672,6 +732,15 @@ export function provisionFailureSentence(
     case 'flag_off':
     case null:
       return null;
+    // ⚖ ALSO SILENT, AND NOT A FAILURE. Per-camera YouTube broadcasts exist only on
+    // a Setnayan channel, and an event without the hosted channel is never put on
+    // one (owner ruling 2026-09-14). Nothing the host bought went missing: their
+    // broadcast goes out on their own channel, and guests still reach each camera
+    // directly over the free peer-to-peer side-camera path, which never touches
+    // YouTube. A "cameras could not start" banner here would be false — and would
+    // ride on every multi-camera go-live of every host who did not buy the channel.
+    case 'not_hosted':
+      return null;
     // ⚠ "YOUR STREAM IS NOT RUNNING" WAS FALSE AT BOTH OF THESE SITES, and it
     // is the most alarming thing we could have told a host mid-show. Both are
     // reached from the go-live action AFTER the single-camera broadcast is
@@ -788,6 +857,20 @@ export async function provisionRoamBroadcasts(
   }
   if (zones.length === 0) {
     return failure('no_zones', 'This event has no camera channels yet.');
+  }
+
+  // ── 2b. may this event be on a shared channel at all? ─────────────────────
+  // checkoutPoolChannel refuses on its own; asking first is only so the result
+  // names the TRUE reason. Without it an un-hosted event would come back as
+  // 'no_channel_available' and its host would read "Setnayan has no channel free
+  // right now — try again", an invitation to wait for something never coming.
+  if (!(await eventHoldsHostedChannel(admin, eventId))) {
+    return failure(
+      'not_hosted',
+      'This event has no hosted-channel add-on (LIVE_STUDIO_HOSTED_CHANNEL), so no pool channel was claimed.',
+      null,
+      zones.length,
+    );
   }
 
   // ── 3. pool channel ───────────────────────────────────────────────────────

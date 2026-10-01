@@ -5,6 +5,7 @@ import { useState, useTransition } from 'react';
 import { Radio, Square, AlertCircle, Link2 } from 'lucide-react';
 import { useSaveLoader } from '@/components/sd-loader';
 import { automaticGoLiveAvailable, endOnAirTarget } from '@/lib/live-studio-manual-air';
+import { liveStudioPoolOnly, ownChannelNoRouteNotice } from '@/lib/live-studio-pool-only';
 import {
   goLivePanood,
   endPanoodBroadcast,
@@ -66,6 +67,7 @@ export function TransportRow({
   isLive,
   liveSource,
   connectHref,
+  ownsHostedChannel,
 }: {
   eventId: string;
   /**
@@ -92,6 +94,14 @@ export function TransportRow({
    * prop keeps its shape so this component stays a dumb renderer.
    */
   connectHref: string;
+  /**
+   * ⚖ Does this event hold the hosted-channel add-on? Decides only which sentence a
+   * host with no route to air reads. Owner ruling 2026-09-14: a shared Setnayan
+   * channel is never automatic, and the server refuses the pool to every event
+   * without it — so "wait for Setnayan to free one up" is a promise only an owner
+   * may be given.
+   */
+  ownsHostedChannel: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   // A SUCCESS the host still needs to know about — today, cameras the Setnayan
@@ -122,7 +132,9 @@ export function TransportRow({
     ? null
     : !oauthReady
       ? 'One-tap go-live is not configured on Setnayan’s side yet. That is on us, not on you — start the stream yourself and use the “We’re on air” switch below, and your control room lights up the same way.'
-      : 'No broadcast channel is ready for this event yet. Connect your own YouTube channel below, or wait for Setnayan to free one up — then this button goes live in one tap.';
+      : ownsHostedChannel
+        ? 'No broadcast channel is ready for this event yet. Connect your own YouTube channel below, or wait for Setnayan to free one up — then this button goes live in one tap.'
+        : ownChannelNoRouteNotice(liveStudioPoolOnly());
 
   return (
     <div className="space-y-2">

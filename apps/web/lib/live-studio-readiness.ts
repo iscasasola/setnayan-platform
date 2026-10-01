@@ -56,6 +56,14 @@ export type ReadinessFacts = {
   /** Are the Google OAuth client credentials present at all? (owner action G3) */
   oauthConfigured: boolean;
   /**
+   * ⚖ Does this event hold the hosted-channel add-on (LIVE_STUDIO_HOSTED_CHANNEL)?
+   * Owner ruling 2026-09-14: a shared Setnayan channel is never automatic, and
+   * `checkoutPoolChannel` refuses every event without it. So without it the pool is
+   * NOT this event's route to air, however many channels sit free — and a fact set
+   * that left this out would read "a channel is reserved for you" off the free count.
+   */
+  hostedChannelOwned: boolean;
+  /**
    * Is a verified Setnayan pool channel available to this event — either already
    * checked out to it, or free to claim? False = the pool is empty or exhausted.
    */
@@ -244,6 +252,13 @@ export const MUSIC_RIGHTS_NOTICE =
 /** Headline used when Setnayan's side is done. Names the remaining human step. */
 export const READY_HEADLINE = 'Ready to broadcast — start your encoder';
 export const BLOCKED_HEADLINE = 'Not ready to broadcast yet';
+/**
+ * ⚖ The headline for an event WITHOUT the hosted channel (owner ruling 2026-09-14:
+ * a shared Setnayan channel is never automatic). Not "not ready" — nothing is
+ * broken and nothing on our side is pending; their route to air is their own
+ * channel, and this card says so instead of grading a pool they cannot use.
+ */
+export const OWN_CHANNEL_HEADLINE = 'Your broadcast goes out on your own YouTube channel';
 
 /**
  * ⭐ DOES THIS EVENT HAVE A ROUTE TO AIR ON A SETNAYAN-SUPPLIED CHANNEL?
@@ -278,9 +293,20 @@ export const BLOCKED_HEADLINE = 'Not ready to broadcast yet';
  * would drift.
  */
 export function poolRouteToAir(
-  facts: Pick<ReadinessFacts, 'channelAvailable' | 'channelConnected' | 'channelNeedsReauth'>,
+  facts: Pick<
+    ReadinessFacts,
+    'hostedChannelOwned' | 'channelAvailable' | 'channelConnected' | 'channelNeedsReauth'
+  >,
 ): boolean {
-  return facts.channelAvailable && facts.channelConnected && !facts.channelNeedsReauth;
+  // ⚖ Ownership FIRST (owner ruling 2026-09-14). A free, healthy pool channel is
+  // not a route to air for an event the server will refuse it to — offering the
+  // one-tap button there is the dead button this function was written to prevent.
+  return (
+    facts.hostedChannelOwned &&
+    facts.channelAvailable &&
+    facts.channelConnected &&
+    !facts.channelNeedsReauth
+  );
 }
 
 /**
@@ -310,9 +336,13 @@ export function decideBroadcastReadiness(facts: ReadinessFacts): ReadinessDecisi
       key: 'channel_connected',
       label: 'A Setnayan channel is reserved for your event',
       // Both halves are the same user-visible fact: is there a usable channel?
-      ok: facts.channelAvailable && facts.channelConnected,
-      detail:
-        facts.channelAvailable && facts.channelConnected
+      // ⚖ And neither counts without the hosted channel — the server refuses the
+      // pool to every other event (owner ruling 2026-09-14), so "reserved for your
+      // event" read off the free count would be the lie this card exists to avoid.
+      ok: facts.hostedChannelOwned && facts.channelAvailable && facts.channelConnected,
+      detail: !facts.hostedChannelOwned
+        ? 'Your event goes out on your own YouTube channel — Setnayan supplies a channel only with the hosted channel option. Start the broadcast on YouTube or in OBS and paste its watch link.'
+        : facts.channelAvailable && facts.channelConnected
           ? 'Your event streams on a Setnayan channel. You do not need a YouTube account, and you never have to connect one.'
           : !facts.channelAvailable
             ? 'No Setnayan channel is free for your event right now. Message us and we will add one — you do not need to do anything with YouTube.'
@@ -336,6 +366,22 @@ export function decideBroadcastReadiness(facts: ReadinessFacts): ReadinessDecisi
           : 'Add a camera channel and join a phone to it with the QR code.',
     },
   ];
+
+  // ⚖ NO HOSTED CHANNEL → THE POOL IS NOT THIS EVENT'S, so its health is not this
+  // host's business. Led by the one check that explains their route, alone: listing
+  // "the Setnayan channel needs re-connecting" under it would grade a channel the
+  // server will never give them (checkoutPoolChannel refuses — owner ruling 2026-09-14).
+  if (!facts.hostedChannelOwned) {
+    const own = checks.filter((c) => c.key === 'channel_connected');
+    return {
+      state: 'blocked',
+      headline: OWN_CHANNEL_HEADLINE,
+      detail: own[0]?.detail ?? '',
+      checks,
+      blockers: own,
+      encoderNotice: ENCODER_NOTICE,
+    };
+  }
 
   const blockers = checks.filter((c) => !c.ok);
   const first = blockers[0];

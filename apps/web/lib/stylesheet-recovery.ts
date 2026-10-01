@@ -27,6 +27,10 @@
  * The one layer between this page and its CSS is `public/sw.js`, which answers
  * every stylesheet request (stale-while-revalidate) and is replaced on EVERY
  * deploy — ~20 times that day. That is a candidate, not a finding.
+ * (Since 2026-10-02 our /_next/static/css/ files are answered CacheFirst from
+ * a cache that survives deploys, and a 200 HTML answer is never stored there —
+ * see "KEEP THE CODE ON THE PHONE" in sw.js. A recorded failure with `sw: true`
+ * is still the thing to look at.)
  *
  * 🔑 SO THIS IS A MITIGATION, NOT A CURE. It turns the symptom into one
  * automatic reload, and it RECORDS the failure (href, whether a service worker

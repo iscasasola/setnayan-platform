@@ -10,6 +10,7 @@ import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import {
   ChannelToggle,
   PaymentDetailsBlock,
+  type RailIdentity,
 } from '@/app/_components/payment/payment-rails';
 import {
   PAY_STAGES,
@@ -56,9 +57,14 @@ import {
  * get there."* Do not reintroduce a two-column layout here.
  */
 
-type Channel = 'gcash' | 'bdo';
+/** A receiving-account id — what the proof form posts as `channel`. */
+type Channel = string;
 
-export type ChannelInfo = {
+/**
+ * One OPEN receiving account, as the server built it (the page asks
+ * `openAccounts`, so a switched-off account never arrives here at all).
+ */
+export type ChannelInfo = RailIdentity & {
   /**
    * The amount-carrying code, ALREADY RENDERED, as an inline PNG — or null
    * when we could not mint or could not draw one.
@@ -74,7 +80,6 @@ export type ChannelInfo = {
   staticUrl: string | null;
   number: string | null;
   name: string | null;
-  enabled: boolean;
 };
 
 export function PayPanel({
@@ -86,8 +91,7 @@ export function PayPanel({
   amountPhp,
   reference,
   orderId,
-  gcash,
-  bdo,
+  rails,
   activatesLine,
   summary,
   initialStage,
@@ -114,8 +118,8 @@ export function PayPanel({
   amountPhp: number;
   reference: string;
   orderId: string;
-  gcash: ChannelInfo;
-  bdo: ChannelInfo;
+  /** The OPEN receiving accounts, in the admin's order. Empty = every rail closed. */
+  rails: readonly ChannelInfo[];
   activatesLine: string;
   /**
    * Stage 1's contents — the order summary — rendered on the SERVER and handed
@@ -128,11 +132,13 @@ export function PayPanel({
   /** Every other query parameter this page was opened with — see `stageHref`. */
   carryQuery: Record<string, string | undefined>;
 }) {
-  // GCash first: a GCash payer sends for free, a bank transfer into BDO costs
-  // them ₱10–15 in InstaPay fees (measured 2026-07-31). Default to the rail
-  // that does not charge them — unless it is switched off.
-  const [channel, setChannel] = useState<Channel>(gcash.enabled ? 'gcash' : 'bdo');
-  const info = channel === 'gcash' ? gcash : bdo;
+  // The first OPEN account in the admin's order. GCash leads by default: a
+  // GCash payer sends for free, a bank transfer into BDO costs them ₱10–15 in
+  // InstaPay fees (measured 2026-07-31) — and the admin can reorder the list.
+  const [chosen, setChannel] = useState<Channel>(rails[0]?.id ?? '');
+  // A rail switched off since this page painted is never the one on screen.
+  const info = rails.find((r) => r.id === chosen) ?? rails[0] ?? null;
+  const channel: Channel = info?.id ?? '';
 
   const [stage, setStage] = useState<PayStage>(initialStage);
   /**
@@ -173,7 +179,10 @@ export function PayPanel({
     }
   };
 
-  const railsClosed = !gcash.enabled && !bdo.enabled;
+  // Every rail closed. `info` is null exactly when no account is open (an empty
+  // `rails`), and spelling it as the null check lets TypeScript narrow `info`
+  // in the open branches below.
+  const railsClosed = info === null;
 
   return (
     <>
@@ -211,10 +220,11 @@ export function PayPanel({
               </p>
             ) : (
               <>
-                {[gcash, bdo]
-                  .filter((c) => c.enabled && (c.number || c.name))
+                {rails
+                  .filter((c) => c.number || c.name)
                   .map((c) => (
-                    <p key={c.number ?? c.name ?? ''} className="text-sm text-ink/70">
+                    <p key={c.id} className="text-sm text-ink/70">
+                      <span className="block text-xs text-ink/55">{c.label}</span>
                       {c.number && (
                         <span className="font-mono text-[15px] font-semibold text-ink">
                           {c.number}
@@ -260,21 +270,13 @@ export function PayPanel({
                   What did NOT move is this page's lifecycle: the order already
                   exists here, which is what makes /pay an address you can come
                   back to. */}
-              <ChannelToggle
-                channel={channel}
-                onChange={setChannel}
-                open={[
-                  ...(gcash.enabled ? (['gcash'] as const) : []),
-                  ...(bdo.enabled ? (['bdo'] as const) : []),
-                ]}
-              />
+              <ChannelToggle channel={channel} onChange={setChannel} rails={rails} />
 
               {/* ⛔ THE MANUAL FALLBACK IS INSIDE THIS BLOCK — the account name,
                   the number and the exact amount, each copyable. It is the
                   route for anyone whose wallet refuses the code, which is the
                   one thing a code-first screen must never take away. */}
               <PaymentDetailsBlock
-                channel={channel}
                 /* 🔑 `mintedUrl` IS THE SERVER'S IMAGE AND IT STAYS. Handing a
                    payload down for the browser to draw is what put a ₱0 static
                    code on screen until the `qrcode` chunk arrived — owner:
@@ -282,6 +284,9 @@ export function PayPanel({
                    is passed, so there is nothing for the browser to draw and
                    no window in which the wrong code can show. */
                 info={{
+                  id: info.id,
+                  label: info.label,
+                  kind: info.kind,
                   name: info.name,
                   number: info.number,
                   staticUrl: info.staticUrl,

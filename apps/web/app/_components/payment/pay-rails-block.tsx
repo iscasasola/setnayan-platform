@@ -22,6 +22,12 @@
  * `qrcode` chunk lands, and the owner paid through that window on a real
  * ₱837.50 booking fee. A server page has no excuse: it can mint before it
  * sends the HTML.
+ *
+ * ── A LIST, NOT TWO PROPS (owner, 2026-10-01) ────────────────────────────────
+ * The rails are Setnayan's receiving-accounts list, already narrowed to the
+ * OPEN ones and already in the admin's order (`openRailsFromSettings`). The
+ * first one is selected — the admin puts the account that costs the payer
+ * nothing (GCash, ahead of an InstaPay fee into a bank) at the top.
  */
 
 import { useState } from 'react';
@@ -32,41 +38,30 @@ import {
   type RailInfo,
 } from './payment-rails';
 
-export type PayRail = RailInfo & { enabled: boolean };
+export type PayRail = RailInfo;
 
 export function PayRailsBlock({
-  gcash,
-  bdo,
+  rails,
   amountPhp,
   referenceCode,
 }: {
-  gcash: PayRail;
-  bdo: PayRail;
+  /** The OPEN rails, in order. Empty renders nothing — the page says why. */
+  rails: readonly PayRail[];
   amountPhp: number;
   referenceCode: string;
 }) {
-  // GCash first: a GCash payer sends for free, a bank transfer into BDO costs
-  // them ₱10–15 in InstaPay fees. Default to the rail that does not charge
-  // them — unless it is switched off.
-  const [channel, setChannel] = useState<'gcash' | 'bdo'>(
-    gcash.enabled ? 'gcash' : 'bdo',
-  );
-  const open = [
-    ...(gcash.enabled ? (['gcash'] as const) : []),
-    ...(bdo.enabled ? (['bdo'] as const) : []),
-  ];
-  if (open.length === 0) return null;
+  const [channel, setChannel] = useState<string>(rails[0]?.id ?? '');
+  if (rails.length === 0) return null;
 
   // A rail that is switched off must never be the one on screen, including
   // when it was selected before the owner closed it.
-  const shown = open.includes(channel) ? channel : open[0]!;
+  const shown = rails.find((r) => r.id === channel) ?? rails[0]!;
 
   return (
     <div className="space-y-4">
-      <ChannelToggle channel={shown} onChange={setChannel} open={open} />
+      <ChannelToggle channel={shown.id} onChange={setChannel} rails={rails} />
       <PaymentDetailsBlock
-        channel={shown}
-        info={shown === 'gcash' ? gcash : bdo}
+        info={shown}
         referenceCode={referenceCode}
         amountPhp={amountPhp}
       />

@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { isChannelOpen } from '@/lib/payment-channels';
+import { openAccounts, receivingAccounts } from '@/lib/payment-channels';
 import { CopyButton } from '@/app/_components/copy-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -148,24 +148,22 @@ export default async function PapicGuestOrderPage({
    * amount has to be typed. A ₱0 code minted from a missing amount would be the
    * lie this whole change is about.
    */
-  const [gcashImage, bdoImage] = await Promise.all([
-    amount === null ? null : mintedQrImage(settings.gcash_qr_payload, amount),
-    amount === null ? null : mintedQrImage(settings.bdo_qr_payload, amount),
-  ]);
-  const gcashRail: PayRail = {
-    name: settings.gcash_account_name,
-    number: settings.gcash_number,
-    staticUrl: settings.gcash_qr_url,
-    mintedUrl: gcashImage?.dataUrl ?? null,
-    enabled: isChannelOpen(settings, 'gcash'),
-  };
-  const bdoRail: PayRail = {
-    name: settings.bdo_account_name,
-    number: settings.bdo_account_number,
-    staticUrl: settings.bdo_qr_url,
-    mintedUrl: bdoImage?.dataUrl ?? null,
-    enabled: isChannelOpen(settings, 'bdo'),
-  };
+  // The OPEN receiving accounts, in the admin's order (the ONE rule —
+  // lib/payment-channels.ts · openAccounts), each with its server-drawn code.
+  const openRails = openAccounts(settings);
+  const images = await Promise.all(
+    openRails.map((a) => (amount === null ? null : mintedQrImage(a.qrPayload, amount))),
+  );
+  const rails: PayRail[] = openRails.map((a, i) => ({
+    id: a.id,
+    label: a.label,
+    kind: a.kind,
+    name: a.accountName,
+    number: a.number,
+    staticUrl: a.qrUrl,
+    mintedUrl: images[i]?.dataUrl ?? null,
+  }));
+  const sentToChoices = openRails.length > 0 ? openRails : receivingAccounts(settings);
 
   return (
     <main className="mx-auto w-full max-w-xl px-4 py-8 sm:px-6">
@@ -244,11 +242,10 @@ export default async function PapicGuestOrderPage({
             read is session-scoped, so the style is what moves here — not the
             route. The mint happens on the server above, exactly as /pay does
             it, so this screen gains the amount-carrying code it never had. */}
-        {gcashRail.enabled || bdoRail.enabled ? (
+        {rails.length > 0 ? (
           <div className="border-t border-ink/10 pt-4">
             <PayRailsBlock
-              gcash={gcashRail}
-              bdo={bdoRail}
+              rails={rails}
               amountPhp={amount ?? 0}
               referenceCode={referenceCode}
             />
@@ -287,9 +284,15 @@ export default async function PapicGuestOrderPage({
             <input type="hidden" name="access_token" value={token} />
             <label className="block space-y-1">
               <span className="text-xs font-medium text-ink/70">How you sent it</span>
-              <select name="channel" className="input-field" defaultValue="gcash">
-                <option value="gcash">GCash</option>
-                <option value="bdo">BDO</option>
+              {/* Every account they could have sent to — the open ones, or,
+                  when every rail is closed, all of them: somebody may have paid
+                  before the switch and still needs to say where. */}
+              <select name="channel" className="input-field" defaultValue={sentToChoices[0]?.id}>
+                {sentToChoices.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="block space-y-1">

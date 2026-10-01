@@ -128,20 +128,35 @@ test('openRailDetails prints nothing for a closed rail, and agrees with openChan
     bdo_account_number: '0012 3456 7890',
     bdo_account_name: 'B Name',
   };
+  const numberOf = (d: ReturnType<typeof openRailDetails>, id: string) =>
+    d.accounts.find((a) => a.id === id)?.number ?? null;
   const gOff = openRailDetails({ ...full, gcash_enabled: false });
-  assert.equal(gOff.gcashNumber, null, 'a closed GCash still handed out its number');
-  assert.equal(gOff.gcashName, null);
-  assert.equal(gOff.bdoNumber, '0012 3456 7890', 'closing GCash hid an OPEN BDO');
-  assert.deepEqual(gOff.open, ['bdo']);
+  assert.equal(numberOf(gOff, 'gcash'), null, 'a closed GCash still handed out its number');
+  assert.equal(gOff.accounts.find((a) => a.id === 'gcash'), undefined, 'a closed GCash still handed out its name');
+  assert.equal(numberOf(gOff, 'bdo'), '0012 3456 7890', 'closing GCash hid an OPEN BDO');
+  assert.deepEqual(gOff.open.map((r) => r.id), ['bdo']);
 
   const allOff = openRailDetails({ ...full, gcash_enabled: false, bdo_enabled: false });
   assert.deepEqual(
-    [allOff.bdoNumber, allOff.gcashNumber, allOff.open.length],
-    [null, null, 0],
+    [allOff.accounts.length, allOff.open.length],
+    [0, 0],
     'with every rail switched off, a number still reached the page',
   );
+  // The same property for an account that exists only in the LIST (owner
+  // 2026-10-01: "add a mari bank or uno bank").
+  const listed = {
+    receiving_accounts: [
+      { id: 'maribank-7k2q', kind: 'bank', label: 'Maribank', number: '1234', enabled: false },
+      { id: 'gcash', kind: 'ewallet', label: 'GCash', number: '0917', enabled: true },
+    ],
+  };
+  assert.equal(numberOf(openRailDetails(listed), 'maribank-7k2q'), null, 'a closed listed account printed its number');
+  assert.deepEqual(openRailDetails(listed).open.map((r) => r.id), openChannels(listed));
   for (const flags of [{}, { gcash_enabled: false }, { bdo_enabled: false }]) {
-    assert.deepEqual(openRailDetails({ ...full, ...flags }).open, openChannels({ ...full, ...flags }));
+    assert.deepEqual(
+      openRailDetails({ ...full, ...flags }).open.map((r) => r.id),
+      openChannels({ ...full, ...flags }),
+    );
   }
 });
 
@@ -174,7 +189,10 @@ test('every supplier "Pay with" choice offers only the open rails', () => {
   for (const f of pickers) {
     const src = readFileSync(f, 'utf8');
     if (/value="(bdo|gcash)"/.test(src)) offenders.push(`${rel(f)} (hard-codes a rail)`);
-    if (!/\b(openRails|pay\.open)\.includes\(/.test(src)) offenders.push(`${rel(f)} (never asks which rails are open)`);
+    // ✏️ RE-ANCHORED 2026-10-01: the rails became a LIST (owner: "add a mari
+    // bank or uno bank"), so a picker no longer asks `.includes('gcash')` of two
+    // fixed ids — it draws its options FROM the open list. Same property.
+    if (!/\b(openRails|pay\.open)\.(includes|map)\(/.test(src)) offenders.push(`${rel(f)} (never asks which rails are open)`);
     if (!/<PaymentsPausedNote\b/.test(src)) offenders.push(`${rel(f)} (says nothing when every rail is closed)`);
   }
   console.log(`# supplier pay pickers: ${pickers.length}`);
@@ -199,8 +217,9 @@ test('no page copies an account number out of settings without the switch', () =
 test('/pay asks the one rule, and hands out nothing when every rail is closed', () => {
   const page = readFileSync(join(WEB, 'app/pay/[reference]/page.tsx'), 'utf8');
   assert.doesNotMatch(page, /_enabled\s*!==\s*false/, '/pay reads the flag alone again');
-  const asks = page.match(/isChannelOpen\(settings, '(gcash|bdo)'\)/g) ?? [];
-  assert.equal(asks.length, 2, `expected both rails asked through isChannelOpen, found ${asks.length}`);
+  // ✏️ RE-ANCHORED 2026-10-01: /pay renders every account in the LIST, so it
+  // asks the one rule for the open accounts instead of two fixed ids.
+  assert.match(page, /openAccounts\(settings\)/, '/pay stopped asking the one rule which accounts are open');
 
   const panel = readFileSync(join(WEB, 'app/pay/[reference]/_components/pay-panel.tsx'), 'utf8');
   /**
@@ -215,7 +234,7 @@ test('/pay asks the one rule, and hands out nothing when every rail is closed', 
    */
   assert.match(
     panel,
-    /const railsClosed = !gcash\.enabled && !bdo\.enabled;/,
+    /const railsClosed = info === null;/,
     'the all-closed rule is gone — BDO becomes the fallback tab and prints its number',
   );
   const gates = [...panel.matchAll(/railsClosed \? \(/g)].map((m) => m.index ?? -1);

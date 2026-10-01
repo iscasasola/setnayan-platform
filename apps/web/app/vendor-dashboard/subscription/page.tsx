@@ -9,7 +9,7 @@ import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { openChannels } from '@/lib/payment-channels';
+import { openRailOptions } from '@/lib/payment-channels';
 import {
   TIER_PRICE_PHP,
   TIER_CAPS,
@@ -318,7 +318,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
   ]);
   // The rails the owner has left ON — every add-on card below offers only
   // these, and says "payments are paused" when there are none.
-  const openRails = openChannels(settings);
+  const openRails = openRailOptions(settings);
   const priceBySku = new Map<string, number>();
   for (const r of vendorCatalog) {
     if (

@@ -112,8 +112,13 @@ test('the three admin forms seeded from settings cannot Save over the real value
   const pm = src('app/admin/settings/payment-methods/page.tsx');
   assert.match(pm, /await fetchPlatformSettingsMeasured\(admin\)/, 'payment-methods must read the measured settings');
   assert.doesNotMatch(pm, /\bfetchPlatformSettings\(/, 'payment-methods went back to the unmeasured read');
-  assert.match(pm, /Save payment details/);
-  assert.match(pm, /pendingLabel="Saving…"\s*disabled=\{settingsReadFailed\}\s*>\s*Save payment details/, 'Save payment details must be disabled when the read failed');
+  // ✏️ RE-ANCHORED 2026-10-01: the one "Save payment details" form split into
+  // the receiving-accounts LIST (every control disabled by `listLocked`, which
+  // includes a refused settings read) and "Save limits". Same property.
+  assert.match(pm, /const listLocked = settingsReadFailed \|\| accountsReadFailed;/);
+  const lockedSaves = pm.match(/disabled=\{(listLocked|locked)\}/g) ?? [];
+  assert.ok(lockedSaves.length >= 5, `only ${lockedSaves.length} account controls honour the refused read`);
+  assert.match(pm, /pendingLabel="Saving…"\s*disabled=\{settingsReadFailed\}\s*>\s*Save limits/, 'Save limits must be disabled when the read failed');
 
   const ss = src('app/admin/settings/_surfaces/settings-surface.tsx');
   assert.match(ss, /await fetchPlatformSettingsMeasured\(admin\)/);

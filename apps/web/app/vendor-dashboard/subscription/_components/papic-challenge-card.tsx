@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Clock, Trophy } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { PAY_CHANNEL_LABEL, type PayChannel } from '@/lib/payment-channels';
+import { type OpenRail } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
   sponsorPhotoChallenge,
@@ -60,7 +60,7 @@ export type PapicChallengeCardProps = {
   /** openChannels(settings) — the rails the owner has left ON. Empty = payments
    *  paused: the paid path shows PaymentsPausedNote and its button is disabled
    *  (the server action refuses the same case). A free grant ignores it. */
-  openRails: readonly PayChannel[];
+  openRails: readonly OpenRail[];
   /** papicGamesEnabled() — the Papic Games master switch. Off ⇒ "Coming soon". */
   available: boolean;
   /** Tier gate (Solo and up — owner 2026-08-29) AND verified. */
@@ -197,12 +197,10 @@ export function PapicChallengeCard(props: PapicChallengeCardProps) {
                 <legend className="text-xs font-medium text-ink">Pay with</legend>
                 <div className="mt-1.5 flex flex-wrap gap-3">
                   {/* Only the rails the owner has left open (lib/payment-channels.ts). */}
-                  {(['bdo', 'gcash'] as const)
-                    .filter((r) => openRails.includes(r))
-                    .map((r, n) => (
-                      <label key={r} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
-                        <input type="radio" name="channel" value={r} defaultChecked={n === 0} />
-                        {PAY_CHANNEL_LABEL[r]}
+                  {openRails.map((r, n) => (
+                      <label key={r.id} className="inline-flex items-center gap-1.5 text-sm text-ink/80">
+                        <input type="radio" name="channel" value={r.id} defaultChecked={n === 0} />
+                        {r.label}
                       </label>
                     ))}
                 </div>

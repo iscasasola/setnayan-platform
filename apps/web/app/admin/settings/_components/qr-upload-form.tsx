@@ -23,7 +23,8 @@ export function QrUploadForm({
   kind,
   replace,
 }: {
-  kind: 'bdo' | 'gcash';
+  /** The receiving account's id (the list, owner 2026-10-01). */
+  kind: string;
   replace: boolean;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);

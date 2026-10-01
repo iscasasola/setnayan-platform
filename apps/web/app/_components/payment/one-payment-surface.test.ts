@@ -154,9 +154,12 @@ test('the account-less guest gets the same style — its own code is gone', () =
    * facing away from the thing it must see cannot match the line it was written
    * for — the same shape as the `(?!\s*\?)` guard this repo shipped inert.
    */
+  // ✏️ RE-ANCHORED 2026-10-01: the rails became a LIST, so the static code now
+  // arrives as an account's `qrUrl` rather than a fixed `settings.*_qr_url`.
+  // Either spelling must land on a `staticUrl:` line.
   const staticUses = src
     .split('\n')
-    .filter((l) => /settings\.(gcash|bdo)_qr_url\b/.test(l));
+    .filter((l) => /settings\.(gcash|bdo)_qr_url\b|\.qrUrl\b/.test(l));
   assert.ok(staticUses.length > 0, `${rel} stopped passing the static fallback at all`);
   for (const line of staticUses) {
     assert.match(

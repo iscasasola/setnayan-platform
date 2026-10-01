@@ -124,15 +124,35 @@ export async function TransactionsLedger() {
   // Side reads are per-page, not per-row: three queries total regardless of how
   // many transactions are listed.
   let rows: Row[] | null = null;
+  // ── EACH SIDE READ KEEPS ITS OWN ERROR (row 16) ───────────────────────────
+  // `?? []` turned a refused read into an empty one: a refused `users` read
+  // made every buyer "Unknown" and silently dropped the "ours" badge — our own
+  // test purchases then read as real revenue — and a refused `payments` read
+  // made the Received total fall back to the CHARGED amount. Each now says it
+  // could not read, in the column it feeds.
+  let buyersFailed = false;
+  let paidFailed = false;
+  let receiptsFailed = false;
   if (orders) {
     const orderIds = orders.map((o) => o.order_id);
     const userIds = Array.from(new Set(orders.map((o) => o.user_id)));
 
-    const [{ data: buyers }, { data: paid }, { data: receipts }] = await Promise.all([
+    const [
+      { data: buyers, error: buyersError },
+      { data: paid, error: paidError },
+      { data: receipts, error: receiptsError },
+    ] = await Promise.all([
       admin.from('users').select('user_id,display_name,email,is_internal').in('user_id', userIds),
       admin.from('payments').select('order_id,amount_php,status').in('order_id', orderIds),
       admin.from('receipts').select('receipt_id,order_id').in('order_id', orderIds),
     ]);
+
+    if (buyersError) logQueryError('AdminTransactionsLedger.buyers', buyersError, {}, 'graceful_degrade');
+    if (paidError) logQueryError('AdminTransactionsLedger.payments', paidError, {}, 'graceful_degrade');
+    if (receiptsError) logQueryError('AdminTransactionsLedger.receipts', receiptsError, {}, 'graceful_degrade');
+    buyersFailed = Boolean(buyersError) || buyers == null;
+    paidFailed = Boolean(paidError) || paid == null;
+    receiptsFailed = Boolean(receiptsError) || receipts == null;
 
     const buyerBy = new Map((buyers ?? []).map((u) => [u.user_id as string, u]));
     const receiptBy = new Map(
@@ -168,7 +188,8 @@ export async function TransactionsLedger() {
     });
   }
 
-  const received = rows
+  // A refused payments read is NOT "received = what was charged".
+  const received = rows && !paidFailed
     ? rows
         .filter((r) => RECEIVED_STATUSES.includes(r.status))
         .reduce((sum, r) => sum + (r.receivedPhp ?? r.chargedPhp), 0)
@@ -232,7 +253,7 @@ export async function TransactionsLedger() {
         <KpiStatCard
           label="Received"
           value={received == null ? null : formatPhp(received)}
-          hint="Settled and kept"
+          hint={paidFailed ? 'Couldn’t read payments just now' : 'Settled and kept'}
         />
         <KpiStatCard
           label="Waiting on payment"
@@ -267,15 +288,30 @@ export async function TransactionsLedger() {
               header: 'Reference',
               mono: true,
               hideBelow: 'md',
-              cell: (r) => r.reference_code,
+              // The row opens the payments desk ON this order — where a payment
+              // can be found, approved, or recorded (owner 2026-10-01).
+              cell: (r) => (
+                <Link
+                  href={`/admin/payments?filter=all&q=${encodeURIComponent(r.public_id)}`}
+                  className="text-link hover:underline"
+                >
+                  {r.reference_code}
+                </Link>
+              ),
             },
             {
               header: 'Who',
               cell: (r) => (
                 <>
                   <p className="text-sm text-ink">
-                    {r.buyerName ?? r.buyerEmail ?? 'Unknown buyer'}
-                    {r.buyerInternal ? (
+                    {r.buyerName ?? r.buyerEmail ?? (buyersFailed ? 'Couldn’t read buyer' : 'Unknown buyer')}
+                    {buyersFailed ? (
+                      // Unread is not "not ours": without the buyer we cannot
+                      // tell a test purchase from real revenue, so say that.
+                      <span className="ml-2 rounded bg-warn-50 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-warn-900">
+                        ours? unknown
+                      </span>
+                    ) : r.buyerInternal ? (
                       // 🪤 Our own test purchases look exactly like real revenue
                       // in a total. Say so on the row rather than filtering them
                       // out, so the ledger stays complete and still honest.
@@ -327,6 +363,8 @@ export async function TransactionsLedger() {
                     <ReceiptText aria-hidden className="h-3 w-3" strokeWidth={1.75} />
                     View
                   </Link>
+                ) : receiptsFailed ? (
+                  <span className="text-xs text-warn-900">Couldn&rsquo;t read</span>
                 ) : (
                   <span className="text-xs text-ink/45">—</span>
                 ),

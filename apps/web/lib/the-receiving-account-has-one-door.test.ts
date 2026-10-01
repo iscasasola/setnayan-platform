@@ -35,6 +35,7 @@ import {
   PAYMENT_DESTINATION_FIELDS,
   PAYMENT_RAIL_CONTROLS,
   PAYMENT_QR_COLUMNS,
+  PAYMENT_ACCOUNT_LIST_COLUMN,
   changedDestinationFields,
   redirectsMoney,
 } from './payment-destination';
@@ -79,7 +80,9 @@ test('the rule tells a destination from a rail control', () => {
 
 test('EVERY write path to a destination column is gated — all three doors', () => {
   const SKIP = new Set(['node_modules', '.next', 'dist']);
-  const targets = [...PAYMENT_DESTINATION_FIELDS, ...PAYMENT_QR_COLUMNS];
+  // The LIST (owner 2026-10-01) carries every account's name, number and QR,
+  // so writing it is writing a destination too.
+  const targets = [...PAYMENT_DESTINATION_FIELDS, ...PAYMENT_QR_COLUMNS, PAYMENT_ACCOUNT_LIST_COLUMN];
   const writers: string[] = [];
   let scanned = 0;
 
@@ -123,7 +126,9 @@ test('the REQUEST paths open an approval instead of redirecting money', () => {
   const src = read(SETTINGS);
 
   // Both doors must consult the rule and raise a request.
-  assert.match(src, /changedDestinationFields\s*\(/, 'savePaymentInstruments no longer consults the § 9.1 rule');
+  // ✏️ RE-ANCHORED 2026-10-01: the accounts became a list, and the rule is now
+  // asked per account (`changedAccountDestinations`) — same § 9.1 question.
+  assert.match(src, /changedAccountDestinations\s*\(/, 'savePaymentInstruments no longer consults the § 9.1 rule');
   const requests = src.match(/action_type: 'approve_payment_account_change'/g) ?? [];
   console.log(`[pay-gate] ${requests.length} door(s) open an approve_payment_account_change request`);
   assert.equal(
@@ -150,21 +155,33 @@ test('the REQUEST paths open an approval instead of redirecting money', () => {
 test('the rail controls still save WITHOUT an approval', () => {
   // The deliberate exclusion, held so a later session cannot "helpfully" gate
   // it. An admin must always be able to close a bouncing rail alone.
+  //
+  // ✏️ RE-ANCHORED 2026-10-01: the switch moved onto each account in the LIST
+  // (intent `account_toggle`), and the caps/balances kept their own branch.
+  // Neither may raise an approval.
   const src = read(SETTINGS);
-  const fnStart = src.indexOf('export async function savePaymentInstruments');
-  const fnEnd = src.indexOf('type QrKind', fnStart);
-  const body = src.slice(fnStart, fnEnd);
+  const toggleStart = src.indexOf("if (intent === 'account_toggle')");
+  assert.ok(toggleStart >= 0, 'the account switch branch moved — re-anchor this');
+  const toggle = src.slice(toggleStart, src.indexOf("if (intent === 'account_move')", toggleStart));
+  assert.match(toggle, /writeAccountList\(/, 'the switch no longer saves the list');
+  assert.doesNotMatch(
+    toggle,
+    /admin_approval_requests/,
+    'the kill switch now waits on a second admin — a bouncing rail could not be closed alone',
+  );
 
-  for (const c of ['gcash_enabled', 'bdo_enabled']) {
-    assert.ok(body.includes(c), `${c} is no longer written by savePaymentInstruments`);
-  }
-  // The gated branch deletes ONLY destination fields from the payload before
-  // saving the rest, so the kill switch is never held hostage.
-  assert.match(
-    body,
-    /delete \(payload as Record<string, unknown>\)\[f\]/,
-    'the gated branch no longer strips just the destination fields — if it now withholds the ' +
-      'whole payload, an admin correcting a cap is blocked by an unrelated pending account change.',
+  // The two legacy switches stay mirrored from the list, so the fall-back read
+  // can never re-open an account the owner closed.
+  const writerStart = src.indexOf('async function writeAccountList');
+  const writer = src.slice(writerStart, src.indexOf('\n}', writerStart));
+  assert.match(writer, /_enabled`\]/, 'writeAccountList stopped mirroring the gcash/bdo switches');
+
+  const capsStart = src.indexOf('export async function savePaymentInstruments');
+  const caps = src.slice(capsStart, src.indexOf('\n}', capsStart));
+  assert.doesNotMatch(
+    caps,
+    /admin_approval_requests/,
+    'saving a monthly limit now waits on a second admin — an unrelated pending change would block it',
   );
 });
 

@@ -80,11 +80,11 @@ export function CustomConfigurator({
     activeComposition ?? BASE_COMPOSITION,
   );
   // Only the rails the owner has left open, in the admin's order.
-  const rails = pay.open;
-  const [chosen, setChannel] = useState<PayChannel>(rails[0]?.id ?? '');
-  const channel = rails.some((r) => r.id === chosen) ? chosen : (rails[0]?.id ?? '');
+  const openRails = pay.open;
+  const [chosen, setChannel] = useState<PayChannel>(openRails[0]?.id ?? '');
+  const channel = openRails.some((r) => r.id === chosen) ? chosen : (openRails[0]?.id ?? '');
   const shownAccount = pay.accounts.find((a) => a.id === channel) ?? null;
-  const paused = rails.length === 0;
+  const paused = openRails.length === 0;
   const [submitting, setSubmitting] = useState(false);
 
   const quote = useMemo(
@@ -336,7 +336,7 @@ export function CustomConfigurator({
                   Pay with
                 </p>
                 {paused ? <PaymentsPausedNote className="mt-1.5" /> : null}
-                {rails.length > 2 ? (
+                {openRails.length > 2 ? (
                   /* 3+ accounts = ONE dropdown, never a row of pills
                      (INTERACTION_RULES § 2). */
                   <select
@@ -345,7 +345,7 @@ export function CustomConfigurator({
                     onChange={(e) => setChannel(e.target.value)}
                     className="input-field mt-1.5 cursor-pointer text-xs"
                   >
-                    {rails.map((r) => (
+                    {openRails.map((r) => (
                       <option key={r.id} value={r.id}>
                         {r.label}
                       </option>
@@ -353,7 +353,7 @@ export function CustomConfigurator({
                   </select>
                 ) : (
                   <div className="mt-1.5 grid grid-cols-2 gap-2">
-                    {rails.map((r) => (
+                    {openRails.map((r) => (
                       <button
                         key={r.id}
                         type="button"

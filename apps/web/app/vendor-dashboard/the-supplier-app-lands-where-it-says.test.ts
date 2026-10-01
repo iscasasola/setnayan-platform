@@ -211,15 +211,15 @@ test('4a · no visible copy on the supplier app’s pages says "vendor"', () => 
   }
 });
 
-test('4b · the tab titles are the bar’s words · Setnayan', () => {
+test('4b · the tab titles are the bar’s words (the root template adds · Setnayan)', () => {
   const want: Record<string, string> = {
-    'app/vendor-dashboard/page.tsx': 'Today · Setnayan',
-    'app/vendor-dashboard/customers/page.tsx': 'Customers · Setnayan',
-    'app/vendor-dashboard/shop/page.tsx': 'Shop · Setnayan',
-    'app/vendor-dashboard/more/page.tsx': 'More · Setnayan',
+    'app/vendor-dashboard/page.tsx': 'Today',
+    'app/vendor-dashboard/customers/page.tsx': 'Customers',
+    'app/vendor-dashboard/shop/page.tsx': 'Shop',
+    'app/vendor-dashboard/more/page.tsx': 'More',
   };
   for (const [f, title] of Object.entries(want)) {
-    assert.match(read(f), new RegExp(`metadata = \\{ title: '${title}'`), `${f} title is not "${title}"`);
+    assert.match(read(f), new RegExp(`metadata = \\{ title: '${title}' \\}`), `${f} title is not "${title}"`);
   }
 });
 

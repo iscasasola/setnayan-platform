@@ -117,7 +117,7 @@ import { MiniTour } from '@/app/_components/mini-tour';
  * Overview.
  */
 
-export const metadata = { title: 'Today · Setnayan' };
+export const metadata = { title: 'Today' };
 
 function AgentHome() {
   return (

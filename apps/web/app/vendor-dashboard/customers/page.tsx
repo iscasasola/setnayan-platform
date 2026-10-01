@@ -56,7 +56,7 @@ import type { FilterOption } from './_components/customers-filter-bar';
 import { VendorQrSection } from '../_components/qr-section';
 import { keepParamsFrom } from '../_components/list-pager';
 
-export const metadata = { title: 'Customers · Setnayan' };
+export const metadata = { title: 'Customers' };
 
 /**
  * /vendor-dashboard/customers — "My Customers".

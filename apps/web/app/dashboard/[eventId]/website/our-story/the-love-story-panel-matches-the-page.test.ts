@@ -94,7 +94,7 @@ test('📖 the panel lists the page’s chapters — same names, same order', as
   const book = await paintBook(STORY_MOMENTS);
   const panelChapters = chaptersOf(panel, 'data-love-story-panel-chapter');
   const bookChapters = chaptersOf(book, 'data-love-story-chapter');
-  assert.deepEqual(panelChapters, ['before', 'met', 'falling', 'yes', 'toward']);
+  assert.deepEqual(panelChapters, ['before', 'met', 'together', 'falling', 'yes', 'toward']);
   assert.deepEqual(panelChapters, bookChapters, 'the panel and the page list the same chapters in the same order');
   for (const c of panelChapters) {
     const label = LOVE_STORY_CHAPTER_LABEL[c as keyof typeof LOVE_STORY_CHAPTER_LABEL];
@@ -114,7 +114,7 @@ test('🧷 each moment sits under the chapter the page puts it in, and each chap
     assert.ok(inPanel, `${m.id} is listed in the panel`);
     assert.equal(inPanel, bookChapterOf(book, m.id), `${m.id}: panel chapter = page chapter`);
   }
-  assert.deepEqual(chaptersOf(panel, 'data-panel-add'), ['before', 'met', 'falling', 'yes', 'toward']);
+  assert.deepEqual(chaptersOf(panel, 'data-panel-add'), ['before', 'met', 'together', 'falling', 'yes', 'toward']);
   // Five told, free: every chapter says so instead of offering a sixth.
   const five = [...STORY_MOMENTS, { id: 'm-five', date: { y: 2025 }, line: 'The fitting', canvas: {} }];
   const capped = await paintPanel({ moments: five });

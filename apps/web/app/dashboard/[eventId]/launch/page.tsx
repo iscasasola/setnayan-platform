@@ -72,7 +72,8 @@ import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
-import { guidedFactsFrom, guidedPresent } from './_components/details-guided-progress';
+import { countSetupGuests, guidedFactsFrom, guidedPresent, hubSetupFactsFrom, type SetupScheduleBlock } from './_components/details-guided-progress';
+import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
@@ -1037,7 +1038,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // 🗓 The schedule's moments — Details › Schedule's ✓ and its pieces (a refused read says so, never "0").
       supabase
         .from('event_schedule_blocks')
-        .select('block_id, label, start_at, parent_block_id')
+        .select('block_id, label, start_at, parent_block_id, block_type, is_public')
         .eq('event_id', eventId)
         .order('start_at', { ascending: true })
         .order('sort_order', { ascending: true }),
@@ -1048,7 +1049,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     if (scheduleRes.error) logQueryError('LaunchPage.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
     const scheduleMoments = scheduleRes.error
       ? null
-      : ((scheduleRes.data ?? []) as Array<{ block_id: string; label: string | null; start_at: string; parent_block_id: string | null }>).filter(
+      : ((scheduleRes.data ?? []) as Array<{
+          block_id: string;
+          label: string | null;
+          start_at: string;
+          parent_block_id: string | null;
+          block_type: string | null;
+          is_public: boolean | null;
+        }>).filter(
           (b) => b.parent_block_id === null,
         );
     if (feelRes.error) logQueryError('LaunchPage.moodFeel', feelRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -1208,7 +1216,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           </>
         ) : (
           <p className="m-auto max-w-sm px-4 text-center text-sm text-ink/70" data-maker-page-no-address="">
-            Set your Event Hub address in Details to see your RSVP here.
+            Set your Event Hub address in Your info to see your RSVP here.
           </p>
         ),
         settings: (
@@ -1333,6 +1341,23 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
         seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
       });
+      /* 🧭 "FINISH YOUR EVENT HUB" (the setup, B — lib/hub-setup-steps.ts): its
+         facts from what this page already read (the draft over live), plus the
+         guests' count — the SAME derivation Home's card reads
+         (`hubSetupFactsFrom`), so the three doors count the same steps. */
+      let setupFacts: HubSetupFacts | null = null;
+      if (hubSetupApplies(printEvent.event_type)) {
+        const slotOf = (k: 'ceremony' | 'reception') => yourEvent?.venues.slots.find((sl) => sl.slot === k);
+        setupFacts = hubSetupFactsFrom({
+          rsvpAsk,
+          schedule: scheduleMoments as readonly SetupScheduleBlock[] | null,
+          venuesLocked: yourEvent ? { ceremony: Boolean(slotOf('ceremony')?.booked), reception: Boolean(slotOf('reception')?.booked) } : null,
+          loveStoryMoments: detailsItemApplies('love-story', eventContext) ? (guided.story ? resolveMoments(guided.story).length : null) : 0,
+          dressCode: 'dress_code_config' in draftedEvents ? draftedEvents.dress_code_config : printEvent.dress_code_config,
+          replyBy: deadlineRes.error ? undefined : ((deadlineRes.data?.guest_list_edit_deadline as string | null) ?? null),
+          guests: mayReadGuestList ? await countSetupGuests(printAdmin, eventId) : null,
+        });
+      }
       detailsUnfinished = isUnfinished(
         guidedPlanFromFacts({
           ctx: eventContext,
@@ -1344,6 +1369,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           }),
           facts: guided,
           parentsOffered: yourEvent ? parentsOffered(yourEvent.kind) : false,
+          setup: setupFacts,
         }),
       );
       /* A plain landing on Details — nothing else named — is where the flow opens. */
@@ -1410,7 +1436,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               itemNamed,
               guideNamed: guideAddress !== null,
               // Never on the Maker's very first visit — its own welcome is showing.
-              tour: !firstVisit ? <MiniTour tourKey="customer_details_guided_v1" storeShell={storeShell} /> : null,
+              // 🧭 With the setup first in the flow, its "Before we start" — once.
+              tour: !firstVisit ? (
+                <MiniTour tourKey={setupFacts ? 'customer_hub_setup_v1' : 'customer_details_guided_v1'} storeShell={storeShell} />
+              ) : null,
+              setup: setupFacts,
+              guestsHref: hubSetupGuestsHref(eventId),
             }}
             eventId={eventId}
             slug={printEvent.slug}

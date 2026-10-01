@@ -27,6 +27,7 @@
  *
  * Pure: no React, no DB, no cookies — the unit suite runs it directly.
  */
+import { HUB_SETUP_LOCKED_SCENES, lockedLine } from '@/lib/hub-setup-steps';
 import { resolveSiteBodyPlan } from './site-body-plan';
 import {
   WIDGET_PHASES,
@@ -310,6 +311,11 @@ const ALWAYS_ON_GUEST_ONLY: readonly WidgetType[] = ['greeting', 'qr_card', 'rsv
  * couple chose to hide, or that this stage leaves out.
  */
 export function makerEmptyPrompt(type: WidgetType): string {
+  /* 🔓 A part the Event Hub setup unlocks (owner-approved 2026-10-01, "Each B
+     step names what it unlocks; the Hub/Maker show 'Locked — finish ___' until
+     then") — filled in, never a paywall. */
+  const setup = (HUB_SETUP_LOCKED_SCENES as Partial<Record<string, string>>)[type];
+  if (setup) return `${lockedLine(setup)}.`;
   const reason = EMPTY_REASON[type];
   if (reason) return reason.replace(/^Empty — /, '').replace(/^./, (c) => c.toUpperCase());
   if (isCustomSectionType(type)) return 'Write this scene.';

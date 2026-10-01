@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ChevronDown } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
+import { completeTour } from '@/lib/tour-actions';
+import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
 
 /**
  * Where each Next card goes. Written as `href:` literals ON PURPOSE: the
@@ -93,6 +95,10 @@ export function HomeFirstScreen({
         body={next.body}
         action={next.action}
         href={nextHref(next.kind, eventId)}
+        /* 🧭 The Event Hub setup, offered once after onboarding: Start opens it
+           (its "Before we start" marks it answered), Later marks it answered
+           here — the shipped tour action, no new one. */
+        later={next.offer ? { label: 'Later', action: completeTour.bind(null, HUB_SETUP_OFFER_TOUR) } : null}
       />
 
       {/* ② ALWAYS THERE — the Maker's front door (it left the bar, owner 2026-10-01).

@@ -244,7 +244,7 @@ export function DetailsWorkspace({
   const whatsLeftLine = (() => {
     if (!plan) return '';
     const h = homeProgress(plan);
-    return h ? `Round ${h.round} · ${formatCount(h.done)} of ${formatCount(h.total)}` : 'All set';
+    return h ? `${h.round === 0 ? 'Finish' : `Round ${h.round}`} · ${formatCount(h.done)} of ${formatCount(h.total)}` : 'All set';
   })();
   /* The navigator, narrowed in the flow to the step's own items (and their pieces). */
   const navGroups: DetailsNavGroup[] =

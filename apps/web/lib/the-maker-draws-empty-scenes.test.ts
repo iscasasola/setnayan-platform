@@ -87,7 +87,10 @@ test('A · in the Maker an EMPTY scene is on the canvas, with its placeholder', 
     assert.match(html, new RegExp(`data-maker-empty="${type}"`), `${type}: no placeholder in the Maker`);
     assert.ok(html.includes(makerEmptyPrompt(type)), `${type}: the placeholder does not say what to add`);
   }
-  assert.match(makerEmptyPrompt('our_love_story'), /Add your story/);
+  // 🔓 The Love Story is a step of "Finish your Event Hub" (owner-approved
+  // 2026-10-01): its empty scene names the step that unlocks it.
+  assert.match(makerEmptyPrompt('our_love_story'), /Locked — finish Love Story/);
+  assert.match(makerEmptyPrompt('special_message'), /Write your message/);
 });
 
 test('A · for a GUEST the same empty scene draws nothing — no placeholder ever reaches them', async () => {

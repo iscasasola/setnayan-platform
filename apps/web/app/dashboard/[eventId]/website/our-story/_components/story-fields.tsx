@@ -84,8 +84,8 @@ function Field({
 export const STORY_FIELDS_BY_CHAPTER: Record<LoveStoryChapter, readonly string[]> = {
   before: [],
   met: ['how_we_met', 'met_year'],
+  together: ['together_since'],
   falling: [
-    'together_since',
     'spark',
     'spark_why',
     'obstacle',
@@ -120,15 +120,24 @@ export function StoryChapterFields({ story, chapter }: { story: LoveStoryBlob; c
       </div>
     );
   }
-  if (chapter === 'falling') {
-    const anchors = (story.anchors ?? {}) as Record<string, unknown>;
-    const anchor = (k: string) => (typeof anchors[k] === 'string' ? (anchors[k] as string) : '');
+  if (chapter === 'together') {
+    /* 💞 Chapter 2 of the basic four (owner 2026-10-01): when you became a
+       couple. Its one question is the field it always was — the same name,
+       the same dual-stored `together_since` — moved under its own chapter. */
     return (
       <div className="space-y-4">
         <label className="block">
           <span className="sn-eye">Together since</span>
           <input name="together_since" defaultValue={s(story, 'together_since')} placeholder="2022" maxLength={120} className={fieldCls} />
         </label>
+      </div>
+    );
+  }
+  if (chapter === 'falling') {
+    const anchors = (story.anchors ?? {}) as Record<string, unknown>;
+    const anchor = (k: string) => (typeof anchors[k] === 'string' ? (anchors[k] as string) : '');
+    return (
+      <div className="space-y-4">
         <Field
           label="The first thing you noticed was…"
           name="spark"

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4645759f5",
+  "generatedFromRef": "af52431b2",
   "routeCount": 443,
   "destinations": 968,
   "actions": 681,
-  "blocks": 5368,
+  "blocks": 5375,
   "routes": {
     "/": {
       "files": [
@@ -6386,6 +6386,7 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/details-date-clash.tsx",
         "dashboard/[eventId]/launch/_components/details-date-finder.tsx",
         "dashboard/[eventId]/launch/_components/details-go.tsx",
         "dashboard/[eventId]/launch/_components/details-guide-top.tsx",
@@ -6474,6 +6475,7 @@
         "CoupleSeatingPage",
         "CoupleTick",
         "DateBody",
+        "DateClashNote",
         "DateEditor",
         "DateState",
         "DetailsGoTo",
@@ -6508,7 +6510,6 @@
         "GuideHead",
         "GuideReady",
         "GuideTop",
-        "GuidedPlan",
         "GuidedRound",
         "GuidedScreen",
         "HTMLAnchorElement",
@@ -9994,6 +9995,7 @@
         "onboarding/wedding/_components/song-bank-step.tsx",
         "onboarding/wedding/_components/song-preview-list.tsx",
         "onboarding/wedding/_components/weave-story.ts",
+        "onboarding/wedding/_components/wedding-cards.tsx",
         "onboarding/wedding/_components/welcome-moments.tsx",
         "onboarding/wedding/actions.ts",
         "onboarding/wedding/loading.tsx",
@@ -10013,7 +10015,10 @@
       "blocks": [
         "AlreadyPlanningWedding",
         "Ans",
+        "AreaCard",
         "ArtState",
+        "BudgetCard",
+        "ColoursCard",
         "CountUp",
         "CoupleCarry",
         "DateCalendar",
@@ -10034,7 +10039,9 @@
         "OnboardingState",
         "OnboardingVendorCounts",
         "PCard",
+        "PaxCard",
         "PickCard",
+        "PickMenu",
         "Pos",
         "Rail",
         "RefineCard",
@@ -10047,11 +10054,13 @@
         "SetnayanMark",
         "SetupAnswers",
         "SetupCard",
+        "SetupFrame",
         "Sk",
         "SongBankStep",
         "SongPreviewList",
         "SubmitButton",
         "TurnstileField",
+        "WeddingCard",
         "WeddingCountdown",
         "WelcomeMoments"
       ]

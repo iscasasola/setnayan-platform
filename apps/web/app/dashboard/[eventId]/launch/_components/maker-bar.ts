@@ -43,7 +43,10 @@ export type MakerBarGroup = 'made-once' | 'stages';
  * have a place along the Logo, Hero, Reveal, Love Story"*). PROVISIONAL name —
  * the owner may rename it, so it lives in this one constant.
  */
-export const MAKER_DETAILS_LABEL = 'Details';
+// ✅ "Your info" (owner-approved 2026-10-01, controller default: the Maker's
+// "Details" tab is renamed so it never clashes with Event Details on Event
+// Home — LABEL ONLY: the key, the address `?tool=details` and every item stay).
+export const MAKER_DETAILS_LABEL = 'Your info';
 export const MAKER_PRINTS_LABEL = 'Prints';
 
 /**

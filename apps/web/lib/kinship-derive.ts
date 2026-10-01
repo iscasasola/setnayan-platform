@@ -1,12 +1,28 @@
 /**
- * lib/kinship-derive.ts — extended kin, DERIVED from the seven stored relations.
+ * lib/kinship-derive.ts — extended kin, DERIVED from the eight stored relations.
  *
  * ── THE CONTRACT ───────────────────────────────────────────────────────────
  * `person_connections` stores first-degree family only. Its table comment is
  * explicit: "Family first-degree only; extended kin derived." So lolo, lola,
  * tito, tita, pinsan, pamangkin, apo and the in-law terms are never rows — they
  * are computed from spouse / parent / child / sibling / godparent / godchild /
- * friend, and the stored vocabulary is FROZEN at those seven (owner, OD7).
+ * friend / partner. The vocabulary was FROZEN at seven (owner, OD7, 2026-07-30)
+ * and the owner himself opened it once, for one word (2026-09-29):
+ *
+ *   > "add partner (to become a couple)"
+ *
+ * ── A PARTNER MAKES IN-LAWS, EXACTLY AS A SPOUSE DOES ──────────────────────
+ * Your partner's parents are your biyenan, their siblings your bayaw/hipag —
+ * and the other way round: to your partner's parents you are their manugang,
+ * to their siblings a bayaw/hipag. So every in-law rule below walks the
+ * COUPLE — spouse OR partner — never spouse alone. The couple is the shape
+ * that makes in-laws; the paperwork does not.
+ *
+ * ── A LABEL NOBODY AGREED TO DERIVES NOTHING ───────────────────────────────
+ * Owner, 2026-09-29: *"assigning a label needs a handshake"*. An ASKED label
+ * lives in `person_connections.proposed_relation` and never reaches this
+ * module — the readers pass `relation` from confirmed rows only, and on a
+ * confirmed row `relation` changes only when the person it is about accepts.
  *
  * ── EDGE DIRECTION, WHICH IS EASY TO GET BACKWARDS ─────────────────────────
  * From the migration: `relation` = **what to_person IS to from_person**.
@@ -46,7 +62,7 @@
  * what makes it safe to ship while the counsel gate is still closed.
  */
 
-/** The seven stored relations. Frozen — see OD7. */
+/** The eight stored relations — OD7's seven, plus partner (owner 2026-09-29). */
 export type StoredRelation =
   | 'spouse'
   | 'parent'
@@ -54,7 +70,8 @@ export type StoredRelation =
   | 'sibling'
   | 'godparent'
   | 'godchild'
-  | 'friend';
+  | 'friend'
+  | 'partner';
 
 export type ConnectionStatus = 'draft' | 'pending' | 'confirmed' | 'declined';
 
@@ -100,6 +117,8 @@ export type KinKind =
   | 'godparent'
   | 'godchild'
   | 'sibling-in-law'
+  | 'parent-in-law'
+  | 'child-in-law'
   | 'co-parent-in-law';
 
 /** [male, female, neutral-pair] */
@@ -112,6 +131,9 @@ const LABELS: Record<KinKind, [string, string, string]> = {
   godparent: ['Ninong', 'Ninang', 'Ninong/Ninang'],
   godchild: ['Inaanak', 'Inaanak', 'Inaanak'],
   'sibling-in-law': ['Bayaw', 'Hipag', 'Bayaw/Hipag'],
+  // Biyenan and manugang are not gendered in Tagalog, so all three agree.
+  'parent-in-law': ['Biyenan', 'Biyenan', 'Biyenan'],
+  'child-in-law': ['Manugang', 'Manugang', 'Manugang'],
   'co-parent-in-law': ['Balae', 'Balae', 'Balae'],
 };
 
@@ -139,6 +161,7 @@ const INVERSE: Record<StoredRelation, StoredRelation> = {
   godparent: 'godchild',
   godchild: 'godparent',
   friend: 'friend',
+  partner: 'partner',
 };
 
 type Adjacency = Map<string, Array<{ to: string; relation: StoredRelation }>>;
@@ -167,6 +190,24 @@ export function buildAdjacency(edges: readonly StoredEdge[]): Adjacency {
 
 const neighbours = (adj: Adjacency, id: string, relation: StoredRelation): string[] =>
   (adj.get(id) ?? []).filter((n) => n.relation === relation).map((n) => n.to);
+
+/** The two relations that make a couple — and so make in-laws. */
+export const COUPLE_RELATIONS: readonly StoredRelation[] = ['spouse', 'partner'];
+
+/**
+ * Everyone `id` is a couple with, each once, with the word that joins them.
+ * Spouse wins over partner when a pair holds both (they married): the chain
+ * then says "spouse", which is the truer word.
+ */
+function couplesOf(adj: Adjacency, id: string): Array<{ to: string; relation: StoredRelation }> {
+  const out = new Map<string, StoredRelation>();
+  for (const n of adj.get(id) ?? []) {
+    if (!COUPLE_RELATIONS.includes(n.relation)) continue;
+    if (out.get(n.to) === 'spouse') continue;
+    out.set(n.to, n.relation);
+  }
+  return [...out].map(([to, relation]) => ({ to, relation }));
+}
 
 /**
  * Every extended relation derivable for one person.
@@ -206,7 +247,9 @@ export function deriveKin(
   const parents = neighbours(adj, egoPersonId, 'parent');
   const children = neighbours(adj, egoPersonId, 'child');
   const siblings = neighbours(adj, egoPersonId, 'sibling');
-  const spouses = neighbours(adj, egoPersonId, 'spouse');
+  // THE COUPLE — spouse or partner. Every in-law rule walks this, never
+  // spouse alone (see "A PARTNER MAKES IN-LAWS" in the header).
+  const couples = couplesOf(adj, egoPersonId);
   const friends = neighbours(adj, egoPersonId, 'friend');
 
   // ── ritual: stored, surfaced rather than derived ─────────────────────────
@@ -230,19 +273,32 @@ export function deriveKin(
   }
   for (const c of children) {
     for (const gc of neighbours(adj, c, 'child')) add(gc, 'grandchild', 'blood', 2, ['child', 'child']);
-    // Your child's spouse's parents are your balae.
-    for (const cs of neighbours(adj, c, 'spouse')) {
-      for (const inlaw of neighbours(adj, cs, 'parent')) {
-        add(inlaw, 'co-parent-in-law', 'blood', 3, ['child', 'spouse', 'parent']);
+    for (const cs of couplesOf(adj, c)) {
+      const word = cs.relation;
+      // Your child's spouse or partner is your manugang…
+      add(cs.to, 'child-in-law', 'blood', 2, ['child', word]);
+      // …and their parents are your balae.
+      for (const inlaw of neighbours(adj, cs.to, 'parent')) {
+        add(inlaw, 'co-parent-in-law', 'blood', 3, ['child', word, 'parent']);
       }
     }
   }
   for (const s of siblings) {
     for (const n of neighbours(adj, s, 'child')) add(n, 'nibling', 'blood', 2, ['sibling', 'child']);
+    // Your sibling's spouse or partner is your bayaw/hipag — the "vice versa"
+    // of the rule below, read from the other side of the same couple.
+    for (const ss of couplesOf(adj, s)) {
+      add(ss.to, 'sibling-in-law', 'blood', 2, ['sibling', ss.relation]);
+    }
   }
-  for (const sp of spouses) {
-    for (const sib of neighbours(adj, sp, 'sibling')) {
-      add(sib, 'sibling-in-law', 'blood', 2, ['spouse', 'sibling']);
+  for (const sp of couples) {
+    // Your spouse's or partner's parents are your biyenan…
+    for (const pil of neighbours(adj, sp.to, 'parent')) {
+      add(pil, 'parent-in-law', 'blood', 2, [sp.relation, 'parent']);
+    }
+    // …and their siblings your bayaw/hipag.
+    for (const sib of neighbours(adj, sp.to, 'sibling')) {
+      add(sib, 'sibling-in-law', 'blood', 2, [sp.relation, 'sibling']);
     }
   }
 

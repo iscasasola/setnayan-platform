@@ -63,6 +63,14 @@ export type DeepSearchEligibilityInput = {
   tier: string | null | undefined;
   /** vendor_profiles.verification_state. */
   verification: string | null | undefined;
+  /**
+   * The server's answer to `vendorPaywallApplies(isTierAtLeast(tier, 'solo'))`
+   * (lib/vendor-feature-gate.ts) — whether the paid-plan requirement is asked
+   * right now. Omitted → the tier rule applies unconditionally (the pure
+   * default the tests pin). Every server caller passes it, so while
+   * VENDOR_TIER_FEATURE_GATE is off a verified Free shop may run a search.
+   */
+  tierPaywall?: boolean;
 };
 
 export type DeepSearchEligibility =
@@ -82,7 +90,8 @@ export type DeepSearchEligibility =
 export function deepSearchEligibility(
   input: DeepSearchEligibilityInput,
 ): DeepSearchEligibility {
-  if (!isTierAtLeast(input.tier, 'solo')) return { ok: false, reason: 'tier_too_low' };
+  const tierShort = input.tierPaywall ?? !isTierAtLeast(input.tier, 'solo');
+  if (tierShort) return { ok: false, reason: 'tier_too_low' };
   if (input.verification !== 'verified') return { ok: false, reason: 'unverified' };
   return { ok: true };
 }
@@ -90,7 +99,7 @@ export function deepSearchEligibility(
 /** Human copy for each deny reason (surfaced in the vendor UI). */
 export const DEEP_SEARCH_DENY_MESSAGE: Record<DeepSearchDenyReason, string> = {
   tier_too_low:
-    'Deep Search is available on the paid plans (Solo, Pro, Enterprise). Upgrade to run it.',
+    'Running a Deep Search is part of the paid plans (Solo, Pro, Enterprise). Pick one on the Plans page to run it.',
   unverified: 'Get your shop verified first — Deep Search unlocks once you’re verified.',
 };
 

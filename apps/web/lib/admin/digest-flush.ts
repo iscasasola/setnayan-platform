@@ -25,7 +25,7 @@
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendEmail } from '@/lib/email';
-import { buildDigestEmail, sendThresholdMs } from '@/lib/admin/digest-content';
+import { buildDigestEmail, sendThresholdMs, DIGEST_EMAIL_KIND } from '@/lib/admin/digest-content';
 import { getAdminQueueDigest, deriveQueueUrgency } from '@/lib/admin/queue-counts';
 
 /** Min gap between DB checks per instance — makes the after() hooks ~free. */
@@ -77,6 +77,18 @@ export async function runAdminDigestFlush(): Promise<void> {
     // Atomic daily claim — NOW that there's something to send. Only one
     // concurrent caller wins (the row-level lock re-checks the condition); the
     // rest bail. `enabled` is re-checked so a toggle-off mid-flight is honored.
+    //
+    // 🔑 THE STAMP IS A CLAIM UNTIL A SEND SUCCEEDS (2026-10-01 · admin audit
+    // row 38). This used to be the whole record: stamped here, BEFORE sendEmail,
+    // whose result was then ignored — so a refused send, or no Resend key at
+    // all, marked the day "sent" and lost it silently. The claim still has to be
+    // taken first (it is what stops two visitors sending two digests), but it
+    // is now RELEASED — put back to what it was — unless at least one email was
+    // accepted, so the stamp that survives always means "a digest went out" and
+    // a failed day is retried by the next visitor. What happened to each email
+    // is written by sendEmail itself to email_deliveries (kind 'admin_digest'),
+    // which Settings › Notifications reads for "Last digest sent …".
+    const previousSentAt = (cfg.admin_digest_last_sent_at as string | null) ?? null;
     const { data: claim, error: claimErr } = await admin
       .from('platform_settings')
       .update({ admin_digest_last_sent_at: nowIso })
@@ -91,6 +103,17 @@ export async function runAdminDigestFlush(): Promise<void> {
     }
     if (!claim || claim.length === 0) return; // toggled off, or lost the race
 
+    // Give the day back. Conditional on the stamp still being OUR claim, so a
+    // release can never undo a later, successful run's stamp.
+    const releaseClaim = async (why: string) => {
+      const { error } = await admin
+        .from('platform_settings')
+        .update({ admin_digest_last_sent_at: previousSentAt })
+        .eq('id', 1)
+        .eq('admin_digest_last_sent_at', nowIso);
+      if (error) logQueryError(`runAdminDigestFlush (release after ${why})`, error);
+    };
+
     // Every admin who clears queues: internal + team-pool + account_type admin
     // (mirrors the /admin doorway gate in app/admin/layout.tsx).
     const { data: admins, error: adminErr } = await admin
@@ -100,6 +123,7 @@ export async function runAdminDigestFlush(): Promise<void> {
       .not('email', 'is', null);
     if (adminErr) {
       logQueryError('runAdminDigestFlush (recipients)', adminErr);
+      await releaseClaim('recipients read failed');
       return;
     }
     const recipients = Array.from(
@@ -109,12 +133,23 @@ export async function runAdminDigestFlush(): Promise<void> {
           .filter((e): e is string => !!e),
       ),
     );
-    if (recipients.length === 0) return;
+    if (recipients.length === 0) {
+      await releaseClaim('no recipients');
+      return;
+    }
 
     const { subject, text, html } = buildDigestEmail(digest, urgency);
+    let accepted = 0;
     for (const to of recipients) {
-      await sendEmail({ to, subject, text, html });
+      try {
+        const result = await sendEmail({ to, subject, text, html, kind: DIGEST_EMAIL_KIND });
+        if (result.ok) accepted += 1;
+      } catch (err) {
+        // A throw is a refusal too — counted as not accepted, never as sent.
+        logQueryError('runAdminDigestFlush (send)', err instanceof Error ? err : new Error(String(err)));
+      }
     }
+    if (accepted === 0) await releaseClaim('no email was accepted');
   } catch (err) {
     logQueryError(
       'runAdminDigestFlush',

@@ -815,17 +815,12 @@ function SaveSection({ row, afterMutate }: { row: PriceRowProp; afterMutate: () 
 
       <div className="border-b border-ink/10 p-4">
         <h4 className="mb-2.5 font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text">What it is</h4>
-        {row.kind === 'vendor' ? (
-          <div className="mb-3">
-            <FieldLabel>Name customers see</FieldLabel>
-            <p className="text-sm text-ink/70">{row.title} — migration-owned, edit in code</p>
-          </div>
-        ) : (
-          <div className="mb-3">
-            <FieldLabel>Name customers see</FieldLabel>
-            <input name="title" defaultValue={row.title} className="input-field h-9 w-full text-sm" />
-          </div>
-        )}
+        {/* Row 22 (2026-10-01): supplier plans are renamed here too — the
+            name used to be fixed in code, and nothing keys on it. */}
+        <div className="mb-3">
+          <FieldLabel>{row.kind === 'vendor' ? 'Name suppliers see' : 'Name customers see'}</FieldLabel>
+          <input name="title" required defaultValue={row.title} className="input-field h-9 w-full text-sm" />
+        </div>
         <div>
           <FieldLabel>What this is for</FieldLabel>
           <textarea

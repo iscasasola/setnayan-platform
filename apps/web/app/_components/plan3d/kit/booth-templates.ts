@@ -440,6 +440,13 @@ export const BOOTH_TEMPLATES: Record<WeddingTile, BoothTemplateSpec> = {
     signText: 'Outdoor & Garden',
     cardKind: 'inclusions',
   },
+  chairs_tents: {
+    chassis: 'GARDEN',
+    props: [{ kind: 'umbrella', position: [-0.7, 0, 0.55], scale: 0.9 }],
+    staff: { outfit: 'apron', idle: 'present', count: 1 },
+    signText: 'Chairs & Tents',
+    cardKind: 'inclusions',
+  },
   fireworks: {
     chassis: 'STATION',
     // The mortar battery demos in FRONT of the table (z 0.75 clears the

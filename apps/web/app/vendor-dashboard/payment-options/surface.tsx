@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { isStoreShellRequest } from '@/lib/request-platform';
 import { vendorPaymentQrDisplayUrl } from '@/lib/vendor-payment-qr-url.server';
 import {
   Landmark,
@@ -93,7 +95,11 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
     supabase,
     profile.vendor_profile_id,
   );
-  const isPro = await isVendorProActive(supabase, user.id);
+  // 💳 Links are a Pro feature, asked through the one flag-aware question
+  // (lib/vendor-feature-gate.ts). `linksOpen` = the shop's links count and are
+  // shown; `linkAsks` = the switch is on and saving a link asks for Pro.
+  const linkAsks = vendorPaywallApplies(await isVendorProActive(supabase, user.id));
+  const isPro = !linkAsks;
 
   // Pre-resolve QR thumbnails through the shared helper, which presigns only a
   // ref that satisfies THIS supplier's own policy and
@@ -317,7 +323,10 @@ export default async function VendorPaymentOptionsPage({ searchParams }: Props) 
         )}
       </section>
 
-      <AddPaymentMethod vendorProfileId={profile.vendor_profile_id} isPro={isPro} />
+      <AddPaymentMethod
+        vendorProfileId={profile.vendor_profile_id}
+        linkAsks={linkAsks && !(await isStoreShellRequest())}
+      />
 
       <p className="mt-8 flex items-start gap-2 rounded-xl border border-ink/10 bg-ink/[0.02] px-4 py-3 text-xs text-ink/55">
         <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />

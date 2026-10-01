@@ -10,6 +10,7 @@
 import { useState, useTransition } from 'react';
 import { EyeOff, Loader2, Plus, RotateCcw, Smartphone, X } from 'lucide-react';
 import { WALL_TILE_LAYOUTS, type WallTileLayout } from '@/lib/live-wall-logic';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   createWallScreenCode,
   hideWallTile,
@@ -145,22 +146,17 @@ export function LiveWallControls({
               className="ml-2 w-16 rounded border border-ink/15 bg-surface px-2 py-1 text-sm text-ink"
             />
           </label>
-          <div className="flex flex-wrap gap-1.5">
-            {WALL_TILE_LAYOUTS.map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setLayout(l)}
-                aria-pressed={layout === l}
-                className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize ${
-                  layout === l
-                    ? 'bg-mulberry text-cream'
-                    : 'bg-ink/5 text-ink/70 hover:bg-ink/10'
-                }`}
-              >
-                {l}
-              </button>
-            ))}
+          {/* Layout — ONE dropdown (owner rule 2026-09-28), not four pills. */}
+          <div className="flex items-center gap-2 text-sm text-ink/70">
+            <span aria-hidden>Layout</span>
+            <PickMenu
+              label="Wall layout"
+              value={layout}
+              dataAttr="data-wall-layout"
+              options={WALL_TILE_LAYOUTS.map((l) => ({ key: l, label: l.charAt(0).toUpperCase() + l.slice(1) }))}
+              onPick={(key) => setLayout(key as WallTileLayout)}
+              className="border border-ink/15"
+            />
           </div>
           <button
             type="button"

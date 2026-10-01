@@ -126,7 +126,9 @@ export default async function PeoplePage({
 
   // The picker's counts. A count that could not be read is NULL and is left
   // off its label — never printed as 0 (a refused read is not an empty list).
-  const waiting = roster?.counts.waitingYou ?? 0;
+  // Everything waiting on my answer — a request to connect, or a label asked
+  // on a connection I already have (owner 2026-09-29: both live in Requests).
+  const waiting = (roster?.counts.waitingYou ?? 0) + (roster?.counts.labelAsksForYou ?? 0);
   const options = peopleViewOptions(
     gates,
     {

@@ -148,6 +148,10 @@ export async function VendorsSurface({
         'vendor_profile_id,public_id,user_id,business_name,business_slug,tagline,logo_url,services,location_city,contact_email,public_visibility,verification_state,created_at',
       )
       .is('user_id', null)
+      // Row 25 (2026-10-01): demo shops are unclaimed too, and have their own
+      // list (Demo suppliers). Listing them here as "waiting to be claimed"
+      // offered a claim link for a shop nobody should ever claim.
+      .eq('is_demo', false)
       .order('created_at', { ascending: false })
       .limit(UNCLAIMED_ROW_LIMIT),
   ]);

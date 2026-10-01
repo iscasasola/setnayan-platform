@@ -833,7 +833,12 @@ const ENTRY_CALLERS: Record<string, { folds: string[]; readsNoPrice: string[] }>
     readsNoPrice: ['app/dashboard/[eventId]/find-date/page.tsx', 'app/dashboard/[eventId]/launch/_components/details-your-event-load.tsx', 'lib/date-clash.server.ts', 'lib/event-preload.ts', 'lib/event-vendors-read.ts'],
   },
   readEventVendorsMeasured: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
-  buildShortlistFolders: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
+  // Find a supplier (P3) calls it with `vendorRows: []` — only to learn which
+  // categories this event type books. No pick, so no agreed total to print.
+  buildShortlistFolders: {
+    folds: ['app/dashboard/[eventId]/vendors/page.tsx'],
+    readsNoPrice: ['app/dashboard/[eventId]/vendors/categories/page.tsx'],
+  },
   buildPlanBudgetModel: { folds: ['app/dashboard/[eventId]/vendors/page.tsx'], readsNoPrice: [] },
   bucketVendorsByGroup: {
     folds: ['app/dashboard/[eventId]/vendors/page.tsx', 'lib/vendors-plan-budget.ts'],

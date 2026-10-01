@@ -61,8 +61,11 @@ test('(a) the find area is hidden on a phone ONLY while closed — and every doo
   const body = takeoverBody();
   // Hidden is conditional, and lg+ always shows it (desktop: same things first, more below).
   assert.match(body, /className=\{findOpen \? undefined : 'hidden lg:block'\}/);
-  // The button opens it through goToSection …
-  assert.match(body, /data-find-supplier[\s\S]{0,200}onClick=\{\(\) => goToSection\('shortlist'\)\}/);
+  // Find a supplier opens its OWN page now (P3, 2026-10-01) — so ⋯'s section
+  // jumps, which always render, are the phone's door to the bench …
+  assert.match(body, /href=\{`\/dashboard\/\$\{eventId\}\/vendors\/categories`\}\s*data-find-supplier/);
+  const menu = TAKEOVER.slice(TAKEOVER.indexOf('function TeamMoreMenu('));
+  assert.doesNotMatch(menu, /replan \? <SectionChips/, 'the bench lost its phone door (chips flag-gated again)');
   // … and goToSection — the bus listener, every ⋯ row, every ?tab= adopt — opens it first.
   const goTo = body.slice(body.indexOf('const goToSection'), body.indexOf('}, []);', body.indexOf('const goToSection')));
   assert.match(goTo, /setFindOpen\(true\)/, 'a section jump would scroll to a hidden element');

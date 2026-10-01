@@ -1806,6 +1806,18 @@ export const UGAT_JOINTS: UgatJoint[] = [
         column: 'tile_id',
         references: 'service_categories',
       },
+      // P3 (2026-10-01): which categories an event TYPE books. Find a supplier,
+      // the bench and the Suppliers plan list all read this one allow-list
+      // (Admin › Event type › Scope categories); a service's own list is NULL =
+      // inherit the tile. The "Chairs & tents" leaf hangs off a tier-1 parent.
+      { kind: 'column', table: 'service_categories', column: 'applicable_event_types' },
+      { kind: 'column', table: 'canonical_service_taxonomy', column: 'applicable_event_types' },
+      {
+        kind: 'fk',
+        table: 'service_categories',
+        column: 'parent_id',
+        references: 'service_categories',
+      },
     ],
     chain: 11,
     pair: ['TYPE-EVENTS', 'TYPE-TAXONOMY'],

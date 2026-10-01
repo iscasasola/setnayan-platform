@@ -16,6 +16,7 @@ import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-pane
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
+import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 
 // Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid camera").
 // This is the shared "Papic Pool" pass: unlimited guest phones draw from one
@@ -372,6 +373,10 @@ export default async function PapicGuestPage({
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
     />
+    {/* First visit only — the shipped tour registry (owner 2026-09-25: every
+        feature gets a first-visit tour). A guest here has no account, so the
+        "seen" mark lives on their phone (GuestGuidedTour), not in `users`. */}
+    <GuestGuidedTour tourKey="guest_papic_camera_v1" />
     {/* Guest "Add credits" doorway (owner-locked 2026-07-29), flag-dark behind
         NEXT_PUBLIC_PAPIC_GUEST_BUY — self-gates to null when off, so this page
         is byte-identical today. No seat token: this surface's identity is the

@@ -212,3 +212,83 @@ test('every derived relation carries its chain, so "why is this person here?" is
   const kin = derivedTitoTita('me', [edge('me', 'ben', 'friend'), edge('ben', 'auntie', 'parent')]);
   assert.deepEqual(kin[0]!.via, ['friend', 'parent']);
 });
+
+/* ── partner (owner 2026-09-29: "add partner (to become a couple)") ── */
+
+test('🔴 a PARTNER’S parents are your biyenan, and their siblings your bayaw/hipag', () => {
+  const kin = deriveKin('me', [
+    edge('me', 'claire', 'partner'),
+    edge('claire', 'claire-mum', 'parent'),
+    edge('claire', 'claire-bro', 'sibling'),
+  ]);
+  const pil = kin.find((k) => k.personId === 'claire-mum');
+  assert.equal(pil?.kind, 'parent-in-law', 'a partner’s mother is not your biyenan');
+  assert.equal(pil?.label, 'Biyenan');
+  assert.deepEqual(pil?.via, ['partner', 'parent']);
+  const sil = kin.find((k) => k.personId === 'claire-bro');
+  assert.equal(sil?.kind, 'sibling-in-law');
+  assert.deepEqual(sil?.via, ['partner', 'sibling']);
+});
+
+test('🔴 …and VICE VERSA — to their parents you are the manugang, to their siblings a bayaw/hipag', () => {
+  // The same three edges, read from Claire's mother and from Claire's brother.
+  const edges = [
+    edge('me', 'claire', 'partner'),
+    edge('claire', 'claire-mum', 'parent'),
+    edge('claire', 'claire-bro', 'sibling'),
+  ];
+  const fromMum = deriveKin('claire-mum', edges).find((k) => k.personId === 'me');
+  assert.equal(fromMum?.kind, 'child-in-law', 'to her partner’s mother I am not the manugang');
+  assert.equal(fromMum?.label, 'Manugang');
+  const fromBro = deriveKin('claire-bro', edges).find((k) => k.personId === 'me');
+  assert.equal(fromBro?.kind, 'sibling-in-law', 'to her brother I am not a bayaw');
+});
+
+test('the partner edge is walkable from EITHER end — stored once, true both ways', () => {
+  // Claire declared it; the in-laws still reach me.
+  const kin = deriveKin('me', [edge('claire', 'me', 'partner'), edge('claire', 'claire-dad', 'parent')]);
+  assert.equal(kin.find((k) => k.personId === 'claire-dad')?.kind, 'parent-in-law');
+});
+
+test('a SPOUSE makes the same in-laws — biyenan now derives for a spouse too', () => {
+  const kin = deriveKin('me', [edge('me', 'wife', 'spouse'), edge('wife', 'wife-mum', 'parent')]);
+  assert.equal(kin.find((k) => k.personId === 'wife-mum')?.kind, 'parent-in-law');
+});
+
+test('balae through a child’s PARTNER, as through a child’s spouse', () => {
+  const kin = deriveKin('me', [
+    edge('me', 'kid', 'child'),
+    edge('kid', 'kid-partner', 'partner'),
+    edge('kid-partner', 'balae2', 'parent'),
+  ]);
+  assert.ok(kin.some((k) => k.kind === 'co-parent-in-law' && k.personId === 'balae2'));
+  assert.ok(kin.some((k) => k.kind === 'child-in-law' && k.personId === 'kid-partner'));
+});
+
+test('🔒 an UNCONFIRMED partner makes no in-laws — a label nobody agreed to derives nothing', () => {
+  // Owner: "assigning a label needs a handshake". An asked label never
+  // reaches the edge list at all (it lives in proposed_relation); a pending
+  // one that did would still be dropped here.
+  for (const status of ['pending', 'draft', 'declined'] as const) {
+    const kin = deriveKin('me', [
+      edge('me', 'claire', 'partner', status),
+      edge('claire', 'claire-mum', 'parent'),
+    ]);
+    assert.equal(
+      kin.find((k) => k.personId === 'claire-mum'),
+      undefined,
+      `a ${status} partner produced a biyenan`,
+    );
+  }
+});
+
+test('a pair who are BOTH partner and spouse read as spouse, once', () => {
+  const kin = deriveKin('me', [
+    edge('me', 'wife', 'partner'),
+    edge('me', 'wife', 'spouse'),
+    edge('wife', 'wife-mum', 'parent'),
+  ]);
+  const found = kin.filter((k) => k.personId === 'wife-mum');
+  assert.equal(found.length, 1);
+  assert.deepEqual(found[0]!.via, ['spouse', 'parent']);
+});

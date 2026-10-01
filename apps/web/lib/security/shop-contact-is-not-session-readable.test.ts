@@ -298,7 +298,7 @@ test('ANTI-VACUITY: the scan finds the known service-role readers (it is measuri
   // silently matched nothing would.
   assert.ok(SITES.length >= 12, `only ${SITES.length} contact-column read sites found — the scanner is blind`);
   const files = new Set(SITES.map((s) => s.file));
-  for (const f of ['app/admin/verify/page.tsx', 'lib/vendor-invites.ts', 'app/api/profile/export/route.ts']) {
+  for (const f of ['app/admin/verify/page.tsx', 'lib/vendor-invites.ts', 'lib/personal-data-export.ts']) {
     assert.ok(files.has(f), `the scan no longer sees ${f}, a known reader — it is not measuring what it claims`);
   }
   console.log(`# contact-column read sites scanned: ${SITES.length}`);

@@ -72,6 +72,7 @@ export const RELATION_LABEL: Record<ConnectionRelation, string> = {
   godparent: 'Ninong / Ninang',
   godchild: 'Inaanak',
   friend: 'Friend',
+  partner: 'Partner',
 };
 
 /** The second line under a chip — what picking it actually means. */
@@ -83,6 +84,7 @@ export const RELATION_HINT: Record<ConnectionRelation, string> = {
   godparent: 'Your own ninong or ninang',
   godchild: 'A child you stood for',
   friend: 'Close enough to be at your celebrations',
+  partner: 'The one you’re with — together you’re a couple',
 };
 
 /**
@@ -94,6 +96,9 @@ export const ADD_RELATION_ORDER: ConnectionRelation[] = [
   'parent',
   'sibling',
   'child',
+  // Owner 2026-09-29: "add partner (to become a couple)". Offered to everyone —
+  // unlike Spouse it asks nothing about civil status.
+  'partner',
   'spouse',
   'godparent',
   'friend',

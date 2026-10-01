@@ -9,6 +9,7 @@ import { VendorsTab } from './_components/vendors-tab';
 import { EditorialsTab } from './_components/editorials-tab';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { AlbumShelf } from './_components/album-shelf';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import {
   KEPT,
   LENSES,
@@ -132,51 +133,36 @@ export default async function AlaalaPage({
           event. then under it can be all the photos in grid"). */}
       <AlbumShelf userId={user.id} />
 
-      {/* LENSES — the same five words as the tile. Plain links so the page
-          stays a Server Component.
+      {/* LENSES + ALSO KEPT — ONE dropdown (owner rule 2026-09-28: a choice of
+          several is a dropdown, never a pill row). The five lenses and the three
+          "also kept" views were two rows of chips; they are two labelled groups
+          in one list now, so "also kept" stays visibly NOT a lens. Each option
+          is still a plain address, so the page stays a Server Component.
           `lg:hidden`: from 1024px up the rail carries these exact rows (owner
           2026-09-21, "move the chips into it") — `MemoriesRailContext`, reading
           the same `LENSES`/`KEPT` from `_data/library-views.ts`. Below 1024 the
-          rail paints nothing, so the phone keeps the chips. */}
-      <nav aria-label="Memories lenses" className="mb-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
-        {LENSES.map(({ key, label }) => {
-          const isActive = key === active;
-          return (
-            <Link
-              key={key}
-              href={`/dashboard/library?tab=${key}`}
-              aria-current={isActive ? 'page' : undefined}
-              className={`sn-chip sn-press shrink-0 ${isActive ? 'selected' : ''}`}
-            >
-              {label}
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* ALSO KEPT — reachable, deliberately not a lens. Editorials are stories
-          rather than albums; saved vendors are not a memory at all. */}
-      <nav
-        aria-label="Also kept"
-        className="mb-8 flex flex-wrap items-center gap-2 lg:hidden"
-      >
-        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-ink/45">
-          Also kept
-        </span>
-        {KEPT.map(({ key, label, Icon }) => {
-          const isActive = key === active;
-          return (
-            <Link
-              key={key}
-              href={`/dashboard/library?tab=${key}`}
-              aria-current={isActive ? 'page' : undefined}
-              className={`sn-chip sn-press shrink-0 ${isActive ? 'selected' : ''}`}
-            >
-              <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              {label}
-            </Link>
-          );
-        })}
+          rail paints nothing, so the phone keeps this dropdown. */}
+      <nav aria-label="Memories lenses" className="mb-8 lg:hidden">
+        <LinkPickMenu
+          label="Show"
+          value={active}
+          dataAttr="data-memories-view"
+          options={[
+            ...LENSES.map(({ key, label }) => ({
+              key,
+              label,
+              group: 'Memories',
+              href: `/dashboard/library?tab=${key}`,
+            })),
+            ...KEPT.map(({ key, label }) => ({
+              key,
+              label,
+              group: 'Also kept',
+              href: `/dashboard/library?tab=${key}`,
+            })),
+          ]}
+          className="border border-ink/15"
+        />
       </nav>
 
       {/* key remount on view change → the body cross-fades in (§ 2d) */}

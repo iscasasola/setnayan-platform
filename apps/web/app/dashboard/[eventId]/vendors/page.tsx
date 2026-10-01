@@ -38,6 +38,7 @@ import { benchUnreadFrom } from '@/lib/bench-unread';
 import { isTrueNameTier, tierCaps, asVendorTier } from '@/lib/vendor-tier-caps';
 import { resolveDeclaredRings } from '@/lib/vendor-service-radius';
 import { buildPlanBudgetModel, type VendorEnrichment } from '@/lib/vendors-plan-budget';
+import { fetchPlanGroupScope } from '@/lib/plan-groups-by-event-type';
 import { depositStepOf, type DepositStep } from '@/lib/deposit-pay-step';
 import { resolveAllocationInputs, fetchSavedAllocationPlan } from '@/lib/budget-allocation-data';
 import { resolvePlanned, suggestedPlanByBucket } from '@/lib/budget-ledger';
@@ -115,6 +116,7 @@ import {
 } from '@/lib/build-date-window';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
+import { ChatsDoor } from './_components/chats-door';
 import { TeamRows } from './_components/team-rows';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
 import { MerkadoGuardBanner } from './_components/merkado-guard-banner';
@@ -1137,6 +1139,10 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     // PR-H · read here, passed in. The model is a pure core.
     lockHandshakeEnabled: isLockHandshakeEnabled(),
     vendorRows,
+    // Only this event type's categories (Admin › Event type › Scope categories);
+    // a wedding's list is unchanged, a birthday stops seeing Bridal car.
+    eventType: ev?.event_type ?? null,
+    planGroupScope: await fetchPlanGroupScope(supabase),
     estimatedBudgetCentavos: ev?.estimated_budget_centavos ?? null,
     daysUntilWedding,
     ceremonyType: ev?.ceremony_type ?? null,
@@ -2455,6 +2461,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         <ServicesTakeover
           eventId={eventId}
           initialTab={initialTab}
+          // The chat icon + unread count beside ⋯ → the couple's Chats (P3).
+          chatSlot={<ChatsDoor supabase={supabase} eventId={eventId} userId={user.id} />}
           premium={aiActive}
           teamParts={teamParts}
           teamSlot={teamSlot}

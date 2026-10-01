@@ -10,9 +10,12 @@
  *   • bank → provider <select> over PAYMENT_PROVIDERS + account name + account number
  *   • qr   → <FileUpload> (emits an r2:// ref into hidden `qr_r2_key`) + a
  *            "where it sends money" decoded-destination input
- *   • link → Pro/Enterprise gated. Non-Pro vendors see a locked upsell tile and
- *            NO url input (so the action can never receive a link from them).
- *            Pro vendors get a url input with a LIVE classification hint
+ *   • link → a url input for EVERY plan (try-first, 2026-09-30). Whether a
+ *            plan is asked for is decided on the server by
+ *            vendorPaywallApplies() and arrives as `linkAsks`: off (the
+ *            switch is off, or the shop has Pro) → no mark; on → a ◆ PRO note,
+ *            and Save is where the plan is asked. The input has a LIVE
+ *            classification hint
  *            (green = allowlisted · amber = unknown domain, publishes after a
  *            quick review · red = shortener/invalid).
  *
@@ -24,7 +27,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Plus, Landmark, QrCode, Link2, CheckCircle2, AlertTriangle, X } from 'lucide-react';
-import { LockedState } from '@/app/_components/states/locked-state';
+import { PaidMark } from '@/app/_components/paid-mark';
 import { routes } from '@/lib/routes';
 import {
   PAYMENT_PROVIDERS,
@@ -37,7 +40,8 @@ import { addPaymentMethod } from '../actions';
 
 type Props = {
   vendorProfileId: string;
-  isPro: boolean;
+  /** Server-decided (vendorPaywallApplies): saving a link asks for Pro. */
+  linkAsks: boolean;
 };
 
 const TYPE_TILES: ReadonlyArray<{
@@ -51,7 +55,7 @@ const TYPE_TILES: ReadonlyArray<{
   { key: 'link', label: 'Payment link', hint: 'Maya, PayPal, Stripe…', icon: Link2 },
 ];
 
-export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
+export function AddPaymentMethod({ vendorProfileId, linkAsks }: Props) {
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<PaymentMethodType>('bank');
   const [linkDraft, setLinkDraft] = useState('');
@@ -216,26 +220,26 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
       ) : null}
 
       {type === 'link' ? (
-        !isPro ? (
-          // State 04 · LOCKED — the six-state system's gold entitlement frame
-          // (app/_components/states), mounted here for the first time (S36,
-          // 2026-09-18). Same words as the grey box it replaces, plus the one
-          // thing that box lacked: the single step that unlocks it. No price is
-          // written here — the plans page reads the live catalog.
-          <LockedState
-            tierLabel="Pro & Enterprise"
-            title="Payment links are a Pro & Enterprise feature"
-            blurb="Upgrade your plan to add Maya, PayPal, or Stripe checkout links. Bank, e-wallet, and QR options are free on every plan."
-            action={
+        <div className="space-y-2">
+          {linkAsks ? (
+            <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/60">
+              <PaidMark
+                state="try"
+                label="Part of Pro — fill it in here; saving asks for Pro"
+                size="xs"
+              />
+              <span>
+                Payment links are part of Pro and Enterprise. Fill it in here — saving asks for the
+                plan. Bank, e-wallet, and QR are free on every plan.
+              </span>
               <Link
                 href={routes.vendorDashboard.subscription()}
-                className="button-primary inline-flex min-h-[40px] items-center justify-center px-5 text-sm font-semibold"
+                className="font-medium text-mulberry hover:underline"
               >
                 See plans
               </Link>
-            }
-          />
-        ) : (
+            </p>
+          ) : null}
           <label htmlFor="link_url" className="block space-y-1">
             <span className="block text-sm font-medium text-ink">
               Payment link
@@ -278,7 +282,7 @@ export function AddPaymentMethod({ vendorProfileId, isPro }: Props) {
               </span>
             )}
           </label>
-        )
+        </div>
       ) : null}
 
       {/* Common optional fields. */}

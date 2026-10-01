@@ -1048,9 +1048,10 @@ function SupplierRecordsNote() {
  * with two answers and neither could be added up. The only thing that differs
  * is the label over the box and whether it is required.
  *
- * ⚠ REAL `<button>`s, not divs with click handlers. These are toggles a person
- * reaches with the keyboard on the way out of something irreversible;
- * `aria-pressed` is what makes the chosen one audible.
+ * ⚠ A REAL `<select>`, not divs with click handlers — a person reaches it with
+ * the keyboard on the way out of something irreversible, and the chosen answer
+ * is announced as the control's value. (It was six `aria-pressed` chips until
+ * 2026-09-30; see the comment on the control for why it is native.)
  */
 function ReasonPicker({
   code,
@@ -1085,28 +1086,29 @@ function ReasonPicker({
           <span className="ml-1 font-normal text-ink/45">Optional</span>
         ) : null}
       </p>
-      <div className="mt-1 flex flex-wrap gap-1">
-        {DELETION_REASONS.map((r) => {
-          const on = r.code === code;
-          return (
-            <button
-              key={r.code}
-              type="button"
-              aria-pressed={on}
-              /* Pressing the chosen one again clears it — on an optional
-                 question, a choice you cannot take back is a trap. */
-              onClick={() => onCode(on ? '' : r.code)}
-              className={`rounded-full border px-2 py-1 text-[11.5px] font-semibold transition-colors ${
-                on
-                  ? 'border-mulberry bg-mulberry text-cream'
-                  : 'border-ink/20 text-ink/70 hover:border-ink/40 hover:text-ink'
-              }`}
-            >
-              {r.label}
-            </button>
-          );
-        })}
-      </div>
+      {/* ONE dropdown, not six chips (owner rule 2026-09-28: a choice of
+          several is a dropdown, never a pill row).
+          ⚠ A NATIVE <select>, NOT THE SHARED PickMenu — ON PURPOSE. This picker
+          lives inside the remove frame, a `<dialog>` opened with `showModal()`.
+          That puts the frame in the browser's TOP LAYER and makes everything
+          outside it inert; PickMenu portals its list to `document.body`, i.e.
+          outside the dialog, so its options would be drawn UNDER the frame and
+          could not be pressed. The OS picker of a native select is drawn above
+          everything. The first option is the "no answer" choice, so an
+          optional question can still be cleared. */}
+      <select
+        aria-label="Why are you removing it?"
+        value={code}
+        onChange={(e) => onCode(e.target.value)}
+        className="mt-1 w-full rounded-lg border border-ink/20 bg-white px-2.5 py-2 text-[12.5px] font-semibold text-ink outline-none focus:border-mulberry"
+      >
+        <option value="">{optional ? 'Choose a reason (optional)' : 'Choose a reason'}</option>
+        {DELETION_REASONS.map((r) => (
+          <option key={r.code} value={r.code}>
+            {r.label}
+          </option>
+        ))}
+      </select>
       {code && !hideText ? (
         <ReasonNote
           label={textLabel}

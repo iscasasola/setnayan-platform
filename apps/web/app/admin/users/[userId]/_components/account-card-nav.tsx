@@ -8,7 +8,7 @@ import { CheckCircle2 } from 'lucide-react';
  * variant, owner-approved in-session 2026-07-03). Mirrors the vendor Customer
  * Card chrome (customer-card-nav.tsx) so the two surfaces read the same, but the
  * sales pipeline is replaced with an account-lifecycle strip and the tab set is
- * the HQ five (Overview / Money / Support / Activity / Governance).
+ * the HQ five (Overview / Money / Support / Activity / Privacy — the last one keyed `governance` so old links still open it).
  *
  * Pure server render — the tab rail is `?tab=` Link-driven so the whole card
  * stays a server component (no client state). Mobile: both rails are
@@ -22,7 +22,7 @@ export const ACCOUNT_TABS: { key: AccountCardTab; label: string }[] = [
   { key: 'money', label: 'Money' },
   { key: 'support', label: 'Support' },
   { key: 'activity', label: 'Activity' },
-  { key: 'governance', label: 'Governance' },
+  { key: 'governance', label: 'Privacy' },
 ];
 
 export function normalizeAccountTab(raw: string | undefined): AccountCardTab {

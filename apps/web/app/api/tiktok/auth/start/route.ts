@@ -5,6 +5,8 @@ import {
   buildAuthorizeUrl,
   getTiktokOAuthConfig,
 } from '@/lib/patiktok-tiktok';
+import { patiktokActionAllowed } from '@/lib/patiktok-access';
+import { patiktokSaveUnlocked } from '@/lib/patiktok-save-gate';
 
 // Iteration 0017 Phase 3 — TikTok OAuth start.
 //
@@ -49,6 +51,20 @@ export async function GET(req: NextRequest) {
       { error: 'Only the couple can connect TikTok for this event' },
       { status: 403 },
     );
+  }
+
+  // 💎 PAY TO SHARE (owner 2026-09-29: "yes use for free. but pay to save and
+  // share"). Connecting TikTok exists only to post reels out, so it opens only
+  // for an event holding an admin-approved PATIKTOK_COMPILER. Checked before a
+  // state token is minted. Rule: lib/patiktok-access.ts.
+  if (
+    !patiktokActionAllowed('connect_tiktok', {
+      saveUnlocked: await patiktokSaveUnlocked(eventId),
+    })
+  ) {
+    const target = new URL(`/dashboard/${eventId}/studio/patiktok`, req.url);
+    target.searchParams.set('tiktok_error', 'needs_patiktok');
+    return NextResponse.redirect(target);
   }
 
   const config = await getTiktokOAuthConfig();

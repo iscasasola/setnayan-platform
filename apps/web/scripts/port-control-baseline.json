@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4645759f5",
-  "routeCount": 443,
-  "destinations": 968,
+  "generatedFromRef": "8308518ec",
+  "routeCount": 444,
+  "destinations": 969,
   "actions": 681,
-  "blocks": 5368,
+  "blocks": 5404,
   "routes": {
     "/": {
       "files": [
@@ -1558,6 +1558,7 @@
       "files": [
         "[slug]/invite/_components/hub-door-skin.tsx",
         "[slug]/invite/_components/invite-qr-panel.tsx",
+        "[slug]/invite/_components/landing-pre-reply.tsx",
         "[slug]/invite/_components/themes/abaca.tsx",
         "[slug]/invite/_components/themes/capiz.tsx",
         "[slug]/invite/_components/themes/galeriya.tsx",
@@ -1577,8 +1578,10 @@
         "InvalidTokenScreen",
         "JoinFlow",
         "LayeredLogoPlayer",
+        "Link",
         "RevealOverlayServer",
-        "SealMark"
+        "SealMark",
+        "TicketPicture"
       ]
     },
     "/[slug]/invite/enter": {
@@ -1595,6 +1598,7 @@
         "DoorShell",
         "InAppBar",
         "InviteQrPanel",
+        "LandingPreReply",
         "Link",
         "RsvpCanvasBridge",
         "SavePassCardButton",
@@ -1843,6 +1847,7 @@
         "admin/_components/console-table.tsx",
         "admin/_components/kpi-stat-card.tsx",
         "admin/_components/mobile-landing-grid.tsx",
+        "admin/_components/read-failed.tsx",
         "admin/_components/record-search.ts",
         "admin/_components/what-you-change.tsx",
         "admin/_email-delivery-strip.tsx",
@@ -2165,6 +2170,7 @@
         "OfflineSurface",
         "OperationsHiringSurface",
         "PageMasthead",
+        "ReadFailed",
         "RerunResult",
         "SectionHeading",
         "SeoRerunButton",
@@ -2224,7 +2230,7 @@
         "admin/booking-fees/page.tsx"
       ],
       "destinations": [
-        "/admin/payments"
+        "/admin/payments?filter=all&q=[seg]"
       ],
       "actions": [],
       "blocks": [
@@ -2288,6 +2294,7 @@
       "blocks": [
         "ConsoleTable",
         "PageMasthead",
+        "ReadFailed",
         "SubmitButton"
       ]
     },
@@ -2350,6 +2357,7 @@
         "Metric",
         "PageMasthead",
         "QueueTab",
+        "ReadFailed",
         "SignalsTable",
         "SimilarityBar",
         "StrikePill",
@@ -2398,6 +2406,7 @@
         "FormFlash",
         "Link",
         "PageMasthead",
+        "ReadFailed",
         "RequestCard",
         "ShopAddressCorrection",
         "SubmitButton",
@@ -2455,6 +2464,7 @@
         "NpcTaskResult",
         "PageMasthead",
         "PrivacyControlStatus",
+        "ReadFailed",
         "Row",
         "StatusIcon",
         "TaskActions",
@@ -2520,6 +2530,7 @@
       ],
       "blocks": [
         "Link",
+        "ReadFailed",
         "SubmitButton"
       ]
     },
@@ -2634,7 +2645,8 @@
       "blocks": [
         "EditorialRow",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "ReadFailed"
       ]
     },
     "/admin/editorial-review/[editorialId]": {
@@ -2802,6 +2814,7 @@
         "Link",
         "PageMasthead",
         "ProofImage",
+        "ReadFailed",
         "SubmitButton"
       ]
     },
@@ -2818,6 +2831,7 @@
       "blocks": [
         "FormFlash",
         "PageMasthead",
+        "ReadFailed",
         "SubmitButton"
       ]
     },
@@ -3416,6 +3430,7 @@
         "PriceCatalogBrowser",
         "PricingSurface",
         "ProductRow",
+        "ReadFailed",
         "RemoveAllBar",
         "RemoveAllState",
         "RetiredShelves",
@@ -3571,6 +3586,7 @@
         "FilterChip",
         "Link",
         "PageMasthead",
+        "ReadFailed",
         "SubmitButton",
         "VendorFakeFlagCard"
       ]
@@ -3858,6 +3874,7 @@
         "PageSelector",
         "PatiktokSurface",
         "QueueSection",
+        "ReadFailed",
         "RealStoriesSurface",
         "RecapsSurface",
         "RedemptionRow",
@@ -3989,6 +4006,7 @@
         "PreparedCatalogs",
         "PreparedJobCard",
         "PromoteRequestForm",
+        "ReadFailed",
         "RefThumb",
         "RefinementsTab",
         "ReorderButtons",
@@ -4022,7 +4040,8 @@
       "blocks": [
         "KpiStatCard",
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "ReadFailed"
       ]
     },
     "/admin/ugat": {
@@ -4074,6 +4093,7 @@
         "Omnibox",
         "OnboardingSurface",
         "PageMasthead",
+        "ReadFailed",
         "RelatedLink",
         "ReligionSection",
         "Resolution",
@@ -4147,6 +4167,7 @@
         "LifecycleStrip",
         "Link",
         "PageMasthead",
+        "ReadFailed",
         "SupportSection"
       ]
     },
@@ -5236,6 +5257,7 @@
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
+        "/dashboard/[seg]/details",
         "/dashboard/[seg]/guests/tea-ceremony",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/launch",
@@ -5722,18 +5744,32 @@
       ],
       "actions": [],
       "blocks": [
-        "DetailsForm",
-        "DocRow",
         "EditableField",
         "EditableRow",
         "ErrorNote",
-        "GovernedFields",
         "HTMLFormElement",
         "Link",
         "LockedRow",
         "PageMasthead",
-        "PaxSettingsCard",
-        "PutAwayCard"
+        "PutAwayCard",
+        "Row",
+        "Section",
+        "T"
+      ]
+    },
+    "/dashboard/[eventId]/details/change": {
+      "files": [
+        "dashboard/[eventId]/details/change/loading.tsx",
+        "dashboard/[eventId]/details/change/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "DetailsForm",
+        "GovernedFields",
+        "Link",
+        "PageMasthead",
+        "PaxSettingsCard"
       ]
     },
     "/dashboard/[eventId]/disputes": {
@@ -5969,6 +6005,7 @@
         "GridPageSkeleton",
         "GroupChipList",
         "GroupsSidebar",
+        "GroupsSidebarBody",
         "GuestAccessCell",
         "GuestAccessContext.Provider",
         "GuestAccessControl",
@@ -6386,6 +6423,7 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/details-date-clash.tsx",
         "dashboard/[eventId]/launch/_components/details-date-finder.tsx",
         "dashboard/[eventId]/launch/_components/details-go.tsx",
         "dashboard/[eventId]/launch/_components/details-guide-top.tsx",
@@ -6420,6 +6458,7 @@
         "dashboard/[eventId]/launch/_components/maker-rsvp-stage.tsx",
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-theme-picker.tsx",
+        "dashboard/[eventId]/launch/_components/maker-tour-slides.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
         "dashboard/[eventId]/launch/_components/parent-cards.tsx",
@@ -6472,8 +6511,8 @@
         "CouldNotOpen",
         "CoupleSchedulePage",
         "CoupleSeatingPage",
-        "CoupleTick",
         "DateBody",
+        "DateClashNote",
         "DateEditor",
         "DateState",
         "DetailsGoTo",
@@ -9786,6 +9825,7 @@
     "/join/[eventId]/connect/confirm": {
       "files": [
         "join/[eventId]/connect/confirm/actions.ts",
+        "join/[eventId]/connect/confirm/held-elsewhere-door.tsx",
         "join/[eventId]/connect/confirm/page.tsx"
       ],
       "destinations": [
@@ -9796,6 +9836,7 @@
         "DoorActions",
         "DoorNotice",
         "DoorShell",
+        "HeldElsewhereDoor",
         "Link",
         "SubmitButton"
       ]
@@ -9994,6 +10035,8 @@
         "onboarding/wedding/_components/song-bank-step.tsx",
         "onboarding/wedding/_components/song-preview-list.tsx",
         "onboarding/wedding/_components/weave-story.ts",
+        "onboarding/wedding/_components/wedding-cards.tsx",
+        "onboarding/wedding/_components/wedding-venues.tsx",
         "onboarding/wedding/_components/welcome-moments.tsx",
         "onboarding/wedding/actions.ts",
         "onboarding/wedding/loading.tsx",
@@ -10013,7 +10056,11 @@
       "blocks": [
         "AlreadyPlanningWedding",
         "Ans",
+        "AreaCard",
         "ArtState",
+        "BranchPinMap",
+        "BudgetCard",
+        "ColoursCard",
         "CountUp",
         "CoupleCarry",
         "DateCalendar",
@@ -10033,8 +10080,11 @@
         "OnboardingShell",
         "OnboardingState",
         "OnboardingVendorCounts",
+        "OwnVenueForm",
         "PCard",
+        "PaxCard",
         "PickCard",
+        "PickMenu",
         "Pos",
         "Rail",
         "RefineCard",
@@ -10047,12 +10097,16 @@
         "SetnayanMark",
         "SetupAnswers",
         "SetupCard",
+        "SetupFrame",
         "Sk",
         "SongBankStep",
         "SongPreviewList",
         "SubmitButton",
         "TurnstileField",
+        "VenueRoleRow",
+        "WeddingCard",
         "WeddingCountdown",
+        "WeddingVenues",
         "WelcomeMoments"
       ]
     },

@@ -57,10 +57,10 @@ test('blank-ish values are treated as absent, and long ones cannot overflow the 
 test('PERMISSION IS NOT A PERSON — the card asks for both', () => {
   // `plus_one_allowed` means the couple said yes to a companion; it does not
   // mean one exists. The page must pass a NAME, and only when allowed.
-  const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8');
-  const call = src.slice(src.indexOf('guestPassFacts({'));
-  const head = call.slice(0, call.indexOf('});') + 3);
-  assert.match(head, /plusOneName: guest\.plus_one_allowed \? guest\.plus_one_name : null/);
+  // Since 2026-09-30 the page draws no facts itself — the guest's pass is the
+  // Digital ticket (on Me), whose facts come from `passCardPass`.
+  const src = stripComments(readFileSync(join(__dirname, 'pass-card.server.ts'), 'utf8'));
+  assert.match(src, /bringing: g\.plus_one_allowed \? g\.plus_one_name : null/);
   // And the resolver itself never reads a boolean. Comments are stripped with
   // the ONE shared stripper first: this file's own docblock EXPLAINS
   // `plus_one_allowed`, and prose about a construct is not the construct — the
@@ -72,7 +72,8 @@ test('PERMISSION IS NOT A PERSON — the card asks for both', () => {
 test('ARRIVE is the FIRST block of the day, not the next one', () => {
   // A pass in a pocket at 9pm must not tell a guest to arrive at the send-off.
   const src = stripComments(readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8'));
-  const block = src.slice(src.indexOf('const firstScheduleBlock'), src.indexOf('const passFacts'));
+  const block = src.slice(src.indexOf('const firstScheduleBlock'), src.indexOf('const greetingBlock'));
+  assert.ok(block.length > 40, 'precondition: found the arrival-time block — re-point this guard');
   assert.match(block, /scheduleBlocks\[0\]/, 'the first block');
   assert.doesNotMatch(block, /nextScheduleBlock/, 'never the next one');
   // 🔴 This line used to REQUIRE `timeZone: 'Asia/Manila'` — and that was the
@@ -84,13 +85,18 @@ test('ARRIVE is the FIRST block of the day, not the next one', () => {
   assert.doesNotMatch(block, /Asia\/Manila|toLocaleTimeString/, 'never a second timezone conversion');
 });
 
-test('the facts render on the pass card, at the anchor the action links to', () => {
-  const src = readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'site-body.tsx'), 'utf8');
-  const card = src.slice(src.indexOf('const passCard'));
-  const cardEnd = card.indexOf('const ', 40);
-  const body = card.slice(0, cardEnd > 0 ? cardEnd : card.length);
-  assert.match(body, /id=\{PASS_ANCHOR\}/, 'the anchor "Show your pass" points at');
-  assert.match(body, /passFacts\.map/, 'and the facts are drawn inside that card');
+test('the facts render on the ticket, at the anchor the action links to', () => {
+  // 2026-09-30: the pass IS the Digital ticket (on Me). The picture is the
+  // ticket route's PNG, drawn from these same facts (`passCardFacts` →
+  // `guestPassFacts`) — so the anchor and the facts live on one element.
+  const ticket = stripComments(readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'guest-ticket.tsx'), 'utf8'));
+  assert.match(ticket, /id=\{PASS_ANCHOR\}/, 'the anchor "Show your ticket" points at');
+  assert.match(ticket, /src=\{PASS_CARD_ROUTE\}/, 'the ticket shown is the ticket route');
+  const layout = stripComments(readFileSync(join(__dirname, 'print-layout.ts'), 'utf8'));
+  assert.match(layout, /return guestPassFacts\(\{/, 'and the ticket draws these facts');
+  // The ticket's ARRIVE uses the programme's own formatter too.
+  const kit = stripComments(readFileSync(join(__dirname, 'pass-card.server.ts'), 'utf8'));
+  assert.match(kit, /formatBlockTimeRange\(first\.start_at, null\)/);
 });
 
 test('ARRIVE reads the same clock as the programme — a real stored value', () => {

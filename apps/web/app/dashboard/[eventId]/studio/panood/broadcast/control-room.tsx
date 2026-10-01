@@ -510,8 +510,8 @@ export function PanoodControlRoom({
         {!live && (
           <Link
             href={`/dashboard/${eventId}/studio/panood/setup`}
-            aria-label="Back to Live Studio setup"
-            title="Back to Live Studio setup"
+            aria-label="Back to Live Watch setup"
+            title="Back to Live Watch setup"
             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-ink/55 hover:bg-ink/5 hover:text-ink"
           >
             <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -522,7 +522,7 @@ export function PanoodControlRoom({
 
         {!owned && (
           <span className="inline-flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-terracotta">
-            <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Studio')} size="xs" tone="current" />
+            <PaidMark state="locked" label={paidMarkLabel('locked', 'Live Watch')} size="xs" tone="current" />
             Preview
           </span>
         )}
@@ -678,7 +678,7 @@ export function PanoodControlRoom({
         <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
           {cameras.length === 0 ? (
             <p className="px-2 py-3 text-xs text-ink/55">
-              No cameras provisioned yet — add them in Live Studio setup.
+              No cameras provisioned yet — add them in Live Watch setup.
             </p>
           ) : (
             cameras.map((cam) => (
@@ -1232,7 +1232,7 @@ function SourcesRail({
 
       {cameras.length === 0 && (
         <p className="text-xs text-ink/55">
-          No cameras provisioned yet. Add camera operators in Live Studio setup — they’ll
+          No cameras provisioned yet. Add camera operators in Live Watch setup — they’ll
           appear here as live sources.
         </p>
       )}
@@ -1379,7 +1379,7 @@ function ScreensManager({
 
       {screens.length === 0 ? (
         <p className="text-xs text-ink/55">
-          No venue screens registered yet. Register displays in Live Studio setup to route
+          No venue screens registered yet. Register displays in Live Watch setup to route
           photos, a mirror of the broadcast, or your live background to each one.
         </p>
       ) : (

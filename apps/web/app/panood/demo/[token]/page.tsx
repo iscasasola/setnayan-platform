@@ -20,8 +20,8 @@ import { CamJoinFlow } from './_components/cam-join-flow';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Live Studio demo',
-  description: 'A live, no-signup demo of the Setnayan Live Studio control room.',
+  title: 'Live Watch demo',
+  description: 'A live, no-signup demo of the Setnayan Live Watch control room.',
   robots: { index: false, follow: false },
 };
 
@@ -58,11 +58,11 @@ export default async function PanoodDemoJoinPage({ params }: Props) {
         eyebrow={
           <>
             <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Live Studio demo
+            Live Watch demo
           </>
         }
         title="This demo link expired."
-        sub="Demo codes are fresh every time — open a new one from the Live Studio tile on the Setnayan homepage."
+        sub="Demo codes are fresh every time — open a new one from the Live Watch tile on the Setnayan homepage."
       >
         <Link href="/" className="button-secondary">
           Back to Setnayan

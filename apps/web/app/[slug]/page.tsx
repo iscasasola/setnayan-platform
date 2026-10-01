@@ -37,10 +37,13 @@ import { venueIsOpen, withheldVenue } from '@/lib/venue-disclosure';
 import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
+import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
 import { SeatDoorLine } from './_components/seat-door-line';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { inviteReplyPath } from '@/lib/invite-arrival';
+import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
 import { cookies } from 'next/headers';
@@ -48,11 +51,14 @@ import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { GuestMe } from './_components/guest-me';
+import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
+import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
+import { withdrawFaceConsent } from './actions';
 import { loadPreviewPerson } from './_lib/preview-person.server';
-import { keepLinkSentFor, readSeatHolder } from '@/lib/guest-one-path.server';
+import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { AdoptSeatSession } from './_components/adopt-seat-session';
 import { loadChaptersOnThisDay } from '@/lib/chapters-on-this-day';
 import { canViewSlugEvent, isInvitedAccount } from '@/lib/slug-access';
@@ -65,17 +71,23 @@ import {
   isScheduledLaunchDue,
   publishSaveTheDate,
 } from '@/lib/launch-save-the-date';
+import { publicTicketUrl } from '@/lib/ticket-url';
 import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
-import { GuestHubBar } from './_components/guest-hub-bar';
+import { GuestHubBar, GuestMeSection } from './_components/guest-hub-bar';
+import { hubTabsOn } from './_lib/hub-tabs';
+import { pageStageFor } from './_lib/stage-bar';
+import { GuestTicket } from './_components/guest-ticket';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
 import {
   type LifecyclePhase,
   isWebsitePhasesEnabled,
   getLifecyclePhase,
   manualLaunchPhase,
+  widgetByType,
+  widgetShouldRender,
 } from '@/lib/invitation-widgets';
 import { eventNounOf } from './_lib/event-noun';
 import {
@@ -167,8 +179,14 @@ type Props = {
     // Invite/Join v2 — guest "save a vendor" result flash (ok/needs_account/error).
     save?: string;
     rsvp?: string;
-    // The one account card's own outcome (`claimAccountAction`): `error` when
-    // the sign-in link could not be sent. A sent link is read from its cookie.
+    // 📱 `?tab=<key>` — each menu tab is its own page with its own address
+    // (owner 2026-09-30, `_lib/hub-tabs.ts`); SiteBody shows that tab first.
+    tab?: string;
+    // 🚪 `?from=landing` — "Open the invitation" on the guest's landing page,
+    // before a reply: past the reply gate (lib/guest-landing.ts). Inert elsewhere.
+    from?: string;
+    // The one account press's outcome (`startAccountSaveAction`): `terms` when
+    // it came back for the Terms tick. Nothing is emailed (owner 2026-09-29).
     keep?: string;
     // Editor RSVP'd tab (2026-07-26) — `?as=replied` previews the `rsvp` phase
     // as a guest who already answered "attending". Honoured ONLY for a viewer
@@ -1272,6 +1290,8 @@ async function InvitationBody({
     hostCameraOpen,
     phasesEnabled,
     lifecyclePhase,
+    // 📱 The tab in the address — the page opens on it (`_lib/hub-tabs.ts`).
+    activeTab: typeof search.tab === 'string' ? search.tab : null,
     stdFilm,
     stdBackground,
     stdBackgroundUrl,
@@ -1302,6 +1322,9 @@ async function InvitationBody({
     // the Maker, which would hear its bridge as the canvas's.
     themeTile: triedTheme !== null,
     canvasGuestBars: isEditorCanvas && search.bars === '1',
+    // 🎟 Public events only — `visibility` is the effective one this page
+    // renders from, so a private or unlisted event never draws the button.
+    ticketUrl: publicTicketUrl({ visibility, ticketUrl: event.ticket_url }),
     // 🖼 `?only=hero` — the Maker's Hero page draws the hero alone. Host canvas
     // only: `canvasOnlyScene` is null unless `isEditorCanvas` (a guest's
     // `?only=` is ignored). See `_lib/editor-canvas.ts`.
@@ -1477,19 +1500,48 @@ async function InvitationBody({
   // reply door also asks. 🔒 A SERVER redirect, so nothing inside renders first.
   // Never in the Maker's canvas and never for the event's own host (a host
   // holding a guest cookie for their own event is previewing, not arriving).
+  const gateLocked = guestListIsClosed({
+    lockedAt: event.guest_count_locked_at ?? null,
+  });
+  // 👋 A PLUS-ONE IS ASKED THE MINIMUM (owner 2026-09-29: *"plus guests are
+  // only minimum questions"*) — their name and, when the couple asks it, their
+  // meal; never attendance (theirs follows their own reply IF they give one),
+  // never a mobile. Missing → THEIR OWN door (`/welcome`, frame F), never the
+  // full reply. The unnamed case already left above (`unconfirmed_tba`), so the
+  // name counts as given here. lib/plus-one-welcome.ts.
+  const isPlusOne = guestContext.guest.plus_one_of_guest_id !== null;
+  if (
+    isPlusOne &&
+    !isEditorCanvas &&
+    !ownerCapability &&
+    plusOneGate(
+      {
+        first_name: guestContext.guest.first_name,
+        last_name: guestContext.guest.last_name,
+        plus_one_name_confirmed_at: 'past-the-tba-door',
+        meal_preference: guestContext.guest.meal_preference,
+        dietary_restrictions: guestContext.guest.dietary_restrictions,
+      },
+      resolveRsvpAsk(event.rsvp_ask_config),
+      gateLocked,
+    ) === 'welcome'
+  ) {
+    redirect(`/${event.slug ?? slug}/welcome`);
+  }
   const keyGate = rsvpGate({
     rsvpStatus: guestContext.guest.rsvp_status,
     mealPreference: guestContext.guest.meal_preference,
     mobile: guestContext.guest.mobile,
     askMeal: resolveRsvpAsk(event.rsvp_ask_config).meal,
     askMobile: resolveRsvpAsk(event.rsvp_ask_config).mobile,
-    locked: guestListIsClosed({
-      lockedAt: event.guest_count_locked_at ?? null,
-      editDeadline: event.guest_list_edit_deadline ?? null,
-      eventDate: event.event_date ?? null,
-    }),
+    locked: gateLocked,
   });
-  if (keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability) {
+  // 🚪 "Open the invitation" on the guest's landing page (owner 2026-09-30,
+  // prototype guest_landing_page frame 1) opens it BEFORE a reply — the landing
+  // page itself leads with "Reply to the invitation", so the answers are still
+  // asked first. Only that link carries the mark (`openBeforeReplyHref`).
+  const openedFromLanding = search[LANDING_OPEN_PARAM] === LANDING_OPEN_VALUE;
+  if (!isPlusOne && keyGate.kind === 'ask' && !isEditorCanvas && !ownerCapability && !openedFromLanding) {
     redirect(inviteReplyPath(event.slug ?? slug));
   }
 
@@ -1506,6 +1558,8 @@ async function InvitationBody({
     guestHubData,
     seatMap,
     rsvpFaceMode,
+    faceTaggingAskable,
+    faceStepOpen,
     eventVendorCredits,
   } = guestContext;
 
@@ -1578,31 +1632,33 @@ async function InvitationBody({
     viewerSeat && viewerAccount && viewerSeat.guestId === guest.guest_id
       ? viewerAccount.id
       : await readSeatHolder(event.event_id, guest.guest_id);
-  const accountBase = guestAccountState({
+  const account = guestAccountState({
     viewerUserId: viewerAccount?.id ?? null,
     viewerEmail: viewerAccount?.email ?? null,
     seatHolderUserId,
-    linkSentForThisEvent: await keepLinkSentFor(event.event_id),
+    seatName: seatDisplayName(guest),
+    seatIsCouple: isCoupleSeat(guest.role as string | null),
   });
-  const account =
-    accountBase.kind === 'offer' && search.keep === 'error'
-      ? { kind: 'offer' as const, failed: true }
-      : accountBase;
 
   const rsvpFlash =
     search.rsvp === 'ok'
       ? {
           tone: 'ok' as const,
           text:
-            account.kind === 'link_sent'
-              ? 'Your reply is in — thank you. Check your email for the link that keeps this invitation on your phone.'
-              : 'Your reply is in — thank you.',
+            'Your reply is in — thank you.',
         }
       : search.rsvp === 'error'
         ? {
             tone: 'error' as const,
             text: 'We could not save your reply just now. Please try again — it has not been recorded yet.',
           }
+        : // A 'maybe' posted from a stale tab (owner 2026-09-30: guests are
+          // offered yes or no only). Nothing saved — say so, and reopen the card.
+          search.rsvp === 'choose'
+          ? {
+              tone: 'error' as const,
+              text: 'Please choose whether you will be there — yes or no. Your reply has not been saved yet.',
+            }
         : // The guest list is final, so the going-or-not answer is frozen. Their
           // DETAILS still saved — say which, or a guest reads a warning and
           // assumes their allergy note went nowhere.
@@ -1662,6 +1718,22 @@ async function InvitationBody({
           look: await resolveEventQrLook(admin, event.event_id, event),
         })
       : { guests: [], passes: {} };
+  // 🎫 THE PASS CARD (owner 2026-09-29: "only accepted accounts get their
+  // images" · "no pass for those who cannot come"). Asked once for this guest
+  // and for the plus-ones they brought; the card route asks again on its own.
+  const [passCard, plusOnePassIds]: [PassCardEligibility | null, Set<string>] = isEditorCanvas
+    ? [null, new Set<string>()]
+    : await Promise.all([
+        passCardEligibilityFor(admin, guest.guest_id),
+        plusOnePassCardIds(admin, event.event_id, guest.guest_id),
+      ]);
+  const passCardHrefs =
+    passCard === 'pass'
+      ? {
+          own: PASS_CARD_ROUTE,
+          plusOnes: Object.fromEntries([...plusOnePassIds].map((id) => [id, `${PASS_CARD_ROUTE}?guest=${id}`])),
+        }
+      : null;
   // "The celebrants" (owner 2026-09-28) — Follow or Add the people this event
   // is for. Only for a viewer whose OWN account holds this seat; nothing is read
   // for anybody else. Add re-checks all of it server-side.
@@ -1671,6 +1743,19 @@ async function InvitationBody({
       : [];
   const meSlot = isEditorCanvas ? null : (
     <>
+    {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
+        Follows the couple's own "QR card" switch, as the pass on Home did; with
+        it off, Me offers "My QR" instead (GuestHubBar asks the page for the
+        anchor this carries). */}
+    {passCard && widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
+      <div className="mb-8">
+        <GuestTicket
+          state={passCard}
+          name={guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'}
+          invitationUrl={invitationUrl}
+        />
+      </div>
+    ) : null}
     {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
         (4)) — the same line the Details scene carries; never a bar slot. */}
     {seatPassActive ? (
@@ -1681,20 +1766,64 @@ async function InvitationBody({
         guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'
       }
       slug={event.slug ?? slug}
+      hasFaceSelfie={guest.photo_source === 'selfie'}
       eventId={event.event_id}
+      guestId={guest.guest_id}
+      askMeal={resolveRsvpAsk(event.rsvp_ask_config).meal}
+      askDietary={resolveRsvpAsk(event.rsvp_ask_config).dietary}
+      askPlusOnes={resolveRsvpAsk(event.rsvp_ask_config).plus_ones}
       eventName={event.display_name ?? 'the celebration'}
       guests={myGuests.guests}
       passes={myGuests.passes}
+      passCards={passCardHrefs}
       account={account}
-      hasEmail={Boolean(guest.email?.trim())}
+      personalLink={invitationUrl}
       userAgent={(await headers()).get('user-agent')}
       termsCarried={rsvpTermsCarried((await cookies()).get(RSVP_TERMS_COOKIE)?.value)}
+      inviteFacts={{
+        hostsName: event.display_name ?? null,
+        eventWord: eventTypeProfile.terminology.eventWord,
+        solemn: eventTypeProfile.terminology.register === 'solemn',
+        eventDate: event.event_date ?? null,
+      }}
       celebrants={celebrants}
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
+      /* Me → "Face tagging" (face-registration design, frame D): only where
+         face tagging is on offer — no Papic, no row (frame F). */
+      faceTagging={
+        faceTaggingAskable || guest.photo_source === 'selfie'
+          ? {
+              on: guest.photo_source === 'selfie',
+              open: faceStepOpen,
+              faceMode: rsvpFaceMode,
+              wish: guest.face_tagging_wanted ?? null,
+              turnOff: withdrawFaceConsent.bind(null, event.event_id, guest.guest_id),
+            }
+          : null
+      }
     />
     </>
   );
+
+  /* 📱 EACH TAB ITS OWN PAGE (owner 2026-09-30) — on the Invitation and The
+     Day a guest's page is tabs, and Me is one of them: the SAME section
+     GuestHubBar draws under a page that is one scroll (`GuestMeSection`), drawn
+     by the page body INSIDE the page instead. Decided by the one rule the body
+     itself uses (`hubTabsOn`); a stage that is tabbed always has the ordinary
+     body (only the Save the Date and Post Event stages change it), and a guest
+     is never the Maker's canvas, whose guest bars are the only ones switched off. */
+  const menuOnHere = siteMenuEnabled({
+    flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
+    isSample: Boolean(event.is_sample),
+  });
+  const guestPageTabbed = hubTabsOn({
+    stage: pageStageFor({ phasesEnabled, lifecyclePhase, dayOfPhase }),
+    bodyNormal: true,
+    barDrawn: menuOnHere,
+    makerCanvas: isEditorCanvas,
+  });
+  const galleryCountHere = guestLiveGallery?.total ?? 0;
 
   const venueOpen = venueIsOpen({
     rsvpStatus: guest.rsvp_status,
@@ -1711,6 +1840,7 @@ async function InvitationBody({
         event={venueOpen ? venuedEvent : withheldVenue(venuedEvent)}
         identity={guestIdentity({
           guest,
+          passCard,
           qrSvg,
           invitationUrl,
           guestLiveGallery,
@@ -1718,7 +1848,12 @@ async function InvitationBody({
           needsFaceEnroll,
           guestHubData,
           seatMap,
-          papicGuest,
+          // 📷 NO CAMERA IN THE MAKER'S CANVAS (owner 2026-09-30: "we do not
+          // need camera on event hub maker because it just fix details and
+          // design"). The inline Papic camera turns itself on at mount, so every
+          // canvas frame the Maker loaded or re-keyed asked the browser for the
+          // camera and microphone again — Safari's prompt, on every edit.
+          papicGuest: isEditorCanvas ? null : papicGuest,
           showClaimAccountCta: !viewerAccount,
           account,
           accountlessPhotosClosed,
@@ -1726,10 +1861,16 @@ async function InvitationBody({
           saveFlash,
           rsvpFlash,
           faceMode: rsvpFaceMode,
+          faceTaggingAskable,
           profileDetails,
           didntReply: keyGate.kind === 'inside' && keyGate.didntReply,
           checklist,
         })}
+        meSection={
+          guestPageTabbed ? (
+            <GuestMeSection meSlot={meSlot} galleryHref={`/papic/me/${guest.qr_token}`} galleryCount={galleryCountHere} asTab />
+          ) : null
+        }
       />
       {/* Guest event-page hub bar (owner 2026-06-26) — fixed bottom control bar
           (My QR · Camera · Photos) + top-right account affordance. Replaces the
@@ -1745,9 +1886,10 @@ async function InvitationBody({
         cameraReady={guestRollCameraReady}
         papicGuestActive={papicGuestActive}
         hasAccount={Boolean(viewerAccount)}
-        galleryCount={guestLiveGallery?.total ?? 0}
+        galleryCount={galleryCountHere}
         hubHref={
-          dayOfPhase === 'live' || dayOfPhase === 'post'
+          // 📱 A page whose tabs ARE the day needs no door to a second hub.
+          !guestPageTabbed && (dayOfPhase === 'live' || dayOfPhase === 'post')
             ? `/${event.slug}/hub`
             : null
         }
@@ -1757,11 +1899,9 @@ async function InvitationBody({
         // Resolved from the SAME two inputs as the menu itself (site-body.tsx),
         // so the bar this component gives up and the bar that replaces it can
         // never disagree — and neither can the two owners of `#site-me`.
-        menuOn={siteMenuEnabled({
-          flag: process.env.NEXT_PUBLIC_WEBSITE_MENU_ENABLED,
-          isSample: Boolean(event.is_sample),
-        })}
-        meSlot={meSlot}
+        menuOn={menuOnHere}
+        meSlot={guestPageTabbed ? null : meSlot}
+        meInPage={guestPageTabbed}
       />
       )}
       {/* A signed-in guest recognised by their SEAT (no cookie for this event)

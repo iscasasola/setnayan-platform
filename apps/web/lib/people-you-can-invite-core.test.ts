@@ -104,7 +104,7 @@ test('a one-word name still matches, and keeps its empty surname', () => {
     new Set(),
   );
   assert.equal(out.length, 1);
-  assert.equal(out[0]!.lastName, '', 'the picker asks for the missing half; nothing is invented');
+  assert.equal(out[0]!.lastName, '', 'nothing is invented here; the add path stores the missing-surname mark');
 });
 
 test('a nameless row is skipped rather than rendered blank', () => {

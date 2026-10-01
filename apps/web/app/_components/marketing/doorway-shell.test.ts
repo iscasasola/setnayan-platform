@@ -610,7 +610,7 @@ test('the stranded footer destinations are reachable from the rail', () => {
     them.
   */
   const shell = code(read(join(APP, '_components', 'frontdoor', 'front-door-shell.tsx')));
-  for (const href of ['/refunds', '/download', '/blog', '/creators', '/vendors']) {
+  for (const href of ['/refunds', '/download', '/blog', '/creators', '/for-suppliers']) {
     assert.match(
       shell,
       new RegExp(`<Link href="${href}">`),

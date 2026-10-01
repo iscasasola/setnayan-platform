@@ -57,7 +57,7 @@ const ALLOWED: Record<string, string> = {
   '_components/event-words-provider.tsx':
     'The fallback constant. It is DEFINED as the wedding wording on purpose, so a missing provider cannot regress the only case that exists in production.',
   '_lib/event-words.ts':
-    "The resolver's own default parameter (`?? 'wedding'`), matching every other guest-tree call site.",
+    "The resolver's own default parameter (`?? 'wedding'`), matching every other guest-tree call site; and `giftIsMoneyDance` — the ONE place the gift surfaces ask whether this type's gift is the money dance, so no guest-facing file compares against a wedding word itself.",
   '_components/countdown.tsx':
     'The wedding-vow branch. A wedding keeps "Until we say ‘I do’"; every other type reads "Until the day".',
   '_components/save-the-date.tsx':
@@ -117,6 +117,15 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
       'identity discriminator already uses across the guest tree (site-identity.ts); resolving it ' +
       'from the event type would rename a role, not a word on a screen. Keyed on the LINE, so the ' +
       'rest of this file stays under the guard.',
+  },
+  {
+    file: 'invite/_components/themes/seal-mark.tsx',
+    snippet: "from '@/app/_components/couple-logo'",
+    why:
+      'The shared logo player import (#6147, owner 2026-09-29: "all logos should animate if ' +
+      'animation is active") — the word is in the MODULE NAME and nothing is rendered from it; ' +
+      'the seal draws the event\'s own mark or initials for every event type. Keyed on the LINE, ' +
+      'so every other line of the seal stays under the scan.',
   },
   {
     file: 'recap/page.tsx',

@@ -56,6 +56,9 @@ const MAKER_FILES = [
   `${S}_components/love-story-book.tsx`,
   `${S}_components/moment-sheet.tsx`,
   `${S}_components/pick-from-our-events.tsx`,
+  // ⚡ The Maker's instant Love Story (2026-09-30): its words form saves through
+  // the draft itself as it is typed (`editLoveStory` → `hubDraftAction`).
+  `${S}_components/love-story-live.tsx`,
   PAGE,
   'app/dashboard/[eventId]/launch/page.tsx',
   'app/dashboard/[eventId]/launch/_components/hub-stage.tsx',
@@ -108,6 +111,9 @@ const DRAFT_WRITERS: Record<string, RegExp | null> = {
   // EVENT HUB MAKER): the row is inserted HIDDEN and drafted shown, so guests
   // meet it at Apply (proven in the-maker-adds-a-scene-to-the-draft.test.ts).
   addCustomSection: null,
+  // 2026-09-30 — the draft ITSELF (intent=save): the Maker's instant Love Story
+  // words form is never submitted; each box saves here as it is typed.
+  hubDraftAction: null,
   // 2026-09-29 — the last three Pro tools (owner "yes to all 3"): the song and
   // the hero video, and the gallery, each drafted (`draftEventsAndReturn`).
   updateSiteChrome: null,
@@ -168,7 +174,8 @@ const COMPONENT_WRITERS: Record<string, { writers: string[]; caller: string; bin
     caller: `${S}page.tsx`,
     binds: /const action = (\w+)\.bind/g,
   },
-  [`${S}_components/moment-sheet.tsx#MomentSheet#action`]: {
+  // `keep` posts the `action` it is handed, and closes the sheet (2026-09-30).
+  [`${S}_components/moment-sheet.tsx#MomentSheet#keep`]: {
     writers: ['loveStoryMomentAction'],
     caller: `${S}page.tsx`,
     binds: /const action = (\w+)\.bind/g,
@@ -240,6 +247,8 @@ const PROP_TO_WRITER: Record<string, string> = {
  */
 const PROP_OVERRIDES: Record<string, Record<string, string>> = {
   [`${C}scene-slots-panel.tsx`]: { saveAction: 'saveCustomSection' },
+  // The instant words form has no action: every box saves through `editLoveStory`.
+  [`${S}_components/love-story-live.tsx`]: { '': 'hubDraftAction' },
 };
 
 type Form = { file: string; component: string; action: string; body: string; line: number };
@@ -403,6 +412,7 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // the typed venue names (saveAllStdContent) and the march's order (the Guest
   // list's own island).
   ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-names=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the names write live and must say so'],
+  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-one-name=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'a one-person name writes live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /<\/Suspense>\s*\)\}[\s{}]*<HubSavesImmediately\b/, 'the date writes live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-venues=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the venue names write live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-section-controls=\{key\}[^>]*>[\s{}]*<HubSavesImmediately \/>/, 'a march section writes live and must say so'],
@@ -463,13 +473,13 @@ test("the canvas preview loads the host's draft (?editor=1)", () => {
 test('the scene template picker: "Change template" and "+ Add a scene" both draft', () => {
   const picker = read(`${C}scene-template-picker.tsx`);
   assert.match(picker, /\{!draft \? <HubSavesImmediately \/> : null\}/, 'a picker that writes live must say it saves immediately');
-  // `PostEventAddScene` (lazy, the Maker JS budget) IS the picker: every prop handed straight through.
-  assert.match(read(`${C}post-event-add-scene.tsx`), /<SceneTemplatePicker \{\.\.\.picker\}/);
+  // Post Event's "+" IS the picker (train n: the lazy `PostEventAddScene` wrapper
+  // is gone — only its twelve tiles load lazily), so the scan below sees it.
   let drafted = 0;
   let live = 0;
   for (const file of MAKER_FILES) {
     const src = read(file);
-    for (const m of src.matchAll(/<(?:SceneTemplatePicker|PostEventAddScene)\b[\s\S]*?\/>/g)) {
+    for (const m of src.matchAll(/<SceneTemplatePicker\b[\s\S]*?\/>/g)) {
       const use = m[0];
       const action = /\baction=\{([\w.]+)\}/.exec(use)?.[1];
       const isDraft = /^\s*draft\s*$/m.test(use) || /\sdraft(?:=\{true\})?[\s/]/.test(use);

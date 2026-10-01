@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, type MutableRefObject } from 'react';
-import { findMakerSection } from '@/app/[slug]/_components/editor-bridge';
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
+import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { makerSavesInFlight } from '@/lib/maker-refresh';
 
 /**
@@ -183,6 +183,7 @@ export function BufferedCanvasFrame({
   src,
   title,
   className,
+  style,
   frameRef,
   loadingRef,
   backgroundRef,
@@ -203,6 +204,8 @@ export function BufferedCanvasFrame({
   title: string;
   /** The box the frames fill (size, rounding, shadow). */
   className: string;
+  /** The box's own size and scale — the "Both" view draws the desktop at 1280 px, scaled (`both-view.ts`). */
+  style?: CSSProperties;
   /** Always the frame SHOWN — every message the Maker posts goes to it. */
   frameRef: MutableRefObject<HTMLIFrameElement | null>;
   /** The loading frame's window, so the Maker's own `ready` listener ignores it. */
@@ -417,6 +420,7 @@ export function BufferedCanvasFrame({
   return (
     <div
       className={`relative ${className}`}
+      style={style}
       {...{ [pageFrame ? 'data-maker-page-frames' : 'data-maker-canvas-frames']: frames.loading ? 'loading' : 'shown' }}
     >
       {list.map((f) => {

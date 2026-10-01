@@ -342,7 +342,7 @@ export function convergenceBanner(
       tone: 'conflict',
       headline: 'No single date works — swap one',
       detail: w.conflictPair
-        ? `${w.conflictPair[0]} and ${w.conflictPair[1]} share no free day in the dates you are considering. Drop one of them from your build and the rest of your team lines up again.`
+        ? `${w.conflictPair[0]} and ${w.conflictPair[1]} share no free day in the dates you are considering. Drop one of them from your build and the rest of your suppliers line up again.`
         : 'Your build no longer has a day everyone can do. Remove a candidate and the shared dates come back.',
     };
   }

@@ -330,6 +330,7 @@ export const SPECIALTY_CATALOG: Record<string, SpecialtySpec> = {
             "type": "select",
             "options": [
               "best_man",
+              "best_woman",
               "maid_of_honor",
               "matron_of_honor",
               "groomsman",

@@ -83,8 +83,9 @@ test('every surface that paints the page ground asks the one rule', () => {
     'the Main background is resolved without asking the one rule',
   );
   assert.equal(helper.split('resolveMainGround(').length - 1, 1, 'a second, ungated resolveMainGround call');
-  assert.equal(helper.split('<MainGround').length - 1, 1, 'MainGround is mounted twice');
-  const mount = helper.indexOf('<MainGround');
+  // (`<MainGroundNone />` is "None — just the colour": no media, no gate needed — owner 2026-09-29.)
+  assert.equal((helper.match(/<MainGround[\s>]/g) ?? []).length, 1, 'MainGround is mounted twice');
+  const mount = helper.search(/<MainGround[\s>]/);
   const gate = helper.lastIndexOf('if (mainGround) {', mount);
   assert.ok(gate > 0 && mount - gate < 800, 'MainGround is mounted outside the `if (mainGround)` gate');
 

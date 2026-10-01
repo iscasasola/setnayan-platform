@@ -1,0 +1,369 @@
+/**
+ * EVERY PLUS-ONE IS NAMED — one short set per seat, one switcher, one row each.
+ *
+ * Owner, verbatim, 2026-09-29: *"plus guests are only minimum questions. they
+ * don't need to recommend songs and notes to the couple. They also get their
+ * own QR Code. they can also link it to their account. Second, they can have
+ * 1-4 pluses. so there needs to be a way to write their names in a simpler way.
+ * like a toggle on which guest they are editing."*
+ *
+ * What this file holds (rsvp-plus-ones.tsx · lib/extra-seats.ts · submitRsvp):
+ *   1. the reply draws exactly one set of boxes per seat the couple gave, 1–4;
+ *   2. switching seats never unmounts one — every seat's boxes are in the form
+ *      at every active seat, so nothing typed is lost and every seat POSTs;
+ *   3. a plus-one is asked first name, last name, meal, dietary — never a song,
+ *      a note to the couple or a selfie;
+ *   4. Send is idempotent: a re-send names the SAME rows, a rename updates the
+ *      row it names, a cleared name keeps the row, and only a NEW name makes a
+ *      row (its own `qr_token` is the column's default) — never more than given;
+ *   5. a blank name is "+N TBA", allowed, and changes no name.
+ *
+ * 🪤 Harness as `ask-your-guests.test.ts`: `globalThis.React` before the dynamic
+ * import (`"jsx": "preserve"`), `server-only`/`client-only` stubbed.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import React from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
+import { planSeatNames, readSeatNames, type ExtraSeatRow } from '@/lib/extra-seats';
+
+(globalThis as unknown as { React: unknown }).React = React;
+{
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
+
+const WORDS = {
+  organizer: 'couple',
+  theOrganizer: 'the couple',
+  TheOrganizer: 'The couple',
+  theOrganizerPossessive: 'the couple’s',
+  TheOrganizerPossessive: 'The couple’s',
+  eventWord: 'wedding',
+  organizerIsHonoree: false,
+};
+
+async function renderWidget(count: number, seats?: unknown[], ask: Record<string, unknown> = {}) {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { RsvpWidget } = await import('./rsvp-widget');
+  return renderToStaticMarkup(
+    React.createElement(RsvpWidget as never, {
+      words: WORDS,
+      guest: {
+        guest_id: 'g-1',
+        first_name: 'Ana',
+        last_name: 'Cruz',
+        display_name: 'Ana Cruz',
+        rsvp_status: 'attending',
+        meal_preference: 'chicken',
+        dietary_restrictions: null,
+        guest_note: null,
+        email: null,
+        mobile: null,
+        plus_one_allowed: true,
+        plus_one_count: count,
+        plus_one_name: null,
+        plus_one_seats: seats ?? [],
+        qr_token: 't',
+        photo_source: null,
+        photo_url: null,
+      },
+      eventId: 'e-1',
+      eventPublicId: 'S89E-XXXX',
+      faceMode: 'mode_b',
+      replyLocked: false,
+      ask,
+    } as never),
+  );
+}
+
+/** Only the plus-one block of a rendered card. */
+function plusOneBlock(html: string): string {
+  const at = html.indexOf('data-rsvp-plus-ones');
+  assert.ok(at > -1, 'the plus-one block did not render');
+  const end = html.indexOf('name="meal_preference"', at);
+  return html.slice(at, end > -1 ? end : undefined);
+}
+
+// ── 1 · one set per seat, 1–4 ───────────────────────────────────────────────
+
+test('the reply draws exactly one set of boxes per seat the couple gave (1–4)', async () => {
+  for (const n of [1, 2, 3, 4]) {
+    const block = plusOneBlock(await renderWidget(n));
+    for (let i = 1; i <= 4; i++) {
+      const has = block.includes(`name="plus_one_first_name_${i}"`);
+      assert.equal(has, i <= n, `+${n}: seat ${i} ${has ? 'drawn' : 'missing'}`);
+      assert.equal(block.includes(`name="plus_one_last_name_${i}"`), i <= n);
+      assert.equal(block.includes(`name="plus_one_meal_${i}"`), i <= n);
+      assert.equal(block.includes(`name="plus_one_dietary_${i}"`), i <= n);
+    }
+  }
+});
+
+test('each seat opens on what it already holds — name, meal, dietary', async () => {
+  const block = plusOneBlock(
+    await renderWidget(2, [
+      { guest_id: 's1', name: 'Maria Santos', first: 'Maria', last: 'Santos', meal: 'fish', dietary: 'halal' },
+      { guest_id: 's2', name: null, first: null, last: null, meal: null, dietary: null },
+    ]),
+  );
+  assert.match(block, /name="plus_one_seat_id_1" value="s1"/);
+  assert.match(block, /name="plus_one_seat_id_2" value="s2"/);
+  assert.match(block, /name="plus_one_first_name_1"[^>]*value="Maria"/);
+  assert.match(block, /name="plus_one_last_name_1"[^>]*value="Santos"/);
+  assert.match(block, /name="plus_one_dietary_1"[^>]*value="halal"/);
+  assert.match(block, /<option value="fish" selected="">/, 'the stored meal is not the one shown — a Send would overwrite it');
+});
+
+test('the couple’s meal / dietary switches reach the plus-ones too', async () => {
+  const block = plusOneBlock(await renderWidget(2, [], { meal: false, dietary: false }));
+  assert.doesNotMatch(block, /plus_one_meal_/);
+  assert.doesNotMatch(block, /plus_one_dietary_/);
+  assert.match(block, /plus_one_first_name_2/);
+});
+
+// ── 2 · the switcher never loses what was typed ────────────────────────────
+
+test('every seat’s boxes are in the form at EVERY active seat — only the active one shows', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PlusOneSeatPanels, plusOneSlots } = await import('./rsvp-plus-ones');
+  const slots = plusOneSlots(
+    4,
+    [
+      { guest_id: 'a', name: 'Maria Santos', first: 'Maria', last: 'Santos', meal: 'beef', dietary: null },
+      { guest_id: 'b', name: null },
+    ],
+    null,
+  );
+  for (let active = 0; active < 4; active++) {
+    const html = renderToStaticMarkup(
+      React.createElement(PlusOneSeatPanels, { slots, active, arranged: true, askMeal: true, askDietary: true }),
+    );
+    for (let n = 1; n <= 4; n++) {
+      assert.match(html, new RegExp(`name="plus_one_first_name_${n}"`), `switching to ${active + 1} unmounted seat ${n}`);
+      assert.match(html, new RegExp(`name="plus_one_meal_${n}"`));
+    }
+    assert.match(html, /name="plus_one_first_name_1"[^>]*value="Maria"/, 'a switch reset a typed name');
+    const shown = [...html.matchAll(/data-plus-one-seat="(\d)" class="([^"]*)"/g)]
+      .filter(([, , cls]) => !/\bhidden\b/.test(cls ?? ''))
+      .map(([, n]) => Number(n));
+    assert.deepEqual(shown, [active + 1], `active ${active + 1}: shown ${shown.join(',')}`);
+  }
+});
+
+test('the switcher is the shared PickMenu — "You" first, then +1 · name ✓ / +2 · not named yet', async () => {
+  const { seatOptions } = await import('./rsvp-plus-ones');
+  assert.deepEqual(seatOptions(['Ben Reyes', '', ' Carmen ', ''], 'Maria Santos'), [
+    { key: 'you', label: 'You — Maria Santos' },
+    { key: '0', label: '+1 · Ben Reyes ✓' },
+    { key: '1', label: '+2 · not named yet' },
+    { key: '2', label: '+3 · Carmen ✓' },
+    { key: '3', label: '+4 · not named yet' },
+  ]);
+  // One question per screen: no "You" row (their answers are the next steps).
+  assert.equal(seatOptions(['', ''], null)[0]!.key, '0');
+  const src = stripComments(readFileSync(join(__dirname, 'rsvp-plus-ones.tsx'), 'utf8'));
+  assert.match(src, /<PickMenu\b/, 'the switcher is not the shared PickMenu');
+  assert.match(src, /Filling in for:/);
+  assert.doesNotMatch(src, /role="tablist"|role="tab"/, 'a pill/tab row came back');
+});
+
+// ── 3 · minimum questions ──────────────────────────────────────────────────
+
+// Owner 2026-09-30: the name is the FIVE parts every name box uses — "Prefix ·
+// First · Middle · Last · Suffix, to stay consistent" — so "first name, last
+// name" became the five; still nothing but the name, meal and dietary.
+test('a plus-one is asked ONLY their name (five parts), meal and dietary', async () => {
+  const block = plusOneBlock(await renderWidget(4));
+  const names = [...block.matchAll(/name="([^"]+)"/g)].map((m) => m[1]!);
+  assert.ok(names.length > 0);
+  for (const n of names) {
+    assert.match(n, /^plus_one_(name_prefix|first_name|middle_name|last_name|name_suffix|meal|dietary|seat_id)_[1-4]$/, `a plus-one is asked "${n}"`);
+  }
+  assert.doesNotMatch(block, /song|guest_note|selfie|note to/i);
+});
+
+// ── 4 · Send is idempotent; one row per named seat ─────────────────────────
+
+const tba = (id: string, at: string): ExtraSeatRow => ({ guest_id: id, first_name: 'TBA', confirmed_at: null, created_at: at });
+const named = (id: string, at: string): ExtraSeatRow => ({ guest_id: id, first_name: 'X', confirmed_at: at, created_at: at });
+const form = (o: Record<string, string>) => ({ get: (k: string) => (k in o ? o[k]! : null) });
+
+test('the reply reads each seat’s meal and dietary with its name', () => {
+  assert.deepEqual(
+    readSeatNames(form({ plus_one_first_name_1: 'Maria', plus_one_last_name_1: 'Santos', plus_one_meal_1: 'fish', plus_one_dietary_1: 'halal' })),
+    [{ seatId: null, first: 'Maria', last: 'Santos', meal: 'fish', dietary: 'halal' }],
+  );
+});
+
+test('first Send: one NEW row per named seat, up to what the couple gave; a blank seat stays TBA', () => {
+  const ops = planSeatNames(
+    readSeatNames(
+      form({
+        plus_one_first_name_1: 'Maria', plus_one_meal_1: 'fish',
+        plus_one_first_name_2: '', plus_one_meal_2: 'no_preference',
+        plus_one_first_name_3: 'Ben', plus_one_meal_3: 'beef',
+      }),
+    ),
+    [],
+    3,
+  );
+  assert.deepEqual(ops, [
+    { kind: 'create', first: 'Maria', last: '', meal: 'fish' },
+    { kind: 'create', first: 'Ben', last: '', meal: 'beef' },
+  ]);
+});
+
+test('re-sending the same names names the SAME rows — nothing is minted twice', () => {
+  const seats = [named('a', '1'), named('b', '2')];
+  const again = readSeatNames(
+    form({
+      plus_one_seat_id_1: 'a', plus_one_first_name_1: 'Maria', plus_one_last_name_1: 'Santos',
+      plus_one_seat_id_2: 'b', plus_one_first_name_2: 'Ben',
+    }),
+  );
+  const ops = planSeatNames(again, seats, 2);
+  assert.equal(ops.filter((o) => o.kind === 'create').length, 0);
+  assert.deepEqual(ops.map((o) => (o.kind === 'create' ? null : o.seatId)), ['a', 'b']);
+});
+
+test('a rename updates the row it names; a cleared name keeps the row and its name', () => {
+  const seats = [named('a', '1'), named('b', '2')];
+  const ops = planSeatNames(
+    readSeatNames(
+      form({
+        plus_one_seat_id_1: 'a', plus_one_first_name_1: 'Mariana', plus_one_meal_1: 'fish',
+        plus_one_seat_id_2: 'b', plus_one_first_name_2: '', plus_one_meal_2: 'vegan',
+      }),
+    ),
+    seats,
+    2,
+  );
+  assert.deepEqual(ops, [
+    { kind: 'name', seatId: 'a', first: 'Mariana', last: '', meal: 'fish' },
+    { kind: 'details', seatId: 'b', meal: 'vegan' },
+  ]);
+});
+
+test('a blank name with no seat of its own makes nothing — TBA is allowed, never minted', () => {
+  assert.deepEqual(
+    planSeatNames(readSeatNames(form({ plus_one_first_name_1: '', plus_one_meal_1: 'fish' })), [], 2),
+    [],
+  );
+  // …and a forged seat id from someone else's list is not a door to their row.
+  assert.deepEqual(
+    planSeatNames([{ seatId: 'NOT-MINE', first: '', last: '', meal: 'fish' }], [tba('a', '1')], 1),
+    [],
+  );
+});
+
+// ── The write ───────────────────────────────────────────────────────────────
+
+test('submitRsvp: a details-only seat never touches the name; meal is checked and switch-gated', () => {
+  const src = stripComments(readFileSync(join(__dirname, '..', 'actions.ts'), 'utf8'));
+  const at = src.indexOf("op.kind === 'details'");
+  assert.ok(at > -1, 'the details-only branch is gone');
+  const branch = src.slice(at, src.indexOf('continue;', at));
+  assert.doesNotMatch(branch, /first_name|last_name|plus_one_name_confirmed_at|\.delete\(/, 'a blank name renamed or removed a seat');
+  assert.match(src, /ask\.meal && op\.meal !== undefined && MEAL_VALUES\.includes\(op\.meal/);
+  assert.match(src, /ask\.dietary && op\.dietary !== undefined/);
+  // The new row carries the seat's answers, beside the fields that make it a seat.
+  assert.match(src, /\.insert\(\{\s*\.\.\.seatAnswers,\s*event_id: eventId/);
+  // The host-list mirror takes the first NAMED seat, never a details-only one.
+  assert.match(src, /ops\.find\(\(o\) => o\.kind !== 'details'\)/);
+});
+
+// ── The number is the HOST's (owner 2026-09-29: "adding +1-4 should be a host
+// decision. and their QR auto adapts to it?") ──────────────────────────────
+
+test('the same link adapts live: the boxes follow the host’s count as read at render', async () => {
+  const a = { guest_id: 'a', name: 'Maria Santos', first: 'Maria', last: 'Santos', meal: null, dietary: null };
+  const one = plusOneBlock(await renderWidget(1, [a]));
+  const three = plusOneBlock(await renderWidget(3, [a]));
+  assert.equal((one.match(/name="plus_one_first_name_\d"/g) ?? []).length, 1, '+1 should draw one set');
+  assert.equal((three.match(/name="plus_one_first_name_\d"/g) ?? []).length, 3, 'the host’s +3 did not reach the same link');
+  assert.match(three, /name="plus_one_seat_id_1" value="a"/, 'the named seat moved');
+  // Read per request from the row — never a count the form or an email carries.
+  const read = (p: string) => stripComments(readFileSync(join(__dirname, '..', p), 'utf8'));
+  assert.match(read('_lib/loaders.ts'), /\.select\(\s*'[^']*\bplus_one_count\b[^']*'/, 'the site loader does not read the count');
+  assert.match(read('invite/reply/page.tsx'), /'[^']*\bplus_one_count\b[^']*'/, 'the reply door does not read the count');
+  assert.doesNotMatch(read('_components/rsvp-plus-ones.tsx'), /name="plus_one_count"|name=\{?['"`]plus_one_count/, 'the form posts a count');
+  const actions = read('actions.ts');
+  assert.match(actions, /\.select\('plus_one_allowed, plus_one_count[^']*'\)/, 'the Send does not re-read the host’s count');
+  assert.match(actions, /planSeatNames\(seatNames, seats, plusOneSeats\(primary\)\)/, 'the Send caps seats by something other than the row');
+});
+
+test('a guest can never add a seat — only name the ones the host gave', () => {
+  const ops = planSeatNames(
+    [
+      { seatId: 'a', first: 'Maria', last: '' },
+      { seatId: null, first: 'Extra', last: '' },
+    ],
+    [named('a', '1')],
+    1,
+  );
+  assert.deepEqual(ops, [{ kind: 'name', seatId: 'a', first: 'Maria', last: '' }]);
+});
+
+test('a host count lowered below the named seats never drops a named person from the guest side', async () => {
+  const { plusOneNameSlots } = await import('@/lib/extra-seats');
+  const seats = [
+    { guest_id: 'a', name: 'Maria Santos' },
+    { guest_id: 'b', name: 'Ben Cruz' },
+    { guest_id: 'c', name: 'Lola Reyes' },
+    { guest_id: 'd', name: null },
+  ];
+  // Named seats stay; the TBA seat and every empty box are gone ("plus none empty").
+  assert.deepEqual(plusOneNameSlots(1, seats, null), [
+    { seatId: 'a', name: 'Maria Santos' },
+    { seatId: 'b', name: 'Ben Cruz' },
+    { seatId: 'c', name: 'Lola Reyes' },
+  ]);
+  const block = plusOneBlock(
+    await renderWidget(
+      1,
+      seats.map((s) => ({ ...s, first: s.name?.split(' ')[0] ?? null, last: s.name?.split(' ')[1] ?? null })),
+    ),
+  );
+  assert.equal((block.match(/name="plus_one_first_name_\d"/g) ?? []).length, 3);
+  assert.doesNotMatch(block, /value="d"/, 'an empty seat is offered beyond the host’s number');
+  // Sending over that state renames what is theirs and makes nothing — and no op
+  // of any kind removes a row: removal is the host's.
+  const ops = planSeatNames(
+    [
+      { seatId: 'a', first: 'Maria', last: 'Santos' },
+      { seatId: 'b', first: '', last: '', meal: 'fish' },
+    ],
+    [named('a', '1'), named('b', '2'), named('c', '3')],
+    1,
+  );
+  assert.deepEqual(ops.map((o) => o.kind), ['name', 'details']);
+  const src = stripComments(readFileSync(join(__dirname, '..', 'actions.ts'), 'utf8'));
+  const at = src.indexOf('const seatNames = readSeatNames(formData);');
+  const write = src.slice(at, src.indexOf('firstNamed', at));
+  assert.doesNotMatch(write, /\.delete\(|deleted_at:/, 'the guest-side write can remove a seat');
+});
+
+// ── Numbered by SEAT, never by headcount (owner 2026-09-29: "you showed 3
+// seats but you named it guest 3 and guest 4") ────────────────────────────
+
+test('the labels run +1…+N for N = plus_one_count — never "Guest 3"', async () => {
+  const { seatOptions } = await import('./rsvp-plus-ones');
+  for (const n of [1, 2, 3, 4]) {
+    // Before hydration every seat is drawn under its own heading.
+    const block = plusOneBlock(await renderWidget(n));
+    const heads = [...block.matchAll(/<p class="font-serif text-base text-ink">([^<]*)<\/p>/g)].map((m) => m[1]);
+    const want = Array.from({ length: n }, (_, i) => `+${i + 1}`);
+    assert.deepEqual(heads, n > 1 ? want : [], `+${n}: headings ${heads.join(',')}`);
+    assert.doesNotMatch(block, /Guest \d|Seat \d/, `+${n}: a seat numbered by headcount`);
+    if (n > 1) assert.match(block, new RegExp(`saved you ${n} seats`));
+    const labels = seatOptions(Array(n).fill('')).map((o) => o.label);
+    assert.deepEqual(labels, want.map((w) => `${w} · not named yet`));
+  }
+});

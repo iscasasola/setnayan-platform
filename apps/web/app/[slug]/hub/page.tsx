@@ -44,7 +44,7 @@ import {
 import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
-import { eventWordsFromProfile } from '../_lib/event-words';
+import { eventWordsFromProfile, giftIsMoneyDance } from '../_lib/event-words';
 import { resolveAlbumDoor } from '../_lib/album-door.server';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent, isSignedInEventHost } from '@/lib/slug-access';
@@ -77,7 +77,7 @@ import { WhatsHappeningCard } from '@/app/dashboard/[eventId]/_components/day-of
 import { LiveWallBlock, type LiveWallCaption } from '../_components/live-wall-block';
 import { WatchLiveBlock } from '../_components/watch-live-block';
 import { HubShell } from '../_components/hub/hub-shell';
-import { eventSeatingPublished } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
 import { egiftKindMeta } from '@/lib/egift-kinds';
 import { resolveGuestDoorways } from '../_lib/site-nav';
@@ -124,7 +124,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
     .select(
       // The CANONICAL monogram list + the QR look's two columns, never a
       // hand-typed near-copy: the guest's code below wears the event's look.
-      `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at`,
+      `event_id, slug, event_type, event_date, venue_name, venue_address, venue_latitude, venue_longitude, std_film_ceremony_name, std_film_venue_name, ceremony_venue_address, ${QR_LOOK_COLUMNS}, landing_page_visibility, scheduled_launch_at`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -471,8 +471,12 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   //     is off, so a dark flag costs nothing.
   const seatingSurfaceOn = surfaceEnabled(eventTypeProfile, 'seating');
   const seatingPublished = seatingSurfaceOn
-    ? await eventSeatingPublished(admin, event.event_id)
+    ? await guestsMaySeeSeatsFor(admin, event.event_id)
     : false;
+  // 🪑 The seat tile names the table only when guests may see their seats —
+  // the one rule (`guestsMaySeeSeatsFor`): on the event's day, or earlier by
+  // the couple's "Show guests their seats early" switch.
+  const seatLabel = seatingPublished ? tableLabel : null;
   const pabuyaRouteEnabled = isPabuyaPublicRouteEnabled();
   // ⚠ SAME CALL, SAME READER, SAME FILTER — `finished-pages-need-doorways.test.ts`
   // pins this exact spelling, including `{ enabledOnly: true }`. Only the
@@ -546,7 +550,6 @@ export default async function EventHubPage({ params, searchParams }: Props) {
   const hubVenues = venueOpen ? resolveEventVenues(await loadVenueBookings(admin, event.event_id), event) : [];
   const hasDirections = venueOpen && (hubVenues.some((v) => venueSearchQuery(v) || (v.latitude != null && v.longitude != null)));
 
-  const firstName = guest?.first_name ?? null;
   // Only the LIVE window with an active/upcoming block should read "happening
   // now" — WhatsHappeningCard is built for the live dashboard and its idle copy
   // is host-voiced, so we render it ONLY live-with-blocks and show a guest-voiced
@@ -631,13 +634,13 @@ export default async function EventHubPage({ params, searchParams }: Props) {
       {guest ? (
         <article
           className={`space-y-1 rounded-2xl border p-5 ${
-            arrived && tableLabel
+            arrived && seatLabel
               ? 'border-champagne-gold/40 bg-gradient-to-br from-cream to-champagne-gold/10'
               : 'border-ink/10 bg-cream'
           }`}
         >
           <p className="inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.18em] text-terracotta">
-            {arrived && tableLabel && !words.solemn ? (
+            {arrived && seatLabel && !words.solemn ? (
               // A party-popper on a wake's check-in chip is the icon-shaped
               // version of "Let's get this celebration started" — solemn events
               // keep the quiet map pin in both states.
@@ -645,16 +648,16 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             ) : (
               <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             )}
-            {arrived && tableLabel ? 'You’ve arrived' : 'Your seat'}
+            {arrived && seatLabel ? 'You’ve arrived' : 'Your seat'}
           </p>
           <h3 className="font-serif text-3xl italic leading-tight tracking-tight text-ink">
-            {tableLabel ?? 'Not yet assigned'}
+            {seatLabel ?? (seatingPublished ? 'Not yet assigned' : 'On the day')}
           </h3>
-          {arrived && tableLabel ? (
+          {arrived && seatLabel ? (
             <p className="text-sm text-ink/70">
-              Welcome, {firstName} — you’re checked in.
+              You’re checked in.
             </p>
-          ) : tableLabel ? (
+          ) : seatLabel ? (
             <Link
               href={`/${event.slug}/find-my-table`}
               className="inline-flex items-center gap-1 text-sm text-terracotta underline-offset-2 hover:underline"
@@ -663,7 +666,9 @@ export default async function EventHubPage({ params, searchParams }: Props) {
             </Link>
           ) : (
             <p className="text-sm text-ink/55">
-              {`${words.TheHost} will assign seats closer to the day.`}
+              {seatingPublished
+                ? `${words.TheHost} will assign seats closer to the day.`
+                : 'Your table shows here on the day.'}
             </p>
           )}
         </article>
@@ -721,14 +726,16 @@ export default async function EventHubPage({ params, searchParams }: Props) {
           <span className="min-w-0">
             <span className="flex items-center gap-2 text-sm font-medium text-ink">
               <Gift aria-hidden className="h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
-              Send a blessing
+              E-Gifts
             </span>
             <span className="mt-0.5 block text-xs text-ink/55">
               {/* Owner 2026-08-17: a wake MAY accept money — abuloy is normal —
                   "with gentler wording than a wedding's digital money dance". */}
               {words.solemn
                 ? <>A gift of sympathy — straight to {words.theOrganizer}.</>
-                : <>The digital money dance — straight to {words.theOrganizer}.</>}
+                : giftIsMoneyDance(words)
+                  ? <>The digital money dance — straight to {words.theOrganizer}.</>
+                  : <>Send E-Gifts straight to {words.theOrganizer}.</>}
             </span>
             {/* DELTA · which rails wait behind the door. Names only, from the
                 closed vocabulary in egift-kinds.ts — never the couple's own
@@ -934,7 +941,7 @@ export default async function EventHubPage({ params, searchParams }: Props) {
         </p>
         <div
           aria-hidden
-          className="mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-48"
+          className="qr-slot mx-auto mt-5 inline-block rounded-2xl bg-white p-3 shadow-sm [&_svg]:h-auto [&_svg]:w-48"
           dangerouslySetInnerHTML={{ __html: qrSvg }}
         />
         <p className="mx-auto mt-4 break-all font-mono text-[0.65rem] tracking-[0.05em] text-ink/45">

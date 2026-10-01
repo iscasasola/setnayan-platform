@@ -1,4 +1,7 @@
 import Link from 'next/link';
+import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
+import { guestDisplayName } from '@/lib/guests';
+import { GuestHelperAccess } from '../_components/guest-helper-access';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -8,10 +11,13 @@ import { accountPhotoRefsByGuest } from '@/lib/guest-account-photos';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isUuid } from '@/lib/is-uuid';
 import { fetchInvitationBase, loadGuestCard } from '../_components/guest-card-data';
+import { loadInviteSetup } from '../_components/invite-message-setup';
 import {
   GuestCardBody,
   GUEST_CARD_ERROR_COPY,
 } from '../_components/guest-card-body';
+import { GuestInviteCell } from '../_components/guest-invite-cell';
+import { GuestMoreMenu, GuestTicketThumb } from '../_components/guest-ticket-parts';
 import { UndoToastHost } from '../_components/undo-toast';
 
 export const metadata = { title: 'Guest detail' };
@@ -34,7 +40,7 @@ export const metadata = { title: 'Guest detail' };
 
 type Props = {
   params: Promise<{ eventId: string; guestId: string }>;
-  searchParams: Promise<{ error?: string; saved?: string; invite?: string; swapped?: string }>;
+  searchParams: Promise<{ error?: string; saved?: string; invite?: string; swapped?: string; unlinked?: string; new_qr?: string }>;
 };
 
 export default async function GuestDetailPage({ params, searchParams }: Props) {
@@ -53,9 +59,17 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const data = await loadGuestCard(supabase, eventId, guestId);
+  const [data, inviteSetup] = await Promise.all([
+    loadGuestCard(supabase, eventId, guestId),
+    // Send invite · Copy message — the event's words + the couple's wording.
+    loadInviteSetup(supabase, eventId),
+  ]);
   if (!data) notFound();
   const { guest } = data;
+  // A limited helper's grants, colours and record (the Hosts fold, F2) — couple only.
+  const helper = data.canManageAccess
+    ? await loadGuestHelperCard({ eventId, guestId, viewerUserId: user.id, displayName: guestDisplayName(guest) })
+    : null;
 
   const { data: eventRow, error: eventRowError } = await supabase
     .from('events')
@@ -78,7 +92,7 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
      screens shipped with. Both sources go through the same resolver, and the
      couple's own upload wins over the linked account's photo (owner 2026-09-20). */
   const photoDisplayUrls = await guestPhotoDisplayUrls([guest]);
-  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId);
+  const accountRefByGuest = await accountPhotoRefsByGuest(supabase, eventId, user.id);
   const accountRef = accountRefByGuest[guest.guest_id];
   const accountUrls = accountRef
     ? await guestPhotoDisplayUrls([{ photo_url: accountRef }])
@@ -92,18 +106,20 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
     ? (GUEST_CARD_ERROR_COPY[rawError] ?? rawError)
     : null;
 
-  // Host-initiated email-invite feedback (Invite/Join v2).
+  // What the careful actions did — said on the card they were pressed on.
   const inviteFlash =
     search.swapped === '1'
       ? { ok: true, msg: 'Done — the spot is theirs, with a new key. The old link and QR no longer work. Share their invitation from the guest list.' }
-      :
-    search.invite === 'sent'
-      ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }
-      : search.invite === 'failed'
-        ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
-        : search.invite === 'no_email'
-          ? { ok: false, msg: 'Add an email below and save it first, then send the invite.' }
-          : null;
+      : search.unlinked === '1'
+        ? { ok: true, msg: 'Unlinked — that account no longer holds this invitation, and it has a new key. The old link and QR no longer work.' }
+        : search.new_qr === '1'
+          ? { ok: true, msg: 'Done — a new QR and link. The old ones no longer work. Send them the new one.' }
+          : // The couple row's sign-in link (the one email left — see the card's Access).
+            search.invite === 'sent'
+            ? { ok: true, msg: `Sign-in link sent to ${guest.email}.` }
+            : search.invite === 'failed'
+              ? { ok: false, msg: 'We couldn’t send the link just now — please try again.' }
+              : null;
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-5 pb-16">
@@ -120,6 +136,13 @@ export default async function GuestDetailPage({ params, searchParams }: Props) {
         invitationBase={invitationBase}
         photoDisplayUrl={photoDisplayUrl}
         variant="page"
+        inviteSetup={inviteSetup}
+        SendInvite={GuestInviteCell}
+        TicketThumb={GuestTicketThumb}
+        MoreMenu={GuestMoreMenu}
+        helperAccess={
+          helper ? <GuestHelperAccess eventId={eventId} guestId={guestId} firstName={guest.first_name} helper={helper} /> : null
+        }
         returnTo={`/dashboard/${eventId}/guests/${guestId}`}
         errorMessage={errorMessage}
         inviteFlash={inviteFlash}

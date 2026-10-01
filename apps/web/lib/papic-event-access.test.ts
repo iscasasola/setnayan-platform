@@ -74,6 +74,11 @@ test('every Phase-1 closed-roster type is allowed today', () => {
     // Added with the type (2026-08-24, W4-WORDS) under the standing 2026-08-01
     // "offer Papic everywhere" ruling — see the array's own comment.
     'wake',
+    // Added with the types (2026-09-29, DECISION_LOG "DISCOVER — UNPARKED"),
+    // under the same ruling.
+    'concert',
+    'open_house',
+    'grand_opening',
   ]);
 });
 
@@ -99,7 +104,7 @@ test('EVERY live event type is offered Papic — "everywhere" means everywhere',
     ...new Set([...Object.keys(ANCHOR_BY_TYPE), ...Object.keys(AI_TIER_BY_EVENT_TYPE)]),
   ].sort();
 
-  assert.equal(roster.length, 17, `the live roster is 17 types, got ${roster.length}`);
+  assert.equal(roster.length, 20, `the live roster is 20 types (concert · open_house · grand_opening joined 2026-09-29), got ${roster.length}`);
 
   const denied: string[] = [];
   for (const eventType of roster) {

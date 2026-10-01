@@ -6,7 +6,8 @@ import { X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
-import { makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave } from '@/lib/maker-refresh';
+import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
@@ -30,7 +31,7 @@ import {
 } from '@/lib/element-style';
 import { InspectorTabs, IReset, ISeg, ISegmented } from './inspector-kit';
 import { PART_TABS, PartAnimateTab, PartArrangeTab, PartPicker, PartTextTab, type PartTab } from './part-inspector';
-import { elementPreview, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
+import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
 
 /**
  * THE ELEMENT SHEET — one tapped element's font · colour · size · animation.
@@ -62,6 +63,17 @@ import { elementPreview, revertAfterFailedSave, type ElementPreviewMessage } fro
  * it; `onSaving` tells the shell what the canvas now shows, so the save's
  * refresh does not reload the canvas. A refused save puts the last SAVED look
  * back on the canvas and says why, in the sheet's own error line.
+ *
+ * ⚡⚡ AND NOTHING RE-RENDERS BEHIND IT (owner 2026-09-30: *"every edit
+ * alteration create forces the whole screen to reload"* · the tester: the
+ * mark's − / + "loads slowly on every click"). A pick is a `held` save, which
+ * owes the Maker no render (`lib/maker-refresh.ts`); quick picks on one part
+ * are ONE write (`makerLatestWrite` — the latest canvas wins, so five taps of
+ * + send one save); the save answers with the Apply bar's count; and the canvas
+ * the sheet builds on is the Maker's own copy (`lib/maker-draft-store.ts`), so
+ * a second part, or the sheet opened again, never builds on a server prop from
+ * before these picks. A refused save puts that part back and says what did not
+ * save, in words.
  *
  * Phone first: a bottom sheet over the lower canvas, the element still in view
  * above it; from `lg` it is the inspector's column. Still, app-like controls —
@@ -108,6 +120,8 @@ async function saveCanvas(
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas } } }));
+  /* ⚡ The Apply bar's count comes back with the save — no Maker render for it. */
+  fd.set(HUB_DRAFT_BAR_FIELD, '1');
   return draftAction(eventId, fd);
 }
 
@@ -117,7 +131,7 @@ const LABEL = 'w-[4.5rem] shrink-0 text-[13px] font-semibold text-ink';
 export function ElementSheet({
   eventId,
   target,
-  canvas,
+  canvas: serverCanvas,
   palette,
   ownsPro,
   draftAction,
@@ -176,23 +190,36 @@ export function ElementSheet({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /* ⚡ The scene's canvas as THIS Maker last wrote it, while that is newer than
+     the server's — the page is not re-rendered after a pick any more. */
+  const canvas = draftedCanvasOr(target.widgetType, serverCanvas);
   const latest = useRef<HubSectionCanvas>(canvas);
   /** The canvas the draft last ACCEPTED — what a refused save goes back to. */
   const saved = useRef<HubSectionCanvas>(canvas);
   /** Saves still on their way — while any is, the server's canvas is older than ours. */
   const inflight = useRef(0);
+  /** The last row the couple used — named if its save is refused. */
+  const lastChoice = useRef('style');
   const [style, setStyle] = useState(canvas.elements?.[target.el] ?? {});
   const canvasJson = JSON.stringify(canvas);
 
-  /* A fresh canvas from the server (after the refresh) is the truth again —
-     unless a save is still on its way, whose canvas is newer than it. */
+  /* A fresh canvas from the server (after a render) is the truth again —
+     unless a save is still on its way, whose canvas is newer than it. ANOTHER
+     PART (or scene) is always adopted at once: its canvas comes through the
+     Maker's own copy, which already holds every pick still on its way — and
+     with the picks batched a save can be on its way for most of a second, so
+     waiting here showed the previous part's style on the new one. */
+  const targetKey = `${target.widgetType}:${target.el}`;
+  const seenTarget = useRef(targetKey);
   useEffect(() => {
-    if (inflight.current > 0) return;
+    const moved = seenTarget.current !== targetKey;
+    seenTarget.current = targetKey;
+    if (!moved && inflight.current > 0) return;
     latest.current = canvas;
     saved.current = canvas;
     setStyle(canvas.elements?.[target.el] ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canvasJson, target.el, target.widgetType]);
+  }, [canvasJson, targetKey]);
 
   /* 🧰 Text · Animate · Arrange (Pages' inspector + Keynote's Animate). */
   const [tab, setTab] = useState<PartTab>('text');
@@ -208,7 +235,9 @@ export function ElementSheet({
   ) : null;
   const tabs = hidePro ? PART_TABS.filter((t) => t.key !== 'animate') : PART_TABS;
 
-  const commit = (elements: HubSectionCanvas['elements'] | null) => {
+  const commit = (elements: HubSectionCanvas['elements'] | null, choice?: string) => {
+    if (choice) lastChoice.current = choice;
+    const what = lastChoice.current;
     const before = latest.current;
     const next: HubSectionCanvas = { ...before };
     if (elements) next.elements = elements;
@@ -219,37 +248,46 @@ export function ElementSheet({
     /* ⚡ On the canvas first — the save runs behind it. */
     onPreview?.(elementPreview(target.key, target.el, before, next));
     onSaving?.(target.widgetType, next);
+    noteDraftedCanvas(target.widgetType, next, serverCanvas);
     inflight.current += 1;
     start(async () => {
-      let res: HubDraftActionResult;
+      let res: HubDraftActionResult | typeof SUPERSEDED;
       try {
-        /* ⚡ ONE refresh after the last save in flight (`lib/maker-refresh.ts`):
-           the render that comes back holds every quick tap, so the canvas hold
-           matches it and the canvas keeps its page. */
+        /* ⚡ NO render behind it (`held`), and quick picks on this scene are ONE
+           write: the latest canvas waits a beat, then goes; a pick made while
+           it waits replaces it (`makerLatestWrite`). A fixed part's Style row
+           hands its own writer (`saveCanvasWith`) — same queue, same key. */
         const write = () => (saveCanvasWith ? saveCanvasWith(next) : saveCanvas(draftAction, eventId, target.widgetType, next));
-        res = await makerSave(write, () => router.refresh(), { held: true });
+        res = await makerSave(
+          () => makerLatestWrite(canvasWriteKey(target.widgetType), write),
+          () => router.refresh(),
+          { held: true, ok: (r) => r !== SUPERSEDED && r.ok === true },
+        );
       } catch {
-        res = { ok: false, intent: 'save', error: 'That change could not be saved. Please try again.' };
+        res = { ok: false, intent: 'save', error: '' };
       } finally {
         inflight.current -= 1;
       }
+      /* A later pick carried this one — its answer decides for both. */
+      if (res === SUPERSEDED) return;
       if (!res.ok) {
-        /* ↩ Refused: the canvas and the sheet go back to the last saved look. */
+        /* ↩ Refused: the canvas and the sheet go back to the last saved look,
+           and the sheet says WHAT did not save. */
         const back = revertAfterFailedSave(next, latest.current, saved.current);
         if (back) {
           latest.current = back;
           setStyle(back.elements?.[target.el] ?? {});
           onPreview?.(elementPreview(target.key, target.el, next, back, false));
           onSaving?.(target.widgetType, back);
+          noteDraftedCanvas(target.widgetType, back, serverCanvas);
         }
-        setError(res.error);
+        setError(refusedChoiceWords(target.el, what, res.error || null));
         return;
       }
       saved.current = next;
-      /* The toolbar's Apply · Undo · Restore count reads the draft on the
-         server, so the page still refreshes — once, by `makerSave` above — and
-         the shell's canvas hold keeps the canvas from reloading for a render
-         that shows what it shows. */
+      /* Nothing re-renders: the canvas already shows it, the toolbar's count
+         came back with the save (`HUB_DRAFT_BAR_FIELD`), and the next pick
+         builds on the Maker's own copy (`noteDraftedCanvas`). */
     });
   };
   /* ✍ A selection inside the part's text makes font · colour · size a RUN; the
@@ -268,10 +306,11 @@ export function ElementSheet({
       range && (field === 'font' || field === 'color' || field === 'size')
         ? withRunChoice(latest.current.elements, target.el, range, field, value as string | number | null)
         : withElementChoice(latest.current.elements, target.el, field, value),
+      field,
     );
   const motion: HubElementMotion = style.motion ?? {};
   const moveTo = (part: keyof HubElementMotion, value: string | null) =>
-    commit(withElementMotion(latest.current.elements, target.el, part, value));
+    commit(withElementMotion(latest.current.elements, target.el, part, value), 'motion');
 
   /* ⚡ A colour DRAG on the wheel or a slider: on the canvas now, nothing saved
      (the Colour panel commits through `choose` once the hand stops). */
@@ -358,8 +397,8 @@ export function ElementSheet({
               style={style}
               onRange={Boolean(range)}
               choose={choose}
-              chooseAlign={(v) => commit(withElementAlign(latest.current.elements, target.el, v))}
-              resetText={() => commit(withoutTextStyle(latest.current.elements, target.el))}
+              chooseAlign={(v) => commit(withElementAlign(latest.current.elements, target.el, v), 'align')}
+              resetText={() => commit(withoutTextStyle(latest.current.elements, target.el), 'style')}
               themeColours={themeColours}
               usedColours={usedColours}
               shownColour={palette.ink}
@@ -371,7 +410,7 @@ export function ElementSheet({
             />
             {range && run ? (
               <div className="py-1.5">
-                <IReset onClick={() => commit(withoutRuns(latest.current.elements, target.el, range))}>Clear this selection</IReset>
+                <IReset onClick={() => commit(withoutRuns(latest.current.elements, target.el, range), 'style')}>Clear this selection</IReset>
               </div>
             ) : null}
           </>
@@ -381,7 +420,7 @@ export function ElementSheet({
             motion={motion}
             moveTo={moveTo}
             onPreview={onPlay}
-            resetMotion={style.motion ? () => commit(withoutMotion(latest.current.elements, target.el)) : null}
+            resetMotion={style.motion ? () => commit(withoutMotion(latest.current.elements, target.el), 'motion') : null}
           />
         ) : (
           <PartArrangeTab

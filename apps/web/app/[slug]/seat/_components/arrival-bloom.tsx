@@ -39,6 +39,9 @@ type Props = {
   hasPakanta: boolean;
   /** Read once on the server from guest_checkins.checked_in_at. Toggles copy. */
   arrived: boolean;
+  /** `words.solemn` (the funeral's register). A wake is not a celebration: no
+   *  bloom, no "So glad you made it!" — the shipped solemn line instead. */
+  solemn?: boolean;
 };
 
 export function ArrivalBloom({
@@ -51,6 +54,7 @@ export function ArrivalBloom({
   hasAnimatedMonogram,
   hasPakanta,
   arrived,
+  solemn = false,
 }: Props) {
   // `play` keys the bloom: it fires on mount and re-fires when the guest taps
   // "Show my seat". Re-mounting the hero via a changing key restarts its
@@ -81,8 +85,8 @@ export function ArrivalBloom({
         }
       `}</style>
 
-      <div key={play} className="seatpass-bloom">
-        {hasAnimatedMonogram ? (
+      <div key={play} className={solemn ? undefined : 'seatpass-bloom'}>
+        {hasAnimatedMonogram && !solemn ? (
           <AnimatedMonogramHero
             text={monogramText}
             color={monogramColor}
@@ -105,14 +109,13 @@ export function ArrivalBloom({
 
       <div className="space-y-1">
         <p className="font-serif text-xl italic text-terracotta sm:text-2xl">
-          {arrived
-            ? `Welcome, ${firstName} — so glad you made it!`
-            : `Welcome, ${firstName}`}
+          {/* 🎩 No "Welcome, <first name>" (owner, DECISION_LOG 2026-09-30). */}
+          {arrived ? (solemn ? 'Thank you for being here.' : 'So glad you made it!') : 'Your seat'}
         </p>
         <p className="text-sm text-ink/65">
           {arrived
-            ? `You're checked in. Your seat is at ${tableLabel} — find it below.`
-            : `You're at ${tableLabel}. Find your seat below.`}
+            ? `You’re checked in. Your seat is at ${tableLabel} — find it below.`
+            : `You’re at ${tableLabel}. Find your seat below.`}
         </p>
       </div>
 
@@ -124,14 +127,17 @@ export function ArrivalBloom({
         </>
       ) : null}
 
-      {/* Explicit replay affordance — re-fires the one-shot bloom. */}
-      <button
-        type="button"
-        onClick={() => setPlay((n) => n + 1)}
-        className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
-      >
-        Show my seat
-      </button>
+      {/* Explicit replay affordance — re-fires the one-shot bloom. Not at a
+          wake, where there is no bloom to replay. */}
+      {solemn ? null : (
+        <button
+          type="button"
+          onClick={() => setPlay((n) => n + 1)}
+          className="mt-1 inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
+        >
+          Show my seat
+        </button>
+      )}
     </div>
   );
 }

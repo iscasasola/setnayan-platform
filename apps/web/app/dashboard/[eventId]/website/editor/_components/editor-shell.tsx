@@ -23,10 +23,10 @@ import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
 import { swapsForDrop, stageTakesOwnScenes, MAKER_FIXED_SOURCE, type MakerStageList } from '@/lib/maker-scene-list';
+import { keysLeavingWith } from '@/lib/invitation-welcome';
 import type { MakerNavigatorData, SceneMini } from './maker-navigator-data';
 import { ScenePreview } from './scene-preview';
-import { ElementSheet, type ElementDraftAction, type ElementPalette, type ElementTarget } from './element-sheet';
-import { DetailsBoundField } from './details-bound-field';
+import type { ElementDraftAction, ElementPalette, ElementTarget } from './element-sheet';
 import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
@@ -45,7 +45,8 @@ import {
   sceneDrawEffect,
   type CanvasHold,
 } from './element-preview';
-import { makerSave, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerNeedsRender, makerSave, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
 
@@ -53,12 +54,15 @@ const REORDER_FAILED = 'That move could not be saved. Your scenes are back where
 const GATE_FAILED = 'That could not be saved. The scene is back as it was — please try again.';
 import { preloadMakerFonts, preloadMakerImages, whenIdle } from '@/lib/maker-preload';
 import { BufferedCanvasFrame, warmCanvasBudget, type CanvasFrame } from './buffered-canvas-frame';
-import { PickMenu } from './pick-menu';
+import { MAKER_CANVAS_POST_EVENT, MAKER_CANVAS_STALE_EVENT } from '@/lib/maker-live-preview';
+import { bothLayout, scaledFrame, usePaneSize } from './both-view';
 import { INSPECTOR_DEFAULT_W, ToolsResizeHandle, clampToolsWidth, type ToolsResize } from './tools-resize';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot';
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
+import { makerGuestPages, ME_NOT_ON_CANVAS, type MakerGuestPage } from '@/lib/maker-guest-pages';
+import { MakerPagePick } from './page-pick';
 import {
   canvasKeyOfSelection,
   fixedOfKey,
@@ -80,12 +84,15 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { FixedSceneStyleRow, PostEventAddScene, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { FixedSceneStyleRow, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
-import { SceneBackgroundRow, type SceneUpload } from './scene-background-row';
+import type { SceneUpload } from './scene-background-row';
+/* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
+import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
+import { readTypeStart, type TypeStart } from '@/lib/hub-part-words';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -391,11 +398,27 @@ export function MakerWork({
   const canvasBroadcast = useRef<((message: unknown) => void) | null>(null);
   /** The stage's last scene on the canvas (set each render) — where an added scene lands. */
   const lastSceneKeyRef = useRef<string | null>(null);
+  /* 🖥📱 THE "BOTH" VIEW's phone pane (`both-view.ts`) — ONE more buffered
+     frame of the same address, mounted only while Both is on. Everything the
+     bridge draws reaches it through the same broadcast, below. */
+  const bothFrameRef = useRef<HTMLIFrameElement | null>(null);
+  const bothLoading = useRef<Window | null>(null);
+  const bothBackground = useRef<Set<Window>>(new Set());
+  const bothBroadcast = useRef<((message: unknown) => void) | null>(null);
   const broadcastToCanvasRef = useRef<(message: unknown) => void>(() => {});
   const broadcastToCanvas = (message: unknown) => {
     if (canvasBroadcast.current) canvasBroadcast.current(message);
     else frameRef.current?.contentWindow?.postMessage(message, window.location.origin);
+    bothBroadcast.current?.(message);
   };
+  /** To the stage canvas SHOWN — and, in Both, the phone pane shown beside it —
+   *  except the frame a message came from (a tap already drew itself there). */
+  const postToShownCanvases = useCallback((message: unknown, except: MessageEventSource | null = null) => {
+    for (const f of [frameRef.current, bothFrameRef.current]) {
+      const w = f?.contentWindow;
+      if (w && w !== except) w.postMessage(message, window.location.origin);
+    }
+  }, []);
   broadcastToCanvasRef.current = broadcastToCanvas;
   const [navWidth, setNavWidth] = useState(168);
   /* The tools column's width, beside the navigator's (owner 2026-09-27:
@@ -423,6 +446,34 @@ export function MakerWork({
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
   }, [selectionKey, stage]);
+  /* ✍ TAP-TO-TYPE (Maker core part 2): the tap that began typing on the
+     canvas. Only the tap is kept here — the bar (`type-in-place.tsx`, loaded
+     with the Details pieces) hears every keystroke itself, so a letter never
+     re-renders the Maker. A tap on a part's words closes that part's sheet;
+     on a desktop it selects the scene too (on a phone nothing rises over the
+     keyboard). */
+  const [typeStart, setTypeStart] = useState<TypeStart | null>(null);
+  useEffect(() => {
+    const onType = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data as { source?: unknown; t?: unknown } | null;
+      if (d?.source === 'setnayan-site' && d.t === 'edit') setTypeStart(null);
+      const start = readTypeStart(event.data, event.source, Date.now());
+      if (!start) return;
+      setElementTarget(null);
+      if (window.innerWidth >= 1024) {
+        const picked = selectionForCanvasKey(start.key, scenes);
+        if (picked) select?.(picked);
+      }
+      setTypeStart(start);
+    };
+    window.addEventListener('message', onType);
+    return () => window.removeEventListener('message', onType);
+  }, [scenes, select]);
+  const endTyping = () => {
+    (typeStart?.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
+    setTypeStart(null);
+  };
   /* 💎 The Apply sheet's "Go to" a part's own font or motion (owner 2026-09-28):
      the toolbar selects the scene, then asks for the part's sheet here. */
   useEffect(() => {
@@ -457,15 +508,24 @@ export function MakerWork({
   const peStyles = navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent.styles : null;
   const canvasOrderRef = useRef(canvasOrder);
   canvasOrderRef.current = canvasOrder;
+  /** Every scene's canvas as the canvas iframe draws it: the render's, with the
+   *  Maker's own copy over it (`lib/maker-draft-store.ts`) — what a hold starts from. */
+  const drawnCanvases = (): Record<string, HubSectionCanvas> => {
+    const server = serverCanvasesRef.current ?? {};
+    return Object.fromEntries(Object.keys(server).map((t) => [t, draftedCanvasOr(t, server[t])]));
+  };
   useEffect(() => {
     const next = maker?.renderStamp ?? '';
     if (canvasKeepsItsPage(canvasHold.current, serverCanvasesRef.current ?? {}, Date.now(), canvasOrderRef.current)) return;
     canvasHold.current = NO_CANVAS_HOLD;
     setCanvasStamp(next);
   }, [maker?.renderStamp]);
-  /** A write the bridge did not draw: the next render reloads the canvas. */
+  /** A write the bridge did not draw: the next render reloads the canvas — and
+   *  a held save in the same burst must still bring that render
+   *  (`makerNeedsRender`: a held save owes none on its own). */
   const releaseCanvas = () => {
     canvasHold.current = NO_CANVAS_HOLD;
+    makerNeedsRender();
   };
   /* 🔓 EVERY OTHER WRITE RELEASES THE HOLD. A Maker form (the shell's submit
      listener) and every draft save not drawn by the bridge (`makerSave` without
@@ -682,13 +742,13 @@ export function MakerWork({
           src: `${publicLandingUrl}?phase=${s}&editor=1${guestBars ? '&bars=1' : ''}`,
         }))
       : [];
-  const scrollPreviewTo = useCallback((anchor?: string) => {
-    if (!anchor) return;
-    frameRef.current?.contentWindow?.postMessage(
-      { source: 'setnayan-editor', t: 'scrollTo', key: anchor },
-      window.location.origin,
-    );
-  }, []);
+  const scrollPreviewTo = useCallback(
+    (anchor?: string) => {
+      if (!anchor) return;
+      postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: anchor });
+    },
+    [postToShownCanvases],
+  );
 
   /* ✍ A SCENE'S WORDS, EDITED FROM THE SCENE (`canvas-words.tsx`). The Content
      box previews what is typed on the canvas (the bridge's `words`), and a tap
@@ -734,6 +794,51 @@ export function MakerWork({
       </DetailsFactSceneContext.Provider>
     );
   };
+  /* ⚡ THE LOVE STORY AND THE PROGRAMME, FROM WHEREVER THEY ARE EDITED
+     (`lib/maker-live-preview.ts`). An editor in Details holds no frame, so it
+     posts a window event; here it reaches every frame this stage holds — the
+     shown canvas, the Both pane, each warm stage. The newest message of each
+     kind is kept and sent again to a frame that loads later (its render may
+     predate a save still on its way). A change the bridge cannot draw marks
+     the canvas stale once its save has landed: it loads again, double
+     buffered, and the Maker itself is not re-rendered. */
+  const livePreviews = useRef<Map<string, unknown>>(new Map());
+  const staleSeq = useRef(0);
+  useEffect(() => {
+    const onPost = (e: Event) => {
+      const message = (e as CustomEvent<unknown>).detail;
+      if (!message || typeof message !== 'object') return;
+      const m = message as { t?: unknown; moment?: { id?: unknown } };
+      const slot = m.t === 'scheduleMoment' ? `schedule:${String(m.moment?.id ?? '')}` : String(m.t ?? '');
+      livePreviews.current.set(slot, message);
+      broadcastToCanvasRef.current(message);
+    };
+    const onStale = () => {
+      staleSeq.current += 1;
+      const n = staleSeq.current;
+      setCanvasStamp((s) => `${s.split('~')[0]}~${n}`);
+    };
+    const onLiveReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data as { source?: string; t?: string } | null;
+      if (!d || d.source !== 'setnayan-site' || d.t !== 'ready') return;
+      const to = event.source as Window | null;
+      for (const message of livePreviews.current.values()) to?.postMessage(message, window.location.origin);
+    };
+    window.addEventListener(MAKER_CANVAS_POST_EVENT, onPost);
+    window.addEventListener(MAKER_CANVAS_STALE_EVENT, onStale);
+    window.addEventListener('message', onLiveReady);
+    return () => {
+      window.removeEventListener(MAKER_CANVAS_POST_EVENT, onPost);
+      window.removeEventListener(MAKER_CANVAS_STALE_EVENT, onStale);
+      window.removeEventListener('message', onLiveReady);
+    };
+  }, []);
+  /* A render (Apply, Undo, another write) brings the truth: what was kept to
+     re-send is older than it. */
+  useEffect(() => {
+    livePreviews.current.clear();
+  }, [maker?.renderStamp]);
   useEffect(() => {
     const onWordsReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -773,10 +878,9 @@ export function MakerWork({
         select?.({ ...picked, tab: 'content' });
         setWordsFocus({ key: data.key, n: Date.now() });
         // The words are what is edited, not the part the tap outlined.
-        frameRef.current?.contentWindow?.postMessage(
-          { source: 'setnayan-editor', t: 'markEl', key: data.key, el: null },
-          window.location.origin,
-        );
+        postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
+        // 🖥📱 Both: the other pane brings the same scene into view.
+        postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: data.key }, event.source);
         return;
       }
       const moment = (data as { moment?: unknown }).moment;
@@ -800,6 +904,14 @@ export function MakerWork({
       }
       if (picked) {
         select?.(picked);
+        /* 🖥📱 BOTH: A TAP IN EITHER PANE SELECTS THE SAME PART IN THE OTHER —
+           outlined, and its scene brought into view. The pane tapped already
+           drew its own outline (the bridge's `mark`), so it is skipped. */
+        postToShownCanvases(
+          { source: 'setnayan-editor', t: 'markEl', key: data.key, el: typeof data.el === 'string' ? data.el : null },
+          event.source,
+        );
+        postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: data.key }, event.source);
         /* 🎞 A Post Event scene drawn in its style: its parts are its own
            (`pe_<scene>`), saved into the story's looks, never a section row. */
         const peScene = data.key.startsWith('p:') ? data.key.slice(2) : null;
@@ -864,7 +976,7 @@ export function MakerWork({
       window.removeEventListener('message', onMessage);
       window.removeEventListener('message', onSelect);
     };
-  }, [rows, scenes, select, elementEditingOn]);
+  }, [rows, scenes, select, elementEditingOn, postToShownCanvases]);
 
   /* 🖼 THE TILES' PREVIEWS (owner 2026-09-26: *"the navigator preview must
      really show the preview"*). Each tile shows a static copy of its section
@@ -983,6 +1095,31 @@ export function MakerWork({
       );
     }
   };
+  /* 🖥📱 THE PHONE PANE (Both) is told what the canvas is told when it comes up
+     or swaps: the scene being edited back in view (a first load only — a
+     buffered swap carried its scroll) and the part being edited outlined. Its
+     `ready` is its own: the tiles and the Event Bar stay read from the canvas. */
+  const [shownBothKey, setShownBothKey] = useState('');
+  const reMarkBoth = useCallback((scroll: boolean) => {
+    const w = bothFrameRef.current?.contentWindow;
+    if (!w) return;
+    const key = selectedKeyRef.current;
+    if (scroll && key) w.postMessage({ source: 'setnayan-editor', t: 'scrollTo', key }, window.location.origin);
+    const target = elementRef.current;
+    if (target) w.postMessage({ source: 'setnayan-editor', t: 'markEl', key: target.key, el: target.el }, window.location.origin);
+  }, []);
+  useEffect(() => {
+    const onBothReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const w = bothFrameRef.current?.contentWindow;
+      if (!w || event.source !== w) return;
+      const data = event.data as { source?: string; t?: string } | null;
+      if (!data || data.source !== 'setnayan-site' || data.t !== 'ready') return;
+      reMarkBoth(true);
+    };
+    window.addEventListener('message', onBothReady);
+    return () => window.removeEventListener('message', onBothReady);
+  }, [reMarkBoth]);
   useEffect(() => {
     const onReady = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -1044,17 +1181,15 @@ export function MakerWork({
     const onPlay = () => {
       /* The stage's canvas. (The Hero and the Reveal play in their frame inside
          Details — `details-look-pages.tsx`.) */
-      const target = frameRef.current;
       const key = canvasKeyOfSelection(selection, scenes);
       if (!key) return;
-      target?.contentWindow?.postMessage(
-        { source: 'setnayan-editor', t: 'play', key },
-        window.location.origin,
-      );
+      const play = { source: 'setnayan-editor', t: 'play', key };
+      // 🖥📱 It plays in the canvas AND, in Both, the phone pane.
+      postToShownCanvases(play);
     };
     window.addEventListener(MAKER_PLAY_SCENE_EVENT, onPlay);
     return () => window.removeEventListener(MAKER_PLAY_SCENE_EVENT, onPlay);
-  }, [selection, scenes]);
+  }, [selection, scenes, postToShownCanvases]);
 
   /* ── the one hidden form every navigator write goes through ────────────── */
   const formRef = useRef<HTMLFormElement>(null);
@@ -1099,12 +1234,13 @@ export function MakerWork({
      render keeps the page. Putting one BACK cannot be drawn by the bridge (the
      page never drew it), so that write reloads, double-buffered, as before. */
   const hideOnCanvas = (scene: MakerScene) => {
-    const key = `w:${scene.type}`;
-    broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key, shown: false });
+    /* 🏠 The dress code takes the guest's look on Welcome with it (`keysLeavingWith`). */
+    const keys = keysLeavingWith(`w:${scene.type}`);
+    for (const key of keys) broadcastToCanvas({ source: 'setnayan-editor', t: 'sceneShow', key, shown: false });
     canvasHold.current = holdChange(
       canvasHold.current,
-      { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
-      { order: (o) => orderWithout(o, key) },
+      { canvases: drawnCanvases(), order: canvasOrderRef.current },
+      { order: (o) => keys.reduce(orderWithout, o) },
       Date.now(),
     );
     scheduleSnapshots(400);
@@ -1131,7 +1267,7 @@ export function MakerWork({
          page reads the eye alone): the render keeps the page as it is. */
       canvasHold.current = holdChange(
         canvasHold.current,
-        { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+        { canvases: drawnCanvases(), order: canvasOrderRef.current },
         {},
         Date.now(),
       );
@@ -1174,7 +1310,7 @@ export function MakerWork({
     else if (how.still) {
       canvasHold.current = holdChange(
         canvasHold.current,
-        { canvases: serverCanvasesRef.current ?? {}, order: canvasOrderRef.current },
+        { canvases: drawnCanvases(), order: canvasOrderRef.current },
         {},
         Date.now(),
       );
@@ -1185,6 +1321,8 @@ export function MakerWork({
     const fd = new FormData();
     fd.set('intent', 'save');
     fd.set('patch', JSON.stringify({ widgets: { [scene.type]: widget } }));
+    /* ⚡ A hide the bridge drew brings no render — the Apply count comes back with the save. */
+    if (held) fd.set(HUB_DRAFT_BAR_FIELD, '1');
     /* Serialised with the moves: each carries its own scene's whole gate. */
     reorderQueue.current = reorderQueue.current
       .then(() => makerSave(() => draftAction(eventId, fd), requestMakerRefresh, { held }))
@@ -1348,7 +1486,21 @@ export function MakerWork({
   const toolsResize = { width: toolsWidth, onPointerDown: startToolsResize };
 
   const navOpen = maker?.navOpen ?? true;
-  const device = maker?.device ?? 'desktop';
+  const view = maker?.device ?? 'desktop';
+  /* 🖥📱 Both (`both-view.ts`): the canvas is the desktop, the phone pane
+     beside it. The ROW is measured while Both is picked, and the PAIR is
+     scaled to fit it (`bothLayout`) — the room left by the scenes list and the
+     inspector, whichever are open, re-measured as they open, close or are
+     dragged. Too little room to read either frame draws Desktop instead (the
+     pick kept), and says so under the canvas. */
+  const bothRowRef = useRef<HTMLDivElement>(null);
+  const bothRow = usePaneSize(bothRowRef, view === 'both');
+  const bothFit = view === 'both' && bothRow ? bothLayout(bothRow.width, bothRow.height) : null;
+  const both = bothFit !== null;
+  const bothTooNarrow = view === 'both' && bothRow !== null && bothFit === null;
+  /** The CANVAS's own device — the tiles, the made-once pages and the canvas
+   *  follow it. In Both that is the desktop (the tiles are pictures of it). */
+  const device: 'desktop' | 'phone' = view === 'phone' ? 'phone' : 'desktop';
   const selectedScene = selection?.kind === 'scene' ? scenes.find((s) => s.id === selection.id) ?? null : null;
 
   /* 🧭 THE STAGE'S LIST — the canvas's own order (`lib/maker-scene-list.ts`). */
@@ -1375,20 +1527,30 @@ export function MakerWork({
   const selectedTile = list.shown.find((t) => tileIsSelected(t, selection));
   selectedKeyRef.current = selectedTile ? markerOf(selectedTile) : null;
   const tabs = canvasBar ? navigatorTabs(canvasBar, list.shown.map((t) => t.key)) : null;
-  const activeTab = tabs ? (tabs.find((t) => t.key === tabKey) ?? tabs.find((t) => !t.leaves) ?? null) : null;
   const selectedTabKey = tabs && selectedTile ? (tabOfTile(tabs, selectedTile.key)?.key ?? null) : null;
   /* A scene picked on the canvas may sit under another tab — follow it there. */
   useEffect(() => {
     if (selectedTabKey) setTabKey(selectedTabKey);
   }, [selectedTabKey]);
+  /* 📄 PAGE ▾ — the navigator's one dropdown is the guest's own pages on this
+     stage, in the guest bar's own words (owner 2026-09-30, `lib/maker-guest-pages.ts`).
+     Each page knows the scenes under it; none is hidden. */
+  const guestPages = makerGuestPages(stage, list.shown.map((t) => t.key));
+  const shownPage = guestPages.find((p) => p.key === tabKey) ?? guestPages.find((p) => !p.leaves) ?? null;
+  const selectedPageKey = selectedTile ? (guestPages.find((p) => p.tiles.includes(selectedTile.key))?.key ?? null) : null;
+  useEffect(() => {
+    if (selectedPageKey) setTabKey(selectedPageKey);
+  }, [selectedPageKey]);
 
   /* 🧰 THE SCENE INSPECTOR'S TABS — Format · Animate · Arrange · Content
      (Keynote rebuild, 2026-09-27; approved prototype frame A). Built here, where
      the stage's list, the canvases, the canvas frame and the navigator's own
      draft form (`post` / `move` / `eyeWrite`) live; the Inspector only lays
      them out. The Transition tab is folded into Animate (owner, answer 4). */
-  const canvasOf = (type: string): HubSectionCanvas =>
-    heldCanvasFor(canvasHold.current, type, Date.now()) ?? elementEditing?.canvases[type] ?? {};
+  /* ⚡ The Maker's own copy while it is newer than the render (`lib/maker-draft-store.ts`):
+     a pick the bridge drew brings no render any more, so the render's canvases
+     can be older than what this Maker wrote. */
+  const canvasOf = (type: string): HubSectionCanvas => draftedCanvasOr(type, elementEditing?.canvases[type]);
   /** "Every scene" = THIS stage's scenes (owner, answer 6), with their canvases. */
   const stageScenes = shownSceneIds.flatMap((id) => {
     const sc = sceneById.get(id);
@@ -1470,7 +1632,7 @@ export function MakerWork({
                 }
                 canvasHold.current = holdChange(
                   canvasHold.current,
-                  { canvases: elementEditing.canvases, order: canvasOrder },
+                  { canvases: drawnCanvases(), order: canvasOrder },
                   { canvases },
                   Date.now(),
                 );
@@ -1527,6 +1689,23 @@ export function MakerWork({
   /* 🧭 EVERY scene of the stage, in canvas order, the tabs as headers between
      the groups (`navigatorRows`) — never a tab that hides the rest. */
   const navRows = navigatorRows(tabs, list.shown.map((t) => t.key));
+  /* 📄 A page pick JUMPS — the navigator to that page's first scene, the canvas
+     to it — in the Maker alone: one message to the loaded canvas, no reload.
+     Me and a page that leaves have no scenes here; the navigator's top says so. */
+  const jumpToPage = (page: MakerGuestPage) => {
+    const key = page.key;
+    setTabKey(key);
+    const first = page.tiles[0];
+    if (!first) {
+      navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      return;
+    }
+    scrollPreviewTo(first);
+    (
+      navList?.querySelector(`[data-maker-group="${CSS.escape(key)}"]`) ??
+      navList?.querySelector(`[data-maker-tile="${CSS.escape(first)}"]`)
+    )?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
+  };
   /* …and the navigator keeps the selected tile in view, whichever side picked it. */
   const selectedTileKey = selectedTile?.key ?? null;
   useEffect(() => {
@@ -1600,29 +1779,13 @@ export function MakerWork({
               view ("Home ▾"); picking a tab JUMPS the navigator and the canvas to
               that group — never a filter, never a stage change. One line at the
               narrowest column, the palette beside it. */}
+          {/* 📄 …AND IT IS THE GUEST'S PAGES (owner 2026-09-30, pointing at the
+              guest bar: *"there should be Home, Details, Story, Me on top
+              dropdown"*). "Page ▾" offers exactly the pages the guest's bar
+              offers on this stage, in its words (`lib/maker-guest-pages.ts`
+              asks `resolveSiteNav`, the bar's own function) and with its icons. */}
           <li className="flex min-w-0 shrink-0 items-center gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
-            {tabs ? (
-              <PickMenu
-                label="This stage's menu"
-                dataAttr="data-maker-tab-pick"
-                value={activeTab?.key ?? null}
-                options={tabs.map((t) => ({
-                  key: t.key,
-                  label: t.label,
-                  ...(t.leaves ? { disabledNote: 'opens its own page' } : {}),
-                }))}
-                onPick={(key) => {
-                  const t = tabs.find((x) => x.key === key);
-                  if (!t || t.leaves) return;
-                  setTabKey(t.key);
-                  scrollPreviewTo(t.key);
-                  navList
-                    ?.querySelector(`[data-maker-group="${CSS.escape(t.key)}"]`)
-                    ?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
-                }}
-                className="flex-1"
-              />
-            ) : null}
+            {shownPage ? <MakerPagePick pages={guestPages} value={shownPage.key} onPick={jumpToPage} /> : null}
             <button
               type="button"
               onClick={() => select?.({ kind: 'main' })}
@@ -1648,11 +1811,18 @@ export function MakerWork({
               />
             </li>
           ) : null}
-          {activeTab?.leaves ? (
+          {shownPage?.key === 'me' ? (
+            <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:mb-2 lg:self-stretch" data-maker-page-me="">
+              <InfoTip className="min-w-0 max-w-full" label={ME_NOT_ON_CANVAS.label} align="start">
+                {ME_NOT_ON_CANVAS.body}
+              </InfoTip>
+            </li>
+          ) : null}
+          {shownPage?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
-              <InfoTip className="min-w-0 max-w-full" label={`${activeTab.label} opens its own page`} align="start">
-                On this stage, “{activeTab.label}” takes a guest to a page of its own, so there are no scenes to arrange
-                here. Pick another tab to see its scenes.
+              <InfoTip className="min-w-0 max-w-full" label={`${shownPage.label} opens its own page`} align="start">
+                On this stage, “{shownPage.label}” takes a guest to a page of its own, so there are no scenes to arrange
+                here, and it can’t be shown on this canvas yet. Pick another page to see its scenes.
               </InfoTip>
             </li>
           ) : null}
@@ -1782,7 +1952,7 @@ export function MakerWork({
                       aria-label={
                         tile.kind === 'post-event'
                           ? postEventTileLabel(tile)
-                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ` (always here on this stage · comes from ${MAKER_FIXED_SOURCE[tile.fixed]!.from ?? 'your guest list'})` : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
+                          : `${tile.label}${tile.kind === 'fixed' ? (MAKER_FIXED_SOURCE[tile.fixed] ? ` (always here on this stage · comes from ${MAKER_FIXED_SOURCE[tile.fixed]!.from})` : ' (always here on this stage)') : showing ? '' : ' (hidden from guests)'}`
                       }
                       onClick={() => {
                         select?.(selectionForTile(tile));
@@ -1987,7 +2157,7 @@ export function MakerWork({
                  presets, not the 25 templates; each ◆ Pro, each placed in the
                  draft at once (try-then-pay: Apply asks for Pro). */
               <div className="pl-4">
-                <PostEventAddScene
+                <SceneTemplatePicker
                   overlay
                   draft
                   open={addOpen}
@@ -2020,7 +2190,7 @@ export function MakerWork({
                   stageLabel={stage === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[stage]}
                   heading="Add a scene to"
                   triggerLabel="+ Add a scene"
-                  initialView={maker?.device === 'phone' ? 'phone' : 'desktop'}
+                  initialView={view}
                   facts={sceneFacts}
                 />
               </div>
@@ -2050,12 +2220,31 @@ export function MakerWork({
       <section
         aria-label="Preview"
         data-maker-stage={stage}
-        className="relative order-1 flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
+        className="relative order-1 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
       >
         {canvasSrc ? (
-          /* 🪞 Double-buffered (`buffered-canvas-frame.tsx`): a new render loads
+          /* 🖥📱 One row: the canvas, and — in Both — the phone pane beside it.
+             ⚠ The canvas keeps its PLACE in the tree in every view: moving an
+             iframe in the document reloads it (and its warm stages), so Both
+             only re-sizes the canvas's own box and appends the phone after it. */
+          <div
+            ref={bothRowRef}
+            data-maker-both={both ? '' : undefined}
+            className={`flex min-h-0 min-w-0 w-full flex-1 justify-center ${both ? 'items-center' : 'items-stretch'}`}
+            style={bothFit ? { gap: bothFit.gap } : undefined}
+          >
+          <div
+            data-maker-both-desktop={both ? '' : undefined}
+            style={bothFit ? { width: bothFit.desktop.boxWidth, height: bothFit.desktop.boxHeight } : undefined}
+            className={
+              both
+                ? 'relative shrink-0 overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]'
+                : 'flex min-h-0 min-w-0 flex-1 justify-center'
+            }
+          >
+          {/* 🪞 Double-buffered (`buffered-canvas-frame.tsx`): a new render loads
              behind the page the couple is looking at and swaps in when ready —
-             no blank screen, no reload from the top, after any Maker write. */
+             no blank screen, no reload from the top, after any Maker write. */}
           <BufferedCanvasFrame
             frameKey={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
             group={`${stage}:${maker.viewAsHref ?? ''}`}
@@ -2071,15 +2260,68 @@ export function MakerWork({
             anchorKey={() => selectedKeyRef.current}
             onShown={setShownFrameKey}
             onSwapped={onCanvasSwapped}
-            className={`min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
-              device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
-            }`}
+            style={bothFit ? scaledFrame(bothFit.desktop) : undefined}
+            className={
+              both
+                ? 'bg-white'
+                : `min-h-0 w-full flex-1 rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-[max-width] duration-sn-elem ease-sn ${
+                    device === 'phone' ? 'max-w-[430px]' : 'max-w-none'
+                  }`
+            }
           />
+          </div>
+          {both ? (
+            /* 📱 THE PHONE PANE — the same address, keyed on the same held
+               stamp as the canvas (so a held pick never reloads it either),
+               reached by the same broadcast. No warm stages of its own. */
+            <div
+              data-maker-both-phone=""
+              className="relative shrink-0 overflow-hidden rounded-md bg-white shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)]"
+              style={bothFit ? { width: bothFit.phone.boxWidth, height: bothFit.phone.boxHeight } : undefined}
+            >
+              <BufferedCanvasFrame
+                frameKey={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
+                group={`${stage}:${maker.viewAsHref ?? ''}`}
+                src={canvasSrc}
+                title={`Your Event Hub on a phone — ${PUBLIC_STAGE_LABELS[stage]}`}
+                frameRef={bothFrameRef}
+                loadingRef={bothLoading}
+                backgroundRef={bothBackground}
+                broadcastRef={bothBroadcast}
+                anchorKey={() => selectedKeyRef.current}
+                onShown={setShownBothKey}
+                onSwapped={() => reMarkBoth(false)}
+                style={bothFit ? scaledFrame(bothFit.phone) : undefined}
+                className="bg-white"
+              />
+              {publicLandingUrl ? (
+                <CanvasStaysOnThePage
+                  frameRef={bothFrameRef}
+                  pagePath={publicLandingUrl}
+                  resetKey={shownBothKey}
+                  stageLabel={PUBLIC_STAGE_LABELS[stage]}
+                  onBack={() => {
+                    const f = bothFrameRef.current;
+                    const src = f?.getAttribute('src');
+                    if (f && src) f.src = src;
+                  }}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          </div>
         ) : (
           <p className="max-w-sm text-center text-sm text-ink/70">
             Set your Event Hub address (⋯ in the toolbar) to see your page here.
           </p>
         )}
+        {/* 🖥📱 Both was picked but the room cannot hold two readable frames —
+            Desktop is drawn, and the couple is told why the phone is gone. */}
+        {bothTooNarrow ? (
+          <p data-maker-both-too-narrow="" className="w-full shrink-0 pt-1.5 text-center text-[11px] text-ink/60">
+            Not enough room for Both — showing Desktop. Close the scenes list or the inspector, or widen the window.
+          </p>
+        ) : null}
         {/* 🖼 "Event Bar" (owner 2026-09-26: *"rename it to Event Bar"*) — the
             stage's OWN guest header and tab bar over the slide in view. The lower
             right of the canvas, BELOW the page and
@@ -2122,16 +2364,41 @@ export function MakerWork({
         ) : null}
       </section>
 
+      {/* ✍ The type bar over the words being typed (tap-to-type). */}
+      {typeStart && elementEditing && !workHidden ? (
+        <TypeBar
+          key={typeStart.n}
+          eventId={eventId}
+          start={typeStart}
+          heroCanvas={elementEditing.canvases.hero ?? {}}
+          draftAction={elementEditing.draftAction}
+          twoPeople={sceneFormat?.twoPeople !== false}
+          frames={() => [frameRef.current, bothFrameRef.current]}
+          post={postToShownCanvases}
+          broadcast={broadcastToCanvas}
+          onSaving={(widgetType, canvas) => {
+            canvasHold.current = holdCanvas(canvasHold.current, drawnCanvases(), widgetType, canvas, Date.now(), canvasOrder);
+            scheduleSnapshots(600);
+          }}
+          onClose={endTyping}
+          onStyle={() => {
+            const { key, el } = typeStart;
+            endTyping();
+            if (isHubElementKey(el)) {
+              setElementTarget({ key, widgetType: 'hero', el });
+              postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key, el });
+            }
+          }}
+        />
+      ) : null}
       {/* ══ 4 · THE INSPECTOR — only when something is selected ══ */}
       {workHidden ? null : elementTarget && elementEditing ? (
         <ElementSheet
           eventId={eventId}
           target={elementTarget}
-          canvas={
-            heldCanvasFor(canvasHold.current, elementTarget.widgetType, Date.now()) ??
-            elementEditing.canvases[elementTarget.widgetType] ??
-            {}
-          }
+          /* The RENDER's canvas — the sheet lays the Maker's own copy over it
+             (`draftedCanvasOr`), which is what keeps a pick from building on it. */
+          canvas={elementEditing.canvases[elementTarget.widgetType] ?? {}}
           palette={elementEditing.palette}
           ownsPro={ownsPro}
           hideLocked={maker.storeShell}
@@ -2174,10 +2441,7 @@ export function MakerWork({
             };
           })()}
           onPart={(el) => {
-            frameRef.current?.contentWindow?.postMessage(
-              { source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el },
-              window.location.origin,
-            );
+            postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el });
             setElementTarget({ key: elementTarget.key, widgetType: elementTarget.widgetType, el });
           }}
           sceneLabel={
@@ -2195,19 +2459,13 @@ export function MakerWork({
             scheduleSnapshots(600);
           }}
           onSaving={(widgetType, canvas) => {
-            canvasHold.current = holdCanvas(canvasHold.current, elementEditing.canvases, widgetType, canvas, Date.now(), canvasOrder);
+            canvasHold.current = holdCanvas(canvasHold.current, drawnCanvases(), widgetType, canvas, Date.now(), canvasOrder);
           }}
           onPlay={() =>
-            frameRef.current?.contentWindow?.postMessage(
-              { source: 'setnayan-editor', t: 'playEl', key: elementTarget.key, el: elementTarget.el },
-              window.location.origin,
-            )
+            postToShownCanvases({ source: 'setnayan-editor', t: 'playEl', key: elementTarget.key, el: elementTarget.el })
           }
           onClose={() => {
-            frameRef.current?.contentWindow?.postMessage(
-              { source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null },
-              window.location.origin,
-            );
+            postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null });
             setElementTarget(null);
           }}
         />
@@ -2222,7 +2480,7 @@ export function MakerWork({
                DECISION_LOG "…TAP IS A SHORTCUT"). A scene the couple changed
                "just here" keeps the box that asked, so its ↺ is never lost. */
             const sceneKey = `w:${selectedScene.type}`;
-            const sceneCanvas: HubSectionCanvas = elementEditing?.canvases[selectedScene.type] ?? {};
+            const sceneCanvas: HubSectionCanvas = canvasOf(selectedScene.type);
             const ownWords = detailsBound?.ownWords.includes(selectedScene.type) ?? false;
             const boundItem: DetailsItemKey | null = ownWords
               ? null
@@ -2253,11 +2511,16 @@ export function MakerWork({
                      the render the save brings back keeps the page instead of
                      reloading it. "Use Details" and a cleared message reload —
                      the page must draw what it did not preview. */
+                  const type = selectedScene.type;
+                  const written = patch.widgets?.[type as WidgetType]?.canvas;
+                  if (written) noteDraftedCanvas(type, written, elementEditing.canvases[type]);
                   if (choice === 'use-details' || text.trim().length === 0) {
                     releaseCanvas();
                     return;
                   }
-                  const type = selectedScene.type;
+                  /* "Everywhere" writes the Details fact itself, which this page
+                     reads from the render — so that one burst still ends in ONE. */
+                  if (choice === 'everywhere') makerNeedsRender();
                   const now = Date.now();
                   // "Everywhere" also changes every other scene still bound to Details.
                   const others =
@@ -2276,10 +2539,10 @@ export function MakerWork({
                     releaseCanvas();
                     return;
                   }
-                  const shown = heldCanvasFor(canvasHold.current, type, now) ?? elementEditing.canvases[type] ?? {};
+                  const shown = heldCanvasFor(canvasHold.current, type, now) ?? canvasOf(type);
                   canvasHold.current = holdCanvas(
                     canvasHold.current,
-                    elementEditing.canvases,
+                    drawnCanvases(),
                     type,
                     patch.widgets?.[type as WidgetType]?.canvas ?? shown,
                     now,
@@ -2317,10 +2580,12 @@ export function MakerWork({
                 onPart={
                   pe?.styles[tile.scene]
                     ? (el) => {
-                        frameRef.current?.contentWindow?.postMessage(
-                          { source: 'setnayan-editor', t: 'markEl', key: `p:${tile.anchor?.slice(2) ?? tile.scene}`, el },
-                          window.location.origin,
-                        );
+                        postToShownCanvases({
+                          source: 'setnayan-editor',
+                          t: 'markEl',
+                          key: `p:${tile.anchor?.slice(2) ?? tile.scene}`,
+                          el,
+                        });
                         setElementTarget({ key: tile.anchor ?? `p:${tile.scene}`, widgetType: postEventElementScope(tile.scene), el });
                       }
                     : null
@@ -2753,7 +3018,7 @@ function Inspector({
       : selection.kind === 'main'
         ? 'Main · behind every scene'
         : selection.kind === 'tool'
-          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Details', 'rsvp-page': 'RSVP' }[selection.key]
+          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Details', 'rsvp-page': 'RSVP', 'rsvp-stage': 'RSVP' }[selection.key]
           : fixedOfKey(selection.key)
             ? fixedScenePanel(fixedOfKey(selection.key)!).label
             : (rows[selection.key]?.label ?? 'Edit');

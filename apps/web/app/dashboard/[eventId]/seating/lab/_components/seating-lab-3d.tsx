@@ -45,6 +45,7 @@ import * as THREE from 'three';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { SeatingViewSegment } from '@/app/dashboard/[eventId]/seating/_components/seating-frame';
+import { detailsItemHref } from '@/lib/maker-details-items';
 import {
   DropConfirmBubble,
   type DropConfirmState,
@@ -131,6 +132,7 @@ import {
 import {
   TABLE_TYPE_CATALOG,
   ROLE_TIER_LABELS,
+  autoArrangeSummary,
   computeAutoLayout,
   // The ONE placement oracle (lib/seating.ts · council verdict 2026-07-16). The
   // 3D move/rotate paths validate through these SAME pure helpers as the 2D
@@ -247,6 +249,14 @@ import { formatCount } from '@/lib/format-number';
 
 type Props = {
   eventId: string;
+  /**
+   * 🪑 Drawn inside the Maker's Details › Seat plan, as its 3D view, BESIDE the
+   * 2D editor (which stays mounted and holds the same person's editor lock). So
+   * here the lock is not released when the 3D view closes — the 2D editor
+   * still holds it and releases it itself — and the 2D / List segment returns
+   * to Details, never to the standalone page.
+   */
+  inMaker?: boolean;
   tables: Lab3DTable[];
   floor: Lab3DFloor;
   guests: Lab3DGuest[];
@@ -480,7 +490,7 @@ type Mover = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; target
 // figure for free. `faceY` is the heading it settles into while dancing.
 type Dancer = { gid: string; name: string; spec: FigureSpec; path: Vec2[]; spot: Vec2; faceY: number };
 
-export default function SeatingLab3D({ eventId, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, bookedSuggestions, dismissedSuggestions, themeName, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
+export default function SeatingLab3D({ eventId, inMaker = false, tables: initialTables, floor: floorProp, guests, rolePalette, receptionDesign, inspirationByPart, finalizedByPart, bookedSuggestions, dismissedSuggestions, themeName, styleFamily, venueSetting, monogram, animatedMonogram, me, keepApart: keepApartProp, priorityOrder: priorityOrderProp, groups, floorExtras, sceneObjects, booths, signs, ghostBooths, ghostBoothsEnabled }: Props) {
   const router = useRouter();
   // Floor plan is LOCAL state so the lab can edit it (move/resize the stage +
   // dance floor, toggle entrance/dance) optimistically; it re-syncs from server
@@ -567,7 +577,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
 
   // Single-editor lock — the SAME one the 2D editor uses, so 3D and 2D never
   // write at once. Acquire on mount; canEdit is false (view-only) until granted.
-  const lock = useSeatingLock(eventId, me.name, null);
+  const lock = useSeatingLock(eventId, me.name, null, { releaseOnUnmount: !inMaker });
   const canEdit = lock.status === 'editing';
   // Shared room (slice 8): the authed user is the player identity. Inert unless
   // NEXT_PUBLIC_PLAN3D_SHARED_ROOM is on → byte-identical single-player otherwise.
@@ -1852,7 +1862,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       const res = await publishSeating(fd);
       setFloor((f) => ({ ...f, published: true }));
       setNotice(
-        `Live — guests can walk your reception, and ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ${res.published === 1 ? 'is' : 'are'} ready to print.`,
+        `Shown early — guests can walk your reception now, and ${res.published} table QR sheet${res.published === 1 ? '' : 's'} ${res.published === 1 ? 'is' : 'are'} ready to print.`,
       );
     });
   }, [canEdit, eventId, lock.lockId, persist]);
@@ -1869,7 +1879,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
       setFloor((f) => ({ ...f, published: false }));
       setNotice(
         res.wasPublished
-          ? 'Taken down — the 3D walk is private again. Printed table signs still work.'
+          ? 'Hidden until the day — the 3D walk opens by itself on the day. Printed table signs still work.'
           : 'That plan wasn’t published.',
       );
     });
@@ -2040,10 +2050,21 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
     fd.set('positions', JSON.stringify(layout));
     fd.set('booths', '[]');
     void persist(async () => {
-      await autoArrange(fd);
+      const res = await autoArrange(fd);
       seatResyncRef.current = true;
       router.refresh();
-      setNotice('Tidied every table and seated your guests.');
+      // The server's counts, not a fixed line: it may have ADDED tables (owner
+      // 2026-09-30) and must never claim everyone is seated when someone isn't.
+      setNotice(
+        autoArrangeSummary({
+          tables: tables.length + res.tablesAdded,
+          tablesAdded: res.tablesAdded,
+          booths: 0,
+          boothWhere: '',
+          seated: res.seated,
+          unseated: res.unseated,
+        }),
+      );
     });
   }, [canEdit, tables, floor, room, tablesById, eventId, lock.lockId, persist, router]);
 
@@ -2702,7 +2723,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
   return (
     <div
       ref={wrapperRef}
-      className="relative h-[82vh] w-full overflow-hidden rounded-2xl border border-ink/10 bg-[#11131a]"
+      className={`relative w-full overflow-hidden bg-[#11131a] ${inMaker ? 'h-full' : 'h-[82vh] rounded-2xl border border-ink/10'}`}
     >
       <Canvas
         shadows
@@ -3054,6 +3075,13 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
           <SeatingViewSegment
             active="3d"
             onSelect={(target) => {
+              // In Details, back to the plan in the same part (`seat` drops the lab).
+              if (inMaker) {
+                if (target !== '3d') {
+                  router.push(detailsItemHref(eventId, 'seating', target === 'list' ? '&seat=list' : ''), { scroll: false });
+                }
+                return;
+              }
               if (target === '2d') router.push(`/dashboard/${eventId}/seating`);
               else if (target === 'list') router.push(`/dashboard/${eventId}/seating?view=list`);
             }}
@@ -3144,6 +3172,7 @@ export default function SeatingLab3D({ eventId, tables: initialTables, floor: fl
         onBreakApart={breakApart}
         onPublish={publishPlan}
         onUnpublish={unpublishPlan}
+        inMaker={inMaker}
         published={floor.published}
         printHref={`/dashboard/${eventId}/seating/print`}
         tableCount={tables.length}
@@ -5333,6 +5362,7 @@ function Hud({
   onBreakApart,
   onPublish,
   onUnpublish,
+  inMaker = false,
   published,
   printHref,
   tableCount,
@@ -5433,6 +5463,8 @@ function Hud({
   onBreakApart: () => void;
   onPublish: () => void;
   onUnpublish: () => void;
+  /** In the Maker's Details › Seat plan: no door out to the control centre page. */
+  inMaker?: boolean;
   /** Is the plan LIVE at /[slug]/venue right now? Straight off
    *  `event_floor_plan.published_at`, which page.tsx has always shipped on
    *  `Lab3DFloor` and this panel had never once read. */
@@ -5800,7 +5832,7 @@ function Hud({
                 className={`inline-block h-1.5 w-1.5 rounded-full ${published ? 'bg-emerald-400' : 'bg-white/40'}`}
               />
               <span className={published ? 'text-emerald-300' : 'text-white/50'}>
-                {published ? 'Live — guests can walk your reception' : 'Draft — only you can see this'}
+                {published ? 'Shown early — guests can walk your reception' : 'Guests can walk your reception on the day'}
               </span>
             </p>
             <div className="mt-2 flex gap-1.5">
@@ -5810,7 +5842,7 @@ function Hud({
                 onClick={published ? onUnpublish : onPublish}
                 className="flex-1 rounded-lg bg-white/10 px-2 py-1.5 text-sm font-medium text-white transition hover:bg-white/20 disabled:opacity-40"
               >
-                {published ? 'Take it down' : 'Publish'}
+                {published ? 'Hide until the day' : 'Show early'}
               </button>
               <a
                 href={printHref}
@@ -5823,18 +5855,20 @@ function Hud({
             </div>
             {published ? (
               <p className="mt-1.5 text-[10px] leading-snug text-white/45">
-                Taking it down hides the 3D walk. Printed table signs keep working.
+                Hiding it before the day hides the 3D walk until the day. Printed table signs keep working.
               </p>
             ) : null}
             {/* The door to the control centre — the couple's room as their
                 guests see it, the facts, and what feeds it. This panel keeps
                 the switch; that page explains it. */}
-            <a
-              href={`/dashboard/${eventId}/plan3d`}
-              className="mt-2 block text-[11px] text-white/55 underline-offset-2 hover:text-white hover:underline"
-            >
-              3D Plan control centre →
-            </a>
+            {inMaker ? null : (
+              <a
+                href={`/dashboard/${eventId}/plan3d`}
+                className="mt-2 block text-[11px] text-white/55 underline-offset-2 hover:text-white hover:underline"
+              >
+                3D Plan control centre →
+              </a>
+            )}
           </div>
         ) : (
           <div className={`flex min-h-0 flex-1 flex-col p-3 ${glass}`}>

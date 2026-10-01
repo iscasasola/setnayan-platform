@@ -27,6 +27,7 @@ import type { EventFilm } from '@/lib/event-films';
 import type { PostEventStyleId } from '@/lib/post-event-styles';
 import type { PeWords } from './post-event-scene-views';
 import { byVoiceWeight, roleLabel, voiceOf } from './voices';
+import type { RoleNames } from '@/lib/role-names';
 import { formatCount } from '@/lib/format-number';
 
 const say = (words: PeWords, part: keyof PeWords, fallback: string): string => words[part] ?? fallback;
@@ -178,14 +179,17 @@ export function MessagesScene({
   style,
   letters,
   words,
+  names = null,
 }: {
   style: PostEventStyleId;
   letters: readonly Letter[];
   words: PeWords;
+  /** The couple's words for roles (owner 2026-09-30) — the badges say them. */
+  names?: RoleNames | null;
 }): ReactElement {
   const ordered = byVoiceWeight(letters);
   const byline = (c: Letter): string | null =>
-    c.author ? `${c.author}${roleLabel(c.role) ? ` · ${roleLabel(c.role)}` : ''}` : null;
+    c.author ? `${c.author}${roleLabel(c.role, names) ? ` · ${roleLabel(c.role, names)}` : ''}` : null;
   if (style === 'note-wall') {
     /* .wall — every letter as a pinned note, four paper tones, signed; a parent's note is wider. */
     const tones = ['bg-cream', 'bg-terracotta/10', 'bg-ink/[0.04]', 'bg-terracotta/[0.06]'];
@@ -255,7 +259,7 @@ export function MessagesScene({
             {c.author ? (
               <>
                 <span className="mt-5 block font-script text-[2rem] leading-none text-terracotta-700">{c.author}</span>
-                {roleLabel(c.role) ? <span className="block text-sm text-ink/60">{roleLabel(c.role)}</span> : null}
+                {roleLabel(c.role, names) ? <span className="block text-sm text-ink/60">{roleLabel(c.role, names)}</span> : null}
               </>
             ) : null}
           </article>

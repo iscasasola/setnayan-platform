@@ -5,7 +5,8 @@ import { ExternalLink } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchGuestsByEvent, guestDisplayName, ROLE_LABELS, RSVP_LABELS } from '@/lib/guests';
+import { fetchGuestsByEvent, guestDisplayName, guestFullName, guestRoleLabel, RSVP_LABELS } from '@/lib/guests';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -21,6 +22,7 @@ import {
 } from './actions';
 import { GuestInviteModal } from './_components/guest-invite-modal';
 import { buildGuestInviteMessage } from '@/lib/guest-invite-message';
+import { loadInviteSetup } from '../guests/_components/invite-message-setup';
 import { SlugField } from './_components/slug-field';
 import { ReissueQrButton } from './_components/reissue-qr-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -63,16 +65,19 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = await loadRoleNames(supabase, eventId, 'InvitationAdminPage.roleNames');
 
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      /* `venue_name` joins the read for ONE reason: the message names where the
-         wedding is. The sponsors page already reads it for its own invitation
-         template, so this is the same host-only fact on a second host-only page. */
+      /* `venue_name` left this read on 2026-09-29: the per-guest message is the
+         owner's shorter one now (name · event · date · their link · their QR)
+         and names no venue — its facts come from `loadInviteSetup`, shared with
+         the guest list's Send invite. */
       // + the CANONICAL monogram list and the QR look's two columns
       // (lib/qr-look.server.ts) — every code on this page wears the event's look.
-      `event_id, public_id, event_date, slug, venue_name, ${QR_LOOK_COLUMNS}`,
+      `event_id, public_id, event_date, slug, ${QR_LOOK_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -82,7 +87,12 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   }
   if (!event) redirect(`/dashboard/${eventId}`);
 
-  const guests = await fetchGuestsByEvent(supabase, eventId);
+  const [guests, inviteSetup] = await Promise.all([
+    fetchGuestsByEvent(supabase, eventId),
+    /* The ONE message builder's inputs — the event's words and the couple's own
+       wording — shared with the guest list's Send invite (2026-09-29). */
+    loadInviteSetup(supabase, eventId),
+  ]);
   /* Counted from the rows already in hand — no second query for a number the
      page has already read. */
   const invitationsMarked = guests.filter((g) => g.invitation_sent_at !== null).length;
@@ -252,7 +262,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           {previewQrSvg ? (
             <div
               aria-label="QR preview with monogram"
-              className="h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
+              className="qr-slot h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: previewQrSvg }}
             />
           ) : null}
@@ -417,20 +427,20 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               /* One message per guest, carrying THAT guest's own link. Null when
                  they have no link yet — the modal then offers no Copy button. */
               const inviteMessage = buildGuestInviteMessage({
-                guestName: guestDisplayName(guest),
-                role: guest.role,
-                coupleNames: event.display_name ?? '',
-                weddingDate: event.event_date,
-                venue: event.venue_name,
-                inviteUrl: qr?.url ?? '',
-              });
+            ...inviteSetup.facts,
+            formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
+            firstName: guest.first_name,
+            guestName: guestDisplayName(guest),
+            inviteUrl: qr?.url ?? '',
+            template: inviteSetup.template,
+          });
               const markSentAction = markGuestInvitationSent.bind(null, eventId, guest.guest_id);
               return (
                 <tr key={guest.guest_id} className="border-t border-ink/5 align-top">
                   <td className="px-4 py-3">
                     <div
                       aria-label={`QR for ${guestDisplayName(guest)}`}
-                      className="inline-block h-16 w-16 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
+                      className="qr-slot inline-block h-16 w-16 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
                       dangerouslySetInnerHTML={{ __html: qr?.svg ?? '' }}
                     />
                   </td>
@@ -443,7 +453,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                     </Link>
                     <p className="text-xs text-ink/55">{guest.email ?? guest.mobile ?? '—'}</p>
                   </td>
-                  <td className="px-3 py-3 text-ink/70">{ROLE_LABELS[guest.role]}</td>
+                  <td className="px-3 py-3 text-ink/70">{guestRoleLabel(guest.role, roleNames)}</td>
                   <td className="px-3 py-3 text-ink/70">{RSVP_LABELS[guest.rsvp_status]}</td>
                   <td className="px-3 py-3">
                     <code className="block break-all font-mono text-[10px] leading-relaxed text-ink/60">
@@ -498,12 +508,12 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           /* One message per guest, carrying THAT guest's own link. Null when
              they have no link yet — the modal then offers no Copy button. */
           const inviteMessage = buildGuestInviteMessage({
+            ...inviteSetup.facts,
+            formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
+            firstName: guest.first_name,
             guestName: guestDisplayName(guest),
-            role: guest.role,
-            coupleNames: event.display_name ?? '',
-            weddingDate: event.event_date,
-            venue: event.venue_name,
             inviteUrl: qr?.url ?? '',
+            template: inviteSetup.template,
           });
           const markSentAction = markGuestInvitationSent.bind(null, eventId, guest.guest_id);
           return (
@@ -514,7 +524,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
               <div className="flex items-start gap-3">
                 <div
                   aria-label={`QR for ${guestDisplayName(guest)}`}
-                  className="h-20 w-20 shrink-0 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
+                  className="qr-slot h-20 w-20 shrink-0 overflow-hidden rounded bg-white p-1 [&_svg]:h-full [&_svg]:w-full"
                   dangerouslySetInnerHTML={{ __html: qr?.svg ?? '' }}
                 />
                 <div className="min-w-0">
@@ -524,7 +534,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                   >
                     {guestDisplayName(guest)}
                   </Link>
-                  <p className="text-xs text-ink/55">{ROLE_LABELS[guest.role]}</p>
+                  <p className="text-xs text-ink/55">{guestRoleLabel(guest.role, roleNames)}</p>
                   <p className="text-xs text-ink/55">RSVP: {RSVP_LABELS[guest.rsvp_status]}</p>
                 </div>
               </div>

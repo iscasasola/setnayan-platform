@@ -285,9 +285,9 @@ export default async function VenuePage({
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#0b0d12] p-6 text-center">
         <div className="max-w-sm">
-          <p className="text-lg font-medium text-white">The 3D venue isn&rsquo;t ready yet</p>
+          <p className="text-lg font-medium text-white">The 3D room opens on the day</p>
           <p className="mt-2 text-sm text-white/60">
-            The seating plan hasn&rsquo;t been posted. Check back closer to the day.
+            Come back on the day to walk the room and find your seat.
           </p>
           <Link href={`/${slug}`} className="mt-5 inline-block rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
             ← Back to the {noun}

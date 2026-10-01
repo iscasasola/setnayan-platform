@@ -16,7 +16,9 @@
  *     home → details → story → gallery → me
  *
  * and each scene belongs to the anchor it sits under: the opening sections
- * (film, names, the story after the day, a Post Event scene) under Home; the
+ * (film, names, the story after the day, a Post Event scene) and the
+ * Invitation's Welcome page (the guest's look, Reminders, E-Gifts) under Home
+ * — the tab guests read as "Welcome" on the Invitation; the
  * page's sections and the entourage under Details; the love story under Story.
  * When a stage's bar has no tab for that anchor (On the Day has no Details),
  * the scene belongs to the nearest tab ABOVE it on the page — which is exactly
@@ -28,6 +30,8 @@
  * Pure: no DOM, no React.
  */
 
+import { HUB_TAB_ORDER, isHubTabHref } from '../app/[slug]/_lib/hub-tabs';
+
 export type NavigatorBarItem = { key: string; label: string; href: string; state: 'live' | 'locked' };
 
 export type NavigatorTab = NavigatorBarItem & {
@@ -37,12 +41,37 @@ export type NavigatorTab = NavigatorBarItem & {
   tiles: string[];
 };
 
-/** The page's in-page anchors, top of the page first. */
-export const PAGE_ANCHOR_ORDER = ['home', 'details', 'story', 'gallery', 'me'] as const;
+/**
+ * The page's tabs, top of the page first — the SAME order the guest page files
+ * its content by (`app/[slug]/_lib/hub-tabs.ts` `HUB_TAB_ORDER`, 📱 each tab its
+ * own page), so a scene sits under the same tab here as on a guest's phone.
+ * `live` is The Day's first tab; the Invitation has none and starts at `home`.
+ */
+export const PAGE_ANCHOR_ORDER = HUB_TAB_ORDER;
 
-/** Which anchor a navigator tile sits under on the page. */
-export function anchorOfTile(tileKey: string): (typeof PAGE_ANCHOR_ORDER)[number] {
+/**
+ * 📱 ON THE DAY (owner 2026-09-30, "THE DAY'S MENU HAS FIVE: LIVE · WELCOME ·
+ * CAMERA · GALLERY · ME"): the page opens on Live — the masthead, the day's
+ * sections (the programme first), the entourage, the stream and the wall — and
+ * the guest's own Welcome holds their table; their photos are the Gallery's.
+ * The same filing `site-body.tsx` gives each part (`hubTabFor`), so the Maker's
+ * Page ▾ and the guest's bar agree about where every scene is.
+ */
+function dayAnchorOfTile(tileKey: string): (typeof PAGE_ANCHOR_ORDER)[number] {
   if (tileKey === 'f:story' || tileKey === 'w:our_love_story') return 'story';
+  if (tileKey === 'f:find_your_seat' || tileKey === 'f:look' || tileKey === 'f:gifts' || tileKey === 'w:what_to_bring') return 'home';
+  if (tileKey === 'f:photos_of_you') return 'gallery';
+  return 'live';
+}
+
+/** Which anchor a navigator tile sits under on the page. `day` → The Day's tabs. */
+export function anchorOfTile(tileKey: string, day = false): (typeof PAGE_ANCHOR_ORDER)[number] {
+  if (day) return dayAnchorOfTile(tileKey);
+  if (tileKey === 'f:story' || tileKey === 'w:our_love_story') return 'story';
+  // 🏠 The Invitation's Welcome page (owner 2026-09-30, `lib/invitation-welcome.ts`):
+  // the guest's look, the couple's Reminders and E-Gifts sit under Welcome — the
+  // page's first tab, anchor `home` — not under Details.
+  if (tileKey === 'f:look' || tileKey === 'f:gifts' || tileKey === 'w:what_to_bring') return 'home';
   if (tileKey === 'f:entourage' || tileKey.startsWith('w:')) return 'details';
   // 🎨 The day's own parts stand right after the entourage (`MAKER_DAY_PARTS`).
   if (['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:photos_of_you'].includes(tileKey)) return 'details';
@@ -73,12 +102,15 @@ export function tabAnchor(key: string): string {
 }
 
 export function navigatorTabs(bar: readonly NavigatorBarItem[], tileKeysInPageOrder: readonly string[]): NavigatorTab[] {
-  const tabs: NavigatorTab[] = bar.map((b) => ({ ...b, leaves: !b.href.startsWith('#'), tiles: [] }));
+  // In-page: a `#mark` on a page that is one scroll, or a tab's own address
+  // (`?tab=`) on a page whose tabs are pages. Anything else leaves.
+  const tabs: NavigatorTab[] = bar.map((b) => ({ ...b, leaves: !b.href.startsWith('#') && !isHubTabHref(b.href), tiles: [] }));
+  const day = bar.some((b) => b.key === 'live');
   const inPage = tabs.filter((t) => !t.leaves && (PAGE_ANCHOR_ORDER as readonly string[]).includes(tabAnchor(t.key)));
   if (inPage.length === 0) return tabs;
   const rank = (k: string) => (PAGE_ANCHOR_ORDER as readonly string[]).indexOf(tabAnchor(k));
   for (const key of tileKeysInPageOrder) {
-    const want = rank(anchorOfTile(key));
+    const want = rank(anchorOfTile(key, day));
     // the nearest in-page tab at or above the scene's own anchor; else the first one
     let home: NavigatorTab | undefined;
     for (const t of inPage) if (rank(t.key) <= want && (!home || rank(t.key) > rank(home.key))) home = t;

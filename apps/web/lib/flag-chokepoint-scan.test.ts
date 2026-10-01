@@ -76,8 +76,10 @@ const FLAGS: FlagSpec[] = [
     helper: 'lib/explore-replan-flag.ts',
     fn: 'isExploreReplanEnabled',
     gates: [
-      // The mobile dock removal (PR-3) — flag OFF must bring the dock back.
-      'lib/customer-menu.ts',
+      // ⛔ 'lib/customer-menu.ts' LEFT THIS LIST in Stage D (owner 2026-09-29:
+      // "we do not want that sub bottom nav anymore"). The phone's takeover
+      // dock it gated is retired for EVERY flag value — the owner removed the
+      // docked row itself — so there is nothing left for the flag to restore.
       // Section labels: "Plans" / "Payments" vs today's strings.
       'lib/budget-build.ts',
       // The takeover's section headings + the one-scroll layout.

@@ -92,7 +92,7 @@ export async function AlbumShelf({ userId }: { userId: string }) {
                     // The empty cover carries the event's own mark, so a shelf on
                     // launch day reads as YOUR events waiting, not as blank tiles.
                     <span className="flex h-full w-full items-center justify-center">
-                      <EventMonogram event={album.event} size="lg" />
+                      <EventMonogram event={album.event} size="lg" plays={album.markPlays} place="album-shelf" />
                     </span>
                   )}
                 </span>

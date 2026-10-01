@@ -206,7 +206,7 @@ test('the details · big date and the card print the same date and places; the c
 
 const BLOCKS = [
   { block_id: 'b1', event_id: 'e1', block_type: 'ceremony', label: 'The wedding', start_at: '2026-12-18T15:00:00Z', end_at: null, location: 'Our Lady of Lourdes', notes: null, run_state: 'upcoming', actual_start_at: null },
-  { block_id: 'b2', event_id: 'e1', block_type: 'photos', label: 'Photos', start_at: '2026-12-18T16:30:00Z', end_at: null, location: null, notes: 'On the church steps', run_state: 'upcoming', actual_start_at: null },
+  { block_id: 'b2', event_id: 'e1', block_type: 'cocktails', label: 'Photos', start_at: '2026-12-18T16:30:00Z', end_at: null, location: null, notes: 'On the church steps', run_state: 'upcoming', actual_start_at: null },
   { block_id: 'b3', event_id: 'e1', block_type: 'reception', label: 'Reception', start_at: '2026-12-18T18:30:00Z', end_at: null, location: 'The Garden Pavilion', notes: null, run_state: 'upcoming', actual_start_at: null },
 ];
 
@@ -316,6 +316,10 @@ test('entourage · two sides puts each role on its side and keeps the side-less 
   for (const n of ['Mia Villanueva', 'Cora Bautista', 'Joy Lim']) assert.ok(left.includes(n), `${n} on the first side`);
   for (const n of ['Paolo Reyes', 'Hugo Cruz', 'Marco Tan']) assert.ok(right.includes(n) && !left.includes(n), `${n} on the second side`);
   assert.ok(out.includes('Ben Ocampo & Rica Flores'), 'a candle pair stays a pair, on no side');
+  // `best_woman` stands where the best man stands — on the second side.
+  const withBestWoman = [{ key: 'honor', label: 'Maid of Honor & Best Woman', rows: [[person('b1', 'Lara Diaz', 'maid_of_honor'), person('b2', 'Nina Uy', 'best_woman')]] }];
+  const bw = decode(html(h(EntourageSection, { groups: withBestWoman, sceneStyle: 'two-sides' } as never)));
+  assert.ok(bw.slice(bw.indexOf('data-entourage-side="1"')).includes('Nina Uy'), 'the best woman stands on the best man’s side');
   const oneSided = [GROUPS[2]!];
   assert.doesNotMatch(
     html(h(EntourageSection, { groups: oneSided, sceneStyle: 'two-sides' } as never)),
@@ -375,17 +379,18 @@ async function reply(sceneStyle: string | null, over: Record<string, unknown> = 
 }
 const fieldNames = (s: string) => [...s.matchAll(/ name="([^"]+)"/g)].map((m) => m[1]).sort();
 
-test('rsvp · the question and the ticket keep the same fields, the same three answers and the terms line', async () => {
+test('rsvp · the question and the ticket keep the same fields, the same two answers and the terms line', async () => {
   const card = await reply(null);
   assert.match(card, /pahina-perforation/, 'no style is the reply card');
   for (const id of ['question', 'ticket']) {
     const out = await reply(id);
     assert.match(out, new RegExp(`data-scene-style="${id}"`), `${id} is drawn`);
     assert.deepEqual(fieldNames(out), fieldNames(card), `${id}: the form's fields changed`);
-    for (const v of ['attending', 'maybe', 'declined']) {
+    for (const v of ['attending', 'declined']) {
       assert.equal((out.match(new RegExp(`name="rsvp_status" value="${v}"`, 'g')) ?? []).length, 1, `${id}: answer ${v}`);
     }
-    for (const label of ['Joyfully accepts', 'Undecided, for now', 'Regretfully declines']) assert.ok(out.includes(label), `${id}: ${label}`);
+    for (const label of ['Joyfully accepts', 'Regretfully declines']) assert.ok(out.includes(label), `${id}: ${label}`);
+    assert.doesNotMatch(out, /Undecided/, `${id}: a guest is never offered maybe`);
     assert.match(out, /<fieldset data-rsvp-step/, `${id}: the answers are still a step the one-at-a-time walker finds`);
     assert.equal(/Privacy Notice/.test(out), /Privacy Notice/.test(card), `${id}: the Privacy Notice line`);
     assert.match(out, /attending-reveal|selfie-reveal/, `${id}: "yes" still reveals the rest`);
@@ -402,7 +407,6 @@ const SEAT = {
   tables: [{ table_id: 't7', table_label: 'Table 7', table_type: 'round', capacity: 10, x: null, y: null }],
   entrance: { x: 50, y: 95 },
   targetTableId: 't7',
-  firstName: 'Ana',
   arrived: false,
 };
 
@@ -414,7 +418,44 @@ test('find your seat · the table number and the place card carry the table, the
   assert.match(big, /<details/, 'the map waits behind a tap, with no script');
   const card = decode(html(h(YourSeatBlock, { ...SEAT, sceneStyle: 'place-card' } as never)));
   assertStyled(card, 'place-card', 'place card');
-  assert.ok(card.includes('Ana') && card.includes('Table 7') && card.includes('The Garden Pavilion'));
+  assert.ok(card.includes('Table 7') && card.includes('The Garden Pavilion'));
+  // 🎩 No casual first name on a guest's screen (owner, DECISION_LOG 2026-09-30) — in any seat style.
+  for (const style of ['table-number', 'place-card']) {
+    const arrived = decode(html(h(YourSeatBlock, { ...SEAT, arrived: true, firstName: 'Ana', sceneStyle: style } as never)));
+    assert.doesNotMatch(arrived, /Ana/, `${style}: a first name reached the guest's screen`);
+  }
+});
+
+test('find your seat · 🪪 the place card is a name card: the FORMAL name in the Names look, never a bare first name', async () => {
+  const { YourSeatBlock } = await import('./your-seat-block');
+  const { placeCardName } = await import('@/lib/formal-name');
+  const guest = { name_prefix: 'Mr.', first_name: 'Manuel', middle_name: 'Cruz', last_name: 'Casasola' };
+  const card = decode(
+    html(
+      h(YourSeatBlock, {
+        ...SEAT,
+        sceneStyle: 'place-card',
+        formalName: placeCardName(guest, 'middle-initial'),
+        nameStyle: { fontFamily: 'var(--font-names-test)' },
+      } as never),
+    ),
+  );
+  assert.match(card, /<p data-place-card-name=""[^>]*style="font-family:var\(--font-names-test\)"[^>]*>Mr\. Manuel C\. Casasola<\/p>/, 'the formal name, in the Names look');
+  // …in the event's Name style (owner 2026-09-30): Surname first on the card itself.
+  const sf = decode(html(h(YourSeatBlock, { ...SEAT, sceneStyle: 'place-card', formalName: placeCardName(guest, 'surname-first') } as never)));
+  assert.match(sf, />Mr\. Casasola, Manuel C\.<\/p>/, 'the card does not print the event’s Name style');
+  assert.ok(card.includes('Table 7'), 'and the table');
+  // A guest with only a first name gets NO name on the card — never "Manuel" alone.
+  const bare = decode(
+    html(h(YourSeatBlock, { ...SEAT, sceneStyle: 'place-card', formalName: placeCardName({ first_name: 'Manuel' }) } as never)),
+  );
+  assert.doesNotMatch(bare, /Manuel/, 'a bare first name reached the place card');
+  assert.ok(bare.includes('Table 7'), 'the card still carries its table');
+  // The site passes the name from the guest row's formal parts, in the event's Name style.
+  const { readFileSync } = await import('node:fs');
+  const site = readFileSync(new URL('./site-body.tsx', import.meta.url), 'utf8');
+  assert.match(site, /formalName=\{placeCardName\(guest, eventNameStyle\)\}/, 'the page no longer hands the card the formal name in the event’s style');
+  assert.match(site, /const eventNameStyle =[\s\S]{0,120}loadEventNameStyle\(/, 'the page no longer reads the event’s Name style');
 });
 
 // ── PHOTOS YOU ADD · EACH GUEST'S OWN PHOTOS ─────────────────────────────────

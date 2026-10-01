@@ -1086,7 +1086,9 @@ export function GenericOnboarding(props: Props) {
             autoFocus
             value={displayName}
             onChange={(e) => setDisplayName(e.target.value)}
-            placeholder={`e.g. ${label} of the Year`}
+            // 🕊 "Wake of the Year" was the solemn type's placeholder (audit
+            // 2026-09-30). A wake names a person, plainly; every other type keeps its line.
+            placeholder={register === 'solemn' ? `e.g. ${label} for Lola Rosa` : `e.g. ${label} of the Year`}
             className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
           />
         </div>
@@ -1545,10 +1547,11 @@ export function GenericOnboarding(props: Props) {
       return (
         <div>
           <Eyebrow>Your services</Eyebrow>
-          <Title>Your memories are already being kept.</Title>
+          <Title>{register === 'solemn' ? 'A place to keep the photos.' : 'Your memories are already being kept.'}</Title>
           <ServicesStep
             className="mt-6"
             view={servicesStepView}
+            solemn={register === 'solemn'}
             // interested_services' FIRST reader (spec § 1.3): the persona pack's
             // derived service list orders the two Papic products. Nothing else —
             // both always render, at their real prices.

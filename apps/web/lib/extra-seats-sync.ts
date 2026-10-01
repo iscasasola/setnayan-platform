@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
-import { PLACEHOLDER_FIRST_NAME, planExtraSeats, type ExtraSeatRow } from '@/lib/extra-seats';
+import { PLACEHOLDER_FIRST_NAME, planExtraSeats, seatPlaceholderLabel, type ExtraSeatRow } from '@/lib/extra-seats';
 
 /**
  * Make a guest's seat rows match their `plus_one_count`, then seat them beside
@@ -18,8 +18,10 @@ import { PLACEHOLDER_FIRST_NAME, planExtraSeats, type ExtraSeatRow } from '@/lib
  *     beside them (lib/seating-reconcile.ts).
  *
  * Runs under the CALLER's client, so their RLS decides what they may write.
- * Call it with the count ALREADY saved — or use `checkExtraSeats` first to
- * refuse a change the named seats will not allow, before saving anything.
+ * Call it with the count ALREADY saved — and `checkExtraSeats` first, which
+ * refuses a change on a finalized list before anything is saved. A number
+ * below the NAMED seats is allowed (owner 2026-09-29, the host decides): the
+ * placeholders go, the named people stay, and the Guest List says so.
  */
 
 type Primary = {
@@ -62,7 +64,8 @@ export const GUEST_LIST_FINALIZED = 'Your guest list is finalized — the guest 
 
 /**
  * Would setting `want` be allowed? Refuses when the guest list is closed and
- * the number would change, or when named seats exceed it.
+ * the number would change. (Named seats beyond `want` no longer refuse it —
+ * `planExtraSeats` keeps them and reports `over`; owner 2026-09-29.)
  *
  * ⚖ Owner 2026-09-21 ("1. yes"): once the guest count is finalized, extra seats
  * no longer move — the head count suppliers priced against is closed, and each
@@ -76,7 +79,6 @@ export async function checkExtraSeats(
   eventId: string,
   guestId: string,
   want: number,
-  guestName?: string,
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const read = await readSeats(supabase, eventId, guestId);
   if (!read) return { ok: false, error: 'Couldn’t read this guest’s seats — nothing was changed.' };
@@ -91,15 +93,12 @@ export async function checkExtraSeats(
     if (
       guestListIsClosed({
         lockedAt: ev.guest_count_locked_at as string | null,
-        editDeadline: ev.guest_list_edit_deadline as string | null,
-        eventDate: ev.event_date as string | null,
       })
     ) {
       return { ok: false, error: GUEST_LIST_FINALIZED };
     }
   }
-  const plan = planExtraSeats(want, read.seats, guestName ?? read.primary.first_name ?? 'This guest');
-  return plan.ok ? { ok: true } : { ok: false, error: plan.reason };
+  return { ok: true };
 }
 
 export async function syncExtraSeats(
@@ -110,17 +109,16 @@ export async function syncExtraSeats(
   const read = await readSeats(supabase, eventId, guestId);
   if (!read) return { ok: false, error: 'Couldn’t read this guest’s seats.' };
   const { primary, seats } = read;
-  const plan = planExtraSeats(primary.plus_one_count ?? 0, seats, primary.first_name ?? 'This guest');
-  if (!plan.ok) return { ok: false, error: plan.reason };
+  const plan = planExtraSeats(primary.plus_one_count ?? 0, seats);
 
   if (plan.create > 0) {
-    const host = (primary.first_name ?? '').trim() || 'their guest';
-    const numbered = seats.length + plan.create > 1;
     const inserts = Array.from({ length: plan.create }, (_, i) => ({
       event_id: eventId,
       first_name: PLACEHOLDER_FIRST_NAME,
       last_name: '+1',
-      display_name: numbered ? `+ TBA ${seats.length + i + 1} · brought by ${host}` : `+ TBA · brought by ${host}`,
+      // Numbered by SEAT — "+2 · TBA" (owner 2026-09-29), never
+      // "+ TBA · brought by …": the Guest List shows whose seat it is.
+      display_name: seatPlaceholderLabel(seats.length + i),
       side: primary.side,
       group_category: primary.group_category,
       role: 'guest',

@@ -41,6 +41,13 @@ export type LookItemKey = 'mood-board' | 'logo' | 'hero' | 'reveal';
  */
 export type EventItemKey = 'names' | 'date' | 'venues' | 'parents' | 'march';
 export const EVENT_ITEM_KEYS: readonly EventItemKey[] = ['names', 'date', 'venues', 'parents', 'march'];
+/**
+ * 🪑 Details part 4 — the Seat plan (owner 2026-09-28, DECISION_LOG "THE SEAT
+ * PLAN MOVES INTO DETAILS AND WEARS THE THREE COLUMNS"): the last item of Your
+ * event. Its own key (not an `EventItemKey`): it is the shipped seating editor
+ * moved in, not one of part 2a's facts.
+ */
+export type SeatPlanItemKey = 'seating';
 export type FreePrintKey = FreePrint['key'];
 /** The whole invitation set in one download — every piece, every guest's pass. */
 export type DownloadItemKey = 'download';
@@ -48,7 +55,7 @@ export type DownloadItemKey = 'download';
 export type WordsItemKey = 'special-message' | 'thank-you' | 'opening-line' | 'kindly-reply';
 /** Story & plans (Details part 2b): the Love Story, Schedule and RSVP pages, moved in whole. */
 export type StoryItemKey = 'love-story' | 'schedule' | 'rsvp';
-export type DetailsItemKey = 'theme' | LookItemKey | EventItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+export type DetailsItemKey = 'theme' | LookItemKey | EventItemKey | SeatPlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -80,7 +87,7 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
 export type DetailsItemGroup = 'look' | 'event' | 'words' | 'story' | 'hub' | 'set' | 'day' | 'download';
 export const DETAILS_ITEM_GROUPS: ReadonlyArray<{ group: DetailsItemGroup; label: string; keys: readonly DetailsItemKey[] }> = [
   { group: 'look', label: 'Look', keys: ['theme', ...LOOK_ITEM_KEYS] },
-  { group: 'event', label: 'Your event', keys: EVENT_ITEM_KEYS },
+  { group: 'event', label: 'Your event', keys: [...EVENT_ITEM_KEYS, 'seating'] },
   { group: 'words', label: 'Words', keys: WORDS_ITEM_KEYS },
   { group: 'story', label: 'Story & plans', keys: STORY_ITEM_KEYS },
   { group: 'hub', label: 'Your Event Hub', keys: HUB_ITEM_KEYS },
@@ -179,6 +186,9 @@ const ITEM_LAYOUT: Partial<Record<DetailsItemKey, DetailsItemLayout>> = {
      on the right. (The Schedule is 'flow': its rail is the picture, the picked
      moment's fields the right column.) */
   rsvp: 'fill',
+  /* Part 4: the floor plan fills the middle; the place's elements are the
+     navigator's pieces and the guests are the right column. */
+  seating: 'fill',
 };
 export function detailsItemLayout(key: DetailsItemKey): DetailsItemLayout {
   return ITEM_LAYOUT[key] ?? 'flow';
@@ -230,11 +240,18 @@ export const DETAILS_ITEM_APPLIES: Partial<Record<DetailsItemKey, (c: DetailsIte
      `hasTwoNamedPeople`). A seven-year-old's birthday and a wake have no love
      story, so the item is not drawn — never re-worded. */
   'love-story': (c) => hasTwoNamedPeople(c.profile),
+  // The Our Story poster prints that Love Story — so it is offered only where
+  // the Love Story is (a birthday's set has no poster it could never fill).
+  'story-poster': (c) => hasTwoNamedPeople(c.profile),
   // Part 2a · Your event — the rule is `yourEventItems` (lib/details-your-event.ts):
-  // Names where the type has two named people, the march where its role set
-  // prints an entourage. Date, venues and parents & hosts suit every type.
-  names: (c) => yourEventItems(yourEventKindOf(c)).includes('names'),
+  // the march where its role set prints an entourage. Names (two people) or
+  // Name (one), date, venues and parents & hosts suit every type.
   march: (c) => yourEventItems(yourEventKindOf(c)).includes('march'),
+  // 🪑 Part 4 · the Seat plan — only where the type has a seat plan at all (its
+  // profile's 'seating' surface: the same rule the seating page and the guest
+  // seat rooms are gated by — `surfaceEnabled(profile, 'seating')`, read here
+  // from the profile itself so this file stays client-safe).
+  seating: (c) => c.profile.enabledSurfaces.includes('seating'),
 };
 
 /** The type's own facts, as `lib/details-your-event.ts` asks them. */
@@ -415,7 +432,6 @@ export const RSVP_PIECES: ReadonlyArray<{ key: string; label: string }> = [
   { key: 'questions', label: 'What you ask' },
   { key: 'who', label: 'Who can reply' },
   { key: 'reply-by', label: 'Reply by' },
-  { key: 'reminders', label: 'Reminder emails' },
   { key: 'requests', label: 'Requests' },
 ];
 

@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 384
+# facts: 407
 #   shadow  20
-#   omit    364
+#   omit    387
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -86,6 +86,9 @@ omit	app/[slug]/_components/guest-column-card.tsx	guests	ENTOURAGE_COLUMNS	name_
 omit	app/[slug]/_components/guest-column-card.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/[slug]/_components/guest-column-card.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/_components/guest-column-card.tsx	guests	ENTOURAGE_COLUMNS	role
+omit	app/[slug]/_lib/loaders.ts	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/[slug]/_lib/loaders.ts	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/[slug]/_lib/loaders.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/[slug]/_lib/preview-person.server.ts	guests	ENTOURAGE_COLUMNS	guest_id
@@ -118,6 +121,9 @@ omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/find-seat/page.tsx	guests	ENTOURAGE_COLUMNS	role
+omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/[slug]/invite/enter/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/[slug]/rotate-qr-actions.ts	guests	ENTOURAGE_COLUMNS	last_name
@@ -138,7 +144,6 @@ omit	app/[slug]/seat/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/[slug]/seat/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/[slug]/seat/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/[slug]/seat/page.tsx	guests	ENTOURAGE_COLUMNS	role
-omit	app/[slug]/welcome/page.tsx	guests	ENTOURAGE_COLUMNS	display_name
 omit	app/[slug]/welcome/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/[slug]/welcome/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/[slug]/welcome/page.tsx	guests	ENTOURAGE_COLUMNS	guest_id
@@ -157,6 +162,10 @@ omit	app/_actions/plan3d-demo-actions.ts	guests	ENTOURAGE_COLUMNS	role
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/_components/account-switcher/get-switcher-data.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
 omit	app/_components/chat-message-stream.tsx	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule
+omit	app/admin/events/[eventId]/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/admin/events/[eventId]/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/admin/events/[eventId]/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
+omit	app/admin/events/[eventId]/page.tsx	guests	ENTOURAGE_COLUMNS	role
 omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_color
 omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_font_key
 omit	app/admin/studio/_surfaces/social-queue-surface.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_frame_key
@@ -223,13 +232,24 @@ omit	app/dashboard/[eventId]/guests/_components/guest-card-data.ts	guests	ENTOUR
 omit	app/dashboard/[eventId]/guests/_components/guest-card-data.ts	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/dashboard/[eventId]/guests/_components/guest-card-data.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/dashboard/[eventId]/guests/_components/guest-card-data.ts	guests	ENTOURAGE_COLUMNS	role
+omit	app/dashboard/[eventId]/guests/checkin/actions.ts	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/dashboard/[eventId]/guests/checkin/actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/dashboard/[eventId]/guests/checkin/actions.ts	guests	ENTOURAGE_COLUMNS	middle_name
+omit	app/dashboard/[eventId]/guests/checkin/actions.ts	guests	ENTOURAGE_COLUMNS	name_prefix
+omit	app/dashboard/[eventId]/guests/checkin/actions.ts	guests	ENTOURAGE_COLUMNS	name_suffix
+omit	app/dashboard/[eventId]/guests/checkin/actions.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
+omit	app/dashboard/[eventId]/guests/checkin/actions.ts	guests	ENTOURAGE_COLUMNS	role
+omit	app/dashboard/[eventId]/guests/claims/actions.ts	guests	ENTOURAGE_COLUMNS	display_name
+omit	app/dashboard/[eventId]/guests/claims/actions.ts	guests	ENTOURAGE_COLUMNS	entourage_order
+omit	app/dashboard/[eventId]/guests/claims/actions.ts	guests	ENTOURAGE_COLUMNS	first_name
+omit	app/dashboard/[eventId]/guests/claims/actions.ts	guests	ENTOURAGE_COLUMNS	last_name
+omit	app/dashboard/[eventId]/guests/claims/actions.ts	guests	ENTOURAGE_COLUMNS	middle_name
+omit	app/dashboard/[eventId]/guests/claims/actions.ts	guests	ENTOURAGE_COLUMNS	name_prefix
+omit	app/dashboard/[eventId]/guests/claims/actions.ts	guests	ENTOURAGE_COLUMNS	name_suffix
+omit	app/dashboard/[eventId]/guests/claims/actions.ts	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/dashboard/[eventId]/guests/claims/page.tsx	guests	ENTOURAGE_COLUMNS	entourage_order
-omit	app/dashboard/[eventId]/guests/claims/page.tsx	guests	ENTOURAGE_COLUMNS	extra_roles
-omit	app/dashboard/[eventId]/guests/claims/page.tsx	guests	ENTOURAGE_COLUMNS	middle_name
 omit	app/dashboard/[eventId]/guests/claims/page.tsx	guests	ENTOURAGE_COLUMNS	name_prefix
-omit	app/dashboard/[eventId]/guests/claims/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/dashboard/[eventId]/guests/claims/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
-omit	app/dashboard/[eventId]/guests/claims/page.tsx	guests	ENTOURAGE_COLUMNS	role
 omit	app/dashboard/[eventId]/guests/groups-actions.ts	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/dashboard/[eventId]/guests/groups-actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/dashboard/[eventId]/guests/groups-actions.ts	guests	ENTOURAGE_COLUMNS	middle_name
@@ -318,8 +338,11 @@ omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	n
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	name_suffix
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	pair_with_guest_id
 omit	app/dashboard/[eventId]/website/widgets/page.tsx	guests	ENTOURAGE_COLUMNS	role
+omit	app/join/[eventId]/actions.ts	guests	ENTOURAGE_COLUMNS	display_name
 omit	app/join/[eventId]/actions.ts	guests	ENTOURAGE_COLUMNS	entourage_order
 omit	app/join/[eventId]/actions.ts	guests	ENTOURAGE_COLUMNS	extra_roles
+omit	app/join/[eventId]/actions.ts	guests	ENTOURAGE_COLUMNS	first_name
+omit	app/join/[eventId]/actions.ts	guests	ENTOURAGE_COLUMNS	last_name
 omit	app/join/[eventId]/actions.ts	guests	ENTOURAGE_COLUMNS	middle_name
 omit	app/join/[eventId]/actions.ts	guests	ENTOURAGE_COLUMNS	name_prefix
 omit	app/join/[eventId]/actions.ts	guests	ENTOURAGE_COLUMNS	name_suffix

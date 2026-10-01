@@ -15,15 +15,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { ADD_ONS, addOnHref, type AddOnEntry } from './add-ons-catalog';
+import { ADD_ONS, addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
 import {
   buildOurServices,
   OUR_SERVICE_ADD_ON_KEYS,
+  shownAddOnKeys,
   TOOL_HOMES,
   toolHasGoneHome,
   type OurServicesInput,
 } from './our-services';
 import { buildEventMenuSections, eventMenuRows, STUDIO_ABSORBED } from './customer-menu';
+import { yourTeamParts } from './pillar-parts';
+import { DETAILS_ITEM_KEYS } from './maker-details-items';
 
 const LIB = path.dirname(fileURLToPath(import.meta.url));
 const APP = path.resolve(LIB, '..', 'app');
@@ -52,27 +55,46 @@ const byKey = (i: OurServicesInput, key: string) => {
   return c;
 };
 
-test('the six services, in the owner’s order, with the owner’s names', () => {
+test('the services, in the owner’s order, with the owner’s names', () => {
   const cards = buildOurServices(input());
   assert.deepEqual(
     cards.map((c) => c.name),
-    ['Papic', 'Live Studio', 'Gallery', 'Patiktok', 'Music Maker', 'Setnayan AI (SAI)'],
+    ['Setnayan AI (SAI)', 'Papic', 'Live Studio', 'Music Maker', 'Patiktok'],
   );
 });
 
-test('each card opens the page its menu row opens; Gallery carries Editorial', () => {
+test('each card opens the page its menu row opens; Papic carries the Gallery', () => {
   const cards = buildOurServices(input());
   const hrefs = Object.fromEntries(cards.map((c) => [c.key, c.href]));
   assert.equal(hrefs.papic, addOnHref('papic', EVENT));
   assert.equal(hrefs.patiktok, addOnHref('patiktok', EVENT));
   assert.equal(hrefs['music-maker'], addOnHref('pakanta', EVENT));
   assert.equal(hrefs['setnayan-ai'], addOnHref('setnayan-ai', EVENT));
-  assert.equal(hrefs.gallery, `/dashboard/${EVENT}/galleries`);
-  const gallery = cards.find((c) => c.key === 'gallery')!;
+  // Owner 2026-09-30: "gallery inside Papic" · "Editorial inside Post Event".
+  const papic = cards.find((c) => c.key === 'papic')!;
   assert.deepEqual(
-    gallery.part && { name: gallery.part.name, href: gallery.part.href },
-    { name: 'Editorial', href: `/dashboard/${EVENT}/story` },
+    papic.parts.map((p) => [p.name, p.href]),
+    [
+      ['Thank-You Video', appStoreDetailHref('thank-you', EVENT)],
+      ['Gallery', `/dashboard/${EVENT}/galleries`],
+    ],
   );
+  assert.equal(cards.some((c) => c.key === 'gallery'), false, 'the Gallery is not a card beside Papic');
+  assert.equal(
+    cards.some((c) => c.parts.some((p) => p.key === 'editorial')),
+    false,
+    'Editorial lives in the Maker’s Post Event, not here',
+  );
+  assert.ok(OUR_SERVICE_ADD_ON_KEYS.has('editorial'), 'the lists below would bring Editorial back');
+});
+
+test('never unreachable: with no Papic card, the Gallery stands as its own card', () => {
+  const noPapic = buildOurServices(input({ offered: (a) => a.key !== 'papic' }));
+  const gallery = noPapic.find((c) => c.key === 'gallery');
+  assert.ok(gallery, 'the Gallery vanished with Papic');
+  assert.equal(gallery.href, `/dashboard/${EVENT}/galleries`);
+  assert.deepEqual(gallery.parts, []);
+  assert.deepEqual(noPapic.map((c) => c.key).slice(0, 3), ['setnayan-ai', 'gallery', 'live-studio']);
 });
 
 test('Live Studio is whichever livestream tile the event is offered — never both', () => {
@@ -167,7 +189,7 @@ const PAGE = read(SUITE_DIR, 'page.tsx');
 const GRID = read(SUITE_DIR, '_components', 'our-services-grid.tsx');
 
 test('the Suite route IS Our Services: six cards first, as CollectionCards', () => {
-  assert.match(PAGE, /metadata = \{ title: 'Our Services' \}/);
+  assert.match(PAGE, /metadata = \{ title: 'More Services' \}/);
   assert.match(PAGE, /buildOurServices\(\{/);
   assert.match(PAGE, /offered: surfaceOk,/, 'the cards must use the Suite’s own offered gate');
   assert.match(PAGE, /prices: priceMap,/, 'the cards must read the catalogue prices');
@@ -180,7 +202,7 @@ test('the Suite route IS Our Services: six cards first, as CollectionCards', () 
 test('the lists below leave the six out, so nothing shows twice', () => {
   assert.match(PAGE, /const eligible = ADD_ONS\.filter\(\s*\(a\) =>\s*notOurs\(a\) &&/);
   assert.match(PAGE, /notOurs\(e\) &&/, 'the recommendations must skip the six too');
-  for (const k of ['papic', 'papic-guest', 'panood', 'live-studio-roam', 'patiktok', 'pakanta', 'setnayan-ai']) {
+  for (const k of ['papic', 'papic-guest', 'panood', 'live-studio-roam', 'patiktok', 'pakanta', 'setnayan-ai', 'website-pro']) {
     assert.ok(OUR_SERVICE_ADD_ON_KEYS.has(k), `${k} would show twice`);
   }
 });
@@ -201,10 +223,22 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
   const base = `/dashboard/${EVENT}`;
   return {
     guests: () => row('guests')?.href === `${base}/guests`,
-    budget: () => row('budget')?.href === `${base}/budget`,
-    schedule: () => row('schedule')?.href === `${base}/schedule`,
-    'mood-board': () => !!row('mood-board'),
-    seating: () => row('seat')?.href === `${base}/seating`,
+    // Stage D: Budget is Your Team's part; Schedule and the Mood Board are
+    // Details items, and their old pages land there for the couple.
+    budget: () =>
+      row('explore')?.href === `${base}/vendors` &&
+      yourTeamParts({ eventId: EVENT, budgetEnabled: true }).some((p) => p.key === 'budget') &&
+      read(EV, 'budget', 'page.tsx').includes('redirect(yourTeamBudgetHref(eventId))'),
+    schedule: () =>
+      (DETAILS_ITEM_KEYS as readonly string[]).includes('schedule') &&
+      read(EV, 'schedule', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'schedule'"),
+    'mood-board': () =>
+      (DETAILS_ITEM_KEYS as readonly string[]).includes('mood-board') &&
+      read(EV, 'studio', 'mood-board', 'page.tsx').includes("redirect(detailsItemHref(eventId, 'mood-board'))"),
+    seating: () =>
+      (DETAILS_ITEM_KEYS as readonly string[]).includes('seating') &&
+      read(EV, 'seating', 'page.tsx').includes("redirect(detailsDoorHref(eventId, 'seating'") &&
+      !row('seat'),
     'landing-page': () => row('launch')?.href === addOnHref('landing-page', EVENT),
     rsvp: () =>
       addOnHref('rsvp', EVENT).startsWith(`${base}/website/`) &&
@@ -214,15 +248,18 @@ const HOME_PROOF: Record<string, () => boolean> = (() => {
     compare: () => read(EV, 'vendors', 'page.tsx').includes('<BuildCompare'),
     'save-the-date': () =>
       read(EV, 'website', 'editor', 'page.tsx').includes('`${base}/studio/save-the-date`'),
-    // The Maker mounts the Apply dock; the dock's data carries the Pro page;
-    // the Apply sheet's one button is "Unlock Pro and Apply" to that page.
-    'website-pro': () =>
-      read(EV, 'launch', 'page.tsx').includes('<HubDraftDock ') &&
-      read(LIB, 'hub-draft-store.ts').includes('`/dashboard/${eventId}/studio/website-pro?from=maker`') &&
-      read(EV, 'website', '_components', 'apply-pro-sheet.tsx').includes('href={unlockAndApplyHref(proHref)}'),
     'animated-monogram': () =>
       STUDIO_ABSORBED.palogo?.into === 'launch' &&
       fs.existsSync(path.join(EV, 'launch', '_components', 'maker-logo.tsx')),
+    // Details › Seat plan draws the shipped studio in its right part, and the
+    // old page lands there.
+    'indoor-blueprint': () =>
+      read(EV, 'seating', '_components', 'seating-editor.tsx').includes('<BlueprintStudio') &&
+      read(EV, 'studio', 'indoor-blueprint', 'page.tsx').includes("detailsDoorHref(eventId, 'seating', { seat: 'map' })"),
+    // Details › Date draws the finder's candidates beside the date row.
+    'find-date': () =>
+      read(EV, 'launch', '_components', 'details-your-event.tsx').includes('<FindDateCandidates') &&
+      fs.existsSync(path.join(EV, 'launch', '_components', 'details-date-finder.tsx')),
   };
 })();
 
@@ -243,14 +280,57 @@ test('a tool whose home is the Maker stays here where there is no Maker', () => 
   assert.equal(toolHasGoneHome('guests', false), true);
 });
 
-test('the tools with no home yet stay on this page', () => {
-  for (const key of ['find-date', 'playlist', 'indoor-blueprint', 'thank-you']) {
-    assert.equal(toolHasGoneHome(key, true), false, `${key} has no home yet and must stay`);
+test('Find your date leaves for Details › Date — but stays where there is no Maker', () => {
+  assert.equal(toolHasGoneHome('find-date', true), true);
+  assert.equal(toolHasGoneHome('find-date', false), false);
+});
+
+test('the lead never recommends a retired (utility) card — Event, Photo Delivery', () => {
+  // Both went home long ago (Event → the Maker, Photo Delivery → Papic); the
+  // lists dropped them, the "Recommended for you now" row did not (owner 2026-09-30).
+  for (const key of ['event', 'photo-delivery']) {
+    assert.equal(ADD_ONS.find((a) => a.key === key)?.studioGroup, 'utility', key);
   }
+  assert.match(PAGE, /e\.status !== 'coming_soon' &&\s*e\.studioGroup !== 'utility' &&/);
 });
 
 test('the page sends both lists home, and drops the section when it is empty', () => {
   assert.match(PAGE, /freeToolOk\(t\) && !toolHasGoneHome\(t\.key, websiteOn\)/);
-  assert.match(PAGE, /!OUR_SERVICE_ADD_ON_KEYS\.has\(a\.key\) && !toolHasGoneHome\(a\.key, websiteOn\)/);
+  assert.match(PAGE, /const onTheCards = shownAddOnKeys\(ourServices\);/);
+  assert.match(PAGE, /!onTheCards\.has\(a\.key\) && !toolHasGoneHome\(a\.key, websiteOn\)/);
   assert.match(PAGE, /\{moreCount > 0 \? \(/);
+});
+
+/* ── Owner "yes to all 4" (2026-09-29) ───────────────────────────────────── */
+
+test('Event Hub Pro is not a card — it is unlocked at the Maker’s Apply', () => {
+  // Owner 2026-09-30: "Event Hub Pro has its own place too".
+  assert.equal(buildOurServices(input()).some((c) => c.key === 'event-hub-pro'), false);
+  assert.ok(OUR_SERVICE_ADD_ON_KEYS.has('website-pro'), 'the lists below would bring it back');
+});
+
+test('Thank-You Video lives under Papic, Playlist under Music Maker', () => {
+  const cards = buildOurServices(input());
+  const papic = cards.find((c) => c.key === 'papic')!;
+  const music = cards.find((c) => c.key === 'music-maker')!;
+  assert.deepEqual(papic.parts[0] && [papic.parts[0].name, papic.parts[0].href], [
+    'Thank-You Video',
+    appStoreDetailHref('thank-you', EVENT),
+  ]);
+  assert.deepEqual(music.parts.map((p) => [p.name, p.href]), [
+    ['Playlist', appStoreDetailHref('playlist', EVENT)],
+  ]);
+  const shown = shownAddOnKeys(cards);
+  assert.ok(shown.has('thank-you') && shown.has('playlist'), 'the lists below would repeat them');
+});
+
+test('never unreachable: a part whose card is absent stays in the lists below', () => {
+  const noSong = buildOurServices(input({ offered: (a) => a.key !== 'pakanta' }));
+  assert.equal(shownAddOnKeys(noSong).has('playlist'), false, 'Playlist must fall back to the section');
+  const noThankYou = buildOurServices(input({ offered: (a) => a.key !== 'thank-you' }));
+  assert.deepEqual(
+    noThankYou.find((c) => c.key === 'papic')!.parts.map((p) => p.key),
+    ['gallery'],
+    'a part not offered is not drawn',
+  );
 });

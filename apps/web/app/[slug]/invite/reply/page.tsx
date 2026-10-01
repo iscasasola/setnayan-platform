@@ -3,8 +3,9 @@ import { notFound, redirect } from 'next/navigation';
 import { DoorNotice, DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
+import { formatEventDateWithPrecision } from '@/lib/events';
 import { joinDoorMeta } from '@/lib/join-door-meta';
 import { inviteEnterPath } from '@/lib/invite-arrival';
 import { eventWordsFor } from '../../_lib/event-words';
@@ -16,8 +17,12 @@ import { rsvpGate } from '@/lib/guest-one-path';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
 import { hubDoorSkin } from '../_components/hub-door-skin';
-import { resolveReplyBy, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { guestReplyBy, readRsvpWords, resolveRsvpAsk, todayYmd } from '@/lib/rsvp-ask';
+import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
+import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
 import {
@@ -78,7 +83,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
   const { data: liveEvent, error: eventError } = await admin
     .from('events')
     .select(
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, monogram_studio_config, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}`,
     )
     // `.ilike`, NOT `.eq` — the same case-insensitive match as `/[slug]/invite`.
     .ilike('slug', slug)
@@ -147,13 +152,18 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     (!guest.first_name || String(guest.first_name).toLowerCase() === 'tba');
   if (isUnconfirmedTba) redirect(`/${home}/welcome`);
 
-  const [words, faceMode, supabase, hub, seats] = await Promise.all([
+  const [words, faceTagging, supabase, hub, seats, animationOwned] = await Promise.all([
     eventWordsFor(event.event_type as string),
-    resolvePapicFaceMode(admin, event.event_id as string),
+    resolveFaceTagging(admin, event.event_id as string),
     createClient(),
     wearTheHub(slug, admin, hostDraft, canvas),
     canvas ? Promise.resolve([]) : plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string),
+    // The hero's own gate for a moving mark (`loadMedia` → `animatedMonogram`).
+    eventAnimatedMonogramActive(admin, event.event_id as string).catch(() => false),
   ]);
+  // ▶ The crest plays the couple's layered logo exactly when the Event Hub hero
+  // would: the animation is owned AND not switched to "Use Static Image".
+  const markPlays = animationOwned && !markAnimationSwitchedOff(event.monogram_studio_config);
   const {
     data: { user: signedIn },
   } = await supabase.auth.getUser();
@@ -162,8 +172,6 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
 
   const replyLocked = guestListIsClosed({
     lockedAt: event.guest_count_locked_at as string | null,
-    editDeadline: event.guest_list_edit_deadline as string | null,
-    eventDate: event.event_date as string | null,
   });
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const gate = canvas ? ({ kind: 'inside', didntReply: false } as const) : rsvpGate({
@@ -208,6 +216,11 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           tone: 'error' as const,
           text: 'We could not save your reply just now. Please try again — it has not been recorded yet.',
         }
+      : search.rsvp === 'choose'
+        ? {
+            tone: 'error' as const,
+            text: 'Please choose whether you will be there — yes or no. Your reply has not been saved yet.',
+          }
       : search.rsvp === 'terms'
         ? {
             tone: 'error' as const,
@@ -222,27 +235,40 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
      IS an answer to stand on — a guest the key gate sent here has not got one. */
   const hasAnswered = gate.kind === 'inside' && ((guest.rsvp_status as string | null) ?? 'pending') !== 'pending';
 
-  // "Reply by" — the SAME date the couple sees on the Maker's RSVP page
-  // (`resolveReplyBy`, lib/rsvp-ask.ts: their own deadline, else 30 days before
-  // — owner 2026-09-26 "yes to all" (d)). Never shown once the list is locked.
+  // "Reply by" — only a date the HOST set that is still ahead (`guestReplyBy`,
+  // lib/rsvp-ask.ts; controller 2026-09-30: never the 30-day default, never a
+  // passed date). Never shown once the list is locked.
   const replyBy = replyLocked
     ? null
-    : resolveReplyBy({
+    : guestReplyBy({
         deadline: event.guest_list_edit_deadline as string | null,
-        eventDate: event.event_date as string | null,
+        today: todayYmd(),
       });
-  const closesLabel = replyBy
-    ? new Date(`${replyBy.date}T00:00:00Z`).toLocaleDateString('en-PH', {
-        day: 'numeric',
-        month: 'long',
-        timeZone: 'UTC',
-      })
-    : null;
+  // ONE date formatter on this page (guest text audit 2026-09-30): the event
+  // date above reads "Friday, December 18, 2026" (`formatEventDateWithPrecision`
+  // via `joinDoorMeta`), and the reply-by line read "18 December" in a second
+  // locale. Both now come from the same function.
+  const closesLabel = replyBy ? formatEventDateWithPrecision(replyBy.date, 'day') || null : null;
 
   const guestName =
     (guest.display_name as string | null)?.trim() ||
     `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() ||
     'Your reply';
+
+  /* 📐 ONE QUESTION PER SCREEN (owner 2026-09-29: "ask one question per screen
+     is not neatly arranged. there are rules for like this, where the progress
+     bar should be, where the logo, and questions"). With the switch on, the
+     progress goes UNDER THE COUPLE'S MARK (DoorShell `lead`), and the facts
+     below it — the invitation's heading, whose reply this is, the reply-by
+     line — show on the first screen only, folding to one line after it. The
+     walker (`RsvpOneAtATime`) finds both through the door that carries the
+     `lead`. With the switch off, none of this renders and the page is exactly
+     as before. */
+  const oneAtATime = askOneAtATime(event.rsvp_ask_config);
+  /* 🗳 On the Maker's RSVP stage the switch is flipped LIVE (rsvp-canvas-bridge.tsx),
+     so the canvas always draws the one-question scaffolding — inert while the
+     walker is off. A guest's page draws it only when the switch is on. */
+  const oneQuestionFrame = oneAtATime || canvas;
 
   return (
     /* 🎨 THE EVENT HUB'S LOOK AND GROUND (owner 2026-09-28: "background should
@@ -262,61 +288,90 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
           venue_name: event.venue_name as string | null,
         })}
         width="lg"
-        skin={hubDoorSkin(doorMarkFor(event))}
+        skin={hubDoorSkin({ ...doorMarkFor(event), animate: markPlays })}
+        lead={oneQuestionFrame ? <div data-rsvp-progress-slot="" /> : undefined}
       >
-        {/* Whose reply this is — and, on a phone a family shares, the way out. */}
-        <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-          <p className="font-serif text-lg text-ink" data-reply-for="">
-            {guestName}
+        {canvas ? <RsvpCanvasBridge /> : null}
+        {oneQuestionFrame ? (
+          <p hidden data-rsvp-context-line="" className="truncate text-sm text-ink/70">
+            {[event.display_name as string | null, `for ${guestName}`].filter(Boolean).join(' · ')}
           </p>
-          {canvas ? null : <NotYouSwitch slug={home} />}
-        </div>
+        ) : null}
+        {/* Whose reply this is — and, on a phone a family shares, the way out. */}
+        <FirstScreenOnly on={oneQuestionFrame}>
+          <div className="flex flex-wrap items-baseline justify-between gap-x-3">
+            <p className="font-serif text-lg text-ink" data-reply-for="">
+              {guestName}
+            </p>
+            {canvas ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
+          </div>
+        </FirstScreenOnly>
 
         {hasAnswered ? (
-          <DoorNotice>
-            Your reply is saved.{' '}
-            <Link
-              className="font-medium text-link underline-offset-2 hover:underline"
-              href={inviteEnterPath(home)}
-            >
-              Go to your QR and open the {words.eventWord}
-            </Link>
-            {replyLocked ? null : <> &mdash; or change your answer below.</>}
-          </DoorNotice>
+          <FirstScreenOnly on={oneQuestionFrame}>
+            <DoorNotice>
+              Your reply is saved.{' '}
+              <Link
+                className="font-medium text-link underline-offset-2 hover:underline"
+                href={inviteEnterPath(home)}
+              >
+                Open your invitation and your QR
+              </Link>
+              {replyLocked ? null : <> &mdash; or change your answer below.</>}
+            </DoorNotice>
+          </FirstScreenOnly>
         ) : closesLabel && (guest.rsvp_status as string | null) === 'pending' ? (
-          <p className="text-sm text-ink/70">Please reply by {closesLabel}.</p>
+          <FirstScreenOnly on={oneQuestionFrame}>
+            <p className="text-sm text-ink/70" data-rsvp-word={canvas ? rsvpWordBridgeKey('reply-by') : undefined}>
+              Please reply by {closesLabel}.
+            </p>
+          </FirstScreenOnly>
         ) : null}
 
         <RsvpWidget
           words={words}
           guest={{
             ...(guest as unknown as GuestRow),
-            // One name box per seat (+1…+4). Names only — a seat's key is for
-            // the thank-you's "Send their invite", never for this form.
-            plus_one_seats: seats.map((s) => ({ guest_id: s.guest_id, name: s.name })),
+            // One set of boxes per seat (+1…+4): name, meal, dietary. Never the
+            // seat's key — that is for the thank-you's "Send their invite".
+            plus_one_seats: seats.map((s) => ({
+              guest_id: s.guest_id,
+              name: s.name,
+              first: s.first,
+              last: s.last,
+              prefix: s.prefix,
+              middle: s.middle,
+              suffix: s.suffix,
+              meal: s.meal,
+              dietary: s.dietary,
+              linked: s.linked,
+            })),
           }}
           eventId={event.event_id as string}
           eventPublicId={event.public_id as string}
-          faceMode={faceMode}
+          faceMode={faceTagging.mode}
           flash={flash}
           replyLocked={replyLocked}
           profileDetails={profileDetails}
           doorAction={submitInviteReply.bind(null, event.event_id as string, guest.guest_id as string)}
-          /* 🔑 NO FACE TAGGING ON THE INVITE (owner, verbatim 2026-09-11: "face
-             tagging does not happen on the invite. it happens on their first view
-             on the day of the event? or on the day papic becomes available to use
-             for them."). The catch he describes ALREADY SHIPS —
-             `_components/day-of-face-enroll.tsx`, mounted on the day-of landing,
-             in the hub (`needsFaceEnroll`) and inside the Papic guest camera,
-             self-hiding once enrolled. So this is a removal from ONE surface, not
-             a feature taken away: a prop, because this card is shared with the
-             Event Hub's own RSVP card, which keeps its selfie. */
-          offerSelfie={false}
+          /* 🏷 THE QUESTION AT THE INVITATION, THE SELFIE ON THE DAY (owner
+             2026-09-30, "go"; DECISION_LOG "THE TAGGING QUESTION AT RSVP, THE
+             SELFIE ON THE DAY"). The invite asks "Want to be tagged in the
+             photos?" and saves the answer — no camera is drawn here, and the
+             save strips any face field (`stripInviteFaceFields`), so the
+             2026-09-11 rule "face tagging happens on the day, not on the invite"
+             holds for face DATA. On the day `day-of-face-enroll.tsx` asks only a
+             guest who said Yes for the selfie, and never one who said No.
+             `askable` (lib/face-tagging-gate.ts) hides the question altogether
+             unless the event's Papic is active and open and face tagging runs
+             there (owner 2026-09-30). No reply card draws a camera any more. */
+          askTagging={faceTagging.askable}
           ask={resolveRsvpAsk(event.rsvp_ask_config)}
           gate={gate.kind === 'ask' ? { missing: gate.missing, coupleMarked: gate.coupleMarked } : null}
           termsOnSend
           oneAtATime={askOneAtATime(event.rsvp_ask_config)}
           previewEveryQuestion={canvas}
+          answerWords={readRsvpWords(event.rsvp_ask_config)}
         />
       </DoorShell>
     </GuestLookScope>
@@ -366,4 +421,13 @@ async function wearTheHub(
   } catch {
     return { look: null, ground: null };
   }
+}
+
+/**
+ * What only the FIRST one-question screen shows (`data-rsvp-context`) — the
+ * walker folds it to one line from screen 2. Off, a bare fragment: the page is
+ * exactly as before.
+ */
+function FirstScreenOnly({ on, children }: { on: boolean; children: React.ReactNode }) {
+  return on ? <div data-rsvp-context="">{children}</div> : <>{children}</>;
 }

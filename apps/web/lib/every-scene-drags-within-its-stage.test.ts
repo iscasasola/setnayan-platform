@@ -81,7 +81,8 @@ test('1 · a BUILT-IN scene reorders on its stage, and guests see the order', ()
     stage: 'rsvp', widgets: rows, openBrowse: false, content: {}, solemn: false, hasHeroMedia: false,
     hasEntourage: false, storyRenders: false,
   }).shown.flatMap((t) => (t.kind === 'scene' ? [t.type] : []));
-  assert.deepEqual(nav.slice(0, 2), ['countdown', 'schedule']);
+  // (Reminders lead the list — they are on the Welcome page, before Details: owner 2026-09-30.)
+  assert.deepEqual(nav.slice(0, 3), ['what_to_bring', 'countdown', 'schedule']);
 });
 
 test('1 · …through the DRAFT: the preview shows it, Apply writes it (never Pro), guests see it after', () => {

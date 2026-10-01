@@ -107,6 +107,7 @@ import { DepositReservation } from './_components/deposit-reservation';
 import { readBookedMoney } from '@/lib/booked-money-step.server';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
 import { ColourAccessCard } from './_components/colour-access-card';
+import { PromoteCoordinatorCard, type PromoteCoordinatorFlash } from './_components/promote-coordinator-card';
 import {
   laneForVendorCategory,
   type ColourChangeRow,
@@ -223,7 +224,9 @@ type Props = {
   // searchParams added for mark-read parity with the vendor side: the shell
   // reflects the active tab in `?tab=`, and a deep-link / quick-action landing
   // on a non-chat tab must NOT clear the unread badge. Read RAW below.
-  searchParams: Promise<{ tab?: string }>;
+  // …and the Promote-your-coordinator card's own flash (hosts/actions.ts lands
+  // here with `vendor_id` since the Hosts fold, 2026-09-30).
+  searchParams: Promise<{ tab?: string } & PromoteCoordinatorFlash>;
 };
 
 // ----------------------------------------------------------------------------
@@ -2072,7 +2075,33 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         </section>
   );
 
-  const colourAccessSection = (
+  /* 🔑 A BOOKED PLANNER GETS THE PROMOTE CARD, NOT A COLOUR SWITCH (Hosts fold,
+     owner 2026-09-30). A coordinator holds SEVERAL colour domains keyed to the
+     person, which one per-booking switch cannot express — this card used to
+     send the couple to the Hosts page for them. That page's "Promote your
+     coordinator" now lives here, on the booking it is about, with the
+     planner's grants and colour domains inside it. */
+  const colourAccessSection =
+    ev.category === 'planner_coordinator' ? (
+    <PromoteCoordinatorCard
+      eventId={eventId}
+      vendor={{
+        vendor_id: ev.vendor_id,
+        vendor_name: ev.vendor_name,
+        contact_email: ev.contact_email,
+        marketplace_vendor_id: ev.marketplace_vendor_id,
+        status: ev.status,
+      }}
+      flash={{
+        invite_sent: search.invite_sent,
+        invite_error: search.invite_error,
+        invite_revoked: search.invite_revoked,
+        grant_updated: search.grant_updated,
+        host_removed: search.host_removed,
+        token: search.token,
+      }}
+    />
+  ) : (
     <ColourAccessCard
       vendorId={ev.vendor_id}
       displayName={displayName}
@@ -2085,8 +2114,6 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
       lane={colourLane}
       isOn={colourAccessOn}
       changes={colourChanges}
-      isCoordinatorBooking={ev.category === 'planner_coordinator'}
-      hostsHref={`/dashboard/${eventId}/hosts`}
       /* `.bind` rather than an inline closure: a Server Action passed to a
          client component has to be an action reference, and binding the
          eventId keeps the client's call signature to the two things it

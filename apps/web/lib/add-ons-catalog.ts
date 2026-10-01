@@ -186,7 +186,7 @@ export type AddOnEntry = {
   /*
     ─── THIS SERVICE CAN ONLY HAPPEN DURING THE EVENT ───────────────────────
 
-    Owner, 2026-08-21, asked what should happen to Live Studio, Papic cameras
+    Owner, 2026-08-21, asked what should happen to Live Watch, Papic cameras
     and Custom QR once the celebration is over: **"stop offering them."** The
     card still shows what it was; the buy path closes.
 
@@ -789,7 +789,7 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // Studio has two variants, Cast + Roam). Key stays 'panood' / serviceKey
     // PANOOD_SYSTEM (live product; internal rename is a separate effort). ⚠ Umbrella
     // "Live Studio" copy on marketing/home/alaala/editorial is NOT reconciled here.
-    label: 'Live Studio Cast',
+    label: 'Live Watch Cast',
     Icon: Tv,
     iteration: '0011',
     status: 'web_v1',
@@ -1047,7 +1047,7 @@ const LIVE_STUDIO_ENTRY: AddOnEntry = {
   surface: 'livestream',
   tags: ['Live', 'Video', 'Multi-cam', 'Day-of'],
   opensDirect: true,
-  label: 'Live Studio',
+  label: 'Live Watch',
   Icon: Video,
   iteration: '0011',
   status: 'web_v1',

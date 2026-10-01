@@ -7,6 +7,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { fetchEntrance } from '@/lib/indoor-blueprint';
+import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
+import { detailsDoorHref } from '@/lib/maker-details-items';
+import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { BlueprintStudio } from './_components/blueprint-studio';
 import { saveEntrance } from './actions';
 
@@ -36,6 +39,16 @@ export default async function IndoorBlueprintPage({ params }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
+  // 🗺 THE INDOOR BLUEPRINT'S HOME IS THE SEAT PLAN (owner-approved 2026-09-29:
+  // "it's the same room"): for the couple of an Event Hub event whose type has
+  // a seat plan, this address lands on Details › Seat plan › Guests' map — the
+  // same studio, drawn beside the plan it reads. Anyone else keeps this page.
+  if (
+    surfaceEnabled(await resolveProfileByEvent(eventId), 'seating') &&
+    (await detailsIsTheDoor(supabase, eventId, user.id))
+  ) {
+    redirect(detailsDoorHref(eventId, 'seating', { seat: 'map' }));
+  }
 
   const { data: event } = await supabase
     .from('events')

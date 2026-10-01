@@ -100,12 +100,17 @@ test("the sibling's /dashboard fallback is deliberately NOT copied", () => {
 
 // ── Item 9, the shipped-half defect ─────────────────────────────────────────
 
-test('a plus-one who names themselves stops being called "+ TBA"', () => {
-  const at = WELCOME.indexOf('plus_one_name_confirmed_at');
+test('a plus-one who names themselves stops being called "+2 · TBA"', () => {
+  // 🪤 The confirm write MOVED (#6151, 2026-09-29): the plus-one's own door
+  // builds one \`patch\` (name, meal, dietary) and writes it once, so the
+  // confirm is \`patch.plus_one_name_confirmed_at = now\` — follow the write,
+  // not its old object-literal spelling. The property is unchanged: the SAME
+  // write that confirms the name clears the placeholder \`display_name\`.
+  const at = WELCOME.search(/plus_one_name_confirmed_at\s*[:=]\s*now/);
   assert.ok(at > -1, 'the confirm write is gone');
   const body = WELCOME.slice(Math.max(0, at - 400), at + 200);
   assert.ok(
-    /display_name:\s*null/.test(body),
+    /display_name\s*[:=]\s*null/.test(body),
     'display_name is not cleared — guestDisplayName prefers it, so the placeholder survives the rename',
   );
 });
@@ -119,8 +124,11 @@ test('the placeholder is still MINTED — only the confirm clears it', () => {
   const NEWACTION = strip(read('app/dashboard/[eventId]/guests/new/actions.ts'));
   const SYNC = strip(read('lib/extra-seats-sync.ts'));
   assert.match(NEWACTION, /syncExtraSeats\(/, 'the add-guest form no longer mints its plus-one seats');
-  assert.ok(
-    /brought by/.test(SYNC),
-    'the TBA placeholder was removed at the mint — an unnamed +1 now shows a blank name',
-  );
+  // 🪤 The label CHANGED by owner rule (2026-09-29, DECISION_LOG "EVERY PLUS-ONE
+  // IS NAMED… SEATS NUMBERED +1…+N"): "+2 · TBA", never "+ TBA · brought by …".
+  // Still minted at the source — through the one label helper.
+  const SEATS = strip(read('lib/extra-seats.ts'));
+  assert.match(SYNC, /display_name:\s*seatPlaceholderLabel\(/, 'the TBA placeholder was removed at the mint — an unnamed +1 now shows a blank name');
+  assert.match(SEATS, /return `\+\$\{index \+ 1\} · TBA`;/, 'the placeholder is no longer "+N · TBA"');
+  assert.doesNotMatch(SYNC, /brought by …['"`]/, 'the retired "+ TBA · brought by …" label is minted again');
 });

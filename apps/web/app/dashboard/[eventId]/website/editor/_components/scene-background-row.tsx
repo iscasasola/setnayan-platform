@@ -7,7 +7,8 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
-import { makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerSave } from '@/lib/maker-refresh';
+import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { SCENE_BACKGROUND_FOLDER, sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
 import { uploadStill } from '@/lib/upload-still';
@@ -252,10 +253,15 @@ export function SceneBackgroundRow({
        then the save. */
     lay(touched);
     onSaving?.(touched, redrawsBox);
+    /* ⚡ The Maker's own copy of every scene this pick wrote — no render follows
+       a drawn pick, so the next panel builds on this (`lib/maker-draft-store.ts`). */
+    for (const [type, c] of Object.entries(touched)) noteDraftedCanvas(type, c, before[type]);
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify(patch));
+      /* ⚡ No Maker render follows a held pick — the Apply count comes back with the save. */
+      fd.set(HUB_DRAFT_BAR_FIELD, '1');
       const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true }).catch(
         () => ({ ok: false as const, intent: 'save' as const, error: 'That change could not be saved. Please try again.' }),
       );
@@ -271,6 +277,7 @@ export function SceneBackgroundRow({
           }
           lay(before);
           onSaving?.(before, redrawsBox);
+          for (const [type, c] of Object.entries(before)) noteDraftedCanvas(type, c, c);
         }
         setError(res.error);
         return;
@@ -690,8 +697,8 @@ export function SceneBackgroundRow({
   );
 }
 
-/** One of the couple's photos, as a tap target. */
-function PhotoTile({ url, on, onPick, label }: { url: string; on: boolean; onPick: () => void; label?: string }) {
+/** One of the couple's photos, as a tap target (also the Main background's picker). */
+export function PhotoTile({ url, on, onPick, label }: { url: string; on: boolean; onPick: () => void; label?: string }) {
   return (
     <button
       type="button"
@@ -708,7 +715,7 @@ function PhotoTile({ url, on, onPick, label }: { url: string; on: boolean; onPic
 }
 
 /** One of the couple's clips, as a tap target — on its still when there is one. */
-function ClipTile({ on, onPick, still }: { on: boolean; onPick: () => void; still: string | null }) {
+export function ClipTile({ on, onPick, still }: { on: boolean; onPick: () => void; still: string | null }) {
   return (
     <button
       type="button"

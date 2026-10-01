@@ -94,6 +94,7 @@ import {
   HUB_MAIN_GROUND_KEY,
   hubMainGround,
   isHubMainFollow,
+  isHubMainOwn,
   sanitizeHubCanvas,
   sanitizeHubMainGround,
   type HubMainGround,
@@ -134,6 +135,7 @@ import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground }
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
+import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
@@ -1327,15 +1329,19 @@ export function presetSceneOf(canvas: HubSectionCanvas): string | null {
  * measured frame and toggle are compared: the adaptive tint, which is Pro.
  */
 export function mainGroundChange(live: HubMainGround | null, next: HubMainGround | null): LookChange {
-  const ref = (m: HubMainGround | null) => (m && !isHubMainFollow(m) ? `${m.kind}:${m.media}` : null);
-  const poster = (m: HubMainGround | null) => (m && !isHubMainFollow(m) ? (m.poster ?? null) : null);
+  /* 🖼 "The theme's background" and "None — just the colour" carry no media
+     and no tint: going to either is a removal (free), never an addition. */
+  const ref = (m: HubMainGround | null) => (isHubMainOwn(m) ? `${m.kind}:${m.media}` : null);
+  const poster = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.poster ?? null) : null);
   const tint = (m: HubMainGround | null) =>
-    m ? asText(isHubMainFollow(m) ? { of: m.of, ...m.tint } : (m.tint ?? null)) : null;
-  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null));
+    isHubMainFollow(m) ? asText({ of: m.of, ...m.tint }) : isHubMainOwn(m) ? asText(m.tint ?? null) : null;
+  const motion = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.motion ?? null) : null);
+  if (!next) return combineChanges(refChange(ref(live), null), refChange(tint(live), null), refChange(motion(live), null));
   return combineChanges(
     refChange(ref(live), ref(next)),
     refChange(poster(live), poster(next)),
     refChange(tint(live), tint(next)),
+    refChange(motion(live), motion(next)),
   );
 }
 
@@ -1576,6 +1582,10 @@ export function planHubDraftApply(
       // A held look keeps the WHOLE drafted map, so the next Apply (after Pro)
       // finds it — and finds its free part already live.
       if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+      // 💎 A held story extra (moments, columns, wishes) stays drafted whole.
+      else if (item.item.field === 'chapterOverrides' || item.item.field === 'customColumns' || item.item.field === 'reviews') {
+        remaining.editorial = { ...(remaining.editorial ?? {}), [item.item.field]: item.item.value };
+      }
     } else if (item.kind === 'fixed-style') {
       // Never refused (a style pick is free) — kept for completeness.
       remaining.fixedStyles = { ...(remaining.fixedStyles ?? {}), [item.scene]: item.value };
@@ -1740,8 +1750,28 @@ export type HubDraftActionResult =
       applied: number;
       /** Keys held back, each with a sentence-ready label and a reason (apply only). */
       held: Array<{ label: string; reason: HubDraftRefusal }>;
+      /**
+       * ⚡ The Apply bar as it stands after this save — only when the save asked
+       * for it (`HUB_DRAFT_BAR_FIELD`, `lib/maker-refresh.ts`). A pick the bridge drew owes the Maker no
+       * render (`lib/maker-refresh.ts`), so the toolbar's count comes from here.
+       */
+      bar?: HubDraftBarLive;
     }
   | { ok: false; intent: HubDraftIntent | null; error: string };
+
+/**
+ * What the toolbar re-reads after a save (`hubDraftBarAfterSave`): the count for
+ * a couple WITHOUT Pro and for one WITH it — the save never asks which this
+ * viewer is (the view switch must never reach a server action), the toolbar
+ * picks with the render's own answer — plus the Pro effects and their price
+ * for the couple without it.
+ */
+export type HubDraftBarLive = {
+  free: HubDraftSummary;
+  owned: HubDraftSummary;
+  proEffects: HubProEffectView[];
+  priceLabel: string | null;
+};
 
 /**
  * Does the Maker toolbar's ⋯ panel stay OPEN once an action reports back? Only
@@ -1777,7 +1807,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   our_photos: 'Your photos',
   style_preferences: 'Your QR code',
   special_message: 'Your special message',
-  what_to_bring: 'What to bring',
+  what_to_bring: 'Your reminders',
   love_story: 'Your Love Story',
   together_since: 'Together since',
   dress_code_config: 'Your dress code',

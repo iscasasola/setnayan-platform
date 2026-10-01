@@ -102,9 +102,14 @@ test('1 · WIRING: the event page redirects a key with missing answers to the RS
   assert.ok(redirectAt < firstGuestRender, 'the redirect now comes AFTER the guest page is built');
   assert.match(
     PAGE,
-    /if \(keyGate\.kind === 'ask' && !isEditorCanvas && !ownerCapability\) \{\s*redirect\(inviteReplyPath/,
-    'the gate must spare only the Maker canvas and the event’s own host',
+    // A plus-one is gated by `plusOneGate` instead — their own door, the
+    // minimum four (owner 2026-09-29) — never the full reply.
+    /if \(!isPlusOne && keyGate\.kind === 'ask' && !isEditorCanvas && !ownerCapability && !openedFromLanding\) \{\s*redirect\(inviteReplyPath/,
+    'the gate must spare only the Maker canvas, the event’s own host, a plus-one (who has their own door), and the landing page’s "Open the invitation"',
   );
+  // 🚪 The one exemption is the landing page's own link (owner 2026-09-30,
+  // frame 1) — an exact value, never "any `from`".
+  assert.match(PAGE, /const openedFromLanding = search\[LANDING_OPEN_PARAM\] === LANDING_OPEN_VALUE;/);
   assert.match(PAGE, /didntReply: keyGate\.kind === 'inside' && keyGate\.didntReply/, 'the "Didn\'t reply" mark no longer reaches the page');
   assert.match(BODY, /\{g\.didntReply \? \(/, 'the "Didn\'t reply · you\'re in" chip is not drawn');
 });
@@ -192,7 +197,6 @@ test('2 · 🔒 "only what is missing" carries every unasked answer through AS S
     ['meal_preference', 'fish'],
     ['dietary_restrictions', 'nut allergy'],
     ['guest_note', 'See you!'],
-    ['contact_email', 'tita@example.com'],
     ['contact_display_name', 'Tita Baby'],
   ] as const) {
     assert.match(
@@ -210,7 +214,8 @@ test('2 · the Terms tick is on the Send step: unticked, required, one name', as
   assert.match(tick, /name="terms_agreed"/);
   assert.match(tick, /required/);
   assert.doesNotMatch(tick, /checked/, 'the Terms tick is pre-ticked — that is not an agreement');
-  assert.match(html, />Send</, 'the one button is not "Send"');
+  // The Fable frame 2c's words (owner 2026-09-30): "Send my reply".
+  assert.match(html, />Send my reply</, 'the one button is not "Send my reply"');
 });
 
 test('2 · 🔒 the door action refuses an unticked Send, carries the tick in a server cookie, and never lets Send email a sign-in link', () => {
@@ -245,21 +250,26 @@ test('3 · the method is chosen by the DEVICE, never shown as a choice', () => {
     'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
   const IOS_APP = `${IOS_SAFARI} SetnayanApp`;
   const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36';
-  assert.equal(saveMethodFor(MESSENGER, both), 'email', 'Google blocks sign-in inside Messenger — it must be the email link');
-  assert.equal(saveMethodFor(INSTAGRAM, both), 'email');
+  // 📵 Never the email link any more (owner 2026-09-29, "NO EMAIL TO GUESTS"):
+  // inside Messenger the button is "Open in your browser" (frame F).
+  assert.equal(saveMethodFor(MESSENGER, both), 'browser', 'Google blocks sign-in inside Messenger — it must be "Open in your browser"');
+  assert.equal(saveMethodFor(INSTAGRAM, both), 'browser');
   assert.ok(isInAppWebview(MESSENGER) && !isInAppWebview(IOS_SAFARI));
   assert.equal(saveMethodFor(IOS_SAFARI, both), 'apple');
   assert.equal(saveMethodFor(IOS_APP, both), 'apple');
   assert.equal(saveMethodFor(ANDROID, both), 'google');
   // A provider that is not switched on is never offered.
   assert.equal(saveMethodFor(IOS_SAFARI, { apple: false, google: true }), 'google');
-  assert.equal(saveMethodFor(ANDROID, { apple: false, google: false }), 'email');
+  assert.equal(saveMethodFor(ANDROID, { apple: false, google: false }), 'link', 'no provider must fall back to the guest’s own link, never an email');
 });
 
-test('3 · WIRING: the thank-you mounts ONE Save, "Your guests", and a small "Not now"', () => {
+test('3 · WIRING: the landing page mounts ONE Save, "Your guests", and ONE way into the invitation', () => {
   assert.match(ENTER, /<SaveToAccount\b/);
   assert.match(ENTER, /<YourGuests\b/);
-  assert.match(ENTER, />\s*Not now\s*</);
+  // 2026-09-30: "Open the invitation" (the phase's own words) replaced the
+  // thank-you's "Not now" — the landing page has one way in, not two.
+  assert.equal(ENTER.split('{destinationWords.cta}').length - 1, 2, 'one open link before a reply, one button after — never both');
+  assert.doesNotMatch(ENTER, />\s*Not now\s*</, 'a second way into the invitation came back');
   // Each plus-one's link is built from THEIR OWN key by the one url speller.
   assert.match(ENTER, /buildInvitationUrl\(\{ \.\.\.qrParams, qrToken: s\.qrToken \}\)/);
 });
@@ -284,9 +294,11 @@ test('3 · the thank-you says the right thing, and reads the date as text', () =
   assert.equal(dayOrdinal('2026-12-11'), '11th');
   assert.equal(dayOrdinal(null), null);
   assert.equal(
-    thankYouHeadline({ status: 'attending', firstName: 'Ana Reyes', eventDate: '2026-12-18', solemn: false }),
-    'See you on the 18th, Ana!',
+    thankYouHeadline({ status: 'attending', eventDate: '2026-12-18', solemn: false }),
+    'See you on the 18th!',
   );
+  // No first name on a guest's screen — no casual greetings (owner, DECISION_LOG 2026-09-30).
+  assert.equal(thankYouHeadline({ status: 'declined', eventDate: null, solemn: false }), 'Thank you — you’ll be missed');
   assert.equal(replySummary({ status: 'attending', seats: 3, meal: 'fish', solemn: false }), 'Joyfully accepts · 3 seats · Fish');
 });
 
@@ -305,7 +317,8 @@ test('3 · "Your guests": Send their invite for a named plus-one, Add their name
   );
   assert.match(html, /Ben Reyes/);
   assert.match(html, /Send their invite/);
-  assert.match(html, /Seat 3/);
+  assert.match(html, /\+2 · TBA/, 'an unnamed seat is numbered by seat — "+2 · TBA"');
+  assert.doesNotMatch(html, /Guest \d|Seat \d/, 'a seat numbered by headcount');
   assert.match(html, /href="\/ana\/invite\/reply#plus-ones"[^>]*>Add their name/);
   const none = renderToStaticMarkup(
     React.createElement(YourGuests, { guests: [], eventName: 'x', addNamesHref: '#' }),
@@ -322,7 +335,9 @@ test('5 · the stranger gets ONE button — "Get inside" — and a signed-in non
     React.createElement(GetInside, { slug: 'ana', eventId: 'e-1', signedInNotListed: false, theOrganizer: 'the couple' }),
   );
   assert.match(door, /Get inside/);
-  assert.match(door, /Scan your QR · Tap NFC · Sign in/);
+  // It names only what opens underneath — no "Scan", no "Tap NFC" (audit 2026-09-30).
+  assert.match(door, /Upload your QR · Sign in/);
+  assert.doesNotMatch(door, /Tap NFC|Scan your QR/);
   assert.match(door, /href="\/login\?next=%2Fana"/);
   // "Ask to join" only on "Anyone, I approve" (owner 2026-09-27) — the closed
   // list is pinned in the-poster-qr-opens-the-event.test.ts.
@@ -351,7 +366,8 @@ test('5 · 🔒 nothing INSIDE is rendered for a stranger — decided on the ser
   assert.ok(start > -1 && end > start);
   assert.match(anon, /const insideAllowed = viewerIsHost \|\| vendorCapability !== null;/);
   assert.match(anon, /\{insideAllowed && dayOfPhase === 'live' && plan\.liveMediaVisible && liveWall \? \(/, 'the live photo wall reaches strangers');
-  assert.match(anon, /\{insideAllowed \? \(\s*<div className="mt-8 text-center">\s*<Link\s*href=\{`\/\$\{event\.slug\}\/find-seat`\}/, 'the seat finder is offered to strangers');
+  // (#6169 adds the one seat rule AFTER `insideAllowed` — a stranger is still refused first.)
+  assert.match(anon, /\{insideAllowed(?: && [^{}]*?)? \? \(\s*<div className="mt-8 text-center">\s*<Link\s*href=\{`\/\$\{event\.slug\}\/find-seat`\}/, 'the seat finder is offered to strangers');
   assert.match(anon, /candidCameraActive=\{insideAllowed && publicCandidCameraActive\}/, 'the camera reaches strangers');
   assert.match(anon, /photosHref=\{insideAllowed \? publicAlbumHref : null\}/, 'the photos reach strangers');
   assert.match(anon, /<GetInside\b/, 'the stranger has no way in');
@@ -374,7 +390,7 @@ test('5 · "Not you? Switch" clears the guest pass with a POST, never a prefetch
   assert.match(form, /method="post"/);
   assert.match(html, /Switch/);
   assert.match(read('[slug]/sign-out/route.ts'), /await clearGuestSession\(\);/);
-  assert.match(REPLY, /<NotYouSwitch slug=\{home\} \/>/);
+  assert.match(REPLY, /<NotYouSwitch slug=\{home\} erasesSelfie=\{guest\.photo_source === 'selfie'\} \/>/);
 });
 
 // ═══ 7 · "Two ways to celebrate" leaves the Invitation and the Day ════════

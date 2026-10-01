@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { NavLinksRow } from '@/app/_components/nav-links';
 import { VendorLocationMap } from '@/app/_components/vendor-location-map';
 import type { EventRow } from '../_lib/types';
@@ -33,8 +34,9 @@ export function VenueWidget({
   // MAP. Where the streets belong, guests got a decorative gradient band and a
   // line of text: the couple could pin their venue exactly, and a relative
   // working out how to get there still saw no map anywhere on the invitation.
-  // The band is now the FALLBACK, kept verbatim for events with no coordinates,
-  // and a real map takes its place the moment there are any.
+  // A real map takes its place the moment there are coordinates. (2026-09-30:
+  // the band is gone entirely — with no photo and no map the card is clean
+  // text; the band read as a picture that never loaded.)
   //
   // 🔑 RULE 0 — NOTHING IS DRAWN HERE. `VendorLocationMap` already ships and has
   // been on public shop pages since 2026-06-28: the OFFICIAL OpenStreetMap embed,
@@ -74,7 +76,7 @@ export function VenueWidget({
           couple who has not booked a venue. It says which it is — once, under
           every venue, since one reply opens them all. */}
       {event.venue_withheld ? (
-        <p className="text-sm leading-relaxed text-ink/65">{VENUE_WITHHELD_LINE}</p>
+        <p className="text-sm leading-relaxed text-ink/80">{VENUE_WITHHELD_LINE}</p>
       ) : null}
     </section>
   );
@@ -93,10 +95,39 @@ function legacyVenues(event: EventRow): EventVenue[] {
   ];
 }
 
+/**
+ * 🔆 THE DIRECTIONS CHIPS STAND ON THE PLATE (owner 2026-09-30, "I cannot see the
+ * venues properly"). `NavLinksRow` paints its chips `bg-cream` — the PAGE ground —
+ * with the PLATE's ink. Wherever the page and the plate differ in lightness (a
+ * dark background under a light mood-board plate, a light background under a
+ * dark theme's plate) that pair measured 1.0–1.1 : 1. Re-grounding `--color-cream`
+ * to the plate paper for this plate (nothing else on it paints with cream) makes
+ * the chips the plate's own colour, held apart by their hairline border. Measured by
+ * `lib/the-venue-cards-are-readable.test.ts`.
+ */
+const VENUE_CHIP_GROUND = { '--color-cream': 'var(--color-paper-deep)' } as CSSProperties;
+
 function VenuePlate({ venue, event }: { venue: EventVenue; event: EventRow }) {
   const hasCoords = venue.latitude != null && venue.longitude != null;
   return (
     <div data-venue-role={venue.role}>
+      {/* 🏛📷 THE VENUE'S PHOTO (owner 2026-09-30): the booked supplier's own
+          public photo, or the couple's upload — chosen in the Maker's Venue
+          panel (`lib/event-venues.ts` `venuePhotoFor`). It shows before a reply:
+          a picture of the place tells a guest no more than its name, which they
+          already read. With no photo there is NO band — the old tinted gradient
+          read as a picture that failed to load. */}
+      {venue.photoUrl ? (
+        <figure className="relative aspect-[16/9] overflow-hidden border border-b-0 border-ink/10 bg-ink/5" data-venue-photo="">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={venue.photoUrl}
+            alt={venue.name ? `${venue.name}` : 'The venue'}
+            loading="lazy"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+        </figure>
+      ) : null}
       {hasCoords ? (
         <VendorLocationMap
           latitude={venue.latitude ?? null}
@@ -109,11 +140,11 @@ function VenuePlate({ venue, event }: { venue: EventVenue; event: EventRow }) {
           label={venue.name ?? 'the venue'}
           flush
         />
-      ) : (
-        <div className="h-32 border border-b-0 border-ink/10 bg-gradient-to-br from-veil via-paper-deep to-gild/25" />
-      )}
-      <div className="pahina-plate space-y-3">
-        <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-gild">
+      ) : null}
+      <div className="pahina-plate space-y-3" style={VENUE_CHIP_GROUND}>
+        {/* The label is words a guest reads, so it takes the plate's ink — the
+            gild is a decor metal and measured 1.76 : 1 here (cale-ice, 2026-09-30). */}
+        <p className="font-mono text-[0.66rem] uppercase tracking-[0.28em] text-ink/80">
           {VENUE_ROLE_LABEL[venue.role]}
         </p>
         {/* "Venue to be confirmed" is only honest when nothing locates the
@@ -134,7 +165,7 @@ function VenuePlate({ venue, event }: { venue: EventVenue; event: EventRow }) {
           </h3>
         )}
         {venue.address ? (
-          <p className="text-sm leading-relaxed text-ink/65">{venue.address}</p>
+          <p className="text-sm leading-relaxed text-ink/80">{venue.address}</p>
         ) : null}
         {/* ⚠ THE DIRECTIONS ROW GOES WITH THE ADDRESS. `NavLinksRow` falls back
             to a maps search when there is no pin, so leaving it mounted for a

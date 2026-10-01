@@ -1,16 +1,18 @@
 'use client';
 
+import { useRoleNames } from './role-names-context';
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle } from 'lucide-react';
 import {
-  ROLE_LABELS,
+  guestRoleLabel,
   SIDE_LABELS,
   type GuestRole,
   type GuestSide,
 } from '@/lib/guests';
 import { findDuplicates, TAG } from '@/lib/guest-dedupe';
 import { parsePersonName } from '@/lib/person-name-parse';
+import { PrefixSelect } from '@/app/_components/formal-name-inputs';
 
 // Slim projection of a guest — only what the matcher needs + what the
 // warning row renders. The server page maps GuestRow down to this so the
@@ -53,6 +55,8 @@ export function GuestNameFields({
   eventId: string;
   pool: NamePoolGuest[];
 }) {
+  // The couple's own words for roles (owner 2026-09-30).
+  const roleNames = useRoleNames();
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
   const [prefix, setPrefix] = useState('');
@@ -97,16 +101,10 @@ export function GuestNameFields({
           <label className="block text-sm font-medium text-ink" htmlFor="name_prefix">
             Prefix
           </label>
-          <input
-            className="input-field"
-            id="name_prefix"
-            name="name_prefix"
-            type="text"
-            autoComplete="off"
-            placeholder="Atty."
-            value={prefix}
-            onChange={(e) => setPrefix(e.target.value)}
-          />
+          {/* 🪪 The guest side's Prefix dropdown (owner 2026-09-30). The
+              splitter still fills it — an unlisted title it finds stays as its
+              own option. */}
+          <PrefixSelect id="name_prefix" value={prefix} onChange={(e) => setPrefix(e.target.value)} />
         </div>
         <div className="space-y-1.5 sm:col-span-3">
           <label className="block text-sm font-medium text-ink" htmlFor="first_name">
@@ -203,7 +201,7 @@ export function GuestNameFields({
                   {g.first_name} {g.last_name}
                 </span>
                 <span className="block truncate text-[11px] text-ink/55">
-                  {[g.role, ...g.extra_roles].map((r) => ROLE_LABELS[r]).join(' · ')}
+                  {[g.role, ...g.extra_roles].map((r) => guestRoleLabel(r, roleNames)).join(' · ')}
                   {' · '}
                   {SIDE_LABELS[g.side]}
                 </span>

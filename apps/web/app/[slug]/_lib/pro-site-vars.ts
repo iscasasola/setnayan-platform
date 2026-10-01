@@ -110,3 +110,106 @@ export function proSiteVarsFor(
 
   return Object.keys(proSiteVars).length > 0 ? proSiteVars : null;
 }
+
+// ── THE PLATE KEEPS A READABLE INK (owner 2026-09-30, "I cannot see the venues") ──
+//
+// Measured on the live page (`cale-ice`, 390 px, 2026-09-30): the venue plates
+// painted their NAME in rgb(243 231 220) on their own paper, rgb(240 237 232) —
+// 1.1 : 1, i.e. invisible. Two layers disagreed about one fact:
+//
+//   · the theme (`[data-hub-theme='velvet']`, a DARK theme) pins the plate ink
+//     LIGHT — right for velvet's own dark plate (`--color-paper-deep: 52 19 12`);
+//   · the couple's mood-board palette (`buildSitePaletteVars`, spread inline on
+//     the SAME element, so it wins) repaints the plate paper LIGHT and never
+//     names a plate ink — so the theme's light one leaked onto light paper.
+//
+// No one layer is wrong on its own; the COMBINATION is. So the answer is taken
+// where every layer has already been spread: `pinPlateInk` looks at the plate
+// paper that will actually paint and keeps the plate ink only if it reads on
+// it; otherwise it takes the first readable ink the theme itself offers. An
+// event whose plate already reads is returned UNCHANGED (byte-identical).
+//
+// 🔒 Held by `lib/the-venue-cards-are-readable.test.ts`, which runs every
+// theme × every colour source through `guestLookFrom` (the function the guest
+// page itself calls) and measures the blended pixel of every venue word.
+
+/** `r g b` channels (or `#rrggbb`) → relative luminance. */
+function luminanceOf(value: string): number | null {
+  const rgb = rgbOf(value);
+  if (!rgb) return null;
+  const lin = (c: number) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(rgb[0]) + 0.7152 * lin(rgb[1]) + 0.0722 * lin(rgb[2]);
+}
+
+/** `"r g b"` or `#rrggbb` → [r, g, b], or null. */
+export function rgbOf(value: string): [number, number, number] | null {
+  const v = value.trim();
+  const hex = /^#([0-9a-f]{6})$/i.exec(v);
+  if (hex) {
+    const n = parseInt(hex[1]!, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  const parts = v.split(/\s+/).map(Number);
+  return parts.length === 3 && parts.every((p) => Number.isFinite(p)) ? (parts as [number, number, number]) : null;
+}
+
+/** WCAG contrast of two colours (channels or hex). 1 when either is unreadable. */
+export function contrastOf(a: string, b: string): number {
+  const la = luminanceOf(a);
+  const lb = luminanceOf(b);
+  if (la == null || lb == null) return 1;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** The pixel `ink` at `alpha` paints over an opaque `ground`, as channels. */
+export function blendOver(ink: string, ground: string, alpha: number): string {
+  const i = rgbOf(ink);
+  const g = rgbOf(ground);
+  if (!i || !g) return ink;
+  return i.map((c, k) => Math.round(c * alpha + g[k]! * (1 - alpha))).join(' ');
+}
+
+/**
+ * The faintest a plate's words are drawn: `text-ink/65` (a venue's address, the
+ * "When"/"Where" small print). An ink that reads at this alpha reads at every
+ * stronger one (the name, the buttons).
+ */
+export const PLATE_MUTED_ALPHA = 0.65;
+/** WCAG AA for body text. */
+export const PLATE_MIN_CONTRAST = 4.5;
+
+/** Does `ink` read on `plate` even at the faintest alpha a plate uses? */
+export function plateInkReads(ink: string, plate: string): boolean {
+  return contrastOf(blendOver(ink, plate, PLATE_MUTED_ALPHA), plate) >= PLATE_MIN_CONTRAST;
+}
+
+/**
+ * The composed vars with `--color-ink-on-plate` guaranteed readable on the plate
+ * paper that will actually paint (`--color-paper-deep` from `vars`, else the
+ * theme's own surface). Unchanged when it already reads.
+ */
+export function pinPlateInk(
+  vars: Record<string, string> | null,
+  themeId: InviteThemeId = 'house',
+): Record<string, string> | null {
+  if (!vars) return vars;
+  const theme = INVITE_THEMES[themeId] ?? INVITE_THEMES.house;
+  const plate = vars['--color-paper-deep'] ?? channels(theme.palette.surface);
+  const current = vars['--color-ink-on-plate'] ?? channels(theme.palette.ink);
+  if (plateInkReads(current, plate)) return vars;
+  const candidates = [
+    channels(theme.palette.ink),
+    channels(theme.palette.darkInk),
+    channels(theme.palette.lightInk),
+    ...(vars['--color-ink'] ? [vars['--color-ink']] : []),
+    '17 17 17',
+    '255 255 255',
+  ];
+  const readable = candidates.find((c) => plateInkReads(c, plate));
+  const best =
+    readable ?? candidates.reduce((a, b) => (contrastOf(b, plate) > contrastOf(a, plate) ? b : a));
+  return { ...vars, '--color-ink-on-plate': best };
+}

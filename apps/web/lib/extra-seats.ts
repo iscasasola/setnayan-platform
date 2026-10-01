@@ -1,3 +1,5 @@
+import { normalizeNamePart } from '@/lib/formal-name';
+
 /**
  * extra-seats.ts — how many seat rows a guest's "+N" should have.
  *
@@ -12,9 +14,15 @@
  *
  * 🔒 ONLY A PLACEHOLDER IS EVER REMOVED. A placeholder is an unnamed "TBA" seat
  * nobody confirmed. A seat someone NAMED is a person — with their own QR, their
- * own invitation — and lowering a number must never delete them. If the named
- * seats alone exceed the new number, the change is refused with the reason, and
- * the couple removes that person themselves.
+ * own invitation — and lowering a number must never delete them.
+ *
+ * ⚖ Owner 2026-09-29 (prototype `rsvp_plus_ones_2026-09-29.html`, frame G):
+ * *"adding +1-4 should be a host decision"* — so lowering the number below the
+ * named seats is NO LONGER REFUSED. The number is saved, every placeholder goes,
+ * the named people stay, and `over` says how many more names there are than
+ * seats. The Guest List then shows the quiet "3 named · 1 allowed" with a Remove
+ * beside each name (the host's own remove-a-guest, with its own confirm). The
+ * 2026-09-21 refusal ("remove them from the guest list first") is retired.
  *
  * Pure: no database. The server applies what this returns.
  */
@@ -34,34 +42,73 @@ export function isPlaceholderSeat(row: ExtraSeatRow): boolean {
   return !row.confirmed_at && (row.first_name ?? '').trim().toUpperCase() === PLACEHOLDER_FIRST_NAME;
 }
 
-export type ExtraSeatPlan =
-  | { ok: true; create: number; remove: string[] }
-  | { ok: false; named: number; reason: string };
+/**
+ * What a new "+N" does to the seat rows. Always applicable — the number is the
+ * host's (see the docblock). `over` = named people beyond the number, 0 when
+ * everyone fits: the Guest List's "3 named · 1 allowed".
+ */
+export type ExtraSeatPlan = { ok: true; create: number; remove: string[]; over: number };
 
-export function planExtraSeats(
-  want: number,
-  rows: readonly ExtraSeatRow[],
-  guestName = 'This guest',
-): ExtraSeatPlan {
+export function planExtraSeats(want: number, rows: readonly ExtraSeatRow[]): ExtraSeatPlan {
   const target = Math.max(0, Math.min(4, Math.trunc(want)));
   const placeholders = rows.filter(isPlaceholderSeat);
   const named = rows.length - placeholders.length;
+  const over = Math.max(0, named - target);
 
-  if (named > target) {
-    return {
-      ok: false,
-      named,
-      reason:
-        named === 1
-          ? `${guestName}’s plus-one is already named — remove them from the guest list first to go below +1.`
-          : `${named} of ${guestName}’s plus-ones are already named — remove one from the guest list first to go lower.`,
-    };
-  }
-  if (rows.length < target) return { ok: true, create: target - rows.length, remove: [] };
-  // Too many: drop placeholders only, the newest first.
+  if (rows.length < target) return { ok: true, create: target - rows.length, remove: [], over };
+  // Too many: drop placeholders only, the newest first. With more names than
+  // seats every placeholder goes and the named people stay — never a person.
   const surplus = rows.length - target;
   const newestFirst = [...placeholders].sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''));
-  return { ok: true, create: 0, remove: newestFirst.slice(0, surplus).map((r) => r.guest_id) };
+  return { ok: true, create: 0, remove: newestFirst.slice(0, surplus).map((r) => r.guest_id), over };
+}
+
+/**
+ * An unnamed seat's label, numbered by SEAT (owner 2026-09-29: *"you showed 3
+ * seats but you named it guest 3 and guest 4"*) — "+2 · TBA", never
+ * "+ TBA · brought by …" and never a headcount. `index` is 0-based.
+ */
+export function seatPlaceholderLabel(index: number): string {
+  return `+${index + 1} · TBA`;
+}
+
+/** One of a guest's extra seats, as the host's Guest List draws it. */
+export type BringerSeat = {
+  guest_id: string;
+  /** The person's name, or the seat's own label ("+2 · TBA") while unnamed. */
+  label: string;
+  named: boolean;
+};
+
+/**
+ * Every guest's extra seats, keyed by the guest who brings them — oldest first,
+ * so "+2" is the second seat everywhere (the reply, "Your guests", the list).
+ * Built from the FULL roster (never a filtered view: a search for "Maria" must
+ * still know two of her seats are named). A placeholder's label is computed —
+ * "+2 · TBA" — so rows stored before 2026-09-29 as "+ TBA · brought by …" read
+ * the same as new ones.
+ */
+export function bringerSeatsFrom(
+  guests: readonly {
+    guest_id: string;
+    plus_one_of_guest_id: string | null;
+    first_name: string | null;
+    last_name: string | null;
+    display_name: string | null;
+    created_at?: string | null;
+  }[],
+): Record<string, BringerSeat[]> {
+  const out: Record<string, BringerSeat[]> = {};
+  const seats = guests
+    .filter((g) => g.plus_one_of_guest_id)
+    .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
+  for (const g of seats) {
+    const list = (out[g.plus_one_of_guest_id as string] ??= []);
+    const named = !isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: null });
+    const whole = g.display_name?.trim() || `${g.first_name ?? ''} ${g.last_name ?? ''}`.trim();
+    list.push({ guest_id: g.guest_id, named, label: named ? whole : seatPlaceholderLabel(list.length) });
+  }
+  return out;
 }
 
 /** Which seat a guest's RSVP name fills: the oldest placeholder, else none. */
@@ -72,7 +119,28 @@ export function seatToName(rows: readonly ExtraSeatRow[]): string | null {
   return open[0]?.guest_id ?? null;
 }
 
-export type SeatNameInput = { seatId: string | null; first: string; last: string };
+/**
+ * One seat's answers from the reply. `meal` / `dietary` are PRESENT only when
+ * the reply drew that box for the seat (owner 2026-09-29: a plus-one is asked
+ * first name, last name, meal and dietary — nothing else); absent = not asked,
+ * so the seat's stored answer is left alone.
+ */
+export type SeatNameInput = {
+  seatId: string | null;
+  first: string;
+  last: string;
+  /**
+   * The other three name parts (owner 2026-09-30: *"Prefix · First · Middle ·
+   * Last · Suffix, to stay consistent"*). PRESENT only when the reply drew the
+   * box — a reply rendered before the five boxes posts none, and leaves the
+   * stored part alone; posted blank is NULL, which clears it.
+   */
+  prefix?: string | null;
+  middle?: string | null;
+  suffix?: string | null;
+  meal?: string;
+  dietary?: string | null;
+};
 
 /**
  * Read the reply's name boxes: `plus_one_first_name_1…4` / `_last_name_` /
@@ -86,7 +154,21 @@ export function readSeatNames(form: { get(name: string): FormDataEntryValue | nu
   for (let i = 1; i <= 4; i++) {
     const first = text(`plus_one_first_name_${i}`);
     const last = text(`plus_one_last_name_${i}`);
-    if (first || last) out.push({ seatId: text(`plus_one_seat_id_${i}`) || null, first, last });
+    const seatId = text(`plus_one_seat_id_${i}`) || null;
+    // The seat's meal + dietary ride with it — keys present only when drawn.
+    const details: Pick<SeatNameInput, 'meal' | 'dietary'> = {};
+    if (form.get(`plus_one_meal_${i}`) !== null) details.meal = text(`plus_one_meal_${i}`) || 'no_preference';
+    if (form.get(`plus_one_dietary_${i}`) !== null) details.dietary = text(`plus_one_dietary_${i}`).slice(0, 500) || null;
+    // The name's other parts ride with the name — never on a details-only seat.
+    const parts: SeatNameParts = {};
+    if (form.get(`plus_one_name_prefix_${i}`) !== null) parts.prefix = normalizeNamePart(form.get(`plus_one_name_prefix_${i}`));
+    if (form.get(`plus_one_middle_name_${i}`) !== null) parts.middle = normalizeNamePart(form.get(`plus_one_middle_name_${i}`));
+    if (form.get(`plus_one_name_suffix_${i}`) !== null) parts.suffix = normalizeNamePart(form.get(`plus_one_name_suffix_${i}`));
+    if (first || last) out.push({ seatId, first, last, ...parts, ...details });
+    // ⚖ A blank name on a seat that already EXISTS still saves its meal and
+    // dietary (the caterer cooks for "+2 TBA" too) — and never touches its
+    // name: clearing a name is not a removal (removing a guest is the host's).
+    else if (seatId && Object.keys(details).length > 0) out.push({ seatId, first: '', last: '', ...details });
   }
   if (out.length === 0) {
     const first = text('plus_one_first_name');
@@ -96,9 +178,49 @@ export function readSeatNames(form: { get(name: string): FormDataEntryValue | nu
   return out;
 }
 
+type SeatDetails = Pick<SeatNameInput, 'meal' | 'dietary'>;
+/** Prefix / middle / suffix — present only when the reply posted them. */
+export type SeatNameParts = Pick<SeatNameInput, 'prefix' | 'middle' | 'suffix'>;
+
 export type SeatNameOp =
-  | { kind: 'name'; seatId: string; first: string; last: string }
-  | { kind: 'create'; first: string; last: string };
+  | ({ kind: 'name'; seatId: string; first: string; last: string } & SeatNameParts & SeatDetails)
+  | ({ kind: 'create'; first: string; last: string } & SeatNameParts & SeatDetails)
+  /** No name given: only the seat's meal / dietary move; its name is untouched. */
+  | ({ kind: 'details'; seatId: string } & SeatDetails);
+
+/** The seat's meal / dietary keys, only those the reply carried. */
+function detailsOf(n: SeatNameInput): SeatDetails {
+  const d: SeatDetails = {};
+  if (n.meal !== undefined) d.meal = n.meal;
+  if (n.dietary !== undefined) d.dietary = n.dietary;
+  return d;
+}
+
+/** The name parts a box carried, only those it posted. */
+function partsOf(n: SeatNameInput): SeatNameParts {
+  const p: SeatNameParts = {};
+  if (n.prefix !== undefined) p.prefix = n.prefix;
+  if (n.middle !== undefined) p.middle = n.middle;
+  if (n.suffix !== undefined) p.suffix = n.suffix;
+  return p;
+}
+
+/**
+ * The guest-row columns a seat's name op writes for the three optional parts —
+ * `name_prefix` / `middle_name` / `name_suffix`, the Guest list's own columns —
+ * and only the ones the reply posted.
+ */
+export function seatNamePartColumns(op: SeatNameParts): {
+  name_prefix?: string | null;
+  middle_name?: string | null;
+  name_suffix?: string | null;
+} {
+  return {
+    ...(op.prefix !== undefined ? { name_prefix: op.prefix } : {}),
+    ...(op.middle !== undefined ? { middle_name: op.middle } : {}),
+    ...(op.suffix !== undefined ? { name_suffix: op.suffix } : {}),
+  };
+}
 
 /**
  * Which seat each typed name fills.
@@ -126,19 +248,50 @@ export function planSeatNames(
     .sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''));
 
   for (const n of names) {
-    let target: string | null = n.seatId && mine.has(n.seatId) && !used.has(n.seatId) ? n.seatId : null;
-    if (!target) target = open.find((s) => !used.has(s.guest_id))?.guest_id ?? null;
+    const own = n.seatId && mine.has(n.seatId) && !used.has(n.seatId) ? n.seatId : null;
+    if (!n.first && !n.last) {
+      // Details only — honoured on this guest's OWN seat, never used to make one.
+      if (own) {
+        used.add(own);
+        ops.push({ kind: 'details', seatId: own, ...detailsOf(n) });
+      }
+      continue;
+    }
+    const target = own ?? open.find((s) => !used.has(s.guest_id))?.guest_id ?? null;
     if (target) {
       used.add(target);
-      ops.push({ kind: 'name', seatId: target, first: n.first, last: n.last });
+      ops.push({ kind: 'name', seatId: target, first: n.first, last: n.last, ...partsOf(n), ...detailsOf(n) });
     } else if (seats.length + created < allowed) {
       created += 1;
-      ops.push({ kind: 'create', first: n.first, last: n.last });
+      ops.push({ kind: 'create', first: n.first, last: n.last, ...partsOf(n), ...detailsOf(n) });
     }
     // else: every seat is spoken for and no more may be made — the name is not saved.
   }
   return ops;
 }
+
+/**
+ * 🔒 A PLUS-ONE WHO LINKED THEIR OWN ACCOUNT KEEPS THEIR OWN NAME (owner
+ * 2026-09-29, DECISION_LOG "OWNER ANSWERS — TEN OPEN QUESTIONS" (10): *"To change
+ * the name: if connected to an account, cannot change anymore"* — account
+ * details win, extending 2026-09-26 "account details win on sync"). A name the
+ * bringer types for a seat whose person is linked is NOT written: the op keeps
+ * only its meal / dietary. `linked` = the seat ids an `event_members` row holds.
+ */
+export function lockLinkedSeatNames(ops: readonly SeatNameOp[], linked: ReadonlySet<string>): SeatNameOp[] {
+  return ops.map((op) => {
+    if (op.kind !== 'name' || !linked.has(op.seatId)) return op;
+    const d: SeatDetails = {};
+    if (op.meal !== undefined) d.meal = op.meal;
+    if (op.dietary !== undefined) d.dietary = op.dietary;
+    return { kind: 'details', seatId: op.seatId, ...d };
+  });
+}
+
+/** The words for a name locked by its person's own account — bringer and host alike. */
+export const LINKED_NAME_WORDS = 'Linked to their account';
+/** A guest row whose name comes from the linked account's own profile (owner 2026-09-30). */
+export const PROFILE_NAME_WORDS = 'From their account';
 
 /**
  * The reply's name boxes: one per seat the guest was given, each carrying the
@@ -152,8 +305,29 @@ export function plusOneNameSlots(
   legacyName: string | null | undefined,
 ): { seatId: string | null; name: string | null }[] {
   if (!seats) return [{ seatId: null, name: legacyName ?? null }];
-  return Array.from({ length: Math.max(1, Math.min(4, count)) }, (_, i) => ({
-    seatId: seats[i]?.guest_id ?? null,
-    name: seats[i]?.name ?? null,
-  }));
+  /*
+    ⚖ Owner 2026-09-29: *"adding +1-4 should be a host decision. and their QR
+    auto adapts to it?"* — `count` is the host's, read at render, so the same
+    link shows the new number of boxes the moment the host changes it.
+    🔒 A NAMED SEAT IS NEVER DROPPED FROM THE REPLY, even when the host's number
+    is now below it (a guest-side screen must not make a named person — their
+    row, their QR — vanish; removing is the host's). The number caps only the
+    EMPTY boxes: named seats + open ones up to `count`, never more than four.
+  */
+  const want = Math.max(1, Math.min(4, count));
+  const namedCount = seats.filter((s) => s.name).length;
+  let open = Math.max(0, want - namedCount);
+  const out: { seatId: string | null; name: string | null }[] = [];
+  for (const s of seats) {
+    if (s.name) out.push({ seatId: s.guest_id, name: s.name });
+    else if (open > 0) {
+      open -= 1;
+      out.push({ seatId: s.guest_id, name: null });
+    }
+  }
+  while (open > 0 && out.length < 4) {
+    open -= 1;
+    out.push({ seatId: null, name: null });
+  }
+  return out.slice(0, 4);
 }

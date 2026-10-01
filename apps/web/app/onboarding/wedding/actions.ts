@@ -1164,6 +1164,7 @@ export async function getOnboardingVendorCounts(input: {
       // what the couple can actually find on Explore (unverified vendors are
       // private). Keeps the "real numbers only" guarantee honest.
       .eq('verification_state', 'verified')
+      .eq('is_demo', false) // a demo shop is not a match (2026-09-30, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1))
       .not('business_name', 'is', null)
       .neq('business_name', '')
       .limit(5000); // ceiling well above the V1 pool · keeps `total` exact

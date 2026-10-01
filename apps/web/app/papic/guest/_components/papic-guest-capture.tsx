@@ -2,7 +2,7 @@
 
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { DEFAULT_EVENT_POOL_CONFIG } from '@/lib/papic-event-pool';
-import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type PointerEvent as RPointerEvent, type ReactNode } from 'react';
 import {
   Camera,
   Loader2,
@@ -19,6 +19,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { DayOfFaceEnroll } from '@/app/[slug]/_components/day-of-face-enroll';
+import type { FaceTaggingWish } from '@/lib/face-tagging-wish';
 import { makeQrDetector } from '@/lib/qr-scan';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
@@ -138,6 +139,7 @@ function guestWindowRejectMessage(
 // guest records AND consents to their own clip).
 
 type Props = {
+  /** Carried, never printed: no casual greetings on a guest's screen (owner, DECISION_LOG 2026-09-30). */
   guestName: string;
   eventName: string;
   /** The event this guest camera belongs to — tags offline-queued captures so a
@@ -150,6 +152,11 @@ type Props = {
   /** True when the guest has no active face enrollment — shows the in-camera
    *  "add your face" fallback prompt so their candid shots auto-find them. */
   needsFaceEnroll?: boolean;
+  /** The guest's stored "Want to be tagged in the photos?" answer
+   *  (`guests.face_tagging_wanted`, owner 2026-09-29). `null` = never answered:
+   *  the face step asks that one question before any selfie. A stored `false`
+   *  never reaches here — the parents already turned `needsFaceEnroll` off. */
+  faceTaggingWish?: FaceTaggingWish;
   /** True when Kwento is on for the event. It is FREE for every event since
    *  2026-08-21 (owner: "kwento is free"), so this is true everywhere Papic is
    *  set up — the prop stays because the RULE lives in FREE_FOR_ALL_SKUS and
@@ -204,7 +211,43 @@ type Props = {
    *  never client-supplied), so the challenge-completion reward can link into
    *  their Story maker at /papic/me/[token]. Null → no reward CTA. */
   storyToken?: string | null;
+  /** True when this camera is mounted INSIDE the guest's Event Hub (`/[slug]`
+   *  site-body), false on the standalone `/papic/guest` page.
+   *
+   *  Owner 2026-09-30, on the hub's terms card: "space is too big also should
+   *  only be the small frame". The small-card states (terms · blocked · no
+   *  camera) used to wrap themselves in a full-page `<main min-h-screen …>`
+   *  on BOTH mounts, so inside the hub the card floated in a screen of empty
+   *  cream — and nested a `<main>` inside the hub's own `<main>`, which is
+   *  invalid HTML. Embedded, the card renders bare (see `CardFrame`).
+   *  REQUIRED, like `capApplies`: two mounts, and an optional prop is how one
+   *  of them quietly forgets it. Pinned by
+   *  `app/[slug]/_components/the-hub-camera-terms-is-only-the-card.test.ts`. */
+  embedded: boolean;
 };
+
+/**
+ * The page around a small-card state. Standalone (`/papic/guest`) the card IS
+ * the page, so it is centred on a full-height cream ground. Embedded in the
+ * Event Hub the hub already owns the page — the card renders alone, with no
+ * `<main>`, no `min-h-screen` and no page-level centring or background.
+ */
+function CardFrame({
+  embedded,
+  pad,
+  children,
+}: {
+  embedded: boolean;
+  pad: 'py-10' | 'py-12';
+  children: ReactNode;
+}) {
+  if (embedded) return <>{children}</>;
+  return (
+    <main className={`flex min-h-screen items-center justify-center bg-cream px-4 ${pad} text-ink`}>
+      {children}
+    </main>
+  );
+}
 
 /**
  * Announce that the guest camera just refused a shot for want of points.
@@ -226,13 +269,13 @@ function announceOutOfShots(): void {
 }
 
 export function PapicGuestCapture({
-  guestName,
   eventName,
   eventId,
   initialRemaining,
   total,
   termsAccepted,
   needsFaceEnroll = false,
+  faceTaggingWish = null,
   canKwento = false,
   capApplies,
   poolLow = false,
@@ -240,6 +283,7 @@ export function PapicGuestCapture({
   eventStyle,
   faceMode,
   storyToken = null,
+  embedded,
 }: Props) {
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   const styleRef = useRef<PapicStyle>(eventStyle);
@@ -544,7 +588,7 @@ export function PapicGuestCapture({
         🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
         and the branch below reads EVERY 409 as "you are out of shots": it calls
         `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
-        rest of the session, then paints "That's all {total} photos, {guestName}!
+        rest of the session, then paints "That's all {total} photos!
         … They'll treasure these." over a photo that was refused before it was ever
         stored. A guest with credits left is congratulated for a shot that was
         thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
@@ -828,7 +872,7 @@ export function PapicGuestCapture({
           🚨 THIS MUST STAY ABOVE THE 409 BRANCH. The put-away refusal answers 409,
           and the branch below reads EVERY 409 as "you are out of shots": it calls
           `setRemaining(0)`, which flips `exhausted` and disables the shutter for the
-          rest of the session, then paints "That's all {total} photos, {guestName}!
+          rest of the session, then paints "That's all {total} photos!
           … They'll treasure these." over a photo that was refused before it was ever
           stored. A guest with credits left is congratulated for a shot that was
           thrown away — and with guest buying on, the "Add shots" sheet auto-opens and
@@ -1316,8 +1360,8 @@ export function PapicGuestCapture({
 
   if (blocked) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-        <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
+      <CardFrame embedded={embedded} pad="py-12">
+        <div className="mx-auto w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center text-ink shadow-sm">
           <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera unavailable</h1>
           <p className="mt-2 text-sm text-ink/65">
@@ -1325,7 +1369,7 @@ export function PapicGuestCapture({
             think this is a mistake, reach out to the host directly.
           </p>
         </div>
-      </main>
+      </CardFrame>
     );
   }
 
@@ -1334,11 +1378,11 @@ export function PapicGuestCapture({
   // 1.2 / Google Play UGC EULA requirement).
   if (!accepted) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-10 text-ink">
-        <div className="sn-rise w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 shadow-sm">
+      <CardFrame embedded={embedded} pad="py-10">
+        <div className="sn-rise mx-auto w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-ink shadow-sm">
           <ShieldCheck aria-hidden className="h-7 w-7 text-mulberry" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">
-            Before you start shooting, {guestName}
+            Before you start shooting
           </h1>
           <p className="mt-2 text-sm text-ink/70">
             Your photos go straight into {eventName}&rsquo;s gallery and may be
@@ -1394,14 +1438,14 @@ export function PapicGuestCapture({
             Agree &amp; open my camera
           </button>
         </div>
-      </main>
+      </CardFrame>
     );
   }
 
   if (camError) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-cream px-4 py-12 text-ink">
-        <div className="w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center shadow-sm">
+      <CardFrame embedded={embedded} pad="py-12">
+        <div className="mx-auto w-full max-w-md rounded-2xl border border-ink/10 bg-surface p-7 text-center text-ink shadow-sm">
           <CircleAlert aria-hidden className="mx-auto h-7 w-7 text-terracotta" strokeWidth={1.75} />
           <h1 className="mt-3 text-xl font-semibold tracking-tight">We need your camera</h1>
           <p className="mt-2 text-sm text-ink/65">
@@ -1416,7 +1460,7 @@ export function PapicGuestCapture({
             Reload &amp; try again
           </button>
         </div>
-      </main>
+      </CardFrame>
     );
   }
 
@@ -1429,11 +1473,17 @@ export function PapicGuestCapture({
           <DayOfFaceEnroll
             context="guest_camera"
             faceMode={faceMode}
+            wish={faceTaggingWish}
             onDone={() => {
               setEnrolled(true);
               setEnrolling(false);
             }}
             onSkip={() => setEnrolling(false)}
+            /* "No thanks" — back to the camera, and no face prompt again. */
+            onDecline={() => {
+              setPromptDismissed(true);
+              setEnrolling(false);
+            }}
           />
         </div>
       </main>
@@ -1588,7 +1638,7 @@ export function PapicGuestCapture({
             ) : (
               <>
                 <Check aria-hidden className="h-8 w-8 text-cream" strokeWidth={2} />
-                <p className="text-base font-semibold">That&rsquo;s all {formatCount(total)} photos, {guestName}!</p>
+                <p className="text-base font-semibold">That&rsquo;s all {formatCount(total)} photos!</p>
                 <p className="text-sm text-cream/70">
                   Thank you for helping capture {eventName}. They’ll treasure these.
                 </p>

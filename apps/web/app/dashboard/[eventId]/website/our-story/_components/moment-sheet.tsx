@@ -23,6 +23,14 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { InMakerReturnTo } from './in-maker-return-to';
 
 /**
+ * A moment the Maker's instant scrapbook could not keep (`love-story-live.tsx`
+ * throws it) — its message is said on the sheet, which stays open. Declared
+ * HERE, not beside the rule that raises it: this sheet is in the Maker's first
+ * load, and the rule is not (it loads with Details).
+ */
+export class MomentNotKept extends Error {}
+
+/**
  * ADD A MOMENT — the sheet (phone) / side panel (laptop) from the prototype
  * (`our_love_story_scrapbook_2026-09-25.html` → "Add to our love story").
  *
@@ -67,6 +75,7 @@ export function MomentSheet({
   triggerClassName,
   opensFor,
 }: {
+  /** Throws = the moment was NOT kept; its message says why (the Maker's instant scrapbook, `love-story-live.tsx`). */
   action: (formData: FormData) => void | Promise<void>;
   /** The whole list, for the live "Will sit in". */
   moments: readonly LoveStoryMoment[];
@@ -109,6 +118,29 @@ export function MomentSheet({
   /* Inside the Maker the moment opens IN PLACE (no sheet, no trap). */
   const inMaker = useMaker() !== null;
   useModalA11y({ open: open && !inMaker, onClose: () => setOpen(false), containerRef: ref });
+  /* ⚡ In the Maker a kept moment is on the page at the tap (`love-story-live.tsx`):
+     the sheet closes; a moment that could not be kept says why and stays open. */
+  const [refused, setRefused] = useState<string | null>(null);
+  const keep = async (formData: FormData) => {
+    setRefused(null);
+    try {
+      await action(formData);
+    } catch (e) {
+      /* A server action's redirect is not a refusal — let it through. */
+      if (!(e instanceof MomentNotKept)) throw e;
+      setRefused(e.message);
+      return;
+    }
+    if (!inMaker) return;
+    setOpen(false);
+    /* The one "Add a moment" sheet opens empty next time. */
+    if (!moment) {
+      setYear('');
+      setMonth('');
+      setDay('');
+      setAnchor('');
+    }
+  };
 
   const d = moment?.date;
   const [precision, setPrecision] = useState<Precision>(d?.d ? 'day' : d?.m ? 'month' : 'year');
@@ -192,7 +224,7 @@ export function MomentSheet({
               </button>
             </div>
 
-            <form action={action} className="mt-5 space-y-6">
+            <form action={keep} className="mt-5 space-y-6">
               <HubDraftField />
               <InMakerReturnTo />
               <input type="hidden" name="intent" value={moment ? 'edit' : 'add'} />
@@ -401,6 +433,11 @@ export function MomentSheet({
                 ) : null}
               </div>
 
+              {refused ? (
+                <p role="alert" className="text-[14px] text-terracotta-700">
+                  {refused}
+                </p>
+              ) : null}
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"

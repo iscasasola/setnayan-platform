@@ -65,7 +65,8 @@ export type RoomLinksInput = {
 
   /** Does this event TYPE have seating at all? (`event_type_profiles`.) */
   seatingSurfaceEnabled: boolean;
-  /** `event_floor_plan.published_at IS NOT NULL` — the seat rooms' own gate. */
+  /** May guests see their seats? `guestsMaySeeSeatsFor` (lib/guests-may-see-seats.ts) — on the
+   *  event's day, or earlier by the couple's switch. The seat rooms' own gate. */
   seatingPublished: boolean;
   /** `PABUYA_PUBLIC_ROUTE_ENABLED`. Off ⇒ the route 404s, so never listed. */
   pabuyaRouteEnabled: boolean;
@@ -162,7 +163,7 @@ export function resolveRoomLinks(input: RoomLinksInput): RoomLink[] {
 
   // The money gift. Three gates, all the destination's own.
   if (input.pabuyaRouteEnabled && input.enabledEgiftCount > 0 && input.pabuyaViewerAllowed) {
-    all.push({ key: 'gifts', label: 'Send a gift', href: `${base}/pabuya` });
+    all.push({ key: 'gifts', label: 'E-Gifts', href: `${base}/pabuya` });
   }
 
   // The live hub — only while the event is running or has just finished.

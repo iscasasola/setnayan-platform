@@ -19,7 +19,7 @@ import { SuiteServiceCard } from './_components/suite-service-card';
 import { SuiteVignetteCard, type VignettePersona } from './_components/suite-vignette-card';
 import { SuiteSearch, type SuiteSearchItem } from './_components/suite-search';
 import { OurServicesGrid } from './_components/our-services-grid';
-import { buildOurServices, OUR_SERVICE_ADD_ON_KEYS, toolHasGoneHome } from '@/lib/our-services';
+import { buildOurServices, shownAddOnKeys, toolHasGoneHome } from '@/lib/our-services';
 import { PAPIC_INCLUSIVE_SKUS } from '@/lib/papic-seats';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -47,7 +47,7 @@ import {
 import { envFlagEnabled } from '@/lib/env-flag';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Our Services' };
+export const metadata = { title: 'More Services' };
 export const dynamic = 'force-dynamic';
 
 /**
@@ -55,11 +55,12 @@ export const dynamic = 'force-dynamic';
  * EVENT MENU BECOMES FOUR PILLARS (+ HOME)": *"Suite → becomes the Our
  * Services page itself (each service card shows added / add)"*). The page
  * now OPENS on the six services — Papic · Live Studio · Gallery (with
- * Editorial) · Patiktok · Music Maker · Setnayan AI (SAI) — each one
+ * Editorial) · Patiktok · Music Maker · Setnayan AI (SAI) · Event Hub Pro
+ * (added 2026-09-29, owner "yes to all 4") — each one
  * `CollectionCard` built by `lib/our-services.ts` from the SAME reads this
  * page already made (ownership, live catalogue prices, the offered/closed
  * gates). Same route, so every old /suite link still lands here; the menu's
- * `studio` row keeps its key and now reads "Our Services".
+ * `studio` row keeps its key and reads "More Services" (2026-09-30).
  *
  * Everything else the Suite carried — recommendations, the other add-ons,
  * the free planning tools and their search — stays below under "More for
@@ -86,8 +87,11 @@ export const dynamic = 'force-dynamic';
  */
 
 /** The surface name — single source of truth so a rename is one edit.
- *  "Suite" until 2026-09-29; now "Our Services" (the route stays /suite). */
-const SUITE_NAME = 'Our Services';
+ *  "Suite" until 2026-09-29; "Our Services" until 2026-09-30; now "More
+ *  Services" (owner: *"it cannot be our services since we have the guestlist,
+ *  your team and event hub maker on the sidebar which is also our services"*).
+ *  The route stays /suite. */
+const SUITE_NAME = 'More Services';
 
 /** Outcome-framed section headers for the "Add to your event" cards (owner:
  *  group by what you get, not by internal category). Maps the locked
@@ -491,7 +495,7 @@ export default async function SuitePage({ params }: Props) {
     return appStoreDetailHref(entry.key, eventId);
   }
 
-  // ── OUR SERVICES — the six cards the page opens on (lib/our-services.ts).
+  // ── OUR SERVICES — the cards the page opens on (lib/our-services.ts).
   // Every input is a read or a gate this page already had; nothing is re-read.
   // A failed price read leaves `priceMap` without the row, and the card then
   // says "See the price" — never a guessed figure (UNKNOWN IS NOT FREE).
@@ -506,10 +510,11 @@ export default async function SuitePage({ params }: Props) {
     papicOwnedBy: PAPIC_INCLUSIVE_SKUS,
     refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
   });
-  /** Not one of the six (never on this page twice), and not a tool that has
-   *  moved to its home (`TOOL_HOMES`) — what is left has no home yet. */
-  const notOurs = (a: AddOnEntry) =>
-    !OUR_SERVICE_ADD_ON_KEYS.has(a.key) && !toolHasGoneHome(a.key, websiteOn);
+  /** Not on a card or under one (never on this page twice — `shownAddOnKeys`
+   *  asks the BUILT cards, so a part whose card is absent stays below), and
+   *  not a tool that has moved to its home (`TOOL_HOMES`). */
+  const onTheCards = shownAddOnKeys(ourServices);
+  const notOurs = (a: AddOnEntry) => !onTheCards.has(a.key) && !toolHasGoneHome(a.key, websiteOn);
 
   // ── The secretary's lead: the phase-aware "what to set up next" picks. ─────
   const monthsToDate = roadmapState?.months ?? null;
@@ -525,8 +530,12 @@ export default async function SuitePage({ params }: Props) {
       // `addOnSellableNow` last: a day-of service on a finished event is not a
       // thing to "set up next", and recommending it would lead straight to a
       // card whose buy path is closed.
+      // `utility` = a retired standalone card (Event → the Event Hub Maker,
+      // Photo Delivery → Papic). The lists below already drop them; the lead
+      // must too, or it recommends a card that has gone home.
       return e
         ? e.status !== 'coming_soon' &&
+            e.studioGroup !== 'utility' &&
             notOurs(e) &&
             surfaceOk(e) &&
             addOnSellableNow(e, lifecyclePhase)
@@ -668,7 +677,7 @@ export default async function SuitePage({ params }: Props) {
         }
       />
 
-      {/* The six services — the page's reason for being (owner 2026-09-29). */}
+      {/* The services — the page's reason for being (owner 2026-09-29). */}
       <OurServicesGrid services={ourServices} />
 
       {/* What is left has no home yet. Once every tool has gone home this is

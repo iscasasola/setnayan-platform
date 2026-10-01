@@ -30,6 +30,7 @@ import {
   setStoryShowcase,
   type EditorialEditorInput,
 } from '../actions';
+import type { StoryProExtraKey } from '@/lib/story-pro-extras';
 import {
   EDITORIAL_ORDERABLE_KEYS,
   resolveSectionOrder,
@@ -107,12 +108,14 @@ const EDITORIAL_IMAGE_TYPES = [
  */
 type LandingVisibility = 'public' | 'unlisted' | 'invited_accounts' | 'private';
 
-// Upgrade destination for the PRO authorship perks → the Editorial PRO buy
-// surface (studio/editorial-pro), which fetches the live catalog price + mounts
-// the apply-then-pay drawer and is umbrella-aware (shows "Included in your
-// Website PRO" for umbrella owners). One place → easy to retarget.
-const editorialProUpgradeHref = (eventId: string) =>
-  `/dashboard/${eventId}/studio/editorial-pro`;
+// 💎 TRIED FREE, ASKED AT APPLY (owner 2026-09-28/29). The Pro touches here are
+// open to every couple; a couple without Event Hub Pro has them kept in the
+// Event Hub draft, and the Maker's Apply sheet names them and asks for Pro
+// ("Unlock Pro and Apply"). This is where that Apply lives — the Maker, on the
+// Post Event stage. There is no separate "Editorial PRO" name in the copy: to a
+// couple it is Event Hub Pro (the EDITORIAL_PRO SKU still exists in the catalogue
+// and still counts — `isEditorialProActive`).
+const makerApplyHref = (eventId: string) => `/dashboard/${eventId}/launch?stage=editorial`;
 
 // Display labels for the reorderable content sections (Editorial PRO section
 // order). Keys mirror EDITORIAL_ORDERABLE_KEYS exactly. The two locked-close rows
@@ -165,7 +168,7 @@ const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: strin
   { key: 'fromVendors', label: 'From your vendors', help: 'Day-of photos & clips your recommended vendor shared.' },
   { key: 'poweredBy', label: 'Powered by Setnayan', help: 'The Setnayan services you used.' },
   { key: 'liveWall', label: 'Live Photo Wall', help: 'The day’s candid photo wall, if you have it.' },
-  { key: 'watchFilm', label: 'Watch the film', help: 'Your Live Studio broadcast replay, if you streamed the day.' },
+  { key: 'watchFilm', label: 'Watch the film', help: 'Your Live Watch broadcast replay, if you streamed the day.' },
   { key: 'kwento', label: 'What they whispered', help: 'Your guests’ best wishes (Kwento), captured on the day.' },
   { key: 'guestColumns', label: 'Letters to the editor', help: 'Short columns your guests wrote for your paper — only the ones you approved.' },
   { key: 'fromTheCouple', label: 'From the couple', help: 'Your thank-you note to guests.' },
@@ -232,27 +235,29 @@ function Field({ label, help, children }: FieldProps) {
 const inputCls =
   'w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink outline-none transition placeholder:text-ink/35 focus:border-burgundy/50';
 
-// The padlock mark on an authorship perk gated on Editorial PRO — the one
-// shared paid-to-unlock mark (owner 2026-09-25: padlock locked, diamond owned).
-// Padlock until owned, diamond once owned — the state IS the entitlement.
+// The ◆ on a Pro touch — the one shared paid mark. Never a padlock: nothing here
+// is closed to a couple without Pro (owner 2026-09-29, "◆ marks Pro and never
+// blocks; there are no padlocks"). ◆ to try, ◆ owned once it is theirs.
 function ProChip({ owned }: { owned: boolean }) {
-  const state = owned ? 'unlocked' : 'locked';
-  return <PaidMark state={state} label={paidMarkLabel(state, 'Editorial Pro')} text="Pro" size="xs" />;
+  const state = owned ? 'unlocked' : 'try';
+  return <PaidMark state={state} label={paidMarkLabel(state, 'Event Hub Pro')} text="Pro" size="xs" />;
 }
 
-// The one-line benefits + upgrade prompt shown on every PRO-gated card when the
-// couple isn't PRO. Benefit-forward (not a paywall wall) — the free couple still
-// sees their content below, read-only.
-function ProUpsellLine({ eventId, children }: { eventId: string; children: React.ReactNode }) {
+// The one line on a ◆ card for a couple without Pro: write it now, it goes live
+// at Apply. Says where Apply is — never a price, never a wall.
+function ProTryLine({ eventId, held }: { eventId: string; held: boolean }) {
   return (
     <p className="mt-1 text-xs text-ink/60">
-      {children}{' '}
+      {held
+        ? 'Kept in your Event Hub draft — guests see it after you '
+        : 'Write it now — guests see it after you '}
       <Link
-        href={editorialProUpgradeHref(eventId)}
+        href={makerApplyHref(eventId)}
         className="font-medium text-[#8A6A2F] underline underline-offset-2 hover:text-[#6E5323]"
       >
-        Unlock Editorial PRO
+        Apply with Event Hub Pro
       </Link>
+      .
     </p>
   );
 }
@@ -275,6 +280,7 @@ export function EditorialEditor({
   initial,
   uploadDisplayUrls = {},
   isPro = false,
+  heldForPro = [],
   chapterCards = [],
   chapterOverrides = [],
   savedSectionOrder = null,
@@ -304,10 +310,12 @@ export function EditorialEditor({
   /** Presigned display URLs (r2://ref → URL) for the couple's already-uploaded
    *  hero + gallery images, so the FileUpload widgets show them on mount. */
   uploadDisplayUrls?: Record<string, string>;
-  /** Editorial PRO active (à-la-carte EDITORIAL_PRO OR Couple Website PRO). Gates
-   *  the authorship perks — chapter curation, section order, guest wishes. When
-   *  false, those render read-only with an upgrade prompt; the server re-checks. */
+  /** Event Hub Pro active (the EDITORIAL_PRO SKU OR Couple Website PRO). Never
+   *  disables anything: without it the Pro touches (moments, own columns, wishes)
+   *  are kept in the Event Hub draft and asked for at Apply; the server decides. */
   isPro?: boolean;
+  /** The Pro touches this couple wrote that are held in the Event Hub draft. */
+  heldForPro?: readonly StoryProExtraKey[];
   /** Auto-built "As the Day Unfolded" chapters (unfiltered, timeline order). */
   chapterCards?: ChapterCard[];
   /** The couple's current per-chapter overrides (draft_json.chapterOverrides). */
@@ -429,6 +437,8 @@ export function EditorialEditor({
   // The canonical (auto) order — used to detect whether the couple reordered.
   const defaultOrder = useMemo(() => chapterCards.map((c) => c.leadId), [chapterCards]);
   const [rows, setRows] = useState<ChapterRow[]>(initialRows);
+  // 💎 Which ◆ touches wait in the Event Hub draft for Apply (without Pro).
+  const [held, setHeld] = useState<ReadonlySet<StoryProExtraKey>>(() => new Set(heldForPro));
 
   // ── PRO: section order ────────────────────────────────────────────────────
   // Working order of the reorderable content sections. Resolved once from the
@@ -704,6 +714,7 @@ export function EditorialEditor({
         publishConsent: consentTicked,
       });
       if (!r.ok) throw new Error(r.error);
+      setHeld(new Set(r.heldForPro ?? []));
       // Direct setForm (not `set`) so choosing an audience doesn't re-mark dirty.
       setForm((f) => ({ ...f, audience: next }));
       setDirty(false);
@@ -1058,10 +1069,10 @@ export function EditorialEditor({
         </div>
       </section>
 
-      {/* As the Day Unfolded — per-chapter curation (Editorial PRO authorship).
+      {/* As the Day Unfolded — per-chapter curation (◆ Event Hub Pro).
           Hidden entirely when the event has no Papic timeline media (nothing to
-          curate). Free couples see their auto chapters as a READ-ONLY preview
-          (naming / stories / hide / reorder are all PRO). */}
+          curate). Every couple can name, tell, hide and reorder; without Pro it
+          is kept in the Event Hub draft and asked for at Apply. */}
       {rows.length ? (
         <section className={card}>
           <div className="flex items-start justify-between gap-3">
@@ -1071,15 +1082,10 @@ export function EditorialEditor({
           <p className="mt-0.5 text-sm text-ink/60">
             We built these moments from your day&rsquo;s photos and clips, in the order they
             happened.{' '}
-            {isPro
-              ? 'Name a moment, add a short story, reorder them, or hide any you’d rather not show. Leave a moment untouched and it keeps its clock time.'
-              : 'They show in clock-time order with the auto floor.'}
+            Name a moment, add a short story, reorder them, or hide any you&rsquo;d rather not
+            show. Leave a moment untouched and it keeps its clock time.
           </p>
-          {!isPro ? (
-            <ProUpsellLine eventId={eventId}>
-              Name the moments and tell each story with Editorial PRO.
-            </ProUpsellLine>
-          ) : null}
+          {!isPro ? <ProTryLine eventId={eventId} held={held.has('chapterOverrides')} /> : null}
 
           {/* Shared datalist of the canonical moments — offered to every row's
               name input while still allowing any free text. */}
@@ -1131,7 +1137,7 @@ export function EditorialEditor({
                           <button
                             type="button"
                             onClick={() => moveRow(i, -1)}
-                            disabled={!isPro || i === 0}
+                            disabled={i === 0}
                             aria-label="Move moment earlier"
                             className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                           >
@@ -1140,7 +1146,7 @@ export function EditorialEditor({
                           <button
                             type="button"
                             onClick={() => moveRow(i, 1)}
-                            disabled={!isPro || i === rows.length - 1}
+                            disabled={i === rows.length - 1}
                             aria-label="Move moment later"
                             className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                           >
@@ -1149,7 +1155,6 @@ export function EditorialEditor({
                           <button
                             type="button"
                             onClick={() => patchRow(leadId, { hidden: !r.hidden })}
-                            disabled={!isPro}
                             aria-pressed={r.hidden}
                             aria-label={r.hidden ? 'Show this moment' : 'Hide this moment'}
                             className={`rounded-md border p-1 transition disabled:opacity-40 ${
@@ -1168,39 +1173,33 @@ export function EditorialEditor({
                       </div>
 
                       <input
-                        className={`${inputCls} mt-2 disabled:bg-ink/5 disabled:text-ink/45`}
+                        className={`${inputCls} mt-2`}
                         value={r.title}
                         list="editorial-canonical-moments"
                         onChange={(e) => patchRow(leadId, { title: e.target.value })}
-                        disabled={!isPro}
                         placeholder={
                           // The public page already calls this moment by the name
                           // on their own run-of-show. Showing anything else here
                           // means the empty box and the live page disagree.
                           r.card.suggestedTitle
                             ? r.card.suggestedTitle
-                            : isPro
-                              ? 'Name this moment (e.g. First Kiss)'
-                              : 'Name this moment with Editorial PRO'
+                            : 'Name this moment (e.g. First Kiss)'
                         }
                         aria-label="Moment name"
                       />
 
                       <textarea
-                        className={`${inputCls} mt-2 min-h-[64px] resize-y disabled:bg-ink/5 disabled:text-ink/45`}
+                        className={`${inputCls} mt-2 min-h-[64px] resize-y`}
                         value={r.writeUp}
                         onChange={(e) => patchRow(leadId, { writeUp: e.target.value })}
-                        disabled={!isPro}
-                        placeholder={isPro ? 'Add a short story for this moment (optional).' : 'Tell this moment’s story with Editorial PRO.'}
+                        placeholder="Add a short story for this moment (optional)."
                         aria-label="Moment write-up"
                       />
-                      {isPro ? (
-                        <span
-                          className={`mt-1 block text-right text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}
-                        >
-                          {formatCount(count)}/{formatCount(WRITEUP_SOFT_CAP)}
-                        </span>
-                      ) : null}
+                      <span
+                        className={`mt-1 block text-right text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}
+                      >
+                        {formatCount(count)}/{formatCount(WRITEUP_SOFT_CAP)}
+                      </span>
                     </div>
                   </div>
                 </li>
@@ -1296,27 +1295,19 @@ export function EditorialEditor({
       <section className={card}>
         <div className="flex items-start justify-between gap-3">
           <h2 className="font-display text-lg italic text-ink">Your own columns</h2>
+          <ProChip owned={isPro} />
         </div>
         <p className="mt-0.5 text-sm text-ink/60">
           Write a section of your own — anything the rest of the page has no room
-          for.{' '}
-          {isPro
-            ? 'Give it a name and put it wherever you like in the running order.'
-            : 'It goes at the end of your story.'}
+          for. Give it a name and put it wherever you like in the running order.
         </p>
         {/*
-          ⚖ WRITING A COLUMN IS FREE; MOVING IT IS THE PRO PERK THAT ALREADY
-          EXISTS. Putting a wall in front of the writing itself would be a
-          PRICING decision, and a pricing decision must never be a side effect of
-          a build — so this panel is ungated and the sentence above tells a free
-          couple exactly where their column lands instead of leaving them to
-          wonder why the arrows are dim.
+          ◆ A COLUMN OF THEIR OWN IS EVENT HUB PRO — `saveEditorial` has only
+          ever stored it for a Pro couple. It is open to every couple now: without
+          Pro it is kept in the Event Hub draft (not dropped, as it used to be)
+          and asked for at Apply. Moving it is free, like every section.
         */}
-        {!isPro ? (
-          <ProUpsellLine eventId={eventId}>
-            Move your column anywhere in the story with Editorial PRO.
-          </ProUpsellLine>
-        ) : null}
+        {!isPro ? <ProTryLine eventId={eventId} held={held.has('customColumns')} /> : null}
 
         {columns.length === 0 ? (
           <p className="mt-3 text-sm text-ink/55">You haven&rsquo;t written one yet.</p>
@@ -1384,22 +1375,18 @@ export function EditorialEditor({
         )}
       </section>
 
-      {/* What They Said — the manual guest-wishes editor (Editorial PRO). Free
-          couples see a read-only preview of any existing wishes + an upgrade. */}
+      {/* What They Said — the manual guest-wishes editor (◆ Event Hub Pro).
+          Open to every couple; without Pro it waits in the draft for Apply. */}
       <section className={card}>
         <div className="flex items-start justify-between gap-3">
           <h2 className="font-display text-lg italic text-ink">What they said</h2>
           <ProChip owned={isPro} />
         </div>
         <p className="mt-0.5 text-sm text-ink/60">
-          Add your favourite wishes from guests, vendors, or the two of you.{' '}
-          {isPro ? 'They show in the “What They Said” section.' : ''}
+          Add your favourite wishes from guests, vendors, or the two of you. They show in
+          the &ldquo;What They Said&rdquo; section.
         </p>
-        {!isPro ? (
-          <ProUpsellLine eventId={eventId}>
-            Feature your guests&rsquo; best wishes with Editorial PRO.
-          </ProUpsellLine>
-        ) : null}
+        {!isPro ? <ProTryLine eventId={eventId} held={held.has('reviews')} /> : null}
 
         {wishes.length ? (
           <ol className="mt-4 space-y-3">
@@ -1412,27 +1399,24 @@ export function EditorialEditor({
                     <div className="min-w-0 flex-1 space-y-2">
                       <div className="grid gap-2 sm:grid-cols-2">
                         <input
-                          className={`${inputCls} disabled:bg-ink/5 disabled:text-ink/45`}
+                          className={`${inputCls}`}
                           value={w.author}
                           onChange={(e) => patchWish(i, { author: e.target.value })}
-                          disabled={!isPro}
                           placeholder="Who said it (e.g. Tita Bing)"
                           aria-label="Author"
                         />
                         <input
-                          className={`${inputCls} disabled:bg-ink/5 disabled:text-ink/45`}
+                          className={`${inputCls}`}
                           value={w.role}
                           onChange={(e) => patchWish(i, { role: e.target.value })}
-                          disabled={!isPro}
                           placeholder="Role (guest · vendor · couple)"
                           aria-label="Role"
                         />
                       </div>
                       <textarea
-                        className={`${inputCls} min-h-[64px] resize-y disabled:bg-ink/5 disabled:text-ink/45`}
+                        className={`${inputCls} min-h-[64px] resize-y`}
                         value={w.quote}
                         onChange={(e) => patchWish(i, { quote: e.target.value })}
-                        disabled={!isPro}
                         placeholder="Their wish, in their words."
                         aria-label="Wish"
                       />
@@ -1440,10 +1424,9 @@ export function EditorialEditor({
                         <label className="flex items-center gap-2 text-xs text-ink/55">
                           Stars
                           <select
-                            className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm text-ink outline-none focus:border-burgundy/50 disabled:bg-ink/5 disabled:text-ink/45"
+                            className="rounded-lg border border-ink/15 bg-white px-2 py-1 text-sm text-ink outline-none focus:border-burgundy/50"
                             value={w.stars}
                             onChange={(e) => patchWish(i, { stars: e.target.value })}
-                            disabled={!isPro}
                             aria-label="Stars"
                           >
                             <option value="">None</option>
@@ -1454,18 +1437,16 @@ export function EditorialEditor({
                             ))}
                           </select>
                         </label>
-                        {isPro ? (
-                          <span className={`text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}>
-                            {formatCount(count)}/{formatCount(WISH_QUOTE_SOFT_CAP)}
-                          </span>
-                        ) : null}
+                        <span className={`text-xs ${over ? 'text-burgundy' : 'text-ink/45'}`}>
+                          {formatCount(count)}/{formatCount(WISH_QUOTE_SOFT_CAP)}
+                        </span>
                       </div>
                     </div>
                     <span className="flex flex-none flex-col items-center gap-1">
                       <button
                         type="button"
                         onClick={() => moveWish(i, -1)}
-                        disabled={!isPro || i === 0}
+                        disabled={i === 0}
                         aria-label="Move wish up"
                         className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                       >
@@ -1474,7 +1455,7 @@ export function EditorialEditor({
                       <button
                         type="button"
                         onClick={() => moveWish(i, 1)}
-                        disabled={!isPro || i === wishes.length - 1}
+                        disabled={i === wishes.length - 1}
                         aria-label="Move wish down"
                         className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-cream/70 disabled:opacity-40"
                       >
@@ -1483,7 +1464,6 @@ export function EditorialEditor({
                       <button
                         type="button"
                         onClick={() => removeWish(i)}
-                        disabled={!isPro}
                         aria-label="Remove wish"
                         className="rounded-md border border-ink/15 bg-cream p-1 text-ink/65 transition hover:bg-burgundy/10 hover:text-burgundy disabled:opacity-40"
                       >
@@ -1499,7 +1479,7 @@ export function EditorialEditor({
           <p className="mt-4 text-sm text-ink/45">No wishes yet.</p>
         )}
 
-        {isPro && wishes.length < WISHES_MAX ? (
+        {wishes.length < WISHES_MAX ? (
           <button
             type="button"
             onClick={addWish}
@@ -1509,7 +1489,7 @@ export function EditorialEditor({
             Add a wish
           </button>
         ) : null}
-        {isPro && wishes.length >= WISHES_MAX ? (
+        {wishes.length >= WISHES_MAX ? (
           <p className="mt-3 text-xs text-ink/45">You&rsquo;ve added the maximum of {WISHES_MAX} wishes.</p>
         ) : null}
       </section>

@@ -4,7 +4,7 @@ import {
   fetchSingletonRoleHolders,
   GROUP_CATEGORY_LABELS,
   MEAL_LABELS,
-  ROLE_LABELS,
+  guestRolePickLabel,
   RSVP_LABELS,
   SIDE_LABELS,
   type GuestGroupCategory,
@@ -15,6 +15,8 @@ import {
   PLUS_ONE_CHOICES,
 } from '@/lib/guests';
 import { createClient } from '@/lib/supabase/server';
+import { loadRoleNames } from '@/lib/role-names.server';
+import { RoleNamesProvider } from '../_components/role-names-context';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { eventHasSides } from '@/lib/guest-side-question';
 import { isChineseWedding } from '@/lib/chinese-wedding';
@@ -112,8 +114,12 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
   }));
 
   const action = createGuest.bind(null, eventId);
+  // The couple's own words for roles (owner 2026-09-30) — the picker and the
+  // duplicate warning say them.
+  const roleNames = await loadRoleNames(supabase, eventId, 'NewGuestPage.roleNames');
 
   return (
+    <RoleNamesProvider names={roleNames}>
     <div className="mx-auto w-full max-w-2xl space-y-6">
       <header className="space-y-1">
         <Link
@@ -166,7 +172,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
           id="role"
           label={hasSides ? 'Role in wedding' : 'Role'}
           defaultValue="guest"
-          options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+          options={availableRoles.map((v) => ({ value: v, label: guestRolePickLabel(v, roleNames) }))}
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -280,6 +286,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
         </div>
       </form>
     </div>
+    </RoleNamesProvider>
   );
 }
 

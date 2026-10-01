@@ -149,7 +149,7 @@ import {
 } from './actions';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Live Studio controller' };
+export const metadata = { title: 'Live Watch controller' };
 
 // ═════════════════════════════════════════════════════════════════════════════
 // LIVE STUDIO CONTROLLER — the OWNER-APPROVED single-screen layout
@@ -898,7 +898,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
 
       {/* The single screen replaces the page masthead with the status row below —
           the event name lives there, useful during a show. Screen-reader title only. */}
-      <h1 className="sr-only">Live Studio controller</h1>
+      <h1 className="sr-only">Live Watch controller</h1>
 
       {/* ═══ STATUS ROW ═══════════════════════════════════════════════════════
           Everything a header used to spend ~150px saying, in one 44px row that is
@@ -913,8 +913,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       <div className="flex h-11 shrink-0 items-center gap-2 border-b border-ink/10 bg-ink/[0.03] px-2">
         <Link
           href={detailHref}
-          aria-label="Leave the controller — back to Live Studio"
-          title="Leave the controller — back to Live Studio"
+          aria-label="Leave the controller — back to Live Watch"
+          title="Leave the controller — back to Live Watch"
           className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-1.5 text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
@@ -1292,7 +1292,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               another day") and the unanchored-day notice — because multi-cam no
               longer expires on a clock (lib/live-studio-window.ts). Only the
               archive cap survives: it is YouTube's own per-stream recording limit,
-              unrelated to how Live Studio is billed.
+              unrelated to how Live Watch is billed.
 
               Sits directly under the transport because it is about a broadcast that
               is already running, and it is a TIME CROSSING mid-show — which is why
@@ -1570,7 +1570,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                     — the same `owned` boolean, so it is always false wherever this
                     paragraph renders at all. The per-event-DAY copy this used to fork
                     to ("your broadcast day has ended") described a billing model LS6
-                    retired (owner 2026-09-02): Live Studio is now one unlock, for the
+                    retired (owner 2026-09-02): Live Watch is now one unlock, for the
                     life of the event, no clock. There is no "day" for a switching cut
                     to have run out of, so that branch could never fire — confirmed 0
                     of 12 measured (owned × channel-count × cut-vs-pinned) combinations. */}
@@ -1614,7 +1614,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 {airOverlays.lowerThird?.title}
               </span>{' '}
               — that bar is how people find Setnayan, and it can’t be switched off. Your own
-              monogram and lower third go on air when you unlock Live Studio
+              monogram and lower third go on air when you unlock Live Watch
               {qrSrc ? '. Your event QR is free either way' : ''}.
             </p>
           ) : null}
@@ -2019,7 +2019,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           </div>
           {!airOverlays.monogram && rehearsalOverlays.monogram ? (
             <p className="text-[11.5px] leading-snug text-ink/55">
-              Placed and saved. It goes on air when you unlock Live Studio —{' '}
+              Placed and saved. It goes on air when you unlock Live Watch —{' '}
               <Link href={detailHref} className="font-medium text-terracotta hover:underline">
                 {lock.unlockCtaLabel}
               </Link>
@@ -2084,7 +2084,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               <p className="text-[11.5px] leading-snug text-ink/60">
                 Free streams carry this bar — it’s how people find Setnayan, and it can’t be
                 switched off. Your own two lines above are saved and previewed on Channel 1;
-                unlocking Live Studio is what puts them on air instead.
+                unlocking Live Watch is what puts them on air instead.
               </p>
               <Link
                 href={detailHref}
@@ -2395,7 +2395,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               Your own camera goes live free from your phone or OBS — one camera, always free.
               Rehearsing with every channel here is free too: hand out the join QRs, watch the
               cameras arrive on this screen, and practise your cuts as often as you like. When you
-              unlock Live Studio, more than one of them can be on air at once and the picker on your
+              unlock Live Watch, more than one of them can be on air at once and the picker on your
               event page lights up so guests can choose their view. That last step — pushing your
               cut out to YouTube — is being wired now, and we’ll email you the moment it’s ready.
               Nothing you set up here needs redoing.

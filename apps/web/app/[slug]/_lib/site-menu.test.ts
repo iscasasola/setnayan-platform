@@ -23,7 +23,8 @@ test('all sections present → the full five tabs in order', () => {
   );
   assert.deepEqual(
     tabs.map((t) => t.label),
-    ['Home', 'Details', 'Story', 'Gallery', 'Me'],
+    // Owner 2026-09-30: "Welcome - Details - Our Love Story - Me" (keys unchanged).
+    ['Welcome', 'Details', 'Our Love Story', 'Gallery', 'Me'],
   );
 });
 

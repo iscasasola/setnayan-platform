@@ -30,6 +30,7 @@
  * as `OwnerCapability` — see its doc block for why it is a SEPARATE, additive
  * field and not a third arm of `SiteIdentity`.
  */
+import type { PassCardEligibility } from '@/lib/pass-card';
 import type { GuestAccountState } from '@/lib/guest-one-path';
 import type { ChecklistKey } from '@/lib/guest-checklist';
 import type {
@@ -77,6 +78,12 @@ export type AnonymousSiteIdentity = {
 export type GuestSiteIdentity = {
   kind: 'guest';
   guest: GuestRow;
+  /**
+   * Does this guest HAVE a pass card (lib/pass-card.ts)? Only an accepted guest
+   * who is coming (owner 2026-09-29: "only accepted accounts get their images" ·
+   * "no pass for those who cannot come"). Null = not asked (the old keepers).
+   */
+  passCard: PassCardEligibility | null;
   qrSvg: string;
   invitationUrl: string;
   /** This guest's tagged photos so far — live window only, clean-screened. */
@@ -120,6 +127,10 @@ export type GuestSiteIdentity = {
   /** Server-resolved effective face-tag mode (One-Pool spec §3.4) for the
    *  RSVP selfie + day-of enroll surfaces. mode_b ⇒ no descriptor computed. */
   faceMode: PapicFaceMode;
+  /** May the reply card ask "Want to be tagged in the photos?" (and, after a
+   *  Yes, the selfie)? False when the couple declined face tagging for their
+   *  event (`resolveFaceTagging`, owner 2026-09-29). */
+  faceTaggingAskable: boolean;
   /**
    * This person's OWN saved meal + dietary answers, from their Setnayan account
    * (owner 2026-08-21). Offered as the reply card's DEFAULT when they have not
@@ -464,12 +475,13 @@ export function anonymousIdentity(input: {
  * one. Absent ⇒ null ⇒ the card behaves exactly as it did before this existed.
  */
 export function guestIdentity(
-  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist'> &
-    Partial<Pick<GuestSiteIdentity, 'profileDetails' | 'account' | 'didntReply' | 'checklist'>>,
+  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard'> &
+    Partial<Pick<GuestSiteIdentity, 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard'>>,
 ): GuestSiteIdentity {
   return {
     kind: 'guest',
     guest: input.guest,
+    passCard: input.passCard ?? null,
     qrSvg: input.qrSvg,
     invitationUrl: input.invitationUrl,
     guestLiveGallery: input.guestLiveGallery,
@@ -485,6 +497,7 @@ export function guestIdentity(
     saveFlash: input.saveFlash,
     rsvpFlash: input.rsvpFlash,
     faceMode: input.faceMode,
+    faceTaggingAskable: input.faceTaggingAskable,
     profileDetails: input.profileDetails ?? null,
     didntReply: input.didntReply === true,
     checklist: input.checklist ?? null,

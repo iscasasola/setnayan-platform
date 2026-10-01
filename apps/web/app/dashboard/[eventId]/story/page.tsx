@@ -17,6 +17,8 @@ import {
 } from '@/app/[slug]/_components/editorial/data';
 import { composeCopy } from '@/app/[slug]/_components/editorial/compose';
 import { isEditorialProActive } from '@/lib/couple-website-pro';
+import { STORY_PRO_EXTRA_KEYS, storyProExtrasOf, type StoryProExtras } from '@/lib/story-pro-extras';
+import { readHubDraft } from '@/lib/hub-draft-store';
 import { deskIsClear, percentDecided } from '@/lib/story-desk';
 import { loadDesk } from './_lib/load-desk';
 import { hostUserId } from './_lib/host-authority';
@@ -306,6 +308,29 @@ export default async function EditorialEditorPage({
     isPro = false;
   }
 
+  /* 💎 TRIED FREE, ASKED AT APPLY. A couple without Pro who wrote a moment's
+     name, a column of their own or a featured wish has it kept in the Event Hub
+     draft (`saveEditorial` → `lib/post-event-draft.ts`), not on the live story.
+     The workroom opens on what they WROTE, so nothing they typed seems to
+     vanish, and marks each held extra ◆. Read through the couple's own session
+     (the draft's RLS admits hosts only); an unreadable draft falls back to the
+     live story, never to empty. */
+  const tried: Partial<StoryProExtras> = {};
+  if (!isPro) {
+    try {
+      const drafted = (await readHubDraft(supabase, eventId))?.editorial ?? {};
+      for (const key of STORY_PRO_EXTRA_KEYS) {
+        if (drafted[key] !== undefined) (tried as Record<string, unknown>)[key] = drafted[key];
+      }
+    } catch {
+      /* the live story stands */
+    }
+  }
+  const liveExtras = storyProExtrasOf(draft);
+  const heldForPro = STORY_PRO_EXTRA_KEYS.filter(
+    (k) => tried[k] !== undefined && JSON.stringify(tried[k]) !== JSON.stringify(liveExtras[k]),
+  );
+
   /*
     THE DESK (08 step 1.2). `loadDesk` reads with the ADMIN client — the four
     sources disagree about who their RLS admits, so a co-host reading through
@@ -529,7 +554,7 @@ export default async function EditorialEditorPage({
     // The editor computes the working section order + wishes from the props
     // below; these `initial` values are only the save-shape defaults.
     sectionOrder: savedSectionOrder,
-    reviews: savedReviews,
+    reviews: tried.reviews ?? savedReviews,
     // WHO MAY READ IT. Was a boolean `publish`; a boolean cannot express the
     // middle answer, and its `false` meant BOTH "only me" and "I have simply
     // pressed Save", so a couple had no way to say "my guests, and nobody else".
@@ -596,11 +621,12 @@ export default async function EditorialEditorPage({
         initial={initial}
         uploadDisplayUrls={uploadDisplayUrls}
         isPro={isPro}
+        heldForPro={heldForPro}
         chapterCards={chapterCards.cards}
-        chapterOverrides={chapterCards.overrides}
+        chapterOverrides={tried.chapterOverrides ?? chapterCards.overrides}
         savedSectionOrder={savedSectionOrder}
-        savedCustomColumns={savedCustomColumns}
-        savedReviews={savedReviews}
+        savedCustomColumns={tried.customColumns ?? savedCustomColumns}
+        savedReviews={tried.reviews ?? savedReviews}
         guestColumnsOn={await guestColumnsActive()}
         shareUrl={shareUrl}
         showcaseOptedIn={showcaseOptedIn}

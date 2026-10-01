@@ -8,7 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { findPatiktokTemplate } from '@/lib/patiktok';
 import { planAutoTags, type EnrollmentVec } from '@/lib/face-match-core';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
-import { resolvePapicFaceMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { presignDisplayUrl, displayUrlForStoredAsset } from '@/lib/uploads';
 import { parseClientRef, patiktokClipPolicy } from '@/lib/r2-client-ref';
 import { isR2Configured, R2_BUCKETS } from '@/lib/r2';
@@ -283,7 +283,7 @@ export async function matchPatiktokFace(input: {
 
   // Admin read of the enrollment vectors (RLS keeps them out of client reach).
   const admin = createAdminClient();
-  if ((await resolvePapicFaceMode(admin, input.eventId)) !== 'mode_a') return null;
+  if ((await resolveFaceTagging(admin, input.eventId)).mode !== 'mode_a') return null;
   const { data: enr } = await admin
     .from('guest_face_enrollments')
     .select('guest_id, face_vector')

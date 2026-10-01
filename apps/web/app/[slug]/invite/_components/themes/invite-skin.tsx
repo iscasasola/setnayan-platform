@@ -19,6 +19,9 @@ export type InviteSkinInput = {
    * 2026-09-28: "the logo did not adapt"). Drawn only through `SealMark`.
    */
   mark: string | null;
+  /** The logo moves and the animation is on (`logoPlaysFor`) — the seal plays
+   *  it (owner 2026-09-29). Absent → the still seal, as before. */
+  markPlays?: boolean;
 };
 
 /**

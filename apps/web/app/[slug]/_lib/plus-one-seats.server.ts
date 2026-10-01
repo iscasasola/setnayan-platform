@@ -30,7 +30,36 @@ export type PlusOneSeat = {
   name: string | null;
   /** The seat's own key — only for a named seat. */
   qrToken: string | null;
+  /** The name parts (null while TBA) and the seat's own answers, so the
+   *  reply's per-seat boxes open on what is stored and a Send never overwrites
+   *  a meal the plus-one gave on their own key (owner 2026-09-29). */
+  first: string | null;
+  last: string | null;
+  /** The other three name parts (owner 2026-09-30: five parts, everywhere). */
+  prefix: string | null;
+  middle: string | null;
+  suffix: string | null;
+  meal: string | null;
+  dietary: string | null;
+  /** 🔒 The seat's person linked their own account — the name is read-only. */
+  linked: boolean;
 };
+
+/**
+ * The seats whose person has linked their OWN account (an `event_members` row
+ * holds the seat) — their name is theirs from then on (owner 2026-09-29, OWNER
+ * ANSWERS (10)). A failed read returns an empty set: the boxes stay editable,
+ * and `submitRsvp` re-asks before it writes a name, so nothing is overwritten.
+ */
+export async function linkedSeatIds(admin: AdminClient, eventId: string, seatIds: readonly string[]): Promise<Set<string>> {
+  if (seatIds.length === 0) return new Set();
+  const { data, error } = await admin.from('event_members').select('guest_id').eq('event_id', eventId).in('guest_id', [...seatIds]);
+  if (error) {
+    console.error('[supabase-error] app/[slug]/_lib/plus-one-seats.server.ts · from:event_members.select', error);
+    return new Set();
+  }
+  return new Set(((data ?? []) as Array<{ guest_id: string | null }>).map((r) => r.guest_id).filter((x): x is string => Boolean(x)));
+}
 
 /**
  * The bringer's plus-ones as "Your guests" draws them: each named one's own
@@ -73,7 +102,7 @@ export async function plusOneSeatsFor(
 ): Promise<PlusOneSeat[]> {
   const { data, error } = await admin
     .from('guests')
-    .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, qr_token`)
+    .select(`${ENTOURAGE_COLUMNS}, plus_one_name_confirmed_at, created_at, qr_token, meal_preference, dietary_restrictions`)
     .eq('event_id', eventId)
     .eq('plus_one_of_guest_id', bringerGuestId)
     .is('deleted_at', null)
@@ -82,6 +111,7 @@ export async function plusOneSeatsFor(
     console.error('[supabase-error] app/[slug]/_lib/plus-one-seats.server.ts · from:guests.select', error);
     return [];
   }
+  const linked = await linkedSeatIds(admin, eventId, (data ?? []).map((r) => r.guest_id as string));
   return (data ?? []).map((r) => {
     const placeholder = isPlaceholderSeat({
       guest_id: r.guest_id as string,
@@ -93,6 +123,14 @@ export async function plusOneSeatsFor(
       guest_id: r.guest_id as string,
       name,
       qrToken: name ? ((r.qr_token as string | null) ?? null) : null,
+      first: placeholder ? null : ((r.first_name as string | null) ?? null),
+      last: placeholder ? null : ((r.last_name as string | null) ?? null),
+      prefix: placeholder ? null : ((r.name_prefix as string | null) ?? null),
+      middle: placeholder ? null : ((r.middle_name as string | null) ?? null),
+      suffix: placeholder ? null : ((r.name_suffix as string | null) ?? null),
+      meal: (r.meal_preference as string | null) ?? null,
+      dietary: (r.dietary_restrictions as string | null) ?? null,
+      linked: linked.has(r.guest_id as string),
     };
   });
 }

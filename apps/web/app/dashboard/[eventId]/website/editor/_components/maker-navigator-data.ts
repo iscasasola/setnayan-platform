@@ -121,6 +121,9 @@ export function buildMakerNavigatorData(input: {
     line: facts.entourageCount && facts.entourageCount > 0 ? `${formatCount(facts.entourageCount)} with a role` : undefined,
   };
   minis['f:story'] = { eyebrow: 'Our story', title: 'How it began', line: undefined };
+  // 🏠 The Invitation's Welcome page (owner 2026-09-30).
+  minis['f:look'] = { eyebrow: 'What to wear', title: "Your guest's look" };
+  minis['f:gifts'] = { eyebrow: 'E-Gifts', title: 'E-Gifts' };
 
   const byType: Partial<Record<WidgetType, SceneMini>> = {
     countdown: { eyebrow: 'Counting down', title: facts.daysToGo !== null ? `${facts.daysToGo} days` : 'Countdown', line: facts.dateLabel ?? undefined },
@@ -134,7 +137,7 @@ export function buildMakerNavigatorData(input: {
     photo_moments: { eyebrow: 'Savour the moments', title: 'Photo moments', line: facts.photoMomentsLine ?? undefined },
     tier_comparison: { eyebrow: 'Your access', title: 'Two ways to celebrate' },
     special_message: { eyebrow: 'A message', title: firstLine(facts.specialMessage, 40) ?? 'Special message', line: undefined },
-    what_to_bring: { eyebrow: 'What to bring', title: firstLine(facts.whatToBring, 40) ?? 'What to bring' },
+    what_to_bring: { eyebrow: 'Reminders', title: firstLine(facts.whatToBring, 40) ?? 'Reminders' },
     our_photos: { eyebrow: 'Gallery', title: 'Photo gallery', photoUrl: facts.firstGalleryUrl ?? undefined },
     our_love_story: (() => {
       const first = loveStoryScenes(facts.loveStory)[0];

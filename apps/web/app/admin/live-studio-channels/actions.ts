@@ -28,7 +28,7 @@ const BOARD = '/admin/live-studio-channels';
 /** Shared entry gate: admin + the Live Studio flag. */
 async function gate(): Promise<{ userId: string }> {
   const { userId } = await requireAdmin();
-  if (!liveStudioRoamEnabled()) throw new Error('Live Studio is not enabled.');
+  if (!liveStudioRoamEnabled()) throw new Error('Live Watch is not enabled.');
   return { userId };
 }
 

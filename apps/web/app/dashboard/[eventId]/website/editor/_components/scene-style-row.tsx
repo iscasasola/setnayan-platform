@@ -27,7 +27,7 @@ import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
 import { IRow } from './inspector-kit';
 import { PickMenu } from './pick-menu';
-import { useSceneCanvas } from './scene-inspector';
+import { useSceneCanvas } from './use-scene-canvas';
 import type { ElementDraftAction } from './element-sheet';
 import { PaletteLookRow } from './palette-look-row';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';

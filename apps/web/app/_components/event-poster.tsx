@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { EventPosterFacts } from '@/lib/event-poster';
 import s from './event-poster.module.css';
+import { CoupleLogo } from './couple-logo';
 
 /**
  * THE EVENT POSTER — a collection card's `cover`, 3:4, filling the card.
@@ -25,12 +26,19 @@ export function EventPoster({
   poster,
   markText,
   markSvgUri = null,
+  markSvg = null,
+  markPlays = false,
 }: {
   poster: EventPosterFacts;
   /** The couple's monogram text, from `resolveMonogram` ("M & J"). */
   markText: string;
   /** Their uploaded / bespoke mark as an inert `data:` URI, when they have one. */
   markSvgUri?: string | null;
+  /** The same mark as markup, for when it PLAYS (`markPlays`) — owner
+   *  2026-09-29, "all logos should animate if animation is active". */
+  markSvg?: string | null;
+  /** The logo moves and the animation is on (`logoPlaysFor`). */
+  markPlays?: boolean;
 }) {
   const { names } = poster;
   const style = poster.accent ? ({ '--a': poster.accent } as CSSProperties) : undefined;
@@ -76,7 +84,7 @@ export function EventPoster({
         {/* eslint-disable-next-line @next/next/no-img-element -- the theme's public still (resolveThemeGround) */}
         <img src={poster.photoSrc ?? ''} alt="" className={s.photo} draggable={false} />
         <i className={s.themeScrim} />
-        <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} />
+        <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} markSvg={markSvg} markPlays={markPlays} />
       </div>
     );
   }
@@ -88,8 +96,16 @@ export function EventPoster({
         <i className={s.veil} />
         <i className={s.frame} />
         {markSvgUri ? (
-          // eslint-disable-next-line @next/next/no-img-element -- inert data: URI, gated by resolveEventMonogramSvg
-          <img src={markSvgUri} alt="" className={s.markImg} draggable={false} />
+          <CoupleLogo
+            svg={markSvg}
+            plays={markPlays}
+            place="event-poster"
+            className={s.markImg}
+            still={
+              // eslint-disable-next-line @next/next/no-img-element -- inert data: URI, gated by resolveEventMonogramSvg
+              <img src={markSvgUri} alt="" className={s.markImg} draggable={false} />
+            }
+          />
         ) : (
           <div className={s.mono}>{markText}</div>
         )}
@@ -121,7 +137,7 @@ export function EventPoster({
   // invitation — the hub's own card
   return (
     <div aria-hidden className={`${s.poster} ${s.invGround}`}>
-      <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} />
+      <InvitationPaper poster={poster} markText={markText} markSvgUri={markSvgUri} markSvg={markSvg} markPlays={markPlays} />
     </div>
   );
 }
@@ -131,18 +147,30 @@ function InvitationPaper({
   poster,
   markText,
   markSvgUri,
+  markSvg,
+  markPlays,
 }: {
   poster: EventPosterFacts;
   markText: string;
   markSvgUri: string | null;
+  markSvg: string | null;
+  markPlays: boolean;
 }) {
   return (
     <div className={s.paper}>
       {poster.eyebrow ? <p className={s.eb}>{poster.eyebrow}</p> : null}
       <div className={s.circ}>
         {markSvgUri ? (
-          // eslint-disable-next-line @next/next/no-img-element -- inert data: URI, gated by resolveEventMonogramSvg
-          <img src={markSvgUri} alt="" draggable={false} />
+          <CoupleLogo
+            svg={markSvg}
+            plays={markPlays}
+            place="event-poster"
+            className="block h-[80%] w-[80%]"
+            still={
+              // eslint-disable-next-line @next/next/no-img-element -- inert data: URI, gated by resolveEventMonogramSvg
+              <img src={markSvgUri} alt="" draggable={false} />
+            }
+          />
         ) : (
           markText
         )}

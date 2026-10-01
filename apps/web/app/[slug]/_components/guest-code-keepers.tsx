@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Check, Copy, Download } from 'lucide-react';
+import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
+import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 /**
  * "Save the code" + "Copy link" — the two ways a guest takes their invitation
@@ -27,9 +29,17 @@ import { Check, Copy, Download } from 'lucide-react';
 export function GuestCodeKeepers({
   invitationUrl,
   className,
+  passCardHref = null,
 }: {
   invitationUrl: string;
   className?: string;
+  /**
+   * 🎫 THE PASS CARD (owner 2026-09-29: "make sure the file they save the QR
+   * Card with the information of the guest"). When the page knows this guest
+   * HAS a card (lib/pass-card.ts), "Save to Photos" saves the 1080 × 1440 card
+   * with their name on it and in its filename; otherwise the bare code below.
+   */
+  passCardHref?: string | null;
 }) {
   const [copied, setCopied] = useState<'idle' | 'done' | 'failed'>('idle');
 
@@ -54,6 +64,9 @@ export function GuestCodeKeepers({
   return (
     <div className={className}>
       <div className="flex flex-wrap items-center justify-center gap-2">
+        {passCardHref ? (
+          <SavePassCardButton hrefs={[passCardHref]} label={PASS_CARD_WORDS.saveOwn} />
+        ) : (
         <a
           href="/api/guest/qr"
           download
@@ -62,6 +75,7 @@ export function GuestCodeKeepers({
           <Download aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Save the code
         </a>
+        )}
         <button
           type="button"
           onClick={copy}

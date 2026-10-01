@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useState, useTransition, type ReactNode } from 'react';
+import { Suspense, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
 import { sanitizeName } from '@/lib/match-criteria';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
@@ -10,7 +10,11 @@ import { saveAllStdContent } from '../../studio/save-the-date/actions';
 import { GovernedFields } from '../../details/_components/governed-fields';
 import { FindDateCandidates, FindDatePicked, useDateState } from './details-date-finder';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
+import { FileUpload } from '@/app/_components/file-upload';
+import type { VenueChoice, VenueSlotKey } from '@/lib/event-venues';
+import { sceneBackgroundPathPrefix } from '@/lib/scene-media-choices';
+import { NAME_STYLE_CHOICES, type NameStyle } from '@/lib/name-style';
 
 /**
  * DETAILS › YOUR EVENT — the editors (Details part 2a; owner 2026-09-28,
@@ -34,7 +38,9 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
  *   · Venues → `saveAllStdContent` — the typed venue names the Event Hub, the
  *     prints and the Save-the-Date already read (`std_film_ceremony_name`,
  *     `std_film_venue_name`, `std_film_venue_city`; `lib/event-venues.ts`). A
- *     BOOKED venue comes from its booking and is shown, not retyped.
+ *     BOOKED venue comes from its booking and is shown, not retyped — unless
+ *     the couple picks "Enter your own" (owner 2026-09-30); that choice and
+ *     each card's photo save through the same action (`venueChoice`).
  *
  * Each writes live and says so (`HubSavesImmediately`) — none of these columns
  * has a draft door; they are the event's facts, not the page's look.
@@ -121,6 +127,129 @@ export function NamesEditor({
     <section data-details-names="" className="flex flex-col gap-3">
       {row(people[0], a, setA)}
       {row(people[1], b, setB)}
+      <SaveRow pending={pending} saved={saved} error={error} onSave={save} />
+      <HubSavesImmediately />
+    </section>
+  );
+}
+
+/**
+ * 🔤 NAME STYLE ▾ — how every FORMAL surface prints a guest's name (owner
+ * 2026-09-30, DECISION_LOG "THE COUPLE PICKS A NAME STYLE"): Full "Mr. Manuel
+ * Cortez Casasola" (the default) · Middle initial "Mr. Manuel C. Casasola" ·
+ * Surname first "Mr. Casasola, Manuel C.". ONE event-wide PickMenu (a set of
+ * choices is a dropdown), under the Names, in place.
+ *
+ * 💾 Saved at once through the prints' own door (`POST /api/hub-print/name-style`
+ * → `events.print_details.name_style`) — the pass card look's pattern: shown
+ * AT ONCE, the latest pick held in a ref so two quick picks never save out of
+ * order, and a failure puts back only the latest. Then the Maker's pictures
+ * redraw (`requestMakerRefresh`) — the invitation and the ticket beside it are
+ * drawn in the style.
+ */
+export function NameStylePicker({ eventId, saved }: { eventId: string; saved: NameStyle }) {
+  const [shown, setShown] = useState<NameStyle>(saved);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const latest = useRef<NameStyle>(saved);
+  const stored = useRef<NameStyle>(saved);
+
+  const pick = (key: string) => {
+    const style = NAME_STYLE_CHOICES.find((c) => c.key === key)?.key;
+    if (!style || style === latest.current) return;
+    latest.current = style;
+    setShown(style);
+    setError(null);
+    start(async () => {
+      const fd = new FormData();
+      fd.set('event_id', eventId);
+      fd.set('style', style);
+      const ok = await fetch('/api/hub-print/name-style', { method: 'POST', body: fd, headers: { accept: 'application/json' } })
+        .then((r) => r.ok)
+        .catch(() => false);
+      if (ok) {
+        stored.current = style;
+        requestMakerRefresh();
+        return;
+      }
+      if (latest.current === style) {
+        latest.current = stored.current;
+        setShown(stored.current);
+        setError('That name style did not save — please try again.');
+      }
+    });
+  };
+
+  const example = NAME_STYLE_CHOICES.find((c) => c.key === shown)?.example ?? '';
+  return (
+    <section data-name-style={shown} aria-busy={pending || undefined} className="flex flex-col gap-1.5 border-t border-ink/10 pt-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <span className="text-[13px] font-semibold text-ink">Name style</span>
+        <PickMenu
+          label="Name style"
+          value={shown}
+          options={NAME_STYLE_CHOICES.map((c): PickOption => ({ key: c.key, label: c.label }))}
+          onPick={pick}
+          dataAttr="data-name-style-pick"
+        />
+      </div>
+      <p className="text-xs text-ink/65">
+        {example} — on the entourage, tickets, printed cards and name lists. A Display name prints as you typed it.
+      </p>
+      {error ? (
+        <p role="alert" className="text-[12.5px] text-terracotta-700">
+          {error}
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * ONE NAME — a single-person event's (a birthday, a debut, a wake): the
+ * event's own `display_name`, which the hero, every print and every pass read
+ * (owner 2026-09-29, "yes to all 4", item 3). Saved through the same writer as
+ * the two names, `updateEventMatchCriteria`, which — when it is posted
+ * `celebrant_name` alone — writes `display_name` and nothing else.
+ */
+export function OneNameEditor({ eventId, initial, hint }: { eventId: string; initial: string; hint: string }) {
+  const [name, setName] = useState(initial);
+  const [pending, start] = useTransition();
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = () => {
+    setError(null);
+    setSaved(false);
+    const fd = new FormData();
+    fd.set('event_id', eventId);
+    fd.set('celebrant_name', name.trim());
+    start(async () => {
+      try {
+        const r = await makerSave(() => updateEventMatchCriteria(fd), requestMakerRefresh);
+        if (r.ok) setSaved(true);
+        else setError(r.message);
+      } catch {
+        setError('That did not save. Nothing changed — please try again.');
+      }
+    });
+  };
+  return (
+    <section data-details-one-name="" className="flex flex-col gap-3">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-ink/70">Name</span>
+        <input
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setSaved(false);
+          }}
+          maxLength={80}
+          autoCapitalize="words"
+          aria-label="Name, as guests read it"
+          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+        />
+        <span className="text-xs text-ink/60">{hint}</span>
+      </label>
       <SaveRow pending={pending} saved={saved} error={error} onSave={save} />
       <HubSavesImmediately />
     </section>
@@ -248,10 +377,26 @@ export type VenueSlot = {
   field: 'filmCeremonyName' | 'filmVenueName';
   /** "Ceremony" · "Reception" (`VENUE_ROLE_LABEL`), or "Venue" for one place. */
   label: string;
-  /** A confirmed booking names this place — shown, never retyped. */
-  booked: { name: string; address: string | null } | null;
+  /** Which venue card this is (`config_json.venue[slot]` on the Venue scene). */
+  slot: VenueSlotKey;
+  /** The booked supplier AS OFFERED — shown under "Use the supplier's details";
+   *  `photos` are their public shop photos (refs), in their order. */
+  booked: { name: string; address: string | null; photos: readonly string[] } | null;
   typed: string;
+  /** Where its street address saves (`saveAllStdContent`): the reception's is
+   *  `venue_address`, the ceremony's `ceremony_venue_address`. */
+  addressField: 'venueAddress' | 'ceremonyAddress';
+  /** Its typed street address as stored. */
+  address: string;
+  /** The couple's choice for this card, as stored (validated). */
+  choice: VenueChoice;
+  /** ref → signed URL, for every photo this card can show. */
+  photoUrls: Record<string, string>;
 };
+
+const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+const PHOTO_NONE = 'none';
+const PHOTO_UPLOAD = 'upload';
 
 export function VenuesEditor({
   eventId,
@@ -266,56 +411,125 @@ export function VenuesEditor({
   /** Posted back unchanged — `saveAllStdContent` always writes the launch date. */
   launchDate: string | null;
 }) {
-  const [values, setValues] = useState<Record<string, string>>(() => Object.fromEntries(slots.map((s) => [s.field, s.typed])));
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(slots.flatMap((s) => [[s.field, s.typed], [s.addressField, s.address]])),
+  );
+  /* 🏛 Each card's choice, held here so a pick shows at once and saves behind it
+     (owner: instant — no reload). Switching source never touches the typed
+     words: they stay in `values` and in their columns. */
+  const [choices, setChoices] = useState<Record<string, VenueChoice>>(() =>
+    Object.fromEntries(slots.map((s) => [s.slot, s.choice])),
+  );
   const [cityValue, setCityValue] = useState(city ?? '');
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const typedSlots = slots.filter((s) => !s.booked);
+  const ownDetails = (s: VenueSlot) => !s.booked || choices[s.slot]?.source === 'own';
+  const typedSlots = slots.filter(ownDetails);
 
   const save = () => {
     setError(null);
     setSaved(false);
     const data: Parameters<typeof saveAllStdContent>[1] = { launchDate };
-    for (const s of typedSlots) data[s.field] = values[s.field]?.trim() || null;
+    for (const s of typedSlots) {
+      data[s.field] = values[s.field]?.trim() || null;
+      data[s.addressField] = values[s.addressField]?.trim() || null;
+    }
     if (city !== null) data.filmVenueCity = cityValue.trim() || null;
     start(async () => {
       try {
         const r = await makerSave(() => saveAllStdContent(eventId, data), requestMakerRefresh);
         if (r.ok) setSaved(true);
-        else setError('That did not save. Nothing changed — please try again.');
+        else
+          setError(
+            r.error === 'address-too-long'
+              ? 'That address is longer than 300 characters — please shorten it.'
+              : 'That did not save. Nothing changed — please try again.',
+          );
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
     });
   };
 
+  /** One card's choice: shown now, saved behind it. */
+  const choose = (slot: VenueSlotKey, next: VenueChoice) => {
+    const was = choices[slot] ?? {};
+    setChoices((c) => ({ ...c, [slot]: next }));
+    setError(null);
+    void makerSave(() => saveAllStdContent(eventId, { launchDate, venueChoice: { slot, choice: next } }), requestMakerRefresh)
+      .then((r) => {
+        if (r.ok) return;
+        setChoices((c) => ({ ...c, [slot]: was }));
+        setError(
+          r.error === 'no-venue-scene'
+            ? 'Add the Venue scene to your Event Hub first, then pick its photo.'
+            : 'That did not save. Nothing changed — please try again.',
+        );
+      })
+      .catch(() => {
+        setChoices((c) => ({ ...c, [slot]: was }));
+        setError('That did not save. Nothing changed — please try again.');
+      });
+  };
+
   return (
-    <section data-details-venues="" className="flex flex-col gap-3">
-      {slots.map((s) => (
-        <div key={s.field} className="flex flex-col gap-1.5" data-venue-slot={s.field}>
-          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{s.label}</p>
-          {s.booked ? (
-            <div className="rounded-md bg-ink/[0.03] px-3 py-2">
-              <p className="text-sm font-medium text-ink">{s.booked.name}</p>
-              {s.booked.address ? <p className="text-xs text-ink/65">{s.booked.address}</p> : null}
-              <p className="mt-1 text-[11.5px] text-ink/55">From your booked supplier — it follows the booking.</p>
-            </div>
-          ) : (
-            <input
-              value={values[s.field] ?? ''}
-              onChange={(e) => {
-                setValues((v) => ({ ...v, [s.field]: e.target.value }));
-                setSaved(false);
-              }}
-              maxLength={160}
-              placeholder="Name of the place"
-              aria-label={`${s.label} — name of the place`}
-              className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
-            />
-          )}
-        </div>
-      ))}
+    <section data-details-venues="" className="flex flex-col gap-4">
+      {slots.map((s) => {
+        const own = ownDetails(s);
+        return (
+          <div key={s.field} className="flex flex-col gap-1.5" data-venue-slot={s.field}>
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{s.label}</p>
+            {s.booked ? (
+              <PickMenu
+                label={`${s.label} — where its details come from`}
+                value={own ? 'own' : 'supplier'}
+                options={[
+                  { key: 'supplier', label: 'Use the supplier’s details' },
+                  { key: 'own', label: 'Enter your own' },
+                ]}
+                onPick={(k) => choose(s.slot, { ...(choices[s.slot] ?? {}), source: k === 'own' ? 'own' : 'supplier' })}
+                dataAttr="data-venue-source"
+              />
+            ) : null}
+            {!own && s.booked ? (
+              <div className="rounded-md bg-ink/[0.03] px-3 py-2">
+                <p className="text-sm font-medium text-ink">{s.booked.name}</p>
+                {s.booked.address ? <p className="text-xs text-ink/65">{s.booked.address}</p> : null}
+                <p className="mt-1 text-[11.5px] text-ink/55">From your booked supplier — it follows the booking.</p>
+              </div>
+            ) : (
+              <>
+                <input
+                  value={values[s.field] ?? ''}
+                  onChange={(e) => {
+                    setValues((v) => ({ ...v, [s.field]: e.target.value }));
+                    setSaved(false);
+                  }}
+                  maxLength={160}
+                  placeholder="Name of the place"
+                  aria-label={`${s.label} — name of the place`}
+                  className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+                />
+                <input
+                  value={values[s.addressField] ?? ''}
+                  onChange={(e) => {
+                    setValues((v) => ({ ...v, [s.addressField]: e.target.value }));
+                    setSaved(false);
+                  }}
+                  maxLength={300}
+                  autoComplete="street-address"
+                  placeholder="Street address — e.g. 1 Tandang Sora Ave, Quezon City"
+                  aria-label={`${s.label} — street address`}
+                  data-venue-address={s.addressField}
+                  className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+                />
+              </>
+            )}
+            <VenuePhotoPicker eventId={eventId} slot={s} own={own} choice={choices[s.slot] ?? {}} onChoose={(c) => choose(s.slot, c)} />
+          </div>
+        );
+      })}
       {city !== null ? (
         <label className="flex flex-col gap-1.5">
           <span className="text-xs font-medium text-ink/70">City or area</span>
@@ -336,8 +550,113 @@ export function VenuesEditor({
           <SaveRow pending={pending} saved={saved} error={error} onSave={save} />
           <HubSavesImmediately />
         </>
+      ) : error ? (
+        <p role="alert" className="text-xs text-danger-800">
+          {error}
+        </p>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * 🏛📷 THE VENUE CARD'S PHOTO — ONE chooser (owner 2026-09-30): the booked
+ * supplier's public photos (their first by default), the couple's own upload
+ * (always offered last; the only way when the supplier has none, or when the
+ * card is on their own details), or no photo. Uploads go through the shipped
+ * `<FileUpload>`, compressed in the browser, into the Maker's scene-media
+ * folder (`sceneBackgroundPathPrefix` — the folder `lib/event-venues.ts`
+ * `isOwnVenuePhotoRef` accepts).
+ */
+function VenuePhotoPicker({
+  eventId,
+  slot,
+  own,
+  choice,
+  onChoose,
+}: {
+  eventId: string;
+  slot: VenueSlot;
+  own: boolean;
+  choice: VenueChoice;
+  onChoose: (next: VenueChoice) => void;
+}) {
+  const [local, setLocal] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState(false);
+  const url = (ref: string | null | undefined) => (ref ? (local[ref] ?? slot.photoUrls[ref] ?? null) : null);
+  const supplierPhotos = own ? [] : (slot.booked?.photos ?? []);
+  const ownRef = choice.ownPhoto ?? (!own && choice.supplierPhoto && !supplierPhotos.includes(choice.supplierPhoto) ? choice.supplierPhoto : null);
+  const current = own
+    ? (choice.ownPhoto ?? null)
+    : choice.supplierPhoto === null
+      ? null
+      : (choice.supplierPhoto ?? supplierPhotos[0] ?? null);
+  const options: PickOption[] = [
+    ...supplierPhotos.map((ref, i) => ({
+      key: ref,
+      label: supplierPhotos.length > 1 ? `Supplier’s photo ${i + 1}` : 'Supplier’s photo',
+      thumb: url(ref) ?? undefined,
+    })),
+    ...(ownRef ? [{ key: ownRef, label: 'Your photo', thumb: url(ownRef) ?? undefined }] : []),
+    { key: PHOTO_UPLOAD, label: ownRef ? 'Upload a different photo' : 'Upload a photo' },
+    { key: PHOTO_NONE, label: 'No photo' },
+  ];
+  const pick = (ref: string | null) =>
+    onChoose(own ? { ...choice, ownPhoto: ref } : { ...choice, supplierPhoto: ref });
+  const shown = url(current);
+  const noneYet = supplierPhotos.length === 0 && !ownRef;
+
+  return (
+    <div className="mt-1 flex flex-col gap-2" data-venue-photo-picker={slot.slot}>
+      {shown ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={shown} alt="" className="aspect-[16/9] w-full max-w-md rounded-md border border-ink/10 object-cover" />
+      ) : null}
+      {noneYet ? (
+        <p className="text-[12.5px] text-ink/65">
+          {own || !slot.booked ? 'Add a photo of the place — it shows on the venue card.' : 'This supplier has no photos on their shop yet. Upload one of the place.'}
+        </p>
+      ) : (
+        <PickMenu
+          label={`${slot.label} — photo`}
+          value={uploading ? PHOTO_UPLOAD : (current ?? PHOTO_NONE)}
+          options={options}
+          onPick={(k) => {
+            if (k === PHOTO_UPLOAD) setUploading(true);
+            else {
+              setUploading(false);
+              pick(k === PHOTO_NONE ? null : k);
+            }
+          }}
+          dataAttr="data-venue-photo"
+        />
+      )}
+      {uploading || noneYet ? (
+        <FileUpload
+          bucket="media"
+          pathPrefix={sceneBackgroundPathPrefix(eventId)}
+          multiple={false}
+          maxSizeMB={25}
+          acceptedTypes={IMAGE_TYPES}
+          compressImage
+          onFilePicked={(file) => {
+            try {
+              setLocal((l) => ({ ...l, __picked: URL.createObjectURL(file) }));
+            } catch {
+              /* a preview is a nicety */
+            }
+          }}
+          onChange={(value) => {
+            const ref = typeof value === 'string' ? value : null;
+            if (!ref) return;
+            setLocal((l) => (l.__picked ? { ...l, [ref]: l.__picked } : l));
+            setUploading(false);
+            onChoose(own ? { ...choice, ownPhoto: ref } : { ...choice, ownPhoto: ref, supplierPhoto: ref });
+          }}
+          label="Upload a photo of the place"
+        />
+      ) : null}
+    </div>
   );
 }
 

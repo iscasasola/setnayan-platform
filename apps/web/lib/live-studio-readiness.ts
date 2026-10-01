@@ -162,7 +162,7 @@ export const DESKTOP_ENCODER_READINESS_NOTICE =
  * Pre-empting the wrong conclusion is the whole reason the clause is here.
  */
 export const YOUTUBE_READY_NOTICE =
-  'Before you buy, check that your own YouTube channel can already go live — YouTube takes about 24 hours to switch this on the first time, and it cannot be rushed on the day. Open youtube.com/features and look for Live streaming: Enabled. If you read that you need 50 subscribers, that rule is only for going live from the phone app — streaming from a computer, which is what Live Studio does, has no subscriber requirement.';
+  'Before you buy, check that your own YouTube channel can already go live — YouTube takes about 24 hours to switch this on the first time, and it cannot be rushed on the day. Open youtube.com/features and look for Live streaming: Enabled. If you read that you need 50 subscribers, that rule is only for going live from the phone app — streaming from a computer, which is what Live Watch does, has no subscriber requirement.';
 
 /**
  * 💻 WHAT THE BUYER MUST OWN — a laptop — SAID BEFORE THE MONEY MOVES.

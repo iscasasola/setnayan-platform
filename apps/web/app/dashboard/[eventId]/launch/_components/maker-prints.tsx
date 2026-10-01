@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { FREE_THEMES, INVITE_THEMES, themeNames, type InviteThemeId } from '@/lib/invite-themes';
 import {
   CLASSIC_PRINT_THEME,
+  PRINT_FORMATS,
   PRINT_PIECES,
   PRINT_SET_KEYS,
   isProPrint,
@@ -17,14 +18,24 @@ import {
   type MenuMoment,
   type PrintFormat,
   type PrintFormatId,
+  type PosterPhoto,
   type PrintSetKey,
 } from '@/lib/print-pieces';
 import { freePrints, type FreePrint } from '@/lib/free-prints';
 import { detailsItemHref } from '@/lib/maker-details-items';
 import { PaidMark } from '@/app/_components/paid-mark';
-import { paidMarkLabel } from '@/lib/paid-mark';
+import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
+import {
+  DEFAULT_PASS_CARD_DESIGN,
+  PASS_CARD_DESIGNS,
+  PASS_CARD_FORMAT_ID,
+  PASS_CARDS_ZIP_ROUTE,
+  PASS_CARD_WORDS,
+  type PassCardDesign,
+} from '@/lib/pass-card';
 /* ⚡ The print pieces load when Details is opened — never with the Maker (`details-lazy.tsx`). */
-import { PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
+import { ChangedSincePrinted, PassCardDesignPicker, PosterPhotoPicker, PrintChoicePicker, PrintMenuEditor, PrintPreview, PrintSaveButton } from './details-lazy';
+import { DetailsGoTo } from './details-go';
 
 /**
  * THE PRINTS, AS PARTS OF THE DETAILS PAGE. Until 2026-09-28 this file drew
@@ -77,6 +88,18 @@ export type PrintsInput = {
   storeShell: boolean;
   /** The size chosen per family (owner: calling card / train / plane ticket; index card / A5). */
   formats: Record<PrintFormat['for'], PrintFormat>;
+  /**
+   * No Love Story to print yet — the Our Story poster is then never offered
+   * for download (the route refuses it too); its picture says where the
+   * story comes from and a button opens Details › Love Story in place.
+   */
+  storyEmpty?: boolean;
+  /** 🖼 The Our Story poster's own photo, when the couple chose one (`print_details.poster_photo`). */
+  posterPhoto?: PosterPhoto | null;
+  /** The couple's saved pass card look (`print_details.pass_design`). */
+  passDesign?: PassCardDesign;
+  /** The zip's file name — `<Couple>-<date>-passes.zip` (`passCardsZipFileName`). */
+  passCardsZip?: string;
   /**
    * ⚡ The hash of everything the pieces are drawn from (`printInputsVersion`),
    * put in each on-screen preview's address as `v` — a versioned preview is
@@ -167,6 +190,8 @@ export function PrintPieceBody({
   // The Menu is NEVER offered blank: with no dishes its card shows the "add
   // your menu" prompt and its downloads are not offered.
   const menuEmpty = k === 'menu' && !menuHasDishes(menuPrints(menu ?? { saved: [], caterer: [] }));
+  // The Our Story poster likewise, until there is a Love Story to print.
+  const storyMissing = k === 'story-poster' && Boolean(input.storyEmpty);
   const cut = dieCutFor(theme, k, fam ? formats[fam] : null);
   return (
     <div data-print-piece={k} className="flex flex-col items-center gap-2">
@@ -195,6 +220,13 @@ export function PrintPieceBody({
           Add your menu
         </Link>
       ) : null}
+      {/* The poster reads the Love Story — which lives in Details, so its door
+          opens that item IN PLACE (never a link out of the Maker). */}
+      {k === 'story-poster' ? (
+        <DetailsGoTo item="love-story" className="font-medium text-link underline-offset-2 hover:underline">
+          <span data-print-story-link="">{storyMissing ? 'Add your Love Story' : 'Edit your Love Story'}</span>
+        </DetailsGoTo>
+      ) : null}
     </div>
   );
 }
@@ -219,6 +251,8 @@ export function PrintPieceEditor({
   const spec = PRINT_PIECES[k];
   const fam = formatFamilyOf(k);
   const menuEmpty = k === 'menu' && !menuHasDishes(menuPrints(menu ?? { saved: [], caterer: [], suggestions: [], flash: null }));
+  // Never offered blank: no Love Story, no poster to save (the route refuses it too).
+  const storyMissing = k === 'story-poster' && Boolean(input.storyEmpty);
   return (
     <div data-print-editor={k} className="flex flex-col gap-3">
       {fam && HAS_SIZES(k) ? (
@@ -233,6 +267,10 @@ export function PrintPieceEditor({
         </div>
       ) : null}
       {children}
+      {/* 🖼 The A3 poster's background — the theme's picture or the couple's own
+          photo (owner 2026-09-29, OWNER ANSWERS (1)). Offered only where there
+          is a Love Story to print. */}
+      {k === 'story-poster' && !storyMissing ? <PosterPhotoPicker eventId={input.eventId} saved={input.posterPhoto ?? null} /> : null}
       {/* ══ THE MENU — its moments and dishes (owner 2026-09-28). ══ */}
       {k === 'menu' && menu ? (
         <PrintMenuEditor
@@ -243,9 +281,10 @@ export function PrintPieceEditor({
           flash={menu.flash}
         />
       ) : null}
-      {menuEmpty ? null : (
+      {menuEmpty || storyMissing ? null : (
         <div className="flex flex-col gap-1.5 border-t border-ink/10 pt-3" data-print-piece-saves={k}>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">This piece</p>
+          <ChangedSincePrinted eventId={input.eventId} piece={k} version={input.previewVersion} />
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             <PrintSaveButton href={classic(k)} file={file.classic(k)} variant="link">
               {themed ? 'Save · Classic (PDF)' : 'Save PDF'}
@@ -262,6 +301,68 @@ export function PrintPieceEditor({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * 🎫 THE PASS GUESTS SAVE (owner 2026-09-29) — one look for every card, and
+ * its two outputs: *"print outs are PDF. digital versions are png"*. Each
+ * guest saves their own card free; the couple's zip of every card is Event
+ * Hub Pro (◆, never a padlock); the Phone card print is the SAME drawing as a
+ * PDF. Drawn in Details › Pass, under the piece's own saves — the look is ONE
+ * dropdown in the right part, beside the card it picks.
+ */
+export function PassCardsPanel({ input }: { input: PrintsInput }) {
+  const { eventId, ownsPro, storeShell, passDesign = DEFAULT_PASS_CARD_DESIGN, passCardsZip = 'passes.zip' } = input;
+  const { themed, themedReady, q, file } = printPlan(input);
+  // The zip of every card is Event Hub Pro: ◆ unlocked when owned, ◆ PRO (a
+  // door to the one unlock) on the web, absent in the store shell.
+  const zipMark = makerProMark({ owns: ownsPro, storeShell });
+  const classicPhoneCards = `/api/hub-print/passes?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}&pass_format=${PASS_CARD_FORMAT_ID}`;
+  return (
+    <div data-pass-cards="" className="flex flex-col gap-3 border-t border-ink/10 pt-3">
+      <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{PASS_CARD_WORDS.section}</p>
+      <ChangedSincePrinted eventId={eventId} piece="passes" version={input.previewVersion} />
+      <PassCardDesignPicker
+        eventId={eventId}
+        saved={passDesign}
+        previews={
+          Object.fromEntries(
+            PASS_CARD_DESIGNS.map((d) => [d, `${q('pass', 'screen', PASS_CARD_FORMAT_ID)}&pass_design=${d}`]),
+          ) as Record<PassCardDesign, string>
+        }
+      />
+      <div className="flex flex-col gap-2 text-sm">
+        <div className="flex flex-wrap items-center gap-2" data-pass-cards-digital="">
+          <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.digital}</span>
+          {zipMark === null ? null : zipMark === 'unlocked' ? (
+            <PrintSaveButton href={`${PASS_CARDS_ZIP_ROUTE}?event=${eventId}`} file={passCardsZip}>
+              <PaidMark state="unlocked" label={paidMarkLabel('unlocked', 'Event Hub Pro')} className="mr-1 align-middle" />
+              {PASS_CARD_WORDS.downloadAll}
+            </PrintSaveButton>
+          ) : (
+            <Link
+              href={`/dashboard/${eventId}/studio/website-pro`}
+              data-pass-cards-zip-pro=""
+              className="inline-flex min-h-10 items-center gap-1 rounded-full border border-ink/15 px-3 text-sm font-medium text-ink"
+            >
+              <PaidMark state={zipMark} label={paidMarkLabel(zipMark, 'Event Hub Pro')} className="mr-1 align-middle" />
+              {PASS_CARD_WORDS.downloadAll}
+            </Link>
+          )}
+          <span className="text-xs text-ink/55">One PNG per guest who is coming. Each guest&rsquo;s own saves free.</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2" data-pass-cards-print="">
+          <span className="w-24 shrink-0 text-xs font-semibold uppercase tracking-wide text-ink/60">{PASS_CARD_WORDS.print}</span>
+          <PrintSaveButton
+            href={themed && !themedReady ? classicPhoneCards : q('passes', 'print', PASS_CARD_FORMAT_ID)}
+            file={themed && !themedReady ? file.classic('passes') : themed ? file.themed('passes') : file.classic('passes')}
+          >
+            Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {PRINT_FORMATS[PASS_CARD_FORMAT_ID].label}
+          </PrintSaveButton>
+        </div>
+      </div>
     </div>
   );
 }
@@ -339,6 +440,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
       data-prints-access={!themed ? 'classic' : freeTheme ? 'free-theme' : access.printReady ? 'print-ready' : 'sample'}
       className="flex flex-col gap-3"
     >
+      <ChangedSincePrinted eventId={input.eventId} piece="set" version={input.previewVersion} />
       <p className="text-sm text-ink/75">
         <span data-prints-free-themes="" className="font-semibold text-ink">
           {themeNames(FREE_THEMES)} prints are free and print-ready
@@ -371,7 +473,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
           Whole set · Classic (PDF)
         </PrintSaveButton>
         <PrintSaveButton href={classic('passes')} file={file.classic('passes')}>
-          Every guest&rsquo;s pass · Classic
+          Every guest&rsquo;s {PASS_CARD_WORDS.noun} · Classic
         </PrintSaveButton>
         {themedReady ? (
           <>
@@ -379,7 +481,7 @@ export function PrintSetDownloads({ input }: { input: PrintsInput }) {
               <span data-prints-print-ready="">Whole set · {t.name} (PDF)</span>
             </PrintSaveButton>
             <PrintSaveButton href={q('passes', 'print')} file={file.themed('passes')}>
-              <span data-prints-passes="">Every guest&rsquo;s pass · {t.name}</span>
+              <span data-prints-passes="">Every guest&rsquo;s {PASS_CARD_WORDS.noun} · {t.name}</span>
             </PrintSaveButton>
           </>
         ) : themed ? (

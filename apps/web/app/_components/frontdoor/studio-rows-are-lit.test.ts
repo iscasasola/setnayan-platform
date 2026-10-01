@@ -8,6 +8,7 @@ import type { RailMatchRow } from './rail-active';
 import { railToolsSignedIn } from '@/lib/studio-rail';
 import { addOnHref } from '@/lib/add-ons-catalog';
 import { eventRailMatchRows } from '@/app/dashboard/[eventId]/_components/event-rail-match-rows';
+import { STUDIO_ABSORBED } from '@/lib/customer-menu';
 
 /**
  * studio-rows-are-lit.test.ts — the Studio rows read as "you are here", and
@@ -55,18 +56,19 @@ function studioRows(): RailMatchRow[] {
     .map((t) => ({ key: t.key, href: t.href }));
 }
 
-const PRODUCT_KEYS = new Set(studioRows().map((r) => r.key));
 
 /**
- * The real event-menu rows, from the builder the layout calls — WITH the
- * product rows, handed over exactly as the layout hands them (2026-09-24:
- * the Studio heading is dissolved and each product is a row at its moment).
+ * The real event-menu rows, from the builder the layout calls — with the
+ * product list handed over exactly as the layout hands it. Since Stage D
+ * (2026-09-29) no product is a ROW: each is a card on Our Services, and its
+ * page is CLAIMED by the row that holds it (`alsoMatch` → extra match rows
+ * under the holder's key).
  */
 function eventRows(): RailMatchRow[] {
   return eventRailMatchRows({
     eventId: EVENT_ID,
     websiteEnabled: true,
-    monogramEnabled: true,
+    seatingEnabled: true,
     slug: 'test-event',
     guestCount: 10,
     studioRows: railToolsSignedIn({ eventId: EVENT_ID, count: 1, profile: null }).map((t) => ({
@@ -79,57 +81,43 @@ function eventRows(): RailMatchRow[] {
 
 /**
  * The WHOLE rail, exactly as `FrontDoorShell` composes it inside an event.
- *
- * 🔄 2026-09-24. Inside an event the rail is FOCUSED (no account rows compete —
- * see `focused ? [] : railMatchRows(…)`), and the shell is handed an EMPTY
- * Studio list (`app-rail-shell.tsx`: `studioEventId ? []`), because every
- * product is now a row of the event menu itself. So the union the one resolver
- * sees is the event menu alone — products included. The contested URLs this
- * file measures are now contested INSIDE that one list, which is exactly where
- * the specificity rule has to settle them.
+ * Inside an event the rail is FOCUSED (no account rows compete) and the shell
+ * is handed an EMPTY Studio list (`app-rail-shell.tsx`: `studioEventId ? []`),
+ * so the union the one resolver sees is the event menu alone.
  */
 function wholeRail(): RailMatchRow[] {
   return eventRows();
 }
 
-/** The product rows that actually take part in matching. */
-function matchedStudioRows(): RailMatchRow[] {
-  return eventRows().filter((r) => PRODUCT_KEYS.has(r.key));
+/** The row that holds a product's page: the host a ruling folded it into, else Our Services. */
+const holderOf = (key: string) => STUDIO_ABSORBED[key]?.into ?? 'studio';
+
+/** The product pages that must light a holder (the Event Hub product IS the Maker row; `__all__` IS Our Services). */
+function productPages(): RailMatchRow[] {
+  return studioRows().filter((r) => r.key !== 'pawebsite' && r.key !== '__all__');
 }
 
-test('the two halves really do overlap — the premise, measured, not assumed', () => {
-  const studio = matchedStudioRows();
-  const events = eventRows().filter((r) => !PRODUCT_KEYS.has(r.key));
-  assert.ok(studio.length >= 5, `only ${studio.length} product rows — the builder returned a stub.`);
-  assert.ok(events.length >= 5, `only ${events.length} event rows — the builder returned a stub.`);
-
-  /*
-    If this ever drops to zero the rest of this file is vacuous: there would be
-    nothing for one resolver to arbitrate and every assertion below would pass
-    for a reason unrelated to what it claims to test. Measured 2026-08-23 and
-    again 2026-09-24: a product URL is also claimed by a plain event row.
-    Re-measured after the 3D Plan row folded into Seat plan (2026-09-24): the
-    contested set is now every `/studio/<product>` page, each sitting inside
-    the Suite row's `/studio` — `/seating/lab` is no longer a product row.
-  */
-  const contested = studio.filter((s) =>
-    events.some((e) => activeRailKey([e], s.href) !== null),
-  );
-  assert.ok(
-    contested.length > 0,
-    'no product URL is claimed by an event row — this whole guard is vacuous, ' +
-      'because there is nothing left for one resolver to settle.',
-  );
+test('the premise, measured: products are many, and none is a row of its own', () => {
+  const products = productPages();
+  assert.ok(products.length >= 5, `only ${products.length} products — the builder returned a stub.`);
+  const rail = wholeRail();
+  assert.ok(rail.length >= 5, `only ${rail.length} rail rows — the builder returned a stub.`);
+  for (const p of products) {
+    assert.ok(
+      !rail.some((r) => r.key === p.key),
+      `${p.key} is a rail row again — it is a card on Our Services (Stage D)`,
+    );
+  }
 });
 
-test('every Studio row lights ITSELF on its own page, and nothing else does', () => {
+test('every product page lights the ONE row that holds it', () => {
   const rail = wholeRail();
-  for (const row of matchedStudioRows()) {
+  for (const p of productPages()) {
+    const page = p.href.split('?')[0]!;
     assert.equal(
-      activeRailKey(rail, row.href),
-      row.key,
-      `${row.href} must light "${row.key}" — a Studio row dark on its own page ` +
-        'is the debt this closes; a DIFFERENT row lit there is the double-light it replaced.',
+      activeRailKey(rail, page),
+      holderOf(p.key),
+      `${page} must light "${holderOf(p.key)}" — a product page that lights nothing, or the wrong pillar, is a lost door`,
     );
   }
 });
@@ -148,11 +136,15 @@ test('the three measured overlaps resolve the way a person would read them', () 
     3D Plan's favour; the 3D Plan row is absorbed into Seat plan
     (`STUDIO_ABSORBED`), which now CLAIMS the 3D view and the /plan3d control
     centre. So every one of these lights Seat plan — and nothing lights 'pa3d'.
+    🔄 Train n (2026-09-29): the Seat plan row itself left the menu — its home
+    is Details › Your event › Seat plan — so the whole family lights the Event
+    Hub Maker, and no Seat plan row is matchable either.
   */
   for (const p of ['/seating', '/seating/lab', '/plan3d']) {
-    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'seat', `${p} must light Seat plan`);
+    assert.equal(activeRailKey(rail, `${BASE}${p}`), 'launch', `${p} must light the Event Hub Maker`);
   }
-  assert.ok(!rail.some((r) => r.key === 'pa3d'), 'a 3D Plan row is matchable again beside Seat plan');
+  assert.ok(!rail.some((r) => r.key === 'pa3d'), 'a 3D Plan row is matchable again');
+  assert.ok(!rail.some((r) => r.key === 'seat'), 'a Seat plan row is matchable again beside the Maker');
   /*
     THE PAIR THAT FORCED "EXACT BEATS PREFIX" — RE-MEASURED 2026-09-02 (EH3).
 
@@ -244,7 +236,7 @@ test('ONE DOOR: the Studio row and the event-menu row open the same page', () =>
 
   // …and it is not a second row in the menu, so nothing ties.
   assert.equal(
-    matchedStudioRows().find((r) => r.key === 'pawebsite'),
+    wholeRail().find((r) => r.key === 'pawebsite'),
     undefined,
     'the website product is a second row beside the Event Hub Controller again — ' +
       'the tie is back, and list order decides what lights',

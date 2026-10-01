@@ -80,9 +80,10 @@ import {
   type HubDraftRefusal,
   type HubDraftState,
 } from '@/lib/hub-draft';
-import { readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
-import { HUB_MAIN_GROUND_KEY, isHubMainFollow, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
+import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { STAGE_ORDER_KEY, STD_LEAD_KEY } from '@/lib/stage-scenes';
 import { SCENE_BACKGROUND_FOLDER, stdBackgroundUploadRef } from '@/lib/scene-media-choices';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -91,6 +92,7 @@ import { resolveMoments, storableMoments } from '@/lib/love-story-moments';
 import { screenNewPhotoRefs } from '@/lib/love-story-screen';
 import type { CustomSectionContent } from '@/lib/custom-sections';
 import { applyPostEventItems, postEventArrangementOf } from '@/lib/post-event-draft';
+import { storyProExtrasOf } from '@/lib/story-pro-extras';
 import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraft } from '@/lib/fixed-scene-styles';
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { postEventPreset } from '@/lib/post-event-presets';
@@ -131,7 +133,13 @@ export async function hubDraftAction(
       } catch {
         return { ok: false, intent, error: 'That change could not be read.' };
       }
-      await writeHubDraft(supabase, eventId, mergeHubDraft(current, patch));
+      /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure),
+         so asking for it adds no round trip after the save. */
+      const wantsBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1';
+      const [, bar] = await Promise.all([
+        writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
+        wantsBar ? hubDraftBarAfterSave(supabase, eventId, mergeHubDraft(current, patch)) : Promise.resolve(null),
+      ]);
       /* ⚡ ONE RENDER PER SAVE, AND NOT THE WHOLE MAKER (owner 2026-09-28:
          *"picking something takes a lot of time before the website reacts"*).
          A draft write changes nothing a guest can see — guests meet the draft
@@ -144,7 +152,14 @@ export async function hubDraftAction(
          bridge already drew (`element-preview.ts`). The client router cache is
          cleared by that refresh, so nothing stale is served on a revisit.
          Held by `a-maker-pick-never-reloads-what-it-drew.test.ts`. */
-      return done();
+      /* ⚡ A MAKER PICK ASKS FOR THE BAR (owner 2026-09-30, SPEED FIRST): a pick
+         the bridge drew is followed by NO render of the Maker
+         (`lib/maker-refresh.ts`), so the Apply · Undo · Restore count comes back
+         in this same answer — the SAME summary the render counts with, for both
+         answers to "owns Pro" (this action never asks — the view switch must
+         not reach a save; the toolbar picks). */
+      if (!bar) return done();
+      return { ...done(), bar };
     }
     if (intent === 'reset') {
       const scope = formData.get('stage');
@@ -224,8 +239,16 @@ export async function hubDraftAction(
        must be uploads into THIS event's own Main-background folder, or a photo
        the page already shows. Same reason as the hero: a draft is a public POST. */
     const ownMainPrefix = `r2://${PUBLIC_R2_BUCKET}/events/${eventId}/main-background/`;
+    /* …or one of the couple's pictures the Main background's Upload media
+       offers — their own (`ownRefs`, which carries the Save the Date upload),
+       a scene's own upload, or a ready-made Save the Date scene (owner
+       2026-09-29, "THE MAIN BACKGROUND OFFERS EVERY CHOICE"). */
     const mainIsOwn = (ref: unknown) =>
-      typeof ref === 'string' && (ownRefs.has(ref) || ref.startsWith(ownMainPrefix));
+      typeof ref === 'string' &&
+      (ownRefs.has(ref) ||
+        ref.startsWith(ownMainPrefix) ||
+        ref.startsWith(`r2://${PUBLIC_R2_BUCKET}/events/${eventId}/${SCENE_BACKGROUND_FOLDER}/`) ||
+        isStdLibrarySrc(ref));
 
     /* 🖼 A SCENE'S OWN UPLOAD ("Upload media", in place) — into THIS event's
        own scene-background folder, like the Main background's. */
@@ -286,7 +309,7 @@ export async function hubDraftAction(
       // Following the hero stores no media of its own (only a frame measured
       // off the hero, which the render uses only while it IS the hero) — so
       // only an override's clip, photo and still are held to this event.
-      if (item.kind === 'widget' && item.field === 'main' && item.value !== null && !isHubMainFollow(item.value as HubMainGround)) {
+      if (item.kind === 'widget' && item.field === 'main' && isHubMainOwn(item.value as HubMainGround | null)) {
         const main = item.value as HubMainOwn;
         if (![main.media, main.poster].every((r) => r === undefined || mainIsOwn(r))) {
           held.push({ item, reason: 'not_your_photo' });
@@ -530,7 +553,7 @@ export async function hubDraftAction(
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
       const liveStory = (storyRow as { draft_json?: unknown }).draft_json ?? {};
-      snapshot.editorial = postEventArrangementOf(liveStory);
+      snapshot.editorial = { ...postEventArrangementOf(liveStory), ...storyProExtrasOf(liveStory) };
       const { data: sRows, error: sErr } = await supabase
         .from('event_editorial')
         .update({ draft_json: applyPostEventItems(liveStory, storyItems) })
@@ -565,6 +588,10 @@ export async function hubDraftAction(
       else if (item.kind === 'editorial') {
         // A held look keeps the WHOLE drafted map — its free part is now live.
         if (item.item.field === 'sceneLooks') remaining.editorial = { ...(remaining.editorial ?? {}), sceneLooks: item.item.value };
+        // 💎 A story extra held for Pro stays drafted whole, for the Apply after Pro.
+        else if (item.item.field === 'chapterOverrides' || item.item.field === 'customColumns' || item.item.field === 'reviews') {
+          remaining.editorial = { ...(remaining.editorial ?? {}), [item.item.field]: item.item.value };
+        }
       } else if (item.kind === 'fixed-style') {
         // A style pick is free and never held; nothing to keep.
       } else if (item.field === 'canvas') {

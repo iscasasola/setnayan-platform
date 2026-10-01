@@ -9,16 +9,17 @@ import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { heroMarkSvg } from '@/lib/hero-monogram-data';
 import { flattenSvgMark, rasterMarkPayload } from '@/lib/print-mark';
 import { resolveMonogram, splitInitials } from '@/lib/monogram';
-import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
+import { buildEntourage, ENTOURAGE_COLUMNS, ENTOURAGE_COUPLE_FIELDS, ENTOURAGE_ROLES, roleLabel, type EntourageGuestRow } from '@/lib/entourage';
 import { resolveStdFinalizedVenues } from '@/lib/std-venues';
 import { HERO_EVENT_COLUMNS, resolveHero } from '@/lib/event-hero';
 import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventSeatingPublished } from '@/lib/seat-pass';
+import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { loadEntourageSectionOrder } from '@/app/[slug]/_lib/loaders';
+import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
-import { ROLE_GROUP_LABELS } from '@/lib/role-groups';
+import { ROLE_GROUP_LABELS, roleGroupLabel } from '@/lib/role-groups';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
 import type { QrLook } from '@/lib/qr-look';
@@ -27,6 +28,8 @@ import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { GuestRole } from '@/lib/guests';
+import type { RoleNames } from '@/lib/role-names';
+import { readRoleNames } from '@/lib/role-names.server';
 import type { PrintImages, PrintMonogram, PrintPass, PrintSetData } from '@/lib/print-layout';
 import {
   blockTime,
@@ -45,8 +48,12 @@ import {
   type RsvpChoice,
 } from '@/lib/print-pieces';
 import { fetchEgiftMethods } from '@/lib/egift';
+import { printStoryChapters } from '@/lib/love-story-moments';
 import { VENDOR_PACKAGE_ITEM_SELECT, keptItemRows, resolveVendorCategory, type VendorPackageItemRow } from '@/lib/vendor-packages';
 import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
+import { filterPassCardRows, type PassCardRow } from '@/lib/pass-card';
+import { nameStyleOfPrintDetails, ticketName, type NameStyle } from '@/lib/name-style';
+import { isPlaceholderSeat } from '@/lib/extra-seats';
 
 /**
  * lib/print-set.server.ts — everything a print piece needs, read ONCE.
@@ -65,7 +72,7 @@ import { PASSED_AWAY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 // select whose columns it can read. It carries the hero's columns
 // (HERO_EVENT_COLUMNS, asserted below) so resolveHero() sees what it needs.
 const EVENT_COLUMNS =
-  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences';
+  'event_id, display_name, event_type, event_date, slug, invite_theme, venue_name, venue_address, std_film_ceremony_name, std_film_venue_name, dress_code_config, role_palette, print_details, pabuya_message, special_message, love_story, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_custom_svg, monogram_uploaded_svg, rsvp_ask_config, style_preferences, role_names';
 
 for (const c of HERO_EVENT_COLUMNS) {
   if (!EVENT_COLUMNS.includes(c)) throw new Error(`print-set: EVENT_COLUMNS is missing the hero column ${c}`);
@@ -101,6 +108,8 @@ export type PrintEventRow = {
   rsvp_ask_config: unknown;
   /** The couple's saved QR choices live under `.qr` (lib/qr-look.ts); the rest is onboarding's. */
   style_preferences: unknown;
+  /** The couple's own words for roles (owner 2026-09-30 — "Bride's Crew"); read through `readRoleNames`. */
+  role_names?: unknown;
 };
 
 export async function readPrintEvent(admin: SupabaseClient, eventId: string): Promise<PrintEventRow | null> {
@@ -172,12 +181,17 @@ async function readBlocks(admin: SupabaseClient, eventId: string): Promise<Block
 async function readEntourage(
   admin: SupabaseClient,
   eventId: string,
+  /** The couple's role words — the print says "Bride's Crew" where they do. */
+  names?: RoleNames,
+  /** The event's Name style (owner 2026-09-30) — the card prints the names in it. */
+  style?: NameStyle,
 ): Promise<{ groups: ReturnType<typeof buildEntourage>; passedAway: ReadonlySet<string> }> {
   const { data, error } = await admin
     .from('guests')
     // + `passed_away` for THIS reader only (ENTOURAGE_COLUMNS' own rule: never
     // widen the shared list for one reader) — the parents' "the late …".
-    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}`)
+    // + who is a real couple — the card prints a pair line exactly as the page does.
+    .select(`${ENTOURAGE_COLUMNS}, ${PASSED_AWAY}, ${ENTOURAGE_COUPLE_FIELDS}`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .or(`role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`);
@@ -189,19 +203,19 @@ async function readEntourage(
   const passedAway = new Set(rows.filter((r) => r.passed_away === true && r.guest_id).map((r) => r.guest_id as string));
   // The couple's own section order, read on ITS OWN (the loader's rule: an
   // unreadable preference prints the built-in order, never breaks the card).
-  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId)), passedAway };
+  return { groups: buildEntourage(rows, await loadEntourageSectionOrder(admin, eventId), names, style), passedAway };
 }
 
-function attireLines(raw: unknown): Array<{ label: string; line: string }> {
+function attireLines(raw: unknown, names?: RoleNames): Array<{ label: string; line: string }> {
   const cfg = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
   const say = (r: RoleAttireRule) => (r.note ? `${ATTIRE_STYLE_LABEL[r.style]}, ${r.note}` : ATTIRE_STYLE_LABEL[r.style]);
   const out: Array<{ label: string; line: string }> = [];
   for (const [group, rule] of Object.entries(sanitizeGroupAttire(cfg.groups))) {
-    if (rule) out.push({ label: ROLE_GROUP_LABELS[group as keyof typeof ROLE_GROUP_LABELS], line: say(rule) });
+    if (rule) out.push({ label: roleGroupLabel(group as keyof typeof ROLE_GROUP_LABELS, names), line: say(rule) });
   }
   const roles = sanitizeRoleAttire(cfg.roles, (v) => roleLabel(v as GuestRole) !== null || v === 'bride' || v === 'groom');
   for (const [role, rule] of Object.entries(roles)) {
-    const label = roleLabel(role as GuestRole) ?? (role === 'bride' ? 'Bride' : role === 'groom' ? 'Groom' : null);
+    const label = roleLabel(role as GuestRole, names) ?? (role === 'bride' ? 'Bride' : role === 'groom' ? 'Groom' : null);
     if (rule && label) out.push({ label, line: say(rule) });
   }
   return out;
@@ -483,6 +497,25 @@ async function heroStill(event: PrintEventRow, mode: PrintMode): Promise<Uint8Ar
   }
 }
 
+/** The couple's chosen poster photo, as the print needs it (screen: small; print: the full picture). */
+async function posterPhotoBytes(ref: string, mode: PrintMode): Promise<Uint8Array | null> {
+  try {
+    const url = await displayUrlForStoredAsset(ref);
+    if (!url) return null;
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const sharp = (await import('sharp')).default;
+    const src = new Uint8Array(await res.arrayBuffer());
+    const out = mode === 'print'
+      ? await sharp(src).rotate().jpeg({ quality: 92 }).toBuffer()
+      : await sharp(src).rotate().resize({ width: 420, withoutEnlargement: true }).jpeg({ quality: 52 }).toBuffer();
+    return new Uint8Array(out);
+  } catch (err) {
+    console.error('[print-set] poster photo unavailable', String(err));
+    return null;
+  }
+}
+
 async function sepia(bytes: Uint8Array): Promise<Uint8Array> {
   const sharp = (await import('sharp')).default;
   return new Uint8Array(
@@ -521,7 +554,7 @@ async function readPrintSetInputs(admin: SupabaseClient, eventId: string, event:
   const stored = parsePrintDetails(event.print_details);
   const [blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu] = await Promise.all([
     readBlocks(admin, eventId),
-    readEntourage(admin, eventId),
+    readEntourage(admin, eventId, readRoleNames(event.role_names), stored.nameStyle),
     resolveStdFinalizedVenues(admin, eventId),
     event.slug ? resolveEventOwnerSlug(admin, eventId).catch(() => null) : Promise.resolve(null),
     readGiftLines(admin, eventId),
@@ -580,8 +613,15 @@ export async function loadPrintSet(
   const mark = resolveMonogram(event);
   const [a, b] = splitInitials(mark.text || event.display_name || '');
   const isWedding = (event.event_type ?? 'wedding') === 'wedding';
+  // 🕊 A wake's printed card is never "The celebration of" (audit 2026-09-30) —
+  // it takes the post-event cover's own words ("In loving memory", frontKicker).
+  const solemn = isWedding ? false : (await eventWordsFor(event.event_type)).solemn;
 
   const images: PrintImages = {};
+  // 🖼 The Our Story poster's own photo (owner 2026-09-29, OWNER ANSWERS (1)) —
+  // only when the couple chose one; the theme's picture stays the default.
+  const posterBg = stored.posterPhoto ? await posterPhotoBytes(stored.posterPhoto.ref, opts.mode) : null;
+  if (posterBg) images.posterBg = { bytes: posterBg, mime: 'image/jpeg' };
   let still = stillRaw;
   if (still && look.sepia) still = await sepia(still);
   if (still) images.still = { bytes: still, mime: 'image/jpeg' };
@@ -609,7 +649,7 @@ export async function loadPrintSet(
 
   const data: PrintSetData = {
     names: coupleNames(event.display_name),
-    eyebrow: isWedding ? 'The wedding of' : 'The celebration of',
+    eyebrow: isWedding ? 'The wedding of' : solemn ? 'In loving memory of' : 'The celebration of',
     dateLabel: printedDate(event.event_date),
     ceremonyTime: blockTime(ceremony),
     ceremonyVenue: ceremony?.location?.trim() || venues.ceremony || event.std_film_ceremony_name?.trim() || null,
@@ -636,15 +676,25 @@ export async function loadPrintSet(
       nfc: inc.nfc,
       storyExcerpt: inc.loveStory === 'excerpt' ? excerpt(storyText(event.love_story)) : null,
       guestNames: inc.guestNames,
+      // The couple's ONE pick of the pass card's look — the Phone card print
+      // and every saved card draw it (lib/pass-card.ts).
+      passDesign: stored.passDesign,
     },
     // The parents print on the Invitation card (the owner's sample), not twice.
     entourage: entourage.groups.filter((g) => g.key !== 'parents'),
-    attire: attireLines(event.dress_code_config),
+    attire: attireLines(event.dress_code_config, readRoleNames(event.role_names)),
     swatches: inc.moodBoard ? swatchesFrom(event.role_palette) : [],
     hubAddress,
     menu: menuHasDishes(stored.menu) ? stored.menu : catererMenu,
+    // The Our Story poster — the Love Story's one source, read from the same row.
+    story: printStoryChapters(event.love_story),
     hasStill: Boolean(images.still),
+    hasPosterBg: Boolean(images.posterBg),
     hasEventQr,
+    // ⭕ Every slot a code sits in follows the code's shape (`qrPlate`).
+    qrShape: qrLook.shape,
+    // Paper says which day its facts are from (the pass card's "As of …").
+    asOf: opts.mode === 'print' ? `As of ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila' })}` : null,
   };
   return { event, theme, look, data, images, appUrl, ownerSlug, qrLook };
 }
@@ -657,14 +707,27 @@ export async function loadPrintSet(
 export async function loadGuestPasses(
   set: Pick<LoadedPrintSet, 'event' | 'appUrl' | 'ownerSlug' | 'qrLook'>,
   /** `limit` — the first N guests only (the Maker's thumbnail draws page 1, not 200 QRs). */
-  opts: { width: number; limit?: number },
+  opts: {
+    width: number;
+    limit?: number;
+    /**
+     * 🎟 PRINTED TICKETS ONLY FOR WHO IS COMING (owner 2026-09-29, DECISION_LOG
+     * "OWNER ANSWERS — TEN OPEN QUESTIONS" (9)): the Printed ticket batch
+     * (calling card · ticket · boarding · phone card) drops every guest who
+     * can't come — the SAME rule the Digital ticket and the zip use
+     * (`filterPassCardRows`, lib/pass-card.ts): a decline, a plus-one of a
+     * declining bringer, a "+ TBA" seat. The free QR sheet is not a ticket and
+     * keeps everyone.
+     */
+    ticketsOnly?: boolean;
+  },
 ): Promise<{ passes: PrintPass[]; images: PrintImages; measured: boolean }> {
   const admin = createAdminClient();
   const eventId = set.event.event_id;
   const { data, error } = await admin
     .from('guests')
     // The canonical entourage columns (the dup-rule guard's reference list) + the QR token.
-    .select(`${ENTOURAGE_COLUMNS}, qr_token`)
+    .select(`${ENTOURAGE_COLUMNS}, qr_token, event_id, rsvp_status, plus_one_of_guest_id, plus_one_name_confirmed_at, entry_source, passed_away, deleted_at`)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     // 🛂 No pass for a request until Keep or Link.
@@ -674,14 +737,22 @@ export async function loadGuestPasses(
     logQueryError('print-set.loadGuestPasses', error, { event_id: eventId }, 'graceful_degrade');
     return { passes: [], images: {}, measured: false };
   }
-  type G = { guest_id: string; first_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null };
-  const all = ((data ?? []) as G[]).filter((g) => g.qr_token);
+  type G = PassCardRow & { guest_id: string; first_name: string | null; middle_name: string | null; last_name: string | null; display_name: string | null; name_prefix: string | null; name_suffix: string | null; qr_token: string | null; plus_one_name_confirmed_at: string | null };
+  const listed = ((data ?? []) as unknown as G[]).filter((g) => g.qr_token);
+  const all = opts.ticketsOnly
+    ? filterPassCardRows(listed, (g) => ({
+        ...g,
+        tba: Boolean(g.plus_one_of_guest_id) && isPlaceholderSeat({ guest_id: g.guest_id, first_name: g.first_name, confirmed_at: g.plus_one_name_confirmed_at }),
+      }))
+    : listed;
   const guests = opts.limit ? all.slice(0, opts.limit) : all;
 
   const seatOf = new Map<string, string>();
   const seatNumberOf = new Map<string, string>();
-  // Tables print only once the couple has published seating (the same gate the guest pages use).
-  if (await eventSeatingPublished(admin, eventId)) {
+  // 🎟 A ticket carries the table ON THE DAY (owner 2026-09-30, "THE TICKET
+  // GAINS THE SEAT ON THE DAY") — the ticket's half of the one seat rule
+  // (`ticketShowsTable`), never the couple's "show early" switch.
+  if (await guestsMaySeeSeatsFor(admin, eventId, { ticket: true })) {
     const [{ data: seats }, { data: tables }] = await Promise.all([
       admin.from('event_seat_assignments').select('guest_id, table_id, seat_number').eq('event_id', eventId),
       admin.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
@@ -697,12 +768,12 @@ export async function loadGuestPasses(
   const images: PrintImages = {};
   const passes: PrintPass[] = [];
   let n = 0;
+  // 🔤 The event's Name style (owner 2026-09-30) — the ticket's ONE name rule,
+  // shared with the Digital ticket (`passCardGuestName`) — `ticketName`.
+  const style = nameStyleOfPrintDetails(set.event.print_details);
   for (const g of guests) {
     n += 1;
-    const name =
-      [g.name_prefix, g.first_name, g.last_name, g.name_suffix].filter((s) => s && s.trim()).join(' ').trim() ||
-      g.display_name?.trim() ||
-      'Guest';
+    const name = ticketName(g, style);
     const ref = `qr-${g.guest_id}`;
     try {
       const png = await renderInvitationQrPng({

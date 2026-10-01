@@ -17,7 +17,8 @@ import { formatCount } from '@/lib/format-number';
  * `:has(…attending:checked)` rule still reveals the rest after "yes".
  */
 
-export type RsvpAnswerOption = { key: 'attending' | 'maybe' | 'declined'; label: string };
+/** Yes or no — a guest is never offered "maybe" (main, owner 2026-09-30). */
+export type RsvpAnswerOption = { key: 'attending' | 'declined'; label: string };
 
 /** B's header — the one question, by the guest's name. */
 export function RsvpQuestionHeader({
@@ -86,7 +87,7 @@ export function RsvpTicketHeader({
 }
 
 /**
- * The three answers, as B's big buttons or C's stamps. The same radio group
+ * The answers, as B's big buttons or C's stamps. The same radio group
  * the reply card draws; only the shape of each label changes.
  */
 export function RsvpStyledAnswers({
@@ -120,16 +121,14 @@ export function RsvpStyledAnswers({
       >
         {stamp ? 'Stamp your answer' : legend}
       </legend>
-      <div className={stamp ? 'grid grid-cols-3 gap-2' : 'space-y-2'}>
+      <div className={stamp ? 'grid grid-cols-2 gap-2' : 'space-y-2'}>
         {options.map((option) => (
           <label
             key={option.key}
             className={
               stamp
                 ? 'flex min-h-16 min-w-0 cursor-pointer items-center justify-center break-words rounded-md border-2 border-dashed border-ink/25 px-1 text-center font-sans text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-ink/70 transition-colors has-[:checked]:-rotate-2 has-[:checked]:border-solid has-[:checked]:border-terracotta has-[:checked]:text-terracotta-700'
-                : option.key === 'maybe'
-                  ? 'flex min-h-11 cursor-pointer items-center justify-center rounded-full px-5 text-sm text-ink/70 underline-offset-4 transition-colors has-[:checked]:bg-ink/[0.06] has-[:checked]:text-ink hover:underline'
-                  : 'flex min-h-14 cursor-pointer items-center justify-center rounded-full bg-ink/[0.05] px-5 font-pahina text-xl italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream'
+                : 'flex min-h-14 cursor-pointer items-center justify-center rounded-full bg-ink/[0.05] px-5 font-pahina text-xl italic leading-tight text-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream'
             }
           >
             <input

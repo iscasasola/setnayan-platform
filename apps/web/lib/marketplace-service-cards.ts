@@ -87,9 +87,11 @@ function safeForOr(value: string): string {
 /**
  * Every service card a stranger may see, newest first.
  *
- * The visibility rule mirrors the `vendor_services_public_read` policy exactly —
+ * The visibility rule mirrors the `vendor_services_public_read` policy —
  * active card, and a shop whose `verification_state` AND `public_visibility` are
- * both `verified` — rather than trusting RLS alone, because this runs with
+ * both `verified` — plus one line the policy does not carry: never a demo card
+ * or demo shop (a demo row is readable, it is just never SHOWN). Stated here
+ * rather than trusting RLS alone, because this runs with
  * whatever client the caller passes and an admin client bypasses the policy
  * entirely. Stating the rule here means the answer does not change with the
  * caller.
@@ -117,7 +119,13 @@ export async function fetchMarketplaceServiceCards(
     )
     .eq('is_active', true)
     .eq('vendor_profiles.verification_state', 'verified')
-    .eq('vendor_profiles.public_visibility', 'verified');
+    .eq('vendor_profiles.public_visibility', 'verified')
+    // 🧪 Never a demo card or a demo shop's card (2026-09-30). The two trial
+    // shops became `is_demo = true` (DECISION_LOG 2026-09-29 "LANE 2 §2C" (1))
+    // and are fully verified, so the two lines above wave them through. Both
+    // columns are `NOT NULL DEFAULT false`.
+    .eq('is_demo', false)
+    .eq('vendor_profiles.is_demo', false);
 
   if (query.category) q = q.eq('category', query.category);
 

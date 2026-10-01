@@ -1,5 +1,7 @@
 /**
- * front-door-feed.tsx — Shops, New uploads, Trending.
+ * front-door-feed.tsx — Shops, New uploads, Trending — and, since 2026-09-29,
+ * the two SLOTS Discover's new shelves render into (see `DiscoverSlots`
+ * below): the event layers ABOVE the shops, People to follow right AFTER them.
  *
  * 2026-09-03 REWRITE — the chip-filtered "one shelf" (All / Your people /
  * Stories / Articles) is retired along with the group-chat hero
@@ -28,6 +30,7 @@
  * "Your people" (a signed-in narrowing to stories from people you know) is
  * retired with the chip bar — there is no filter left to attach it to.
  */
+import type { ReactNode } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -148,7 +151,7 @@ function ArticleCard({ a }: { a: FrontDoorData['articles'][number] }) {
  * delta from the binding drawing "is a defect in the PORT, not a fresh design
  * decision"; moving the byline would be such a delta.
  */
-function ChannelLink({
+export function ChannelLink({
   slug,
   name,
   className,
@@ -295,7 +298,23 @@ function ShopCard({ s }: { s: FrontDoorData['shops'][number] }) {
   );
 }
 
-export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
+/**
+ * ─── DISCOVER'S LAYERS (owner 2026-09-29, "DISCOVER — UNPARKED" (e)) ──────
+ * "your people → events → suppliers → public profiles ('People to follow') →
+ * stories". Shops, New uploads and Trending stay exactly as they were; the two
+ * new layers arrive as SLOTS so this file never imports the Discover shelves
+ * (they import `ChannelLink` from here — one byline door, never two copies).
+ *
+ *   beforeShops — "Upcoming from people you follow" + "Upcoming on Setnayan"
+ *   afterShops  — "People to follow"
+ */
+type DiscoverSlots = { beforeShops?: ReactNode; afterShops?: ReactNode };
+
+export function FrontDoorFeed({
+  data,
+  beforeShops,
+  afterShops,
+}: { data: FrontDoorData } & DiscoverSlots) {
   const {
     articles,
     articleTotal,
@@ -333,8 +352,15 @@ export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
     liveShops: liveShopCount ?? 0,
   });
 
+  // `none` = no shops to show — a real zero OR a failed read (the composer
+  // floors null to 0). "The first shops" over an empty grid would name shops
+  // that are not there, so it is plain "Shops"; the line under it says which.
   const shopsHeading =
-    shape.shopsHeading === 'trending' ? 'Trending shops' : 'The first shops';
+    shape.shopsHeading === 'trending'
+      ? 'Trending shops'
+      : shape.shopsHeading === 'first-shops'
+        ? 'The first shops'
+        : 'Shops';
   const realWeddingsEarnedGrid = shape.stories === 'grid';
 
   // Chapters ranked by real views — see the module docblock. Not filtered by
@@ -344,6 +370,9 @@ export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
 
   return (
     <>
+      {/* ═ DISCOVER · your people's upcoming public events, then the world ═ */}
+      {beforeShops}
+
       {/* ═ SHOPS — the claim's proof, one scroll-line below the anchor ═ */}
       <h2 className="fd-sechead">
         <span>{shopsHeading}</span>
@@ -353,6 +382,21 @@ export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
           </span>
         ) : null}
       </h2>
+      {/*
+        🧪 THE EMPTY SHELF (2026-09-30). The two trial shops became `is_demo`
+        (owner, DECISION_LOG 2026-09-29 "LANE 2 §2C" (1): "Discover's Shops
+        shelf … show[s] nothing until a real supplier joins"), so an empty
+        shelf is now the normal state. It says so in one plain line — and a
+        failed read says THAT instead, never "none" (`liveShopCount` is null
+        only when the count read failed). The invite card below is the door.
+      */}
+      {shops.length === 0 ? (
+        <p className="fd-notice" role="status">
+          {liveShopCount === 0
+            ? 'No supplier has opened a shop yet.'
+            : 'Shops couldn’t load just now — try again in a moment.'}
+        </p>
+      ) : null}
       <div className="fd-grid">
         {shops.map((s) => (
           <ShopCard key={s.href} s={s} />
@@ -397,6 +441,9 @@ export function FrontDoorFeed({ data }: { data: FrontDoorData }) {
           </Link>
         </div>
       </div>
+
+      {/* ═ DISCOVER · People to follow — public profiles, after the shops ═ */}
+      {afterShops}
 
       {/* ═ NEW UPLOADS — the old one shelf, never filtered now ═ */}
       <div className="fd-grid">

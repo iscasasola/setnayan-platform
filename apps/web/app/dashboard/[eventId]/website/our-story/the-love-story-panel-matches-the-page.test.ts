@@ -171,14 +171,13 @@ test('🧭 an ask is answered only by a sheet that hears it; unheard asks wait f
 });
 
 test('📝 the words form still posts every field updateOurStory reads', async () => {
+  // The fields `updateOurStory` reads are `lib/love-story-words.ts`'s lists —
+  // the ONE reading it shares with the Maker's instant words panel (2026-09-30).
   const src = readFileSync(join(HERE, 'actions.ts'), 'utf8');
-  const list = (name: string) => {
-    const m = new RegExp(`const ${name} = \\[([^\\]]*)\\]`).exec(src);
-    assert.ok(m, `${name} is still declared`);
-    return [...m[1]!.matchAll(/'([a-z_]+)'/g)].map((x) => x[1]!);
-  };
-  const anchors = list('ANCHOR_KEYS').map((k) => `anchor_${k}`);
-  const read = [...list('TEXT_FIELDS'), ...list('SHORT_FIELDS'), ...list('YEAR_FIELDS'), ...anchors, 'ms_year', 'ms_title'];
+  assert.match(src, /mergeStoryWords\(base, formData\)/, 'updateOurStory no longer reads the words through the shared lists');
+  const W = await import('../../../../../lib/love-story-words');
+  const anchors = W.STORY_ANCHOR_KEYS.map((k) => `anchor_${k}`);
+  const read = [...W.STORY_TEXT_FIELDS, ...W.STORY_SHORT_FIELDS, ...W.STORY_YEAR_FIELDS, ...anchors, 'ms_year', 'ms_title'];
   assert.ok(read.length >= 17);
   const panel = await paintPanel({ moments: STORY_MOMENTS, how_we_met: 'x' });
   const posted = new Set([...panel.matchAll(/\bname="([a-z_]+)"/g)].map((m) => m[1]));

@@ -4,20 +4,19 @@ import { readGuestSession } from '@/lib/guest-session';
 import { guestSelfiePolicy, parseClientRef } from '@/lib/r2-client-ref';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { VECTOR_MODEL } from '@/lib/face-embed-core';
-import {
-  FACE_CONSENT_COPY_VERSION,
-  resolvePapicFaceMode,
-  faceVectorForMode,
-} from '@/lib/papic-face-mode';
+import { FACE_CONSENT_COPY_VERSION, faceVectorForMode } from '@/lib/papic-face-mode';
+import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { isKnownMinorGuest } from '@/lib/face-enrolment-age';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 
-// Day-of / camera face enrollment — the "register your face if you haven't yet"
-// path for a guest who SKIPPED the optional RSVP selfie. Same write as the RSVP
-// enrollment block (app/[slug]/actions.ts), but cookie-authenticated
-// (setnayan_guest_session) instead of riding the RSVP form, so it can run from
-// the day-of landing card or the guest camera. Source 'guest_portal' (the guest
-// self-enrolling from their own page); biometric consent is mandatory (RA 10173).
+// Day-of / camera face enrollment — THE ONLY PATH A FACE-TAGGING SELFIE IS
+// TAKEN (owner 2026-09-30: the question is asked at RSVP, the selfie on the
+// day; no reply card draws a camera any more). Cookie-authenticated
+// (setnayan_guest_session), so it runs from the day-of landing card or the
+// guest camera. Source 'guest_portal' (the guest self-enrolling from their own
+// page); biometric consent is mandatory (RA 10173). The selfie it stores is
+// erased when the guest signs out or the event's Papic closes
+// (lib/face-selfie-erase.ts).
 //
 // Best-effort + non-fatal — a failure never blocks anything; the guest can
 // always fall back to QR-scan tagging. The on-device face_vector is DORMANT
@@ -27,12 +26,27 @@ function clean(v: FormDataEntryValue | null): string {
   return typeof v === 'string' ? v.trim() : '';
 }
 
+/**
+ * Why an enrolment did not save — a CODE the face step turns into one short
+ * sentence (lib/face-enroll-refusal.ts). A failure must never look like success
+ * (owner 2026-09-30: a guest ticked, took the selfie, and nothing was saved).
+ */
+export type EnrollRefusal =
+  | 'session'
+  | 'consent'
+  | 'not_on'
+  | 'not_wanted'
+  | 'excluded'
+  | 'minor'
+  | 'bad_photo'
+  | 'save';
+
 export async function enrollGuestFace(
   formData: FormData,
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; reason?: EnrollRefusal }> {
   try {
     const session = await readGuestSession();
-    if (!session) return { ok: false };
+    if (!session) return { ok: false, reason: 'session' };
 
     const selfieRef = clean(formData.get('selfie_ref'));
     const consent = clean(formData.get('biometric_consent')) === '1';
@@ -43,7 +57,7 @@ export async function enrollGuestFace(
     // this is ALSO the custom-QR enrol path (a guest who scanned their custom
     // QR carries the session this action reads).
     const ageAffirmed = clean(formData.get('age_affirmation')) === '1';
-    if (!selfieRef || !consent || !ageAffirmed) return { ok: false };
+    if (!selfieRef || !consent || !ageAffirmed) return { ok: false, reason: 'consent' };
 
     const admin = createAdminClient();
     const guestId = session.guest_id;
@@ -56,20 +70,39 @@ export async function enrollGuestFace(
     // derives its key from the SESSION, so the legitimate shape is exactly this
     // guest's own folder.
     if (!parseClientRef(selfieRef, guestSelfiePolicy(eventId, guestId))) {
-      return { ok: false };
+      return { ok: false, reason: 'bad_photo' };
     }
 
     // Minor safeguard (DPIA BV-8, 2026-07-05): never enrol a guest the host has
     // excluded from face recognition (typically a minor), regardless of consent.
-    const { data: fx } = await admin
-      .from('guests')
-      .select('face_recognition_excluded')
-      .eq('guest_id', guestId)
-      .eq('event_id', eventId)
-      .maybeSingle();
-    if ((fx as { face_recognition_excluded: boolean } | null)?.face_recognition_excluded === true) {
-      return { ok: false };
-    }
+    const [{ data: fx, error: fxErr }, faceTagging] = await Promise.all([
+      admin
+        .from('guests')
+        .select('face_recognition_excluded, face_tagging_wanted')
+        .eq('guest_id', guestId)
+        .eq('event_id', eventId)
+        .maybeSingle(),
+      resolveFaceTagging(admin, eventId),
+    ]);
+    if (fxErr) console.error('[supabase-error] app/papic/face-enroll-actions.ts · from:guests.select', fxErr);
+    const guestRow = fx as { face_recognition_excluded: boolean; face_tagging_wanted: boolean | null } | null;
+    if (fxErr || !guestRow) return { ok: false, reason: 'save' };
+    if (guestRow.face_recognition_excluded === true) return { ok: false, reason: 'excluded' };
+
+    // 🔒 THE THREE OWNER GATES, SERVER-SIDE (owner 2026-09-30, DECISION_LOG
+    // "FACE DATA: THREE OWNER ANSWERS"): *"server-side enrol must check
+    // face_tagging_wanted = true, Papic active and the couple's switch"*.
+    //   · the guest said "Yes, tag me" — a NULL (never answered) or a "No"
+    //     enrols nothing; the day-of catch stores the Yes first
+    //     (`recordFaceTaggingWish`), so an honest flow always arrives with it;
+    //   · `askable` — the event's Papic is ACTIVE and not yet CLOSED, and face
+    //     tagging runs there (`mode_a`, which carries the couple's switch).
+    //     📵 A mode_b event therefore stores NO selfie image at all — no face
+    //     is matched there, so there is nothing a selfie could be for.
+    // The client hides the camera in every one of these cases; this is the
+    // refusal a crafted or replayed post meets.
+    if (!faceTagging.askable) return { ok: false, reason: 'not_on' };
+    if (guestRow.face_tagging_wanted !== true) return { ok: false, reason: 'not_wanted' };
 
     // Owner 2026-08-05: "under 18 will not allow face tagging." The 18+ tickbox
     // above is the enabler; this is the refusal that does not depend on it —
@@ -77,7 +110,7 @@ export async function enrollGuestFace(
     // overrides it. Both enrolment writers apply it, because a guard on one path
     // is a guard on neither.
     if (await isKnownMinorGuest(admin, eventId, guestId)) {
-      return { ok: false };
+      return { ok: false, reason: 'minor' };
     }
 
     // Provenance only (free-text consent_source) — defaults to the day-of card.
@@ -215,7 +248,7 @@ export async function enrollGuestFace(
     // event can NEVER persist a biometric. The selfie image + consent rows are
     // still written (display photo / day-of features preserved); only the
     // vectors are dropped. Closes the christening/debut minor-honoree leak.
-    const faceMode = await resolvePapicFaceMode(admin, eventId);
+    const faceMode = faceTagging.mode;
 
     const nowIso = new Date().toISOString();
     const { error } = await admin.from('guest_face_enrollments').insert(
@@ -249,6 +282,36 @@ export async function enrollGuestFace(
     */
     if (!error) await everyCopyIsNowStale(eventId);
 
+    return error ? { ok: false, reason: 'save' } : { ok: true };
+  } catch {
+    return { ok: false, reason: 'save' };
+  }
+}
+
+/**
+ * The day-of catch's one question — "Want to be tagged in the photos?" — for a
+ * guest who never answered it on the RSVP (owner 2026-09-29, lib/face-tagging-wish.ts).
+ *
+ * Cookie-authenticated exactly like `enrollGuestFace`: the session names the
+ * guest, so nobody can answer for somebody else. "No thanks" is stored so the
+ * catch never asks again; "Yes, tag me" is stored so the selfie that follows
+ * is theirs by choice, and so a guest who stops half-way is not asked the
+ * question twice.
+ *
+ * ⚠ NOT CONSENT. Storing "yes" enrols nothing — the selfie's own two ticks
+ * (biometric consent + 18+) still gate `enrollGuestFace`.
+ */
+export async function recordFaceTaggingWish(wantsTagging: boolean): Promise<{ ok: boolean }> {
+  try {
+    if (typeof wantsTagging !== 'boolean') return { ok: false };
+    const session = await readGuestSession();
+    if (!session) return { ok: false };
+    const { error } = await createAdminClient()
+      .from('guests')
+      .update({ face_tagging_wanted: wantsTagging })
+      .eq('guest_id', session.guest_id)
+      .eq('event_id', session.event_id);
+    if (error) console.error('[supabase-error] app/papic/face-enroll-actions.ts · from:guests.update(face_tagging_wanted)', error);
     return { ok: !error };
   } catch {
     return { ok: false };

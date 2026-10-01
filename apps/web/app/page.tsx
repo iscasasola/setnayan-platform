@@ -45,6 +45,8 @@ import './_components/frontdoor/front-door.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
+import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
+import { maybeRunFaceRescan } from '@/lib/face-rescan';
 import { maybeRunOAuthRefresh } from '@/lib/oauth-refresh-job';
 import { maybeRunInterconnectionProbes } from '@/lib/interconnect/run';
 
@@ -211,7 +213,7 @@ const softwareAppJsonLd = {
   // asked "what is Setnayan". It said "wedding platform" while sixteen other
   // event types were live and enabled.
   description:
-    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Studio livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then add optional paid upgrades that set the day apart — Papic candid photo-and-video capture with QR-tagged galleries and personal reels (free to start on every event), Live Watch livestream on the event page, the Setnayan AI planner, a custom Music Maker song, and an Animated Monogram, each priced individually in PHP. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. 0% commission on verified supplier bookings.",
   featureList: [
     // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
     // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
@@ -231,7 +233,7 @@ const softwareAppJsonLd = {
     'Pakulay mood board (free)',
     'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged galleries and per-guest personal highlight reels (free on every event; paid top-ups for more credits)',
-    'Live Studio — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
+    'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (free single camera; paid multicam control room)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (paid add-on)',
     'Music Maker — a custom Filipino-style song produced for the couple (paid add-on)',
     'Animated Monogram — a bespoke monogram + animation across invites, the Event Hub, and signage (paid add-on)',
@@ -306,6 +308,15 @@ export default async function HomePage({
   // nobody schedules. It is also the only writer that seals a token, which is
   // why the September vault had encrypted zero production rows.
   after(() => maybeRunOAuthRefresh().catch(() => {}));
+  // 🧽 The face-tagging selfie ends when the event's Papic closes, twelve hours
+  // after the event (owner 2026-09-30) — tags stay. CRON-FREE: a ~30-min DB
+  // claim, carried by admin AND public traffic so a quiet console cannot hold a
+  // guest's selfie past its close. Never throws.
+  after(() => maybeRunPapicCloseSelfieErase().catch(() => {}));
+  // 🔁 The ONE face rescan after an event ends (owner 2026-09-30, "2. a"): every
+  // photo against every registered selfie, before Papic closes. Sliced — a
+  // photo cap + a time budget per ~5-min claim; resumable. Never throws.
+  after(() => maybeRunFaceRescan().catch(() => {}));
 
   return (
     <>

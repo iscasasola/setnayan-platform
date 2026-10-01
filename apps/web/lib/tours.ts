@@ -21,6 +21,7 @@ import {
   EyeOff,
   Heart,
   Images,
+  Laptop,
   ClipboardList,
   LayoutPanelLeft,
   Maximize2,
@@ -38,6 +39,7 @@ import {
   ShieldCheck,
   Sparkles,
   Table2,
+  Ticket,
   UserSquare,
   Users,
   UtensilsCrossed,
@@ -101,12 +103,16 @@ export type TourKey =
   | 'customer_pro_qr_v1'
   | 'customer_theme_picker_v1'
   | 'customer_print_menu_v1'
-  | 'customer_guest_reminders_v1'
+  | 'customer_details_guided_v1'
+  | 'customer_print_story_poster_v1'
   | 'customer_schedule_v1'
   | 'customer_add_scene_v1'
   | 'customer_hero_designs_v1'
   | 'customer_people_v1'
+  | 'customer_guest_invite_v1'
   | 'customer_apply_pro_v1'
+  | 'customer_event_menu_v1'
+  | 'discover_upcoming_v1'
   | 'admin_users_v1'
   | 'admin_force_majeure_v1';
 
@@ -127,12 +133,16 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_pro_qr_v1',
   'customer_theme_picker_v1',
   'customer_print_menu_v1',
-  'customer_guest_reminders_v1',
+  'customer_details_guided_v1',
+  'customer_print_story_poster_v1',
   'customer_schedule_v1',
   'customer_add_scene_v1',
   'customer_hero_designs_v1',
   'customer_people_v1',
+  'customer_guest_invite_v1',
   'customer_apply_pro_v1',
+  'customer_event_menu_v1',
+  'discover_upcoming_v1',
   'admin_users_v1',
   'admin_force_majeure_v1',
 ];
@@ -656,29 +666,64 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     ],
   },
   /*
-    📮 GUEST REMINDER EMAILS (owner 2026-09-26, "THE LAST 30 DAYS"). Fires the
-    first time the couple opens the Maker's RSVP page after the Maker welcome —
-    the switch lives there. Two slides: what each guest gets, and that the
-    switch is theirs. Mounted inside the RSVP page's controls (launch/page.tsx),
-    so it never stacks on the Maker's own first-visit welcome.
+    🪜 WHAT'S LEFT — THE GUIDED FLOW (owner 2026-09-29: *"it needs to be very
+    easy"* · *"they can still pick a step anytime?"*; Details part 5). Mounted
+    on the flow's progress line (`details-guide.tsx`, via `maker-details.tsx`),
+    never on the Maker's very first visit — its own welcome goes first. Sells
+    nothing.
   */
-  customer_guest_reminders_v1: {
-    key: 'customer_guest_reminders_v1',
-    label: 'Reminder emails for your guests',
-    blurb: 'Three short emails — 30 days, 7 days and the day before — each listing only what a guest has not ticked.',
+  customer_details_guided_v1: {
+    key: 'customer_details_guided_v1',
+    label: 'What’s left',
+    blurb: 'Your Event Hub one thing at a time, in three rounds — and any step whenever you like.',
     slides: [
       {
-        Icon: Mailbox,
-        title: 'Your guests are reminded for you',
-        body: 'Every guest who gave an email gets three short reminders &mdash; <strong>30 days</strong>, <strong>7 days</strong> and <strong>the day before</strong>. Each one lists only what they have not ticked on their checklist, and links to their own page. A guest who has not replied is asked to reply by your date first.',
+        Icon: CheckCircle2,
+        title: 'One thing at a time',
+        body: 'Each screen is one thing to fill in &mdash; your names, your date, your look. Press <strong>Next</strong> for the next thing still to do, or <strong>Skip for now</strong> to leave it on your list.',
       },
       {
-        Icon: CheckCircle2,
-        title: 'The switch is yours',
-        body: 'They are on by default. Turn <strong>Reminder emails</strong> off on this page and nobody is emailed. Guests without an email are never emailed either way &mdash; their invitation is the link you share.',
+        Icon: Send,
+        title: 'Three rounds, each ready to send',
+        body: 'Round 1 gets your <strong>Save the Date</strong> ready, Round 2 your <strong>invitations</strong>, Round 3 <strong>the day</strong>. Each ends with <strong>Apply</strong>, which puts it live for your guests.',
+      },
+      {
+        Icon: ClipboardList,
+        title: 'Any step, any time',
+        body: 'Tap the <strong>Round</strong> line at the top to see every step, each marked &#10003; or &#9675;, and jump to any of them. <strong>All items</strong> shows everything at once.',
       },
     ],
   },
+  /*
+    THE OUR STORY POSTER (owner 2026-09-26: *"is it possible to generate a A3
+    printable of their stories? so they can print it and frame it?"*). Mounted
+    on Details › Our Story poster after the Menu's tour (`after`), so the two
+    never stack on one first visit. Sells nothing — it prints free in the free themes.
+  */
+  customer_print_story_poster_v1: {
+    key: 'customer_print_story_poster_v1',
+    label: 'Your Our Story poster',
+    blurb: 'Your Love Story on an A3 poster in your theme, ready to frame.',
+    slides: [
+      {
+        Icon: BookOpen,
+        title: 'Your story, ready to frame',
+        body: 'Your <strong>Love Story</strong> prints as an A3 poster in your theme &mdash; every chapter, with each moment&rsquo;s date, words and place.',
+      },
+      {
+        Icon: Heart,
+        title: 'Written once, in Love Story',
+        body: 'The poster reads the moments you wrote in the Maker&rsquo;s Love Story. Change a moment there and the poster follows; a moment you hid stays off it.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Offered once there is a story',
+        body: 'An empty poster is never printed. Until you add a moment, its card shows where your story will go.',
+      },
+    ],
+  },
+  // 📮 `customer_guest_reminders_v1` retired 2026-09-29 with the switch it
+  // taught — no email to guests (owner ruling, DECISION_LOG "NO EMAIL TO GUESTS").
   /*
     THE SCHEDULE'S FIRST VISIT (Schedule rebuild slice 1, 2026-09-27; owner
     2026-09-25: every feature gets a first-visit tour). One slide per thing the
@@ -771,6 +816,37 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   },
   // People, one place, one picker (owner 2026-09-28, the People redesign —
   // slides ①②③ on frame B of people-redesign.html).
+  /* 📨 THE GUEST LIST'S INVITE COLUMN (owner 2026-09-30: *"the personal QR is
+     found on the guest list … and instructions on how to use it"*). Mounted on
+     the Guest list (`guests/page.tsx`). No "email": Setnayan sends guests
+     nothing — every invite leaves from the couple's own phone. */
+  customer_guest_invite_v1: {
+    key: 'customer_guest_invite_v1',
+    label: 'Guest list — Invite',
+    blurb: 'Sending each guest their own message and Digital ticket from the Invite column.',
+    slides: [
+      {
+        Icon: Ticket,
+        title: 'Each guest has their own ticket',
+        body: 'Every guest on your list has a personal link and Digital ticket. The ticket opens their own invitation, and it is their pass at the door.',
+      },
+      {
+        Icon: Send,
+        title: 'Tap Invite to send it',
+        body: 'Pick Messenger, Viber or any app &mdash; the message and their ticket go together. The row then shows it was sent.',
+      },
+      {
+        Icon: Laptop,
+        title: 'On a computer',
+        body: 'Tap Invite, then <b>Copy message</b> and <b>Copy ticket</b>, and paste both into the chat. Tap <b>Mark as sent</b> when it is on its way.',
+      },
+      {
+        Icon: CheckCircle2,
+        title: 'Replies update here by themselves',
+        body: 'When a guest answers or gets their ticket, this list changes on its own. Nothing to type in.',
+      },
+    ],
+  },
   customer_people_v1: {
     key: 'customer_people_v1',
     label: 'Your people',
@@ -790,6 +866,44 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         Icon: Heart,
         title: 'Following needs no request',
         body: 'Follow anyone with a public profile. Say yes to an event and you follow its hosts on your own. Only you can see who follows you, and you can unfollow any time &mdash; even someone you’re connected with.',
+      },
+    ],
+  },
+  /* 🧭 THE EVENT MENU — FIVE PLACES (Stage D, owner 2026-09-29: "Home · Guest
+     list · Your Team · Event Hub Maker · Our Services"; "on mobile mode … we
+     want it to be simple and easy to manage"; 2026-09-25: every feature gets a
+     first-visit tour). Mounted on the event's Home (`[eventId]/page.tsx`),
+     after the couple welcome, so the two never stack. Words fit every event
+     type — no "wedding", no "couple". No price is named, so nothing here sells. */
+  customer_event_menu_v1: {
+    key: 'customer_event_menu_v1',
+    label: 'Your event menu',
+    blurb: 'The five places that hold everything for an event — the same on phone and laptop.',
+    slides: [
+      {
+        Icon: Sparkles,
+        title: 'Five places for your whole event',
+        body: 'Home, Guests, Suppliers, Hub and More. The same five sit at the bottom of your phone and down the side of your laptop.',
+      },
+      {
+        Icon: Users,
+        title: 'Guests',
+        body: 'Your guests, your hosts and, on the day, check-in. Switch between them from the menu at the top of the page.',
+      },
+      {
+        Icon: Briefcase,
+        title: 'Suppliers',
+        body: 'The suppliers you book and your budget, in one place.',
+      },
+      {
+        Icon: Wand2,
+        title: 'Hub',
+        body: 'Where you make your Event Hub, the invitation and every print. Names, date, schedule, mood board and logo are all in its Details.',
+      },
+      {
+        Icon: Camera,
+        title: 'More Services',
+        body: 'Setnayan AI, Papic, Live Watch, Music Maker and Patiktok &mdash; tap More to see all five, and add the ones you want for your day.',
       },
     ],
   },
@@ -816,6 +930,29 @@ export const TOURS: Record<TourKey, TourDefinition> = {
         title: 'Keep it, change it, or take it off',
         body: 'Tap Go to to see an effect in the Maker, or &times; to take it off your draft. Unlock Event Hub Pro to put them all live &mdash; or apply the rest now; the Pro ones stay in your draft.',
         sells: true,
+      },
+    ],
+  },
+  /* 🌍 DISCOVER (owner 2026-09-29, DECISION_LOG "DISCOVER IS THE DOOR TO THE
+     WHOLE SETNAYAN UNIVERSE"; prototype `discover_upcoming_2026-09-29.html`
+     frame 1C). Mounted on `/` for a signed-in visitor by the shipped
+     `<MiniTour>` in `front-door.tsx`. Two slides, the prototype's own words —
+     minus its "you'll hear by email", which the same day's NO EMAIL TO GUESTS
+     ruling retired: an approved requester learns it by reopening their link. */
+  discover_upcoming_v1: {
+    key: 'discover_upcoming_v1',
+    label: 'Discover',
+    blurb: 'Your people’s public events first, then everything public on Setnayan.',
+    slides: [
+      {
+        Icon: Calendar,
+        title: 'Your people’s public events',
+        body: 'When someone you follow or are connected to announces a public event, it shows here &mdash; soonest first. Tap <b>Ask to join</b>; the host approves who gets in.',
+      },
+      {
+        Icon: Users,
+        title: 'Then the rest of Setnayan',
+        body: 'Below them: every other upcoming public event, nearest region first, then shops and people to follow. Tickets, when an event has them, are sold by its organizer &mdash; never by Setnayan.',
       },
     ],
   },

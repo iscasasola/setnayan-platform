@@ -15,6 +15,8 @@ import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { QrActions } from '@/app/_components/qr-actions';
 import { svgDataUri } from '@/lib/qr-download';
 import { InviteLink } from './invite-link';
+import { CopyButton } from '@/app/_components/copy-button';
+import { buildGroupInviteMessage } from '@/lib/guest-invite-message';
 import { RegenerateQrButton } from './regenerate-qr-button';
 import { readWhoCanRsvp, WHO_CAN_RSVP_LABEL } from '@/lib/rsvp-ask';
 
@@ -118,7 +120,8 @@ export async function InvitePanel({
       .is('deleted_at', null),
     supabase
       .from('events')
-      .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at')
+      // + the words the group-chat message names the event with.
+      .select('slug, landing_page_visibility, scheduled_launch_at, std_launched_at, display_name, event_date, event_date_precision')
       .eq('event_id', eventId)
       .maybeSingle(),
     // "Who can RSVP?" — its own read, so a refusal here can never take the
@@ -183,14 +186,52 @@ export async function InvitePanel({
   // Event Hub Pro) at level H, like every other guest code. Inline, no client JS.
   const qrSvg = joinUrl ? await renderStyledUrlQrSvg(joinUrl, qrLookFromRow(lookRow, ownsPro), 320) : null;
 
+  /* 💬 THE GROUP-CHAT MESSAGE for this ONE shared link (owner 2026-09-29) —
+     "…Tap the link, reply with your full name, and we'll confirm you." It is
+     the shared link, never a personal key, so it promises no QR: a person who
+     arrives by it lands in Requests until the couple Links or Accepts them
+     (DECISION_LOG 2026-09-26 "NOBODY WITHOUT A KEY GETS INSIDE"). Same builder
+     as every personal message (lib/guest-invite-message.ts). */
+  const profile = await resolveProfile((lookRow?.event_type as string | null) ?? 'wedding');
+  const ev = (eventRes.data ?? {}) as {
+    display_name?: string | null;
+    event_date?: string | null;
+    event_date_precision?: string | null;
+  };
+  const groupMessage = joinUrl
+    ? buildGroupInviteMessage({
+        joinUrl,
+        hostsName: ev.display_name ?? null,
+        eventWord: profile.terminology.eventWord,
+        solemn: profile.terminology.register === 'solemn',
+        eventDate: ev.event_date ?? null,
+        datePrecision: ev.event_date_precision ?? null,
+      })
+    : null;
+
   return (
     <>
+      {/* ✉ EACH GUEST THEIR OWN — the personal-link run (owner 2026-09-29).
+          The shared link below is for a group chat; this is for sending each
+          guest their own link and QR, one by one, from the couple's phone. */}
+      <Link
+        href={`/dashboard/${eventId}/guests/send`}
+        data-send-one-by-one=""
+        className="group mt-6 flex min-h-[56px] items-center justify-between gap-3 rounded-xl bg-ink px-4 py-3 text-cream"
+      >
+        <span className="text-sm">
+          <span className="block font-semibold">Send invites one by one</span>
+          <span className="block text-cream/75">Each guest gets their own link and QR, from your phone.</span>
+        </span>
+        <ArrowRight aria-hidden className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5" strokeWidth={1.75} />
+      </Link>
+
       {joinUrl && inviteLink.usable ? (
         <div className="mt-6 rounded-xl border border-ink/10 bg-white p-5 shadow-sm sm:p-6">
           <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-8">
             {qrSvg ? (
               <div
-                className="shrink-0 rounded-xl bg-cream p-3 shadow-inner [&>svg]:h-40 [&>svg]:w-40"
+                className="qr-slot shrink-0 rounded-xl bg-cream p-3 shadow-inner [&>svg]:h-40 [&>svg]:w-40"
                 dangerouslySetInnerHTML={{ __html: qrSvg }}
               />
             ) : null}
@@ -211,6 +252,13 @@ export async function InvitePanel({
                 Send it by text, email, or your group chat — or let guests scan the QR on a
                 printed invite. The same link works for everyone.
               </p>
+              {groupMessage ? (
+                <div className="space-y-2 rounded-lg bg-ink/[0.04] p-3" data-group-invite-message="">
+                  <p className="text-xs font-medium uppercase tracking-[0.16em] text-ink/50">For a group chat</p>
+                  <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink/85">{groupMessage}</p>
+                  <CopyButton value={groupMessage} label="Copy message" copiedLabel="Copied ✓" />
+                </div>
+              ) : null}
               <div className="border-t border-ink/10 pt-3">
                 <RegenerateQrButton eventId={eventId} />
                 <p className="mt-1.5 text-xs leading-relaxed text-ink/45">

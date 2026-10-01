@@ -66,7 +66,7 @@ const oswald = localFont({
   adjustFontFallback: 'Arial',
 });
 
-export function abacaSkin({ photo, accent, monogram, mark }: InviteSkinInput): DoorSkin {
+export function abacaSkin({ photo, accent, monogram, mark, markPlays }: InviteSkinInput): DoorSkin {
   return {
     themeId: 'abaca',
     className: [styles.abaca ?? '', alfaSlabOne.variable, oswald.variable].join(' '),
@@ -96,7 +96,7 @@ export function abacaSkin({ photo, accent, monogram, mark }: InviteSkinInput): D
     crest: (
       <div className={styles.crest}>
         <span className={styles.seal}>
-          <SealMark mark={mark} monogram={monogram} px={28} />
+          <SealMark mark={mark} monogram={monogram} px={28} plays={markPlays} />
         </span>
       </div>
     ),

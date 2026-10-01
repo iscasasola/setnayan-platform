@@ -1,11 +1,12 @@
 'use client';
 
-import { MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
+import { MAKER_DRAFT_BAR_EVENT, MAKER_REFRESH_EVENT, makerSave } from '@/lib/maker-refresh';
 import { MAKER_OPEN_RESET_EVENT } from './maker-open-reset';
+import { MAKER_PRESS_APPLY_EVENT, type MakerApplyOutcome, type MakerPressApplyDetail } from './maker-press-apply';
 import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState, useTransition, type ReactNode } from 'react';
+import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import { Check, MoreVertical, RotateCcw, Undo2 } from 'lucide-react';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
@@ -16,6 +17,7 @@ import {
   HUB_RESET_NEVER_TOUCHES,
   hubDraftPanelStaysOpen,
   type HubDraftActionResult,
+  type HubDraftBarLive,
   type HubDraftRefusal,
   type HubDraftSummary,
   type HubResetScope,
@@ -80,6 +82,8 @@ export type HubDraftBarProps = {
   proEffects?: readonly HubProEffectView[];
   /** The Apply sheet's first-visit tour (`customer_apply_pro_v1`) — an element, drawn inside the open sheet. */
   applyTour?: ReactNode;
+  /** 👁 Owns Pro as this viewer is SHOWN (outside the store shell) — picks the half of a save's bar that is theirs. */
+  ownsPro?: boolean;
 };
 
 /* The hidden field lives in `hub-draft-field.tsx` — a module with no server
@@ -170,15 +174,36 @@ const quietButton =
  */
 export function HubDraftToolbar({
   eventId,
-  summary,
+  summary: renderedSummary,
   storeShell,
-  priceLabel,
+  priceLabel: renderedPriceLabel,
   proHref,
-  readError,
+  readError: renderedReadError,
   saveError,
-  proEffects = [],
+  proEffects: renderedProEffects = [],
   applyTour = null,
+  ownsPro = false,
 }: HubDraftBarProps) {
+  /* ⚡ THE COUNT FROM THE SAVE ITSELF (owner 2026-09-30, SPEED FIRST). A pick
+     the bridge drew is followed by no render of the Maker (`lib/maker-refresh.ts`),
+     so its save answers with the bar and `makerSave` hands it here. The render's
+     own props win again the moment a new render arrives (a new `summary`). */
+  const [fromSave, setFromSave] = useState<HubDraftBarLive | null>(null);
+  useEffect(() => {
+    const onBar = (e: Event) => {
+      const bar = (e as CustomEvent<HubDraftBarLive>).detail;
+      if (bar && typeof bar === 'object' && bar.free && bar.owned) setFromSave(bar);
+    };
+    window.addEventListener(MAKER_DRAFT_BAR_EVENT, onBar);
+    return () => window.removeEventListener(MAKER_DRAFT_BAR_EVENT, onBar);
+  }, []);
+  useEffect(() => setFromSave(null), [renderedSummary]);
+  /* The save answers for both; this viewer's half is the one the render drew
+     with (`ownsPro`, as viewed). In the store shell there is no Apply sheet. */
+  const summary = fromSave ? (ownsPro ? fromSave.owned : fromSave.free) : renderedSummary;
+  const proEffects = !fromSave || storeShell ? (storeShell ? [] : renderedProEffects) : ownsPro ? [] : fromSave.proEffects;
+  const priceLabel = fromSave && !storeShell ? (fromSave.priceLabel ?? renderedPriceLabel) : renderedPriceLabel;
+  const readError = fromSave ? false : renderedReadError;
   const maker = useMaker();
   /* 💎 THE APPLY SHEET (owner 2026-09-28: *"need to upgrade to pro when clicked
      on apply and point out the effect chosen"*). Apply opens it — never the
@@ -215,6 +240,30 @@ export function HubDraftToolbar({
     run(fields);
     setAsking(false);
   };
+  /* The guided flow's Ready screen presses THIS Apply (`maker-press-apply.ts`):
+     the same three answers the button gives, and the first of the two mounted
+     bars answers — one press is one Apply. */
+  const pressRef = useRef<() => MakerApplyOutcome>(() => 'nothing');
+  pressRef.current = () => {
+    if (pending) return 'busy';
+    if (!summary.hasChanges) return 'nothing';
+    if (asksForPro) {
+      setSheetOpen(true);
+      return 'pro-sheet';
+    }
+    act({ intent: 'apply' });
+    return 'applying';
+  };
+  useEffect(() => {
+    const press = (e: Event) => {
+      const detail = (e as CustomEvent<MakerPressApplyDetail>).detail;
+      if (!detail || detail.handled) return;
+      detail.handled = true;
+      detail.outcome = pressRef.current();
+    };
+    window.addEventListener(MAKER_PRESS_APPLY_EVENT, press);
+    return () => window.removeEventListener(MAKER_PRESS_APPLY_EVENT, press);
+  }, []);
   /** "Go to" — the stage it is on, the scene (or row / tool), then its part. */
   const goTo = (effect: HubProEffectView) => {
     const j = effect.jump;

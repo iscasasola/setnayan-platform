@@ -38,7 +38,13 @@ test('no guest page mounts the face card as a static block', () => {
   };
   walk(root);
   assert.ok(scanned >= 100, `the sweep read only ${scanned} files — it is not sweeping`);
-  assert.deepEqual(offenders, [], 'a guest page mounts the face card as a static widget');
+  // ⚖ ONE reasoned exception (owner 2026-09-30, the face-registration design,
+  // frame D): Me → "Face tagging" opens the face screen — but only on a TAP,
+  // never as a block on the page. Held to exactly that shape below.
+  const ROW = 'app/[slug]/_components/face-tagging-row.tsx';
+  const rest = offenders.filter((f) => f !== ROW);
+  assert.deepEqual(rest, [], 'a guest page mounts the face card as a static widget');
+  assert.match(read(ROW), /\{camera \? \(\s*<DayOfFaceEnroll/, 'Me’s face row mounts the face screen without a tap');
 });
 
 test('the camera opens the face step once, right after its terms are accepted', () => {

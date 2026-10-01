@@ -1,25 +1,18 @@
 import Link from 'next/link';
-import {
-  Armchair,
-  ArrowRight,
-  Camera,
-  Check,
-  EyeOff,
-  Flower2,
-  Tag,
-  Users,
-  UserX,
-} from 'lucide-react';
-import { SIDE_CHIP_SOFT } from '@/lib/side-colors';
+import { composeFormalName } from '@/lib/formal-name';
+import { LINKED_NAME_WORDS, PROFILE_NAME_WORDS } from '@/lib/extra-seats';
+import { pickItems } from '@/lib/role-alternatives';
 import { InfoTip } from '@/app/_components/info-tip';
 import {
   guestDisplayName,
   guestInitials,
   GROUP_CATEGORY_LABELS,
   MEAL_LABELS,
-  ROLE_LABELS,
-  RSVP_LABELS,
+  guestRoleLabel,
+  guestRolePickLabel,
   SIDE_LABELS,
+  SINGLETON_GUEST_ROLES,
+  REQUEST_ENTRY_SOURCE,
   type GuestGroupCategory,
   type GuestSide,
   type GuestAttire,
@@ -27,20 +20,37 @@ import {
   type RsvpStatus,
   PLUS_ONE_CHOICES,
   plusOneSeats,
+  guestFullName,
 } from '@/lib/guests';
+import { prefixChoicesFor } from '@/lib/formal-name';
+import { roleGroupLabel, roleGroupOf } from '@/lib/role-groups';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { InvitedToChips } from './invited-to-chips';
-import { GuestQrCard } from './guest-detail-body';
+import { FormPick } from './card-fields';
+/* ⚡ TYPE ONLY, like SendInvite below: the ticket view and the ⋯ are handed in
+   by the pages that draw them (the Guest list, the standalone card). The Maker's
+   parent cards pass neither — they get a plain server-drawn ticket and no ⋯ —
+   so the NFC writer and the confirm sheets never enter the Maker's first load
+   (`check-maker-js-budget.mjs`). Not a lazy import either: an async chunk adds
+   an entry to the every-page webpack runtime, measured +58 B against a shared
+   bundle with 20 B to spare. */
+import type { GuestMoreMenu, GuestTicketThumb } from './guest-ticket-parts';
+/* ⚡ TYPE ONLY. The Invite pair is handed in by the page that draws it
+   (\`SendInvite\` below): the Guest list passes the real one, and the Maker —
+   whose parent cards never show it — passes nothing, so its code stays out of
+   the Maker's first load (\`check-maker-js-budget.mjs\`). */
+import type { GuestInviteCell } from './guest-invite-cell';
+// A server component: the route comes from its own module (a constant imported
+// from a 'use client' file would arrive here as a client reference, not a string).
+import { PASS_CARD_ROUTE } from '@/lib/pass-card';
+import type { InviteSetup } from './invite-message-setup';
+import type { ComponentType } from 'react';
 import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
-import { accessTag } from '@/lib/guest-access';
+import { ACCESS_LEVEL_LABEL, accessTag } from '@/lib/guest-access';
 import type { GuestCardData } from './guest-card-data';
-import {
-  inviteGuestByEmailAction,
-  releaseGuestClaim,
-  updateGuest,
-} from '../[guestId]/actions';
+import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -54,18 +64,27 @@ import {
  * *"can we just open all of these in one pop up (mobile) and a window opens
  * from the right for desktop? so less clicks easier access."*
  *
- * ── The arrangement, and why it is this ─────────────────────────────────────
- * Ordered by what the couple actually does, then corrected by the owner on the
- * prototype (`Setnayan/prototypes/guest_card_panel_2026-09-22.html`):
+ * ── The arrangement (owner 2026-09-30, the approved Fable designs) ──────────
+ * `Setnayan-specs/prototypes/guest_card_invite_simple_2026-09-30_fable.html` +
+ * `guest_card_details_2026-09-30_fable.html`, DECISION_LOG "APPROVED — THE
+ * FABLE DESIGNS FOR THE GUEST CARD, THE GUEST LIST ROWS AND THE GUEST LANDING
+ * PAGE":
  *
- *   1 Invitation — the QR sits ABOVE the name. It is the thing you send them.
- *   2 Details    — name · email & mobile · private note, one line each
- *   3 RSVP       — status · invited to · meal · DIETARY
- *   4 Seat       — table · extra seats · attire
- *   5 Party      — side · group · role
- *   6 Privacy    — photo consent · FaceBlock · face recognition
- *   7 Tags       — read-only, derived from everything above
- *   8 Remove     — never autosaved
+ *   TOP    their Digital ticket, small (tap → full view + Save ticket) · ONE
+ *          Invite · ⋯ (Write to NFC · New QR · Unlink account) · the status
+ *          line (Not sent · Not linked / ✓ Sent Sep 30 · Linked). The QR's look
+ *          left the card — it is the whole event's (Maker › Details › Look).
+ *   NAME   open and writable: Prefix (dropdown) · First · Middle · Last · Suffix
+ *          · Shown as.
+ *   then seven rows, CLOSED, each with a one-line summary — Details · RSVP ·
+ *   Seat · Photos · Private note · Access · Tags. One open at a time (a native
+ *   exclusive details-element accordion (`name`) — no script). Yes/No = a toggle, one
+ *   choice = one dropdown, several = a dropdown with checkmarks.
+ *
+ * ✉ No email anywhere: the guest's address is CARRIED (hidden), never shown or
+ * offered — Setnayan sends guests nothing. 🚶 "Walks with" is not on the card:
+ * who walks beside whom is set in the Maker's Wedding March only (DECISION_LOG
+ * 2026-09-30 "WALKING TOGETHER IS NOT BEING A COUPLE").
  *
  * 🔑 DIETARY SITS WITH MEAL. It used to live under "More details" beside email
  * and mobile; the owner's words were *"these are not contact information.
@@ -107,18 +126,19 @@ const ATTIRE_LABELS: Record<GuestAttire, string> = {
   suit: 'Suit',
 };
 
-const SIDE_CHIP_TINT = SIDE_CHIP_SOFT;
-
-const RSVP_PILL_CLASS: Record<RsvpStatus, string> = {
-  attending:
-    'has-[:checked]:bg-success-600 has-[:checked]:text-cream has-[:checked]:border-success-700',
-  pending:
-    'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
-  maybe:
-    'has-[:checked]:bg-warn-100 has-[:checked]:text-warn-900 has-[:checked]:border-warn-400',
-  declined:
-    'has-[:checked]:bg-danger-100 has-[:checked]:text-danger-900 has-[:checked]:border-danger-400',
+/** The card's words for an answer (owner 2026-09-30: "no reply" / "not coming"). */
+const CARD_RSVP_WORDS: Record<RsvpStatus, string> = {
+  attending: 'Attending',
+  pending: 'No reply',
+  declined: 'Not coming',
+  maybe: 'Maybe',
 };
+
+
+/** "7" → "Table 7"; a table the couple named ("Sponsors") stays as named. */
+function tableWords(label: string): string {
+  return /^\d+$/.test(label.trim()) ? `Table ${label.trim()}` : label;
+}
 
 export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',
@@ -132,6 +152,17 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   swap_needs_name: 'Type the name of the person taking the spot.',
   swap_after_day: 'The day has passed — this spot can no longer be given away.',
   swap_failed: 'The spot could not be given away just now — nothing was changed. Please try again.',
+  // "Unlink" (lib/seat-unlink.ts).
+  unlink_not_allowed: 'Only the couple can unlink an account from an invitation.',
+  unlink_nothing_linked: 'No account holds this invitation — there is nothing to unlink.',
+  unlink_holds_access:
+    'That account is a Co-host or helper through this guest. Set their Access back to None first, then unlink. (On the bride, groom or celebrant row a Co-host cannot be removed here — ask Setnayan support.)',
+  unlink_failed: 'The account could not be unlinked just now — nothing was changed. Please try again.',
+  // The card's Table dropdown (updateGuest › syncCardTable).
+  seat_failed: 'The table could not be changed just now — the rest was saved. Please try again.',
+  // ⋯ › New QR (releaseGuestClaim › newGuestQr).
+  new_qr_failed: 'A new QR could not be made just now — the old one still works. Please try again.',
+  new_qr_rate_limited: 'This QR was already replaced 3 times in the last 24 hours — try again later.',
 };
 
 export function GuestCardBody({
@@ -143,12 +174,16 @@ export function GuestCardBody({
   returnTo,
   errorMessage,
   inviteFlash,
+  inviteSetup,
+  SendInvite,
+  TicketThumb,
+  MoreMenu,
+  helperAccess,
 }: {
   eventId: string;
   data: GuestCardData;
   /** The event's public address WITHOUT the guest's token. Null before the
-   *  event has a slug, in which case the QR card keeps its Invitation-page
-   *  doorway instead of the Download · NFC · Copy strip. */
+   *  event has a slug — then there is no link to send, write to a tag or copy. */
   invitationBase: string | null;
   photoDisplayUrl: string | null;
   /**
@@ -168,6 +203,20 @@ export function GuestCardBody({
   returnTo: string;
   errorMessage: string | null;
   inviteFlash: { ok: boolean; msg: string } | null;
+  /** The event's facts and the couple's wording for Invite, read once by the page. */
+  inviteSetup?: InviteSetup | null;
+  /** The Invite pair itself — given with \`inviteSetup\` by the pages that draw it. */
+  SendInvite?: typeof GuestInviteCell;
+  /** Their ticket, small (tap → full view + Save ticket). Absent (the Maker) → a plain ticket image. */
+  TicketThumb?: ComponentType<Parameters<typeof GuestTicketThumb>[0]>;
+  /** The ⋯ (Write to NFC · New QR · Unlink). Absent (the Maker) → none; the Guest list has it. */
+  MoreMenu?: ComponentType<Parameters<typeof GuestMoreMenu>[0]>;
+  /**
+   * A limited helper's grants, colour domains and activity — the Hosts pieces
+   * that moved under the Access line (build F2, `guest-helper-access.tsx`).
+   * Rendered by the Guest list's card screens; absent (the Maker) → none.
+   */
+  helperAccess?: React.ReactNode;
 }) {
   const {
     guest,
@@ -177,24 +226,110 @@ export function GuestCardBody({
     isIncWedding,
     showTeaCeremony,
     plusOneStateLabel,
-    plusOneGuestId,
     initialInvited,
     seatedAt,
     customGroups,
     recordedAt,
     access,
     canManageAccess,
+    nameLinked,
+    linkedAccount,
+    profileName,
+    roleNames,
+    tables,
+    seatTableId,
+    groupChoices,
   } = data;
+  /* 👤 Whose words the name is (owner 2026-09-30): a linked account's profile
+     name is fixed here — "From their account" for the couple, a way to the
+     profile for the person themself. A plus-one's link keeps its own words. */
+  const nameLockWords = profileName ? (profileName.isYou ? null : PROFILE_NAME_WORDS) : nameLinked ? LINKED_NAME_WORDS : null;
+  const nameLocked = Boolean(profileName) || nameLinked;
+  // The five parts as one line — the same formal name the list prints.
+  const lockedName = composeFormalName(guest) ?? guestDisplayName(guest);
   const accessTagLabel = access ? accessTag(access) : null;
 
   const updateAction = updateGuest.bind(null, eventId, guest.guest_id);
   const releaseAction = releaseGuestClaim.bind(null, eventId, guest.guest_id);
-  const inviteAction = inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
+  const partnerLinkAction = inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
 
-  const contactSummary = guest.email ?? guest.mobile ?? null;
+  const name = guestDisplayName(guest);
+  const inviteUrl = invitationBase && guest.qr_token ? `${invitationBase}?invite=${guest.qr_token}` : null;
+  // Linked is known only to the couple (it reads another account); anyone else is told nothing either way.
+  const linked: boolean | null = canManageAccess ? Boolean(linkedAccount) : null;
+  const hasTicket =
+    Boolean(guest.qr_token) &&
+    guest.entry_source !== REQUEST_ENTRY_SOURCE &&
+    guest.rsvp_status !== 'declined' &&
+    guest.passed_away !== true;
+  const seats = plusOneSeats(guest);
+  const hostWord = access?.level === 'co_host' ? 'Co-host' : 'Host';
+
+  const more = MoreMenu ? (
+    <MoreMenu
+      eventId={eventId}
+      guestId={guest.guest_id}
+      guestName={name}
+      nfcUrl={inviteUrl}
+      linked={Boolean(linkedAccount)}
+      returnTo={returnTo}
+    />
+  ) : null;
+
+  // ── the one-line summaries of the closed rows ──
+  const roleWord = guestRoleLabel(guest.role, roleNames);
+  const detailsSummary = [
+    hasSides ? SIDE_LABELS[guest.side] : null,
+    GROUP_CATEGORY_LABELS[guest.group_category],
+    isCouple ? `${roleWord} · locked` : roleWord,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const rsvpSummary = isCouple
+    ? 'Attending · always'
+    : [
+        CARD_RSVP_WORDS[guest.rsvp_status],
+        guest.meal_preference && guest.meal_preference !== 'no_preference' ? MEAL_LABELS[guest.meal_preference] : null,
+        seats > 0 ? `+${seats}` : null,
+        guest.guest_note?.trim() ? 'a note from them' : null,
+      ]
+        .filter(Boolean)
+        .join(' · ');
+  const seatSummary = seatedAt ? tableWords(seatedAt) : guest.rsvp_status === 'declined' ? 'Not coming' : 'Not seated';
+  const photosSummary = `Tagging ${guest.photo_consent ? 'on' : 'off'}${guest.faceblock_enabled ? ' · Blurred' : ''}`;
+  const accessSummary = [
+    linked === null ? null : linked ? 'Linked' : 'Not linked',
+    access ? ACCESS_LEVEL_LABEL[access.level] : null,
+    access?.lock === 'creator' ? 'creator' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  const tagWords = [
+    hasSides ? SIDE_LABELS[guest.side] : null,
+    GROUP_CATEGORY_LABELS[guest.group_category],
+    roleWord,
+    seatedAt ? tableWords(seatedAt) : null,
+    accessTagLabel ? `+${accessTagLabel}` : null,
+    ...customGroups.map((g) => g.label),
+  ].filter((t): t is string => Boolean(t));
+
+  // "Also serves as" — every offered role but the one they hold, the one-per-event
+  // roles and plain "Guest", under the Role picker's own headings in the couple's words.
+  const extraRoleOptions = availableRoles
+    .filter((r) => r !== guest.role && r !== 'guest' && !SINGLETON_GUEST_ROLES.includes(r))
+    .map((r) => {
+      const g = roleGroupOf(r);
+      return {
+        key: r,
+        label: guestRoleLabel(r, roleNames),
+        group: g === 'guest' ? 'Other roles' : roleGroupLabel(g, roleNames),
+      };
+    })
+    .sort((a, b) => a.group.localeCompare(b.group));
+  const extraRolesNow = (guest.extra_roles ?? []).filter((r) => extraRoleOptions.some((o) => o.key === r));
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {errorMessage ? (
         <p
           role="alert"
@@ -216,9 +351,7 @@ export function GuestCardBody({
         </p>
       ) : null}
 
-      {/* Identity. The NAME is above the QR; the editable name FIELDS are
-          below it, under Details — which is what "place the QR on top of the
-          name" asked for. */}
+      {/* Identity — who, whose side, and the answer at a glance. */}
       <div className="flex items-center gap-3">
         {photoDisplayUrl ? (
           <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-terracotta/10">
@@ -231,343 +364,190 @@ export function GuestCardBody({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          {variant === 'page' ? (
-            <h1 className="truncate text-2xl font-semibold tracking-tight text-ink">
-              {guestDisplayName(guest)}
-            </h1>
-          ) : null}
-          <p className="mt-0.5 truncate text-xs text-ink/55">
-            {[
-              RSVP_LABELS[guest.rsvp_status],
-              hasSides ? SIDE_LABELS[guest.side] : null,
-              ROLE_LABELS[guest.role],
-              seatedAt,
-            ]
+          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
+            {[isCouple ? roleWord : 'Guest', hasSides && !isCouple ? SIDE_LABELS[guest.side] : null]
               .filter(Boolean)
               .join(' · ')}
           </p>
+          {variant === 'page' ? (
+            <h1 className="truncate font-display text-2xl tracking-tight text-ink">{name}</h1>
+          ) : null}
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+            <span className="rounded-full bg-success-50 px-2 py-0.5 font-medium text-success-800 ring-1 ring-success-200">
+              {isCouple ? '✓ Attending · always' : `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${CARD_RSVP_WORDS[guest.rsvp_status]}`}
+            </span>
+            {seats > 0 && !isCouple ? (
+              <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">+{seats}</span>
+            ) : null}
+            {isCouple ? <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">Host</span> : null}
+          </p>
         </div>
-        <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/35 sm:block">
-          {guest.public_id}
-        </span>
       </div>
 
-      {/* ── 1 · INVITATION ─────────────────────────────────────────────────
-          The QR is above the name (owner 2026-09-22). Its own <form> for the
-          sign-in link, and it must stay OUTSIDE the autosave form below —
-          a nested <form> is invalid HTML and the repo lints against it. */}
-      <section className="space-y-3">
-        <GuestQrCard
-          guest={guest}
-          eventId={eventId}
-          invitationBase={invitationBase}
-        />
-        <div className="overflow-hidden rounded-lg border border-ink/10">
-          {guest.passed_away ? (
-            // 🕯 Nothing is sent to a guest the couple marked "Passed away" —
-            // `inviteGuestByEmailAction` refuses it too, so this is said up front.
-            <p className="flex items-center gap-3 border-b border-ink/[0.06] px-3.5 py-3 text-sm text-ink/45">
-              <span>Email a sign-in link</span>
-              <span className="ml-auto italic">Not sent · passed away</span>
+      {/* ── TOP · their ticket, Invite · ⋯, the status line ─────────────────
+          Outside the autosave form: Invite and ⋯ bring their own actions. */}
+      <section className="flex items-start gap-3.5 rounded-2xl border border-ink/10 bg-white/60 p-3.5" data-guest-card-top="">
+        {TicketThumb ? (
+          <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} />
+        ) : hasTicket ? (
+          // eslint-disable-next-line @next/next/no-img-element -- the guest's own ticket route, drawn by the server
+          <img
+            src={`${PASS_CARD_ROUTE}?guest=${encodeURIComponent(guest.guest_id)}`}
+            alt={`${name}'s ticket`}
+            width={92}
+            height={123}
+            loading="lazy"
+            className="aspect-[3/4] w-[92px] shrink-0 rounded-lg bg-white object-cover ring-1 ring-ink/10"
+          />
+        ) : null}
+        <div className="min-w-0 flex-1 space-y-2">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">Their ticket</p>
+            <p className="mt-0.5 text-[13px] leading-snug text-ink/65">
+              {isCouple ? 'A host — nothing to send.' : 'What they see on Me.'}
             </p>
-          ) : guest.email ? (
-            <form action={inviteAction}>
-              <SubmitButton
-                className="flex w-full items-center gap-3 border-b border-ink/[0.06] px-3.5 py-3 text-left text-sm text-ink transition-colors hover:bg-ink/[0.03] disabled:opacity-60"
-                pendingLabel="Sending…"
-              >
-                <span>Email a sign-in link</span>
-                <span className="ml-auto truncate text-ink/50">{guest.email}</span>
-              </SubmitButton>
-            </form>
+          </div>
+          {/* 🕯 Nothing is offered for a guest marked Passed away, and the couple
+              do not invite themselves. */}
+          {inviteSetup && SendInvite && !guest.passed_away && !isCouple ? (
+            <SendInvite
+              eventId={eventId}
+              layout="card"
+              more={more}
+              linked={linked}
+              guest={{
+                guestId: guest.guest_id,
+                formalName: guestFullName(guest, inviteSetup.facts.nameStyle),
+                firstName: guest.first_name,
+                fullName: name,
+                inviteUrl,
+                sentAt: guest.invitation_sent_at,
+              }}
+              facts={inviteSetup.facts}
+              template={inviteSetup.template}
+            />
           ) : (
-            // Said, not hidden: `inviteGuestByEmailAction` redirects with
-            // ?invite=no_email when there is no address, so the row says so
-            // up front rather than failing after the tap.
-            <p className="flex items-center gap-3 border-b border-ink/[0.06] px-3.5 py-3 text-sm text-ink/45">
-              <span>Email a sign-in link</span>
-              <span className="ml-auto italic">No email yet</span>
-            </p>
+            <div className="space-y-1">
+              {more}
+              <p className="text-xs text-ink/60" data-guest-invite-status="">
+                {[
+                  linked === null ? null : linked ? '✓ Linked' : 'Not linked',
+                  isCouple ? hostWord : guest.passed_away ? 'Not sent · passed away' : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || '—'}
+              </p>
+            </div>
           )}
-          <Link
-            // The QR's look lives with the Event Hub address, on the Maker's
-            // Details page (owner 2026-09-27: shape · pattern · colour · your
-            // logo, with Event Hub Pro). The old Custom QR studio page is gone.
-            href={`/dashboard/${eventId}/launch?tool=details&item=qr`}
-            className="flex items-center gap-3 px-3.5 py-3 text-sm text-ink transition-colors hover:bg-ink/[0.03]"
-          >
-            <span>Customize guest QRs</span>
-            <span className="ml-auto text-ink/50">Shape · pattern · colour</span>
-            <ArrowRight aria-hidden className="h-3.5 w-3.5 text-ink/40" strokeWidth={1.75} />
-          </Link>
         </div>
       </section>
 
-      <AutosaveForm action={updateAction} returnTo={returnTo} className="space-y-5">
-        <div className="flex justify-end">
-          <AutosaveState />
-        </div>
-
-        {/* ── 2 · DETAILS — name, contact, private note: one line each ───── */}
-        <Section title="Details">
-          <div className="overflow-hidden rounded-lg border border-ink/10">
-            <Disclosure summary="Name" value={guestDisplayName(guest)}>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Field id="name_prefix" label="Prefix" defaultValue={guest.name_prefix ?? ''} />
-                <Field id="first_name" label="First name *" required defaultValue={guest.first_name} />
-                <Field id="middle_name" label="Middle name" defaultValue={guest.middle_name ?? ''} />
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Field id="last_name" label="Last name *" required defaultValue={guest.last_name} />
-                <Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} />
-                <Field
-                  id="display_name"
-                  label="Display name"
-                  defaultValue={guest.display_name ?? ''}
-                  placeholder="e.g. Tito Boy & Tita Cora"
-                />
-              </div>
-            </Disclosure>
-
-            <Disclosure
-              summary="Email & mobile"
-              value={contactSummary}
-              emptyValue="No email or mobile yet"
-            >
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field id="email" label="Email" type="email" defaultValue={guest.email ?? ''} />
-                <Field id="mobile" label="Mobile" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
-              </div>
-            </Disclosure>
-
-            <Disclosure summary="Private note" value={guest.notes?.trim() || null} emptyValue="None" last>
-              <textarea
-                id="notes"
-                name="notes"
-                rows={3}
-                defaultValue={guest.notes ?? ''}
-                className="input-field min-h-[88px] resize-y py-2"
-              />
-              {/* Said out loud, because until 2026-08-06 it was the opposite of
-                  true: this box was rendered on the guest's own invitation page
-                  and their RSVP overwrote whatever was here. */}
-              <p className="text-xs text-ink/50">
-                Only you and your co-hosts can see this. {guest.first_name} never sees it.
-              </p>
-            </Disclosure>
+      <AutosaveForm action={updateAction} returnTo={returnTo} className="space-y-4">
+        {/* ── NAME · open, and saves as you type ──────────────────────────── */}
+        <section className="space-y-2.5" data-guest-card-name="">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">Name</h2>
+            <span className="flex items-center gap-2 text-xs text-ink/45">
+              <AutosaveState />
+              saves as you type
+            </span>
           </div>
-        </Section>
-
-        {/* ── 3 · RSVP — coming, to what, and what they eat ──────────────── */}
-        <Section title="RSVP">
-          {isCouple ? (
-            <>
-              <div className="inline-flex h-11 items-center gap-2 rounded-md border border-success-300 bg-success-50 px-4 text-sm font-medium text-success-800">
-                <Check className="h-4 w-4" strokeWidth={2.5} aria-hidden />
-                Attending · always
-              </div>
-              <p className="text-xs text-ink/50">
-                The couple is the foundation of the event — always attending.
+          {/* 🔒 A linked person keeps their own name — a plus-one who linked
+              (owner 2026-09-29, OWNER ANSWERS (10)) or any row whose account's
+              profile holds a formal name (owner 2026-09-30): read-only here, and
+              `updateGuest` leaves the name out of its write. The stored parts
+              still post, so the form's own checks are satisfied. */}
+          {nameLocked ? (
+            <div data-guest-name-linked="">
+              <p className="text-sm text-ink">
+                <span className="font-medium">{lockedName}</span>
+                {nameLockWords ? <span className="text-ink/60"> · {nameLockWords}</span> : null}
+                {profileName?.isYou ? (
+                  <>
+                    {' · '}
+                    <Link href="/dashboard/profile" className="text-terracotta-700 underline-offset-2 hover:underline">
+                      Edit on your profile ›
+                    </Link>
+                  </>
+                ) : null}
               </p>
-              {/* 🔴 AND NO "Answer recorded" LINE. There is no answer to record:
-                  the action COERCES bride and groom to attending, so their stamp
-                  only ever says when a host last pressed Save. */}
-              <input type="hidden" name="rsvp_status" value="attending" />
-            </>
+              <input type="hidden" name="first_name" value={guest.first_name} />
+              <input type="hidden" name="last_name" value={guest.last_name} />
+              <input type="hidden" name="name_prefix" value={guest.name_prefix ?? ''} />
+              <input type="hidden" name="middle_name" value={guest.middle_name ?? ''} />
+              <input type="hidden" name="name_suffix" value={guest.name_suffix ?? ''} />
+              <input type="hidden" name="display_name" value={guest.display_name ?? ''} />
+            </div>
           ) : (
             <>
-              <fieldset className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <legend className="sr-only">RSVP status</legend>
-                {RSVP_OPTIONS.map((status) => (
-                  <label
-                    key={status}
-                    className={`relative flex h-11 cursor-pointer items-center justify-center rounded-md border border-ink/20 bg-cream text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 ${RSVP_PILL_CLASS[status]}`}
-                  >
-                    <input
-                      type="radio"
-                      name="rsvp_status"
-                      value={status}
-                      defaultChecked={guest.rsvp_status === status}
-                      className="sr-only"
-                    />
-                    {RSVP_LABELS[status]}
-                  </label>
-                ))}
-              </fieldset>
+              <div className="grid grid-cols-[minmax(0,5.5rem)_minmax(0,1fr)_minmax(0,1fr)] gap-2">
+                <FormPick
+                  name="name_prefix"
+                  label="Prefix"
+                  value={guest.name_prefix ?? ''}
+                  options={[{ key: '', label: '—' }, ...prefixChoicesFor(guest.name_prefix).map((p) => ({ key: p, label: p }))]}
+                />
+                <Field id="first_name" label="First" required defaultValue={guest.first_name} />
+                <Field id="middle_name" label="Middle" defaultValue={guest.middle_name ?? ''} />
+              </div>
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,5.5rem)] gap-2">
+                <Field id="last_name" label="Last" required defaultValue={guest.last_name} />
+                <Field id="name_suffix" label="Suffix" defaultValue={guest.name_suffix ?? ''} placeholder="—" />
+              </div>
+              <Field
+                id="display_name"
+                label="Shown as (optional)"
+                defaultValue={guest.display_name ?? ''}
+                placeholder="e.g. Tito Boy & Tita Cora"
+              />
             </>
           )}
-          {/* Deliberately "recorded", not "replied": three of this column's four
-              writers are host-side dashboard paths. Rendered only when there IS
-              one — the writers clear it to null on pending and maybe, so an
-              absent value means "no answer on record", and "hasn't replied"
-              would be false for anyone who answered and changed their mind.
+        </section>
 
-              🔴 AND NEVER FOR THE COUPLE. The action coerces bride and groom to
-              attending, so their stamp only records when a host last saved; in
-              production both carry a value byte-identical to their row's
-              created_at. Printed under "Answer recorded" one sentence after
-              "always attending", it contradicts the line above it with
-              something that was never an answer.
-
-              The `!isCouple` is written out even though this sits outside the
-              couple branch: a guarantee a reader has to reconstruct from an
-              enclosing ternary is one a future edit can move out from under. */}
-          {!isCouple && recordedAt ? (
-            <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
-          ) : null}
-
-          <div className="space-y-1.5">
-            <label className="block text-sm font-medium text-ink">Invited to</label>
-            {/* Smart defaults by role · locked 2026-05-23 PM. Chips populate
-                from the guest's saved value; changing Role below snaps them to
-                that role's defaults. */}
-            <InvitedToChips
-              roleSelectId="role"
-              initialRole={guest.role}
-              initialBlocks={initialInvited}
-            />
-          </div>
-
-          {/* 🔑 DIETARY BELONGS WITH MEAL — owner 2026-09-22. It sat under
-              "More details" next to email and mobile, which it is not. */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Select
-              id="meal_preference"
-              label="Meal preference"
-              defaultValue={guest.meal_preference ?? 'no_preference'}
-              options={MEAL_OPTIONS.map((v) => ({ value: v, label: MEAL_LABELS[v] }))}
-            />
-            <Field
-              id="dietary_restrictions"
-              label="Dietary restrictions"
-              defaultValue={guest.dietary_restrictions ?? ''}
-              placeholder="halal · nut allergy · …"
-            />
-          </div>
-
-          {/* 🔴 The guest's own message. Read-only: it is theirs, not yours to
-              edit. The separate column exists precisely so that saving your
-              private note cannot erase what they wrote, and vice versa. */}
-          {guest.guest_note?.trim() ? (
-            <div className="space-y-1.5">
-              <span className="block text-sm font-medium text-ink">
-                A note from {guest.first_name}
-              </span>
-              <p className="whitespace-pre-wrap rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2 text-sm text-ink/80">
-                {guest.guest_note}
-              </p>
-              <p className="text-xs text-ink/50">
-                They wrote this when they replied. Only they can change it.
-              </p>
-            </div>
-          ) : null}
-        </Section>
-
-        {/* ── 4 · SEAT — where they sit, how many seats, what they wear ──── */}
-        <Section title="Seat">
-          <Link
-            href={`/dashboard/${eventId}/seating`}
-            className="flex items-center gap-3 rounded-lg border border-ink/10 px-3.5 py-3 text-sm text-ink transition-colors hover:bg-ink/[0.03]"
-          >
-            <span>Table</span>
-            <span className="ml-auto text-ink/55">
-              {seatedAt ?? <span className="italic text-ink/40">Not seated yet</span>}
-            </span>
-            <ArrowRight aria-hidden className="h-3.5 w-3.5 text-ink/40" strokeWidth={1.75} />
-          </Link>
-
-          {/* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4. can be
-              +1/+2/+3/+4. these are for the additional seats." */}
-          <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-ink">Extra seats</legend>
-            <span className="flex flex-wrap gap-2">
-              {PLUS_ONE_CHOICES.map((n) => (
-                <label
-                  key={n}
-                  className="cursor-pointer rounded-lg border border-ink/15 px-3 py-1.5 text-sm text-ink/80 transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 has-[:checked]:font-medium has-[:checked]:text-ink hover:border-ink/30"
-                >
-                  <input
-                    type="radio"
-                    name="plus_one_count"
-                    value={n}
-                    defaultChecked={plusOneSeats(guest) === n}
-                    className="sr-only"
-                  />
-                  {n === 0 ? 'None' : `+${n}`}
-                </label>
-              ))}
-            </span>
-            <span className="block text-xs text-ink/60">
-              Your guest confirms on their invitation, and fills in their
-              plus-one&rsquo;s name when they RSVP.
-            </span>
-          </fieldset>
-          {plusOneStateLabel ? (
-            <p className="rounded-md border border-success-200/60 bg-success-50/70 px-3 py-2 text-xs text-success-900">
-              <span className="font-medium">+1 status:</span> {plusOneStateLabel}
-              {plusOneGuestId ? (
-                <>
-                  {' · '}
-                  <Link
-                    href={`/dashboard/${eventId}/guests/${plusOneGuestId}`}
-                    className="font-medium underline-offset-2 hover:underline"
-                  >
-                    Open +1 detail
-                  </Link>
-                </>
+        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/50">
+          {/* ── DETAILS — side, group, role, extra roles, groups, mobile ──── */}
+          <Fold summary="Details" value={detailsSummary}>
+            <div className="grid grid-cols-2 gap-2.5">
+              {hasSides ? (
+                <FormPick
+                  name="side"
+                  label="Side"
+                  value={guest.side}
+                  options={SIDE_OPTIONS.map((v) => ({ key: v, label: SIDE_LABELS[v] }))}
+                />
               ) : null}
-            </p>
-          ) : guest.plus_one_allowed ? (
-            <p className="rounded-md border border-warn-200/60 bg-warn-50/70 px-3 py-2 text-xs text-warn-900">
-              Allowed but no +1 has been added to the list yet.
-            </p>
-          ) : null}
-
-          <Select
-            id="attire"
-            label="Attire · 3D seat plan"
-            defaultValue={guest.attire}
-            options={ATTIRE_OPTIONS.map((v) => ({ value: v, label: ATTIRE_LABELS[v] }))}
-          />
-        </Section>
-
-        {/* ── 5 · PARTY — side, group, role ──────────────────────────────── */}
-        <Section title="Party">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {hasSides ? (
-              <Select
-                id="side"
-                label="Side *"
-                required
-                defaultValue={guest.side}
-                options={SIDE_OPTIONS.map((v) => ({ value: v, label: SIDE_LABELS[v] }))}
+              <FormPick
+                name="group_category"
+                label="Group"
+                value={guest.group_category}
+                options={GROUP_OPTIONS.map((v) => ({ key: v, label: GROUP_CATEGORY_LABELS[v] }))}
               />
-            ) : null}
-            <Select
-              id="group_category"
-              label="Group *"
-              required
-              defaultValue={guest.group_category}
-              options={GROUP_OPTIONS.map((v) => ({ value: v, label: GROUP_CATEGORY_LABELS[v] }))}
-            />
+            </div>
             {isCouple ? (
-              <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-ink">
+              <div className="space-y-1">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
                   {hasSides ? 'Role in wedding' : 'Role'}
-                </label>
-                <div className="flex h-10 items-center justify-between rounded-md border border-ink/15 bg-ink/[0.03] px-3 text-sm">
-                  <span className="font-medium text-ink">{ROLE_LABELS[guest.role]}</span>
+                </span>
+                <div className="flex min-h-10 items-center justify-between rounded-full border border-ink/15 bg-ink/[0.03] px-3 text-sm">
+                  <span className="font-medium text-ink">{roleWord}</span>
                   <span className="text-xs text-ink/45">Foundation · locked</span>
                 </div>
                 <input type="hidden" name="role" value={guest.role} />
               </div>
             ) : (
-              <div className="space-y-1.5">
-                <Select
-                  id="role"
+              <div className="space-y-1">
+                <FormPick
+                  name="role"
                   label={hasSides ? 'Role in wedding' : 'Role'}
-                  defaultValue={guest.role}
-                  options={availableRoles.map((v) => ({ value: v, label: ROLE_LABELS[v] }))}
+                  value={guest.role}
+                  /* ⚖ Owner 2026-09-30: best man OR best woman, maid OR
+                     matron of honour — each pair sits under ONE heading so
+                     the two words read as the alternatives they are. */
+                  options={pickItems(availableRoles).flatMap((it) =>
+                    it.kind === 'pair'
+                      ? it.roles.map((v) => ({ key: v, label: guestRolePickLabel(v, roleNames), group: it.heading }))
+                      : [{ key: it.role, label: guestRolePickLabel(it.role, roleNames) }],
+                  )}
                 />
                 {isIncWedding ? (
                   <p className="text-xs text-ink/55">
@@ -577,10 +557,45 @@ export function GuestCardBody({
                 ) : null}
               </div>
             )}
+            {/* ✓ Checkmark dropdowns (owner 2026-09-30 "yes"): extra roles and
+                the couple's own groups, editable right here. */}
+            {isCouple ? null : (
+              <>
+                <input type="hidden" name="extra_roles_posted" value="1" />
+                <FormPick
+                  name="extra_roles"
+                  label="Also serves as"
+                  value={extraRolesNow.join(',')}
+                  options={extraRoleOptions}
+                  multi
+                />
+              </>
+            )}
+            {groupChoices ? (
+              groupChoices.options.length > 0 ? (
+                <>
+                  <input type="hidden" name="groups_posted" value="1" />
+                  <FormPick
+                    name="group_ids"
+                    label="Groups"
+                    value={groupChoices.memberIds.join(',')}
+                    options={groupChoices.options.map((g) => ({ key: g.groupId, label: g.label }))}
+                    multi
+                  />
+                </>
+              ) : (
+                <p className="text-xs text-ink/55">No groups yet — make one from the Guest list&rsquo;s Group dropdown.</p>
+              )
+            ) : customGroups.length > 0 ? (
+              <p className="text-sm text-ink/70">Groups: {customGroups.map((g) => g.label).join(', ')}</p>
+            ) : null}
+            <Field id="mobile" label="Mobile" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
+            {/* ✉ Carried, never shown: no email to guests (owner 2026-09-30).
+                `updateGuest` writes every column it reads, so a dropped input
+                would erase the address a guest's own account linked with. */}
+            <input type="hidden" name="email" value={guest.email ?? ''} />
             {/* Chinese / Tsinoy rites only. Fails CLOSED: a refused ceremony read
-                degrades to null and this hides, because showing it on every
-                event is the reported bug — the owner found it on his CATHOLIC
-                wedding and asked why a Chinese-wedding field was there. */}
+                degrades to null and this hides. */}
             {showTeaCeremony ? (
               <Field
                 id="seniority_rank"
@@ -590,136 +605,193 @@ export function GuestCardBody({
                 placeholder="Lower serves first"
               />
             ) : (
-              // Hidden ≠ cleared. See the note on `relation` below: this form
-              // posts every column, so a field that is not rendered is a field
-              // that gets written as null.
+              // Hidden ≠ cleared: this form posts every column, so a field that
+              // is not rendered is a field that gets written as null.
               <input
                 type="hidden"
                 name="seniority_rank"
                 value={guest.seniority_rank !== null ? String(guest.seniority_rank) : ''}
               />
             )}
-          </div>
-          {/*
-            🚨 RELATION IS CARRIED, NOT EDITED — and this hidden input is load-
-            bearing, not tidiness.
+            {/* 🚨 RELATION IS CARRIED, NOT EDITED (owner 2026-09-22) — the
+                tea-ceremony page still reads it; see the-card-posts-every-column. */}
+            <input type="hidden" name="relation" value={guest.relation ?? ''} />
+            {/* 🕯 PASSED AWAY — listed, never counted (owner 2026-09-25). Never
+                offered for the couple — `updateGuest` refuses it for them too. */}
+            {isCouple ? null : (
+              <Toggle
+                name="passed_away"
+                defaultChecked={guest.passed_away === true}
+                label="Passed away"
+                note="Kept on the list as “the late …”. Not counted, seated or sent an invitation."
+                soft
+              />
+            )}
+          </Fold>
 
-            The owner removed the free-text Relationship field from this card on
-            2026-09-22. `updateGuest` writes EVERY column it reads out of this
-            form, so a field that stops being rendered stops being posted and is
-            written as NULL. With autosave that is not a rare accident on Save —
-            it is every keystroke. Dropping the input would have quietly erased
-            `guests.relation` for every guest a host so much as looked at.
+          {/* ── RSVP — the answer, to what, and what they eat ─────────────── */}
+          <Fold summary="RSVP" value={rsvpSummary} open={Boolean(guest.guest_note?.trim())}>
+            {isCouple ? (
+              <>
+                <p className="text-sm font-medium text-success-800">Attending · always</p>
+                <p className="text-xs text-ink/50">The couple is the foundation of the event.</p>
+                {/* 🔴 AND NO "Answer recorded" LINE: the action coerces bride and
+                    groom to attending, so their stamp only says when a host saved. */}
+                <input type="hidden" name="rsvp_status" value="attending" />
+              </>
+            ) : (
+              /* Attending · No reply · Not coming (owner 2026-09-30 — no Maybe).
+                 A guest who already answered Maybe keeps it listed, so opening
+                 the card never rewrites their answer. */
+              <FormPick
+                name="rsvp_status"
+                label="Reply"
+                value={guest.rsvp_status}
+                options={RSVP_OPTIONS.filter((v) => v !== 'maybe' || guest.rsvp_status === 'maybe').map((v) => ({
+                  key: v,
+                  label: CARD_RSVP_WORDS[v],
+                }))}
+              />
+            )}
+            {/* "Recorded", not "replied" — three of the column's four writers are
+                host-side. Only when there IS one, and 🔴 never for the couple. */}
+            {!isCouple && recordedAt ? (
+              <p className="text-xs text-ink/50">Answer recorded {recordedAt}</p>
+            ) : null}
 
-            The column is still alive: `/guests/new` writes it, and the
-            tea-ceremony page READS it to label each elder in serving order. So
-            the card carries the current value through untouched. It can no
-            longer be corrected here, which is what was asked; it cannot be
-            destroyed here either, which was not.
-          */}
-          <input type="hidden" name="relation" value={guest.relation ?? ''} />
-          {/* 🕯 PASSED AWAY — listed, never counted (owner 2026-09-25: *"a button
-              of passed can be placed there … If passed away already, then not
-              counted on the guestlist. but listed."*). They stay on this list
-              and print as "the late …" in the parents' lines; no headcount,
-              seat, caterer number or invitation counts them. Never offered for
-              the couple themselves — `updateGuest` refuses it for them too. */}
-          {isCouple ? null : (
+            <div className="space-y-1">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Invited to</span>
+              {/* Smart defaults by role · locked 2026-05-23 PM — changing the
+                  Role snaps these to that role's usual set. */}
+              <InvitedToChips roleSelectId="role" initialRole={guest.role} initialBlocks={initialInvited} look="toggles" />
+            </div>
+
+            <span className="block pt-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Seats and food</span>
+            <div className="grid grid-cols-2 gap-2.5">
+              {/* ⚖ Owner 2026-09-21: "+1 per guest can be up to number 4". */}
+              {isCouple ? (
+                <input type="hidden" name="plus_one_count" value={String(seats)} />
+              ) : (
+                <FormPick
+                  name="plus_one_count"
+                  label="Extra seats"
+                  value={String(seats)}
+                  options={PLUS_ONE_CHOICES.map((n) => ({ key: String(n), label: n === 0 ? 'None' : `+${n}` }))}
+                />
+              )}
+              {/* 🔑 DIETARY BELONGS WITH MEAL — owner 2026-09-22. */}
+              <FormPick
+                name="meal_preference"
+                label="Meal"
+                value={guest.meal_preference ?? 'no_preference'}
+                options={MEAL_OPTIONS.map((v) => ({ key: v, label: MEAL_LABELS[v] }))}
+              />
+            </div>
+            {isCouple ? null : plusOneStateLabel ? (
+              <p className="rounded-lg bg-success-50/70 px-3 py-2 text-xs text-success-900">+1: {plusOneStateLabel}</p>
+            ) : guest.plus_one_allowed ? (
+              <p className="rounded-lg bg-warn-50/70 px-3 py-2 text-xs text-warn-900">Allowed, but no +1 added yet.</p>
+            ) : null}
+            <Field
+              id="dietary_restrictions"
+              label="Dietary"
+              defaultValue={guest.dietary_restrictions ?? ''}
+              placeholder="halal · nut allergy · …"
+            />
+          </Fold>
+
+          {/* ── SEAT — the table, in place (never "go edit elsewhere") ──────── */}
+          <Fold summary="Seat" value={seatSummary}>
+            {tables && !guest.passed_away && guest.rsvp_status !== 'declined' ? (
+              <>
+                <input type="hidden" name="table_posted" value="1" />
+                <FormPick
+                  name="table_id"
+                  label="Table"
+                  value={seatTableId ?? ''}
+                  options={[
+                    { key: '', label: 'Not seated' },
+                    ...tables.map((t) => ({ key: t.tableId, label: tableWords(t.label) })),
+                  ]}
+                />
+              </>
+            ) : (
+              <p className="text-sm text-ink/70">{seatSummary}</p>
+            )}
+            <FormPick
+              name="attire"
+              label="Attire · 3D seat plan"
+              value={guest.attire}
+              options={ATTIRE_OPTIONS.map((v) => ({ key: v, label: ATTIRE_LABELS[v] }))}
+            />
+            <p className="text-xs text-ink/55">
+              Guests see their table on the day, not before. Moving them here moves them on the seat plan too.
+            </p>
+          </Fold>
+
+          {/* ── PHOTOS — three yes/no answers ───────────────────────────────── */}
+          <Fold summary="Photos" value={photosSummary}>
             <Toggle
-              name="passed_away"
-              defaultChecked={guest.passed_away === true}
-              icon={<Flower2 aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />}
-              label="Passed away"
-              note="Printed as “the late …”. Not counted, seated or sent an invitation."
+              name="photo_consent"
+              defaultChecked={guest.photo_consent}
+              label="Wants to be tagged in photos"
+              note="Their consent (RA 10173)"
             />
-          )}
-        </Section>
+            {/* Salamisim P2 (iteration 0012) — the Live Photo Wall then needs a
+                server-baked blur on EVERY projected photo, fail-closed. */}
+            <Toggle
+              name="faceblock_enabled"
+              defaultChecked={guest.faceblock_enabled}
+              label="Blur their face on the Live Wall"
+              note="FaceBlock — blurs every face in the shot"
+            />
+            {/* Minor safeguard (DPIA BV-8, 2026-07-05) — a host attestation. */}
+            <Toggle
+              name="face_recognition_excluded"
+              defaultChecked={guest.face_recognition_excluded}
+              label="Keep out of face recognition"
+              note="e.g. a minor"
+            />
+          </Fold>
 
-        {/* ── 6 · PRIVACY ────────────────────────────────────────────────── */}
-        <Section title="Privacy">
-          <Toggle
-            name="photo_consent"
-            defaultChecked={guest.photo_consent}
-            icon={<Camera aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />}
-            label="OK to tag in photos"
-            note="RA 10173"
-          />
-          {/* Salamisim P2 (iteration 0012). The Live Photo Wall then requires a
-              server-baked blur derivative on EVERY projected photo, fail-closed. */}
-          <Toggle
-            name="faceblock_enabled"
-            defaultChecked={guest.faceblock_enabled}
-            icon={<EyeOff aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />}
-            label="Blur faces on the Live Wall"
-            note="FaceBlock — blurs every face in the shot"
-          />
-          {/* Minor safeguard (DPIA BV-8, 2026-07-05). Face recognition is
-              adult-only opt-in; a host attestation, collecting no age. */}
-          <Toggle
-            name="face_recognition_excluded"
-            defaultChecked={guest.face_recognition_excluded}
-            icon={<UserX aria-hidden className="h-4 w-4 text-ink/55" strokeWidth={1.75} />}
-            label="Exclude from face recognition"
-            note="e.g. a minor"
-          />
-        </Section>
+          {/* ── PRIVATE NOTE — the couple's own, never the guest's ─────────── */}
+          <Fold summary="Private note" value={guest.notes?.trim() || null} emptyValue="None" last>
+            <textarea
+              id="notes"
+              name="notes"
+              rows={3}
+              aria-label="Private note"
+              defaultValue={guest.notes ?? ''}
+              placeholder="e.g. Tito’s driver drops him at the side gate"
+              className="input-field min-h-[88px] resize-y py-2"
+            />
+            {/* Said out loud, because until 2026-08-06 it was the opposite of true. */}
+            <p className="text-xs text-ink/50">
+              Only you and your co-hosts see this. {guest.first_name} never sees it.
+            </p>
+          </Fold>
+        </div>
 
-        {/* ── 7 · TAGS — read-only, derived from everything above ────────── */}
-        <Section title="Tags">
-          <div className="flex flex-wrap gap-2">
-            <TagChip
-              icon={<Users aria-hidden className="h-3 w-3" strokeWidth={2} />}
-              label={SIDE_LABELS[guest.side]}
-              tint={SIDE_CHIP_TINT[guest.side]}
-            />
-            <TagChip
-              icon={<Tag aria-hidden className="h-3 w-3" strokeWidth={2} />}
-              label={GROUP_CATEGORY_LABELS[guest.group_category]}
-            />
-            <TagChip
-              icon={<Tag aria-hidden className="h-3 w-3" strokeWidth={2} />}
-              label={ROLE_LABELS[guest.role]}
-            />
-            {seatedAt ? (
-              <TagChip
-                icon={<Armchair aria-hidden className="h-3 w-3" strokeWidth={2} />}
-                label={seatedAt}
-                tint="bg-warn-50 text-warn-900 ring-1 ring-warn-200"
-              />
-            ) : null}
-            {accessTagLabel ? (
-              // TRUE by construction (owner 2026-09-28 "make it true"): derived
-              // from the live seat, never from a label someone typed.
-              <TagChip
-                icon={<Users aria-hidden className="h-3 w-3" strokeWidth={2} />}
-                label={`+${accessTagLabel}`}
-                tint="bg-success-50 text-success-900 ring-1 ring-success-200"
-              />
-            ) : null}
-            {customGroups.map((g) => (
-              <TagChip
-                key={g.label}
-                icon={<Users aria-hidden className="h-3 w-3" strokeWidth={2} />}
-                label={g.label}
-                tint={SIDE_CHIP_TINT[g.teamSide]}
-              />
-            ))}
+        {/* 🔴 The guest's own message. Read-only: it is theirs, not yours to
+            edit, and it stays OUT of every drawer — a host must never have to
+            guess to open one to read what a guest wrote. */}
+        {guest.guest_note?.trim() ? (
+          <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/50 p-3.5">
+            <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
+              A note from {guest.first_name}
+            </span>
+            <p className="whitespace-pre-wrap font-display text-[15px] italic text-ink/80">“{guest.guest_note}”</p>
+            <p className="text-xs text-ink/50">They wrote this when they replied. Only they can change it.</p>
           </div>
-          <p className="text-xs text-ink/55">
-            Set automatically from the fields above, the seating chart and
-            Groups — not typed.
-          </p>
-        </Section>
-
+        ) : null}
       </AutosaveForm>
 
-      {/* ── ACCESS — co-host · limited helper (owner 2026-09-28: co-hosts come
-          from the guest list). Its own action, so it sits OUTSIDE the autosave
-          form, like the invitation block — a nested <form> is invalid HTML.
-          A refused read (access === null) shows nothing, never "Guest only". */}
-      {access ? (
-        <Section title="Access">
-          <div className="px-0.5">
+      {/* ── ACCESS — its own actions, so OUTSIDE the autosave form (a nested
+          <form> is invalid HTML). Same accordion as the rows above. */}
+      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/50">
+        <Fold summary="Access" value={accessSummary || null} emptyValue="—">
+          {/* A refused read (access === null) shows nothing, never "Guest only". */}
+          {access ? (
             <GuestAccessControl
               eventId={eventId}
               guestId={guest.guest_id}
@@ -727,176 +799,166 @@ export function GuestCardBody({
               initial={access}
               canManage={canManageAccess}
             />
-          </div>
-        </Section>
-      ) : null}
-
-      {/* ── 8 · REMOVE — explicit, never autosaved, and never nested inside the
-          autosave form: each of these actions brings its own <form>.
-          THE SECOND TAP IS THE GUARD. `RemoveGuestConfirm` arms and disarms on a
-          timer; see the-quick-view-can-act.test.ts for why one tap was wrong. */}
-      {isCouple ? (
-        <p className="border-t border-ink/10 pt-4 text-xs text-ink/50">
-          Foundation of the event — can&rsquo;t be removed.
-        </p>
-      ) : (
-        <div className="space-y-2">
-          <RemoveGuestConfirm
-            eventId={eventId}
-            guestId={guest.guest_id}
-            guestName={guestDisplayName(guest)}
-          />
-          {/* Owner ruling 2026-08-06: "the couple has full control of their
-              guests." A personal invitation link is a bearer credential.
-              Re-issuing the QR does NOT undo that: rotation writes qr_token and
-              never person_id or email, so the link dies while the account keeps
-              the seat. This does both, rotation FIRST. */}
-          {/* 🔁 GIVE THIS SPOT TO SOMEONE ELSE (owner 2026-09-26) — only for a
-              guest who has NOT replied. Same seat, table and count; a new key
-              (the old QR and link stop); the old person is not told. Rides the
-              release action's own door (`swap_name`), so +0 actions. */}
-          {guest.rsvp_status === 'pending' ? (
-            <form action={releaseAction} className="space-y-2 border-t border-ink/10 pt-4" data-give-spot="">
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-                <InfoTip label="Give this spot to someone else" align="start">
-                  The new person takes this guest&rsquo;s table, seats and place in the count.{' '}
-                  {guestDisplayName(guest)}&rsquo;s link and QR stop working; they are not notified. Guests who
-                  already replied cannot be swapped.
-                </InfoTip>
-              </p>
-              <label className="block">
-                <span className="text-xs font-medium text-ink/60">Who takes it?</span>
-                <input
-                  name="swap_name"
-                  required
-                  autoComplete="off"
-                  placeholder="First and last name"
-                  className="input-field mt-1 w-full"
-                />
-              </label>
-              <SubmitButton className="button-primary w-full" pendingLabel="Giving the spot…">
-                Give the spot
-              </SubmitButton>
-            </form>
           ) : null}
-          <form action={releaseAction}>
-            <SubmitButton
-              className="block w-full rounded-lg border border-ink/15 px-3.5 py-2.5 text-left text-sm font-medium text-ink/70 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
-              aria-label={`Take back ${guestDisplayName(guest)}'s seat — new QR and unlink their account`}
-              pendingLabel="Taking back…"
-            >
-              Take this seat back
-            </SubmitButton>
-          </form>
-          <p className="text-xs text-ink/50">
-            Taking the seat back issues a new QR and unlinks their account.
-          </p>
+          {helperAccess ?? null}
+          {linked === null ? null : (
+            <div className="space-y-0.5 pt-1" data-unlink-account="">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">Account</span>
+              <p className="text-sm text-ink">
+                {linked ? `Linked${linkedAccount?.email ? ` — ${linkedAccount.email}` : ''}` : 'Not linked'}
+              </p>
+              <p className="text-xs text-ink/50">
+                {linked ? 'Unlink account is in the ⋯ menu at the top.' : 'When they link, it shows here.'}
+              </p>
+            </div>
+          )}
+
+          {/* ── The careful actions — explicit, never autosaved, each its own
+              <form>. THE SECOND TAP IS THE GUARD on Remove. */}
+          {isCouple ? (
+            <div className="space-y-2 border-t border-ink/10 pt-3">
+              {/* ✉ THE ONE EMAIL LEFT, AND ONLY HERE — a couple row (owner
+                  2026-09-30: no email to GUESTS). It is the only way the
+                  partner's own bride / groom row can be claimed by their
+                  account (a couple seat refuses every other link;
+                  lib/seat-link-approval.ts). Never offered while linked. */}
+              {canManageAccess && !linkedAccount && guest.email ? (
+                <form action={partnerLinkAction} data-partner-sign-in="">
+                  <SubmitButton
+                    className="block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
+                    pendingLabel="Sending…"
+                  >
+                    Send {guest.first_name} their sign-in link
+                  </SubmitButton>
+                </form>
+              ) : null}
+              <p className="text-xs text-ink/50">Foundation of the event — can&rsquo;t be removed.</p>
+            </div>
+          ) : (
+            <div className="space-y-2 border-t border-ink/10 pt-3">
+              {/* 🔁 GIVE THIS SPOT TO SOMEONE ELSE (owner 2026-09-26) — only for a
+                  guest who has NOT replied. Rides the release door (`swap_name`). */}
+              {guest.rsvp_status === 'pending' ? (
+                <form action={releaseAction} className="space-y-2" data-give-spot="">
+                  <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+                    <InfoTip label="Give this spot to someone else" align="start">
+                      The new person takes this guest&rsquo;s table, seats and place in the count.{' '}
+                      {name}&rsquo;s link and QR stop working; they are not notified. Guests who
+                      already replied cannot be swapped.
+                    </InfoTip>
+                  </p>
+                  <label className="block">
+                    <span className="text-xs font-medium text-ink/60">Who takes it?</span>
+                    <input
+                      name="swap_name"
+                      required
+                      autoComplete="off"
+                      placeholder="First and last name"
+                      className="input-field mt-1 w-full"
+                    />
+                  </label>
+                  <SubmitButton className="button-primary w-full" pendingLabel="Giving the spot…">
+                    Give the spot
+                  </SubmitButton>
+                </form>
+              ) : null}
+              {/* Owner ruling 2026-08-06: "the couple has full control of their
+                  guests." Rotation FIRST, then the claim is let go. */}
+              <form action={releaseAction}>
+                <SubmitButton
+                  className="block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
+                  aria-label={`Take back ${name}'s seat — new QR and unlink their account`}
+                  pendingLabel="Taking back…"
+                >
+                  Take this seat back
+                </SubmitButton>
+              </form>
+              <RemoveGuestConfirm eventId={eventId} guestId={guest.guest_id} guestName={name} />
+              <p className="text-xs text-ink/50">
+                Give this spot: only while they have not replied. Take back: a new QR, and their account is unlinked.
+              </p>
+            </div>
+          )}
+        </Fold>
+
+        {/* ── TAGS — read-only, made from the fields above; never opens ───── */}
+        <div className="flex items-start gap-3 border-t border-ink/[0.06] px-3.5 py-3 text-sm" data-guest-card-tags="">
+          <span className="font-medium text-ink">Tags</span>
+          <span className="ml-auto min-w-0 text-right text-ink/55">{tagWords.join(' · ')}</span>
         </div>
-      )}
+      </div>
+      <p className="px-1 text-xs text-ink/50">Tags are set from the fields above, the seat plan and Groups — not typed.</p>
     </div>
   );
 }
 
 // ── local pieces ────────────────────────────────────────────────────────────
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className="space-y-3">
-      <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">
-        {title}
-      </h2>
-      <div className="space-y-3">{children}</div>
-    </section>
-  );
-}
-
 /**
- * A one-line row that opens. Native `<details>` — no client component, so the
- * whole card stays server-rendered and it works with the keyboard for free.
- * The `.gl-disc` animation in globals.css gives the open a bit of motion;
- * height itself cannot be animated on a native disclosure.
+ * ONE ROW OF THE CARD — closed, with a one-line summary; open, its fields.
+ * A native details element in ONE exclusive group (`name="guest-card-row"`), so
+ * opening a row closes the one that was open — the card never grows long, and
+ * there is no script to load (the card is in the Maker's first load too).
  */
-function Disclosure({
+function Fold({
   summary,
   value,
   emptyValue,
+  open = false,
   last = false,
   children,
 }: {
   summary: string;
   value: string | null;
   emptyValue?: string;
+  /** Opens on arrival — the RSVP row when the guest left a note. */
+  open?: boolean;
   last?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <details className={`group ${last ? '' : 'border-b border-ink/[0.06]'}`}>
-      <summary className="flex cursor-pointer list-none items-center gap-3 px-3.5 py-3 text-sm text-ink transition-colors hover:bg-ink/[0.03]">
-        <span>{summary}</span>
-        <span className="ml-auto truncate text-ink/55">
+    <details name="guest-card-row" open={open || undefined} className={`group ${last ? '' : 'border-b border-ink/[0.06]'}`}>
+      <summary className="flex min-h-[48px] cursor-pointer list-none items-center gap-3 px-3.5 text-sm text-ink transition-colors hover:bg-ink/[0.03]">
+        <span className="font-medium">{summary}</span>
+        <span className="ml-auto min-w-0 truncate text-ink/55">
           {value ?? <span className="italic text-ink/40">{emptyValue ?? '—'}</span>}
         </span>
-        <span
-          aria-hidden
-          className="text-ink/40 transition-transform group-open:rotate-90"
-        >
+        <span aria-hidden className="text-ink/40 transition-transform group-open:rotate-90">
           ›
         </span>
       </summary>
-      <div className="gl-disc space-y-3 border-t border-ink/[0.06] bg-ink/[0.02] px-3.5 py-3.5">
-        {children}
-      </div>
+      <div className="gl-disc space-y-3 border-t border-ink/[0.06] bg-ink/[0.02] px-3.5 py-3.5">{children}</div>
     </details>
   );
 }
 
+/** A yes/no answer, as a switch. A real checkbox underneath (posts `on`). */
 function Toggle({
   name,
   defaultChecked,
-  icon,
   label,
   note,
+  soft = false,
 }: {
   name: string;
   defaultChecked: boolean;
-  icon: React.ReactNode;
   label: string;
   note: string;
+  /** Drawn quietly — the careful one (Passed away). */
+  soft?: boolean;
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-md border border-ink/20 bg-cream px-3 py-2.5 text-sm text-ink transition-colors has-[:checked]:border-terracotta has-[:checked]:bg-terracotta/5 hover:border-ink/40">
-      <input
-        type="checkbox"
-        name={name}
-        defaultChecked={defaultChecked}
-        className="h-5 w-5 shrink-0 rounded border-ink/30 text-terracotta focus:ring-terracotta"
-      />
-      {icon}
+    <label
+      className={`flex min-h-[48px] cursor-pointer items-center justify-between gap-3 rounded-xl px-3 py-2 text-sm ${
+        soft ? 'bg-ink/[0.03] text-ink/75' : 'border border-ink/10 bg-white/70 text-ink'
+      }`}
+    >
       <span className="min-w-0">
-        <span className="block">{label}</span>
+        <span className="block font-medium">{label}</span>
         <span className="block text-xs text-ink/55">{note}</span>
       </span>
+      <input type="checkbox" name={name} defaultChecked={defaultChecked} className="sn-switch" />
     </label>
-  );
-}
-
-function TagChip({
-  icon,
-  label,
-  tint,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  tint?: string;
-}) {
-  const baseClass = tint ?? 'bg-cream text-ink/80 ring-1 ring-ink/15';
-  return (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${baseClass}`}
-    >
-      {icon}
-      {label}
-    </span>
   );
 }
 
@@ -916,8 +978,8 @@ function Field({
   placeholder?: string;
 }) {
   return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-ink" htmlFor={id}>
+    <div className="min-w-0 space-y-1">
+      <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50" htmlFor={id}>
         {label}
       </label>
       <input
@@ -929,41 +991,6 @@ function Field({
         placeholder={placeholder}
         className="input-field"
       />
-    </div>
-  );
-}
-
-function Select({
-  id,
-  label,
-  required = false,
-  defaultValue,
-  options,
-}: {
-  id: string;
-  label: string;
-  required?: boolean;
-  defaultValue: string;
-  options: { value: string; label: string }[];
-}) {
-  return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-ink" htmlFor={id}>
-        {label}
-      </label>
-      <select
-        id={id}
-        name={id}
-        required={required}
-        defaultValue={defaultValue}
-        className="input-field"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
     </div>
   );
 }

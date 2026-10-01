@@ -1,10 +1,16 @@
 /**
- * our-services.ts — the six cards on an event's Our Services page.
+ * our-services.ts — the five cards on an event's More Services page ("Our
+ * Services" until 2026-09-30).
  *
  * Owner, 2026-09-29 (DECISION_LOG "WHAT AN EVENT NEEDS — THE EVENT MENU
  * BECOMES FOUR PILLARS (+ HOME)"): *"Our Services (Papic, Live Studio,
  * Gallery, Patiktok, Music Maker)"* → *"include Setnayan AI (SAI) to our
  * services"*. Editorial folds into Gallery; the Suite becomes this page.
+ *
+ * Owner, 2026-09-30, trimming it further: *"gallery inside Papic"* ·
+ * *"Editorial inside Post Event in Event Hub Maker"* · *"Event Hub Pro has its
+ * own place too"* (the Maker's "Unlock Pro and Apply"). So Gallery is a part
+ * under the Papic card, Editorial and Event Hub Pro are not drawn here at all.
  *
  * ─── NOTHING HERE IS NEW DATA ─────────────────────────────────────────────
  * Every card is a row the Suite already had. Its door is `addOnHref` — the
@@ -24,7 +30,8 @@
  * PURE — no I/O and no `server-only`, so the rules above are tested directly.
  */
 import { Images, type LucideIcon } from 'lucide-react';
-import { addOnHref, type AddOnEntry } from './add-ons-catalog';
+import { addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
+import type { EventMenuChild, EventMenuIconName } from './customer-menu';
 
 export type OurServiceState =
   | 'added'
@@ -36,8 +43,10 @@ export type OurServiceState =
   | 'closed'
   | 'soon';
 
-/** A service's own part, shown with its card (Editorial inside Gallery). */
-export type OurServicePart = { name: string; href: string; line: string };
+/** A service's own part, shown with its card (Thank-You Video and Gallery
+ *  inside Papic, Playlist inside Music Maker). `key` is the catalogue key it
+ *  stands for (`gallery` for the Gallery, which has no catalogue entry). */
+export type OurServicePart = { key: string; name: string; href: string; line: string };
 
 export type OurService = {
   key: string;
@@ -56,7 +65,7 @@ export type OurService = {
   Icon: LucideIcon;
   /** The cover wash — the catalogue poster's own background. */
   gradient: string;
-  part: OurServicePart | null;
+  parts: readonly OurServicePart[];
 };
 
 type CatalogueService = {
@@ -65,16 +74,31 @@ type CatalogueService = {
   line: string;
   /** Catalogue keys, first offered one wins (Live Studio's two tiles). */
   addOnKeys: readonly string[];
+  /**
+   * A catalogue tool that lives UNDER this card (owner "yes to all 4",
+   * 2026-09-29): drawn as the card's part link, opening the same page the
+   * Suite's card for it opened (`appStoreDetailHref`). Shown only when the
+   * tool itself is offered for this event.
+   */
+  part?: { key: string; name: string; line: string };
 };
 
 /**
- * The five catalogue services, in the owner's order. Gallery sits between
- * Live Studio and Patiktok — it is not a catalogue entry (see `GALLERY`).
+ * The catalogue services, in the owner's order (2026-09-30: *"Setnayan AI,
+ * Papic, Live Studio, Music Maker, then Patiktok"*). Gallery is a part of Papic
+ * (not a catalogue entry — see `galleryPart`); it stands as its own card, in
+ * Papic's place, only where there is no Papic card, so it is never unreachable.
  *
  * `pakanta` is the catalogue KEY for Music Maker (DECISION_LOG 2026-09-29
  * "PAKANTA IS RENAMED MUSIC MAKER": identifiers stay, words change).
  */
-const BEFORE_GALLERY: readonly CatalogueService[] = [
+const SERVICES: readonly CatalogueService[] = [
+  {
+    key: 'setnayan-ai',
+    name: 'Setnayan AI (SAI)',
+    line: 'Watches your suppliers for you',
+    addOnKeys: ['setnayan-ai'],
+  },
   {
     key: 'papic',
     name: 'Papic',
@@ -82,6 +106,8 @@ const BEFORE_GALLERY: readonly CatalogueService[] = [
     // `papic` has no single SKU (variablePricing); the Pool and the camera
     // passes that mean "Papic is on here" arrive as `papicOwnedBy`.
     addOnKeys: ['papic'],
+    // The keepsake film is made FROM Papic's photos (PAPIC_ADDON_THANK_YOU).
+    part: { key: 'thank-you', name: 'Thank-You Video', line: 'A short film for everyone who came' },
   },
   {
     key: 'live-studio',
@@ -91,39 +117,33 @@ const BEFORE_GALLERY: readonly CatalogueService[] = [
     // de-dupe lives there): the unified tile when its flag is on, else Cast.
     addOnKeys: ['live-studio-roam', 'panood'],
   },
-];
-
-const AFTER_GALLERY: readonly CatalogueService[] = [
+  {
+    key: 'music-maker',
+    name: 'Music Maker',
+    line: 'A song written from your story',
+    addOnKeys: ['pakanta'],
+    part: { key: 'playlist', name: 'Playlist', line: 'The right song for every moment' },
+  },
   {
     key: 'patiktok',
     name: 'Patiktok',
     line: 'Short video reels from your day',
     addOnKeys: ['patiktok'],
   },
-  {
-    key: 'music-maker',
-    name: 'Music Maker',
-    line: 'A song written from your story',
-    addOnKeys: ['pakanta'],
-  },
-  {
-    key: 'setnayan-ai',
-    name: 'Setnayan AI (SAI)',
-    line: 'Watches your suppliers for you',
-    addOnKeys: ['setnayan-ai'],
-  },
+  // ⛔ NO EVENT HUB PRO CARD (owner 2026-09-30, "Event Hub Pro has its own place
+  // too"): Pro is unlocked where it is used — the Maker's "Unlock Pro and Apply".
+  // `website-pro` stays in OUR_SERVICE_ADD_ON_KEYS so the lists below never
+  // bring it back either.
 ];
 
-/** The keys of the six cards, in order. */
-export const OUR_SERVICE_KEYS = [
-  ...BEFORE_GALLERY.map((s) => s.key),
-  'gallery',
-  ...AFTER_GALLERY.map((s) => s.key),
-] as const;
+/** The keys of the cards, in order. */
+export const OUR_SERVICE_KEYS = SERVICES.map((s) => s.key);
 
 /**
- * Catalogue entries the six cards stand for. The page's "More for your event"
- * lists leave these out, so a service is never shown twice on one page.
+ * Catalogue entries the cards stand for — or that have a home elsewhere and so
+ * are never drawn on this page (`website-pro` → the Maker's Apply, `editorial`
+ * → the Maker's Post Event). The page's "More for your event" lists leave these
+ * out, so a service is never shown twice, or shown away from its home.
  * (`papic-guest` is the Papic Pool — its catalogue label is also "Papic".)
  */
 export const OUR_SERVICE_ADD_ON_KEYS: ReadonlySet<string> = new Set([
@@ -134,8 +154,20 @@ export const OUR_SERVICE_ADD_ON_KEYS: ReadonlySet<string> = new Set([
   'patiktok',
   'pakanta',
   'setnayan-ai',
+  'website-pro',
   'editorial',
 ]);
+
+/**
+ * The catalogue keys a built page actually shows — every card's own keys plus
+ * the parts drawn under the cards. A part is shown only when its card and the
+ * tool are both offered, so the page's lower lists must ask THIS (not a fixed
+ * list): a Playlist whose Music Maker card is absent (no `song` surface) stays
+ * reachable further down the page.
+ */
+export function shownAddOnKeys(cards: readonly OurService[]): ReadonlySet<string> {
+  return new Set([...OUR_SERVICE_ADD_ON_KEYS, ...cards.flatMap((c) => c.parts.map((p) => p.key))]);
+}
 
 export type OurServicesInput = {
   eventId: string;
@@ -159,6 +191,31 @@ export type OurServicesInput = {
 };
 
 const GALLERY_GRADIENT = 'linear-gradient(135deg, #1E2A24 0%, #35503F 55%, #6E8B6A 100%)';
+
+function partFor(svc: CatalogueService, input: OurServicesInput): OurServicePart[] {
+  const parts: OurServicePart[] = [];
+  if (svc.part) {
+    const entry = input.catalogue.find((a) => a.key === svc.part!.key);
+    const href = entry ? appStoreDetailHref(entry.key, input.eventId) : null;
+    if (entry && href && entry.status !== 'coming_soon' && input.offered(entry) && !input.refusesPath(href.split('?')[0]!)) {
+      parts.push({ key: entry.key, name: svc.part.name, href, line: svc.part.line });
+    }
+  }
+  // 🖼 Gallery is inside Papic (owner 2026-09-30, "gallery inside Papic").
+  if (svc.key === 'papic') {
+    const gallery = galleryPart(input);
+    if (gallery) parts.push(gallery);
+  }
+  return parts;
+}
+
+const GALLERY_LINE = 'Every photo from your day';
+
+function galleryPart(input: OurServicesInput): OurServicePart | null {
+  const href = `/dashboard/${input.eventId}/galleries`;
+  if (input.refusesPath(href)) return null;
+  return { key: 'gallery', name: 'Gallery', href, line: GALLERY_LINE };
+}
 
 function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurService | null {
   const entry = svc.addOnKeys
@@ -186,7 +243,7 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
     line: svc.line,
     Icon: entry.Icon,
     gradient: entry.poster.baseBackground,
-    part: null,
+    parts: partFor(svc, input),
   };
 
   if (isActive) {
@@ -223,37 +280,64 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
   return { ...base, href: open, inertReason: null, state: 'unpriced', stateText: 'See the price', pro: true };
 }
 
+/** The Gallery as its own card — drawn ONLY where there is no Papic card to
+ *  carry it (see `buildOurServices`). Editorial is no part of it any more: it
+ *  lives in the Maker's Post Event (owner 2026-09-30). */
 function galleryCard(input: OurServicesInput): OurService | null {
-  const href = `/dashboard/${input.eventId}/galleries`;
-  if (input.refusesPath(href)) return null;
-  const editorial = `/dashboard/${input.eventId}/story`;
+  const part = galleryPart(input);
+  if (!part) return null;
   return {
     key: 'gallery',
     name: 'Gallery',
-    line: 'Every photo from your day',
-    href,
+    line: GALLERY_LINE,
+    href: part.href,
     inertReason: null,
     state: 'free',
     stateText: 'Included',
     pro: false,
     Icon: Images,
     gradient: GALLERY_GRADIENT,
-    // Editorial is PART of Gallery (owner 2026-09-29) — the story told from
-    // the same photos. It keeps its own page; the Gallery card carries its door.
-    part: input.refusesPath(editorial)
-      ? null
-      : { name: 'Editorial', href: editorial, line: 'Your story, told from your photos' },
+    parts: [],
   };
 }
 
-/** The six cards for one event, in the owner's order, minus any not offered. */
+/** The cards for one event, in the owner's order, minus any not offered. */
 export function buildOurServices(input: OurServicesInput): OurService[] {
-  const cards = [
-    ...BEFORE_GALLERY.map((s) => catalogueCard(s, input)),
-    galleryCard(input),
-    ...AFTER_GALLERY.map((s) => catalogueCard(s, input)),
-  ];
+  const cards = SERVICES.map((s) =>
+    // No Papic card here → the Gallery stands in Papic's place on its own.
+    s.key === 'papic' ? (catalogueCard(s, input) ?? galleryCard(input)) : catalogueCard(s, input),
+  );
   return cards.filter((c): c is OurService => c != null);
+}
+
+/** Each card's icon, as a NAME from the menu's own vocabulary
+ *  (`EVENT_MENU_ICONS`) — the same glyphs these products wore as rail rows. */
+const MENU_ICON: Readonly<Record<string, EventMenuIconName>> = {
+  'setnayan-ai': 'ai',
+  papic: 'papic',
+  'live-studio': 'live',
+  'music-maker': 'pakanta',
+  patiktok: 'patiktok',
+  gallery: 'galleries',
+};
+
+/**
+ * 📂 THE MORE SERVICES ROW'S CHILDREN (owner 2026-09-30: *"the sidebar will
+ * expand and collapse to show these"*) — the built cards, in their order, as
+ * plain menu data. A card with no door (coming soon, or its day has passed)
+ * opens the More Services page, where its dimmed card says why.
+ * Called in `layout.tsx`; the rail and the phone's "More" chooser draw it.
+ */
+export function ourServicesMenuChildren(
+  cards: readonly OurService[],
+  pageHref: string,
+): EventMenuChild[] {
+  return cards.map((c) => ({
+    key: c.key,
+    label: c.name,
+    href: c.href ?? pageHref,
+    icon: MENU_ICON[c.key] ?? 'product',
+  }));
 }
 
 /*
@@ -268,35 +352,41 @@ export function buildOurServices(input: OurServicesInput): OurService[] {
   is the Event Hub Maker, whose menu row exists only where the event type has
   the website surface — anywhere else the tool stays here.
 
-  STILL HERE, NO HOME YET (report, not a decision):
-    · Find your date   → Details › Date (Details part 2a, not merged yet)
-    · Playlist         → no page links /studio/playlist except this one
-    · Indoor Blueprint → no event page links /studio/indoor-blueprint
-    · Thank-You Video  → Papic names it but does not link /studio/thank-you
+  Owner "yes to all 4" (2026-09-29) homed the last four:
+    · Playlist         → a part under the Music Maker card (above)
+    · Thank-You Video  → a part under the Papic card (above)
+    · Indoor Blueprint → Details › Seat plan (below, with its proof)
+    · Find your date   → Details › Date (owner 2026-09-30: "find your date is
+                          inside event hub maker. so we don't need it here")
 */
 export type ToolHome = { home: string; needsWebsite?: true };
 
 export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   // Free planning tools (the Suite's FREE_TOOLS) — each is its own menu row,
   // or a door on a page that is one.
-  guests: { home: 'the Guests menu row' },
-  budget: { home: 'the Budget menu row' },
-  schedule: { home: 'the Schedule menu row' },
+  // Stage D (2026-09-29): the menu is five rows. Budget is a part of Your
+  // Team; Schedule and the Mood Board are Details items of the Maker.
+  guests: { home: 'the Guest list menu row' },
+  budget: { home: 'Your Team — its Budget part' },
+  schedule: { home: 'the Event Hub Maker — Details › Schedule', needsWebsite: true },
   checklist: { home: 'Overview — "View your full checklist"' },
   compare: { home: 'Your Team — its Compare tab' },
   // Catalogue tools.
-  'mood-board': { home: 'the Mood Board menu row' },
-  seating: { home: 'the Seat plan menu row' },
+  'mood-board': { home: 'the Event Hub Maker — Details › Mood Board', needsWebsite: true },
+  // Train n (2026-09-29): the Seat plan row left the menu — its home is
+  // Details › Your event › Seat plan, and its old page lands there.
+  seating: { home: 'the Event Hub Maker — Details › Your event › Seat plan', needsWebsite: true },
   'landing-page': { home: 'the Event Hub Maker menu row', needsWebsite: true },
   'save-the-date': { home: 'the Event Hub Maker — Save the Date', needsWebsite: true },
   rsvp: { home: 'the Event Hub Maker — the invitation editor', needsWebsite: true },
-  // Pro is not bought from a page of its own any more (#6091, owner
-  // 2026-09-28 "Try Pro, pay at Apply"): a couple uses ◆ effects freely and
-  // the Maker's Apply sheet asks — "Unlock Pro and Apply". That sheet only
-  // opens once a ◆ effect is in the draft, which IS the owner's rule: Apply
-  // is the gate, so a couple who has used no Pro effect has nothing to buy.
-  'website-pro': { home: 'the Event Hub Maker — Apply ("Unlock Pro and Apply")', needsWebsite: true },
   'animated-monogram': { home: 'the Event Hub Maker — Logo', needsWebsite: true },
+  // 🗺 Owner-approved 2026-09-29: "it's the same room" — the Indoor Blueprint is
+  // a piece of Details › Seat plan (the shipped studio, drawn in its right part);
+  // its old address lands there for the couple of an Event Hub event.
+  'indoor-blueprint': { home: "the Event Hub Maker — Details › Seat plan › Guests' map", needsWebsite: true },
+  // 📅 Details › Date draws the date finder beside the date row
+  // (`details-date-finder.tsx`, owner 2026-09-29 "THE DATE FINDER LIVES IN STEP 2").
+  'find-date': { home: 'the Event Hub Maker — Details › Date', needsWebsite: true },
 };
 
 /** Has this tool (a catalogue key or a free-tool key) gone home for this event? */

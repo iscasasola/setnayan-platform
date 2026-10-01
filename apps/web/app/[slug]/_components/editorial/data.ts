@@ -136,7 +136,7 @@ const SERVICE_LABELS: Record<string, string> = {
   STD_PREMIUM_OPENINGS: 'Cinematic Reveal',
   LIVE_WALL: 'Live Photo Wall',
   PAKANTA: 'Music Maker',
-  PANOOD_SYSTEM: 'Live Studio',
+  PANOOD_SYSTEM: 'Live Watch',
   PAPIC_ADDON_STORIES: 'Guest Stories',
   PAPIC_ADDON_THANK_YOU: 'Thank-You Video',
   // ⚠ OWNER NAMING LOCK 2026-07-30: "we do not have papic guests — we only have
@@ -3416,7 +3416,7 @@ function mariaAndJuan(): EditorialData {
       { author: 'Maria & Juan', role: 'couple', quote: 'We planned the whole thing on Setnayan — and on the day, everything was just set.', stars: 5 },
       { author: 'Tita Bing', role: 'guest', quote: 'The most organized wedding I have been to — everyone knew where to go and when.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Studio', 'Music Maker'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Watch', 'Music Maker'],
     galleryPhotos: [
       '/realstories/maria-juan-g1.jpg',
       '/realstories/maria-juan-g2.jpg',
@@ -3749,7 +3749,7 @@ function peterAndMary(): EditorialData {
         { year: '2024', title: 'The proposal', note: 'Sunday lunch, both families in' },
         { year: '2026', title: 'The wedding', note: 'A ridge-top estate in bloom' },
       ],
-      anchors: { song: 'their parents’ favourite', place: 'Tagaytay', injoke: 'isang kanta pa', food: 'lechon, of course' },
+      anchors: { song: 'their parents’ favorite', place: 'Tagaytay', injoke: 'isang kanta pa', food: 'lechon, of course' },
     },
     specialMessage:
       'To all 150 of you who filled this garden — salamat. A full table was the whole point, and you made it overflow.',
@@ -3792,7 +3792,7 @@ function peterAndMary(): EditorialData {
       { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
-    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Studio'],
+    servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Watch'],
     galleryPhotos: [
       '/realstories/peter-mary-g1.jpg',
       '/realstories/peter-mary-g2.jpg',
@@ -3804,7 +3804,7 @@ function peterAndMary(): EditorialData {
       '/realstories/peter-mary-g3.jpg',
     ],
     dayChapters: [],
-    song: { url: null, label: 'their parents’ favourite' },
+    song: { url: null, label: 'their parents’ favorite' },
     photoWallPhotos: [],
     photoWallActive: false,
     challengeAnswers: [],

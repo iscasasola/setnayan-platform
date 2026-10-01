@@ -22,11 +22,13 @@ import {
   type RailGroup,
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { hubMainGround, isHubMainFollow, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { HUB_THEMES, INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { HeroFrameSync, MainBackgroundPanel } from './_components/main-background-panel';
+/* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
+import { ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -40,7 +42,6 @@ import {
   invitationWordsDraft,
   INVITATION_WORDS_HINT,
 } from '@/lib/invitation-words-draft';
-import { ColorsPanel, ProLockPanel } from './_components/pro-panels';
 import {
   HeroPhotoPanel,
   GalleryPanel,
@@ -82,7 +83,8 @@ import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../dress-code/actions';
-import { normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { foldEventRoles, normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
 import { eventNoun } from '@/lib/event-noun';
@@ -182,7 +184,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -464,7 +466,7 @@ export default async function WebsiteEditorPage({
     ref ? await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null) : null;
   const [heroPhotoUrl, mainOverrideStillUrl] = await Promise.all([
     signOrNull(draftedHero.photoRef),
-    signOrNull(mainNow && !isHubMainFollow(mainNow) ? (mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? null)) : null),
+    signOrNull(isHubMainOwn(mainNow) ? (mainNow.kind === 'photo' ? mainNow.media : (mainNow.poster ?? null)) : null),
   ]);
   /* 🎨 The theme being EDITED — drafted over live, since the theme is picked on
      Details into the draft (2026-09-28), the same overlay the canvas wears. */
@@ -544,6 +546,23 @@ export default async function WebsiteEditorPage({
 
   const dressCodeConfig = normalizeDressCodeConfig(
     (drafted as { dress_code_config?: unknown }).dress_code_config,
+  );
+  /* 👗 THE ROLES ON THIS GUEST LIST, for the Dress code scene's "What each role
+     wears" (owner 2026-09-30: a host sets each role's outfit right here). The
+     panel was handed none, so it said the guest list had no ninongs to a couple
+     who had them. An unread list offers no rows — and the saved outfits still
+     ride along unchanged (`CarriedAttire`), so a Save cannot wipe them. */
+  const { data: roleRows, error: roleRowsError } = await supabase
+    .from('guests')
+    .select('role')
+    .eq('event_id', eventId)
+    .is('deleted_at', null);
+  if (roleRowsError) {
+    logQueryError('WebsiteEditorPage.dressCodeRoles', roleRowsError, { eventId }, 'graceful_degrade');
+  }
+  const dressCodeRoles = foldEventRoles(
+    (roleRows ?? []) as { role: string | null }[],
+    await loadRoleNames(supabase, eventId, 'WebsiteEditorPage.roleNames'),
   );
   // Dress code starts from the Mood Board (owner 2026-07-25): when the couple
   // hasn't set a palette yet, seed the panel's swatches from role_palette so
@@ -632,6 +651,7 @@ export default async function WebsiteEditorPage({
               action={updateLandingPageVisibility}
               eventId={eventId}
               visibility={visibility}
+              ticketUrl={(event as { ticket_url?: string | null }).ticket_url ?? null}
             />
           ),
         },
@@ -692,9 +712,10 @@ export default async function WebsiteEditorPage({
                 label: 'Behind every scene',
                 blurb: 'Your hero behind every scene — the theme’s colours follow it.',
                 href: `${base}/launch?open=main-background`,
-                status:
-                  mainNow && !isHubMainFollow(mainNow)
-                    ? done(mainNow.kind === 'snippet' ? 'Your clip' : 'Your photo')
+                status: isHubMainOwn(mainNow)
+                  ? done(mainNow.kind === 'snippet' ? 'Your clip' : 'Your photo')
+                  : isHubMainChoice(mainNow)
+                    ? done(mainNow.ground === 'none' ? 'Just the colour' : 'Theme’s own')
                     : draftedHero.photoRef
                       ? done('Your hero')
                       : todo('Theme’s own'),
@@ -716,6 +737,13 @@ export default async function WebsiteEditorPage({
                       overrideStillUrl={mainOverrideStillUrl}
                       drafted={JSON.stringify(mainNow) !== JSON.stringify(mainLive)}
                       ownsPro={ownsPro}
+                      /* 🖼 The four choices (owner 2026-09-29): the theme's own
+                         (its public still), the hero, the SAME pictures a
+                         scene's Upload media offers, and none. */
+                      themeStillUrl={resolveThemeGround(mainThemeId, { ownColours: false })?.poster ?? null}
+                      photoChoices={photoChoices}
+                      videoChoice={videoChoice}
+                      sceneUploads={sceneUploads}
                     />
                   </>
                 ),
@@ -880,6 +908,7 @@ export default async function WebsiteEditorPage({
               action={updateDressCode.bind(null, eventId)}
               eventId={eventId}
               config={dressCodeConfig}
+              eventRoles={dressCodeRoles}
               eventNoun={eventNoun((event.event_type as string | null) ?? 'wedding')}
             />
           ),
@@ -930,10 +959,12 @@ export default async function WebsiteEditorPage({
         },
         {
           key: 'what-to-bring',
-          label: 'What to bring',
-          blurb: 'Gifts, registry, or a kind no-gift note.',
+          /* 🏠 "Reminders" to guests, on the Invitation's Welcome page (owner
+             2026-09-30 — `lib/invitation-welcome.ts`); the same store as ever. */
+          label: 'Reminders',
+          blurb: 'Arrive by, what to bring, what to wear on your feet.',
           href: `${w}/what-to-bring`,
-          anchor: 'details',
+          anchor: 'w:what_to_bring',
           status: drafted.what_to_bring ? done('Written') : todo('Not set'),
           panel: (
             <TextPanel
@@ -941,9 +972,9 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="what-to-bring"
               name="note"
-              label="What to bring"
+              label="Reminders"
               maxLength={600}
-              placeholder="Gifts, registry, or a kind no-gift note…"
+              placeholder="Arrive by 2:30 · Bring your ticket · Wear flat shoes for the garden…"
               defaultValue={(drafted.what_to_bring as string | null) ?? ''}
               /* ✍ Typed here, seen on the scene at once (`canvas-words.tsx`). */
               previewKey="w:what_to_bring"
@@ -1030,16 +1061,12 @@ export default async function WebsiteEditorPage({
           blurb: 'The story page guests revisit after the day.',
           href: `${w}/editorial`,
           pro: true,
-          locked: !ownsPro,
+          /* 💎 Like every row whose Pro is asked at Apply: open on the web, hidden
+             only in the app-store shell. The story's ◆ touches are kept in the
+             Event Hub draft (`saveEditorial`) and named on the Apply sheet. */
+          locked: draftedRowLockedIf(false),
           // Free-vs-Pro split, honest in BOTH states (owner 2026-07-25).
-          panel: (
-            <EditorialPanel
-              eventId={eventId}
-              ownsPro={ownsPro}
-              unlockHref={proUnlockHref}
-              priceLabel={proPriceLabel}
-            />
-          ),
+          panel: <EditorialPanel ownsPro={ownsPro} />,
         },
       ],
     },
@@ -1229,7 +1256,9 @@ export default async function WebsiteEditorPage({
   /* The theme panel reads the registry as it stands at merge time (Phase 3
      owns it). Only id · name · ready cross — plain strings. */
   const currentTheme = currentThemeId;
-  const themes = Object.values(INVITE_THEMES).map((t) => ({
+  // 🔢 The one theme order (owner 2026-09-29: free three first, then Pro by
+  // loop size) — `HUB_THEMES`, never the object's key order.
+  const themes = HUB_THEMES.map((t) => ({
     id: t.id,
     name: t.name,
     ready: t.ready,

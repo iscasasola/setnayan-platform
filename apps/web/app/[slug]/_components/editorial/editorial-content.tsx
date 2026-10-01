@@ -42,6 +42,8 @@ import { composeCopy, type ComposedCopy } from './compose';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { loadRoleNames } from '@/lib/role-names.server';
+import type { RoleNames } from '@/lib/role-names';
 import { storyAudienceAdmits, STRANGER, type StoryViewer } from '@/lib/who-can-see-your-story';
 import { redactStoryLayers } from '@/lib/the-guests-layer-is-theirs-until-you-publish';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
@@ -198,6 +200,13 @@ export async function EditorialContent({
   // sees. Resolved from the event id because this component receives only that;
   // `resolveProfileByEvent` is request-cached, so it costs nothing.
   const w = await eventWordsForEvent(eventId);
+  // The couple's words for roles (owner 2026-09-30) — the column badges say
+  // them. Graceful: unreadable → the usual words. 🔴 A curated SAMPLE has no
+  // event row (see `isSample` below) and is prerendered with no service key —
+  // it is never looked up; it wears the usual words.
+  const roleNames: RoleNames = isSampleEditorialId(eventId)
+    ? {}
+    : await loadRoleNames(createAdminClient(), eventId, 'EditorialContent.roleNames');
   let data: EditorialData | null = null;
   try {
     data = await loadEditorialData(eventId);
@@ -967,7 +976,7 @@ export async function EditorialContent({
             guestColumns:
               isOn('guestColumns') && (data.guestColumns?.length ?? 0) > 0 && styleOf('letters') ? (
                 <PostEventSceneFrame key="guestColumns" scene="letters" style={styleOf('letters')!} css={cssOf('letters')}>
-                  <MessagesScene style={styleOf('letters')!} letters={data.guestColumns ?? []} words={wordsOf('letters')} />
+                  <MessagesScene style={styleOf('letters')!} letters={data.guestColumns ?? []} words={wordsOf('letters')} names={roleNames} />
                 </PostEventSceneFrame>
               ) : (
                 waitingScene('letters', 'Messages', isOn('guestColumns'), 'guestColumns')

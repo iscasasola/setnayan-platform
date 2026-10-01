@@ -88,15 +88,16 @@ export function buildChecklist(input: {
   /** Only once the venue is open to this guest (they replied, or it is the day). */
   mapsHref: string | null;
   tableLabel: string | null;
-  /** Where "Save to Photos" downloads this guest's own pass. */
-  passHref: string;
+  /** Where "Save to Photos" downloads this guest's own pass. Null: they have no
+   *  pass yet (lib/pass-card.ts) — no pass item is drawn. */
+  passHref: string | null;
 }): ChecklistItem[] {
   const items: ChecklistItem[] = [];
   if (input.wear || input.wearNote) {
     items.push({ key: 'wear', title: 'What to wear', sub: [input.wear, input.wearNote].filter(Boolean).join(' · ') || null });
   }
   const swatches = input.motif.filter((h) => HEX.test(h)).slice(0, 6);
-  if (swatches.length > 0) items.push({ key: 'motif', title: 'Motif colours', sub: null, swatches });
+  if (swatches.length > 0) items.push({ key: 'motif', title: 'Motif colors', sub: null, swatches });
   if (input.arriveBy || input.venueName) {
     items.push({
       key: 'arrive',
@@ -106,12 +107,14 @@ export function buildChecklist(input: {
     });
   }
   if (input.tableLabel) items.push({ key: 'table', title: 'Your table', sub: input.tableLabel });
-  items.push({
-    key: 'pass',
-    title: 'Your QR pass saved',
-    sub: null,
-    link: { label: 'Save to Photos', href: input.passHref, download: true },
-  });
+  if (input.passHref) {
+    items.push({
+      key: 'pass',
+      title: 'Your QR pass saved',
+      sub: null,
+      link: { label: 'Save to Photos', href: input.passHref, download: true },
+    });
+  }
   return items;
 }
 

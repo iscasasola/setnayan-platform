@@ -175,12 +175,18 @@ test('the guest page resolves the lead from this module, with Manila deciding', 
   );
 });
 
-test('the pass and the salutation each have BOTH slots wired', () => {
+test('the salutation has BOTH slots wired — and the pass has none on Home', () => {
   // The reorder is a move: each block is written once and mounted in one of two
   // places. If a slot is dropped the block silently disappears on that branch —
   // the exact "renders as emptiness" failure this stream keeps shipping.
+  //
+  // 🎫 2026-09-30: THE PASS LEFT HOME — it is the Digital ticket on Me (owner:
+  // "the ticket belongs on the guest's Me page only"). On the day, the arrival
+  // action's "Show your ticket" scrolls to it there (`#site-pass`), so neither
+  // pass slot may come back here; `passLeads` stays in the resolver, unread by
+  // the page, for the day the owner wants a lead again.
+  assert.ok(!/dayOfLead\.passLeads/.test(SITE_BODY), 'a pass slot is back on Home');
   for (const [what, lead, rest] of [
-    ['pass', 'dayOfLead.passLeads ? passCard : null', 'dayOfLead.passLeads ? null : passCard'],
     [
       'greeting',
       'dayOfLead.greetingStepsBack ? greetingBlock : null',

@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import {
+  Armchair,
+  BookOpen,
   Bookmark,
   CalendarClock,
   CalendarDays,
@@ -62,11 +64,13 @@ import {
   type WordsItemKey,
 } from '@/lib/maker-details-items';
 import { LOVE_STORY_CHAPTERS, LOVE_STORY_CHAPTER_LABEL } from '@/lib/love-story-moments';
-import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import type { LoveStoryBlob } from '../../website/our-story/_components/story-fields';
+import { StoryPanel } from '../../website/editor/_components/authoring-panels';
 import { updateOurStory } from '../../website/our-story/actions';
+import { InMakerLiveStoryPanel } from '../../website/our-story/_components/in-maker-return-to';
 
-import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-look-pages';
+// ⚡ Opened on a tap — the Look editors load with the Details pieces (`details-lazy.tsx`).
+import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-lazy';
 /* ⚡ Each piece's editor and picture load when Details is opened — never with the
    Maker (`details-lazy.tsx`; held by `details-pieces-are-lazy.test.ts`). */
 import {
@@ -82,8 +86,15 @@ import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
 import { themeStillSrc } from '@/lib/theme-sample-stills';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { SeatPlanSlot } from '../../seating/_components/seat-plan-slots';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
+import type { DetailsGuide } from './details-guide';
+import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
+import { parentsOffered } from '@/lib/details-your-event';
+import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import {
+  PassCardsPanel,
   PrintPieceBody,
   PrintPieceEditor,
   PrintSetBody,
@@ -228,6 +239,33 @@ export type MakerDetailsProps = {
   eventContext: DetailsItemContext;
   /** 🗓 Details part 2a — "Your event" (Names · Date · Venues · Parents & hosts · the march); null = not offered. */
   yourEvent?: YourEventInput | null;
+  /**
+   * 🪑 Details part 4 — the Seat plan: the shipped seating page, drawn in the
+   * Maker (`seating/page.tsx` with `maker=1`) — its plan is the middle, and
+   * the editor draws its place's elements and its guests into the two slots
+   * this page puts in the navigator and the right column. The counts are the
+   * launch page's reads; null = could not be read (never "0"). Null = not
+   * offered (a type with no seat plan, the lab).
+   */
+  seatPlan?: { page: ReactNode; tables: number | null; seated: number | null; open: boolean | null } | null;
+  /**
+   * 🪜 Details part 5 — the guided "What's left" (`lib/details-guided-flow.ts`).
+   * Its steps and their ✓ / ○ are built HERE from the navigator's own rows, so
+   * a step's "done" is its item's done — never a second opinion. Null = no flow
+   * (the lab without `?guide`).
+   */
+  guide?: {
+    /** Open on the flow (an unfinished event with nothing else named, or `?guide=`). */
+    open: boolean;
+    /** `?guide=ready-N` — that round's Ready screen. */
+    ready: GuidedRound | null;
+    /** The address named an item (`?item=`) — open on its step, or in All items. */
+    itemNamed: boolean;
+    /** The address named the flow itself (`?guide=`). */
+    guideNamed: boolean;
+    /** The flow's first-visit tour (a `MiniTour`), or null. */
+    tour?: ReactNode;
+  } | null;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -237,6 +275,7 @@ const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
   menu: <UtensilsCrossed aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   pass: <Ticket aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   poster: <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+  'story-poster': <BookOpen aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   card: <Bookmark aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
 };
 const FREE_ICON: Record<string, ReactNode> = {
@@ -298,16 +337,22 @@ export function detailsFactEditors(input: {
       </div>
     ),
     /* ── The Love Story's words — the Story row's own panel (its chapters, their
-       moments and their questions), `updateOurStory`, drafted. ── */
+       moments and their questions), drafted as they are typed. ── */
     ...(input.loveStory
       ? {
           'love-story': (
-            <StoryPanel
-              action={updateOurStory.bind(null, eventId)}
-              eventId={eventId}
-              story={input.loveStory.story}
-              ownsPro={input.loveStory.ownsPro}
-            />
+            /* ⚡ In the Maker every answer saves as it is typed and is on the
+               scrapbook at once (`love-story-live.tsx`, handed down by the
+               Maker) — no Save button, no render. Without the Maker around it
+               (the dev lab) the Story row's own form, as it was. */
+            <InMakerLiveStoryPanel panel={{ eventId, story: input.loveStory.story, ownsPro: input.loveStory.ownsPro }}>
+              <StoryPanel
+                action={updateOurStory.bind(null, eventId)}
+                eventId={eventId}
+                story={input.loveStory.story}
+                ownsPro={input.loveStory.ownsPro}
+              />
+            </InMakerLiveStoryPanel>
           ),
         }
       : {}),
@@ -318,6 +363,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   const { eventId, slug, slugAction, qr, qrStyleAction, theme, prints, menu, stored, hosts, parents } = props;
   const { pabuyaMessage, specialMessage, hasPalette, hasGifts, flash, stamp, initialItem, eventContext } = props;
   const { facts, loveStory = null, schedule = null, rsvp = null } = props;
+  const seatPlan = props.seatPlan ?? null;
   const switches = detailsSwitchesFor(eventContext);
   const look = props.look ?? null;
   const PRINT_WORDS_ENDPOINT = '/api/hub-print/words';
@@ -329,6 +375,9 @@ export function MakerDetails(props: MakerDetailsProps) {
   // `v=` the render stamp, so a changed look shows at once.
   const qrSrc = slug ? `/api/website/qr/${encodeURIComponent(slug)}?draft=1&v=${encodeURIComponent(stamp)}` : null;
   const qrMark = makerProMark({ owns: qr.ownsPro, storeShell: qr.storeShell });
+  // ⭕ The plate follows the code (owner 2026-09-30): a round code sits on a round plate.
+  // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
+  const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
   const free = freePrintParts(eventId, slug);
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
@@ -339,9 +388,10 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* Each item's model (`DetailsItemModel`): done and used-on are derived from
      data that already exists — part 1 fills them for its own items. */
   const menuDone = menu.saved.some((m) => m.dishes.length > 0) || menu.caterer.some((m) => m.dishes.length > 0);
-  const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } => {
+  const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode; panelLabel?: string } => {
     const yeRow = ye?.rows[k as EventItemKey];
     if (yeRow) return yeRow;
+    if (k === 'seating') return seatPlanRow(seatPlan);
     if (look && (LOOK_ITEM_KEYS as readonly string[]).includes(k)) return lookLabel(k as LookItemKey, look, hasPalette);
     if (k === 'theme') {
       return {
@@ -365,29 +415,25 @@ export function MakerDetails(props: MakerDetailsProps) {
     if ((WORDS_ITEM_KEYS as readonly string[]).includes(k) || (STORY_ITEM_KEYS as readonly string[]).includes(k)) {
       const w = k as WordsItemKey | StoryItemKey;
       return {
-        ...wordsAndPlansItem(w, {
-          specialMessage,
-          thankYou: pabuyaMessage,
-          openingLine: stored.openingLine,
-          kindlyReply: Boolean(stored.rsvp),
-          include: {
-            specialMessage: inc.specialMessage,
-            thankYou: inc.thankYou,
-            openingLine: inc.openingLine,
-            rsvp: inc.rsvp,
-            loveStory: inc.loveStory !== 'none',
-            schedule: inc.schedule,
-          },
-          loveStoryMoments: loveStory ? loveStory.moments : 0,
-          scheduleMoments: schedule?.moments ?? null,
-        }),
+        /* ONE builder of this input (`wordsAndPlansInputFrom`) — the launch
+           page and Home read "done" through the very same one. */
+        ...wordsAndPlansItem(
+          w,
+          wordsAndPlansInputFrom({
+            specialMessage,
+            pabuyaMessage,
+            stored,
+            loveStoryMoments: loveStory ? loveStory.moments : 0,
+            scheduleMoments: schedule?.moments ?? null,
+          }),
+        ),
         icon: (WORDS_ICON as Record<string, ReactNode>)[w] ?? (STORY_ICON as Record<string, ReactNode>)[w],
       };
     }
     if ((PRINT_SET_KEYS as readonly string[]).includes(k)) {
       const p = k as PrintSetKey;
       // A piece is "done" once it would print — the Menu only with a dish (it is never printed blank).
-      return { label: PRINT_PIECES[p].label, sub: PRINT_PIECES[p].size, done: p === 'menu' ? menuDone : undefined, icon: PIECE_ICON[p] };
+      return { label: PRINT_PIECES[p].label, sub: PRINT_PIECES[p].size, done: p === 'menu' ? menuDone : p === 'story-poster' ? !prints.storyEmpty : undefined, icon: PIECE_ICON[p] };
     }
     const fp = free.find((f) => f.key === k);
     return { label: fp?.label ?? k, icon: FREE_ICON[k] ?? <FileText aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
@@ -399,12 +445,41 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...(seatPlan ? (['seating'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,
     items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
   }));
+
+  /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
+  const plan = props.guide
+    ? buildGuidedPlan(
+        groups.flatMap((g) => g.items),
+        { solemn: eventContext.solemn, parentsOffered: props.yourEvent ? parentsOffered(props.yourEvent.kind) : switches.parents },
+      )
+    : null;
+  const opening = props.guide && plan && props.guide.open && !props.guide.itemNamed && !props.guide.ready ? firstOpenScreen(plan) : null;
+  const openingStep = opening?.kind === 'step' ? plan!.steps.find((s) => s.key === opening.step) : undefined;
+  /* The flow opens on its first step still left — on the item of it still not done. */
+  const startItem: DetailsItemKey = openingStep ? (openingStep.left[0] ?? openingStep.items[0]!) : initialItem;
+  const guide: DetailsGuide | null =
+    props.guide && plan
+      ? {
+          plan,
+          open: props.guide.open && (!props.guide.itemNamed || stepOfItem(plan, initialItem) !== null),
+          ready: props.guide.ready ?? (opening?.kind === 'ready' ? opening.round : null),
+          addressed: props.guide.itemNamed || props.guide.guideNamed,
+          actions: {
+            // The Save the Date as guests meet it, the draft — its way back lands on Details.
+            previewHref: slug ? previewCarriesPlace(`/${slug}?phase=save_the_date&preview=draft`, { kind: 'tool', key: 'details' }) : null,
+            shareUrl: slug ? `${siteOrigin()}${publicEventPath(slug)}` : null,
+            // The Guest list's own invite flow (its "Share the link" tab).
+            sendHref: `${base}/guests?gview=share`,
+          },
+          tour: props.guide.tour ?? null,
+        }
+      : null;
 
   /* ══ BODIES — each item's picture ══ */
   const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
@@ -427,8 +502,10 @@ export function MakerDetails(props: MakerDetailsProps) {
         className="flex flex-col items-center gap-3 rounded-md bg-white/80 p-4 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)] sm:flex-row sm:text-left"
       >
         {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG
-          <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="h-40 w-40 shrink-0 bg-white p-1 sm:h-44 sm:w-44" />
+          <span className={`shrink-0 bg-white p-1${qrPlate}`} data-qr-plate="">
+            {/* eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG */}
+            <img src={qrSrc} alt="QR code for your Event Hub address" width={176} height={176} className="block h-[152px] w-[152px] sm:h-[168px] sm:w-[168px]" />
+          </span>
         ) : null}
         <div className="min-w-0">
           <p className="text-sm font-semibold text-ink">Your Event Hub address</p>
@@ -451,8 +528,10 @@ export function MakerDetails(props: MakerDetailsProps) {
     qr: (
       <section data-details-qr="" className="flex flex-col items-center gap-4">
         {qrSrc ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once
-          <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="h-56 w-56 bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]" />
+          <span className={`bg-white p-2 shadow-[0_1px_2px_rgba(40,34,24,.08)]${qrPlate}`} data-qr-plate="">
+            {/* eslint-disable-next-line @next/next/no-img-element -- our own QR route, a PNG; `v` is the render stamp so a new look shows at once */}
+            <img src={qrSrc} alt="Your Event Hub QR code" width={240} height={240} className="block h-52 w-52" />
+          </span>
         ) : (
           <p className="text-sm text-ink/70">Set your Event Hub address first — the QR opens it.</p>
         )}
@@ -470,7 +549,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     download: <PrintSetBody input={prints} />,
     /* ── Words: how each one reads. The print-only two show the card they
        print on — tap the words on it to edit them on the right. ── */
-    'special-message': <WordsCard text={specialMessage} note="How it reads on your Event Hub." />,
+    'special-message': <WordsCard text={specialMessage} note="How it reads on your Event Hub." live="special_message" />,
     'thank-you': <WordsCard text={pabuyaMessage} note="Your guests read this on your E-Gifts page." />,
     'opening-line': <PrintPieceBody input={prints} piece="invitation" priority={initialItem === 'opening-line'} menu={menu} tappable />,
     'kindly-reply': <PrintPieceBody input={prints} piece="details" priority={initialItem === 'kindly-reply'} menu={menu} tappable />,
@@ -509,8 +588,23 @@ export function MakerDetails(props: MakerDetailsProps) {
       {theme.tour ? <MiniTour tourKey="customer_print_menu_v1" storeShell={theme.storeShell} /> : null}
     </>
   );
+  // …and the Our Story poster's, once the Menu's is seen — never two at once.
+  bodies['story-poster'] = (
+    <>
+      {bodies['story-poster']}
+      {theme.tour ? <MiniTour tourKey="customer_print_story_poster_v1" after="customer_print_menu_v1" storeShell={theme.storeShell} /> : null}
+    </>
+  );
   for (const f of free) bodies[f.key] = f.body;
   if (ye) Object.assign(bodies, ye.bodies);
+  /* 🪑 The seat plan — the shipped editor fills the middle part ('fill'). */
+  if (seatPlan) {
+    bodies.seating = (
+      <div key="seating" data-details-seat-plan-page="" className="flex min-h-0 flex-1 flex-col">
+        {seatPlan.page}
+      </div>
+    );
+  }
   /* 🎨 THE LOOK — each shipped page moved in whole, in the split it shipped
      with (`detailsItemLayout`): the Mood Board and the Logo studio carry their
      own tools; the Hero and the Reveal are a live page with their controls on
@@ -635,15 +729,20 @@ export function MakerDetails(props: MakerDetailsProps) {
       </PrintPieceEditor>
     ),
     pass: (
-      <PrintPieceEditor input={prints} piece="pass">
-        <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
-        {qrAlways}
-        {save}
-      </PrintPieceEditor>
+      <>
+        <PrintPieceEditor input={prints} piece="pass">
+          <Toggle form={WORDS_FORM} name="inc_guest_names" label="Guest list — names on passes" on={inc.guestNames} />
+          {qrAlways}
+          {save}
+        </PrintPieceEditor>
+        {/* 🎫 The pass guests save — its look (one dropdown) and its two outputs. */}
+        <PassCardsPanel input={prints} />
+      </>
     ),
     entourage: <PrintPieceEditor input={prints} piece="entourage" />,
     menu: <PrintPieceEditor input={prints} piece="menu" menu={menu} />,
     poster: <PrintPieceEditor input={prints} piece="poster" />,
+    'story-poster': <PrintPieceEditor input={prints} piece="story-poster" />,
     card: <PrintPieceEditor input={prints} piece="card" />,
     download: <PrintSetDownloads input={prints} />,
     /* ── Words ── */
@@ -701,6 +800,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       );
   }
   if (ye) Object.assign(editors, ye.editors);
+  /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
+  if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
 
   return (
     <ThemePickProvider eventId={eventId} current={theme.current}>
@@ -708,7 +809,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         groups={groups}
         bodies={bodies}
         editors={editors}
-        initial={initialItem}
+        initial={startItem}
+        guide={guide}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{
@@ -727,6 +829,10 @@ export function MakerDetails(props: MakerDetailsProps) {
           ...(rsvp ? { rsvp: <ItemPieces item="rsvp" pieces={RSVP_PIECES} /> } : {}),
           /* Part 2a: the Wedding March's sections and lines, the parents and hosts. */
           ...(ye?.pieces ?? {}),
+          /* Part 4: the place's elements — the seating editor draws its rows here. */
+          ...(seatPlan
+            ? { seating: <SeatPlanSlot name="place" className="contents lg:flex lg:flex-col lg:gap-0.5" /> }
+            : {}),
         }}
         persistent={
           <>
@@ -941,8 +1047,23 @@ function KindlyReplyField({
 }
 
 /** A Words item's picture: the words as guests read them, or an honest empty line. */
-function WordsCard({ text, note }: { text: string | null; note: string }) {
+function WordsCard({ text, note, live }: { text: string | null; note: string; live?: string }) {
   const words = text?.trim() ?? '';
+  if (live) {
+    /* ⚡ Its editor types INTO this card as it saves (`special-message-field.tsx`):
+       both lines are always drawn, one hidden, so the words can arrive. */
+    return (
+      <section data-details-words-card="" data-live-words={live} className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
+        <p data-live-words-text="" hidden={!words} className="max-w-prose whitespace-pre-line font-serif text-xl leading-relaxed text-ink">
+          {words}
+        </p>
+        <p data-live-words-empty="" hidden={Boolean(words)} className="text-sm text-ink/60">
+          Not written yet — type it on the right.
+        </p>
+        <p className="text-xs text-ink/55">{note}</p>
+      </section>
+    );
+  }
   return (
     <section data-details-words-card="" className="flex flex-col items-center gap-3 rounded-md bg-white/80 px-5 py-8 text-center shadow-[0_1px_2px_rgba(40,34,24,.06)]">
       {words ? (
@@ -953,4 +1074,32 @@ function WordsCard({ text, note }: { text: string | null; note: string }) {
       <p className="text-xs text-ink/55">{note}</p>
     </section>
   );
+}
+
+/**
+ * 🪑 The Seat plan as the navigator draws it — how many tables, how many are
+ * seated, and whether guests see it yet. Its "done" is ARRANGED (a guest is
+ * seated), never visibility: seats open by themselves on the event's day, so a
+ * visibility "done" could never be finished before it. Plain words for every
+ * kind of event; a count that could not be read is SAID.
+ */
+function seatPlanRow(
+  seatPlan: { tables: number | null; seated: number | null; open: boolean | null } | null,
+): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode; panelLabel: string } {
+  const t = seatPlan?.tables ?? null;
+  const n = seatPlan?.seated ?? null;
+  const sub =
+    t === null || n === null
+      ? 'Could not be read just now'
+      : t === 0
+        ? 'No tables yet'
+        : `${t} ${t === 1 ? 'table' : 'tables'} · ${n} seated${seatPlan?.open ? ' · guests see it' : seatPlan?.open === false ? ' · guests see it on the day' : ''}`;
+  return {
+    label: 'Seat plan',
+    sub,
+    done: n === null ? undefined : n > 0,
+    usedOn: [PUBLIC_STAGE_LABELS.event, 'Table signs', 'Passes', 'Find your seat'],
+    icon: <Armchair aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
+    panelLabel: 'Guests',
+  };
 }

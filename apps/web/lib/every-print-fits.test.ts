@@ -28,7 +28,7 @@ import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { INVITE_THEME_IDS } from './invite-themes';
 import { buildEntourage, peopleOf, type EntourageGuestRow } from './entourage';
-import { PRINT_FORMATS, PRINT_SET_KEYS, printLookFor, type PrintSetKey } from './print-pieces';
+import { PRINT_FORMATS, PRINT_SET_KEYS, formatFamilyOf, printLookFor, type PrintSetKey } from './print-pieces';
 import {
   CORNER_QR_PT,
   PRINT_MIN_BODY_PT,
@@ -95,6 +95,24 @@ const STUDIO_LOGO =
   '<path d="M900 300a100 100 0 1 0 200 0a100 100 0 1 0 -200 0z" fill="#1E2229"/>' +
   '</g></g></g></svg>';
 
+/**
+ * A LONG LOVE STORY — every chapter, twenty-eight moments, lines near the
+ * 600-character cap, places, and a moment with no date (invented words).
+ */
+const LONG_LINE =
+  'We were both late to the same friend’s birthday in Quezon City, both blamed the traffic on EDSA, and both ended up on the balcony because the music inside was too loud. We argued about whether the best lechon is in Cebu or in La Loma, and neither of us has ever admitted defeat. He walked me to the jeepney stop and missed his own ride.';
+function heavyStory(): NonNullable<PrintSetData['story']> {
+  const chapter = (label: string, n: number, year: number) => ({
+    label,
+    moments: Array.from({ length: n }, (_, i) => ({
+      when: i === 2 ? '' : i % 2 ? `${i + 1} February ${year + i}` : String(year + i),
+      line: i % 3 === 0 ? LONG_LINE : `The ${label.toLowerCase()} part of our story, moment ${i + 1} — the rooftop in Makati, a rainy Sunday, the dog we still argue about.`,
+      place: i % 2 ? 'Tagaytay Highlands, Cavite' : null,
+    })),
+  });
+  return [chapter('Before us', 4, 2004), chapter('How we met', 3, 2016), chapter('Falling', 12, 2017), chapter('The yes', 3, 2024), chapter('Toward the day', 6, 2025)];
+}
+
 function heavy(paired: boolean): PrintSetData {
   const mark = flattenSvgMark(STUDIO_LOGO);
   assert.ok(mark, 'the studio-style logo flattens');
@@ -159,6 +177,7 @@ function heavy(paired: boolean): PrintSetData {
       { title: 'Dessert', dishes: ['Three-tier ube and macapuno wedding cake', 'Leche flan, buko pandan and mango float', 'Halo-halo station with all the toppings', 'Sans rival and silvanas'] },
       { title: 'Midnight snack', dishes: ['Arroz caldo with chicken and toasted garlic', 'Taho and turon'] },
     ],
+    story: heavyStory(),
     hasStill: true,
     hasEventQr: true,
   };
@@ -235,7 +254,7 @@ function isBackground(doc: PrintDoc, o: PrintOp): boolean {
 const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 function formatsOf(piece: PrintSetKey): Array<string | null> {
-  const family = piece === 'pass' ? 'pass' : piece === 'card' ? 'card' : piece === 'poster' ? null : 'invitation';
+  const family = formatFamilyOf(piece);
   return family ? Object.values(PRINT_FORMATS).filter((f) => f.for === family).map((f) => f.id) : [null];
 }
 
@@ -302,17 +321,22 @@ test('the Entourage prints EVERY name — cale-ice-sized, on the fewest sides, n
     const data = heavy(paired);
     const people = data.entourage.flatMap(peopleOf);
     assert.ok(people.length >= 85, `the fixture is cale-ice sized (${people.length})`);
-    // Every person is on a printed line, once — straight or flowed.
+    // Every person is on a printed line, once — straight or flowed. A `pair`
+    // line (owner 2026-09-30, option 1: a paired Ninong & Ninang share ONE
+    // line) carries two people in its one `c`.
+    let lineCount = 0;
     for (const flow of [false, true]) {
-      const printed = data.entourage.flatMap((g) => printedEntourageLines(g, flow).flatMap((l) => [l.l, l.r, l.c])).filter(Boolean);
-      assert.equal(printed.length, people.length, `flow=${flow}: ${printed.length} lines for ${people.length} people`);
+      const lines = data.entourage.flatMap((g) => printedEntourageLines(g, flow));
+      const printed = lines.reduce((n, l) => n + [l.l, l.r, l.c].filter(Boolean).length + (l.pair ? 1 : 0), 0);
+      assert.equal(printed, people.length, `flow=${flow}: ${printed} names for ${people.length} people`);
+      if (!flow) lineCount = lines.reduce((n, l) => n + [l.l, l.r, l.c].filter(Boolean).length, 0);
     }
     const look = printLookFor('abaca'); // the owner's card: 5 × 7, deckle cut
     const docs = layoutPieceDocs('entourage', { look, data, mode: 'print', foil: false, format: 'inv-5x7' });
     assert.ok(docs.length >= 1 && docs.length <= 2, `${docs.length} sides for one wedding`);
     // One ink path per printed line, at least one per person (a long name may wrap to two).
     const inked = docs.reduce((a, d) => a + d.ops.filter((o) => o.t === 'path' && o.fill === look.ink).length, 0);
-    assert.ok(inked >= people.length, `${inked} name lines drawn for ${people.length} people — somebody was dropped`);
+    assert.ok(inked >= lineCount, `${inked} name lines drawn for ${lineCount} printed names — somebody was dropped`);
   }
   assert.equal(PRINT_MIN_BODY_PT, 6);
 });
@@ -404,10 +428,11 @@ test('GUARD: the menu is never printed blank, and a Details save never erases it
   const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
   assert.match(route, /piece === 'menu' && !hasMenu\)[\s\S]{0,40}status: 409|piece === 'menu' && !hasMenu\) \{\s*return new NextResponse\([^)]*\{ status: 409 \}/, 'an empty menu is refused as a print');
   assert.match(route, /PRINT_SET_KEYS\.filter\(\(k\) => k !== 'menu' \|\| hasMenu\)/, 'the whole set leaves an empty menu out');
-  assert.match(route, /menu: stored\.menu \}/, 'the Details (words) save carries the stored menu over');
+  // The words save starts from everything stored — the menu included (2026-09-30).
+  assert.match(route, /const details = \{\s*\.\.\.stored,/, 'the Details (words) save carries the stored menu over');
   assert.match(route, /if \(!current\) \{[\s\S]{0,160}return NextResponse\.redirect/, 'an unreadable print_details is never overwritten blind');
   const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
-  assert.match(maker, /\{menuEmpty \? null : \(/, 'the Maker offers no download for an empty menu');
+  assert.match(maker, /\{menuEmpty(?: \|\| storyMissing)? \? null : \(/, 'the Maker offers no download for an empty menu');
   assert.match(maker, /href="#print-menu"/);
   const editor = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/print-menu-editor.tsx'), 'utf8'));
   assert.match(editor, /id="print-menu"/, 'the "Add your menu" link has somewhere to land');
@@ -422,4 +447,114 @@ test('every choice on the prints is ONE dropdown — the shared PickMenu, never 
   assert.doesNotMatch(maker, /HUB_THEMES\.filter\(\(x\) => x\.ready\)\.map\(\(x\) => \(\s*<Link/, 'no pill row of themes');
   const picker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/print-choice-picker.tsx'), 'utf8'));
   assert.match(picker, /import \{ PickMenu[^}]*\} from '@\/app\/dashboard\/\[eventId\]\/website\/editor\/_components\/pick-menu'/, 'the Maker\'s own PickMenu');
+});
+
+// ─── The Our Story poster ───────────────────────────────────────────────────
+
+/** Where an op's ink sits across the sheet — its horizontal centre. */
+const midX = (o: PrintOp) => {
+  const b = opBox(o);
+  return b ? b.x + b.w / 2 : NaN;
+};
+
+test('the Our Story poster reads the ONE Love Story source — chapters in order, hidden moments left out', async () => {
+  const { printStoryChapters } = await import('./love-story-moments');
+  // Words written at onboarding, before any moment was saved — the seed.
+  const seeded = printStoryChapters({ how_we_met: 'At a friend’s birthday.', met_year: '2016', proposal: 'On the same rooftop.', proposal_year: 2024, proposal_setting: 'Makati' });
+  assert.deepEqual(seeded, [
+    { label: 'How we met', moments: [{ when: '2016', line: 'At a friend’s birthday.', place: null }] },
+    { label: 'The yes', moments: [{ when: '2024', line: 'On the same rooftop.', place: 'Makati' }] },
+  ]);
+  // Saved moments: a hidden one and a photo-only one print nothing; the rest group by chapter in reading order.
+  const saved = printStoryChapters({
+    moments: [
+      { id: 'yes', anchor: 'yes', date: { y: 2024, m: 2, d: 14 }, line: 'He asked.', canvas: {} },
+      { id: 'met', anchor: 'met', date: { y: 2016 }, line: 'We met.', canvas: {} },
+      { id: 'trip', date: { y: 2019 }, line: 'Our first trip.', place: 'Siargao', canvas: {} },
+      { id: 'secret', date: { y: 2020 }, line: 'Kept off the hub.', hidden: true, canvas: {} },
+      { id: 'photo', date: { y: 2021 }, line: '', media: ['r2://setnayan-media/a.jpg'], canvas: {} },
+      { id: 'kid', date: { y: 2005 }, line: 'Same barangay, never met.', canvas: {} },
+    ],
+  });
+  assert.deepEqual(saved.map((c) => c.label), ['Before us', 'How we met', 'Falling', 'The yes']);
+  assert.deepEqual(saved.flatMap((c) => c.moments.map((m) => m.line)), ['Same barangay, never met.', 'We met.', 'Our first trip.', 'He asked.']);
+  assert.equal(saved[3]!.moments[0]!.when, '14 February 2024');
+  assert.deepEqual(printStoryChapters(null), []);
+});
+
+test('the Our Story poster prints EVERY moment — one column when short, two when long, never blank', () => {
+  const base = heavy(true);
+  const look = printLookFor('house');
+  const draw = (story: PrintSetData['story']) => layoutPieceDocs('story-poster', { look, data: { ...base, story }, mode: 'print', foil: false });
+  const inked = (docs: PrintDoc[]) => docs.flatMap((d) => d.ops.filter((o) => o.t === 'path' && o.fill === look.ink));
+
+  // Short: one sheet, one centred column.
+  const short = [{ label: 'How we met', moments: [{ when: '2016', line: 'We met at a friend’s birthday.', place: 'Quezon City' }] }, { label: 'The yes', moments: [{ when: '2024', line: 'He asked on the same rooftop.', place: null }] }];
+  const one = draw(short);
+  assert.equal(one.length, 1, 'a short story is one sheet');
+  const cx = one[0]!.w / 2;
+  const lines = inked(one).filter((o) => (opBox(o)?.y ?? 0) > one[0]!.h * 0.3);
+  assert.ok(lines.length >= 2, `${lines.length} story lines drawn for 2 moments`);
+  assert.ok(lines.every((o) => Math.abs(midX(o) - cx) < 2), 'one column, centred on the sheet');
+
+  // Long: every moment drawn, in two columns.
+  const story = heavyStory();
+  const moments = story.reduce((a, c) => a + c.moments.length, 0);
+  const docs = draw(story);
+  const body = inked(docs).filter((o) => (opBox(o)?.y ?? 0) > docs[0]!.h * 0.3);
+  assert.ok(body.length >= moments, `${body.length} ink lines for ${moments} moments — a moment was dropped`);
+  assert.ok(body.some((o) => midX(o) < cx - 80) && body.some((o) => midX(o) > cx + 80), 'a long story sits in two columns');
+  assert.ok(docs.length <= 2, `${docs.length} sheets for a 28-moment story`);
+
+  // Sixty long moments: further sheets, every one printed, nothing past the safe
+  // line — in a theme of each still placement (none · top band · left · full).
+  const huge = [{ label: 'Falling', moments: Array.from({ length: 60 }, (_, i) => ({ when: String(2000 + (i % 25)), line: LONG_LINE, place: i % 4 ? null : 'Baguio' })) }];
+  const problems: string[] = [];
+  for (const theme of ['house', 'abaca', 'galeriya', 'velvet'] as const) {
+    const l = printLookFor(theme);
+    const sides = layoutPieceDocs('story-poster', { look: l, data: { ...base, story: huge }, mode: 'print', foil: false });
+    assert.ok(sides.length >= 2, `${theme}: sixty long moments fit ${sides.length} sheet — the type went below the floor`);
+    sides.forEach((d, i) => problems.push(...problemsIn(d, `${theme} · story-poster · huge · side ${i + 1}`)));
+    const drawn = sides.flatMap((d) => d.ops.filter((o) => o.t === 'path' && o.fill === l.ink)).length;
+    assert.ok(drawn >= 60 * 3, `${theme}: ${drawn} ink lines for 60 moments of ~3 lines each`);
+  }
+  assert.deepEqual(problems.slice(0, 10), [], `${problems.length} ops leave the safe area or touch a QR`);
+
+  // No story: one sheet with the prompt, no story ink — and the QR, as on every card.
+  const empty = draw([]);
+  assert.equal(empty.length, 1);
+  assert.ok(!inked(empty).some((o) => (opBox(o)?.y ?? 0) > empty[0]!.h * 0.45), 'an empty poster draws no story ink');
+  assert.ok(empty[0]!.ops.some((o) => o.t === 'image' && o.ref === 'eventqr'), 'the QR is always printed');
+});
+
+test('the Our Story poster is A3, prints free in the free themes, and is Pro-only in a Pro theme', async () => {
+  const { PRINT_PIECES, mayServe, printAccess, dieCutFor } = await import('./print-pieces');
+  const spec = PRINT_PIECES['story-poster'];
+  assert.deepEqual([Math.round(spec.widthPt / (72 / 25.4)), Math.round(spec.heightPt / (72 / 25.4))], [297, 420]);
+  assert.equal(spec.kind, 'set', 'a themed piece — never the always-free group');
+  assert.ok((PRINT_SET_KEYS as readonly string[]).includes('story-poster'), 'listed in the invitation set (the Details navigator reads this list)');
+  assert.equal(dieCutFor('cinderella', 'story-poster'), 'rect', 'a poster is cut straight');
+  const free = printAccess({ ownsPro: false, storeShell: false });
+  const pro = printAccess({ ownsPro: true, storeShell: false });
+  for (const t of ['house', 'galeriya', 'cyber'] as const) assert.equal(mayServe('story-poster', 'print', free, t), true, `${t} is a free theme`);
+  assert.equal(mayServe('story-poster', 'print', free, 'velvet'), false, 'a Pro theme needs Pro');
+  assert.equal(mayServe('story-poster', 'sample', free, 'velvet'), true, 'but its sample is for everyone');
+  assert.equal(mayServe('story-poster', 'print', pro, 'velvet'), true);
+});
+
+test('GUARD: the Our Story poster is never printed blank', () => {
+  const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
+  assert.match(route, /if \(!wantsSet && piece === 'story-poster' && !hasStory\) \{\s*return new NextResponse\([^)]*\{ status: 409 \}/, 'an empty story poster is refused as a print');
+  assert.match(route, /\.filter\(\(k\) => k !== 'story-poster' \|\| hasStory\)/, 'the whole set leaves it out');
+  assert.match(route, /\.filter\(\(k\) => k !== 'story-poster' \|\| storyHasMoments\(set\.data\.story\)\)/, 'the sample sheet leaves it out');
+  const loader = stripComments(readFileSync(join(WEB, 'lib/print-set.server.ts'), 'utf8'));
+  assert.match(loader, /story: printStoryChapters\(event\.love_story\)/, 'the poster reads the Love Story through its one source');
+  const maker = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-prints.tsx'), 'utf8'));
+  assert.match(maker, /\{menuEmpty \|\| storyMissing \? null : \(/, 'the Maker offers no download for an empty story poster');
+  const page = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/page.tsx'), 'utf8'));
+  // Details carries the prints as one input (\`PrintsInput\`), so the flag is a property of it.
+  assert.match(page, /storyEmpty: !storyHasMoments\(printStoryChapters\(printEvent\.love_story\)\)/, 'the Maker asks the same read the print draws');
+  // The Love Story lives in Details: "Add your Love Story" opens that item IN PLACE — no link out.
+  assert.match(maker, /<DetailsGoTo item="love-story"/, 'the poster opens Details › Love Story in place');
+  assert.doesNotMatch(maker, /tool=love-story/, 'never a link out of the Maker to the Love Story');
 });

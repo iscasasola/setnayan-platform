@@ -16,26 +16,28 @@ import { stripComments } from '@/lib/strip-comments';
 const body = stripComments(readFileSync(join(__dirname, 'site-body.tsx'), 'utf8'));
 const loaders = stripComments(readFileSync(join(__dirname, '..', '_lib', 'loaders.ts'), 'utf8'));
 
-function passCard(): string {
-  const start = body.indexOf('const passCard');
-  assert.ok(start > 0, 'precondition: the pass card exists');
-  const end = body.indexOf('</section>', start);
-  assert.ok(end > start, 'precondition: the pass card closes');
-  return body.slice(start, end);
-}
+// 🎫 2026-09-30: the pass LEFT HOME and became the Digital ticket on Me
+// (owner: "i thought this will be the digital ticket" · "the ticket belongs on
+// the guest's Me page only"). Its "Find my seat" button went with the old
+// block; Me already carries the ONE seat door, `SeatDoorLine` (→ /find-seat),
+// mounted right under the ticket. So the property is unchanged — one free seat
+// door beside the pass, never two, never the paid hop — it is just measured
+// where the pass now lives.
+const page = stripComments(readFileSync(join(__dirname, '..', 'page.tsx'), 'utf8'));
+const ticket = stripComments(readFileSync(join(__dirname, 'guest-ticket.tsx'), 'utf8'));
+const seatLine = stripComments(readFileSync(join(__dirname, 'seat-door-line.tsx'), 'utf8'));
 
-// 🪑 2026-09-27 ("FIND YOUR SEAT, REDESIGNED", owner "ok to all"): the one seat
-// page is `/find-seat` — free, and it knows the guest by the same resolver as
-// the event page, so the /seat/claim hop is no longer the way there. `/seat`
-// stays the landing of the PRINTED branded QR cards.
-test('the pass card holds exactly one seat link, to the free seat page', () => {
-  const card = passCard();
-  const seatLinks = (card.match(/\/find-seat`/g) ?? []).length;
-  assert.equal((card.match(/\/seat\/claim\?t=/g) ?? []).length, 0, 'the card still sends guests through the paid pass hop');
-  const mapLinks = (card.match(/find-my-table/g) ?? []).length;
-  assert.equal(seatLinks, 1, `one link to the seat pass (found ${seatLinks})`);
-  assert.equal(mapLinks, 0, `no second seat door on the card (found ${mapLinks} find-my-table)`);
-  assert.match(card, /Find my seat/);
+test('the pass (the ticket on Me) sits beside exactly one seat door, to the free seat page', () => {
+  const me = page.slice(page.indexOf('const meSlot'), page.indexOf('<GuestMe', page.indexOf('const meSlot')));
+  assert.ok(me.includes('<GuestTicket'), 'precondition: the ticket is on Me');
+  assert.equal(me.split('<SeatDoorLine').length - 1, 1, 'Me has one seat door');
+  assert.match(me, /seatPassActive \? \(\s*<SeatDoorLine/, 'the seat door asks whether there is a seat to show');
+  // The ticket itself carries no second seat door, and no paid hop.
+  assert.doesNotMatch(ticket, /find-seat|find-my-table|\/seat\/claim/, 'a second seat door on the ticket');
+  assert.equal((seatLine.match(/\/find-seat`/g) ?? []).length, 1, 'the seat door goes to the free seat page');
+  assert.doesNotMatch(seatLine, /\/seat\/claim\?t=/, 'the seat door sends guests through the paid pass hop');
+  // Home's old pass block (and its "Find my seat" button) is not back.
+  assert.doesNotMatch(body, /Find my seat/, 'the old pass block’s seat button is back on Home');
 });
 
 test('the link asks the destination’s own questions, not just ownership', () => {

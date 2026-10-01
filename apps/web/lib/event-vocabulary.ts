@@ -62,6 +62,9 @@ export const EVENT_TYPE_BADGE: Record<string, string> = {
   debut: 'DEBUT',
   birthday: 'KAARAWAN',
   anniversary: 'ANIBERSARYO',
+  // Same as the fallback would print — listed so `tournament` can carry its
+  // search words below (every TERMS key must have a BADGE, and vice versa).
+  tournament: 'TOURNAMENT',
 };
 
 export function eventTypeBadge(type: string): string {
@@ -92,6 +95,10 @@ export const EVENT_TYPE_TERMS: Record<string, ReadonlyArray<string>> = {
   debut: ['debut', '18th', 'eighteenth'],
   birthday: ['birthday', 'kaarawan'],
   anniversary: ['anniversary', 'anibersaryo'],
+  // "Competition" finds the Tournament type (owner 2026-09-29, DECISION_LOG
+  // "DISCOVER — UNPARKED": "Competition (as Tournament)") — a search word, not
+  // a new type.
+  tournament: ['tournament', 'competition', 'contest'],
 };
 
 /** The month and year an event sits in, as words somebody would type. */
@@ -136,7 +143,11 @@ export function eventSearchTerms(
     eventTypeBadge(eventType).toLowerCase(),
     ...dateTerms(eventDate),
     place ?? '',
-    stance === 'invited' ? 'invited guest' : 'organiser organizer mine',
+    stance === 'invited'
+      ? 'invited guest'
+      : stance === 'helper'
+        ? 'helper helping team'
+        : 'organiser organizer mine',
   ]
     .filter(Boolean)
     .join(' ');

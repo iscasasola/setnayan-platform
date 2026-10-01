@@ -138,6 +138,7 @@ const ROSTER = readFileSync(
   join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'guest-list-multiselect.tsx'),
   'utf8',
 );
+const COLUMNS_SRC = readFileSync(join(process.cwd(), 'lib', 'roster-columns.ts'), 'utf8');
 
 test('⚖ the roster never collapses a pair, and removes no column', () => {
   /*
@@ -151,8 +152,15 @@ test('⚖ the roster never collapses a pair, and removes no column', () => {
   // control), so counting literal `<th` tags reported "down to 2 columns" while
   // all eight were on screen — this assertion went red on a merge, not on a
   // removal. Matched at a tag boundary so `<ArrangeThing` could not count.
-  const columns = (head.match(/<(?:th|ArrangeTh)[\s>]/g) ?? []).length;
+  // ⤷ 2026-09-30, the full-width list: after ☐ and Name the header draws one
+  // cell per SLOT, and every column stays one a slot can show — so "removes no
+  // column" is now: the whole vocabulary is still offered, and the header draws
+  // a cell for every slot.
+  assert.match(head, /desk\.columns\.map\(/, 'the header no longer draws a cell per slot');
+  const vocab = /export const ROSTER_COLUMNS = \[([\s\S]*?)\] as const/.exec(COLUMNS_SRC)?.[1] ?? '';
+  const columns = (vocab.match(/'[a-z]+'/g) ?? []).length;
   assert.ok(columns >= 8, `the roster is down to ${columns} columns`);
+  for (const c of ['rsvp', 'seat', 'contact']) assert.ok(vocab.includes(`'${c}'`), `the ${c} column is gone`);
 
   // Rows are emitted per GUEST, never per pair: no mount is conditioned on a
   // partner, and nothing skips a row because somebody else already showed it.
@@ -160,12 +168,14 @@ test('⚖ the roster never collapses a pair, and removes no column', () => {
     !/pair_with_guest_id[^\n]*\?[^\n]*null\s*:\s*<DesktopRow/.test(ROSTER),
     'a roster row is now conditional on pairing',
   );
-  /* The partner is SHOWN, as a line under the name, with a way to undo it.
-     🪤 Matched with a tag boundary: a bare `includes('<PartnerLine')` also
-     matches `<PartnerLineX`, so renaming the mount passed a first draft of
-     this. A substring is not a mount. */
-  assert.match(ROSTER, /<PartnerLine[\s/>]/, 'the roster stopped showing "walks with"');
-  assert.match(ROSTER, /\bunpairGuestAction\b/, 'the roster lost its unpair control');
+  /* ⚖ SUPERSEDED 2026-09-30 (DECISION_LOG "WALKING TOGETHER IS NOT BEING A
+     COUPLE"): the roster used to show "walks with <name>" + Unpair under each
+     paired guest. "Walks with" now lives ONLY in the Maker's Wedding March —
+     no row shows it and no row edits it. Asserted on the comment-stripped
+     source so this note cannot convict itself. */
+  const code = stripComments(ROSTER);
+  assert.doesNotMatch(code, /<PartnerLine[\s/>]|walks with/, 'a Guest list row shows "walks with" again');
+  assert.doesNotMatch(code, /\b(?:unpairGuestAction|pairSelectedGuests)\b/, 'a Guest list row edits a pairing again');
 });
 
 // ── the two orderings stay two orderings ───────────────────────────────────
@@ -226,7 +236,8 @@ test('🔑 the arranging is reachable WITHOUT knowing to filter first', () => {
 test('the panel heads each group with its printed NAME, not a raw key', () => {
   // A first draft rendered `key.replace(/_/g, ' ')` — "principal sponsors",
   // lower case, which is a key with its underscores knocked out, not a heading.
-  assert.match(PANEL, /entourageGroupLabel\(key\)/, 'the panel is printing a raw group key');
+  // (Since 2026-09-30 through `headingOf`, which also hands over the couple's own role words.)
+  assert.match(PANEL, /entourageGroupLabel\(key(, roleNames, rows)?\)/, 'the panel is printing a raw group key');
 });
 
 test('⚖ drag is ADDITIONAL — the buttons remain the always-available path', () => {

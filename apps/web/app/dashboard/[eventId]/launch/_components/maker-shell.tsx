@@ -2,17 +2,21 @@
 
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, Monitor, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
+import { Check, Monitor, MonitorSmartphone, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { useIsDesktop } from '@/lib/use-responsive';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import {
   MAKER_BAR,
   MAKER_SNAP_NOTE,
+  isMakerDevice,
   isStagePhase,
   makerPlaceItem,
   makerPlacePick,
+  makerShownDevice,
+  makerViewOptions,
   type MakerBarItem,
 } from './maker-bar';
 import {
@@ -30,6 +34,22 @@ import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
 import { prefetchDetailsWhenIdle } from './details-lazy';
+import dynamic from 'next/dynamic';
+
+/**
+ * ⚡ THE INSTANT LOVE STORY (`love-story-live.tsx`) — its scrapbook and its
+ * words, loaded the first time Love Story is opened, in a chunk of its own
+ * imported from HERE ONLY — unnamed on purpose: a chunk NAME is one more entry
+ * in the runtime's name map (measured: the named version was 9 bytes over). This file is the launch page's
+ * alone, so the chunk has one parent — and everything it builds on (the moment
+ * sheet, the chapter list, the Maker's save queue) is already on that page.
+ * Imported from anywhere else (Details' stand-ins are also the editor's and the
+ * dev lab's), it would need those pieces listed in the webpack runtime every
+ * page downloads — measured: +139 bytes over a shared bundle with none spare.
+ * The Love Story page and Details' editor reach them through the context.
+ */
+const LiveLoveStoryBook = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook));
+const LiveStoryPanel = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel));
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { makerAddShowsOn } from '@/lib/maker-selection';
@@ -84,6 +104,7 @@ export function MakerShell({
   liveStage,
   initialStage,
   initialSelection = null,
+  opensOnGuide = false,
   storeShell,
   priceLabel,
   firstVisit,
@@ -92,6 +113,7 @@ export function MakerShell({
   more,
   applySlot = null,
   details = null,
+  rsvpStage = null,
   factEditors = NO_FACT_EDITORS,
   hasWork,
   viewAs = {},
@@ -113,6 +135,12 @@ export function MakerShell({
   liveStage: LifecyclePhase | null;
   initialStage: LifecyclePhase;
   initialSelection?: MakerSelection;
+  /**
+   * 🪜 Details opened because this event is unfinished (its guided "What's
+   * left", Details part 5) — NOT because the address named it. What the couple
+   * last had open in this tab then wins, so a stage they went to stays theirs.
+   */
+  opensOnGuide?: boolean;
   storeShell: boolean;
   /** The live catalogue price of Event Hub Pro, formatted; null when unread. */
   priceLabel: string | null;
@@ -127,6 +155,9 @@ export function MakerShell({
    *  the address and its QR, and the printed cards they fill — and `controls`
    *  the fields (what the prints include, and every line of wording). */
   details?: { page: ReactNode; controls: ReactNode } | null;
+  /** 🗳 The RSVP stage (bar item `rsvp-stage`) — its scenes, canvas and
+   *  controls, one lazy node built by the launch page; null = not offered. */
+  rsvpStage?: ReactNode;
   /** ✍ The Details items' own editors a fact tapped on a stage opens
    *  (`detailsFactEditors`) — the SAME nodes Details draws. RSVP and Love Story
    *  moved into Details whole (part 2b); their pages are Details items now. */
@@ -138,6 +169,10 @@ export function MakerShell({
 }) {
   const [stage, setStage] = useState<LifecyclePhase>(initialStage);
   const [device, setDevice] = useState<MakerDevice>('desktop');
+  /* 🖥📱 Both needs 1024 px (`makerViewOptions`); narrower, it is drawn as
+     Desktop and the pick is kept (`makerShownDevice`). */
+  const wide = useIsDesktop('lg');
+  const shownDevice = makerShownDevice(device, wide);
   const [navOpen, setNavOpen] = useState(true);
   /* 🧭 A page that moved into Details (Logo · Hero · Reveal, part 3) opens
      Details on its item — from the address, from memory, or from a door in
@@ -166,7 +201,8 @@ export function MakerShell({
   const memoryKey = `sn-maker:${eventId}`;
   const restored = useRef(false);
   /** The address named what to open — memory then never moves Details' item. */
-  const addressNamed = useRef(initialSelection !== null);
+  const addressNamed = useRef(initialSelection !== null && !opensOnGuide);
+  const openedOnGuide = useRef(opensOnGuide);
   useEffect(() => {
     let saved: { stage?: string; device?: string; navOpen?: boolean; selection?: MakerSelection } | null = null;
     try {
@@ -175,11 +211,16 @@ export function MakerShell({
       saved = null;
     }
     if (saved && isStagePhase(saved.stage)) setStage(saved.stage);
-    if (saved?.device === 'desktop' || saved?.device === 'phone') setDevice(saved.device);
+    if (isMakerDevice(saved?.device)) setDevice(saved.device);
     else if (window.matchMedia('(max-width: 767px)').matches) setDevice('phone');
     if (typeof saved?.navOpen === 'boolean') setNavOpen(saved.navOpen);
     // An address that names what to open (a save's `?scene=`) wins over memory.
-    if (saved?.selection) {
+    if (openedOnGuide.current && saved && 'selection' in saved) {
+      // 🪜 Opened on What's left by default: the tab's own last place wins — a stage included.
+      const moved = movedSelection(saved.selection ?? null);
+      setSelection(moved.selection);
+      if (moved.item) setDetailsItem(moved.item);
+    } else if (saved?.selection) {
       const moved = movedSelection(saved.selection);
       setSelection((cur) => cur ?? moved.selection);
       if (moved.item && !addressNamed.current) setDetailsItem((d) => d ?? moved.item);
@@ -290,7 +331,7 @@ export function MakerShell({
       eventId,
       stage,
       setStage,
-      device,
+      device: shownDevice,
       navOpen,
       selection,
       select,
@@ -305,8 +346,10 @@ export function MakerShell({
       lookPages,
       setLookPages,
       factEditors,
+      liveLoveStoryBook: LiveLoveStoryBook as ComponentType<Record<string, unknown>>,
+      liveStoryPanel: LiveStoryPanel as ComponentType<Record<string, unknown>>,
     }),
-    [eventId, stage, device, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, lookPages, factEditors],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, lookPages, factEditors],
   );
 
   /* ONE HIGHLIGHT (owner 2026-09-25: "there should also be only one highlighted
@@ -436,8 +479,10 @@ export function MakerShell({
                 label="View"
                 tool="view"
                 icon={
-                  device === 'phone' ? (
+                  shownDevice === 'phone' ? (
                     <Smartphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+                  ) : shownDevice === 'both' ? (
+                    <MonitorSmartphone aria-hidden className="h-5 w-5" strokeWidth={1.75} />
                   ) : (
                     <Monitor aria-hidden className="h-5 w-5" strokeWidth={1.75} />
                   )
@@ -445,12 +490,12 @@ export function MakerShell({
               >
                 {(close) => (
                   <>
-                    <MenuItem on={device === 'desktop'} onClick={() => { setDevice('desktop'); close(); }}>
-                      Desktop
-                    </MenuItem>
-                    <MenuItem on={device === 'phone'} onClick={() => { setDevice('phone'); close(); }}>
-                      Phone
-                    </MenuItem>
+                    {/* Desktop · Phone · Both — Both only at 1024 px and wider. */}
+                    {makerViewOptions(wide).map((o) => (
+                      <MenuItem key={o.key} on={shownDevice === o.key} onClick={() => { setDevice(o.key); close(); }}>
+                        {o.label}
+                      </MenuItem>
+                    ))}
                   </>
                 )}
               </ToolMenu>
@@ -548,6 +593,18 @@ export function MakerShell({
                 }
                 controls={details?.controls ?? null}
               />
+            </div>
+          ) : null}
+          {/* 🗳 THE RSVP STAGE — a stage of its own (owner 2026-09-30 re-plan),
+              drawn like Details: it covers the work area, the editor keeps its
+              state underneath. Picking another stage puts that stage back. */}
+          {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-stage' ? (
+            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
+              {rsvpStage ?? (
+                <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
+                  Your RSVP could not be loaded just now. Nothing was changed — please reopen this in a moment.
+                </p>
+              )}
             </div>
           ) : null}
         </div>

@@ -14,7 +14,6 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  eventTypeNeedsDeliberateFaceOptIn,
   faceVectorForMode,
   resolveFaceMode,
 } from './papic-face-mode';
@@ -56,16 +55,17 @@ test('every event type we offer honours the admin’s choice', () => {
   }
 });
 
-test('a minor-heavy type is still OFF until someone deliberately turns it on', () => {
-  // The default is what carries the protection now. An event nobody has touched
-  // stores no descriptors, on every type.
-  for (const type of ['christening', 'debut']) {
+test('with no Papic and no admin choice, every type stores nothing; with Papic, every type is on', () => {
+  // ⚠ CHANGED 2026-10-01 (DECISION_LOG "ELEVEN OWNER ANSWERS" #8): "Face
+  // Tagging is on by default but they can always turn it off." Christening and
+  // debut no longer wait for an admin — Papic active turns them on like any
+  // other type; the couple's decline still turns them off.
+  for (const type of ['christening', 'debut', 'wedding']) {
     assert.equal(resolveFaceMode(null, type), 'mode_b');
     assert.equal(resolveFaceMode(undefined, type), 'mode_b');
+    assert.equal(resolveFaceMode(null, type, false, true), 'mode_a');
+    assert.equal(resolveFaceMode(null, type, true, true), 'mode_b');
   }
-  assert.equal(eventTypeNeedsDeliberateFaceOptIn('christening'), true);
-  assert.equal(eventTypeNeedsDeliberateFaceOptIn('debut'), true);
-  assert.equal(eventTypeNeedsDeliberateFaceOptIn('wedding'), false);
 });
 
 test('THE WARNING IS THE PROTECTION NOW — the confirmation must name the risk', () => {

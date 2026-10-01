@@ -463,7 +463,12 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                         className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2"
                       >
                         <span className="min-w-0 truncate text-sm text-ink">
-                          {(e.display_name as string) ?? 'Untitled event'}
+                          <Link
+                            href={`/admin/events/${(e.public_id as string | null) ?? (e.event_id as string)}`}
+                            className="underline-offset-2 hover:underline"
+                          >
+                            {(e.display_name as string) ?? 'Untitled event'}
+                          </Link>
                           {e.archived ? (
                             <span className="ml-2 text-xs text-ink/40">(archived)</span>
                           ) : null}

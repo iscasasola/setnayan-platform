@@ -66,23 +66,29 @@ import { createAdminClient } from '@/lib/supabase/admin';
  * guest list — and it never did; the eviction paths are removing the membership
  * or soft-deleting the seat, and **both close this door**, see the gates below.
  *
- * ⚠ **NAMED, NOT HIDDEN — A MIS-BOUND SEAT NO LONGER DECAYS.**
- * One of the three writers, `linkGuestSessionToUser`, runs on **every login and
- * every signup** (`app/login/actions.ts` · `app/signup/actions.ts` ×2) and creates
- * the membership row from nothing but the guest cookie sitting in that browser.
- * On a SHARED PHONE, then: a guest scans their QR for wedding X, and the next
- * person to sign in on that handset inherits X's seat as a permanent row stamped
- * `joined_via: 'guest_signup'`. Before this gate existed, that mis-binding decayed
- * with the 60-day cookie; now it admits them to X's private page indefinitely.
+ * ✅ **THE SHARED-DEVICE MIS-BINDING — FIXED WHERE THE ROW IS WRITTEN (2026-09-30).**
+ * This block used to record a known defect: `linkGuestSessionToUser` ran on
+ * **every login and every signup** and created the membership row from nothing
+ * but the guest cookie sitting in that browser, so on a shared phone the next
+ * person to sign in inherited the last invitation opened there — permanently,
+ * because this gate reads the row. It happened for real, on the owner's own
+ * wedding: a test account became bound to the GROOM row (the groom row is always
+ * "free" — the creator's couple membership has no guest_id), was shown the
+ * wedding as an invited guest, had the groom's name copied onto it, and — via
+ * the `link_guest_to_account_person` trigger — started counting as a celebrant.
  *
- * It is NOT fixed by excluding `'guest_signup'` — that is also the ordinary,
- * legitimate path (scan the QR, then make an account), so excluding it would gut
- * the feature for the main flow. And the mis-bound row is ALREADY load-bearing
- * without this gate: it puts the event in that account's picker, in their Alaala
- * "attended" album, and makes `connectEventForUser` report them connected — while
- * `seedClaimedByOther` then refuses the RIGHT person, who is the one actually
- * harmed. **So the defect is the binding, not the reading**, and it wants fixing
- * where the row is written. Recorded rather than silently inherited.
+ * As this note said, the fix was never to stop READING `'guest_signup'` rows
+ * (that is the legitimate scan-then-sign-up path) but to stop WRITING the wrong
+ * ones. Now (lib/seat-binding.ts, guarded by lib/seat-links-only-on-purpose.test.ts):
+ *   · login and signup bind nothing; a seat is kept only from its own page, and
+ *     only after "This invitation is for <name>. Save it to <email>?";
+ *   · account sign-out clears the guest pass, so the phone forgets the last person;
+ *   · a couple seat (bride · groom · celebrant) is never bound by a guest link;
+ *   · the couple can UNLINK a wrong binding from the guest card
+ *     (lib/seat-unlink.ts) — rotate the key, delete that one membership, undo
+ *     only what that account wrote on the row.
+ * A row mis-bound BEFORE this fix still admits its holder here until the couple
+ * unlinks it — this gate cannot tell a wrong binding from a right one.
  *
  * 🔒 SCOPE: this admits a seat-holder to the event's own page — the page the
  * couple published and put them on the list for. It does NOT hand them a guest

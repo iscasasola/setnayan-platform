@@ -38,6 +38,12 @@ export type HomeGuide = {
   done: number;
   total: number;
   nextTitle: string | null;
+  /** The step after the next one still to do (the setup's slim card names two). */
+  thenTitle?: string | null;
+  /** 🧭 The setup round ("Finish your Event Hub", B) is what is left. */
+  setup?: boolean;
+  /** …and it is still to be offered once, right after onboarding (Start / Later). */
+  offer?: boolean;
 } | null;
 
 export type HomeNext = {
@@ -45,6 +51,13 @@ export type HomeNext = {
   title: string;
   body: string;
   action: string;
+  /**
+   * 🧭 THE ONCE-OFFER after onboarding (owner-approved default 2026-10-01: "the
+   * Event Hub setup is offered once after onboarding + the Home card + the
+   * Maker's What's left"): the guide card drawn as "Start / Later". Absent =
+   * the ordinary one-button card.
+   */
+  offer?: boolean;
 };
 
 export type HomeNextInput = {
@@ -66,6 +79,22 @@ export type HomeNextInput = {
  */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
   const { guide, hasDate, noun, papicReady, aiOffer } = input;
+  if (guide?.setup) {
+    /* "Finish your Event Hub — n of m · Continue" (frame 10): the next two steps
+       still to do; the count is what is really in place. */
+    const next = guide.nextTitle ? `Next: ${guide.nextTitle}${guide.thenTitle ? ` · then ${guide.thenTitle}` : ''}` : '';
+    return {
+      kind: 'guide',
+      title: `Finish your Event Hub — ${formatCount(guide.done)} of ${formatCount(guide.total)}`,
+      /* The offer is frame 0, "Before we start", in one card: what we already
+         have, what is left, what helps — and that none of it is required. */
+      body: guide.offer
+        ? `From sign-up we already have your names, dates, look and how guests get in — we won’t ask again. ${formatCount(guide.total - guide.done)} short ${guide.total - guide.done === 1 ? 'step finishes' : 'steps finish'} your Event Hub; Love Story photos help. None of it is required.`
+        : next,
+      action: guide.offer ? 'Start' : 'Continue',
+      ...(guide.offer ? { offer: true } : {}),
+    };
+  }
   if (guide) {
     return {
       kind: 'guide',

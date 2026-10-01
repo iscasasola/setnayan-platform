@@ -11,6 +11,7 @@ import {
   MOMENT_MEDIA_MAX,
   chapterOf,
   formatMomentDate,
+  isMomentAnchor,
   readMomentDate,
   type LoveStoryChapter,
   type LoveStoryMoment,
@@ -50,6 +51,7 @@ type Precision = 'day' | 'month' | 'year';
 const CHAPTER_RULE: Record<LoveStoryChapter, string> = {
   before: 'Before us holds moments dated before How we met.',
   met: 'How we met holds the one moment marked How we met.',
+  together: 'Together holds the one moment marked Together.',
   falling: 'Falling holds moments dated between How we met and The yes.',
   yes: 'The yes holds the one moment marked The yes.',
   toward: 'Toward the day holds moments dated after The yes.',
@@ -158,9 +160,9 @@ export function MomentSheet({
     if (!opensFor) return;
     const answer = (ask: LoveStoryOpenAsk) => {
       if (ask.chapter) {
-        // The two anchors ARE their chapters; the other three follow the date.
+        // The three anchors ARE their chapters; the other three follow the date.
         setTarget(ask.chapter);
-        setAnchor(ask.chapter === 'met' || ask.chapter === 'yes' ? ask.chapter : '');
+        setAnchor(isMomentAnchor(ask.chapter) ? ask.chapter : '');
       }
       openRef.current();
       window.requestAnimationFrame(() =>
@@ -388,13 +390,14 @@ export function MomentSheet({
               <fieldset>
                 <legend className={eye}>This one is…</legend>
                 <p className="mt-1 text-[13px] text-[color:var(--ls-muted)]">
-                  Two moments anchor the chapters: how you met and the yes. Everything else finds its chapter from its date.
+                  Three moments anchor the chapters: how you met, when you became a couple and the yes. Everything else finds its chapter from its date.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {(
                     [
                       ['', 'A moment'],
                       ['met', 'How we met'],
+                      ['together', 'Together'],
                       ['yes', 'The yes'],
                     ] as const
                   ).map(([k, label]) => (

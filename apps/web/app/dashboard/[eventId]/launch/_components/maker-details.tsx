@@ -92,6 +92,7 @@ import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import type { DetailsGuide } from './details-guide';
 import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
+import { hubSetupRound, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
 import {
   PassCardsPanel,
@@ -267,6 +268,14 @@ export type MakerDetailsProps = {
     guideNamed: boolean;
     /** The flow's first-visit tour (a `MiniTour`), or null. */
     tour?: ReactNode;
+    /**
+     * 🧭 "Finish your Event Hub" (the setup, B — `lib/hub-setup-steps.ts`): its
+     * facts, read by the launch page through the same derivation Home reads.
+     * Given → the setup's steps come first in What's left. Null/absent = no setup.
+     */
+    setup?: HubSetupFacts | null;
+    /** Where the setup's guests' names open (the Guest list's template import). */
+    guestsHref?: string;
   } | null;
 };
 
@@ -459,6 +468,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     ? buildGuidedPlan(
         groups.flatMap((g) => g.items),
         { solemn: eventContext.solemn, parentsOffered: props.yourEvent ? parentsOffered(props.yourEvent.kind) : switches.parents },
+        // 🧭 The setup round over these very rows (built here, on the server).
+        props.guide.setup ? hubSetupRound(props.guide.setup, new Set(groups.flatMap((g) => g.items.map((i) => i.key)))) : null,
       )
     : null;
   const opening = props.guide && plan && props.guide.open && !props.guide.itemNamed && !props.guide.ready ? firstOpenScreen(plan) : null;
@@ -478,6 +489,7 @@ export function MakerDetails(props: MakerDetailsProps) {
             shareUrl: slug ? `${siteOrigin()}${publicEventPath(slug)}` : null,
             // The Guest list's own invite flow (its "Share the link" tab).
             sendHref: `${base}/guests?gview=share`,
+            ...(props.guide.guestsHref ? { guestsHref: props.guide.guestsHref } : {}),
           },
           tour: props.guide.tour ?? null,
         }

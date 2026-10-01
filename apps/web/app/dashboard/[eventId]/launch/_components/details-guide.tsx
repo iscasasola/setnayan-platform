@@ -9,6 +9,7 @@ import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { PreviewStageLink } from './maker-play-menu';
 import { useMaker } from './maker-context';
 import {
+  roundName,
   type GuidedPlan,
   type GuidedRound,
   type GuidedScreen,
@@ -42,6 +43,8 @@ export type DetailsGuideActions = {
   shareUrl: string | null;
   /** Round 2 — the Guest list's invite flow. */
   sendHref: string;
+  /** 🧭 The setup's guests' names — the Guest list's template import (`hubSetupGuestsHref`). */
+  guestsHref?: string;
 };
 
 export type DetailsGuide = {
@@ -59,7 +62,7 @@ export type DetailsGuide = {
 
 /** A step's heading: its round, its name, where it shows. */
 export function GuideHead({ step, itemLabel, compact }: { step: GuidedStep; itemLabel: string | null; compact: boolean }) {
-  const eyebrow = `Round ${step.round} · ${step.roundTitle}${step.optional ? ' · optional' : ''}${
+  const eyebrow = `${step.round === 0 ? step.roundTitle : `Round ${step.round} · ${step.roundTitle}`}${step.optional ? ' · optional' : ''}${
     itemLabel && step.items.length > 1 ? ` · ${itemLabel}` : ''
   }`;
   return (
@@ -69,6 +72,16 @@ export function GuideHead({ step, itemLabel, compact }: { step: GuidedStep; item
       <p className="text-[13px] text-ink/65" data-details-guide-shows="">
         {step.shows}
       </p>
+      {/* 🔓 The setup's line under every step — what filling it in turns on (filled in, never a paywall). */}
+      {step.unlocks ? (
+        <p
+          className={`text-[12.5px] font-medium ${step.state === 'done' ? 'text-success-700' : 'text-terracotta-700'}`}
+          data-details-guide-unlocks={step.state === 'done' ? 'unlocked' : 'locked'}
+        >
+          {step.state === 'done' ? '✓ ' : '🔓 '}
+          {step.unlocks}
+        </p>
+      ) : null}
     </header>
   );
 }
@@ -94,7 +107,8 @@ export function GuideReady({
 }) {
   const maker = useMaker();
   const steps = plan.steps.filter((s) => s.round === round);
-  const left = steps.filter((s) => s.state === 'left' && !s.optional).length;
+  const links = plan.links.filter((l) => l.round === round);
+  const left = steps.filter((s) => s.state === 'left' && !s.optional).length + links.filter((l) => l.state === 'left').length;
   const [said, setSaid] = useState<string | null>(null);
   /* The preview link reads the window (phone → same view), so it is drawn only
      once mounted in the browser — a Ready screen can be the first paint. */
@@ -110,14 +124,12 @@ export function GuideReady({
   return (
     <section
       data-details-guide-ready={round}
-      aria-label={`Round ${round} — ready`}
+      aria-label={`${roundName(plan, round)} — ready`}
       className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
     >
       <div className="mx-auto flex w-full max-w-xl flex-col gap-4">
         <header className="flex flex-col gap-0.5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-            Round {round} · {plan.roundWords[round].title}
-          </p>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{roundName(plan, round)}</p>
           <h2 className="font-serif text-2xl text-ink">{left ? 'Almost ready' : 'Ready'}</h2>
           <p className="text-[14px] text-ink/75" data-details-guide-ready-line="">
             {left ? (
@@ -153,6 +165,28 @@ export function GuideReady({
                   {s.state === 'done' ? '✓ set' : s.state === 'left' ? '○ not yet' : 'Look over'}
                 </span>
               </button>
+            </li>
+          ))}
+          {/* 🧭 A setup step with no item of its own (the guests' names): it opens
+              the Guest list's template import, where the names are typed. */}
+          {links.map((l) => (
+            <li key={l.key}>
+              {actions.guestsHref ? (
+                <Link
+                  href={actions.guestsHref}
+                  data-details-guide-ready-step={l.key}
+                  data-state={l.state}
+                  className="sn-press flex min-h-12 w-full items-center justify-between gap-3 text-left text-[14px] text-ink"
+                >
+                  <span className="flex flex-col">
+                    {l.title}
+                    <span className="text-[12px] text-ink/60">{l.unlocks}</span>
+                  </span>
+                  <span className={`shrink-0 text-[13px] font-semibold ${l.state === 'done' ? 'text-success-700' : 'text-terracotta-700'}`}>
+                    {l.state === 'done' ? '✓ set' : 'Add names ›'}
+                  </span>
+                </Link>
+              ) : null}
             </li>
           ))}
         </ul>

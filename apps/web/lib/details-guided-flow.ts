@@ -53,10 +53,20 @@ import {
 } from '@/lib/maker-details-items';
 import { yourEventDone, yourEventLabel, type YourEventFacts, type YourEventKind } from '@/lib/details-your-event';
 import type { StoredPrintDetails } from '@/lib/print-pieces';
+/* Types only: the setup's step table is built on the server (`hubSetupRound`) and handed in. */
+import type { HubSetupRound, HubSetupStepKey } from '@/lib/hub-setup-steps';
 
-export type GuidedRound = 1 | 2 | 3;
+/**
+ * Round 0 is "Finish your Event Hub" — the Event Hub setup (B) that follows the
+ * wedding onboarding (`lib/hub-setup-steps.ts`; owner 2026-10-01). It is drawn
+ * only when the plan is handed the setup's facts (`buildGuidedPlan`'s `setup`),
+ * and it comes first: the What's left becomes the setup's steps, then the
+ * rounds that were already there.
+ */
+export type GuidedRound = 0 | 1 | 2 | 3;
 
 export type GuidedStepKey =
+  | HubSetupStepKey
   | 'names'
   | 'date'
   | 'venues'
@@ -162,8 +172,12 @@ export const GUIDED_STEPS: readonly StepDef[] = [
 
 export type GuidedRoundWords = Readonly<Record<GuidedRound, { title: string; ready: string }>>;
 
+/** The setup round's words — the same for every type that draws it. */
+const SETUP_ROUND = { title: 'Finish your Event Hub', ready: 'Your Event Hub is ready' } as const;
+
 /** Each round's name and the line its Ready screen leads with — a celebration's. */
 export const GUIDED_ROUNDS: GuidedRoundWords = {
+  0: SETUP_ROUND,
   1: { title: 'Save the Date', ready: 'Your Save the Date is ready to send' },
   2: { title: 'Invitations', ready: 'Your invitations are ready to send' },
   3: { title: 'The day', ready: 'Your day is set' },
@@ -176,6 +190,7 @@ export const GUIDED_ROUNDS: GuidedRoundWords = {
  * Nobody sends a wake a "Save the Date".
  */
 export const WAKE_ROUNDS: GuidedRoundWords = {
+  0: SETUP_ROUND,
   1: { title: 'Share the news', ready: 'Your news is ready to share' },
   2: { title: 'Service details', ready: 'Your service details are ready to share' },
   3: { title: 'The day', ready: 'Your day is set' },
@@ -201,6 +216,22 @@ export type GuidedStep = {
   /** Those of them still not done — the step opens on the first. */
   left: DetailsItemKey[];
   state: GuidedStepState;
+  /** 🔓 A setup step's line: what filling it in turns on ("Unlocks: …" / "Unlocked: …"). */
+  unlocks?: string;
+};
+
+/**
+ * A setup step with no Details item — the guests' names, which open the Guest
+ * list's import (`hubSetupGuestsHref`). Counted with its round, listed on the
+ * round's Ready screen as a link; never a screen of its own.
+ */
+export type GuidedLinkStep = {
+  key: HubSetupStepKey;
+  round: GuidedRound;
+  title: string;
+  shows: string;
+  unlocks: string;
+  state: GuidedStepState;
 };
 
 /** A screen of the flow: a step, or a round's Ready screen. */
@@ -208,6 +239,8 @@ export type GuidedScreen = { kind: 'step'; step: GuidedStepKey } | { kind: 'read
 
 export type GuidedPlan = {
   steps: GuidedStep[];
+  /** Setup steps that open a page instead of an item (the guests' names). */
+  links: GuidedLinkStep[];
   /** The rounds that have at least one step, in order. */
   rounds: GuidedRound[];
   /** The rounds' names and Ready lines for THIS event (`guidedRoundsFor`). */
@@ -229,11 +262,42 @@ export function stepStateOf(dones: ReadonlyArray<boolean | undefined>): GuidedSt
  * celebration has, each with its label and its done). A step with none of its
  * items here is not in the plan.
  */
-export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords): GuidedPlan {
+export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords, setup: HubSetupRound | null = null): GuidedPlan {
   const roundWords = guidedRoundsFor(words);
   const byKey = new Map(items.map((i) => [i.key as string, i]));
   const steps: GuidedStep[] = [];
+  const links: GuidedLinkStep[] = [];
+  /* 🧭 ROUND 0 — "Finish your Event Hub" (the setup, B). Each step IS a Details
+     item, one at a time; its done is the setup's own fact (what is really in
+     place), never the item's row. An item a setup step opens leaves the later
+     rounds — one step per item, so the item showing always names its step. */
+  const claimed = new Set<string>(setup?.claims ?? []);
+  if (setup) {
+    for (const s of setup.steps) {
+      if (s.item !== null && !byKey.has(s.item)) continue;
+      const state: GuidedStepState = s.state;
+      const unlocks = s.unlocks;
+      if (s.item === null) {
+        links.push({ key: s.key, round: 0, title: s.title, shows: s.shows, unlocks, state });
+        continue;
+      }
+      const item = s.item as DetailsItemKey;
+      steps.push({
+        key: s.key,
+        round: 0,
+        roundTitle: roundWords[0].title,
+        title: s.title,
+        shows: s.shows,
+        optional: false,
+        items: [item],
+        left: state === 'left' ? [item] : [],
+        state,
+        unlocks,
+      });
+    }
+  }
   for (const def of GUIDED_STEPS) {
+    if (setup && def.items.every((k) => claimed.has(k) || !byKey.has(k))) continue;
     const here = def.items.map((k) => byKey.get(k)).filter((i): i is GuidedItem => i !== undefined);
     if (here.length === 0) continue;
     steps.push({
@@ -248,8 +312,18 @@ export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords
       state: stepStateOf(here.map((i) => i.done)),
     });
   }
-  const rounds = ([1, 2, 3] as const).filter((r) => steps.some((s) => s.round === r));
-  return { steps, rounds, roundWords };
+  const rounds = ([0, 1, 2, 3] as const).filter((r) => steps.some((s) => s.round === r) || links.some((l) => l.round === r));
+  return { steps, links, rounds, roundWords };
+}
+
+/** A round's name as a line reads it: "Round 2 · Invitations" — the setup round is only its name. */
+export function roundName(plan: Pick<GuidedPlan, 'roundWords'>, round: GuidedRound): string {
+  return round === 0 ? plan.roundWords[0].title : `Round ${round} · ${plan.roundWords[round].title}`;
+}
+
+/** Any step's title by key — a screen's, or a link step's. */
+export function stepTitleOf(plan: GuidedPlan, key: GuidedStepKey): string | null {
+  return stepOf(plan, key)?.title ?? plan.links.find((l) => l.key === key)?.title ?? null;
 }
 
 /** Every screen, in order: each round's steps, then its Ready screen. */
@@ -312,7 +386,7 @@ export function backScreen(plan: GuidedPlan, at: GuidedScreen): GuidedScreen | n
 
 /** Is anything that is not optional still left? — "an unfinished event". */
 export function isUnfinished(plan: GuidedPlan): boolean {
-  return plan.steps.some((s) => s.state === 'left' && !s.optional);
+  return plan.steps.some((s) => s.state === 'left' && !s.optional) || plan.links.some((l) => l.state === 'left');
 }
 
 /**
@@ -322,17 +396,22 @@ export function isUnfinished(plan: GuidedPlan): boolean {
 export function firstOpenScreen(plan: GuidedPlan): GuidedScreen | null {
   const left = plan.steps.find((s) => s.state === 'left' && !s.optional) ?? plan.steps.find((s) => s.state === 'left');
   if (left) return { kind: 'step', step: left.key };
+  // Only a link step left (the guests' names) — its round's Ready screen lists it.
+  const link = plan.links.find((l) => l.state === 'left');
+  if (link) return { kind: 'ready', round: link.round };
   const last = plan.rounds[plan.rounds.length - 1];
   return last ? { kind: 'ready', round: last } : null;
 }
 
-/** "Round 1 · 3 of 7" — where this screen sits in its round; "Round 1 · Apply" on its Ready (never "done" — it may not be). */
+/** "Round 1 · 3 of 7" — where this screen sits in its round; "Round 1 · Apply" on its Ready (never "done" — it may not be). The setup round reads "Finish · 3 of 6". */
 export function progressLabel(plan: GuidedPlan, at: GuidedScreen): string {
-  if (at.kind === 'ready') return `Round ${at.round} · Apply`;
+  const lead = (r: GuidedRound) => (r === 0 ? 'Finish' : `Round ${r}`);
+  if (at.kind === 'ready') return `${lead(at.round)} · Apply`;
   const step = stepOf(plan, at.step);
   if (!step) return '';
   const inRound = plan.steps.filter((s) => s.round === step.round);
-  return `Round ${step.round} · ${formatCount(inRound.indexOf(step) + 1)} of ${formatCount(inRound.length)}`;
+  const total = inRound.length + plan.links.filter((l) => l.round === step.round).length;
+  return `${lead(step.round)} · ${formatCount(inRound.indexOf(step) + 1)} of ${formatCount(total)}`;
 }
 
 /** How far along the bar is — this screen's place in its round, 0–1. */
@@ -349,17 +428,26 @@ export function progressShare(plan: GuidedPlan, at: GuidedScreen): number {
  * still left (optional steps never hold a round open), how many of its steps
  * are no longer left, and where Continue opens. Null when nothing is left.
  */
-export function homeProgress(plan: GuidedPlan): { round: GuidedRound; title: string; done: number; total: number; next: GuidedStepKey } | null {
+export function homeProgress(
+  plan: GuidedPlan,
+): { round: GuidedRound; title: string; done: number; total: number; next: GuidedStepKey; then: GuidedStepKey | null } | null {
   for (const r of plan.rounds) {
-    const inRound = plan.steps.filter((s) => s.round === r);
-    const left = inRound.find((s) => s.state === 'left' && !s.optional);
-    if (!left) continue;
+    /* A round's steps and its link steps, in order — the setup's guests' names last. */
+    const inRound: Array<{ key: GuidedStepKey; state: GuidedStepState; optional: boolean }> = [
+      ...plan.steps.filter((s) => s.round === r),
+      ...plan.links.filter((l) => l.round === r).map((l) => ({ key: l.key, state: l.state, optional: false })),
+    ];
+    const left = inRound.filter((s) => s.state === 'left' && !s.optional);
+    if (left.length === 0) continue;
     return {
       round: r,
       title: plan.roundWords[r].title,
-      done: inRound.filter((s) => s.state !== 'left').length,
+      /* The setup counts what is really in place ("n of m"); a look-over in a
+         later round is never "left", so it counts there. */
+      done: inRound.filter((s) => (r === 0 ? s.state === 'done' : s.state !== 'left')).length,
       total: inRound.length,
-      next: left.key,
+      next: left[0]!.key,
+      then: left[1]?.key ?? null,
     };
   }
   return null;
@@ -376,7 +464,7 @@ export type GuideAddress = { ready: GuidedRound | null } | null;
 
 export function parseGuideParam(v: string | null | undefined): GuideAddress {
   if (v === '1') return { ready: null };
-  const m = /^ready-([123])$/.exec(v ?? '');
+  const m = /^ready-([0123])$/.exec(v ?? '');
   return m ? { ready: Number(m[1]) as GuidedRound } : null;
 }
 
@@ -475,6 +563,8 @@ export function guidedPlanFromFacts(input: {
   present: ReadonlySet<DetailsItemKey>;
   facts: GuidedDoneFacts;
   parentsOffered: boolean;
+  /** 🧭 The setup round, built on the server (`hubSetupRound`) — null where the setup is not drawn. */
+  setup?: HubSetupRound | null;
 }): GuidedPlan {
   const items: GuidedItem[] = [];
   for (const key of input.present) {
@@ -482,5 +572,5 @@ export function guidedPlanFromFacts(input: {
     const label = EVENT_KEYS.has(key) && input.facts.kind ? yourEventLabel(key as 'names', input.facts.kind) : '';
     items.push({ key, label, done: guidedItemDone(key, input.facts) });
   }
-  return buildGuidedPlan(items, { solemn: input.ctx.solemn, parentsOffered: input.parentsOffered });
+  return buildGuidedPlan(items, { solemn: input.ctx.solemn, parentsOffered: input.parentsOffered }, input.setup ?? null);
 }

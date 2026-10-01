@@ -1201,3 +1201,13 @@ export const TOURS: Record<TourKey, TourDefinition> = {
 export function getTour(key: TourKey): TourDefinition {
   return TOURS[key];
 }
+
+/**
+ * 🧭 THE ONCE-OFFER'S MARKER — "Finish your Event Hub", offered once right after
+ * onboarding (owner-approved 2026-10-01). It is the What's left first-visit
+ * tour's own key: Start opens What's left, whose tour marks it; Later marks it
+ * on Home (`completeTour`). Either way the offer never comes back — the slim
+ * card and What's left stay. No tour of its own: `lib/tours.ts` rides in the
+ * Maker's first load, so the offer's words live on Home's card instead.
+ */
+export const HUB_SETUP_OFFER_TOUR: TourKey = 'customer_details_guided_v1';

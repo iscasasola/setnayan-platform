@@ -11,6 +11,7 @@
  */
 import { sanitizeHubCanvas, type HubStage } from '@/lib/hub-canvas';
 import { resolveSceneStyle, sceneStyleTypeOfWidget } from '@/lib/scene-styles';
+import { resolvePaletteLook, type PaletteLookId } from '@/lib/palette-looks';
 
 export function sceneStyleOfRow(
   row: { widget_type: string; config_json?: unknown } | null | undefined,
@@ -25,3 +26,13 @@ export function sceneStyleOfRow(
     eventType ?? null,
   );
 }
+
+/**
+ * 🎨 THE LOOK A ROW'S PALETTE IS DRAWN IN — `canvas.palette`, beside
+ * `canvas.style` (`lib/palette-styles.ts`). Every stage draws it the same, so
+ * there is no stage here; no row, no pick or an unknown id → Tags, today's look.
+ */
+export function paletteLookOfRow(row: { config_json?: unknown } | null | undefined): PaletteLookId {
+  return resolvePaletteLook(row ? sanitizeHubCanvas(row.config_json).palette : undefined);
+}
+

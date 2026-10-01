@@ -118,6 +118,7 @@ function whereClause(
 
 class Builder implements PromiseLike<PgResult> {
   private filters: Filter[] = [];
+  private orderBy: string | null = null;
 
   constructor(
     private db: PGlite,
@@ -163,6 +164,20 @@ class Builder implements PromiseLike<PgResult> {
     return this;
   }
 
+  /**
+   * `.order(col, { ascending })` — select only. Added for the RA 10173 export's
+   * face-enrollment read (lib/export-own-face-enrollments.ts), which orders its
+   * rows; anything but a plain column name fails loudly.
+   */
+  order(column: string, opts: { ascending?: boolean } = {}): this {
+    assertSupported(
+      this.op === 'select' && /^[a-z_][a-z0-9_]*$/.test(column),
+      `.order('${column}') — only a plain column on a select is modelled`,
+    );
+    this.orderBy = `"${column}" ${opts.ascending === false ? 'DESC' : 'ASC'}`;
+    return this;
+  }
+
   async maybeSingle(): Promise<SingleResult> {
     const { data, error } = await this.run();
     if (error) return { data: null, error };
@@ -182,6 +197,7 @@ class Builder implements PromiseLike<PgResult> {
               .map((c) => `"${c.trim()}"`)
               .join(', ');
       sql = `SELECT ${cols} FROM public."${this.table}"${whereClause(this.types, this.table, this.filters, params)}`;
+      if (this.orderBy) sql += ` ORDER BY ${this.orderBy}`;
     } else if (this.op === 'update') {
       const entries = Object.entries(this.payload ?? {});
       assertSupported(entries.length > 0, `.update({}) on ${this.table} — empty payload`);

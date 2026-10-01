@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e6bdfb29c",
-  "routeCount": 440,
-  "destinations": 944,
-  "actions": 675,
-  "blocks": 5311,
+  "generatedFromRef": "6c41a5200",
+  "routeCount": 441,
+  "destinations": 948,
+  "actions": 677,
+  "blocks": 5328,
   "routes": {
     "/": {
       "files": [
@@ -793,6 +793,7 @@
         "[slug]/_components/face-receipt-card.tsx",
         "[slug]/_components/face-tagging-row.tsx",
         "[slug]/_components/get-inside.tsx",
+        "[slug]/_components/get-tickets.tsx",
         "[slug]/_components/guest-account-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-checklist.tsx",
@@ -916,6 +917,7 @@
         "[slug]/_components/ticket-popup.tsx",
         "[slug]/_components/ticket-row.tsx",
         "[slug]/_components/tier-comparison-widget.tsx",
+        "[slug]/_components/type-in-place-canvas.ts",
         "[slug]/_components/upload-your-qr.tsx",
         "[slug]/_components/vendor-doorway.tsx",
         "[slug]/_components/venue-styles.tsx",
@@ -1097,6 +1099,7 @@
         "GalleryPreview",
         "Gap",
         "GetInside",
+        "GetTickets",
         "GiftDoorCard",
         "GlowBlob",
         "GracefulFallback",
@@ -1998,6 +2001,7 @@
       ],
       "destinations": [
         "/admin/demo-vendors/inquiries",
+        "/admin/events/[seg]",
         "/admin/users/[seg]",
         "/admin/vendors/[seg]/edit",
         "/admin/vendors/[seg]/plan",
@@ -2684,6 +2688,7 @@
         "Link",
         "OnboardingEditor",
         "OnboardingOverrideRow",
+        "OnboardingReadFailed",
         "PageMasthead",
         "SubmitButton",
         "TypeQuestion"
@@ -2702,6 +2707,7 @@
       "blocks": [
         "Link",
         "PageMasthead",
+        "ProfileReadFailed",
         "ProfileRow",
         "SubmitButton"
       ]
@@ -2716,6 +2722,25 @@
       "actions": [],
       "blocks": [
         "EventDeleteSnapshot"
+      ]
+    },
+    "/admin/events/[eventId]": {
+      "files": [
+        "admin/events/[eventId]/page.tsx"
+      ],
+      "destinations": [
+        "/admin/accounts?tab=events",
+        "/admin/users/[seg]"
+      ],
+      "actions": [
+        "setEventFaceMode"
+      ],
+      "blocks": [
+        "ConfirmForm",
+        "ConsoleTable",
+        "Link",
+        "PageMasthead",
+        "SubmitButton"
       ]
     },
     "/admin/force-majeure": {
@@ -3237,6 +3262,7 @@
         "PaymentsList",
         "PlatformChip",
         "ProofImage",
+        "ReadFailedNotice",
         "ReceiptReadCard",
         "RefundForm",
         "Stat",
@@ -4077,6 +4103,7 @@
       "destinations": [
         "/admin/concierge-abuse",
         "/admin/disputes",
+        "/admin/events/[seg]",
         "/admin/help",
         "/admin/payments",
         "/admin/user-reports",
@@ -6077,6 +6104,7 @@
     "/dashboard/[eventId]/guests/import": {
       "files": [
         "dashboard/[eventId]/guests/import/actions.ts",
+        "dashboard/[eventId]/guests/import/import-form.tsx",
         "dashboard/[eventId]/guests/import/loading.tsx",
         "dashboard/[eventId]/guests/import/page.tsx"
       ],
@@ -6084,12 +6112,15 @@
         "/dashboard/[seg]/guests"
       ],
       "actions": [
-        "action"
+        "action",
+        "run"
       ],
       "blocks": [
         "FormPageSkeleton",
+        "GuestImportForm",
+        "GuestImportState",
         "Link",
-        "SubmitButton"
+        "Submit"
       ]
     },
     "/dashboard/[eventId]/guests/invite": {
@@ -8922,6 +8953,7 @@
         "dashboard/[eventId]/website/editor/_components/sections-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/text-panel.tsx",
         "dashboard/[eventId]/website/editor/_components/tools-resize.tsx",
+        "dashboard/[eventId]/website/editor/_components/type-in-place.tsx",
         "dashboard/[eventId]/website/editor/_components/unlock-label.ts",
         "dashboard/[eventId]/website/editor/_components/use-scene-canvas.ts",
         "dashboard/[eventId]/website/editor/actions.ts",
@@ -9080,6 +9112,9 @@
         "Thumb",
         "TileHead",
         "ToolsResizeHandle",
+        "TypeBar",
+        "TypeSession",
+        "TypeStart",
         "V",
         "VisibilityPanel",
         "Window",
@@ -9396,13 +9431,17 @@
     "/dev/hero-lab": {
       "files": [
         "dev/hero-lab/mark.ts",
-        "dev/hero-lab/page.tsx"
+        "dev/hero-lab/page.tsx",
+        "dev/hero-lab/type-lab.tsx"
       ],
       "destinations": [],
       "actions": [],
       "blocks": [
         "BespokeMonogramMark",
-        "PahinaMasthead"
+        "HTMLDivElement",
+        "HTMLElement",
+        "PahinaMasthead",
+        "TypeLab"
       ]
     },
     "/dev/home-lab": {

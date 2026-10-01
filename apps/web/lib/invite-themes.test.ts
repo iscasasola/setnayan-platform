@@ -12,6 +12,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FEEL_OPTIONS } from '@/lib/match-criteria';
+import { stripComments } from '@/lib/strip-comments';
 import {
   HUB_THEMES,
   INVITE_DOOR_IDS,
@@ -116,17 +117,16 @@ test('no theme path asks the wedding-only fence again', () => {
   // the draft's server check each re-implemented the fence, so one surviving copy
   // would shut a birthday out of a theme the picker offered it.
   const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-  const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
   for (const rel of [
     'lib/invite-themes.ts',
     'app/[slug]/_lib/hub-look.ts',
     'app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx',
     'app/dashboard/[eventId]/website/hub-draft-actions.ts',
   ]) {
-    const code = strip(readFileSync(join(root, rel), 'utf8'));
+    const code = stripComments(readFileSync(join(root, rel), 'utf8'));
     assert.doesNotMatch(code, /save_the_date_film|resolveWeddingOnlyParts/, `${rel} still asks the wedding-only fence`);
   }
-  const launch = strip(readFileSync(join(root, 'app/dashboard/[eventId]/launch/page.tsx'), 'utf8'));
+  const launch = stripComments(readFileSync(join(root, 'app/dashboard/[eventId]/launch/page.tsx'), 'utf8'));
   assert.match(launch, /pickableInviteThemes\(\)/);
   assert.doesNotMatch(launch, /(?:resolveInviteTheme|pickableInviteThemes|themeMatchingFeel)\([^)]*mayShowStdFilm/);
 });

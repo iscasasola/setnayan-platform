@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useContext, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { MoreHorizontal, Plus, Users, X } from 'lucide-react';
@@ -18,6 +18,7 @@ import {
 } from '@/lib/guests';
 import { SIDE_DOT, SIDE_ROW_TINT } from '@/lib/side-colors';
 import { formatCount } from '@/lib/format-number';
+import { GuestListHasSidesContext } from './chip-editors';
 
 // -----------------------------------------------------------------------
 // GroupsSidebar · custom-groups section beneath the locked role-group
@@ -56,15 +57,27 @@ type Props = {
   // summary-facet bar — SAME server actions + state machine (create / rename /
   // delete), just laid out as a wrapping pill row instead of stacked rows.
   layout?: 'rail' | 'inline';
+  /** False on an event whose type has no sides (`eventHasSides`): no team-side
+   *  picker on the create/rename forms and no "Team Bride" in any title. */
+  hasSides?: boolean;
 };
 
-export function GroupsSidebar({
+export function GroupsSidebar({ hasSides = true, ...props }: Props) {
+  return (
+    <GuestListHasSidesContext.Provider value={hasSides}>
+      <GroupsSidebarBody {...props} />
+    </GuestListHasSidesContext.Provider>
+  );
+}
+
+function GroupsSidebarBody({
   eventId,
   groups,
   currentGroupId,
   hrefByGroupId,
   layout = 'rail',
 }: Props) {
+  const hasSides = useContext(GuestListHasSidesContext);
   const [showNew, setShowNew] = useState(false);
   const router = useRouter();
   const [openKebabId, setOpenKebabId] = useState<string | null>(null);
@@ -103,7 +116,7 @@ export function GroupsSidebar({
               <Link
                 href={href}
                 aria-current={isCurrent ? 'true' : undefined}
-                title={`${g.label} · ${TEAM_SIDE_LABELS[g.team_side]}`}
+                title={hasSides ? `${g.label} · ${TEAM_SIDE_LABELS[g.team_side]}` : g.label}
                 onMouseEnter={warm}
                 onFocus={warm}
                 // Off by default: every group chip is on screen at once, so
@@ -265,7 +278,7 @@ export function GroupsSidebar({
                     {g.member_count > 0 ? (
                       <span
                         className={`shrink-0 text-[10px] ${rowTint.count}`}
-                        title={TEAM_SIDE_LABELS[g.team_side]}
+                        title={hasSides ? TEAM_SIDE_LABELS[g.team_side] : undefined}
                       >
                         {formatCount(g.member_count)}
                       </span>
@@ -459,6 +472,9 @@ function TeamSideSelect({
 }: {
   defaultSide?: GuestGroupTeamSide;
 }) {
+  // No sides on this event: the field is absent and the action stores 'both'.
+  const hasSides = useContext(GuestListHasSidesContext);
+  if (!hasSides) return null;
   return (
     <select
       name="team_side"

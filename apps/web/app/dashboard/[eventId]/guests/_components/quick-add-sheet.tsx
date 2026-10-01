@@ -603,8 +603,7 @@ export function QuickAddSheet({
                           </span>
                           <span className="block truncate text-[11px] text-ink/55">
                             {[g.role, ...g.extra_roles].map((r) => guestRoleLabel(r, roleNames)).join(' · ')}
-                            {' · '}
-                            {SIDE_LABELS[g.side]}
+                            {hasSides ? ` · ${SIDE_LABELS[g.side]}` : null}
                           </span>
                         </span>
                         <span

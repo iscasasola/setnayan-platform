@@ -1668,6 +1668,9 @@ function NewGroupInlineForm({
   selectedIds: string[];
   onClose: () => void;
 }) {
+  // A sideless event's group has no team side to pick: the action stores
+  // 'both' when the field is absent (createGuestGroup).
+  const hasSides = useContext(GuestListHasSidesContext);
   return (
     <form
       action={createGuestGroup.bind(null, eventId)}
@@ -1695,6 +1698,7 @@ function NewGroupInlineForm({
        *  + same 'bride' | 'groom' | 'both' values, so the server action
        *  (createGuestGroup) consumes them unchanged. Native select is
        *  shorter vertically + matches the form's other dropdowns. */}
+      {hasSides ? (
       <div>
         <label
           htmlFor="new-group-team-side"
@@ -1715,6 +1719,7 @@ function NewGroupInlineForm({
           ))}
         </select>
       </div>
+      ) : null}
       <div className="flex gap-2">
         <button
           type="submit"
@@ -2108,6 +2113,7 @@ function GroupChipList({
    *  mobile card keeps its chips — see the ROSTER TEXT VARIANTS note. */
   plain?: boolean;
 }) {
+  const hasSides = useContext(GuestListHasSidesContext);
   if (groupIds.length === 0) {
     return compact ? null : <span className="text-xs text-ink/35">—</span>;
   }
@@ -2129,7 +2135,7 @@ function GroupChipList({
                 ? 'inline-flex items-center gap-1 text-[11px] text-ink/60'
                 : `inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${TEAM_SIDE_CHIP[grp.team_side]}`
             }
-            title={`${grp.label} · ${TEAM_SIDE_LABELS[grp.team_side]}`}
+            title={hasSides ? `${grp.label} · ${TEAM_SIDE_LABELS[grp.team_side]}` : grp.label}
           >
             <span className="max-w-[10ch] truncate">{grp.label}</span>
             {isCurrent ? (

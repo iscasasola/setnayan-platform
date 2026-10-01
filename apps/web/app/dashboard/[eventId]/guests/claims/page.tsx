@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { guestFullName, RSVP_LABELS, type GuestRole, type RsvpStatus } from '@/lib/guests';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
+import { eventHasSides } from '@/lib/guest-side-question';
 import { candidateName, unlinkedCandidates } from '@/lib/unlisted-guests';
 import {
   REQUEST_ANSWERS,
@@ -173,13 +174,15 @@ export default async function RequestsPage({ params, searchParams }: Props) {
   }
 
   // The Keep form's choices — what THIS event offers (the action re-checks).
-  const [{ offeredRoles }, { data: groupsRaw }] =
+  const [{ offeredRoles, coupleRoles }, { data: groupsRaw }] =
     rows.length > 0
       ? await Promise.all([
           resolveRoleSetForEvent(eventId),
           supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId).order('label'),
         ])
-      : [{ offeredRoles: [] as GuestRole[] }, { data: [] }];
+      : [{ offeredRoles: [] as GuestRole[], coupleRoles: new Set<string>() }, { data: [] }];
+  // A sideless event (a birthday, a wake…) never teaches bride/groom/both.
+  const hasSides = eventHasSides({ coupleRoles });
   const groupChoices = (groupsRaw ?? []) as { group_id: string; label: string; team_side: string }[];
 
   // The suggested match for each request — a suggestion the couple acts on with
@@ -388,6 +391,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                           <KeepQuickAdd
                             defaultLine={keepLineFor(name, g.notes)}
                             offeredRoles={offeredRoles}
+                            hasSides={hasSides}
                             existingGroups={groupChoices.map((gr) => gr.label.toLowerCase())}
                           />
                         </RoleNamesProvider>

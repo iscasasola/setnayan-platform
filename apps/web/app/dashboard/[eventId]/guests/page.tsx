@@ -625,7 +625,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         const grp = groupById.get(gid);
         if (!grp) continue;
         parts.push(grp.label);
-        parts.push(TEAM_SIDE_LABELS[grp.team_side]);
+        if (hasSides) parts.push(TEAM_SIDE_LABELS[grp.team_side]);
       }
       if (parts.length > 0) groupBlobByGuestId.set(guestId, parts.join(' '));
     }
@@ -669,7 +669,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         g.custom_tags.join(' '),
         roleSearchLabel,
         roleEnumNormalized,
-        SIDE_LABELS[g.side],
+        // A sideless event's every guest is 'both' — "both" would match them all.
+        hasSides ? SIDE_LABELS[g.side] : '',
         GROUP_CATEGORY_LABELS[g.group_category],
         RSVP_LABELS[g.rsvp_status],
         groupBlob,
@@ -1863,6 +1864,7 @@ function SummaryFacetBar({
                   eventId={eventId}
                   groups={groups}
                   currentGroupId={currentGroupId}
+                  hasSides={hasSides}
                   layout="inline"
                   hrefByGroupId={{}}
                 />

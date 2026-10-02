@@ -35,8 +35,9 @@ import {
   type RsvpWordKey,
 } from '@/lib/rsvp-ask';
 import {
-  GUESTS_GET_IN_CHOICES,
   GUESTS_GET_IN_LABEL,
+  guestsGetInLabel,
+  guestsGetInOptions,
   guestsGetInPatch,
   isGuestsGetIn,
   readGuestsGetIn,
@@ -286,7 +287,8 @@ export function MakerRsvpSettings({
         label={GUESTS_GET_IN_LABEL}
         dataAttr="data-rsvp-who-pick"
         value={getInNow}
-        options={GUESTS_GET_IN_CHOICES.map((c) => ({ key: c.value, label: c.label, hint: c.hint }))}
+        buttonText={guestsGetInLabel(getInNow)}
+        options={guestsGetInOptions()}
         onPick={(value) =>
           value === getInNow || !isGuestsGetIn(value) ? undefined : save(guestsGetInPatch(value), `“${GUESTS_GET_IN_LABEL}”`)
         }

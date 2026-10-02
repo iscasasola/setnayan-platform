@@ -239,7 +239,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<Globe aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Public"
-            blurb={`Anyone can open your ${eventNoun(event.event_type)}'s page and read it, and it may be shown on Setnayan's public pages. Getting inside is different: your Event Hub and a camera for the day open only with a guest's own key \u2014 the personal link or QR you send them. Choosing Public here turns on \u201cAnyone, I approve\u201d in your RSVP settings (launching a Save-the-Date does not), so someone without a key can ask to join; they wait in Requests until you Keep, Link or Remove them. You can turn requests off there at any time. Search engines may index the page after your ${eventNoun(event.event_type)} day.`}
+            blurb={`Anyone can open your ${eventNoun(event.event_type)}'s page and read it, and it may be shown on Setnayan's public pages. Getting inside is different: your Event Hub and a camera for the day open only with a guest's own key \u2014 the personal link or QR you send them. Choosing Public here turns on \u201cAccept\u201d under \u201cHow guests get in\u201d in your RSVP settings (launching a Save-the-Date does not), so someone without a key can ask to join; they wait in Requests until you Keep, Link or Remove them. You can turn requests off there at any time. Search engines may index the page after your ${eventNoun(event.event_type)} day.`}
           />
 
           <VisibilityCard
@@ -247,7 +247,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<EyeOff aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Unlisted"
-            blurb="Anyone you share the link with can open your page and read it. It won't be indexed by search engines or shown on Setnayan's public pages. The link shows the page only — your Event Hub and a camera still need a guest's own key. With “Anyone, I approve” on in your RSVP settings, someone without a key can ask to join, and they wait in Requests until you Keep, Link or Remove them."
+            blurb="Anyone you share the link with can open your page and read it. It won't be indexed by search engines or shown on Setnayan's public pages. The link shows the page only — your Event Hub and a camera still need a guest's own key. With “Accept” chosen under “How guests get in” in your RSVP settings, someone without a key can ask to join, and they wait in Requests until you Keep, Link or Remove them."
           />
 
           {/* Owner 2026-08-15 — the fourth audience, between "link only" and
@@ -263,7 +263,7 @@ export default async function PrivacyEditorPage({
             currentValue={currentVisibility}
             icon={<Users aria-hidden className="h-5 w-5 text-terracotta" strokeWidth={1.75} />}
             title="Only guests with a Setnayan account"
-            blurb="People on your guest list who are signed in to Setnayan can view it. Anyone else — including someone you send the link to — sees the locked screen. Guests are recognised by the email on their guest-list entry, so a guest with no email saved, or who hasn't signed up, won't be let in yet. This locks the page, not the join link — with “Anyone, I approve” on in your RSVP settings, someone you share the link with can still ask to join, and they wait in Requests until you Keep, Link or Remove them. Nobody gets inside on the link alone. Your guests' own QR codes carry each guest's name, seat and your limits for them. Choose Private when you want the join link closed."
+            blurb="People on your guest list who are signed in to Setnayan can view it. Anyone else — including someone you send the link to — sees the locked screen. Guests are recognised by the email on their guest-list entry, so a guest with no email saved, or who hasn't signed up, won't be let in yet. This locks the page, not the join link — with “Accept” chosen under “How guests get in” in your RSVP settings, someone you share the link with can still ask to join, and they wait in Requests until you Keep, Link or Remove them. Nobody gets inside on the link alone. Your guests' own QR codes carry each guest's name, seat and your limits for them. Choose Private when you want the join link closed."
           />
 
           <VisibilityCard

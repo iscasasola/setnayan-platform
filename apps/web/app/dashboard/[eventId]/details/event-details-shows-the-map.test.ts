@@ -138,13 +138,13 @@ test('Event Home carries the Event Details button beside the event name', () => 
 });
 
 test('how guests get in — one fact, the shipped readers', () => {
-  assert.deepEqual(howGuestsGetIn(null), { value: 'Only people on my list', chosen: false });
-  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'Anyone, I approve', chosen: true });
-  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'No reply · a personal QR for each guest');
-  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'No reply · one QR for everyone');
+  assert.deepEqual(howGuestsGetIn(null), { value: 'List only · Guests reply', chosen: false });
+  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'Accept · Guests reply', chosen: true });
+  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'List only · No reply, each gets their own QR');
+  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'Open · One QR for everyone');
   assert.equal(
     howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone', approveEach: true }).value,
-    'No reply · one QR, I approve each one',
+    'Accept · No reply, one QR, I approve each',
   );
 });
 

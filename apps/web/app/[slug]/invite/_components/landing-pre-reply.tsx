@@ -55,7 +55,7 @@ export function LandingPreReply({
     <>
       <div data-landing="message" className="space-y-3">
         <div
-          className="sn-glass-bare rounded-2xl bg-white/95 px-[18px] py-4 text-[15px] leading-relaxed text-ink shadow-sm"
+          className="sn-glass-bare rounded-2xl bg-cream/95 px-[18px] py-4 text-[15px] leading-relaxed text-ink shadow-sm"
           data-landing-message=""
         >
           <p>{message}</p>

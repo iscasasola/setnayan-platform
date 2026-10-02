@@ -1,0 +1,15 @@
+## 2026-10-03 · fix(guest): the invite pages wear the event's look; a personal link's hop has one writer; Save opens the provider it names; every notice email says its own reason
+
+Four findings from the owner's live iPhone test on prod `5666406` (event cale-ice).
+
+**1 · The personal landing / thank-you wore the bare door.** `/[slug]/invite/enter` resolved its look through the DOOR's resolver (`loadInviteLook`), which returns no skin for Classic (`house`) and never reads the mood-board palette — so a Classic + palette event rendered white, terracotta, sans, while its Event Hub wore ivory and gold. The guest-tree layout deliberately leaves `/invite/*` undressed, and only the RSVP dressed itself. The RSVP's `wearTheHub` moved to `app/[slug]/invite/_lib/wear-the-hub.ts` and BOTH pages call it: `GuestLookScope` + the Main background + `hubDoorSkin` (the couple's logo as the crest, the hub's button colour). The landing's message cards and soft pill moved from literal white to the page's paper (`bg-cream`), so a dark theme's ink never lands on white. The couple's own invitation line (the words typed over "invite you to celebrate…" on the hero — `elements.line.word`) now shows under their names (`heroLineWord`); none typed, none shown. ⚖ It shows even when the couple hid the line on the hero (cale-ice has `hidden: true`) — owner call, flagged in the PR.
+
+**2 · A personal link opened the Event Hub on one phone.** Not reproduced (the phone was not inspected). The server hop (`/{slug}?invite=` → `redeem` → `invite/enter`) is deterministic; the two device-dependent things on it were taken off it: the service worker no longer answers a pass-hop navigation (`?invite=`, `redeem`, `seat/claim`, `sign-out`, the Papic hand-off) — it is left to the browser, the same on every phone — and the middleware's sliding refresh no longer re-signs the OLD pass onto a pass hop or a Server Action (two writers of one cookie in one response). `lib/guest-pass-hop.ts` holds the predicate; `public/sw.js` carries a copy that the test runs against it.
+
+**3 · "Save to my account" said Apple and opened Google.** The page picked the provider from the page request's user-agent; the Server Action re-picked it from the POST's. The form now carries the pick the button showed (`SAVE_METHOD_FIELD`) and both actions (`startAccountSaveAction`, the plus-one welcome) take it via `saveMethodFromForm` while that provider is on; anything else falls back to the device rule.
+
+**4 · The couple's RSVP email said "because you started a Papic gallery".** `emitNotification` passed no footer, so every allowlisted type inherited the template default. `lib/notification-email-reason.ts` gives each of the 51 allowlisted types its own line; the HTML footer and the plain-text tail both carry it (admin mail keeps the admin sentence).
+
+Guards (each sabotaged once → red → restored): `the-door-wears-the-hub.test.ts` § 3, `lib/guest-pass-hop.test.ts`, `the-save-button-opens-what-it-says.test.ts`, `lib/every-notice-email-says-its-own-reason.test.ts`; `page-ground.test.ts` and `plus-ones-own-link-and-host.test.ts` follow the moves.
+
+SPEC IMPACT: None

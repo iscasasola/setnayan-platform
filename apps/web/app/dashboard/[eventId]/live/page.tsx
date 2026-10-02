@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
@@ -77,7 +78,7 @@ export default async function LiveWallConsolePage({
   // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer reaches the
   // console too. Replaces the event_software_activations_v2 read whose only
   // writer (verify_and_activate_manual_payment) had zero app callers.
-  const owns = await eventSkuActive(supabase, eventId, 'LIVE_WALL');
+  const owns = await eventSkuActive(await eventEntitlementClient(eventId), eventId, 'LIVE_WALL');
 
   if (!owns) {
     // Not purchased — a quiet doorway to the add-on, not a dead end. Price

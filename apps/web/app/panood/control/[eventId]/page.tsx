@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -421,7 +422,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // section below — NOT multicam entitlement, which stays keyed on LIVE_STUDIO_SKU
   // alone (resolved further down via `entitled`/`lock`). See the SKU's own
   // docblock in lib/live-studio-control.ts.
-  const ownsHostedChannel = await eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU);
+  //
+  // 🔑 A PURCHASE UNLOCKS THE EVENT (owner 2026-10-02). Read through the one
+  // host-facing resolver — the service client, for a host of THIS event — so a
+  // co-host who did not place the order sees the same answer the server gate
+  // (checkoutPoolChannel → eventHoldsHostedChannel) acts on. Through `supabase`
+  // (purchaser-scoped `orders` RLS) they were told "no route" while the server
+  // would have handed them the channel.
+  const ent = await eventEntitlementClient(eventId);
+  const ownsHostedChannel = await eventSkuActive(ent, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU);
 
   // ── Camera channels (control-plane; RLS scopes to the host's own event).
   // Refused, the operator sees NO camera zones — identical to an event that has
@@ -712,7 +721,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // Membership was verified above by isLiveStudioSetupHost, which is the
   // authorization boundary; the same posture the Wave 5 program pop-out already
   // documents for the identical read.
-  const broadcastWindow = await resolveBroadcastWindow(admin, eventId);
+  const broadcastWindow = await resolveBroadcastWindow(ent, eventId);
 
   // `owned`/`entitled` used to differ (a lapsed event-day was entitled but not
   // currently owned; LS6 retired that gap). They are the SAME boolean now — kept

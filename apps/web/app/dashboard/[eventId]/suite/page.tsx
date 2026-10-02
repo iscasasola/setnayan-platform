@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import {
   ADD_ONS,
   appStoreDetailHref,
@@ -25,7 +26,6 @@ import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { STORE_SHELL_HIDDEN_ADDON_KEYS, isStoreShellWebOnlyPath } from '@/lib/store-shell';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { createAdminClient } from '@/lib/supabase/admin';
 import {
   resolveProfileByEvent,
   surfaceEnabled,
@@ -265,7 +265,7 @@ export default async function SuitePage({ params }: Props) {
     { data: eventRow, error: eventRowError },
     { data: savedVendorRows, error: savedVendorRowsError },
   ] = await Promise.all([
-    eventActiveSkus(createAdminClient(), eventId),
+    eventActiveSkus(await eventEntitlementClient(eventId), eventId),
     supabase
       .from('platform_retail_catalog_v2')
       .select('service_code, retail_price_php')

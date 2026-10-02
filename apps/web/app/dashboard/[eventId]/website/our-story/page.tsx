@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { makerProUsable } from '@/lib/paid-mark';
 import { CheckCircle2 } from 'lucide-react';
@@ -160,10 +161,12 @@ export default async function OurStoryEditorPage({
       : {};
   const moments = resolveMoments(story);
 
+  // The EVENT holds Pro, not the person who paid (owner 2026-10-02).
+  const ent = await eventEntitlementClient(eventId);
   const [proActive, proOwned, proSku, storeShell, look, otherEvents] = await Promise.all([
     // 👁 As the viewer is shown it — the Maker's Love Story is this page.
-    asViewed(eventCoupleWebsiteProActive(supabase, eventId).catch(() => false)),
-    asViewed(eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false)),
+    asViewed(eventCoupleWebsiteProActive(ent, eventId).catch(() => false)),
+    asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => false)),
     formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
     isStoreShellRequest(),
     resolveHubTheme(event).catch(() => null),

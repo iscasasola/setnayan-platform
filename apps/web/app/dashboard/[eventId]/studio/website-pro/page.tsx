@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowUpRight, Clock, Globe2, Sparkles } from 'lucide-react';
@@ -121,8 +122,8 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
   // pending 'submitted' order (double-buy prevention). owned && !active ⇒
   // payment under review.
   const [active, owned] = await Promise.all([
-    eventCoupleWebsiteProActive(admin, eventId).catch(() => false),
-    eventOwnsCoupleWebsitePro(admin, eventId).catch(() => false),
+    eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
+    eventOwnsCoupleWebsitePro(await eventEntitlementClient(eventId), eventId).catch(() => false),
   ]);
 
   const supabase = await createClient();

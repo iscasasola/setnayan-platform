@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -464,7 +465,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
   // the Play-mode camera settles (free events keep the static mark, so the
   // seat-plan tool stays free). A missing orders table/column resolves to false
   // (no bloom); other read errors propagate, matching the codebase pattern.
-  const ownsAnimatedMonogram = await eventAnimatedMonogramActive(supabase, eventId);
+  const ownsAnimatedMonogram = await eventAnimatedMonogramActive(await eventEntitlementClient(eventId), eventId);
 
   // 3D Booth Ads · Part A (slice 9, flag-gated): dashed "ghost booths" for the
   // vendor categories this couple hasn't booked, placed on free perimeter wall

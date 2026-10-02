@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway } from './_components/access-requests-doorway';
@@ -324,7 +325,9 @@ export default async function EventHomePage({
   */
   const afterActive = lifecyclePhase === 'after';
   const afterSummaryRead: Promise<AfterSummary | null> = afterActive
-    ? loadAfterSummary(adminClient, eventId).catch(() => null)
+    ? eventEntitlementClient(eventId)
+        .then((ent) => loadAfterSummary(ent, eventId))
+        .catch(() => null)
     : Promise.resolve(null);
   const dayOfRead = (async () => {
     let dayOfBlocks: Awaited<ReturnType<typeof fetchScheduleBlocks>> = [];
@@ -347,7 +350,7 @@ export default async function EventHomePage({
       // reads below, never after them — it needs none of their answers.
       const liveWallRead = (async () => {
         try {
-          return await eventSkuActive(adminClient, eventId, 'LIVE_WALL');
+          return await eventSkuActive(await eventEntitlementClient(eventId), eventId, 'LIVE_WALL');
         } catch {
           return false;
         }

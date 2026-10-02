@@ -1,5 +1,6 @@
 'use server';
 
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -166,8 +167,8 @@ export async function setLive(
   //
   // Only an event that has already spent its window is stopped, and it is told why.
   if (isLive) {
-    const supabase = await createClient();
-    const tier = await resolvePanoodTier(supabase, eventId);
+    // The EVENT holds the controller, not the person who paid (owner 2026-10-02).
+    const tier = await resolvePanoodTier(await eventEntitlementClient(eventId), eventId);
     const control = await fetchOrInitControlStateAdmin(gate.admin, eventId);
     const allowed = canStartBroadcast({
       paid: tier !== 'free',

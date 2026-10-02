@@ -16,7 +16,10 @@
  * 308 = permanent + method-preserving, the same shape as the `/services` and
  * `/add-ons` forwards beside it in the middleware. The destination is the one
  * each stub redirected to, unchanged. The stubs dropped the query string, and so
- * does this (only the `what-to-bring` pair carries its own).
+ * does this: no destination here carries a query string of its own, and the
+ * visitor's is not appended (`new URL(target, request.url)` in the middleware
+ * takes only the path). `/dashboard/<eventId>/website/what-to-bring` is NOT in
+ * this map — it is still a page (see `lib/legacy-redirects.test.ts`).
  *
  * ⚠ EXACT PATHS ONLY (a trailing slash is tolerated). A retired path's child is
  * a different URL and is not forwarded.

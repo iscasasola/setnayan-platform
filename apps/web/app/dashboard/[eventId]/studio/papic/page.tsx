@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
@@ -529,11 +530,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .select('retail_price_php, is_active')
       .eq('package_code', 'PAPIC_UNLOCK')
       .maybeSingle(),
-    eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
+    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'PAPIC_UNLOCK'),
     // The ₱9,000 twin frees the ₱30 rung it was sold against — today's Mini
     // (legacy 'roll'). It does NOT cover the new ₱50 Ltd rung. See
     // lib/papic-cameras.ts CameraQuoteOpts.
-    eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK_LTD'),
+    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'PAPIC_UNLOCK_LTD'),
     fetchPlatformSettings(supabase),
     // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
     unlockAdmin
@@ -541,7 +542,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .select('retail_price_php, is_active')
       .eq('service_code', 'HIGH_RES_ARCHIVE')
       .maybeSingle(),
-    eventSkuActive(unlockAdmin, eventId, 'HIGH_RES_ARCHIVE'),
+    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'HIGH_RES_ARCHIVE'),
   ]);
   if (unlockPkgError) {
     logQueryError('PapicPage.unlockPkg', unlockPkgError, { event_id: eventId }, 'graceful_degrade');

@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Sparkles } from 'lucide-react';
@@ -128,7 +129,7 @@ export default async function SetnayanAiPage({ params }: Props) {
   // → checkOrderOwnership swallows 42P01/42703).
   const owns =
     event.setnayan_ai_active === true ||
-    (await eventOwnsSku(supabase, eventId, SKU_CODE));
+    (await eventOwnsSku(await eventEntitlementClient(eventId), eventId, SKU_CODE));
 
   // Per-EVENT-TYPE pricing (owner-locked 2026-07-22): the price is this event
   // type's tier on the load ladder — ₱1,499 Wedding · ₱899 Debut/Corporate ·

@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { hubSetupApplies } from '@/lib/hub-setup-locks';
 import { resolveMonogram } from '@/lib/monogram';
@@ -221,7 +222,7 @@ export default async function WebsiteEditorPage({
     /* 👁 As the viewer is SHOWN it (`lib/view-as-free.server.ts`): an internal
        viewer who switched on "View as a free couple" gets every padlock and
        Pro offer below. Render only — each panel's action asks the real gate. */
-    asViewed(eventCoupleWebsiteProActive(supabase, eventId)),
+    asViewed(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
     /*
       ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
       `platform_retail_catalog_v2` is admin-managed and is the only figure a

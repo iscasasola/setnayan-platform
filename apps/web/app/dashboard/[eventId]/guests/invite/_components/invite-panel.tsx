@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { ArrowRight, QrCode } from 'lucide-react';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
@@ -79,7 +80,7 @@ export async function InvitePanel({
     // + the QR look's columns (lib/qr-look.server.ts): the join-link code below
     // wears the event's look, and Pro is already measured on this same read.
     lookAdmin.from('events').select(`invite_theme, event_type, ${QR_LOOK_COLUMNS}`).eq('event_id', eventId).maybeSingle(),
-    eventCoupleWebsiteProActive(lookAdmin, eventId).catch(() => false),
+    eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
   ]);
   if (lookError) {
     // Graceful: the picker falls back to House and the page still works — but the

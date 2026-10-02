@@ -18,7 +18,6 @@ export const SETUP_CARD_IDS = [
   'setup_where',
   'setup_photo',
   'setup_look',
-  'setup_entry',
   'setup_guests',
   'setup_more',
 ] as const;
@@ -102,8 +101,9 @@ export function setupDefaults(view: SetupView): SetupAnswers {
     photo: 'theme',
     look: defaultLookId(view),
     reply: view.replyDefault,
-    // The easiest door (owner answer #5, 2026-10-01): one QR for everyone.
-    entry: 'one_qr',
+    // ⚖ Owner d24 (2026-10-02): a personal QR for each guest — changed later in Event Details.
+    // A wake has no guest list to hand a QR to, so it keeps the one QR everyone shares.
+    entry: view.guestList ? 'personal' : 'one_qr',
     requests: false,
     guests: view.guestList ? null : 'later',
     logo: 'no',
@@ -111,24 +111,6 @@ export function setupDefaults(view: SetupView): SetupAnswers {
     papic: view.cameraDefault === 'off' ? 'no' : 'yes',
     gifts: view.giftsMode === 'none' ? 'no' : 'yes',
   };
-}
-
-/**
- * 🎟 A wedding's "How do guests get in?" is ONE dropdown of three (DECISION_LOG
- * 2026-10-01 "YES TO ALL"): Guest list · Guest list + requests · Open event. It
- * is a view over the three fields the engine already holds (`reply`, `entry`,
- * `requests`), so the commit, the Guest list and the guard read ONE shape.
- */
-export type GuestsIn = 'list' | 'requests' | 'open';
-
-export function guestsInOf(a: Pick<SetupAnswers, 'reply' | 'requests'>): GuestsIn {
-  if (a.reply === 'no') return 'open';
-  return a.requests ? 'requests' : 'list';
-}
-
-export function applyGuestsIn(choice: GuestsIn): Partial<SetupAnswers> {
-  if (choice === 'open') return { reply: 'no', entry: 'one_qr', requests: false };
-  return { reply: 'yes', requests: choice === 'requests' };
 }
 
 /**
@@ -171,8 +153,6 @@ export function setupQuickAnswers(card: SetupCardId, solemn: boolean): string[] 
       return [solemn ? 'A plain notice for now' : 'Use a theme picture for now'];
     case 'setup_look':
       return ['Keep the one picked'];
-    case 'setup_entry':
-      return ['Keep the usual'];
     case 'setup_guests':
       return [solemn ? 'Later' : 'I’ll add them later'];
     case 'setup_more':

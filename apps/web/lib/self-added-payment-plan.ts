@@ -206,7 +206,7 @@ export function buildCouplePaymentPlan(opts: {
   if (undated) {
     return {
       ok: false,
-      message: `"${undated.label}" is set before the event, but your event date isn't fixed yet. Set it for after you lock instead, or set your date first.`,
+      message: `"${undated.label}" is set before the event, but your event date isn't fixed yet. Set it for after you book instead, or set your date first.`,
     };
   }
 

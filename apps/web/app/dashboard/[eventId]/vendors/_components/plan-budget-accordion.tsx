@@ -892,7 +892,7 @@ export function PlanBudgetAccordion({
                   <span className="pc-b">Add to build</span>
                   <span>
                     the ones you like — assemble them on the Build tab, then
-                    lock your final picks. You can change it anytime.
+                    book your final picks. You can change it anytime.
                   </span>
                 </div>
               </div>
@@ -1392,7 +1392,7 @@ function DependencyNudge({
         {soft ? '↪' : '⏳'}
       </span>
       <span>
-        {soft ? 'Tip: lock your ' : 'Lock your '}
+        {soft ? 'Tip: book your ' : 'Book your '}
         <strong>{dep.prereqLabel}</strong>
         {soft
           ? ` first — it sharpens your ${label} matches.`
@@ -1424,11 +1424,11 @@ function DeadlineChip({
     if (multiPick && lockedCount && lockedCount > 0) {
       return (
         <span className="chip locked">
-          ✓ {formatCount(lockedCount)} locked · add more
+          ✓ {formatCount(lockedCount)} booked · add more
         </span>
       );
     }
-    return <span className="chip locked">✓ Locked</span>;
+    return <span className="chip locked">✓ Booked</span>;
   }
   if (status === 'overdue' && daysLeft !== null) {
     return <span className="chip over">⚠ {Math.abs(daysLeft)}d overdue</span>;
@@ -1790,8 +1790,8 @@ function VendorCardAtom({
       {!locked && showLockHint && (
         <p className="lockhint">
           Adding to your build pins this pick for the category — your budget
-          updates. Confirm it on the Lock tab when you&rsquo;re ready; nothing&rsquo;s
-          committed until you lock.
+          updates. Confirm it on the Book tab when you&rsquo;re ready; nothing&rsquo;s
+          committed until you book.
         </p>
       )}
 
@@ -2180,7 +2180,7 @@ function CompareSheet({
 
         <div className="cmpfoot">
           Comparing only shows what you&rsquo;ve shortlisted — it never changes
-          your pick. Lock a vendor from its card.
+          your pick. Book a vendor from its card.
         </div>
       </div>
     </div>

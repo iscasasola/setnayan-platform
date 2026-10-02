@@ -106,7 +106,7 @@ export function TeamClearCandidates({ eventId }: { eventId: string }) {
             body: (
               <>
                 This empties your build — every vendor you’re still weighing up comes off. Your{' '}
-                <span className="font-medium text-ink">locked vendors stay</span> (they’re
+                <span className="font-medium text-ink">booked vendors stay</span> (they’re
                 contracts), and so does anything mid-handshake.
               </>
             ),

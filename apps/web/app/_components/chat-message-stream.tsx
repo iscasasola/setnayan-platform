@@ -1224,10 +1224,10 @@ export function ChatMessageStream({
                               vendorName={counterpartyLabel}
                               label={
                                 isLockHandshakeEnabled()
-                                  ? `🔒 Ask ${counterpartyLabel} to lock`
-                                  : `🔒 Lock ${counterpartyLabel}`
+                                  ? `Ask ${counterpartyLabel} to confirm your booking`
+                                  : `Book ${counterpartyLabel}`
                               }
-                              pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Locking…'}
+                              pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
                               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
                               wrapperClassName="flex w-full flex-col items-start"
                               source="chat_quote_card"
@@ -1237,7 +1237,7 @@ export function ChatMessageStream({
                               href={lockTarget.benchHref}
                               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
                             >
-                              🔒 Lock on your Vendors page
+                              Book on your Suppliers page
                             </Link>
                           )
                         ) : null}

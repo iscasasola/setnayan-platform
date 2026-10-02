@@ -172,7 +172,7 @@ const NO_SETUP_STEPS: readonly SetupCardId[] = [];
    it is the first time this funnel tells a couple that Papic exists at all. The
    2026-06-21 "no paywall in onboarding" lock is untouched; `plan`/`services`/
    `summary` stay filtered out exactly as before. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_entry','setup_guests','setup_more','w_names','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_guests','setup_more','w_names','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -301,7 +301,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   exp_for_whom:'Continue', exp_feel:'Continue', exp_energy:'Continue', exp_roots:'Continue', exp_effort:'Continue',
   exp_help:'Continue', exp_source:'Continue', exp_reveal:'Continue',
   // 🎟 The setup cards (G1) — the shared SetupCard, advanced by the chrome Continue.
-  setup_where:'Continue', setup_photo:'Continue', setup_look:'Continue', setup_entry:'Continue', setup_guests:'Continue', setup_more:'Continue',
+  setup_where:'Continue', setup_photo:'Continue', setup_look:'Continue', setup_guests:'Continue', setup_more:'Continue',
   // 🧭 The approved wedding cards (lib/onboarding/wedding-cards.ts).
   w_names:'Continue', w_kind:'Continue', w_area:'Continue', w_pax:'Continue', w_budget:'Continue', w_colours:'Continue',
 };
@@ -4584,7 +4584,7 @@ export function OnboardingShell({
               <div className="aikeep-lede">The <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} we just matched to your date, budget &amp; style? That was <b>Setnayan AI</b>. Keep it for every other vendor.</div>
               <ul className="aikeep-bens">
                 <li><span className="ic" aria-hidden="true">✓</span><span><b>Matches every vendor to you</b> — region, date, guests, budget, venue &amp; style, checked at once.</span></li>
-                <li><span className="ic" aria-hidden="true">◷</span><span><b>Your deadline timeline</b> — what to lock next, and by when, so nothing slips.</span></li>
+                <li><span className="ic" aria-hidden="true">◷</span><span><b>Your deadline timeline</b> — what to book next, and by when, so nothing slips.</span></li>
                 <li><span className="ic" aria-hidden="true">➤</span><span><b>Reaches your best matches</b> — first inquiries sent for you, plus last-minute access.</span></li>
               </ul>
               {pricing.setnayanAi && (

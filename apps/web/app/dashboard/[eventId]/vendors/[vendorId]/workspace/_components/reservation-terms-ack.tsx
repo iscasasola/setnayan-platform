@@ -44,7 +44,7 @@ export function ReservationTermsAck({
       </div>
 
       <p className="text-[11px] leading-snug text-ink/55">
-        You agreed to {vendorName}&rsquo;s first payment policy when you locked this
+        You agreed to {vendorName}&rsquo;s first payment policy when you booked this
         booking. These are the exact terms on record — they can&rsquo;t be changed
         after the fact.
       </p>

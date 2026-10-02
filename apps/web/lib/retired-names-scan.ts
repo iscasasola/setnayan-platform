@@ -99,11 +99,15 @@ export interface RetiredNameFinding {
   readonly line: number;
   /** The literal / JSX text the hit sits in, collapsed to one line. */
   readonly text: string;
+  /** The same text, longer — for a reasoned allowlist that must match past the first 140 characters. */
+  readonly context: string;
 }
 
 /** Code punctuation that glues a word into a key, route, path or class name. */
-const GLUED_BEFORE = /[A-Za-z0-9_/.\-@#=?&:$]$/;
-const GLUED_AFTER = /^(?:[A-Za-z0-9_/\-(]|!(?:inner|left)|\.[a-z_])/;
+const GLUED_BEFORE = /[A-Za-z0-9_/.\-@#=?&:${]$/;
+const GLUED_AFTER = /^(?:[A-Za-z0-9_/\-(}]|!(?:inner|left)|\.[a-z_])/;
+
+const CODE_ATTR = /^(className|id|key|href|src|name|type|role|htmlFor|style|slot|data-.*)$/;
 
 function wordRe(name: RetiredName): RegExp {
   return new RegExp(`${name.pattern}(?:s)?`, name.caseSensitive ? 'g' : 'gi');
@@ -129,8 +133,8 @@ export function isVisibleHit(text: string, index: number, len: number, jsx: bool
   return bare.length === len && /^[A-Z][a-z]/.test(bare);
 }
 
-function collapse(s: string): string {
-  return s.replace(/\s+/g, ' ').trim().slice(0, 140);
+function collapse(s: string, max = 140): string {
+  return s.replace(/\s+/g, ' ').trim().slice(0, max);
 }
 
 /** Scan one file's SOURCE. `fileName` decides only the parser mode. */
@@ -155,6 +159,7 @@ export function scanRetiredNames(
           now: name.now,
           line: sf.getLineAndCharacterOfPosition(node.getStart(sf)).line + 1,
           text: collapse(text),
+          context: collapse(text, 1200),
         });
       }
     }
@@ -176,7 +181,9 @@ export function scanRetiredNames(
     } else if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
       // An import/export specifier is a path, never a word on a screen.
       const p = node.parent;
-      if (!(p && (ts.isImportDeclaration(p) || ts.isExportDeclaration(p) || ts.isExternalModuleReference(p)))) {
+      // …nor is a class name, id, key or route held in a JSX attribute.
+      const codeAttr = p && ts.isJsxAttribute(p) && CODE_ATTR.test(p.name.getText(sf));
+      if (!(p && (ts.isImportDeclaration(p) || ts.isExportDeclaration(p) || ts.isExternalModuleReference(p))) && !codeAttr) {
         check(node, node.text, false);
       }
     } else if (ts.isTemplateExpression(node)) {

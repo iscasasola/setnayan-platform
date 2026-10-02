@@ -128,7 +128,7 @@ export function installmentDueText(
     return `${words} (${shortDate(when)})`;
   }
   if (due === 'on_event') return valid ? `on the event day (${shortDate(valid)})` : 'on the event day';
-  return 'on lock';
+  return 'on booking';
 }
 
 /**
@@ -229,7 +229,7 @@ export function acceptedQuoteTerms(
 export function firstPaymentSentence(terms: AcceptedQuoteTerms | null): string | null {
   if (!terms || terms.firstPaymentCentavos === null) return null;
   const row = terms.schedule.find((s) => s.isFirstPayment);
-  return `First payment requested: ${pesoFromCentavos(terms.firstPaymentCentavos)} — due ${row?.dueText ?? 'on lock'}`;
+  return `First payment requested: ${pesoFromCentavos(terms.firstPaymentCentavos)} — due ${row?.dueText ?? 'on booking'}`;
 }
 
 export type DepositAmountDecision =
@@ -632,7 +632,7 @@ export type MoneyStep =
 
 function firstPaymentLabel(terms: AcceptedQuoteTerms | null): string {
   const row = terms?.schedule.find((r) => r.isFirstPayment);
-  return `${row?.label || 'First payment'} · locks the date`;
+  return `${row?.label || 'First payment'} · books the date`;
 }
 
 function laterStep(
@@ -788,7 +788,7 @@ export function moneyStepLine(
  * still said "nothing is booked or paid until you Lock").
  */
 export const DEFAULT_QUOTE_NOTE_TAIL =
-  'Accepting shortlists them at this price so you can compare — nothing is booked or paid until you Lock.';
+  'Accepting shortlists them at this price so you can compare — nothing is booked or paid until you Book.';
 
 /**
  * The quote's note as the page should show it. A supplier's own words are

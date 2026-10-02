@@ -1087,7 +1087,7 @@ export async function finalizeVendor(
       return {
         status: 'error',
         message:
-          'The couple has not approved vendor locking for your coordinator access — ask them to re-invite you with vendor-lock permission.',
+          'The couple has not approved vendor booking for your coordinator access — ask them to re-invite you with vendor-booking permission.',
       };
     }
   }
@@ -1461,7 +1461,7 @@ export async function finalizeVendor(
       return {
         status: 'error',
         message:
-          "We couldn't check the payment terms on your accepted quote, so nothing was locked. Please try again.",
+          "We couldn't check the payment terms on your accepted quote, so nothing was booked. Please try again.",
       };
     }
     const dpDecision = decideDepositAmount({
@@ -1476,7 +1476,7 @@ export async function finalizeVendor(
     if (!(proofEntry instanceof File) || proofEntry.size === 0) {
       return {
         status: 'error',
-        message: 'Attach a screenshot of your payment to confirm the lock.',
+        message: 'Attach a screenshot of your payment to confirm the booking.',
       };
     }
   }
@@ -2342,10 +2342,10 @@ export async function finalizeVendor(
         type: 'payment_info_sent',
         title: 'Your payment info is ready',
         body: seededDefault
-          ? `Your booking with ${targetVendor.vendor_name as string} is locked. We've prepared an estimated payment plan — open the workspace to review it and confirm the terms with your vendor.`
+          ? `Your booking with ${targetVendor.vendor_name as string} is confirmed. We've prepared an estimated payment plan — open the workspace to review it and confirm the terms with your vendor.`
           : instances.length > 0
-            ? `Your booking is locked. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
-            : `Your booking with ${targetVendor.vendor_name as string} is locked. Open the workspace to see how to pay them directly.`,
+            ? `Your booking is confirmed. We've prepared the payment plan for ${targetVendor.vendor_name as string} — open the workspace to see each payment and how to pay.`
+            : `Your booking with ${targetVendor.vendor_name as string} is confirmed. Open the workspace to see how to pay them directly.`,
         relatedUrl: `/dashboard/${eventId}/vendors/${vendorId}/workspace#payments`,
       });
     }

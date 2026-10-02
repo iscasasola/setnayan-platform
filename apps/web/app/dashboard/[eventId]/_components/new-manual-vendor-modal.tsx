@@ -1094,7 +1094,7 @@ function LinkedVendorConfirmation({
       ) : (
         <p className="text-[11px] text-ink/65">
           Adding to your <span className="font-medium">{currentCategoryLabel}</span>{' '}
-          card as a considering pick. You can lock or remove them anytime.
+          card as a considering pick. You can book or remove them anytime.
         </p>
       )}
     </div>

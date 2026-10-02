@@ -231,9 +231,9 @@ export function BuildLocked({
         <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
           <LockIcon className="h-6 w-6" strokeWidth={1.5} aria-hidden />
         </span>
-        <h2 className="text-lg font-semibold text-ink">Nothing to lock yet</h2>
+        <h2 className="text-lg font-semibold text-ink">Nothing to book yet</h2>
         <p className="text-sm text-ink/60">
-          Add vendors to your build from the Shortlist, then come back here to lock them in — that
+          Add vendors to your build from the Shortlist, then come back here to book them — that
           confirms your pick, updates your budget, and notifies the vendor.
         </p>
       </div>
@@ -268,7 +268,7 @@ export function BuildLocked({
       <LockTile k="Date" v={summary?.dateLabel ?? '—'} />
       <LockTile k="Location" v={summary?.region ?? '—'} />
       <LockTile
-        k="Locked"
+        k="Booked"
         v={pesoFromPhp(money.lockedPhp) ?? '—'}
         accent
         note={unpricedNote(money.lockedUnpriced)}
@@ -280,7 +280,7 @@ export function BuildLocked({
           the build were empty, when the locked supplier IS the build. The
           number was always right; the label claimed more than it measures. */}
       <LockTile
-        k="Still to lock"
+        k="Still to book"
         v={pesoFromPhp(money.inBuildPhp) ?? '—'}
         note={unpricedNote(money.inBuildUnpriced)}
       />
@@ -311,7 +311,7 @@ export function BuildLocked({
   const orientation =
     replan && lockedRows.length === 0 ? (
       <p className="text-sm text-ink/55">
-        Nothing locked yet — start with the reception venue. It sets your date and your location,
+        Nothing booked yet — start with the reception venue. It sets your date and your location,
         and everything else follows from those two.
       </p>
     ) : null;
@@ -320,7 +320,7 @@ export function BuildLocked({
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <h3 className="font-display text-lg italic text-ink/85">
-              {replan ? 'In your build — ready to lock' : 'Ready to lock'}
+              {replan ? 'In your build — ready to book' : 'Ready to book'}
             </h3>
             {/* Same figure as the "Still to lock" tile, and it may not round a
                 missing price down to ₱0 either — `subtotalLabel` says
@@ -374,8 +374,8 @@ export function BuildLocked({
                 groupLabel={r.group}
                 vendorId={r.vendorId}
                 vendorName={r.name}
-                label="Lock to confirm"
-                pendingLabel="Locking…"
+                label="Book to confirm"
+                pendingLabel="Booking…"
                 className={LOCK_BTN_CLASS}
                 wrapperClassName=""
                 isVerified={r.isVerified}
@@ -424,7 +424,7 @@ export function BuildLocked({
 
   const lockedIn = lockedRows.length > 0 && (
         <section className="space-y-2">
-          <h3 className="font-display text-lg italic text-ink/85">Locked in</h3>
+          <h3 className="font-display text-lg italic text-ink/85">Booked</h3>
           <ul className="space-y-2">
             {lockedRows.map((r, i) => (
               <li
@@ -516,7 +516,7 @@ export function BuildLocked({
     return (
       <div className="mx-auto max-w-2xl space-y-5 px-1 py-2">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-display text-2xl italic text-ink">Lock your build</h2>
+          <h2 className="font-display text-2xl italic text-ink">Book your build</h2>
           <span className="font-display text-xl italic text-ink/80">
             {peso(model.chosenCentavos)}
           </span>

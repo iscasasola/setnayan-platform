@@ -109,7 +109,10 @@ export function lockFreezeLine(input: LockFreezeInput): LockFreezeLine {
   }
 
   if (state === 'locked') {
-    return { tone: 'booked', text: 'Deal locked — price frozen.' };
+    return {
+      tone: 'booked',
+      text: viewerRole === 'couple' ? 'Booked — price frozen.' : 'Deal locked — price frozen.',
+    };
   }
 
   if (state === 'requested') {

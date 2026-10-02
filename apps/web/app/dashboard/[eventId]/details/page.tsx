@@ -324,7 +324,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
     if (row) {
       return {
         value: row.vendor_name,
-        hint: [row.manual_vendor_id ? 'Added by you · locked' : 'From your booked supplier · locked', settingWord].filter(Boolean).join(' · '),
+        hint: [row.manual_vendor_id ? 'Added by you · fixed' : 'From your booked supplier · fixed', settingWord].filter(Boolean).join(' · '),
         locked: true,
       };
     }
@@ -481,7 +481,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
               />
               {money ? (
                 <>
-                  <Row label="Agreed" value={formatPhp(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} locked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
+                  <Row label="Agreed" value={formatPhp(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} booked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
                   <Row label="Paid" value={formatPhp(money.paid)} />
                   <Row label="Still owed" value={formatPhp(money.owed)} />
                 </>
@@ -497,7 +497,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
           ) : !vendorsRead.ok ? (
             <Row label="Suppliers" value={COULD_NOT_LOAD} />
           ) : lockedSuppliers.length === 0 ? (
-            <Row label="Locked suppliers" value={null} />
+            <Row label="Booked suppliers" value={null} />
           ) : (
             lockedSuppliers.map((s) => (
               <Row
@@ -720,10 +720,10 @@ function Row({
     <details className="group py-2.5" data-fact={fact} data-locked>
       <summary className="flex cursor-pointer list-none items-start justify-between gap-4 [&::-webkit-details-marker]:hidden">
         {body}
-        <Lock aria-label="Locked by your booking" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={1.75} />
+        <Lock aria-label="Fixed by your booking" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={1.75} />
       </summary>
       <div className="sn-glass-bare mt-2 rounded-xl px-3.5 py-3">
-        <p className="text-sm font-medium text-ink">Locked by your booking</p>
+        <p className="text-sm font-medium text-ink">Fixed by your booking</p>
         <p className="mt-1 text-[13px] text-ink/65">{lock}</p>
         <Link href="/help" className="mt-2 inline-block text-[13px] font-medium text-terracotta underline-offset-2 hover:underline">
           Contact support

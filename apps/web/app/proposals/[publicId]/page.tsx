@@ -32,7 +32,9 @@ import {
 import { formatCalendarDate } from '@/lib/events';
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import { giftQuoteCopy } from '@/lib/setnayan-gift';
-import { coupleLockDoorHref } from '@/lib/lock-door';
+import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { proposalBackDoor } from '@/lib/proposal-back';
 import { readBookedMoney, type BookedMoney } from '@/lib/booked-money-step.server';
 import { moneyStepLine, quoteNoteShown } from '@/lib/accepted-quote-terms';
@@ -333,7 +335,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     threadId: backThreadId,
   });
 
-  let lockDoorHref: string | null = null;
+  let lockTarget: CoupleLockTarget | null = null;
   if (!isVendorSide && proposal.status === 'accepted' && proposal.event_id && !bookedMoney) {
     const { data: pick, error: pickError } = await supabase
       .from('event_vendors')
@@ -347,8 +349,9 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         vendorProfileId: proposal.vendor_profile_id,
       });
     } else if (pick) {
-      lockDoorHref = coupleLockDoorHref(
+      lockTarget = coupleLockTarget(
         proposal.event_id,
+        (pick as { vendor_id: string }).vendor_id,
         (pick as { category?: string | null }).category ?? null,
       );
     }
@@ -487,7 +490,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
                     {inst.label}
                     {inst.is_downpayment ? (
                       <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta-700">
-                        locks the date
+                        books the date
                       </span>
                     ) : null}
                   </p>
@@ -666,18 +669,35 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             </Link>
           ) : null}
         </section>
-      ) : lockDoorHref ? (
+      ) : lockTarget ? (
         <section className="rounded-xl border border-terracotta/30 bg-terracotta/[0.06] p-4 print:hidden">
-          <p className="text-sm text-ink/80">
-            You&rsquo;ve accepted. To book {businessName}, ask them to lock &mdash; once they
-            confirm, it&rsquo;s booked.
-          </p>
-          <Link
-            href={lockDoorHref}
-            className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
-          >
-            Go ask {businessName} to lock <ArrowRight aria-hidden className="h-4 w-4" />
-          </Link>
+          {/* The confirm button itself — the same control and server action the chat
+              card and the Suppliers page mount — not a sentence sending them off to find it. */}
+          {lockTarget.groupId ? (
+            <AccordionLockButton
+              eventId={lockTarget.eventId}
+              groupId={lockTarget.groupId}
+              groupLabel={lockTarget.groupLabel}
+              vendorId={lockTarget.vendorId}
+              vendorName={businessName}
+              label={
+                isLockHandshakeEnabled()
+                  ? `Ask ${businessName} to confirm your booking`
+                  : `Book ${businessName}`
+              }
+              pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+              wrapperClassName="flex w-full flex-col items-start"
+              source="quote_page"
+            />
+          ) : (
+            <Link
+              href={lockTarget.benchHref}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+            >
+              Book on your Suppliers page <ArrowRight aria-hidden className="h-4 w-4" />
+            </Link>
+          )}
         </section>
       ) : null}
 

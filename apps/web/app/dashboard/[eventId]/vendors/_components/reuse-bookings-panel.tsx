@@ -33,7 +33,7 @@ export async function ReuseBookingsPanel() {
         Book a past vendor again
       </h3>
       <p className="text-xs text-ink/55">
-        Re-book a vendor you&rsquo;ve locked before for another event. They&rsquo;ll re-price it for
+        Re-book a vendor you&rsquo;ve booked before for another event. They&rsquo;ll re-price it for
         the new date — a fresh booking, so the usual booking terms apply.
       </p>
 
@@ -119,7 +119,7 @@ export async function ReuseBookingsPanel() {
               </div>
               {r.status === 'accepted' ? (
                 <p className="mt-1 text-xs text-success-800">
-                  Added to {r.targetEventLabel}. Open that event&rsquo;s vendor list to lock it in.
+                  Added to {r.targetEventLabel}. Open that event&rsquo;s vendor list to book it.
                 </p>
               ) : null}
               {r.scope.length > 0 ? (

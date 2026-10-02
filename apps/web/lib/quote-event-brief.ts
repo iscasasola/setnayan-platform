@@ -100,7 +100,7 @@ export function briefForQuote(input: QuoteEventBriefInput): QuoteEventBrief {
   if (style.length) rows.push({ label: 'Style', value: style.join(' · ') });
 
   const locked = input.lockedCategories.map(clean).filter((s): s is string => Boolean(s));
-  if (locked.length) rows.push({ label: 'Already locked', value: Array.from(new Set(locked)).sort().join(' · ') });
+  if (locked.length) rows.push({ label: 'Already booked', value: Array.from(new Set(locked)).sort().join(' · ') });
 
   const line = [clean(input.eventTypeLabel), clean(input.targetDateLabel), area].filter(Boolean).join(' · ');
 

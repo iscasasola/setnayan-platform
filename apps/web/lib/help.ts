@@ -102,7 +102,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from booking your venue through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',

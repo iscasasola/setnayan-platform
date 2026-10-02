@@ -1237,7 +1237,7 @@ export async function EventDashboard({
     {
       id: 'pick',
       title: 'Pick an option',
-      sub: 'Saved options waiting on a lock',
+      sub: 'Saved options waiting to be booked',
       items: byKind('pick'),
     },
     {

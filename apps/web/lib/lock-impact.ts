@@ -148,28 +148,28 @@ export function lockImpactCopy(impact: LockImpact, vendorName: string): LockImpa
     const titles = list(impact.plansLost.map((p) => p.title));
     lines.push(
       impact.plansLost.length === 1
-        ? `The plan “${titles}” is no longer possible — everything left in it sits in categories you have locked.`
-        : `These plans are no longer possible: ${titles}. Everything left in each one sits in categories you have locked.`,
+        ? `The plan “${titles}” is no longer possible — everything left in it sits in categories you have booked.`
+        : `These plans are no longer possible: ${titles}. Everything left in each one sits in categories you have booked.`,
     );
   }
 
   if (impact.plansThinned.length > 0) {
     const titles = list(impact.plansThinned.map((p) => p.title));
     lines.push(
-      `${titles} will load without ${impact.plansThinned.length === 1 ? 'its' : 'their'} pick for this category — your locked vendor stays instead.`,
+      `${titles} will load without ${impact.plansThinned.length === 1 ? 'its' : 'their'} pick for this category — your booked vendor stays instead.`,
     );
   }
 
   if (impact.servicesLost.length > 0) {
     const names = list(impact.servicesLost.map((s) => s.vendorName));
     lines.push(
-      `${names} no longer share a free day with your build, so ${impact.servicesLost.length === 1 ? 'they move' : 'they move'} behind “Doesn’t fit your build”. Removing this lock brings ${impact.servicesLost.length === 1 ? 'them' : 'them'} straight back.`,
+      `${names} no longer share a free day with your build, so ${impact.servicesLost.length === 1 ? 'they move' : 'they move'} behind “Doesn’t fit your build”. Removing this booking brings ${impact.servicesLost.length === 1 ? 'them' : 'them'} straight back.`,
     );
   }
 
   return {
-    headline: `Locking ${vendorName} closes some options`,
+    headline: `Booking ${vendorName} closes some options`,
     lines,
-    confirmLabel: `Lock ${vendorName} anyway`,
+    confirmLabel: `Book ${vendorName} anyway`,
   };
 }

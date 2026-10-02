@@ -30,12 +30,9 @@ import { useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
-  applyGuestsIn,
   defaultLookId,
-  guestsInOf,
   moreRows,
   setupQuickAnswers,
-  type GuestsIn,
   type SetupAnswers,
   type SetupCardId,
   type SetupView,
@@ -156,7 +153,6 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
     if (card === 'setup_where') onChange(label === 'At home' ? { where: 'home', whereText: '' } : { where: 'undecided', whereText: '' });
     if (card === 'setup_photo') onChange({ photo: 'theme' });
     if (card === 'setup_look') onChange({ look: answers.look || defaultLookId(view) });
-    if (card === 'setup_entry') onChange({ reply: view.replyDefault, entry: 'one_qr', requests: false });
     if (card === 'setup_guests') onChange({ guests: 'later' });
     onNext();
   }
@@ -172,7 +168,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
       info={copy.info}
       quick={quick}
       onQuick={answerQuick}
-      footer={card === 'setup_entry' ? 'You can change this anytime, from the Guest list' : card === 'setup_more' ? 'You can change any of these anytime' : 'You can change this anytime'}
+      footer={card === 'setup_more' ? 'You can change any of these anytime' : 'You can change this anytime'}
     >
         {card === 'setup_where' ? (
           <input
@@ -211,71 +207,6 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
             {view.looks.some((l) => l.pro) ? (
               <p className="mt-2 text-xs text-ink/50">◆ Pro — try it now; you pay only when you apply it.</p>
             ) : null}
-          </>
-        ) : null}
-
-        {card === 'setup_entry' && view.skin === 'wedding' ? (
-          <>
-            <PickMenu
-              label="Guests"
-              value={guestsInOf(answers)}
-              options={[
-                { key: 'list', label: 'Guest list', hint: 'Only people you list — each gets an invitation, RSVP and QR ticket' },
-                { key: 'requests', label: 'Guest list + requests', hint: 'Your list, and anyone with the link can ask — you say yes or no' },
-                { key: 'open', label: 'Open event', hint: 'Anyone with your event’s one QR — no list, no RSVP' },
-              ]}
-              onPick={(key) => onChange(applyGuestsIn(key as GuestsIn))}
-              dataAttr="data-setup-guests-in"
-            />
-            <p className="mt-3 text-xs text-ink/50">
-              {guestsInOf(answers) === 'open'
-                ? 'Open event skips replies and names — only a rough count is asked next.'
-                : guestsInOf(answers) === 'requests'
-                  ? 'Your list first; anyone who asks waits for your yes.'
-                  : 'Guest list is the usual for a wedding, so it’s already picked. You’ll add names after this.'}
-            </p>
-          </>
-        ) : null}
-
-        {card === 'setup_entry' && view.skin !== 'wedding' ? (
-          <>
-            <p className="text-sm font-medium text-ink/70">Will guests reply?</p>
-            <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-              {(['yes', 'no'] as const).map((v) => (
-                <button key={v} type="button" className={choice(answers.reply === v)} style={choiceStyle(answers.reply === v)} onClick={() => onChange({ reply: v })}>
-                  {v === 'yes' ? 'Yes' : 'No'}
-                  <span className="mt-1 block text-xs font-normal text-ink/50">
-                    {v === 'yes'
-                      ? view.solemn
-                        ? 'They may leave a message of sympathy.'
-                        : 'They answer the invite. You see who’s coming.'
-                      : view.solemn
-                        ? 'No reply needed. They come, and get in with a QR.'
-                        : 'No reply needed. They get in with a QR.'}
-                  </span>
-                </button>
-              ))}
-            </div>
-            {answers.reply === 'no' ? (
-              <div className="mt-4">
-                <p className="mb-2 text-sm font-medium text-ink/70">Entry</p>
-                <PickMenu
-                  label="Entry"
-                  value={answers.entry}
-                  options={[
-                    { key: 'personal', label: 'Personal QR for each guest', hint: 'Their link opens straight into the Event Hub.' },
-                    { key: 'one_qr', label: 'One QR for everyone', hint: 'Anyone who comes scans it and signs in.' },
-                    { key: 'both', label: 'Both' },
-                  ]}
-                  onPick={(key) => onChange({ entry: key as SetupAnswers['entry'] })}
-                  dataAttr="data-setup-entry"
-                />
-              </div>
-            ) : (
-              <p className="mt-3 text-xs text-ink/50">
-                {view.replyDefault === 'yes' ? 'Yes is the usual here, so it’s already picked.' : 'Replies on: the Guest list asks who may reply.'}
-              </p>
-            )}
           </>
         ) : null}
 
@@ -340,12 +271,6 @@ function cardCopy(card: SetupCardId, view: SetupView): { title: string; line: st
         title: 'Pick a look',
         line: s ? 'Quiet looks only. One pick sets the whole notice.' : 'One pick sets the background, fonts and colours.',
         info: 'The look is what your guests see. Change it any time in the Event Hub Maker.',
-      };
-    case 'setup_entry':
-      return {
-        title: 'How do guests get in?',
-        line: s ? 'A reply here is a word of sympathy, never a headcount.' : 'Replies build your list. A QR opens the door.',
-        info: 'Yes: guests answer the invite. No: they come straight in with a QR — a personal one, one for everyone, or both.',
       };
     case 'setup_guests':
       return {

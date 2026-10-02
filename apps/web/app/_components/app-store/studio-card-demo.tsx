@@ -743,7 +743,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
         <div className="flex justify-between font-mono text-[7px] uppercase tracking-[0.12em] text-ink/55"><span>Up next</span><span>4 of 18 done</span></div>
         <div className="mt-2 space-y-1.5">
           {[
-            { t: 'Lock your venue', due: '3d overdue', c: 'text-rose-700' },
+            { t: 'Book your venue', due: '3d overdue', c: 'text-rose-700' },
             { t: 'Book your caterer', due: 'Due in 5d', c: 'text-amber-700' },
             { t: 'Send save-the-dates', due: 'Due in 3w', c: 'text-ink/50' },
             { t: 'Order thank-you cards', due: 'Due in 6w', c: 'text-ink/50' },

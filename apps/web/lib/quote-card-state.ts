@@ -129,10 +129,10 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
         ? 'Accepted · booked'
         : handshake === 'requested'
           ? couple
-            ? 'Accepted · you have asked them to lock'
+            ? 'Accepted · you asked them to confirm your booking'
             : 'Accepted · the couple has asked you to lock'
           : couple
-            ? 'Accepted · nothing is booked until you lock'
+            ? 'Accepted · not booked yet'
             : 'Accepted · waiting for the couple to lock';
     return {
       primary: view,

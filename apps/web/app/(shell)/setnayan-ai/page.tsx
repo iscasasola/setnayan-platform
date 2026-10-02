@@ -219,7 +219,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   },
   {
     chip: 'Your date',
-    t: 'Lock in the right team before it’s gone',
+    t: 'Book the right team before it’s gone',
     d: 'Your supplier list marks anyone another couple starts looking at for your date, so you can choose first. And when a supplier you’re considering gets booked — or frees up — you hear it from us, not from a reply three days later.',
     media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-2.jpg', alt: 'Setnayan AI — book the right team before it’s gone' },
   },

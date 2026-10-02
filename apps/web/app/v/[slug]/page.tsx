@@ -4273,8 +4273,8 @@ function VendorPackagesSection({
           Packages
         </h2>
         <p className="mt-1 max-w-2xl text-sm text-ink/70">
-          One price, everything bundled. Locking a package locks every
-          included planning category to this vendor.
+          One price, everything bundled. Booking a package books every
+          included planning category with this vendor.
         </p>
       </header>
 

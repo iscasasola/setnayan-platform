@@ -527,13 +527,13 @@ function nextTaskLabel(iv: Intervention | undefined): string {
     case 'GRD-05':
       return 'trim the budget or raise the total';
     case 'GRD-03':
-      return `lock in ${iv.slots.vendor} before the price climbs further`;
+      return `book ${iv.slots.vendor} before the price climbs further`;
     case 'GRD-06':
       return `resolve the clash at ${iv.slots.slot}`;
     case 'GRD-07':
       return `decide on ${iv.slots.vendor} before the window closes`;
     case 'GRD-09':
-      return `lock or replace ${iv.slots.vendor} — their date just moved`;
+      return `book or replace ${iv.slots.vendor} — their date just moved`;
     case 'SEC-04':
       return `nudge ${iv.slots.vendor}`;
     case 'SEC-02':

@@ -228,7 +228,7 @@ const plural = (n: number) => (n === 1 ? '' : 's');
 
 /** "62% locked in · 4 vendors on your board" */
 export function figureRanked(a: AiActivity): string {
-  return `${a.cockpit.briefing.lockedPct}% locked in · ${formatCount(a.vendorsTracked)} vendor${plural(
+  return `${a.cockpit.briefing.lockedPct}% booked · ${formatCount(a.vendorsTracked)} vendor${plural(
     a.vendorsTracked,
   )} on your board`;
 }

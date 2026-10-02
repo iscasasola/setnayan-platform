@@ -52,7 +52,7 @@ const RULES: Record<string, (sig: Sig) => SpecialtyRecommendation[]> = {
       out.push({
         key: 'debut_cotillion_rehearsals',
         title: 'Confirm your cotillion court & schedule rehearsals',
-        reason: "You're planning a cotillion — lock the court and start the 4–8 weeks of rehearsals early.",
+        reason: "You're planning a cotillion — book the court and start the 4–8 weeks of rehearsals early.",
         category: 'vendors',
         dueOffsetDays: 110,
       });

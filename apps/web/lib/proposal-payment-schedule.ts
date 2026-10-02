@@ -296,7 +296,7 @@ export function dueLabel(due: InstallmentDue, offsetDays: number): string {
     return `${d} day${d === 1 ? '' : 's'} before the event`;
   }
   if (due === 'on_event') return 'On the event day';
-  return 'On booking (locks)';
+  return 'On booking';
 }
 
 /** Type guard for a stored ResolvedSchedule (non-empty, has installments). */

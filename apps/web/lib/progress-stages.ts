@@ -336,7 +336,7 @@ export function buildProgressStages(
       aiNote:
         openCategories === 0
           ? 'Every category is booked — your vendor team is complete.'
-          : `${formatCount(lockedVendorCount)} of ${formatCount(totalLockableCategories)} categories locked · ${openCategories} still open.`,
+          : `${formatCount(lockedVendorCount)} of ${formatCount(totalLockableCategories)} categories booked · ${openCategories} still open.`,
     },
     {
       key: 'inviting',

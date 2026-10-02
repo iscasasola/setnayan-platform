@@ -363,7 +363,7 @@ export function convergenceBanner(
     // drop it to shorten the copy.
     return {
       tone: 'converged',
-      headline: `Locking these vendors sets your date: ${formatDayKeyLabel(w.dayKeys[0]!)}`,
+      headline: `Booking these vendors sets your date: ${formatDayKeyLabel(w.dayKeys[0]!)}`,
       detail:
         'It is the only day everyone in your build is free. Nothing is held yet — your date is reserved only once a vendor accepts your payment.',
     };

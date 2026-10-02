@@ -213,7 +213,7 @@ function ConsentModal({
               className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
             />
             <span>
-              <strong>Can lock vendors</strong> — {who} may finalize (lock) a
+              <strong>Can book vendors</strong> — {who} may book a
               vendor on your behalf, which commits your booking and starts its
               payment schedule.
             </span>

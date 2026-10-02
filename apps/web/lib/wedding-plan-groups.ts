@@ -424,7 +424,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
     // vendor_profiles.services narrows to `dj` only).
     id: 'after_party_music',
     label: 'After-party DJ',
-    hint: "For everyone who refuses to go home — the late-night DJ. Lock 4-6 weeks out once the reception program is set.",
+    hint: "For everyone who refuses to go home — the late-night DJ. Book 4-6 weeks out once the reception program is set.",
     tier: 'style_program',
     // Entry-point pattern (empty categories) · mirrors live_band +
     // dance_instructor. Picks locked via this wizard card write
@@ -514,7 +514,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   {
     id: 'cake',
     label: 'Cake',
-    hint: "The one dessert everyone photographs before anyone cuts it. Tastings 3-4 months out; the order locks 1 month before.",
+    hint: "The one dessert everyone photographs before anyone cuts it. Tastings 3-4 months out; the order is final 1 month before.",
     tier: 'extras',
     categories: ['cake_maker'],
     monthsBefore: 4,
@@ -1473,13 +1473,13 @@ export function targetDateStatus(
   if (diffDays <= 30) {
     return {
       tone: 'soon',
-      label: `Lock by ${formatTargetDate(target)} · ${diffDays} day${diffDays === 1 ? '' : 's'}`,
+      label: `Book by ${formatTargetDate(target)} · ${diffDays} day${diffDays === 1 ? '' : 's'}`,
       daysOut: diffDays,
     };
   }
   return {
     tone: 'fine',
-    label: `Lock by ${formatTargetDate(target)}`,
+    label: `Book by ${formatTargetDate(target)}`,
     daysOut: diffDays,
   };
 }

@@ -208,7 +208,7 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
           title: 'Shows you who else is eyeing your date',
           body:
             `Your vendor list marks anyone another ${organizerNoun} starts ` +
-            'looking at for your date, so you can lock them in first.',
+            'looking at for your date, so you can book them first.',
         },
       ],
     },
@@ -304,7 +304,7 @@ export function buildAiValueSpotlights(terms: AiValueTerms): AiValueSpotlight[] 
     },
     {
       chip: 'Your date',
-      t: 'Lock in the right team before it’s gone',
+      t: 'Book the right team before it’s gone',
       d:
         `Your list marks anyone another ${organizerNoun} starts looking at for your ` +
         'date, and you hear it from us when someone you’re considering gets booked — ' +

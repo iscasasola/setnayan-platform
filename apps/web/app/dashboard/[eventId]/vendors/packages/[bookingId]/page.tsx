@@ -219,7 +219,7 @@ export default async function PackageBookingPage({ params }: Props) {
         {isLocked ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
             <BookmarkCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Locked
+            Booked
           </span>
         ) : isReleased ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/60">
@@ -236,7 +236,7 @@ export default async function PackageBookingPage({ params }: Props) {
       <section className="mt-5 rounded-2xl border border-ink/10 bg-cream p-5">
         <dl className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
-            <dt className="text-ink/70">Total locked</dt>
+            <dt className="text-ink/70">Total booked</dt>
             <dd className="font-mono text-base text-ink">
               {formatCentavosPhp(typedBooking.total_locked_centavos)}
             </dd>

@@ -232,7 +232,7 @@ export async function quoteReuseRequest(
     userId: requester,
     type: 'order_quoted',
     title: 'Your re-booking has a new quote',
-    body: 'The vendor re-priced your re-booking. Review and accept to lock it in.',
+    body: 'The vendor re-priced your re-booking. Review and accept to book it.',
     relatedUrl: `/dashboard/${targetEventId}/vendors`,
   });
   return { status: 'ok', requestId: args.requestId };

@@ -812,11 +812,11 @@ export async function lockDeal(formData: FormData): Promise<void> {
     }
     if (outcome.status === 'hard_single_blocked') {
       failBack(
-        'You already locked another vendor in this category. Switch them from the vendor page first, then lock this deal.',
+        'You already booked another vendor in this category. Switch them from the vendor page first, then book this deal.',
       );
     }
     if (outcome.status === 'error') {
-      failBack('We could not lock this deal just now — please try again.');
+      failBack('We could not book this deal just now — please try again.');
     }
 
     // ── THE PRICE MUST HAVE LANDED BEFORE WE CALL IT FROZEN ──────────────────

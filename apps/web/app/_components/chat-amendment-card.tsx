@@ -260,7 +260,7 @@ export function ChatAmendmentCard({
               <input type="hidden" name="amendment_id" value={data.amendment_id} />
               <input type="hidden" name="return_to" value={returnPath} />
               <button className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-3.5 text-sm font-medium text-cream hover:bg-mulberry-600">
-                🔒 Lock this deal — ₱{readiness.totalPhp.toLocaleString('en-PH')}
+                Book this deal — ₱{readiness.totalPhp.toLocaleString('en-PH')}
               </button>
             </form>
           ) : (

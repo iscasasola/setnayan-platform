@@ -1478,7 +1478,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           ) : (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
               <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Locked
+              Booked
             </span>
           )}
         </div>
@@ -1710,8 +1710,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             Their choices
           </h2>
           <p className="mb-3 text-xs text-ink/55">
-            What was picked when this package was locked, at the prices agreed
-            then. These are part of the locked total.
+            What was picked when this package was booked, at the prices agreed
+            then. These are part of the booked total.
           </p>
           <ul className="space-y-2">
             {packageChoiceLines.map((line) => (
@@ -2521,7 +2521,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
           {changesSinceLockNum !== 0 ? (
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-ink/65">Changes you both agreed after the lock</span>
+              <span className="text-ink/65">Changes you both agreed after the booking</span>
               <span className="font-medium text-ink">
                 {changesSinceLockNum < 0 ? '−' : '+'}
                 {formatPHP(Math.abs(changesSinceLockNum))}
@@ -2597,7 +2597,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               <p className="text-xs text-ink/70">
                 They don&rsquo;t have a Setnayan account yet. Share this link
                 so they can register a free vendor account and see the
-                schedule you&rsquo;ve locked for them.
+                schedule you&rsquo;ve booked for them.
               </p>
             </div>
           </header>
@@ -2661,7 +2661,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                 The previous invite link is no longer active
               </h2>
               <p className="text-xs text-ink/65">
-                Re-lock this vendor to generate a fresh link, or reach out to
+                Re-book this vendor to generate a fresh link, or reach out to
                 them using the contact details above.
               </p>
             </div>
@@ -2686,7 +2686,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               <p className="text-xs text-ink/70">
                 They don&rsquo;t have a Setnayan account yet. Create a shareable
                 link to send them — they register free and can see the schedule
-                you&rsquo;ve locked for them.
+                you&rsquo;ve booked for them.
               </p>
             </div>
           </header>
@@ -3035,7 +3035,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     railBody = `Your first payment is in. Log each payment to ${displayName} as money moves.`;
   } else {
     railTitle = 'Record your payment';
-    railBody = `Your booking with ${displayName} is locked. Log your first payment to hold the date.`;
+    railBody = `Your booking with ${displayName} is confirmed. Log your first payment to hold the date.`;
   }
 
   const quickLinkClass =
@@ -3056,7 +3056,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success-800">
               <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Locked
+              Booked
             </span>
           )}
           {stage ? (

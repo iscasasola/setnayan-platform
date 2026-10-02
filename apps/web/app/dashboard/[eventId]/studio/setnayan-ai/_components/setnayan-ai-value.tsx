@@ -96,7 +96,7 @@ export function SetnayanAiValue({
           <div
             className="h-2 w-full overflow-hidden rounded-full bg-ink/10"
             role="img"
-            aria-label={`${activity.cockpit.briefing.lockedPct}% locked in`}
+            aria-label={`${activity.cockpit.briefing.lockedPct}% booked`}
           >
             <div
               className="h-full rounded-full bg-mulberry transition-all"

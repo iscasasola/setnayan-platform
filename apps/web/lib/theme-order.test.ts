@@ -77,9 +77,10 @@ test('2b · Prints & Tickets’ theme choice is fed from the one order', () => {
   assert.match(launch, /const themes = pickableInviteThemes\(/);
   const lib = stripComments(readFileSync(join(WEB, 'lib/invite-themes.ts'), 'utf8'));
   assert.match(lib, /export function pickableInviteThemes\([^)]*\)[^{]*\{\s*return HUB_THEMES\.filter\(/);
-  // And the Maker's theme panel (the editor page) the same.
+  // The Maker's 🎨 panel no longer names the theme (owner 2026-10-02, tracker
+  // f40): the one theme pick is Look's, fed above — the editor page builds no list.
   const editor = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/website/editor/page.tsx'), 'utf8'));
-  assert.match(editor, /const themes = HUB_THEMES\.map\(/);
+  assert.doesNotMatch(editor, /const themes = /, 'a second theme list is built for the Maker');
 });
 
 test('2c · the Pro pitch names the Pro themes lightest first', () => {

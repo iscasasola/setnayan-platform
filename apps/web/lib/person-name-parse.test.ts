@@ -24,6 +24,20 @@ test('the owner reported example splits into all four parts', () => {
   check([['Atty. Bob Casasola Jr.', 'Atty.', 'Bob', '', 'Casasola', 'Jr.']]);
 });
 
+test('NO GUESSED MIDDLE NAME — last word is the last name, the rest is the first (owner 2026-10-02)', () => {
+  // The owner's live iPhone test: "Test Guest A" landed as First "Test" ·
+  // Middle "Guest" · Last "A", and the list then showed "Test A".
+  check([
+    ['Test Guest A', '', 'Test Guest', '', 'A', ''],
+    ['Juan Miguel Santos', '', 'Juan Miguel', '', 'Santos', ''],
+    ['Manuel Cortez Casasola', '', 'Manuel Cortez', '', 'Casasola', ''],
+    ['Ana Cruz', '', 'Ana', '', 'Cruz', ''],
+  ]);
+  // Nothing a host typed is lost: the list's "first last" still reads the whole line.
+  const p = parsePersonName('Test Guest A');
+  assert.equal(`${p.firstName} ${p.lastName}`, 'Test Guest A');
+});
+
 test('the guest that was reported no longer stores a title as a first name', () => {
   // Was: first_name='Mr.', last_name='Antonio Loo'.
   check([['Mr. Antonio Loo', 'Mr.', 'Antonio', '', 'Loo', '']]);
@@ -32,7 +46,7 @@ test('the guest that was reported no longer stores a title as a first name', () 
 test('single-word honorifics come off the head', () => {
   check([
     ['Atty. Glenn Subia', 'Atty.', 'Glenn', '', 'Subia', ''],
-    ['Dr. Maria Theresa Alonzo', 'Dr.', 'Maria', 'Theresa', 'Alonzo', ''],
+    ['Dr. Maria Theresa Alonzo', 'Dr.', 'Maria Theresa', '', 'Alonzo', ''],
     ['Engr. Richard Ferrer', 'Engr.', 'Richard', '', 'Ferrer', ''],
     ['Hon. Ricardo Villahermosa', 'Hon.', 'Ricardo', '', 'Villahermosa', ''],
     ['Judge Glenn Subia', 'Judge', 'Glenn', '', 'Subia', ''],
@@ -106,7 +120,8 @@ test('hyphenated married surnames stay one last name', () => {
   check([
     [
       'Atty. Cherry Liez O. Rafal-Roble',
-      'Atty.', 'Cherry', 'Liez O.', 'Rafal-Roble', '',
+      // "Cherry Liez" is the given name; only the typed initial "O." is a middle.
+      'Atty.', 'Cherry Liez', 'O.', 'Rafal-Roble', '',
     ],
     ['Atty. Jessica Jota-Javier', 'Atty.', 'Jessica', '', 'Jota-Javier', ''],
   ]);

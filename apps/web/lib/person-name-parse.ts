@@ -28,6 +28,9 @@
  *     consumed in a loop, not once.
  *   • MIDDLE INITIALS. "Arnaldo M. Espinas", "Joseph C. Cerezo". The "M." must
  *     NOT be read as a suffix, and must not be glued onto either neighbour.
+ *     It is the ONLY thing that becomes a middle name: any other word between
+ *     the first word and the surname joins the FIRST name (step 5 — owner,
+ *     2026-10-02: "Test Guest A" is First "Test Guest", Last "A").
  *   • THE `Ma.` TRAP. "Ma. Teresita Sison-Baluis" — `Ma.` is María, a GIVEN
  *     name, and to a naive "abbreviation ending in a period" rule it is
  *     indistinguishable from `Mr.`. It is deliberately absent from the
@@ -145,6 +148,9 @@ const PARTICLES = new Set<string>([
   'sta', 'sto', 'mac', 'mc', 'ng', 'y', 'e',
 ]);
 
+/** A middle initial the host typed as one: a single letter and a period ("M."). */
+const MIDDLE_INITIAL_RE = /^\p{L}\.$/u;
+
 /** Lowercase a token and strip periods/commas so "Atty." matches "atty". */
 function keyOf(word: string): string {
   return word.toLowerCase().replace(/[.,]/g, '').trim();
@@ -255,9 +261,21 @@ export function parsePersonName(raw: string | null | undefined): ParsedPersonNam
   }
   if (lastStart === -1) lastStart = Math.max(1, words.length - 1);
 
-  const firstName = words[0] ?? '';
+  // ── 5. NO GUESSED MIDDLE NAME (owner, live iPhone test 2026-10-02).
+  //       "Test Guest A" used to land as First "Test" · Middle "Guest" · Last
+  //       "A", and the list then read "Test A". A bare word between the first
+  //       and the last is NOT evidence of a middle name — "Maria Theresa" is one
+  //       given name far more often than a first + middle. So everything before
+  //       the surname is the FIRST name. The one exception is a word the host
+  //       marked as an initial themselves — a single letter with a period
+  //       ("Arnaldo M. Espinas") — which is how this roster writes a middle
+  //       initial and is never a given name on its own.
+  const between = words.slice(1, lastStart);
+  let initialsFrom = between.length;
+  while (initialsFrom > 0 && MIDDLE_INITIAL_RE.test(between[initialsFrom - 1] as string)) initialsFrom--;
+  const firstName = [words[0] ?? '', ...between.slice(0, initialsFrom)].join(' ');
   const lastName = words.slice(lastStart).join(' ');
-  const middleName = words.slice(1, lastStart).join(' ');
+  const middleName = between.slice(initialsFrom).join(' ');
 
   return {
     prefix: prefixWords.join(' '),

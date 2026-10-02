@@ -3,7 +3,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
 import type { BringerSeat } from '@/lib/extra-seats';
 import { formatCount } from '@/lib/format-number';
-import { RemoveGuestConfirm } from './remove-guest-confirm';
+import { DeleteGuestButton } from './guest-delete';
 
 /**
  * THE HOST'S VIEW OF A GUEST'S EXTRA SEATS — prototype
@@ -18,9 +18,9 @@ import { RemoveGuestConfirm } from './remove-guest-confirm';
  *   · `PlusOneOverNote` — when the host lowers the number BELOW the named seats
  *     (allowed since 2026-09-29 — the number is never refused, and a named
  *     person is never removed by it): the quiet warning "3 named · 1 allowed"
- *     with a Remove beside each name. Remove IS the host's own remove-a-guest
- *     (`softDeleteGuest`) behind its own two-tap confirm (`RemoveGuestConfirm`)
- *     — no second delete, no new action.
+ *     with a Delete beside each name. Delete IS the host's own delete-a-guest
+ *     (`DeleteGuestButton` → the one warning → `useGuestRemoval`, with Undo —
+ *     owner 2026-10-03) — no second delete, no new action.
  *
  * Seats are numbered by SEAT everywhere (+1…+N): an unnamed one is "+2 · TBA".
  */
@@ -97,13 +97,13 @@ export function PlusOneOverNote({
         <b className="font-semibold text-ink">
           {formatCount(named.length)} named · {formatCount(count)} allowed.
         </b>{' '}
-        {first} named more people than their seats. Remove one, or allow more seats.
+        {first} named more people than their seats. Delete one, or allow more seats.
       </p>
       <ul className="space-y-0.5">
         {named.map((s) => (
           <li key={s.guest_id} className="flex items-center justify-between gap-2">
             <span className="min-w-0 truncate text-ink">{s.label}</span>
-            <RemoveGuestConfirm eventId={eventId} guestId={s.guest_id} guestName={s.label} compact />
+            <DeleteGuestButton eventId={eventId} guestId={s.guest_id} guestName={s.label} />
           </li>
         ))}
       </ul>

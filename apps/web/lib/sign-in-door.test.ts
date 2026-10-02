@@ -140,7 +140,7 @@ test('🔴 the set-password button is rendered ONLY inside the provider-refusal 
 test('🔴 the button calls the EXISTING send (signInInPlace, intent=reset) — and the dead end is gone', () => {
   assert.equal((CARD.match(/useActionState\(\s*signInInPlace/g) || []).length, 2, 'the reset must reuse signInInPlace, not a new action');
   assert.doesNotMatch(CARD, /Safari or Chrome/);
-  assert.doesNotMatch(readFileSync('lib/sign-in-door.ts', 'utf8').replace(/\/\*[\s\S]*?\*\//g, ''), /Safari or Chrome/, 'the dead-end sentence is still in the door');
+  assert.doesNotMatch(stripComments(readFileSync('lib/sign-in-door.ts', 'utf8')), /Safari or Chrome/, 'the dead-end sentence is still in the door');
   // the email is never carried in the URL
   assert.doesNotMatch(CARD, /email=\$\{|\?email=/);
 });

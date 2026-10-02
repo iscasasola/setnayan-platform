@@ -91,6 +91,14 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * DERIVED from the item showing (`stepOfItem`), so a door elsewhere in the
  * Maker that opens an item no step shows simply lands in All items. Every
  * editor stays mounted in both modes — the flow hides, never unmounts.
+ *
+ * 📱 ONE PANEL AT A TIME ON A PHONE (owner, live test 2026-10-02: the guide,
+ * the Look panel and the toolbar stacked three deep and hid the page). Under
+ * \`lg\`: the open editor takes at most half the height, so the page above it
+ * always shows; while it is open the step's heading steps aside; and once a
+ * Maker door (Look · Details · Prints) opened this page (\`guideFolded\`) the
+ * flow is ONE line — its top line — until the couple moves in the flow again.
+ * The desktop is unchanged.
  */
 export function DetailsWorkspace({
   groups,
@@ -157,6 +165,9 @@ export function DetailsWorkspace({
 
   /* ══ 🪜 THE GUIDED FLOW ══ */
   const plan = guide && guide.plan.steps.length > 0 ? guide.plan : null;
+  /* 📱 A door opened this page: the flow is its one top line on a phone. A move in the flow unfolds it. */
+  const folded = Boolean(maker?.guideFolded);
+  const unfold = () => maker?.setGuideFolded?.(false);
   const [mode, setMode] = useState<'guided' | 'all'>(plan && guide?.open ? 'guided' : 'all');
   const [ready, setReady] = useState<GuidedRound | null>(
     plan && guide?.open && guide.ready !== null && plan.rounds.includes(guide.ready) ? guide.ready : null,
@@ -196,6 +207,7 @@ export function DetailsWorkspace({
 
   const goTo = (to: GuidedScreen) => {
     setUnsavedTo(null);
+    unfold();
     if (!plan) return;
     if (to.kind === 'ready') {
       setReady(to.round);
@@ -217,6 +229,7 @@ export function DetailsWorkspace({
         root?.querySelector(`[data-details-body-item="${k}"]`) ?? null,
       ]);
       if (hasUnsavedEdits(scopes)) {
+        unfold(); // the question lives in the flow's foot — never asked out of sight
         setUnsavedTo(to);
         return;
       }
@@ -225,6 +238,7 @@ export function DetailsWorkspace({
   };
   const openGuide = () => {
     if (!plan) return;
+    unfold();
     setMode('guided');
     remember('guided');
     if (stepOfItem(plan, selected)) {
@@ -349,8 +363,11 @@ export function DetailsWorkspace({
                   }
                 >
                   {guidedOn && stepHere && i.key === selected ? (
-                    /* 🪜 In the flow: the step's round, its name, where it shows — plain words. */
-                    <GuideHead step={stepHere} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
+                    /* 🪜 In the flow: the step's round, its name, where it shows — plain words.
+                       📱 On a phone it steps aside while the editor is open (one panel at a time). */
+                    <div data-details-guide-head-wrap="" className={sheetOpen ? 'hidden lg:contents' : 'contents'}>
+                      <GuideHead step={stepHere} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
+                    </div>
                   ) : detailsItemLayout(i.key) === 'flow' ? (
                     <header className="flex flex-col gap-0.5">
                       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
@@ -458,7 +475,8 @@ export function DetailsWorkspace({
              unmounted, so every other item's fields still post. */
           hidden={layout === 'whole'}
           className={`order-3 ${layout === 'whole' ? 'hidden' : 'flex'} min-h-0 shrink-0 flex-col border-t border-ink/10 bg-cream lg:max-h-none lg:w-[360px] lg:border-l lg:border-t-0 ${
-            sheetOpen ? 'max-h-[72%]' : 'max-h-14 lg:max-h-none'
+            /* 📱 Half the height at most, open — the page above it always shows. */
+            sheetOpen ? 'max-h-[50%]' : 'max-h-14 lg:max-h-none'
           }`}
         >
           <button
@@ -489,6 +507,8 @@ export function DetailsWorkspace({
         <GuideReady plan={plan} round={at.round} actions={guide.actions} onGo={(to) => move(to)} />
       ) : null}
       {plan && at ? (
+        /* 📱 Folded (a door opened this page): the flow is its top line only, on a phone. */
+        <div data-details-guide-foot-wrap="" data-folded={folded ? '' : undefined} className={folded ? 'hidden lg:contents' : 'contents'}>
         <GuideFoot
           at={at}
           plan={plan}
@@ -502,6 +522,7 @@ export function DetailsWorkspace({
           }}
           onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
         />
+        </div>
       ) : null}
       </div>
       </DetailsPieceContext.Provider>

@@ -1,0 +1,8 @@
+## 2026-10-02 · fix(maker): four fixes from the owner's live iPhone test (build 5666406)
+
+- **One panel at a time on a phone.** The guide ("Finish your Event Hub"), the Look panel and the toolbar stacked three deep and covered the page. Under `lg`: Details' open editor takes at most half the height (was 72%); the step's heading steps aside while the editor is open; and a Maker door (Look · Details · Prints) folds the guided flow to its one top line (`MakerState.guideFolded`) until the couple moves in the flow again. Desktop unchanged; the toolbar untouched. Guard: `launch/_components/one-panel-at-a-time-on-a-phone.test.ts`.
+- **Apply shows 0 until the couple changes something.** Every Details editor stays mounted, so `HeroFrameSync` measured an existing, never-measured hero photo and drafted it as the Main background on merely opening the Maker — a "1" nobody made. It now writes only beside a change of the couple's own (a hero they drafted, or a Main choice that differs from live) — `lib/hero-frame-sync.ts`. Guard: `lib/opening-the-maker-counts-zero-waiting.test.ts`.
+- **The Home's Next card says what it is.** Eyebrow "Your next step" (was "Next"), and the guided-flow button names the action — "Open the next step" (was "Continue"). Shared `NextCard`, so the supplier's Today card reads the same.
+- **No grey placeholder outstays its content on the guest page.** A drawn logo's loading slot is empty (its size kept) — never a grey disc, and with no letters nothing at all; the loading screen's scene cards fade out after 12 s (`.sn-skeleton-gives-up`, CSS only) so a page that never lands leaves no grey boxes.
+
+SPEC IMPACT: None

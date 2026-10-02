@@ -11,7 +11,7 @@
  * into one, in the order the Home already stacked them (page.tsx `overlays`):
  *
  *   guide → the Event Hub's guided "What's left" (Details part 5 —
- *           "Round N · x of y · Continue"), for whom Details is
+ *           "Round N · x of y · Open the next step"), for whom Details is
  *   date  → the set-your-date nudge, while no date is set
  *   papic → "Your free camera is ready", until the first photo is shot
  *   ai    → the Setnayan AI offer, last because it is a purchase, not a step
@@ -27,6 +27,9 @@ import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 
 export type HomeNextKind = 'guide' | 'date' | 'papic' | 'ai' | 'plan';
+
+/** The guided flow's button — it names what the tap does (owner, live phone test 2026-10-02). */
+export const HOME_GUIDE_ACTION = 'Open the next step';
 
 /** The order the Home already stacked its nudges in — the first that applies is Next. */
 export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'papic', 'ai', 'plan'];
@@ -80,7 +83,7 @@ export type HomeNextInput = {
 export function pickHomeNext(input: HomeNextInput): HomeNext {
   const { guide, hasDate, noun, papicReady, aiOffer } = input;
   if (guide?.setup) {
-    /* "Finish your Event Hub — n of m · Continue" (frame 10): the next two steps
+    /* "Finish your Event Hub — n of m · Open the next step" (frame 10): the next two steps
        still to do; the count is what is really in place. */
     const next = guide.nextTitle ? `Next: ${guide.nextTitle}${guide.thenTitle ? ` · then ${guide.thenTitle}` : ''}` : '';
     return {
@@ -91,7 +94,8 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       body: guide.offer
         ? `From sign-up we already have your names, dates, look and how guests get in — we won’t ask again. ${formatCount(guide.total - guide.done)} short ${guide.total - guide.done === 1 ? 'step finishes' : 'steps finish'} your Event Hub; Love Story photos help. None of it is required.`
         : next,
-      action: guide.offer ? 'Start' : 'Continue',
+      /* The button names the action (owner 2026-10-02) — never a bare "Continue". */
+      action: guide.offer ? 'Start' : HOME_GUIDE_ACTION,
       ...(guide.offer ? { offer: true } : {}),
     };
   }
@@ -100,7 +104,7 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       kind: 'guide',
       title: guide.nextTitle ?? guide.roundTitle,
       body: `Your Event Hub · ${guide.roundTitle} · ${formatCount(guide.done)} of ${formatCount(guide.total)} done.`,
-      action: 'Continue',
+      action: HOME_GUIDE_ACTION,
     };
   }
   if (!hasDate) {

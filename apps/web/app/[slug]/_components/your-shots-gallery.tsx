@@ -42,7 +42,7 @@ export function YourShotsGallery({
     <a
       data-everyones-photos=""
       href={everyoneHref}
-      className="flex min-h-[44px] items-center justify-between rounded-2xl border border-ink/10 bg-cream/60 px-4 py-3 text-sm font-medium text-ink"
+      className="sn-glass-bare flex min-h-[44px] items-center justify-between rounded-2xl px-4 py-3 text-sm font-medium text-ink"
     >
       <span>Everyone&rsquo;s photos</span>
       <span aria-hidden className="text-ink/40">

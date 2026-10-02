@@ -43,7 +43,7 @@ export function SeatFloorPlan({ plan, tableLabel }: { plan: string; tableLabel: 
       <div
         role="img"
         aria-label={`The floor plan — ${tableLabel} is marked You`}
-        className="overflow-hidden rounded-xl border border-ink/10"
+        className="overflow-hidden rounded-xl shadow-sm"
         dangerouslySetInnerHTML={{ __html: plan }}
       />
       <figcaption className="flex items-center justify-between gap-3 text-xs text-ink/60">

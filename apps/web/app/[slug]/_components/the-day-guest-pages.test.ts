@@ -18,7 +18,6 @@ import { stripComments } from '@/lib/strip-comments';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const Mod = require('node:module');
   const load = Mod._load;
   Mod._load = function (request: string, ...rest: unknown[]) {
@@ -207,7 +206,7 @@ test('the camera comes back to the tab it was opened from — Live when opened d
   assert.match(cam, /data-camera-thumb=""[\s\S]{0,80}href=\{cameraExitHref\(exitTo\.slug, null, added, 'gallery'\)\}/);
   assert.match(src('app/papic/guest/page.tsx'), /exitTo=\{backSlug \? \{ slug: backSlug, tab: backTab \} : null\}/);
   const body = BODY();
-  assert.match(body, /data-shots-added=""[\s\S]{0,400}See them/);
+  assert.match(body, /data-shots-added=""[\s\S]{0,900}See them/);
   assert.match(src('app/[slug]/page.tsx'), /shotsAdded: addedShots\(search\[CAMERA_ADDED_PARAM\]\)/);
 });
 

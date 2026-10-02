@@ -464,7 +464,7 @@ type SiteBodyProps = {
    * tab. Inert on every page that is still one scroll.
    */
   activeTab?: string | null;
-  /** 📸 Back from the camera: the shots that landed this visit (`addedShots`), or null. */
+  /** 📸 Back from the Papic camera, the shots that landed this visit (`addedShots`), or null. */
   shotsAdded?: number | null;
   /**
    * 👤 THE GUEST'S ME, handed in by page.tsx when the page is tabs — the same

@@ -55,7 +55,7 @@ const SAMPLE: Record<UgatRecordKind, UgatRecordRef> = {
   vendor: { kind: 'vendor', vendorProfileId: '11111111-2222-3333-4444-555555555555' },
   user: { kind: 'user', userId: '66666666-7777-8888-9999-000000000000' },
   event: { kind: 'event', publicId: 'S89E-ABCDEFGHJK', slug: 'ana-at-marco' },
-  order: { kind: 'order' },
+  order: { kind: 'order', publicId: 'S89O-ABCDEFGHJK' },
   taxonomy: { kind: 'taxonomy', tileId: 'photo-video', canonicalService: 'setnayan_photo' },
   guest: { kind: 'guest', eventPublicId: 'S89E-ABCDEFGHJK', eventSlug: 'ana-at-marco' },
 };

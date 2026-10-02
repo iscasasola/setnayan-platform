@@ -20,6 +20,8 @@ import { UnreadBellBadge } from '@/app/_components/unread-bell-badge';
 import { AppRailShell } from '@/app/_components/frontdoor/app-rail-shell';
 import { VendorRailContext } from './_components/vendor-rail-context';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { AppPreload } from '@/app/_components/app-preload';
+import { appPreloadPlan, hostedEventOf } from '@/lib/app-preload-sets';
 import { VendorBottomNav } from './_components/vendor-bottom-nav';
 import { resolveVendorRole } from '@/lib/vendor-role';
 import { getNavSlotMap } from '@/lib/nav-registry';
@@ -548,6 +550,11 @@ export default async function VendorDashboardLayout({
         threadsBadge={threadsUnread}
         storeShell={storeShell}
       />
+      {/* 📲 What the account has, preloaded once the page is idle — the supplier
+          app, plus the host app when they also host an event (owner 2026-10-02,
+          "THE PRELOAD FOLLOWS WHAT THE ACCOUNT HAS"). From the switcher data
+          this layout already read; no new query. */}
+      <AppPreload {...appPreloadPlan({ hostEventId: hostedEventOf(switcherData.events), hasShop: true })} />
       {/*
         ── THERE IS NO FAB HERE, AND THAT IS DELIBERATE (owner, 2026-09-22:
         "delete fab") ──────────────────────────────────────────────────────

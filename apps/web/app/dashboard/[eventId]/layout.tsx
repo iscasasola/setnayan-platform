@@ -41,6 +41,8 @@ import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
 import { CohostWelcome } from './_components/cohost-welcome';
+import { AppPreload } from '@/app/_components/app-preload';
+import { appPreloadPlan } from '@/lib/app-preload-sets';
 
 type Props = {
   children: React.ReactNode;
@@ -766,6 +768,22 @@ export default async function EventLayout({ children, params }: Props) {
       <BottomDock>
         <CustomerBottomNav eventId={eventId} phase={phase} navSlots={navSlots} hideKeys={navHideKeys} guestCount={guestCount} seatingEnabled={seatingEnabled} websiteEnabled={websiteEnabled} studioRows={studioRows} storeShell={storeShell} services={services} />
       </BottomDock>
+      {/*
+        📲 THE HOST'S WHOLE APP, PRELOADED (owner 2026-10-02, DECISION_LOG "A
+        HOST'S WHOLE APP LOADS ONCE…" / "THE PRELOAD FOLLOWS WHAT THE ACCOUNT
+        HAS"). Everyone this layout admits hosts this event (a couple or an
+        accepted coordinator — anyone else 404s above), so the host set is this
+        event's own menu; a shop they own or staff adds the supplier set. Built
+        from what this layout already read — no new query. Idle-only, nothing
+        drawn, nothing with Save-Data (`app/_components/app-preload.tsx`).
+      */}
+      <AppPreload
+        {...appPreloadPlan({
+          hostEventId: eventId,
+          hostMenu: { phase, hideKeys: navHideKeys, websiteEnabled, seatingEnabled, studioRows, storeShell, services },
+          hasShop: switcherData.context.hasVendor,
+        })}
+      />
       {/*
         ⛔ NO FLOATING BUTTON OVER OR IN THE BAR (owner 2026-10-01: *"this will
         be gone, correct? we only have our simple bottom nav?"*; DECISION_LOG

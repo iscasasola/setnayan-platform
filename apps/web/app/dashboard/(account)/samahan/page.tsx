@@ -57,7 +57,7 @@ export default async function SamahanIndexPage({
         <QuietStart
           Icon={HeartHandshake}
           title="Wala ka pang group."
-          blurb="One shared space for your barkada, parish, or clan — their reunions, tournaments, and outings all in one place."
+          blurb="One shared space for your barkada or clan — their reunions, tournaments, and outings all in one place."
           action={
             <Link
               href="/dashboard/samahan/new"

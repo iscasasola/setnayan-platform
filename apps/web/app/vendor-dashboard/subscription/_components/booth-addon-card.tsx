@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Check, Clock, Store } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { type OpenRail } from '@/lib/payment-channels';
+import { ourAccountPhrase, type OpenRail } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
   activateVendor3dBooth,
@@ -227,7 +227,7 @@ export function BoothAddonCard(props: BoothAddonCardProps) {
             <div className="mt-4 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
               <p className="font-mono text-lg font-bold">{peso(state.amountPhp)}</p>
               <p className="mt-1">
-                Pay to our BDO or GCash account and put{' '}
+                Pay to {ourAccountPhrase(openRails.map((r) => r.label))} and put{' '}
                 <span className="font-mono font-semibold">{state.referenceCode}</span> in the
                 transfer note. 3D Booth switches on once our team confirms your
                 payment (within 24 hours).

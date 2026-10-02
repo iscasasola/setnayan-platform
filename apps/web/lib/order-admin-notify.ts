@@ -4,7 +4,8 @@ import { emitNotification } from '@/lib/notification-emit';
 import { composeFormalName } from '@/lib/formal-name';
 import { ONBOARDING_SERVICES_SKU, readOnboardingOrderItems } from '@/lib/onboarding-order-items';
 import { isVatInclusiveServiceKey, orderGrossOwed } from '@/lib/orders';
-import { getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { fetchPlatformSettings, getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { channelLabel as accountName } from '@/lib/payment-channels';
 import {
   buildOrderSubmittedAlert,
   buildPaymentLoggedAlert,
@@ -135,7 +136,13 @@ export async function notifyAdminsPaymentProofSubmitted(args: {
       .or('is_internal.eq.true,is_team_member.eq.true,account_type.eq.admin');
     if (!admins?.length) return;
 
-    const how = channel.trim().slice(0, 24) || 'a transfer';
+    // The account's NAME from the receiving-accounts list — `channel` is an id
+    // ("maribank-7k2q") and an admin's inbox must never read one. A refused
+    // settings read falls back to the id, which `channelLabel` still tidies.
+    const channelName = await fetchPlatformSettings(admin)
+      .then((s) => accountName(s, channel.trim() || null))
+      .catch(() => null);
+    const how = (channelName && channelName !== '—' ? channelName : channel.trim()).slice(0, 40) || 'a transfer';
 
     // Owner 2026-09-30: the alert must say WHO paid, for WHICH event, for WHAT.
     // Read once with the admin client, then sent to every admin. A failed read
@@ -153,6 +160,7 @@ export async function notifyAdminsPaymentProofSubmitted(args: {
           payment: {
             amountPhp,
             channel,
+            channelName: channelName && channelName !== '—' ? channelName : null,
             bankReference: facts.payment?.bankReference ?? null,
             loggedAtIso: facts.payment?.loggedAtIso ?? new Date().toISOString(),
           },
@@ -269,6 +277,13 @@ async function readAdminOrderAlertFacts(
     created_at: string;
     user_id: string | null;
   } | null;
+
+  // The newest payment's rail, NAMED from the receiving-accounts list.
+  const payChannelName: string | null = pay?.channel
+    ? await fetchPlatformSettings(admin)
+        .then((s) => accountName(s, pay.channel))
+        .catch(() => null)
+    : null;
 
   // ── the event, and its type's own label ──
   let event: AdminOrderAlertFacts['event'] = 'none';
@@ -419,6 +434,7 @@ async function readAdminOrderAlertFacts(
       ? {
           amountPhp: num(pay.amount_php),
           channel: pay.channel ?? '',
+          channelName: payChannelName,
           bankReference: (pay.reference_number ?? '').trim() || null,
           loggedAtIso: pay.created_at,
         }

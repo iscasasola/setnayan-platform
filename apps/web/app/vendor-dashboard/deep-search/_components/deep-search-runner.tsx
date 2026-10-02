@@ -6,7 +6,7 @@ import { Search, ShieldCheck, Gift } from 'lucide-react';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { type OpenRail } from '@/lib/payment-channels';
+import { ourAccountPhrase, type OpenRail } from '@/lib/payment-channels';
 import { PaymentsPausedNote } from '@/app/vendor-dashboard/_components/payments-paused-note';
 import {
   runVendorDeepSearch,
@@ -23,7 +23,7 @@ import { DossierView } from './dossier-view';
  *     and arrives as `planAsks` — a ◆ note here, the ask itself at Run. While
  *     VENDOR_TIER_FEATURE_GATE is off it is false for everyone.
  *   • eligible + free this cycle (Pro+ with 0 uses) → "Run free Deep Search".
- *   • eligible + paid (Solo always · Pro+ after the free one) → BDO/GCash
+ *   • eligible + paid (Solo always · Pro+ after the free one) → manual
  *     apply-then-pay, "Run Deep Search — ₱500".
  *
  * The FREE run executes in the server action and returns the dossier straight
@@ -158,7 +158,7 @@ export function DeepSearchRunner(props: DeepSearchRunnerProps) {
         <div className="mt-4 rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           <p className="font-mono text-lg font-bold">{peso(state.amountPhp)}</p>
           <p className="mt-1">
-            Pay to our BDO or GCash account and put{' '}
+            Pay to {ourAccountPhrase(openRails.map((r) => r.label))} and put{' '}
             <span className="font-mono font-semibold">{state.referenceCode}</span> in the
             transfer note. Your Deep Search runs once our team confirms your payment
             (within 24 hours) — the result appears here below.

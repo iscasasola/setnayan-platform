@@ -28,7 +28,7 @@
  * a bag of completion flags: every card stamps its payload in — the wedding
  * and prenup dates, the budget figure, pax and guest-list counts, monogram
  * initials (derived from both partners' names), the site slug, per-task vendor
- * ids — plus markTaskInFlight/markTaskDone's unbounded `meta_*` passthrough,
+ * ids — plus markTaskDone's (and the former markTaskInFlight's) unbounded `meta_*` passthrough,
  * whose intended contents are PSA/CENOMAR reference numbers. A wedding GUEST
  * holds the same `authenticated` role as the couple and is admitted to the
  * events row by current_event_ids(), so all of that was one PostgREST call
@@ -74,8 +74,6 @@ import {
   isMoodboardSlotKey,
   isMoodboardSlotPosition,
   MOODBOARD_SLOT_POSITIONS,
-  type MoodboardSlotKey,
-  type MoodboardSlotPosition,
 } from '@/lib/moodboard-slots';
 import {
   parseWizardState,
@@ -674,66 +672,10 @@ async function completeVendorPickFromCustom(
 // optional formData fields.
 
 /**
- * Mark any wizard task as in_flight. Generic across cards · the calling
- * client component supplies the task_id + any per-card metadata.
- *
- * Metadata pattern: any formData field beginning with `meta_` is passed
- * through to the wizard_state entry's `meta` field (one nested object).
- * Cards that need PSA reference numbers · render job IDs · checklist
- * acks · etc. all serialize them via that prefix.
- */
-export async function markTaskInFlight(formData: FormData): Promise<void> {
-  const eventIdRaw = formData.get('event_id');
-  const taskIdRaw = formData.get('task_id');
-
-  if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) {
-    throw new Error('event_id required');
-  }
-  if (!isValidWizardTaskId(taskIdRaw)) {
-    throw new Error('Unknown wizard task');
-  }
-
-  // Collect meta_* fields into a single meta object.
-  const meta: Record<string, string> = {};
-  for (const [key, value] of formData.entries()) {
-    if (key.startsWith('meta_') && typeof value === 'string' && value.length > 0) {
-      meta[key.slice(5)] = value;
-    }
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  const { data: priorRow, error: priorErr } = await supabase
-    .from('events_host')
-    .select('wizard_state')
-    .eq('event_id', eventIdRaw)
-    .maybeSingle();
-  if (priorErr) throw new Error(priorErr.message);
-  if (!priorRow) throw new Error('Event not found');
-
-  const priorWizardState = parseWizardState(priorRow.wizard_state);
-  const newWizardState = setTaskInFlight(priorWizardState, taskIdRaw, {
-    ...(Object.keys(meta).length > 0 ? { meta } : {}),
-  });
-
-  const { error: updateErr } = await supabase
-    .from('events')
-    .update({ wizard_state: newWizardState })
-    .eq('event_id', eventIdRaw);
-  if (updateErr) throw new Error(updateErr.message);
-
-  revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
-}
-
-/**
  * Mark any wizard task as done. Generic across cards · used both by
  * paperwork cards' [Mark done] CTA and by the IN-FLIGHT TRAY surface.
  *
- * Same `meta_*` formData prefix as markTaskInFlight — cards stamp the
+ * `meta_*` formData prefix — cards stamp the
  * relevant per-card metadata at done time (e.g., paperwork reference
  * numbers · render output URLs).
  */
@@ -1225,55 +1167,6 @@ export async function removeMoodboardSlot(formData: FormData): Promise<{
 
   revalidatePath(`/dashboard/${eventIdRaw}`, 'layout');
   return { status: 'ok' };
-}
-
-/**
- * List all active moodboard slot uploads for an event. Returns one row
- * per active (event, slot_key, slot_position). The UI groups by
- * slot_key + slot_position client-side.
- */
-export async function listMoodboardSlots(eventId: string): Promise<
-  Array<{
-    inspiration_id: string;
-    slot_key: MoodboardSlotKey;
-    slot_position: MoodboardSlotPosition;
-    image_url: string;
-    sampled_hex_1: string;
-    sampled_hex_2: string;
-    sampled_hex_3: string;
-    sampled_hex_4: string;
-    sampled_hex_5: string;
-    sampled_hex_6: string;
-  }>
-> {
-  if (typeof eventId !== 'string' || !eventId) return [];
-
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('event_inspiration_assets')
-    .select(
-      'inspiration_id, slot_key, slot_position, image_url, sampled_hex_1, sampled_hex_2, sampled_hex_3, sampled_hex_4, sampled_hex_5, sampled_hex_6',
-    )
-    .eq('event_id', eventId)
-    .is('removed_at', null)
-    .order('slot_key', { ascending: true })
-    .order('slot_position', { ascending: true });
-  if (error) console.error('[supabase-error] app/dashboard/[eventId]/wizard-actions.ts · from:event_inspiration_assets.select', error);
-  if (error || !data) return [];
-  return data.filter(
-    (row): row is {
-      inspiration_id: string;
-      slot_key: MoodboardSlotKey;
-      slot_position: MoodboardSlotPosition;
-      image_url: string;
-      sampled_hex_1: string;
-      sampled_hex_2: string;
-      sampled_hex_3: string;
-      sampled_hex_4: string;
-      sampled_hex_5: string;
-      sampled_hex_6: string;
-    } => isMoodboardSlotKey(row.slot_key) && isMoodboardSlotPosition(row.slot_position),
-  );
 }
 
 // ============================================================================

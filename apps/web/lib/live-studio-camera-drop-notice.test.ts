@@ -168,8 +168,13 @@ function provision(over: Partial<ProvisionResult> = {}): ProvisionResult {
 
 /** Every reason that means "the host's cameras are off and it is not their doing". */
 const SPEAKING_REASONS = ['no_channel_available', 'channel_not_connected', 'youtube_error'] as const;
-/** Every reason that means "this host never set up multi-camera" — deliberate silence. */
-const SILENT_REASONS = ['no_zones', 'flag_off'] as const;
+/**
+ * Every reason that means nothing the host bought went missing — deliberate silence.
+ * `not_hosted` (owner ruling 2026-09-14): the event has no hosted channel, so it is
+ * never put on a shared Setnayan channel; its cameras still reach guests over the
+ * peer-to-peer side-camera path, and its broadcast goes out on its own channel.
+ */
+const SILENT_REASONS = ['no_zones', 'flag_off', 'not_hosted'] as const;
 
 test('a YouTube refusal mid-loop REACHES THE HOST — nothing was counted, so nothing was said', () => {
   // Exactly the break-the-loop shape: ok:false, a null notice because the
@@ -324,7 +329,7 @@ test('host copy never names an admin screen, an env flag, a table or a machine r
     [/Admin\s*→/, 'an admin screen the couple cannot open'],
     [/NEXT_PUBLIC_/, 'an environment flag'],
     [/live_studio_|_streams\b|channel_pool/, 'a database table or column'],
-    [/\b(no_zones|flag_off|no_channel_available|channel_not_connected|youtube_error)\b/, 'a machine reason token'],
+    [/\b(no_zones|flag_off|not_hosted|no_channel_available|channel_not_connected|youtube_error)\b/, 'a machine reason token'],
     [/\bnull\b|\bundefined\b|\bNaN\b/, 'a leaked non-value'],
   ];
   for (const reason of [...SPEAKING_REASONS, ...SILENT_REASONS] as const) {

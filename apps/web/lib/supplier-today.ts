@@ -176,9 +176,11 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
     case 'lock_request':
       return {
         kind: 'answer',
-        title: `${card.coupleName} wants to book you`,
-        body: join([card.eventDate ? formatLongDate(card.eventDate) : null, 'Answer before the window closes']) + '.',
-        action: 'Answer',
+        // The approved words (prototype frame 1/3: "Agree to this booking", button
+        // "Agree"). The couple's name moves to the body so the card still says whose.
+        title: 'Agree to this booking',
+        body: join([card.coupleName, card.eventDate ? formatLongDate(card.eventDate) : null, 'Agree before the window closes']) + '.',
+        action: 'Agree',
         target: { to: 'card', eventId: card.eventId, tab: 'details' },
       };
     case 'lock':

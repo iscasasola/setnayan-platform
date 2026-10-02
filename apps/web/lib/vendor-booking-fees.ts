@@ -243,7 +243,7 @@ export function requireBookingFeeReference(raw: unknown): FeeReferenceResult {
  */
 export const BOOKING_FEE_ERRORS = {
   ref_required:
-    'Add the reference number from your BDO or GCash confirmation — we need it to match your payment.',
+    'Add the reference number from your bank or e-wallet confirmation — we need it to match your payment.',
 } as const;
 
 export type BookingFeeErrorCode = keyof typeof BOOKING_FEE_ERRORS;

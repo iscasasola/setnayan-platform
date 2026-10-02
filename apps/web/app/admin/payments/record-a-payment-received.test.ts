@@ -32,6 +32,9 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const ACTIONS = read('app/admin/payments/actions.ts');
 const PAGE = read('app/admin/payments/page.tsx');
 const LEDGER = read('app/admin/money/_components/transactions-ledger.tsx');
+// The Reference link moved into its own column file so a test can render it at
+// every width (ledger-reference-column.tsx); the ledger mounts it.
+const LEDGER_REF = read('app/admin/money/_components/ledger-reference-column.tsx');
 
 function body(src: string, signature: string): string {
   const start = src.indexOf(signature);
@@ -99,8 +102,9 @@ test('row 16 — the ledger says when a side read failed, in the column it feeds
   assert.match(LEDGER, /buyersFailed \?/, 'an unread buyer silently loses the "ours" badge');
   assert.match(LEDGER, /rows && !paidFailed/, 'Received falls back to the charged amount when payments were not read');
   assert.match(LEDGER, /receiptsFailed \?/, 'an unread receipt reads as "no receipt"');
+  assert.match(LEDGER, /LEDGER_REFERENCE_COLUMN,/, 'the ledger no longer mounts the Reference column');
   assert.match(
-    LEDGER,
+    LEDGER_REF,
     /href=\{`\/admin\/payments\?filter=all&q=\$\{encodeURIComponent\(r\.public_id\)\}`\}/,
     'a ledger row no longer opens the payments desk on that order',
   );

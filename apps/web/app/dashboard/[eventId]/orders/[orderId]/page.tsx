@@ -27,6 +27,7 @@ import {
   hasMerchantPaymentInfo,
 } from '@/lib/platform-settings';
 import { openAccounts } from '@/lib/payment-channels';
+import { PaymentChannelName } from '@/app/_components/payment/payment-channel-name';
 import { everyOpenRailCarriesAmount, qrWords } from '@/lib/qr-amount-truth';
 import { payAmount } from '@/lib/pay-amount';
 import { cancelOrder } from '../actions';
@@ -396,7 +397,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
                   <p className="text-sm">
                     <span className="font-mono font-semibold">{formatPhp(p.amount_php)}</span>
                     <span className="ml-2 text-ink/65">
-                      · {p.channel}
+                      · <PaymentChannelName settings={settings} channel={p.channel} />
                       {p.reference_number ? ` · ref ${p.reference_number}` : ''}
                     </span>
                   </p>

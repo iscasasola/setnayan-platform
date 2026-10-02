@@ -6,7 +6,7 @@
  * couple's wedding photos): the EUCLIDEAN-distance bands calibrated on the
  * validated dlib/face-api.js model (2026-06-17 real-faces run: same-person
  * 0.40–0.47, different-person 0.79–0.90) — ≤0.50 auto / 0.50–0.60 suggest /
- * >0.60 untagged — plus the tag-per-photo cap (MAX_TAGS_PER_PHOTO) combined with existing tags,
+ * >0.60 untagged — plus NO tag-per-photo limit (owner 2026-08-06 "no tag limit"),
  * dedupe of one guest matched by two faces, and never re-tagging an
  * already-tagged guest.
  */
@@ -18,7 +18,6 @@ import {
   planAutoTags,
   FACE_AUTO_MAX_DISTANCE,
   FACE_SUGGEST_MAX_DISTANCE,
-  MAX_TAGS_PER_PHOTO,
 } from './face-match-core';
 
 test('euclideanDistance: identical / known / invalid', () => {
@@ -80,10 +79,22 @@ test('an already-tagged guest is never re-tagged', () => {
   assert.equal(plan.suggestions.length, 0);
 });
 
-test('the tag cap is combined with existing tags; auto-tags take remaining slots by closeness', () => {
-  const existing = Array.from({ length: MAX_TAGS_PER_PHOTO - 1 }, (_, i) => `x${i}`); // 9 existing
-  // Three auto-grade matches at distinct distances: gA 0.10 < gB 0.30 < gC 0.45.
-  // Enrollments are distinct unit axes so each face matches exactly one guest.
+// SABOTAGE: put `.slice(0, 20)` back on autoCandidates in planAutoTags → RED.
+test('NO tag limit — a photo with 60 matching guests auto-tags all 60 (owner 2026-08-06)', () => {
+  const N = 60;
+  // Distinct unit axes → each face matches exactly one guest, all within auto distance.
+  const dim = N;
+  const unit = (i: number, len = 1) => Array.from({ length: dim }, (_, k) => (k === i ? len : 0));
+  const plan = planAutoTags({
+    faceVectors: Array.from({ length: N }, (_, i) => unit(i, 1.1)),
+    enrollments: Array.from({ length: N }, (_, i) => ({ guestId: `g${i}`, vector: unit(i) })),
+  });
+  assert.equal(plan.autoTags.length, N, 'a cap is truncating the auto tags again');
+  assert.equal(plan.suggestions.length, 0);
+});
+
+test('existing tags only EXCLUDE their own guest — they never burn slots for anyone else', () => {
+  const existing = Array.from({ length: 40 }, (_, i) => `x${i}`); // 40 tags already on the photo
   const plan = planAutoTags({
     faceVectors: [[1.10, 0, 0], [0, 1.30, 0], [0, 0, 1.45]],
     enrollments: [
@@ -93,10 +104,12 @@ test('the tag cap is combined with existing tags; auto-tags take remaining slots
     ],
     alreadyTaggedGuestIds: existing,
   });
-  assert.equal(plan.autoTags.length, 1, 'only one slot left under the tag cap');
-  assert.equal(plan.autoTags[0]?.guestId, 'gA', 'the closest match wins the slot');
-  // gB and gC qualified for auto but were truncated by the cap — NOT demoted to suggestions.
-  assert.equal(plan.suggestions.length, 0);
+  assert.deepEqual(plan.autoTags.map((t) => t.guestId), ['gA', 'gB', 'gC'], 'closest first, all three tagged');
+});
+
+test('the per-photo cap constant and its counter are gone from the core', async () => {
+  const mod = (await import('./face-match-core')) as Record<string, unknown>;
+  assert.equal('MAX_TAGS_PER_PHOTO' in mod, false, 'the cap constant is exported again');
 });
 
 test('no faces or no enrollments → empty plan', () => {
@@ -108,23 +121,4 @@ test('no faces or no enrollments → empty plan', () => {
     planAutoTags({ faceVectors: [[0, 0]], enrollments: [] }),
     { autoTags: [], suggestions: [] },
   );
-});
-
-
-test('liveTagCount fills the cap while tombstoned guests still never re-tag', () => {
-  // 19 live + this photo ALSO has 5 tombstoned removals listed in alreadyTagged.
-  const live = Array.from({ length: MAX_TAGS_PER_PHOTO - 1 }, (_, i) => `live${i}`);
-  const tombstoned = ['tA', 'tB', 'tC', 'tD', 'tE'];
-  const plan = planAutoTags({
-    faceVectors: [[1.1, 0, 0], [0, 1.2, 0]],
-    enrollments: [
-      { guestId: 'tA', vector: [1.1, 0, 0] },   // tombstoned — must NOT re-tag
-      { guestId: 'gNew', vector: [0, 1.2, 0] }, // fresh — takes the one live slot
-    ],
-    alreadyTaggedGuestIds: [...live, ...tombstoned],
-    liveTagCount: live.length, // 19 live — one slot remains despite 24 total rows
-  });
-  assert.equal(plan.autoTags.length, 1, 'one live slot remains — tombstones do not burn cap');
-  assert.equal(plan.autoTags[0]!.guestId, 'gNew');
-  assert.ok(!plan.autoTags.some((t) => t.guestId === 'tA'), 'gravestone rule holds');
 });

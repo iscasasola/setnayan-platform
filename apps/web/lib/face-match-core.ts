@@ -18,13 +18,13 @@
 // different people scored 0.80–0.84, too close to 0.85 → false suggestions.
 // Euclidean separates cleanly. Thresholds get final-tuned on real wedding photos.)
 //
-// Plus the corpus hard rule: max 10 tags per photo, COMBINED with existing
-// individual/table/manual tags. A guest already tagged is never re-tagged; two
-// faces that match one guest collapse to a single tag at the closer distance.
+// NO PER-PHOTO TAG LIMIT (owner 2026-08-06, *"no tag limit. we can tag as
+// many."* — supersedes the 10 and 20 caps): every guest who matches is tagged.
+// A guest already tagged is never re-tagged; two faces that match one guest
+// collapse to a single tag at the closer distance.
 
 export const FACE_AUTO_MAX_DISTANCE = 0.5;
 export const FACE_SUGGEST_MAX_DISTANCE = 0.6;
-export const MAX_TAGS_PER_PHOTO = 20; // owner-raised 10→20, 2026-07-23
 
 export type EnrollmentVec = {
   guestId: string;
@@ -39,7 +39,7 @@ export type FaceMatch = {
 };
 
 export type AutoTagPlan = {
-  /** Guests to auto-tag now (distance ≤ 0.50), capped to fit MAX_TAGS_PER_PHOTO. */
+  /** Guests to auto-tag now (distance ≤ 0.50) — every match, no per-photo cap. */
   autoTags: FaceMatch[];
   /** Guests to SUGGEST (0.50 < distance ≤ 0.60) — surfaced for human confirm, not written. */
   suggestions: FaceMatch[];
@@ -72,8 +72,6 @@ export function planAutoTags(params: {
   enrollments: EnrollmentVec[];
   /** Guests EVER tagged on this photo incl. tombstoned removals (QR/manual/auto) — never re-tagged (the gravestone rule). */
   alreadyTaggedGuestIds?: string[];
-  /** LIVE (non-removed) tag count — fills the cap. Defaults to alreadyTaggedGuestIds.length for callers without tombstone data. */
-  liveTagCount?: number;
 }): AutoTagPlan {
   const { faceVectors, enrollments } = params;
   const already = new Set(params.alreadyTaggedGuestIds ?? []);
@@ -101,14 +99,14 @@ export function planAutoTags(params: {
     else if (distance <= FACE_SUGGEST_MAX_DISTANCE) suggestions.push({ guestId, distance });
   }
 
-  // Closest first — for both the cap truncation and stable output.
+  // Closest first — stable output (there is no cap to truncate against).
   autoCandidates.sort((a, b) => a.distance - b.distance);
   suggestions.sort((a, b) => a.distance - b.distance);
 
-  // The tag cap is COMBINED with existing LIVE tags (tombstones never burn
-  // slots — owner 2026-07-23); auto-tags take the remaining slots by closeness.
-  const remaining = Math.max(0, MAX_TAGS_PER_PHOTO - (params.liveTagCount ?? already.size));
-  const autoTags = autoCandidates.slice(0, remaining);
+  // 🔓 NO SLICE. The 20-tag cap that used to truncate `autoCandidates` here is
+  // gone (owner 2026-08-06 "no tag limit"): every candidate within the auto
+  // distance is tagged. Existing tags only ever EXCLUDE a guest (`already`).
+  const autoTags = autoCandidates;
 
   return { autoTags, suggestions };
 }

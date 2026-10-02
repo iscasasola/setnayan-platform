@@ -1002,20 +1002,15 @@ export async function submitOrderAction(
   //
   // We preserve the email-on-submit behaviour from createOrder so couples
   // get the reference code in their inbox AND a deep-link back to the
-  // order detail page. The same fetchPlatformSettings(supabase) source-
-  // of-truth refactor from PR #593 (BDO/GCash from public.platform_settings,
-  // not env vars) is preserved verbatim. Email failure NEVER blocks the
-  // order — the row is the truth · this email is the convenience surface.
+  // order detail page. The email names no receiving account (the order page
+  // prints the open ones from the accounts list). Email failure NEVER blocks
+  // the order — the row is the truth · this email is the convenience surface.
   try {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000';
     // Eventless subscription orders have no event route — link to the dashboard.
     const orderUrl = eventIdClean
       ? `${appUrl}/dashboard/${eventIdClean}/orders/${orderId}`
       : `${appUrl}/dashboard`;
-    const settings = await fetchPlatformSettings(supabase);
-    const hasBdo = Boolean(settings.bdo_account_number?.trim());
-    const hasGcash = Boolean(settings.gcash_number?.trim());
-
     const amountFormatted = finalAmountForPayment.toLocaleString('en-PH', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,

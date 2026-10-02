@@ -275,14 +275,14 @@ test('⭐ the warning renders on a surface NOT gated on the hosted-channel add-o
   );
   assert.match(
     panel,
-    /mayBroadcastOnSharedChannel\(\)/,
+    /mayBroadcastOnSharedChannel\(ownsHostedChannel\)/,
     'the channel panel does not gate on the predicate the go-live action uses',
   );
 
   const setup = src(SETUP_PAGE);
   assert.match(
     setup,
-    /mayBroadcastOnSharedChannel\(\)/,
+    /mayBroadcastOnSharedChannel\(ownsHostedChannel\)/,
     'the setup page does not gate on the predicate the go-live action uses',
   );
   assert.match(
@@ -321,9 +321,10 @@ test('⭐ the warning is OUTSIDE the connect-state branch, not in one arm of it'
 });
 
 test('⭐ the COPY and the ACTION share one predicate, so they cannot disagree', () => {
-  // The whole defect was the copy believing an entitlement decides this while the
-  // action asked the flag. If the action ever starts gating pool checkout on an
-  // entitlement, this fails and the copy moves with it — which is the point.
+  // The whole 2026-09-03 defect was the copy believing an entitlement decides this
+  // while the action asked the flag. Since 2026-10-02 (owner ruling 2026-09-14 — a
+  // shared channel is never automatic) the ACTION asks the entitlement too, so the
+  // copy moved with it, as this test always demanded.
   const action = src(GO_LIVE_ACTION);
   // ⚠ actions.ts has TWO `if (liveStudioRoamEnabled()) {` sites. Anchored on the one
   // that resolves the pool TOKEN, and bounded tightly enough that the other cannot
@@ -331,21 +332,31 @@ test('⭐ the COPY and the ACTION share one predicate, so they cannot disagree',
   assert.match(
     action,
     /if \(liveStudioRoamEnabled\(\)\) \{\s*const pooled = await resolveEventBroadcastToken\(/,
-    'the go-live action no longer claims a pool channel on the roam flag alone — ' +
+    'the go-live action no longer claims the pool through resolveEventBroadcastToken — ' +
       'mayBroadcastOnSharedChannel() must be re-derived from whatever now decides it',
   );
-  // …and the predicate the copy uses is that same flag, not an entitlement.
+  // …the ONE door onto the pool asks the hosted-channel entitlement before anything…
+  const provision = src('./live-studio-roam-provision.ts');
+  const checkout = provision.slice(provision.indexOf('export async function checkoutPoolChannel'));
+  const gateAt = checkout.indexOf('await eventHoldsHostedChannel(admin, eventId)');
+  const firstPoolRead = checkout.indexOf("from('live_studio_roam_channel_pool')");
+  assert.ok(gateAt > -1, 'checkoutPoolChannel no longer asks for the hosted channel — the copy predicate lies again');
+  assert.ok(gateAt < firstPoolRead, 'the hosted-channel check must run before any pool read or claim');
+  // …and the predicate the copy uses is that same pair: the flag AND the ownership.
   const poolOnly = src('./live-studio-pool-only.ts');
   const fn = poolOnly.slice(poolOnly.indexOf('export function mayBroadcastOnSharedChannel'));
   assert.match(
     fn.slice(0, 200),
-    /return liveStudioRoamEnabled\(\);/,
+    /return liveStudioRoamEnabled\(\) && ownsHostedChannel === true;/,
     'the copy predicate drifted away from the one the action actually uses',
   );
 });
 
-test('⭐ the predicate is a real read of the flag, not a hardcoded true', () => {
+test('⭐ the predicate is a real read of the flag AND the ownership, not a hardcoded value', () => {
   // A predicate stuck on `true` would warn every host on every surface forever,
   // which reads as working and is how the coupling above stops being checked.
-  assert.equal(typeof mayBroadcastOnSharedChannel(), 'boolean');
+  assert.equal(typeof mayBroadcastOnSharedChannel(true), 'boolean');
+  // Whatever the flag says, an event without the hosted channel is never warned —
+  // the server will never put it on a shared channel.
+  assert.equal(mayBroadcastOnSharedChannel(false), false);
 });

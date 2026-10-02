@@ -1170,6 +1170,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               isLive={isLive}
               liveSource={liveAir.source}
               connectHref="#connect"
+              ownsHostedChannel={ownsHostedChannel}
             />
 
             {/* GUEST-PICK — a REAL switch (Wave 2), and free to SET (Wave 3 § 4d).

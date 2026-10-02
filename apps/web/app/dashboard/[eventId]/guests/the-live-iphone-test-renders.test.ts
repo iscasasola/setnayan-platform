@@ -238,6 +238,8 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
   const counts = async (opts: Parameters<typeof fetchGuestsByEventMeasured>[2]) => {
     const r = await fetchGuestsByEventMeasured(fakeSupabase(rows) as never, 'e1', opts);
     const s = computeGuestStats(r.rows);
+    // The read carries its own counts (root-map waves 2+3) — they must be these.
+    assert.deepEqual(r.stats, s, 'the read\'s own stats are not computeGuestStats of its rows');
     return { coming: s.attending, noReply: s.pending };
   };
   // Home reads the accepted living list; the Guests list reads everything it draws.
@@ -253,11 +255,14 @@ test('⑧ Home’s "coming / no reply" and the Guests list count the SAME rows �
   assert.deepEqual(await counts({ includeRequests: true, includePassedAway: true }), { coming: 5, noReply: 0 });
   // …and both pages really run this chain.
   const homePage = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
+  // Since root-map waves 2+3 both pages take the counts the read worked out ONCE
+  // (`MeasuredGuests.stats` = computeGuestStats(rows), lib/guests.ts) — never a second count.
   assert.match(homePage, /fetchGuestsByEventMeasured\(supabase, eventId\)/);
-  assert.match(homePage, /computeGuestStats\(guests\)/);
+  assert.match(homePage, /stats: guestStats \}/);
   const guestsPage = read('page.tsx');
   assert.match(guestsPage, /fetchGuestsByEventMeasured\(supabase, eventId, \{ includeRequests: true, includePassedAway: true \}\)/);
-  assert.match(guestsPage, /computeGuestStats\(guests\)/);
+  assert.match(guestsPage, /const stats = guestsRead\.stats;/);
+  assert.match(stripComments(readFileSync(join(HERE, '..', '..', '..', '..', 'lib', 'guests.ts'), 'utf8')), /return \{ rows, measured: true, stats: computeGuestStats\(rows\) \};/);
 });
 
 // ── ⑨ the mobile up front ───────────────────────────────────────────────────

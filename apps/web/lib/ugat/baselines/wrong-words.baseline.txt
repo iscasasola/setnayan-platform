@@ -29,7 +29,6 @@ app/creators/_components/creator-story-hero.tsx "Publish your story — free" �
 app/creators/_components/creator-story-sections.tsx "Publish your story — free" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/_components/secure-account-banner.tsx "Secure my plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/(account)/create-event/page.tsx "Buksan ang" → /dashboard/[eventId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/(account)/library/_components/photos-tab.tsx "ago today — relive the day" → /dashboard/[eventId]/studio/papic	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/(account)/library/_components/saved-vendor-card.tsx "Contact" → /v/[slug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/(account)/library/page.tsx "Spaces on your home" → /dashboard	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/(account)/life-flash/_components/flash.tsx "Plan what’s next →" → /dashboard/create-event	# first run 2026-10-02 · host app · a "Messages" row that opens the roster

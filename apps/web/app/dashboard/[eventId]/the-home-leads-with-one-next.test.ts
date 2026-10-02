@@ -51,6 +51,7 @@ test.before(async () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 const DASH = stripComments(readFileSync(join(HERE, '_components', 'event-dashboard.tsx'), 'utf8'));
+const FACTS = stripComments(readFileSync(join(HERE, '..', '..', '..', 'lib', 'home-facts.ts'), 'utf8'));
 
 const NOTHING: HomeNextInput = { guide: null, hasDate: true, noun: 'wedding', papicReady: false, aiOffer: false };
 const GUIDE = { round: 2, roundTitle: 'Invitations', done: 3, total: 7, nextTitle: 'Schedule' };
@@ -150,10 +151,12 @@ test('c · an unread number prints "—", never 0', () => {
 
 test('c · the page hands the measurement to the render, not only the rows', () => {
   assert.match(PAGE, /fetchGuestsByEventMeasured\(/, 'Home must take the measured guest read');
-  assert.match(PAGE, /glanceCount\(homeStats\.attending,\s*guestsMeasured\)/, '"coming" must know whether it was measured');
-  assert.match(PAGE, /glanceCount\(homeStats\.pending,\s*guestsMeasured\)/, '"no reply" must know whether it was measured');
-  assert.match(PAGE, /glanceMoney\(moneyNow\?\.paid \?\? null\)/, 'Paid must print "—" when the money read failed');
-  assert.match(PAGE, /glanceMoney\(moneyNow\?\.owing \?\? null\)/, 'Still owing must print "—" when the money read failed');
+  // The page hands the measurement to `homeFacts`; `homeFacts` is the one place the numbers are printed.
+  assert.match(PAGE, /guests:\s*\{\s*stats:\s*guestStats,\s*measured:\s*guestsMeasured\s*\}/, 'the page must pass the measured flag with the counts');
+  assert.match(FACTS, /glanceCount\(guests\.stats\.attending,\s*guests\.measured\)/, '"coming" must know whether it was measured');
+  assert.match(FACTS, /glanceCount\(guests\.stats\.pending,\s*guests\.measured\)/, '"no reply" must know whether it was measured');
+  assert.match(FACTS, /glanceMoney\(money\?\.paid \?\? null\)/, 'Paid must print "—" when the money read failed');
+  assert.match(FACTS, /glanceMoney\(money\?\.owing \?\? null\)/, 'Still owing must print "—" when the money read failed');
   assert.doesNotMatch(PAGE, /measured:\s*true[^}]*\}\s*as Awaited/, 'a failed guest read must never be recast as measured');
 });
 

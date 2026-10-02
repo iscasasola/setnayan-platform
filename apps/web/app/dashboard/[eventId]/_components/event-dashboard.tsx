@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { fetchChecklistProgress } from '@/lib/checklist';
-import { eventDateToEpoch, type MenuLifecyclePhase } from '@/lib/day-of-mode';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -28,7 +28,8 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
+import type { GuestStats } from '@/lib/guests';
+import type { EventMoney } from '@/lib/budget-truth';
 import { rsvpSegments, rsvpSummary } from '@/lib/rsvp-segments';
 import { firstScreenRepeats, type FirstScreenAbove } from '@/lib/home-first-screen';
 import { fetchEventUnreadCounts } from '@/lib/event-decisions';
@@ -80,7 +81,6 @@ import {
   loadVendorChangeSignals,
   budgetFromEventMoney,
 } from '@/lib/setnayan-ai-snapshot';
-import { resolveEventMoney } from '@/lib/budget-truth';
 import { renderTemplate, WEDDING_TERMINOLOGY } from '@/lib/setnayan-ai-templates';
 import { buildProgressStages } from '@/lib/progress-stages';
 import type { EventDatePrecision } from '@/lib/events';
@@ -155,28 +155,6 @@ const CONFIRMED_VENDOR_SET = new Set([
   'delivered',
   'complete',
 ]);
-
-/**
- * Whole days from today to the event.
- *
- * ⚠ IT USED TO ANCHOR ON THE RUNTIME'S OWN MIDNIGHT. `new Date(`${d}T00:00:00`)`
- * plus `today.setHours(0,0,0,0)` are both the SERVER's clock — UTC on Vercel —
- * so between 00:00 and 08:00 Manila the day after a wedding this still returned
- * 0 and the hero read "It's your event day". `eventDateToEpoch` exists in
- * lib/day-of-mode.ts precisely because a bare Date parse already broke a
- * countdown once; it is asked here rather than re-derived.
- */
-export function daysUntil(eventDate: string | null, tz?: string): number | null {
-  if (!eventDate) return null;
-  const eventMs = eventDateToEpoch(eventDate, tz);
-  if (!Number.isFinite(eventMs)) return null;
-  // "Today" collapsed in the SAME zone, so both sides of the subtraction are
-  // midnights in one clock rather than midnights in two.
-  const todayIso = new Date().toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined);
-  const todayMs = eventDateToEpoch(todayIso, tz);
-  if (!Number.isFinite(todayMs)) return null;
-  return Math.round((eventMs - todayMs) / 86_400_000);
-}
 
 /** service_key → couple-facing label via the add-ons catalog, else prettified. */
 function serviceLabel(key: string | null): string {
@@ -254,6 +232,9 @@ export async function EventDashboard({
   lifecyclePhase = 'plan',
   canViewPapicCounts = false,
   firstScreenAbove,
+  daysOut,
+  guestStats,
+  guardMoney = null,
 }: {
   eventId: string;
   saiPreviewParam?: string;
@@ -313,6 +294,22 @@ export async function EventDashboard({
    * forgets it gets no tile, never a wrong one.
    */
   canViewPapicCounts?: boolean;
+  /**
+   * 🔑 HANDED DOWN, NEVER RE-WORKED-OUT (Root map: "the same fact shown twice").
+   * `daysOut` and `guestStats` are what Home's first screen states, computed once
+   * by `homeFacts` (lib/home-facts.ts) in the page. This component used to run
+   * its own `daysUntil` and `computeGuestStats` over its own copy of the guest
+   * list, so the first screen and the dashboard could count one fact two ways.
+   * `daysOut` is null for a date that is only a month / a year (no countdown).
+   */
+  daysOut: number | null;
+  guestStats: GuestStats;
+  /**
+   * The couple's resolved money, read once by the page (lib/budget-live-read.ts)
+   * and only for a viewer the budget is shared with — what the Sai watch rail's
+   * budget guard is fed. Null: not shared, flag off, or the resolver failed.
+   */
+  guardMoney?: EventMoney | null;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -323,7 +320,6 @@ export async function EventDashboard({
   const [
     eventRes,
     viewerRes,
-    guests,
     eventVendorsRes,
     paidOrdersRes,
     pendingOrdersRes,
@@ -383,15 +379,6 @@ export async function EventDashboard({
         return { data: null, error: null } as never;
       }
     })(),
-    fetchGuestsByEvent(supabase, eventId).catch((err: unknown) => {
-      logQueryError(
-        'EventDashboard (fetchGuestsByEvent threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return [] as Awaited<ReturnType<typeof fetchGuestsByEvent>>;
-    }),
     // Vendor picks — lean select (this surface needs no enrichment columns).
     (async () => {
       try {
@@ -861,8 +848,6 @@ export async function EventDashboard({
       : event.event_date
         ? 'day'
         : 'year';
-  const venueTz = (event as { timezone?: string | null }).timezone ?? undefined;
-  const daysOut = eventDatePrecision === 'day' ? daysUntil(event.event_date, venueTz) : null;
   /*
     THE CELEBRATION HAS ALREADY HAPPENED — handed down, not worked out here.
     Everything below that states something about work still to do is gated on
@@ -874,7 +859,7 @@ export async function EventDashboard({
   // yet" split that produced bug 2).
   const hasFirmDate = eventDatePrecision === 'day' && Boolean(event.event_date);
 
-  const stats = computeGuestStats(guests);
+  const stats = guestStats;
 
   // 🔑 THE CATCH ABOVE THESE READS CAN NEVER FIRE. Supabase RESOLVES with
   // `{ error }` instead of throwing, so a refused query never reaches a
@@ -1461,9 +1446,7 @@ export async function EventDashboard({
     // The couple's money, from THE resolver — see the `budget:` slot below.
     // Fail-soft to null: no money → no GRD-05 here, which beats a guard firing
     // on a figure `/budget` does not print.
-    const aiRailMoney = budgetVisibility.mayRead
-      ? await resolveEventMoney(supabase, eventId).catch(() => null)
-      : null;
+    const aiRailMoney = budgetVisibility.mayRead ? guardMoney : null;
     const snapshot: PlanningSnapshot = {
       eventType,
       payments: upcoming.paymentItemsNext30d.map((item) => ({
@@ -2582,7 +2565,7 @@ export async function EventDashboard({
                         they are named here so the smaller number cannot read as
                         "we lost six things". */}
                     {datesCount > 0
-                      ? ` · ${formatCount(datesCount)} ${datesCount === 1 ? 'date' : 'dates'} coming`
+                      ? ` · ${formatCount(datesCount)} ${datesCount === 1 ? 'date' : 'dates'} ahead`
                       : ''}
                   </span>
                 </div>

@@ -18,6 +18,7 @@ import {
   type GuestAttire,
   type MealPreference,
   type RsvpStatus,
+  RSVP_ROW_WORDS,
   PLUS_ONE_CHOICES,
   plusOneSeats,
   guestFullName,
@@ -119,12 +120,7 @@ const ATTIRE_LABELS: Record<GuestAttire, string> = {
 };
 
 /** The card's words for an answer (owner 2026-09-30: "no reply" / "not coming"). */
-const CARD_RSVP_WORDS: Record<RsvpStatus, string> = {
-  attending: 'Attending',
-  pending: 'No reply',
-  declined: 'Not coming',
-  maybe: 'Maybe',
-};
+const CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
 
 
 /** "7" → "Table 7"; a table the couple named ("Sponsors") stays as named. */

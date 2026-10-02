@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "964efe087",
+  "generatedFromRef": "f1803046c",
   "routeCount": 422,
   "destinations": 943,
   "actions": 671,
-  "blocks": 5413,
+  "blocks": 5411,
   "routes": {
     "/": {
       "files": [
@@ -5290,7 +5290,6 @@
         "EventDashboard",
         "EventDayPrepCta",
         "EventMenuChild",
-        "EventMoney",
         "EventMonogram",
         "EventRailContext",
         "EventScene",
@@ -8486,7 +8485,6 @@
         "DialogState",
         "DigitalServicesRail",
         "DownpaymentModal",
-        "EventMoney",
         "EventVendorRowInput",
         "ExceptionModal",
         "ExploreInfoToggle",

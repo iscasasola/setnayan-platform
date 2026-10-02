@@ -97,8 +97,9 @@ export function scrubText(
   const parked: string[] = [];
   const park = (m: string) => `\u0000${parked.push(m) - 1}\u0000`;
   s = s.replace(EMAIL_RE, '[email]');
-  s = s.replace(UUID_RE, opts.keepIds ? park : '[id]');
-  s = s.replace(PUBLIC_ID_RE, opts.keepIds ? park : '[id]');
+  const id = (m: string) => (opts.keepIds ? park(m) : '[id]');
+  s = s.replace(UUID_RE, id);
+  s = s.replace(PUBLIC_ID_RE, id);
   s = s.replace(LONG_TOKEN_RE, '[token]');
   s = s.replace(QUOTED_RE, '"[value]"');
   s = s.replace(PHONE_RE, '[phone]');

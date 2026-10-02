@@ -1,7 +1,8 @@
 import 'server-only';
 
-import { recordFault, type RecordFaultInput } from '@/lib/telemetry/fault-log';
-import { normalizePath, type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
+import { recordFault } from '@/lib/telemetry/fault-log';
+import { type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
+import { shapeRequestError, type ContextLike, type RequestLike } from '@/lib/telemetry/request-error-shape';
 
 /**
  * Problems · the SERVER's central recorders. Nothing here is called per action:
@@ -97,54 +98,10 @@ export function actionKey(id: string | null | undefined): string | null {
 
 // ── thrown errors (onRequestError) ───────────────────────────────────────────
 
-type RequestLike = { path?: string; method?: string; headers?: Record<string, string | string[] | undefined> };
-type ContextLike = { routePath?: string; routeType?: string; renderSource?: string; routerKind?: string };
-
-/** Next's own control-flow throws reach no user as a failure; never record them. */
-export function isControlFlowError(err: unknown): boolean {
-  const digest = (err as { digest?: unknown })?.digest;
-  if (typeof digest === 'string' && /^(NEXT_|DYNAMIC_SERVER_USAGE|BAILOUT_TO_CLIENT_SIDE_RENDERING)/.test(digest)) {
-    return true;
-  }
-  const msg = err instanceof Error ? err.message : '';
-  return /^NEXT_(REDIRECT|NOT_FOUND|HTTP_ERROR_FALLBACK)/.test(msg);
-}
-
-function header(req: RequestLike, name: string): string | null {
-  const v = req.headers?.[name] ?? req.headers?.[name.toLowerCase()];
-  return Array.isArray(v) ? (v[0] ?? null) : (v ?? null);
-}
-
-/** Pure shaping, exported for the test: the record a thrown request error becomes. */
-export function shapeRequestError(err: unknown, req: RequestLike, ctx: ContextLike): RecordFaultInput | null {
-  if (isControlFlowError(err)) return null;
-  const actionId = header(req, 'next-action');
-  const route = ctx.routePath || normalizePath(req.path);
-  const action =
-    ctx.routeType === 'action' || actionId ? (actionKey(actionId) ?? `action@${route}`) : `${ctx.routeType ?? 'render'} ${route}`;
-  const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err ?? 'unknown error');
-  const digest = (err as { digest?: unknown })?.digest;
-  return {
-    kind: 'SERVER_THROWN',
-    action,
-    message,
-    filePath: route,
-    trace: {
-      page: route,
-      route_type: ctx.routeType ?? null,
-      render_source: ctx.renderSource ?? null,
-      method: req.method ?? null,
-      digest: typeof digest === 'string' ? digest : null,
-      action_id: actionId,
-      stack: err instanceof Error && err.stack ? err.stack.split('\n').slice(1, 6).map((l) => l.trim()) : null,
-    },
-  };
-}
-
 /** Called from instrumentation.ts `onRequestError`. Never throws. */
 export async function recordRequestError(err: unknown, req: RequestLike, ctx: ContextLike): Promise<void> {
   try {
-    const shaped = shapeRequestError(err, req, ctx);
+    const shaped = shapeRequestError(err, req, ctx, actionKey);
     if (shaped) await recordFault(shaped);
   } catch {
     /* a recorder must not add a second failure to the first */

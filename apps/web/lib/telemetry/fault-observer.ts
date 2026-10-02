@@ -166,6 +166,67 @@ export function labelOf(el: Element): string {
   return el.tagName.toLowerCase();
 }
 
+export type RequestEnv = {
+  setTimeout: (fn: () => void, ms: number) => unknown;
+  clearTimeout: (h: never) => void;
+  send: (w: WireFault) => void;
+  count: (key: string) => void;
+};
+
+/**
+ * Watch ONE request a person's press started — a Server Action (`actionId`)
+ * or a same-origin /api call (`apiPath`). Exported so the tests drive the real
+ * branch with a fake clock and a fake response.
+ */
+export function watchRequest(
+  p: Promise<Response>,
+  meta: { actionId: string | null; apiPath: string | null; page: string; element: string | null },
+  env: RequestEnv,
+): void {
+  const { actionId, apiPath, page, element } = meta;
+  const action = apiPath ? `route:${normalizePath(apiPath)}` : null;
+  let answered = false;
+  const timer = env.setTimeout(() => {
+    if (answered) return;
+    env.send(wire('BUTTON_TIMEOUT', { action, actionId, element, page, message: `no answer after ${ACTION_TIMEOUT_MS / 1000}s` }));
+  }, ACTION_TIMEOUT_MS);
+
+  p.then(
+    (res) => {
+      answered = true;
+      env.clearTimeout(timer as never);
+      if (res.status >= 500) {
+        // An action's 5xx is a THROW the server already recorded (onRequestError);
+        // an /api 5xx may be a returned one, so it is recorded.
+        if (apiPath) env.send(wire('ACTION_RETURNED_ERROR', { action, element, page, message: `HTTP ${res.status}` }));
+        return;
+      }
+      if (apiPath) {
+        env.count(`route:${apiPath}`);
+        return;
+      }
+      const redirectFailure = redirectSaysFailed(res.headers.get('x-action-redirect'));
+      if (redirectFailure) {
+        env.send(wire('ACTION_RETURNED_ERROR', { actionId, element, page, message: redirectFailure }));
+        return;
+      }
+      res
+        .clone()
+        .text()
+        .then((text) => {
+          const r = readActionResult(text);
+          if (r.failed) env.send(wire('ACTION_RETURNED_ERROR', { actionId, element, page, message: r.message }));
+          else env.count(`id:${actionId}`);
+        })
+        .catch(() => {});
+    },
+    () => {
+      answered = true;
+      env.clearTimeout(timer as never);
+    },
+  );
+}
+
 // ── the installer ────────────────────────────────────────────────────────────
 
 type Win = Window & typeof globalThis & { __snFaultObserver?: boolean };
@@ -255,49 +316,12 @@ export function installFaultObserver(win: Win = window as Win): void {
     }
     if (!actionId && !apiPath) return p;
 
-    const page = loc.pathname;
-    const element = lastTap && Date.now() - lastTap.at < 3_000 ? lastTap.label : null;
-    const action = apiPath ? `route:${normalizePath(apiPath)}` : null;
-    let answered = false;
-    const timer = win.setTimeout(() => {
-      if (answered) return;
-      send(wire('BUTTON_TIMEOUT', { action, actionId, element, page, message: `no answer after ${ACTION_TIMEOUT_MS / 1000}s` }));
-    }, ACTION_TIMEOUT_MS);
-
-    p.then(
-      (res) => {
-        answered = true;
-        win.clearTimeout(timer);
-        if (res.status >= 500) {
-          // An action's 5xx is a THROW the server already recorded; an /api 5xx
-          // may be a returned one, so it is recorded.
-          if (apiPath) send(wire('ACTION_RETURNED_ERROR', { action, element, page, message: `HTTP ${res.status}` }));
-          return;
-        }
-        if (apiPath) {
-          count(`route:${apiPath}`);
-          return;
-        }
-        const redirectFailure = redirectSaysFailed(res.headers.get('x-action-redirect'));
-        if (redirectFailure) {
-          send(wire('ACTION_RETURNED_ERROR', { actionId, element, page, message: redirectFailure }));
-          return;
-        }
-        res
-          .clone()
-          .text()
-          .then((text) => {
-            const r = readActionResult(text);
-            if (r.failed) send(wire('ACTION_RETURNED_ERROR', { actionId, element, page, message: r.message }));
-            else count(`id:${actionId}`);
-          })
-          .catch(() => {});
-      },
-      () => {
-        answered = true;
-        win.clearTimeout(timer);
-      },
-    );
+    watchRequest(p, {
+      actionId,
+      apiPath,
+      page: loc.pathname,
+      element: lastTap && Date.now() - lastTap.at < 3_000 ? lastTap.label : null,
+    }, { setTimeout: win.setTimeout.bind(win), clearTimeout: win.clearTimeout.bind(win), send, count });
     return p;
   } as typeof fetch;
 

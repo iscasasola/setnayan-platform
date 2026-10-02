@@ -16,11 +16,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { stripComments } from './strip-comments';
+
 const WEB = process.cwd();
-const code = (rel: string) =>
-  readFileSync(join(WEB, rel), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/^\s*\/\/.*$/gm, '');
+const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 test('the manpower cash amount starts EMPTY and a blank is refused, not defaulted', () => {
   const drawer = code('app/dashboard/[eventId]/manpower/_components/post-gig-drawer.tsx');

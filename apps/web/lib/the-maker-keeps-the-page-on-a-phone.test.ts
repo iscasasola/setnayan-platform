@@ -96,8 +96,7 @@ async function shell(details: React.ReactElement | null): Promise<string> {
         hasWork: true,
         applySlot: await draftButtons(),
         details: details ? { page: details, controls: null } : null,
-        children: null,
-      }),
+      }, null),
     ),
   );
 }

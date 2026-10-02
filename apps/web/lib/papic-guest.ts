@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError, isMissingRelationError } from '@/lib/supabase/error-detect';
 import { eventOwnsSku, eventSkuActive, eventHasPapicUnlock } from '@/lib/entitlements';
 import { readEventPoolStatus, EVENT_POOL_ABSENT } from '@/lib/papic-event-pool';
+import { papicIsOn } from '@/lib/event-answers';
 import { papicGuestCapLifts, papicGuestCapAppliesWithCeiling } from '@/lib/papic-guest-cap';
 
 /**
@@ -123,10 +124,19 @@ export async function eventPapicGuestAccess(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PapicGuestAccess> {
-  const [owned, pool] = await Promise.all([
+  const [owned, pool, papicSwitch] = await Promise.all([
     Promise.all(PAPIC_PASS_SERVICE_KEYS.map((key) => eventSkuActive(supabase, eventId, key))),
     readEventPoolStatus(supabase, eventId).catch(() => ({ ok: false, status: null })),
+    supabase.from('events').select('papic_on').eq('event_id', eventId).maybeSingle(),
   ]);
+  // 🗂 THE HOST SAID NO (owner 2026-10-02, "EVERY ANSWER … LIVES IN EVENT
+  // DETAILS"): "Photos from your guests? — No" (`papic_on = false`, changed in
+  // Your info) closes the guest camera, paid or free — the answer is theirs.
+  // Only an explicit No: an unread switch makes no claim and the purchase and
+  // the pool decide, exactly as before.
+  if (!papicSwitch.error && papicSwitch.data && !papicIsOn((papicSwitch.data as { papic_on?: unknown }).papic_on)) {
+    return 'off';
+  }
   if (owned.some(Boolean)) return 'on';
   if (!pool.ok) return 'unknown';
   return pool.status?.applies === true ? 'on' : 'off';

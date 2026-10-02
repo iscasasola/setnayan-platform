@@ -13,8 +13,9 @@ import { SubmitButton } from '@/app/_components/submit-button';
  * INSERTs and redirects back to the host manpower page with ?posted=1.
  *
  * Per [[feedback_setnayan_no_dev_text_post_launch]] brand-voice copy ·
- * editorial register · no engineering jargon. The default cash amount
- * is ₱15,000 (matches Phase F lock) but the host can adjust per gig.
+ * editorial register · no engineering jargon. The cash amount starts EMPTY —
+ * the host types what THEY are paying; a pre-filled sample figure reads as a
+ * rule and was once shipped as one (2026-10-02 value-leak sweep).
  */
 export function PostGigDrawer({ eventId }: { eventId: string }) {
   const [open, setOpen] = useState(false);
@@ -99,7 +100,9 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
               <input
                 type="number"
                 name="cash_amount_php"
-                defaultValue={15000}
+                inputMode="numeric"
+                required
+                placeholder="Amount you will pay the crew"
                 min={0}
                 step={100}
                 className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"

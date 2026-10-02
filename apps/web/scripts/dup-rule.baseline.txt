@@ -46,8 +46,8 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 332
-#   shadow  20
+# facts: 331
+#   shadow  19
 #   omit    312
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
@@ -61,7 +61,6 @@ shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_ORDER	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_TILE_SLUG	lib/taxonomy.ts
 shadow	app/_components/plan3d/plan3d-scene.tsx	damp	app/_components/plan3d/kit/index.ts
 shadow	app/admin/disputes/page.tsx	tierRank	lib/vendor-tier-caps.ts
-shadow	app/admin/taxonomy/actions.ts	VALID_PHOTO	lib/refinements-mutations.ts
 shadow	app/admin/users/[userId]/page.tsx	ORDER_STATUS_LABEL	lib/orders.ts
 shadow	app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx	SIDE_LABELS	lib/guests.ts
 shadow	app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx	hasContent	lib/invitation-widgets.ts

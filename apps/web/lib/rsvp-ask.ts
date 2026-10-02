@@ -85,6 +85,16 @@ export type RsvpAskConfig = Partial<Record<RsvpAskField, boolean>> & {
    */
   guestsReply?: boolean;
   /**
+   * 🎟 "I APPROVE EACH ONE" (owner 2026-09-30, DECISION_LOG "THE RSVP IS
+   * OPTIONAL — AND AN EVENT CAN RUN ON ONE QR FOR EVERYONE": *"no reply, no
+   * approval unless the host picks 'I approve each one'"*). Only meaningful
+   * with `guestsReply: false` + `whoCanRsvp: 'anyone'` (one QR for everyone).
+   * Absent = no approval: a person who scans the one QR and signs in is ADDED
+   * (`oneQrLetsYouIn`, and its SQL twin `join_open_event_as_guest`). Only an
+   * explicit `true` turns that into a request the host keeps or removes.
+   */
+  approveEach?: boolean;
+  /**
    * 📝 THE RSVP STAGE'S WORDS (owner 2026-09-30, DECISION_LOG "RSVP ANSWERS:
    * THE COUPLE RENAMES…" and "RE-PLAN REVISIONS — RSVP STAGE PARTS"). DISPLAY
    * WORDS ONLY — the stored answer stays `attending` / `declined`, so counts,
@@ -220,6 +230,10 @@ export function sanitizeRsvpAskConfig(raw: unknown): RsvpAskConfig {
       if (typeof value === 'boolean') out.guestsReply = value;
       continue;
     }
+    if (key === 'approveEach') {
+      if (typeof value === 'boolean') out.approveEach = value;
+      continue;
+    }
     if (key === 'words') {
       const words = sanitizeRsvpWords(value);
       if (Object.keys(words).length > 0) out.words = words;
@@ -341,11 +355,24 @@ export function readGuestsReply(raw: unknown): boolean {
   return sanitizeRsvpAskConfig(raw).guestsReply !== false;
 }
 
+/**
+ * 🎟 ONE QR FOR EVERYONE LETS A SIGNED-IN PERSON STRAIGHT IN — no reply, no
+ * approval (owner 2026-09-30). True only for "Will guests reply? No" + the one
+ * QR open (`whoCanRsvp: 'anyone'`) + NOT "I approve each one". The join door
+ * asks THIS; the database asks the same three keys again in
+ * `join_open_event_as_guest` (migration 20271259992581), so a stale page can
+ * never add anybody the setting no longer lets in.
+ */
+export function oneQrLetsYouIn(raw: unknown): boolean {
+  const cfg = sanitizeRsvpAskConfig(raw);
+  return cfg.guestsReply === false && cfg.whoCanRsvp === 'anyone' && cfg.approveEach !== true;
+}
+
 export const ONE_AT_A_TIME_TIP =
   'OFF: every question on one scrolling page. ON: one question per screen with progress dots and Back — easier for elders and small screens. Same questions either way.';
 
 export const WHO_CAN_RSVP_TIP =
-  '“Anyone, I approve” lets people without a key ask to join. They wait in Requests until you Keep, Link or Remove them — nobody gets inside on a name alone.';
+  'Whether guests reply, and who may come in. Anyone who has to ask waits in Requests until you Keep, Link or Remove them. “One QR for everyone” adds anyone who scans it and signs in — unless you pick “I approve each one”.';
 
 /**
  * THE REPLY-BY LINE A GUEST SEES — the invitation, the reply page and the

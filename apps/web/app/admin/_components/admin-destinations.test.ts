@@ -90,12 +90,12 @@ test('an unlisted page is named by its whole path, not its last word', () => {
 
 test('a page is findable by the work done on it', () => {
   const dests = buildDestinations();
-  const taxonomy = dests.find((d) => d.href.startsWith('/admin/taxonomy'));
-  assert.ok(taxonomy, 'the taxonomy destination is gone — re-pin this');
+  const taxonomy = dests.find((d) => d.href.startsWith('/admin/categories'));
+  assert.ok(taxonomy, 'the categories destination is gone — re-pin this');
   // Words that appear nowhere in the page's name or its one-line description,
   // and only reach the search because a job on that page asks for them.
   for (const word of ['refinement', 'faith', 'canonical leaf', 'planning deadline']) {
-    assert.ok(taxonomy.hay.includes(word), `"${word}" no longer finds Taxonomy`);
+    assert.ok(taxonomy.hay.includes(word), `"${word}" no longer finds Categories & event types`);
   }
 });
 

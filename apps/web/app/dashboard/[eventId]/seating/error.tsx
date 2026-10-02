@@ -27,6 +27,12 @@ export default function SeatingError({ error, reset }: Props) {
     if (process.env.NODE_ENV === 'development') {
       console.error('[seating error boundary]', error);
     }
+    // 📋 Problems list — a browser-born crash is recorded (a server-born one,
+    // with a digest, was already recorded by onRequestError). Lazy: this
+    // boundary pays nothing for it until it renders.
+    void import('@/lib/telemetry/report-crash')
+      .then((m) => m.reportCrash(error, 'seating'))
+      .catch(() => {});
   }, [error]);
 
   return (

@@ -20,6 +20,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { setupColumns } from '@/lib/onboarding/event-insert';
+import { setupArmsPapic } from '@/lib/event-answers';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
@@ -530,6 +531,8 @@ export async function commitOnboardingWedding(
       venue_name: setup?.venue_name ?? null,
       ...(setup ? { invite_theme: setup.invite_theme } : {}),
       ...(setup?.rsvp_ask_config ? { rsvp_ask_config: setup.rsvp_ask_config } : {}),
+      // 🗂 Papic · gifts · logo · photo — each to its one column (Your info).
+      ...(setup ? setup.answers : {}),
       venue_address: null,
       slug,
       is_primary: true,
@@ -633,14 +636,21 @@ export async function commitOnboardingWedding(
   // the event does — an event with no grant takes papic_event_pool_status()'s
   // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal by design:
   // a miss here is self-healed on the first Papic-studio render.
-  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
-  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
-  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
-  // shared pool because the two are different products — the pool grant does
-  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
-  // idempotent (fixed seat index + a partial unique index on the grant), so the
-  // creation call and the studio self-heal collapse to one camera.
-  await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
+  //
+  // 🗂 …UNLESS THE COUPLE SAID NO (owner 2026-10-02, "EVERY ANSWER … LIVES IN
+  // EVENT DETAILS"): "Photos from your guests? — No" is `papic_on = false`, so
+  // nothing is armed and no capture is taken there (`eventAcceptsNewCaptures`).
+  // Turning it on later in Your info arms both at Apply.
+  if (setupArmsPapic(setupAnswers)) {
+    await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
+    // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+    // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+    // shared pool because the two are different products — the pool grant does
+    // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+    // idempotent (fixed seat index + a partial unique index on the grant), so the
+    // creation call and the studio self-heal collapse to one camera.
+    await ensureFreePapicOneCameraAdmin(admin, insertedEvent.event_id);
+  }
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,

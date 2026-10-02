@@ -211,9 +211,9 @@ export default async function HostManpowerPage({
             Setnayan note
           </p>
           <p className="mt-1.5 text-sm leading-relaxed text-slate-700">
-            The ₱15,000 (or whatever you adjust it to) flows directly from you
-            to the vendor&apos;s crew. We don&apos;t process the payment, so
-            there&apos;s no Setnayan receipt for this leg. The accepting vendor
+            The cash amount you set on each gig flows directly from you to the
+            supplier&apos;s crew. We don&apos;t process the payment, so
+            there&apos;s no Setnayan receipt for this leg. The accepting supplier
             handles their own BIR Form 2307 as the income recipient.
           </p>
         </aside>

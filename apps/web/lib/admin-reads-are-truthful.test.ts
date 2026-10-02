@@ -117,22 +117,24 @@ test('Social queue: every section answers "what if the read failed?"', () => {
 
 // ── 5 · forms seeded from a read may not Save over the real values ─────────
 
-test('Event type › Profile: a refused profile read disables Save', () => {
-  const s = src('app/admin/event-types/[eventType]/profile/page.tsx');
+test('Event type › Profile: a refused profile read disables every Save', () => {
+  // The profile page became sections of the event type's panel (2026-10-02).
+  const s = src('app/admin/categories/_components/event-type-panel.tsx');
   assert.match(s, /const \{ data: profileData, error: profileError \} = await admin/);
   assert.match(s, /const profileReadFailed = Boolean\(profileError\);/);
-  assert.match(s, /<SubmitButton\s+disabled=\{profileReadFailed\}/);
-  assert.match(s, /!profileData && !profileReadFailed \? 'No profile row yet/, '"No profile row yet" must not print over a refused read');
-  // A refused vocab read is not a 404.
-  assert.match(s, /if \(vocabError\) \{\s*logQueryError\([\s\S]{0,160}?\);\s*return <ProfileReadFailed \/>;\s*\}\s*if \(!vocab\) notFound\(\);/);
+  // Four sections save the one profile form; every one of their buttons is off.
+  const saves = s.match(/<SubmitButton disabled=\{profileReadFailed\} form=\{formId\}/g) ?? [];
+  const posts = s.match(/form=\{formId\}[^>]*>\s*Save/g) ?? [];
+  assert.ok(saves.length >= 4, `only ${saves.length} profile Save buttons are disabled on a refused read`);
+  assert.equal(saves.length, posts.length, 'a profile Save button is armed over a refused read');
+  assert.match(s, /\{profileReadFailed \? \(\s*<div role="alert"/);
 });
 
 test('Event type › Onboarding: a refused override read never mounts the editor', () => {
-  const s = src('app/admin/event-types/[eventType]/onboarding/page.tsx');
+  const s = src('app/admin/categories/_components/event-type-panel.tsx');
   assert.match(s, /\{ data: rowData, error: rowError \}/);
   assert.match(s, /if \(rowError\) \{\s*logQueryError\([\s\S]{0,160}?\);\s*return <OnboardingReadFailed \/>;/);
   follows(s, 'if (rowError) {', '<OnboardingEditor', 4000, 'the editor must not mount after a refused read');
-  assert.match(s, /if \(vocabError\) \{\s*logQueryError\([\s\S]{0,160}?\);\s*return <OnboardingReadFailed \/>;\s*\}\s*if \(!vocab\) notFound\(\);/);
 });
 
 test('Budget Planner: a refused engine-config read disables "Save settings"', () => {

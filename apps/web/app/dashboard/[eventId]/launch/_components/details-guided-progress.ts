@@ -26,6 +26,7 @@ import { readYourEventFacts } from './details-your-event-facts';
 import { hubSetupApplies, hubSetupRound, type HubSetupFacts, type HubSetupRound } from '@/lib/hub-setup-steps';
 import type { DetailsItemContext } from '@/lib/maker-details-items';
 import { readGuestsReply } from '@/lib/rsvp-ask';
+import { coverStepAnswered, logoStepAnswered } from '@/lib/event-answers';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { sanitizeRoleAttire } from '@/lib/role-dress-code';
 
@@ -147,6 +148,8 @@ type GuidedEventRow = Pick<
   | 'special_message'
   | 'pabuya_message'
   | 'print_details'
+  | 'logo_wanted'
+  | 'cover_photo_wanted'
 >;
 
 /**
@@ -191,8 +194,12 @@ export function guidedFactsFrom(input: {
     kind: input.yourEvent?.kind ?? null,
     themeChosen: themeSaved !== null && themeSaved !== undefined,
     palette: hasPalette(input.event.role_palette),
-    logo: Boolean(col('monogram_custom_svg') || col('monogram_uploaded_svg')),
-    hero: Boolean(col('landing_page_hero_image_url') || col('landing_page_hero_video_r2_key')),
+    /* 🗂 The onboarding's answers are obeyed here (owner 2026-10-02, lib/event-answers.ts):
+       "Yes, make one" keeps the Logo step open until a logo exists, "No, use our
+       names" answers it; "Upload a photo" keeps First screen open until a photo
+       is up, "Use a theme picture for now" answers it. */
+    logo: logoStepAnswered(Boolean(col('monogram_custom_svg') || col('monogram_uploaded_svg')), col('logo_wanted')),
+    hero: coverStepAnswered(Boolean(col('landing_page_hero_image_url') || col('landing_page_hero_video_r2_key')), col('cover_photo_wanted')),
     seatPlanArranged: input.seatPlanArranged ?? null,
     words: wordsAndPlansInputFrom({
       specialMessage,

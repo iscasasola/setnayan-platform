@@ -306,7 +306,7 @@ test('the admin profile upsert merges over the stored terminology blob', () => {
   // celebratory voice with no error. The fix reads the stored blob and spreads
   // it under the form fields; this pins that the spread is still there.
   const actions = readFileSync(
-    join(TREE, '..', 'admin', 'event-types', 'actions.ts'),
+    join(TREE, '..', 'admin', 'categories', 'event-type-actions.ts'),
     'utf8',
   )
     .replace(/\/\*[\s\S]*?\*\//g, ' ')

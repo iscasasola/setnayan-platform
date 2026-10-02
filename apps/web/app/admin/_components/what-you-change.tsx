@@ -22,10 +22,10 @@
  * the two can never drift. A key that stops existing throws at build time rather
  * than shipping a dead tile — see `hrefFor`.
  *
- * ⚖ The shares are FIXED, not recomputed per render. A leaderboard that reorders
- * itself under you is worse than a stable list: the six are a statement about what
- * this product needs, not a scoreboard, and a home that rearranges on a stray
- * click teaches you to stop trusting where things are.
+ * 🔑 THE NUMBERS ARE LIVE, NEVER TYPED. The tiles used to print the snapshot above
+ * ("34 changes · 52%") as if it were current. They now read `admin_audit_log`
+ * over the trailing window (`lib/admin/what-you-change.ts`). A count that could
+ * not be read prints NO number — never "0 changes".
  */
 
 import Link from 'next/link';
@@ -41,6 +41,11 @@ import {
 } from 'lucide-react';
 
 import { ADMIN_NAV_GROUPS } from './admin-nav-groups';
+import { formatCount } from '@/lib/format-number';
+import {
+  WHAT_YOU_CHANGE_WINDOW_DAYS,
+  type WhatYouChangeCounts,
+} from '@/lib/admin/what-you-change';
 
 /** Every nav item, flattened once, so a tile can find its own destination. */
 function hrefFor(key: string): string {
@@ -61,23 +66,28 @@ type Job = {
   key: string;
   /** What the owner calls the job, which is not always what the page is called. */
   label: string;
-  /** The share of his recorded admin actions this job accounts for. */
-  note: string;
-  /** 0–100, for the hairline under the label. */
-  share: number;
   Icon: LucideIcon;
 };
 
 export const WHAT_YOU_CHANGE: readonly Job[] = [
-  { key: 'pricing',      label: 'Prices & what we sell', note: '34 changes · 52%', share: 100, Icon: Tag },
-  { key: 'taxonomy',     label: 'Categories',            note: '9 changes',        share: 26,  Icon: Shapes },
-  { key: 'demo-vendors', label: 'Test data',             note: '9 changes',        share: 26,  Icon: FlaskConical },
-  { key: 'verify',       label: 'Shops',                 note: '6 changes',        share: 18,  Icon: Store },
-  { key: 'website',      label: 'The website',           note: '4 changes',        share: 12,  Icon: Globe },
-  { key: 'users',        label: 'Your team',             note: '3 changes',        share: 9,   Icon: UserCog },
+  { key: 'pricing',      label: 'Prices & what we sell', Icon: Tag },
+  { key: 'taxonomy',     label: 'Categories',            Icon: Shapes },
+  { key: 'demo-vendors', label: 'Test data',             Icon: FlaskConical },
+  { key: 'verify',       label: 'Shops',                 Icon: Store },
+  { key: 'website',      label: 'The website',           Icon: Globe },
+  { key: 'users',        label: 'Your team',             Icon: UserCog },
 ];
 
-export function WhatYouChange() {
+/** "4 changes · 6%" — or nothing at all when the count could not be read. */
+function noteFor(count: number | null, percent: number | null): string | null {
+  if (count === null) return null;
+  const n = `${formatCount(count)} ${count === 1 ? 'change' : 'changes'}`;
+  return percent === null ? n : `${n} · ${percent}%`;
+}
+
+export function WhatYouChange({ counts }: { counts: WhatYouChangeCounts }) {
+  // The hairline is each job's count against the busiest job, so it is always live too.
+  const busiest = Math.max(0, ...WHAT_YOU_CHANGE.map((j) => counts.byKey[j.key]?.count ?? 0));
   return (
     /* 📱 HIDDEN ON A PHONE — owner 2026-08-26: *"for mobile version, we only
      * provide quick answers. no editing of settings or features. just responses
@@ -89,8 +99,15 @@ export function WhatYouChange() {
      * screen says where they went instead of leaving a silent gap. */
     <section aria-label="What you change" className="mb-8 hidden lg:block">
       <h2 className="sn-sec">What you change</h2>
+      <p className="mt-1 text-xs text-ink/55">
+        Your admin changes over the last {WHAT_YOU_CHANGE_WINDOW_DAYS} days.
+      </p>
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {WHAT_YOU_CHANGE.map(({ key, label, note, share, Icon }) => (
+        {WHAT_YOU_CHANGE.map(({ key, label, Icon }) => {
+          const c = counts.byKey[key];
+          const note = noteFor(c?.count ?? null, c?.percent ?? null);
+          const share = busiest > 0 && c?.count ? Math.round((c.count / busiest) * 100) : 0;
+          return (
           <Link
             key={key}
             href={hrefFor(key)}
@@ -103,19 +120,24 @@ export function WhatYouChange() {
             />
             <span className="text-sm font-semibold leading-tight text-ink">{label}</span>
             {/* Space Mono for the count — the data face this console already uses. */}
-            <span className="mt-auto font-mono text-[10px] tracking-wide text-ink/55">
-              {note}
-            </span>
+            {note ? (
+              <span className="mt-auto font-mono text-[10px] tracking-wide text-ink/55">
+                {note}
+              </span>
+            ) : null}
             {/* The hairline is decoration carrying real information: how much of
                 the owner's recorded work this job is. Gold is legal here because
                 it is a RULE, not text (it measures 3.37:1 and must never be read). */}
-            <span
-              aria-hidden
-              className="mt-1.5 h-[3px] rounded-full bg-terracotta"
-              style={{ width: `${share}%` }}
-            />
+            {note ? (
+              <span
+                aria-hidden
+                className="mt-1.5 h-[3px] rounded-full bg-terracotta"
+                style={{ width: `${share}%` }}
+              />
+            ) : null}
           </Link>
-        ))}
+          );
+        })}
       </div>
     </section>
   );

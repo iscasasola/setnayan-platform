@@ -952,9 +952,11 @@ const INAPP_VS: Record<string, string> = {
   advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', pakanta: 'a composer + singer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
-/* Onboarding promo — 20% off any in-app add-on when added during onboarding (owner 2026-06-05,
-   was 10% on the retired bundle). Applied to the services-summary total (screen 16). */
-const ONBOARDING_PROMO = 0.2;
+/* Onboarding promo — a fraction off any in-app add-on added during onboarding, applied to the
+   services-summary total (screen 16). ⚠ THE FIGURE IS NOT TYPED HERE: it arrives as
+   `pricing.promo` (onboarding-pricing.ts — the ONE constant, listed for an owner decision), and
+   the "−N% onboarding promo" label below is rendered from that same value so the label and the
+   arithmetic cannot disagree. */
 
 /* Pick → recommended in-app add-ons (owner 2026-06-05 · "recommended services for the other
    services" → "Matched to their picks"). For each vendor category the couple picks, suggest the
@@ -2569,7 +2571,7 @@ export function OnboardingShell({
   // are 0 for both Papic keys, so neither contributes to this "saved" figure.
   const addonSetTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.set ?? 0), 0);
   const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.out ?? 0), 0);
-  const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - ONBOARDING_PROMO)));
+  const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - pricing.promo)));
 
   /* ════ THE MIRROR ════ a live wedding-website preview ribbon that accretes one real
      element with every answer (prototype Onboarding_Wedding_Adaptive_Flow §3 · port plan §4).
@@ -3025,7 +3027,9 @@ export function OnboardingShell({
   }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection, weddingExists, setupView, setupAnswers]);
 
   return (
-    <div className="onbw">
+    // data-flow-screen — the Problems list counts how far couples get through
+    // these screens (lib/telemetry/flows.ts, "create_event"), read from here.
+    <div className="onbw" data-flow-screen={activeId}>
       {/* Blocking completion overlay — covers the whole viewport so the customer
           can't touch anything while we create the event + preload the dashboard
           (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}
@@ -4698,12 +4702,12 @@ export function OnboardingShell({
                   // recomputed at order time. This is an onboarding estimate — do NOT
                   // "fix" it into a hardcode.
                   const setTotal = state.interestedServices.reduce((s, k) => s + (pricing.svc[k]?.set ?? 0), 0);
-                  const promo = Math.round(setTotal * ONBOARDING_PROMO);
+                  const promo = Math.round(setTotal * pricing.promo);
                   const due = setTotal - promo;
                   return (
                     <div className="svc-totals">
                       <div className="svc-tot-k">{state.interestedServices.length} {state.interestedServices.length === 1 ? 'service' : 'services'} · total</div>
-                      <div className="svc-tot-promo"><span className="svc-tot-was">{pesoB(setTotal)}</span><span className="svc-tot-tag">−20% onboarding promo</span></div>
+                      <div className="svc-tot-promo"><span className="svc-tot-was">{pesoB(setTotal)}</span><span className="svc-tot-tag">−{Math.round(pricing.promo * 100)}% onboarding promo</span></div>
                       <div className="svc-tot-a">{pesoB(due)}</div>
                     </div>
                   );

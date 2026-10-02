@@ -44,6 +44,8 @@ export const JOIN_DOOR_ERROR_KEYS = [
   'missing_terms',
   'too_many_attempts',
   'no_match',
+  // 🎟 One QR for everyone, on a list the host has finalized (join_open_event_as_guest → 'locked').
+  'list_finalized',
 ] as const;
 
 export type JoinDoorErrorKey = (typeof JOIN_DOOR_ERROR_KEYS)[number];
@@ -73,6 +75,7 @@ export function joinDoorRefusalMessages(w: JoinDoorOrganizerWords): Record<JoinD
     // 🔎 The generic-QR last-4 check (lib/find-me.ts). Never says WHICH part
     // was wrong — the name or the digits.
     no_match: `That doesn’t match. Try again, or ask ${w.theOrganizer} to confirm you.`,
+    list_finalized: `The guest list is final, so no one new can be added. Please ask ${w.theOrganizer}.`,
   };
 }
 

@@ -27,7 +27,9 @@ const WEB = resolve(HERE, '..', '..');
 test('an address the admin does not have is refused', () => {
   // A model improvising a URL, and a learned row whose page has since moved, are
   // the same failure with different ages. Both are refused here.
-  assert.equal(isKnownAdminHref('/admin/taxonomy'), true);
+  assert.equal(isKnownAdminHref('/admin/categories'), true);
+  // The Studio's old address forwards, but is no longer a page the box may offer.
+  assert.equal(isKnownAdminHref('/admin/taxonomy'), false);
   assert.equal(isKnownAdminHref('/admin/pricing?tab=pricing'), true);
   assert.equal(isKnownAdminHref('/admin/pricing?tab=pricing#sku-papic-guest'), true);
   assert.equal(isKnownAdminHref('/admin/a-page-that-never-existed'), false);

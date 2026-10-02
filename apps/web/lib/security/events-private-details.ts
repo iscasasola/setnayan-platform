@@ -144,7 +144,7 @@ export const GUEST_READABLE_SAMPLE: readonly string[] = [
  */
 export const MIGRATED_HOST_READERS: readonly string[] = [
   'app/dashboard/[eventId]/details/page.tsx',
-  'app/dashboard/[eventId]/details/change/page.tsx',
+  'app/dashboard/[eventId]/launch/_components/details-settings-load.ts',
   'app/dashboard/[eventId]/budget/page.tsx',
   'app/dashboard/[eventId]/date-selection/page.tsx',
   'app/dashboard/[eventId]/vendors/page.tsx',

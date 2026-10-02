@@ -130,7 +130,7 @@ test('the destinations are per-RECORD, not the list page', () => {
   // Four of the five did. These are the exact strings that used to ship.
   const wasAList: Record<string, string> = {
     user: '/admin/users',
-    taxonomy: '/admin/taxonomy',
+    taxonomy: '/admin/categories',
   };
   for (const [kind, listHref] of Object.entries(wasAList)) {
     const href = ugatRecordHref(SAMPLE[kind as UgatRecordKind]);
@@ -141,7 +141,7 @@ test('the destinations are per-RECORD, not the list page', () => {
   assert.match(ugatRecordHref(SAMPLE.user), /66666666-7777-8888-9999-000000000000/);
   // The two that name it in a QUERY must carry the term, encoded.
   assert.match(ugatRecordHref(SAMPLE.event), /[?&]q=S89E-ABCDEFGHJK/);
-  assert.match(ugatRecordHref(SAMPLE.taxonomy), /[?&]open=photo-video/);
+  assert.match(ugatRecordHref(SAMPLE.taxonomy), /[?&]open=c%3Aphoto-video/);
 });
 
 test('a taxonomy leaf with no tile still opens somewhere real', () => {
@@ -151,7 +151,7 @@ test('a taxonomy leaf with no tile still opens somewhere real', () => {
     canonicalService: 'setnayan_photo',
   });
   assert.ok(resolvesToARealPage(href), `${href} does not resolve`);
-  assert.match(href, /[?&]q=setnayan_photo/);
+  assert.match(href, /[?&]open=s%3Asetnayan_photo/);
 });
 
 test('an event with neither a public id nor a slug still opens somewhere real', () => {
@@ -255,7 +255,7 @@ test('every search hit is built through the resolver, and href is REQUIRED', () 
 
   // The list pages the hrefs used to point at must not creep back in as
   // literals beside the resolver.
-  for (const listHref of ["'/admin/users'", "'/admin/taxonomy'", "'/admin/payments'"]) {
+  for (const listHref of ["'/admin/users'", "'/admin/categories'", "'/admin/payments'"]) {
     assert.ok(
       !src.includes(`href: ${listHref}`),
       `a hit or row went back to the list page ${listHref}`,

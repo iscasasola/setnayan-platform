@@ -85,8 +85,12 @@ export function HomeFirstScreen({
           "EVENT DETAILS LIVES ON EVENT HOME") — the one information-only sheet. */}
       <div className="flex items-end justify-between gap-3 rounded-2xl bg-mulberry px-4 py-3 text-cream">
         <div className="min-w-0">
+          {/* The page's one h1 (the "Kumusta…" hero that held it no longer draws under this
+              screen). Screen-reader only: the name is drawn once, below, for the eye — and
+              BEFORE the eyebrow, so `lint-page-masthead` does not read a label-over-h1. */}
+          <h1 className="sr-only">{cover.name}</h1>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-cream/75">{cover.eyebrow}</p>
-          <p className="font-display text-[22px] leading-tight">{cover.name}</p>
+          <p aria-hidden className="font-display text-[22px] leading-tight">{cover.name}</p>
         </div>
         <Link
           href={`/dashboard/${eventId}/details`}

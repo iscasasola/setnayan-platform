@@ -19,7 +19,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
-import { GENERIC_PROFILE, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
+import { loadEventSettings } from './_components/details-settings-load';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -1027,7 +1028,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn, eventSettings] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
@@ -1053,6 +1054,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         .order('sort_order', { ascending: true }),
       // Announce is a piece of the Schedule where it is on (the schedule page's own flag).
       isCoordinatorP3Enabled().catch(() => false),
+      // 🗂 Your info › Event settings — the retired /details/change page's reads, moved whole.
+      loadEventSettings({ supabase, eventId, userId: user.id }).catch(() => null),
     ]);
     if (storyLiveRes.error) logQueryError('LaunchPage.loveStory', storyLiveRes.error, { event_id: eventId }, 'graceful_degrade');
     if (scheduleRes.error) logQueryError('LaunchPage.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -1501,6 +1504,27 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               ),
             }}
             rsvp={rsvpItem}
+            /* 🗂 THE ONBOARDING'S ANSWERS (owner 2026-10-02, "EVERY ANSWER … LIVES IN
+               EVENT DETAILS"): each its own column, as the couple is editing it —
+               the draft over live, like every Your info row. Offered where the
+               event type asks it (`profileSetup`: a camera, a gift word). */
+            answers={(() => {
+              const setupOfType = profileSetup(detailsProfile);
+              const drafted = (c: 'papic_on' | 'gifts_on' | 'logo_wanted' | 'cover_photo_wanted'): boolean | null => {
+                const v = c in draftedEvents ? draftedEvents[c] : printEvent[c];
+                return typeof v === 'boolean' ? v : null;
+              };
+              return {
+                solemn: eventContext.solemn,
+                twoPeople: yourEvent ? yourEvent.kind.words.twoPeople : false,
+                giftsMode: setupOfType.giftsMode,
+                papic: { offered: setupOfType.cameraDefault !== 'off', value: drafted('papic_on') },
+                gifts: { offered: setupOfType.giftsMode !== 'none', value: drafted('gifts_on') },
+                logo: drafted('logo_wanted'),
+                cover: drafted('cover_photo_wanted'),
+              };
+            })()}
+            settings={eventSettings}
             hasPalette={guided.palette}
             hasGifts={egifts.length > 0}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}

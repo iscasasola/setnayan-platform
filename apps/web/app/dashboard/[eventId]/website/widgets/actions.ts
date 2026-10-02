@@ -26,6 +26,7 @@ import {
   isCustomSectionType,
   nextFreeCustomSlot,
   readCustomSectionInput,
+  sanitizeCustomSection,
 } from '@/lib/custom-sections';
 import {
   HUB_DIRECTIONS,
@@ -67,6 +68,7 @@ import { HUB_CANVAS_MOTION_KEYS, canvasHasMotion, sectionBackgroundChange } from
 import { requireLookPro } from '@/lib/hub-look-gate';
 import type { HubDraftPatch, HubDraftWidget } from '@/lib/hub-draft';
 import {
+  draftedCustomWords,
   draftedDisplayOrders,
   draftedStageOrders,
   draftedWidgetConfig,
@@ -1331,7 +1333,19 @@ export async function saveCustomSection(formData: FormData): Promise<void> {
     }
     next = { ...existing, canvas: { ...sanitizeHubCanvas(existing), arrangement } };
   } else {
-    const input = readCustomSectionInput(formData.get('title'), formData.get('body'));
+    /* ✍ A field the form did not post is KEPT (the Maker's "Add a heading" posts
+       the heading alone — the words are typed in place on the page): taken as
+       drafted in the draft, as stored live otherwise. */
+    const kept =
+      formData.has('title') && formData.has('body')
+        ? null
+        : drafting
+          ? await draftedCustomWords(eventId, row.widget_type, existing)
+          : sanitizeCustomSection(existing);
+    const input = readCustomSectionInput(
+      kept && !formData.has('title') ? kept.title : formData.get('title'),
+      kept && !formData.has('body') ? kept.body : formData.get('body'),
+    );
     if (!input.ok) redirect(back('?error=too_long'));
     /* ✍ Into the DRAFT on `draft=1` (owner 2026-09-29): an empty scene's first
        words, tried without Pro — Apply asks Pro to fill it (`classifyHubDraft`,

@@ -56,6 +56,7 @@ import {
   detailsNavigatorKeys,
   detailsSwitchesFor,
   wordsAndPlansItem,
+  type AnswerItemKey,
   type DetailsItemContext,
   type DetailsItemKey,
   type DetailsItemModel,
@@ -92,6 +93,8 @@ import { SeatPlanSlot } from '../../seating/_components/seat-plan-slots';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { PlanMyselfBody, PlanMyselfSwitch } from './plan-myself';
 import { PLAN_MYSELF_LABEL, planMyselfSub } from '@/lib/plan-myself';
+import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from './details-answers-parts';
+import type { EventSettingsInput } from './details-settings-load';
 import type { DetailsGuide } from './details-guide';
 import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
@@ -279,7 +282,18 @@ export type MakerDetailsProps = {
     setup?: HubSetupFacts | null;
     /** Where the setup's guests' names open (the Guest list's template import). */
     guestsHref?: string;
-  } | null;  /**
+  } | null;
+  /**
+   * 🗂 THE ONBOARDING'S ANSWERS, CHANGED HERE (owner 2026-10-02, DECISION_LOG
+   * "EVERY ANSWER ABOUT AN EVENT LIVES IN EVENT DETAILS ("YOUR INFO")"): Photos
+   * from guests · Gifts (rows of Your event) and the logo / event-photo answers
+   * (on the Logo and Hero items) — each its own column, as the couple is
+   * editing it (the draft over live). Null/absent = not offered (the lab).
+   */
+  answers?: AnswersInput | null;
+  /** 🗂 Event settings — the retired `/details/change` page, moved whole (`loadEventSettings`). Null = not read. */
+  settings?: EventSettingsInput | null;
+  /**
    * 🙋 "Plan it myself" (owner 2026-10-02, tracker d4) — the one free switch
    * for the automatic help, the last row of Your event. `on` is
    * `events.planning_mode === 'manual'`; null = the read failed. Absent = not
@@ -402,6 +416,10 @@ export function MakerDetails(props: MakerDetailsProps) {
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
+  /* 🗂 Your info's answers and Event settings (`details-answers-parts.tsx`). */
+  const ap = answerParts({ eventId, answers: props.answers ?? null, settings: props.settings ?? null });
+  const logoA = props.answers ? logoAnswer(eventId, props.answers) : null;
+  const coverA = props.answers ? coverAnswer(eventId, props.answers) : null;
 
   /* ══ THE NAVIGATOR — groups are data (`DETAILS_ITEM_GROUPS`) ══ */
   const still = themeStillSrc(theme.current);
@@ -411,11 +429,19 @@ export function MakerDetails(props: MakerDetailsProps) {
   const labelOf = (k: DetailsItemKey): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode; panelLabel?: string } => {
     const yeRow = ye?.rows[k as EventItemKey];
     if (yeRow) return yeRow;
+    const apRow = ap.rows[k as AnswerItemKey];
+    if (apRow) return apRow;
     if (k === 'seating') return seatPlanRow(seatPlan);
     if (k === 'plan-myself') {
       return { label: PLAN_MYSELF_LABEL, sub: planMyselfSub(props.planMyself?.on ?? null), icon: <Hand aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
     }
-    if (look && (LOOK_ITEM_KEYS as readonly string[]).includes(k)) return lookLabel(k as LookItemKey, look, hasPalette);
+    if (look && (LOOK_ITEM_KEYS as readonly string[]).includes(k)) {
+      const row = lookLabel(k as LookItemKey, look, hasPalette);
+      /* 🗂 The row says what was answered (the stored answer; nothing when it was never asked). */
+      if (k === 'logo' && logoA?.sub) return { ...row, sub: logoA.sub };
+      if (k === 'hero' && coverA?.sub) return { ...row, sub: coverA.sub };
+      return row;
+    }
     if (k === 'theme') {
       return {
         label: 'Theme',
@@ -468,7 +494,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,
@@ -623,6 +649,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   );
   for (const f of free) bodies[f.key] = f.body;
   if (ye) Object.assign(bodies, ye.bodies);
+  Object.assign(bodies, ap.bodies);
   /* 🪑 The seat plan — the shipped editor fills the middle part ('fill'). */
   if (seatPlan) {
     bodies.seating = (
@@ -641,7 +668,15 @@ export function MakerDetails(props: MakerDetailsProps) {
         {look.moodBoard}
       </div>
     );
-    bodies.logo = <DetailsLookBody item="logo" />;
+    /* 🗂 "Do you want a logo?" sits above the Logo studio — the answer, changed where the logo is made. */
+    bodies.logo = logoA ? (
+      <div className="flex min-h-0 flex-1 flex-col" data-details-logo-answer="">
+        <div className="shrink-0 px-4 pb-2 pt-3 sm:px-6">{logoA.node}</div>
+        <DetailsLookBody item="logo" />
+      </div>
+    ) : (
+      <DetailsLookBody item="logo" />
+    );
     bodies.hero = <DetailsLookBody item="hero" />;
     bodies.reveal = <DetailsLookBody item="reveal" />;
   }
@@ -805,7 +840,15 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(look
       ? {
           'mood-board': look.moodBoardControls,
-          hero: <DetailsLookEditor item="hero" />,
+          /* 🗂 "Event photo" — Upload a photo / a theme picture for now — above the Hero's own controls. */
+          hero: coverA ? (
+            <div className="flex flex-col gap-4">
+              {coverA.node}
+              <DetailsLookEditor item="hero" />
+            </div>
+          ) : (
+            <DetailsLookEditor item="hero" />
+          ),
           reveal: <DetailsLookEditor item="reveal" />,
         }
       : {}),
@@ -826,6 +869,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       );
   }
   if (ye) Object.assign(editors, ye.editors);
+  Object.assign(editors, ap.editors);
   /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
   if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
   /* 🙋 Plan it myself — what the help is (middle), the one switch (right). */

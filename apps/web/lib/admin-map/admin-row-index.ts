@@ -85,18 +85,15 @@ export async function fetchAdminRows(): Promise<AdminRow[]> {
 
   // Folders + categories (tiles) — the DB-backed read-through with its own
   // constant fallback (`getTaxonomy()`, never throws), so a search for
-  // "feast" or "bridal car" lands on the Taxonomy Studio node itself instead
-  // of only on the page that edits all of them. A folder has no inspector of
-  // its own, so it opens the first category filed under it — same landing the
-  // Studio's own "createTaxonomyNode" assistant resolves to.
+  // "feast" or "bridal car" lands on that group's or category's own panel on
+  // Categories & event types, not only on the page that edits all of them.
   try {
     const tax = await getTaxonomy();
     for (const folderId of tax.folderOrder) {
       const label = tax.folderLabel[folderId] ?? folderId;
-      const firstTile = (tax.tilesByParent[folderId] ?? [])[0];
       rows.push({
         label,
-        href: firstTile ? `/admin/taxonomy?open=${firstTile}` : '/admin/taxonomy',
+        href: `/admin/categories?open=g:${folderId}`,
         hay: `${label} ${folderId.replace(/_/g, ' ')} folder taxonomy`.toLowerCase(),
         hint: 'folder',
       });
@@ -105,7 +102,7 @@ export async function fetchAdminRows(): Promise<AdminRow[]> {
       const label = tax.tileLabel[tileId] ?? tileId;
       rows.push({
         label,
-        href: `/admin/taxonomy?open=${tileId}`,
+        href: `/admin/categories?open=c:${tileId}`,
         hay: `${label} ${tileId.replace(/_/g, ' ')} category tile taxonomy`.toLowerCase(),
         hint: tax.hiddenCategories[tileId] === true ? 'category · hidden' : 'category',
       });
@@ -128,10 +125,8 @@ export async function fetchAdminRows(): Promise<AdminRow[]> {
       const active = r.status === 'active';
       rows.push({
         label,
-        // The Vocabularies rail has no per-row anchor — landing on the right
-        // tab is the honest miss over guessing a scroll position that isn't
-        // there (same posture as the tile-inspector deep-link).
-        href: '/admin/taxonomy?view=vocab-event',
+        // Opens that event type's own panel.
+        href: `/admin/categories?list=event-types&open=${key}`,
         hay: `${label} ${key.replace(/_/g, ' ')} event type taxonomy`.toLowerCase(),
         hint: active ? 'event type' : 'event type · off',
       });
@@ -147,7 +142,7 @@ export async function fetchAdminRows(): Promise<AdminRow[]> {
       const active = r.status === 'active';
       rows.push({
         label,
-        href: '/admin/taxonomy?view=vocab-faith',
+        href: `/admin/categories?list=religions&open=${encodeURIComponent(key)}`,
         hay: `${label} ${key.replace(/_/g, ' ')} faith religion taxonomy`.toLowerCase(),
         hint: active ? 'faith' : 'faith · off',
       });

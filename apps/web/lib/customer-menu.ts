@@ -295,7 +295,7 @@ export function buildEventMenuSections(
   const put = (r: EventMenuRow) => rows.set(r.key, r);
 
   // The event's name row (Event settings) — drawn AS the name, not as a row.
-  put({ key: 'personalization', label: 'Details', href: `${base}/details`, icon: 'details' });
+  put({ key: 'personalization', label: 'Event Details', href: `${base}/details`, icon: 'details' });
 
   // HOME — the event's front page. Sentinel matchPrefix: every other event
   // route shares `${base}/`, so only the exact pathname may light it.

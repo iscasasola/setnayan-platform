@@ -213,7 +213,7 @@ export function MakerRsvpStage({
     </div>
   ) : (
     <p className="m-auto max-w-sm px-4 text-center text-sm text-ink/70" data-maker-page-no-address="">
-      Set your Event Hub address in Your info to see your RSVP here.
+      Set your Event Hub address in Event Details to see your RSVP here.
     </p>
   );
 

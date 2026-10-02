@@ -360,15 +360,15 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   // Stage D (2026-09-29): the menu is five rows. Budget is a part of Your
   // Team; Schedule and the Mood Board are Details items of the Maker.
   guests: { home: 'the Guest list menu row' },
-  budget: { home: 'Your Team — its Budget part' },
-  schedule: { home: 'the Event Hub Maker — Your info › Schedule', needsWebsite: true },
+  budget: { home: 'Suppliers — its Budget part' },
+  schedule: { home: 'the Event Hub Maker — Event Details › Schedule', needsWebsite: true },
   checklist: { home: 'Overview — "View your full checklist"' },
-  compare: { home: 'Your Team — its Compare tab' },
+  compare: { home: 'Suppliers — its Compare tab' },
   // Catalogue tools.
-  'mood-board': { home: 'the Event Hub Maker — Your info › Mood Board', needsWebsite: true },
+  'mood-board': { home: 'the Event Hub Maker — Look › Mood Board', needsWebsite: true },
   // Train n (2026-09-29): the Seat plan row left the menu — its home is
   // Details › Your event › Seat plan, and its old page lands there.
-  seating: { home: 'the Event Hub Maker — Your info › Your event › Seat plan', needsWebsite: true },
+  seating: { home: 'the Event Hub Maker — Event Details › Your event › Seat plan', needsWebsite: true },
   'landing-page': { home: 'the Event Hub Maker menu row', needsWebsite: true },
   'save-the-date': { home: 'the Event Hub Maker — Save the Date', needsWebsite: true },
   rsvp: { home: 'the Event Hub Maker — the invitation editor', needsWebsite: true },
@@ -376,10 +376,10 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   // 🗺 Owner-approved 2026-09-29: "it's the same room" — the Indoor Blueprint is
   // a piece of Details › Seat plan (the shipped studio, drawn in its right part);
   // its old address lands there for the couple of an Event Hub event.
-  'indoor-blueprint': { home: "the Event Hub Maker — Your info › Seat plan › Guests' map", needsWebsite: true },
+  'indoor-blueprint': { home: "the Event Hub Maker — Event Details › Seat plan › Guests' map", needsWebsite: true },
   // 📅 Details › Date draws the date finder beside the date row
   // (`details-date-finder.tsx`, owner 2026-09-29 "THE DATE FINDER LIVES IN STEP 2").
-  'find-date': { home: 'the Event Hub Maker — Your info › Date', needsWebsite: true },
+  'find-date': { home: 'the Event Hub Maker — Event Details › Date', needsWebsite: true },
 };
 
 /** Has this tool (a catalogue key or a free-tool key) gone home for this event? */

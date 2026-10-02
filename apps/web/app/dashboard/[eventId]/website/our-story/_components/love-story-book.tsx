@@ -171,7 +171,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           <b className="font-medium">{p.themeName}</b>
           <span aria-hidden>·</span>
           {p.inMaker ? (
-            <span className="text-[color:var(--ls-muted)]">Change it in Your info</span>
+            <span className="text-[color:var(--ls-muted)]">Change it in Event Details</span>
           ) : (
             <Link
               href={`${p.makerHref}?tool=details&item=theme`}

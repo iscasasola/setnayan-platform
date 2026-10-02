@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { eventNoun } from '@/lib/event-noun';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 // ⚠ NOT from './actions'. That module is `'use server'`, and the version there
@@ -565,6 +566,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         : 'Moments shown to guests appear on the Event Hub, with a live “happening now” on the day. Hidden moments stay between you, your coordinator and the suppliers you tag.';
 
   return (
+    /* 💾 The schedule is kept on the phone and shown at once on the next
+       open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
+       SHOWS INSTANTLY, THEN REFRESHES"). Payment due dates carry `data-money`
+       and are never kept (lib/last-seen). Not inside the Maker (`?maker=1`). */
+    <LastSeenCapture page="schedule">
     <section className="sn-col space-y-5">
       {/* Inside the Maker, Details' own header names it. */}
       {inMaker ? null : <PageMasthead title="Schedule" />}
@@ -871,6 +877,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           MiniTour, keyed once per person. */}
       <MiniTour tourKey="customer_schedule_v1" />
     </section>
+    </LastSeenCapture>
   );
 }
 

@@ -31,13 +31,16 @@
  */
 import type { LifecyclePhase } from './invitation-widgets';
 
-export const WELCOME_PARTS = ['look', 'reminders', 'gifts'] as const;
+export const WELCOME_PARTS = ['look', 'reminders', 'march', 'venue', 'gifts'] as const;
 export type WelcomePart = (typeof WELCOME_PARTS)[number];
 
 /** The scene each Welcome part is drawn from, when it is one (the gift door is not). */
 export const WELCOME_PART_SCENE: Readonly<Record<WelcomePart, 'dress_code' | 'what_to_bring' | null>> = {
   look: 'dress_code',
   reminders: 'what_to_bring',
+  // The day's two (`welcomePartsOnTheDay`) are fixed parts, never scenes.
+  march: null,
+  venue: null,
   gifts: null,
 };
 
@@ -123,11 +126,22 @@ export function welcomePartsOnTheDay(input: {
   /** The gift door, or null when it would turn this reader away. */
   giftHref: string | null;
   maker: boolean;
+  /** 🚶 The walking order has someone in it (`lib/entourage.ts`, from `march_walks`). */
+  march?: boolean;
+  /** 🗺 There is a venue to point at now (`lib/day-venue-now.ts`). */
+  venue?: boolean;
 }): WelcomePart[] {
   if (!input.bodyNormal || input.maker) return [];
   const out: WelcomePart[] = [];
   if (input.identified && input.dressCodeOn) out.push('look');
   if (input.remindersOn && (input.reminders ?? '').trim().length > 0) out.push('reminders');
+  // 📱 THE DAY'S WELCOME, SCROLLED (owner 2026-10-01, prototype
+  // the_day_guest_phone frame 2b: "The walking order is the approved paper — a
+  // plain list, full names … Then the venue with directions, then E-Gifts").
+  // The walk shows only when the couple set one; the venue is the ONE place
+  // things are happening now. Both moved here from the Live tab.
+  if (input.march) out.push('march');
+  if (input.venue) out.push('venue');
   if (input.giftHref) out.push('gifts');
   return out;
 }

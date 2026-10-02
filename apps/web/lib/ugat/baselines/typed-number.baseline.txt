@@ -1,0 +1,49 @@
+# Root map baseline — Numbers that look live but are typed in.
+# ENFORCED: a finding not listed here fails CI.
+# One line per finding: <key><TAB># <why it is on the list>. Written by
+#   pnpm --filter @setnayan/web root-map --baseline
+# Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
+# be dropped by re-running the command above — CI fails while it is still listed.
+app/(shell)/explore/_components/vendor-badge-row.tsx "Among the top 10% of verified suppliers by completed weddings this …"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/explore/_components/vendor-badge-row.tsx "Setnayan's pick of the month — top 5% by review score and volume."	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/pricing/page.tsx "Plan free, add the magic as you go. Transparent PHP prices. Supplie…"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/privacy/page.tsx "90 days"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/(shell)/refunds/page.tsx "7 days"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/admin/accounts/_surfaces/users-surface.tsx "Optional but recommended for audit. Grants over ₱10,000 get flagged…"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/app-performance/_components/expenses.tsx "Coverage could not be worked out — the expenses it divides were not…"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/budget-planner/page.tsx "± tolerance around a target, e.g. 0.15 = ±15%."	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/custom-plans/_components/custom-composer.tsx "10 seats included. Extra seats beyond the base 10 are billed."	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/custom-plans/_components/custom-composer.tsx "300 photos included. Billed per +100-photo pack."	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/events/[eventId]/page.tsx "Verified: read permitted · 0 guests"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/force-majeure/[flagId]/page.tsx "e.g. ₱8,000 refunded via GCash on 2026-05-15 — ref 0123…"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/papic-storage/page.tsx "modelled ~8% · over # stills"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/payouts/page.tsx "BIR 0.5%"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/payouts/page.tsx "Stage 1 · 20%"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/payouts/page.tsx "Stage 2 · 60%"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/payouts/page.tsx "Stage 3 · 20%"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/pricing/_components/papic-ladder-editor.tsx "₱1 a shot"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/settings/_surfaces/settings-surface.tsx "PH standard is 12%. Receipts already issued won't be re-rated."	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/studio/_surfaces/social-queue-surface.tsx "and clears the 48-hour pull window. The content gate (event date + …"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/admin/studio/_surfaces/social-queue-surface.tsx "Consented + past the publish gate (event date + 7 days)."	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
+app/dashboard/[eventId]/launch/_components/details-date-clash.tsx "to move to the new date or unlock their service. They have 3 days t…"	# first run 2026-10-02 · host app · a count or amount written into the screen text instead of read
+app/dashboard/[eventId]/story/_components/make-it-yours.tsx "Showing the first 1,000 photos and snippets from the day."	# first run 2026-10-02 · host app · a count or amount written into the screen text instead of read
+app/dashboard/[eventId]/studio/papic/_components/host-pool-meter-card.tsx "Running low — under 10% of your pool remains."	# first run 2026-10-02 · host app · a count or amount written into the screen text instead of read
+app/dashboard/[eventId]/studio/papic/page.tsx "Battery handoff at 20%"	# first run 2026-10-02 · host app · a count or amount written into the screen text instead of read
+app/dashboard/[eventId]/website/editor/page.tsx "0 photos"	# first run 2026-10-02 · host app · a count or amount written into the screen text instead of read
+app/download/_download-motion.tsx "284 days to go"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/for-suppliers/_components/vendor-grow-sections.tsx "0% while we launch — and we never hold a peso of yours."	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/for-suppliers/_components/vendor-grow-sections.tsx "0%"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
+app/onboarding/_shared/date-calendar.tsx "Tap a start + end (≤30 days) — we lock the shared date inside it."	# first run 2026-10-02 · sign-in & onboarding · a count or amount written into the screen text instead of read
+app/onboarding/wedding/_components/onboarding-shell.tsx "₱30,000+ coordinator"	# first run 2026-10-02 · sign-in & onboarding · a count or amount written into the screen text instead of read
+app/onboarding/wedding/_components/welcome-moments.tsx "Church, mosque, or temple — about 236,000 couples in 2023."	# first run 2026-10-02 · sign-in & onboarding · a count or amount written into the screen text instead of read
+app/papic/guest/_components/papic-guest-capture.tsx "You've shared your 10 photo notes for this celebration — salamat!"	# first run 2026-10-02 · guest app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/calendar/[date]/page.tsx "1 couple is waiting on this date."	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/calendar/surface.tsx "1 couple waiting"	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/clients/[eventId]/editorial-media/page.tsx "3 photos"	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/clients/[eventId]/production-sheet/page.tsx "No portion rules yet — add your first below (e.g. "Rice — 0.2 kg pe…"	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/customers/_components/customers-calendar.tsx "1 couple is asking about this date"	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/on-the-day/live/[eventId]/_components/portfolio-album-section.tsx "Only you can see this — never the couple, never their guests. 1 Pap…"	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/performance/_components/inquiry-handling-card.tsx "90% within"	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/services/_components/canvas-maker.tsx "from ₱25,000 per event"	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/services/_components/service-list-editors.tsx "row to build a ladder — e.g. 12+ months ahead −15%, 6+ months −10%.…"	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read
+app/vendor-dashboard/shop/_components/voice-match-card.tsx "Our Signature package is ₱85,000."	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read

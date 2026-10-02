@@ -1,29 +1,30 @@
 #!/usr/bin/env node
 /**
- * check-ugat-screens.mjs — the Screens · Doors layer of the Ugat map cannot drift.
+ * check-ugat-screens.mjs — the Root map's CI check (part 1 + part 2).
  *
  *   node apps/web/scripts/check-ugat-screens.mjs
  *
  * Owner, 2026-10-02 (DECISION_LOG "ONE MAP OF THE APP" + "THE APP MAP STARTS
- * FRIDAY"): the map is generated from code, and its CI checks sit beside the
- * Ugat / interconnection ones. Slice 1 ships this check in REPORT MODE:
+ * FRIDAY": "its CI checks switch on Saturday"). Two halves:
  *
- *   FAILS  only when the committed lib/ugat/screens.generated.json differs from
- *          a fresh scan — a page or a door changed and nobody re-ran
- *          `pnpm --filter @setnayan/web ugat:screens`. Same posture as
- *          admin-map-is-generated.test.ts: a generated file nobody re-checks is
- *          just a hand-maintained list that happened to be right once.
- *   PRINTS the no-door, unmapped and doors-to-nowhere counts, and any no-door
- *          screen that is NOT in today's baseline (lib/ugat/screens-no-door.baseline.txt).
- *
- * TODO(ugat slice 2, Sat 3 Oct — owner: "its CI checks switch on Saturday"):
- *   flip RATCHET_ENFORCED to true, so a NEW no-door screen (one not in the
- *   baseline) and any door to nowhere fail the build. Removing a line from the
- *   baseline is a fix and must stay silent; adding one needs a written reason.
- *   Regenerate the baseline only with `ugat:screens --baseline`.
+ *   1. THE SCREENS MAP IS CURRENT. Fails when the committed
+ *      lib/ugat/screens.generated.json differs from a fresh scan — a page or a
+ *      door changed and nobody re-ran `pnpm --filter @setnayan/web ugat:screens`.
+ *      Same posture as admin-map-is-generated.test.ts.
+ *   2. THE RATCHET (part 2 — RATCHET_ENFORCED is ON). `scripts/root-map.ts
+ *      --check` runs every Root map check — no-door screens, doors to nowhere
+ *      and missing #sections, one fact two homes, event answers outside Your
+ *      info, filled-but-dropped fields, typed live numbers, the same fact shown
+ *      twice — and fails on any finding NOT in lib/ugat/baselines/*. The
+ *      judgement checks (door words, retarget, saved-but-never-used,
+ *      sanitisers) warn instead. STRICT: a fixed enforced finding whose line
+ *      is still in its baseline FAILS too ("fixed — remove this line…"), so a
+ *      fixed problem cannot quietly come back; `pnpm --filter @setnayan/web
+ *      root-map --baseline` is the only writer of the baselines.
  *
  * Sabotage (must exit 1): add a page under apps/web/app without re-running the
- * generator, or edit one line of screens.generated.json by hand.
+ * generator; or type "190 days to go" into any screen; or add a form input its
+ * action never reads.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
@@ -32,10 +33,9 @@ import { fileURLToPath } from 'node:url';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const COMMITTED = join(WEB, 'lib/ugat/screens.generated.json');
-const BASELINE = join(WEB, 'lib/ugat/screens-no-door.baseline.txt');
 
-/** Slice 2 turns this on. Until then the ratchet only reports. */
-const RATCHET_ENFORCED = false;
+/** Part 2 (Sat 3 Oct) turned this on: new findings of an enforced kind fail the build. */
+const RATCHET_ENFORCED = true;
 
 const tsxBin = [join(WEB, 'node_modules/.bin/tsx'), join(WEB, '../../node_modules/.bin/tsx')].find(existsSync);
 if (!tsxBin) {
@@ -60,42 +60,12 @@ const map = JSON.parse(fresh);
 
 const screens = map.screens;
 const count = (f) => screens.filter(f).length;
-const noDoor = screens.filter((s) => s.status === 'no-door');
-const summary = {
-  screens: screens.length,
-  connected: count((s) => s.status === 'connected'),
-  noDoor: noDoor.length,
-  stubs: count((s) => s.status === 'stub'),
-  unmapped: count((s) => s.status !== 'stub' && s.nodes.length === 0),
-  brokenDoors: map.brokenDoors.length,
-};
-
-console.log('Root map (Ugat) — Screens · Doors');
+console.log('Root map — Screens · Doors');
 console.log(
-  `  ${summary.screens} screens · ${summary.connected} connected · ${summary.noDoor} no door · ` +
-    `${summary.stubs} legacy stubs · ${summary.unmapped} unmapped · ${summary.brokenDoors} doors to nowhere`,
+  `  ${screens.length} screens · ${count((s) => s.status === 'connected')} connected · ` +
+    `${count((s) => s.status === 'no-door')} no door · ${count((s) => s.status === 'stub')} legacy stubs · ` +
+    `${count((s) => s.status !== 'stub' && s.nodes.length === 0)} unmapped · ${map.brokenDoors.length} doors to nowhere`,
 );
-
-const baseline = new Set(
-  existsSync(BASELINE)
-    ? readFileSync(BASELINE, 'utf8')
-        .split('\n')
-        .map((l) => l.trim())
-        .filter((l) => l && !l.startsWith('#'))
-    : [],
-);
-const newNoDoor = noDoor.filter((s) => !baseline.has(s.route));
-for (const s of newNoDoor) {
-  console.log(`  ${RATCHET_ENFORCED ? '::error::' : '::warning::'}new screen with no door: ${s.route} (${s.file})`);
-}
-for (const b of map.brokenDoors) {
-  console.log(`  ${RATCHET_ENFORCED ? '::error::' : '::warning::'}door to nowhere: ${b.to} in ${b.from}`);
-}
-const fixed = [...baseline].filter((r) => !noDoor.some((s) => s.route === r));
-if (fixed.length) {
-  console.log(`  ${fixed.length} baselined screen(s) now have a door — drop them from the baseline:`);
-  for (const r of fixed) console.log(`    ${r}`);
-}
 
 let failed = false;
 if (fresh !== committed) {
@@ -111,7 +81,24 @@ if (fresh !== committed) {
   const changed = [...new Set([...added, ...gone].map(routeOf))].filter(Boolean).slice(0, 25);
   if (changed.length) console.error(`Changed: ${changed.join(' · ')}`);
 }
-if (RATCHET_ENFORCED && (newNoDoor.length || map.brokenDoors.length)) failed = true;
+
+/* ── part 2: every check, ratcheted against lib/ugat/baselines/* ── */
+// Reads the COMMITTED screens map (half 1 above already fails if it is stale)
+// and scans the code fresh for everything else.
+const checkArgs = [join(WEB, 'scripts/root-map.ts'), '--check'];
+const ratchet = spawnSync(tsxBin, checkArgs, {
+  cwd: WEB,
+  encoding: 'utf8',
+  maxBuffer: 64 * 1024 * 1024,
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+process.stdout.write(ratchet.stdout ?? '');
+process.stderr.write(ratchet.stderr ?? '');
+if (ratchet.status === 2 || ratchet.status === null) {
+  console.error('check-ugat-screens: the Root map checks themselves failed (above).');
+  process.exit(2);
+}
+if (ratchet.status !== 0 && RATCHET_ENFORCED) failed = true;
 
 if (failed) process.exit(1);
-console.log('  committed map is current (report mode — the no-door ratchet switches on in slice 2).');
+console.log('  Root map is current; nothing new broke and nothing fixed is still listed (ratchet ON, strict).');

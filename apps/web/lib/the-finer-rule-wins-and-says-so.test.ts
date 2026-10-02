@@ -13,6 +13,8 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   ROLE_GROUPS_IN_ORDER,
   groupOverrides,
@@ -78,6 +80,24 @@ test('⛔ a stored value this product did not write is DROPPED, never repaired',
   var out = sanitizeGroupAttire({ officiants: { style: 'long_gown', callTime: '7' } });
   assert.equal(out.officiants?.callTime, undefined, '"7" survived as a call time');
   assert.equal(out.officiants?.style, 'long_gown', 'the rest of the rule should still stand');
+});
+
+test('🔊 on a SAVE, a group or style the build does not know is named — never dropped quietly', () => {
+  const dropped: string[] = [];
+  const out = sanitizeGroupAttire(
+    {
+      not_a_group: { style: 'long_gown' },
+      officiants: { style: 'Long Gown' },
+      principal_sponsors: { style: '' }, // "Not set" — taking the rule back, not a lost answer
+      bridesmaids: { style: 'long_gown', callTime: '7' }, // a call time we refuse to guess is not a group lost
+    },
+    dropped,
+  );
+  assert.deepEqual(dropped.sort(), ['not_a_group', 'officiants.style']);
+  assert.deepEqual(Object.keys(out), ['bridesmaids'], 'reporting must not change what is kept');
+  // And the dress-code save refuses, out loud, when anything was named.
+  const action = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/website/dress-code/actions.ts'), 'utf8');
+  assert.match(action, /sanitizeGroupAttire\(rawGroups, droppedGroups\);\s*if \(droppedGroups\.length > 0\) \{\s*redirect\(/);
 });
 
 test('🔑 the twelve come from the exhaustive Record, so they cannot fall out of date', () => {

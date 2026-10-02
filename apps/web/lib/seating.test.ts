@@ -1183,20 +1183,21 @@ test('auto-arrange room: new tables fill numbering gaps and skip 4 for a Chinese
 });
 
 test('auto-arrange toast: never says everyone has a seat while anyone is still without one', () => {
-  const still = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 0, boothWhere: 'behind the tables', seated: 0, unseated: 66 });
-  assert.doesNotMatch(still, /Everyone/);
-  assert.match(still, /66 guests who haven't declined still have no seat/);
-  const one = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 0, boothWhere: '', seated: 2, unseated: 1 });
-  assert.match(one, /1 guest who hasn't declined still has no seat/);
+  // DECISION_LOG 2026-09-30 "AUTO ARRANGE ADDS TABLES…" + 2026-10-01 "SEAT PLAN
+  // + WALKING ORDER DESIGN — APPROVED": ONE truthful line, the unseated count
+  // when anyone is left, "everyone has a seat" only at 0.
+  const still = autoArrangeSummary({ tablesAdded: 0, seated: 0, unseated: 66 });
+  assert.doesNotMatch(still, /everyone/i);
+  assert.equal(still, '66 still need a seat');
+  const one = autoArrangeSummary({ tablesAdded: 0, seated: 2, unseated: 1 });
+  assert.equal(one, 'Seated 2 guests · 1 still needs a seat');
+  const short = autoArrangeSummary({ tablesAdded: 2, seated: 17, unseated: 3 });
+  assert.equal(short, 'Added 2 tables of 10 · 3 still need a seat');
 
-  const grew = autoArrangeSummary({ tables: 10, tablesAdded: 7, booths: 0, boothWhere: 'behind the tables', seated: 66, unseated: 0 });
-  assert.equal(
-    grew,
-    "Auto-arranged: 10 tables in priority order (7 added so everyone fits), 66 guests seated. Everyone who hasn't declined now has a seat.",
-  );
-  const done = autoArrangeSummary({ tables: 3, tablesAdded: 0, booths: 2, boothWhere: 'on the perimeter', seated: 0, unseated: 0 });
-  assert.equal(
-    done,
-    "Auto-arranged: 3 tables in priority order and 2 booths on the perimeter. Everyone who hasn't declined already has a seat.",
-  );
+  const grew = autoArrangeSummary({ tablesAdded: 2, seated: 14, unseated: 0 });
+  assert.equal(grew, 'Added 2 tables of 10 · everyone has a seat');
+  const seatedOnly = autoArrangeSummary({ tablesAdded: 0, seated: 1, unseated: 0 });
+  assert.equal(seatedOnly, 'Seated 1 guest · everyone has a seat');
+  const done = autoArrangeSummary({ tablesAdded: 0, seated: 0, unseated: 0 });
+  assert.equal(done, 'Everyone already has a seat');
 });

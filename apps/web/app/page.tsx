@@ -43,6 +43,7 @@
 import { after } from 'next/server';
 import './_components/frontdoor/front-door.css';
 import { FrontDoor } from './_components/frontdoor/front-door';
+import { LastSeenSignedOutWipe } from './_components/last-seen/last-seen-wipe-script';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
 import { maybeRunPapicCloseSelfieErase } from '@/lib/face-selfie-erase';
@@ -328,6 +329,9 @@ export default async function HomePage({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareAppJsonLd) }}
       />
+      {/* 💾 `/auth/sign-out` lands here: no auth cookie → the last-seen store
+          (a host's kept pages) is emptied before anything else runs. */}
+      <LastSeenSignedOutWipe />
       <FrontDoor q={q} />
     </>
   );

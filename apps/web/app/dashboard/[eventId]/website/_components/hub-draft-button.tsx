@@ -23,6 +23,7 @@ export function DraftButton({
   label,
   icon,
   primary = false,
+  wordFrom,
   disabled,
   disabledReason,
   onClick,
@@ -30,6 +31,8 @@ export function DraftButton({
   label: string;
   icon: ReactNode;
   primary?: boolean;
+  /** 📱 Show the word only from this width (the Maker's phone bar draws Undo as its icon). */
+  wordFrom?: 'md';
   disabled: boolean;
   disabledReason: string;
   onClick: () => void;
@@ -49,7 +52,7 @@ export function DraftButton({
         }
       >
         {icon}
-        <span>{label}</span>
+        <span className={wordFrom === 'md' ? 'hidden md:inline' : undefined}>{label}</span>
       </button>
       {disabled ? (
         <InfoTip label="" ariaLabel={`Why ${label} is off`} align="end">

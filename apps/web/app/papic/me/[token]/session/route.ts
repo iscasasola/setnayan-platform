@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { setGuestSession } from '@/lib/guest-session';
+import { CAMERA_BACK_PARAM, cameraBackTab } from '@/app/[slug]/_lib/hub-tabs';
 
 // Mint a guest session from the personal QR token, then land on the decorator.
 //
@@ -35,6 +36,19 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
   const url = new URL(req.url);
   const destPath = NEXT_DESTINATIONS[url.searchParams.get('next') ?? ''] ?? '/papic/decorate';
   const decorate = new URL(destPath, url.origin);
+  // 📸 The camera opened from the Event Hub keeps the way back (owner
+  // 2026-10-01: "Camera exit → the page they came from"). Two values pass
+  // through, each re-checked here as well as on the camera page: the event
+  // (a slug — never a path) and the tab (one of the tab keys). Anything else is
+  // dropped, so this is still no open redirect.
+  if (destPath === '/papic/guest') {
+    const from = url.searchParams.get('from') ?? '';
+    if (/^[a-z0-9][a-z0-9-]{0,79}$/.test(from)) {
+      decorate.searchParams.set('from', from);
+      const back = cameraBackTab(url.searchParams.get(CAMERA_BACK_PARAM));
+      if (back) decorate.searchParams.set(CAMERA_BACK_PARAM, back);
+    }
+  }
   if (!cleanToken) return NextResponse.redirect(decorate);
 
   const admin = createAdminClient();

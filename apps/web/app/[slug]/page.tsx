@@ -76,7 +76,7 @@ import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { GuestHubBar, GuestMeSection } from './_components/guest-hub-bar';
-import { hubTabsOn } from './_lib/hub-tabs';
+import { CAMERA_ADDED_PARAM, addedShots, hubTabsOn } from './_lib/hub-tabs';
 import { pageStageFor } from './_lib/stage-bar';
 import { GuestTicket } from './_components/guest-ticket';
 import { SpatialBackdrop } from '@/app/_components/spatial-backdrop';
@@ -182,6 +182,8 @@ type Props = {
     // 📱 `?tab=<key>` — each menu tab is its own page with its own address
     // (owner 2026-09-30, `_lib/hub-tabs.ts`); SiteBody shows that tab first.
     tab?: string;
+    // 📸 `?added=<n>` — back from the camera: the shots that landed (`cameraExitHref`).
+    added?: string;
     // 🚪 `?from=landing` — "Open the invitation" on the guest's landing page,
     // before a reply: past the reply gate (lib/guest-landing.ts). Inert elsewhere.
     from?: string;
@@ -1292,6 +1294,8 @@ async function InvitationBody({
     lifecyclePhase,
     // 📱 The tab in the address — the page opens on it (`_lib/hub-tabs.ts`).
     activeTab: typeof search.tab === 'string' ? search.tab : null,
+    // 📸 Back from the camera: how many shots landed (`cameraExitHref`).
+    shotsAdded: addedShots(search[CAMERA_ADDED_PARAM]),
     stdFilm,
     stdBackground,
     stdBackgroundUrl,
@@ -1561,6 +1565,8 @@ async function InvitationBody({
     guestRollCameraReady,
     seatPassActive,
     guestLiveGallery,
+    guestOwnShots,
+    poolGalleryOpen,
     needsFaceEnroll,
     papicGuest,
     guestHubData,
@@ -1859,6 +1865,8 @@ async function InvitationBody({
           qrSvg,
           invitationUrl,
           guestLiveGallery,
+          guestOwnShots,
+          poolGalleryOpen,
           seatPassActive,
           needsFaceEnroll,
           guestHubData,

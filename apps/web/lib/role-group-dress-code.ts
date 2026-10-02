@@ -109,16 +109,30 @@ export type GroupAttireMap = Partial<Record<RoleGroup, RoleAttireRule>>;
  * style this product does not know came from some other version of it, and
  * guessing what it meant is how two surfaces start telling a ninang different
  * things.
+ *
+ * 🔊 NEVER SILENTLY, ON A SAVE. Pass `dropped` and every group key or style
+ * the build does not know is named in it — the dress-code save refuses the
+ * whole form rather than storing less than the couple sent (Root map wave 1,
+ * "Sanitisers that drop keys"). Readers omit it: a reader of stored data
+ * cannot ask anyone, and its job is to show only what it can vouch for.
  */
-export function sanitizeGroupAttire(raw: unknown): GroupAttireMap {
+export function sanitizeGroupAttire(raw: unknown, dropped?: string[]): GroupAttireMap {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const known = new Set<string>(ROLE_GROUPS_IN_ORDER as readonly string[]);
   const out: GroupAttireMap = {};
   for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (!known.has(key)) continue;
+    if (!known.has(key)) {
+      dropped?.push(key);
+      continue;
+    }
     if (!value || typeof value !== 'object' || Array.isArray(value)) continue;
     const style = (value as { style?: unknown }).style;
-    if (!isAttireStyle(style)) continue;
+    if (!isAttireStyle(style)) {
+      // '' / absent is "Not set" — the couple taking a group's rule back, not
+      // an answer lost. Anything else is a style this build does not know.
+      if (typeof style === 'string' && style !== '') dropped?.push(`${key}.style`);
+      continue;
+    }
     const rawNote = (value as { note?: unknown }).note;
     const note = typeof rawNote === 'string' ? rawNote.trim().slice(0, NOTE_MAX) : '';
     const callTime = sanitizeCallTime((value as { callTime?: unknown }).callTime);

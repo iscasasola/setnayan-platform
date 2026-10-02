@@ -1673,7 +1673,12 @@ export async function EventDashboard({
                         ? CalendarClock
                         : Sparkles;
               return (
-                <article key={group.id} className="sn-tile">
+                <article
+                  key={group.id}
+                  className="sn-tile"
+                  // 💾 Payments due are never kept as last-seen data (lib/last-seen).
+                  data-money={group.id === 'pay' ? '' : undefined}
+                >
                   <div className="mb-2 flex items-center gap-2.5">
                     <span
                       aria-hidden
@@ -1968,6 +1973,8 @@ export async function EventDashboard({
       <Link
         key="budget"
         href={`${base}/budget`}
+        // 💾 Money is never kept as last-seen data (lib/last-seen).
+        data-money=""
         className="sn-tile sn-press flex flex-col text-left"
       >
         <span className="sn-eye">
@@ -3139,6 +3146,8 @@ export async function EventDashboard({
                     <div
                       key={row.id}
                       className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                      // 💾 A payment still pending is never kept as last-seen data.
+                      data-money={row.tone === 'warm' ? '' : undefined}
                     >
                       <span className="min-w-0 flex-1 truncate font-semibold text-ink">
                         {row.label}

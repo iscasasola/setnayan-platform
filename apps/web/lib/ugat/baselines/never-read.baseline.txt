@@ -1,0 +1,38 @@
+# Root map baseline — Saved but never used.
+# Report-only: a finding not listed here warns in CI.
+# One line per finding: <key><TAB># <why it is on the list>. Written by
+#   pnpm --filter @setnayan/web root-map --baseline
+# Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
+# be dropped by re-running the command above.
+budget_allocation_decisions.recommended_amount_php	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+budget_allocation_decisions.recommended_share_bp	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+budget_allocation_decisions.total_budget_php	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+chat_threads.compat_reasons	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
+discount_code_redemptions.discount_centavos_applied	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_editorial.edited_by_couple	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_inspiration_assets.sampled_hex_1	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_inspiration_assets.sampled_hex_2	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_inspiration_assets.sampled_hex_3	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_inspiration_assets.sampled_hex_4	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_inspiration_assets.sampled_hex_5	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_inspiration_assets.sampled_hex_6	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_moderators.removal_reason	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+event_vendors.completion_resolution_note	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
+event_walkthrough_zones.duration_seconds	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+events.auspicious_reasons	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+events.ceremony_type_locked_by	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+guest_claims.review_note	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
+homepage_background_videos.video_url	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
+media_hash_checks.perceptual_hash	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
+patiktok_oauth_grants.revoked_reason	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+patiktok_source_clips.captured_by	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+patiktok_source_clips.performer_label	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+person_story_items.removed_reason	# first run 2026-10-02 · host app · a column the app writes and nothing reads
+platform_secret_rotations.rotated_by	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
+samahan_stories.clip_bytes	# first run 2026-10-02 · public site · a column the app writes and nothing reads
+scan_events.ip_anon	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
+users.concierge_enforcement_by	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
+vendor_bot_replies.compat_score	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
+vendor_bot_replies.was_llm	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
+vendor_locked_qr_tokens.remembrance_r2_key	# first run 2026-10-02 · supplier app · a column the app writes and nothing reads
+vendor_profile_views.viewer_hash	# first run 2026-10-02 · guest app · a column the app writes and nothing reads

@@ -45,10 +45,11 @@ const L = 'app/dashboard/[eventId]/launch/_components';
 /* ── A · THE STAGE EXISTS, WITH ITS THREE SCENES ───────────────────────────── */
 
 test('A · the bar has the RSVP stage between Save the Date and the Invitation', async () => {
-  const { MAKER_BAR, makerPlaceItem } = await import(`../${L}/maker-bar`);
-  const keys = (MAKER_BAR as Array<{ key: string }>).map((i) => i.key);
-  assert.deepEqual(keys.slice(0, 3), ['save_the_date', 'rsvp-stage', 'rsvp'], `the bar reads ${keys.join(' · ')}`);
-  assert.equal(makerPlaceItem('rsvp-stage', true)?.kind, 'tool', 'pressing RSVP opens its own page');
+  // ✂ The Maker in 4 (2026-10-02): the stages are Page ▾'s groups, RSVP still between Save the Date and the Invitation.
+  const { MAKER_PAGE_STAGES, makerPagePick } = await import(`../${L}/maker-bar`);
+  const keys = MAKER_PAGE_STAGES as readonly string[];
+  assert.deepEqual(keys.slice(0, 3), ['save_the_date', 'rsvp-stage', 'rsvp'], `Page ▾ reads ${keys.join(' · ')}`);
+  assert.equal(makerPagePick('rsvp-stage')?.kind, 'rsvp', 'picking RSVP opens its own page');
 });
 
 test('A · three scenes — the form, after they submit, when they decline — each on the real guest page', () => {

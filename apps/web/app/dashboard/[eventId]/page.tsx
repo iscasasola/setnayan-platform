@@ -16,6 +16,7 @@ import { buildBudgetLiveSummary, fetchBudgetSnapshot } from '@/lib/budget';
 import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
 import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
+import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import {
   aiStatus,
@@ -861,7 +862,12 @@ export default async function EventHomePage({
     isNikahEvent || !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer) || papicNudgeVisible;
 
   return (
-    <>
+    /* 💾 What the host sees here is kept on the phone and shown at once on the
+       next open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
+       SHOWS INSTANTLY, THEN REFRESHES"). Money never is: the Paid / Still owing
+       line, the Budget tile and payment rows carry `data-money` and every peso
+       figure is masked (lib/last-seen). A refused guest read is not kept. */
+    <LastSeenCapture page="home" fresh={guestsMeasured}>
       {/* 🧭 The event menu's first-visit tour (Stage D, owner 2026-09-29) —
           the five places, once, on Home; waits for the couple welcome. */}
       <MiniTour tourKey="customer_event_menu_v1" storeShell={storeShell} after="couple_welcome_v1" />
@@ -1004,6 +1010,6 @@ export default async function EventHomePage({
           </div>
         </>
       )}
-    </>
+    </LastSeenCapture>
   );
 }

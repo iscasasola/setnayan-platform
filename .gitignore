@@ -141,6 +141,10 @@ supabase/.temp/
 *.tsbuildinfo
 .vercel
 apps/web/supabase/.temp/
+# Root map Fields layer — regenerated on every CI run (scripts/root-map.ts), so a
+# committed copy could only ever be stale; `pnpm --filter @setnayan/web ugat:fields`
+# writes it here for reading.
+apps/web/lib/ugat/fields.generated.json
 
 # S0 encoder-spike evidence logs are the finding's evidence, not build noise (build-sessions/encoder/S0-FINDING.md § 10).
 !/build-sessions/encoder/S0-logs/*.log

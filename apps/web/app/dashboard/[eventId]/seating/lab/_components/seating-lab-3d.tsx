@@ -2057,10 +2057,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
       // 2026-09-30) and must never claim everyone is seated when someone isn't.
       setNotice(
         autoArrangeSummary({
-          tables: tables.length + res.tablesAdded,
           tablesAdded: res.tablesAdded,
-          booths: 0,
-          boothWhere: '',
           seated: res.seated,
           unseated: res.unseated,
         }),

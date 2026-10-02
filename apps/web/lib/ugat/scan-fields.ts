@@ -51,7 +51,7 @@ import { dirname, join, sep } from 'node:path';
 
 import { stripComments } from '@/lib/strip-comments';
 
-import { CALCULATIONS, type ActionFacts, type FormFacts, type ScreenFacts, type UgatFieldsMap } from './fields';
+import { CALCULATIONS, EVENT_FACT_HOME_PARTS, type ActionFacts, type FormFacts, type ScreenFacts, type UgatFieldsMap } from './fields';
 import { listSources, readQuoted, readTemplate, PH } from './scan-screens';
 import type { UgatScreensMap } from './screens';
 
@@ -1199,7 +1199,8 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
   }
 
   /* ── screens ── */
-  const screenFacts: ScreenFacts[] = opts.screens.screens.map((s) => {
+  const factsFrom = (id: string, root: string): ScreenFacts => {
+    const s = { id, file: root };
     const seen = new Set<string>([s.file]);
     let frontier = [s.file];
     for (let hop = 0; hop < 3; hop += 1) {
@@ -1239,12 +1240,15 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
       actions: [...actions].sort(),
       calcs: [...calcs].sort(),
     };
-  });
+  };
+  const screenFacts: ScreenFacts[] = opts.screens.screens.map((s) => factsFrom(s.id, s.file));
+  // The home's parts that live inside a wider screen (see EVENT_FACT_HOME_PARTS).
+  const homeParts: ScreenFacts[] = EVENT_FACT_HOME_PARTS.filter((f) => sourceSet.has(f)).map((f) => factsFrom(f, f));
 
   const actions = [...actionCache.values()].filter((a): a is ActionFacts => Boolean(a)).sort((a, b) => a.ref.localeCompare(b.ref));
   forms.sort((a, b) => a.from.localeCompare(b.from) || a.inputs.join().localeCompare(b.inputs.join()));
   stores.sort((a, b) => a.key.localeCompare(b.key) || a.from.localeCompare(b.from));
-  return { version: 1, screens: screenFacts, actions, forms, writers, stores };
+  return { version: 1, screens: screenFacts, homeParts, actions, forms, writers, stores };
 }
 
 /** The import closure a screen's checks look at — exported so the shown-values check uses the same files. */

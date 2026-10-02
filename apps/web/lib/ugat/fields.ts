@@ -67,6 +67,11 @@ export interface ScreenFacts {
 export interface UgatFieldsMap {
   version: 1;
   screens: ScreenFacts[];
+  /**
+   * EVENT_FACT_HOME_PARTS, each scanned like a screen rooted at that file
+   * (`id` = the file). Optional so hand-built fixture maps need not carry it.
+   */
+  homeParts?: ScreenFacts[];
   actions: ActionFacts[];
   forms: FormFacts[];
   /** Every write site in the app (actions, route handlers, lib) — `file → homes`. */
@@ -210,11 +215,30 @@ export function canonicalFact(fact: string): string {
 /**
  * Where an event fact is shown and changed. Owner 2026-10-02: "every answer
  * about an event lives in Event Details (Your info) — one home, mapped". The
- * read-out and its editor are one home (the editor folds into it, #6247).
+ * read-out is `/details`; its editor is below (EVENT_FACT_HOME_PARTS).
  */
 export const EVENT_FACT_HOME_SCREENS: readonly string[] = [
   '/dashboard/[eventId]/details',
-  '/dashboard/[eventId]/details/change',
+];
+
+/**
+ * The editor half of the home — what `/details/change` was. #6280 retired that
+ * page: its three editors moved whole into the Maker's Event Details › Your
+ * event › Event settings item (the legacy redirect sends the old URL to
+ * `launch?tool=details&item=settings`), and its reads moved to
+ * `details-settings-load.ts`. The Maker is one wide screen that also edits the
+ * hub's design and reads `events.*`, so naming the whole
+ * `/dashboard/[eventId]/launch` screen as the home would put every events
+ * column "in the home" and switch the check off. Instead the retired page's
+ * own parts are listed: each is scanned like a screen rooted at that file (its
+ * imports, three deep), and only what THOSE read and save counts as the home.
+ * Rename-safe: `fields-scan-floor.test.ts` fails if a part stops existing.
+ */
+export const EVENT_FACT_HOME_PARTS: readonly string[] = [
+  'app/dashboard/[eventId]/launch/_components/details-settings-load.ts',
+  'app/dashboard/[eventId]/details/_components/details-form.tsx',
+  'app/dashboard/[eventId]/details/_components/governed-fields.tsx',
+  'app/dashboard/[eventId]/details/_components/pax-settings-card.tsx',
 ];
 
 /**
@@ -259,6 +283,7 @@ export function serializeFieldsMap(map: UgatFieldsMap): string {
   return (
     `{\n"version": ${map.version},\n` +
     `"screens": ${block(map.screens)},\n` +
+    `"homeParts": ${block(map.homeParts ?? [])},\n` +
     `"actions": ${block(map.actions)},\n` +
     `"forms": ${block(map.forms)},\n` +
     `"writers": ${block(map.writers)},\n` +

@@ -2,8 +2,8 @@
 # ENFORCED: a finding not listed here fails CI.
 # One line per finding: <key><TAB># <why it is on the list>. Written by
 #   pnpm --filter @setnayan/web root-map --baseline
-# Never add a line by hand to make CI pass — fix the finding. A fixed one is
-# dropped by re-running the command above.
+# Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
+# be dropped by re-running the command above — CI fails while it is still listed.
 /[slug] shows days-to-go	# first run 2026-10-02 · guest app · replace means remove — the old copy was left behind
 /dashboard/[eventId] shows days-to-go	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
 /dashboard/[eventId] shows guests-coming	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind

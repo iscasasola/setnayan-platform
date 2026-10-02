@@ -2,8 +2,8 @@
 # ENFORCED: a finding not listed here fails CI.
 # One line per finding: <key><TAB># <why it is on the list>. Written by
 #   pnpm --filter @setnayan/web root-map --baseline
-# Never add a line by hand to make CI pass — fix the finding. A fixed one is
-# dropped by re-running the command above.
+# Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
+# be dropped by re-running the command above — CI fails while it is still listed.
 events.anchor_date	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details › Your info neither shows nor edits
 events.anchor_kind	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details › Your info neither shows nor edits
 events.ceremony_sub_type	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details › Your info neither shows nor edits

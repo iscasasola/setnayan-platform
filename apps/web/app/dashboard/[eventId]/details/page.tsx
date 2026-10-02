@@ -377,7 +377,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* ── The basics ── */}
-        <Section k="basics" open={maker ? { href: detailsItemHref(eventId, 'settings'), label: 'Open in Your info' } : null}>
+        <Section k="basics" open={maker ? { href: detailsItemHref(eventId, 'settings'), label: 'Open in Event Details' } : null}>
           <Row fact="names" label="Names" value={names} />
           <Row
             fact="kind"

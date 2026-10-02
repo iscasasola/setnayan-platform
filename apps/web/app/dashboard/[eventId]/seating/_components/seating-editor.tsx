@@ -131,6 +131,7 @@ import {
   type WorldPose,
   type OracleZone,
   type DropHit,
+  DRAFT_ROUND_TYPE,
 } from '@/lib/seating';
 import { resolveRoleSet, type RoleSet } from '@/lib/role-sets';
 import {
@@ -8035,8 +8036,9 @@ export function SeatingEditor({
             <ol className="mt-2 space-y-1.5 text-sm text-ink/70">
               <li>
                 <span className="font-semibold text-ink/85">1 · Tables</span> — the tables you placed
-                stay where they are. If your guests need more seats than your tables hold, Round (10
-                seats) tables are added in the room&rsquo;s open space — nothing overlaps, the dance
+                stay where they are. If your guests need more seats than your tables hold,{' '}
+                {TABLE_TYPE_CATALOG.find((c) => c.type === DRAFT_ROUND_TYPE)?.label ?? 'round'} tables are
+                added in the room&rsquo;s open space — nothing overlaps, the dance
                 floor stays clear. A table with no spot yet is laid out fanning from the stage.
               </li>
               <li>

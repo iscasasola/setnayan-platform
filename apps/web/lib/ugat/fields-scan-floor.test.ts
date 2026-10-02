@@ -13,7 +13,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { scanFields } from './scan-fields';
-import { EVENT_FACT_HOME_SCREENS } from './fields';
+import { EVENT_FACT_HOME_PARTS, EVENT_FACT_HOME_SCREENS } from './fields';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..', '..');
@@ -26,6 +26,7 @@ test('the real scan is not empty — the floors', () => {
   const withWrites = m.screens.filter((s) => s.writes.length).length;
   assert.ok(withWrites >= 150, `only ${withWrites} screens write anything — the closure narrowed`);
   for (const id of EVENT_FACT_HOME_SCREENS) assert.ok(m.screens.some((s) => s.id === id), `${id} is a screen`);
+  for (const f of EVENT_FACT_HOME_PARTS) assert.ok(m.homeParts?.some((s) => s.id === f), `${f} (a part of the event-answer home) still exists`);
   const details = m.screens.find((s) => s.id === '/dashboard/[eventId]/details');
   assert.ok(details?.reads.includes('events.event_date'), 'Your info reads the event date');
   const home = m.screens.find((s) => s.id === '/dashboard/[eventId]');

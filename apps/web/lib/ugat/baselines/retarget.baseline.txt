@@ -2,13 +2,12 @@
 # Report-only: a finding not listed here warns in CI.
 # One line per finding: <key><TAB># <why it is on the list>. Written by
 #   pnpm --filter @setnayan/web root-map --baseline
-# Never add a line by hand to make CI pass — fix the finding. A fixed one is
-# dropped by re-running the command above.
+# Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
+# be dropped by re-running the command above.
 app/dashboard/[eventId]/budget/actions.ts → /vendor-dashboard/messages	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/disputes/actions.ts → /vendor-dashboard/bookings	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/event-page/page.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
-app/dashboard/[eventId]/orders/page.tsx → /dashboard/[eventId]/orders/new	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/story/_components/editorial-editor.tsx → /dashboard/[eventId]/website/special-message	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/story/page.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/studio/[addon]/page.tsx → /dashboard/[eventId]/event-page	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
@@ -16,7 +15,6 @@ app/dashboard/[eventId]/studio/[addon]/page.tsx → /dashboard/[eventId]/more	# 
 app/dashboard/[eventId]/studio/[addon]/page.tsx → /dashboard/[eventId]/progress	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/studio/[addon]/page.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/studio/guest-columns/page.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
-app/dashboard/[eventId]/studio/page.tsx → /dashboard/[eventId]/event-page	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx → /dashboard/[eventId]/studio/[addon]	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/studio/papic/crew/page.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/studio/patiktok/page.tsx → /dashboard/[eventId]/studio/[addon]	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one

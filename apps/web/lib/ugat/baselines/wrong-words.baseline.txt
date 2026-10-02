@@ -2,8 +2,8 @@
 # Report-only: a finding not listed here warns in CI.
 # One line per finding: <key><TAB># <why it is on the list>. Written by
 #   pnpm --filter @setnayan/web root-map --baseline
-# Never add a line by hand to make CI pass — fix the finding. A fixed one is
-# dropped by re-running the command above.
+# Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
+# be dropped by re-running the command above.
 app/_components/account-switcher/account-switcher.tsx "Secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/_components/chat-thread-views.tsx "Review accept →" → /proposals/[publicId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/_components/frontdoor/command-data.ts "Saved suppliers" → /dashboard/library	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -39,11 +39,9 @@ app/dashboard/(account)/profile/page.tsx "secure your plan" → /signup	# first 
 app/dashboard/(account)/profile/page.tsx "Secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/(account)/profile/page.tsx "View public profile" → /u/[userSlug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/(launcher)/_components/year-moments-strip.tsx "Add your birthday" → /dashboard/profile	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/_components/after/finished-event-summary.tsx "What you had switched on for this one." → /dashboard/[eventId]/suite	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/checklist/checklist-full.tsx "· available" → /dashboard/[eventId]/vendors	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/event-dashboard.tsx "t replied yet" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/_components/nikah-essentials-card.tsx "Mutual consent" → /dashboard/[eventId]/guests	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/alaala/page.tsx "Add to your Memories" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/clearance/page.tsx "Stop the livestream" → /dashboard/[eventId]/launch	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx "Find a date / feng-shui specialist" → /explore	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/[eventId]/documents/page.tsx "· · Ref" → /dashboard/[eventId]/orders	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -57,24 +55,16 @@ app/dashboard/[eventId]/launch/_components/hub-stage.tsx "Open the live page" �
 app/dashboard/[eventId]/launch/page.tsx "Merkado" → /marketplace	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/page.tsx "The page itself" → /dashboard/[eventId]/website/editor	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/page.tsx "The running order" → /dashboard/[eventId]/schedule	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/live/page.tsx "See it in Add-ons" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/paperwork/page.tsx "Choose ceremony type" → /dashboard/[eventId]/date-selection	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/plan3d/page.tsx "Design panel" → /dashboard/[eventId]/seating/lab	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/story/_components/editorial-editor.tsx "Preview your editorial ↗" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/_components/addon-detail-view.tsx "Verifying" → /dashboard/[eventId]/orders	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx "Back to add-ons" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx "open the guest view" → /[slug]/find-my-table	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/live-studio-control/page.tsx "Back to add-ons" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx "‹ Back to add-ons" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/pakanta/page.tsx "love-story details" → /dashboard/[eventId]/details	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/papic/_components/life-flash-card.tsx "Play this day" → /dashboard/life-flash	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/papic/page.tsx "Back to add-ons" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/papic/page.tsx "Show the QR codes" → /dashboard/[eventId]/studio/papic/crew	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/patiktok/booth/page.tsx "Preview template + queue render" → /dashboard/[eventId]/studio/patiktok/[templateId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/patiktok/page.tsx "Back to add-ons" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/studio/patiktok/page.tsx "Choose template" → /dashboard/[eventId]/studio/patiktok/[templateId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/save-the-date/page.tsx "Back to add-ons" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/studio/setnayan-ai/page.tsx "Back to add-ons" → /dashboard/[eventId]/studio	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx "+ Unlock more categor" → /dashboard/[eventId]/vendors/categories	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/vendors/_components/self-added-price.tsx "Transport, food inclusions →" → /dashboard/[eventId]/vendors/[vendorId]/workspace	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/website/editor/_components/authoring-panels.tsx "Design the film →" → /dashboard/[eventId]/studio/save-the-date	# first run 2026-10-02 · host app · a "Messages" row that opens the roster

@@ -220,7 +220,7 @@ export function oneHomeFindings(fields: UgatFieldsMap, tableNodes: Map<string, s
   }
 
   // ── (b) ──
-  const home = fields.screens.filter((s) => EVENT_FACT_HOME_SCREENS.includes(s.id));
+  const home = [...fields.screens.filter((s) => EVENT_FACT_HOME_SCREENS.includes(s.id)), ...(fields.homeParts ?? [])];
   const homeCols = new Set<string>();
   for (const s of home) for (const x of [...s.reads, ...s.writes]) homeCols.add(columnOf(x));
   const homeReadsAll = homeCols.has('events.*');

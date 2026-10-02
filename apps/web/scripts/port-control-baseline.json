@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "964efe087",
+  "generatedFromRef": "647c51bc7",
   "routeCount": 422,
   "destinations": 943,
   "actions": 671,
-  "blocks": 5413,
+  "blocks": 5415,
   "routes": {
     "/": {
       "files": [
@@ -5826,6 +5826,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-checkin-cell.tsx",
+        "dashboard/[eventId]/guests/_components/guest-delete.tsx",
         "dashboard/[eventId]/guests/_components/guest-helper-access.tsx",
         "dashboard/[eventId]/guests/_components/guest-invite-cell.tsx",
         "dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx",
@@ -5844,7 +5845,6 @@
         "dashboard/[eventId]/guests/_components/phone-show-pick.tsx",
         "dashboard/[eventId]/guests/_components/plus-one-seats-note.tsx",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
-        "dashboard/[eventId]/guests/_components/remove-guest-confirm.tsx",
         "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/roster-controls.tsx",
         "dashboard/[eventId]/guests/_components/roster-meters.tsx",
@@ -5910,6 +5910,9 @@
         "CoordinatorGrantChips",
         "CoordinatorSeatControls",
         "Ctx",
+        "DeleteGuestButton",
+        "DeleteGuestFlow",
+        "DeleteGuestSheet",
         "DesktopCanvas",
         "DesktopRow",
         "Drawer",
@@ -6005,7 +6008,6 @@
         "QuickAddSheet",
         "QuickGroupResult",
         "QuickRoleResult",
-        "RemoveGuestConfirm",
         "RenameRoleResult",
         "RenameThisRole",
         "RestoreResult",

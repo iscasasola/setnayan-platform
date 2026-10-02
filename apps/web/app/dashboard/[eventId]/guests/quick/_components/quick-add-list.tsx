@@ -5,6 +5,7 @@ import { useFormStatus } from 'react-dom';
 import { CheckCircle2, X, Pencil, ArrowUp, Loader2 } from 'lucide-react';
 import { bulkAddGuests } from '../actions';
 import { formatCount } from '@/lib/format-number';
+import { parsePersonName } from '@/lib/person-name-parse';
 
 type Guest = { firstName: string; lastName: string };
 
@@ -40,10 +41,15 @@ export function QuickAddList({ eventId }: Props) {
   function commitEdit(i: number, value: string) {
     setGuests((prev) => {
       const next = [...prev];
-      const parts = value.trim().split(/\s+/);
-      const f = parts[0] ?? '';
-      const l = parts.slice(1).join(' ');
-      next[i] = { firstName: f, lastName: l };
+      // ONE splitter for every add path (lib/person-name-parse.ts): the last
+      // word is the last name, everything before it the first — never
+      // "first word + the rest". The server re-splits the whole line the same
+      // way, so a title or suffix kept here lands in its own part there.
+      const p = parsePersonName(value);
+      next[i] = {
+        firstName: [p.prefix, p.firstName, p.middleName].filter(Boolean).join(' '),
+        lastName: [p.lastName, p.suffix].filter(Boolean).join(' '),
+      };
       return next;
     });
     setEditingIndex(null);

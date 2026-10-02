@@ -21,6 +21,7 @@ import {
   PLUS_ONE_CHOICES,
   plusOneSeats,
   guestFullName,
+  guestHasTicket,
 } from '@/lib/guests';
 import { prefixChoicesFor } from '@/lib/formal-name';
 import { roleGroupLabel, roleGroupOf } from '@/lib/role-groups';
@@ -45,12 +46,12 @@ import type { GuestInviteCell } from './guest-invite-cell';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import type { InviteSetup } from './invite-message-setup';
 import type { ComponentType } from 'react';
-import { RemoveGuestConfirm } from './remove-guest-confirm';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
 import { ACCESS_LEVEL_LABEL, accessTag } from '@/lib/guest-access';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
+import { invitationLinkOn } from '@/lib/invitation-link';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -127,6 +128,25 @@ const CARD_RSVP_WORDS: Record<RsvpStatus, string> = {
 };
 
 
+/**
+ * The card's identity line and its reply, as words — ONE source for the body
+ * (the standalone page) and the sticky header over the panel (owner 2026-10-02:
+ * "maybe we can leave this part persistent?"), so they are drawn once each.
+ */
+export function guestCardEyebrow(
+  guest: Pick<GuestCardData['guest'], 'role' | 'side'>,
+  opts: { hasSides: boolean; roleNames: GuestCardData['roleNames'] },
+): string {
+  const isCouple = guest.role === 'bride' || guest.role === 'groom';
+  return [isCouple ? guestRoleLabel(guest.role, opts.roleNames) : 'Guest', opts.hasSides && !isCouple ? SIDE_LABELS[guest.side] : null]
+    .filter(Boolean)
+    .join(' · ');
+}
+export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsvp_status'>): string {
+  if (guest.role === 'bride' || guest.role === 'groom') return '✓ Attending · always';
+  return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${CARD_RSVP_WORDS[guest.rsvp_status]}`;
+}
+
 /** "7" → "Table 7"; a table the couple named ("Sponsors") stays as named. */
 function tableWords(label: string): string {
   return /^\d+$/.test(label.trim()) ? `Table ${label.trim()}` : label;
@@ -163,6 +183,7 @@ export function GuestCardBody({
   invitationBase,
   photoDisplayUrl,
   variant,
+  headerShown = false,
   returnTo,
   errorMessage,
   inviteFlash,
@@ -191,6 +212,8 @@ export function GuestCardBody({
    *             neither of.
    */
   variant: 'page' | 'panel';
+  /** The panel's sticky header already shows the eyebrow, name and reply. */
+  headerShown?: boolean;
   /** Where a FAILED save should land — the surface this card is open on. */
   returnTo: string;
   errorMessage: string | null;
@@ -247,14 +270,10 @@ export function GuestCardBody({
   const partnerLinkAction = inviteGuestByEmailAction.bind(null, eventId, guest.guest_id);
 
   const name = guestDisplayName(guest);
-  const inviteUrl = invitationBase && guest.qr_token ? `${invitationBase}?invite=${guest.qr_token}` : null;
+  const inviteUrl = invitationBase && guest.qr_token ? invitationLinkOn(invitationBase, guest.qr_token) : null;
   // Linked is known only to the couple (it reads another account); anyone else is told nothing either way.
   const linked: boolean | null = canManageAccess ? Boolean(linkedAccount) : null;
-  const hasTicket =
-    Boolean(guest.qr_token) &&
-    guest.entry_source !== REQUEST_ENTRY_SOURCE &&
-    guest.rsvp_status !== 'declined' &&
-    guest.passed_away !== true;
+  const hasTicket = guestHasTicket(guest);
   const seats = plusOneSeats(guest);
   const hostWord = access?.level === 'co_host' ? 'Co-host' : 'Host';
 
@@ -266,6 +285,7 @@ export function GuestCardBody({
       nfcUrl={inviteUrl}
       linked={Boolean(linkedAccount)}
       returnTo={returnTo}
+      deletable={!isCouple}
     />
   ) : null;
 
@@ -357,18 +377,24 @@ export function GuestCardBody({
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
-            {[isCouple ? roleWord : 'Guest', hasSides && !isCouple ? SIDE_LABELS[guest.side] : null]
-              .filter(Boolean)
-              .join(' · ')}
-          </p>
+          {/* Over the Guest list the eyebrow, the name and the reply live in
+              the panel's STICKY header (`headerShown`, InspectorColumn) — drawn
+              there once, not twice. The standalone page and the Maker's parent
+              cards have no such header, so they draw them here. */}
+          {headerShown ? null : (
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
+              {guestCardEyebrow(guest, { hasSides, roleNames })}
+            </p>
+          )}
           {variant === 'page' ? (
             <h1 className="truncate font-display text-2xl tracking-tight text-ink">{name}</h1>
           ) : null}
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
-            <span className="rounded-full bg-success-50 px-2 py-0.5 font-medium text-success-800 ring-1 ring-success-200">
-              {isCouple ? '✓ Attending · always' : `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${CARD_RSVP_WORDS[guest.rsvp_status]}`}
-            </span>
+            {!headerShown ? (
+              <span className="rounded-full bg-success-50 px-2 py-0.5 font-medium text-success-800 ring-1 ring-success-200">
+                {guestCardReply(guest)}
+              </span>
+            ) : null}
             {seats > 0 && !isCouple ? (
               <span className="rounded-full px-2 py-0.5 text-ink/70 ring-1 ring-ink/15">+{seats}</span>
             ) : null}
@@ -379,7 +405,7 @@ export function GuestCardBody({
 
       {/* ── TOP · their ticket, Invite · ⋯, the status line ─────────────────
           Outside the autosave form: Invite and ⋯ bring their own actions. */}
-      <section className="flex items-start gap-3.5 rounded-2xl border border-ink/10 bg-white/60 p-3.5" data-guest-card-top="">
+      <section className="flex items-start gap-3.5 border-b border-ink/10 pb-4" data-guest-card-top="">
         {TicketThumb ? (
           <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} />
         ) : hasTicket ? (
@@ -415,6 +441,7 @@ export function GuestCardBody({
                 fullName: name,
                 inviteUrl,
                 sentAt: guest.invitation_sent_at,
+                hasTicket,
               }}
               facts={inviteSetup.facts}
               template={inviteSetup.template}
@@ -436,13 +463,12 @@ export function GuestCardBody({
       </section>
 
       <AutosaveForm action={updateAction} returnTo={returnTo} className="space-y-4">
-        {/* ── NAME · open, and saves as you type ──────────────────────────── */}
+        {/* ── NAME · open, and saves itself (no caption — owner 2026-10-03) ── */}
         <section className="space-y-2.5" data-guest-card-name="">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">Name</h2>
+            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">Name · mobile</h2>
             <span className="flex items-center gap-2 text-xs text-ink/45">
               <AutosaveState />
-              saves as you type
             </span>
           </div>
           {/* 🔒 A linked person keeps their own name — a plus-one who linked
@@ -495,10 +521,15 @@ export function GuestCardBody({
               />
             </>
           )}
+          {/* 📱 THEIR MOBILE, UP FRONT (owner, live iPhone test 2026-10-02: "the
+              guest's mobile number is hard to find on the guest card"). It sat
+              inside the closed Details row; the first section is the one a
+              phone opens on, so the way to reach them is here, under the name. */}
+          <Field id="mobile" label="Mobile" type="tel" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
         </section>
 
-        <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/50">
-          {/* ── DETAILS — side, group, role, extra roles, groups, mobile ──── */}
+        <div className="border-y border-ink/10">
+          {/* ── DETAILS — side, group, role, extra roles, groups ───────────── */}
           <Fold summary="Details" value={detailsSummary}>
             <div className="grid grid-cols-2 gap-2.5">
               {hasSides ? (
@@ -582,7 +613,6 @@ export function GuestCardBody({
             ) : customGroups.length > 0 ? (
               <p className="text-sm text-ink/70">Groups: {customGroups.map((g) => g.label).join(', ')}</p>
             ) : null}
-            <Field id="mobile" label="Mobile" defaultValue={guest.mobile ?? ''} placeholder="+63 …" />
             {/* ✉ Carried, never shown: no email to guests (owner 2026-09-30).
                 `updateGuest` writes every column it reads, so a dropped input
                 would erase the address a guest's own account linked with. */}
@@ -769,7 +799,7 @@ export function GuestCardBody({
             edit, and it stays OUT of every drawer — a host must never have to
             guess to open one to read what a guest wrote. */}
         {guest.guest_note?.trim() ? (
-          <div className="space-y-1.5 rounded-2xl border border-ink/10 bg-white/50 p-3.5">
+          <div className="space-y-1.5 border-l-2 border-ink/15 pl-3">
             <span className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/50">
               A note from {guest.first_name}
             </span>
@@ -781,7 +811,7 @@ export function GuestCardBody({
 
       {/* ── ACCESS — its own actions, so OUTSIDE the autosave form (a nested
           <form> is invalid HTML). Same accordion as the rows above. */}
-      <div className="overflow-hidden rounded-2xl border border-ink/10 bg-white/50">
+      <div className="border-y border-ink/10">
         <Fold summary="Access" value={accessSummary || null} emptyValue="—">
           {/* A refused read (access === null) shows nothing, never "Guest only". */}
           {access ? (
@@ -866,7 +896,6 @@ export function GuestCardBody({
                   Take this seat back
                 </SubmitButton>
               </form>
-              <RemoveGuestConfirm eventId={eventId} guestId={guest.guest_id} guestName={name} />
               <p className="text-xs text-ink/50">
                 Give this spot: only while they have not replied. Take back: a new QR, and their account is unlinked.
               </p>
@@ -880,7 +909,6 @@ export function GuestCardBody({
           <span className="ml-auto min-w-0 text-right text-ink/55">{tagWords.join(' · ')}</span>
         </div>
       </div>
-      <p className="px-1 text-xs text-ink/50">Tags are set from the fields above, the seat plan and Groups — not typed.</p>
     </div>
   );
 }

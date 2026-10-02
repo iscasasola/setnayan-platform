@@ -292,7 +292,13 @@ function InspectorSheet({
         tabIndex={-1}
         className="sn-inspector-sheet"
       >
-        {children}
+        {/* The tap opens the panel at once; until the card arrives it says so,
+            never a blank white sheet that reads as "nothing happened". */}
+        {children ?? (
+          <p className="text-sm text-ink/55" role="status" data-inspector-opening="">
+            Opening…
+          </p>
+        )}
       </div>
     </>,
     portal,
@@ -368,6 +374,14 @@ export function InspectorTrigger({
       href={href}
       className={className}
       onClick={onClick}
+      /* ⚡ NO PREFETCH WHERE A TAP NEVER GOES THERE (owner, live iPhone test
+         2026-10-02: a guest's card took ~7–8 s to open). On a `mobileSheet`
+         surface a plain tap opens the panel IN PLACE, at every width — the
+         href is only the deep link for a new tab. Prefetching it anyway made
+         every row on screen ask the server to render its own standalone page:
+         prod logs show ~40 `/guests/<id>` renders fired within two seconds of
+         one Guest list opening, and the tap's own request queued behind them. */
+      prefetch={ctx?.sheet ? false : undefined}
       data-inspector-selected={selMark}
       aria-current={selMark}
       {...rest}
@@ -387,10 +401,14 @@ export function InspectorColumn({
   /** Changes per selection → remounts the `.sn-lens-swap` body so it re-animates. */
   swapKey,
   ariaLabel,
+  badge,
   children,
 }: {
   eyebrow: ReactNode;
   title: ReactNode;
+  /** One short status under the title in the sticky header — the guest card's
+   *  reply ("✓ Attending"). Optional; the other inspectors pass none. */
+  badge?: ReactNode;
   /** Standalone route for this selection. Omit when the item has no distinct
    *  full page (its action button already links to its room). */
   fullHref?: string;
@@ -401,6 +419,22 @@ export function InspectorColumn({
 }) {
   const ctx = useInspectorContext();
   const headingRef = useRef<HTMLHeadingElement>(null);
+  const headRef = useRef<HTMLElement>(null);
+  const [scrolled, setScrolled] = useState(false);
+
+  // The sticky header's hairline shows only once the body has scrolled under it
+  // — read off whichever box scrolls this panel (the phone sheet, or the rail).
+  useEffect(() => {
+    // The sheet FIRST: inside it the panel is plain content and never scrolls.
+    const head = headRef.current;
+    const scroller =
+      head?.closest<HTMLElement>('.sn-inspector-sheet') ?? head?.closest<HTMLElement>('.sn-inspector-panel');
+    if (!scroller) return;
+    const sync = () => setScrolled(scroller.scrollTop > 4);
+    sync();
+    scroller.addEventListener('scroll', sync, { passive: true });
+    return () => scroller.removeEventListener('scroll', sync);
+  }, []);
 
   // Move focus to the panel heading on a user-initiated open (never on a cold
   // refresh/share load — consumePanelFocus is false there).
@@ -431,16 +465,21 @@ export function InspectorColumn({
       role="complementary"
       aria-label={ariaLabel ?? 'Details'}
     >
-      <header className="sn-inspector-head">
+      <header ref={headRef} className="sn-inspector-head" data-scrolled={scrolled ? 'true' : 'false'}>
         <div className="min-w-0 flex-1">
           <p className="sn-eye">{eyebrow}</p>
           <h2
             ref={headingRef}
             tabIndex={-1}
-            className="sn-inspector-title mt-1 outline-none"
+            className="sn-inspector-title mt-1 truncate outline-none"
           >
             {title}
           </h2>
+          {badge ? (
+            <p className="sn-inspector-badge" data-inspector-badge="">
+              {badge}
+            </p>
+          ) : null}
         </div>
         <button
           type="button"

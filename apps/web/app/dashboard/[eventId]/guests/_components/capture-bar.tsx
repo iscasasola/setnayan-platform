@@ -111,13 +111,27 @@ export function CaptureBar({
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            className="input-field w-full pr-9"
+            className="input-field w-full pr-11"
           />
-          <Plus
-            aria-hidden
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
-            strokeWidth={2}
-          />
+          {/* ⚖ THE + ADDS (owner, live iPhone test 2026-10-02: *"tapping +
+              did nothing; only pressing Enter added the guest"*). It used to be
+              a picture of a button (`pointer-events-none`) — on a phone, whose
+              keyboard may say "return" or "go" and whose host never guesses
+              that Enter is the way, the one visible control did nothing. It is
+              now the SAME submit Enter runs, so the two can never differ.
+              `onMouseDown` keeps the keyboard up so the host can add the next. */}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={submitAdd}
+            disabled={pending || !value.trim()}
+            aria-label="Add this guest"
+            title="Add this guest"
+            data-capture-add=""
+            className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-ink/55 hover:text-ink disabled:text-ink/30"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
         </div>
 
         {/* Hint / shimmer */}

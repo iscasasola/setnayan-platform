@@ -557,6 +557,12 @@ export interface ScanScreensOptions {
   builders?: Map<string, string>;
   /** Override the table → node index (tests). */
   tableNodes?: Map<string, string[]>;
+  /**
+   * Called for every door that resolved to at least one screen — the Landing
+   * check (part 2) reads its #section and its words from here. `at` indexes
+   * `src` (comments stripped); `routes` are the screens it lands on.
+   */
+  onDoor?: (door: { from: string; at: number; src: string; address: string; routes: string[]; kind: DoorKind }) => void;
 }
 
 export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
@@ -682,7 +688,7 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
     surface: DoorSurface,
     weak = false,
   ) => {
-    if (!door) return;
+    if (!door) return [] as string[];
     let hits = resolveDoor(door, patterns);
     if (hits.length === 0 && door.openTail) {
       hits = resolveDoor({ ...door, segs: [...door.segs, { t: 'wild', re: null }] }, patterns);
@@ -697,17 +703,23 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
     if (hits.length === 0) {
       // A `return '/x'` may be a door (a URL helper) or may not (any helper
       // returning a slash-string); it can connect a screen, never accuse.
-      if (weak || isLegacyAddress(door)) return;
+      if (weak || isLegacyAddress(door)) return [] as string[];
       const key = `${from}\u0000${door.text}`;
       if (!broken.has(key)) broken.set(key, { from, to: door.text, kind });
-      return;
+      return [] as string[];
     }
     const owner = ownerScreen(from);
+    const landed: string[] = [];
     for (const h of hits) {
       if (h.kind !== 'screen') continue;
       if (h.route === owner) continue; // a screen linking to itself is not a way in
       addDoor(h.route, { from, kind, surface });
+      landed.push(h.route);
     }
+    return landed;
+  };
+  const report = (from: string, at: number, src: string, lit: Lit, routes: string[], kind: DoorKind) => {
+    if (opts.onDoor && routes.length) opts.onDoor({ from, at, src, address: lit.value.split(PH).join('*'), routes, kind });
   };
 
   const ANCHORS: Array<{ re: RegExp; kind: DoorKind; mode: ExprMode | 'attr' }> = [
@@ -747,7 +759,7 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
       for (const m of src.matchAll(/area:\s*"([^"]+)"[^{}]*?\broute:\s*/g)) {
         const { lits } = readExpr(src, m.index! + m[0].length, 'value');
         for (const lit of lits) {
-          handleDoor(rel, toDoorPath(lit, bindings), 'nav-registry', surfaceOf(m[1]!));
+          report(rel, m.index!, src, lit, handleDoor(rel, toDoorPath(lit, bindings), 'nav-registry', surfaceOf(m[1]!)), 'nav-registry');
         }
       }
       continue;
@@ -766,7 +778,7 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
           else lits = readExpr(src, start, 'value').lits;
         } else lits = readExpr(src, start, a.mode).lits;
         for (const lit of lits) {
-          handleDoor(rel, toDoorPath(lit, bindings), fileKind ?? a.kind, fileSurface);
+          report(rel, m.index!, src, lit, handleDoor(rel, toDoorPath(lit, bindings), fileKind ?? a.kind, fileSurface), a.kind);
         }
       }
     }

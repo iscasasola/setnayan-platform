@@ -68,7 +68,7 @@ test('2 · the phone head RENDERS the approved frame — and the Auto arrange li
   const { PhoneSeatPlanHead, PhoneSeatPlanFoot } = await import('./seat-plan-phone');
   const html = renderToStaticMarkup(
     React.createElement(PhoneSeatPlanHead, {
-      count: '10 tables',
+      countLabel: '10 tables',
       status: 'Standard room · 102 seated · guests see it on the day.',
       unseated: 14,
       onUnseated: () => {},
@@ -95,7 +95,7 @@ test('2 · the phone head RENDERS the approved frame — and the Auto arrange li
   // No Undo once there is nothing to undo.
   const done = renderToStaticMarkup(
     React.createElement(PhoneSeatPlanHead, {
-      count: '1 table', status: 's', unseated: 0, onUnseated: () => {}, onAutoArrange: () => {}, autoDisabled: false, autoBusy: false,
+      countLabel: '1 table', status: 's', unseated: 0, onUnseated: () => {}, onAutoArrange: () => {}, autoDisabled: false, autoBusy: false,
       rules: null, more: null, view: '2d', onView: () => {}, show3D: false,
       toast: { text: 'Everyone already has a seat', onUndo: null, onDismiss: () => {} },
     }),

@@ -6237,7 +6237,7 @@ export function SeatingEditor({
   };
   const phoneHead = isPhone ? (
     <PhoneSeatPlanHead
-      count={headline.count}
+      countLabel={headline.count}
       status={headline.status}
       unseated={unseatedComing}
       onUnseated={openUnseated}

@@ -25,6 +25,8 @@
  * (`peopleLabels`), and an event without two named people is listed by group.
  */
 
+import { formatCount } from './format-number';
+
 /** A marker the plan draws once (a singleton), as the editor names it. */
 export type SeatPlanMarker = 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail';
 
@@ -266,8 +268,8 @@ export function seatPlanHeadline(input: {
   const n = input.units.filter((u) => !u.sweetheart).length;
   const when = input.dayHasCome ? 'guests see it today' : input.showingEarly ? 'guests see it now' : 'guests see it on the day';
   return {
-    count: `${n} ${n === 1 ? 'table' : 'tables'}`,
-    status: `${input.roomName} · ${input.seated} seated · ${when}.`,
+    count: `${formatCount(n)} ${n === 1 ? 'table' : 'tables'}`,
+    status: `${input.roomName} · ${formatCount(input.seated)} seated · ${when}.`,
   };
 }
 

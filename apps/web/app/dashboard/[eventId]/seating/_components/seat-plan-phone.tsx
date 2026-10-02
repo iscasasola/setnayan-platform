@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, ChevronRight, MoreHorizontal, Sparkles, X } from 'lucide-react';
+import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 
@@ -74,7 +75,7 @@ function Pop({
 }
 
 export function PhoneSeatPlanHead({
-  count,
+  countLabel,
   status,
   unseated,
   onUnseated,
@@ -89,8 +90,8 @@ export function PhoneSeatPlanHead({
   toast,
   trailing,
 }: {
-  /** "10 tables" — counted units (`seatPlanHeadline`). */
-  count: string;
+  /** "10 tables" — counted units, already worded (`seatPlanHeadline`). */
+  countLabel: string;
   /** "Standard room · 102 seated · guests see it on the day." */
   status: string;
   /** The Unseated section's own count — the chip opens that list. */
@@ -121,7 +122,7 @@ export function PhoneSeatPlanHead({
       <div className="flex items-center gap-2">
         <h2 className="min-w-0 truncate font-display text-[26px] leading-tight text-ink">Seat plan</h2>
         <span data-seat-plan-count="" className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[11px] tabular-nums text-ink/60">
-          {count}
+          {countLabel}
         </span>
         <span className="flex-1" />
         {trailing}
@@ -183,7 +184,7 @@ export function PhoneSeatPlanHead({
             unseated > 0 ? 'bg-terracotta/15 text-terracotta-800' : 'bg-success-50 text-success-700'
           }`}
         >
-          Unseated: {unseated}
+          Unseated: {formatCount(unseated)}
           <ChevronRight aria-hidden className="h-3.5 w-3.5" />
         </button>
         <span className="flex-1" />

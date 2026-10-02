@@ -4,7 +4,7 @@ import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
+import { getEditorialEligibility, MAX_PER_TYPE } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { EditorialMediaStudio, type ExistingMedia } from './_components/editorial-media-studio';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
@@ -98,8 +98,8 @@ export default async function VendorEditorialMediaPage({
         </span>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">From your camera</h1>
         <p className="max-w-prose text-base text-ink/65">
-          Add a few of your favourite shots from {eventName} — up to <strong>3 photos</strong> and{' '}
-          <strong>3 short clips</strong>. They appear in a “From your vendors” strip on the couple’s
+          Add a few of your favourite shots from {eventName} — up to <strong>{MAX_PER_TYPE} photos</strong> and{' '}
+          <strong>{MAX_PER_TYPE} short clips</strong>. They appear in a “From your vendors” strip on the couple’s
           editorial, credited to you. Clips loop as a seamless boomerang.
         </p>
       </header>

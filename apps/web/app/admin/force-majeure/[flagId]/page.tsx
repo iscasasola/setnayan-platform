@@ -508,7 +508,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                         }
                         placeholder={
                           act === 'refund_issued'
-                            ? 'e.g. ₱8,000 refunded via GCash on 2026-05-15 — ref 0123…'
+                            ? 'e.g. refund sent via GCash — add the date and the reference number'
                             : 'Short note for the couple and the audit trail.'
                         }
                         className="input-field min-h-[72px] py-2 text-sm"

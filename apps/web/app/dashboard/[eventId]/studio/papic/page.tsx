@@ -2508,7 +2508,7 @@ function CaptureDefaultsSection() {
   const rows = [
     {
       Icon: BatteryWarning,
-      title: 'Battery handoff at 20%',
+      title: 'Battery handoff when it runs low',
       body: 'A handoff QR lets the next person take over without losing queued uploads.',
     },
     {

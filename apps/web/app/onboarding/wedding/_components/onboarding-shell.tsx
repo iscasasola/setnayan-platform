@@ -1085,7 +1085,7 @@ const FREE_TOOL_DRIVERS: ReadonlyArray<{
   { key: 'dayof', label: 'Day-of guest portal', blurb: 'Guests self-serve their table, schedule, and photos on the day.', vsRole: 'day-of guest coordination', money: () => 1999, hours: () => 6 },
   { key: 'contract', label: 'Contract organizer', blurb: 'Upload, track key terms, e-sign, and never miss a deadline.', vsRole: 'contract admin', money: () => 1999, hours: () => 3 },
   { key: 'songlist', label: 'Songlist maker', blurb: 'Your must-play and do-not-play list for the band or DJ.', vsRole: 'a music planner', money: () => 1499, hours: () => 3 },
-  { key: 'papic', label: 'Papic sampler', blurb: '3 guest seats to taste candid-capture tagging — every shot lands in your gallery, free.', vsRole: 'a second shooter for an hour', money: () => 0, hours: () => 4 },
+  { key: 'papic', label: 'Papic sampler', blurb: 'Free guest seats to taste candid-capture tagging — every shot lands in your gallery.', vsRole: 'a second shooter for an hour', money: () => 0, hours: () => 4 },
   { key: 'foodplanner', label: 'Food planner', blurb: 'Menu plus dietary, allergy, and halal prefs for your caterer.', vsRole: 'a menu planner', money: () => 1499, hours: () => 4 },
   { key: 'monogram', label: 'Basic monogram', blurb: 'A custom mark for your wedding, generated in seconds.', vsRole: 'a designer', money: () => 1499, hours: () => 4 },
   { key: 'qr', label: 'Branded QR', blurb: 'One scan opens everything for your guests.', vsRole: 'an invitation designer', money: () => 999, hours: () => 2 },
@@ -4591,7 +4591,7 @@ export function OnboardingShell({
                 <div className="aikeep-price">
                   <span className="aikeep-now">{pricing.setnayanAi.label}</span>
                   <span className="aikeep-unit">active until your wedding day</span>
-                  <span className="aikeep-anchor">₱30,000+ coordinator</span>
+                  <span className="aikeep-anchor">instead of a hired coordinator</span>
                 </div>
               )}
               <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>

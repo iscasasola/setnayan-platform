@@ -6,6 +6,7 @@ import {
 } from '@/lib/vendor-inquiry-analytics';
 import { CountUp } from './count-up';
 import { formatCount } from '@/lib/format-number';
+import { REPLY_SPREAD_PCT } from '@/lib/vendor-inquiry-analytics';
 
 /**
  * "Inquiry handling" — My Performance · Phase B family 1 (Pro tier). Four
@@ -116,7 +117,7 @@ export function InquiryHandlingCard({ data }: { data: InquiryAnalytics }) {
         />
         <Tile
           icon={<Timer className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
-          label="90% within"
+          label={`${REPLY_SPREAD_PCT}% within`}
           value={reply.answeredCount > 0 ? formatMinutes(reply.p90Minutes) : '—'}
           sub={
             reply.answeredCount > 0

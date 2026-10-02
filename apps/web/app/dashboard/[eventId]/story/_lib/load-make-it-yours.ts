@@ -2,7 +2,7 @@ import 'server-only';
 
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import type { PoolItem, ResolvedArrangement, RunOfShowMoment } from '@/lib/story-arrangement';
-import type { LoadedArrangement } from '@/lib/story-arrangement-store';
+import { ARRANGEMENT_POOL_CAP, type LoadedArrangement } from '@/lib/story-arrangement-store';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { loadArrangementForHost } from './load-arrangement';
 
@@ -41,6 +41,8 @@ export type MakeItYoursInput = {
    */
   unreadable: string[];
   poolTruncated: boolean;
+  /** How many of the day's captures one read takes — what "the first N" means when `poolTruncated`. */
+  poolCap: number;
 };
 
 const WHAT: Record<string, string> = {
@@ -160,5 +162,6 @@ export async function makeItYoursInputFrom(
     momentTimes,
     unreadable: loaded.unreadable.map((s) => WHAT[s] ?? s),
     poolTruncated: loaded.poolTruncated,
+    poolCap: ARRANGEMENT_POOL_CAP,
   };
 }

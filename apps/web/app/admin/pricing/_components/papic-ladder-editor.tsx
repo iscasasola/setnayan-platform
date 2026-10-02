@@ -102,7 +102,7 @@ export function PapicLadderEditor({
   return (
     <div>
       <p className="mb-5 max-w-prose text-sm leading-relaxed text-ink/70">
-        Shots are sold against <strong>₱1 a shot</strong>, with a bulk saving that deepens as the
+        Shots are sold <strong>by the shot</strong>, with a bulk saving that deepens as the
         number grows. You set <strong>five</strong> prices; the other eleven work themselves out
         from the nearest one below them. The saving at set-up is a separate number, further down.
       </p>

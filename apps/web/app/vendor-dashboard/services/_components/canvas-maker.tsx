@@ -1437,7 +1437,7 @@ export function CanvasMaker({
                   Casa Luna Events — Full-day service
                 </p>
                 <p className="text-[13px]" style={{ color: 'var(--m-ink)' }}>
-                  from ₱25,000 per event
+                  from your starting price, per event
                 </p>
                 <p className="text-[13px]" style={{ color: 'var(--m-slate)' }}>
                   Includes: A planning call · Travel within the city

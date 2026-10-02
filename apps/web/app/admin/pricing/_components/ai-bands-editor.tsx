@@ -10,6 +10,7 @@ import {
   effectiveDiscountPct,
   previewFamilySave,
   signupPriceFor,
+  PAPIC_DISCOUNT_FLOOR_PCT,
 } from '@/lib/onboarding-family-discount';
 
 export type EventKindView = {
@@ -198,7 +199,7 @@ function FamilyDiscountCard({
             you never type it.
             <br />
             <span className="text-ink/50">
-              Papic has its own separate saving, and its 10% floor does not apply here.
+              Papic has its own separate saving, and its {PAPIC_DISCOUNT_FLOOR_PCT}% floor does not apply here.
             </span>
           </p>
         </div>

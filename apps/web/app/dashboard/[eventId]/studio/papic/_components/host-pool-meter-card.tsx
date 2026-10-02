@@ -2,7 +2,7 @@ import { Gauge } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { papicPoolBarEnabled } from '@/lib/papic-pool-bar-flag';
-import { fetchHostPoolMeter } from '@/lib/papic-pool-meter';
+import { fetchHostPoolMeter, POOL_METER_LOW_PCT } from '@/lib/papic-pool-meter';
 import {
   PAPIC_POINTS_PER_SNIPPET,
   PAPIC_POINTS_PER_PHOTO,
@@ -121,7 +121,7 @@ export async function HostPoolMeterCard({ eventId }: { eventId: string }) {
           </span>
         ) : meter.level === 'low' ? (
           <span className="font-medium text-amber-800">
-            Running low — under 10% of your pool remains.
+            Running low — under {POOL_METER_LOW_PCT}% of your pool remains.
           </span>
         ) : null}
       </div>

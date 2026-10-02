@@ -339,7 +339,7 @@ export default async function AdminBudgetPlannerPage() {
                 className="input-field mt-1 w-full"
               />
               <span className="mt-1 block text-[11px] text-ink/45">
-                ± tolerance around a target, e.g. 0.15 = ±15%.
+                ± tolerance around a target, as a fraction — 0.15 means fifteen percent either side.
               </span>
             </label>
             <label className="block sm:col-span-2 lg:col-span-1">

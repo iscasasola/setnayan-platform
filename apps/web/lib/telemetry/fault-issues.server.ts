@@ -4,6 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { currentBuildSha } from '@/lib/telemetry/fault-log';
 import { FLOWS, funnelOf, type FunnelStep } from '@/lib/telemetry/flows';
 import { problemLine } from '@/lib/telemetry/problem-line';
+import { formatCount } from '@/lib/format-number';
 import { resolveActionName } from '@/lib/telemetry/server-fault';
 
 /**
@@ -174,8 +175,8 @@ export async function readFaultIssues(opts: { limit?: number; flowDays?: number 
       finished,
       fingerprint: `DROP_OFF|${flow.flow}|${worst?.step ?? '-'}`,
       line: worst
-        ? `${flow.label} — most people stop after "${worst.step.replace(/_/g, ' ')}" · ${worst.stoppedHere} of ${started} in ${flowDays} days · ${finished} finished`
-        : `${flow.label} — nobody stops early · ${finished} of ${started} finished in ${flowDays} days`,
+        ? `${flow.label} — most people stop after "${worst.step.replace(/_/g, ' ')}" · ${formatCount(worst.stoppedHere)} of ${formatCount(started)} in ${flowDays} days · ${formatCount(finished)} finished`
+        : `${flow.label} — nobody stops early · ${formatCount(finished)} of ${formatCount(started)} finished in ${flowDays} days`,
     });
   }
   dropOffs.sort((a, b) => (b.worst?.stoppedHere ?? 0) - (a.worst?.stoppedHere ?? 0));

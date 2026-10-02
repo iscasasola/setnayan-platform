@@ -14,6 +14,7 @@
  * Connection Logs surface — no new page, no new route.
  */
 
+import { formatCount } from '@/lib/format-number';
 import { readFaultIssues, type FaultIssue } from '@/lib/telemetry/fault-issues.server';
 
 function ago(iso: string): string {
@@ -32,7 +33,7 @@ function IssueRow({ issue }: { issue: FaultIssue }) {
           <span className="font-medium">{issue.line}</span>
           {issue.reopened_count > 0 ? (
             <span className="ml-2 rounded-full bg-danger-100 px-2 py-0.5 text-[11px] text-danger-800">
-              came back ×{issue.reopened_count}
+              came back ×{formatCount(issue.reopened_count)}
             </span>
           ) : null}
         </summary>
@@ -55,7 +56,7 @@ function IssueRow({ issue }: { issue: FaultIssue }) {
           ) : null}
           <dt className="text-ink/50">Seen</dt>
           <dd>
-            {issue.hit_count} times · first {ago(issue.first_seen)} · last {ago(issue.last_seen)}
+            {formatCount(issue.hit_count)} times · first {ago(issue.first_seen)} · last {ago(issue.last_seen)}
           </dd>
           <dt className="text-ink/50">Build</dt>
           <dd className="font-mono">
@@ -119,8 +120,8 @@ export async function ProblemsList() {
                       .filter((s) => s.reached > 0)
                       .map((s) => (
                         <li key={s.step} className={d.worst?.step === s.step ? 'font-semibold text-danger-800' : ''}>
-                          {s.step.replace(/_/g, ' ')} — {s.reached} reached
-                          {s.stoppedHere > 0 ? ` · ${s.stoppedHere} stopped here` : ''}
+                          {s.step.replace(/_/g, ' ')} — {formatCount(s.reached)} reached
+                          {s.stoppedHere > 0 ? ` · ${formatCount(s.stoppedHere)} stopped here` : ''}
                         </li>
                       ))}
                   </ol>

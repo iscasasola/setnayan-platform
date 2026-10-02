@@ -11,6 +11,7 @@
  */
 
 import type { FaultKind } from '@/lib/telemetry/fault-normalize';
+import { formatCount } from '@/lib/format-number';
 
 /** Route pattern → the name a person would use. First match wins; order matters. */
 const PAGE_NAMES: ReadonlyArray<[RegExp, string]> = [
@@ -99,7 +100,7 @@ export type ProblemLineInput = {
 export function oneIn(failures: number | undefined, successes: number | undefined): string | null {
   if (!failures || failures <= 0 || successes === undefined || successes <= 0) return null;
   const n = Math.round((failures + successes) / failures);
-  return n <= 1 ? 'every time' : `1 in ${n}`;
+  return n <= 1 ? 'every time' : `1 in ${formatCount(n)}`;
 }
 
 export function problemLine(i: ProblemLineInput): string {
@@ -133,7 +134,7 @@ export function problemLine(i: ProblemLineInput): string {
 function tail(head: string, i: ProblemLineInput): string {
   const parts = [head];
   const today = i.dayDate === i.today ? i.dayCount : 0;
-  parts.push(today === 1 ? 'once today' : `${today} times today`);
+  parts.push(today === 1 ? 'once today' : `${formatCount(today)} times today`);
   const rate = oneIn(i.failures, i.successes);
   if (rate) parts.push(rate);
   return parts.join(' · ');

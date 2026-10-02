@@ -23,6 +23,7 @@ import {
   VENUE_SETTING_LABEL,
 } from '@/lib/venue-settings';
 import type { ConflictField, ConflictService } from '@/lib/personalization-conflicts';
+import { ceremonyChoicesFor } from '@/lib/ceremony-choices';
 
 /**
  * GovernedFields — the four governed personalization fields on the
@@ -144,6 +145,12 @@ type Props = {
    * reason. Omitted = the Personalization page's live save, unchanged.
    */
   saveDate?: (value: string) => Promise<string | null>;
+  /**
+   * The live rites (`fetchActiveCeremonyTypes`) — the launch gate onboarding
+   * honours. A coming-soon rite is not offered here either; null (the read
+   * failed, or a caller that only draws the date row) offers every rite.
+   */
+  activeCeremonies?: readonly string[] | null;
 };
 
 /**
@@ -194,8 +201,17 @@ export function GovernedFields({
   proposal = null,
   embedded = false,
   saveDate,
+  activeCeremonies = null,
 }: Props) {
   const router = useRouter();
+  // The launch gate (lib/ceremony-choices.ts): coming-soon rites are not offered.
+  const offeredCeremonies = new Set<string>(
+    ceremonyChoicesFor(
+      CEREMONY_OPTIONS.map((o) => o.value),
+      activeCeremonies,
+      ceremony,
+    ),
+  );
   const shows = (f: EditableField) => !only || only.includes(f);
   const labelOf = (f: EditableField) => labels?.[f] ?? FIELD_LABEL[f];
   const [open, setOpen] = useState<EditableField | null>(null);
@@ -496,7 +512,7 @@ export function GovernedFields({
           className={SELECT_CLASS}
         >
           <option value="">Choose a type…</option>
-          {CEREMONY_OPTIONS.map((o) => (
+          {CEREMONY_OPTIONS.filter((o) => offeredCeremonies.has(o.value)).map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
             </option>

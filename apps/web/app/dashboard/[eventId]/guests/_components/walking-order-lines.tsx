@@ -48,7 +48,7 @@
  * full sequence rather than to a half-applied pair of swaps.
  *
  * ⛔ Reordering the processional never touches a chair. That invariant lives in
- * the action, which writes `entourage_order` and nothing else.
+ * the action, which writes the march's own walks (`march_walks`) and nothing else.
  *
  * ── NAMES MOVE TOO (owner 2026-09-21) ──────────────────────────────────────
  * *"tapping [an empty place] should allow us to pair them as well with

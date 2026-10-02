@@ -797,7 +797,7 @@ export function MakerWork({
     return (
       <DetailsFactSceneContext.Provider value={sceneKey}>
         <section className="flex flex-col gap-2 px-1" data-maker-fact-editor={item}>
-          <p className="text-[12.5px] text-ink/60">The same field as in Details — saved once, shown everywhere.</p>
+          <p className="text-[12.5px] text-ink/60">The same field as in Your info — saved once, shown everywhere.</p>
           {node}
         </section>
       </DetailsFactSceneContext.Provider>
@@ -1544,7 +1544,7 @@ export function MakerWork({
   /* 📄 PAGE ▾ — the navigator's one dropdown is the guest's own pages on this
      stage, in the guest bar's own words (owner 2026-09-30, `lib/maker-guest-pages.ts`).
      Each page knows the scenes under it; none is hidden. */
-  const guestPages = makerGuestPages(stage, list.shown.map((t) => t.key));
+  const guestPages = makerGuestPages(stage, list.shown.map((t) => t.key), navigator.hasStory);
   const shownPage = guestPages.find((p) => p.key === tabKey) ?? guestPages.find((p) => !p.leaves) ?? null;
   const selectedPageKey = selectedTile ? (guestPages.find((p) => p.tiles.includes(selectedTile.key))?.key ?? null) : null;
   useEffect(() => {
@@ -3029,7 +3029,7 @@ function Inspector({
       : selection.kind === 'main'
         ? 'Main · behind every scene'
         : selection.kind === 'tool'
-          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Details', 'rsvp-page': 'RSVP', 'rsvp-stage': 'RSVP' }[selection.key]
+          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Your info', 'rsvp-page': 'RSVP', 'rsvp-stage': 'RSVP' }[selection.key]
           : fixedOfKey(selection.key)
             ? fixedScenePanel(fixedOfKey(selection.key)!).label
             : (rows[selection.key]?.label ?? 'Edit');
@@ -3206,7 +3206,7 @@ function ThemePanel({
         data-maker-theme-opens-details=""
         className="sn-press inline-flex min-h-10 items-center font-semibold underline underline-offset-2 hover:text-ink/80"
       >
-        Change in Details
+        Change in Your info
       </button>
     </p>
   );

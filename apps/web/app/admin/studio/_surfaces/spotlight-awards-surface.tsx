@@ -165,7 +165,7 @@ export async function SpotlightAwardsSurface({
                 )}
                 <div>
                   <p className="font-medium text-ink">
-                    {r.business_name ?? 'Unnamed vendor'}
+                    {r.business_name ?? 'Unnamed supplier'}
                   </p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-ink/60">
                     <span className="inline-flex items-center gap-1 rounded-full bg-ink/[0.05] px-2 py-0.5">
@@ -196,8 +196,8 @@ export async function SpotlightAwardsSurface({
       <section className="mt-8 sn-tile p-5">
         <h2 className="text-base font-semibold text-ink">Add an award by hand</h2>
         <p className="mt-1 text-sm text-ink/60">
-          Award a vendor directly — useful for the <strong>Rising Star</strong>{' '}
-          recognition, which has no automatic formula yet. Paste the vendor&rsquo;s
+          Award a supplier directly — useful for the <strong>Rising Star</strong>{' '}
+          recognition, which has no automatic formula yet. Paste the supplier&rsquo;s
           profile ID.
         </p>
         <ManualAddForm period={period} />
@@ -225,7 +225,7 @@ function ManualAddForm({ period }: { period: string }) {
     <form action={addAwardManually} className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
       <input type="hidden" name="period_month" value={period} />
       <label className="flex-1 text-sm">
-        <span className="mb-1 block font-medium text-ink/80">Vendor profile ID</span>
+        <span className="mb-1 block font-medium text-ink/80">Supplier profile ID</span>
         <input
           name="vendor_profile_id"
           required

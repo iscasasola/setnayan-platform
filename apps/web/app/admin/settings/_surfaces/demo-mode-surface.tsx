@@ -115,12 +115,12 @@ export async function DemoModeSurface({ searchParams }: Props) {
       <PageMasthead title="Demo mode" />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
-          When demo mode is on, the marketplace and individual vendor profile
-          pages additionally surface vendors marked{' '}
+          When demo mode is on, the marketplace and individual supplier profile
+          pages additionally surface suppliers marked{' '}
           <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[11px]">
             is_demo = TRUE
           </code>{' '}
-          and display their pricing publicly. Real vendor visibility (the
+          and display their pricing publicly. Real supplier visibility (the
           2026-05-16 hide-prices lock) is unchanged. Admins only — non-admin
           sessions silently ignore the flag.
         </p>
@@ -201,7 +201,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
               href="/explore"
               className="inline-flex items-center gap-1.5 text-ink/80 underline-offset-2 hover:underline"
             >
-              View /vendors {isOn ? '(demo vendors visible)' : '(without demo)'}
+              View /vendors {isOn ? '(demo suppliers visible)' : '(without demo)'}
               <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             </Link>
           </li>
@@ -210,7 +210,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
               href="/admin/demo-vendors"
               className="inline-flex items-center gap-1.5 text-ink/80 underline-offset-2 hover:underline"
             >
-              Manage demo vendors (cleanup before {cleanupLabel})
+              Manage demo suppliers (cleanup before {cleanupLabel})
               <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             </Link>
           </li>
@@ -229,7 +229,7 @@ export async function DemoModeSurface({ searchParams }: Props) {
           </h2>
         </div>
         <p>
-          Demo vendor records and the demo-mode override are pre-V1 dogfood
+          Demo supplier records and the demo-mode override are pre-V1 dogfood
           tooling — both must be cleaned out before <strong>{cleanupLabel}</strong>,
           the V1 public launch cutover.
         </p>

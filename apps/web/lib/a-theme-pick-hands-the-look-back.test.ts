@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
-import { THEME_OWN_LOOK_RESET } from './theme-own-look';
+import { THEME_OWN_LOOK_RESET, hasOwnLook, themePickSends } from './theme-own-look';
 import { INVITE_THEMES } from './invite-themes';
 import {
   emptyHubDraft,
@@ -85,4 +85,28 @@ test('by source: the picker is the one writer, sends the reset in the SAME patch
   assert.doesNotMatch(src, /widgets:\s*\{/, 'a theme pick reaches into a scene');
   const lib = stripComments(readFileSync(join(WEB, 'lib/theme-own-look.ts'), 'utf8'));
   assert.doesNotMatch(lib, /import /, 'the Maker’s bundle is at its ceiling — this file takes no imports');
+});
+
+test('re-tapping the CURRENT theme still sends the reset when the couple has their own look — and is a no-op when nothing is overridden', () => {
+  // The couple wears their own colour/font (draft over live): the re-tap is a send.
+  const own = hasOwnLook({ site_bg_color: '#112233', site_button_color: null, site_font_key: null }, null);
+  assert.equal(own, true);
+  assert.equal(themePickSends('house', 'house', own), true, 'the current theme could not hand the look back');
+  assert.equal(themePickSends('galeriya', 'house', false), true, 'another theme is always a pick');
+  // Nothing overridden: a re-tap changes nothing, so nothing is saved.
+  assert.equal(themePickSends('house', 'house', hasOwnLook({ site_bg_color: null, site_button_color: '', site_font_key: null })), false);
+  // The draft wins by column: a drafted reset hides a live override, a drafted value shows over a clean live row.
+  assert.equal(hasOwnLook({ site_font_key: 'playfair' }, { site_font_key: null }), false);
+  assert.equal(hasOwnLook({ site_font_key: null }, { site_button_color: '#aa5500' }), true);
+  // …and the patch a re-tap sends is the same one-pick reset.
+  const d = mergeHubDraft(emptyHubDraft(), patchOf('house'));
+  const seen = overlayHubDraftEvent(live().events, d) as Record<string, unknown>;
+  assert.equal(seen.site_bg_color, null);
+  assert.equal(seen.site_font_key, null);
+});
+
+test('by source: the picker gates the re-tap through themePickSends, never a bare id === picked', () => {
+  const src = stripComments(readFileSync(join(WEB, PICKER), 'utf8'));
+  assert.match(src, /if \(!themePickSends\(id, picked, own\)\) return;/);
+  assert.doesNotMatch(src, /if \(id === picked\) return/, 'a re-tap of the current theme is dropped again');
 });

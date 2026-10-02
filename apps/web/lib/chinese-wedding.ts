@@ -77,6 +77,19 @@ export function isMuslimWedding(event: CeremonyOverlayInput | null | undefined):
 }
 
 /**
+ * 👗 THE RITE THE DRESS-CODE SCENE DRESSES FOR — the modest-dress note (INC),
+ * the Muslim note and its seating posture read BOTH rite columns (P6a: a mixed
+ * wedding with an INC or Muslim side kept only `ceremony_type === 'mixed'`, so
+ * its guests were never told to dress modestly). Returns the rite the scene
+ * keys on: 'inc' or 'muslim' when either column carries it, else the primary.
+ */
+export function dressRiteOf(event: CeremonyOverlayInput | null | undefined): string | null {
+  if (ceremonyMatches(event, 'inc')) return 'inc';
+  if (isMuslimWedding(event)) return 'muslim';
+  return event?.ceremony_type ?? null;
+}
+
+/**
  * True when Chinese is specifically the *secondary* (overlay) rite on top of a
  * different primary — the common Tsinoy "church wedding + tea ceremony" case.
  * Useful where copy should say "alongside your {primary} ceremony".

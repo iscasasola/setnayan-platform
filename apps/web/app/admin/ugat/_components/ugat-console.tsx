@@ -81,7 +81,7 @@ const TABLE_LABELS: Record<UgatTableKey, { label: string; type: UgatEntityType }
   users: { label: 'Users', type: 'user' },
   events: { label: 'Events', type: 'event' },
   guests: { label: 'Guests', type: 'guest' },
-  vendors: { label: 'Vendors', type: 'vendor' },
+  vendors: { label: 'Suppliers', type: 'vendor' },
   services: { label: 'Service cards', type: 'service' },
   orders: { label: 'Orders', type: 'order' },
   threads: { label: 'Threads', type: 'thread' },
@@ -359,7 +359,7 @@ export function UgatConsole({
         </span>
         <span className="ug-scope-note">
           <Ico name="info" />
-          Platform type-level only; per-event &amp; per-vendor row scopes are still to come. Counts
+          Platform type-level only; per-event &amp; per-supplier row scopes are still to come. Counts
           are live (updated {relTime(counts.computedAt)}); joint cards are static schema
           documentation.{' '}
           <strong>
@@ -1418,7 +1418,7 @@ function Omnibox({
               here, and a guard fails if the search learns a record kind the
               bar never mentions.
             */
-            placeholder="Search vendors · events · guests · users · orders · taxonomy — ⌘K"
+            placeholder="Search suppliers · events · guests · users · orders · taxonomy — ⌘K"
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
@@ -1578,6 +1578,7 @@ function TablesView({
     gallery: 'TYPE-GALLERY',
     signoff: 'TYPE-SIGNOFF',
     colourgrant: 'TYPE-COLOURGRANT',
+    march: 'TYPE-MARCH',
   };
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;

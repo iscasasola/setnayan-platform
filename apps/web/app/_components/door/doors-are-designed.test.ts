@@ -112,7 +112,6 @@ const DOORS = [
   'vendor/claim/[token]/page.tsx',
   'vendor/claim/[token]/finalize/page.tsx',
   'join/[eventId]/page.tsx',
-  'join/[eventId]/check-email/page.tsx',
   'join/[eventId]/set-password/page.tsx',
   'join/[eventId]/success/page.tsx',
   'join/[eventId]/_components/join-shell.tsx',

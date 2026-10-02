@@ -349,10 +349,16 @@ test('go-live never tells a host to connect a channel they are not allowed to co
   // The thing that actually closes the BYO door is `liveStudioPoolOnly()` — it
   // removes the couple's Connect button and makes /api/oauth/youtube/start refuse
   // with 409. So THAT is what the copy must branch on, and this asserts it.
+  //
+  // ⚖ 2026-10-02: inside the pool-only arm there is now a SECOND question — does
+  // this event hold the hosted channel? "This is on our side" is true only for an
+  // event Setnayan is supplying a channel to; every other event is refused the
+  // pool (owner ruling 2026-09-14, checkoutPoolChannel) and is pointed at its own
+  // route to air instead. The BYO-door question is still the outer one.
   assert.match(
     fn,
-    /liveStudioPoolOnly\(\)\s*\?\s*'No Setnayan broadcast channel is available[^']*'\s*:\s*'Connect your YouTube channel first[^']*'/,
-    'the no-token copy must branch on whether the BYO door is OPEN (pool-only), not on the roam flag',
+    /if \(liveStudioPoolOnly\(\)\) \{[\s\S]{0,400}eventHoldsHostedChannel\([\s\S]{0,200}hosted\s*\?\s*'No Setnayan broadcast channel is available[^']*'\s*:\s*OWN_CHANNEL_GO_LIVE_REFUSAL[\s\S]{0,120}\}\s*return \{\s*error: 'Connect your YouTube channel first/,
+    'the no-token copy must branch on whether the BYO door is OPEN (pool-only), then on the hosted channel — not on the roam flag',
   );
 
   // And the roam flag must NOT be what decides this copy again.
@@ -457,6 +463,7 @@ test('getHeldChannelAccessToken is read-only — it cannot check a channel out',
 
 const ALL_GOOD: ReadinessFacts = {
   oauthConfigured: true,
+  hostedChannelOwned: true,
   channelAvailable: true,
   channelConnected: true,
   channelNeedsReauth: false,
@@ -498,7 +505,7 @@ test('🚨 the ENCODER caveat is on EVERY branch, green included', () => {
     { ...ALL_GOOD, oauthConfigured: false },
     { ...ALL_GOOD, channelConnected: false },
     { ...ALL_GOOD, cameraCount: 0 },
-    { oauthConfigured: false, channelAvailable: false, channelConnected: false, channelNeedsReauth: true, cameraCount: 0, provisionedCount: 0 },
+    { oauthConfigured: false, hostedChannelOwned: true, channelAvailable: false, channelConnected: false, channelNeedsReauth: true, cameraCount: 0, provisionedCount: 0 },
   ];
   for (const facts of cases) {
     assert.equal(decideBroadcastReadiness(facts).encoderNotice, ENCODER_NOTICE);

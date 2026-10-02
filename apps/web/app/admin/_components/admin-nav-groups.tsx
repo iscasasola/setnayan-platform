@@ -317,7 +317,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // standalone /admin/vendors/[id]/edit + /tokens + /team detail routes
         // (which stay standalone).
         key: 'vendors',
-        label: 'Vendors',
+        label: 'Suppliers',
         href: '/admin/accounts?tab=vendors',
         icon: Briefcase,
         matchPrefix: '/admin/vendors',
@@ -640,7 +640,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // path + the standalone /admin/demo-vendors/inquiries +
         // inquiries/[threadId] flows (which stay standalone).
         key: 'demo-vendors',
-        label: 'Demo vendors',
+        label: 'Demo suppliers',
         href: '/admin/accounts?tab=demo-vendors',
         icon: TestTube,
         matchPrefix: '/admin/demo-vendors',
@@ -959,7 +959,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         // Vendor "recommend to your couples" map — the admin-editable vendor-leaf
         // → recommendable-SKU table + the two-way curation review queue.
         key: 'vendor-recommendations',
-        label: 'Vendor recommendations',
+        label: 'Supplier recommendations',
         href: '/admin/vendor-recommendations',
         icon: Lightbulb,
         matchPrefix: '/admin/vendor-recommendations',

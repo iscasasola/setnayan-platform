@@ -46,7 +46,7 @@ export async function MoodboardLibrarySurface() {
         <PageMasthead title="Moodboard Library" />
         <p className="rounded-lg border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-700">
           The moodboard library couldn&apos;t load right now. We&apos;ve logged the issue —
-          refresh in a moment or check Sentry for the full detail.
+          refresh in a moment.
         </p>
       </div>
     );

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { VendorCardTitle } from './vendor-card-title';
 import Image from 'next/image';
 import { Pencil, Trash2, BadgeCheck, Users } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -265,7 +266,7 @@ export async function VendorsSurface({
   return (
     <div>
       <PageMasthead
-        title="Vendors"
+        title="Suppliers"
       />
 
       <InviteVendorForm />
@@ -280,13 +281,13 @@ export async function VendorsSurface({
         <section className="mb-8 space-y-3">
           <header>
             <h2 className="text-base font-semibold tracking-tight">
-              New vendor requests
+              New supplier requests
               <span className="ml-2 rounded-full bg-warn-100 px-2 py-0.5 text-xs font-medium text-warn-900">
                 {requestRows === null ? 'not measured' : requestRows.length}
               </span>
             </h2>
             <p className="text-sm text-ink/70">
-              Vendors a couple added by hand on their plan — waiting for the vendor to claim the
+              Suppliers a couple added by hand on their plan — waiting for the supplier to claim the
               invite. Reach out to help them onboard.
             </p>
           </header>
@@ -294,16 +295,16 @@ export async function VendorsSurface({
             rows={requestRows}
             readPermitted
             readError={requestError}
-            reads="the new vendor requests"
+            reads="the new supplier requests"
             cap={REQUEST_ROW_LIMIT}
-            label="New vendor requests"
+            label="New supplier requests"
             minWidth="42rem"
             rowKey={(r) => r.invite_id}
             empty={{
               Icon: Users,
-              title: 'No vendor requests waiting',
+              title: 'No supplier requests waiting',
               blurb:
-                'Nothing is pending a vendor claim right now. When a couple adds a supplier by hand on their plan, the invite appears here.',
+                'Nothing is pending a supplier claim right now. When a couple adds a supplier by hand on their plan, the invite appears here.',
               verifiedNote: 'Verified: read permitted · 0 pending requests',
             }}
             columns={[
@@ -361,9 +362,9 @@ export async function VendorsSurface({
         <section className="mb-8 space-y-2">
           <h2 className="text-base font-semibold tracking-tight">Pending claim</h2>
           <p className="rounded-xl border border-dashed border-warn-300/60 bg-warn-50/30 px-4 py-4 text-sm text-ink/70">
-            The staged (unclaimed) vendor profiles could not be read on this load,
+            The staged (unclaimed) supplier profiles could not be read on this load,
             so none are listed. This is <strong>not</strong> a statement that there
-            are none waiting — and each one holds the claim link a vendor needs to
+            are none waiting — and each one holds the claim link a supplier needs to
             take their shop over. Reload; if it repeats, the read is being refused
             rather than returning nothing.
           </p>
@@ -377,8 +378,8 @@ export async function VendorsSurface({
               Pending claim · {unclaimedRows.length}
             </h2>
             <p className="text-xs text-ink/70">
-              You staged these vendor profiles. They&rsquo;re unclaimed until the
-              vendor signs up via their link. You can edit them like a vendor would
+              You staged these supplier profiles. They&rsquo;re unclaimed until the
+              supplier signs up via their link. You can edit them like a supplier would
               and even publish them to the marketplace.
               {unclaimedRows.length >= UNCLAIMED_ROW_LIMIT ? (
                 <>
@@ -412,12 +413,13 @@ export async function VendorsSurface({
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar
                         logoUrl={logoByProfileId.get(v.vendor_profile_id) ?? null}
-                        name={v.business_name || 'Vendor'}
+                        name={v.business_name || 'Supplier'}
                       />
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-ink">
-                          {v.business_name || 'Unnamed'}
-                        </p>
+                        <VendorCardTitle
+                          vendorProfileId={v.vendor_profile_id}
+                          name={v.business_name}
+                        />
                         {v.contact_email ? (
                           <p className="truncate text-[11px] text-ink/55">
                             {v.contact_email}
@@ -468,7 +470,7 @@ export async function VendorsSurface({
                     {v.invite_id ? (
                       <ConfirmForm
                         action={revokeAdminVendorInvite}
-                        message={`Revoke this invite and delete the staged profile for "${v.business_name}"? The vendor can no longer claim via the existing link.`}
+                        message={`Revoke this invite and delete the staged profile for "${v.business_name}"? The supplier can no longer claim via the existing link.`}
                       >
                         <input type="hidden" name="invite_id" value={v.invite_id} />
                         <SubmitButton
@@ -497,7 +499,7 @@ export async function VendorsSurface({
 
       <header className="mb-3">
         <h2 className="text-base font-semibold tracking-tight">
-          Claimed vendors · {vendors === null ? 'not measured' : vendors.length}
+          Claimed suppliers · {vendors === null ? 'not measured' : vendors.length}
         </h2>
         {vendors !== null && vendors.length >= CLAIMED_ROW_LIMIT ? (
           <p className="text-xs text-ink/70">
@@ -543,7 +545,7 @@ export async function VendorsSurface({
           role="alert"
           className="rounded-xl border border-danger-300/60 bg-danger-50/60 px-4 py-4 text-sm text-danger-900"
         >
-          <strong>Couldn&apos;t read the vendor profiles.</strong> Nothing loaded,
+          <strong>Couldn&apos;t read the supplier profiles.</strong> Nothing loaded,
           so this is not a statement that no shop matches — it is a statement that
           we do not know. The failure is logged. Reload; if it repeats, the query
           is being refused rather than returning nothing, and the column, value or
@@ -553,7 +555,7 @@ export async function VendorsSurface({
       <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {vendors.length === 0 ? (
           <li className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/70 sm:col-span-2 lg:col-span-3">
-            No vendor profiles match.
+            No supplier profiles match.
           </li>
         ) : (
           vendors.map((v) => (
@@ -565,12 +567,13 @@ export async function VendorsSurface({
                 <div className="flex min-w-0 items-center gap-3">
                   <Avatar
                     logoUrl={logoByProfileId.get(v.vendor_profile_id) ?? null}
-                    name={v.business_name || 'Vendor'}
+                    name={v.business_name || 'Supplier'}
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-ink">
-                      {v.business_name || 'Unnamed'}
-                    </p>
+                    <VendorCardTitle
+                      vendorProfileId={v.vendor_profile_id}
+                      name={v.business_name}
+                    />
                     {v.business_slug ? (
                       <p className="truncate font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                         /v/{v.business_slug}

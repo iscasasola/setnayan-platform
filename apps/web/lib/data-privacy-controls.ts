@@ -323,17 +323,20 @@ export type PrivacyControlRow = {
  * catalog so a not-yet-seeded control still renders (as inactive). Defensive:
  * a pre-migration DB returns the full catalog, all inactive.
  */
-export async function fetchDataPrivacyControls(
+export async function fetchDataPrivacyControlsMeasured(
   supabase: SupabaseClient,
-): Promise<PrivacyControlRow[]> {
+): Promise<{ ok: boolean; controls: PrivacyControlRow[] }> {
   const byKey = new Map<string, Partial<PrivacyControlRow>>();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('data_privacy_controls')
     .select('control_key,status,approved_by,approved_at,note,review_by,sort_order,updated_at');
+  if (error) {
+    console.error('[supabase-error] lib/data-privacy-controls.ts · from:data_privacy_controls.select (board)', error);
+  }
   for (const r of (data ?? []) as Partial<PrivacyControlRow>[]) {
     if (r.control_key) byKey.set(r.control_key, r);
   }
-  return DATA_PRIVACY_CONTROLS.map((c, i) => {
+  const controls = DATA_PRIVACY_CONTROLS.map((c, i) => {
     const row = byKey.get(c.key);
     return {
       control_key: c.key,
@@ -351,6 +354,17 @@ export async function fetchDataPrivacyControls(
       group: c.group,
     };
   }).sort((a, b) => a.sort_order - b.sort_order);
+  // 🔑 `ok: false` means every status above is the catalog DEFAULT ("Off"), not a
+  // measurement. The board must not draw it as one.
+  return { ok: !error, controls };
+}
+
+/** The controls alone — for callers where the catalog default is safe. The admin
+ *  board uses `fetchDataPrivacyControlsMeasured` and says so when the read fails. */
+export async function fetchDataPrivacyControls(
+  supabase: SupabaseClient,
+): Promise<PrivacyControlRow[]> {
+  return (await fetchDataPrivacyControlsMeasured(supabase)).controls;
 }
 
 /**

@@ -29,6 +29,7 @@ import {
   type EventDatePrecision,
 } from './vendor-availability';
 import { displayServiceLabel, type EventVendorRow, type VendorStatus } from './vendors';
+import { CONFIRMED_VENDOR_STATUSES } from './events';
 
 export type MatrixVendorState = 'open' | 'booked' | 'unknown';
 
@@ -37,6 +38,12 @@ export type MatrixVendor = {
   name: string;
   isTopPick: boolean;
   state: MatrixVendorState;
+  /**
+   * A BOOKED supplier — contracted or past it (`CONFIRMED_VENDOR_STATUSES`, the
+   * set `eventDateRefusal` governs the date by). A considering / shortlisted
+   * pick is not: the couple may still change their mind about it.
+   */
+  confirmed: boolean;
 };
 
 export type MatrixCategory = {
@@ -77,6 +84,8 @@ export type SchedulePick = {
   marketplaceVendorId: string | null;
   /** Lower = more committed / earlier; index 0 within a category = top pick. */
   rank: number;
+  /** Booked (`CONFIRMED_VENDOR_STATUSES`) — a date that clashes with it is not offered. */
+  confirmed: boolean;
 };
 
 /**
@@ -107,6 +116,7 @@ export function schedulePicksFromVendors(
     name: v.vendor_name,
     marketplaceVendorId: v.marketplace_vendor_id,
     rank: (LOCK_RANK[v.status] ?? 2) * 1e13 + new Date(v.created_at).getTime(),
+    confirmed: (CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(v.status),
   }));
 }
 
@@ -145,12 +155,16 @@ function candidateColumns(start: Date, end: Date, exact: boolean): string[] {
   return keys;
 }
 
-export async function buildScheduleMatrix(args: {
-  admin: SupabaseClient;
-  eventDate: string | null;
-  precision: EventDatePrecision | null;
-  picks: SchedulePick[];
-}): Promise<ScheduleMatrix> {
+export async function buildScheduleMatrix(
+  args: {
+    admin: SupabaseClient;
+    eventDate: string | null;
+    precision: EventDatePrecision | null;
+    picks: SchedulePick[];
+  },
+  /** A caller that DECIDES on the answer throws on an unread calendar (`getBatchVendorAvailableDays`). */
+  opts: { failClosed?: boolean } = {},
+): Promise<ScheduleMatrix> {
   const { admin, eventDate, precision, picks } = args;
 
   const marketplacePicks = picks.filter((p) => p.marketplaceVendorId);
@@ -167,7 +181,7 @@ export async function buildScheduleMatrix(args: {
 
   const profileIds = [...new Set(marketplacePicks.map((p) => p.marketplaceVendorId as string))];
   const availByProfile = profileIds.length
-    ? await getBatchVendorAvailableDays(admin, profileIds, window.start, window.end)
+    ? await getBatchVendorAvailableDays(admin, profileIds, window.start, window.end, opts)
     : new Map<string, Set<string>>();
 
   // Group picks by category, top pick (lowest rank) first.
@@ -191,7 +205,7 @@ export async function buildScheduleMatrix(args: {
           const avail = availByProfile.get(p.marketplaceVendorId);
           state = avail ? (avail.has(dateKey) ? 'open' : 'booked') : 'open';
         }
-        return { key: p.key, name: p.name, isTopPick: i === 0, state };
+        return { key: p.key, name: p.name, isTopPick: i === 0, state, confirmed: p.confirmed };
       });
       const covered = vendors.some((v) => v.state === 'open' || v.state === 'unknown');
       const top = vendors[0];

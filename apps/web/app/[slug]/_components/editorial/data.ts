@@ -905,7 +905,10 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
   }
   if (!event) return null;
 
-  const displayName = asString(event.display_name) ?? 'The Wedding';
+  // A nameless event's fallback title names a wedding only for a wedding.
+  const displayName =
+    asString(event.display_name) ??
+    ((asString(event.event_type) ?? 'wedding') === 'wedding' ? 'The Wedding' : 'Our Event');
   const eventDate = asString(event.event_date);
   const eventEndDate = asString(event.event_end_date);
 

@@ -6,6 +6,8 @@ import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { grantFounderSeat, revokeFounderSeat } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../_components/read-failed';
 
 export const metadata = { title: 'Founder seats · Admin' };
 export const dynamic = 'force-dynamic';
@@ -52,10 +54,12 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
   const savedMsg = first(search.saved);
 
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error: seatsError } = await admin
     .from('founder_seats')
     .select('seat_no, user_id, label, granted_at, users ( email )')
     .order('seat_no');
+  if (seatsError) logQueryError('AdminFounderSeatsPage (founder_seats)', seatsError);
+  const seatsUnread = Boolean(seatsError);
   const seats = (data ?? []) as unknown as SeatRow[];
   const bySeat = new Map(seats.map((s) => [s.seat_no, s]));
   const openSeats = FOUNDER_SEAT_CAP - seats.length;
@@ -77,8 +81,8 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
               the audit trail; it simply comps nothing. Listing it here told an
               admin a seat buys something it no longer buys. */}
           Up to {FOUNDER_SEAT_CAP} owner-granted founder accounts. A seat means every
-          in-app feature is already paid for, and vendors see the server-asserted
-          “Setnayan Founder” badge. Vendors are still paid directly, like by any
+          in-app feature is already paid for, and suppliers see the server-asserted
+          “Setnayan Founder” badge. Suppliers are still paid directly, like by any
           client.
         </p>
       </div>
@@ -90,7 +94,7 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
         <h2 className="mb-3 text-sm font-semibold text-ink">
           Grant a seat{' '}
           <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
-            {formatCount(openSeats)} of {formatCount(FOUNDER_SEAT_CAP)} open
+            {seatsUnread ? '—' : formatCount(openSeats)} of {formatCount(FOUNDER_SEAT_CAP)} open
           </span>
         </h2>
         <form action={grantFounderSeat} className="flex flex-wrap items-end gap-3">
@@ -117,8 +121,12 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
         </form>
       </section>
 
+      {seatsUnread ? (
+        <ReadFailed what="the founder seats — every seat would look empty, and that is not known" />
+      ) : null}
+
       <section className="space-y-2">
-        {Array.from({ length: FOUNDER_SEAT_CAP }, (_, i) => i + 1).map((n) => {
+        {seatsUnread ? null : Array.from({ length: FOUNDER_SEAT_CAP }, (_, i) => i + 1).map((n) => {
           const seat = bySeat.get(n);
           return (
             <div

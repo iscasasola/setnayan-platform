@@ -48,8 +48,8 @@
  *
  * ── WHY AN ALLOW-LIST AND NOT A DENY-LIST ───────────────────────────────────
  * `WizardState` (lib/wizard.ts) declares two named fields plus an OPEN index
- * signature (`[key: string]: unknown`), and `markTaskInFlight` /
- * `markTaskComplete` (app/dashboard/[eventId]/wizard-actions.ts) copy ANY
+ * signature (`[key: string]: unknown`), and the wizard task helpers (`markTaskDone` and the
+ * since-removed `markTaskInFlight`; app/dashboard/[eventId]/wizard-actions.ts) copy ANY
  * `meta_*` form field straight into a nested `meta` object. The key set is
  * therefore unbounded and grows every time a card is added. A deny-list would
  * fail OPEN for every key someone adds after it is written — which is exactly
@@ -817,6 +817,16 @@ export const AUTHOR_UUID_NULLS: ReadonlyArray<{
     table: 'event_colour_changes',
     column: 'reverted_by_user_id',
     why: 'Which partner rejected a colour change (MB16). An actor stamp on the same couple-owned row. ⚠ Its CHECK is deliberately ONE-DIRECTIONAL (`reverted_by_user_id IS NULL OR reverted_at IS NOT NULL`) rather than a biconditional, precisely so this null lands: a biconditional would make ON DELETE SET NULL behave as RESTRICT and refuse the account deletion outright. A date with no author is the honest record an erased account leaves.',
+  },
+  {
+    table: 'event_date_change_requests',
+    column: 'asked_by_user_id',
+    why: 'Which partner pressed "Ask them to move or unlock?" (the clashing-date flow, 2026-10-01). The REQUEST belongs to the EVENT and is answered by its booked suppliers: a still-open one is what their Move / Unlock card and the couple\u2019s Home card stand on, so deleting it because one partner left would silently withdraw an ask other people are mid-way through answering. The uuid is a stamp read by no screen and no RLS policy (the gate is current_couple_event_ids()). Nullable with ON DELETE SET NULL from the day it shipped.',
+  },
+  {
+    table: 'event_date_change_answers',
+    column: 'answered_by_user_id',
+    why: 'Which person pressed Move / Unlock (a supplier\u2019s team member) or Drop (a partner) on a date change. An actor stamp on a row that is the BOOKING\u2019s record of what was decided — and an Unlock or Drop may point at an open admin money case (money_flag_id) that is settled from it — so the row stays and the stamp goes. Nullable with ON DELETE SET NULL from the day it shipped.',
   },
   {
     table: 'event_egift_methods',

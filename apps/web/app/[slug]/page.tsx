@@ -72,7 +72,6 @@ import {
   publishSaveTheDate,
 } from '@/lib/launch-save-the-date';
 import { publicTicketUrl } from '@/lib/ticket-url';
-import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { formatEventDate } from '@/lib/events';
 import { getDayOfPhase, type DayOfPhase } from '@/lib/day-of-mode';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -110,6 +109,7 @@ import {
   overlayHubDraftWidgets,
   type HubDraft,
 } from '@/lib/hub-draft';
+import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { HostDraftLook } from './_components/host-draft-look';
 import { resolveHubTheme } from './_lib/hub-look';
 import {
@@ -761,15 +761,15 @@ async function InvitationBody({
   // SCHEDULED launch (owner 2026-06-28): if the couple set a future go-live and
   // that moment has passed, the page reads as 'public' right now — visibility is
   // exact at the scheduled instant. Cron-free (no timer flips the row): we
-  // persist the flip + push Save-the-Date emails AFTER the response, on this
-  // first load past the schedule. Idempotent — once visibility is 'public' the
-  // branch never re-fires, and per-guest guests.std_sent_at guards the emails.
+  // persist the flip AFTER the response, on this first load past the schedule.
+  // Idempotent — once visibility is 'public' the branch never re-fires. No email
+  // goes to guests (owner 2026-09-29 / 2026-10-02): the page and link are the
+  // save-the-date.
   if (isScheduledLaunchDue(event)) {
     after(async () => {
       try {
         const published = await publishSaveTheDate(admin, event.event_id);
         if (published?.slug) revalidatePath(`/${published.slug}`);
-        await fanOutSaveTheDateEmails(event.event_id);
       } catch {
         /* best-effort — the page already renders public this request */
       }
@@ -1364,7 +1364,14 @@ async function InvitationBody({
       already are. If the owner ever wants the entourage held back from the
       open internet on a public event, this is the one line to change.
     */
-    entourage: await loadEntourage(admin, event.event_id),
+    /* 🔤 …in the host's DRAFTED Name style when the couple picked one in the
+       Maker (owner 2026-10-01: nothing takes effect until Apply). `hostDraft` is
+       null for every guest, so a guest always reads the live style. */
+    entourage: await loadEntourage(
+      admin,
+      event.event_id,
+      hostDraft && 'print_details' in hostDraft.events ? nameStyleOfPrintDetails(hostDraft.events.print_details) : undefined,
+    ),
     // Ask-the-band card (SUP-52): only this event's own guest, only live. The
     // check asks the band's own song-desk gate, so it is not run for anybody
     // the card could never render for.
@@ -1659,6 +1666,13 @@ async function InvitationBody({
           ? {
               tone: 'error' as const,
               text: 'Please choose whether you will be there — yes or no. Your reply has not been saved yet.',
+            }
+        : // A yes without the mobile number the couple asks for — nothing saved
+          // (submitRsvp). The sheet reopens on this, where the box is.
+          search.rsvp === 'mobile'
+          ? {
+              tone: 'error' as const,
+              text: 'Please add your mobile number so we can reach you. Your reply has not been saved yet.',
             }
         : // The guest list is final, so the going-or-not answer is frozen. Their
           // DETAILS still saved — say which, or a guest reads a warning and

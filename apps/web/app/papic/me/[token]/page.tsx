@@ -10,6 +10,7 @@ import { groupIntoChapters, type ChapterContext } from '@/lib/papic-chapters';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { GuestStoryMaker } from './_components/guest-story-maker';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
+import { guidedTourView } from '@/app/_components/guided-tour';
 
 // Papic · MY camera (guest personal-QR → Limited roll camera).
 //
@@ -295,7 +296,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
           {backLink}
           {/* First visit only (owner 2026-09-25) — on the two pages where the
               guest's camera is ready; a dead-end page gets no welcome. */}
-          <GuestGuidedTour tourKey="guest_papic_me_v1" />
+          <GuestGuidedTour tourKey="guest_papic_me_v1" tour={guidedTourView('guest_papic_me_v1')} />
         </DoorShell>
       );
     }
@@ -390,7 +391,7 @@ export default async function PapicMyCameraPage({ params }: Props) {
         />
       <PoolDoorway eventId={guest.event_id} token={cleanToken!} />
       {backLink}
-      <GuestGuidedTour tourKey="guest_papic_me_v1" />
+      <GuestGuidedTour tourKey="guest_papic_me_v1" tour={guidedTourView('guest_papic_me_v1')} />
     </DoorShell>
   );
 }

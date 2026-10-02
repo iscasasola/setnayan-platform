@@ -127,7 +127,7 @@ async function executeApproved(
   // vendor target rides in target_id (non-user target, per approve_vendor_
   // partnership precedent), NOT target_user_id.
   if (row.action_type === 'approve_fraud_wipe_ban') {
-    if (!row.target_id) throw new Error('Fraud wipe request has no target vendor');
+    if (!row.target_id) throw new Error('Fraud wipe request has no target supplier');
     if (!row.decided_by) throw new Error('Fraud wipe request has no confirming admin');
     const { executeFraudWipeBan } = await import('@/app/admin/fraud/actions');
     await executeFraudWipeBan(admin, {
@@ -169,7 +169,7 @@ async function executeApproved(
   // computed HERE, at execution, so a comp approved two days later still stacks
   // from the expiry as it is then.
   if (row.action_type === 'approve_comp_grant') {
-    if (!row.target_id) throw new Error('Comp approval has no target vendor');
+    if (!row.target_id) throw new Error('Comp approval has no target supplier');
     if (!row.decided_by) throw new Error('Comp approval has no confirming admin');
     if (!row.initiated_by) throw new Error('Comp approval has no initiating admin');
     const payload = (row.payload ?? {}) as { sku?: string; reason?: string };

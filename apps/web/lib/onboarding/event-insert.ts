@@ -25,7 +25,9 @@ import type { SetupAnswers } from './setup-answers';
  *   · "How do guests get in?" → `rsvp_ask_config`: No → `guestsReply: false`
  *              + who may come in (personal QR = their list; one QR / both =
  *              anyone, through the shipped join link). Yes → nothing: the Guest
- *              list's first visit asks "Who can reply?" (owner answer #6).
+ *              list's first visit asks "Who can reply?" (owner answer #6) —
+ *              except "Guest list + requests", which writes `whoCanRsvp:
+ *              'anyone'` (the same field that dropdown writes).
  *   · everything → `style_preferences.setup`, the record Home's "Set up" line
  *              reads.
  * The photo and the guests are intents (the upload needs the event first; the
@@ -43,7 +45,9 @@ export function setupColumns(a: SetupAnswers): {
           guestsReply: false,
           whoCanRsvp: a.entry === 'personal' ? 'guest_list' : 'anyone',
         })
-      : null;
+      : a.requests
+        ? sanitizeRsvpAskConfig({ whoCanRsvp: 'anyone' })
+        : null;
   return {
     venue_name: a.where === 'place' ? a.whereText.trim() || null : a.where === 'home' ? 'At home' : null,
     invite_theme: a.look,

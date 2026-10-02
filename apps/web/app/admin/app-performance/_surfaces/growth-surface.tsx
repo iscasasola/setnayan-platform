@@ -14,6 +14,7 @@ import {
   type SeriesPoint,
   type BreakdownRow,
 } from '@/lib/admin/growth-stats';
+import { ReadFailed } from '../../_components/read-failed';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
 
@@ -130,7 +131,7 @@ export async function GrowthSurface({ searchParams }: Props) {
           <StatTile label="Account holders" value={nf.format(stats.population.accountHolders)} />
           <StatTile label="Customers" value={nf.format(stats.population.customers)} />
           <StatTile
-            label="Vendors"
+            label="Suppliers"
             value={nf.format(stats.population.vendors)}
             sub={`${nf.format(stats.population.vendorsPublished)} published`}
           />
@@ -174,10 +175,14 @@ export async function GrowthSurface({ searchParams }: Props) {
             stats.breakdowns.sampled ? ' (sampled)' : ''
           }.`}
         />
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <BreakdownCard title="Events by type" rows={stats.breakdowns.eventsByType} />
-          <BreakdownCard title="Events by region" rows={stats.breakdowns.eventsByRegion} />
-        </div>
+        {stats.breakdowns.failed ? (
+          <ReadFailed what="the events-by-type and events-by-region breakdowns" />
+        ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <BreakdownCard title="Events by type" rows={stats.breakdowns.eventsByType} />
+            <BreakdownCard title="Events by region" rows={stats.breakdowns.eventsByRegion} />
+          </div>
+        )}
       </section>
     </div>
   );

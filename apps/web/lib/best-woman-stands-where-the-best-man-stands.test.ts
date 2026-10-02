@@ -118,8 +118,8 @@ test('the emcee script bills her in the best man’s place', () => {
 
 test('on the invitation she pairs across from the maid of honour, in the groom’s column', () => {
   const [honour] = buildEntourage([
-    { guest_id: 'm', pair_with_guest_id: 'w', first_name: 'Mae', last_name: 'A', role: 'maid_of_honor' },
-    { guest_id: 'w', pair_with_guest_id: 'm', first_name: 'Bea', last_name: 'B', role: 'best_woman' },
+    { guest_id: 'm', march: { walk_no: 0 }, first_name: 'Mae', last_name: 'A', role: 'maid_of_honor' },
+    { guest_id: 'w', march: { walk_no: 0 }, first_name: 'Bea', last_name: 'B', role: 'best_woman' },
   ]);
   assert.equal(honour!.key, 'honour');
   assert.equal(honour!.rows[0]![0]?.role, 'maid_of_honor');

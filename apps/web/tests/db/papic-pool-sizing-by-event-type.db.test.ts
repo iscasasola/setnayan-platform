@@ -72,9 +72,12 @@ test('THE MIGRATION APPLIED — the resolver exists and every event type is pric
 });
 
 test('A WEDDING DID NOT MOVE — the acceptance test, in SQL', async () => {
+  // 🔑 2026-10-02: the owner raised the wedding's "at most" to 100,000 (migration
+  // 20271258946423); the global row stays at 30,000. Every OTHER column still
+  // equals it — and `papic-wedding-ceiling.db.test.ts` pins the 100,000 itself.
   const same = await one<boolean>(
-    `SELECT (w.points_per_guest, w.floor_points, w.recommend_floor_points, w.ceiling_points)
-          = (d.points_per_guest, d.floor_points, d.recommend_floor_points, d.ceiling_points)
+    `SELECT (w.points_per_guest, w.floor_points, w.recommend_floor_points)
+          = (d.points_per_guest, d.floor_points, d.recommend_floor_points)
        FROM public.papic_event_pool_config w, public.papic_event_pool_config d
       WHERE w.config_key = 'wedding' AND d.config_key = 'default'`,
   );
@@ -90,7 +93,7 @@ test('A WEDDING DID NOT MOVE — the acceptance test, in SQL', async () => {
     points_per_guest: 150,
     floor_points: 5000,
     recommend_floor_points: 5000,
-    ceiling_points: 30000,
+    ceiling_points: 100000,
     sized_by: 'wedding',
   });
 });
@@ -123,7 +126,9 @@ test('THE CLAMP TRAVELS WITH THE PER-HEAD FIGURE — and the SQL agrees with the
   const noTypeLosesEntitlement = await one<number>(
     `SELECT COUNT(*)::int FROM public.papic_event_pool_config c, public.papic_event_pool_config d
       WHERE d.config_key = 'default' AND c.config_key <> 'default'
-        AND (c.floor_points <> d.floor_points OR c.ceiling_points <> d.ceiling_points)`,
+        AND (c.floor_points <> d.floor_points
+             -- the wedding's ceiling is the owner's own 100,000 (2026-10-02)
+             OR (c.config_key <> 'wedding' AND c.ceiling_points <> d.ceiling_points))`,
   );
   assert.equal(noTypeLosesEntitlement, 0, 'a per-type row changed the entitlement');
 

@@ -18,8 +18,9 @@ import {
 } from '@/lib/vendor-photo-challenge';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 export const metadata = {
-  title: 'Vendor plan · Admin',
+  title: 'Supplier plan · Admin',
   robots: { index: false, follow: false },
 };
 
@@ -105,6 +106,7 @@ export default async function AdminVendorPlanPage({
     .select('is_founder')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  if (founderErr) logQueryError('AdminVendorPlanPage (founding supplier)', founderErr);
   const isFounder =
     (founderRow as { is_founder?: boolean | null } | null)?.is_founder === true;
 
@@ -115,7 +117,7 @@ export default async function AdminVendorPlanPage({
         className="mb-4 inline-flex min-h-[44px] items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to vendors
+        Back to suppliers
       </Link>
 
       {/* 🔑 A RECORD PAGE IS THE ONE PLACE THE HEADING IS NOT A PAGE NAME.
@@ -268,7 +270,7 @@ export default async function AdminVendorPlanPage({
           // from a business that genuinely does not have it, and an admin would
           // grant it a second time on the strength of a wrong answer.
           <p className="text-xs text-warn-700">
-            Couldn&rsquo;t read the founding-supplier setting ({founderErr.message}).
+            Couldn&rsquo;t read the founding-supplier setting.
             Reload before changing it — the buttons are hidden so nothing is set from
             an unknown starting point.
           </p>
@@ -353,7 +355,7 @@ export default async function AdminVendorPlanPage({
 
       {!isClaimed && (
         <div className="rounded-md border border-warn-200 bg-warn-50 px-4 py-3 text-sm text-warn-900">
-          This vendor hasn&rsquo;t claimed yet. A tier set now applies the moment they
+          This supplier hasn&rsquo;t claimed yet. A tier set now applies the moment they
           sign in via their claim link.
         </div>
       )}

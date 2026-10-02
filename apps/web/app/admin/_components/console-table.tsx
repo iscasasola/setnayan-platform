@@ -117,6 +117,7 @@ import type { ReactNode } from 'react';
 
 import { EmptyState } from '@/app/_components/states/empty-state';
 import { ErrorState } from '@/app/_components/states/error-state';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveSurfaceState } from '@/app/_components/states/surface-state';
 
 /**
@@ -211,16 +212,15 @@ export function ConsoleTable<Row>({
 
   if (state === 'error') {
     const subject = reads ?? label.toLowerCase();
+    // 🔑 The refusal's own words go to the log (Vercel + Sentry), never to the
+    // person reading the screen — they name a column or a table.
+    if (readError) logQueryError(`ConsoleTable (${subject})`, readError);
     return (
       <ErrorState
         title={`Couldn't read ${subject}`}
-        broke={
-          readError?.message
-            ? `The read was refused: ${readError.message}`
-            : 'The read did not complete.'
-        }
+        broke="The list didn't load."
         survived={`Nothing loaded, so this is NOT a statement that there are no ${subject} — it is a statement that we do not know.`}
-        todo="Reload. If it repeats, the query is being rejected rather than returning nothing, and the column, value or migration it names is the thing to check."
+        todo="Reload. If it repeats, tell the developers — it's being refused rather than returning nothing."
       />
     );
   }

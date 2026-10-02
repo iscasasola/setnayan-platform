@@ -75,8 +75,12 @@ test('a foreign-vendor ref padded with a BOM is refused by the exact-prefix poli
 
 /* ── 3 · both write gates use the shared normaliser, not the old exact check ─ */
 
+// `app/vendor-dashboard/verify/actions.ts` was the second gate until the old
+// verify page was retired to the papers screen (2026-09-11, #5395) and the file
+// deleted in cleanup slice B (2026-10-02). `shop/inline-docs-actions.ts` is its
+// non-redirecting twin and is now the ONLY vendor-side verification-upload
+// write gate — the guard below still covers it in full.
 const GATES = [
-  path.join(HERE, '..', 'app', 'vendor-dashboard', 'verify', 'actions.ts'),
   path.join(HERE, '..', 'app', 'vendor-dashboard', 'shop', 'inline-docs-actions.ts'),
 ];
 

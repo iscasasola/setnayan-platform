@@ -278,7 +278,7 @@ async function validateCoveredServices(keys: string[]): Promise<string[]> {
     throw new Error(`Bundle catalog lookup failed: ${bundlesRes.error.message}`);
   }
   if (vendorsRes.error) {
-    throw new Error(`Vendor catalog lookup failed: ${vendorsRes.error.message}`);
+    throw new Error(`Supplier catalog lookup failed: ${vendorsRes.error.message}`);
   }
   const found = new Set<string>([
     ...(customersRes.data ?? []).map((r) => r.service_code as string),

@@ -3,7 +3,8 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DeleteSongButton, MergeSongsFields } from './songs-danger-controls';
-import { fetchSongsAdmin } from '@/lib/songs';
+import { fetchSongsAdminMeasured } from '@/lib/songs';
+import { ReadFailed } from '../../_components/read-failed';
 import { mergeSongsAction, deleteSongAction, setSongCuratedAction } from '@/app/admin/songs/actions';
 
 /**
@@ -40,7 +41,7 @@ export async function SongsSurface({
 }) {
   const query = (q ?? '').trim();
   const supabase = await createClient();
-  const songs = await fetchSongsAdmin(supabase, query);
+  const { ok: songsOk, songs } = await fetchSongsAdminMeasured(supabase, query);
 
   return (
     <section className="space-y-6">
@@ -53,8 +54,8 @@ export async function SongsSurface({
       <PageMasthead title="Master song catalogue" />
       <div className="space-y-3">
         <p className="max-w-prose text-sm text-ink/70">
-          The shared song list vendors and couples pick from. Merge near-duplicates
-          (vendor-typed variants like &quot;Perfect&quot; vs &quot;Perfect - Ed Sheeran&quot;) so the
+          The shared song list suppliers and couples pick from. Merge near-duplicates
+          (supplier-typed variants like &quot;Perfect&quot; vs &quot;Perfect - Ed Sheeran&quot;) so the
           compatibility overlap stays clean, and remove junk entries.
         </p>
         {/*
@@ -113,7 +114,11 @@ export async function SongsSurface({
 
       {/* List */}
       <ul className="divide-y divide-ink/5 sn-tile">
-        {songs.length === 0 ? (
+        {!songsOk ? (
+          <li className="px-4 py-6">
+            <ReadFailed what="the song list" />
+          </li>
+        ) : songs.length === 0 ? (
           <li className="px-4 py-6 text-sm text-ink/50">No songs match.</li>
         ) : (
           songs.map((s) => (

@@ -47,7 +47,7 @@ test('on a stage, the one picker says the stage — with the live-today dot', ()
 test('on Details, the one picker says Details, not the stage behind it', () => {
   const m = makerPlacePick({ stage: 'rsvp', liveStage: 'rsvp', openTool: 'details', hasWork: true });
   assert.equal(m.value, 'details');
-  assert.equal(labelOf(m), 'Details');
+  assert.equal(labelOf(m), 'Your info');
   // A page that moved into Details is not a place of its own — the stage shows.
   for (const gone of ['logo', 'hero', 'reveal', 'love-story', 'rsvp-page']) {
     assert.equal(makerPlacePick({ stage: 'event', liveStage: null, openTool: gone, hasWork: true }).value, 'event', gone);
@@ -58,7 +58,7 @@ test('on Details, the one picker says Details, not the stage behind it', () => {
 test('the list is ONE FLAT LIST — the stages (RSVP among them), then Details, nothing else', () => {
   const m = makerPlacePick({ stage: 'save_the_date', liveStage: null, openTool: null, hasWork: true });
   // 🗳 2026-09-30 re-plan: the RSVP stage sits between Save the Date and the Invitation.
-  assert.deepEqual(m.options.map((o) => o.label), [STAGES[0], 'RSVP', ...STAGES.slice(1), 'Details', 'Prints']);
+  assert.deepEqual(m.options.map((o) => o.label), [STAGES[0], 'RSVP', ...STAGES.slice(1), 'Your info', 'Prints']);
   assert.deepEqual(STAGES, ['Save the Date', 'Invitation', 'On the Day', 'Post Event']);
   // No headings: one run, no group name (as PickMenu reads them).
   const runs = pickRuns(m.options.map((o) => ({ key: o.key, group: (o as Record<string, unknown>).group as string | undefined })));

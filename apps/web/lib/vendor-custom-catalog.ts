@@ -94,19 +94,20 @@ export const CUSTOM_UNIT_PRICE_FALLBACK: CustomUnitPrices = Object.freeze({
   pipelineUnlimited: 2500,
 });
 
-function positivePrice(raw: unknown, fallback: number): number {
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
 /**
- * Read the 9 Custom-tier unit prices from the admin-managed catalog. One query
- * for every needed sku_code; any row missing / unreadable falls back to the
- * signed rate-card literal for that axis only. Soft — never throws.
+ * Read the Custom-tier unit prices from the admin-managed catalog, AND say which
+ * axes were NOT read from it. One query for every needed sku_code; any row
+ * missing / inactive / unreadable falls back to the signed rate-card literal for
+ * that axis only. Soft — never throws.
+ *
+ * 🔑 `fallbackAxes` is the honest half. A quote built on a literal is not a
+ * quote built on the live catalogue, and the admin composer says so rather than
+ * presenting a code constant as today's price. Empty = every axis came from the
+ * catalogue.
  */
-export async function fetchCustomUnitPrices(
+export async function fetchCustomUnitPricesMeasured(
   supabase: SupabaseClient,
-): Promise<CustomUnitPrices> {
+): Promise<{ prices: CustomUnitPrices; fallbackAxes: (keyof CustomUnitPrices)[] }> {
   const wanted = Object.values(CUSTOM_SKU_CODES);
   let priceBySku = new Map<string, number>();
   try {
@@ -128,20 +129,33 @@ export async function fetchCustomUnitPrices(
     // fall through to all-fallback
   }
 
-  const read = (sku: string, fallback: number) =>
-    positivePrice(priceBySku.get(sku), fallback);
-
   const c = CUSTOM_SKU_CODES;
   const f = CUSTOM_UNIT_PRICE_FALLBACK;
-  return {
-    base: read(c.base, f.base),
-    branch: read(c.branch, f.branch),
-    reachNationwide: read(c.reachNationwide, f.reachNationwide),
-    seat: read(c.seat, f.seat),
-    slot: read(c.slot, f.slot),
-    domain: read(c.domain, f.domain),
-    pipelineUnlimited: read(c.pipelineUnlimited, f.pipelineUnlimited),
+  const fallbackAxes: (keyof CustomUnitPrices)[] = [];
+  const read = (axis: keyof CustomUnitPrices) => {
+    const raw = priceBySku.get(c[axis as keyof typeof c]);
+    const n = Number(raw);
+    if (Number.isFinite(n) && n > 0) return n;
+    fallbackAxes.push(axis);
+    return f[axis];
   };
+  const prices: CustomUnitPrices = {
+    base: read('base'),
+    branch: read('branch'),
+    reachNationwide: read('reachNationwide'),
+    seat: read('seat'),
+    slot: read('slot'),
+    domain: read('domain'),
+    pipelineUnlimited: read('pipelineUnlimited'),
+  };
+  return { prices, fallbackAxes };
+}
+
+/** The prices alone — what every caller but the admin composer needs. */
+export async function fetchCustomUnitPrices(
+  supabase: SupabaseClient,
+): Promise<CustomUnitPrices> {
+  return (await fetchCustomUnitPricesMeasured(supabase)).prices;
 }
 
 /**

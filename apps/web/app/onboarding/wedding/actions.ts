@@ -27,6 +27,13 @@ import { captureEvent } from '@/lib/analytics';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
 import { hasVerifiedBadge } from '@/lib/verified-badge';
+import { freeDatesByVendor } from '@/lib/onboarding/venue-candidates.server';
+import {
+  ownVenueRows,
+  ownVenuesFromVenues,
+  shortlistFromVenues,
+  type VenueAnswers,
+} from '@/lib/onboarding/venue-picks';
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { defaultInvitedToForRole } from '@/lib/guests';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
@@ -205,6 +212,8 @@ export type OnboardingCommitPayload = {
   kind: 'religious' | 'civil' | 'mixed' | null;
   /** faith picks: [primary] for religious, [primary, secondary] for mixed, [] for civil */
   faith: string[];
+  /** "Not decided yet" — the ceremony is saved but left UNLOCKED (see the insert). */
+  ceremonyUndecided?: boolean;
   region: string | null;
   /** reception-venue anchor coords, derived from the primary location pick (screen 6) → events.venue_latitude/longitude */
   venueLatitude: number | null;
@@ -234,6 +243,13 @@ export type OnboardingCommitPayload = {
    * services list"). Each is a verified marketplace reception → name-exempt.
    */
   shortlist: { vendorId: string; name: string }[];
+  /**
+   * "We already have our venue" (Lane 2): the parish / reception picks. A LISTED pick is
+   * shortlisted as 'considering' (the lock stays a Your Team action); an OWN venue is
+   * written as the couple's own locked supplier. A CLAIM only — re-cleaned here
+   * (`shortlistFromVenues` / `ownVenuesFromVenues`) before any write.
+   */
+  venues?: VenueAnswers;
   /**
    * screen-12 "Add your own vendor" sheet — off-platform vendors the couple typed in
    * (name + contact person + email). Persisted at commit as event_vendors 'considering'
@@ -531,8 +547,10 @@ export async function commitOnboardingWedding(
       ceremony_sub_type: DEFAULT_SUB_TYPE[ceremonyType] ?? null,
       is_mixed_ceremony: isMixed,
       secondary_ceremony_type: secondary,
-      ceremony_type_locked_at: now,
-      ceremony_type_locked_by: user.id,
+      // "Not decided yet" (the approved wedding's kind card) stays UNLOCKED — the
+      // DB's own "host has not picked" state, so the host can still confirm it.
+      ceremony_type_locked_at: payload.ceremonyUndecided === true ? null : now,
+      ceremony_type_locked_by: payload.ceremonyUndecided === true ? null : user.id,
       // -- onboarding-v2 columns (migration 20260719000000) --
       bride_name: brideFullName || null,
       groom_name: groomFullName || null,
@@ -701,14 +719,21 @@ export async function commitOnboardingWedding(
   // (no duplicate reception). Then recompute the reception distance anchor
   // (directive 3 · "reception = ground 0").
   const shortlistSeen = new Set<string>();
-  const shortlistRows = (payload.shortlist ?? [])
+  // The legacy find-vendor picks are reception venues; the approved flow's picks
+  // carry their own category (a parish is `religious_venue`, the plan group's own).
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const venuePicks = shortlistFromVenues(payload.venues ?? { open: false, parish: null, reception: null }).filter((v) => UUID_RE.test(v.vendorId));
+  const shortlistRows = [
+    ...(payload.shortlist ?? []).map((v) => ({ ...v, category: 'venue' as const })),
+    ...venuePicks,
+  ]
     .filter((v) => v && typeof v.vendorId === 'string' && v.vendorId.length > 0)
-    .filter((v) => (shortlistSeen.has(v.vendorId) ? false : (shortlistSeen.add(v.vendorId), true)))
+    .filter((v) => (shortlistSeen.has(`${v.category}:${v.vendorId}`) ? false : (shortlistSeen.add(`${v.category}:${v.vendorId}`), true)))
     .map((v) => ({
       event_id: insertedEvent.event_id,
       marketplace_vendor_id: v.vendorId,
-      category: 'venue' as const,
-      vendor_name: v.name || 'Reception venue',
+      category: v.category,
+      vendor_name: v.name || (v.category === 'venue' ? 'Reception venue' : 'Ceremony venue'),
       status: 'considering' as const,
       source: 'host_manual' as const,
     }));
@@ -728,6 +753,34 @@ export async function commitOnboardingWedding(
       }
     } catch (shortlistErr) {
       console.error('[onboarding] shortlist/anchor seed failed (non-fatal)', shortlistErr);
+    }
+  }
+
+  // The couple's OWN venues ("Add it yourself — name · pin · city"): written as a
+  // manual supplier with NO contact (optional since migration 20271259075750) and
+  // locked at once — the direct lock Your Team gives an off-platform supplier
+  // (`ownVenueRows`, held against the real schema by
+  // tests/db/a-couples-own-venue-is-locked-at-once.db.test.ts). Best-effort, like the
+  // shortlist above: the event and membership are already saved, so a failure here
+  // never rejects the commit — the couple can add the venue from Your Team.
+  const ownVenues = ownVenuesFromVenues(payload.venues ?? { open: false, parish: null, reception: null });
+  for (const venue of ownVenues) {
+    try {
+      const rows = ownVenueRows(venue, { eventId: insertedEvent.event_id, userId: user.id });
+      const { data: mv, error: mvErr } = await admin
+        .from('event_manual_vendors')
+        .insert(rows.manual)
+        .select('manual_vendor_id')
+        .single();
+      if (mvErr || !mv) {
+        console.error('[onboarding] own venue manual supplier failed (non-fatal):', mvErr?.message);
+        continue;
+      }
+      const { error: evErr } = await admin.from('event_vendors').insert(rows.vendor(mv.manual_vendor_id));
+      if (evErr) console.error('[onboarding] own venue lock failed (non-fatal):', evErr.message);
+      else if (venue.role === 'reception') await recomputeReceptionAnchor(admin, insertedEvent.event_id);
+    } catch (ownErr) {
+      console.error('[onboarding] own venue seed failed (non-fatal)', ownErr);
     }
   }
 
@@ -917,6 +970,11 @@ export type OnboardingVenueResult = {
   reviewCount: number | null;
   photoUrl: string | null;
   verified: boolean;
+  /** The supplier's pin (`vendor_profiles.hq_*`), or null when it has none. */
+  lat: number | null;
+  lng: number | null;
+  /** The couple's candidate dates (YYYY-MM-DD) this supplier is NOT marked busy on. */
+  freeDates: string[];
   /** Serviceability ring (owner-locked 2026-06-05). 'native' = serves the
    *  couple's region (rings 1-2 · "Matches your preference"); 'travel' = passes
    *  every OTHER leaf dim but sits outside the region, surfaced behind "Expand
@@ -926,6 +984,14 @@ export type OnboardingVenueResult = {
 };
 
 export async function searchOnboardingReceptionVenues(input: {
+  /**
+   * 'parish' (the CEREMONY venue — the `ceremony_venue` tile's church / chapel /
+   * mosque / temple suppliers) or 'reception' (default, today's search). Same
+   * engine, same filters; only the canonical services differ.
+   */
+  role?: 'parish' | 'reception';
+  /** "Search by name" — the engine's own free-text search (name · city · tagline). */
+  searchQuery?: string;
   kind: 'religious' | 'civil' | 'mixed' | null;
   faith: string[];
   receptionSettings: string[];
@@ -966,12 +1032,19 @@ export async function searchOnboardingReceptionVenues(input: {
   const firstSetting = (input.receptionSettings ?? []).find(
     (k) => Boolean(RECEPTION_PICK_TO_VENUE_SETTING[k]),
   );
-  const venueSetting = firstSetting ? RECEPTION_PICK_TO_VENUE_SETTING[firstSetting]! : null;
-  const venueType = firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
+  const isParish = input.role === 'parish';
+  // A parish has no reception setting / type, and capacity is the reception's rule.
+  const venueSetting = !isParish && firstSetting ? RECEPTION_PICK_TO_VENUE_SETTING[firstSetting]! : null;
+  const venueType = !isParish && firstSetting ? (RECEPTION_TO_VENUE_TYPE[firstSetting] ?? null) : null;
+  const canonicalServices = isParish ? canonicalServicesForTile('ceremony_venue') : ['venue'];
+  const paxScope = isParish ? null : (input.pax ?? null);
 
   const admin = createAdminClient();
   const psgcRegion = onboardingRegionToPsgc(input.region);
   const toResult = (r: WizardVendorRec, tier: 'native' | 'travel'): OnboardingVenueResult => ({
+    lat: r.hq_latitude ?? null,
+    lng: r.hq_longitude ?? null,
+    freeDates: [],
     vendorId: r.vendor_profile_id,
     name: r.business_name,
     city: r.location_city,
@@ -991,16 +1064,17 @@ export async function searchOnboardingReceptionVenues(input: {
     // other leaf dim (capacity / ceremony / venue_type / date) stays a hard
     // filter, so anything returned here can actually host the wedding.
     const nativeRecs = await fetchWizardVendorRecommendations(admin, {
-      canonicalServices: ['venue'],
+      canonicalServices,
       ceremonyType,
       secondaryCeremonyType: secondary,
       venueSetting,
       region: psgcRegion,
       eventType: 'wedding',
-      pax: input.pax ?? null,
+      pax: paxScope,
       venueType,
       availableDateKeys: input.dateCandidates,
-      limit: 8,
+      searchQuery: input.searchQuery,
+      limit: input.role ? 15 : 8,
     });
     const natives = nativeRecs.map((r) => toResult(r, 'native'));
     // Ring 3 — "Farther afield" (owner-locked 2026-06-05: region flips from a hard
@@ -1013,20 +1087,21 @@ export async function searchOnboardingReceptionVenues(input: {
     if (psgcRegion) {
       const nativeIds = new Set(natives.map((n) => n.vendorId));
       const wideRecs = await fetchWizardVendorRecommendations(admin, {
-        canonicalServices: ['venue'],
+        canonicalServices,
         ceremonyType,
         secondaryCeremonyType: secondary,
         venueSetting,
         region: null,
         eventType: 'wedding',
-        pax: input.pax ?? null,
+        pax: paxScope,
         venueType,
         availableDateKeys: input.dateCandidates,
-        limit: 14,
+        searchQuery: input.searchQuery,
+        limit: input.role ? 25 : 14,
       });
       travels = wideRecs
         .filter((r) => !nativeIds.has(r.vendor_profile_id))
-        .slice(0, 6)
+        .slice(0, input.role ? 10 : 6)
         .map((r) => toResult(r, 'travel'));
     }
     // ⚠ RESOLVE THE PHOTO REF BEFORE IT LEAVES THE SERVER.
@@ -1047,6 +1122,13 @@ export async function searchOnboardingReceptionVenues(input: {
     // degrades to null (the picker already renders an initials/placeholder tile),
     // never to a broken image.
     const all = [...natives, ...travels];
+    // WHICH of the couple's dates each one is not marked busy on (the card's ✓ strip).
+    const freeByVendor = await freeDatesByVendor(
+      admin,
+      all.map((v) => v.vendorId),
+      input.dateCandidates ?? [],
+    );
+    for (const v of all) v.freeDates = freeByVendor.get(v.vendorId) ?? [];
     const photoUrls = await Promise.all(
       all.map((v) => displayUrlForStoredAsset(v.photoUrl).catch(() => null)),
     );

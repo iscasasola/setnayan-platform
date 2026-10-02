@@ -28,8 +28,12 @@
  * written is unchanged (the whole group, 0..n-1, both halves of a pair sharing
  * a number). Only the number of times we ask changed.
  *
- * ⛔ TOUCHES NO CHAIR. `entourage_order` is the line in the aisle;
- * `event_seat_assignments` + `seating_priority` are the chair.
+ * ⛔ TOUCHES NO CHAIR. The walk (`march_walks.walk_no`) is the line in the
+ * aisle; `event_seat_assignments` + `seating_priority` are the chair.
+ *
+ * 🚶 THE MARCH IS ITS OWN TABLE (owner 2026-10-01, DECISION_LOG "THE WEDDING
+ * MARCH IS ITS OWN ENTITY"). Every write here goes to `march_walks` through
+ * its SQL functions and touches no guest row.
  */
 
 import { revalidatePath } from 'next/cache';
@@ -84,12 +88,12 @@ export async function readMarchLines(
 }
 
 /**
- * Write a whole group's line order — 0..n-1, both halves of a pair sharing a
- * number — in ONE statement.
+ * Write a whole group's line order in ONE call — each person sent with their
+ * line's index (0..n-1, both people of a walk sharing it).
  *
- * 🔑 BOTH HALVES GET THE SAME NUMBER. That is what makes the column able to
- * order a pair without a schema change; it always could, nothing was ever
- * writing it that way.
+ * `set_entourage_order` turns that into walk numbers: the section's own walks
+ * get their numbers back in the new order (reorder = renumber), a line with no
+ * walk yet gets a fresh one, and no other section's walk moves.
  */
 export async function writeLineOrder(
   supabase: SupabaseServerClient,
@@ -121,20 +125,19 @@ export async function writeLineOrder(
 }
 
 /**
- * Give every line the number it already appears at, when none of them has one.
+ * Give every line a walk at the place it already appears, when any of them has
+ * none (an entourage member added since the march was last arranged).
  *
- * A join or a swap hands a line's number to a person; on a surname-sorted group
- * there is no number yet, and without one the new pair would jump to wherever
- * its new lead's surname sorts — the move would work and the line would still
- * land somewhere nobody dropped it. Pinning writes the order the couple is
- * LOOKING at, so it changes nothing on screen.
+ * A join or a swap moves a person into a WALK; somebody with no walk has none
+ * to offer, and the SQL refuses rather than guess one. Pinning writes the order
+ * the couple is LOOKING at, so it changes nothing on screen.
  */
 export async function pinLineOrder(
   supabase: SupabaseServerClient,
   eventId: string,
   lines: readonly EntourageRow[],
 ): Promise<MarchResult> {
-  const unplaced = lines.some((ln) => ln.every((h) => !h || typeof h.order !== 'number'));
+  const unplaced = lines.some((ln) => ln.every((h) => !h || typeof h.walk !== 'number'));
   if (!unplaced) return { ok: true, written: 0 };
   return writeLineOrder(supabase, eventId, lines);
 }

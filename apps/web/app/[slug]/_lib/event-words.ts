@@ -208,6 +208,19 @@ export function articleFor(noun: string): 'a' | 'an' {
 }
 
 /**
+ * The name an UNTITLED event goes by in a title slot — "The Wedding" for a
+ * wedding (byte-identical to the literal this replaces), "The Birthday" for a
+ * birthday, "The Gathering" for a wake. Never a wedding's word on another type.
+ * Pure so a print route, a script compiler and a test all share one derivation.
+ */
+export function untitledEventName(
+  w: Pick<EventWords, 'eventWord' | 'occasion' | 'solemn'> | null | undefined,
+): string {
+  const noun = (w?.solemn ? w.occasion : w?.eventWord) || 'event';
+  return `The ${noun.charAt(0).toUpperCase()}${noun.slice(1)}`;
+}
+
+/**
  * Pure — derive the words from an already-resolved profile. Exported so tests
  * and any caller that ALREADY holds a profile (several pages resolve one for
  * the surface gate) can avoid a second resolve.

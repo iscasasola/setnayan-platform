@@ -52,6 +52,7 @@ import {
 } from '@/lib/admin/queue-counts';
 import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
+import { LEDGER_REFERENCE_COLUMN } from './ledger-reference-column';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { formatCount } from '@/lib/format-number';
 
@@ -284,21 +285,7 @@ export async function TransactionsLedger() {
               mono: true,
               cell: (r) => manilaDay(r.created_at),
             },
-            {
-              header: 'Reference',
-              mono: true,
-              hideBelow: 'md',
-              // The row opens the payments desk ON this order — where a payment
-              // can be found, approved, or recorded (owner 2026-10-01).
-              cell: (r) => (
-                <Link
-                  href={`/admin/payments?filter=all&q=${encodeURIComponent(r.public_id)}`}
-                  className="text-link hover:underline"
-                >
-                  {r.reference_code}
-                </Link>
-              ),
-            },
+            LEDGER_REFERENCE_COLUMN,
             {
               header: 'Who',
               cell: (r) => (

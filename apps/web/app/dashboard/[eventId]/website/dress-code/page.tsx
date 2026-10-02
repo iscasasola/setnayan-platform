@@ -12,6 +12,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { roleLabel } from '@/lib/entourage';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import type { GuestRole } from '@/lib/guests';
+import { ceremonyMatches } from '@/lib/chinese-wedding';
 
 export const metadata = { title: 'Edit dress code' };
 
@@ -46,7 +47,7 @@ export default async function DressCodeEditorPage({
 
   const { data: event } = await supabase
     .from('events')
-    .select('event_id, display_name, slug, event_type, dress_code_config, ceremony_type')
+    .select('event_id, display_name, slug, event_type, dress_code_config, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
 
@@ -100,7 +101,8 @@ export default async function DressCodeEditorPage({
   // starting point. Non-destructive: it only seeds the form's default values —
   // nothing is written until the host reviews and clicks Save, and they can
   // edit or clear every field first.
-  const showIncPrefill = event.ceremony_type === 'inc' && isConfigEmpty;
+  // Both rite columns: a mixed wedding with an INC side is told to dress modestly too.
+  const showIncPrefill = ceremonyMatches(event, 'inc') && isConfigEmpty;
   const config = showIncPrefill ? INC_DRESS_CODE_SUGGESTION : savedConfig;
   const saved = search.saved === '1';
   const error = search.error;

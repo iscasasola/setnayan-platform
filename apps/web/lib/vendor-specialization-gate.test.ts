@@ -14,6 +14,7 @@ import {
   SPECIALIZATION_MIN_TIER,
   VENDOR_SPECIALIZATIONS,
   resolveVendorSpecializationAccess,
+  specializationFreeWindowActive,
   specializationSetForServices,
   specializationSetsForServices,
   subscriptionClearsSpecializationFloor,
@@ -452,4 +453,114 @@ test('a category with no set unlocks nothing and offers nothing', () => {
   assert.deepEqual(access.unlockedSets, []);
   assert.deepEqual(access.eligibleSets, []);
   assert.equal(access.reason, 'no_specialization_for_category');
+});
+
+// ── THE DAY-OF FREE WINDOW (owner 2026-09-14, prod 2026-12-31) ──────────────
+// The three specializations follow NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL like the
+// other day-of tools: free until that date, then back to the Solo-and-up floor.
+
+const FREE_UNTIL = '2026-12-31T23:59:59+08:00';
+const IN_WINDOW = Date.UTC(2026, 9, 2, 12, 0, 0);
+const AFTER_WINDOW = Date.UTC(2027, 0, 1, 12, 0, 0);
+
+test('INSIDE the free window a FREE vendor holds every specialization their category has', () => {
+  for (const [services, set] of [
+    [['host_mc'], 'stage_script'],
+    [['live_band'], 'song_desk'],
+    [['coordinator'], 'floor_command'],
+  ] as const) {
+    const access = resolveVendorSpecializationAccess({
+      subscription: sub('free'),
+      services,
+      now: IN_WINDOW,
+      freeUntilIso: FREE_UNTIL,
+    });
+    assert.equal(access.unlockedSet, set, `${services[0]} must be free in the window`);
+    assert.deepEqual(access.unlockedSets, [set]);
+    assert.equal(access.reason, 'unlocked');
+  }
+});
+
+test('inside the window even a vendor with NO subscription row is unlocked', () => {
+  const access = resolveVendorSpecializationAccess({
+    subscription: null,
+    services: ['host_mc'],
+    now: IN_WINDOW,
+    freeUntilIso: FREE_UNTIL,
+  });
+  assert.equal(access.unlockedSet, 'stage_script');
+});
+
+test('AFTER the window the paywall is back — a free vendor is locked again', () => {
+  const access = resolveVendorSpecializationAccess({
+    subscription: sub('free'),
+    services: ['host_mc'],
+    now: AFTER_WINDOW,
+    freeUntilIso: FREE_UNTIL,
+  });
+  assert.equal(access.unlockedSet, null);
+  assert.deepEqual(access.unlockedSets, []);
+  assert.equal(access.reason, 'below_tier_floor');
+});
+
+test('the window is inclusive of the last instant, like the day-of console', () => {
+  assert.equal(
+    specializationFreeWindowActive(FREE_UNTIL, Date.parse(FREE_UNTIL)),
+    true,
+  );
+  assert.equal(
+    specializationFreeWindowActive(FREE_UNTIL, Date.parse(FREE_UNTIL) + 1),
+    false,
+  );
+});
+
+test('an UNSET date is NO window here (the paywall stays) — unlike the console', () => {
+  assert.equal(specializationFreeWindowActive(null, IN_WINDOW), false);
+  const access = resolveVendorSpecializationAccess({
+    subscription: sub('free'),
+    services: ['host_mc'],
+    now: IN_WINDOW,
+    freeUntilIso: null,
+  });
+  assert.equal(access.unlockedSet, null);
+});
+
+test('the window never opens a category that has no set', () => {
+  const access = resolveVendorSpecializationAccess({
+    subscription: sub('free'),
+    services: ['stylist_decorator'],
+    now: IN_WINDOW,
+    freeUntilIso: FREE_UNTIL,
+  });
+  assert.equal(access.reason, 'no_specialization_for_category');
+  assert.deepEqual(access.unlockedSets, []);
+});
+
+test('with no override the gate reads the ONE configured date (NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL)', () => {
+  const prev = process.env.NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL;
+  try {
+    process.env.NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL = FREE_UNTIL;
+    const open = resolveVendorSpecializationAccess({
+      subscription: sub('free'),
+      services: ['host_mc'],
+      now: IN_WINDOW,
+    });
+    assert.equal(open.unlockedSet, 'stage_script');
+    const closed = resolveVendorSpecializationAccess({
+      subscription: sub('free'),
+      services: ['host_mc'],
+      now: AFTER_WINDOW,
+    });
+    assert.equal(closed.unlockedSet, null);
+    delete process.env.NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL;
+    const unset = resolveVendorSpecializationAccess({
+      subscription: sub('free'),
+      services: ['host_mc'],
+      now: IN_WINDOW,
+    });
+    assert.equal(unset.unlockedSet, null);
+  } finally {
+    if (prev === undefined) delete process.env.NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL;
+    else process.env.NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL = prev;
+  }
 });

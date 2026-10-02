@@ -80,7 +80,7 @@ export function DeepSearchChat({
       <p className="text-[11px] leading-snug text-ink/50">
         <b>Verification prompt</b> → paste into a web-browsing AI chat, then paste
         its reply back here to save a dossier. <b>Study prompt</b> → a fit brief +
-        interview questions for the team to read before meeting the vendor. Both
+        interview questions for the team to read before meeting the supplier. Both
         free — no API key, no cost.
       </p>
 

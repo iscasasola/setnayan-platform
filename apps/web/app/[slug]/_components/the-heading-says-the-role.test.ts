@@ -30,6 +30,14 @@ import { printedEntourageLines } from '@/lib/print-layout';
 (globalThis as unknown as { React: unknown }).React = React;
 
 let n = 0;
+/* 🚶 Owner 2026-10-01: who walks with whom is a `march_walks` row — `pair` names
+   the walk-mate; both get one walk number. */
+const WALKS = new Map<string, number>();
+const walkOf = (a: string, b: string): number => {
+  const key = [a, b].sort().join('+');
+  if (!WALKS.has(key)) WALKS.set(key, WALKS.size);
+  return WALKS.get(key)!;
+};
 function p(
   role: string,
   first: string,
@@ -41,7 +49,7 @@ function p(
   n += 1;
   return {
     guest_id: id ?? `g${n}`,
-    pair_with_guest_id: pair ?? null,
+    march: id && pair ? { walk_no: walkOf(id, pair) } : null,
     display_name: null,
     name_prefix: null,
     first_name: first,
@@ -50,7 +58,6 @@ function p(
     name_suffix: null,
     role,
     extra_roles: null,
-    entourage_order: null,
     ...more,
   } as EntourageGuestRow;
 }
@@ -61,8 +68,8 @@ const ROWS: EntourageGuestRow[] = [
   p('maid_of_honor', 'Mia', 'Uy'),
   p('matron_of_honor', 'Tess', 'Ong'),
   p('best_man', 'Ben', 'Sy'),
-  // A COUPLE (ticked "They're a couple" in the march) with a shared surname →
-  // the surname said once, titles kept. (Owner 2026-09-30: only a real couple.)
+  // A COUPLE (a mutual partner link) with a shared surname → still both full
+  // names in the march (owner 2026-10-01: "A WALK AND A COUPLE ARE INDEPENDENT").
   p('principal_sponsor_ninong', 'Ricardo', 'Villahermosa', 'n1', 'a1', { name_prefix: 'Hon.', couple_with_guest_id: 'a1' }),
   p('principal_sponsor_ninang', 'Jessica', 'Villahermosa', 'a1', 'n1', { name_prefix: 'Mrs.', couple_with_guest_id: 'n1' }),
   // Different surnames, data-paired → both full names.
@@ -71,11 +78,11 @@ const ROWS: EntourageGuestRow[] = [
   // Same surname but NOT paired in the data → two lines, never guessed into a pair.
   p('principal_sponsor_ninong', 'Jose', 'Abad'),
   p('principal_sponsor_ninang', 'Teresita', 'Abad'),
-  // A suffix cannot be compressed honestly → both full names, even for a couple.
+  // A couple with a suffix → both full names, like every walk.
   p('principal_sponsor_ninong', 'Mario', 'Lopez', 'n3', 'a3', { name_suffix: 'Jr.', couple_with_guest_id: 'a3' }),
   p('principal_sponsor_ninang', 'Nora', 'Lopez', 'a3', 'n3', { couple_with_guest_id: 'n3' }),
   p('principal_sponsor', 'Legacy', 'Sponsor'),
-  // Bea is Paolo's +1 → a couple without a tick.
+  // Bea is Paolo's +1 → a couple, and still both full names in the march.
   p('candle_sponsor', 'Paolo', 'Cruz', 'c1', 'c2'),
   p('candle_sponsor', 'Bea', 'Cruz', 'c2', 'c1', { plus_one_of_guest_id: 'c1' }),
   // Same surname, walking together, NOT a couple → both full names.
@@ -136,10 +143,10 @@ function items(html: string): string[] {
   return [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => visible(m[1]!).trim());
 }
 
-test('option 1 — a DATA-paired Ninong & Ninang share ONE line: surname once only for a COUPLE whose surnames match exactly', async () => {
+test('option 1 — a walking Ninong & Ninang share ONE line: both full names, couple or not (owner 2026-10-01)', async () => {
   const lines = items(section(await render(), 'Principal Sponsors'));
-  // A couple with a shared surname → "Hon. Ricardo & Mrs. Jessica Villahermosa", titles as entered.
-  assert.ok(lines.includes('Hon. Ricardo & Mrs. Jessica Villahermosa'), lines.join(' | '));
+  // A couple with a shared surname → both full names, titles as entered — the march never shortens.
+  assert.ok(lines.includes('Hon. Ricardo Villahermosa & Mrs. Jessica Villahermosa'), lines.join(' | '));
   // Different surnames → both full names joined by " & ".
   assert.ok(lines.includes('Dr. Eduardo Bautista & Carmen Reyes'), lines.join(' | '));
   // A suffix is never compressed away.
@@ -154,9 +161,13 @@ test('option 1 — a DATA-paired Ninong & Ninang share ONE line: surname once on
 test('option 1 keeps the couple’s march order — a hand-placed pair leads', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { EntourageSection } = await import('./entourage-section');
-  const placed = ROWS.map((r) =>
-    r.guest_id === 'n3' || r.guest_id === 'a3' ? { ...r, entourage_order: 1 } : r,
-  );
+  // n3 + a3's walk goes to the front; every other walk moves behind it.
+  const front = ROWS.find((r) => r.guest_id === 'n3')!.march as { walk_no: number };
+  const placed = ROWS.map((r) => {
+    const m = r.march as { walk_no: number } | null | undefined;
+    if (!m) return r;
+    return { ...r, march: { walk_no: m.walk_no === front.walk_no ? -1 : m.walk_no } };
+  });
   const html = renderToStaticMarkup(React.createElement(EntourageSection as never, { groups: buildEntourage(placed) }));
   assert.equal(items(section(html, 'Principal Sponsors'))[0], 'Mario Lopez Jr. & Nora Lopez');
 });
@@ -200,7 +211,7 @@ test('Secondary Sponsors, stacked by default: one sub-heading per role, the pair
     assert.equal(seen.split(` ${role} `).length - 1, 1, `"${role}" is said exactly once`);
   }
   // Each pair is one <li>, both names in it.
-  assert.match(s, /<li[^>]*>(Paolo &amp; Bea Cruz|Bea &amp; Paolo Cruz)<\/li>/);
+  assert.match(s, /<li[^>]*>(Paolo Cruz &amp; Bea Cruz|Bea Cruz &amp; Paolo Cruz)<\/li>/);
   // Walking together is not being a couple: both full names.
   assert.match(s, /<li[^>]*>(Miguel Reyes &amp; Anna Reyes|Anna Reyes &amp; Miguel Reyes)<\/li>/);
   // Order: the sub-heading, then its names.
@@ -212,7 +223,7 @@ test('Secondary Sponsors, inline (A): "Role: names" on one line', async () => {
   const s = section(await render('inline'), 'Secondary Sponsors');
   assert.match(s, /data-role-layout="inline"/);
   const seen = visible(s);
-  assert.match(seen, /Candle: (Paolo & Bea Cruz|Bea & Paolo Cruz)/);
+  assert.match(seen, /Candle: (Paolo Cruz & Bea Cruz|Bea Cruz & Paolo Cruz)/);
   assert.match(seen, /Veil: (Miguel Reyes & Anna Reyes|Anna Reyes & Miguel Reyes)/);
   assert.match(seen, /Cord: Luis Santos/);
   assert.doesNotMatch(seen, /Sponsor\b(?!s)/);
@@ -245,7 +256,7 @@ test('option 1 on the printed card: a data pair is ONE centred line, in the page
   assert.deepEqual(pairs, onPage);
   assert.deepEqual([...pairs].sort(), [
     'Dr. Eduardo Bautista & Carmen Reyes',
-    'Hon. Ricardo & Mrs. Jessica Villahermosa',
+    'Hon. Ricardo Villahermosa & Mrs. Jessica Villahermosa',
     'Mario Lopez Jr. & Nora Lopez',
   ]);
   // Unpaired sponsors print alone — nobody merged by surname.

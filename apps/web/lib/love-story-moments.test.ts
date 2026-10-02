@@ -134,6 +134,7 @@ test('📖 moments self-sort into chapters around the two anchors', () => {
     [
       ['before', ['kid']],
       ['met', ['met']],
+      ['together', []],
       ['falling', ['trip']],
       ['yes', ['yes']],
       ['toward', ['fitting']],
@@ -141,6 +142,23 @@ test('📖 moments self-sort into chapters around the two anchors', () => {
   );
   // Without anchors everything is Falling — "2021 · Sagada" with just a year slots in.
   assert.equal(chapterOf(m('sagada', 2021), [m('sagada', 2021)]), 'falling');
+});
+
+test('💞 "When did you become together?" is its own chapter, between How we met and Falling (owner 2026-10-01)', () => {
+  const list = [
+    m('met', 2019, { anchor: 'met' }),
+    m('together', 2020, { anchor: 'together' }),
+    m('yes', 2025, { anchor: 'yes' }),
+    m('trip', 2021),
+  ];
+  assert.equal(chapterOf(list[1]!, list), 'together');
+  assert.deepEqual(
+    groupByChapter(list).map((g) => g.chapter),
+    ['before', 'met', 'together', 'falling', 'yes', 'toward'],
+  );
+  // The stored anchor survives the reader (the one action re-reads every moment).
+  assert.equal(readMoment({ id: 'm-1', line: 'The ferry from Coron', anchor: 'together', canvas: {} })?.anchor, 'together');
+  assert.equal(readMoment({ id: 'm-2', line: 'x', anchor: 'nope', canvas: {} })?.anchor, undefined);
 });
 
 test('🎬 the guest plan: N scenes for N visible moments, hidden ones skipped, story order', () => {

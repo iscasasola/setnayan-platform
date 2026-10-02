@@ -16,13 +16,16 @@
  * (wedding gold · birthday coral · casual teal · a wake grey, no gold).
  */
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
+  applyGuestsIn,
   defaultLookId,
+  guestsInOf,
   moreRows,
   setupQuickAnswers,
+  type GuestsIn,
   type SetupAnswers,
   type SetupCardId,
   type SetupView,
@@ -34,6 +37,87 @@ const SKIN_ACCENT: Record<SetupView['skin'], string> = {
   casual: '#2a7f7a',
   quiet: '#6b6b6b',
 };
+
+
+/**
+ * The frame every setup card shares — "n of N", the title with its ⓘ, the one
+ * line, the answer, the quick answers, one small "You can change this anytime".
+ * Exported so the wedding's own cards (`wedding-cards.tsx`) wear the SAME frame
+ * as the engine's: one look, never a second card component.
+ */
+export function SetupFrame({
+  skin,
+  n,
+  total,
+  title,
+  line,
+  info,
+  quick = [],
+  onQuick,
+  footer = 'You can change this anytime',
+  dataCard,
+  children,
+}: {
+  skin: SetupView['skin'];
+  n: number;
+  total: number;
+  title: string;
+  line: string;
+  info: string;
+  quick?: readonly string[];
+  onQuick?: (label: string) => void;
+  footer?: string;
+  dataCard: string;
+  children: ReactNode;
+}) {
+  const [infoOpen, setInfoOpen] = useState(false);
+  return (
+    <div data-setup-card={dataCard} data-skin={skin}>
+      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
+        {formatCount(n)} of {formatCount(total)}
+      </p>
+      <div className="mt-2 flex items-start gap-2">
+        <h1
+          className={`text-[28px] font-medium leading-[1.12] text-ink sm:text-4xl ${
+            skin === 'wedding' ? 'font-serif italic' : skin === 'quiet' ? 'font-serif font-light' : 'font-sans'
+          }`}
+        >
+          {title}
+        </h1>
+        <button
+          type="button"
+          aria-expanded={infoOpen}
+          aria-label="More about this"
+          onClick={() => setInfoOpen((v) => !v)}
+          className="mt-1 inline-flex !min-h-0 h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink/20 text-xs text-ink/55"
+        >
+          i
+        </button>
+      </div>
+      <p className="mt-2 text-ink/60">{line}</p>
+      {infoOpen ? <p className="mt-2 text-sm text-ink/50">{info}</p> : null}
+
+      <div className="mt-6">{children}</div>
+
+      {quick.length > 0 ? (
+        <div className="mt-5 flex flex-wrap gap-2">
+          {quick.map((q) => (
+            <button
+              key={q}
+              type="button"
+              onClick={() => onQuick?.(q)}
+              className="rounded-full border border-ink/15 bg-paper px-4 py-2 text-sm text-ink/70"
+            >
+              {q}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      <p className="mt-6 text-xs text-ink/40">{footer}</p>
+    </div>
+  );
+}
 
 type Props = {
   card: SetupCardId;
@@ -48,7 +132,6 @@ type Props = {
 };
 
 export function SetupCard({ card, view, answers, onChange, onNext, n, total }: Props) {
-  const [infoOpen, setInfoOpen] = useState(false);
   const accent = SKIN_ACCENT[view.skin];
   const copy = cardCopy(card, view);
   const quick = setupQuickAnswers(card, view.solemn);
@@ -63,38 +146,24 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
     if (card === 'setup_where') onChange(label === 'At home' ? { where: 'home', whereText: '' } : { where: 'undecided', whereText: '' });
     if (card === 'setup_photo') onChange({ photo: 'theme' });
     if (card === 'setup_look') onChange({ look: answers.look || defaultLookId(view) });
-    if (card === 'setup_entry') onChange({ reply: view.replyDefault, entry: 'one_qr' });
+    if (card === 'setup_entry') onChange({ reply: view.replyDefault, entry: 'one_qr', requests: false });
     if (card === 'setup_guests') onChange({ guests: 'later' });
     onNext();
   }
 
   return (
-    <div data-setup-card={card} data-skin={view.skin}>
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/45">
-        {formatCount(n)} of {formatCount(total)}
-      </p>
-      <div className="mt-2 flex items-start gap-2">
-        <h1
-          className={`text-[28px] font-medium leading-[1.12] text-ink sm:text-4xl ${
-            view.skin === 'wedding' ? 'font-serif italic' : view.skin === 'quiet' ? 'font-serif font-light' : 'font-sans'
-          }`}
-        >
-          {copy.title}
-        </h1>
-        <button
-          type="button"
-          aria-expanded={infoOpen}
-          aria-label="More about this"
-          onClick={() => setInfoOpen((v) => !v)}
-          className="mt-1 inline-flex !min-h-0 h-7 w-7 shrink-0 items-center justify-center rounded-full border border-ink/20 text-xs text-ink/55"
-        >
-          i
-        </button>
-      </div>
-      <p className="mt-2 text-ink/60">{copy.line}</p>
-      {infoOpen ? <p className="mt-2 text-sm text-ink/50">{copy.info}</p> : null}
-
-      <div className="mt-6">
+    <SetupFrame
+      dataCard={card}
+      skin={view.skin}
+      n={n}
+      total={total}
+      title={copy.title}
+      line={copy.line}
+      info={copy.info}
+      quick={quick}
+      onQuick={answerQuick}
+      footer={card === 'setup_entry' ? 'You can change this anytime, from the Guest list' : card === 'setup_more' ? 'You can change any of these anytime' : 'You can change this anytime'}
+    >
         {card === 'setup_where' ? (
           <input
             value={answers.where === 'place' ? answers.whereText : ''}
@@ -121,7 +190,11 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
             <PickMenu
               label="Pick a look"
               value={answers.look}
-              options={view.looks.map((l) => ({ key: l.id, label: l.pro ? `${l.name} ◆` : l.name }))}
+              options={view.looks.map((l) => ({
+                key: l.id,
+                label: l.pro ? `${l.name} ◆` : l.name,
+                ...(view.skin === 'wedding' ? { group: l.pro ? 'Event Hub Pro ◆' : 'Free' } : {}),
+              }))}
               onPick={(key) => onChange({ look: key })}
               dataAttr="data-setup-look"
             />
@@ -131,7 +204,30 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
           </>
         ) : null}
 
-        {card === 'setup_entry' ? (
+        {card === 'setup_entry' && view.skin === 'wedding' ? (
+          <>
+            <PickMenu
+              label="Guests"
+              value={guestsInOf(answers)}
+              options={[
+                { key: 'list', label: 'Guest list', hint: 'Only people you list — each gets an invitation, RSVP and QR ticket' },
+                { key: 'requests', label: 'Guest list + requests', hint: 'Your list, and anyone with the link can ask — you say yes or no' },
+                { key: 'open', label: 'Open event', hint: 'Anyone with your event’s one QR — no list, no RSVP' },
+              ]}
+              onPick={(key) => onChange(applyGuestsIn(key as GuestsIn))}
+              dataAttr="data-setup-guests-in"
+            />
+            <p className="mt-3 text-xs text-ink/50">
+              {guestsInOf(answers) === 'open'
+                ? 'Open event skips replies and names — only a rough count is asked next.'
+                : guestsInOf(answers) === 'requests'
+                  ? 'Your list first; anyone who asks waits for your yes.'
+                  : 'Guest list is the usual for a wedding, so it’s already picked. You’ll add names after this.'}
+            </p>
+          </>
+        ) : null}
+
+        {card === 'setup_entry' && view.skin !== 'wedding' ? (
           <>
             <p className="text-sm font-medium text-ink/70">Will guests reply?</p>
             <div className="mt-2 flex flex-col gap-2 sm:flex-row">
@@ -210,25 +306,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
             })}
           </div>
         ) : null}
-      </div>
-
-      <div className="mt-5 flex flex-wrap gap-2">
-        {quick.map((q) => (
-          <button
-            key={q}
-            type="button"
-            onClick={() => answerQuick(q)}
-            className="rounded-full border border-ink/15 bg-paper px-4 py-2 text-sm text-ink/70"
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-
-      <p className="mt-6 text-xs text-ink/40">
-        {card === 'setup_entry' ? 'You can change this anytime, from the Guest list' : card === 'setup_more' ? 'You can change any of these anytime' : 'You can change this anytime'}
-      </p>
-    </div>
+    </SetupFrame>
   );
 }
 

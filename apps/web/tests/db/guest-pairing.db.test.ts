@@ -1,7 +1,9 @@
 /**
- * Pairing is MUTUAL and EXCLUSIVE, and neither half of that is expressible as a
- * row constraint — so it is maintained by `pair_guests` / `unpair_guest`, and
- * the only honest way to know they hold is to exercise them against real SQL.
+ * `guests.pair_with_guest_id` — RETIRED for the Wedding March on 2026-10-01
+ * (DECISION_LOG "THE WEDDING MARCH IS ITS OWN ENTITY"; the march is
+ * `march_walks` now, tested in march-is-its-own-table.db.test.ts). The column
+ * and its row constraints stay until it is dropped, so they are still held
+ * here; the functions that wrote it are gone and that is held here too.
  *
  * Every test below is a way a pair can go wrong that nothing else would catch:
  * a half-formed pair, a partner stolen by a third guest, an unpair that clears
@@ -53,50 +55,23 @@ async function partnerOf(id: string): Promise<string | null> {
   return r.rows[0]?.pair_with_guest_id ?? null;
 }
 
-test('pair_guests writes BOTH halves', async () => {
-  const { eventId, ids } = await seed(2, 'a');
-  await db.query('select public.pair_guests($1, $2, $3)', [eventId, ids[0], ids[1]]);
-  assert.equal(await partnerOf(ids[0] as string), ids[1]);
-  assert.equal(await partnerOf(ids[1] as string), ids[0]);
-});
-
-test('unpair_guest clears BOTH halves, not just the row asked about', async () => {
-  // The obvious bug: clear the row you were looking at, leave the partner
-  // pointing back, and the list shows a pair that no longer exists.
-  const { eventId, ids } = await seed(2, 'b');
-  await db.query('select public.pair_guests($1, $2, $3)', [eventId, ids[0], ids[1]]);
-  await db.query('select public.unpair_guest($1, $2)', [eventId, ids[0]]);
-  assert.equal(await partnerOf(ids[0] as string), null);
-  assert.equal(await partnerOf(ids[1] as string), null, 'the partner was left dangling');
-});
-
-test('re-pairing moves BOTH old partners out, leaving no dangling half', async () => {
-  const { eventId, ids } = await seed(4, 'c');
-  const [a, b, c, d] = ids as [string, string, string, string];
-  await db.query('select public.pair_guests($1, $2, $3)', [eventId, a, b]);
-  await db.query('select public.pair_guests($1, $2, $3)', [eventId, c, d]);
-  // Now pair a↔c. b and d must BOTH be released.
-  await db.query('select public.pair_guests($1, $2, $3)', [eventId, a, c]);
-  assert.equal(await partnerOf(a), c);
-  assert.equal(await partnerOf(c), a);
-  assert.equal(await partnerOf(b), null, 'b still points at its old partner');
-  assert.equal(await partnerOf(d), null, 'd still points at its old partner');
-});
-
-test('pairing the same two again is idempotent, not a unique violation', async () => {
-  const { eventId, ids } = await seed(2, 'd');
-  await db.query('select public.pair_guests($1, $2, $3)', [eventId, ids[0], ids[1]]);
-  await db.query('select public.pair_guests($1, $2, $3)', [eventId, ids[0], ids[1]]);
-  assert.equal(await partnerOf(ids[0] as string), ids[1]);
-  assert.equal(await partnerOf(ids[1] as string), ids[0]);
-});
-
-test('a guest cannot be paired with themselves', async () => {
-  const { eventId, ids } = await seed(1, 'e');
-  await assert.rejects(
-    () => db.query('select public.pair_guests($1, $2, $3)', [eventId, ids[0], ids[0]]),
-    /themselves/i,
+test('⚖ 2026-10-01 · nothing writes pairs on the guest row any more — pair_guests is gone', async () => {
+  // DECISION_LOG "THE WEDDING MARCH IS ITS OWN ENTITY": who walks with whom
+  // lives in march_walks (tests/db/march-is-its-own-table.db.test.ts). The
+  // column and its constraints stay (below) until it is dropped.
+  const r = await db.query<{ n: number }>(
+    `select count(*)::int as n from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+      where n.nspname = 'public' and p.proname = 'pair_guests'`,
   );
+  assert.equal(r.rows[0]!.n, 0, 'pair_guests still exists — a second writer of the march');
+});
+
+test('unpair_guest no longer touches the guest row', async () => {
+  const { eventId, ids } = await seed(2, 'b');
+  await db.query('update public.guests set pair_with_guest_id = $1 where guest_id = $2', [ids[1], ids[0]]);
+  await db.query('update public.guests set pair_with_guest_id = $1 where guest_id = $2', [ids[0], ids[1]]);
+  await db.query('select public.unpair_guest($1, $2)', [eventId, ids[0]]);
+  assert.equal(await partnerOf(ids[0] as string), ids[1], 'a march edit wrote guests.pair_with_guest_id');
 });
 
 test('the CHECK refuses a self-pair written directly', async () => {
@@ -125,27 +100,14 @@ test('two guests cannot both claim the same partner', async () => {
   );
 });
 
-test('guests from two different events cannot be paired', async () => {
-  const one = await seed(1, 'h');
-  const two = await seed(1, 'i');
-  await assert.rejects(
-    () =>
-      db.query('select public.pair_guests($1, $2, $3)', [
-        one.eventId,
-        one.ids[0],
-        two.ids[0],
-      ]),
-    /belong to this event/i,
-  );
-});
-
 test('deleting a paired guest UNPAIRS their partner rather than being refused', async () => {
   // The FK is ON DELETE SET NULL on a single column deliberately: a composite
   // (event_id, pair_with_guest_id) FK would try to null the NOT NULL event_id
   // and the delete would be REFUSED instead — a SET NULL behaving like
   // RESTRICT. This asserts the delete really does go through.
-  const { eventId, ids } = await seed(2, 'j');
-  await db.query('select public.pair_guests($1, $2, $3)', [eventId, ids[0], ids[1]]);
+  const { ids } = await seed(2, 'j');
+  await db.query('update public.guests set pair_with_guest_id = $1 where guest_id = $2', [ids[1], ids[0]]);
+  await db.query('update public.guests set pair_with_guest_id = $1 where guest_id = $2', [ids[0], ids[1]]);
   await db.query('delete from public.guests where guest_id = $1', [ids[0]]);
   assert.equal(await partnerOf(ids[1] as string), null);
 });

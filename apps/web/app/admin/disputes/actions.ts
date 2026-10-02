@@ -35,7 +35,7 @@ const RESOLUTIONS = [
 type Resolution = (typeof RESOLUTIONS)[number];
 
 const RESOLUTION_LABEL: Record<Resolution, string> = {
-  resolved_for_vendor: 'Resolved in the vendor’s favor',
+  resolved_for_vendor: 'Resolved in the supplier’s favor',
   resolved_for_couple: 'Resolved in the couple’s favor',
   withdrawn: 'Withdrawn',
 };
@@ -351,7 +351,7 @@ export async function settleDepositDispute(formData: FormData) {
         title,
         body:
           outcome === 'not_received'
-            ? `${body} Your receipt is still on file — send it to ${supplierName} again from the vendor workspace.`
+            ? `${body} Your receipt is still on file — send it to ${supplierName} again from the supplier workspace.`
             : body,
         relatedUrl: eventId ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace` : null,
       });

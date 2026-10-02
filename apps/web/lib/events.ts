@@ -586,11 +586,24 @@ export function eventDateRefusal(
   next: { date: string | null; precision: EventDatePrecision },
   confirmedVendorCount: number,
   now: Date = new Date(),
+  /**
+   * 🗓 THE BOOKED SUPPLIERS HAVE CLEARED THIS DATE (owner 2026-10-02, Q8; and
+   * the clashing-date flow 2026-10-01): every booked supplier can do the new
+   * day — or every one whose calendar clashes answered Move. Only then does a
+   * date with booked suppliers move (`dateMoveClearance`, lib/date-change.ts,
+   * asked by the Maker's Apply). The blanket "a booked supplier's date can't
+   * move" is relaxed for THAT case only: a wider precision (`widens`) and a day
+   * gone by (`in_past`) are refused whatever the suppliers said, and a caller
+   * that does not ask (Event Details' `updateEventDate`) keeps the lock.
+   */
+  cleared = false,
 ): EventDateRefusal | null {
   if (next.date && isEventDateInPast(next.date, next.precision, now)) return 'in_past';
   if (confirmedVendorCount <= 0 || !eventDateChangeIsGoverned(prior, next)) return null;
   const dateChanged = next.date !== prior.date;
-  return dateChanged ? 'locked' : 'widens';
+  if (!dateChanged) return 'widens';
+  if (!cleared) return 'locked';
+  return PRECISION_ORDER[next.precision] < PRECISION_ORDER[eventDatePrecisionOf(prior.precision) ?? 'year'] ? 'widens' : null;
 }
 
 /**
@@ -808,7 +821,7 @@ export async function recomputeReceptionAnchor(
 // 448) introduced event_moderators with 13 role_subtypes and the host-
 // invite flow at /host/accept/[token] writes ONLY to event_moderators,
 // NOT event_members. Server actions that gate on event_members alone
-// (saveVendorToPicks · addVenueDirectoryEntryToPlan · others) return
+// (saveVendorToPicks · others) return
 // 'no_primary_event' for invited hosts even though they're legitimate
 // hosts on a real event.
 //

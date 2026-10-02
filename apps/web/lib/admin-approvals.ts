@@ -55,7 +55,7 @@ export type ApprovalActionType =
  * the pending/decided lists readable without exposing them as creatable grants.
  */
 const NON_PICKER_ACTION_LABEL: Record<string, string> = {
-  approve_vendor_partnership: 'Approve vendor partnership',
+  approve_vendor_partnership: 'Approve supplier partnership',
   approve_comp_grant: 'Approve comp grant (money)',
   approve_fraud_wipe_ban: 'Confirm fraud wipe + permanent ban',
   approve_journal_spotlight: 'Publish sponsored journal spotlight',

@@ -124,3 +124,31 @@ test('the balance itself is untouched — this guard must not have silenced the 
   assert.match(page, /<HostPoolMeterCard\b/, 'the live credit balance is gone from the Papic page');
   assert.match(page, /<PapicPoolCard\b/, 'the pool card is gone from the Papic page');
 });
+
+test('🎟 the ONE sanctioned recommendation — onboarding, by the owner\'s later word, with no number of its own', () => {
+  // ⚖ Owner, 2026-10-01 (DECISION_LOG "ONBOARDING RECOMMENDS A PAPIC PACK"):
+  // *"yes. we will recommend but they can change the number."* That is a LATER,
+  // SPECIFIC ruling than the 2026-09-23 one above, for this one surface. The
+  // exception is a single module, so this guard stays a tripwire everywhere else.
+  const mod = 'lib/onboarding/papic-recommendation.ts';
+  const code = stripComments(readFileSync(join(WEB, mod), 'utf8'));
+
+  // 1. It is the ONLY module that multiplies a guest count by a per-guest figure.
+  const multipliers = SOURCES.filter((f) => /\bpointsPerGuest\b/.test(stripComments(readFileSync(f, 'utf8'))))
+    .map((f) => f.slice(WEB.length + 1))
+    .filter((f) => !/papic-pool-sizing|papic-pool-learning|services-step-server|services-step-data|papic-recommendation|papic-event-pool|papic-type-sizing-editor|price-control-actions/.test(f));
+  assert.deepEqual(multipliers, [], 'another module reads pointsPerGuest to size credits');
+
+  // 2. It has no number of its own — the sizing arrives from papic_event_pool_config.
+  const literals = (code.match(/(?<![\w.])\d+(?:[_.]\d+)*/g) ?? []).filter((n) => n !== '0' && n !== '1');
+  assert.deepEqual(literals, [], 'a numeric constant appeared — a number that governs money must come from its existing home (papic_event_pool_config)');
+
+  // 3. Its caller refuses the code fallback: unreadable config recommends NOTHING.
+  const server = stripComments(readFileSync(join(WEB, 'lib/onboarding/services-step-server.ts'), 'utf8'));
+  assert.match(server, /poolSizing !== FALLBACK_POOL_SIZING/, 'a code default would size what a couple is told to buy');
+
+  // 4. It never pre-fills a purchase: the card needs an explicit "Add Papic".
+  const step = stripComments(readFileSync(join(WEB, 'app/onboarding/_shared/services-step.tsx'), 'utf8'));
+  assert.match(step, /Add Papic/);
+  assert.ok(!/useState\(\s*recommended/.test(step) || /startStep/.test(step));
+});

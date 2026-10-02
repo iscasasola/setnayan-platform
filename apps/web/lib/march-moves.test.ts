@@ -10,13 +10,20 @@ import { joinVerdict, joinersFor, swapVerdict, swapsFor } from '@/lib/march-move
  * wrong answer on both.
  */
 
+/* 🚶 Owner 2026-10-01: who walks with whom is a `march_walks` row. `pair` names
+   the walk-mate; both get one walk number, in the order the pairs are written. */
+const WALKS = new Map<string, number>();
+const walkOf = (a: string, b: string): number => {
+  const key = [a, b].sort().join('+');
+  if (!WALKS.has(key)) WALKS.set(key, WALKS.size);
+  return WALKS.get(key)!;
+};
 const g = (id: string, last: string, role: string, pair: string | null = null): EntourageGuestRow => ({
   guest_id: id,
   first_name: id.toUpperCase(),
   last_name: last,
   role,
-  pair_with_guest_id: pair,
-  entourage_order: null,
+  march: pair ? { walk_no: walkOf(id, pair) } : null,
 });
 
 // Principal sponsors: Ninong left, Ninang right.

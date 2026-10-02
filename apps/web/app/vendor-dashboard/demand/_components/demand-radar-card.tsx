@@ -37,10 +37,10 @@ export function DemandRadarCard({
       <div className="rounded-2xl border border-dashed border-ink/15 bg-white p-10 text-center">
         <Radar aria-hidden className="mx-auto h-8 w-8 text-ink/30" strokeWidth={1.5} />
         <p className="mt-3 text-sm font-medium text-ink">
-          We couldn&rsquo;t load your demand radar right now
+          We couldn&rsquo;t load {scope === 'admin' ? 'the' : 'your'} demand radar right now
         </p>
         <p className="mx-auto mt-1 max-w-md text-sm text-ink/55">
-          This is on our side, not a sign your market is quiet. Refresh in a
+          This is on our side, not a sign {scope === 'admin' ? 'the' : 'your'} market is quiet. Refresh in a
           moment.
         </p>
       </div>

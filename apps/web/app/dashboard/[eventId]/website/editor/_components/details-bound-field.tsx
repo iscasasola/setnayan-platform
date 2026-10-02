@@ -257,7 +257,7 @@ export function DetailsBoundField({
               onClick={onOpenDetails}
               className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] font-semibold text-ink/70 underline underline-offset-2 hover:text-ink"
             >
-              Open Details
+              Open Your info
             </button>
           ) : null}
         </div>

@@ -1,67 +1,93 @@
 import type { ReactNode } from 'react';
-import { PageMasthead } from '@/app/_components/page-masthead';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowRight, Store } from 'lucide-react';
+import { ChevronRight, Lock } from 'lucide-react';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { createClient } from '@/lib/supabase/server';
-import { getConfirmedVendorCount } from '@/lib/events';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
-import { titleCase } from '@/lib/personalized-menu';
-import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
-import { celebrantShapeIsVisible, resolveProfile } from '@/lib/event-type-profile';
-import { isChineseWedding } from '@/lib/chinese-wedding';
+import { fetchEventViewer } from '@/lib/event-viewer.server';
+import { isDelegateWithoutArea } from '@/lib/event-viewer';
+import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
+import { planGroupLabelForCategory } from '@/lib/lock-impact-inputs';
+import { CEREMONY_LABEL, VENUE_LABEL, titleCase } from '@/lib/personalized-menu';
+import { CEREMONY_VENUE_SETTING_SHORT_LABEL } from '@/lib/venue-settings';
+import { fetchScheduleBlocks } from '@/lib/schedule';
+import { blockTime, ceremonyBlock, firstBlockOf } from '@/lib/print-pieces';
+import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
+import { computeGuestStats, fetchGuestsByEventMeasured, type GuestRole } from '@/lib/guests';
+import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
+import { resolveEventMoney } from '@/lib/budget-truth';
+import { buildBudgetLiveSummary, fetchBudgetSnapshot } from '@/lib/budget';
+import { legacyCommittedVendorsPhp } from '@/lib/budget-page-money';
+import { ORDER_STATUS_LABEL, fetchOrdersForEvent } from '@/lib/orders';
+import { computeVatFromBase } from '@/lib/receipts';
+import { getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { formatPhp, formatPhpRounded } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
+import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
+import { readEventPoolStatus } from '@/lib/papic-event-pool';
+import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
+import { HUB_FONT_BY_KEY, sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { resolveDisplayPalette } from '@/lib/room-palette';
+import { sanitizeRoleAttire } from '@/lib/role-dress-code';
+import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
+import { dressCodeForEveryone } from '@/lib/dress-code-for-everyone';
+import { roleLabel } from '@/lib/entourage';
+import { resolveMoments } from '@/lib/love-story-moments';
+import { resolveReplyBy } from '@/lib/rsvp-ask';
+import { detailsItemHref } from '@/lib/maker-details-items';
+import { studioHubHref } from '@/lib/studio-hub';
 import {
-  cadencesForType,
-  cadenceIsForced,
-  effectiveCadence,
-  CADENCE_LABELS,
-} from '@/lib/event-anchor';
-import { DetailsForm } from './_components/details-form';
-import { GovernedFields } from './_components/governed-fields';
-import { PaxSettingsCard } from './_components/pax-settings-card';
+  COULD_NOT_LOAD,
+  HIDDEN_BY_THE_COUPLE,
+  NOT_SET_YET,
+  describeEventDate,
+  howGuestsGetIn,
+  rsvpQuestions,
+  sectionTitle,
+  sheetDate,
+  type EventDetailsSectionKey,
+} from '@/lib/event-details-sheet';
 import { PutAwayCard } from './_components/put-away-card';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Personalization' };
+export const metadata = { title: 'Event Details' };
 
 /**
- * Personalization · /dashboard/[eventId]/details
+ * Event Details · /dashboard/[eventId]/details
  *
- * The single place every piece of the couple's onboarding lives — documented
- * and, where it's safe to, editable. CLAUDE.md 2026-06-02 directive 2:
- * "all the information from the onboarding to be documented and editable on
- * the 'Personalization' Page ... this is where all the data will be preserved."
+ * 📋 ONE INFORMATION-ONLY SHEET OF EVERYTHING COLLECTED (owner 2026-10-01,
+ * DECISION_LOG "EVENT DETAILS LIVES ON EVENT HOME" → "EVENT DETAILS IS
+ * INFORMATION ONLY"; design `event_details_one_page_2026-10-01_fable`). It
+ * replaces the shipped Personalization page, whose editors moved WHOLE to
+ * `/details/change` ("Event settings") — several facts they edit have no other
+ * home, so they could not simply go.
  *
- * Three bands:
- *   1. The basics — names · region · style/feel · budget. GOVERNANCE-FREE
- *      (bind no vendor) → edited inline via DetailsForm + updateEventMatchCriteria.
- *   2. Your wedding — wedding type · venue setting · guest count · date.
- *      GOVERNED (a booked vendor can lock these) → edited inline via
- *      <GovernedFields>, which runs the conflict preview first and warns which
- *      picked services would clash before the change commits (directive 4).
- *      All four lock to support once a vendor is confirmed.
- *   3. From your onboarding — budget band · monogram · music. Documented
- *      read-only (region + style/feel are in band 1; guest count + venue are
- *      band 2's governed editors).
+ *   · SHOWS, NEVER EDITS. Each section carries one quiet "Open … ›" to the page
+ *     that handles it — the deliberate exception to "no edit-elsewhere links",
+ *     because this page is a read-out. No suggestions, no tips, no next steps.
+ *   · EVERY ROW READS ITS APP'S OWN FIELD (the Maker, the Guest list, Budget,
+ *     the Schedule, the Bench's locks, the orders) — no copy, no sync — so the
+ *     sheet and the app cannot disagree. `lib/event-details-sheet.ts` holds THE
+ *     MAP; `event-details-sheet.test.ts` holds this page to it.
+ *   · EMPTY ≠ FAILED ≠ HIDDEN. An empty fact reads "Not set yet"; a read that
+ *     FAILED reads "Could not load this…"; a part the couple did not share with
+ *     a helper reads "Hidden by the couple". The three are never drawn alike.
+ *   · A row a booking governs carries 🔒; tapping it opens "Locked by your
+ *     booking" with Contact support — zero JS (`<details>`).
  *
- * Route kept as /details (relabel-not-rename, per the Vendors→Services
- * precedent) so the Home "Personalize" link + the More-tab activeMatch stay
- * valid. Guard mirrors /for-you (getUser → redirect; maybeSingle → notFound).
+ * Fixed from the shipped page (measured live on cale-ice, 2026-10-01): the
+ * ceremony venue read "Not set" while a parish was booked, the reception row
+ * showed its SETTING ("Banquet hall") as the venue, and the copy said
+ * "vendors". Venues now come from the confirmed bookings themselves.
  */
-/** What each shape is called on screen. Shared by the default option's hint so
- *  a person can see what "however this usually goes" means for their type. */
-const CELEBRANT_SHAPE_LABELS: Record<'single' | 'couple' | 'multiple', string> = {
-  single: 'one person',
-  couple: 'a couple',
-  multiple: 'several people',
-};
-
-export default async function PersonalizationPage({
-  params,
-}: {
-  params: Promise<{ eventId: string }>;
-}) {
+export default async function EventDetailsPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
 
   const supabase = await createClient();
@@ -70,35 +96,19 @@ export default async function PersonalizationPage({
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
+  // Every column here is granted to the session (the per-column allowlist,
+  // `lint-events-column-grants.mjs`). The two PRIVATE ones (budget target and
+  // band) are read through `events_host` below, behind the budget gate.
   const { data: event, error: eventError } = await supabase
-    // SEC-2b: public.events_host, not public.events — this select names a column
-    // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
-    // on the base table by 20271008731642. The view is the couple/moderator-scoped
-    // read path; same columns, same row shape, guests get zero rows.
-    .from('events_host')
+    .from('events')
     .select(
-      'event_id, display_name, event_type, archived, bride_name, groom_name, region, mood_feel_key, ' +
-        // The repeat — read back so the control shows what is actually stored.
-        'recurs, recur_cadence, ' +
-        // Who this celebration is FOR, and how many of them (owner 2026-08-27).
-        // NULL — every row today — means "use this event type's own shape".
-        'celebrant_shape, ' +
-        'estimated_budget_centavos, budget_band, ceremony_type, secondary_ceremony_type, ' +
-        'ceremony_type_locked_at, event_date, event_date_precision, date_mode, date_candidates, ' +
-        // TWO venues, not one (owner 2026-09-03): venue_setting is the
-        // RECEPTION, ceremony_venue_setting is where they marry. Read through
-        // events_host, which migration 20271197508087 rebuilt to project the
-        // new column — without that rebuild this select would name a phantom
-        // column and throw, killing the whole Personalization page.
-        'date_window_start, date_window_end, estimated_pax, venue_setting, ' +
-        'ceremony_venue_setting, ' +
-        'guest_list_edit_deadline, adaptive_pricing_mode, ' +
-        'monogram_text, monogram_frame_key, monogram_font_key, music_playlist_seed, ' +
-        // PR-G — opt-in BaZi birth-data (Chinese weddings). Read back only here,
-        // on the couple-dashboard details surface; never selected by any
-        // public/guest renderer. Behind baziBirthDataEnabled() at render time.
-        'partner_a_birth_date, partner_a_birth_time, partner_b_birth_date, ' +
-        'partner_b_birth_time, bazi_birthdata_consent_at',
+      'event_id, display_name, event_type, archived, slug, bride_name, groom_name, region, ' +
+        'ceremony_type, secondary_ceremony_type, event_date, event_date_precision, date_mode, date_candidates, ' +
+        'date_window_start, date_window_end, estimated_pax, venue_setting, ceremony_venue_setting, ' +
+        'guest_list_edit_deadline, adaptive_pricing_mode, monogram_text, invite_theme, role_palette, ' +
+        'site_font_key, site_bg_music_r2_key, site_bg_music_enabled, landing_page_hero_image_url, ' +
+        'setnayan_ai_active, rsvp_ask_config, love_story, dress_code_config, ' +
+        'std_film_ceremony_name, std_film_venue_name, venue_name',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -106,286 +116,592 @@ export default async function PersonalizationPage({
   if (!event) notFound();
 
   const e = event as unknown as Record<string, unknown>;
-  const base = `/dashboard/${eventId}`;
   const str = (k: string): string | null => {
     const v = e[k];
-    return typeof v === 'string' && v.trim() !== '' ? v : null;
+    return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
   };
   const num = (k: string): number | null => {
     const v = e[k];
-    return typeof v === 'number' ? v : null;
+    const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() !== '' ? Number(v) : NaN;
+    return Number.isFinite(n) ? n : null;
   };
 
-  const confirmedVendorCount = await getConfirmedVendorCount(supabase, eventId);
+  const base = `/dashboard/${eventId}`;
+  const admin = createAdminClient();
+  const now = new Date();
+  const budgetTruth = isBudgetTruthEnabled();
 
-  // This page had NO membership gate of any kind — it leaned on `events_host`,
-  // which admits any accepted delegate — so a coordinator opened the couple's
-  // Personalization form with their budget target sitting in an editable box.
-  // The read was half of it; `updateEventMatchCriteria` authorised
-  // "couple/coordinator OR accepted moderator" and wrote the field through the
-  // admin client, so she could also CHANGE it. Same shared resolver as /budget.
-  const budgetAccess = await resolveBudgetVisibility(supabase, eventId, user.id);
+  const [profile, viewer, budgetAccess] = await Promise.all([
+    resolveProfile(str('event_type') ?? 'wedding'),
+    fetchEventViewer(supabase, eventId, user.id),
+    resolveBudgetVisibility(supabase, eventId, user.id),
+  ]);
+  const words = eventWordsFromProfile(profile);
+  const eventWord = words.eventWord;
+  const maker = surfaceEnabled(profile, 'website');
+  // A helper the couple did not give the guest list reads "Hidden by the couple",
+  // never an empty list — the guest read below is skipped for them.
+  const mayReadGuests = !isDelegateWithoutArea(viewer, 'guest_list');
+  const guestsHidden = !mayReadGuests;
+  const suppliersHidden = isDelegateWithoutArea(viewer, 'vendors');
+  const moneyHidden = !budgetAccess.mayRead;
 
-  const budgetCentavos = num('estimated_budget_centavos');
-  const initialBudgetPesos =
-    budgetCentavos != null && budgetCentavos > 0 ? String(Math.round(budgetCentavos / 100)) : '';
+  const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead] =
+    await Promise.all([
+      settle(
+        (async () => {
+          const { data, error } = await supabase
+            .from('event_vendors')
+            .select(
+              'vendor_id, category, status, vendor_name, updated_at, archived_at, manual_vendor_id, ' +
+                'source_venue_directory_id, marketplace_vendor_id, linked_vendor_profile_id',
+            )
+            .eq('event_id', eventId)
+            .is('archived_at', null);
+          if (error) throw new Error(error.message);
+          return (data ?? []) as unknown as (VenueBookingRow & { vendor_id: string })[];
+        })(),
+      ),
+      settle(fetchScheduleBlocks(supabase, eventId)),
+      suppliersHidden
+        ? Promise.resolve(null)
+        : settle(
+            fetchUpcomingItems({
+              supabase,
+              eventId,
+              eventDate: str('event_date'),
+              ceremonyType: str('ceremony_type'),
+              now,
+              remindersEnabled: false,
+              statutory: false,
+              limit: 50,
+            }),
+          ),
+      mayReadGuests ? settle(fetchGuestsByEventMeasured(supabase, eventId)) : Promise.resolve(null),
+      moneyHidden ? Promise.resolve(null) : settle(fetchOrdersForEvent(supabase, eventId)),
+      moneyHidden ? Promise.resolve(null) : settle(getEffectiveVatRatePct(supabase)),
+      moneyHidden
+        ? Promise.resolve(null)
+        : settle(
+            (async () => {
+              const { data, error } = await supabase
+                .from('events_host')
+                .select('estimated_budget_centavos, budget_band')
+                .eq('event_id', eventId)
+                .maybeSingle();
+              if (error) throw new Error(error.message);
+              return (data ?? {}) as { estimated_budget_centavos?: number | string | null; budget_band?: string | null };
+            })(),
+          ),
+      moneyHidden || !budgetTruth ? Promise.resolve(null) : settle(resolveEventMoney(supabase, eventId)),
+      moneyHidden || budgetTruth ? Promise.resolve(null) : settle(fetchBudgetSnapshot(supabase, eventId)),
+      settle(eventCoupleWebsiteProActive(admin, eventId)),
+      readEventPoolStatus(admin, eventId),
+    ]);
 
-  // bride_name/groom_name are combined "First Last" strings (onboarding PR #796
-  // stores [first, last].join(' ')); split them back for the First+Last inputs.
-  // splitName is lossless round-trip (first token = first name, rest = last) and
-  // handles pre-#796 events that stored a first-name-only value.
-  const brideName = splitName(str('bride_name'));
-  const groomName = splitName(str('groom_name'));
-
-  // PR-G — BaZi birth-data opt-in section. Triple gate (render side): the
-  // feature flag is on AND this is a Chinese wedding (primary OR overlay). The
-  // third gate (explicit consent checkbox) lives inside the form. With the flag
-  // OFF or a non-Chinese event, showBaziBirthData is false → the section never
-  // renders and the form is byte-identical to today. Birth time stores as
-  // HH:MM:SS (Postgres `time`); trim to HH:MM for <input type="time">.
-  const showBaziBirthData =
-    baziBirthDataEnabled() &&
-    isChineseWedding({
-      ceremony_type: str('ceremony_type'),
-      secondary_ceremony_type: str('secondary_ceremony_type'),
-    });
-  const trimTime = (v: string | null): string => (v ? v.slice(0, 5) : '');
-  const baziConsentAt = str('bazi_birthdata_consent_at');
-
-  // --- Documented values (band 3) -------------------------------------------
-  const ceremonyType = str('ceremony_type');
-  const secondaryCeremony = str('secondary_ceremony_type');
-  const venueSetting = str('venue_setting');
-  const ceremonyVenueSetting = str('ceremony_venue_setting');
-  const pax = num('estimated_pax');
-  // Adaptive Pax Pricing couple settings (Phase 8).
-  const editDeadline = str('guest_list_edit_deadline');
-  const paxMode: 'realtime' | 'final_only' =
-    str('adaptive_pricing_mode') === 'final_only' ? 'final_only' : 'realtime';
-  const moodFeel = str('mood_feel_key');
-  const budgetBand = str('budget_band');
-  const monogramText = str('monogram_text');
-  const monogramFrame = str('monogram_frame_key');
-  const monogramFont = str('monogram_font_key');
-  const playlist = Array.isArray(e.music_playlist_seed)
-    ? (e.music_playlist_seed as unknown[]).filter((s) => typeof s === 'string')
+  // ── Suppliers + venues: the confirmed bookings, one read ───────────────────
+  const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
+  const lockedSuppliers = vendorsRead.ok
+    ? vendorsRead.v.filter((r) => r.status != null && confirmed.has(r.status) && (r.vendor_name ?? '').trim())
     : [];
+  // The governed facts (kind · date · guest estimate) lock to support once any
+  // supplier is confirmed — the same rule `GovernedFields` enforces.
+  const bookingLocks = lockedSuppliers.length > 0;
+  const venuesWon = vendorsRead.ok ? pickVenueBookingRows(vendorsRead.v) : { ceremony: null, reception: null };
 
-  const dateDoc = formatWeddingDate(e);
-  // The date <input type="date"> prefills only from a committed day-precision
-  // date; month/year-precision + window/candidate modes leave it blank so the
-  // host picks deliberately (the governed editor stamps full precision).
-  const eventDateRaw = str('event_date');
-  const datePrecision = str('event_date_precision') ?? 'day';
-  const dateValue = eventDateRaw && datePrecision === 'day' ? eventDateRaw : null;
+  // ── The look ──────────────────────────────────────────────────────────────
+  const ownsPro = proRead.ok && proRead.v === true;
+  const theme = INVITE_THEMES[resolveInviteTheme({ saved: e.invite_theme, ownsPro })];
+  const headingFontKey = sanitizeHubFontKey(e.site_font_key);
+  const storedPalette = sanitizeRolePalette(e.role_palette);
+  const board = resolveDisplayPalette(storedPalette);
+  const mainColours = (board.reception ?? []).filter((h) => typeof h === 'string' && h.length > 0);
+  const dress = dressCodeForEveryone({
+    stored: storedPalette,
+    board,
+    roles: sanitizeRoleAttire((e.dress_code_config as { roles?: unknown } | null)?.roles, (v) => roleLabel(v as GuestRole) !== null),
+    groups: sanitizeGroupAttire((e.dress_code_config as { groups?: unknown } | null)?.groups),
+    ceremonyType: str('ceremony_type'),
+  });
+  const moments = resolveMoments(e.love_story).filter((m) => !m.hidden);
+  const getIn = howGuestsGetIn(e.rsvp_ask_config);
+  const questions = rsvpQuestions(e.rsvp_ask_config);
+  const replyBy = resolveReplyBy({ deadline: str('guest_list_edit_deadline'), eventDate: str('event_date') });
 
-  const monogramDoc =
-    monogramText || monogramFrame || monogramFont
-      ? [monogramText, monogramFrame ? `${titleCase(monogramFrame)} frame` : null, monogramFont ? titleCase(monogramFont) : null]
-          .filter(Boolean)
-          .join(' · ')
-      : null;
+  // ── Names ─────────────────────────────────────────────────────────────────
+  const personA = str('bride_name');
+  const personB = str('groom_name');
+  const names = personA && personB ? `${personA} & ${personB}` : (personA ?? personB ?? str('display_name'));
+  const kind =
+    eventWord === 'wedding'
+      ? (() => {
+          const c = str('ceremony_type');
+          if (!c) return null;
+          const main = CEREMONY_LABEL[c] ?? `${titleCase(c)} ceremony`;
+          const also = str('secondary_ceremony_type');
+          return also ? `${main} · also ${(CEREMONY_LABEL[also] ?? titleCase(also)).toLowerCase()}` : main;
+        })()
+      : titleCase(eventWord);
 
-  // ── the repeat, resolved server-side ──────────────────────────────────────
-  // The options come from the ONE per-type map, so this screen cannot offer a
-  // cadence the create path would refuse — the exact divergence that left
-  // birthdays invisible on the Year view.
-  const repeatType = str('event_type');
-  const repeatOptions = cadencesForType(repeatType).map((c) => ({
-    value: c,
-    label: CADENCE_LABELS[c],
-  }));
-  const repeatForced = cadenceIsForced(repeatType);
-  const storedCadence = effectiveCadence(e['recurs'] === true, str('recur_cadence'));
+  // ── Key dates, soonest first ──────────────────────────────────────────────
+  const payments: UpcomingItem[] =
+    upcomingRead && upcomingRead.ok ? upcomingRead.v.items.filter((i) => i.source === 'vendor_payment').slice(0, 2) : [];
+  const paymentsFailed =
+    !!upcomingRead && (!upcomingRead.ok || upcomingRead.v.unreadableSources.includes('vendor_payment'));
+  const blocks = scheduleRead.ok ? scheduleRead.v : [];
+  const ceremony = ceremonyBlock(blocks);
+  const reception = firstBlockOf(blocks, 'reception');
+  const firstPublic = blocks.find((b) => b.is_public && !b.parent_block_id && b.start_at) ?? null;
+  const arrive = firstPublic && firstPublic !== ceremony && firstPublic !== reception ? firstPublic : null;
 
-  // ── who is being celebrated ───────────────────────────────────────────────
-  // Offered ONLY where the answer could change a word a guest reads. A wedding's
-  // noun is 'couple' and a wake's is 'family'; both are collective, so no shape
-  // pluralises them and the control would be a question asked for nothing.
-  //
-  // 🔑 THE HOSTS ARE NOT ASKED ABOUT ANYWHERE ON THIS PAGE, ON PURPOSE. Owner
-  // 2026-08-27: there can be many on any event — and how many there are is
-  // already known, because it is who holds a host's key to this celebration.
-  const celebrantProfile = await resolveProfile(str('event_type') ?? 'wedding');
-  const celebrantNoun = celebrantProfile.terminology.celebrantNoun;
-  const showCelebrantShape = celebrantShapeIsVisible(celebrantNoun);
-  const celebrantTypeDefaultLabel =
-    CELEBRANT_SHAPE_LABELS[celebrantProfile.terminology.celebrantShape];
+  // ── Money (the Budget page's own four numbers, under either flag state) ───
+  const priv = privateRead && privateRead.ok ? privateRead.v : null;
+  const targetCentavos = priv?.estimated_budget_centavos != null ? Number(priv.estimated_budget_centavos) : null;
+  const orders = ordersRead && ordersRead.ok ? ordersRead.v : null;
+  const vat = vatRead && vatRead.ok ? vatRead.v : null;
+  const grossOf = (o: { confirmed_total_php: number | null; requested_total_php: number }) =>
+    vat == null ? null : computeVatFromBase(Number(o.confirmed_total_php ?? o.requested_total_php), vat).gross;
+  let money: { target: number | null; agreed: number; paid: number; owed: number } | null = null;
+  if (moneyRead && moneyRead.ok) {
+    money = { target: moneyRead.v.targetPhp, agreed: moneyRead.v.committed, paid: moneyRead.v.paid, owed: moneyRead.v.stillOwed };
+  } else if (snapshotRead && snapshotRead.ok && orders) {
+    // Flag OFF (or the resolver refused): `/budget`'s legacy arithmetic — paid
+    // orders + confirmed suppliers for Agreed, the live summary for Paid/Owed.
+    const paidOrders = orders
+      .filter((o) => o.status === 'paid' || o.status === 'fulfilled')
+      .reduce((n, o) => n + Number(o.confirmed_total_php ?? o.requested_total_php ?? 0), 0);
+    const live = buildBudgetLiveSummary(snapshotRead.v);
+    money = {
+      target: targetCentavos != null && targetCentavos > 0 ? targetCentavos / 100 : null,
+      agreed: paidOrders + legacyCommittedVendorsPhp(snapshotRead.v.vendors, (s) => confirmed.has(s)),
+      paid: live.paid,
+      owed: live.remaining,
+    };
+  }
+  const budgetBand = priv?.budget_band ? titleCase(priv.budget_band) : null;
+  const shownOrders = (orders ?? []).filter((o) => o.status !== 'draft');
+  const totalPaid = shownOrders
+    .filter((o) => o.status === 'paid' || o.status === 'fulfilled')
+    .reduce((n, o) => n + (grossOf(o) ?? 0), 0);
+
+  // ── Guests ────────────────────────────────────────────────────────────────
+  const stats = guestsRead && guestsRead.ok && guestsRead.v.measured ? computeGuestStats(guestsRead.v.rows) : null;
+  const estimate = num('estimated_pax');
+
+  // ── Venues: LOCKED only (the Event Hub reads the same) ────────────────────
+  const venueRow = (
+    slot: 'ceremony' | 'reception',
+    row: VenueBookingRow | null,
+    typed: string | null,
+    setting: string | null,
+  ) => {
+    const settingWord =
+      slot === 'ceremony'
+        ? setting
+          ? (CEREMONY_VENUE_SETTING_SHORT_LABEL[setting as keyof typeof CEREMONY_VENUE_SETTING_SHORT_LABEL] ?? titleCase(setting))
+          : null
+        : setting
+          ? (VENUE_LABEL[setting] ?? titleCase(setting))
+          : null;
+    if (row) {
+      return {
+        value: row.vendor_name,
+        hint: [row.manual_vendor_id ? 'Added by you · locked' : 'From your booked supplier · locked', settingWord].filter(Boolean).join(' · '),
+        locked: true,
+      };
+    }
+    const hint = [typed ? `Not booked yet — your Event Hub shows “${typed}”` : null, settingWord ? `Setting: ${settingWord}` : null]
+      .filter(Boolean)
+      .join(' · ');
+    return { value: null, hint: hint || null, locked: false };
+  };
+  const ceremonySheetRow = venueRow('ceremony', venuesWon.ceremony, str('std_film_ceremony_name'), str('ceremony_venue_setting'));
+  const receptionSheetRow = venueRow(
+    'reception',
+    venuesWon.reception,
+    str('venue_name') ?? str('std_film_venue_name'),
+    str('venue_setting'),
+  );
+
+  // ── Services ──────────────────────────────────────────────────────────────
+  const pool = poolRead.status;
+
+  const lockNote = (what: string) =>
+    `${what} is held by your booking — changing it would change what you booked, so we hold it still. If something has changed, tell us and we will sort it out with your supplier.`;
 
   return (
-    <section className="sn-col space-y-5">
-      <PageMasthead title="Personalization" />
-
-      {/* Band 1 — the basics (governance-free, editable inline) */}
-      <div className="sn-tile p-4 sm:p-5">
-        <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">The basics</h2>
-        <DetailsForm
-          eventId={eventId}
-          initialBrideFirst={brideName.first}
-          initialBrideLast={brideName.last}
-          initialGroomFirst={groomName.first}
-          initialGroomLast={groomName.last}
-          initialRegion={str('region') ?? ''}
-          initialFeel={moodFeel ?? ''}
-          initialBudgetPesos={initialBudgetPesos}
-          mayEditBudget={budgetAccess.mayEdit}
-          showBaziBirthData={showBaziBirthData}
-          baziHasConsent={baziConsentAt != null}
-          initialPartnerABirthDate={str('partner_a_birth_date') ?? ''}
-          initialPartnerABirthTime={trimTime(str('partner_a_birth_time'))}
-          initialPartnerBBirthDate={str('partner_b_birth_date') ?? ''}
-          initialPartnerBBirthTime={trimTime(str('partner_b_birth_time'))}
-          repeatOptions={repeatOptions}
-          repeatForced={repeatForced}
-          initialCadence={storedCadence ?? ''}
-          showCelebrantShape={showCelebrantShape}
-          initialCelebrantShape={str('celebrant_shape') ?? ''}
-          celebrantTypeDefaultLabel={celebrantTypeDefaultLabel}
-        />
-      </div>
-
-      {/* Band 2 — your wedding (governed: ceremony · venue · guest count · date).
-          Editable inline, but a change runs the conflict preview first and
-          warns which picked services would clash before it commits (directive
-          4). All four lock to support once a vendor is confirmed. */}
-      <div className="sn-tile p-4 sm:p-5">
-        <div className="mb-3">
-          <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">
-            Your wedding
-          </h2>
-          <p className="mt-0.5 text-sm text-ink/55">
-            These shape vendor availability and your paperwork. Change one and we’ll flag any
-            services it would affect before you confirm.
-          </p>
-        </div>
-
-        <GovernedFields
-          eventId={eventId}
-          confirmedVendorCount={confirmedVendorCount}
-          ceremony={ceremonyType}
-          secondaryCeremony={secondaryCeremony}
-          venue={venueSetting}
-          ceremonyVenue={ceremonyVenueSetting}
-          pax={pax}
-          dateDisplay={dateDoc}
-          dateValue={dateValue}
-        />
-      </div>
-
-      {/* Adaptive Pax Pricing settings (Phase 8) — edit deadline + pricing view. */}
-      <PaxSettingsCard eventId={eventId} deadline={editDeadline} mode={paxMode} />
-
-      {/* Band 3 — from your onboarding (documented, read-only). Guest count +
-          venue moved up to band 2's governed editors; region + style/feel live
-          in band 1. This keeps only what isn't editable elsewhere. */}
-      <div className="sn-tile p-4 sm:p-5">
-        <h2 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">
-          From your onboarding
-        </h2>
-        <p className="mb-3 mt-0.5 text-sm text-ink/55">
-          The rest of what you told us, on the record.
+    <section className="sn-col space-y-4" data-event-details>
+      <PageMasthead title="Event Details" />
+      <header className="space-y-1">
+        <h2 className="font-display text-[26px] leading-tight text-ink">Event Details</h2>
+        <p className="text-sm text-ink/60">
+          {names ? `${names} · ` : ''}
+          {titleCase(eventWord)}
         </p>
-        <dl className="divide-y divide-ink/5">
-          {/* The band is the target in coarser clothes — one of five ranges the
-           *  couple's own figure falls into. Printing it to a delegate refused
-           *  the figure would hand back most of what the refusal withheld. */}
-          {budgetAccess.mayRead ? (
-            <DocRow label="Budget band" value={budgetBand ? titleCase(budgetBand) : null} />
-          ) : null}
-          <DocRow label="Monogram" value={monogramDoc} />
-          <DocRow
-            label="Music"
-            value={playlist.length > 0 ? `${playlist.length} song${playlist.length === 1 ? '' : 's'} picked` : null}
+        <p className="text-[13px] text-ink/55">Everything about your event, in one place. Change anything in its own app and it updates here.</p>
+      </header>
+
+      <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+        {/* ── The basics ── */}
+        <Section k="basics" open={{ href: `${base}/details/change`, label: 'Open Event settings' }}>
+          <Row fact="names" label="Names" value={names} />
+          <Row
+            fact="kind"
+            label={`Kind of ${eventWord}`}
+            value={kind}
+            lock={bookingLocks && eventWord === 'wedding' ? lockNote(`Your kind of ${eventWord}`) : null}
           />
-        </dl>
+          <Row fact="area" label="Area" value={str('region')} />
+          <Row label="Event Hub address" value={str('slug') ? `setnayan.com/${str('slug')}` : null} />
+        </Section>
+
+        {/* ── Key dates — one dated list, soonest first ── */}
+        <Section k="key-dates" open={{ href: `${base}/schedule`, label: 'Open Schedule' }}>
+          {paymentsFailed ? (
+            <Row label="Supplier payments" value={COULD_NOT_LOAD} />
+          ) : suppliersHidden ? (
+            <Row label="Supplier payments" value={HIDDEN_BY_THE_COUPLE} />
+          ) : (
+            payments.map((p) => (
+              <Row
+                key={p.id}
+                label={sheetDate(p.date.toISOString(), false) ?? '—'}
+                value={`${p.vendorBusinessName ?? p.subtitle} · ${p.title}${p.amountCentavos != null ? ` ${formatPhp(p.amountCentavos / 100)}` : ''}`}
+                hint="Supplier payment"
+              />
+            ))
+          )}
+          <Row
+            fact="reply-by"
+            label="Guests reply by"
+            value={replyBy ? sheetDate(replyBy.date) : null}
+            hint={replyBy?.isDefault ? 'Suggested — 30 days before the day. The guest list closes the same day.' : replyBy ? 'The guest list closes the same day.' : null}
+          />
+          <Row
+            fact="date"
+            label={`The ${eventWord}`}
+            value={describeEventDate(e)}
+            lock={bookingLocks ? lockNote(`Your ${eventWord} date`) : null}
+          />
+          {scheduleRead.ok ? (
+            <>
+              <Row fact="arrive" label="Guests arrive" value={arrive ? blockTime(arrive) : null} />
+              <Row label="Ceremony" value={ceremony ? blockTime(ceremony) : null} />
+              <Row label="Reception" value={reception ? blockTime(reception) : null} />
+            </>
+          ) : (
+            <Row fact="arrive" label="Times on the day" value={COULD_NOT_LOAD} />
+          )}
+        </Section>
+
+        {/* ── Venues — locked only ── */}
+        <Section
+          k="venues"
+          open={maker ? { href: detailsItemHref(eventId, 'venues'), label: 'Open in the Event Hub Maker' } : { href: `${base}/details/change`, label: 'Open Event settings' }}
+        >
+          {vendorsRead.ok ? (
+            <>
+              <Row
+                fact="venues"
+                label={eventWord === 'wedding' ? 'Ceremony' : 'Ceremony venue'}
+                value={ceremonySheetRow.value}
+                hint={ceremonySheetRow.hint}
+                lock={ceremonySheetRow.locked ? lockNote(ceremonySheetRow.value ?? 'This venue') : null}
+              />
+              <Row
+                label="Reception"
+                value={receptionSheetRow.value}
+                hint={receptionSheetRow.hint}
+                lock={receptionSheetRow.locked ? lockNote(receptionSheetRow.value ?? 'This venue') : null}
+              />
+            </>
+          ) : (
+            <Row fact="venues" label="Venues" value={COULD_NOT_LOAD} />
+          )}
+        </Section>
+
+        {/* ── Guests ── */}
+        <Section k="guests" open={{ href: `${base}/guests`, label: 'Open Guest list' }}>
+          <Row
+            fact="estimate"
+            label="Your estimate"
+            value={estimate != null && estimate > 0 ? `About ${formatCount(estimate)}` : null}
+            hint="From onboarding"
+            lock={bookingLocks && eventWord === 'wedding' ? lockNote('Your guest estimate') : null}
+          />
+          <Row
+            fact="listed"
+            label="On your list"
+            value={
+              guestsHidden
+                ? HIDDEN_BY_THE_COUPLE
+                : stats
+                  ? `${formatCount(stats.total)} on your list`
+                  : COULD_NOT_LOAD
+            }
+            hint={stats && stats.plus_ones > 0 ? `${formatCount(stats.total + stats.plus_ones)} expected with their plus-ones` : null}
+          />
+          <Row fact="guests-get-in" label="How guests get in" value={getIn.value} hint={getIn.chosen ? null : 'The default — not chosen yet'} />
+          <Row label="Guest list closes" value={sheetDate(str('guest_list_edit_deadline'))} />
+          <Row label="How you see costs" value={str('adaptive_pricing_mode') === 'final_only' ? 'Final only' : 'Realtime'} />
+        </Section>
+
+        {/* ── Budget — the Budget page's own four numbers ── */}
+        <Section k="budget" open={surfaceEnabled(profile, 'budget') ? { href: `${base}/budget`, label: 'Open Budget' } : null}>
+          {moneyHidden ? (
+            <Row fact="budget-target" label="Budget" value={HIDDEN_BY_THE_COUPLE} />
+          ) : (
+            <>
+              <Row
+                fact="budget-target"
+                label="Target"
+                value={
+                  money
+                    ? [budgetBand, money.target != null && money.target > 0 ? `about ${formatPhpRounded(money.target)}` : null].filter(Boolean).join(' · ') || null
+                    : COULD_NOT_LOAD
+                }
+              />
+              {money ? (
+                <>
+                  <Row label="Agreed" value={formatPhp(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} locked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
+                  <Row label="Paid" value={formatPhp(money.paid)} />
+                  <Row label="Still owed" value={formatPhp(money.owed)} />
+                </>
+              ) : null}
+            </>
+          )}
+        </Section>
+
+        {/* ── Your suppliers — the locks on the Bench ── */}
+        <Section k="suppliers" open={profile.marketplaceEnabled ? { href: `${base}/vendors`, label: 'Open Suppliers' } : null}>
+          {suppliersHidden ? (
+            <Row label="Suppliers" value={HIDDEN_BY_THE_COUPLE} />
+          ) : !vendorsRead.ok ? (
+            <Row label="Suppliers" value={COULD_NOT_LOAD} />
+          ) : lockedSuppliers.length === 0 ? (
+            <Row label="Locked suppliers" value={null} />
+          ) : (
+            lockedSuppliers.map((s) => (
+              <Row
+                key={s.vendor_id}
+                label={planGroupLabelForCategory(s.category)}
+                value={s.vendor_name}
+                lock={lockNote(s.vendor_name ?? 'This supplier')}
+              />
+            ))
+          )}
+        </Section>
+
+        {/* ── Services ── */}
+        <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>
+          <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
+          <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+          <Row
+            label="Papic"
+            value={
+              !poolRead.ok
+                ? COULD_NOT_LOAD
+                : pool.applies
+                  ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
+                  : 'Not added'
+            }
+          />
+        </Section>
+
+        {/* ── Purchases — the shipped orders, with their status ── */}
+        <Section k="purchases" open={{ href: `${base}/orders`, label: 'Open Purchases' }}>
+          {moneyHidden ? (
+            <Row fact="purchases" label="Purchases" value={HIDDEN_BY_THE_COUPLE} />
+          ) : !orders || vat == null ? (
+            <Row fact="purchases" label="Purchases" value={COULD_NOT_LOAD} />
+          ) : shownOrders.length === 0 ? (
+            <Row fact="purchases" label="Purchases" value={null} />
+          ) : (
+            <>
+              {shownOrders.slice(0, 6).map((o) => (
+                <Row
+                  key={o.order_id}
+                  label={sheetDate(o.created_at) ?? '—'}
+                  value={`${o.description} · ${formatPhp(grossOf(o) ?? 0)}`}
+                  hint={ORDER_STATUS_LABEL[o.status]}
+                />
+              ))}
+              <Row fact="purchases" label="Total paid" value={formatPhp(totalPaid)} hint="Including VAT" />
+            </>
+          )}
+        </Section>
+
+        {/* ── Your Event Hub look ── */}
+        <Section k="look" open={maker ? { href: detailsItemHref(eventId, 'theme'), label: 'Open in the Event Hub Maker' } : null}>
+          <Row fact="cover" label="Cover photo" value={str('landing_page_hero_image_url') ? 'Added' : null} />
+          <Row label="Logo / monogram" value={str('monogram_text')} />
+          <Row fact="theme" label="Theme" value={proRead.ok ? theme.name : COULD_NOT_LOAD} />
+          <Row
+            fact="colours"
+            label="Colours"
+            value={
+              mainColours.length > 0 ? (
+                <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                  {mainColours.map((h) => (
+                    <span key={h} className="inline-flex items-center gap-1">
+                      <span aria-hidden className="inline-block h-3.5 w-3.5 rounded-full border border-ink/15" style={{ backgroundColor: h }} />
+                      <span className="font-mono text-[11px] text-ink/60">{h.toUpperCase()}</span>
+                    </span>
+                  ))}
+                </span>
+              ) : null
+            }
+          />
+          <Row
+            fact="fonts"
+            label="Fonts"
+            value={`Header ${headingFontKey ? HUB_FONT_BY_KEY[headingFontKey].family : theme.fonts.heading} · Text ${theme.fonts.body} · Accent ${theme.fonts.script}`}
+          />
+          <Row
+            fact="music"
+            label="Music"
+            value={str('site_bg_music_r2_key') ? (e.site_bg_music_enabled === false ? 'Added · switched off' : 'Added · plays on open') : null}
+          />
+        </Section>
+
+        {/* ── Love Story ── */}
+        <Section k="love-story" open={maker ? { href: `${base}/website/our-story`, label: 'Open Love Story' } : null}>
+          <Row fact="love-story" label="Moments" value={moments.length > 0 ? `${moments.length} moment${moments.length === 1 ? '' : 's'}` : null} />
+        </Section>
+
+        {/* ── What everyone wears — the Mood Board's own rows ── */}
+        <Section k="wears" open={{ href: `${base}/studio/mood-board`, label: 'Open Mood Board' }}>
+          {dress.rows.length === 0 ? (
+            <Row fact="wears" label="Dress code" value={null} />
+          ) : (
+            dress.rows.slice(0, 8).map((r, i) => (
+              <Row
+                key={r.key}
+                fact={i === 0 ? 'wears' : undefined}
+                label={r.label}
+                value={
+                  r.lines.length > 0
+                    ? r.lines.map((l) => `${l.styleLabel}${l.note ? ` — ${l.note}` : ''}`).join(' · ')
+                    : `${r.hexes.length} colour${r.hexes.length === 1 ? '' : 's'}`
+                }
+              />
+            ))
+          )}
+        </Section>
+
+        {/* ── RSVP ── */}
+        <Section k="rsvp" open={maker ? { href: detailsItemHref(eventId, 'rsvp'), label: 'Open RSVP' } : null}>
+          <Row
+            fact="rsvp-questions"
+            label="Questions"
+            value={questions.length > 0 ? `${questions.length} · ${questions.join(' · ')}` : 'No reply needed'}
+          />
+          <Row label="Reply by" value={replyBy ? sheetDate(replyBy.date) : null} />
+          <Row label="Who can reply" value={getIn.value} hint="Same as “How guests get in”" />
+        </Section>
       </div>
 
-      {/* The picks become real shortlisted services with their own tab. */}
-      <Link
-        href={`${base}/vendors`}
-        className="sn-row flex items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-cream"
-      >
-        <span className="flex items-center gap-2.5">
-          <Store aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          <span className="text-sm text-ink/80">The services you picked</span>
-        </span>
-        <ArrowRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.75} />
-      </Link>
-
-      {/* Band 4 — putting it away. Last on the page on purpose: it is the one
-          control here that changes where the celebration LIVES rather than what
-          it says, so it sits after everything a couple came to edit. */}
-      <PutAwayCard
-        eventId={eventId}
-        archived={Boolean(e.archived)}
-        eventName={
-          typeof e.display_name === 'string' && e.display_name.trim()
-            ? e.display_name
-            : 'this celebration'
-        }
-      />
+      {/* ── Put this away — last and quiet, as shipped. ── */}
+      <div data-section="put-away">
+        <PutAwayCard
+          eventId={eventId}
+          archived={Boolean(e.archived)}
+          eventName={typeof e.display_name === 'string' && e.display_name.trim() ? e.display_name : 'this celebration'}
+        />
+      </div>
     </section>
   );
 }
 
 // ---------------------------------------------------------------------------
 
-/**
- * Splits a stored combined name into first + last for the edit form. First
- * token is the first name, the rest is the last name — lossless round-trip
- * with onboarding's [first, last].join(' '), and safe for pre-#796 events that
- * stored a first-name-only value (→ { first, last: '' }).
- */
-function splitName(full: string | null): { first: string; last: string } {
-  const t = (full ?? '').trim();
-  if (!t) return { first: '', last: '' };
-  const parts = t.split(/\s+/);
-  return { first: parts[0] ?? '', last: parts.slice(1).join(' ') };
+type Settled<T> = { ok: true; v: T } | { ok: false };
+
+/** A read that FAILED stays a failure — it is never handed on as an empty answer. */
+async function settle<T>(p: Promise<T>): Promise<Settled<T>> {
+  try {
+    return { ok: true, v: await p };
+  } catch (err) {
+    console.error('[event-details] read failed', err);
+    return { ok: false };
+  }
 }
 
-function DocRow({ label, value }: { label: string; value: ReactNode }) {
+function Section({
+  k,
+  open,
+  children,
+}: {
+  k: EventDetailsSectionKey;
+  /** The ONE quiet link to the page that handles this part (null = none for this kind of event). */
+  open: { href: string; label: string } | null;
+  children: ReactNode;
+}) {
   return (
-    <div className="flex items-center justify-between gap-4 py-2.5">
-      <dt className="text-sm text-ink/60">{label}</dt>
-      <dd className="text-right text-sm font-medium text-ink/85">
-        {value ?? <span className="font-normal text-ink/40">Not set</span>}
-      </dd>
+    <div className="sn-tile p-4 sm:p-5" data-section={k}>
+      <div className="mb-1 flex items-baseline justify-between gap-3">
+        <h3 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">{sectionTitle(k)}</h3>
+        {open ? (
+          <Link href={open.href} className="inline-flex shrink-0 items-center gap-0.5 text-[12.5px] text-ink/55 hover:text-ink">
+            {open.label}
+            <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+          </Link>
+        ) : null}
+      </div>
+      <dl className="divide-y divide-ink/5">{children}</dl>
     </div>
   );
 }
 
 /**
- * Documents the couple's date the way onboarding captured it: a committed date
- * (formatted to its precision), a flexible window, a candidate-date set, or
- * not-set-yet. The governed editor at /date-selection is where it changes.
+ * One read-out row: label · value. `value` null = "Not set yet". A row with
+ * `lock` carries 🔒 and opens "Locked by your booking" in place (zero JS).
  */
-function formatWeddingDate(e: Record<string, unknown>): string | null {
-  const eventDate = typeof e.event_date === 'string' ? e.event_date : null;
-  const precision = typeof e.event_date_precision === 'string' ? e.event_date_precision : 'day';
-  if (eventDate) {
-    const d = new Date(`${eventDate}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return null;
-    if (precision === 'year') return String(d.getFullYear());
-    if (precision === 'month')
-      return d.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
-    return d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' });
+function Row({
+  fact,
+  label,
+  value,
+  hint,
+  lock,
+}: {
+  /** The MAP fact this row shows (`EVENT_DETAILS_MAP`) — what the guard counts. */
+  fact?: string;
+  label: string;
+  value: ReactNode;
+  hint?: string | null;
+  lock?: string | null;
+}) {
+  const shown =
+    value == null || value === '' ? <span className="font-normal text-ink/40">{NOT_SET_YET}</span> : value;
+  const body = (
+    <>
+      <dt className="text-sm text-ink/60">{label}</dt>
+      <dd className="min-w-0 text-right">
+        <span className="text-sm font-medium text-ink/85">{shown}</span>
+        {hint ? <span className="block text-[11.5px] text-ink/50">{hint}</span> : null}
+      </dd>
+    </>
+  );
+  if (!lock) {
+    return (
+      <div className="flex items-start justify-between gap-4 py-2.5" data-fact={fact}>
+        {body}
+      </div>
+    );
   }
-
-  const mode = typeof e.date_mode === 'string' ? e.date_mode : null;
-  if (mode === 'window') {
-    const start = typeof e.date_window_start === 'string' ? e.date_window_start : null;
-    const end = typeof e.date_window_end === 'string' ? e.date_window_end : null;
-    if (start && end) return `Flexible · ${fmtShort(start)}–${fmtShort(end)}`;
-  }
-  if (mode === 'specific' && Array.isArray(e.date_candidates)) {
-    const n = (e.date_candidates as unknown[]).filter((c) => typeof c === 'string').length;
-    if (n > 0) return `${n} candidate date${n === 1 ? '' : 's'}`;
-  }
-  return null;
-}
-
-function fmtShort(dateStr: string): string {
-  const d = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric' });
+  return (
+    <details className="group py-2.5" data-fact={fact} data-locked>
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 [&::-webkit-details-marker]:hidden">
+        {body}
+        <Lock aria-label="Locked by your booking" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={1.75} />
+      </summary>
+      <div className="sn-glass-bare mt-2 rounded-xl px-3.5 py-3">
+        <p className="text-sm font-medium text-ink">Locked by your booking</p>
+        <p className="mt-1 text-[13px] text-ink/65">{lock}</p>
+        <Link href="/help" className="mt-2 inline-block text-[13px] font-medium text-terracotta underline-offset-2 hover:underline">
+          Contact support
+        </Link>
+      </div>
+    </details>
+  );
 }

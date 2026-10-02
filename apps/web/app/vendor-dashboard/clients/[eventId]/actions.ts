@@ -13,6 +13,8 @@ import { depositAnswerReturnTo, vendorClientSurfaceHref } from '@/lib/vendor-cli
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { uploadPublicAsset } from '@/lib/storage';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { isSupplierDateAnswer } from '@/lib/date-change';
+import { answerDateChange } from '@/lib/date-change.server';
 import { createVendorChallenge } from '@/lib/papic-games';
 
 /**
@@ -1256,6 +1258,44 @@ async function answerDeletionRequest(formData: FormData, agree: boolean) {
 
   revalidatePath('/vendor-dashboard');
   redirect(`/vendor-dashboard?deletion=${agree ? 'agreed' : 'declined'}`);
+}
+
+/**
+ * 🗓 MOVE TO <DATE> · UNLOCK MY SERVICE — the supplier's answer to a couple's
+ * clashing date (owner 2026-10-01, "A CLASHING DATE GOES TO THE SUPPLIER IN
+ * CONFLICT"). ONE action for both buttons (`answer`); the database function
+ * `answer_event_date_change` decides who may answer and runs the release;
+ * `answerDateChange` tells the couple (and the admins, when money was logged)
+ * and, on the last answer, puts the new date in the couple's draft.
+ *
+ * ⚠ THE EVENT IS READ OFF THE ROW, NEVER FROM THE FORM — the function returns
+ * it. Every outcome ends on a named flag the Today page says out loud.
+ */
+export async function vendorAnswerDateChange(formData: FormData) {
+  const eventVendorId = formData.get('vendor_id');
+  const answer = formData.get('answer');
+  if (typeof eventVendorId !== 'string' || !eventVendorId || !isSupplierDateAnswer(answer)) {
+    redirect('/vendor-dashboard?date_answer=failed');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  const r = await answerDateChange({
+    supabase,
+    eventVendorId,
+    answer,
+    supplierName: profile?.business_name?.trim() || 'Your supplier',
+  });
+  if (!r.ok) {
+    const flag = r.reason === 'no_pending_request' ? 'already' : r.reason === 'not_yours' ? 'not_yours' : 'failed';
+    redirect(`/vendor-dashboard?date_answer=${flag}`);
+  }
+  revalidatePath('/vendor-dashboard');
+  revalidatePath(`/vendor-dashboard/clients/${r.eventId}`);
+  redirect(`/vendor-dashboard?date_answer=${answer}`);
 }
 
 export async function vendorAgreeToDeletion(formData: FormData) {

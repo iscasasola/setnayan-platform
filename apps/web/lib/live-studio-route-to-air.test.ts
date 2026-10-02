@@ -28,6 +28,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const repoFile = (p: string) => readFileSync(resolve(HERE, '..', p), 'utf8');
 
 const facts = (o: Partial<Parameters<typeof poolRouteToAir>[0]> = {}) => ({
+  hostedChannelOwned: true,
   channelAvailable: true,
   channelConnected: true,
   channelNeedsReauth: false,

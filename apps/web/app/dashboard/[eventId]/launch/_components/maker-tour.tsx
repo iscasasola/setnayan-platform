@@ -4,12 +4,13 @@ import { useRef, useState, useTransition } from 'react';
 import { ArrowLeft, ArrowRight, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-/* 🔴 The key and the slide filter live in `maker-bar.ts`, NOT here. This file is
+/* 🔴 The key lives in `maker-bar.ts` (the slides in `maker-tour-slides.tsx`), NOT here. This file is
    `'use client'`, and a server page that imports a CONSTANT from it gets a
    client reference, not the string — measured: `tour_seen_keys.includes(KEY)`
    was false for a couple who had finished the tour, so it replayed forever. */
-import { MAKER_TOUR_KEY, makerTourSlides } from './maker-bar';
+import { MAKER_TOUR_KEY } from './maker-bar';
 import { formatCount } from '@/lib/format-number';
+import type { TourSlideView } from '@/app/_components/tour-slide-view';
 
 /**
  * THE EVENT HUB MAKER'S WELCOME — its own skin on the shared tour system.
@@ -26,15 +27,14 @@ import { formatCount } from '@/lib/format-number';
  *     writes `tour_seen_keys` a second time.
  */
 export function MakerTour({
-  storeShell,
-  priceLabel,
+  slides,
   record,
   completeAction,
   onClose,
   onStart,
 }: {
-  storeShell: boolean;
-  priceLabel: string | null;
+  /** Built on the server (`maker-tour-slides.tsx`) — the store-shell and price rules live there. */
+  slides: TourSlideView[];
   /** First visit: finishing or skipping records the tour as seen. */
   record: boolean;
   completeAction: (tourKey: TourKey) => Promise<void>;
@@ -44,7 +44,6 @@ export function MakerTour({
   const [step, setStep] = useState(0);
   const [, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const slides = makerTourSlides({ storeShell, priceLabel });
 
   const finish = (start: boolean) => {
     if (record) {
@@ -82,7 +81,7 @@ export function MakerTour({
 
         <div key={step} className="space-y-4 p-6 motion-safe:animate-[sn-peek-in_var(--sn-dur-elem)_var(--sn-ease)_backwards] sm:p-8">
           <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-terracotta/10 text-terracotta">
-            <current.Icon aria-hidden className="h-6 w-6" strokeWidth={1.75} />
+            {current.icon}
           </span>
           <div className="space-y-2">
             <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-ink/60">

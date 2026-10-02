@@ -347,15 +347,23 @@ function FilmMonogram({
     // HeroMonogram's inkOverride (a plain `color` override on monogram is ignored,
     // since HeroMonogram re-resolves ink from the design columns).
     return (
-      <div aria-hidden className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`} style={{ filter: glow }}>
-        <HeroMonogram
-          key={monoReplayKey}
-          event={lockup.design}
-          monogram={lockup.monogram}
-          inkOverride={inkColor}
-          animatedMonogram={animatedMonogram}
-          bespokeSvg={null}
-        />
+      /* 📐 THE SLOT IS THE SCALED SIZE. `lockupScaleCls` is a transform: it grows
+         the ink, never the layout box, so the 80px mark kept reserving 80px while
+         painting ~216px — straight over the "Save the Date" label above it (the
+         label sat behind the divider rule). The outer box reserves what the mark
+         will paint (`sizeCls`, the same box a bespoke mark gets), the inner one
+         scales inside it. */
+      <div aria-hidden data-film-lockup-slot="" className={`${sizeCls} inline-flex items-center justify-center`}>
+        <div className={`inline-flex origin-center items-center justify-center ${lockupScaleCls}`} style={{ filter: glow }}>
+          <HeroMonogram
+            key={monoReplayKey}
+            event={lockup.design}
+            monogram={lockup.monogram}
+            inkOverride={inkColor}
+            animatedMonogram={animatedMonogram}
+            bespokeSvg={null}
+          />
+        </div>
       </div>
     );
   }

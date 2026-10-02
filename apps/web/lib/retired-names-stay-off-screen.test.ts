@@ -64,9 +64,6 @@ const isExempt = (rel: string) => EXEMPT.has(rel) || rel.endsWith('.generated.ts
 const IN_FLIGHT: ReadonlyArray<{ file: string; was: string }> = [
   { file: 'app/[slug]/_components/story/story-spine.tsx', was: 'Kwento' },
   { file: 'app/dashboard/[eventId]/story/_components/editorial-editor.tsx', was: 'Kwento' },
-  // #6202 (Our Services five) rewrites this file; the controller's train sweeps
-  // its "Live Studio" → "Live Watch" (owner 2026-09-30). Delete once it lands.
-  { file: 'lib/our-services.ts', was: 'Live Studio' },
 ];
 const inFlight = (rel: string, was: string) => IN_FLIGHT.some((x) => x.file === rel && x.was === was);
 

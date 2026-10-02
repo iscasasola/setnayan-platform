@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Check, Monitor, MonitorSmartphone, MoreHorizontal, PanelLeft, Plus, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
+import type { TourSlideView } from '@/app/_components/tour-slide-view';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsDesktop } from '@/lib/use-responsive';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
@@ -14,7 +15,7 @@ import {
   isMakerDevice,
   isStagePhase,
   makerOpenTool,
-  makerPrintsDoor,
+  makerPressDoor,
   makerPlaceItem,
   makerPlacePick,
   makerShownDevice,
@@ -35,7 +36,8 @@ import { MakerTour } from './maker-tour';
 import { MAKER_TOOL_BUTTON, MAKER_TOOL_WORD, MakerPlayMenu } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
 import { MakerPage } from './maker-page';
-import { prefetchDetailsWhenIdle } from './details-lazy';
+import { registerLiveLoveStory } from './maker-tools';
+import { MakerPreloadLine, useMakerPreload } from './maker-preload-line';
 import dynamic from 'next/dynamic';
 
 /**
@@ -49,9 +51,12 @@ import dynamic from 'next/dynamic';
  * dev lab's), it would need those pieces listed in the webpack runtime every
  * page downloads — measured: +139 bytes over a shared bundle with none spare.
  * The Love Story page and Details' editor reach them through the context.
+ * 🧰 Handed to the Maker's tool registry (`maker-tools.tsx`) so the idle
+ * preload warms them with every other tool — the registry never imports them.
  */
 const LiveLoveStoryBook = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveLoveStoryBook));
 const LiveStoryPanel = dynamic(() => import('../../website/our-story/_components/love-story-live').then((m) => m.LiveStoryPanel));
+registerLiveLoveStory(LiveLoveStoryBook, LiveStoryPanel);
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { HUB_DRAFT_FIELD } from '@/lib/hub-draft';
 import { makerAddShowsOn } from '@/lib/maker-selection';
@@ -108,7 +113,7 @@ export function MakerShell({
   initialSelection = null,
   opensOnGuide = false,
   storeShell,
-  priceLabel,
+  tourSlides,
   firstVisit,
   completeTourAction,
   renderStamp,
@@ -144,8 +149,8 @@ export function MakerShell({
    */
   opensOnGuide?: boolean;
   storeShell: boolean;
-  /** The live catalogue price of Event Hub Pro, formatted; null when unread. */
-  priceLabel: string | null;
+  /** The tour's slides, drawn on the server (`maker-tour-slides.tsx`) — the store-shell and price rules live there. */
+  tourSlides: TourSlideView[];
   firstVisit: boolean;
   completeTourAction: (tourKey: TourKey) => Promise<void>;
   renderStamp: string;
@@ -238,11 +243,13 @@ export function MakerShell({
     }
   }, [memoryKey, stage, device, navOpen, selection]);
 
-  /* ⚡ Details' pieces are not in the Maker's first load (`details-lazy.tsx`); once
-     the Maker has loaded and the phone is idle they are fetched, so opening
-     Details — or tapping a fact on the stage — is instant. Only where there is
-     work: a coordinator has no Details. */
-  useEffect(() => (hasWork ? prefetchDetailsWhenIdle() : undefined), [hasWork]);
+  /* ⚡ THE MAKER DOWNLOADS ALL ITS TOOLS RIGHT AFTER IT OPENS (owner 2026-10-02).
+     No tool panel is in the Maker's first load; once the Maker has loaded and
+     the phone is idle, every one (`MAKER_TOOLS`) is fetched and warmed, so the
+     first tap on any tool draws it at once. Shown as a thin line under the top
+     bar; nothing at all with Save-Data on. Only where there is work: a
+     coordinator has no tools to open. */
+  const preload = useMakerPreload(hasWork);
 
   /* A role is read per stage: a new stage starts back on the host's preview. */
   useEffect(() => setViewAsRole(null), [stage]);
@@ -364,10 +371,11 @@ export function MakerShell({
       if (selection?.kind === 'tool') select(null);
       return;
     }
-    /* 🖨 Prints is Details, open on the prints (`makerPrintsDoor`) — not a page of its own. */
-    if (item.key === 'prints') {
+    /* 🖨🗂 Prints is Details, open on the prints (`makerPrintsDoor`) — not a page of its own;
+       Details opens on its own item, never a print (`makerDetailsDoor`), so the highlight moves. */
+    if (item.key === 'prints' || item.key === 'details') {
       if (hasWork) {
-        setDetailsItem(makerPrintsDoor(detailsItem));
+        setDetailsItem(makerPressDoor({ detailsItem }, item.key).detailsItem);
         select({ kind: 'tool', key: 'details' });
       }
       return;
@@ -575,6 +583,8 @@ export function MakerShell({
               {applySlot}
             </div>
           ) : null}
+          {/* ➖ The tools' download, as a thin line along the bar's foot (owner 2026-10-02). */}
+          <MakerPreloadLine progress={preload} />
         </header>
 
         {/* 👁 While the switch is on it is SAID, on every width, until stopped. */}
@@ -629,8 +639,7 @@ export function MakerShell({
 
         {tour ? (
           <MakerTour
-            storeShell={storeShell}
-            priceLabel={priceLabel}
+            slides={tourSlides}
             record={tour === 'first'}
             completeAction={completeTourAction}
             onClose={() => setTour(null)}

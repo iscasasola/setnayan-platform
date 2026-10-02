@@ -30,7 +30,6 @@ import {
   parseClientRef,
   stdMediaPolicy,
 } from '@/lib/r2-client-ref';
-import { fanOutSaveTheDateEmails } from '@/lib/save-the-date-emails';
 import { publishSaveTheDate } from '@/lib/launch-save-the-date';
 import { LOOK_PRO_REQUIRED, combineChanges, refChange, type LookChange } from '@/lib/hub-look-pro';
 import { lookProAllows } from '@/lib/hub-look-gate';
@@ -59,7 +58,7 @@ async function requireCouple(eventId: string, opts?: { secured?: boolean }) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
   // Anon-draft boundary: launching / scheduling a Save-the-Date makes the event
-  // public and emails guests — never allowed for a native anonymous principal.
+  // public — never allowed for a native anonymous principal.
   // They must "secure their plan" first. Design actions (reveal choice, dates)
   // stay open so drafting still works without an account.
   if (opts?.secured && user.is_anonymous) {
@@ -575,21 +574,17 @@ export async function launchSaveTheDate(
   // could keep serving the lock screen after launch.
   if (published.slug) revalidatePath(`/${published.slug}`);
   revalidate(eventId);
-  // Augment the shared-link "pull" model with an opt-out-able PUSH: actively
-  // email each guest who has an email address their save-the-date. Cron-free
-  // (Next 15 after() — runs after the response), best-effort (never blocks the
-  // launch or throws), and idempotent (per-guest guests.std_sent_at guards a
-  // re-launch from re-spamming). Guests WITHOUT an email are simply skipped —
-  // the shared join link stays their fallback.
-  after(() => fanOutSaveTheDateEmails(eventId).catch(() => {}));
+  // No email push to guests (owner 2026-09-29 "No email. Either use the qr and
+  // link only", extended to the save-the-date fan-out 2026-10-02): the shared
+  // link and QR are the whole delivery.
   return { ok: true };
 }
 
 /**
  * scheduleSaveTheDateLaunch — set a FUTURE go-live for the wedding website
  * (owner ask 2026-06-28). The page stays private until the moment arrives;
- * the cron-free read-time gate in app/[slug]/page.tsx flips it public + emails
- * guests on the first load past `scheduled_launch_at`. No timer, no cron.
+ * the cron-free read-time gate in app/[slug]/page.tsx flips it public on the
+ * first load past `scheduled_launch_at`. No timer, no cron.
  *
  * `localDateTime` is the couple's wall-clock pick from a <input type="datetime-
  * local"> — "YYYY-MM-DDTHH:mm". We interpret it as Asia/Manila (PH has no DST,

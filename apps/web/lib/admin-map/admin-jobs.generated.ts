@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 326 jobs, 211 of them form-driven, as of 4645759f5.
+// that performs it. 321 jobs, 206 of them form-driven, as of 67598d1952.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -660,21 +660,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "expires_at",
       "effective_from",
       "max_uses"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "createEventType",
-    "phrase": "create event type",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
-    "fields": [
-      "event_type",
-      "label_en",
-      "emoji",
-      "description",
-      "sort_order"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2211,17 +2196,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": true
   },
   {
-    "name": "retireEventType",
-    "phrase": "retire event type",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
-    "fields": [
-      "event_type"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": true
-  },
-  {
     "name": "retireEventTypeVocab",
     "phrase": "retire event type vocab",
     "ownerPath": "/admin/taxonomy",
@@ -2928,18 +2902,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "setEventTypeEnabled",
-    "phrase": "set event type enabled",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
-    "fields": [
-      "event_type",
-      "enabled"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
     "name": "setEventTypeLaunch",
     "phrase": "set event type launch",
     "ownerPath": "/admin/taxonomy",
@@ -3468,17 +3430,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "unretireEventType",
-    "phrase": "unretire event type",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
-    "fields": [
-      "event_type"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
     "name": "unretireEventTypeVocab",
     "phrase": "unretire event type vocab",
     "ownerPath": "/admin/taxonomy",
@@ -3568,23 +3519,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "expires_at",
       "effective_from",
       "max_uses"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "updateEventType",
-    "phrase": "update event type",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
-    "fields": [
-      "event_type",
-      "label_en",
-      "emoji",
-      "description",
-      "onboarding_href",
-      "hero_photo_url",
-      "sort_order"
     ],
     "refusedWhenEmpty": [],
     "destructive": false

@@ -175,7 +175,7 @@ export function MobileLandingGrid({
       <PageMasthead title={title} />
       {note ? <p className="mb-6 max-w-2xl text-sm text-ink/70">{note}</p> : null}
 
-      {searchable && !isEmpty ? <MoreSearch placeholder="Search settings & insights" /> : null}
+      {searchable && !isEmpty ? <MoreSearch placeholder="Search every admin page" /> : null}
 
       {isEmpty ? (
         <div className="m-card p-8 text-center text-sm" style={{ color: 'var(--m-slate)' }}>

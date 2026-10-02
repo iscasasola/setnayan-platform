@@ -113,7 +113,7 @@ export const ROSTER_SHOW_LABEL: Record<RosterShow, string> = {
  */
 function nextStepLabel(r: RosterRow): string {
   if (r.waitingKind === 'inquiry') return 'Reply';
-  if (r.waitingKind === 'booking_ask') return 'Answer';
+  if (r.waitingKind === 'booking_ask') return 'Agree';
   if (r.lane === 'holding') return 'Follow up';
   if (r.lane === 'talking') return 'Send a quote';
   if (r.lane === 'booked') return 'See the day';
@@ -468,7 +468,7 @@ export function CustomersRoster({
                         style={{ background: tone.bg, color: tone.fg, border: `1px solid ${tone.border}` }}
                       >
                         {r.waitingKind === 'booking_ask'
-                          ? 'Wants to book you'
+                          ? 'Asked to lock'
                           : r.waitingKind === 'inquiry'
                             ? 'Asked you something'
                             : r.lane === 'holding'

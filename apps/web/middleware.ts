@@ -15,6 +15,7 @@ import {
   resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
 import { userNestingRewritePath } from '@/lib/u-nesting';
+import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import {
   isStoreShellSignals,
   isStoreShellWebOnlyPath,
@@ -321,6 +322,17 @@ async function middlewareCore(request: NextRequest) {
       new URL(`/dashboard/${eventId}/studio${rest}${search}`, request.url),
       308,
     );
+  }
+
+  // Retired redirect-only PAGES that still forward (cleanup slice C1, 2026-10-02).
+  // Each was a `page.tsx` whose only job was `redirect(...)` — a deployed route
+  // each, against Vercel's 2,048-route cap. A middleware forward is not a route,
+  // so the page is gone and the old URL (emails, bookmarks, stored notification
+  // links, indexed URLs) still lands where the stub sent it. One map, one lookup:
+  // lib/legacy-redirects.ts. 308, like the /services and /add-ons forwards above.
+  const retiredTarget = legacyRedirectTarget(pathname);
+  if (retiredTarget) {
+    return NextResponse.redirect(new URL(retiredTarget, request.url), 308);
   }
 
   // Convenience: `setnayan.com/<event-uuid>/...` redirects to

@@ -135,12 +135,17 @@ test('fetchFirstLookConfig logs a refused read and still returns FIRSTLOOK_DEFAU
 //    `import 'server-only'` sites (cannot be imported by this test runner)
 // ---------------------------------------------------------------------------
 
-test('getAdminDemandRadar logs a refused RPC before falling back to EMPTY_RADAR', () => {
+test('getAdminDemandRadar logs a refused RPC and returns the unreadable sentinel, never EMPTY_RADAR', () => {
   const s = src('lib/demand-radar.ts');
+  // P5b (2026-10-01) made this honest too: a refused admin RPC used to fall back
+  // to EMPTY_RADAR, which renders "Not enough demand data yet" — the card a
+  // genuinely below-floor market gets. It now logs AND returns the sentinel.
   assert.match(
     s,
-    /export async function getAdminDemandRadar\([\s\S]{0,200}?if \(error\) \{\s*logQueryError\('demand-radar: demand_radar_admin', error\);\s*return EMPTY_RADAR;/,
+    /export async function getAdminDemandRadar\([\s\S]{0,260}?if \(error\) \{\s*logQueryError\('demand-radar: demand_radar_admin', error\);[\s\S]{0,260}?return DEMAND_RADAR_UNREADABLE;/,
   );
+  const adminBody = s.slice(s.indexOf('export async function getAdminDemandRadar'), s.indexOf('// Cron-free recompute'));
+  assert.doesNotMatch(adminBody, /if \(error[^)]*\)[^{;]*return EMPTY_RADAR;/);
   // The vendor-facing sibling was out of scope for THIS batch and pinned as
   // "unchanged" — then S41c batch B (#5699) deliberately made it honest: a
   // refused RPC now logs AND returns DEMAND_RADAR_UNREADABLE instead of

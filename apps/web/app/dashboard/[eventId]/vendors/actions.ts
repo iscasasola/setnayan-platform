@@ -35,7 +35,6 @@ import {
   type VendorCategory,
   type VendorStatus,
 } from '@/lib/vendors';
-import { primaryTileForVendorCategory } from '@/lib/vendor-category-taxonomy';
 import {
   HARD_SINGLE_PICK_GROUPS,
   planGroupForCategory,
@@ -105,7 +104,7 @@ import {
 import { isCoordinatorProposeLockEnabled } from '@/lib/coordinator-propose-lock';
 import { coordinatorMoneyScopeAllowed } from '@/lib/coordinator-money-scope';
 import { isCoordinatorConsentGateEnabled } from '@/lib/coordinator-consent-gate';
-import { checkManualVenueAddress, manualVendorNeedsAddress } from '@/lib/manual-venue-address';
+import { checkManualVenueAddress } from '@/lib/manual-venue-address';
 import { saveSelfAddedServiceCard, updateHostServiceDetails } from './[vendorId]/workspace/actions';
 import { saveSelfAddedPaymentPlan } from './[vendorId]/workspace/payment-plan-actions';
 import {
@@ -155,55 +154,12 @@ function nullIfBlank(raw: FormDataEntryValue | null): string | null {
   return t.length > 0 ? t : null;
 }
 
-export async function createVendor(formData: FormData) {
-  const eventId = formData.get('event_id');
-  const name = formData.get('vendor_name');
-  const category = formData.get('category');
-
-  if (typeof eventId !== 'string' || typeof name !== 'string' || !isValidCategory(category)) {
-    throw new Error('Invalid input');
-  }
-  const trimmedName = name.trim();
-  if (trimmedName.length === 0 || trimmedName.length > 128) {
-    throw new Error('Vendor name must be 1–128 chars');
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-
-  // Stamp source='host_manual' so the UI can distinguish picks the host
-  // added themselves from picks that were auto-cascaded by finalizeVendor.
-  // Legacy rows stay NULL via the column default — UI treats both
-  // 'host_manual' and NULL the same (no badge).
-  const { error } = await supabase.from('event_vendors').insert({
-    event_id: eventId,
-    category,
-    // Dual-write the taxonomy-keyed column alongside the legacy enum (PR-2 of
-    // the enum→key migration, col added in 20260815000000). Nothing reads it
-    // yet — safe expand-phase; primary tile, or null for exempt categories.
-    category_key: primaryTileForVendorCategory(category),
-    vendor_name: trimmedName,
-    contact_email: nullIfBlank(formData.get('contact_email')),
-    contact_phone: nullIfBlank(formData.get('contact_phone')),
-    total_cost_php: parseMoney(formData.get('total_cost_php')),
-    deposit_paid_php: parseMoney(formData.get('deposit_paid_php')),
-    notes: nullIfBlank(formData.get('notes')),
-    source: 'host_manual',
-  });
-  if (error) throw new Error(error.message);
-
-  revalidatePath(`/dashboard/${eventId}/vendors`, 'layout');
-}
-
 // ============================================================================
 // 3-line cost edit (CLAUDE.md 2026-05-31): Service + Transport + Food allowance.
 // The couple edits all three together in the vendor workspace Costing section;
 // the accordion then rolls them into the card/topbar total via
 // buildPlanBudgetModel. Blank field → null (₱0). RLS scopes the update to the
-// couple's own event; same auth + parseMoney pattern as createVendor.
+// couple's own event; same auth + parseMoney pattern as the (since-removed) createVendor.
 // ============================================================================
 
 export async function updateVendorCosts(formData: FormData) {
@@ -326,7 +282,7 @@ export async function updateVendorCosts(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/vendors/${vendorId}/workspace`, 'layout');
 }
 
-export async function updateVendorStatus(formData: FormData) {
+async function updateVendorStatus(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   const status = formData.get('status');
@@ -3402,7 +3358,7 @@ function readStringField(
  * fields (business_name, contact_person, contact_number, optional photo).
  *
  * Photo upload is OPTIONAL — host can skip it at create-time and add
- * later via updateManualVendor. When present, the photo runs through
+ * later by editing the contact. When present, the photo runs through
  * uploadPublicAsset which (a) validates MIME + size, (b) falls back to
  * Supabase Storage if R2 env vars are unset (dev / preview env), (c)
  * returns an R2 object key we persist to photo_r2_key.
@@ -3411,7 +3367,7 @@ function readStringField(
  * "+ Add new" modal) can pipe it into attachManualVendorToCategory
  * without a roundtrip.
  */
-export async function createManualVendor(
+async function createManualVendor(
   formData: FormData,
 ): Promise<ManualVendorResult> {
   const eventIdRaw = formData.get('event_id');
@@ -3499,130 +3455,6 @@ export async function createManualVendor(
 }
 
 /**
- * Updates an existing manual vendor's 4 fields. Edit-once-propagates:
- * because every linked event_vendors row reads the contact info via the
- * manual_vendor_id join, updating here flows to all attached categories
- * automatically.
- *
- * Photo handling is dual-mode:
- *   - When the form sends a new File (size > 0), we upload + replace the
- *     stored r2_key. We do NOT delete the prior R2 object — keep the
- *     history for cheap rollback. Storage cost on R2 is small enough
- *     that V1 doesn't need a vacuum job.
- *   - When the form carries an empty File OR no `photo` entry, we leave
- *     the existing photo_r2_key untouched (host edited name only).
- *   - When the form carries `remove_photo=1` (explicit clear), we null
- *     the column. The orphaned R2 object stays — same rationale.
- */
-export async function updateManualVendor(
-  formData: FormData,
-): Promise<ManualVendorResult> {
-  const manualVendorIdRaw = formData.get('manual_vendor_id');
-  if (typeof manualVendorIdRaw !== 'string' || manualVendorIdRaw.length === 0) {
-    return { status: 'error', message: 'Missing manual vendor id' };
-  }
-
-  const businessName = readStringField(formData, 'business_name', 128);
-  if (!businessName.ok) return { status: 'error', message: businessName.message };
-  const contactPerson = readStringField(formData, 'contact_person', 128);
-  if (!contactPerson.ok) return { status: 'error', message: contactPerson.message };
-  const contactNumber = readStringField(formData, 'contact_number', 32);
-  if (!contactNumber.ok) return { status: 'error', message: contactNumber.message };
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return { status: 'not_signed_in' };
-  }
-
-  // Read existing row to scope path-prefix on the photo upload (we
-  // re-use the same {event_id} prefix so per-event photo grouping
-  // stays stable across edits).
-  const { data: existing, error: readErr } = await supabase
-    .from('event_manual_vendors')
-    .select('event_id, photo_r2_key')
-    .eq('manual_vendor_id', manualVendorIdRaw)
-    .maybeSingle();
-  if (readErr) {
-    return { status: 'error', message: readErr.message };
-  }
-  if (!existing) {
-    return { status: 'error', message: 'Manual vendor not found' };
-  }
-
-  // ── The address gate on the EDIT path (owner 2026-09-20) ──────────────────
-  // One manual contact can be attached to several categories, so "does this
-  // row owe an address" is not answerable from the row: it is answerable from
-  // the categories currently attached to it. If ANY of them is a place —
-  // reception or ceremony venue — the address is owed, because clearing it
-  // would blank the map pin and the supplier brief for a booked venue.
-  //
-  // ⚠ Read through the couple's own RLS client, so this cannot report
-  // categories on an event the editor does not hold. A read ERROR is not an
-  // absence: it fails CLOSED onto the rule the caller passed, rather than
-  // silently deciding no address is owed.
-  const { data: attachedRows, error: attachedErr } = await supabase
-    .from('event_vendors')
-    .select('category')
-    .eq('manual_vendor_id', manualVendorIdRaw)
-    .is('archived_at', null);
-  if (attachedErr) {
-    return { status: 'error', message: attachedErr.message };
-  }
-  const attachedCategories = (attachedRows ?? []).map((r) => (r as { category: string | null }).category);
-  const gateCategory =
-    attachedCategories.find((c) => manualVendorNeedsAddress(c)) ??
-    (typeof formData.get('category') === 'string' ? (formData.get('category') as string) : null);
-  const address = checkManualVenueAddress(gateCategory, formData.get('address'));
-  if (!address.ok) {
-    return { status: 'error', message: address.message };
-  }
-
-  let nextPhotoR2Key: string | null | undefined = undefined;
-  const removePhotoFlag = formData.get('remove_photo');
-  if (removePhotoFlag === '1' || removePhotoFlag === 'true') {
-    nextPhotoR2Key = null;
-  } else {
-    const photoEntry = formData.get('photo');
-    if (photoEntry instanceof File && photoEntry.size > 0) {
-      const uploadResult = await uploadPublicAsset({
-        pathPrefix: `${PHOTO_PATH_PREFIX}/${existing.event_id}`,
-        file: photoEntry,
-      });
-      if (!uploadResult.ok) {
-        return { status: 'error', message: uploadResult.error };
-      }
-      nextPhotoR2Key = uploadResult.key;
-    }
-  }
-
-  const update: Record<string, unknown> = {
-    business_name: businessName.value,
-    contact_person: contactPerson.value,
-    contact_number: contactNumber.value,
-    address: address.value,
-    updated_at: new Date().toISOString(),
-  };
-  if (nextPhotoR2Key !== undefined) {
-    update.photo_r2_key = nextPhotoR2Key;
-  }
-
-  const { error: updateErr } = await supabase
-    .from('event_manual_vendors')
-    .update(update)
-    .eq('manual_vendor_id', manualVendorIdRaw);
-  if (updateErr) {
-    return { status: 'error', message: updateErr.message };
-  }
-
-  revalidatePath(`/dashboard/${existing.event_id}`, 'layout');
-  revalidatePath(`/dashboard/${existing.event_id}/vendors`, 'layout');
-  return { status: 'ok', manualVendorId: manualVendorIdRaw };
-}
-
-/**
  * Hard-deletes a manual vendor row. Per the FK ON DELETE SET NULL on
  * event_vendors.manual_vendor_id, every linked event_vendors row
  * survives with its manual_vendor_id zeroed out — the host's saved
@@ -3693,7 +3525,7 @@ async function deleteManualVendor(
  * already-attached for THIS category), but the server stays permissive
  * so concurrent inserts from multi-host events don't fail.
  */
-export async function attachManualVendorToCategory(
+async function attachManualVendorToCategory(
   formData: FormData,
 ): Promise<AttachManualVendorResult> {
   const eventIdRaw = formData.get('event_id');

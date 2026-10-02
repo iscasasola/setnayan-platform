@@ -120,7 +120,7 @@ export async function CockpitSurface({ searchParams }: Props) {
   const entityCards = (
     [
       ['customers', 'New users'],
-      ['vendors', 'New vendors'],
+      ['vendors', 'New suppliers'],
       ['services', 'New services'],
       ['events', 'New events'],
     ] as const
@@ -282,7 +282,7 @@ export async function CockpitSurface({ searchParams }: Props) {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
           <ContextTile label="Users" value={nf.format(growth.population.accountHolders)} />
           <ContextTile
-            label="Vendors"
+            label="Suppliers"
             value={nf.format(growth.population.vendors)}
             sub={`${nf.format(growth.population.vendorsPublished)} published`}
           />
@@ -297,8 +297,8 @@ export async function CockpitSurface({ searchParams }: Props) {
             value={nf.format(perf.editorials.total)}
             sub={`${nf.format(perf.editorials.published)} published`}
           />
-          <ContextTile label="Uptime" value="—" sub="needs probe history" muted />
-          <ContextTile label="Error rate" value="—" sub="needs Sentry API" muted />
+          <ContextTile label="Uptime" value="—" sub="not measured yet" muted />
+          <ContextTile label="Error rate" value="—" sub="not measured yet" muted />
         </div>
       </section>
 
@@ -412,7 +412,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard
             title="Completed services"
             pill="live"
-            source="event_vendors.completion_status ∈ confirmed · auto_confirmed"
+            source="Services both sides confirmed, or that confirmed on their own"
           >
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
               <p
@@ -448,7 +448,7 @@ export async function CockpitSurface({ searchParams }: Props) {
           <ChartCard
             title="First-pick rate"
             pill="live"
-            source="event_vendors.selection_match_rank = 1 ÷ ranked bookings"
+            source="Bookings that matched the first pick ÷ ranked bookings"
           >
             {perf.firstPick.rate === null ? (
               <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>

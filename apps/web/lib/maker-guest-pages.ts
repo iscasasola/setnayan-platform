@@ -68,14 +68,18 @@ export const ME_NOT_ON_CANVAS = {
     'Each guest’s Me holds their name, their own QR and the guests they bring — made from your guest list, so every guest sees their own. It can’t be shown on this canvas yet; the canvas stays where it was.',
 } as const;
 
-/** The bar a guest holding their key sees on this stage once they have answered. */
-export function guestBarForStage(stage: LifecyclePhase) {
+/**
+ * The bar a guest holding their key sees on this stage once they have answered.
+ * `hasStory` — whether this event draws a story at all (a birthday has no "Our
+ * Love Story" page: `resolveWeddingOnlyParts` love_story, read by the scene list).
+ */
+export function guestBarForStage(stage: LifecyclePhase, hasStory = true) {
   return resolveSiteNav({
     viewer: { kind: 'guest' },
     phase: STAGE_NAV_PHASE[stage],
     hostAllowsCamera: true,
     anyChapterPublic: true,
-    hasStory: true,
+    hasStory,
     hasDetails: true,
     hasSchedule: true,
     hasWelcome: true,
@@ -87,9 +91,17 @@ export function guestBarForStage(stage: LifecyclePhase) {
   });
 }
 
-/** The pages this stage's guest bar offers, each with the scenes under it. */
-export function makerGuestPages(stage: LifecyclePhase, tileKeysInPageOrder: readonly string[]): MakerGuestPage[] {
-  const bar = guestBarForStage(stage);
+/**
+ * The pages this stage's guest bar offers, each with the scenes under it.
+ * `hasStory` false (a type with no two people — `MakerNavigatorData.hasStory`)
+ * drops "Our Love Story" from Page ▾, as it is dropped from the guest's bar.
+ */
+export function makerGuestPages(
+  stage: LifecyclePhase,
+  tileKeysInPageOrder: readonly string[],
+  hasStory = true,
+): MakerGuestPage[] {
+  const bar = guestBarForStage(stage, hasStory);
   const tabs = navigatorTabs(
     bar.map(({ key, label, href, state }) => ({ key, label, href, state })),
     tileKeysInPageOrder,

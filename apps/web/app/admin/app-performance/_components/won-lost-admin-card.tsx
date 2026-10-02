@@ -35,14 +35,14 @@ export function WonLostAdminCard({ overview }: { overview: AdminOutcomeOverview 
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="m-label-mono" style={{ color: 'var(--m-slate-2)' }}>
-            Vendor inquiry outcomes
+            Supplier inquiry outcomes
           </p>
           <h2 className="m-display-tight mt-1 text-2xl" style={{ color: 'var(--m-ink)' }}>
             Won &amp; lost reasons
           </h2>
           <p className="mt-1 max-w-prose text-sm" style={{ color: 'var(--m-slate)' }}>
-            What vendors say happens to their inquiries — and why. Self-reported,
-            so &ldquo;won&rdquo; is a vendor signal (they settle off-platform), not a
+            What suppliers say happens to their inquiries — and why. Self-reported,
+            so &ldquo;won&rdquo; is a supplier signal (they settle off-platform), not a
             verified payment.
           </p>
         </div>
@@ -57,7 +57,7 @@ export function WonLostAdminCard({ overview }: { overview: AdminOutcomeOverview 
           <Metric key={key} label={META[key].label} value={nf.format(totals[key])} />
         ))}
         <Metric
-          label="Reporting vendors"
+          label="Reporting suppliers"
           value={nf.format(totals.reporting_vendors)}
           sub={`${nf.format(totals.total)} outcomes logged`}
           emphasis
@@ -101,7 +101,7 @@ export function WonLostAdminCard({ overview }: { overview: AdminOutcomeOverview 
         </div>
       ) : (
         <p className="mt-5 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-4 text-center text-sm text-ink/55">
-          No outcomes logged yet — vendors appear here once they mark an inquiry
+          No outcomes logged yet — suppliers appear here once they mark an inquiry
           won, lost, or no-response from their Messages.
         </p>
       )}

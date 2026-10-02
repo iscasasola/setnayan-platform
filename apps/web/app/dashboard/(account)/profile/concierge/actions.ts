@@ -208,7 +208,7 @@ async function cancelConcierge(formData: FormData): Promise<void> {
  * Idempotent: re-running on an event already in 'trial' returns
  * `already_active` (no double-stamp).
  */
-export async function startConciergeTrial(input: { eventId: string }): Promise<{
+async function startConciergeTrial(input: { eventId: string }): Promise<{
   status:
     | 'started'
     | 'already_used'

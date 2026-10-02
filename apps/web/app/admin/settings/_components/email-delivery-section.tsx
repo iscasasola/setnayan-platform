@@ -113,7 +113,7 @@ export async function EmailDeliverySection() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-ink">{r.subject}</p>
                     <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-ink/50">
-                      {r.recipient_masked} · {r.kind} · {relativeTime(r.created_at)}
+                      {r.recipient_masked} · {String(r.kind).replace(/_/g, ' ')} · {relativeTime(r.created_at)}
                       {r.last_event && VERDICT_LABEL[v].toLowerCase() !== r.last_event ? ` · resend: ${r.last_event}` : ''}
                     </p>
                     {r.error && v !== 'delivered' ? (

@@ -79,7 +79,7 @@ test('🔑 every column the entourage renders from is named in ONE place, and bo
   const columns = m![1]!;
   for (const column of [
     'guest_id',
-    'pair_with_guest_id',
+    'march:march_walks(walk_no, place_in_walk)',
     'display_name',
     'name_prefix',
     'first_name',

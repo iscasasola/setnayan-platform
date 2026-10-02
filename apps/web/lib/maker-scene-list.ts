@@ -27,6 +27,7 @@
  *
  * Pure: no React, no DB, no cookies — the unit suite runs it directly.
  */
+import { HUB_SETUP_LOCKED_SCENES, lockedLine } from '@/lib/hub-setup-locks';
 import { resolveSiteBodyPlan } from './site-body-plan';
 import {
   WIDGET_PHASES,
@@ -309,7 +310,14 @@ const ALWAYS_ON_GUEST_ONLY: readonly WidgetType[] = ['greeting', 'qr_card', 'rsv
  * see an empty scene (`guestView`, #6009); "Not shown" is only for scenes the
  * couple chose to hide, or that this stage leaves out.
  */
-export function makerEmptyPrompt(type: WidgetType): string {
+export function makerEmptyPrompt(type: WidgetType, setupLocks = false): string {
+  /* 🔓 A part the Event Hub setup unlocks (owner-approved 2026-10-01, "Each B
+     step names what it unlocks; the Hub/Maker show 'Locked — finish ___' until
+     then") — filled in, never a paywall. ONLY where the setup exists
+     (`setupLocks` = `hubSetupApplies`): elsewhere there is no step to finish,
+     so the scene keeps its own prompt. */
+  const setup = setupLocks ? (HUB_SETUP_LOCKED_SCENES as Partial<Record<string, string>>)[type] : undefined;
+  if (setup) return `${lockedLine(setup)}.`;
   const reason = EMPTY_REASON[type];
   if (reason) return reason.replace(/^Empty — /, '').replace(/^./, (c) => c.toUpperCase());
   if (isCustomSectionType(type)) return 'Write this scene.';
@@ -360,6 +368,8 @@ export type MakerStageInput = {
   storyRenders: boolean;
   /** The countdown retires once the day arrives. */
   countdownPast?: boolean;
+  /** 🔓 The event's type draws "Finish your Event Hub" (`hubSetupApplies`) — its empty parts read "Locked — finish ___". */
+  setupLocks?: boolean;
   /**
    * 🎨 List the day's own parts (`MAKER_DAY_PARTS`) — true from the Maker, whose
    * canvas draws their stand-ins in the same place. Absent = not listed.
@@ -444,10 +454,15 @@ function whyNotDrawn(w: InvitationWidgetRow, input: MakerStageInput): string | n
       // ALL" (2), `public-hideable-widget.tsx`); empty → the Maker's placeholder.
       void live;
       return null;
+    case 'our_love_story':
+      // 📖 A love story asks how TWO people met (`resolveWeddingOnlyParts`
+      // love_story). A birthday, a wake, a corporate event has no answer, so the
+      // scene is not part of it at all — never an "Empty — add your story."
+      if (input.weddingOnlyParts?.love_story === false) return NOT_THIS_TYPE;
+      return null;
     case 'special_message':
     case 'what_to_bring':
     case 'our_photos':
-    case 'our_love_story':
     case 'venue_map':
       // Empty → drawn in the Maker as a placeholder (`emptyOf`), never folded.
       return null;
@@ -462,10 +477,13 @@ function whyNotDrawn(w: InvitationWidgetRow, input: MakerStageInput): string | n
   }
 }
 
+/** The reason a scene this event TYPE never has is left out — dropped from the fold too. */
+const NOT_THIS_TYPE = 'Not part of this kind of event.';
+
 /** The prompt an empty scene wears in the Maker, or undefined when it has content. */
 function emptyOf(w: InvitationWidgetRow, input: MakerStageInput): string | undefined {
   if (!makerDrawsEmpty(w.widget_type)) return undefined;
-  return input.content[w.widget_type] === false ? makerEmptyPrompt(w.widget_type) : undefined;
+  return input.content[w.widget_type] === false ? makerEmptyPrompt(w.widget_type, input.setupLocks === true) : undefined;
 }
 
 /**
@@ -584,7 +602,12 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
   if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage)) shown.push(fixed(k));
   // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the
   // "Our love story" scene on the page, the prose section is not drawn.
-  if (input.storyRenders && !drawable.some((w) => w.widget_type === 'our_love_story')) shown.push(fixed('story'));
+  if (
+    input.storyRenders &&
+    input.weddingOnlyParts?.love_story !== false &&
+    !drawable.some((w) => w.widget_type === 'our_love_story')
+  )
+    shown.push(fixed('story'));
 
   // ── The fold: every other section, with the reason this stage leaves it out.
   const folded: MakerFolded[] = [];
@@ -603,6 +626,8 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     else if (openBrowse && !isTerminalRenderable(resolveWidgetTerminalState(t, stage))) reason = 'Retired after the day.';
     else if (openBrowse && w.audience === 'guests_only') reason = 'Only for invited guests (set to guests only).';
     else reason = whyNotDrawn(w, input) ?? 'Not drawn on this stage.';
+    // A scene this event type never has is not "folded" — it is not there.
+    if (reason === NOT_THIS_TYPE) continue;
     folded.push({ key: `w:${t}`, widgetId: w.widget_id, type: t, label: makerSceneLabel(t), reason, hiddenByCouple: !visible });
   }
   const listedGuestScene: Partial<Record<WidgetType, boolean>> = {

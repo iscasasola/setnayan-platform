@@ -29,7 +29,7 @@
  *
  * PURE — no I/O and no `server-only`, so the rules above are tested directly.
  */
-import { Images, type LucideIcon } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
 import type { EventMenuChild, EventMenuIconName } from './customer-menu';
 
@@ -72,7 +72,7 @@ type CatalogueService = {
   key: string;
   name: string;
   line: string;
-  /** Catalogue keys, first offered one wins (Live Studio's two tiles). */
+  /** Catalogue keys, first offered one wins (Live Watch's two tiles). */
   addOnKeys: readonly string[];
   /**
    * A catalogue tool that lives UNDER this card (owner "yes to all 4",
@@ -85,9 +85,9 @@ type CatalogueService = {
 
 /**
  * The catalogue services, in the owner's order (2026-09-30: *"Setnayan AI,
- * Papic, Live Studio, Music Maker, then Patiktok"*). Gallery is a part of Papic
- * (not a catalogue entry — see `galleryPart`); it stands as its own card, in
- * Papic's place, only where there is no Papic card, so it is never unreachable.
+ * Papic, Live Watch, Music Maker, then Patiktok"*). Gallery is a part of Papic
+ * (not a catalogue entry — see `galleryPart`); it is never a card or a More item
+ * of its own (owner 2026-10-02 — it lives in the Event Hub and in Memories).
  *
  * `pakanta` is the catalogue KEY for Music Maker (DECISION_LOG 2026-09-29
  * "PAKANTA IS RENAMED MUSIC MAKER": identifiers stay, words change).
@@ -111,7 +111,7 @@ const SERVICES: readonly CatalogueService[] = [
   },
   {
     key: 'live-studio',
-    name: 'Live Studio',
+    name: 'Live Watch',
     line: 'Your day, streamed live',
     // Exactly one of these passes `addOnOfferedForEvent` (the livestream
     // de-dupe lives there): the unified tile when its flag is on, else Cast.
@@ -189,8 +189,6 @@ export type OurServicesInput = {
   /** The store shell refuses this path (`isStoreShellWebOnlyPath`). */
   refusesPath: (path: string) => boolean;
 };
-
-const GALLERY_GRADIENT = 'linear-gradient(135deg, #1E2A24 0%, #35503F 55%, #6E8B6A 100%)';
 
 function partFor(svc: CatalogueService, input: OurServicesInput): OurServicePart[] {
   const parts: OurServicePart[] = [];
@@ -280,33 +278,13 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
   return { ...base, href: open, inertReason: null, state: 'unpriced', stateText: 'See the price', pro: true };
 }
 
-/** The Gallery as its own card — drawn ONLY where there is no Papic card to
- *  carry it (see `buildOurServices`). Editorial is no part of it any more: it
- *  lives in the Maker's Post Event (owner 2026-09-30). */
-function galleryCard(input: OurServicesInput): OurService | null {
-  const part = galleryPart(input);
-  if (!part) return null;
-  return {
-    key: 'gallery',
-    name: 'Gallery',
-    line: GALLERY_LINE,
-    href: part.href,
-    inertReason: null,
-    state: 'free',
-    stateText: 'Included',
-    pro: false,
-    Icon: Images,
-    gradient: GALLERY_GRADIENT,
-    parts: [],
-  };
-}
-
 /** The cards for one event, in the owner's order, minus any not offered. */
 export function buildOurServices(input: OurServicesInput): OurService[] {
-  const cards = SERVICES.map((s) =>
-    // No Papic card here → the Gallery stands in Papic's place on its own.
-    s.key === 'papic' ? (catalogueCard(s, input) ?? galleryCard(input)) : catalogueCard(s, input),
-  );
+  // 📵 The Gallery is NOT a More item (owner 2026-10-02, "FIVE AUDIT QUESTIONS
+  // ANSWERED" #4: "gallery lives in event hub. and on memories") — so it never
+  // stands as its own card here, not even where there is no Papic card. The
+  // More sheet / rail children are exactly these cards, so the five stay five.
+  const cards = SERVICES.map((s) => catalogueCard(s, input));
   return cards.filter((c): c is OurService => c != null);
 }
 
@@ -318,7 +296,6 @@ const MENU_ICON: Readonly<Record<string, EventMenuIconName>> = {
   'live-studio': 'live',
   'music-maker': 'pakanta',
   patiktok: 'patiktok',
-  gallery: 'galleries',
 };
 
 /**
@@ -368,14 +345,14 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   // Team; Schedule and the Mood Board are Details items of the Maker.
   guests: { home: 'the Guest list menu row' },
   budget: { home: 'Your Team — its Budget part' },
-  schedule: { home: 'the Event Hub Maker — Details › Schedule', needsWebsite: true },
+  schedule: { home: 'the Event Hub Maker — Your info › Schedule', needsWebsite: true },
   checklist: { home: 'Overview — "View your full checklist"' },
   compare: { home: 'Your Team — its Compare tab' },
   // Catalogue tools.
-  'mood-board': { home: 'the Event Hub Maker — Details › Mood Board', needsWebsite: true },
+  'mood-board': { home: 'the Event Hub Maker — Your info › Mood Board', needsWebsite: true },
   // Train n (2026-09-29): the Seat plan row left the menu — its home is
   // Details › Your event › Seat plan, and its old page lands there.
-  seating: { home: 'the Event Hub Maker — Details › Your event › Seat plan', needsWebsite: true },
+  seating: { home: 'the Event Hub Maker — Your info › Your event › Seat plan', needsWebsite: true },
   'landing-page': { home: 'the Event Hub Maker menu row', needsWebsite: true },
   'save-the-date': { home: 'the Event Hub Maker — Save the Date', needsWebsite: true },
   rsvp: { home: 'the Event Hub Maker — the invitation editor', needsWebsite: true },
@@ -383,10 +360,10 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   // 🗺 Owner-approved 2026-09-29: "it's the same room" — the Indoor Blueprint is
   // a piece of Details › Seat plan (the shipped studio, drawn in its right part);
   // its old address lands there for the couple of an Event Hub event.
-  'indoor-blueprint': { home: "the Event Hub Maker — Details › Seat plan › Guests' map", needsWebsite: true },
+  'indoor-blueprint': { home: "the Event Hub Maker — Your info › Seat plan › Guests' map", needsWebsite: true },
   // 📅 Details › Date draws the date finder beside the date row
   // (`details-date-finder.tsx`, owner 2026-09-29 "THE DATE FINDER LIVES IN STEP 2").
-  'find-date': { home: 'the Event Hub Maker — Details › Date', needsWebsite: true },
+  'find-date': { home: 'the Event Hub Maker — Your info › Date', needsWebsite: true },
 };
 
 /** Has this tool (a catalogue key or a free-tool key) gone home for this event? */

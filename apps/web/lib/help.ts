@@ -465,7 +465,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'payment-instructions',
         title: 'How payments work',
-        body: 'Once your order is quoted, the order detail page shows payment instructions. Send the amount via BDO or GCash (merchant details emailed once your order is confirmed). Always include the reference code in transfer notes so we can match it automatically. Then log the payment on the same order page with the bank reference + a screenshot URL.',
+        body: 'Once your order is quoted, the order detail page shows payment instructions. Send the amount to one of our receiving accounts, from any bank or e-wallet app (the account names and QR are on the order page). Always include the reference code in transfer notes so we can match it automatically. Then log the payment on the same order page with the bank reference + a screenshot URL.',
       },
       {
         slug: 'reference-code',
@@ -510,7 +510,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'rsvp-from-link',
         title: 'How to RSVP',
-        body: "Tap the RSVP button on your personal page. Pick Yes, No, or Maybe. If your invite allows a plus-one, add their name. You can change your answer up to the couple's RSVP cutoff (usually 1-2 weeks before).",
+        body: "Tap the RSVP button on your personal page. Pick Yes or No. If your invite allows a plus-one, add their name. You can change your answer up to the couple's RSVP cutoff (usually 1-2 weeks before).",
       },
       {
         slug: 'meal-preference',

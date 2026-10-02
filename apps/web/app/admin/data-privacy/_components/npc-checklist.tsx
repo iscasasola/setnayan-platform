@@ -3,7 +3,7 @@ import { CheckCircle2, Clock, Gavel, MinusCircle, Circle, AlertTriangle, ArrowRi
 import { createAdminClient } from '@/lib/supabase/admin';
 import { relativeTime } from '@/lib/activity';
 import {
-  fetchNpcFilingTasks,
+  fetchNpcFilingTasksMeasured,
   isFilingCounselGated,
   NPC_TIER_LABEL,
   NPC_TASK_STATUS_LABEL,
@@ -13,6 +13,7 @@ import {
 } from '@/lib/npc-filing-tasks';
 import { TaskActions } from './task-actions';
 import { formatCount } from '@/lib/format-number';
+import { ReadFailed } from '../../_components/read-failed';
 
 /**
  * NPC pre-filing checklist — the "checklist" tab of the compliance hub.
@@ -34,7 +35,10 @@ const STATUS_ICON: Record<NpcTaskStatus, typeof CheckCircle2> = {
 
 export async function NpcChecklist() {
   const admin = createAdminClient();
-  const tasks = await fetchNpcFilingTasks(admin);
+  const { ok: tasksOk, tasks } = await fetchNpcFilingTasksMeasured(admin);
+  // Every task is the catalog default when the read failed — "0 of N worked down"
+  // and a task list with no progress would be a measurement nobody took.
+  if (!tasksOk) return <ReadFailed what="the filing checklist" />;
   const total = tasks.length;
   const resolved = tasks.filter((t) => t.status === 'resolved').length;
   const naCount = tasks.filter((t) => t.status === 'not_applicable').length;

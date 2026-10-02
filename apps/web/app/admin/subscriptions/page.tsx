@@ -176,7 +176,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
           }
         />
         <p className="max-w-prose text-sm text-ink/70">
-          Vendors upgrade to Pro / Enterprise apply-then-pay: they pay our BDO /
+          Suppliers upgrade to Pro / Enterprise apply-then-pay: they pay our BDO /
           GCash account with the reference code, then you confirm here. Confirming
           activates the plan and nothing else — it is safe to press twice, a
           repeat is a no-op.
@@ -200,7 +200,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
       {search.done === 'approved_deferred' && (
         <div className="mb-6 rounded-md border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-900">
           ✓ Payment confirmed. This is a downgrade, so nothing changes yet — the
-          new plan starts when the vendor&rsquo;s current plan runs out.
+          new plan starts when the supplier&rsquo;s current plan runs out.
         </div>
       )}
       {search.done === 'rejected' && (
@@ -229,7 +229,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
         ) : pending.length === 0 ? (
           <p className="rounded-md border border-ink/10 bg-paper px-4 py-6 text-center text-sm text-ink/55">
             No pending subscription orders. New upgrades show up here the moment a
-            vendor starts one.
+            supplier starts one.
           </p>
         ) : (
           <ul className="space-y-4">
@@ -244,7 +244,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-ink">
-                        {v?.business_name ?? 'Unknown vendor'}
+                        {v?.business_name ?? 'Unknown supplier'}
                       </p>
                       <p className="mt-0.5 font-mono text-[11px] text-ink/50">
                         {v?.public_id ?? p.vendor_id}
@@ -330,7 +330,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm text-ink">
-                      {v?.business_name ?? 'Unknown vendor'}
+                      {v?.business_name ?? 'Unknown supplier'}
                       <span className="ml-2 font-mono text-[10px] text-ink/40">
                         {p.reference_code}
                       </span>
@@ -348,7 +348,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                           : 'bg-ink/5 text-ink/55')
                       }
                     >
-                      {paid ? `${tier} · ${p.billing_cycle ?? '—'}` : p.status}
+                      {paid ? `${tier} · ${p.billing_cycle ?? '—'}` : String(p.status).replace(/_/g, ' ')}
                     </span>
                     <p className="mt-0.5 text-[11px] text-ink/45">
                       {fmtDate(p.paid_at ?? p.created_at)}

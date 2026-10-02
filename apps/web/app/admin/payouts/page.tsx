@@ -18,7 +18,7 @@ import { releasePayoutHoldAction } from '@/app/admin/payments/actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
-export const metadata = { title: 'Vendor payouts · Admin' };
+export const metadata = { title: 'Supplier payouts · Admin' };
 
 type FilterKey = 'pending' | 'paid' | 'on_hold' | 'all';
 type StageFilter = PayoutStage | 'all';
@@ -120,11 +120,43 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
     query = query.eq('on_hold', true);
   }
   if (stage !== 'all') query = query.eq('payout_stage', stage);
-  if (vendor) query = query.eq('vendor_profile_id', vendor);
+  // The supplier box takes a NAME as well as an ID: nobody keeps a UUID in their
+  // head. A name is resolved to the matching shops first; an ID passes straight
+  // through. 🔑 A name that matches nothing is "no supplier named …", which is
+  // not the same as "that supplier has no payouts" — and a lookup that failed is
+  // neither, so each is said separately below.
+  let supplierNote: string | null = null;
+  let supplierLookupFailed = false;
+  if (vendor) {
+    if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(vendor)) {
+      query = query.eq('vendor_profile_id', vendor);
+    } else {
+      const { data: named, error: namedErr } = await admin
+        .from('vendor_profiles')
+        .select('vendor_profile_id')
+        .ilike('business_name', `%${vendor.replace(/[%_,()]/g, ' ').trim()}%`)
+        .limit(50);
+      if (namedErr) {
+        logQueryError('AdminPayoutsPage (supplier name lookup)', namedErr);
+        supplierLookupFailed = true;
+      } else if (!named || named.length === 0) {
+        supplierNote = `No supplier is named “${vendor}”.`;
+        query = query.eq('vendor_profile_id', '00000000-0000-0000-0000-000000000000');
+      } else {
+        query = query.in(
+          'vendor_profile_id',
+          named.map((n) => n.vendor_profile_id as string),
+        );
+      }
+    }
+  }
   if (from) query = query.gte('scheduled_at', from);
   if (to) query = query.lte('scheduled_at', to);
 
-  const { data, error } = await query;
+  const { data, error: payoutsError } = supplierLookupFailed
+    ? { data: null, error: { message: 'supplier lookup failed' } }
+    : await query;
+  const error = payoutsError;
   if (error) {
     logQueryError('AdminPayoutsPage (vendor_payouts)', error);
   }
@@ -144,7 +176,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
-        title="Vendor payouts"
+        title="Supplier payouts"
       />
 
       <FlashBanner flash={search.flash} error={search.error} />
@@ -153,23 +185,23 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
         <Stat
           icon={<Clock3 className="h-4 w-4" />}
           label="Pending (filtered)"
-          value={formatCentavosPhp(pendingTotal)}
+          value={error ? '—' : formatCentavosPhp(pendingTotal)}
           tone="bg-warn-100 text-warn-800"
-          help={`${rows.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
+          help={error ? 'couldn’t read' : `${rows.filter((r) => !r.paid_at && !r.on_hold).length} stage(s)`}
         />
         <Stat
           icon={<CheckCircle2 className="h-4 w-4" />}
           label="Paid (filtered)"
-          value={formatCentavosPhp(paidTotal)}
+          value={error ? '—' : formatCentavosPhp(paidTotal)}
           tone="bg-success-100 text-success-800"
-          help={`${rows.filter((r) => !!r.paid_at).length} stage(s)`}
+          help={error ? 'couldn’t read' : `${rows.filter((r) => !!r.paid_at).length} stage(s)`}
         />
         <Stat
           icon={<AlertTriangle className="h-4 w-4" />}
           label="On hold (filtered)"
-          value={formatCentavosPhp(onHoldTotal)}
+          value={error ? '—' : formatCentavosPhp(onHoldTotal)}
           tone="bg-danger-100 text-danger-800"
-          help={`${rows.filter((r) => r.on_hold).length} stage(s)`}
+          help={error ? 'couldn’t read' : `${rows.filter((r) => r.on_hold).length} stage(s)`}
         />
       </section>
 
@@ -183,14 +215,14 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
 
       {error ? (
         <FormFlash tone="error">
-          Payouts couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
+          Payouts couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
         </FormFlash>
       ) : null}
 
-      {rows.length === 0 ? (
+      {error ? null : rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
           <Wallet aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-ink">No payouts match this filter.</p>
+          <p className="text-sm font-medium text-ink">{supplierNote ?? 'No payouts match this filter.'}</p>
           <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
             Payouts land here the moment an admin reconciles a couple&rsquo;s
             payment in <Link className="text-mulberry hover:underline" href="/admin/payments">Payments</Link>.
@@ -256,11 +288,11 @@ function FilterBar({
         <input type="hidden" name="filter" value={filter} />
         {stage !== 'all' ? <input type="hidden" name="stage" value={stage} /> : null}
         <label className="block text-xs text-ink/60">
-          <span className="mb-1 block font-mono uppercase tracking-[0.15em]">Vendor profile ID</span>
+          <span className="mb-1 block font-mono uppercase tracking-[0.15em]">Supplier (name or ID)</span>
           <input
             name="vendor"
             defaultValue={vendor}
-            placeholder="UUID"
+            placeholder="Business name"
             className="h-9 w-72 max-w-full rounded-md border border-ink/20 bg-white px-2 text-sm"
           />
         </label>
@@ -332,7 +364,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
             ) : null}
           </div>
           <p className="text-sm font-semibold text-ink">
-            {row.vendor?.business_name ?? '(unknown vendor)'}
+            {row.vendor?.business_name ?? '(unknown supplier)'}
           </p>
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
             Order {row.order?.reference_code ?? row.order?.public_id ?? '—'} ·{' '}
@@ -380,7 +412,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
             title="Mark this payout as paid?"
             confirmLabel="Mark paid"
             destructive={false}
-            message="This records the vendor's payout as sent (rail + reference) and emails them a payment confirmation. Do this only after the money has actually left your account."
+            message="This records the supplier's payout as sent (rail + reference) and emails them a payment confirmation. Do this only after the money has actually left your account."
             className="flex flex-wrap items-center gap-2"
           >
             <input type="hidden" name="payout_id" value={row.payout_id} />
@@ -408,7 +440,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
               action={holdPayoutAction}
               title="Place this payout on hold?"
               confirmLabel="Place on hold"
-              message="This freezes the vendor's pending payout. There's no automatic release in V1 — it stays held until you lift it manually."
+              message="This freezes the supplier's pending payout. There's no automatic release in V1 — it stays held until you lift it manually."
               className="flex flex-wrap items-center gap-2"
             >
               <input type="hidden" name="payout_id" value={row.payout_id} />
@@ -437,7 +469,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
               action={releasePayoutHoldAction}
               title="Release this hold?"
               confirmLabel="Release hold"
-              message="The payout goes back to its normal schedule and the vendor can be paid again. The release is recorded against your account."
+              message="The payout goes back to its normal schedule and the supplier can be paid again. The release is recorded against your account."
               className="flex flex-wrap items-center gap-2"
             >
               <input type="hidden" name="payout_id" value={row.payout_id} />

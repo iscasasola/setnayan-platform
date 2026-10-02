@@ -35,6 +35,8 @@ import { resolveMergedService } from '@/lib/service-merge-forward';
 import { KpiStatCard } from '../_components/kpi-stat-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../_components/read-failed';
 export const metadata = { title: 'Taxonomy Studio · Admin' };
 // Top-level DB reads (admin client + getTaxonomy) — keep this route dynamic so a
 // future root app/loading.tsx can't pull it into build-time static generation.
@@ -235,6 +237,24 @@ export default async function AdminTaxonomyPage({
         .order('sort_order', { ascending: true }),
     ]);
 
+  // 🔑 A refused list is shown as an EMPTY list by the Studio below ("No pending
+  // requests", an empty vocabulary), which an editor then reads as true. Say
+  // which lists failed, once, above the Studio.
+  const failedReads: string[] = [];
+  for (const [what, err] of [
+    ['services', schemasRes.error],
+    ['event types', eventVocabRes.error],
+    ['faiths', faithRes.error],
+    ['category requests', reqRes.error],
+    ['planning deadlines', deadlinesRes.error],
+    ['refinements', refLeafRes.error],
+    ['refinement options', refOptRes.error],
+  ] as const) {
+    if (err) {
+      logQueryError(`AdminTaxonomyPage (${what})`, err);
+      failedReads.push(what);
+    }
+  }
   const schemas = (schemasRes.data ?? []) as SchemaRow[];
   const eventTypeVocab = (eventVocabRes.data ?? []) as {
     event_type: string;
@@ -501,7 +521,7 @@ export default async function AdminTaxonomyPage({
       .select('vendor_profile_id, business_name')
       .in('vendor_profile_id', reqVendorIds);
     for (const vp of (vps ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>) {
-      reqVendorName.set(vp.vendor_profile_id, vp.business_name ?? 'a vendor');
+      reqVendorName.set(vp.vendor_profile_id, vp.business_name ?? 'a supplier');
     }
   }
   // ── Requests → the drafted proposal, when there is one (C4, 2026-08-28) ──
@@ -634,7 +654,7 @@ export default async function AdminTaxonomyPage({
       requestId: r.request_id,
       proposedLabel: r.proposed_label,
       proposedNote: r.proposed_note,
-      vendorName: reqVendorName.get(r.proposed_by_vendor_id) ?? 'a vendor',
+      vendorName: reqVendorName.get(r.proposed_by_vendor_id) ?? 'a supplier',
       draft: draftByRequest.get(r.request_id) ?? null,
     })),
     iconNames: [], // filled below (import kept server-side)
@@ -684,6 +704,13 @@ export default async function AdminTaxonomyPage({
       </section>
 
       {/* The three-pane studio (client) */}
+      {failedReads.length > 0 ? (
+        <div className="mb-4">
+          <ReadFailed
+            what={`${failedReads.join(', ')} — the Studio below shows those as empty, and saving from it may not reflect what is really stored`}
+          />
+        </div>
+      ) : null}
       <TaxonomyStudio data={studioData} />
 
       {/* ── Preserved server panels below the studio ──────────────────────── */}

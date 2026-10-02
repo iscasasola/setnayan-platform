@@ -2087,7 +2087,7 @@ function LeafRefinementsPanel({ tile, service }: { tile: StudioTile; service: St
         )}
         <SlidersHorizontal className="h-3.5 w-3.5 shrink-0 text-ink/45" aria-hidden />
         <span className="text-xs font-medium text-ink/80">Refinements</span>
-        <span className="text-[10px] text-ink/45">(vendor attributes)</span>
+        <span className="text-[10px] text-ink/45">(supplier attributes)</span>
         <span className="ml-auto flex items-center gap-1">
           <Badge tone="bg-ink/5 text-ink/60">{formatCount(activeCount)} active</Badge>
           {retiredCount > 0 ? <Badge tone="bg-ink/5 text-ink/40">{formatCount(retiredCount)} retired</Badge> : null}
@@ -2098,8 +2098,8 @@ function LeafRefinementsPanel({ tile, service }: { tile: StudioTile; service: St
       {open ? (
         <div className="space-y-3 border-t border-ink/10 px-2.5 py-3">
           <p className="text-[10px] leading-relaxed text-ink/50">
-            The attributes vendors fill in for <span className="font-medium text-ink/70">{service.displayEn}</span>.
-            Keys and option values are permanent (a vendor’s saved answer must never break) — so you can
+            The attributes suppliers fill in for <span className="font-medium text-ink/70">{service.displayEn}</span>.
+            Keys and option values are permanent (a supplier’s saved answer must never break) — so you can
             <strong> add</strong> and <strong>rename labels</strong>, and <strong>retire</strong> instead of delete.
             Every change bumps the schema version.
           </p>
@@ -2234,7 +2234,7 @@ function ServiceFlagsPanel({
             <p className="flex items-center gap-1.5 text-[10px] text-ink/50">
               <Lock className="h-2.5 w-2.5" aria-hidden />
               Dietary: <span className="font-mono text-ink/70">{service.dietary}</span> — stays
-              universal (a per-vendor grade, edited elsewhere).
+              universal (a per-supplier grade, edited elsewhere).
             </p>
           ) : null}
 
@@ -2935,7 +2935,7 @@ function OptionGrid({
         <p className="flex items-start gap-1.5 rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2.5 text-[11px] text-ink/60">
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/40" aria-hidden />
           <span>
-            These options are <strong>reserved</strong> — their keys drive vendor matching, so the set is
+            These options are <strong>reserved</strong> — their keys drive supplier matching, so the set is
             fixed. You can edit each option’s label, emoji, and photo above, but can’t add or remove options
             here.
           </span>
@@ -3319,7 +3319,7 @@ function EventTypeVocabPanel({
         <p className="mt-2 grid gap-1.5 text-[11px] text-ink/55 sm:grid-cols-3">
           <span>
             <strong className="text-ink">Show in picker</strong> — couples can create this event
-            type. Off = hidden from couples, but vendors can still pre-tag coverage.
+            type. Off = hidden from couples, but suppliers can still pre-tag coverage.
           </span>
           <span>
             <strong className="text-ink">Deactivate</strong> — drops the type from category-scoping
@@ -3745,7 +3745,7 @@ function FaithVocabPanel({ rows, query }: { rows: StudioFaithVocab[]; query: str
         <p className="mt-1 max-w-prose text-sm text-ink/60">
           The faith vocabulary that tags services and gates the wedding-type picker. The{' '}
           <strong>launch gate</strong> (Live / Coming soon / Disabled + a readiness threshold)
-          decides which faiths couples can pick — open one when its vendors can cater it. Faith keys
+          decides which faiths couples can pick — open one when its suppliers can cater it. Faith keys
           are permanent and case-sensitive; deactivating one hides it from scoping while existing
           tags keep working.
         </p>
@@ -3822,7 +3822,7 @@ function FaithVocabPanel({ rows, query }: { rows: StudioFaithVocab[]; query: str
               }
               subtitle={
                 r.launch
-                  ? `${formatCount(r.launch.total)} / ${formatCount(r.launch.threshold)} compatible · ${formatCount(r.launch.vendorCount)} vendors · ${formatCount(r.launch.venueCount)} ceremonial venues${r.launch.ready ? ' · ready' : ''}`
+                  ? `${formatCount(r.launch.total)} / ${formatCount(r.launch.threshold)} compatible · ${formatCount(r.launch.vendorCount)} suppliers · ${formatCount(r.launch.venueCount)} ceremonial venues${r.launch.ready ? ' · ready' : ''}`
                   : 'No launch-status row maps to this faith.'
               }
             >
@@ -4024,12 +4024,12 @@ function RequestsQueue({ requests, data }: { requests: StudioRequest[]; data: St
   return (
     <section className="rounded-xl border border-sky-200 bg-sky-50/30 p-4">
       <header className="mb-3">
-        <h2 className="text-base font-semibold text-sky-900">Vendor category requests</h2>
+        <h2 className="text-base font-semibold text-sky-900">Supplier category requests</h2>
         <p className="text-sm text-ink/60">Promote · map to existing · keep private · reject.</p>
       </header>
       {requests.length === 0 ? (
         <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-4 py-3 text-sm text-ink/55">
-          No pending requests. Vendor proposals from the services editor land here.
+          No pending requests. Supplier proposals from the services editor land here.
         </p>
       ) : (
         <ul className="space-y-3">

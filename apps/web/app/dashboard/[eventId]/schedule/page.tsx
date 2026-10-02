@@ -178,7 +178,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   const [eventRes, blocks, suggestionsRes, recapRes] = await Promise.all([
     supabase
       .from('events')
-      .select('event_id, event_date, event_end_date, ceremony_type, event_type, created_at, display_name')
+      .select('event_id, event_date, event_end_date, ceremony_type, secondary_ceremony_type, event_type, created_at, display_name')
       .eq('event_id', eventId)
       .maybeSingle(),
     fetchScheduleBlocks(supabase, eventId),
@@ -209,6 +209,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         event_date: string | null;
         event_end_date: string | null;
         ceremony_type: string | null;
+        secondary_ceremony_type: string | null;
         event_type: string | null;
         created_at: string | null;
         display_name: string | null;
@@ -298,7 +299,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
   }
   const rosLens = parseRosLens(rosParam, rosVendors);
   const rosTemplates = rosEnabled
-    ? templatesForEventType(eventRow?.event_type ?? 'wedding')
+    ? // Both rites: an INC / Muslim / LDS / SDA day (either column) is never
+      // offered a cocktail hour or a dance set (`riteIsDanceFree`).
+      templatesForEventType(eventRow?.event_type ?? 'wedding', eventRow)
     : [];
 
   // Coordinator P1 prep-then-release (flag-gated). Only the EXTERNAL coordinator

@@ -52,6 +52,9 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
+import { nameStyleFrom } from '@/lib/name-style';
+import { datePickClash } from '@/lib/date-clash.server';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { lookProAllows } from '@/lib/hub-look-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -101,6 +104,8 @@ import { SCENE_STYLES_PREF_KEY, sceneStylesValueAfter, type FixedSceneStylesDraf
 import { writeStylePreferenceKey } from '@/lib/style-preferences.server';
 import { postEventPreset } from '@/lib/post-event-presets';
 import { CONFIRMED_VENDOR_STATUSES, eventDateChangeIsGoverned, eventDatePrecisionOf, eventDateRefusal } from '@/lib/events';
+import { isDateChangeAction } from '@/lib/date-change';
+import { afterDateApplied, askDateChange, clashStillOpen, dateApplyClearance, settleDateChange } from '@/lib/date-change.server';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -120,6 +125,32 @@ export async function hubDraftAction(
     ({ ok: true, intent, applied, held }) as const;
 
   try {
+    /* ── DATE CHANGE — the couple's side of the clashing-date flow ──────────
+       (owner 2026-10-01, "A CLASHING DATE GOES TO THE SUPPLIER IN CONFLICT",
+       approved with the controller's three safeguards). `ask` is the ONE
+       confirm from the Maker's clash note; `withdraw` · `wait` · `drop` are
+       Home's choices. Nothing here writes the live page: the event keeps its
+       date, guests see nothing, and a new date goes live only through Apply.
+       The rules live in the database functions; `lib/date-change.server.ts`
+       wires them to the shipped availability read, notices and draft. Home is
+       the page that shows it, so Home is re-rendered — never the Maker. */
+    if (intent === 'date_change') {
+      const action = formData.get('action');
+      if (!isDateChangeAction(action)) return { ok: false, intent, error: 'That did not look like a date change.' };
+      let r;
+      if (action === 'ask') {
+        const date = String(formData.get('date') ?? '');
+        const precision = eventDatePrecisionOf(formData.get('precision'));
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !precision) return { ok: false, intent, error: 'That date could not be read.' };
+        r = await askDateChange({ supabase, eventId, date, precision });
+      } else {
+        const vendorRaw = formData.get('event_vendor_id');
+        r = await settleDateChange({ supabase, eventId, action, eventVendorId: typeof vendorRaw === 'string' && vendorRaw ? vendorRaw : null });
+      }
+      revalidatePath(`/dashboard/${eventId}`);
+      return r.ok ? { ok: true, intent, applied: 0, held: [], message: r.message } : { ok: false, intent, error: r.error };
+    }
+
     /* ── RESTORE ─────────────────────────────────────────────────────────── */
     if (intent === 'restore') {
       const { error } = await supabase.from('event_site_drafts').delete().eq('event_id', eventId);
@@ -141,6 +172,29 @@ export async function hubDraftAction(
       /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure),
          so asking for it adds no round trip after the save. */
       const wantsBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1';
+      /* 🗓 A DAY OR MONTH A BOOKED SUPPLIER CANNOT DO IS NEVER ACCEPTED INTO THE
+         DRAFT (owner 2026-10-01, "refused at the pick"): asked here, in the one
+         door every date goes through (typed, picked, month), with the shipped
+         availability read (`datePickClash`) — never a second check. The
+         supplier's name and where to ask them to move or unlock go back with
+         the refusal. Apply's `eventDateRefusal` stays as the backstop. */
+      const asksDate = Boolean(patch.events && ('event_date' in patch.events || 'event_date_precision' in patch.events));
+      const mergedDate = asksDate ? mergeHubDraft(current, patch).events : null;
+      if (mergedDate && typeof mergedDate.event_date === 'string') {
+        const { data: liveDate } = await supabase.from('events').select('event_date, event_date_precision').eq('event_id', eventId).maybeSingle();
+        const pickedPrecision = eventDatePrecisionOf(mergedDate.event_date_precision ?? liveDate?.event_date_precision) ?? 'day';
+        /* …unless every supplier it clashes with already answered Move for
+           exactly this date (the clashing-date flow) — `clashStillOpen`. */
+        const asked = await clashStillOpen(supabase, eventId, { date: mergedDate.event_date, precision: pickedPrecision }, await datePickClash({
+          supabase,
+          admin: createAdminClient(),
+          eventId,
+          date: mergedDate.event_date,
+          precision: pickedPrecision,
+          live: { date: (liveDate?.event_date as string | null | undefined) ?? null, precision: liveDate?.event_date_precision },
+        }));
+        if (asked) return { ok: false, intent, error: asked.reason, clash: asked.clash };
+      }
       const [, bar] = await Promise.all([
         writeHubDraft(supabase, eventId, mergeHubDraft(current, patch)),
         wantsBar ? hubDraftBarAfterSave(supabase, eventId, mergeHubDraft(current, patch)) : Promise.resolve(null),
@@ -284,6 +338,13 @@ export async function hubDraftAction(
        unread count is not "no suppliers". */
     const isDateItem = (i: HubDraftItem) => i.kind === 'event' && (i.column === 'event_date' || i.column === 'event_date_precision');
     let dateHeld: HubDraftRefusal | null = null;
+    /* 🗓 THE BOOKED SUPPLIERS HAVE CLEARED IT (owner 2026-10-02, Q8; the
+       clashing-date flow 2026-10-01): a day every booked supplier can do — or
+       every one that clashes answered Move — is not "locked". Asked only when
+       the refusal would be `locked`, through the SAME availability read as the
+       pick, FAIL-CLOSED (`dateApplyClearance`). Each booked supplier then gets
+       the plain notice "The date moved to <date>" (`afterDateApplied`). */
+    let dateMove: { next: { date: string; precision: 'day' | 'month' | 'year' }; requestId: string | null } | null = null;
     if (plan.apply.some(isDateItem)) {
       const priorDate = { date: (live.events.event_date as string | null | undefined) ?? null, precision: live.events.event_date_precision };
       const nextDate = {
@@ -301,8 +362,18 @@ export async function hubDraftAction(
         if (countErr) return { ok: false, intent, error: 'Could not check your booked suppliers. Nothing was applied.' };
         confirmed = count ?? 0;
       }
-      const refusal = eventDateRefusal(priorDate, nextDate, confirmed);
+      let refusal = eventDateRefusal(priorDate, nextDate, confirmed);
+      let requestId: string | null = null;
+      if (refusal === 'locked' && nextDate.date) {
+        const clearance = await dateApplyClearance({ supabase, eventId, prior: priorDate, next: { date: nextDate.date, precision: nextDate.precision } });
+        if (!clearance.ok) return { ok: false, intent, error: 'Could not check your booked suppliers’ calendars. Nothing was applied.' };
+        refusal = eventDateRefusal(priorDate, nextDate, confirmed, new Date(), clearance.cleared);
+        requestId = clearance.requestId;
+      }
       dateHeld = refusal === 'in_past' ? 'date_in_past' : refusal ? 'date_locked' : null;
+      if (!dateHeld && confirmed > 0 && nextDate.date && nextDate.date !== priorDate.date) {
+        dateMove = { next: { date: nextDate.date, precision: nextDate.precision }, requestId };
+      }
     }
 
     const toWrite: HubDraftItem[] = [];
@@ -384,6 +455,17 @@ export async function hubDraftAction(
        it — after the host check (top) and the Pro gate (`planHubDraftApply`). */
     const qrWrite = 'style_preferences' in eventsPatch ? (eventsPatch.style_preferences as Record<string, unknown>) : undefined;
     delete eventsPatch.style_preferences;
+    /* 🔤 THE NAME STYLE LEAVES THE SESSION UPDATE TOO. The draft holds
+       `{ name_style }` only; `print_details` also carries the prints' opening
+       line, menu, pass card look and poster photo, so the style is MERGED into
+       the blob as it stands at write time — through the admin client, exactly
+       as its live writer (`POST /api/hub-print/name-style`) always wrote it
+       (`authenticated` holds no UPDATE grant on the column) — after the host
+       check (top) and with every other key carried untouched. */
+    const nameStyleWrite = 'print_details' in eventsPatch
+      ? nameStyleFrom((eventsPatch.print_details as Record<string, unknown> | null)?.name_style)
+      : undefined;
+    delete eventsPatch.print_details;
     /* 🎵 The song's companions, as `updateSiteChrome` stamps them: where it came
        from, and off when there is no song to play. */
     if ('site_bg_music_r2_key' in eventsPatch) {
@@ -452,6 +534,10 @@ export async function hubDraftAction(
       if (evErr || !Array.isArray(evRows) || evRows.length === 0) {
         return { ok: false, intent, error: 'Could not apply your changes. Nothing was changed.' };
       }
+      // The date went live over booked suppliers — close the request, tell each one.
+      if (dateMove && eventsPatch.event_date === dateMove.next.date) {
+        await afterDateApplied({ supabase, eventId, next: dateMove.next, requestId: dateMove.requestId });
+      }
     }
     if (qrWrite !== undefined) {
       const admin = createAdminClient();
@@ -473,6 +559,26 @@ export async function hubDraftAction(
         .eq('event_id', eventId)
         .select('event_id');
       if (qrErr || !Array.isArray(qrRows) || qrRows.length === 0) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+    if (nameStyleWrite !== undefined) {
+      const admin = createAdminClient();
+      const { data: pdRow, error: pdErr } = await admin
+        .from('events')
+        .select('print_details')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      if (pdErr || !pdRow) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+      const stored = parsePrintDetails(pdRow.print_details);
+      const { data: pdRows, error: pdWriteErr } = await admin
+        .from('events')
+        .update({ print_details: serializePrintDetails({ ...stored, nameStyle: nameStyleWrite }) })
+        .eq('event_id', eventId)
+        .select('event_id');
+      if (pdWriteErr || !Array.isArray(pdRows) || pdRows.length === 0) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }

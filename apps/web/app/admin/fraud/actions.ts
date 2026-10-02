@@ -44,7 +44,7 @@ type AdminClient = ReturnType<typeof createAdminClient>;
 
 function requireVendorId(formData: FormData): string {
   const v = formData.get('vendor_profile_id');
-  if (typeof v !== 'string' || !v) throw new Error('Missing vendor');
+  if (typeof v !== 'string' || !v) throw new Error('Missing supplier');
   return v;
 }
 
@@ -78,7 +78,7 @@ export async function dismissVendorSignals(formData: FormData) {
   };
   const state = deriveVendorFraudState(v);
   if (state === 'banned') {
-    throw new Error('This vendor is already permanently banned — nothing to dismiss.');
+    throw new Error('This supplier is already permanently banned — nothing to dismiss.');
   }
 
   // Resolve the open signals as dismissed.
@@ -159,7 +159,7 @@ export async function unsuspendVendor(formData: FormData) {
     .maybeSingle();
   if (error) throw new Error(`Could not un-suspend: ${error.message}`);
   if (!updated) {
-    throw new Error('Vendor is not currently auto-suspended (or is already banned).');
+    throw new Error('Supplier is not currently auto-suspended (or is already banned).');
   }
 
   await writeFraudEnforcementAudit(admin, {
@@ -200,20 +200,20 @@ export async function initiateFraudWipeBan(formData: FormData) {
     .select('vendor_profile_id, business_name, fraud_banned_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (!vendorRow) throw new Error('Vendor not found');
+  if (!vendorRow) throw new Error('Supplier not found');
   const vendor = vendorRow as {
     business_name: string | null;
     fraud_banned_at: string | null;
   };
   if (vendor.fraud_banned_at) {
-    throw new Error('This vendor is already permanently banned.');
+    throw new Error('This supplier is already permanently banned.');
   }
 
   // Typed-confirmation gate — the admin must retype the exact business name.
   const expected = (vendor.business_name ?? '').trim();
   if (!expected || typedName !== expected) {
     throw new Error(
-      'Business-name confirmation did not match. Type the vendor’s exact business name to initiate the wipe + ban.',
+      'Business-name confirmation did not match. Type the supplier’s exact business name to initiate the wipe + ban.',
     );
   }
 
@@ -227,7 +227,7 @@ export async function initiateFraudWipeBan(formData: FormData) {
     .limit(1);
   if (existing && existing.length > 0) {
     throw new Error(
-      'A wipe + ban request for this vendor is already pending a second admin’s confirmation.',
+      'A wipe + ban request for this supplier is already pending a second admin’s confirmation.',
     );
   }
 
@@ -290,7 +290,7 @@ export async function executeFraudWipeBan(
     .select('vendor_profile_id, business_name, user_id, demotion_count, fraud_banned_at, contact_email')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (!vendorRow) throw new Error('Vendor not found');
+  if (!vendorRow) throw new Error('Supplier not found');
   const vendor = vendorRow as {
     business_name: string | null;
     user_id: string | null;

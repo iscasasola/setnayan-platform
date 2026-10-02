@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { makerMediaMeterState } from '@/lib/maker-media-limits';
 import { settleCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
+import { hubSetupApplies } from '@/lib/hub-setup-locks';
 import { resolveMonogram } from '@/lib/monogram';
 import { countdownTargetMs } from '@/lib/countdown-target';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
@@ -1234,6 +1235,8 @@ export default async function WebsiteEditorPage({
       dayParts: true,
       storyRenders: ourStoryRenders(event.love_story),
       countdownPast: countdownMs !== null && countdownMs <= Date.now(),
+      // 🔓 Empty parts read "Locked — finish ___" only where the setup exists to finish them.
+      setupLocks: hubSetupApplies((event.event_type as string | null) ?? null),
     },
     sectionRows,
     tint: (() => {
@@ -1440,7 +1443,7 @@ export default async function WebsiteEditorPage({
           !(await eventWordsFor((event.event_type as string | null) ?? 'wedding')).solemn && !(heroRef || videoRef),
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
-        names: { style: nameStyleOfPrintDetails(event.print_details), person: nameExample },
+        names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },
       }}
       rows={rows}
       themes={themes}

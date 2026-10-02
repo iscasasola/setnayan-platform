@@ -11,6 +11,11 @@
  * tests are about the one thing that could go wrong in collapsing fifty
  * statements into one: that it still writes EXACTLY what the loop wrote, and
  * nothing it did not.
+ *
+ * ⚖ Owner 2026-10-01 ("THE WEDDING MARCH IS ITS OWN ENTITY"): the order is
+ * `march_walks.walk_no` now — reorder = renumber — and the write touches no
+ * guest row. A section's walks get back their OWN numbers in the new order, so
+ * no other section's walk moves.
  */
 import { strict as assert } from 'node:assert';
 import { test, before, after } from 'node:test';
@@ -45,13 +50,11 @@ async function seed(n: number, tag: string): Promise<{ eventId: string; ids: str
   return { eventId, ids };
 }
 
+/** The walk a guest is in — their line's place in the march — or null when unplaced. */
 const orderOf = async (id: string): Promise<number | null> =>
   (
-    await db.query<{ entourage_order: number | null }>(
-      'SELECT entourage_order FROM public.guests WHERE guest_id = $1',
-      [id],
-    )
-  ).rows[0]?.entourage_order ?? null;
+    await db.query<{ walk_no: number }>('SELECT walk_no FROM public.march_walks WHERE guest_id = $1', [id])
+  ).rows[0]?.walk_no ?? null;
 
 const setOrder = (e: string, ids: string[], orders: number[]) =>
   db.query<{ set_entourage_order: number }>(
@@ -70,7 +73,7 @@ test('one call writes the whole group, and reports how many rows it moved', asyn
   );
 });
 
-test('both halves of a pair can share a number — that is how a pair is one line', async () => {
+test('both people of a line share a walk — that is how a pair is one line', async () => {
   const { eventId, ids } = await seed(4, 'b');
   const [a, b, c, d] = ids as [string, string, string, string];
   await setOrder(eventId, [a, b, c, d], [0, 0, 1, 1]);
@@ -90,7 +93,7 @@ test('a guest from another event is not moved, and does not stop the rest', asyn
   const theirs = await seed(1, 'e');
   const r = await setOrder(mine.eventId, [mine.ids[0]!, theirs.ids[0]!], [1, 2]);
   assert.equal(r.rows[0]!.set_entourage_order, 1, 'the other event’s guest was counted as written');
-  assert.equal(await orderOf(mine.ids[0]!), 1);
+  assert.equal(await orderOf(mine.ids[0]!), 0);
   assert.equal(await orderOf(theirs.ids[0]!), null, 'another event’s processional was reordered');
 });
 
@@ -112,16 +115,24 @@ test('mismatched arrays are refused, not half-applied', async () => {
   assert.deepEqual(await Promise.all(ids.map(orderOf)), [null, null, null], 'a refused write still moved rows');
 });
 
-test('clear hands the group back to the default, and counts only what it cleared', async () => {
-  const { eventId, ids } = await seed(3, 'h');
-  await setOrder(eventId, [ids[0]!, ids[1]!], [0, 1]);
-  const r = await db.query<{ clear_entourage_order: number }>(
-    'select public.clear_entourage_order($1, $2) as clear_entourage_order',
-    [eventId, ids],
-  );
-  // The third never had a number — clearing it is not a change to report.
-  assert.equal(r.rows[0]!.clear_entourage_order, 2);
-  assert.deepEqual(await Promise.all(ids.map(orderOf)), [null, null, null]);
+test('reorder = renumber: a section gets back its OWN numbers, other sections stay put', async () => {
+  const { eventId, ids } = await seed(5, 'h');
+  const [a, b, c, other, d] = ids as [string, string, string, string, string];
+  // Section X holds walks 0, 2, 4 (a, b, c); other sections hold 1 and 3.
+  await setOrder(eventId, [a, other, b, d, c], [0, 1, 2, 3, 4]);
+  const before = await orderOf(other);
+  await setOrder(eventId, [c, b, a], [0, 1, 2]);
+  assert.deepEqual(await Promise.all([orderOf(c), orderOf(b), orderOf(a)]), [0, 2, 4], 'the section took numbers it did not have');
+  assert.equal(await orderOf(other), before, 'another section’s walk moved');
+});
+
+test('a walk-mate in ANOTHER section travels with their walk', async () => {
+  const { eventId, ids } = await seed(3, 'k');
+  const [a, mate, b] = ids as [string, string, string];
+  await setOrder(eventId, [a, mate, b], [0, 0, 1]); // a + mate walk together
+  // Reorder only a's section (mate prints elsewhere): a moves after b.
+  await setOrder(eventId, [b, a], [0, 1]);
+  assert.equal(await orderOf(mate), await orderOf(a), 'the walk came apart when one section moved');
 });
 
 test('⛔ reordering the aisle never touches a chair', async () => {
@@ -140,15 +151,15 @@ test('⛔ reordering the aisle never touches a chair', async () => {
   assert.equal(after.rows[0]!.c, before.rows[0]!.c, 'an order write changed the seat plan');
 });
 
-test('anon cannot call either write', async () => {
+test('anon cannot call the order write', async () => {
   const r = await db.query<{ fn: string; anon: boolean; authed: boolean }>(`
     select p.proname as fn,
            has_function_privilege('anon', p.oid, 'EXECUTE') as anon,
            has_function_privilege('authenticated', p.oid, 'EXECUTE') as authed
     from pg_proc p join pg_namespace n on n.oid = p.pronamespace
-    where n.nspname = 'public' and p.proname in ('set_entourage_order', 'clear_entourage_order')
+    where n.nspname = 'public' and p.proname in ('set_entourage_order')
     order by 1`);
-  assert.equal(r.rows.length, 2, 'one of the two order writes is missing');
+  assert.equal(r.rows.length, 1, 'the order write is missing');
   for (const row of r.rows) {
     assert.equal(row.anon, false, `${row.fn} is callable by anon`);
     assert.equal(row.authed, true, `${row.fn} is not callable by the couple`);

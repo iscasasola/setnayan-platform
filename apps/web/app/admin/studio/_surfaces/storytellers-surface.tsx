@@ -436,7 +436,7 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
           <p className="mt-1">
             Influencer analytics unlock once storytellers have driven{' '}
             <strong className="text-ink">{ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}</strong>{' '}
-            attributed, vendor-unlocked inquiries platform-wide. So far:{' '}
+            attributed, supplier-unlocked inquiries platform-wide. So far:{' '}
             <strong className="text-ink">{formatCount(a.totalInquiriesDriven)}</strong> of{' '}
             {ADMIN_INFLUENCER_ANALYTICS_MIN_UNLOCKS}.
           </p>
@@ -448,7 +448,7 @@ function InfluencerAnalyticsPanel({ analytics: a }: { analytics: InfluencerAnaly
               number` and could not render "unknown". */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
             <KpiStatCard label="Inquiries driven" value={a.totalInquiriesDriven} />
-            <KpiStatCard label="Participating vendors" value={a.participatingVendorCount} />
+            <KpiStatCard label="Participating suppliers" value={a.participatingVendorCount} />
             <KpiStatCard label="Active storytellers" value={a.activeCreatorCount} />
           </div>
           {/* The fourth stat here was "Influencer tokens spent", split into

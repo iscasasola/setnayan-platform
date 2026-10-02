@@ -9,6 +9,7 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { waitingAge } from '@/lib/waiting-age';
 import { formatLongDate, monthDay } from '@/lib/format-date';
+import { dateChangeWhen } from '@/lib/date-change';
 import { lockRequestFuseLabel } from '@/lib/lock-request-state';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from './payout-method-nudge';
@@ -137,6 +138,15 @@ const CARD_KIND: Record<
     eyebrow: 'A couple wants to remove a celebration',
   },
   dispute: { accent: 'var(--sn-danger)', eye: 'var(--sn-danger)', eyebrow: 'Delivery delay flagged' },
+  /*
+    Amber — a question on a deadline (3 days), like the booking ask; the real
+    tokens (`--sn-warning` fill, `--sn-warning-deep` text), never `--sn-warn`.
+  */
+  date_change: {
+    accent: 'var(--sn-warning)',
+    eye: 'var(--sn-warning-deep)',
+    eyebrow: 'Date change request',
+  },
 };
 
 /**
@@ -194,6 +204,7 @@ export function WhatsNewFeed({
   declineLock,
   agreeDeletion,
   declineDeletion,
+  answerDateChange,
   postReviewReply,
   respondMeeting,
   markServiceComplete,
@@ -218,6 +229,8 @@ export function WhatsNewFeed({
   declineLock: (formData: FormData) => void | Promise<void>;
   agreeDeletion: (formData: FormData) => void | Promise<void>;
   declineDeletion: (formData: FormData) => void | Promise<void>;
+  /** 🗓 Move to <date> · Unlock my service — `vendorAnswerDateChange` (owner 2026-10-01). */
+  answerDateChange: (formData: FormData) => void | Promise<void>;
   /** The review reply is TAKEN HERE — the desk could name an unanswered review and not accept the answer. */
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
@@ -296,6 +309,7 @@ export function WhatsNewFeed({
                 declineLock={declineLock}
                 agreeDeletion={agreeDeletion}
                 declineDeletion={declineDeletion}
+                answerDateChange={answerDateChange}
                 postReviewReply={postReviewReply}
                 respondMeeting={respondMeeting}
                 markServiceComplete={markServiceComplete}
@@ -338,6 +352,8 @@ export function NothingToAnswerFeed({
   declineLock: (formData: FormData) => void | Promise<void>;
   agreeDeletion: (formData: FormData) => void | Promise<void>;
   declineDeletion: (formData: FormData) => void | Promise<void>;
+  /** 🗓 Move to <date> · Unlock my service — `vendorAnswerDateChange` (owner 2026-10-01). */
+  answerDateChange: (formData: FormData) => void | Promise<void>;
   postReviewReply: (formData: FormData) => void | Promise<void>;
   respondMeeting: (formData: FormData) => void | Promise<void>;
   /**
@@ -380,6 +396,7 @@ function FeedCard({
   declineLock,
   agreeDeletion,
   declineDeletion,
+  answerDateChange,
   postReviewReply,
   respondMeeting,
   markServiceComplete,
@@ -396,6 +413,8 @@ function FeedCard({
   declineLock: (formData: FormData) => void | Promise<void>;
   agreeDeletion: (formData: FormData) => void | Promise<void>;
   declineDeletion: (formData: FormData) => void | Promise<void>;
+  /** 🗓 Move to <date> · Unlock my service — `vendorAnswerDateChange` (owner 2026-10-01). */
+  answerDateChange: (formData: FormData) => void | Promise<void>;
   /** Forwarded to MarkCompleteBody — CTRL-B2 build 1. */
   markServiceComplete: (formData: FormData) => void | Promise<void>;
   postReviewReply: (formData: FormData) => void | Promise<void>;
@@ -438,6 +457,8 @@ function FeedCard({
           agreeDeletion={agreeDeletion}
           declineDeletion={declineDeletion}
         />
+      ) : card.kind === 'date_change' ? (
+        <DateChangeBody card={card} answerDateChange={answerDateChange} />
       ) : card.kind === 'lock' ? (
         <LockBody card={card} confirmLock={confirmLock} rejectLock={rejectLock} />
       ) : card.kind === 'mark_complete' ? (
@@ -526,21 +547,19 @@ function InquiryBody({
   acceptInquiry: (formData: FormData) => void | Promise<void>;
   declineInquiry: (formData: FormData) => void | Promise<void>;
 }) {
-  // `card.descriptor` is the neutral anonymized label ("A couple planning a
-  // {type} in {city}") — the inquiry card carries no couple identity pre-accept.
-  // ⚠ `card.place` was printed twice — once inside `descriptor` ("A couple
-  // planning a wedding in Metro Manila") and again as its own item, so the line
-  // read "… in Metro Manila · Dec 18 · Metro Manila · Live Band". Dropped from
-  // the list; the descriptor already says where.
+  // `card.descriptor` is WHO IS ASKING — the event's name ("Cale & Ice"), or
+  // "New customer" only when the event has none. Anonymisation was retired
+  // 2026-09-08 ("we do not need to hide anything, since no more tokens"), so it is
+  // the card's heading now (it was the hard-coded words "New customer" over the
+  // top of the real name), not a meta-line word.
   const meta = metaLine([
-    card.descriptor,
     formatLongDate(card.eventDate),
     card.category,
     card.paxAtInquiry ? `~${formatCount(card.paxAtInquiry)} guests` : null,
   ]);
   return (
     <>
-      <p className="text-sm font-semibold text-ink">New customer</p>
+      <p className="text-sm font-semibold text-ink">{card.descriptor}</p>
       <p className="mt-0.5 font-mono text-xs text-ink/60">
         {meta}
         {/* § 2.4 EXTEND 1 — how long this couple has been waiting for a reply.
@@ -669,6 +688,75 @@ function LockRequestBody({
           </SubmitButton>
         </form>
       </details>
+    </>
+  );
+}
+
+/**
+ * 🗓 A COUPLE ASKS TO MOVE THEIR DATE, AND IT CLASHES WITH YOUR CALENDAR (owner
+ * 2026-10-01, "A CLASHING DATE GOES TO THE SUPPLIER IN CONFLICT"; approved with
+ * the controller's three safeguards). Two answers, nothing else:
+ *
+ *   · **Move to <date>** — you confirm you can do the new date. Your booking
+ *     stays; your held day moves with the date when the couple applies it.
+ *   · **Unlock my service** — you release the booking. Money logged with it is
+ *     settled by the cancellation terms ON THE BOOKING (Setnayan support takes
+ *     the case) — Setnayan never decides a refund, and the card says so before
+ *     the press.
+ *
+ * ⏳ The deadline is said: after 3 days without an answer the couple may keep
+ * waiting, release the booking themselves, or cancel the change.
+ */
+function DateChangeBody({
+  card,
+  answerDateChange,
+}: {
+  card: Extract<WhatsNewCard, { kind: 'date_change' }>;
+  answerDateChange: (formData: FormData) => void | Promise<void>;
+}) {
+  const to = dateChangeWhen(card.proposedDate, card.proposedPrecision);
+  const from = card.fromDate ? dateChangeWhen(card.fromDate, card.fromPrecision) : 'their current date';
+  const overdue = new Date(card.dueAt).getTime() <= Date.now();
+  return (
+    <>
+      <p className="text-sm font-semibold text-ink">{card.coupleName} asks to move their date</p>
+      <p className="mt-0.5 text-sm text-ink/60">
+        {from} &rarr; {to}
+      </p>
+      <p className="mt-2 max-w-prose text-sm text-ink/70">
+        The new date clashes with your calendar. Tell them whether you can move with them.{' '}
+        {overdue
+          ? 'Your 3 days are up — they may now release the booking themselves.'
+          : `Answer by ${formatLongDate(card.dueAt)} — after that they may release the booking themselves.`}
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2" data-date-change-answer={card.eventVendorId}>
+        <form action={answerDateChange}>
+          <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          <input type="hidden" name="answer" value="moved" />
+          <SubmitButton
+            pendingLabel="Saving…"
+            className="inline-flex h-11 items-center rounded-full px-4 text-sm font-semibold text-white"
+            style={{ background: 'var(--sn-ink-900)' }}
+          >
+            Move to {to}
+          </SubmitButton>
+        </form>
+        <form action={answerDateChange}>
+          <input type="hidden" name="vendor_id" value={card.eventVendorId} />
+          <input type="hidden" name="answer" value="unlocked" />
+          <SubmitButton
+            pendingLabel="Releasing…"
+            className="inline-flex h-11 items-center rounded-full border px-4 text-sm font-semibold text-ink"
+            style={{ borderColor: 'var(--sn-line)' }}
+          >
+            Unlock my service
+          </SubmitButton>
+        </form>
+      </div>
+      <p className="mt-2 max-w-prose text-xs text-ink/60">
+        Unlocking releases this booking. Any deposit is settled by the cancellation terms on the booking — Setnayan
+        never decides a refund.
+      </p>
     </>
   );
 }

@@ -21,7 +21,9 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { logAdminDataAccess } from '@/lib/admin-data-access';
-import { formatPhp } from '@/lib/orders';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../../_components/read-failed';
+import { formatPhp, PAYMENT_STATUS_LABEL } from '@/lib/orders';
 import {
   fetchCompGrantsForUser,
   describeReach,
@@ -82,7 +84,7 @@ const MEMBER_TYPE_LABEL: Record<string, string> = {
   couple: 'Host',
   coordinator: 'Coordinator',
   guest: 'Guest',
-  vendor: 'Vendor',
+  vendor: 'Supplier',
 };
 
 const ORDER_STATUS_LABEL: Record<string, { label: string; tone: string }> = {
@@ -106,6 +108,22 @@ const ACCESS_SURFACE_LABEL: Record<string, string> = {
   admin_user_data_export: 'Downloaded their data',
 };
 
+// 🔑 Stored values are not sentences: the card used to print `gcash`, `matched` and
+// `admin_account_card` exactly as the columns hold them. An unmapped value falls
+// back to the stored word — an empty badge would be worse than an ugly one.
+const CHANNEL_WORD: Record<string, string> = { gcash: 'GCash', bdo: 'BDO', maya: 'Maya', bpi: 'BPI' };
+function channelWord(channel: string | null): string {
+  if (!channel) return '—';
+  return CHANNEL_WORD[channel.toLowerCase()] ?? channel;
+}
+function paymentStatusWord(status: string): string {
+  return (PAYMENT_STATUS_LABEL as Record<string, string>)[status] ?? status;
+}
+function surfaceWord(surface: string | null): string {
+  if (!surface) return '—';
+  return ACCESS_SURFACE_LABEL[surface] ?? surface;
+}
+
 type Props = {
   params: Promise<{ userId: string }>;
   searchParams: Promise<{ tab?: string }>;
@@ -119,13 +137,24 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   const admin = createAdminClient();
 
   // --- profile (gate) --------------------------------------------------------
-  const { data: user } = await admin
+  const { data: user, error: userError } = await admin
     .from('users')
     .select(
       'user_id, public_id, email, display_name, account_type, is_internal, is_team_member, marketing_opt_in, last_login_at, deleted_at, tour_completed_at, tour_seen_keys, created_at',
     )
     .eq('user_id', userId)
     .maybeSingle();
+  // 🔑 A refused profile read is NOT a missing account: `notFound()` here told
+  // the owner a real, paying account did not exist.
+  if (userError) {
+    logQueryError('AdminAccountCardPage (profile)', userError);
+    return (
+      <div className="mx-auto w-full max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
+        <PageMasthead title="Account" />
+        <ReadFailed what="this account" />
+      </div>
+    );
+  }
   if (!user) notFound();
 
   // Log the read (RA 10173 who-viewed-whom), post-response + non-fatal — the
@@ -144,7 +173,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   });
 
   // --- events & roles --------------------------------------------------------
-  const { data: memberships } = await admin
+  const { data: memberships, error: membershipsError } = await admin
     .from('event_members')
     .select('event_id, member_type, joined_at')
     .eq('user_id', userId)
@@ -154,31 +183,31 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   (memberships ?? []).forEach((m) => roleByEvent.set(m.event_id as string, m.member_type as string));
   const firstJoinAt = (memberships?.[0]?.joined_at as string) ?? null;
 
-  const { data: events } = eventIds.length
+  const { data: events, error: eventsError } = eventIds.length
     ? await admin
         .from('events')
         .select('event_id, public_id, display_name, event_date, event_type, archived, created_at')
         .in('event_id', eventIds)
         .order('created_at', { ascending: false })
-    : { data: [] as never[] };
+    : { data: [] as never[], error: null };
 
   // --- vendor membership -----------------------------------------------------
-  const { data: vendorTeam } = await admin
+  const { data: vendorTeam, error: vendorTeamError } = await admin
     .from('vendor_team_members')
     .select('vendor_profile_id, role, team_label')
     .eq('user_id', userId);
   const vendorProfileIds = Array.from(
     new Set((vendorTeam ?? []).map((v) => v.vendor_profile_id as string)),
   );
-  const { data: vendorProfiles } = vendorProfileIds.length
+  const { data: vendorProfiles, error: vendorProfilesError } = vendorProfileIds.length
     ? await admin
         .from('vendor_profiles')
         .select('vendor_profile_id, business_name, business_slug, is_published')
         .in('vendor_profile_id', vendorProfileIds)
-    : { data: [] as never[] };
+    : { data: [] as never[], error: null };
   const vendorNameById = new Map<string, string>();
   (vendorProfiles ?? []).forEach((v) =>
-    vendorNameById.set(v.vendor_profile_id as string, (v.business_name as string) ?? 'Vendor'),
+    vendorNameById.set(v.vendor_profile_id as string, (v.business_name as string) ?? 'Supplier'),
   );
 
   // --- comp grants -----------------------------------------------------------
@@ -186,7 +215,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   const activeGrants = grants.filter((g) => !g.revoked_at);
 
   // --- orders + payments (Money) ---------------------------------------------
-  const { data: orders } = await admin
+  const { data: orders, error: ordersError } = await admin
     .from('orders')
     .select(
       'order_id, public_id, reference_code, description, service_key, status, requested_total_php, confirmed_total_php, comp_grant_id, created_at',
@@ -195,7 +224,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
     .order('created_at', { ascending: false })
     .limit(100);
 
-  const { data: payments } = await admin
+  const { data: payments, error: paymentsError } = await admin
     .from('payments')
     .select('payment_id, order_id, amount_php, channel, status, paid_at, reviewed_at, created_at')
     .eq('user_id', userId)
@@ -203,41 +232,41 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
     .limit(100);
 
   const orderIds = (orders ?? []).map((o) => o.order_id as string);
-  const { data: refunds } = orderIds.length
+  const { data: refunds, error: refundsError } = orderIds.length
     ? await admin
         .from('order_refunds')
         .select('refund_id, order_id, refund_amount_centavos, status, refunded_at, created_at')
         .in('order_id', orderIds)
         .order('created_at', { ascending: false })
-    : { data: [] as never[] };
+    : { data: [] as never[], error: null };
 
   const firstPaidOrder = (orders ?? [])
     .filter((o) => PAID_STATUSES.has(o.status as string))
     .sort((a, b) => (a.created_at as string).localeCompare(b.created_at as string))[0];
 
   // --- support (read-only slices) --------------------------------------------
-  const { data: helpTickets } = await admin
+  const { data: helpTickets, error: helpError } = await admin
     .from('help_messages')
     .select('message_id, public_id, topic, subject, status, resolved_at, created_at')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(50);
 
-  const { data: disputes } = await admin
+  const { data: disputes, error: disputesError } = await admin
     .from('vendor_disputes')
     .select('dispute_id, public_id, category, status, resolved_at, created_at')
     .eq('opened_by_user_id', userId)
     .order('created_at', { ascending: false })
     .limit(50);
 
-  const { data: userReports } = await admin
+  const { data: userReports, error: reportsError } = await admin
     .from('user_reports')
     .select('report_id, public_id, target_type, reason, status, reviewed_at, created_at')
     .eq('reporter_user_id', userId)
     .order('created_at', { ascending: false })
     .limit(50);
 
-  const { data: abuseFlags } = await admin
+  const { data: abuseFlags, error: abuseError } = await admin
     .from('concierge_abuse_flags')
     .select('flag_id, similarity_score, status, created_at, reviewed_at')
     .eq('flagged_user_id', userId)
@@ -245,7 +274,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
     .limit(50);
 
   // --- governance: who viewed this account -----------------------------------
-  const { data: accessLog } = await admin
+  const { data: accessLog, error: accessLogError } = await admin
     .from('admin_data_access_log')
     .select('access_log_id, admin_user_id, surface, created_at')
     .eq('accessed_user_id', userId)
@@ -269,7 +298,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   );
 
   // --- activity: admin write-actions taken ON this account -------------------
-  const { data: adminActions } = await admin
+  const { data: adminActions, error: adminActionsError } = await admin
     .from('admin_audit_log')
     // ⚠ `audit_log_id`, NOT `audit_id` — public.admin_audit_log has no
     // `audit_id`. PostgREST 42703s the whole query on an unknown column, so the
@@ -278,6 +307,30 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
     .eq('target_id', userId)
     .order('created_at', { ascending: false })
     .limit(30);
+
+  // --- which reads were refused ----------------------------------------------
+  // Each section below says "couldn't read" instead of its empty state when its
+  // own read failed — an empty list is only ever printed for a list we counted.
+  const reads: [string, unknown][] = [
+    ['events', membershipsError ?? eventsError],
+    ['supplier team', vendorTeamError ?? vendorProfilesError],
+    ['orders', ordersError],
+    ['payments', paymentsError],
+    ['refunds', refundsError],
+    ['help', helpError],
+    ['disputes', disputesError],
+    ['reports', reportsError],
+    ['abuse', abuseError],
+    ['access log', accessLogError],
+    ['admin actions', adminActionsError],
+  ];
+  for (const [what, err] of reads) if (err) logQueryError(`AdminAccountCardPage (${what})`, err);
+  const eventsUnread = Boolean(membershipsError || eventsError);
+  const ordersUnread = Boolean(ordersError);
+  const paymentsUnread = Boolean(paymentsError);
+  const refundsUnread = Boolean(ordersError || refundsError);
+  const accessLogUnread = Boolean(accessLogError);
+  const rolesUnread = eventsUnread || Boolean(vendorTeamError || vendorProfilesError);
 
   // --- derive lifecycle ------------------------------------------------------
   const onboarded =
@@ -361,10 +414,18 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                       className="inline-flex items-center gap-1 rounded-md bg-[var(--sn-info-soft)] px-2 py-1 text-xs font-medium text-[color:var(--sn-info)]"
                     >
                       <Store className="h-3 w-3" strokeWidth={2} aria-hidden />
-                      Vendor member · {(v.business_name as string) ?? 'Vendor'}
+                      Supplier member · {(v.business_name as string) ?? 'Supplier'}
                     </span>
                   ))
                 : null}
+              {rolesUnread ? (
+                <span
+                  role="alert"
+                  className="rounded-md bg-[var(--sn-warning-soft)] px-2 py-1 text-xs font-medium text-ink"
+                >
+                  Couldn&rsquo;t read all roles
+                </span>
+              ) : null}
               {user.is_internal ? (
                 <span className="rounded-md bg-[var(--sn-info-soft)] px-2 py-1 text-xs font-medium text-[color:var(--sn-info)]">
                   🟣 Internal
@@ -459,9 +520,11 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                 <CalendarHeart className="h-4 w-4 text-gold" strokeWidth={1.75} aria-hidden />
                 Events &amp; roles
-                <span className="font-normal text-ink/40">({(events ?? []).length})</span>
+                <span className="font-normal text-ink/40">({eventsUnread ? '—' : (events ?? []).length})</span>
               </h2>
-              {(events ?? []).length === 0 ? (
+              {eventsUnread ? (
+                <ReadFailed what="this account’s events" />
+              ) : (events ?? []).length === 0 ? (
                 <p className="text-sm text-ink/50">Not a member of any event yet.</p>
               ) : (
                 <ul className="space-y-2">
@@ -487,7 +550,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                           <span className="rounded bg-ink/5 px-1.5 py-0.5 font-medium text-ink/70">
                             {MEMBER_TYPE_LABEL[role ?? ''] ?? role ?? '—'}
                           </span>
-                          <span>{(e.event_type as string) ?? 'wedding'}</span>
+                          <span>{(e.event_type as string | null) ?? '—'}</span>
                           <span>{fmtDate(e.event_date as string)}</span>
                         </span>
                       </li>
@@ -548,7 +611,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
                   <Receipt className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
                   Orders
-                  <span className="font-normal text-ink/40">({(orders ?? []).length})</span>
+                  <span className="font-normal text-ink/40">({ordersUnread ? '—' : (orders ?? []).length})</span>
                 </h2>
                 <Link
                   href="/admin/payments"
@@ -557,7 +620,9 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                   Reconcile in Payments
                 </Link>
               </div>
-              {(orders ?? []).length === 0 ? (
+              {ordersUnread ? (
+                <ReadFailed what="this account’s orders" />
+              ) : (orders ?? []).length === 0 ? (
                 <p className="text-sm text-ink/50">No orders placed.</p>
               ) : (
                 <ul className="space-y-2">
@@ -604,9 +669,11 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                 <Receipt className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
                 Logged payments
-                <span className="font-normal text-ink/40">({(payments ?? []).length})</span>
+                <span className="font-normal text-ink/40">({paymentsUnread ? '—' : (payments ?? []).length})</span>
               </h2>
-              {(payments ?? []).length === 0 ? (
+              {paymentsUnread ? (
+                <ReadFailed what="this account’s payments" />
+              ) : (payments ?? []).length === 0 ? (
                 <p className="text-sm text-ink/50">No payments logged.</p>
               ) : (
                 <ul className="space-y-2">
@@ -616,7 +683,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                       className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-ink/[0.03] px-3 py-2 text-sm"
                     >
                       <span className="text-ink/70">
-                        {formatPhp(p.amount_php as number)} · {(p.channel as string) ?? '—'}
+                        {formatPhp(p.amount_php as number)} · {channelWord(p.channel as string | null)}
                       </span>
                       <span className="flex items-center gap-3 text-xs text-ink/55">
                         <span
@@ -628,7 +695,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                                 : 'bg-amber-100 text-amber-800'
                           }`}
                         >
-                          {p.status as string}
+                          {paymentStatusWord(p.status as string)}
                         </span>
                         <span>{fmtDate((p.reviewed_at as string) ?? (p.created_at as string))}</span>
                       </span>
@@ -642,9 +709,11 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               <h2 className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
                 <Receipt className="h-4 w-4 text-mulberry" strokeWidth={1.75} aria-hidden />
                 Refunds
-                <span className="font-normal text-ink/40">({(refunds ?? []).length})</span>
+                <span className="font-normal text-ink/40">({refundsUnread ? '—' : (refunds ?? []).length})</span>
               </h2>
-              {(refunds ?? []).length === 0 ? (
+              {refundsUnread ? (
+                <ReadFailed what="this account’s refunds" />
+              ) : (refunds ?? []).length === 0 ? (
                 <p className="text-sm text-ink/50">No refunds issued.</p>
               ) : (
                 <ul className="space-y-2">
@@ -680,6 +749,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
             <SupportSection
               icon={<LifeBuoy className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />}
               title="Help tickets"
+              loadFailed={Boolean(helpError)}
               count={(helpTickets ?? []).length}
               href="/admin/help"
               hrefLabel="Open Help queue"
@@ -695,6 +765,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
             <SupportSection
               icon={<Scale className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />}
               title="Disputes opened"
+              loadFailed={Boolean(disputesError)}
               count={(disputes ?? []).length}
               href="/admin/disputes"
               hrefLabel="Open Disputes queue"
@@ -710,6 +781,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
             <SupportSection
               icon={<ShieldCheck className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />}
               title="Reports filed"
+              loadFailed={Boolean(reportsError)}
               count={(userReports ?? []).length}
               href="/admin/user-reports"
               hrefLabel="Open Reports queue"
@@ -725,6 +797,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
             <SupportSection
               icon={<Sparkle className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />}
               title="AI abuse flags"
+              loadFailed={Boolean(abuseError)}
               count={(abuseFlags ?? []).length}
               href="/admin/concierge-abuse"
               hrefLabel="Open abuse queue"
@@ -745,6 +818,11 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               <ActivityIcon className="h-4 w-4 text-ink/60" strokeWidth={1.75} aria-hidden />
               Activity · newest first
             </h2>
+            {ordersUnread || paymentsUnread || adminActionsError ? (
+              <div className="mb-3">
+                <ReadFailed what="part of this account’s history, so the timeline below may be missing entries" />
+              </div>
+            ) : null}
             <ActivityTimeline
               items={buildActivity({
                 createdAt: user.created_at as string,
@@ -805,7 +883,9 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               <p className="mb-3 text-xs text-ink/50">
                 RA 10173 right-to-know trail — every admin read of this account&rsquo;s data.
               </p>
-              {(accessLog ?? []).length === 0 ? (
+              {accessLogUnread ? (
+                <ReadFailed what="who viewed this account" />
+              ) : (accessLog ?? []).length === 0 ? (
                 <p className="text-sm text-ink/50">No admin views recorded yet.</p>
               ) : (
                 <ul className="space-y-2">
@@ -821,7 +901,7 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                         </span>
                         <span className="flex items-center gap-3 text-xs text-ink/55">
                           <span className="font-mono text-[11px] text-ink/45">
-                            {ACCESS_SURFACE_LABEL[r.surface as string] ?? (r.surface as string) ?? '—'}
+                            {surfaceWord(r.surface as string | null)}
                           </span>
                           <span>{fmtDate(r.created_at as string)}</span>
                         </span>
@@ -873,7 +953,9 @@ function SupportSection({
   hrefLabel,
   empty,
   rows,
+  loadFailed,
 }: {
+  loadFailed: boolean;
   icon: React.ReactNode;
   title: string;
   count: number;
@@ -888,13 +970,15 @@ function SupportSection({
         <h2 className="flex items-center gap-2 text-sm font-medium text-ink">
           {icon}
           {title}
-          <span className="font-normal text-ink/40">({formatCount(count)})</span>
+          <span className="font-normal text-ink/40">({loadFailed ? '—' : formatCount(count)})</span>
         </h2>
         <Link href={href} className="text-xs font-medium text-mulberry underline hover:text-ink">
           {hrefLabel}
         </Link>
       </div>
-      {rows.length === 0 ? (
+      {loadFailed ? (
+        <ReadFailed what={`${title.toLowerCase()}`} />
+      ) : rows.length === 0 ? (
         <p className="text-sm text-ink/50">{empty}</p>
       ) : (
         <ul className="space-y-2">
@@ -945,7 +1029,9 @@ function buildActivity(input: {
   push('onboarded', 'Finished onboarding', null, input.onboardedAt);
   push('first_event', 'Joined first event', null, input.firstJoinAt);
   input.orders.forEach((o) => push(`o-${o.id}`, 'Order placed', `${o.label} · ${o.status}`, o.at));
-  input.payments.forEach((p) => push(`p-${p.id}`, 'Payment logged', p.status, p.at));
+  input.payments.forEach((p) =>
+    push(`p-${p.id}`, 'Payment logged', paymentStatusWord(p.status), p.at),
+  );
   input.adminActions.forEach((a) =>
     push(`a-${a.id}`, 'Admin action', a.action.replace(/_/g, ' '), a.at),
   );

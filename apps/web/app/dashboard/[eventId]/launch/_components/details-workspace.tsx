@@ -26,7 +26,7 @@ import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { GuideFoot, GuideHead, GuideReady, prefetchDetailsItem } from './details-lazy';
+import { GuideFoot, GuideHead, GuideReady } from './details-lazy';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
 export type DetailsNavItem = DetailsItemModel & {
@@ -244,7 +244,7 @@ export function DetailsWorkspace({
   const whatsLeftLine = (() => {
     if (!plan) return '';
     const h = homeProgress(plan);
-    return h ? `Round ${h.round} · ${formatCount(h.done)} of ${formatCount(h.total)}` : 'All set';
+    return h ? `${h.round === 0 ? 'Finish' : `Round ${h.round}`} · ${formatCount(h.done)} of ${formatCount(h.total)}` : 'All set';
   })();
   /* The navigator, narrowed in the flow to the step's own items (and their pieces). */
   const navGroups: DetailsNavGroup[] =
@@ -403,10 +403,9 @@ export function DetailsWorkspace({
                           type="button"
                           aria-pressed={on}
                           onClick={() => select(i.key)}
-                          /* ⚡ An item's picture loads the first time it is opened (`details-lazy.tsx`);
-                             a hover or a focus fetches it first, so the open is instant. */
-                          onPointerEnter={() => prefetchDetailsItem(i.key)}
-                          onFocus={() => prefetchDetailsItem(i.key)}
+                          /* ⚡ An item's picture is already warm: the Maker preloads every
+                             tool once it is idle (`maker-tools.tsx`) — one mechanism, no
+                             per-row hover fetch. */
                           data-details-nav-item={i.key}
                           className={`sn-press flex min-h-11 w-[84px] shrink-0 flex-col items-center gap-1 rounded-lg px-1.5 py-1.5 text-center transition-colors duration-sn-control ease-sn lg:w-full lg:flex-row lg:gap-2.5 lg:px-2 lg:text-left ${
                             on ? 'bg-ink/[0.07] text-ink' : 'text-ink/75 hover:bg-ink/[0.04]'

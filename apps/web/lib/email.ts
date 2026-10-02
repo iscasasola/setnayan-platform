@@ -164,6 +164,9 @@ export type VendorInviteEmailArgs = {
   serviceCategory: string;
   eventDate: string | null;
   claimUrl: string;
+  /** The event's own word (EventWords.eventWord) — 'wedding', 'birthday',
+   *  'wake'… A supplier invited to a birthday is never told "their wedding". */
+  eventWord?: string;
 };
 
 export async function sendVendorInviteEmail(
@@ -175,7 +178,11 @@ export async function sendVendorInviteEmail(
         month: 'long',
         day: 'numeric',
       })
-    : 'their upcoming wedding';
+    : null;
+  const eventWord = args.eventWord?.trim() || 'wedding';
+  const planning = dateLine
+    ? `${args.coupleDisplayName} is planning their ${eventWord} on ${dateLine} using Setnayan`
+    : `${args.coupleDisplayName} is planning their upcoming ${eventWord} using Setnayan`;
 
   return sendEmail({
     to: args.to,
@@ -183,14 +190,14 @@ export async function sendVendorInviteEmail(
     text: [
       `Hi ${args.businessName},`,
       ``,
-      `${args.coupleDisplayName} is planning their wedding on ${dateLine} using Setnayan, and added you as their ${args.serviceCategory}.`,
+      `${planning}, and added you as their ${args.serviceCategory}.`,
       ``,
       `Claim your free Setnayan profile here:`,
       args.claimUrl,
       ``,
       `On signup you'll see everything they've recorded so far, and the in-app chat unlocks immediately so you can confirm details.`,
       ``,
-      `Not the right vendor? Just ignore this email — we won't follow up.`,
+      `Not the right supplier? Just ignore this email — we won't follow up.`,
       ``,
       `—`,
       `Set na 'yan.`,

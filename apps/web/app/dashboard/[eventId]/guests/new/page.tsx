@@ -146,7 +146,7 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
       ) : null}
 
       <form action={action} className="space-y-5">
-        <GuestNameFields eventId={eventId} pool={namePool} />
+        <GuestNameFields eventId={eventId} pool={namePool} hasSides={hasSides} />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {hasSides ? (

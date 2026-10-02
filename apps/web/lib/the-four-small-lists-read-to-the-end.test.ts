@@ -532,7 +532,7 @@ test('screens: the Overview desk reads through the paged helpers and reports a s
   }
   assert.match(
     lib,
-    /const deskIncomplete =\s*!lockRead\.complete \|\|\s*!lockAgreementRead\.complete \|\|\s*!deletionRead\.complete \|\|\s*!declinedRead\.complete;/,
+    /const deskIncomplete =\s*!lockRead\.complete \|\|\s*!lockAgreementRead\.complete \|\|\s*!deletionRead\.complete \|\|\s*!declinedRead\.complete \|\|\s*!dateChangeRead\.complete;/,
   );
   assert.match(lib, /return \{ whatsNew, ongoing, upcoming, deskIncomplete \};/);
   const page = read('app/vendor-dashboard/page.tsx');

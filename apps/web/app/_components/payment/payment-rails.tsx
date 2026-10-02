@@ -38,10 +38,13 @@ import { Check } from 'lucide-react';
 
 import { CopyButton } from '@/app/_components/copy-button';
 import { OpenWalletButton } from '@/app/_components/open-wallet-button';
-import { mintOrderQr } from '@/lib/emv-qr';
+import { isQrPhPayload, mintOrderQr } from '@/lib/emv-qr';
 import { qrWords } from '@/lib/qr-amount-truth';
 import { payAmount } from '@/lib/pay-amount';
 import { openAccounts, type AccountKind, type ChannelSettings } from '@/lib/payment-channels';
+
+/** The one line printed beside a payment QR that is QR Ph. */
+export const QR_PH_LINE = 'Scan with any bank or e-wallet app (QR Ph)';
 
 /** Which receiving account a card or a block is about — the list's own words. */
 export type RailIdentity = {
@@ -385,6 +388,18 @@ export function PaymentDetailsBlock({
               className="h-40 w-40 rounded-lg object-contain"
             />
           </div>
+
+          {/* QR Ph is the national standard: ANY bank or e-wallet app can scan
+              it, not just the account named above (owner ruling 2026-10-02,
+              "say any bank or e-wallet"). Said ONLY when the stored payload
+              actually parses as QR Ph — an uploaded picture we cannot read
+              makes no such promise, and a wrong "any app" costs a bounced
+              payment. `isQrPhPayload` is the same strict check the mint uses. */}
+          {isQrPhPayload(qrPayload) ? (
+            <p className="text-center text-[11px] font-medium text-ink/70">
+              {QR_PH_LINE}
+            </p>
+          ) : null}
 
           {mintedQr ? (
             <>

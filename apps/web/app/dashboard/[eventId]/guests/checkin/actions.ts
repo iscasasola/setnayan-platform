@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { doorVerdict } from '@/lib/request-key';
 
@@ -39,6 +40,16 @@ async function assertDoorCrew(eventId: string) {
   return user;
 }
 
+/**
+ * "Only the couple or a coordinator…" named a couple at a birthday's door. The
+ * refusal names THIS event's organizer word (EventWords — 'the couple' on a
+ * wedding, byte-identical; 'the celebrant', 'the family'… elsewhere).
+ */
+async function onlyOrganizerOrCoordinator(eventId: string, can: string): Promise<string> {
+  const who = (await eventWordsForEvent(eventId).catch(() => null))?.theOrganizer ?? 'the host';
+  return `Only ${who} or a coordinator can ${can}.`;
+}
+
 /** Check a guest in. Idempotent — a second call reports the existing time. */
 export async function checkInGuest(
   eventId: string,
@@ -49,7 +60,7 @@ export async function checkInGuest(
   try {
     user = await assertDoorCrew(eventId);
   } catch {
-    return { ok: false, error: 'Only the couple or a coordinator can check guests in.' };
+    return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'check guests in') };
   }
 
   const supabase = await createClient();
@@ -110,7 +121,7 @@ export async function undoCheckIn(
   try {
     await assertDoorCrew(eventId);
   } catch {
-    return { ok: false, error: 'Only the couple or a coordinator can undo a check-in.' };
+    return { ok: false, error: await onlyOrganizerOrCoordinator(eventId, 'undo a check-in') };
   }
 
   const supabase = await createClient();

@@ -16,6 +16,11 @@ import Link from 'next/link';
  *
  * A server component — it adds nothing to any client bundle. `marker` names the
  * data attribute each surface's guard reads (`data-home-next`, `data-today-next`).
+ *
+ * 🧭 `later` — the ONE exception to one button: a once-offer ("Start / Later",
+ * the Event Hub setup right after onboarding, owner-approved 2026-10-01) adds a
+ * quiet "Later" under the button. It posts an EXISTING server action (no new
+ * one), so the offer is answered without a line of client code.
  */
 export function NextCard({
   marker,
@@ -24,6 +29,7 @@ export function NextCard({
   body,
   action,
   href,
+  later = null,
 }: {
   marker: 'data-home-next' | 'data-today-next';
   kind: string;
@@ -31,6 +37,7 @@ export function NextCard({
   body: string;
   action: string;
   href: string;
+  later?: { label: string; action: (formData: FormData) => Promise<void> } | null;
 }) {
   return (
     <div {...{ [marker]: kind }} className="sn-glass-bare rounded-2xl p-4">
@@ -43,6 +50,13 @@ export function NextCard({
       >
         {action}
       </Link>
+      {later ? (
+        <form action={later.action} className="mt-1 flex justify-center">
+          <button type="submit" data-next-later="" className="sn-press min-h-11 px-4 text-[14px] font-semibold text-ink/65 underline underline-offset-2">
+            {later.label}
+          </button>
+        </form>
+      ) : null}
     </div>
   );
 }

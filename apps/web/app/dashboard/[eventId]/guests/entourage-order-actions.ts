@@ -8,7 +8,8 @@
  * no order at all — neither entourage query carried an `ORDER BY`, so within a
  * role the names came back however Postgres felt and could reshuffle between
  * page loads. A surname sort now supplies the default; this writes the
- * couple's override on top of it (`guests.entourage_order`).
+ * couple's override on top of it — the walks' order in `march_walks` since
+ * 2026-10-01 (owner: "wedding march is a different entity"), never a guest row.
  *
  * ── WHY IT WRITES THE WHOLE GROUP, NOT THE TWO ROWS THAT MOVED ─────────────
  * A swap only touches two people IF everyone in that group already carries a
@@ -43,14 +44,12 @@
  */
 
 import {
-  MARCH_READ_FAILED,
   MARCH_STALE,
   readMarchLines,
   revalidateMarch,
   writeLineOrder,
 } from '@/lib/entourage-write';
-import { createClient } from '@/lib/supabase/server';
-import { ENTOURAGE_GROUP_KEYS, entourageGroupOfRole, type EntourageRow } from '@/lib/entourage';
+import { defaultLineOrder, type EntourageRow } from '@/lib/entourage';
 import type { MarchResult } from '@/lib/march-result';
 
 /**
@@ -108,40 +107,28 @@ export async function setEntourageLineOrder(
 }
 
 /**
- * Hand one printed GROUP's order back to the alphabetical default.
+ * Hand one printed GROUP's order back to the default — role order, then surname.
  *
  * Without this, a couple who drags once can never get back to "no opinion" —
- * every name in that group keeps a number forever, and the default they were
- * happy with becomes unreachable.
+ * the default they were happy with becomes unreachable.
+ *
+ * 🚶 SINCE 2026-10-01 THE ORDER IS THE WALKS' OWN (`march_walks`), so "no
+ * opinion" is written rather than cleared: the section's walks are renumbered
+ * in the default order by the SAME write every move uses. Who walks with whom
+ * is kept — Reset hands back the order, never the pairs.
  */
 export async function clearEntourageOrder(
   eventId: string,
   groupKey: string,
 ): Promise<MarchResult> {
-  if (!ENTOURAGE_GROUP_KEYS.includes(groupKey)) {
-    return { ok: false, reason: 'That part of the entourage does not exist.' };
-  }
-  const supabase = await createClient();
-  const { data: all, error: readErr } = await supabase
-    .from('guests')
-    .select('guest_id, role')
-    .eq('event_id', eventId)
-    .is('deleted_at', null);
-  if (readErr) return { ok: false, reason: MARCH_READ_FAILED };
+  const read = await readMarchLines(eventId, groupKey);
+  if (!read.ok) return read;
+  const { supabase, lines } = read;
+  if (lines.length === 0) return { ok: true, written: 0 };
 
-  // Every role in this printed group — derived, so a group that gains a role
-  // does not quietly keep half its order.
-  const ids = ((all ?? []) as Array<{ guest_id: string; role: string | null }>)
-    .filter((g) => g.role && entourageGroupOfRole(g.role) === groupKey)
-    .map((g) => g.guest_id);
-  if (ids.length === 0) return { ok: true, written: 0 };
-
-  const { data, error } = await supabase.rpc('clear_entourage_order', {
-    p_event_id: eventId,
-    p_guest_ids: ids,
-  });
-  if (error) return { ok: false, reason: 'That reset did not go through — nothing was changed.' };
+  const result = await writeLineOrder(supabase, eventId, defaultLineOrder(lines, groupKey));
+  if (!result.ok) return { ok: false, reason: 'That reset did not go through — nothing was changed.' };
 
   await revalidateMarch(eventId);
-  return { ok: true, written: typeof data === 'number' ? data : 0 };
+  return result;
 }

@@ -528,7 +528,7 @@ export async function setServiceFaith(formData: FormData) {
     redirectBack(
       formData,
       'error',
-      'Dietary services stay universal — dietary capability is a per-vendor grade, not a faith gate.',
+      'Dietary services stay universal — dietary capability is a per-supplier grade, not a faith gate.',
     );
   }
 

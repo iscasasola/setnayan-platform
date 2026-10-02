@@ -221,18 +221,12 @@ export const routes = {
           reorder: () => `/api/v1/admin/site-widgets/reorder`,
         },
       },
-      billing: {
-        initializeMaya: () => `/api/v1/billing/initialize-maya`,
-      },
       events: {
         index: () => `/api/v1/events`,
         detail: (eventId: string) => `/api/v1/events/${eventId}`,
         guests: (eventId: string) => `/api/v1/events/${eventId}/guests`,
       },
       health: () => `/api/v1/health`,
-      manpower: {
-        syncDevice: () => `/api/v1/manpower/sync-device`,
-      },
       me: () => `/api/v1/me`,
       reviews: () => `/api/v1/reviews`,
       vendors: {
@@ -344,7 +338,6 @@ export const routes = {
     documents: (eventId: string) => `/dashboard/${eventId}/documents`,
     eventQr: (eventId: string) => `/dashboard/${eventId}/event-qr`,
     findDate: (eventId: string) => `/dashboard/${eventId}/find-date`,
-    forYou: (eventId: string) => `/dashboard/${eventId}/for-you`,
     guests: {
       index: (eventId: string) => `/dashboard/${eventId}/guests`,
       checkin: (eventId: string) => `/dashboard/${eventId}/guests/checkin`,
@@ -389,7 +382,6 @@ export const routes = {
       walkthrough: (eventId: string) => `/dashboard/${eventId}/seating/walkthrough`,
     },
     sponsors: (eventId: string) => `/dashboard/${eventId}/sponsors`,
-    today: (eventId: string) => `/dashboard/${eventId}/today`,
     vendors: {
       index: (eventId: string) => `/dashboard/${eventId}/vendors`,
       categories: (eventId: string) => `/dashboard/${eventId}/vendors/categories`,
@@ -415,7 +407,6 @@ export const routes = {
   download: () => `/download`,
   explore: {
     index: () => `/explore`,
-    categories: () => `/explore/categories`,
     compare: () => `/explore/compare`,
   },
   faviconIco: () => `/favicon.ico`,
@@ -542,7 +533,6 @@ export const routes = {
     reviews: () => `/vendor-dashboard/reviews`,
     services: () => `/vendor-dashboard/services`,
     subscription: () => `/vendor-dashboard/subscription`,
-    taxDocuments: () => `/vendor-dashboard/tax-documents`,
     team: () => `/vendor-dashboard/team`,
     verify: () => `/vendor-dashboard/verify`,
     website: () => `/vendor-dashboard/website`,

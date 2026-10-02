@@ -129,7 +129,7 @@ async function openUpheldDispute(
       opened_by_user_id: args.openedByUserId,
       category: 'quality_issue',
       description:
-        'Setnayan team upheld a non-delivery report — the vendor did not deliver the service.' +
+        'Setnayan team upheld a non-delivery report — the supplier did not deliver the service.' +
         (args.note ? ` ${args.note}` : ''),
       counts_toward_demotion: true,
     });
@@ -197,7 +197,7 @@ export async function forceCompleteVendor(formData: FormData) {
     .eq('vendor_id', vendorId)
     .maybeSingle();
   const ev = evRow as EventVendorLookup | null;
-  if (!ev) throw new Error('Vendor not found for this event');
+  if (!ev) throw new Error('Supplier not found for this event');
 
   const now = new Date().toISOString();
   const { error } = await admin
@@ -225,7 +225,7 @@ export async function forceCompleteVendor(formData: FormData) {
     note,
   });
 
-  const vendorName = (ev.vendor_name ?? '').trim() || 'your vendor';
+  const vendorName = (ev.vendor_name ?? '').trim() || 'your supplier';
   // Notify couple(s) — best-effort, fail-soft.
   try {
     const couples = await coupleUserIds(admin, eventId);
@@ -290,7 +290,7 @@ export async function upholdNonDelivery(formData: FormData) {
     .eq('vendor_id', vendorId)
     .maybeSingle();
   const ev = evRow as EventVendorLookup | null;
-  if (!ev) throw new Error('Vendor not found for this event');
+  if (!ev) throw new Error('Supplier not found for this event');
   if (ev.completion_status !== 'disputed') {
     throw new Error('Only an open dispute can be upheld as a non-delivery.');
   }
@@ -336,7 +336,7 @@ export async function upholdNonDelivery(formData: FormData) {
   // Notify couple(s): the dispute was reviewed; the review stays closed.
   try {
     const couples = await coupleUserIds(admin, eventId);
-    const vendorName = (ev.vendor_name ?? '').trim() || 'your vendor';
+    const vendorName = (ev.vendor_name ?? '').trim() || 'your supplier';
     await Promise.all(
       couples.map((uid) =>
         emitNotification({

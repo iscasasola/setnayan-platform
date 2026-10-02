@@ -178,7 +178,7 @@ export async function ComplianceSurface() {
         </h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           <CountCard icon={Users} label="Users" value={users} note="All accounts" />
-          <CountCard icon={Briefcase} label="Vendors" value={vendors} note="Vendor profiles" />
+          <CountCard icon={Briefcase} label="Suppliers" value={vendors} note="Supplier profiles" />
           <CountCard icon={UserRound} label="Guests" value={guests} note="Event guests" />
           <CountCard icon={CalendarDays} label="Events" value={events} note="All events" />
           <CountCard

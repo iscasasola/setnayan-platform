@@ -156,8 +156,9 @@ export default async function ComplianceDataSheetPage() {
 
   // Total data subjects = every account + every guest (couples/organizers,
   // vendors, and internal accounts are all in `users`; guests are separate).
-  const totalSubjects =
-    users == null && guests == null ? null : (users ?? 0) + (guests ?? 0);
+  // 🔑 BOTH counts or none. One failed count used to be added as 0, which printed
+  // a smaller number than the truth on a filing sheet as if it were the total.
+  const totalSubjects = users == null || guests == null ? null : users + guests;
 
   return (
     <section className="mx-auto max-w-4xl space-y-6">
@@ -233,8 +234,8 @@ export default async function ComplianceDataSheetPage() {
         <FieldTable>
           <Row field="Total number of employees" value={f.headcount} />
           <Row field="Staff with data access" value={f.staff_with_data_access} />
-          <Row field="Total number of data subjects (live)" value={totalSubjects} />
-          <Row field="Active biometric face vectors (live)" value={faces} />
+          <Row field="Total number of data subjects (live)" value={totalSubjects ?? 'Couldn’t count right now — refresh to try again'} />
+          <Row field="Active biometric face vectors (live)" value={faces ?? 'Couldn’t count right now — refresh to try again'} />
         </FieldTable>
 
         <h3 className="pt-1 text-sm font-semibold tracking-tight text-ink">

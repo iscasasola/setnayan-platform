@@ -228,8 +228,8 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
         <div className="space-y-2 rounded-md border border-mulberry/30 bg-mulberry/5 p-3">
           <p className="flex items-center gap-2 text-sm font-medium text-ink">
             <Loader2 className="h-4 w-4 animate-spin text-mulberry" />
-            Creating demo vendors… {formatCount(create.offset)}/{create.total ? formatCount(create.total) : '…'} categories ·{' '}
-            {create.vendors.toLocaleString()} vendors
+            Creating demo suppliers… {formatCount(create.offset)}/{create.total ? formatCount(create.total) : '…'} categories ·{' '}
+            {create.vendors.toLocaleString()} suppliers
           </p>
           <div className="h-2 w-full overflow-hidden rounded-full bg-ink/10">
             <div
@@ -276,7 +276,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
               ) : (
                 <Check className="h-4 w-4" />
               )}
-              Confirm: delete all {totalCount.toLocaleString()} demo vendors
+              Confirm: delete all {totalCount.toLocaleString()} demo suppliers
             </button>
             <button
               type="button"
@@ -320,7 +320,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
         ) : (
           <>
             <label className="inline-flex items-center gap-1.5 text-sm text-ink/70">
-              <span className="text-ink/55">Vendors/category</span>
+              <span className="text-ink/55">Suppliers/category</span>
               <input
                 type="number"
                 min={5}
@@ -338,7 +338,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
               className="inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-semibold text-cream hover:bg-mulberry-600"
             >
               <Sparkles className="h-4 w-4" />
-              Create demo vendors
+              Create demo suppliers
             </button>
             <button
               type="button"
@@ -347,7 +347,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
               className="inline-flex items-center gap-2 rounded-md bg-red-50 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Trash2 className="h-4 w-4" />
-              Cleanup ALL Demo Vendors
+              Cleanup ALL Demo Suppliers
             </button>
             <button
               type="button"
@@ -367,7 +367,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
       {create.kind === 'done' && (
         <div className="rounded-md border border-success-200 bg-success-50 p-3 text-sm text-success-900">
           <p className="font-medium">
-            Created {create.vendors.toLocaleString()} demo vendors covering every
+            Created {create.vendors.toLocaleString()} demo suppliers covering every
             taxonomy node (some carry linked &ldquo;comes with&rdquo; services).
             Preview at <code className="rounded bg-success-100 px-1">/explore?demo=1</code>.
           </p>
@@ -385,7 +385,7 @@ export function DemoVendorActions({ totalCount, batchId, compact, demoMode }: Pr
       {/* Result banner */}
       {result.kind === 'done' && (
         <div className="rounded-md border border-success-200 bg-success-50 p-3 text-sm text-success-900">
-          <p className="font-medium">Deleted {result.deleted.toLocaleString()} demo vendors.</p>
+          <p className="font-medium">Deleted {result.deleted.toLocaleString()} demo suppliers.</p>
           {result.nextStep && (
             <div className="mt-2 space-y-1">
               <p className="text-success-800">{result.nextStep.message}</p>

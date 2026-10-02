@@ -44,6 +44,7 @@ import {
   type WeddingFolder,
   type WeddingTile,
 } from '@/lib/taxonomy';
+import { FAITH_LABELS } from '@/lib/faith-registry';
 import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 
 export type PlanGroupId =
@@ -1208,14 +1209,12 @@ export type EventVendorRowInput = {
  * copy. Matches the ceremony-type wording used across the dashboard so the host sees
  * consistent terminology across the dashboard.
  */
-const CEREMONY_TYPE_READABLE_LABEL: Record<string, string> = {
-  catholic: 'Catholic',
+// Derived from the faith registry (all 16 faiths) + the two non-faith forms, so
+// every rite the DB CHECK allows has its own name — never the raw key, which this
+// map used to leak for the ten rites it did not list ("now born_again").
+export const CEREMONY_TYPE_READABLE_LABEL: Readonly<Record<string, string>> = {
+  ...FAITH_LABELS,
   civil: 'Civil',
-  inc: 'INC',
-  christian: 'Christian',
-  muslim: 'Muslim',
-  cultural: 'Cultural',
-  chinese: 'Chinese',
   mixed: 'Mixed',
 };
 
@@ -1233,7 +1232,7 @@ const VENUE_SETTING_READABLE_LABEL: Record<string, string> = {
   civil_registrar: 'civil registrar',
 };
 
-function readableCeremonyType(value: string | null): string {
+export function readableCeremonyType(value: string | null): string {
   if (!value) return 'wedding';
   return CEREMONY_TYPE_READABLE_LABEL[value] ?? value;
 }

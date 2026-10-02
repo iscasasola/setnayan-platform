@@ -11,6 +11,7 @@ import {
   SCHEDULE_TEMPLATES,
   getScheduleTemplate,
   templatesForEventType,
+  FAITH_TEMPLATE_ID,
   buildTemplateInsertRows,
 } from './schedule-templates';
 import { SCHEDULE_BLOCK_TYPES } from './schedule';
@@ -37,7 +38,9 @@ test('every template row uses a valid schedule_block_type enum value', () => {
 });
 
 test('templatesForEventType: weddings get the set, others get none', () => {
-  assert.equal(templatesForEventType('wedding').length, 3);
+  // The ceremony's own day (buildScheduleSeed, revived P6a) leads the three skeletons.
+  assert.equal(templatesForEventType('wedding').length, 4);
+  assert.equal(templatesForEventType('wedding')[0]!.id, FAITH_TEMPLATE_ID);
   assert.deepEqual(templatesForEventType('birthday'), []);
   assert.deepEqual(templatesForEventType(null), []);
 });

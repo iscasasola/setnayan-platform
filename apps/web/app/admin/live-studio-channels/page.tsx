@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { AlertCircle, Radio } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -93,6 +94,8 @@ export default async function LiveStudioChannelsPage({
     .from('live_studio_roam_channel_pool')
     .select('id, youtube_channel_id, label, status, checked_out_event_id, checked_out_at, verified, concurrent_cap')
     .order('id', { ascending: true });
+  // The refusal's own words go to the log, not the screen — they name a column.
+  if (error) logQueryError('LiveStudioChannelsPage (channel pool)', error);
   const rows = (data ?? []) as PoolRow[];
   const grants = await fetchPoolChannelGrants(admin);
 
@@ -151,7 +154,9 @@ export default async function LiveStudioChannelsPage({
       {released ? <FormFlash tone="success">Channel returned to the pool.</FormFlash> : null}
       {disconnected ? <FormFlash tone="success">Channel disconnected.</FormFlash> : null}
       {error ? (
-        <FormFlash tone="error">Could not read the channel pool: {error.message}</FormFlash>
+        <FormFlash tone="error">
+          Couldn&rsquo;t read the channel pool, so the list below is not a count of what is in it. Refresh to try again.
+        </FormFlash>
       ) : null}
 
       {/* ── Platform prerequisites. Stated as facts, never assumed. ───────── */}
@@ -195,7 +200,7 @@ export default async function LiveStudioChannelsPage({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink/65">
           <Radio aria-hidden className="mr-1.5 inline h-4 w-4 text-ink/40" strokeWidth={1.75} />
-          {rows.length} channel{rows.length === 1 ? '' : 's'} · {formatCount(readyCount)} ready to claim
+          {error ? '—' : `${rows.length} channel${rows.length === 1 ? '' : 's'} · ${formatCount(readyCount)} ready to claim`}
         </p>
         {/* A GET link, not a form: /pool/start is admin-guarded and redirects to
             Google. It is a route handler, not a page, so next/link is wrong here —
@@ -209,7 +214,7 @@ export default async function LiveStudioChannelsPage({
         </a>
       </div>
 
-      {rows.length === 0 ? (
+      {error ? null : rows.length === 0 ? (
         <p className="rounded-xl border border-dashed border-ink/20 px-4 py-8 text-center text-sm text-ink/55">
           No channels in the pool yet. Connect one to get started.
         </p>

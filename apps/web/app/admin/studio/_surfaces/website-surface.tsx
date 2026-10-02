@@ -106,7 +106,7 @@ function EmptyPage({ page }: { page: SiteWidgetPage }) {
         No widgets seeded for <code>{page}</code> yet.
       </p>
       <p className="mt-1 text-sm text-ink/55">
-        V1 ships the home page only. Subsequent pages land in follow-on iterations.
+        Only the home page can be edited here for now.
       </p>
     </div>
   );

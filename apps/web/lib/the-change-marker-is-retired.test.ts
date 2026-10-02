@@ -21,9 +21,11 @@
  *
  * ── Why Decisions cannot omit a change ──────────────────────────────────────
  * A filter can only omit what could be there. Nothing can put this marker on a
- * message: the ONLY writers of `chat_messages.change_order_id` are
+ * message: the ONLY writers of `chat_messages.change_order_id` were
  * `createChangeRequestFromChat` and `counterChangeRequestFromChat`, and NOTHING
- * IMPORTS EITHER (assertion 1). Production agrees — zero rows carry it — but
+ * IMPORTED EITHER — so on 2026-10-02 (cleanup slice A) both were DELETED, along
+ * with their one writer helper, and assertion 1 now pins that they stay gone.
+ * Production agrees — zero rows carry it — but
  * production is not the evidence here: prod holds 3 chat messages total and
  * zero rows on ALL FOUR markers, including the two that demonstrably work, so
  * emptiness cannot tell reachable from unused. The import count can.
@@ -97,45 +99,37 @@ function importersOf(symbol: string, declaredIn: string): string[] {
     .filter((p) => count(src(join(WEB, '../..', p)), new RegExp(symbol, 'g')) > 0);
 }
 
-test('the two writers of chat_messages.change_order_id have NO caller', () => {
-  // Guard the guard: the symbols must still exist where we think they do, or
-  // "zero importers" would pass for a renamed function that is fully wired.
+test('the two writers of chat_messages.change_order_id are GONE and stay gone', () => {
+  // Deleted 2026-10-02 (cleanup slice A) after a zero-caller measurement. If
+  // either name comes back — as an export or as any declaration — the in-chat
+  // change order is being un-retired.
   const actions = src(ACTIONS);
   for (const fn of ['createChangeRequestFromChat', 'counterChangeRequestFromChat']) {
     assert.equal(
-      count(actions, new RegExp(`export async function ${fn}\\b`, 'g')),
-      1,
-      `${fn} is no longer declared in negotiation-actions.ts — this guard is now blind. ` +
-        `Re-anchor it on the new name before changing anything else.`,
-    );
-  }
-
-  // insertChangeRequest is the single function that writes the marker. If a
-  // second writer appears, the reachability argument above stops holding.
-  //
-  // The lookbehind is load-bearing and was paid for: without it this matched 3,
-  // because `p_change_order_id: changeOrderId` — the RPC parameter on the
-  // accept/decline calls — CONTAINS the column assignment as a substring. Two
-  // of those three are reads, not writes.
-  assert.equal(
-    count(actions, /(?<!p_)change_order_id: changeOrderId/g),
-    1,
-    'A second writer of chat_messages.change_order_id appeared. The "no producer" ' +
-      'argument in this file only covers insertChangeRequest — re-measure it.',
-  );
-
-  for (const fn of ['createChangeRequestFromChat', 'counterChangeRequestFromChat']) {
-    const callers = importersOf(fn, 'negotiation-actions.ts');
-    assert.deepEqual(
-      callers,
-      [],
-      `${fn} now has ${callers.length} caller(s): ${callers.join(', ')}.\n` +
-        'That un-retires the in-chat change order, which commit d3350b8e2 (2026-07-24, ' +
-        'council verdict "as simple as possible") deleted because the bundled Deal is a ' +
-        'superset. It also puts a SECOND money card beside Deal in the thread.\n' +
+      count(actions, new RegExp(`function ${fn}\\b`, 'g')),
+      0,
+      `${fn} is declared again in negotiation-actions.ts. That un-retires the in-chat ` +
+        'change order, which commit d3350b8e2 (2026-07-24, council verdict "as simple as ' +
+        'possible") deleted because the bundled Deal is a superset. It also puts a SECOND ' +
+        'money card beside Deal in the thread.\n' +
         'This is an owner decision, not a build. Get sign-off, then update this file.',
     );
+    const callers = importersOf(fn, 'negotiation-actions.ts');
+    assert.deepEqual(callers, [], `${fn} is referenced again: ${callers.join(', ')}.`);
   }
+
+  // The writer helper was deleted with them. A new write of the marker from this
+  // file means a producer exists again, whatever it is called.
+  //
+  // The lookbehind is load-bearing and was paid for: `p_change_order_id:
+  // changeOrderId` — the RPC parameter on the accept/decline calls — CONTAINS
+  // the column assignment as a substring, and those are reads, not writes.
+  assert.equal(
+    count(actions, /(?<!p_)change_order_id: changeOrderId/g),
+    0,
+    'A writer of chat_messages.change_order_id appeared in negotiation-actions.ts. The ' +
+      '"no producer" argument in this file covers every writer — re-measure it.',
+  );
 });
 
 test('the chat stream has no renderer for change_order_id — only negative guards', () => {

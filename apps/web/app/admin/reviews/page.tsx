@@ -3,6 +3,7 @@ import { Flag, Gavel, ShieldOff } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '../_components/read-failed';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   SELF_REVIEW_SIGNAL_LABEL,
@@ -142,7 +143,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
       .in('vendor_profile_id', vendorIds);
     for (const v of data ?? []) {
       vendorMap.set(v.vendor_profile_id as string, {
-        business_name: (v.business_name as string) || 'Unnamed vendor',
+        business_name: (v.business_name as string) || 'Unnamed supplier',
         user_id: v.user_id as string,
       });
     }
@@ -184,17 +185,17 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
   // ── Override flash ────────────────────────────────────────────────────
   const flash =
     search.override === '1'
-      ? 'Override-publish posted. The review is now live on the vendor profile.'
+      ? 'Override-publish posted. The review is now live on the supplier profile.'
       : search.rejected === '1'
         ? 'Appeal rejected. Reviewer is notified via email.'
         : search.escalated === '1'
           ? 'Appeal escalated to the two-admin queue.'
           : search.flag_dismissed === '1'
-            ? 'Vendor fake-review flag dismissed.'
+            ? 'Supplier fake-review flag dismissed.'
             : null;
 
   // ── Flagged review-mods queue (admin override-publish audit trail) ────
-  const { data: flaggedData } = await admin
+  const { data: flaggedData, error: flaggedError } = await admin
     .from('vendor_reviews')
     .select(
       'review_id,public_id,vendor_profile_id,couple_user_id,rating_overall,body,created_at,override_admin_id,override_reason',
@@ -202,10 +203,11 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
     .not('override_admin_id', 'is', null)
     .order('created_at', { ascending: false })
     .limit(25);
+  if (flaggedError) logQueryError('AdminReviewsPage (override history)', flaggedError);
   const flaggedReviews = (flaggedData ?? []) as FlaggedReviewRow[];
 
   // ── Vendor fake-flag queue ────────────────────────────────────────────
-  const { data: fakeFlagData } = await admin
+  const { data: fakeFlagData, error: fakeFlagError } = await admin
     .from('vendor_review_flags')
     .select(
       'flag_id,review_id,reported_by_vendor_profile_id,reason,status,admin_note,reviewed_at,created_at',
@@ -213,6 +215,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
     .eq('status', 'pending')
     .order('created_at', { ascending: true })
     .limit(50);
+  if (fakeFlagError) logQueryError('AdminReviewsPage (fake-review flags)', fakeFlagError);
   const rawFakeFlags = (fakeFlagData ?? []) as Array<{
     flag_id: string;
     review_id: string;
@@ -278,8 +281,8 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
       <PageMasthead title="Review moderation" />
       <div className="mb-6">
         <p className="text-sm text-ink/70">
-          Three queues — <span className="font-medium">Vendor fake-review flags</span>{' '}
-          (vendor-reported disputed reviews), <span className="font-medium">Self-review
+          Three queues — <span className="font-medium">Supplier fake-review flags</span>{' '}
+          (supplier-reported disputed reviews), <span className="font-medium">Self-review
           appeals</span> (blocked reviewers contesting the related-account gate), and{' '}
           <span className="font-medium">Admin override-published reviews</span> (audit
           trail of every override-publish you&rsquo;ve issued).
@@ -303,20 +306,22 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight"
           >
             <Flag aria-hidden className="h-4 w-4 text-danger-700" strokeWidth={1.75} />
-            Vendor fake-review flags
-            {fakeFlags.length > 0 ? (
+            Supplier fake-review flags
+            {!fakeFlagError && fakeFlags.length > 0 ? (
               <span className="ml-1 inline-flex h-5 items-center rounded-full bg-danger-600 px-2 font-mono text-[10px] text-white">
                 {fakeFlags.length}
               </span>
             ) : null}
           </h2>
           <p className="text-xs text-ink/55">
-            Vendors flag reviews they believe are fake or fraudulent. Dismiss to close, or
+            Suppliers flag reviews they believe are fake or fraudulent. Dismiss to close, or
             escalate to the two-admin override queue. SLA: 48 hours.
           </p>
         </header>
 
-        {fakeFlags.length === 0 ? (
+        {fakeFlagError ? (
+          <ReadFailed what="the fake-review flags" />
+        ) : fakeFlags.length === 0 ? (
           <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
             <Flag aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
             No pending fake-review flags.
@@ -353,11 +358,11 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
 
         {appealError ? (
           <p className="rounded-md border border-danger-300 bg-danger-50 px-4 py-3 text-sm text-danger-800">
-            Review appeals couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment or check Sentry for the full detail.
+            Review appeals couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
           </p>
         ) : null}
 
-        {appeals.length === 0 ? (
+        {appealError ? null : appeals.length === 0 ? (
           <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-8 text-center text-sm text-ink/55">
             <Gavel
               aria-hidden
@@ -365,7 +370,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
               strokeWidth={1.5}
             />
             Nothing pending. Blocked reviewers can file an appeal from the disabled
-            &ldquo;Leave a review&rdquo; CTA on their vendor card.
+            &ldquo;Leave a review&rdquo; CTA on their supplier card.
           </div>
         ) : (
           <ul className="space-y-3">
@@ -403,7 +408,9 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
             Last 25 reviews where an admin override-published past the related-account gate.
           </p>
         </header>
-        {flaggedReviews.length === 0 ? (
+        {flaggedError ? (
+          <ReadFailed what="the override history" />
+        ) : flaggedReviews.length === 0 ? (
           <div className="rounded-xl border border-dashed border-ink/15 bg-white/50 p-6 text-center text-sm text-ink/55">
             No override-publishes yet.
           </div>
@@ -517,9 +524,9 @@ function AppealCard({
       </header>
 
       <dl className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 lg:grid-cols-3">
-        <Cell label="Vendor">
+        <Cell label="Supplier">
           <p className="text-sm font-medium text-ink">
-            {vendor?.business_name ?? 'Unknown vendor'}
+            {vendor?.business_name ?? 'Unknown supplier'}
           </p>
           {vendorOwner ? (
             <p className="text-xs text-ink/55">
@@ -573,7 +580,7 @@ function AppealCard({
           {isHardSignal ? (
             <div className="flex-1 rounded-lg border border-danger-200 bg-danger-50 p-3 text-xs text-danger-900">
               <strong>Override-publish is disabled for {SIGNAL_LABEL_SHORT[appeal.matched_signal]}.</strong>{' '}
-              Owners and team members can never review the vendor they run — the trigger
+              Owners and team members can never review the supplier they run — the trigger
               refuses even with bypass. Reject or escalate this appeal.
             </div>
           ) : (
@@ -650,7 +657,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
             Flag {flag.flag_id.slice(0, 8)} · {flag.created_at.slice(0, 10)}
           </p>
           <p className="text-sm font-medium text-ink">
-            {flag.vendor_business_name ?? 'Unknown vendor'} flagged review{' '}
+            {flag.vendor_business_name ?? 'Unknown supplier'} flagged review{' '}
             {flag.review_public_id ? (
               <span className="font-mono text-[11px] text-ink/70">{flag.review_public_id}</span>
             ) : null}
@@ -681,7 +688,7 @@ function VendorFakeFlagCard({ flag }: { flag: VendorFakeFlagRow }) {
 
       <div className="rounded-lg border border-danger-200 bg-white/60 p-3 text-xs">
         <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-danger-900">
-          Vendor reason
+          Supplier reason
         </p>
         <p className="mt-1 whitespace-pre-wrap text-sm text-ink/80">{flag.reason}</p>
       </div>

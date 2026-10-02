@@ -28,6 +28,7 @@ import {
 } from '@/lib/comp-grants';
 import {
   fetchV2CustomerCatalog,
+  supplierSkuCategory,
   fetchV2BundleCatalog,
   fetchV2VendorCatalog,
 } from '@/lib/v2-catalog';
@@ -232,7 +233,7 @@ export async function UsersSurface({
   let compGrantServices: ServiceOption[] | null = null;
   try {
     const [customers, bundles, vendors] = await Promise.all([
-      fetchV2CustomerCatalog(),
+      fetchV2CustomerCatalog({ forAdmin: true }),
       fetchV2BundleCatalog(),
       fetchV2VendorCatalog(),
     ]);
@@ -252,10 +253,7 @@ export async function UsersSurface({
       ...vendors.map((v) => ({
         sku_code: v.sku_code,
         display_name: v.title,
-        category:
-          v.offering_type === 'subscription_monthly'
-            ? 'Vendor subscription'
-            : 'Vendor tokens',
+        category: supplierSkuCategory(v.offering_type),
         price_centavos: Math.round(v.price_php * 100),
       })),
     ].sort((a, b) =>
@@ -366,7 +364,7 @@ export async function UsersSurface({
         >
           <option value="all">All</option>
           <option value="customer">Couples (customer)</option>
-          <option value="vendor">Vendors</option>
+          <option value="vendor">Suppliers</option>
           <option value="internal">🟣 Internal (§ 10a)</option>
           <option value="team_pool">🟢 Team Pool (§ 10b)</option>
           <option value="blacklisted">🚫 Blacklisted</option>
@@ -611,7 +609,7 @@ function UsersTable({
                               action={deleteUser}
                               title="Hard-delete this account?"
                               confirmLabel="Delete permanently"
-                              message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from vendor to customer). Not reversible from this page.`}
+                              message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from supplier to customer). Not reversible from this page.`}
                             >
                               <input type="hidden" name="user_id" value={u.user_id} />
                               <SubmitButton
@@ -980,7 +978,7 @@ function CompGrantsPanel({
               className="input-field"
             />
             <p className="mt-1 text-xs text-ink/55">
-              Audit-grade · shows up in admin_audit_log.metadata so any
+              Audit-grade · shows up in the admin activity record so any
               future review can see why the comp landed.
             </p>
           </div>

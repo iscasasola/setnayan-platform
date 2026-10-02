@@ -4,11 +4,16 @@ import { NextCard } from '@/app/_components/next-card';
 import type { SupplierNext, SupplierNextTarget } from '@/lib/supplier-today';
 import type { UpcomingEventRow } from '@/lib/vendor-overview';
 import { vendorBookingFeePayPath } from '@/lib/vendor-booking-fees';
+import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 
 /**
  * Where the one Next button goes. Written as `href:` literals ON PURPOSE — the
  * port-controls scan (`scripts/port-controls.mjs`) only sees an `href` followed
  * by a literal, which is why the host's `nextHref` is shaped the same way.
+ *
+ * The three Customers-hub doors (quote · contract · payday) are the exception:
+ * they come from the anchors module so each lands ON its own fold, opened and in
+ * view — never the bare stub that reloads the roster.
  */
 function nextHref(t: SupplierNextTarget): string {
   switch (t.to) {
@@ -25,11 +30,11 @@ function nextHref(t: SupplierNextTarget): string {
       return href;
     }
     case 'proposals': {
-      const href = '/vendor-dashboard/proposals';
+      const href = customerLandingHref('proposals');
       return href;
     }
     case 'contracts': {
-      const href = '/vendor-dashboard/contracts';
+      const href = customerLandingHref('contracts');
       return href;
     }
     case 'event-hub': {
@@ -39,7 +44,7 @@ function nextHref(t: SupplierNextTarget): string {
     case 'fee':
       return vendorBookingFeePayPath(t.orderId);
     case 'payday': {
-      const href = '/vendor-dashboard/payday';
+      const href = customerLandingHref('payday');
       return href;
     }
     case 'customers': {
@@ -124,7 +129,7 @@ export function SupplierTodayFirstScreen({ cover, next, numbers, comingUp }: Sup
           <span className="block font-display text-[26px] leading-none text-ink">{numbers.thisWeek}</span>
           <span className="mt-1 block text-[11.5px] text-ink/55">events this week</span>
         </Link>
-        <Link href="/vendor-dashboard/payday" className="sn-glass-bare sn-press rounded-xl px-2 py-3 text-center">
+        <Link href={customerLandingHref('payday')} className="sn-glass-bare sn-press rounded-xl px-2 py-3 text-center">
           <span className="block font-display text-[26px] leading-none text-ink">{numbers.owed}</span>
           <span className="mt-1 block text-[11.5px] text-ink/55">owed to you</span>
         </Link>

@@ -468,7 +468,7 @@ function leadSignals(r: LeadScoreRow): string[] {
     r.paymentCount > 0 ? `${nf.format(r.paymentCount)} payments` : null,
     r.autoArrangeUsed ? 'Auto-arrange' : null,
     r.guestCount > 0 ? `${nf.format(r.guestCount)} guests` : null,
-    r.vendorCount > 0 ? `${nf.format(r.vendorCount)} vendors` : null,
+    r.vendorCount > 0 ? `${nf.format(r.vendorCount)} suppliers` : null,
     r.websiteConfigured ? 'Website' : null,
     r.monogramConfigured ? 'Monogram' : null,
     r.signedInLast7d ? 'Active this week' : null,

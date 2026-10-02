@@ -24,9 +24,11 @@ import {
   glanceDays,
   glanceMoney,
   homeServices,
+  nikahStatus,
   papicStatus,
   pickHomeNext,
 } from '@/lib/home-first-screen';
+import { nikahTrackedDone } from '@/lib/nikah-essentials';
 import { isChineseWedding, isMuslimWedding } from '@/lib/chinese-wedding';
 import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { loadAfterSummary, type AfterSummary } from '@/lib/after-summary';
@@ -51,10 +53,6 @@ import { isEmailConfigured } from '@/lib/email';
 import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { findSameDayVendors, type SameDayVendor } from '@/lib/same-day-vendors';
-import {
-  computeOfficiantAutoResolution,
-  getOfficiantAutoResolvedHint,
-} from '@/lib/officiant-auto-resolve';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
@@ -63,7 +61,7 @@ import { readHomeGuide } from './_components/details-guide-home-card';
 import { HomeFirstScreen } from './_components/home-first-screen';
 import { DateChangeDoorway } from './_components/date-change-doorway';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
-import { NikahEssentialsCard } from './_components/nikah-essentials-card';
+import { readNikahImam } from './_components/nikah-imam';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
 import { EventDashboard, daysUntil } from './_components/event-dashboard';
 import { MiniTour } from '@/app/_components/mini-tour';
@@ -142,13 +140,6 @@ export async function generateMetadata({
  * URL's `?sai` param straight through, so the preview override now works on
  * the Home URL.
  */
-
-const OFFICIANT_LOCKED_STATUSES = new Set([
-  'contracted',
-  'deposit_paid',
-  'delivered',
-  'complete',
-]);
 
 export default async function EventHomePage({
   params,
@@ -438,57 +429,12 @@ export default async function EventHomePage({
     };
   })();
 
-  // Nikah imam designation (Muslim track). The Five-essentials card ticks the
-  // "Imam / qadi" essential when a guest has role 'imam' (computed in the card
-  // from `guests`), OR — computed here, since the card only sees guests — when
-  // the couple has booked an officiant vendor (locked), OR when a locked mosque
-  // venue auto-resolves the imam (computeOfficiantAutoResolution → muslim_mosque,
-  // which also surfaces the PD 1083 hint). Only runs for muslim events, and the
-  // auto-resolve query only fires when no officiant vendor is already booked.
-  const nikahImamRead = (async () => {
-    let nikahImamBooked = false;
-    let nikahImamNote: string | null = null;
-    if (isNikahEvent) {
-      const officiantRowsRes = await (async () => {
-        try {
-          return await supabase
-            .from('event_vendors')
-            .select('marketplace_vendor_id, source_venue_directory_id, category, status')
-            .eq('event_id', eventId)
-            .is('archived_at', null);
-        } catch (caught) {
-          logQueryError(
-            'EventHome (nikah officiant event_vendors SELECT threw)',
-            caught instanceof Error ? caught : new Error(String(caught)),
-            { event_id: eventId, user_id: user.id },
-            'graceful_degrade',
-          );
-          return { data: [], error: null } as never;
-        }
-      })();
-      const officiantRows = (officiantRowsRes.data ?? []) as Array<{
-        marketplace_vendor_id: string | null;
-        source_venue_directory_id: string | null;
-        category: string | null;
-        status: string | null;
-      }>;
-      nikahImamBooked = officiantRows.some(
-        (v) => v.category === 'officiant' && OFFICIANT_LOCKED_STATUSES.has(v.status ?? ''),
-      );
-      if (!nikahImamBooked) {
-        const resolved = await computeOfficiantAutoResolution(supabase, {
-          eventId,
-          ceremonyType: 'muslim',
-          vendorRows: officiantRows,
-        }).catch(() => null);
-        if (resolved?.framing === 'muslim_mosque') {
-          nikahImamBooked = true;
-          nikahImamNote = getOfficiantAutoResolvedHint('muslim_mosque');
-        }
-      }
-    }
-    return { nikahImamBooked, nikahImamNote };
-  })();
+  // Nikah imam designation (Muslim track) — the Nikah essentials' own page
+  // (`/nikah`) and the one-line status on the "Your services" row both read it
+  // from the one reader. Only runs for muslim events.
+  const nikahImamRead = isNikahEvent
+    ? readNikahImam(supabase, eventId, user.id)
+    : Promise.resolve({ nikahImamBooked: false, nikahImamNote: null as string | null });
 
   // Recurrence (owner 2026-07-12): recurring types (birthday · anniversary ·
   // reunion · corporate) get a "plan next year" card that clones this event's
@@ -623,7 +569,7 @@ export default async function EventHomePage({
       dayOfLiveWallActive,
       dayOfBroadcast,
     },
-    { nikahImamBooked, nikahImamNote },
+    { nikahImamBooked },
     { canViewPapicCounts, papicNudgeVisible, viewerMemberType },
     { aiOffer, aiOfferSettings, paywallOn },
     storeShell,
@@ -686,7 +632,26 @@ export default async function EventHomePage({
             },
             { paywallEnabled: paywallOn },
           ),
+      // 🏷 The comeback offer's card left with Home's second section; its one
+      // surviving line is the row's status, while the couple's window is open.
+      aiOfferShown && aiOffer?.kind === 'comeback'
+        ? Math.ceil((aiOffer.expiresAt.getTime() - Date.now()) / 3_600_000)
+        : null,
     ),
+    // 🕌 A Muslim wedding keeps one line of the Nikah essentials (the card moved
+    // to /nikah): how many of the four trackable ones are in place. A refused
+    // guest read is "—", never "0 of 4".
+    nikah: isNikahEvent
+      ? nikahStatus(
+          guestsMeasured
+            ? nikahTrackedDone({
+                guests,
+                mahrDescription: (event as { mahr_description?: string | null }).mahr_description ?? null,
+                imamBooked: nikahImamBooked,
+              })
+            : null,
+        )
+      : null,
   });
   const homeTypeLabel = ((event.event_type as string | null) ?? 'wedding')
     .replace(/_/g, ' ')
@@ -721,27 +686,6 @@ export default async function EventHomePage({
      Next card on the first screen (📱 2026-10-01). */
   const overlays = (
     <>
-      {/* The five essentials of your Nikah — the signature card for the Muslim
-       *  wedding track. Shows ONLY for muslim weddings (primary ceremony OR a
-       *  mixed ceremony with a muslim leg). Turns the five validity pillars of
-       *  the Islamic marriage contract into a tangible checklist + hosts the
-       *  mahr / gender-separation editor. */}
-      {isNikahEvent ? (
-        <NikahEssentialsCard
-          eventId={eventId}
-          eventDateSet={!!event.event_date}
-          mahrDescription={
-            (event as { mahr_description?: string | null }).mahr_description ?? null
-          }
-          genderSeparation={
-            (event as { gender_separation?: string | null }).gender_separation ?? null
-          }
-          guests={guests}
-          imamBooked={nikahImamBooked}
-          imamNote={nikahImamNote}
-        />
-      ) : null}
-
       {/* Set-your-date nudge — date-as-output keeps onboarding's event_date NULL,
        *  but the couple still needs a clear, low-friction way to lock the date
        *  later so the date-gated public website lifecycle (Save-the-Date / Event
@@ -855,7 +799,7 @@ export default async function EventHomePage({
   );
 
   const hasOverlays =
-    isNikahEvent || !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer) || papicNudgeVisible;
+    !event.event_date || isChineseEvent || canRecur || Boolean(aiOffer) || papicNudgeVisible;
 
   return (
     /* 💾 What the host sees here is kept on the phone and shown at once on the
@@ -984,27 +928,14 @@ export default async function EventHomePage({
           </details>
         </>
       ) : (
-        /* 📱 The first screen (Next · Edit your Event Hub · the numbers), then
-         *  the dashboard — hero → at-a-glance bento → [overlays] → journey rail →
-         *  decisions → around-your-event, plus the AI extras (Sai briefing,
-         *  What's-next, Sai on watch) when Setnayan AI is active for the viewer
-         *  (or `?sai=preview` for internal accounts). On a phone the first
-         *  screen fills the screen; "See all" lands on `#home-all`. */
-        <>
-          {homeFirstScreen}
-          <div id="home-all" className="scroll-mt-20 pt-6">
-            <EventDashboard
-              eventId={eventId}
-              saiPreviewParam={search.sai}
-              inspectId={search.inspect}
-              slotAfterBento={hasOverlays ? overlays : undefined}
-              dayOfActive={dayOfActive}
-              lifecyclePhase={lifecyclePhase}
-              canViewPapicCounts={canViewPapicCounts}
-              firstScreenAbove={{ nextKind: homeNext.kind, money: moneyNow !== 'hidden' }}
-            />
-          </div>
-        </>
+        /* 📱 THE FIRST SCREEN, AND NOTHING ELSE (owner 2026-10-02, DECISION_LOG
+         *  "HOME IS THE FIRST SCREEN ONLY"): Next · Edit your Event Hub · the
+         *  numbers · the money line · your services. The old dashboard under it
+         *  (the wedding-day / Sai / decisions / schedule / Papic / messages
+         *  tiles) is NOT mounted here — it repeated the first screen and drew a
+         *  second, wider page. `<EventDashboard>` is mounted only by the two
+         *  receded views above (day-of · after the day). */
+        homeFirstScreen
       )}
     </LastSeenCapture>
   );

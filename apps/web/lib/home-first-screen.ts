@@ -15,10 +15,11 @@
  *   date  → the set-your-date nudge, while no date is set
  *   papic → "Your free camera is ready", until the first photo is shot
  *   ai    → the Setnayan AI offer, last because it is a purchase, not a step
- *   plan  → nothing above is waiting: the full plan, just below
+ *   plan  → nothing above is waiting: the checklist (the whole plan, step by step)
  *
- * The first that applies wins; the rest stay reachable below the fold, exactly
- * where they were. The numbers come from the existing honest reads, and a read
+ * The first that applies wins; the rest are reached from their own page (the
+ * Home has no second section: owner 2026-10-02, "HOME IS THE FIRST SCREEN
+ * ONLY"). The numbers come from the existing honest reads, and a read
  * that did not happen prints "—", NEVER 0 (the rule of
  * `lib/guests-read-is-honest.test.ts`): a couple with 180 names must never be
  * told "0 coming" because a query was refused.
@@ -130,8 +131,8 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
   return {
     kind: 'plan',
     title: 'You are on track',
-    body: 'Nothing is waiting on you right now. Your whole plan is just below.',
-    action: 'See your plan',
+    body: 'Nothing is waiting on you right now. Your checklist has the rest of the plan.',
+    action: 'Open your checklist',
   };
 }
 
@@ -171,7 +172,7 @@ export function glanceMoney(php: number | null): string {
   A read that failed prints "—".
 */
 
-export type HomeServiceKey = 'papic' | 'ai';
+export type HomeServiceKey = 'papic' | 'ai' | 'nikah';
 export type HomeService = { key: HomeServiceKey; name: string; status: string };
 
 /** What `resolvePapicHomeTile` returned, or 'failed' when it threw. */
@@ -192,10 +193,33 @@ export function papicStatus(input: PapicStatusInput): string {
   return `On · ${formatCount(tile.photosGathered)} ${tile.photosGathered === 1 ? 'photo' : 'photos'}`;
 }
 
-/** `null` = the entitlement could not be resolved. */
-export function aiStatus(active: boolean | null): string {
+/**
+ * `null` = the entitlement could not be resolved.
+ *
+ * 🏷 `comebackHoursLeft` — the comeback offer used to be a card on Home's second
+ * section (its only surface). That section is gone, so the one line that must
+ * survive is here: while the couple's one comeback window is open, the row says
+ * so, and the row opens the page that sells it. A number of hours only — the
+ * price stays on the page that charges it.
+ */
+export function aiStatus(active: boolean | null, comebackHoursLeft: number | null = null): string {
   if (active === null) return '—';
-  return active ? 'On' : 'Try it';
+  if (active) return 'On';
+  if (comebackHoursLeft !== null && comebackHoursLeft > 0) {
+    return `Comeback price · ${formatCount(comebackHoursLeft)}h left`;
+  }
+  return 'Try it';
+}
+
+/**
+ * 🕌 Nikah essentials — the one status line a Muslim wedding's Home keeps of the
+ * card that used to sit in Home's second section. `done` is the tracked-pillar
+ * count (wali · two witnesses · mahr · imam); consent is not trackable.
+ */
+export const NIKAH_TRACKED_TOTAL = 4;
+export function nikahStatus(done: number | null): string {
+  if (done === null) return '—';
+  return `${formatCount(done)} of ${formatCount(NIKAH_TRACKED_TOTAL)} in place`;
 }
 
 export function homeServices(input: {
@@ -203,75 +227,18 @@ export function homeServices(input: {
   storeShell: boolean;
   papic: string;
   ai: string;
+  /** 🕌 Set ONLY for a Muslim wedding — the Nikah essentials' status line. Free, so it is also in the store shell. */
+  nikah?: string | null;
 }): HomeService[] {
-  if (input.storeShell) return [];
+  const paid: HomeService[] = input.storeShell
+    ? []
+    : [
+        { key: 'papic', name: 'Papic', status: input.papic },
+        { key: 'ai', name: 'Setnayan AI', status: input.ai },
+      ];
   const all: HomeService[] = [
-    { key: 'papic', name: 'Papic', status: input.papic },
-    { key: 'ai', name: 'Setnayan AI', status: input.ai },
+    ...paid.filter((s) => s.key !== input.next),
+    ...(input.nikah != null ? [{ key: 'nikah' as const, name: 'Nikah essentials', status: input.nikah }] : []),
   ];
-  return all.filter((s) => s.key !== input.next);
-}
-
-/*
-  ─── EACH THING ONCE — what the dashboard below the first screen leaves out ───
-
-  Owner, 2026-10-01 (DECISION_LOG "HOME ON DESKTOP SHOWS EACH THING ONCE"), on
-  the TEST wedding's Home after the first screen shipped: *"you updated the Home
-  of that event but instead of changing it I see dupes on the event."* The
-  first screen was ADDED ON TOP of the old tiles, so four facts rendered twice:
-
-   · days to go   — the first-screen number AND the "The wedding day" card's
-                    countdown numeral (and the Sai briefing's "N days to go" chip);
-   · coming / no reply — the three numbers AND the Guests tile AND the
-                    "N guests haven't replied yet" row;
-   · Paid / Still owing — the money line AND the Budget tile;
-   · the "Kumusta, <name> · welcome back" hero — the first screen's cover (event
-                    name + date) is the greeting now; frame 1 draws no hero;
-   · the Next card AND "Needs you this week" saying the same thing — "You are
-                    on track · nothing is waiting" against "Nothing needs a
-                    decision right now". (With decisions open the tile carries a
-                    COUNT the first screen does not, so it stays.)
-
-  Each is REMOVED (not rendered), never hidden behind a breakpoint: phone and
-  desktop show the same Home, desktop just wider. What the first screen does not
-  say — the Papic tile, the date and venue, % planned, the journey rail, the
-  decisions board — stays.
-
-  Pure and total so a guard can assert it: nothing above ⇒ nothing removed.
-*/
-export type FirstScreenAbove = {
-  /** The kind of the one Next card the first screen drew. */
-  nextKind: HomeNextKind;
-  /** The first screen drew its Paid / Still owing line (the viewer may see the budget). */
-  money: boolean;
-};
-
-export type FirstScreenRepeats = {
-  /** The "Kumusta, … · welcome back" greeting + "Your wedding is taking shape" sentence: the first screen's cover is the greeting now (frame 1 draws none). */
-  hero: boolean;
-  /** The wedding-day card's days-to-go numeral and the briefing's days chip. */
-  countdown: boolean;
-  /** The Guests tile (coming · no reply). */
-  guests: boolean;
-  /** The "N guests haven't replied yet" row in the decisions tile. */
-  rsvpRow: boolean;
-  /** The Budget tile. */
-  money: boolean;
-  /** The whole "Needs you this week" tile. */
-  needsYou: boolean;
-};
-
-export function firstScreenRepeats(
-  above: FirstScreenAbove | undefined,
-  openDecisionCount: number,
-): FirstScreenRepeats {
-  if (!above) return { hero: false, countdown: false, guests: false, rsvpRow: false, money: false, needsYou: false };
-  return {
-    hero: true,
-    countdown: true,
-    guests: true,
-    rsvpRow: true,
-    money: above.money,
-    needsYou: above.nextKind === 'plan' && openDecisionCount === 0,
-  };
+  return all;
 }

@@ -74,9 +74,6 @@ export default async function HomeLab({
           ai: aiStatus(unread ? null : false),
         })}
       />
-      <div id="home-all" className="mt-6 p-6 text-center text-sm text-ink/50">
-        The rest of Home (the dashboard) renders here, below the fold.
-      </div>
     </div>
   );
 }

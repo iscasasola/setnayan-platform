@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { updateNikahDetails } from '../nikah-actions';
 import { formatCount } from '@/lib/format-number';
+import { guestsWithRole } from '@/lib/nikah-essentials';
 
 // The Five Essentials of your Nikah — the signature couple-facing surface of the
 // Muslim wedding track. It turns the five validity pillars of an Islamic
@@ -51,11 +52,7 @@ type Props = {
   imamNote?: string | null;
 };
 
-function hasRole(guests: ReadonlyArray<GuestLike>, role: string): number {
-  return guests.filter(
-    (g) => g.role === role || (g.extra_roles ?? []).includes(role),
-  ).length;
-}
+const hasRole = guestsWithRole;
 
 export function NikahEssentialsCard({
   eventId,

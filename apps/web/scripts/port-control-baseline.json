@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "964efe087",
-  "routeCount": 422,
-  "destinations": 943,
+  "generatedFromRef": "5666406eb",
+  "routeCount": 423,
+  "destinations": 945,
   "actions": 671,
-  "blocks": 5413,
+  "blocks": 5415,
   "routes": {
     "/": {
       "files": [
@@ -5168,6 +5168,7 @@
         "dashboard/[eventId]/_components/more-services-sheet.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
+        "dashboard/[eventId]/_components/nikah-imam.ts",
         "dashboard/[eventId]/_components/not-shared-with-you.tsx",
         "dashboard/[eventId]/_components/overview-inspector-body.tsx",
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
@@ -5202,6 +5203,7 @@
       "destinations": [
         "/dashboard",
         "/dashboard/[seg]/budget",
+        "/dashboard/[seg]/checklist",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
         "/dashboard/[seg]/details",
@@ -5212,6 +5214,7 @@
         "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/nikah",
         "/dashboard/[seg]/orders/[seg]",
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/seating",
@@ -5350,7 +5353,6 @@
         "MoreSheet",
         "MoreSheetRow",
         "NextCard",
-        "NikahEssentialsCard",
         "OpenWalletButton",
         "OverviewDecisionInspector",
         "OverviewWatchInspector",
@@ -6829,6 +6831,19 @@
       "destinations": [],
       "actions": [],
       "blocks": []
+    },
+    "/dashboard/[eventId]/nikah": {
+      "files": [
+        "dashboard/[eventId]/nikah/loading.tsx",
+        "dashboard/[eventId]/nikah/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ListPageSkeleton",
+        "NikahEssentialsCard",
+        "PageMasthead"
+      ]
     },
     "/dashboard/[eventId]/orders": {
       "files": [

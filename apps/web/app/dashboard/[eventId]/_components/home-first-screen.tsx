@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
 import { completeTour } from '@/lib/tour-actions';
@@ -17,9 +16,9 @@ function nextHref(kind: HomeNextKind, eventId: string): string {
     { kind: 'date', href: `/dashboard/${eventId}/date-selection` },
     { kind: 'papic', href: `/dashboard/${eventId}/studio/papic` },
     { kind: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
-    { kind: 'plan', href: '#home-all' },
+    { kind: 'plan', href: `/dashboard/${eventId}/checklist` },
   ];
-  return doors.find((d) => d.kind === kind)?.href ?? '#home-all';
+  return doors.find((d) => d.kind === kind)?.href ?? `/dashboard/${eventId}/checklist`;
 }
 
 /** Where each service in the "Your services" row goes — `href:` literals, for the same scan. */
@@ -27,6 +26,7 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
   const doors: ReadonlyArray<{ key: HomeServiceKey; href: string }> = [
     { key: 'papic', href: `/dashboard/${eventId}/studio/papic` },
     { key: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
+    { key: 'nikah', href: `/dashboard/${eventId}/nikah` },
   ];
   return doors.find((d) => d.key === key)?.href ?? `/dashboard/${eventId}`;
 }
@@ -39,12 +39,12 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
  *
  *   ONE Next card (one button) → Edit your Event Hub (always) → days to go ·
  *   coming · no reply → Paid / Still owing → Your services (Papic · Setnayan
- *   AI, owner 2026-10-01) → "See all" (the rest of Home).
+ *   AI, owner 2026-10-01; a Muslim wedding adds its Nikah essentials line).
  *
- * 🔒 ON A PHONE IT FILLS THE SCREEN, so nothing else sits above the fold: the
- * wrapper is at least one screen tall minus the top bar and the measured dock
- * (`--sn-bottomdock-h`), with "See all" at its foot. From `lg` up the height
- * is released — desktop shows the same things first, then more below.
+ * 🔒 THIS IS THE WHOLE HOME (owner 2026-10-02, DECISION_LOG "HOME IS THE FIRST
+ * SCREEN ONLY"): there is no "rest of Home" under it, no "See all" and no
+ * second, wider section. Phone and desktop draw the same single column; from
+ * `lg` up it is simply wider (`lg:max-w-3xl`).
  *
  * ⚠ `money === null` means the viewer may not see the budget (a delegate
  * without budget access): the line is ABSENT, not "—". A money read that
@@ -79,7 +79,7 @@ export function HomeFirstScreen({
     <section
       data-home-first-screen
       aria-label="Home"
-      className="mx-auto flex w-full max-w-xl flex-col gap-3 max-lg:min-h-[calc(100svh-var(--sn-bottomdock-h,5.5rem)-5rem)]"
+      className="mx-auto flex w-full max-w-xl flex-col gap-3 lg:max-w-3xl"
     >
       {/* 📋 EVENT DETAILS sits beside the name, on the cover (owner 2026-10-01,
           "EVENT DETAILS LIVES ON EVENT HOME") — the one information-only sheet. */}
@@ -180,14 +180,6 @@ export function HomeFirstScreen({
           </div>
         </nav>
       ) : null}
-
-      <a
-        href="#home-all"
-        className="mt-auto inline-flex items-center justify-center gap-1 self-center py-2 text-[13px] font-medium text-ink/55 hover:text-ink lg:hidden"
-      >
-        See all
-        <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </a>
     </section>
   );
 }

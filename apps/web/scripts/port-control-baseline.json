@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "964efe087",
+  "generatedFromRef": "0d7db6752",
   "routeCount": 422,
-  "destinations": 943,
+  "destinations": 942,
   "actions": 671,
-  "blocks": 5413,
+  "blocks": 5408,
   "routes": {
     "/": {
       "files": [
@@ -815,7 +815,6 @@
         "[slug]/_components/face-tagging-row.tsx",
         "[slug]/_components/get-inside.tsx",
         "[slug]/_components/get-tickets.tsx",
-        "[slug]/_components/guest-account-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-checklist.tsx",
         "[slug]/_components/guest-code-keepers.tsx",
@@ -854,6 +853,7 @@
         "[slug]/_components/our-photos-styles.tsx",
         "[slug]/_components/our-photos-widget.tsx",
         "[slug]/_components/our-story.tsx",
+        "[slug]/_components/owner-phase-menu.tsx",
         "[slug]/_components/owner-ribbon.tsx",
         "[slug]/_components/pahina-keepsake.tsx",
         "[slug]/_components/pahina-masthead.tsx",
@@ -1010,7 +1010,6 @@
         "/join/[seg]",
         "/login",
         "/papic/guest",
-        "/papic/guest?from=[seg]",
         "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
         "/signup",
@@ -1129,7 +1128,6 @@
         "GiftDoorCard",
         "GlowBlob",
         "GracefulFallback",
-        "GuestAccountCard",
         "GuestCameraPlayer",
         "GuestCameraWatcher",
         "GuestChecklist",
@@ -1218,7 +1216,6 @@
         "Monogram",
         "NameStyle",
         "NavLinksRow",
-        "NotYouSwitch",
         "OnYourTicket",
         "OneLinePairs",
         "OpenInBrowser",
@@ -1230,6 +1227,7 @@
         "OurPhotosWidget",
         "OurStory",
         "OwnerCapability",
+        "OwnerPhaseMenu",
         "OwnerRibbon",
         "PahinaCoverParallax",
         "PahinaKeepsake",
@@ -1242,7 +1240,6 @@
         "PapicGuestCapture",
         "PartHead",
         "PeWaiting",
-        "PhaseRibbon",
         "Photo",
         "PhotoGallery",
         "PhotoMomentModeBadge",
@@ -1388,7 +1385,6 @@
         "ThankYouScene",
         "TheirSong",
         "TicketPicture",
-        "TicketRow",
         "TierComparisonWidget",
         "ToolTile",
         "UnnameResult",
@@ -1598,7 +1594,6 @@
       ],
       "actions": [],
       "blocks": [
-        "CopyMyLink",
         "DoorNotice",
         "DoorShell",
         "InAppBar",
@@ -1609,8 +1604,7 @@
         "SavePassCardButton",
         "SaveToAccount",
         "TicketPicture",
-        "TicketPopup",
-        "YourGuests"
+        "TicketPopup"
       ]
     },
     "/[slug]/invite/reply": {

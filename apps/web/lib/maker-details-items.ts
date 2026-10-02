@@ -215,6 +215,9 @@ export function detailsItemFor(search: {
  */
 export type DetailsItemLayout = 'flow' | 'fill' | 'whole';
 const ITEM_LAYOUT: Partial<Record<DetailsItemKey, DetailsItemLayout>> = {
+  /* 🎨 Look (2026-10-02, `lib/maker-look-sections.ts`): the couple's own page
+     fills the body, so every Look change shows on it; Look is the right column. */
+  theme: 'fill',
   hero: 'fill',
   reveal: 'fill',
   logo: 'whole',

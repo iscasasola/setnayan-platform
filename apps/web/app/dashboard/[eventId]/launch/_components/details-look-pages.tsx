@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { makerPageCanvasSrc } from '@/lib/maker-made-once-pages';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -14,6 +14,7 @@ import { DetailsGoTo, DetailsPieceButton, useDetailsPiece } from './details-go';
 // ⚡ The sheet opens on a tap — it loads with the Details pieces (`details-lazy.tsx`).
 import { ElementSheet } from './details-lazy';
 import { HUB_ELEMENT_LABEL, isHubElementKey, type HubElementKey } from '@/lib/element-style';
+import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
 
 /**
  * 🎨 LOGO · HERO · REVEAL, MOVED INTO DETAILS WHOLE (Details part 3; owner
@@ -53,9 +54,90 @@ import { HUB_ELEMENT_LABEL, isHubElementKey, type HubElementKey } from '@/lib/el
  * they could not be opened, never an empty column that reads as "no logo".
  */
 
-export type LookPageKey = 'logo' | 'hero' | 'reveal';
+export type LookPageKey = 'logo' | 'hero' | 'reveal' | 'look';
 
-const WORD: Record<LookPageKey, string> = { logo: 'Logo', hero: 'hero', reveal: 'reveal' };
+const WORD: Record<LookPageKey, string> = { logo: 'Logo', hero: 'hero', reveal: 'reveal', look: 'page' };
+
+/**
+ * 🎨 LOOK IS ONE PANEL (owner, live iPhone test 2026-10-02 — tracker f40;
+ * `lib/maker-look-sections.ts`; design `maker_in_four_2026-09-30_fable.html`
+ * frame E): Theme · Background · Font · Colours, in that order, in the one
+ * editor the toolbar's Look opens. The theme pick is handed in (the server
+ * builds it); the other three are the rows the work area always built
+ * (`MakerLookPages.look`), moved here — the same controls, the same fields,
+ * into the draft. A section the event does not offer (the store shell's Main
+ * background) is simply absent; one that has not arrived SAYS so.
+ */
+export function LookPanel({ theme }: { theme: ReactNode }) {
+  const maker = useMaker();
+  const look = maker?.lookPages?.look ?? null;
+  const late = useLate(Boolean(look));
+  const of = (k: Exclude<LookSection, 'theme'>): ReactNode =>
+    !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : look[k];
+  return (
+    <div data-look-panel="" className="flex flex-col gap-5">
+      {LOOK_SECTIONS.map((k) => {
+        if (k === 'theme') {
+          return (
+            <section key={k} data-look-section={k} className="flex flex-col gap-2">
+              {theme}
+            </section>
+          );
+        }
+        const node = of(k);
+        if (look && !node) return null;
+        return (
+          <section key={k} data-look-section={k} className="flex flex-col gap-2 border-t border-ink/10 pt-4">
+            <h3 className="text-[15px] font-semibold text-ink">{LOOK_SECTION_LABEL[k]}</h3>
+            {node ??
+              (late ? (
+                <p role="alert" className="text-sm text-terracotta-700" data-look-section-failed={k}>
+                  This could not be opened just now. Nothing was changed — please reopen Look in a moment.
+                </p>
+              ) : (
+                <p role="status" className="text-sm text-ink/60" data-look-section-waiting={k}>
+                  Opening…
+                </p>
+              ))}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * 🖼 LOOK'S BODY IS THE COUPLE'S OWN PAGE (owner 2026-10-02: on a phone the
+ * Look panel is a sheet that leaves the top half of the page visible, so a
+ * change shows as it is made). The page they are editing — the stage the Maker
+ * is on, its draft, through the host-only canvas door — fills the body; the
+ * sample gallery of every theme (`MakerThemeGallery`, the 2026-09-28 quick
+ * preview) is one switch away. Two choices: a switch, never a dropdown.
+ */
+export function DetailsLookPageBody({ gallery }: { gallery: ReactNode }) {
+  const [view, setView] = useState<'page' | 'themes'>('page');
+  const seg = (on: boolean) =>
+    `sn-press inline-flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
+      on ? 'bg-ink text-cream' : 'bg-white/80 text-ink/75 hover:bg-white'
+    }`;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-details-look-body={view}>
+      <div role="group" aria-label="What the page shows" className="flex shrink-0 gap-1.5 px-4 pb-2 sm:px-6">
+        <button type="button" aria-pressed={view === 'page'} data-look-view="page" onClick={() => setView('page')} className={seg(view === 'page')}>
+          Your page
+        </button>
+        <button type="button" aria-pressed={view === 'themes'} data-look-view="themes" onClick={() => setView('themes')} className={seg(view === 'themes')}>
+          All themes
+        </button>
+      </div>
+      {view === 'page' ? (
+        <DetailsLookBody item="look" />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 sm:px-6">{gallery}</div>
+      )}
+    </div>
+  );
+}
 
 /** The body of a Look item: its page. */
 export function DetailsLookBody({ item }: { item: LookPageKey }) {
@@ -76,7 +158,7 @@ export function DetailsLookBody({ item }: { item: LookPageKey }) {
 }
 
 /** The editor of a Look item: the controls its page always had beside it. */
-export function DetailsLookEditor({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
+export function DetailsLookEditor({ item }: { item: Exclude<LookPageKey, 'logo' | 'look'> }) {
   const maker = useMaker();
   const look = maker?.lookPages ?? null;
   const late = useLate(Boolean(look));
@@ -95,7 +177,7 @@ export function DetailsLookEditor({ item }: { item: Exclude<LookPageKey, 'logo'>
  * 🧩 The NAVIGATOR part of a Look tool: the Hero's parts, the Reveal's
  * openings. Drawn by `DetailsWorkspace` under the item while it is picked.
  */
-export function DetailsLookPieces({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
+export function DetailsLookPieces({ item }: { item: Exclude<LookPageKey, 'logo' | 'look'> }) {
   const maker = useMaker();
   const look = maker?.lookPages ?? null;
   const [piece, setPiece] = useDetailsPiece(item);
@@ -200,13 +282,19 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
   const [revealPick, setRevealPick] = useState<LifecyclePhase | null>(null);
   const stages = look.revealStages;
   const revealStage = revealPick && stages.includes(revealPick) ? revealPick : (stages[0] ?? null);
-  const src = makerPageCanvasSrc(look.publicLandingUrl, item, maker.stage, { revealStage });
+  /* 🎨 Look: the page being edited, on the stage the Maker is on (the canvas door, its draft). */
+  const src =
+    item === 'look'
+      ? look.publicLandingUrl
+        ? `${look.publicLandingUrl}?phase=${maker.stage}&editor=1`
+        : null
+      : makerPageCanvasSrc(look.publicLandingUrl, item, maker.stage, { revealStage });
   const frameKey = `${item}:${src}:${maker.renderStamp}`;
   const showing = maker.selection?.kind === 'tool' && maker.selection.key === 'details' && maker.detailsItem === item;
 
   /* ▶ "Play this scene" — only while this item is the one showing. */
   useEffect(() => {
-    if (!showing) return;
+    if (!showing || item === 'look') return;
     const onPlay = () => {
       const f = frameRef.current;
       if (item === 'reveal') {
@@ -233,7 +321,9 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
     );
   }
   const title =
-    item === 'reveal'
+    item === 'look'
+      ? `Your page — ${PUBLIC_STAGE_LABELS[maker.stage]}`
+      : item === 'reveal'
       ? `Your reveal — ${PUBLIC_STAGE_LABELS[revealStage ?? 'save_the_date']}`
       : `Your hero — ${PUBLIC_STAGE_LABELS[maker.stage === 'rsvp' || maker.stage === 'event' ? maker.stage : 'rsvp']}`;
   return (

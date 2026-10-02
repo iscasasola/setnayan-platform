@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "964efe087",
+  "generatedFromRef": "5666406eb",
   "routeCount": 422,
   "destinations": 943,
   "actions": 671,
-  "blocks": 5413,
+  "blocks": 5415,
   "routes": {
     "/": {
       "files": [
@@ -6453,6 +6453,7 @@
         "DetailsItemKey",
         "DetailsLookBody",
         "DetailsLookEditor",
+        "DetailsLookPageBody",
         "DetailsLookPieces",
         "DetailsPieceButton",
         "DetailsPieceContext.Provider",
@@ -6519,6 +6520,7 @@
         "LiveReplyByField",
         "LogoLayer",
         "LookFrame",
+        "LookPanel",
         "LoveStoryPieceFocus",
         "MadeOnce",
         "MakerAddScene",
@@ -9001,6 +9003,7 @@
         "NameStyle",
         "OpenBrowsePanel",
         "PaidMark",
+        "PaletteLookCanvasRow",
         "PaletteLookRow",
         "PaletteLookThumb",
         "PartAnimateTab",
@@ -9050,7 +9053,6 @@
         "Swatch",
         "T",
         "TextPanel",
-        "ThemePanel",
         "Thumb",
         "TileHead",
         "ToolsResizeHandle",

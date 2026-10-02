@@ -29,10 +29,10 @@ import { planMyselfOn, planMyselfSub } from '@/lib/plan-myself';
 const HERE = import.meta.dirname;
 const read = (p: string) => stripComments(readFileSync(join(HERE, p), 'utf8'));
 
-test('1 · it is the last item of Your event, offered to every type', () => {
+test('1 · it is an item of Your event (just before the Seat plan, which stays last), offered to every type', () => {
   const event = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
   assert.equal(event.label, 'Your event');
-  assert.equal(event.keys[event.keys.length - 1], 'plan-myself');
+  assert.deepEqual(event.keys.slice(-2), ['plan-myself', 'seating']);
   // No type gate: an empty applies-rule means every celebration gets it.
   const ctx = { profile: { enabledSurfaces: [], terminology: {}, roleSetKey: 'x' } } as never;
   assert.equal(detailsItemApplies('plan-myself', ctx), true);

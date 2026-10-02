@@ -891,6 +891,21 @@ html.guests-subnav-docked [data-shell-main] {
    * visitors — no per-element guard needed. Consumed by
    * `@/components/skeletons`.
    */
+  /* ⏳ A loading screen's placeholders give up (owner, live phone test
+   * 2026-10-02: grey cards still showing on the guest view). If the content
+   * has not replaced them after 12 s it is not coming soon, and a grey box
+   * that lingers reads as broken — so they fade to nothing. Pure CSS: the
+   * loading screen is drawn before any script runs. */
+  .sn-skeleton-gives-up {
+    animation: sn-skeleton-give-up 0.4s ease 12s forwards;
+  }
+  @keyframes sn-skeleton-give-up {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
   .skeleton {
     background-color: rgb(30 34 41 / 0.06);
     background-image: linear-gradient(

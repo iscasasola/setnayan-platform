@@ -77,6 +77,14 @@ export type MakerState = {
    */
   detailsItem?: DetailsItemKey | null;
   setDetailsItem?: (key: DetailsItemKey) => void;
+  /**
+   * 📱 ONE PANEL AT A TIME ON A PHONE (owner, live test 2026-10-02): a Maker
+   * door (Look · Details · Prints) opened Details, so its guided flow folds to
+   * its one top line there (`details-workspace.tsx`); a move inside the flow
+   * unfolds it. Optional: a harness may leave it out.
+   */
+  guideFolded?: boolean;
+  setGuideFolded?: (folded: boolean) => void;
   /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
   lookPages?: MakerLookPages | null;
   setLookPages?: (next: MakerLookPages | null) => void;

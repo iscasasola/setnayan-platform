@@ -209,6 +209,8 @@ export function MakerShell({
      Details on its item — from the address, from memory, or from a door in
      the Maker (`movedSelection`). */
   const [detailsItem, setDetailsItem] = useState<DetailsItemKey | null>(() => movedSelection(initialSelection).item);
+  /* 📱 A door opened Details: its guided flow folds to one line on a phone (`MakerState.guideFolded`). */
+  const [guideFolded, setGuideFolded] = useState(false);
   const [selection, setSelection] = useState<MakerSelection>(() => movedSelection(initialSelection).selection);
   const [lookPages, setLookPages] = useState<MakerLookPages | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -438,6 +440,8 @@ export function MakerShell({
       setAddScene,
       detailsItem,
       setDetailsItem,
+      guideFolded,
+      setGuideFolded,
       lookPages,
       setLookPages,
       factEditors,
@@ -453,7 +457,7 @@ export function MakerShell({
     }),
     // `viewToggle` is a fresh node each render — it follows `shownDevice`, which is listed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, guideFolded, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft],
   );
 
   /* 🚪 LOOK · DETAILS · ⋯ › PRINTS — three doors into the one Details page
@@ -467,6 +471,7 @@ export function MakerShell({
       return;
     }
     setDetailsItem(makerPressDoor({ detailsItem }, key).detailsItem);
+    setGuideFolded(true);
     select({ kind: 'tool', key: 'details' });
   };
 
@@ -483,6 +488,8 @@ export function MakerShell({
     shownPage: guestPages?.stage === stage ? guestPages.shown : null,
     hasWork,
     theHost,
+    /* 📍 Look · Event Details · Prints cover the stage: Page ▾ names that page. */
+    openPage: openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : null,
   });
   /* Each page wears the guest bar's own icon (`page-pick.tsx`), as it did in the navigator. */
   const pageOptions = page.options.map((o) => {

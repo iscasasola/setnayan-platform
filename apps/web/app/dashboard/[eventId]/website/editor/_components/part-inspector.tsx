@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AlignCenter, AlignLeft, AlignRight, PencilLine, Play } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -335,16 +335,68 @@ export function PartTextTab({
   );
 }
 
+/**
+ * ⌨ TYPING SAVES — THERE IS NO "USE IT" BUTTON (owner, live phone test
+ * 2026-10-02: a "Use it" button sat greyed out while the words had already
+ * saved — words typed on the canvas save themselves, so the box beside them was
+ * always "unchanged" and its button always dead). Every Maker word box saves
+ * the way the canvas does: a short pause, leaving the box, or Enter. The value
+ * the page hands back never overwrites the box while the couple is typing in it.
+ */
+const TYPING_PAUSE_MS = 700;
+function useSavesAsYouType<T>(
+  saved: T,
+  textOf: (v: T) => string,
+  /** The text as it would be saved, or `undefined` when it cannot be (yet). */
+  read: (text: string) => T | undefined,
+  onSave: (v: T) => void,
+) {
+  const [text, setText] = useState(() => textOf(saved));
+  const typing = useRef(false);
+  useEffect(() => {
+    if (!typing.current) setText(textOf(saved));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the saved value
+  }, [saved]);
+  const latest = useRef({ saved, read, onSave });
+  latest.current = { saved, read, onSave };
+  const commit = (t: string) => {
+    const next = latest.current.read(t);
+    if (next !== undefined && next !== latest.current.saved) latest.current.onSave(next);
+  };
+  useEffect(() => {
+    if (!typing.current) return;
+    const id = window.setTimeout(() => commit(text), TYPING_PAUSE_MS);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- a pause after the last keystroke
+  }, [text]);
+  return {
+    value: text,
+    onChange: (e: { target: { value: string } }) => {
+      typing.current = true;
+      setText(e.target.value);
+    },
+    onBlur: () => {
+      typing.current = false;
+      commit(text);
+    },
+    onEnter: () => commit(text),
+  };
+}
+
 /** 🔗 The Joiner's word — and · & · + · Your own… (answer 2). */
 function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string | null) => void }) {
   const own = word !== null && !(HUB_JOINER_WORDS as readonly string[]).includes(word);
   const [typing, setTyping] = useState(own);
-  const [text, setText] = useState(own ? word : '');
   useEffect(() => {
     setTyping(word !== null && !(HUB_JOINER_WORDS as readonly string[]).includes(word));
-    if (word !== null && !(HUB_JOINER_WORDS as readonly string[]).includes(word)) setText(word);
   }, [word]);
-  const ok = sanitizeHubJoinerWord(text);
+  // Their own word saves as they type; a box still empty saves nothing (the picked word stays).
+  const box = useSavesAsYouType<string | null>(
+    own ? word : null,
+    (v) => v ?? '',
+    (t) => sanitizeHubJoinerWord(t) ?? undefined,
+    onWord,
+  );
   return (
     <>
       <IRow label="Joiner" data="joiner">
@@ -362,9 +414,10 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
       {typing ? (
         <form
           className="flex items-center gap-2 border-b border-ink/[0.07] py-2.5"
+          data-saves-as-you-type=""
           onSubmit={(e) => {
             e.preventDefault();
-            if (ok) onWord(ok);
+            box.onEnter();
           }}
         >
           <label className="sr-only" htmlFor="joiner-own-word">
@@ -372,15 +425,14 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
           </label>
           <input
             id="joiner-own-word"
-            value={text}
+            value={box.value}
             maxLength={HUB_JOINER_MAX}
-            onChange={(e) => setText(e.target.value)}
+            onChange={box.onChange}
+            onBlur={box.onBlur}
+            enterKeyHint="done"
             placeholder="at saka"
             className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
           />
-          <IButton type="submit" fill disabled={!ok}>
-            Use it
-          </IButton>
         </form>
       ) : null}
     </>
@@ -390,22 +442,25 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
 /**
  * 🔗 A part's own line — the link's, the photo caption's. `hint` is what the
  * part draws while it is empty. Cleared, it goes back to that (an absence, the
- * joiner's rule); taking the part off the page is Arrange → Hidden.
+ * joiner's rule); taking the part off the page is Arrange → Hidden. Typing
+ * saves (`useSavesAsYouType`) — no button.
  */
 function PartWordsRow({ el, word, hint, onWord }: { el: HubElementKey; word: string | null; hint: string; onWord: (w: string | null) => void }) {
-  const [text, setText] = useState(word ?? '');
-  useEffect(() => setText(word ?? ''), [word]);
-  const blank = text.trim().length === 0;
   // The part's own rule — a line (the link, the caption) or a sentence (the eyebrow, the invitation line).
-  const ok = blank ? null : sanitizeHubElementWord(text, el);
-  const changed = (ok ?? null) !== word;
+  const box = useSavesAsYouType<string | null>(
+    word,
+    (v) => v ?? '',
+    (t) => (t.trim().length === 0 ? null : (sanitizeHubElementWord(t, el) ?? undefined)),
+    onWord,
+  );
   return (
     <form
       className="flex items-center gap-2 border-b border-ink/[0.07] py-2.5"
       data-row="part-words"
+      data-saves-as-you-type=""
       onSubmit={(e) => {
         e.preventDefault();
-        if (blank || ok) onWord(blank ? null : ok);
+        box.onEnter();
       }}
     >
       <label className="sr-only" htmlFor="part-own-words">
@@ -413,15 +468,14 @@ function PartWordsRow({ el, word, hint, onWord }: { el: HubElementKey; word: str
       </label>
       <input
         id="part-own-words"
-        value={text}
+        value={box.value}
         maxLength={el === 'eyebrow' || el === 'line' ? HUB_PART_SENTENCE_MAX : HUB_PART_LINE_MAX}
-        onChange={(e) => setText(e.target.value)}
+        onChange={box.onChange}
+        onBlur={box.onBlur}
+        enterKeyHint="done"
         placeholder={hint}
         className="min-h-11 min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink lg:min-h-9 lg:text-[14px]"
       />
-      <IButton type="submit" fill disabled={!changed || (!blank && !ok)}>
-        Use it
-      </IButton>
     </form>
   );
 }

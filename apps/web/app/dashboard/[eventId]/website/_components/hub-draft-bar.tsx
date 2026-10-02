@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check, Undo2 } from 'lucide-react';
+import { Check, Undo2, X } from 'lucide-react';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
@@ -15,7 +15,7 @@ import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import {
   HUB_RESET_NEVER_TOUCHES,
-  hubDraftPanelStaysOpen,
+  hubDraftOutcome,
   type HubDraftActionResult,
   type HubDraftBarLive,
   type HubDraftRefusal,
@@ -26,6 +26,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { makerSaveStatusText, onMakerSave, type MakerSaveStatus } from '@/lib/maker-save-status';
 import { formatCount } from '@/lib/format-number';
+import { placePanelAt, type PanelPlace } from '@/lib/maker-panel-place';
 
 /**
  * THE DRAFT CONTROLS — Restore · Undo · Apply, ALWAYS VISIBLE at the upper
@@ -229,6 +230,7 @@ export function HubDraftToolbar({
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, result, run } = useDraftIntent(eventId);
   const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<PanelPlace | null>(null);
   const [asking, setAsking] = useState(false);
   /* A page that autosaves into the draft (the Logo page) reports here, beside
      Apply — `lib/maker-save-status.ts`. An error stays until a save succeeds. */
@@ -243,9 +245,13 @@ export function HubDraftToolbar({
     window.addEventListener(MAKER_REFRESH_EVENT, refresh);
     return () => window.removeEventListener(MAKER_REFRESH_EVENT, refresh);
   }, [router]);
-  /* More ▾ → "Reset this stage…" in the Maker toolbar opens THIS confirm. */
+  /* More ▾ → "Reset this stage…" in the Maker toolbar opens THIS confirm —
+     the ONLY way the panel opens (owner 2026-10-02: it opened by itself after
+     Apply and would not close). Placed against the SCREEN at open, never off
+     its left edge on a phone (`at`). */
   useEffect(() => {
     const open = () => {
+      setAt(placePanel(panelRef.current));
       setOpen(true);
       setAsking(true);
     };
@@ -268,19 +274,25 @@ export function HubDraftToolbar({
     setDraftDoor({ canRestore, restore: () => actRef.current({ intent: 'restore' }) });
     return () => setDraftDoor(null);
   }, [setDraftDoor, canRestore]);
-  /* The panel has no button of its own: a tap outside it, or Esc, puts it away. */
+  /* The panel always closes: its × , Cancel, a tap outside it, Esc — and a tap
+     on the canvas, which is a frame of its own (a tap there never reaches this
+     window as a pointerdown; it blurs it). Owner 2026-10-02: "won't close". */
   const panelRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    const shut = () => setOpen(false);
     const onDown = (e: PointerEvent) => {
-      if (!panelRef.current?.contains(e.target as Node)) setOpen(false);
+      if (!boxRef.current?.contains(e.target as Node)) shut();
     };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && shut();
     window.addEventListener('pointerdown', onDown);
     window.addEventListener('keydown', onKey);
+    window.addEventListener('blur', shut);
     return () => {
       window.removeEventListener('pointerdown', onDown);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', shut);
     };
   }, [open]);
   /* The guided flow's Ready screen presses THIS Apply (`maker-press-apply.ts`):
@@ -347,14 +359,14 @@ export function HubDraftToolbar({
     // Once, on the render the purchase page lands on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  /* The ⋯ panel follows the ANSWER, not the press: it opens when there is
-     something to read (an error, a key Apply held back, Reset's note) and
-     closes on a clean Apply · Undo · Restore — owner 2026-09-27, the panel
-     stayed open over the Maker after Apply saying "2 changes are now live". */
+  /* 📣 AN ANSWER NEVER OPENS THE PANEL (owner, live phone test 2026-10-02: it
+     came back by itself after every Apply). What there is to read — an error,
+     a key Apply held back, Reset's note — is SAID beside Apply
+     (`hubDraftOutcome`); a finished action closes the panel. */
   useEffect(() => {
-    if (result) setOpen(hubDraftPanelStaysOpen(result));
+    if (result) setOpen(false);
   }, [result]);
-  const appliedClean = result?.ok === true && result.intent === 'apply' && !hubDraftPanelStaysOpen(result);
+  const outcome = hubDraftOutcome(result);
   /* The newest word wins: a status this page announced, else a form save that
      came back refused (`saveError`). An error is never truncated away. */
   const status: MakerSaveStatus | null = saveStatus ?? (saveError ? { state: 'error', text: saveError } : null);
@@ -376,10 +388,8 @@ export function HubDraftToolbar({
         >
           {makerSaveStatusText(status)}
         </span>
-      ) : appliedClean ? (
-        <span role="status" data-maker-save-status="applied" className="order-2 text-[11px] font-semibold text-ink/60 md:order-none">
-          Live now
-        </span>
+      ) : outcome ? (
+        <OutcomeLine outcome={outcome} />
       ) : null}
       {readError ? (
         <span role="alert" className="order-2 text-[11px] font-semibold text-terracotta-700 md:order-none">
@@ -436,10 +446,27 @@ export function HubDraftToolbar({
         document.body,
       ) : null}
       <div ref={panelRef} className="relative order-2 md:order-none" data-maker-draft-panel="">
+        {/* Portalled and FIXED to the screen (like the Apply sheet): inside the
+            glass bar an absolute box hung off its anchor's right edge and, on a
+            phone's second row, ran off the screen's left (owner 2026-10-02). */}
+        {open && typeof document !== 'undefined' ? createPortal(
         <div
-          hidden={!open}
-          className="absolute right-0 top-full z-40 mt-2 flex w-[min(20rem,calc(100vw-1rem))] flex-col gap-2 rounded-xl bg-cream p-3 shadow-lg"
+          ref={boxRef}
+          role="dialog"
+          aria-label="Your draft"
+          data-maker-draft-box=""
+          style={at ? { position: 'fixed', top: at.top, left: at.left, width: at.width } : { position: 'fixed', top: 64, left: 8, right: 8 }}
+          className="z-[90] flex flex-col gap-2 rounded-xl bg-cream p-3 pr-11 shadow-lg"
         >
+          <button
+            type="button"
+            aria-label="Close"
+            data-maker-draft-close=""
+            onClick={() => setOpen(false)}
+            className="sn-press absolute right-1.5 top-1.5 inline-flex h-10 w-10 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+          >
+            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
           {summary.hasChanges ? (
             <p className="text-sm text-ink/80">
               {formatCount(summary.changeCount)} {summary.changeCount === 1 ? 'change' : 'changes'} guests do not see yet.
@@ -508,8 +535,31 @@ export function HubDraftToolbar({
             </p>
           ) : null}
           <ResultLine result={result} />
-        </div>
+        </div>,
+        document.body,
+        ) : null}
       </div>
     </div>
+  );
+}
+
+function placePanel(anchor: HTMLElement | null): PanelPlace | null {
+  const r = anchor?.getBoundingClientRect();
+  return r ? placePanelAt(r, window.innerWidth) : null;
+}
+
+/** 📣 The outcome, said beside Apply (`hubDraftOutcome`) — never a box that opens. */
+function OutcomeLine({ outcome }: { outcome: NonNullable<ReturnType<typeof hubDraftOutcome>> }) {
+  const quiet = 'order-2 max-w-[9rem] truncate text-[11px] font-semibold text-ink/60 md:order-none';
+  const loud = 'order-2 max-w-[11rem] line-clamp-3 text-[11px] font-semibold leading-tight text-terracotta-700 md:order-none';
+  if (outcome.kind === 'live') return <span role="status" data-maker-save-status="applied" className={quiet}>Live now</span>;
+  if (outcome.kind === 'reset') return <span role="status" data-maker-save-status="reset" className={quiet}>Reset in your draft</span>;
+  if (outcome.kind === 'error') return <span role="alert" data-maker-save-status="error" className={loud}>{outcome.text}</span>;
+  const all = outcome.held.map((h) => `${h.label} ${HELD_REASON[h.reason]}.`).join(' ');
+  const one = outcome.held.length === 1 ? outcome.held[0]! : null;
+  return (
+    <span role="alert" data-maker-save-status="held" title={all} className={loud}>
+      {one ? `${one.label} ${HELD_REASON[one.reason]}.` : `${formatCount(outcome.held.length)} changes stay in your draft — ${HELD_REASON[outcome.held[0]!.reason].split(' — ')[0]}.`}
+    </span>
   );
 }

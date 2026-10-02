@@ -11,6 +11,8 @@ import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
+import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
+import { scrollToClearSheet } from '@/lib/part-above-sheet';
 import {
   HUB_ELEMENT_LABEL,
   HUB_ELEMENT_RUN_KEYS,
@@ -330,8 +332,21 @@ export function ElementSheet({
   const themeColours = [...new Set([palette.ink, palette.heading, palette.accent, palette.muted].map((c) => c.toLowerCase()))];
   const titleId = 'maker-element-sheet-title';
 
+  /* 📱 The part being edited stays in sight ABOVE the sheet on a phone
+     (owner 2026-10-02) — the canvas scrolls it into the band still showing. */
+  const sheetRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (!window.matchMedia('(max-width: 1023px)').matches) return;
+    const id = window.requestAnimationFrame(() => {
+      const sheet = sheetRef.current;
+      if (sheet) keepPartAboveSheet(sheet, target.key, target.el);
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [target.key, target.el]);
+
   return (
     <aside
+      ref={sheetRef}
       role="dialog"
       aria-labelledby={titleId}
       data-maker-element-sheet={target.el}
@@ -438,4 +453,26 @@ export function ElementSheet({
       </div>
     </aside>
   );
+}
+
+/**
+ * 📱 Scroll the shown canvas so this part sits above the sheet (`lib/part-above-sheet.ts`).
+ * The canvas is a same-origin frame (the Maker already reads it — `carryScroll`).
+ */
+export function keepPartAboveSheet(sheet: HTMLElement, key: string, el: string): void {
+  try {
+    const frame = document.querySelector<HTMLIFrameElement>('iframe[data-maker-canvas-frame="shown"]');
+    const win = frame?.contentWindow;
+    const doc = frame?.contentDocument;
+    if (!frame || !win || !doc) return;
+    const section = findMakerSection(doc, key);
+    const part = section?.querySelector<HTMLElement>(`[data-el="${CSS.escape(el)}"]`) ?? section;
+    if (!part) return;
+    const r = part.getBoundingClientRect();
+    const band = sheet.getBoundingClientRect().top - frame.getBoundingClientRect().top;
+    const dy = scrollToClearSheet({ partTop: r.top, partHeight: r.height, band });
+    if (dy !== 0) win.scrollBy({ top: dy, behavior: 'smooth' });
+  } catch {
+    /* a frame we cannot reach keeps its own scroll */
+  }
 }

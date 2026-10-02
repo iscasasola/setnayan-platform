@@ -32,7 +32,7 @@ import {
   hasAgreedToTerms,
   rsvpTermsCarried,
 } from '@/lib/terms-agreement';
-import { saveMethodFor, saveMethodSignsIn } from '@/lib/guest-one-path';
+import { SAVE_METHOD_FIELD, saveMethodFromForm, saveMethodSignsIn } from '@/lib/guest-one-path';
 import { envFlagEnabled } from '@/lib/env-flag';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
 import { eventConnectPath } from '@/lib/signup-landing';
@@ -114,8 +114,13 @@ async function eventHome(eventId: string): Promise<string> {
  * 📵 IT SENDS NO EMAIL (owner 2026-09-29, DECISION_LOG "NO EMAIL TO GUESTS — THE
  * QR AND THE LINK DO EVERYTHING"). This used to be `claimAccountAction`, which
  * emailed a passwordless sign-in link. Now it is the device's provider and
- * nothing else — Apple on an iPhone, Google elsewhere (`saveMethodFor`,
- * re-decided HERE from the request, never from the form). Inside an in-app
+ * nothing else — Apple on an iPhone, Google elsewhere. ⚠ CHANGED 2026-10-02:
+ * this used to re-decide the method HERE from the POST's user-agent, "never
+ * from the form" — and the owner's live test then read "with Apple" on the
+ * button and landed on Google sign-in, because two requests were asked the
+ * same question separately. The form now carries the method the button SAID
+ * and this takes it while that provider is on (`saveMethodFromForm`, whose
+ * docblock says why a posted provider grants nothing). Inside an in-app
  * browser there is no press to post: the page draws "Open in your browser"
  * (a copy of the guest's own link) instead, so a POST from one is sent back.
  *
@@ -145,7 +150,8 @@ export async function startAccountSaveAction(eventId: string, _slug: string, for
       maxAge: RSVP_TERMS_COOKIE_MAX_AGE,
     });
   }
-  const method = saveMethodFor((await headers()).get('user-agent'), {
+  // The method the button SAID (`SAVE_METHOD_FIELD`) — never re-guessed from this POST.
+  const method = saveMethodFromForm(formData.get(SAVE_METHOD_FIELD), (await headers()).get('user-agent'), {
     apple: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED),
     google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
   });

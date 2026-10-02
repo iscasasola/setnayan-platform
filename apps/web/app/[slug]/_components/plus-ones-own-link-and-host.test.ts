@@ -301,7 +301,7 @@ test('F · the save writes only their own four, then takes the device’s method
   assert.match(save, /\.not\('plus_one_of_guest_id', 'is', null\)/, 'the door can write a row that is not a plus-one');
   assert.match(save, /\.eq\('guest_id', guest\.guest_id\)/);
   assert.match(save, /session\.guest_id/, 'the guest is not the one the pass names');
-  assert.match(save, /saveMethodFor\(/, 'the method is not the device’s');
+  assert.match(save, /saveMethodFromForm\(formData\.get\(SAVE_METHOD_FIELD\)/, 'the method is not the one the button said (2026-10-02)');
   assert.match(save, /signInWithApple\(next\)/);
   // 📵 No emailed link any more (owner 2026-09-29, "NO EMAIL TO GUESTS").
   assert.doesNotMatch(save, /claimAccountAction|sendEmail|sendEventAccountMagicLink/, 'the plus-one door mails a sign-in link again');

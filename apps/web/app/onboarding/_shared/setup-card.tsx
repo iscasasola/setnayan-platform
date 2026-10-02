@@ -28,6 +28,7 @@ import {
 } from '@/lib/event-answers';
 import { useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
+import { guestsGetInChoice, guestsGetInLabel, type GuestsGetIn } from '@/lib/who-can-reply';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
   applyGuestsIn,
@@ -40,6 +41,9 @@ import {
   type SetupCardId,
   type SetupView,
 } from '@/lib/onboarding/setup-answers';
+
+/** The wedding card stores three of the five choices; each is spoken in the shared words. */
+const GUESTS_IN_AS: Record<GuestsIn, GuestsGetIn> = { list: 'list', requests: 'requests', open: 'one_qr' };
 
 const SKIN_ACCENT: Record<SetupView['skin'], string> = {
   wedding: '#8a6a2b',
@@ -219,11 +223,15 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
             <PickMenu
               label="Guests"
               value={guestsInOf(answers)}
+              buttonText={guestsGetInLabel(GUESTS_IN_AS[guestsInOf(answers)])}
               options={[
-                { key: 'list', label: 'Guest list', hint: 'Only people you list — each gets an invitation, RSVP and QR ticket' },
-                { key: 'requests', label: 'Guest list + requests', hint: 'Your list, and anyone with the link can ask — you say yes or no' },
-                { key: 'open', label: 'Open event', hint: 'Anyone with your event’s one QR — no list, no RSVP' },
-              ]}
+                { key: 'list', hint: 'Only people you list — each gets an invitation, RSVP and QR ticket' },
+                { key: 'requests', hint: 'Your list, and anyone with the link can ask — you say yes or no' },
+                { key: 'open', hint: 'Anyone with your event’s one QR — no list, no RSVP' },
+              ].map((o) => {
+                const c = guestsGetInChoice(GUESTS_IN_AS[o.key as GuestsIn]);
+                return { key: o.key, label: c.label, group: c.group, hint: o.hint };
+              })}
               onPick={(key) => onChange(applyGuestsIn(key as GuestsIn))}
               dataAttr="data-setup-guests-in"
             />
@@ -263,7 +271,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
                   label="Entry"
                   value={answers.entry}
                   options={[
-                    { key: 'personal', label: 'Personal QR for each guest', hint: 'Their link opens straight into the Event Hub.' },
+                    { key: 'personal', label: guestsGetInChoice('personal').label, hint: 'Their link opens straight into the Event Hub.' },
                     { key: 'one_qr', label: 'One QR for everyone', hint: 'Anyone who comes scans it and signs in.' },
                     { key: 'both', label: 'Both' },
                   ]}

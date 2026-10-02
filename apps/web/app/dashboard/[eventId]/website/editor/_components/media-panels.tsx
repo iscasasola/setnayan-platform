@@ -274,12 +274,12 @@ export function VisibilityPanel({
       </fieldset>
       {picked === 'public' ? (
         <div className="mt-2 space-y-2" data-public-extras="">
-          {/* 🌐 Owner 2026-09-29: choosing Public turns on "Anyone, I approve".
+          {/* 🌐 Owner 2026-09-29: choosing Public turns on "Accept" (How guests get in).
               Said here, on the switch, so it is never a surprise — and only on
               the switch: a Public event keeps whatever the host chose since. */}
           {visibility !== 'public' ? (
             <p className="text-[0.7rem] text-ink/60" data-public-turns-on-asks="">
-              Public turns on &ldquo;Anyone, I approve&rdquo; — people without a key can ask to join, and
+              Public turns on &ldquo;Accept&rdquo; — people without a key can ask to join, and
               they wait in Requests until you Keep, Link or Remove them. You can turn it off on your RSVP page.
             </p>
           ) : null}

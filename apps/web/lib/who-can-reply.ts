@@ -25,6 +25,7 @@
  */
 
 import {
+  GUEST_ENTRY_RULE,
   oneQrLetsYouIn,
   readGuestsReply,
   readWhoCanRsvp,
@@ -60,10 +61,16 @@ export function whoCanReplyBase(input: {
   return live;
 }
 
-/** The two answers, in the owner's words (DECISION_LOG 2026-09-30). */
-export const WHO_CAN_REPLY_CHOICES: ReadonlyArray<{ value: WhoCanRsvp; label: string }> = [
-  { value: 'guest_list', label: 'Only people on my list' },
-  { value: 'anyone', label: 'Anyone, I approve' },
+/**
+ * ⚖ THE THREE RULES (`GUEST_ENTRY_RULE`, lib/rsvp-ask.ts) are the headings of
+ * "How guests get in" below, and the words of the Guest list's first-visit
+ * pop-up (which asks only the first two) — one spelling.
+ */
+
+/** The two answers the first-visit pop-up asks — named by the rule, not re-worded. */
+export const WHO_CAN_REPLY_CHOICES: ReadonlyArray<{ value: WhoCanRsvp; label: string; hint: string }> = [
+  { value: 'guest_list', label: GUEST_ENTRY_RULE.list, hint: 'Only people you list. Guests reply.' },
+  { value: 'anyone', label: GUEST_ENTRY_RULE.accept, hint: 'Anyone with the link can ask to join. You say yes or no.' },
 ];
 
 /** The whole object the pop-up posts — never the one key alone. */
@@ -90,19 +97,28 @@ export type GuestsGetIn = 'list' | 'requests' | 'personal' | 'one_qr' | 'one_qr_
 
 export const GUESTS_GET_IN_LABEL = 'How guests get in';
 
-export const GUESTS_GET_IN_CHOICES: ReadonlyArray<{ value: GuestsGetIn; label: string; hint: string }> = [
-  { value: 'list', label: 'Only people on my list', hint: 'They reply to the invitation. Each gets their own QR.' },
-  { value: 'requests', label: 'Anyone, I approve', hint: 'They reply. Anyone with the link can ask to join — you say yes or no.' },
-  { value: 'personal', label: 'No reply · a personal QR for each guest', hint: 'Their own QR opens the Event Hub straight away.' },
-  {
-    value: 'one_qr',
-    label: 'No reply · one QR for everyone',
-    hint: 'Anyone who scans it and signs in is added as a guest. Guests you list keep their own QR too.',
-  },
+/**
+ * The five stored choices, GROUPED under the three rules (owner 2026-10-02): the
+ * dropdown lists each under its `group` heading, in this order, so consecutive
+ * choices share one heading. `label` is the choice WITHIN its group; the closed
+ * button and every read-only display say `guestsGetInLabel` — heading and choice
+ * together ("List only · Guests reply"). Same five values, same stored keys.
+ */
+export const GUESTS_GET_IN_CHOICES: ReadonlyArray<{ value: GuestsGetIn; group: string; label: string; hint: string }> = [
+  { value: 'list', group: GUEST_ENTRY_RULE.list, label: 'Guests reply', hint: 'They reply to the invitation. Each gets their own QR.' },
+  { value: 'personal', group: GUEST_ENTRY_RULE.list, label: 'No reply, each gets their own QR', hint: 'Their own QR opens the Event Hub straight away.' },
+  { value: 'requests', group: GUEST_ENTRY_RULE.accept, label: 'Guests reply', hint: 'They reply. Anyone with the link can ask to join — you say yes or no.' },
   {
     value: 'one_qr_approve',
-    label: 'No reply · one QR, I approve each one',
+    group: GUEST_ENTRY_RULE.accept,
+    label: 'No reply, one QR, I approve each',
     hint: 'Anyone who scans it can ask to join. They wait until you say yes.',
+  },
+  {
+    value: 'one_qr',
+    group: GUEST_ENTRY_RULE.open,
+    label: 'One QR for everyone',
+    hint: 'Anyone who scans it and signs in is added as a guest. Guests you list keep their own QR too.',
   },
 ];
 
@@ -114,8 +130,20 @@ export function readGuestsGetIn(raw: unknown): GuestsGetIn {
   return oneQrLetsYouIn(raw) ? 'one_qr' : 'one_qr_approve';
 }
 
+/** Heading and choice, the one phrase every place shows — "Accept · Guests reply". */
 export function guestsGetInLabel(choice: GuestsGetIn): string {
-  return GUESTS_GET_IN_CHOICES.find((c) => c.value === choice)!.label;
+  const c = GUESTS_GET_IN_CHOICES.find((x) => x.value === choice)!;
+  return `${c.group} · ${c.label}`;
+}
+
+/** One choice's grouped words — for a surface that stores fewer than five (onboarding's card). */
+export function guestsGetInChoice(choice: GuestsGetIn) {
+  return GUESTS_GET_IN_CHOICES.find((c) => c.value === choice)!;
+}
+
+/** The dropdown's options, ready for `PickMenu`: grouped, each with its hint. */
+export function guestsGetInOptions(): Array<{ key: GuestsGetIn; label: string; group: string; hint: string }> {
+  return GUESTS_GET_IN_CHOICES.map((c) => ({ key: c.value, label: c.label, group: c.group, hint: c.hint }));
 }
 
 /**

@@ -44,10 +44,10 @@ test('the post keeps every drafted RSVP switch — never the one key alone', () 
   assert.equal(resolveRsvpAsk(posted).song_request, false, 'a drafted switch was reset by the pop-up');
 });
 
-test('two answers, in the owner\'s words, one per stored value', () => {
+test('two answers, named by the rules, one per stored value', () => {
   assert.deepEqual(
     WHO_CAN_REPLY_CHOICES.map((c) => c.label),
-    ['Only people on my list', 'Anyone, I approve'],
+    ['List only', 'Accept'],
   );
   assert.deepEqual(WHO_CAN_REPLY_CHOICES.map((c) => c.value), ['guest_list', 'anyone']);
 });

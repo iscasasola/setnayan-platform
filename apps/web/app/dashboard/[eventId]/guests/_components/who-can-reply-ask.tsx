@@ -4,8 +4,8 @@
  * who-can-reply-ask.tsx — the Guest list's first visit asks ONE question.
  *
  * ⚖ Owner 2026-09-30 (DECISION_LOG "THE FIRST VISIT TO THE GUEST LIST ASKS WHICH
- * KIND OF LIST"): a pop-up, "Who can reply?" — Only people on my list · Anyone,
- * I approve. Phone first (INTERACTION_RULES § 1, § 5): one question, two big
+ * KIND OF LIST"): a pop-up, "Who can reply?" — now named by the three rules
+ * (owner 2026-10-02): List only · Accept (`GUEST_ENTRY_RULE`). Phone first (INTERACTION_RULES § 1, § 5): one question, two big
  * answers, nothing else; two options are two buttons, never a dropdown.
  *
  * It writes the EXISTING "Who can RSVP?" value through the ONE door that writes
@@ -134,9 +134,10 @@ export function WhoCanReplyAsk({
               disabled={pending}
               onClick={() => pick(c.value, c.label)}
               data-who-can-reply-choice={c.value}
-              className="min-h-[56px] w-full rounded-2xl bg-white px-4 text-left text-base font-semibold text-ink shadow-[0_6px_18px_-10px_rgba(30,26,18,0.45)] transition-shadow hover:shadow-[0_10px_24px_-10px_rgba(30,26,18,0.55)] disabled:opacity-60"
+              className="min-h-[56px] w-full rounded-2xl bg-white px-4 py-2 text-left text-base font-semibold text-ink shadow-[0_6px_18px_-10px_rgba(30,26,18,0.45)] transition-shadow hover:shadow-[0_10px_24px_-10px_rgba(30,26,18,0.55)] disabled:opacity-60"
             >
               {c.label}
+              <span className="mt-0.5 block text-[13px] font-normal text-ink/60">{c.hint}</span>
             </button>
           ))}
         </div>

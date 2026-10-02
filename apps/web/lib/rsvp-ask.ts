@@ -47,9 +47,16 @@ export type RsvpAskField = (typeof RSVP_ASK_FIELDS)[number];
 export const WHO_CAN_RSVP = ['guest_list', 'anyone'] as const;
 export type WhoCanRsvp = (typeof WHO_CAN_RSVP)[number];
 export const WHO_CAN_RSVP_DEFAULT: WhoCanRsvp = 'guest_list';
+/**
+ * ⚖ THE THREE RULES (owner 2026-10-02, DECISION_LOG "THE FIVE GUEST-ENTRY CHOICES
+ * ARE SHOWN UNDER THE THREE RULES"): List only · Accept · Open — the headings of
+ * "How guests get in" (lib/who-can-reply.ts) and the names of the two Who-can-RSVP
+ * values. One spelling, here; who-can-reply.ts imports it.
+ */
+export const GUEST_ENTRY_RULE = { list: 'List only', accept: 'Accept', open: 'Open' } as const;
 export const WHO_CAN_RSVP_LABEL: Record<WhoCanRsvp, string> = {
-  guest_list: 'Only my Guest List',
-  anyone: 'Anyone, I approve',
+  guest_list: GUEST_ENTRY_RULE.list,
+  anyone: GUEST_ENTRY_RULE.accept,
 };
 
 export function isWhoCanRsvp(v: unknown): v is WhoCanRsvp {

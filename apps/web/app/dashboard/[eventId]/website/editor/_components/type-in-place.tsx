@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { EyeOff, Eye, Check } from 'lucide-react';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { canvasFingerprint, canvasWriteKey, draftedCanvasOr, draftedOwnWordsOr, noteDraftedCanvas, noteDraftedOwnWords } from '@/lib/maker-draft-store';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult, HubDraftPatch } from '@/lib/hub-draft';
@@ -15,6 +15,7 @@ import { PickMenu } from './pick-menu';
 import { elementPreview, refusedChoiceWords } from './element-preview';
 import type { ElementDraftAction } from './element-sheet';
 import type { TypeStart } from '@/lib/hub-part-words';
+import { SCENE_FIELD_LABEL, sceneTypeWrite, type SceneOwnWords } from '@/lib/scene-type-words';
 import { typedDisplayName } from '@/lib/typed-names';
 import { nameStyleChoicesFor, type NameParts, type NameStyle } from '@/lib/name-style';
 import { nameStyleDraftPatch } from '@/lib/name-style-save';
@@ -60,6 +61,16 @@ import { nameStyleDraftPatch } from '@/lib/name-style-save';
  * setting the prints read, and a pick goes into the SAME draft
  * (`nameStyleDraftPatch`; owner 2026-10-01, "in event hub maker will only take
  * effect when pressed apply"), written to the prints' setting at Apply.
+ *
+ * ✍ EVERY SCENE, NOT ONLY THE HERO (two-week audit, Area B). A tap on a
+ * scene's words the canvas marked (`markSceneWords` — the Special message, the
+ * Reminders, a scene of their own's heading and words) opens this same bar,
+ * with `start.field` naming the ONE place those words live
+ * (`lib/scene-type-words.ts`): typed, they go into the DRAFT through the same
+ * one write path (`write`), held, and reach guests at Apply. No Wording ▾ —
+ * no line already exists for a couple's own words, and none is invented (✂ the
+ * re-plan row) — and no Format ▾ (words, not a date). Style ▾ opens that
+ * part's own sheet; Hide is that part's own show/hide on its scene's canvas.
  */
 type TypeSession = TypeStart;
 /** The draft save every change the bar makes goes through — the hero's canvas, or the names. */
@@ -81,6 +92,10 @@ export type TypeBarProps = {
   start: TypeStart;
   /** The hero's canvas as the last render drew it — the Maker's own copy is laid over it. */
   heroCanvas: HubSectionCanvas;
+  /** ✍ A scene's words: that scene's canvas as the last render drew it (its part's Hide). */
+  sceneCanvas?: HubSectionCanvas;
+  /** ✍ A scene of their own: its heading and words as the last render had them (the other half rides along). */
+  ownWords?: SceneOwnWords | null;
   draftAction: ElementDraftAction;
   twoPeople: boolean;
   /** ✍ The names' Wording ▾: the event's Name style and one of the couple's own names (null = not offered). */
@@ -146,6 +161,9 @@ export function TypeBar(p: TypeBarProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const el = session.el as HubElementKey;
+  /** ✍ A scene's words (not the hero's): the one field they are, and their scene's row. */
+  const field = p.start.field ?? null;
+  const sceneType = field ? p.start.key.slice(2) : null;
   const [error, setError] = useState<string | null>(null);
   /** The canvas the draft last ACCEPTED — a refused write goes back here. */
   const saved = useRef<HubSectionCanvas>(draftedCanvasOr('hero', p.heroCanvas));
@@ -274,6 +292,44 @@ export function TypeBar(p: TypeBarProps) {
     );
   };
 
+  /**
+   * ✍ A SCENE'S WORDS, TYPED → the ONE place they live, in the DRAFT
+   * (`sceneTypeWrite`): the Special message and the Reminders are the event's
+   * own words; a scene of their own's heading and words are its `custom`, the
+   * other half carried as the Maker has it now. The canvas already shows the
+   * letters; the other pane gets them; a refused save puts the last saved
+   * words back on every frame and says so.
+   */
+  const savedScene = useRef(p.start.text);
+  const typeScene = (text: string) => {
+    if (!field || !sceneType) return;
+    const own = draftedOwnWordsOr(sceneType, props.current.ownWords ?? null);
+    const w = sceneTypeWrite(field, sceneType, text, own);
+    refusedRef.current = !w.ok;
+    if (!w.ok) {
+      setError(w.reason);
+      return;
+    }
+    setError(null);
+    const custom = w.patch.widgets?.[sceneType as keyof NonNullable<HubDraftPatch['widgets']>]?.custom;
+    if (custom) noteDraftedOwnWords(sceneType, custom, props.current.ownWords ?? null);
+    write(
+      w.writeKey,
+      w.patch,
+      { messages: [{ source: 'setnayan-editor', t: 'typeText', key: session.key, el, field, text: w.words }], typedIn: session.source },
+      () => {
+        savedScene.current = w.words;
+      },
+      (reason) => {
+        if (custom) noteDraftedOwnWords(sceneType, own, props.current.ownWords ?? null);
+        props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: session.key, el, field, text: savedScene.current });
+        const said = `${SCENE_FIELD_LABEL[field]}: the new words did not save${reason ? ` — ${reason}` : ''}. The words are back as they were.`;
+        setError(said);
+        announceMakerSave({ state: 'error', text: said });
+      },
+    );
+  };
+
   /** What the page shows for a canvas — the part's words, or its fact in its format. */
   const shownWords = (canvas: HubSectionCanvas): string => {
     if (el === 'date' || el === 'time') {
@@ -292,6 +348,10 @@ export function TypeBar(p: TypeBarProps) {
   useEffect(
     () => () => {
       if (!refusedRef.current) return;
+      if (field) {
+        props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: p.start.key, el, field, text: savedScene.current });
+        return;
+      }
       const back = el === 'names' ? savedNames.current : words(draftedCanvasOr('hero', props.current.heroCanvas));
       props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: p.start.key, el, text: back });
     },
@@ -299,8 +359,12 @@ export function TypeBar(p: TypeBarProps) {
     [],
   );
   useEffect(() => {
-    if (!isTypeCaretPart(el) || session.text === lastText.current) return;
+    if ((!field && !isTypeCaretPart(el)) || session.text === lastText.current) return;
     lastText.current = session.text;
+    if (field) {
+      typeScene(session.text);
+      return;
+    }
     if (el === 'names') {
       typeNames(session.text);
       return;
@@ -319,10 +383,11 @@ export function TypeBar(p: TypeBarProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.text]);
 
-  const current = draftedCanvasOr('hero', p.heroCanvas);
+  const current = sceneType ? draftedCanvasOr(sceneType, p.sceneCanvas) : draftedCanvasOr('hero', p.heroCanvas);
   const style = current.elements?.[el] ?? {};
-  const lines = wordingLines(el, { auto: session.auto, twoPeople: p.twoPeople });
-  const formats = formatChoices(el, session);
+  // ✍ A scene's own words: no line exists to offer, and no format (words, not a date).
+  const lines = field ? [] : wordingLines(el, { auto: session.auto, twoPeople: p.twoPeople });
+  const formats = field ? [] : formatChoices(el, session);
 
   /* 🔤 THE NAMES' WORDING ▾ — the event's Name style, the three choices only,
      each in the couple's own name. Shown at once; held in the DRAFT (guests and
@@ -374,12 +439,49 @@ export function TypeBar(p: TypeBarProps) {
     commit(next, 'format');
   };
   const toggleHidden = () => {
+    if (sceneType) {
+      hideScenePart();
+      return;
+    }
     const before = draftedCanvasOr('hero', props.current.heroCanvas);
     const elements = withElementChoice(before.elements, el, 'hidden', style.hidden ? null : true);
     const next: HubSectionCanvas = { ...before };
     if (elements) next.elements = elements;
     else delete next.elements;
     commit(next, 'hidden');
+  };
+
+  /**
+   * ✍ A SCENE PART'S HIDE — its own show/hide on ITS scene's canvas (Arrange's),
+   * through the same one write path and the element sheet's queue and key for
+   * that scene: on the canvas first, the Maker's copy and the canvas hold, then
+   * held into the draft. Refused: all three go back, and it is said.
+   */
+  const hideScenePart = () => {
+    if (!sceneType) return;
+    const server = props.current.sceneCanvas;
+    const before = draftedCanvasOr(sceneType, server);
+    const elements = withElementChoice(before.elements, el, 'hidden', before.elements?.[el]?.hidden ? null : true);
+    const next: HubSectionCanvas = { ...before };
+    if (elements) next.elements = elements;
+    else delete next.elements;
+    noteDraftedCanvas(sceneType, next, server);
+    props.current.onSaving(sceneType, next);
+    setError(null);
+    write(
+      canvasWriteKey(sceneType),
+      { widgets: { [sceneType]: { canvas: next } } } as HubDraftPatch,
+      { messages: [elementPreview(session.key, el, before, next, false)], typedIn: null },
+      () => {},
+      (reason) => {
+        noteDraftedCanvas(sceneType, before, props.current.sceneCanvas);
+        props.current.onSaving(sceneType, before);
+        props.current.broadcast(elementPreview(session.key, el, next, before, false));
+        const said = refusedChoiceWords(el, 'hidden', reason || null);
+        setError(said);
+        announceMakerSave({ state: 'error', text: said });
+      },
+    );
   };
 
   /* 📍 Over the words: above them, or under them when there is no room. */
@@ -429,7 +531,7 @@ export function TypeBar(p: TypeBarProps) {
     <div
       ref={bar}
       role="toolbar"
-      aria-label={`${HUB_ELEMENT_LABEL[el]} — words`}
+      aria-label={`${field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]} — words`}
       data-type-bar={el}
       style={at ? { top: at.top, left: at.left } : { top: -9999, left: 0 }}
       className="sn-glass-bare fixed z-[85] flex max-w-[calc(100vw-16px)] flex-wrap items-center gap-1 rounded-2xl px-1.5 py-1 shadow-[0_8px_24px_rgba(30,34,41,0.18)]"

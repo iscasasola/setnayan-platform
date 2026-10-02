@@ -792,40 +792,63 @@ export function SectionsPanel({
                       </div>
                     );
                   }
+                  /* ✍ TAP ANY TEXT, ON EVERY SCENE (`lib/scene-type-words.ts`). In
+                     the Maker, words this scene already DRAWS are typed right on
+                     the page — one place per setting — so this form keeps only
+                     what is not on the page yet: the first words of an empty
+                     scene, or a heading it does not have. A field it leaves out
+                     is kept as drafted (`saveCustomSection`). And in the Maker it
+                     always drafts: nothing takes effect until Apply (owner
+                     2026-10-01). Outside the Maker, the form is as it was. */
+                  const letterBound = !body && detailsFactOfScene(row.widget_type, sanitizeHubCanvas(row.config_json)) !== null;
+                  const template = Boolean(sanitizeHubCanvas(row.config_json).template);
+                  const askTitle = !makerPart || !title || (!body && !letterBound && !template);
+                  const askBody = !makerPart || (!body && !letterBound);
+                  const draftWords = wordsDrafted || Boolean(makerPart);
                   return (
                     <>
+                    {makerPart && !askTitle && !askBody ? (
+                      <p className="mt-2 text-[0.72rem] leading-relaxed text-ink/60" data-typed-here="own-scene">
+                        This scene&rsquo;s heading and words are typed right on the page — tap them there and type.
+                      </p>
+                    ) : (
                     <form
                       action={saveCustomAction}
                       className="mt-2 space-y-1.5 border-t border-dashed border-ink/10 pt-2"
                     >
                       {/* 💎 An empty scene's first words, without Pro, are TRIED in the
-                          draft; words a scene already has are saved live, free. */}
-                      {wordsDrafted ? <HubDraftField /> : <HubSavesImmediately />}
+                          draft; words a scene already has are saved live, free —
+                          outside the Maker. In the Maker, always the draft. */}
+                      {draftWords ? <HubDraftField /> : <HubSavesImmediately />}
                       <input type="hidden" name="event_id" value={eventId} />
                       <input type="hidden" name="widget_id" value={row.widget_id} />
                       <input type="hidden" name="return_to" value={back} />
-                      <label htmlFor={`custom-title-${row.widget_id}`} className="sr-only">
-                        Heading for {customSectionEditorLabel(row.widget_type)}
-                      </label>
-                      <input
-                        id={`custom-title-${row.widget_id}`}
-                        name="title"
-                        type="text"
-                        maxLength={CUSTOM_COLUMN_TITLE_MAX}
-                        defaultValue={title}
-                        placeholder="Heading (optional)"
-                        className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[0.74rem] text-ink placeholder:text-ink/40"
-                      />
+                      {askTitle ? (
+                        <>
+                          <label htmlFor={`custom-title-${row.widget_id}`} className="sr-only">
+                            Heading for {customSectionEditorLabel(row.widget_type)}
+                          </label>
+                          <input
+                            id={`custom-title-${row.widget_id}`}
+                            name="title"
+                            type="text"
+                            maxLength={CUSTOM_COLUMN_TITLE_MAX}
+                            defaultValue={title}
+                            placeholder={makerPart && !askBody ? 'Add a heading' : 'Heading (optional)'}
+                            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-[0.74rem] text-ink placeholder:text-ink/40"
+                          />
+                        </>
+                      ) : null}
                       {/* 🔗 A Letter's words ARE the special message, bound to
                           Details and edited under Content, where the scene asks
                           "everywhere or just here" (`lib/details-bound.ts`). A
                           body typed before binding stays editable here, so it
                           can still be cleared. */}
-                      {!body && detailsFactOfScene(row.widget_type, sanitizeHubCanvas(row.config_json)) ? (
+                      {letterBound ? (
                         <p className="text-[0.66rem] text-ink/60" data-letter-words-under-content="">
                           This scene&rsquo;s words are your special message from Details — change them under Content.
                         </p>
-                      ) : (
+                      ) : !askBody ? null : (
                         <>
                           <label htmlFor={`custom-body-${row.widget_id}`} className="sr-only">
                             Words for {customSectionEditorLabel(row.widget_type)}
@@ -848,6 +871,7 @@ export function SectionsPanel({
                         Save this section
                       </button>
                     </form>
+                    )}
 
                     {/* ══ LAYOUT ══════════════════════════════════════════
                         The four chapter arrangements of the story, a closed

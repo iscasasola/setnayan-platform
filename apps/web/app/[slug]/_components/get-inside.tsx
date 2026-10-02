@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { UploadYourQr } from './upload-your-qr';
+import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
 
 /**
  * THE STRANGER'S ONE BUTTON (owner 2026-09-26, verbatim: *"Get Inside: Scan
@@ -87,15 +88,15 @@ export function GetInside({
             </Link>
           </>
         ) : (
-          <p className="text-sm text-ink/70">
-            Open the invite link or scan the QR {theOrganizer} sent you — it opens your invitation here.
+          <p className="text-sm text-ink/70" data-invitation-only="">
+            {INVITATION_ONLY_LINE}
           </p>
         )}
       </section>
     );
   }
   const signIn = slug ? `/login?next=${encodeURIComponent(`/${slug}`)}` : '/login';
-  return (
+  const door = (
     <details className="group mx-auto max-w-md" data-get-inside="door">
       <summary className="button-primary flex min-h-[56px] w-full cursor-pointer list-none flex-col items-center justify-center gap-0.5 [&::-webkit-details-marker]:hidden">
         <span className="text-base">Get inside</span>
@@ -116,5 +117,16 @@ export function GetInside({
         </Link>
       </div>
     </details>
+  );
+  if (mayAskToJoin) return door;
+  /* A list-only event has nothing to request — said under the door, so a
+     stranger is never left wondering whether to ask (owner 2026-10-03). */
+  return (
+    <>
+      {door}
+      <p className="mx-auto mt-3 max-w-md text-center text-sm text-ink/70" data-invitation-only="">
+        {INVITATION_ONLY_LINE}
+      </p>
+    </>
   );
 }

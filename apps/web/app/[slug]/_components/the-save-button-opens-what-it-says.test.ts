@@ -109,3 +109,27 @@ test('both actions take the button\'s pick — neither re-guesses the device fro
     assert.doesNotMatch(src, /saveMethodFor\(/, `${file.join('/')} re-decides the method from the POST`);
   }
 });
+
+// ═══ the way back when the provider does not open (owner 2026-10-02: Google
+//     sign-in "hung on loading", Guest A never linked) ══════════════════════
+
+test('a stalled sign-in is never a dead screen: no veil over it, and "Didn\'t open? Try again" inside the Save form', async () => {
+  const SAVE = read('app', '[slug]', '_components', 'save-to-account.tsx');
+  // The press leaves for another site — the app-wide veil would never come down.
+  assert.match(
+    SAVE,
+    /pendingLabel=\{method === 'apple' \? 'Opening Apple…' : 'Opening Google…'\}\s*overlay=\{false\}/,
+    'the provider press raises the full-screen veil again',
+  );
+  // The stall line rides INSIDE each form that posts the press (it reads that form's status).
+  assert.match(SAVE, /\{chosen\}\s*\{button\}\s*\{stall\}\s*<\/>/, 'the plus-one door has no way back');
+  assert.match(SAVE, /\{chosen\}\s*\{button\}\s*\{stall\}\s*<\/form>/, 'the thank-you has no way back');
+  assert.match(SAVE, /const stall = signsIn \? <ProviderStall provider=\{method === 'apple' \? 'Apple' : 'Google'\} \/> : null;/);
+  const { PROVIDER_STALL_MS, stallLine } = await import('./provider-stall');
+  assert.ok(PROVIDER_STALL_MS > 0 && PROVIDER_STALL_MS <= 10_000, 'a guest waits too long before being offered a way back');
+  assert.equal(stallLine('Google'), 'Google didn’t open?');
+  // A page restored from the back-forward cache reloads live instead of spinning.
+  const STALL = read('app', '[slug]', '_components', 'provider-stall.tsx');
+  assert.match(STALL, /if \(e\.persisted\) window\.location\.reload\(\);/, 'backing out of Google leaves a frozen "Opening Google…"');
+  assert.match(STALL, />\s*Try again\s*</, 'the way back says nothing');
+});

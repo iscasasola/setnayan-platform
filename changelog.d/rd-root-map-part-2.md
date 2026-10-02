@@ -1,0 +1,8 @@
+## 2026-10-02 · feat(ugat): Root map part 2 — Fields, one-home, saved-and-used, landing and shown-values checks, ratchet on
+
+Root map (code name Ugat) part 2, per DECISION_LOG 2026-10-02 "ONE MAP OF THE APP", "EVERY ANSWER ABOUT AN EVENT LIVES IN EVENT DETAILS — ONE HOME, MAPPED", "THE ROOT MAP ALSO CATCHES 'PRESSED BUT WENT TO THE WRONG PLACE' AND 'FILLED IN BUT NOT SAVED'", "…A NUMBER THAT LOOKS LIVE BUT IS TYPED IN" and "TWO MORE THINGS EVERY BUILD IS CHECKED FOR".
+
+- **Fields layer** — `lib/ugat/fields.ts` (shape, `CALCULATIONS`, fact names), `lib/ugat/scan-fields.ts` (scanner), `lib/ugat/fields.generated.json` (committed, keyed by the Screens-layer ids), `pnpm --filter @setnayan/web ugat:fields`. Every screen's reads (`table.column`), writes (incl. jsonb keys and rpc params), reachable actions and calculations; every action's form fields and where each one is saved; every `<form>` and the action it posts to.
+- CI: the existing "Root map" step also refuses a stale fields map.
+
+SPEC IMPACT: None

@@ -113,5 +113,28 @@ if (fresh !== committed) {
 }
 if (RATCHET_ENFORCED && (newNoDoor.length || map.brokenDoors.length)) failed = true;
 
+/* ── the FIELDS layer (slice 2) — the same "generated, never authored" rule ── */
+const FIELDS = join(WEB, 'lib/ugat/fields.generated.json');
+const fieldsRun = spawnSync(tsxBin, [join(WEB, 'scripts/gen-ugat-fields.ts'), '--stdout'], {
+  cwd: WEB,
+  encoding: 'utf8',
+  maxBuffer: 64 * 1024 * 1024,
+});
+if (fieldsRun.status !== 0) {
+  console.error(fieldsRun.stderr || fieldsRun.stdout);
+  console.error('check-ugat-screens: the fields scanner itself failed (above).');
+  process.exit(2);
+}
+const fieldsCommitted = existsSync(FIELDS) ? readFileSync(FIELDS, 'utf8') : '';
+if (fieldsRun.stdout !== fieldsCommitted) {
+  failed = true;
+  console.error('');
+  console.error('::error::lib/ugat/fields.generated.json is stale — a form, an action\'s writes or a select changed.');
+  console.error('Re-run:  pnpm --filter @setnayan/web ugat:fields   and commit the result.');
+} else {
+  const f = JSON.parse(fieldsRun.stdout);
+  console.log(`  fields: ${f.actions.length} actions · ${f.forms.length} forms · ${f.writers.length} files that write`);
+}
+
 if (failed) process.exit(1);
 console.log('  committed map is current (report mode — the no-door ratchet switches on in slice 2).');

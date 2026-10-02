@@ -161,16 +161,16 @@ function walkApp(appRoot: string): AppTree {
 /* ═══════════════════════════ the tiny lexer ═══════════════════════════ */
 
 /** A string or template literal found inside a door expression. */
-interface Lit {
+export interface Lit {
   /** The text, every `${…}` replaced by \u0000. */
   value: string;
   /** For a template that STARTS with `${…}`: the expression inside it. */
   lead: string | null;
 }
 
-const PH = '\u0000';
+export const PH = '\u0000';
 
-function readQuoted(src: string, i: number): { end: number; value: string } {
+export function readQuoted(src: string, i: number): { end: number; value: string } {
   const q = src[i];
   let k = i + 1;
   let out = '';
@@ -211,7 +211,7 @@ function skipInterpolation(src: string, i: number): number {
   return k;
 }
 
-function readTemplate(src: string, i: number): { end: number; lit: Lit } {
+export function readTemplate(src: string, i: number): { end: number; lit: Lit } {
   let k = i + 1;
   let value = '';
   let lead: string | null = null;
@@ -234,7 +234,7 @@ function readTemplate(src: string, i: number): { end: number; lit: Lit } {
   return { end: k + 1, lit: { value, lead } };
 }
 
-type ExprMode = 'paren' | 'brace' | 'value';
+export type ExprMode = 'paren' | 'brace' | 'value';
 
 /**
  * Collect every literal in one expression starting at `i`. `paren`/`brace`
@@ -253,7 +253,7 @@ function isComparedAt(src: string, k: number): boolean {
   return /(?:startsWith|endsWith|includes|indexOf|lastIndexOf|test|match)\(\s*$|[!=]==?\s*$/.test(before);
 }
 
-function readExpr(src: string, i: number, mode: ExprMode): { end: number; lits: Lit[] } {
+export function readExpr(src: string, i: number, mode: ExprMode): { end: number; lits: Lit[] } {
   const lits: Lit[] = [];
   let depth = 0;
   let k = i;
@@ -445,7 +445,7 @@ function isSourceFile(rel: string): boolean {
   return true;
 }
 
-function listSources(webRoot: string): string[] {
+export function listSources(webRoot: string): string[] {
   const out: string[] = [];
   const walk = (dir: string) => {
     let entries: string[];

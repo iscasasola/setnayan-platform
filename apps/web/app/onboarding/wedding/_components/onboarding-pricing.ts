@@ -256,7 +256,19 @@ export type OnboardingPricing = {
   promo: number;
 };
 
-/** Onboarding promo — 20% off any in-app add-on added during onboarding. */
+/**
+ * Onboarding promo — a fraction off any in-app add-on added during onboarding.
+ *
+ * ⚠ THE ONE COPY. The shell used to hold its own `ONBOARDING_PROMO = 0.2` AND a
+ * typed "−20% onboarding promo" label beside this one — three copies of one
+ * figure. The shell now reads `pricing.promo` and renders its label from it.
+ *
+ * ⚖ OWNER DECISION PENDING: this is a typed business rule, not an admin-set
+ * value. `platform_settings.onboarding_discount_pct` (default 10, house rule
+ * for the set-up step) exists but its admin control was retired on 2026-08-29,
+ * and it is NOT the same number as this 20% (owner 2026-06-05). Whether this
+ * should follow that setting is the owner's call — see the PR body.
+ */
 const ONBOARDING_PROMO = 0.2;
 
 /**

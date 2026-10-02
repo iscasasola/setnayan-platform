@@ -1,5 +1,6 @@
 'use client';
 
+import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
@@ -1773,6 +1774,32 @@ export function MakerWork({
   const shownPageKey = shownPage?.key ?? null;
   const pagesRef = useRef(guestPages);
   pagesRef.current = guestPages;
+  /* 📍 PAGE ▾ NAMES THE PAGE ON SCREEN (owner, live phone test 2026-10-02:
+     the canvas showed RSVP while Page ▾ said "Invitation › Welcome"). As the
+     couple scrolls the canvas, the page holding the section in view becomes
+     the shown page (`makerSectionInView`, a line a third of the way down). */
+  useEffect(() => {
+    const win = frameRef.current?.contentWindow;
+    if (!win) return;
+    let raf = 0;
+    const onScroll = () => {
+      window.cancelAnimationFrame(raf);
+      raf = window.requestAnimationFrame(() => {
+        try {
+          const key = makerSectionInView(win.document, win.innerHeight / 3);
+          const page = key ? pagesRef.current.find((p) => p.tiles.includes(key)) : undefined;
+          if (page) setTabKey((k) => (k === page.key ? k : page.key));
+        } catch {
+          /* a frame we cannot read keeps the page it was given */
+        }
+      });
+    };
+    win.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      win.removeEventListener('scroll', onScroll);
+      window.cancelAnimationFrame(raf);
+    };
+  }, [shownFrameKey]);
   /* What a page IS for the bar — re-reported only when one of these changes. */
   const pagesSig = guestPages.map((p) => `${p.key}|${p.label}|${p.leaves}|${p.tiles.length}`).join(' ');
   useEffect(() => {

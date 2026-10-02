@@ -191,6 +191,13 @@ export function makerPageMenu(input: {
   hasWork: boolean;
   /** Who it is for, in the event type's own word (`EventWords.theHost`). */
   theHost?: string;
+  /**
+   * 📍 A page of the Maker covers the stage (Look · Event Details · Prints): its
+   * name. Page ▾ then names THAT page, never the stage hidden under it (owner,
+   * live phone test 2026-10-02: on a page that was not Welcome, the bar said
+   * "Invitation › Welcome"). Null = the stage's own page is on screen.
+   */
+  openPage?: string | null;
 }): { value: string; buttonText: string; options: PickOption[] } {
   const options: PickOption[] = [];
   for (const s of MAKER_PAGE_STAGES) {
@@ -219,6 +226,8 @@ export function makerPageMenu(input: {
   if (input.rsvpOpen) {
     return { value: RSVP_STAGE_KEY, buttonText: `${RSVP_STAGE_LABEL} › ${MAKER_RSVP_PAGE_LABEL}`, options };
   }
+  // No stage page is ticked: the page on screen is not one of them.
+  if (input.openPage) return { value: '', buttonText: input.openPage, options };
   const own = options.filter((o) => o.key.startsWith(makerPageValue(input.stage, '')));
   const shown =
     (input.shownPage !== null ? own.find((o) => o.key === makerPageValue(input.stage, input.shownPage!)) : undefined) ??

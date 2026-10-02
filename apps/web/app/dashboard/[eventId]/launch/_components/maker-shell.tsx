@@ -488,6 +488,8 @@ export function MakerShell({
     shownPage: guestPages?.stage === stage ? guestPages.shown : null,
     hasWork,
     theHost,
+    /* 📍 Look · Event Details · Prints cover the stage: Page ▾ names that page. */
+    openPage: openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : null,
   });
   /* Each page wears the guest bar's own icon (`page-pick.tsx`), as it did in the navigator. */
   const pageOptions = page.options.map((o) => {

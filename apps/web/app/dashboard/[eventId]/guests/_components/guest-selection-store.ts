@@ -17,6 +17,11 @@
  * `selectMode` gates whether the MOBILE cards show their checkbox (clean by
  * default; checkboxes appear only after "Select"). The desktop table keeps
  * its always-on checkbox column and ignores `selectMode`.
+ *
+ * 🔑 Module state, so a reload ALWAYS starts outside select mode — and the
+ * last-seen copy of the page (`LastSeenCapture`) is never taken while the
+ * list is mid-selection (the bulk bar carries `data-last-seen-hold`), so a
+ * reload cannot redraw a stale select-mode list either.
  */
 
 import { useSyncExternalStore } from 'react';
@@ -54,7 +59,15 @@ function emit() {
 function commit(next: { selectMode?: boolean; ids?: string[]; viaAll?: boolean }) {
   const ids = next.ids ?? state.ids;
   state = {
-    selectMode: next.selectMode ?? state.selectMode,
+    // ⚖ THE LAST UNTICK LEAVES SELECTING (owner, live iPhone test 2026-10-02:
+    // the list got STUCK — after unticking everyone there was no Done, the
+    // boxes stayed, and tapping a name only ticked it, so no card could open).
+    // The bar that holds Done only draws while something is ticked, so an
+    // empty selection inside select mode was a mode with no way out. Now any
+    // change that empties the selection (untick, Clear, a finished action)
+    // also leaves the mode — unless the caller is ENTERING it on purpose
+    // (`enter()`, which a long press follows with the first tick).
+    selectMode: next.selectMode ?? (ids.length === 0 ? false : state.selectMode),
     ids,
     set: new Set(ids),
     // An empty selection has no origin; the next pick decides again.

@@ -75,6 +75,10 @@ function maskMoneyText(root: Element): boolean {
 export function snapshotFromRoot(root: Element): string | null {
   // Still streaming in — a later capture takes it once it has settled.
   if (root.querySelector('[aria-busy="true"]')) return null;
+  // Mid-gesture — a list in select mode, say. That is not the page; keeping it
+  // redrew a select-mode Guest list on the next open (owner, live iPhone test
+  // 2026-10-02). The capture runs again once the gesture is over.
+  if (root.querySelector('[data-last-seen-hold]')) return null;
   const clone = root.cloneNode(true) as Element;
   clone.querySelectorAll(DROP).forEach((el) => el.remove());
   for (const el of Array.from(clone.querySelectorAll('*'))) {

@@ -49,14 +49,26 @@ test('name-only single token → last name is empty (mononym; caller rejects)', 
   assert.equal(d.lastName, '');
 });
 
-test('a middle name and a particle surname split at the particle', () => {
-  // WAS: lastName === 'Clara de la Cruz' — the pre-2026-09-14 rule that every
-  // word after the first is the surname. `parsePersonName` now owns this split,
-  // so "Clara" is the middle name and the family name starts at the particle.
+test('words before a particle surname are ALL the first name — no guessed middle', () => {
+  // WAS (2026-09-14 → 2026-10-02): middleName === 'Clara'. Owner, live iPhone
+  // test 2026-10-02: a bare word is never a guessed middle name — "Maria Clara"
+  // is the given name, and the family name still starts at the particle.
   const d = parseGuestInput('Maria Clara de la Cruz');
-  assert.equal(d.firstName, 'Maria');
-  assert.equal(d.middleName, 'Clara');
+  assert.equal(d.firstName, 'Maria Clara');
+  assert.equal(d.middleName, '');
   assert.equal(d.lastName, 'de la Cruz');
+});
+
+test('THE LIVE-TEST LINE — "Test Guest A" is First "Test Guest", Last "A"', () => {
+  // Owner's iPhone, prod 5666406: it landed as First "Test" · Middle "Guest" ·
+  // Last "A", and the list then read "Test A".
+  const d = parseGuestInput('Test Guest A');
+  assert.equal(d.firstName, 'Test Guest');
+  assert.equal(d.middleName, '');
+  assert.equal(d.lastName, 'A');
+  // The grammar tokens still come off around it.
+  const e = parseGuestInput('Test Guest A +1 #Barkada');
+  assert.deepEqual([e.firstName, e.middleName, e.lastName, e.plusOnes, e.groups], ['Test Guest', '', 'A', 1, ['Barkada']]);
 });
 
 test('the capture bar splits a title off the name (the reported bug)', () => {

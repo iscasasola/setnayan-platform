@@ -631,6 +631,22 @@ export function unmeasuredGuests(): MeasuredGuests {
   return { rows: [], measured: false, stats: computeGuestStats([]) };
 }
 
+/**
+ * Whether a guest HAS a Digital ticket — the one rule the card's thumbnail, the
+ * Invite sheet's Share and Copy ticket all ask before fetching
+ * `/api/guest/pass-card`: a code, accepted onto the list (not a request), not
+ * "can't come", not passed away. The route refuses every other guest with a
+ * 404, so asking for one is a "failure" by construction.
+ */
+export function guestHasTicket(g: {
+  qr_token?: string | null;
+  entry_source?: string | null;
+  rsvp_status?: string | null;
+  passed_away?: boolean | null;
+}): boolean {
+  return Boolean(g.qr_token) && g.entry_source !== REQUEST_ENTRY_SOURCE && g.rsvp_status !== 'declined' && g.passed_away !== true;
+}
+
 export async function fetchGuestsByEventMeasured(
   supabase: SupabaseClient,
   eventId: string,

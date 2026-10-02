@@ -759,91 +759,11 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   return redirect(`/dashboard/${eventId}/guests?saved=1`);
 }
 
-export async function softDeleteGuest(
-  eventId: string,
-  guestId: string,
-  _formData: FormData,
-): Promise<void> {
-  const supabase = await createClient();
-
-  // RSVP-set gate (owner directive 2026-05-23) — block delete when the
-  // guest has already responded (rsvp_status != 'pending'). 'pending' is
-  // the only "haven't replied yet" state; attending / declined / maybe
-  // are all "RSVP already set". The bulk-delete path enforces the same
-  // gate; this single-guest path mirrors it for consistency.
-  const { data: row, error: readErr } = await supabase
-    .from('guests')
-    .select('role, rsvp_status, first_name, last_name, display_name')
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId)
-    .is('deleted_at', null)
-    .maybeSingle();
-
-  if (readErr) {
-    redirect(
-      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(readErr.message)}`,
-    );
-  }
-  if (!row) {
-    redirect(`/dashboard/${eventId}/guests?error=not_found`);
-  }
-  // The bride & groom are the foundation of the event — renamable, never
-  // removable (owner directive 2026-06-03). Checked before the RSVP gate so
-  // the couple gets the right message (they're always Attending, which would
-  // otherwise trip the generic "already RSVP'd" copy).
-  if (row.role === 'bride' || row.role === 'groom') {
-    redirect(
-      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(
-        "The bride and groom are the foundation of the event and can't be removed.",
-      )}`,
-    );
-  }
-  if (row.rsvp_status !== 'pending') {
-    const displayName =
-      row.display_name?.trim() || `${row.first_name} ${row.last_name}`.trim();
-    redirect(
-      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(
-        `${displayName || 'This guest'} has already RSVP'd — reset their RSVP to "Pending" before removing.`,
-      )}`,
-    );
-  }
-
-  // Release the seat assignment first (best-effort; the soft-delete
-  // proceeds even if there's no row, since event_seat_assignments
-  // doesn't have a row for every guest). Hard-delete here matches the
-  // ON DELETE CASCADE intent — soft-deleting the guest wouldn't trip
-  // the FK cascade because deleted_at is just a flag.
-  await supabase
-    .from('event_seat_assignments')
-    .delete()
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId);
-
-  const { error } = await supabase
-    .from('guests')
-    .update({ deleted_at: new Date().toISOString() })
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId);
-
-  if (error) {
-    redirect(
-      `/dashboard/${eventId}/guests/${guestId}?error=${encodeURIComponent(error.message)}`,
-    );
-  }
-
-  revalidatePath(`/dashboard/${eventId}/guests`);
-  /*
-    🔑 REMOVING A GUEST CAN MAKE PHOTOGRAPHS PUBLIC AGAIN, which is the opposite
-    of the direction anyone expects from a delete. The story's consent veto is
-    built from guests who opted out `AND deleted_at IS NULL`
-    (`consent-veto.ts`), so soft-deleting an opted-out guest lifts the veto on
-    every capture that tagged them. Whether that is the right rule is a question
-    for the owner and is NOT changed here; what is fixed is that the four public
-    surfaces now find out, instead of serving the old answer for up to an hour.
-  */
-  await everyCopyIsNowStale(eventId);
-  redirect(`/dashboard/${eventId}/guests?removed=1`);
-}
+// `softDeleteGuest` — the card's second remove path — is RETIRED (owner
+// 2026-10-03, DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY ACCEPTED").
+// It kept the "reset their RSVP first" rule the owner retired and had no Undo.
+// Every delete now goes through `bulkSoftDeleteGuestsForUndo` (../groups-actions)
+// via `useGuestRemoval` (../_components/guest-delete.tsx).
 
 
 /**

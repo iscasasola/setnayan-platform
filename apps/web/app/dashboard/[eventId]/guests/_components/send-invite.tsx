@@ -65,6 +65,12 @@ export type SendInviteGuest = {
   /** The guest's OWN invitation link, or null when they have no QR token yet. */
   inviteUrl: string | null;
   sentAt: string | null;
+  /**
+   * Whether a Digital ticket exists for them (`guestHasTicket`). False → the
+   * ticket is never asked for: the route would answer 404 for a guest who
+   * cannot come, and that "failure" was landing in the Problems log.
+   */
+  hasTicket?: boolean;
 };
 
 type ShareNav = Navigator & {
@@ -90,15 +96,21 @@ export function ticketFileName(name: string): string {
   return `${who || 'Guest'}-ticket.png`;
 }
 
-/** The guest's Digital ticket as a File, fetched ahead of the tap (see the 🪤 above). */
-export function useTicketFile(guestId: string, name: string, enabled: boolean): File | null {
-  const [file, setFile] = useState<File | null>(null);
+/**
+ * The guest's Digital ticket as a File, fetched ahead of the tap (see the 🪤
+ * above). `undefined` while it is still on its way — so a Share can wait for
+ * it instead of sending the message without the ticket — and `null` when there
+ * is none (no ticket, a device that cannot share files, or not asked yet).
+ */
+export function useTicketFile(guestId: string, name: string, enabled: boolean): File | null | undefined {
+  const [file, setFile] = useState<File | null | undefined>(null);
   useEffect(() => {
     setFile(null);
     if (!enabled) return;
     const nav = typeof navigator !== 'undefined' ? (navigator as ShareNav) : null;
     // Only a device that can share files needs the bytes.
     if (!nav || typeof nav.share !== 'function' || typeof nav.canShare !== 'function') return;
+    setFile(undefined);
     let alive = true;
     fetch(ticketUrl(guestId), { credentials: 'same-origin' })
       .then(async (r) => {
@@ -108,11 +120,12 @@ export function useTicketFile(guestId: string, name: string, enabled: boolean): 
         return { blob: await r.blob(), fileName: said || name };
       })
       .then((got) => {
-        if (!alive || !got) return;
-        setFile(new File([got.blob], got.fileName, { type: got.blob.type || 'image/png' }));
+        if (!alive) return;
+        setFile(got ? new File([got.blob], got.fileName, { type: got.blob.type || 'image/png' }) : null);
       })
       .catch(() => {
         /* No ticket → the text-only share, which still carries the link. */
+        if (alive) setFile(null);
       });
     return () => {
       alive = false;
@@ -244,7 +257,7 @@ export function SendInviteActions({
   }
 
   async function send() {
-    const out = await shareInvite(file, message);
+    const out = await shareInvite(file ?? null, message);
     // The phone handed it to an app — that is the couple's send.
     if (out === 'shared') return mark(true);
     // They closed the sheet — not a failure, and nothing was sent.

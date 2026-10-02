@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState, useTransition } from 'react';
-import { Undo2 } from 'lucide-react';
+import { Link2, Share2, Undo2 } from 'lucide-react';
 import { buildGuestInviteMessage, type InviteEventFacts } from '@/lib/guest-invite-message';
 import { saveImageToDevice } from '@/lib/save-to-device';
 import { setGuestInvitationSent } from '../../invitation/actions';
@@ -123,7 +123,13 @@ export function GuestInviteCell({
 }) {
   const [sentAt, setSentAt] = useState<string | null>(guest.sentAt);
   const [open, setOpen] = useState(false);
-  const [done, setDone] = useState<{ message: boolean; ticket: boolean }>({ message: false, ticket: false });
+  const [done, setDone] = useState<{ message: boolean; ticket: boolean; link: boolean }>({
+    message: false,
+    ticket: false,
+    link: false,
+  });
+  // The sheet's shape: a phone shares; a computer copies in three steps.
+  const [touch, setTouch] = useState(false);
   const [said, setSaid] = useState<
     | { kind: 'ticket-saved' }
     | { kind: 'no-ticket' }
@@ -132,31 +138,24 @@ export function GuestInviteCell({
     | null
   >(null);
   const [pending, startTransition] = useTransition();
-  const [onScreen, setOnScreen] = useState(layout === 'card');
   const ref = useRef<HTMLButtonElement>(null);
   const titleId = useId();
   const first = guest.firstName?.trim() || guest.fullName.split(/\s+/)[0] || 'them';
 
   useEffect(() => setSentAt(guest.sentAt), [guest.sentAt]);
 
-  // Seen once → fetch once. Only a touch device will share the file.
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || onScreen || !isTouchDevice() || typeof IntersectionObserver === 'undefined') return;
-    const io = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((e) => e.isIntersecting)) {
-          setOnScreen(true);
-          io.disconnect();
-        }
-      },
-      { rootMargin: '200px 0px' },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, [onScreen]);
+  /*
+    ⚡ THE TICKET IS FETCHED WHEN THE SHEET OPENS, ON A PHONE, FOR A GUEST WHO
+    HAS ONE — never because a row scrolled into view (owner, live iPhone test
+    2026-10-02: the card took seconds to open, and the Problems log showed
+    `/api/guest/pass-card` timing out under it). Every phone row used to ask the
+    server to draw a 1080 × 1440 ticket as it came on screen, and the open card
+    asked again at once — a queue of renders the tap then waited behind. Invite
+    now opens a sheet, so the Share is a SECOND tap: the file is fetched between
+    the two, and Share waits for it rather than sending without it.
+  */
   const fileName = ticketFileName(guest.fullName);
-  const file = useTicketFile(guest.guestId, fileName, Boolean(guest.inviteUrl) && onScreen);
+  const file = useTicketFile(guest.guestId, fileName, open && touch && Boolean(guest.inviteUrl) && guest.hasTicket !== false);
 
   const sentDay = sentAt
     ? new Date(sentAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' })
@@ -221,17 +220,48 @@ export function GuestInviteCell({
     });
   }
 
-  async function invite() {
+  /*
+    ⚖ INVITE OPENS THE SHEET, AT EVERY WIDTH (owner, live iPhone test
+    2026-10-02: *"there is NO copy-link anywhere for a guest's personal
+    invitation — Invite only opens the share sheet with a PNG ticket"*). A
+    phone used to jump straight into the system share, so there was nowhere to
+    put anything beside it. Now Invite opens this small sheet, and on a phone
+    its first row IS that share (message + ticket, unchanged), with Copy
+    invitation link right under it. A computer keeps its three steps.
+  */
+  function invite() {
     setSaid(null);
-    setDone({ message: false, ticket: false });
-    // A phone: the share sheet, message + ticket together. A computer: the three
-    // steps — its share sheet (Mail, AirDrop) is not where Messenger and Viber live.
-    if (isTouchDevice()) {
-      const out = await shareInvite(file, message);
-      if (out === 'shared') return mark(true);
-      if (out === 'closed') return;
-    }
+    setDone({ message: false, ticket: false, link: false });
+    setTouch(isTouchDevice());
     setOpen(true);
+  }
+
+  // A phone: the share sheet, message + ticket together. A computer never gets
+  // this row — its share sheet (Mail, AirDrop) is not where Messenger and Viber
+  // live — and a phone whose sheet refuses falls back to the three steps.
+  async function share() {
+    setSaid(null);
+    const out = await shareInvite(file ?? null, message);
+    if (out === 'shared') return mark(true);
+    if (out === 'closed') return;
+    setTouch(false);
+  }
+
+  /*
+    COPY INVITATION LINK — the ONE way a host takes just a guest's personal
+    link. The link is the one the card and the row were handed (`inviteUrl`,
+    spelled by `invitationLinkOn` — the tail `buildInvitationUrl` in lib/qr.ts
+    ends in), so what is copied is what their QR and NFC tag open. A copy is
+    not a send: it never stamps Sent ✓.
+  */
+  async function copyLink() {
+    const link = guest.inviteUrl ?? '';
+    try {
+      await navigator.clipboard.writeText(link);
+      setDone((d) => ({ ...d, link: true }));
+    } catch {
+      setSaid({ kind: 'manual', text: link });
+    }
   }
 
   async function copyMessage() {
@@ -245,6 +275,11 @@ export function GuestInviteCell({
   }
 
   async function copyTicket() {
+    // No ticket exists for them — say so, never ask the route for a 404.
+    if (guest.hasTicket === false) {
+      setSaid({ kind: 'no-ticket' });
+      return;
+    }
     const out = await copyTicketImage(guest.guestId, fileName);
     if (out === 'copied' || out === 'saved') setDone((d) => ({ ...d, ticket: true }));
     setSaid(
@@ -271,12 +306,21 @@ export function GuestInviteCell({
     </span>
   );
 
+  // Beside the share on a phone, under the three steps on a computer — one row.
+  const copyLinkRow = (
+    <button type="button" onClick={copyLink} className={step} data-guest-invite-copy-link="">
+      <Link2 aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+      <span className="flex-1">Copy invitation link</span>
+      {done.link ? <span className="text-xs text-success-700">Copied</span> : null}
+    </button>
+  );
+
   return (
     <div
       className={layout === 'phone' ? 'flex w-full items-center gap-2' : 'space-y-1'}
       data-guest-invite-pair={layout}
     >
-      <div className="flex items-center gap-1.5">
+      <div className="flex flex-wrap items-center gap-1.5">
         <button
           ref={ref}
           type="button"
@@ -287,7 +331,7 @@ export function GuestInviteCell({
           data-guest-invite-cell=""
           data-sent={sentAt ? 'true' : undefined}
           className={`relative z-20 inline-flex min-h-[44px] shrink-0 items-center justify-center whitespace-nowrap rounded-full bg-ink font-medium text-cream transition-colors hover:bg-ink/85 disabled:opacity-60 ${
-            layout === 'card' ? 'min-w-[132px] px-6 text-sm' : 'px-4 text-[13px]'
+            layout === 'card' ? 'px-5 text-sm sm:min-w-[132px] sm:px-6' : 'px-4 text-[13px]'
           }`}
         >
           Invite
@@ -301,6 +345,22 @@ export function GuestInviteCell({
             <p id={titleId} className="px-1 pb-1 text-sm font-medium text-ink">
               Invite {first}
             </p>
+            {touch ? (
+              <>
+                <button
+                  type="button"
+                  onClick={share}
+                  disabled={pending || file === undefined}
+                  className={step}
+                  data-guest-invite-share=""
+                >
+                  <Share2 aria-hidden className="h-4 w-4 shrink-0" strokeWidth={1.8} />
+                  <span className="flex-1">{file === undefined ? 'Getting their ticket…' : 'Share message + ticket'}</span>
+                </button>
+                {copyLinkRow}
+              </>
+            ) : (
+              <>
             <button type="button" onClick={copyMessage} className={step} data-guest-invite-copy="">
               {num(1, done.message)}
               <span className="flex-1">Copy message</span>
@@ -331,21 +391,24 @@ export function GuestInviteCell({
                 <span className="flex-1">{pending ? 'Saving…' : 'Mark as sent'}</span>
               </button>
             )}
+            {copyLinkRow}
             <p className="border-t border-ink/[0.06] px-2.5 pt-2 text-xs leading-relaxed text-ink/60">
               Paste the message, then paste the ticket in the chat.
             </p>
+              </>
+            )}
             <div aria-live="polite" className="space-y-1.5 px-1">
               {said?.kind === 'ticket-saved' ? (
                 <p className="text-xs text-ink/75">Your browser saved the ticket as a file instead — attach it to the message.</p>
               ) : null}
               {said?.kind === 'no-ticket' ? (
                 <p className="text-xs text-ink/75">
-                  {first} has no ticket — they replied they can’t come. The message still carries their link.
+                  {first} has no ticket yet. The message still carries their link.
                 </p>
               ) : null}
               {said?.kind === 'manual' ? (
                 <>
-                  <p className="text-xs text-ink/75">The copy was blocked — select the message and copy it.</p>
+                  <p className="text-xs text-ink/75">The copy was blocked — select it and copy it.</p>
                   <textarea
                     className="w-full rounded-lg border border-ink/15 bg-white p-2 text-xs leading-relaxed text-ink"
                     readOnly

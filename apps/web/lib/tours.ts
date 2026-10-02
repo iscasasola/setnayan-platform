@@ -945,7 +945,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Send,
         title: 'Tap Invite to send it',
-        body: 'Pick Messenger, Viber or any app &mdash; the message and their ticket go together. The row then shows it was sent.',
+        body: 'Tap Invite, then <b>Share</b> &mdash; pick Messenger, Viber or any app, and the message and their ticket go together. <b>Copy invitation link</b> gives you just their link.',
       },
       {
         Icon: Laptop,

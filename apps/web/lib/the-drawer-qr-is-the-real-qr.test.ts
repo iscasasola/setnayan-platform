@@ -63,7 +63,11 @@ test('the card never draws a ticket a guest does not have — it says so instead
   assert.match(src, /if \(!available \|\| broken\) \{/, 'no guard before the ticket is drawn');
   assert.match(src, /No ticket/, 'no honest fallback for a guest without a ticket');
   const card = stripComments(read('app/dashboard/[eventId]/guests/_components/guest-card-body.tsx'));
-  assert.match(card, /const hasTicket =\s*Boolean\(guest\.qr_token\)/, 'the card offers a ticket to a guest with no code');
+  // ⤷ 2026-10-03: the rule moved to ONE helper (`guestHasTicket`, lib/guests.ts)
+  // so the Invite sheet asks the same question before fetching the ticket.
+  assert.match(card, /const hasTicket = guestHasTicket\(guest\)/, 'the card decides "has a ticket" on its own again');
+  const guests = stripComments(read('lib/guests.ts'));
+  assert.match(guests, /export function guestHasTicket\([\s\S]*?\{\s*return Boolean\(g\.qr_token\)/, 'the card offers a ticket to a guest with no code');
 });
 
 test('the download route now names the file on the wire (Content-Disposition)', () => {

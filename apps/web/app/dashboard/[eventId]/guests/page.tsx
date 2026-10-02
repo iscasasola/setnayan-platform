@@ -83,11 +83,12 @@ import { QuickAddSheet } from './_components/quick-add-sheet';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { UndoToastHost } from './_components/undo-toast';
-import { GuestCardBody, GUEST_CARD_ERROR_COPY } from './_components/guest-card-body';
+import { GuestCardBody, GUEST_CARD_ERROR_COPY, guestCardEyebrow, guestCardReply } from './_components/guest-card-body';
 import { GuestInviteCell } from './_components/guest-invite-cell';
 import { GuestMoreMenu, GuestTicketThumb } from './_components/guest-ticket-parts';
 import { loadInviteSetup } from './_components/invite-message-setup';
 import { fetchInvitationBase, loadGuestCard } from './_components/guest-card-data';
+import { isUuid } from '@/lib/is-uuid';
 import { PageMasthead } from '@/app/_components/page-masthead';
 // The Guest list's two other parts are the SHIPPED pages, rendered whole in
 // this page's body (owner 2026-09-29) — never a second copy of either.
@@ -381,6 +382,32 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   if (isDelegateWithoutArea(viewer, 'guest_list')) {
     redirect(`/dashboard/${eventId}/hosts`);
   }
+
+  // ⚡ THE OPEN CARD'S READS START NOW, beside the roster's (owner, live iPhone
+  // test 2026-10-02: a guest's card took ~7–8 s to open). `?inspect=` used to
+  // wait for the whole roster, its photos and its invite setup before the
+  // card's own reads even began. Started here, they ride alongside; the result
+  // is only USED below once the id is confirmed to be a guest on this list,
+  // so an unknown id still renders the card closed. The no-op `catch` stops an
+  // early redirect from leaving an unhandled rejection — the real `await`
+  // below still throws.
+  const inspectParam = typeof search.inspect === 'string' ? search.inspect : null;
+  const inspectedCardP =
+    inspectParam && isUuid(inspectParam) ? loadGuestCard(supabase, eventId, inspectParam) : null;
+  // A limited helper's grants (the Hosts pieces on their card, F2) chain off
+  // the card — couple only — instead of waiting for the whole page first.
+  const inspectedHelperP = inspectedCardP?.then((card) =>
+    card?.canManageAccess
+      ? loadGuestHelperCard({
+          eventId,
+          guestId: card.guest.guest_id,
+          viewerUserId: user.id,
+          displayName: guestDisplayName(card.guest),
+        })
+      : null,
+  );
+  inspectedCardP?.catch(() => undefined);
+  inspectedHelperP?.catch(() => undefined);
 
   // All reads fire in ONE parallel batch — including the share-invite token,
   // which used to run as a 5th *sequential* round-trip after this block (owner
@@ -756,7 +783,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   // stale id renders the inspector closed (hasSelection=false), never a blank
   // rail. The body is the SAME card the standalone route renders — one body,
   // every frame — so no presentation of a guest can diverge from another.
-  const inspectId = typeof search.inspect === 'string' ? search.inspect : null;
+  const inspectId = inspectParam;
   // ⚠ RESOLVED BEFORE THE INSPECTOR, not after: the inspector body reads
   // this map, and it used to be declared below it.
   // Resolve each guest's stored photo ref → a display URL once on the server:
@@ -810,27 +837,19 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
      `loadGuestCard` is the one extra round trip a selection costs; it is only
      paid when a guest is actually open. */
-  const inspectedCard = inspectedGuest
-    ? await loadGuestCard(supabase, eventId, inspectedGuest.guest_id)
-    : null;
+  const inspectedCard = inspectedGuest && inspectedCardP ? await inspectedCardP : null;
   // A limited helper's grants, colours and record — the Hosts pieces that moved
   // onto their card (F2). Couple only; one more read, only when a card is open.
   const inspectedHelper =
-    inspectedGuest && inspectedCard?.canManageAccess
-      ? await loadGuestHelperCard({
-          eventId,
-          guestId: inspectedGuest.guest_id,
-          viewerUserId: user.id,
-          displayName: guestDisplayName(inspectedGuest),
-        })
-      : null;
+    inspectedGuest && inspectedCard?.canManageAccess && inspectedHelperP ? await inspectedHelperP : null;
   // Send invite · Copy message: the event's words + the couple's wording —
   // read once above for the Invite column.
   const inspectedInviteSetup = inspectedGuest ? inviteSetup : null;
   const inspectorBody = inspectedGuest && inspectedCard ? (
     <InspectorColumn
-      eyebrow="Guest"
+      eyebrow={guestCardEyebrow(inspectedCard.guest, { hasSides: inspectedCard.hasSides, roleNames: inspectedCard.roleNames })}
       title={guestDisplayName(inspectedGuest)}
+      badge={guestCardReply(inspectedCard.guest)}
       swapKey={inspectedGuest.guest_id}
       ariaLabel={`${guestDisplayName(inspectedGuest)} details`}
     >
@@ -844,6 +863,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           null
         }
         variant="panel"
+        headerShown
         inviteSetup={inspectedInviteSetup}
         SendInvite={GuestInviteCell}
         TicketThumb={GuestTicketThumb}
@@ -1016,7 +1036,15 @@ export default async function GuestsPage({ params, searchParams }: Props) {
 
        ⚠ Vendors keeps its own `.shell-topbar` hide. That one is a full-screen
        takeover and it is scoped `@media (max-width:1023px)`; it is not this. */
-    <section className="sn-col max-w-none space-y-4 lg:space-y-6" data-roster-full-width="">
+    /* ⚖ ONE SPACING SCALE (owner 2026-10-03, on a phone screenshot of this
+       top: "also fix the spacing here"). It was `space-y-*` — per-element top
+       margins — so a block that rendered nothing on a phone still set the gap
+       after it, and every block brought its own padding on top. Now the page is
+       TWO flex columns: the title group, then — a step further down — every
+       block below it, one `gap-4` (16 px) apart. A block that is not drawn is
+       not a flex item, so it leaves no orphan gap. */
+    <section className="sn-col max-w-none flex flex-col gap-6" data-roster-full-width="">
+      <div className="flex flex-col gap-4" data-guests-title-group="">
 
       {/* The floating focus-mode "back X" (top-left) was REMOVED 2026-06-15
           (nav-surfaces follow-up to #1470): the global journey bottom nav is now
@@ -1086,6 +1114,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       {/* On a phone this row is drawn inside the title's ⋯ instead — the SAME
           `rosterTabs` element, so no door can exist on one and not the other. */}
       <div className="hidden lg:block" data-roster-doors-row="">{rosterTabs}</div>
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-4" data-guests-blocks="">
 
       {/* ─── THE CELEBRATION HAPPENED: LEAD WITH THE RECORD, NOT THE PLAN ───
            One line, because the page header is one line (owner-locked) and this
@@ -1201,7 +1232,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           is how the phone drifted from the computer every time either changed.
           This bar is now the only head: on a phone its filter dropdowns wrap
           to their own line under Filter ▾ (`FindAddRow`). */}
-      <div className="gl-settle space-y-3" data-roster-head="">
+      <div className="gl-settle" data-roster-head="">
         {/* ⚖ THE NAME BOX LIVES IN THE ADD SHEET NOW (owner 2026-10-01, "okay
             keep it similar"): one round + at every width opens it. After the
             event the + stays and says the list is still open — somebody who
@@ -1361,6 +1392,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           {visible.length > 0 ? <div aria-hidden className="h-[50dvh]" data-roster-runout /> : null}
       </div>
       )}
+      </div>
 
       {/* ⚖ ONE WAY TO ADD, AT EVERY WIDTH — the round + in the header, beside
           ⋯ (owner 2026-10-01 "okay keep it similar", then "THE BOTTOM BAR IS

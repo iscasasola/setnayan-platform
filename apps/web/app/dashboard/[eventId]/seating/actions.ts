@@ -2075,7 +2075,7 @@ export type AutoArrangeResult = {
  * ↩ UNDO AN AUTO ARRANGE (owner 2026-10-01, the approved phone design: "Undo
  * puts it back"). An intent of `autoArrange`, not a new action (the server
  * action ceiling): it un-seats exactly the guests that run seated, deletes the
- * tables it added, and puts each table it moved back where it was. A guest
+ * tables it added, and puts each table and booth it moved back where it was. A guest
  * seated by hand since then is never touched (only the listed ids are).
  */
 async function undoAutoArrange(eventId: string, formData: FormData): Promise<AutoArrangeResult> {
@@ -2107,6 +2107,10 @@ async function undoAutoArrange(eventId: string, formData: FormData): Promise<Aut
   if (addedTableIds.length > 0) {
     const { error } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', addedTableIds);
     if (error) throw new Error(error.message);
+  }
+  // The booths go back to where they stood too (Auto arrange re-anchors them).
+  if (typeof formData.get('booths') === 'string') {
+    await persistBooths(supabase, eventId, parseBoothsPayload(formData.get('booths') ?? '[]'));
   }
   const positions = (undo.positions && typeof undo.positions === 'object' ? undo.positions : {}) as Record<string, unknown>;
   for (const [id, raw] of Object.entries(positions)) {

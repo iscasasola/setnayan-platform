@@ -889,7 +889,12 @@ export function SeatingEditor({
   // tables it changed (the gold ring). Cleared on dismiss or Undo.
   const [autoRun, setAutoRun] = useState<{
     text: string;
-    undo: { addedTableIds: string[]; seatedGuestIds: string[]; positions: Record<string, { x: number; y: number } | null> } | null;
+    undo: {
+      addedTableIds: string[];
+      seatedGuestIds: string[];
+      positions: Record<string, { x: number; y: number } | null>;
+      booths: FloorBoothRow[];
+    } | null;
     changed: ReadonlySet<string>;
   } | null>(null);
   // 📱 "Move Ana to…" — the guest whose sheet is open, and the table picked in it.
@@ -1265,7 +1270,8 @@ export function SeatingEditor({
       return p && placedByCouple ? { ...t, x_pos: p.x, y_pos: p.y } : t;
     });
     const keepPlaced = new Set(onScreen.filter((t) => t.x_pos !== null && t.y_pos !== null && !added.includes(t)).map((t) => t.table_id));
-    // What Undo puts back: every table's saved spot before this run.
+    // What Undo puts back: every table's saved spot and every booth before this run.
+    const boothsBefore = booths;
     const before: Record<string, { x: number; y: number } | null> = Object.fromEntries(
       tables.map((t) => [t.table_id, t.x_pos !== null && t.y_pos !== null ? { x: Number(t.x_pos), y: Number(t.y_pos) } : null]),
     );
@@ -1358,7 +1364,7 @@ export function SeatingEditor({
         text: autoArrangeSummary({ tablesAdded: res.tablesAdded, seated: res.seated, unseated: res.unseated }) + keepApartNote + overflowNote,
         undo:
           res.addedTableIds.length > 0 || res.seatedGuestIds.length > 0 || Object.keys(layout).length > 0
-            ? { addedTableIds: res.addedTableIds, seatedGuestIds: res.seatedGuestIds, positions: before }
+            ? { addedTableIds: res.addedTableIds, seatedGuestIds: res.seatedGuestIds, positions: before, booths: boothsBefore }
             : null,
         changed: new Set(res.changedTableIds),
       });
@@ -1375,8 +1381,10 @@ export function SeatingEditor({
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('intent', 'undo');
-    fd.set('undo', JSON.stringify(run.undo));
+    fd.set('undo', JSON.stringify({ addedTableIds: run.undo.addedTableIds, seatedGuestIds: run.undo.seatedGuestIds, positions: run.undo.positions }));
+    fd.set('booths', boothsPayload(run.undo.booths));
     setAutoRun(null);
+    setBooths(run.undo.booths);
     startTransition(async () => {
       const res = await runGated(() => autoArrange(fd));
       if (!res) return;
@@ -1882,7 +1890,9 @@ export function SeatingEditor({
         setNotice(`Linked — “${a.table_label}” and “${b.table_label}” are one table now: one name, one count, one sign.`);
         router.refresh();
       } catch (err) {
-        if (!handleLockLost(err)) setNotice('Couldn’t link those tables — nothing changed. Please try again.');
+        if (!handleLockLost(err)) setNotice('Couldn’t link those tables — please try again.');
+        // Re-read the saved plan so the screen shows what was really kept.
+        router.refresh();
       }
     });
   };

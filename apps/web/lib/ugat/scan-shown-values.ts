@@ -69,9 +69,15 @@ const CSS_LIKE = /(?:gradient|calc\(|translate|rgba?\(|hsla?\(|oklch|color-mix|p
 /** Every piece of text a `.tsx` file can render: JSX text nodes and string literals (placeholders and class names skipped). */
 export function renderedTextIn(src: string): string[] {
   const out: string[] = [];
-  for (const m of src.matchAll(/>([^<>{}]+)</g)) {
-    const t = m[1]!.replace(/\s+/g, ' ').trim();
-    if (t && /[A-Za-z₱%]/.test(t)) out.push(t);
+  // JSX text, including the words after or before an expression:
+  // `<p>{n} days to go</p>` draws " days to go".
+  // (tag→tag, expression→tag, tag→expression — never `}…{`, which is code).
+  for (const m of src.matchAll(/>([^<>{}]+)<|\}([^<>{}]+)<|>([^<>{}]+)\{/g)) {
+    // `&apos;` and friends are words, not code — read them before judging.
+    const t = (m[1] ?? m[2] ?? m[3])!.replace(/&(?:apos|rsquo|lsquo);/g, "'").replace(/&(?:quot|ldquo|rdquo);/g, '"').replace(/&amp;/g, '&').replace(/&[a-z]+;|&#\d+;/g, ' ').replace(/\s+/g, ' ').trim();
+    // Code that slipped between braces — not prose, which may well use "; " and "(".
+    const code = /=>|\bconst\s|\breturn\s|\w\(\s*'[^']*'\s*\)|;\s*$|;\s*(?:const|let|var|return|if)\b/.test(t);
+    if (t && /[A-Za-z₱%]/.test(t) && !code && (m[1] !== undefined || !CSS_LIKE.test(t))) out.push(t);
   }
   let k = 0;
   while (k < src.length) {

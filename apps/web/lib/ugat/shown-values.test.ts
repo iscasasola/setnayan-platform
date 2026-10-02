@@ -34,7 +34,8 @@ test('a typed number next to a unit is found; a variable and a rule are not', ()
   assert.deepEqual(typedNumbersIn('Free — ₱0, forever.'), []);
   assert.deepEqual(typedNumbersIn('34 changes · 52%'), ['52%']);
   assert.deepEqual(typedNumbersIn('Pair a DSLR — ₱100 / seat / day'), ['₱100']);
-  assert.deepEqual(renderedTextIn('<p className="w-[50%]">{n} guests</p>'), [], 'a class name and a variable');
+  assert.deepEqual(renderedTextIn('<p className="w-[50%]">{n} guests</p>'), ['guests'], 'the class name is skipped; the words after a variable are read');
+  assert.deepEqual(typedNumbersIn('guests'), [], '…and carry no typed number');
   assert.deepEqual(renderedTextIn('<input placeholder="₱ 680,000" />'), [], 'a placeholder is never a value');
 });
 

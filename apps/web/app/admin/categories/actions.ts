@@ -37,18 +37,20 @@ import {
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
 import { WEDDING_TILE_ORDER } from '@/lib/taxonomy';
 import { formatCount } from '@/lib/format-number';
+import { recordCollectedTradePhrase } from '@/lib/service-trade-aliases-db';
+import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
 
-const BASE = '/admin/taxonomy';
+const BASE = CATEGORIES_PATH;
 /** The onboarding read path (getOnboardingRefinements is DB-first) renders here —
- *  revalidate it alongside /admin/taxonomy so a refinement edit shows up live. */
+ *  revalidate it alongside the categories page so a refinement edit shows up live. */
 const ONBOARDING_PATH = '/onboarding/wedding';
 /** The vendor form that renders these leaf refinements (fetchSchemaWithSharedGroups
  *  is a server read) — revalidate it so a schema edit surfaces to vendors live. */
 const VENDOR_ATTR_PATH = '/vendor-dashboard/attributes';
 
-/** JSON result for the Studio's drag actions — they cannot redirect (they fire
- *  from `fetch`/`useTransition`, not a form navigation), so they hand the client
- *  a `{ ok }` / `{ error }` shape and the client calls `router.refresh()`. */
+/** JSON result for the page's in-place actions — they cannot redirect (they fire
+ *  from `useTransition`, not a form navigation), so they hand the client a
+ *  `{ ok }` / `{ error }` shape and the client calls `router.refresh()`. */
 export type StudioActionResult = { ok: true; message: string } | { ok: false; error: string };
 
 /**
@@ -59,43 +61,28 @@ export type StudioActionResult = { ok: true; message: string } | { ok: false; er
 const VALID_PHOTO = /^(\/[\w./-]+\.(?:webp|jpe?g|png)|r2:\/\/[\w./-]+)$/i;
 
 const SAFE_ANCHOR = /[^a-z0-9_-]/g;
-const VIEWS = new Set(['faith', 'scoped', 'unfiled', 'vocab-event', 'vocab-faith']);
 
 /**
- * Redirect back to the spot the form was submitted from (the admin/users
- * `#u-<id>` pattern). Reads the hidden `_q` / `_view` / `_anchor` fields every
- * form carries (page-side `BackFields`); `override.anchor` lets actions that
- * KNOW the destination (remap, create-leaf, promote, delete) land there
- * instead. A `t-<tile>` anchor also sets `?open=` so the edited tile re-opens;
- * an `f-<folder>` anchor sets `?openf=` so a filter-hidden folder stays
- * visible. `q` is NOT character-stripped (it's never interpolated into SQL or
- * HTML and URLSearchParams percent-encodes it); only the anchor — appended raw
- * after `#` — gets the strict charset.
+ * Redirect back to the panel the form was submitted from. Reads the hidden
+ * `_list` / `_open` / `_q` / `_show` fields every form carries (`<BackFields>`,
+ * see `_components/back.ts`). `override.anchor` lets actions that KNOW the
+ * destination land there instead: a `t-<category>` anchor opens that
+ * category's panel, an `f-<group>` anchor opens the group's panel, and
+ * `override.show` keeps (or leaves) a Show ▾ filter such as Unfiled.
  */
 function redirectBack(
   formData: FormData,
   kind: 'ok' | 'error',
   msg: string,
-  override?: { anchor?: string },
+  override?: { anchor?: string; show?: BackState['show']; open?: string },
 ): never {
-  const q = String(formData.get('_q') ?? '').slice(0, 80).trim();
-  const view = String(formData.get('_view') ?? '').trim();
-  const rawAnchor = override?.anchor ?? String(formData.get('_anchor') ?? '');
-  const anchor = rawAnchor.replace(SAFE_ANCHOR, '').slice(0, 80);
-  const opentab = String(formData.get('_opentab') ?? '').trim();
-  const p = new URLSearchParams();
-  if (q) p.set('q', q);
-  if (VIEWS.has(view)) p.set('view', view);
-  if (anchor.startsWith('t-')) p.set('open', anchor.slice(2));
-  if (anchor.startsWith('f-')) p.set('openf', anchor.slice(2));
-  // A tile form can ask the re-opened inspector to land on a specific tab
-  // (e.g. the Refinements tab) so an edit + save keeps its place.
-  if (opentab === 'refinements' || opentab === 'services' || opentab === 'details') {
-    p.set('opentab', opentab);
-  }
-  p.set(kind, msg);
-  const url = `${BASE}?${p.toString()}${anchor ? `#${anchor}` : ''}`;
-  redirect(url);
+  const anchor = (override?.anchor ?? '').replace(SAFE_ANCHOR, '').slice(0, 80);
+  const next: Partial<BackState> = {};
+  if (anchor.startsWith('t-')) next.open = `c:${anchor.slice(2)}`;
+  if (anchor.startsWith('f-')) next.open = `g:${anchor.slice(2)}`;
+  if (override?.show !== undefined) next.show = override.show;
+  if (override?.open) next.open = override.open;
+  redirect(backHref(formData, kind, msg, next));
 }
 
 /**
@@ -158,7 +145,7 @@ export async function updatePlanningDeadline(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
-  revalidatePath('/admin/taxonomy');
+  revalidatePath(BASE);
   redirectBack(formData, 'ok', 'Deadline saved.');
 }
 
@@ -244,21 +231,33 @@ export async function renameTaxonomyNode(formData: FormData) {
   const user = await requireAdmin();
   const id = String(formData.get('id') ?? '').trim();
   const label = String(formData.get('label_en') ?? '').trim();
+  // The group's SHORT name (the /explore strip). Optional and only written
+  // when the form actually carries the field — a category rename never sends
+  // it, so it can never blank a short name it did not show.
+  const hasShort = formData.has('label_short');
+  const short = String(formData.get('label_short') ?? '').trim();
   if (!id) throw new Error('Missing node id');
   if (label.length < 2 || label.length > 80) {
     redirectBack(formData, 'error', 'Label must be 2–80 characters.');
   }
+  const shortOutOfRange = hasShort && short.length > 0 && (short.length < 2 || short.length > 40);
+  if (shortOutOfRange) {
+    redirectBack(formData, 'error', 'Short name must be 2–40 characters.');
+  }
   const admin = createAdminClient();
   const { data: before } = await admin
     .from('service_categories')
-    .select('id, label_en')
+    .select('id, label_en, label_short')
     .eq('id', id)
     .maybeSingle();
   if (!before) redirectBack(formData, 'error', 'Node not found.');
-  if (before.label_en === label) redirectBack(formData, 'ok', 'No change.');
+  const nextShort = hasShort ? short || null : (before.label_short ?? null);
+  if (before.label_en === label && (before.label_short ?? null) === nextShort) {
+    redirectBack(formData, 'ok', 'No change.');
+  }
   const { error } = await admin
     .from('service_categories')
-    .update({ label_en: label, updated_at: new Date().toISOString() })
+    .update({ label_en: label, label_short: nextShort, updated_at: new Date().toISOString() })
     .eq('id', id);
   if (error) redirectBack(formData, 'error', error.message);
   await admin.from('admin_audit_log').insert({
@@ -266,7 +265,7 @@ export async function renameTaxonomyNode(formData: FormData) {
     target_table: 'service_categories',
     target_id: id,
     before_json: before,
-    after_json: { id, label_en: label },
+    after_json: { id, label_en: label, label_short: nextShort },
     actor_user_id: user.id,
   });
   revalidatePath(BASE);
@@ -435,7 +434,9 @@ export async function remapCanonical(formData: FormData) {
   const canonical = String(formData.get('canonical_service') ?? '').trim();
   const tileId = String(formData.get('tile_id') ?? '').trim();
   if (!canonical || !tileId) throw new Error('Missing canonical_service or tile_id');
-  const stayInTray = formData.get('_view') === 'unfiled';
+  const stayInTray = formData.get('_show') === 'unfiled';
+  // Moved from its own panel: stay on the service, which now sits elsewhere.
+  const fromServicePanel = String(formData.get('_open') ?? '').startsWith('s:');
   const admin = createAdminClient();
   // The destination must exist + be a tile (tier 2); derive its parent folder.
   const { data: tile } = await admin
@@ -444,7 +445,7 @@ export async function remapCanonical(formData: FormData) {
     .eq('id', tileId)
     .maybeSingle();
   if (!tile || tile.tier !== 2 || !tile.parent_id) {
-    redirectBack(formData, 'error', 'Pick a valid tile.');
+    redirectBack(formData, 'error', 'Pick a valid category.');
   }
   const { data: before } = await admin
     .from('canonical_service_taxonomy')
@@ -453,7 +454,7 @@ export async function remapCanonical(formData: FormData) {
     .maybeSingle();
   if (!before) redirectBack(formData, 'error', 'Canonical not found.');
   if (before.tile_id === tileId) {
-    redirectBack(formData, 'ok', 'Already on that tile.', stayInTray ? undefined : { anchor: `t-${tileId}` });
+    redirectBack(formData, 'ok', 'Already in that category.', stayInTray || fromServicePanel ? undefined : { anchor: `t-${tileId}`, show: '' });
   }
   const { error } = await admin
     .from('canonical_service_taxonomy')
@@ -477,8 +478,8 @@ export async function remapCanonical(formData: FormData) {
   redirectBack(
     formData,
     'ok',
-    'Re-mapped — the marketplace re-buckets live.',
-    stayInTray ? undefined : { anchor: `t-${tileId}` },
+    'Moved — the marketplace re-buckets live.',
+    stayInTray || fromServicePanel ? undefined : { anchor: `t-${tileId}`, show: '' },
   );
 }
 
@@ -556,18 +557,65 @@ export async function setServiceFaith(formData: FormData) {
 }
 
 /**
- * Admin: set which event types a TILE serves (multi-event applicability, Phase 1).
- * Writes `service_categories.applicable_event_types` — NULL = universal (serves
- * ALL events; the FAIL-OPEN default). Read live by `getTaxonomy()` → the
- * marketplace + onboarding scope to the couple's event type with no deploy.
- * Audit-logged. The DB validation trigger rejects unknown event types as a
- * backstop. Selecting EVERY event type collapses to NULL (universal) so we never
- * store a brittle full-list array.
+ * Admin: rename a SERVICE — its English name and its Tagalog name
+ * (`canonical_service_schemas.display_name_en` / `display_name_tl`). The key is
+ * permanent; only what people read changes. The Tagalog name was read by the
+ * supplier attributes page and written by nobody — this is its writer
+ * (owner approval 2026-10-02). An empty Tagalog box clears it to NULL.
  */
-export async function setCategoryEventTypes(formData: FormData) {
+export async function renameCanonicalService(formData: FormData) {
   const user = await requireAdmin();
-  const categoryId = String(formData.get('category_id') ?? '').trim();
-  if (!categoryId) throw new Error('Missing category_id');
+  const canonical = String(formData.get('canonical_service') ?? '').trim();
+  const en = String(formData.get('display_name_en') ?? '').trim();
+  const tl = String(formData.get('display_name_tl') ?? '').trim();
+  if (!canonical) throw new Error('Missing canonical_service');
+  if (en.length < 2 || en.length > 80) {
+    redirectBack(formData, 'error', 'The English name must be 2–80 characters.');
+  }
+  const tlTooLong = tl.length > 80;
+  if (tlTooLong) redirectBack(formData, 'error', 'The Tagalog name must be at most 80 characters.');
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('canonical_service_schemas')
+    .select('canonical_service, display_name_en, display_name_tl')
+    .eq('canonical_service', canonical)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Service not found.');
+  const nextTl = tl || null;
+  if (before.display_name_en === en && (before.display_name_tl ?? null) === nextTl) {
+    redirectBack(formData, 'ok', 'No change.');
+  }
+  const { error } = await admin
+    .from('canonical_service_schemas')
+    .update({ display_name_en: en, display_name_tl: nextTl, updated_at: new Date().toISOString() })
+    .eq('canonical_service', canonical);
+  if (error) redirectBack(formData, 'error', error.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.rename_service',
+    target_table: 'canonical_service_schemas',
+    target_id: canonical,
+    before_json: { display_name_en: before.display_name_en, display_name_tl: before.display_name_tl ?? null },
+    after_json: { display_name_en: en, display_name_tl: nextTl },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  revalidatePath('/explore');
+  revalidatePath(VENDOR_ATTR_PATH);
+  redirectBack(formData, 'ok', `Renamed to "${en}"${nextTl ? ` · ${nextTl}` : ''}.`);
+}
+
+/**
+ * Admin: the per-SERVICE event override — `canonical_service_taxonomy.
+ * applicable_event_types`. The column existed with no editor. NULL/empty =
+ * "Same as its category" (the service follows the category's own scope);
+ * a list = only these event types. Every active type selected collapses back
+ * to NULL, like the category-level writer always has. The DB trigger
+ * (validate_applicable_event_types) rejects unknown types as a backstop.
+ */
+export async function setServiceEventTypes(formData: FormData) {
+  const user = await requireAdmin();
+  const canonical = String(formData.get('canonical_service') ?? '').trim();
+  if (!canonical) throw new Error('Missing canonical_service');
   const selected = Array.from(
     new Set(
       formData
@@ -576,41 +624,35 @@ export async function setCategoryEventTypes(formData: FormData) {
         .filter(Boolean),
     ),
   );
-
   const admin = createAdminClient();
-  const { data: cat } = await admin
-    .from('service_categories')
-    .select('id, tier, applicable_event_types')
-    .eq('id', categoryId)
+  const { data: before } = await admin
+    .from('canonical_service_taxonomy')
+    .select('canonical_service, applicable_event_types')
+    .eq('canonical_service', canonical)
     .maybeSingle();
-  if (!cat) redirectBack(formData, 'error', 'Category not found.');
+  if (!before) redirectBack(formData, 'error', 'Service not found.');
 
   let next: string[] | null = null;
   if (selected.length > 0) {
-    const { data: vocab } = await admin
-      .from('event_type_vocab')
-      .select('event_type')
-      .eq('status', 'active');
-    const valid = new Set((vocab ?? []).map((v) => v.event_type));
-    const unknown = selected.filter((s) => !valid.has(s));
+    const { data: vocab } = await admin.from('event_type_vocab').select('event_type').eq('status', 'active');
+    const valid = new Set((vocab ?? []).map((v) => v.event_type as string));
+    const unknown = selected.filter((t) => !valid.has(t));
     if (unknown.length > 0) {
       redirectBack(formData, 'error', 'Unknown event type(s): ' + unknown.join(', '));
     }
-    // Every event selected == no restriction → store NULL (universal).
     next = selected.length >= valid.size ? null : selected.sort();
   }
 
   const { error } = await admin
-    .from('service_categories')
-    .update({ applicable_event_types: next })
-    .eq('id', categoryId);
+    .from('canonical_service_taxonomy')
+    .update({ applicable_event_types: next, updated_at: new Date().toISOString() })
+    .eq('canonical_service', canonical);
   if (error) redirectBack(formData, 'error', error.message);
-
   await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.set_event_types',
-    target_table: 'service_categories',
-    target_id: categoryId,
-    before_json: { applicable_event_types: cat.applicable_event_types ?? null },
+    action: 'taxonomy.set_service_event_types',
+    target_table: 'canonical_service_taxonomy',
+    target_id: canonical,
+    before_json: { applicable_event_types: before.applicable_event_types ?? null },
     after_json: { applicable_event_types: next },
     actor_user_id: user.id,
   });
@@ -619,111 +661,7 @@ export async function setCategoryEventTypes(formData: FormData) {
   redirectBack(
     formData,
     'ok',
-    next === null ? 'Set to universal (all events).' : 'Event types updated — live on the marketplace.',
-  );
-}
-
-/**
- * Admin: set the event-type scope of EVERY tile under a parent folder in one
- * submit (the parent-grain bulk control — design-memo §5). Explicit by
- * construction (A4): a required `scope_mode` radio (universal | scoped) means
- * the destructive "wipe every per-tile scope" meaning is always a deliberate
- * choice, and a required `confirm_overwrite` checkbox is re-checked server-side
- * (native `required` is the zero-JS first layer). Scoped + zero chips = error,
- * never a silent universal. All-chips-selected still collapses to NULL (house
- * semantics). ONE audit row carries the per-tile before-map — the manual-restore
- * path (no UI undo in V1).
- */
-export async function setFolderEventTypes(formData: FormData) {
-  const user = await requireAdmin();
-  const parentId = String(formData.get('parent_id') ?? '').trim();
-  if (!parentId) throw new Error('Missing parent_id');
-
-  const admin = createAdminClient();
-  const { data: parent } = await admin
-    .from('service_categories')
-    .select('id, tier')
-    .eq('id', parentId)
-    .maybeSingle();
-  if (!parent || parent.tier !== 1) {
-    redirectBack(formData, 'error', 'Pick a valid parent.');
-  }
-
-  // Server re-check of the native `required` confirmation (zero-JS guard).
-  if (formData.get('confirm_overwrite') !== 'on') {
-    redirectBack(formData, 'error', 'Tick the overwrite confirmation first.');
-  }
-
-  const scopeMode = String(formData.get('scope_mode') ?? '');
-  if (scopeMode !== 'universal' && scopeMode !== 'scoped') {
-    redirectBack(formData, 'error', 'Choose Universal or Scoped first.');
-  }
-
-  const selected = Array.from(
-    new Set(
-      formData
-        .getAll('event_types')
-        .map((v) => String(v).trim())
-        .filter(Boolean),
-    ),
-  );
-
-  let next: string[] | null = null;
-  if (scopeMode === 'scoped') {
-    if (selected.length === 0) {
-      redirectBack(formData, 'error', 'Pick at least one event, or choose Universal.');
-    }
-    const { data: vocab } = await admin
-      .from('event_type_vocab')
-      .select('event_type')
-      .eq('status', 'active');
-    const valid = new Set((vocab ?? []).map((v) => v.event_type));
-    const unknown = selected.filter((s) => !valid.has(s));
-    if (unknown.length > 0) {
-      redirectBack(formData, 'error', 'Unknown event type(s): ' + unknown.join(', '));
-    }
-    // Every event selected == no restriction → store NULL (universal).
-    next = selected.length >= valid.size ? null : selected.sort();
-  }
-
-  const { data: tiles } = await admin
-    .from('service_categories')
-    .select('id, applicable_event_types')
-    .eq('parent_id', parentId)
-    .eq('tier', 2);
-  const tileRows = (tiles ?? []) as { id: string; applicable_event_types: string[] | null }[];
-  if (tileRows.length === 0) {
-    redirectBack(formData, 'error', 'No tiles under this folder.');
-  }
-  const tileIds = tileRows.map((t) => t.id);
-
-  const scopeKey = (v: string[] | null) => JSON.stringify((v ?? []).slice().sort());
-  const nextKey = scopeKey(next);
-  const changedIds = tileRows.filter((t) => scopeKey(t.applicable_event_types ?? null) !== nextKey).map((t) => t.id);
-  const prevScopedCount = tileRows.filter((t) => (t.applicable_event_types?.length ?? 0) > 0).length;
-
-  const { error } = await admin
-    .from('service_categories')
-    .update({ applicable_event_types: next })
-    .in('id', tileIds);
-  if (error) redirectBack(formData, 'error', error.message);
-
-  await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.bulk_set_event_types',
-    target_table: 'service_categories',
-    target_id: parentId,
-    before_json: {
-      tiles: Object.fromEntries(tileRows.map((t) => [t.id, t.applicable_event_types ?? null])),
-    },
-    after_json: { applicable_event_types: next, tile_ids: tileIds, changed_tile_ids: changedIds },
-    actor_user_id: user.id,
-  });
-  revalidatePath(BASE);
-  revalidatePath('/explore');
-  redirectBack(
-    formData,
-    'ok',
-    `Applied to ${tileIds.length} tiles (${changedIds.length} changed${prevScopedCount ? `, ${formatCount(prevScopedCount)} previously had their own scope` : ''}).`,
+    next === null ? 'Shows for the same events as its category.' : `Shows only for ${next.length} event type${next.length === 1 ? '' : 's'}.`,
   );
 }
 
@@ -802,121 +740,7 @@ export async function createTaxonomyNode(formData: FormData) {
   });
   revalidatePath(BASE);
   revalidatePath('/explore');
-  redirectBack(formData, 'ok', `Added tile "${label}" under ${parentId}.`);
-}
-
-/**
- * Admin: delete a tile. Guarded against orphans — refuses if it has child nodes
- * or any canonical_service still mapped to it (re-map those first). Parents are
- * owner-managed and not deletable here. Audit-logged. Success lands on the
- * parent FOLDER (the tile is gone); failures land back on the tile, open.
- */
-export async function deleteTaxonomyNode(formData: FormData) {
-  const user = await requireAdmin();
-  const id = String(formData.get('id') ?? '').trim();
-  if (!id) throw new Error('Missing node id');
-  const admin = createAdminClient();
-  const { data: before } = await admin
-    .from('service_categories')
-    .select('id, tier, label_en, parent_id')
-    .eq('id', id)
-    .maybeSingle();
-  if (!before) redirectBack(formData, 'error', 'Node not found.');
-  if (before.tier === 1) {
-    redirectBack(formData, 'error', 'Parents are owner-managed — can’t delete here.');
-  }
-  const { count: childCount } = await admin
-    .from('service_categories')
-    .select('id', { count: 'exact', head: true })
-    .eq('parent_id', id);
-  if ((childCount ?? 0) > 0) {
-    redirectBack(formData, 'error', 'Has sub-categories — remove them first.');
-  }
-  const { count: mappedCount } = await admin
-    .from('canonical_service_taxonomy')
-    .select('canonical_service', { count: 'exact', head: true })
-    .eq('tile_id', id);
-  if ((mappedCount ?? 0) > 0) {
-    redirectBack(formData, 'error', `${formatCount(mappedCount)} service(s) still mapped here — re-map them first.`);
-  }
-  const { error } = await admin.from('service_categories').delete().eq('id', id);
-  if (error) redirectBack(formData, 'error', error.message);
-  await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.delete',
-    target_table: 'service_categories',
-    target_id: id,
-    before_json: before,
-    actor_user_id: user.id,
-  });
-  revalidatePath(BASE);
-  revalidatePath('/explore');
-  redirectBack(
-    formData,
-    'ok',
-    `Deleted "${before.label_en}".`,
-    before.parent_id ? { anchor: `f-${before.parent_id}` } : undefined,
-  );
-}
-
-/**
- * Admin: reorder a tile within its parent by swapping `sort_order` with the
- * adjacent sibling. The catalog reads tile order from the snapshot, so the
- * marketplace re-orders live with no deploy. Audit-logged.
- */
-export async function moveTaxonomyNode(formData: FormData) {
-  const user = await requireAdmin();
-  const id = String(formData.get('id') ?? '').trim();
-  const direction = String(formData.get('direction') ?? '');
-  if (!id) throw new Error('Missing node id');
-  if (direction !== 'up' && direction !== 'down') throw new Error('Bad direction');
-  const admin = createAdminClient();
-  const { data: node } = await admin
-    .from('service_categories')
-    .select('id, parent_id, tier, sort_order')
-    .eq('id', id)
-    .maybeSingle();
-  if (!node || node.parent_id == null) {
-    redirectBack(formData, 'error', 'This node can’t be moved.');
-  }
-  // Adjacent sibling: same parent + tier, nearest sort_order in the direction.
-  const base = admin
-    .from('service_categories')
-    .select('id, sort_order')
-    .eq('parent_id', node.parent_id)
-    .eq('tier', node.tier);
-  const { data: sibling } =
-    direction === 'up'
-      ? await base
-          .lt('sort_order', node.sort_order)
-          .order('sort_order', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-      : await base
-          .gt('sort_order', node.sort_order)
-          .order('sort_order', { ascending: true })
-          .limit(1)
-          .maybeSingle();
-  if (!sibling) redirectBack(formData, 'ok', 'Already at the edge.');
-  // Swap (no unique constraint on sort_order, so the interim collision is fine).
-  await admin
-    .from('service_categories')
-    .update({ sort_order: sibling.sort_order, updated_at: new Date().toISOString() })
-    .eq('id', node.id);
-  await admin
-    .from('service_categories')
-    .update({ sort_order: node.sort_order, updated_at: new Date().toISOString() })
-    .eq('id', sibling.id);
-  await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.move',
-    target_table: 'service_categories',
-    target_id: id,
-    before_json: { sort_order: node.sort_order },
-    after_json: { sort_order: sibling.sort_order, direction },
-    actor_user_id: user.id,
-  });
-  revalidatePath(BASE);
-  revalidatePath('/explore');
-  redirectBack(formData, 'ok', `Moved ${direction}.`);
+  redirectBack(formData, 'ok', `Added category "${label}".`, { anchor: `t-${id}` });
 }
 
 /**
@@ -944,6 +768,7 @@ export async function createCanonicalLeaf(formData: FormData) {
   const label = String(formData.get('display_name_en') ?? '').trim();
   const isRental = formData.get('is_rental') === 'on';
   const isPh = formData.get('is_ph') === 'on';
+  const isTradition = formData.get('is_tradition') === 'on';
   const faithRaw = String(formData.get('faith') ?? '').trim();
   const refinementLabel = String(formData.get('refinement_label') ?? '').trim();
   const refinementOptionsRaw = String(formData.get('refinement_options') ?? '').trim();
@@ -979,11 +804,11 @@ export async function createCanonicalLeaf(formData: FormData) {
   // mapping's folder_id stays consistent with remapCanonical's invariant.
   const { data: tile } = await admin
     .from('service_categories')
-    .select('id, parent_id, tier')
+    .select('id, parent_id, tier, label_en')
     .eq('id', tileId)
     .maybeSingle();
   if (!tile || tile.tier !== 2 || !tile.parent_id) {
-    redirectBack(formData, 'error', 'Pick a valid tile.');
+    redirectBack(formData, 'error', 'Pick a valid category.');
   }
 
   // The key must be free in BOTH leaf tables (schema PK + mapping PK).
@@ -1043,7 +868,7 @@ export async function createCanonicalLeaf(formData: FormData) {
     is_ph: isPh,
     is_rental: isRental,
     is_setnayan: false,
-    is_tradition: false,
+    is_tradition: isTradition,
     marketplace_hidden: false,
     secondary_tiles: [],
   });
@@ -1072,7 +897,7 @@ export async function createCanonicalLeaf(formData: FormData) {
   redirectBack(
     formData,
     'ok',
-    `Added service "${label}" under ${tileId}${refinementLabel ? ` with a "${refinementLabel}" refinement` : ''}.`,
+    `Saved — "${label}" is live under ${tile.label_en ?? tileId}. Suppliers can pick it now.`,
     { anchor: `t-${tileId}` },
   );
 }
@@ -1110,7 +935,7 @@ export async function promoteCategoryRequest(formData: FormData) {
     .eq('id', tileId)
     .maybeSingle();
   if (!tile || tile.tier !== 2 || !tile.parent_id) {
-    redirectBack(formData, 'error', 'Pick a valid tile.');
+    redirectBack(formData, 'error', 'Pick a valid category.');
   }
 
   // The NAME the new trade is minted under. Defaults to the supplier's own
@@ -1233,7 +1058,7 @@ export async function mapCategoryRequest(formData: FormData) {
     redirectBack(formData, 'error', 'Pick an existing service to map to.');
   }
 
-  const { error } = await admin
+  const { data: mapped, error } = await admin
     .from('taxonomy_category_requests')
     .update({
       status: 'mapped',
@@ -1244,19 +1069,33 @@ export async function mapCategoryRequest(formData: FormData) {
       updated_at: new Date().toISOString(),
     })
     .eq('request_id', requestId)
-    .eq('status', 'pending');
+    .eq('status', 'pending')
+    .select('proposed_label')
+    .maybeSingle();
   if (error) redirectBack(formData, 'error', error.message);
+  // A zero-row update is not a success: the request was already resolved.
+  if (!mapped) redirectBack(formData, 'error', 'That request was already resolved.');
+
+  // The supplier's own word becomes a WAITING search word on the trade it was
+  // mapped to (flow B on the approved page): a real supplier typed it, so it
+  // is 'collected', and like every collected row it answers nobody until an
+  // admin approves it on the service panel. Best-effort, never overwrites.
+  await recordCollectedTradePhrase(mapped.proposed_label, canonical);
 
   await admin.from('admin_audit_log').insert({
     action: 'taxonomy.request_map',
     target_table: 'taxonomy_category_requests',
     target_id: requestId,
-    after_json: { mapped_to_canonical: canonical },
+    after_json: { mapped_to_canonical: canonical, search_word_waiting: mapped.proposed_label },
     actor_user_id: user.id,
   });
 
   revalidatePath(BASE);
-  redirectBack(formData, 'ok', `Mapped to "${canonical}".`);
+  redirectBack(
+    formData,
+    'ok',
+    `Mapped to "${canonical}". The supplier sees it mapped, and "${mapped.proposed_label}" waits as a search word.`,
+  );
 }
 
 /**
@@ -1357,7 +1196,7 @@ export async function reorderCategories(
     .eq('parent_id', parent)
     .eq('tier', 2);
   const rows = (children ?? []) as { id: string; sort_order: number }[];
-  if (rows.length === 0) return { ok: false, error: 'No tiles under this folder.' };
+  if (rows.length === 0) return { ok: false, error: 'No categories under this group.' };
 
   const currentIds = rows.map((r) => r.id);
   const valid = validateReorder(currentIds, ordered);
@@ -1413,7 +1252,7 @@ export async function moveTileToFolder(
 
   const tile = String(tileId ?? '').trim();
   const newParent = String(newParentId ?? '').trim();
-  if (!tile || !newParent) return { ok: false, error: 'Missing tile or destination.' };
+  if (!tile || !newParent) return { ok: false, error: 'Missing category or destination.' };
   if (tile === newParent) return { ok: false, error: 'Pick a different folder.' };
 
   const admin = createAdminClient();
@@ -1422,7 +1261,7 @@ export async function moveTileToFolder(
     .select('id, parent_id, tier')
     .eq('id', tile)
     .maybeSingle();
-  if (!tileRow || tileRow.tier !== 2) return { ok: false, error: 'That’s not a movable tile.' };
+  if (!tileRow || tileRow.tier !== 2) return { ok: false, error: 'That’s not a movable category.' };
   if (tileRow.parent_id === newParent) return { ok: true, message: 'Already in that folder.' };
 
   const { data: destRow } = await admin
@@ -1438,7 +1277,7 @@ export async function moveTileToFolder(
     .select('id', { count: 'exact', head: true })
     .eq('parent_id', tile);
   if ((childCount ?? 0) > 0) {
-    return { ok: false, error: 'This tile has sub-categories — move those first.' };
+    return { ok: false, error: 'This category has sub-categories — move those first.' };
   }
 
   // Append to the end of the destination folder.
@@ -1519,7 +1358,7 @@ export async function deleteTileWithDestination(
 
   const tile = String(tileId ?? '').trim();
   const dest = String(destinationTileId ?? '').trim();
-  if (!tile) return { ok: false, error: 'Missing tile.' };
+  if (!tile) return { ok: false, error: 'Missing category.' };
 
   const admin = createAdminClient();
   const { data: tileRow } = await admin
@@ -1527,7 +1366,7 @@ export async function deleteTileWithDestination(
     .select('id, tier, label_en, parent_id')
     .eq('id', tile)
     .maybeSingle();
-  if (!tileRow) return { ok: false, error: 'Tile not found.' };
+  if (!tileRow) return { ok: false, error: 'Category not found.' };
   if (tileRow.tier === 1) return { ok: false, error: 'Folders are owner-managed — can’t delete here.' };
 
   // Sub-categories still hard-block (tier-3) — those aren't re-pointable here.
@@ -1536,7 +1375,7 @@ export async function deleteTileWithDestination(
     .select('id', { count: 'exact', head: true })
     .eq('parent_id', tile);
   if ((childCount ?? 0) > 0) {
-    return { ok: false, error: 'This tile has sub-categories — remove those first.' };
+    return { ok: false, error: 'This category has sub-categories — remove those first.' };
   }
 
   const [canonRes, refRes] = await Promise.all([
@@ -1567,17 +1406,17 @@ export async function deleteTileWithDestination(
   if (!dest) {
     return {
       ok: false,
-      error: 'This tile still holds services or refinements — choose a destination tile for them.',
+      error: 'This category still holds services or “what couples choose” cards — choose a destination category for them.',
     };
   }
-  if (dest === tile) return { ok: false, error: 'Pick a different destination tile.' };
+  if (dest === tile) return { ok: false, error: 'Pick a different destination category.' };
   const { data: destRow } = await admin
     .from('service_categories')
     .select('id, parent_id, tier')
     .eq('id', dest)
     .maybeSingle();
   if (!destRow || destRow.tier !== 2 || !destRow.parent_id) {
-    return { ok: false, error: 'Pick a valid destination tile.' };
+    return { ok: false, error: 'Pick a valid destination category.' };
   }
 
   // 1. Re-point canonicals (tile_id + denormalized folder_id → dest's folder).
@@ -1776,7 +1615,7 @@ export async function reorderRefinementLeaves(
 
   const tile = String(tileId ?? '').trim();
   const ordered = (orderedLeafKeys ?? []).map((s) => String(s).trim()).filter(Boolean);
-  if (!tile) return { ok: false, error: 'Missing tile.' };
+  if (!tile) return { ok: false, error: 'Missing category.' };
 
   const admin = createAdminClient();
   const { data: leaves } = await admin
@@ -1784,7 +1623,7 @@ export async function reorderRefinementLeaves(
     .select('leaf_key, sort_order')
     .eq('tile_id', tile);
   const rows = (leaves ?? []) as { leaf_key: string; sort_order: number }[];
-  if (rows.length === 0) return { ok: false, error: 'No refinements anchored to this tile.' };
+  if (rows.length === 0) return { ok: false, error: 'No “what couples choose” cards anchored to this category.' };
 
   const currentIds = rows.map((r) => r.leaf_key);
   const valid = validateReorder(currentIds, ordered);
@@ -1890,8 +1729,8 @@ export async function reorderRefinementOptions(
  * Shared spine for the five leaf-refinement form actions. Loads the schema row,
  * runs the caller's pure mutation, writes `category_specific_attributes` +
  * `schema_version` in one UPDATE, and audits the before/after of just the
- * touched field so the log stays legible. Redirect-back keeps the inspector on
- * the Services tab (`_opentab=services`) so a save re-opens where the admin was.
+ * touched field so the log stays legible. Redirect-back keeps the service's
+ * panel open so a save lands where the admin was.
  */
 async function applyLeafAttributeMutation(
   formData: FormData,
@@ -1948,9 +1787,9 @@ async function applyLeafAttributeMutation(
   revalidatePath(BASE);
   revalidatePath(VENDOR_ATTR_PATH);
   revalidatePath('/explore');
-  redirectBack(formData, 'ok', successMsg(result), {
-    anchor: `t-${String(formData.get('tile_id') ?? '')}`,
-  });
+  // Lands back on the service's own panel (its `_open` field) — the editor
+  // lives there now, not on a category tab.
+  redirectBack(formData, 'ok', successMsg(result));
 }
 
 /**
@@ -2050,17 +1889,6 @@ export async function retireLeafAttributeOptionAction(formData: FormData): Promi
 // couple-facing launch. That separation is intentional.
 // ════════════════════════════════════════════════════════════════════════════
 
-/** Slugify a label into a stable snake_case key (event-type vocab convention:
- *  lowercase letters/numbers/underscores, starts with a letter). */
-function slugifyEventTypeKey(label: string): string {
-  const base = label
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-  return base;
-}
-
 /**
  * Admin: relabel an event-type vocab row (label_en only — the key is permanent).
  * Redirect-back to the Vocabularies → Event types view.
@@ -2096,54 +1924,6 @@ export async function relabelEventTypeVocab(formData: FormData): Promise<never> 
   revalidatePath(BASE);
   revalidatePath('/explore');
   redirectBack(formData, 'ok', `Renamed to "${label}".`);
-}
-
-/**
- * Admin: activate / deactivate an event-type vocab row. Deactivate is SOFT
- * (status → 'retired') — existing `applicable_event_types` arrays keep the key
- * and scoping stays fail-open; it just drops out of the admin scoping pickers.
- * Does NOT touch the couple-side create-event picker (that's the `enabled`
- * launch lever on /admin/event-types) or the events.event_type enum.
- */
-export async function setEventTypeVocabStatus(formData: FormData): Promise<never> {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim();
-  const active = String(formData.get('active') ?? '') === '1';
-  if (!key) redirectBack(formData, 'error', 'Missing event type.');
-  if (key === 'wedding' && !active) {
-    redirectBack(formData, 'error', 'Wedding is the base event type — it stays active.');
-  }
-  const nextStatus = active ? 'active' : 'retired';
-  const admin = createAdminClient();
-  const { data: before } = await admin
-    .from('event_type_vocab')
-    .select('status')
-    .eq('event_type', key)
-    .maybeSingle();
-  if (!before) redirectBack(formData, 'error', 'Event type not found.');
-  if (before.status === nextStatus) redirectBack(formData, 'ok', 'Status unchanged.');
-  const { error } = await admin
-    .from('event_type_vocab')
-    .update({ status: nextStatus, updated_at: new Date().toISOString() })
-    .eq('event_type', key);
-  if (error) redirectBack(formData, 'error', error.message);
-  await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.vocab_event_status',
-    target_table: 'event_type_vocab',
-    target_id: key,
-    before_json: { status: before.status },
-    after_json: { status: nextStatus },
-    actor_user_id: user.id,
-  });
-  revalidatePath(BASE);
-  revalidatePath('/explore');
-  redirectBack(
-    formData,
-    'ok',
-    active
-      ? `"${key}" is active — available for category scoping.`
-      : `"${key}" hidden from scoping pickers (existing scopes keep working).`,
-  );
 }
 
 /**
@@ -2190,54 +1970,6 @@ export async function reorderEventTypeVocab(formData: FormData): Promise<never> 
   redirectBack(formData, 'ok', 'Reordered.');
 }
 
-/**
- * Admin: mint a new event-type vocab row. Key = slugified snake_case from the
- * label, IMMUTABLE once created. Additive-only — this only makes the type
- * available for CATEGORY SCOPING; it does NOT surface a new couple-facing event
- * type (that's the gated Event-Type Engine + the `enabled` lever on
- * /admin/event-types). New rows sort after every existing one.
- */
-export async function createEventTypeVocab(formData: FormData): Promise<never> {
-  const user = await requireAdmin();
-  const label = String(formData.get('label_en') ?? '').trim();
-  if (label.length < 2 || label.length > 80) {
-    redirectBack(formData, 'error', 'Label must be 2–80 characters.');
-  }
-  const key = slugifyEventTypeKey(label);
-  if (!key || !/^[a-z][a-z0-9_]{1,30}$/.test(key)) {
-    redirectBack(formData, 'error', 'Label needs to start with a letter and yield a valid key.');
-  }
-  const admin = createAdminClient();
-  const { data: existing } = await admin
-    .from('event_type_vocab')
-    .select('event_type')
-    .eq('event_type', key)
-    .maybeSingle();
-  if (existing) {
-    redirectBack(formData, 'error', `An event type "${key}" already exists.`);
-  }
-  const { data: last } = await admin
-    .from('event_type_vocab')
-    .select('sort_order')
-    .order('sort_order', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const nextSort = ((last?.sort_order as number | undefined) ?? -1) + 1;
-  const row = { event_type: key, label_en: label, sort_order: nextSort, status: 'active' };
-  const { error } = await admin.from('event_type_vocab').insert(row);
-  if (error) redirectBack(formData, 'error', error.message);
-  await admin.from('admin_audit_log').insert({
-    action: 'taxonomy.vocab_event_create',
-    target_table: 'event_type_vocab',
-    target_id: key,
-    after_json: row,
-    actor_user_id: user.id,
-  });
-  revalidatePath(BASE);
-  revalidatePath('/explore');
-  redirectBack(formData, 'ok', `Added event type "${label}" (${key}) for scoping.`);
-}
-
 // ── Event-type ROSTER grain (couple launch) — folded from /admin/event-types ──
 //
 // The event_type_vocab row carries TWO lifecycle levers, edited from ONE Studio
@@ -2263,16 +1995,74 @@ function revalidateEventTypeRosterSurfaces() {
   revalidatePath('/vendor-dashboard/profile');
 }
 
+/** The three words of an event type's Status ▾, over two columns. */
+const EVENT_TYPE_STATUSES = {
+  picker: { label: 'In the picker', status: 'active', enabled: true },
+  hidden: { label: 'Hidden from couples', status: 'active', enabled: false },
+  retired: { label: 'Retired', status: 'retired', enabled: false },
+} as const;
+type EventTypeStatusWord = keyof typeof EVENT_TYPE_STATUSES;
+
+/**
+ * The merged Status ▾ (owner approval 2026-10-02): ONE word replaces the four
+ * buttons across two grains (Deactivate · Retire · Show in picker · Un-retire).
+ * It writes both columns through the SAME shared cores the four buttons used,
+ * in the order that keeps every intermediate state legal under the
+ * `event_type_vocab_retired_is_hidden` CHECK: un-retire before showing,
+ * retire (which forces enabled=false) in one write. Wedding is locked in the
+ * picker — the cores refuse, and so does the database.
+ */
+export async function setEventTypeStatus(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('event_type') ?? '').trim();
+  const word = String(formData.get('status') ?? '').trim();
+  if (!key) redirectBack(formData, 'error', 'Missing event type.');
+  if (!(word in EVENT_TYPE_STATUSES)) redirectBack(formData, 'error', 'Pick a status.');
+  const want = EVENT_TYPE_STATUSES[word as EventTypeStatusWord];
+  if (key === 'wedding' && word !== 'picker') {
+    redirectBack(formData, 'error', 'Wedding always stays in the picker.');
+  }
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('event_type_vocab')
+    .select('status, enabled, label_en')
+    .eq('event_type', key)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Event type not found.');
+  if (before.status === want.status && before.enabled === want.enabled) {
+    redirectBack(formData, 'ok', `${before.label_en} is already “${want.label}”.`);
+  }
+
+  if (want.status === 'retired') {
+    const res = await retireEventTypeCore(admin, user.id, key);
+    if (!res.ok) redirectBack(formData, 'error', res.error === 'not_found' ? 'Event type not found.' : res.error);
+  } else {
+    if (before.status === 'retired') {
+      const res = await unretireEventTypeCore(admin, user.id, key);
+      if (!res.ok) redirectBack(formData, 'error', res.error === 'not_found' ? 'Event type not found.' : res.error);
+    }
+    if (before.enabled !== want.enabled || before.status === 'retired') {
+      const res = await setEventTypeEnabledCore(admin, user.id, key, want.enabled);
+      if (!res.ok) redirectBack(formData, 'error', res.error === 'not_found' ? 'Event type not found.' : res.error);
+    }
+  }
+  revalidateEventTypeRosterSurfaces();
+  redirectBack(formData, 'ok', `${before.label_en} is now “${want.label}”.`);
+}
+
 /**
  * Studio: create an event type with the FULL roster shape (explicit snake_case
  * key + name + emoji + tagline + sort). Lands status='active', enabled=FALSE.
  * Delegates to the shared core; the legacy /admin/event-types create-form uses
  * the same core. Replaces the label-only scoping quick-add for the Studio bucket
- * so there is ONE add path (createEventTypeVocab stays exported for old POSTs).
+ * so there is ONE add path. A blank key is made from the name (snake_case), so
+ * the page's "+ Add" row needs only the name; the key is permanent either way.
  */
 export async function createEventTypeRoster(formData: FormData): Promise<never> {
   const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim().toLowerCase();
+  const label = String(formData.get('label_en') ?? '').trim();
+  const typedKey = String(formData.get('event_type') ?? '').trim().toLowerCase();
+  const key = typedKey || slugify(label, '_').slice(0, 31);
   const admin = createAdminClient();
   const res = await createEventTypeCore(admin, user.id, {
     key,
@@ -2291,7 +2081,8 @@ export async function createEventTypeRoster(formData: FormData): Promise<never> 
   redirectBack(
     formData,
     'ok',
-    `${res.data.label} created. It stays out of the couple picker until you turn on "Show in picker".`,
+    `${res.data.label} created. It stays hidden from couples until its Status is “In the picker”.`,
+    { open: res.data.key },
   );
 }
 
@@ -2319,68 +2110,6 @@ export async function updateEventTypePresentation(formData: FormData): Promise<n
   }
   revalidateEventTypeRosterSurfaces();
   redirectBack(formData, 'ok', `${res.data.label} saved.`);
-}
-
-/**
- * Studio: the couple-launch lever — show/hide a type in the create-event picker
- * (`event_type_vocab.enabled`). Independent of active/retired. Delegates to the
- * shared core.
- */
-export async function setEventTypeLaunch(formData: FormData): Promise<never> {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim();
-  const enable = String(formData.get('enabled') ?? '') === '1';
-  const admin = createAdminClient();
-  const res = await setEventTypeEnabledCore(admin, user.id, key, enable);
-  if (!res.ok) {
-    if (res.error === 'not_found') redirectBack(formData, 'error', 'Event type not found.');
-    redirectBack(formData, 'error', res.error);
-  }
-  revalidateEventTypeRosterSurfaces();
-  redirectBack(
-    formData,
-    'ok',
-    enable
-      ? `${res.data.label} is now live in the create-event picker.`
-      : `${res.data.label} is hidden from the create-event picker. Existing events keep working.`,
-  );
-}
-
-/**
- * Studio: retire an event type (status → 'retired', forces enabled=false). It
- * leaves every picker + vendor checkbox + marketplace filter; existing events
- * keep working. Wedding can't be retired. Delegates to the shared core. This is
- * the launch-grain framing of the same `status` column the scoping-grain
- * "Deactivate" (setEventTypeVocabStatus) writes.
- */
-export async function retireEventTypeVocab(formData: FormData): Promise<never> {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim();
-  const admin = createAdminClient();
-  const res = await retireEventTypeCore(admin, user.id, key);
-  if (!res.ok) {
-    if (res.error === 'not_found') redirectBack(formData, 'error', 'Event type not found.');
-    redirectBack(formData, 'error', res.error);
-  }
-  revalidateEventTypeRosterSurfaces();
-  redirectBack(formData, 'ok', `${res.data.label} retired. Existing events keep working; nobody can pick it for new events.`);
-}
-
-/**
- * Studio: reverse a retirement (status → 'active'; picker visibility stays a
- * separate "Show in picker" flip). Delegates to the shared core.
- */
-export async function unretireEventTypeVocab(formData: FormData): Promise<never> {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim();
-  const admin = createAdminClient();
-  const res = await unretireEventTypeCore(admin, user.id, key);
-  if (!res.ok) {
-    if (res.error === 'not_found') redirectBack(formData, 'error', 'Event type not found.');
-    redirectBack(formData, 'error', res.error);
-  }
-  revalidateEventTypeRosterSurfaces();
-  redirectBack(formData, 'ok', `${res.data.label} is active again. Flip "Show in picker" when you’re ready to relaunch it.`);
 }
 
 // ── Faith vocabulary ─────────────────────────────────────────────────────────
@@ -2534,6 +2263,65 @@ export async function reorderFaithVocab(formData: FormData): Promise<never> {
 }
 
 /**
+ * Admin: which event types ask "Which religion?" and offer this one
+ * (`faith_vocab.asked_on_event_types`, migration 20271260148112). Set HERE
+ * only — the event type panel shows the result read-only. An empty pick is a
+ * real answer (asked nowhere) and is stored as an empty list; NULL, the value
+ * every religion starts with, means wedding only. Only ACTIVE event types are
+ * accepted (the DB trigger agrees).
+ */
+export async function setFaithAskedOn(formData: FormData): Promise<never> {
+  const user = await requireAdmin();
+  const key = String(formData.get('faith_key') ?? '').trim();
+  if (!key) redirectBack(formData, 'error', 'Missing religion.');
+  const selected = Array.from(
+    new Set(
+      formData
+        .getAll('event_types')
+        .map((v) => String(v).trim())
+        .filter(Boolean),
+    ),
+  );
+  const admin = createAdminClient();
+  const { data: before } = await admin
+    .from('faith_vocab')
+    .select('faith_key, label_en, asked_on_event_types')
+    .eq('faith_key', key)
+    .maybeSingle();
+  if (!before) redirectBack(formData, 'error', 'Religion not found.');
+  if (selected.length > 0) {
+    const { data: vocab } = await admin.from('event_type_vocab').select('event_type').eq('status', 'active');
+    const valid = new Set((vocab ?? []).map((v) => v.event_type as string));
+    const unknown = selected.filter((t) => !valid.has(t));
+    if (unknown.length > 0) {
+      redirectBack(formData, 'error', 'Unknown event type(s): ' + unknown.join(', '));
+    }
+  }
+  const next = selected.sort();
+  const { error } = await admin
+    .from('faith_vocab')
+    .update({ asked_on_event_types: next, updated_at: new Date().toISOString() })
+    .eq('faith_key', key);
+  if (error) redirectBack(formData, 'error', error.message);
+  await admin.from('admin_audit_log').insert({
+    action: 'taxonomy.vocab_faith_asked_on',
+    target_table: 'faith_vocab',
+    target_id: key,
+    before_json: { asked_on_event_types: before.asked_on_event_types ?? null },
+    after_json: { asked_on_event_types: next },
+    actor_user_id: user.id,
+  });
+  revalidatePath(BASE);
+  redirectBack(
+    formData,
+    'ok',
+    next.length === 0
+      ? `${before.label_en} is no longer asked on any event type.`
+      : `${before.label_en} is asked on ${next.length} event type${next.length === 1 ? '' : 's'}.`,
+  );
+}
+
+/**
  * Admin: mint a new faith vocab row. The Title-Case key is derived from the
  * label (acronyms preserved) and is IMMUTABLE. Additive-only. A matching
  * launch-gate row (region 'all', status 'coming_soon') is seeded so the new
@@ -2561,7 +2349,13 @@ export async function createFaithVocab(formData: FormData): Promise<never> {
     .limit(1)
     .maybeSingle();
   const nextSort = ((last?.sort_order as number | undefined) ?? -1) + 1;
-  const row = { faith_key: key, label_en: label, sort_order: nextSort, status: 'active', is_civil: false };
+  const row = {
+    faith_key: key,
+    label_en: label,
+    sort_order: nextSort,
+    status: 'active',
+    is_civil: false,
+  };
   const { error } = await admin.from('faith_vocab').insert(row);
   if (error) redirectBack(formData, 'error', error.message);
 
@@ -2584,7 +2378,7 @@ export async function createFaithVocab(formData: FormData): Promise<never> {
   });
   revalidatePath(BASE);
   revalidatePath('/explore');
-  redirectBack(formData, 'ok', `Added faith "${label}" (${key}). Gate it live from its readiness panel.`);
+  redirectBack(formData, 'ok', `${label} added — Coming soon until it is ready.`, { open: key });
 }
 
 // ── Faith launch gate (folded from /admin/wedding-types) ─────────────────────
@@ -2733,7 +2527,7 @@ export async function setServiceSecondaryTiles(formData: FormData): Promise<neve
   const cleaned = selected.filter((t) => t !== homeTile);
   const unknown = cleaned.filter((t) => !validTiles.has(t));
   if (unknown.length > 0) {
-    redirectBack(formData, 'error', 'Unknown tile(s): ' + unknown.join(', '));
+    redirectBack(formData, 'error', 'Unknown category(s): ' + unknown.join(', '));
   }
   const next = cleaned.length > 0 ? cleaned.sort() : null;
 

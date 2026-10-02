@@ -6,6 +6,8 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { WEDDING_TRADITIONS_GUIDE } from '@/lib/wedding-traditions';
+import { FAITH_KEY_TUPLE } from '@/lib/faith-registry';
+import { CATEGORIES_PATH, backHref } from './_components/back';
 
 /**
  * Admin CRUD for the per-religion wedding traditions content
@@ -13,7 +15,17 @@ import { WEDDING_TRADITIONS_GUIDE } from '@/lib/wedding-traditions';
  * expect" guide reads these rows when present, else the code defaults. Mirrors
  * the console admin-auth gate; the table RLS (`public.is_admin()`) is the
  * server-side backstop.
+ *
+ * Moved 2026-10-02 from /admin/wedding-traditions/actions.ts: "What to expect"
+ * is now a section of each religion's panel on "Categories & event types"
+ * (the Traditions tab in /admin/ugat is gone). Every save lands back on that
+ * religion's panel.
  */
+
+function done(formData: FormData, msg: string): never {
+  revalidatePath(CATEGORIES_PATH);
+  redirect(backHref(formData, 'ok', msg, { list: 'religions' }));
+}
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -32,9 +44,13 @@ async function requireAdmin() {
   return user.id;
 }
 
-const CEREMONY_TYPES = [
-  'catholic', 'civil', 'inc', 'christian', 'muslim', 'cultural', 'chinese', 'mixed',
-] as const;
+/**
+ * Every religion the page lists (the 16 registry faiths + civil = 17) plus
+ * mixed-faith couples — the same set the table's ceremony_type CHECK has
+ * admitted since 20261120000000. This list used to stop at the first 8, so
+ * the other 9 religions could not be given "What to expect" items at all.
+ */
+const CEREMONY_TYPES: readonly string[] = [...FAITH_KEY_TUPLE, 'civil', 'mixed'];
 const DIMENSIONS = ['officiant', 'ceremonial', 'food', 'custom', 'paperwork'] as const;
 
 export async function upsertTraditionItem(formData: FormData) {
@@ -49,7 +65,7 @@ export async function upsertTraditionItem(formData: FormData) {
   const isActive = String(formData.get('is_active') ?? 'true') === 'true';
 
   if (
-    !CEREMONY_TYPES.includes(ceremonyType as (typeof CEREMONY_TYPES)[number]) ||
+    !CEREMONY_TYPES.includes(ceremonyType) ||
     !DIMENSIONS.includes(dimension as (typeof DIMENSIONS)[number]) ||
     !label
   ) {
@@ -77,7 +93,7 @@ export async function upsertTraditionItem(formData: FormData) {
     const { error } = await admin.from('wedding_tradition_items').insert(patch);
     if (error) throw new Error(error.message);
   }
-  revalidatePath('/admin/ugat');
+  done(formData, itemId ? 'Saved.' : 'Item added.');
 }
 
 export async function deleteTraditionItem(formData: FormData) {
@@ -90,7 +106,7 @@ export async function deleteTraditionItem(formData: FormData) {
     .delete()
     .eq('item_id', itemId);
   if (error) throw new Error(error.message);
-  revalidatePath('/admin/ugat');
+  done(formData, 'Item removed.');
 }
 
 /**
@@ -98,7 +114,7 @@ export async function deleteTraditionItem(formData: FormData) {
  * religion that has NO rows yet. Idempotent + non-destructive — religions you've
  * already edited are skipped, so re-running never clobbers your edits.
  */
-export async function seedTraditionsFromDefaults() {
+export async function seedTraditionsFromDefaults(formData: FormData) {
   await requireAdmin();
   const admin = createAdminClient();
   const { data: existing } = await admin
@@ -124,7 +140,7 @@ export async function seedTraditionsFromDefaults() {
     const { error } = await admin.from('wedding_tradition_items').insert(rows);
     if (error) throw new Error(error.message);
   }
-  revalidatePath('/admin/ugat');
+  done(formData, 'Starter content loaded — every religion without items now has them to edit.');
 }
 
 /**
@@ -134,7 +150,7 @@ export async function seedTraditionsFromDefaults() {
  * religions at once. Distinct from seedTraditionsFromDefaults (which only fills
  * religions that have no rows).
  */
-export async function resetTraditionsToDefaults() {
+export async function resetTraditionsToDefaults(formData: FormData) {
   await requireAdmin();
   const admin = createAdminClient();
 
@@ -166,5 +182,5 @@ export async function resetTraditionsToDefaults() {
     const { error: insErr } = await admin.from('wedding_tradition_items').insert(rows);
     if (insErr) throw new Error(insErr.message);
   }
-  revalidatePath('/admin/ugat');
+  done(formData, 'Every religion is back to the latest starter content.');
 }

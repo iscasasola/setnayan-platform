@@ -88,7 +88,7 @@ export const routes = {
     socialQueue: () => `/admin/social-queue`,
     songs: () => `/admin/songs`,
     subscriptions: () => `/admin/subscriptions`,
-    taxonomy: () => `/admin/taxonomy`,
+    taxonomy: () => `/admin/categories`,
     // Ugat entity map — the live console, standalone under the Ugat Studio
     // (remounted from /admin/ugat when the studio took the hub path 2026-07-10).
     ugatMap: () => `/admin/ugat/map`,
@@ -107,7 +107,7 @@ export const routes = {
     },
     verify: () => `/admin/verify`,
     website: () => `/admin/website`,
-    weddingTraditions: () => `/admin/ugat?tab=wedding-traditions`,
+    weddingTraditions: () => `/admin/categories?list=religions`,
     // weddingTypes REMOVED 2026-07-03 — /admin/wedding-types retired to a
     // redirect(/admin/taxonomy?view=vocab-faith); the faith launch gate now lives
     // in the Taxonomy Studio Vocabularies rail.

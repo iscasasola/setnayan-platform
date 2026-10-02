@@ -170,14 +170,14 @@ export const routeMeta = {
     socialQueue: { icon: Share2, label: 'Social queue' },
     songs: { icon: Music, label: 'Songs' },
     subscriptions: { icon: RefreshCw, label: 'Subscriptions' },
-    taxonomy: { icon: Tag, label: 'Taxonomy' },
+    taxonomy: { icon: Tag, label: 'Categories & event types' },
     userReports: { icon: MessageSquareWarning, label: 'User reports' },
     users: { icon: Users, label: 'Users' },
     vendors: { icon: Briefcase, label: 'Suppliers' },
     venues: { icon: MapPin, label: 'Venues' },
     verify: { icon: BadgeCheck, label: 'Verify' },
     website: { icon: Globe, label: 'Website' },
-    weddingTraditions: { icon: BookOpen, label: 'Wedding traditions' },
+    weddingTraditions: { icon: BookOpen, label: 'What to expect' },
     // weddingTypes REMOVED 2026-07-03 — /admin/wedding-types retired to a
     // redirect(/admin/taxonomy?view=vocab-faith); folded into the Taxonomy Studio.
     work: { icon: ListChecks, label: 'Work' },

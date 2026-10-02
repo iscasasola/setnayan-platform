@@ -43,14 +43,12 @@ import {
   resolveCategoryRequest,
   setCategoryHidden,
   setCategoryIcon,
-  setEventTypeLaunch,
-  setEventTypeVocabStatus,
+  setEventTypeStatus,
   setFaithLaunchStatus,
   setFaithLaunchThreshold,
   setFaithVocabStatus,
   setServiceFaith,
   setServiceFlag,
-  unretireEventTypeVocab,
   updateEventTypePresentation,
 } from '../actions';
 import type {
@@ -71,9 +69,7 @@ type FormAction = (formData: FormData) => void | Promise<void> | Promise<never>;
  */
 export const PREPARED_JOB_ACTIONS: Record<string, FormAction> = {
   relabelEventTypeVocab,
-  setEventTypeVocabStatus,
-  setEventTypeLaunch,
-  unretireEventTypeVocab,
+  setEventTypeStatus,
   reorderEventTypeVocab,
   updateEventTypePresentation,
   createEventTypeRoster,

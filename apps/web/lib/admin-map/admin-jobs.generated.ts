@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 321 jobs, 206 of them form-driven, as of 67598d1952.
+// that performs it. 317 jobs, 202 of them form-driven, as of 71c39c259.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -72,8 +72,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "addLeafAttributeFieldAction",
     "phrase": "add leaf attribute field",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "field_label",
       "field_type",
@@ -85,8 +85,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "addLeafAttributeOptionAction",
     "phrase": "add leaf attribute option",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "field_key",
       "option_label"
@@ -115,12 +115,24 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "addRefinementOption",
     "phrase": "add refinement option",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "label_en",
       "emoji",
       "photo_url"
+    ],
+    "refusedWhenEmpty": [],
+    "destructive": false
+  },
+  {
+    "name": "addTradeAlias",
+    "phrase": "add trade alias",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "canonical_service",
+      "phrase"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -382,8 +394,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "approveTradeAlias",
     "phrase": "approve trade alias",
-    "ownerPath": "/admin/taxonomy/aliases",
-    "resolvedPath": "/admin/taxonomy/aliases",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "id"
     ],
@@ -507,8 +519,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "clearLastMinuteStart",
     "phrase": "clear last minute start",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "ref_key"
     ],
@@ -630,13 +642,14 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "createCanonicalLeaf",
     "phrase": "create canonical leaf",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "tile_id",
       "display_name_en",
       "is_rental",
       "is_ph",
+      "is_tradition",
       "faith",
       "refinement_label",
       "refinement_options"
@@ -667,11 +680,11 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "createEventTypeRoster",
     "phrase": "create event type roster",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
-      "event_type",
       "label_en",
+      "event_type",
       "emoji",
       "description",
       "sort_order"
@@ -680,23 +693,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "createEventTypeVocab",
-    "phrase": "create event type vocab",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
-    "fields": [
-      "label_en"
-    ],
-    "refusedWhenEmpty": [
-      "label_en"
-    ],
-    "destructive": false
-  },
-  {
     "name": "createFaithVocab",
     "phrase": "create faith vocab",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "label_en"
     ],
@@ -742,8 +742,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "createTaxonomyNode",
     "phrase": "create taxonomy node",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "parent_id",
       "label_en"
@@ -843,23 +843,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": true
   },
   {
-    "name": "deleteTaxonomyNode",
-    "phrase": "delete taxonomy node",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
-    "fields": [
-      "id"
-    ],
-    "refusedWhenEmpty": [
-      "id"
-    ],
-    "destructive": true
-  },
-  {
     "name": "deleteTileWithDestination",
     "phrase": "delete tile with destination",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": true
@@ -867,8 +854,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "deleteTraditionItem",
     "phrase": "delete tradition item",
-    "ownerPath": "/admin/wedding-traditions",
-    "resolvedPath": "/admin/wedding-traditions",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "item_id"
     ],
@@ -1244,8 +1231,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "mapCategoryRequest",
     "phrase": "map category request",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "request_id",
       "mapped_to_canonical"
@@ -1316,8 +1303,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "mergeCanonicalService",
     "phrase": "merge canonical service",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1338,24 +1325,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "moveTaxonomyNode",
-    "phrase": "move taxonomy node",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
-    "fields": [
-      "id",
-      "direction"
-    ],
-    "refusedWhenEmpty": [
-      "id"
-    ],
-    "destructive": false
-  },
-  {
     "name": "moveTileToFolder",
     "phrase": "move tile to folder",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1393,8 +1366,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "promoteCategoryRequest",
     "phrase": "promote category request",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "request_id",
       "tile_id",
@@ -1646,8 +1619,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "rejectTradeAlias",
     "phrase": "reject trade alias",
-    "ownerPath": "/admin/taxonomy/aliases",
-    "resolvedPath": "/admin/taxonomy/aliases",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "id"
     ],
@@ -1666,8 +1639,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "relabelEventTypeVocab",
     "phrase": "relabel event type vocab",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type",
       "label_en"
@@ -1681,8 +1654,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "relabelFaithVocab",
     "phrase": "relabel faith vocab",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "faith_key",
       "label_en"
@@ -1696,8 +1669,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "relabelLeafAttributeFieldAction",
     "phrase": "relabel leaf attribute field",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "field_key",
       "field_label"
@@ -1731,12 +1704,13 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "remapCanonical",
     "phrase": "remap canonical",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "canonical_service",
       "tile_id",
-      "_view"
+      "_show",
+      "_open"
     ],
     "refusedWhenEmpty": [
       "canonical_service",
@@ -1810,8 +1784,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "removeRefinementOption",
     "phrase": "remove refinement option",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": true
@@ -1839,13 +1813,30 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": true
   },
   {
+    "name": "renameCanonicalService",
+    "phrase": "rename canonical service",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "canonical_service",
+      "display_name_en",
+      "display_name_tl"
+    ],
+    "refusedWhenEmpty": [
+      "canonical_service",
+      "display_name_en"
+    ],
+    "destructive": false
+  },
+  {
     "name": "renameTaxonomyNode",
     "phrase": "rename taxonomy node",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "id",
-      "label_en"
+      "label_en",
+      "label_short"
     ],
     "refusedWhenEmpty": [
       "id",
@@ -1856,8 +1847,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "reorderCategories",
     "phrase": "reorder categories",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1865,8 +1856,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "reorderEventTypeVocab",
     "phrase": "reorder event type vocab",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type",
       "dir"
@@ -1879,8 +1870,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "reorderFaithVocab",
     "phrase": "reorder faith vocab",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "faith_key",
       "dir"
@@ -1893,8 +1884,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "reorderRefinementLeaves",
     "phrase": "reorder refinement leaves",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1902,8 +1893,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "reorderRefinementOptions",
     "phrase": "reorder refinement options",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -1996,8 +1987,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "resetOnboardingSpec",
     "phrase": "reset onboarding spec",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type"
     ],
@@ -2016,8 +2007,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "resetTraditionsToDefaults",
     "phrase": "reset traditions to defaults",
-    "ownerPath": "/admin/wedding-traditions",
-    "resolvedPath": "/admin/wedding-traditions",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2045,8 +2036,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "resolveCategoryRequest",
     "phrase": "resolve category request",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "request_id",
       "outcome",
@@ -2196,21 +2187,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": true
   },
   {
-    "name": "retireEventTypeVocab",
-    "phrase": "retire event type vocab",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
-    "fields": [
-      "event_type"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": true
-  },
-  {
     "name": "retireLeafAttributeFieldAction",
     "phrase": "retire leaf attribute field",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "field_key",
       "retired"
@@ -2221,8 +2201,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "retireLeafAttributeOptionAction",
     "phrase": "retire leaf attribute option",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "field_key",
       "option",
@@ -2695,8 +2675,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "seedTraditionsFromDefaults",
     "phrase": "seed traditions from defaults",
-    "ownerPath": "/admin/wedding-traditions",
-    "resolvedPath": "/admin/wedding-traditions",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -2736,23 +2716,10 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "setCategoryEventTypes",
-    "phrase": "set category event types",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
-    "fields": [
-      "category_id"
-    ],
-    "refusedWhenEmpty": [
-      "category_id"
-    ],
-    "destructive": false
-  },
-  {
     "name": "setCategoryHidden",
     "phrase": "set category hidden",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "category_id",
       "hidden"
@@ -2765,8 +2732,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setCategoryIcon",
     "phrase": "set category icon",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "category_id",
       "icon_name"
@@ -2779,8 +2746,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setCategoryPhoto",
     "phrase": "set category photo",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "category_id",
       "photo_ref"
@@ -2902,37 +2869,37 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "setEventTypeLaunch",
-    "phrase": "set event type launch",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "name": "setEventTypeStatus",
+    "phrase": "set event type status",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type",
-      "enabled"
+      "status"
     ],
-    "refusedWhenEmpty": [],
+    "refusedWhenEmpty": [
+      "event_type"
+    ],
     "destructive": false
   },
   {
-    "name": "setEventTypeVocabStatus",
-    "phrase": "set event type vocab status",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "name": "setFaithAskedOn",
+    "phrase": "set faith asked on",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
-      "event_type",
-      "active"
+      "faith_key"
     ],
     "refusedWhenEmpty": [
-      "event_type",
-      "active"
+      "faith_key"
     ],
     "destructive": false
   },
   {
     "name": "setFaithLaunchStatus",
     "phrase": "set faith launch status",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "faith_key",
       "status"
@@ -2945,8 +2912,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setFaithLaunchThreshold",
     "phrase": "set faith launch threshold",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "faith_key",
       "threshold"
@@ -2959,8 +2926,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setFaithVocabStatus",
     "phrase": "set faith vocab status",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "faith_key",
       "active"
@@ -2973,29 +2940,14 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setFolderEventTypeOffered",
     "phrase": "set folder event type offered",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type",
       "folder_id",
       "offered"
     ],
     "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "setFolderEventTypes",
-    "phrase": "set folder event types",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
-    "fields": [
-      "parent_id",
-      "confirm_overwrite",
-      "scope_mode"
-    ],
-    "refusedWhenEmpty": [
-      "parent_id"
-    ],
     "destructive": false
   },
   {
@@ -3028,8 +2980,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setLastMinuteStart",
     "phrase": "set last minute start",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "ref_key",
       "label",
@@ -3095,10 +3047,23 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
+    "name": "setServiceEventTypes",
+    "phrase": "set service event types",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
+    "fields": [
+      "canonical_service"
+    ],
+    "refusedWhenEmpty": [
+      "canonical_service"
+    ],
+    "destructive": false
+  },
+  {
     "name": "setServiceFaith",
     "phrase": "set service faith",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "canonical_service",
       "faith"
@@ -3111,8 +3076,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setServiceFlag",
     "phrase": "set service flag",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "canonical_service",
       "flag",
@@ -3126,8 +3091,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setServiceSecondaryTiles",
     "phrase": "set service secondary tiles",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "canonical_service"
     ],
@@ -3222,8 +3187,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "setTileEventTypeOffered",
     "phrase": "set tile event type offered",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type",
       "tile_id",
@@ -3430,17 +3395,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "unretireEventTypeVocab",
-    "phrase": "unretire event type vocab",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
-    "fields": [
-      "event_type"
-    ],
-    "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
     "name": "unsuspendVendor",
     "phrase": "unsuspend vendor",
     "ownerPath": "/admin/fraud",
@@ -3454,8 +3408,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "unteachTradeAlias",
     "phrase": "unteach trade alias",
-    "ownerPath": "/admin/taxonomy/aliases",
-    "resolvedPath": "/admin/taxonomy/aliases",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "id"
     ],
@@ -3526,8 +3480,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "updateEventTypePresentation",
     "phrase": "update event type presentation",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type",
       "label_en",
@@ -3572,8 +3526,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "updatePlanningDeadline",
     "phrase": "update planning deadline",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "deadline_id",
       "offset_value",
@@ -3616,8 +3570,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "updateRefinementLeaf",
     "phrase": "update refinement leaf",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "label_en",
       "description_en",
@@ -3631,8 +3585,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "updateRefinementOption",
     "phrase": "update refinement option",
-    "ownerPath": "/admin/taxonomy",
-    "resolvedPath": "/admin/taxonomy",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "emoji",
       "label_en",
@@ -3745,8 +3699,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "upsertEventTypeProfile",
     "phrase": "upsert event type profile",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type",
       "organizer_noun",
@@ -3759,7 +3713,9 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "event_word",
       "vip_tier_label",
       "onboarding_flow_key",
-      "role_set_key"
+      "role_set_key",
+      "marketplace_enabled_shown",
+      "marketplace_enabled"
     ],
     "refusedWhenEmpty": [],
     "destructive": false
@@ -3767,8 +3723,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "upsertOnboardingSpec",
     "phrase": "upsert onboarding spec",
-    "ownerPath": "/admin/event-types",
-    "resolvedPath": "/admin/event-types",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "event_type",
       "spec_json"
@@ -3779,8 +3735,8 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
   {
     "name": "upsertTraditionItem",
     "phrase": "upsert tradition item",
-    "ownerPath": "/admin/wedding-traditions",
-    "resolvedPath": "/admin/wedding-traditions",
+    "ownerPath": "/admin/categories",
+    "resolvedPath": "/admin/categories",
     "fields": [
       "item_id",
       "ceremony_type",

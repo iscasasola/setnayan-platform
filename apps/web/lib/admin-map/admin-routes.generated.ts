@@ -2,8 +2,8 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:map
 //
 // Every place inside /admin a person can land, scanned from the route tree.
-// 99 destinations (60 real pages, 39 redirect stubs)
-// as of 67598d1952. admin-map-is-generated.test.ts fails if this drifts from the tree.
+// 95 destinations (59 real pages, 36 redirect stubs)
+// as of 71c39c259. admin-map-is-generated.test.ts fails if this drifts from the tree.
 
 import type { AdminRoute } from './scan-admin-routes';
 
@@ -64,6 +64,12 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
   },
   {
     "path": "/admin/budget-planner",
+    "kind": "page",
+    "redirectsTo": null,
+    "inMenuSource": true
+  },
+  {
+    "path": "/admin/categories",
     "kind": "page",
     "redirectsTo": null,
     "inMenuSource": true
@@ -175,12 +181,6 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "kind": "page",
     "redirectsTo": null,
     "inMenuSource": true
-  },
-  {
-    "path": "/admin/event-types",
-    "kind": "redirect",
-    "redirectsTo": "/admin/taxonomy?view=vocab-event",
-    "inMenuSource": false
   },
   {
     "path": "/admin/events",
@@ -495,18 +495,6 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "inMenuSource": true
   },
   {
-    "path": "/admin/taxonomy",
-    "kind": "page",
-    "redirectsTo": null,
-    "inMenuSource": true
-  },
-  {
-    "path": "/admin/taxonomy/aliases",
-    "kind": "page",
-    "redirectsTo": null,
-    "inMenuSource": false
-  },
-  {
     "path": "/admin/ugat",
     "kind": "page",
     "redirectsTo": null,
@@ -583,18 +571,6 @@ export const ADMIN_ROUTES: readonly AdminRoute[] = [
     "kind": "page",
     "redirectsTo": null,
     "inMenuSource": true
-  },
-  {
-    "path": "/admin/wedding-traditions",
-    "kind": "redirect",
-    "redirectsTo": "/admin/ugat?tab=wedding-traditions",
-    "inMenuSource": true
-  },
-  {
-    "path": "/admin/wedding-types",
-    "kind": "redirect",
-    "redirectsTo": "/admin/taxonomy?view=vocab-faith",
-    "inMenuSource": false
   },
   {
     "path": "/admin/work",

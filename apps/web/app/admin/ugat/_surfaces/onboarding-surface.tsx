@@ -160,16 +160,16 @@ export async function OnboardingSurface({ searchParams }: Props) {
               sub="The recommended song list in the song step"
             />
             <RelatedLink
-              href="/admin/taxonomy"
+              href="/admin/categories"
               icon={<Sparkles className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
-              label="Refinements"
-              sub="Now in the Taxonomy Studio — per-category facets + sample photos"
+              label="What couples choose"
+              sub="On each category in Categories & event types"
             />
             <RelatedLink
-              href="/admin/taxonomy?view=vocab-faith"
+              href="/admin/categories?list=religions"
               icon={<Church className="h-4 w-4" strokeWidth={1.75} aria-hidden />}
-              label="Wedding types"
-              sub="Now in the Taxonomy Studio — faith launch gate + readiness"
+              label="Religions"
+              sub="Status for couples and readiness, in Categories & event types"
             />
           </div>
         </div>

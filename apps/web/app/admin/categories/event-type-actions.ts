@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { CATEGORIES_PATH, backHref } from './_components/back';
 import {
   isCelebrantShape,
   surfacesStrandedWithoutWebsite,
@@ -12,16 +13,16 @@ import {
 } from '@/lib/event-type-profile';
 
 /**
- * Setnayan HQ · Event Types actions — CRUD over `event_type_vocab`, the
- * single source for the event-type roster (2026-06-13 cutover).
+ * Setnayan HQ · Event type panel actions — the per-type category scoping,
+ * profile and onboarding content of one event type.
  *
- * ⚠ The standalone /admin/event-types roster page was FOLDED into the Taxonomy
- * Studio's Vocabularies → Event types bucket (Taxonomy Studio PR 7) and now
- * redirect()s to /admin/taxonomy?view=vocab-event. The roster-level actions
- * (create / update / enable / retire / unretire) were REMOVED 2026-10-02 (zero
- * callers); the roster edits live in the Studio, which calls the shared cores
- * in lib/event-types-mutations.ts. The per-type category-scoping / profile / onboarding actions (further down)
- * still back their focused sub-editor pages, reached from the Studio bucket.
+ * Moved 2026-10-02 from /admin/event-types/actions.ts into the one admin page
+ * "Categories & event types" (/admin/categories?list=event-types). The three
+ * per-type pages they used to serve (categories · profile · onboarding) are
+ * now sections of the event type's panel; the old addresses forward through
+ * lib/legacy-redirects.ts. The roster edits (name, status, order, picker card)
+ * live in ./actions.ts beside them and call the shared cores in
+ * lib/event-types-mutations.ts.
  *
  * The roster fans out with zero deploys: the create-event picker + the
  * EventSwitcher add-event sheet read enabled+active rows; the vendor
@@ -36,7 +37,7 @@ import {
  * with ?ok=/?error= + #row anchors.
  */
 
-const BASE = '/admin/event-types';
+const BASE = CATEGORIES_PATH;
 
 /** Vocab keys: lowercase snake, 3–31 chars, must start with a letter. */
 const KEY_RE = /^[a-z][a-z0-9_]{2,30}$/;
@@ -48,9 +49,11 @@ function redirectBack(
   anchor?: string,
 ): never {
   const p = new URLSearchParams();
+  p.set('list', 'event-types');
   p.set(kind, msg);
   const a = (anchor ?? '').replace(SAFE_ANCHOR, '').slice(0, 80);
-  redirect(`${BASE}?${p.toString()}${a ? `#et-${a}` : ''}`);
+  if (a) p.set('open', a);
+  redirect(`${BASE}?${p.toString()}`);
 }
 
 /**
@@ -81,7 +84,6 @@ function revalidateRosterSurfaces() {
   revalidatePath('/dashboard/create-event');
   revalidatePath('/explore');
   revalidatePath('/vendor-dashboard/profile');
-  revalidatePath('/admin/taxonomy');
 }
 
 function cleanOptional(raw: FormDataEntryValue | null, max = 300): string | null {
@@ -102,10 +104,8 @@ function cleanOptional(raw: FormDataEntryValue | null, max = 300): string | null
  * read, so the change is live everywhere at once.
  * ════════════════════════════════════════════════════════════════════════ */
 
-function scopedRedirect(eventType: string, kind: 'ok' | 'error', msg: string): never {
-  const p = new URLSearchParams();
-  p.set(kind, msg);
-  redirect(`${BASE}/${eventType}/categories?${p.toString()}`);
+function scopedRedirect(formData: FormData, eventType: string, kind: 'ok' | 'error', msg: string): never {
+  redirect(backHref(formData, kind, msg, { list: 'event-types', open: eventType }));
 }
 
 /** The active event-type keys — the universe used to (a) normalize "serves all
@@ -170,7 +170,7 @@ export async function setTileEventTypeOffered(formData: FormData) {
     .eq('id', tileId)
     .eq('tier', 2)
     .maybeSingle();
-  if (!tile) scopedRedirect(eventType, 'error', 'Category not found.');
+  if (!tile) scopedRedirect(formData, eventType, 'error', 'Category not found.');
 
   const activeTypes = await activeEventTypeKeys(admin);
   const before = (tile.applicable_event_types as string[] | null) ?? null;
@@ -180,7 +180,7 @@ export async function setTileEventTypeOffered(formData: FormData) {
     .from('service_categories')
     .update({ applicable_event_types: next })
     .eq('id', tileId);
-  if (error) scopedRedirect(eventType, 'error', error.message);
+  if (error) scopedRedirect(formData, eventType, 'error', error.message);
 
   await admin.from('admin_audit_log').insert({
     action: 'event_types.scope_tile',
@@ -191,8 +191,8 @@ export async function setTileEventTypeOffered(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidateRosterSurfaces();
-  revalidatePath(`${BASE}/${eventType}/categories`);
   scopedRedirect(
+    formData,
     eventType,
     'ok',
     `${tile.label_en} is now ${offered ? 'offered to' : 'hidden from'} this event.`,
@@ -216,7 +216,7 @@ export async function setFolderEventTypeOffered(formData: FormData) {
     .eq('tier', 2)
     .eq('parent_id', folderId);
   const rows = (tiles ?? []) as { id: string; applicable_event_types: string[] | null }[];
-  if (rows.length === 0) scopedRedirect(eventType, 'error', 'No categories in that section.');
+  if (rows.length === 0) scopedRedirect(formData, eventType, 'error', 'No categories in that section.');
 
   const activeTypes = await activeEventTypeKeys(admin);
   let changed = 0;
@@ -244,8 +244,8 @@ export async function setFolderEventTypeOffered(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidateRosterSurfaces();
-  revalidatePath(`${BASE}/${eventType}/categories`);
   scopedRedirect(
+    formData,
     eventType,
     'ok',
     `${changed} ${changed === 1 ? 'category' : 'categories'} ${offered ? 'offered to' : 'hidden from'} this event.`,
@@ -268,10 +268,8 @@ const PROFILE_SURFACES = [
   'gallery',
 ] as const;
 
-function profileRedirect(eventType: string, kind: 'ok' | 'error', msg: string): never {
-  const p = new URLSearchParams();
-  p.set(kind, msg);
-  redirect(`${BASE}/${eventType}/profile?${p.toString()}`);
+function profileRedirect(formData: FormData, eventType: string, kind: 'ok' | 'error', msg: string): never {
+  redirect(backHref(formData, kind, msg, { list: 'event-types', open: eventType }));
 }
 
 /**
@@ -289,7 +287,7 @@ export async function upsertEventTypeProfile(formData: FormData) {
     .trim()
     .toLowerCase();
   if (!KEY_RE.test(key)) {
-    redirect(`${BASE}?error=${encodeURIComponent('Bad event-type key.')}`);
+    redirectBack('error', 'Bad event-type key.');
   }
 
   // ⚠ MERGE OVER THE STORED BLOB, NEVER REBUILD IT. `terminology` is JSONB and
@@ -339,12 +337,25 @@ export async function upsertEventTypeProfile(formData: FormData) {
   // stranded simple_event once, repaired by migration 20271102084500.)
   const stranded = surfacesStrandedWithoutWebsite(enabled_surfaces);
   if (stranded.length > 0) {
-    profileRedirect(key, 'error', strandedWithoutWebsiteMessage(stranded));
+    profileRedirect(formData, key, 'error', strandedWithoutWebsiteMessage(stranded));
   }
   const onboarding_flow_key = cleanOptional(formData.get('onboarding_flow_key'), 60);
   const role_set_key = cleanOptional(formData.get('role_set_key'), 60);
 
-  const row = { event_type: key, terminology, enabled_surfaces, onboarding_flow_key, role_set_key };
+  // "Suppliers can serve it" — event_type_profiles.marketplace_enabled had a
+  // reader (resolveProfile) and no editor. Written only when the form shows
+  // the switch (`marketplace_enabled_shown`), so a form without it can never
+  // switch a type's marketplace off by omission.
+  const row: Record<string, unknown> = {
+    event_type: key,
+    terminology,
+    enabled_surfaces,
+    onboarding_flow_key,
+    role_set_key,
+  };
+  if (formData.get('marketplace_enabled_shown') === '1') {
+    row.marketplace_enabled = formData.get('marketplace_enabled') === 'on';
+  }
   const admin = createAdminClient();
   const { error } = await admin
     .from('event_type_profiles')
@@ -352,9 +363,9 @@ export async function upsertEventTypeProfile(formData: FormData) {
   if (error) {
     // 23503 = FK violation → the key isn't a known event_type_vocab row.
     if (error.code === '23503') {
-      profileRedirect(key, 'error', `"${key}" is not a known event type.`);
+      profileRedirect(formData, key, 'error', `"${key}" is not a known event type.`);
     }
-    profileRedirect(key, 'error', error.message);
+    profileRedirect(formData, key, 'error', error.message);
   }
 
   await admin.from('admin_audit_log').insert({
@@ -365,8 +376,7 @@ export async function upsertEventTypeProfile(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidateRosterSurfaces();
-  revalidatePath(`${BASE}/${key}/profile`);
-  profileRedirect(key, 'ok', 'Onboarding profile saved.');
+  profileRedirect(formData, key, 'ok', 'Onboarding profile saved.');
 }
 
 /* ---- Onboarding CONTENT editor (event_type_onboarding · 2026-06-28) ----
@@ -389,10 +399,8 @@ const ONBOARDING_PERSONA_KEYS = [
   'rooted_tradition',
 ] as const;
 
-function onboardingRedirect(eventType: string, kind: 'ok' | 'error', msg: string): never {
-  const p = new URLSearchParams();
-  p.set(kind, msg);
-  redirect(`${BASE}/${eventType}/onboarding?${p.toString()}`);
+function onboardingRedirect(formData: FormData, eventType: string, kind: 'ok' | 'error', msg: string): never {
+  redirect(backHref(formData, kind, msg, { list: 'event-types', open: eventType }));
 }
 
 function trimStr(v: unknown, max: number): string {
@@ -505,17 +513,17 @@ export async function upsertOnboardingSpec(formData: FormData) {
     .trim()
     .toLowerCase();
   if (!KEY_RE.test(key)) {
-    redirect(`${BASE}?error=${encodeURIComponent('Bad event-type key.')}`);
+    redirectBack('error', 'Bad event-type key.');
   }
   if (key === 'wedding') {
-    onboardingRedirect(key, 'error', 'Wedding uses its own bespoke onboarding — not editable here.');
+    onboardingRedirect(formData, key, 'error', 'Wedding uses its own bespoke onboarding — not editable here.');
   }
 
   let parsed: Record<string, unknown>;
   try {
     parsed = JSON.parse(String(formData.get('spec_json') ?? '{}')) as Record<string, unknown>;
   } catch {
-    onboardingRedirect(key, 'error', 'Could not read the form — please try again.');
+    onboardingRedirect(formData, key, 'error', 'Could not read the form — please try again.');
   }
 
   // The override row. Omit axis_overrides so an existing one is PRESERVED (the
@@ -535,9 +543,9 @@ export async function upsertOnboardingSpec(formData: FormData) {
     .upsert(row, { onConflict: 'event_type' });
   if (error) {
     if (error.code === '23503') {
-      onboardingRedirect(key, 'error', `"${key}" is not a known event type.`);
+      onboardingRedirect(formData, key, 'error', `"${key}" is not a known event type.`);
     }
-    onboardingRedirect(key, 'error', error.message);
+    onboardingRedirect(formData, key, 'error', error.message);
   }
 
   await admin.from('admin_audit_log').insert({
@@ -548,9 +556,8 @@ export async function upsertOnboardingSpec(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidateRosterSurfaces();
-  revalidatePath(`${BASE}/${key}/onboarding`);
   revalidatePath(`/onboarding/${key}`);
-  onboardingRedirect(key, 'ok', 'Onboarding content saved.');
+  onboardingRedirect(formData, key, 'ok', 'Onboarding content saved.');
 }
 
 /** Reset a type's onboarding content to the code defaults (delete the override row). */
@@ -560,12 +567,12 @@ export async function resetOnboardingSpec(formData: FormData) {
     .trim()
     .toLowerCase();
   if (!KEY_RE.test(key)) {
-    redirect(`${BASE}?error=${encodeURIComponent('Bad event-type key.')}`);
+    redirectBack('error', 'Bad event-type key.');
   }
 
   const admin = createAdminClient();
   const { error } = await admin.from('event_type_onboarding').delete().eq('event_type', key);
-  if (error) onboardingRedirect(key, 'error', error.message);
+  if (error) onboardingRedirect(formData, key, 'error', error.message);
 
   await admin.from('admin_audit_log').insert({
     action: 'event_types.onboarding_reset',
@@ -574,7 +581,6 @@ export async function resetOnboardingSpec(formData: FormData) {
     actor_user_id: user.id,
   });
   revalidateRosterSurfaces();
-  revalidatePath(`${BASE}/${key}/onboarding`);
   revalidatePath(`/onboarding/${key}`);
-  onboardingRedirect(key, 'ok', 'Reset to default content.');
+  onboardingRedirect(formData, key, 'ok', 'Reset to default content.');
 }

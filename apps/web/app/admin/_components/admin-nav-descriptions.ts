@@ -132,11 +132,9 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   menus:
     'The single source for the name and icon of every menu across all account types.',
   taxonomy:
-    'Canonical supplier service categories and the sub-category card tree.',
+    'Supplier categories, event types and religions — one list each, one panel per row.',
   onboarding:
     'New-account onboarding settings grouped by type — background music and future per-flow knobs.',
-  'wedding-traditions':
-    'Per-religion wedding-traditions content shown on the couple paperwork guide. Edit items, or reset to the latest starter content.',
   brain:
     'Curated knowledge feeding the Setnayan AI chat. Browse chunks by topic.',
   ugat: 'The live entity map — every platform entity type, its live count, and the audited connections between them.',
@@ -264,7 +262,11 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   secrets: 'keys api credentials rotate env',
   integrations: 'connect services resend openai gcash maya switches',
   compliance: 'npc bir legal privacy dpo',
-  taxonomy: 'categories services vocabulary tags event types',
+  // "taxonomy" stays findable after it left the label (owner, 2026-10-02), and
+  // the three folded pages keep their old words: traditions, search words,
+  // aliases, wedding types.
+  taxonomy:
+    'taxonomy categories services vocabulary tags event types religions faiths traditions what to expect wedding types search words aliases trade requests',
   menus: 'labels icons rename nav navigation',
   // The four phrasings that already reached this page while it was map-only,
   // kept working by hand: a menu item's searchable words are label + group

@@ -12,7 +12,8 @@
  */
 import { useState } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { upsertOnboardingSpec, resetOnboardingSpec } from '../../../actions';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { upsertOnboardingSpec, resetOnboardingSpec } from '../event-type-actions';
 import type { OnboardingSpec } from '@/lib/onboarding/onboarding-spec';
 import type { TypeQuestion } from '@/lib/onboarding/type-questions';
 
@@ -67,31 +68,30 @@ function ChipMultiSelect({
   function toggle(v: string) {
     onChange(sel.has(v) ? selected.filter((s) => s !== v) : [...selected, v]);
   }
+  // ONE dropdown, ticks inside it (owner 2026-09-28: any set of choices is a
+  // PickMenu). It used to be a wrapping row of toggle pills.
+  if (all.length === 0) {
+    return <p className="mt-1 text-xs text-ink/70">No categories available for this type.</p>;
+  }
   return (
-    <div className="mt-1 flex max-h-44 flex-wrap gap-1.5 overflow-y-auto rounded-md border border-ink/10 bg-ink/[0.02] p-2">
-      {all.length === 0 ? (
-        <span className="px-1 py-0.5 text-xs text-ink/40">No categories available for this type.</span>
-      ) : null}
-      {all.map((o) => {
-        const on = sel.has(o.value);
-        return (
-          <button
-            key={o.value}
-            type="button"
-            onClick={() => toggle(o.value)}
-            className={[
-              'rounded-full border px-2.5 py-1 text-xs transition',
-              on
-                ? 'border-mulberry bg-mulberry/10 text-mulberry'
-                : 'border-ink/15 bg-white text-ink/60 hover:border-ink/30',
-              known.has(o.value) ? '' : 'italic',
-            ].join(' ')}
-            title={known.has(o.value) ? o.value : `${o.value} (not an applicable tile)`}
-          >
-            {o.label}
-          </button>
-        );
-      })}
+    <div className="mt-1">
+      <PickMenu
+        label="Choose"
+        value=""
+        picked={selected}
+        options={all.map((o) => ({ key: o.value, label: known.has(o.value) ? o.label : `${o.label} (not offered here)` }))}
+        buttonText={
+          selected.length === 0
+            ? '— choose —'
+            : `${selected.length} chosen: ${selected
+                .map((v) => all.find((o) => o.value === v)?.label ?? v)
+                .slice(0, 4)
+                .join(' · ')}${selected.length > 4 ? ' …' : ''}`
+        }
+        onPick={toggle}
+        compact
+        className="border border-ink/15"
+      />
     </div>
   );
 }

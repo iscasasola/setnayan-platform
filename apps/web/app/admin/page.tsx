@@ -140,7 +140,7 @@ export default async function AdminOverview() {
           '/admin/vendor-partnerships',
         ),
         {
-          label: 'Taxonomy requests',
+          label: 'Category requests',
           value: taxonomy,
           // Taxonomy is the one tile with no digest row and no SLA clock, so it
           // carried NO urgency state at all — which the shared comparator would
@@ -149,8 +149,8 @@ export default async function AdminOverview() {
           // empty ⇒ 'clear', unavailable ⇒ 'unknown'). Render-neutral: the tile
           // paints identically for 'ok' and for no state at all.
           state: computeDueState({ count: taxonomy, oldestAt: null }, null, nowMs),
-          sub: 'New category / refinement proposals',
-          href: '/admin/taxonomy',
+          sub: 'Suppliers asking for a category we do not have',
+          href: '/admin/categories?show=requests',
         },
         queueTile(
           'payment-options',

@@ -1,5 +1,5 @@
 /**
- * prepared-jobs.ts — ONE reader for many of the taxonomy page's jobs.
+ * prepared-jobs.ts — ONE reader for many of the categories page's jobs.
  *
  * ── WHAT THIS IS ────────────────────────────────────────────────────────────
  * The admin search box can gather a job's answers and navigate to
@@ -28,55 +28,36 @@
  * category reader rather than reinvented.
  *
  * ── WHAT IS DELIBERATELY *NOT* HERE, AND WHY ────────────────────────────────
- * Nineteen of the 41 are left alone on purpose. Each reason is a measurement,
- * not a shrug:
+ * Moved 2026-10-02 with the Studio into "Categories & event types"
+ * (/admin/categories). The reasons a job is left out are unchanged; the
+ * names are re-measured, never counted (a count rots the day the tree moves):
  *
- *  · **DESTRUCTIVE (5)** — `deleteTaxonomyNode` · `clearLastMinuteStart` ·
- *    `retireEventTypeVocab` · `retireLeafAttributeFieldAction` ·
- *    `retireLeafAttributeOptionAction`. A prepared card puts an irreversible act
- *    ONE PRESS away from a record resolved out of typed words. The studio's own
- *    delete goes through a confirmation with a destination picker; replacing
- *    that with a pre-filled button is a safety regression, not a feature.
- *    `prepared-jobs.test.ts` derives this rule from the generated `destructive`
- *    flag, so a job that BECOMES destructive fails rather than sliding through.
+ *  · **DESTRUCTIVE** — e.g. `clearLastMinuteStart` ·
+ *    `retireLeafAttributeFieldAction` · `retireLeafAttributeOptionAction`. A
+ *    prepared card puts an irreversible act ONE PRESS away from a record
+ *    resolved out of typed words. `prepared-jobs.test.ts` derives this rule
+ *    from the generated `destructive` flag. The merged event-type Status ▾ is
+ *    prepared WITHOUT its "Retired" word for the same reason.
  *
- *  · **THEY POST A LIST, AND A PREPARED FORM WOULD WIPE IT (3)** —
- *    `setCategoryEventTypes` · `setFolderEventTypes` · `setServiceSecondaryTiles`.
- *    Each reads `formData.getAll('…')` for its real payload, and that read is
- *    INVISIBLE to the job generator, which records only single-value fields. A
- *    card posting the generated field list alone would submit an EMPTY list —
- *    turning an event-scoped tile universal, or clearing a service's
- *    cross-listing — reporting success the whole way. The guard derives this set
- *    by looking for `getAll(` in the action body rather than trusting this
- *    paragraph.
+ *  · **THEY POST A LIST, AND A PREPARED FORM WOULD WIPE IT** — e.g.
+ *    `setServiceSecondaryTiles` · `setServiceEventTypes` · `setFaithAskedOn`.
+ *    Each reads `formData.getAll('…')`, which the job generator cannot see; a
+ *    card posting the generated field list alone would submit an EMPTY list
+ *    and report success. The guard finds these by looking for `getAll(`.
  *
- *  · **THE FORM'S IDENTITY IS A BOUND ARGUMENT (3)** — `addRefinementOption` ·
+ *  · **THE FORM'S IDENTITY IS A BOUND ARGUMENT** — `addRefinementOption` ·
  *    `updateRefinementLeaf` · `updateRefinementOption` are rendered as
- *    `action={fn.bind(null, leaf.leafKey)}`, so which leaf they edit is not a
- *    posted field at all. A standalone card cannot post them correctly.
+ *    `action={fn.bind(null, leaf.leafKey)}`, so which card they edit is not a
+ *    posted field at all.
  *
- *  · **THE BOX NEVER ASKS WHICH SERVICE (3)** — `addLeafAttributeFieldAction` ·
- *    `addLeafAttributeOptionAction` · `relabelLeafAttributeFieldAction` all
- *    require `canonical_service`, read inside the shared
- *    `applyLeafAttributeMutation` helper. The generator scans the ACTION, not
- *    the helpers it delegates to, so that field is missing from the job's field
- *    list and the box never asks for it. Wiring them would produce a card that
- *    is always half-empty. **The generator's blind spot is the real defect and
- *    is reported, not patched here** — it spans all 185 jobs, not these three.
+ *  · **THE BOX NEVER ASKS WHICH SERVICE** — `addLeafAttributeFieldAction` ·
+ *    `addLeafAttributeOptionAction` · `relabelLeafAttributeFieldAction` read
+ *    `canonical_service` inside a shared helper the generator does not scan.
  *
- *  · **IT WOULD BE THE ONLY DOOR (2)** — `createEventTypeVocab` ·
- *    `moveTaxonomyNode` are rendered by no form anywhere on this page. Giving
- *    them one is a product change, not prefill wiring.
+ *  · **THE PAGE DOES NOT HOLD THE LIST** — `setLastMinuteStart` ·
+ *    `updatePlanningDeadline` name records the box cannot resolve.
  *
- *  · **THE PAGE DOES NOT HOLD THE LIST (2)** — `setLastMinuteStart` ·
- *    `updatePlanningDeadline` name records (`ref_key` · `deadline_id`) the
- *    studio is never handed, so there is nothing to resolve against and nothing
- *    to offer as a picker. Filling them would be guessing.
- *
- *  · **YOU CANNOT TYPE A PHOTOGRAPH (1)** — `setCategoryPhoto` takes an upload
- *    reference produced by the file picker.
- *
- * 22 wired + 2 already shipped = 24 of this page's 43.
+ *  · **YOU CANNOT TYPE A PHOTOGRAPH** — `setCategoryPhoto`.
  */
 
 import { askParamKey } from '@/lib/admin-map/humanize-field';
@@ -186,26 +167,24 @@ export const PREPARED_TAXONOMY_JOBS: ReadonlyMap<string, PreparedJobSpec> = new 
       { field: 'label_en', kind: 'text', label: 'New name' },
     ],
   }),
-  preparedJob('setEventTypeVocabStatus', {
-    verb: 'Save',
-    summary: 'An inactive type can no longer be used to scope tiles and services.',
+  preparedJob('setEventTypeStatus', {
+    verb: 'Save status',
+    // Retired is deliberately NOT offered here: it takes a type away from
+    // couples and suppliers, and a prepared card puts its button one press
+    // from a record matched on typed words. Retiring stays on the panel.
+    summary: 'Puts this type in the couple picker, or hides it from couples.',
     fields: [
       { field: 'event_type', kind: 'choice', label: 'Which event type', from: 'eventType' },
-      { field: 'active', kind: 'pick', label: 'Active?', options: YES_NO('Active', 'Not active') },
+      {
+        field: 'status',
+        kind: 'pick',
+        label: 'Status',
+        options: [
+          { value: 'picker', label: 'In the picker' },
+          { value: 'hidden', label: 'Hidden from couples' },
+        ],
+      },
     ],
-  }),
-  preparedJob('setEventTypeLaunch', {
-    verb: 'Save',
-    summary: 'Shows or hides this type in the picker couples use to create an event.',
-    fields: [
-      { field: 'event_type', kind: 'choice', label: 'Which event type', from: 'eventType' },
-      { field: 'enabled', kind: 'pick', label: 'Show in picker?', options: YES_NO('Show it', 'Hide it') },
-    ],
-  }),
-  preparedJob('unretireEventTypeVocab', {
-    verb: 'Bring it back',
-    summary: 'Restores a retired event type.',
-    fields: [{ field: 'event_type', kind: 'choice', label: 'Which event type', from: 'eventType' }],
   }),
   preparedJob('reorderEventTypeVocab', {
     verb: 'Move it',
@@ -299,8 +278,11 @@ export const PREPARED_TAXONOMY_JOBS: ReadonlyMap<string, PreparedJobSpec> = new 
       // offering only tiles would leave "rename the Food folder" resolving to
       // nothing with no way to finish the job from the card — a dead end
       // wearing the honest-miss notice.
-      { field: 'id', kind: 'choice', label: 'Which folder or tile', from: 'node' },
+      { field: 'id', kind: 'choice', label: 'Which group or category', from: 'node' },
       { field: 'label_en', kind: 'text', label: 'New name' },
+      // A group's short name. Optional; a blank box clears it only when the
+      // card shows the field, which it does — so leave it as-is to keep it.
+      { field: 'label_short', kind: 'text', label: 'Short name (groups only)' },
     ],
   }),
   preparedJob('setCategoryHidden', {
@@ -344,7 +326,8 @@ export const PREPARED_TAXONOMY_JOBS: ReadonlyMap<string, PreparedJobSpec> = new 
     fields: [
       { field: 'canonical_service', kind: 'choice', label: 'Which service', from: 'service' },
       { field: 'tile_id', kind: 'choice', label: 'Move it to', from: 'tile' },
-      { field: '_view', kind: 'carry' },
+      { field: '_show', kind: 'carry' },
+      { field: '_open', kind: 'carry' },
     ],
   }),
 

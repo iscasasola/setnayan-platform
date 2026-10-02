@@ -168,7 +168,7 @@ function report(): string {
   );
   section(
     'dropped-field',
-    'A person fills it in and the save throws it away: either the form sends a field the action never reads, or the action reads it and then neither saves it, uses it to find a row, passes it on, returns it, nor uses it to choose what to save. Consent boxes that are checked but never recorded show up here too.',
+    'A person fills it in and the save throws it away: either the form sends a field the action never reads, or the action reads it and then neither saves it, uses it to find a row, passes it on, returns it, nor uses it to decide anything (what to save, or to turn the request away). A box that is only checked and then forgotten shows up here; one that is checked and enforced does not.',
     (f) => `${f.plain} On: ${names(f)}.`,
   );
   section(

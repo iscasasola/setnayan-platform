@@ -1,20 +1,13 @@
-import { googleCalendarUrl } from '@/lib/calendar-links';
-import { renderBrandedEmail } from '@/lib/email-template';
-import { SUPPORT_EMAIL } from './contact-addresses';
 
-// Save-the-Date → guest-email — PURE core (no 'server-only', no DB/email runtime
-// imports), so it's unit-testable under `tsx --test`. The server-only wrapper
-// `save-the-date-emails.ts` reads guests via the admin client and sends through
-// sendEmail(), delegating the content shaping here.
+// Guest-row helpers — PURE (no 'server-only', no DB/email runtime imports), so
+// unit-testable under `tsx --test`. Shared by the guest reminder emails
+// (`guest-reminder-emails.ts`, switched off for guests).
 //
-// Pure content-shaping core (split out for unit testing): edges that surface on a guest-
-// facing email (a wrong greeting, a leaked stale date, a junk recipient) are
-// pinned by the core's unit suite.
-
-// Re-exported from the ONE module that owns published addresses.
-// This was an independent copy of the same literal — the fifth of five.
-// See lib/contact-addresses.ts for why that matters.
-export const STD_SUPPORT_EMAIL = SUPPORT_EMAIL;
+// 📵 The Save-the-Date and Invitation guest EMAILS that used to live here — and
+// their fan-out in `save-the-date-emails.ts` — are REMOVED (owner 2026-09-29
+// "No email. Either use the qr and link only", extended to the save-the-date
+// fan-out 2026-10-02). The shared link and QR are the whole delivery; no
+// builder remains for anything to call.
 
 export type StdGuestRow = {
   guest_id: string;
@@ -22,15 +15,6 @@ export type StdGuestRow = {
   last_name: string | null;
   display_name: string | null;
   email: string | null;
-};
-
-export type StdEventContext = {
-  coupleName: string;
-  /** 'YYYY-MM-DD' wedding date, or null when not set yet. */
-  weddingDateIso: string | null;
-  /** Absolute URL of the now-public landing page. */
-  pageUrl: string;
-  venue: string | null;
 };
 
 /** A guest's first name for greeting, falling back gracefully. Pure. */
@@ -64,75 +48,6 @@ export function formatWeddingDate(weddingDateIso: string | null): string | null 
   });
 }
 
-export type StdGuestEmail = {
-  subject: string;
-  text: string;
-  html: string;
-  headers: Record<string, string>;
-};
-
-/**
- * Build the save_the_date_sent email for one guest. Pure + side-effect-free so
- * it's unit-testable; the caller pairs the parts in sendEmail(). Carries the
- * couple names, the wedding date, a link to the now-public /[slug] page, an
- * add-to-calendar (Google Calendar) link, and the RFC 8058 unsubscribe header.
- */
-export function buildSaveTheDateGuestEmail(
-  guest: StdGuestRow,
-  ctx: StdEventContext,
-): StdGuestEmail {
-  const greet = stdGuestGreetingName(guest);
-  const dateLine = formatWeddingDate(ctx.weddingDateIso);
-  const calUrl = googleCalendarUrl({
-    title: ctx.coupleName,
-    dateIso: ctx.weddingDateIso,
-    location: ctx.venue,
-    details: `Save the date — ${ctx.coupleName}. ${ctx.pageUrl}`,
-  });
-
-  const subject = dateLine
-    ? `Save the date — ${ctx.coupleName} · ${dateLine}`
-    : `Save the date — ${ctx.coupleName}`;
-
-  const hello = greet ? `Hi ${greet},` : 'Hi,';
-  const dateSentence = dateLine
-    ? `${ctx.coupleName} are getting married on ${dateLine}${ctx.venue ? ` at ${ctx.venue}` : ''}. Please save the date!`
-    : `${ctx.coupleName} are getting married — please save the date!`;
-
-  const text = [
-    hello,
-    '',
-    dateSentence,
-    '',
-    `See their Save-the-Date and follow along here:`,
-    ctx.pageUrl,
-    ...(calUrl ? ['', `Add it to your calendar:`, calUrl] : []),
-    '',
-    `— Set na 'yan.`,
-    '',
-    `You're receiving this because ${ctx.coupleName} added you to their guest list on Setnayan. To stop these, reply with "unsubscribe" or email ${STD_SUPPORT_EMAIL}.`,
-  ].join('\n');
-
-  const html = renderBrandedEmail({
-    heading: dateLine ? `Save the date — ${dateLine}` : 'Save the date',
-    paragraphs: [hello, dateSentence],
-    ctaLabel: 'View the Save-the-Date',
-    ctaHref: ctx.pageUrl,
-    footnote: calUrl
-      ? `Add it to your calendar: ${calUrl}`
-      : `You're on ${ctx.coupleName}'s guest list on Setnayan.`,
-  });
-
-  // RFC 8058 one-click unsubscribe. mailto is honored by Gmail/Apple Mail and
-  // needs no new endpoint/token table.
-  const headers: Record<string, string> = {
-    'List-Unsubscribe': `<mailto:${STD_SUPPORT_EMAIL}?subject=unsubscribe>`,
-    'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click',
-  };
-
-  return { subject, text, html, headers };
-}
-
 /**
  * Resolve the couple's display name for the email from the event row, with the
  * same fallback chain used on the public page (display_name → bride & groom →
@@ -150,65 +65,4 @@ export function resolveCoupleName(ev: {
     .filter(Boolean)
     .join(' & ');
   return pair || 'Our wedding';
-}
-
-/**
- * Build the INVITATION email for one guest — CTRL-B4 build 2.
- *
- * ── WHY A SECOND BUILDER AND NOT A SECOND MAILER ───────────────────────────
- * The MESSAGE differs (a save-the-date asks you to hold a day; an invitation
- * asks you to come, and carries the guest's own RSVP link). The MECHANISM does
- * not — both fan out through `sendAndStamp`, which stamps only an accepted
- * send. One mechanism, two messages; the defect this repo keeps meeting is two
- * mechanisms for one fact.
- *
- * Pure, so its wording is executed by a test rather than described.
- */
-export function buildInvitationGuestEmail(
-  guest: StdGuestRow,
-  ctx: StdEventContext,
-): StdGuestEmail {
-  const greet = stdGuestGreetingName(guest);
-  const dateLine = formatWeddingDate(ctx.weddingDateIso);
-  const calUrl = googleCalendarUrl({
-    title: ctx.coupleName,
-    dateIso: ctx.weddingDateIso,
-    location: ctx.venue,
-    details: `${ctx.coupleName} — ${ctx.pageUrl}`,
-  });
-
-  const subject = dateLine
-    ? `You're invited — ${ctx.coupleName} · ${dateLine}`
-    : `You're invited — ${ctx.coupleName}`;
-
-  const hello = greet ? `Hi ${greet},` : 'Hi,';
-  const inviteSentence = dateLine
-    ? `${ctx.coupleName} would love you to celebrate with them on ${dateLine}${ctx.venue ? ` at ${ctx.venue}` : ''}.`
-    : `${ctx.coupleName} would love you to celebrate with them.`;
-
-  const text = [
-    hello,
-    '',
-    inviteSentence,
-    '',
-    `Open your invitation and let them know if you can make it:`,
-    ctx.pageUrl,
-    ...(calUrl ? ['', `Add it to your calendar:`, calUrl] : []),
-    '',
-    `— Set na 'yan.`,
-    '',
-    `You're receiving this because ${ctx.coupleName} added you to their guest list on Setnayan. To stop these, reply with "unsubscribe" or email ${STD_SUPPORT_EMAIL}.`,
-  ].join('\n');
-
-  const html = text
-    .split('\n')
-    .map((line) => (line ? `<p>${line.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</p>` : '<p>&nbsp;</p>'))
-    .join('');
-
-  return {
-    subject,
-    text,
-    html,
-    headers: { 'List-Unsubscribe': `<mailto:${STD_SUPPORT_EMAIL}?subject=unsubscribe>` },
-  };
 }

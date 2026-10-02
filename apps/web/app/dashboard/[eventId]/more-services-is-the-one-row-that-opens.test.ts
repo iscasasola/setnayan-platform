@@ -75,7 +75,7 @@ test('2 · its children are buildOurServices’ cards, in that order, under thos
   for (const i of [
     input(),
     input({ aiSellable: false }), // Setnayan AI not sellable → not listed
-    input({ offered: (e) => e.key !== 'papic' }), // no Papic → the Gallery in its place
+    input({ offered: (e) => e.key !== 'papic' }), // no Papic → four left; the Gallery never stands in
   ]) {
     const cards = buildOurServices(i);
     const kids = eventMenuRows(
@@ -90,7 +90,7 @@ test('2 · its children are buildOurServices’ cards, in that order, under thos
   // The owner's five, by name, on an event offered everything.
   assert.deepEqual(
     services().map((s) => s.label),
-    ['Setnayan AI (SAI)', 'Papic', 'Live Studio', 'Music Maker', 'Patiktok'],
+    ['Setnayan AI (SAI)', 'Papic', 'Live Watch', 'Music Maker', 'Patiktok'],
   );
   // A card with no door (its day has passed) opens the More Services page.
   const closed = services(input({ sellableNow: () => false }));

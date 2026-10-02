@@ -39,8 +39,13 @@ export type LastSeenPage = (typeof LAST_SEEN_PAGES)[number];
 
 const VERSION = 'v1';
 const OWNER_KEY = `${LAST_SEEN_PREFIX}${VERSION}:owner`;
-/** Largest snapshot kept, in UTF-16 code units (what localStorage counts). */
-export const MAX_ENTRY_CHARS = 200_000;
+/**
+ * Largest snapshot kept, in UTF-16 code units (what localStorage counts). A
+ * 200-name guest list must fit — that is the page this exists for.
+ */
+export const MAX_ENTRY_CHARS = 1_000_000;
+/** All snapshots together stay well inside the ~5M-unit localStorage quota. */
+export const MAX_TOTAL_CHARS = 2_500_000;
 /** Most snapshots kept on one device; the oldest go first. */
 export const MAX_ENTRIES = 10;
 /** A snapshot older than this is not shown — it is too old to be "last seen". */
@@ -119,15 +124,25 @@ function parseEntry(raw: string | null): LastSeenEntry | null {
   }
 }
 
-/** Keeps at most `MAX_ENTRIES - 1` entries other than `keep`, oldest out first. */
-function evictOldest(storage: LastSeenStorage, keep: string, room: number): void {
+/**
+ * Makes room for a new entry of `incoming` units under `keep`: at most `room`
+ * other entries, and all of them together within `MAX_TOTAL_CHARS`. Oldest
+ * out first.
+ */
+function evictOldest(storage: LastSeenStorage, keep: string, room: number, incoming: number): void {
   const others = entryKeys(storage)
     .filter((k) => k !== keep)
-    .map((k) => ({ k, at: parseEntry(storage.getItem(k))?.savedAt ?? 0 }))
+    .map((k) => {
+      const raw = storage.getItem(k) ?? '';
+      return { k, at: parseEntry(raw)?.savedAt ?? 0, size: raw.length };
+    })
     .sort((a, b) => a.at - b.at);
-  while (others.length > room) {
+  let total = others.reduce((n, o) => n + o.size, 0);
+  while (others.length > room || (others.length > 0 && total + incoming > MAX_TOTAL_CHARS)) {
     const victim = others.shift();
-    if (victim) storage.removeItem(victim.k);
+    if (!victim) break;
+    storage.removeItem(victim.k);
+    total -= victim.size;
   }
 }
 
@@ -150,12 +165,12 @@ export function saveLastSeen(storage: LastSeenStorage | null | undefined, input:
   const value = JSON.stringify({ url: input.url, html, savedAt: input.now ?? Date.now() });
   try {
     claimFor(storage, input.userId);
-    evictOldest(storage, key, MAX_ENTRIES - 1);
+    evictOldest(storage, key, MAX_ENTRIES - 1, value.length);
     try {
       storage.setItem(key, value);
     } catch {
       // Quota: make room by dropping every other snapshot, then try once more.
-      evictOldest(storage, key, 0);
+      evictOldest(storage, key, 0, value.length);
       storage.setItem(key, value);
     }
     return true;

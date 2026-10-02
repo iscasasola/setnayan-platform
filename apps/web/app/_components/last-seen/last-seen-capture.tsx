@@ -69,13 +69,22 @@ export function LastSeenCapture({
         html,
       });
     };
+    // Settled = 1.2 s with no change. A page that never stops changing (a
+    // count-up, a ticking clock) is still kept, at most 10 s after it began.
+    let since = 0;
     const soon = () => {
+      const now = Date.now();
+      if (!since) since = now;
       window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
-        if (w.requestIdleCallback) w.requestIdleCallback(take, { timeout: 3000 });
-        else take();
-      }, 1200);
+      timer = window.setTimeout(
+        () => {
+          since = 0;
+          const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number };
+          if (w.requestIdleCallback) w.requestIdleCallback(take, { timeout: 3000 });
+          else take();
+        },
+        Math.max(0, Math.min(1200, since + 10_000 - now)),
+      );
     };
     soon();
     const watcher = new MutationObserver(soon);

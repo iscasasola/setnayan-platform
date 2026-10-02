@@ -89,7 +89,13 @@ export function snapshotFromRoot(root: Element): string | null {
     }
   }
   clone.querySelectorAll('textarea').forEach((el) => (el.textContent = ''));
+  // Icons keep their box but not their drawing: a 200-row guest list repeats
+  // the same few icons hundreds of times, and their paths are most of its size.
+  // The real page, icons and all, replaces this within a moment.
+  clone.querySelectorAll('svg.lucide').forEach((svg) => svg.replaceChildren());
   if (!maskMoneyText(clone)) return null;
   if (!clone.textContent?.trim()) return null;
-  return guardSnapshotHtml(clone.innerHTML);
+  // Whitespace between tags carries nothing (string-side: re-parsing the
+  // clone would start its images loading again).
+  return guardSnapshotHtml(clone.innerHTML.replace(/>\s+</g, '> <'));
 }

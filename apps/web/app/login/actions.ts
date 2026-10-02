@@ -1,11 +1,14 @@
 'use server';
 
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
 import { stampLastLogin } from '@/lib/login-activity';
+import { rateLimit } from '@/lib/rate-limit';
+import { sendPasswordRecoveryLink } from '@/lib/password-recovery-link';
+import { verifyTurnstileToken } from '@/lib/turnstile-verify';
 import { captchaOptions, captchaTokenFromForm } from '@/lib/turnstile';
 import { CREDENTIALS_REFUSAL, explainFailedSignIn, type KnownProvider } from '@/lib/sign-in-door';
 import { lookupSignInDoor } from '@/lib/sign-in-door.server';
@@ -179,6 +182,8 @@ export type SignInInPlaceState = {
   provider: KnownProvider | null;
   /** True only after the credentials were actually accepted by Supabase. */
   ok: boolean;
+  /** True only when the "email me a link to set a password" send was accepted (intent=reset). */
+  resetSent: boolean;
   /** Bumped on every completed submit so a repeated identical failure still
    *  re-renders (two wrong attempts with the same password are two events). */
   attempt: number;
@@ -194,6 +199,52 @@ export type SignInInPlaceState = {
   beside its consumer in `_components/sign-in-state.ts`.
   (A `export type` is fine — types are erased before that check runs.)
 */
+
+const RESET_REFUSALS = {
+  needEmail: 'Type your email in the box above, then tap the button again.',
+  captcha: 'The security check did not pass, so nothing was sent. Please try again.',
+  rateLimited: 'Too many requests in a row. Please wait a few minutes, then try again.',
+} as const;
+
+/**
+ * The card's "Email me a link to set a password" — the SHIPPED forgot-password
+ * send (sendPasswordRecoveryLink, the same captcha check and the same rate-limit
+ * buckets as app/forgot-password/actions.ts), reached without leaving the card.
+ * Not a second reset mechanism: it mints the same link and mails the same email.
+ *
+ * ⚖ ANTI-ENUMERATION, same as /forgot-password: the send's result is NOT
+ * branched on. "No such account" and "Resend refused" both say "check your
+ * email", so a direct POST here cannot be used to ask whether an address exists.
+ * Only OUR OWN refusals (bot check, rate limit, no address) are told truthfully.
+ */
+async function sendSetPasswordLink(attempt: number, formData: FormData): Promise<SignInInPlaceState> {
+  const refuse = (error: string): SignInInPlaceState => ({
+    error,
+    provider: null,
+    ok: false,
+    resetSent: false,
+    attempt,
+  });
+  const email = String(formData.get('email') ?? '').trim();
+  if (!email) return refuse(RESET_REFUSALS.needEmail);
+
+  const ip = (await headers()).get('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
+  const verdict = await verifyTurnstileToken(captchaTokenFromForm(formData), ip);
+  if (!verdict.ok) return refuse(RESET_REFUSALS.captcha);
+  if (!rateLimit(`pwreset:email:${email.toLowerCase()}`, 3, 15 * 60_000).ok) {
+    return refuse(RESET_REFUSALS.rateLimited);
+  }
+  if (ip && !rateLimit(`pwreset:ip:${ip}`, 10, 15 * 60_000).ok) {
+    return refuse(RESET_REFUSALS.rateLimited);
+  }
+
+  const { sent } = await sendPasswordRecoveryLink(email);
+  if (!sent) {
+    // eslint-disable-next-line no-console
+    console.error('[login] no recovery link sent for the submitted address');
+  }
+  return { error: null, provider: null, ok: false, resetSent: true, attempt };
+}
 
 /**
  * signInInPlace — the same sign-in, with the redirect removed.
@@ -217,6 +268,9 @@ export async function signInInPlace(
   formData: FormData,
 ): Promise<SignInInPlaceState> {
   const attempt = prev.attempt + 1;
+  // 🔑 AN INTENT, NOT A NEW ACTION (the server-action budget counts exports).
+  // The card's "Email me a link to set a password" posts here with intent=reset.
+  if (formData.get('intent') === 'reset') return sendSetPasswordLink(attempt, formData);
   const result = await exchangeCredentials(formData);
   if (!result.ok) {
     return {
@@ -226,6 +280,7 @@ export async function signInInPlace(
           : result.error,
       provider: result.provider,
       ok: false,
+      resetSent: false,
       attempt,
     };
   }
@@ -237,5 +292,5 @@ export async function signInInPlace(
     nothing behind it. Returning a destination nobody navigates to would be a
     value that looks like a decision and is not one.
   */
-  return { error: null, provider: null, ok: true, attempt };
+  return { error: null, provider: null, ok: true, resetSent: false, attempt };
 }

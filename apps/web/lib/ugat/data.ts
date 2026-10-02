@@ -688,7 +688,7 @@ async function loadUgatTableInner(
           id: o.public_id ?? o.order_id,
           type: 'order' as const,
           name: o.reference_code || o.public_id || 'Order',
-          href: ugatRecordHref({ kind: 'order' }),
+          href: ugatRecordHref({ kind: 'order', publicId: o.public_id ?? null }),
           status: [o.status ?? 'unknown', statusTone(o.status ?? 'unknown')] as [
             string,
             'ok' | 'wait' | 'neutral' | 'report',
@@ -1035,7 +1035,7 @@ async function ugatSearchInner(query: string): Promise<UgatSearchGroup[]> {
       type: 'order' as const,
       title: o.reference_code || o.public_id || 'Order',
       sub: `${o.service_key ?? '—'} · ${o.status ?? '—'}`,
-      href: ugatRecordHref({ kind: 'order' }),
+      href: ugatRecordHref({ kind: 'order', publicId: o.public_id ?? null }),
       score: scoreUgatMatch(`${o.reference_code ?? ''} ${o.service_key ?? ''}`, q),
     }))
     .sort((a, b) => b.score - a.score);

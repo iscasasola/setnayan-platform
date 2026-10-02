@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e9d9fc0f0d",
+  "generatedFromRef": "9d7e1c91a8",
   "routeCount": 432,
-  "destinations": 968,
+  "destinations": 969,
   "actions": 683,
-  "blocks": 5399,
+  "blocks": 5402,
   "routes": {
     "/": {
       "files": [
@@ -2022,6 +2022,7 @@
         "admin/accounts/_surfaces/demo-vendors-surface.tsx",
         "admin/accounts/_surfaces/events-surface.tsx",
         "admin/accounts/_surfaces/users-surface.tsx",
+        "admin/accounts/_surfaces/vendor-card-title.tsx",
         "admin/accounts/_surfaces/vendors-surface.tsx",
         "admin/accounts/_surfaces/venues-surface.tsx",
         "admin/accounts/loading.tsx",
@@ -2031,6 +2032,7 @@
         "/admin/demo-vendors/inquiries",
         "/admin/events/[seg]",
         "/admin/users/[seg]",
+        "/admin/vendors/[seg]",
         "/admin/vendors/[seg]/edit",
         "/admin/vendors/[seg]/plan",
         "/admin/vendors/[seg]/team",
@@ -2077,6 +2079,7 @@
         "SubmitButton",
         "UsersSurface",
         "UsersTable",
+        "VendorCardTitle",
         "VendorsSurface",
         "VenuesSurface",
         "VisibilityBadge"
@@ -3047,6 +3050,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/ledger-reference-column.tsx",
         "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
@@ -6898,6 +6902,7 @@
       "blocks": [
         "DetailPageSkeleton",
         "Link",
+        "PaymentChannelName",
         "Stat",
         "SubmitButton"
       ]
@@ -11205,6 +11210,7 @@
         "DetailPageSkeleton",
         "Link",
         "PageMasthead",
+        "PaymentChannelName",
         "ShopNotice"
       ]
     },

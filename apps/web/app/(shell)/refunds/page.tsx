@@ -96,7 +96,7 @@ export default function RefundsPage() {
           </li>
           <li>
             We respond within our standard support window and, if approved,
-            return the money to the same channel you paid from (BDO or GCash).
+            return the money to the same channel you paid from (the bank or e-wallet you paid through).
           </li>
           <li>
             Refunds are typically completed within <strong>5–10 business

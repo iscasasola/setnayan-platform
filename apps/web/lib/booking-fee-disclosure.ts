@@ -277,7 +277,7 @@ export function bookingFeeForecast(
           : `Booking fee ${feePesos(fee)}${rate ? ` (${rate})` : ''} — payable if they book.`,
         detail: free
           ? `${position} ${summary} of the agreed total of ${feePesos(total)} — you are not billed for this one.`
-          : `${position} ${summary}, on the agreed total of ${feePesos(total)}. You are billed when the booking is agreed, and you pay it on the same GCash/BDO rail your couples use.`,
+          : `${position} ${summary}, on the agreed total of ${feePesos(total)}. You are billed when the booking is agreed, and you pay it the same way your couples pay — into our receiving accounts, by QR or transfer.`,
       };
     }
 
@@ -560,28 +560,28 @@ export function feeDueCopy(bill: DueFeeBill, todayPh: string): FeeDisclosure {
         // and the actual gate in `eventAccessUnlocked` cannot disagree.
         detail:
           `This was due${by ? by.replace(' by ', ' on ') : ''}. ${feeEnforcementSentence()} ` +
-          'Pay it on the same GCash/BDO rail; it clears within 24 hours of our team confirming it.',
+          'Pay it the same way your couples pay; it clears within 24 hours of our team confirming it.',
       };
     case 'last_day':
       return {
         tone: 'overdue',
         headline: `Booking fee due today — ${amount}${who}`,
         detail:
-          'Today is the due date. Pay it on the same GCash/BDO rail your couples use — it clears within 24 hours of our team confirming it.',
+          'Today is the due date. Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.',
       };
     case 'soon':
       return {
         tone: 'due',
         headline: `Booking fee due${by} — ${amount}${who}`,
         detail:
-          'Due in the next few days. Pay it on the same GCash/BDO rail your couples use — it clears within 24 hours of our team confirming it.',
+          'Due in the next few days. Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.',
       };
     case 'due':
       return {
         tone: 'due',
         headline: `Booking fee due${by} — ${amount}${who}`,
         detail:
-          'Setnayan charges this once a couple we brought you agrees to book. Pay it on the same GCash/BDO rail your couples use — it clears within 24 hours of our team confirming it.',
+          'Setnayan charges this once a couple we brought you agrees to book. Pay it the same way your couples pay — it clears within 24 hours of our team confirming it.',
       };
   }
 }
@@ -614,6 +614,6 @@ export function bookingFeeNoticeCopy(bill: DueFeeBill): { title: string; body: s
     title: `Booking fee due — ${feePesos(bill.amountPhp)}`,
     body:
       `Your ${feePesos(bill.amountPhp)} Setnayan booking fee${who} is ready to pay.${by} ` +
-      'Pay it on the manual GCash/BDO rail — it clears once our team confirms your payment (within 24 hours).',
+      'Pay it by QR or transfer to our receiving accounts — it clears once our team confirms your payment (within 24 hours).',
   };
 }

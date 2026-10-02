@@ -308,7 +308,7 @@ export default async function PapicGuestOrderPage({
             </label>
             <label className="block space-y-1">
               <span className="text-xs font-medium text-ink/70">
-                Reference number from GCash / BDO
+                Reference number from your bank or e-wallet
               </span>
               <input type="text" name="reference_number" className="input-field" />
             </label>

@@ -75,7 +75,7 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Undo · Apply (the slot)', 'topBar', ['{applySlot}']],
   ['Undo · Apply (the buttons)', 'draftBar', ['label="Undo"', "intent: 'apply'", '{maker?.viewToggle ?? null}']],
   ['↺ Restore (⋯ › Restore, the draft bar\'s own act)', 'topBar', ['draft.restore()', 'Restore']],
-  ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({ canRestore']],
+  ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({\n      canRestore,']],
   ['Details (now "Event Details") and Prints (⋯) — doors into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL', "pressDoor('prints')"]],
   ['Look — the Look part of Details', 'topBar', ['MAKER_LOOK_LABEL', 'pressDoor(door)']],
   // ── Scene inspector ──

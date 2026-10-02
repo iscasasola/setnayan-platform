@@ -321,3 +321,20 @@ test('f · the guests cards: "Add your guests" on an empty list, "Send N invitat
   const html = draw({}, { ...NOTHING, guests: { total: 96, unsent: 58 } });
   assert.match(html, /href="\/dashboard\/e1\/guests\/send"/);
 });
+
+/*
+  🗣 THE CARD SAYS WHAT IT IS (owner, live phone test 2026-10-02, asking what the
+  "Next card" was). Its eyebrow reads "Your next step" in plain words, and its
+  button names the action — never a bare "Continue" or "Next". No caption
+  explains it: the words do.
+*/
+test('the Next card reads "Your next step", and its button names the action — in every state', () => {
+  for (const state of EVERY_STATE) {
+    const html = draw({}, state);
+    const kind = pickHomeNext(state).kind;
+    const card = html.slice(html.indexOf('data-home-next='), html.lastIndexOf('<a', html.indexOf('data-home-edit-hub')));
+    assert.match(card, />Your next step<\/p>/, `${kind}: the eyebrow does not say what the card is`);
+    const button = /<a [^>]*>([^<]*)<\/a>/.exec(card)?.[1]?.trim() ?? '';
+    assert.ok(!/^(Continue|Next|Go|Open)$/i.test(button), `${kind}: the button says "${button}" — it must name the action`);
+  }
+});

@@ -197,6 +197,8 @@ test('(d) no made-once page carries a "Back to …" button', () => {
     assert.doesNotMatch(src, /closeLabel/, `${rel} has a close label again`);
   }
   const page = code(read(`${L}/maker-page.tsx`));
-  assert.doesNotMatch(page, /onClose/, 'MakerPage takes a close handler again');
+  // A PROP that closes the page is a "Back to …" again; the phone sheet's own grip/scrim
+  // (`onClose={() => setOpen(false)}`, 2026-10-02) only shuts its controls, never the page.
+  assert.doesNotMatch(page, /onClose\??:/, 'MakerPage takes a close handler again');
   console.log(`[logo/hero] made-once files free of "Back to": ${FILES.length}`);
 });

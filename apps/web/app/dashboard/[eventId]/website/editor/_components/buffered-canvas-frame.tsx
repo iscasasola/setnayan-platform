@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type MutableRefObject } from 'react';
-import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
+import { findMakerSection, makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import { makerSavesInFlight } from '@/lib/maker-refresh';
 
 /**
@@ -164,8 +164,13 @@ function carryScroll(from: HTMLIFrameElement | null, to: HTMLIFrameElement, anch
     const a = from?.contentWindow;
     const b = to.contentWindow;
     if (!a || !b) return;
-    const oldSec = anchor ? findMakerSection(a.document, anchor) : null;
-    const newSec = anchor ? findMakerSection(b.document, anchor) : null;
+    /* 📍 No scene selected: keep the SECTION in view, never the raw offset — a
+       render that changed the page's height (an Apply, a theme) otherwise
+       landed somewhere else entirely (owner 2026-10-02: Apply "jumped to the
+       RSVP page"). The raw offset is only the last resort. */
+    const key = anchor ?? makerSectionInView(a.document);
+    const oldSec = key ? findMakerSection(a.document, key) : null;
+    const newSec = key ? findMakerSection(b.document, key) : null;
     if (oldSec && newSec) {
       const y = b.scrollY + newSec.getBoundingClientRect().top - oldSec.getBoundingClientRect().top;
       b.scrollTo({ top: Math.max(0, y), behavior: 'instant' as ScrollBehavior });

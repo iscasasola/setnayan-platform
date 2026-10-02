@@ -2,7 +2,7 @@
 
 import { formatCount } from '@/lib/format-number';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronDown, ChevronUp } from 'lucide-react';
+import { Check, ChevronUp } from 'lucide-react';
 import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import {
   GUIDE_PARAM,
@@ -27,6 +27,9 @@ import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from '.
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
 import { GuideFoot, GuideHead, GuideReady } from './details-lazy';
+import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
+import { SheetGrip, SheetScrim } from './maker-sheet';
+import { SheetSections } from './sheet-sections';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
 export type DetailsNavItem = DetailsItemModel & {
@@ -91,6 +94,23 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * DERIVED from the item showing (`stepOfItem`), so a door elsewhere in the
  * Maker that opens an item no step shows simply lands in All items. Every
  * editor stays mounted in both modes — the flow hides, never unmounts.
+ *
+ * 📱 ON A PHONE THE PAGE IS THE SCREEN (owner, live iPhone test 2026-10-02:
+ * *"this is too clumped … dim the negative space so they know it is a pop up and
+ * pressing on the dimmed part will go back to the main screen"*; the approved
+ * phone layout, frames G/I of `prototypes/maker_in_four_2026-09-30_fable.html`).
+ * Under `lg` the body fills everything between the Maker's two bars, and:
+ *   · the editor is a BOTTOM SHEET over the dimmed page (`SheetScrim` ·
+ *     `SheetGrip`, `maker-sheet.tsx`), capped so the dimmed page keeps ≥ 55%
+ *     (`lib/maker-phone-room.ts`). Its one header row is the item's name and
+ *     ONE dropdown — the other items here and the item's own sections (what the
+ *     navigator strip held). A door (Look · Event Details · Prints) opens it;
+ *     shut, an "Edit" chip on the page opens it again;
+ *   · the guided flow is ONE slim chip on the page ("Finish · 4 of 5"); it opens
+ *     the guide in the same kind of sheet — its step ▾, the step's title, where
+ *     it shows and what it unlocks, and Back · Skip · Next — and nowhere else.
+ * One sheet at a time; nothing is dimmed while none is open. The desktop is
+ * unchanged: navigator left, body, editor right, the flow's line and foot.
  */
 export function DetailsWorkspace({
   groups,
@@ -128,9 +148,23 @@ export function DetailsWorkspace({
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
   const tellMaker = maker?.setDetailsItem;
   /* 🪜 In the flow the step's fields show at once — the editor opens on a phone. */
-  const [sheetOpen, setSheetOpen] = useState(Boolean(guide?.open && guide.plan.steps.length > 0));
+  /* 📱 The editor sheet: opened by a door (`MakerState.detailsDoor`), a tap on the
+     page, the Edit chip, or a step picked — never on its own (the page shows clean). */
+  const door = maker?.detailsDoor ?? 0;
+  const [sheetOpen, setSheetOpen] = useState(door > 0);
+  /* 📱 The guide's sheet (its chip on the page opens it). One sheet at a time. */
+  const [guideSheet, setGuideSheet] = useState(false);
+  const lastDoor = useRef(door);
+  useEffect(() => {
+    if (door === lastDoor.current) return;
+    lastDoor.current = door;
+    setGuideSheet(false);
+    setSheetOpen(true);
+  }, [door]);
   /* The piece picked under each item (the three columns meet here). */
   const [pieceMap, setPieceMap] = useState<Partial<Record<DetailsItemKey, string | null>>>({});
+  /* 📱 The sections' names, as each item's list says them — the sheet's dropdown reads "What you ask ▾". */
+  const [pieceLabels, setPieceLabels] = useState<Partial<Record<DetailsItemKey, Record<string, string>>>>({});
   const pieceCtx = useMemo<DetailsPieces>(
     () => ({
       piece: (item) => pieceMap[item] ?? null,
@@ -139,6 +173,8 @@ export function DetailsWorkspace({
         if (piece && opts?.openEditor) setSheetOpen(true);
       },
       openEditor: () => setSheetOpen(true),
+      noteLabels: (item, labels) =>
+        setPieceLabels((m) => (JSON.stringify(m[item]) === JSON.stringify(labels) ? m : { ...m, [item]: labels })),
     }),
     [pieceMap],
   );
@@ -202,6 +238,7 @@ export function DetailsWorkspace({
 
   const goTo = (to: GuidedScreen) => {
     setUnsavedTo(null);
+    setGuideSheet(false);
     if (!plan) return;
     if (to.kind === 'ready') {
       setReady(to.round);
@@ -224,6 +261,9 @@ export function DetailsWorkspace({
       ]);
       if (hasUnsavedEdits(scopes)) {
         setUnsavedTo(to);
+        // 📱 The question lives in the guide's sheet on a phone — open it there.
+        setSheetOpen(false);
+        setGuideSheet(true);
         return;
       }
     }
@@ -323,9 +363,7 @@ export function DetailsWorkspace({
         data-details-mode={guidedOn ? 'guided' : 'all'}
         className="flex h-full min-h-0 w-full flex-1 flex-col"
       >
-      {plan && at ? (
-        <GuideTop plan={plan} at={at} onPick={(to) => move(to)} onAllItems={allItems} tour={guide?.tour ?? null} />
-      ) : null}
+      {plan && at ? <GuideTop plan={plan} at={at} onPick={(to) => move(to)} onAllItems={allItems} tour={guide?.tour ?? null} /> : null}
       <div
         data-details-row=""
         /* On a round's Ready screen the items step aside — hidden, never
@@ -337,10 +375,41 @@ export function DetailsWorkspace({
         <section
           aria-label={`${current.label} — preview`}
           data-details-body=""
-          className={`order-1 flex min-h-0 flex-1 flex-col overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] lg:order-2 ${
+          className={`relative order-1 flex min-h-0 flex-1 flex-col overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] lg:order-2 ${
             layout === 'flow' ? 'overflow-y-auto px-4 py-5 sm:px-6' : 'overflow-hidden'
           }`}
         >
+          {/* 📱 The guided flow, as ONE slim chip on the page — it opens the guide's sheet. */}
+          {plan ? (
+            <button
+              type="button"
+              data-details-guide-chip=""
+              onClick={() => {
+                if (!guidedOn) openGuide();
+                setSheetOpen(false);
+                setGuideSheet(true);
+              }}
+              className="sn-press absolute left-1/2 top-2 z-10 inline-flex min-h-9 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-white/95 px-3.5 font-mono text-[11.5px] tracking-[0.04em] text-ink shadow-sm ring-1 ring-ink/10 lg:hidden"
+            >
+              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-terracotta-700" />
+              {whatsLeftLine}
+            </button>
+          ) : null}
+          {/* 📱 The editor, shut: one chip on the page opens it again (never a strip). */}
+          {!sheetOpen && layout !== 'whole' ? (
+            <button
+              type="button"
+              data-details-edit-chip=""
+              onClick={() => {
+                setGuideSheet(false);
+                setSheetOpen(true);
+              }}
+              className="sn-press absolute bottom-3 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-[14px] font-semibold text-cream shadow-lg lg:hidden"
+            >
+              {current.panelLabel ?? `Edit · ${current.label}`}
+              <ChevronUp aria-hidden className="h-4 w-4" />
+            </button>
+          ) : null}
           <div className={layout === 'flow' ? 'mx-auto flex w-full max-w-4xl flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'}>
             {items.map((i) =>
               visited.has(i.key) || i.key === selected ? (
@@ -355,8 +424,11 @@ export function DetailsWorkspace({
                   }
                 >
                   {guidedOn && stepHere && i.key === selected ? (
-                    /* 🪜 In the flow: the step's round, its name, where it shows — plain words. */
-                    <GuideHead step={stepHere} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
+                    /* 🪜 In the flow: the step's round, its name, where it shows — plain words.
+                       📱 On a phone these live only in the guide's sheet. */
+                    <div data-details-guide-head-wrap="" className="hidden lg:contents">
+                      <GuideHead step={stepHere} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
+                    </div>
                   ) : detailsItemLayout(i.key) === 'flow' ? (
                     <header className="flex flex-col gap-0.5">
                       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
@@ -391,10 +463,15 @@ export function DetailsWorkspace({
 
         {/* ══ LEFT — the navigator (a sideways strip on a phone) ══ */}
         {showNav ? (
-        <nav aria-label="Details — what to edit" className="order-2 shrink-0 border-t border-ink/10 bg-cream/80 lg:order-1 lg:w-[236px] lg:border-r lg:border-t-0">
+        <nav
+          aria-label="Details — what to edit"
+          data-phone-chrome="strip"
+          /* 📱 Not on a phone: its items and an item's sections are the editor sheet's ONE dropdown there. */
+          className="order-2 shrink-0 border-t border-ink/10 bg-cream/80 max-lg:hidden lg:order-1 lg:w-[236px] lg:border-r lg:border-t-0"
+        >
           <ol
             ref={navRef}
-            className="flex gap-1.5 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0.5 lg:overflow-y-auto lg:overflow-x-hidden lg:py-4"
+            className="flex gap-1.5 overflow-x-auto px-3 py-2 [scrollbar-width:none] max-lg:py-1.5 lg:h-full lg:flex-col lg:gap-0.5 lg:overflow-y-auto lg:overflow-x-hidden lg:py-4"
           >
             {plan && !guidedOn ? <WhatsLeftDoor label={whatsLeftLine} onOpen={openGuide} /> : null}
             {navGroups.map((g) => (
@@ -430,7 +507,7 @@ export function DetailsWorkspace({
                             ) : null}
                           </span>
                           <span className="flex min-w-0 flex-col">
-                            <span className="line-clamp-2 text-[11.5px] font-medium leading-tight lg:truncate lg:text-[13.5px]">{i.label}</span>
+                            <span className="line-clamp-1 text-[11.5px] font-medium leading-tight lg:truncate lg:text-[13.5px]">{i.label}</span>
                             {i.sub ? <small className="hidden truncate text-[11.5px] text-ink/55 lg:block">{i.sub}</small> : null}
                           </span>
                         </button>
@@ -458,29 +535,35 @@ export function DetailsWorkspace({
         <aside
           aria-label={`${current.label} — edit`}
           data-details-editor-panel=""
+          data-phone-chrome="panel"
           data-open={sheetOpen ? '' : undefined}
           /* A page that carries its own tools (the Logo studio, the Mood Board)
              has no second editor beside it — the column is hidden, never
              unmounted, so every other item's fields still post. */
           hidden={layout === 'whole'}
-          className={`order-3 ${layout === 'whole' ? 'hidden' : 'flex'} min-h-0 shrink-0 flex-col border-t border-ink/10 bg-cream lg:max-h-none lg:w-[360px] lg:border-l lg:border-t-0 ${
-            sheetOpen ? 'max-h-[72%]' : 'max-h-14 lg:max-h-none'
+          className={`order-3 ${layout === 'whole' ? 'hidden' : 'flex'} min-h-0 shrink-0 flex-col border-ink/10 bg-cream lg:static lg:max-h-none lg:w-[360px] lg:border-l ${
+            /* 📱 A bottom sheet over the dimmed page; the dimmed page keeps ≥ 55% (`lib/maker-phone-room.ts`). */
+            sheetOpen
+              ? `max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:rounded-t-3xl max-lg:shadow-[0_-18px_40px_-24px_rgba(30,26,18,.5)] ${MAKER_PHONE_PANEL_CAP}`
+              : 'max-lg:hidden'
           }`}
         >
-          <button
-            type="button"
-            onClick={() => setSheetOpen((o) => !o)}
-            aria-expanded={sheetOpen}
-            data-details-editor-handle=""
-            className="flex min-h-14 shrink-0 items-center gap-2 px-4 text-left lg:hidden"
-          >
-            <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-ink">{current.panelLabel ?? `Edit · ${current.label}`}</span>
-            {sheetOpen ? <ChevronDown aria-hidden className="h-4 w-4 text-ink/55" /> : <ChevronUp aria-hidden className="h-4 w-4 text-ink/55" />}
-          </button>
+          {/* 📱 The sheet's top: the grip (tap or drag down closes), then ONE header row. */}
+          <SheetGrip onClose={() => setSheetOpen(false)} />
+          <div className="flex shrink-0 items-center gap-2 px-4 pb-1 lg:hidden" data-details-sheet-head="">
+            <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{current.panelLabel ?? current.label}</p>
+            <SheetSections
+              items={navGroups.flatMap((g) => g.items)}
+              selected={selected}
+              onPick={select}
+              pieces={pieces[selected] ?? null}
+              current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? null}
+            />
+          </div>
           <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{current.panelLabel ?? current.label}</p>
           <div
             ref={editorRef}
-            className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-2 ${sheetOpen ? '' : 'hidden lg:block'}`}
+            className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 ${sheetOpen ? '' : 'hidden lg:block'}`}
           >
             {items.map((i) => (
               <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key !== selected ? 'hidden' : 'flex flex-col gap-3'}>
@@ -490,11 +573,48 @@ export function DetailsWorkspace({
             {persistent}
           </div>
         </aside>
+        {/* 📱 The dimmed page behind an open sheet — a tap on it goes back to the page. */}
+        {sheetOpen && layout !== 'whole' ? <SheetScrim onClose={() => setSheetOpen(false)} /> : null}
       </div>
+      {/* 📱 THE GUIDE'S SHEET — the chip on the page opens it: its step ▾, the step's
+          title, where it shows, what it unlocks, and Back · Skip · Next. Phone only. */}
+      {plan && at && guideSheet ? (
+        <>
+          <SheetScrim onClose={() => setGuideSheet(false)} />
+          <section
+            aria-label="What’s left"
+            data-details-guide-sheet=""
+            data-phone-chrome="panel"
+            className={`fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl bg-cream shadow-[0_-18px_40px_-24px_rgba(30,26,18,.5)] lg:hidden ${MAKER_PHONE_PANEL_CAP}`}
+          >
+            <SheetGrip onClose={() => setGuideSheet(false)} />
+            <GuideTop plan={plan} at={at} onPick={(to) => move(to)} onAllItems={() => { setGuideSheet(false); allItems(); }} inSheet />
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-2">
+              {at.kind === 'step' && stepHere ? <GuideHead step={stepHere} itemLabel={current.label} compact /> : null}
+            </div>
+            <GuideFoot
+              at={at}
+              plan={plan}
+              onBack={backScreen(plan, at) ? () => move(backScreen(plan, at)) : null}
+              onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at)) : null}
+              onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at)) : null}
+              warning={unsavedTo !== null}
+              onKeepEditing={() => {
+                setUnsavedTo(null);
+                setGuideSheet(false);
+                setSheetOpen(true);
+              }}
+              onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
+            />
+          </section>
+        </>
+      ) : null}
       {plan && at?.kind === 'ready' && guide ? (
         <GuideReady plan={plan} round={at.round} actions={guide.actions} onGo={(to) => move(to)} />
       ) : null}
       {plan && at ? (
+        /* 📱 On a phone the foot lives in the guide's sheet (above); this one is the desktop's. */
+        <div data-details-guide-foot-wrap="" data-phone-chrome="strip" className="hidden lg:contents">
         <GuideFoot
           at={at}
           plan={plan}
@@ -508,6 +628,7 @@ export function DetailsWorkspace({
           }}
           onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
         />
+        </div>
       ) : null}
       </div>
       </DetailsPieceContext.Provider>

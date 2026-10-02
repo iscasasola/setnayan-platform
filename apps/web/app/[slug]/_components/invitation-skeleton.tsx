@@ -45,8 +45,8 @@ import { PahinaMasthead } from './pahina-masthead';
  * is drawn by the real `HeroMonogram` from the row already in hand (still, not
  * animated: whether a paid animation is ON is one of the slow reads). A drawn
  * mark (studio or upload, up to 400 KB of SVG) is NOT inlined twice into the
- * worst connection the product sees; it gets a shimmer circle the size of the
- * 80px mark, carrying the couple's letters. A copy of the masthead would drift from it the
+ * worst connection the product sees; it gets an EMPTY slot the size of the
+ * 80px mark (its letters, when they set some) — never a grey disc. A copy of the masthead would drift from it the
  * first time anyone touched either; the component cannot drift from itself.
  * `the-loading-screen-is-the-page.test.ts` renders both and compares them.
  *
@@ -163,6 +163,12 @@ export function InvitationSkeleton({
   // simply has no time row until the page arrives with one.
   const card = heroMedia ? null : invitationCard({ words: w, firstStartAt: null });
 
+  /* 🚫 NO GREY DISC FOR A MARK (owner, live phone test 2026-10-02: the guest
+     view showed a grey circle where the logo goes). A grey placeholder reads as
+     something broken when it lingers, and on an event with no letters it was a
+     blank grey circle standing in for nothing. The slot keeps the mark's size,
+     so nothing jumps when the real mark lands — and draws nothing but the
+     couple's letters, when they set some. */
   const markSlot = mark ? (
     <HeroMonogram
       event={mark.design}
@@ -172,11 +178,7 @@ export function InvitationSkeleton({
       shadow={heroMedia}
     />
   ) : (
-    <span
-      aria-hidden
-      className="skeleton relative inline-flex h-20 w-20 items-center justify-center rounded-full"
-      style={SHIMMER}
-    >
+    <span aria-hidden data-skeleton-mark="" className="relative inline-flex h-20 w-20 items-center justify-center">
       {initials ? (
         <span className="font-pahina text-2xl italic tracking-tight text-gild/70">{initials}</span>
       ) : null}
@@ -239,7 +241,12 @@ export function InvitationSkeleton({
           />
         </div>
 
-        <div className="sn-hub-cards mt-8 space-y-4">
+        {/* ⏳ A PLACEHOLDER NEVER OUTSTAYS ITS CONTENT (owner 2026-10-02): if
+            the page has not landed after a while (a stalled connection, a
+            redirect the browser has not followed yet), the grey cards give up
+            and leave the masthead alone — pure CSS (`.sn-skeleton-gives-up`,
+            globals.css), no script. */}
+        <div className="sn-hub-cards sn-skeleton-gives-up mt-8 space-y-4">
           <ScenePlaceholder lines={3} />
           <ScenePlaceholder lines={2} />
         </div>

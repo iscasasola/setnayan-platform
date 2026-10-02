@@ -21,6 +21,7 @@ import {
   type HubMainOwn,
 } from '@/lib/hub-canvas';
 import { mainGroundChoice } from '@/lib/main-ground-choice';
+import { heroFrameWrites } from '@/lib/hero-frame-sync';
 import { IMAGE_MAX_EDGE } from '@/lib/image-max-edge';
 import { STD_REALISTIC_BACKGROUNDS } from '@/lib/std-backgrounds';
 import { ClipTile, PhotoTile, type SceneUpload } from './scene-background-row';
@@ -92,12 +93,6 @@ async function saveMain(eventId: string, main: HubMainGround | null) {
   return hubDraftAction(eventId, fd);
 }
 
-/** Does the stored Main background still need the hero's photo measured? */
-function heroNeedsMeasuring(current: HubMainGround | null, heroRef: string | null): boolean {
-  if (!heroRef) return false;
-  if (current && !isHubMainFollow(current)) return false; // an override is in charge
-  return !current || current.of !== heroRef;
-}
 
 /**
  * READS THE HERO'S PHOTO so the Main background can follow it. Renders nothing
@@ -107,15 +102,25 @@ function heroNeedsMeasuring(current: HubMainGround | null, heroRef: string | nul
  *
  * It only ever writes a FOLLOW (`{ follow: 'hero', of, tint }`) and never
  * replaces an override. The couple's colour choice survives a new hero.
+ *
+ * 🚫 NEVER ON OPENING ALONE (`lib/hero-frame-sync.ts`): it writes only beside a
+ * change of the couple's own — a hero they drafted, or a Main choice that
+ * differs from live — so opening the Maker leaves Apply at 0.
  */
 export function HeroFrameSync({
   eventId,
   heroRef,
   heroUrl,
   current,
+  liveHeroRef,
+  mainDrafted,
   quiet = false,
 }: {
   eventId: string;
+  /** The hero photo guests see today — a different one shown is the couple's own edit. */
+  liveHeroRef: string | null;
+  /** The Main background in the draft differs from live (the couple chose it). */
+  mainDrafted: boolean;
   /** The hero photo as the preview shows it (the draft over live), or null. */
   heroRef: string | null;
   /** Its public URL, to read the pixels from. */
@@ -127,7 +132,7 @@ export function HeroFrameSync({
   const router = useRouter();
   const [state, setState] = useState<'idle' | 'reading' | 'failed'>('idle');
   const tried = useRef<string | null>(null);
-  const needs = heroNeedsMeasuring(current, heroRef);
+  const needs = heroFrameWrites({ current, heroRef, liveHeroRef, mainDrafted });
   const match = current && isHubMainFollow(current) ? current.tint.match : true;
 
   useEffect(() => {
@@ -254,7 +259,7 @@ export function MainBackgroundPanel({
   /** The stored Main background as the preview shows it — the draft over live. */
   current: HubMainGround | null;
   /** The hero (the draft over live): its photo ref and a URL for it. */
-  hero: { photoRef: string | null; photoUrl: string | null; hasClip: boolean };
+  hero: { photoRef: string | null; photoUrl: string | null; hasClip: boolean; liveRef: string | null };
   /** A signed URL for an override's photo or still, for the thumbnail. */
   overrideStillUrl: string | null;
   /** The draft holds a different Main background from what guests see. */
@@ -459,7 +464,7 @@ export function MainBackgroundPanel({
       ) : null}
 
       {choice === 'hero' && hero.photoRef ? (
-        <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} />
+        <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} liveHeroRef={hero.liveRef} mainDrafted={drafted} />
       ) : null}
 
       {choice === 'media' ? (

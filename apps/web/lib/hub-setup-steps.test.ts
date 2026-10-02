@@ -266,12 +266,13 @@ test('🚪 the three doors open the SAME address, read through the SAME derivati
   assert.match(code(`${D}/_components/details-guide-home-card.tsx`), /readGuidedPlan\(/);
 });
 
-test('🚪 Home\'s card reads "Finish your Event Hub — n of m · Continue", and the once-offer "Start / Later"', () => {
+test('🚪 Home\'s card reads "Finish your Event Hub — n of m · Open the next step", and the once-offer "Start / Later"', () => {
   const base = { round: 0, roundTitle: 'Finish your Event Hub', done: 3, total: 6, nextTitle: 'What everyone wears', thenTitle: 'What to ask guests · reply-by', setup: true };
   const card = pickHomeNext({ guide: base, hasDate: true, guests: null, noun: 'wedding', papicReady: false, aiOffer: false });
   assert.equal(card.title, 'Finish your Event Hub — 3 of 6');
   assert.equal(card.body, 'Next: What everyone wears · then What to ask guests · reply-by');
-  assert.equal(card.action, 'Continue');
+  // The button names the action (owner, live phone test 2026-10-02) — it was a bare "Continue".
+  assert.equal(card.action, 'Open the next step');
   assert.equal(card.offer, undefined);
   const offer = pickHomeNext({ guide: { ...base, done: 0, offer: true }, hasDate: true, guests: null, noun: 'wedding', papicReady: false, aiOffer: false });
   assert.equal(offer.action, 'Start');

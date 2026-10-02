@@ -77,6 +77,13 @@ export type MakerState = {
    */
   detailsItem?: DetailsItemKey | null;
   setDetailsItem?: (key: DetailsItemKey) => void;
+  /**
+   * 📱 How many times a door (Look · Event Details · Prints) has opened Details —
+   * on a phone each press opens the item's editor as a bottom sheet (owner
+   * 2026-10-02, frame G: "Look and Details open as bottom sheets over the
+   * preview"); opened any other way, the page shows clean. Optional.
+   */
+  detailsDoor?: number;
   /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
   lookPages?: MakerLookPages | null;
   setLookPages?: (next: MakerLookPages | null) => void;
@@ -129,7 +136,12 @@ export type MakerGuestPagesReport = {
 export type MakerPageJump = { stage: LifecyclePhase; key: string; n: number; sameStage: boolean };
 
 /** ↺ The draft bar's Restore, for the toolbar's ⋯ (see `MakerState.draft`). */
-export type MakerDraftDoor = { canRestore: boolean; restore: () => void };
+/**
+ * ↺ Restore (⋯) and the phone's Apply (the bottom bar — frame G: "Page ▾ · Look ·
+ * Details · Apply (3)"), as the draft bar registered them: what Apply says and
+ * whether it can be pressed; the press itself is `pressMakerApply`, the bar's own act.
+ */
+export type MakerDraftDoor = { canRestore: boolean; restore: () => void; apply: { label: string; count: number; enabled: boolean } };
 
 /**
  * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28

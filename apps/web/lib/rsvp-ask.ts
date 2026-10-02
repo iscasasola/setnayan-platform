@@ -283,15 +283,6 @@ export const RSVP_ASK_LABEL: Record<RsvpAskField, string> = {
   mobile: 'Mobile number',
 };
 
-export const RSVP_ASK_TIP: Record<RsvpAskField, string> = {
-  plus_ones: 'Only guests you already allowed a plus-one still see this — turning it off hides the name box for everyone.',
-  meal: 'The meal picker on the reply card.',
-  dietary: 'The allergy / dietary notes box.',
-  song_request: 'The song-request card on your Event Hub — separate from its own open/paused window.',
-  note: 'The free-text note guests can leave you.',
-  mobile: 'Only the mobile box — email always shows, since it is also how a guest keeps their invitation.',
-};
-
 // ── WHO CAN RSVP · ONE AT A TIME · REPLY BY ─────────────────────────────────
 // Typed readers over the RAW stored blob (`events.rsvp_ask_config`), so no
 // caller re-implements a default. The guest side reads these same functions.
@@ -374,12 +365,6 @@ export function oneQrLetsYouIn(raw: unknown): boolean {
   const cfg = sanitizeRsvpAskConfig(raw);
   return cfg.guestsReply === false && cfg.whoCanRsvp === 'anyone' && cfg.approveEach !== true;
 }
-
-export const ONE_AT_A_TIME_TIP =
-  'OFF: every question on one scrolling page. ON: one question per screen with progress dots and Back — easier for elders and small screens. Same questions either way.';
-
-export const WHO_CAN_RSVP_TIP =
-  'Whether guests reply, and who may come in. Anyone who has to ask waits in Requests until you Keep, Link or Remove them. “One QR for everyone” adds anyone who scans it and signs in — unless you pick “I approve each one”.';
 
 /**
  * THE REPLY-BY LINE A GUEST SEES — the invitation, the reply page and the

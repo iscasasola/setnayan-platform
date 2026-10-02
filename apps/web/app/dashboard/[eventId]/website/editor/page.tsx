@@ -489,6 +489,9 @@ export default async function WebsiteEditorPage({
   const mainLive = hubMainGround(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const mainNow = hubMainGround(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const draftedHero = resolveHero(overlayHubDraftEvent(event as Record<string, unknown>, hubDraft));
+  /* What guests see today — a different hero shown is the couple's own edit (`lib/hero-frame-sync.ts`). */
+  const liveHeroRef = resolveHero(event as Record<string, unknown>).photoRef;
+  const mainDrafted = JSON.stringify(mainNow) !== JSON.stringify(mainLive);
   const signOrNull = async (ref: string | null) =>
     ref ? await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null) : null;
   const [heroPhotoUrl, mainOverrideStillUrl] = await Promise.all([
@@ -784,9 +787,10 @@ export default async function WebsiteEditorPage({
                         photoRef: draftedHero.photoRef,
                         photoUrl: heroPhotoUrl,
                         hasClip: Boolean(draftedHero.videoRef),
+                        liveRef: liveHeroRef,
                       }}
                       overrideStillUrl={mainOverrideStillUrl}
-                      drafted={JSON.stringify(mainNow) !== JSON.stringify(mainLive)}
+                      drafted={mainDrafted}
                       ownsPro={ownsPro}
                       /* 🖼 The four choices (owner 2026-09-29): the theme's own
                          (its public still), the hero, the SAME pictures a
@@ -1390,6 +1394,8 @@ export default async function WebsiteEditorPage({
                 heroRef={draftedHero.photoRef}
                 heroUrl={heroPhotoUrl}
                 current={mainNow}
+                liveHeroRef={liveHeroRef}
+                mainDrafted={mainDrafted}
                 quiet
               />
             ) : null}

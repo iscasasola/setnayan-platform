@@ -48,10 +48,13 @@ function readManifestFile(): ActionsManifest | null {
   if (fileManifest !== undefined) return fileManifest;
   fileManifest = null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const fs = require('node:fs') as typeof import('node:fs');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require('node:path') as typeof import('node:path');
+    // `getBuiltinModule` (Node ≥ 22.3), not an import: this module is reachable
+    // from instrumentation.ts, which is ALSO compiled for the edge runtime, and
+    // a static `node:fs` would be bundled there. Absent → the singleton only.
+    const getBuiltin = (process as unknown as { getBuiltinModule?: (id: string) => unknown }).getBuiltinModule;
+    if (typeof getBuiltin !== 'function') return fileManifest;
+    const fs = getBuiltin('node:fs') as typeof import('node:fs');
+    const path = getBuiltin('node:path') as typeof import('node:path');
     for (const base of [process.cwd(), path.join(process.cwd(), 'apps/web')]) {
       const p = path.join(base, '.next/server/server-reference-manifest.json');
       if (fs.existsSync(p)) {

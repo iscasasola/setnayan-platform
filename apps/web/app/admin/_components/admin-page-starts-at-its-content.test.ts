@@ -246,7 +246,8 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   { file: '_components/mobile-landing-grid.tsx', namesItself: 'title={title}' },
   {
     file: 'connection-logs/connection-logs-client.tsx',
-    namesItself: 'title="Connection Logs"',
+    // Renamed "Problems" by the owner 2026-10-02 — the surface still names itself.
+    namesItself: 'title="Problems"',
   },
   {
     file: 'studio/_surfaces/moodboard-library-surface.tsx',

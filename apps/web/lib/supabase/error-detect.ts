@@ -157,6 +157,24 @@ export function logQueryError(
     };
     if (typeof window === 'undefined') {
       Sentry.captureException(err, hint);
+    } else {
+      // ⚡ IN THE BROWSER, ASK FOR THE SDK INSTEAD OF IMPORTING IT (the diet,
+      // 2026-10-01). Client modules reach this file (the event layout's unread
+      // badges → `lib/notifications.ts` / `lib/chat.ts`), and the static import
+      // above put @sentry/core — 13KB gz — in the first load of every event
+      // page, the Maker's included. The browser SDK is loaded lazily anyway
+      // (`deferred-observability.tsx` imports this same module at idle and
+      // inits it), and a capture before that init reached no client either; so
+      // the browser reports exactly what it reported before. The compiler folds
+      // `typeof window` per bundle, so the server keeps the synchronous call
+      // and the browser bundle no longer carries the static import.
+      // 🛡 lib/sentry-stays-out-of-the-first-load.test.ts.
+      void import('@sentry/nextjs').then(
+        (S) => S.captureException(err, hint),
+        () => {},
+      );
+    }
+    if (typeof window === 'undefined') {
       // 📋 THE PROBLEMS LIST (2026-10-02). A PostgREST error that carries a
       // `code` came back as an HTTP response, and the fetch layer every server
       // client rides (lib/supabase/db-error-log.ts) has ALREADY recorded it —
@@ -177,22 +195,6 @@ export function logQueryError(
           )
           .catch(() => {});
       }
-    } else {
-      // ⚡ IN THE BROWSER, ASK FOR THE SDK INSTEAD OF IMPORTING IT (the diet,
-      // 2026-10-01). Client modules reach this file (the event layout's unread
-      // badges → `lib/notifications.ts` / `lib/chat.ts`), and the static import
-      // above put @sentry/core — 13KB gz — in the first load of every event
-      // page, the Maker's included. The browser SDK is loaded lazily anyway
-      // (`deferred-observability.tsx` imports this same module at idle and
-      // inits it), and a capture before that init reached no client either; so
-      // the browser reports exactly what it reported before. The compiler folds
-      // `typeof window` per bundle, so the server keeps the synchronous call
-      // and the browser bundle no longer carries the static import.
-      // 🛡 lib/sentry-stays-out-of-the-first-load.test.ts.
-      void import('@sentry/nextjs').then(
-        (S) => S.captureException(err, hint),
-        () => {},
-      );
     }
   } catch {
     // Sentry not initialized — console.error above is the fallback.

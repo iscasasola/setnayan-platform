@@ -109,9 +109,10 @@ export async function recordFault(input: RecordFaultInput, rpc?: FaultRpc): Prom
   try {
     const { data, error } = await call('record_app_fault', shapeFaultArgs(input, currentBuildSha()));
     if (error) {
-      // console only — logQueryError would record this failure, which would
-      // call this function again. A recorder that cannot write says so once.
-      console.error('[telemetry] record_app_fault failed', (error as { message?: string })?.message ?? error);
+      // This IS the audit trail for a caller's failure — a discarded error here
+      // is doubly silent. logQueryError never records a `lib/telemetry/` call
+      // site back into this function, so this cannot recurse.
+      logQueryError('lib/telemetry/fault-log.ts: record_app_fault', error);
       return null;
     }
     const row = (Array.isArray(data) ? data[0] : data) as { issue_id?: string; log_id?: string } | null;

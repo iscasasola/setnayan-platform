@@ -34,13 +34,18 @@ test('the Wedding March has one home — Details — and the Guest list hands ol
   assert.doesNotMatch(page, /gview:\s*'walk'|gview=walk/, 'the roster links to a march view that no longer exists');
 });
 
-test('on a phone, the Details navigator — and the march’s own lines in it — is not hidden', () => {
+test('on a phone, the Details items and the march’s own lines are reachable — in the editor sheet’s one dropdown', () => {
   const ws = read(LAUNCH, 'details-workspace.tsx');
-  const nav = ws.slice(ws.indexOf('<nav aria-label="Details'), ws.indexOf('>', ws.indexOf('<nav aria-label="Details')));
-  assert.ok(nav.length > 0, 'the Details navigator is gone');
-  assert.doesNotMatch(nav.replace(/lg:[\w-]+/g, ''), /\bhidden\b/, 'the Details navigator is hidden on a phone');
-  // The march's lines ride in that same navigator while the item is open —
-  // part 3's one piece mechanism, a strip on a phone (`contents`).
+  // 2026-10-02 (owner, live phone test: "too clumped"; the approved phone layout, frame G):
+  // the navigator strip is the desktop's; on a phone its items and an item's pieces — the
+  // march's lines — are the editor sheet's ONE dropdown (`SheetSections`).
+  const sheet = ws.slice(ws.indexOf('<SheetSections'), ws.indexOf('/>', ws.indexOf('<SheetSections')));
+  assert.ok(sheet.length > 0, 'the editor sheet has no dropdown — on a phone the march has no way in');
+  assert.match(sheet, /items=\{navGroups\.flatMap\(\(g\) => g\.items\)\}/, 'the sheet’s dropdown does not list the items');
+  assert.match(sheet, /pieces=\{pieces\[selected\] \?\? null\}/, 'the sheet’s dropdown does not hold the item’s pieces (the march’s lines)');
+  const sections = read(LAUNCH, 'sheet-sections.tsx');
+  assert.match(sections, /\{pieces \? <div className="flex flex-col gap-0\.5">\{pieces\}<\/div> : null\}/, 'the dropdown does not draw the pieces');
+  // The march's lines ride as pieces while the item is open — part 3's one piece mechanism.
   assert.match(ws, /\{on && pieces\[i\.key\] \? \(/);
   assert.match(ws, /data-details-pieces=\{i\.key\}\s*className="contents lg:flex/);
 });

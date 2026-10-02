@@ -44,6 +44,8 @@ export type DetailsPieces = {
   setPiece: (item: DetailsItemKey, piece: string | null, opts?: { openEditor?: boolean }) => void;
   /** Open the right part on a phone (a tool's own button that shows its controls there — the seat plan's "N to seat"). */
   openEditor?: () => void;
+  /** 📱 An item's sections by name (`ItemPieces`) — the phone sheet's one dropdown says the picked one. */
+  noteLabels?: (item: DetailsItemKey, labels: Record<string, string>) => void;
 };
 export const DetailsPieceContext = createContext<DetailsPieces | null>(null);
 

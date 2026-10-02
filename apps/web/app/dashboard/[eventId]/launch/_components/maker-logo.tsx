@@ -1,5 +1,6 @@
 'use client';
 
+import { SheetGrip, SheetScrim } from './maker-sheet';
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -591,11 +592,15 @@ export function MakerLogoDoor({
       data-logo-save={save.kind}
     >
       {/* ══ LEFT · THE LAYERS ══ */}
+      {/* 📱 The dimmed page behind an open sheet — a tap on it goes back to the logo. */}
+      {sheet ? <SheetScrim onClose={() => setSheet(null)} /> : null}
       <aside
         aria-label="Logo layers"
         data-logo-navigator=""
-        className={`${sheet === 'layers' ? 'flex' : 'hidden'} sn-glass-bare fixed inset-x-0 bottom-0 z-30 max-h-[50dvh] flex-col rounded-t-3xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-64 lg:shrink-0 lg:rounded-none lg:border-r lg:border-ink/10`}
+        data-phone-chrome="panel"
+        className={`${sheet === 'layers' ? 'flex' : 'hidden'} sn-glass-bare fixed inset-x-0 bottom-0 z-30 max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-64 lg:shrink-0 lg:rounded-none lg:border-r lg:border-ink/10`}
       >
+        <SheetGrip onClose={() => setSheet(null)} />
         <SheetHead title="Layers" onClose={() => setSheet(null)} />
         <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain px-2 pb-3">
           {topFirst.length === 0 ? <p className="px-2 py-3 text-[13px] text-ink/60">Add text, an image or a frame.</p> : null}
@@ -811,8 +816,10 @@ export function MakerLogoDoor({
       <aside
         aria-label="Layer tools"
         data-logo-tools=""
-        className={`${sheet === 'tools' ? 'flex' : 'hidden'} sn-glass-bare fixed inset-x-0 bottom-0 z-30 max-h-[50dvh] flex-col rounded-t-3xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
+        data-phone-chrome="panel"
+        className={`${sheet === 'tools' ? 'flex' : 'hidden'} sn-glass-bare fixed inset-x-0 bottom-0 z-30 max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl lg:static lg:z-auto lg:flex lg:max-h-none lg:w-80 lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10`}
       >
+        <SheetGrip onClose={() => setSheet(null)} />
         <SheetHead title={selected ? (selected.kind === 'text' ? 'Text' : selected.name) : 'Layer'} onClose={() => setSheet(null)} />
         <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain px-3 pb-6 pt-1">
           {!selected ? (

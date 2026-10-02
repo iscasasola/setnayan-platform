@@ -27,6 +27,7 @@ import { paidMarkLabel } from '@/lib/paid-mark';
 import { makerSaveStatusText, onMakerSave, type MakerSaveStatus } from '@/lib/maker-save-status';
 import { formatCount } from '@/lib/format-number';
 import { placePanelAt, type PanelPlace } from '@/lib/maker-panel-place';
+import { MAKER_BAR_PHONE } from '@/lib/maker-phone-room';
 
 /**
  * THE DRAFT CONTROLS — Restore · Undo · Apply, ALWAYS VISIBLE at the upper
@@ -269,11 +270,20 @@ export function HubDraftToolbar({
   actRef.current = act;
   const setDraftDoor = maker?.setDraft;
   const canRestore = !pending && summary.hasChanges;
+  /* ↶ …and Undo, for the phone's bottom bar (the Maker draws it there, from this
+     one act — owner 2026-10-02: top bar × · Page ▾ · Apply; bottom bar Look ·
+     Event Details · Undo · ⋯). */
+  const canUndoNow = !pending && summary.canUndo;
   useEffect(() => {
     if (!setDraftDoor) return;
-    setDraftDoor({ canRestore, restore: () => actRef.current({ intent: 'restore' }) });
+    setDraftDoor({
+      canRestore,
+      restore: () => actRef.current({ intent: 'restore' }),
+      canUndo: canUndoNow,
+      undo: () => actRef.current({ intent: 'undo' }),
+    });
     return () => setDraftDoor(null);
-  }, [setDraftDoor, canRestore]);
+  }, [setDraftDoor, canRestore, canUndoNow]);
   /* The panel always closes: its × , Cancel, a tap outside it, Esc — and a tap
      on the canvas, which is a frame of its own (a tap there never reaches this
      window as a pointerdown; it blurs it). Owner 2026-10-02: "won't close". */
@@ -370,6 +380,11 @@ export function HubDraftToolbar({
     if (result) setOpen(false);
   }, [result]);
   const outcome = hubDraftOutcome(result);
+  /* Each answer is said afresh (its phone toast fades again). */
+  const [outcomeN, setOutcomeN] = useState(0);
+  useEffect(() => {
+    if (result) setOutcomeN((n) => n + 1);
+  }, [result]);
   /* The newest word wins: a status this page announced, else a form save that
      came back refused (`saveError`). An error is never truncated away. */
   const status: MakerSaveStatus | null = saveStatus ?? (saveError ? { state: 'error', text: saveError } : null);
@@ -382,20 +397,21 @@ export function HubDraftToolbar({
     <div className="contents" data-maker-draft-actions="">
       {status ? (
         <span
+          key={`s:${makerSaveStatusText(status)}`}
           role={status.state === 'error' ? 'alert' : 'status'}
           data-maker-save-status={status.state}
-          className={`order-2 max-w-[9rem] text-[11px] font-semibold md:order-none ${
-            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/60'
+          className={`max-w-[9rem] text-[11px] font-semibold ${PHONE_TOAST} ${
+            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/60 max-md:sn-toast-fades'
           }`}
           title={makerSaveStatusText(status)}
         >
           {makerSaveStatusText(status)}
         </span>
       ) : outcome ? (
-        <OutcomeLine outcome={outcome} />
+        <OutcomeLine key={outcomeN} outcome={outcome} />
       ) : null}
       {readError ? (
-        <span role="alert" className="order-2 text-[11px] font-semibold text-terracotta-700 md:order-none">
+        <span role="alert" className={`text-[11px] font-semibold text-terracotta-700 ${PHONE_TOAST}`}>
           Draft could not load
         </span>
       ) : null}
@@ -403,17 +419,19 @@ export function HubDraftToolbar({
         label="Undo"
         icon={<Undo2 aria-hidden className="h-4 w-4" strokeWidth={2} />}
         wordFrom="md"
+        phone={{ width: MAKER_BAR_PHONE.undoTop }}
         disabled={pending || !summary.canUndo}
         disabledReason="Nothing to undo yet"
         onClick={() => act({ intent: 'undo' })}
       />
       {/* 📱 The shell's Phone button, between Undo and Apply (the Maker in 4). */}
       {maker?.viewToggle ?? null}
-      <span className="relative order-2 inline-flex md:order-none" data-maker-apply="">
+      <span className="relative inline-flex" data-maker-apply="">
         <DraftButton
           label={applyLabel}
           icon={<Check aria-hidden className="h-4 w-4" strokeWidth={2} />}
           primary
+          phone={{ width: MAKER_BAR_PHONE.apply, word: true }}
           disabled={pending || !summary.hasChanges}
           disabledReason="No changes to apply"
           onClick={() => (asksForPro ? setSheetOpen(true) : act({ intent: 'apply' }))}
@@ -448,7 +466,7 @@ export function HubDraftToolbar({
         />,
         document.body,
       ) : null}
-      <div ref={panelRef} className="relative order-2 md:order-none" data-maker-draft-panel="">
+      <div ref={panelRef} className="relative" data-maker-draft-panel="">
         {/* Portalled and FIXED to the screen (like the Apply sheet): inside the
             glass bar an absolute box hung off its anchor's right edge and, on a
             phone's second row, ran off the screen's left (owner 2026-10-02). */}
@@ -551,10 +569,19 @@ function placePanel(anchor: HTMLElement | null): PanelPlace | null {
   return r ? placePanelAt(r, window.innerWidth) : null;
 }
 
+/**
+ * 📱 ON A PHONE A STATUS IS SAID OVER THE CANVAS, just under the bar — never as a
+ * third toolbar row (owner 2026-10-02: *"the screen is too clumped"*; the bar is
+ * two rows, `MAKER_PHONE_BAR_PX`). A quiet one ("Live now") fades after a few
+ * seconds; an error stays until the next action.
+ */
+const PHONE_TOAST =
+  'max-md:pointer-events-none max-md:absolute max-md:left-2 max-md:right-2 max-md:top-full max-md:z-30 max-md:mt-1 max-md:max-w-none max-md:rounded-full max-md:bg-cream/95 max-md:px-3 max-md:py-1 max-md:shadow-sm';
+
 /** 📣 The outcome, said beside Apply (`hubDraftOutcome`) — never a box that opens. */
 function OutcomeLine({ outcome }: { outcome: NonNullable<ReturnType<typeof hubDraftOutcome>> }) {
-  const quiet = 'order-2 max-w-[9rem] truncate text-[11px] font-semibold text-ink/60 md:order-none';
-  const loud = 'order-2 max-w-[11rem] line-clamp-3 text-[11px] font-semibold leading-tight text-terracotta-700 md:order-none';
+  const quiet = `max-w-[9rem] truncate text-[11px] font-semibold text-ink/60 ${PHONE_TOAST} max-md:sn-toast-fades`;
+  const loud = `max-w-[11rem] line-clamp-3 text-[11px] font-semibold leading-tight text-terracotta-700 ${PHONE_TOAST}`;
   if (outcome.kind === 'live') return <span role="status" data-maker-save-status="applied" className={quiet}>Live now</span>;
   if (outcome.kind === 'reset') return <span role="status" data-maker-save-status="reset" className={quiet}>Reset in your draft</span>;
   if (outcome.kind === 'error') return <span role="alert" data-maker-save-status="error" className={loud}>{outcome.text}</span>;

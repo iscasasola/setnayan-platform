@@ -899,6 +899,11 @@ html.guests-subnav-docked [data-shell-main] {
   .sn-skeleton-gives-up {
     animation: sn-skeleton-give-up 0.4s ease 12s forwards;
   }
+  /* 📱 A quiet Maker status said over the canvas on a phone fades after 4 s
+   * (`hub-draft-bar.tsx` PHONE_TOAST) — the page is the couple's, not ours. */
+  .sn-toast-fades {
+    animation: sn-skeleton-give-up 0.3s ease 4s forwards;
+  }
   @keyframes sn-skeleton-give-up {
     to {
       opacity: 0;

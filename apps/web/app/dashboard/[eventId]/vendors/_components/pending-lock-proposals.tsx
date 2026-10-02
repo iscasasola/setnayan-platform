@@ -52,11 +52,11 @@ export function PendingLockProposals({
           `${p.vendorName} is completing verification and can't be booked just yet.`,
         );
       } else if (res.status === 'error' || res.status === 'not_found') {
-        setNote(`Couldn't lock ${p.vendorName}. Try from its card below.`);
+        setNote(`Couldn't book ${p.vendorName}. Try from its card below.`);
       } else {
         // A gate (reservation terms / downpayment / slot / date / conflict)
         // needs the full lock flow — send the couple to the vendor's card.
-        setNote(`${p.vendorName} needs a few details to lock — open its card below to finish.`);
+        setNote(`${p.vendorName} needs a few details to book — open its card below to finish.`);
       }
     });
   }
@@ -79,7 +79,7 @@ export function PendingLockProposals({
       <header className="flex items-center gap-1.5">
         <UserCheck aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-700">
-          Your coordinator proposed locking
+          Your coordinator proposed booking
         </p>
       </header>
       {/* ── CAPPED, 2026-09-22 ────────────────────────────────────────────
@@ -118,7 +118,7 @@ export function PendingLockProposals({
                   ) : (
                     <UserCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                   )}
-                  Lock now
+                  Book now
                 </button>
                 <button
                   type="button"
@@ -160,7 +160,7 @@ export function PendingLockProposals({
                       ) : (
                         <UserCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
                       )}
-                      Lock now
+                      Book now
                     </button>
                     <button
                       type="button"

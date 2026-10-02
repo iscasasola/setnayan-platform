@@ -33,7 +33,7 @@ export * from './types';
 export const FEATURE_GROUPS: readonly Readonly<{ key: FeatureGroupKey; name: Bi<string> }>[] = [
   { key: 'plan', name: { en: 'Plan it', tl: 'Planuhin' } },
   { key: 'invite', name: { en: 'Invite & gather', tl: 'Mag-imbita at magtipon' } },
-  { key: 'day', name: { en: 'On the day', tl: 'Sa mismong araw' } },
+  { key: 'day', name: { en: 'The Day', tl: 'Sa mismong araw' } },
   { key: 'memories', name: { en: 'Keep the memories', tl: 'Itago ang Memories' } },
   { key: 'suppliers', name: { en: 'For suppliers', tl: 'Para sa suppliers' } },
 ];

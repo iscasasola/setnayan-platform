@@ -472,7 +472,7 @@ export function GovernedFields({
         <div className="flex items-start gap-2 rounded-xl border border-ink/10 bg-paper px-3.5 py-2.5">
           <Lock aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/45" strokeWidth={1.75} />
           <p className="text-xs text-ink/60">
-            You’ve booked suppliers, so your wedding type, venues, guest count, and date are locked.{' '}
+            You’ve booked suppliers, so your wedding type, venues, guest count, and date are fixed.{' '}
             <Link href="/help" className="font-medium text-terracotta underline-offset-2 hover:underline">
               Contact support
             </Link>{' '}

@@ -158,7 +158,7 @@ test('source · the popup lists EVERY date, not the truncated set', () => {
 
 test('source · the "sets your date" sentence exists in ONE place', () => {
   const copy = readFileSync(resolve(HERE, 'explore-info-copy.ts'), 'utf8');
-  assert.match(copy, /Locking this sets your date to/, 'the outcome copy is gone');
+  assert.match(copy, /Booking this sets your date to/, 'the outcome copy is gone');
   // The component must not hand-write it — it renders dateOutcomeLine().
   assert.ok(
     !/sets your date/i.test(BENCH),

@@ -57,7 +57,7 @@ export const TAB_META: Record<
   shortlist: {
     label: 'Saved',
     icon: Bookmark,
-    blurb: 'The bench — every service you are considering.',
+    blurb: 'Saved — every service you are considering.',
   },
   build: {
     label: 'Build',

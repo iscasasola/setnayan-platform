@@ -71,10 +71,10 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Run every booking',
         items: [
-          { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and proposals from one place.' },
+          { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and quotes from one place.' },
           { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
           { n: 'Double-booking guard', b: 'A held date blocks a second booking, scoped per service and role.' },
-          { n: 'Send package proposals', b: 'Draft, save and send proposals with package line items to booked couples.' },
+          { n: 'Send package quotes', b: 'Draft, save and send quotes with package line items to booked couples.' },
           { n: 'Headcount that quotes itself', b: 'Catering covers auto-compute from the couple’s live guest list.' },
           { n: 'Bookings pipeline', b: 'Accepted inquiries become tracked booking items on the event.' },
           { n: 'Contract-on-record', b: 'Upload each contract to a timestamped, per-event paper trail.' },
@@ -94,9 +94,9 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'GCash or bank, your call', b: 'Couples pay you directly to your GCash/BDO. We never hold your money.' },
           { n: 'Set your price once', b: 'Publish packages and rates once; they power every quote you send.' },
           { n: 'PH-style milestone tracking', b: 'Log reservation → progress → balance with proof, the way PH couples pay.' },
-          { n: 'Deposit reservation, lock-free', b: 'A recorded deposit holds the date; the money settles straight to you.' },
-          { n: 'No-show downpayment protection', b: 'A frozen, couple-agreed cancellation policy makes a forfeited downpayment defensible.' },
-          { n: 'Payday calendar & cash-flow view', b: 'Every upcoming milestone due-date across all booked events on one timeline.' },
+          { n: 'Reserve with a first payment, lock-free', b: 'A recorded first payment holds the date; the money settles straight to you.' },
+          { n: 'No-show first payment protection', b: 'A frozen, couple-agreed cancellation policy makes a forfeited first payment defensible.' },
+          { n: 'Money in calendar & cash-flow view', b: 'Every upcoming milestone due-date across all booked events on one timeline.' },
         ],
       },
       {

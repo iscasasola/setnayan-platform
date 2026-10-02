@@ -101,11 +101,8 @@ import { loadGuestAccessMap } from '@/lib/guest-access.server';
 import type { GuestAccessState } from '@/lib/guest-access';
 
 import { MiniTour } from '@/app/_components/mini-tour';
-import { readHubDraft } from '@/lib/hub-draft-store';
 import { loadGuestHelperCard } from '@/lib/guest-helper-card.server';
 import { GuestHelperAccess } from './_components/guest-helper-access';
-import { whoCanReplyBase, type WhoCanReplyDraft } from '@/lib/who-can-reply';
-import { WhoCanReplyAsk } from './_components/who-can-reply-ask';
 import { GuestsPhoneMenu } from './_components/guests-phone-menu';
 import { PhoneShowPick } from './_components/phone-show-pick';
 import { quickAddTips } from '@/lib/quick-add-tips';
@@ -426,7 +423,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         // after his Movie Night: *"i can still invite"*. It could not have known
         // otherwise — nothing here asked when the celebration was, so every
         // affordance on it addressed a party that had not happened yet.
-        .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug, rsvp_ask_config')
+        .select('role_palette, estimated_pax, event_date, event_end_date, cleared_at, timezone, slug')
         .eq('event_id', eventId)
         .maybeSingle(),
       fetchGuestGroupsByEvent(supabase, eventId),
@@ -560,34 +557,6 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     );
   }
   const palette: RolePalette = sanitizeRolePalette(eventRow.data?.role_palette ?? {});
-
-  /*
-    🚪 "WHO CAN REPLY?" — THE FIRST VISIT ASKS (owner 2026-09-30, DECISION_LOG
-    "THE FIRST VISIT TO THE GUEST LIST ASKS WHICH KIND OF LIST"). Asked only
-    while the event has no answer, live or drafted (`lib/who-can-reply.ts`);
-    the draft is read only then, so an answered event pays no extra read.
-  */
-  const liveRsvpAsk = (eventRow.data as { rsvp_ask_config?: unknown } | null)?.rsvp_ask_config ?? null;
-  let whoCanReplyDraft: WhoCanReplyDraft = { read: 'ok', drafted: false };
-  if (viewer.isCouple && !eventRow.error && whoCanReplyBase({ isHost: true, liveMeasured: true, live: liveRsvpAsk, draft: whoCanReplyDraft })) {
-    try {
-      const draft = await readHubDraft(supabase, eventId);
-      whoCanReplyDraft =
-        draft && 'rsvp_ask_config' in draft.events
-          ? { read: 'ok', drafted: true, value: draft.events.rsvp_ask_config }
-          : { read: 'ok', drafted: false };
-    } catch (e) {
-      // A refused draft read never asks: the post would overwrite drafted switches.
-      logQueryError('GuestsPage.whoCanReplyDraft', e, { event_id: eventId }, 'graceful_degrade');
-      whoCanReplyDraft = { read: 'refused' };
-    }
-  }
-  const whoCanReply = whoCanReplyBase({
-    isHost: viewer.isCouple,
-    liveMeasured: !eventRow.error,
-    live: liveRsvpAsk,
-    draft: whoCanReplyDraft,
-  });
 
   const q = (search.q ?? '').trim().toLowerCase();
   const rsvpFilter = (search.rsvp ?? '') as RsvpStatus | '';
@@ -1463,16 +1432,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
           2026-09-30: "and instructions on how to use it"; 2026-09-25: every
           feature gets a first-visit tour — the shipped MiniTour, never a new
           mechanism). */}
-      {/* The first visit's one question comes BEFORE the Invite tour: the tour
-          is handed to the pop-up and drawn only once it is closed; once it is
-          answered the page re-renders without it and the tour stands alone. */}
-      {whoCanReply ? (
-        <WhoCanReplyAsk eventId={eventId} base={whoCanReply}>
-          <MiniTour tourKey="customer_guest_invite_v1" />
-        </WhoCanReplyAsk>
-      ) : (
-        <MiniTour tourKey="customer_guest_invite_v1" />
-      )}
+      <MiniTour tourKey="customer_guest_invite_v1" />
       {/* The Guest list's own first-visit tour (owner 2026-09-25) — after the
           Invite tour, so the two never stack on one first visit. */}
       <MiniTour tourKey="customer_guest_list_v1" after="customer_guest_invite_v1" />

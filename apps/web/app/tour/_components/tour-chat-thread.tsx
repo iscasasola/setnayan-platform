@@ -31,7 +31,7 @@ type ScriptMsg = { role: 'couple' | 'vendor'; body: string };
  */
 const VENDOR_SCRIPT: string[] = [
   "Hi! Thanks so much for reaching out about Maria & Jose's wedding — congratulations to the couple! 🤍 We'd love to be part of the day.",
-  "Yes, December 12, 2026 is still open on our calendar. We pencil dates in lightly until there's a signed agreement, so it's a good idea to lock it in soon.",
+  "Yes, December 12, 2026 is still open on our calendar. We pencil dates in lightly until there's a signed agreement, so it's a good idea to book it soon.",
   "Our coverage usually runs the full event day — prep, ceremony, and reception. I can send our package details and sample galleries so you can see if our style fits your moodboard.",
   "Perfect. I'll put together a quote based on your guest count and venue, and we can hop on a quick call this week to walk through everything. Talk soon! ✨",
 ];

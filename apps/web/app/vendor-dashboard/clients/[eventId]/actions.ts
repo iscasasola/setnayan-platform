@@ -158,8 +158,8 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
         await emitNotification({
           userId: m.user_id,
           type: 'payment_confirmed',
-          title: `${vendorName} confirmed your deposit`,
-          body: 'Your date is locked in — the supplier confirmed they received your deposit.',
+          title: `${vendorName} confirmed your payment`,
+          body: 'Your date is locked in — the supplier confirmed they received your payment.',
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -287,10 +287,10 @@ export async function vendorRejectDeposit(formData: FormData) {
         await emitNotification({
           userId: m.user_id,
           type: 'payment_rejected',
-          title: `${vendorName} couldn't confirm your downpayment`,
+          title: `${vendorName} couldn't confirm your first payment`,
           body: reason
-            ? `Reason: “${reason}” — re-submit your downpayment proof from the supplier workspace.`
-            : 'They couldn’t confirm the payment — re-submit your downpayment proof from the supplier workspace.',
+            ? `Reason: “${reason}” — re-submit your first payment proof from the supplier workspace.`
+            : 'They couldn’t confirm the payment — re-submit your first payment proof from the supplier workspace.',
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }

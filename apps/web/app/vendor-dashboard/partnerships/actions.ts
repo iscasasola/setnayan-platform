@@ -133,7 +133,7 @@ async function respondToPartnership(
 
   if (error) back(error.message);
   if (!data) {
-    back('That proposal is no longer pending — it may have been withdrawn or already answered.');
+    back('That request is no longer pending — it may have been withdrawn or already answered.');
   }
 
   revalidatePath(PANEL_PATH);
@@ -175,7 +175,7 @@ export async function withdrawPartnership(formData: FormData) {
 
   if (error) back(error.message);
   if (!data) {
-    back('That proposal can no longer be withdrawn — it may already be accepted, declined, or removed.');
+    back('That request can no longer be withdrawn — it may already be accepted, declined, or removed.');
   }
 
   revalidatePath(PANEL_PATH);

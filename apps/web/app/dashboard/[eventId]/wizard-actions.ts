@@ -288,7 +288,7 @@ async function completeSetWeddingDateTask(
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
     if ((count ?? 0) > 0) {
       throw new Error(
-        `Date is locked — ${count} confirmed supplier${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
+        `Date is booked — ${count} confirmed supplier${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
       );
     }
   }
@@ -501,7 +501,7 @@ async function completeVendorPickFromMarketplace(
   // public-readable for non-verified profiles).
   if (!(await isMarketplaceVendorBookable(createAdminClient(), marketplaceVendorIdRaw))) {
     throw new Error(
-      "This supplier is completing verification and can't be booked just yet. You'll be able to lock them once they're verified.",
+      "This supplier is completing verification and can't be booked just yet. You'll be able to book them once they're verified.",
     );
   }
 
@@ -544,7 +544,7 @@ async function completeVendorPickFromMarketplace(
     .select('vendor_id')
     .maybeSingle();
   if (insertErr) throw new Error(insertErr.message);
-  if (!inserted) throw new Error('Could not lock supplier — try again');
+  if (!inserted) throw new Error('Could not book supplier — try again');
 
   // Advance wizard_state.<taskId> · re-render moves to next task.
   const priorWizardState = parseWizardState(priorRow.wizard_state);

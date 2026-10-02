@@ -390,7 +390,7 @@ export function LockPackageModal({
         return;
       }
       if (result.status === 'forbidden') {
-        setError("You can't lock a package on this event.");
+        setError("You can't book a package on this event.");
         return;
       }
       if (result.status === 'package_not_found') {
@@ -403,7 +403,7 @@ export function LockPackageModal({
       }
       if (result.status === 'vendor_not_verified') {
         setError(
-          `${result.vendorName} is completing verification and can't be booked just yet — you'll be able to lock this package once they're verified.`,
+          `${result.vendorName} is completing verification and can't be booked just yet — you'll be able to book this package once they're verified.`,
         );
         return;
       }
@@ -494,7 +494,7 @@ export function LockPackageModal({
         className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Customize &amp; lock this package
+        Customize &amp; book this package
       </button>
 
       {open ? (
@@ -851,7 +851,7 @@ export function LockPackageModal({
                 className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                {isPending ? 'Locking…' : 'Lock this package'}
+                {isPending ? 'Booking…' : 'Book this package'}
               </button>
               {/* ⚠ TRUTHFUL BY OWNER RULING (2026-07-26): "lock will only be
                   locked when the vendor approves their payment." Locking

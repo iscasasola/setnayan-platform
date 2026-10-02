@@ -227,10 +227,10 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'set_date', title: 'Lock your date — the day your ceremony and reception venue both agree on', category: 'foundations', dueOffsetDays: 400 },
 
   // ══ 12–9 months before — Lock your look & key vendors ══
-  { key: 'lock_theme', title: 'Lock your theme, palette & overall style', category: 'design', dueOffsetDays: 340 },
+  { key: 'lock_theme', title: 'Choose your theme, palette & overall style', category: 'design', dueOffsetDays: 340 },
   // Reception deposit first — mirrors the shortlisting priority.
-  { key: 'book_reception_venue', title: 'Pay your deposit & sign the contract with your reception venue', category: 'vendors', dueOffsetDays: 330 },
-  { key: 'book_venue', title: 'Pay your deposit & sign the contract with your ceremony venue', category: 'vendors', dueOffsetDays: 325 },
+  { key: 'book_reception_venue', title: 'Pay your first payment & sign the contract with your reception venue', category: 'vendors', dueOffsetDays: 330 },
+  { key: 'book_venue', title: 'Pay your first payment & sign the contract with your ceremony venue', category: 'vendors', dueOffsetDays: 325 },
   { key: 'book_host', title: 'Book your host / emcee', category: 'vendors', dueOffsetDays: 320 },
   { key: 'book_ceremony_music', title: 'Book your ceremony musicians (string quartet, choir, soloist)', category: 'vendors', dueOffsetDays: 310 },
   { key: 'book_reception_music', title: 'Book your reception music (band, DJ, or mobile bar)', category: 'vendors', dueOffsetDays: 305 },
@@ -348,7 +348,7 @@ export type ChecklistPhase = {
 
 export const CHECKLIST_PHASES: ReadonlyArray<ChecklistPhase> = [
   { id: 'p1', label: '18–12 months before', blurb: 'Finding your date & the big decisions', maxDays: 100000, minDays: 366 },
-  { id: 'p2', label: '12–9 months before', blurb: 'Lock your look & key suppliers', maxDays: 365, minDays: 271 },
+  { id: 'p2', label: '12–9 months before', blurb: 'Book your look & key suppliers', maxDays: 365, minDays: 271 },
   { id: 'p3', label: '9–6 months before', blurb: 'The details take shape', maxDays: 270, minDays: 181 },
   { id: 'p4', label: '6–4 months before', blurb: 'Invitations, fittings & flow', maxDays: 180, minDays: 121 },
   { id: 'p5', label: '4–2 months before', blurb: 'Legal crunch time', maxDays: 120, minDays: 61 },

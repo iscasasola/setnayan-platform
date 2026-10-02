@@ -80,7 +80,7 @@ export async function VendorProposalsCard({
           className="flex items-center gap-2 text-sm font-semibold text-ink"
         >
           <FileText aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          Proposals from {displayName}
+          Quotes from {displayName}
         </h2>
       </header>
 
@@ -112,7 +112,7 @@ export async function VendorProposalsCard({
         ))}
       </ul>
       <p className="text-[11px] text-ink/45">
-        Open a proposal to review, print, accept, or decline. Accepting signals your choice
+        Open a quote to review, print, accept, or decline. Accepting signals your choice
         — it never charges you.
       </p>
     </section>

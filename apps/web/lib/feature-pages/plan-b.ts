@@ -185,7 +185,7 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: 'Para sa mga abalang host na mas gustong sabihan kaysa mag-check, at gustong shortlist na pinili ayon sa bagay, hindi ayon sa pinakamura.',
     },
     steps: {
-      en: ['Tell it about your event once: style, budget, date, guest count and place.', 'It ranks a shortlist of verified suppliers that fit, then keeps watching them and your dates.', 'It taps you before something slips: a deposit due, a price that moved, a clashing date.'],
+      en: ['Tell it about your event once: style, budget, date, guest count and place.', 'It ranks a shortlist of verified suppliers that fit, then keeps watching them and your dates.', 'It taps you before something slips: a payment due, a price that moved, a clashing date.'],
       tl: ['Sabihin sa kanya ang tungkol sa event mo nang isang beses: style, budget, petsa, bilang ng bisita at lugar.', 'Magra-rank ito ng shortlist ng verified na suppliers na bagay, tapos babantayan sila at ang mga petsa mo.', 'Kakatok ito bago may madulas: due na deposito, gumalaw na presyo, nagbabanggaang petsa.'],
     },
     different: {

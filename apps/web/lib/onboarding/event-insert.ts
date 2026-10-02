@@ -29,9 +29,10 @@ export type StoredSetupAnswers = Omit<SetupAnswers, 'papic' | 'gifts' | 'logo' |
  *   · "How do guests get in?" → `rsvp_ask_config`: No → `guestsReply: false`
  *              + who may come in (personal QR = their list; one QR / both =
  *              anyone, through the shipped join link). Yes → nothing: the Guest
- *              list's first visit asks "Who can reply?" (owner answer #6) —
- *              except "Guest list + requests", which writes `whoCanRsvp:
- *              'anyone'` (the same field that dropdown writes).
+ *              list's default reads "Only people on my list" with no write (owner d23,
+ *              2026-10-02 — no first-visit pop-up). Sign-up no longer ASKS how
+ *              guests get in (owner d24): a personal QR for each guest is the
+ *              default and Event Details changes it.
  *   · Papic · gifts · logo · photo → their OWN columns (`papic_on`,
  *              `gifts_on`, `logo_wanted`, `cover_photo_wanted` — owner
  *              2026-10-02, "EVERY ANSWER … LIVES IN EVENT DETAILS"), shown

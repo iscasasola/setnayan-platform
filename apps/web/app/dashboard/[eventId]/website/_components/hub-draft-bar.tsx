@@ -164,7 +164,7 @@ function ResultLine({ result }: { result: HubDraftActionResult | null }) {
 const RESET_LABEL: Record<HubResetScope, string> = {
   save_the_date: 'Save the Date',
   rsvp: 'Invitation',
-  event: 'On the Day',
+  event: 'The Day',
   editorial: 'Post Event',
   all: 'the whole Event Hub',
 };

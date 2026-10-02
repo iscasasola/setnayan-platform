@@ -181,7 +181,7 @@ export function whyNotBilled(f: UnbilledFacts): UnbilledVerdict {
     return {
       code: 'not_acknowledged',
       reason:
-        'The supplier has not confirmed the deposit on this booking, so the fee is not due yet.',
+        'The supplier has not confirmed the payment on this booking, so the fee is not due yet.',
       durable: true,
     };
   }
@@ -221,7 +221,7 @@ export function whyNotBilled(f: UnbilledFacts): UnbilledVerdict {
 export function repairReason(outcome: DepositEffectsOutcome): string | null {
   if (outcome.thrown) return `threw: ${outcome.thrown}`;
   if (!outcome.eventId) return 'booking row not found';
-  if (!outcome.acknowledged) return 'the deposit acknowledgement is not on the booking';
+  if (!outcome.acknowledged) return 'the payment acknowledgement is not on the booking';
   if (!outcome.anchorId) {
     return outcome.anchorUnreadable
       ? `money row unreadable: ${outcome.anchorUnreadable}`

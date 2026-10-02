@@ -111,7 +111,7 @@ export const DAY_OF_CONSOLE_META: Record<
       'Your set for the day — the songs you play, ready against the couple’s requests so you go on knowing the room.',
   },
   general: {
-    eyebrow: 'On the day',
+    eyebrow: 'The Day',
     blurb:
       'Your day-of view — the events you’re booked on, their live run-of-show, and a quick way into each couple’s brief.',
   },

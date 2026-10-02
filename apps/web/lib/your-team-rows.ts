@@ -84,7 +84,7 @@ export type TeamRowFacts = {
 
 export type TeamRowAction =
   | { kind: 'pay'; label: 'Pay'; href: string }
-  | { kind: 'lock'; label: 'Lock'; groupId: string }
+  | { kind: 'lock'; label: 'Book'; groupId: string }
   | { kind: 'nudge'; label: 'Nudge'; href: string }
   | { kind: 'review'; label: 'Review'; href: string }
   /** A refused deposit read: a doorway that claims nothing either way. */
@@ -175,23 +175,23 @@ export function teamRowOf(
       const href = depositStepHref(ctx.eventId, f.vendorId);
       switch (f.depositStep) {
         case 'due':
-          return { ...booked, next: 'pay your deposit', action: { kind: 'pay', label: 'Pay', href }, needsYou: true };
+          return { ...booked, next: 'pay your first payment', action: { kind: 'pay', label: 'Pay', href }, needsYou: true };
         case 'refused':
           return {
             ...booked,
-            pill: { text: 'Deposit not received', tone: 'warn' },
-            next: 'send your deposit again',
+            pill: { text: 'Payment not received', tone: 'warn' },
+            next: 'send your payment again',
             action: { kind: 'pay', label: 'Pay', href },
             needsYou: true,
           };
         case 'sent':
-          return { ...booked, next: 'they confirm your deposit', action: null, needsYou: false };
+          return { ...booked, next: 'they confirm your first payment', action: null, needsYou: false };
         case 'unknown':
           // A refused read is NOT "due" — telling a couple who paid to pay again
           // is the failure this whole codebase keeps fencing. Say what is true.
           return {
             ...booked,
-            next: 'we couldn’t check your deposit',
+            next: 'we couldn’t check your payment',
             action: { kind: 'check', label: 'Check', href },
             needsYou: false,
           };
@@ -209,7 +209,7 @@ export function teamRowOf(
       ...base,
       group: 'asked',
       pill: { text: 'Waiting', tone: 'soft' },
-      next: fuse ? `they agree to your lock · ${fuse}` : 'they agree to your lock',
+      next: fuse ? `they confirm your booking · ${fuse}` : 'they confirm your booking',
       action: nudge ? { kind: 'nudge', label: 'Nudge', href: nudge } : null,
       needsYou: false,
     };
@@ -220,7 +220,7 @@ export function teamRowOf(
     return {
       ...base,
       group: 'deciding',
-      pill: { text: 'Can’t lock', tone: 'no' },
+      pill: { text: 'Can’t book', tone: 'no' },
       next: `${BLOCKED_LOCK_ROW[f.lockBlocked]} — pick someone else`,
       action: null,
       needsYou: false,
@@ -234,8 +234,8 @@ export function teamRowOf(
       ...base,
       group: 'deciding',
       pill: priced ? { text: 'Quote in', tone: 'warn' } : { text: 'In your build', tone: 'soft' },
-      next: priced ? `lock the price — ${formatPhpRounded(f.pricePhp)}` : 'lock them in',
-      action: { kind: 'lock', label: 'Lock', groupId: f.lockGroupId },
+      next: priced ? `book at ${formatPhpRounded(f.pricePhp)}` : 'book them',
+      action: { kind: 'lock', label: 'Book', groupId: f.lockGroupId },
       needsYou: true,
     };
   }

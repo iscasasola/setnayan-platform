@@ -344,7 +344,7 @@ test('(6) a birthday and a wake get the whole Look — and Page ▾ names the sa
       options: Array<{ key: string; group?: string; disabledNote?: string }>;
     };
   // 🗳 2026-09-30 re-plan: RSVP is a stage of its own, between Save the Date and the Invitation.
-  assert.deepEqual([...new Set(menu(true).options.map((o) => o.group))], ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event']);
+  assert.deepEqual([...new Set(menu(true).options.map((o) => o.group))], ['Save the Date', 'RSVP', 'Invitation', 'The Day', 'Post Event']);
   // A viewer the RSVP stage is not for is told who it IS for — in the type's own word.
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
     const theHost = eventWordsFromProfile(p).theHost;

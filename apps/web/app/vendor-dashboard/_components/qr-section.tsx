@@ -224,7 +224,7 @@ function LockedBody({
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink/70">
-        Lock one customer to a plan and downpayment. Scanning freezes the deal
+        Lock one customer to a plan and first payment. Scanning freezes the deal
         onto their event.
       </p>
       <LockedQrGenerator eventTypes={eventTypes} services={services} contracts={contracts} />

@@ -172,8 +172,8 @@ export function AccordionLockButton({
   groupLabel,
   vendorId,
   vendorName,
-  label = 'Lock this pick',
-  pendingLabel = 'Locking…',
+  label = 'Book this pick',
+  pendingLabel = 'Booking…',
   className = 'lockbtn',
   wrapperClassName = 'lockbar',
   isVerified,
@@ -256,7 +256,7 @@ export function AccordionLockButton({
       setState({
         kind: 'error',
         message:
-          "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.",
+          "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to book them once they're verified.",
       });
       return;
     }
@@ -307,7 +307,7 @@ export function AccordionLockButton({
       let result: FinalizeVendorResult;
       try {
         result = await save.run(() => finalizeVendor(fd), {
-          steps: ['Locking in your supplier'],
+          steps: ['Booking your supplier'],
           hint: 'Saving',
         });
       } catch (err) {
@@ -390,7 +390,7 @@ export function AccordionLockButton({
           } else {
             setState({
               kind: 'error',
-              message: 'Please pick a time slot to lock this supplier.',
+              message: 'Please pick a time slot to book this supplier.',
             });
           }
           return;
@@ -453,18 +453,18 @@ export function AccordionLockButton({
           setState({
             kind: 'error',
             message:
-              "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.",
+              "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to book them once they're verified.",
           });
           return;
         case 'not_signed_in':
-          setState({ kind: 'error', message: 'Sign in again to lock this supplier.' });
+          setState({ kind: 'error', message: 'Sign in again to book this supplier.' });
           return;
         case 'not_secured':
           // A guest (anonymous) session cannot book. Like 'lock_requested', this
           // had no case and rendered as nothing; found by the \`never\` below.
           setState({
             kind: 'error',
-            message: 'Save your account first to lock this supplier.',
+            message: 'Save your account first to book this supplier.',
           });
           return;
         case 'not_found':
@@ -497,7 +497,7 @@ export function AccordionLockButton({
           const unhandled: never = result;
           setState({
             kind: 'error',
-            message: `We couldn't confirm the lock (${
+            message: `We couldn't confirm the booking (${
               (unhandled as { status?: string }).status ?? 'unknown'
             }). Refresh the page to see where it stands.`,
           });
@@ -527,7 +527,7 @@ export function AccordionLockButton({
           role="status"
           className="rounded-md border border-mulberry/30 bg-mulberry/[0.06] px-3 py-2 text-[11px] text-mulberry"
         >
-          Lock requested — waiting for {state.vendorName} to agree.
+          Booking requested — waiting for {state.vendorName} to agree.
         </p>
       </div>
     );
@@ -556,7 +556,7 @@ export function AccordionLockButton({
           className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-amber-50/70 px-2 py-0.5 text-[10px] font-medium text-amber-800"
         >
           <Clock aria-hidden className="h-3 w-3" strokeWidth={2} />
-          Verifying — can&apos;t lock yet
+          Verifying — can&apos;t book yet
         </p>
       ) : null}
 
@@ -574,7 +574,7 @@ export function AccordionLockButton({
           role="status"
           className="mt-2 rounded-md border border-terracotta/30 bg-terracotta/[0.06] px-3 py-2 text-[11px] text-terracotta-700"
         >
-          Proposed to the couple — {state.vendorName} will lock once they confirm.
+          Proposed to the couple — {state.vendorName} will book once they confirm.
         </p>
       ) : null}
 
@@ -825,9 +825,9 @@ function DownpaymentModal({
         <div className="flex items-start gap-2.5 pr-6">
           <CreditCard aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={2} />
           <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-ink">Pay the deposit to lock</h3>
+            <h3 className="text-sm font-semibold text-ink">Pay the first payment to book</h3>
             <p className="text-xs leading-snug text-ink/70">
-              To lock <strong>{vendorName}</strong>, pay the deposit through one of
+              To book <strong>{vendorName}</strong>, pay the first payment through one of
               their methods below, then attach a screenshot so they can confirm. Your
               date is held the moment you submit. Setnayan never touches the money — you
               pay {vendorName} directly.
@@ -891,7 +891,7 @@ function DownpaymentModal({
             />
             {minimumAmountPhp ? (
               <p id="downpayment_php_min" className="text-[11px] text-ink/55">
-                {vendorName} asked for ₱{minimumAmountPhp.toLocaleString('en-PH')} on lock in the
+                {vendorName} asked for ₱{minimumAmountPhp.toLocaleString('en-PH')} on booking in the
                 quote you accepted. At least that amount — you may pay more.
               </p>
             ) : null}
@@ -936,10 +936,10 @@ function DownpaymentModal({
               {isPending ? (
                 <>
                   <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} />
-                  Locking…
+                  Booking…
                 </>
               ) : (
-                'Lock & submit deposit'
+                'Book & submit first payment'
               )}
             </button>
             <button
@@ -1006,11 +1006,11 @@ function ExceptionModal({
           {state.kind === 'conflict' ? (
             <div className="space-y-1.5 pr-6">
               <h3 className="text-sm font-semibold text-warn-900">
-                {state.existingVendorName} is already locked for{' '}
+                {state.existingVendorName} is already booked for{' '}
                 {state.conflictGroupLabel.toLowerCase()}.
               </h3>
               <p className="text-xs leading-snug text-warn-900/85">
-                Only one {state.conflictGroupLabel.toLowerCase()} can be locked
+                Only one {state.conflictGroupLabel.toLowerCase()} can be booked
                 at a time. Switch to <strong>{vendorName}</strong> instead? Your
                 earlier pick stays on the card as a considering option.
               </p>
@@ -1161,12 +1161,12 @@ function SlotPickerModal({
             {isPending ? (
               <>
                 <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                Locking…
+                Booking…
               </>
             ) : (
               <>
                 <BookmarkCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Lock this slot
+                Book this slot
               </>
             )}
           </button>
@@ -1231,8 +1231,8 @@ function ReservationTermsModal({
               Reservation terms for {vendorName}
             </h3>
             <p className="text-xs leading-snug text-ink/65">
-              Before you lock, please read {vendorName}&rsquo;s downpayment policy.
-              Locking records that you understood and agreed to these terms.
+              Before you book, please read {vendorName}&rsquo;s first payment policy.
+              Booking records that you understood and agreed to these terms.
             </p>
           </div>
         </div>
@@ -1243,7 +1243,7 @@ function ReservationTermsModal({
               <li className="flex items-start gap-1.5">
                 <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
                 <span>
-                  The downpayment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
+                  The first payment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
                   <strong>non-refundable</strong>.
                 </span>
               </li>
@@ -1252,7 +1252,7 @@ function ReservationTermsModal({
               <li className="flex items-start gap-1.5">
                 <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
                 <span>
-                  A <strong>no-show forfeits</strong> the downpayment.
+                  A <strong>no-show forfeits</strong> the first payment.
                 </span>
               </li>
             ) : null}
@@ -1282,7 +1282,7 @@ function ReservationTermsModal({
             className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
           />
           <span>
-            I understand the downpayment is non-refundable on no-show and agree to{' '}
+            I understand the first payment is non-refundable on no-show and agree to{' '}
             {vendorName}&rsquo;s reservation terms.
           </span>
         </label>
@@ -1305,12 +1305,12 @@ function ReservationTermsModal({
             {isPending ? (
               <>
                 <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                Locking…
+                Booking…
               </>
             ) : (
               <>
                 <BookmarkCheck aria-hidden className="h-4 w-4" strokeWidth={2} />
-                Agree &amp; lock
+                Agree &amp; book
               </>
             )}
           </button>

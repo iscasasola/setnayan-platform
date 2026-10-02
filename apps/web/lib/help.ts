@@ -102,7 +102,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
-        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from venue lock through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
+        body: 'Setnayan\'s assisted-planning tier — a one-time purchase that unlocks the full planner with access through your event date (current rate on setnayan.com/pricing). Matches, sorts, and cross-references suppliers against your date, budget, venue, guest count, religion, and reviews — and walks you through every decision from booking your venue through thank-you cards, with religion-adaptive guidance and hard-floor deadlines specific to Filipino weddings (Pre-Cana, marriage license validity windows, sponsor coordination, etc.).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
@@ -399,12 +399,12 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'track-vendor',
         title: 'Track a supplier',
-        body: 'On the Suppliers page, click Add a supplier. Pick a category from the 28 standard options (or pick "Miscellaneous" for anything off-list). Set a total cost + deposit if you have them. Suppliers move through a 6-stage flow: considering → shortlisted → contracted → deposit paid → delivered → complete.',
+        body: 'On the Suppliers page, click Add a supplier. Pick a category from the 28 standard options (or pick "Miscellaneous" for anything off-list). Set a total cost + payment if you have them. Suppliers move through a 6-stage flow: considering → shortlisted → contracted → first payment paid → delivered → complete.',
       },
       {
         slug: 'budget-line-items',
         title: 'Budget line items',
-        body: 'On the Budget page, each supplier card has two columns. Left: itemized line items (Deposit, Balance, Tip, etc.) with optional due dates. Right: actual payments you\'ve logged. Stats at the top roll up total budget, paid, remaining, and what\'s due in the next 30 days.',
+        body: 'On the Budget page, each supplier card has two columns. Left: itemized line items (Payment, Balance, Tip, etc.) with optional due dates. Right: actual payments you\'ve logged. Stats at the top roll up total budget, paid, remaining, and what\'s due in the next 30 days.',
       },
       {
         slug: 'export-calendar',
@@ -526,7 +526,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
   },
   {
     key: 'guest-day-of',
-    label: 'On the day',
+    label: 'The Day',
     roles: ['guest'],
     articles: [
       {
@@ -708,7 +708,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'approving-an-action',
         title: "Approve another admin's request",
-        body: 'When another admin proposes a major action, you see it in your Approvals queue at /admin (bell counter). Open the proposal, read the rationale + linked evidence, click Approve or Reject. Both admins\' identities are recorded permanently in the audit log.',
+        body: 'When another admin proposes a major action, you see it in your Approvals queue at /admin (bell counter). Open the request, read the rationale + linked evidence, click Approve or Reject. Both admins\' identities are recorded permanently in the audit log.',
       },
       {
         slug: 'routine-vs-major',
@@ -735,7 +735,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'four-resolution-paths',
         title: 'Four canonical resolution paths',
-        body: 'Refund (supplier returns deposit minus documented expenses), reschedule (services move to a mutually agreed new date), substitute (supplier provides equivalent service later), partial (some services delivered, some refunded). Pick one in the Resolve dialog; both parties get an email with the outcome.',
+        body: 'Refund (supplier returns payment minus documented expenses), reschedule (services move to a mutually agreed new date), substitute (supplier provides equivalent service later), partial (some services delivered, some refunded). Pick one in the Resolve dialog; both parties get an email with the outcome.',
       },
     ],
   },

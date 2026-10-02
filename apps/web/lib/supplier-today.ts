@@ -186,9 +186,9 @@ export function answerNext(card: WhatsNewCard, since: Date | null, now: number):
     case 'lock':
       return {
         kind: 'answer',
-        title: `Confirm ${card.coupleName}’s deposit`,
+        title: `Confirm ${card.coupleName}’s payment`,
         body: join([card.eventDate ? formatLongDate(card.eventDate) : null, 'They logged a payment to you']) + '.',
-        action: 'Check the deposit',
+        action: 'Check the payment',
         target: { to: 'card', eventId: card.eventId, tab: 'quote' },
       };
     case 'date_change':
@@ -280,7 +280,7 @@ export function pickSupplierNext(input: SupplierNextInput): SupplierNext {
     return {
       kind: 'unread',
       title: 'Some answers couldn’t load',
-      body: 'This list may be missing a booking ask or a deposit. Nothing is lost.',
+      body: 'This list may be missing a booking ask or a payment. Nothing is lost.',
       action: 'Try again',
       target: { to: 'today' },
     };
@@ -326,7 +326,7 @@ export function pickSupplierNext(input: SupplierNextInput): SupplierNext {
       kind: 'payday',
       title: `${formatPhp(input.owedPhp)} still to come in`,
       body: 'From your booked customers’ payment plans.',
-      action: 'See payday',
+      action: 'See money in',
       target: { to: 'payday' },
     };
   }

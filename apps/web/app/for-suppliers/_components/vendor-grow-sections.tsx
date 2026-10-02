@@ -530,7 +530,7 @@ export function VendorGrowTools() {
         <GridCard icon="✎" title="Contracts on record" body="Every agreement timestamped to a per-event paper trail." />
         <GridCard icon="👥" title="Your team" body="Add crew with their own scoped logins — no shared passwords." />
         <GridCard icon="📇" title="Client CRM & pipeline" body="Every couple, inquiry and booking tracked from first message to signed." />
-        <GridCard icon="＋" title="…and more" body="Calendar, proposals, payments, recaps — the whole business, in one place." />
+        <GridCard icon="＋" title="…and more" body="Calendar, quotes, payments, recaps — the whole business, in one place." />
       </CardGrid>
     </section>
   );
@@ -552,8 +552,8 @@ export function VendorGrowGetPaid() {
         <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
           <FeatureLI icon="₱" title="Direct to your GCash / bank" body="Couples pay you directly, and we never hold a peso of yours." />
           <FeatureLI icon="◷" title="PH-style milestone tracking" body="Reservation → progress → balance, with proof — the way couples pay here." />
-          <FeatureLI icon="🛡" title="No-show downpayment protection" body="A frozen, agreed cancellation policy makes a forfeited deposit defensible." />
-          <FeatureLI icon="📆" title="Payday calendar" body="Every upcoming due-date across all your bookings, on one timeline." />
+          <FeatureLI icon="🛡" title="No-show first payment protection" body="A frozen, agreed cancellation policy makes a forfeited payment defensible." />
+          <FeatureLI icon="📆" title="Money in calendar" body="Every upcoming due-date across all your bookings, on one timeline." />
         </ul>
       </div>
     </section>

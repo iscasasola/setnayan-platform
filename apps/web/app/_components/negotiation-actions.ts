@@ -532,7 +532,7 @@ export async function createAmendmentFromChat(formData: FormData): Promise<void>
   if (!eventVendorId) {
     if (back) {
       redirect(
-        `${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent('Book this supplier first to send proposal changes.')}`,
+        `${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent('Book this supplier first to send quote changes.')}`,
       );
     }
     redirect(dest);
@@ -812,11 +812,11 @@ export async function lockDeal(formData: FormData): Promise<void> {
     }
     if (outcome.status === 'hard_single_blocked') {
       failBack(
-        'You already locked another supplier in this category. Switch them from the supplier page first, then lock this deal.',
+        'You already booked another supplier in this category. Switch them from the supplier page first, then book this deal.',
       );
     }
     if (outcome.status === 'error') {
-      failBack('We could not lock this deal just now — please try again.');
+      failBack('We could not book this deal just now — please try again.');
     }
 
     // ── THE PRICE MUST HAVE LANDED BEFORE WE CALL IT FROZEN ──────────────────

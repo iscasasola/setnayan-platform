@@ -155,7 +155,7 @@ async function BlueprintStudioView({
       <section className="sn-tile p-5">
         <header className="space-y-1">
           <p className="sn-eye">
-            On the day
+            The Day
           </p>
           <h2 className="text-xl font-semibold tracking-tight">
             Every guest gets their own map

@@ -62,7 +62,7 @@ export function MerkadoGuardBanner({
               <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={1.75} aria-hidden />
               <span>
                 Another couple is also considering{' '}
-                <span className="font-medium text-ink">{d.name}</span> for your date — lock it in soon
+                <span className="font-medium text-ink">{d.name}</span> for your date — book it soon
                 if it’s the one.
               </span>
             </li>

@@ -334,7 +334,7 @@ export async function addSuggestedMilestones(
     {
       event_id: eventId,
       vendor_id: vendorId,
-      label: 'Deposit (50%)',
+      label: 'First payment (50%)',
       amount_php: deposit,
       due_date: depositDue,
       sort_order: 0,

@@ -266,6 +266,8 @@ export function MakerWork({
     videoChoice: { ref: string; url: string; poster?: string | null } | null;
     /** The scenes' own in-place uploads (their `scene-background` folder), signed. */
     sceneUploads?: readonly SceneUpload[];
+    /** 💾 `events.couple_media_bytes`, settled — the 100 MB meter beside Upload media. */
+    mediaUsedBytes?: number;
     mediaHref: string;
     hubTheme: string;
     openBrowse: boolean;
@@ -1618,6 +1620,7 @@ export function MakerWork({
               photoChoices={sceneFormat.photoChoices}
               videoChoice={sceneFormat.videoChoice}
               sceneUploads={sceneFormat.sceneUploads}
+              mediaUsedBytes={sceneFormat.mediaUsedBytes}
               ownsPro={ownsPro}
               storeShell={sceneFormat.hideLocked}
               hubTheme={sceneFormat.hubTheme as never}

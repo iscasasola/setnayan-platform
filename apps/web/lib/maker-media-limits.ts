@@ -149,7 +149,7 @@ export function makerMediaMeterState(
 
 /** `"12.4 MB of 100 MB used"` — the one label every meter surface shows. */
 export function formatMakerMediaMeterLabel(state: MakerMediaMeterState): string {
-  return `${formatMB(state.usedBytes)} of ${formatMB(state.capBytes)} used`;
+  return `${formatMakerMediaMB(state.usedBytes)} of ${formatMakerMediaMB(state.capBytes)} used`;
 }
 
 /**
@@ -176,7 +176,8 @@ export async function readCoupleMediaBytes(
   }
 }
 
-function formatMB(bytes: number): string {
+/** `"2.4 MB"` / `"12 MB"` — the one way every allowance surface writes a size (the meter, the refusal). */
+export function formatMakerMediaMB(bytes: number): string {
   const mb = bytes / (1024 * 1024);
   // One decimal below 10 MB (small clips/photos are legible at that precision),
   // whole numbers above it — matches `bytesToHuman` house style in file-upload.tsx.

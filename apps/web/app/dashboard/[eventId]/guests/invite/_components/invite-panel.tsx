@@ -17,7 +17,8 @@ import { InviteLink } from './invite-link';
 import { CopyButton } from '@/app/_components/copy-button';
 import { buildGroupInviteMessage } from '@/lib/guest-invite-message';
 import { RegenerateQrButton } from './regenerate-qr-button';
-import { readWhoCanRsvp, WHO_CAN_RSVP_LABEL } from '@/lib/rsvp-ask';
+import { readWhoCanRsvp } from '@/lib/rsvp-ask';
+import { GUESTS_GET_IN_LABEL, guestsGetInLabel, readGuestsGetIn } from '@/lib/who-can-reply';
 
 /**
  * invite-panel.tsx — the invite link, its QR, and the look it opens in. ONE
@@ -167,6 +168,8 @@ export async function InvitePanel({
     logQueryError('GuestInvitePage (events.rsvp_ask_config)', askRes.error, { event_id: eventId }, 'graceful_degrade');
   }
   const whoCanRsvp = askRes.error ? null : readWhoCanRsvp(askRes.data?.rsvp_ask_config);
+  // The whole setting, in Your info's own words (one dropdown there, shown here).
+  const getIn = askRes.error ? null : guestsGetInLabel(readGuestsGetIn(askRes.data?.rsvp_ask_config));
 
 
   // SVG QR of the join link — a guest scans this, so it wears the event's look
@@ -282,9 +285,10 @@ export async function InvitePanel({
         </div>
       )}
 
-      {/* 🗳 WHO CAN RSVP? — the SAME stored value the Maker's RSVP page sets
-          (`events.rsvp_ask_config.whoCanRsvp`, read through `readWhoCanRsvp`).
-          Shown here, changed there, so the two can never disagree: this panel
+      {/* 🗳 HOW GUESTS GET IN — the SAME stored setting Your info's one dropdown
+          sets (`events.rsvp_ask_config`, read through `readWhoCanRsvp` /
+          `readGuestsGetIn`). Shown here, changed there (owner 2026-10-02, "ONE
+          HOME, MAPPED": the Guest list may show it, never set it): this panel
           has no writer of its own. A read that failed says so. */}
       <Link
         href={`/dashboard/${eventId}/launch?tool=rsvp-page`}
@@ -292,12 +296,10 @@ export async function InvitePanel({
         className="mt-4 flex min-h-11 items-center justify-between gap-3 border-b border-ink/10 py-2 text-sm text-ink hover:text-ink/80"
       >
         <span>
-          <span className="font-semibold">Who can RSVP?</span>{' '}
-          <span className="text-ink/70">
-            {whoCanRsvp ? WHO_CAN_RSVP_LABEL[whoCanRsvp] : 'We couldn’t read this just now'}
-          </span>
+          <span className="font-semibold">{GUESTS_GET_IN_LABEL}</span>{' '}
+          <span className="text-ink/70">{getIn ?? 'We couldn’t read this just now'}</span>
         </span>
-        <span className="shrink-0 text-xs font-medium text-ink/55">Change in the Maker&rsquo;s RSVP page</span>
+        <span className="shrink-0 text-xs font-medium text-ink/55">Change in Your info</span>
       </Link>
 
       {pendingClaims > 0 ? (

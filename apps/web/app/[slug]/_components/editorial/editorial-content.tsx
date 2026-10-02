@@ -825,8 +825,10 @@ export async function EditorialContent({
       />
 
       <article className="mx-auto mt-10 max-w-5xl border border-ink/10 bg-cream px-5 py-7 shadow-[0_30px_70px_-30px_rgba(30,34,41,0.45)] sm:px-10 sm:py-9">
-        {/* Phase ribbon (cross-links) ----------------------------------------- */}
-        <PhaseRibbon slug={data.slug} words={w} />
+        {/* ✂ No phase ribbon over the story (owner 2026-10-03, on the live hub:
+            "too many buttons"). Its two links were repeated by the footer
+            below, and "The Invitation" pointed at this same address — after
+            the day `/[slug]` IS this page. The footer keeps the Day's link. */}
 
         <div className="border-t-[3px] border-double border-ink" />
 
@@ -1281,45 +1283,6 @@ function Monogram({ text, color }: { text: string; color: string }): ReactElemen
         {text}
       </div>
     </div>
-  );
-}
-
-/**
- * The cross-phase ribbon. Its links WERE `href="#"` — the original note said
- * "the engine task owns real phase navigation. We don't hardcode routes that
- * need params", and the param never arrived, so both anchors sat there looking
- * live and doing nothing for anyone who tapped them. The param exists now: the
- * couple's own slug is already threaded to this component's sibling (it feeds
- * the print link), and both destinations are ordinary shipped routes.
- *
- * `slug` null means a CURATED SAMPLE — there is no real event behind it, so
- * there is nowhere for these to go and they are simply not drawn. A phase
- * marker with no phases is still honest; a link that goes nowhere is not.
- */
-function PhaseRibbon({ slug, words: w }: { slug: string | null; words: EventWords }): ReactElement {
-  return (
-    <nav
-      aria-label="Site phases"
-      className="flex flex-wrap items-center justify-center gap-4 pb-3 font-mono text-xs uppercase tracking-[0.14em] text-ink/60"
-    >
-      {slug ? (
-        <>
-          <a
-            href={`/${slug}`}
-            className="border-b border-terracotta pb-0.5 text-ink/60 no-underline"
-          >
-            &larr; The Invitation (RSVP)
-          </a>
-          <a
-            href={`/${slug}/hub`}
-            className="border-b border-terracotta pb-0.5 text-ink/60 no-underline"
-          >
-            The {capitaliseWords(w.eventWord)} Day (Live) &uarr;
-          </a>
-        </>
-      ) : null}
-      <span className="border-b border-mulberry pb-0.5 text-mulberry-600">The Story — Today</span>
-    </nav>
   );
 }
 
@@ -1992,14 +1955,8 @@ function Colophon({
           quietly gets shorter is honest; a link that does nothing is not. */}
       {slug || watchFilmShown ? (
         <div className="flex flex-wrap justify-center gap-5 font-mono text-xs uppercase tracking-[0.1em]">
-          {slug ? (
-            <a
-              href={`/${slug}`}
-              className="border-b border-terracotta pb-0.5 text-ink no-underline"
-            >
-              The Invitation (RSVP)
-            </a>
-          ) : null}
+          {/* (No "The Invitation (RSVP)" here: after the day `/[slug]` is THIS
+              page — a link to itself. Owner 2026-10-03, one place each.) */}
           {slug ? (
             <a
               href={`/${slug}/hub`}

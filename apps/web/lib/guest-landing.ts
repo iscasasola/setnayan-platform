@@ -29,8 +29,10 @@
 import { isInAppWebview } from '@/lib/guest-one-path';
 import { defaultInviteTemplate, formatInviteDate, inviteEventPhrase, sanitizeInviteTemplate, type InviteEventFacts } from '@/lib/guest-invite-message';
 
-/** The landing page, top to bottom (the prototype's frame 1 and frame 3). */
-export const LANDING_ORDER = ['message', 'reply', 'ticket', 'guests', 'how', 'open'] as const;
+/** The landing page, top to bottom (the prototype's frame 1 and frame 3).
+ *  ✂ No "Your guests" here (owner 2026-10-03: "Send their invite" in ONE
+ *  place) — the guest's plus-ones, their invites and "Add name" are on Me. */
+export const LANDING_ORDER = ['message', 'reply', 'ticket', 'how', 'open'] as const;
 export type LandingSection = (typeof LANDING_ORDER)[number];
 
 /** The page's words (the prototype's own). */

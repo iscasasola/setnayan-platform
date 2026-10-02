@@ -53,7 +53,11 @@ export function GuestHubBar({
   menuOn,
   meSlot = null,
   meInPage = false,
+  mePhotosHref = null,
 }: {
+  /** Me's one "Photos of you" link — only once the page itself stops drawing
+   *  them (page.tsx decides; `GuestMeSection`). Null: no link. */
+  mePhotosHref?: string | null;
   /**
    * 📱 THE ME SECTION IS ON THE PAGE, AS ITS OWN TAB (owner 2026-09-30, "EACH
    * MENU TAB IS ITS OWN FULL PAGE"). page.tsx hands the section (`GuestMeSection`,
@@ -194,7 +198,7 @@ export function GuestHubBar({
           the same condition; two elements with one id would send the Me tab to
           whichever came first, which is the blank one. */}
       {menuOn && !meInPage ? (
-        <GuestMeSection meSlot={meSlot} galleryHref={galleryHref} galleryCount={galleryCount} onOpenQr={() => setQrOpen(true)} />
+        <GuestMeSection meSlot={meSlot} photosHref={mePhotosHref} galleryCount={galleryCount} onOpenQr={() => setQrOpen(true)} />
       ) : null}
 
       {/* Fixed bottom control bar — 3 controls, the Camera the prominent center
@@ -411,21 +415,28 @@ export function GuestHubBar({
 export const OPEN_MY_QR_EVENT = 'setnayan:open-my-qr';
 
 /**
- * 👤 THE ME SECTION — the guest's ticket, their own Me (`meSlot`), and "Photos
- * of you". Drawn by `GuestHubBar` under the page on a page that is one scroll,
- * and by the page body as the Me TAB on a tabbed page (📱 owner 2026-09-30,
- * `meInPage`) — one component, so the two can never differ. Either way it is
- * the ONE element carrying `#site-me`.
+ * 👤 THE ME SECTION — the guest's ticket, their own Me (`meSlot`), and, only
+ * where needed, "My QR" and "Photos of you". Drawn by `GuestHubBar` under the
+ * page on a page that is one scroll, and by the page body as the Me TAB on a
+ * tabbed page (📱 owner 2026-09-30, `meInPage`) — one component, so the two can
+ * never differ. Either way it is the ONE element carrying `#site-me`.
+ *
+ * ✂ CALM (owner 2026-10-03, on the live hub: "too many buttons. too much going
+ * on"). No "You · Your invitation" heading over the guest's own name, and no
+ * grey line explaining the buttons. "Photos of you" is offered only once the
+ * page itself has stopped drawing them (`photosHref`, decided by page.tsx):
+ * before the day there are none, and through the day the Gallery shows them.
  */
 export function GuestMeSection({
   meSlot,
-  galleryHref,
+  photosHref = null,
   galleryCount,
   onOpenQr = () => window.dispatchEvent(new Event(OPEN_MY_QR_EVENT)),
   asTab = false,
 }: {
   meSlot: React.ReactNode;
-  galleryHref: string;
+  /** The guest's own photos, when the page no longer draws them. Null: no link. */
+  photosHref?: string | null;
   galleryCount: number;
   /** The Me tab's own page: it starts at the top of the page, with no gap
    *  borrowed from the section it used to follow. */
@@ -434,54 +445,53 @@ export function GuestMeSection({
   onOpenQr?: () => void;
 }) {
   // 🔑 ONE QR ON THE INVITATION (owner, 2026-09-21: "they serve the same
-  // purpose"). The pass card (`#site-pass`) already shows this guest's code
-  // on the page, with its own save and copy controls, so a "My QR" button
-  // opening the SAME code in a pop-up is a second door to one thing.
+  // purpose"). The ticket (`#site-pass`) already shows this guest's code on
+  // the page, with its own save, so a "My QR" button opening the SAME code in
+  // a pop-up is a second door to one thing.
   //
-  // ⚠ BUT THE CARD IS NOT ALWAYS THERE. The couple can hide it, and some
+  // ⚠ BUT THE TICKET IS NOT ALWAYS THERE. The couple can hide it, and some
   // phases leave it out — and then this button is the guest's ONLY QR. The
-  // decision lives in site-body's plan, which this client component cannot
-  // see, so it asks the page itself: is the pass anchor rendered? Starts
-  // `true` (hidden) so the duplicate never flashes; a page without the card
-  // shows the button once this runs.
+  // decision lives in the page, which this client component cannot see, so it
+  // asks the page itself: is the pass anchor rendered? Starts `true` (hidden)
+  // so the duplicate never flashes; a page without the ticket shows the button
+  // once this runs.
   const [passOnPage, setPassOnPage] = useState(true);
   useEffect(() => {
     setPassOnPage(document.getElementById(PASS_ANCHOR) !== null);
   }, []);
+  const qrButton = passOnPage ? null : (
+    <button
+      type="button"
+      onClick={onOpenQr}
+      className="inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
+    >
+      <QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+      <span>My QR</span>
+    </button>
+  );
+  const photosLink = photosHref ? (
+    <Link
+      href={photosHref}
+      className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
+    >
+      <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+      <span>Photos of you</span>
+      {galleryCount > 0 ? (
+        <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta-700 px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
+          {galleryCount > 99 ? '99+' : formatCount(galleryCount)}
+        </span>
+      ) : null}
+    </Link>
+  ) : null;
   return (
     <section id="site-me" className={asTab ? 'scroll-mt-6' : 'mt-12 scroll-mt-6'}>
       {meSlot ? <div className="mb-8">{meSlot}</div> : null}
-      <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">You</p>
-      <h2 className="mt-1 text-xl font-semibold tracking-tight text-ink">Your invitation</h2>
-      <div className="mt-4 flex flex-wrap gap-3">
-        {passOnPage ? null : (
-        <button
-          type="button"
-          onClick={onOpenQr}
-          className="inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
-        >
-          <QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          <span>My QR</span>
-        </button>
-        )}
-        <Link
-          href={galleryHref}
-          className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
-        >
-          <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          <span>Photos of you</span>
-          {galleryCount > 0 ? (
-            <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta-700 px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
-              {galleryCount > 99 ? '99+' : formatCount(galleryCount)}
-            </span>
-          ) : null}
-        </Link>
-      </div>
-      <p className="mt-3 text-sm text-ink/60">
-        {passOnPage
-          ? 'Anything a photographer or friend tags you in shows up under Photos of you.'
-          : 'Show your QR so photographers and friends can tag you. Anything you are tagged in shows up under Photos of you.'}
-      </p>
+      {qrButton || photosLink ? (
+        <div className="flex flex-wrap gap-3">
+          {qrButton}
+          {photosLink}
+        </div>
+      ) : null}
     </section>
   );
 }

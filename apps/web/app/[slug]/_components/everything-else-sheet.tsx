@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, ChevronDown, Share2 } from 'lucide-react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import type { EverythingElseRow } from '../_lib/everything-else-rows';
 
@@ -84,65 +84,13 @@ function RowGroup({ heading, rows }: { heading: string; rows: EverythingElseRow[
 }
 
 function Row({ row }: { row: EverythingElseRow }) {
-  const content = (
-    <>
-      <span className="min-h-[44px] flex-1 py-3 text-[15px] text-ink">{row.label}</span>
-      {row.badge ? (
-        <span className="shrink-0 text-[12px] text-ink/55">{row.badge}</span>
-      ) : row.action === 'share' ? (
-        <Share2 aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
-      ) : (
-        <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
-      )}
-    </>
-  );
-
-  if (row.action === 'share') {
-    return (
-      <button
-        type="button"
-        onClick={() => void shareThisPage(row.label)}
-        className="flex w-full items-center gap-3 text-left"
-      >
-        {content}
-      </button>
-    );
-  }
-
-  // A row with neither href nor a share action never reaches here —
-  // `resolveEverythingElseRows` guarantees one of the three (pinned by
-  // everything-else-rows.test.ts) — but a badge-only row (no href) still
-  // renders as inert text, exactly the "say when, don't link" the resolver
-  // promises.
-  if (!row.href) {
-    return <div className="flex items-center gap-3 opacity-60">{content}</div>;
-  }
-
+  // Every row is a live link — a row that would open nothing is never returned
+  // (`resolveEverythingElseRows`, owner 2026-10-03: no greyed rows, no second
+  // Share beside the footer's).
   return (
     <Link href={row.href} className="flex items-center gap-3">
-      {content}
+      <span className="min-h-[44px] flex-1 py-3 text-[15px] text-ink">{row.label}</span>
+      <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-ink/40" strokeWidth={2} />
     </Link>
   );
-}
-
-/** Same shape as `PublicPageActions`' share handler (native share sheet,
- *  clipboard fallback) — kept local rather than imported because that
- *  component's version is tangled with its own floating-pill "Copied"
- *  toast state, which this row-in-a-sheet has no room to show. */
-async function shareThisPage(title: string) {
-  const url = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}` : '';
-  const nav = typeof navigator !== 'undefined' ? navigator : undefined;
-  if (nav && typeof nav.share === 'function') {
-    try {
-      await nav.share({ title, url });
-      return;
-    } catch {
-      // Cancelled or failed — fall through to copy.
-    }
-  }
-  try {
-    await nav?.clipboard?.writeText(url);
-  } catch {
-    /* clipboard blocked — nothing else to do */
-  }
 }

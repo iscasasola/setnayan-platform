@@ -38,7 +38,6 @@ import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
-import { SeatDoorLine } from './_components/seat-door-line';
 import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
@@ -1583,16 +1582,16 @@ async function InvitationBody({
   // (`viewerAccount` is read once, above the siteProps block — same request,
   // same cookies, same answer; the owner gate shares it.)
 
-  // Invite/Join v2 — a no-login guest's photo access closes once the post-event
-  // grace ends (dayOfPhase leaves live/post, ~24h after the wedding). Past that,
-  // their gallery is closed and we nudge an account (the files persist on R2, so
-  // syncing restores them). eventIsPast disambiguates a post-event 'inactive'
-  // from the far-pre-event 'inactive'. Account-holders are never closed.
+  // 📸 THE PAGE STOPS DRAWING "PHOTOS OF YOU" once the post-event grace ends
+  // (dayOfPhase leaves live/post, ~24h after the day) — from then on Me's one
+  // "Photos of you" link is the way to them; before the day there are none, and
+  // through the day the Gallery draws them itself (owner 2026-10-03: one place
+  // each). eventIsPast disambiguates a post-event 'inactive' from the
+  // far-pre-event 'inactive'.
   const eventIsPast = event.event_date
     ? new Date(event.event_date).getTime() < Date.now()
     : false;
-  const accountlessPhotosClosed =
-    !viewerAccount && eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';
+  const photosLeftThePage = eventIsPast && dayOfPhase !== 'live' && dayOfPhase !== 'post';
 
   // (eventVendorCredits — "vendors who made this day" — now resolves inside
   // loadGuestContext, destructured above.)
@@ -1777,17 +1776,14 @@ async function InvitationBody({
         />
       </div>
     ) : null}
-    {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
-        (4)) — the same line the Details scene carries; never a bar slot. */}
-    {seatPassActive ? (
-      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
-    ) : null}
+    {/* 🪑 NO SECOND SEAT LINE ON ME (owner 2026-10-03: one place each). The
+        guest's table is on their Welcome (`SeatDoorLine` / the floor plan in
+        site-body.tsx), and on the day the ticket above carries it. */}
     <GuestMe
       name={
         guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'
       }
       slug={event.slug ?? slug}
-      hasFaceSelfie={guest.photo_source === 'selfie'}
       eventId={event.event_id}
       guestId={guest.guest_id}
       askMeal={resolveRsvpAsk(event.rsvp_ask_config).meal}
@@ -1863,7 +1859,6 @@ async function InvitationBody({
           guest,
           passCard,
           qrSvg,
-          invitationUrl,
           guestLiveGallery,
           guestOwnShots,
           poolGalleryOpen,
@@ -1879,7 +1874,6 @@ async function InvitationBody({
           papicGuest: isEditorCanvas ? null : papicGuest,
           showClaimAccountCta: !viewerAccount,
           account,
-          accountlessPhotosClosed,
           eventVendorCredits,
           saveFlash,
           rsvpFlash,
@@ -1891,7 +1885,7 @@ async function InvitationBody({
         })}
         meSection={
           guestPageTabbed ? (
-            <GuestMeSection meSlot={meSlot} galleryHref={`/papic/me/${guest.qr_token}`} galleryCount={galleryCountHere} asTab />
+            <GuestMeSection meSlot={meSlot} photosHref={photosLeftThePage ? `/papic/me/${guest.qr_token}` : null} galleryCount={galleryCountHere} asTab />
           ) : null
         }
       />
@@ -1924,6 +1918,7 @@ async function InvitationBody({
         // never disagree — and neither can the two owners of `#site-me`.
         menuOn={menuOnHere}
         meSlot={guestPageTabbed ? null : meSlot}
+        mePhotosHref={photosLeftThePage ? `/papic/me/${guest.qr_token}` : null}
         meInPage={guestPageTabbed}
       />
       )}

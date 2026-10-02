@@ -1,23 +1,38 @@
 /**
  * "EVERYTHING ELSE" — the row list for the guest overflow sheet (board 6,
- * Arrival S6). About two dozen guest-facing doors exist on this event site —
- * song requests, the money-gift page, the 3D room walk, table lookup, the
- * camera, the post-event recap, print, share — and most of them have no home
- * on the invitation. This is the one place that decides which of them a given
- * visitor may be shown right now.
+ * Arrival S6): the one quiet "Everything else" line under the invitation, and
+ * the doors that have NO other home on the page.
  *
  * ── THE RULE THIS FILE EXISTS TO ENFORCE (S6 brief) ─────────────────────────
  * A row that is not available must not render as a dead door: it is either a
- * live link, an inert row carrying a date ("opens 18 December"), or it is not
- * returned at all. Never a link to a destination that will refuse the visitor.
+ * live link, or it is not returned at all. Never a link to a destination that
+ * will refuse the visitor.
+ *
+ * ── ✂ ONE PLACE PER DOOR (owner 2026-10-03, on the live hub: "the places of
+ * the different information is still not fixed. too many buttons. too much
+ * going on") ─────────────────────────────────────────────────────────────────
+ * Seven rows lived here; five of them were a SECOND door to something the page
+ * already offered, or a row that opened nothing at all:
+ *
+ *   · "Camera, selfie cam and challenges" — the bar's Camera slot (and before
+ *     the day only a greyed row carrying the date);
+ *   · "Watch the livestream" — The Day's Live page draws the player (and before
+ *     the day only a greyed row);
+ *   · "Find my table" — the guest's Welcome already carries their seat line,
+ *     and a stranger with a key gets "Find your seat"; this row also skipped
+ *     the page's key gate (`insideAllowed`), offering /find-seat to anyone;
+ *   · "Your keepsake reel · After" — a greyed row that opened nothing;
+ *   · "Print this invitation" — the Post Event page's own "Print the
+ *     keepsake" at its foot;
+ *   · "Share with family" — the page footer's Share (`PublicPageActions`).
+ *
+ * What stays is what has no other home: the 3D room (its card left the
+ * doorway strip — one place) and the published keepsake album.
  *
  * ── WHY THIS DUPLICATES NO GATE ──────────────────────────────────────────────
- * Every boolean this module reads is a value `site-body.tsx` has ALREADY
- * resolved for its own rendering (`hostCameraOpen`, `doorways.venueWalk`,
- * `plan.liveMediaVisible`, `recapBody`, `resolveEffectiveVisibility`). This
- * file adds no new question to the database — it only re-groups answers that
- * already exist, the same way `resolveGuestDoorways` re-groups `seatingPublished`
- * for the 3D-room card instead of asking Postgres a second time.
+ * Every value this module reads is one `site-body.tsx` has ALREADY resolved for
+ * its own rendering (`doorways.venueWalk`, `recapBody`, the album door). This
+ * file adds no new question to the database.
  */
 
 export type EverythingElseGroup = 'on-the-day' | 'anytime';
@@ -26,42 +41,15 @@ export type EverythingElseRow = {
   key: string;
   label: string;
   group: EverythingElseGroup;
-  /** A real destination → the row is a link. Absent → `action` supplies the
-   *  behaviour instead (e.g. the native share sheet), and at least one of
-   *  `href`/`action` is always present — never neither. */
-  href?: string;
-  action?: 'share';
-  /** Shown at the trailing edge of the row instead of a chevron, e.g. the
-   *  formatted event date pre-event, or the literal word "After". Absent on
-   *  a live link — that's what the chevron already says. */
-  badge?: string;
+  /** A real destination — every row is a link (a row that opens nothing is
+   *  not returned at all). */
+  href: string;
 };
 
 export type EverythingElseInput = {
-  slug: string;
-  viewerKind: 'anonymous' | 'guest' | 'couple' | 'vendor';
-  isLive: boolean;
-  /** Long-form event date, pre-formatted by the caller (`formatEventDate`) —
-   *  this module makes no date-formatting decision of its own. Empty string
-   *  when the couple hasn't set one. */
-  eventDateLabel: string;
-
-  /** Has the couple turned the guest camera on for this event at all
-   *  (`hostCameraOpen` — a standing feature switch, not day-gated)? */
-  cameraFeatureOn: boolean;
-
-  /** Is a livestream configured AND visible to this viewer
-   *  (`plan.liveMediaVisible && Boolean(watchLive)`)? */
-  broadcastConfigured: boolean;
-
   /** `doorways.venueWalk` — null unless the seating surface is enabled AND
-   *  published. Reused verbatim for both the 3D-room row and table lookup:
-   *  both read the same floor plan. */
+   *  published (the ONE seat rule, lib/guests-may-see-seats.ts). */
   venueWalkHref: string | null;
-
-  /** `plan.body === 'editorial'` — the post-event editorial has been composed.
-   *  Gates both the recap ("keepsake reel") and print, which mirrors the
-   *  editorial's own visibility + phase gate. */
   /**
    * The album door, ALREADY RESOLVED by `resolveAlbumDoor` (album-door.server.ts)
    * and handed in. This module must never build `/recap` itself: the guest tree
@@ -70,92 +58,29 @@ export type EverythingElseInput = {
    * `the-album-door-is-one-decision.test.ts`.
    */
   keepsakeHref: string | null;
+  /** `plan.body === 'editorial'` — the post-event editorial has been composed. */
   recapBodyReady: boolean;
   /** Did the recap actually produce photos (`recapHasPhotos`)? A ready-but-
-   *  empty recap is still worth a badge, not yet a link. */
+   *  empty recap has nothing to open yet, so no row. */
   recapHasPhotos: boolean;
-
-  /** `resolveEffectiveVisibility(event) === 'public'` — the same signal
-   *  `PublicPageActions` already gates its own Share control on. */
-  canShare: boolean;
 };
 
-const AFTER_BADGE = 'After';
-
 /**
- * Resolve the row list. Returns rows already split into the two boards-6
- * groups ("on the day" first, "anytime" after) in display order; a caller
- * with zero rows should render no trigger at all — there is nothing behind
- * the door.
+ * Resolve the row list, in display order. A caller with zero rows renders no
+ * trigger at all — there is nothing behind the door.
  */
 export function resolveEverythingElseRows(input: EverythingElseInput): EverythingElseRow[] {
-  const base = `/${encodeURIComponent(input.slug)}`;
-  const dateBadge = input.eventDateLabel || undefined;
   const rows: EverythingElseRow[] = [];
 
-  // ── ON THE DAY ──────────────────────────────────────────────────────────
-
-  if (input.cameraFeatureOn) {
-    rows.push(
-      input.isLive
-        ? { key: 'camera', label: 'Camera, selfie cam and challenges', group: 'on-the-day', href: `/papic/guest?from=${encodeURIComponent(input.slug)}` }
-        : { key: 'camera', label: 'Camera, selfie cam and challenges', group: 'on-the-day', badge: dateBadge },
-    );
-  }
-
-  if (input.broadcastConfigured) {
-    rows.push(
-      input.isLive
-        ? { key: 'watch', label: 'Watch the livestream', group: 'on-the-day', href: `${base}/hub` }
-        : { key: 'watch', label: 'Watch the livestream', group: 'on-the-day', badge: dateBadge },
-    );
-  }
-
-  // 🪑 Table lookup opens with the 3D room, on the ONE seat rule
-  // (lib/guests-may-see-seats.ts, via `venueWalkHref` ← doorway facts'
-  // `seatingPublished` ← `guestsMaySeeSeatsFor`): on the event's day, or earlier
-  // only if the couple chose "Show guests their seats early". Owner 2026-09-30:
-  // "seat plan is only on the day" — never a row that opens onto "not yet".
-  if (input.venueWalkHref) {
-    rows.push({
-      key: 'find-my-table',
-      label: 'Find my table',
-      group: 'on-the-day',
-      href: input.viewerKind === 'guest' ? `${base}/find-my-table` : `${base}/find-seat`,
-    });
-  }
-
-  // ── ANYTIME ─────────────────────────────────────────────────────────────
-
+  // 🪑 The 3D room opens on the ONE seat rule (lib/guests-may-see-seats.ts, via
+  // `venueWalkHref` ← doorway facts' `seatingPublished`): on the event's day, or
+  // earlier only if the couple chose "Show guests their seats early".
   if (input.venueWalkHref) {
     rows.push({ key: 'venue-walk', label: 'Walk the room in 3D', group: 'anytime', href: input.venueWalkHref });
   }
 
-  // NOT INCLUDED: "Request a song" (Pakanta). `SongRequestCard` renders
-  // in-page inside `guestTree` only, with no anchor id — an anonymous
-  // visitor has no card to scroll to at all, and even a signed-in guest has
-  // nothing to land on. Wiring a real destination means adding an id in
-  // `site-body.tsx`, which is outside this slice's one-mount-line fence.
-  // Flagged in the S6 handback rather than shipped as a dead link.
-
-  if (input.recapBodyReady) {
-    rows.push(
-      input.recapHasPhotos && input.keepsakeHref
-        ? { key: 'keepsake', label: 'Your keepsake reel', group: 'anytime', href: input.keepsakeHref }
-        : { key: 'keepsake', label: 'Your keepsake reel', group: 'anytime', badge: AFTER_BADGE },
-    );
-    // /print mirrors the editorial's own visibility + phase gate — never
-    // offered before `recapBodyReady`, or an early visitor hits the same
-    // "blocked until the event is past" wall the route enforces itself.
-    rows.push({ key: 'print', label: 'Print this invitation', group: 'anytime', href: `${base}/print` });
-  } else if (input.eventDateLabel) {
-    // Pre-event: say when, rather than simply omitting the row — the couple
-    // DID set a date, so "not yet" is an honest, non-dead answer.
-    rows.push({ key: 'keepsake', label: 'Your keepsake reel', group: 'anytime', badge: AFTER_BADGE });
-  }
-
-  if (input.canShare) {
-    rows.push({ key: 'share', label: 'Share with family', group: 'anytime', action: 'share' });
+  if (input.recapBodyReady && input.recapHasPhotos && input.keepsakeHref) {
+    rows.push({ key: 'keepsake', label: 'Your keepsake reel', group: 'anytime', href: input.keepsakeHref });
   }
 
   return rows;

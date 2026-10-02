@@ -50,9 +50,7 @@ export type ArrivalAction = {
   /** The accented control's words — the status, not a generic verb. */
   label: string;
   href: string;
-  /** A quiet second control, when there is one worth offering. */
-  secondary?: { label: string; href: string };
-  /** One line under the pair. Null when the label says enough. */
+  /** One line under the control. Null when the label says enough. */
   note: string | null;
   /** Which branch produced this, for the test and for the markup's data attribute. */
   kind: 'ask' | 'going' | 'declined' | 'day-of' | 'after';
@@ -74,6 +72,16 @@ export type ArrivalActionInput = {
 
 function isIsoDay(v: string | null | undefined): v is string {
   return typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.slice(0, 10));
+}
+
+/**
+ * Does this action open the reply sheet? Then the page needs no OTHER "change
+ * your reply" control — the Welcome's one action is it (owner 2026-10-03: each
+ * control has ONE place). On the day and after, the action points elsewhere
+ * and the reply stays reachable from Me.
+ */
+export function actionOpensReply(action: ArrivalAction | null): boolean {
+  return action !== null && (action.kind === 'ask' || action.kind === 'going' || action.kind === 'declined');
 }
 
 /**
@@ -100,7 +108,9 @@ export function resolveArrivalAction(input: ArrivalActionInput): ArrivalAction |
       ? {
           label: 'Show your ticket',
           href: `/${input.slug}#${PASS_ANCHOR}`,
-          note: 'It opens the door and finds your table.',
+          // ✂ No explainer under it (owner 2026-10-03, "too much going on";
+          // BUILD_PROMPTS rule 13: no small grey explainer captions).
+          note: null,
           kind: 'day-of',
         }
       : {
@@ -115,24 +125,15 @@ export function resolveArrivalAction(input: ArrivalActionInput): ArrivalAction |
     return { label: 'See the photos', href: `/${input.slug}#${SITE_MENU_ANCHORS.gallery}`, note: null, kind: 'after' };
   }
 
+  /* ☝ ONE CONTROL, NOT TWO TO ONE PLACE (owner 2026-10-03, on the live hub:
+     "too many buttons"). "You're going" and a "Change" beside it both opened
+     the SAME reply sheet; the status label is the door, so it stands alone. */
   if (rsvp === 'attending') {
-    return {
-      label: 'You’re going',
-      href: rsvpHref,
-      secondary: { label: 'Change', href: rsvpHref },
-      note: null,
-      kind: 'going',
-    };
+    return { label: 'You’re going', href: rsvpHref, note: null, kind: 'going' };
   }
 
   if (rsvp === 'declined') {
-    return {
-      label: 'You said you can’t make it',
-      href: rsvpHref,
-      secondary: { label: 'Change', href: rsvpHref },
-      note: null,
-      kind: 'declined',
-    };
+    return { label: 'You said you can’t make it', href: rsvpHref, note: null, kind: 'declined' };
   }
 
   // 'pending' and 'maybe' both still owe the couple an answer.

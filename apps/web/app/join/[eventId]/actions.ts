@@ -223,7 +223,13 @@ async function createJoinRequest(
     .select('rsvp_ask_config')
     .eq('event_id', eventId)
     .maybeSingle();
-  if (settingErr || !anyoneMayAskToJoin(setting?.rsvp_ask_config)) return null;
+  if (settingErr) {
+    // Recorded, then closed: every caller turns null into the visible
+    // "join_failed" sentence on the door — never a silent request.
+    console.error('[supabase-error] app/join/[eventId]/actions.ts · from:events.select', settingErr);
+    return null;
+  }
+  if (!anyoneMayAskToJoin(setting?.rsvp_ask_config)) return null;
   const now = new Date().toISOString();
   const answerColumns = {
     rsvp_status: answers.rsvp_status,

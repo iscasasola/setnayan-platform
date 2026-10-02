@@ -87,7 +87,9 @@ test('2 · ONE writer makes a request row — and it asks the setting itself bef
   const join_ = read('app', 'join', '[eventId]', 'actions.ts');
   assert.equal((join_.match(/entry_source:\s*'self_added_unlisted'/g) ?? []).length, 1, 'a second request write in the join door');
   const writer = bodyOf(join_, 'async function createJoinRequest(');
-  const gate = writer.indexOf('if (settingErr || !anyoneMayAskToJoin(setting?.rsvp_ask_config)) return null;');
+  // An unreadable setting is recorded and fails closed (ugat both-ends: never a silent drop).
+  assert.match(writer, /if \(settingErr\) \{\s*console\.error\('\[supabase-error\] app\/join\/\[eventId\]\/actions\.ts · from:events\.select', settingErr\);\s*return null;\s*\}/, 'an unreadable setting is dropped silently');
+  const gate = writer.indexOf('if (!anyoneMayAskToJoin(setting?.rsvp_ask_config)) return null;');
   assert.ok(gate > -1, 'the one writer no longer asks the setting itself');
   assert.ok(gate < writer.indexOf("entry_source: 'self_added_unlisted'"), 'the request is written before the setting is asked');
   assert.ok(gate < writer.indexOf('.update('), 'an old request is re-opened before the setting is asked');

@@ -3,6 +3,7 @@
 import { useRef, useState, useTransition } from 'react';
 import { X, ArrowLeft, ArrowRight } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
+import { TIP_POPUPS_ON } from '@/lib/tip-popups';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { InfoTip } from './info-tip';
 import { formatCount } from '@/lib/format-number';
@@ -25,7 +26,10 @@ type Props = {
 // the server draws it into an element first (`tour-slide-view.tsx`). That keeps
 // every OTHER tour's words out of the browser — this file used to import them all.
 export function GuidedTourCard({ tourKey, slides, label, blurb, completeAction }: Props) {
-  const [open, setOpen] = useState(true);
+  // Opens only while tip popups are on (`lib/tip-popups.ts`): the last backstop behind MiniTour,
+  // GuidedTour and GuestGuidedTour, so a card mounted some other way still draws nothing —
+  // and `open` false also means useModalA11y never scroll-locks the page.
+  const [open, setOpen] = useState<boolean>(TIP_POPUPS_ON);
   const [step, setStep] = useState(0);
   const [pending, startTransition] = useTransition();
   const dialogRef = useRef<HTMLDivElement>(null);

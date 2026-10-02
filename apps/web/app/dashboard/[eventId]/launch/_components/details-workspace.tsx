@@ -150,6 +150,12 @@ export function DetailsWorkspace({
     }),
     [pieceMap],
   );
+  /* 🎨 LOOK IS ITS PANEL (owner 2026-10-02, `lib/maker-look-sections.ts`): on a
+     phone, opening Look opens its sheet over the couple's page — never a closed
+     handle reading "Theme" alone. */
+  useEffect(() => {
+    if (selected === 'theme') setSheetOpen(true);
+  }, [selected]);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
   const rootRef = useRef<HTMLDivElement>(null);

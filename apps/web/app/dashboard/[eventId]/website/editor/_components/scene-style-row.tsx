@@ -28,6 +28,7 @@ import type { HubSectionCanvas, HubStage } from '@/lib/hub-canvas';
 import { IRow, ISeg, ISegmented } from './inspector-kit';
 import { PickMenu } from './pick-menu';
 import { useSceneCanvas } from './use-scene-canvas';
+import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { ElementDraftAction } from './element-sheet';
 import { PaletteLookRow } from './palette-look-row';
 import { PALETTE_LOOK_DEFAULT, layoutDrawsPaletteLook, resolvePaletteLook } from '@/lib/palette-looks';
@@ -86,12 +87,9 @@ export function SceneStyleRow({
 /**
  * A section row's Style — `canvas.style`, drafted. Null when the scene has no choice here.
  *
- * 🎨 The Dress code scene also carries its palette's LOOK here (`canvas.palette`,
- * owner 2026-09-29 "FIVE PALETTE STYLES"): a **Palette** row right under Style,
- * saved through the SAME `useSceneCanvas` so the two picks share one copy of the
- * canvas. Drawn only where "Our colours" is drawn in the look — the Colours and
- * roles layout, or a stage with no layouts — and only when there are colours to
- * show, so a pick is never one that changes nothing.
+ * 🎨 The Dress code scene's palette LOOK (`canvas.palette`, #6226) is NOT here
+ * any more: it moved to Look › Colours (`PaletteLookCanvasRow` below; owner
+ * 2026-10-02, tracker f40 — `lib/maker-look-sections.ts`). One control, one home.
  */
 export function SceneStyleCanvasRow({
   eventId,
@@ -100,7 +98,6 @@ export function SceneStyleCanvasRow({
   stage,
   eventType,
   draftAction,
-  colours = [],
 }: {
   eventId: string;
   widgetType: string;
@@ -108,8 +105,6 @@ export function SceneStyleCanvasRow({
   stage: HubStage;
   eventType: string | null;
   draftAction: ElementDraftAction;
-  /** The couple's Mood Board colours — the Palette dropdown's thumbnails. */
-  colours?: readonly string[];
 }) {
   const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
   const type = sceneStyleTypeOfWidget(widgetType);
@@ -127,16 +122,6 @@ export function SceneStyleCanvasRow({
         onPick={(id) => save((c) => { c.style = id; })}
       />
     );
-  const paletteRow =
-    type === 'dress_code' && colours.length > 0 && layoutDrawsPaletteLook(layout) ? (
-      <PaletteLookRow
-        value={resolvePaletteLook(shown.palette)}
-        colours={colours}
-        pending={pending}
-        /* Tags is the default, and "Auto is an absence": picking it clears the key. */
-        onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
-      />
-    ) : null;
   /* 🏛 The Venue scene's Map switch (owner 2026-09-30, "VENUE STYLES APPROVED"):
      two choices are a switch, never a dropdown. "One map for both" is the
      default and an absence; "No map" stores `canvas.venueMap = 'none'`. */
@@ -153,18 +138,70 @@ export function SceneStyleCanvasRow({
         </ISegmented>
       </IRow>
     ) : null;
-  if (!styleRow && !paletteRow) return null;
+  if (!styleRow) return null;
   return (
     <>
       {styleRow}
       {mapRow}
-      {paletteRow}
-      {/* The Style row says its own error; without it, the Palette row's is said here. */}
-      {!styleRow && error ? (
+    </>
+  );
+}
+
+/**
+ * 🎨 LOOK › COLOURS › PALETTE — the Dress code scene's palette look
+ * (`canvas.palette`, owner 2026-09-29 "FIVE PALETTE STYLES", #6226), MOVED here
+ * from under that scene's Style (owner 2026-10-02, tracker f40: *"Theme sets
+ * background + fonts + colours"*; `lib/maker-look-sections.ts`).
+ *
+ * The same `PaletteLookRow`, saved the same way — into the draft, as the Dress
+ * code scene's `canvas.palette`, through the one scene-canvas door
+ * (`useSceneCanvas`) — and the Maker keeps its own copy of what it wrote
+ * (`noteDraftedCanvas`), so a Style pick on that scene right after builds on it.
+ * Drawn only where "Our colours" is drawn in the look — the Colours and roles
+ * layout on the Invitation — and only when there are colours to show, so a
+ * pick is never one that changes nothing. Its one line says WHERE it shows: it
+ * never recolours the page itself.
+ */
+export function PaletteLookCanvasRow({
+  eventId,
+  canvas,
+  eventType,
+  draftAction,
+  colours,
+  line,
+}: {
+  eventId: string;
+  /** The Dress code scene's canvas (drafted over live). */
+  canvas: HubSectionCanvas;
+  eventType: string | null;
+  draftAction: ElementDraftAction;
+  /** The couple's Mood Board colours — the dropdown's thumbnails. */
+  colours: readonly string[];
+  /** Where the look shows (`PALETTE_STYLES_LINE`). */
+  line: string;
+}) {
+  const { shown, save, pending, error } = useSceneCanvas(eventId, 'dress_code', canvas, draftAction, (next) =>
+    noteDraftedCanvas('dress_code', next, canvas),
+  );
+  const layout = resolveSceneStyle('dress_code', 'rsvp', shown.style, eventType);
+  if (colours.length === 0 || !layoutDrawsPaletteLook(layout)) return null;
+  return (
+    <div data-look-palette="">
+      <PaletteLookRow
+        value={resolvePaletteLook(shown.palette)}
+        colours={colours}
+        pending={pending}
+        /* Tags is the default, and "Auto is an absence": picking it clears the key. */
+        onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
+      />
+      <p className="text-[12px] text-ink/60" data-look-palette-line="">
+        {line}
+      </p>
+      {error ? (
         <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
           {error}
         </p>
       ) : null}
-    </>
+    </div>
   );
 }

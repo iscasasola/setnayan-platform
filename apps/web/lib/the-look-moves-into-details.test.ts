@@ -82,7 +82,9 @@ test('(1) each tool fills the body with its picked piece; only the Logo studio c
   assert.equal(detailsItemLayout('logo'), 'whole');
   assert.match(read(`${L}/maker-logo.tsx`), /data-logo-navigator=""/, 'the studio lost its layers navigator');
   // Everything else is the picture-and-editor it was.
-  for (const k of ['theme', 'address', 'qr', 'invitation', 'download'] as const) assert.equal(detailsItemLayout(k), 'flow', k);
+  // 🎨 Look's item (Theme) fills the body with the couple's own page since 2026-10-02 (tracker f40).
+  assert.equal(detailsItemLayout('theme'), 'fill');
+  for (const k of ['address', 'qr', 'invitation', 'download'] as const) assert.equal(detailsItemLayout(k), 'flow', k);
   // …and the workspace hides the editor column for a page that carries its own tools.
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /hidden=\{layout === 'whole'\}/);
@@ -169,8 +171,11 @@ test('(3) the work area builds Logo, Hero and Reveal once and hands the SAME nod
   const reg = work.slice(work.indexOf('setLookPages({'), work.indexOf('setLookPages({') + 700);
   assert.ok(reg.length > 100, 'anti-vacuity: the registration was not found');
   assert.match(reg, /logo: madeOnce\?\.logo \?\? null/);
-  assert.match(reg, /\{madeOnce\.hero\}/);
-  assert.match(reg, /<RowBlock row=\{mainBackgroundRow\} \/>/, 'the Main background left the hero with the move');
+  /* 🎨 The Main background is no longer the hero's: owner 2026-10-02 (tracker
+     f40, `lib/maker-look-sections.ts`) — it is Look › Background, the same row,
+     moved (held in `the-look-is-one-panel.test.ts`). */
+  assert.match(reg, /hero: madeOnce\?\.hero \?\? null,/);
+  assert.doesNotMatch(reg, /RowBlock/, 'the hero still carries a row of its own');
   assert.match(reg, /reveal: madeOnce\?\.reveal \?\? null/);
   assert.match(reg, /revealOptions: madeOnce\?\.\['reveal-options'\] \?\? null/);
   assert.match(reg, /heroParts: elementEditing/, 'the hero parts are not handed to Details');

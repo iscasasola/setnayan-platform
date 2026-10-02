@@ -22,6 +22,8 @@ export function useSceneCanvas(
   widgetType: string,
   canvas: HubSectionCanvas,
   draftAction: ElementDraftAction,
+  /** Told the canvas just written, before it is sent (the Maker's own copy — `noteDraftedCanvas`). */
+  onWrote?: (next: HubSectionCanvas) => void,
 ) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -40,6 +42,7 @@ export function useSceneCanvas(
     const next = sanitizeHubCanvas({ canvas: draft });
     latest.current = next;
     setShown(next);
+    onWrote?.(next);
     setError(null);
     start(async () => {
       const fd = new FormData();

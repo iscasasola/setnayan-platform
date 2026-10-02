@@ -151,8 +151,22 @@ export type MakerDraftDoor = { canRestore: boolean; restore: () => void };
 export type MakerLookPages = {
   /** The Logo studio — canvas and panel, its own split. */
   logo: ReactNode | null;
-  /** The Hero's controls: Designs 1–4, its parts, the photo — and the Main background it carries. */
+  /** The Hero's controls: Designs 1–4, its parts, the photo. */
   hero: ReactNode | null;
+  /**
+   * 🎨 LOOK › BACKGROUND · FONT · COLOURS (owner 2026-10-02, tracker f40 —
+   * `lib/maker-look-sections.ts`): the rows the work area always built — the
+   * Main background ("Behind every scene"), the one font dropdown, the page and
+   * button colours — and the Dress code scene's palette look. Drawn by Look
+   * (`details-look-pages.tsx` `LookPanel`) under the theme. Optional: a
+   * harness may leave it out, and Look then says it is opening.
+   */
+  look?: {
+    background: ReactNode | null;
+    font: ReactNode | null;
+    colours: ReactNode | null;
+    palette: ReactNode | null;
+  } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;
   /** The Reveal's openings — its pieces, listed in Details' NAVIGATOR. */

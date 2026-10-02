@@ -334,8 +334,11 @@ export function HubDraftToolbar({
       }
       return;
     }
-    if (j.kind === 'main') maker.select({ kind: 'main' });
-    else if (j.kind === 'row') maker.select({ kind: 'row', key: j.key });
+    if (j.kind === 'look') {
+      /* 🎨 Look — theme, background, font and colours (`lib/maker-look-sections.ts`). */
+      maker.setDetailsItem?.('theme');
+      maker.select({ kind: 'tool', key: 'details' });
+    } else if (j.kind === 'row') maker.select({ kind: 'row', key: j.key });
     else maker.select({ kind: 'tool', key: j.key });
   };
   /* 💎 BACK FROM "UNLOCK PRO AND APPLY" (owner 2026-09-28). The purchase page

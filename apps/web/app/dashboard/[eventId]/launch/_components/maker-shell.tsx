@@ -815,7 +815,8 @@ export function MakerShell({
             onClose={() => setTour(false)}
             onStart={() => {
               setTour(false);
-              if (hasWork) select({ kind: 'main' });
+              // 🎨 The tour ends on Look — theme, background, font and colours (2026-10-02).
+              if (hasWork) pressDoor('look');
             }}
           />
         ) : null}

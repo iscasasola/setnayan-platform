@@ -124,6 +124,9 @@ export const DetailsBoundField = dynamic(() => import(/* webpackChunkName: "make
    when that Details item is opened; same chunk, same idle warm. */
 export const DetailsLookBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookBody), { loading: SlotFill });
 export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookEditor), { loading: SlotRows });
+/* 🎨 Look as one panel (2026-10-02): its four sections, and its body — the couple's page. */
+export const LookPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.LookPanel), { loading: SlotRows });
+export const DetailsLookPageBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPageBody), { loading: SlotFill });
 export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
 
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */

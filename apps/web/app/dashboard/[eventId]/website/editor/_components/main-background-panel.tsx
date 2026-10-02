@@ -459,7 +459,7 @@ export function MainBackgroundPanel({
       </div>
       {choice === 'none' ? (
         <p className="text-[12px] text-ink/60" data-main-ground-note="none">
-          No picture and no moving background — your Background colour is all there is.
+          No picture and no moving background — your page colour (Colours, below) is all there is.
         </p>
       ) : null}
 

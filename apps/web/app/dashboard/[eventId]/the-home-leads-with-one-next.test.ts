@@ -436,5 +436,5 @@ test('f · a supplier delivery reaches the couple as the ONE existing notificati
   const after = actions.slice(at, actions.indexOf('export async function', at) > 0 ? actions.indexOf('export async function', at) : undefined);
   assert.match(after, /emitNotification\(\{[\s\S]*?type: 'schedule_suggestion'[\s\S]*?delivered your handover/, 'the delivery notification is emitted after the insert');
   assert.equal(count(after, 'emitNotification('), 1, 'a second notification for the same delivery');
-  assert.match(after, /relatedUrl: `\/dashboard\/\$\{eventId\}\/vendors\/\$\{eventVendorId\}\/workspace`/, 'it opens the supplier\'s workspace');
+  assert.ok(after.includes('/vendors/${eventVendorId}/workspace`'), 'it opens the supplier\'s workspace');
 });

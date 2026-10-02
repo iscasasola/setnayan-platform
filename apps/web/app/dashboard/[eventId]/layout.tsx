@@ -7,6 +7,8 @@ import { getMenuLifecyclePhase } from '@/lib/day-of-mode';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
+import { eventBoardHref } from '@/lib/event-board';
+import { fetchUserEvents } from '@/lib/events';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
 import { countGuestsByEvent } from '@/lib/guests';
@@ -134,6 +136,25 @@ export default async function EventLayout({ children, params }: Props) {
         { event_id: eventId, user_id: user.id },
         'graceful_degrade',
       );
+    }
+    // 🎟 AN INVITED GUEST GOES TO THE EVENT HUB, NEVER A 404 (owner
+    // 2026-10-02: "when invited guests see the event on their account and
+    // opens it. it does not go to the dashboard but instead it goes to the
+    // event hub"). Their board card already points at the hub
+    // (`eventBoardHref`); this catches every OTHER way a guest reaches a
+    // host address — an old bookmark, a notification link, a typed URL — and
+    // sends them through the SAME resolver instead of "not found". A host or
+    // co-host is never redirected: a couple row or a live seat admitted them above.
+    //
+    // The address comes from the board's OWN read of the person's invited
+    // events (`fetchUserEvents(…, 'guest')`, cached per request) — never a read
+    // of the event row here, so nobody who is not on its guest list reaches
+    // any event data before the refusal below.
+    if (!moderator && membership?.member_type === 'guest') {
+      const invited = await fetchUserEvents(supabase, user.id, 'guest').catch(() => []);
+      const seat = invited.find((e) => e.event_id === eventId);
+      const hub = seat ? eventBoardHref(seat) : null;
+      if (hub) redirect(hub);
     }
     if (!moderator) {
       notFound();

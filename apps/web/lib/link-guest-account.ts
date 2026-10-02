@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { isCoupleSeat, seatBindRefusal } from '@/lib/seat-binding';
 import { FORMAL_NAME_FIELDS, normalizeNamePart, type FormalName } from '@/lib/formal-name';
+import { carrySeatDetailsToAccount } from '@/lib/seat-details-carry';
 
 /**
  * Persistent guest accounts (PR-E) — link a signed guest session to a new
@@ -64,6 +65,9 @@ export async function fillAccountNameFromSeat(
   userId: string,
   guestId: string,
 ): Promise<void> {
+  // First, and outside the name's early returns: a seat with no name yet (a
+  // TBA plus-one) still carries the mobile, meal and dietary the person gave.
+  await carrySeatDetailsToAccount(admin, userId, guestId);
   try {
     const { data: seat } = await admin
       .from('guests')
@@ -113,6 +117,7 @@ export async function fillAccountNameFromSeat(
   }
 }
 
+
 /** Does this account already hold a `couple` membership on this event? False on any doubt. */
 export async function isCoupleMember(
   admin: ReturnType<typeof createAdminClient>,
@@ -157,7 +162,7 @@ export async function linkGuestSessionToUser(
     // canonical role to mirror onto the membership.
     const { data: guest, error: guestError } = await admin
       .from('guests')
-      .select('guest_id, event_id, role, extra_roles, meal_preference, dietary_restrictions')
+      .select('guest_id, event_id, role, extra_roles')
       .eq('guest_id', guest_id)
       .maybeSingle();
 
@@ -211,55 +216,9 @@ export async function linkGuestSessionToUser(
       return { linked: false, reason: 'error' };
     }
 
-    // ── THE ANSWERS COME WITH THEM (owner 2026-08-21) ────────────────────
-    // *"if they create an account to sync, these information will be saved on
-    // their account automatically."*
-    //
-    // This is the ONE moment a name on somebody's list becomes a person with an
-    // account, so it is where the answers they already gave stop being about
-    // one wedding and start belonging to them. Next invitation, the reply card
-    // offers their meal and their allergy back instead of asking again.
-    //
-    // 🔒 FILLS BLANKS ONLY. It never overwrites something the person has typed
-    // into their own profile — an old guest row from a wedding two years ago
-    // must not silently replace the allergy they corrected last week. The
-    // `.is(…, null)` pair is the whole guard: no read-then-write race, and a
-    // second run is a no-op.
-    //
-    // ⚠ Dietary text is HEALTH DATA (RA 10173) and carries a consent stamp on
-    // the profile. Stamping it HERE is honest: the person typed it into an
-    // event's reply card and then chose to create the account that carries it.
-    //
-    // Best-effort by contract — this function may never throw, and failing to
-    // carry a meal preference must never cost somebody their account link.
-    try {
-      // ⚠ ONE UPDATE PER FIELD, each guarded on ITS OWN blank. A single
-      // statement carrying both would AND the two `.is(… , null)` filters, so a
-      // profile that already had a meal preference would match nothing and the
-      // ALLERGY would be silently dropped — the one value here that matters
-      // most. Two statements; each lands on its own merits.
-      if (guest.meal_preference) {
-        await admin
-          .from('users')
-          .update({ meal_preference: guest.meal_preference })
-          .eq('user_id', userId)
-          .is('meal_preference', null);
-      }
-      const diet = (guest.dietary_restrictions as string | null)?.trim();
-      if (diet) {
-        await admin
-          .from('users')
-          .update({
-            dietary_restrictions: diet.slice(0, 300),
-            dietary_restrictions_consent_at: new Date().toISOString(),
-          })
-          .eq('user_id', userId)
-          .is('dietary_restrictions', null);
-      }
-    } catch {
-      // Deliberately swallowed — see the contract note above.
-    }
-
+    // ── THE ANSWERS COME WITH THEM (owner 2026-08-21) — now carried inside
+    // `fillAccountNameFromSeat` (`carrySeatDetailsToAccount`), so the
+    // cross-device email path carries them too, not only this cookie path.
     await fillAccountNameFromSeat(admin, userId, guest_id);
 
     return { linked: true, reason: 'linked' };

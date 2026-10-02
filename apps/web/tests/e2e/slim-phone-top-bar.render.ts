@@ -86,7 +86,7 @@ void (async () => {
     );
     const shell = h(FrontDoorShell, {
       variant: 'app',
-      account: { signedIn: true, initials: 'AR', shopName: null },
+      account: { signedIn: true, initials: 'AR', shopName: null, isAdmin: false },
       tools: [],
       navLabels: {},
       topBarSlot: cluster,

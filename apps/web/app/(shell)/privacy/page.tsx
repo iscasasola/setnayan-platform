@@ -4,6 +4,7 @@ import Link from 'next/link';
 // renders the same constant the sweep deletes by. Two hand-typed numbers
 // agreeing today is how `llms.txt` drifted for three weeks with green CI.
 import { CONNECTION_REQUEST_RETENTION_DAYS } from '@/lib/connection-request-expiry-core';
+import { ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
 
 // GEO Phase G5 (2026-05-28) — canonical URL + enriched description. AI
 // engines extract privacy-policy content for "is X RA 10173 compliant"
@@ -1053,7 +1054,7 @@ export default function PrivacyPage() {
               the ticket closes.
             </li>
             <li>
-              <strong>Error and usage logs</strong> — <strong>90 days</strong> or
+              <strong>Error and usage logs</strong> — <strong>{ERROR_LOG_RETENTION_DAYS} days</strong> or
               less, and they carry no personal data by design.
             </li>
             <li>

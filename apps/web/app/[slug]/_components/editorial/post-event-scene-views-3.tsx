@@ -141,7 +141,7 @@ export function RoadScene({
               <span className="block font-serif text-[1.9rem] leading-none text-terracotta-700">
                 {days !== null && days > 0 ? fmt(days) : e.atMs !== null ? monthOf(e.atMs) : (e.year ?? '—')}
                 <span className={`${MICRO} ml-2`}>
-                  {days !== null && days > 0 ? (days === 1 ? 'day to go' : 'days to go') : e.atMs !== null ? yearOf(e.atMs) : ''}
+                  {days !== null && days > 0 ? (days === 1 ? 'day before the day' : 'days before the day') : e.atMs !== null ? yearOf(e.atMs) : ''}
                 </span>
               </span>
               <span className="mt-0.5 block text-base text-ink">{e.title}</span>

@@ -4481,7 +4481,7 @@ export function OnboardingShell({
                 <div className="aikeep-price">
                   <span className="aikeep-now">{pricing.setnayanAi.label}</span>
                   <span className="aikeep-unit">active until your wedding day</span>
-                  <span className="aikeep-anchor">₱30,000+ coordinator</span>
+                  <span className="aikeep-anchor">instead of a hired coordinator</span>
                 </div>
               )}
               <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>

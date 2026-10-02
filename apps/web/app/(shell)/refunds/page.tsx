@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
+import { REFUND_REPORT_WINDOW_DAYS } from '@/lib/rule-constants';
 
 
 // 1hr Vercel edge cache to match the other static marketing/legal routes.
@@ -92,7 +93,7 @@ export default function RefundsPage() {
               help center
             </Link>{' '}
             and tell us the order reference and what went wrong, within{' '}
-            <strong>7 days</strong> of payment where possible.
+            <strong>{REFUND_REPORT_WINDOW_DAYS} days</strong> of payment where possible.
           </li>
           <li>
             We respond within our standard support window and, if approved,

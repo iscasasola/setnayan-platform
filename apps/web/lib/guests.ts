@@ -523,6 +523,20 @@ export const RSVP_LABELS: Record<RsvpStatus, string> = {
   maybe: 'Maybe',
 };
 
+/**
+ * THE ROSTER'S WORDS FOR AN RSVP ANSWER — one list, three surfaces (owner
+ * 2026-09-30, the Fable rows: "no reply" / "not coming", no Maybe in the pick).
+ * The row's picker, the guest card and the filter menu each kept their own copy
+ * of this map, so a reword reached two of the three. `RSVP_LABELS` above is the
+ * FORMAL vocabulary (Pending · Declined) other screens use; this is the roster's.
+ */
+export const RSVP_ROW_WORDS: Record<RsvpStatus, string> = {
+  attending: 'Attending',
+  pending: 'No reply',
+  declined: 'Not coming',
+  maybe: 'Maybe',
+};
+
 export type GuestStats = {
   total: number;
   attending: number;
@@ -571,6 +585,14 @@ export type MeasuredGuests = {
   rows: GuestRow[];
   /** False when the read was refused — the rows are unknown, not empty. */
   measured: boolean;
+  /**
+   * The head-counts of `rows` — worked out HERE, once, so no screen has to run
+   * `computeGuestStats` over the same list a second time and no two parts of one
+   * screen can count it two ways (Root map "same fact, twice": coming · no reply).
+   * Read it only together with `measured`: when that is false these are zeros of
+   * an UNKNOWN list, not "nobody coming".
+   */
+  stats: GuestStats;
 };
 
 /**
@@ -597,6 +619,16 @@ export const PASSED_AWAY = 'passed_away';
 /** Does this row count — in a headcount, a seat, a caterer's number? */
 export function countsTowardEvent(g: { entry_source?: string | null; passed_away?: boolean | null }): boolean {
   return g.entry_source !== REQUEST_ENTRY_SOURCE && g.passed_away !== true;
+}
+
+/**
+ * The value of a guest read that did NOT happen (refused, or threw): no rows,
+ * `measured: false`, zero counts of an unknown list. A caller that degrades a
+ * throw returns this, so the shape — and the "— not 0" contract — lives in one
+ * place.
+ */
+export function unmeasuredGuests(): MeasuredGuests {
+  return { rows: [], measured: false, stats: computeGuestStats([]) };
 }
 
 export async function fetchGuestsByEventMeasured(
@@ -648,13 +680,11 @@ export async function fetchGuestsByEventMeasured(
       },
       'graceful_degrade',
     );
-    return { rows: [], measured: false };
+    return unmeasuredGuests();
   }
 
-  return {
-    rows: ((data ?? []) as unknown as GuestRow[]).map(coupleAttending),
-    measured: true,
-  };
+  const rows = ((data ?? []) as unknown as GuestRow[]).map(coupleAttending);
+  return { rows, measured: true, stats: computeGuestStats(rows) };
 }
 
 /**

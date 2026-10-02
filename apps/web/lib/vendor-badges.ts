@@ -203,8 +203,16 @@ const NEW_BADGE_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
 // floors: a vendor must be at OR above the 90th percentile of bookings
 // to get most_booking, and at OR above the 95th percentile of weighted
 // score to get top_pick.
-const MOST_BOOKING_PERCENTILE = 0.9;
-const TOP_PICK_PERCENTILE = 0.95;
+export const MOST_BOOKING_PERCENTILE = 0.9;
+export const TOP_PICK_PERCENTILE = 0.95;
+
+/**
+ * "Top N%" as a person reads it, derived from the percentile floor the badge is
+ * actually awarded at — so the tooltip can never say 10% while the floor says 20%.
+ */
+export function topPercentLabel(percentileFloor: number): number {
+  return Math.round((1 - percentileFloor) * 100);
+}
 // `couple_trusted` is an ABSOLUTE (non-percentile) gate — a vendor earns it
 // on their own numbers, independent of the visible pool AND independent of
 // booking counts. Owner decision 2026-07-05: a simple review-count floor plus

@@ -14,7 +14,7 @@
 import Link from 'next/link';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
-import { supplierCommissionShort } from '@/lib/commission-promise';
+import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 /* ── shared primitives ─────────────────────────────────────────────────── */
@@ -155,7 +155,7 @@ export function VendorGrowThesis() {
     // the propagation guard on 2026-09-22, while production had already
     // collected ₱837.50. A fix applied to one string in a file is not a fix
     // applied to the file.
-    { b: '0%', s: 'commission — couples pay you directly and we never sit between you at checkout' },
+    { b: `${COMMISSION_PCT}%`, s: 'commission — couples pay you directly and we never sit between you at checkout' },
     { b: 'First 5 free', s: `the bookings we bring you are on us — after that ${bookingFeeScheduleSummary()}, only on couples we source` },
   ];
   return (
@@ -395,7 +395,7 @@ export function VendorGrowFairPay() {
           Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free.{' '}
           {feeLive ? null : (
             <>
-              While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>.{' '}
+              While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>{COMMISSION_PCT}%</b>.{' '}
             </>
           )}
           Your first {FREE_BOOKING_LIMIT} Setnayan-sourced bookings are on us —{' '}
@@ -550,7 +550,7 @@ export function VendorGrowGetPaid() {
           </Lede>
         </div>
         <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <FeatureLI icon="₱" title="Direct to your GCash / bank" body="0% while we launch — and we never hold a peso of yours." />
+          <FeatureLI icon="₱" title="Direct to your GCash / bank" body="Couples pay you directly, and we never hold a peso of yours." />
           <FeatureLI icon="◷" title="PH-style milestone tracking" body="Reservation → progress → balance, with proof — the way couples pay here." />
           <FeatureLI icon="🛡" title="No-show first payment protection" body="A frozen, agreed cancellation policy makes a forfeited payment defensible." />
           <FeatureLI icon="📆" title="Money in calendar" body="Every upcoming due-date across all your bookings, on one timeline." />

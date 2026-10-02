@@ -22,9 +22,10 @@
  */
 import { formatEventDateWithPrecision, type EventDatePrecision } from './events';
 import { formatCount } from './format-number';
+import { DATE_CHANGE_DUE_DAYS } from './rule-constants';
 
 /** Days a supplier has to answer before the couple may choose (safeguard 2). */
-export const DATE_CHANGE_DUE_DAYS = 3;
+export { DATE_CHANGE_DUE_DAYS };
 
 export type DateChangeAnswer = 'asked' | 'moved' | 'unlocked' | 'dropped';
 

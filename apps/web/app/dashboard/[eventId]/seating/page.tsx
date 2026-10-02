@@ -165,6 +165,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     return {
       guest_id: g.guest_id,
       name: guestDisplayName(g),
+      plus_one_of: g.plus_one_of_guest_id,
       initials: guestInitials(g),
       photo_url: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
       side: g.side,

@@ -4001,6 +4001,15 @@ export type SolveLayoutInput = {
   booths?: Array<{ x: number; y: number; w: number; h: number }>;
   // Reserve a centre processional/service lane when a stage exists.
   reserveCentreAisle?: boolean;
+  /**
+   * 🪑 Tables that STAY WHERE THEY ARE (owner 2026-10-01, "SEAT PLAN: LINKED
+   * TABLES ARE ONE TABLE · NOTHING OVERLAPS": *Auto arrange places new tables
+   * only in free space*). Each listed table that already has a position is
+   * fixed — an obstacle the rest are placed around — and comes back in
+   * `placed` at its own spot. Omitted = every table is laid out afresh (the
+   * blank-floor draft).
+   */
+  keepPlaced?: ReadonlySet<string>;
 };
 
 export type SolveLayoutResult = {
@@ -4098,6 +4107,9 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
     units.push({ id: rep.table_id, members, fw, fh, offsets, rep });
   }
 
+  // A unit is fixed when every member is kept AND already has a spot.
+  const fixedUnit = (unit: SolveUnit) => unit.members.every((m) => input.keepPlaced?.has(m.table_id) && posOf(m) !== null);
+
   // Solve for a given metric walkway; returns placed count + placements.
   const solveAt = (aisleM: number | null): { placed: Record<string, { x: number; y: number }>; unplaced: string[] } => {
     const slotGapPct = ((): { gw: number; gh: number } => {
@@ -4126,7 +4138,7 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
       long_banquet: 3,
       serpentine: 4,
     };
-    const ordered = [...units].sort((a, b) => {
+    const ordered = units.filter((unit) => !fixedUnit(unit)).sort((a, b) => {
       const ra = TYPE_RANK[shapeHintFor(a.rep.table_type)];
       const rb = TYPE_RANK[shapeHintFor(b.rep.table_type)];
       return (
@@ -4178,6 +4190,27 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
     const placed: Record<string, { x: number; y: number }> = {};
     const placedPoses: WorldPose[] = [];
     const unplaced: string[] = [];
+    // Fixed tables first: they are where the couple put them, so they are the
+    // obstacles every new table must clear — never moved, never re-checked.
+    for (const unit of units) {
+      if (!fixedUnit(unit)) continue;
+      for (const m of unit.members) {
+        const p = posOf(m)!;
+        const g = tableGeometry(shapeHintFor(m.table_type), m.capacity);
+        const f = footprintOf(m);
+        placed[m.table_id] = { x: Number(m.x_pos), y: Number(m.y_pos) };
+        placedPoses.push({
+          tableId: m.table_id,
+          shape: shapeHintFor(m.table_type),
+          capacity: m.capacity,
+          x: p.x,
+          y: p.y,
+          rot: m.rotation_deg ?? 0,
+          scale: f.w / g.box.w,
+          linkGroupId: m.link_group_id ?? null,
+        });
+      }
+    }
 
     // Try to place a unit's representative CENTRE at (cx,cy) %, expanding the
     // whole group by offsets, and verify every member clears.

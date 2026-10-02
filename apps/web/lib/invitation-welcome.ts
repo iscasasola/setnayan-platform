@@ -56,6 +56,12 @@ export type WelcomeInput = {
   giftHref: string | null;
   /** The Maker's canvas: draw each place, filled or not, so the couple can fill it. */
   maker: boolean;
+  /**
+   * 🗂 The host answered "Accept gifts? — No" (`events.gifts_on = false`, Your
+   * info, owner 2026-10-02): no E-Gifts part anywhere — not even the Maker's
+   * empty place to fill. Absent = gifts are on.
+   */
+  giftsOff?: boolean;
 };
 
 /** Which Welcome parts this page draws, in order. Empty off the Invitation. */
@@ -76,8 +82,8 @@ export function welcomeParts(input: WelcomeInput): WelcomePart[] {
  * stage — so there is ONE gift door on a page, never two. Identity plays no
  * part: the door is the gift page's own gate (`giftHref`), for every reader.
  */
-export function welcomeCarriesGifts(input: Pick<WelcomeInput, 'stage' | 'bodyNormal' | 'giftHref' | 'maker'>): boolean {
-  if (!input.bodyNormal) return false;
+export function welcomeCarriesGifts(input: Pick<WelcomeInput, 'stage' | 'bodyNormal' | 'giftHref' | 'maker' | 'giftsOff'>): boolean {
+  if (!input.bodyNormal || input.giftsOff) return false;
   if (input.stage === 'rsvp') return Boolean(input.giftHref) || input.maker;
   // 📱 On the day the Welcome carries it too (`welcomePartsOnTheDay`) — for a
   // guest. The Maker's canvas does not draw the day's Welcome (see below).

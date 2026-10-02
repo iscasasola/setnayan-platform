@@ -55,7 +55,22 @@ export type DownloadItemKey = 'download';
 export type WordsItemKey = 'special-message' | 'thank-you' | 'opening-line' | 'kindly-reply';
 /** Story & plans (Details part 2b): the Love Story, Schedule and RSVP pages, moved in whole. */
 export type StoryItemKey = 'love-story' | 'schedule' | 'rsvp';
-export type DetailsItemKey = 'theme' | LookItemKey | EventItemKey | SeatPlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+/**
+ * 🗂 EVERY ANSWER ABOUT AN EVENT LIVES IN YOUR INFO (owner 2026-10-02,
+ * DECISION_LOG "EVERY ANSWER ABOUT AN EVENT LIVES IN EVENT DETAILS ("YOUR INFO")
+ * — ONE HOME, MAPPED"), in Your event, after the march:
+ *   · `settings` — Event settings: the retired `/details/change` page's
+ *     editors, moved in whole (the kind of wedding and its venue settings, the
+ *     guest estimate, the area, the feel, the budget, the repeat, who is
+ *     celebrated, the guest-list closing date, how costs are shown);
+ *   · `papic` — "Photos from your guests?" (`events.papic_on`);
+ *   · `gifts` — "Accept gifts?" in the type's word (`events.gifts_on`).
+ * The logo and the event-photo answers are not rows of their own: each is
+ * changed on the item it is about (Logo · Hero — `lib/event-answers.ts`).
+ */
+export type AnswerItemKey = 'settings' | 'papic' | 'gifts';
+export const ANSWER_ITEM_KEYS: readonly AnswerItemKey[] = ['settings', 'papic', 'gifts'];
+export type DetailsItemKey = 'theme' | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -87,7 +102,7 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
 export type DetailsItemGroup = 'look' | 'event' | 'words' | 'story' | 'hub' | 'set' | 'day' | 'download';
 export const DETAILS_ITEM_GROUPS: ReadonlyArray<{ group: DetailsItemGroup; label: string; keys: readonly DetailsItemKey[] }> = [
   { group: 'look', label: 'Look', keys: ['theme', ...LOOK_ITEM_KEYS] },
-  { group: 'event', label: 'Your event', keys: [...EVENT_ITEM_KEYS, 'seating'] },
+  { group: 'event', label: 'Your event', keys: [...EVENT_ITEM_KEYS, ...ANSWER_ITEM_KEYS, 'seating'] },
   { group: 'words', label: 'Words', keys: WORDS_ITEM_KEYS },
   { group: 'story', label: 'Story & plans', keys: STORY_ITEM_KEYS },
   { group: 'hub', label: 'Your Event Hub', keys: HUB_ITEM_KEYS },

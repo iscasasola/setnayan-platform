@@ -52,6 +52,7 @@ export function DetailsForm({
   showCelebrantShape = false,
   initialCelebrantShape = '',
   celebrantTypeDefaultLabel = '',
+  showNames = true,
 }: {
   eventId: string;
   initialBrideFirst: string;
@@ -87,6 +88,13 @@ export function DetailsForm({
   celebrantTypeDefaultLabel?: string;
   repeatForced?: boolean;
   initialCadence?: string;
+  /**
+   * 🗂 Your info › Event settings (owner 2026-10-02, "EVERY ANSWER … LIVES IN
+   * EVENT DETAILS") draws this form WITHOUT the names: they are Your info ›
+   * Names' own field, drafted until Apply. Off ⇒ no name box is drawn and no
+   * name key is posted, so `updateEventMatchCriteria` leaves the names alone.
+   */
+  showNames?: boolean;
 }) {
   const [cadence, setCadence] = useState(initialCadence);
   const [celebrantShape, setCelebrantShape] = useState(initialCelebrantShape);
@@ -124,10 +132,12 @@ export function DetailsForm({
     setSaved(false);
     const fd = new FormData();
     fd.set('event_id', eventId);
-    fd.set('bride_first', brideFirst.trim());
-    fd.set('bride_last', brideLast.trim());
-    fd.set('groom_first', groomFirst.trim());
-    fd.set('groom_last', groomLast.trim());
+    if (showNames) {
+      fd.set('bride_first', brideFirst.trim());
+      fd.set('bride_last', brideLast.trim());
+      fd.set('groom_first', groomFirst.trim());
+      fd.set('groom_last', groomLast.trim());
+    }
     fd.set('region', region);
     fd.set('mood_feel_key', feel);
     if (mayEditBudget) fd.set('budget_pesos', budget.replace(/[, ]/g, ''));
@@ -175,74 +185,76 @@ export function DetailsForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <fieldset className="space-y-1.5">
-          <legend className="mb-1.5 block text-xs font-medium text-ink/70">Bride</legend>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              id="bride_first"
-              type="text"
-              maxLength={80}
-              value={brideFirst}
-              onChange={(ev) => {
-                setBrideFirst(sanitizeName(ev.target.value));
-                setSaved(false);
-              }}
-              placeholder="First name"
-              autoCapitalize="words"
-              aria-label="Bride first name"
-              className={selectClass}
-            />
-            <input
-              id="bride_last"
-              type="text"
-              maxLength={80}
-              value={brideLast}
-              onChange={(ev) => {
-                setBrideLast(sanitizeName(ev.target.value));
-                setSaved(false);
-              }}
-              placeholder="Last name"
-              autoCapitalize="words"
-              aria-label="Bride last name"
-              className={selectClass}
-            />
-          </div>
-        </fieldset>
-        <fieldset className="space-y-1.5">
-          <legend className="mb-1.5 block text-xs font-medium text-ink/70">Groom</legend>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              id="groom_first"
-              type="text"
-              maxLength={80}
-              value={groomFirst}
-              onChange={(ev) => {
-                setGroomFirst(sanitizeName(ev.target.value));
-                setSaved(false);
-              }}
-              placeholder="First name"
-              autoCapitalize="words"
-              aria-label="Groom first name"
-              className={selectClass}
-            />
-            <input
-              id="groom_last"
-              type="text"
-              maxLength={80}
-              value={groomLast}
-              onChange={(ev) => {
-                setGroomLast(sanitizeName(ev.target.value));
-                setSaved(false);
-              }}
-              placeholder="Last name"
-              autoCapitalize="words"
-              aria-label="Groom last name"
-              className={selectClass}
-            />
-          </div>
-        </fieldset>
-      </div>
+      {showNames ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <fieldset className="space-y-1.5">
+            <legend className="mb-1.5 block text-xs font-medium text-ink/70">Bride</legend>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                id="bride_first"
+                type="text"
+                maxLength={80}
+                value={brideFirst}
+                onChange={(ev) => {
+                  setBrideFirst(sanitizeName(ev.target.value));
+                  setSaved(false);
+                }}
+                placeholder="First name"
+                autoCapitalize="words"
+                aria-label="Bride first name"
+                className={selectClass}
+              />
+              <input
+                id="bride_last"
+                type="text"
+                maxLength={80}
+                value={brideLast}
+                onChange={(ev) => {
+                  setBrideLast(sanitizeName(ev.target.value));
+                  setSaved(false);
+                }}
+                placeholder="Last name"
+                autoCapitalize="words"
+                aria-label="Bride last name"
+                className={selectClass}
+              />
+            </div>
+          </fieldset>
+          <fieldset className="space-y-1.5">
+            <legend className="mb-1.5 block text-xs font-medium text-ink/70">Groom</legend>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                id="groom_first"
+                type="text"
+                maxLength={80}
+                value={groomFirst}
+                onChange={(ev) => {
+                  setGroomFirst(sanitizeName(ev.target.value));
+                  setSaved(false);
+                }}
+                placeholder="First name"
+                autoCapitalize="words"
+                aria-label="Groom first name"
+                className={selectClass}
+              />
+              <input
+                id="groom_last"
+                type="text"
+                maxLength={80}
+                value={groomLast}
+                onChange={(ev) => {
+                  setGroomLast(sanitizeName(ev.target.value));
+                  setSaved(false);
+                }}
+                placeholder="Last name"
+                autoCapitalize="words"
+                aria-label="Groom last name"
+                className={selectClass}
+              />
+            </div>
+          </fieldset>
+        </div>
+      ) : null}
 
       <div className="space-y-1.5">
         <label htmlFor="region" className="block text-xs font-medium text-ink/70">

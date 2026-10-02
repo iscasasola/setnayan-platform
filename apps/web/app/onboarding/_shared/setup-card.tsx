@@ -16,6 +16,16 @@
  * (wedding gold · birthday coral · casual teal · a wake grey, no gold).
  */
 
+import {
+  LOGO_QUESTION,
+  coverChoices,
+  giftsChoices,
+  giftsQuestion,
+  logoChoices,
+  papicChoices,
+  papicQuestion,
+  type AnswerChoice,
+} from '@/lib/event-answers';
 import { useState, type ReactNode } from 'react';
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -177,7 +187,7 @@ export function SetupCard({ card, view, answers, onChange, onNext, n, total }: P
         {card === 'setup_photo' ? (
           <div className="flex flex-col gap-2">
             <button type="button" className={choice(answers.photo === 'upload')} style={choiceStyle(answers.photo === 'upload')} onClick={() => onChange({ photo: 'upload' })}>
-              {view.solemn ? 'Choose a photograph' : 'Upload a photo'}
+              {coverChoices(view.solemn)[0]!.label}
               {answers.photo === 'upload' ? (
                 <span className="mt-1 block text-xs font-normal text-ink/50">You’ll add it from your Event Hub.</span>
               ) : null}
@@ -360,19 +370,16 @@ function moreRowCopy(
   row: 'logo' | 'questions' | 'papic' | 'gifts',
   view: SetupView,
 ): { title: string; line: string; options: { v: string; label: string }[] } {
-  const yesNo = [
-    { v: 'yes', label: 'Yes' },
-    { v: 'no', label: 'No' },
-  ];
+  // 🗂 The words of logo · Papic · gifts are the Your info rows' own
+  // (lib/event-answers.ts) — the question asked once and the row that changes
+  // it later say the same thing.
+  const opts = (cs: readonly AnswerChoice[]) => cs.map((c) => ({ v: c.key, label: c.label }));
   switch (row) {
     case 'logo':
       return {
-        title: 'Do you want a logo?',
+        title: LOGO_QUESTION,
         line: 'For invites and the top of your Event Hub.',
-        options: [
-          { v: 'yes', label: 'Yes, make one' },
-          { v: 'no', label: view.skin === 'wedding' ? 'No, use our names' : 'No, use the name' },
-        ],
+        options: opts(logoChoices(view.skin === 'wedding')),
       };
     case 'questions':
       return {
@@ -385,22 +392,15 @@ function moreRowCopy(
       };
     case 'papic':
       return {
-        title: view.solemn ? 'Photographs for the family?' : 'Photos from your guests?',
+        title: papicQuestion(view.solemn),
         line: view.solemn ? 'Those who come can add theirs, quietly.' : 'Papic — they shoot; tagging comes with it.',
-        options: yesNo,
+        options: opts(papicChoices()),
       };
     case 'gifts':
       return {
-        title:
-          view.giftsMode === 'abuloy'
-            ? 'Accept abuloy?'
-            : view.giftsMode === 'donations'
-              ? 'Accept donations?'
-              : view.giftsMode === 'ambag'
-                ? 'Collect ambag?'
-                : 'Accept gifts?',
+        title: giftsQuestion(view.giftsMode === 'none' ? 'gifts' : view.giftsMode),
         line: 'GCash or bank, right on your Event Hub.',
-        options: yesNo,
+        options: opts(giftsChoices()),
       };
   }
 }

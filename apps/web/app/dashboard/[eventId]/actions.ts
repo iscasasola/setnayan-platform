@@ -581,10 +581,18 @@ export async function updateEventMatchCriteria(
   // Falls back to the legacy single bride_name/groom_name fields if the split
   // first/last keys aren't present (protects a stale client during the deploy
   // window from wiping names).
-  let brideName: string | null;
-  let groomName: string | null;
-  let recomputedDisplay: string;
-  if (formData.has('bride_first') || formData.has('groom_first')) {
+  let brideName: string | null = null;
+  let groomName: string | null = null;
+  let recomputedDisplay = '';
+  // 🗂 ABSENT ⇒ UNTOUCHED, the rule the budget, the repeat and the celebrant
+  // shape below already follow: Your info › Event settings posts this form
+  // without the names (they are Your info › Names' own field, drafted until
+  // Apply — owner 2026-10-02), and a form that never showed a name box must
+  // never clear the names.
+  const namesPosted = ['bride_first', 'groom_first', 'bride_name', 'groom_name'].some((k) => formData.has(k));
+  if (!namesPosted) {
+    // Leave bride_name / groom_name / display_name exactly as they are.
+  } else if (formData.has('bride_first') || formData.has('groom_first')) {
     // ONE composition (`coupleNameColumns`, lib/typed-names.ts) — the Maker's
     // Names editor drafts exactly these columns through it (2026-10-01).
     const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
@@ -724,8 +732,7 @@ export async function updateEventMatchCriteria(
   const updatePatch: Record<string, unknown> = {
     region,
     mood_feel_key: moodFeelKey,
-    bride_name: brideName,
-    groom_name: groomName,
+    ...(namesPosted ? { bride_name: brideName, groom_name: groomName } : {}),
   };
   // Untouched when the key never arrived — the same "absent ⇒ leave it alone"
   // rule `recur_cadence` below already follows, and for the same reason.

@@ -9,6 +9,7 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor, giftIsMoneyDance } from '../_lib/event-words';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { giftsAreOn } from '@/lib/event-answers';
 import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
 import {
   PabuyaCardList,
@@ -44,7 +45,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message',
+      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -56,6 +57,7 @@ const fetchEvent = cache(async (slug: string) => {
     role_palette: unknown;
     landing_page_visibility: string | null;
     pabuya_message: string | null;
+    gifts_on?: boolean | null;
   } | null;
 });
 
@@ -71,6 +73,9 @@ export default async function PabuyaPublicPage({
   const { slug } = await params;
   const event = await fetchEvent(slug);
   if (!event) notFound();
+  // 🗂 The host answered "Accept gifts? — No" (Your info, owner 2026-10-02):
+  // there is no gift page — not an apology for one.
+  if (!giftsAreOn(event.gifts_on)) notFound();
 
   // Pabuya lives on the event website → the 'website' surface. Generic profiles
   // disable it, so non-website event types notFound (config-driven, like recap).

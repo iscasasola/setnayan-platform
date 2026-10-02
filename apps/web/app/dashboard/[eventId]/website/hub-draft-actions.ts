@@ -52,6 +52,8 @@
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
 import { nameStyleFrom } from '@/lib/name-style';
 import { datePickClash } from '@/lib/date-clash.server';
@@ -537,6 +539,16 @@ export async function hubDraftAction(
       // The date went live over booked suppliers — close the request, tell each one.
       if (dateMove && eventsPatch.event_date === dateMove.next.date) {
         await afterDateApplied({ supabase, eventId, next: dateMove.next, requestId: dateMove.requestId });
+      }
+      /* 🗂 Papic turned back ON in Your info (owner 2026-10-02): arm what the
+         commit did not when the answer was No — the free pool and the one free
+         camera, the same two idempotent writes every creation path makes, so
+         the camera that opens is metered from its first shot. Best-effort: the
+         Papic studio's self-heal is the backstop. */
+      if (eventsPatch.papic_on === true) {
+        const admin = createAdminClient();
+        await ensureFreePapicPoolGrantAdmin(admin, eventId);
+        await ensureFreePapicOneCameraAdmin(admin, eventId);
       }
     }
     if (qrWrite !== undefined) {

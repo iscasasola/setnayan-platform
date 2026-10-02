@@ -1296,6 +1296,8 @@ export async function SiteBody({
       reminders: event.what_to_bring,
       giftHref: doorways.pabuya,
       maker: isMakerCanvas,
+      // 🗂 "Accept gifts? — No" (Your info): the canvas draws no gift place either.
+      giftsOff: event.gifts_on === false,
     });
     const detailsScenes = scenesLeftForDetails(plan.publicSafeWidgets, welcome);
     // 📱 On a tabbed page the "Our love story" scene is Our Love Story's page,

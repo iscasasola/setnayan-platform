@@ -29,6 +29,8 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   [`/dashboard/${EID}/today`, `/dashboard/${EID}`],
   [`/dashboard/${EID}/studio/animated-monogram`, `/dashboard/${EID}/monogram`],
   [`/dashboard/${EID}/website/launch`, `/dashboard/${EID}/website/editor`],
+  // 🗂 Event settings is the Maker's Your info › Event settings (2026-10-02).
+  [`/dashboard/${EID}/details/change`, `/dashboard/${EID}/launch?tool=details&item=settings`],
   ['/admin/refinements', '/admin/taxonomy'],
   ['/admin/marketing', '/admin/studio'],
   ['/vendor-dashboard/funnel', '/vendor-dashboard/performance'],
@@ -43,6 +45,7 @@ const DELETED_PAGES: readonly string[] = [
   'dashboard/[eventId]/today/page.tsx',
   'dashboard/[eventId]/studio/animated-monogram/page.tsx',
   'dashboard/[eventId]/website/launch/page.tsx',
+  'dashboard/[eventId]/details/change/page.tsx',
   'admin/refinements/page.tsx',
   'admin/marketing/page.tsx',
   'vendor-dashboard/funnel/page.tsx',
@@ -66,6 +69,7 @@ test('a trailing slash still forwards; a child path or a live path does not', ()
     `/dashboard/${EID}/studio`,
     `/dashboard/${EID}/launch`, // the controller — NOT website/launch
     `/dashboard/${EID}/website/editor`,
+    `/dashboard/${EID}/details`, // Event Details, the read-out — NOT its retired Event settings
     `/dashboard/${EID}/website/what-to-bring`, // still a page (a guarded /website door)
     '/explore',
     '/explore/compare',

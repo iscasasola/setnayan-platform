@@ -34,6 +34,9 @@ const EVENT_SCOPED: readonly (readonly [from: string, to: string])[] = [
   ['today', ''], //                           retired 2026-06-03 → the event hub
   ['studio/animated-monogram', 'monogram'], // retired 2026-06-25
   ['website/launch', 'website/editor'], //    retired 2026-07-25
+  // 🗂 Event settings folded into the Maker's Your info (owner 2026-10-02,
+  // "EVERY ANSWER … LIVES IN EVENT DETAILS") — its editors are the item's own.
+  ['details/change', 'launch?tool=details&item=settings'], // retired 2026-10-02
 ];
 
 /** Whole-path pairs (no event id in them). */

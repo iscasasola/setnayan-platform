@@ -19,7 +19,7 @@ import {
   PARTNERSHIP_VENDOR_LABEL_SHORT,
 } from '@/lib/vendor-partnership-kinds';
 
-export const metadata = { title: 'Partnerships · Vendor' };
+export const metadata = { title: 'Partnerships · Supplier' };
 
 type SearchParams = {
   proposed?: string;
@@ -208,7 +208,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
       ) : null}
       {sp.proposed ? (
         <FormFlash tone="success">
-          Proposal sent. The other vendor will see it in their partnerships inbox — the
+          Proposal sent. The other supplier will see it in their partnerships inbox — the
           badge goes live once they accept.
         </FormFlash>
       ) : null}
@@ -235,7 +235,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           </p>
         ) : incoming.length === 0 ? (
           <p className="rounded-xl border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/45">
-            No pending proposals. When another vendor proposes a partnership with you, it
+            No pending proposals. When another supplier proposes a partnership with you, it
             shows up here to accept or decline.
           </p>
         ) : (
@@ -383,7 +383,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <div>
             <h2 className="text-base font-semibold text-ink">Propose a partnership</h2>
             <p className="text-xs text-ink/55">
-              Pick a vendor and a partnership type. They&apos;ll get a proposal to accept —
+              Pick a supplier and a partnership type. They&apos;ll get a proposal to accept —
               once they do, the badge goes live on both profiles.
             </p>
           </div>
@@ -394,7 +394,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
             role="alert"
             className="mb-4 rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm text-ink/70"
           >
-            <strong className="text-ink">We couldn&rsquo;t load the vendor list.</strong>{' '}
+            <strong className="text-ink">We couldn&rsquo;t load the supplier list.</strong>{' '}
             The picker below is empty because the read failed, not because there
             is nobody to partner with. Reload in a moment.
           </p>
@@ -402,15 +402,15 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
 
         <form action={proposePartnership} className="grid gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1 text-sm sm:col-span-2">
-            <span className="font-semibold text-ink">Which vendor?</span>
+            <span className="font-semibold text-ink">Which supplier?</span>
             <select
               name="recommended_vendor_id"
               required
               className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm"
             >
-              <option value="">Search for a vendor…</option>
+              <option value="">Search for a supplier…</option>
               {workedWith.size > 0 ? (
-                <optgroup label="Vendors you've worked with">
+                <optgroup label="Suppliers you've worked with">
                   {sortedOptions
                     .filter((v) => workedWith.has(v.vendor_profile_id))
                     .map((v) => (
@@ -420,7 +420,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
                     ))}
                 </optgroup>
               ) : null}
-              <optgroup label="All vendors">
+              <optgroup label="All suppliers">
                 {sortedOptions
                   .filter((v) => !workedWith.has(v.vendor_profile_id))
                   .map((v) => (
@@ -432,7 +432,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
             </select>
             {workedWith.size > 0 ? (
               <span className="flex items-center gap-1 text-[11px] text-ink/45">
-                <Sparkles className="h-3 w-3" /> Vendors you&apos;ve shared an event with are
+                <Sparkles className="h-3 w-3" /> Suppliers you&apos;ve shared an event with are
                 listed first — they&apos;re the most likely to accept.
               </span>
             ) : null}
@@ -462,7 +462,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
               Send proposal
             </SubmitButton>
             <p className="mt-2 text-xs text-ink/45">
-              The other vendor decides whether to accept. Nothing goes public until they do.
+              The other supplier decides whether to accept. Nothing goes public until they do.
             </p>
           </div>
         </form>

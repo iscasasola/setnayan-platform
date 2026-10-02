@@ -283,7 +283,7 @@ export const LENSES: Record<LensKey, RankingLens> = {
     weights: NEW_HERE_WEIGHTS,
     requires: 'freshness',
     hideWhen: gateOn('freshness'),
-    unavailableReason: 'No recently joined vendors here yet.',
+    unavailableReason: 'No recently joined suppliers here yet.',
   },
   demand: {
     key: 'demand',
@@ -402,7 +402,7 @@ export function freshnessRatioFrom(
 export const FORBIDDEN_LENS_COPY: readonly { re: RegExp; lens: string; why: string }[] = [
   // "Fits your budget" — priceFitScore ties every in-budget vendor at 1.0, so
   // the data cannot rank value at any price point.
-  { re: /\bbest value\b/i, lens: 'budget', why: 'priceFitScore ties every in-budget vendor' },
+  { re: /\bbest value\b/i, lens: 'budget', why: 'priceFitScore ties every in-budget supplier' },
   { re: /\bcheapest\b/i, lens: 'budget', why: 'the lens ranks budget fit, not price' },
   { re: /\bmost for your money\b/i, lens: 'budget', why: 'no value signal exists' },
   { re: /\bbest (?:price|deal|rate)\b/i, lens: 'budget', why: 'no value signal exists' },
@@ -426,15 +426,15 @@ export const FORBIDDEN_LENS_COPY: readonly { re: RegExp; lens: string; why: stri
   { re: /\bvetted\b/i, lens: 'new', why: 'freshness measures age, not quality' },
   { re: /\bhand-?picked\b/i, lens: 'new', why: 'freshness measures age, not quality' },
   { re: /\bcurated\b/i, lens: 'new', why: 'freshness measures age, not quality' },
-  { re: /\bendorsed\b/i, lens: 'new', why: 'Setnayan endorses no vendor' },
+  { re: /\bendorsed\b/i, lens: 'new', why: 'Setnayan endorses no supplier' },
   { re: /\brising star\b/i, lens: 'new', why: 'implies a trajectory nothing measures' },
 
   // "Best matches" — it matches the couple's stated brief. It does not rank
   // vendors in the abstract, and Setnayan recommends none of them.
   { re: /\bbest vendors?\b/i, lens: 'fit', why: 'the score is fit-to-brief, not quality' },
   { re: /\btop[- ]rated\b/i, lens: 'fit', why: 'a plain-sort claim, never a recommendation' },
-  { re: /\brecommended by setnayan\b/i, lens: 'fit', why: 'Setnayan recommends no vendor' },
-  { re: /\bsetnayan recommends\b/i, lens: 'fit', why: 'Setnayan recommends no vendor' },
+  { re: /\brecommended by setnayan\b/i, lens: 'fit', why: 'Setnayan recommends no supplier' },
+  { re: /\bsetnayan recommends\b/i, lens: 'fit', why: 'Setnayan recommends no supplier' },
 ];
 
 /**

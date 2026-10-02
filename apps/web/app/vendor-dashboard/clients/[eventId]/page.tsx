@@ -195,7 +195,7 @@ import { readOpenPaymentAsks, type OpenPaymentAskRow } from '@/lib/vendor-paymen
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Customer Card · Vendor' };
+export const metadata = { title: 'Customer Card · Supplier' };
 
 /**
  * Vendor Customer Card — the client detail view, respined (PR-2 of the Customer

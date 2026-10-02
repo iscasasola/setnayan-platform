@@ -60,7 +60,7 @@ test('a wedding shows all five, in the navigator’s order, in the “Your event
   // (owner 2026-10-02, tracker d4 — `plan-it-myself-is-one-switch.test.ts`),
   // then the Seat plan, last (Details part 4 — its own rule,
   // `the-seat-plan-moves-into-details.test.ts`).
-  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'parents', 'march', 'settings', 'papic', 'gifts', 'plan-myself', 'seating']);
+  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'parents', 'march', 'papic', 'gifts', 'plan-myself', 'seating']);
 });
 
 for (const [name, kind] of NON_WEDDINGS) {

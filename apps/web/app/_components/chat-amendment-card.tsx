@@ -232,7 +232,7 @@ export function ChatAmendmentCard({
 
       {data.status === 'proposed' && isProposer ? (
         <p className="border-t border-ink/10 px-3.5 py-2 text-xs text-ink/55">
-          Waiting for {viewerRole === 'couple' ? 'the vendor' : 'the couple'} to respond.
+          Waiting for {viewerRole === 'couple' ? 'the supplier' : 'the couple'} to respond.
         </p>
       ) : null}
 

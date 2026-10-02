@@ -139,10 +139,10 @@ export function buildGrowthRecs(stats: GrowthRecStats | null): GrowthRec[] {
   if (!hasStats || partnerships < 3) {
     recs.push({
       key: 'build_partnerships',
-      title: 'Link up with vendors you already work with',
+      title: 'Link up with suppliers you already work with',
       body:
         partnerships > 0
-          ? `You have ${partnerships} partnership${partnerships === 1 ? '' : 's'}. When a couple shortlists a vendor who vouches for you, you show up in their results.`
+          ? `You have ${partnerships} partnership${partnerships === 1 ? '' : 's'}. When a couple shortlists a supplier who vouches for you, you show up in their results.`
           : 'When a coordinator or venue you work with vouches for you, you appear in their couples’ results — with their name on it.',
       impact: 'medium',
       impactLabel: IMPACT_LABEL.medium,

@@ -60,7 +60,7 @@ export async function fetchSelfPurchaseRoles(
       : r.vendor_profile;
     return {
       vendor_profile_id: r.vendor_profile_id,
-      business_name: vp?.business_name ?? 'Unnamed vendor',
+      business_name: vp?.business_name ?? 'Unnamed supplier',
       role: r.role,
     };
   });

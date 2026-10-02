@@ -248,7 +248,10 @@ test('each answer is a Maker draft: kept as a yes or a no, never Pro, named on t
 
 test('Your info carries the rows, and every row writes its own column through the one draft door', () => {
   const event = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
-  for (const k of ['settings', 'papic', 'gifts'] as const) assert.ok(event.keys.includes(k), `Your event lost the ${k} row`);
+  for (const k of ['papic', 'gifts'] as const) assert.ok(event.keys.includes(k), `Your event lost the ${k} row`);
+  // Event settings LEFT the Maker (2026-10-02): its editors save live, and nothing
+  // in the Maker may take effect before Apply. They live on the Event Details page.
+  assert.ok(!(event.keys as readonly string[]).includes('settings'), 'Event settings is back in the Maker — it saves live, not at Apply');
   const parts = read('app/dashboard/[eventId]/launch/_components/details-answers-parts.tsx');
   for (const c of EVENT_ANSWER_COLUMNS) {
     assert.match(parts, new RegExp(`<AnswerPicker eventId=\\{eventId\\} column="${c}"`), `${c} has no dropdown in Your info`);

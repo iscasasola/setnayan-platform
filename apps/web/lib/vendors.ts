@@ -761,7 +761,7 @@ export function resolveVendorDisplayName(input: VendorAnonymityInput): string {
   if (isVendorNameRevealed(input)) {
     return input.business_name && input.business_name.length > 0
       ? input.business_name
-      : 'Vendor';
+      : 'Supplier';
   }
   // Prefer the stored screen_name (Bark format with monotonic ID per
   // (city, canonical_service) namespace per CLAUDE.md 2026-05-30

@@ -617,7 +617,7 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
       </div>
 
       <p className="text-xs text-ink/45">
-        Changes save as you go. The couple can turn vendor editing off at any time, and the
+        Changes save as you go. The couple can turn supplier editing off at any time, and the
         reception layout is theirs alone — you only touch the cocktail area.
       </p>
     </div>

@@ -909,7 +909,7 @@ export async function EventDashboard({
   const latestHandover = handovers[0] ?? null;
   const handoverVendorName = latestHandover
     ? (eventVendors.find((v) => v.vendor_id === latestHandover.event_vendor_id)?.vendor_name ??
-       'Your vendor')
+       'Your supplier')
     : null;
 
   // ---- Committed budget — same formula as the Overview (paid + fulfilled
@@ -1224,7 +1224,7 @@ export async function EventDashboard({
   const groupsUnordered: DecisionGroupView[] = ([
     {
       id: 'book',
-      title: 'Book a vendor',
+      title: 'Book a supplier',
       /*
         Was "N categories still open" — no denominator, and the same word the
         digest used two inches away for a different set. `notBookedLabel` shows
@@ -2907,7 +2907,7 @@ export async function EventDashboard({
               </Link>
               {handovers.length > 1 ? (
                 <p className="mt-2 text-[12px]" style={{ color: '#8A857B' }}>
-                  +{handovers.length - 1} more waiting in your vendor rooms.
+                  +{handovers.length - 1} more waiting in your supplier rooms.
                 </p>
               ) : null}
             </div>
@@ -3034,7 +3034,7 @@ export async function EventDashboard({
                 </span>
               }
               fullHref={`${base}/vendors`}
-              fullLabel="Manage vendors"
+              fullLabel="Manage suppliers"
               preview={
                 !vendorsMeasured ? (
                   // "No vendors booked yet" to a couple with a booked venue is
@@ -3048,7 +3048,7 @@ export async function EventDashboard({
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? 'No suppliers were booked through Setnayan for this one.'
-                      : 'No vendors booked yet — start with the ones that book out first: your venue and catering.'}
+                      : 'No suppliers booked yet — start with the ones that book out first: your venue and catering.'}
                   </p>
                 )
               }
@@ -3115,7 +3115,7 @@ export async function EventDashboard({
                   something to read, the endowed line when there is not. */}
               {unreadCount > 0 ? null : (
                 <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                  All caught up — when a vendor replies, it lands right here.
+                  All caught up — when a supplier replies, it lands right here.
                 </p>
               )}
             </article>
@@ -3225,7 +3225,7 @@ export async function EventDashboard({
            *  child was removed in #3055). */}
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink/5 pt-3 text-[11.5px] text-ink/45">
             <span>
-              Vendors always appear by company — never a personal profile.
+              Suppliers always appear by company — never a personal profile.
             </span>
             <Link
               href={`${base}/activity`}

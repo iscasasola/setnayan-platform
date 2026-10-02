@@ -189,7 +189,7 @@ export default async function PackageBookingPage({ params }: Props) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-            Vendor package
+            Supplier package
           </p>
           <h1 className="mt-0.5 text-xl font-semibold tracking-tight text-ink sm:text-2xl">
             {pkg.package_name}
@@ -263,7 +263,7 @@ export default async function PackageBookingPage({ params }: Props) {
                   pkg.consumable_budget_centavos,
               )}
             </span>{' '}
-            from removed items. Talk to {vendor?.business_name ?? 'the vendor'}{' '}
+            from removed items. Talk to {vendor?.business_name ?? 'the supplier'}{' '}
             about how to apply it.
           </p>
         ) : null}
@@ -389,7 +389,7 @@ export default async function PackageBookingPage({ params }: Props) {
             Not included in this booking ({notIncludedItems.length})
           </h2>
           <p className="mt-2 text-xs leading-relaxed text-ink/60">
-            Optional extras {vendor?.business_name ?? 'this vendor'} offers on
+            Optional extras {vendor?.business_name ?? 'this supplier'} offers on
             this package. They weren{'’'}t part of what you booked, and nothing
             was charged for them.
           </p>

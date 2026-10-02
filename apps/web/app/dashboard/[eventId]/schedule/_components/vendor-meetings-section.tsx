@@ -52,7 +52,7 @@ export function VendorMeetingsSection({
     <section className="mb-6 rounded-2xl border border-ink/10 bg-surface p-4 shadow-sm sm:p-5">
       <div className="mb-3 flex items-center gap-2">
         <CalendarClock className="h-4 w-4 text-mulberry" strokeWidth={1.75} aria-hidden />
-        <h2 className="text-base font-semibold text-ink">Meetings with vendors</h2>
+        <h2 className="text-base font-semibold text-ink">Meetings with suppliers</h2>
       </div>
       <ul className="space-y-2">
         {meetings.map((m) => {
@@ -89,7 +89,7 @@ export function VendorMeetingsSection({
         })}
       </ul>
       <p className="mt-3 text-[11px] text-ink/45">
-        Confirmed in your chat with each vendor — changes there update this list.
+        Confirmed in your chat with each supplier — changes there update this list.
       </p>
     </section>
   );

@@ -67,7 +67,7 @@ export const TAB_META: Record<
   budget: {
     label: 'Budget',
     icon: Wallet,
-    blurb: 'Your budget, allotments and every vendor payment — in one place.',
+    blurb: 'Your budget, allotments and every supplier payment — in one place.',
   },
   compare: {
     label: 'Compare',

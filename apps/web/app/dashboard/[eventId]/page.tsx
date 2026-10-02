@@ -23,6 +23,7 @@ import {
   glanceCount,
   glanceDays,
   glanceMoney,
+  homeGuestsRead,
   homeServices,
   papicStatus,
   pickHomeNext,
@@ -654,6 +655,9 @@ export default async function EventHomePage({
   const homeNext = pickHomeNext({
     guide: homeGuide,
     hasDate: Boolean(event.event_date),
+    // 👥 "Add your guests" / "Send N invitations" (first-timer fix 9) — from the
+    // SAME measured guest read the numbers below use; a refused read is null.
+    guests: homeGuestsRead(guests, guestsMeasured),
     noun: eventNoun(event.event_type as string | null),
     // Papic's page is web-only in the store shell (STORE_SHELL_HIDDEN_ADDON_KEYS),
     // so the Next card does not send an App Store user there.

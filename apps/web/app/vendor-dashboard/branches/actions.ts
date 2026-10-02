@@ -65,7 +65,7 @@ async function requireBranchManager(): Promise<
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { error: err('No vendor profile found.') };
+  if (!profile) return { error: err('No supplier profile found.') };
 
   // ⚠ SEC-4b FIX (F2): this was `resolveVendorRole(supabase, user.id)` — the
   // GLOBAL-HIGHEST role across every vendor the user sits on — which is the

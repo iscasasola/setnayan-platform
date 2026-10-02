@@ -100,7 +100,6 @@ export const ParentCards = dynamic(() => import(/* webpackChunkName: "maker-deta
 
 /* ── 🗂 Your info's answers (owner 2026-10-02) — one dropdown per answer, and Event settings ── */
 export const AnswerPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-answers').then((m) => m.AnswerPicker), { loading: SlotRows });
-export const EventSettingsEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-answers').then((m) => m.EventSettingsEditor), { loading: SlotRows });
 
 /* ── Story & plans (Love Story · Schedule · RSVP) ─────────────────────────── */
 export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.LoveStoryPieceFocus), { loading: SlotNone });

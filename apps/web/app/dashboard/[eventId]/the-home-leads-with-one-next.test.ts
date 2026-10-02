@@ -52,13 +52,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 const DASH = stripComments(readFileSync(join(HERE, '_components', 'event-dashboard.tsx'), 'utf8'));
 
-const NOTHING: HomeNextInput = { guide: null, hasDate: true, noun: 'wedding', papicReady: false, aiOffer: false };
+const NOTHING: HomeNextInput = { guide: null, hasDate: true, guests: { total: 96, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false };
 const GUIDE = { round: 2, roundTitle: 'Invitations', done: 3, total: 7, nextTitle: 'Schedule' };
 
 /** One input per kind, so every branch of the picker is drawn. */
 const EVERY_STATE: HomeNextInput[] = [
-  { ...NOTHING, guide: GUIDE, hasDate: false, papicReady: true, aiOffer: true },
-  { ...NOTHING, hasDate: false, papicReady: true, aiOffer: true },
+  { ...NOTHING, guide: GUIDE, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  { ...NOTHING, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  { ...NOTHING, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  { ...NOTHING, guests: { total: 96, unsent: 58 }, papicReady: true, aiOffer: true },
   { ...NOTHING, papicReady: true, aiOffer: true },
   { ...NOTHING, aiOffer: true },
   NOTHING,
@@ -287,4 +289,32 @@ test('e · only the plan branch tells the dashboard a first screen is above it',
   assert.ok(firstScreenAt > 0 && flagAt > firstScreenAt, 'the flag is passed by a mount that has no first screen above it (day-of / after the day)');
   assert.equal(count(PAGE, '<EventDashboard'), 3, 'a new <EventDashboard> mount — does it have a first screen above it?');
   assert.match(PAGE, /firstScreenAbove=\{\{ nextKind: homeNext\.kind, money: moneyNow !== 'hidden' \}\}/, 'the flag no longer carries the Next kind and whether the money line is drawn');
+});
+
+test('f · the guests cards: "Add your guests" on an empty list, "Send N invitations" from the real unsent count', async () => {
+  // First-timer fix 9 (corpus FIRST_TIMER_TEST_2026-10-02.md, H3).
+  const { homeGuestsRead } = await import('../../../lib/home-first-screen');
+  const rows = [
+    { role: 'bride', invitation_sent_at: null },
+    { role: 'groom', invitation_sent_at: null },
+    { role: 'guest', invitation_sent_at: null },
+    { role: 'guest', invitation_sent_at: '2026-10-01T00:00:00Z' },
+    { role: null, invitation_sent_at: '  ' },
+  ];
+  // The couple are not invited; a blank stamp is not a send.
+  assert.deepEqual(homeGuestsRead(rows, true), { total: 3, unsent: 2 });
+  // A refused read is null — never "Add your guests" to a couple with names.
+  assert.equal(homeGuestsRead(rows, false), null);
+  assert.equal(pickHomeNext({ ...NOTHING, guests: null }).kind, 'plan');
+
+  const invite = pickHomeNext({ ...NOTHING, guests: homeGuestsRead(rows, true) });
+  assert.equal(invite.kind, 'invite');
+  assert.equal(invite.title, 'Send 2 invitations');
+  assert.equal(pickHomeNext({ ...NOTHING, guests: { total: 1, unsent: 1 } }).title, 'Send 1 invitation');
+  assert.equal(pickHomeNext({ ...NOTHING, guests: { total: 0, unsent: 0 } }).title, 'Add your guests');
+  // The page feeds the picker from the SAME measured read the numbers use.
+  assert.match(PAGE, /guests: homeGuestsRead\(guests, guestsMeasured\),/);
+  // And each card goes where it says.
+  const html = draw({}, { ...NOTHING, guests: { total: 96, unsent: 58 } });
+  assert.match(html, /href="\/dashboard\/e1\/guests\/send"/);
 });

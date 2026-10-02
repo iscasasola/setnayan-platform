@@ -3475,7 +3475,7 @@ export function zoneDisplayName(zoneId: string): string {
   if (zoneId === 'dance') return 'the dance floor';
   if (zoneId === 'cocktail') return 'the cocktail area';
   if (zoneId === 'entrance') return 'the entrance';
-  if (zoneId.startsWith('booth')) return 'a vendor booth';
+  if (zoneId.startsWith('booth')) return 'a supplier booth';
   return 'another area';
 }
 

@@ -83,7 +83,7 @@ import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/v
  * when the VENDOR approves payment, so the couple is told that plainly rather
  * than being left to assume the date is held.
  */
-const vendorConfirmsLabel = 'Your vendor confirms once payment is approved.';
+const vendorConfirmsLabel = 'Your supplier confirms once payment is approved.';
 
 /**
  * Everything the SECONDARY action needs — "Ask the vendor about this build
@@ -398,7 +398,7 @@ export function LockPackageModal({
         return;
       }
       if (result.status === 'package_inactive') {
-        setError('That package is paused by the vendor.');
+        setError('That package is paused by the supplier.');
         return;
       }
       if (result.status === 'vendor_not_verified') {
@@ -475,13 +475,13 @@ export function LockPackageModal({
       if (result.status === 'no_event') {
         setAskState({
           kind: 'error',
-          message: 'Create your event first, then you can message this vendor.',
+          message: 'Create your event first, then you can message this supplier.',
         });
         return;
       }
       setAskState({
         kind: 'error',
-        message: result.message ?? 'Could not send that to the vendor.',
+        message: result.message ?? 'Could not send that to the supplier.',
       });
     });
   }
@@ -537,7 +537,7 @@ export function LockPackageModal({
                 Uncheck anything you{'’'}d like to skip.{' '}
                 {pkg.is_consumable_flexible
                   ? `That value moves into your consumable budget — you can spend it on something else with ${
-                      pkg.package_name.split(' ')[0] ?? 'this vendor'
+                      pkg.package_name.split(' ')[0] ?? 'this supplier'
                     }.`
                   : 'Removing items reduces your total.'}
               </p>
@@ -711,7 +711,7 @@ export function LockPackageModal({
                                   {!selectable || opt.price_delta_centavos > 0 ? (
                                     <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
                                       {!selectable
-                                        ? 'Ask your vendor — not part of this total'
+                                        ? 'Ask your supplier — not part of this total'
                                         : `+${formatCentavosPhp(opt.price_delta_centavos)}`}
                                     </p>
                                   ) : null}
@@ -831,7 +831,7 @@ export function LockPackageModal({
                   {unfinished.length === 1
                     ? 'One line still needs your choices'
                     : `${unfinished.length} lines still need your choices`}
-                  . Answering fewer doesn{'’'}t lower the price — your vendor priced
+                  . Answering fewer doesn{'’'}t lower the price — your supplier priced
                   this package with every choice made.
                 </p>
               ) : pendingRequiredChoices.length > 0 ? (

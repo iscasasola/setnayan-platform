@@ -180,7 +180,7 @@ export default async function EventDocumentsPage({ params }: Props) {
     }
     for (const v of vendorRows ?? []) {
       vendorMap.set(v.vendor_profile_id as string, {
-        business_name: (v.business_name as string) || 'Vendor',
+        business_name: (v.business_name as string) || 'Supplier',
       });
     }
   }
@@ -244,7 +244,7 @@ function EmptyState({ eventId }: { eventId: string }) {
         strokeWidth={1.5}
       />
       <p className="mt-3 text-sm text-ink/65">
-        No documents yet. As you plan, your government paperwork, vendor
+        No documents yet. As you plan, your government paperwork, supplier
         contracts, and Setnayan creations will land here automatically.
       </p>
       <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -391,14 +391,14 @@ function ContractsSection({
       <SectionHeader
         id="contracts-section-heading"
         Icon={FileSignature}
-        label="Vendor contracts"
+        label="Supplier contracts"
         count={rows.length}
         href={`/dashboard/${eventId}/contracts`}
         cta="See all"
       />
       {rows.length === 0 ? (
         <SectionEmpty
-          message="No contracts yet. Vendors will upload PDFs here once you agree on terms in chat."
+          message="No contracts yet. Suppliers will upload PDFs here once you agree on terms in chat."
           ctaLabel="See chat threads"
           href={`/dashboard/${eventId}/messages`}
         />
@@ -427,7 +427,7 @@ function ContractsSection({
                       />
                     </div>
                     <p className="text-xs text-ink/55">
-                      From {vendor?.business_name ?? 'Vendor'} ·{' '}
+                      From {vendor?.business_name ?? 'Supplier'} ·{' '}
                       {formatRelativeDate(c.created_at)}
                     </p>
                   </div>

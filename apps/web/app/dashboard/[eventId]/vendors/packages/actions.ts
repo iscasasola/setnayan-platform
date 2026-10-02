@@ -408,7 +408,7 @@ export async function lockPackage(
     .eq('vendor_profile_id', pkg.vendor_profile_id)
     .maybeSingle();
   if (!vendorRow) {
-    return { status: 'error', message: 'Vendor profile missing for package' };
+    return { status: 'error', message: 'Supplier profile missing for package' };
   }
   // 🔒 A shop's contact_email / contact_phone are not readable by a browser
   // session (20271221366210) — naming them on `supabase` would refuse the WHOLE
@@ -438,7 +438,7 @@ export async function lockPackage(
   if (!(await isMarketplaceVendorBookable(createAdminClient(), pkg.vendor_profile_id))) {
     return {
       status: 'vendor_not_verified',
-      vendorName: vendor.business_name || pkg.package_name || 'this vendor',
+      vendorName: vendor.business_name || pkg.package_name || 'this supplier',
     };
   }
 
@@ -648,7 +648,7 @@ export async function lockPackage(
     return {
       status: 'lock_requested',
       bookingId,
-      vendorName: vendor.business_name || pkg.package_name || 'this vendor',
+      vendorName: vendor.business_name || pkg.package_name || 'this supplier',
     };
   }
 

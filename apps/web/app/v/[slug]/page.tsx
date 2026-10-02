@@ -2051,7 +2051,7 @@ export async function renderVendorBySlug({
         // D2 (2026-09-11): was 'Wedding vendors' — event-neutral, matching
         // the app-wide "Setnayan vendor" term (vendorMetadataBySlug's own
         // page-title suffix) rather than assuming every shop is wedding-only.
-        name: 'Vendors',
+        name: 'Suppliers',
         item: `${SITE_URL}/explore`,
       },
       {
@@ -2372,7 +2372,7 @@ export async function renderVendorBySlug({
                 title={
                   declaredExp.verified
                     ? 'Years in business verified against the supplier’s DTI registration.'
-                    : 'Self-reported by the vendor.'
+                    : 'Self-reported by the supplier.'
                 }
               >
                 {declaredExp.years != null ? <span className="font-medium text-ink">{declaredExp.years} yrs in business</span> : null}
@@ -3330,7 +3330,7 @@ export async function renderVendorBySlug({
             <span className="italic">· Set na &lsquo;yan</span>
           </p>
           <p>
-            Vendor ID · <span className="font-mono">{vendor.public_id}</span>
+            Supplier ID · <span className="font-mono">{vendor.public_id}</span>
           </p>
           {/*
             🔴 A COUPLE HAD NO WAY TO REPORT A SHOP — CTRL-B3 build 9, 2026-09-22.
@@ -3410,7 +3410,7 @@ function DemoVendorBanner() {
         />
         <div>
           <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-warn-700">
-            Demo vendor
+            Demo supplier
           </p>
           <h2 className="mt-1 text-lg font-semibold tracking-tight text-warn-900">
             This profile is synthetic — visible only to admins in demo mode.
@@ -3418,7 +3418,7 @@ function DemoVendorBanner() {
           <p className="mt-1 max-w-2xl text-sm text-warn-900/85">
             Pricing renders publicly here so admins can dogfood how the page
             would feel if the 2026-05-16 hide-prices lock were lifted. Real
-            vendors stay private to the apply/register flow.
+            suppliers stay private to the apply/register flow.
           </p>
         </div>
       </div>
@@ -3682,7 +3682,7 @@ function TrustedBySection({
           Trusted by
         </h2>
         <p className="text-sm text-ink/65">
-          We couldn&rsquo;t load {businessName}&rsquo;s vendor endorsements right now.
+          We couldn&rsquo;t load {businessName}&rsquo;s supplier endorsements right now.
         </p>
       </section>
     );
@@ -3695,7 +3695,7 @@ function TrustedBySection({
           Trusted by
         </h2>
         <p className="text-sm text-ink/65">
-          Fellow vendors who endorsed {businessName} — each one confirmed it.
+          Fellow suppliers who endorsed {businessName} — each one confirmed it.
         </p>
       </header>
       <ul className="flex flex-wrap gap-2">
@@ -4274,7 +4274,7 @@ function VendorPackagesSection({
         </h2>
         <p className="mt-1 max-w-2xl text-sm text-ink/70">
           One price, everything bundled. Locking a package locks every
-          included planning category to this vendor.
+          included planning category to this supplier.
         </p>
       </header>
 
@@ -4284,7 +4284,7 @@ function VendorPackagesSection({
           if (isComingSoon) {
             cta = (
               <p className="text-xs text-ink/55">
-                Not yet bookable — this vendor is finishing verification.
+                Not yet bookable — this supplier is finishing verification.
               </p>
             );
           } else if (coupleEventId) {

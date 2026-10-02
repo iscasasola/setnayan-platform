@@ -10,7 +10,7 @@ import { EditorialMediaStudio, type ExistingMedia } from './_components/editoria
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 
-export const metadata = { title: 'Editorial media · Vendor' };
+export const metadata = { title: 'Editorial media · Supplier' };
 
 /**
  * Vendor "From Your Vendors" submit surface (iteration 0046, Inc 2). Visible
@@ -99,7 +99,7 @@ export default async function VendorEditorialMediaPage({
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">From your camera</h1>
         <p className="max-w-prose text-base text-ink/65">
           Add a few of your favourite shots from {eventName} — up to <strong>3 photos</strong> and{' '}
-          <strong>3 short clips</strong>. They appear in a “From your vendors” strip on the couple’s
+          <strong>3 short clips</strong>. They appear in a “From your suppliers” strip on the couple’s
           editorial, credited to you. Clips loop as a seamless boomerang.
         </p>
       </header>
@@ -127,7 +127,7 @@ export default async function VendorEditorialMediaPage({
         <div className="sn-tile p-6">
           <h2 className="text-lg font-semibold">Not available for this event yet</h2>
           <p className="mt-2 text-sm text-ink/65">
-            “From your vendors” is open to the couple’s recommended vendor for a category. Once
+            “From your suppliers” is open to the couple’s recommended supplier for a category. Once
             you’re the couple’s confirmed pick here, you’ll be able to add your photos and clips to
             their editorial.
           </p>

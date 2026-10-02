@@ -370,7 +370,7 @@ export function MomentInspector({
             onChange={setPublic}
             disabled={readOnly}
             label="Visible to guests"
-            hint={m.is_public ? 'Shows on the Event Hub · "happening now" on the day' : 'Hidden — only your team sees it'}
+            hint={m.is_public ? 'Shows on the Event Hub · "happening now" on the day' : 'Hidden — only you and your suppliers see it'}
           />
         </div>
       )}

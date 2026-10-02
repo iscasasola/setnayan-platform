@@ -191,7 +191,7 @@ function ConsentModal({
             </li>
             <li className="flex items-start gap-1.5">
               <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
-              <span>Your <strong>vendor chats &amp; records</strong></span>
+              <span>Your <strong>supplier chats &amp; records</strong></span>
             </li>
           </ul>
           <p className="border-t border-ink/10 pt-2 text-ink/70">
@@ -213,8 +213,8 @@ function ConsentModal({
               className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
             />
             <span>
-              <strong>Can lock vendors</strong> — {who} may finalize (lock) a
-              vendor on your behalf, which commits your booking and starts its
+              <strong>Can lock suppliers</strong> — {who} may finalize (lock) a
+              supplier on your behalf, which commits your booking and starts its
               payment schedule.
             </span>
           </label>
@@ -227,7 +227,7 @@ function ConsentModal({
             />
             <span>
               <strong>Can handle payments</strong> — {who} may submit orders,
-              upload payment proof, and record vendor deposits for this event.
+              upload payment proof, and record supplier deposits for this event.
             </span>
           </label>
         </div>
@@ -241,7 +241,7 @@ function ConsentModal({
           />
           <span>
             I agree to share my event&rsquo;s planning information (guest list,
-            seating, schedule, and vendor chats) with {who} so they can coordinate
+            seating, schedule, and supplier chats) with {who} so they can coordinate
             on my behalf. I understand I can revoke this anytime.
           </span>
         </label>

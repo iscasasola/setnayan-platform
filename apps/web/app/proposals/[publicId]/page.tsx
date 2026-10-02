@@ -186,7 +186,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   const businessName =
     vendorProfile?.business_name ??
     proposal.merge_snapshot.values?.business_name ??
-    'Your vendor';
+    'Your supplier';
   // Resolved ONCE for this render — see resolveDisplayUrl: the stored value is
   // an `r2://` reference, not something an <img> can load.
   const logoDisplayUrl = await resolveDisplayUrl(vendorProfile?.logo_url ?? null);
@@ -683,8 +683,8 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
       {/* Standing payment disclosure — every payment-adjacent surface. */}
       <footer className="border-t border-ink/10 pt-3 text-[11px] leading-relaxed text-ink/45">
-        Prices on this proposal are set by {businessName}. You pay the vendor directly —
-        Setnayan never holds this money. Verify account details with your vendor through a
+        Prices on this proposal are set by {businessName}. You pay the supplier directly —
+        Setnayan never holds this money. Verify account details with your supplier through a
         channel you trust before paying.
       </footer>
     </main>

@@ -20,7 +20,7 @@ import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { pageWindowFor } from '@/lib/paginate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
-export const metadata = { title: 'Proposals · Vendor' };
+export const metadata = { title: 'Proposals · Supplier' };
 
 /**
  * Vendor Proposals — data-link program ③ (corpus

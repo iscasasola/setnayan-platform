@@ -100,7 +100,7 @@ const RENDERS: { file: string; guard: string; empty: string }[] = [
   {
     file: 'app/dashboard/(account)/library/_components/vendors-tab.tsx',
     guard: 'if (ownUnreadable && attended.length === 0)',
-    empty: 'No saved vendors yet.',
+    empty: 'No saved suppliers yet.',
   },
 ];
 

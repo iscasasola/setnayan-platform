@@ -102,7 +102,7 @@ export async function runVendorDeepSearch(
   }
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return err('No vendor profile found.');
+  if (!profile) return err('No supplier profile found.');
   const vendorProfileId = profile.vendor_profile_id;
 
   // Scope the role check to THIS vendor profile (not the user's global-highest

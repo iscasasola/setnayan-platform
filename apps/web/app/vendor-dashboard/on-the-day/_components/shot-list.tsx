@@ -297,7 +297,7 @@ function ShotListStatus({
     return (
       <p className="mt-3 flex items-center gap-1.5 text-xs text-success-700" role="status">
         <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-        {saving ? 'Saving…' : 'Saved — the couple can see this list on their vendor page.'}
+        {saving ? 'Saving…' : 'Saved — the couple can see this list on their supplier page.'}
       </p>
     );
   }

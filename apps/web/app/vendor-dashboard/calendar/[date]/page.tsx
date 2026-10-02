@@ -20,7 +20,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { shopInputClass } from '../../_components/kit';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Day · Calendar · Vendor' };
+export const metadata = { title: 'Day · Calendar · Supplier' };
 
 /**
  * PHASE 5 — month→day drill-down. One date, every schedule's state on it, and

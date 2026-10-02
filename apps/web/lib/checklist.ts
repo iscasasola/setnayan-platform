@@ -45,7 +45,7 @@ export type ChecklistCategory =
 
 export const CHECKLIST_CATEGORY_LABELS: Record<ChecklistCategory, string> = {
   foundations: 'Foundations',
-  vendors: 'Vendors',
+  vendors: 'Suppliers',
   guests: 'Guests',
   paperwork: 'Paperwork',
   attire: 'Attire',
@@ -287,7 +287,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   // ══ 2–1 months before — Tighten every detail ══
   { key: 'schedule', title: 'Build your wedding-day timeline', category: 'logistics', dueOffsetDays: 60 },
   { key: 'rings', title: 'Buy your wedding rings', category: 'attire', dueOffsetDays: 60 },
-  { key: 'final_vendor_meetings', title: 'Hold your final vendor meetings (times, deliverables, balances)', category: 'vendors', dueOffsetDays: 45 },
+  { key: 'final_vendor_meetings', title: 'Hold your final supplier meetings (times, deliverables, balances)', category: 'vendors', dueOffsetDays: 45 },
   { key: 'shot_list', title: 'Give your photo & video team your shot list & must-have moments', category: 'vendors', dueOffsetDays: 40 },
   { key: 'final_fittings', title: 'Final attire fittings — no more changes after this', category: 'attire', dueOffsetDays: 36 },
   { key: 'hmua_trial', title: 'Do your hair & makeup trial', category: 'attire', dueOffsetDays: 34 },
@@ -297,7 +297,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   // ══ 1 month – 2 weeks before — Final confirmations ══
   { key: 'seating', title: 'Finalize your seating chart', category: 'logistics', dueOffsetDays: 30 },
   { key: 'rsvp_followup', title: 'Follow up with pending RSVPs', category: 'guests', dueOffsetDays: 30 },
-  { key: 'reconfirm_vendors', title: 'Reconfirm every vendor in writing (date, call-time, address, balance)', category: 'vendors', dueOffsetDays: 22 },
+  { key: 'reconfirm_vendors', title: 'Reconfirm every supplier in writing (date, call-time, address, balance)', category: 'vendors', dueOffsetDays: 22 },
   { key: 'distribute_calltimes', title: 'Distribute call-times & roles to the entire entourage', category: 'logistics', dueOffsetDays: 20 },
   { key: 'master_timeline', title: 'Hand your coordinator the master timeline & emergency contacts', category: 'logistics', dueOffsetDays: 18 },
   { key: 'cash_envelopes', title: 'Prepare labelled cash envelopes for tips & balances', category: 'logistics', dueOffsetDays: 15 },
@@ -306,8 +306,8 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'final_headcount', title: 'Give caterer your final headcount', category: 'vendors', dueOffsetDays: 14 },
   { key: 'break_in_shoes', title: 'Break in your wedding shoes at home', category: 'attire', dueOffsetDays: 12 },
   { key: 'confirm_officiant', title: 'Confirm the officiant’s fee & church donation', category: 'paperwork', dueOffsetDays: 11, appliesTo: isChurchCeremony },
-  { key: 'final_payments', title: 'Settle remaining vendor balances', category: 'vendors', dueOffsetDays: 10 },
-  { key: 'confirm_vendors', title: 'Confirm call times with all vendors', category: 'final_week', dueOffsetDays: 7 },
+  { key: 'final_payments', title: 'Settle remaining supplier balances', category: 'vendors', dueOffsetDays: 10 },
+  { key: 'confirm_vendors', title: 'Confirm call times with all suppliers', category: 'final_week', dueOffsetDays: 7 },
   { key: 'handoff_docs', title: 'Hand rings, marriage licence & documents to your coordinator', category: 'logistics', dueOffsetDays: 6 },
   { key: 'emcee_script', title: 'Prepare your emcee / host script', category: 'final_week', dueOffsetDays: 5 },
   { key: 'pack_overnight', title: 'Pack for the wedding night & honeymoon', category: 'logistics', dueOffsetDays: 4 },
@@ -323,11 +323,11 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'hand_to_coordinator', title: 'Hand the day to your coordinator — just be present', category: 'logistics', dueOffsetDays: 0 },
   { key: 'sign_contract', title: 'Make sure the marriage contract is signed (you, spouse, officiant, sponsors)', category: 'paperwork', dueOffsetDays: 0 },
   { key: 'enjoy_day', title: 'Be present and soak it all in', category: 'logistics', dueOffsetDays: 0 },
-  { key: 'settle_after', title: 'Settle balances & tips for any pay-after vendors', category: 'vendors', dueOffsetDays: -1 },
+  { key: 'settle_after', title: 'Settle balances & tips for any pay-after suppliers', category: 'vendors', dueOffsetDays: -1 },
   { key: 'claim_marriage_cert', title: 'Claim your PSA-registered Marriage Certificate', category: 'paperwork', dueOffsetDays: -21 },
   { key: 'name_change', title: 'Begin your name-change documents (PSA › IDs › bank › SSS/PhilHealth/Pag-IBIG › passport)', category: 'paperwork', dueOffsetDays: -30 },
   { key: 'thank_you_notes', title: 'Write & send your thank-you notes', category: 'guests', dueOffsetDays: -35 },
-  { key: 'rate_vendors', title: 'Rate your vendors & preserve your photos and videos', category: 'vendors', dueOffsetDays: -45 },
+  { key: 'rate_vendors', title: 'Rate your suppliers & preserve your photos and videos', category: 'vendors', dueOffsetDays: -45 },
 ];
 
 // ── Countdown phases ─────────────────────────────────────────────────────────
@@ -348,7 +348,7 @@ export type ChecklistPhase = {
 
 export const CHECKLIST_PHASES: ReadonlyArray<ChecklistPhase> = [
   { id: 'p1', label: '18–12 months before', blurb: 'Finding your date & the big decisions', maxDays: 100000, minDays: 366 },
-  { id: 'p2', label: '12–9 months before', blurb: 'Lock your look & key vendors', maxDays: 365, minDays: 271 },
+  { id: 'p2', label: '12–9 months before', blurb: 'Lock your look & key suppliers', maxDays: 365, minDays: 271 },
   { id: 'p3', label: '9–6 months before', blurb: 'The details take shape', maxDays: 270, minDays: 181 },
   { id: 'p4', label: '6–4 months before', blurb: 'Invitations, fittings & flow', maxDays: 180, minDays: 121 },
   { id: 'p5', label: '4–2 months before', blurb: 'Legal crunch time', maxDays: 120, minDays: 61 },

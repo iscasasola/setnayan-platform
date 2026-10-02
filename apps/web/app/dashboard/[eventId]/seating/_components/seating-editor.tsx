@@ -4814,7 +4814,7 @@ export function SeatingEditor({
       <MenuRow icon={Footprints} label="Dance floor" onClick={addDanceFloor} disabled={!canEdit || view !== 'plan' || dance.enabled} />
       <MenuRow icon={Martini} label="Cocktail area" hint="A second room — booths only, no tables" onClick={addCocktailArea} disabled={!canEdit || view !== 'plan' || cocktail.enabled} />
       <MenuRow icon={Signpost} label="Sign" badge={`${signs.length}/24`} onClick={addSign} disabled={!canEdit || view !== 'plan' || signs.length >= 24} />
-      <MenuRow icon={Store} label="Vendor booth" onClick={addBooth} disabled={!canEdit || view !== 'plan'} />
+      <MenuRow icon={Store} label="Supplier booth" onClick={addBooth} disabled={!canEdit || view !== 'plan'} />
       {/* §5.4 — "+ Add" is purely additive now; Room size & scale moved to
           Arrange (it's a policy, not a placeable). */}
     </>
@@ -8881,23 +8881,23 @@ function BoothPickerPanel({
   return (
     <div className="w-full overflow-hidden rounded-xl border border-ink/10 bg-cream p-1">
       <p className="px-3 pb-1 pt-1.5 font-mono text-[9px] uppercase tracking-[0.15em] text-ink/45">
-        Your booked vendors
+        Your booked suppliers
       </p>
       {availableVendors.length === 0 ? (
         <div className="px-3 pb-2 pt-0.5 text-[11px] leading-snug text-ink/50">
           {bookedVendors.length === 0 ? (
             <>
-              No finalized vendors yet —{' '}
+              No finalized suppliers yet —{' '}
               <a
                 href={`/dashboard/${eventId}/vendors`}
                 className="font-medium text-terracotta-700 underline hover:text-terracotta"
               >
-                lock a vendor in the Marketplace
+                lock a supplier in the Marketplace
               </a>{' '}
               to place them here. Until then this slot shows Setnayan.
             </>
           ) : (
-            'All your finalized vendors are already placed.'
+            'All your finalized suppliers are already placed.'
           )}
         </div>
       ) : (

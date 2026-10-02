@@ -39,7 +39,7 @@ export const HELP_ROLES: ReadonlyArray<{
   },
   {
     key: 'vendor',
-    label: 'Vendor',
+    label: 'Supplier',
     blurb: 'You sell a service to couples on Setnayan.',
   },
   {
@@ -257,7 +257,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'sign-up-as-vendor',
         title: 'Sign up as a supplier',
-        body: 'Same form, pick "Vendor" instead. You\'ll land on /vendor-dashboard with a profile editor. Fill in your business name, services, and contact email. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
+        body: 'Same form, pick "Supplier" instead. You\'ll land on /vendor-dashboard with a profile editor. Fill in your business name, services, and contact email. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
       },
       {
         slug: 'create-an-event',
@@ -355,7 +355,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'import-csv',
         title: 'Import guests from CSV',
-        body: 'On the Guests page, hit "Import CSV". Paste your spreadsheet (max 200 rows per import). Required columns: first_name, last_name. Optional: side, role, group_category, email, mobile, meal_preference, plus_one_allowed. Bad rows are flagged; valid rows insert atomically.',
+        body: 'On the Guests page, tap + then "Import a file". Paste your spreadsheet (max 200 rows per import). Required columns: first_name, last_name. Optional: side, role, group_category, email, mobile, meal_preference, plus_one_allowed. Bad rows are flagged; valid rows insert atomically.',
       },
       {
         slug: 'share-invite-link',
@@ -399,7 +399,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'track-vendor',
         title: 'Track a supplier',
-        body: 'On the Vendors page, click Add a vendor. Pick a category from the 28 standard options (or pick "Miscellaneous" for anything off-list). Set a total cost + deposit if you have them. Vendors move through a 6-stage flow: considering → shortlisted → contracted → deposit paid → delivered → complete.',
+        body: 'On the Suppliers page, click Add a supplier. Pick a category from the 28 standard options (or pick "Miscellaneous" for anything off-list). Set a total cost + deposit if you have them. Suppliers move through a 6-stage flow: considering → shortlisted → contracted → deposit paid → delivered → complete.',
       },
       {
         slug: 'budget-line-items',
@@ -703,7 +703,7 @@ export const HELP_TOPICS: ReadonlyArray<HelpTopic> = [
       {
         slug: 'what-needs-two-admins',
         title: 'What needs two-admin approval',
-        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, adding a team member to the shared pool, a comp grant above the § 9.1 retail limit, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a vendor without the due-process timeline, refunding a single transaction above the § 9.1 limit, and re-publishing a previously rejected vendor application. Routine ops stay single-admin — payment reconciliation, approving a vendor verification queue item, comps and refunds at or below those limits, dispute mediation, review moderation and user lookup. Both limits are stated in § 9.1 itself, and the admin console names the exact figure at the moment you go over it.',
+        body: 'Per Vendor Agreement § 9.1, major decisions need two admins. That means promoting a user to any admin role, adding an internal account, adding a team member to the shared pool, a comp grant above the § 9.1 retail limit, changing the BDO or GCash receiving account, a mid-quarter price change on any in-app SKU, force-delisting a supplier without the due-process timeline, refunding a single transaction above the § 9.1 limit, and re-publishing a previously rejected supplier application. Routine ops stay single-admin — payment reconciliation, approving a supplier verification queue item, comps and refunds at or below those limits, dispute mediation, review moderation and user lookup. Both limits are stated in § 9.1 itself, and the admin console names the exact figure at the moment you go over it.',
       },
       {
         slug: 'approving-an-action',

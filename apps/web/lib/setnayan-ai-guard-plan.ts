@@ -162,7 +162,7 @@ export function planPaymentDueReminder(
   dayBefore.setUTCDate(dayBefore.getUTCDate() - 1);
   // Needs at least an hour of runway — otherwise the immediate email suffices.
   if (dayBefore.getTime() - now.getTime() < 60 * 60 * 1000) return null;
-  const vendor = String(iv.slots.vendor ?? 'a vendor');
+  const vendor = String(iv.slots.vendor ?? 'a supplier');
   const amount = String(iv.slots.amount ?? '');
   return {
     dedupeKey: `${iv.dedupeKey}#d1`,

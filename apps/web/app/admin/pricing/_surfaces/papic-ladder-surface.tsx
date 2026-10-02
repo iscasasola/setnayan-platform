@@ -3,9 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { ReadFailed } from '../../_components/read-failed';
-import { FAMILY_DISCOUNT_DEFAULT_PCT } from '@/lib/onboarding-family-discount';
+import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import {
-  saveFamilyDiscount,
   savePapicLadder,
   savePapicProductPrice,
   savePapicTypeSizing,
@@ -61,7 +60,7 @@ export async function PapicLadderSurface(_props: Props) {
       .from('platform_retail_catalog_v2')
       .select('service_code, title, retail_price_php, onboarding_price_php, is_active')
       .like('service_code', 'PAPIC%'),
-    admin.from('platform_settings').select('papic_signup_discount_pct').eq('id', 1).maybeSingle(),
+    admin.from('platform_settings').select('onboarding_discount_pct').eq('id', 1).maybeSingle(),
     /*
       What every celebration is GIVEN. Until 2026-08-29 nothing under `app/` read
       this column at all, so the number had no screen and only a migration could
@@ -210,11 +209,8 @@ export async function PapicLadderSurface(_props: Props) {
     }))
     .sort((a, b) => b.inForce - a.inForce || a.label.localeCompare(b.label));
 
-  const discountPct =
-    settingsRes.data?.papic_signup_discount_pct != null &&
-    Number.isFinite(Number(settingsRes.data.papic_signup_discount_pct))
-      ? Number(settingsRes.data.papic_signup_discount_pct)
-      : FAMILY_DISCOUNT_DEFAULT_PCT.papic;
+  // THE one sign-up discount (owner d18) — edited on the Pricing tab, read here.
+  const discountPct = readOnboardingDiscountPct(settingsRes.data?.onboarding_discount_pct);
 
   return (
     <div>
@@ -237,7 +233,6 @@ export async function PapicLadderSurface(_props: Props) {
           rows={rows}
           discountPct={discountPct}
           saveLadderAction={savePapicLadder}
-          saveDiscountAction={saveFamilyDiscount}
         />
       )}
 

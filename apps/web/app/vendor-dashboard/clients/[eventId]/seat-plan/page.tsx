@@ -10,7 +10,7 @@ import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-fla
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Seat Plan · Vendor' };
+export const metadata = { title: 'Seat Plan · Supplier' };
 
 /**
  * Read-only vendor seat-plan viewer — feature-access program Phase 4

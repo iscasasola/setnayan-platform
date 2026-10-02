@@ -94,7 +94,7 @@ export async function vendorMarkServiceComplete(formData: FormData) {
       await emitNotification({
         userId: couple.user_id,
         type: 'review_request',
-        title: `${ev.vendor_name ?? 'Your vendor'} marked their service complete`,
+        title: `${ev.vendor_name ?? 'Your supplier'} marked their service complete`,
         body: 'Confirm you received everything to unlock your review and galleries.',
         relatedUrl: `/dashboard/${eventId}/vendors/${ev.vendor_id}/review`,
       });
@@ -147,7 +147,7 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
         .select('vendor_name')
         .eq('vendor_id', eventVendorId)
         .maybeSingle();
-      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -159,7 +159,7 @@ export async function vendorAcknowledgeDeposit(formData: FormData) {
           userId: m.user_id,
           type: 'payment_confirmed',
           title: `${vendorName} confirmed your deposit`,
-          body: 'Your date is locked in — the vendor confirmed they received your deposit.',
+          body: 'Your date is locked in — the supplier confirmed they received your deposit.',
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -276,7 +276,7 @@ export async function vendorRejectDeposit(formData: FormData) {
         .select('vendor_name')
         .eq('vendor_id', eventVendorId)
         .maybeSingle();
-      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -289,8 +289,8 @@ export async function vendorRejectDeposit(formData: FormData) {
           type: 'payment_rejected',
           title: `${vendorName} couldn't confirm your downpayment`,
           body: reason
-            ? `Reason: “${reason}” — re-submit your downpayment proof from the vendor workspace.`
-            : 'They couldn’t confirm the payment — re-submit your downpayment proof from the vendor workspace.',
+            ? `Reason: “${reason}” — re-submit your downpayment proof from the supplier workspace.`
+            : 'They couldn’t confirm the payment — re-submit your downpayment proof from the supplier workspace.',
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -447,7 +447,7 @@ export async function suggestScheduleChange(formData: FormData) {
   if (!error) {
     try {
       const admin = createAdminClient();
-      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const vendorName = profile.business_name?.trim() || 'A supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -523,7 +523,7 @@ export async function createVendorChallengeAction(formData: FormData) {
   if (res.ok) {
     try {
       const admin = createAdminClient();
-      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const vendorName = profile.business_name?.trim() || 'A supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -678,7 +678,7 @@ export async function vendorPostHandover(formData: FormData) {
   if (!error) {
     try {
       const admin = createAdminClient();
-      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const vendorName = profile.business_name?.trim() || 'A supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -690,7 +690,7 @@ export async function vendorPostHandover(formData: FormData) {
           userId: m.user_id,
           type: 'schedule_suggestion',
           title: `${vendorName} delivered your handover`,
-          body: `${label ? `${label.slice(0, 100)} — ` : ''}open the vendor to confirm receipt.`,
+          body: `${label ? `${label.slice(0, 100)} — ` : ''}open the supplier to confirm receipt.`,
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -801,7 +801,7 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
   if (!error) {
     try {
       const admin = createAdminClient();
-      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const vendorName = profile.business_name?.trim() || 'A supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -813,7 +813,7 @@ export async function vendorRaiseChangeOrder(formData: FormData) {
           userId: m.user_id,
           type: 'schedule_suggestion',
           title: `${vendorName} proposed a change order`,
-          body: `${(title as string).trim().slice(0, 120)} — open the vendor to accept or decline.`,
+          body: `${(title as string).trim().slice(0, 120)} — open the supplier to accept or decline.`,
           relatedUrl: `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`,
         });
       }
@@ -889,7 +889,7 @@ export async function vendorRespondChangeOrder(formData: FormData) {
           userId: m.user_id,
           type: 'schedule_suggestion',
           title: decision === 'accept' ? 'Change order accepted' : 'Change order declined',
-          body: `Your vendor ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
+          body: `Your supplier ${decision === 'accept' ? 'accepted' : 'declined'} "${coTitle.slice(0, 80)}".`,
           relatedUrl: eventVendorId
             ? `/dashboard/${eventId}/vendors/${eventVendorId}/workspace`
             : `/dashboard/${eventId}/vendors`,
@@ -1040,7 +1040,7 @@ export async function vendorAgreeToLock(formData: FormData) {
         .select('vendor_name')
         .eq('vendor_id', eventVendorId)
         .maybeSingle();
-      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your vendor';
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'Your supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -1122,7 +1122,7 @@ export async function vendorDeclineLock(formData: FormData) {
         .select('vendor_name')
         .eq('vendor_id', eventVendorId)
         .maybeSingle();
-      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'The vendor';
+      const vendorName = (ev as { vendor_name?: string } | null)?.vendor_name ?? 'The supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')

@@ -294,7 +294,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
           primary_canonical_service: vendor.services?.[0] ?? null,
           location_city: vendor.location_city ?? null,
         })
-      : 'Vendor';
+      : 'Supplier';
   })();
 
   // THE NEXT MONEY STEP ON THE BOOKED QUOTE (owner, live, 2026-09-20: "i do
@@ -831,7 +831,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                         href={similarVendorsHref}
                         className="inline-flex h-11 items-center rounded-md bg-mulberry px-5 text-sm font-semibold text-cream hover:bg-mulberry-600"
                       >
-                        See similar vendors
+                        See similar suppliers
                       </Link>
                     ) : null}
                     {closing.showWithdraw ? (

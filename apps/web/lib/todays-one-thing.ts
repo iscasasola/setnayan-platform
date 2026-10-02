@@ -134,7 +134,7 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
   coordinator:
     'Your day-of conductor. Best coordinators book 9-12 months out; the earlier you lock yours, the more they can shape every choice downstream.',
   crew_meals:
-    'Your photo, video, HMUA, and coordination teams all expect a hot meal on the day — usually 15-25 crew across your vendors. A kitchen near your venue caters them for far less than your main caterer per-head.',
+    'Your photo, video, HMUA, and coordination teams all expect a hot meal on the day — usually 15-25 crew across your suppliers. A kitchen near your venue caters them for far less than your main caterer per-head.',
   officiant:
     'The voice of your ceremony. Priests, ministers, and judges book months ahead; locking yours early is what makes the paperwork chain start moving.',
   catering:

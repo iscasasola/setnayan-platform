@@ -43,11 +43,11 @@ function activity(over: {
 test('figureRanked: percent + singular/plural vendor count', () => {
   assert.equal(
     figureRanked(activity({ lockedPct: 62, vendorsTracked: 4 })),
-    '62% locked in · 4 vendors on your board',
+    '62% locked in · 4 suppliers on your board',
   );
   assert.equal(
     figureRanked(activity({ lockedPct: 0, vendorsTracked: 1 })),
-    '0% locked in · 1 vendor on your board',
+    '0% locked in · 1 supplier on your board',
   );
 });
 

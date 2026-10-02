@@ -718,7 +718,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     warnings.push({
       code: 'archived_excluded',
       message:
-        `${archivedCount} removed vendor${archivedCount === 1 ? '' : 's'} ` +
+        `${archivedCount} removed supplier${archivedCount === 1 ? '' : 's'} ` +
         `no longer count${archivedCount === 1 ? 's' : ''} toward your budget.`,
       amountPhp: toPhp(archivedC),
     });
@@ -833,7 +833,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
       code: 'vendor_payer_order_excluded',
       message:
         `${vendorPayerCount} vendor-billing charge${vendorPayerCount === 1 ? '' : 's'} on ` +
-        `this event are the vendor's to pay, not yours — excluded.`,
+        `this event are the supplier's to pay, not yours — excluded.`,
       amountPhp: toPhp(vendorPayerC),
       bucket: SETNAYAN_BUCKET,
     });
@@ -1502,7 +1502,7 @@ const SOURCE_META: Record<
     isEstimate: false,
   },
   vendor_service_listing: {
-    label: "Vendor's listed starting price",
+    label: "Supplier's listed starting price",
     table: 'vendor_services.starting_price_php',
     isEstimate: true,
   },
@@ -1517,7 +1517,7 @@ const SOURCE_META: Record<
     isEstimate: false,
   },
   vendor_headline: {
-    label: 'Vendor totals you recorded',
+    label: 'Supplier totals you recorded',
     table: 'event_vendors.total_cost_php',
     isEstimate: false,
   },
@@ -1532,7 +1532,7 @@ const SOURCE_META: Record<
     isEstimate: false,
   },
   vendor_unbooked_payment: {
-    label: 'Paid to vendors not yet booked',
+    label: 'Paid to suppliers not yet booked',
     table: 'event_vendor_payments',
     isEstimate: false,
   },

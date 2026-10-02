@@ -68,17 +68,17 @@ export type PlanItemKey = 'plan-myself';
  * 🗂 EVERY ANSWER ABOUT AN EVENT LIVES IN YOUR INFO (owner 2026-10-02,
  * DECISION_LOG "EVERY ANSWER ABOUT AN EVENT LIVES IN EVENT DETAILS ("YOUR INFO")
  * — ONE HOME, MAPPED"), in Your event, after the march:
- *   · `settings` — Event settings: the retired `/details/change` page's
- *     editors, moved in whole (the kind of wedding and its venue settings, the
- *     guest estimate, the area, the feel, the budget, the repeat, who is
- *     celebrated, the guest-list closing date, how costs are shown);
+ *   · (Event settings was here from #6280 and LEFT the Maker 2026-10-02 —
+ *     its three editors save live through their own actions, which breaks
+ *     "nothing in the Maker takes effect until Apply". They live on the Event
+ *     Details page (`details/page.tsx`), in place, outside the Maker.)
  *   · `papic` — "Photos from your guests?" (`events.papic_on`);
  *   · `gifts` — "Accept gifts?" in the type's word (`events.gifts_on`).
  * The logo and the event-photo answers are not rows of their own: each is
  * changed on the item it is about (Logo · Hero — `lib/event-answers.ts`).
  */
-export type AnswerItemKey = 'settings' | 'papic' | 'gifts';
-export const ANSWER_ITEM_KEYS: readonly AnswerItemKey[] = ['settings', 'papic', 'gifts'];
+export type AnswerItemKey = 'papic' | 'gifts';
+export const ANSWER_ITEM_KEYS: readonly AnswerItemKey[] = ['papic', 'gifts'];
 export type DetailsItemKey = 'theme' | LookItemKey | EventItemKey | AnswerItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];

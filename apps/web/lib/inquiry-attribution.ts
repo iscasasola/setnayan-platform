@@ -451,7 +451,7 @@ export async function notifyChapterDroveInquiry(thread: {
       type: 'chapter_drove_inquiry',
       title: 'Your chapter drove an inquiry',
       // Names the chapter + the fact of the unlock — never the couple.
-      body: `A vendor unlocked an inquiry that came through “${title}”. Your inquiries-driven count just went up.`,
+      body: `A supplier unlocked an inquiry that came through “${title}”. Your inquiries-driven count just went up.`,
       relatedUrl: '/dashboard/creator',
     });
   } catch {

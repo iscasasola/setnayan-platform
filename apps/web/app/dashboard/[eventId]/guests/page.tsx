@@ -76,16 +76,10 @@ import { FindAddRow } from './_components/find-add-row';
 import { RosterMeters } from './_components/roster-meters';
 import { RosterTabs } from './_components/roster-tabs';
 import { InvitePanel } from './invite/_components/invite-panel';
-import {
-  AddFromPeopleSheet,
-  OpenAddFromPeopleButton,
-} from './_components/add-from-people-sheet';
+import { AddFromPeopleSheet } from './_components/add-from-people-sheet';
 import { GroupsSidebar } from './_components/groups-sidebar';
 import { RosterFilters, RosterSort } from './_components/roster-controls';
-import {
-  OpenQuickAddButton,
-  QuickAddSheet,
-} from './_components/quick-add-sheet';
+import { QuickAddSheet } from './_components/quick-add-sheet';
 import { GuestsViewSwitcher } from './_components/view-switcher';
 import { GuestMindMap } from './_components/guest-mind-map';
 import { UndoToastHost } from './_components/undo-toast';
@@ -114,7 +108,7 @@ import { WhoCanReplyAsk } from './_components/who-can-reply-ask';
 import { GuestsPhoneMenu } from './_components/guests-phone-menu';
 import { PhoneShowPick } from './_components/phone-show-pick';
 import { quickAddTips } from '@/lib/quick-add-tips';
-import { AddGuestSheet, OpenAddGuestButton } from './_components/add-guest-sheet';
+import { AddGuestSheet, OpenAddGuestButton, OpenAddGuestTextButton } from './_components/add-guest-sheet';
 
 export const metadata = { title: 'Guests' };
 
@@ -2120,36 +2114,17 @@ function EmptyState({
     );
   }
   return (
-    /* Unframed (owner 2026-08-21). The dashed box made the emptiest state on
-       the page the most heavily drawn thing on it. The sentence and the two
-       doors carry it; the error state above KEEPS its edge, deliberately —
-       that one is a refusal and has to stop the eye. */
-    <div className="p-8 text-center">
+    /* Unframed (owner 2026-08-21). First-timer fix 11 (2026-10-02): ONE line and
+       ONE button where the eye lands — the same sheet the header + opens, which
+       already holds every other way in (from your people · add with details ·
+       import a file · paste many names). Four doors here was four decisions on
+       an empty page. */
+    <div className="p-8 text-center" data-guests-empty="">
       <p className="text-base text-ink/70">
-        {finished
-          ? 'No guests were added to this one. You can still add anybody who came.'
-          : 'No guests yet. Start by adding your first guest.'}
+        {finished ? 'No guests were added to this one.' : 'No guests yet.'}
       </p>
-      {/* Lead with the one-tap quick-add sheet (name + side, done) — the heavy
-          detailed form stays one click away for power users. Inviting is THE
-          zero-state action, so the Invite doorway (2026-07-15) sits right here
-          beside adding names — share one link and let guests self-add. */}
-      <div className="mt-4 flex flex-col items-center gap-2">
-        <OpenQuickAddButton label={finished ? '+ Add someone who came' : '+ Add a guest'} />
-        {/* "Paste a list" — the shipped import page, where a pasted list or a
-            file of names becomes guests. */}
-        <Link href={`/dashboard/${eventId}/guests/import`} className="button-secondary inline-flex items-center gap-2">
-          Paste a list
-        </Link>
-        {/* THE EMPTY STATE IS EXACTLY WHERE THIS DOOR EARNS ITS PLACE — a first
-            list is when somebody is likeliest to retype people we already hold. */}
-        <OpenAddFromPeopleButton />
-        <Link
-          href={`/dashboard/${eventId}/guests/new`}
-          className="text-xs text-ink/55 underline underline-offset-2 hover:text-ink"
-        >
-          or use the full form
-        </Link>
+      <div className="mt-4 flex justify-center">
+        <OpenAddGuestTextButton label={finished ? 'Add someone who came' : 'Add a guest'} />
       </div>
     </div>
   );

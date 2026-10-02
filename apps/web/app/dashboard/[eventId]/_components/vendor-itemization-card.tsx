@@ -496,10 +496,10 @@ function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
     return (
       <span
         className="inline-flex items-center gap-1 rounded-full bg-terracotta/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700"
-        title="The vendor publishes this pricing in their catalog. Message them to adjust."
+        title="The supplier publishes this pricing in their catalog. Message them to adjust."
       >
         <Sparkles aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-        From vendor
+        From supplier
       </span>
     );
   }
@@ -507,7 +507,7 @@ function PriceSourceChip({ priceSource }: { priceSource: VendorPriceSource }) {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800"
-      title="The vendor hasn't published pricing yet. Ask them in chat."
+      title="The supplier hasn't published pricing yet. Ask them in chat."
     >
       Awaiting pricing
     </span>
@@ -642,7 +642,7 @@ function LineItemSection({
       {lead === 'catalogue' ? (
         <div className="space-y-2">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-terracotta-700/80">
-            From the vendor&rsquo;s catalog
+            From the supplier&rsquo;s catalog
           </p>
           <ul className="space-y-1.5">
             {vendorControlledItems.map((item) => (
@@ -665,7 +665,7 @@ function LineItemSection({
             ))}
           </ul>
           <p className="text-xs text-ink/55">
-            To adjust pricing, message the vendor in chat. They&rsquo;ll update their
+            To adjust pricing, message the supplier in chat. They&rsquo;ll update their
             catalog and these line items will refresh.
           </p>
         </div>
@@ -674,7 +674,7 @@ function LineItemSection({
       {lead === 'pending' ? (
         <div className="space-y-2 rounded-md border border-dashed border-warn-300/60 bg-warn-50/60 px-3 py-3 text-sm">
           <p className="text-ink/75">
-            This vendor hasn&rsquo;t shared pricing yet. Their catalog will appear
+            This supplier hasn&rsquo;t shared pricing yet. Their catalog will appear
             here once they publish it.
           </p>
           {/* 💬 "ASK THEM" OPENS THE CONVERSATION WITH THEM (2026-09-11). It used to
@@ -727,7 +727,7 @@ function LineItemSection({
                   <ConfirmForm
                     action={deleteLineItem}
                     title="Delete this line item?"
-                    message="It’s removed from this vendor’s budget — you can add it back anytime."
+                    message="It’s removed from this supplier’s budget — you can add it back anytime."
                     confirmLabel="Delete"
                   >
                     <input type="hidden" name="event_id" value={eventId} />
@@ -860,7 +860,7 @@ function LineItemSection({
         <details className="group border-t border-ink/10 pt-3">
           <summary className="flex cursor-pointer items-center gap-1.5 text-xs text-ink/55 hover:text-ink/80">
             <PencilLine aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-            Add an extra not on the vendor&rsquo;s catalog
+            Add an extra not on the supplier&rsquo;s catalog
           </summary>
           <form action={addLineItem} className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <input type="hidden" name="event_id" value={eventId} />
@@ -1059,7 +1059,7 @@ function PaymentSection({
         >
           <option value="">Against any line item</option>
           {hasVendorControlled ? (
-            <optgroup label="From the vendor's catalog">
+            <optgroup label="From the supplier's catalog">
               {vendorControlledItems.map((item) => (
                 // Synthetic value — see logPayment in budget/actions.ts.
                 // Stores the label in notes; writes line_item_id=NULL

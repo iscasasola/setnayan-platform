@@ -110,7 +110,7 @@ async function gateVendorProposalThread(
   if (!user) return { ok: false, code: 'unauthenticated', message: 'Sign in again to send a proposal.' };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, code: 'not_owner', message: 'No vendor profile for this account.' };
+  if (!profile) return { ok: false, code: 'not_owner', message: 'No supplier profile for this account.' };
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) {
@@ -600,7 +600,7 @@ export async function sendCustomProposalCore(
     // committing to any of them. Measured on the first real quote: accepted
     // 06:46, event_vendor_line_items 0 — the behaviour was right and only the
     // sentence was wrong.
-    `Quote from ${profile.business_name ?? 'your vendor'}. Review the line items below. ${DEFAULT_QUOTE_NOTE_TAIL}`;
+    `Quote from ${profile.business_name ?? 'your supplier'}. Review the line items below. ${DEFAULT_QUOTE_NOTE_TAIL}`;
 
   const validUntil = (input.validUntil ?? '').trim();
 

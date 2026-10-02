@@ -144,12 +144,12 @@ export function SetnayanAiValue({
           */}
           {live ? (
             <>
-              By hand this is re-checking every vendor, deadline and payment, every week
+              By hand this is re-checking every supplier, deadline and payment, every week
               until your {eventWord}. Setnayan AI keeps the list and tells you what moved.
             </>
           ) : (
             <>
-              By hand this is re-checking every vendor, deadline and payment, every week
+              By hand this is re-checking every supplier, deadline and payment, every week
               until your {eventWord}. Setnayan AI holds it, so nothing slips while you’re
               living your life.
             </>

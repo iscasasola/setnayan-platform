@@ -172,7 +172,7 @@ export const WEDDING_ESSENTIALS: ReadonlyArray<WeddingEssential> = [
     id: 'budget',
     kind: 'attribute',
     label: 'Budget',
-    hint: 'Set the ceiling. Every vendor pick reads against it.',
+    hint: 'Set the ceiling. Every supplier pick reads against it.',
     planGroups: [],
     primaryHref: (eventId) => `/dashboard/${eventId}/budget`,
     primaryCtaLabel: 'Set budget',

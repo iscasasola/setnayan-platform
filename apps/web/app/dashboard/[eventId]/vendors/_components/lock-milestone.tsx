@@ -121,7 +121,7 @@ export function LockConfirmModal({
                 Locking <strong>{vendorName}</strong> leaves only one of your
                 candidate dates open. Continuing will finally set your
                 date to <strong>{dateLabel}</strong>. You can still change
-                vendors, but the date becomes official.
+                suppliers, but the date becomes official.
               </p>
             ) : null}
             {/* What else it closes. Rendered under the date sentence when this

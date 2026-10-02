@@ -13,7 +13,7 @@ import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
-export const metadata = { title: 'Challenge photos · Vendor' };
+export const metadata = { title: 'Challenge photos · Supplier' };
 export const dynamic = 'force-dynamic';
 
 // Papic Games — Phase 5: the sponsoring vendor collects the CONSENTED guest photos

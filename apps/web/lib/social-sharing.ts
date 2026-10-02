@@ -118,6 +118,6 @@ export function vendorFeatureCaption({
   }
   return (
     `A new ${categoryLabel.toLowerCase()} in ${region} just got verified ✅ — ` +
-    `the Setnayan vendor marketplace keeps growing.\n\n#Setnayan #SetNaYan`
+    `the Setnayan supplier marketplace keeps growing.\n\n#Setnayan #SetNaYan`
   );
 }

@@ -165,8 +165,8 @@ test('7 · the supplier reads a notice addressed to the supplier; the couple’s
   assert.match(vendorBlock![0], /Never ask for private info/);
   // Iteration 0019 § Gate, EN canonical — byte for byte.
   assert.match(notice, /lead: 'All your event info is already in Setnayan',/);
-  assert.match(notice, /body: '— your vendor sees what they need from your profile\. Please don’t share private info in chat\.',/);
-  assert.match(notice, /report: 'If a vendor asks for these, report it via Help\.',/);
+  assert.match(notice, /body: '— your supplier sees what they need from your profile\. Please don’t share private info in chat\.',/);
+  assert.match(notice, /report: 'If a supplier asks for these, report it via Help\.',/);
   // The default reader is the couple, so an unlabelled mount cannot show a shop the supplier line.
   assert.match(notice, /viewer = 'couple',/);
 });

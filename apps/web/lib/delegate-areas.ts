@@ -72,7 +72,7 @@ export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
   guest_list: 'Guest list',
   seat_plan: 'Seat plan',
   schedule: 'Schedule',
-  vendors: 'Vendors',
+  vendors: 'Suppliers',
   invitations: 'Invitations',
   mood_board: 'Mood board',
   budget: 'Budget',

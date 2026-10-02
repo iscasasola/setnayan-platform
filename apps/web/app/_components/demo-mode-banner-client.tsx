@@ -60,7 +60,7 @@ export function DemoModeBannerClient({
         <p className="text-warn-900">
           <span className="font-semibold uppercase tracking-[0.12em]">Demo mode active</span>{' '}
           <span className="text-warn-800/85">
-            — synthetic vendors are visible with pricing on display. Real-vendor
+            — synthetic suppliers are visible with pricing on display. Real-supplier
             posture is unchanged. Demo data must be cleaned out before {deadlineLabel}.
           </span>
         </p>

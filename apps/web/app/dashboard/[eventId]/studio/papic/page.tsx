@@ -1833,8 +1833,8 @@ function StatusBanners({
           <p className={ok}>
             <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             {vendorMedia === 'hidden'
-              ? 'Your vendors’ photos are hidden from your gallery.'
-              : 'Your vendors’ photos are showing in your gallery.'}
+              ? 'Your suppliers’ photos are hidden from your gallery.'
+              : 'Your suppliers’ photos are showing in your gallery.'}
           </p>
         )
       ) : null}

@@ -733,7 +733,7 @@ export async function requestProfileCorrection(
     .eq('user_id', user.id)
     .maybeSingle();
   if (profErr || !profRow) {
-    return { ok: false, error: 'Vendor profile not found.' };
+    return { ok: false, error: 'Supplier profile not found.' };
   }
   const prof = profRow as Record<string, unknown> & { vendor_profile_id: string };
   const rawCurrent = prof[fieldKey];

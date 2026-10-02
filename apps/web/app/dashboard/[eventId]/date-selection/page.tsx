@@ -90,9 +90,9 @@ const PEAK_MONTHS = new Set([12, 2, 11, 1]);
 const SHOULDER_MONTHS = new Set([10, 3]);
 
 function monthNote(m: number): string {
-  if (PEAK_MONTHS.has(m)) return 'Peak season · book vendors early';
+  if (PEAK_MONTHS.has(m)) return 'Peak season · book suppliers early';
   if (SHOULDER_MONTHS.has(m)) return 'Shoulder season · good availability and weather';
-  return 'Off-peak month · more vendor availability';
+  return 'Off-peak month · more supplier availability';
 }
 
 // ─── PH holiday / long-weekend detection ──────────────────────────────────────
@@ -190,7 +190,7 @@ function prepStatus(dateKey: string): CandidateInsight['prep'] {
     label = `Good timeline · ${months} months to plan`;
   } else if (months >= 3) {
     status = 'tight';
-    label = 'Tight timeline · book key vendors now';
+    label = 'Tight timeline · book key suppliers now';
   } else {
     status = 'very_tight';
     label =
@@ -460,7 +460,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
     // breaking the page — a date picker that renders is worth more than one that
     // 500s — but the failure is now observable instead of silent.
     if (vpRes.error) {
-      Sentry.captureException(new Error(`date-selection vendor pool read failed: ${vpRes.error.message}`), {
+      Sentry.captureException(new Error(`date-selection supplier pool read failed: ${vpRes.error.message}`), {
         tags: { feature: 'date-selection', query: 'vendor_profiles_pool' },
         extra: { eventId, code: vpRes.error.code },
       });
@@ -530,7 +530,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
       .gte('blocked_until', `${sorted[0]}T00:00:00+08:00`);
     if (blockRes.error) {
       Sentry.captureException(
-        new Error(`date-selection vendor blocks read failed: ${blockRes.error.message}`),
+        new Error(`date-selection supplier blocks read failed: ${blockRes.error.message}`),
         {
           tags: { feature: 'date-selection', query: 'vendor_calendar_blocks' },
           extra: { eventId, code: blockRes.error.code },
@@ -566,7 +566,7 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
           key: v.vendor_id,
           name: v.vendor_name,
           category: v.category,
-          categoryLabel: v.category ? displayServiceLabel(v.category) : 'Vendor',
+          categoryLabel: v.category ? displayServiceLabel(v.category) : 'Supplier',
           state,
         };
       });

@@ -288,7 +288,7 @@ async function fetchPaymentItems(
     // due_date is a DATE (no time) — anchor to noon local for stable buckets.
     const date = new Date(`${row.due_date}T12:00:00`);
     if (Number.isNaN(date.getTime())) continue;
-    const name = vendorName.get(row.vendor_id) ?? 'Vendor';
+    const name = vendorName.get(row.vendor_id) ?? 'Supplier';
     items.push({
       id: `payment:${row.line_item_id}`,
       source: 'payment',
@@ -428,7 +428,7 @@ async function fetchAppointmentItems(
     const title = resolveAppointmentLabel(row, {});
     const kindLabel = APPOINTMENT_KIND_LABEL[row.kind as AppointmentKind] ?? 'Appointment';
     const vendor = row.vendor_profile_id ? vendorByProfile.get(row.vendor_profile_id) : undefined;
-    const where = row.location ? ` · ${row.location}` : ` with ${vendor?.name ?? 'your vendor'}`;
+    const where = row.location ? ` · ${row.location}` : ` with ${vendor?.name ?? 'your supplier'}`;
     return {
       id: `appointment:${row.appointment_id}`,
       source: 'meeting' as const,
@@ -582,7 +582,7 @@ async function fetchManualItems(
       ? vendorName.get(row.vendor_profile_id as string)
       : undefined;
     const sourceLabel = fromVendor
-      ? `From ${vendorLabel ?? 'your vendor'}`
+      ? `From ${vendorLabel ?? 'your supplier'}`
       : 'Added by you';
 
     // Typed items (20260730000000). `kind` / `amount_php` may be absent on a

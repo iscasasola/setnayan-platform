@@ -38,7 +38,7 @@ async function resolveVendorProfileId(): Promise<string> {
   if (!user) throw new Error('Not authenticated');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) throw new Error('No vendor profile found for this account');
+  if (!profile) throw new Error('No supplier profile found for this account');
 
   return profile.vendor_profile_id;
 }

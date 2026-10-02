@@ -65,7 +65,7 @@ export const CHECKS: Record<CheckId, { title: string; enforced: boolean; why: st
   'broken-door': { title: 'Doors to nowhere', enforced: true, why: 'a link to an address, or a #section, that does not exist' },
   'missing-section': { title: 'Doors to a missing #section', enforced: true, why: 'the page exists but the place on it does not' },
   'one-home': { title: 'One fact, two homes', enforced: true, why: 'the same answer is saved in two places, so they can disagree' },
-  'outside-home': { title: 'Event answers outside Your info', enforced: true, why: 'a screen saves an event answer that Event Details › Your info neither shows nor edits' },
+  'outside-home': { title: 'Event answers outside Event Details', enforced: true, why: 'a screen saves an event answer that Event Details neither shows nor edits' },
   'dropped-field': { title: 'Filled in but not saved', enforced: true, why: 'a person fills a field and the save throws it away' },
   'typed-number': { title: 'Numbers that look live but are typed in', enforced: true, why: 'a count or amount written into the screen text instead of read' },
   duplicate: { title: 'The same fact shown twice on one screen', enforced: true, why: 'replace means remove — the old copy was left behind' },
@@ -244,7 +244,7 @@ export function oneHomeFindings(fields: UgatFieldsMap, tableNodes: Map<string, s
       key: w,
       screens,
       file: fields.writers.find((x) => x.homes.includes(w))?.from ?? '',
-      plain: `${w} is saved from ${screens.length === 1 ? screens[0] : `${screens.length} screens`}, but Event Details › Your info neither shows nor edits it.`,
+      plain: `${w} is saved from ${screens.length === 1 ? screens[0] : `${screens.length} screens`}, but Event Details neither shows nor edits it.`,
     });
   }
   return dedupe(out);

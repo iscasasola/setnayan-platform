@@ -1738,7 +1738,7 @@ async function loadEditorialDataUncached(eventId: string): Promise<EditorialData
           type === 'clip' ? await displayUrlForStoredAsset(asString(r.boomerang_r2_key)) : null;
         if (type === 'clip' && !boomerang) continue; // clip with no baked boomerang → skip
         vendorMedia.push({
-          vendorName: rec.name ?? 'Your vendor',
+          vendorName: rec.name ?? 'Your supplier',
           category: rec.category,
           type,
           stillUrl: still,
@@ -3792,7 +3792,7 @@ function peterAndMary(): EditorialData {
     ],
     vendorsWeLoved: [],
     reviews: [
-      { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every vendor is reading the same timeline.', stars: 5 },
+      { author: 'Peter & Mary', role: 'couple', quote: 'A 150-guest wedding sounds impossible until every supplier is reading the same timeline.', stars: 5 },
       { author: 'Lola Pacing', role: 'guest', quote: 'Big wedding, but it felt warm and personal. Nobody was lost, everyone was fed.', stars: 5 },
     ],
     servicesAvailed: ['Setnayan AI', 'Event Hub', 'Papic', 'Live Watch'],

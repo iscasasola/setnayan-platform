@@ -27,7 +27,7 @@ import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { paginate } from '@/lib/paginate';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Messages · Vendor' };
+export const metadata = { title: 'Messages · Supplier' };
 
 type Props = {
   /**
@@ -210,7 +210,7 @@ export default async function VendorMessagesPage({ searchParams }: Props = {}) {
             Couples start threads from their dashboard using your contact email. Make
             sure your{' '}
             <Link href="/vendor-dashboard" className="text-mulberry hover:underline">
-              vendor profile
+              supplier profile
             </Link>{' '}
             is filled in and your contact email is right — that&rsquo;s the field
             couples search by.

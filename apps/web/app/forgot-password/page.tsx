@@ -27,7 +27,7 @@ import { requestPasswordReset } from './actions';
 export const metadata: Metadata = {
   title: 'Reset your password',
   description:
-    'Request a password-reset link for your Setnayan account. One account for couples planning their wedding and vendors selling their services.',
+    'Request a password-reset link for your Setnayan account. One account for couples planning their wedding and suppliers selling their services.',
   alternates: { canonical: '/forgot-password' },
 };
 

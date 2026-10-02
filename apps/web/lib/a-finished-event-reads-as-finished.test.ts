@@ -235,7 +235,10 @@ test('the guest list knows the event happened, and nothing is taken away', () =>
   assert.match(g, /event_date, event_end_date, cleared_at, timezone/, 'it must read the date');
   assert.match(g, /Still adding someone\?/, 'the add path must still be reachable');
   assert.match(g, /<CaptureBar/, 'the capture bar must still be mounted');
-  assert.match(g, /OpenQuickAddButton/, 'the quick-add button must survive');
+  // The empty list's door is the SAME add sheet the header + opens (first-timer
+  // fix 11, 2026-10-02) — the quick-add form is one of its rows (`AddDoors`).
+  assert.match(g, /<OpenAddGuestTextButton label=\{finished \? 'Add someone who came'/, 'the empty list must still offer an add, worded for a finished event');
+  assert.match(g, /<AddGuestSheet/, 'and the sheet it opens must be mounted');
 });
 
 /*

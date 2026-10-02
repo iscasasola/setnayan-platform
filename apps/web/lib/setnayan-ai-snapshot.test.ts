@@ -227,13 +227,13 @@ test('inquiriesFromThreads: NEVER leaks a vendor name — masked category label 
     [{ createdAt: '2026-06-01T00:00:00.000Z', vendorCategory: 'photography' }],
     NOW,
   );
-  assert.equal(out[0]!.vendor, 'A photography vendor');
+  assert.equal(out[0]!.vendor, 'A photography supplier');
   assert.equal(out[0]!.service, 'photography');
   const masked = inquiriesFromThreads(
     [{ createdAt: '2026-06-01T00:00:00.000Z', vendorCategory: null }],
     NOW,
   );
-  assert.equal(masked[0]!.vendor, 'A vendor you inquired with');
+  assert.equal(masked[0]!.vendor, 'A supplier you inquired with');
 });
 
 // ---- GRD-06 schedule clash (overlap detection + row mapper) -----------------

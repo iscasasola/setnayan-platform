@@ -1,8 +1,8 @@
 {
-  "generatedFromRef": "964efe087",
-  "routeCount": 422,
-  "destinations": 943,
-  "actions": 671,
+  "generatedFromRef": "664564ebe",
+  "routeCount": 423,
+  "destinations": 944,
+  "actions": 670,
   "blocks": 5413,
   "routes": {
     "/": {
@@ -3453,6 +3453,7 @@
         "admin/pricing/_components/papic-ladder-editor.tsx",
         "admin/pricing/_components/papic-rest-editor.tsx",
         "admin/pricing/_components/papic-type-sizing-editor.tsx",
+        "admin/pricing/_components/signup-discount-card.tsx",
         "admin/pricing/_surfaces/ai-prices-surface.tsx",
         "admin/pricing/_surfaces/custom-plans-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
@@ -3487,8 +3488,8 @@
         "retireFormAction",
         "save",
         "saveBookingFeeSchedule",
-        "saveDiscountAction",
         "savePriceAction",
+        "saveSignupDiscount",
         "setFreeWindowActive"
       ],
       "blocks": [
@@ -3505,7 +3506,6 @@
         "CustomPlansSurface",
         "EmptyState",
         "Family",
-        "FamilyDiscountCard",
         "Field",
         "FieldLabel",
         "FreeWindowsSurface",
@@ -3517,7 +3517,6 @@
         "Link",
         "MoneyField",
         "PageMasthead",
-        "PapicDiscountCard",
         "PapicLadderEditor",
         "PapicLadderSurface",
         "PapicRestEditor",
@@ -3536,6 +3535,7 @@
         "SaveSection",
         "ServiceCatalogRow",
         "Shelf",
+        "SignupDiscountCard",
         "Stat",
         "SubmitButton",
         "Suspense",
@@ -5205,6 +5205,8 @@
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
         "/dashboard/[seg]/details",
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/send",
         "/dashboard/[seg]/guests/tea-ceremony",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/launch",
@@ -5677,6 +5679,7 @@
     "/dashboard/[eventId]/details": {
       "files": [
         "dashboard/[eventId]/details/_components/details-form.tsx",
+        "dashboard/[eventId]/details/_components/event-settings-editor.tsx",
         "dashboard/[eventId]/details/_components/governed-fields.tsx",
         "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
         "dashboard/[eventId]/details/_components/put-away-card.tsx",
@@ -5689,20 +5692,35 @@
       ],
       "actions": [],
       "blocks": [
+        "DetailsForm",
         "EditableField",
         "EditableRow",
         "ErrorNote",
         "FormPageSkeleton",
+        "GovernedFields",
         "HTMLFormElement",
         "LastSeenCapture",
         "LastSeenFallback",
         "Link",
         "LockedRow",
         "PageMasthead",
+        "PaxSettingsCard",
         "PutAwayCard",
         "Row",
         "Section",
         "T"
+      ]
+    },
+    "/dashboard/[eventId]/details/change": {
+      "files": [
+        "dashboard/[eventId]/details/change/loading.tsx",
+        "dashboard/[eventId]/details/change/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "EventSettingsEditor",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/disputes": {
@@ -5875,7 +5893,6 @@
         "/dashboard/[seg]/guests/checkin",
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/guests/import",
-        "/dashboard/[seg]/guests/new",
         "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/guests/send",
         "/dashboard/[seg]/guests/send?ids=[seg]",
@@ -5990,6 +6007,7 @@
         "NfcWriteButton",
         "OpenAddFromPeopleButton",
         "OpenAddGuestButton",
+        "OpenAddGuestTextButton",
         "OpenQuickAddButton",
         "OptionRow",
         "PageMasthead",
@@ -6448,7 +6466,6 @@
         "DateClashNote",
         "DateEditor",
         "DateState",
-        "DetailsForm",
         "DetailsGoTo",
         "DetailsItemKey",
         "DetailsLookBody",
@@ -6466,7 +6483,6 @@
         "ElementSheet",
         "EntourageOrderPanel",
         "EventPoster",
-        "EventSettingsEditor",
         "EventSettingsInput",
         "Face",
         "Field",
@@ -6570,7 +6586,6 @@
         "PassCardDesign",
         "PassCardDesignPicker",
         "PassCardsPanel",
-        "PaxSettingsCard",
         "PeopleBody",
         "PeopleControls",
         "PeoplePieces",
@@ -8332,9 +8347,7 @@
       "destinations": [
         "/dashboard/[seg]/vendors"
       ],
-      "actions": [
-        "setPlanningMode"
-      ],
+      "actions": [],
       "blocks": [
         "InlineCheckoutDrawer",
         "Link",
@@ -8342,8 +8355,7 @@
         "PaidMark",
         "SetnayanAiValue",
         "Spotlights",
-        "StudioBuyHero",
-        "SubmitButton"
+        "StudioBuyHero"
       ]
     },
     "/dashboard/[eventId]/studio/thank-you": {
@@ -8527,7 +8539,6 @@
         "MarketplaceVendorSuggestion",
         "MerkadoBudgetLens",
         "MerkadoGuardBanner",
-        "MiniTour",
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
@@ -9874,9 +9885,9 @@
         "BranchPinMap",
         "BudgetCard",
         "ColoursCard",
-        "CountUp",
         "CoupleCarry",
         "DateCalendar",
+        "FreeTool",
         "FreeValueSlider",
         "HTMLAudioElement",
         "HTMLButtonElement",

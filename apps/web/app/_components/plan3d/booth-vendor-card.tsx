@@ -155,8 +155,8 @@ export function BoothVendorCard({
               className="inline-flex items-center justify-center gap-2 rounded-full border border-ink/15 px-5 py-3 text-sm font-medium text-ink transition-colors hover:bg-ink/5"
             >
               {profileCta === 'book' && vendor.bookable === true
-                ? 'Book this vendor for your event'
-                : 'View vendor profile'}
+                ? 'Book this supplier for your event'
+                : 'View supplier profile'}
               <ArrowUpRight aria-hidden className="h-4 w-4" strokeWidth={2} />
             </Link>
           ) : null}

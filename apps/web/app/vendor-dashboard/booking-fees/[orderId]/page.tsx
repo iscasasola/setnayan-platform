@@ -32,7 +32,7 @@ import { bookingFeeErrorCopy,
 } from '@/lib/vendor-booking-fees';
 import { ShopNotice } from '../../_components/kit';
 
-export const metadata = { title: 'Booking fee · Vendor' };
+export const metadata = { title: 'Booking fee · Supplier' };
 
 type Props = {
   params: Promise<{ orderId: string }>;

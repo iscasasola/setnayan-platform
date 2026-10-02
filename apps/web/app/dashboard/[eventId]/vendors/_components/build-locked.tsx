@@ -144,7 +144,7 @@ export function BuildLocked({
           // The id the review form is keyed on — the SAME `event_vendors.vendor_id`
           // the page's review-status map and `/vendors/<id>/review` already use.
           vendorId: p.vendor_id,
-          name: p.vendor_name ?? 'Vendor',
+          name: p.vendor_name ?? 'Supplier',
           cost: p.rolled_cost_php,
         })),
     ),
@@ -164,7 +164,7 @@ export function BuildLocked({
             group: c.label,
             groupId: c.groupId,
             vendorId: p.vendor_id,
-            name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
+            name: p.marketplace_business_name ?? p.vendor_name ?? 'Supplier',
             cost: p.rolled_cost_php,
             // Booking-requires-verified gate (owner 2026-07-24). Enrichment sets
             // is_verified for picked MARKETPLACE vendors (undefined for
@@ -233,8 +233,8 @@ export function BuildLocked({
         </span>
         <h2 className="text-lg font-semibold text-ink">Nothing to lock yet</h2>
         <p className="text-sm text-ink/60">
-          Add vendors to your build from the Shortlist, then come back here to lock them in — that
-          confirms your pick, updates your budget, and notifies the vendor.
+          Add suppliers to your build from the Shortlist, then come back here to lock them in — that
+          confirms your pick, updates your budget, and notifies the supplier.
         </p>
       </div>
     );

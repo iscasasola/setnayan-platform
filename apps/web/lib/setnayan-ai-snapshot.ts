@@ -219,7 +219,7 @@ export function inquiriesFromThreads(
       ? t.vendorCategory.replace(/[_-]+/g, ' ').trim()
       : null;
     return {
-      vendor: categoryLabel ? `A ${categoryLabel} vendor` : 'A vendor you inquired with',
+      vendor: categoryLabel ? `A ${categoryLabel} supplier` : 'A supplier you inquired with',
       service: categoryLabel ?? 'your inquiry',
       sentDaysAgo,
       replied: false,
@@ -425,7 +425,7 @@ export async function loadVendorChangeSignals(
 
   const nameById = new Map<string, string>();
   for (const v of watched) {
-    if (!nameById.has(v.id)) nameById.set(v.id, v.name ?? 'A vendor you saved');
+    if (!nameById.has(v.id)) nameById.set(v.id, v.name ?? 'A supplier you saved');
   }
   const sinceIso = new Date(
     now.getTime() - PRICE_AVAILABILITY_WINDOW_DAYS * 86_400_000,
@@ -592,7 +592,7 @@ export async function buildPlanningSnapshot(
       .event_vendors;
     const vendorName = Array.isArray(ev) ? ev[0]?.vendor_name : ev?.vendor_name;
     return {
-      vendorName: vendorName ?? 'a vendor',
+      vendorName: vendorName ?? 'a supplier',
       amountPhp: Number((r as { amount_php: number }).amount_php) || 0,
       dueDate: (r as { due_date: string | null }).due_date,
       lineItemId: (r as { line_item_id?: string | null }).line_item_id ?? null,

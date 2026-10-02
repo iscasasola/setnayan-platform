@@ -94,7 +94,6 @@ import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { PlanMyselfBody, PlanMyselfSwitch } from './plan-myself';
 import { PLAN_MYSELF_LABEL, planMyselfSub } from '@/lib/plan-myself';
 import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from './details-answers-parts';
-import type { EventSettingsInput } from './details-settings-load';
 import type { DetailsGuide } from './details-guide';
 import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
@@ -291,8 +290,6 @@ export type MakerDetailsProps = {
    * editing it (the draft over live). Null/absent = not offered (the lab).
    */
   answers?: AnswersInput | null;
-  /** 🗂 Event settings — the retired `/details/change` page, moved whole (`loadEventSettings`). Null = not read. */
-  settings?: EventSettingsInput | null;
   /**
    * 🙋 "Plan it myself" (owner 2026-10-02, tracker d4) — the one free switch
    * for the automatic help, the last row of Your event. `on` is
@@ -416,8 +413,8 @@ export function MakerDetails(props: MakerDetailsProps) {
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
-  /* 🗂 Your info's answers and Event settings (`details-answers-parts.tsx`). */
-  const ap = answerParts({ eventId, answers: props.answers ?? null, settings: props.settings ?? null });
+  /* 🗂 Your info's answers (`details-answers-parts.tsx`). */
+  const ap = answerParts({ eventId, answers: props.answers ?? null });
   const logoA = props.answers ? logoAnswer(eventId, props.answers) : null;
   const coverA = props.answers ? coverAnswer(eventId, props.answers) : null;
 

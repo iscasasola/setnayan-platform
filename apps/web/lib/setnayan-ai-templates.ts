@@ -430,7 +430,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['area'],
     copy: {
       default:
-        'Your vendors cluster around {area}. Want me to anchor proximity there for the rest of your search?',
+        'Your suppliers cluster around {area}. Want me to anchor proximity there for the rest of your search?',
     },
   },
   'INF-05': {

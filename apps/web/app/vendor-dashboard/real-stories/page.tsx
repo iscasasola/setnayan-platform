@@ -9,7 +9,7 @@ import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
 import { SaveStoryCardButton } from '@/app/[slug]/recap/_components/save-story-card-button';
 
-export const metadata = { title: 'Stories · Vendor' };
+export const metadata = { title: 'Stories · Supplier' };
 
 /**
  * Vendor "Featured in Stories" — the celebrations this vendor helped create

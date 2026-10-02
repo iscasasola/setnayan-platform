@@ -21,7 +21,7 @@ import { claimLockedQr } from './actions';
 import { formatCount } from '@/lib/format-number';
 
 export const metadata = {
-  title: 'Lock in your vendor',
+  title: 'Lock in your supplier',
   robots: { index: false, follow: false },
 };
 
@@ -31,12 +31,12 @@ type Props = {
 };
 
 const STATUS_COPY: Record<string, string> = {
-  pick_event: 'Choose which event to lock this vendor into.',
+  pick_event: 'Choose which event to lock this supplier into.',
   not_your_event: 'That event isn’t one you host — pick one of yours.',
   taken: 'This Locked QR has already been used.',
   void: 'This Locked QR is no longer valid.',
   invalid: 'This Locked QR link is not valid.',
-  error: 'Something went wrong locking the vendor. Please try again.',
+  error: 'Something went wrong locking the supplier. Please try again.',
 };
 
 /**
@@ -90,7 +90,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
   if (!vendor) notFound();
 
   const categoryLabel =
-    VENDOR_CATEGORY_LABEL[tok.category as VendorCategory] ?? 'Vendor';
+    VENDOR_CATEGORY_LABEL[tok.category as VendorCategory] ?? 'Supplier';
   const total = tok.total_php != null ? Number(tok.total_php) : null;
   const paid = Number(tok.initial_paid_php ?? 0);
   const agreedDate = (tok.event_date as string | null) ?? null;
@@ -126,14 +126,14 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
         <p className="mt-2 text-sm text-ink/60">
           {tok.status === 'claimed'
             ? `${vendor.business_name} has already been locked to an event with this QR.`
-            : 'This Locked QR was cancelled by the vendor.'}
+            : 'This Locked QR was cancelled by the supplier.'}
         </p>
         {mineAndClaimed && tok.claimed_event_id ? (
           <Link
             href={`/dashboard/${tok.claimed_event_id}/vendors`}
             className="mt-5 inline-flex items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
           >
-            Go to your vendors
+            Go to your suppliers
           </Link>
         ) : null}
       </div>
@@ -284,7 +284,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
       </div>
 
       <p className="mt-6 text-center text-[11px] text-ink/40">
-        Locking a vendor records your booking and payment plan. This QR works once.
+        Locking a supplier records your booking and payment plan. This QR works once.
       </p>
     </div>
   );
@@ -354,7 +354,7 @@ async function ClaimForm({
     return (
       <div className="rounded-2xl border border-ink/10 bg-white/60 p-5 text-center">
         <p className="text-sm text-ink/70">
-          Create your event first, then we’ll lock the vendor into it.
+          Create your event first, then we’ll lock the supplier into it.
         </p>
         <Link
           href={`/dashboard/create-event?event_type=${encodeURIComponent(eventTypeKey)}&next=${encodeURIComponent(nextPath)}`}

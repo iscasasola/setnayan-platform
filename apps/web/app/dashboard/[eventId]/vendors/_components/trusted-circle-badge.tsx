@@ -72,7 +72,7 @@ export async function TrustedCircleBadge({ eventId, vendorProfileId }: Props) {
   const primary =
     vouchedBy.length > 0
       ? vouchPhrase(vouchedBy)
-      : `${formatCount(connectedTotal)} ${connectedTotal === 1 ? 'person' : 'people'} in your circle trusted this vendor`;
+      : `${formatCount(connectedTotal)} ${connectedTotal === 1 ? 'person' : 'people'} in your circle trusted this supplier`;
 
   // Muted context line — rating + near-match hints, only when present.
   const contextBits: string[] = [];

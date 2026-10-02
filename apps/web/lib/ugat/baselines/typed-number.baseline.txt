@@ -21,7 +21,6 @@ app/admin/payouts/page.tsx "BIR 0.5%"	# first run 2026-10-02 · admin console ·
 app/admin/payouts/page.tsx "Stage 1 · 20%"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
 app/admin/payouts/page.tsx "Stage 2 · 60%"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
 app/admin/payouts/page.tsx "Stage 3 · 20%"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
-app/admin/pricing/_components/ai-bands-editor.tsx "Papic has its own separate saving, and its 10% floor does not apply…"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
 app/admin/pricing/_components/papic-ladder-editor.tsx "₱1 a shot"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
 app/admin/settings/_surfaces/settings-surface.tsx "PH standard is 12%. Receipts already issued won't be re-rated."	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
 app/admin/studio/_surfaces/social-queue-surface.tsx "and clears the 48-hour pull window. The content gate (event date + …"	# first run 2026-10-02 · admin console · a count or amount written into the screen text instead of read
@@ -36,7 +35,6 @@ app/for-suppliers/_components/vendor-grow-sections.tsx "0% while we launch — a
 app/for-suppliers/_components/vendor-grow-sections.tsx "0%"	# first run 2026-10-02 · public site · a count or amount written into the screen text instead of read
 app/onboarding/_shared/date-calendar.tsx "Tap a start + end (≤30 days) — we lock the shared date inside it."	# first run 2026-10-02 · sign-in & onboarding · a count or amount written into the screen text instead of read
 app/onboarding/wedding/_components/onboarding-shell.tsx "₱30,000+ coordinator"	# first run 2026-10-02 · sign-in & onboarding · a count or amount written into the screen text instead of read
-app/onboarding/wedding/_components/onboarding-shell.tsx "3 guest seats to taste candid-capture tagging — every shot lands in…"	# first run 2026-10-02 · sign-in & onboarding · a count or amount written into the screen text instead of read
 app/onboarding/wedding/_components/welcome-moments.tsx "Church, mosque, or temple — about 236,000 couples in 2023."	# first run 2026-10-02 · sign-in & onboarding · a count or amount written into the screen text instead of read
 app/papic/guest/_components/papic-guest-capture.tsx "You've shared your 10 photo notes for this celebration — salamat!"	# first run 2026-10-02 · guest app · a count or amount written into the screen text instead of read
 app/vendor-dashboard/calendar/[date]/page.tsx "1 couple is waiting on this date."	# first run 2026-10-02 · supplier app · a count or amount written into the screen text instead of read

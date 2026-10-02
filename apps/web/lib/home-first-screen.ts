@@ -13,6 +13,9 @@
  *   guide → the Event Hub's guided "What's left" (Details part 5 —
  *           "Round N · x of y · Continue"), for whom Details is
  *   date  → the set-your-date nudge, while no date is set
+ *   guests → "Add your guests", while the (measured) list is empty
+ *   invite → "Send N invitations", N = the measured guests not yet sent one
+ *            (first-timer fix 9, 2026-10-02 — the approved frame 1 card)
  *   papic → "Your free camera is ready", until the first photo is shot
  *   ai    → the Setnayan AI offer, last because it is a purchase, not a step
  *   plan  → nothing above is waiting: the full plan, just below
@@ -25,11 +28,12 @@
  */
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
+import { SERVICE_NAMES } from '@/lib/service-names';
 
-export type HomeNextKind = 'guide' | 'date' | 'papic' | 'ai' | 'plan';
+export type HomeNextKind = 'guide' | 'date' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
 
 /** The order the Home already stacked its nudges in — the first that applies is Next. */
-export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'papic', 'ai', 'plan'];
+export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'guests', 'invite', 'papic', 'ai', 'plan'];
 
 /** The guided flow's position, as Home reads it (null = nothing left, not for this viewer, or unread). */
 export type HomeGuide = {
@@ -60,9 +64,35 @@ export type HomeNext = {
   offer?: boolean;
 };
 
+/**
+ * The guest list as Home read it — null when the read did not happen, so the
+ * guests/invite cards are never drawn from a refused query (a couple with 180
+ * names must never be told "Add your guests").
+ */
+export type HomeGuestsRead = {
+  /** Guests on the living, accepted list, the couple themselves excluded. */
+  total: number;
+  /** …of whom no invitation has been sent (`invitation_sent_at` empty). */
+  unsent: number;
+} | null;
+
+/** Count the Home's guests read — the same set `/guests/send` offers to send to. */
+export function homeGuestsRead(
+  rows: readonly { role?: string | null; invitation_sent_at?: string | null }[],
+  measured: boolean,
+): HomeGuestsRead {
+  if (!measured) return null;
+  const invitable = rows.filter((g) => g.role !== 'bride' && g.role !== 'groom');
+  return {
+    total: invitable.length,
+    unsent: invitable.filter((g) => !(typeof g.invitation_sent_at === 'string' && g.invitation_sent_at.trim() !== '')).length,
+  };
+}
+
 export type HomeNextInput = {
   guide: HomeGuide;
   hasDate: boolean;
+  guests: HomeGuestsRead;
   noun: 'wedding' | 'event';
   papicReady: boolean;
   /** An AI offer exists AND may be shown here (never in the store shell). */
@@ -78,7 +108,7 @@ export type HomeNextInput = {
  * the guided flow's `?tool=details&guide=1` first read as "lost".
  */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
-  const { guide, hasDate, noun, papicReady, aiOffer } = input;
+  const { guide, hasDate, guests, noun, papicReady, aiOffer } = input;
   if (guide?.setup) {
     /* "Finish your Event Hub — n of m · Continue" (frame 10): the next two steps
        still to do; the count is what is really in place. */
@@ -111,20 +141,37 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       action: 'Set your date',
     };
   }
+  if (guests && guests.total === 0) {
+    return {
+      kind: 'guests',
+      title: 'Add your guests',
+      body: 'Your guest list is empty.',
+      action: 'Add guests',
+    };
+  }
+  if (guests && guests.unsent > 0) {
+    const n = formatCount(guests.unsent);
+    return {
+      kind: 'invite',
+      title: `Send ${n} ${guests.unsent === 1 ? 'invitation' : 'invitations'}`,
+      body: `${n} of ${formatCount(guests.total)} ${guests.total === 1 ? 'guest has' : 'guests have'} not been sent one yet.`,
+      action: 'Send invitations',
+    };
+  }
   if (papicReady) {
     return {
       kind: 'papic',
       title: 'Your free camera is ready',
       body: 'Hand it to someone you trust and the candids start landing in your gallery.',
-      action: 'Open Papic',
+      action: `Open ${SERVICE_NAMES.papic.plain.toLowerCase()}`,
     };
   }
   if (aiOffer) {
     return {
       kind: 'ai',
-      title: 'Plan with Setnayan AI',
+      title: `${SERVICE_NAMES['setnayan-ai'].plain} · ${SERVICE_NAMES['setnayan-ai'].brand}`,
       body: 'Ask anything about your event.',
-      action: 'See Setnayan AI',
+      action: `See the ${SERVICE_NAMES['setnayan-ai'].plain.toLowerCase()}`,
     };
   }
   return {
@@ -172,7 +219,8 @@ export function glanceMoney(php: number | null): string {
 */
 
 export type HomeServiceKey = 'papic' | 'ai';
-export type HomeService = { key: HomeServiceKey; name: string; status: string };
+/** `name` is the plain name (first), `brand` the Setnayan name (small under) — `lib/service-names.ts`. */
+export type HomeService = { key: HomeServiceKey; name: string; brand: string; status: string };
 
 /** What `resolvePapicHomeTile` returned, or 'failed' when it threw. */
 export type PapicStatusInput =
@@ -206,8 +254,8 @@ export function homeServices(input: {
 }): HomeService[] {
   if (input.storeShell) return [];
   const all: HomeService[] = [
-    { key: 'papic', name: 'Papic', status: input.papic },
-    { key: 'ai', name: 'Setnayan AI', status: input.ai },
+    { key: 'papic', name: SERVICE_NAMES.papic.plain, brand: SERVICE_NAMES.papic.brand, status: input.papic },
+    { key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai },
   ];
   return all.filter((s) => s.key !== input.next);
 }

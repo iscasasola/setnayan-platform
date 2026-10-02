@@ -85,7 +85,7 @@ import { PerformanceControls } from './_components/performance-controls';
 import { Reanimate } from './_components/reanimate';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'My Performance · Vendor' };
+export const metadata = { title: 'My Performance · Supplier' };
 
 export const dynamic = 'force-dynamic';
 

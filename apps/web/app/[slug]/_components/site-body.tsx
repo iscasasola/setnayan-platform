@@ -26,6 +26,7 @@ import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { saveAttendedVendorAction, submitRsvp } from '../actions';
+import { joinEventAction } from '@/app/join/[eventId]/actions';
 import { GuestChecklist } from './guest-checklist';
 import { guestChecklistItems } from '../_lib/guest-checklist-facts';
 import { daysUntil } from '@/lib/guest-checklist';
@@ -38,7 +39,7 @@ import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { guidedTourView } from '@/app/_components/guided-tour';
 import { type DayOfPhase } from '@/lib/day-of-mode';
 import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
-import { anyoneMayAskToJoin, readRsvpWords, resolveRsvpAsk } from '@/lib/rsvp-ask';
+import { anyoneMayAskToJoin, oneQrLetsYouIn, readRsvpWords, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { GuestPreload } from './guest-preload';
 import { PublicEventDayBar } from './public-event-day-bar';
 import { SiteMenuBar } from './site-menu-bar';
@@ -1296,6 +1297,8 @@ export async function SiteBody({
       reminders: event.what_to_bring,
       giftHref: doorways.pabuya,
       maker: isMakerCanvas,
+      // 🗂 "Accept gifts? — No" (Your info): the canvas draws no gift place either.
+      giftsOff: event.gifts_on === false,
     });
     const detailsScenes = scenesLeftForDetails(plan.publicSafeWidgets, welcome);
     // 📱 On a tabbed page the "Our love story" scene is Our Love Story's page,
@@ -1602,6 +1605,9 @@ export async function SiteBody({
                       signedInNotListed={anon.signedInNotListed}
                       theOrganizer={clientWords.theOrganizer}
                       mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
+                      joinAction={
+                        oneQrLetsYouIn(event.rsvp_ask_config) ? joinEventAction.bind(null, event.event_id, '') : undefined
+                      }
                     />
                   )}
                 </div>

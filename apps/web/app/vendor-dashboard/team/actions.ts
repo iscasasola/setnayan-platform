@@ -7,6 +7,7 @@ import { railForNewOrder } from '@/lib/rail-for-new-order';
 import { PAYMENTS_PAUSED_MESSAGE } from '@/lib/payment-channels';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { formatPhp } from '@/lib/php';
 import { revokeAllSessions } from '@/lib/force-logout';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
 import { orderRowFor, paymentRowFor } from '@/lib/order-mint-identity';
@@ -23,6 +24,7 @@ import {
   fetchExtraAgentSeats,
   fetchSeatFeePhp,
   seatServiceKey,
+  SEAT_PERIOD_DAYS,
 } from '@/lib/vendor-seats';
 
 const ROLE_SET: ReadonlySet<string> = new Set(VENDOR_TEAM_ROLES);
@@ -116,8 +118,10 @@ export async function inviteVendorTeamMember(formData: FormData) {
       .eq('vendor_profile_id', ctx.vendorProfileId)
       .neq('user_id', ctx.founderUserId);
     if ((seatCount ?? 0) >= seatCap) {
+      // The fee is the live catalogue price (`vendor_extra_seat`), read the same
+      // way the buy-a-seat action and the Team page read it — never typed here.
       const moreHint = canBuyExtraSeats(ctx.tierState)
-        ? 'Add a seat (₱250/28d) for more.'
+        ? `Add a seat (${formatPhp(await fetchSeatFeePhp(supabase))}/${SEAT_PERIOD_DAYS}d) for more.`
         : 'Upgrade for more.';
       return err(
         seatCap === 0

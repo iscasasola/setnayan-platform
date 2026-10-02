@@ -203,7 +203,10 @@ test('4 · an empty scene of their own takes its first words into the draft; fil
   assert.match(actions, /const triedInTheDraft = draftingHere && \(CANVAS_INTENTS_DRAFTED\.has\(intent\) \|\| intent === 'save'\);/);
   const panel = code('app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx');
   assert.match(panel, /const wordsDrafted = !ownsPro && proUsable && emptyLive\.includes\(row\.widget_id\);/);
-  assert.match(panel, /\{wordsDrafted \? <HubDraftField \/> : <HubSavesImmediately \/>\}/);
+  /* ✍ …and inside the Maker the words ALWAYS draft (owner 2026-10-01, "nothing
+     takes effect until Apply"; tap-to-type on every scene drafts the same words). */
+  assert.match(panel, /const draftWords = wordsDrafted \|\| Boolean\(makerPart\);/);
+  assert.match(panel, /\{draftWords \? <HubDraftField \/> : <HubSavesImmediately \/>\}/);
   assert.match(code('app/dashboard/[eventId]/website/editor/page.tsx'), /\.filter\(\(w\) => isCustomSectionType\(w\.widget_type\) && !customSectionHasContent\(w\.config_json\)\)/);
 });
 

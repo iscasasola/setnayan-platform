@@ -28,7 +28,7 @@ import { findMakerSection, sectionAfter } from './maker-section-find';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
-import { createCanvasTyping, typeablePart } from './type-in-place-canvas';
+import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -52,7 +52,7 @@ import { createCanvasTyping, typeablePart } from './type-in-place-canvas';
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
- *   frame  ⇄ parent  t:'type' · 'typeText' · 'typeStop' · 'typeSync' — ✍ tap-to-type
+ *   frame  ⇄ parent  t:'type' · 'typeText' · 'typeStop' · 'typeSync' · 'typeHere' — ✍ tap-to-type
  *                    (`type-in-place-canvas.ts` has the whole protocol)
  *
  * ✍ `words` IS THE SCENE'S TEXT, LIVE (owner 2026-09-27, writing his own
@@ -453,10 +453,11 @@ export function EditorBridge() {
         // 🔤 A tap ON a part edits that part; anywhere else, the scene.
         const part = tappedElement(e.target, el);
         mark(part);
-        /* ✍ A hero part's words: the caret goes IN them, here, in the tap
-           itself (a phone raises its keyboard only for a focus made in the
-           gesture) — and the Maker's type bar, not its sheet, answers. */
-        const typeEl = typeablePart(part, key);
+        /* ✍ A hero part's words — or a scene's words the Maker offered
+           (`markSceneWords`): the caret goes IN them, here, in the tap itself
+           (a phone raises its keyboard only for a focus made in the gesture)
+           — and the Maker's type bar, not its sheet, answers. */
+        const typeEl = typeablePart(part, key) ?? (sceneTypeField(part) ? (part?.getAttribute('data-el') as HubElementKey | null) : null);
         if (part && typeEl) {
           const at = e as MouseEvent;
           typing.begin(part, key, typeEl, { x: at.clientX, y: at.clientY });
@@ -587,13 +588,26 @@ export function EditorBridge() {
         typing.sync();
         return;
       }
+      /* ✍ Which scene words a tap types in (the Maker says, on every `ready`):
+         marked here, and what was found is said back — the Maker's box steps
+         aside only for words the caret really reaches. */
+      if (data && data.source === 'setnayan-editor' && data.t === 'typeHere') {
+        const found = markSceneWords(document, readSceneTypeWords((data as { parts?: unknown }).parts));
+        window.parent?.postMessage(
+          { source: 'setnayan-site', t: 'typeHereFound', phase: new URLSearchParams(window.location.search).get('phase'), found },
+          origin,
+        );
+        return;
+      }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
       if (data.t === 'typeText') {
         /* ✍ A Wording ▾ / Format ▾ pick, the other pane's keystroke, or a
            refused save's words put back — on the part now. */
         const text = (data as { text?: unknown }).text;
+        const field = (data as { field?: unknown }).field;
         if (typeof data.el === 'string' && typeof text === 'string') {
-          typing.set(findMakerSection(document, data.key), data.el, text.slice(0, 240));
+          const scene = typeof field === 'string' && field ? field : null;
+          typing.set(findMakerSection(document, data.key), data.el, text.slice(0, scene ? 4000 : 240), scene);
         }
         return;
       }

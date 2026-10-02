@@ -1,0 +1,159 @@
+import 'server-only';
+
+import { recordFault } from '@/lib/telemetry/fault-log';
+import { QUERY_ERROR_SINK, type QueryErrorSink } from '@/lib/supabase/error-detect';
+import { DB_FAULT_SINK, type DbFaultSink } from '@/lib/supabase/db-error-log';
+import { type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
+import { shapeRequestError, type ContextLike, type RequestLike } from '@/lib/telemetry/request-error-shape';
+
+/**
+ * Problems · the SERVER's central recorders. Nothing here is called per action:
+ *
+ *   • `recordRequestError` — Next's `onRequestError` (instrumentation.ts). Every
+ *     error THROWN by a server action, a route handler or a server component
+ *     lands here once, with the route pattern, the action's file#export and the
+ *     digest the person's error screen shows.
+ *   • `recordDbVerdict`    — the PostgREST fetch layer (lib/supabase/db-error-log.ts)
+ *     that every server Supabase client already rides. A refused write, a
+ *     refused read and a TARGETED write that matched no row (the "saved, but
+ *     nothing was written" shape) are recorded there, for ~3,000 call sites at
+ *     once.
+ *
+ * Both fire-and-forget through `after()` when a request is in scope, so the
+ * person's response never waits on the recorder, and fall back to a detached
+ * promise outside one.
+ */
+
+/** Schedule a recorder without holding the response; never throws. */
+export function runDetached(task: () => Promise<unknown>): void {
+  const swallow = () => task().catch(() => {});
+  void import('next/server')
+    .then((m) => {
+      try {
+        m.after(swallow);
+      } catch {
+        // Outside a request scope (`after` throws) — run it now, detached.
+        void swallow();
+      }
+    })
+    .catch(() => void swallow());
+}
+
+// ── action id → "file#export" ────────────────────────────────────────────────
+
+type ManifestEntry = { filename?: string; exportedName?: string };
+type ActionsManifest = { node?: Record<string, ManifestEntry>; edge?: Record<string, ManifestEntry> };
+
+let fileManifest: ActionsManifest | null | undefined;
+
+function readManifestFile(): ActionsManifest | null {
+  if (fileManifest !== undefined) return fileManifest;
+  fileManifest = null;
+  try {
+    // `getBuiltinModule` (Node ≥ 22.3), not an import: this module is reachable
+    // from instrumentation.ts, which is ALSO compiled for the edge runtime, and
+    // a static `node:fs` would be bundled there. Absent → the singleton only.
+    const getBuiltin = (process as unknown as { getBuiltinModule?: (id: string) => unknown }).getBuiltinModule;
+    if (typeof getBuiltin !== 'function') return fileManifest;
+    const fs = getBuiltin('node:fs') as typeof import('node:fs');
+    const path = getBuiltin('node:path') as typeof import('node:path');
+    for (const base of [process.cwd(), path.join(process.cwd(), 'apps/web')]) {
+      const p = path.join(base, '.next/server/server-reference-manifest.json');
+      if (fs.existsSync(p)) {
+        fileManifest = JSON.parse(fs.readFileSync(p, 'utf8')) as ActionsManifest;
+        break;
+      }
+    }
+  } catch {
+    fileManifest = null;
+  }
+  return fileManifest;
+}
+
+/**
+ * A Server Action id is a hash; the list must say WHICH action. Next keeps the
+ * build's actions manifest in a process singleton once any page has rendered,
+ * and on disk beside the server bundle. Best-effort on both; the id survives
+ * as `action:<id>` when neither answers.
+ */
+export function resolveActionName(id: string | null | undefined): string | null {
+  if (!id || !/^[0-9a-f]{20,64}$/i.test(id)) return null;
+  const lookup = (m: ActionsManifest | null | undefined): string | null => {
+    const e = m?.node?.[id] ?? m?.edge?.[id];
+    if (!e) return null;
+    if (e.filename && e.exportedName) return `${e.filename}#${e.exportedName}`;
+    return e.exportedName ?? null;
+  };
+  try {
+    const singleton = (globalThis as Record<symbol, { serverActionsManifest?: ActionsManifest } | undefined>)[
+      Symbol.for('next.server.action-manifests')
+    ];
+    const hit = lookup(singleton?.serverActionsManifest) ?? lookup(readManifestFile());
+    return hit ? hit.replace(/^\.\/|^apps\/web\//, '') : null;
+  } catch {
+    return null;
+  }
+}
+
+/** The action KEY used for grouping and for the success/failure counter. */
+export function actionKey(id: string | null | undefined): string | null {
+  if (!id) return null;
+  return resolveActionName(id) ?? `action:${String(id).slice(0, 64)}`;
+}
+
+// ── thrown errors (onRequestError) ───────────────────────────────────────────
+
+/** Called from instrumentation.ts `onRequestError`. Never throws. */
+export async function recordRequestError(err: unknown, req: RequestLike, ctx: ContextLike): Promise<void> {
+  try {
+    const shaped = shapeRequestError(err, req, ctx, actionKey);
+    if (shaped) await recordFault(shaped);
+  } catch {
+    /* a recorder must not add a second failure to the first */
+  }
+}
+
+// ── database responses (fetch layer) ─────────────────────────────────────────
+
+/** Called from lib/supabase/db-error-log.ts for every classified PostgREST response. */
+export function recordDbVerdict(verdict: NonNullable<PostgrestVerdict>, extra: Record<string, unknown> = {}): void {
+  runDetached(() =>
+    recordFault({
+      kind: verdict.kind,
+      action: verdict.action,
+      message: verdict.message,
+      trace: { db_target: verdict.action, ...extra },
+    }),
+  );
+}
+
+/** A Supabase call that never got an answer (network / DNS / timeout). */
+export function recordDbUnreachable(target: string, err: unknown): void {
+  runDetached(() =>
+    recordFault({
+      kind: 'DB_UNREACHABLE',
+      action: target,
+      message: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+      trace: { db_target: target },
+    }),
+  );
+}
+
+// ── logQueryError's non-PostgREST failures ───────────────────────────────────
+
+/**
+ * Installed once at server start by instrumentation.ts `register()`: the sinks
+ * through which the PostgREST fetch layer (db-error-log.ts) and the client-safe
+ * `logQueryError` (lib/supabase/error-detect.ts) hand a thrown /
+ * storage / auth failure to the recorder WITHOUT importing it — an import path
+ * from a client bundle to a `server-only` module fails the build, lazy or not.
+ */
+export function installProblemSinks(): void {
+  const sink: QueryErrorSink = (callSite, message, severity) =>
+    runDetached(() =>
+      recordFault({ kind: 'SERVER_THROWN', action: callSite, message, trace: { call_site: callSite, severity } }),
+    );
+  (globalThis as Record<symbol, QueryErrorSink | undefined>)[QUERY_ERROR_SINK] = sink;
+  const db: DbFaultSink = { verdict: recordDbVerdict, unreachable: recordDbUnreachable };
+  (globalThis as Record<symbol, DbFaultSink | undefined>)[DB_FAULT_SINK] = db;
+}

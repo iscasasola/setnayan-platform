@@ -45,7 +45,7 @@ test('every tile resolves to a nav item that exists', () => {
 
 test('the job the owner does most is on the page he lands on', () => {
   // The whole reason this component exists. If the mount goes, so does the point.
-  assert.match(home, /<WhatYouChange \/>/);
+  assert.match(home, /<WhatYouChange counts=\{whatYouChange\} \/>/);
   assert.match(tile, /key: 'pricing'/);
 });
 
@@ -64,4 +64,22 @@ test('gold stays a rule and an icon, never text', () => {
   const goldOnText = /className="[^"]*text-terracotta[^"]*"[^>]*>\s*\{(?:label|note)\}/.test(tile);
   assert.equal(goldOnText, false, 'gold is below the AA floor for text — use it on the icon/rule only');
   assert.match(tile, /text-terracotta[^"]*"\s*\/>/); // the icon carries it
+});
+
+test('the tiles never show a typed number — the counts come from the audit log', () => {
+  // 🔑 THE DEFECT: the tiles printed "34 changes · 52%", a frozen snapshot of the
+  // owner's log from May–Aug 2026, as if it were live. A digit followed by the
+  // word "change" in the tile source is that snapshot coming back.
+  assert.ok(
+    !/\b\d+\s+changes?\b/.test(tile),
+    'a tile types a change count — compute it from admin_audit_log (lib/admin/what-you-change.ts)',
+  );
+  assert.ok(!/share:\s*\d/.test(tile), 'a tile types a bar width — derive it from the live counts');
+  assert.match(home, /fetchWhatYouChange\(admin\)/);
+});
+
+test('a failed count prints no number, never a zero', () => {
+  const lib = code(read('../../lib/admin/what-you-change.ts'));
+  assert.match(lib, /return null;/);
+  assert.match(tile, /if \(count === null\) return null;/);
 });

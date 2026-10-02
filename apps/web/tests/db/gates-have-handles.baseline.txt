@@ -101,7 +101,6 @@ concierge_brain_chunks.paid_tier_only | Content-pipeline row property, seeded.
 concierge_brain_chunks.cowork_pending_review | Content-pipeline review marker on seeded rows.
 concierge_plan_templates.is_stale | Template bookkeeping on seeded rows.
 concierge_response_cache.is_stale | Cache bookkeeping; rows are replaced, not toggled.
-event_type_profiles.marketplace_enabled | Event-type reference profile, seeded per type.
 event_type_profiles.multi_day | Event-type reference profile, seeded per type ("this type may span several days").
 feature_policy.enabled_for_couples | feature_policy is a seeded policy table; rows are authored by migration.
 feature_policy.enabled_for_vendors_certified | Same table, same reason.

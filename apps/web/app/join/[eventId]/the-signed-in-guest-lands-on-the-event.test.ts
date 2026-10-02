@@ -48,10 +48,15 @@ function fn(name: string): string {
 
 // ── 1 · a key walks in ──────────────────────────────────────────────────────
 
-test('only a seat-holder is minted a session — the returning member and the couple-recorded email', () => {
+// ⤷ 2026-10-02 · a THIRD seat-holder: on a one-QR event ("No reply · one QR for
+// everyone", owner 2026-09-30) the database writes the seat first
+// (`join_open_event_as_guest`), and only its 'joined' / 'member' answer reaches
+// the mint — tests/db/one-qr-lets-a-signed-in-guest-in.db.test.ts and
+// lib/one-qr-joins.test.ts hold that half.
+test('only a seat-holder is minted a session — the returning member, the couple-recorded email, the one-QR join', () => {
   assert.equal(
     count(ACTIONS, /await enterAsGuest\(/g),
-    2,
+    3,
     'a signed-in ending with a seat stopped minting (or a request started to)',
   );
 });
@@ -69,7 +74,7 @@ test('the mint is the real one, from the seat the join just wrote', () => {
 test('every mint site keeps a fallback — a failed lookup must not strand anyone', () => {
   const sites = ACTIONS.split('await enterAsGuest(').slice(1);
   const withFallback = sites.filter((tail) => /dest \?\? `\/join\/\$\{eventId\}\/success/.test(tail.slice(0, 220))).length;
-  assert.equal(withFallback, 2, 'a mint site lost its fallback to the success page');
+  assert.equal(withFallback, 3, 'a mint site lost its fallback to the success page');
 });
 
 test('🔒 the ORGANISER still goes to their dashboard', () => {

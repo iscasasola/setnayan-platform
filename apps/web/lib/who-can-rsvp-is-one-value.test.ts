@@ -68,12 +68,20 @@ test('Who can RSVP is READ through the one reader in both places that show it, a
     ['the Maker’s RSVP page', maker],
     ['Guest List → Invite', invite],
   ] as const) {
-    assert.match(src, /readWhoCanRsvp\(/, `${where} does not read Who can RSVP through readWhoCanRsvp`);
+    // ⤷ 2026-10-02 ("ONE HOME, MAPPED"): the Maker reads the WHOLE setting
+    // ("How guests get in") through `readGuestsGetIn`, itself built on
+    // `readWhoCanRsvp` (lib/who-can-reply.ts) — still the one reader.
+    assert.match(src, /readWhoCanRsvp\(|readGuestsGetIn\(/, `${where} does not read Who can RSVP through the one reader`);
     assert.doesNotMatch(src, /\.whoCanRsvp\b/, `${where} parses the stored key itself — a second reader can drift`);
   }
-  // The Maker's page writes it (the whole config, through the draft door); the
-  // Invite panel only links there.
-  assert.match(maker, /save\(\{ whoCanRsvp: value \}\)/, 'the Maker page no longer writes Who can RSVP');
+  assert.match(
+    readFileSync(join(__dirname, 'who-can-reply.ts'), 'utf8'),
+    /export function readGuestsGetIn[\s\S]{0,200}readWhoCanRsvp\(raw\)/,
+    'readGuestsGetIn stopped reading through readWhoCanRsvp',
+  );
+  // Your info (the Maker's RSVP item) writes it — the whole config, through the
+  // draft door, as ONE dropdown's patch; the Invite panel only links there.
+  assert.match(maker, /save\(guestsGetInPatch\(value\)/, 'the Maker page no longer writes How guests get in');
   assert.match(maker, /hubDraftAction\(eventId, fd\)/, 'the write left the draft door');
   assert.doesNotMatch(invite, /hubDraftAction|whoCanRsvp:/, 'Guest List → Invite grew a second writer');
   assert.match(invite, /launch\?tool=rsvp-page/, 'Guest List → Invite no longer leads to where it is changed');

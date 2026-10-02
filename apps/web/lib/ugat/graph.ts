@@ -282,7 +282,7 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
     color: 'var(--ug-e-tax)',
     colorBg: 'var(--ug-e-tax-bg)',
     table: 'canonical_service_taxonomy',
-    href: '/admin/taxonomy',
+    href: '/admin/categories',
     x: 1060,
     y: 470,
     fields: [

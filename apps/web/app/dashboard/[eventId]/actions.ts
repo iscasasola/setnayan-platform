@@ -14,6 +14,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { parsePaxSettingsForm } from '@/lib/pax-settings-form';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { STEPS, type StepKey } from '@/lib/planner';
@@ -581,10 +582,18 @@ export async function updateEventMatchCriteria(
   // Falls back to the legacy single bride_name/groom_name fields if the split
   // first/last keys aren't present (protects a stale client during the deploy
   // window from wiping names).
-  let brideName: string | null;
-  let groomName: string | null;
-  let recomputedDisplay: string;
-  if (formData.has('bride_first') || formData.has('groom_first')) {
+  let brideName: string | null = null;
+  let groomName: string | null = null;
+  let recomputedDisplay = '';
+  // 🗂 ABSENT ⇒ UNTOUCHED, the rule the budget, the repeat and the celebrant
+  // shape below already follow: Your info › Event settings posts this form
+  // without the names (they are Your info › Names' own field, drafted until
+  // Apply — owner 2026-10-02), and a form that never showed a name box must
+  // never clear the names.
+  const namesPosted = ['bride_first', 'groom_first', 'bride_name', 'groom_name'].some((k) => formData.has(k));
+  if (!namesPosted) {
+    // Leave bride_name / groom_name / display_name exactly as they are.
+  } else if (formData.has('bride_first') || formData.has('groom_first')) {
     // ONE composition (`coupleNameColumns`, lib/typed-names.ts) — the Maker's
     // Names editor drafts exactly these columns through it (2026-10-01).
     const str = (v: FormDataEntryValue | null) => (typeof v === 'string' ? v : '');
@@ -724,8 +733,7 @@ export async function updateEventMatchCriteria(
   const updatePatch: Record<string, unknown> = {
     region,
     mood_feel_key: moodFeelKey,
-    bride_name: brideName,
-    groom_name: groomName,
+    ...(namesPosted ? { bride_name: brideName, groom_name: groomName } : {}),
   };
   // Untouched when the key never arrived — the same "absent ⇒ leave it alone"
   // rule `recur_cadence` below already follows, and for the same reason.
@@ -1159,20 +1167,11 @@ export async function updatePaxSettings(formData: FormData): Promise<GovernedFie
   if (typeof eventId !== 'string' || !eventId) {
     return { ok: false, code: 'invalid_input', message: 'event_id required' };
   }
-  // Deadline: empty clears it (back to the auto default); else a valid ISO date.
-  const deadlineRaw =
-    typeof formData.get('guest_list_edit_deadline') === 'string'
-      ? (formData.get('guest_list_edit_deadline') as string).trim()
-      : '';
-  let deadline: string | null = null;
-  if (deadlineRaw !== '') {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadlineRaw) || Number.isNaN(Date.parse(`${deadlineRaw}T00:00:00Z`))) {
-      return { ok: false, code: 'invalid_input', message: 'Enter a valid date.' };
-    }
-    deadline = deadlineRaw;
-  }
-  const modeRaw = formData.get('adaptive_pricing_mode');
-  const mode = modeRaw === 'final_only' ? 'final_only' : 'realtime';
+  // The two columns are written TOGETHER, so every form posting here carries
+  // both (a form that shows one carries the other hidden) — lib/pax-settings-form.ts.
+  const parsed = parsePaxSettingsForm(formData);
+  if (!parsed.ok) return { ok: false, code: 'invalid_input', message: parsed.message };
+  const { deadline, mode } = parsed;
 
   const supabase = await createClient();
   const {

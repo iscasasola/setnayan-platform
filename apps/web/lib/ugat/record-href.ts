@@ -125,8 +125,8 @@ export function ugatRecordHref(ref: UgatRecordRef): string {
       });
     case 'taxonomy':
       return ref.tileId
-        ? `/admin/taxonomy?open=${encodeURIComponent(ref.tileId)}`
-        : `/admin/taxonomy?q=${encodeURIComponent(ref.canonicalService)}`;
+        ? `/admin/categories?open=${encodeURIComponent(`c:${ref.tileId}`)}`
+        : `/admin/categories?open=${encodeURIComponent(`s:${ref.canonicalService}`)}`;
     case 'order':
       return ref.publicId
         ? `/admin/payments?q=${encodeURIComponent(ref.publicId)}`

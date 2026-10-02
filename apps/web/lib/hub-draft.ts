@@ -412,6 +412,18 @@ export const HUB_DRAFT_FACT_COLUMNS = [
   'print_details',
 ] as const;
 
+/**
+ * 🗂 THE ONBOARDING'S LAST ANSWERS (owner 2026-10-02, DECISION_LOG "EVERY ANSWER
+ * ABOUT AN EVENT LIVES IN EVENT DETAILS ("YOUR INFO") — ONE HOME, MAPPED"):
+ * Photos from guests · Gifts · Do you want a logo? · Event photo — each its
+ * own boolean column (`lib/event-answers.ts`), changed in Your info and, like
+ * every Maker edit, a DRAFT until Apply. Never Pro: an answer is not a look.
+ * Apply writes them through the session UPDATE (each column holds an UPDATE
+ * grant for `authenticated`, migration 20271260666366), and turning Papic ON
+ * arms its free grants there (`hub-draft-actions.ts`).
+ */
+export const HUB_DRAFT_ANSWER_COLUMNS = ['papic_on', 'gifts_on', 'logo_wanted', 'cover_photo_wanted'] as const;
+
 /** The one key of `print_details` a draft may hold. */
 export const HUB_DRAFT_PRINT_DETAILS_KEY = 'name_style';
 
@@ -457,6 +469,8 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   ...HUB_DRAFT_MEDIA_COLUMNS,
   // ✍ THE NAMES AND THE DATE TYPED IN THE MAKER (owner 2026-10-01: "wait for apply").
   ...HUB_DRAFT_FACT_COLUMNS,
+  // 🗂 THE ONBOARDING'S LAST ANSWERS, CHANGED IN YOUR INFO (owner 2026-10-02).
+  ...HUB_DRAFT_ANSWER_COLUMNS,
 ] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
@@ -633,6 +647,12 @@ export function sanitizeHubDraftEventValue(
       if (!isPlainObject(raw)) return undefined;
       return { [QR_STYLE_PREF_KEY]: sanitizeQrStyle(raw[QR_STYLE_PREF_KEY]) };
     }
+    // 🗂 An answer is a yes or a no (null = back to "not asked"); anything else is dropped.
+    case 'papic_on':
+    case 'gifts_on':
+    case 'logo_wanted':
+    case 'cover_photo_wanted':
+      return typeof raw === 'boolean' ? raw : undefined;
     // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? — through the SAME sanitizer the
     // guest render and `submitRsvp` read: unknown keys and non-boolean values
     // are dropped rather than repaired, exactly like every config above.
@@ -1070,6 +1090,17 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
         return JSON.stringify(reveal);
       };
       return key(live) === key(next) ? refChange('same', 'same') : refChange('live', 'drafted');
+    }
+    case 'papic_on':
+    case 'gifts_on': {
+      // On until someone says No: never answered and Yes are the same event.
+      const on = (v: unknown) => (v === false ? 'off' : 'on');
+      return on(live) === on(next) ? refChange('same', 'same') : refChange(on(live), on(next));
+    }
+    case 'logo_wanted':
+    case 'cover_photo_wanted': {
+      const said = (v: unknown) => (v === true ? 'yes' : v === false ? 'no' : null);
+      return refChange(said(live), said(next));
     }
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
@@ -1967,6 +1998,10 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   event_date: 'Your date',
   event_date_precision: 'Your date',
   print_details: 'Your name style',
+  papic_on: 'Photos from guests',
+  gifts_on: 'Gifts',
+  logo_wanted: 'Do you want a logo',
+  cover_photo_wanted: 'Your event photo',
 };
 
 /** A sentence-ready name for each fixed part whose style is drafted. */

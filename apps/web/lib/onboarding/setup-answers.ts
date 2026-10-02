@@ -213,9 +213,14 @@ export function sanitizeSetupAnswers(raw: unknown, view: SetupView): SetupAnswer
 }
 
 /**
- * Where to land after the commit. The guests card decides: a way to add them
- * opens the Guest list; "later" lands on Home, whose Next card says
- * "Add your guests". Never a second question.
+ * Where to land after the commit. The guests card decides first: a way to add
+ * them opens the Guest list. With guests for later, the answers that promised
+ * a next step keep it (owner 2026-10-02, "EVERY ANSWER … LIVES IN EVENT
+ * DETAILS" — the app obeys the answer): "Do you want a logo? — Yes, make one"
+ * opens the Logo maker, and "Upload a photo" ("You'll add it from your Event
+ * Hub") opens the First screen, where the photo goes — each the Maker's Your
+ * info item. Otherwise Home, whose Next card says "Add your guests". Never a
+ * second question.
  */
 export function setupLanding(eventId: string, a: SetupAnswers | null): string {
   const home = `/dashboard/${eventId}`;
@@ -223,5 +228,7 @@ export function setupLanding(eventId: string, a: SetupAnswers | null): string {
   if (a.guests === 'type') return `${home}/guests/new`;
   if (a.guests === 'import') return `${home}/guests/import`;
   if (a.guests === 'people') return `${home}/guests`;
+  if (a.logo === 'yes') return `${home}/launch?tool=details&item=logo`;
+  if (a.photo === 'upload') return `${home}/launch?tool=details&item=hero`;
   return home;
 }

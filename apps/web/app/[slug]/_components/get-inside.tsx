@@ -18,7 +18,13 @@ import { UploadYourQr } from './upload-your-qr';
  *   · signed in, not on this guest list → "You're not on the guest list for
  *     this event yet" + **"Ask to join"**, which goes to the couple's Requests
  *     (`/join/{eventId}`) — never an automatic entry; a name match alone never
- *     admits (owner 2026-09-26, "NOBODY WITHOUT A KEY").
+ *     admits (owner 2026-09-26, "NOBODY WITHOUT A KEY");
+ *   · signed in, not listed, on a ONE-QR event ("Will guests reply? No · One QR
+ *     for everyone", not "I approve each one") → **"Join as a guest"**: one
+ *     press posts the join door's own action, which adds THIS account as a
+ *     guest and walks them in (owner 2026-09-30, "no reply, no approval unless
+ *     the host picks 'I approve each one'"). A press, not the render: a page
+ *     render may not write the guest cookie (lib/guest-membership-session.ts).
  *
  * 🔒 THIS IS THE DOOR, NOT THE GATE. What stays inside (camera, gallery,
  * announcements, seat, exact venue) is withheld by the SERVER before this page
@@ -30,7 +36,15 @@ export function GetInside({
   signedInNotListed,
   theOrganizer,
   mayAskToJoin = false,
+  joinAction,
 }: {
+  /**
+   * One QR for everyone, no approval (`oneQrLetsYouIn`, lib/rsvp-ask.ts): the
+   * join door's own action, bound to this event by the page
+   * (`joinEventAction.bind(null, eventId, '')`). Absent = not a one-QR event.
+   * Handed in rather than imported, so this door stays renderable on its own.
+   */
+  joinAction?: (formData: FormData) => void | Promise<void>;
   /** The couple chose "Anyone, I approve" (`anyoneMayAskToJoin`, lib/rsvp-ask.ts). */
   mayAskToJoin?: boolean;
   /** "the couple" / "the family" — the event type's own words. */
@@ -39,6 +53,21 @@ export function GetInside({
   eventId: string;
   signedInNotListed: boolean;
 }) {
+  if (signedInNotListed && joinAction) {
+    return (
+      <section aria-labelledby="come-in" className="mx-auto max-w-md space-y-4 text-center" data-get-inside="join">
+        <h2 id="come-in" className="font-serif text-2xl leading-snug text-ink">
+          Come on in
+        </h2>
+        <p className="text-sm text-ink/70">Tap once and this event is added to your account. No reply needed.</p>
+        <form action={joinAction}>
+          <button type="submit" className="button-primary flex min-h-[52px] w-full items-center justify-center">
+            Join as a guest
+          </button>
+        </form>
+      </section>
+    );
+  }
   if (signedInNotListed) {
     return (
       <section aria-labelledby="not-on-list" className="mx-auto max-w-md space-y-4 text-center" data-get-inside="ask">

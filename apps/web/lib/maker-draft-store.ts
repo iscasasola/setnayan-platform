@@ -29,7 +29,7 @@ import type { HubSectionCanvas } from './hub-canvas';
 import { makerSavesInFlight, makerWritesPending } from './maker-refresh';
 
 /** One canvas in one spelling — keys sorted, `undefined` dropped (absent = empty). */
-export function canvasFingerprint(canvas: HubSectionCanvas | null | undefined): string {
+export function canvasFingerprint(canvas: object | null | undefined): string {
   const sort = (v: unknown): unknown => {
     if (Array.isArray(v)) return v.map(sort);
     if (v && typeof v === 'object') {
@@ -45,17 +45,17 @@ export function canvasFingerprint(canvas: HubSectionCanvas | null | undefined): 
   return JSON.stringify(sort(canvas ?? {}));
 }
 
-export type DraftedCanvases = {
+export type DraftedCanvases<T extends object = HubSectionCanvas> = {
   /** A panel wrote `canvas` for `type`, built on the server's `server`. */
-  note(type: string, canvas: HubSectionCanvas, server: HubSectionCanvas | null | undefined): void;
+  note(type: string, canvas: T, server: T | null | undefined): void;
   /** The canvas a panel must build on: ours while it is newer, else the server's. */
-  read(type: string, server: HubSectionCanvas | null | undefined): HubSectionCanvas;
+  read(type: string, server: T | null | undefined): T;
   /** Scenes held here — the test's probe. */
   size(): number;
 };
 
-export function createDraftedCanvases(pending: (type: string) => boolean): DraftedCanvases {
-  const mine = new Map<string, { canvas: HubSectionCanvas; fp: string; base: string }>();
+export function createDraftedCanvases<T extends object = HubSectionCanvas>(pending: (type: string) => boolean): DraftedCanvases<T> {
+  const mine = new Map<string, { canvas: T; fp: string; base: string }>();
   return {
     note(type, canvas, server) {
       const had = mine.get(type);
@@ -66,7 +66,7 @@ export function createDraftedCanvases(pending: (type: string) => boolean): Draft
     },
     read(type, server) {
       const own = mine.get(type);
-      const theirs = server ?? {};
+      const theirs = server ?? ({} as T);
       if (!own) return theirs;
       const serverFp = canvasFingerprint(theirs);
       if (serverFp === own.fp) {
@@ -100,4 +100,23 @@ export function noteDraftedCanvas(type: string, canvas: HubSectionCanvas, server
 /** The scene canvas to build the next pick on — the Maker's own while it is newer than `server`. */
 export function draftedCanvasOr(type: string, server: HubSectionCanvas | null | undefined): HubSectionCanvas {
   return shared.read(type, server);
+}
+
+/**
+ * ✍ …AND EVERY SCENE OF THEIR OWN'S WORDS a typed heading or body wrote
+ * (`type-in-place.tsx`). The draft replaces a scene's `custom` whole, so a
+ * heading typed after its words must carry the words as just typed, not as the
+ * last render had them — the same rule as the canvases, keyed by the words'
+ * own write (`custom:<type>`).
+ */
+export type OwnWords = { title: string; body: string };
+const ownWordsShared = createDraftedCanvases<OwnWords>(
+  (type) => makerWritesPending(`custom:${type}`) > 0 || makerSavesInFlight() > 0,
+);
+export function noteDraftedOwnWords(type: string, words: OwnWords, server: OwnWords | null | undefined): void {
+  ownWordsShared.note(type, words, server);
+}
+export function draftedOwnWordsOr(type: string, server: OwnWords | null | undefined): OwnWords {
+  const w = ownWordsShared.read(type, server);
+  return { title: w.title ?? '', body: w.body ?? '' };
 }

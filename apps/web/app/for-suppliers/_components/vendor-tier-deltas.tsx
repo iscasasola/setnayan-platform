@@ -64,7 +64,7 @@ import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 // See the note in vendor-grow-sections.tsx: the launch-period 0% promise is
 // gated on the flag that decides whether anybody is actually billed.
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
-import type { VendorTierMatrixPrices } from './vendor-tier-matrix';
+import { tierTag, type VendorTierMatrixPrices } from './vendor-tier-matrix';
 
 /** The ladder as a person climbs it. `verified` is the real free-vendor state. */
 const LADDER: { cap: VendorTier; source: string; label: string }[] = [
@@ -160,9 +160,9 @@ export function VendorTierDeltas({
 
   const priceOf: Record<string, { price: string; unit: string }> = {
     verified: { price: '₱0', unit: 'forever' },
-    solo: { price: prices.soloMonthly, unit: '/ 28 days' },
-    pro: { price: prices.proMonthly, unit: '/ 28 days' },
-    enterprise: { price: prices.enterpriseMonthly, unit: '/ 28 days' },
+    solo: tierTag(prices.soloMonthly, '/ 28 days'),
+    pro: tierTag(prices.proMonthly, '/ 28 days'),
+    enterprise: tierTag(prices.enterpriseMonthly, '/ 28 days'),
   };
 
   return (

@@ -15,6 +15,7 @@ import {
   HUB_DRAFT_EVENT_COLUMNS,
   HUB_DRAFT_EVENT_LABEL,
   HUB_DRAFT_FACT_COLUMNS,
+  HUB_DRAFT_ANSWER_COLUMNS,
   HUB_DRAFT_HISTORY_LIMIT,
   HUB_RESET_EVENT_COLUMNS,
   HUB_RESET_SCOPES,
@@ -116,8 +117,14 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
     // ✍ The names and the date typed in the Maker (2026-10-01, "wait for apply").
     // Two of them are also HUB_WORDS_EVENT_COLUMNS (display_name, event_date) — a fact first.
     const fact = (HUB_DRAFT_FACT_COLUMNS as readonly string[]).includes(c);
-    assert.equal([look, free, word && !fact, made, own, fact].filter(Boolean).length, 1, `${c} must be exactly one kind`);
-    if (free || word || fact) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
+    // 🗂 The onboarding's last answers, changed in Your info (2026-10-02) — never Pro.
+    const answer = (HUB_DRAFT_ANSWER_COLUMNS as readonly string[]).includes(c);
+    assert.equal([look, free, word && !fact, made, own, fact, answer].filter(Boolean).length, 1, `${c} must be exactly one kind`);
+    if (free || word || fact || answer) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
+    if (answer) {
+      assert.equal(eventItemIsPro(c, false, 'change'), false, `${c}: an answer is never Pro`);
+      assert.equal(eventItemIsPro(c, true, 'add'), false, `${c}: an answer is never Pro`);
+    }
   }
   assert.equal(eventItemIsPro('site_bg_music_enabled', true, 'add'), false, 'switching the song on is free');
   assert.equal(eventItemIsPro('style_preferences', { qr: { shape: 'circle' } }, 'add'), true, 'the QR look is Pro');

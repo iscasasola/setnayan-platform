@@ -943,6 +943,9 @@ export function ProposalMaker({
   return (
     <form
       action={sendCustomProposalFromChat}
+      // data-flow — the Problems list counts open → edit → send → sent here
+      // (lib/telemetry/flows.ts, "supplier_quote").
+      data-flow="supplier-quote"
       className="overflow-hidden rounded-2xl border border-ink/10 bg-cream shadow-sm"
     >
       <input type="hidden" name="thread_id" value={threadId} />

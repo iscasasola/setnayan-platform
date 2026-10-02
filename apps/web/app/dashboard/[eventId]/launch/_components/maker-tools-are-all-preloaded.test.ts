@@ -44,6 +44,7 @@ const LAYOUTS = ['app/layout.tsx', 'app/dashboard/layout.tsx', 'app/dashboard/[e
  */
 const NOT_A_TOOL: Record<string, string> = {
   '@sentry/nextjs': 'error reporting — loaded at idle by its own path (deferred-observability), not a panel',
+  'lib/telemetry/fault-observer.ts': 'the Problems observer — installed at idle by deferred-observability on every page, nothing a person taps opens it; not a panel',
   'posthog-js': 'analytics — only after cookie consent, never preloaded',
   'lib/vendor-qr-guard-client.ts': 'runs on a file the couple picked (upload pipeline) — there is nothing to run before the pick',
   'lib/watermark.ts': 'runs on a file the couple picked (upload pipeline)',

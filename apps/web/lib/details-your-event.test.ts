@@ -55,10 +55,12 @@ test('a wedding shows all five, in the navigator’s order, in the “Your event
   assert.equal(yourEventLabel('parents', WEDDING), 'Parents & hosts');
   assert.deepEqual(peopleLabels(WEDDING_PROFILE.terminology.personA, WEDDING_PROFILE.terminology.personB), ['Bride', 'Groom']);
   const group = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
-  // …then Plan it myself (owner 2026-10-02, tracker d4 —
-  // `plan-it-myself-is-one-switch.test.ts`), then the Seat plan, last (Details
-  // part 4 — its own rule, `the-seat-plan-moves-into-details.test.ts`).
-  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'parents', 'march', 'plan-myself', 'seating']);
+  // …then Your info's answers (owner 2026-10-02, "EVERY ANSWER … LIVES IN EVENT
+  // DETAILS": Event settings · Photos from guests · Gifts), then Plan it myself
+  // (owner 2026-10-02, tracker d4 — `plan-it-myself-is-one-switch.test.ts`),
+  // then the Seat plan, last (Details part 4 — its own rule,
+  // `the-seat-plan-moves-into-details.test.ts`).
+  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'parents', 'march', 'settings', 'papic', 'gifts', 'plan-myself', 'seating']);
 });
 
 for (const [name, kind] of NON_WEDDINGS) {

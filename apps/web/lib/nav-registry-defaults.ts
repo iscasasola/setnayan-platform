@@ -2193,7 +2193,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "admin",
     area: "admin-sidebar",
     route: "/admin/connection-logs",
-    label: "Connection logs",
+    label: "Problems",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Bug",
@@ -2325,8 +2325,8 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     key: "admin.sidebar.taxonomy",
     scope: "admin",
     area: "admin-sidebar",
-    route: "/admin/taxonomy",
-    label: "Taxonomy",
+    route: "/admin/categories",
+    label: "Categories & event types",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Tag",
@@ -2480,18 +2480,10 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
   // nav_slot_override row for this key is inert — the renderer iterates code
   // defaults and overlays overrides (lib/nav-registry.ts), so an override with no
   // matching default is never rendered.
-  {
-    key: "admin.sidebar.wedding-traditions",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/wedding-traditions",
-    label: "Wedding traditions",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "BookOpen",
-    customRef: null,
-    sortOrder: 50,
-  },
+  // admin.sidebar.wedding-traditions REMOVED 2026-10-02 — "What to expect" is
+  // a section of each religion on /admin/categories (the Traditions tab left
+  // /admin/ugat). Any stale override row for this key is inert.
+
   {
     key: "admin.sidebar.notifications",
     scope: "admin",

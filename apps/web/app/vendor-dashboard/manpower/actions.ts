@@ -296,7 +296,7 @@ export async function cancelGig(
 // Form fields (FormData shape used by the post-gig drawer):
 //   event_id          UUID    required
 //   gig_label         TEXT    required · 4–200 chars
-//   cash_amount_php   STRING  optional · whole pesos · default ₱15,000
+//   cash_amount_php   STRING  required · whole pesos · no default (a blank is refused)
 //   notes             TEXT    optional · free-form
 //
 // On success: redirects to /dashboard/[eventId]/manpower with ?posted=1
@@ -319,16 +319,21 @@ export async function postManpowerGig(formData: FormData): Promise<void> {
     );
   }
 
+  // 🔑 NO DEFAULT AMOUNT. A blank or unreadable amount used to be stored as
+  // ₱15,000 — the prototype's sample figure — so a host who skipped the box
+  // posted a gig for money they never typed. It is refused instead.
   const cashAmountPhpCentavos = (() => {
-    if (typeof cashAmountPhpRaw !== 'string' || cashAmountPhpRaw.trim().length === 0) {
-      return 1_500_000; // ₱15,000 default
-    }
+    if (typeof cashAmountPhpRaw !== 'string' || cashAmountPhpRaw.trim().length === 0) return null;
     const parsed = Math.round(Number(cashAmountPhpRaw.replace(/[^0-9.]/g, '')) * 100);
-    if (!Number.isFinite(parsed) || parsed < 0) {
-      return 1_500_000;
-    }
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
     return parsed;
   })();
+  if (cashAmountPhpCentavos === null) {
+    redirect(
+      `/dashboard/${eventId}/manpower?error=` +
+        encodeURIComponent('Enter the cash amount you will pay the crew.'),
+    );
+  }
 
   const notes =
     typeof notesRaw === 'string' && notesRaw.trim().length > 0

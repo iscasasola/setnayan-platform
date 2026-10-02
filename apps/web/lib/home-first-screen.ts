@@ -271,6 +271,8 @@ export function homeServices(input: {
    · coming / no reply — the three numbers AND the Guests tile AND the
                     "N guests haven't replied yet" row;
    · Paid / Still owing — the money line AND the Budget tile;
+   · the "Kumusta, <name> · welcome back" hero — the first screen's cover (event
+                    name + date) is the greeting now; frame 1 draws no hero;
    · the Next card AND "Needs you this week" saying the same thing — "You are
                     on track · nothing is waiting" against "Nothing needs a
                     decision right now". (With decisions open the tile carries a
@@ -291,6 +293,8 @@ export type FirstScreenAbove = {
 };
 
 export type FirstScreenRepeats = {
+  /** The "Kumusta, … · welcome back" greeting + "Your wedding is taking shape" sentence: the first screen's cover is the greeting now (frame 1 draws none). */
+  hero: boolean;
   /** The wedding-day card's days-to-go numeral and the briefing's days chip. */
   countdown: boolean;
   /** The Guests tile (coming · no reply). */
@@ -307,8 +311,9 @@ export function firstScreenRepeats(
   above: FirstScreenAbove | undefined,
   openDecisionCount: number,
 ): FirstScreenRepeats {
-  if (!above) return { countdown: false, guests: false, rsvpRow: false, money: false, needsYou: false };
+  if (!above) return { hero: false, countdown: false, guests: false, rsvpRow: false, money: false, needsYou: false };
   return {
+    hero: true,
     countdown: true,
     guests: true,
     rsvpRow: true,

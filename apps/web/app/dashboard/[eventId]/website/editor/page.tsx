@@ -43,6 +43,7 @@ import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 import { done, todo } from './_components/rail-rows';
 import { proPriceLabelFrom } from './_components/unlock-label';
 import { TextPanel } from './_components/text-panel';
+import { sceneTypeWords } from '@/lib/scene-type-words';
 import {
   invitationWordsDraft,
   INVITATION_WORDS_HINT,
@@ -193,7 +194,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -1236,6 +1237,8 @@ export default async function WebsiteEditorPage({
       dayParts: true,
       storyRenders: ourStoryRenders(event.love_story),
       countdownPast: countdownMs !== null && countdownMs <= Date.now(),
+      // 🗂 "Accept gifts? — No" (Your info), as the couple is editing it.
+      giftsOff: (drafted as { gifts_on?: boolean | null }).gifts_on === false,
       // 🔓 Empty parts read "Locked — finish ___" only where the setup exists to finish them.
       setupLocks: hubSetupApplies((event.event_type as string | null) ?? null),
     },
@@ -1318,6 +1321,12 @@ export default async function WebsiteEditorPage({
     ready: t.ready,
     current: t.id === currentTheme,
   }));
+
+  /* ✍ Each scene of their own's heading and words, drafted over live — what a
+     typed heading or body carries along (the draft replaces `custom` whole). */
+  const sceneOwnWords = Object.fromEntries(
+    allWidgets.filter((w) => isCustomSectionType(w.widget_type)).map((w) => [w.widget_type, sanitizeCustomSection(w.config_json)]),
+  );
 
   /* Every scene's canvas as the canvas draws it (the draft over live) — what
      per-element editing edits, and what the font dropdowns' "In use" reads. */
@@ -1416,6 +1425,17 @@ export default async function WebsiteEditorPage({
           canvases: elementCanvases,
           logoFonts: await readMakerLogoFonts(eventId),
         }),
+        /* ✍ TAP ANY TEXT, ON EVERY SCENE (`lib/scene-type-words.ts`): the scene
+           words a tap types in, read from the SAME draft over live the canvas
+           draws — so the words the canvas is told to find are the words it shows. */
+        typeHere: sceneTypeWords({
+          types: allWidgets.map((w) => w.widget_type),
+          canvases: elementCanvases,
+          message: (drafted.special_message as string | null) ?? null,
+          reminders: (drafted.what_to_bring as string | null) ?? null,
+          own: sceneOwnWords,
+        }),
+        ownWords: sceneOwnWords,
       }}
       scenes={scenes}
       navigator={navigator}

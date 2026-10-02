@@ -227,7 +227,10 @@ test('telemetry/fault-log.ts logs both its insert and its update — the mechani
   const s = src('lib/telemetry/fault-log.ts');
   assert.match(
     s,
-    /\.insert\(\{[\s\S]{0,400}?if \(error\) \{\s*[\s\S]{0,200}?logQueryError\('lib\/telemetry\/fault-log\.ts: app_telemetry_logs insert', error\);/,
+    // 2026-10-02: the direct .insert() became ONE call to record_app_fault (it
+    // groups the failure into an issue and samples the trace row). Same
+    // property: that write's own failure is logged, never dropped.
+    /call\('record_app_fault'[\s\S]{0,300}?if \(error\) \{\s*[\s\S]{0,300}?logQueryError\('lib\/telemetry\/fault-log\.ts: record_app_fault', error\);/,
   );
   assert.match(
     s,

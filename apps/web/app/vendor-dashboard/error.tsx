@@ -74,6 +74,12 @@ export default function VendorDashboardError({ error, reset }: Props) {
       // eslint-disable-next-line no-console
       console.error('[vendor-dashboard error boundary]', error);
     }
+    // 📋 Problems list — a browser-born crash is recorded (a server-born one,
+    // with a digest, was already recorded by onRequestError). Lazy: this
+    // boundary pays nothing for it until it renders.
+    void import('@/lib/telemetry/report-crash')
+      .then((m) => m.reportCrash(error, 'supplier dashboard'))
+      .catch(() => {});
   }, [error]);
 
   return (

@@ -17,7 +17,8 @@
  *
  * Pure (no I/O) so `event-details-sheet.test.ts` can exercise it directly.
  */
-import { RSVP_ASK_FIELDS, RSVP_ASK_LABEL, WHO_CAN_RSVP_LABEL, readGuestsReply, readWhoCanRsvp, sanitizeRsvpAskConfig } from './rsvp-ask';
+import { RSVP_ASK_FIELDS, RSVP_ASK_LABEL, readGuestsReply, sanitizeRsvpAskConfig } from './rsvp-ask';
+import { guestsGetInLabel, readGuestsGetIn } from './who-can-reply';
 
 /** What an empty fact reads — the owner's words, everywhere on the sheet. */
 export const NOT_SET_YET = 'Not set yet';
@@ -91,8 +92,12 @@ export const EVENT_DETAILS_MAP: ReadonlyArray<{ asked: string; question: string;
  */
 export function howGuestsGetIn(rawRsvpAskConfig: unknown): { value: string; chosen: boolean } {
   const cfg = sanitizeRsvpAskConfig(rawRsvpAskConfig);
-  if (!readGuestsReply(rawRsvpAskConfig)) return { value: 'One QR for everyone · no reply needed', chosen: true };
-  return { value: WHO_CAN_RSVP_LABEL[readWhoCanRsvp(rawRsvpAskConfig)], chosen: cfg.whoCanRsvp !== undefined };
+  // The SAME words as Your info's one dropdown (lib/who-can-reply.ts) — one
+  // setting, one wording, wherever it is shown.
+  return {
+    value: guestsGetInLabel(readGuestsGetIn(rawRsvpAskConfig)),
+    chosen: cfg.whoCanRsvp !== undefined || cfg.guestsReply === false,
+  };
 }
 
 /** The questions the RSVP asks — an absent key is ON, only an explicit `false` is off. */

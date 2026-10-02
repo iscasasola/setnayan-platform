@@ -105,7 +105,9 @@ test("the owner's own sentences all answer, and the price ones lead with Pricing
   assert.equal(
     rankBySentence(ALL, 'i want to add a new category on the taxonomy service', score, 5).hits[0]!
       .href,
-    '/admin/taxonomy',
+    // "taxonomy" left the label (2026-10-02) and stayed a search word — the
+    // owner's own sentence still lands on the page that adds a category.
+    '/admin/categories',
   );
 });
 
@@ -137,7 +139,7 @@ test('every example the search box ADVERTISES actually works', () => {
 
   const expected: Record<string, RegExp> = {
     'papic prices': /^\/admin\/pricing/,
-    'add a category': /^\/admin\/taxonomy$/,
+    'add a category': /^\/admin\/categories$/,
   };
   for (const ex of examples) {
     const hits = rankBySentence(ALL, ex, score, 5).hits;

@@ -6,14 +6,16 @@ import { updatePaxSettings } from '../../actions';
 import { useSaveLoader } from '@/components/sd-loader';
 
 /**
- * Adaptive Pax Pricing couple settings (decisions #5 + #6). Two controls:
- *  - Guest-list edit deadline: after it, the count auto-finalizes, vendor
- *    costs become binding, AND the invitation on the event page stops taking
- *    replies (owner 2026-08-20). Blank = the default (14 days before the
- *    event) — a couple who never opens this card still gets that date, so the
- *    copy beside the field has to say what it costs them.
- *  - Pricing view: realtime (see costs adapt as the count grows) vs final-only
- *    (hold at the floor; settle once at finalization).
+ * Adaptive Pax Pricing couple settings (decisions #5 + #6) — in Event settings,
+ * ONE control: the pricing view, realtime (see costs adapt as the count grows)
+ * vs final-only (hold at the floor; settle once at finalization).
+ *
+ * 📅 The guest-list edit deadline is NOT edited here (audit HOLD on train d,
+ * 2026-10-02: it was asked twice). Its one place is the Maker's RSVP item,
+ * "Reply by" (`maker-rsvp-ask.tsx`). `updatePaxSettings` writes BOTH columns on
+ * every save, so this form carries the stored deadline as a hidden value. Without
+ * it, saving the cost view would blank the date (empty = "clear it") —
+ * `lib/pax-settings-form.ts`, held by `the-settings-card-keeps-the-deadline.test.ts`.
  * Couple-settable (the finalize LOCK itself stays service-role-only).
  */
 export function PaxSettingsCard({
@@ -51,23 +53,11 @@ export function PaxSettingsCard({
     >
       <div className="flex items-center gap-2">
         <CalendarClock className="h-5 w-5 text-terracotta" strokeWidth={1.75} aria-hidden />
-        <h3 className="text-base font-semibold text-ink">Guest list &amp; pricing</h3>
+        <h3 className="text-base font-semibold text-ink">Pricing</h3>
       </div>
 
-      <label className="block">
-        <span className="text-sm font-medium text-ink">Guest-list edit deadline</span>
-        <span className="mt-0.5 block text-xs text-ink/55">
-          After this date your count finalizes, vendor costs become binding, and
-          your guests can no longer reply on your event page. Leave blank to use
-          the default (14 days before your event).
-        </span>
-        <input
-          type="date"
-          name="guest_list_edit_deadline"
-          defaultValue={deadline ?? ''}
-          className="input-field mt-2 sm:w-56"
-        />
-      </label>
+      {/* The stored date rides along unchanged — the action writes both columns. */}
+      <input type="hidden" name="guest_list_edit_deadline" value={deadline ?? ''} />
 
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium text-ink">How you see costs</legend>

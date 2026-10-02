@@ -1,23 +1,26 @@
 import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Shapes, Compass, BookOpen, Brain, Network, Route } from 'lucide-react';
+import { redirect } from 'next/navigation';
+import { Shapes, Compass, Brain, Network, Route } from 'lucide-react';
 import { ListPageSkeleton, TablePageSkeleton } from '@/components/skeletons';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { MenusSurface } from './_surfaces/menus-surface';
 import { OnboardingSurface } from './_surfaces/onboarding-surface';
-import { WeddingTraditionsSurface } from './_surfaces/wedding-traditions-surface';
 import { BrainSurface } from './_surfaces/brain-surface';
 import { ScreensSurface } from './_surfaces/screens-surface';
 
 /**
  * Ugat Studio — the tabbed /admin/ugat shell that consolidates the Ugat
  * Console's data-structure config pages into ONE surface (Money-split-style
- * fold · 2026-07-10). Four tabs: Menus & icons (shell/default) · Onboarding ·
- * Traditions · AI brain. Replaces the former card-hub landing.
+ * fold · 2026-07-10). Three tabs: Menus & icons (shell/default) · Onboarding ·
+ * AI brain. Replaces the former card-hub landing.
  *
- * TAXONOMY is DELIBERATELY NOT a tab — /admin/taxonomy is already its own
- * ?view= studio, and folding it would collide ?view with the studio ?tab (the
- * add-ons collision lesson); it stays a standalone Ugat sidebar link.
+ * The Traditions tab LEFT on 2026-10-02: "What to expect" is now a section of
+ * each religion on Categories & event types (/admin/categories?list=religions),
+ * where all 17 religions have it. An old ?tab=wedding-traditions link forwards.
+ *
+ * Categories & event types is DELIBERATELY NOT a tab — /admin/categories is
+ * its own page with its own ?list= / ?open=; it stays a standalone sidebar link.
  *
  * Unlike the Catalog/Settings shells, /admin/ugat does NOT equal any tab's
  * legacy route (menus lives at /admin/menus), so there's no shell-path
@@ -32,7 +35,7 @@ export const dynamic = 'force-dynamic';
 // 'screens' (2026-10-02): the Screens · Doors layer of the Ugat map — owner,
 // DECISION_LOG "ONE MAP OF THE APP". A tab, not a route: Vercel's route count
 // must not grow, and it reads one committed file (no client JS).
-const TABS = ['menus', 'onboarding', 'wedding-traditions', 'brain', 'screens'] as const;
+const TABS = ['menus', 'onboarding', 'brain', 'screens'] as const;
 type Tab = (typeof TABS)[number];
 
 function first(v: string | string[] | undefined): string | undefined {
@@ -46,7 +49,6 @@ function coerceTab(v: string | undefined): Tab {
 const TAB_STRIP: { key: Tab; label: string; icon: typeof Shapes }[] = [
   { key: 'menus', label: 'Menus & icons', icon: Shapes },
   { key: 'onboarding', label: 'Onboarding', icon: Compass },
-  { key: 'wedding-traditions', label: 'Traditions', icon: BookOpen },
   { key: 'brain', label: 'AI brain', icon: Brain },
   { key: 'screens', label: 'Screens', icon: Route },
 ];
@@ -54,7 +56,6 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof Shapes }[] = [
 const TAB_TITLE: Record<Tab, string> = {
   menus: 'Menus & icons',
   onboarding: 'Onboarding',
-  'wedding-traditions': 'Wedding traditions',
   brain: 'Setnayan AI brain',
   screens: 'Screens',
 };
@@ -87,8 +88,6 @@ function activeSurface(
           })}
         />
       );
-    case 'wedding-traditions':
-      return <WeddingTraditionsSurface />;
     case 'brain':
       return <BrainSurface />;
     case 'screens':
@@ -101,6 +100,7 @@ function activeSurface(
 export default async function UgatStudioPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
+  if (first(search.tab) === 'wedding-traditions') redirect('/admin/categories?list=religions');
   const tab = coerceTab(first(search.tab));
 
   return (

@@ -929,7 +929,9 @@ function SubmitSuccess({
   ];
 
   return (
-    <div className="space-y-5 py-2 text-center">
+    // data-flow-mark — the "paid" step of the checkout funnel on the Problems
+    // list (lib/telemetry/flows.ts, "checkout").
+    <div className="space-y-5 py-2 text-center" data-flow-mark="checkout-submitted">
       <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-success-50 ring-1 ring-success-200">
         <CheckCircle2 aria-hidden className="h-9 w-9 text-success-700" strokeWidth={2} />
       </div>

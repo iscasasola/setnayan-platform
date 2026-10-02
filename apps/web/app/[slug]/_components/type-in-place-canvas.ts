@@ -17,6 +17,17 @@
  *   parent → frame  { source:'setnayan-editor', t:'typeText', key, el, text }
  *   parent → frame  { source:'setnayan-editor', t:'typeStop' }
  *   parent → frame  { source:'setnayan-editor', t:'typeSync' }   (the bar loaded: say the words now)
+ *   parent → frame  { source:'setnayan-editor', t:'typeHere', parts: SceneTypeWords[] }
+ *   frame  → parent { source:'setnayan-site',   t:'typeHereFound', phase, found: ['<key>|<field>', …] }
+ *
+ * ✍ EVERY SCENE, NOT ONLY THE HERO. The hero's parts are typed in by name
+ * (`typeablePart`). Another scene's parts carry no key of their own, so the
+ * Maker says which WORDS each of its fields draws (`typeHere`, on every
+ * `ready`); the part whose words are exactly those is marked `data-el-field`
+ * and takes the caret on a tap (`sceneTypeField`). Words a style splits match
+ * no part and are left alone — that scene keeps its box. The canvas answers
+ * with what it found, so the Maker's box steps aside only where the caret
+ * really reaches (one place per setting).
  *
  * 🔒 WORDS ONLY. The part becomes `contenteditable="plaintext-only"` (a browser
  * without it gets `true`, and a paste is taken as plain text), so nothing typed
@@ -27,8 +38,17 @@
  * Only in the Maker's canvas: it is reached from `EditorBridge`, which a guest
  * page never mounts.
  */
-import { HUB_TYPE_PARTS, isTypeCaretPart } from '@/lib/hub-part-words';
+import {
+  HUB_TYPE_PARTS,
+  SCENE_TYPE_ELS,
+  SCENE_TYPE_MULTILINE,
+  isSceneTypeField,
+  isTypeCaretPart,
+  type SceneTypeField,
+  type SceneTypeWords,
+} from '@/lib/hub-part-words';
 import type { HubElementKey } from '@/lib/element-style';
+import { findMakerSection } from './maker-section-find';
 
 export type TypeRect = { top: number; left: number; width: number; height: number };
 
@@ -37,6 +57,68 @@ export function typeablePart(part: HTMLElement | null, key: string): HubElementK
   if (!part || key !== 'f:hero') return null;
   const el = part.getAttribute('data-el') as HubElementKey | null;
   return el && (HUB_TYPE_PARTS as readonly string[]).includes(el) ? el : null;
+}
+
+/**
+ * The Maker's `typeHere` list, read on the canvas — dropped rather than
+ * repaired, like every message the bridge reads: only scene keys, known fields,
+ * strings, and a sane number of them.
+ */
+export function readSceneTypeWords(raw: unknown): SceneTypeWords[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SceneTypeWords[] = [];
+  for (const p of raw.slice(0, 64)) {
+    const m = p as Record<string, unknown> | null;
+    if (!m || typeof m.key !== 'string' || !m.key.startsWith('w:') || m.key.length > 64) continue;
+    if (!isSceneTypeField(m.field) || typeof m.text !== 'string' || m.text.length > 4000) continue;
+    out.push({ key: m.key, field: m.field, text: m.text });
+  }
+  return out;
+}
+
+/** ✍ A scene's part the Maker offered to type in (`markSceneWords`) — the field its words are. */
+export function sceneTypeField(part: HTMLElement | null): SceneTypeField | null {
+  const f = part?.getAttribute('data-el-field');
+  return isSceneTypeField(f) ? f : null;
+}
+
+const flat = (t: string) => t.replace(/\s+/g, ' ').trim();
+
+/**
+ * ✍ MARK THE SCENE PARTS WHOSE WORDS ARE A FIELD'S — exactly, whole. Each
+ * field is looked for in its own scene only, among the parts the bridge stamped
+ * (`label` · `heading` · `body`) that belong to that scene and not to one inside
+ * it. Words drawn split (or not drawn) match nothing. Returns `<key>|<field>`
+ * for every field found.
+ */
+export function markSceneWords(doc: Document, parts: readonly SceneTypeWords[]): string[] {
+  // The words being typed right now keep their mark — their letters are the couple's, mid-word.
+  doc.querySelectorAll('[data-el-field]').forEach((n) => {
+    if (!n.hasAttribute('contenteditable') && !n.querySelector('[contenteditable]')) n.removeAttribute('data-el-field');
+  });
+  const found: string[] = [];
+  for (const p of parts) {
+    const section = findMakerSection(doc, p.key);
+    if (!section) continue;
+    if (section.querySelector(`[data-el-field="${p.field}"]`)) {
+      found.push(`${p.key}|${p.field}`);
+      continue;
+    }
+    const want = flat(p.text);
+    if (!want) continue;
+    const hit = Array.from(section.querySelectorAll<HTMLElement>('[data-el]')).find(
+      (n) =>
+        SCENE_TYPE_ELS.includes(n.getAttribute('data-el') ?? '') &&
+        !n.hasAttribute('data-el-field') &&
+        !n.closest('[data-maker-look]') &&
+        (n.closest('[data-setnayan-editor-bound="1"]') ?? section) === section &&
+        flat(n.textContent ?? '') === want,
+    );
+    if (!hit) continue;
+    hit.setAttribute('data-el-field', p.field);
+    found.push(`${p.key}|${p.field}`);
+  }
+  return found;
 }
 
 /**
@@ -77,11 +159,18 @@ const words = (el: Element) => (el.textContent ?? '').replace(/\s+/g, ' ').trim(
 /**
  * What the part says now. The names say BOTH people, joined the way the page
  * splits them (" & ", `splitCoupleNames`) — what `events.display_name` holds.
+ * A scene's words of several lines keep their lines (the page draws them
+ * `whitespace-pre-line`): read as the browser lays them out (`innerText`).
  */
 export function partWords(part: HTMLElement): string {
   const people = peopleOf(part);
   if (people.length > 0) return people.map(words).filter(Boolean).join(' & ');
-  return words(typeTargetOf(part));
+  const target = typeTargetOf(part);
+  if (SCENE_TYPE_MULTILINE.includes(part.getAttribute('data-el-field') ?? '')) {
+    const raw = typeof target.innerText === 'string' ? target.innerText : (target.textContent ?? '');
+    return raw.replace(/\r\n?/g, '\n').replace(/[ \t]+/g, ' ').replace(/ ?\n ?/g, '\n').trim();
+  }
+  return words(target);
 }
 
 /** Put the part's words back, or new ones in (a Wording ▾ or Format ▾ pick, a refused save). */
@@ -136,8 +225,8 @@ export type CanvasTyping = {
   stop: () => void;
   /** Say the words as they are now (the Maker's bar has just loaded). */
   sync: () => void;
-  /** The Maker's words for a part (a pick, a revert) — on the page now. */
-  set: (section: HTMLElement | null, el: string, text: string) => void;
+  /** The Maker's words for a part (a pick, a revert) — on the page now. A scene's part is found by its `field`. */
+  set: (section: HTMLElement | null, el: string, text: string, field?: string | null) => void;
   dispose: () => void;
 };
 
@@ -183,11 +272,14 @@ export function createCanvasTyping(win: Window, post: (message: Record<string, u
     begin(part, key, el, at) {
       if (session) end(false);
       const target = typeTargetOf(part, doc.elementFromPoint(at.x, at.y));
-      const caret = isTypeCaretPart(el);
+      // ✍ A scene's words (`markSceneWords`): a caret always; several lines take Enter as a new line.
+      const field = sceneTypeField(part);
+      const caret = field !== null || isTypeCaretPart(el);
+      const lines = field !== null && SCENE_TYPE_MULTILINE.includes(field);
       const before = partWords(part);
       const onInput = () => send('input');
       const onKey = (e: KeyboardEvent) => {
-        if (e.key === 'Enter') {
+        if (e.key === 'Enter' && !lines) {
           e.preventDefault();
           target.blur();
         } else if (e.key === 'Escape') {
@@ -197,7 +289,8 @@ export function createCanvasTyping(win: Window, post: (message: Record<string, u
       };
       const onPaste = (e: ClipboardEvent) => {
         e.preventDefault();
-        const text = (e.clipboardData?.getData('text/plain') ?? '').replace(/\s+/g, ' ');
+        const raw = (e.clipboardData?.getData('text/plain') ?? '').replace(/\r\n?/g, '\n');
+        const text = lines ? raw.replace(/[ \t]+/g, ' ') : raw.replace(/\s+/g, ' ');
         doc.execCommand('insertText', false, text);
       };
       const onBlur = () => end(false);
@@ -254,6 +347,7 @@ export function createCanvasTyping(win: Window, post: (message: Record<string, u
         at: part.getAttribute('data-el-at') ?? undefined,
         title: part.getAttribute('data-el-title') ?? undefined,
         caret,
+        ...(field ? { field } : {}),
       });
     },
     stop: () => {
@@ -262,11 +356,13 @@ export function createCanvasTyping(win: Window, post: (message: Record<string, u
       else end(false);
     },
     sync: () => send('input'),
-    set(section, el, text) {
+    set(section, el, text, field) {
       const part =
         session && session.el === el && (!section || section.contains(session.part))
           ? session.part
-          : (section?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null);
+          : field
+            ? (section?.querySelector<HTMLElement>(`[data-el-field="${field}"]`) ?? null)
+            : (section?.querySelector<HTMLElement>(`[data-el="${el}"]`) ?? null);
       if (!part) return;
       setPartWords(part, text);
       if (session && session.part === part && session.target === doc.activeElement) {

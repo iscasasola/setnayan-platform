@@ -1,21 +1,13 @@
-## 2026-10-01 · fix(home): each thing once under the new first screen
+## 2026-10-02 · fix(home): the "Kumusta…" hero leaves — the first screen's cover is the greeting
 
-Owner, 2026-10-01 (DECISION_LOG "HOME ON DESKTOP SHOWS EACH THING ONCE"): *"you
-updated the Home of that event but instead of changing it I see dupes on the
-event."* The first screen had been added on top of the old tiles, so days to go,
-coming / no reply and Paid / Still owing each rendered twice, and the Next card
-sat beside "Needs you this week". When `<HomeFirstScreen>` is drawn directly above
-`<EventDashboard>` (the Home's plan branch only), the dashboard no longer renders:
-the wedding-day card's days-to-go numeral and the Sai briefing's "N days to go"
-chip; the Guests tile; the "N guests haven't replied yet" row; the Budget tile
-(when the first screen drew the money line); and the whole "Needs you this week"
-tile when it would only say "nothing needs you" against the Next card's "You are
-on track" (with open decisions it carries a count the first screen lacks, and
-stays). Removed, not hidden behind a breakpoint; phone and desktop show the same
-Home. The day-of and after-the-day mounts are unchanged. The Papic tile, date and
-venue, % planned, overlays, journey rail and decisions board stay. Pure rule in
-`firstScreenRepeats` (lib/home-first-screen.ts); guarded in
-`the-home-leads-with-one-next.test.ts` (rendered first-screen counts + gate per
-site, sites counted).
+Owner ruling 2026-10-01 (DECISION_LOG "HOME ON DESKTOP SHOWS EACH THING ONCE" + "THE SIMPLE PHONE APP —
+APPROVED", frame 1). #6232 already removed days to go, coming / no reply, Paid / Still owing and the
+Next-vs-"Needs you this week" overlap from under the first screen. The one block it left was the
+"Kumusta, <name> · welcome back / Your wedding is taking shape. Here's today." hero, which frame 1 does not
+draw. With the first screen above, `EventDashboard` now does not render it (removed, not hidden behind a
+breakpoint: `firstScreenRepeats().hero`). The day-of and after-the-day mounts have no first screen above
+them and keep it. The page's one `<h1>` moves to the first screen (screen-reader-only event name; the seen copy is aria-hidden). The guard
+`the-home-leads-with-one-next.test.ts` gains the hero gate, a count of every first-screen gate the
+dashboard reads, and "exactly one h1".
 
 SPEC IMPACT: None.

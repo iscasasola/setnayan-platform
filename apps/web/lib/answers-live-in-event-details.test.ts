@@ -29,7 +29,7 @@ import { stripComments } from '@/lib/strip-comments';
 import { profileSetup, toProfile, type ProfileRow } from '@/lib/event-type-profile';
 import { pickableInviteThemes } from '@/lib/invite-themes';
 import { setupViewFor } from './onboarding/flow-config';
-import { sanitizeSetupAnswers, setupDefaults, type SetupAnswers, type SetupView } from './onboarding/setup-answers';
+import { sanitizeSetupAnswers, setupDefaults, setupLanding, type SetupAnswers, type SetupView } from './onboarding/setup-answers';
 import { setupColumns } from './onboarding/event-insert';
 import {
   EVENT_ANSWER_COLUMNS,
@@ -51,7 +51,7 @@ import { rowAcceptsNewCaptures } from './event-accepts-captures-rule';
 import { welcomeParts } from './invitation-welcome';
 import { buildGuidedPlan, stepOf } from './details-guided-flow';
 import { eventColumnChange, eventItemIsPro, HUB_DRAFT_EVENT_LABEL, isHubDraftEventColumn, sanitizeHubDraftEventValue } from './hub-draft';
-import { DETAILS_ITEM_GROUPS } from './maker-details-items';
+import { DETAILS_ITEM_GROUPS, detailsItemHref } from './maker-details-items';
 
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -197,7 +197,16 @@ test('Gifts No: the guest-facing gift reader returns nothing, and the gift page 
   assert.match(read('app/[slug]/pabuya/page.tsx'), /if \(!giftsAreOn\(event\.gifts_on\)\) notFound\(\);/);
 });
 
-/* ══ LOGO · EVENT PHOTO — obeyed by What's left ══ */
+/* ══ LOGO · EVENT PHOTO — obeyed at the landing, then by What's left ══ */
+
+test('"Yes, make one" lands in the Logo maker; "Upload a photo" lands where the photo goes; the guests card still comes first', () => {
+  const E = 'E1';
+  assert.equal(setupLanding(E, onboard({ logo: 'yes', photo: 'upload' })), detailsItemHref(E, 'logo'), 'the logo flow starts right after onboarding');
+  assert.equal(setupLanding(E, onboard({ logo: 'no', photo: 'upload' })), detailsItemHref(E, 'hero'), 'the photo is prompted where it is added');
+  assert.equal(setupLanding(E, onboard({ logo: 'no', photo: 'theme' })), `/dashboard/${E}`, 'nothing promised: Home');
+  assert.equal(setupLanding(E, onboard({ logo: 'yes', guests: 'type' })), `/dashboard/${E}/guests/new`, 'adding guests now wins');
+});
+/* ══ LOGO · EVENT PHOTO — and obeyed by What's left (after the landing) ══ */
 
 function stepState(key: 'logo' | 'hero', done: boolean): string | undefined {
   const plan = buildGuidedPlan([{ key, label: '', done }], { solemn: false, parentsOffered: false });

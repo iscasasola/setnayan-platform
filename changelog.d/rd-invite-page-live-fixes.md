@@ -10,6 +10,8 @@ Four findings from the owner's live iPhone test on prod `5666406` (event cale-ic
 
 **4 · The couple's RSVP email said "because you started a Papic gallery".** `emitNotification` passed no footer, so every allowlisted type inherited the template default. `lib/notification-email-reason.ts` gives each of the 51 allowlisted types its own line; the HTML footer and the plain-text tail both carry it (admin mail keeps the admin sentence).
 
-Guards (each sabotaged once → red → restored): `the-door-wears-the-hub.test.ts` § 3, `lib/guest-pass-hop.test.ts`, `the-save-button-opens-what-it-says.test.ts`, `lib/every-notice-email-says-its-own-reason.test.ts`; `page-ground.test.ts` and `plus-ones-own-link-and-host.test.ts` follow the moves.
+**5 · One quiet "shortcut to this event" line on the thank-you (owner 2026-10-03, DECISION_LOG "GUESTS GET ONE QUIET 'SHORTCUT TO THIS EVENT' LINE, ONLY AFTER THEY REPLY").** After a Yes only, `/invite/enter` shows "Keep it handy — add this event to your home screen". A tap opens the steps for that phone (iPhone Safari: Share → Add to Home Screen · Android Chrome: ⋮ → Add to Home screen · both when unknown) in a `<details>` (`ShortcutLine`, server component, no popup, no script). The page now names the per-event manifest and the apple-touch-icon through one helper shared with the Event Hub (`eventShortcutMetadata`, lib/event-app-icon.ts), so the tile opens THAT event under the couple's icon. The Event Hub's 2026-09-30 card removal stands: `the-event-hub-has-no-home-screen-card.test.ts` exempts these two files by name only.
+
+Guards (each sabotaged once → red → restored): `the-door-wears-the-hub.test.ts` § 3, `lib/guest-pass-hop.test.ts`, `the-save-button-opens-what-it-says.test.ts`, `lib/every-notice-email-says-its-own-reason.test.ts`, `the-shortcut-line-is-on-the-thank-you-only.test.ts`; `page-ground.test.ts` and `plus-ones-own-link-and-host.test.ts` follow the moves.
 
 SPEC IMPACT: None

@@ -37,7 +37,9 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { loadEventShell, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { eventShortcutMetadata } from '@/lib/event-app-icon';
+import { ShortcutLine } from '../_components/shortcut-line';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
 import { getCurrentUser } from '@/lib/auth';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
@@ -64,13 +66,30 @@ import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
 import { LandingPreReply } from '../_components/landing-pre-reply';
 
-export const metadata = { title: 'Your invitation', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ rsvp?: string; keep?: string; in?: string; editor?: string; preview?: string; as?: string }>;
 };
+
+/**
+ * 📌 THIS PAGE NAMES THE COUPLE'S TILE (owner 2026-10-03, DECISION_LOG "GUESTS GET
+ * ONE QUIET 'SHORTCUT TO THIS EVENT' LINE"): the thank-you carries "Keep it handy
+ * — add this event to your home screen", so a shortcut made HERE must open THAT
+ * event under the couple's own icon — the per-event manifest and apple-touch-icon
+ * the Event Hub names, through the ONE helper (`eventShortcutMetadata`). Without
+ * them a phone would make a tile of our generic app, or a screenshot.
+ */
+export async function generateMetadata({ params }: Pick<Props, 'params'>) {
+  const { slug } = await params;
+  const shell = await loadEventShell(slug).catch(() => null);
+  return {
+    title: 'Your invitation',
+    robots: { index: false, follow: false },
+    ...(shell?.slug ? eventShortcutMetadata(shell.slug as string, shell.display_name as string | null) : {}),
+  };
+}
 
 /**
  * 🚪 THE GUEST'S OWN LANDING PAGE (owner 2026-09-30, DECISION_LOG "THE PERSONAL
@@ -656,6 +675,13 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         {/* Kept below the Fable frames: their own link (📵 nothing is emailed —
             owner 2026-09-29), and the one account button (owner 2026-09-26). */}
         <CopyMyLink link={invitationUrl} />
+
+        {/* 📌 ONE QUIET LINE, AFTER A YES ONLY (owner 2026-10-03, DECISION_LOG
+            "GUESTS GET ONE QUIET 'SHORTCUT TO THIS EVENT' LINE"): the steps for
+            THIS phone open in place on a tap — a `<details>`, no script, never
+            a popup — and the tile it makes is the couple's (`generateMetadata`
+            above). Never on the Event Hub: the 2026-09-30 removal stands. */}
+        {reply === 'yes' ? <ShortcutLine userAgent={userAgent} /> : null}
 
         {nothingToSave ? (
           <SaveToAccount

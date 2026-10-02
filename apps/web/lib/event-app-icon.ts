@@ -148,6 +148,38 @@ export function homeScreenLabel(raw: string | null | undefined, max = 12): strin
 }
 
 /**
+ * 🔑 THE TAGS THAT MAKE A HOME-SCREEN SHORTCUT THE COUPLE'S — ONE copy, read by
+ * every page a guest may add to their home screen: the Event Hub
+ * (`app/[slug]/page.tsx`) and the thank-you that carries the one quiet
+ * "Keep it handy" line (`app/[slug]/invite/enter/page.tsx`, owner 2026-10-03).
+ * The per-event manifest names THAT event as the tile's start; iOS ignores
+ * manifest icons, so the apple-touch-icon is named separately; and
+ * `appleWebApp.title` is the label under the icon — without it iOS writes
+ * "Setnayan" under a couple's monogram.
+ */
+export function eventShortcutMetadata(slug: string, displayName: string | null | undefined) {
+  return {
+    manifest: `/${slug}/manifest.webmanifest`,
+    appleWebApp: {
+      capable: true,
+      title: displayName || 'Invitation',
+      statusBarStyle: 'default' as const,
+    },
+    icons: {
+      icon: [
+        { url: `/${slug}/icon/192.svg`, type: 'image/svg+xml', sizes: '192x192' },
+        { url: `/${slug}/icon/512.png`, type: 'image/png', sizes: '512x512' },
+      ],
+      apple: [
+        { url: `/${slug}/icon/180.png`, sizes: '180x180', type: 'image/png' },
+        { url: `/${slug}/icon/167.png`, sizes: '167x167', type: 'image/png' },
+        { url: `/${slug}/icon/152.png`, sizes: '152x152', type: 'image/png' },
+      ],
+    },
+  };
+}
+
+/**
  * The per-event manifest. `start_url` and `scope` are the couple's own address,
  * so the installed tile opens THEIR invitation and stays inside it — an install
  * that lands on our homepage is not their wedding on their phone.

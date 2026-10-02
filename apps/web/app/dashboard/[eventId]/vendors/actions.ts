@@ -2795,7 +2795,7 @@ export async function finalizeVendor(
           amount_php: dpAmountPhp ?? 0,
           method: methodLabel,
           reference: nullIfBlank(formData.get('reference')),
-          notes: 'Downpayment (lock · awaiting supplier confirmation)',
+          notes: 'Downpayment (lock · awaiting vendor confirmation)',
         });
         if (payErr) {
           // Never silent — a lost ledger row is a money-tracking gap ops must see.
@@ -4787,7 +4787,7 @@ export async function recordDeposit(
       amount_php: amountPhp,
       method: nullIfBlank(formData.get('method')),
       reference: nullIfBlank(formData.get('reference')),
-      notes: 'Deposit (date held · awaiting supplier confirmation)',
+      notes: 'Deposit (date held · awaiting vendor confirmation)',
     });
     if (payErr) {
       // eslint-disable-next-line no-console

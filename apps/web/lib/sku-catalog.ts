@@ -303,7 +303,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   // ---- Vendor verification ----
   {
     skuCode: 'vendor_verification_initial',
-    displayName: 'Supplier Verification — Initial (FREE)',
+    displayName: 'Vendor Verification — Initial (FREE)',
     category: 'vendor_verification',
     priceCentavos: 0,
     unit: 'verification',
@@ -315,7 +315,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   },
   {
     skuCode: 'vendor_verification_annual_renewal',
-    displayName: 'Supplier Annual Re-verification',
+    displayName: 'Vendor Annual Re-verification',
     category: 'vendor_verification',
     priceCentavos: 150000,
     unit: 'year',
@@ -327,7 +327,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   },
   {
     skuCode: 'vendor_verification_redemption',
-    displayName: 'Supplier Re-verification after demotion',
+    displayName: 'Vendor Re-verification after demotion',
     category: 'vendor_verification',
     priceCentavos: 250000,
     unit: 'verification',
@@ -416,7 +416,7 @@ export const SKU_CATALOG: ReadonlyArray<SkuRecord> = [
   // ---- Vendor Pro + Contract Intelligence ----
   {
     skuCode: 'vendor_pro_weekly',
-    displayName: 'Supplier Pro Weekly subscription',
+    displayName: 'Vendor Pro Weekly subscription',
     category: 'vendor_subscription',
     priceCentavos: 49900,
     unit: 'week',

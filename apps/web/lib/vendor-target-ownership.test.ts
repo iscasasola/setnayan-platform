@@ -125,6 +125,6 @@ test('the message renders absent ids readably, not as "undefined"', () => {
     targetVendorProfileId: undefined,
   });
   assert.match(msg, /vendor_profile_id=null/);
-  assert.match(msg, /belongs to vendor unknown/);
+  assert.match(msg, /belongs to supplier unknown/);
   assert.ok(!msg.includes('undefined'), 'a raw undefined leaked into the log line');
 });

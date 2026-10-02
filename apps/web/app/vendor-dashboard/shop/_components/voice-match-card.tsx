@@ -192,7 +192,7 @@ export function VoiceMatchCard({
                 ? 'Not switched on for your account yet.'
                 : advancedActive
                   ? 'Replies go out sounding like you — the facts still come straight from your catalog.'
-                  : 'Included with Supplier AI — Advanced.'}
+                  : 'Included with Vendor AI — Advanced.'}
             </p>
           </div>
         </div>
@@ -215,7 +215,7 @@ export function VoiceMatchCard({
       ) : !advancedActive ? (
         <p className="mt-4 text-xs" style={{ color: 'var(--m-slate)' }}>
           Right now your assistant answers in Setnayan&rsquo;s neutral voice. Upgrade
-          to Supplier AI — Advanced to have it greet, phrase and sign off the way you
+          to Vendor AI — Advanced to have it greet, phrase and sign off the way you
           do. Your prices and dates never change: those always come from your own
           catalog.
         </p>

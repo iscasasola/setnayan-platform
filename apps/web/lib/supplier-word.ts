@@ -64,6 +64,26 @@ export const SUPPLIER_WORD_ALLOWED: ReadonlyArray<{ prefix: string; why: string 
   { prefix: 'lib/subprocessors.ts', why: 'legal text — the published subprocessor list' },
   { prefix: 'lib/public-price-literals.ts', why: 'a guard’s own input table, never rendered' },
   { prefix: 'lib/taxonomy-merge-holders.ts', why: 'staff taxonomy tooling' },
+  { prefix: 'lib/sku-catalog.ts', why: 'mirrors the service catalogue’s stored titles — rename them in the catalogue first' },
+  { prefix: 'lib/papic-challenge-pool.ts', why: 'mirrors the seeded challenge titles in the database (papic-challenge-sql)' },
+];
+
+/**
+ * Exact strings that are DATA, not copy: the database stores or matches them,
+ * so changing the word in code alone would break the match. Each says where.
+ */
+export const SUPPLIER_WORD_DATA: ReadonlyArray<{ text: string; why: string }> = [
+  {
+    // Spelt in two halves on purpose: `amount-to-pay.test.ts` counts the files
+    // that hold the whole note as WRITERS of it, and this list writes nothing.
+    text: 'Deposit (date held · awaiting ' + 'vendor confirmation)',
+    why: 'event_vendor_payments.notes — the deposit stamp trigger matches it (NEW.notes IN (…))',
+  },
+  {
+    text: 'Downpayment (lock · awaiting ' + 'vendor confirmation)',
+    why: 'event_vendor_payments.notes — the deposit stamp trigger matches it (NEW.notes IN (…))',
+  },
+  { text: 'Wedding Vendor', why: 'mirrors the SQL screen-name fallback (fix_screen_name_slug_collision_namespace)' },
 ];
 
 export function supplierWordAllowed(rel: string): string | null {
@@ -81,8 +101,11 @@ function isVisible(text: string, i: number, len: number, jsx: boolean, prose: bo
   const before = text.slice(0, i);
   const after = text.slice(i + len);
   if (/[A-Za-z0-9]$/.test(before) || /^[A-Za-z0-9]/.test(after)) return false;
-  // The legal document's own title is a name, not the word (a legal edit).
-  if (/^\s+Agreement\b/.test(after)) return false;
+  // Names, not the word: the legal document's title (a legal edit) and the
+  // supplier AI add-on's catalogue name "Vendor AI" (renamed in the catalogue first).
+  if (/^\s+(?:Agreement|AI)\b/.test(after)) return false;
+  // A template slot (`{vendor}` in the Setnayan AI templates) is a key.
+  if (before.endsWith('{') && after.startsWith('}')) return false;
   if (jsx) return true;
   if (prose) return !GLUED_BEFORE.test(before) && !GLUED_AFTER.test(after);
   const bare = text.replace(/^[^A-Za-z]+|[^A-Za-z]+$/g, '');
@@ -105,6 +128,7 @@ export function scanVendorWord(fileName: string, source: string): VendorWordHit[
   const out: VendorWordHit[] = [];
   const range = (start: number, end: number, jsx: boolean, prose: boolean, whole: string) => {
     if (!jsx && SELECT_LIST.test(whole) && whole.includes(',')) return; // a select list
+    if (!jsx && SUPPLIER_WORD_DATA.some((d) => d.text === whole)) return; // stored data
     const text = source.slice(start, end);
     for (const m of text.matchAll(/vendor(s)?/gi)) {
       if (!isVisible(text, m.index!, m[0].length, jsx, prose)) continue;

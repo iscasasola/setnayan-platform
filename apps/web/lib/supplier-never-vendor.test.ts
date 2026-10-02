@@ -50,6 +50,7 @@ test('the scanner reads what a person reads, and leaves code alone', () => {
     `import x from './vendor-packages';`,
     `export const g = () => console.warn('vendor read failed');`,
     `// a vendor in a comment`,
+    `export const t = 'Heads up — your {vendor} payment is due';`,
   ];
   for (const s of code) assert.deepEqual(scanVendorWord('x.tsx', s), [], `flagged code as copy: ${s}`);
   assert.equal(supplierFor('vendor'), 'supplier');

@@ -61,7 +61,7 @@ test('the region sub-line does not promise vendors when vendorFree', () => {
   const s = src();
   assert.match(
     s,
-    /vendorFree \? ['"]So your plan fits where it happens\.['"] : ['"]So we can line up vendors near you\.['"]/,
+    /vendorFree \? ['"]So your plan fits where it happens\.['"] : ['"]So we can line up suppliers near you\.['"]/,
     'the region screen must reword its vendor promise for a vendor-free type',
   );
 });

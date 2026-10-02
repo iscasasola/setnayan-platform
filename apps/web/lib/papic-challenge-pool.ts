@@ -816,7 +816,7 @@ const MEET_ROOM: PoolRow[] = block('meet_room', 'meet_room', { kind: 'photo', mi
   { title: 'The Queue', prompt: 'Photograph whatever people are queueing for.' },
   { title: 'The Smokers Corner', prompt: 'Photograph whoever stepped outside together.' },
   { title: 'Find The Organiser', prompt: 'Find whoever is actually running today. Thank them. Photo.' },
-  { title: 'The Supplier Crew', prompt: 'Photograph one of the crew working today. Ask first.' },
+  { title: 'The Vendor Crew', prompt: 'Photograph one of the crew working today. Ask first.' },
   { title: 'Last Ones Standing', prompt: 'A photo of whoever is still here at the end.' },
 ]);
 

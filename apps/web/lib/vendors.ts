@@ -776,7 +776,7 @@ export function resolveVendorDisplayName(input: VendorAnonymityInput): string {
   }
   const taxonomyLabel = input.primary_canonical_service
     ? displayServiceLabel(input.primary_canonical_service)
-    : 'Wedding Supplier';
+    : 'Wedding Vendor';
   return input.location_city
     ? `${taxonomyLabel} · ${input.location_city}`
     : taxonomyLabel;

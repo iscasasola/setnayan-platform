@@ -31,6 +31,15 @@ export function seatPlanPreviewSvg(input: {
   seatedByTable: ReadonlyMap<string, number>;
   mode: 'moodboard' | 'blueprint';
   palette: string[];
+  /**
+   * 🧭 THE GUEST'S OWN TABLE, MARKED "YOU" (owner 2026-10-01, the day's Welcome
+   * — prototypes/the_day_guest_phone_2026-10-01_fable.html frame 2a): the SAME
+   * plan, read-only, with one ring and a YOU pin on the reader's table. Absent
+   * (every print and thumbnail) → the plan is byte-for-byte what it was.
+   */
+  youTableId?: string | null;
+  /** Fill its box (a phone page) instead of the 420×300 thumbnail size. */
+  fluid?: boolean;
 }): string {
   const { tables, floorPlan } = input;
   const W = 420;
@@ -127,8 +136,24 @@ export function seatPlanPreviewSvg(input: {
       `<text x="${n(c.x)}" y="${n(c.y + 3)}" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="${n(Math.max(6, Math.min(11, 26 * scale)))}" fill="${ink}">${esc(label.length > 10 ? `${label.slice(0, 9)}…` : label)}</text>`,
     );
   });
+  // The YOU mark goes on last, so no neighbour's chairs are drawn over it.
+  const youAt = input.youTableId ? tables.findIndex((t) => t.table_id === input.youTableId) : -1;
+  if (youAt >= 0) {
+    const g = geos[youAt]!;
+    const c = centers[youAt]!;
+    const r = Math.max(10, (Math.max(g.box.w, g.box.h) / 2) * scale + 3);
+    parts.push(
+      `<circle data-you="" cx="${n(c.x)}" cy="${n(c.y)}" r="${n(r)}" fill="none" stroke="${accent}" stroke-width="2.4"/>`,
+    );
+    const top = Math.max(9, c.y - r - 9);
+    parts.push(
+      `<rect x="${n(c.x - 15)}" y="${n(top - 7)}" width="30" height="14" rx="7" fill="${accent}"/>` +
+        `<text x="${n(c.x)}" y="${n(top + 3.5)}" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="9" font-weight="700" fill="#ffffff">YOU</text>`,
+    );
+  }
   if (!tables.length) {
     parts.push(`<text x="${W / 2}" y="${H / 2}" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="13" fill="${ink}" fill-opacity="0.6">No tables yet</text>`);
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${parts.join('')}</svg>`;
+  const size = input.fluid ? `width="100%" style="height:auto;display:block"` : `width="${W}" height="${H}"`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" ${size}>${parts.join('')}</svg>`;
 }

@@ -452,9 +452,8 @@ test('rsvp · the question and the ticket keep the same fields, the same two ans
 const SEAT = {
   tableLabel: 'Table 7',
   venueName: 'The Garden Pavilion',
-  tables: [{ table_id: 't7', table_label: 'Table 7', table_type: 'round', capacity: 10, x: null, y: null }],
-  entrance: { x: 50, y: 95 },
-  targetTableId: 't7',
+  // The floor plan arrives drawn (`GuestSeatMap.plan`, the seat plan's own renderer).
+  plan: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 300"><circle data-you="" cx="1" cy="1" r="1"/></svg>',
   arrived: false,
 };
 

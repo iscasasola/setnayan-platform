@@ -185,7 +185,8 @@ test('every guest-page door into a seat room sits behind the one rule', () => {
 test('the public landing’s "Find your seat" pill asks the rule (site-body.tsx)', () => {
   const code = stripComments(src('app/[slug]/_components/site-body.tsx'));
   assert.match(code, /\{insideAllowed && doorwayFacts\?\.seatingSurfaceEnabled && doorwayFacts\?\.seatingPublished \? \(\s*<div className="mt-8 text-center">\s*<Link\s*href=\{`\/\$\{event\.slug\}\/find-seat`\}/);
-  assert.match(code, /\{seatPassActive && !isMakerCanvas \? \(\s*<SeatDoorLine/, 'the Details seat line (data-seat-door)');
+  // `!seatMap`: under the day's floor plan, which already names the table, the line stands down (one place per fact).
+  assert.match(code, /\{seatPassActive && !isMakerCanvas && !seatMap \? \(\s*<SeatDoorLine/, 'the Details seat line (data-seat-door)');
 });
 
 test('the everything-else "Find my table" row opens only with the rule (everything-else-rows.ts + site-nav.ts)', () => {

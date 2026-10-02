@@ -1,16 +1,12 @@
-import { DoorOpen, MapPin } from 'lucide-react';
-import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { ArrivalGreeting } from './arrival-greeting';
-import type { EventTableRow } from '@/lib/seating';
-import type { EntrancePos } from '@/lib/indoor-blueprint';
-import { SeatPlaceCard, SeatTableNumber } from './your-seat-styles';
+import { OnYourTicket, SeatFloorPlan, SeatPlaceCard, SeatTableNumber } from './your-seat-styles';
 
 type Props = {
   tableLabel: string;
   venueName: string | null;
-  tables: EventTableRow[];
-  entrance: EntrancePos;
-  targetTableId: string;
+  /** The venue floor plan, read-only, the guest's table marked YOU — SVG markup
+   *  drawn on the server by the seat plan's own renderer (`GuestSeatMap.plan`). */
+  plan: string;
   /** True once this guest has scanned in at the door (a guest_checkins row).
    *  Flips the neutral "here's your table" header to a warm arrival bloom. */
   arrived: boolean;
@@ -23,26 +19,23 @@ type Props = {
 };
 
 /**
- * "Your seat" block — surfaces the guest's table + the entrance→table
- * wayfinding map INLINE on the couple's event website, so an identified guest
- * sees where they sit (and how to get there) without tapping through to the
- * dedicated /[slug]/find-my-table page. Rendered only when the guest has an
- * assigned table AND the couple owns the paid Indoor Blueprint SKU (gated in
- * the page body). Reuses the same WayfindingMap + tables/entrance find-my-table
- * uses; inherits the couple's mood-board palette from InvitationShell.
+ * "Your table" block — the guest's table + the venue floor plan with YOU, on
+ * the day's Welcome (owner 2026-10-01, prototype the_day_guest_phone frame 2a:
+ * "Your table · Table 7 · it's on your ticket in Me", then the plan). Rendered
+ * only when the guest has a table and seats may be seen (the loader asks
+ * `guestsMaySeeSeatsFor`) — so before the day this page has no table and no
+ * plan at all. The plan is the seat plan's own renderer, drawn on the server.
  */
 export function YourSeatBlock({
   tableLabel,
   venueName,
-  tables,
-  entrance,
-  targetTableId,
+  plan,
   arrived,
   sceneStyle = null,
   formalName = null,
   nameStyle,
 }: Props) {
-  const same = { tableLabel, venueName, tables, entrance, targetTableId, arrived };
+  const same = { tableLabel, venueName, plan, arrived };
   if (sceneStyle === 'table-number') return <SeatTableNumber {...same} />;
   if (sceneStyle === 'place-card') return <SeatPlaceCard {...same} formalName={formalName} nameStyle={nameStyle} />;
   // Pahina (design 2026-07-25 §11a): the guest-personal layer is STARRED, not
@@ -63,39 +56,22 @@ export function YourSeatBlock({
       {arrived ? (
         <header className="text-center">
           <ArrivalGreeting tableLabel={tableLabel} />
-          {venueName ? (
-            <p className="mt-1.5 inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
-              <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              {venueName}
-            </p>
-          ) : null}
         </header>
       ) : (
-        <header className="space-y-1.5 text-center">
+        <header data-your-table="" className="space-y-1.5 text-center">
           <p className="pahina-eyebrow justify-center">
             <span aria-hidden>✦</span>
-            <span>Your seat</span>
+            <span>Your table</span>
           </p>
-          <h2 className="font-pahina text-2xl font-light italic leading-tight tracking-tight text-ink sm:text-3xl">
-            You&rsquo;re at <span className="text-gild">{tableLabel}</span>
-          </h2>
-          {venueName ? (
-            <p className="inline-flex items-center justify-center gap-1.5 text-sm text-ink/60">
-              <MapPin aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              {venueName}
-            </p>
-          ) : null}
+          <h2 className="font-pahina text-4xl font-light leading-tight tracking-tight text-gild sm:text-5xl">{tableLabel}</h2>
+          <OnYourTicket />
         </header>
       )}
+      {/* The venue is the Welcome's own, under the walking order (one place per
+          fact on the page) — not repeated here. */}
       <div className="mt-5">
-        <WayfindingMap tables={tables} entrance={entrance} targetTableId={targetTableId} />
+        <SeatFloorPlan plan={plan} tableLabel={tableLabel} />
       </div>
-      <p className="mt-4 flex items-center justify-center gap-2 text-center text-sm text-ink/65">
-        <DoorOpen aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.5} />
-        {arrived
-          ? 'Follow the dotted path to your table — see you there.'
-          : 'Walk in from the entrance and follow the dotted path to your table.'}
-      </p>
     </section>
   );
 }

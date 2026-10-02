@@ -402,3 +402,71 @@ export async function getGuestLiveGallery(
     return null; // gallery trouble must never break the wedding page
   }
 }
+
+/**
+ * 📸 THE GUEST'S OWN SHOTS — what THEY took with the Papic camera (owner
+ * 2026-10-01, DECISION_LOG "THE EVENT HUB IS FULL SCREEN WITH ONE EXIT…": *"the
+ * photos one the left will show all their shots. the event hub's gallery will
+ * show all their photo (their shot and the tagged photos)"*).
+ *
+ * `papic_guest_captures.guest_id` is the shooter — the same read
+ * `your-own-day.server.ts` `loadShot` lists, plus the picture: the same clean,
+ * un-hidden, photo-only filter as the tagged read above, the same blur gate (a
+ * guest's own shot of somebody who withdrew consent is served blurred or not at
+ * all — the guest is not the couple), the same web-copy derivative.
+ *
+ * Same return contract as `getGuestLiveGallery`: `{ shots, total }` is a
+ * successful read (empty is a real answer — "nothing yet"); `null` means only
+ * that the read FAILED, and the page says so in different words.
+ */
+export type GuestOwnShot = { id: string; url: string; capturedAt: string | null };
+export type GuestOwnShots = { shots: GuestOwnShot[]; total: number };
+
+export async function getGuestOwnShots(eventId: string, guestId: string, limit = 12): Promise<GuestOwnShots | null> {
+  try {
+    const admin = createAdminClient();
+    const { data, error, count } = await admin
+      .from('papic_guest_captures')
+      .select('capture_id, thumb_r2_key, display_r2_key, captured_at', { count: 'exact' })
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .eq('moderation_state', 'clean')
+      .eq('media_type', 'photo')
+      .is('hidden_at', null)
+      .order('captured_at', { ascending: false })
+      .limit(limit);
+    if (error) console.error('[supabase-error] lib/guest-live-gallery.ts · from:papic_guest_captures.select (own)', error);
+    if (error) return null;
+    const rows = (data ?? []) as Array<{
+      capture_id: string;
+      thumb_r2_key: string | null;
+      display_r2_key: string | null;
+      captured_at: string | null;
+    }>;
+    if (rows.length === 0) return { shots: [], total: count ?? 0 };
+    const gate = await loadGuestBlurGate(
+      admin,
+      eventId,
+      rows.map((r) => ({ sourceTable: 'papic_guest_captures' as const, sourceId: r.capture_id })),
+    );
+    if (gate.failed) return null;
+    const shots = (
+      await Promise.all(
+        rows.map(async (r) => {
+          const key = guestSafeKeyForCapture(
+            gate,
+            { sourceTable: 'papic_guest_captures', sourceId: r.capture_id },
+            r.thumb_r2_key ?? r.display_r2_key,
+            'thumb',
+          );
+          if (!key) return null;
+          const url = await displayUrlForStoredAsset(key, { ttlSeconds: URL_TTL_SECONDS });
+          return url ? { id: r.capture_id, url, capturedAt: r.captured_at } : null;
+        }),
+      )
+    ).filter((s): s is GuestOwnShot => Boolean(s));
+    return { shots, total: count ?? shots.length };
+  } catch {
+    return null;
+  }
+}

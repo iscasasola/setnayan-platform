@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "859cf27ff",
+  "generatedFromRef": "c6aaa2d00",
   "routeCount": 422,
-  "destinations": 942,
+  "destinations": 943,
   "actions": 671,
-  "blocks": 5393,
+  "blocks": 5400,
   "routes": {
     "/": {
       "files": [
@@ -950,6 +950,7 @@
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
         "[slug]/_components/your-seat-styles.tsx",
+        "[slug]/_components/your-shots-gallery.tsx",
         "[slug]/_lib/album-door.server.ts",
         "[slug]/_lib/back-cover.server.ts",
         "[slug]/_lib/belongs-to-this-event.ts",
@@ -1009,6 +1010,7 @@
         "/login",
         "/papic/guest",
         "/papic/guest?from=[seg]",
+        "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
         "/signup",
         "/terms",
@@ -1216,6 +1218,7 @@
         "NameStyle",
         "NavLinksRow",
         "NotYouSwitch",
+        "OnYourTicket",
         "OneLinePairs",
         "OpenInBrowser",
         "OpenUpScene",
@@ -1321,6 +1324,7 @@
         "ScheduleWidget",
         "SeatDoorLine",
         "SeatField",
+        "SeatFloorPlan",
         "SeatPlaceCard",
         "SeatTableNumber",
         "SeatingScene",
@@ -1409,7 +1413,6 @@
         "WatchTheFilm",
         "WaxSeal",
         "WaxSealGLState",
-        "WayfindingMap",
         "WelcomeGifts",
         "WelcomeSlot",
         "WereYouThere",
@@ -1421,7 +1424,8 @@
         "YourOwnConsent",
         "YourOwnDay",
         "YourPhotosWidget",
-        "YourSeatBlock"
+        "YourSeatBlock",
+        "YourShotsGallery"
       ]
     },
     "/[slug]/avatar": {
@@ -7129,6 +7133,7 @@
       "files": [
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
+        "dashboard/[eventId]/seating/_components/seat-plan-phone.tsx",
         "dashboard/[eventId]/seating/_components/seat-plan-slots.tsx",
         "dashboard/[eventId]/seating/_components/seating-context-dock.tsx",
         "dashboard/[eventId]/seating/_components/seating-editor.tsx",
@@ -7156,6 +7161,7 @@
       ],
       "blocks": [
         "AddTablePanel",
+        "AutoArrangeResult",
         "BannerSlot",
         "BarMenu",
         "BlueprintStudio",
@@ -7187,8 +7193,12 @@
         "MenuRow",
         "MetreSizeField",
         "MiniTour",
+        "MoveGuestSheet",
         "NotSharedWithYou",
+        "PhoneSeatPlanFoot",
+        "PhoneSeatPlanHead",
         "PickMenu",
+        "Pop",
         "PriorityOrder",
         "RoleSeating",
         "SaveStatusChip",

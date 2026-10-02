@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { pageGround } from '@/lib/page-ground';
@@ -32,7 +33,16 @@ export function InvitationShell({
   hideWatermark = false,
   magicTraveller = null,
   ownGround = false,
+  exitHref = null,
 }: {
+  /**
+   * ✕ THE EVENT HUB'S ONE EXIT (owner 2026-10-01, DECISION_LOG "THE EVENT HUB IS
+   * FULL SCREEN WITH ONE EXIT…"): inside every stage a guest sees only the
+   * event's own menu, and one × top-left back to Setnayan (in a browser, the
+   * front page). Null draws none (the private landing, a Maker preview, which
+   * has its own way back).
+   */
+  exitHref?: string | null;
   /**
    * 🌈 The couple chose an OMBRÉ background (`lib/ombre.ts`): the layout's
    * paper paints it, and this shell must leave its own opaque paper off exactly
@@ -152,6 +162,16 @@ export function InvitationShell({
       <header data-sticky-top className="sticky top-0 z-20 border-b border-ink/10 bg-cream/95 backdrop-blur">
         <div className="mx-auto flex min-h-[4rem] w-full max-w-3xl items-center justify-between px-4 py-3 sm:px-6 xl:max-w-5xl 2xl:max-w-[76rem] xl:px-8">
           <span className="flex items-center gap-2 text-ink">
+            {exitHref ? (
+              <a
+                data-hub-exit=""
+                href={exitHref}
+                aria-label="Close — back to Setnayan"
+                className="-ml-2 inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/70 hover:bg-ink/5 hover:text-ink"
+              >
+                <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+              </a>
+            ) : null}
             <Logo height={28} />
             <span className="font-mono text-xs uppercase tracking-[0.2em] text-ink/60">
               Setnayan

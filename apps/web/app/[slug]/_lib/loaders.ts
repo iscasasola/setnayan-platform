@@ -84,7 +84,8 @@ import { parseRsvpBackdropConfig, type RsvpBackdropConfig } from '@/lib/spatial-
 import { readHubDraftForHostPreview } from '@/lib/hub-draft-store';
 import type { HubDraft } from '@/lib/hub-draft';
 import { getWallSnapshot, guestWallMirrorActive } from '@/lib/live-wall';
-import { getGuestLiveGallery } from '@/lib/guest-live-gallery';
+import { getGuestLiveGallery, getGuestOwnShots } from '@/lib/guest-live-gallery';
+import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { fetchEventVendorCredits } from '@/lib/event-vendor-credits';
 import { youTubeEmbedUrl } from '@/lib/panood-watch';
 import { readEventWatchUrls, resolveWatchLinks } from '@/lib/watch-live-links';
@@ -96,8 +97,8 @@ import {
 } from '@/lib/live-studio-roam';
 import { canPublishMultiCam, limitPublishedManifest } from '@/lib/live-studio-publish';
 import { fetchGuestPickCameras, shouldOfferGuestPick } from '@/lib/live-studio-guest-pick';
-import { fetchEntrance, type EntrancePos } from '@/lib/indoor-blueprint';
-import { fetchTables, type EventTableRow } from '@/lib/seating';
+import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
+import { seatPlanPreviewSvg } from '@/lib/seat-plan-preview-svg';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
@@ -113,6 +114,7 @@ import type {
   GuestContext,
   GuestPapicCamera,
   GuestRow,
+  GuestSeatMap,
   LiveLayerData,
   LiveWallData,
   WatchLiveData,
@@ -1312,6 +1314,29 @@ export const loadGuestContext = cache(
         ? await getGuestLiveGallery(event.event_id, guest.guest_id)
         : null;
 
+    // 📸 The Gallery's other two halves (owner 2026-10-01, "THE EVENT HUB IS
+    // FULL SCREEN WITH ONE EXIT…"): the shots THIS guest took, and — only when
+    // the couple's shipped "Shared gallery" switch is on — a way into everyone's.
+    // That switch is `events.pool_gallery_open`, behind its env flag + the DPO
+    // control (`papicPoolGalleryActive`, which costs no read while the flag is
+    // off). Never a second "share the whole gallery" setting.
+    const galleryWindow = dayOfPhase === 'live' || dayOfPhase === 'post';
+    const [guestOwnShots, poolGalleryOpen] = galleryWindow
+      ? await Promise.all([
+          getGuestOwnShots(event.event_id, guest.guest_id),
+          (async () => {
+            if (!(await papicPoolGalleryActive())) return false;
+            const { data: poolRow, error: poolErr } = await admin
+              .from('events')
+              .select('pool_gallery_open')
+              .eq('event_id', event.event_id)
+              .maybeSingle();
+            if (poolErr) console.error('[supabase-error] app/[slug]/_lib/loaders.ts · from:events.select(pool_gallery_open)', poolErr);
+            return !poolErr && poolRow?.pool_gallery_open === true;
+          })(),
+        ])
+      : [null, false];
+
     // "Register your face if you haven't yet" — day-of catch for a guest who
     // skipped the optional RSVP selfie. Shown across the WHOLE pre-event window
     // (not just the day) so guests enroll early — but only when this event has
@@ -1643,22 +1668,40 @@ export const loadGuestContext = cache(
       firstVisit: guestFirstVisit,
     };
 
-    // "Your seat" inline map — surface the entrance→table wayfinding map on the
-    // event website itself whenever the guest is seated. Indoor Blueprint is FREE
-    // (owner 2026-07-23: "indoor blueprint is free and uses the 2D Plan for
-    // free"), so there is no paid gate — the map rides on the free 2D seat plan.
-    // The empty-chart case still shows nothing (seatTables.length > 0 guard).
-    let seatMap:
-      | { tables: EventTableRow[]; entrance: EntrancePos; targetTableId: string }
-      | null = null;
+    // "Your table" on the day's Welcome — the venue floor plan, read-only, with
+    // the guest's own table marked YOU (owner 2026-10-01, DECISION_LOG "THE DAY
+    // GUEST PAGES — APPROVED, WITH ANSWERS"; prototype the_day_guest_phone frame
+    // 2a). Drawn by THE seat plan's own renderer (`lib/seat-plan-preview-svg.ts`,
+    // the plan Prints & Tickets and the A3 print draw — P1b), from the same three
+    // reads: tables, the floor plan's elements, and who sits where (filled chairs
+    // = seated; counts only, never a name). It REPLACES the entrance→table
+    // wayfinding map this block used to draw. Free — no paid gate. The
+    // empty-chart case still shows nothing (tables.length > 0 guard).
+    let seatMap: GuestSeatMap | null = null;
     if (guestTableId && guestTableLabel) {
       try {
-        const [seatTables, seatEntrance] = await Promise.all([
+        const [seatTables, seatFloor, seatAssignments] = await Promise.all([
           fetchTables(admin, event.event_id),
-          fetchEntrance(admin, event.event_id),
+          fetchFloorPlan(admin, event.event_id),
+          fetchAssignments(admin, event.event_id),
         ]);
         if (seatTables.length > 0) {
-          seatMap = { tables: seatTables, entrance: seatEntrance, targetTableId: guestTableId };
+          const seatedByTable = new Map<string, number>();
+          for (const a of seatAssignments) {
+            if (a.table_id) seatedByTable.set(a.table_id, (seatedByTable.get(a.table_id) ?? 0) + 1);
+          }
+          seatMap = {
+            targetTableId: guestTableId,
+            plan: seatPlanPreviewSvg({
+              tables: seatTables,
+              floorPlan: seatFloor,
+              seatedByTable,
+              mode: 'moodboard',
+              palette: [],
+              youTableId: guestTableId,
+              fluid: true,
+            }),
+          };
         }
       } catch {
         seatMap = null;
@@ -1735,6 +1778,8 @@ export const loadGuestContext = cache(
       guestRollCameraReady,
       seatPassActive,
       guestLiveGallery,
+      guestOwnShots,
+      poolGalleryOpen,
       needsFaceEnroll,
       papicGuest,
       guestHubData,

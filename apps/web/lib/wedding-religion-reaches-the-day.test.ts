@@ -89,7 +89,7 @@ test('3 · the ceremony pickers honour the launch gate', () => {
   // there and handed to the same GovernedFields.
   const settings = read('app/dashboard/[eventId]/launch/_components/details-settings-load.ts');
   assert.match(settings, /fetchActiveCeremonyTypes\(supabase\)/);
-  assert.match(read('app/dashboard/[eventId]/launch/_components/details-answers.tsx'), /activeCeremonies=\{governed\.activeCeremonies\}/);
+  assert.match(read('app/dashboard/[eventId]/details/_components/event-settings-editor.tsx'), /activeCeremonies=\{governed\.activeCeremonies\}/);
   assert.match(read('app/dashboard/[eventId]/details/_components/governed-fields.tsx'), /CEREMONY_OPTIONS\.filter\(\(o\) => offeredCeremonies\.has\(o\.value\)\)/);
   const date = read('app/dashboard/[eventId]/date-selection/page.tsx');
   assert.match(date, /activeCeremonies=\{activeCeremonies\}/);

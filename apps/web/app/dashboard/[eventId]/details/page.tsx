@@ -361,7 +361,9 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* ── The basics ── */}
-        <Section k="basics" open={maker ? { href: detailsItemHref(eventId, 'settings'), label: 'Open in Your info' } : null}>
+        {/* Event settings save LIVE, so they are their own page, never the Maker
+            (where nothing may take effect before Apply) — 2026-10-02. */}
+        <Section k="basics" open={{ href: `${base}/details/change`, label: 'Open Event settings' }}>
           <Row fact="names" label="Names" value={names} />
           <Row
             fact="kind"

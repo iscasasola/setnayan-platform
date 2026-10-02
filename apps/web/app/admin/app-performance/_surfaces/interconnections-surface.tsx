@@ -158,7 +158,7 @@ export async function InterconnectionsSurface() {
               <p className="font-medium text-ink">{probe.title}</p>
               <p className="mt-0.5 font-mono text-xs text-ink/45">
                 {probe.key}
-                {probe.jointId ? ` · Setup ${probe.jointId}` : ''}
+                {probe.jointId ? ` · Root map ${probe.jointId}` : ''}
               </p>
               <p className="mt-2 text-sm text-ink/70">
                 {run?.detail ?? (measured ? 'No result recorded yet.' : 'Not read.')}
@@ -189,7 +189,7 @@ export async function InterconnectionsSurface() {
           is mapped. The baseline file is the reading. */}
       <p className="mt-6 max-w-3xl text-xs text-ink/50">
         Coverage: {PROBES.length} probe{PROBES.length === 1 ? '' : 's'} against{' '}
-        {UGAT_JOINTS.length} mapped Setup joints, and the map itself reaches roughly a third of the
+        {UGAT_JOINTS.length} mapped Root map joints, and the map itself reaches roughly a third of the
         app. The rest is the <code className="font-mono">map-backlog</code> list in{' '}
         <code className="font-mono">ugat-concept.baseline.txt</code> — that gap is the backlog,
         stated rather than implied.

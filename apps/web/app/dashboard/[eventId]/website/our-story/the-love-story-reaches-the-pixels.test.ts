@@ -68,7 +68,7 @@ test('🔒 the ONE action asks the entitlement helper and the cap BEFORE it writ
   const start = src.indexOf('export async function loveStoryMomentAction');
   assert.ok(start > 0, 'loveStoryMomentAction exists');
   const body = src.slice(start);
-  const pro = body.indexOf('eventCoupleWebsiteProActive(supabase, eventId)');
+  const pro = body.indexOf('eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)');
   const cap = body.indexOf('momentCapRefusal({ before, after, ownsPro })');
   const write = body.indexOf(".update({ love_story:");
   assert.ok(pro > 0, 'Pro is read with the ACTIVE gate');

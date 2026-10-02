@@ -15,6 +15,7 @@
 // refactor, a split — that edge disappears and the boundary goes with it. This
 // line is local and survives that. It costs nothing and it does not depend on
 // another file's allowlist staying correct.
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import 'server-only';
 
 import Link from 'next/link';
@@ -102,7 +103,7 @@ export async function GuestAllotmentsChoice({
 
   // Nothing to divide if guests cannot shoot at all. THREE states: 'off' hides
   // the row, and 'unknown' (a failed check) says so rather than hiding it.
-  const access = await eventPapicGuestAccess(admin, eventId);
+  const access = await eventPapicGuestAccess(await eventEntitlementClient(eventId), eventId);
   if (access === 'off') return null;
 
   const row = data as Record<string, unknown>;

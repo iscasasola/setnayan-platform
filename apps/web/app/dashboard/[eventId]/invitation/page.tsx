@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
@@ -110,7 +111,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   // RLS is purchaser-scoped, so a co-host who didn't personally place the order
   // would otherwise be shown the free look. The !event redirect above is the
   // membership authorization. A failed read degrades to the free look.
-  const look = await resolveEventQrLook(createAdminClient(), eventId, event);
+  const look = await resolveEventQrLook(await eventEntitlementClient(eventId), eventId, event);
 
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';

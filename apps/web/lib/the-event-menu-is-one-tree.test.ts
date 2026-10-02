@@ -158,7 +158,11 @@ for (const phase of ['plan', 'dayof', 'after'] as const) {
     const rows = rail(WEDDING, phase).flatMap((g) => g.items);
     for (const tab of bar) {
       const path = tab.href.split('?')[0];
-      const row = rows.find((r) => r.href === path);
+      // The exact door first: More Services' door is Home WITH the menu open
+      // (`?more=services`, owner 2026-10-02 tracker d1), so its path alone is
+      // Home's. A tab that only adds a view to its row's page (Suppliers'
+      // `?tab=build` after the day) falls back to the path.
+      const row = rows.find((r) => r.href === tab.href) ?? rows.find((r) => r.href === path);
       assert.ok(row, `${phase}: the ${tab.key} tab opens ${path}, which no ☰ row opens`);
       // One page, one word — save the owner's one short bar word (More), which lives
       // in ONE map (`PHONE_BAR_SHORT`) and nowhere else.
@@ -272,7 +276,9 @@ test('each page that lost its row lights the pillar that holds it (one resolver)
     ['/vendors', 'explore'], ['/budget', 'explore'],
     ['/launch', 'launch'], ['/website/editor', 'launch'], ['/story', 'launch'],
     ['/schedule', 'launch'], ['/studio/mood-board', 'launch'], ['/monogram', 'launch'],
-    ['/suite', 'studio'], ['/studio', 'studio'], ['/galleries', 'studio'],
+    // `/suite` left 2026-10-02 (owner, tracker d1): the page is gone and its
+    // address forwards to the More menu (lib/legacy-redirects.ts) — never rendered.
+    ['/studio', 'studio'], ['/galleries', 'studio'],
     ['/studio/papic', 'studio'], ['/studio/patiktok', 'studio'], ['/studio/pakanta', 'studio'],
     ['/studio/setnayan-ai', 'studio'],
     // Train n: the Seat plan row left — /seating is Details › Your event ›

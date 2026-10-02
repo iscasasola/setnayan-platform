@@ -1,6 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { createClient } from '@/lib/supabase/server';
@@ -105,7 +106,7 @@ export async function suggestToCouple(formData: FormData) {
           type: 'vendor_feature_suggested',
           title: `${profile.business_name} suggested ${addonLabel}`,
           body: note,
-          relatedUrl: `/dashboard/${eventId}/studio`,
+          relatedUrl: studioHubHref(eventId),
         }),
       ),
     );

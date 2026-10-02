@@ -147,7 +147,7 @@ export function redirectTargetIn(source: string): string | null {
  * leaves it. Same family as every other guard here — ask what the thing DOES,
  * never what word appears in it.
  */
-function rendersJsx(source: string): boolean {
+export function rendersJsx(source: string): boolean {
   return /<[A-Za-z][A-Za-z0-9.]*[\s/>]/.test(stripComments(source));
 }
 

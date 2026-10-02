@@ -48,20 +48,22 @@ test('⭐ the day-of LAUNCH checklist resolves ownership from the LIVE SKU', () 
   const src = repoFile(LAUNCH);
   assert.match(
     src,
-    /resolveAddOnState\(supabase, eventId, 'live-studio-roam', 'couple'\)/,
+    // `ent` = the one host-facing resolver's client (owner 2026-10-02: a purchase
+    // unlocks the EVENT) — see lib/pro-unlocks-the-event.test.ts.
+    /resolveAddOnState\(ent, eventId, 'live-studio-roam', 'couple'\)/,
     'a paying couple would see "Add" instead of "Go live" at their wedding',
   );
   assert.doesNotMatch(
     src,
-    /resolveAddOnState\(supabase, eventId, 'panood', 'couple'\)/,
+    /resolveAddOnState\(\w+, eventId, 'panood', 'couple'\)/,
     'the retired-SKU key is still being asked for',
   );
 });
 
 test('⭐ GALLERIES resolves ownership from the LIVE SKU', () => {
   const src = repoFile(GALLERIES);
-  assert.match(src, /resolveAddOnState\(supabase, eventId, 'live-studio-roam', 'couple'\)/);
-  assert.doesNotMatch(src, /resolveAddOnState\(supabase, eventId, 'panood', 'couple'\)/);
+  assert.match(src, /resolveAddOnState\(ent, eventId, 'live-studio-roam', 'couple'\)/);
+  assert.doesNotMatch(src, /resolveAddOnState\(\w+, eventId, 'panood', 'couple'\)/);
 });
 
 test('the launch BUY doorway does not point at the retired Cast detail page', () => {

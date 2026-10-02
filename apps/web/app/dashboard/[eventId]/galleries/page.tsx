@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { redirect } from 'next/navigation';
@@ -104,14 +105,16 @@ export default async function GalleriesHubPage({ params }: Props) {
     return count ?? 0;
   };
 
+  // The EVENT holds Papic / Live Studio, not the person who paid (owner 2026-10-02).
+  const ent = await eventEntitlementClient(eventId);
   const [hasPapic, panoodState, papicPhotoCount, guestCaptureCount, eventRow] = await Promise.all([
-    eventPapicActive(supabase, eventId),
+    eventPapicActive(ent, eventId),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
     // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
     // `LIVE_STUDIO` ₱3,000. SKU_OWNERSHIP_ALIASES does NOT expand at this layer, so
     // keying on `panood` means the first couple who actually PAYS resolves to
     // not-owned — an no "Watch the recording" card after their wedding.
-    resolveAddOnState(supabase, eventId, 'live-studio-roam', 'couple'),
+    resolveAddOnState(ent, eventId, 'live-studio-roam', 'couple'),
     countPapicPhotos(),
     countEventGuestCaptures(supabase, eventId),
     supabase.from('events').select('our_photos').eq('event_id', eventId).maybeSingle(),

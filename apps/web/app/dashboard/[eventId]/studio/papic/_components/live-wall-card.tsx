@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { MonitorPlay, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -30,14 +31,16 @@ import { LiveWallControls, type WallScreenRow, type WallTileRow } from './live-w
  */
 export async function LiveWallCard({ eventId }: { eventId: string }) {
   const supabase = await createClient();
+  // The EVENT holds the wall, not the person who paid (owner 2026-10-02).
+  const ent = await eventEntitlementClient(eventId);
 
   // Photo Wall is a Papic ADD-ON — it projects Papic captures, so it requires
   // Papic active too (owner 2026-06-26): render only on (owns LIVE_WALL) AND
   // (Papic active). papicActive counts bundle owners, so a Complete/Unlock-all
   // buyer (who owns the wall via the bundle) is never wrongly blocked.
   const [owns, papicActive] = await Promise.all([
-    eventOwnsSku(supabase, eventId, 'LIVE_WALL'),
-    eventPapicActive(supabase, eventId),
+    eventOwnsSku(ent, eventId, 'LIVE_WALL'),
+    eventPapicActive(ent, eventId),
   ]);
   if (!owns) return null;
   if (!papicActive) {
@@ -69,7 +72,7 @@ export async function LiveWallCard({ eventId }: { eventId: string }) {
   // ('submitted') order, so gate the live feature on admin approval. Owned but
   // not-yet-active → show the "payment under review" card instead of the live
   // controls (and skip the wall reads — nothing to manage until it's live).
-  const active = await eventSkuActive(supabase, eventId, 'LIVE_WALL');
+  const active = await eventSkuActive(ent, eventId, 'LIVE_WALL');
   if (!active) {
     return (
       <section className="rounded-2xl border border-ink/10 bg-surface p-5 sm:p-6">

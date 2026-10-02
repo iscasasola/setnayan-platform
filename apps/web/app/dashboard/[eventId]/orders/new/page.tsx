@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { studioHubHref } from '@/lib/studio-hub';
 
 /**
  * apps/web/app/dashboard/[eventId]/orders/new/page.tsx
@@ -53,5 +54,5 @@ type Props = {
 
 export default async function RetiredNewOrderPage({ params }: Props) {
   const { eventId } = await params;
-  redirect(`/dashboard/${eventId}/studio`);
+  redirect(studioHubHref(eventId));
 }

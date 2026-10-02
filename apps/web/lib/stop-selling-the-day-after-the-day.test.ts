@@ -160,28 +160,20 @@ test('every Papic purchase path refuses once the event is over', () => {
 });
 
 /*
-  6 · THE CARD STILL SHOWS. Dropping it would also delete it from the Suite's
-  search index, so a couple typing "papic" would be told it does not exist.
+  6 · (retired 2026-10-02) "a closed service is re-shaped, not removed" read the
+  Suite page's source, which is deleted (owner, tracker d1). In the More menu
+  that replaced it a closed, un-bought day-of service is not listed at all —
+  the owner's own rule (2026-08-21, "stop offering them") — and a BOUGHT one
+  always keeps its door (`ourServicesMenuChildren`, lib/legacy-redirects.test.ts
+  test 7). Number 7 below still holds the deep link.
 */
-test('a closed service is re-shaped, not removed', () => {
-  const suite = code('app/dashboard/[eventId]/suite/page.tsx');
-  assert.match(suite, /if \(isClosed\(entry\)\) return null;/, 'the card stops being a link');
-  assert.match(suite, /Event over/, 'and says why where the price was');
-  // The pill rung must sit AFTER the owned rungs, or a paid service turns grey.
-  const activeRung = suite.indexOf("text: 'Active'");
-  const closedRung = suite.indexOf("text: 'Event over'");
-  assert.ok(activeRung > 0 && closedRung > activeRung, 'owned rungs win');
-  // And it must still be in the lists the search index is built from.
-  assert.ok(!/addable = eligible[\s\S]{0,300}addOnSellableNow/.test(suite),
-    'closed entries must NOT be filtered out of addable');
-});
 
 /*
   7 · A COUPLE WHO PAID KEEPS THEIR TOOL.
 */
 test('the deep link sends an owner to their tool before it closes anything', () => {
   const about = code('app/dashboard/[eventId]/studio/about/[addon]/page.tsx');
-  const ownership = about.indexOf('eventSkuActive(createAdminClient()');
+  const ownership = about.indexOf('eventSkuActive(await eventEntitlementClient(eventId)');
   const closed = about.indexOf('entry?.dayOfOnly && eventHasHappened');
   assert.ok(ownership > 0 && closed > 0, 'both branches must exist');
   assert.ok(ownership < closed, 'ownership redirect must run FIRST or an owner gets a 404');

@@ -1092,9 +1092,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // retired. Ownership alone decides — paywall off → AI on; paywall on → on iff
   // the event/user owns it (`setnayan_ai_active` / the per-user subscription,
   // via the same lib/setnayan-ai gate as before), with the Unlock banner below
-  // as the only door in. `planning_mode` is deliberately neutralized on THIS
-  // surface so a couple who once flipped the old toggle to Manual isn't
-  // stranded AI-off here with no control left to flip back.
+  // as the only door in.
+  // 🙋 `planning_mode` COUNTS HERE AGAIN (owner 2026-10-02, tracker d4: one
+  // free "Plan it myself" switch in Your info that turns the automatic help —
+  // supplier matching among it — off). It was neutralized on this surface only
+  // because a couple who flipped the old toggle had no control left to flip
+  // back; Your info › Plan it myself is that control now, for every host.
   // Paywall flag is DB-first/env-fallback (Integration Activation Console);
   // resolved once and threaded into both gates on this surface.
   const paywallEnabled = await resolveSetnayanAiPaywallEnabled();
@@ -1104,7 +1107,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   // (guideline 3.1.3(b); lib/store-shell.ts) — unless the paywall is off and
   // Sai is free for everyone, in which case it is planning and stays.
   const aiActive =
-    isSetnayanAiActiveForEvent(ev ? { ...ev, planning_mode: null } : ev, aiGateOpts) &&
+    isSetnayanAiActiveForEvent(ev, aiGateOpts) &&
     storeShellAllowsPaidFeature(storeShell, paywallEnabled);
 
   // DB-driven category headers (owner 2026-06-09 — "taxonomy applies to all 5

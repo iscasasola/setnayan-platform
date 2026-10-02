@@ -1,11 +1,12 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { ArrowLeft, Check, Eye, Sparkles, Stamp } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -85,6 +86,9 @@ export default async function SaveTheDatePage({ params }: Props) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
+  // Every paid-feature read on this page asks "does THIS EVENT hold it?" (owner
+  // 2026-10-02) — the one host-facing resolver, never the visitor's own session.
+  const ent = await eventEntitlementClient(eventId);
 
   // Event-type backstop (0053): Save-the-Date is a WEDDING surface — 15 of the
   // 16 live event types do not enable it. The Studio/Suite grid already filters
@@ -125,7 +129,7 @@ export default async function SaveTheDatePage({ params }: Props) {
    * not live. Same inputs, same component, same result: that is the property.
    */
   const heroMonogram = await resolveEventMonogram(
-    supabase,
+    ent,
     eventId,
     event ? (event as unknown as HeroMonogramRow) : null,
   );
@@ -222,7 +226,7 @@ export default async function SaveTheDatePage({ params }: Props) {
 
   const [ownsOpenings, openingsSku, settings, revealConfig, openingsSellability, websiteProSku, ownsHubPro] =
     await Promise.all([
-      eventOwnsStdOpenings(supabase, eventId),
+      eventOwnsStdOpenings(ent, eventId),
       formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
       fetchPlatformSettings(supabase),
       fetchRevealConfig(),
@@ -233,9 +237,10 @@ export default async function SaveTheDatePage({ params }: Props) {
       resolveServiceSellability(STD_PREMIUM_OPENINGS_SERVICE_KEY),
       formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
       // The couple's OWN photo / film / song are Event Hub Pro (owner
-      // 2026-09-24). Admin client, as the save action's gate reads it, so a
-      // co-host who did not place the order sees the same answer the save gives.
-      eventCoupleWebsiteProActive(createAdminClient(), eventId),
+      // 2026-09-24). The one host-facing resolver (service client, host of THIS
+      // event), as the save action's gate reads it, so a co-host who did not
+      // place the order sees the same answer the save gives.
+      eventCoupleWebsiteProActive(ent, eventId),
     ]);
   const openingsPricePhp = openingsSku?.price_php ?? null;
   const openingsStandaloneSellable = openingsSellability === 'sellable';
@@ -376,7 +381,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   return (
     <section className="space-y-8">
       <Link
-        href={`/dashboard/${eventId}/studio`}
+        href={studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

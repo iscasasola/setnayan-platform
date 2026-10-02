@@ -131,7 +131,7 @@ test('2 · the Save the Date upload is offered — through the page\'s ONE signi
   assert.match(apply, /\.select\(`[^`]*std_background/);
 });
 
-test('2b · a scene\'s own upload lands in its own folder and Apply accepts only THIS event\'s', () => {
+test('2b · a scene\'s own upload lands in its own folder and Apply accepts only THIS event\'s', async () => {
   const apply = stripComments(read('app/dashboard/[eventId]/website/hub-draft-actions.ts'));
   assert.match(apply, /const ownScenePrefix = `r2:\/\/\$\{PUBLIC_R2_BUCKET\}\/events\/\$\{eventId\}\/\$\{SCENE_BACKGROUND_FOLDER\}\/`/);
   assert.match(apply, /\[drafted\?\.media, drafted\?\.poster\]/, 'the clip\'s still is checked too');
@@ -145,8 +145,8 @@ test('2b · a scene\'s own upload lands in its own folder and Apply accepts only
     { ref: OWN, kind: 'photo', poster: null },
     { ref: CLIP, kind: 'snippet', poster: STILL },
   ]);
-  const route = read('app/api/upload/route.ts');
-  assert.match(route, /'scene-background',\n\]\);/, 'counted on the couple\'s Maker media meter');
+  const { isCoupleMediaMeterPath } = await import('./couple-media-allowance');
+  assert.ok(isCoupleMediaMeterPath('events/E1/scene-background', 'E1'), "counted on the couple's Maker media allowance");
 });
 
 /* ── 3 · PARALLAX IS THE SHIPPED HERO PARALLAX ────────────────────────────── */

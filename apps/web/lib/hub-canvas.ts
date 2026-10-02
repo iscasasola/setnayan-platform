@@ -1105,7 +1105,7 @@ export function hubCanvasMediaRefs(
     for (const slot of canvas.slots ?? []) if (slot.media) out.add(slot.media);
     // …and a Main background OVERRIDE's photo or still (Maker Phase 10). Its
     // CLIP is not signed here: whether a clip may play is the render's question
-    // (`heroVideoRefForGuests`), and a URL nobody may play is not minted. The
+    // (`mainGroundClipRefForGuests`), and a URL nobody may play is not minted. The
     // hero it follows by default is signed by `loadMedia`, like every hero.
     const main = hubMainGround(row.config_json);
     if (isHubMainOwn(main)) {
@@ -1177,8 +1177,9 @@ export type HubMainOwn = {
   media: string;
   /**
    * The clip's still, grabbed in the browser (`extractPosterFrame`): the
-   * moment before it plays, reduced motion, print, and — while an unscreened
-   * clip may not reach a guest (`GUEST_HERO_VIDEO_PLAYBACK`) — what guests see.
+   * moment before it plays, reduced motion, Save-Data, print, and — whenever
+   * the clip does not reach a guest (the scene-clip kill switch,
+   * `mainGroundClipRefForGuests`) — what guests see.
    */
   poster?: string;
   /** The adaptive theme: "Match my video's colours" and the frame it follows. */
@@ -1261,7 +1262,7 @@ export type ResolvedMainGround = {
   stillRef: string | null;
   /** The clip for the COUPLE's own editors and preview. */
   clipRef: string | null;
-  /** The same clip for a GUEST — null while unscreened clips may not reach one. */
+  /** The same clip for a GUEST — null when the guest gate (`guestClipGate`) holds it back. */
   guestClipRef: string | null;
   tint: HubTint | null;
   /** 🌄 Parallax on the couple's own photo. */
@@ -1275,12 +1276,19 @@ export type ResolvedMainGround = {
  * never laid over pixels nobody read. `null` = the theme's own loop.
  *
  * `hero` is `resolveHero(event)`'s answer and `guestClipGate` is
- * `heroVideoRefForGuests` — both passed in, so this file keeps no second
- * opinion about what the hero is or which clips a guest may see.
+ * `mainGroundClipRefForGuests` (the scene-clip switch, `lib/guest-hero-video.ts`)
+ * — both passed in, so this file keeps no second opinion about what the hero is
+ * or which clips a guest may see.
+ *
+ * 🔑 ONE GATE FOR BOTH SOURCES. The hero's clip, when the Main background
+ * follows the hero, goes through the SAME `guestClipGate` as an own clip — not
+ * through `hero.guestVideoRef`, which answers a different question (may the
+ * MASTHEAD play it?). Two gates for one ground is how the host saw the clip move
+ * while every guest saw a still (audit 2026-10-02, Batch F1 item 4).
  */
 export function resolveMainGround(
   main: HubMainGround | null,
-  hero: { photoRef: string | null; videoRef: string | null; guestVideoRef: string | null },
+  hero: { photoRef: string | null; videoRef: string | null },
   guestClipGate: (ref: string) => string | null,
 ): ResolvedMainGround | null {
   /* 🖼 The theme's own background, or none at all — no picture of the couple's. */
@@ -1300,7 +1308,7 @@ export function resolveMainGround(
     source: 'hero',
     stillRef: hero.photoRef,
     clipRef: hero.videoRef,
-    guestClipRef: hero.guestVideoRef,
+    guestClipRef: hero.videoRef ? guestClipGate(hero.videoRef) : null,
     tint: main.tint,
   };
 }

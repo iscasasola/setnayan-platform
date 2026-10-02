@@ -80,7 +80,7 @@ const STRIP_CAPTION: Record<string, string> = {
   queues: 'Today',
   directory: 'People',
   media: 'Studio',
-  ugat: 'Set up',
+  ugat: 'Root map', // owner 2026-10-02: the Ugat map is called the Root map
   funnels: 'Numbers',
   'settings-group': 'Money',
   'all-surfaces': 'All',

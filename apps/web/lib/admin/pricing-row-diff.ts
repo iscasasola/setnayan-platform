@@ -21,6 +21,22 @@
  * unconditionally while the card is open — there is no collapsible panel any
  * more. A field this never receives is a field the form never had, not a
  * field whose value happened to be blank.
+ *
+ * ── SAVING NEVER CHANGES ON-SALE STATE (2026-10-02) ──────────────────────
+ * The SAME shape bug, one field over. The per-row card has NO on-sale
+ * checkbox (on sale / retired / draft are changed only by the Retire and
+ * Put-back-on-sale actions), but the save still read an `active` checkbox
+ * value — absent, so always `false` — and wrote it as `is_active`. So EVERY "Save this price", even a one-word rename, took the
+ * product off sale. Measured in prod: LIVE_STUDIO and
+ * LIVE_STUDIO_HOSTED_CHANNEL went off sale at the exact second they were
+ * renamed to "Live Watch" (2026-09-30 19:01 UTC), with `retired_at` null —
+ * a real retire always stamps it.
+ *
+ * The fix is to make the field impossible to carry: neither the raw input,
+ * the validated `next`, nor the unchanged-check has an `is_active` at all, so
+ * the UPDATE built from `next` cannot touch the column and the prior value
+ * stands. Pinned by pricing-row-diff.test.ts and
+ * app/admin/pricing/a-save-keeps-on-sale.test.ts.
  */
 
 import {
@@ -41,7 +57,9 @@ export type RawRetailRowFields = {
   desc: string;
   price: string;
   cost: string;
-  active: boolean;
+  // ⛔ NO `active` HERE, ON PURPOSE. See "SAVING NEVER CHANGES ON-SALE STATE"
+  // below — the row card has no on-sale checkbox, so a value read for it
+  // would always be `false`.
   onboardingPrice: string;
   billingPeriod: string;
   isPaxPriced: boolean;
@@ -56,7 +74,6 @@ export type RetailRowPrior = {
   description: string | null;
   retail_price_php: number;
   saas_overhead_cost_php: number;
-  is_active: boolean;
   onboarding_price_php: number | null;
   billing_period: string;
   is_pax_priced: boolean;
@@ -71,7 +88,6 @@ export type RetailRowNext = {
   description: string | null;
   retail_price_php: number;
   saas_overhead_cost_php: number;
-  is_active: boolean;
   onboarding_price_php: number | null;
   billing_period: string;
   is_pax_priced: boolean;
@@ -195,7 +211,6 @@ export function validateRetailRowFields(raw: RawRetailRowFields): ValidatedRetai
       description,
       retail_price_php: round2(price),
       saas_overhead_cost_php: round2(cost),
-      is_active: raw.active,
       onboarding_price_php: onboardingPrice,
       billing_period: raw.billingPeriod,
       is_pax_priced: raw.isPaxPriced,
@@ -214,7 +229,6 @@ export function retailRowUnchanged(prior: RetailRowPrior, next: RetailRowNext): 
     (prior.description ?? null) === next.description &&
     Number(prior.retail_price_php) === next.retail_price_php &&
     Number(prior.saas_overhead_cost_php) === next.saas_overhead_cost_php &&
-    prior.is_active === next.is_active &&
     (prior.onboarding_price_php != null ? Number(prior.onboarding_price_php) : null) ===
       next.onboarding_price_php &&
     prior.billing_period === next.billing_period &&

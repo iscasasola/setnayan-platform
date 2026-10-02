@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
@@ -114,7 +115,7 @@ export default async function PapicCrewPage({ params, searchParams }: Props) {
     tokenValid: joinTokenValid,
   });
 
-  const ownsPack = await eventPapicSeatsActive(supabase, eventId);
+  const ownsPack = await eventPapicSeatsActive(await eventEntitlementClient(eventId), eventId);
   const seats = await fetchPapicSeats(supabase, eventId);
 
   // ---- Nothing set up yet → point back to the Papic page ----

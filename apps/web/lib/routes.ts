@@ -263,7 +263,9 @@ export const routes = {
     index: () => `/dashboard`,
     activity: (eventId: string) => `/dashboard/${eventId}/activity`,
     addOns: {
-      index: (eventId: string) => `/dashboard/${eventId}/studio`,
+      // `index` (/studio) removed 2026-10-02 with the full-page More Services
+      // (owner, tracker d1) — zero callers; the services open through
+      // `studioHubHref` (lib/studio-hub.ts), and the old path forwards.
       // `animatedMonogram` + `detail` helpers removed 2026-07-11 (dead — zero
       // callers; the Studio hub routes add-ons via add-ons-catalog.ts's
       // addOnHref/appStoreDetailHref, not these). See changelog studio-hygiene.

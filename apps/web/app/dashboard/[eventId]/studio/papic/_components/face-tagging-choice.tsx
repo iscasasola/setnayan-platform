@@ -1,9 +1,9 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { ScanFace } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SettingRow } from './setting-row';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveFaceTagging } from '@/lib/face-tagging-gate';
 import { setCoupleFaceTaggingDeclined } from '../face-tagging-actions';
 
@@ -85,7 +85,7 @@ export async function FaceTaggingChoice({
   // event, not only where an admin once chose mode_a. Christening/debut stay
   // off until an admin turns them on; with nothing running there is nothing to
   // switch off, and the card is absent.
-  const tagging = await resolveFaceTagging(createAdminClient(), eventId);
+  const tagging = await resolveFaceTagging(await eventEntitlementClient(eventId), eventId);
   if (!tagging.available) return null;
 
   // The couple's own answer, read through THEIR client (RLS) — the same value

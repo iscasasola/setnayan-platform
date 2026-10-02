@@ -190,28 +190,13 @@ test('the store shell drops what it refuses', () => {
 
 /* ── The page ─────────────────────────────────────────────────────────────── */
 
-const SUITE_DIR = path.join(APP, 'dashboard', '[eventId]', 'suite');
-const PAGE = read(SUITE_DIR, 'page.tsx');
-const GRID = read(SUITE_DIR, '_components', 'our-services-grid.tsx');
-
-test('the Suite route IS Our Services: six cards first, as CollectionCards', () => {
-  assert.match(PAGE, /metadata = \{ title: 'More Services' \}/);
-  assert.match(PAGE, /buildOurServices\(\{/);
-  assert.match(PAGE, /offered: surfaceOk,/, 'the cards must use the Suite’s own offered gate');
-  assert.match(PAGE, /prices: priceMap,/, 'the cards must read the catalogue prices');
-  const grid = PAGE.indexOf('<OurServicesGrid');
-  const search = PAGE.indexOf('<SuiteSearch');
-  assert.ok(grid > 0 && search > grid, 'the six cards must come before everything else');
-  assert.match(GRID, /<CollectionCard\b/, 'the card is the repo’s one card');
-});
-
-test('the lists below leave the six out, so nothing shows twice', () => {
-  assert.match(PAGE, /const eligible = ADD_ONS\.filter\(\s*\(a\) =>\s*notOurs\(a\) &&/);
-  assert.match(PAGE, /notOurs\(e\) &&/, 'the recommendations must skip the six too');
-  for (const k of ['papic', 'papic-guest', 'panood', 'live-studio-roam', 'patiktok', 'pakanta', 'setnayan-ai', 'website-pro']) {
-    assert.ok(OUR_SERVICE_ADD_ON_KEYS.has(k), `${k} would show twice`);
-  }
-});
+/*
+  The page tests ("the Suite route IS Our Services", "the lists below leave the
+  six out") left 2026-10-02 with the page (owner, tracker d1: "remove the old
+  full-page More Services — the More menu is the one place"). The cards are
+  still built here and drawn by the menu — `more-services-is-the-one-row-that-
+  opens.test.ts` and `legacy-redirects.test.ts` hold that.
+*/
 
 /* ── Everything else goes home ────────────────────────────────────────────── */
 
@@ -297,14 +282,6 @@ test('the lead never recommends a retired (utility) card — Event, Photo Delive
   for (const key of ['event', 'photo-delivery']) {
     assert.equal(ADD_ONS.find((a) => a.key === key)?.studioGroup, 'utility', key);
   }
-  assert.match(PAGE, /e\.status !== 'coming_soon' &&\s*e\.studioGroup !== 'utility' &&/);
-});
-
-test('the page sends both lists home, and drops the section when it is empty', () => {
-  assert.match(PAGE, /freeToolOk\(t\) && !toolHasGoneHome\(t\.key, websiteOn\)/);
-  assert.match(PAGE, /const onTheCards = shownAddOnKeys\(ourServices\);/);
-  assert.match(PAGE, /!onTheCards\.has\(a\.key\) && !toolHasGoneHome\(a\.key, websiteOn\)/);
-  assert.match(PAGE, /\{moreCount > 0 \? \(/);
 });
 
 /* ── Owner "yes to all 4" (2026-09-29) ───────────────────────────────────── */

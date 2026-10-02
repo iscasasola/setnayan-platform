@@ -11,6 +11,7 @@ import {
   FileText,
   Gift,
   Gem,
+  Hand,
   Grid3x3,
   Heart,
   Image as ImageIcon,
@@ -89,6 +90,8 @@ import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { SeatPlanSlot } from '../../seating/_components/seat-plan-slots';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
+import { PlanMyselfBody, PlanMyselfSwitch } from './plan-myself';
+import { PLAN_MYSELF_LABEL, planMyselfSub } from '@/lib/plan-myself';
 import type { DetailsGuide } from './details-guide';
 import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
@@ -276,7 +279,13 @@ export type MakerDetailsProps = {
     setup?: HubSetupFacts | null;
     /** Where the setup's guests' names open (the Guest list's template import). */
     guestsHref?: string;
-  } | null;
+  } | null;  /**
+   * 🙋 "Plan it myself" (owner 2026-10-02, tracker d4) — the one free switch
+   * for the automatic help, the last row of Your event. `on` is
+   * `events.planning_mode === 'manual'`; null = the read failed. Absent = not
+   * offered (the lab).
+   */
+  planMyself?: { on: boolean | null } | null;
 };
 
 const PIECE_ICON: Record<PrintSetKey, ReactNode> = {
@@ -403,6 +412,9 @@ export function MakerDetails(props: MakerDetailsProps) {
     const yeRow = ye?.rows[k as EventItemKey];
     if (yeRow) return yeRow;
     if (k === 'seating') return seatPlanRow(seatPlan);
+    if (k === 'plan-myself') {
+      return { label: PLAN_MYSELF_LABEL, sub: planMyselfSub(props.planMyself?.on ?? null), icon: <Hand aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
+    }
     if (look && (LOOK_ITEM_KEYS as readonly string[]).includes(k)) return lookLabel(k as LookItemKey, look, hasPalette);
     if (k === 'theme') {
       return {
@@ -456,7 +468,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...(seatPlan ? (['seating'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,
@@ -816,6 +828,11 @@ export function MakerDetails(props: MakerDetailsProps) {
   if (ye) Object.assign(editors, ye.editors);
   /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
   if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
+  /* 🙋 Plan it myself — what the help is (middle), the one switch (right). */
+  if (props.planMyself) {
+    bodies['plan-myself'] = <PlanMyselfBody on={props.planMyself.on} />;
+    editors['plan-myself'] = <PlanMyselfSwitch eventId={eventId} on={props.planMyself.on} />;
+  }
 
   return (
     <ThemePickProvider eventId={eventId} current={theme.current} ownLook={theme.ownLook ?? false}>

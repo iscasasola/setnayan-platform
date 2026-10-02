@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -85,7 +86,7 @@ export default async function PapicModerationPage({
   // 🔴 THREE STATES. A failed check used to read as "Papic is not on", and the
   // couple was told their guests' photos would appear "once Papic is on" for a
   // celebration where it already was.
-  const guestAccess = await eventPapicGuestAccess(admin, eventId);
+  const guestAccess = await eventPapicGuestAccess(await eventEntitlementClient(eventId), eventId);
 
   // Kwento is FREE for every event (owner 2026-08-21: "kwento is free").
   // `eventKwentoEnabled` still runs — it routes through `eventSkuActive`, which
@@ -98,8 +99,8 @@ export default async function PapicModerationPage({
   // batch, not left unused: the row is deactivated, so the lookup returns null
   // and its `?? 500` fallback would have quoted a price for a free feature.
   const [ownsKwento, papicActive] = await Promise.all([
-    eventKwentoEnabled(admin, eventId),
-    eventPapicActive(admin, eventId),
+    eventKwentoEnabled(await eventEntitlementClient(eventId), eventId),
+    eventPapicActive(await eventEntitlementClient(eventId), eventId),
   ]);
   // Captures (newest first), the blocked-guest list, any open reports, and the
   // NSFW-screened (auto-filtered) captures from BOTH capture tables — one

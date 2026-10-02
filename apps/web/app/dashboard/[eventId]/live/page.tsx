@@ -1,4 +1,6 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
 import {
   MonitorPlay,
@@ -77,7 +79,7 @@ export default async function LiveWallConsolePage({
   // repair, 2026-06-15) — bundle-aware, so a Media Pack buyer reaches the
   // console too. Replaces the event_software_activations_v2 read whose only
   // writer (verify_and_activate_manual_payment) had zero app callers.
-  const owns = await eventSkuActive(supabase, eventId, 'LIVE_WALL');
+  const owns = await eventSkuActive(await eventEntitlementClient(eventId), eventId, 'LIVE_WALL');
 
   if (!owns) {
     // Not purchased — a quiet doorway to the add-on, not a dead end. Price
@@ -92,7 +94,7 @@ export default async function LiveWallConsolePage({
             fills itself as the night unfolds. The Live Wall is a Papic add-on.
           </p>
           <Link
-            href={`/dashboard/${eventId}/studio`}
+            href={studioHubHref(eventId)}
             className="mt-5 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
           >
             <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />

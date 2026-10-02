@@ -150,6 +150,14 @@ export type EventMenuRow = {
    * `the-event-menu-is-one-tree.test.ts` holds "exactly one row has children".
    */
   children?: readonly EventMenuChild[];
+  /**
+   * 🧭 THE ROW'S DOOR IS A MENU, NOT A PAGE (owner 2026-10-02, tracker d1 —
+   * the full-page More Services is gone). Its `href` is Home with the More menu
+   * open (`studioHubHref`), so that href must claim NOTHING: Home's path would
+   * otherwise light this row on every event page. It claims only its
+   * `alsoMatch` (the product pages it holds).
+   */
+  menuDoor?: true;
 };
 
 /** One of the five services under More Services — PLAIN DATA (an icon NAME,
@@ -258,7 +266,7 @@ const UNCLAIMED_PRODUCTS = new Set(['pawebsite', '__all__']);
 
 /** Every path a row claims: its href, its `matchPrefix`, its `alsoMatch`. */
 export function eventMenuRowClaims(r: EventMenuRow): string[] {
-  return [r.href.split('?')[0]!, r.matchPrefix, ...(r.alsoMatch ?? [])].filter(
+  return [r.menuDoor ? undefined : r.href.split('?')[0]!, r.matchPrefix, ...(r.alsoMatch ?? [])].filter(
     (m): m is string => !!m && m !== '__home__',
   );
 }
@@ -337,28 +345,28 @@ export function buildEventMenuSections(
     });
   }
 
-  // MORE SERVICES — the Suite page is this pillar ("Suite becomes this page").
-  // It holds Galleries (its Gallery card) and, below, every product page no
-  // other row holds. Where there is no Maker, it also holds the pages the
-  // Maker would have (its page keeps those tools — `toolHasGoneHome`).
+  // MORE SERVICES — the menu of the five services (it was a page, /suite,
+  // until the owner removed it 2026-10-02: "the More menu is the one place").
+  // Its door is Home with the menu open (`studioHubHref`, `menuDoor`), and it
+  // holds Galleries and every product page no other row holds. Where there is
+  // no Maker, it also holds the pages the Maker would have.
   // "Our Services" → "More Services" (owner 2026-09-30: *"it cannot be our
   // services since we have the guestlist, your team and event hub maker on the
   // sidebar which is also our services"*). 🔒 The KEY stays `studio`.
-  const hub = studioHubHref(eventId);
   const services = ctx.services ?? [];
   put({
     key: 'studio',
     label: SUITE_NAV_ON ? 'More Services' : 'Studio',
-    href: hub,
+    href: studioHubHref(eventId),
+    menuDoor: true,
     icon: 'suite',
     ...(services.length ? { children: services.map((c) => ({ ...c })) } : {}),
     alsoMatch: [
-      `${base}/suite`,
       `${base}/studio`,
       `${base}/galleries`,
       ...(maker ? [] : [`${base}/story`, `${base}/schedule`]),
       ...(maker ? [] : seatPages),
-    ].filter((m) => m !== hub.split('?')[0]),
+    ],
   });
 
   // THE PRODUCTS' PAGES — claimed by whichever row holds them.

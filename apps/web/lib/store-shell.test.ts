@@ -560,6 +560,8 @@ test('wiring: the Mood Board back-link to the paid add-ons hub is withheld in th
   // so the link itself, not just the paid tiles behind it, withdraws.
   // The board is one component since Details part 3; only its PAGE view carries the link (the Maker's never does).
   const page = src('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
-  assert.match(page, /\{storeShell \? null : \(\s*<Link\s*\n\s*href=\{`\/dashboard\/\$\{eventId\}\/studio`\}/);
+  // The services' address is `studioHubHref` since the full-page hub went
+  // (owner 2026-10-02, tracker d1) — still withheld in the store shell.
+  assert.match(page, /\{storeShell \? null : \(\s*<Link\s*\n\s*href=\{studioHubHref\(eventId\)\}/);
   assert.match(page, /‹ Back to add-ons/, 'anchor moved — the link text this test is guarding');
 });

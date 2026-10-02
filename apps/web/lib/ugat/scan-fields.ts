@@ -202,12 +202,59 @@ function functionsIn(src: string): Fn[] {
   const push = (name: string, exported: boolean, parenAt: number) => {
     const pClose = closeOf(src, parenAt);
     if (pClose < 0) return;
-    // optional return type, then `=>`? then `{`
+    // optional return type (which may itself be `{ … }`), then `=>`? then `{`
     let k = pClose + 1;
-    const rest = src.slice(k, k + 400);
-    const m = rest.match(/^\s*(?::[^{=]*?)?(?:=>)?\s*\{/);
-    if (!m) return;
-    k += m[0].length - 1;
+    const ws = () => {
+      while (k < src.length && /\s/.test(src[k]!)) k += 1;
+    };
+    ws();
+    if (src[k] === ':') {
+      k += 1;
+      // A `{` is the body only when a complete type has just ended; after `:`,
+      // `|`, `&`, `keyof`… it is a type literal (`): { ok: true } | { ok: false } {`).
+      let expectType = true;
+      for (let guard = 0; guard < 400 && k < src.length; guard += 1) {
+        ws();
+        const c = src[k]!;
+        if (c === '{' && !expectType) break; // the body
+        if (src.startsWith('=>', k)) break;
+        if (c === '{' || c === '(' || c === '[') {
+          const e = closeOf(src, k);
+          if (e < 0) return;
+          k = e + 1;
+          expectType = false;
+        } else if (c === '<') {
+          let d = 0;
+          while (k < src.length) {
+            if (src[k] === '<') d += 1;
+            else if (src[k] === '>') {
+              d -= 1;
+              if (d === 0) break;
+            }
+            k += 1;
+          }
+          k += 1;
+          expectType = false;
+        } else if (c === "'" || c === '"') {
+          k = readQuoted(src, k).end;
+          expectType = false;
+        } else if (/[\w$]/.test(c)) {
+          const w = src.slice(k).match(/^[\w$.]+/)![0];
+          k += w.length;
+          expectType = /^(?:keyof|typeof|readonly|infer|is|asserts|new)$/.test(w);
+        } else if (c === '|' || c === '&' || c === '?' || c === ':') {
+          k += 1;
+          expectType = true;
+        } else if (c === ';' || c === ',' || c === ')') return;
+        else k += 1;
+      }
+    }
+    ws();
+    if (src.startsWith('=>', k)) {
+      k += 2;
+      ws();
+    }
+    if (src[k] !== '{') return;
     const end = closeOf(src, k);
     if (end < 0) return;
     out.push({ name, params: src.slice(parenAt + 1, pClose), start: k, end, exported });
@@ -322,7 +369,9 @@ function homesOf(
     const bound = resolveIdent(text);
     extra = extraAssign(text);
     if (bound) {
-      const arrow = bound.search(/=>\s*\(\s*\{/);
+      // The LAST `=> ({` is the shape that is written: `.map(a => ({…})).filter(…).map(b => ({…}))`.
+      const arrows = [...bound.matchAll(/=>\s*\(\s*\{/g)];
+      const arrow = arrows.length ? arrows[arrows.length - 1]!.index! : -1;
       const b = arrow >= 0 ? bound.indexOf('{', arrow) : bound.trimStart().startsWith('{') || bound.trimStart().startsWith('[') ? bound.indexOf('{') : -1;
       if (b >= 0) objText = bound.slice(b);
     }
@@ -363,7 +412,7 @@ const WRITE_VERB = /\.(insert|update|upsert)\s*\(/g;
 function writeSites(
   src: string,
   scope: { start: number; end: number },
-  resolveIdent: (name: string) => string | null,
+  resolveIdentAt: (name: string, at: number) => string | null,
   extraAssign: (name: string) => Entry[],
 ): WriteSite[] {
   const out: WriteSite[] = [];
@@ -381,6 +430,7 @@ function writeSites(
       if (close < 0) continue;
       const args = splitTop(chain.slice(open + 1, close));
       const arg = args[0] ?? '';
+      const resolveIdent = (name: string) => resolveIdentAt(name, at);
       out.push({ at, table: m[2]!, homes: homesOf(m[2]!, arg, resolveIdent, extraAssign), arg });
       break; // one verb per chain
     }
@@ -392,6 +442,7 @@ function writeSites(
     if (close < 0) continue;
     const args = splitTop(src.slice(open + 1, close));
     const arg = args[1] ?? '';
+    const resolveIdent = (name: string) => resolveIdentAt(name, at);
     out.push({ at, table: `rpc:${m[2]}`, homes: homesOf(`rpc:${m[2]}`, arg, resolveIdent, extraAssign), arg });
   }
   return out;
@@ -493,6 +544,9 @@ function flowIn(
       if (objIdx < 0) continue;
       const h = helperReads(m[1]!, objIdx);
       if (!h || !h.known) continue;
+      // `const pricing = parsePricingFields(formData)` — the result carries every
+      // field the helper reads, so `{ ...pricing }` in a write saves them.
+      if (h.keyParams.length === 0) for (const f of h.fields) out.push({ field: f, at: m.index! });
       args.forEach((arg, i) => {
         if (!h.keyParams.includes(i)) return;
         const lit = literalAt(arg);
@@ -502,7 +556,19 @@ function flowIn(
     return out;
   };
   const fieldsAt = readsOf(body);
-  const readsAll = new RegExp(
+  // A key the code computes (`for (const f of FIELDS) formData.get(f)`) reads
+  // fields this scan cannot list — so nothing here may be judged dropped. A key
+  // that is one of the function's own parameters is a keyed reader, handled
+  // by its callers.
+  const paramNames = splitTop(fn.params).map((x) => x.match(/^([A-Za-z_$][\w$]*)/)?.[1] ?? '');
+  let dynamicKeys = false;
+  for (const m of body.matchAll(getRe)) {
+    if (literalAt(body.slice(m.index! + m[0].length)) !== null) continue;
+    const id = body.slice(m.index! + m[0].length).match(/^([A-Za-z_$][\w$]*)\s*\)/)?.[1];
+    if (id && paramNames.includes(id)) continue;
+    dynamicKeys = true;
+  }
+  const readsAll = dynamicKeys || new RegExp(
     `Object\\.fromEntries\\(\\s*(?:${objAlt})\\b|\\b(?:${objAlt})\\.(?:entries|keys|values|forEach)\\(|\\bof\\s+(?:${objAlt})\\b|\\[\\s*\\.\\.\\.(?:${objAlt})\\b`,
   ).test(body);
 
@@ -600,7 +666,38 @@ function flowIn(
     }
     return 'free';
   };
+  /**
+   * A field tested in an `if (…)` whose branch writes — sets a payload key
+   * (`row.visibility = 'coordinator_only'`) or calls a write — IS saved, as a
+   * choice between values. `if (formData.get('prep') === 'on') row.x = …`.
+   */
+  const guardsAWrite = (pos: number): boolean => {
+    let depth = 0;
+    for (let k = pos - 1; k >= 0; k -= 1) {
+      const c = blank[k];
+      if (c === ')' || c === ']' || c === '}') depth += 1;
+      else if (c === '(' || c === '[' || c === '{') {
+        if (depth > 0) {
+          depth -= 1;
+          continue;
+        }
+        if (c !== '(') return false;
+        if (!/\b(?:if|else\s+if)\s*$/.test(blank.slice(Math.max(0, k - 10), k))) continue;
+        const close = closeOf(body, k);
+        if (close < 0) return false;
+        let j = close + 1;
+        while (j < body.length && /\s/.test(body[j]!)) j += 1;
+        const branch = body[j] === '{' ? body.slice(j, closeOf(body, j) + 1) : body.slice(j, statementEnd(body, j));
+        return /\.(?:insert|update|upsert|rpc)\s*\(|[\w$\])]\s*\.\s*[\w$]+\s*=(?![=>])|\[[^\]\n]+\]\s*=(?![=>])/.test(branch);
+      } else if (c === ';' && depth === 0) return false;
+    }
+    return false;
+  };
   const judge = (pos: number, fs: Iterable<string>) => {
+    if (guardsAWrite(pos)) {
+      for (const f of fs) used.add(f);
+      return;
+    }
     const callees = enclosingCallees(blank, pos);
     if (callees.some((c) => c && !PURE_CALLEE.test(c))) for (const f of fs) used.add(f);
   };
@@ -697,6 +794,8 @@ interface RawForm {
   from: string;
   actionExprs: string[];
   inputs: string[];
+  /** Capitalised components rendered inside the form — their own inputs post with it. */
+  children: string[];
 }
 
 function formsIn(rel: string, src: string): RawForm[] {
@@ -743,7 +842,8 @@ function formsIn(rel: string, src: string): RawForm[] {
       inputs.add(name);
     }
     if (exprs.length === 0 && inputs.size === 0) continue;
-    out.push({ from: rel, actionExprs: exprs, inputs: [...inputs].sort() });
+    const children = [...new Set([...inner.matchAll(/<([A-Z][\w]*)\b/g)].map((c) => c[1]!))].sort();
+    out.push({ from: rel, actionExprs: exprs, inputs: [...inputs].sort(), children });
   }
   return out;
 }
@@ -803,11 +903,22 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
     const fns = functionsIn(src);
     const imports = importsIn(src);
     const consts = new Map<string, string>();
+    const declsOf = new Map<string, Array<{ at: number; text: string }>>();
     for (const m of src.matchAll(/\b(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*(?::[^=\n]+)?=(?![=>])\s*/g)) {
       const start = m.index! + m[0].length;
-      if (!consts.has(m[1]!)) consts.set(m[1]!, src.slice(start, statementEnd(src, start, 6000)));
+      const text = src.slice(start, statementEnd(src, start, 6000));
+      if (!consts.has(m[1]!)) consts.set(m[1]!, text);
+      if (!declsOf.has(m[1]!)) declsOf.set(m[1]!, []);
+      declsOf.get(m[1]!)!.push({ at: m.index!, text });
     }
-    const resolveIdent = (name: string) => consts.get(name) ?? null;
+    /** The declaration of `name` nearest BEFORE `at` — names are reused across functions. */
+    const resolveIdentAt = (name: string, at: number): string | null => {
+      const ds = declsOf.get(name);
+      if (!ds) return null;
+      let best: string | null = null;
+      for (const d of ds) if (d.at < at) best = d.text;
+      return best;
+    };
     const extraAssign = (name: string): Entry[] => {
       const out: Entry[] = [];
       for (const a of src.matchAll(new RegExp(`(?<![\\w$.])${name.replace(/\$/g, '\\$')}(?:\\.([A-Za-z_$][\\w$]*)|\\[\\s*['"]([^'"]+)['"]\\s*\\])\\s*=(?![=>])\\s*`, 'g'))) {
@@ -817,7 +928,7 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
       return out;
     };
     const writes = /\.(?:insert|update|upsert|rpc)\s*\(/.test(src)
-      ? writeSites(src, { start: 0, end: src.length }, resolveIdent, extraAssign)
+      ? writeSites(src, { start: 0, end: src.length }, resolveIdentAt, extraAssign)
       : [];
     const constLiteral = (name: string): string | null => {
       const c = consts.get(name);
@@ -936,7 +1047,7 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
   const resolveAction = (rel: string, exprIn: string, depth = 0): string[] | null => {
     if (depth > 3) return null;
     const f = facts(rel);
-    let expr = exprIn.trim().replace(/\.bind\([\s\S]*\)$/, '').replace(/^\(\s*|\s*\)$/g, '').trim();
+    let expr = exprIn.trim().replace(/\.bind(?:\([\s\S]*\))?$/, '').replace(/^\(\s*|\s*\)$/g, '').trim();
     if (/=>|\bfunction\b/.test(expr)) {
       // an inline handler: the action it calls with the FormData.
       const call = expr.match(/(?:await\s+)?([A-Za-z_$][\w$.]*)\(\s*(?:[^(),]*,\s*)*(?:fd|formData|data|form)\s*\)/);
@@ -965,7 +1076,7 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
       new RegExp(`(?:const|let)\\s+(?:${expr.replace(/\$/g, '\\$')}|\\[[^\\]]*\\b${expr.replace(/\$/g, '\\$')}\\b[^\\]]*\\])\\s*(?::[^=\\n]+)?=\\s*(?:React\\.)?(?:(?:useActionState|useFormState|useCallback|useTransition)\\(\\s*)?([A-Za-z_$][\\w$.]*)`),
     );
     if (bound && bound[1] !== expr && !/^(?:use|React)/.test(bound[1]!)) {
-      return resolveAction(rel, bound[1]!, depth + 1);
+      return resolveAction(rel, bound[1]!.replace(/\.bind$/, ''), depth + 1);
     }
     // A prop: the callers pass it.
     const callers = importers.get(rel) ?? [];
@@ -995,7 +1106,21 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
     for (const s of f.stores) stores.push({ from: rel, key: s });
     // Every FormData action in the file, so actions no form names are still mapped.
     for (const fn of f.fns) if (formObjsOf(fn).length || (f.isServerModule && fn.exported)) actionFacts(rel, fn.name);
-    for (const raw of f.forms) {
+    for (let raw of f.forms) {
+      // A child component's own static inputs post with this form
+      // (`<GuestNameFields />` holds first_name/last_name). One level down.
+      const childInputs = new Set<string>(raw.inputs);
+      for (const c of raw.children) {
+        const imp = f.imports.get(c);
+        if (!imp || imp.imported === '*') continue;
+        const t = resolveSpec(rel, imp.spec);
+        if (!t || !t.endsWith('.tsx')) continue;
+        for (const n of facts(t).src.matchAll(/<(?:input|select|textarea)\b[^<>]*?\bname=(?:"([^"]+)"|'([^']+)'|\{\s*['"]([^'"]+)['"]\s*\})/g)) {
+          const name = (n[1] ?? n[2] ?? n[3])!;
+          if (!/\s/.test(name)) childInputs.add(name);
+        }
+      }
+      raw = { ...raw, inputs: [...childInputs].sort() };
       const refs = new Set<string>();
       let unknown = raw.actionExprs.length === 0;
       for (const e of raw.actionExprs) {

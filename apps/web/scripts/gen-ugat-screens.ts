@@ -64,7 +64,11 @@ if (args.includes('--stdout')) {
 
 /* ═══════════════════════════ the owner's report ═══════════════════════════ */
 
-/** The first sentence a page says about itself, from its own docblock. */
+/**
+ * The first sentence a page says about itself: the docblock right above its
+ * `export default` (where pages describe themselves), else the file's first
+ * block. A leading restatement of its own address is dropped.
+ */
 function whatItIs(s: UgatScreen): string {
   let src = '';
   try {
@@ -72,14 +76,33 @@ function whatItIs(s: UgatScreen): string {
   } catch {
     return '';
   }
-  const block = src.match(/\/\*\*?([\s\S]*?)\*\//);
-  const lines = (block?.[1] ?? src.match(/^(?:\s*\/\/.*\n)+/m)?.[0] ?? '')
-    .split('\n')
-    .map((l) => l.replace(/^\s*(\*|\/\/)\s?/, '').trim())
-    .filter((l) => l && !/^[─═━-]+$/.test(l) && !/^@/.test(l) && !/^['"]use /.test(l));
-  const text = lines.slice(0, 3).join(' ').replace(/\s+/g, ' ');
+  const blocks = [...src.matchAll(/\/\*\*?([\s\S]*?)\*\//g)];
+  const exp = src.search(/export\s+default/);
+  const before = blocks.filter((b) => exp < 0 || b.index! < exp);
+  const near = before.length ? before[before.length - 1] : undefined;
+  const pick = (b: RegExpMatchArray | undefined) =>
+    (b?.[1] ?? '')
+      .split('\n')
+      .map((l) => l.replace(/^\s*\*\s?/, '').trim())
+      .filter((l) => l && !/^[─═━-]+$/.test(l) && !/^@/.test(l))
+      .join(' ')
+      .replace(/\s+/g, ' ');
+  const clean = (t: string) =>
+    t
+      .replace(/^`?\/[^\s`]*`?\s*(?:—|-|–|·)\s*/, '')
+      .replace(/^[^A-Za-z0-9"'`(]+/, '')
+      .trim();
+  // A block that names the page's own address is the page describing itself.
+  const leaf = s.route.split('/').filter(Boolean).pop() ?? '/';
+  const self = blocks.find((b) => b[1]!.includes(s.route) || b[1]!.includes(`/${leaf}`));
+  let text = clean(pick(self ?? near));
+  if (text.length < 25) text = clean(pick(near));
+  if (text.length < 25) text = clean(pick(blocks[0]));
   const sentence = text.split(/(?<=[.!?])\s/)[0] ?? text;
-  return sentence.length > 160 ? `${sentence.slice(0, 157)}…` : sentence;
+  const said = sentence.length > 140 ? `${sentence.slice(0, 137)}…` : sentence;
+  // The page's own title is what a person would call it; lead with it.
+  const title = src.match(/metadata[^=]*=\s*\{[\s\S]{0,200}?title:\s*['"`]([^'"`$]+)['"`]/)?.[1];
+  return title ? `"${title}" · ${said}` : said;
 }
 
 function nodeNames(s: UgatScreen): string {

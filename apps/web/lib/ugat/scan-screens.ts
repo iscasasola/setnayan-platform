@@ -852,8 +852,8 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
         return '';
       }
     })();
-    const target = redirectTargetIn(raw);
-    const isStub = target !== null && !rendersJsx(raw);
+    const isStub = redirectTargetIn(raw) !== null && !rendersJsx(raw);
+    const target = isStub ? stubTarget(stripComments(raw)) : null;
 
     const seen = new Set<string>([file]);
     let frontier = [file];
@@ -889,6 +889,26 @@ export function scanScreens(opts: ScanScreensOptions): UgatScreensMap {
   );
   legacyRedirects.sort((a, b) => a.source.localeCompare(b.source));
   return { version: 1, screens, brokenDoors, legacyRedirects };
+}
+
+/**
+ * Where a stub forwards, placeholders shown as `[…]`. The admin parser stops
+ * at the first `${`, which turns every `/dashboard/${id}/studio` into
+ * `/dashboard`; screens are mostly dynamic, so read the whole template. The
+ * LAST non-sign-in redirect wins: a stub guards its door (`redirect('/login')`)
+ * before it forwards.
+ */
+function stubTarget(src: string): string | null {
+  let found: string | null = null;
+  for (const m of src.matchAll(/\b(?:redirect|permanentRedirect)\s*\(/g)) {
+    const { lits } = readExpr(src, m.index! + m[0].length, 'paren');
+    const first = lits.find((l) => l.value.startsWith('/') || l.value.startsWith(PH));
+    if (!first) continue;
+    const shown = first.value.split(PH).join('[…]');
+    if (/^\/login\b/.test(shown)) continue;
+    found = shown;
+  }
+  return found;
 }
 
 /** One line per no-door screen — the slice-2 ratchet's baseline format. */

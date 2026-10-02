@@ -153,7 +153,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   seo: 'SEO & GEO — nightly llms.txt-vs-catalog drift audit, route/token coverage, and Search Console trend.',
   funnels: 'Conversion funnels — where couples and suppliers drop off.',
   'operations-hiring': 'Operations and hiring metrics — throughput and capacity.',
-  'connection-logs': 'Integration and connection logs for debugging.',
+  'connection-logs': 'Every action that failed, tap that did nothing and dead end — grouped, most-hit first.',
   offline: 'The offline reconciliation daemon status and history.',
 
   // ── Money group (key 'settings-group') — money config then settings tail
@@ -299,4 +299,7 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   'wedding-traditions': 'setup set up ugat root map',
   brain: 'setup set up ugat root map',
   ugat: 'ugat setup set up root map entity connection',
+  // Renamed "Problems" 2026-10-02 (owner) — the old name and the words an admin
+  // types for it stay findable.
+  'connection-logs': 'connection logs faults errors bugs broken failures issues crashes dead taps',
 };

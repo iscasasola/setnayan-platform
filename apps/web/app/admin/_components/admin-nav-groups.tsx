@@ -814,7 +814,7 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
       },
       {
         key: 'connection-logs',
-        label: 'Connection logs',
+        label: 'Problems',
         href: '/admin/app-performance?tab=connection-logs',
         icon: Bug,
         matchPrefix: '/admin/connection-logs',

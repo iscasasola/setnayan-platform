@@ -30,7 +30,9 @@ export const metadata = {
 
 export default function SlugNotFound() {
   return (
-    <main className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
+    // data-dead-end: the browser observer (lib/telemetry/fault-observer.ts)
+    // records an in-app tap that lands here, with the page it came from.
+    <main data-dead-end="not-found" className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">
       <div className="max-w-xl w-full text-center">
         <p className="font-mono text-xs uppercase tracking-[0.2em] text-ink/40 mb-6">
           Setnayan

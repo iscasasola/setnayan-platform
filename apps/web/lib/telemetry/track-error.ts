@@ -30,7 +30,15 @@ export type TelemetryEventType =
   | 'BUTTON_FAIL'
   | 'SUPABASE_SAVE_ERROR'
   | 'BLANK_FALLBACK'
-  | 'OTHER';
+  | 'OTHER'
+  // 2026-10-02 · the Problems list — browser kinds (lib/telemetry/fault-normalize.ts BROWSER_KINDS).
+  | 'ACTION_RETURNED_ERROR'
+  | 'BUTTON_TIMEOUT'
+  | 'UPLOAD_STALLED'
+  | 'PAGE_CRASH'
+  | 'DEAD_END'
+  | 'DEAD_TAP'
+  | 'RAGE_TAP';
 
 export interface TrackFailureInput {
   /** What kind of fault this is. */

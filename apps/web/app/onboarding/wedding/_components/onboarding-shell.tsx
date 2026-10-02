@@ -3027,7 +3027,9 @@ export function OnboardingShell({
   }, [committedEventId, state, buildCommitPayload, router, goToId, nextPath, servicesSelection, weddingExists, setupView, setupAnswers]);
 
   return (
-    <div className="onbw">
+    // data-flow-screen — the Problems list counts how far couples get through
+    // these screens (lib/telemetry/flows.ts, "create_event"), read from here.
+    <div className="onbw" data-flow-screen={activeId}>
       {/* Blocking completion overlay — covers the whole viewport so the customer
           can't touch anything while we create the event + preload the dashboard
           (owner 2026-06-02). Stays up until the dashboard navigation swaps in. */}

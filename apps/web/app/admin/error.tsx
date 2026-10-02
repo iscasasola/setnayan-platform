@@ -26,6 +26,12 @@ export default function AdminError({
     // Mirror to the console for DevTools copy/paste.
     // eslint-disable-next-line no-console
     console.error('[admin-error]', error);
+    // 📋 Problems list — a browser-born crash is recorded (a server-born one,
+    // with a digest, was already recorded by onRequestError). Lazy: this
+    // boundary pays nothing for it until it renders.
+    void import('@/lib/telemetry/report-crash')
+      .then((m) => m.reportCrash(error, 'admin'))
+      .catch(() => {});
   }, [error]);
 
   return (

@@ -33,6 +33,7 @@
 # ══ DECLINED — not product entities ═════════════════════════════════════════
 
 seo_* | declined — SEO health and telemetry tooling; observability, not a product entity
+app_* | declined — the Problems list (app_telemetry_logs traces, app_fault_issues grouped failures, app_action_daily_counts success/step counters, migration 20271260713505); observability about the app, not a product entity
 platform_* | declined — platform ops config and internal registries; the map documents product entities, not our own plumbing
 admin_* | declined — internal admin queues and approval plumbing; the console is the surface, not a mapped entity
 concierge_* | declined — the retired "Concierge" naming (now Setnayan AI): trial-abuse tooling plus its knowledge-chunk store. Enforcement and retrieval plumbing, not a product entity.

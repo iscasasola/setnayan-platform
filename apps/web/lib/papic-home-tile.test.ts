@@ -38,6 +38,8 @@ type Counts = {
   guest?: number;
   /** make a named table's read fail, to exercise graceful degradation */
   failTable?: string;
+  /** 🗂 `events.papic_on` — the host's "Photos from your guests?" answer. Absent = never asked (on). */
+  papicOn?: boolean | null;
 };
 
 /**
@@ -57,6 +59,11 @@ function makeDb(counts: Counts) {
       select: () => chain,
       eq: () => chain,
       is: () => chain,
+      // The event row (the Papic answer) — read with `.maybeSingle()`.
+      maybeSingle: () =>
+        counts.failTable === table
+          ? Promise.resolve({ data: null, error: { message: 'boom' } })
+          : Promise.resolve({ data: table === 'events' ? { papic_on: counts.papicOn ?? null } : null, error: null }),
       then(resolve: (v: { count: number | null; error: unknown }) => unknown) {
         if (counts.failTable === table) {
           return Promise.resolve({ count: null, error: { message: 'boom' } }).then(resolve);
@@ -177,6 +184,21 @@ test('a failing capture-count table is NOT MEASURED, not a zero — and not a cr
     assert.equal(cams.cameras, null, 'a refused camera count is not "0 cameras out"');
     assert.equal(await papicNudgeShouldShow(makeAdmin(null, { failTable: 'papic_photos' }), 'evt-1', true), false, 'no nudge on a refused count');
     assert.equal(await papicNudgeShouldShow(makeAdmin(null, { failTable: 'papic_guest_captures' }), 'evt-1', true), false, 'nor on a refused guest count');
+  } finally {
+    console.error = quiet;
+  }
+});
+
+test('🗂 "Photos from your guests? — No" (Your info) takes the free-camera nudge off Home', async () => {
+  // Move the input → the output moves: the same event, nothing shot, only the answer changes.
+  assert.equal(await papicNudgeShouldShow(makeAdmin(null, { papicOn: null }), 'evt-1', true), true, 'never asked = Papic on');
+  assert.equal(await papicNudgeShouldShow(makeAdmin(null, { papicOn: true }), 'evt-1', true), true);
+  assert.equal(await papicNudgeShouldShow(makeAdmin(null, { papicOn: false }), 'evt-1', true), false, 'No = no camera to offer');
+  // An unread answer is no claim either way — and an offer nobody could check stays off.
+  const quiet = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await papicNudgeShouldShow(makeAdmin(null, { failTable: 'events' }), 'evt-1', true), false);
   } finally {
     console.error = quiet;
   }

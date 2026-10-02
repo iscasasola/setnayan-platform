@@ -268,10 +268,12 @@ test('(4) a page that has not arrived SAYS so — never an empty column', async 
 
 test('(4) Details wires each Look item: its body, its editor, and the Mood Board note opens the item in place', () => {
   const details = read(`${L}/maker-details.tsx`);
-  assert.match(details, /bodies\.logo = <DetailsLookBody item="logo" \/>/);
+  // 🗂 The logo answer ("Do you want a logo?", 2026-10-02) sits above the studio — the studio is still the body.
+  assert.match(details, /bodies\.logo = logoA \? \([\s\S]{0,300}<DetailsLookBody item="logo" \/>[\s\S]{0,40}\) : \(\s*<DetailsLookBody item="logo" \/>/);
   assert.match(details, /bodies\.hero = <DetailsLookBody item="hero" \/>/);
   assert.match(details, /bodies\.reveal = <DetailsLookBody item="reveal" \/>/);
-  assert.match(details, /hero: <DetailsLookEditor item="hero" \/>/);
+  // 🗂 …and the event-photo answer above the Hero's own controls.
+  assert.match(details, /hero: coverA \? \([\s\S]{0,200}<DetailsLookEditor item="hero" \/>[\s\S]{0,40}\) : \(\s*<DetailsLookEditor item="hero" \/>/);
   assert.match(details, /reveal: <DetailsLookEditor item="reveal" \/>/);
   assert.match(details, /bodies\['mood-board'\] = \(/);
   assert.match(details, /'mood-board': look\.moodBoardControls,/, 'the Mood Board has no right column');

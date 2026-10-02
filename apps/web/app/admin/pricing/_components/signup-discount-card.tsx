@@ -86,7 +86,7 @@ export function SignupDiscountCard({
       ))}
 
       {moving.length > 0 && (
-        <div className="mt-3 rounded-xl border border-danger-700/30 bg-danger-700/[0.05] p-3">
+        <div className="mt-3 rounded-xl bg-danger-700/[0.05] p-3">
           <p className="flex items-center gap-2 text-[13px] font-bold text-danger-700">
             <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden />
             Saving this changes {moving.length} sign-up price{moving.length === 1 ? '' : 's'}

@@ -11,11 +11,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 import { SERVICE_NAMES, serviceNameLine } from './service-names';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
-const strip = (s: string) =>
-  s.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = (s: string) => stripComments(s);
 
 test('the owner’s five pairs, plain first', () => {
   assert.deepEqual(

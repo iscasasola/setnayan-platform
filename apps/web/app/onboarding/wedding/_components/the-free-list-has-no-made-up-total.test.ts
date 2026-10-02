@@ -12,14 +12,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '../../../../lib/strip-comments';
 
 const SRC = readFileSync(
   join(process.cwd(), 'app/onboarding/wedding/_components/onboarding-shell.tsx'),
   'utf8',
 );
-const code = SRC.replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/^\s*\/\/.*$/gm, '');
+const code = stripComments(SRC);
 
 function block(startRe: RegExp): string {
   const m = startRe.exec(code);

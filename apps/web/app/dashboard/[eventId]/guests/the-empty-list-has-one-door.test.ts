@@ -9,11 +9,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '../../../../lib/strip-comments';
 
 const dir = join(process.cwd(), 'app/dashboard/[eventId]/guests');
 const read = (rel: string) => readFileSync(join(dir, rel), 'utf8');
-const strip = (s: string) =>
-  s.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = (s: string) => stripComments(s);
 
 test('the empty list: one line, one button, and it opens the header + sheet', () => {
   const page = strip(read('page.tsx'));

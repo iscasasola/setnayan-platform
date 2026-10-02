@@ -7,9 +7,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '../../lib/strip-comments';
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = (s: string) => stripComments(s);
 
 test('opening a shop ends on Today', () => {
   const actions = strip(read('app/open-shop/actions.ts'));

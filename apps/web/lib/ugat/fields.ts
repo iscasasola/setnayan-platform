@@ -231,6 +231,20 @@ export const EVENT_BOOKKEEPING_COLUMNS: ReadonlySet<string> = new Set([
   'last_activity_at', 'last_viewed_at', 'view_count', 'cached_summary',
 ]);
 
+/**
+ * Families of `events` columns that hold the APP's state about the event, not
+ * an answer a person gave: a job's progress (`photo_delivery_status`,
+ * `…_progress_pct`, `…_failed_count`), a generated token, a wizard's place,
+ * a dismissed hint. Reasoned by suffix so a new one of the same family is
+ * recognised without editing this list.
+ */
+export function isEventBookkeeping(col: string): boolean {
+  return (
+    EVENT_BOOKKEEPING_COLUMNS.has(col) ||
+    /_status$|_progress_pct$|_failed_count$|_token$|_state$|^dismissed_|_seen_at$|_sent_at$|_count$/.test(col)
+  );
+}
+
 /* ═══════════════════════════ serialization ═══════════════════════════ */
 
 /**

@@ -226,12 +226,19 @@ test('e · the first screen states each of the four facts exactly once', () => {
   }
 });
 
+test('e · the Home draws exactly one h1 — the cover name — and it is the first screen\'s', () => {
+  const html = draw();
+  assert.equal(count(html, '<h1'), 1, 'the first screen must carry the page\'s one h1 (the Kumusta hero that held it is gone)');
+  assert.match(html, /<h1[^>]*>Ana &amp; Miguel<\/h1>/, 'the h1 is the event name');
+  assert.equal(count(DASH, '<h1 className="sn-h1'), 1, 'a second h1 in the dashboard — the hero is the only one, and it is gated');
+});
+
 test('e · what a first screen above removes — and nothing when none is above', () => {
   const none = firstScreenRepeats(undefined, 5);
-  assert.deepEqual(none, { countdown: false, guests: false, rsvpRow: false, money: false, needsYou: false },
+  assert.deepEqual(none, { hero: false, countdown: false, guests: false, rsvpRow: false, money: false, needsYou: false },
     'the day-of / after-the-day mounts have no first screen above them — they must render everything');
   const above = firstScreenRepeats({ nextKind: 'guide', money: true }, 3);
-  assert.deepEqual(above, { countdown: true, guests: true, rsvpRow: true, money: true, needsYou: false },
+  assert.deepEqual(above, { hero: true, countdown: true, guests: true, rsvpRow: true, money: true, needsYou: false },
     'a first screen above removes days · guests · the RSVP row · the Budget tile, but keeps a decisions COUNT it does not state');
   // The Budget tile only goes when the first screen actually drew the money line.
   assert.equal(firstScreenRepeats({ nextKind: 'guide', money: false }, 3).money, false, 'a viewer who cannot see money lost the budget tile too');
@@ -247,6 +254,9 @@ test('e · each repeated site in EventDashboard sits behind its gate, and the si
   // The Guests and Budget tiles.
   assert.match(DASH, /if \(stats\.total > 0 && !eventHasHappened && !repeats\.guests\) \{/, 'the Guests tile is drawn under the first screen again');
   assert.match(DASH, /if \(!repeats\.money && \(committedCentavos > 0/, 'the Budget tile is drawn under the first screen again');
+  // The "Kumusta…" hero: the first screen's cover is the greeting (frame 1 has none).
+  assert.match(DASH, /\{repeats\.hero \? null : \(\s*<header className="sn-reveal pt-1">/, 'the Kumusta hero is drawn under the first screen again');
+  assert.equal(count(DASH, 'Kumusta,'), 1, 'a second greeting site — gate it with repeats.hero');
   // The countdown numeral and the briefing chip.
   assert.match(DASH, /repeats\.countdown && \(daysOut === null \|\| daysOut >= 0\) \? null : \(/, 'the wedding-day card counts down again');
   assert.match(DASH, /daysOut !== null && daysOut >= 0 && !repeats\.countdown \? \(/, 'the briefing chip restates days to go');
@@ -259,6 +269,13 @@ test('e · each repeated site in EventDashboard sits behind its gate, and the si
   assert.equal(count(DASH, '<CountUp value={stats.attending}'), 1, 'a new "coming" site — gate it with repeats.guests');
   assert.equal(count(DASH, 'formatCount(stats.pending)'), 1, 'a new "no reply" site — gate it with repeats.rsvpRow');
   assert.equal(count(DASH, 'formatPeso(committedCentavos)'), 2, 'a new money site — gate it with repeats.money');
+  // COUNTED, the other way round: every gate this file reads. A gate deleted (the fact printed twice again) or an unmatched
+  // new one both move this number, so the change has to be argued, not slipped in.
+  assert.equal(
+    (DASH.match(/repeats\.(hero|countdown|guests|rsvpRow|money|needsYou)\b/g) ?? []).length,
+    7,
+    'the dashboard reads a different number of first-screen gates than the seven sites the guard knows',
+  );
 });
 
 test('e · only the plan branch tells the dashboard a first screen is above it', () => {

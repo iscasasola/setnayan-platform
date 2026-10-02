@@ -2174,24 +2174,28 @@ export async function EventDashboard({
     <div className="relative">
       <div className="space-y-10">
         {/* ── Hero ─────────────────────────────────────────────────────── */}
-        <header className="sn-reveal pt-1">
-          <p className="text-[13px] text-ink/55">
-            Kumusta, {displayName} · welcome back
-          </p>
-          <h1 className="sn-h1 mt-1.5">
-            {daysOut === 0
-              ? `It's your ${eventWord} day.`
-              : daysOut !== null && daysOut < 0
-                ? `Your ${eventWord} is complete.`
-                : `Your ${eventWord} is taking shape.`}{' '}
-            {daysOut === null || daysOut > 0 ? (
-              <span className="sn-h1-tail">Here&rsquo;s today.</span>
-            ) : null}
-          </h1>
-          {/* One home per number (rollout § 3.1): the countdown lives in the
-           *  focal, the open-decision count in the digest panel, the stage on
-           *  the journey rail — so the hero is greeting + sentence only. */}
-        </header>
+        {/* 🏠 The first screen's cover IS the greeting (frame 1 draws no hero), so with
+         *  one above this header is not rendered at all — removed, not hidden. */}
+        {repeats.hero ? null : (
+          <header className="sn-reveal pt-1">
+            <p className="text-[13px] text-ink/55">
+              Kumusta, {displayName} · welcome back
+            </p>
+            <h1 className="sn-h1 mt-1.5">
+              {daysOut === 0
+                ? `It's your ${eventWord} day.`
+                : daysOut !== null && daysOut < 0
+                  ? `Your ${eventWord} is complete.`
+                  : `Your ${eventWord} is taking shape.`}{' '}
+              {daysOut === null || daysOut > 0 ? (
+                <span className="sn-h1-tail">Here&rsquo;s today.</span>
+              ) : null}
+            </h1>
+            {/* One home per number (rollout § 3.1): the countdown lives in the
+             *  focal, the open-decision count in the digest panel, the stage on
+             *  the journey rail — so the hero is greeting + sentence only. */}
+          </header>
+        )}
 
         {/* ── Top grid — the proto's 2-column grammar (rollout plan § 3.1).
          *  LEFT: the obsidian "Big Day" focal (STATUS) as a tall column — date ·

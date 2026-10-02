@@ -230,6 +230,8 @@ test('e · the Home draws exactly one h1 — the cover name — and it is the fi
   const html = draw();
   assert.equal(count(html, '<h1'), 1, 'the first screen must carry the page\'s one h1 (the Kumusta hero that held it is gone)');
   assert.match(html, /<h1[^>]*>Ana &amp; Miguel<\/h1>/, 'the h1 is the event name');
+  assert.equal(count(html, 'Ana &amp; Miguel'), 2, 'the name is the h1 (read) plus one aria-hidden line (seen) — a third copy is a dupe');
+  assert.match(html, /aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the seen copy must be hidden from a screen reader, or the name is read twice');
   assert.equal(count(DASH, '<h1 className="sn-h1'), 1, 'a second h1 in the dashboard — the hero is the only one, and it is gated');
 });
 

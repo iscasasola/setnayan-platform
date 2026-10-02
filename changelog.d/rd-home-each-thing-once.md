@@ -6,7 +6,7 @@ Next-vs-"Needs you this week" overlap from under the first screen. The one block
 "Kumusta, <name> · welcome back / Your wedding is taking shape. Here's today." hero, which frame 1 does not
 draw. With the first screen above, `EventDashboard` now does not render it (removed, not hidden behind a
 breakpoint: `firstScreenRepeats().hero`). The day-of and after-the-day mounts have no first screen above
-them and keep it. The page's one `<h1>` moves to the first screen's cover (the event name). The guard
+them and keep it. The page's one `<h1>` moves to the first screen (screen-reader-only event name; the seen copy is aria-hidden). The guard
 `the-home-leads-with-one-next.test.ts` gains the hero gate, a count of every first-screen gate the
 dashboard reads, and "exactly one h1".
 

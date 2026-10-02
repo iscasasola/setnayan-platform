@@ -13,12 +13,11 @@
 /dev/home-lab
 /dev/schedule-lab
 /host/accept/[token]
-/join/[eventId]/check-email
 /onboarding/simple
 /panood/demo/[token]
 /papic/demo/[token]
 /papic/lightcheck
 /privacy/google-access
-/prototype/mesh-call
+/suppliers/[event]/[category]
 /vendor-invite/[slug]
 /waitlist

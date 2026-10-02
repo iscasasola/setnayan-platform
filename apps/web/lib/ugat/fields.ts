@@ -116,7 +116,8 @@ export const CALCULATIONS: readonly Calculation[] = [
     formula: 'count(guests where rsvp_status = attending) for the event',
     inputs: ['guests.rsvp_status', 'guests.event_id'],
     anchors: ['computeGuestStats'],
-    renders: [/^coming$/i, /\b\d*\s*attending\b/i],
+    // `#` marks a run-time value (see scan-shown-values): "# attending".
+    renders: [/^coming$/i, /#\s*(?:attending|coming)\b/i],
   },
   {
     id: 'guests-no-reply',
@@ -124,7 +125,7 @@ export const CALCULATIONS: readonly Calculation[] = [
     formula: 'count(guests where rsvp_status = pending) for the event',
     inputs: ['guests.rsvp_status', 'guests.event_id'],
     anchors: ['computeGuestStats'],
-    renders: [/\bno reply\b/i, /\bstill to reply\b/i],
+    renders: [/^no reply$/i, /#\s*(?:still to reply|no reply|haven.t replied)/i],
   },
   {
     id: 'money-owing',

@@ -1195,8 +1195,14 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
 }
 
 /** The import closure a screen's checks look at — exported so the shown-values check uses the same files. */
+const closureMemo = new Map<string, { sources: Set<string>; imports: Map<string, string[]> }>();
 export function screenFiles(webRoot: string, pageFile: string): string[] {
-  const sources = new Set(listSources(webRoot));
+  let memo = closureMemo.get(webRoot);
+  if (!memo) {
+    memo = { sources: new Set(listSources(webRoot)), imports: new Map() };
+    closureMemo.set(webRoot, memo);
+  }
+  const { sources, imports } = memo;
   const resolve = (fromRel: string, spec: string): string | null => {
     let base: string;
     if (spec.startsWith('@/')) base = spec.slice(2);
@@ -1205,21 +1211,27 @@ export function screenFiles(webRoot: string, pageFile: string): string[] {
     for (const ext of ['.ts', '.tsx', '/index.ts', '/index.tsx', '']) if (sources.has(base + ext)) return base + ext;
     return null;
   };
+  const importsOf = (rel: string): string[] => {
+    const hit = imports.get(rel);
+    if (hit) return hit;
+    let src = '';
+    try {
+      src = stripComments(readFileSync(join(webRoot, rel), 'utf8'));
+    } catch {
+      /* unreadable */
+    }
+    const out = [...importsIn(src).values()].map((b) => resolve(rel, b.spec)).filter((t): t is string => Boolean(t));
+    imports.set(rel, out);
+    return out;
+  };
   const seen = new Set<string>([pageFile]);
   let frontier = [pageFile];
   for (let hop = 0; hop < 3; hop += 1) {
     const next: string[] = [];
     for (const rel of frontier) {
       if (rel.startsWith('lib/') && rel !== pageFile) continue;
-      let src = '';
-      try {
-        src = stripComments(readFileSync(join(webRoot, rel), 'utf8'));
-      } catch {
-        continue;
-      }
-      for (const b of importsIn(src).values()) {
-        const t = resolve(rel, b.spec);
-        if (!t || seen.has(t) || t.startsWith('app/admin/')) continue;
+      for (const t of importsOf(rel)) {
+        if (seen.has(t) || t.startsWith('app/admin/')) continue;
         seen.add(t);
         next.push(t);
       }

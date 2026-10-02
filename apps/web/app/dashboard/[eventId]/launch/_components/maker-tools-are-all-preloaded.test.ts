@@ -61,6 +61,7 @@ const NOT_A_TOOL: Record<string, string> = {
   'lib/offline/service-handlers/papic-vendor-drain.ts': 'Papic offline drain, not the Maker',
   'app/_components/home/HomeOverlays.tsx': 'the marketing site’s overlays — not the signed-in app',
   'app/dashboard/[eventId]/_components/more-services-sheet.tsx': 'the event bottom bar’s More sheet — under the Maker, not one of its tools',
+  'lib/last-seen/client.ts': 'the last-seen store (a host’s kept Home/Guests/Suppliers/Schedule/Details pages) — warmed on idle by the event layout itself, not a Maker panel',
 };
 
 const rel = (p: string) => relative(WEB, p);

@@ -4960,9 +4960,9 @@ export function SeatingEditor({
   );
   const shareMenuBody = (
     <>
-      <MenuCaption>Export PDF</MenuCaption>
-      <MenuRow icon={FileDown} label="Mood-board colours" hint="Floor & tables in your palette" href={`/dashboard/${eventId}/seating/export?mode=moodboard`} />
-      <MenuRow icon={FileDown} label="Blueprint" hint="Clean technical line drawing" href={`/dashboard/${eventId}/seating/export?mode=blueprint`} />
+      <MenuCaption>Seat plan · A3</MenuCaption>
+      <MenuRow icon={FileDown} label="In your colours" hint="Every table with its chairs · who sits where" href={`/dashboard/${eventId}/seating/export?mode=moodboard`} />
+      <MenuRow icon={FileDown} label="Blueprint" hint="The same page as a clean line drawing" href={`/dashboard/${eventId}/seating/export?mode=blueprint`} />
       <MenuRow icon={FileDown} label="Caterer meal counts" hint="Meals per table + dietary · print or CSV" href={`/dashboard/${eventId}/seating/caterer`} target="_blank" />
       <MenuDivider />
       <MenuCaption>Guest photos in the 3D walk</MenuCaption>

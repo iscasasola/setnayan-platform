@@ -12,7 +12,7 @@
  * this list existed; each points at the route that already draws it:
  *   · guest-registry → /api/hub-print/guest-registry   (new, lib/print-guest-registry.ts)
  *   · qr-codes       → /api/hub-print/qr-codes         (#5977, the Guest list's QR PDF)
- *   · seat-plan      → /dashboard/<id>/seating/export  (lib/seating-pdf.ts, moodboard | blueprint)
+ *   · seat-plan      → /dashboard/<id>/seating/export  (lib/seating-pdf.ts — ONE A3 landscape page; moodboard | blueprint)
  *   · seating-pack   → /dashboard/<id>/seating/print   (directory, table signs, place cards)
  *   · caterer        → /dashboard/<id>/seating/caterer (meal counts; CSV too)
  *   · event-qr       → /api/website/qr/<slug>          (the event's own QR, PNG)
@@ -69,7 +69,7 @@ export function freePrints(eventId: string, slug: string | null): FreePrint[] {
     {
       key: 'seat-plan',
       label: '2D seat plan',
-      blurb: 'Your room from above — every table, every chair, and who sits where.',
+      blurb: 'One A3 page: your room from above — every table with its chairs, and who sits where.',
       preview: `/dashboard/${e}/seating/export?format=preview&mode=moodboard`,
       saves: [
         { label: 'Save in your colours', href: `/dashboard/${e}/seating/export?mode=moodboard`, file: printFileName(slug, 'seat-plan') },

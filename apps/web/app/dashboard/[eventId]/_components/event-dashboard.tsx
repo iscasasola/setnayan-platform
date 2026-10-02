@@ -2357,7 +2357,7 @@ export async function EventDashboard({
                 <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
                   {Math.round(lockedInPct)}%
                 </b>{' '}
-                locked in
+                booked
               </p>
                 </>
               )}

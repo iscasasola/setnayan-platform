@@ -174,7 +174,7 @@ test('booked, nothing paid → the first payment, at the requested minimum', () 
   assert.equal(s.action, 'record_deposit');
   assert.equal(s.amountCentavos, 335000);
   assert.equal(s.minimumCentavos, 335000);
-  assert.equal(s.label, 'First payment · locks the date');
+  assert.equal(s.label, 'First payment · books the date');
   assert.equal(moneyStepLine(s, 'couple', 'Saysay'), 'First payment ₱3,350 — due now');
   assert.equal(moneyStepLine(s, 'vendor', 'the couple'), 'Waiting for the ₱3,350 first payment');
 });
@@ -420,8 +420,8 @@ test('the revision seed reads the schedule, and the builder starts from it', () 
 test('the booked proposal page says so, before it would offer a lock', () => {
   const page = src('app/proposals/[publicId]/page.tsx');
   assert.match(page, /\{bookedMoney \? \(/);
-  assert.ok(page.indexOf('{bookedMoney ? (') < page.indexOf('lockDoorHref ? ('));
-  assert.match(page, /\{noteShown \|\| 'No proposal text\.'\}/);
+  assert.ok(page.indexOf('{bookedMoney ? (') < page.indexOf('lockTarget ? ('));
+  assert.match(page, /\{noteShown \|\| 'No quote text\.'\}/);
   const send = src('lib/proposal-send.ts');
   assert.match(send, /\$\{DEFAULT_QUOTE_NOTE_TAIL\}/, 'the default note and its booked rule drifted apart');
 });

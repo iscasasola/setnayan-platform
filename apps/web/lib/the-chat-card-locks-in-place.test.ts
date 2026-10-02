@@ -98,7 +98,7 @@ test('couple · a lock request can never render as nothing', () => {
   // 'lock_requested' is named, says so, and re-reads the page (the chat mount
   // is not revalidated by finalizeVendor's own revalidatePath).
   assert.equal(count(lock, /case 'lock_requested':/g), 1, 'the ask falls through the switch again');
-  assert.equal(count(lock, /Lock requested — waiting for \{state\.vendorName\} to agree\./g), 1, 'the ask has no visible state');
+  assert.equal(count(lock, /Booking requested — waiting for \{state\.vendorName\} to agree\./g), 1, 'the ask has no visible state');
   assert.ok(count(lock, /router\.refresh\(\)/g) >= 2, 'a success no longer re-reads the page the button sits on');
   // Any status the switch does not name is a compile error AND a visible error.
   assert.match(lock, /default: \{\s*const unhandled: never = result;\s*setState\(\{\s*kind: 'error'/, 'an unnamed result renders nothing');

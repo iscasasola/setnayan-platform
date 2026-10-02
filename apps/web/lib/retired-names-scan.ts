@@ -44,6 +44,7 @@
  * then prints — nothing else in this file changes.
  */
 import ts from 'typescript';
+import { stripComments } from './strip-comments';
 
 export interface RetiredName {
   /** The retired spelling, as it used to be written on screen. */
@@ -149,7 +150,7 @@ export function scanRetiredNames(
 
   const check = (node: ts.Node, text: string, jsx: boolean) => {
     // A stylesheet held in a string carries `/* … */` notes no person reads.
-    if (!jsx && text.includes('{') && text.includes('/*')) text = text.replace(/\/\*[\s\S]*?\*\//g, ' ');
+    if (!jsx && text.includes('{') && text.includes('/*')) text = stripComments(text);
     for (const name of names) {
       for (const m of text.matchAll(wordRe(name))) {
         if (!isVisibleHit(text, m.index!, m[0].length, jsx)) continue;

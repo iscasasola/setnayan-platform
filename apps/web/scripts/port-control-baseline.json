@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "859cf27ff",
+  "generatedFromRef": "758e1e83d",
   "routeCount": 422,
   "destinations": 942,
   "actions": 671,
@@ -5844,7 +5844,6 @@
         "dashboard/[eventId]/guests/_components/use-roster-columns.ts",
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
         "dashboard/[eventId]/guests/_components/walking-order-lines.tsx",
-        "dashboard/[eventId]/guests/_components/who-can-reply-ask.tsx",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/finalize-actions.ts",
         "dashboard/[eventId]/guests/groups-actions.ts",
@@ -6034,8 +6033,7 @@
         "TierHeader",
         "Toggle",
         "UndoToastHost",
-        "WalkingOrderLines",
-        "WhoCanReplyAsk"
+        "WalkingOrderLines"
       ]
     },
     "/dashboard/[eventId]/guests/[guestId]": {
@@ -10391,6 +10389,7 @@
         "sendProposal"
       ],
       "blocks": [
+        "AccordionLockButton",
         "Link",
         "PrintButton",
         "SubmitButton"

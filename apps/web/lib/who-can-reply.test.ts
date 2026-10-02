@@ -19,7 +19,7 @@ test('an event that never chose reads "Only people on my list" — no write need
     assert.equal(readGuestsGetIn(never), 'list');
   }
   assert.equal(guestsGetInLabel('list'), 'Only people on my list');
-  assert.equal(GUESTS_GET_IN_CHOICES[0].value, 'list', 'the default is the first choice in Event Details');
+  assert.equal(GUESTS_GET_IN_CHOICES[0]?.value, 'list', 'the default is the first choice in Event Details');
 });
 
 test('choosing it in Event Details stores exactly what the default already reads', () => {

@@ -55,7 +55,7 @@ test('the live quote yields ₱3,350 on lock, then ₱13,400 fourteen days befor
   const t = acceptedQuoteTerms([LIVE], '2026-12-12');
   assert.ok(t);
   assert.equal(t.firstPaymentCentavos, 335000);
-  assert.equal(firstPaymentSentence(t), 'First payment requested: ₱3,350 — due on lock');
+  assert.equal(firstPaymentSentence(t), 'First payment requested: ₱3,350 — due on booking');
   assert.equal(t.schedule.length, 2);
   assert.equal(t.schedule[1]!.amountCentavos, 1340000);
   assert.match(t.schedule[1]!.dueText, /^14 days before the event \(Nov 28, 2026\)$/);

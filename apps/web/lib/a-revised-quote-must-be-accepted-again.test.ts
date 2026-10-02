@@ -236,7 +236,7 @@ test('the card draws its label from the rule — the literal "See the quote" is 
   assert.equal(count(branch, /quoteState\.offerLock && lockTarget \?/g), 1, 'Lock is not gated on the rule');
   assert.equal(count(branch, /quoteState\.offerLockAnswer &&/g), 1, 'the supplier’s answer is not gated on the rule');
   assert.equal(count(branch, /Update this quote/g), 1);
-  assert.equal(count(branch, /to lock`/g), 1, 'the couple’s lock label must render once');
+  assert.equal(count(branch, /to confirm your booking`/g), 1, 'the couple’s lock label must render once');
   assert.match(branch, /handshake: lockHandshake\?\.state \?\? null/, 'the rule is not told the handshake');
   assert.match(branch, /isLatest: isLatestProposal/, 'the rule is not told which card is the live one');
   // And the old cards repaint: every quote id is refetched on every message change.

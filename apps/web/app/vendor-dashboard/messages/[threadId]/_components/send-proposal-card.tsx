@@ -261,7 +261,7 @@ export function SendProposalCard({
               pendingLabel="Sending…"
               className="inline-flex h-10 items-center rounded-lg bg-mulberry px-4 text-sm font-semibold text-cream hover:bg-mulberry-600"
             >
-              Send quote
+              Send this quote
             </SubmitButton>
             <button
               type="button"

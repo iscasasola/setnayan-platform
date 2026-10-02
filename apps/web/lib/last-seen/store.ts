@@ -8,7 +8,7 @@
  * once under a quiet "Updating…" mark, and the fresh server render replaces it
  * (`app/_components/last-seen/last-seen.tsx`).
  *
- * Lazy-loaded: only those five pages ever import this file.
+ * Lazy-loaded through `./client.ts` (`import()`), never in a page's first load.
  *
  * ── THE RULES THIS FILE ENFORCES (each held by `last-seen.test.ts`) ──────────
  *  1. NEVER MONEY. A snapshot carrying a peso figure or a `data-money` element

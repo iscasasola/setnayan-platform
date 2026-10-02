@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { deviceStorage, saveLastSeen, type LastSeenPage } from '@/lib/last-seen/store';
-import { snapshotFromRoot } from '@/lib/last-seen/snapshot-dom';
+import type { LastSeenPage } from '@/lib/last-seen/store';
 import { useLastSeenScope } from './last-seen-scope';
 import { LastSeenMark, takeLastSeenShown } from './last-seen-mark';
 
@@ -59,15 +58,19 @@ export function LastSeenCapture({
       if (!alive) return;
       // Only the page as it opens from the menu (see LastSeenFallback).
       if (window.location.search) return;
-      const html = snapshotFromRoot(root);
-      if (!html) return;
-      saveLastSeen(deviceStorage(), {
-        userId: scope.userId,
-        eventId: scope.eventId,
-        page,
-        url: window.location.pathname,
-        html,
-      });
+      const url = window.location.pathname;
+      // Lazy: the cleaner and the store load after the page is up, on idle
+      // (`lib/last-seen/client.ts`) — never in any page's first load.
+      void import('@/lib/last-seen/client')
+        .then(({ deviceStorage, saveLastSeen, snapshotFromRoot }) => {
+          if (!alive || window.location.pathname !== url) return;
+          const html = snapshotFromRoot(root);
+          if (!html) return;
+          saveLastSeen(deviceStorage(), { userId: scope.userId, eventId: scope.eventId, page, url, html });
+        })
+        .catch(() => {
+          /* nothing kept this time; the next settle tries again */
+        });
     };
     // Settled = 1.2 s with no change. A page that never stops changing (a
     // count-up, a ticking clock) is still kept, at most 10 s after it began.

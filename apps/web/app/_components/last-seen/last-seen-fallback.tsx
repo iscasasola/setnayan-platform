@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-import { deviceStorage, readLastSeen, type LastSeenEntry, type LastSeenPage } from '@/lib/last-seen/store';
+import type { LastSeenEntry, LastSeenPage } from '@/lib/last-seen/store';
 import { useLastSeenScope } from './last-seen-scope';
 import { LastSeenMark, REFRESH_TIMEOUT_MS, noteLastSeenShown, refreshPhase, type LastSeenPhase } from './last-seen-mark';
 
@@ -35,21 +35,29 @@ export function LastSeenFallback({ page, children }: { page: LastSeenPage; child
     // Only the page as it opens from the menu — a filtered or deep-linked view
     // is a different screen, and is never painted from another one's data.
     if (window.location.search) return;
-    const entry = readLastSeen(deviceStorage(), {
-      userId: scope.userId,
-      eventId: scope.eventId,
-      page,
-      url: window.location.pathname,
-    });
-    if (!entry) return;
-    noteLastSeenShown(page);
-    const after = (waitedMs: number) =>
-      setShown({ entry, phase: refreshPhase({ online: navigator.onLine !== false, waitedMs }) });
-    after(0);
+    const url = window.location.pathname;
+    let live = true;
+    let timer = 0;
     const fail = () => setShown((s) => (s ? { ...s, phase: 'failed' } : s));
-    const timer = window.setTimeout(() => after(REFRESH_TIMEOUT_MS), REFRESH_TIMEOUT_MS);
-    window.addEventListener('offline', fail);
+    // Lazy: the store loads with this screen, never with the event layout
+    // (`lib/last-seen/client.ts`). Once on the phone, this is a few ms.
+    void import('@/lib/last-seen/client')
+      .then(({ deviceStorage, readLastSeen }) => {
+        if (!live) return;
+        const entry = readLastSeen(deviceStorage(), { userId: scope.userId, eventId: scope.eventId, page, url });
+        if (!entry) return;
+        noteLastSeenShown(page);
+        const after = (waitedMs: number) =>
+          setShown({ entry, phase: refreshPhase({ online: navigator.onLine !== false, waitedMs }) });
+        after(0);
+        timer = window.setTimeout(() => after(REFRESH_TIMEOUT_MS), REFRESH_TIMEOUT_MS);
+        window.addEventListener('offline', fail);
+      })
+      .catch(() => {
+        /* the store could not load (offline, first visit) — the skeleton stays */
+      });
     return () => {
+      live = false;
       window.clearTimeout(timer);
       window.removeEventListener('offline', fail);
     };

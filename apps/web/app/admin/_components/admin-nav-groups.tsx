@@ -558,8 +558,10 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     // folded into the Taxonomy Studio 2026-07-03 — no standalone items to
     // carry.) The first PR of the HQ studio-consolidation program will turn
     // these into Taxonomy-Studio-style surfaces.
+    // Shown as "Root map" (owner, DECISION_LOG 2026-10-02 "'UGAT MAP' IS NOW
+    // CALLED THE 'ROOT MAP'" — supersedes 2026-10-01's "Set up"). Key unchanged.
     key: 'ugat',
-    label: 'Set up',
+    label: 'Root map',
     defaultOpen: false,
     items: [
       {

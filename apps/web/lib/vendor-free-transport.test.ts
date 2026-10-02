@@ -356,17 +356,22 @@ test('freebie lines (null amount) survive the rewrite and contribute nothing', (
    THE WIRING — source-text, because these paths pull in `server-only`.
    ═══════════════════════════════════════════════════════════════════════════ */
 
-test('the flag is default OFF', () => {
+// ⚖ Owner 2026-10-02, tracker d9: "enforce the free-transport inner radius in
+// quotes now". Production never set the variable, so the default IS the
+// production value — it must arm. The variable is a kill switch only.
+// SABOTAGE (run 2026-10-02): restoring `return v === '1' || v === 'true'` turns
+// this red ("unset must ARM enforcement (owner d9)").
+test('the flag is default ON — the variable is only a kill switch (owner d9)', () => {
   const prev = process.env.NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED;
   delete process.env.NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED;
-  assert.equal(isFreeTransportEnforcementEnabled(), false);
-  for (const v of ['0', 'false', '', 'yes', 'TRUE']) {
+  assert.equal(isFreeTransportEnforcementEnabled(), true, 'unset must ARM enforcement (owner d9)');
+  for (const v of ['', '1', 'true', 'yes', 'TRUE']) {
     process.env.NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED = v;
-    assert.equal(isFreeTransportEnforcementEnabled(), false, `"${v}" must not arm money`);
+    assert.equal(isFreeTransportEnforcementEnabled(), true, `"${v}" must keep enforcement armed`);
   }
-  for (const v of ['1', 'true']) {
+  for (const v of ['0', 'false', 'FALSE', 'off', ' Off ']) {
     process.env.NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED = v;
-    assert.equal(isFreeTransportEnforcementEnabled(), true);
+    assert.equal(isFreeTransportEnforcementEnabled(), false, `"${v}" is the kill switch`);
   }
   if (prev === undefined) delete process.env.NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED;
   else process.env.NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED = prev;

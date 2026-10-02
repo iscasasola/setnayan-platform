@@ -59,7 +59,9 @@
  */
 
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { asksForMoreServices } from '@/lib/studio-hub';
 import { Settings } from 'lucide-react';
 import { useRailActiveKey } from '@/app/_components/frontdoor/rail-active-key';
 import type { NavSlotLite } from '@/lib/nav-registry-types';
@@ -366,5 +368,14 @@ function useMoreOpen(on: boolean): [boolean, (v: boolean) => void] {
     setWas(on);
     if (on) setOpen(true);
   }
+  /* 🧭 OPENED BY ITS ADDRESS (owner 2026-10-02, tracker d1). The full-page
+     More Services is gone; "the services" now opens Home with `?more=services`
+     (`studioHubHref`) — and on a laptop that means this row, open. Read from
+     the URL each time it changes, so a link from inside the event opens it
+     too, not only a fresh load. Still not remembered. */
+  const search = useSearchParams()?.toString() ?? '';
+  useEffect(() => {
+    if (asksForMoreServices(search)) setOpen(true);
+  }, [search]);
   return [open, setOpen];
 }

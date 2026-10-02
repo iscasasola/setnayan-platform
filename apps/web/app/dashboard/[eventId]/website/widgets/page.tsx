@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowDown, ArrowUp, Check, ExternalLink, Eye, EyeOff, GripVertical, Lock, Pencil, Sparkles, Wand2 } from 'lucide-react';
@@ -102,7 +103,7 @@ export default async function WidgetsEditorPage({
   // padlock until it is owned, a diamond after (owner 2026-09-25). A failed
   // read is "not owned": it can only show a padlock, never open a paid door.
   const [ownsPro, storeShell] = await Promise.all([
-    eventCoupleWebsiteProActive(supabase, eventId).catch(() => false),
+    eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
     isStoreShellRequest(),
   ]);
   const proMark = paidMarkState({ owns: ownsPro, storeShell });

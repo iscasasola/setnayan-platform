@@ -15,10 +15,11 @@ import {
  *
  * ── THREE INVARIANTS, ALL LOAD-BEARING ─────────────────────────────────────
  *
- * 1. FLAG-DARK, SHORT-CIRCUITED. The export returns null immediately while
- *    `NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED` is off — BEFORE any query is
- *    issued. Flag off = not one extra round-trip on the proposal-send path, and
- *    behaviour byte-identical to before this file existed.
+ * 1. KILL SWITCH, SHORT-CIRCUITED. Armed by default since 2026-10-02 (owner,
+ *    tracker d9). The export returns null immediately when
+ *    `NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED` is set to 0/false/off —
+ *    BEFORE any query is issued — so the rollback costs not one extra
+ *    round-trip and behaves byte-identically to before this file existed.
  *
  * 2. THE RING COLUMNS ARE READ IN THEIR OWN QUERY, NEVER FOLDED INTO AN
  *    EXISTING SELECT. PostgREST answers a select naming an unknown column with

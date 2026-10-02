@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
 import { QuietStart } from '@/app/_components/states/quiet-start';
@@ -72,13 +73,14 @@ export default async function PanoodCamerasPage({ params }: Props) {
   // ₱3,000 resolved to 'free' here and read "you have 3 cameras free to test with…
   // until you unlock Live Studio" — about the thing they had already unlocked.
   //
-  // ADMIN CLIENT for the ownership read: `orders` RLS is PURCHASER-scoped, so a
-  // co-host who did not place the order would read 'free' under their own session and
-  // see the same false sentence. This page is already gated on control-room
-  // membership above, which is the authorization boundary.
+  // THE ONE HOST-FACING RESOLVER for BOTH ownership reads (owner 2026-10-02: a
+  // purchase unlocks the EVENT): `orders` RLS is PURCHASER-scoped, so a co-host who
+  // did not place the order would read 'free' under their own session and see the
+  // same false sentence. The Cast tier used to be read that way — it no longer is.
+  const ent = await eventEntitlementClient(eventId);
   const [castTier, liveStudioOwned] = await Promise.all([
-    resolvePanoodTier(supabase, eventId),
-    eventSkuActive(admin, eventId, LIVE_STUDIO_SKU).catch(() => false),
+    resolvePanoodTier(ent, eventId),
+    eventSkuActive(ent, eventId, LIVE_STUDIO_SKU).catch(() => false),
   ]);
   const unlocked = castTier !== 'free' || liveStudioOwned;
   const cap = panoodCameraCapForTier(unlocked ? 'paid' : 'free');

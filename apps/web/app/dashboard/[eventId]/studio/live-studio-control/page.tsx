@@ -1,4 +1,6 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { notFound, redirect } from 'next/navigation';
 import {
   Video,
@@ -160,10 +162,16 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // it through the shared helper so this doorway can never point at the old URL.
   const controllerHref = liveStudioControlPath(eventId);
 
+  // 🔑 A PURCHASE UNLOCKS THE EVENT (owner 2026-10-02). Ownership is read through
+  // the one host-facing resolver — the service client, handed out only to a host
+  // of THIS event — so a co-host who did not place the order sees exactly what
+  // the server gate (checkoutPoolChannel → eventHoldsHostedChannel) decides.
+  const ent = await eventEntitlementClient(eventId);
+
   const [stats, stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale] =
     await Promise.all([
       fetchAddOnStats(supabase, FEATURE_KEY),
-      resolveAddOnState(supabase, eventId, FEATURE_KEY, 'couple', controllerHref),
+      resolveAddOnState(ent, eventId, FEATURE_KEY, 'couple', controllerHref),
       fetchPlatformSettings(supabase),
       formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
       formatV2Sku(LIVE_STUDIO_HOSTED_CHANNEL_SKU).catch(() => null),
@@ -171,7 +179,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       // 2026-09-02)? Read directly via eventSkuActive — NOT via ADD_ON_SKU_MAP /
       // resolveAddOnState, which drive whether the MULTICAM controller unlocks.
       // This entitlement decides WHICH CHANNEL NOTICE renders below, nothing else.
-      eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
+      eventSkuActive(ent, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
       // ⭐ LS6 (2026-09-02): is the add-on itself still ON SALE? `formatV2Sku` above
       // does NOT filter on is_active (it exists so an already-owning couple's
       // catalog miss only blanks a label, never their access), so it alone cannot
@@ -380,7 +388,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       ) : null}
 
       <AppStoreLayout
-        back={{ href: `/dashboard/${eventId}/studio`, label: 'Back to add-ons' }}
+        back={{ href: studioHubHref(eventId), label: 'Back to add-ons' }}
         hero={{
           Icon: Video,
           eyebrow: 'Live Watch',

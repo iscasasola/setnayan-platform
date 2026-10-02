@@ -165,8 +165,7 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
      different pages. The half-pair sweep below still checks every reader in the
      repo, so this list moving is not the list going quiet. */
   ['lib/studio-hub.ts', ['NEXT_PUBLIC_SUITE']],
-  ['app/dashboard/[eventId]/studio/page.tsx', ['NEXT_PUBLIC_SUITE']],
-  ['app/dashboard/[eventId]/suite/page.tsx', ['NEXT_PUBLIC_SUITE']],
+  /* The /studio and /suite pages left 2026-10-02 (tracker d1) — deleted, not quieted. */
   ['app/layout.tsx', ['NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED']],
   ['app/papic/seat/[token]/page.tsx', ['NEXT_PUBLIC_CAMERA_BRIDGE_ENABLED']],
   ['app/v/[slug]/booth/page.tsx', ['NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE']],

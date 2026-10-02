@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import Link from 'next/link';
@@ -44,7 +45,7 @@ export default async function LivingHeroPage({
   // 2026-09-24, "A"). `saveLivingHero` refuses it for a free couple; the studio
   // is not offered either. One they already have stays on the page and is
   // removed from the hero-photo editor.
-  const ownsPro = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
+  const ownsPro = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => true);
   if (!ownsPro) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">

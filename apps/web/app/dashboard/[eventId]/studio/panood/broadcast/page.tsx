@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Tv, Sparkles, Camera } from 'lucide-react';
@@ -102,7 +103,7 @@ export default async function PanoodControlRoomPage({ params }: Props) {
   // ⚠️ This also fixes a LIVE defect: the old check was `eventSkuActive(…, 'PANOOD_SYSTEM')`
   // alone, so a couple who paid ₱1,500 for the MOBILE Controller was shown an upsell wall on the
   // control room they had just bought. resolvePanoodTier checks both SKUs.
-  const tier = await resolvePanoodTier(supabase, eventId);
+  const tier = await resolvePanoodTier(await eventEntitlementClient(eventId), eventId);
   const owned = tier !== 'free';
 
   // Seed defaults + get-or-create control state through the service-role admin client (the

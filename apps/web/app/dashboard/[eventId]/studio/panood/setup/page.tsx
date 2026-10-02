@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import {
@@ -186,14 +187,19 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // admin-approval-gated) — replaces the old mockPanoodSetup() that faked a
   // base + add-on config. eventSkuActive degrades to false on a missing orders
   // table (42P01/42703), so a pre-bootstrap env safely shows "not owned".
+  //
+  // 🔑 Read through the one host-facing resolver (owner 2026-10-02: a purchase
+  // unlocks the EVENT) — a co-host who did not place the order sees the same
+  // ownership the server gates act on.
+  const ent = await eventEntitlementClient(eventId);
   const [baseOwned, customMonogramOwned, ownsHostedChannel] = await Promise.all([
-    eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM'),
-    eventSkuActive(supabase, eventId, 'ANIMATED_MONOGRAM'),
+    eventSkuActive(ent, eventId, 'PANOOD_SYSTEM'),
+    eventSkuActive(ent, eventId, 'ANIMATED_MONOGRAM'),
     // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
     // 2026-09-02)? Decides which pool-only connect notice renders below —
     // NOT multicam entitlement, which stays keyed on PANOOD_SYSTEM/LIVE_STUDIO
     // alone. See lib/live-studio-control.ts's docblock on the SKU.
-    eventSkuActive(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
+    eventSkuActive(ent, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU),
   ]);
 
   const setup: PanoodSetup = {

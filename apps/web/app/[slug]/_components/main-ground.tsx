@@ -1,4 +1,5 @@
 import type { AdaptiveTheme } from '@/lib/adaptive-theme';
+import { SceneClip } from './scene-clip';
 
 /**
  * THE COUPLE'S OWN MAIN BACKGROUND — their clip or photo in place of the
@@ -12,9 +13,13 @@ import type { AdaptiveTheme } from '@/lib/adaptive-theme';
  * videos for one background.
  *
  * ── WHAT IT WEARS ──────────────────────────────────────────────────────────
- *   · the still (a photo, or a clip's frame) — first paint, reduced motion, and
- *     what a guest sees while an unscreened clip may not play for them;
- *   · the clip, muted, inline and looping — only where the caller let it through;
+ *   · the still (a photo, or a clip's frame) — first paint, and what stays
+ *     whenever the clip does not play (reduced motion, Save-Data, Low Power
+ *     Mode, a closed switch, a dead link);
+ *   · the clip — the shipped `SceneClip` loop: muted, inline, no controls,
+ *     playing only while on screen and in front, invisible until it moves.
+ *     Guests get it too since the owner's *"make it move"* (2026-09-29); only
+ *     where the caller let it through (`lib/guest-hero-video.ts`);
  *   · THE SCRIM: the page's own paper (`--color-cream`) at the strength
  *     `mainGroundLegibility` measured over THEIR frame, so body text clears AA
  *     whatever they uploaded. Free — it is drawn whatever the toggle says;
@@ -32,8 +37,9 @@ import type { AdaptiveTheme } from '@/lib/adaptive-theme';
  * Every value in the stylesheet is a hex or an `r g b` triplet computed by
  * `lib/adaptive-theme.ts` from a sanitised frame — never a string a couple typed.
  *
- * No client JavaScript. Decorative only: hidden from assistive tech, deaf to the
- * pointer.
+ * The only client JavaScript is the clip's (`SceneClip`, already on the guest
+ * page for scene clips). Decorative only: hidden from assistive tech, deaf to
+ * the pointer.
  */
 export function MainGround({
   still,
@@ -80,15 +86,18 @@ export function MainGround({
           />
         ) : null}
         {clip ? (
-          <video
-            className="absolute inset-0 h-full w-full object-cover motion-reduce:hidden"
+          /* 🎞 The shipped scene loop (muted · inline · no controls · only while
+             on screen and in front), held invisible until it is MOVING, so the
+             still above is the first paint and stays whenever the clip cannot
+             play — reduced motion, Save-Data, iOS Low Power Mode, a dead link. */
+          <SceneClip
             src={clip}
-            poster={still ?? undefined}
-            autoPlay
-            muted
-            loop
-            playsInline
-            preload="metadata"
+            poster={still}
+            play="loop"
+            open="inplace"
+            label=""
+            className="absolute inset-0 h-full w-full object-cover"
+            revealOnPlay
           />
         ) : null}
         <div

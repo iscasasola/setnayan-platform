@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -196,7 +197,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
           ),
       moneyHidden || !budgetTruth ? Promise.resolve(null) : settle(resolveEventMoney(supabase, eventId)),
       moneyHidden || budgetTruth ? Promise.resolve(null) : settle(fetchBudgetSnapshot(supabase, eventId)),
-      settle(eventCoupleWebsiteProActive(admin, eventId)),
+      settle(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
       readEventPoolStatus(admin, eventId),
     ]);
 

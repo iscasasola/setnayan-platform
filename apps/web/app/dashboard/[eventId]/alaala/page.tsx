@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { getKwentoDensity, type KwentoDensityRow } from '@/lib/kwento-density';
@@ -450,7 +451,7 @@ export default async function AlaalaPage({ params }: Props) {
         </p>
         <div className="mt-4">
           <Link
-            href={`/dashboard/${eventId}/studio`}
+            href={studioHubHref(eventId)}
             className="inline-flex items-center rounded-full px-5 py-2.5 text-sm font-medium"
             style={{ background: 'var(--m-mulberry)', color: '#fff' }}
           >

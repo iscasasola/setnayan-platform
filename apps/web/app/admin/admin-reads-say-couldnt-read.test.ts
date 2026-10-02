@@ -297,13 +297,38 @@ test('Developer text is gone from the screens the audit named', () => {
   assert.doesNotMatch(src('app/admin/studio/_surfaces/website-surface.tsx'), /V1 ships the home page only/);
 });
 
-// ── the owner's word for the menu is "Setup" ───────────────────────────────
+// ── the owner's word for the map is "Root map" ─────────────────────────────
+// Owner, DECISION_LOG 2026-10-02 "'UGAT MAP' IS NOW CALLED THE 'ROOT MAP'"
+// (supersedes 2026-10-01's "Setup"). Code names, paths and routes keep "ugat".
 
 test('"Ugat" is not a word a person reads in the admin console', () => {
-  // The menu, the rail caption and the page titles already read "Set up"; the
-  // one place the codename leaked was the Interconnections screen.
+  // The menu, the rail caption and the page titles read "Root map"; the one
+  // place the codename leaked was the Interconnections screen.
   const s = src('app/admin/app-performance/_surfaces/interconnections-surface.tsx');
-  assert.match(s, /· Setup \$\{probe\.jointId\}/);
-  assert.match(s, /mapped Setup joints/);
+  assert.match(s, /· Root map \$\{probe\.jointId\}/);
+  assert.match(s, /mapped Root map joints/);
   assert.doesNotMatch(s.replace(/UGAT_JOINTS|ugat-concept\.baseline\.txt|ugat\//g, ''), /\bUgat\b/);
+});
+
+test('the map is called "Root map" everywhere a person reads its name — never "Set up"', () => {
+  // DECISION_LOG 2026-10-02 "'UGAT MAP' IS NOW CALLED THE 'ROOT MAP'".
+  const groups = src('app/admin/_components/admin-nav-groups.tsx');
+  assert.match(groups, /key: 'ugat',\s*label: 'Root map',/, 'the menu group lost its name');
+  assert.match(src('app/admin/_components/admin-rail-context.tsx'), /ugat: 'Root map'/, 'the rail caption');
+  assert.match(src('app/admin/ugat/map/page.tsx'), /Entity map · Root map · Admin/);
+  const studio = src('app/admin/ugat/page.tsx');
+  assert.match(studio, /aria-label="Root map sections"/);
+  assert.match(studio, /· Root map · Admin/);
+  for (const f of [
+    'app/admin/_components/admin-nav-groups.tsx',
+    'app/admin/_components/admin-rail-context.tsx',
+    'app/admin/ugat/page.tsx',
+    'app/admin/ugat/map/page.tsx',
+    'app/admin/ugat/_surfaces/screens-surface.tsx',
+    'app/admin/app-performance/_surfaces/interconnections-surface.tsx',
+  ]) {
+    assert.doesNotMatch(src(f), /['"`>](?:Set up|Setup)\b/, `${f} still shows "Set up"`);
+  }
+  // Old habits still find it: the words live on as search aliases.
+  assert.match(src('app/admin/_components/admin-nav-descriptions.ts'), /ugat: 'ugat setup set up root map/);
 });

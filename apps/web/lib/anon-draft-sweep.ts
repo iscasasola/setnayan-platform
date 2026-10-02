@@ -4,6 +4,15 @@ import { runClaimedJob, DAILY_GAP_MS } from '@/lib/periodic-jobs';
 import { ANON_EMAIL_DOMAIN } from '@/lib/anon-onboarding';
 import { describeUserDeleteBlocker } from '@/lib/user-delete-blockers';
 import { CLAIM_TOKEN_ROTATIONS, freshClaimToken } from '@/lib/erasure/coverage';
+import { sendEmail } from '@/lib/email';
+import {
+  ANON_DRAFT_REMINDER_DAYS_BEFORE,
+  ANON_DRAFT_TTL_DAYS,
+  DRAFT_REMINDER_SENT_KEY,
+  draftReminderAddress,
+  draftReminderDue,
+  draftReminderEmail,
+} from '@/lib/anon-draft-reminder';
 
 /**
  * Abandoned anonymous-draft cleanup (RA 10173 data-minimization).
@@ -27,8 +36,9 @@ import { CLAIM_TOKEN_ROTATIONS, freshClaimToken } from '@/lib/erasure/coverage';
 // ⚠ DPO / counsel sign-off item — retention window for UNCONVERTED anon drafts.
 // 30 days is a conservative default for third-party PII held under an
 // unidentifiable controller (data-minimization argues for aggressive deletion).
-// Tighten as directed before enabling the feature in production.
-const ANON_DRAFT_TTL_DAYS = 30;
+// The owner KEPT it on 2026-10-02 (tracker d11) and added a reminder email
+// before it (`runAnonDraftReminders` below). `ANON_DRAFT_TTL_DAYS` lives in
+// lib/anon-draft-reminder.ts so the reminder and the delete share one number.
 
 // Bounded per run so a single admin request never does unbounded work; the
 // daily claim keeps chewing through the backlog across subsequent requests.
@@ -227,12 +237,83 @@ export async function runAnonDraftSweep(): Promise<{ scanned: number; deleted: n
 }
 
 /**
+ * ✉ "YOUR DRAFT IS DELETED IN 3 DAYS" (owner 2026-10-02, tracker d11 — keep
+ * the 30-day delete, add a reminder a few days before).
+ *
+ * Drafts inside their last `ANON_DRAFT_REMINDER_DAYS_BEFORE` days
+ * (`draftReminderDue`), still anonymous, not yet reminded. Each is sent ONE
+ * email to the first real address it holds (`draftReminderAddress`), and the
+ * send is recorded on the auth user's `app_metadata` so the next daily run
+ * skips it — no new column.
+ *
+ * 📭 A draft that holds NO email is skipped and LOGGED as such, never counted
+ * as reminded. Today that is every draft (see lib/anon-draft-reminder.ts).
+ * A failed send is not marked, so the next run tries again while the window
+ * is open.
+ */
+export async function runAnonDraftReminders(
+  nowMs: number = Date.now(),
+): Promise<{ scanned: number; sent: number; noEmail: number }> {
+  const admin = createAdminClient();
+  const day = 24 * 60 * 60 * 1000;
+  const oldestIso = new Date(nowMs - ANON_DRAFT_TTL_DAYS * day).toISOString();
+  const newestIso = new Date(nowMs - (ANON_DRAFT_TTL_DAYS - ANON_DRAFT_REMINDER_DAYS_BEFORE) * day).toISOString();
+  const { data: candidates, error } = await admin
+    .from('users')
+    .select('user_id, email, created_at')
+    .like('email', `%${ANON_EMAIL_DOMAIN}`)
+    .gte('created_at', oldestIso)
+    .lte('created_at', newestIso)
+    .order('created_at', { ascending: true })
+    .limit(BATCH);
+  if (error) {
+    console.error('[anon-draft-reminder] candidate query failed:', error.message);
+    return { scanned: 0, sent: 0, noEmail: 0 };
+  }
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan.com';
+  let sent = 0;
+  let noEmail = 0;
+  for (const row of (candidates ?? []) as Array<{ user_id: string; email: string | null; created_at: string | null }>) {
+    try {
+      if (!draftReminderDue(row.created_at, nowMs)) continue;
+      const { data: got, error: getErr } = await admin.auth.admin.getUserById(row.user_id);
+      // Converted (or unreadable) — not a draft to remind.
+      if (getErr || got?.user?.is_anonymous !== true) continue;
+      const meta = (got.user.app_metadata ?? {}) as Record<string, unknown>;
+      if (meta[DRAFT_REMINDER_SENT_KEY]) continue;
+      const to = draftReminderAddress(got.user.email, row.email);
+      if (!to) {
+        noEmail++;
+        console.info(`[anon-draft-reminder] draft ${row.user_id} holds no email — reminder skipped`);
+        continue;
+      }
+      const { subject, text } = draftReminderEmail({ createdAtIso: row.created_at!, appUrl });
+      const res = await sendEmail({ to, subject, text });
+      if (!res.ok) {
+        console.error(`[anon-draft-reminder] send failed (${row.user_id}):`, res.reason);
+        continue;
+      }
+      await admin.auth.admin.updateUserById(row.user_id, {
+        app_metadata: { ...meta, [DRAFT_REMINDER_SENT_KEY]: new Date(nowMs).toISOString() },
+      });
+      sent++;
+    } catch (e) {
+      console.error(`[anon-draft-reminder] unexpected error (${row.user_id}):`, e);
+    }
+  }
+  return { scanned: (candidates ?? []).length, sent, noEmail };
+}
+
+/**
  * CRON-FREE daily anon-draft sweep — fired from admin-layout after(); a DAILY DB
  * claim guarantees it runs ~once/day across the fleet and survives deploys.
- * Best-effort, never throws.
+ * The reminders go first, in the same claimed run, so a draft entering its
+ * last days is warned before anything older is deleted. Best-effort, never
+ * throws.
  */
 export async function maybeRunAnonDraftSweep(): Promise<void> {
   await runClaimedJob('anon-draft-sweep', DAILY_GAP_MS, async () => {
+    await runAnonDraftReminders().catch((e) => console.error('[anon-draft-reminder] run failed:', e));
     const { deleted } = await runAnonDraftSweep();
     return deleted;
   });

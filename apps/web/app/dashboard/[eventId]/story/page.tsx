@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { storyGate } from '@/lib/story-opens-when-untold';
@@ -303,7 +304,7 @@ export default async function EditorialEditorPage({
   // and saveEditorial re-checks this, so the client flag is presentation only.
   let isPro = false;
   try {
-    isPro = await isEditorialProActive(createAdminClient(), eventId);
+    isPro = await isEditorialProActive(await eventEntitlementClient(eventId), eventId);
   } catch {
     isPro = false;
   }

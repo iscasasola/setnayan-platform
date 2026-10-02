@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { cache } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { readHubDraft } from '@/lib/hub-draft-store';
@@ -378,8 +379,9 @@ export async function MakerLogoPanel({ eventId, storeShell = false }: { eventId:
   const opening = makerLogoOpening(m.drafted);
   /* Each layer's motion plays for guests with the Animated Monogram (Event Hub
      Pro includes it) — the same gate as every moving mark (`HeroMonogram`). */
-  const supabase = await createClient();
-  const ownsMotion = await eventOwnsAnimatedMonogram(supabase, eventId).catch(() => false);
+  const ownsMotion = await eventEntitlementClient(eventId)
+    .then((ent) => eventOwnsAnimatedMonogram(ent, eventId))
+    .catch(() => false);
   return (
     <MakerLogoDoor
       eventId={eventId}

@@ -49,6 +49,10 @@ type Props = {
   selectedVendorId: string | null;
   catalogPrices: CustomUnitPrices;
   loadedPlan: LoadedPlan;
+  /** The OPEN receiving accounts as a phrase ("GCash, BDO or Maribank"), read
+   *  server-side from the same list checkout shows (`receivingAccountsPhrase`) —
+   *  never typed here, so an account the admin adds or closes reaches this line. */
+  payToPhrase: string;
 };
 
 const peso = (n: number) =>
@@ -95,6 +99,7 @@ export function CustomComposer({
   selectedVendorId,
   catalogPrices,
   loadedPlan,
+  payToPhrase,
 }: Props) {
   const router = useRouter();
 
@@ -512,7 +517,7 @@ export function CustomComposer({
                     decisive to a matcher. */}
                 A booking fee applies only on couples Setnayan introduces, charged to the supplier and never added to what a couple pays.
               </div>
-              <div>Pay via BDO or GCash — manual apply-then-pay.</div>
+              <div>Pay via {payToPhrase} — manual apply-then-pay.</div>
               <div>Nothing is charged until the payment is approved.</div>
             </div>
 

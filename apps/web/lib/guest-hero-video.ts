@@ -67,11 +67,31 @@ export function heroVideoRefForGuests(
  * move"*: the owner accepts that an unscreened couple video reaches guests as a
  * scene background; the report / take-down path stays).
  *
+ * 🎞 THE MAIN BACKGROUND ("behind every scene") MEETS THIS SWITCH TOO (audit
+ * 2026-10-02, Batch F1 item 4: the couple's clip played for the host in the
+ * Maker while every guest saw its still). It is the ground behind every scene,
+ * the same couple clip the owner said to "make move" — so `mainGroundLayerFor`
+ * gates it with `sceneClipRefForGuests`, whether it is the couple's own clip or
+ * the hero's clip the Main background follows by default.
+ *
+ * It is a KILL SWITCH and it is ON: production gets exactly this value (it is a
+ * code constant, never an env var). Closing it puts every scene clip AND the
+ * Main background back on their stills in one line.
+ *
+ * Cost, measured rather than guessed: a clip is ≤ 15 s and is compressed in the
+ * couple's browser before upload (`FileUpload` → `compressVideo`, 1080p
+ * ≈ 1.9 Mbps, no sound for a background — DECISION_LOG 2026-09-25), so ≈ 3–4 MB;
+ * it is served by a presigned URL straight from R2 (`displayUrlForStoredAsset`),
+ * which bills no egress and never passes through Vercel. On the guest's side
+ * the shipped loop (`SceneClip`) shows the still first, plays muted + inline
+ * only while on screen and in front, and never plays under reduced motion or
+ * Save-Data.
+ *
  * ⚠ THIS IS NOT `GUEST_HERO_VIDEO_PLAYBACK`. The hero's own clip on the
- * masthead, the editorial site, /realstories and the Main background ("behind
- * every scene") stay behind that closed switch — the owner opened SCENE clips
- * only. A code constant, like its sibling: closing it again puts every scene
- * clip back on its still (`canvas.poster` / the hero photo) in one line.
+ * masthead, the editorial site and /realstories stay behind that closed
+ * switch — /realstories shows a couple to STRANGERS, which "make it move"
+ * (about guests) did not cover; the masthead draws the still for the host too,
+ * so it is not a host/guest gap.
  */
 export const GUEST_SCENE_CLIP_PLAYBACK = true;
 
@@ -85,4 +105,14 @@ export function sceneClipRefForGuests(
 ): string | null {
   if (!open) return null;
   return typeof ref === 'string' && ref.trim().length > 0 ? ref : null;
+}
+
+/**
+ * The Main background's gate for a GUEST — the scene-clip switch, one argument,
+ * so it can be handed to `resolveMainGround` as its `guestClipGate`. (Passing
+ * `sceneClipRefForGuests` itself would let a caller's second argument close or
+ * open it by accident.)
+ */
+export function mainGroundClipRefForGuests(ref: string): string | null {
+  return sceneClipRefForGuests(ref);
 }

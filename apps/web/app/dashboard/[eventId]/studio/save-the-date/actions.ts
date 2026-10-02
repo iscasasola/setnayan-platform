@@ -1,5 +1,6 @@
 'use server';
 
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { readVenueChoices, VENUE_CHOICES_KEY, type VenueChoice, type VenueSlotKey } from '@/lib/event-venues';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -100,7 +101,7 @@ export async function chooseRevealTemplate(
   // pending order (eventOwnsStdOpenings) so a couple who has just paid can set
   // their opening up; the live page still waits for the approved grant.
   if (
-    !revealTemplateWriteAllowed(templateId, await eventOwnsStdOpenings(supabase, eventId))
+    !revealTemplateWriteAllowed(templateId, await eventOwnsStdOpenings(await eventEntitlementClient(eventId), eventId))
   ) {
     return { ok: false, error: REVEAL_NEEDS_PRO };
   }
@@ -300,7 +301,7 @@ export async function saveAllStdContent(
   // reveal-only effect. Refused loudly — never dropped while "Saved." shows.
   if (data.revealEffects !== undefined && data.revealEffects !== null) {
     const incomingEffects = resolveRevealEffects(data.revealEffects);
-    if (!(await eventOwnsStdOpenings(supabase, eventId))) {
+    if (!(await eventOwnsStdOpenings(await eventEntitlementClient(eventId), eventId))) {
       const { data: curFx } = await supabase
         .from('events')
         .select('std_reveal_effects')

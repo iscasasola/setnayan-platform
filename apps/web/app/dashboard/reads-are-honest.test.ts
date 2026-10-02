@@ -683,11 +683,9 @@ const MUST_GATE: Array<{ file: string; why: string; gates: RegExp[] }> = [
     why: '"0 total · 0 last 7 days · 0 today"',
     gates: [/const stdViewsMeasured = !stdViewsError && stdViewRows !== null;/],
   },
-  {
-    file: '[eventId]/studio/page.tsx',
-    why: 'a suggestion that never arrives, and a coordinator told to send it again',
-    gates: [/\{!recsMeasured \|\| !vendorRecsMeasured \? \(/, /if \(!recsMeasured\) \{/],
-  },
+  // '[eventId]/studio/page.tsx' left this list 2026-10-02: the page is deleted
+  // (owner, tracker d1 — the full-page More Services is gone; it had
+  // redirected to /suite in production since 2026-07-22).
   {
     file: '[eventId]/studio/pakanta/page.tsx',
     why: 'a blank form that overwrites the answers they already saved',

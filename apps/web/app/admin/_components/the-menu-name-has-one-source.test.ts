@@ -3,7 +3,7 @@
  *
  * ─── WHY THIS FILE EXISTS ─────────────────────────────────────────────────
  * On 2026-08-25 the console's six menus were recut and renamed in
- * `ADMIN_NAV_GROUPS`: Today · People & shops · Studio · Set up · Numbers ·
+ * `ADMIN_NAV_GROUPS`: Today · People & shops · Studio · Root map · Numbers ·
  * Money. Every test passed, the PR merged, production served it — and the next
  * morning the owner opened the console and said, correctly, *"it still looks
  * the same."*
@@ -90,7 +90,7 @@ const RAIL_ROWS: { key: string; label: string }[] = [
 ];
 
 /** Is `caption` a contiguous run of whole words from `label`?
- *  "People" ⊂ "People & shops" ✅ · "Set up" ⊂ "Set up" ✅ · "All" ⊂ "All
+ *  "People" ⊂ "People & shops" ✅ · "Root map" ⊂ "Root map" ✅ · "All" ⊂ "All
  *  surfaces" ✅ · "Overview" ⊄ "Today" ❌. Whole words, so "Set" alone would
  *  pass but "Se" would not — the caption has to still BE the name. */
 function isWordRunOf(caption: string, label: string): boolean {

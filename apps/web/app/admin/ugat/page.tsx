@@ -1,12 +1,13 @@
 import { Suspense, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Shapes, Compass, BookOpen, Brain, Network } from 'lucide-react';
+import { Shapes, Compass, BookOpen, Brain, Network, Route } from 'lucide-react';
 import { ListPageSkeleton, TablePageSkeleton } from '@/components/skeletons';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { MenusSurface } from './_surfaces/menus-surface';
 import { OnboardingSurface } from './_surfaces/onboarding-surface';
 import { WeddingTraditionsSurface } from './_surfaces/wedding-traditions-surface';
 import { BrainSurface } from './_surfaces/brain-surface';
+import { ScreensSurface } from './_surfaces/screens-surface';
 
 /**
  * Ugat Studio — the tabbed /admin/ugat shell that consolidates the Ugat
@@ -28,7 +29,10 @@ import { BrainSurface } from './_surfaces/brain-surface';
  */
 export const dynamic = 'force-dynamic';
 
-const TABS = ['menus', 'onboarding', 'wedding-traditions', 'brain'] as const;
+// 'screens' (2026-10-02): the Screens · Doors layer of the Ugat map — owner,
+// DECISION_LOG "ONE MAP OF THE APP". A tab, not a route: Vercel's route count
+// must not grow, and it reads one committed file (no client JS).
+const TABS = ['menus', 'onboarding', 'wedding-traditions', 'brain', 'screens'] as const;
 type Tab = (typeof TABS)[number];
 
 function first(v: string | string[] | undefined): string | undefined {
@@ -44,6 +48,7 @@ const TAB_STRIP: { key: Tab; label: string; icon: typeof Shapes }[] = [
   { key: 'onboarding', label: 'Onboarding', icon: Compass },
   { key: 'wedding-traditions', label: 'Traditions', icon: BookOpen },
   { key: 'brain', label: 'AI brain', icon: Brain },
+  { key: 'screens', label: 'Screens', icon: Route },
 ];
 
 const TAB_TITLE: Record<Tab, string> = {
@@ -51,6 +56,7 @@ const TAB_TITLE: Record<Tab, string> = {
   onboarding: 'Onboarding',
   'wedding-traditions': 'Wedding traditions',
   brain: 'Setnayan AI brain',
+  screens: 'Screens',
 };
 
 function tabSkeleton(tab: Tab): ReactNode {
@@ -63,7 +69,7 @@ type Props = {
 
 export async function generateMetadata({ searchParams }: Props) {
   const tab = coerceTab(first((await searchParams).tab));
-  return { title: `${TAB_TITLE[tab]} · Admin` };
+  return { title: `${TAB_TITLE[tab]} · Root map · Admin` };
 }
 
 function activeSurface(
@@ -85,6 +91,8 @@ function activeSurface(
       return <WeddingTraditionsSurface />;
     case 'brain':
       return <BrainSurface />;
+    case 'screens':
+      return <ScreensSurface />;
     default:
       return <MenusSurface />;
   }
@@ -98,7 +106,7 @@ export default async function UgatStudioPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <nav
-        aria-label="Set up sections"
+        aria-label="Root map sections"
         className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
       >
         {TAB_STRIP.map((t) => {

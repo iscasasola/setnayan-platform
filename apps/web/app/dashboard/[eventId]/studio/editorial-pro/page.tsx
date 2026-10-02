@@ -1,4 +1,6 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -75,9 +77,9 @@ export default async function EditorialProBuyPage({ params }: Props) {
   //   • owned        — Editorial PRO is owned INCLUDING a pending 'submitted'
   //     order (double-buy prevention); owned && !active ⇒ payment under review.
   const [ownsUmbrella, active, owned, sellability] = await Promise.all([
-    eventOwnsCoupleWebsitePro(admin, eventId).catch(() => false),
-    isEditorialProActive(admin, eventId).catch(() => false),
-    eventOwnsEditorialPro(admin, eventId).catch(() => false),
+    eventOwnsCoupleWebsitePro(await eventEntitlementClient(eventId), eventId).catch(() => false),
+    isEditorialProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
+    eventOwnsEditorialPro(await eventEntitlementClient(eventId), eventId).catch(() => false),
     // Editorial PRO is bundle-only (2026-07-22): once its catalog row is
     // is_active=false, a standalone drawer would dead-end at checkout, so gate on
     // real sellability and upsell Event Hub PRO instead. Reads DB is_active →
@@ -95,7 +97,7 @@ export default async function EditorialProBuyPage({ params }: Props) {
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
       <Link
-        href={`/dashboard/${eventId}/studio`}
+        href={studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services

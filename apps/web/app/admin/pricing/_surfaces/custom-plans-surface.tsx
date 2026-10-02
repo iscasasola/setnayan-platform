@@ -4,6 +4,8 @@
 import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { receivingAccountsPhrase } from '@/lib/payment-channels';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchCustomUnitPricesMeasured } from '@/lib/vendor-custom-catalog';
 import { ReadFailed } from '../../_components/read-failed';
@@ -100,7 +102,7 @@ export async function CustomPlansSurface({ searchParams }: Props) {
 
   // Vendor orgs (claimed) + their tier, the live catalog unit prices, and the
   // open Custom-plan requests inbox (vendors who asked + quotes still out).
-  const [vendorRes, measuredPrices, requestRes] = await Promise.all([
+  const [vendorRes, measuredPrices, requestRes, platformSettings] = await Promise.all([
     admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, tier_state')
@@ -116,7 +118,11 @@ export async function CustomPlansSurface({ searchParams }: Props) {
       .in('status', [...OPEN_REQUEST_STATUSES])
       .order('updated_at', { ascending: false })
       .limit(100),
+    // Where the supplier will be told to pay — the OPEN receiving accounts, read
+    // the way checkout reads them, never account names typed here.
+    fetchPlatformSettings(admin),
   ]);
+  const payToPhrase = receivingAccountsPhrase(platformSettings, 'any bank or e-wallet');
   const catalogPrices = measuredPrices.prices;
   // Axes quoted from the code's rate card, not the live catalogue (row missing,
   // inactive, or unreadable). Said out loud — a literal is not today's price.
@@ -305,6 +311,7 @@ export async function CustomPlansSurface({ searchParams }: Props) {
         selectedVendorId={selectedVendorId}
         catalogPrices={catalogPrices}
         loadedPlan={loadedPlan}
+        payToPhrase={payToPhrase}
       />}
     </div>
   );

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { studioHubHref } from './studio-hub';
 
 export type PlannerMode = 'guided' | 'diy';
 
@@ -87,7 +88,7 @@ export const STEPS: ReadonlyArray<StepDefinition> = [
     key: 'after_event',
     label: 'Send thank-yous',
     hint: 'Photo delivery and thank-you messages.',
-    href: (id) => `/dashboard/${id}/studio`,
+    href: (id) => studioHubHref(id),
     source: 'manual',
   },
 ];

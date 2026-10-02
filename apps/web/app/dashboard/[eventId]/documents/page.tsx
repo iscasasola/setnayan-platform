@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import {
@@ -471,7 +472,7 @@ function CreationsSection({
         <SectionEmpty
           message="No Setnayan creations yet. Design a monogram from the YOUR PLAN section on Home."
           ctaLabel="Browse add-ons"
-          href={`/dashboard/${eventId}/studio`}
+          href={studioHubHref(eventId)}
         />
       ) : (
         <ul className="sn-row divide-y divide-ink/10 overflow-hidden">

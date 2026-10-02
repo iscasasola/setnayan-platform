@@ -89,9 +89,11 @@ const SOURCE_TO_COL: Record<string, Col> = {
 };
 
 export interface VendorTierMatrixPrices {
-  soloMonthly: string;
-  proMonthly: string;
-  enterpriseMonthly: string;
+  /** Each tier price is `null` when the catalog could not be read — the column
+   *  then says the price is unavailable rather than showing a typed figure. */
+  soloMonthly: string | null;
+  proMonthly: string | null;
+  enterpriseMonthly: string | null;
   /** `vendor_custom_base`, live. `null` when the catalog is unreadable — the
    *  Custom header then shows no figure rather than a typed one. */
   customFrom: string | null;
@@ -281,6 +283,11 @@ function CellView({ cell, selected }: { cell: Cell; selected: boolean }) {
   );
 }
 
+/** A tier's price tag — or the honest "unavailable" state when the read failed. */
+export function tierTag(price: string | null, unit: string): { price: string; unit: string } {
+  return price === null ? { price: '—', unit: 'price unavailable' } : { price, unit };
+}
+
 export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices }) {
   const [selected, setSelected] = useState<Col>('pro');
   const groups = useMemo(
@@ -297,9 +304,9 @@ export function VendorTierMatrix({ prices }: { prices: VendorTierMatrixPrices })
 
   const COL_META: Record<Col, { name: string; price: string; unit?: string }> = {
     verified: { name: 'Free · Verified', price: '₱0', unit: 'forever' },
-    solo: { name: 'Solo', price: prices.soloMonthly, unit: '/ 28d' },
-    pro: { name: 'Pro', price: prices.proMonthly, unit: '/ 28d' },
-    enterprise: { name: 'Enterprise', price: prices.enterpriseMonthly, unit: '/ 28d' },
+    solo: { name: 'Solo', ...tierTag(prices.soloMonthly, '/ 28d') },
+    pro: { name: 'Pro', ...tierTag(prices.proMonthly, '/ 28d') },
+    enterprise: { name: 'Enterprise', ...tierTag(prices.enterpriseMonthly, '/ 28d') },
     custom: {
       name: 'Custom',
       price: prices.customFrom ?? 'Custom',

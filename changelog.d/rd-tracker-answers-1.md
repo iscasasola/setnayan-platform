@@ -1,4 +1,4 @@
-## 2026-10-02 · feat(tracker): the owner's tracker answers d1 · d2 · d4 · d5 · d9 · d11
+## 2026-10-02 · feat(tracker): the owner's tracker answers d1 · d2 · d4 · d5 · d9 · d10 · d11
 
 Owner answers on the change-tracker's "Decide" page (DECISION_LOG row "OWNER
 ANSWERS ON THE TRACKER'S 'DECIDE' PAGE (d1–d11"), built:
@@ -27,6 +27,11 @@ ANSWERS ON THE TRACKER'S 'DECIDE' PAGE (d1–d11"), built:
 - **d9 — inner-radius free transport is enforced on quotes by default.**
   `NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED` was never set in production, so
   the enforcer was dark; it is now armed unless set to 0/false/off.
+- **d10 — video calls with couples are for paid suppliers, now.** Calls left
+  the shared `VENDOR_TIER_FEATURE_GATE` (still off, untouched — it would also
+  switch on every other plan limit) for their own rule,
+  `lib/thread-calls-rule.ts`: Solo and up may call by default; Free and
+  Verified are refused; `VENDOR_CALLS_PAID_ONLY=0/false/off` reopens calls.
 - **d11 — a reminder email 3 days before the 30-day draft delete**, once per
   draft (`app_metadata`), to the first real email the draft holds; a draft with
   no email is skipped and logged (every live draft today).

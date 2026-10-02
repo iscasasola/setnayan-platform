@@ -47,7 +47,7 @@ export function ThreadCallLauncher({
   currentUserId: string;
   counterpartyLabel?: string;
   /**
-   * Whether calling is unlocked for this thread's vendor (paid tier + gate on).
+   * Whether calling is unlocked for this thread's supplier (a paid plan — lib/thread-calls-rule.ts).
    * Server-computed via resolveThreadCallsEnabled(). Defaults to true so the
    * launcher is unchanged wherever the prop isn't passed (gate-dark behaviour).
    */

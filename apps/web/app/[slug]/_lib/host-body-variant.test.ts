@@ -180,10 +180,11 @@ test('the stranger sentence is behind the host branch, not shown to a host', () 
     /\{viewerIsHost \? \(/,
     'the host branch is gone; the couple is back to being told to scan their own QR',
   );
-  assert.ok(
-    SITE_BODY.includes('This is your event page'),
-    'the host copy is gone',
-  );
+  // 2026-10-03 (owner, "too much going on"): the host's explaining paragraph
+  // went — the ribbon above already says "Your Event Hub — as a guest sees it".
+  // The host branch draws NOTHING, so the host meets no "Get inside".
+  assert.match(SITE_BODY, /\{viewerIsHost \? \([\s\S]{0,900}?\bnull\s*\) : \(/, 'the host branch draws something again');
+  assert.ok(!SITE_BODY.includes('This is your event page'), 'the host’s explaining paragraph is back');
 });
 
 test('the "Have an invitation?" card is not offered to the host', () => {

@@ -61,7 +61,7 @@ test('2 · the Me tab’s anchor does not open the reply sheet; the reply’s ow
     const a = resolveArrivalAction({ slug: 'w', rsvpStatus, today: '2020-01-01' });
     assert.ok(a);
     assert.equal(hashOpensSheet(a.href), true, `${rsvpStatus}: the RSVP / Change control no longer reaches the sheet`);
-    if (a.secondary) assert.equal(hashOpensSheet(a.secondary.href), true, `${rsvpStatus}: "Change" no longer reaches the sheet`);
+    // (No separate "Change" since 2026-10-03 — the status label IS the door.)
   }
 });
 

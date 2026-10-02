@@ -38,6 +38,7 @@ import { eventSongRequestDoor } from '@/lib/guest-song-request';
 import { findGuestSeatForUser } from '@/lib/guest-membership-session';
 import { guestAccountState, resolveGuestViewer, rsvpGate } from '@/lib/guest-one-path';
 import { isCoupleSeat, seatDisplayName } from '@/lib/seat-binding';
+import { SeatDoorLine } from './_components/seat-door-line';
 import { readGuestsReply, resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { plusOneGate } from '@/lib/plus-one-welcome';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
@@ -1776,9 +1777,11 @@ async function InvitationBody({
         />
       </div>
     ) : null}
-    {/* 🪑 NO SECOND SEAT LINE ON ME (owner 2026-10-03: one place each). The
-        guest's table is on their Welcome (`SeatDoorLine` / the floor plan in
-        site-body.tsx), and on the day the ticket above carries it. */}
+    {/* 🪑 Me repeats the seat (owner 2026-09-27, "FIND YOUR SEAT, REDESIGNED"
+        (4)) — the same line the Details scene carries; never a bar slot. */}
+    {seatPassActive ? (
+      <SeatDoorLine slug={event.slug ?? slug} tableLabel={guestHubData.tableLabel} className="mb-3" />
+    ) : null}
     <GuestMe
       name={
         guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'

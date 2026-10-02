@@ -23,19 +23,23 @@ test('a guest who has not answered is asked, once, in one word', () => {
   const a = resolveArrivalAction({ ...BASE, rsvpStatus: 'pending', today: '2026-09-20' });
   assert.equal(a?.label, 'RSVP');
   assert.equal(a?.kind, 'ask');
-  assert.equal(a?.secondary, undefined, 'one accented control, nothing beside it');
+  assert.equal(Object.hasOwn(a ?? {}, 'secondary'), false, 'one accented control, nothing beside it');
 });
 
 test('a guest who answered is TOLD, not asked again', () => {
   const going = resolveArrivalAction({ ...BASE, rsvpStatus: 'attending', today: '2026-09-20' });
   assert.equal(going?.label, 'You’re going');
   assert.equal(going?.kind, 'going');
-  assert.equal(going?.secondary?.label, 'Change', 'and can still change it');
+  // ONE control (owner 2026-10-03): the status label opens the reply sheet
+  // itself — no "Change" beside it pointing at the same place.
+  assert.equal(Object.hasOwn(going ?? {}, 'secondary'), false, 'a second control to the same sheet is back');
+  assert.match(going?.href ?? '', /#your-details$/, 'and the status itself is how they change it');
   assert.doesNotMatch(going?.label ?? '', /RSVP/, 'the label is the status, not the verb');
 
   const no = resolveArrivalAction({ ...BASE, rsvpStatus: 'declined', today: '2026-09-20' });
   assert.match(no?.label ?? '', /can’t make it/);
-  assert.equal(no?.secondary?.label, 'Change');
+  assert.equal(Object.hasOwn(no ?? {}, 'secondary'), false);
+  assert.match(no?.href ?? '', /#your-details$/);
 });
 
 test('"maybe" still owes an answer, and says why it is asking', () => {
@@ -98,9 +102,10 @@ test('it renders under the mark, and is not a second fixed bar', () => {
   const hero = src.lastIndexOf("plan.body === 'normal' && plan.heroShouldRender", src.indexOf('<ArrivalActionRow'));
   const row = src.indexOf('<ArrivalActionRow');
   // (It sat above the "Hi again" status card, then above the home-screen card,
-  // until the owner removed both on 2026-09-30; the first personal card below
-  // it is now the account card.)
-  const card = src.indexOf('<GuestAccountCard');
+  // until the owner removed both on 2026-09-30; then above the account card,
+  // which went to Me on 2026-10-03. The first personal card below it is now
+  // the guest's checklist.)
+  const card = src.indexOf('<GuestChecklist', row);
   assert.ok(hero > 0 && row > hero, 'the action sits below the hero');
   assert.ok(card > 0 && row < card, 'and above the guest’s personal cards');
 
@@ -137,7 +142,7 @@ test('EVERY href the action can produce resolves to an id the page renders', () 
   for (const c of cases) {
     const action = resolveArrivalAction({ slug: 'cale-ice', eventDate: '2026-12-18', ...c });
     assert.ok(action, `a case produced no action: ${JSON.stringify(c)}`);
-    for (const href of [action.href, action.secondary?.href].filter(Boolean) as string[]) {
+    for (const href of [action.href]) {
       const hash = href.split('#')[1];
       assert.ok(hash, `${href} has a target`);
       assert.ok(anchors.has(hash), `#${hash} is a real anchor, not an invented one`);

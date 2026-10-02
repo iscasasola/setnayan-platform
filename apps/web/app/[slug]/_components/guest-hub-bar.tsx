@@ -459,37 +459,38 @@ export function GuestMeSection({
   useEffect(() => {
     setPassOnPage(document.getElementById(PASS_ANCHOR) !== null);
   }, []);
-  const qrButton = passOnPage ? null : (
-    <button
-      type="button"
-      onClick={onOpenQr}
-      className="inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
-    >
-      <QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-      <span>My QR</span>
-    </button>
-  );
-  const photosLink = photosHref ? (
-    <Link
-      href={photosHref}
-      className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
-    >
-      <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-      <span>Photos of you</span>
-      {galleryCount > 0 ? (
-        <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta-700 px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
-          {galleryCount > 99 ? '99+' : formatCount(galleryCount)}
-        </span>
-      ) : null}
-    </Link>
-  ) : null;
+  // Nothing to offer (the ticket is on the page, and the photos are too or there
+  // are none yet) → no empty row under the guest's own things.
+  const anything = !passOnPage || Boolean(photosHref);
   return (
     <section id="site-me" className={asTab ? 'scroll-mt-6' : 'mt-12 scroll-mt-6'}>
       {meSlot ? <div className="mb-8">{meSlot}</div> : null}
-      {qrButton || photosLink ? (
+      {anything ? (
         <div className="flex flex-wrap gap-3">
-          {qrButton}
-          {photosLink}
+          {passOnPage ? null : (
+            <button
+              type="button"
+              onClick={onOpenQr}
+              className="inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
+            >
+              <QrCode aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              <span>My QR</span>
+            </button>
+          )}
+          {photosHref ? (
+            <Link
+              href={photosHref}
+              className="relative inline-flex items-center gap-2 rounded-2xl border border-ink/10 bg-cream px-4 py-3 text-sm font-medium text-ink shadow-sm transition hover:border-terracotta hover:text-terracotta-700"
+            >
+              <Images aria-hidden className="h-5 w-5" strokeWidth={1.75} />
+              <span>Photos of you</span>
+              {galleryCount > 0 ? (
+                <span className="inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-terracotta-700 px-1.5 text-[0.65rem] font-semibold leading-5 text-cream">
+                  {galleryCount > 99 ? '99+' : formatCount(galleryCount)}
+                </span>
+              ) : null}
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </section>

@@ -8,12 +8,13 @@ import { normalizeYouTubeWatchUrl } from '@/lib/panood-watch';
 import { normalizeFacebookWatchUrl } from '@/lib/facebook-watch';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { classifyGoLiveFailure } from '@/lib/youtube-go-live-error';
-import { liveStudioPoolOnly } from '@/lib/live-studio-pool-only';
+import { liveStudioPoolOnly, OWN_CHANNEL_GO_LIVE_REFUSAL } from '@/lib/live-studio-pool-only';
 import { stampFirstLiveAt } from '@/lib/live-studio-window-server';
 // ⭐ WAVE 8: the unified controller moved to a chrome-less top-level route (§ 4g),
 // so its revalidate target comes from the shared helper, never a literal path.
 import { liveStudioControlPath } from '@/lib/live-studio-control';
 import {
+  eventHoldsHostedChannel,
   getHeldChannelAccessToken,
   hostNoticeFromProvision,
   provisionRoamBroadcasts,
@@ -255,10 +256,24 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
     //
     // Measured on the live site: /api/oauth/youtube/start returns 400, not 409, so
     // pool-only is OFF today and BYO is the only route to air.
+    //
+    // ⚖ AND "ON OUR SIDE" IS ONLY TRUE FOR A HOSTED-CHANNEL EVENT (owner ruling
+    // 2026-09-14 — a shared channel is never automatic). `resolveEventBroadcastToken`
+    // above returns null for every event without LIVE_STUDIO_HOSTED_CHANNEL — the
+    // refusal lives in `checkoutPoolChannel`, the one door onto the pool — so for
+    // those hosts nothing is wrong on Setnayan's side and no channel is coming.
+    // Asked only here, on the failure path, so a successful go-live pays nothing.
+    if (liveStudioPoolOnly()) {
+      const hosted =
+        liveStudioRoamEnabled() && (await eventHoldsHostedChannel(createAdminClient(), eventId));
+      return {
+        error: hosted
+          ? 'No Setnayan broadcast channel is available for your event yet. This is on our side — please contact Setnayan.'
+          : OWN_CHANNEL_GO_LIVE_REFUSAL,
+      };
+    }
     return {
-      error: liveStudioPoolOnly()
-        ? 'No Setnayan broadcast channel is available for your event yet. This is on our side — please contact Setnayan.'
-        : 'Connect your YouTube channel first — open step 1 above, then press Go live again.',
+      error: 'Connect your YouTube channel first — open step 1 above, then press Go live again.',
     };
   }
 

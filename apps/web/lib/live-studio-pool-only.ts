@@ -148,41 +148,60 @@ export const POOL_CHANNEL_SHARED_STRIKE_NOTICE =
 /**
  * ⭐ MAY THIS EVENT'S BROADCAST LAND ON A SHARED SETNAYAN CHANNEL?
  *
- * ── THE DEFECT THIS EXISTS TO KILL (measured on origin/main 2026-09-03) ─────
- * LS7 put `POOL_CHANNEL_SHARED_STRIKE_NOTICE` on the hosted-channel add-on copy,
- * on the premise that BUYING the add-on is what puts a couple on a Setnayan
- * channel. **That premise is false, and the code has never agreed with it.**
- * `panood/setup/actions.ts` claims a pool channel like this:
+ * ⚖ OWNER RULING 2026-09-14 — "a shared channel is never automatic". The answer is
+ * now the same one the server gives: the roam flag is on AND the event holds the
+ * hosted-channel add-on (`LIVE_STUDIO_HOSTED_CHANNEL`). `checkoutPoolChannel`
+ * (lib/live-studio-roam-provision.ts → `eventHoldsHostedChannel`) refuses every
+ * other event, so warning them about a shared channel would be warning people about
+ * a place they can no longer be sent.
  *
- *     if (liveStudioRoamEnabled()) {
- *       const pooled = await resolveEventBroadcastToken(createAdminClient(), eventId);
- *       ...
- *     }
+ * ── HISTORY, because the shape of this function is the lesson ──────────────
+ * Until 2026-10-02 this returned `liveStudioRoamEnabled()` alone, and that was
+ * HONEST for the code of its day: `panood/setup/actions.ts` claimed a pool channel
+ * on the flag with no entitlement check of any kind, so every Live Studio host could
+ * land on one, and the strike warning had to reach all of them. The 2026-09-03 row
+ * fixed the COPY to match that BEHAVIOUR; the 2026-09-14 ruling said the behaviour
+ * itself was wrong. Both halves now move together, which is what the old docblock
+ * asked for: "if the action ever starts gating pool checkout on an entitlement,
+ * THIS MOVES WITH IT or the product goes back to warning the wrong people."
  *
- * — no entitlement check of any kind. ANY Live Studio host is routed onto a shared
- * channel whenever the roam flag is on and a channel is free.
+ * ⚠ THE SAME PREDICATE AS THE ACTION, ON PURPOSE — the copy and the behaviour must
+ * not be able to disagree about whether a couple is on a shared channel. Callers pass
+ * the result of `eventSkuActive(…, LIVE_STUDIO_HOSTED_CHANNEL_SKU)`, the same read the
+ * server gate makes.
  *
- * 🔑 AND THE WARNING WAS RENDERING TO NOBODY. LS6 deactivated
- * `LIVE_STUDIO_HOSTED_CHANNEL` the same day (its price pairing broke, migration
- * `20271194920190`), and `HostedChannelUpsell` opens with
- * `if (!owns && !onSale) return null` — so the entire section, and the strike
- * warning inside it, returned null for every host. **The guard stayed green the
- * whole time, because a source-scanning guard reads the text, not the pixel.**
- * Exactly the failure `guests-read-is-honest` and the LS7 notice itself were
- * written against: the measurement never reached the render.
- *
- * ⚠ THIS IS THE SAME PREDICATE THE ACTION USES, ON PURPOSE — the copy and the
- * behaviour must not be able to disagree about whether a couple is on a shared
- * channel. Same reason `poolRouteToAir` is one function rather than a boolean
- * copied into the transport button and the by-hand switch. If the action ever
- * starts gating pool checkout on an entitlement, THIS MOVES WITH IT or the
- * product goes back to warning the wrong people.
- *
- * Deliberately broader than "is on a pool channel RIGHT NOW": a couple picks
- * their processional music weeks before a channel is checked out, so the honest
- * question at planning time is *may* this happen, not *has* it. Over-warning
- * costs a paragraph; under-warning costs somebody else's wedding film.
+ * Still deliberately broader than "is on a pool channel RIGHT NOW": an add-on owner
+ * picks their processional music weeks before a channel is checked out, so the honest
+ * planning-time question is *may* this happen. Over-warning an owner costs a
+ * paragraph; under-warning costs somebody else's wedding film.
  */
-export function mayBroadcastOnSharedChannel(): boolean {
-  return liveStudioRoamEnabled();
+export function mayBroadcastOnSharedChannel(ownsHostedChannel: boolean): boolean {
+  return liveStudioRoamEnabled() && ownsHostedChannel === true;
+}
+
+/**
+ * What an event WITHOUT the hosted channel is told when the go-live action has no
+ * channel to create a broadcast on and the BYO connect door is closed (pool-only).
+ *
+ * Replaces "No Setnayan broadcast channel is available for your event yet. This is
+ * on our side — please contact Setnayan.", which is true only for an add-on owner.
+ * For everyone else it was false twice: nothing is wrong on our side, and no channel
+ * is coming. It points at the route they actually have — their own broadcast and
+ * the watch link — and names the opt-in without selling it as a fix.
+ */
+export const OWN_CHANNEL_GO_LIVE_REFUSAL =
+  'This event goes out on your own YouTube channel — Setnayan supplies a channel only with the hosted channel option. Start the broadcast on YouTube or in OBS, then paste its watch link so guests can watch.';
+
+/**
+ * The controller's go-live row, when an event WITHOUT the hosted channel has no
+ * route to air yet. The old single sentence ended "…or wait for Setnayan to free one
+ * up", which promised an un-hosted host a channel that will never come.
+ *
+ * Two shapes, because whether "connect" is an instruction they can follow depends on
+ * pool-only (which removes the Connect button and makes the OAuth start refuse).
+ */
+export function ownChannelNoRouteNotice(poolOnly: boolean): string {
+  return poolOnly
+    ? 'This event goes out on your own YouTube channel — Setnayan supplies one only with the hosted channel option. Start the stream on YouTube or in OBS, paste its watch link in Setup, then use the “We’re on air” switch below.'
+    : 'This event goes out on your own YouTube channel — connect it in Setup and this button goes live in one tap, or start the stream yourself and use the “We’re on air” switch below. Setnayan supplies a channel only with the hosted channel option.';
 }

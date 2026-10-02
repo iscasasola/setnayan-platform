@@ -93,7 +93,7 @@ import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
 import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
-import { readTypeStart, type TypeStart } from '@/lib/hub-part-words';
+import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
 
 /**
@@ -188,6 +188,8 @@ export type MakerRowPanel = {
 type FormAction = (formData: FormData) => void | Promise<void>;
 
 /** Which content panel a section is written in. Absent = written elsewhere. */
+const NO_TYPE_HERE: readonly SceneTypeWords[] = [];
+
 const CONTENT_ROW_FOR_TYPE: Record<string, string> = {
   hero: 'hero',
   event_details: 'details',
@@ -315,6 +317,14 @@ export function MakerWork({
     draftAction: ElementDraftAction;
     /** 🔤 The faces the Event Hub renders now (`hubFontsInUse`) — the font dropdowns' "In use". */
     fontsInUse?: readonly HubFontKey[];
+    /**
+     * ✍ TAP ANY TEXT, ON EVERY SCENE (`lib/scene-type-words.ts`): the scene words
+     * a tap types in, with the words each draws now (the draft over live) —
+     * told to every canvas that loads — and each scene of their own's words, the
+     * half a typed heading or body carries along.
+     */
+    typeHere?: readonly SceneTypeWords[];
+    ownWords?: Readonly<Record<string, { title: string; body: string }>>;
   } | null;
   /** Where the couple has the reveal play (drafted over live, `lib/reveal-stages.ts`)
    *  — the Reveal page previews the first of them. */
@@ -480,6 +490,42 @@ export function MakerWork({
     (typeStart?.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
     setTypeStart(null);
   };
+  /* ✍ …ON EVERY SCENE (`lib/scene-type-words.ts`): each canvas that loads is
+     told which scene words a tap types in, and says back which it found, by
+     stage. Where the caret really reaches, that scene's words box steps aside
+     (`typedHereOn`) — one place per setting, never two. */
+  const typeHereParts = elementEditing?.typeHere ?? NO_TYPE_HERE;
+  const typeHereRef = useRef(typeHereParts);
+  typeHereRef.current = typeHereParts;
+  const [typedHere, setTypedHere] = useState<Readonly<Record<string, readonly string[]>>>({});
+  useEffect(() => {
+    const onTypeHere = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      const d = event.data as { source?: unknown; t?: unknown; phase?: unknown; found?: unknown } | null;
+      if (d?.source !== 'setnayan-site') return;
+      if (d.t === 'ready') {
+        (event.source as Window | null)?.postMessage(
+          { source: 'setnayan-editor', t: 'typeHere', parts: typeHereRef.current },
+          window.location.origin,
+        );
+      } else if (d.t === 'typeHereFound' && Array.isArray(d.found)) {
+        const phase = typeof d.phase === 'string' ? d.phase : '';
+        const found = d.found.filter((f): f is string => typeof f === 'string');
+        setTypedHere((prev) => (prev[phase]?.join('\n') === found.join('\n') ? prev : { ...prev, [phase]: found }));
+      }
+    };
+    window.addEventListener('message', onTypeHere);
+    return () => window.removeEventListener('message', onTypeHere);
+  }, []);
+  /* A render with other words (Apply, Undo, a box's save): every frame hears them again. */
+  const typeHereFp = JSON.stringify(typeHereParts);
+  const typeHereSent = useRef(typeHereFp);
+  useEffect(() => {
+    if (typeHereSent.current === typeHereFp) return;
+    typeHereSent.current = typeHereFp;
+    broadcastToCanvasRef.current({ source: 'setnayan-editor', t: 'typeHere', parts: typeHereRef.current });
+  }, [typeHereFp]);
+  const typedHereOn = (key: string, field: string) => (typedHere[stage] ?? []).includes(`${key}|${field}`);
   /* 💎 The Apply sheet's "Go to" a part's own font or motion (owner 2026-09-28):
      the toolbar selects the scene, then asks for the part's sheet here. */
   useEffect(() => {
@@ -2378,6 +2424,9 @@ export function MakerWork({
           eventId={eventId}
           start={typeStart}
           heroCanvas={elementEditing.canvases.hero ?? {}}
+          /* ✍ A scene's words (not the hero's): that scene's canvas, for its part's Hide. */
+          sceneCanvas={typeStart.field ? (elementEditing.canvases[typeStart.key.slice(2)] ?? {}) : undefined}
+          ownWords={typeStart.field ? (elementEditing.ownWords?.[typeStart.key.slice(2)] ?? null) : null}
           draftAction={elementEditing.draftAction}
           twoPeople={sceneFormat?.twoPeople !== false}
           names={sceneFormat?.names ?? null}
@@ -2393,7 +2442,7 @@ export function MakerWork({
             const { key, el } = typeStart;
             endTyping();
             if (isHubElementKey(el)) {
-              setElementTarget({ key, widgetType: 'hero', el });
+              setElementTarget({ key, widgetType: key === 'f:hero' ? 'hero' : key.slice(2), el });
               postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key, el });
             }
           }}
@@ -2488,6 +2537,21 @@ export function MakerWork({
                DECISION_LOG "…TAP IS A SHORTCUT"). A scene the couple changed
                "just here" keeps the box that asked, so its ↺ is never lost. */
             const sceneKey = `w:${selectedScene.type}`;
+            /* ✍ Words a tap types in on the page have ONE place: there. Their box
+               steps aside while the canvas has them (`typedHereOn`); an empty
+               scene, or words a style splits, keep the box. */
+            const typedField =
+              selectedScene.type === 'special_message' ? 'message' : selectedScene.type === 'what_to_bring' ? 'reminders' : null;
+            if (typedField && typedHereOn(sceneKey, typedField)) {
+              return (
+                <p className="px-1 text-[13px] leading-relaxed text-ink/70" data-typed-here={typedField}>
+                  {typedField === 'message'
+                    ? 'Your message is typed right on the page — tap it there and type.'
+                    : 'Your reminders are typed right on the page — tap them there and type.'}{' '}
+                  Guests see the change when you press Apply.
+                </p>
+              );
+            }
             const sceneCanvas: HubSectionCanvas = canvasOf(selectedScene.type);
             const ownWords = detailsBound?.ownWords.includes(selectedScene.type) ?? false;
             const boundItem: DetailsItemKey | null = ownWords

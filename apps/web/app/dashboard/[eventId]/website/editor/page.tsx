@@ -39,6 +39,7 @@ import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 import { done, todo } from './_components/rail-rows';
 import { proPriceLabelFrom } from './_components/unlock-label';
 import { TextPanel } from './_components/text-panel';
+import { sceneTypeWords } from '@/lib/scene-type-words';
 import {
   invitationWordsDraft,
   INVITATION_WORDS_HINT,
@@ -1297,6 +1298,12 @@ export default async function WebsiteEditorPage({
     current: t.id === currentTheme,
   }));
 
+  /* ✍ Each scene of their own's heading and words, drafted over live — what a
+     typed heading or body carries along (the draft replaces `custom` whole). */
+  const sceneOwnWords = Object.fromEntries(
+    allWidgets.filter((w) => isCustomSectionType(w.widget_type)).map((w) => [w.widget_type, sanitizeCustomSection(w.config_json)]),
+  );
+
   /* Every scene's canvas as the canvas draws it (the draft over live) — what
      per-element editing edits, and what the font dropdowns' "In use" reads. */
   const elementCanvases = {
@@ -1394,6 +1401,17 @@ export default async function WebsiteEditorPage({
           canvases: elementCanvases,
           logoFonts: await readMakerLogoFonts(eventId),
         }),
+        /* ✍ TAP ANY TEXT, ON EVERY SCENE (`lib/scene-type-words.ts`): the scene
+           words a tap types in, read from the SAME draft over live the canvas
+           draws — so the words the canvas is told to find are the words it shows. */
+        typeHere: sceneTypeWords({
+          types: allWidgets.map((w) => w.widget_type),
+          canvases: elementCanvases,
+          message: (drafted.special_message as string | null) ?? null,
+          reminders: (drafted.what_to_bring as string | null) ?? null,
+          own: sceneOwnWords,
+        }),
+        ownWords: sceneOwnWords,
       }}
       scenes={scenes}
       navigator={navigator}

@@ -23,6 +23,35 @@ export const HUB_TYPE_WORD_PARTS: readonly string[] = ['eyebrow', 'line', 'joine
  */
 export const HUB_TYPE_FACT_PARTS: readonly string[] = ['names'];
 
+/**
+ * ✍ BEYOND THE HERO — EVERY SCENE'S OWN WORDS (Area B of the two-week audit:
+ * "tap-to-type only on the HERO"). A scene's text is typed in place where its
+ * words have ONE stored home the Maker can draft:
+ *
+ *   message   — the Special message scene's words  → `events.special_message`
+ *   reminders — the Reminders scene's words        → `events.what_to_bring`
+ *   title     — a scene of their own's heading     → `config_json.custom.title`
+ *   body      — a scene of their own's words       → `config_json.custom.body`
+ *
+ * A scene's parts carry no key of their own (`every-widget-is-one-section`), so
+ * the Maker tells the canvas which WORDS each field draws (`SceneTypeWords`);
+ * the canvas marks the one part whose words are exactly those
+ * (`data-el-field`), and only that part takes a caret. Words a style splits
+ * (the quote's first sentence, a list's lines) match no part, so they are not
+ * typed into half-way — their scene keeps its box.
+ */
+export const SCENE_TYPE_FIELDS = ['message', 'reminders', 'title', 'body'] as const;
+export type SceneTypeField = (typeof SCENE_TYPE_FIELDS)[number];
+export function isSceneTypeField(v: unknown): v is SceneTypeField {
+  return typeof v === 'string' && (SCENE_TYPE_FIELDS as readonly string[]).includes(v);
+}
+/** …of them, the ones that are several lines: Enter is a new line, not Done. */
+export const SCENE_TYPE_MULTILINE: readonly string[] = ['message', 'reminders', 'body'];
+/** One scene field offered to type in place: its scene (`w:<type>`), and the words it draws now. */
+export type SceneTypeWords = { key: string; field: SceneTypeField; text: string };
+/** The scene parts a field can be drawn in (a scene's own heading may be drawn as its label). */
+export const SCENE_TYPE_ELS: readonly string[] = ['label', 'heading', 'body'];
+
 export function isHubTypePart(el: unknown): el is HubTypePart {
   return typeof el === 'string' && (HUB_TYPE_PARTS as readonly string[]).includes(el);
 }
@@ -70,6 +99,8 @@ export type TypeStart = {
   at?: string;
   title?: string;
   caret: boolean;
+  /** ✍ A scene's own words (not the hero's): which stored field they are. */
+  field?: SceneTypeField;
   source: MessageEventSource | null;
   n: number;
 };
@@ -78,12 +109,17 @@ export type TypeStart = {
 export function readTypeStart(d: unknown, source: MessageEventSource | null, n: number): TypeStart | null {
   const m = d as Record<string, unknown> | null;
   if (!m || m.source !== 'setnayan-site' || m.t !== 'type' || m.phase !== 'start') return null;
-  if (typeof m.key !== 'string' || !isHubTypePart(m.el)) return null;
+  if (typeof m.key !== 'string') return null;
+  /* The hero's parts by name; a scene's part only with the field it writes,
+     and only on a scene of the page (`w:<type>`). */
+  const field = isSceneTypeField(m.field) && m.key.startsWith('w:') && SCENE_TYPE_ELS.includes(m.el as string) ? m.field : undefined;
+  if (!field && !isHubTypePart(m.el)) return null;
   const s = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
   const r = m.rect as TypeStart['rect'] | undefined;
   return {
+    ...(field ? { field } : {}),
     key: m.key,
-    el: m.el,
+    el: m.el as string,
     text: typeof m.text === 'string' ? m.text : '',
     rect: r && typeof r.top === 'number' ? r : { top: 0, left: 0, width: 0, height: 0 },
     vw: typeof m.vw === 'number' && m.vw > 0 ? m.vw : 1,
@@ -95,4 +131,21 @@ export function readTypeStart(d: unknown, source: MessageEventSource | null, n: 
     source,
     n,
   };
+}
+
+/**
+ * The Maker's `typeHere` list, read on the canvas — dropped rather than
+ * repaired, like every message the bridge reads: only scene keys, known fields,
+ * strings, and a sane number of them.
+ */
+export function readSceneTypeWords(raw: unknown): SceneTypeWords[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SceneTypeWords[] = [];
+  for (const p of raw.slice(0, 64)) {
+    const m = p as Record<string, unknown> | null;
+    if (!m || typeof m.key !== 'string' || !m.key.startsWith('w:') || m.key.length > 64) continue;
+    if (!isSceneTypeField(m.field) || typeof m.text !== 'string' || m.text.length > 4000) continue;
+    out.push({ key: m.key, field: m.field, text: m.text });
+  }
+  return out;
 }

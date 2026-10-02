@@ -1,5 +1,6 @@
 import 'server-only';
 import { fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
+import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -179,6 +180,24 @@ export async function draftedWidgetConfig(
   if (w.canvas === null) delete next.canvas;
   else next.canvas = w.canvas;
   return next;
+}
+
+/**
+ * ✍ A SCENE OF THEIR OWN'S WORDS AS DRAFTED — its `custom` from the draft when
+ * the draft holds one, else the live row's. A Maker form that posts only the
+ * heading (the words are typed in place on the page) keeps the words exactly as
+ * drafted, never as the last render had them.
+ */
+export async function draftedCustomWords(
+  eventId: string,
+  widgetType: string,
+  liveConfig: Record<string, unknown>,
+): Promise<{ title: string; body: string }> {
+  const supabase = await createClient();
+  const draft = await readHubDraft(supabase, eventId);
+  const w = draft?.widgets[widgetType as keyof HubDraft['widgets']];
+  if (!w || w.custom === undefined) return sanitizeCustomSection(liveConfig);
+  return w.custom ?? { title: '', body: '' };
 }
 
 /**

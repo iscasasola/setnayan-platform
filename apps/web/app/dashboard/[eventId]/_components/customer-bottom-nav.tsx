@@ -23,7 +23,9 @@
  * treatment is reused verbatim. Mobile-only (`lg:hidden`).
  */
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { asksForMoreServices } from '@/lib/studio-hub';
 import { BottomNav } from '@/app/_components/nav/bottom-nav';
 import { navIconComponent } from '@/app/_components/nav/nav-icon-component';
 import type { BottomNavItem } from '@/app/_components/nav/types';
@@ -116,13 +118,28 @@ export function CustomerBottomNav({
   /**
    * 📂 The five under More Services (owner 2026-09-30) — plain data built in
    * layout.tsx (`ourServicesMenuChildren`). The bar NEVER draws them as a sub-
-   * row: its "More" tab opens a chooser sheet with them. Empty → the tab just
-   * opens the More Services page.
+   * row: its "More" tab opens a chooser sheet with them. Empty → the tab goes
+   * to its address (Home, `?more=services`), where there is nothing to open.
    */
   services?: ReadonlyArray<EventMenuChild>;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const [MoreServicesSheet, setSheet] = useState<MoreSheet | null>(null);
+  const openMore = () => {
+    setMoreOpen(true);
+    if (!MoreServicesSheet) void import('./more-services-sheet').then((x) => setSheet(() => x.default));
+  };
+  /* 🧭 THE MORE MENU HAS AN ADDRESS (owner 2026-10-02, tracker d1 — the
+     full-page More Services is gone; "the More menu is the one place"). Every
+     "open the services" link, and the two retired page paths, land on Home
+     with `?more=services` (`studioHubHref`); on the phone that opens THIS
+     sheet. Read on every URL change, so an in-app link opens it too. */
+  const search = useSearchParams()?.toString() ?? '';
+  const hasServices = !!services?.length;
+  useEffect(() => {
+    if (hasServices && asksForMoreServices(search)) openMore();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open on the URL, not on every render
+  }, [search, hasServices]);
   const tree = buildCustomerMenuTree(eventId, { phase, hideKeys, seatingEnabled, websiteEnabled, studioRows, storeShell, services });
 
   const items: BottomNavItem[] = tree.flatMap((m) => {
@@ -155,10 +172,7 @@ export function CustomerBottomNav({
         ...(badge ? { badge } : {}),
         ...(m.key === 'studio' && services?.length
           ? {
-              onSelect: () => {
-                setMoreOpen(true);
-                if (!MoreServicesSheet) void import('./more-services-sheet').then((x) => setSheet(() => x.default));
-              },
+              onSelect: openMore,
             }
           : {}),
       },

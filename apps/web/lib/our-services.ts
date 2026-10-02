@@ -324,20 +324,29 @@ const MENU_ICON: Readonly<Record<string, EventMenuIconName>> = {
 /**
  * 📂 THE MORE SERVICES ROW'S CHILDREN (owner 2026-09-30: *"the sidebar will
  * expand and collapse to show these"*) — the built cards, in their order, as
- * plain menu data. A card with no door (coming soon, or its day has passed)
- * opens the More Services page, where its dimmed card says why.
- * Called in `layout.tsx`; the rail and the phone's "More" chooser draw it.
+ * plain menu data. Called in `layout.tsx`; the rail and the phone's "More"
+ * chooser draw it.
+ *
+ * 🧭 A CARD WITH NO DOOR IS NOT LISTED (owner 2026-10-02, tracker d1). It used
+ * to open the full-page More Services, where its dimmed card said why ("coming
+ * soon", "your day has passed"). That page is gone — the More menu is the one
+ * place — and a menu row that opens nothing, or opens the menu it sits in, is
+ * a dead tap. A service already theirs always has a door (`added`/`pending`),
+ * so this only ever drops one that cannot be bought now (owner 2026-08-21 on
+ * day-of services after the day: *"stop offering them"*).
+ *
+ * `_retired` is ignored — it was the old page's address, and stays optional so
+ * a caller written before 2026-10-02 still compiles.
  */
 export function ourServicesMenuChildren(
   cards: readonly OurService[],
-  pageHref: string,
+  _retired?: string,
 ): EventMenuChild[] {
-  return cards.map((c) => ({
-    key: c.key,
-    label: c.name,
-    href: c.href ?? pageHref,
-    icon: MENU_ICON[c.key] ?? 'product',
-  }));
+  return cards.flatMap((c) =>
+    c.href
+      ? [{ key: c.key, label: c.name, href: c.href, icon: MENU_ICON[c.key] ?? 'product' }]
+      : [],
+  );
 }
 
 /*

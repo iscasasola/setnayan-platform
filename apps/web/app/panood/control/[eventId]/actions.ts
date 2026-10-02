@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { studioHubHref } from '@/lib/studio-hub';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { filmInsertFromLink } from '@/lib/event-films';
@@ -131,7 +132,7 @@ export async function addRoamZone(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   const parsed = normalizeZoneInput({
     label: formData.get('label'),
@@ -213,7 +214,7 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
   const zoneIdRaw = formData.get('zone_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
@@ -281,7 +282,7 @@ export async function createChannelJoinLink(formData: FormData): Promise<void> {
   const zoneIdRaw = formData.get('zone_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
@@ -311,7 +312,7 @@ export async function reissueChannelJoinLink(formData: FormData): Promise<void> 
   const zoneIdRaw = formData.get('zone_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
@@ -337,7 +338,7 @@ export async function renameRoamZone(formData: FormData): Promise<void> {
   const zoneIdRaw = formData.get('zone_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
@@ -376,7 +377,7 @@ export async function cutToMainStage(formData: FormData): Promise<void> {
   const zoneIdRaw = formData.get('zone_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
@@ -405,7 +406,7 @@ export async function clearMainStage(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
@@ -425,7 +426,7 @@ export async function setFeaturedRoamZone(formData: FormData): Promise<void> {
   const zoneIdRaw = formData.get('zone_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   const zoneId = typeof zoneIdRaw === 'string' ? Number(zoneIdRaw) : NaN;
   if (!Number.isFinite(zoneId)) redirect(SETUP_PATH(eventId));
 
@@ -483,7 +484,7 @@ export async function setMonogramOverlay(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   // `enabled` is the desired NEXT state, posted by the toggle; `position` is
   // optional so the corner picker can move the bug without touching on/off.
@@ -521,7 +522,7 @@ export async function setLowerThird(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   const enabledRaw = formData.get('enabled');
   const hasText = formData.has('title') || formData.has('subtitle');
@@ -558,7 +559,7 @@ export async function setEventQrOverlay(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   const enabledRaw = formData.get('enabled');
   const positionRaw = formData.get('position');
@@ -596,7 +597,7 @@ export async function setGuestPick(formData: FormData): Promise<void> {
   const enabledRaw = formData.get('enabled');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   if (typeof enabledRaw !== 'string') redirect(SETUP_PATH(eventId));
 
   await requireHostMembership(eventId);
@@ -629,7 +630,7 @@ export async function markHighlight(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   await requireHostMembership(eventId);
   await requireLiveStudioOwned(eventId);
@@ -679,7 +680,7 @@ export async function deleteHighlight(formData: FormData): Promise<void> {
   const idRaw = formData.get('highlight_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   const highlightId = typeof idRaw === 'string' ? Number(idRaw) : NaN;
   if (!Number.isFinite(highlightId)) redirect(SETUP_PATH(eventId));
 
@@ -713,7 +714,7 @@ export async function saveControlWatchUrl(formData: FormData): Promise<void> {
   const urlRaw = formData.get('watch_url');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   if (typeof urlRaw !== 'string') return;
 
   const normalized = normalizeYouTubeWatchUrl(urlRaw);
@@ -807,7 +808,7 @@ export async function clearControlWatchUrl(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
@@ -835,7 +836,7 @@ export async function saveControlFacebookUrl(formData: FormData): Promise<void> 
   const urlRaw = formData.get('facebook_url');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
   if (typeof urlRaw !== 'string') return;
 
   const normalized = normalizeFacebookWatchUrl(urlRaw);
@@ -860,7 +861,7 @@ export async function clearControlFacebookUrl(formData: FormData): Promise<void>
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
@@ -897,7 +898,7 @@ export async function setControlManualAir(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   await requireHostMembership(eventId);
 
@@ -919,7 +920,7 @@ export async function clearControlManualAir(formData: FormData): Promise<void> {
   const eventIdRaw = formData.get('event_id');
   if (typeof eventIdRaw !== 'string' || eventIdRaw.length === 0) return;
   const eventId = eventIdRaw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   await requireHostMembership(eventId);
 

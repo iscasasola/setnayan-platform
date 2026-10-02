@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
 import {
@@ -630,7 +631,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       owned: ownsLiveWall,
       launchLabel: 'Open the wall',
       launchHref: `${base}/live`,
-      addHref: `${base}/studio`,
+      addHref: studioHubHref(eventId),
       Icon: MonitorPlay,
     },
     {

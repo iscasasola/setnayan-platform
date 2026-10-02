@@ -15,6 +15,7 @@ import {
   resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
 import { userNestingRewritePath } from '@/lib/u-nesting';
+import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import {
   isStoreShellSignals,
   isStoreShellWebOnlyPath,
@@ -321,6 +322,16 @@ async function middlewareCore(request: NextRequest) {
       new URL(`/dashboard/${eventId}/studio${rest}${search}`, request.url),
       308,
     );
+  }
+
+  // Retired PAGES that still forward — one map, one lookup:
+  // lib/legacy-redirects.ts. A middleware forward is not a route (Vercel's
+  // 2,048 cap), and the old URL (emails, bookmarks, stored notification links)
+  // still lands. 308, like the /services and /add-ons forwards above. The
+  // full-page More Services (/suite, /studio) went here 2026-10-02 (tracker d1).
+  const retiredTarget = legacyRedirectTarget(pathname);
+  if (retiredTarget) {
+    return NextResponse.redirect(new URL(retiredTarget, request.url), 308);
   }
 
   // Convenience: `setnayan.com/<event-uuid>/...` redirects to

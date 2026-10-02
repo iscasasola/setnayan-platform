@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import { studioHubHref } from '@/lib/studio-hub';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -56,7 +57,7 @@ async function gate(formData: FormData, opts: { allowLocked?: boolean } = {}): P
   const raw = formData.get('event_id');
   if (typeof raw !== 'string' || raw.length === 0) redirect('/dashboard');
   const eventId = raw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   const supabase = await createClient();
   const {

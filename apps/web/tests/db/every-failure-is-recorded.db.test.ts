@@ -244,7 +244,7 @@ test('SELF-CLOSING: closes only once a NEWER build is live AND 48 h quiet; REOPE
   assert.equal(i.reopened_count, 1);
 });
 
-test('ONLY the service role writes; an admin READS; nobody else sees a thing', async () => {
+test('ONLY the service role writes or reads; no browser session holds a door', async () => {
   for (const role of ['anon', 'authenticated']) {
     await setRole(role);
     await db.exec(`SET ROLE ${role}`);
@@ -257,18 +257,17 @@ test('ONLY the service role writes; an admin READS; nobody else sees a thing', a
     await assert.rejects(db.query(`INSERT INTO public.app_fault_issues (fingerprint, kind, action) VALUES ('f','OTHER','x')`), /permission denied|row-level security/);
     await reset();
   }
-  // A signed-in non-admin sees no issue.
-  const stranger = (await db.query<{ id: string }>(`INSERT INTO auth.users (email, raw_user_meta_data) VALUES ('stranger@faults.test','{}'::jsonb) RETURNING id`)).rows[0]!.id;
-  await setAuthUid(db, stranger);
-  await setRole('authenticated');
-  await db.exec('SET ROLE authenticated');
-  assert.equal((await db.query(`SELECT 1 FROM public.app_fault_issues`)).rows.length, 0);
-  await reset();
-  // The admin set sees them.
+  // Not even an admin's browser session holds a door: the list is read through
+  // the service role behind requireAdmin().
   await setAuthUid(db, adminUser);
   await setRole('authenticated');
   await db.exec('SET ROLE authenticated');
-  assert.ok((await db.query(`SELECT 1 FROM public.app_fault_issues`)).rows.length > 0, 'an admin reads the list');
-  assert.ok((await db.query(`SELECT 1 FROM public.app_action_daily_counts`)).rows.length > 0);
+  await assert.rejects(db.query(`SELECT 1 FROM public.app_fault_issues`), /permission denied/);
+  await assert.rejects(db.query(`SELECT 1 FROM public.app_action_daily_counts`), /permission denied/);
+  await reset();
+  const rls = (await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM pg_class WHERE relname IN ('app_fault_issues','app_action_daily_counts') AND relrowsecurity`)).rows[0]!.n;
+  assert.equal(rls, 2, 'RLS is on at CREATE');
+  // The service role reads them.
+  assert.ok((await asService(() => db.query(`SELECT 1 FROM public.app_fault_issues`))).rows.length > 0);
   await reset();
 });

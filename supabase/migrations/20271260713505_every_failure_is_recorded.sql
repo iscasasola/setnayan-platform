@@ -34,8 +34,19 @@
 -- ids scrubbed) and payloads through lib/telemetry/redact.ts. The database
 -- does not re-scrub; it caps sizes.
 --
--- RLS (enabled at CREATE): SELECT only, for the admin set app/admin/layout.tsx
--- gates on — the exact predicate app_telemetry_logs already uses.
+-- RLS (enabled at CREATE) with NO policy and NO grant to anon or authenticated:
+-- only the service role reads or writes these two tables. The Problems list
+-- reads through the service role behind requireAdmin()
+-- (lib/telemetry/fault-issues.server.ts → app/admin/app-performance), so the
+-- ADMIN-ONLY read is enforced where the page is, and no browser session — not
+-- even an admin's — holds a PostgREST door to them. (An admin-read policy was
+-- drafted and dropped: with no grant it admits nobody, and the exposure freeze
+-- rightly counts a new permissive policy as widening.)
+--
+-- app_telemetry_logs' two new columns (fingerprint, build_sha) inherit that
+-- table's existing admin-only RLS + authenticated SELECT (kept for its Realtime
+-- stream). Neither holds personal data — an md5 and a git SHA — and the
+-- exposure baseline records them deliberately in this PR.
 -- ============================================================================
 
 BEGIN;
@@ -98,20 +109,8 @@ COMMENT ON TABLE public.app_fault_issues IS
 CREATE INDEX IF NOT EXISTS idx_app_fault_issues_list
   ON public.app_fault_issues (status, hit_count DESC, last_seen DESC);
 
-DROP POLICY IF EXISTS "app_fault_issues: admin reads all" ON public.app_fault_issues;
-CREATE POLICY "app_fault_issues: admin reads all"
-  ON public.app_fault_issues FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users u
-      WHERE u.user_id = auth.uid()
-        AND (u.account_type = 'admin' OR u.is_internal OR u.is_team_member)
-    )
-  );
 
 REVOKE ALL ON TABLE public.app_fault_issues FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.app_fault_issues TO authenticated;
 
 -- ── 3 · app_action_daily_counts — the success COUNT (never a success row) ──────
 CREATE TABLE IF NOT EXISTS public.app_action_daily_counts (
@@ -127,20 +126,8 @@ ALTER TABLE public.app_action_daily_counts ENABLE ROW LEVEL SECURITY;
 COMMENT ON TABLE public.app_action_daily_counts IS
   'Per-day, per-action success/failure COUNTERS (and flow:<flow>:<step> reach counts). No row per action — a success only increments a number.';
 
-DROP POLICY IF EXISTS "app_action_daily_counts: admin reads all" ON public.app_action_daily_counts;
-CREATE POLICY "app_action_daily_counts: admin reads all"
-  ON public.app_action_daily_counts FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users u
-      WHERE u.user_id = auth.uid()
-        AND (u.account_type = 'admin' OR u.is_internal OR u.is_team_member)
-    )
-  );
 
 REVOKE ALL ON TABLE public.app_action_daily_counts FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON TABLE public.app_action_daily_counts TO authenticated;
 
 -- ── 4 · record_app_fault — the ONE write path for a failure ────────────────────
 -- Upserts the issue (reopening a closed one), samples a trace row, and counts

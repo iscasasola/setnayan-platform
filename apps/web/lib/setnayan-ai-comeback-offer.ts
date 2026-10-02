@@ -31,8 +31,8 @@
  * misstated the fee on every booking over ₱100,000.
  *
  * 🪤 AND NOT THE DIAL EITHER. `platform_settings.onboarding_discount_pct` is
- * **10** in production, not 40 — it is the house rule for rows that carry NO
- * price of their own. Setnayan AI carries its own `onboarding_price_php`, and
+ * the one sign-up number (40 since 2026-10-02, owner d18) — but the offer is
+ * half of the planner's OWN stored sign-up price, never of the dial. Setnayan AI carries its own `onboarding_price_php`, and
  * lib/onboarding-discount.ts says so in as many words ("the planner keeps its
  * own better price"). Half the dial would be 5%, not 20%. Nothing here reads
  * that dial, and nothing here calls `signupPriceFor` — which takes a percentage

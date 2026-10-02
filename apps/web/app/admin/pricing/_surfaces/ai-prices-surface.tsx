@@ -7,10 +7,9 @@ import {
   AI_TIER_SKU,
   type AiPriceTier,
 } from '@/lib/setnayan-ai-type-pricing';
-import { FAMILY_DISCOUNT_DEFAULT_PCT } from '@/lib/onboarding-family-discount';
+import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import {
   saveAiBandPrice,
-  saveFamilyDiscount,
   setEventTypeBand,
 } from '@/app/admin/pricing/price-control-actions';
 import { AiBandsEditor, type AiBandView, type EventKindView } from '@/app/admin/pricing/_components/ai-bands-editor';
@@ -61,7 +60,7 @@ export async function AiPricesSurface(_props: Props) {
       .from('platform_retail_catalog_v2')
       .select('service_code, retail_price_php, onboarding_price_php, is_active')
       .in('service_code', ['SETNAYAN_AI', 'SETNAYAN_AI_B', 'SETNAYAN_AI_C', 'SETNAYAN_AI_D']),
-    admin.from('platform_settings').select('ai_signup_discount_pct').eq('id', 1).maybeSingle(),
+    admin.from('platform_settings').select('onboarding_discount_pct').eq('id', 1).maybeSingle(),
   ]);
 
   // ⚠ Supabase RESOLVES with `{ error }`. Unchecked, a refused read renders as
@@ -81,11 +80,8 @@ export async function AiPricesSurface(_props: Props) {
     }[]).map((r) => [r.service_code, r]),
   );
 
-  const discountPct =
-    settingsRes.data?.ai_signup_discount_pct != null &&
-    Number.isFinite(Number(settingsRes.data.ai_signup_discount_pct))
-      ? Number(settingsRes.data.ai_signup_discount_pct)
-      : FAMILY_DISCOUNT_DEFAULT_PCT.ai;
+  // THE one sign-up discount (owner d18) — edited on the Pricing tab, read here.
+  const discountPct = readOnboardingDiscountPct(settingsRes.data?.onboarding_discount_pct);
 
   const kinds: EventKindView[] = ((vocabRes.data ?? []) as {
     event_type: string;
@@ -142,7 +138,6 @@ export async function AiPricesSurface(_props: Props) {
         totalKinds={kinds.length}
         discountPct={discountPct}
         setBandAction={setEventTypeBand}
-        saveDiscountAction={saveFamilyDiscount}
         savePriceAction={saveAiBandPrice}
       />
     </div>

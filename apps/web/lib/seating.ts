@@ -1742,6 +1742,22 @@ export type AutoSeatRoom = {
   shortfall: number;
 };
 
+/**
+ * 🪑 WHO STILL NEEDS A SEAT — the one rule. Not declined, not seated, not the
+ * couple (they sit at the sweetheart). Auto Arrange counts it (`autoSeatRoom`),
+ * the phone's "Unseated: N" chip shows it and the A3 print lists it in its
+ * unseated box — one fact, one home, so the three can never disagree.
+ */
+export function guestsStillToSeat<G extends { guest_id: string; role: string | null; rsvp_status: string }>(
+  guests: ReadonlyArray<G>,
+  seated: ReadonlySet<string>,
+  roleSet: Pick<RoleSet, 'coupleRoles'> = WEDDING_ROLE_SET,
+): G[] {
+  return guests.filter(
+    (g) => g.rsvp_status !== 'declined' && !seated.has(g.guest_id) && !(g.role !== null && roleSet.coupleRoles.has(g.role)),
+  );
+}
+
 // Mirrors computeAutoSeat's own bookkeeping exactly (its `eligible` filter and
 // its per-table `freeCount`), so "room" here is the room the seater will see.
 export function autoSeatRoom(
@@ -1751,9 +1767,7 @@ export function autoSeatRoom(
   roleSet: RoleSet = WEDDING_ROLE_SET,
 ): AutoSeatRoom {
   const seated = new Set(assignments.map((a) => a.guest_id));
-  const toSeat = guests.filter(
-    (g) => g.rsvp_status !== 'declined' && !seated.has(g.guest_id) && !roleSet.coupleRoles.has(g.role),
-  ).length;
+  const toSeat = guestsStillToSeat(guests, seated, roleSet).length;
   const taken = new Map<string, number>();
   for (const a of assignments) taken.set(a.table_id, (taken.get(a.table_id) ?? 0) + 1);
   let freeSeats = 0;
@@ -1796,27 +1810,28 @@ export function autoArrangeNewTableKey(label: string): string {
 // What the Auto Arrange toast says — one pure sentence builder so the claim
 // "everyone has a seat" can only be made when the count says so.
 export function autoArrangeSummary(r: {
-  tables: number;
   tablesAdded: number;
-  booths: number;
-  boothWhere: string;
   seated: number;
   unseated: number;
 }): string {
-  const plural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
-  const added = r.tablesAdded > 0 ? ` (${formatCount(r.tablesAdded)} added so everyone fits)` : '';
-  const head = `Auto-arranged: ${plural(r.tables, 'table')} in priority order${added}`;
-  const body =
-    r.seated > 0
-      ? `${r.booths > 0 ? `, ${plural(r.booths, 'booth')} ${r.boothWhere}` : ''}, ${plural(r.seated, 'guest')} seated.`
-      : `${r.booths > 0 ? ` and ${plural(r.booths, 'booth')} ${r.boothWhere}` : ''}.`;
+  // ONE TRUTHFUL LINE (owner 2026-10-01, the approved phone design: "Added 2
+  // tables of 10 · everyone has a seat" — else "· 3 still need a seat"). Every
+  // number is the server's: tables it added, guests it seated, guests it could
+  // not. "everyone has a seat" only when that last count is 0.
+  const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
+  const head =
+    r.tablesAdded > 0
+      ? `Added ${plural(r.tablesAdded, 'table', 'tables')} of ${formatCount(DRAFT_ROUND_SEATS)}`
+      : r.seated > 0
+        ? `Seated ${plural(r.seated, 'guest', 'guests')}`
+        : null;
   const tail =
     r.unseated > 0
-      ? ` ${plural(r.unseated, 'guest')} who ${r.unseated === 1 ? "hasn't" : "haven't"} declined still ${r.unseated === 1 ? 'has' : 'have'} no seat — add a table or free a chair.`
-      : r.seated > 0
-        ? " Everyone who hasn't declined now has a seat."
-        : " Everyone who hasn't declined already has a seat.";
-  return head + body + tail;
+      ? `${plural(r.unseated, 'still needs a seat', 'still need a seat')}`
+      : head
+        ? 'everyone has a seat'
+        : 'Everyone already has a seat';
+  return head ? `${head} · ${tail}` : tail;
 }
 
 // ---------------------------------------------------------------------------
@@ -3986,6 +4001,15 @@ export type SolveLayoutInput = {
   booths?: Array<{ x: number; y: number; w: number; h: number }>;
   // Reserve a centre processional/service lane when a stage exists.
   reserveCentreAisle?: boolean;
+  /**
+   * 🪑 Tables that STAY WHERE THEY ARE (owner 2026-10-01, "SEAT PLAN: LINKED
+   * TABLES ARE ONE TABLE · NOTHING OVERLAPS": *Auto arrange places new tables
+   * only in free space*). Each listed table that already has a position is
+   * fixed — an obstacle the rest are placed around — and comes back in
+   * `placed` at its own spot. Omitted = every table is laid out afresh (the
+   * blank-floor draft).
+   */
+  keepPlaced?: ReadonlySet<string>;
 };
 
 export type SolveLayoutResult = {
@@ -4083,6 +4107,9 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
     units.push({ id: rep.table_id, members, fw, fh, offsets, rep });
   }
 
+  // A unit is fixed when every member is kept AND already has a spot.
+  const fixedUnit = (unit: SolveUnit) => unit.members.every((m) => input.keepPlaced?.has(m.table_id) && posOf(m) !== null);
+
   // Solve for a given metric walkway; returns placed count + placements.
   const solveAt = (aisleM: number | null): { placed: Record<string, { x: number; y: number }>; unplaced: string[] } => {
     const slotGapPct = ((): { gw: number; gh: number } => {
@@ -4111,7 +4138,7 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
       long_banquet: 3,
       serpentine: 4,
     };
-    const ordered = [...units].sort((a, b) => {
+    const ordered = units.filter((unit) => !fixedUnit(unit)).sort((a, b) => {
       const ra = TYPE_RANK[shapeHintFor(a.rep.table_type)];
       const rb = TYPE_RANK[shapeHintFor(b.rep.table_type)];
       return (
@@ -4163,6 +4190,27 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
     const placed: Record<string, { x: number; y: number }> = {};
     const placedPoses: WorldPose[] = [];
     const unplaced: string[] = [];
+    // Fixed tables first: they are where the couple put them, so they are the
+    // obstacles every new table must clear — never moved, never re-checked.
+    for (const unit of units) {
+      if (!fixedUnit(unit)) continue;
+      for (const m of unit.members) {
+        const p = posOf(m)!;
+        const g = tableGeometry(shapeHintFor(m.table_type), m.capacity);
+        const f = footprintOf(m);
+        placed[m.table_id] = { x: Number(m.x_pos), y: Number(m.y_pos) };
+        placedPoses.push({
+          tableId: m.table_id,
+          shape: shapeHintFor(m.table_type),
+          capacity: m.capacity,
+          x: p.x,
+          y: p.y,
+          rot: m.rotation_deg ?? 0,
+          scale: f.w / g.box.w,
+          linkGroupId: m.link_group_id ?? null,
+        });
+      }
+    }
 
     // Try to place a unit's representative CENTRE at (cx,cy) %, expanding the
     // whole group by offsets, and verify every member clears.

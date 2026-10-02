@@ -87,6 +87,7 @@ export function seatPlanPreviewSvg(input: {
   }
   if (!Number.isFinite(scale) || scale <= 0) scale = 70 / maxBox;
 
+  const labelled = new Set<string>();
   tables.forEach((t, i) => {
     const g = geos[i]!;
     const c = centers[i]!;
@@ -115,6 +116,12 @@ export function seatPlanPreviewSvg(input: {
         `<circle cx="${n(c.x + r.x * scale)}" cy="${n(c.y + r.y * scale)}" r="${n(chairR)}" fill="${k < taken ? ink : paper}" stroke="${ink}" stroke-width="0.5"/>`,
       );
     });
+    // A linked unit is ONE table (owner 2026-10-01): its name is drawn once,
+    // on its first table — never once per member.
+    if (t.link_group_id) {
+      if (labelled.has(t.link_group_id)) return;
+      labelled.add(t.link_group_id);
+    }
     const label = t.link_group_label ?? t.table_label;
     parts.push(
       `<text x="${n(c.x)}" y="${n(c.y + 3)}" text-anchor="middle" font-family="-apple-system, system-ui, sans-serif" font-size="${n(Math.max(6, Math.min(11, 26 * scale)))}" fill="${ink}">${esc(label.length > 10 ? `${label.slice(0, 9)}…` : label)}</text>`,

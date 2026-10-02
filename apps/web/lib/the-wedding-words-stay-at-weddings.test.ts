@@ -117,8 +117,16 @@ test('4 · prints and emails name a wedding only for a wedding', () => {
 test('5 · (follow-up) the table sign, the album and the emcee script say the event\u2019s own word', () => {
   const sign = read('app/dashboard/[eventId]/seating/print/route.ts');
   assert.doesNotMatch(sign, /Scan to visit our wedding/, 'the table sign says "our wedding" to every type');
-  assert.match(sign, /Scan to visit our \$\{eventWords\?\.eventWord \?\? 'event'\}/);
+  // The line moved to ONE home (`seatingSignLine`, lib/print-seating-pack.ts) so
+  // the HTML pack and the PDF pack can never say different things (P1b,
+  // 2026-10-02: the PDF pack had hard-coded "Scan to visit our wedding").
+  assert.match(sign, /const signSub = seatingSignLine\(eventWords\)/);
   assert.match(sign, /<p class="sign-sub">\$\{esc\(signSub\)\}<\/p>/);
+  assert.match(sign, /layoutSeatingPack\(\{[^}]*signLine: signSub/);
+  const pack = read('lib/print-seating-pack.ts');
+  assert.doesNotMatch(pack, /Scan to visit our wedding/, 'the PDF pack\u2019s table sign says "our wedding" to every type');
+  assert.match(pack, /Scan to visit our \$\{words\?\.eventWord \?\? 'event'\}/);
+  assert.match(pack, /drawText\(ops, input\.signLine,/);
 
   assert.doesNotMatch(read('app/dashboard/[eventId]/studio/papic/magazine/route.ts'), /'The Wedding'/);
   assert.match(read('app/dashboard/[eventId]/studio/papic/magazine/route.ts'), /untitledEventName\(/);

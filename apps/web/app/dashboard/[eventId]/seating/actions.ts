@@ -151,14 +151,40 @@ export async function createTable(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  const { error } = await supabase.from('event_tables').insert({
-    event_id: eventId,
-    table_label: trimmed,
-    table_type: type,
-    capacity,
-    ...(xPos != null && yPos != null ? { x_pos: xPos, y_pos: yPos } : {}),
-  });
+  const { data: created, error } = await supabase
+    .from('event_tables')
+    .insert({
+      event_id: eventId,
+      table_label: trimmed,
+      table_type: type,
+      capacity,
+      ...(xPos != null && yPos != null ? { x_pos: xPos, y_pos: yPos } : {}),
+    })
+    .select('table_id')
+    .single();
   if (error) throw new Error(error.message);
+
+  // 📱 "Move Ana to… + New table" (owner 2026-10-01, the approved phone frame
+  // 4): the new table and the move are ONE tap — the guest and the +1 who
+  // moves with them sit at the new table's first chairs. An intent of this
+  // action (the server-action ceiling), never a second one.
+  const seatRaw = formData.get('seat_guest_ids');
+  let seatIds: string[] = [];
+  if (typeof seatRaw === 'string' && seatRaw.length > 0) {
+    try {
+      const parsed = JSON.parse(seatRaw);
+      if (Array.isArray(parsed)) seatIds = parsed.filter((x): x is string => typeof x === 'string').slice(0, capacity);
+    } catch {
+      seatIds = [];
+    }
+  }
+  if (created && seatIds.length > 0) {
+    const { error: seatErr } = await supabase.from('event_seat_assignments').upsert(
+      seatIds.map((guestId, i) => ({ event_id: eventId, table_id: created.table_id, guest_id: guestId, seat_number: i })),
+      { onConflict: 'event_id,guest_id' },
+    );
+    if (seatErr) throw new Error(seatErr.message);
+  }
 
   // Smart seat-plan Phase 5 (gap G1): a new table is fresh capacity — gap-fill
   // any guests who were waiting for a seat. Best-effort; no-op when autoplace is
@@ -167,6 +193,7 @@ export async function createTable(formData: FormData) {
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+  return { tableId: (created?.table_id as string | undefined) ?? null };
 }
 
 export async function deleteTable(formData: FormData) {
@@ -2029,17 +2056,92 @@ export async function setGuestSeatingPriority(formData: FormData) {
 // deterministic role-tier auto-seat against the NEW positions so "nearest the
 // stage" means the layout that was just made. Seating stays idempotent
 // (already-seated guests never move) and existing tables are never removed.
-export async function autoArrange(
-  formData: FormData,
-): Promise<{
+export type AutoArrangeResult = {
   seated: number;
   tablesAdded: number;
   unseated: number;
   totalRules: number;
   satisfiedRules: number;
   unsatisfiedRules: number;
-}> {
+  /** Tables this run created — Undo removes them again. */
+  addedTableIds: string[];
+  /** Guests this run seated — Undo un-seats exactly these (nobody it did not seat). */
+  seatedGuestIds: string[];
+  /** Tables whose people changed (or that are new) — the plan rings them gold. */
+  changedTableIds: string[];
+};
+
+/**
+ * ↩ UNDO AN AUTO ARRANGE (owner 2026-10-01, the approved phone design: "Undo
+ * puts it back"). An intent of `autoArrange`, not a new action (the server
+ * action ceiling): it un-seats exactly the guests that run seated, deletes the
+ * tables it added, and puts each table and booth it moved back where it was. A guest
+ * seated by hand since then is never touched (only the listed ids are).
+ */
+async function undoAutoArrange(eventId: string, formData: FormData): Promise<AutoArrangeResult> {
+  let undo: { addedTableIds?: unknown; seatedGuestIds?: unknown; positions?: unknown };
+  try {
+    undo = JSON.parse(String(formData.get('undo') ?? '{}'));
+  } catch {
+    throw new Error('Invalid input');
+  }
+  const ids = (v: unknown) => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+  const addedTableIds = ids(undo.addedTableIds);
+  const seatedGuestIds = ids(undo.seatedGuestIds);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
+
+  if (seatedGuestIds.length > 0) {
+    const { error } = await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .in('guest_id', seatedGuestIds);
+    if (error) throw new Error(error.message);
+  }
+  if (addedTableIds.length > 0) {
+    const { error } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', addedTableIds);
+    if (error) throw new Error(error.message);
+  }
+  // The booths go back to where they stood too (Auto arrange re-anchors them).
+  if (typeof formData.get('booths') === 'string') {
+    await persistBooths(supabase, eventId, parseBoothsPayload(formData.get('booths') ?? '[]'));
+  }
+  const positions = (undo.positions && typeof undo.positions === 'object' ? undo.positions : {}) as Record<string, unknown>;
+  for (const [id, raw] of Object.entries(positions)) {
+    if (addedTableIds.includes(id)) continue;
+    const p = raw as { x?: unknown; y?: unknown } | null;
+    const x = p ? Number(p.x) : NaN;
+    const y = p ? Number(p.y) : NaN;
+    const back = p && Number.isFinite(x) && Number.isFinite(y) ? { x_pos: x, y_pos: y } : { x_pos: null, y_pos: null };
+    const { error } = await supabase.from('event_tables').update(back).eq('table_id', id).eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+  await refreshSeatingLock(supabase, lockId);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return {
+    seated: 0,
+    tablesAdded: 0,
+    unseated: 0,
+    totalRules: 0,
+    satisfiedRules: 0,
+    unsatisfiedRules: 0,
+    addedTableIds: [],
+    seatedGuestIds: [],
+    changedTableIds: [],
+  };
+}
+
+export async function autoArrange(formData: FormData): Promise<AutoArrangeResult> {
   const eventId = formData.get('event_id');
+  if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'undo') {
+    return undoAutoArrange(eventId, formData);
+  }
   const positionsRaw = formData.get('positions');
   if (typeof eventId !== 'string' || eventId.length === 0 || typeof positionsRaw !== 'string') {
     throw new Error('Invalid input');
@@ -2214,6 +2316,8 @@ export async function autoArrange(
   // Surface keep-apart outcome so the editor can show "honored X/Y rules", and
   // the TRUE count still without a chair — the toast may only say "everyone
   // has a seat" when this is 0.
+  const existingIds = new Set(existingTables.map((t) => t.table_id));
+  const addedTableIds = tables.filter((t) => !existingIds.has(t.table_id)).map((t) => t.table_id);
   return {
     seated: rows.length,
     tablesAdded: toAdd.length,
@@ -2221,6 +2325,9 @@ export async function autoArrange(
     totalRules: solved?.totalRules ?? 0,
     satisfiedRules: solved?.satisfiedCount ?? 0,
     unsatisfiedRules: solved?.violations.length ?? 0,
+    addedTableIds,
+    seatedGuestIds: rows.map((r) => r.guest_id),
+    changedTableIds: [...new Set([...rows.map((r) => r.table_id), ...addedTableIds])],
   };
 }
 

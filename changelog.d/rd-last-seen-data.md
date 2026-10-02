@@ -29,10 +29,19 @@ code preload (#6264) and the service worker keeping code on the phone (#6255).
   door (where `/auth/sign-out` lands) and `/login` removes every `sn-ls:` key
   when no auth cookie is present. A different account on the same phone wipes
   the previous account's pages on its first read or save.
-- **Size:** no change to the shared bundle (the wipe is inline HTML, not JS; no
-  `import()` was added, so no new webpack-runtime entry); the store loads only
-  with the five pages' chunks; the event layout carries only a context. No new
-  server actions, no new routes. Nothing is prefetched (Save-Data unaffected).
+- **Size (measured, local `next build` with CI's env, base 60b949035 vs this
+  branch):** shared bundle 205,949 → 205,966 B gzipped (+17 B: the one
+  webpack-runtime entry for the lazy store; ceiling 206,848). Maker first load
+  (`/dashboard/[eventId]/launch`) 477.0 → 478.9 KB (ceiling 505 KB) — the Maker
+  embeds the Schedule page and sits under `[eventId]/loading.tsx`, so it carries
+  the two small wrappers. The store + snapshot cleaner is ONE lazy chunk
+  (`lib/last-seen/client.ts`, 1,909 B gzipped), loaded on idle by the event
+  layout (skipped under Save-Data) and never in any page's first load. The wipe
+  is inline HTML, not JS. No new server actions, no new routes; nothing is
+  prefetched but that code.
+- Each kept page lives at exactly one address (`lastSeenPath`), so the Schedule
+  the Maker embeds inside `/launch` is never kept as "the Schedule page", and
+  child routes that share `[eventId]/loading.tsx` never paint Home's copy.
 - Tests: `apps/web/lib/last-seen/last-seen.test.ts` — cached-then-fresh render
   (real Fizz streaming), money never cached, sign-out clears, user-switch
   isolation, failed refresh says so; each sabotaged once.

@@ -11,6 +11,7 @@ import { anyoneMayAskToJoin } from '@/lib/rsvp-ask';
 import { redirect } from 'next/navigation';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
+import { INVITATION_ONLY_LINE } from '@/lib/invite-arrival';
 import { InvalidTokenScreen } from './_components/join-shell';
 
 export const metadata = { title: 'Join event' };
@@ -94,13 +95,12 @@ export default async function JoinPage({ params, searchParams }: Props) {
   if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {
     if (event.slug) redirect(`/${event.slug}`);
     // No public page yet: not a broken link, so it is not told it is one.
-    const w = await eventWordsForEvent(eventId);
     return (
       <DoorShell
         tone="dead_end"
         eyebrow="Guest list"
         title={event.display_name ?? 'This celebration'}
-        sub={`Only ${w.theOrganizer} can add guests to this celebration. Ask them to send you your personal invitation — it opens everything here.`}
+        sub={INVITATION_ONLY_LINE}
       />
     );
   }

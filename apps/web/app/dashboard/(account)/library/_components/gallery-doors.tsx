@@ -45,7 +45,7 @@ export function GalleryDoors({ events }: { events: GalleryDoorEvent[] }) {
       <h2 id="gallery-doors-heading" className="mb-2 text-sm font-semibold text-ink">
         Gallery
       </h2>
-      <ul className="divide-y divide-ink/10 overflow-hidden rounded-2xl border border-ink/10 bg-white/60">
+      <ul className="divide-y divide-ink/10 border-y border-ink/10">
         {hosted.map((e) => (
           <li key={e.event_id}>
             <Link

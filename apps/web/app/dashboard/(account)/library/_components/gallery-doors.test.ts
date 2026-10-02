@@ -18,6 +18,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React, { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { stripComments } from '@/lib/strip-comments';
 import { GalleryDoors, type GalleryDoorEvent } from './gallery-doors';
 
 // tsx compiles the component with the classic JSX runtime (tsconfig keeps JSX
@@ -25,9 +26,8 @@ import { GalleryDoors, type GalleryDoorEvent } from './gallery-doors';
 (globalThis as { React?: unknown }).React = React;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/^\s*\/\/.*$/gm, ' ');
-const SHELF = strip(readFileSync(resolve(HERE, 'album-shelf.tsx'), 'utf8'));
-const DOORS_SRC = strip(readFileSync(resolve(HERE, 'gallery-doors.tsx'), 'utf8'));
+const SHELF = stripComments(readFileSync(resolve(HERE, 'album-shelf.tsx'), 'utf8'));
+const DOORS_SRC = stripComments(readFileSync(resolve(HERE, 'gallery-doors.tsx'), 'utf8'));
 
 const hostNoPapic: GalleryDoorEvent = {
   event_id: 'ev-host-no-papic',

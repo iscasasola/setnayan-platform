@@ -1,6 +1,16 @@
 /**
  * public-price-literals.ts — the declared inventory of peso figures hardcoded
- * into PUBLIC (pre-sign-in) surfaces.
+ * into PUBLIC (pre-sign-in) surfaces AND the signed-in couple and supplier
+ * dashboards (`app/dashboard`, `app/vendor-dashboard`).
+ *
+ * ⚠ SCOPE WIDENED 2026-10-02. This guard used to skip the signed-in surfaces on
+ * the reasoning that "they render live catalog data" — and a couple's Papic
+ * screen then quoted "₱100 / seat / day" for a DSLR bridge the catalogue priced
+ * at a different figure and had switched off, while the supplier team screen
+ * typed "₱250/28d" beside a seat fee the code already read. A signed-in screen
+ * is exactly where somebody decides to pay, so it is scanned like a public one.
+ * `app/admin` and `app/api` stay out: admin copy explains rules to the owner, and
+ * api routes render nothing.
  *
  * WHY. Prices are admin-managed in `platform_retail_catalog_v2` /
  * `vendor_billing_catalog` and move often. Any peso figure typed into marketing
@@ -127,6 +137,51 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     now renders `supplierCommissionShort()` / `supplierCommissionPromise()`, so
     the figure is derived there as well and the declaration is retired.
   */
+  // ── signed-in dashboards (scope widened 2026-10-02) ────────────────────────
+  // Allowlist = TRUE RULE CONSTANTS and clearly-labelled EXAMPLES only. A price
+  // for something a person can BUY belongs in the catalogue, not here.
+  {
+    file: 'app/dashboard/[eventId]/budget/actions.ts',
+    literal: '₱100,000,000',
+    sku: null,
+    reason:
+      'Validation ceiling on a budget the couple types in ("Enter an amount up to ' +
+      '₱100,000,000") — a rule about the input, not a Setnayan price.',
+  },
+  {
+    file: 'app/vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx',
+    literal: '₱2,500',
+    sku: null,
+    reason:
+      'Grey placeholder text in an empty price input ("From ₱2,500") for a supplier ' +
+      'pricing their OWN booth — never stored or shown as a value.',
+  },
+  {
+    file: 'app/vendor-dashboard/services/_components/canvas-maker.tsx',
+    literal: '₱25,000',
+    sku: null,
+    reason:
+      'Preview card illustrating the maker (a made-up supplier, "from ₱25,000 per ' +
+      'event") — that supplier\'s own price, not a Setnayan SKU.',
+  },
+  {
+    file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',
+    literal: '₱48,000',
+    sku: null,
+    reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
+  },
+  {
+    file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',
+    literal: '₱28,000',
+    sku: null,
+    reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
+  },
+  {
+    file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',
+    literal: '₱85,000',
+    sku: null,
+    reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
+  },
   {
     file: 'app/onboarding/wedding/_components/onboarding-shell.tsx',
     literal: '₱30,000',

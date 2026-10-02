@@ -1,5 +1,6 @@
 /**
- * Source-scan guard: no UNDECLARED peso figure may appear in a public surface.
+ * Source-scan guard: no UNDECLARED peso figure may appear in a public surface or in
+ * the signed-in couple / supplier dashboards.
  *
  * This is half of a two-part guard, and it is deliberately the weaker half. It
  * runs in CI, which has no prod credentials, so it can only ask "is this literal
@@ -30,8 +31,14 @@ import {
 const WEB_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const APP_ROOT = join(WEB_ROOT, 'app');
 
-/** Signed-in surfaces are out of scope — they render live catalog data. */
-const EXCLUDED_TOP_LEVEL = new Set(['admin', 'dashboard', 'vendor-dashboard', 'api']);
+/**
+ * ⚠ `dashboard` AND `vendor-dashboard` WERE ON THIS LIST ("they render live
+ * catalog data") UNTIL 2026-10-02, and a couple's Papic screen quoted a typed
+ * "₱100 / seat / day" for a switched-off DSLR bridge from inside that blind spot.
+ * They are scanned now. Admin copy explains rules to the owner and api routes
+ * render nothing, so those two stay out. The test below pins the list itself.
+ */
+const EXCLUDED_TOP_LEVEL = new Set(['admin', 'api']);
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
@@ -54,6 +61,17 @@ function stripComments(src: string): string {
     .replace(/^\s*\/\/.*$/gm, '')
     .replace(/([^:])\/\/[^\n"'`]*$/gm, '$1');
 }
+
+test('the scan covers the couple and supplier dashboards, not only public pages', () => {
+  assert.ok(!EXCLUDED_TOP_LEVEL.has('dashboard'), 'app/dashboard must be scanned');
+  assert.ok(!EXCLUDED_TOP_LEVEL.has('vendor-dashboard'), 'app/vendor-dashboard must be scanned');
+  const rels = walk(APP_ROOT).map((f) => relative(WEB_ROOT, f));
+  assert.ok(rels.some((r) => r.startsWith('app/dashboard/')), 'no app/dashboard file was walked');
+  assert.ok(
+    rels.some((r) => r.startsWith('app/vendor-dashboard/')),
+    'no app/vendor-dashboard file was walked',
+  );
+});
 
 test('every peso figure in a public surface is declared', () => {
   const declared = new Map<string, Set<string>>();

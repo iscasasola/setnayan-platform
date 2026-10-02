@@ -26,6 +26,7 @@ import type { StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramMotionKey } from '@/lib/monogram-motion';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { saveAttendedVendorAction, submitRsvp } from '../actions';
+import { joinEventAction } from '@/app/join/[eventId]/actions';
 import { GuestChecklist } from './guest-checklist';
 import { guestChecklistItems } from '../_lib/guest-checklist-facts';
 import { daysUntil } from '@/lib/guest-checklist';
@@ -1602,7 +1603,9 @@ export async function SiteBody({
                       signedInNotListed={anon.signedInNotListed}
                       theOrganizer={clientWords.theOrganizer}
                       mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
-                      oneQrOpen={oneQrLetsYouIn(event.rsvp_ask_config)}
+                      joinAction={
+                        oneQrLetsYouIn(event.rsvp_ask_config) ? joinEventAction.bind(null, event.event_id, '') : undefined
+                      }
                     />
                   )}
                 </div>

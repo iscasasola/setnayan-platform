@@ -86,6 +86,11 @@ test('4 · the join door adds through the database, before any request is writte
   assert.ok(body.indexOf("=== 'private'") < gate, 'the one-QR add runs before the private-event refusal');
   assert.ok(body.indexOf('supabase.auth.getUser()') < gate, 'the one-QR add runs before sign-in is checked');
   assert.match(body.slice(rpc, rpc + 200), /p_user_id: user\.id/, 'the add is for someone other than the signed-in account');
+  assert.match(
+    body.slice(rpc, rpc + 900),
+    /if \(outcome === 'joined' \|\| outcome === 'member'\) \{\s*const dest = await enterAsGuest\(/,
+    'a session is minted for an answer other than joined / member',
+  );
   assert.match(body.slice(rpc, rpc + 1200), /outcome === 'locked'\) return backToDoor\(eventId, token, 'list_finalized'\)/);
   // The accountless door never auto-adds (no account to add).
   const self = src.slice(src.indexOf('export async function selfJoinAction'));
@@ -94,10 +99,14 @@ test('4 · the join door adds through the database, before any request is writte
 
 test('5 · the Event Hub offers one "Join as a guest" press to a signed-in stranger on a one-QR event', () => {
   const inside = read('app/[slug]/_components/get-inside.tsx');
-  assert.match(inside, /if \(signedInNotListed && oneQrOpen\)/);
-  assert.match(inside, /<form action=\{joinEventAction\.bind\(null, eventId, ''\)\}>/);
+  assert.match(inside, /if \(signedInNotListed && joinAction\)/);
+  assert.match(inside, /<form action=\{joinAction\}>/);
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /oneQrOpen=\{oneQrLetsYouIn\(event\.rsvp_ask_config\)\}/);
+  assert.match(
+    body,
+    /joinAction=\{\s*oneQrLetsYouIn\(event\.rsvp_ask_config\) \? joinEventAction\.bind\(null, event\.event_id, ''\) : undefined\s*\}/,
+    'the one-QR button is offered on an event that does not let people straight in',
+  );
 });
 
 test('6 · Your info sets it as ONE dropdown; the Guest list only shows it', () => {

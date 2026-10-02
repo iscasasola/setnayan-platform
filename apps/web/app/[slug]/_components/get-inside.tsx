@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { UploadYourQr } from './upload-your-qr';
-import { joinEventAction } from '@/app/join/[eventId]/actions';
 
 /**
  * THE STRANGER'S ONE BUTTON (owner 2026-09-26, verbatim: *"Get Inside: Scan
@@ -37,10 +36,15 @@ export function GetInside({
   signedInNotListed,
   theOrganizer,
   mayAskToJoin = false,
-  oneQrOpen = false,
+  joinAction,
 }: {
-  /** One QR for everyone, no approval (`oneQrLetsYouIn`, lib/rsvp-ask.ts). */
-  oneQrOpen?: boolean;
+  /**
+   * One QR for everyone, no approval (`oneQrLetsYouIn`, lib/rsvp-ask.ts): the
+   * join door's own action, bound to this event by the page
+   * (`joinEventAction.bind(null, eventId, '')`). Absent = not a one-QR event.
+   * Handed in rather than imported, so this door stays renderable on its own.
+   */
+  joinAction?: (formData: FormData) => void | Promise<void>;
   /** The couple chose "Anyone, I approve" (`anyoneMayAskToJoin`, lib/rsvp-ask.ts). */
   mayAskToJoin?: boolean;
   /** "the couple" / "the family" — the event type's own words. */
@@ -49,14 +53,14 @@ export function GetInside({
   eventId: string;
   signedInNotListed: boolean;
 }) {
-  if (signedInNotListed && oneQrOpen) {
+  if (signedInNotListed && joinAction) {
     return (
       <section aria-labelledby="come-in" className="mx-auto max-w-md space-y-4 text-center" data-get-inside="join">
         <h2 id="come-in" className="font-serif text-2xl leading-snug text-ink">
           Come on in
         </h2>
         <p className="text-sm text-ink/70">Tap once and this event is added to your account. No reply needed.</p>
-        <form action={joinEventAction.bind(null, eventId, '')}>
+        <form action={joinAction}>
           <button type="submit" className="button-primary flex min-h-[52px] w-full items-center justify-center">
             Join as a guest
           </button>

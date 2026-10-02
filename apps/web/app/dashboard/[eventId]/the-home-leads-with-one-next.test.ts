@@ -306,6 +306,8 @@ test('e · each removed tile\'s content is reachable at its home', () => {
     ['Schedule · next → the Schedule page', 'schedule', null, null],
     ['Messages · unread → the chat icon\'s page', 'messages', null, null],
     ['Needs you this week → the Next card, and the suppliers\' own book / pick / lock steps', 'vendors', 'vendors/_components/build-locked.tsx', /Locked in/],
+    ['Hosts card · who holds access + what a helper did → the guest list\'s Access column and the helper\'s guest card', 'guests', 'guests/_components/guest-helper-access.tsx', /./],
+    ['Meanwhile · a supplier delivered something → the supplier\'s workspace (reached from Suppliers)', 'vendors/[vendorId]/workspace', null, null],
     ['Budget · committed → the money line, whose page is the budget', 'budget', null, null],
     ['Guests · coming / no reply → the three numbers, whose page is the roster', 'guests', null, null],
   ];

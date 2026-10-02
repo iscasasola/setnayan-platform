@@ -331,8 +331,8 @@ test('the planning dashboard stops stating things that are no longer true', () =
   const page = src('app/dashboard/[eventId]/page.tsx');
   assert.equal(
     page.split('lifecyclePhase={lifecyclePhase}').length - 1,
-    3,
-    'all three EventDashboard mounts must be told',
+    2,
+    'both EventDashboard mounts (day-of, after the day) must be told',
   );
 });
 

@@ -4,9 +4,11 @@ import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { isMuslimWedding } from '@/lib/chinese-wedding';
 import { NikahEssentialsCard } from '../_components/nikah-essentials-card';
 import { readNikahImam } from '../_components/nikah-imam';
+import { NotSharedWithYou } from '../_components/not-shared-with-you';
 
 export const dynamic = 'force-dynamic';
 
@@ -49,6 +51,13 @@ export default async function NikahEssentialsPage({ params }: { params: Promise<
   };
   if (!isMuslimWedding({ ceremony_type: row.ceremony_type ?? null, secondary_ceremony_type: row.secondary_ceremony_type ?? null })) {
     notFound();
+  }
+
+  // The essentials are counted from the guest list (wali · witnesses · imam), so a
+  // helper the couple has not given the guest list to is told so — never "none yet".
+  const viewer = await fetchEventViewer(supabase, eventId, user.id);
+  if (isDelegateWithoutArea(viewer, 'guest_list')) {
+    return <NotSharedWithYou title="Nikah essentials" thing="guest list" />;
   }
 
   const [{ rows: guests, measured }, { nikahImamBooked, nikahImamNote }] = await Promise.all([

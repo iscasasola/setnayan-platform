@@ -952,9 +952,6 @@ const INAPP_VS: Record<string, string> = {
   advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', pakanta: 'a composer + singer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
-/* Onboarding promo — 20% off any in-app add-on when added during onboarding (owner 2026-06-05,
-   was 10% on the retired bundle). Applied to the services-summary total (screen 16). */
-const ONBOARDING_PROMO = 0.2;
 
 /* Pick → recommended in-app add-ons (owner 2026-06-05 · "recommended services for the other
    services" → "Matched to their picks"). For each vendor category the couple picks, suggest the
@@ -1042,12 +1039,6 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
 /* MatchedBundle removed 2026-06-05 — the paid upsell is now the à-la-carte in-app-services flow on
    screens 15–16 (browse + detail + savings → interested summary → Purchase Now). See INAPP_* above. */
 
-/* ── Live savings compute — Time & Money Saved model §H/§I (owner-LOCKED 2026-06-03) ──
-   Per-couple from the onboarding state — REPLACES the hardcoded demo strip (owner 2026-06-02:
-   "why is this the same for everybody?"). Money is mostly flat (everyone gets the same free
-   tools → ₱53,486) + ₱2,500 × expos; hours scale with the couple's picks · shortlist · runway ·
-   expos. Setnayan AI stays EXCLUDED (paid SKU, retired 2026-06-03).
-   See FREE_TOOL_DRIVERS below for the per-tool breakdown the Your Plan slider renders. */
 /* Name fields (bride/groom · screen 4) accept letters only — no digits, no symbols
    (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound
    names + spaced surnames like "Dela Cruz"/"De Leon"), hyphens ("Anne-Marie") and
@@ -1056,112 +1047,55 @@ function sanitizeName(raw: string): string {
   return (raw || '').replace(/[^\p{L}\s'-]/gu, '');
 }
 
-/* Free-tool value drivers — Time & Money Saved model §H/§I (owner-LOCKED 2026-06-03,
-   supersedes the old §A–§F set). `money` = market-equivalent "what you'd pay elsewhere"
-   (NOT a Setnayan SKU price — these are free); `hours` = practical-time-audited (§I).
-   Apparatus rule (LOCKED): every tool replaces *hiring people / DIY toil*, the couple
-   brings their own. Flat money sums to ₱53,486; marketplace adds ₱2,500 × expos. The Your
-   Plan slider renders this breakdown; .plansave + congrats sum it. lockedVendors/invited are
-   0 at onboarding (those hours accrue post-commit), so the headline shows ~₱63.5K / ~290h. */
-type SavingsInputs = {
-  categories: number; shortlisted: number; runwayDays: number;
-  exposReplaced: number; lockedVendors: number; invitedVendors: number;
-};
-type FreeToolValue = { key: string; label: string; blurb: string; vsRole: string; money: number; hours: number };
-const FREE_TOOL_DRIVERS: ReadonlyArray<{
-  key: string; label: string; blurb: string; vsRole: string;
-  money: (c: SavingsInputs) => number; hours: (c: SavingsInputs) => number;
-}> = [
-  { key: 'website', label: 'Basic website', blurb: 'RSVP, your event site, and an editorial page — built for you.', vsRole: 'a hired web developer', money: () => 14999, hours: () => 50 },
-  { key: 'drive', label: 'Photos on your Google Drive', blurb: 'Every original synced to your own Drive, yours to keep.', vsRole: 'a USB-and-delivery service', money: () => 5000, hours: () => 5 },
-  { key: 'mood', label: 'Mood board', blurb: 'One styled board your vendors actually follow.', vsRole: 'a styling consult', money: () => 3999, hours: () => 5 },
-  { key: 'budget', label: 'Budget tracker', blurb: 'Live spend and payment reminders — never a missed due date.', vsRole: "a planner's budget service", money: () => 3999, hours: () => 12 },
-  { key: 'dashboard', label: 'Your planning dashboard', blurb: 'Checklist, schedule, and every vendor in one hub.', vsRole: 'spreadsheets and group chats', money: () => 3999, hours: (c) => 0.25 * c.runwayDays },
-  { key: 'guest', label: 'Guest list + seat plan', blurb: 'Guests, RSVPs, and seating in one connected place.', vsRole: 'a guest-management service', money: () => 2999, hours: () => 12 },
-  { key: 'marketplace', label: 'Verified vendor marketplace', blurb: 'Every verified PH vendor — like 50 bridal expos in your pocket.', vsRole: 'bridal-expo trips', money: (c) => 2500 * c.exposReplaced, hours: (c) => 10 * c.exposReplaced },
-  { key: 'comparison', label: 'Side-by-side compare', blurb: 'Line up quotes and pick with clarity.', vsRole: 'quote-vetting legwork', money: () => 2499, hours: (c) => c.shortlisted },
-  { key: 'dayof', label: 'Day-of guest portal', blurb: 'Guests self-serve their table, schedule, and photos on the day.', vsRole: 'day-of guest coordination', money: () => 1999, hours: () => 6 },
-  { key: 'contract', label: 'Contract organizer', blurb: 'Upload, track key terms, e-sign, and never miss a deadline.', vsRole: 'contract admin', money: () => 1999, hours: () => 3 },
-  { key: 'songlist', label: 'Songlist maker', blurb: 'Your must-play and do-not-play list for the band or DJ.', vsRole: 'a music planner', money: () => 1499, hours: () => 3 },
-  { key: 'papic', label: 'Papic sampler', blurb: '3 guest seats to taste candid-capture tagging — every shot lands in your gallery, free.', vsRole: 'a second shooter for an hour', money: () => 0, hours: () => 4 },
-  { key: 'foodplanner', label: 'Food planner', blurb: 'Menu plus dietary, allergy, and halal prefs for your caterer.', vsRole: 'a menu planner', money: () => 1499, hours: () => 4 },
-  { key: 'monogram', label: 'Basic monogram', blurb: 'A custom mark for your wedding, generated in seconds.', vsRole: 'a designer', money: () => 1499, hours: () => 4 },
-  { key: 'qr', label: 'Branded QR', blurb: 'One scan opens everything for your guests.', vsRole: 'an invitation designer', money: () => 999, hours: () => 2 },
-  { key: 'fanout', label: 'One-tap inquiries', blurb: 'Reach your top matches in one tap — not one chat at a time.', vsRole: 'messaging each vendor yourself', money: () => 0, hours: (c) => 0.5 * c.categories },
-  { key: 'chat', label: 'All chats in one place', blurb: 'Every vendor thread in one app, not scattered across Viber and email.', vsRole: 'chasing replies everywhere', money: () => 0, hours: (c) => 0.5 * c.lockedVendors },
-  { key: 'invite', label: 'Bring your own vendor', blurb: 'Already love a vendor? Invite them — they plug right in.', vsRole: 'onboarding them yourself', money: () => 0, hours: (c) => c.invitedVendors },
-  { key: 'trust', label: 'Verified-vendor safety', blurb: 'Real reviews and verified badges — no guessing, no scams.', vsRole: 'due-diligence and asking around', money: () => 0, hours: () => 0 },
+/* Everything a couple gets free — the LIST only (owner tracker d12, 2026-10-02:
+   *"keep the list, drop the ₱ and hours total … this is not a real measurement."*).
+   The old `FREE_TOOL_DRIVERS` priced each row (~₱63.5K + ~290 h) from figures with no
+   cited source; corpus FREE_TOOLS_MARKET_VALUE_2026-10-02.md found only 4 of 19 rows
+   priceable and no source for any time saving. So there is no money, no hours and no
+   total here — a value line returns only with cited figures. */
+type FreeTool = { key: string; label: string; blurb: string };
+const FREE_TOOLS: ReadonlyArray<FreeTool> = [
+  { key: 'website', label: 'Basic website', blurb: 'RSVP, your event site, and an editorial page — built for you.' },
+  { key: 'drive', label: 'Photos on your Google Drive', blurb: 'Every original synced to your own Drive, yours to keep.' },
+  { key: 'mood', label: 'Mood board', blurb: 'One styled board your suppliers actually follow.' },
+  { key: 'budget', label: 'Budget tracker', blurb: 'Live spend and payment reminders — never a missed due date.' },
+  { key: 'dashboard', label: 'Your planning dashboard', blurb: 'Checklist, schedule, and every supplier in one hub.' },
+  { key: 'guest', label: 'Guest list + seat plan', blurb: 'Guests, RSVPs, and seating in one connected place.' },
+  { key: 'marketplace', label: 'Verified supplier marketplace', blurb: 'Every verified PH supplier, in your pocket.' },
+  { key: 'comparison', label: 'Side-by-side compare', blurb: 'Line up quotes and pick with clarity.' },
+  { key: 'dayof', label: 'Day-of guest portal', blurb: 'Guests self-serve their table, schedule, and photos on the day.' },
+  { key: 'contract', label: 'Contract organizer', blurb: 'Upload, track key terms, e-sign, and never miss a deadline.' },
+  { key: 'songlist', label: 'Songlist maker', blurb: 'Your must-play and do-not-play list for the band or DJ.' },
+  { key: 'foodplanner', label: 'Food planner', blurb: 'Menu plus dietary, allergy, and halal prefs for your caterer.' },
+  { key: 'monogram', label: 'Basic monogram', blurb: 'A custom mark for your wedding, generated in seconds.' },
+  { key: 'qr', label: 'Branded QR', blurb: 'One scan opens everything for your guests.' },
+  { key: 'fanout', label: 'One-tap inquiries', blurb: 'Reach your top matches in one tap — not one chat at a time.' },
+  { key: 'chat', label: 'All chats in one place', blurb: 'Every supplier thread in one app, not scattered across Viber and email.' },
+  { key: 'invite', label: 'Bring your own supplier', blurb: 'Already love a supplier? Invite them — they plug right in.' },
+  { key: 'trust', label: 'Verified-supplier safety', blurb: 'Real reviews and verified badges — no guessing, no scams.' },
 ];
 
-function computeOnboardingSavings(
-  state: OnboardingState,
-  now: Date,
-): { money: number; hours: number; breakdown: FreeToolValue[] } {
-  const categories = state.picks.length;
-  const shortlisted = state.shortlist.length;
-  const exposReplaced = Math.min(5, Math.max(1, Math.ceil(Math.max(categories, 1) / 3)));
-  // runway = earliest committed/candidate date (or window start) − today, clamped ≥0
-  const iso =
-    state.dateMode === 'window' && state.windowStart
-      ? state.windowStart
-      : ((state.dateCandidates ?? []).filter(Boolean).slice().sort()[0] ?? null);
-  let runwayDays = 365; // 12-mo default when no date yet (the date screen gates, so rare)
-  if (iso) {
-    const days = Math.round((new Date(iso + 'T00:00:00').getTime() - now.getTime()) / 86400000);
-    if (Number.isFinite(days)) runwayDays = Math.max(0, days);
-  }
-  // No vendors locked / no BYO invites yet at onboarding-commit time — those hours accrue later.
-  const c: SavingsInputs = { categories, shortlisted, runwayDays, exposReplaced, lockedVendors: 0, invitedVendors: 0 };
-  const breakdown: FreeToolValue[] = FREE_TOOL_DRIVERS.map((d) => ({
-    key: d.key, label: d.label, blurb: d.blurb, vsRole: d.vsRole,
-    money: Math.round(d.money(c)), hours: d.hours(c),
-  }));
-  const money = breakdown.reduce((s, d) => s + d.money, 0);
-  const hours = Math.round(breakdown.reduce((s, d) => s + d.hours, 0));
-  return { money, hours, breakdown };
-}
-
-/* Free-value slider on Your Plan (owner 2026-06-05) — renders the locked §H breakdown as a
-   swipeable list: each free tool with its time saved + market-equivalent "what you'd pay
-   elsewhere" (apparatus rule: instead of hiring people / DIY toil). Closes on a tally card =
-   the grand total. Horizontal scroll-snap keeps the no-scroll golden rule (no extra vertical
-   height). Cards shown only when they save real money or ≥1 hr for this couple. */
-function FreeValueSlider({ tools, money, hours, active }: { tools: FreeToolValue[]; money: number; hours: number; active: boolean }) {
-  const cards = tools
-    .filter((t) => t.money > 0 || t.hours >= 1)
-    .slice()
-    .sort((a, b) => b.money - a.money || b.hours - a.hours);
+/* The free list on Your Plan — a swipeable row of cards, each tool with a "Free" mark.
+   No total, no per-card price, no hours (d12 above). Horizontal scroll-snap keeps the
+   no-scroll golden rule. */
+function FreeValueSlider({ tools }: { tools: ReadonlyArray<FreeTool> }) {
   return (
     <section className="freeblock" aria-label="What you get free">
       <div className="fb-pad">
         <div className="fb-eyebrow">Everything you get · free</div>
-        <div className="fb-hero">
-          <span className="fb-amt"><CountUp value={money} prefix="₱" active={active} /></span>
-          <span className="fb-hrs">+ <CountUp value={hours} suffix=" hours" active={active} /></span>
-        </div>
-        <div className="fb-lbl">Tools a wedding planner would charge you for. Yours, ₱0 — forever.</div>
-        <div className="fb-meter"><i /></div>
       </div>
       <div className="fvs-track">
-        {cards.map((t, i) => (
+        {tools.map((t, i) => (
           <article className="fvs-card" key={t.key} data-i={String(i + 1).padStart(2, '0')}>
             <div className="fvs-label">{t.label}</div>
             <div className="fvs-blurb">{t.blurb}</div>
             <div className="fvs-foot">
               <div className="fvs-price">
-                {t.money > 0 && <span className="fvs-was">{pesoB(t.money)}</span>}
                 <span className="fvs-free">Free</span>
-                <span className="fvs-vs">{t.money > 0 ? `vs ${t.vsRole}` : `instead of ${t.vsRole}`}</span>
               </div>
-              {t.hours >= 1 && <span className="fvs-hrs">⏱ {Math.round(t.hours)}h</span>}
             </div>
           </article>
         ))}
-        <article className="fvs-card fvs-tally" key="__tally">
-          <div className="fvs-tally-lbl">All of it</div>
-          <div className="fvs-tally-amt"><CountUp value={money} prefix="₱" active={active} /> · <CountUp value={hours} suffix="h" active={active} /></div>
-          <div className="fvs-tally-sub">Yours, ₱0, forever — plus one-place chat, bring-your-own-vendor &amp; verified-vendor safety.</div>
-        </article>
       </div>
     </section>
   );
@@ -1181,37 +1115,6 @@ const ANALYZING_STAGES = [
   'Matching your vendors',
   'Building your personalized dashboard',
 ];
-
-/* Savings counter — counts up on screen entry (prototype countUp/runCounters · cubic ease-out ~1.15s). */
-function CountUp({ value, prefix = '', suffix = '', active }: { value: number; prefix?: string; suffix?: string; active: boolean }) {
-  const [disp, setDisp] = useState(0);
-  const raf = useRef<number | null>(null);
-  useEffect(() => {
-    if (!active) {
-      setDisp(0);
-      return;
-    }
-    const dur = 1150;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setDisp(Math.round(value * eased));
-      if (t < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => {
-      if (raf.current) cancelAnimationFrame(raf.current);
-    };
-  }, [active, value]);
-  return (
-    <b>
-      {prefix}
-      {formatCount(disp)}
-      {suffix}
-    </b>
-  );
-}
 
 export function OnboardingShell({
   authed,
@@ -2489,8 +2392,6 @@ export function OnboardingShell({
   })();
   const recapWhere = REGLABEL[state.region ?? 'ncr'] ?? 'Philippines';
   const recapGuests = state.pax != null ? formatCount(state.pax) : '—';
-  /* live per-couple savings — replaces the hardcoded demo strip (owner 2026-06-02) */
-  const savings = computeOnboardingSavings(state, new Date());
 
   /* ── Full congrats recap + services-summary extras (owner 2026-06-05) ── */
   const isHelper = state.role === 'helper';
@@ -2559,17 +2460,8 @@ export function OnboardingShell({
   // The woven "Our Love Story" prose — same call the love-stage reveal uses (loveTone + weaveCtx).
   const bloomStoryProse = bloomHasStory ? weaveStory(loveTone, state.loveStory, weaveCtx) : null;
 
-  /* services summary (16): pick-matched recommendations · onboarding duration · grand total saved */
+  /* services summary (16): pick-matched recommendations */
   const recommendedSet = useMemo(() => new Set(recommendedInappFor(state.picks)), [state.picks]);
-  const elapsedMin = state.startedAt ? Math.max(1, Math.round((Date.now() - state.startedAt) / 60000)) : null;
-  // Live SELLING price from the admin catalog (pricing.svc[k].set). Every live
-  // SKU is flat-priced since the 2026-07-29 Papic reprice (PAPIC_GUEST was the
-  // last pax-curve row); the authoritative charge is still recomputed at order
-  // time. The `out` market anchors are illustrative (not Setnayan prices) and
-  // are 0 for both Papic keys, so neither contributes to this "saved" figure.
-  const addonSetTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.set ?? 0), 0);
-  const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.out ?? 0), 0);
-  const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - ONBOARDING_PROMO)));
 
   /* ════ THE MIRROR ════ a live wedding-website preview ribbon that accretes one real
      element with every answer (prototype Onboarding_Wedding_Adaptive_Flow §3 · port plan §4).
@@ -4569,7 +4461,7 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'plan' ? ' active' : ''}`} id="screen-plan">
             <div className="eyebrow">Your plan</div>
             <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
-            <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={activeId === 'plan'} />
+            <FreeValueSlider tools={FREE_TOOLS} />
             <div className="grouplbl">The part that did the work</div>
             <div className="aikeep">
               <div className="aikeep-top">
@@ -4669,11 +4561,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'summary' ? ' active' : ''}`} id="screen-services-summary">
             <div className="eyebrow">Your picks</div>
             <h1 className="q" style={{ fontSize: 28, lineHeight: 1.08 }}>Services you&apos;re interested in</h1>
-            {/* Grand total — the climactic "what you saved, and how fast" stat (owner 2026-06-05). */}
-            <div className="svc-grand">
-              <div className="svc-grand-h"><CountUp value={grandMoney} prefix="₱" active={activeId === 'summary'} /> <span className="svc-grand-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={activeId === 'summary'} /></div>
-              <div className="svc-grand-l">saved with Setnayan{elapsedMin ? ` — you did all this in ${elapsedMin} minute${elapsedMin === 1 ? '' : 's'}` : ''}</div>
-            </div>
             {state.interestedServices.length === 0 ? (
               <div className="svc-empty">No add-ons selected — and that&apos;s perfectly fine. Your free plan already has everything you need to start.</div>
             ) : (
@@ -4698,12 +4585,12 @@ export function OnboardingShell({
                   // recomputed at order time. This is an onboarding estimate — do NOT
                   // "fix" it into a hardcode.
                   const setTotal = state.interestedServices.reduce((s, k) => s + (pricing.svc[k]?.set ?? 0), 0);
-                  const promo = Math.round(setTotal * ONBOARDING_PROMO);
+                  const promo = Math.round(setTotal * pricing.promo);
                   const due = setTotal - promo;
                   return (
                     <div className="svc-totals">
                       <div className="svc-tot-k">{state.interestedServices.length} {state.interestedServices.length === 1 ? 'service' : 'services'} · total</div>
-                      <div className="svc-tot-promo"><span className="svc-tot-was">{pesoB(setTotal)}</span><span className="svc-tot-tag">−20% onboarding promo</span></div>
+                      <div className="svc-tot-promo"><span className="svc-tot-was">{pesoB(setTotal)}</span><span className="svc-tot-tag">−{Math.round(pricing.promo * 100)}% at sign-up</span></div>
                       <div className="svc-tot-a">{pesoB(due)}</div>
                     </div>
                   );

@@ -252,12 +252,10 @@ export type OnboardingPricing = {
    *  by service_code, since it isn't one of the onboarding "pick" keys. Null when
    *  the row is missing/inactive. Powers the "Your Plan" keep-card. */
   setnayanAi: { price: number; label: string } | null;
-  /** Onboarding promo fraction (business rule, not a catalog value). */
+  /** The sign-up discount as a FRACTION (0.4 = 40% off) — the one admin number,
+   *  `platform_settings.onboarding_discount_pct` (owner d18), passed in by page.tsx. */
   promo: number;
 };
-
-/** Onboarding promo — 20% off any in-app add-on added during onboarding. */
-const ONBOARDING_PROMO = 0.2;
 
 /**
  * Build the onboarding pricing view-model from the two live-catalog fetch
@@ -275,11 +273,15 @@ const ONBOARDING_PROMO = 0.2;
  *                 retired (lib/v2-catalog.ts), and the authoritative charge is
  *                 still recomputed server-side at order time by
  *                 resolvePaxPricedOrderCentavos.
+ * @param discountPct the sign-up discount in PERCENT, read live from
+ *                 `platform_settings.onboarding_discount_pct` by the caller
+ *                 (owner d18: one admin number — no typed constant here).
  */
 export function buildOnboardingPricing(
   customer: V2CustomerSku[],
   bundles: V2BundleSku[],
-  pax?: number | null,
+  pax: number | null | undefined,
+  discountPct: number,
 ): OnboardingPricing {
   // Index by service_code — never rely on array order. fetchV2CustomerCatalog
   // returns ALL non-TODAYS_FOCUS rows (incl. SETNAYAN_AI, PRO_RSVP, etc.); we
@@ -365,6 +367,6 @@ export function buildOnboardingPricing(
       complete: bundleVM('MEDIA_PACK', BUNDLE_MEMBERS.complete),
     },
     setnayanAi,
-    promo: ONBOARDING_PROMO,
+    promo: Number.isFinite(discountPct) && discountPct > 0 ? discountPct / 100 : 0,
   };
 }

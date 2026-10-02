@@ -8,6 +8,7 @@ import { PickMenu, type PickOption } from '../../website/editor/_components/pick
 import { DetailsForm } from '../../details/_components/details-form';
 import { GovernedFields } from '../../details/_components/governed-fields';
 import { PaxSettingsCard } from '../../details/_components/pax-settings-card';
+import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 
 /**
  * 🗂 YOUR INFO — THE ONBOARDING'S ANSWERS, CHANGED WHERE THEY LIVE (owner
@@ -146,6 +147,8 @@ export function EventSettingsEditor({
 }) {
   return (
     <div className="flex flex-col gap-6" data-details-settings="">
+      {/* These three save live through their own actions, as they did on the old page — said, never implied. */}
+      <HubSavesImmediately />
       <GovernedFields
         eventId={eventId}
         confirmedVendorCount={governed.confirmedVendorCount}

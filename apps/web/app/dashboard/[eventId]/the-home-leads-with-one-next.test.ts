@@ -306,8 +306,8 @@ test('e · each removed tile\'s content is reachable at its home', () => {
   // [tile, the route it now lives at, a file under that route, what that file still states]
   const homes: Array<[string, string, string | null, RegExp | null]> = [
     ['Papic · N shots / photos → the Your services row, then its page', 'studio/papic', null, null],
-    ['Sai · your briefing · % locked in → the Setnayan AI page (live state)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /locked in/],
-    ['Setnayan AI · The Watch → the Setnayan AI page (deadlines + payments it keeps; the alerts themselves are notifications)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /every vendor, deadline and payment/],
+    ['Sai · your briefing · % booked (was "locked in", simplicity-2 d19) → the Setnayan AI page (live state)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /% booked/],
+    ['Setnayan AI · The Watch → the Setnayan AI page (deadlines + payments it keeps; the alerts themselves are notifications)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /every supplier, deadline and payment/],
     ['Schedule · next → the Schedule page', 'schedule', null, null],
     ['Messages · unread → the chat icon\'s page', 'messages', null, null],
     ['Needs you this week → the Next card, and the suppliers\' own book / pick / lock steps', 'vendors', 'vendors/_components/build-locked.tsx', /Locked in/],

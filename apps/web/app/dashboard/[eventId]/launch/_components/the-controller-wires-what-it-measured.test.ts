@@ -67,9 +67,12 @@ test('the three ownership predicates are still the canonical ones', () => {
   const src = page();
   // Papic was gated on a retired SKU for a year and its card could never light
   // up. Twenty-two upgrade slots is twenty-two chances to repeat that.
-  assert.match(src, /eventPapicActive\(supabase, eventId\)/);
-  assert.match(src, /eventSkuActive\(supabase, eventId, 'LIVE_WALL'\)/);
-  assert.match(src, /resolveAddOnState\(supabase, eventId, 'live-studio-roam', 'couple'\)/);
+  // `ent` = the one host-facing entitlement resolver's client (owner 2026-10-02:
+  // a purchase unlocks the EVENT — lib/pro-unlocks-the-event.test.ts).
+  assert.match(src, /const ent = await eventEntitlementClient\(eventId\);/);
+  assert.match(src, /eventPapicActive\(ent, eventId\)/);
+  assert.match(src, /eventSkuActive\(ent, eventId, 'LIVE_WALL'\)/);
+  assert.match(src, /resolveAddOnState\(ent, eventId, 'live-studio-roam', 'couple'\)/);
   assert.doesNotMatch(src, /eventPapicSeatsActive\(/, 'the retired five-seat pass gate');
 });
 

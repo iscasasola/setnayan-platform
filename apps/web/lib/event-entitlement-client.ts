@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
+
 /**
  * apps/web/lib/event-entitlement-client.ts
  *
@@ -46,9 +48,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  * Guests and suppliers are unchanged: their surfaces keep their own readers.
  */
 
-/** `event_members.member_type` values that host an event (see the rule above). */
-const HOST_MEMBER_TYPES: ReadonlySet<string> = new Set(['couple', 'coordinator']);
-
 /** Thrown when the signed-in viewer is not a host of the event being read. */
 export class NotAnEventHostError extends Error {
   constructor(eventId: string) {
@@ -80,8 +79,9 @@ export async function viewerHostsEvent(
       event_id: eventId,
     });
   }
-  const memberType = (member as { member_type?: string } | null)?.member_type ?? '';
-  if (!memberError && HOST_MEMBER_TYPES.has(memberType)) {
+  // THE ONE definition of a host member type (app/[slug]/_lib/host-scope.ts) —
+  // never a second copy of the literal.
+  if (!memberError && isHostMemberType((member as { member_type?: string } | null)?.member_type)) {
     return true;
   }
 

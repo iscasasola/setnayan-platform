@@ -119,7 +119,7 @@ test('gate() itself resolves the SAME entitlement the controller page uses for b
   const gateBody = src.slice(gateAt, src.indexOf('\nasync function', gateAt + 1) === -1 ? undefined : src.indexOf('\nasync function', gateAt + 1));
   assert.match(
     gateBody,
-    /resolveBroadcastWindow\(\s*admin\s*,\s*eventId\s*\)/,
+    /resolveBroadcastWindow\(\s*await eventEntitlementClient\(eventId\)\s*,\s*eventId\s*\)/,
     'gate() must resolve entitlement via resolveBroadcastWindow — the same resolver page.tsx uses',
   );
   // Anchored on `if (!canUseVenueScreens(` EXACTLY, not merely the call's

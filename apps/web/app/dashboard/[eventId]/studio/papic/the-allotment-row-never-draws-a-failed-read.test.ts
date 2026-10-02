@@ -72,7 +72,7 @@ test('🔌 the allotment row feeds the decision its real reads and renders the a
   assert.match(body, /\baccess,/, 'access must be the three-state answer');
   assert.match(
     src,
-    /const access = await eventPapicGuestAccess\(admin, eventId\);/,
+    /const access = await eventPapicGuestAccess\(await eventEntitlementClient\(eventId\), eventId\);/,
     'the row must ask the three-state gate',
   );
   assert.match(
@@ -107,7 +107,7 @@ test('🔴 no couple-side Papic surface asks the two-state gate', () => {
 
 test("🔴 moderation says it couldn't check, and keeps its own capture list", () => {
   const src = read('moderation', 'page.tsx');
-  assert.match(src, /const guestAccess = await eventPapicGuestAccess\(admin, eventId\);/);
+  assert.match(src, /const guestAccess = await eventPapicGuestAccess\(await eventEntitlementClient\(eventId\), eventId\);/);
   assert.match(
     src,
     /\{guestAccess === 'unknown' \? \([\s\S]{0,200}couldn&rsquo;t check whether guest cameras are on/,

@@ -23,6 +23,15 @@ import { layoutReport, reportPage, REPORT_INK, REPORT_MUTED } from '@/lib/print-
 import { PT_PER_MM } from '@/lib/print-pieces';
 import { formatCount } from '@/lib/format-number';
 
+/**
+ * The sign's line from the event's words (`EventWords`, app/[slug]/_lib/event-words):
+ * a solemn event says "this <occasion>", every other one "our <event word>".
+ * One home — the HTML pack and the PDF pack both print this.
+ */
+export function seatingSignLine(words: { solemn: boolean; occasion: string; eventWord: string } | null): string {
+  return words?.solemn ? `Scan to visit this ${words.occasion}` : `Scan to visit our ${words?.eventWord ?? 'event'}`;
+}
+
 const GOLD = '#a8843f';
 const MARGIN = 14 * PT_PER_MM;
 
@@ -35,7 +44,18 @@ export type SeatingPackUnit = {
   guests: Array<{ name: string; qrRef: string }>;
 };
 
-export function layoutSeatingPack(input: { coupleName: string; dateLabel: string | null; units: SeatingPackUnit[] }): PrintDoc[] {
+export function layoutSeatingPack(input: {
+  coupleName: string;
+  dateLabel: string | null;
+  units: SeatingPackUnit[];
+  /**
+   * The line under each table sign's QR, in the event's OWN words — "Scan to
+   * visit our wedding", "…our birthday", "…this gathering" for a wake. Built by
+   * the route from EventWords (`seatingSignLine`), the same words its HTML pack
+   * prints; never a wedding's line on a birthday.
+   */
+  signLine: string;
+}): PrintDoc[] {
   const seated = input.units.reduce((a, u) => a + u.guests.length, 0);
   const directory = layoutReport({
     piece: 'seating-pack',
@@ -72,7 +92,7 @@ export function layoutSeatingPack(input: { coupleName: string; dateLabel: string
     const q = 250;
     ops.push({ t: 'image', ref: u.qrRef, x: cx - q / 2, y, w: q, h: q });
     y += q + 26;
-    drawText(ops, 'Scan to visit our wedding', cx, y, { font: 'poppins', size: 11, color: REPORT_MUTED, align: 'center' });
+    drawText(ops, input.signLine, cx, y, { font: 'poppins', size: 11, color: REPORT_MUTED, align: 'center' });
     y += 18;
     drawText(ops, `${formatCount(u.guests.length)} seated${input.dateLabel ? ` · ${input.dateLabel}` : ''}`, cx, y, { font: 'poppins', size: 9, color: REPORT_MUTED, align: 'center' });
     pages.push(doc);

@@ -65,9 +65,14 @@ test('`MAKER_COMING_NEXT` is gone, and the View menu offers only views that are 
   assert.ok(bar.length > 500, 'maker-bar scanned nearly empty');
   assert.doesNotMatch(bar, /MAKER_COMING_NEXT/, 'the coming-next table is back');
   const shell = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx'), 'utf8'));
-  const view = shell.slice(shell.indexOf('label="View"'), shell.indexOf('label="More"'));
-  assert.ok(view.includes('makerViewOptions(wide).map'), 'the View menu was not found — the scan is blind');
-  assert.doesNotMatch(view, /disabled|note=/, 'a View item is drawn switched off — a view that is not built is not drawn');
+  // ✂ The Maker in 4 (2026-10-02): View ▾ became the bar's Phone button and ⋯'s Both row.
+  const view = shell.slice(shell.indexOf('const viewToggle = ('), shell.indexOf('const value = useMemo'));
+  assert.ok(view.includes('makerViewToggle(shownDevice)'), 'the Phone button was not found — the scan is blind');
+  assert.doesNotMatch(view, /disabled|note=/, 'the Phone button is drawn switched off — a view that is not built is not drawn');
+  const both = shell.slice(shell.indexOf('{bothView ? ('), shell.indexOf('{hasWork && stageRoles.length'));
+  assert.ok(both.length > 40, 'the Both row was not found — the scan is blind');
+  assert.doesNotMatch(both, /disabled|note=/, 'the Both row is drawn switched off');
+  assert.match(shell, /makerViewOptions\(wide\)\.find\(\(o\) => o\.key === 'both'\)/, 'Both is offered off its own rule (1024 px and wider)');
   /* "Both" came back 2026-09-29 as a BUILT view: offering it is honest only
      while the canvas draws its second pane (`the-maker-both-view-is-live.test.ts`). */
   if (bar.includes("label: 'Both'")) {

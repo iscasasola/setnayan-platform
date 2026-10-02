@@ -42,6 +42,7 @@ import {
 } from '@/lib/role-groups';
 import { loadRoleNames } from '@/lib/role-names.server';
 import type { RoleNames } from '@/lib/role-names';
+import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { RoleNamesProvider } from './_components/role-names-context';
 import {
   compareByKeys,
@@ -1420,14 +1421,20 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     // 🏷 The couple's role words reach every client chip and picker below
     // (owner 2026-09-30 — "Bride's Crew"). `role-names-reach-every-screen.test.ts`.
     <RoleNamesProvider names={roleNames}>
-      <InspectorLayout
-        paramKey="inspect"
-        className="sn-inspector-shell--card"
-        mobileSheet
-        hasSelection={Boolean(inspectorBody)}
-        master={master}
-        inspector={inspectorBody}
-      />
+      {/* 💾 The roster is kept on the phone and shown at once on the next
+          open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
+          SHOWS INSTANTLY, THEN REFRESHES"). A refused guest read is never
+          kept — the next open shows the last list that WAS measured. */}
+      <LastSeenCapture page="guests" fresh={guestsMeasured}>
+        <InspectorLayout
+          paramKey="inspect"
+          className="sn-inspector-shell--card"
+          mobileSheet
+          hasSelection={Boolean(inspectorBody)}
+          master={master}
+          inspector={inspectorBody}
+        />
+      </LastSeenCapture>
     </RoleNamesProvider>
   );
 }

@@ -566,38 +566,28 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     ⛔ The Pro slide carries `sells` and a `{price}` token: dropped in the store
     shell, and the figure is read from the catalogue at render.
   */
+  /*
+    THE MAKER'S TOUR, SHORT (owner 2026-10-02, "SIMPLIFY FIRST, THEN TOUR";
+    FIRST_TIMER_TEST fix 6 — the 5-slide welcome that opened before the first
+    tap and ended on "What Event Hub Pro adds" scored the invitation HARD).
+    It no longer opens on a first visit at all: the Maker shows one quiet line,
+    "Tap anything to change it", and this plays only from ⋯ › About the Maker.
+    No Pro slide — Pro is met where it is tried (◆ PRO on the thing, Apply asks).
+  */
   customer_event_hub_maker_v1: {
     key: 'customer_event_hub_maker_v1',
     label: 'Event Hub Maker welcome',
-    blurb: 'How the Event Hub Maker builds your one link, stage by stage.',
+    blurb: 'Tap anything to change it — then Apply.',
     slides: [
       {
-        Icon: Wand2,
-        title: 'Your whole Event Hub, made in one place',
-        body: 'The Save the Date, the Invitation, the day itself and the story after it are one link. This is where you make all of it &mdash; and you watch the real page change as you go.',
-      },
-      {
-        Icon: Palette,
-        title: 'Pick a theme and the whole hub is dressed',
-        body: 'A theme sets the look of every stage at once &mdash; colours, lettering and how things move. Choose it once; everything follows.',
-      },
-      {
         Icon: MousePointerClick,
-        title: 'Tap anything to edit it',
-        body: 'Tap a scene on the left, or tap a section on the page itself, and its controls open beside it. The eye hides a scene from guests; drag a scene to move it.',
+        title: 'Tap anything to change it',
+        body: 'Tap words on the page to type over them, or tap a scene for its settings. Your guests see nothing until you press <b>Apply</b>.',
       },
       {
         Icon: LayoutPanelLeft,
-        title: 'One place for the four stages',
-        body: 'Save the Date &middot; Invitation &middot; The Day &middot; Post Event sit along the top. Pick one and the canvas shows that stage, the way your guests will meet it.',
-      },
-      {
-        Icon: Sparkles,
-        title: 'What Event Hub Pro adds',
-        // The free themes are named from the registry (owner 2026-09-29: Modern
-        // and Cyber Neon joined Classic), never typed here.
-        body: `Themes beyond ${themeNames(FREE_THEMES)}, scenes of your own from the templates (tap + at the top &mdash; each one waits in your draft until you Apply), the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.`,
-        sells: true,
+        title: 'Page, Look and Event Details',
+        body: '<b>Page</b> picks what you are looking at. <b>Look</b> dresses the whole Event Hub. <b>Event Details</b> holds the facts &mdash; names, date, places &mdash; shown on every page.',
       },
     ],
   },

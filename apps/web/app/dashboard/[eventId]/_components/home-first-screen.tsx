@@ -146,6 +146,8 @@ export function HomeFirstScreen({
         <Link
           href={`/dashboard/${eventId}/budget`}
           data-home-money
+          /* 💾 Money is never kept as last-seen data (lib/last-seen). */
+          data-money=""
           className="sn-glass-bare flex items-end justify-between rounded-xl px-4 py-3"
         >
           <span className="text-[12.5px] text-ink/60">

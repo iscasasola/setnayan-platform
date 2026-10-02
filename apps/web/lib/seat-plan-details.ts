@@ -25,6 +25,8 @@
  * (`peopleLabels`), and an event without two named people is listed by group.
  */
 
+import { formatCount } from './format-number';
+
 /** A marker the plan draws once (a singleton), as the editor names it. */
 export type SeatPlanMarker = 'stage' | 'entrance' | 'service' | 'dance' | 'cocktail';
 
@@ -211,3 +213,94 @@ export function seatAtChoices(
  * from this plan's own tables. Not an object on the plan, so it has its own key.
  */
 export const SEAT_PLAN_MAP_PIECE = 'guests-map';
+
+/* ══════════════ 📱 THE SEAT PLAN ON A PHONE (owner 2026-10-01) ══════════════
+ * DECISION_LOG "SEAT PLAN + WALKING ORDER DESIGN — APPROVED" (frames 1–4 of
+ * prototypes/seat_plan_and_walking_order_2026-10-01_fable.html): the whole
+ * plan on one screen, "Seat plan · N tables", one status line, the Unseated
+ * chip, Auto arrange + Rules ▾, 2D ▾; tap a table → its dock and guests; tap a
+ * guest → "Move … to…" with ONE Table ▾; NO drag on a phone. The words below
+ * are built from data only — a count is always counted, never typed. */
+
+/**
+ * The room-size presets (moved here from the editor so the phone's status line
+ * and the A3 print name the room the same way). "Standard 20×30" is the
+ * historical default board.
+ */
+export const ROOM_PRESETS: ReadonlyArray<{ label: string; width: number; length: number }> = [
+  { label: 'Intimate', width: 14, length: 10 },
+  { label: 'Standard', width: 20, length: 30 },
+  { label: 'Grand', width: 30, length: 20 },
+  { label: 'Garden', width: 60, length: 40 },
+  { label: 'Estate', width: 120, length: 90 },
+  { label: 'Field', width: 200, length: 200 },
+];
+
+/**
+ * What the room is called on the phone and on paper: a preset's name ("Standard
+ * room"), else its size ("24 × 18 m room"), else — no size set — "Room size not
+ * set" (never a made-up size).
+ */
+export function seatPlanRoomName(room: { width: number | null; length: number | null } | null): string {
+  const w = room?.width ?? null;
+  const l = room?.length ?? null;
+  if (!w || !l || w <= 0 || l <= 0) return 'Room size not set';
+  const preset = ROOM_PRESETS.find((p) => p.width === w && p.length === l);
+  return preset ? `${preset.label} room` : `${w} × ${l} m room`;
+}
+
+/**
+ * The phone's head: "N tables" counts UNITS — linked tables once (owner
+ * 2026-10-01 "LINKED TABLES ARE ONE TABLE … one count") — and leaves the
+ * couple's sweetheart out (it is not a guest table; the approved frame counts
+ * ten guest tables beside "A & B"). The status line says the room, how many sit,
+ * and when guests see it — from the seat rule's own two facts.
+ */
+export function seatPlanHeadline(input: {
+  units: ReadonlyArray<{ sweetheart: boolean }>;
+  seated: number;
+  roomName: string;
+  /** `seatDayHasCome` — the event's day has come. */
+  dayHasCome: boolean;
+  /** The "Show guests their seats early" switch. */
+  showingEarly: boolean;
+}): { count: string; status: string } {
+  const n = input.units.filter((u) => !u.sweetheart).length;
+  const when = input.dayHasCome ? 'guests see it today' : input.showingEarly ? 'guests see it now' : 'guests see it on the day';
+  return {
+    count: `${formatCount(n)} ${n === 1 ? 'table' : 'tables'}`,
+    status: `${input.roomName} · ${formatCount(input.seated)} seated · ${when}.`,
+  };
+}
+
+/**
+ * NO DRAG ON A PHONE (owner 2026-10-01: "tap → one dropdown → done; drag stays
+ * on desktop"). Below 768 px a press on a table, an element, a booth or a sign
+ * is a TAP — it selects (or seats the picked guest) — and never moves anything;
+ * the canvas still pans and pinch-zooms. The editor asks this once.
+ */
+export function planPress(isPhone: boolean): 'tap' | 'drag' {
+  return isPhone ? 'tap' : 'drag';
+}
+
+export type MoveTarget = { id: string; label: string; free: number; current: boolean };
+
+/**
+ * "Move Ana to…" — ONE Table ▾. Only units with room for the guest AND the +1s
+ * who move with them are listed (owner: "Only tables with room are listed"),
+ * plus the table they sit at now (so the list says where they are). Linked
+ * tables are one row (their combined name and summed free chairs).
+ */
+export function moveTargets(
+  units: ReadonlyArray<{ id: string; label: string; free: number; tableIds: readonly string[] }>,
+  opts: { currentTableId: string | null; party: number },
+): MoveTarget[] {
+  return units
+    .map((u) => ({
+      id: u.id,
+      label: u.label,
+      free: u.free,
+      current: opts.currentTableId !== null && u.tableIds.includes(opts.currentTableId),
+    }))
+    .filter((u) => u.current || u.free >= Math.max(1, opts.party));
+}

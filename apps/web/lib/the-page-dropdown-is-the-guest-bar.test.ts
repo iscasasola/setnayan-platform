@@ -79,7 +79,7 @@ test('1 · the guest bar asked is the REAL one — the same function a guest’s
   }).map((s) => s.label);
   assert.deepEqual(makerGuestPages('rsvp', tilesOf('rsvp')).map((p) => p.label), direct);
   // …and nothing in the Maker names a page: no label literal survives in the lib or the picker.
-  for (const [name, src] of [['maker-guest-pages.ts', LIB], ['page-pick.tsx', PICK]] as const) {
+  for (const [name, src] of [['maker-guest-pages.ts', LIB], ['page-pick.tsx', PICK], ['maker-bar.ts', read('app/dashboard/[eventId]/launch/_components/maker-bar.ts')]] as const) {
     assert.doesNotMatch(
       src,
       /['"`](Home|Welcome|Details|Story|Our Love Story|Me|Now|Live|Schedule|Camera|Gallery|Recap)['"`]/,
@@ -126,19 +126,25 @@ test('2 · a pick jumps and never filters: every scene sits under exactly one pa
   assert.ok(pages.find((p) => p.key === 'home')!.tiles.includes('f:hero'), 'the names sit under Home');
 });
 
-test('2 · SOURCE: the dropdown is the navigator’s one control, and the list still draws every scene', () => {
+test('2 · SOURCE: the dropdown is the toolbar’s Page ▾ (the Maker in 4), and the list still draws every scene', () => {
+  // ✂ 2026-10-02 (design frame D: "This replaces the stage tabs in today's top bar
+  // and the navigator column"): the navigator keeps no picker; the toolbar's ONE
+  // Page ▾ lists each stage with these same pages, reported by this work area.
   const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
-  assert.match(nav, /\{shownPage \? <MakerPagePick pages=\{guestPages\} value=\{shownPage\.key\} onPick=\{jumpToPage\} \/> : null\}/);
-  assert.equal((nav.match(/<PickMenu\b|<MakerPagePick\b/g) ?? []).length, 1, 'one dropdown at the top of the navigator');
+  assert.doesNotMatch(nav, /<PickMenu\b|<MakerPagePick\b/, 'a second page picker is back in the navigator');
+  assert.match(SHELL, /setGuestPagesCtx\(\{\s*stage,/, 'the work area no longer reports its pages to the toolbar');
+  const TOOLBAR = read('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');
+  assert.match(TOOLBAR, /<PickMenu\s+label="Page"\s+dataAttr="data-maker-page-menu"/);
+  assert.match(TOOLBAR, /GUEST_PAGE_ICON\[/, 'Page ▾ lost the guest bar’s icons');
   // + the profile's love_story part (P6a): a birthday's Page ▾ has no Our Love Story.
   assert.match(SHELL, /const guestPages = makerGuestPages\(stage, list\.shown\.map\(\(t\) => t\.key\), navigator\.hasStory\);/);
+  assert.match(TOOLBAR, /makerGuestPages\(s, \[\], hasStory\)/, 'another stage’s pages ignore whether the event has a story');
   // The navigator's loop reads no page — nothing the dropdown picks can hide a tile.
   const loop = SHELL.slice(SHELL.indexOf('{list.shown.map((tile, i) => {'), SHELL.indexOf('data-maker-tile={tile.key}'));
   assert.ok(loop.length > 0, 'the navigator loop moved — re-anchor this test');
   assert.doesNotMatch(loop, /shownPage|guestPages|tabKey|return null/, 'a page pick must not decide which scenes are listed');
   // One PickMenu, never a pill row.
-  assert.match(PICK, /<PickMenu\s+label="Page"\s+dataAttr="data-maker-page-pick"/);
-  assert.doesNotMatch(PICK, /role="tab"/);
+  assert.doesNotMatch(TOOLBAR, /role="tab"/);
 });
 
 test('3 · a pick is instant: one message to the loaded canvas — no reload, refresh, stage change or page', () => {

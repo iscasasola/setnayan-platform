@@ -116,6 +116,7 @@ import {
 } from '@/lib/build-date-window';
 import { buildCoupleFaithSet } from '@/lib/taxonomy-filters';
 import { ServicesTakeover } from './_components/services-takeover';
+import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { ChatsDoor } from './_components/chats-door';
 import { TeamRows } from './_components/team-rows';
 import { MerkadoBudgetLens } from './_components/merkado-budget-lens';
@@ -2460,7 +2461,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       </div>
     );
     return (
-      <>
+      /* 💾 Suppliers is kept on the phone and shown at once on the next open,
+         then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA SHOWS
+         INSTANTLY, THEN REFRESHES"). Only this branch — the team read above
+         was MEASURED to get here. The Budget part (`?part=budget`, returned
+         earlier) is never kept, the takeover's Budget and Plans sections carry
+         `data-money`, and every peso figure is masked (lib/last-seen). */
+      <LastSeenCapture page="suppliers">
         <ServicesTakeover
           eventId={eventId}
           initialTab={initialTab}
@@ -2494,10 +2501,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             copy described; this remount ships with that copy rewritten for the
             takeover (lib/tours.ts customer_vendors_v1). */}
         <MiniTour tourKey="customer_vendors_v1" />
-      </>
+      </LastSeenCapture>
     );
   }
 
+  // ⛔ Not kept as last-seen data: the kill-switch path is the plan-budget
+  // accordion, a budget surface (money is never cached — lib/last-seen).
   return services;
 }
 

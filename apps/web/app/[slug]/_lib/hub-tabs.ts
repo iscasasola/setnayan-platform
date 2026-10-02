@@ -140,3 +140,50 @@ export function directionsLead(input: { firstStartAt: string | null | undefined;
   if (!Number.isFinite(start)) return true;
   return input.venueNowMs < start;
 }
+
+/**
+ * 📸 THE CAMERA COMES BACK TO WHERE THE GUEST WAS (owner 2026-10-01, DECISION_LOG
+ * "THE EVENT HUB IS FULL SCREEN WITH ONE EXIT…" + the P9 addendum: *"Camera exit
+ * → the page they came from (Live only when opened directly), with a 'N photos
+ * added · See them' note"*).
+ *
+ * The bar's Camera carries the tab it was tapped on (`back`); the session
+ * bridge passes it to the camera untouched; the camera's × returns to it with
+ * the count of shots that landed (`added`), and the Event Hub says so once.
+ * Every value is re-checked here — `back` against the tab keys, `added` as a
+ * small whole number — so neither can become a path or a lie bigger than a
+ * phone could take in one sitting.
+ */
+export const CAMERA_BACK_PARAM = 'back';
+export const CAMERA_ADDED_PARAM = 'added';
+
+/** The camera link, told which tab it was opened from. Unchanged when there is no tab or no event to return to. */
+export function cameraHrefWithBack(href: string, tab: string | null): string {
+  if (!tab || isHubTabHref(href) || !/[?&]from=/.test(href)) return href;
+  return `${href}&${CAMERA_BACK_PARAM}=${encodeURIComponent(tab)}`;
+}
+
+/** A `back` value we will put in an address: one of the tab keys, or null. */
+export function cameraBackTab(raw: unknown): HubTabKey | null {
+  const v = typeof raw === 'string' ? raw.trim() : '';
+  return (HUB_TAB_ORDER as readonly string[]).includes(v) ? (v as HubTabKey) : null;
+}
+
+/** The count of shots that landed, as the hub will print it — a whole number 1…999, or null. */
+export function addedShots(raw: unknown): number | null {
+  const v = typeof raw === 'string' ? raw.trim() : Array.isArray(raw) ? String(raw[0] ?? '') : '';
+  if (!/^\d{1,3}$/.test(v)) return null;
+  const n = Number(v);
+  return n >= 1 ? n : null;
+}
+
+/**
+ * Where the camera's × goes: the tab it was opened from — Live when it was
+ * opened directly (a QR, a link) — on the event's own page, carrying the count.
+ * `slug` must already be a checked slug (the camera page validates it).
+ */
+export function cameraExitHref(slug: string, back: unknown, added: number, tab?: HubTabKey): string {
+  const to = tab ?? cameraBackTab(back) ?? 'live';
+  const n = added >= 1 ? `&${CAMERA_ADDED_PARAM}=${Math.min(999, Math.floor(added))}` : '';
+  return `/${slug}?${HUB_TAB_PARAM}=${to}${n}`;
+}

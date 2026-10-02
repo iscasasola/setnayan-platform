@@ -8,12 +8,16 @@ import { venueSearchQuery, VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event
  * Directions on top"*).
  *
  * The day-of hub's own Directions panel (`hub/page.tsx`), brought onto the
- * event page: one card per venue — the ceremony and the reception, or one when
- * they are the same place (`lib/event-venues.ts`) — each with "Open in" Maps /
- * Waze. A venue with neither a place to search nor a pin has no way to be
- * opened, so it is not drawn; nothing to draw → nothing at all.
+ * event page, with "Open in" Maps / Waze. A venue with neither a place to
+ * search nor a pin has no way to be opened, so it is not drawn; nothing to
+ * draw → nothing at all.
  *
- * WHEN is the caller's (`directionsLead`, `_lib/hub-tabs.ts`); WHICH venues too:
+ * 🗺 ONE PLACE (owner 2026-10-01, *"only 1 of 2"*): every caller hands it
+ * `dayVenuesNow(...)` — the venue where things are happening now — so it is
+ * labelled with that venue's role ("Getting there · Reception"), which tells a
+ * guest which of the two places it is without drawing the other.
+ *
+ * WHEN is the caller's (`directionsLead`, `_lib/hub-tabs.ts`); WHICH venue too:
  * `venues` is the event row's, already withheld by page.tsx for a reader the
  * precise location is not yet open to. Server-only markup: no client code.
  */
@@ -25,7 +29,7 @@ export function DayDirections({ venues }: { venues: readonly EventVenue[] }) {
       {open.map((v) => (
         <article key={v.role} data-venue-role={v.role} className="sn-glass-bare space-y-3 rounded-2xl p-6">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta">
-            {open.length > 1 ? `Getting there · ${VENUE_ROLE_LABEL[v.role]}` : 'Getting there'}
+            {v.role === 'both' ? 'Getting there' : `Getting there · ${VENUE_ROLE_LABEL[v.role]}`}
           </p>
           <h3 className="font-serif text-2xl italic leading-tight tracking-tight text-ink">{v.name ?? 'Venue'}</h3>
           {v.address ? <p className="text-sm text-ink/65">{v.address}</p> : null}

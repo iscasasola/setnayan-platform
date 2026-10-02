@@ -32,54 +32,61 @@
  * loading.tsx — this file remains the event-scope default.
  */
 import { Screen, Sk } from '@/components/skeletons';
+import { LastSeenFallback } from '@/app/_components/last-seen/last-seen-fallback';
 
 export default function EventSectionLoading() {
+  // 💾 Home's last-seen page (owner 2026-10-02). This file is ALSO the loading
+  // screen of every child route without its own — the store keys each kept page
+  // by its exact path, so those routes never see Home's data; they get the
+  // skeleton, as before.
   return (
-    <Screen label="Loading your event">
-      {/* Hero — event name + date line + countdown */}
-      <div className="space-y-2">
-        <Sk className="h-10 w-64 max-w-full rounded-md" />
-        <Sk className="h-4 w-48 rounded" />
-      </div>
+    <LastSeenFallback page="home">
+      <Screen label="Loading your event">
+        {/* Hero — event name + date line + countdown */}
+        <div className="space-y-2">
+          <Sk className="h-10 w-64 max-w-full rounded-md" />
+          <Sk className="h-4 w-48 rounded" />
+        </div>
 
-      {/* Briefing strip */}
-      <Sk className="h-14 rounded-2xl" />
+        {/* Briefing strip */}
+        <Sk className="h-14 rounded-2xl" />
 
-      {/* At-a-glance bento — 2×2 stat tiles */}
-      <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <li key={i}>
-            <Sk className="h-28 rounded-2xl" />
-          </li>
-        ))}
-      </ul>
-
-      {/* Journey rail — progress pips */}
-      <div className="flex items-center gap-2 py-1">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Sk key={i} className="h-2 flex-1 rounded-full" />
-        ))}
-      </div>
-
-      {/* Decisions board */}
-      <div className="space-y-3">
-        <Sk className="h-3 w-40 rounded" />
-        {Array.from({ length: 2 }).map((_, i) => (
-          <Sk key={i} className="h-24 rounded-2xl" />
-        ))}
-      </div>
-
-      {/* Around your event — tile row */}
-      <div className="space-y-3">
-        <Sk className="h-3 w-52 rounded" />
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
+        {/* At-a-glance bento — 2×2 stat tiles */}
+        <ul className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
             <li key={i}>
-              <Sk className="h-24 rounded-xl" />
+              <Sk className="h-28 rounded-2xl" />
             </li>
           ))}
         </ul>
-      </div>
-    </Screen>
+
+        {/* Journey rail — progress pips */}
+        <div className="flex items-center gap-2 py-1">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Sk key={i} className="h-2 flex-1 rounded-full" />
+          ))}
+        </div>
+
+        {/* Decisions board */}
+        <div className="space-y-3">
+          <Sk className="h-3 w-40 rounded" />
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Sk key={i} className="h-24 rounded-2xl" />
+          ))}
+        </div>
+
+        {/* Around your event — tile row */}
+        <div className="space-y-3">
+          <Sk className="h-3 w-52 rounded" />
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <li key={i}>
+                <Sk className="h-24 rounded-xl" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Screen>
+    </LastSeenFallback>
   );
 }

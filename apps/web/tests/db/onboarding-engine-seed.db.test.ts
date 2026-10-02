@@ -25,7 +25,8 @@ after(async () => {
 });
 
 const ADMITTED = ['birthday', 'date', 'hangout', 'simple_event', 'wedding'];
-const CARDS = ['setup_where', 'setup_photo', 'setup_look', 'setup_entry', 'setup_guests', 'setup_more'];
+// Owner d24 (2026-10-02): sign-up no longer asks "How do guests get in?" — five cards.
+const CARDS = ['setup_where', 'setup_photo', 'setup_look', 'setup_guests', 'setup_more'];
 
 async function rows(): Promise<ProfileRow[]> {
   const r = await replay.db.query<ProfileRow>(`SELECT * FROM public.event_type_profiles ORDER BY event_type`);
@@ -39,7 +40,7 @@ test('exactly the five first-build types are admitted to the engine (a seeded lo
   assert.deepEqual(admitted, ADMITTED);
 });
 
-test('each admitted type resolves to the six cards after its creation flow', async () => {
+test('each admitted type resolves to the five cards after its creation flow', async () => {
   for (const row of (await rows()).filter((r) => ADMITTED.includes(r.event_type))) {
     const p = toProfile(row);
     const flow = p.eventType === 'wedding' ? 'wedding' : p.eventType === 'simple_event' ? 'simple' : 'generic';

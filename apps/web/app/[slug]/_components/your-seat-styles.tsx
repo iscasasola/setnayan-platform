@@ -1,9 +1,7 @@
 import { DoorOpen, MapPin } from 'lucide-react';
 
-import { WayfindingMap } from '@/app/_components/wayfinding-map';
-import type { EventTableRow } from '@/lib/seating';
-import type { EntrancePos } from '@/lib/indoor-blueprint';
 import { tableLabelParts } from '@/lib/scene-style-text';
+import { hubTabHref } from '../_lib/hub-tabs';
 
 import { ArrivalGreeting } from './arrival-greeting';
 
@@ -12,26 +10,58 @@ import { ArrivalGreeting } from './arrival-greeting';
  * card (prototype `every_scene_three_styles_2026-09-29.html` §12). A · The map
  * is `YourSeatBlock` itself.
  *
- * Exactly A's props: the table label, the venue, the published plan's tables
- * and entrance, the guest's first name and whether they have checked in. After
+ * Exactly A's props: the table label, the venue, the floor plan (drawn on the
+ * server — `GuestSeatMap.plan`) and whether they have checked in. After
  * check-in every style trades its heading for the arrival greeting, as A does.
- * The map is the same `WayfindingMap`; in "The table number" it waits behind a
+ * The plan is the same `SeatFloorPlan`; in "The table number" it waits behind a
  * tap (a native `<details>`, so it works before any script and holds no state).
- * The walk line is A's own sentence — no route is described that the plan
- * does not draw.
+ *
+ * 🧭 THE PLAN IS THE VENUE FLOOR PLAN, READ-ONLY, WITH "YOU" (owner 2026-10-01,
+ * DECISION_LOG "THE DAY GUEST PAGES — APPROVED, WITH ANSWERS"; prototype
+ * the_day_guest_phone frame 2a) — the seat plan's own renderer
+ * (`lib/seat-plan-preview-svg.ts`), never a second drawing of the room. It
+ * replaced the entrance→table wayfinding map and its "follow the dotted path"
+ * line, which described a path this plan does not draw.
  */
 
 export type YourSeatProps = {
   tableLabel: string;
   venueName: string | null;
-  tables: EventTableRow[];
-  entrance: EntrancePos;
-  targetTableId: string;
+  /** The floor plan as SVG markup, the guest's table marked YOU (`seatPlanPreviewSvg`). */
+  plan: string;
   arrived: boolean;
 };
 
-const WALK = 'Walk in from the entrance and follow the dotted path to your table.';
-const WALK_ARRIVED = 'Follow the dotted path to your table — see you there.';
+/**
+ * The floor plan, read-only. `data-allow-zoom` hands pinch back to the browser
+ * here (`app/_components/zoom-guard.tsx` keeps it off everywhere else), so the
+ * caption's "Pinch to zoom" is true. Server markup: no client code.
+ */
+export function SeatFloorPlan({ plan, tableLabel }: { plan: string; tableLabel: string }) {
+  return (
+    <figure data-allow-zoom="" data-seat-floor-plan="" className="space-y-2">
+      <div
+        role="img"
+        aria-label={`The floor plan — ${tableLabel} is marked You`}
+        className="overflow-hidden rounded-xl border border-ink/10"
+        dangerouslySetInnerHTML={{ __html: plan }}
+      />
+      <figcaption className="flex items-center justify-between gap-3 text-xs text-ink/60">
+        <span>{tableLabel} · you</span>
+        <span>Pinch to zoom</span>
+      </figcaption>
+    </figure>
+  );
+}
+
+/** "It's on your ticket in Me" — the full ticket lives on Me (owner 2026-10-01, answer 3). */
+export function OnYourTicket() {
+  return (
+    <a href={hubTabHref('me')} className="text-sm text-ink/60 underline-offset-4 hover:underline">
+      It&rsquo;s on your ticket in Me
+    </a>
+  );
+}
 
 function Venue({ venueName }: { venueName: string | null }) {
   return venueName ? (
@@ -43,7 +73,7 @@ function Venue({ venueName }: { venueName: string | null }) {
 }
 
 /** B · The table number — the number fills the screen; the map is one tap away. */
-export function SeatTableNumber({ tableLabel, venueName, tables, entrance, targetTableId, arrived }: YourSeatProps) {
+export function SeatTableNumber({ tableLabel, venueName, plan, arrived }: YourSeatProps) {
   const { eyebrow, big } = tableLabelParts(tableLabel);
   return (
     <section className="space-y-4 text-center" data-scene-style="table-number">
@@ -67,8 +97,7 @@ export function SeatTableNumber({ tableLabel, venueName, tables, entrance, targe
           <span className="hidden group-open:inline">Hide the map</span>
         </summary>
         <div className="mt-3">
-          <WayfindingMap tables={tables} entrance={entrance} targetTableId={targetTableId} />
-          <p className="mt-3 text-sm text-ink/65">{arrived ? WALK_ARRIVED : WALK}</p>
+          <SeatFloorPlan plan={plan} tableLabel={tableLabel} />
         </div>
       </details>
     </section>
@@ -79,9 +108,7 @@ export function SeatTableNumber({ tableLabel, venueName, tables, entrance, targe
 export function SeatPlaceCard({
   tableLabel,
   venueName,
-  tables,
-  entrance,
-  targetTableId,
+  plan,
   arrived,
   formalName = null,
   nameStyle,
@@ -118,11 +145,7 @@ export function SeatPlaceCard({
           <Venue venueName={venueName} />
         </div>
       </div>
-      <WayfindingMap tables={tables} entrance={entrance} targetTableId={targetTableId} />
-      <p className="flex items-center justify-center gap-2 text-center text-sm text-ink/65">
-        <DoorOpen aria-hidden className="h-4 w-4 shrink-0 text-gild" strokeWidth={1.5} />
-        {arrived ? WALK_ARRIVED : WALK}
-      </p>
+      <SeatFloorPlan plan={plan} tableLabel={tableLabel} />
     </section>
   );
 }

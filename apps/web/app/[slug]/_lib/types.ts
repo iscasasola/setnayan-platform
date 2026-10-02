@@ -16,12 +16,10 @@ import type { StdBackground } from '@/lib/std-backgrounds';
 import type { ScheduleBlockRow } from '@/lib/schedule';
 import type { EventVenue } from '@/lib/event-venues';
 import type { RsvpBackdropConfig } from '@/lib/spatial-backdrop';
-import type { GuestLiveGallery } from '@/lib/guest-live-gallery';
+import type { GuestLiveGallery, GuestOwnShots } from '@/lib/guest-live-gallery';
 import type { VendorCard } from '@/lib/vendor-cards';
 import type { PapicStyle } from '@/lib/papic-photo-styles';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
-import type { EventTableRow } from '@/lib/seating';
-import type { EntrancePos } from '@/lib/indoor-blueprint';
 import type { GuestHubData } from '../_components/guest-hub-card';
 
 /** Panood Watch-Live data for the day-of page (shown whenever a watch URL is
@@ -368,9 +366,10 @@ export type GuestPapicCamera = {
 
 /** "Your seat" inline wayfinding map (free 2D seat plan). */
 export type GuestSeatMap = {
-  tables: EventTableRow[];
-  entrance: EntrancePos;
   targetTableId: string;
+  /** The venue floor plan, as SVG markup, the guest's table marked YOU
+   *  (`seatPlanPreviewSvg`) — drawn on the server, so no client code. */
+  plan: string;
 };
 
 /**
@@ -392,6 +391,10 @@ export type GuestContext =
       guestRollCameraReady: boolean;
       seatPassActive: boolean;
       guestLiveGallery: GuestLiveGallery | null;
+      /** The shots THIS guest took — live/post window only; null = the read failed. */
+      guestOwnShots: GuestOwnShots | null;
+      /** The couple's "Shared gallery" switch is on (`events.pool_gallery_open`, gated). */
+      poolGalleryOpen: boolean;
       needsFaceEnroll: boolean;
       papicGuest: GuestPapicCamera | null;
       guestHubData: GuestHubData;

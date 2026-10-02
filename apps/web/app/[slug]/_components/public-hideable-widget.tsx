@@ -13,7 +13,8 @@ import { HubCanvasFrame } from './hub-canvas-frame';
 import { sceneWidgetIsBare } from '@/lib/scene-ground';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { sceneBoundTextOf } from '@/lib/details-bound';
-import type { ScheduleBlockRow } from '@/lib/schedule';
+import { venueNowMs, type ScheduleBlockRow } from '@/lib/schedule';
+import { dayVenuesNow } from '@/lib/day-venue-now';
 import { eventNounOf } from '../_lib/event-noun';
 import type { EventRow } from '../_lib/types';
 import { CountdownWidget } from './countdown';
@@ -109,6 +110,7 @@ function PublicHideableWidgetBody({
   roleNames = {},
   scheduleBlocks,
   scheduleEstimated = false,
+  isLive,
   ourPhotoUrls,
   canvasMediaUrls,
   ownClipPlays = false,
@@ -162,8 +164,21 @@ function PublicHideableWidgetBody({
         </>
       ) : null;
 
-    case 'venue_map':
-      return <VenueWidget event={event} sceneStyle={sceneStyle} map={venueMapOfRow(widget)} blocks={scheduleBlocks} />;
+    case 'venue_map': {
+      /* 🗺 On the day: ONE place, where things are happening now (owner
+         2026-10-01, `lib/day-venue-now.ts`) — the same rule as the guest's. */
+      const venueEvent = isLive
+        ? {
+            ...event,
+            venues: dayVenuesNow({
+              venues: event.venues,
+              blocks: scheduleBlocks,
+              nowMs: venueNowMs(eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)),
+            }),
+          }
+        : event;
+      return <VenueWidget event={venueEvent} sceneStyle={sceneStyle} map={venueMapOfRow(widget)} blocks={scheduleBlocks} />;
+    }
 
     case 'dress_code':
       /* 🎨 The stranger's door reads the Mood Board too (owner 2026-09-28: "if

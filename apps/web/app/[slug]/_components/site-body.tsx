@@ -103,12 +103,14 @@ import {
   activeHubTab,
   directionsLead,
   hubTabFor,
+  hubTabHref,
   hubTabsOn,
   inPageTabs,
 } from '../_lib/hub-tabs';
 import type { NavSlot } from '../_lib/site-nav';
 import { SITE_WELCOME_ANCHOR } from '../_lib/site-menu';
 import { venueNowMs } from '@/lib/schedule';
+import { dayVenuesNow } from '@/lib/day-venue-now';
 import { widgetByType, widgetShouldRender } from '@/lib/invitation-widgets';
 import { welcomePartsOnTheDay } from '@/lib/invitation-welcome';
 import { PUBLIC_WIDGET_ALLOWLIST } from '@/lib/public-widget-allowlist';
@@ -130,6 +132,7 @@ import { SongRequestCard } from './song-request-card';
 import { songRequestCardShows, type SongRequestDoor } from '@/lib/guest-song-request-rule';
 import { SELFIE_LIFETIME_LINE, SIGN_OUT_ERASES_SELFIE } from '@/lib/face-selfie-lifetime';
 import { PhotosOfYouGallery } from './photos-of-you-gallery';
+import { YourShotsGallery } from './your-shots-gallery';
 import { YourSeatBlock } from './your-seat-block';
 import { SeatDoorLine } from './seat-door-line';
 import {
@@ -461,6 +464,8 @@ type SiteBodyProps = {
    * tab. Inert on every page that is still one scroll.
    */
   activeTab?: string | null;
+  /** 📸 Back from the camera: the shots that landed this visit (`addedShots`), or null. */
+  shotsAdded?: number | null;
   /**
    * 👤 THE GUEST'S ME, handed in by page.tsx when the page is tabs — the same
    * section GuestHubBar draws below the page otherwise (`GuestMeSection`). On a
@@ -516,6 +521,7 @@ export async function SiteBody({
   chaptersOnThisDay = [],
   entourage = [],
   activeTab = null,
+  shotsAdded = null,
   meSection = null,
 }: SiteBodyProps) {
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
@@ -1070,10 +1076,15 @@ export async function SiteBody({
      (`directionsLead`). Only venues this reader may see — `event.venues` is
      already withheld per viewer by page.tsx. */
   const eventTzForDay = eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude);
+  /* 🗺 ONE PLACE, NOT TWO (owner 2026-10-01: *"directions to the location/venue
+     where things are happening is only 1 of 2"*). The ceremony venue until the
+     ceremony is over, then the reception — `lib/day-venue-now.ts`, the one rule
+     the Live directions, the Welcome venue and the day's venue scene ask. */
+  const dayVenues = dayVenuesNow({ venues: event.venues, blocks: scheduleBlocks, nowMs: venueNowMs(eventTzForDay) });
   const directionsOnTop =
     pageStage === 'event' &&
     dayOfPhase === 'live' &&
-    (event.venues?.length ?? 0) > 0 &&
+    dayVenues.length > 0 &&
     directionsLead({ firstStartAt: scheduleBlocks[0]?.start_at ?? null, venueNowMs: venueNowMs(eventTzForDay) });
 
   /**
@@ -1977,6 +1988,8 @@ export async function SiteBody({
       guest,
       invitationUrl,
       guestLiveGallery,
+      guestOwnShots,
+      poolGalleryOpen,
       seatPassActive,
       needsFaceEnroll,
       guestHubData,
@@ -2174,7 +2187,17 @@ export async function SiteBody({
     /* 🏠 THE DAY'S WELCOME (owner 2026-09-30, "THE DAY'S MENU HAS FIVE"):
        this guest's table (the seat block, drawn above), their look, the
        couple's reminders and E-Gifts. */
-    const dayWelcome = welcomePartsOnTheDay({ ...dayWelcomeFacts, identified: !isMakerCanvas });
+    const dayWelcome = welcomePartsOnTheDay({
+      ...dayWelcomeFacts,
+      identified: !isMakerCanvas,
+      // 🚶🗺 Scrolled, the day's Welcome carries the walking order and the ONE
+      // venue (owner 2026-10-01, prototype the_day_guest_phone frame 2b).
+      march: pageStage === 'event' && stageShowsEntourage(pageStage) && entourage.length > 0,
+      venue: pageStage === 'event' && dayVenues.length > 0,
+    });
+    /** The walking order is Welcome's on the day — so it leaves the Live tab (one place). */
+    const marchOnWelcome = dayWelcome.includes('march');
+    const guestEntourage = stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null;
     /* Same resolver, guest viewer. The camera destination keeps the shipped
        precedence — a guest's OWN roll first, then the couple's shared camera,
        the same order GuestHubBar already uses; neither open ⇒ the resolver
@@ -2200,8 +2223,11 @@ export async function SiteBody({
       destinations: {
         film: openUpHash('film'),
         suppliers: `#${POST_EVENT_SUPPLIERS_ANCHOR}`,
+        // 📸 Straight to the camera — "the whole page is the camera" (prototype
+        // frame 3b) — through the token→session bridge, carrying the event so
+        // its × comes back here (`cameraHrefWithBack` adds the tab).
         camera: papicGuest
-          ? `/papic/me/${guest.qr_token}`
+          ? `/papic/me/${encodeURIComponent(guest.qr_token)}/session?next=guest&from=${event.slug ?? ''}`
           : hostCameraOpen
             ? // Same reason as the anonymous tree: carry the event so a
               // refusal can hand them back their invitation.
@@ -2284,6 +2310,27 @@ export async function SiteBody({
             (guest columns, the editorial takeover, the hub), and a broad
             selector would hide THEIR children too, with no observer scoped to
             reveal them. */}
+        {/* 📸 BACK FROM THE CAMERA (owner 2026-10-01, the P9 addendum: "with
+            a 'N photos added · See them' note"). On every tab — it is about
+            the visit, not a page — and only when shots really landed: the
+            camera counts each one the server confirmed (`cameraExitHref`). */}
+        {shotsAdded && !isMakerCanvas ? (
+          <p
+            data-shots-added=""
+            role="status"
+            className="mx-auto flex w-fit items-center gap-2 rounded-full border border-ink/10 bg-cream px-4 py-2 text-sm text-ink shadow-sm"
+          >
+            <span>
+              {shotsAdded.toLocaleString('en-PH')} {shotsAdded === 1 ? 'photo' : 'photos'} added
+            </span>
+            <span aria-hidden className="text-ink/30">
+              ·
+            </span>
+            <a href={hubTabHref('gallery')} className="font-medium underline underline-offset-4">
+              See them
+            </a>
+          </p>
+        ) : null}
         <article data-pahina-chapters className="space-y-12">
           {/* 📱 THE FIRST TAB'S TOP — the Invitation's Welcome, The Day's Live
               (`group`: a no-op on a page that is one scroll). */}
@@ -2450,9 +2497,7 @@ export async function SiteBody({
             <YourSeatBlock
               tableLabel={guestHubData.tableLabel ?? 'your table'}
               venueName={receptionPlace ? receptionPlace.name : event.venue_name}
-              tables={seatMap.tables}
-              entrance={seatMap.entrance}
-              targetTableId={seatMap.targetTableId}
+              plan={seatMap.plan}
               arrived={guestHubData.arrived}
               sceneStyle={fixedStyle('find_your_seat')}
               /* 🪪 The Place card is a name card: the guest's FORMAL name, in the
@@ -2476,7 +2521,7 @@ export async function SiteBody({
                   personalized welcome. */}
               {/* 🗺 THE DAY'S LIVE LEADS WITH DIRECTIONS until the programme
                   begins (owner 2026-09-30, "THE DAY'S MENU HAS FIVE"). */}
-              {directionsOnTop ? group('live', <DayDirections venues={event.venues ?? []} />, { chapters: true, className: 'space-y-12' }) : null}
+              {directionsOnTop ? group('live', <DayDirections venues={dayVenues} />, { chapters: true, className: 'space-y-12' }) : null}
               {group(leadTab, <>{dayOfLead.greetingStepsBack ? null : greetingBlock}</>, { chapters: true, className: 'space-y-12' })}
 
               {/* Task #13 — day-of-mode promotes the schedule block to the top of
@@ -2537,10 +2582,15 @@ export async function SiteBody({
                   gallery belong ON the on-the-day page). Renders only when the
                   event owns LIVE_WALL and the live window is on; polls for fresh
                   tiles while the tab is visible. */}
-              {/* 📱 On its own the wall is the Gallery's — everyone's photos. (A
-                  couple's Theatre / Wall first arrangement keeps it on Live, with
-                  the stream, above; the Gallery then does not draw it twice.) */}
-              {group('gallery', isLive && liveWall && !(tabs.on && liveHubArranged) ? (
+              {/* 📸 THE WALL IS LIVE'S, NOT THE GALLERY'S (owner 2026-10-01,
+                  DECISION_LOG "THE EVENT HUB IS FULL SCREEN WITH ONE EXIT…": the
+                  guest's Gallery is their own shots + photos of them, and shows
+                  everyone's only when the couple shares the whole gallery). The
+                  venue wall the couple put up is Live's — prototype frame 1b:
+                  "Now · Next · the couple's announcement · the stream · the
+                  wall". (A Theatre / Wall first arrangement already draws it
+                  with the stream, above; then it is not drawn twice.) */}
+              {group('live', isLive && liveWall && !(tabs.on && liveHubArranged) ? (
                 <>
                   {/* Menu-shell "Gallery" anchor (PR6) — lands on the live wall.
                       On a tabbed page the Gallery group itself carries it. */}
@@ -2557,7 +2607,7 @@ export async function SiteBody({
                     />
                   )}
                 </>
-              ) : null, { chapters: true, className: 'space-y-12', id: SITE_MENU_ANCHORS.gallery })}
+              ) : null, { chapters: true, className: 'space-y-12', id: tabs.on ? undefined : SITE_MENU_ANCHORS.gallery })}
 
               {/* Ask the band for a song (SUP-52) — the guest's end of the song
                   desk. Live window only, and only when a booked act can READ
@@ -2650,7 +2700,20 @@ export async function SiteBody({
                   sceneStyle={fixedStyle('photos_of_you')}
                   selfieLine={guest.photo_source === 'selfie' ? SELFIE_LIFETIME_LINE : null}
                 />
-              ) : null}</>, { chapters: true, className: 'space-y-12' })}
+              ) : null}
+              {/* 📸 YOUR SHOTS + EVERYONE'S (ONLY IF SHARED) — owner 2026-10-01,
+                  DECISION_LOG "THE EVENT HUB IS FULL SCREEN WITH ONE EXIT…":
+                  the Gallery is the guest's own shots + the photos they are
+                  tagged in (above); everyone's only when the couple's shipped
+                  "Shared gallery" switch is on (`events.pool_gallery_open`). */}
+              {isLive || isPost ? (
+                <YourShotsGallery
+                  shots={guestOwnShots}
+                  qrToken={guest.qr_token || null}
+                  cameraOn={Boolean(papicGuest)}
+                  everyoneHref={poolGalleryOpen && guest.qr_token ? `/papic/me/${encodeURIComponent(guest.qr_token)}/session?next=pool` : null}
+                />
+              ) : null}</>, { chapters: true, className: 'space-y-12', id: tabs.on ? SITE_MENU_ANCHORS.gallery : undefined })}
 
               {/* (The "Keep this event for good" note that stood here folded into the
                   one account card near the top, which says the same thing while
@@ -2923,6 +2986,8 @@ export async function SiteBody({
                       />
                     ) : null
                   }
+                  march={marchOnWelcome ? guestEntourage : null}
+                  venue={<DayDirections venues={dayVenues} />}
                   giftHref={doorways.pabuya}
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
@@ -2965,7 +3030,10 @@ export async function SiteBody({
                   Details carries it, Me repeats it). Same two facts the pass
                   card's link asks: this kind seats people, the plan is posted. */}
               {/* 📱 …and on a tabbed page it is the guest's own Welcome's: their table. */}
-              {group('home', <>{seatPassActive && !isMakerCanvas ? (
+              {/* …but not under the floor plan that already names it: with
+                  `seatMap` drawn, the table is on Welcome once (one place per
+                  fact on a page — owner 2026-10-02). */}
+              {group('home', <>{seatPassActive && !isMakerCanvas && !seatMap ? (
                 <SeatDoorLine slug={event.slug ?? ''} tableLabel={guestHubData.tableLabel} />
               ) : null}</>, { chapters: true, className: 'space-y-12' })}
               {/* 🎬 Scroll · Scrub per section (owner 2026-09-24). Byte-identical
@@ -2985,7 +3053,7 @@ export async function SiteBody({
                   fails if either disappears.
 
                   No `previewHref` here either — see the anonymous mount above. */}
-              {stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={guest.guest_id} /> : null}
+              {marchOnWelcome ? null : guestEntourage}
               </>, { chapters: true, className: 'space-y-12', id: pageStage === 'event' ? undefined : SITE_MENU_ANCHORS.details })}
 
               {group('home', isLimitedPlusOne ? (
@@ -3215,6 +3283,9 @@ export async function SiteBody({
       stageLabel={STAGE_BAR[pageStage].label}
       hideWatermark={proWatermarkHidden}
       magicTraveller={magicTraveller}
+      /* ✕ One exit, top-left, back to Setnayan — never in a Maker preview,
+         which carries its own way back (`makerWayBack`). */
+      exitHref={makerWayBack || isMakerCanvas ? null : '/'}
     >
       {/* THE EVENT'S OWN WORDS — mounted once, wrapping every child of the
           shell, which is both identity trees and every lifecycle phase.

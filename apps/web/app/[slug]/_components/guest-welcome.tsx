@@ -57,6 +57,8 @@ export function GuestWelcome({
   words,
   look,
   reminders,
+  march = null,
+  venue = null,
   giftHref,
   mark = () => null,
   maker = false,
@@ -65,6 +67,10 @@ export function GuestWelcome({
   words: EventWords;
   look: WelcomeLook | null;
   reminders: ReactNode;
+  /** 🚶 The day's walking order — the shipped entourage section, drawn by the caller. */
+  march?: ReactNode;
+  /** 🗺 The day's ONE venue with directions (`lib/day-venue-now.ts`), drawn by the caller. */
+  venue?: ReactNode;
   giftHref: string | null;
   mark?: (key: string) => ReactNode;
   maker?: boolean;
@@ -106,6 +112,8 @@ export function GuestWelcome({
             </WelcomeSlot>
           ) : null;
         }
+        if (part === 'march') return march ? <WelcomeSlot key="march">{march}</WelcomeSlot> : null;
+        if (part === 'venue') return venue ? <WelcomeSlot key="venue">{venue}</WelcomeSlot> : null;
         // gifts
         if (giftHref) {
           return (

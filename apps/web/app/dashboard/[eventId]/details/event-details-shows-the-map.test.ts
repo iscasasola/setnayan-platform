@@ -133,9 +133,14 @@ test('Event Home carries the Event Details button beside the event name', () => 
 });
 
 test('how guests get in — one fact, the shipped readers', () => {
-  assert.deepEqual(howGuestsGetIn(null), { value: 'Only my Guest List', chosen: false });
+  assert.deepEqual(howGuestsGetIn(null), { value: 'Only people on my list', chosen: false });
   assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'Anyone, I approve', chosen: true });
-  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'One QR for everyone · no reply needed');
+  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'No reply · a personal QR for each guest');
+  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'No reply · one QR for everyone');
+  assert.equal(
+    howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone', approveEach: true }).value,
+    'No reply · one QR, I approve each one',
+  );
 });
 
 test('RSVP questions: absent is ON, only false is off; no reply means no questions', () => {

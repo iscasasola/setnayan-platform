@@ -25,19 +25,22 @@ import {
   RSVP_ASK_FIELDS,
   RSVP_ASK_LABEL,
   RSVP_ASK_TIP,
-  WHO_CAN_RSVP,
-  WHO_CAN_RSVP_LABEL,
   WHO_CAN_RSVP_TIP,
   readOneAtATime,
-  readWhoCanRsvp,
   rsvpAnswerWord,
   rsvpAsks,
   RSVP_WORD_LINES,
   RSVP_WORD_MAX,
   type RsvpAskConfig,
   type RsvpWordKey,
-  type WhoCanRsvp,
 } from '@/lib/rsvp-ask';
+import {
+  GUESTS_GET_IN_CHOICES,
+  GUESTS_GET_IN_LABEL,
+  guestsGetInPatch,
+  isGuestsGetIn,
+  readGuestsGetIn,
+} from '@/lib/who-can-reply';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -48,8 +51,10 @@ import { formatCount } from '@/lib/format-number';
  *   · Ask one question at a time   (`rsvp_ask_config.oneAtATime`)
  *   · What do you ask your guests? (the six switches — MOVED here from Details;
  *                                   owner 2026-09-25: *"yes on and off"*)
- *   · Who can RSVP?                (`rsvp_ask_config.whoCanRsvp` — ONE stored
- *                                   value; Guest List → Invite reads the same)
+ *   · How guests get in            (`rsvp_ask_config` guestsReply · whoCanRsvp ·
+ *                                   approveEach — ONE dropdown over the keys
+ *                                   onboarding writes; Guest List → Invite and
+ *                                   Event Details read the same)
  *   · Reply by                     (the couple's deadline, or 30 days before) —
  *                                   a date field RIGHT HERE (Details part 2b; owner
  *                                   rule "no link-outs"), the same column and the
@@ -261,7 +266,32 @@ export function MakerRsvpSettings({
   };
 
   const oneAtATime = readOneAtATime(local);
-  const who = readWhoCanRsvp(local);
+  /* 🎟 HOW GUESTS GET IN — "Will guests reply? / Entry" and the guest-list type
+     as ONE dropdown (owner 2026-10-02, DECISION_LOG "EVERY ANSWER ABOUT AN EVENT
+     LIVES IN EVENT DETAILS ('YOUR INFO') — ONE HOME, MAPPED"). Every choice is a
+     view over the SAME `rsvp_ask_config` keys onboarding writes
+     (`readGuestsGetIn` / `guestsGetInPatch`, lib/who-can-reply.ts), saved whole
+     through the draft door like every other key here. The Guest list may show
+     it; only Your info sets it. */
+  const getInNow = readGuestsGetIn(local);
+  const getIn = (
+    <section className="flex flex-col gap-2" data-rsvp-setting="who-can-rsvp">
+      <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
+        <InfoTip label={GUESTS_GET_IN_LABEL} align="start">
+          {WHO_CAN_RSVP_TIP}
+        </InfoTip>
+      </p>
+      <PickMenu
+        label={GUESTS_GET_IN_LABEL}
+        dataAttr="data-rsvp-who-pick"
+        value={getInNow}
+        options={GUESTS_GET_IN_CHOICES.map((c) => ({ key: c.value, label: c.label, hint: c.hint }))}
+        onPick={(value) =>
+          value === getInNow || !isGuestsGetIn(value) ? undefined : save(guestsGetInPatch(value), `“${GUESTS_GET_IN_LABEL}”`)
+        }
+      />
+    </section>
+  );
 
   /* ══ 🗳 THE RSVP STAGE — one scene's controls ══
      The form: its YES / NO words, then how it asks (one at a time), what it
@@ -342,20 +372,7 @@ export function MakerRsvpSettings({
           </div>
           <p className="text-xs text-ink/60">Nobody&rsquo;s answer is deleted by turning a question off.</p>
         </section>
-        <section className="flex flex-col gap-2" data-rsvp-setting="who-can-rsvp">
-          <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <InfoTip label="Who can RSVP?" align="start">
-              {WHO_CAN_RSVP_TIP}
-            </InfoTip>
-          </p>
-          <PickMenu
-            label="Who can RSVP?"
-            dataAttr="data-rsvp-who-pick"
-            value={who}
-            options={WHO_CAN_RSVP.map((value: WhoCanRsvp) => ({ key: value, label: WHO_CAN_RSVP_LABEL[value] }))}
-            onPick={(value) => (value === who ? undefined : save({ whoCanRsvp: value as WhoCanRsvp }))}
-          />
-        </section>
+        {getIn}
         <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
           <p className="text-sm font-semibold text-ink">Reply by</p>
           {replyByOwn ? (
@@ -422,30 +439,8 @@ export function MakerRsvpSettings({
       </DetailsPieceOnly>
 
       <DetailsPieceOnly item="rsvp" piece="who">
-      {/* ── Who can RSVP? — ONE stored value ── */}
-      <section className="flex flex-col gap-2" data-rsvp-setting="who-can-rsvp">
-        <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          <InfoTip label="Who can RSVP?" align="start">
-            {WHO_CAN_RSVP_TIP}
-          </InfoTip>
-        </p>
-        <div role="radiogroup" aria-label="Who can RSVP?" className="grid grid-cols-2 gap-1 rounded-full bg-ink/5 p-1">
-          {WHO_CAN_RSVP.map((value: WhoCanRsvp) => (
-            <button
-              key={value}
-              type="button"
-              role="radio"
-              aria-checked={who === value}
-              onClick={() => (who === value ? undefined : save({ whoCanRsvp: value }))}
-              className={`sn-press min-h-11 rounded-full px-3 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
-                who === value ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
-              }`}
-            >
-              {WHO_CAN_RSVP_LABEL[value]}
-            </button>
-          ))}
-        </div>
-      </section>
+      {/* ── How guests get in — ONE stored setting, ONE dropdown ── */}
+      {getIn}
       </DetailsPieceOnly>
 
       <DetailsPieceOnly item="rsvp" piece="reply-by">
@@ -512,7 +507,7 @@ export function MakerRsvpSettings({
 /** The setting a refused save put back, as the couple reads it on this page. */
 function rsvpSettingName(patch: RsvpAskConfig): string {
   if ('oneAtATime' in patch) return '“Ask one question at a time”';
-  if ('whoCanRsvp' in patch) return '“Who can RSVP?”';
+  if ('whoCanRsvp' in patch) return `“${GUESTS_GET_IN_LABEL}”`;
   const field = RSVP_ASK_FIELDS.find((f) => f in patch);
   return field ? `“${RSVP_ASK_LABEL[field]}”` : 'That change';
 }

@@ -16,7 +16,7 @@ import type { GuestRole } from '@/lib/guests';
 import { seedBindAllowed } from '@/lib/guest-claim';
 import { GUEST_LIST_ONLY, inviteReplyPath, selfJoinRefusalPath } from '@/lib/invite-arrival';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
-import { anyoneMayAskToJoin, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { anyoneMayAskToJoin, oneQrLetsYouIn, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import {
   emailMayBindRow,
   readRequestAnswers,
@@ -484,6 +484,32 @@ export async function joinEventAction(eventId: string, token: string, formData: 
       }
       // A race lost the seat → fall through to a request.
     }
+  }
+
+  // 🎟 ONE QR FOR EVERYONE → ADDED, NO APPROVAL (owner 2026-09-30, DECISION_LOG
+  // "THE RSVP IS OPTIONAL — AND AN EVENT CAN RUN ON ONE QR FOR EVERYONE": "anyone
+  // who attends scans it, signs in … and the event is added to their account as
+  // a guest; no reply, no approval unless the host picks 'I approve each one'").
+  // Only for "Will guests reply? No" + one QR + not "I approve each one"
+  // (`oneQrLetsYouIn`). The database asks the same three keys again, refuses a
+  // finalized list, and writes ONE guest row + ONE guest membership for THIS
+  // signed-in account only — never a host (`join_open_event_as_guest`,
+  // service-role only). No answers are read: nobody replies on such an event.
+  if (oneQrLetsYouIn(visRow.rsvp_ask_config)) {
+    const { data: joined, error: joinErr } = await admin.rpc('join_open_event_as_guest', {
+      p_event_id: eventId,
+      p_user_id: user.id,
+    });
+    if (joinErr) console.error('[supabase-error] app/join/[eventId]/actions.ts · rpc:join_open_event_as_guest', joinErr);
+    const outcome = (joined as { outcome?: string } | null)?.outcome ?? null;
+    if (outcome === 'joined' || outcome === 'member') {
+      const dest = await enterAsGuest(admin, eventId, user.id);
+      return redirect(dest ?? `/join/${eventId}/success?token=${encodeURIComponent(token)}`);
+    }
+    if (outcome === 'locked') return backToDoor(eventId, token, 'list_finalized');
+    if (outcome === 'full' || outcome === 'closed') return backToDoor(eventId, token, 'join_closed');
+    // 'needs_approval' (the setting changed under this page) or a failed call
+    // falls through to the request below — never in without the database's yes.
   }
 
   // Everyone else → a REQUEST. Nothing is bound; the couple decides.

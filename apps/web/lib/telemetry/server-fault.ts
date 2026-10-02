@@ -96,7 +96,7 @@ export function resolveActionName(id: string | null | undefined): string | null 
 /** The action KEY used for grouping and for the success/failure counter. */
 export function actionKey(id: string | null | undefined): string | null {
   if (!id) return null;
-  return resolveActionName(id) ?? `action:${String(id).slice(0, 16)}`;
+  return resolveActionName(id) ?? `action:${String(id).slice(0, 64)}`;
 }
 
 // ── thrown errors (onRequestError) ───────────────────────────────────────────

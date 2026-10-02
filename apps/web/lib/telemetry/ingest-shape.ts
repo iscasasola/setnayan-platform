@@ -73,7 +73,7 @@ export function wireToRecord(
     if (typeof payload[k] === 'string') payload[k] = normalizePath(payload[k] as string, true);
   }
   const actionId = str(payload.action_id, 80);
-  const resolved = actionId ? (resolve(actionId) ?? `action:${actionId.slice(0, 16)}`) : null;
+  const resolved = actionId ? (resolve(actionId) ?? `action:${actionId.slice(0, 64)}`) : null;
   const claimed = str(payload.action, 300);
   const element = str(body.element_name, 256);
   const filePath = str(body.file_path, 512);

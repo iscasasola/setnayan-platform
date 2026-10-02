@@ -69,6 +69,12 @@ test('a single first name after "for/guest/to" is scrubbed, and quoted values ar
   assert.ok(!scrubText('duplicate key value "Ana Reyes"').includes('Ana'));
 });
 
+test('an unresolved Server Action id survives the scrub — or every unnamed action would be ONE issue', () => {
+  const id = '4018aaf3e09f208e3a19b96e12a9e5f7d47fd75ef4';
+  assert.equal(scrubText(`action:${id}`), `action:${id}`);
+  assert.match(scrubText('token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9abcdef'), /\[token\]/);
+});
+
 test('the fingerprint form collapses numbers so one failure is one issue', () => {
   assert.equal(normalizeMessage('timed out after 15012ms'), normalizeMessage('timed out after 15007ms'));
   assert.equal(normalizeMessage('x\n    at foo (a.ts:1:2)'), 'x', 'stack frames are not part of the identity');

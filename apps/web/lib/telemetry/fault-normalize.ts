@@ -66,7 +66,9 @@ const PHONE_RE = /\+?\d[\d\s().-]{5,}\d/g;
 const UUID_RE = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
 // Canonical entity ids: S89<TYPE>-<10 Crockford>.
 const PUBLIC_ID_RE = /\bS89[A-Z]{1,4}-[0-9A-Z]{6,}\b/g;
-const LONG_TOKEN_RE = /\b[A-Za-z0-9_-]{32,}\b/g;
+// A long opaque token (a JWT segment, a key). Pure hex is excluded: that is a
+// Server Action id or a hash — an identifier of CODE, and grouping depends on it.
+const LONG_TOKEN_RE = /\b(?![0-9a-f]+\b)[A-Za-z0-9_-]{32,}\b/g;
 // Anything quoted is a VALUE someone typed or a row held — never the shape of
 // the failure. 'x', "x", “x”, ‘x’, «x».
 const QUOTED_RE = /'[^'\n]{1,200}'|"[^"\n]{1,200}"|“[^”\n]{1,200}”|‘[^’\n]{1,200}’|«[^»\n]{1,200}»/g;

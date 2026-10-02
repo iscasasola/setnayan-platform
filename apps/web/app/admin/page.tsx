@@ -23,6 +23,7 @@ import {
   type AdminQueueDueState,
 } from '@/lib/admin/queue-counts';
 import { formatCount } from '@/lib/format-number';
+import { fetchWhatYouChange } from '@/lib/admin/what-you-change';
 
 export const metadata = { title: 'Today' };
 
@@ -303,6 +304,7 @@ export default async function AdminOverview() {
   // not a fake feed) so an admin lands and sees what teammates just did, which
   // avoids two admins working the same row. Actor names resolved in one extra
   // round trip; degrades to an empty state if the log query fails.
+  const whatYouChange = await fetchWhatYouChange(admin);
   const { data: auditRows, error: auditError } = await admin
     .from('admin_audit_log')
     .select('audit_log_id, action, target_id, reason, actor_user_id, created_at')
@@ -525,12 +527,12 @@ export default async function AdminOverview() {
       </section>
 
       {/* WHAT YOU CHANGE · the six jobs the owner's own activity record shows he
-       *  actually does — 65 actions, all six groups, nothing left over. It sits
+       *  actually does, counted live from the audit log. It sits
        *  directly under the exception desk on purpose: the focal answers "what
        *  needs me", this answers "what do I want to change", and every queue
        *  detail follows below. Before this, "Pricing" — 52% of his recorded
        *  work — appeared NOWHERE on this page. Nothing else here was moved. */}
-      <WhatYouChange />
+      <WhatYouChange counts={whatYouChange} />
       <EditingIsOnTheComputer />
 
       {/* LANE BENTO · the overview's own curated consequence lanes (Trust &

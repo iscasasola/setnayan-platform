@@ -848,6 +848,7 @@ export async function EventDashboard({
       : event.event_date
         ? 'day'
         : 'year';
+  const venueTz = (event as { timezone?: string | null }).timezone ?? undefined;
   /*
     THE CELEBRATION HAS ALREADY HAPPENED — handed down, not worked out here.
     Everything below that states something about work still to do is gated on

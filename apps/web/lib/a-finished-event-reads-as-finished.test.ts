@@ -379,7 +379,9 @@ test('the Suite and the Studio know the event is behind them', () => {
 */
 test('the dashboard countdown reads the venue clock', () => {
   const dash = src('app/dashboard/[eventId]/_components/event-dashboard.tsx');
-  const fn = dash.slice(dash.indexOf('function daysUntil('), dash.indexOf('function daysUntil(') + 700);
+  // The countdown now lives in lib/home-facts.ts — ONE copy, handed to the dashboard (Root map: one fact, shown once).
+  const facts = src('lib/home-facts.ts');
+  const fn = facts.slice(facts.indexOf('function daysUntil('), facts.indexOf('function daysUntil(') + 900);
   assert.match(fn, /eventDateToEpoch\(eventDate, tz\)/, 'the event side');
   assert.match(fn, /eventDateToEpoch\(todayIso, tz\)/, 'and the today side, in the SAME zone');
   assert.ok(!/setHours\(0, 0, 0, 0\)/.test(fn), 'the runtime-local midnight must be gone');

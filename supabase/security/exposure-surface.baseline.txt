@@ -9,12 +9,12 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6594
+# facts: 6595
 #   schema    4
 #   rls       0
 #   rlsforce  0
 #   tpriv     568
-#   col       4818
+#   col       4819
 #   policy    944
 #   view      8
 #   func      252
@@ -2259,6 +2259,7 @@ col	public.events.wax_seal_config	anon=SIU authenticated=SIU
 col	public.events.website_open_browse	anon=SIU authenticated=SIU
 col	public.events.what_to_bring	anon=SIU authenticated=SIU
 col	public.events.wizard_state	anon=IU authenticated=IU
+col	public.faith_vocab.asked_on_event_types	anon=SIU authenticated=SIU
 col	public.faith_vocab.created_at	anon=SIU authenticated=SIU
 col	public.faith_vocab.faith_key	anon=SIU authenticated=SIU
 col	public.faith_vocab.is_civil	anon=SIU authenticated=SIU

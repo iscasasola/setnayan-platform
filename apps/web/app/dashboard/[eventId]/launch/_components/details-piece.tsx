@@ -61,6 +61,13 @@ export function ItemPieces({ item, pieces }: { item: DetailsItemKey; pieces: rea
     window.addEventListener(DETAILS_PIECE_LABEL_EVENT, onLabel);
     return () => window.removeEventListener(DETAILS_PIECE_LABEL_EVENT, onLabel);
   }, [item]);
+  /* 📱 Say the sections' names to the sheet's dropdown ("What you ask ▾"). */
+  const note = useContext(DetailsPieceContext)?.noteLabels;
+  const labelsSig = pieces.map((p) => `${p.key}=${typed[p.key]?.label ?? p.label}`).join('|');
+  useEffect(() => {
+    note?.(item, Object.fromEntries(pieces.map((p) => [p.key, typed[p.key]?.label ?? p.label])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by the names
+  }, [item, labelsSig]);
   const first = pieces[0]?.key ?? null;
   const current = picked && pieces.some((p) => p.key === picked) ? picked : first;
   useEffect(() => {

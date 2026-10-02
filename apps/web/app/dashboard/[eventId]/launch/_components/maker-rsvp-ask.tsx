@@ -19,13 +19,9 @@ import { hubDraftAction } from '../../website/hub-draft-actions';
 import { updatePaxSettings } from '../../actions';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { DetailsPieceOnly } from './details-piece';
-import { InfoTip } from '@/app/_components/info-tip';
 import {
-  ONE_AT_A_TIME_TIP,
   RSVP_ASK_FIELDS,
   RSVP_ASK_LABEL,
-  RSVP_ASK_TIP,
-  WHO_CAN_RSVP_TIP,
   readOneAtATime,
   rsvpAnswerWord,
   rsvpAsks,
@@ -278,9 +274,7 @@ export function MakerRsvpSettings({
   const getIn = (
     <section className="flex flex-col gap-2" data-rsvp-setting="who-can-rsvp">
       <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-        <InfoTip label={GUESTS_GET_IN_LABEL} align="start">
-          {WHO_CAN_RSVP_TIP}
-        </InfoTip>
+        {GUESTS_GET_IN_LABEL}
       </p>
       <PickMenu
         label={GUESTS_GET_IN_LABEL}
@@ -337,13 +331,10 @@ export function MakerRsvpSettings({
         <section className="flex flex-col gap-3" data-rsvp-setting="answers">
           <p className="text-sm font-semibold text-ink">The answers</p>
           {wordRows}
-          <p className="text-xs text-ink/60">Only the words change — every reply is still counted as yes or no.</p>
         </section>
         <section className="flex flex-col gap-1" data-rsvp-setting="one-at-a-time">
           <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-            <InfoTip label="Ask one question at a time" align="start">
-              {ONE_AT_A_TIME_TIP}
-            </InfoTip>
+            Ask one question at a time
           </p>
           <Switch
             label={oneAtATime ? 'On · one question per screen' : 'Off · one scrolling page'}
@@ -362,16 +353,13 @@ export function MakerRsvpSettings({
               <Switch
                 key={field}
                 label={
-                  <InfoTip label={RSVP_ASK_LABEL[field]} align="start">
-                    {RSVP_ASK_TIP[field]}
-                  </InfoTip>
+                  <>{RSVP_ASK_LABEL[field]}</>
                 }
                 on={rsvpAsks(local, field)}
                 onChange={(v) => save({ [field]: v })}
               />
             ))}
           </div>
-          <p className="text-xs text-ink/60">Nobody&rsquo;s answer is deleted by turning a question off.</p>
         </section>
         {getIn}
         <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
@@ -403,9 +391,7 @@ export function MakerRsvpSettings({
       {/* ── Ask one question at a time ── */}
       <section className="flex flex-col gap-1" data-rsvp-setting="one-at-a-time">
         <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
-          <InfoTip label="Ask one question at a time" align="start">
-            {ONE_AT_A_TIME_TIP}
-          </InfoTip>
+          Ask one question at a time
         </p>
         <Switch
           label={oneAtATime ? 'On · one question per screen' : 'Off · one scrolling page'}
@@ -426,16 +412,13 @@ export function MakerRsvpSettings({
             <Switch
               key={field}
               label={
-                <InfoTip label={RSVP_ASK_LABEL[field]} align="start">
-                  {RSVP_ASK_TIP[field]}
-                </InfoTip>
+                <>{RSVP_ASK_LABEL[field]}</>
               }
               on={rsvpAsks(local, field)}
               onChange={(v) => save({ [field]: v })}
             />
           ))}
         </div>
-        <p className="text-xs text-ink/60">Nobody&rsquo;s answer is deleted by turning a question off.</p>
       </section>
       </DetailsPieceOnly>
 

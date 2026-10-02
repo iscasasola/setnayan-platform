@@ -78,13 +78,12 @@ export type MakerState = {
   detailsItem?: DetailsItemKey | null;
   setDetailsItem?: (key: DetailsItemKey) => void;
   /**
-   * 📱 ONE PANEL AT A TIME ON A PHONE (owner, live test 2026-10-02): a Maker
-   * door (Look · Details · Prints) opened Details, so its guided flow folds to
-   * its one top line there (`details-workspace.tsx`); a move inside the flow
-   * unfolds it. Optional: a harness may leave it out.
+   * 📱 How many times a door (Look · Event Details · Prints) has opened Details —
+   * on a phone each press opens the item's editor as a bottom sheet (owner
+   * 2026-10-02, frame G: "Look and Details open as bottom sheets over the
+   * preview"); opened any other way, the page shows clean. Optional.
    */
-  guideFolded?: boolean;
-  setGuideFolded?: (folded: boolean) => void;
+  detailsDoor?: number;
   /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
   lookPages?: MakerLookPages | null;
   setLookPages?: (next: MakerLookPages | null) => void;
@@ -137,7 +136,8 @@ export type MakerGuestPagesReport = {
 export type MakerPageJump = { stage: LifecyclePhase; key: string; n: number; sameStage: boolean };
 
 /** ↺ The draft bar's Restore, for the toolbar's ⋯ (see `MakerState.draft`). */
-export type MakerDraftDoor = { canRestore: boolean; restore: () => void };
+/** ↺ Restore (⋯) and ↶ Undo (the phone's bottom bar — owner 2026-10-02, frame G), as the draft bar registered them. */
+export type MakerDraftDoor = { canRestore: boolean; restore: () => void; canUndo: boolean; undo: () => void };
 
 /**
  * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28

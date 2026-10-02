@@ -13,6 +13,7 @@ import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { scrollToClearSheet } from '@/lib/part-above-sheet';
+import { SheetGrip, SheetScrim } from '../../../launch/_components/maker-sheet';
 import {
   HUB_ELEMENT_LABEL,
   HUB_ELEMENT_RUN_KEYS,
@@ -345,8 +346,12 @@ export function ElementSheet({
   }, [target.key, target.el]);
 
   return (
+    <>
+    {/* 📱 The dimmed page behind the part's sheet — a tap on it goes back to the page. */}
+    <SheetScrim onClose={onClose} />
     <aside
       ref={sheetRef}
+      data-phone-chrome="panel"
       role="dialog"
       aria-labelledby={titleId}
       data-maker-element-sheet={target.el}
@@ -354,10 +359,11 @@ export function ElementSheet({
       onKeyDown={(e) => {
         if (e.key === 'Escape') onClose();
       }}
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[62dvh] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none"
+      /* 📱 The bar + this ≤ 45% of a phone (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts). */
+      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none"
     >
       {resize ? <ToolsResizeHandle onPointerDown={resize.onPointerDown} /> : null}
-      <span aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-ink/15 lg:hidden" />
+      <SheetGrip onClose={onClose} />
       <div className="flex items-center gap-2 px-4 pt-2">
         <p id={titleId} className="min-w-0 flex-1 truncate font-serif text-lg text-ink">
           Part
@@ -452,6 +458,7 @@ export function ElementSheet({
         ) : null}
       </div>
     </aside>
+    </>
   );
 }
 

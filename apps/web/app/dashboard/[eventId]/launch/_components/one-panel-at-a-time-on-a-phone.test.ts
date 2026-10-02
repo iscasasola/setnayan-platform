@@ -1,17 +1,15 @@
 /**
- * one-panel-at-a-time-on-a-phone.test.ts — THE MAKER NEVER STACKS PANELS OVER
- * THE PAGE ON A PHONE.
+ * one-panel-at-a-time-on-a-phone.test.ts — ON A PHONE THE GUIDED FLOW IS ONE
+ * CHIP, AND IT CAN STILL BE WALKED.
  *
- * Owner, live iPhone test 2026-10-02 (build 5666406): the "Finish your Event
- * Hub" guide, the Look panel and the toolbar stacked about three deep and
- * covered most of the screen. The rule (`details-workspace.tsx` docblock):
- * under `lg`, at most ONE panel shows — the open editor takes at most half the
- * height, the step's heading steps aside while it is open, and once a Maker
- * door (Look · Details · Prints) opened Details the guided flow folds to its
- * one top line (`MakerState.guideFolded`) until the couple moves in the flow.
- * The desktop keeps every part (`lg:` restores them).
- *
- * Each property is asserted on the component that holds it.
+ * Owner, live iPhone test 2026-10-02: the "Finish your Event Hub" guide, the
+ * Look panel and the toolbar stacked about three deep; then *"this is too
+ * clumped"* — the approved phone layout (frame G) puts the flow in ONE slim chip
+ * on the page that opens the guide's sheet. The room itself (≥ 55% with any
+ * sheet open, nothing between the bars with none) is measured by
+ * `lib/the-maker-keeps-the-page-on-a-phone.test.ts`. This file holds what that
+ * sum cannot see: with the flow's line, heading and foot gone from a phone's
+ * page, every one of them is in the guide's sheet — the flow can still be walked.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -22,40 +20,25 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = __dirname;
 const read = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
 const WORKSPACE = read('details-workspace.tsx');
-const SHELL = read('maker-shell.tsx');
+const TOP = read('details-guide-top.tsx');
 
-test('the open editor takes at most half a phone’s height — the page above it always shows', () => {
-  const open = /sheetOpen \? 'max-h-\[(\d+)%\]'/.exec(WORKSPACE);
-  assert.ok(open, 'the editor panel’s open height is no longer a phone percentage — re-read this guard');
-  assert.ok(Number(open[1]) <= 50, `the open editor takes ${open[1]}% of a phone — the page is covered`);
+test('on a phone the flow is ONE chip on the page — its line, heading and foot are the desktop’s', () => {
+  assert.match(WORKSPACE, /data-details-guide-chip=""/, 'the flow has no chip on a phone’s page');
+  assert.match(TOP, /'flex shrink-0 items-center gap-2\.5 border-b border-ink\/10 bg-cream\/80 px-3 py-1\.5 max-lg:hidden sm:px-4'/, 'the flow’s line shows on a phone’s page again');
+  assert.match(WORKSPACE, /<div data-details-guide-head-wrap="" className="hidden lg:contents">/, 'the step’s heading shows on a phone’s page again');
+  assert.match(WORKSPACE, /<div data-details-guide-foot-wrap="" data-phone-chrome="strip" className="hidden lg:contents">/, 'the flow’s foot shows on a phone’s page again');
 });
 
-test('the step’s heading steps aside on a phone while the editor is open (desktop keeps it)', () => {
-  const head = /<div data-details-guide-head-wrap="" className=\{sheetOpen \? 'hidden lg:contents' : 'contents'\}>\s*<GuideHead /.exec(WORKSPACE);
-  assert.ok(head, 'GuideHead is drawn on a phone beside the open editor — two panels again');
-});
-
-test('a door folds the flow to its top line on a phone; a move in the flow unfolds it', () => {
-  // The foot (Back · Skip · Next) is hidden on a phone while folded — the top line stays.
-  assert.match(
-    WORKSPACE,
-    /<div data-details-guide-foot-wrap="" data-folded=\{folded \? '' : undefined\} className=\{folded \? 'hidden lg:contents' : 'contents'\}>\s*<GuideFoot/,
-    'the flow’s foot still shows on a phone after a door opened Details',
-  );
-  assert.match(WORKSPACE, /const folded = Boolean\(maker\?\.guideFolded\)/, 'the fold is not read from the Maker');
-  assert.ok((WORKSPACE.match(/<GuideTop /g) ?? []).length === 1, 'the top line is not drawn exactly once');
-  // Every move inside the flow unfolds it: a step picked, What's left, and the unsaved question.
+test('the guide’s sheet holds the step ▾, the step’s heading and Back · Skip · Next — the flow can be walked', () => {
+  const sheet = WORKSPACE.slice(WORKSPACE.indexOf('data-details-guide-sheet=""'), WORKSPACE.indexOf('</section>', WORKSPACE.indexOf('data-details-guide-sheet=""')));
+  assert.ok(sheet.length > 0, 'the guide’s sheet is gone');
+  assert.match(sheet, /<GuideTop [\s\S]{0,300}?inSheet \/>/, 'the guide’s sheet has no step dropdown');
+  assert.match(sheet, /<GuideHead step=\{stepHere\}/, 'the guide’s sheet has no step heading');
+  for (const act of ['onBack', 'onSkip', 'onNext']) assert.match(sheet, new RegExp(`${act}=\\{`), `the guide’s sheet has no ${act}`);
+  // Next leaves the guide's sheet for the step's own editor sheet — one sheet at a time.
   const goTo = WORKSPACE.slice(WORKSPACE.indexOf('const goTo = '), WORKSPACE.indexOf('const move = '));
-  assert.match(goTo, /unfold\(\)/, 'picking a step leaves the flow folded — its Next is out of reach');
-  const openGuide = WORKSPACE.slice(WORKSPACE.indexOf('const openGuide = '), WORKSPACE.indexOf('const allItems = '));
-  assert.match(openGuide, /unfold\(\)/, 'What’s left leaves the flow folded');
+  assert.match(goTo, /setGuideSheet\(false\)/, 'a step picked leaves the guide’s sheet open under its editor');
+  // The unsaved-typing question is asked in the guide's sheet, never out of sight.
   const move = WORKSPACE.slice(WORKSPACE.indexOf('const move = '), WORKSPACE.indexOf('const openGuide = '));
-  assert.match(move, /unfold\(\);[^\n]*\n\s*setUnsavedTo\(to\)/, 'the unsaved-typing question is asked inside a folded (hidden) foot');
-
-  // The shell: a door that OPENS Details folds the flow (closing it never does).
-  const press = SHELL.slice(SHELL.indexOf('const pressDoor = '), SHELL.indexOf('const page = makerPageMenu'));
-  const close = press.indexOf('select(null)');
-  const fold = press.indexOf('setGuideFolded(true)');
-  assert.ok(fold > close && close > 0, 'pressing Look / Details / Prints no longer folds the guide on a phone');
-  assert.match(SHELL, /guideFolded,\s*setGuideFolded,/, 'the fold is not handed to Details through the Maker');
+  assert.match(move, /setUnsavedTo\(to\);[\s\S]{0,200}setGuideSheet\(true\)/, 'the unsaved question is asked where a phone cannot see it');
 });

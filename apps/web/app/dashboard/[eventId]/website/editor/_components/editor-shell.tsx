@@ -1,5 +1,6 @@
 'use client';
 
+import { SheetGrip, SheetScrim } from '../../../launch/_components/maker-sheet';
 import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -3279,13 +3280,19 @@ function Inspector({
   }
 
   return (
+    <>
+    {/* 📱 The dimmed page behind the scene's sheet — a tap on it goes back to the page. */}
+    <SheetScrim onClose={onClose} />
     <aside
       aria-label="Inspector"
+      data-phone-chrome="panel"
       style={{ ['--maker-tools-w' as string]: `${resize.width}px` }}
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[70dvh] flex-col rounded-t-3xl lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
+      /* 📱 The bar + this ≤ 45% of a phone (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts). */
+      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
     >
       <ToolsResizeHandle onPointerDown={resize.onPointerDown} />
-      <div className="flex items-center gap-2 px-4 pt-3">
+      <SheetGrip onClose={onClose} />
+      <div className="flex items-center gap-2 px-4 pt-1 lg:pt-3">
         <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
         <button
           type="button"
@@ -3306,6 +3313,7 @@ function Inspector({
         {selection.kind === 'scene' && tab === 'content' ? sceneTabs?.contentExtra : null}
       </div>
     </aside>
+    </>
   );
 }
 

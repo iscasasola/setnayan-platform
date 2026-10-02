@@ -42,6 +42,34 @@ test('sanitizeReceptionDesign: keeps only known part → attr → valid option i
   assert.equal((out as Record<string, unknown>).nonsense_part, undefined);
 });
 
+test('sanitizeReceptionDesign: on a save, every unknown zone / attribute / option is NAMED, never silently lost', () => {
+  const dropped: string[] = [];
+  const out = sanitizeReceptionDesign(
+    {
+      ceiling: { treatment: 'chandeliers', bogus: 'x' },
+      backdrop: { style: 'not_a_real_style' },
+      nonsense_part: { foo: 'bar' },
+    },
+    dropped,
+  );
+  assert.deepEqual(out.ceiling, { treatment: 'chandeliers' }, 'reporting must not change what is kept');
+  assert.deepEqual(dropped.sort(), ['backdrop.style=not_a_real_style', 'ceiling.bogus', 'nonsense_part']);
+});
+
+test('sanitizeReceptionDesign: the default design and the vocabulary rules report nothing', () => {
+  const dropped: string[] = [];
+  sanitizeReceptionDesign(DEFAULT_DESIGN, dropped);
+  assert.deepEqual(dropped, [], 'the editor seeds every zone from DEFAULT_DESIGN — it must save clean');
+  // A collapse to one, a duplicate and the per-attribute cap are rules, not lost answers.
+  const single = RECEPTION_PARTS.flatMap((p) => p.attributes.map((a) => ({ p, a }))).find(
+    ({ p, a }) => !isMultiAttribute(p.id, a.id) && a.options.length >= 2,
+  )!;
+  const ids = single.a.options.map((o) => o.id);
+  const quiet: string[] = [];
+  sanitizeReceptionDesign({ [single.p.id]: { [single.a.id]: [ids[0], ids[1], ids[0]] } }, quiet);
+  assert.deepEqual(quiet, []);
+});
+
 test('sanitizeReceptionDesign: total on malformed input (never throws)', () => {
   assert.deepEqual(sanitizeReceptionDesign(null), {});
   assert.deepEqual(sanitizeReceptionDesign(undefined), {});

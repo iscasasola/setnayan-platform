@@ -353,7 +353,6 @@ export function PayPanel({
               <ProofForm
                 orderId={orderId}
                 reference={reference}
-                amountPhp={amountPhp}
                 channel={channel}
                 requiresReference={requiresReference}
                 rechecked={rechecked}
@@ -520,7 +519,6 @@ function StepHead({ n, title }: { n: number; title: string }) {
 function ProofForm({
   orderId,
   reference,
-  amountPhp,
   channel,
   requiresReference,
   rechecked,
@@ -528,7 +526,6 @@ function ProofForm({
 }: {
   orderId: string;
   reference: string;
-  amountPhp: number;
   channel: Channel;
   requiresReference: boolean;
   rechecked: boolean;
@@ -549,7 +546,9 @@ function ProofForm({
   return (
     <form action={submitPaymentProof} className="space-y-4">
       <input type="hidden" name="reference" value={reference} />
-      <input type="hidden" name="amount_php" value={amountPhp} />
+      {/* No amount is posted: submitPaymentProof stamps the ORDER's own amount
+          (see "The amount is a claim, not a control" in ../actions.ts), so a
+          posted figure was a field filled in and thrown away (Root map). */}
       <input type="hidden" name="channel" value={channel} />
       <input type="hidden" name="client_idempotency_key" value={idempotencyKey} />
       {/* Their second attempt. See `rechecked` on PayPanel — we ask once. */}

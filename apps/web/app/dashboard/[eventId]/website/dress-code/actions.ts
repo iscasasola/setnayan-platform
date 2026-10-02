@@ -178,7 +178,17 @@ export async function updateDressCode(
       callTime: groupCallTimes[i] ?? '',
     };
   }
-  const groups = sanitizeGroupAttire(rawGroups);
+  // 🔊 Nothing the couple sent is dropped quietly: a group or style this build
+  // does not know (a stale tab from another version) refuses the save, out loud.
+  const droppedGroups: string[] = [];
+  const groups = sanitizeGroupAttire(rawGroups, droppedGroups);
+  if (droppedGroups.length > 0) {
+    redirect(
+      `/dashboard/${eventId}/website/dress-code?error=${encodeURIComponent(
+        `Nothing was saved — this page is out of date (${droppedGroups.join(', ')}). Reload it and try again.`,
+      )}`,
+    );
+  }
 
   void ATTIRE_STYLES;
 

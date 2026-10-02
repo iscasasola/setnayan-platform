@@ -851,11 +851,31 @@ export function isMultiAttribute(part: PartId, attr: string): boolean {
  *   • a surviving single id is written back as a BARE STRING, so one pick
  *     always stores in the legacy shape — arrays appear only where a couple
  *     genuinely chose more than one.
+ *
+ * 🔊 NEVER SILENTLY, ON A SAVE (Root map wave 1, "Sanitisers that drop keys").
+ * Pass `dropped` and every zone, attribute or option id this build does not
+ * know is named in it (`part`, `part.attr`, `part.attr=option`) — the Seat
+ * Plan's save refuses rather than storing less than it was sent. The
+ * normalisations above (collapse, cap, dedupe, "nothing here") are rules of
+ * the vocabulary, not lost answers, and are not reported. Side-state never
+ * belongs in here: it has its own column (`events.dismissed_room_suggestions`).
  */
-export function sanitizeReceptionDesign(raw: unknown): ReceptionDesign {
+export function sanitizeReceptionDesign(raw: unknown, dropped?: string[]): ReceptionDesign {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
   const src = raw as Record<string, unknown>;
   const out: ReceptionDesign = {};
+  if (dropped) {
+    for (const [partId, partVal] of Object.entries(src)) {
+      if (!Object.prototype.hasOwnProperty.call(VALID_OPTIONS, partId)) {
+        dropped.push(partId);
+        continue;
+      }
+      if (!partVal || typeof partVal !== 'object' || Array.isArray(partVal)) continue;
+      for (const attrId of Object.keys(partVal)) {
+        if (!Object.prototype.hasOwnProperty.call(VALID_OPTIONS[partId], attrId)) dropped.push(`${partId}.${attrId}`);
+      }
+    }
+  }
   for (const [partId, attrs] of Object.entries(VALID_OPTIONS)) {
     const partVal = src[partId];
     if (!partVal || typeof partVal !== 'object' || Array.isArray(partVal)) continue;
@@ -863,11 +883,16 @@ export function sanitizeReceptionDesign(raw: unknown): ReceptionDesign {
     const kept: Record<string, AttributeValue> = {};
     for (const [attrId, rule] of Object.entries(attrs)) {
       const v = partSrc[attrId];
+      const unknownOption = (x: unknown) => {
+        if (typeof x === 'string' && !rule.allowed.has(x)) dropped?.push(`${partId}.${attrId}=${x}`);
+      };
       if (typeof v === 'string') {
         if (rule.allowed.has(v)) kept[attrId] = v;
+        else unknownOption(v);
         continue;
       }
       if (!Array.isArray(v)) continue;
+      v.forEach(unknownOption);
       const ids = Array.from(
         new Set(v.filter((x): x is string => typeof x === 'string' && rule.allowed.has(x))),
       );

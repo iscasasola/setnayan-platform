@@ -41,6 +41,10 @@ export const ROUND_TRIP_CASES: Array<RoundTripInput & { name: string; notSaved: 
   { name: 'Manpower › Post a gig', form: `${D}/manpower/_components/post-gig-drawer.tsx`, action: 'app/vendor-dashboard/manpower/actions.ts#postManpowerGig', reader: '/dashboard/[eventId]/manpower', notSaved: [], notReadBack: [] },
   { name: 'My shop › Add a service', form: 'app/vendor-dashboard/services/_components/services-manager.tsx', action: 'app/vendor-dashboard/services/actions.ts#createVendorService', reader: '/vendor-dashboard/services', notSaved: [], notReadBack: [] },
   { name: 'My shop › Add a payment method', form: 'app/vendor-dashboard/payment-options/_components/add-payment-method.tsx', action: 'app/vendor-dashboard/payment-options/actions.ts#addPaymentMethod', reader: '/vendor-dashboard/shop', notSaved: [], notReadBack: [] },
+  // Root map wave 1: the panel stopped posting `amount_php` (the action stamps the ORDER's amount).
+  { name: 'Pay › Send the proof', form: 'app/pay/[reference]/_components/pay-panel.tsx', action: 'app/pay/[reference]/actions.ts#submitPaymentProof', reader: '/pay/[reference]', notSaved: [], notReadBack: [] },
+  // Root map wave 1: `business_name` / `category` are re-read from the row, so they are no longer posted.
+  { name: 'Supplier workspace › Create a shareable invite link', form: `${D}/vendors/[vendorId]/workspace/page.tsx`, action: `${D}/vendors/[vendorId]/workspace/actions.ts#createAutoShareInviteAction`, reader: '/dashboard/[eventId]/vendors/[vendorId]/workspace', notSaved: [], notReadBack: [] },
   { name: 'Samahan › Start a community', form: 'app/dashboard/(account)/samahan/new/page.tsx', action: 'app/dashboard/(account)/samahan/actions.ts#createCommunity', reader: '/dashboard/samahan/[communityId]', notSaved: [], notReadBack: [] },
 ];
 

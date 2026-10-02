@@ -119,3 +119,56 @@ test('selects and fact names parse the way the code writes them', () => {
   assert.equal(factOf('events.style_preferences.setup.guestWord'), 'guest_word');
   assert.equal(factOf('rpc:save.p_event_date'), 'event_date');
 });
+
+/* ── wave 1 (2026-10-02): three ways a SAVED field read as "thrown away" ── */
+const WAVE1: Record<string, string> = {
+  'app/a/page.tsx': `import { Parts, Other } from './_c/parts';
+import { save, remove, merge } from './actions';
+export default function P() {
+  return (
+    <>
+      <form action={save}><input name="link_url" /><input name="go" /><input name="quiet" /><input name="lonely" /></form>
+      <form action={remove}><input name="id" /><Parts /></form>
+      <form action={merge}><Other /></form>
+    </>
+  );
+}
+`,
+  'app/a/_c/parts.tsx': `export function Parts() { return <span />; }
+export function Other() { return <><input name="dup_id" /><input name="keep_id" /></>; }
+`,
+  'app/a/actions.ts': `'use server';
+function readStr(fd: FormData, key: string) { return String(fd.get(key) ?? '').trim(); }
+function readUrl(fd: FormData, key: string) { const raw = readStr(fd, key); return /^https?:/.test(raw) ? raw : null; }
+function backTo(fd: FormData, msg: string): never { throw new Error(msg); }
+export async function save(formData: FormData) {
+  if (formData.get('go') !== 'on') backTo(formData, 'tick it');
+  const lonely = formData.get('lonely') === '1';
+  if (lonely) console.log('x');
+  await s.from('t').insert({ link_url: readUrl(formData, 'link_url') });
+  if (formData.get('quiet') !== '1') revalidatePath('/a');
+}
+export async function remove(formData: FormData) { await s.from('t').delete().eq('id', formData.get('id')); }
+export async function merge(formData: FormData) { await s.rpc('merge', { a: formData.get('dup_id'), b: formData.get('keep_id') }); }
+`,
+};
+
+test('wave 1: a key handed on through two keyed readers is a read; a gate that calls something decided it; a pure log did not', () => {
+  const root = fixture(WAVE1);
+  const m = scanFields({ webRoot: root, screens: scanScreens({ webRoot: root, builders: new Map(), tableNodes: new Map() }) });
+  const a = m.actions.find((x) => x.ref === 'app/a/actions.ts#save')!;
+  assert.deepEqual(a.saves.link_url, ['t.link_url'], 'readUrl(fd, k) → readStr(fd, k) → fd.get(k) reads link_url');
+  assert.deepEqual(a.dropped, ['lonely'], 'go (turns the request away) and quiet (gates a revalidate) are used; a console.log decides nothing');
+  const f = m.forms.find((x) => x.from === 'app/a/page.tsx' && x.actions.includes('app/a/actions.ts#save'))!;
+  assert.deepEqual(f.notRead, []);
+});
+
+test('wave 1: a child component posts ITS OWN inputs, not its file-mates\'', () => {
+  const root = fixture(WAVE1);
+  const m = scanFields({ webRoot: root, screens: scanScreens({ webRoot: root, builders: new Map(), tableNodes: new Map() }) });
+  const rm = m.forms.find((x) => x.actions.includes('app/a/actions.ts#remove'))!;
+  assert.deepEqual(rm.inputs, ['id'], '<Parts /> renders no input — Other\'s dup_id/keep_id are not this form\'s');
+  const mg = m.forms.find((x) => x.actions.includes('app/a/actions.ts#merge'))!;
+  assert.deepEqual(mg.inputs, ['dup_id', 'keep_id']);
+  assert.deepEqual(mg.notRead, []);
+});

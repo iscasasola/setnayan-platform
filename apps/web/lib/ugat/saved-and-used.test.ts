@@ -67,3 +67,21 @@ export function sanitizeName(v: string) { return v.trim().slice(0, 80); }
   const f = scanSanitizers(root, new Set(['app/x/actions.ts']));
   assert.deepEqual(f.map((x) => x.key), ['lib/clean.ts#sanitizeConfig']);
 });
+
+test('a sanitiser that NAMES what it drops is not silent; the same one without the report still is', () => {
+  const body = (report: string) => `const KNOWN = new Set(['a']);
+export function sanitizeConfig(raw: Record<string, unknown>, dropped?: string[]) {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!KNOWN.has(k)) { ${report} continue; }
+    out[k] = v;
+  }
+  return out;
+}
+`;
+  const save = `import { sanitizeConfig } from '@/lib/clean';\nexport async function save(c: any) { await s.from('t').update({ config: sanitizeConfig(c) }); }\n`;
+  const loud = fixture({ 'lib/clean.ts': body('dropped?.push(k);'), 'app/x/actions.ts': save });
+  assert.deepEqual(scanSanitizers(loud, new Set(['app/x/actions.ts'])), [], 'a reported drop is a decision the caller can act on');
+  const quiet = fixture({ 'lib/clean.ts': body(''), 'app/x/actions.ts': save });
+  assert.deepEqual(scanSanitizers(quiet, new Set(['app/x/actions.ts'])).map((x) => x.key), ['lib/clean.ts#sanitizeConfig']);
+});

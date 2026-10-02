@@ -111,6 +111,14 @@ const SANITIZER_NAME = /^(?:sanitize|sanitise|clean|strip|scrub|whitelist|allowl
 const DROPS_KEYS =
   /(?:Object\.(?:entries|keys)\([^)]*\)[\s\S]{0,240}?\.filter\()|(?:\b\w*(?:ALLOWED|ALLOW|KNOWN|VALID|PERMITTED|allowed|known|permitted)\w*\.(?:has|includes)\(\s*(?:k|key|name|field|prop)\b)|(?:\bdelete\s+\w+\[\s*\w+\s*\])/;
 
+/**
+ * A cleaner that REPORTS what it drops is not silent: every key it refuses is
+ * pushed onto a list the caller receives (`strippedPaths.push(…)`,
+ * `dropped?.push(…)`), so the save path can refuse, audit or show it. The
+ * check is about a dropped answer nobody hears of — not about allowlists.
+ */
+const REPORTS_DROPS = /\b\w*(?:[Dd]ropped|[Ss]tripped|[Rr]ejected|[Rr]efused)\w*\s*(?:\?\.)?\s*\.?push\(/;
+
 export function scanSanitizers(webRoot: string, writerFiles: Set<string>): Finding[] {
   const out: Finding[] = [];
   const sources = listSources(webRoot);
@@ -136,6 +144,7 @@ export function scanSanitizers(webRoot: string, writerFiles: Set<string>): Findi
       const end = body.search(/\n(?:export\s+)?(?:async\s+)?function\s|\nexport\s+const\s/);
       const fnText = end > 0 ? body.slice(0, end) : body;
       if (!DROPS_KEYS.test(fnText)) continue;
+      if (REPORTS_DROPS.test(fnText)) continue;
       const callRe = new RegExp(`(?<![\\w$.])${name}\\s*\\(`);
       const users = writers.filter((w) => w !== rel ? callRe.test(read(w)) : (src.match(new RegExp(`(?<![\\w$.])${name}\\s*\\(`, 'g'))?.length ?? 0) > 1);
       if (users.length === 0) continue;

@@ -49,10 +49,9 @@ const SUBJECT_GLYPH: Partial<Record<CreateSubject['kind'], string>> = {
 };
 
 /* Retired 2026-05-28 V2 cutover — the DIY / Concierge ₱2,499 / 3-day-trial
-   choice card is gone. Every new event lands in DIY by default; the hidden
-   `concierge_choice` field is always 'diy' here for continuity with the
-   createWeddingEvent server-action signature. */
-type ConciergeChoice = 'diy';
+   choice card is gone. Every new event lands in DIY; the action decides that
+   itself, so no `concierge_choice` field is posted (it was read and thrown
+   away — Root map wave 1). */
 
 /**
  * Create-event surface — a GRID of "feel photo" tiles (owner 2026-07-10: "just
@@ -154,7 +153,6 @@ export function EventTypePicker({
     const pax = Number.parseInt(paxDraft, 10);
     return bandRangePhp(med, Number.isFinite(pax) ? pax : null);
   })();
-  const conciergeChoice: ConciergeChoice = 'diy';
   const formRef = useRef<HTMLFormElement | null>(null);
   const autoAdvanced = useRef(false);
 
@@ -464,7 +462,6 @@ export function EventTypePicker({
           onChange={refreshHorizonAdvisory}
         >
           <input type="hidden" name="event_type" value={selected.key} />
-          <input type="hidden" name="concierge_choice" value={conciergeChoice} />
           {samahanCommunityId ? (
             <input type="hidden" name="community_id" value={samahanCommunityId} />
           ) : null}

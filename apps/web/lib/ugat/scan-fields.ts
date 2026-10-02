@@ -704,7 +704,18 @@ function flowIn(
         const branch = body[j] === '{' ? body.slice(j, closeOf(body, j) + 1) : body.slice(j, statementEnd(body, j));
         // A branch that writes, sets a payload key, or turns the request away
         // (return / throw / redirect) — the field decided something.
-        return /\.(?:insert|update|upsert|rpc)\s*\(|[\w$\])]\s*\.\s*[\w$]+\s*=(?![=>])|\[[^\]\n]+\]\s*=(?![=>])|\breturn\b|\bthrow\b|redirect\s*\(/.test(branch);
+        if (/\.(?:insert|update|upsert|rpc)\s*\(|[\w$\])]\s*\.\s*[\w$]+\s*=(?![=>])|\[[^\]\n]+\]\s*=(?![=>])|\breturn\b|\bthrow\b|redirect\s*\(/.test(branch)) return true;
+        // …or that DOES something only because of the field: calls a function
+        // that is not a pure value-cleaner — `redirectBack(…)` turning the
+        // request away, `await syncCardGroups(…)` writing through a helper,
+        // `revalidatePath(…)` gated by a quiet flag. `if (seen) console.log(…)`
+        // still decides nothing.
+        for (const c of blankStrings(branch).matchAll(/(?<![\w$.])([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*\(/g)) {
+          const callee = c[1]!.replace(/\s+/g, '');
+          if (/^(?:if|for|while|switch|catch|function|typeof|await|new|void)$/.test(callee)) continue;
+          if (!PURE_CALLEE.test(callee)) return true;
+        }
+        return false;
       } else if (c === ';' && depth === 0) return false;
     }
     return false;
@@ -1006,6 +1017,25 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
         const i = params.indexOf(m[1]!);
         if (i >= 0 && !keyParams.includes(i)) keyParams.push(i);
       }
+      // A keyed reader that hands its key on to ANOTHER keyed reader
+      // (`readHttpUrl(fd, key)` → `readFormString(fd, key)` → `fd.get(key)`) is
+      // keyed too. Without this, `readHttpUrl(formData, 'media_url')` read
+      // nothing, and a column the action really saves was reported as thrown away.
+      for (const m of fbody.matchAll(/(?<![\w$.])([A-Za-z_$][\w$]*)\(/g)) {
+        if (m[1] === fname || /^(?:if|for|while|switch|catch|function|return|typeof)$/.test(m[1]!)) continue;
+        const open = m.index! + m[0].length - 1;
+        const close = closeOf(fbody, open);
+        if (close < 0) continue;
+        const args = splitTop(fbody.slice(open + 1, close));
+        const objIdx = args.indexOf(p);
+        if (objIdx < 0) continue;
+        const inner = helperReadsFor(file, depth + 1)(m[1]!, objIdx);
+        if (!inner || !inner.known) continue;
+        for (const j of inner.keyParams) {
+          const i = params.indexOf(args[j] ?? '');
+          if (i >= 0 && !keyParams.includes(i)) keyParams.push(i);
+        }
+      }
       const r = flowIn(file.src, fn, [p], [], helperReadsFor(file, depth + 1));
       const out: HelperReads = { fields: r.fields, known: !r.readsAll, keyParams };
       helperCache.set(key, out);
@@ -1131,7 +1161,14 @@ export function scanFields(opts: ScanFieldsOptions): UgatFieldsMap {
         if (!imp || imp.imported === '*') continue;
         const t = resolveSpec(rel, imp.spec);
         if (!t || !t.endsWith('.tsx')) continue;
-        for (const n of facts(t).src.matchAll(/<(?:input|select|textarea)\b[^<>]*?\bname=(?:"([^"]+)"|'([^']+)'|\{\s*['"]([^'"]+)['"]\s*\})/g)) {
+        // Only the component this form renders — not its siblings in the same
+        // file. `songs-danger-controls.tsx` holds both `<DeleteSongButton>` and
+        // `<MergeSongsFields>`; reading the whole file posted the merge form's
+        // `dup_id` / `canonical_id` to the DELETE form, which never sends them.
+        const ct = facts(t);
+        const own = imp.imported === 'default' ? undefined : fnByName(ct, imp.imported);
+        const childSrc = own ? ct.src.slice(own.start, own.end + 1) : ct.src;
+        for (const n of childSrc.matchAll(/<(?:input|select|textarea)\b[^<>]*?\bname=(?:"([^"]+)"|'([^']+)'|\{\s*['"]([^'"]+)['"]\s*\})/g)) {
           const name = (n[1] ?? n[2] ?? n[3])!;
           if (!/\s/.test(name)) childInputs.add(name);
         }

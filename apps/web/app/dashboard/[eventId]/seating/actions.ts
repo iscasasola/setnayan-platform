@@ -2391,7 +2391,15 @@ export async function saveReceptionDesign(
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const clean = sanitizeReceptionDesign(design);
+  // 🔊 A zone, attribute or option this build does not know is refused out
+  // loud — never stored as less than the couple picked (Root map wave 1).
+  const dropped: string[] = [];
+  const clean = sanitizeReceptionDesign(design, dropped);
+  if (dropped.length > 0) {
+    throw new Error(
+      `Nothing was saved — this page is out of date (${dropped.join(', ')}). Reload it and try again.`,
+    );
+  }
 
   // RLS enforces host-only writes on their own events via event_members.
   const { error } = await supabase

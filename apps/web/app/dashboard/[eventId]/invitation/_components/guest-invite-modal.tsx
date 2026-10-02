@@ -6,7 +6,6 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
 type Props = {
-  guestId: string;
   guestName: string;
   /** Built server-side. NULL → this guest has no link, so no message exists. */
   message: string | null;
@@ -51,7 +50,7 @@ type Props = {
  * 🔑 MARK SENT IS A TOGGLE. It records a claim about the physical world, and
  * people mis-tap; a mark that cannot be undone teaches couples not to use it.
  */
-export function GuestInviteModal({ guestId, guestName, message, sentAt, markSent }: Props) {
+export function GuestInviteModal({ guestName, message, sentAt, markSent }: Props) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [text, setText] = useState(message ?? '');
@@ -170,8 +169,10 @@ export function GuestInviteModal({ guestId, guestName, message, sentAt, markSent
                   {copied ? 'Copied' : 'Copy to clipboard'}
                 </button>
               )}
+              {/* The guest is bound into `markSent` on the server
+                  (markGuestInvitationSent.bind(null, eventId, guestId)), so no
+                  guest id is posted — the bound one is the only one. */}
               <form action={markSent}>
-                <input type="hidden" name="guest_id" value={guestId} />
                 {/* The form posts the state it wants to END UP at, so the
                     button's label and the outcome cannot drift apart. */}
                 <input type="hidden" name="sent" value={sentAt ? '0' : '1'} />

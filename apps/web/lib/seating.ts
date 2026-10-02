@@ -1742,6 +1742,22 @@ export type AutoSeatRoom = {
   shortfall: number;
 };
 
+/**
+ * 🪑 WHO STILL NEEDS A SEAT — the one rule. Not declined, not seated, not the
+ * couple (they sit at the sweetheart). Auto Arrange counts it (`autoSeatRoom`),
+ * the phone's "Unseated: N" chip shows it and the A3 print lists it in its
+ * unseated box — one fact, one home, so the three can never disagree.
+ */
+export function guestsStillToSeat<G extends { guest_id: string; role: string | null; rsvp_status: string }>(
+  guests: ReadonlyArray<G>,
+  seated: ReadonlySet<string>,
+  roleSet: Pick<RoleSet, 'coupleRoles'> = WEDDING_ROLE_SET,
+): G[] {
+  return guests.filter(
+    (g) => g.rsvp_status !== 'declined' && !seated.has(g.guest_id) && !(g.role !== null && roleSet.coupleRoles.has(g.role)),
+  );
+}
+
 // Mirrors computeAutoSeat's own bookkeeping exactly (its `eligible` filter and
 // its per-table `freeCount`), so "room" here is the room the seater will see.
 export function autoSeatRoom(
@@ -1751,9 +1767,7 @@ export function autoSeatRoom(
   roleSet: RoleSet = WEDDING_ROLE_SET,
 ): AutoSeatRoom {
   const seated = new Set(assignments.map((a) => a.guest_id));
-  const toSeat = guests.filter(
-    (g) => g.rsvp_status !== 'declined' && !seated.has(g.guest_id) && !roleSet.coupleRoles.has(g.role),
-  ).length;
+  const toSeat = guestsStillToSeat(guests, seated, roleSet).length;
   const taken = new Map<string, number>();
   for (const a of assignments) taken.set(a.table_id, (taken.get(a.table_id) ?? 0) + 1);
   let freeSeats = 0;
@@ -1796,27 +1810,28 @@ export function autoArrangeNewTableKey(label: string): string {
 // What the Auto Arrange toast says — one pure sentence builder so the claim
 // "everyone has a seat" can only be made when the count says so.
 export function autoArrangeSummary(r: {
-  tables: number;
   tablesAdded: number;
-  booths: number;
-  boothWhere: string;
   seated: number;
   unseated: number;
 }): string {
-  const plural = (n: number, word: string) => `${formatCount(n)} ${word}${n === 1 ? '' : 's'}`;
-  const added = r.tablesAdded > 0 ? ` (${formatCount(r.tablesAdded)} added so everyone fits)` : '';
-  const head = `Auto-arranged: ${plural(r.tables, 'table')} in priority order${added}`;
-  const body =
-    r.seated > 0
-      ? `${r.booths > 0 ? `, ${plural(r.booths, 'booth')} ${r.boothWhere}` : ''}, ${plural(r.seated, 'guest')} seated.`
-      : `${r.booths > 0 ? ` and ${plural(r.booths, 'booth')} ${r.boothWhere}` : ''}.`;
+  // ONE TRUTHFUL LINE (owner 2026-10-01, the approved phone design: "Added 2
+  // tables of 10 · everyone has a seat" — else "· 3 still need a seat"). Every
+  // number is the server's: tables it added, guests it seated, guests it could
+  // not. "everyone has a seat" only when that last count is 0.
+  const plural = (n: number, one: string, many: string) => `${formatCount(n)} ${n === 1 ? one : many}`;
+  const head =
+    r.tablesAdded > 0
+      ? `Added ${plural(r.tablesAdded, 'table', 'tables')} of ${formatCount(DRAFT_ROUND_SEATS)}`
+      : r.seated > 0
+        ? `Seated ${plural(r.seated, 'guest', 'guests')}`
+        : null;
   const tail =
     r.unseated > 0
-      ? ` ${plural(r.unseated, 'guest')} who ${r.unseated === 1 ? "hasn't" : "haven't"} declined still ${r.unseated === 1 ? 'has' : 'have'} no seat — add a table or free a chair.`
-      : r.seated > 0
-        ? " Everyone who hasn't declined now has a seat."
-        : " Everyone who hasn't declined already has a seat.";
-  return head + body + tail;
+      ? `${plural(r.unseated, 'still needs a seat', 'still need a seat')}`
+      : head
+        ? 'everyone has a seat'
+        : 'Everyone already has a seat';
+  return head ? `${head} · ${tail}` : tail;
 }
 
 // ---------------------------------------------------------------------------

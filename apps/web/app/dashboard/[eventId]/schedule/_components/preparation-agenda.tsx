@@ -82,7 +82,11 @@ export function PreparationAgendaView({
           </h2>
           <ul className="space-y-2">
             {group.items.map((item) => (
-              <li key={item.id}>
+              <li
+                key={item.id}
+                // 💾 A payment due is money — never kept as last-seen data (lib/last-seen).
+                data-money={displaySourceFor(item) === 'payment' ? '' : undefined}
+              >
                 <PreparationRow eventId={eventId} item={item} />
               </li>
             ))}

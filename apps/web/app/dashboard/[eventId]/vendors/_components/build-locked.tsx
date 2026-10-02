@@ -600,7 +600,7 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
   if (!step) return null;
   if (step === 'due' || step === 'refused') {
     return (
-      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-success-200 pt-2.5">
+      <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-success-200 pt-2.5" data-money="">
         <span className="text-xs text-ink/70">
           {step === 'due'
             ? 'Next: pay your deposit to hold the date.'
@@ -619,7 +619,7 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
   }
   if (step === 'unknown') {
     return (
-      <div className="mt-2 text-xs">
+      <div className="mt-2 text-xs" data-money="">
         <Link href={href} className="font-medium text-ink/70 underline-offset-2 hover:underline">
           Deposit &amp; payments
         </Link>
@@ -627,7 +627,7 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
     );
   }
   return (
-    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/60">
+    <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/60" data-money="">
       {step === 'confirmed' ? 'Deposit confirmed' : 'Deposit sent · waiting for them to confirm'}
     </p>
   );
@@ -651,6 +651,8 @@ function RowPrice({ cost, shrink = false }: { cost: number | null; shrink?: bool
   const text = pesoFromPhp(cost);
   return (
     <span
+      // 💾 Prices are never kept as last-seen data (lib/last-seen).
+      data-money=""
       className={[
         shrink ? 'shrink-0' : null,
         'text-sm font-medium tabular-nums',
@@ -688,7 +690,12 @@ function LockTile({
   const toneClass =
     tone === 'over' ? 'text-danger-700' : tone === 'good' ? 'text-success-700' : null;
   return (
-    <div className="rounded-xl border border-ink/10 bg-cream px-4 py-3">
+    <div
+      className="rounded-xl border border-ink/10 bg-cream px-4 py-3"
+      // 💾 Every tile but Date and Location is a peso figure — never kept as
+      // last-seen data (lib/last-seen).
+      data-money={k === 'Date' || k === 'Location' ? undefined : ''}
+    >
       <div className="font-mono text-[9.5px] uppercase tracking-[0.12em] text-ink/50">{k}</div>
       <div
         className={`mt-1 truncate font-display text-lg italic ${toneClass ?? (accent ? 'text-terracotta-700' : 'text-ink')}`}

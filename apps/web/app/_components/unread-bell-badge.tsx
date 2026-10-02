@@ -133,10 +133,11 @@ export function UnreadBellBadge({
   const label = unread > 0 ? `${ariaBaseLabel} · ${unread} ${ariaUnreadSuffix}` : ariaBaseLabel;
 
   return (
+    /* `fd-round`: the shared bar draws it as a 44px circle below 768 (front-door.css). */
     <Link
       href={href}
       aria-label={label}
-      className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
+      className="fd-round relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-ink/15 bg-cream text-ink/70 hover:border-terracotta/40 hover:text-terracotta-700"
     >
       <Bell className="h-4 w-4" strokeWidth={1.75} />
       {unread > 0 ? (

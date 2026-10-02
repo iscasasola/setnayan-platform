@@ -14,18 +14,21 @@
  *   d · "Your services" (Papic · Setnayan AI, owner 2026-10-01): present, "—"
  *       on a failed read, never the service that is already the Next card,
  *       absent in the store shell.
- *   e · EACH THING ONCE (owner 2026-10-01, "HOME ON DESKTOP SHOWS EACH THING
- *       ONCE"): days to go · coming / no reply · Paid / Still owing · the
- *       Next-vs-"Needs you this week" overlap render exactly once on the Home.
+ *   e · EACH THING ONCE, AND NOTHING ELSE (owner 2026-10-02, "HOME IS THE FIRST
+ *       SCREEN ONLY"): the plan Home renders the first screen's blocks and no
+ *       second section — on desktop too — and every old tile's content is
+ *       reachable at its home (route check).
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
+import { nikahTrackedDone } from '@/lib/nikah-essentials';
 import {
   HOME_NEXT_ORDER,
   aiStatus,
@@ -34,7 +37,7 @@ import {
   glanceCount,
   glanceDays,
   glanceMoney,
-  firstScreenRepeats,
+  nikahStatus,
   pickHomeNext,
   type HomeNextInput,
 } from '@/lib/home-first-screen';
@@ -43,6 +46,30 @@ import type { HomeFirstScreenProps } from './_components/home-first-screen';
 // 🪤 The repo's render harness: `"jsx": "preserve"` compiles to the classic
 // runtime, so `React` must be global BEFORE the component is (dynamically) imported.
 (globalThis as unknown as { React: unknown }).React = React;
+
+// 🪤 `server-only` shim — the Nikah card imports `nikah-actions`, which imports `lib/auth`
+// (`server-only`). Same shim as `home-numbers-move.test.ts`.
+type CjsModuleCtor = {
+  _resolveFilename: (request: string, ...rest: unknown[]) => string;
+  _cache: Record<string, unknown>;
+  new (id: string): { filename: string; loaded: boolean; exports: unknown; paths: string[] };
+};
+const nodeRequire = createRequire(import.meta.url);
+const CjsModule = (nodeRequire('node:module') as { Module: CjsModuleCtor }).Module;
+const STUB = join(process.cwd(), '__server_only_stub_home_first__.js');
+{
+  const stub = new CjsModule(STUB);
+  stub.filename = STUB;
+  stub.loaded = true;
+  stub.exports = {};
+  stub.paths = [];
+  CjsModule._cache[STUB] = stub;
+  const original = CjsModule._resolveFilename;
+  CjsModule._resolveFilename = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return STUB;
+    return original.call(this, request, ...rest);
+  };
+}
 let Screen: typeof import('./_components/home-first-screen').HomeFirstScreen | null = null;
 test.before(async () => {
   Screen = (await import('./_components/home-first-screen')).HomeFirstScreen;
@@ -50,8 +77,9 @@ test.before(async () => {
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
-const DASH = stripComments(readFileSync(join(HERE, '_components', 'event-dashboard.tsx'), 'utf8'));
 const FACTS = stripComments(readFileSync(join(HERE, '..', '..', '..', 'lib', 'home-facts.ts'), 'utf8'));
+/** The plan branch — the last arm of the page's phase ternary, up to the closing wrapper. */
+const PLAN = PAGE.slice(PAGE.lastIndexOf(') : ('), PAGE.indexOf('</LastSeenCapture>'));
 
 const NOTHING: HomeNextInput = { guide: null, hasDate: true, guests: { total: 96, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false };
 const GUIDE = { round: 2, roundTitle: 'Invitations', done: 3, total: 7, nextTitle: 'Schedule' };
@@ -108,15 +136,14 @@ test('a · exactly ONE Next card with ONE button, in every state', () => {
   }
 });
 
-test('a · the first screen LEADS the plan branch — nothing of the dashboard above it', () => {
+test('a · the plan branch IS the first screen — no dashboard under it', () => {
   assert.equal(count(PAGE, '<HomeFirstScreen'), 1, 'the first screen is drawn once, in one place');
-  const at = PAGE.indexOf('{homeFirstScreen}');
-  assert.ok(at > 0, 'the plan branch must render the first screen');
-  const allAt = PAGE.indexOf('id="home-all"', at);
-  const dashAt = PAGE.indexOf('<EventDashboard', at);
-  assert.ok(allAt > at && dashAt > allAt, 'the dashboard must come AFTER the first screen, under #home-all');
-  const branch = PAGE.slice(PAGE.lastIndexOf('<>', at), at);
-  assert.equal(branch.trim(), '<>', `something renders above the first screen in the plan branch: ${branch}`);
+  assert.equal(PLAN.replace(/\s+/g, ''), '):(homeFirstScreen)}', `the plan branch must be the first screen and nothing else, found: ${PLAN}`);
+  assert.equal(count(PAGE, 'homeFirstScreen'), 2, 'the first screen is built once and mounted once');
+  // The two receded views keep the dashboard — each behind its own disclosure.
+  assert.equal(count(PAGE, '<EventDashboard'), 2, 'EventDashboard is mounted only by the day-of and after-the-day views');
+  assert.equal(count(PAGE, 'firstScreenAbove'), 0, 'the "first screen is above" flag is dead — nothing mounts the dashboard under a first screen');
+  assert.equal(count(PAGE, 'home-all'), 0, 'a "#home-all" anchor with nothing to land on');
 });
 
 test('b · Edit your Event Hub is drawn in every state — no data can hide it', () => {
@@ -162,11 +189,12 @@ test('c · the page hands the measurement to the render, not only the rows', () 
   assert.doesNotMatch(PAGE, /measured:\s*true[^}]*\}\s*as Awaited/, 'a failed guest read must never be recast as measured');
 });
 
-test('d · the services row is on the first screen, after the numbers, before "See all"', () => {
+test('d · the services row is on the first screen, last, under the money line', () => {
   const html = draw();
   assert.equal(count(html, 'data-home-services'), 1, 'the Your services row is missing');
   const at = html.indexOf('data-home-services');
-  assert.ok(at > html.indexOf('data-home-money') && at < html.indexOf('See all'), 'the row sits under the money line, above See all');
+  assert.ok(at > html.indexOf('data-home-money'), 'the row sits under the money line');
+  assert.equal(count(html, 'See all'), 0, 'there is nothing under the row to "see all" of');
   assert.match(html, /<a data-home-service="papic"[^>]*href="\/dashboard\/e1\/studio\/papic"[^>]*>[\s\S]*?On · 12 photos/, 'Papic opens its page with its status');
   assert.match(html, /<a data-home-service="ai"[^>]*href="\/dashboard\/e1\/studio\/setnayan-ai"[^>]*>[\s\S]*?Try it/, 'Setnayan AI opens its page with its status');
 });
@@ -237,61 +265,116 @@ test('e · the Home draws exactly one h1 — the cover name — and it is the fi
   assert.match(html, /<h1[^>]*>Ana &amp; Miguel<\/h1>/, 'the h1 is the event name');
   assert.equal(count(html, 'Ana &amp; Miguel'), 2, 'the name is the h1 (read) plus one aria-hidden line (seen) — a third copy is a dupe');
   assert.match(html, /aria-hidden="true"[^>]*>Ana &amp; Miguel</, 'the seen copy must be hidden from a screen reader, or the name is read twice');
-  assert.equal(count(DASH, '<h1 className="sn-h1'), 1, 'a second h1 in the dashboard — the hero is the only one, and it is gated');
 });
 
-test('e · what a first screen above removes — and nothing when none is above', () => {
-  const none = firstScreenRepeats(undefined, 5);
-  assert.deepEqual(none, { hero: false, countdown: false, guests: false, rsvpRow: false, money: false, needsYou: false },
-    'the day-of / after-the-day mounts have no first screen above them — they must render everything');
-  const above = firstScreenRepeats({ nextKind: 'guide', money: true }, 3);
-  assert.deepEqual(above, { hero: true, countdown: true, guests: true, rsvpRow: true, money: true, needsYou: false },
-    'a first screen above removes days · guests · the RSVP row · the Budget tile, but keeps a decisions COUNT it does not state');
-  // The Budget tile only goes when the first screen actually drew the money line.
-  assert.equal(firstScreenRepeats({ nextKind: 'guide', money: false }, 3).money, false, 'a viewer who cannot see money lost the budget tile too');
-  // "Nothing needs a decision" repeats "You are on track" — and only that pair.
-  assert.equal(firstScreenRepeats({ nextKind: 'plan', money: true }, 0).needsYou, true);
-  assert.equal(firstScreenRepeats({ nextKind: 'plan', money: true }, 2).needsYou, false, 'open decisions are not on the first screen');
-  for (const k of HOME_NEXT_ORDER.filter((k) => k !== 'plan')) {
-    assert.equal(firstScreenRepeats({ nextKind: k, money: true }, 0).needsYou, false, `${k}: Next is not "on track"`);
+test('e · desktop is the same single column, only wider — no second section', () => {
+  const html = draw();
+  assert.equal(count(html, 'data-home-first-screen'), 1, 'one first screen');
+  assert.match(html, /<section[^>]*data-home-first-screen[^>]*class="[^"]*\bmax-w-xl\b[^"]*\blg:max-w-3xl\b/, 'one centred column, with a wider max-width from lg up');
+  assert.doesNotMatch(html, /grid-cols-(?:3|4)\b[^"]*lg:|lg:grid-cols|lg:flex-row/, 'the first screen must not turn into a wide multi-column layout on desktop');
+  assert.equal(count(html, '#home-all'), 0, 'a "See all" / "#home-all" link with nothing under it');
+  assert.equal(count(html, '>See all<'), 0);
+  // The ONLY blocks: cover · Next · Edit your Event Hub · numbers · money · services.
+  for (const marker of ['data-home-event-details', 'data-home-next=', 'data-home-edit-hub', 'data-home-numbers', 'data-home-money', 'data-home-services']) {
+    assert.equal(count(html, marker), 1, `${marker} must be drawn exactly once`);
+  }
+  assert.equal(count(html, '<section'), 1, 'one section — a second one is a second block');
+  assert.equal(count(html, '<h2'), 1, 'the Next card is the only heading below the cover');
+});
+
+/* The old tiles' content, each at its home. The route check: the Home links to the
+   page, and the page exists on disk (a door to nowhere is the failure this guards). */
+const page = (route: string) => join(HERE, ...route.split('/'), 'page.tsx');
+const exists = (route: string) => {
+  try {
+    readFileSync(page(route), 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+};
+const read = (route: string) => stripComments(readFileSync(page(route), 'utf8'));
+
+test('e · the "plan" Next card opens the checklist — the plan, step by step', () => {
+  assert.ok(exists('checklist'), 'the checklist page exists');
+  const html = draw({}, NOTHING);
+  assert.match(html, /href="\/dashboard\/e1\/checklist"[^>]*>Open your checklist</, 'the plan card must open the checklist');
+  assert.doesNotMatch(html, /just below|See your plan/i, 'the card still points at a section that no longer exists');
+});
+
+test('e · each removed tile\'s content is reachable at its home', () => {
+  // [tile, the route it now lives at, a file under that route, what that file still states]
+  const homes: Array<[string, string, string | null, RegExp | null]> = [
+    ['Papic · N shots / photos → the Your services row, then its page', 'studio/papic', null, null],
+    ['Sai · your briefing · % locked in → the Setnayan AI page (live state)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /locked in/],
+    ['Setnayan AI · The Watch → the Setnayan AI page (deadlines + payments it keeps; the alerts themselves are notifications)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /every vendor, deadline and payment/],
+    ['Schedule · next → the Schedule page', 'schedule', null, null],
+    ['Messages · unread → the chat icon\'s page', 'messages', null, null],
+    ['Needs you this week → the Next card, and the suppliers\' own book / pick / lock steps', 'vendors', 'vendors/_components/build-locked.tsx', /Locked in/],
+    ['Budget · committed → the money line, whose page is the budget', 'budget', null, null],
+    ['Guests · coming / no reply → the three numbers, whose page is the roster', 'guests', null, null],
+  ];
+  for (const [what, route, file, claim] of homes) {
+    assert.ok(exists(route), `${what}: /${route} has no page`);
+    if (file && claim) {
+      assert.match(stripComments(readFileSync(join(HERE, ...file.split('/')), 'utf8')), claim, `${what}: ${file} no longer states it`);
+    }
+  }
+  // The Home hands the way to the two services and the money line.
+  const html = draw();
+  for (const href of ['/dashboard/e1/studio/papic', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/budget']) {
+    assert.ok(html.includes(`href="${href}"`), `the first screen must link ${href}`);
   }
 });
 
-test('e · each repeated site in EventDashboard sits behind its gate, and the sites are counted', () => {
-  // The Guests and Budget tiles.
-  assert.match(DASH, /if \(stats\.total > 0 && !eventHasHappened && !repeats\.guests\) \{/, 'the Guests tile is drawn under the first screen again');
-  assert.match(DASH, /if \(!repeats\.money && \(committedCentavos > 0/, 'the Budget tile is drawn under the first screen again');
-  // The "Kumusta…" hero: the first screen's cover is the greeting (frame 1 has none).
-  assert.match(DASH, /\{repeats\.hero \? null : \(\s*<header className="sn-reveal pt-1">/, 'the Kumusta hero is drawn under the first screen again');
-  assert.equal(count(DASH, 'Kumusta,'), 1, 'a second greeting site — gate it with repeats.hero');
-  // The countdown numeral and the briefing chip.
-  assert.match(DASH, /repeats\.countdown && \(daysOut === null \|\| daysOut >= 0\) \? null : \(/, 'the wedding-day card counts down again');
-  assert.match(DASH, /daysOut !== null && daysOut >= 0 && !repeats\.countdown \? \(/, 'the briefing chip restates days to go');
-  // The decisions tile, and the RSVP row inside it.
-  assert.match(DASH, /\{repeats\.needsYou \? null : \(\s*<div className="sn-tile">/, '"Needs you this week" repeats the Next card');
-  assert.match(DASH, /\{!repeats\.rsvpRow && shouldChaseRsvps\(/, 'the "haven\'t replied yet" row is back');
-  // COUNTED: every place that prints one of the four facts, so a new one is a decision.
-  assert.equal(count(DASH, "'days to go'"), 1, 'a new "days to go" site — gate it with repeats.countdown and update this count');
-  assert.equal(count(DASH, '`${daysOut} days to go`'), 1, 'a new "N days to go" site — gate it and update this count');
-  assert.equal(count(DASH, '<CountUp value={stats.attending}'), 1, 'a new "coming" site — gate it with repeats.guests');
-  assert.equal(count(DASH, 'formatCount(stats.pending)'), 1, 'a new "no reply" site — gate it with repeats.rsvpRow');
-  assert.equal(count(DASH, 'formatPeso(committedCentavos)'), 2, 'a new money site — gate it with repeats.money');
-  // COUNTED, the other way round: every gate this file reads. A gate deleted (the fact printed twice again) or an unmatched
-  // new one both move this number, so the change has to be argued, not slipped in.
-  assert.equal(
-    (DASH.match(/repeats\.(hero|countdown|guests|rsvpRow|money|needsYou)\b/g) ?? []).length,
-    7,
-    'the dashboard reads a different number of first-screen gates than the seven sites the guard knows',
-  );
+test('e · the Nikah essentials moved to their own page and the Home keeps one line of them', () => {
+  assert.ok(exists('nikah'), 'the Nikah essentials page exists');
+  const nikahPage = read('nikah');
+  assert.match(nikahPage, /<NikahEssentialsCard/, 'the page draws the card');
+  assert.match(nikahPage, /isMuslimWedding\(/, 'the page is for Muslim weddings only');
+  assert.doesNotMatch(PAGE, /<NikahEssentialsCard/, 'the Home draws the card again');
+  const html = draw({ services: homeServices({ next: 'plan', storeShell: false, papic: 'x', ai: 'y', nikah: nikahStatus(3) }) });
+  assert.match(html, /<a data-home-service="nikah"[^>]*href="\/dashboard\/e1\/nikah"[^>]*>[\s\S]*?3 of 4 in place/, 'a Muslim wedding\'s row opens the page with its count');
+  assert.equal(count(draw(), 'data-home-service="nikah"'), 0, 'every other wedding has no Nikah line');
+  assert.equal(nikahStatus(null), '—', 'a refused guest read is "—", never "0 of 4"');
+  // Free, so it is in the store shell too — the paid two are not.
+  assert.deepEqual(homeServices({ next: 'plan', storeShell: true, papic: 'x', ai: 'y', nikah: nikahStatus(1) }).map((x) => x.key), ['nikah']);
+  assert.match(PAGE, /nikah:\s*isNikahEvent\s*\?\s*nikahStatus\(\s*guestsMeasured\s*\?\s*nikahTrackedDone\(/, 'the Home must feed the row from the same count as the card, "—" when the guest read failed');
 });
 
-test('e · only the plan branch tells the dashboard a first screen is above it', () => {
-  assert.equal(count(PAGE, 'firstScreenAbove='), 1, 'the flag is passed in more than one mount');
-  const flagAt = PAGE.indexOf('firstScreenAbove=');
-  const firstScreenAt = PAGE.indexOf('{homeFirstScreen}');
-  assert.ok(firstScreenAt > 0 && flagAt > firstScreenAt, 'the flag is passed by a mount that has no first screen above it (day-of / after the day)');
-  assert.equal(count(PAGE, '<EventDashboard'), 3, 'a new <EventDashboard> mount — does it have a first screen above it?');
-  assert.match(PAGE, /firstScreenAbove=\{\{ nextKind: homeNext\.kind, money: moneyNow !== 'hidden' \}\}/, 'the flag no longer carries the Next kind and whether the money line is drawn');
+test('e · the count the Home states is the count the card ticks', async () => {
+  const { NikahEssentialsCard } = await import('./_components/nikah-essentials-card');
+  const g = (role: string) => ({ role, extra_roles: [] as string[] });
+  const cases = [
+    { guests: [], mahr: null, imam: false },
+    { guests: [g('wali')], mahr: null, imam: false },
+    { guests: [g('wali'), g('witness')], mahr: 'gold', imam: false },
+    { guests: [g('wali'), g('witness'), g('witness'), g('imam')], mahr: 'gold', imam: false },
+    { guests: [g('wali'), g('witness'), g('witness')], mahr: '  ', imam: true },
+  ];
+  for (const c of cases) {
+    const html = renderToStaticMarkup(
+      React.createElement(NikahEssentialsCard, { eventId: 'e1', eventDateSet: true, mahrDescription: c.mahr, genderSeparation: null, guests: c.guests, imamBooked: c.imam } as never),
+    );
+    const done = nikahTrackedDone({ guests: c.guests, mahrDescription: c.mahr, imamBooked: c.imam });
+    assert.match(html, new RegExp(`${done} of 4 set\\.`), `the card ticks ${done}; the Home row must say the same`);
+  }
+});
+
+test('e · the comeback offer keeps one line — on the Setnayan AI row, while the window is open', () => {
+  assert.equal(aiStatus(false, 19), 'Comeback price · 19h left');
+  assert.equal(aiStatus(false, 0), 'Try it', 'an expired window is not announced');
+  assert.equal(aiStatus(false, null), 'Try it');
+  assert.equal(aiStatus(true, 19), 'On', 'an owner is never pitched');
+  assert.equal(aiStatus(null, 19), '—', 'an unresolved entitlement stays "—"');
+  assert.match(PAGE, /aiOffer\?\.kind === 'comeback'\s*\?\s*Math\.ceil\(/, 'the page must hand the window to the row');
+});
+
+test('e · the nudges of the old second section are not on the plan Home', () => {
+  const branch = PLAN;
+  for (const gone of ['SetDateNudge', 'PapicReadyNudge', 'SetnayanAiComebackOffer', 'NikahEssentialsCard', 'planNextYearEvent', 'slotAfterBento']) {
+    assert.doesNotMatch(branch, new RegExp(gone), `${gone} is drawn again under the first screen`);
+  }
 });
 
 test('f · the guests cards: "Add your guests" on an empty list, "Send N invitations" from the real unsent count', async () => {

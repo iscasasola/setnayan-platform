@@ -279,7 +279,12 @@ test('6c · the picker and the tours name the free themes from the registry — 
   assert.ok(picker.includes(`${free} are free`), 'the theme tour does not name the free themes');
   assert.doesNotMatch(picker, /padlock/i, 'the theme tour still promises a padlock (Pro themes are tried free since #6091)');
   const tours = JSON.stringify(TOURS);
-  assert.ok(tours.includes(`Themes beyond ${free}`), 'the Pro tour does not name the free themes');
+  // ✂ The Maker's own tour sells nothing since 2026-10-02 ("SIMPLIFY FIRST, THEN TOUR") —
+  // its "Themes beyond …" slide went with it. Any tour that names the free themes again
+  // must take them from the registry.
+  for (const m of tours.matchAll(/Themes beyond ([^,.]+)/g)) {
+    assert.ok(m[1]!.startsWith(free), `a tour types its own free-theme list: "${m[0]}"`);
+  }
   const src = read('app/dashboard/[eventId]/launch/_components/maker-theme-picker.tsx');
   assert.match(src, /\{themeNames\(FREE_THEMES\)\} are free; the others come with Event Hub Pro\./);
   // No typed free list survives in anything a couple reads.

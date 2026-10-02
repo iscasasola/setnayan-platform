@@ -9,6 +9,9 @@
  *   T. the toolbar's stage row, clipped at laptop widths, collapses to
  *      "● Invitation ▾" + "Pages ▾" — *"convert this to a drop down/tap to show
  *      options for smaller screens"* — decided by MEASURED overflow.
+ *      ✂ Superseded 2026-10-02 by THE MAKER IN 4: there is no stage row left to
+ *      collapse — the stages and their pages are ONE dropdown, Page ▾, on every
+ *      width (`maker-bar.ts` `makerPageMenu`), and N's dropdown moved into it.
  *
  * Plus the iframe count the controller measured (6 after 2 saves): see the
  * last test — those are the navigator's live thumbnails, not a leak.
@@ -82,35 +85,30 @@ test('B · the canvas draws them as "Your guest", with no sample content, and on
 
 /* ── N · the navigator's menu is one control ───────────────────────────── */
 
-test('N · the tab row is ONE picker beside the palette — no wrapping pill row', () => {
+test('N · the navigator has no tab row — its dropdown is the toolbar’s Page ▾, and a pick still only jumps', () => {
   const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
-  // Since 2026-09-30 the one picker is "Page ▾" — the guest's own pages on this
-  // stage (`page-pick.tsx`; `the-page-dropdown-is-the-guest-bar.test.ts` holds
-  // what it offers and that a pick is instant).
-  assert.match(nav, /<MakerPagePick pages=\{guestPages\} value=\{shownPage\.key\} onPick=\{jumpToPage\} \/>/);
+  // ✂ The Maker in 4 (2026-10-02): "Page ▾ … replaces the stage tabs in today's
+  // top bar and the navigator column". The navigator keeps no picker of its own.
+  assert.doesNotMatch(nav, /<MakerPagePick\b|<PickMenu\b/, 'a second page picker is back in the navigator');
   assert.doesNotMatch(nav, /role="tab"/, 'the old pill row is back');
   assert.doesNotMatch(nav, /lg:flex-wrap/, 'a wrapping row is what grew to 140px');
-  // It jumps; it never filters and never changes stage.
+  // The toolbar's pick is answered by the same jump — it never filters and never changes stage.
   const pick = SHELL.slice(SHELL.indexOf('const jumpToPage = (page: MakerGuestPage) => {'), SHELL.indexOf('const selectedTileKey = selectedTile?.key ?? null;'));
   assert.match(pick, /scrollPreviewTo\(first\)/);
-  assert.doesNotMatch(pick, /setStage|kind: 'tool'|return null/);
+  assert.match(pick, /if \(page\) jumpRef\.current\(page\);/, 'the toolbar’s pick is not answered by the jump');
+  assert.doesNotMatch(pick.slice(0, pick.indexOf('/* 📄 PAGE ▾ LIVES IN THE TOOLBAR NOW')), /setStage|kind: 'tool'|return null/);
 });
 
-/* ── T · the toolbar collapses by measured overflow ────────────────────── */
+/* ── T · the toolbar's places are ONE dropdown ─────────────────────────── */
 
-test('T · the bar collapses only when its natural width does not fit', async () => {
-  const { barShouldCollapse } = await import('../app/dashboard/[eventId]/launch/_components/maker-shell');
-  assert.equal(barShouldCollapse(900, 1000), false);
-  assert.equal(barShouldCollapse(1000, 1000), false);
-  assert.equal(barShouldCollapse(1000.6, 1000), false, 'sub-pixel rounding is not overflow');
-  assert.equal(barShouldCollapse(1080, 1000), true);
-  assert.match(BAR, /new ResizeObserver\(check\)/, 'measured, not a breakpoint');
-  // ONE picker since the owner's "combine them in 1 dropdown" (2026-09-27) —
-  // `the-compact-maker-bar-is-one-picker.test.ts` holds its contents.
-  assert.match(BAR, /data-maker-place-pick/);
-  assert.doesNotMatch(BAR, /data-maker-stage-pick|data-maker-pages-pick/, 'the two pickers are back');
-  // The picker runs the SAME onPress the buttons do.
-  assert.equal((BAR.match(/const item = makerPlaceItem\(key, hasWork\);\s*if \(item\) onPress\(item\);/g) ?? []).length, 1);
+test('T · the stages are never a row again: ONE Page ▾ holds them, on every width', () => {
+  const header = BAR.slice(BAR.indexOf('data-maker-toolbar'), BAR.indexOf('</header>'));
+  assert.equal((header.match(/<PickMenu\b/g) ?? []).length, 1, 'the toolbar has exactly one picker');
+  assert.match(header, /label="Page"\s+dataAttr="data-maker-page-menu"/);
+  assert.match(header, /options=\{pageOptions\}/);
+  assert.match(header, /onPick=\{pickPage\}/);
+  assert.doesNotMatch(BAR, /data-maker-bar-item|data-maker-place-pick|<MakerBar\b/, 'the stage row (or its compact picker) is back');
+  assert.match(BAR, /const page = makerPageMenu\(\{/);
 });
 
 /* ── The iframes the controller counted ────────────────────────────────── */

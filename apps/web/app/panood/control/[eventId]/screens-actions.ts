@@ -1,5 +1,6 @@
 'use server';
 
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -67,8 +68,7 @@ async function gate(formData: FormData, opts: { allowLocked?: boolean } = {}): P
 
   // GATE 2 · ENTITLEMENT. Skipped only for removeLiveScreen (cleanup).
   if (!opts.allowLocked) {
-    const admin = createAdminClient();
-    const broadcastWindow = await resolveBroadcastWindow(admin, eventId);
+    const broadcastWindow = await resolveBroadcastWindow(await eventEntitlementClient(eventId), eventId);
     if (!canUseVenueScreens({ liveStudioActive: broadcastWindow.multiCam })) {
       redirect(SCREENS(eventId, 'screen_error=locked'));
     }

@@ -181,7 +181,7 @@ test('a closed service is re-shaped, not removed', () => {
 */
 test('the deep link sends an owner to their tool before it closes anything', () => {
   const about = code('app/dashboard/[eventId]/studio/about/[addon]/page.tsx');
-  const ownership = about.indexOf('eventSkuActive(createAdminClient()');
+  const ownership = about.indexOf('eventSkuActive(await eventEntitlementClient(eventId)');
   const closed = about.indexOf('entry?.dayOfOnly && eventHasHappened');
   assert.ok(ownership > 0 && closed > 0, 'both branches must exist');
   assert.ok(ownership < closed, 'ownership redirect must run FIRST or an owner gets a 404');

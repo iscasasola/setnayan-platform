@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
@@ -303,6 +304,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     : Promise.resolve({ rows: [], measured: false });
 
   const base = `/dashboard/${eventId}`;
+  // Every paid-feature read below asks "does THIS EVENT hold it?" (owner
+  // 2026-10-02) — the one host-facing resolver, never the visitor's own session.
+  const ent = await eventEntitlementClient(eventId);
   const [
     ownsLiveWall,
     panoodState,
@@ -314,14 +318,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     proSku,
     guestColumnsOn,
   ] = await Promise.all([
-    eventSkuActive(supabase, eventId, 'LIVE_WALL'),
+    eventSkuActive(ent, eventId, 'LIVE_WALL'),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
     // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
     // `LIVE_STUDIO`. SKU_OWNERSHIP_ALIASES does NOT expand at this layer, so
     // keying on `panood` means the first couple who actually PAYS resolves to
     // not-owned — an "Add" button on the day of their wedding instead of "Go live".
-    resolveAddOnState(supabase, eventId, 'live-studio-roam', 'couple'),
-    eventPapicActive(supabase, eventId),
+    resolveAddOnState(ent, eventId, 'live-studio-roam', 'couple'),
+    eventPapicActive(ent, eventId),
     // Slug + date drive the stage and the four facts. `timezone` + `event_end_date`
     // added 2026-08-21: the resolvers used to read the SERVER's clock (UTC on
     // Vercel), so which named page the live QR was said to resolve to could be a
@@ -357,8 +361,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       upgrade to somebody who has it, never hide a page behind a lock.
     */
     // 👁 Both as the viewer is SHOWN them (`lib/view-as-free.server.ts`).
-    asViewed(eventCoupleWebsiteProActive(supabase, eventId).catch(() => false)),
-    asViewed(eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false)),
+    asViewed(eventCoupleWebsiteProActive(ent, eventId).catch(() => false)),
+    asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => false)),
     /*
       ⛔ THE PRICE, READ LIVE. `platform_retail_catalog_v2` is admin-managed and
       is the only figure a customer is ever charged. Null on failure, and the

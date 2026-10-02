@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -60,7 +61,7 @@ export default async function HeroPhotoEditorPage({
   // gated); putting up a new one is locked here and refused by the action.
   // Fail-open on a throwing read, like the sibling editors — the action is the
   // real gate either way.
-  const ownsPro = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
+  const ownsPro = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => true);
 
   // Resolve the current photo (if any) to a presigned GET URL for display.
   const currentPhotoUrl = await displayUrlForStoredAsset(

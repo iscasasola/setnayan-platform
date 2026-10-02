@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -69,7 +70,7 @@ export default async function OurPhotosEditorPage({
      asks for Pro ("Unlock Pro and Apply"), screening each new photo again.
      A couple with Pro saves live, as before. The entitlement read failing
      treats the couple as free — the safe side is the draft, never a live write. */
-  const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => false);
+  const proActive = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => false);
   let draftedRefs: string[] | null = null;
   if (!proActive) {
     try {

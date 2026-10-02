@@ -1,6 +1,6 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { buildThankYouVideoPlan } from '@/lib/thank-you-video';
@@ -67,7 +67,10 @@ export default async function ThankYouVideoPage({
 
   // ⚠ The ENTITLEMENT gate is here, not in the plan builder. Folding a paywall
   // into a data assembler puts the money decision somewhere nobody looks for it.
-  const owned = await eventSkuActive(supabase, eventId, SKU_CODE);
+  // The EVENT holds it, not the person who paid (owner 2026-10-02) — the one
+  // host-facing resolver, for both this read and the pending-order read below.
+  const ent = await eventEntitlementClient(eventId);
+  const owned = await eventSkuActive(ent, eventId, SKU_CODE);
 
   // Unowned: what "Save to my phone" needs to open the checkout in place.
   // `eventOwnsSku` counts a submitted order, so owned-but-not-active = a
@@ -75,9 +78,8 @@ export default async function ThankYouVideoPage({
   // catalogue only (formatV2Sku → platform_retail_catalog_v2), never typed.
   let checkout: ThankYouSaveCheckout | null = null;
   if (!owned) {
-    const admin = createAdminClient();
     const [pendingOrder, sellability, sku, settings, vatRatePct] = await Promise.all([
-      eventOwnsSku(admin, eventId, SKU_CODE).catch(() => false),
+      eventOwnsSku(ent, eventId, SKU_CODE).catch(() => false),
       resolveServiceSellability(SKU_CODE),
       formatV2Sku(SKU_CODE).catch(() => null),
       fetchPlatformSettings(supabase),

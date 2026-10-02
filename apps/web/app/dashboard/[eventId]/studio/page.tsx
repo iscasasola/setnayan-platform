@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import {
   ADD_ONS,
   appStoreDetailHref,
@@ -29,7 +30,6 @@ import {
 } from './recommend-actions';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { papicGuestPassAccess } from '@/lib/papic-event-access';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -123,7 +123,7 @@ export default async function StudioPage({ params, searchParams }: Props) {
     roadmapState,
     { data: eventRow, error: eventRowError },
   ] = await Promise.all([
-      eventActiveSkus(createAdminClient(), eventId),
+      eventActiveSkus(await eventEntitlementClient(eventId), eventId),
       supabase
         .from('platform_retail_catalog_v2')
         .select('service_code, retail_price_php')

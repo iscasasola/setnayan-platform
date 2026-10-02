@@ -1,5 +1,6 @@
 'use server';
 
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -121,8 +122,11 @@ async function requireHostMembership(eventId: string): Promise<void> {
  * A locked host is bounced to the detail/buy page rather than erroring.
  */
 async function requireLiveStudioOwned(eventId: string): Promise<void> {
-  const supabase = await createClient();
-  const owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU);
+  // 🔑 The EVENT holds Live Studio, not the person who paid (owner 2026-10-02):
+  // read through the one host-facing resolver, so a co-host is not bounced to the
+  // buy page for an event that already owns it. A non-host is refused (null).
+  const ent = await eventEntitlementClient(eventId).catch(() => null);
+  const owned = ent ? await eventSkuActive(ent, eventId, LIVE_STUDIO_SKU) : false;
   if (!owned) redirect(DETAIL_PATH(eventId));
 }
 

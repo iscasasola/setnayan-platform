@@ -22,6 +22,7 @@
  * special_message, which has no such gate). Surfaced for DPO visibility in
  * the corpus DECISION_LOG row.
  */
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
@@ -210,7 +211,8 @@ export async function loveStoryMomentAction(eventId: string, formData: FormData)
      (`eventItemIsPro`, 'love_story') and holds the story until Pro — the sheet
      names it. The hundred-moment ceiling still refuses either way; a live
      write is capped exactly as before. */
-  const ownsPro = drafting || (await eventCoupleWebsiteProActive(supabase, eventId));
+  const ownsPro =
+    drafting || (await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId));
   const refusal = momentCapRefusal({ before, after, ownsPro });
   if (refusal === 'max') return fail('Your story holds 100 moments — the most one Event Hub can show.');
   if (refusal) redirect(`${back}?pro=${refusal === 'photos_pro' ? 'photos' : 'stories'}`);

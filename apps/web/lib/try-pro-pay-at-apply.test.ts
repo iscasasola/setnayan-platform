@@ -283,7 +283,7 @@ test('a Love Story past the free cap is tried in the draft, named on the sheet, 
   assert.deepEqual(story!.jump, { kind: 'tool', key: 'love-story' });
   // The moment action does not refuse the draft; the live write is capped as before.
   const action = code('app/dashboard/[eventId]/website/our-story/actions.ts');
-  assert.match(action, /const ownsPro = drafting \|\| \(await eventCoupleWebsiteProActive\(supabase, eventId\)\);\s*const refusal = momentCapRefusal\(\{ before, after, ownsPro \}\);/);
+  assert.match(action, /const ownsPro =\s*drafting \|\| \(await eventCoupleWebsiteProActive\(await eventEntitlementClient\(eventId\), eventId\)\);\s*const refusal = momentCapRefusal\(\{ before, after, ownsPro \}\);/);
 });
 
 test('a drafted Pro theme is worn on the verified host’s canvas — never on a guest’s', () => {

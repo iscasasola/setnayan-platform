@@ -9,6 +9,9 @@ import {
 
 import { StatusPill } from './charts';
 import { formatCount } from '@/lib/format-number';
+import { fetchPlatformSettings } from '@/lib/platform-settings';
+import { receivingAccountsPhrase } from '@/lib/payment-channels';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * Action Center — Zone 1 of the App Performance cockpit ("what to do next";
@@ -33,7 +36,9 @@ type QueueCardDef = { key: string; label: string; todo: string };
 
 /** Owner-facing card copy per queue (route = /admin/<key> for all of them). */
 const QUEUE_CARDS: QueueCardDef[] = [
-  { key: 'payments', label: 'Payments to reconcile', todo: 'Verify BDO/GCash proof and activate the order.' },
+  // `todo` here is the fallback only — the rendered line names the OPEN receiving
+  // accounts, read the way checkout reads them (see `paymentsTodo` below).
+  { key: 'payments', label: 'Payments to reconcile', todo: 'Verify the payment proof and activate the order.' },
   { key: 'payouts', label: 'Payouts', todo: 'A supplier is waiting for money — settle it.' },
   { key: 'subscriptions', label: 'Supplier subscriptions', todo: 'Confirm tier payment and activate the cycle.' },
   { key: 'verify', label: 'Supplier verification', todo: 'Review documents and award the badge.' },
@@ -87,15 +92,28 @@ const STATE_STYLE: Record<
 // because its surface list was HAND-TYPED, which is the whole failure in one
 // line. That list is now derived from disk.
 
+/** The payments card's line, naming the accounts a customer is actually told to pay. */
+function paymentsTodo(payTo: string): string {
+  return `Verify the ${payTo} proof and activate the order.`;
+}
+
 export async function ActionCenterZone() {
-  const digest = await getAdminQueueDigest();
+  const [digest, payTo] = await Promise.all([
+    getAdminQueueDigest(),
+    // The same list checkout shows — never account names typed here. A failed read
+    // degrades to the generic line, never to a name that may be wrong.
+    fetchPlatformSettings(createAdminClient())
+      .then((s) => receivingAccountsPhrase(s, 'payment'))
+      .catch(() => 'payment'),
+  ]);
   const nowMs = Date.now();
 
   const cards = QUEUE_CARDS.map((def) => {
     const row = digest[def.key] ?? { count: null, oldestAt: null };
     const sla = ADMIN_QUEUE_META[def.key]?.slaHours ?? 48;
     const state = computeDueState(row, sla, nowMs);
-    return { ...def, row, state };
+    const todo = def.key === 'payments' ? paymentsTodo(payTo) : def.todo;
+    return { ...def, todo, row, state };
   }).sort(
     (a, b) =>
       compareQueuePriority(

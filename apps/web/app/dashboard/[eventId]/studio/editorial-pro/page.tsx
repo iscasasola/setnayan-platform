@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import {
@@ -75,9 +76,9 @@ export default async function EditorialProBuyPage({ params }: Props) {
   //   • owned        — Editorial PRO is owned INCLUDING a pending 'submitted'
   //     order (double-buy prevention); owned && !active ⇒ payment under review.
   const [ownsUmbrella, active, owned, sellability] = await Promise.all([
-    eventOwnsCoupleWebsitePro(admin, eventId).catch(() => false),
-    isEditorialProActive(admin, eventId).catch(() => false),
-    eventOwnsEditorialPro(admin, eventId).catch(() => false),
+    eventOwnsCoupleWebsitePro(await eventEntitlementClient(eventId), eventId).catch(() => false),
+    isEditorialProActive(await eventEntitlementClient(eventId), eventId).catch(() => false),
+    eventOwnsEditorialPro(await eventEntitlementClient(eventId), eventId).catch(() => false),
     // Editorial PRO is bundle-only (2026-07-22): once its catalog row is
     // is_active=false, a standalone drawer would dead-end at checkout, so gate on
     // real sellability and upsell Event Hub PRO instead. Reads DB is_active →

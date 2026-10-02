@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -158,13 +159,15 @@ export default async function MonogramMakerPage({ params, searchParams }: Props)
    * which reads the admin catalog itself. Two components fetching one price is
    * two chances to disagree about what a customer is charged. */
   const storeShell = await isStoreShellRequest();
-  const ownsAnimated = await eventOwnsAnimatedMonogram(supabase, eventId);
+  // The EVENT holds the animation, not the person who paid (owner 2026-10-02).
+  const ent = await eventEntitlementClient(eventId);
+  const ownsAnimated = await eventOwnsAnimatedMonogram(ent, eventId);
   /* Event Hub Pro includes the animation (owner 2026-09-24, "A then"). The
    * alias already makes `ownsAnimated` true for a Pro couple, so the ₱500 buy
    * is gone; this names WHY on the owned state. Read only when owned. */
   const includedNote = animatedMonogramIncludedNote(
     ownsAnimated,
-    ownsAnimated ? await eventGetsAnimatedMonogramFromHubPro(supabase, eventId) : false,
+    ownsAnimated ? await eventGetsAnimatedMonogramFromHubPro(ent, eventId) : false,
   );
 
   /* Everything the ONE "Unlock & Apply" button needs, read here and nowhere

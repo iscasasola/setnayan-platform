@@ -253,7 +253,10 @@ test('⚖ the controller feeds the go-live row the event’s real ownership, and
   const page = read('../app/panood/control/[eventId]/page.tsx');
   const row = page.slice(page.indexOf('<TransportRow'), page.indexOf('/>', page.indexOf('<TransportRow')));
   assert.match(row, /ownsHostedChannel=\{ownsHostedChannel\}/);
-  assert.match(page, /const ownsHostedChannel = await eventSkuActive\(supabase, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU\)/);
+  // Through the one host-facing resolver (owner 2026-10-02): a co-host who did not
+  // place the order reads the same ownership the server gate acts on.
+  assert.match(page, /const ent = await eventEntitlementClient\(eventId\);/);
+  assert.match(page, /const ownsHostedChannel = await eventSkuActive\(ent, eventId, LIVE_STUDIO_HOSTED_CHANNEL_SKU\)/);
 
   const transport = read('../app/panood/control/[eventId]/transport-row.tsx');
   assert.match(

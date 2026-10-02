@@ -62,6 +62,9 @@ const SHIMS: Record<string, string> = {
   'server-only': shim('server_only', {}),
   '@/lib/supabase/server': shim('server', { createClient: async () => client() }),
   '@/lib/supabase/admin': shim('admin', { createAdminClient: () => client() }),
+  // The one host-facing entitlement resolver (owner 2026-10-02) is a server
+  // boundary like the two factories above: it answers with the same stand-in.
+  '@/lib/event-entitlement-client.server': shim('entitlement_client', { eventEntitlementClient: async () => client() }),
 };
 {
   const original = CjsModule._resolveFilename;

@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { Rocket, Clock3, ArrowRight } from 'lucide-react';
@@ -84,10 +85,14 @@ export async function AddOnDetailView({
 
   // Live admin-catalog price (display only) + this event's order status for
   // the feature, fetched together. A catalog miss only blanks the price label.
+  // The order is read through the one host-facing resolver (owner 2026-10-02: a
+  // purchase unlocks the EVENT) — `orders` RLS is purchaser-scoped, so through
+  // `supabase` a co-host who did not place the order was offered it again.
+  const ent = await eventEntitlementClient(eventId);
   const [sku, orderRow] = await Promise.all([
     entry.serviceKey ? formatV2Sku(entry.serviceKey).catch(() => null) : Promise.resolve(null),
     entry.serviceKey
-      ? supabase
+      ? ent
           .from('orders')
           .select('status')
           .eq('event_id', eventId)

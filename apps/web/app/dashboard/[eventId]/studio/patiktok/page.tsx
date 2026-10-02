@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -173,10 +174,10 @@ export default async function PatiktokGallery({
   // free. but pay to save and share"): a download link is minted only when it
   // is true. Same question lib/patiktok-save-gate.ts asks for the actions.
   const admin = createAdminClient();
-  const patiktokActive = await eventSkuActive(admin, eventId, PATIKTOK_SERVICE_KEY);
+  const patiktokActive = await eventSkuActive(await eventEntitlementClient(eventId), eventId, PATIKTOK_SERVICE_KEY);
   // A submitted order still under review: the buy door becomes "being confirmed".
   const patiktokPending =
-    !patiktokActive && (await eventOwnsSku(admin, eventId, PATIKTOK_SERVICE_KEY));
+    !patiktokActive && (await eventOwnsSku(await eventEntitlementClient(eventId), eventId, PATIKTOK_SERVICE_KEY));
   const storeShell = await isStoreShellRequest();
 
   // Resolve a fresh presigned download URL for completed reels (the stored

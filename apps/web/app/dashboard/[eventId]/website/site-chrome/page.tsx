@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
 import { CheckCircle2, Music, Video } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -62,7 +63,7 @@ export default async function SiteChromeEditorPage({
   // couple that already uploaded a song (grandfathered) OR owns PRO keeps the
   // music control, and the live guest site never loses a launched song (only the
   // EDITOR gates). Fail-open on a throwing entitlement read (treat as owned).
-  const proActive = await eventCoupleWebsiteProActive(supabase, eventId).catch(() => true);
+  const proActive = await eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId).catch(() => true);
   const musicGated = !proActive && !musicRef;
   // 🎞 AND NOW THE VIDEO HERO TOO (owner 2026-09-24, "A": their own films on the
   // page are Pro). The comment above predates the ruling — the video is no

@@ -1,9 +1,9 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Music, Heart, Sparkles, CheckCircle2, Clock } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -98,7 +98,7 @@ export default async function PakantaPage({ params }: Props) {
   // Owned gate (bundle-aware, admin-approved). Drives the three owned-states:
   // not-owned → buy/intake form; owned + in-production/no-song → "in production";
   // owned + 'ready' → delivered preview + "use this song" button.
-  const owned = await eventSkuActive(createAdminClient(), eventId, 'PAKANTA').catch(() => false);
+  const owned = await eventSkuActive(await eventEntitlementClient(eventId), eventId, 'PAKANTA').catch(() => false);
   const songReady = event.pakanta_song_status === 'ready' && !!event.pakanta_song_r2_key;
   const songPreviewUrl =
     owned && songReady

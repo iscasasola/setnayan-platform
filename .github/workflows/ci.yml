@@ -471,8 +471,10 @@ jobs:
       # part 2 — on any NEW no-door screen, door to nowhere or missing #section,
       # one-fact-two-homes, event answer outside Your info, filled-but-dropped
       # field, typed live number or fact shown twice that is not in
-      # apps/web/lib/ugat/baselines/*. Door words, retarget, never-read and
-      # sanitisers warn. Rides this job (needs tsx, after install).
+      # apps/web/lib/ugat/baselines/*, and (STRICT) on a fixed enforced finding
+      # whose line is still listed — "fixed — remove this line from …", so a
+      # fixed problem cannot quietly come back. Door words, retarget,
+      # never-read and sanitisers warn. Rides this job (needs tsx, after install).
       - name: Root map is current and ratcheted
         run: node apps/web/scripts/check-ugat-screens.mjs
 

@@ -40,3 +40,17 @@ test('the six kinds the owner named fail CI; the judgement checks warn', () => {
   const enforced = Object.entries(CHECKS).filter(([, c]) => c.enforced).map(([k]) => k).sort();
   assert.deepEqual(enforced, ['broken-door', 'duplicate', 'dropped-field', 'missing-section', 'no-door', 'one-home', 'outside-home', 'typed-number'].sort());
 });
+
+test('strict: a fixed enforced finding still listed FAILS; a fixed judgement finding only warns', async () => {
+  const { ratchetVerdict } = await import('./root-map-findings');
+  const root = mkdtempSync(join(tmpdir(), 'ugat-strict-'));
+  mkdirSync(join(root, BASELINE_DIR), { recursive: true });
+  writeFileSync(join(root, BASELINE_DIR, 'typed-number.baseline.txt'), writeBaselineText('typed-number', [f('typed-number', 'a "190 days to go"')]));
+  writeFileSync(join(root, BASELINE_DIR, 'retarget.baseline.txt'), writeBaselineText('retarget', [f('retarget', 'x → /old')]));
+  const v = ratchetVerdict(ratchet(root, []));
+  assert.deepEqual(v.errors, [
+    'fixed — remove this line from lib/ugat/baselines/typed-number.baseline.txt (run root-map --baseline): a "190 days to go"',
+  ]);
+  assert.equal(v.warnings.length, 1, 'retarget is a judgement check — warns');
+  assert.deepEqual(ratchetVerdict(ratchet(root, [f('typed-number', 'a "190 days to go"'), f('retarget', 'x → /old')])), { errors: [], warnings: [] }, 'unchanged = green');
+});

@@ -16,7 +16,7 @@ import { join } from 'node:path';
 
 import { stripComments } from '../lib/strip-comments';
 import { CHECKS, CHECK_ORDER, type CheckId, type Finding } from '../lib/ugat/root-map-checks';
-import { baselinePath, ratchet, runRootMap, writeBaselineText, BASELINE_DIR } from '../lib/ugat/root-map-findings';
+import { baselinePath, ratchet, ratchetVerdict, runRootMap, writeBaselineText, BASELINE_DIR } from '../lib/ugat/root-map-findings';
 import { CALCULATIONS, EVENT_FACT_HOME_SCREENS } from '../lib/ugat/fields';
 import { createForms } from '../lib/ugat/round-trip';
 import { summarizeScreens, type UgatScreensMap } from '../lib/ugat/screens';
@@ -43,29 +43,23 @@ if (args.includes('--baseline')) {
 } else {
   // --check (the default)
   const results = ratchet(WEB, run.findings);
-  let failed = false;
-  console.log('Root map — part 2 checks (ratchet ON)');
+  const { errors, warnings } = ratchetVerdict(results);
+  console.log('Root map — part 2 checks (ratchet ON, strict)');
   for (const r of results) {
     const c = CHECKS[r.check];
     console.log(`  ${c.title}: ${r.current} today · ${r.baselined} in baseline${c.enforced ? '' : ' · report-only'}`);
-    for (const f of r.fresh) {
-      console.log(`    ${c.enforced ? '::error::' : '::warning::'}NEW ${r.check}: ${f.plain} [${f.key}]`);
-      if (c.enforced) failed = true;
-    }
-    if (r.fixed.length) {
-      console.log(`    ${r.fixed.length} baselined finding(s) are fixed — run \`pnpm --filter @setnayan/web root-map --baseline\` to drop them:`);
-      for (const k of r.fixed.slice(0, 10)) console.log(`      ${k}`);
-    }
   }
-  if (failed) {
+  for (const w of warnings) console.log(`    ::warning::${w}`);
+  for (const e of errors) console.log(`    ::error::${e}`);
+  if (errors.length) {
     console.error('');
-    console.error('::error::The Root map found something NEW that the ratchet does not allow (above).');
-    console.error('Fix it. Only if it is genuinely right as it is, re-run');
-    console.error('  pnpm --filter @setnayan/web root-map --baseline');
-    console.error('and say why in the pull request — the baseline line carries the reason.');
+    console.error('::error::The Root map ratchet failed (above).');
+    console.error('  NEW … — fix it. Only if it is genuinely right as it is, re-run the command below and say why in the PR.');
+    console.error('  fixed — … — good: now drop the line, so the problem cannot quietly come back:');
+    console.error('    pnpm --filter @setnayan/web root-map --baseline');
     process.exit(1);
   }
-  console.log('  no new enforced findings.');
+  console.log('  no new or fixed-but-still-listed enforced findings.');
 }
 
 /* ═══════════════════════════ the owner's report ═══════════════════════════ */
@@ -108,7 +102,7 @@ function report(): string {
       'Root map is the owner\'s name for the Ugat map; code keeps `lib/ugat`.',
   );
   o.push('');
-  o.push('**What changed today:** every one of these checks now runs in CI on every pull request. Today\'s findings are written down as the starting list (the "baseline"), so CI is green today — and anything NEW of a kind marked "fails CI" below stops the build (the six the owner named: no way in, doors to nowhere, one home, filled-but-not-saved, typed-in numbers, and the same fact shown twice). The list can only get shorter.');
+  o.push('**What changed today:** every one of these checks now runs in CI on every pull request. Today\'s findings are written down as the starting list (the "baseline"), so CI is green today — anything NEW of a kind marked "fails CI" below stops the build (the six the owner named: no way in, doors to nowhere, one home, filled-but-not-saved, typed-in numbers, and the same fact shown twice). It is strict both ways: when one of those is FIXED, the same pull request must also remove its line from the list, or CI fails — so a fixed problem cannot quietly come back. The list can only get shorter.');
   o.push('');
   o.push('## The numbers');
   o.push('');

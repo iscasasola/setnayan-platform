@@ -13,9 +13,12 @@
  *   new         a finding whose key is not in its baseline. For an ENFORCED
  *               check (`CHECKS[…].enforced`) it fails CI; for the judgement
  *               checks it warns.
- *   fixed       a baseline line no longer found. Silent pass + a printed hint
- *               to drop it (part 1's posture: removing a line is a fix, and a
- *               fix merged on a sibling branch must not turn main red).
+ *   fixed       a baseline line no longer found. For an ENFORCED check this
+ *               FAILS CI too ("fixed — remove this line…"): a fixed problem
+ *               left in the baseline could quietly come back, so the baseline
+ *               must shrink in the same pull request as the fix (controller
+ *               decision on #6285, 2026-10-02 — strict ratchet). The judgement
+ *               checks only print a hint.
  *
  * Filesystem access — generator, tests and the CI check only.
  */
@@ -104,8 +107,8 @@ export function writeBaselineText(check: CheckId, findings: Finding[]): string {
     `# ${c.enforced ? 'ENFORCED: a finding not listed here fails CI.' : 'Report-only: a finding not listed here warns in CI.'}`,
     '# One line per finding: <key><TAB># <why it is on the list>. Written by',
     '#   pnpm --filter @setnayan/web root-map --baseline',
-    '# Never add a line by hand to make CI pass — fix the finding. A fixed one is',
-    '# dropped by re-running the command above.',
+    '# Never add a line by hand to make CI pass — fix the finding. A fixed one MUST',
+    `# be dropped by re-running the command above${c.enforced ? ' — CI fails while it is still listed' : ''}.`,
   ];
   const lines = findings
     .filter((f) => f.check === check)
@@ -135,4 +138,23 @@ export function ratchet(webRoot: string, findings: Finding[]): RatchetResult[] {
       fixed: [...base].filter((k) => !keys.has(k)).sort(),
     };
   });
+}
+
+/**
+ * The ratchet's verdict, as CI messages. Strict for an ENFORCED check: a NEW
+ * finding fails, and so does a FIXED one still listed (so it cannot quietly
+ * come back). The judgement checks only warn, either way.
+ */
+export function ratchetVerdict(results: RatchetResult[]): { errors: string[]; warnings: string[] } {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  for (const r of results) {
+    const c = CHECKS[r.check];
+    const file = `${BASELINE_DIR}/${r.check}.baseline.txt`;
+    for (const f of r.fresh) (c.enforced ? errors : warnings).push(`NEW ${r.check}: ${f.plain} [${f.key}]`);
+    for (const k of r.fixed) {
+      (c.enforced ? errors : warnings).push(`fixed — remove this line from ${file} (run root-map --baseline): ${k}`);
+    }
+  }
+  return { errors, warnings };
 }

@@ -17,9 +17,10 @@
  *      info, filled-but-dropped fields, typed live numbers, the same fact shown
  *      twice — and fails on any finding NOT in lib/ugat/baselines/*. The
  *      judgement checks (door words, retarget, saved-but-never-used,
- *      sanitisers) warn instead. A fixed finding passes silently and asks to
- *      be dropped; `pnpm --filter @setnayan/web root-map --baseline` is the
- *      only writer of the baselines.
+ *      sanitisers) warn instead. STRICT: a fixed enforced finding whose line
+ *      is still in its baseline FAILS too ("fixed — remove this line…"), so a
+ *      fixed problem cannot quietly come back; `pnpm --filter @setnayan/web
+ *      root-map --baseline` is the only writer of the baselines.
  *
  * Sabotage (must exit 1): add a page under apps/web/app without re-running the
  * generator; or type "190 days to go" into any screen; or add a form input its
@@ -100,4 +101,4 @@ if (ratchet.status === 2 || ratchet.status === null) {
 if (ratchet.status !== 0 && RATCHET_ENFORCED) failed = true;
 
 if (failed) process.exit(1);
-console.log('  Root map is current and nothing new broke (ratchet ON).');
+console.log('  Root map is current; nothing new broke and nothing fixed is still listed (ratchet ON, strict).');

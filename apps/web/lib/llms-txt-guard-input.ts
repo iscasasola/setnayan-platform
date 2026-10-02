@@ -112,7 +112,7 @@ export const RETAIL: RetailRow[] = [
   // replayed catalog precisely so a reprice cannot land in one place only. It
   // moved in the same PR as the real one, which is the rule the neighbouring
   // fixtures already state.
-  { service_code: 'LIVE_STUDIO', title: 'Live Studio', retail_price_php: 2500, is_active: true },
+  { service_code: 'LIVE_STUDIO', title: 'Live Watch', retail_price_php: 2500, is_active: true },
   // ♻️ BACK ON SALE 2026-09-03 (LS8, migration 20271200509567) at ₱3,000 / DAY.
   // It was deactivated the day before by LS6 for one reason — its ₱1,500 was set to
   // SUM with LIVE_STUDIO into a ₱3,000 hosted total, and that pairing broke when
@@ -130,7 +130,7 @@ export const RETAIL: RetailRow[] = [
   // prose, and flipping is_active without restoring both leaves llms.txt
   // under-describing a live product. The retirement pairing documented in
   // `llms-txt.ts` runs in BOTH directions; only the retiring half was written down.
-  { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Studio — hosted channel', retail_price_php: 3000, is_active: true },
+  { service_code: 'LIVE_STUDIO_HOSTED_CHANNEL', title: 'Live Watch — hosted channel', retail_price_php: 3000, is_active: true },
   { service_code: 'PAKANTA', title: 'Music Maker', retail_price_php: 2500, is_active: true },
   // is_active:false since 2026-08-11 — owner set the wall FREE, so the paid row
   // is retired and the prose says "free". See the fixture note on

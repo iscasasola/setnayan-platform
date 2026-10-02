@@ -1,6 +1,8 @@
 'use server';
 
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
+import { studioHubHref } from '@/lib/studio-hub';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -56,7 +58,7 @@ async function gate(formData: FormData, opts: { allowLocked?: boolean } = {}): P
   const raw = formData.get('event_id');
   if (typeof raw !== 'string' || raw.length === 0) redirect('/dashboard');
   const eventId = raw;
-  if (!liveStudioRoamEnabled()) redirect(`/dashboard/${eventId}/studio`);
+  if (!liveStudioRoamEnabled()) redirect(studioHubHref(eventId));
 
   const supabase = await createClient();
   const {
@@ -67,8 +69,7 @@ async function gate(formData: FormData, opts: { allowLocked?: boolean } = {}): P
 
   // GATE 2 · ENTITLEMENT. Skipped only for removeLiveScreen (cleanup).
   if (!opts.allowLocked) {
-    const admin = createAdminClient();
-    const broadcastWindow = await resolveBroadcastWindow(admin, eventId);
+    const broadcastWindow = await resolveBroadcastWindow(await eventEntitlementClient(eventId), eventId);
     if (!canUseVenueScreens({ liveStudioActive: broadcastWindow.multiCam })) {
       redirect(SCREENS(eventId, 'screen_error=locked'));
     }

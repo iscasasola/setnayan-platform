@@ -7,7 +7,7 @@ import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground
 import { websiteProActiveFor } from './hub-look';
 import { resolveHero, type HeroEventInput } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
-import { heroVideoRefForGuests } from '@/lib/guest-hero-video';
+import { mainGroundClipRefForGuests } from '@/lib/guest-hero-video';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { MainGround, MainGroundNone } from '../_components/main-ground';
@@ -40,8 +40,11 @@ import { MainGround, MainGroundNone } from '../_components/main-ground';
  * photo or video"); a free or lapsed couple on Modern / Cyber Neon gets the
  * theme's own loop.
  *
- * ⛔ An unscreened clip plays for the HOST only; a guest gets the still — the
- * same closed switch every hero-video read goes through.
+ * 🎞 THE CLIP PLAYS FOR GUESTS TOO (owner 2026-09-29 *"make it move"*; audit
+ * 2026-10-02 Batch F1 item 4 — it had played for the host only). A guest's clip
+ * meets the scene-clip kill switch (`mainGroundClipRefForGuests`, ON), the same
+ * switch every scene clip meets; closed, a guest gets the still. The still is
+ * always drawn first and stays whenever the clip does not play (`MainGround`).
  *
  * 🔒 NEVER FROM THE LAYOUT. The layout wraps the private landing, and a couple's
  * own footage must not reach a stranger there. Both callers are pages behind
@@ -77,7 +80,7 @@ export async function mainGroundLayerFor({
     ? await websiteProActiveFor(event.event_id).catch(() => false)
     : false;
   const mainGround = heroMayBePageGround(theme, ownsPro)
-    ? resolveMainGround(hubMainGround(heroConfig), resolveHero(event), heroVideoRefForGuests)
+    ? resolveMainGround(hubMainGround(heroConfig), resolveHero(event), mainGroundClipRefForGuests)
     : null;
   if (mainGround) {
     const adaptive = resolveAdaptiveTheme(INVITE_THEMES[theme], mainGround.tint);

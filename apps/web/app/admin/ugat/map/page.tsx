@@ -5,7 +5,7 @@ import { UGAT_SAVED_SEARCHES } from '@/lib/ugat/data';
 import { latestVerdictByJoint } from '@/lib/interconnect/verdicts';
 import { UgatConsole } from '../_components/ugat-console';
 
-export const metadata = { title: 'Entity map · Set up · Admin' };
+export const metadata = { title: 'Entity map · Root map · Admin' };
 
 /**
  * /admin/ugat/map — the Ugat Console entity map (slice 1).

@@ -36,11 +36,18 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ADD_ONS, addOnHref, appStoreDetailHref } from './add-ons-catalog';
 import { addOnDetail } from './add-ons-detail';
-import { routes } from './routes';
 
 const LIB_DIR = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(LIB_DIR, '..', 'app');
-const SUITE_PAGE = path.join(APP_DIR, 'dashboard', '[eventId]', 'suite', 'page.tsx');
+/*
+  🧭 THE SUITE PAGE IS GONE (owner 2026-10-02, tracker d1: "remove the old
+  full-page More Services — the More menu is the one place"). The four tests
+  that read its SOURCE (its FREE_TOOLS hrefs, its routes.* builders, its
+  Compare doorway, its retired prefixes) went with it — there is no source left
+  for them to read, and its free tools all live at their homes
+  (`TOOL_HOMES`, lib/our-services.ts). Every test below is about the CATALOG,
+  which every menu still reads, and stays.
+*/
 
 /** Retired route prefixes (2026-07-18 doorway audit) — nothing may link here. */
 const RETIRED_PREFIXES = ['/design', '/vendors/compare'] as const;
@@ -122,75 +129,7 @@ function suiteFreeLayerKeys(): string[] {
 }
 
 const EVT = 'EVENT_ID';
-const suiteSource = fs.readFileSync(SUITE_PAGE, 'utf8');
 
-// ── 1 · routes-helper: FREE_TOOLS hrefs come from `routes.*` only ──────────────
-
-test('suite FREE_TOOLS: every href is built from a routes.* helper (no hand-typed paths)', () => {
-  const block = suiteSource.match(/const FREE_TOOLS[\s\S]*?\n\];/);
-  assert.ok(block, 'suite/page.tsx must contain the FREE_TOOLS array');
-  const hrefs = block![0].match(/href:[^,]*/g) ?? [];
-  assert.ok(hrefs.length >= 5, `expected the free planning tools, found ${hrefs.length} hrefs`);
-  for (const h of hrefs) {
-    assert.match(
-      h,
-      /href:\s*\([^)]*\)\s*=>\s*routes\./,
-      `free-tool href must come from routes.*, got: ${h}`,
-    );
-  }
-});
-
-test('suite page: every routes.* builder it references resolves to a real page', () => {
-  const refs = new Set(
-    [...suiteSource.matchAll(/\broutes\.([A-Za-z0-9_$.]+)\(/g)].map((m) => m[1]!),
-  );
-  assert.ok(refs.size > 0, 'suite/page.tsx should reference routes.* builders');
-  for (const ref of refs) {
-    let node: unknown = routes;
-    for (const part of ref.split('.')) {
-      assert.ok(
-        node !== null && typeof node === 'object' && part in (node as Record<string, unknown>),
-        `routes.${ref} — segment "${part}" does not exist on the routes helper`,
-      );
-      node = (node as Record<string, unknown>)[part];
-    }
-    assert.equal(typeof node, 'function', `routes.${ref} must be a builder function`);
-    const href = (node as (...args: string[]) => string)(EVT, EVT);
-    assert.ok(routeExists(href), `routes.${ref} → ${href} has no page in the app router`);
-  }
-});
-
-test('the Compare-vendors free doorway never lands on the param-gated /explore/compare', () => {
-  // 2026-07-22 audit: /explore/compare renders a comparison ONLY with
-  // ?ids=<uuid>,<uuid> — linked bare it redirect('/explore')s 100% of the time,
-  // so the free card was a dead doorway (existed, so routeExists/lint-routes
-  // passed, but never rendered a comparison). The fix: the static FREE_TOOLS
-  // fallback is the marketplace save-flow (routes.explore.index), and SuitePage
-  // builds /explore/compare?ids=… at render only once ≥2 vendors are saved.
-  const block = suiteSource.match(/const FREE_TOOLS[\s\S]*?\n\];/);
-  assert.ok(block, 'suite/page.tsx must contain the FREE_TOOLS array');
-  const compareEntry = block![0].match(/key:\s*'compare'[\s\S]*?\n {2}\}/);
-  assert.ok(compareEntry, "FREE_TOOLS must contain the 'compare' entry");
-  assert.match(
-    compareEntry![0],
-    /href:\s*\([^)]*\)\s*=>\s*routes\.explore\.index\(\)/,
-    "the compare card's static href must be routes.explore.index (the save-flow), " +
-      'not routes.explore.compare — which redirects away without ?ids=',
-  );
-  assert.doesNotMatch(
-    compareEntry![0],
-    /routes\.explore\.compare/,
-    'the compare card must not statically link the param-gated /explore/compare',
-  );
-  // …and the render-time smart doorway must build the real comparison with ids.
-  assert.match(
-    suiteSource,
-    /routes\.explore\.compare\(\)\}\?ids=/,
-    'SuitePage must build /explore/compare?ids=… at render when ≥2 vendors are saved',
-  );
-});
-
-// ── 2 · retired-prefix: no doorway points into a retired route tree ────────────
 
 test('no add-on href starts with a retired route prefix', () => {
   for (const a of ADD_ONS) {
@@ -204,17 +143,6 @@ test('no add-on href starts with a retired route prefix', () => {
     }
   }
 });
-
-test('suite page source contains no retired route prefix', () => {
-  for (const prefix of RETIRED_PREFIXES) {
-    assert.ok(
-      !suiteSource.includes(`'${prefix}`) && !suiteSource.includes('`' + prefix),
-      `suite/page.tsx hand-types a retired prefix: ${prefix}`,
-    );
-  }
-});
-
-// ── 3 · addOnHref / appStoreDetailHref resolve for every catalog key ───────────
 
 test('addOnHref resolves to a real app-router page for every catalog key', () => {
   for (const a of ADD_ONS) {
@@ -334,17 +262,6 @@ test('the Your Website card carries NO chips, because its landing already does',
     would still pass on the day somebody strips the controller's strip and
     leaves both editors reachable from nowhere.
   */
-  assert.doesNotMatch(
-    suiteSource,
-    /const websiteChips/,
-    'the website chips came back — the card opens a controller that already shows both doors',
-  );
-  assert.doesNotMatch(
-    suiteSource,
-    /links=\{a\.key === 'landing-page'/,
-    'a chip list is being mounted on the Your Website card again',
-  );
-
   // The card's own destination is the controller…
   const cardHref = appStoreDetailHref('landing-page', EVT);
   assert.equal(cardHref, `/dashboard/${EVT}/launch`, 'the card no longer opens the controller');

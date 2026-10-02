@@ -1,4 +1,6 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { redirect } from 'next/navigation';
 import {
@@ -116,6 +118,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
+import { planMyselfOn } from '@/lib/plan-myself';
 
 // ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
 // "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
@@ -303,6 +306,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     : Promise.resolve({ rows: [], measured: false });
 
   const base = `/dashboard/${eventId}`;
+  // Every paid-feature read below asks "does THIS EVENT hold it?" (owner
+  // 2026-10-02) — the one host-facing resolver, never the visitor's own session.
+  const ent = await eventEntitlementClient(eventId);
   const [
     ownsLiveWall,
     panoodState,
@@ -314,14 +320,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     proSku,
     guestColumnsOn,
   ] = await Promise.all([
-    eventSkuActive(supabase, eventId, 'LIVE_WALL'),
+    eventSkuActive(ent, eventId, 'LIVE_WALL'),
     // ⭐ 2026-07-27 — 'live-studio-roam', NOT 'panood'. ADD_ON_SKU_MAP (lib/add-on-stats.ts)
     // maps `panood` → the two RETIRED Cast SKUs and `live-studio-roam` → the live
     // `LIVE_STUDIO`. SKU_OWNERSHIP_ALIASES does NOT expand at this layer, so
     // keying on `panood` means the first couple who actually PAYS resolves to
     // not-owned — an "Add" button on the day of their wedding instead of "Go live".
-    resolveAddOnState(supabase, eventId, 'live-studio-roam', 'couple'),
-    eventPapicActive(supabase, eventId),
+    resolveAddOnState(ent, eventId, 'live-studio-roam', 'couple'),
+    eventPapicActive(ent, eventId),
     // Slug + date drive the stage and the four facts. `timezone` + `event_end_date`
     // added 2026-08-21: the resolvers used to read the SERVER's clock (UTC on
     // Vercel), so which named page the live QR was said to resolve to could be a
@@ -331,7 +337,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // `event_type` added 2026-09-02 (EH6): the retired /website hub showed its
       // "Our story" door to weddings only, and that door moved here. One more
       // column on a query already running — not a second read.
-      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type')
+      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode')
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page
@@ -357,8 +363,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       upgrade to somebody who has it, never hide a page behind a lock.
     */
     // 👁 Both as the viewer is SHOWN them (`lib/view-as-free.server.ts`).
-    asViewed(eventCoupleWebsiteProActive(supabase, eventId).catch(() => false)),
-    asViewed(eventOwnsCoupleWebsitePro(supabase, eventId).catch(() => false)),
+    asViewed(eventCoupleWebsiteProActive(ent, eventId).catch(() => false)),
+    asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => false)),
     /*
       ⛔ THE PRICE, READ LIVE. `platform_retail_catalog_v2` is admin-managed and
       is the only figure a customer is ever charged. Null on failure, and the
@@ -393,6 +399,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     cleared_at?: string | null;
     timezone?: string | null;
     event_type?: string | null;
+    planning_mode?: string | null;
   } | null;
 
   /*
@@ -630,7 +637,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       owned: ownsLiveWall,
       launchLabel: 'Open the wall',
       launchHref: `${base}/live`,
-      addHref: `${base}/studio`,
+      addHref: studioHubHref(eventId),
       Icon: MonitorPlay,
     },
     {
@@ -1434,6 +1441,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           <MakerDetails
             yourEvent={yourEvent}
             seatPlan={seatPlan}
+            /* 🙋 Plan it myself (owner 2026-10-02, tracker d4) — the same
+               `planning_mode` the Setnayan AI page flips; null when the read failed. */
+            planMyself={{ on: eventRes.error ? null : planMyselfOn(eventRow?.planning_mode) }}
             /* 🪜 Details part 5 — the guided "What's left" over these very items. */
             guide={{
               open: guideAddress !== null || (detailsUnfinished && detailsLandsPlain),

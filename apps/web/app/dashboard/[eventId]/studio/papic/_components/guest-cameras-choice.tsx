@@ -1,8 +1,8 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { Users } from 'lucide-react';
 
 import { SubmitButton } from '@/app/_components/submit-button';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestAccess } from '@/lib/papic-guest';
 import { setPapicGuestCaptureEarly } from '../guest-window-actions';
 import { SettingRow } from './setting-row';
@@ -76,7 +76,7 @@ export async function GuestCamerasChoice({
   // says so: hiding the switch on a failed read looks exactly like a
   // celebration with no guest cameras, and the couple loses the control with
   // no sign that anything went wrong.
-  const access = await eventPapicGuestAccess(createAdminClient(), eventId);
+  const access = await eventPapicGuestAccess(await eventEntitlementClient(eventId), eventId);
   if (access === 'off') return null;
   if (access !== 'on') {
     const body = (

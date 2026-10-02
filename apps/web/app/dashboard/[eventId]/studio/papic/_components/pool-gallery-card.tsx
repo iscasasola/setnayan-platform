@@ -1,5 +1,5 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { Images } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { eventPapicActive } from '@/lib/papic-seats';
@@ -21,8 +21,7 @@ import { PoolGalleryToggle } from './pool-gallery-toggle';
 export async function PoolGalleryCard({ eventId }: { eventId: string }) {
   if (!(await papicPoolGalleryActive())) return null;
 
-  const supabase = await createClient();
-  const papicActive = await eventPapicActive(supabase, eventId);
+  const papicActive = await eventPapicActive(await eventEntitlementClient(eventId), eventId);
   if (!papicActive) return null;
 
   // Toggle state via the admin client: pre-migration (column absent) this read

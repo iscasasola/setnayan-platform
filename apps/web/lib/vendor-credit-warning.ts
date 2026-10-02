@@ -120,3 +120,39 @@ export function creditWarningCopy(input: {
       `renew before then and you keep it.`,
   };
 }
+
+/**
+ * 📌 THE TODAY NOTICE (owner 2026-10-02, tracker d5: *"warn a supplier 7 days
+ * before a balance expires — one notice on their Today page + email"*).
+ *
+ * The email and the tray notice already went out once per term from the
+ * fleet sweep (`maybeSweepVendorCreditWarnings`). This is the third place the
+ * same warning shows: the shop's own Today page, for as long as the window is
+ * open — the SAME rule (`shouldWarnAboutCredit`) and the SAME words
+ * (`creditWarningCopy`), so the page, the tray and the email can never say
+ * different things or open on different days.
+ *
+ * Null = nothing to say (no credit, no end date, outside the window, or
+ * already past — see `shouldWarnAboutCredit`).
+ */
+export function todayCreditNotice(
+  row: { creditPhp: number; tierExpiresAt: string | null },
+  nowMs: number,
+): { title: string; body: string; href: string } | null {
+  const warn = shouldWarnAboutCredit(
+    {
+      vendorProfileId: 'today',
+      // The shop is looking at its own page — there is an owner by definition.
+      ownerUserId: 'self',
+      businessName: null,
+      creditPhp: row.creditPhp,
+      tierExpiresAt: row.tierExpiresAt,
+    },
+    nowMs,
+  );
+  if (!warn) return null;
+  return {
+    ...creditWarningCopy({ creditPhp: row.creditPhp, tierExpiresAt: row.tierExpiresAt! }),
+    href: '/vendor-dashboard/subscription',
+  };
+}

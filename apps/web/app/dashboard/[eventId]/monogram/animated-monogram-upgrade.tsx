@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { Check, ExternalLink, PencilLine, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -96,14 +97,16 @@ export async function AnimatedMonogramUpgrade({ eventId }: { eventId: string }) 
   // No event row (drifted/clean DB) → render nothing rather than crash the maker.
   if (!event) return null;
 
-  const owns = await eventOwnsAnimatedMonogram(supabase, eventId);
+  // The EVENT holds the animation, not the person who paid (owner 2026-10-02).
+  const ent = await eventEntitlementClient(eventId);
+  const owns = await eventOwnsAnimatedMonogram(ent, eventId);
   // Payment handshake (2026-06-18): `owns` counts a still-pending ('submitted')
   // order so the buy CTA stays suppressed (double-buy prevention), but the live
   // animation only goes on once the Setnayan team verifies payment (the hero
   // gates on eventAnimatedMonogramActive). `active` gates the OwnedView;
   // owned-but-pending shows "payment under review". Only query when owns is
   // true (cheap — skips the read for the common buy case).
-  const active = owns ? await eventAnimatedMonogramActive(supabase, eventId) : false;
+  const active = owns ? await eventAnimatedMonogramActive(ent, eventId) : false;
   const monogram = resolveMonogram(event);
 
   // The couple's EFFECTIVE custom mark — uploaded outranks studio, the same

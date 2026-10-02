@@ -40,6 +40,8 @@ import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { tellTheCouplePapicPoolIsSpent } from '@/lib/papic-pool-spent-notice';
 import { eventHasPapicUnlock } from '@/lib/entitlements';
 import { captureWindowState } from '@/lib/papic-window';
+import { COUPLE_MEDIA_FULL_CODE, coupleMediaFullMessage, isCoupleMediaMeterPath } from '@/lib/couple-media-allowance';
+import { reserveCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
 
 /**
  * Presigned-URL endpoint used by `<FileUpload>` to upload files directly to
@@ -196,40 +198,6 @@ function sanitizeFilename(raw: string): string {
   const safeStem = stem.length > 0 ? stem : 'file';
   const composed = ext ? `${safeStem}.${ext}` : safeStem;
   return composed.slice(0, MAX_FILENAME_LEN);
-}
-
-/**
- * Which `events/<eventId>/…` sub-paths count toward the couple's 100 MB Maker
- * allowance (DECISION_LOG 2026-09-25) — the couple's OWN Event Hub media:
- * the hero photo, the gallery, background music, the Living Hero clip, and
- * the Save-the-Date video/background. Deliberately an ALLOWLIST, not "every
- * upload naming this event": `events/<id>/pakanta-song` (admin-delivered, not
- * couple-uploaded), `payment-proof/events/<id>`, `paperwork/<id>/…`,
- * `disputes/<id>/…` and `zone-walkthroughs/<id>/…` all also carry this
- * event's id but are NOT the media the owner's ₱21/decade math was about —
- * counting them would over-fill a meter that exists to show a real ceiling.
- * Extend this set only for a genuine Maker media surface, never to "catch"
- * an unrelated upload the meter was never meant to see.
- */
-const COUPLE_MEDIA_METER_SUBPATHS: ReadonlySet<string> = new Set([
-  'landing-page-hero',
-  'landing-page-hero-video',
-  'hero-video',
-  'our-photos',
-  'site-music',
-  'std-video',
-  'std-background',
-  // The Main background's own clip or photo and its still (Maker Phase 10) —
-  // a genuine Maker media surface: the couple's own footage behind every scene.
-  'main-background',
-  // A scene's own background photo or clip and its still ("Upload media" in the
-  // Maker's scene Format tab, owner 2026-09-28) — the same kind of surface.
-  'scene-background',
-]);
-
-function isCoupleMediaMeterPath(pathPrefix: string, eventId: string): boolean {
-  const segs = pathPrefix.split('/');
-  return segs[0] === 'events' && segs[1] === eventId && COUPLE_MEDIA_METER_SUBPATHS.has(segs[2] ?? '');
 }
 
 function sanitizePathPrefix(raw: string): string {
@@ -932,6 +900,36 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     );
   }
 
+  // ── THE 100 MB ALLOWANCE IS A CAP (DECISION_LOG 2026-09-25) ────────────────
+  // "they can only upload a total of 100MB compressed files." `sizeBytes` is the
+  // COMPRESSED length — the client ran `compressImageForWeb`/`compressVideoForWeb`
+  // before calling this route — and the signed content-length binds the PUT to
+  // it. Reserved BEFORE the PUT is signed, atomically, so an upload that would
+  // take the event over its allowance is refused here and never reaches storage.
+  // A refusal first settles the counter (a removed photo frees its bytes there —
+  // lib/couple-media-allowance.server.ts). Counted at the reservation: the bytes
+  // are on the counter the moment the couple may PUT them.
+  if (coupleMediaEventId) {
+    const reservation = await reserveCoupleMediaBytes(coupleMediaEventId, sizeBytes);
+    if (reservation.kind === 'full') {
+      return NextResponse.json(
+        {
+          error: coupleMediaFullMessage(reservation.usedBytes, sizeBytes),
+          code: COUPLE_MEDIA_FULL_CODE,
+        },
+        { status: 413 },
+      );
+    }
+    if (reservation.kind === 'unavailable') {
+      // Fail CLOSED: a cap that waves uploads through whenever it cannot read
+      // itself is not a cap. Plain reason + try again (INTERACTION_RULES).
+      return NextResponse.json(
+        { error: 'We couldn’t check your event’s upload allowance just now. Try again in a moment.' },
+        { status: 503 },
+      );
+    }
+  }
+
   // ---- Build object key + presign ----------------------------------------
 
   // The UUID prefix guarantees uniqueness even when two users upload a file
@@ -949,40 +947,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }),
       presignDisplayUrl(bucketName, objectKey),
     ]);
-
-    // ── THE 100 MB METER (DECISION_LOG 2026-09-25) ──────────────────────────
-    // `sizeBytes` is the COMPRESSED length — the client already ran
-    // `compressImageForWeb`/`compressVideoForWeb` before ever calling this
-    // route, so this is exactly the "compressed bytes" the allowance counts,
-    // with no separate accounting pass needed. `after()` so a slow write never
-    // delays the presign the couple is waiting on; best-effort by design (see
-    // the column's migration docblock) — an update that never lands undercounts
-    // the meter, it never blocks or corrupts an upload.
-    if (coupleMediaEventId) {
-      const eventIdForMeter = coupleMediaEventId;
-      after(async () => {
-        try {
-          // Supabase RESOLVES with { error } — it does not throw on an RPC-level
-          // failure (a bad grant, a check violation) — so the error must be READ,
-          // not just awaited, or a real failure here would be silent forever.
-          const { error } = await createAdminClient().rpc('increment_couple_media_bytes', {
-            p_event_id: eventIdForMeter,
-            p_bytes: sizeBytes,
-          });
-          if (error) {
-            Sentry.captureException(error, {
-              tags: { route: 'api/upload', step: 'couple_media_bytes_meter' },
-              extra: { eventId: eventIdForMeter, sizeBytes },
-            });
-          }
-        } catch (err) {
-          Sentry.captureException(err, {
-            tags: { route: 'api/upload', step: 'couple_media_bytes_meter' },
-            extra: { eventId: eventIdForMeter, sizeBytes },
-          });
-        }
-      });
-    }
 
     return NextResponse.json(
       {

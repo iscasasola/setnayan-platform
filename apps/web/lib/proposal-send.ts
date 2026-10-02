@@ -531,9 +531,10 @@ export async function sendCustomProposalCore(
   // free-travel ring, and the couple is billed for travel the bench badge
   // promised was free.
   //
-  // Flag-dark and fail-soft: `resolveThreadFreeTransport` returns null before
-  // issuing a single query while NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED is
-  // off, and on any error; `applyFreeTransportToQuote(lines, null)` returns the
+  // Armed by default since 2026-10-02 (owner, tracker d9) and fail-soft:
+  // `resolveThreadFreeTransport` returns null before issuing a single query
+  // only when NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED is set to its kill
+  // value (0/false/off), and on any error; `applyFreeTransportToQuote(lines, null)` returns the
   // same lines and the same total, so the flag-off path is behaviourally
   // identical to before this block existed.
   //

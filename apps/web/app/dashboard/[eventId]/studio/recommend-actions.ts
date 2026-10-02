@@ -4,6 +4,15 @@ import { revalidatePath } from 'next/cache';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
 import { createClient } from '@/lib/supabase/server';
 
+// ⚠ NO SCREEN POSTS THESE SINCE 2026-10-02. Their only form lived on the
+// /studio index, which production had redirected to /suite since 2026-07-22,
+// and both index pages were deleted with the full-page More Services (owner,
+// tracker d1). Kept, not deleted: they are the only writers of
+// coordinator_feature_recommendations (+ the couple's dismiss of
+// vendor_feature_recommendations), and `ugat-both-ends.db.test.ts` rightly
+// refuses a table with no writer. Re-mounting the suggestion strip (or
+// retiring the two tables) is an owner call, flagged in PR #6272.
+//
 // Coordinator "recommend a feature" prompt (owner 2026-06-22).
 //
 // A booked coordinator (event delegate / moderator) suggests a paid Studio

@@ -1,4 +1,8 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { redirect } from 'next/navigation';
+import { after } from 'next/server';
+import { makerMediaMeterState } from '@/lib/maker-media-limits';
+import { settleCoupleMediaBytes } from '@/lib/couple-media-allowance.server';
 import { hubSetupApplies } from '@/lib/hub-setup-locks';
 import { resolveMonogram } from '@/lib/monogram';
 import { countdownTargetMs } from '@/lib/countdown-target';
@@ -189,7 +193,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -221,7 +225,7 @@ export default async function WebsiteEditorPage({
     /* 👁 As the viewer is SHOWN it (`lib/view-as-free.server.ts`): an internal
        viewer who switched on "View as a free couple" gets every padlock and
        Pro offer below. Render only — each panel's action asks the real gate. */
-    asViewed(eventCoupleWebsiteProActive(supabase, eventId)),
+    asViewed(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
     /*
       ⛔ THE PRICE, READ LIVE — the same read `launch/page.tsx` makes.
       `platform_retail_catalog_v2` is admin-managed and is the only figure a
@@ -343,6 +347,23 @@ export default async function WebsiteEditorPage({
     displayFor([musicRef, videoRef, panelMusicRef, panelVideoRef]),
     displayFor([stdBgRef]),
   ]);
+
+  /* 💾 THE 100 MB ALLOWANCE, shown where the uploads happen (Upload media on a
+     scene, the Main background). The counter only grows between settles, so a
+     picture the couple removed still sits on it: settle it — R2's own sizes of
+     what the event still keeps (`lib/couple-media-allowance.ts`). Near the cap
+     the couple is about to be refused, so the number must be right NOW (inline);
+     below it, settling after the response keeps this render as fast as before
+     and the next refresh (every save brings one) shows the freed bytes. */
+  const countedMediaBytes = (event as { couple_media_bytes?: number | null }).couple_media_bytes ?? 0;
+  let mediaUsedBytes = countedMediaBytes;
+  if (makerMediaMeterState(countedMediaBytes).isNear) {
+    mediaUsedBytes = (await settleCoupleMediaBytes(eventId)) ?? countedMediaBytes;
+  } else if (countedMediaBytes > 0) {
+    after(async () => {
+      await settleCoupleMediaBytes(eventId);
+    });
+  }
 
   /* 🎨 The photos a couple may use as a section background — their own hero
      first, then their gallery, each with the display URL this page ALREADY
@@ -773,6 +794,7 @@ export default async function WebsiteEditorPage({
                       photoChoices={photoChoices}
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}
+                      mediaUsedBytes={mediaUsedBytes}
                     />
                   </>
                 ),
@@ -1407,6 +1429,7 @@ export default async function WebsiteEditorPage({
         photoChoices,
         videoChoice,
         sceneUploads,
+        mediaUsedBytes,
         mediaHref: `${w}/our-photos`,
         hubTheme: currentThemeId,
         openBrowse,

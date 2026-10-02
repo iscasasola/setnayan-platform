@@ -3,7 +3,15 @@
  * the inner-ring free-travel promise (spec `Explore_Replan_BUILD_SPEC_2026-07-27.md`
  * §17 · migration `20271013561924` · PR #3816).
  *
- * OFF (the default) → byte-identical to today: `resolveThreadFreeTransport`
+ * ⚖ ARMED BY DEFAULT SINCE 2026-10-02 (owner, tracker d9: *"enforce the
+ * free-transport inner radius in quotes now"*). Until then this was default
+ * OFF and production never set it, so the promise the couple's bench badge
+ * makes ("No travel fee") was not kept on the quote. Now the variable is a
+ * KILL SWITCH only: unset (production today) = enforced; `0` / `false` /
+ * `off` (any case) = the old pass-through, for a money rollback without a
+ * deploy of code.
+ *
+ * OFF (the kill switch) → byte-identical to before: `resolveThreadFreeTransport`
  * returns null BEFORE issuing a single query, `applyFreeTransportToQuote` passes
  * the vendor's line items through untouched, and the quote total is exactly the
  * one `sanitizeCustomLineItems` already produced. The couple-facing badge is
@@ -29,6 +37,6 @@
  * `tsx --test`. Mirrors `vendor-addon-tiered-pricing-flag.ts`.
  */
 export function isFreeTransportEnforcementEnabled(): boolean {
-  const v = process.env.NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED;
-  return v === '1' || v === 'true';
+  const v = (process.env.NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED ?? '').trim().toLowerCase();
+  return !(v === '0' || v === 'false' || v === 'off');
 }

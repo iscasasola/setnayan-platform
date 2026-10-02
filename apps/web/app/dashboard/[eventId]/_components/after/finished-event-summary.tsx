@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { ArrowRight, Users, Compass, Sparkles, Newspaper, Images } from 'lucide-react';
 import type { AfterSummary } from '@/lib/after-summary';
 import { formatCount } from '@/lib/format-number';
@@ -175,7 +176,7 @@ export function FinishedEventSummary({ eventId, noun, dateLabel, slug, summary }
           </span>
         </Card>
 
-        <Card href={`${base}/suite`} Icon={Sparkles} title="More Services" cta="Open More Services">
+        <Card href={studioHubHref(eventId)} Icon={Sparkles} title="More Services" cta="Open More Services">
           <Figure value={summary.services} unit="service" />
           <span className="mt-0.5 block text-[12.5px] text-ink/55">
             What you had switched on for this one.

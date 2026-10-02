@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound, redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -23,8 +24,6 @@ import { eventActiveSkus } from '@/lib/entitlements';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { PAPIC_INCLUSIVE_SKUS } from '@/lib/papic-seats';
 import { buildOurServices, ourServicesMenuChildren } from '@/lib/our-services';
-import { studioHubHref } from '@/lib/studio-hub';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { EventRailContext } from './_components/event-rail-context';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
@@ -296,10 +295,12 @@ export default async function EventLayout({ children, params }: Props) {
     service stays open after the day) and whether Setnayan AI is sellable for
     this kind. Both fail soft to "nothing owned" / "not sellable".
   */
-  const ownedRead = eventActiveSkus(createAdminClient(), eventId).catch(() => ({
-    active: new Set<string>(),
-    pending: new Set<string>(),
-  }));
+  const ownedRead = eventEntitlementClient(eventId)
+    .then((ent) => eventActiveSkus(ent, eventId))
+    .catch(() => ({
+      active: new Set<string>(),
+      pending: new Set<string>(),
+    }));
   const aiPriceRead = eventRead.then((res) =>
     res.data
       ? resolveSetnayanAiDisplayPricePhp(supabase, (res.data.event_type as string | null) ?? 'wedding').catch(() => 0)
@@ -441,9 +442,9 @@ export default async function EventLayout({ children, params }: Props) {
 
   /*
     📂 THE FIVE UNDER MORE SERVICES (owner 2026-09-30: *"the sidebar will
-    expand and collapse to show these"*). `buildOurServices` with the More
-    Services page's own gates — the ONE builder, so the rail can never list a
-    service the page does not, or in another order. Prices are not read here:
+    expand and collapse to show these"*). `buildOurServices` — the ONE
+    builder, so the rail and the phone sheet can never list different services,
+    or in another order (the full page is gone since 2026-10-02). Prices are not read here:
     a menu row names a service, it never prices it. Plain data only (the
     icon is a NAME) — this crosses into two client components.
   */
@@ -462,7 +463,6 @@ export default async function EventLayout({ children, params }: Props) {
       papicOwnedBy: PAPIC_INCLUSIVE_SKUS,
       refusesPath: (p) => storeShell && isStoreShellWebOnlyPath(p),
     }),
-    studioHubHref(eventId),
   );
 
   const tr = makeT(locale);

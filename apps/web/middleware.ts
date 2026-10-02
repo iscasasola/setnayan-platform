@@ -330,6 +330,8 @@ async function middlewareCore(request: NextRequest) {
   // so the page is gone and the old URL (emails, bookmarks, stored notification
   // links, indexed URLs) still lands where the stub sent it. One map, one lookup:
   // lib/legacy-redirects.ts. 308, like the /services and /add-ons forwards above.
+  // The full-page More Services (/suite, /studio) joined the map 2026-10-02
+  // (owner, tracker d1) — they forward to the More menu on Home.
   const retiredTarget = legacyRedirectTarget(pathname);
   if (retiredTarget) {
     return NextResponse.redirect(new URL(retiredTarget, request.url), 308);

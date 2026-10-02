@@ -1,3 +1,4 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -98,7 +99,7 @@ export default async function AddOnDetailPage({ params }: Props) {
   */
   if (
     entry?.serviceKey &&
-    (await eventSkuActive(createAdminClient(), eventId, entry.serviceKey))
+    (await eventSkuActive(await eventEntitlementClient(eventId), eventId, entry.serviceKey))
   ) {
     // Patiktok owners go to the operator booth (more specific than its index).
     redirect(

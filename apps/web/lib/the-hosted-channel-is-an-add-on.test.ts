@@ -95,7 +95,7 @@ test('every pool-only surface resolves ownership from LIVE_STUDIO_HOSTED_CHANNEL
     const src = read(surface);
     assert.match(
       src,
-      /eventSkuActive\(\s*supabase,\s*eventId,\s*LIVE_STUDIO_HOSTED_CHANNEL_SKU\s*\)/,
+      /eventSkuActive\(\s*ent,\s*eventId,\s*LIVE_STUDIO_HOSTED_CHANNEL_SKU\s*\)/,
       `${surface} does not read real hosted-channel ownership — poolOnlyConnectNotice() would be fed a guess`,
     );
   }

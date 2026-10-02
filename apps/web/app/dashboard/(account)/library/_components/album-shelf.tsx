@@ -3,6 +3,7 @@ import { Play } from 'lucide-react';
 import { EventMonogram } from '@/app/_components/event-monogram';
 import { getPhotosAlbums } from '../_data/photos-albums';
 import { formatCount } from '@/lib/format-number';
+import { GalleryDoors } from './gallery-doors';
 
 /**
  * AlbumShelf — one cover per event, oldest first, above the whole-library grid.
@@ -52,6 +53,7 @@ export async function AlbumShelf({ userId }: { userId: string }) {
   });
 
   return (
+    <>
     <section aria-labelledby="album-shelf-heading" className="mb-8">
       <h2 id="album-shelf-heading" className="sr-only">
         Albums, one per event
@@ -110,5 +112,8 @@ export async function AlbumShelf({ userId }: { userId: string }) {
         })}
       </ul>
     </section>
+    {/* A way into each hosted event's Gallery — Papic or not (owner 2026-10-02). */}
+    <GalleryDoors events={ordered.map((a) => a.event)} />
+    </>
   );
 }

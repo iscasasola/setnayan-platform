@@ -125,7 +125,7 @@ test('3b · Upload media is the scene picker\'s pictures, the ready-made scenes 
   assert.match(comp, /options=\{HUB_MEDIA_MOTIONS\.map/, 'Still · Parallax on a photo — one PickMenu');
   assert.match(comp, /const proMark = makerProMark\(\{ owns: ownsPro, storeShell: false \}\);/, '◆ PRO while tried — never a lock');
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
-  assert.match(page, /photoChoices=\{photoChoices\}\s*videoChoice=\{videoChoice\}\s*sceneUploads=\{sceneUploads\}\s*\/>/);
+  assert.match(page, /photoChoices=\{photoChoices\}\s*videoChoice=\{videoChoice\}\s*sceneUploads=\{sceneUploads\}\s*mediaUsedBytes=\{mediaUsedBytes\}\s*\/>/);
   // Apply accepts every picture the picker offers.
   const apply = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   assert.match(apply, /const mainIsOwn = \(ref: unknown\) =>[\s\S]*?isStdLibrarySrc\(ref\)\);/);

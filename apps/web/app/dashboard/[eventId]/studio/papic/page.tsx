@@ -1,4 +1,7 @@
+import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
+import { ServiceParts } from '../_components/service-parts';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -529,11 +532,11 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .select('retail_price_php, is_active')
       .eq('package_code', 'PAPIC_UNLOCK')
       .maybeSingle(),
-    eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK'),
+    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'PAPIC_UNLOCK'),
     // The ₱9,000 twin frees the ₱30 rung it was sold against — today's Mini
     // (legacy 'roll'). It does NOT cover the new ₱50 Ltd rung. See
     // lib/papic-cameras.ts CameraQuoteOpts.
-    eventSkuActive(unlockAdmin, eventId, 'PAPIC_UNLOCK_LTD'),
+    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'PAPIC_UNLOCK_LTD'),
     fetchPlatformSettings(supabase),
     // Keep Full-Res archive (owner 2026-07-11) — sold on the existing apply-then-pay.
     unlockAdmin
@@ -541,7 +544,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .select('retail_price_php, is_active')
       .eq('service_code', 'HIGH_RES_ARCHIVE')
       .maybeSingle(),
-    eventSkuActive(unlockAdmin, eventId, 'HIGH_RES_ARCHIVE'),
+    eventSkuActive(await eventEntitlementClient(eventId), eventId, 'HIGH_RES_ARCHIVE'),
   ]);
   if (unlockPkgError) {
     logQueryError('PapicPage.unlockPkg', unlockPkgError, { event_id: eventId }, 'graceful_degrade');
@@ -758,7 +761,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     */
     <section className="flex flex-col gap-7 pb-12">
       <Link
-        href={`/dashboard/${eventId}/studio`}
+        href={studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -776,6 +779,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         do truthfully.
       */}
       <StudioBuyHero productName={PAPIC_HERO.label} promise={PAPIC_HERO.blurb} />
+
+      {/* 🧩 Thank-You Video, under Papic (it sat under the Papic card on the
+          retired More Services page — owner, tracker d1). */}
+      <ServiceParts eventId={eventId} service="papic" />
 
       {/* ⚠ EVERY CONFIRMATION, ON THE ONE PAGE. When this screen had three
           rooms, an action's outcome had to be mapped to a room or its "saved"

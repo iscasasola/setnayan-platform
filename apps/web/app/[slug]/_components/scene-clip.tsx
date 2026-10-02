@@ -8,7 +8,10 @@ import { useEffect, useRef, useState } from 'react';
  * Owner, 2026-09-24 (DECISION_LOG): *"yes, short clips loop and longer videos
  * tap to play"* ⇒ short clips autoplay MUTED, loop, inline, no controls; longer
  * videos show a still with ▶ and play WITH SOUND on a tap; both play only while
- * on screen; reduced-motion guests see the still. For tap-to-play the couple
+ * on screen; reduced-motion guests see the still. A guest whose phone asks to
+ * save data (`navigator.connection.saveData`) also keeps the still — a loop is
+ * decoration, never worth their data. A loop also rests while the tab is in
+ * the background. For tap-to-play the couple
  * picks Full screen (the default — guests are on phones, a long video wants
  * sound and the whole screen) or In place.
  *
@@ -26,6 +29,7 @@ export function SceneClip({
   label,
   className = 'hub-tpl-media',
   poster = null,
+  revealOnPlay = false,
 }: {
   src: string;
   /** The clip's still — its first frame before it plays, and under reduced motion. */
@@ -40,30 +44,51 @@ export function SceneClip({
    * loop, cover-fitted by the frame's own rule.
    */
   className?: string;
+  /**
+   * 🖼 THE STILL STAYS UNTIL THE CLIP IS MOVING — the video is invisible until
+   * its first `playing` event, so whatever the caller drew BEHIND it (the Main
+   * background's still) is what a guest sees first, and what they keep seeing
+   * if the clip never plays: reduced motion, Save-Data, iOS Low Power Mode
+   * refusing autoplay (which would otherwise paint its own ▶ over the page), a
+   * dead link. No guest-side control is ever shown.
+   */
+  revealOnPlay?: boolean;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
   const [started, setStarted] = useState(false);
+  const [moving, setMoving] = useState(false);
 
-  // LOOP: play only while on screen, never under reduced motion.
+  // LOOP: play only while on screen and while the tab is in front; never under
+  // reduced motion, never when the guest asked their phone to save data.
   useEffect(() => {
     const v = ref.current;
     if (!v || play !== 'loop') return;
     const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)');
-    if (reduce?.matches || typeof IntersectionObserver === 'undefined') {
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData === true;
+    if (reduce?.matches || saveData || typeof IntersectionObserver === 'undefined') {
       v.pause();
       return;
     }
+    let onScreen = false;
+    const sync = () => {
+      if (onScreen && document.visibilityState !== 'hidden') void v.play().catch(() => undefined);
+      else v.pause();
+    };
     const io = new IntersectionObserver(
       (entries) => {
         const e = entries[entries.length - 1];
         if (!e) return;
-        if (e.isIntersecting) void v.play().catch(() => undefined);
-        else v.pause();
+        onScreen = e.isIntersecting;
+        sync();
       },
       { threshold: 0.25 },
     );
     io.observe(v);
-    return () => io.disconnect();
+    document.addEventListener('visibilitychange', sync);
+    return () => {
+      io.disconnect();
+      document.removeEventListener('visibilitychange', sync);
+    };
   }, [play]);
 
   if (play === 'loop') {
@@ -73,6 +98,9 @@ export function SceneClip({
         className={className}
         src={src}
         {...(poster ? { poster } : {})}
+        {...(revealOnPlay
+          ? { style: { opacity: moving ? 1 : 0 }, onPlaying: () => setMoving(true) }
+          : {})}
         muted
         loop
         playsInline

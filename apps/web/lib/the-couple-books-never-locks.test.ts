@@ -85,6 +85,7 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/nav-registry-defaults.ts', text: /^Lock$/, why: 'the lucide icon name "Lock", read by code' },
   // the DATE's own lock state (see the ⚠ in the docblock)
   { prefix: 'app/dashboard/[eventId]/date-selection/', why: "the date's own lock — picking and confirming the date" },
+  { prefix: 'app/onboarding/_shared/date-calendar.tsx', why: "the date's own lock — the calendar picks the one date the candidates share (the text also states the 30-day cap, which the Root map baselines by its exact wording)" },
   { prefix: 'app/dashboard/[eventId]/find-date/', why: "the date's own lock" },
   { prefix: 'app/dashboard/[eventId]/_components/set-date-nudge.tsx', why: "the date's own lock" },
   { prefix: 'app/dashboard/[eventId]/_components/event-dashboard.tsx', text: /date is locked|not locked yet/, why: "the date's own lock state on the event dashboard" },

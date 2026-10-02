@@ -5,7 +5,6 @@
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above.
 app/_components/account-switcher/account-switcher.tsx "Secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
-app/_components/chat-thread-views.tsx "Review accept →" → /proposals/[publicId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/_components/frontdoor/command-data.ts "Saved suppliers" → /dashboard/library	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/_components/frontdoor/front-door-feed.tsx "New uploads" → /realstories	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/_components/frontdoor/front-door-feed.tsx "See how sharing works" → /realstories	# first run 2026-10-02 · public site · a "Messages" row that opens the roster

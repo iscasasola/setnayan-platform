@@ -69,7 +69,7 @@ export function LastSeenMark({ phase, savedAt }: { phase: LastSeenPhase; savedAt
       aria-live="polite"
       data-last-seen-skip=""
       data-last-seen-mark={phase}
-      className={`pointer-events-auto fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-40 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-2xl border border-ink/10 bg-cream/95 px-3 py-1 text-[12px] text-ink/70 shadow-sm backdrop-blur ${phase === 'failed' ? 'text-ink' : ''}`}
+      className={`pointer-events-auto fixed left-1/2 top-[calc(env(safe-area-inset-top,0px)+4.25rem)] z-40 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-2 rounded-2xl px-3 py-1 text-[12px] text-ink/70 shadow-sm sn-glass-bare ${phase === 'failed' ? 'text-ink' : ''}`}
     >
       {body}
     </p>

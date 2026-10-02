@@ -651,8 +651,6 @@ function RowPrice({ cost, shrink = false }: { cost: number | null; shrink?: bool
   const text = pesoFromPhp(cost);
   return (
     <span
-      // 💾 Prices are never kept as last-seen data (lib/last-seen).
-      data-money=""
       className={[
         shrink ? 'shrink-0' : null,
         'text-sm font-medium tabular-nums',
@@ -662,6 +660,8 @@ function RowPrice({ cost, shrink = false }: { cost: number | null; shrink?: bool
       ]
         .filter(Boolean)
         .join(' ')}
+      // 💾 Prices are never kept as last-seen data (lib/last-seen).
+      data-money=""
     >
       {text ?? 'No price recorded'}
     </span>

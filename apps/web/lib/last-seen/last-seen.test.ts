@@ -31,7 +31,7 @@ import {
 } from './store';
 import { LAST_SEEN_WIPE_SCRIPT, hasAuthCookie, wipeLastSeenIfSignedOut } from './wipe';
 import { LastSeenView } from '@/app/_components/last-seen/last-seen-fallback';
-import { REFRESH_TIMEOUT_MS, refreshPhase } from '@/app/_components/last-seen/last-seen-mark';
+import { REFRESH_TIMEOUT_MS, lastSeenPath, refreshPhase } from '@/app/_components/last-seen/last-seen-mark';
 
 // The components are compiled with the classic JSX runtime under tsx.
 (globalThis as unknown as { React: unknown }).React = React;
@@ -124,6 +124,11 @@ test('1 · a kept page renders at once from the phone, then the fresh render rep
   assert.match(full, /3 on your list — Ana Cruz replied/, 'then the fresh render arrives and takes its place');
   assert.match(shell, /inert/, 'and the kept copy can never be tapped as if it were live');
 
+  // Each page has ONE address, and the Maker's embedded Schedule is not it.
+  assert.equal(lastSeenPath(EVENT, 'home'), HOME);
+  assert.equal(lastSeenPath(EVENT, 'guests'), GUESTS);
+  assert.equal(lastSeenPath(EVENT, 'suppliers'), `/dashboard/${EVENT}/vendors`);
+  assert.notEqual(lastSeenPath(EVENT, 'schedule'), `/dashboard/${EVENT}/launch`);
   // The kept copy is only ever shown on the exact page it was taken from.
   assert.equal(readLastSeen(storage, { userId: ANA, eventId: EVENT, page: 'guests', url: HOME }), null);
   assert.equal(readLastSeen(storage, { userId: ANA, eventId: 'event-2', page: 'guests', url: GUESTS }), null);

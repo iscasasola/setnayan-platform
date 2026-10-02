@@ -13,6 +13,18 @@ import type { ReactNode } from 'react';
  */
 export type LastSeenPhase = 'updating' | 'failed' | 'updated';
 
+/**
+ * The one address each kept page lives at. A page is kept and shown ONLY
+ * there — so `[eventId]/loading.tsx` (also the loading screen of every child
+ * route without its own) paints Home's copy on Home alone, and the Schedule
+ * the Maker embeds inside `/launch` is never kept as "the Schedule page".
+ */
+export function lastSeenPath(eventId: string, page: 'home' | 'guests' | 'suppliers' | 'schedule' | 'details'): string {
+  const base = `/dashboard/${eventId}`;
+  if (page === 'home') return base;
+  return `${base}/${page === 'suppliers' ? 'vendors' : page}`;
+}
+
 /** How long the loading screen may show old data before it says the refresh did not come. */
 export const REFRESH_TIMEOUT_MS = 15_000;
 

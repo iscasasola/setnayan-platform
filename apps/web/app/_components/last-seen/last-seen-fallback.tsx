@@ -3,7 +3,14 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { LastSeenEntry, LastSeenPage } from '@/lib/last-seen/store';
 import { useLastSeenScope } from './last-seen-scope';
-import { LastSeenMark, REFRESH_TIMEOUT_MS, noteLastSeenShown, refreshPhase, type LastSeenPhase } from './last-seen-mark';
+import {
+  LastSeenMark,
+  REFRESH_TIMEOUT_MS,
+  lastSeenPath,
+  noteLastSeenShown,
+  refreshPhase,
+  type LastSeenPhase,
+} from './last-seen-mark';
 
 /**
  * 💾 LAST-SEEN DATA SHOWS INSTANTLY, THEN REFRESHES (owner 2026-10-02,
@@ -34,8 +41,8 @@ export function LastSeenFallback({ page, children }: { page: LastSeenPage; child
     if (!scope) return;
     // Only the page as it opens from the menu — a filtered or deep-linked view
     // is a different screen, and is never painted from another one's data.
-    if (window.location.search) return;
-    const url = window.location.pathname;
+    const url = lastSeenPath(scope.eventId, page);
+    if (window.location.search || window.location.pathname !== url) return;
     let live = true;
     let timer = 0;
     const fail = () => setShown((s) => (s ? { ...s, phase: 'failed' } : s));

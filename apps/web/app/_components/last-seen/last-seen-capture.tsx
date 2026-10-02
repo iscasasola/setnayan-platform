@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import type { LastSeenPage } from '@/lib/last-seen/store';
 import { useLastSeenScope } from './last-seen-scope';
-import { LastSeenMark, takeLastSeenShown } from './last-seen-mark';
+import { LastSeenMark, lastSeenPath, takeLastSeenShown } from './last-seen-mark';
 
 /**
  * 💾 LAST-SEEN DATA — the keeping half (owner 2026-10-02, DECISION_LOG
@@ -56,9 +56,10 @@ export function LastSeenCapture({
       // An idle callback can land after the person has already moved on; by
       // then the address is the NEXT page's, so this page must not be saved.
       if (!alive) return;
-      // Only the page as it opens from the menu (see LastSeenFallback).
-      if (window.location.search) return;
-      const url = window.location.pathname;
+      // Only the page as it opens from the menu, at its own address (see
+      // LastSeenFallback) — the Schedule the Maker embeds is not "Schedule".
+      const url = lastSeenPath(scope.eventId, page);
+      if (window.location.search || window.location.pathname !== url) return;
       // Lazy: the cleaner and the store load after the page is up, on idle
       // (`lib/last-seen/client.ts`) — never in any page's first load.
       void import('@/lib/last-seen/client')

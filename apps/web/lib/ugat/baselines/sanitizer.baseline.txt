@@ -1,0 +1,9 @@
+# Root map baseline — Sanitisers that drop keys.
+# Report-only: a finding not listed here warns in CI.
+# One line per finding: <key><TAB># <why it is on the list>. Written by
+#   pnpm --filter @setnayan/web root-map --baseline
+# Never add a line by hand to make CI pass — fix the finding. A fixed one is
+# dropped by re-running the command above.
+lib/erasure/coverage.ts#scrubWizardState	# first run 2026-10-02 · shared code · a cleaner that silently throws away what it does not know
+lib/reception-scene.ts#sanitizeReceptionDesign	# first run 2026-10-02 · shared code · a cleaner that silently throws away what it does not know
+lib/role-group-dress-code.ts#sanitizeGroupAttire	# first run 2026-10-02 · shared code · a cleaner that silently throws away what it does not know

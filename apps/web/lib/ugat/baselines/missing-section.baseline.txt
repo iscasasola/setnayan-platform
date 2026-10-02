@@ -1,0 +1,8 @@
+# Root map baseline — Doors to a missing #section.
+# ENFORCED: a finding not listed here fails CI.
+# One line per finding: <key><TAB># <why it is on the list>. Written by
+#   pnpm --filter @setnayan/web root-map --baseline
+# Never add a line by hand to make CI pass — fix the finding. A fixed one is
+# dropped by re-running the command above.
+app/dashboard/(account)/profile/concierge/actions.ts → /help#concierge	# first run 2026-10-02 · public site · the page exists but the place on it does not
+app/vendor-dashboard/shop/_components/verify-section.tsx → #top	# first run 2026-10-02 · supplier app · the page exists but the place on it does not

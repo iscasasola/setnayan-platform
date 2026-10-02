@@ -4,7 +4,7 @@
  * 2026-10-02 "…'FILLED IN BUT NOT SAVED'": "every create form gets a
  * round-trip test").
  *
- * Each case walks one form through the committed map — input → the action's
+ * Each case walks one form through the Fields map (scanned fresh) — input → the action's
  * field → its home column → the screen that shows the new thing — via
  * `roundTrip()` (lib/ugat/round-trip.ts). Every input must be accounted for,
  * and the two failure lists are pinned EXACTLY: a field that starts being
@@ -16,14 +16,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createForms, roundTrip, type RoundTripInput } from './round-trip';
+import { scanFields } from './scan-fields';
 import type { UgatFieldsMap } from './fields';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MAP = JSON.parse(readFileSync(join(HERE, 'fields.generated.json'), 'utf8')) as UgatFieldsMap;
+// The Fields map, scanned fresh (it is not committed — see .gitignore).
+const MAP = scanFields({
+  webRoot: resolve(HERE, '..', '..'),
+  screens: JSON.parse(readFileSync(join(HERE, 'screens.generated.json'), 'utf8')),
+});
 
 const D = 'app/dashboard/[eventId]';
 export const ROUND_TRIP_CASES: Array<RoundTripInput & { name: string; notSaved: string[]; notReadBack: string[] }> = [

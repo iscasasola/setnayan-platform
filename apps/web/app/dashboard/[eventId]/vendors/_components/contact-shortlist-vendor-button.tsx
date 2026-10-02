@@ -32,7 +32,7 @@ export function ContactShortlistVendorButton({
   eventId,
   vendorId,
   vendorProfileId,
-  label = 'Contact vendor',
+  label = 'Contact supplier',
   pendingLabel = 'Opening…',
   ariaLabel,
   className = 'inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-mulberry/30 bg-mulberry/5 px-3 py-2 text-[12.5px] font-semibold text-mulberry transition-colors hover:bg-mulberry/10 disabled:opacity-60',
@@ -80,11 +80,11 @@ export function ContactShortlistVendorButton({
         return;
       }
       if (res.status === 'not_marketplace' || res.status === 'no_event') {
-        setErr("This vendor can't be messaged here.");
+        setErr("This supplier can't be messaged here.");
         return;
       }
       if (res.status === 'not_secured') {
-        setErr('Save your account first to message this vendor.');
+        setErr('Save your account first to message this supplier.');
         return;
       }
       setErr(res.status === 'error' ? res.message : 'Could not open the conversation.');

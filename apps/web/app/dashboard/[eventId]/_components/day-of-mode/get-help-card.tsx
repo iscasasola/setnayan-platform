@@ -34,7 +34,7 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
       {hasShortlist ? (
         <>
           <p className="text-sm text-ink/55">
-            Need someone today? These verified vendors take same-day work — nearest you first.
+            Need someone today? These verified suppliers take same-day work — nearest you first.
           </p>
           <ul className="space-y-2">
             {sameDayVendors.map((v) => {
@@ -91,7 +91,7 @@ export function GetHelpCard({ sameDayVendors = [] }: { sameDayVendors?: SameDayV
         </>
       ) : (
         <p className="text-sm text-ink/55">
-          If a vendor is a no-show or you need a hand on the day, reach your coordinator or the
+          If a supplier is a no-show or you need a hand on the day, reach your coordinator or the
           Setnayan team — we will help you sort it.
         </p>
       )}

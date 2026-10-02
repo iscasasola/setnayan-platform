@@ -63,10 +63,15 @@ export function FinalizeGuestListControl({
   return (
     <div
       data-guest-list-finalize={locked ? 'finalized' : 'open'}
+      /* ⚖ ONE ROW (owner 2026-10-03, "also fix the spacing here"): the
+         sentence left, the button right, both centred on one line; on a phone
+         the sentence, then a full-width button. No padding of its own — the
+         page's one gap spaces it. The button is a 44 px pill, the Filter ▾'s
+         shape, so the controls under the title read as one family. */
       className={
         locked
-          ? 'px-1 py-1 text-sm text-ink/70'
-          : 'flex flex-wrap items-center justify-between gap-2 px-1 text-sm text-ink/60'
+          ? 'text-sm text-ink/70'
+          : 'flex flex-col gap-3 text-sm text-ink/60 sm:flex-row sm:items-center sm:justify-between'
       }
     >
       {dialog}
@@ -98,14 +103,15 @@ export function FinalizeGuestListControl({
             type="button"
             disabled={pending}
             onClick={() => run(true)}
-            className="button-secondary disabled:opacity-50"
+            data-guest-list-finalize-button=""
+            className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center rounded-full border border-ink/15 px-4 text-sm font-medium text-ink hover:bg-ink/5 disabled:opacity-50 sm:w-auto"
           >
             {pending ? 'Finalizing…' : 'Finalize guest list'}
           </button>
         </>
       )}
       {error ? (
-        <p role="alert" className="mt-2 w-full text-sm text-mulberry-600">
+        <p role="alert" className="w-full text-sm text-mulberry-600">
           {error}
         </p>
       ) : null}

@@ -66,7 +66,7 @@ export async function buyVendorPapicPortfolioPack(
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return err('No vendor profile found.');
+  if (!profile) return err('No supplier profile found.');
   const vendorProfileId = profile.vendor_profile_id;
 
   // Scoped to THIS vendor profile, not the caller's global-highest role — same

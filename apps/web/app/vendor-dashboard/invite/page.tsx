@@ -21,7 +21,7 @@ import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { QrActions } from '@/app/_components/qr-actions';
 import { svgDataUri } from '@/lib/qr-download';
 
-export const metadata = { title: 'QR Code Generator · Vendor' };
+export const metadata = { title: 'QR Code Generator · Supplier' };
 
 /**
  * QR Code Generator (My Shop). One surface, two modes via a toggle:
@@ -131,7 +131,7 @@ export default async function VendorQrGeneratorPage({
         </div>
         <p className="text-sm text-ink/60">
           {mode === 'locked'
-            ? 'Lock in a customer who already paid a downpayment. They scan it once — the booking, payment plan and downpayment land on their plan automatically.'
+            ? 'Lock in a customer who already paid a first payment. They scan it once — the booking, payment plan and first payment land on their plan automatically.'
             : 'Pick the event and service, then show or send this QR. A couple scans it, sets up their free plan, and you land on their shortlist. Free, for you and for them.'}
         </p>
       </header>
@@ -295,9 +295,9 @@ async function LockedMode({
             : error === 'total'
               ? 'Set a total value greater than ₱0.'
               : error === 'downpayment'
-                ? 'Record the downpayment you received.'
+                ? 'Record the first payment you received.'
                 : error === 'overpaid'
-              ? 'The downpayment can’t be more than the total value.'
+              ? 'The first payment can’t be more than the total value.'
               : error === 'proof'
                 ? 'Upload the payment proof before generating the QR.'
                 : error === 'contract'

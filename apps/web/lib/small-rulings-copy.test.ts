@@ -54,8 +54,10 @@ test('the More Services card for the live service reads "Live Watch"', () => {
   };
   const card = buildOurServices(input).find((c) => c.key === 'live-studio');
   assert.ok(card, 'the live service card is gone');
-  assert.equal(card.name, 'Live Watch');
-  assert.doesNotMatch(card.name, /Studio/);
+  // Owner d17 (2026-10-02): plain name first, the Setnayan name under it.
+  assert.equal(card.name, 'Live stream');
+  assert.equal(card.brand, 'Live Watch');
+  assert.doesNotMatch(card.brand, /Studio/);
 });
 
 test('the Groups empty state does not name a parish', () => {

@@ -20,7 +20,6 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
-import { loadEventSettings } from './_components/details-settings-load';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -897,7 +896,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       <section className="mt-10">
         <header className="space-y-1">
           <p className="sn-eye">
-            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> On the day
+            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> The Day
           </p>
           <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
             {standing.phase === 'dayof' ? 'Running now' : 'What runs on the day'}
@@ -1030,7 +1029,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn, eventSettings] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
@@ -1056,8 +1055,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         .order('sort_order', { ascending: true }),
       // Announce is a piece of the Schedule where it is on (the schedule page's own flag).
       isCoordinatorP3Enabled().catch(() => false),
-      // 🗂 Your info › Event settings — the retired /details/change page's reads, moved whole.
-      loadEventSettings({ supabase, eventId, userId: user.id }).catch(() => null),
     ]);
     if (storyLiveRes.error) logQueryError('LaunchPage.loveStory', storyLiveRes.error, { event_id: eventId }, 'graceful_degrade');
     if (scheduleRes.error) logQueryError('LaunchPage.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -1526,7 +1523,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                 cover: drafted('cover_photo_wanted'),
               };
             })()}
-            settings={eventSettings}
             hasPalette={guided.palette}
             hasGifts={egifts.length > 0}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}

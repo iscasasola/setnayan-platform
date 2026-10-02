@@ -12,7 +12,7 @@ import { formatCount } from '@/lib/format-number';
 export function PaydaySummary({ totals }: { totals: PaydayTotals }) {
   const cards = [
     {
-      label: 'Expected (all installments)',
+      label: 'Expected (all payments)',
       value: formatPhp(totals.expectedPhp),
       icon: Wallet,
       tone: 'text-terracotta-700',

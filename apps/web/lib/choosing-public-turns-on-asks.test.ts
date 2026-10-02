@@ -3,7 +3,7 @@
  *
  * Owner, 2026-09-29 (DECISION_LOG "DISCOVER BUILD — TWO LAST ANSWERS", item 1:
  * *"yes to both"*): switching an event's visibility TO `public` sets
- * `rsvp_ask_config.whoCanRsvp = 'anyone'` ("Anyone, I approve"); the host can
+ * `rsvp_ask_config.whoCanRsvp = 'anyone'` ("Accept"); the host can
  * still turn it off afterwards — it is set on the switch, never re-forced on a
  * later save.
  *
@@ -29,7 +29,7 @@ import { stripComments } from './strip-comments';
 
 const WEB = join(__dirname, '..');
 
-test('moving INTO public turns on "Anyone, I approve" and keeps every other choice', () => {
+test('moving INTO public turns on "Accept" and keeps every other choice', () => {
   for (const previousVisibility of ['private', 'unlisted', 'invited_accounts', null]) {
     const next = rsvpAskConfigOnGoingPublic({
       previousVisibility,
@@ -87,7 +87,7 @@ test('the Maker draft follows the switch — an older draft cannot turn requests
   // A draft that never touched the RSVP questions has nothing to overwrite the live value with.
   assert.equal(draftAskToJoinOnGoingPublic({ ...emptyHubDraft(), events: { special_message: 'Hi' } } as HubDraft), null);
   assert.equal(draftAskToJoinOnGoingPublic(null), null);
-  // Already "Anyone, I approve" in the draft: nothing to write.
+  // Already "Accept" in the draft: nothing to write.
   assert.equal(
     draftAskToJoinOnGoingPublic({ ...emptyHubDraft(), events: { rsvp_ask_config: { whoCanRsvp: 'anyone' } } }),
     null,
@@ -126,7 +126,7 @@ test('🔒 the explicit switch to Public asks the decision — the Save-the-Date
 
   const action = stripComments(readFileSync(join(WEB, EXPLICIT_SWITCH), 'utf8'));
   assert.match(action, /rsvpAskConfigOnGoingPublic\(/,
-    'the explicit switch to Public no longer turns on "Anyone, I approve"');
+    'the explicit switch to Public no longer turns on "Accept"');
 
   /* ⚖ "no" (owner 2026-09-29): launching a Save-the-Date leaves the RSVP
      setting exactly as it was — it neither reads nor writes it. */
@@ -149,5 +149,5 @@ test('🔒 the Maker panel tells the host, on the switch, that requests turn on'
     'utf8',
   );
   assert.match(panel, /data-public-turns-on-asks/);
-  assert.match(panel, /Public turns on &ldquo;Anyone, I approve&rdquo;/);
+  assert.match(panel, /Public turns on &ldquo;Accept&rdquo;/);
 });

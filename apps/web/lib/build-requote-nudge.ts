@@ -142,7 +142,7 @@ export function buildRequoteNudgeBody(args: {
   return (
     `Good news — ${couple} is building their plan and your service fits their ` +
     `date and venue. Their budget for ${category} is currently a little under ` +
-    `your last proposal. Want to send them a new proposition? You can put one ` +
+    `your last quote. Want to send them a new quote? You can put one ` +
     `together here: /vendor-dashboard/proposals`
   );
 }

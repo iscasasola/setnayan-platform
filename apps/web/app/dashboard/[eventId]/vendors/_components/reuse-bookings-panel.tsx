@@ -30,10 +30,10 @@ export async function ReuseBookingsPanel() {
     <section className="space-y-3 rounded-2xl border border-ink/10 bg-cream/60 p-4 sm:p-5">
       <h3 className="flex items-center gap-2 font-display text-lg italic text-ink/85">
         <RefreshCw className="h-4.5 w-4.5 text-terracotta" strokeWidth={1.75} aria-hidden />
-        Book a past vendor again
+        Book a past supplier again
       </h3>
       <p className="text-xs text-ink/55">
-        Re-book a vendor you&rsquo;ve locked before for another event. They&rsquo;ll re-price it for
+        Re-book a supplier you&rsquo;ve booked before for another event. They&rsquo;ll re-price it for
         the new date — a fresh booking, so the usual booking terms apply.
       </p>
 
@@ -46,7 +46,7 @@ export async function ReuseBookingsPanel() {
             className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 text-sm"
           >
             <option value="" disabled>
-              Choose a past vendor…
+              Choose a past supplier…
             </option>
             {sources.map((s) => (
               <option key={s.sourceEventVendorId} value={s.sourceEventVendorId}>
@@ -88,7 +88,7 @@ export async function ReuseBookingsPanel() {
               <div className="flex items-center justify-between gap-3">
                 <span className="min-w-0">
                   <span className="block truncate font-semibold text-ink">
-                    {r.vendorName ?? 'Vendor'} → {r.targetEventLabel}
+                    {r.vendorName ?? 'Supplier'} → {r.targetEventLabel}
                   </span>
                   <span className="font-mono text-[10px] uppercase tracking-[0.1em] text-ink/45">
                     {r.status}
@@ -119,7 +119,7 @@ export async function ReuseBookingsPanel() {
               </div>
               {r.status === 'accepted' ? (
                 <p className="mt-1 text-xs text-success-800">
-                  Added to {r.targetEventLabel}. Open that event&rsquo;s vendor list to lock it in.
+                  Added to {r.targetEventLabel}. Open that event&rsquo;s supplier list to book it.
                 </p>
               ) : null}
               {r.scope.length > 0 ? (

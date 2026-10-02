@@ -172,7 +172,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
                 ),
                 logoDone: !fresh,
                 heroDone: false,
-                heroOn: ['Save the Date', 'Invitation', 'On the Day', 'The poster'],
+                heroOn: ['Save the Date', 'Invitation', 'The Day', 'The poster'],
                 revealOn: ['Save the Date', 'Invitation'],
               }
             : null

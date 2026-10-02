@@ -199,7 +199,7 @@ export function PaymentAsksPanel({
             type="text"
             name="note"
             maxLength={500}
-            placeholder="Second installment"
+            placeholder="Second payment"
             className="h-9 w-full rounded-lg border border-ink/15 px-2.5 text-sm"
           />
         </label>

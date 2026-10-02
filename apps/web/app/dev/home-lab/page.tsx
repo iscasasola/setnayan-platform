@@ -25,18 +25,22 @@ import {
 
 export const dynamic = 'force-dynamic';
 
+const DONE_GUESTS = { total: 96, unsent: 0 };
 const STATES: Record<string, HomeNextInput> = {
   guide: {
     guide: { round: 2, roundTitle: 'Invitations', done: 3, total: 7, nextTitle: 'Schedule' },
     hasDate: true,
+    guests: DONE_GUESTS,
     noun: 'wedding',
     papicReady: true,
     aiOffer: true,
   },
-  date: { guide: null, hasDate: false, noun: 'wedding', papicReady: false, aiOffer: true },
-  papic: { guide: null, hasDate: true, noun: 'wedding', papicReady: true, aiOffer: true },
-  ai: { guide: null, hasDate: true, noun: 'wedding', papicReady: false, aiOffer: true },
-  plan: { guide: null, hasDate: true, noun: 'wedding', papicReady: false, aiOffer: false },
+  date: { guide: null, hasDate: false, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: true },
+  guests: { guide: null, hasDate: true, guests: { total: 0, unsent: 0 }, noun: 'wedding', papicReady: true, aiOffer: true },
+  invite: { guide: null, hasDate: true, guests: { total: 96, unsent: 58 }, noun: 'wedding', papicReady: true, aiOffer: true },
+  papic: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: true, aiOffer: true },
+  ai: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: true },
+  plan: { guide: null, hasDate: true, guests: DONE_GUESTS, noun: 'wedding', papicReady: false, aiOffer: false },
 };
 
 export default async function HomeLab({

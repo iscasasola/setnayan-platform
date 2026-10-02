@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession, clearGuestSession } from '@/lib/guest-session';
 import { recordScan } from '@/lib/scan-trail';
 import { envFlagEnabled } from '@/lib/env-flag';
-import { saveMethodFor } from '@/lib/guest-one-path';
+import { SAVE_METHOD_FIELD, saveMethodFromForm } from '@/lib/guest-one-path';
 import { MEAL_PREFERENCES, type MealPreference } from '@/lib/guests';
 import { resolveRsvpAsk } from '@/lib/rsvp-ask';
 import { normalizeNamePart } from '@/lib/formal-name';
@@ -28,7 +28,7 @@ import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
  *
  * One form, three ways out (`then`):
  *   · `keep` — "Save to my account": saves the answers and the Terms tick, then
- *     takes the DEVICE's method, re-decided here (`saveMethodFor`) — Apple or
+ *     takes the method its button SAID (`saveMethodFromForm`) — Apple or
  *     Google through `/join/{eventId}/connect`. The shipped doors, reused.
  *     📵 Never an emailed link (owner 2026-09-29, "NO EMAIL TO GUESTS").
  *   · `pass` — "Not now — just show my pass": saves whatever was typed (nothing
@@ -162,7 +162,8 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
   // ── "SAVE TO MY ACCOUNT" — the device's method, the shipped doors.
   const termsOk = agreed || rsvpTermsCarried(jar.get(RSVP_TERMS_COOKIE)?.value);
   if (!termsOk) redirect(`/${home}/welcome?error=terms`);
-  const method = saveMethodFor((await headers()).get('user-agent'), {
+  // The method the button SAID (`SAVE_METHOD_FIELD`) — never re-guessed from this POST.
+  const method = saveMethodFromForm(formData.get(SAVE_METHOD_FIELD), (await headers()).get('user-agent'), {
     apple: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED),
     google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
   });

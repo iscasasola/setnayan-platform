@@ -189,7 +189,7 @@ export function buildCustomerEventSummary(
     paxRow(input),
     { label: 'Location', value: location ?? UNKNOWN, unknown: !location },
     {
-      label: 'Locked suppliers',
+      label: 'Booked suppliers',
       value: lockedLabel(input.lockedVendors, input.totalVendors),
       unknown: input.lockedVendors == null,
     },
@@ -221,5 +221,5 @@ export function buildCustomerEventSummary(
 function lockedLabel(locked: number | null, total: number | null | undefined): string {
   if (locked == null) return UNKNOWN;
   if (total != null && total > locked) return `${formatCount(locked)} of ${formatCount(total)}`;
-  return locked === 0 ? 'None yet' : `${locked} locked`;
+  return locked === 0 ? 'None yet' : `${locked} booked`;
 }

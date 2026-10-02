@@ -353,7 +353,7 @@ export function defaultPaymentScheduleRows(): PaymentScheduleItemRow[] {
     {
       ...base,
       seq: 0,
-      label: 'Downpayment (estimated)',
+      label: 'First payment (estimated)',
       amount_kind: 'percent',
       percent_bps: 5000,
       due_anchor: 'on_lock',

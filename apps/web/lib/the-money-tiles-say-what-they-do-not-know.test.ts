@@ -68,12 +68,12 @@ test('🪤 all THREE money tiles carry a note — counted, not spot-checked', ()
   assert.equal(
     count(/note=\{unpricedNote\(/g),
     3,
-    'Locked, Still to lock and Buffer must each state their own doubt',
+    'Booked, Still to book and Buffer must each state their own doubt',
   );
   // And each one anchored to its own tile, so the three are not interchangeable.
   for (const [k, arg] of [
-    ['Locked', 'money\\.lockedUnpriced'],
-    ['Still to lock', 'money\\.inBuildUnpriced'],
+    ['Booked', 'money\\.lockedUnpriced'],
+    ['Still to book', 'money\\.inBuildUnpriced'],
     ['Buffer', 'money\\.lockedUnpriced \\+ money\\.inBuildUnpriced'],
   ] as const) {
     assert.match(

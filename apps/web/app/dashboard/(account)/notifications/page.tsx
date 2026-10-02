@@ -49,9 +49,9 @@ export default async function CoupleNotificationsPage() {
           title: 'No notifications yet.',
           body: (
             <>
-              You&rsquo;ll see notifications when a vendor replies to a thread, when the
+              You&rsquo;ll see notifications when a supplier replies to a thread, when the
               Setnayan team confirms an order quote, or when a payment is matched. While
-              you&rsquo;re here — head to the dashboard and add a vendor or start a thread to
+              you&rsquo;re here — head to the dashboard and add a supplier or start a thread to
               kick things off.
             </>
           ),

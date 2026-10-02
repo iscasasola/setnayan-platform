@@ -31,7 +31,12 @@ import {
   Award,
   Snowflake,
 } from 'lucide-react';
-import type { VendorBadge } from '@/lib/vendor-badges';
+import {
+  MOST_BOOKING_PERCENTILE,
+  TOP_PICK_PERCENTILE,
+  topPercentLabel,
+  type VendorBadge,
+} from '@/lib/vendor-badges';
 
 type BadgeMeta = {
   label: string;
@@ -71,7 +76,7 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
   most_booking: {
     label: 'Most Booked',
     tooltip:
-      'Among the top 10% of verified suppliers by completed weddings this year.',
+      `Among the top ${topPercentLabel(MOST_BOOKING_PERCENTILE)}% of verified suppliers by completed weddings this year.`,
     icon: TrendingUp,
     // Soft amber/gold so it stays distinct from the Sponsored ad
     // accent (which uses a saturated amber-400 fill in the card
@@ -83,7 +88,7 @@ const BADGE_META: Record<VendorBadge, BadgeMeta> = {
   top_pick: {
     label: 'Top Pick',
     tooltip:
-      "Setnayan's pick of the month — top 5% by review score and volume.",
+      `Setnayan's pick of the month — top ${topPercentLabel(TOP_PICK_PERCENTILE)}% by review score and volume.`,
     icon: Award,
     // No `burgundy` token in apps/web/tailwind.config.ts; use rose-tinted
     // tokens for the deep prestige read. Matches the editorial palette

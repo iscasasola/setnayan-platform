@@ -456,7 +456,7 @@ test('a superseded quote is history — it asks nobody and says it was replaced'
     assert.match(e.now.text, /^Replaced by a newer quote/, `${viewer}: "${e.now.text}"`);
     assert.doesNotMatch(e.now.text, /Waiting on/, `${viewer} is asked to answer a replaced quote`);
     assert.equal(e.now.needsYou, false, `${viewer}: a replaced quote counts as needing them`);
-    assert.equal(e.reply, null, `${viewer}: a replaced quote still offers Review & accept`);
+    assert.equal(e.reply, null, `${viewer}: a replaced quote still offers See the quote`);
   }
 });
 

@@ -201,9 +201,9 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Setnayan AI',
     href: '/setnayan-ai',
     description:
-      'Every other wedding AI waits for you to ask. Setnayan AI watches the suppliers you’re eyeing and the ones you’ve booked — finding your best-fit Filipino suppliers, then flagging a deposit due, a price that moved, or a date about to clash before it costs you. It doesn’t chat. It watches.',
+      'Every other wedding AI waits for you to ask. Setnayan AI watches the suppliers you’re eyeing and the ones you’ve booked — finding your best-fit Filipino suppliers, then flagging a payment due, a price that moved, or a date about to clash before it costs you. It doesn’t chat. It watches.',
     railLine:
-      'Watches your suppliers and flags a deposit, a price change or a clash before it costs you.',
+      'Watches your suppliers and flags a payment, a price change or a clash before it costs you.',
     addOnKey: 'setnayan-ai',
   },
   {

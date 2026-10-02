@@ -69,7 +69,7 @@ export async function startThreadByVendorEmail(formData: FormData) {
   const email = vendorEmail.trim().toLowerCase();
   if (email.length === 0) {
     return redirect(
-      `/dashboard/${eventId}/messages?error=${encodeURIComponent('Vendor email is required')}`,
+      `/dashboard/${eventId}/messages?error=${encodeURIComponent('Supplier email is required')}`,
     );
   }
 
@@ -91,7 +91,7 @@ export async function startThreadByVendorEmail(formData: FormData) {
   const vendor = await lookupExistingVendorByEmail(createAdminClient(), email);
   if (!vendor) {
     return redirect(
-      `/dashboard/${eventId}/messages?error=${encodeURIComponent('No Setnayan vendor with that contact email.')}`,
+      `/dashboard/${eventId}/messages?error=${encodeURIComponent('No Setnayan supplier with that contact email.')}`,
     );
   }
 

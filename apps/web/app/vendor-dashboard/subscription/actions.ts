@@ -80,7 +80,7 @@ export async function startSubscriptionPurchase(formData: FormData): Promise<voi
       ERR('Only a store admin can purchase a subscription. Ask an admin on your team to upgrade.');
     }
     if (m.includes('NO_VENDOR_PROFILE')) {
-      ERR('Sign in with your vendor account to upgrade.');
+      ERR('Sign in with your supplier account to upgrade.');
     }
     if (m.includes('INVALID_PACK')) {
       ERR('That token add-on is no longer available. Refresh and try again.');

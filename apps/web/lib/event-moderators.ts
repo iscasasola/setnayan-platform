@@ -63,7 +63,7 @@ export const ROLE_SUBTYPE_HINT: Readonly<Record<RoleSubtype, string>> = {
   maid_of_honor: 'Edit. No checkout — couple controls the wallet.',
   best_man: 'Edit. No checkout — couple controls the wallet.',
   best_woman: 'Edit. No checkout — couple controls the wallet.',
-  wedding_planner_external: 'Edit + checkout. Hired planner not on the Setnayan vendor side.',
+  wedding_planner_external: 'Edit + checkout. Hired planner not on the Setnayan supplier side.',
   ninong: 'Edit. Filipino principal sponsor (godfather).',
   ninang: 'Edit. Filipino principal sponsor (godmother).',
   family_helper: "Limited edit. Tita Lita helping out — no payments, no host invites.",

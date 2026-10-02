@@ -311,14 +311,14 @@ function RailBody({
                   no way to make one. Said here, where the button is. */}
               {templateCount === 0 ? (
                 <p className="px-4 pb-1 text-xs leading-relaxed text-ink/55">
-                  No proposal template yet —{' '}
+                  No quote template yet —{' '}
                   <Link
                     href="/vendor-dashboard/proposals"
                     className="font-semibold text-mulberry underline underline-offset-2"
                   >
                     create one
                   </Link>{' '}
-                  and proposals become one click.
+                  and quotes become one click.
                 </p>
               ) : null}
             </>

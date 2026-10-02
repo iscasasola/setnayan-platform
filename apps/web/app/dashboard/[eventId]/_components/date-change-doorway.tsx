@@ -97,7 +97,7 @@ export async function DateChangeDoorway({ eventId }: { eventId: string }) {
       </ul>
       {view.suppliers.some((s) => s.overdue) ? (
         <p className="text-xs text-ink/60">
-          Dropping a supplier releases their booking; any deposit is settled by the cancellation terms on that
+          Dropping a supplier releases their booking; any payment is settled by the cancellation terms on that
           booking, never by Setnayan.
         </p>
       ) : null}

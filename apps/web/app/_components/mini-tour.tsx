@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { completeTour } from '@/lib/tour-actions';
 import { TOURS, type TourKey } from '@/lib/tours';
+import { TIP_POPUPS_ON } from '@/lib/tip-popups';
 
 // Drop-in server component that mounts a per-surface mini-tour for a
 // signed-in user the first time they land on this surface. Reads
@@ -9,7 +10,7 @@ import { TOURS, type TourKey } from '@/lib/tours';
 // only when the key is missing.
 //
 // Use from any signed-in page:
-//   <MiniTour tourKey="customer_vendors_v1" />
+//   <MiniTour tourKey="customer_budget_v1" />
 //
 // Returns null when:
 //   - The user is not signed in
@@ -28,6 +29,10 @@ export async function MiniTour({
    */
   after?: TourKey;
 }) {
+  // Tip popups are switched off until the spotlight tour ships (owner, 2026-10-03) — return
+  // BEFORE any database read, so a mount costs nothing. One switch: `lib/tip-popups.ts`.
+  if (!TIP_POPUPS_ON) return null;
+
   const supabase = await createClient();
   const {
     data: { user },

@@ -90,7 +90,12 @@ test('2 · its children are buildOurServices’ cards, in that order, under thos
   // The owner's five, by name, on an event offered everything.
   assert.deepEqual(
     services().map((s) => s.label),
-    ['Setnayan AI (SAI)', 'Papic', 'Live Watch', 'Music Maker', 'Patiktok'],
+    ['Planner', 'Guest photos', 'Live stream', 'Music', 'Video booth'],
+  );
+  // …each with its Setnayan name as the small line under it (owner d17).
+  assert.deepEqual(
+    services().map((s) => s.sub),
+    ['Setnayan AI', 'Papic', 'Live Watch', 'Music Maker', 'Patiktok'],
   );
   // A card with no door (its day has passed) opens the More Services page.
   const closed = services(input({ sellableNow: () => false }));

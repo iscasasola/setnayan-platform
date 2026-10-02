@@ -56,13 +56,13 @@ export function selfReviewBlockedBody(
 
 export const SELF_REVIEW_SIGNAL_LABEL: Record<SelfReviewSignal, string> = {
   owner_self: "You can't review your own services.",
-  team_member: "You can't review a vendor you're on the team for.",
+  team_member: "You can't review a supplier you're on the team for.",
   payment_match:
-    "We detected a shared payment method between you and this vendor's owner.",
+    "We detected a shared payment method between you and this supplier's owner.",
   device_match:
-    "We detected a shared device fingerprint between you and this vendor's owner.",
+    "We detected a shared device fingerprint between you and this supplier's owner.",
   household_match:
-    "We detected a shared address between you and this vendor's owner.",
+    "We detected a shared address between you and this supplier's owner.",
 };
 
 export const SELF_REVIEW_SIGNAL_TONE: Record<SelfReviewSignal, 'hard' | 'soft'> = {

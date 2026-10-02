@@ -484,6 +484,6 @@ test('(E)(g) zoneDisplayName words the refusal consistently for both projections
   assert.equal(zoneDisplayName('stage'), 'the stage');
   assert.equal(zoneDisplayName('dance'), 'the dance floor');
   assert.equal(zoneDisplayName('cocktail'), 'the cocktail area');
-  assert.equal(zoneDisplayName('booth0'), 'a vendor booth');
-  assert.equal(zoneDisplayName('booth3'), 'a vendor booth');
+  assert.equal(zoneDisplayName('booth0'), 'a supplier booth');
+  assert.equal(zoneDisplayName('booth3'), 'a supplier booth');
 });

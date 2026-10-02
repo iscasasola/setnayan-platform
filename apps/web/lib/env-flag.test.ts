@@ -116,7 +116,10 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['lib/nav-registry-defaults.ts', ['NEXT_PUBLIC_SUITE']],
   ['lib/onboarding-v2-brief-flag.ts', ['NEXT_PUBLIC_ONBOARDING_V2_BRIEF_ENABLED']],
   ['lib/package-authoring-flag.ts', ['NEXT_PUBLIC_PACKAGE_AUTHORING']],
-  ['lib/package-credit-flag.ts', ['NEXT_PUBLIC_PACKAGE_CREDIT']],
+  /* NEXT_PUBLIC_PACKAGE_CREDIT left this list 2026-10-02 (owner tracker d8):
+     it is now ARMED BY DEFAULT with a 0/false/off kill switch, the same shape
+     as NEXT_PUBLIC_VENDOR_FREE_TRANSPORT_ENFORCED — not a launch flag, so it
+     does not read through envFlagEnabled. lib/package-credit-flag.test.ts pins it. */
   // Both flags read from the PURE sibling, not `lib/panood-camera-seats.ts`.
   // They moved there when the service-role chain was cut (2026-08-13): the
   // streaming flag is read by `control-room.tsx` ('use client'), and a value

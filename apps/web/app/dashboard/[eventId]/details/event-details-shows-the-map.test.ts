@@ -91,17 +91,33 @@ test('information only: the sheet mounts no editor and posts nothing (Put this a
   assert.ok(!/'use client'/.test(PAGE), 'Event Details became a client component (shared bundle has no room)');
 });
 
-test('the moved editors still have a door — nothing the old page edited is stranded', () => {
-  // 🗂 Owner 2026-10-02 ("EVERY ANSWER … LIVES IN EVENT DETAILS"): /details/change
-  // folded into the Maker's Your info › Event settings. Event Details opens it
-  // there; the three shipped editors are that item's own; the old address forwards.
-  assert.ok(PAGE.includes("detailsItemHref(eventId, 'settings')"), 'Event Details lost its door to Your info › Event settings');
-  assert.ok(!PAGE.includes('details/change'), 'Event Details still links the retired Event settings page');
-  const settings = read('app/dashboard/[eventId]/launch/_components/details-answers.tsx');
+test('Event settings is its own page, opened from The basics — and never mounted in the Maker', () => {
+  // 🗂 Owner 2026-10-02 ("EVERY ANSWER … LIVES IN EVENT DETAILS") folded
+  // /details/change into the Maker's Your info › Event settings (#6280). Its
+  // three editors save LIVE through their own actions, which broke "nothing in
+  // the Maker takes effect until Apply" (simplicity fix 8) — and none can ride
+  // the draft (see event-settings-editor.tsx). So they are their own page again,
+  // and this information-only sheet links to it like every other part.
+  assert.ok(PAGE.includes('`${base}/details/change`'), 'Event Details lost its door to Event settings');
+  const page = read('app/dashboard/[eventId]/details/change/page.tsx');
+  assert.match(page, /<EventSettingsEditor\b/);
+  const settings = read('app/dashboard/[eventId]/details/_components/event-settings-editor.tsx');
   for (const editor of ['<DetailsForm', '<GovernedFields', '<PaxSettingsCard']) {
-    assert.ok(settings.includes(editor), `Your info › Event settings no longer mounts ${editor}`);
+    assert.ok(settings.includes(editor), `Event settings no longer mounts ${editor}`);
   }
-  assert.match(read('lib/legacy-redirects.ts'), /\['details\/change', 'launch\?tool=details&item=settings'\]/);
+  for (const rel of [
+    'app/dashboard/[eventId]/launch/_components/details-answers.tsx',
+    'app/dashboard/[eventId]/launch/_components/details-answers-parts.tsx',
+    'app/dashboard/[eventId]/launch/_components/details-lazy.tsx',
+    'app/dashboard/[eventId]/launch/_components/maker-details.tsx',
+  ]) {
+    const src = read(rel);
+    assert.ok(
+      !/<(DetailsForm|GovernedFields|PaxSettingsCard|EventSettingsEditor)\b|EventSettingsEditor = dynamic/.test(src),
+      `${rel} mounts a live-saving Event settings editor in the Maker`,
+    );
+  }
+  assert.doesNotMatch(read('lib/legacy-redirects.ts'), /\['details\/change',/, 'the Event settings page is redirected away again');
 });
 
 test('empty, failed and hidden are three different words, and the page uses all three', () => {
@@ -138,13 +154,13 @@ test('Event Home carries the Event Details button beside the event name', () => 
 });
 
 test('how guests get in — one fact, the shipped readers', () => {
-  assert.deepEqual(howGuestsGetIn(null), { value: 'Only people on my list', chosen: false });
-  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'Anyone, I approve', chosen: true });
-  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'No reply · a personal QR for each guest');
-  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'No reply · one QR for everyone');
+  assert.deepEqual(howGuestsGetIn(null), { value: 'List only · Guests reply', chosen: false });
+  assert.deepEqual(howGuestsGetIn({ whoCanRsvp: 'anyone' }), { value: 'Accept · Guests reply', chosen: true });
+  assert.equal(howGuestsGetIn({ guestsReply: false }).value, 'List only · No reply, each gets their own QR');
+  assert.equal(howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone' }).value, 'Open · One QR for everyone');
   assert.equal(
     howGuestsGetIn({ guestsReply: false, whoCanRsvp: 'anyone', approveEach: true }).value,
-    'No reply · one QR, I approve each one',
+    'Accept · No reply, one QR, I approve each',
   );
 });
 

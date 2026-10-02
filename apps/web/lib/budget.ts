@@ -896,7 +896,7 @@ export function renderBudgetIcs(args: {
       const summaryText = `Payment due: ${summary.vendor.vendor_name} — ${li.label}`;
       const description =
         `Amount: ₱${Number(li.amount_php).toLocaleString('en-PH')}\n` +
-        `Vendor: ${vendorLabel(summary.vendor)}\n` +
+        `Supplier: ${vendorLabel(summary.vendor)}\n` +
         `Event: ${eventName}\n` +
         (paidForLine > 0
           ? `Already paid against this line: ₱${paidForLine.toLocaleString('en-PH')}`

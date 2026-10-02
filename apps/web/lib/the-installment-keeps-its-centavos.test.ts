@@ -415,7 +415,7 @@ test('the installment field admits centavos', () => {
   // itself invalid for exactly the amounts the two toggles now put in it.
   // SABOTAGE: drop `step="0.01"`.
   const src = code(PROPOSAL_MAKER);
-  const window = src.slice(src.indexOf('aria-label="Installment amount"') - 400);
+  const window = src.slice(src.indexOf('aria-label="Payment amount"') - 400);
   assert.match(
     window.slice(0, 500),
     /step="0\.01"/,

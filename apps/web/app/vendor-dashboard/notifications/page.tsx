@@ -8,7 +8,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
 import { PushToggle } from './push-toggle';
 
-export const metadata = { title: 'Notifications · Vendor' };
+export const metadata = { title: 'Notifications · Supplier' };
 
 export default async function VendorNotificationsPage() {
   const supabase = await createClient();

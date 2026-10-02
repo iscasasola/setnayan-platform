@@ -181,7 +181,7 @@ export default async function PlaylistPage({ params }: Props) {
       ) : (
         <div className="mb-6 sn-row p-4">
           <p className="text-sm leading-relaxed text-ink/75">
-            Build the lineup whenever you&apos;re ready. The moment you lock
+            Build the lineup whenever you&apos;re ready. The moment you book
             your DJ or band, this playlist syncs to their workspace
             automatically.
           </p>

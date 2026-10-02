@@ -53,7 +53,7 @@ export const LENSES: { key: LensKey; label: string }[] = [
 export const KEPT: { key: KeptKey; label: string; Icon: typeof Images }[] = [
   { key: 'albums', label: 'Albums by event', Icon: Images },
   { key: 'editorials', label: 'Editorials', Icon: Newspaper },
-  { key: 'vendors', label: 'Saved vendors', Icon: Heart },
+  { key: 'vendors', label: 'Saved suppliers', Icon: Heart },
 ];
 
 /** The view a `?tab=` value opens. Unknown or absent → Recent. */

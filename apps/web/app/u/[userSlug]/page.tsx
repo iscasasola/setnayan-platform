@@ -923,7 +923,7 @@ function ChapterTimeline({
 // the discount terms or the offer graph. Bookings-driven ROI is P2/P3.
 function CreatorInfluence({ vendors }: { vendors: CreatorInfluenceVendor[] }) {
   return (
-    <section className="uprof-inf" aria-label="Partnered vendors">
+    <section className="uprof-inf" aria-label="Partnered suppliers">
       <h2 className="m-serif uprof-inf-head">Partnered with</h2>
       <ul className="uprof-inf-list">
         {vendors.map((v) => (

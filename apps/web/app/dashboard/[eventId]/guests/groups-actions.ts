@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { bulkAssignableRolesFor } from '@/lib/bulk-role-vocabulary';
 import { revalidatePath } from 'next/cache';
+import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { createClient } from '@/lib/supabase/server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -465,15 +466,12 @@ export async function removeGuestFromGroup(
 // `{ ok, removedIds, releasedSeats }`. `restoreDeletedGuests` is the inverse —
 // it un-soft-deletes and re-inserts those seats.
 //
-// ── THE GATES (owner directive 2026-05-23, carried over verbatim in effect) ──
-// Blocks when any guest has already RSVP'd (`rsvp_status != 'pending'`) —
-// owner's phrasing: "delete cannot be performed when RSVP has been already
-// set". "RSVP set" = anything other than 'pending'. The 4 enum values are
-// pending / attending / declined / maybe; pending is the only "no response
-// yet" state. The other three all imply the guest engaged with the invitation,
-// so removing them silently would wipe legitimate signal (an attending count
-// drops, a declined gets re-invited). The couple is blocked outright — they are
-// the foundation of the event.
+// ── THE GATE ──────────────────────────────────────────────────────────────
+// The couple is blocked outright — they are the foundation of the event.
+// ⚖ The 2026-05-23 RSVP gate ("reset their RSVP to Pending first") is RETIRED
+// (owner 2026-10-03, DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY
+// ACCEPTED"): any reply state may be deleted, behind one in-page warning that
+// says what goes with them. Their +1 goes in the same soft-delete.
 //
 // ── WHY THE SEAT IS DELETED EXPLICITLY ──────────────────────────────────────
 // `event_seat_assignments` has a FK to `guests` with ON DELETE CASCADE — but we
@@ -535,21 +533,28 @@ export async function bulkSoftDeleteGuestsForUndo(
     };
   }
 
-  // RSVP-set gate — all-or-nothing, same as the redirect path.
-  const blocked = rows.filter((r) => r.rsvp_status !== 'pending');
-  if (blocked.length > 0) {
-    const names = blocked
-      .slice(0, 3)
-      .map((r) => r.display_name?.trim() || `${r.first_name} ${r.last_name}`.trim())
-      .filter(Boolean);
-    const tail = blocked.length > 3 ? ` (and ${blocked.length - 3} more)` : '';
-    return {
-      ok: false,
-      error: `Can't delete — ${names.join(', ')}${tail} already RSVP'd. Reset their RSVP to "Pending" first.`,
-    };
-  }
+  // ⚖ NO RSVP GATE (owner 2026-10-03, DECISION_LOG "A HOST CAN DELETE A GUEST
+  // WHO ALREADY ACCEPTED"): *"add a way to delete someone even if they accepted
+  // just note that deleting them will automatically remove their decisions and
+  // everything with it"*. The 2026-05-23 "reset their RSVP to Pending first"
+  // rule is retired — in the live test it refused an attending guest and the
+  // row silently came back. The warning the host confirms now says what goes
+  // with them (`deleteWarningText`, _components/guest-delete.tsx).
 
-  const removedIds = rows.map((r) => r.guest_id as string);
+  // THEIR +1 GOES WITH THEM — the warning says so, so it must be true. A named
+  // +1 is its own row pointing at its bringer (`plus_one_of_guest_id`); left
+  // behind it would be a guest nobody invited. Taken in the same soft-delete,
+  // so the same Undo brings them back together.
+  const { data: plusOneRows, error: plusOneErr } = await supabase
+    .from('guests')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .in('plus_one_of_guest_id', rows.map((r) => r.guest_id as string))
+    .is('deleted_at', null);
+  if (plusOneErr) return { ok: false, error: plusOneErr.message };
+  const removedIds = Array.from(
+    new Set([...rows.map((r) => r.guest_id as string), ...(plusOneRows ?? []).map((r) => r.guest_id as string)]),
+  );
 
   // Capture seat placements BEFORE releasing them, so an undo can re-place the
   // guest on the exact same table/chair. This read IS the undo — without it the
@@ -584,6 +589,10 @@ export async function bulkSoftDeleteGuestsForUndo(
   if (updateErr) return { ok: false, error: updateErr.message };
 
   revalidatePath(`/dashboard/${eventId}/guests`);
+  // 🔑 Carried over from the retired `softDeleteGuest`: the story's consent veto
+  // is built from guests who opted out AND are not deleted, so a delete can
+  // lift a veto — the cached public surfaces must hear about it now.
+  await everyCopyIsNowStale(eventId);
   return { ok: true, removedIds, releasedSeats };
 }
 
@@ -633,5 +642,7 @@ export async function restoreDeletedGuests(
   }
 
   revalidatePath(`/dashboard/${eventId}/guests`);
+  // An undo can put a consent veto back — same reason as the delete above.
+  await everyCopyIsNowStale(eventId);
   return { ok: true };
 }

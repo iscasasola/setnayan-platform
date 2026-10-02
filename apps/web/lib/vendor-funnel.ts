@@ -335,7 +335,7 @@ export const SOURCE_LABELS: Record<string, string> = {
   host_manual: 'Added by couple',
   host_marketplace_search: 'Marketplace search',
   explore_card: 'Explore card',
-  auto_cascade_from_finalize: 'Auto-added (you locked a related vendor)',
+  auto_cascade_from_finalize: 'Auto-added (you locked a related supplier)',
 };
 
 /** Humanize a raw source key. Null → "Unattributed". */

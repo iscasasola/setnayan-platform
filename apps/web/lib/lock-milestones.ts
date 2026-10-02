@@ -41,7 +41,7 @@ export const FINALIZE_MILESTONES: FinalizeMilestoneDef[] = [
   {
     key: 'seating_chart',
     featureLabel: 'Seating Chart',
-    helper: 'Your reception venue is locked in.',
+    helper: 'Your reception venue is booked.',
     requiresDate: false,
     requiredGroupIds: ['reception_venue'],
     href: (eventId) => `/dashboard/${eventId}/seating`,

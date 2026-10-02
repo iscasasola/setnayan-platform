@@ -116,7 +116,7 @@ export async function listReusableBookings(): Promise<{
       sourceEventVendorId: b.vendor_id,
       sourceEventId: b.event_id,
       sourceEventLabel: eventLabel.get(b.event_id) ?? 'Event',
-      vendorName: b.vendor_name ?? 'Vendor',
+      vendorName: b.vendor_name ?? 'Supplier',
       category: b.category,
     }));
 

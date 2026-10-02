@@ -48,7 +48,7 @@ export const OWNER_RIBBON_PHASES = [
 const PHASE_LABELS: Record<LifecyclePhase, string> = {
   save_the_date: 'Save the Date',
   rsvp: 'Invitation',
-  event: 'On the day',
+  event: 'The Day',
   editorial: 'After',
 };
 

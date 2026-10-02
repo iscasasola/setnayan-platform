@@ -20,7 +20,7 @@ import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { pageWindowFor } from '@/lib/paginate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
-export const metadata = { title: 'Proposals · Vendor' };
+export const metadata = { title: 'Quotes · Supplier' };
 
 /**
  * Vendor Proposals — data-link program ③ (corpus
@@ -60,7 +60,7 @@ const NOTICES: Record<string, { tone: 'ok' | 'warn'; text: string }> = {
   template_saved: { tone: 'ok', text: 'Template saved — use it on any booked client below.' },
   template_needs_name: { tone: 'warn', text: 'The template needs a name.' },
   pick_event_and_template: { tone: 'warn', text: 'Pick a booked client and a template first.' },
-  not_booked: { tone: 'warn', text: 'Proposals work for booked clients only.' },
+  not_booked: { tone: 'warn', text: 'Quotes work for booked clients only.' },
   save_failed: { tone: 'warn', text: 'That didn’t save — try again.' },
 };
 
@@ -165,11 +165,11 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
         <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-terracotta/10 text-terracotta">
           <FileText aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
-        <h1 className="text-3xl font-semibold tracking-tight">Proposals</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">Quotes</h1>
         <p className="max-w-prose text-sm text-ink/65">
           Save your standard packages as templates once — the system fills in the
           couple&rsquo;s name, date, venue, and live guest counts for any booked client, ready
-          to print. Numbers freeze when you send, so a proposal never shifts under the
+          to print. Numbers freeze when you send, so a quote never shifts under the
           couple.
         </p>
       </header>
@@ -192,16 +192,16 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
       {/* New proposal */}
       <div className="sn-tile p-4 sm:p-6">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
-          <FilePlus2 aria-hidden className="h-5 w-5 text-terracotta" /> New proposal
+          <FilePlus2 aria-hidden className="h-5 w-5 text-terracotta" /> New quote
         </h2>
         {bookedEvents.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
-            No booked clients yet — proposals fill from a booked event&rsquo;s live details.
+            No booked clients yet — quotes fill from a booked event&rsquo;s live details.
             Once a couple books you, they&rsquo;ll appear here.
           </p>
         ) : templates.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
-            Save your first template below, then generate a proposal from it.
+            Save your first template below, then generate a quote from it.
           </p>
         ) : (
           <form action={createProposal} className="mt-3 grid gap-2">
@@ -257,7 +257,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
 
       {/* Proposals list */}
       <div id="proposals-list" className="sn-tile scroll-mt-24 p-4 sm:p-6">
-        <h2 className="text-lg font-semibold">Your proposals</h2>
+        <h2 className="text-lg font-semibold">Your quotes</h2>
         {proposals.length === 0 && !proposalsIncomplete ? (
           <p className="mt-2 text-sm text-ink/55">Nothing generated yet.</p>
         ) : proposals.length === 0 ? null : (
@@ -338,7 +338,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
               name="body"
               rows={6}
               maxLength={20000}
-              placeholder={`Dear {{couple_name}},\n\nThank you for booking ${'{{business_name}}'} for {{event_date}} at {{venue_name}}. This proposal covers {{guest_count}} confirmed guests ({{guest_count_ceiling}} maximum)…`}
+              placeholder={`Dear {{couple_name}},\n\nThank you for booking ${'{{business_name}}'} for {{event_date}} at {{venue_name}}. This quote covers {{guest_count}} confirmed guests ({{guest_count_ceiling}} maximum)…`}
               className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 font-mono text-xs"
             />
             <textarea name="terms" rows={3} maxLength={20000} placeholder="Terms — payment schedule, inclusions, cancellation policy…" className="rounded-lg border border-ink/20 bg-white px-3 py-1.5 font-mono text-xs" />

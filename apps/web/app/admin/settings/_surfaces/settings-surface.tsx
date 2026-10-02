@@ -171,7 +171,7 @@ export async function SettingsSurface({ searchParams }: Props) {
           <Field
             label="Default VAT rate (%)"
             htmlFor="default_vat_rate_pct"
-            help="PH standard is 12%. Receipts already issued won't be re-rated."
+            help="Use the Philippine standard VAT rate. Receipts already issued won't be re-rated."
           >
             <input
               id="default_vat_rate_pct"

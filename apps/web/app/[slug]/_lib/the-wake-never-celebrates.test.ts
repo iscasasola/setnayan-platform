@@ -482,7 +482,7 @@ test('🗂 onboarding: no "Wake of the Year", no cheerful services framing at a 
   const branches: Array<[string, string]> = [
     ['Set up for you', 'Included · already on'],
     ['Every photo family and friends share, kept in one place.', 'Store every photo as you prepare — right through to your {eventWord}.'],
-    ['Photo sharing is ready whenever you need it', 'Papic is live on this {eventWord}.'],
+    ['Photo sharing is ready whenever you need it', '{SERVICE_NAMES.papic.plain} are live on this {eventWord}.'],
   ];
   for (const [quiet, cheerful] of branches) {
     const q = step.indexOf(quiet);

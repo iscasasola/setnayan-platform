@@ -52,13 +52,20 @@ test('the seat-limit message reads the live seat fee', () => {
   assert.match(src, /Add a seat \(\$\{formatPhp\(await fetchSeatFeePhp\(supabase\)\)\}/);
 });
 
-test('the onboarding promo label is rendered from the one constant', () => {
+test('the onboarding promo is the ONE admin number — no typed constant anywhere (owner d18)', () => {
+  // ⚖ 2026-10-02, tracker d18: "40% off everything bought during sign-up", one
+  // admin-set number — platform_settings.onboarding_discount_pct. The pending
+  // owner decision this test used to hold open ("whether this should follow that
+  // setting") is made: it does, and the typed 20% goes.
   const shell = code('app/onboarding/wedding/_components/onboarding-shell.tsx');
   assert.ok(!/const ONBOARDING_PROMO\b/.test(shell), 'the shell holds its own promo constant');
-  assert.ok(!/−\s*\d+%\s*onboarding promo/.test(shell), 'the promo label types its own percentage');
+  assert.ok(!/−\s*\d+%\s*(onboarding promo|at sign-up)/.test(shell), 'the promo label types its own percentage');
   assert.match(shell, /Math\.round\(pricing\.promo \* 100\)/);
   const pricing = code('app/onboarding/wedding/_components/onboarding-pricing.ts');
-  assert.equal((pricing.match(/const ONBOARDING_PROMO\b/g) ?? []).length, 1);
+  assert.equal((pricing.match(/const ONBOARDING_PROMO\b/g) ?? []).length, 0, 'a typed promo constant is back');
+  assert.match(pricing, /promo: Number\.isFinite\(discountPct\)/, 'promo must come from the passed-in admin number');
+  const page = code('app/onboarding/wedding/page.tsx');
+  assert.match(page, /buildOnboardingPricing\(customerSkus, bundles, null, await fetchOnboardingDiscountPct\(\)\)/);
 });
 
 test('supplier tier prices have NO typed fallback — unreadable is null', () => {

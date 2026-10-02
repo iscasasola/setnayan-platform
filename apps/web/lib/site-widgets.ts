@@ -55,7 +55,7 @@ export const WIDGET_LABEL: Record<string, string> = {
   home_two_sides: 'Built for both sides',
   home_maria_juan: 'Maria & Juan',
   home_in_app_services: 'In-app services',
-  home_vendor_compat: 'Vendor compatibility',
+  home_vendor_compat: 'Supplier compatibility',
   home_transparent_pricing: 'Transparent pricing',
   home_readiness_board: 'Readiness board',
   home_coverage_map: 'Coverage map',

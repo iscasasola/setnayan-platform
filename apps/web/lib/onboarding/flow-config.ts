@@ -97,7 +97,9 @@ const ESSENTIAL_CARD: Record<SetupEssential, SetupCardId | null> = {
   where: 'setup_where',
   photo: 'setup_photo',
   look: 'setup_look',
-  entry: 'setup_entry',
+  // ⚖ Owner d24 (2026-10-02): sign-up drops "How do guests get in?" for EVERY type — the default is
+  // a personal QR for each guest, changed later in Event Details. No card, so none is ever resolved.
+  entry: null,
   guests: 'setup_guests',
 };
 

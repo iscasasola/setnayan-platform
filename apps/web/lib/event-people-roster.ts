@@ -179,7 +179,7 @@ export const PEOPLE_GROUP_COPY: Readonly<
   },
   suppliers: {
     label: 'Booked to be there',
-    blurb: 'The suppliers you have locked in.',
+    blurb: 'The suppliers you have booked.',
     noun: 'supplier',
     pluralNoun: 'suppliers',
     path: 'vendors',

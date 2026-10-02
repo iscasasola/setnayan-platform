@@ -194,7 +194,7 @@ export function buildFirstStepsRail(input: FirstStepsInput): FirstStepsRail {
       key: 'own_customers',
       n: 4,
       title: 'Bring in the customers you already have',
-      body: "Two QR codes, for two different people. Someone who already booked and paid you a downpayment: set their package, total, downpayment and payment dates first, then they scan the Locked QR once and they're booked on the spot. Someone you're only talking to: the Shortlist QR just puts you on their list — no inquiry, nothing to answer. Both are free for you and for them, and both work before you're approved.",
+      body: "Two QR codes, for two different people. Someone who already booked and paid you a first payment: set their package, total, first payment and payment dates first, then they scan the Locked QR once and they're booked on the spot. Someone you're only talking to: the Shortlist QR just puts you on their list — no inquiry, nothing to answer. Both are free for you and for them, and both work before you're approved.",
       href: '/vendor-dashboard/customers',
       cta: 'Get my QR codes',
       meter:

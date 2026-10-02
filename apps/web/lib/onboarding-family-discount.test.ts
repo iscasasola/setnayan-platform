@@ -6,7 +6,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FAMILY_DISCOUNT_DEFAULT_PCT,
   PAPIC_DISCOUNT_FLOOR_PCT,
   blockingComplaint,
   discountComplaints,
@@ -148,9 +147,11 @@ test('family membership — and SETNAYAN_AI_RENEW belongs to neither', () => {
   assert.equal(familyForServiceCode('COUPLE_WEBSITE_PRO'), null);
 });
 
-test('the seeded defaults are the values live in production', () => {
-  assert.equal(FAMILY_DISCOUNT_DEFAULT_PCT.papic, 10);
-  assert.equal(FAMILY_DISCOUNT_DEFAULT_PCT.ai, 40);
+test('there is no per-family default any more — ONE sign-up number (owner d18)', async () => {
+  const mod = await import('./onboarding-family-discount');
+  assert.equal('FAMILY_DISCOUNT_DEFAULT_PCT' in mod, false, 'a per-family default is a second number');
+  const { DEFAULT_ONBOARDING_DISCOUNT_PCT } = await import('./onboarding-discount');
+  assert.equal(DEFAULT_ONBOARDING_DISCOUNT_PCT, 40);
 });
 
 // ═══════════════════════════════════════════════════════════════════════════

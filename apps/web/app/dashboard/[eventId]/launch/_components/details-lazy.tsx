@@ -100,7 +100,6 @@ export const ParentCards = dynamic(() => import(/* webpackChunkName: "maker-deta
 
 /* ── 🗂 Your info's answers (owner 2026-10-02) — one dropdown per answer, and Event settings ── */
 export const AnswerPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-answers').then((m) => m.AnswerPicker), { loading: SlotRows });
-export const EventSettingsEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-answers').then((m) => m.EventSettingsEditor), { loading: SlotRows });
 
 /* ── Story & plans (Love Story · Schedule · RSVP) ─────────────────────────── */
 export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.LoveStoryPieceFocus), { loading: SlotNone });
@@ -125,6 +124,9 @@ export const DetailsBoundField = dynamic(() => import(/* webpackChunkName: "make
    when that Details item is opened; same chunk, same idle warm. */
 export const DetailsLookBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookBody), { loading: SlotFill });
 export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookEditor), { loading: SlotRows });
+/* 🎨 Look as one panel (2026-10-02): its four sections, and its body — the couple's page. */
+export const LookPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.LookPanel), { loading: SlotRows });
+export const DetailsLookPageBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPageBody), { loading: SlotFill });
 export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
 
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */

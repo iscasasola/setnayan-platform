@@ -331,7 +331,7 @@ export function convergenceBanner(
     return {
       tone: 'anchored',
       headline: label ? `Your date is set: ${label}` : 'Your date is set',
-      detail: 'Every card below shows whether that vendor is free that day.',
+      detail: 'Every card below shows whether that supplier is free that day.',
     };
   }
 
@@ -363,9 +363,9 @@ export function convergenceBanner(
     // drop it to shorten the copy.
     return {
       tone: 'converged',
-      headline: `Locking these vendors sets your date: ${formatDayKeyLabel(w.dayKeys[0]!)}`,
+      headline: `Booking these suppliers sets your date: ${formatDayKeyLabel(w.dayKeys[0]!)}`,
       detail:
-        'It is the only day everyone in your build is free. Nothing is held yet — your date is reserved only once a vendor accepts your payment.',
+        'It is the only day everyone in your build is free. Nothing is held yet — your date is reserved only once a supplier accepts your payment.',
     };
   }
 
@@ -375,7 +375,7 @@ export function convergenceBanner(
   return {
     tone: 'narrowing',
     headline: `Your build's shared dates: ${shown}${rest > 0 ? ` +${rest} more` : ''}`,
-    detail: 'Each vendor you add to your build narrows this, until one day fits everyone.',
+    detail: 'Each supplier you add to your build narrows this, until one day fits everyone.',
   };
 }
 
@@ -393,8 +393,8 @@ export const DOESNT_FIT_ACTION = "Doesn't fit your build";
 /** Why the actions are off — reversibility is the point, so say it. */
 export function doesntFitReason(clashWith: string | null): string {
   return clashWith
-    ? `Remove ${clashWith} from your build and this vendor is bookable again.`
-    : 'Remove a candidate from your build and this vendor is bookable again.';
+    ? `Remove ${clashWith} from your build and this supplier is bookable again.`
+    : 'Remove a candidate from your build and this supplier is bookable again.';
 }
 
 /**

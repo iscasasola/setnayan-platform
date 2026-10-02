@@ -2394,7 +2394,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       <section aria-labelledby="golive-note-heading" className="sn-tile space-y-3 p-5 sm:p-6">
         <h2 id="golive-note-heading" className="flex items-center gap-2 text-base font-semibold tracking-tight">
           <Radio aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-          On the day
+          The Day
         </h2>
         <div className="sn-row p-4">
           <div className="flex items-start gap-3">

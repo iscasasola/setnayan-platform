@@ -9,6 +9,7 @@ import {
 import { isWebPushConfigured, sendWebPush } from '@/lib/web-push';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import type { NotificationType } from '@/lib/notifications';
+import { notificationEmailReason } from '@/lib/notification-email-reason';
 import { eventIdFromRelatedUrl } from '@/lib/notification-event-id';
 
 // Web Push is wired at the same funnel as email but kept deliberately MINIMAL:
@@ -535,7 +536,8 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
           ...(isAdminMail
             ? [ADMIN_EMAIL_FOOTER]
             : [
-                "You're receiving this because of activity on your Setnayan account.",
+                // The type's OWN reason — never another mail's (lib/notification-email-reason.ts).
+                notificationEmailReason(type),
                 `Manage notifications: ${appUrl}/dashboard/profile`,
               ]),
         ]
@@ -552,14 +554,13 @@ export async function emitNotification(args: EmitNotificationArgs): Promise<void
           sections: mail?.sections,
           ctaLabel,
           ctaHref: link,
-          // An admin mail says why ONCE, in its footer; the account-activity
-          // footnote is the customer's sentence, not the team's.
+          // 🔒 WHY THIS CAME, said ONCE, in the footer — the type's own line
+          // (owner 2026-10-02: an RSVP mail ended "…because you started a Papic
+          // gallery", the template's default, inherited by every type). An
+          // admin mail keeps the admin sentence.
           ...(isAdminMail
             ? { audience: 'admin' as const }
-            : {
-                footnote:
-                  "You're receiving this because of activity on your Setnayan account.",
-              }),
+            : { footer: notificationEmailReason(type) }),
         });
 
         await sendEmail({

@@ -26,13 +26,13 @@ function rpcError(message: string | undefined): string {
     case 'not_your_booth':
       return 'You can only move your own booth.';
     case 'vendor_edit_off':
-      return 'The couple has turned off vendor editing for this area.';
+      return 'The couple has turned off supplier editing for this area.';
     case 'too_many_booths':
       return 'This area is full — remove a booth first.';
     case 'too_many_signs':
       return 'You’ve reached the sign limit.';
     case 'not_a_vendor':
-      return 'Only a vendor account can do that.';
+      return 'Only a supplier account can do that.';
     case 'not_booked':
       return 'You’re not booked on this event yet.';
     case 'booth_frozen':

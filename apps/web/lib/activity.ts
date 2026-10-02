@@ -64,7 +64,7 @@ export async function fetchEventActivity(
     rows.push({
       id: `vendor-${v.vendor_id}`,
       at: v.created_at,
-      description: `Vendor added · ${v.vendor_name} (${v.category})`,
+      description: `Supplier added · ${v.vendor_name} (${v.category})`,
       href: `/dashboard/${eventId}/vendors`,
     });
   }

@@ -21,7 +21,7 @@
 export const LAUNCH_PHASE_CHOICES = [
   { key: 'save_the_date', label: 'Save the Date', hint: 'The announcement. Asks nothing of guests yet.' },
   { key: 'rsvp', label: 'Invitation', hint: 'The invitation guests reply to.' },
-  { key: 'event', label: 'On the day', hint: 'The page guests use at the celebration itself.' },
+  { key: 'event', label: 'The Day', hint: 'The page guests use at the celebration itself.' },
   { key: 'editorial', label: 'After', hint: 'The page guests revisit afterwards. Replies are closed.' },
 ] as const;
 

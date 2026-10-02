@@ -401,7 +401,7 @@ const MOOD_BOARD_SCENES: RichFrame[] = [
         <button type="button" className="mt-3 inline-flex items-center gap-1.5 rounded-md bg-terracotta-700 px-3 py-1.5 text-[10px] font-medium text-cream">
           <Download aria-hidden className="h-3 w-3" strokeWidth={2} /> Download
         </button>
-        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Free · one vision every vendor pulls from</span>
+        <span className="mt-1.5 font-mono text-[7px] uppercase tracking-[0.15em] text-ink/45">Free · one vision every supplier pulls from</span>
       </div>
     ),
   },
@@ -679,13 +679,13 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
       <div className="absolute inset-0 flex flex-col justify-center bg-cream px-4 text-ink">
         <span className="font-mono text-[8px] uppercase tracking-[0.22em] text-terracotta">Setnayan AI</span>
         <p className="mt-1 text-[15px] font-semibold leading-tight tracking-tight">Stop guessing<br />who to hire</p>
-        <p className="mt-1.5 text-[9px] text-ink/65">Every vendor, ranked by how well they fit your day.</p>
+        <p className="mt-1.5 text-[9px] text-ink/65">Every supplier, ranked by how well they fit your day.</p>
         <button type="button" className="mt-4 w-full rounded-md bg-mulberry py-2 text-[11px] font-medium text-cream">See your matches</button>
       </div>
     ),
   },
   {
-    caption: 'Your best vendors, sorted to the top.',
+    caption: 'Your best suppliers, sorted to the top.',
     hint: 'Scroll the ranked shortlist.',
     scene: (
       <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
@@ -743,7 +743,7 @@ const SETNAYAN_AI_SCENES: RichFrame[] = [
         <div className="flex justify-between font-mono text-[7px] uppercase tracking-[0.12em] text-ink/55"><span>Up next</span><span>4 of 18 done</span></div>
         <div className="mt-2 space-y-1.5">
           {[
-            { t: 'Lock your venue', due: '3d overdue', c: 'text-rose-700' },
+            { t: 'Book your venue', due: '3d overdue', c: 'text-rose-700' },
             { t: 'Book your caterer', due: 'Due in 5d', c: 'text-amber-700' },
             { t: 'Send save-the-dates', due: 'Due in 3w', c: 'text-ink/50' },
             { t: 'Order thank-you cards', due: 'Due in 6w', c: 'text-ink/50' },
@@ -1049,7 +1049,7 @@ const PLAYLIST_SCENES: RichFrame[] = [
   },
   {
     caption: 'Handed straight to your DJ.',
-    hint: 'Books a music vendor — it syncs itself.',
+    hint: 'Books a music supplier — it syncs itself.',
     scene: (
       <div className="absolute inset-0 flex flex-col justify-center bg-cream px-3 py-3 text-ink">
         <p className="text-[12px] italic" style={{ fontFamily: SERIF }}>Your wedding playlist</p>

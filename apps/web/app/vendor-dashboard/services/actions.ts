@@ -1291,24 +1291,24 @@ export async function setServicePaymentSchedule(formData: FormData) {
   try {
     const n = labels.length;
     if (n > MAX_SCHEDULE_ITEMS) {
-      throw new Error(`A schedule can have up to ${MAX_SCHEDULE_ITEMS} installments.`);
+      throw new Error(`A schedule can have up to ${MAX_SCHEDULE_ITEMS} payments.`);
     }
     for (let i = 0; i < n; i++) {
       const label = typeof labels[i] === 'string' ? (labels[i] as string).trim() : '';
       if (label.length === 0 || label.length > 80) {
-        throw new Error('Each installment needs a label (up to 80 characters).');
+        throw new Error('Each payment needs a label (up to 80 characters).');
       }
 
       const kindRaw = kinds[i];
       if (kindRaw !== 'percent' && kindRaw !== 'fixed') {
-        throw new Error('Each installment must be a percent or a fixed amount.');
+        throw new Error('Each payment must be a percent or a fixed amount.');
       }
       const amount_kind: AmountKind = kindRaw;
 
       const valueRaw = typeof values[i] === 'string' ? (values[i] as string).trim() : '';
       const value = Number(valueRaw);
       if (valueRaw.length === 0 || !Number.isFinite(value) || value < 0) {
-        throw new Error('Each installment needs a non-negative amount.');
+        throw new Error('Each payment needs a non-negative amount.');
       }
 
       let percent_bps: number | null = null;
@@ -2125,22 +2125,22 @@ function parseScheduleRows(formData: FormData): Array<Record<string, unknown>> {
   const rows: Array<Record<string, unknown>> = [];
   const n = labels.length;
   if (n > MAX_SCHEDULE_ITEMS) {
-    throw new Error(`A schedule can have up to ${MAX_SCHEDULE_ITEMS} installments.`);
+    throw new Error(`A schedule can have up to ${MAX_SCHEDULE_ITEMS} payments.`);
   }
   for (let i = 0; i < n; i++) {
     const label = typeof labels[i] === 'string' ? (labels[i] as string).trim() : '';
     if (label.length === 0 || label.length > 80) {
-      throw new Error('Each installment needs a label (up to 80 characters).');
+      throw new Error('Each payment needs a label (up to 80 characters).');
     }
     const kindRaw = kinds[i];
     if (kindRaw !== 'percent' && kindRaw !== 'fixed') {
-      throw new Error('Each installment must be a percent or a fixed amount.');
+      throw new Error('Each payment must be a percent or a fixed amount.');
     }
     const amount_kind = kindRaw as AmountKind;
     const valueRaw = typeof values[i] === 'string' ? (values[i] as string).trim() : '';
     const value = Number(valueRaw);
     if (valueRaw.length === 0 || !Number.isFinite(value) || value < 0) {
-      throw new Error('Each installment needs a non-negative amount.');
+      throw new Error('Each payment needs a non-negative amount.');
     }
     let percent_bps: number | null = null;
     let amount_centavos: number | null = null;

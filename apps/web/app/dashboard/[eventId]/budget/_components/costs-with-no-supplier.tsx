@@ -351,7 +351,7 @@ function SupplierInvite({
             {supplier.claimUrl}
           </code>
           <p className="text-[11px] text-ink/55">
-            Free vendor account · link expires in 90 days · you can find this
+            Free supplier account · link expires in 90 days · you can find this
             code again on their card in your suppliers page.
           </p>
         </div>

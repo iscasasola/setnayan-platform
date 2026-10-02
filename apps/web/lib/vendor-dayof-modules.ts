@@ -90,7 +90,7 @@ export const DAY_OF_FAMILY_META: Record<
   coordinate: {
     label: 'Run the floor',
     blurb:
-      'Follow the live run-of-show, keep the vendors moving, and keep a clean record of anything that comes up.',
+      'Follow the live run-of-show, keep the suppliers moving, and keep a clean record of anything that comes up.',
   },
   capture: {
     label: 'Capture the day',

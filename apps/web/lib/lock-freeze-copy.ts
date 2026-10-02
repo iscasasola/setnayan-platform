@@ -104,12 +104,15 @@ export function lockFreezeLine(input: LockFreezeInput): LockFreezeLine {
       text:
         viewerRole === 'couple'
           ? `No price was saved with this deal, so nothing is frozen here. Ask ${them} to send their quote.`
-          : 'No price was saved with this deal, so nothing is frozen here. Send your proposal so the couple can lock a price.',
+          : 'No price was saved with this deal, so nothing is frozen here. Send your quote so the couple can lock a price.',
     };
   }
 
   if (state === 'locked') {
-    return { tone: 'booked', text: 'Deal locked — price frozen.' };
+    return {
+      tone: 'booked',
+      text: viewerRole === 'couple' ? 'Booked — price frozen.' : 'Deal locked — price frozen.',
+    };
   }
 
   if (state === 'requested') {

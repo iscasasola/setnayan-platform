@@ -126,7 +126,7 @@ const ORDERABLE_SECTION_LABELS: Record<EditorialOrderKey, string> = {
   challengeAnswers: 'What We Asked',
   guestColumns: 'Letters to the Editor',
   gallery: 'From the Day (photos)',
-  fromVendors: 'From Your Vendors',
+  fromVendors: 'From Your Suppliers',
   liveWall: 'Live Photo Wall',
   watchFilm: 'Watch the Film',
   reviews: 'What They Said',
@@ -161,11 +161,11 @@ const WISH_QUOTE_SOFT_CAP = 280;
 const WISHES_MAX = 12;
 
 const SECTIONS: Array<{ key: keyof EditorialSections; label: string; help: string }> = [
-  { key: 'byTheNumbers', label: 'By the Numbers', help: 'Your day in stats — guests, vendors, time saved.' },
+  { key: 'byTheNumbers', label: 'By the Numbers', help: 'Your day in stats — guests, suppliers, time saved.' },
   { key: 'gallery', label: 'Photo gallery', help: 'The shared photos from the day.' },
-  { key: 'reviews', label: 'Guest wishes', help: 'What your guests, vendors, and you said.' },
-  { key: 'team', label: 'Vendor team', help: 'The suppliers who made the day.' },
-  { key: 'fromVendors', label: 'From your vendors', help: 'Day-of photos & clips your recommended vendor shared.' },
+  { key: 'reviews', label: 'Guest wishes', help: 'What your guests, suppliers, and you said.' },
+  { key: 'team', label: 'Supplier team', help: 'The suppliers who made the day.' },
+  { key: 'fromVendors', label: 'From your suppliers', help: 'Day-of photos & clips your recommended supplier shared.' },
   { key: 'poweredBy', label: 'Powered by Setnayan', help: 'The Setnayan services you used.' },
   { key: 'liveWall', label: 'Live Photo Wall', help: 'The day’s candid photo wall, if you have it.' },
   { key: 'watchFilm', label: 'Watch the film', help: 'Your Live Watch broadcast replay, if you streamed the day.' },
@@ -1383,7 +1383,7 @@ export function EditorialEditor({
           <ProChip owned={isPro} />
         </div>
         <p className="mt-0.5 text-sm text-ink/60">
-          Add your favourite wishes from guests, vendors, or the two of you. They show in
+          Add your favourite wishes from guests, suppliers, or the two of you. They show in
           the &ldquo;What They Said&rdquo; section.
         </p>
         {!isPro ? <ProTryLine eventId={eventId} held={held.has('reviews')} /> : null}
@@ -1409,7 +1409,7 @@ export function EditorialEditor({
                           className={`${inputCls}`}
                           value={w.role}
                           onChange={(e) => patchWish(i, { role: e.target.value })}
-                          placeholder="Role (guest · vendor · couple)"
+                          placeholder="Role (guest · supplier · couple)"
                           aria-label="Role"
                         />
                       </div>

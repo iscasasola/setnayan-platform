@@ -404,3 +404,13 @@ export function toolHasGoneHome(key: string, websiteEnabled: boolean): boolean {
   if (!h) return false;
   return !h.needsWebsite || websiteEnabled;
 }
+
+/**
+ * 🧩 Each service's own part, by service key — read off `SERVICES`, never a
+ * second list. Since the full-page More Services went (owner 2026-10-02,
+ * tracker d1) the parts are drawn on their service's own page
+ * (`studio/_components/service-parts.tsx`), because the More menu lists the
+ * five services only.
+ */
+export const OUR_SERVICE_PARTS: Readonly<Record<string, { key: string; name: string; line: string }>> =
+  Object.fromEntries(SERVICES.flatMap((s) => (s.part ? [[s.key, s.part] as const] : [])));

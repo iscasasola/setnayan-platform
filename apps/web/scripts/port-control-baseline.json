@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1b2dc7279",
-  "routeCount": 444,
-  "destinations": 970,
-  "actions": 683,
-  "blocks": 5405,
+  "generatedFromRef": "e7f5468c1",
+  "routeCount": 442,
+  "destinations": 952,
+  "actions": 674,
+  "blocks": 5376,
   "routes": {
     "/": {
       "files": [
@@ -5517,7 +5517,6 @@
       ],
       "destinations": [
         "/dashboard/[seg]/alaala/assignments",
-        "/dashboard/[seg]/studio",
         "/dashboard/[seg]/studio/papic/moderation"
       ],
       "actions": [],
@@ -5805,7 +5804,6 @@
         "/dashboard/[seg]/messages",
         "/dashboard/[seg]/orders",
         "/dashboard/[seg]/paperwork",
-        "/dashboard/[seg]/studio",
         "/receipts/[seg]"
       ],
       "actions": [],
@@ -6467,6 +6465,7 @@
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
         "dashboard/[eventId]/launch/_components/parent-cards.tsx",
         "dashboard/[eventId]/launch/_components/pass-card-design-picker.tsx",
+        "dashboard/[eventId]/launch/_components/plan-myself.tsx",
         "dashboard/[eventId]/launch/_components/poster-photo-picker.tsx",
         "dashboard/[eventId]/launch/_components/print-choice-picker.tsx",
         "dashboard/[eventId]/launch/_components/print-menu-editor.tsx",
@@ -6498,6 +6497,7 @@
         "qrStyleAction",
         "removeHeroPhoto",
         "replyByAction",
+        "setPlanningMode",
         "uploadHeroPhoto"
       ],
       "blocks": [
@@ -6645,6 +6645,8 @@
         "PickContext.Provider",
         "PickMenu",
         "PickOption",
+        "PlanMyselfBody",
+        "PlanMyselfSwitch",
         "PosterPhoto",
         "PosterPhotoPicker",
         "PreviewStageLink",
@@ -6721,9 +6723,7 @@
         "dashboard/[eventId]/live/actions.ts",
         "dashboard/[eventId]/live/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/studio"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionResult",
@@ -7505,51 +7505,6 @@
         "WordsBox"
       ]
     },
-    "/dashboard/[eventId]/studio": {
-      "files": [
-        "dashboard/[eventId]/studio/_components/addon-detail-view.tsx",
-        "dashboard/[eventId]/studio/_components/service-tags.tsx",
-        "dashboard/[eventId]/studio/_components/studio-app-row.tsx",
-        "dashboard/[eventId]/studio/_components/studio-buy-hero.tsx",
-        "dashboard/[eventId]/studio/_components/studio-featured-card.tsx",
-        "dashboard/[eventId]/studio/_components/studio-section-tabs.tsx",
-        "dashboard/[eventId]/studio/loading.tsx",
-        "dashboard/[eventId]/studio/page.tsx",
-        "dashboard/[eventId]/studio/recommend-actions.ts"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/event-page",
-        "/dashboard/[seg]/live",
-        "/dashboard/[seg]/orders",
-        "/dashboard/[seg]/pabuya",
-        "/dashboard/[seg]/studio"
-      ],
-      "actions": [
-        "dismissRecommendation",
-        "dismissVendorRecommendation",
-        "recommendFeature"
-      ],
-      "blocks": [
-        "AddOnDetailView",
-        "AppStoreLayout",
-        "GridPageSkeleton",
-        "Icon",
-        "InspectorColumn",
-        "InspectorLayout",
-        "InspectorTrigger",
-        "Link",
-        "PageMasthead",
-        "PaidMark",
-        "PillEl",
-        "RevealList",
-        "RowPill",
-        "ServiceTags",
-        "StudioAppRow",
-        "StudioFeaturedCard",
-        "StudioSectionTabs",
-        "SubmitButton"
-      ]
-    },
     "/dashboard/[eventId]/studio/[addon]": {
       "files": [
         "dashboard/[eventId]/studio/[addon]/page.tsx"
@@ -7582,8 +7537,7 @@
         "dashboard/[eventId]/studio/editorial-pro/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/orders",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/orders"
       ],
       "actions": [],
       "blocks": [
@@ -7619,8 +7573,7 @@
       ],
       "destinations": [
         "/[seg]/find-my-table",
-        "/dashboard/[seg]/seating",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/seating"
       ],
       "actions": [],
       "blocks": [
@@ -7640,7 +7593,6 @@
       ],
       "destinations": [
         "/api/oauth/youtube/start?event_id=[seg]",
-        "/dashboard/[seg]/studio",
         "/privacy"
       ],
       "actions": [],
@@ -7692,8 +7644,7 @@
         "dashboard/[eventId]/studio/mood-board/render-actions.ts"
       ],
       "destinations": [
-        "/dashboard/[seg]/seating/lab",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/seating/lab"
       ],
       "actions": [],
       "blocks": [
@@ -7781,8 +7732,7 @@
         "dashboard/[eventId]/studio/pakanta/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/details",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/details"
       ],
       "actions": [],
       "blocks": [
@@ -7797,6 +7747,7 @@
         "PakantaIntakeResponses",
         "PakantaMusicForm",
         "Result",
+        "ServiceParts",
         "UseSongButton"
       ]
     },
@@ -7965,7 +7916,6 @@
         "/api/oauth/drive/start?event_id=[seg]&slot=overflow",
         "/api/oauth/drive/start?event_id=[seg]&switch=1",
         "/dashboard/[seg]/guests",
-        "/dashboard/[seg]/studio",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/papic/challenges",
         "/dashboard/[seg]/studio/papic/crew",
@@ -8059,6 +8009,7 @@
         "RecapCard",
         "Row",
         "SavePhotoButton",
+        "ServiceParts",
         "SettingRow",
         "Sheet",
         "ShowcaseToggle",
@@ -8214,7 +8165,6 @@
       ],
       "destinations": [
         "/api/tiktok/auth/start?event_id=[seg]",
-        "/dashboard/[seg]/studio",
         "/dashboard/[seg]/studio/patiktok${query ?",
         "/dashboard/[seg]/studio/patiktok/[seg]",
         "/dashboard/[seg]/studio/patiktok/booth",
@@ -8374,7 +8324,6 @@
         "/[seg]",
         "/dashboard/[seg]",
         "/dashboard/[seg]/date-selection",
-        "/dashboard/[seg]/studio",
         "/dashboard/[seg]/studio/pakanta",
         "/dashboard/[seg]/studio/save-the-date/stamp",
         "/dashboard/[seg]/studio/website-pro",
@@ -8445,7 +8394,6 @@
         "dashboard/[eventId]/studio/setnayan-ai/page.tsx"
       ],
       "destinations": [
-        "/dashboard/[seg]/studio",
         "/dashboard/[seg]/vendors"
       ],
       "actions": [
@@ -8485,8 +8433,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]/launch${search.then === 'apply' ?",
-        "/dashboard/[seg]/orders",
-        "/dashboard/[seg]/studio"
+        "/dashboard/[seg]/orders"
       ],
       "actions": [],
       "blocks": [
@@ -8495,43 +8442,6 @@
         "PageMasthead",
         "PaidMark",
         "StudioBuyHero"
-      ]
-    },
-    "/dashboard/[eventId]/suite": {
-      "files": [
-        "dashboard/[eventId]/suite/_components/our-services-grid.tsx",
-        "dashboard/[eventId]/suite/_components/suite-search.tsx",
-        "dashboard/[eventId]/suite/_components/suite-service-card.tsx",
-        "dashboard/[eventId]/suite/_components/suite-vignette-card.tsx",
-        "dashboard/[eventId]/suite/loading.tsx",
-        "dashboard/[eventId]/suite/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [
-        "routes.dashboard.budget",
-        "routes.dashboard.checklist",
-        "routes.dashboard.findDate",
-        "routes.dashboard.guests.index",
-        "routes.dashboard.schedule",
-        "routes.explore.compare",
-        "routes.explore.index"
-      ],
-      "blocks": [
-        "CollectionCard",
-        "Icon",
-        "Link",
-        "ListPageSkeleton",
-        "OurServicesGrid",
-        "PageMasthead",
-        "PaidMark",
-        "PickMenu",
-        "RevealList",
-        "RowPill",
-        "Scene",
-        "ServiceTags",
-        "SuiteSearch",
-        "SuiteServiceCard",
-        "SuiteVignetteCard"
       ]
     },
     "/dashboard/[eventId]/today": {

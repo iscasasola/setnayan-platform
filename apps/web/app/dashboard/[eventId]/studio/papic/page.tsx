@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
+import { ServiceParts } from '../_components/service-parts';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { notFound, redirect } from 'next/navigation';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
@@ -758,7 +760,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     */
     <section className="flex flex-col gap-7 pb-12">
       <Link
-        href={`/dashboard/${eventId}/studio`}
+        href={studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -776,6 +778,10 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
         do truthfully.
       */}
       <StudioBuyHero productName={PAPIC_HERO.label} promise={PAPIC_HERO.blurb} />
+
+      {/* 🧩 Thank-You Video, under Papic (it sat under the Papic card on the
+          retired More Services page — owner, tracker d1). */}
+      <ServiceParts eventId={eventId} service="papic" />
 
       {/* ⚠ EVERY CONFIRMATION, ON THE ONE PAGE. When this screen had three
           rooms, an action's outcome had to be mapped to a room or its "saved"

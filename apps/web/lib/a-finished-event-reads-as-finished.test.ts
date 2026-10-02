@@ -365,15 +365,8 @@ test('the Suite and the Studio know the event is behind them', () => {
   assert.equal(roadmapLedeStage(null), 'undated');
   assert.equal(roadmapLedeStage(0.5), 'last_stretch', 'and the rung below is untouched');
   assert.equal(roadmapLedeStage(7), 'far');
-  for (const f of ['app/dashboard/[eventId]/suite/page.tsx', 'app/dashboard/[eventId]/studio/page.tsx']) {
-    const body = src(f);
-    assert.match(body, /roadmapLedeStage\(monthsToDate\)/, `${f} must read the shared rung`);
-    assert.match(body, /past: /, `${f} must have something to say about a past event`);
-    assert.ok(
-      !/monthsToDate > 6\s*$/m.test(body),
-      `${f} must not keep a second copy of the ladder`,
-    );
-  }
+  // The two hubs that drew this lede (/suite, /studio) were deleted 2026-10-02
+  // (owner, tracker d1); the shared rung above is what remains of it.
 });
 
 /*

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { MoodPart, MoodPartNote } from './mood-board-parts';
@@ -1087,7 +1088,7 @@ export async function MoodBoardEditor({ eventId }: { eventId: string }) {
             stays open (a free planning tool); only this back-link is withheld. */}
         {storeShell ? null : (
           <Link
-            href={`/dashboard/${eventId}/studio`}
+            href={studioHubHref(eventId)}
             className="font-mono text-xs uppercase tracking-[0.2em] text-ink/50 hover:text-terracotta"
           >
             ‹ Back to add-ons

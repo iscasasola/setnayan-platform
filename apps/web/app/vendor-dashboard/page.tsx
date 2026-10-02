@@ -654,12 +654,8 @@ export default async function VendorOverviewPage({
       {creditNotice ? (
         <div
           data-credit-expiring=""
-          className="mb-6 flex items-start gap-3 rounded-xl border px-4 py-3.5"
-          style={{
-            borderColor: 'var(--m-orange-3)',
-            background: 'var(--m-orange-4)',
-            color: 'var(--m-orange-deep)',
-          }}
+          className="mb-6 flex items-start gap-3 rounded-xl px-4 py-3.5"
+          style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
         >
           <Hourglass aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
           <div className="min-w-0 text-sm leading-relaxed">

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { notFound, redirect } from 'next/navigation';
 import { Rocket, Clock3, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -192,7 +193,7 @@ export async function AddOnDetailView({
       back={
         isInspector
           ? undefined
-          : { href: `/dashboard/${eventId}/studio`, label: 'Back to Studio' }
+          : { href: studioHubHref(eventId), label: 'Back to Studio' }
       }
       hero={{
         Icon: entry.Icon,

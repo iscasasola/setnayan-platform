@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { redirect } from 'next/navigation';
@@ -376,7 +377,7 @@ export default async function SaveTheDatePage({ params }: Props) {
   return (
     <section className="space-y-8">
       <Link
-        href={`/dashboard/${eventId}/studio`}
+        href={studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

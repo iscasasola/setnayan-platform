@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -190,7 +191,7 @@ function IdleState({
             folder you own, yours to keep forever, long after the wedding.
           </>
         }
-        deferHref={`/dashboard/${eventId}/studio`}
+        deferHref={studioHubHref(eventId)}
         /* ⚠ This said "Not now — keep my photos in Setnayan", which named the
            OPPOSITE of what the branch does: declining Drive is exactly the path
            where the full-resolution originals are dropped at six months. The

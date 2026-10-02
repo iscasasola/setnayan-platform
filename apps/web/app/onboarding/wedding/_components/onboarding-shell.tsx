@@ -285,7 +285,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
   // The services step informs; it never asks for money — so its CTA is a plain
   // acknowledgement, not "Add" or "Continue to checkout".
-  services_step:'Continue — Papic is on',
+  services_step:'Continue — guest photos are on',
   services:'Review my picks', summary:'Done',
   // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
   // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.

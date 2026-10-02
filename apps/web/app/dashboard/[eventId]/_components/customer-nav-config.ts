@@ -112,6 +112,8 @@ export function buildCustomerNavGroups(
             children: r.children.map((c): NavItem => ({
               key: c.key,
               label: c.label,
+              // The service's Setnayan name, small under its plain name (owner d17).
+              ...(c.sub ? { description: c.sub } : {}),
               href: c.href,
               icon: EVENT_MENU_ICONS[c.icon],
             })),

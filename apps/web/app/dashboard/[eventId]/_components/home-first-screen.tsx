@@ -174,6 +174,8 @@ export function HomeFirstScreen({
                 className="sn-glass-bare sn-press flex min-w-0 flex-col rounded-xl px-3 py-2.5"
               >
                 <span className="truncate text-[14px] font-semibold text-ink">{svc.name}</span>
+                {/* The Setnayan name, small under the plain one (owner d17). */}
+                <span className="truncate text-[11px] text-ink/50">{svc.brand}</span>
                 <span className="truncate text-[12px] text-ink/60">{svc.status}</span>
               </Link>
             ))}

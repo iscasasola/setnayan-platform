@@ -28,6 +28,7 @@
  */
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
+import { SERVICE_NAMES } from '@/lib/service-names';
 
 export type HomeNextKind = 'guide' | 'date' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
 
@@ -162,15 +163,15 @@ export function pickHomeNext(input: HomeNextInput): HomeNext {
       kind: 'papic',
       title: 'Your free camera is ready',
       body: 'Hand it to someone you trust and the candids start landing in your gallery.',
-      action: 'Open Papic',
+      action: `Open ${SERVICE_NAMES.papic.plain.toLowerCase()}`,
     };
   }
   if (aiOffer) {
     return {
       kind: 'ai',
-      title: 'Plan with Setnayan AI',
+      title: `${SERVICE_NAMES['setnayan-ai'].plain} · ${SERVICE_NAMES['setnayan-ai'].brand}`,
       body: 'Ask anything about your event.',
-      action: 'See Setnayan AI',
+      action: `See the ${SERVICE_NAMES['setnayan-ai'].plain.toLowerCase()}`,
     };
   }
   return {
@@ -218,7 +219,8 @@ export function glanceMoney(php: number | null): string {
 */
 
 export type HomeServiceKey = 'papic' | 'ai';
-export type HomeService = { key: HomeServiceKey; name: string; status: string };
+/** `name` is the plain name (first), `brand` the Setnayan name (small under) — `lib/service-names.ts`. */
+export type HomeService = { key: HomeServiceKey; name: string; brand: string; status: string };
 
 /** What `resolvePapicHomeTile` returned, or 'failed' when it threw. */
 export type PapicStatusInput =
@@ -252,8 +254,8 @@ export function homeServices(input: {
 }): HomeService[] {
   if (input.storeShell) return [];
   const all: HomeService[] = [
-    { key: 'papic', name: 'Papic', status: input.papic },
-    { key: 'ai', name: 'Setnayan AI', status: input.ai },
+    { key: 'papic', name: SERVICE_NAMES.papic.plain, brand: SERVICE_NAMES.papic.brand, status: input.papic },
+    { key: 'ai', name: SERVICE_NAMES['setnayan-ai'].plain, brand: SERVICE_NAMES['setnayan-ai'].brand, status: input.ai },
   ];
   return all.filter((s) => s.key !== input.next);
 }

@@ -206,7 +206,6 @@ function isDayOfGuestNavigation(url) {
     'pricing',
     'privacy',
     'proposals',
-    'prototype',
     'realstories',
     'receipts',
     'refunds',

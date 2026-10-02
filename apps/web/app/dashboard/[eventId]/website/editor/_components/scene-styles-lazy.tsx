@@ -19,8 +19,8 @@ import { SlotRows } from '../../../launch/_components/lazy-slot';
  * details-lazy.tsx`), never a new one: webpack's runtime — on EVERY page, under
  * the shared-bundle ceiling (`scripts/check-bundle-size.mjs`) — grows an entry
  * per async chunk, and the shared bundle had 0.1KB of headroom. The Maker
- * already prefetches that chunk when it is idle (`prefetchDetails`), so a tap
- * almost never sees the slot.
+ * warms these pieces when it is idle (`launch/_components/maker-tools.tsx`),
+ * so a tap almost never sees the slot.
  *
  * The Post Event stage's "+" is the shipped picker itself (first screen); its
  * twelve preset tiles (`post-event-preset-tiles.tsx`, with the presets' words)
@@ -43,5 +43,10 @@ export const PostEventScenePanel = dynamic(
 );
 export const PostEventWordsField = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './post-event-scene-panel').then((m) => m.PostEventWordsField),
+  { loading: SlotRows },
+);
+/* Post Event's twelve preset tiles (drawn by `scene-template-picker.tsx`'s sheet). */
+export const PresetTiles = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './post-event-preset-tiles').then((m) => m.PresetTiles),
   { loading: SlotRows },
 );

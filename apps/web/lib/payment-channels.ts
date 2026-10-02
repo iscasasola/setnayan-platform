@@ -231,6 +231,49 @@ export function channelLabel(settings: ChannelSettings, id: string | null | unde
 }
 
 /**
+ * Names read as a phrase: ["GCash"] → "GCash" · two → "GCash or BDO" · three →
+ * "GCash, BDO or Maribank". Empty → `fallback`.
+ *
+ * ⚠ Exists because "BDO or GCash" was hand-typed into ~10 customer and supplier
+ * sentences, so the first account the admin added (Maribank) would have been
+ * invisible in every one of them. A sentence that names where to pay asks the
+ * list (`receivingAccountsPhrase`) or the open rails it was already handed
+ * (`namesPhrase(rails.map(r => r.label))`) — never its own spelling.
+ */
+export function namesPhrase(
+  names: readonly string[],
+  fallback = 'our receiving account',
+  conjunction: 'or' | 'and' = 'or',
+): string {
+  const list = names.map((n) => n.trim()).filter(Boolean);
+  if (list.length === 0) return fallback;
+  if (list.length === 1) return list[0]!;
+  return `${list.slice(0, -1).join(', ')} ${conjunction} ${list[list.length - 1]}`;
+}
+
+/**
+ * "our BDO or GCash account" / "our GCash, BDO or Maribank account" — the
+ * sentence "Pay to …" wants. No names ⇒ "our receiving account".
+ */
+export function ourAccountPhrase(names: readonly string[]): string {
+  const list = names.map((n) => n.trim()).filter(Boolean);
+  return list.length === 0 ? 'our receiving account' : `our ${namesPhrase(list)} account`;
+}
+
+/** The OPEN accounts' names as a phrase, in the admin's order. */
+export function receivingAccountsPhrase(
+  settings: ChannelSettings,
+  fallback?: string,
+  conjunction?: 'or' | 'and',
+): string {
+  return namesPhrase(
+    openAccounts(settings).map((a) => a.label),
+    fallback,
+    conjunction,
+  );
+}
+
+/**
  * Is ONE rail open? The same decision as `openChannels`, asked per rail,
  * because a payment page renders each panel independently.
  *

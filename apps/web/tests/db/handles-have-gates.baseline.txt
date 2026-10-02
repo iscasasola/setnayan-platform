@@ -49,7 +49,6 @@ demo_sessions.joined_b | Same module, same reason.
 drive_copy_artifacts.copied_high_res | Drive-copy job bookkeeping inside `lib/drive-copy.ts`; the retention/compression model is the cross-surface contract, not this flag.
 event_editorial.edited_by_couple | Marks that the couple touched the editorial draft; read by the same editorial surface that writes it.
 event_floor_plan.ghost_booths_enabled | A seating-editor display option, written and read by the seating surface.
-event_software_activations_v2.is_reward_issued | Idempotence marker on the manpower sync route — a stamped side effect, not a person-facing switch.
 event_vendor_payment_plan.is_default_seeded | Seeding marker for the payment-plan rows; consumed by the same vendors surface and its server helper.
 faith_vocab.is_civil | Taxonomy row property authored in `/admin/taxonomy`; read where that vocabulary is administered.
 npc_filing_tasks.counsel_gated | Admin compliance bookkeeping written and read inside `/admin/npc-readiness`; the effect (an admin seeing which filing tasks are counsel-gated) IS on that surface. Minors/Phase-3 gating is genuinely counsel-dependent and tracked in the corpus, not by a cross-surface read.

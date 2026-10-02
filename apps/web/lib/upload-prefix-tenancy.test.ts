@@ -361,7 +361,10 @@ test('every interpolated pathPrefix has a resolvable static head', () => {
       }
     }
   }
-  assert.ok(seen >= 2, `scan matched only ${seen} identifier-headed prefixes — the pattern has drifted`);
+  // Floor 1, was 2: the second shipped case was updateManualVendor's photo upload,
+  // removed 2026-10-02 (cleanup slice A, zero callers). createManualVendor's
+  // `${PHOTO_PATH_PREFIX}` is the one that remains.
+  assert.ok(seen >= 1, `scan matched only ${seen} identifier-headed prefixes — the pattern has drifted`);
   assert.deepEqual(
     unresolved,
     [],

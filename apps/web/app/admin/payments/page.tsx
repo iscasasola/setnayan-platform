@@ -44,8 +44,13 @@ import {
 } from './actions';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-import { fetchPlatformSettingsMeasured, getEffectiveVatRatePct } from '@/lib/platform-settings';
-import { receivingAccounts, type ReceivingAccount } from '@/lib/payment-channels';
+import { fetchPlatformSettings, fetchPlatformSettingsMeasured, getEffectiveVatRatePct } from '@/lib/platform-settings';
+import {
+  channelLabel,
+  receivingAccounts,
+  type ChannelSettings,
+  type ReceivingAccount,
+} from '@/lib/payment-channels';
 import { canLogPaymentAgainstOrder } from '@/lib/order-promotion-rule';
 import { randomUUID } from 'node:crypto';
 import { computeVatFromBase } from '@/lib/receipts';
@@ -289,6 +294,11 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
   // silently or offers it against a guess.
   const record = q && filter !== 'orders_needing_quote' ? await fetchRecordTarget(admin, q) : null;
 
+  // The receiving-accounts list, read once: `payments.channel` is an account
+  // ID ("maribank-7k2q") and the card must say its NAME. A refused read falls
+  // back to the fixed two rails' names, never to a blank.
+  const channelSettings: ChannelSettings = await fetchPlatformSettings(admin).catch(() => ({}));
+
   // Pre-resolve every payment-proof screenshot to a short-lived presigned GET
   // URL, keyed by payment_id. Payment proofs live in the PRIVATE thread-files
   // bucket, so the stored `r2://…` ref is NOT publicly readable — it must be
@@ -450,6 +460,7 @@ export default async function AdminPaymentsPage({ searchParams }: Props) {
           eventInfo={eventInfo}
           deskBills={deskBills}
           dupExposure={dupExposure}
+          channelSettings={channelSettings}
           readFailed={readFailed}
           query={qDisplay}
         />
@@ -652,9 +663,12 @@ function PaymentsList({
   eventInfo,
   deskBills,
   dupExposure,
+  channelSettings,
   readFailed,
   query,
 }: {
+  /** The receiving-accounts list, so a payment's channel id prints as its NAME. */
+  channelSettings: ChannelSettings;
   /** Which read was refused, if any — see `readFailed` in the page. */
   readFailed: 'queue' | 'search' | null;
   /** The search term as typed, for the no-match line. */
@@ -871,7 +885,7 @@ function PaymentsList({
 
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
               <Stat label="Amount" value={formatPhp(p.amount_php)} />
-              <Stat label="Channel" value={p.channel} />
+              <Stat label="Channel" value={channelLabel(channelSettings, p.channel)} />
               <Stat
                 label="Platform"
                 value={

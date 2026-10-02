@@ -1,5 +1,6 @@
 /**
- * A GUEST CAN BLUR THEMSELVES, AND IS TOLD WHEN SOMEBODY UNDOES IT
+ * A GUEST CAN BLUR THEMSELVES (the "told by email when somebody undoes it" half
+ * was REMOVED 2026-10-02 — no email to guests)
  *
  * Owner rulings 3 and 4 of 2026-08-17: *"Either side toggles it, freely — guest
  * or couple, on or off"*, and because of that, *"the guest is notified if their
@@ -96,36 +97,14 @@ test('a guest can only ever move their OWN switch', () => {
   );
 });
 
-test('switching a guest`s blur OFF tells them — and only on ON → OFF', () => {
+// SABOTAGE: restore a sendEmail() in the couple's updateGuest → RED.
+test('switching a guest`s blur OFF sends NO email — the notice is removed (owner 2026-10-02)', () => {
   const src = code(COUPLE_ACTIONS);
-  assert.match(src, /blurWasOn && !faceblock_enabled/, 'the notice does not fire on the ON → OFF transition');
-  assert.match(src, /subject: 'Your face is no longer blurred/, 'the guest is not actually told anything');
-});
-
-test('an UNREADABLE previous value sends nothing, rather than something false', () => {
-  // `prevGuest` is null on a failed read. `?? false` would read that as "it was
-  // off" and skip the notice on every save; `=== true` sends nothing instead.
-  // This is a message about somebody's face — a wrong one is worse than none.
-  const src = code(COUPLE_ACTIONS);
-  assert.match(
-    src,
-    /\)\?\.faceblock_enabled === true/,
-    'the prior blur state is no longer compared with === true — a failed read now decides it',
-  );
-  // And the dangerous spelling must be absent, not merely un-preferred.
-  assert.equal(
-    (src.match(/\?\.faceblock_enabled \?\?/g) ?? []).length,
-    0,
-    'the prior blur state is being defaulted with ?? — a failed read would read as "it was off"',
-  );
-});
-
-test('the previous blur state is actually SELECTED — a phantom column reads as false', () => {
-  // Supabase does not throw on an unknown column: PostgREST rejects the whole
-  // statement and the row comes back null, so the notice would silently never
-  // fire while every other assertion here still passed.
-  const src = code(COUPLE_ACTIONS);
+  assert.doesNotMatch(src, /sendEmail/, 'the couple\'s guest-card save emails somebody again');
+  assert.doesNotMatch(src, /import\('@\/lib\/email'\)/, 'the email module is imported on the guest-card save');
+  assert.doesNotMatch(src, /no longer blurred/i, 'the face-unblur notice copy is still in the action');
+  assert.doesNotMatch(src, /blurWasOn/, 'the ON → OFF notice branch is still there');
+  // The previous blur state is still SELECTED — the wall re-bake compares it.
   const sel = src.match(/\.select\(\s*'[^']*faceblock_enabled[^']*'/);
-  assert.ok(sel, 'faceblock_enabled is not in the prevGuest select — the notice can never fire');
-  assert.match(sel[0], /email/, 'the guest email is not selected — there is nobody to send to');
+  assert.ok(sel, 'faceblock_enabled left the prevGuest select — the re-bake can no longer see a change');
 });

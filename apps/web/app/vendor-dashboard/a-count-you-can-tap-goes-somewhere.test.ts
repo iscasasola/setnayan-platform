@@ -4,6 +4,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
+import { customerLandingHref } from './customers/anchors';
 
 /**
  * The property: a number a supplier is shown as a headline count takes them to
@@ -47,14 +48,17 @@ test('every headline count on Today has a destination', () => {
   // that goes nowhere.
   const links = block.match(/<Link\b[^>]*>/g) ?? [];
   assert.equal(links.length, 3, `${links.length} of the three numbers are links`);
-  for (const l of links) assert.match(l, /href="\/vendor-dashboard[^"]*"/, `a number links nowhere real: ${l}`);
+  // A literal door, or one of the Customers hub's named landings (the anchors module).
+  for (const l of links) assert.match(l, /href=(?:"\/vendor-dashboard[^"]*"|\{customerLandingHref\('\w+'\)\})/, `a number links nowhere real: ${l}`);
   for (const word of ['new inquiries', 'events this week', 'owed to you']) {
     assert.ok(block.includes(word), `the "${word}" number is gone`);
   }
 });
 
 test('the destinations exist as routes', () => {
-  const hrefs = [...numbersBlock().matchAll(/href="([^"]+)"/g)].map((m) => m[1]!);
+  const hrefs = [...numbersBlock().matchAll(/href=(?:"([^"]+)"|\{customerLandingHref\('(\w+)'\)\})/g)].map((m) =>
+    m[1] ?? customerLandingHref(m[2] as Parameters<typeof customerLandingHref>[0]),
+  );
   assert.equal(hrefs.length, 3, `found ${hrefs.length} number hrefs`);
   for (const h of hrefs) {
     const rel = h.replace(/^\//, '').split(/[?#]/)[0]!;
@@ -68,7 +72,7 @@ test('the destinations exist as routes', () => {
 });
 
 test('the money number goes to the money — Payday', () => {
-  assert.match(numbersBlock(), /href="\/vendor-dashboard\/payday"/);
+  assert.match(numbersBlock(), /href=\{customerLandingHref\('payday'\)\}/);
 });
 
 test('each Coming-up row opens its customer — the list under the numbers links too', () => {

@@ -56,7 +56,7 @@ import type { FilterOption } from './_components/customers-filter-bar';
 import { VendorQrSection } from '../_components/qr-section';
 import { keepParamsFrom } from '../_components/list-pager';
 
-export const metadata = { title: 'My Customers · Vendor' };
+export const metadata = { title: 'Customers' };
 
 /**
  * /vendor-dashboard/customers — "My Customers".
@@ -1033,7 +1033,7 @@ export default async function VendorCustomersHub({ searchParams }: Props) {
       <div id="bookings" className="scroll-mt-24">
         <BookingsSurface searchParams={Promise.resolve(sp) as never} />
       </div>
-      <div id="payday">
+      <div id="payday" className="scroll-mt-24">
         <PaydaySurface />
       </div>
 

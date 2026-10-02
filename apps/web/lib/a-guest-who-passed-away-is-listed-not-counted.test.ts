@@ -106,9 +106,8 @@ test('every reader that leaves a request out of a count also leaves out a guest 
   assert.deepEqual(missing, [], 'these counting readers still count a guest who passed away');
 });
 
-test('no invitation or Save the Date is emailed to a guest who passed away', () => {
-  const fanOut = read('lib/save-the-date-emails.ts');
-  assert.equal((fanOut.match(/\.eq\(PASSED_AWAY, false\)/g) ?? []).length, 2, 'the STD or the invitation fan-out emails them');
+test('no sign-in link or invitation is emailed to a guest who passed away', () => {
+  // (The Save the Date / invitation email fan-out was removed 2026-10-02 — no email to guests.)
   const card = read('app/dashboard/[eventId]/guests/[guestId]/actions.ts');
   const invite = card.slice(card.indexOf('export async function inviteGuestByEmailAction'), card.indexOf('export async function updateGuest'));
   assert.match(invite, /\.select\('[^']*\bpassed_away\b[^']*'\)/, 'the sign-in-link email does not read the flag');

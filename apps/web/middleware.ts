@@ -324,11 +324,14 @@ async function middlewareCore(request: NextRequest) {
     );
   }
 
-  // Retired PAGES that still forward — one map, one lookup:
-  // lib/legacy-redirects.ts. A middleware forward is not a route (Vercel's
-  // 2,048 cap), and the old URL (emails, bookmarks, stored notification links)
-  // still lands. 308, like the /services and /add-ons forwards above. The
-  // full-page More Services (/suite, /studio) went here 2026-10-02 (tracker d1).
+  // Retired redirect-only PAGES that still forward (cleanup slice C1, 2026-10-02).
+  // Each was a `page.tsx` whose only job was `redirect(...)` — a deployed route
+  // each, against Vercel's 2,048-route cap. A middleware forward is not a route,
+  // so the page is gone and the old URL (emails, bookmarks, stored notification
+  // links, indexed URLs) still lands where the stub sent it. One map, one lookup:
+  // lib/legacy-redirects.ts. 308, like the /services and /add-ons forwards above.
+  // The full-page More Services (/suite, /studio) joined the map 2026-10-02
+  // (owner, tracker d1) — they forward to the More menu on Home.
   const retiredTarget = legacyRedirectTarget(pathname);
   if (retiredTarget) {
     return NextResponse.redirect(new URL(retiredTarget, request.url), 308);

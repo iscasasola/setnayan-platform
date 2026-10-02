@@ -9,9 +9,7 @@ import {
   type SceneTemplate,
 } from '@/lib/scene-templates';
 import { HubDraftField, HubSavesImmediately } from '../../_components/hub-draft-field';
-import dynamic from 'next/dynamic';
 import { PickMenu } from './pick-menu';
-import { SlotRows } from '../../../launch/_components/lazy-slot';
 import { SCENE_TEMPLATES } from '@/lib/scene-templates';
 
 /* `Thumb` and `MAX_OWN_SCENES` live in `scene-thumb.tsx` so the lazy preset
@@ -21,11 +19,10 @@ export { MAX_OWN_SCENES, Thumb } from './scene-thumb';
 import { Thumb } from './scene-thumb';
 /* ⚡ Post Event's twelve preset tiles load with its sheet (the EXISTING
    `maker-details` chunk), never in the Maker's first load
-   (`scripts/check-maker-js-budget.mjs`). */
-const PresetTiles = dynamic(
-  () => import(/* webpackChunkName: "maker-details" */ './post-event-preset-tiles').then((m) => m.PresetTiles),
-  { loading: SlotRows },
-);
+   (`scripts/check-maker-js-budget.mjs`). Its stand-in lives with the other
+   scene stand-ins (`scene-styles-lazy.tsx`), so the Maker's tool registry
+   reaches it without this picker. */
+import { PresetTiles } from './scene-styles-lazy';
 import type { PostEventPresetsProp } from './post-event-preset-tiles';
 
 /** Desktop · Phone · Both — one dropdown (owner: a set of choices is one PickMenu, never a pill row). */

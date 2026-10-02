@@ -606,8 +606,10 @@ function YoutubeChannelPanel({
           day, so the section returned null and the warning reached nobody at all.
           Gated on the SAME predicate the action uses (mayBroadcastOnSharedChannel),
           so the copy and the behaviour cannot drift apart. Above the branch, not
-          inside one: it is true whichever channel state this host is in. */}
-      {mayBroadcastOnSharedChannel() ? (
+          inside one: it is true whichever channel state this host is in. Since
+          2026-10-02 the action refuses the pool to an event without the hosted
+          channel (owner ruling 2026-09-14), so the predicate takes ownership too. */}
+      {mayBroadcastOnSharedChannel(ownsHostedChannel) ? (
         <p className="max-w-prose rounded-xl border border-amber-200/80 bg-amber-50/60 px-4 py-3 text-sm text-ink/80">
           {POOL_CHANNEL_SHARED_STRIKE_NOTICE}
         </p>

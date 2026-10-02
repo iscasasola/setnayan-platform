@@ -31,6 +31,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { earliestKnownEventDate, type EventDateFields } from '@/lib/event-dates';
 import { isMissingRelationError, logQueryError } from '@/lib/supabase/error-detect';
 import { DEFAULT_EVENT_TZ } from './schedule';
+import { studioHubHref } from './studio-hub';
 
 export type ChecklistCategory =
   | 'foundations'
@@ -1167,7 +1168,8 @@ export function checklistItemHref(
     // Design
     lock_theme: `${base}/studio/mood-board`,
     mood_board: `${base}/studio/mood-board`,
-    choose_favours: `${base}/design`,
+    // The services hub page is gone (owner 2026-10-02, tracker d1) — the More menu.
+    choose_favours: studioHubHref(eventId),
     monogram: `${base}/monogram`,
     // Schedule
     schedule: `${base}/schedule`,

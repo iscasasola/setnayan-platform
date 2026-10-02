@@ -356,7 +356,7 @@ async function sweepJournalArticles(admin: AdminClient, now: Date): Promise<void
     const { error } = await admin.from('social_posts').insert({
       source_type: 'announcement',
       source_ref: `journal:${article.slug}`,
-      title: `Journal · ${article.title}`,
+      title: `Articles · ${article.title}`,
       body: `${hook}\n\n#Setnayan #FilipinoWedding`,
       link_url: `${origin}/blog/${article.slug}`,
     });

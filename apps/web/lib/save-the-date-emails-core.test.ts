@@ -1,30 +1,19 @@
 /**
- * Unit suite for the Save-the-Date guest-email core (the launchSaveTheDate
- * fan-out). These build a guest-facing email, so the edges that would surface
- * in a real inbox — a wrong/missing greeting, a leaked stale or unparseable
- * date, a junk recipient slipping through, the couple-name fallback chain, and
- * the RFC 8058 unsubscribe header — are pinned here.
+ * Unit suite for the guest-row helpers the guest reminder emails share (the
+ * Save-the-Date email builder and its fan-out are removed — owner 2026-10-02).
+ * Pinned: the greeting name, the junk-recipient check, the date line, and the
+ * couple-name fallback chain.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  buildSaveTheDateGuestEmail,
   formatWeddingDate,
   isSendableEmail,
   resolveCoupleName,
   stdGuestGreetingName,
-  STD_SUPPORT_EMAIL,
-  type StdEventContext,
   type StdGuestRow,
 } from './save-the-date-emails-core';
-
-const baseCtx: StdEventContext = {
-  coupleName: 'Maria & Jose',
-  weddingDateIso: '2026-12-12',
-  pageUrl: 'https://www.setnayan.com/maria-and-jose',
-  venue: 'Manila Cathedral',
-};
 
 function guest(overrides: Partial<StdGuestRow> = {}): StdGuestRow {
   return {
@@ -76,49 +65,4 @@ test('resolveCoupleName fallback chain: display → bride & groom → default', 
     resolveCoupleName({ display_name: null, bride_name: null, groom_name: null }),
     'Our wedding',
   );
-});
-
-test('buildSaveTheDateGuestEmail: full happy path carries names, date, link, calendar, unsubscribe', () => {
-  const mail = buildSaveTheDateGuestEmail(guest(), baseCtx);
-  // Subject + greeting + date
-  assert.match(mail.subject, /Save the date — Maria & Jose/);
-  assert.match(mail.subject, /December 12, 2026/);
-  assert.match(mail.text, /^Hi Ana,/);
-  assert.match(mail.text, /Saturday, December 12, 2026/);
-  assert.match(mail.text, /at Manila Cathedral/);
-  // Link to the now-public page
-  assert.ok(mail.text.includes('https://www.setnayan.com/maria-and-jose'));
-  assert.ok(mail.html.includes('https://www.setnayan.com/maria-and-jose'));
-  // Add-to-calendar (Google Calendar URL)
-  assert.match(mail.text, /Add it to your calendar:/);
-  assert.match(mail.text, /calendar\.google\.com/);
-  // RFC 8058 one-click unsubscribe
-  assert.equal(
-    mail.headers['List-Unsubscribe'],
-    `<mailto:${STD_SUPPORT_EMAIL}?subject=unsubscribe>`,
-  );
-  assert.equal(mail.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
-  // Plaintext + HTML both present
-  assert.ok(mail.text.length > 0);
-  assert.ok(mail.html.startsWith('<!DOCTYPE html>'));
-});
-
-test('buildSaveTheDateGuestEmail: no wedding date set → graceful copy, no date/calendar', () => {
-  const mail = buildSaveTheDateGuestEmail(guest(), { ...baseCtx, weddingDateIso: null });
-  assert.equal(mail.subject, 'Save the date — Maria & Jose');
-  assert.match(mail.text, /getting married — please save the date/);
-  assert.ok(!mail.text.includes('Add it to your calendar'));
-});
-
-test('buildSaveTheDateGuestEmail: no greeting name → neutral "Hi,"', () => {
-  const mail = buildSaveTheDateGuestEmail(
-    guest({ first_name: null, display_name: null }),
-    baseCtx,
-  );
-  assert.match(mail.text, /^Hi,/);
-});
-
-test('buildSaveTheDateGuestEmail: no venue → no "at <venue>" clause', () => {
-  const mail = buildSaveTheDateGuestEmail(guest(), { ...baseCtx, venue: null });
-  assert.ok(!/ at /.test(mail.text.split('\n')[2] ?? ''));
 });

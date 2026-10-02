@@ -735,7 +735,7 @@ function SaveShareCard({
             triggerClassName="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
           />
           <p className="pt-2 text-[11px] text-ink/55">
-            Apply-then-pay · Setnayan confirms inside 24 h after BDO / GCash
+            Apply-then-pay · Setnayan confirms inside 24 h after your
             payment is logged.
           </p>
         </div>

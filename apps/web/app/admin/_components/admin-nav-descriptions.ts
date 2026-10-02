@@ -167,7 +167,7 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'budget-planner': 'The couple budget-planner reference table and defaults.',
   receipts: 'Issued receipts and BIR-facing records.',
   'payment-methods':
-    'The BDO / GCash receiving accounts shown on payment instructions.',
+    'The receiving accounts (bank or e-wallet) shown on payment instructions.',
   settings:
     'Platform identity, business details, and Sentry smoke-test. Edit gated to internal admins.',
   compliance:
@@ -238,7 +238,10 @@ export function adaptAdminGroupItems(
  * rank nothing.
  */
 export const ADMIN_NAV_ALIASES: Record<string, string> = {
-  payments: 'pending unpaid reconcile proof screenshot gcash bdo receipt money',
+  // 'record received arrived' added 2026-10-02: "Record a payment received" is a
+  // card on this desk, and the three words an admin types for it matched nothing.
+  payments: 'pending unpaid reconcile proof screenshot gcash bdo receipt money record received arrived',
+  'payment-methods': 'bank e-wallet ewallet receiving account accounts gcash bdo maribank uno qr',
   payouts: 'release transfer send money supplier vendor owed',
   verify: 'pending id identity dti sec documents badge legit',
   disputes: 'complaint refund argument conflict problem',

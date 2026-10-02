@@ -63,7 +63,7 @@ export type MoodboardSlotKey = (typeof MOODBOARD_SLOT_KEYS)[number];
  * DB CHECK, two server-action validators, two copies of a `1 | 2` return type,
  * and a `[1, 2]` in the tile grid — with nothing tying them together. Five of
  * the six FAIL LOUDLY when they disagree; the sixth does not, and that is the
- * one that matters: `listMoodboardSlots`'s row filter SILENTLY DROPS a position
+ * one that matters: the (since-removed) `listMoodboardSlots` row filter SILENTLY DROPPED a position
  * outside its list, so a widened DB plus a stale filter would store the
  * couple's third photo and never render it. Widen HERE and every gate moves.
  *

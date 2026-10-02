@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 734 files · 2077 lines
+# 731 files · 2072 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -55,7 +55,6 @@
 1 apps/web/app/_components/schedule-suggest-chip.tsx
 2 apps/web/app/_components/service-card-view.tsx
 1 apps/web/app/_components/storyteller-tile.tsx
-1 apps/web/app/_components/thread-call-launcher-lazy.tsx
 1 apps/web/app/_components/thread-call-launcher.tsx
 1 apps/web/app/_components/thread-call-room.tsx
 1 apps/web/app/_components/thread-interest-chips.tsx
@@ -556,7 +555,6 @@
 3 apps/web/app/panood/control/[eventId]/transport-row.tsx
 1 apps/web/app/panood/demo/[token]/page.tsx
 6 apps/web/app/papic/_components/papic-buy-shell.tsx
-1 apps/web/app/papic/_papic-motion.tsx
 1 apps/web/app/papic/decorate/_components/kwento-decorator.tsx
 1 apps/web/app/papic/demo/[token]/_components/demo-join-flow.tsx
 1 apps/web/app/papic/demo/[token]/page.tsx
@@ -735,5 +733,4 @@
 5 apps/web/app/vendor/fit/[ref]/page.tsx
 6 apps/web/app/vendor/lock/[token]/page.tsx
 1 apps/web/app/wall/[eventId]/_components/wall-claim.tsx
-3 apps/web/components/billing/ManualCheckoutModal.tsx
 6 apps/web/components/skeletons/index.tsx

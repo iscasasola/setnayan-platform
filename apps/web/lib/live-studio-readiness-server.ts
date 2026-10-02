@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
+import { eventHoldsHostedChannel } from '@/lib/live-studio-roam-provision';
 import {
   decideBroadcastReadiness,
   type ReadinessDecision,
@@ -55,6 +56,9 @@ export async function fetchReadinessFacts(
   eventId: string,
 ): Promise<ReadinessFacts> {
   const oauthConfigured = (await getYoutubeOAuthConfig()).ready;
+  // ⚖ The SAME read the server gate makes (checkoutPoolChannel), so this card and
+  // the go-live action cannot disagree about whether the pool is this event's.
+  const hostedChannelOwned = await eventHoldsHostedChannel(admin, eventId);
 
   let channelAvailable = false;
   let channelConnected = false;
@@ -76,7 +80,7 @@ export async function fetchReadinessFacts(
       .maybeSingle();
     if (heldErr?.code === UNDEFINED_TABLE) {
       // Pre-migration DB: nothing is available and nothing is connected.
-      return { oauthConfigured, channelAvailable: false, channelConnected: false, channelNeedsReauth: false, cameraCount: 0, provisionedCount: 0 };
+      return { oauthConfigured, hostedChannelOwned, channelAvailable: false, channelConnected: false, channelNeedsReauth: false, cameraCount: 0, provisionedCount: 0 };
     }
     if (held) {
       channelPoolId = (held as { id: number }).id;
@@ -135,5 +139,5 @@ export async function fetchReadinessFacts(
     provisionedCount = 0;
   }
 
-  return { oauthConfigured, channelAvailable, channelConnected, channelNeedsReauth, cameraCount, provisionedCount };
+  return { oauthConfigured, hostedChannelOwned, channelAvailable, channelConnected, channelNeedsReauth, cameraCount, provisionedCount };
 }

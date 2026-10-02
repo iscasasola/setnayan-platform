@@ -92,7 +92,7 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
  * Bump this in the SAME COMMIT as any edit to ugat-both-ends.baseline.txt:
  * up when a newly-accepted orphan is ranked in, down when a row is paid down.
  */
-const EXPECTED_BASELINE_ROWS = 44;
+const EXPECTED_BASELINE_ROWS = 43;
 
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {

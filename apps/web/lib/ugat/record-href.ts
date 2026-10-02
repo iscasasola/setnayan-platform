@@ -36,14 +36,18 @@
  *   to a stub works while telling them the wrong address for where they landed.
  * · **taxonomy** → `/admin/taxonomy?open=<tile_id>`. `?open=` genuinely expands
  *   that tile in the Studio; `?q=` is the fallback when a leaf has no tile.
- * · **order** → `/admin/money`, and this one is deliberately NOT the precise-
- *   looking answer. `/admin/payments?q=<ref>` filters, but it queries the
- *   PAYMENTS table scoped to matching orders, so an order with no payment row
- *   returns NOTHING — which is the state of the only order production has ever
- *   held. A QUEUE IS NOT A LEDGER: `/admin/money` lists every order in every
- *   status, so it is the one surface that always contains the record you found.
- *   ⏭ It cannot focus a single row yet; giving that ledger a search term is a
- *   real follow-up, not a thing to fake here with a link that lands empty.
+ * · **order** → `/admin/payments?q=<public id>` — the payments desk, where the
+ *   "Record a payment received" card appears the moment the search names
+ *   EXACTLY ONE order (`fetchRecordTarget` matches `public_id` /
+ *   `reference_code` on the ORDERS table, so it does not need a payment row).
+ *   This used to say `/admin/money`, on the reasoning that the desk's list
+ *   filters PAYMENTS and an order with no payment returns an empty list. That
+ *   reasoning was about the list, and it missed the card: the order with no
+ *   payment is exactly the one an admin is searching for when money arrived
+ *   that nobody logged (owner 2026-10-01), and `/admin/money` had no way to
+ *   record it on a phone. The card shows even when the list below it is empty.
+ *   An order with no public id falls back to `/admin/money`, the ledger that
+ *   holds every order in every status.
  * · **guest** → the CELEBRATION they belong to, via the `event` arm. A guest
  *   has no admin page of their own — there is no `/admin/guests`, no
  *   `[guestId]` segment anywhere in the admin tree, and the only `from('guests')`
@@ -84,7 +88,8 @@ export type UgatRecordRef =
   | { kind: 'vendor'; vendorProfileId: string }
   | { kind: 'event'; publicId: string | null; slug: string | null }
   | { kind: 'user'; userId: string }
-  | { kind: 'order' }
+  /** The public id is the one term the payments desk's Record card finds an order by. */
+  | { kind: 'order'; publicId: string | null }
   | { kind: 'taxonomy'; tileId: string | null; canonicalService: string }
   /**
    * A guest is named by the CELEBRATION they belong to, never by themselves —
@@ -123,7 +128,9 @@ export function ugatRecordHref(ref: UgatRecordRef): string {
         ? `/admin/taxonomy?open=${encodeURIComponent(ref.tileId)}`
         : `/admin/taxonomy?q=${encodeURIComponent(ref.canonicalService)}`;
     case 'order':
-      return '/admin/money';
+      return ref.publicId
+        ? `/admin/payments?q=${encodeURIComponent(ref.publicId)}`
+        : '/admin/money';
     default: {
       // A new kind reaches here only by skipping the switch — which the `never`
       // makes a compile error first, and a thrown error second.

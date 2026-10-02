@@ -24,8 +24,8 @@ type SourceTable = 'papic_photos' | 'papic_guest_captures';
 /**
  * Auto-tag one capture from the face descriptors detected in it. Fetches the
  * event's consented, non-revoked enrollments that have a stored vector, runs the
- * pure matcher (euclidean bands, dedupe, cap), and writes auto_face photo_tags.
- * The DB cap trigger backstops the 20-LIVE-tags-per-photo limit across all writers;
+ * pure matcher (euclidean bands, dedupe), and writes auto_face photo_tags.
+ * There is no per-photo tag limit (owner 2026-08-06); the DB trigger keeps only a 100,000 abuse backstop;
  * ON CONFLICT dedupes against existing QR/manual tags. Never throws.
  */
 export async function autoTagCapture(params: {
@@ -106,22 +106,21 @@ export async function autoTagCapture(params: {
     if (searched.length === 0) return { autoTagged: 0 };
 
     // Existing tags on this photo (QR/manual/auto) INCLUDING tombstoned removals:
-    // a removed guest is never re-tagged (gravestone rule, 20270131081062) but
-    // only LIVE tags fill the cap (owner 2026-07-23 — ghosts don't burn slots).
+    // a removed guest is never re-tagged (gravestone rule, 20270131081062).
+    // There is no per-photo tag count to fill any more (owner 2026-08-06).
     const { data: existing } = await admin
       .from('photo_tags')
-      .select('guest_id, removed_at')
+      .select('guest_id')
       .eq('source_table', sourceTable)
       .eq('source_id', photoId);
     const existingRows = existing ?? [];
     const alreadyTaggedGuestIds = existingRows.map((r) => r.guest_id as string);
-    const liveTagCount = existingRows.filter((r) => r.removed_at == null).length;
 
-    const plan = planAutoTags({ faceVectors, enrollments: searched, alreadyTaggedGuestIds, liveTagCount });
+    const plan = planAutoTags({ faceVectors, enrollments: searched, alreadyTaggedGuestIds });
     if (plan.autoTags.length === 0) return { autoTagged: 0 };
 
     // Write auto_face tags. The (source_table, source_id, guest_id) unique
-    // constraint dedupes; the DB 20-live-tag cap trigger truncates any over-cap row.
+    // constraint dedupes; no tag cap applies.
     const rows = plan.autoTags.map((t) => ({
       event_id: eventId,
       source_table: sourceTable,

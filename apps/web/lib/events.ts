@@ -821,7 +821,7 @@ export async function recomputeReceptionAnchor(
 // 448) introduced event_moderators with 13 role_subtypes and the host-
 // invite flow at /host/accept/[token] writes ONLY to event_moderators,
 // NOT event_members. Server actions that gate on event_members alone
-// (saveVendorToPicks · addVenueDirectoryEntryToPlan · others) return
+// (saveVendorToPicks · others) return
 // 'no_primary_event' for invited hosts even though they're legitimate
 // hosts on a real event.
 //

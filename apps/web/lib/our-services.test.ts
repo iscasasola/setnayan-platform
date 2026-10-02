@@ -18,6 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { ADD_ONS, addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
 import {
   buildOurServices,
+  ourServicesMenuChildren,
   OUR_SERVICE_ADD_ON_KEYS,
   shownAddOnKeys,
   TOOL_HOMES,
@@ -59,7 +60,7 @@ test('the services, in the owner’s order, with the owner’s names', () => {
   const cards = buildOurServices(input());
   assert.deepEqual(
     cards.map((c) => c.name),
-    ['Setnayan AI (SAI)', 'Papic', 'Live Studio', 'Music Maker', 'Patiktok'],
+    ['Setnayan AI (SAI)', 'Papic', 'Live Watch', 'Music Maker', 'Patiktok'],
   );
 });
 
@@ -88,16 +89,21 @@ test('each card opens the page its menu row opens; Papic carries the Gallery', (
   assert.ok(OUR_SERVICE_ADD_ON_KEYS.has('editorial'), 'the lists below would bring Editorial back');
 });
 
-test('never unreachable: with no Papic card, the Gallery stands as its own card', () => {
+// SABOTAGE: restore a standalone Gallery card in buildOurServices → RED.
+test('the Gallery is NEVER a More item — not even where there is no Papic card (owner 2026-10-02)', () => {
   const noPapic = buildOurServices(input({ offered: (a) => a.key !== 'papic' }));
-  const gallery = noPapic.find((c) => c.key === 'gallery');
-  assert.ok(gallery, 'the Gallery vanished with Papic');
-  assert.equal(gallery.href, `/dashboard/${EVENT}/galleries`);
-  assert.deepEqual(gallery.parts, []);
-  assert.deepEqual(noPapic.map((c) => c.key).slice(0, 3), ['setnayan-ai', 'gallery', 'live-studio']);
+  assert.equal(noPapic.some((c) => c.key === 'gallery'), false, 'the Gallery stands as a card again');
+  assert.deepEqual(noPapic.map((c) => c.key), ['setnayan-ai', 'live-studio', 'music-maker', 'patiktok']);
+  // The rail row and the phone More sheet draw exactly these cards.
+  const kids = ourServicesMenuChildren(noPapic, '/dashboard/E/suite');
+  assert.equal(kids.some((k) => k.key === 'gallery' || k.icon === 'galleries'), false);
+  // On a full event it is five items, none of them Gallery.
+  const five = ourServicesMenuChildren(buildOurServices(input()), '/dashboard/E/suite');
+  assert.equal(five.length, 5);
+  assert.equal(five.some((k) => /gallery/i.test(k.label) || /\/galleries/.test(k.href)), false);
 });
 
-test('Live Studio is whichever livestream tile the event is offered — never both', () => {
+test('Live Watch is whichever livestream tile the event is offered — never both', () => {
   const onlyCast = input({ offered: (a) => a.key !== 'live-studio-roam' });
   assert.equal(byKey(onlyCast, 'live-studio').href, addOnHref('panood', EVENT));
   const hasRoam = ADD_ONS.some((a) => a.key === 'live-studio-roam');
@@ -178,7 +184,7 @@ test('the store shell drops what it refuses', () => {
   const shell = input({ refusesPath: (p) => p.includes('/studio/') });
   assert.deepEqual(
     buildOurServices(shell).map((c) => c.key),
-    ['gallery'],
+    [],
   );
 });
 

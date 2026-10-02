@@ -523,6 +523,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     papicPlatformSettings,
     { data: keepFullResRow, error: keepFullResRowError },
     ownsKeepFullRes,
+    { data: cameraBridgeRow, error: cameraBridgeRowError },
   ] = await Promise.all([
     unlockAdmin
       .from('platform_package_catalog')
@@ -542,6 +543,14 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
       .eq('service_code', 'HIGH_RES_ARCHIVE')
       .maybeSingle(),
     eventSkuActive(unlockAdmin, eventId, 'HIGH_RES_ARCHIVE'),
+    // The DSLR bridge's price comes from the catalogue, never from copy — and
+    // only while the row is ACTIVE. CAMERA_BRIDGE was retired (migration
+    // 20270828170000), so today this resolves to "no price, nothing to buy".
+    unlockAdmin
+      .from('platform_retail_catalog_v2')
+      .select('retail_price_php, is_active')
+      .eq('service_code', 'CAMERA_BRIDGE')
+      .maybeSingle(),
   ]);
   if (unlockPkgError) {
     logQueryError('PapicPage.unlockPkg', unlockPkgError, { event_id: eventId }, 'graceful_degrade');
@@ -549,6 +558,12 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   if (keepFullResRowError) {
     logQueryError('PapicPage.keepFullResRow', keepFullResRowError, { event_id: eventId }, 'graceful_degrade');
   }
+  if (cameraBridgeRowError) {
+    logQueryError('PapicPage.cameraBridgeRow', cameraBridgeRowError, { event_id: eventId }, 'graceful_degrade');
+  }
+  const cameraBridgePricePhp = cameraBridgeRow?.is_active
+    ? Number(cameraBridgeRow.retail_price_php)
+    : null;
   const papicUnlockPricePhp = unlockPkg?.is_active
     ? Number(unlockPkg.retail_price_php)
     : null;
@@ -1318,7 +1333,7 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
           />
         </summary>
         <div className="space-y-6 border-t border-ink/10 p-5">
-          <DslrBridgeSection />
+          <DslrBridgeSection pricePhp={cameraBridgePricePhp} />
           <ShutterSection />
           <CaptureDefaultsSection />
         </div>
@@ -2405,18 +2420,27 @@ function LegendDot({ color, label }: { color: string; label: string }) {
 // Setup & help sections (folded under the disclosure)
 // -----------------------------------------------------------------------------
 
-function DslrBridgeSection() {
+/**
+ * `pricePhp` is the ACTIVE catalogue price of CAMERA_BRIDGE, or `null` when the
+ * row is inactive or unreadable. It used to be typed ("₱100 / seat / day") — a
+ * figure that matched neither the catalogue nor a purchasable product. With no
+ * price this section offers nothing for sale and says so.
+ */
+function DslrBridgeSection({ pricePhp }: { pricePhp: number | null }) {
   return (
     <div className="space-y-3">
       <h3 className="flex items-center gap-2 text-sm font-semibold text-ink">
         <Smartphone aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={1.75} />
-        Pair a DSLR — ₱100 / seat / day
+        {pricePhp !== null && Number.isFinite(pricePhp)
+          ? `Pair a DSLR — ${formatPhp(pricePhp)}`
+          : 'Pair a DSLR'}
       </h3>
       <p className="max-w-prose text-sm text-ink/65">
         Turn one camera into a phone + DSLR pair. The phone still does everything
         — shutter, QR tagging, upload — and the DSLR provides the glass. Pairing
         happens in the Papic mobile app over Wi-Fi (arrives with the app, V1.5);
         there&rsquo;s nothing to set up here.
+        {pricePhp === null ? ' DSLR pairing is not on sale yet.' : ''}
       </p>
       <details className="rounded-lg border border-ink/10 bg-cream/60">
         <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium text-ink/70 [&::-webkit-details-marker]:hidden">

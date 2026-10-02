@@ -10,6 +10,7 @@
  * "What to expect" is the Traditions tab that used to live in /admin/ugat,
  * now on all 17 religions (it stopped at 8).
  */
+import { formatCount } from '@/lib/format-number';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DIMENSION_LABEL, WEDDING_TRADITIONS_GUIDE, type TraditionGuideKey } from '@/lib/wedding-traditions';
 import { RITE_LADDER } from '@/lib/faith-rites';
@@ -99,8 +100,8 @@ export function ReligionPanel({
               </SubmitButton>
             </form>
             <ReadOnly>
-              Today: {religion.launch.vendorCount} verified suppliers · {religion.launch.venueCount} ceremony venues ·{' '}
-              {religion.launch.ready ? 'ready' : `ready when ≥ ${religion.launch.threshold}`}
+              Today: {formatCount(religion.launch.vendorCount)} verified suppliers · {formatCount(religion.launch.venueCount)} ceremony venues ·{' '}
+              {religion.launch.ready ? 'ready' : `ready when ≥ ${formatCount(religion.launch.threshold)}`}
             </ReadOnly>
           </>
         ) : (
@@ -136,7 +137,7 @@ export function ReligionPanel({
         />
       </Section>
 
-      <Section title={`Services only for this religion (${tagged.length})`}>
+      <Section title={`Services only for this religion (${formatCount(tagged.length)})`}>
         {tagged.length === 0 ? <ReadOnly>None yet — every service shows for everyone.</ReadOnly> : null}
         <TogglePick
           label={`Services only for ${religion.label}`}
@@ -249,6 +250,13 @@ function WhatToExpect({
   const anyRows = data.traditions.length > 0;
   return (
     <Section title="What to expect">
+      {/* Kept on purpose (a sentence that earned its keep): these items go
+          live to couples with no deploy, and several religions are still
+          unvalidated. */}
+      <p className="text-sm text-ink" data-starter-warning="">
+        ⚠ This is starter content; validate each religion’s specifics with its clergy before relying on it — every
+        save goes live to couples.
+      </p>
       {items.length === 0 ? (
         <>
           {guide && guide.items.length > 0 ? (
@@ -294,7 +302,7 @@ function WhatToExpect({
 
 function ItemForm({ ceremonyType, item, state }: { ceremonyType: string; item: TraditionRow | null; state: BackState }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-ink/10 p-2" data-tradition-item={item ? 'saved' : 'new'}>
+    <div className="flex flex-wrap items-center gap-2 rounded-xl p-2" data-tradition-item={item ? 'saved' : 'new'}>
       <form action={upsertTraditionItem} className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
         <BackFields state={state} />
         {item ? <input type="hidden" name="item_id" value={item.item_id} /> : null}

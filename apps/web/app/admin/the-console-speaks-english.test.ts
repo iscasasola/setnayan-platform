@@ -14,8 +14,8 @@
  * spelling is not a survey — this rule matches the THING, not the phrasing.
  *
  * ⚖ TWO SITES ARE DELIBERATELY LEGAL and must stay that way: `<code>true</code>`
- * on Free windows is the literal value an operator has to set, and
- * `<code>status</code>` on the Taxonomy studio explains a field they can see.
+ * on Free windows is the literal value an operator has to set (the Taxonomy
+ * Studio's `<code>status</code>` was the other, and left with the Studio).
  * Naming a thing the person acts on is not developer text.
  */
 import { test } from 'node:test';
@@ -40,7 +40,9 @@ const code = (s: string) =>
   s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 /** Sites that name something the OPERATOR types or sees, not the schema. */
-const ALLOWED = new Set(['taxonomy/_components/taxonomy-studio.tsx']);
+// The Taxonomy Studio's `<code>status</code>` was the one entry here; the Studio
+// left with "Categories & event types" (2026-10-02), which names no column.
+const ALLOWED = new Set<string>([]);
 
 const OFFENDERS =
   /(migration[s]?\s+\d{10,}|iteration\s+\d{4}|<code>[a-z_]{5,}<\/code>)/g;

@@ -59,7 +59,7 @@ export function RequestRow({
 }) {
   const draft = request.draft;
   return (
-    <li id={`req-${request.requestId}`} className="space-y-2 rounded-2xl border border-dashed border-sky-300 bg-sky-50/40 p-3" data-request-row="">
+    <li id={`req-${request.requestId}`} className="space-y-2 rounded-2xl bg-sky-50/40 p-3" data-request-row="">
       <p className="text-sm text-ink">
         <span className="font-semibold">“{request.proposedLabel}”</span> from {request.supplierName}
         {request.proposedNote ? <span className="text-ink/70"> · “{request.proposedNote}”</span> : null}

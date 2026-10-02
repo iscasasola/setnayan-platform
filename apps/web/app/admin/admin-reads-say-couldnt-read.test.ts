@@ -248,14 +248,17 @@ test('Demand radar / Songs / Taxonomy / Wedding traditions / Recaps / Reveal: re
   assert.match(src('app/admin/demand/page.tsx'), /unreadable=\{radarUnreadable\}/);
   assert.match(src('lib/songs.ts'), /return \{ ok: false, songs: \[\] \};/);
   assert.match(src('app/admin/studio/_surfaces/songs-surface.tsx'), /\{!songsOk \? \(\s*<li[^>]*>\s*<ReadFailed/);
-  const tx = src('app/admin/taxonomy/page.tsx');
-  assert.match(tx, /failedReads\.push\(what\)/);
-  assert.match(tx, /\{failedReads\.length > 0 \? \(/);
-  assert.match(src('app/admin/taxonomy/aliases/page.tsx'), /\? reviewedUnread : pendingUnread\) \? \(\s*<ReadFailed/);
+  // Categories & event types (2026-10-02 — the Taxonomy Studio, its aliases
+  // page and the Traditions tab, on one page): every refused read is named,
+  // and the page says so above the lists.
+  const load = src('app/admin/categories/_components/load.ts');
+  assert.match(load, /function noteFailure\(failed: string\[\], what: string, err: unknown\) \{\s*if \(!err\) return;[\s\S]{0,200}failed\.push\(what\);/);
+  assert.match(load, /noteFailure\(failed, 'search words', aliasRes\.error\)/);
+  assert.match(src('app/admin/categories/page.tsx'), /\{failed\.length > 0 \? \(/);
   assert.match(src('app/admin/editorial-review/page.tsx'), /\{rowsError \? \(\s*<ReadFailed/);
-  const wt = src('app/admin/ugat/_surfaces/wedding-traditions-surface.tsx');
+  const wt = src('app/admin/categories/_components/religion-panel.tsx');
   assert.ok(
-    wt.indexOf('if (rowsError) {') > 0 && wt.indexOf('if (rowsError) {') < wt.indexOf('Load starter content'),
+    wt.indexOf('if (traditionsUnread) {') > 0 && wt.indexOf('if (traditionsUnread) {') < wt.indexOf('Load starter content'),
     'the refusal must return BEFORE the "Load starter content" button can render',
   );
   assert.match(src('app/admin/studio/_surfaces/recaps-surface.tsx'), /\{recapError \|\| evError \? \(/);
@@ -291,7 +294,7 @@ test('Developer text is gone from the screens the audit named', () => {
   const overview = src('app/admin/app-performance/_surfaces/overview-surface.tsx');
   assert.doesNotMatch(overview, /event_vendors\.completion_status|selection_match_rank|needs Sentry API/);
   assert.doesNotMatch(src('app/admin/accounts/_surfaces/demo-vendors-surface.tsx'), /PR 1 of 3/);
-  assert.doesNotMatch(src('app/admin/taxonomy/aliases/page.tsx'), /pnpm -F/);
+  assert.doesNotMatch(src('app/admin/categories/_components/category-panels.tsx'), /pnpm -F/);
   assert.doesNotMatch(src('app/admin/app-performance/_surfaces/operations-surface.tsx'), /operations-hiring\/time-log|REFRESH MATERIALIZED/);
   assert.doesNotMatch(src('app/admin/_components/mobile-landing-grid.tsx'), /Search settings & insights/);
   assert.doesNotMatch(src('app/admin/studio/_surfaces/website-surface.tsx'), /V1 ships the home page only/);

@@ -16,6 +16,7 @@
  * one press wrote the defaults over the real terminology; a refused onboarding
  * read showed the defaults in an armed editor. Both are carried over below.
  */
+import { formatCount } from '@/lib/format-number';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { defaultHostNoun, isCelebrantShape, resolveProfile } from '@/lib/event-type-profile';
@@ -234,8 +235,8 @@ export async function EventTypePanel({
       <Section title="Categories it shows">
         <ReadOnly>
           {counts.tailored === 0
-            ? `All ${counts.total} categories (none tailored yet)`
-            : `${counts.offered} of ${counts.total} · ${counts.tailored} tailored, the rest for every event`}
+            ? `All ${formatCount(counts.total)} categories (none tailored yet)`
+            : `${formatCount(counts.offered)} of ${formatCount(counts.total)} · ${formatCount(counts.tailored)} tailored, the rest for every event`}
         </ReadOnly>
         <ul className="space-y-2" data-categories-it-shows="">
           {groups.map((g) => {
@@ -245,7 +246,7 @@ export async function EventTypePanel({
             return (
               <li key={g.id} className="flex flex-wrap items-center gap-2">
                 <span className="w-48 shrink-0 text-sm text-ink">
-                  {g.label} <span className="text-xs text-ink/70">· {on.length} of {cats.length} offered</span>
+                  {g.label} <span className="text-xs text-ink/70">· {formatCount(on.length)} of {formatCount(cats.length)} offered</span>
                 </span>
                 <TogglePick
                   label={`${g.label} for ${vocab.label}`}
@@ -297,7 +298,7 @@ export async function EventTypePanel({
             className="h-5 w-5 accent-terracotta"
           />
         </label>
-        <SubmitButton form={formId} disabled={profileReadFailed} className={SAVE} pendingLabel="Saving…">
+        <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
           Save
         </SubmitButton>
       </Section>
@@ -325,7 +326,7 @@ export async function EventTypePanel({
         <KeyRow label="Celebrant shape">
           <FieldPick label="Celebrant shape" name="celebrant_shape" defaultValue={term.celebrant_shape} choices={SHAPES} form={formId} />
         </KeyRow>
-        <SubmitButton form={formId} disabled={profileReadFailed} className={SAVE} pendingLabel="Saving…">
+        <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
           Save
         </SubmitButton>
       </Section>
@@ -340,7 +341,7 @@ export async function EventTypePanel({
           ))}
         </div>
         <ReadOnly>Day-of and Gallery need Website on — the save refuses otherwise.</ReadOnly>
-        <SubmitButton form={formId} disabled={profileReadFailed} className={SAVE} pendingLabel="Saving…">
+        <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
           Save
         </SubmitButton>
       </Section>
@@ -376,7 +377,7 @@ export async function EventTypePanel({
         <KeyRow label="Role set key">
           <input name="role_set_key" form={formId} defaultValue={roleSetKey} className={`${INPUT} flex-1`} />
         </KeyRow>
-        <SubmitButton form={formId} disabled={profileReadFailed} className={SAVE} pendingLabel="Saving…">
+        <SubmitButton disabled={profileReadFailed} form={formId} className={SAVE} pendingLabel="Saving…">
           Save
         </SubmitButton>
       </Section>

@@ -60,12 +60,13 @@ const C4_MODULES = [
  * generated inventory is not a caller.
  */
 const MAY_NAME_THE_MINT: Record<string, string> = {
-  'app/admin/taxonomy/actions.ts': 'the definition itself — admin-gated, audit-logged',
-  'app/admin/taxonomy/_components/taxonomy-studio.tsx':
-    'CALL SITE: the queue form a person submits',
-  'app/admin/taxonomy/_components/prepared-job-card.tsx':
+  // Moved 2026-10-02 from the Taxonomy Studio into /admin/categories.
+  'app/admin/categories/actions.ts': 'the definition itself — admin-gated, audit-logged',
+  'app/admin/categories/_components/request-controls.tsx':
+    'CALL SITE: "Approve as new" on a request row, a form a person submits',
+  'app/admin/categories/_components/prepared-job-card.tsx':
     'CALL SITE: the ⌘K prepared-job card, also a form a person submits',
-  'app/admin/taxonomy/_components/prepared-jobs.ts': 'names the job in the ⌘K job list (data)',
+  'app/admin/categories/_components/prepared-jobs.ts': 'names the job in the ⌘K job list (data)',
   'lib/admin-map/admin-jobs.generated.ts': 'the scanned admin job inventory (generated data)',
   'lib/admin-map/prefill-consumers.ts': 'names which jobs accept a prefill (data)',
 };
@@ -121,7 +122,7 @@ test('the census of everything that names the mint matches the bill exactly', ()
 test('the mint still refuses a request that is not pending, and still audits', () => {
   // The four shipped outcomes are NOT rebuilt by C4; this pins that the one
   // control a draft sits beside is unchanged in the ways that matter.
-  const code = read('app/admin/taxonomy/actions.ts');
+  const code = read('app/admin/categories/actions.ts');
   assert.match(code, /const user = await requireAdmin\(\)/);
   assert.match(code, /That request was already resolved/);
   assert.match(code, /already exists — use Map instead of Promote/);
@@ -131,13 +132,13 @@ test('the mint still refuses a request that is not pending, and still audits', (
 test('the reviewer may correct the minted NAME, and a bad correction is refused not ignored', () => {
   // Without a reader the drafted "clean name" would be decoration — a stored
   // value nothing consumes, the shape this repo keeps paying for.
-  const code = read('app/admin/taxonomy/actions.ts');
+  const code = read('app/admin/categories/actions.ts');
   assert.match(code, /proposed_label_override/);
   assert.match(code, /Name must be 2–80 characters/);
   assert.match(code, /const canonical = slugify\(mintLabel, '_'\);/);
   assert.match(code, /display_name_en: mintLabel,/);
-  const studio = read('app/admin/taxonomy/_components/taxonomy-studio.tsx');
-  assert.match(studio, /name="proposed_label_override"/);
+  const row = read('app/admin/categories/_components/request-controls.tsx');
+  assert.match(row, /name="proposed_label_override"/);
 });
 
 test('the corrected name is published as OPTIONAL, never as a field the job demands', async () => {

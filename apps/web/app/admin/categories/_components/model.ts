@@ -11,6 +11,7 @@
  * tier-1 folder), "category" (a tier-2 tile). The stored keys keep their names.
  */
 import type { CategoriesShow } from './back';
+import { rankTaxonomyOptions, type RankableOption } from '@/lib/taxonomy-search-rank';
 
 // ── Supplier categories ──────────────────────────────────────────────────────
 
@@ -436,3 +437,32 @@ export function reordered(order: readonly string[], id: string, how: string): st
   return next;
 }
 
+
+/**
+ * "Close to what we have" for a name being added — found by MATCHING WORDS
+ * with the shipped ranker (`rankTaxonomyOptions`), never a model. The whole
+ * name first; then, when that finds fewer than `limit`, each of its words of
+ * four letters or more, so "Dirty ice cream cart" still meets "Ice Cream
+ * Cart" and "Sorbetes Cart". Options hit by more words rank first.
+ */
+export function nearMatches<T extends RankableOption>(name: string, options: readonly T[], limit = 3): T[] {
+  const whole = rankTaxonomyOptions(options, name, limit);
+  if (whole.length >= limit) return whole;
+  const score = new Map<string, { opt: T; hits: number; firstAt: number }>();
+  whole.forEach((o, i) => score.set(o.key, { opt: o, hits: 100, firstAt: i }));
+  const words = name
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 4);
+  words.forEach((w, wi) => {
+    for (const o of rankTaxonomyOptions(options, w, 20)) {
+      const cur = score.get(o.key);
+      if (cur) cur.hits += 1;
+      else score.set(o.key, { opt: o, hits: 1, firstAt: 1000 + wi });
+    }
+  });
+  return [...score.values()]
+    .sort((a, b) => b.hits - a.hits || a.firstAt - b.firstAt || a.opt.label.localeCompare(b.opt.label))
+    .slice(0, limit)
+    .map((s) => s.opt);
+}

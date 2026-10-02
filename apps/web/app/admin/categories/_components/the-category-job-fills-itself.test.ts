@@ -35,7 +35,8 @@ import { askParamKey } from '@/lib/admin-map/humanize-field';
 import { jobPrefillIsRead } from '@/lib/admin-map/prefill-consumers';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const studio = () => stripComments(readFileSync(join(HERE, 'taxonomy-studio.tsx'), 'utf8'));
+const studio = () => stripComments(readFileSync(join(HERE, 'ask-prefill.tsx'), 'utf8'));
+const page = () => stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
 
 const JOB = 'createTaxonomyNode';
 const job = ADMIN_JOBS.find((j) => j.name === JOB);
@@ -110,56 +111,18 @@ test('the prepared category is a real form the admin submits — nothing is crea
 });
 
 /**
- * ⚠ THE COMPOSER LIVES IN THE TILE GRID, AND FOUR VIEWS REPLACE THAT GRID.
- * An ask arriving while the admin sits on Unfiled / Requests / either
- * vocabulary would render the prepared form into a pane that is not on screen
- * — "prepared and invisible", which is this feature's own recurring failure.
+ * ⚠ PREPARED AND INVISIBLE. In the Studio the composer lived in the tile grid
+ * and four views replaced that grid, so an ask could render the prepared form
+ * into a pane that was not on screen. On /admin/categories the reader is
+ * mounted above BOTH panes, so whatever list, filter or panel is open, the
+ * prepared category is the first thing on screen.
  */
-test('an ask moves the studio to a view where the prepared form can be seen', () => {
-  const src = studio();
-  assert.match(
-    src,
-    /setView\(\(v\) => \(VIEWS_WITH_TILE_GRID\.has\(v\) \? v : 'all'\)\)/,
-    'an ask no longer forces a view that renders the tile grid — the prepared form can land off screen',
-  );
-  assert.match(
-    src,
-    /const VIEWS_WITH_TILE_GRID = new Set<StudioView>\(\[/,
-    'the set of grid-rendering views is gone — re-pin this test against the render branch',
-  );
-});
-
-/**
- * 🔑 THE SET IS CHECKED AGAINST THE RENDER BRANCH, NOT TRUSTED.
- *
- * `VIEWS_WITH_TILE_GRID` is a hand-written list, and a hand-written list is a
- * list of the things somebody thought of on the day. A sixth view added to the
- * `view === 'x' ? … :` chain without a line here would silently become a place
- * an ask can land with the prepared form rendered into a pane that is not on
- * screen — which is the failure the set exists to prevent, arriving through the
- * set itself. So both sides are derived from the file and compared.
- */
-test('the grid-view set is exactly the views the render branch does NOT replace', () => {
-  const src = studio();
-
-  const union = /export type StudioView =([\s\S]*?);/.exec(src);
-  assert.ok(union, 'the StudioView union moved — re-pin this test');
-  const allViews = [...union![1]!.matchAll(/'([a-z-]+)'/g)].map((m) => m[1]!);
-  assert.ok(allViews.length >= 5, `only ${allViews.length} views parsed — the union shape changed`);
-
-  // The views the render branch swaps the whole pane out for.
-  const replaced = [...src.matchAll(/view === '([a-z-]+)' \?/g)].map((m) => m[1]!);
-  assert.ok(replaced.length >= 3, `only ${replaced.length} replaced views parsed — the render branch shape changed`);
-
-  const declared = /const VIEWS_WITH_TILE_GRID = new Set<StudioView>\(\[([\s\S]*?)\]\)/.exec(src);
-  assert.ok(declared, 'VIEWS_WITH_TILE_GRID moved — re-pin this test');
-  const listed = [...declared![1]!.matchAll(/'([a-z-]+)'/g)].map((m) => m[1]!);
-
-  assert.deepEqual(
-    [...listed].sort(),
-    allViews.filter((v) => !replaced.includes(v)).sort(),
-    'VIEWS_WITH_TILE_GRID disagrees with the render branch — a view either lost its grid or gained one, and an ask can now be prepared into a pane that is not on screen',
-  );
+test('the prepared category renders above every pane, whatever is open', () => {
+  const src = page();
+  const host = src.indexOf('<AskPrefill');
+  assert.ok(host > 0, 'the categories page no longer mounts the reader — the owner sentence lands nowhere');
+  assert.ok(host < src.indexOf('data-pane="list"'), 'the reader moved inside the list pane');
+  assert.ok(host < src.indexOf('data-pane="panel"'), 'the reader moved inside the panel pane');
 });
 
 /**

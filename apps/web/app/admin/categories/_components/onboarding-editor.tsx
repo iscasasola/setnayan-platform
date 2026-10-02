@@ -43,7 +43,7 @@ const FIELD =
 const KEYFIELD =
   'w-full rounded border border-ink/15 bg-ink/[0.03] px-2 py-1 font-mono text-xs text-ink/70 outline-none focus:border-mulberry';
 const LABEL = 'block text-[11px] font-medium uppercase tracking-[0.12em] text-ink/50';
-const SECTION = 'rounded-xl border border-ink/10 bg-white p-5';
+const SECTION = 'rounded-xl bg-white p-5';
 const H2 = 'text-sm font-semibold text-ink';
 
 function slug(v: string): string {
@@ -234,7 +234,7 @@ export function OnboardingEditor({
 
           <div className="mt-4 space-y-4">
             {questions.map((q, qi) => (
-              <div key={qi} className="rounded-lg border border-ink/12 bg-ink/[0.015] p-4">
+              <div key={qi} className="rounded-lg bg-ink/[0.015] p-4">
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-xs font-semibold uppercase tracking-wider text-ink/40">
                     Question {qi + 1}
@@ -308,7 +308,7 @@ export function OnboardingEditor({
           </div>
           <div className="mt-4 space-y-4">
             {PERSONA_KEYS.map((p) => (
-              <details key={p} className="rounded-lg border border-ink/10 bg-ink/[0.015] p-3">
+              <details key={p} className="rounded-lg bg-ink/[0.015] p-3">
                 <summary className="cursor-pointer text-sm font-medium text-ink/80">
                   {reveal[p]?.name?.trim() || p.replace(/_/g, ' ')}
                   <span className="ml-2 text-xs font-normal text-ink/40">

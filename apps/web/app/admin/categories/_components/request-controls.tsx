@@ -60,7 +60,7 @@ export function PromoteRequestForm({
         onChange={(e) => setLabel(e.target.value)}
         minLength={2}
         maxLength={80}
-        className="w-44 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink"
+        className="w-44 rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink"
       />
       <span className="text-xs text-ink/70">{key ? `key ${key}` : 'needs letters or numbers'}</span>
       <PickMenu

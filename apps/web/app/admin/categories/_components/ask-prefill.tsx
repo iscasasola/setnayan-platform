@@ -62,8 +62,8 @@ type NewCategoryPrefill = {
   labelEn: string;
 };
 
-const FIELD = 'mt-0.5 w-full rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink';
-const CARD = 'rounded-2xl border border-success-200 bg-success-50/40 p-3';
+const FIELD = 'mt-0.5 w-full rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink';
+const CARD = 'rounded-2xl bg-success-50/40 p-3';
 
 export function AskPrefill({
   catalogs,

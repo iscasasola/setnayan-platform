@@ -287,7 +287,7 @@ function AddFieldForm({ service }: { service: ServiceRef }) {
         maxLength={80}
         placeholder="+ Add a field — e.g. Shooting style"
         aria-label="New field name"
-        className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm"
+        className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-sm"
       />
       <PickMenu
         label="Field type"
@@ -303,7 +303,7 @@ function AddFieldForm({ service }: { service: ServiceRef }) {
           required
           placeholder="Options, comma-separated"
           aria-label="Options, comma-separated"
-          className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm"
+          className="min-w-0 flex-1 rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-sm"
         />
       ) : (
         <input type="hidden" name="field_options" value="" />

@@ -6,6 +6,7 @@
  * list edits it with: which event types a category shows for is set on the
  * event type; which religion a service is only for is set on the religion.
  */
+import { formatCount } from '@/lib/format-number';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
@@ -194,7 +195,7 @@ export function GroupPanel({ group, data, state }: { group: Group; data: Categor
                 href={categoriesHref({ ...state, open: `c:${c.id}` })}
                 className="inline-flex min-h-9 items-center rounded-full border border-ink/15 px-3 text-sm text-ink hover:bg-ink/5"
               >
-                {c.label} · {c.serviceCount}
+                {c.label} · {formatCount(c.serviceCount)}
               </Link>
             </li>
           ))}
@@ -341,7 +342,7 @@ export function CategoryPanel({
 
       <Section title="Delete category…" closed>
         <ReadOnly>
-          Holds {category.serviceCount} services and {category.refinementCount} “what couples choose” cards. Pick where
+          Holds {formatCount(category.serviceCount)} services and {formatCount(category.refinementCount)} “what couples choose” cards. Pick where
           they go — nothing is stranded.
         </ReadOnly>
         <DeleteCategory

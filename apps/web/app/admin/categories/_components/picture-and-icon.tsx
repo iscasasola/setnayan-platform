@@ -47,7 +47,7 @@ export function PictureAndIcon({
 
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start" data-picture-and-icon="">
-      <div className="w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl border border-ink/10 bg-white" aria-label={`${label} as couples see it`}>
+      <div className="w-full max-w-[200px] shrink-0 overflow-hidden rounded-2xl bg-white" aria-label={`${label} as couples see it`}>
         <div className="flex h-24 items-center justify-center bg-cream">
           {photo ? (
             // eslint-disable-next-line @next/next/no-img-element -- a signed preview of our own upload

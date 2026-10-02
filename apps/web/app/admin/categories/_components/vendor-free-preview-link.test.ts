@@ -26,13 +26,14 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PAGE = join(HERE, 'page.tsx');
+const PAGE = join(HERE, 'event-type-panel.tsx');
+const LOAD = join(HERE, 'load.ts');
 const src = () => stripComments(readFileSync(PAGE, 'utf8'));
 
 test('the vocab read includes onboarding_href', () => {
   assert.match(
-    src(),
-    /\.select\(['"]event_type, label_en, emoji, onboarding_href['"]\)/,
+    stripComments(readFileSync(LOAD, 'utf8')),
+    /\.from\('event_type_vocab'\)\s*\.select\('[^']*onboarding_href[^']*'\)/,
     'the preview link needs onboarding_href on the vocab row it already reads',
   );
 });
@@ -40,7 +41,7 @@ test('the vocab read includes onboarding_href', () => {
 test('"Preview flow" follows onboarding_href when the type has one', () => {
   assert.match(
     src(),
-    /href=\{vocab\.onboarding_href \|\| `\/onboarding\/\$\{eventType\}`\}/,
+    /href=\{vocab\.onboardingHref \|\| `\/onboarding\/\$\{eventType\}`\}/,
     'must prefer the type\'s own onboarding_href over the generic ' +
       '/onboarding/[type] URL, so the link never previews a page the live ' +
       'route immediately redirects away from',

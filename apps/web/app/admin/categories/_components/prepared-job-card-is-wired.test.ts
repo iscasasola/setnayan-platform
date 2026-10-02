@@ -27,7 +27,8 @@ import { PREPARED_TAXONOMY_JOBS } from './prepared-jobs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
 const card = () => read('prepared-job-card.tsx');
-const studio = () => read('taxonomy-studio.tsx');
+const studio = () => read('ask-prefill.tsx');
+const page = () => stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
 
 const prepared = [...PREPARED_TAXONOMY_JOBS.keys()];
 
@@ -60,7 +61,7 @@ test('every prepared job has an action, and every action has a descriptor', () =
   );
 });
 
-test('every action in the map comes from the taxonomy actions module', () => {
+test('every action in the map comes from the categories actions module', () => {
   const src = card();
   // The `import { … } from '../actions'` list, so a key can only be satisfied
   // by a real named import from the module that owns these actions — not by a
@@ -208,18 +209,25 @@ test('the effect is keyed on the ask params alone, and a second ask remounts the
 });
 
 /**
- * ⚠ PREPARED AND INVISIBLE is this feature's recurring failure: four views
- * replace the whole centre pane, so a card rendered inside one can land off
- * screen. This one sits above the view switch, which is what makes it
- * unnecessary to move the admin off the view they were on.
+ * ⚠ PREPARED AND INVISIBLE was the Studio's recurring failure: four views
+ * replaced the whole centre pane, so a card rendered inside one could land off
+ * screen. On the categories page the host sits ABOVE both panes (the list and
+ * the panel), so no list switch or open panel can hide it.
  */
-test('the card renders outside the pane the view switch replaces', () => {
-  const src = studio();
-  const cardAt = src.indexOf('<PreparedJobCard');
-  const switchAt = src.indexOf("view === 'unfiled' ?");
-  assert.ok(switchAt > 0, 'the view switch moved — re-pin this test');
-  assert.ok(
-    cardAt > 0 && cardAt < switchAt,
-    'the prepared card moved inside the swappable pane — an ask can now be prepared into a view that is not on screen',
+test('the card renders above both panes, outside every list switch', () => {
+  const src = page();
+  const hostAt = src.indexOf('<AskPrefill');
+  const listAt = src.indexOf('data-pane="list"');
+  const panelAt = src.indexOf('data-pane="panel"');
+  assert.ok(hostAt > 0, 'the categories page no longer mounts the prepared-job host');
+  assert.ok(listAt > 0 && panelAt > 0, 'the two panes moved — re-pin this test');
+  assert.ok(hostAt < listAt && hostAt < panelAt, 'the prepared card moved inside a pane — an ask can be prepared off screen');
+});
+
+test('an ask loads what the card resolves against, whatever list is open', () => {
+  assert.match(
+    page(),
+    /state\.list !== 'religions' \|\| asking \? await loadCategories/,
+    'the category data is no longer loaded on an ask from the Religions list — the card would open with empty pickers',
   );
 });

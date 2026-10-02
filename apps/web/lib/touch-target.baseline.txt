@@ -5,7 +5,6 @@
 # icon) is the common shape here and is the one ST-11 named on the moment row.
 app/admin/_apple-secret-reminder.tsx	1
 app/admin/connection-logs/connection-logs-client.tsx	1
-app/admin/taxonomy/_components/taxonomy-studio.tsx	5
 app/dashboard/[eventId]/studio/patiktok/_components/tag-sheet.tsx	1
 app/dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx	1
 app/dashboard/[eventId]/vendors/_components/lock-milestone.tsx	1

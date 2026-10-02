@@ -11,9 +11,11 @@
  * never looked again. The page did not change, nothing opened, nothing filled,
  * and no error was shown. Every answer was silently discarded.
  *
- * There is a second half that is just as quiet: the inspector was keyed on the
- * tile id alone, so a second ask about a tile that is ALREADY open changed no
- * key, and the uncontrolled `defaultValue` inputs kept the previous answers.
+ * There is a second half that is just as quiet: a form keyed on nothing (the
+ * Studio's inspector was keyed on the tile id alone) keeps the previous ask's
+ * answers in its uncontrolled `defaultValue` inputs.
+ *
+ * Moved 2026-10-02 with the reader into `ask-prefill.tsx` on /admin/categories.
  *
  * ── WHY THIS IS SOURCE-SHAPED ───────────────────────────────────────────────
  * The studio is a `'use client'` component wired to Next's router, so the
@@ -31,12 +33,12 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const studio = () => stripComments(readFileSync(join(HERE, 'taxonomy-studio.tsx'), 'utf8'));
+const studio = () => stripComments(readFileSync(join(HERE, 'ask-prefill.tsx'), 'utf8'));
 
 /** The prefill effect's body, located by its own guard clause. */
 function prefillEffect(src: string): string {
   const start = src.indexOf("ADMIN_ASK_PARAM) !== 'createCanonicalLeaf'");
-  assert.ok(start > 0, 'the prefill effect is gone from the taxonomy studio');
+  assert.ok(start > 0, 'the prefill effect is gone from the categories page');
   const end = src.indexOf('}, [', start);
   assert.ok(end > start, 'the prefill effect has no dependency array — re-pin this test');
   // Include the dependency array itself.
@@ -48,7 +50,7 @@ test('the prefill effect re-runs on a same-route navigation', () => {
   const deps = effect.slice(effect.lastIndexOf('}, ['));
   assert.ok(
     !/^\}, \[\s*\]\);/.test(deps),
-    'the prefill effect is back on an EMPTY dependency array — answering while already on /admin/taxonomy will silently discard every answer',
+    'the prefill effect is back on an EMPTY dependency array — answering while already on /admin/categories will silently discard every answer',
   );
   assert.ok(
     deps.includes('searchParams') || deps.includes('askSignature'),
@@ -78,22 +80,14 @@ test('re-running cannot clobber the admin\'s own edits — it is keyed on the as
   );
 });
 
-test('a second ask about an ALREADY-OPEN tile still refreshes the form', () => {
+test('a second ask still refreshes the form — it remounts on the ask', () => {
   const src = studio();
-  // 🪤 `indexOf('<Inspector')` matched the TYPE `useState<InspectorTab | null>`
-  // hundreds of lines above the JSX and this guard failed on correct code.
-  // Anchor on the JSX open tag proper.
-  const keyIdx = src.search(/<Inspector\s/);
-  assert.ok(keyIdx > 0, 'the Inspector mount moved — re-pin this test');
-  const mount = src.slice(keyIdx, keyIdx + 400);
-  assert.match(
-    mount,
-    /key=\{`\$\{openTile\.id\}:\$\{addServicePrefill\?\.nonce \?\? ''\}`\}/,
-    'the Inspector is keyed on the tile id alone again — a second ask about an open tile will not re-mount its uncontrolled inputs, so the new answers are ignored',
-  );
+  // The prepared service form is keyed on the ask, so a second ask (same
+  // category, new answers) re-mounts its uncontrolled defaultValue inputs.
   assert.match(
     src,
-    /nonce: askSignature/,
-    'the prefill no longer carries the nonce its remount key depends on',
+    /<form key=\{addServicePrefill\.nonce\} action=\{createCanonicalLeaf\}/,
+    'the prepared service form is no longer keyed on the ask — a second ask leaves the first answers in the boxes',
   );
+  assert.match(src, /nonce: askSignature/, 'the prefill no longer carries the nonce its remount key depends on');
 });

@@ -20,14 +20,13 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { rankTaxonomyOptions } from '@/lib/taxonomy-search-rank';
 import { createCanonicalLeaf, createTaxonomyNode, createEventTypeRoster, createFaithVocab } from '../actions';
 import { addTradeAlias } from '../search-word-actions';
-import { eventTypeKeyFromName, religionKeyFromName } from './model';
+import { eventTypeKeyFromName, nearMatches, religionKeyFromName } from './model';
 import type { Choice } from './pickers';
 
-const FIELD = 'w-full rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink';
-const ROW = 'space-y-3 rounded-2xl border border-terracotta/30 bg-white p-3';
+const FIELD = 'w-full rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink';
+const ROW = 'space-y-3 rounded-2xl bg-white p-3';
 
 function Hidden({ back }: { back: Record<string, string> }) {
   return (
@@ -70,7 +69,7 @@ export function AddServiceOrCategory({
   const [name, setName] = useState('');
   const [picked, setPicked] = useState<string>('');
   const [faith, setFaith] = useState('');
-  const near = useMemo(() => rankTaxonomyOptions(services, name, 3), [services, name]);
+  const near = useMemo(() => nearMatches(name, services), [services, name]);
   const suggestedTile = near[0]?.tileId ?? null;
   const target = picked || (suggestedTile ? `c:${suggestedTile}` : '');
   const isNewCategory = target.startsWith('g:');
@@ -196,7 +195,7 @@ export function AddEventType({
   const [name, setName] = useState('');
   const key = eventTypeKeyFromName(name);
   const near = useMemo(
-    () => rankTaxonomyOptions(existing.map((e) => ({ key: e.key, label: e.label })), name, 3),
+    () => nearMatches(name, existing.map((e) => ({ key: e.key, label: e.label }))),
     [existing, name],
   );
   return (
@@ -258,7 +257,7 @@ export function AddReligion({
   const [name, setName] = useState('');
   const key = religionKeyFromName(name);
   const near = useMemo(
-    () => rankTaxonomyOptions(existing.map((e) => ({ key: e.key, label: e.label })), name, 3),
+    () => nearMatches(name, existing.map((e) => ({ key: e.key, label: e.label }))),
     [existing, name],
   );
   return (

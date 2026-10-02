@@ -73,8 +73,8 @@ test('every prepared job is a real, form-driven job on this page', () => {
     assert.ok(job, `${name} is prepared but is not a known admin job`);
     assert.equal(
       job!.resolvedPath,
-      '/admin/taxonomy',
-      `${name} is prepared by the taxonomy studio but lives at ${job!.resolvedPath}`,
+      '/admin/categories',
+      `${name} is prepared by the categories page but lives at ${job!.resolvedPath}`,
     );
     assert.ok(job!.fields.length > 0, `${name} has no fields — there is nothing to prepare`);
   }
@@ -172,7 +172,7 @@ test('no destructive job is ever prepared', () => {
  */
 test('no job that posts a list is ever prepared', () => {
   const listPosters = ADMIN_JOBS.filter(
-    (j) => j.resolvedPath === '/admin/taxonomy' && postsAList(j.name),
+    (j) => j.resolvedPath === '/admin/categories' && postsAList(j.name),
   ).map((j) => j.name);
   // A FLOOR. Without it a broken body-extractor finds nothing, the loop below
   // passes vacuously, and the guard reports safety it never checked.
@@ -327,12 +327,12 @@ test('a closed pick is resolved from the words too, and a bad one is refused', (
 });
 
 /**
- * 🔑 NO GATHERED ANSWER IS BINNED, INCLUDING THE PLUMBING ONES. `_view` is not a
+ * 🔑 NO GATHERED ANSWER IS BINNED, INCLUDING THE PLUMBING ONES. `_show` is not a
  * question worth showing, but the box still asks it, and dropping the answer
  * would re-create the original defect in miniature.
  */
 test('a carried plumbing field keeps its value', () => {
   const spec = PREPARED_TAXONOMY_JOBS.get('remapCanonical')!;
-  const out = buildPreparedValues(spec, paramsFrom({ _view: 'unfiled' }), CATALOGS);
-  assert.equal(out.values._view, 'unfiled');
+  const out = buildPreparedValues(spec, paramsFrom({ _show: 'unfiled' }), CATALOGS);
+  assert.equal(out.values._show, 'unfiled');
 });

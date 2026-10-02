@@ -7,6 +7,7 @@
  * renderToStaticMarkup — `the-three-lists-show.test.ts`. A row is a link to its
  * panel; nothing in a row edits anything.
  */
+import { formatCount } from '@/lib/format-number';
 import Link from 'next/link';
 import { categoriesHref, type BackState } from './back';
 import {
@@ -30,7 +31,7 @@ const ROW_ON = 'bg-ink text-cream hover:bg-ink';
 const COUNT = 'shrink-0 text-xs';
 
 function plural(n: number, one: string, many = `${one}s`): string {
-  return `${n} ${n === 1 ? one : many}`;
+  return `${formatCount(n)} ${n === 1 ? one : many}`;
 }
 
 function Pill({ children }: { children: React.ReactNode }) {
@@ -162,7 +163,7 @@ function CategoryRow({
             <Pill>
               {c.eventTypes.length === 1
                 ? `${eventLabel[c.eventTypes[0]!] ?? c.eventTypes[0]} only`
-                : `${c.eventTypes.length} event types`}
+                : `${formatCount(c.eventTypes.length)} event types`}
             </Pill>
           ) : null}
         </span>
@@ -240,9 +241,9 @@ export function EventTypesList({
               <span className={COUNT}>
                 {counts === null
                   ? '—'
-                  : counts.tailored === 0
+                  : counts.offered === counts.total
                     ? 'all categories'
-                    : `${counts.offered} of ${counts.total}`}
+                    : `${formatCount(counts.offered)} of ${formatCount(counts.total)}`}
               </span>
             </Link>
           </li>

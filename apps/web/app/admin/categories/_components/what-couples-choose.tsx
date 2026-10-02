@@ -111,7 +111,7 @@ export function WhatCouplesChoose({
 
   if (refinements.length === 0) {
     return (
-      <p className="rounded-lg border border-dashed border-ink/15 px-3 py-3 text-sm text-ink/70">
+      <p className="rounded-lg px-3 py-3 text-sm text-ink/70">
         No “what kind of {tile.label.toLowerCase()}?” card yet.
       </p>
     );
@@ -122,7 +122,7 @@ export function WhatCouplesChoose({
       {flash ? (
         <div
           role={flash.kind === 'error' ? 'alert' : 'status'}
-          className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-xs ${
+          className={`flex items-center justify-between gap-2 rounded-lg  px-3 py-2 text-xs ${
             flash.kind === 'ok'
               ? 'border-success-200 bg-success-50 text-success-800'
               : 'border-danger-200 bg-danger-50 text-danger-800'
@@ -136,7 +136,7 @@ export function WhatCouplesChoose({
             type="button"
             onClick={() => setFlash(null)}
             aria-label="Dismiss"
-            className="rounded p-0.5 hover:bg-black/5"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded hover:bg-black/5"
           >
             <X className="h-3 w-3" aria-hidden />
           </button>
@@ -220,7 +220,7 @@ function LeafBlock({
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`rounded-xl border bg-white transition ${
+      className={`rounded-xl  bg-white transition ${
         dragging ? 'opacity-40' : 'border-ink/10'
       } ${dropBefore ? 'ring-2 ring-terracotta ring-offset-1' : ''} ${
         leaf.status === 'retired' ? 'opacity-60' : ''
@@ -257,7 +257,7 @@ function LeafBlock({
             onClick={onMoveUp}
             disabled={!canMoveUp}
             aria-label="Move up"
-            className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
           >
             <ChevronUp className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -266,7 +266,7 @@ function LeafBlock({
             onClick={onMoveDown}
             disabled={!canMoveDown}
             aria-label="Move down"
-            className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
           >
             <ChevronDown className="h-3.5 w-3.5" aria-hidden />
           </button>
@@ -274,7 +274,7 @@ function LeafBlock({
             type="button"
             onClick={onToggle}
             aria-label={open ? 'Collapse' : 'Expand'}
-            className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink"
+            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-ink/60 hover:bg-ink/5 hover:text-ink"
           >
             <ChevronDown className={`h-4 w-4 transition ${open ? 'rotate-180' : ''}`} aria-hidden />
           </button>
@@ -346,7 +346,7 @@ function LeafBlock({
 
           {/* Options */}
           {leaf.dynamic ? (
-            <p className="rounded-lg border border-ink/10 px-3 py-2.5 text-xs text-ink/75">
+            <p className="rounded-lg px-3 py-2.5 text-xs text-ink/75">
               Options follow the religion the couple picks.
             </p>
           ) : (
@@ -400,7 +400,7 @@ function OptionGrid({
     <div className="space-y-2">
       <h4 className="font-mono text-[10px] uppercase tracking-[0.18em] text-ink/55">Options</h4>
       {leaf.options.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-ink/15 bg-cream/60 px-3 py-3 text-center text-[11px] text-ink/55">
+        <p className="rounded-lg bg-cream/60 px-3 py-3 text-center text-[11px] text-ink/55">
           No options yet.
         </p>
       ) : (
@@ -440,7 +440,7 @@ function OptionGrid({
       )}
 
       {leaf.isProjectable ? (
-        <p className="flex items-start gap-1.5 rounded-lg border border-ink/10 bg-ink/[0.03] px-3 py-2.5 text-[11px] text-ink/60">
+        <p className="flex items-start gap-1.5 rounded-lg bg-ink/[0.03] px-3 py-2.5 text-[11px] text-ink/60">
           <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/40" aria-hidden />
           <span>
             {leaf.label} is a matched card — its option keys drive supplier matching, so options can be
@@ -492,7 +492,7 @@ function OptionCard({
       onDragEnd={onDragEnd}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      className={`rounded-lg border bg-white p-2.5 transition ${
+      className={`rounded-lg  bg-white p-2.5 transition ${
         dragging ? 'opacity-40' : 'border-ink/10'
       } ${dropBefore ? 'ring-2 ring-terracotta ring-offset-1' : ''} ${
         option.status === 'retired' ? 'opacity-60' : ''
@@ -544,7 +544,7 @@ function OptionCard({
               onClick={onMoveUp}
               disabled={!canMoveUp}
               aria-label="Move option up"
-              className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
             >
               <ChevronUp className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -553,7 +553,7 @@ function OptionCard({
               onClick={onMoveDown}
               disabled={!canMoveDown}
               aria-label="Move option down"
-              className="rounded p-1 text-ink/40 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
+              className="inline-flex min-h-11 min-w-11 items-center justify-center rounded text-ink/60 hover:bg-ink/5 hover:text-ink disabled:opacity-25"
             >
               <ChevronDown className="h-3.5 w-3.5" aria-hidden />
             </button>
@@ -604,7 +604,7 @@ function AddOptionForm({ tile, leaf }: { tile: CategoryRef; leaf: RefinementCard
   return (
     <form
       action={addRefinementOption.bind(null, leaf.leafKey)}
-      className="space-y-2 rounded-lg border border-dashed border-success-300 bg-success-50/30 p-2.5"
+      className="space-y-2 rounded-lg bg-success-50/30 p-2.5"
     >
       <CategoryBack tileId={tile.id} />
       <p className="text-[11px] font-medium text-success-800">Add an option</p>

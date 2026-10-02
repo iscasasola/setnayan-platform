@@ -4,6 +4,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { PLAN_GROUPS } from '@/lib/wedding-plan-groups';
+import { formatCount } from '@/lib/format-number';
 import { NAV_ICON_NAMES } from '@/lib/nav-icons';
 import { ADMIN_ASK_PARAM } from '@/lib/admin-map/humanize-field';
 import { AddEventType, AddReligion, AddServiceOrCategory } from './_components/add-rows';
@@ -106,26 +107,26 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
       (g) => g.countsTowardLockable !== false && !cats.deadlines.some((d) => d.kind === 'service' && d.refKey === g.id),
     ).length;
     counts = [
-      `${cats.groups.length} groups`,
-      `${cats.categories.length} categories`,
-      `${cats.services.length} services`,
-      `${cats.requests.length} requests`,
-      `${waiting} words waiting`,
-      unfiled > 0 ? `${unfiled} unfiled` : null,
-      noDeadline > 0 ? `${noDeadline} categories have no deadline` : null,
-      cats.brokenCoupleLinks > 0 ? `${cats.brokenCoupleLinks} couple-side links broken` : null,
+      `${formatCount(cats.groups.length)} groups`,
+      `${formatCount(cats.categories.length)} categories`,
+      `${formatCount(cats.services.length)} services`,
+      `${formatCount(cats.requests.length)} requests`,
+      `${formatCount(waiting)} words waiting`,
+      unfiled > 0 ? `${formatCount(unfiled)} unfiled` : null,
+      noDeadline > 0 ? `${formatCount(noDeadline)} categories have no deadline` : null,
+      cats.brokenCoupleLinks > 0 ? `${formatCount(cats.brokenCoupleLinks)} couple-side links broken` : null,
     ]
       .filter(Boolean)
       .join(' · ');
   } else if (state.list === 'event-types') {
     const inPicker = vocab.eventTypes.filter((e) => e.status === 'active' && e.enabled).length;
     const retired = vocab.eventTypes.filter((e) => e.status === 'retired').length;
-    counts = `${vocab.eventTypes.length} event types · ${inPicker} in the picker · ${vocab.eventTypes.length - inPicker - retired} hidden · ${retired} retired`;
+    counts = `${formatCount(vocab.eventTypes.length)} event types · ${formatCount(inPicker)} in the picker · ${formatCount(vocab.eventTypes.length - inPicker - retired)} hidden · ${formatCount(retired)} retired`;
   } else if (state.list === 'religions' && rel) {
     const live = vocab.religions.filter((r) => r.launch?.status === 'active').length;
     const soon = vocab.religions.filter((r) => r.launch?.status === 'coming_soon').length;
     const tagged = rel.services.filter((s) => s.faith).length;
-    counts = `${vocab.religions.length} religions · ${live} live for couples · ${soon} coming soon · ${tagged} services tagged`;
+    counts = `${formatCount(vocab.religions.length)} religions · ${formatCount(live)} live for couples · ${formatCount(soon)} coming soon · ${formatCount(tagged)} services tagged`;
   }
 
   // ── The list ──────────────────────────────────────────────────────────────
@@ -198,7 +199,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
     if (state.show === 'requests' && !state.open) {
       panel = (
         <section aria-label="Supplier requests" data-panel="requests">
-          <h2 className="pb-3 text-xl font-semibold text-ink">Requests ({cats.requests.length})</h2>
+          <h2 className="pb-3 text-xl font-semibold text-ink">Requests ({formatCount(cats.requests.length)})</h2>
           <ul className="space-y-3">
             {cats.requests.map((r) => (
               <RequestRow
@@ -379,7 +380,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
             </Link>
           ) : null}
           {panel ?? (
-            <p className="rounded-2xl border border-dashed border-ink/15 px-4 py-10 text-center text-sm text-ink/70">
+            <p className="px-4 py-10 text-center text-sm text-ink/70">
               {state.open ? 'That one no longer exists.' : 'Pick a row on the left.'}
             </p>
           )}

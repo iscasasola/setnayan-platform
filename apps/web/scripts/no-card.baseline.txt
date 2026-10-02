@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 732 files · 2073 lines
+# 723 files · 2008 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -167,10 +167,6 @@
 4 apps/web/app/admin/editorial-review/page.tsx
 1 apps/web/app/admin/error.tsx
 4 apps/web/app/admin/event-deletions/page.tsx
-3 apps/web/app/admin/event-types/[eventType]/categories/page.tsx
-3 apps/web/app/admin/event-types/[eventType]/onboarding/_components/onboarding-editor.tsx
-2 apps/web/app/admin/event-types/[eventType]/onboarding/page.tsx
-2 apps/web/app/admin/event-types/[eventType]/profile/page.tsx
 2 apps/web/app/admin/fraud/page.tsx
 1 apps/web/app/admin/help/page.tsx
 1 apps/web/app/admin/integrations/_components/build-time-status.tsx
@@ -236,13 +232,8 @@
 6 apps/web/app/admin/studio/_surfaces/storytellers-surface.tsx
 1 apps/web/app/admin/studio/_surfaces/website-surface.tsx
 1 apps/web/app/admin/subscriptions/page.tsx
-1 apps/web/app/admin/taxonomy/_components/prepared-job-card.tsx
-40 apps/web/app/admin/taxonomy/_components/taxonomy-studio.tsx
-4 apps/web/app/admin/taxonomy/aliases/page.tsx
-9 apps/web/app/admin/taxonomy/page.tsx
 2 apps/web/app/admin/ugat/_surfaces/brain-surface.tsx
 5 apps/web/app/admin/ugat/_surfaces/onboarding-surface.tsx
-1 apps/web/app/admin/ugat/_surfaces/wedding-traditions-surface.tsx
 1 apps/web/app/admin/user-reports/page.tsx
 4 apps/web/app/admin/users/[userId]/page.tsx
 1 apps/web/app/admin/vendor-partnerships/page.tsx

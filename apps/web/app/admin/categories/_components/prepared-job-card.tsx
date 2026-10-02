@@ -127,7 +127,7 @@ export function PreparedJobCard({
   return (
     <form
       action={action}
-      className="rounded-xl border border-success-200 bg-success-50/40 p-3"
+      className="rounded-xl bg-success-50/40 p-3"
       aria-label={spec.verb}
     >
       <p className="flex items-start gap-1.5 text-[11px] text-success-800">

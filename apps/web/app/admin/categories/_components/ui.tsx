@@ -67,7 +67,7 @@ export function ReadOnly({ children }: { children: ReactNode }) {
   return <p className="text-sm text-ink" data-read-only="">{children}</p>;
 }
 
-export const INPUT = 'min-w-0 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink';
+export const INPUT = 'min-w-0 rounded-md border border-ink/15 bg-white px-2.5 py-1.5 text-sm text-ink';
 export const SAVE = 'rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-cream disabled:opacity-40';
 
 /**

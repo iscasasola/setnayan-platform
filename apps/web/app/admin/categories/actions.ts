@@ -661,7 +661,7 @@ export async function setServiceEventTypes(formData: FormData) {
   redirectBack(
     formData,
     'ok',
-    next === null ? 'Shows for the same events as its category.' : `Shows only for ${next.length} event type${next.length === 1 ? '' : 's'}.`,
+    next === null ? 'Shows for the same events as its category.' : `Shows only for ${formatCount(next.length)} event type${next.length === 1 ? '' : 's'}.`,
   );
 }
 
@@ -2317,7 +2317,7 @@ export async function setFaithAskedOn(formData: FormData): Promise<never> {
     'ok',
     next.length === 0
       ? `${before.label_en} is no longer asked on any event type.`
-      : `${before.label_en} is asked on ${next.length} event type${next.length === 1 ? '' : 's'}.`,
+      : `${before.label_en} is asked on ${formatCount(next.length)} event type${next.length === 1 ? '' : 's'}.`,
   );
 }
 

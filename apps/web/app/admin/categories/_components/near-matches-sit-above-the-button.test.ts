@@ -34,12 +34,13 @@ import { loadSources } from '@/lib/gate-writers';
  * actually reads had been deleted. This guard asserts on what RENDERS.
  */
 const WEB_ROOT = join(import.meta.dirname, '..', '..', '..', '..');
-const src = (() => {
-  const rel = 'app/admin/taxonomy/_components/taxonomy-studio.tsx';
+function load(rel: string): string {
   const found = loadSources(WEB_ROOT).find((f) => f.path === rel);
-  assert.ok(found, `no source at ${rel} — did the Studio move?`);
+  assert.ok(found, `no source at ${rel} — did the request row move?`);
   return found.code;
-})();
+}
+const src = load('app/admin/categories/_components/request-row.tsx');
+const controls = load('app/admin/categories/_components/request-controls.tsx');
 
 /** The row of the four shipped outcome controls, inside the request `<li>`. */
 const BUTTON_ROW = '<div className="flex flex-wrap items-end gap-2">';
@@ -68,7 +69,7 @@ test('the promote control is INSIDE that row, so the comparison above is the rea
 test('the near-match block offers no control of its own — it is text a person reads', () => {
   const start = src.indexOf('function RequestDraftNotes(');
   assert.ok(start > 0, 'RequestDraftNotes is gone');
-  const end = src.indexOf('\nfunction ', start + 1);
+  const end = src.indexOf('\nexport function ', start + 1);
   const body = src.slice(start, end > 0 ? end : undefined);
   for (const control of ['<form', '<button', 'SubmitButton', 'onClick', 'action={']) {
     assert.equal(
@@ -79,11 +80,14 @@ test('the near-match block offers no control of its own — it is text a person 
   }
 });
 
-test('the branch is prefilled but never locked, and the screen says it is the weak part', () => {
-  assert.match(src, /defaultValue=\{draft\?\.suggestedTileId \?\? ''\}/);
-  assert.match(src, /promote under tile…/);
+test('the category is prefilled but never locked, and the screen says it is the weak part', () => {
+  // Prefilled from the draft into STATE the reviewer changes with a dropdown.
+  assert.match(controls, /useState\(suggestedTileId \?\? ''\)/);
+  assert.match(src, /suggestedTileId=\{draft\?\.suggestedTileId \?\? null\}/);
+  // An undrafted request opens on an empty choice, never a guess.
+  assert.match(controls, /— choose a category —/);
   // The caution the prototype draws, kept where a reviewer meets it.
-  assert.match(src, /weakest part of any\n?\s*draft/);
+  assert.match(src, /weakest part of any draft/);
 });
 
 test('an undrafted request still renders the four shipped outcomes and nothing extra', () => {

@@ -36,8 +36,10 @@ const NEW_DOOR = 'app/vendor-dashboard/services/new/page.tsx';
 const RANK_LIB = 'lib/taxonomy-search-rank.ts';
 const ALIAS_LIB = 'lib/service-trade-aliases.ts';
 const ALIAS_DB = 'lib/service-trade-aliases-db.ts';
-const REVIEW_PAGE = 'app/admin/taxonomy/aliases/page.tsx';
-const REVIEW_ACTIONS = 'app/admin/taxonomy/aliases/actions.ts';
+// The review moved onto each service's panel of Categories & event types
+// (2026-10-02); the waiting words across every service are Show ▾ › Words waiting.
+const REVIEW_PAGE = 'app/admin/categories/page.tsx';
+const REVIEW_ACTIONS = 'app/admin/categories/search-word-actions.ts';
 const SEED_SCRIPT = 'scripts/seed-trade-aliases.ts';
 
 test('the files under test actually read back', () => {
@@ -131,7 +133,7 @@ test('the review page is gated by the shared admin check, not a hand-rolled one'
 
 test('approve/reject/unteach all go through requireAdminAction — none is a bare server action', () => {
   const src = read(REVIEW_ACTIONS);
-  const fns = ['approveTradeAlias', 'rejectTradeAlias', 'unteachTradeAlias'];
+  const fns = ['approveTradeAlias', 'rejectTradeAlias', 'unteachTradeAlias', 'addTradeAlias'];
   for (const fn of fns) {
     const start = src.indexOf(`export async function ${fn}`);
     assert.ok(start >= 0, `${fn} is missing from actions.ts`);
@@ -140,7 +142,7 @@ test('approve/reject/unteach all go through requireAdminAction — none is a bar
   }
 });
 
-test('approving is the ONLY act that sets reviewed_at — reject and unteach only ever delete', () => {
+test('only a PERSON sets reviewed_at — approve, or an admin typing the word — and reject/unteach only delete', () => {
   const src = read(REVIEW_ACTIONS);
   const approveBody = src.slice(
     src.indexOf('export async function approveTradeAlias'),
@@ -156,8 +158,18 @@ test('approving is the ONLY act that sets reviewed_at — reject and unteach onl
   assert.doesNotMatch(rejectBody, /reviewed_at:/, 'rejectTradeAlias sets reviewed_at — a reject must never approve');
   assert.match(rejectBody, /\.delete\(\)/);
 
-  const unteachBody = src.slice(src.indexOf('export async function unteachTradeAlias'));
+  const unteachBody = src.slice(
+    src.indexOf('export async function unteachTradeAlias'),
+    src.indexOf('export async function addTradeAlias'),
+  );
   assert.match(unteachBody, /\.delete\(\)/, 'unteachTradeAlias stopped deleting the row');
+  assert.doesNotMatch(unteachBody, /reviewed_at:/);
+
+  // "+ Add a word": the admin typing it IS the review, and the row says so.
+  const addBody = src.slice(src.indexOf('export async function addTradeAlias'));
+  assert.match(addBody, /source: 'admin'/, "an admin-typed word must be marked source: 'admin'");
+  assert.match(addBody, /reviewed_by: userId/, 'an admin-typed word must name the admin who typed it');
+  assert.match(addBody, /already belongs to another service/, 'adding a word must refuse to move an existing one');
 });
 
 // ---------------------------------------------------------------------------

@@ -5,9 +5,10 @@ import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PayoutMethodNudge } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
-import { AlertTriangle, ArrowRight, EyeOff, Info, PartyPopper } from 'lucide-react';
+import { AlertTriangle, ArrowRight, EyeOff, Hourglass, Info, PartyPopper } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
+import { todayCreditNotice } from '@/lib/vendor-credit-warning';
 import { resolveVendorRole, canManageVendor } from '@/lib/vendor-role';
 import {
   fetchVendorOverviewData,
@@ -424,6 +425,33 @@ export default async function VendorOverviewPage({
   const findabilityBanner = findabilityNotice(findability);
 
   /*
+    ⏳ CREDIT ABOUT TO EXPIRE (owner 2026-10-02, tracker d5: "warn a supplier
+    7 days before a balance expires — one notice on their Today page + email").
+    The email + tray half already ships (`maybeSweepVendorCreditWarnings`, once
+    per term). This is the Today half: the same rule and the same words
+    (`todayCreditNotice`), shown while the window is open.
+    ⚠ ITS OWN QUERY: the shared profile select does not carry these two columns,
+    and naming one PostgREST does not know refuses the whole select. A failed
+    read shows nothing here — the email and the tray still went out — and is
+    logged, never read as "no credit".
+  */
+  const { data: creditRow, error: creditErr } = await supabase
+    .from('vendor_profiles')
+    .select('subscription_credit_php, tier_expires_at')
+    .eq('vendor_profile_id', profile.vendor_profile_id)
+    .maybeSingle();
+  if (creditErr) console.error('[supabase-error] /vendor-dashboard credit notice read', creditErr);
+  const creditNotice = creditRow
+    ? todayCreditNotice(
+        {
+          creditPhp: Number((creditRow as { subscription_credit_php?: number | string | null }).subscription_credit_php ?? 0),
+          tierExpiresAt: (creditRow as { tier_expires_at?: string | null }).tier_expires_at ?? null,
+        },
+        Date.now(),
+      )
+    : null;
+
+  /*
     ── 📱 THE FIRST SCREEN (owner-APPROVED 2026-10-01, DECISION_LOG "THE
     SUPPLIER PHONE APP — APPROVED, WITH THE THREE RECOMMENDED ANSWERS") ────
     The shop line → ONE Next card → three numbers → the next three events.
@@ -618,6 +646,29 @@ export default async function VendorOverviewPage({
                 <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
               </Link>
             ) : null}
+          </div>
+        </div>
+      ) : null}
+
+      {/* ⏳ Credit about to expire — the Today half of the 7-day warning (d5). */}
+      {creditNotice ? (
+        <div
+          data-credit-expiring=""
+          className="mb-6 flex items-start gap-3 rounded-xl border px-4 py-3.5"
+          style={{
+            borderColor: 'var(--m-orange-3)',
+            background: 'var(--m-orange-4)',
+            color: 'var(--m-orange-deep)',
+          }}
+        >
+          <Hourglass aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
+          <div className="min-w-0 text-sm leading-relaxed">
+            <p className="font-semibold">{creditNotice.title}</p>
+            <p className="mt-0.5">{creditNotice.body}</p>
+            <Link href={creditNotice.href} className="mt-2 inline-flex items-center gap-1 font-semibold underline">
+              Renew your plan
+              <ArrowRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </Link>
           </div>
         </div>
       ) : null}

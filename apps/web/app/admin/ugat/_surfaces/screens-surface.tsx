@@ -2,7 +2,7 @@
 //
 // Owner, DECISION_LOG 2026-10-02 "ONE MAP OF THE APP": every page of the host,
 // guest and supplier apps, the ways in to each one, and its Ugat node — viewable
-// as a "Screens" layer in Admin › Set up. EXTENDS the map, never a fourth one:
+// as a "Screens" layer in Admin › Root map (named 2026-10-02). EXTENDS the map, never a fourth one:
 // the nodes are the entity map's own UGAT_TYPES, and admin pages stay in the
 // admin map (lib/admin-map/admin-routes.generated.ts).
 //
@@ -92,7 +92,7 @@ export function ScreensSurface() {
 
   return (
     <div className="mx-auto w-full max-w-5xl">
-      <PageMasthead title="Screens" />
+      <PageMasthead title="Root map · Screens" />
       <p className="mb-6 mt-1 max-w-2xl text-sm text-ink/70">
         Every page of the host, guest and supplier apps, the ways in to each one, and the part of
         the entity map it belongs to — read from the code each time it changes. A page with no door

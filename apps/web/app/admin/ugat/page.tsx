@@ -69,7 +69,7 @@ type Props = {
 
 export async function generateMetadata({ searchParams }: Props) {
   const tab = coerceTab(first((await searchParams).tab));
-  return { title: `${TAB_TITLE[tab]} · Admin` };
+  return { title: `${TAB_TITLE[tab]} · Root map · Admin` };
 }
 
 function activeSurface(
@@ -106,7 +106,7 @@ export default async function UgatStudioPage({ searchParams }: Props) {
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <nav
-        aria-label="Set up sections"
+        aria-label="Root map sections"
         className="mb-6 flex flex-wrap gap-1.5 border-b border-ink/10 pb-3"
       >
         {TAB_STRIP.map((t) => {

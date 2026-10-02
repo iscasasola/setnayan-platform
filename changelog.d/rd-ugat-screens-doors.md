@@ -20,3 +20,15 @@ table → node binding concept-coverage uses).
   Written to the corpus as `UGAT_MAP_FIRST_RUN_2026-10-02.md`.
 
 SPEC IMPACT: None
+
+## 2026-10-02 · feat(admin): the Ugat map is called the "Root map" wherever a person reads it
+
+Owner, DECISION_LOG 2026-10-02 "'UGAT MAP' IS NOW CALLED THE 'ROOT MAP'" (supersedes 2026-10-01's
+"Setup"). Admin menu group + phone rail caption + More sheet (derived from the group), the Studio tab
+strip, page titles, the Screens heading, the Interconnections joint labels, the first-run report and
+the CI check's printout now say **Root map**. "ugat", "setup" and "set up" stay findable as search
+aliases (`ADMIN_NAV_ALIASES`). Code names, `lib/ugat/*`, `/admin/ugat` and test names unchanged.
+Guards: `admin-reads-say-couldnt-read.test.ts` now pins "Root map" (and refuses "Set up"/"Setup" in
+those files); `the-phone-answers-it-does-not-edit.test.ts` rules out both names.
+
+SPEC IMPACT: None (the corpus report's name lines were updated in the same change).

@@ -115,13 +115,14 @@ function report(m: UgatScreensMap): string {
   const stubs = m.screens.filter((x) => x.status === 'stub');
   const unmapped = m.screens.filter((x) => x.status !== 'stub' && x.nodes.length === 0);
   const out: string[] = [];
-  out.push('# Ugat map — first run of Screens · Doors (2026-10-02)');
+  out.push('# Root map — first run of Screens · Doors (2026-10-02)');
   out.push('');
   out.push(
     'Generated from code by `pnpm --filter @setnayan/web ugat:screens --report` (setnayan-platform, ' +
       '`apps/web/scripts/gen-ugat-screens.ts`). Owner rulings: DECISION_LOG 2026-10-02 "ONE MAP OF THE APP", ' +
       'its amendment "THE APP MAP STARTS FRIDAY" and "THE UGAT MAP IS ALSO THE APP\'S OWN DEFINITION OF WHAT IT DOES". ' +
-      'Live view: Admin › Set up › Screens. This is the FIX LIST the first run was asked to produce.',
+      'Root map is the owner\'s name for the Ugat map (DECISION_LOG 2026-10-02); code paths keep `ugat`. ' +
+      'Live view: Admin › Root map › Screens. This is the FIX LIST the first run was asked to produce.',
   );
   out.push('');
   out.push('## The numbers');
@@ -133,7 +134,7 @@ function report(m: UgatScreensMap): string {
   out.push(`| **Not connected — no way in** | **${s.noDoor}** |`);
   out.push(`| Legacy stubs — old addresses that only forward somewhere else | ${s.stubs} |`);
   out.push(`| **Doors to nowhere — a link to an address nothing answers** | **${s.brokenDoors}** |`);
-  out.push(`| Unmapped — no Ugat node (the page reads no mapped table) | ${s.unmapped} |`);
+  out.push(`| Unmapped — no Root map node (the page reads no mapped table) | ${s.unmapped} |`);
   out.push('');
   out.push('## 1 · Not connected (no door)');
   out.push('');
@@ -184,7 +185,7 @@ function report(m: UgatScreensMap): string {
     for (const r of m.legacyRedirects) out.push(`- \`${r.source}\` → \`${r.destination}\``);
     out.push('');
   }
-  out.push('## 4 · Screens with no Ugat node (unmapped)');
+  out.push('## 4 · Screens with no Root map node (unmapped)');
   out.push('');
   out.push(
     'Most are content pages (legal, about, help) that read no data and need no node. The ones that DO hold ' +
@@ -197,7 +198,7 @@ function report(m: UgatScreensMap): string {
   out.push('');
   out.push('## 5 · Every screen, by area');
   out.push('');
-  out.push('| screen | status | doors | Ugat node(s) |');
+  out.push('| screen | status | doors | Root map node(s) |');
   out.push('|---|---|---|---|');
   for (const g of screensByArea(m)) {
     out.push(`| **${SCREEN_AREA_LABEL[g.area]}** | | | |`);
@@ -226,7 +227,7 @@ function report(m: UgatScreensMap): string {
       'door" means "no door in the code" — check before deleting.',
   );
   out.push(
-    '- **A Ugat node** comes from the tables the page reads (in the page and two imports deep), through the same ' +
+    '- **A Root map node** comes from the tables the page reads (in the page and two imports deep), through the same ' +
       'table → node binding the concept-coverage check uses. No table, no node; nothing is guessed.',
   );
   out.push(

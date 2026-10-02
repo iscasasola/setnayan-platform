@@ -261,15 +261,15 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   secrets: 'keys api credentials rotate env',
   integrations: 'connect services resend openai gcash maya switches',
   compliance: 'npc bir legal privacy dpo',
-  taxonomy: 'categories services vocabulary tags event types',
-  menus: 'labels icons rename nav navigation',
+  taxonomy: 'categories services vocabulary tags event types setup set up ugat',
+  menus: 'labels icons rename nav navigation setup set up ugat',
   // The four phrasings that already reached this page while it was map-only,
   // kept working by hand: a menu item's searchable words are label + group
   // label + description + alias, and THE ROUTE IS NOT AMONG THEM — so the
   // '/admin/search-memory' string it used to match on disappears the moment it
   // becomes a menu row. Its two job phrases ("teach search phrase", "delete
   // search phrase") still attach by href and are not repeated here.
-  'search-memory': 'learned taught teach correct phrases what has the search box learned ai memory',
+  'search-memory': 'learned taught teach correct phrases what has the search box learned ai memory setup set up ugat',
   users: 'accounts people customers couples',
   vendors: 'suppliers vendors shops businesses',
   venues: 'places locations',
@@ -287,4 +287,13 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   // here, and `the-menu-name-has-one-source.test.ts` fails if one goes missing.
   overview: 'overview hq pulse dashboard front page what needs me',
   'app-performance': 'app performance stats metrics speed health uptime',
+  // ── "SET UP" / "UGAT" → "ROOT MAP" (owner, DECISION_LOG 2026-10-02 "'UGAT MAP'
+  // IS NOW CALLED THE 'ROOT MAP'"). The group label is part of every item's
+  // haystack, so the rename silently dropped "set up" from all seven; the old
+  // words live on here. `taxonomy`, `menus` and `search-memory` carry theirs
+  // in their own lines above.
+  onboarding: 'setup set up ugat root map',
+  'wedding-traditions': 'setup set up ugat root map',
+  brain: 'setup set up ugat root map',
+  ugat: 'ugat setup set up root map entity connection',
 };

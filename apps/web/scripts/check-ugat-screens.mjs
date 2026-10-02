@@ -70,7 +70,7 @@ const summary = {
   brokenDoors: map.brokenDoors.length,
 };
 
-console.log('Ugat map — Screens · Doors');
+console.log('Root map (Ugat) — Screens · Doors');
 console.log(
   `  ${summary.screens} screens · ${summary.connected} connected · ${summary.noDoor} no door · ` +
     `${summary.stubs} legacy stubs · ${summary.unmapped} unmapped · ${summary.brokenDoors} doors to nowhere`,

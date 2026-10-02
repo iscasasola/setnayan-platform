@@ -37,7 +37,9 @@ function tabs(): string[] {
 }
 
 test('every phone tab is somewhere you ANSWER, not somewhere you edit', () => {
-  const EDITING = ['Set up', 'Numbers', 'Studio'];
+  // 'Root map' is the 2026-10-02 name of what was 'Set up' (DECISION_LOG
+  // "'UGAT MAP' IS NOW CALLED THE 'ROOT MAP'"); both stay ruled out.
+  const EDITING = ['Root map', 'Set up', 'Numbers', 'Studio'];
   const found = tabs();
   const bad = found.filter((t) => EDITING.includes(t));
   assert.deepEqual(

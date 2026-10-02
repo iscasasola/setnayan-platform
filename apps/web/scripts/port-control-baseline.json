@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "964efe087",
+  "generatedFromRef": "07446229d",
   "routeCount": 422,
   "destinations": 943,
   "actions": 671,
-  "blocks": 5413,
+  "blocks": 5411,
   "routes": {
     "/": {
       "files": [
@@ -8403,6 +8403,7 @@
         "dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx",
         "dashboard/[eventId]/vendors/_components/pending-lock-proposals.tsx",
         "dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx",
+        "dashboard/[eventId]/vendors/_components/planning-list.tsx",
         "dashboard/[eventId]/vendors/_components/quote-fill.tsx",
         "dashboard/[eventId]/vendors/_components/reuse-bookings-panel.tsx",
         "dashboard/[eventId]/vendors/_components/saved-photo-marker.tsx",
@@ -8499,7 +8500,6 @@
         "FolderSection",
         "HTMLAnchorElement",
         "HTMLButtonElement",
-        "HTMLDetailsElement",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -8534,6 +8534,7 @@
         "PickMenu",
         "PillarPartPicker",
         "PlanBudgetAccordion",
+        "PlanningList",
         "PlansRowPick",
         "PoolIcon",
         "QuoteFillRow",
@@ -8551,7 +8552,6 @@
         "SaveCategoryRequirementsResult",
         "SavedPhotoMarker",
         "SearchMarketplaceVendorsResult",
-        "SectionChips",
         "SectionStub",
         "SelfAddedPrice",
         "SelfAddedSupplierPrefill",
@@ -8566,7 +8566,6 @@
         "SupplierInviteView",
         "TeamClearCandidates",
         "TeamDecisionDoorway",
-        "TeamMoreMenu",
         "TeamRemoveCandidate",
         "TeamRows",
         "TeamSavePlan",

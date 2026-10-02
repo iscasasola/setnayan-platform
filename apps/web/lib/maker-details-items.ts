@@ -55,7 +55,15 @@ export type DownloadItemKey = 'download';
 export type WordsItemKey = 'special-message' | 'thank-you' | 'opening-line' | 'kindly-reply';
 /** Story & plans (Details part 2b): the Love Story, Schedule and RSVP pages, moved in whole. */
 export type StoryItemKey = 'love-story' | 'schedule' | 'rsvp';
-export type DetailsItemKey = 'theme' | LookItemKey | EventItemKey | SeatPlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
+/**
+ * 🙋 "Plan it myself" (owner 2026-10-02, tracker d4: *"one free 'Plan it
+ * myself' switch in Your info for every host"*) — the last row of Your event.
+ * It is the SAME switch the Setnayan AI page flips (`events.planning_mode`,
+ * `setPlanningMode`), never a second store: on = 'manual', and the automatic
+ * help (supplier matching, deadlines, reminders) stops — `isSetnayanAiActive`.
+ */
+export type PlanItemKey = 'plan-myself';
+export type DetailsItemKey = 'theme' | LookItemKey | EventItemKey | SeatPlanItemKey | PlanItemKey | HubItemKey | WordsItemKey | StoryItemKey | PrintSetKey | FreePrintKey | DownloadItemKey;
 
 export const HUB_ITEM_KEYS: readonly HubItemKey[] = ['address', 'qr'];
 /** The Look after Theme, in the owner's order: Theme · Mood Board · Logo · Hero · Reveal. */
@@ -87,7 +95,7 @@ export const FREE_PRINT_KEYS: readonly FreePrintKey[] = [
 export type DetailsItemGroup = 'look' | 'event' | 'words' | 'story' | 'hub' | 'set' | 'day' | 'download';
 export const DETAILS_ITEM_GROUPS: ReadonlyArray<{ group: DetailsItemGroup; label: string; keys: readonly DetailsItemKey[] }> = [
   { group: 'look', label: 'Look', keys: ['theme', ...LOOK_ITEM_KEYS] },
-  { group: 'event', label: 'Your event', keys: [...EVENT_ITEM_KEYS, 'seating'] },
+  { group: 'event', label: 'Your event', keys: [...EVENT_ITEM_KEYS, 'seating', 'plan-myself'] },
   { group: 'words', label: 'Words', keys: WORDS_ITEM_KEYS },
   { group: 'story', label: 'Story & plans', keys: STORY_ITEM_KEYS },
   { group: 'hub', label: 'Your Event Hub', keys: HUB_ITEM_KEYS },

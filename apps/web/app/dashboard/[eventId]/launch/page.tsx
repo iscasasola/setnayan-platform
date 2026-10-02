@@ -117,6 +117,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
+import { planMyselfOn } from './_components/plan-myself';
 
 // ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
 // "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
@@ -332,7 +333,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       // `event_type` added 2026-09-02 (EH6): the retired /website hub showed its
       // "Our story" door to weddings only, and that door moved here. One more
       // column on a query already running — not a second read.
-      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type')
+      .select('slug, event_date, event_end_date, cleared_at, timezone, event_type, planning_mode')
       .eq('event_id', eventId)
       .maybeSingle(),
     // S2 fact 2 + 3. The MEASURED read, never the array-only wrapper: this page
@@ -394,6 +395,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     cleared_at?: string | null;
     timezone?: string | null;
     event_type?: string | null;
+    planning_mode?: string | null;
   } | null;
 
   /*
@@ -1435,6 +1437,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           <MakerDetails
             yourEvent={yourEvent}
             seatPlan={seatPlan}
+            /* 🙋 Plan it myself (owner 2026-10-02, tracker d4) — the same
+               `planning_mode` the Setnayan AI page flips; null when the read failed. */
+            planMyself={{ on: eventRes.error ? null : planMyselfOn(eventRow?.planning_mode) }}
             /* 🪜 Details part 5 — the guided "What's left" over these very items. */
             guide={{
               open: guideAddress !== null || (detailsUnfinished && detailsLandsPlain),

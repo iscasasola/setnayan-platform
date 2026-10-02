@@ -151,6 +151,9 @@ app/dashboard/[eventId]/studio/patiktok/actions.ts	discarded	from:patiktok_rende
 app/dashboard/[eventId]/studio/patiktok/actions.ts	discarded	from:patiktok_source_clips.update	1
 app/dashboard/[eventId]/studio/photo-delivery/actions.ts	discarded	from:events.update	1
 app/dashboard/[eventId]/studio/photo-delivery/actions.ts	discarded	from:oauth_grants.update	1
+app/dashboard/[eventId]/studio/recommend-actions.ts	discarded	from:coordinator_feature_recommendations.update	1
+app/dashboard/[eventId]/studio/recommend-actions.ts	discarded	from:coordinator_feature_recommendations.upsert	1
+app/dashboard/[eventId]/studio/recommend-actions.ts	discarded	from:vendor_feature_recommendations.update	1
 app/dashboard/[eventId]/studio/save-the-date/actions.ts	discarded	from:events.update	1
 app/dashboard/[eventId]/vendors/_actions/unlock-category.ts	discarded-in-try	from:chat_threads.update	1
 app/dashboard/[eventId]/vendors/_actions/unlock-category.ts	write-error-dropped	from:chat_threads.upsert	1
@@ -312,7 +315,6 @@ lib/referrals.ts	discarded-in-try	from:referral_redemptions.update	3
 lib/reusable-bookings.server.ts	discarded	from:event_vendors.update	1
 lib/review-fraud-screener.ts	discarded-in-try	from:integrity_flags.insert	1
 lib/review-fraud-screener.ts	discarded-in-try	from:integrity_flags.update	1
-lib/save-the-date-emails.ts	discarded-in-try	from:guests.update	1
 lib/seating-reconcile.ts	discarded-in-try	from:event_seat_assignments.delete	1
 lib/seating-reconcile.ts	discarded-in-try	from:event_seat_assignments.upsert	1
 lib/service-trade-aliases-db.ts	discarded-in-try	from:canonical_service_aliases.upsert	1

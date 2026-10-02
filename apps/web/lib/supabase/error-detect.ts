@@ -29,6 +29,10 @@
 
 import * as Sentry from '@sentry/nextjs';
 
+/** Where logQueryError hands a non-PostgREST error on the server (installed by instrumentation.ts). */
+export type QueryErrorSink = (callSite: string, message: string, severity: string) => void;
+export const QUERY_ERROR_SINK = Symbol.for('setnayan.problems.query-error-sink');
+
 export type SupabaseErrorShape = {
   code?: string | null;
   message?: string | null;
@@ -181,19 +185,16 @@ export function logQueryError(
       // recording it again here would split one failure into two issues. What
       // only this helper sees is the rest: a thrown exception, a storage or
       // auth error, a timeout — anything that never was a PostgREST response.
-      // Those are recorded under this call site's name. Lazily imported (the
-      // recorder is server-only; this module also reaches the browser).
-      if (!(error as SupabaseErrorShape)?.code && !callSite.startsWith('lib/telemetry/')) {
-        void import('@/lib/telemetry/fault-log')
-          .then((m) =>
-            m.recordFault({
-              kind: 'SERVER_THROWN',
-              action: callSite,
-              message: err.message,
-              trace: { call_site: callSite, severity },
-            }),
-          )
-          .catch(() => {});
+      // Those go to the recorder under this call site's name.
+      // 🔑 THROUGH A SINK, NEVER AN IMPORT: this module reaches client bundles,
+      // and Next refuses any import path (even a lazy one in a dead branch)
+      // that ends at a `server-only` module. instrumentation.ts installs the
+      // sink at server start (lib/telemetry/server-fault.ts installProblemSinks),
+      // on globalThis because the instrumentation bundle and the route
+      // bundles do not share module state.
+      const sink = (globalThis as Record<symbol, QueryErrorSink | undefined>)[QUERY_ERROR_SINK];
+      if (sink && !(error as SupabaseErrorShape)?.code && !callSite.startsWith('lib/telemetry/')) {
+        sink(callSite, err.message, severity);
       }
     }
   } catch {

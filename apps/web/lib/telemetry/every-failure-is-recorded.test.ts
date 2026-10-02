@@ -141,6 +141,13 @@ test("THROWN: Next's redirect / notFound are control flow, never failures", () =
   assert.equal(shapeRequestError(Object.assign(new Error('x'), { digest: 'NEXT_HTTP_ERROR_FALLBACK;404' }), {}, ctx, () => null), null);
 });
 
+test('NO client-reachable module imports a server-only recorder, even lazily (it fails the build)', () => {
+  for (const f of ['lib/supabase/error-detect.ts', 'lib/supabase/db-error-log.ts']) {
+    assert.doesNotMatch(code(f), /import\(['"]@\/lib\/telemetry\/(fault-log|server-fault|fault-issues)/, f);
+    assert.doesNotMatch(code(f), /from ['"]@\/lib\/telemetry\/(fault-log|server-fault|fault-issues)/, f);
+  }
+});
+
 test('WIRED: instrumentation onRequestError records every thrown request error', () => {
   const src = code('instrumentation.ts');
   assert.match(src, /export const onRequestError/);
@@ -261,7 +268,10 @@ test('ZERO-ROW: the fetch layer every server client rides hands it to the record
 test('WIRED: both server Supabase clients ride the recording fetch layer', () => {
   assert.match(code('lib/supabase/admin.ts'), /createLoggingFetch\(/);
   assert.match(code('lib/supabase/server.ts'), /createLoggingFetch\(/);
-  assert.match(code('lib/supabase/db-error-log.ts'), /recordDbVerdict\(/);
+  assert.match(code('lib/supabase/db-error-log.ts'), /\[DB_FAULT_SINK\]\?\.verdict\(/);
+  // …and the sink is installed at server start, with the real recorders.
+  assert.match(code('instrumentation.ts'), /installProblemSinks\(\)/);
+  assert.match(code('lib/telemetry/server-fault.ts'), /verdict: recordDbVerdict, unreachable: recordDbUnreachable/);
 });
 
 // ── 5 · DEAD END ────────────────────────────────────────────────────────────

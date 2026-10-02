@@ -1,6 +1,8 @@
 import 'server-only';
 
 import { recordFault } from '@/lib/telemetry/fault-log';
+import { QUERY_ERROR_SINK, type QueryErrorSink } from '@/lib/supabase/error-detect';
+import { DB_FAULT_SINK, type DbFaultSink } from '@/lib/supabase/db-error-log';
 import { type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
 import { shapeRequestError, type ContextLike, type RequestLike } from '@/lib/telemetry/request-error-shape';
 
@@ -135,4 +137,23 @@ export function recordDbUnreachable(target: string, err: unknown): void {
       trace: { db_target: target },
     }),
   );
+}
+
+// ── logQueryError's non-PostgREST failures ───────────────────────────────────
+
+/**
+ * Installed once at server start by instrumentation.ts `register()`: the sinks
+ * through which the PostgREST fetch layer (db-error-log.ts) and the client-safe
+ * `logQueryError` (lib/supabase/error-detect.ts) hand a thrown /
+ * storage / auth failure to the recorder WITHOUT importing it — an import path
+ * from a client bundle to a `server-only` module fails the build, lazy or not.
+ */
+export function installProblemSinks(): void {
+  const sink: QueryErrorSink = (callSite, message, severity) =>
+    runDetached(() =>
+      recordFault({ kind: 'SERVER_THROWN', action: callSite, message, trace: { call_site: callSite, severity } }),
+    );
+  (globalThis as Record<symbol, QueryErrorSink | undefined>)[QUERY_ERROR_SINK] = sink;
+  const db: DbFaultSink = { verdict: recordDbVerdict, unreachable: recordDbUnreachable };
+  (globalThis as Record<symbol, DbFaultSink | undefined>)[DB_FAULT_SINK] = db;
 }

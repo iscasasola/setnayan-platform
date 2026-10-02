@@ -9,6 +9,15 @@ import type { Instrumentation } from 'next';
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     await import('./sentry.server.config');
+    // 📋 Problems list: the PostgREST fetch layer (refused / zero-row writes)
+    // and logQueryError's non-PostgREST failures reach the recorder through
+    // these sinks — see lib/supabase/db-error-log.ts and error-detect.ts.
+    try {
+      const { installProblemSinks } = await import('./lib/telemetry/server-fault');
+      installProblemSinks();
+    } catch {
+      /* the app must start even if the recorder cannot */
+    }
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {

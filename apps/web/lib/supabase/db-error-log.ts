@@ -85,26 +85,29 @@ function describe(body: string): string {
 
 /**
  * Where a classified response goes. The default records it on the Problems
- * list (lib/telemetry/server-fault.ts, loaded lazily so this module stays
- * import-free and edge-safe); tests pass their own.
+ * list through the sink lib/telemetry/server-fault.ts installs at server
+ * start; tests pass their own.
  */
 export type DbFaultSink = {
   verdict: (v: NonNullable<PostgrestVerdict>, extra: Record<string, unknown>) => void;
   unreachable: (target: string, err: unknown) => void;
 };
 
+/** Installed by instrumentation.ts at server start (lib/telemetry/server-fault.ts). */
+export const DB_FAULT_SINK = Symbol.for('setnayan.problems.db-fault-sink');
+
+/**
+ * The default sink is whatever the server installed on globalThis — never an
+ * import: an import path ending at a `server-only` recorder fails the build
+ * for any client bundle that can reach this file, and globalThis is what the
+ * instrumentation bundle and the route bundles actually share.
+ */
 const defaultSink: DbFaultSink = {
   verdict(v, extra) {
-    if (process.env.NEXT_RUNTIME === 'edge') return;
-    void import('@/lib/telemetry/server-fault')
-      .then((m) => m.recordDbVerdict(v, extra))
-      .catch(() => {});
+    (globalThis as Record<symbol, DbFaultSink | undefined>)[DB_FAULT_SINK]?.verdict(v, extra);
   },
   unreachable(target, err) {
-    if (process.env.NEXT_RUNTIME === 'edge') return;
-    void import('@/lib/telemetry/server-fault')
-      .then((m) => m.recordDbUnreachable(target, err))
-      .catch(() => {});
+    (globalThis as Record<symbol, DbFaultSink | undefined>)[DB_FAULT_SINK]?.unreachable(target, err);
   },
 };
 

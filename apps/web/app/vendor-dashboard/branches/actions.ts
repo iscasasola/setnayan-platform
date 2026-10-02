@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { payPath } from '@/lib/pay-path';
 import { railForNewOrder } from '@/lib/rail-for-new-order';
-import { PAYMENTS_PAUSED_MESSAGE, type PayChannel } from '@/lib/payment-channels';
+import { isPayChannel, PAYMENTS_PAUSED_MESSAGE, type PayChannel } from '@/lib/payment-channels';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin';
@@ -240,8 +240,10 @@ export async function createBranch(
   if (!city || city.length > BRANCH_CITY_MAX) {
     return err('Drop a pin on the map (or type the branch city).');
   }
-  if (channelRaw !== 'bdo' && channelRaw !== 'gcash') {
-    return err('Choose how you will pay (BDO or GCash).');
+  // Any account id the admin's list can hold — NOT just the two the list
+  // replaced. `railForNewOrder` below is what decides whether it is OPEN.
+  if (!isPayChannel(channelRaw)) {
+    return err('Choose how you will pay.');
   }
   // The rail kill switch — asked BEFORE the branch row below, so a closed
   // rail leaves no inactive branch behind as well as no order.

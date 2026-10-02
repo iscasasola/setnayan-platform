@@ -6,13 +6,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
-  createEventTypeCore,
-  updateEventTypeCore,
-  setEventTypeEnabledCore,
-  retireEventTypeCore,
-  unretireEventTypeCore,
-} from '@/lib/event-types-mutations';
-import {
   isCelebrantShape,
   surfacesStrandedWithoutWebsite,
   strandedWithoutWebsiteMessage,
@@ -25,11 +18,9 @@ import {
  * ⚠ The standalone /admin/event-types roster page was FOLDED into the Taxonomy
  * Studio's Vocabularies → Event types bucket (Taxonomy Studio PR 7) and now
  * redirect()s to /admin/taxonomy?view=vocab-event. The roster-level actions
- * below (create / update / enable / retire / unretire) are retained for any
- * bookmarked form POST and delegate to the shared cores in
- * lib/event-types-mutations.ts — the SAME cores the Studio calls. New edits
- * happen in the Studio; nothing new should import the roster actions from here.
- * The per-type category-scoping / profile / onboarding actions (further down)
+ * (create / update / enable / retire / unretire) were REMOVED 2026-10-02 (zero
+ * callers); the roster edits live in the Studio, which calls the shared cores
+ * in lib/event-types-mutations.ts. The per-type category-scoping / profile / onboarding actions (further down)
  * still back their focused sub-editor pages, reached from the Studio bucket.
  *
  * The roster fans out with zero deploys: the create-event picker + the
@@ -97,112 +88,6 @@ function cleanOptional(raw: FormDataEntryValue | null, max = 300): string | null
   if (typeof raw !== 'string') return null;
   const t = raw.trim().slice(0, max);
   return t.length > 0 ? t : null;
-}
-
-/** Add a new event type. Lands status='active', enabled=FALSE — the admin
- *  flips "Show in picker" when the type is ready to launch. Delegates to the
- *  shared core (lib/event-types-mutations); the Studio calls the same core. */
-export async function createEventType(formData: FormData) {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim().toLowerCase();
-  const admin = createAdminClient();
-  const res = await createEventTypeCore(admin, user.id, {
-    key,
-    label: String(formData.get('label_en') ?? ''),
-    emoji: String(formData.get('emoji') ?? ''),
-    description: String(formData.get('description') ?? ''),
-    sortOrder: Number(formData.get('sort_order')),
-  });
-  if (!res.ok) {
-    if (res.error === 'exists') {
-      redirectBack('error', `"${key}" already exists — keys are permanent, edit the existing row instead.`, key);
-    }
-    redirectBack('error', res.error, key);
-  }
-  revalidateRosterSurfaces();
-  redirectBack(
-    'ok',
-    `${res.data.label} created. It stays out of the couple picker until you turn on "Show in picker".`,
-    res.data.key,
-  );
-}
-
-/** Edit presentation fields. The key itself is immutable (it's the FK target
- *  for every existing event + vendor coverage tag). Delegates to the shared core. */
-export async function updateEventType(formData: FormData) {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim();
-  const admin = createAdminClient();
-  const res = await updateEventTypeCore(admin, user.id, {
-    key,
-    label: String(formData.get('label_en') ?? ''),
-    emoji: String(formData.get('emoji') ?? ''),
-    description: String(formData.get('description') ?? ''),
-    onboardingHref: String(formData.get('onboarding_href') ?? ''),
-    heroPhotoUrl: String(formData.get('hero_photo_url') ?? ''),
-    sortOrder: Number(formData.get('sort_order')),
-  });
-  if (!res.ok) {
-    if (res.error === 'not_found') redirectBack('error', 'Event type not found.', key);
-    redirectBack('error', res.error, key);
-  }
-  revalidateRosterSurfaces();
-  redirectBack('ok', `${res.data.label} saved.`, res.data.key);
-}
-
-/** The launch lever — show/hide a type in the couple-side create-event
- *  picker. Independent of active/retired (vendors can pre-tag coverage for
- *  active-but-hidden types). Delegates to the shared core. */
-export async function setEventTypeEnabled(formData: FormData) {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim();
-  const enable = String(formData.get('enabled') ?? '') === '1';
-  const admin = createAdminClient();
-  const res = await setEventTypeEnabledCore(admin, user.id, key, enable);
-  if (!res.ok) {
-    if (res.error === 'not_found') redirectBack('error', 'Event type not found.', key);
-    redirectBack('error', res.error, key);
-  }
-  revalidateRosterSurfaces();
-  redirectBack(
-    'ok',
-    enable
-      ? `${res.data.label} is now live in the create-event picker.`
-      : `${res.data.label} is hidden from the create-event picker. Existing ${res.data.label} events keep working.`,
-    key,
-  );
-}
-
-/** Retire a type: it disappears from every picker + vendor checkbox + filter,
- *  but every existing event of that type keeps working (FK stays valid —
- *  deliberately no active-status CHECK on events.event_type). Wedding is the
- *  platform's V1 anchor and cannot be retired. Delegates to the shared core. */
-export async function retireEventType(formData: FormData) {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim();
-  const admin = createAdminClient();
-  const res = await retireEventTypeCore(admin, user.id, key);
-  if (!res.ok) {
-    if (res.error === 'not_found') redirectBack('error', 'Event type not found.', key);
-    redirectBack('error', res.error, key);
-  }
-  revalidateRosterSurfaces();
-  redirectBack('ok', `${res.data.label} retired. Existing events keep working; nobody can pick it for new events.`, key);
-}
-
-/** Reverse a retirement — the type returns as active (picker visibility is
- *  still a separate "Show in picker" flip). Delegates to the shared core. */
-export async function unretireEventType(formData: FormData) {
-  const user = await requireAdmin();
-  const key = String(formData.get('event_type') ?? '').trim();
-  const admin = createAdminClient();
-  const res = await unretireEventTypeCore(admin, user.id, key);
-  if (!res.ok) {
-    if (res.error === 'not_found') redirectBack('error', 'Event type not found.', key);
-    redirectBack('error', res.error, key);
-  }
-  revalidateRosterSurfaces();
-  redirectBack('ok', `${res.data.label} is active again. Flip "Show in picker" when you’re ready to relaunch it.`, key);
 }
 
 /* ════════════════════════════════════════════════════════════════════════

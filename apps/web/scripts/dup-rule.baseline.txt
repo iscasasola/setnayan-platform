@@ -46,9 +46,9 @@
 # See the docblocks in lib/security/shadowed-export-scan.ts and
 # lib/security/select-column-scan.ts (PART 2) for each guard's honest limits.
 #
-# facts: 337
+# facts: 332
 #   shadow  20
-#   omit    317
+#   omit    312
 shadow	app/(shell)/explore/page.tsx	TAXONOMY_MAP	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	TILE_PARENT	lib/taxonomy.ts
 shadow	app/(shell)/explore/page.tsx	WEDDING_FOLDER_LABEL	lib/taxonomy.ts
@@ -373,11 +373,6 @@ omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	special_message
 omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_latitude
 omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	venue_longitude
 omit	lib/proposal-send.ts	events	SECTION_CONTENT_EVENT_COLUMNS	what_to_bring
-omit	lib/save-the-date-emails.ts	guests	ENTOURAGE_COLUMNS	extra_roles
-omit	lib/save-the-date-emails.ts	guests	ENTOURAGE_COLUMNS	middle_name
-omit	lib/save-the-date-emails.ts	guests	ENTOURAGE_COLUMNS	name_prefix
-omit	lib/save-the-date-emails.ts	guests	ENTOURAGE_COLUMNS	name_suffix
-omit	lib/save-the-date-emails.ts	guests	ENTOURAGE_COLUMNS	role
 omit	lib/vendor-autoreply/inbox-hook.ts	vendor_packages	VENDOR_PACKAGE_SELECT	unspent_credit_policy
 omit	lib/vendor-overview.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	line_items
 omit	lib/vendor-overview.ts	vendor_proposals	ACCEPTED_QUOTE_SELECT	payment_schedule

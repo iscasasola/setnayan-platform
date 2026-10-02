@@ -285,8 +285,11 @@ test('revert surfaces its own error', async () => {
    fails here instead of in production.
    ══════════════════════════════════════════════════════════════════════════ */
 
+// `app/vendor-dashboard/verify/actions.ts` (the twin copy of the same defect)
+// was retired with the old verify page (2026-09-11) and deleted in cleanup
+// slice B (2026-10-02); `shop/inline-docs-actions.ts` is the only submit action
+// left. The whole-tree sweep above still catches a new copy anywhere.
 const SUBMIT_ACTIONS = [
-  'app/vendor-dashboard/verify/actions.ts',
   'app/vendor-dashboard/shop/inline-docs-actions.ts',
 ] as const;
 
@@ -344,7 +347,7 @@ test('⭐ no vendor-facing code writes verification_state through its own client
   );
 });
 
-test('⭐ both submit actions route through the lib AND check its result', async () => {
+test('⭐ the submit action routes through the lib AND check its result', async () => {
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const root = await webRoot();

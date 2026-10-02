@@ -45,6 +45,30 @@
  */
 import { isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
 import { MUSIC_CANONICALS } from '@/lib/songs';
+import {
+  isVendorDayOfStillFree,
+  vendorDayOfFreeUntilIso,
+} from '@/lib/vendor-dayof-free-until';
+
+/**
+ * THE DAY-OF FREE WINDOW (owner ruling 2026-09-14, "free until the whole year
+ * of December", prod `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL`): the specializations
+ * — song desk, script & cues, run the floor — are day-of tools like the eleven
+ * free modules, so they follow the SAME date and open to every vendor whose
+ * category has a set until it passes. ONE date, reused from
+ * `lib/vendor-dayof-free-until.ts` — never a second one.
+ *
+ * Unlike the console (which reads "unset" as "free forever"), an UNSET date here
+ * means NO window: the specializations are the paid layer, so the paywall stays
+ * exactly as locked 2026-07-26 until the owner arms the date.
+ */
+export function specializationFreeWindowActive(
+  freeUntilIso: string | null,
+  nowMs: number,
+): boolean {
+  if (!freeUntilIso) return false;
+  return isVendorDayOfStillFree(freeUntilIso, nowMs);
+}
 
 /**
  * THE TIER FLOOR — OWNER-LOCKED 2026-07-27: **Solo and up**, i.e. ANY paid tier.
@@ -318,8 +342,15 @@ export function resolveVendorSpecializationAccess(input: {
   now?: number;
   /** Test-only floor override — see {@link subscriptionClearsSpecializationFloor}. */
   minTier?: VendorTier;
+  /**
+   * The day-of free-until date. Defaults to the configured
+   * `NEXT_PUBLIC_VENDOR_DAYOF_FREE_UNTIL`; the production path never passes it.
+   */
+  freeUntilIso?: string | null;
 }): VendorSpecializationAccess {
   const { subscription, services, eventTiles, now, minTier } = input;
+  const freeUntilIso =
+    input.freeUntilIso === undefined ? vendorDayOfFreeUntilIso() : input.freeUntilIso;
   // Resolve the PLURAL once; the singular is its priority winner. Computing it
   // this way means the two can never disagree about who is eligible.
   const eligibleSets = specializationSetsForServices(services, eventTiles ?? null);
@@ -338,7 +369,10 @@ export function resolveVendorSpecializationAccess(input: {
     };
   }
 
-  if (subscriptionClearsSpecializationFloor(subscription, now, minTier)) {
+  if (
+    specializationFreeWindowActive(freeUntilIso, now ?? Date.now()) ||
+    subscriptionClearsSpecializationFloor(subscription, now, minTier)
+  ) {
     return {
       genericKit: true,
       unlockedSet: eligibleSet,

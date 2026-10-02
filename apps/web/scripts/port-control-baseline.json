@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1b2dc7279",
-  "routeCount": 444,
-  "destinations": 970,
+  "generatedFromRef": "67598d1952",
+  "routeCount": 432,
+  "destinations": 969,
   "actions": 683,
-  "blocks": 5405,
+  "blocks": 5402,
   "routes": {
     "/": {
       "files": [
@@ -202,7 +202,6 @@
       ],
       "blocks": [
         "ActivityBadges",
-        "AddVenueToPlanResult",
         "CatalogView",
         "CategoryTile",
         "CeremonyVenuePanel",
@@ -2023,6 +2022,7 @@
         "admin/accounts/_surfaces/demo-vendors-surface.tsx",
         "admin/accounts/_surfaces/events-surface.tsx",
         "admin/accounts/_surfaces/users-surface.tsx",
+        "admin/accounts/_surfaces/vendor-card-title.tsx",
         "admin/accounts/_surfaces/vendors-surface.tsx",
         "admin/accounts/_surfaces/venues-surface.tsx",
         "admin/accounts/loading.tsx",
@@ -2032,6 +2032,7 @@
         "/admin/demo-vendors/inquiries",
         "/admin/events/[seg]",
         "/admin/users/[seg]",
+        "/admin/vendors/[seg]",
         "/admin/vendors/[seg]/edit",
         "/admin/vendors/[seg]/plan",
         "/admin/vendors/[seg]/team",
@@ -2078,6 +2079,7 @@
         "SubmitButton",
         "UsersSurface",
         "UsersTable",
+        "VendorCardTitle",
         "VendorsSurface",
         "VenuesSurface",
         "VisibilityBadge"
@@ -3029,14 +3031,6 @@
         "SubmitButton"
       ]
     },
-    "/admin/marketing": {
-      "files": [
-        "admin/marketing/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/admin/menus": {
       "files": [
         "admin/menus/_components/menu-registry-editor.tsx",
@@ -3056,6 +3050,7 @@
     },
     "/admin/money": {
       "files": [
+        "admin/money/_components/ledger-reference-column.tsx",
         "admin/money/_components/revenue-summary.tsx",
         "admin/money/_components/transactions-ledger.tsx",
         "admin/money/loading.tsx",
@@ -3507,14 +3502,6 @@
       "files": [
         "admin/referrals/actions.ts",
         "admin/referrals/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
-    "/admin/refinements": {
-      "files": [
-        "admin/refinements/page.tsx"
       ],
       "destinations": [],
       "actions": [],
@@ -5123,6 +5110,7 @@
       ],
       "blocks": [
         "AccountSwitcher",
+        "AppPreload",
         "AppRailShell",
         "AutoSurfacedEvents",
         "BoardCardWithMenu",
@@ -5301,6 +5289,7 @@
         "AccountSwitcher",
         "AddressPinField",
         "AfterSummary",
+        "AppPreload",
         "AppRailShell",
         "ApplyColourResult",
         "ApplyVoucherResult",
@@ -5725,14 +5714,6 @@
         "T"
       ]
     },
-    "/dashboard/[eventId]/design": {
-      "files": [
-        "dashboard/[eventId]/design/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/dashboard/[eventId]/details": {
       "files": [
         "dashboard/[eventId]/details/_components/details-form.tsx",
@@ -5863,14 +5844,6 @@
         "Link",
         "Shell"
       ]
-    },
-    "/dashboard/[eventId]/for-you": {
-      "files": [
-        "dashboard/[eventId]/for-you/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
     },
     "/dashboard/[eventId]/galleries": {
       "files": [
@@ -6456,12 +6429,14 @@
         "dashboard/[eventId]/launch/_components/maker-made-once.tsx",
         "dashboard/[eventId]/launch/_components/maker-page.tsx",
         "dashboard/[eventId]/launch/_components/maker-play-menu.tsx",
+        "dashboard/[eventId]/launch/_components/maker-preload-line.tsx",
         "dashboard/[eventId]/launch/_components/maker-prints.tsx",
         "dashboard/[eventId]/launch/_components/maker-reveal.tsx",
         "dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx",
         "dashboard/[eventId]/launch/_components/maker-rsvp-stage.tsx",
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-theme-picker.tsx",
+        "dashboard/[eventId]/launch/_components/maker-tools.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour-slides.tsx",
         "dashboard/[eventId]/launch/_components/maker-tour.tsx",
         "dashboard/[eventId]/launch/_components/opening-line-field.tsx",
@@ -6585,7 +6560,6 @@
         "LifecyclePhase",
         "Link",
         "LiveReplyByField",
-        "Load",
         "LogoLayer",
         "LookFrame",
         "LoveStoryPieceFocus",
@@ -6602,6 +6576,7 @@
         "MakerPageFrame",
         "MakerPageSwitch",
         "MakerPlayMenu",
+        "MakerPreloadLine",
         "MakerRevealPicker",
         "MakerRsvpCanvas",
         "MakerRsvpSettings",
@@ -6647,6 +6622,7 @@
         "PickOption",
         "PosterPhoto",
         "PosterPhotoPicker",
+        "PreloadProgress",
         "PreviewStageLink",
         "PrintChoicePicker",
         "PrintMenuEditor",
@@ -6926,6 +6902,7 @@
       "blocks": [
         "DetailPageSkeleton",
         "Link",
+        "PaymentChannelName",
         "Stat",
         "SubmitButton"
       ]
@@ -7567,15 +7544,6 @@
       "blocks": [
         "AddOnDetailView"
       ]
-    },
-    "/dashboard/[eventId]/studio/animated-monogram": {
-      "files": [
-        "dashboard/[eventId]/studio/animated-monogram/loading.tsx",
-        "dashboard/[eventId]/studio/animated-monogram/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
     },
     "/dashboard/[eventId]/studio/editorial-pro": {
       "files": [
@@ -8534,15 +8502,6 @@
         "SuiteVignetteCard"
       ]
     },
-    "/dashboard/[eventId]/today": {
-      "files": [
-        "dashboard/[eventId]/today/loading.tsx",
-        "dashboard/[eventId]/today/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/dashboard/[eventId]/vendors": {
       "files": [
         "dashboard/[eventId]/vendors/_actions/bench-arrangement.ts",
@@ -9255,14 +9214,6 @@
         "WebsiteProLock"
       ]
     },
-    "/dashboard/[eventId]/website/launch": {
-      "files": [
-        "dashboard/[eventId]/website/launch/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/dashboard/[eventId]/website/living-hero": {
       "files": [
         "dashboard/[eventId]/website/living-hero/_components/living-hero-studio.tsx",
@@ -9611,14 +9562,6 @@
         "Value"
       ]
     },
-    "/explore/categories": {
-      "files": [
-        "explore/categories/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/features": {
       "files": [
         "features/_PageBody.tsx",
@@ -9809,20 +9752,6 @@
         "RequestSentScreen",
         "StartOver",
         "SubmitButton"
-      ]
-    },
-    "/join/[eventId]/check-email": {
-      "files": [
-        "join/[eventId]/check-email/page.tsx"
-      ],
-      "destinations": [
-        "/[seg]"
-      ],
-      "actions": [],
-      "blocks": [
-        "DoorNotice",
-        "DoorShell",
-        "Link"
       ]
     },
     "/join/[eventId]/connect/confirm": {
@@ -10609,24 +10538,6 @@
         "SubmitButton"
       ]
     },
-    "/prototype/mesh-call": {
-      "files": [
-        "prototype/mesh-call/_components/mesh-room.tsx",
-        "prototype/mesh-call/page.tsx"
-      ],
-      "destinations": [
-        "/prototype/mesh-call?room=[seg]"
-      ],
-      "actions": [],
-      "blocks": [
-        "HTMLVideoElement",
-        "Link",
-        "MeshHandle",
-        "MeshRoom",
-        "MeshRoomState",
-        "PeerTile"
-      ]
-    },
     "/realstories/[slug]": {
       "files": [
         "realstories/[slug]/page.tsx"
@@ -11142,6 +11053,7 @@
         "AddBranchForm",
         "AgeLine",
         "AgentHome",
+        "AppPreload",
         "AppRailShell",
         "BookingFeeBills",
         "BookingFeeNotice",
@@ -11298,6 +11210,7 @@
         "DetailPageSkeleton",
         "Link",
         "PageMasthead",
+        "PaymentChannelName",
         "ShopNotice"
       ]
     },
@@ -11833,14 +11746,6 @@
         "VendorTierGate",
         "WaivedFeeRows"
       ]
-    },
-    "/vendor-dashboard/funnel": {
-      "files": [
-        "vendor-dashboard/funnel/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
     },
     "/vendor-dashboard/invite": {
       "files": [
@@ -13004,15 +12909,6 @@
         "ToggleControl"
       ]
     },
-    "/vendor-dashboard/tax-documents": {
-      "files": [
-        "vendor-dashboard/tax-documents/loading.tsx",
-        "vendor-dashboard/tax-documents/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/vendor-dashboard/team": {
       "files": [
         "vendor-dashboard/team/actions.ts",
@@ -13065,7 +12961,6 @@
     },
     "/vendor-dashboard/verify": {
       "files": [
-        "vendor-dashboard/verify/actions.ts",
         "vendor-dashboard/verify/loading.tsx",
         "vendor-dashboard/verify/page.tsx"
       ],

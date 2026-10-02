@@ -28,8 +28,3 @@ import { SlotFill } from '../../launch/_components/lazy-slot';
  * name: 4,523 B, inside the ceiling.
  */
 export const SeatingEditor = dynamic(() => import(/* webpackChunkName: "maker-seating" */ './seating-editor').then((m) => m.SeatingEditor), { loading: SlotFill });
-
-/** The same import, asked early (the Maker when idle; the Seat plan row on hover or focus). */
-export function prefetchSeating(): Promise<unknown> {
-  return import(/* webpackChunkName: "maker-seating" */ './seating-editor');
-}

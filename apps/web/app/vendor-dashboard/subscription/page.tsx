@@ -477,7 +477,7 @@ export default async function VendorSubscriptionPage({ searchParams }: Props) {
               {bookingFeeDueCount === 1 ? 'fee' : 'fees'}.
             </p>
             <p className="mt-0.5 text-sm text-ink/60">
-              Pay your Setnayan booking fee on the same GCash/BDO rail — it clears
+              Pay your Setnayan booking fee the same way your couples pay — it clears
               once our team confirms your payment.
             </p>
           </div>

@@ -758,7 +758,7 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
   'app/dashboard/[eventId]/vendors/actions.ts': {
     what: 'lock — the downpayment and the payment plan amounts',
     needles: [[AGREED_NOW, 2], [EMBED, 2], [/const totalCostPhp = agreedTotalNow\(/, 2]],
-    column: 21,
+    column: 19,
   },
   'app/dashboard/[eventId]/vendors/build-3state-actions.ts': {
     what: 'build-from-quotes — the price each quote is ranked at',

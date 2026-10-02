@@ -156,9 +156,9 @@ test('by SOURCE: the real draft bar draws Undo · Phone · Apply in that order, 
 
 test('⋯ holds the rest: Add a scene · Play · Scenes · Both · See it as · Prints · Restore · Reset · the address · who can view', () => {
   const shell = src('maker-shell.tsx');
-  // ⋯'s rows are ONE list (`moreRows`), drawn by the bar's ⋯ on a desktop and the bottom bar's on a phone (2026-10-02).
+  // ⋯'s rows are ONE list (`moreRows`), drawn by the one ⋯ — the top bar's on every width (frame G, 2026-10-02).
   const menu = shell.slice(shell.indexOf('const moreRows = '), shell.indexOf('const doors = ') > shell.indexOf('const moreRows = ') ? shell.indexOf('const doors = ') : shell.indexOf('  return (\n    <MakerContext.Provider'));
-  assert.equal((shell.match(/<ToolMenu label="More"[\s\S]{0,240}?>\s*\{moreRows\}\s*<\/ToolMenu>/g) ?? []).length, 2, 'the two ⋯ menus do not draw the one list');
+  assert.equal((shell.match(/<ToolMenu label="More"[\s\S]{0,240}?>\s*\{moreRows\}\s*<\/ToolMenu>/g) ?? []).length, 1, 'the ⋯ menu does not draw the one list (or there are two ⋯ again)');
   for (const row of [
     'Add a scene',
     'Play this scene',

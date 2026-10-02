@@ -21,8 +21,10 @@
  *     top bar + sheet ≤ 45% — the dimmed page keeps ≥ 55%; one sheet at a time;
  *   · a tap on the dimmed page closes the sheet;
  *   · no pill rows in a sheet on a phone — a set of choices is one dropdown;
- *   · each bar is ONE row at 375 px: × · Page ▾ · Apply on top; Look · Event
- *     Details · Undo · ⋯ at the bottom — every word fits its button;
+ *   · each bar is ONE row at 375 px and EXACTLY frame G's: ‹ Exit · the stage ·
+ *     Undo · ⋯ on top; Page ▾ · Look · Details · Apply at the bottom (owner
+ *     2026-10-02: "no" to bars that differ from the approved design) — every
+ *     word fits its button;
  *   · the Maker is sized to the VISIBLE screen: `100dvh`, never `vh`.
  */
 import test from 'node:test';
@@ -70,7 +72,7 @@ async function draftButtons(): Promise<React.ReactElement> {
     React.Fragment,
     null,
     React.createElement(DraftButton, { label: 'Undo', icon: null, wordFrom: 'md', phone: { width: MAKER_BAR_PHONE.undoTop }, ...off }),
-    React.createElement(DraftButton, { label: 'Apply', icon: null, primary: true, phone: { width: MAKER_BAR_PHONE.apply, word: true }, ...off }),
+    React.createElement(DraftButton, { label: 'Apply', icon: null, primary: true, phone: { width: MAKER_BAR_PHONE.applyTop, word: true }, ...off }),
   );
 }
 
@@ -298,6 +300,11 @@ test('🔽 no pill row in a phone sheet — a set of choices is one dropdown', a
   const sw = page.slice(page.indexOf('export function MakerPageSwitch'), page.indexOf('export function MakerRsvpCanvas'));
   assert.match(sw, /<PickMenu /, 'the page’s view switch is not a dropdown');
   assert.doesNotMatch(sw, /aria-pressed/, 'the page’s view switch is a pill row again');
+  // The part sheet's Alignment and the Joiner's word — one dropdown each (owner 2026-10-02).
+  const inspector = stripComments(read(`${E}/part-inspector.tsx`));
+  assert.match(inspector, /dataAttr="data-part-align-pick"/, 'Alignment is not a dropdown');
+  assert.match(inspector, /dataAttr="data-part-joiner-pick"/, 'the Joiner’s word is not a dropdown');
+  assert.doesNotMatch(inspector, /<ISegmented label="(Alignment|The word between the names)"/, 'Alignment or the Joiner is a pill row again');
   // Event Details: the navigator strip is not on a phone; its items and sections are the sheet's ONE dropdown.
   const sheet = await detailsAfterADoor('none', 'theme');
   assert.match(sheet, /data-sheet-sections=""/, 'the editor sheet has no sections dropdown');
@@ -340,7 +347,7 @@ function fitsOneRow(row: ReturnType<typeof barRow>, need: string[], where: strin
     const w = pxOf(i.classes);
     assert.ok(w !== null, `${i.label} declares no phone width — the ${where} bar cannot be measured`);
     used += w;
-    if (['Look', 'Event Details', 'Apply'].includes(i.label)) {
+    if (['Exit', 'Look', 'Event Details', 'Apply'].includes(i.label)) {
       const word = i.label.length * MAKER_BAR_PHONE_WORD_PX * 0.6 + 2 * MAKER_BAR_PHONE_PAD_PX;
       assert.ok(word <= w, `"${i.label}" needs ${Math.ceil(word)} px on a phone but its button is ${w} px — the word would be cut`);
     }
@@ -348,18 +355,21 @@ function fitsOneRow(row: ReturnType<typeof barRow>, need: string[], where: strin
   assert.ok(used <= 375, `the ${where} bar needs ${used} px at least — more than 375, so it wraps or overflows`);
 }
 
-test('📏 each bar is ONE row at 375 px — × · Page ▾ · Apply on top; Look · Event Details · Undo · ⋯ at the bottom', async () => {
+test('📏 each bar is ONE row at 375 px, exactly frame G — ‹ Exit · stage · Undo · ⋯ on top; Page ▾ · Look · Details · Apply at the bottom', async () => {
   const html = await shell(null);
   const top = barRow(html, '<header', '</header>');
-  fitsOneRow(top, ['Exit', 'Page', 'Apply'], 'top');
+  // prototypes/maker_in_four_2026-09-30_fable.html, frame G ("Phone — the preview is the screen").
+  fitsOneRow(top, ['Exit', 'Stage', 'Undo', 'More'], 'top');
   assert.match(top.head, /max-md:h-\[52px\]/, 'the top bar is no longer one 52 px row');
   const bottom = barRow(html, '<nav aria-label="Maker tools"', '</nav>');
-  fitsOneRow(bottom, ['Look', 'Event Details', 'Undo', 'More'], 'bottom');
+  fitsOneRow(bottom, ['Page', 'Look', 'Event Details', 'Apply'], 'bottom');
+  assert.match(top.head + html.slice(html.indexOf('<header'), html.indexOf('</header>')), /as a guest sees it/, 'the top bar does not name the stage the way frame G does');
   assert.match(bottom.head, /env\(safe-area-inset-bottom\)/, 'the bottom bar does not respect the phone’s bottom safe area');
   // The draft bar draws Undo and Apply with exactly these phone props (the stub above is its copy).
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /wordFrom="md"\s*phone=\{\{ width: MAKER_BAR_PHONE\.undoTop \}\}/, 'the draft bar’s Undo shows on the phone’s top bar again');
-  assert.match(bar, /primary\s*phone=\{\{ width: MAKER_BAR_PHONE\.apply, word: true \}\}/, 'Apply is no longer the top bar’s worded button');
+  assert.match(bar, /wordFrom="md"\s*phone=\{\{ width: MAKER_BAR_PHONE\.undoTop \}\}/, 'the draft bar’s Undo is not the phone top bar’s icon');
+  assert.match(bar, /primary\s*phone=\{\{ width: MAKER_BAR_PHONE\.applyTop, word: true \}\}/, 'the draft bar’s Apply shows on the phone’s top bar — it is the bottom bar’s');
+  assert.match(bar, /apply: \{ label: applyWord, count: applyCount, enabled: applyEnabled \}/, 'the bottom bar’s Apply no longer reads the draft bar’s word, count and state');
   assert.doesNotMatch(bar, /\border-2\b/, 'a draft-bar item is ordered onto a second row again');
 });
 

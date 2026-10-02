@@ -39,35 +39,41 @@ export const MAKER_PHONE_PANEL_CAP = 'max-lg:max-h-[calc(45dvh-52px)]';
 export const MAKER_PHONE_GUIDED_PANEL_CAP = 'max-lg:max-h-[calc(45dvh-104px)]';
 
 /*
- * 📏 THE PHONE'S TWO BARS, ONE ROW EACH AT 375 PX (owner 2026-10-02, live in a
- * mobile browser — the bar wrapped and Apply dropped to a second row; then the
- * approved phone layout, frame G of `prototypes/maker_in_four_2026-09-30_fable.html`):
+ * 📏 THE PHONE'S TWO BARS, EXACTLY AS APPROVED — frame G ("Phone — the preview
+ * is the screen") of `prototypes/maker_in_four_2026-09-30_fable.html` (owner
+ * 2026-10-02: "no" to bars that differ from the approved design):
  *
- *   TOP     × · Page ▾ · Apply (with its count) — Apply is always in reach;
- *   BOTTOM  Look · Event Details · Undo · ⋯ — in the thumb's reach, over the
- *           bottom safe area. Phone/Desktop is a row of ⋯ on a phone.
+ *   TOP     ‹ Exit · the stage you are on ("Invitation · as a guest sees it")
+ *           · Undo ↶ · ⋯
+ *   BOTTOM  Page ▾ (the page: "Welcome ▾") · Look · Details · Apply (n) —
+ *           "the same four as the desktop, where a thumb can reach".
  *
- * Each item declares its phone width (`w-[…]`, or `min-w-[…]` for the one that
- * takes what is left); `lib/the-maker-keeps-the-page-on-a-phone.test.ts` adds
- * each row up at 375 and fails a row over it, or a word its button cannot hold.
+ * Phone/Desktop is not offered on a phone ("you are already on one"). One row
+ * each at 375 px: each item declares its phone width (`w-[…]`, or `min-w-[…]`
+ * for the one that takes what is left); `lib/the-maker-keeps-the-page-on-a-phone.test.ts`
+ * adds each row up and fails a row over 375, or a word its button cannot hold.
+ * (Details wears its current name, "Event Details" — tracker d15.)
  */
 export const MAKER_BAR_PHONE = {
   /* top */
-  exit: 'max-md:w-11',
-  page: 'max-md:min-w-[120px]',
-  apply: 'max-md:w-[72px]',
-  /** The draft bar's own Undo — on a phone Undo is the bottom bar's. */
-  undoTop: 'max-md:hidden',
-  /* bottom */
-  door: 'max-md:min-w-[126px]',
-  undo: 'max-md:w-11',
+  exit: 'max-md:w-[68px]',
+  stage: 'max-md:min-w-[120px]',
+  undoTop: 'max-md:w-11',
   more: 'max-md:w-11',
+  /** The bar's own Page ▾ and Apply — on a phone they are the bottom bar's. */
+  pageTop: 'max-md:hidden',
+  applyTop: 'max-md:hidden',
+  /* bottom */
+  page: 'max-md:min-w-[100px]',
+  look: 'max-md:w-[48px]',
+  details: 'max-md:w-[118px]',
+  apply: 'max-md:w-[60px]',
 } as const;
 /** The phone's bottom bar: one 52 px row (+ the bottom safe area, which is the phone's, not the page's). */
 export const MAKER_PHONE_BOTTOM_BAR_PX = 52;
-/** A word on a phone bar: 13 px, 12 px each side (the doors and Apply). */
+/** A word on a phone bar: 13 px, 8 px each side. */
 export const MAKER_BAR_PHONE_WORD_PX = 13;
-export const MAKER_BAR_PHONE_PAD_PX = 12;
+export const MAKER_BAR_PHONE_PAD_PX = 8;
 /** Each bar's gap between items, and its side padding, on a phone. */
 export const MAKER_BAR_PHONE_GAP_PX = 4;
 export const MAKER_BAR_PHONE_SIDE_PX = 8;

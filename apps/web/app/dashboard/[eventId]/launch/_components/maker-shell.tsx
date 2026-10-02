@@ -1,10 +1,12 @@
 'use client';
 
+import { pressMakerApply } from '../../website/_components/maker-press-apply';
+import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { Check, List, Monitor, MoreHorizontal, Palette, Smartphone, Undo2, X } from 'lucide-react';
+import { Check, ChevronLeft, List, Monitor, MoreHorizontal, Palette, Smartphone, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import type { TourSlideView } from '@/app/_components/tour-slide-view';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -491,6 +493,8 @@ export function MakerShell({
     /* 📍 Look · Event Details · Prints cover the stage: Page ▾ names that page. */
     openPage: openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : null,
   });
+  /* 📱 Frame G's top line names the stage — or the Maker page that covers it. */
+  const openStageWord = openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : openDoor === 'rsvp-stage' ? 'RSVP' : null;
   /* Each page wears the guest bar's own icon (`page-pick.tsx`), as it did in the navigator. */
   const pageOptions = page.options.map((o) => {
     const pick = makerPagePick(o.key);
@@ -536,10 +540,10 @@ export function MakerShell({
         ) : (
           <List aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         );
-      const place = where === 'top' ? 'hidden md:inline-flex' : `flex-1 justify-center max-md:text-[13px] ${MAKER_BAR_PHONE.door}`;
+      const place = where === 'top' ? 'hidden md:inline-flex' : `justify-center max-md:px-2 max-md:text-[13px] ${door === 'look' ? MAKER_BAR_PHONE.look : MAKER_BAR_PHONE.details}`;
       if (!hasWork) {
         return (
-          <span key={door} className={where === 'top' ? 'hidden md:inline-flex' : 'flex flex-1 justify-center'}>
+          <span key={door} className={where === 'top' ? 'hidden md:inline-flex' : 'flex justify-center'}>
             <ShutDoor label={label} note={`Only ${theHost} can open this part of the Event Hub Maker.`} tool={door}>
               {icon}
               {label}
@@ -708,10 +712,10 @@ export function MakerShell({
             sidebar instead of the top bar?"*). */}
         <header
           data-maker-toolbar=""
-          /* 📱 ONE ROW on a phone, Apply always in it (owner 2026-10-02, in a mobile
-             browser: the bar wrapped and Apply dropped to a second row). Each
-             item declares its phone width (`MAKER_BAR_PHONE`, lib/maker-phone-room.ts);
-             a status says itself OVER the canvas there, never as another row. */
+          /* 📱 On a phone, frame G's TOP bar exactly (prototypes/maker_in_four_2026-09-30_fable.html):
+             ‹ Exit · the stage you are on · Undo · ⋯ — one row (`MAKER_BAR_PHONE`,
+             lib/maker-phone-room.ts); Page ▾ · Look · Details · Apply are the
+             bottom bar's. A status says itself OVER the canvas there. */
           data-phone-chrome="bar"
           data-phone-chrome-name="the toolbar"
           className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-md:h-[52px] md:gap-1.5 md:px-2.5"
@@ -722,15 +726,28 @@ export function MakerShell({
             title="Exit"
             data-maker-tool="exit"
             data-bar-item="Exit"
-            className={`${MAKER_TOOL_BUTTON} ${MAKER_BAR_PHONE.exit}`}
+            className={`${MAKER_TOOL_BUTTON} ${MAKER_BAR_PHONE.exit} max-md:flex-row max-md:gap-0.5 max-md:px-2`}
           >
-            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+            <X aria-hidden className="hidden h-5 w-5 md:block" strokeWidth={2} />
+            {/* 📱 Frame G: "‹ Exit". */}
+            <ChevronLeft aria-hidden className="h-4 w-4 md:hidden" strokeWidth={2} />
+            <span className="text-[13px] font-semibold text-ink md:hidden">Exit</span>
             <span className={MAKER_TOOL_WORD}>Exit</span>
           </Link>
 
+          {/* 📱 Frame G: the stage you are on — "Invitation · as a guest sees it" (or the page that covers it). */}
+          <p
+            data-bar-item="Stage"
+            data-bar-fill=""
+            className={`flex min-w-0 flex-1 items-baseline gap-1 truncate px-1 text-[13.5px] font-semibold text-ink md:hidden ${MAKER_BAR_PHONE.stage}`}
+          >
+            <span className="truncate">{openStageWord ?? PUBLIC_STAGE_LABELS[stage]}</span>
+            {openStageWord ? null : <span className="truncate font-normal text-ink/55">· as a guest sees it</span>}
+          </p>
+
           {/* 📄 PAGE ▾ — ONE dropdown: the stages, each with its guest pages.
-              On a phone it takes what the top bar leaves (× · Page ▾ · Apply). */}
-          <div className={`flex min-w-0 flex-1 md:max-w-[20rem] md:flex-none ${MAKER_BAR_PHONE.page}`} data-maker-tool="page" data-bar-item="Page" data-bar-fill="">
+              On a phone it is the bottom bar's (frame G). */}
+          <div className={`flex min-w-0 flex-1 md:max-w-[20rem] md:flex-none ${MAKER_BAR_PHONE.pageTop}`} data-maker-tool="page">
             <PickMenu
               label="Page"
               dataAttr="data-maker-page-menu"
@@ -761,11 +778,9 @@ export function MakerShell({
           )}
 
           {/* ⋯ EVERYTHING ELSE — on a desktop, here; on a phone, in the bottom bar. */}
-          <span className="hidden md:inline-flex">
-            <ToolMenu label="More" tool="more" align="end" icon={<MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />}>
-              {moreRows}
-            </ToolMenu>
-          </span>
+          <ToolMenu label="More" tool="more" align="end" icon={<MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />}>
+            {moreRows}
+          </ToolMenu>
           {/* ➖ The tools' download, as a thin line along the bar's foot (owner 2026-10-02). */}
           <MakerPreloadLine progress={preload} />
         </header>
@@ -824,10 +839,10 @@ export function MakerShell({
           ) : null}
         </div>
 
-        {/* ══ 📱 THE PHONE'S BOTTOM BAR ══ (owner 2026-10-02 — frame G of
-            prototypes/maker_in_four_2026-09-30_fable.html: the doors "where a
-            thumb can reach"): Look · Event Details · Undo · ⋯, one row, over the
-            bottom safe area. The top bar keeps × · Page ▾ · Apply. */}
+        {/* ══ 📱 THE PHONE'S BOTTOM BAR ══ — frame G of
+            prototypes/maker_in_four_2026-09-30_fable.html, exactly: "Page ▾ · Look ·
+            Details · Apply (3) — the same four as the desktop, where a thumb can
+            reach". One row, over the bottom safe area. */}
         <nav
           aria-label="Maker tools"
           data-maker-bottom-bar=""
@@ -835,22 +850,39 @@ export function MakerShell({
           data-phone-chrome-name="the bottom bar"
           className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-1 border-t border-ink/10 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-1 max-md:h-[calc(52px+env(safe-area-inset-bottom))] md:hidden"
         >
+          <div className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.page}`} data-bar-item="Page" data-bar-fill="">
+            <PickMenu
+              label="Page"
+              dataAttr="data-maker-page-menu-phone"
+              value={page.value}
+              buttonText={page.pageText}
+              options={pageOptions}
+              onPick={pickPage}
+              className="w-full"
+            />
+          </div>
           {doors('bottom')}
-          <button
-            type="button"
-            aria-label="Undo"
-            title={draft?.canUndo ? 'Undo' : 'Undo — nothing to undo yet'}
-            data-maker-tool="undo"
-            data-bar-item="Undo"
-            disabled={!draft?.canUndo}
-            onClick={() => draft?.undo()}
-            className={`${MAKER_TOOL_BUTTON} ${MAKER_BAR_PHONE.undo} disabled:text-ink/30`}
-          >
-            <Undo2 aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-          </button>
-          <ToolMenu label="More" tool="more" align="end" up icon={<MoreHorizontal aria-hidden className="h-5 w-5" strokeWidth={1.75} />}>
-            {moreRows}
-          </ToolMenu>
+          <span className={`relative inline-flex ${MAKER_BAR_PHONE.apply}`} data-bar-item="Apply">
+            <button
+              type="button"
+              data-maker-tool="apply-phone"
+              disabled={!draft?.apply.enabled}
+              title={draft?.apply.enabled ? 'Apply' : 'Apply — no changes to apply'}
+              onClick={() => pressMakerApply()}
+              className="button-primary sn-press inline-flex h-10 w-full items-center justify-center rounded-full px-2 text-[13px]"
+            >
+              <span className="truncate">{draft?.apply.label ?? 'Apply'}</span>
+            </button>
+            {draft && draft.apply.count > 0 ? (
+              <span
+                aria-label={`${formatCount(draft.apply.count)} ${draft.apply.count === 1 ? 'change' : 'changes'} waiting`}
+                data-maker-apply-count=""
+                className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-700 px-1 text-[10px] font-bold leading-none text-cream"
+              >
+                {formatCount(draft.apply.count)}
+              </span>
+            ) : null}
+          </span>
         </nav>
 
         {/* ══ ⋯ · THE SHEET ══ Kept mounted (hidden when shut) so the work area
@@ -963,19 +995,16 @@ function ToolMenu({
   tool,
   icon,
   align = 'start',
-  up = false,
   children,
 }: {
   label: string;
   tool: string;
   icon: ReactNode;
   align?: 'start' | 'end';
-  /** Opens UPWARD — the phone's bottom bar. */
-  up?: boolean;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
-  const [at, setAt] = useState<{ top: number | null; bottom: number | null; left: number } | null>(null);
+  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
   const ref = useRef<HTMLSpanElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
@@ -1002,21 +1031,17 @@ function ToolMenu({
         aria-label={label}
         title={label}
         data-maker-tool={tool}
-        data-bar-item={up ? label : undefined}
+        data-bar-item={label}
         onClick={() => {
           const r = btnRef.current?.getBoundingClientRect();
           if (r) {
             const width = Math.min(260, window.innerWidth - 16);
             const left = align === 'end' ? r.right - width : r.left;
-            setAt({
-              top: up ? null : r.bottom + 6,
-              bottom: up ? window.innerHeight - r.top + 6 : null,
-              left: Math.max(8, Math.min(left, window.innerWidth - width - 8)),
-            });
+            setAt({ top: r.bottom + 6, left: Math.max(8, Math.min(left, window.innerWidth - width - 8)) });
           }
           setOpen((o) => !o);
         }}
-        className={`${MAKER_TOOL_BUTTON} ${up ? MAKER_BAR_PHONE.more : ''}`}
+        className={`${MAKER_TOOL_BUTTON} ${MAKER_BAR_PHONE.more}`}
       >
         {icon}
         <span className={MAKER_TOOL_WORD}>{label}</span>
@@ -1026,13 +1051,7 @@ function ToolMenu({
           role="menu"
           aria-label={label}
           data-maker-tool-menu={tool}
-          style={{
-            position: 'fixed',
-            ...(at.top !== null ? { top: at.top } : {}),
-            ...(at.bottom !== null ? { bottom: at.bottom } : {}),
-            left: at.left,
-            width: Math.min(260, typeof window === 'undefined' ? 260 : window.innerWidth - 16),
-          }}
+          style={{ position: 'fixed', top: at.top, left: at.left, width: Math.min(260, typeof window === 'undefined' ? 260 : window.innerWidth - 16) }}
           className="z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl bg-white p-1 ring-1 ring-ink/10 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)]"
         >
           {children(close)}

@@ -278,16 +278,20 @@ export function PartTextTab({
 
       {has('align') ? (
         <IRow label="Alignment" data="align">
-          <ISegmented label="Alignment" grow={false}>
-            {HUB_ELEMENT_ALIGNS.map((a) => {
-              const Icon = a === 'left' ? AlignLeft : a === 'center' ? AlignCenter : AlignRight;
-              return (
-                <ISeg key={a} on={style.align === a} onClick={() => chooseAlign(style.align === a ? null : a)} title={HUB_ELEMENT_ALIGN_LABEL[a]} data={`align-${a}`} className="w-12 flex-none lg:w-10">
-                  <Icon aria-label={HUB_ELEMENT_ALIGN_LABEL[a]} className="h-4 w-4" strokeWidth={2} />
-                </ISeg>
-              );
-            })}
-          </ISegmented>
+          {/* ONE dropdown (owner 2026-10-02: "any set of choices is a dropdown"; it was a pill row). */}
+          <PickMenu
+            label="Alignment"
+            dataAttr="data-part-align-pick"
+            value={style.align ?? 'auto'}
+            options={[
+              { key: 'auto', label: 'As the scene' },
+              ...HUB_ELEMENT_ALIGNS.map((a) => {
+                const Icon = a === 'left' ? AlignLeft : a === 'center' ? AlignCenter : AlignRight;
+                return { key: a, label: HUB_ELEMENT_ALIGN_LABEL[a], icon: <Icon aria-hidden className="h-4 w-4" strokeWidth={2} /> };
+              }),
+            ]}
+            onPick={(k) => chooseAlign(k === 'auto' ? null : (k as (typeof HUB_ELEMENT_ALIGNS)[number]))}
+          />
         </IRow>
       ) : null}
 
@@ -400,16 +404,21 @@ function JoinerRow({ word, onWord }: { word: string | null; onWord: (w: string |
   return (
     <>
       <IRow label="Joiner" data="joiner">
-        <ISegmented label="The word between the names">
-          {HUB_JOINER_WORDS.map((w) => (
-            <ISeg key={w} data={`joiner-${w}`} on={!typing && (word ?? 'and') === w} onClick={() => { setTyping(false); onWord(w === 'and' && word === null ? null : w); }}>
-              {w}
-            </ISeg>
-          ))}
-          <ISeg data="joiner-own" on={typing} onClick={() => setTyping(true)}>
-            Your own…
-          </ISeg>
-        </ISegmented>
+        {/* ONE dropdown (owner 2026-10-02: "any set of choices is a dropdown"; it was a pill row). */}
+        <PickMenu
+          label="The word between the names"
+          dataAttr="data-part-joiner-pick"
+          value={typing ? 'own' : (word ?? 'and')}
+          options={[...HUB_JOINER_WORDS.map((w) => ({ key: w as string, label: w as string })), { key: 'own', label: 'Your own…' }]}
+          onPick={(k) => {
+            if (k === 'own') {
+              setTyping(true);
+              return;
+            }
+            setTyping(false);
+            onWord(k === 'and' && word === null ? null : k);
+          }}
+        />
       </IRow>
       {typing ? (
         <form

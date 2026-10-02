@@ -136,8 +136,12 @@ export type MakerGuestPagesReport = {
 export type MakerPageJump = { stage: LifecyclePhase; key: string; n: number; sameStage: boolean };
 
 /** ↺ The draft bar's Restore, for the toolbar's ⋯ (see `MakerState.draft`). */
-/** ↺ Restore (⋯) and ↶ Undo (the phone's bottom bar — owner 2026-10-02, frame G), as the draft bar registered them. */
-export type MakerDraftDoor = { canRestore: boolean; restore: () => void; canUndo: boolean; undo: () => void };
+/**
+ * ↺ Restore (⋯) and the phone's Apply (the bottom bar — frame G: "Page ▾ · Look ·
+ * Details · Apply (3)"), as the draft bar registered them: what Apply says and
+ * whether it can be pressed; the press itself is `pressMakerApply`, the bar's own act.
+ */
+export type MakerDraftDoor = { canRestore: boolean; restore: () => void; apply: { label: string; count: number; enabled: boolean } };
 
 /**
  * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28

@@ -270,20 +270,20 @@ export function HubDraftToolbar({
   actRef.current = act;
   const setDraftDoor = maker?.setDraft;
   const canRestore = !pending && summary.hasChanges;
-  /* ↶ …and Undo, for the phone's bottom bar (the Maker draws it there, from this
-     one act — owner 2026-10-02: top bar × · Page ▾ · Apply; bottom bar Look ·
-     Event Details · Undo · ⋯). */
-  const canUndoNow = !pending && summary.canUndo;
+  /* ✓ …and what Apply says, for the phone's bottom bar (frame G: "Page ▾ · Look ·
+     Details · Apply (3)"); its press is this bar's own (`pressMakerApply`). */
+  const applyWord = pending ? 'Applying…' : summary.proCount > 0 && summary.proCount !== summary.changeCount ? `Apply ${formatCount(summary.changeCount - summary.proCount)}` : 'Apply';
+  const applyEnabled = !pending && summary.hasChanges;
+  const applyCount = summary.hasChanges ? summary.changeCount : 0;
   useEffect(() => {
     if (!setDraftDoor) return;
     setDraftDoor({
       canRestore,
       restore: () => actRef.current({ intent: 'restore' }),
-      canUndo: canUndoNow,
-      undo: () => actRef.current({ intent: 'undo' }),
+      apply: { label: applyWord, count: applyCount, enabled: applyEnabled },
     });
     return () => setDraftDoor(null);
-  }, [setDraftDoor, canRestore, canUndoNow]);
+  }, [setDraftDoor, canRestore, applyWord, applyCount, applyEnabled]);
   /* The panel always closes: its × , Cancel, a tap outside it, Esc — and a tap
      on the canvas, which is a frame of its own (a tap there never reaches this
      window as a pointerdown; it blurs it). Owner 2026-10-02: "won't close". */
@@ -386,9 +386,7 @@ export function HubDraftToolbar({
      came back refused (`saveError`). An error is never truncated away. */
   const status: MakerSaveStatus | null = saveStatus ?? (saveError ? { state: 'error', text: saveError } : null);
 
-  const onlyPro = summary.proCount > 0 && summary.proCount === summary.changeCount;
-  const freeCount = summary.changeCount - summary.proCount;
-  const applyLabel = pending ? 'Applying…' : summary.proCount > 0 && !onlyPro ? `Apply ${formatCount(freeCount)}` : 'Apply';
+  const applyLabel = applyWord; // the one word, shared with the phone's bottom bar
 
   return (
     <div className="contents" data-maker-draft-actions="">
@@ -428,7 +426,7 @@ export function HubDraftToolbar({
           label={applyLabel}
           icon={<Check aria-hidden className="h-4 w-4" strokeWidth={2} />}
           primary
-          phone={{ width: MAKER_BAR_PHONE.apply, word: true }}
+          phone={{ width: MAKER_BAR_PHONE.applyTop, word: true }}
           disabled={pending || !summary.hasChanges}
           disabledReason="No changes to apply"
           onClick={() => (asksForPro ? setSheetOpen(true) : act({ intent: 'apply' }))}

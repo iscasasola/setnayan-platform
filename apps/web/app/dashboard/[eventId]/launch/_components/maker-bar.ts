@@ -198,7 +198,13 @@ export function makerPageMenu(input: {
    * "Invitation › Welcome"). Null = the stage's own page is on screen.
    */
   openPage?: string | null;
-}): { value: string; buttonText: string; options: PickOption[] } {
+}): {
+  value: string;
+  buttonText: string;
+  /** 📱 The page alone ("Welcome") — the phone's bottom-bar Page ▾ (frame G: "Page / Welcome ▾"); its top bar names the stage. */
+  pageText: string;
+  options: PickOption[];
+} {
   const options: PickOption[] = [];
   for (const s of MAKER_PAGE_STAGES) {
     const group = makerStageLabel(s);
@@ -224,10 +230,10 @@ export function makerPageMenu(input: {
     );
   }
   if (input.rsvpOpen) {
-    return { value: RSVP_STAGE_KEY, buttonText: `${RSVP_STAGE_LABEL} › ${MAKER_RSVP_PAGE_LABEL}`, options };
+    return { value: RSVP_STAGE_KEY, buttonText: `${RSVP_STAGE_LABEL} › ${MAKER_RSVP_PAGE_LABEL}`, pageText: MAKER_RSVP_PAGE_LABEL, options };
   }
   // No stage page is ticked: the page on screen is not one of them.
-  if (input.openPage) return { value: '', buttonText: input.openPage, options };
+  if (input.openPage) return { value: '', buttonText: input.openPage, pageText: input.openPage, options };
   const own = options.filter((o) => o.key.startsWith(makerPageValue(input.stage, '')));
   const shown =
     (input.shownPage !== null ? own.find((o) => o.key === makerPageValue(input.stage, input.shownPage!)) : undefined) ??
@@ -237,6 +243,7 @@ export function makerPageMenu(input: {
   return {
     value: shown?.key ?? makerPageValue(input.stage, ''),
     buttonText: shown && shown.label !== stageLabel ? `${stageLabel} › ${shown.label}` : stageLabel,
+    pageText: shown?.label ?? stageLabel,
     options,
   };
 }

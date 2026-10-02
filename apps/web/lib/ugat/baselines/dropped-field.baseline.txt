@@ -4,9 +4,6 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one is
 # dropped by re-running the command above.
-app/admin/account-deletions/actions.ts#approveAndDelete drops intent	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
-app/admin/fraud/actions.ts#initiateFraudWipeBan drops confirm_name	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
-app/admin/payments/actions.ts#approvePayment drops intent	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
 app/admin/studio/_surfaces/social-queue-surface.tsx posts link_url to createAnnouncement	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
 app/admin/studio/_surfaces/social-queue-surface.tsx posts link_url to saveEvergreenItem	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
 app/admin/studio/_surfaces/social-queue-surface.tsx posts media_url to createAnnouncement	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
@@ -17,30 +14,10 @@ app/admin/taxonomy/actions.ts#setFolderEventTypes drops confirm_overwrite	# firs
 app/admin/taxonomy/actions.ts#setFolderEventTypes drops scope_mode	# first run 2026-10-02 · admin console · a person fills a field and the save throws it away
 app/dashboard/(account)/create-event/actions.ts#createWeddingEvent drops concierge_choice	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
 app/dashboard/[eventId]/actions.ts#updatePaxSettings drops maker_quiet	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/checkout/actions.ts#submitOrderAction drops voucher_discount_centavos	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/disputes/actions.ts#fileForceMajeureFlag drops evidence	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/disputes/actions.ts#fileForceMajeureFlag drops evidence_refs	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/guests/[guestId]/actions.ts#releaseGuestClaim drops new_qr	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/guests/[guestId]/actions.ts#releaseGuestClaim drops unlink_account	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
 app/dashboard/[eventId]/guests/[guestId]/actions.ts#updateGuest drops groups_posted	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/guests/[guestId]/actions.ts#updateGuest drops quiet	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/guests/[guestId]/actions.ts#updateGuest drops table_posted	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/guests/claims/actions.ts#removeGuestAction drops from	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/guests/import/actions.ts#importGuestsCsv drops mode	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/hosts/actions.ts#inviteHost drops coordinator_consent	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
 app/dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx posts guest_id to markGuestInvitationSent	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/seating/actions.ts#commitWeld drops poses	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/seating/actions.ts#setTableSeat drops removed	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
 app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx posts business_name to createAutoShareInviteAction	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
 app/dashboard/[eventId]/vendors/[vendorId]/workspace/page.tsx posts category to createAutoShareInviteAction	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
 app/dashboard/[eventId]/vendors/actions.ts#acknowledgeHandover drops advance_status	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/dashboard/[eventId]/vendors/actions.ts#finalizeVendor drops acknowledge_reservation_terms	# first run 2026-10-02 · host app · a person fills a field and the save throws it away
-app/papic/face-enroll-actions.ts#enrollGuestFace drops age_affirmation	# first run 2026-10-02 · guest app · a person fills a field and the save throws it away
-app/papic/face-enroll-actions.ts#enrollGuestFace drops biometric_consent	# first run 2026-10-02 · guest app · a person fills a field and the save throws it away
 app/pay/[reference]/_components/pay-panel.tsx posts amount_php to submitPaymentProof	# first run 2026-10-02 · guest app · a person fills a field and the save throws it away
-app/pay/[reference]/actions.ts#submitPaymentProof drops rechecked	# first run 2026-10-02 · guest app · a person fills a field and the save throws it away
-app/vendor-dashboard/moodboard-library/actions.ts#uploadStylistAsset drops rightsWarranted	# first run 2026-10-02 · supplier app · a person fills a field and the save throws it away
 app/vendor-dashboard/reviews/actions.ts#postVendorReply drops return_to	# first run 2026-10-02 · supplier app · a person fills a field and the save throws it away
-app/vendor-dashboard/services/refinement-actions.ts#saveServiceRefinements drops refinement_keys	# first run 2026-10-02 · supplier app · a person fills a field and the save throws it away
-app/vendor-dashboard/shop/suggested-coverage-actions.ts#applySuggestedCoverage drops dossier_id	# first run 2026-10-02 · supplier app · a person fills a field and the save throws it away
-app/vendor-dashboard/shop/visibility-actions.ts#updateVisibilityPreferences drops visibility_fields_present	# first run 2026-10-02 · supplier app · a person fills a field and the save throws it away

@@ -604,6 +604,20 @@ function flowIn(
     const end = statementEnd(body, start, 3000);
     decls.push({ names: [m[1]!], init: body.slice(start, end), span: [m.index!, end] });
   }
+  // `for (const r of refs)` — the loop variable carries what the list carries.
+  for (const m of body.matchAll(/\bfor\s*\(\s*(?:const|let|var)\s+([A-Za-z_$][\w$]*|\[[^\]]*\]|\{[^}]*\})\s+of\s+/g)) {
+    const start = m.index! + m[0].length;
+    const end = statementEnd(body, start, 400);
+    const names = [...m[1]!.matchAll(/[A-Za-z_$][\w$]*/g)].map((x) => x[0]);
+    decls.push({ names, init: body.slice(start, end), span: [start, end] });
+  }
+  // `list.push(x)` — the list now carries the field.
+  for (const m of body.matchAll(/(?<![\w$.])([A-Za-z_$][\w$]*)\.(?:push|unshift|add|set)\(/g)) {
+    const open = m.index! + m[0].length - 1;
+    const close = closeOf(body, open);
+    if (close < 0) continue;
+    decls.push({ names: [m[1]!], init: body.slice(open + 1, close), span: [open + 1, close] });
+  }
   // `patch.first_name = first` — the object now carries the field into whatever writes it.
   for (const m of body.matchAll(/(?<![\w$.])([A-Za-z_$][\w$]*)(?:\.[A-Za-z_$][\w$]*|\[[^\]\n]{1,60}\])+\s*=(?![=>])\s*/g)) {
     const start = m.index! + m[0].length;
@@ -688,7 +702,9 @@ function flowIn(
         let j = close + 1;
         while (j < body.length && /\s/.test(body[j]!)) j += 1;
         const branch = body[j] === '{' ? body.slice(j, closeOf(body, j) + 1) : body.slice(j, statementEnd(body, j));
-        return /\.(?:insert|update|upsert|rpc)\s*\(|[\w$\])]\s*\.\s*[\w$]+\s*=(?![=>])|\[[^\]\n]+\]\s*=(?![=>])/.test(branch);
+        // A branch that writes, sets a payload key, or turns the request away
+        // (return / throw / redirect) — the field decided something.
+        return /\.(?:insert|update|upsert|rpc)\s*\(|[\w$\])]\s*\.\s*[\w$]+\s*=(?![=>])|\[[^\]\n]+\]\s*=(?![=>])|\breturn\b|\bthrow\b|redirect\s*\(/.test(branch);
       } else if (c === ';' && depth === 0) return false;
     }
     return false;

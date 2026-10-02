@@ -264,6 +264,8 @@ export function scanLandings(opts: LandingScanOptions): Finding[] {
     return out;
   };
   const hasSection = (route: string, id: string): boolean => {
+    // `#top` scrolls to the top of any page — the HTML standard's own fragment.
+    if (id === 'top') return true;
     const s = byRoute.get(route);
     if (!s) return true;
     const needle = new RegExp(`['"\`]${id.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')}['"\`]|[-:]${id.replace(/[.*+?^$()|[\]\\{}]/g, '\\$&')}['"\`]`);

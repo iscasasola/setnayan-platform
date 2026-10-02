@@ -108,7 +108,7 @@ function report(): string {
       'Root map is the owner\'s name for the Ugat map; code keeps `lib/ugat`.',
   );
   o.push('');
-  o.push('**What changed today:** every one of these checks now runs in CI on every pull request. Today\'s findings are written down as the starting list (the "baseline"), so CI is green today — and anything NEW of the six kinds marked "fails CI" stops the build. The list can only get shorter.');
+  o.push('**What changed today:** every one of these checks now runs in CI on every pull request. Today\'s findings are written down as the starting list (the "baseline"), so CI is green today — and anything NEW of a kind marked "fails CI" below stops the build (the six the owner named: no way in, doors to nowhere, one home, filled-but-not-saved, typed-in numbers, and the same fact shown twice). The list can only get shorter.');
   o.push('');
   o.push('## The numbers');
   o.push('');

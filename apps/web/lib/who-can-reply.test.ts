@@ -18,7 +18,8 @@ test('an event that never chose reads "Only people on my list" — no write need
     assert.equal(readWhoCanRsvp(never), 'guest_list');
     assert.equal(readGuestsGetIn(never), 'list');
   }
-  assert.equal(guestsGetInLabel('list'), 'Only people on my list');
+  // Spelled by the three guest-entry rules (owner 2026-10-02, "THE FIVE GUEST-ENTRY CHOICES…").
+  assert.equal(guestsGetInLabel('list'), 'List only · Guests reply');
   assert.equal(GUESTS_GET_IN_CHOICES[0]?.value, 'list', 'the default is the first choice in Event Details');
 });
 

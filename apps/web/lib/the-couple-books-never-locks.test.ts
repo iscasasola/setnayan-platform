@@ -98,7 +98,7 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/checklist-event-type-defs.ts', why: 'lock the time of a non-wedding event' },
   { prefix: 'lib/onboarding/specialty-recommendations.ts', text: /lock the reunion date|lock the date to their trip/, why: "the date's own lock" },
   // ── 3 · strings the database matches on ─────────────────────────────────────
-  { prefix: 'app/dashboard/[eventId]/vendors/actions.ts', text: /awaiting vendor confirmation|^Lock \(finalize\) vendor booking$/, why: 'the payment stamp note the deposit trigger matches, and an analytics element name' },
+  { prefix: 'app/dashboard/[eventId]/vendors/actions.ts', text: /awaiting vendor confirmation|^Lock \(finalize\) supplier booking$/, why: 'the payment stamp note the deposit trigger matches, and an analytics element name' },
 ];
 
 test('the scanner flags "lock" where a person reads it', () => {

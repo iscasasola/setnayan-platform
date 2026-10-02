@@ -69,15 +69,12 @@ test('3 · the closed button and every display say heading + choice, from ONE he
   assert.match(invite, /guestsGetInLabel\(readGuestsGetIn\(/);
   const sheet = read('lib/event-details-sheet.ts');
   assert.match(sheet, /guestsGetInLabel\(readGuestsGetIn\(/);
-  const popup = read('app/dashboard/[eventId]/guests/_components/who-can-reply-ask.tsx');
-  assert.match(popup, /WHO_CAN_REPLY_CHOICES\.map/);
 
   // No second list: the old spellings are gone from every surface.
   const old = /Only people on my list|Anyone, I approve|No reply · |Personal QR for each guest|label: 'Guest list|label: 'Open event'/;
   for (const [where, src] of [
     ['maker', maker],
     ['invite', invite],
-    ['popup', popup],
     ['who-can-reply', read('lib/who-can-reply.ts')],
     ['rsvp-ask', read('lib/rsvp-ask.ts')],
     ['onboarding', read('app/onboarding/_shared/setup-card.tsx')],
@@ -87,8 +84,7 @@ test('3 · the closed button and every display say heading + choice, from ONE he
   }
 });
 
-test('4 · onboarding speaks the same words for the choices it stores', () => {
-  const card = read('app/onboarding/_shared/setup-card.tsx');
-  assert.match(card, /guestsGetInChoice\(GUESTS_IN_AS\[/);
-  assert.match(card, /buttonText=\{guestsGetInLabel\(GUESTS_IN_AS\[guestsInOf\(answers\)\]\)\}/);
-});
+// Test 4 (onboarding's guest-entry card speaks the shared words) and the first-visit
+// pop-up's assertion were retired when simplicity fixes 2 (owner 2026-10-02, d23 +
+// "no entry card") removed both surfaces; onboarding stays in the old-spellings sweep
+// above, so a returning "Guest list" / "Open event" label there still turns this red.

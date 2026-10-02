@@ -28,6 +28,11 @@ const ALLOW: readonly WordAllow[] = [
     text: /awaiting vendor confirmation/,
     why: 'the payment stamp note — the deposit trigger matches it exactly (NEW.notes IN (…)), so the word changes with a migration, not here',
   },
+  {
+    prefix: 'lib/supplier-word.ts',
+    text: /^(Deposit \(date held|Downpayment \(lock) · awaiting|the deposit stamp trigger matches it/,
+    why: 'SUPPLIER_WORD_DATA — the registry of the same two stored payment notes (and why each is data), read by the supplier-word guard, never rendered',
+  },
 ];
 
 test('the scanner flags the retired money words where a person reads them', () => {

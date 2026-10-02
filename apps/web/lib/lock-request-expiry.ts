@@ -127,7 +127,7 @@ export async function runLockRequestExpirySweep(): Promise<{ nudged: number; exp
             .eq('vendor_id', r.event_vendor_id)
             .maybeSingle();
           const vendorName =
-            (ev as { vendor_name?: string } | null)?.vendor_name ?? 'The vendor';
+            (ev as { vendor_name?: string } | null)?.vendor_name ?? 'The supplier';
           const { data: members } = await admin
             .from('event_members')
             .select('user_id')

@@ -386,7 +386,7 @@ const REMINDER_DAYS = 7;
 
 function productTitleFor(serviceKey: string): string {
   if (serviceKey === 'EVENT_SUBDOMAIN' || serviceKey === 'vendor_subdomain') return 'Custom Subdomain';
-  if (serviceKey === 'vendor_ai_addon') return 'Vendor AI';
+  if (serviceKey === 'vendor_ai_addon') return 'Supplier AI';
   if (serviceKey === 'vendor_3d_booth') return '3D Booth';
   return 'Setnayan subscription';
 }

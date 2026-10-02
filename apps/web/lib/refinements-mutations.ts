@@ -113,7 +113,7 @@ export async function addOptionCore(
     return {
       ok: false,
       error:
-        'This service’s options are reserved (they drive vendor matching) and can’t be added here — edit the existing ones instead.',
+        'This service’s options are reserved (they drive supplier matching) and can’t be added here — edit the existing ones instead.',
     };
   }
   const label = trimStr(input.label);
@@ -156,7 +156,7 @@ export async function removeOptionCore(
   optionKey: string,
 ): Promise<MutationResult> {
   if (PROJECTABLE_LEAVES.has(leafKey)) {
-    return { ok: false, error: 'Reserved options can’t be removed — they drive vendor matching.' };
+    return { ok: false, error: 'Reserved options can’t be removed — they drive supplier matching.' };
   }
   const { error } = await admin
     .from('onboarding_refinement_options')

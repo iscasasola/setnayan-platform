@@ -184,7 +184,7 @@ async function voiceGate(): Promise<VoiceGate> {
   if (!advanced) {
     return {
       ok: false,
-      error: 'Voice-match comes with Vendor AI — Advanced. Upgrade to switch it on.',
+      error: 'Voice-match comes with Supplier AI — Advanced. Upgrade to switch it on.',
     };
   }
 

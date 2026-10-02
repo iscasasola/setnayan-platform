@@ -217,7 +217,7 @@ export function DepositReservation({
         {acked ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-success-400 bg-success-50 px-2.5 py-1 text-[11px] font-semibold text-success-700">
             <CheckCircle2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Confirmed by vendor
+            Confirmed by supplier
           </span>
         ) : declined ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-danger-300 bg-danger-50 px-2.5 py-1 text-[11px] font-semibold text-danger-700">
@@ -227,7 +227,7 @@ export function DepositReservation({
         ) : recorded ? (
           <span className="inline-flex items-center gap-1.5 rounded-full border border-warn-300 bg-warn-50 px-2.5 py-1 text-[11px] font-semibold text-warn-900">
             <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Date held · awaiting vendor confirmation
+            Date held · awaiting supplier confirmation
           </span>
         ) : null}
       </div>

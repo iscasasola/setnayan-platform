@@ -14,7 +14,7 @@ async function requireVendorProfile(supabase: Awaited<ReturnType<typeof createCl
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) throw new Error('Vendor profile not found.');
+  if (!profile) throw new Error('Supplier profile not found.');
   return { user, profile };
 }
 
@@ -58,12 +58,12 @@ export async function postVendorReply(formData: FormData) {
       ?.couple_user_id;
     if (coupleUserId) {
       const eventId = (review as { event_id?: string | null } | null)?.event_id;
-      const vendorName = profile.business_name?.trim() || 'A vendor';
+      const vendorName = profile.business_name?.trim() || 'A supplier';
       await emitNotification({
         userId: coupleUserId,
         type: 'vendor_review_reply',
         title: `${vendorName} replied to your review`,
-        body: 'A vendor responded to the review you left. Open it to read their reply.',
+        body: 'A supplier responded to the review you left. Open it to read their reply.',
         relatedUrl: eventId ? `/dashboard/${eventId}/vendors` : '/dashboard',
       });
     }

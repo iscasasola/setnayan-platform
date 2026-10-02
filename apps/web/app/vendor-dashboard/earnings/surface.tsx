@@ -45,7 +45,7 @@ import { BookingFeeBills, WaivedFeeRows } from '@/app/_components/booking-fee-no
 import { manilaToday } from '@/lib/std-views';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Earnings · Vendor' };
+export const metadata = { title: 'Earnings · Supplier' };
 
 const PAGE_SIZE = 25;
 

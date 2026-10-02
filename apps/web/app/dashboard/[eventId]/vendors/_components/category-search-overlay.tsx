@@ -430,8 +430,8 @@ export function CategorySearchOverlay({
     activeFacetCount +
     (facetHardFilter ? 1 : 0);
   const scope = loading
-    ? `Showing only ${label.toLowerCase()} vendors`
-    : `Showing only ${label.toLowerCase()} vendors · ${results.length} ${
+    ? `Showing only ${label.toLowerCase()} suppliers`
+    : `Showing only ${label.toLowerCase()} suppliers · ${results.length} ${
         hasCoords ? 'near you' : 'available'
       }`;
 
@@ -493,7 +493,7 @@ export function CategorySearchOverlay({
                 }`}
               >
                 {r.relationshipDepth === 3
-                  ? 'Your vendor'
+                  ? 'Your supplier'
                   : r.relationshipDepth === 2
                     ? "You're in conversation"
                     : 'In your shortlist'}
@@ -538,7 +538,7 @@ export function CategorySearchOverlay({
             {r.respondsFast ? (
               <span
                 className="badge rf"
-                title="Replies quickly to inquiries (First-Look vendor)"
+                title="Replies quickly to inquiries (First-Look supplier)"
               >
                 Replies fast
               </span>
@@ -546,7 +546,7 @@ export function CategorySearchOverlay({
             {r.boosted ? (
               <span
                 className="badge bst"
-                title="Paid placement — this vendor partners with Setnayan. Not an AI recommendation."
+                title="Paid placement — this supplier partners with Setnayan. Not an AI recommendation."
               >
                 Featured
               </span>
@@ -575,7 +575,7 @@ export function CategorySearchOverlay({
             {!r.serviceDateAvailable ? (
               <span
                 className="badge busy"
-                title="This vendor has a calendar block on your event date"
+                title="This supplier has a calendar block on your event date"
               >
                 Booked your date
               </span>
@@ -622,7 +622,7 @@ export function CategorySearchOverlay({
 
       <div className="results">
         {loading && results.length === 0 ? (
-          <div className="loading">Finding {label.toLowerCase()} vendors…</div>
+          <div className="loading">Finding {label.toLowerCase()} suppliers…</div>
         ) : results.length === 0 && lastMinuteLocked ? (
           // §4 edge-#2: the date is close and generic search is empty, but
           // last-minute vendors could still take it with Setnayan AI on. Calm,
@@ -648,12 +648,12 @@ export function CategorySearchOverlay({
           <div className="empty">
             {query.trim() || filterCount > 0 ? (
               <>
-                No {label.toLowerCase()} vendors match yet. Try a different
+                No {label.toLowerCase()} suppliers match yet. Try a different
                 search, or widen your filters.
               </>
             ) : (
               <>
-                No {label.toLowerCase()} vendors here yet — we&rsquo;ll show them
+                No {label.toLowerCase()} suppliers here yet — we&rsquo;ll show them
                 the moment they join Setnayan.
               </>
             )}
@@ -698,7 +698,7 @@ export function CategorySearchOverlay({
             {SMART_SORT_ON && budgetRaise && !budgetEstimate ? (
               <div className="budget-nudge">
                 <p className="lead">
-                  These {label.toLowerCase()} vendors start above your budget
+                  These {label.toLowerCase()} suppliers start above your budget
                 </p>
                 <p className="sub">
                   Every match here begins higher than what you set aside for{' '}
@@ -718,7 +718,7 @@ export function CategorySearchOverlay({
                 className="farther-btn"
                 onClick={() => void showFarther()}
               >
-                Show vendors farther away
+                Show suppliers farther away
               </button>
             ) : null}
             {fartherShown ? (
@@ -727,10 +727,10 @@ export function CategorySearchOverlay({
                   <span>Farther away · outside their service area</span>
                 </div>
                 {fartherLoading ? (
-                  <div className="loading">Finding vendors farther away…</div>
+                  <div className="loading">Finding suppliers farther away…</div>
                 ) : farther.length === 0 ? (
                   <div className="empty sm">
-                    No vendors farther away — everyone covering your area is
+                    No suppliers farther away — everyone covering your area is
                     listed above.
                   </div>
                 ) : (
@@ -753,7 +753,7 @@ export function CategorySearchOverlay({
             placeholder={`Search ${label.toLowerCase()}…`}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            aria-label={`Search ${label} vendors`}
+            aria-label={`Search ${label} suppliers`}
           />
         </div>
         <button type="button" className="filterbtn" onClick={openFilter}>
@@ -765,7 +765,7 @@ export function CategorySearchOverlay({
       {filterOpen ? (
         <>
           <div className="fscrim" onClick={() => setFilterOpen(false)} />
-          <div ref={fsheetRef} className="fsheet focus:outline-none" role="dialog" aria-modal="true" aria-label="Filter vendors">
+          <div ref={fsheetRef} className="fsheet focus:outline-none" role="dialog" aria-modal="true" aria-label="Filter suppliers">
             <h4>Refine</h4>
             <div className="frow">
               <div className="ftoggle">

@@ -117,12 +117,12 @@ export const EXP_DIALS: { id: ExpDialId; eyebrow: string; question: string; opti
   },
   {
     id: 'source',
-    eyebrow: 'Your vendors',
-    question: 'Where should your vendors come from?',
+    eyebrow: 'Your suppliers',
+    question: 'Where should your suppliers come from?',
     options: [
-      { key: 'setnayan', title: 'Find them on Setnayan', desc: 'Match me with verified vendors near my venue.' },
-      { key: 'byo', title: 'I’m bringing my own', desc: 'I have my vendors — organize them with your tools.' },
-      { key: 'both', title: 'Both', desc: 'My vendors, alongside your matches.' },
+      { key: 'setnayan', title: 'Find them on Setnayan', desc: 'Match me with verified suppliers near my venue.' },
+      { key: 'byo', title: 'I’m bringing my own', desc: 'I have my suppliers — organize them with your tools.' },
+      { key: 'both', title: 'Both', desc: 'My suppliers, alongside your matches.' },
     ],
   },
 ];

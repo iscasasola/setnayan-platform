@@ -78,8 +78,8 @@ export function evaluateInquiryVelocity(counts: {
       ok: false,
       reason: 'daily',
       message:
-        "You've opened a lot of vendor conversations today — nice work planning! " +
-        'Pick things back up tomorrow, or continue with the vendors you’re already talking to.',
+        "You've opened a lot of supplier conversations today — nice work planning! " +
+        'Pick things back up tomorrow, or continue with the suppliers you’re already talking to.',
     };
   }
   if (counts.concurrentOpenCount >= INQUIRY_CONCURRENT_OPEN_CAP) {
@@ -87,7 +87,7 @@ export function evaluateInquiryVelocity(counts: {
       ok: false,
       reason: 'concurrent',
       message:
-        'You already have a lot of vendor conversations going for this event. ' +
+        'You already have a lot of supplier conversations going for this event. ' +
         'Try moving forward with a few of them before starting more — you can always come back.',
     };
   }

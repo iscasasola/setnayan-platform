@@ -183,7 +183,7 @@ export async function unlockCategoryWithInquiry(input: {
       .select('business_name')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    const vendorName = prof?.business_name ?? cand.name ?? 'Vendor';
+    const vendorName = prof?.business_name ?? cand.name ?? 'Supplier';
 
     // 1. Add the vendor → the category is now active.
     //

@@ -60,7 +60,7 @@ export function PricePositionCard({
           <h2 className="mt-1 text-xl font-extrabold tracking-[-0.015em]">Where your price sits</h2>
           <p className="mt-1 max-w-prose text-sm text-ink/60">
             How your <span className="font-medium text-ink/80">{catText}</span>{' '}
-            starting price compares to other published vendors in{' '}
+            starting price compares to other published suppliers in{' '}
             <span className="font-medium text-ink/80">{regionText}</span>
             {paxText}.
           </p>
@@ -74,11 +74,11 @@ export function PricePositionCard({
             Not enough market data yet
           </p>
           <p className="mt-1.5 text-[12px] leading-relaxed text-ink/55">
-            We only show a price band once enough other vendors have published a
+            We only show a price band once enough other suppliers have published a
             price for {catText} in {regionText}
-            {paxText}. As more vendors list, this meter will show you the low,
+            {paxText}. As more suppliers list, this meter will show you the low,
             median, and high — and exactly where you land. We never estimate a
-            range from a handful of vendors.
+            range from a handful of suppliers.
           </p>
         </div>
       )}
@@ -125,7 +125,7 @@ export function PricePositionCard({
 
       {(result.status === 'positioned' || result.status === 'no_own_price') && (
         <p className="mt-4 text-[11px] text-ink/45">
-          Based on {result.band.sampleN} published vendor
+          Based on {result.band.sampleN} published supplier
           {result.band.sampleN === 1 ? '' : 's'} · range {peso(result.band.lowPhp)}–
           {peso(result.band.highPhp)} · updated{' '}
           {new Date(result.band.computedAt).toLocaleDateString('en-PH', {
@@ -133,7 +133,7 @@ export function PricePositionCard({
             month: 'short',
             day: 'numeric',
           })}
-          . The band is recomputed from live vendor prices — it isn&apos;t a target.
+          . The band is recomputed from live supplier prices — it isn&apos;t a target.
         </p>
       )}
     </section>

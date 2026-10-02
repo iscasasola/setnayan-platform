@@ -1237,7 +1237,7 @@ export function ChatMessageStream({
                               href={lockTarget.benchHref}
                               className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
                             >
-                              🔒 Lock on your Vendors page
+                              🔒 Lock on your Suppliers page
                             </Link>
                           )
                         ) : null}

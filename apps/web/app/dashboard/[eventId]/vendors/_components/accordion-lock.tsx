@@ -256,7 +256,7 @@ export function AccordionLockButton({
       setState({
         kind: 'error',
         message:
-          "This vendor is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.",
+          "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.",
       });
       return;
     }
@@ -307,7 +307,7 @@ export function AccordionLockButton({
       let result: FinalizeVendorResult;
       try {
         result = await save.run(() => finalizeVendor(fd), {
-          steps: ['Locking in your vendor'],
+          steps: ['Locking in your supplier'],
           hint: 'Saving',
         });
       } catch (err) {
@@ -390,7 +390,7 @@ export function AccordionLockButton({
           } else {
             setState({
               kind: 'error',
-              message: 'Please pick a time slot to lock this vendor.',
+              message: 'Please pick a time slot to lock this supplier.',
             });
           }
           return;
@@ -453,24 +453,24 @@ export function AccordionLockButton({
           setState({
             kind: 'error',
             message:
-              "This vendor is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.",
+              "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.",
           });
           return;
         case 'not_signed_in':
-          setState({ kind: 'error', message: 'Sign in again to lock this vendor.' });
+          setState({ kind: 'error', message: 'Sign in again to lock this supplier.' });
           return;
         case 'not_secured':
           // A guest (anonymous) session cannot book. Like 'lock_requested', this
           // had no case and rendered as nothing; found by the \`never\` below.
           setState({
             kind: 'error',
-            message: 'Save your account first to lock this vendor.',
+            message: 'Save your account first to lock this supplier.',
           });
           return;
         case 'not_found':
           setState({
             kind: 'error',
-            message: "We can't find this vendor on your event. Refresh the page.",
+            message: "We can't find this supplier on your event. Refresh the page.",
           });
           return;
         case 'error':
@@ -1052,7 +1052,7 @@ function ExceptionModal({
               href={resolveBrowseSimilarHref(groupId)}
               className="inline-flex min-h-[44px] items-center justify-center rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream transition-colors hover:bg-mulberry-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry"
             >
-              Browse similar vendors
+              Browse similar suppliers
             </Link>
           )}
           <button
@@ -1122,7 +1122,7 @@ function SlotPickerModal({
               Pick a time slot for {vendorName}
             </h3>
             <p className="text-xs leading-snug text-ink/65">
-              This vendor runs more than one window on your date. Choose the one
+              This supplier runs more than one window on your date. Choose the one
               you&rsquo;re booking.
             </p>
           </div>

@@ -10,7 +10,7 @@ import { formatPhp } from '@/lib/orders';
 import { ShopEmpty, ShopPill } from '../_components/kit';
 import { QrActions } from '@/app/_components/qr-actions';
 
-export const metadata = { title: 'Locked QRs · Vendor' };
+export const metadata = { title: 'Locked QRs · Supplier' };
 
 /**
  * Vendor-side ledger of the Locked QRs this store has issued — pending (still

@@ -68,7 +68,7 @@ export async function proposePartnership(formData: FormData) {
   const relationshipTypeRaw = readString(formData, 'relationship_type');
 
   if (!recommendedId || !relationshipTypeRaw) {
-    back('Please choose a vendor and a partnership type.');
+    back('Please choose a supplier and a partnership type.');
   }
   if (!(RELATIONSHIP_TYPES as readonly string[]).includes(relationshipTypeRaw)) {
     back('Unknown partnership type.');
@@ -272,7 +272,7 @@ export async function changePartnershipKind(formData: FormData) {
   });
   if (insertErr) {
     if (insertErr.code === '23505') {
-      back('You already have that kind of partnership with this vendor.');
+      back('You already have that kind of partnership with this supplier.');
     }
     back(insertErr.message);
   }

@@ -1695,7 +1695,7 @@ async function InvitationBody({
     search.save === 'ok'
       ? 'Saved to your account — find it in your Library for your own plans.'
       : search.save === 'needs_account'
-        ? 'Make a free account (the box above) to save vendors for your future plans.'
+        ? 'Make a free account (the box above) to save suppliers for your future plans.'
         : search.save === 'error'
           ? 'Couldn’t save that just now — please try again.'
           : null;

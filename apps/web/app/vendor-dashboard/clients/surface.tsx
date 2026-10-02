@@ -32,7 +32,7 @@ import {
   INQUIRY_CUSTOMER_UNKNOWN,
 } from '@/lib/inquiry-customer.server';
 
-export const metadata = { title: 'Clients · Vendor' };
+export const metadata = { title: 'Clients · Supplier' };
 
 /**
  * Vendor Clients — the book of business, three buckets (owner lock

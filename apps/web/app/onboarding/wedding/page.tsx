@@ -64,7 +64,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Plan your wedding',
   description:
-    "A few quick questions and we'll build a plan made for your day — every vendor sorted to fit. Free to start, always.",
+    "A few quick questions and we'll build a plan made for your day — every supplier sorted to fit. Free to start, always.",
   // Onboarding sits behind a CTA (marketing "Start planning · free" +
   // dashboard "Add event → Wedding"); keep the half-flow out of search.
   robots: { index: false, follow: false },

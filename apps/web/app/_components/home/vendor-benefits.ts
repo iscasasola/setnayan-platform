@@ -35,7 +35,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
         h: 'Get found',
         items: [
           { n: 'Faith & region matchmaking', b: 'Found by the rites you serve and the provinces your crew covers.' },
-          { n: 'Date-open priority', b: 'Free on their date? You rank above vendors already booked then.' },
+          { n: 'Date-open priority', b: 'Free on their date? You rank above suppliers already booked then.' },
           { n: 'Lead capture & matchmaking', b: 'Every couple who finds you is a captured, well-fitted lead.' },
           { n: 'Shortlist radar', b: 'See how many couples saved you; get a rival-in-your-area demand feed.' },
           { n: 'First-look window', b: 'Reply fast, complete your profile, earn a head-start in front of new couples.' },
@@ -48,7 +48,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
         items: [
           { n: 'Verified badge, free', b: 'Pass a 12-doc check free. No copycat can fake your official page.' },
           { n: 'Your public page, auto-built', b: 'A clean, search-ready public page, auto-composed from your profile and live the moment you set an address. Ranks on Google and inside Setnayan.' },
-          { n: 'Fair merit-based rating', b: 'A Bayesian score protects new vendors: stars are earned, never bought.' },
+          { n: 'Fair merit-based rating', b: 'A Bayesian score protects new suppliers: stars are earned, never bought.' },
           { n: 'Receipt-backed reviews', b: 'Every rating carries a real “booked through Setnayan” verified mark.' },
           { n: 'Right-of-reply on reviews', b: 'Post one public, professional reply under any review. Your side shows.' },
           { n: 'Earned badges & experience tier', b: 'New / Verified / Top Pick / Most Booked, plus your years-in-business badge.' },
@@ -56,7 +56,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
           { n: 'Self-review blocker', b: 'The system detects and blocks fake self-reviews before they post.' },
           { n: 'Flag a suspicious review', b: 'Flag a fake or unfair review; HQ reviews it within 48 hours.' },
           { n: 'Merit-only ranking', b: 'No pay-to-rank. You can’t buy your way up, and neither can rivals.' },
-          { n: 'No fake reviews, no ghost listings', soon: true, b: 'We screen bought reviews and ghost listings, protecting honest vendors most.' },
+          { n: 'No fake reviews, no ghost listings', soon: true, b: 'We screen bought reviews and ghost listings, protecting honest suppliers most.' },
           { n: 'Stand-up-for-yourself dispute mediation', soon: true, b: 'A neutral team reviews the record before anything touches your rating.' },
         ],
       },
@@ -71,7 +71,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Run every booking',
         items: [
-          { n: 'One vendor dashboard', b: 'Run bookings, calendar, clients, threads and proposals from one place.' },
+          { n: 'One supplier dashboard', b: 'Run bookings, calendar, clients, threads and proposals from one place.' },
           { n: 'Shared team calendar', b: 'One calendar across every service and crew member.' },
           { n: 'Double-booking guard', b: 'A held date blocks a second booking, scoped per service and role.' },
           { n: 'Send package proposals', b: 'Draft, save and send proposals with package line items to booked couples.' },
@@ -109,7 +109,7 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
       {
         h: 'Seen & supported',
         items: [
-          { n: 'Credited to guests on the day', b: 'You’re shown as one of “the vendors who made this day”.' },
+          { n: 'Credited to guests on the day', b: 'You’re shown as one of “the suppliers who made this day”.' },
           { n: 'Appear in the couple’s planner + budget', b: 'You sit inside the couple’s planning workspace, not just search.' },
           { n: 'Off-season promo surfacing', b: 'We flag your lean months so your off-peak deal gets surfaced.' },
           { n: 'Pull a vetted crew hand', b: 'Short a shooter or coordinator? Book a vetted hand at a posted PH rate.' },

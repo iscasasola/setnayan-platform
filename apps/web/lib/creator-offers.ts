@@ -302,7 +302,7 @@ export async function fetchCreatorInbox(
     return {
       offerId: r.offer_id,
       vendorId: r.vendor_id,
-      vendorName: v ? displayNameFor(v) : 'A Setnayan vendor',
+      vendorName: v ? displayNameFor(v) : 'A Setnayan supplier',
       vendorSlug: v?.business_slug ?? null,
       vendorLogoUrl: v?.logo_url ?? null,
       creatorRateTerms: r.creator_rate_terms,
@@ -367,7 +367,7 @@ export async function fetchActiveCreatorCollabs(
     const v = byId.get(r.vendor_id);
     return {
       offerId: r.offer_id,
-      vendorName: v ? displayNameFor(v) : 'A Setnayan vendor',
+      vendorName: v ? displayNameFor(v) : 'A Setnayan supplier',
       vendorSlug: v?.business_slug ?? null,
       vendorLogoUrl: v?.logo_url ?? null,
       creatorRateTerms: r.creator_rate_terms,

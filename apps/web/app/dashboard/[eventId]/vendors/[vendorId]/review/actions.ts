@@ -638,7 +638,7 @@ export async function recommendVendor(formData: FormData) {
         userId: vendorUserId,
         type: 'review_received',
         title: 'A couple recommended you',
-        body: `${eventDisplay} added you to their recommended vendors. It now shows on your marketplace profile and their event page.`,
+        body: `${eventDisplay} added you to their recommended suppliers. It now shows on your marketplace profile and their event page.`,
         relatedUrl: '/vendor-dashboard/reviews',
       });
     }

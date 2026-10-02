@@ -66,7 +66,7 @@ export function coupleLockTarget(
   category: string | null,
 ): CoupleLockTarget {
   const groupId = category ? planGroupForCategory(category as VendorCategory) : null;
-  const groupLabel = (groupId && PLAN_GROUPS.find((g) => g.id === groupId)?.label) || 'Vendor';
+  const groupLabel = (groupId && PLAN_GROUPS.find((g) => g.id === groupId)?.label) || 'Supplier';
   return {
     eventId,
     vendorId,

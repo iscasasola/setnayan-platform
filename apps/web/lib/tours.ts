@@ -182,7 +182,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Welcome to Setnayan',
-        body: "Your wedding, planned end-to-end in one place — guest list, invitations, vendors, budget, mood board, seating, day-of. Let&rsquo;s walk through what&rsquo;s where.",
+        body: "Your wedding, planned end-to-end in one place — guest list, invitations, suppliers, budget, mood board, seating, day-of. Let&rsquo;s walk through what&rsquo;s where.",
       },
       {
         Icon: Users,
@@ -196,17 +196,17 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Briefcase,
-        title: 'Track vendors + budget',
-        body: 'Move every vendor through a 6-stage flow (considering → complete) and itemize their costs into line items. Export upcoming payment due dates as a .ics file.',
+        title: 'Track suppliers + budget',
+        body: 'Move every supplier through a 6-stage flow (considering → complete) and itemize their costs into line items. Export upcoming payment due dates as a .ics file.',
       },
       {
         Icon: MessageSquare,
-        title: 'Chat with vendors',
+        title: 'Chat with suppliers',
         // Corrected 2026-09-10. It said "by their contact email" (a couple is no
         // longer shown one — owner: "not to let them communicate outside the
         // app") and "Identity stays masked" (retired 2026-09-08 — a shop now
         // sees who is asking). Both were promises the product no longer makes.
-        body: 'Message any Setnayan vendor from their page or your list. They reply here, and every message, quote and booking stays with your event.',
+        body: 'Message any Setnayan supplier from their page or your list. They reply here, and every message, quote and booking stays with your event.',
       },
       {
         Icon: PartyPopper,
@@ -228,17 +228,17 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'Eight day-to-day surfaces',
-        body: 'Users · Events · Vendors · Verification · Payments · Payouts · Receipts · Reviews. These are your daily-driver tabs along the top — switch in one tap.',
+        body: 'Users · Events · Suppliers · Verification · Payments · Payouts · Receipts · Reviews. These are your daily-driver tabs along the top — switch in one tap.',
       },
       {
         Icon: ShieldAlert,
         title: 'Force-majeure escalations',
-        body: 'When a couple files a force-majeure flag, it lands in Force majeure. The 7-day clock starts; if vendors and couples don&rsquo;t resolve in chat, the flag escalates to you to mediate.',
+        body: 'When a couple files a force-majeure flag, it lands in Force majeure. The 7-day clock starts; if suppliers and couples don&rsquo;t resolve in chat, the flag escalates to you to mediate.',
       },
       {
         Icon: ShieldCheck,
         title: 'Two-admin major decisions',
-        body: 'Routine ops are single-admin. Major decisions (ad activation, vendor verification override, refunds &gt; ₱100K, payment-method config) need a second admin to approve. Both identities are recorded.',
+        body: 'Routine ops are single-admin. Major decisions (ad activation, supplier verification override, refunds &gt; ₱100K, payment-method config) need a second admin to approve. Both identities are recorded.',
       },
       {
         Icon: ClipboardList,
@@ -278,8 +278,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   // reply-time line on the public card (3+ replies floor, W3-B 2026-08-24).
   vendor_welcome_v1: {
     key: 'vendor_welcome_v1',
-    label: 'Vendor — welcome tour',
-    blurb: 'Five-step intro to the vendor dashboard. Fires on first sign-in.',
+    label: 'Supplier — welcome tour',
+    blurb: 'Five-step intro to the supplier dashboard. Fires on first sign-in.',
     slides: [
       {
         Icon: Sparkles,
@@ -1108,17 +1108,17 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: ShieldAlert,
         title: 'The 7-day window',
-        body: 'When a couple flags force majeure (typhoon, illness, venue closure), vendors get 7 days to propose terms directly. If a resolution lands in chat by day 7, the flag closes without you.',
+        body: 'When a couple flags force majeure (typhoon, illness, venue closure), suppliers get 7 days to propose terms directly. If a resolution lands in chat by day 7, the flag closes without you.',
       },
       {
         Icon: ClipboardList,
         title: "Escalated flags appear here",
-        body: 'If day 7 passes with no resolution, the flag shows up in this queue with an ESCALATED tag. Open the row to see the evidence files, the affected vendors, and the chat history.',
+        body: 'If day 7 passes with no resolution, the flag shows up in this queue with an ESCALATED tag. Open the row to see the evidence files, the affected suppliers, and the chat history.',
       },
       {
         Icon: Receipt,
         title: 'Four resolution paths',
-        body: 'Refund (vendor returns deposit minus expenses), Reschedule (services move to a new date), Substitute (equivalent service later), Partial (some delivered, some refunded). Pick one, both parties get an email.',
+        body: 'Refund (supplier returns deposit minus expenses), Reschedule (services move to a new date), Substitute (equivalent service later), Partial (some delivered, some refunded). Pick one, both parties get an email.',
       },
     ],
   },

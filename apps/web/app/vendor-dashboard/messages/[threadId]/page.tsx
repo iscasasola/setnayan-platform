@@ -144,7 +144,7 @@ import {
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Thread · Vendor' };
+export const metadata = { title: 'Thread · Supplier' };
 
 type Props = {
   params: Promise<{ threadId: string }>;

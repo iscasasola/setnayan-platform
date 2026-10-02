@@ -161,9 +161,9 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     autonomy: 'act_then_report',
     slots: ['vendor', 'days', 'service', 'date_label_value'],
     copy: {
-      default: '{vendor} hasn’t replied in {days} days. Want me to send a nudge?',
+      default: '{supplier} hasn’t replied in {days} days. Want me to send a nudge?',
       draft:
-        'Hi {vendor}, following up on our inquiry about {service} for {date_label_value}. Are you available, and could you share a quote? Thank you!',
+        'Hi {supplier}, following up on our inquiry about {service} for {date_label_value}. Are you available, and could you share a quote? Thank you!',
     },
   },
   'SEC-05': {
@@ -174,7 +174,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'amount', 'inclusions', 'vs_benchmark', 'category'],
     copy: {
       default:
-        '{vendor} quoted ₱{amount} ({inclusions}). That’s {vs_benchmark} for {category} in your area. Want to compare it against your shortlist?',
+        '{supplier} quoted ₱{amount} ({inclusions}). That’s {vs_benchmark} for {category} in your area. Want to compare it against your shortlist?',
     },
   },
   'SEC-06': {
@@ -233,13 +233,13 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'amount', 'due_date', 'days_left', 'overdue_for'],
     copy: {
       default:
-        'Heads up — your {vendor} payment (₱{amount}) is due {due_date}, {days_left} days away.',
+        'Heads up — your {supplier} payment (₱{amount}) is due {due_date}, {days_left} days away.',
       // The date has already passed. Said plainly and once, with the same
       // honesty rail the day-before reminder carries (a payment logged late
       // does not un-send an email), and with no scolding — the couple may well
       // have paid and simply not written it down.
       overdue:
-        'Your {vendor} payment (₱{amount}) was due {due_date} — {overdue_for} ago — and still shows as unpaid. If you’ve already settled it, log the payment here and this clears.',
+        'Your {supplier} payment (₱{amount}) was due {due_date} — {overdue_for} ago — and still shows as unpaid. If you’ve already settled it, log the payment here and this clears.',
     },
   },
   'GRD-02': {
@@ -261,7 +261,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'old_price', 'new_price', 'category'],
     copy: {
       default:
-        '{vendor} (on your {category} shortlist) went from ₱{old_price} to ₱{new_price}. Lock it in, or want alternatives?',
+        '{supplier} (on your {category} shortlist) went from ₱{old_price} to ₱{new_price}. Lock it in, or want alternatives?',
     },
   },
   'GRD-04': {
@@ -272,7 +272,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'signal'],
     copy: {
       default:
-        'A note on {vendor}: {signal}. Worth a quick check-in before you commit further — want me to draft a message?',
+        'A note on {supplier}: {signal}. Worth a quick check-in before you commit further — want me to draft a message?',
     },
   },
   'GRD-05': {
@@ -305,7 +305,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'window_type', 'deadline'],
     copy: {
       default:
-        'Your {window_type} window with {vendor} closes {deadline}. If anything’s uncertain, decide before then — after that, changes may cost.',
+        'Your {window_type} window with {supplier} closes {deadline}. If anything’s uncertain, decide before then — after that, changes may cost.',
     },
   },
   'GRD-08': {
@@ -316,7 +316,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor'],
     copy: {
       default:
-        'Quick check — {vendor} isn’t verified on Setnayan yet. Confirm their details before sending money. Want tips on paying safely?',
+        'Quick check — {supplier} isn’t verified on Setnayan yet. Confirm their details before sending money. Want tips on paying safely?',
     },
   },
   'GRD-09': {
@@ -327,7 +327,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'date', 'status'],
     copy: {
       default:
-        '{vendor}’s availability for {date} just changed ({status}). If they’re a top pick, lock them soon — want me to reach out?',
+        '{supplier}’s availability for {date} just changed ({status}). If they’re a top pick, lock them soon — want me to reach out?',
     },
   },
   'GRD-10': {
@@ -338,7 +338,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'category', 'date', 'backup_count'],
     copy: {
       default:
-        '{vendor} fell through for {category}. I already found {backup_count} open on {date} — want to see them now?',
+        '{supplier} fell through for {category}. I already found {backup_count} open on {date} — want to see them now?',
     },
   },
 
@@ -351,7 +351,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'review_count', 'avg_stars', 'events_this_month'],
     copy: {
       default:
-        'Great choice. {vendor} has {review_count} reviews at {avg_stars}★ and finished {events_this_month} events this month — you’re in good hands.',
+        'Great choice. {supplier} has {review_count} reviews at {avg_stars}★ and finished {events_this_month} events this month — you’re in good hands.',
     },
   },
   'CMD-02': {
@@ -362,7 +362,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'events_this_month', 'avg_stars'],
     copy: {
       default:
-        'For context: {vendor} has done {events_this_month} events this month at {avg_stars}★, and their calendar is filling for your date.',
+        'For context: {supplier} has done {events_this_month} events this month at {avg_stars}★, and their calendar is filling for your date.',
     },
   },
   'CMD-03': {
@@ -384,7 +384,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'category', 'below_amount'],
     copy: {
       default:
-        'Good eye — you booked {vendor} about ₱{below_amount} under what {organizers} like you typically pay for {category}.',
+        'Good eye — you booked {supplier} about ₱{below_amount} under what {organizers} like you typically pay for {category}.',
     },
   },
 
@@ -430,7 +430,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['area'],
     copy: {
       default:
-        'Your vendors cluster around {area}. Want me to anchor proximity there for the rest of your search?',
+        'Your suppliers cluster around {area}. Want me to anchor proximity there for the rest of your search?',
     },
   },
   'INF-05': {

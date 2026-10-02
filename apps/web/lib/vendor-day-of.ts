@@ -93,7 +93,7 @@ export const DAY_OF_CONSOLE_META: Record<
   coordinator: {
     eyebrow: 'Command center',
     blurb:
-      'Run the floor. Follow the live run-of-show, keep the vendors moving, and keep a clean record of anything that comes up on the day.',
+      'Run the floor. Follow the live run-of-show, keep the suppliers moving, and keep a clean record of anything that comes up on the day.',
   },
   photo: {
     eyebrow: 'Shot list & run-of-show',

@@ -190,7 +190,7 @@ export default async function SetnayanAiPage({ params }: Props) {
               href={`/dashboard/${eventId}/vendors`}
               className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 sm:w-auto"
             >
-              See your ranked vendors
+              See your ranked suppliers
               <ArrowLeft aria-hidden className="h-3.5 w-3.5 rotate-180" strokeWidth={2} />
             </Link>
           </div>

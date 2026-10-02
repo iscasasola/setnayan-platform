@@ -158,7 +158,7 @@ export async function validateAndCalculateVoucher(
       final_centavos: args.original_centavos,
       discount_code_id: null,
       code_normalized: null,
-      reason: 'This code is for vendor accounts only.',
+      reason: 'This code is for supplier accounts only.',
     };
   }
 

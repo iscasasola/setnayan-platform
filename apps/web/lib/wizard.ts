@@ -260,7 +260,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'data_input',
     title: 'Set your wedding date',
     whyItMatters:
-      "The date anchors everything else — your countdown, your vendor lock-by reminders, your timeline. Even a tentative month works for now; you can sharpen it later.",
+      "The date anchors everything else — your countdown, your supplier lock-by reminders, your timeline. Even a tentative month works for now; you can sharpen it later.",
     pillLabel: 'First things first',
     prerequisites: [],
   },
@@ -313,7 +313,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'vendor_pick',
     title: 'Lock your wedding coordinator',
     whyItMatters:
-      "The conductor of your day. Coordinators book 9-12 months ahead and they're the one who keeps every vendor on time on the wedding day. Lock yours early — they'll help you finalize the rest.",
+      "The conductor of your day. Coordinators book 9-12 months ahead and they're the one who keeps every supplier on time on the wedding day. Lock yours early — they'll help you finalize the rest.",
     pillLabel: 'Foundation',
     prerequisites: ['set_wedding_date'],
   },
@@ -497,7 +497,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'vendor_pick',
     title: 'Lock your LED background',
     whyItMatters:
-      'The LED wall behind your stage shapes every photo from the reception. Rentals book 3-4 months out and the vendor needs your final artwork about a week before — lock them first so they can quote the setup and tell you what file they need.',
+      'The LED wall behind your stage shapes every photo from the reception. Rentals book 3-4 months out and the supplier needs your final artwork about a week before — lock them first so they can quote the setup and tell you what file they need.',
     pillLabel: 'Style & Identity',
     prerequisites: ['reception_venue'],
   },
@@ -576,7 +576,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'data_input',
     title: 'Build your day-of schedule',
     whyItMatters:
-      "Ceremony · cocktails · reception · send-off. Once the major vendors are locked, the timeline writes itself — your coordinator can finalize call times for everyone.",
+      "Ceremony · cocktails · reception · send-off. Once the major suppliers are locked, the timeline writes itself — your coordinator can finalize call times for everyone.",
     pillLabel: 'Programming',
     prerequisites: ['reception_venue', 'ceremony_venue'],
   },
@@ -832,7 +832,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'vendor_pick',
     title: 'Lock your invitations & stationery',
     whyItMatters:
-      "Your save-the-date · main invitation · entourage cards · place cards · menus · thank-you notes — all designed and printed by one vendor (or sourced separately). Lock yours after sponsors + entourage finalize so the design lands their names correctly.",
+      "Your save-the-date · main invitation · entourage cards · place cards · menus · thank-you notes — all designed and printed by one supplier (or sourced separately). Lock yours after sponsors + entourage finalize so the design lands their names correctly.",
     pillLabel: 'Programming',
     prerequisites: ['finalize_entourage'],
   },
@@ -1167,7 +1167,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     kind: 'external_process',
     title: 'Send your thank-yous',
     whyItMatters:
-      "Vendors deliver final files in the week after; thank-yous go out within two weeks. A short note per vendor keeps the relationship warm for future referrals.",
+      "Suppliers deliver final files in the week after; thank-yous go out within two weeks. A short note per supplier keeps the relationship warm for future referrals.",
     pillLabel: 'Post-event',
     prerequisites: ['event'],
   },
@@ -1176,9 +1176,9 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     order: 36,
     phase: 'post_event',
     kind: 'external_process',
-    title: 'Leave vendor reviews',
+    title: 'Leave supplier reviews',
     whyItMatters:
-      "Your reviews carry vendor reputations forward — couples planning right now read every one. Take 30 seconds each to share what worked.",
+      "Your reviews carry supplier reputations forward — couples planning right now read every one. Take 30 seconds each to share what worked.",
     pillLabel: 'Post-event',
     prerequisites: ['event'],
   },
@@ -1352,7 +1352,7 @@ export const WIZARD_TASKS_DIY: ReadonlyArray<WizardTask> = [
     kind: 'data_input',
     title: 'Set your working budget',
     whyItMatters:
-      "A working budget shapes your shortlist — once it's set, your vendor recommendations + Plan grid math respect the ceiling. Pick a comfortable range; you can adjust as quotes land.",
+      "A working budget shapes your shortlist — once it's set, your supplier recommendations + Plan grid math respect the ceiling. Pick a comfortable range; you can adjust as quotes land.",
     pillLabel: 'Foundation',
     prerequisites: ['set_wedding_date'],
   },
@@ -1651,7 +1651,7 @@ function getBaseSequenceForTier(
     phase: 'foundation',
     kind: 'vendor_pick',
     title: `Lock your ${displayCanonical(canonical)}`,
-    whyItMatters: `You added ${displayCanonical(canonical)} to your plan from Add A Category. Lock a vendor when you're ready — we'll surface recommendations matching your event.`,
+    whyItMatters: `You added ${displayCanonical(canonical)} to your plan from Add A Category. Lock a supplier when you're ready — we'll surface recommendations matching your event.`,
     pillLabel: 'Your additions',
     prerequisites: ['set_wedding_date'],
   }));

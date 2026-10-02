@@ -89,7 +89,7 @@ export async function sendVendorUnderReviewEmail(
   vendorProfileId: string,
 ): Promise<SendEmailResult> {
   const contact = await fetchVendorContact(vendorProfileId);
-  if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'supplier contact not found' };
 
   const dashboardUrl = `${APP_URL}/vendor-dashboard/profile`;
   const helpUrl = `${APP_URL}/help`;
@@ -142,7 +142,7 @@ export async function sendVendorSuspensionEmail(
   cancellationCount: number,
 ): Promise<SendEmailResult> {
   const contact = await fetchVendorContact(vendorProfileId);
-  if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'supplier contact not found' };
 
   const helpUrl = `${APP_URL}/help`;
   const countWord = cancellationCount === 1 ? '1 cancellation' : `${formatCount(cancellationCount)} cancellations`;
@@ -154,7 +154,7 @@ export async function sendVendorSuspensionEmail(
     ``,
     `Reason:`,
     `  ${countWord} initiated by your business in the last 90 days have been recorded.`,
-    `  Couples rely on vendors honouring their commitments. Repeated cancellations`,
+    `  Couples rely on suppliers honouring their commitments. Repeated cancellations`,
     `  damage the couple's planning and undermine trust on the platform.`,
     ``,
     `What happens next:`,
@@ -195,7 +195,7 @@ export async function sendVendorGhostWarningEmail(
   eventId: string,
 ): Promise<SendEmailResult> {
   const contact = await fetchVendorContact(vendorProfileId);
-  if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'supplier contact not found' };
 
   // Fetch the event details: couple display name + event date.
   const admin = createAdminClient();
@@ -265,7 +265,7 @@ export async function sendReviewFlagOutcomeToVendorEmail(
   reason: string,
 ): Promise<SendEmailResult> {
   const contact = await fetchVendorContact(vendorProfileId);
-  if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'supplier contact not found' };
 
   const helpUrl = `${APP_URL}/help`;
   const outcomeWord = outcome === 'removed' ? 'upheld' : 'dismissed';
@@ -343,7 +343,7 @@ export async function sendReviewFlagOutcomeToCoupleEmail(
   const outcomeWord = outcome === 'kept' ? 'kept' : 'removed';
   const outcomeDetail =
     outcome === 'kept'
-      ? 'After reviewing your submission, we found no violations and your review remains on the vendor\'s profile.'
+      ? 'After reviewing your submission, we found no violations and your review remains on the supplier\'s profile.'
       : 'After reviewing your submission, we found that the review did not meet our guidelines and it has been removed.';
 
   const helpUrl = `${appUrl}/help`;
@@ -351,7 +351,7 @@ export async function sendReviewFlagOutcomeToCoupleEmail(
   const text = [
     `Hi,`,
     ``,
-    `A vendor flagged one of your Setnayan reviews for investigation.`,
+    `A supplier flagged one of your Setnayan reviews for investigation.`,
     `The Setnayan HQ team has completed their review.`,
     ``,
     `Outcome: Your review has been ${outcomeWord}.`,
@@ -432,7 +432,7 @@ export async function sendVendorSlowResponseEmail(
   responseRatePct: number,
 ): Promise<SendEmailResult> {
   const contact = await fetchVendorContact(vendorProfileId);
-  if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'supplier contact not found' };
 
   const dashboardUrl = `${APP_URL}/vendor-dashboard`;
   const notifUrl = `${APP_URL}/vendor-dashboard/settings/notifications`;
@@ -443,7 +443,7 @@ export async function sendVendorSlowResponseEmail(
     `Your current response rate on Setnayan is ${responseRatePct}%.`,
     ``,
     `We recommend keeping your response rate above 70% to stay competitive.`,
-    `Vendors who respond quickly to couple inquiries receive more bookings and`,
+    `Suppliers who respond quickly to couple inquiries receive more bookings and`,
     `rank higher in Setnayan search results.`,
     ``,
     `Quick tips to improve your response rate:`,
@@ -486,7 +486,7 @@ export async function sendVendorFeaturedInStoryEmail(
   coupleLabel: string,
 ): Promise<SendEmailResult> {
   const contact = await fetchVendorContact(vendorProfileId);
-  if (!contact) return { ok: false, reason: 'send_failed', error: 'vendor contact not found' };
+  if (!contact) return { ok: false, reason: 'send_failed', error: 'supplier contact not found' };
 
   const text = [
     `Hi ${contact.businessName},`,
@@ -583,7 +583,7 @@ export async function sendWaitlistSlotOpenedEmail(
     ``,
     `Good news — a date you were waiting on just opened up.`,
     ``,
-    `Vendor:  ${vendorLabel}`,
+    `Supplier:  ${vendorLabel}`,
     `Date:    ${prettyDate}`,
     ``,
     `You joined ${vendorLabel}'s waitlist for this date because it was booked at`,

@@ -1285,7 +1285,7 @@ export function computeCompatibilityIssue(
     ) {
       return {
         kind: 'religion',
-        label: `Your wedding is now ${readableCeremonyType(eventCeremonyType)} — this vendor doesn't match.`,
+        label: `Your wedding is now ${readableCeremonyType(eventCeremonyType)} — this supplier doesn't match.`,
       };
     }
     if (
@@ -1296,7 +1296,7 @@ export function computeCompatibilityIssue(
     ) {
       return {
         kind: 'venue_setting',
-        label: `Your reception is now a ${readableVenueSetting(eventVenueSetting)} — this vendor doesn't cover that setting.`,
+        label: `Your reception is now a ${readableVenueSetting(eventVenueSetting)} — this supplier doesn't cover that setting.`,
       };
     }
     return null;

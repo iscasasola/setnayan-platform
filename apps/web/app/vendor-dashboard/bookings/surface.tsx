@@ -36,7 +36,7 @@ import { paginate } from '@/lib/paginate';
 import { readInChunks } from '@/lib/read-all-pages';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Bookings · Vendor' };
+export const metadata = { title: 'Bookings · Supplier' };
 
 type BookingStatus = BookingListStatus;
 

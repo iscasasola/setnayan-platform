@@ -85,7 +85,7 @@ export async function activateVendorAiAddon(
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return err('No vendor profile found.');
+  if (!profile) return err('No supplier profile found.');
   const vendorProfileId = profile.vendor_profile_id;
 
   // Scope the role check to THIS vendor profile (not the user's global-highest
@@ -93,7 +93,7 @@ export async function activateVendorAiAddon(
   // hold on some other vendor.
   const role = await resolveVendorRoleForProfile(supabase, user.id, vendorProfileId);
   if (!canManageVendor(role)) {
-    return err('Only the owner or an admin can manage the Vendor AI add-on.');
+    return err('Only the owner or an admin can manage the Supplier AI add-on.');
   }
 
   // ── Feature-availability gate (defence in depth) ───────────────────────────
@@ -103,7 +103,7 @@ export async function activateVendorAiAddon(
   // card render and this submit. (The card already hides the buy CTA while the
   // flag is off; this is the server-side backstop.)
   if (!vendorAutoReplyEnabled()) {
-    return err('Vendor AI isn’t available yet — it’s launching shortly. You won’t be charged.');
+    return err('Supplier AI isn’t available yet — it’s launching shortly. You won’t be charged.');
   }
 
   // ── Tier + verification gate (BEFORE pricing) ──────────────────────────────
@@ -120,10 +120,10 @@ export async function activateVendorAiAddon(
     (gateRow as { verification_state?: string | null } | null)?.verification_state ?? null;
 
   if (!isTierAtLeast(tier, 'solo')) {
-    return err('Vendor AI is available on the paid plans (Solo, Pro, or Enterprise). Upgrade to add it.');
+    return err('Supplier AI is available on the paid plans (Solo, Pro, or Enterprise). Upgrade to add it.');
   }
   if (verification !== 'verified') {
-    return err('Get your shop verified first — Vendor AI unlocks once you’re verified.');
+    return err('Get your shop verified first — Supplier AI unlocks once you’re verified.');
   }
 
   // ── Add-on state → the price decision ──────────────────────────────────────
@@ -144,7 +144,7 @@ export async function activateVendorAiAddon(
     .eq('sku_code', VENDOR_AI_ADDON_SKU_CODE)
     .maybeSingle();
   if (skuRow && (skuRow as { is_active?: boolean | null }).is_active === false) {
-    return err('Vendor AI is temporarily unavailable. Please try again later.');
+    return err('Supplier AI is temporarily unavailable. Please try again later.');
   }
   const catalogCyclePricePhp =
     skuRow && (skuRow as { is_active?: boolean | null }).is_active !== false
@@ -183,7 +183,7 @@ export async function activateVendorAiAddon(
       .select('vendor_profile_id');
 
     if (claimErr) {
-      return err('Could not activate Vendor AI right now. Please try again.');
+      return err('Could not activate Supplier AI right now. Please try again.');
     }
     if (!claimed || claimed.length === 0) {
       // Lost the race (another request just claimed the trial) — the caller
@@ -206,7 +206,7 @@ export async function activateVendorAiAddon(
           { userId: user.id, eventId: null, vendorProfileId },
           {
             service_key: VENDOR_AI_ADDON_SKU_CODE,
-            description: 'Vendor AI — AI Chatbot (first cycle · free)',
+            description: 'Supplier AI — AI Chatbot (first cycle · free)',
             reference_code: referenceCode,
             // Stamp the order's window so the renewal-reminder job nudges the vendor
             // before the free cycle lapses (subscriptions_due_for_renewal_reminder
@@ -238,7 +238,7 @@ export async function activateVendorAiAddon(
     return {
       status: 'activated',
       message:
-        `Vendor AI is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
+        `Supplier AI is on — your free first 28-day cycle is active. After it ends, it’s ${peso(renewalPricePhp)} / 28 days.`,
     };
   }
 
@@ -269,7 +269,7 @@ export async function activateVendorAiAddon(
         { userId: user.id, eventId: null, vendorProfileId },
         {
           service_key: VENDOR_AI_ADDON_SKU_CODE,
-          description: 'Vendor AI — AI Chatbot (28-day)',
+          description: 'Supplier AI — AI Chatbot (28-day)',
           requested_total_php: pricePhp,
           status: 'submitted',
           reference_code: referenceCode,
@@ -279,7 +279,7 @@ export async function activateVendorAiAddon(
     .select('order_id')
     .maybeSingle();
   if (oErr || !orderRow) {
-    return err('Could not start the Vendor AI order. Please try again.');
+    return err('Could not start the Supplier AI order. Please try again.');
   }
   const orderId = (orderRow as { order_id: string }).order_id;
 
@@ -299,7 +299,7 @@ export async function activateVendorAiAddon(
     // Same client that minted it — a mixed-client compensation is how a
     // rollback silently stops rolling back.
     await moneyWriter.from('orders').delete().eq('order_id', orderId);
-    return err('Could not start the Vendor AI payment. Please try again.');
+    return err('Could not start the Supplier AI payment. Please try again.');
   }
 
   revalidatePath('/vendor-dashboard/subscription');

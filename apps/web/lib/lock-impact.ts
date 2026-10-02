@@ -156,7 +156,7 @@ export function lockImpactCopy(impact: LockImpact, vendorName: string): LockImpa
   if (impact.plansThinned.length > 0) {
     const titles = list(impact.plansThinned.map((p) => p.title));
     lines.push(
-      `${titles} will load without ${impact.plansThinned.length === 1 ? 'its' : 'their'} pick for this category — your locked vendor stays instead.`,
+      `${titles} will load without ${impact.plansThinned.length === 1 ? 'its' : 'their'} pick for this category — your locked supplier stays instead.`,
     );
   }
 

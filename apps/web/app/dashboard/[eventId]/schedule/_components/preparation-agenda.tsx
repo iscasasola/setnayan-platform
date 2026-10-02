@@ -226,11 +226,11 @@ function PreparationLegend({
 }
 
 const SOURCE_PLAIN_LABEL: Record<PreparationSource, string> = {
-  payment: 'vendor payment due dates',
+  payment: 'supplier payment due dates',
   paperwork: 'paperwork deadlines',
-  meeting: 'vendor meetings',
+  meeting: 'supplier meetings',
   milestone: 'planning milestones',
-  manual: 'items you or your vendors added',
+  manual: 'items you or your suppliers added',
 };
 
 function PreparationEmptyState({
@@ -248,8 +248,8 @@ function PreparationEmptyState({
       <p className="text-sm font-medium text-ink">Nothing to prepare yet.</p>
       <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
         {hasEventDate
-          ? `As you add vendor payment due dates, schedule vendor meetings, or start your paperwork, those dated steps will gather here automatically — sorted by month, all the way up to your ${eventWord} day. You can also add your own steps below.`
-          : `Set your ${eventWord} date first, then add vendor payment due dates and start your paperwork. Those dated steps will gather here automatically, sorted by month. You can also add your own steps below.`}
+          ? `As you add supplier payment due dates, schedule supplier meetings, or start your paperwork, those dated steps will gather here automatically — sorted by month, all the way up to your ${eventWord} day. You can also add your own steps below.`
+          : `Set your ${eventWord} date first, then add supplier payment due dates and start your paperwork. Those dated steps will gather here automatically, sorted by month. You can also add your own steps below.`}
       </p>
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
         <AddPreparationItem eventId={eventId} />

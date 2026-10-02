@@ -42,7 +42,7 @@ function Shell({ children }: { children: ReactNode }) {
         </span>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Find your date</h1>
         <p className="max-w-prose text-base text-ink/65">
-          We check the dates you&apos;re considering against your shortlisted vendors, so you can
+          We check the dates you&apos;re considering against your shortlisted suppliers, so you can
           pick the date that keeps the most of them — and see who works together on each.
         </p>
       </header>
@@ -226,7 +226,7 @@ export function FindYourDate({ eventId, matrix }: Props) {
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
           <p className="text-sm text-ink/65">
             Set the dates you&apos;re considering first — then we&apos;ll find which one keeps the
-            most of your vendors free.
+            most of your suppliers free.
           </p>
           <Link
             href={`${base}/date-selection`}
@@ -245,14 +245,14 @@ export function FindYourDate({ eventId, matrix }: Props) {
       <Shell>
         <div className="rounded-xl border border-dashed border-ink/20 bg-cream p-8 text-center">
           <p className="text-sm text-ink/65">
-            Shortlist a few vendors first — then we&apos;ll check their calendars against your
+            Shortlist a few suppliers first — then we&apos;ll check their calendars against your
             dates and recommend the date that keeps the most of them.
           </p>
           <Link
             href={`${base}/vendors`}
             className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition hover:opacity-90"
           >
-            Shortlist vendors
+            Shortlist suppliers
             <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </Link>
         </div>
@@ -290,7 +290,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
     <Shell>
       {matrix.offPlatformCount > 0 ? (
         <p className="rounded-md border border-ink/10 bg-cream px-3 py-2 text-xs text-ink/55">
-          {formatCount(matrix.offPlatformCount)} of your vendors {matrix.offPlatformCount === 1 ? 'is' : 'are'}{' '}
+          {formatCount(matrix.offPlatformCount)} of your suppliers {matrix.offPlatformCount === 1 ? 'is' : 'are'}{' '}
           off-platform — we can&apos;t see their calendar, so they show as &ldquo;confirm
           directly.&rdquo;
         </p>
@@ -327,7 +327,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
           </div>
           {pinned ? (
             <p className="text-xs text-ink/55">
-              Dates that keep your pinned vendor free are listed first.{' '}
+              Dates that keep your pinned supplier free are listed first.{' '}
               <button
                 type="button"
                 onClick={() => setPinned(null)}
@@ -343,7 +343,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
       <div className="space-y-3">
         {!matrix.exactDate ? (
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
-            Your dates — ranked by how well they merge your vendors
+            Your dates — ranked by how well they merge your suppliers
           </p>
         ) : (
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
@@ -368,7 +368,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
           <Link href={`${base}/date-selection`} className="font-medium text-terracotta-700 underline">
             Set a month or a date range
           </Link>{' '}
-          to compare which date merges your vendors best.
+          to compare which date merges your suppliers best.
         </p>
       ) : (
         <p className="text-sm text-ink/55">

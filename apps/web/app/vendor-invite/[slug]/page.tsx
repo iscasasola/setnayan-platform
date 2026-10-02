@@ -18,7 +18,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
 
 export const metadata = {
-  title: 'Add a vendor to your plan',
+  title: 'Add a supplier to your plan',
   // Per-vendor invite landings shouldn't be indexed.
   robots: { index: false, follow: false },
 };
@@ -29,10 +29,10 @@ type Props = {
 };
 
 const STATUS_COPY: Record<string, string> = {
-  pick_event: 'Choose which event to add this vendor to.',
+  pick_event: 'Choose which event to add this supplier to.',
   not_your_event: 'That event isn’t one you host — pick one of yours.',
-  not_found: 'This vendor link is no longer available.',
-  error: 'Something went wrong adding the vendor. Please try again.',
+  not_found: 'This supplier link is no longer available.',
+  error: 'Something went wrong adding the supplier. Please try again.',
 };
 
 /**
@@ -97,7 +97,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   const category =
     pickedCategory ?? coerceVendorCategory((vendor.services ?? []) as string[]);
   const categoryLabel =
-    VENDOR_CATEGORY_LABEL[category as VendorCategory] ?? 'Vendor';
+    VENDOR_CATEGORY_LABEL[category as VendorCategory] ?? 'Supplier';
 
   const eventTypes = et ? await getEventTypeVocab() : [];
   const eventTypeLabel = et
@@ -173,7 +173,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
               href={`/signup?as=couple&next=${encodeURIComponent(nextPath)}`}
               className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-ink px-4 py-2.5 text-sm font-medium text-cream hover:bg-ink/90"
             >
-              Sign up free & add this vendor
+              Sign up free & add this supplier
             </Link>
             <Link
               href={`/login?next=${encodeURIComponent(nextPath)}`}
@@ -254,7 +254,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
       </div>
 
       <p className="mt-6 text-center text-[11px] text-ink/40">
-        Adding a vendor to your plan is free. You can remove them any time.
+        Adding a supplier to your plan is free. You can remove them any time.
       </p>
     </div>
   );

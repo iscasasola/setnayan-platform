@@ -332,7 +332,7 @@ export default async function BlogIndexPage({ searchParams }: Props) {
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-base text-ink/65">
             Guest list, budget, schedule, seat plan, and mood board — free with
-            every Setnayan account, plus a preview of your vendor matches.
+            every Setnayan account, plus a preview of your supplier matches.
           </p>
           <Link
             href="/signup"

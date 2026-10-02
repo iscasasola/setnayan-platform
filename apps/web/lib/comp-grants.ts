@@ -257,7 +257,7 @@ export function describeReach(
   // No user_id at all → an admin-issued vendor SKU comp (issueVendorSkuComp),
   // not an event-scoping question — "not tied to an event" would be true but
   // misleading (it reads as "account-wide" for a user grant with no event).
-  if (grant.vendor_profile_id) return 'This vendor’s shop, not an event';
+  if (grant.vendor_profile_id) return 'This supplier’s shop, not an event';
   return 'Not tied to an event';
 }
 
@@ -278,6 +278,6 @@ export function describeSource(source: CompGrantSource): string {
     case 'dispute_remedy':
       return 'Dispute remedy';
     case 'vendor_self_comp':
-      return 'Vendor self-comp';
+      return 'Supplier self-comp';
   }
 }

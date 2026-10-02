@@ -259,7 +259,7 @@ export function VendorGrowAI() {
             <Eyebrow onDark>Setnayan AI · free for suppliers</Eyebrow>
             <H2 onDark>It doesn&rsquo;t just list you. It sells for you — free.</H2>
             <Lede onDark>
-              Setnayan AI is free for every vendor. It helps couples plan, and it steers the right ones toward locking their booking with <em>you</em>. Here&rsquo;s the lever most vendors miss:{' '}
+              Setnayan AI is free for every supplier. It helps couples plan, and it steers the right ones toward locking their booking with <em>you</em>. Here&rsquo;s the lever most suppliers miss:{' '}
               <b style={{ color: '#fff' }}>the more of your couples who activate it, the harder we can push.</b>
             </Lede>
             <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -484,7 +484,7 @@ export function VendorGrowNoFakes() {
         <Eyebrow center>Merit only</Eyebrow>
         <H2>No fakes. No pay-to-win. Ever.</H2>
         <Lede style={{ maxWidth: '56ch', margin: '0 auto' }}>
-          Ranking is merit-only — you can&rsquo;t buy your way up, ever. Any vendor caught faking results to inflate their own standing loses all their data and is permanently banned. In return, we ask one thing: your best work, and honest communication with couples.
+          Ranking is merit-only — you can&rsquo;t buy your way up, ever. Any supplier caught faking results to inflate their own standing loses all their data and is permanently banned. In return, we ask one thing: your best work, and honest communication with couples.
         </Lede>
       </section>
     </div>
@@ -576,7 +576,7 @@ export function VendorGrowCTA() {
             List your business — free
           </Link>
           <Link href="/for-suppliers#model" className="m-btn m-btn-ghost m-btn-lg">
-            See vendor plans
+            See supplier plans
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>

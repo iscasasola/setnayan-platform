@@ -21,7 +21,7 @@ import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { QrActions } from '@/app/_components/qr-actions';
 import { svgDataUri } from '@/lib/qr-download';
 
-export const metadata = { title: 'QR Code Generator · Vendor' };
+export const metadata = { title: 'QR Code Generator · Supplier' };
 
 /**
  * QR Code Generator (My Shop). One surface, two modes via a toggle:

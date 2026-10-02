@@ -143,7 +143,7 @@ function computeWinners(cards: CandidateInsight[]): Map<string, string[]> {
     }
   };
 
-  award('vendors', 'Most vendors free', (c) => c.shortlist.available);
+  award('vendors', 'Most suppliers free', (c) => c.shortlist.available);
   award('services', 'Most services', (c) => c.marketplace.availableCategories);
   award('meaningful', 'Most meaningful', (c) => c.meaningful.length);
   award('prep', 'Most time to plan', (c) => c.prep.monthsFromNow);
@@ -176,11 +176,11 @@ function recommendationSentence(top: CandidateInsight, winners: string[]): strin
     if (top.shortlist.booked === 0) {
       parts.push(
         top.shortlist.total === 1
-          ? 'keeps your shortlisted vendor'
-          : `keeps all ${top.shortlist.total} of your shortlisted vendors`,
+          ? 'keeps your shortlisted supplier'
+          : `keeps all ${top.shortlist.total} of your shortlisted suppliers`,
       );
     } else {
-      parts.push(`keeps ${top.shortlist.available} of your ${top.shortlist.total} vendors free`);
+      parts.push(`keeps ${top.shortlist.available} of your ${top.shortlist.total} suppliers free`);
     }
   }
   if (top.meaningful.length > 0) {
@@ -191,7 +191,7 @@ function recommendationSentence(top: CandidateInsight, winners: string[]): strin
   } else if (top.holiday) {
     parts.push('lands on a long weekend for easier guest travel');
   } else if (winners.includes('Most services')) {
-    parts.push('opens the widest range of vendors to book');
+    parts.push('opens the widest range of suppliers to book');
   }
   if (parts.length === 0) return `${top.label} is a strong, well-balanced choice.`;
   // Join with commas + "and".
@@ -242,11 +242,11 @@ function CandidateCard({
 }) {
   // Pro 1 — vendor shortlist
   const shortlistValue = (() => {
-    if (c.shortlist.total === 0) return 'No vendors shortlisted yet';
+    if (c.shortlist.total === 0) return 'No suppliers shortlisted yet';
     const free = c.shortlist.available + c.shortlist.confirmNeeded;
-    if (c.shortlist.booked === 0) return `All ${formatCount(c.shortlist.total)} shortlisted vendors free`;
+    if (c.shortlist.booked === 0) return `All ${formatCount(c.shortlist.total)} shortlisted suppliers free`;
     if (free === c.shortlist.total) return `All ${formatCount(c.shortlist.total)} available`;
-    return `${formatCount(free)} of ${formatCount(c.shortlist.total)} vendors available`;
+    return `${formatCount(free)} of ${formatCount(c.shortlist.total)} suppliers available`;
   })();
   const shortlistSub = (() => {
     if (c.shortlist.confirmNeeded > 0 && c.shortlist.booked > 0)
@@ -254,7 +254,7 @@ function CandidateCard({
     if (c.shortlist.confirmNeeded > 0)
       return `${c.shortlist.confirmNeeded} off-platform · confirm directly`;
     if (c.shortlist.booked > 0)
-      return `${formatCount(c.shortlist.booked)} vendor${c.shortlist.booked === 1 ? '' : 's'} booked elsewhere`;
+      return `${formatCount(c.shortlist.booked)} supplier${c.shortlist.booked === 1 ? '' : 's'} booked elsewhere`;
     return undefined;
   })();
 
@@ -267,7 +267,7 @@ function CandidateCard({
       const hi = phpFormat(c.budget.shortlistHiCentavos);
       return lo === hi ? lo : `${lo} – ${hi}`;
     }
-    return 'Add vendors to see estimate';
+    return 'Add suppliers to see estimate';
   })();
   const budgetSub = (() => {
     if (c.budget.eventBudgetCentavos && c.budget.shortlistHiCentavos > 0) {
@@ -287,7 +287,7 @@ function CandidateCard({
       ? `${c.marketplace.availableCategories} of ${formatCount(c.marketplace.totalCategories)} categories bookable`
       : 'Marketplace available';
   const mktSub = c.marketplace.readFailed
-    ? "We couldn't check vendor coverage just now — this date may still be fine"
+    ? "We couldn't check supplier coverage just now — this date may still be fine"
     : c.marketplace.totalCategories > 0 && remaining === 0
       ? 'Full coverage · Setnayan can help across every category'
       : remaining > 0
@@ -329,7 +329,7 @@ function CandidateCard({
 
       {/* Signals */}
       <ul className="flex-1 divide-y divide-ink/[0.06] px-5">
-        <ProRow icon={Users} label="Your vendors" value={shortlistValue} sub={shortlistSub} />
+        <ProRow icon={Users} label="Your suppliers" value={shortlistValue} sub={shortlistSub} />
         {c.meaningful.length > 0 ? (
           <ProRow
             icon={Heart}
@@ -438,7 +438,7 @@ export function CandidateDatePicker({
           {displayName} — here are your best dates
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Based on the dates you had in mind, your shortlisted vendors, and the Setnayan
+          Based on the dates you had in mind, your shortlisted suppliers, and the Setnayan
           marketplace, here is how each date compares. Only pros shown — these all work.
         </p>
       </header>
@@ -447,8 +447,8 @@ export function CandidateDatePicker({
         <p className="flex items-start gap-2 rounded-xl border border-ink/10 bg-ink/[0.03] px-3.5 py-2.5 text-xs text-ink/65">
           <CalendarCheck2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0 text-terracotta" strokeWidth={2} />
           <span>
-            We narrowed these to the dates your locked vendors are still free on. Lock more
-            vendors and your date may settle on its own.
+            We narrowed these to the dates your locked suppliers are still free on. Lock more
+            suppliers and your date may settle on its own.
           </span>
         </p>
       ) : null}
@@ -456,8 +456,8 @@ export function CandidateDatePicker({
         <p className="flex items-start gap-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3.5 py-2.5 text-xs text-amber-800">
           <CalendarCheck2 aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} />
           <span>
-            Heads up — one of your locked vendors isn&apos;t free on any of these dates. Showing
-            all your candidates; you may need to switch that vendor or pick a different date.
+            Heads up — one of your locked suppliers isn&apos;t free on any of these dates. Showing
+            all your candidates; you may need to switch that supplier or pick a different date.
           </span>
         </p>
       ) : null}
@@ -483,7 +483,7 @@ export function CandidateDatePicker({
       {pinOptions.length > 0 ? (
         <div className="space-y-2">
           <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/55">
-            Pin a must-have vendor
+            Pin a must-have supplier
           </p>
           <div className="flex flex-wrap gap-2">
             {pinOptions.map((o) => {
@@ -511,7 +511,7 @@ export function CandidateDatePicker({
           </div>
           {pinned ? (
             <p className="text-xs text-ink/55">
-              Dates that keep your pinned vendor free are listed first.{' '}
+              Dates that keep your pinned supplier free are listed first.{' '}
               <button
                 type="button"
                 onClick={() => setPinned(null)}

@@ -7,7 +7,7 @@ import { fetchEventContracts } from '@/lib/contracts';
 import { ContractCard, ContractsEmptyState } from '@/app/_components/contracts/contract-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Vendor contracts' };
+export const metadata = { title: 'Supplier contracts' };
 
 type Props = { params: Promise<{ eventId: string }> };
 
@@ -38,7 +38,7 @@ export default async function EventContractsPage({ params }: Props) {
     }
     for (const v of vendorRows ?? []) {
       vendorMap.set(v.vendor_profile_id as string, {
-        business_name: (v.business_name as string) || 'Vendor',
+        business_name: (v.business_name as string) || 'Supplier',
       });
     }
   }
@@ -46,7 +46,7 @@ export default async function EventContractsPage({ params }: Props) {
   return (
     <div className="sn-col space-y-6">
       <PageMasthead
-        title="Vendor contracts"
+        title="Supplier contracts"
         actions={
           /* YOUR PLAN consolidation 2026-05-22 — vendor contracts also
            *  appear in the consolidated /documents view alongside
@@ -62,7 +62,7 @@ export default async function EventContractsPage({ params }: Props) {
 
       {contracts.length === 0 ? (
         <ContractsEmptyState
-          message="No contracts yet. Vendors will upload PDFs here once you agree on terms in chat."
+          message="No contracts yet. Suppliers will upload PDFs here once you agree on terms in chat."
         />
       ) : (
         <ul className="space-y-3">
@@ -76,7 +76,7 @@ export default async function EventContractsPage({ params }: Props) {
                 createdAt={c.created_at}
                 href={`/dashboard/${eventId}/contracts/${c.contract_id}`}
                 subtitlePrefix="From"
-                subtitleName={vendor?.business_name ?? 'Vendor'}
+                subtitleName={vendor?.business_name ?? 'Supplier'}
               />
             );
           })}

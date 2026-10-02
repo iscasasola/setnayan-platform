@@ -76,7 +76,7 @@ export async function contactShortlistVendor(input: {
   const eventId = String(input.eventId ?? '').trim();
   const vendorId = String(input.vendorId ?? '').trim();
   if (!eventId || !vendorId) {
-    return { status: 'error', message: 'Missing event or vendor.' };
+    return { status: 'error', message: 'Missing event or supplier.' };
   }
 
   const supabase = await createClient();
@@ -110,7 +110,7 @@ export async function contactShortlistVendor(input: {
   if (!resolved) {
     return {
       status: 'error',
-      message: 'This vendor has no services to inquire about yet.',
+      message: 'This supplier has no services to inquire about yet.',
     };
   }
 
@@ -151,7 +151,7 @@ export async function contactVendorProfile(input: {
   const eventId = String(input.eventId ?? '').trim();
   const vendorProfileId = String(input.vendorProfileId ?? '').trim();
   if (!eventId || !vendorProfileId) {
-    return { status: 'error', message: 'Missing event or vendor.' };
+    return { status: 'error', message: 'Missing event or supplier.' };
   }
 
   const supabase = await createClient();
@@ -165,7 +165,7 @@ export async function contactVendorProfile(input: {
   if (!resolved) {
     return {
       status: 'error',
-      message: 'This vendor has no services to inquire about yet.',
+      message: 'This supplier has no services to inquire about yet.',
     };
   }
 

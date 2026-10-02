@@ -13,7 +13,7 @@ import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feat
 import { VendorTierGate } from '../_components/tier-gate';
 import { ShopEmpty } from '../_components/kit';
 
-export const metadata = { title: 'Recaps · Vendor' };
+export const metadata = { title: 'Recaps · Supplier' };
 
 /**
  * Vendor "Recaps" — the weddings this vendor helped create whose couple has

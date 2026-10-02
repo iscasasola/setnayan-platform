@@ -39,7 +39,7 @@ export function ShareWithVendorsButton({
       try {
         const { sharedCount } = await save.run(
           () => shareMoodBoardWithVendors(eventId),
-          { steps: ['Sharing with your vendors'], hint: 'Sharing' },
+          { steps: ['Sharing with your suppliers'], hint: 'Sharing' },
         );
         setDoneCount(sharedCount);
         if (sharedCount > 0) {
@@ -49,7 +49,7 @@ export function ShareWithVendorsButton({
         } else {
           // Booked vendors exist but none have a claimed Setnayan account yet —
           // they'll see the board the moment they claim their profile.
-          toast.info('No booked vendors to notify yet');
+          toast.info('No booked suppliers to notify yet');
         }
       } catch {
         toast.error('Could not share — please try again.');
@@ -60,7 +60,7 @@ export function ShareWithVendorsButton({
   if (!hasVendors) {
     return (
       <p className="text-sm text-ink/55">
-        Once you’ve booked vendors on Setnayan, you can share this mood board with
+        Once you’ve booked suppliers on Setnayan, you can share this mood board with
         them here so they can match your palette and reception design.
       </p>
     );
@@ -86,13 +86,13 @@ export function ShareWithVendorsButton({
         ) : (
           <>
             <Send className="h-4 w-4" aria-hidden />
-            Share with vendors
+            Share with suppliers
           </>
         )}
       </button>
       <p className="text-xs text-ink/55">
         {doneCount !== null && doneCount > 0
-          ? 'Your booked vendors have been notified — they can open your board any time.'
+          ? 'Your booked suppliers have been notified — they can open your board any time.'
           : `Notify your ${formatCount(bookedVendorCount)} booked ${
               bookedVendorCount === 1 ? 'vendor' : 'vendors'
             } that your mood board is ready to view.`}

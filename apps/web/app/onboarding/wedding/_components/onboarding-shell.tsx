@@ -469,7 +469,7 @@ const BASIC_SET = new Set<string>(BASIC_CATS);
 const PICK_INFO: Record<string, { d: string }> = {
   reception: { d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
   ceremony: { d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
-  coordinator: { d: 'Runs your timeline and vendors so you can just enjoy the day.' },
+  coordinator: { d: 'Runs your timeline and suppliers so you can just enjoy the day.' },
   catering: { d: 'Food and service for your guests — buffet, plated, or family-style.' },
   cake: { d: 'Your wedding cake and dessert centerpiece.' },
   stations: { d: 'Live food stations — carving, pasta, lechon, and more.' },
@@ -1112,7 +1112,7 @@ const ANALYZING_HOLD_MS = 2200;
 // "thinking" dots, so no trailing "…"). The loader cycles these internally.
 const ANALYZING_STAGES = [
   'Analyzing your preferences',
-  'Matching your vendors',
+  'Matching your suppliers',
   'Building your personalized dashboard',
 ];
 
@@ -2065,7 +2065,7 @@ export function OnboardingShell({
     // Functional update so two quick "Send" taps can't clobber each other's entry.
     setState((s) => ({ ...s, byoVendors: [...s.byoVendors, { name, person, email }] }));
     setByoDone(
-      `✓ ${name} added to your wedding. They'll appear in your dashboard's vendor list, where you can track and manage them.`,
+      `✓ ${name} added to your wedding. They'll appear in your dashboard's supplier list, where you can track and manage them.`,
     );
     setByoAdded(true);
     setByoName('');
@@ -3043,7 +3043,7 @@ export function OnboardingShell({
                 <HeroImg src={ASSET('welcome')} />
                 <div className="welcomeoverlay">
                   <h1>Start with the view. We{'’'}ll handle the details.</h1>
-                  <p>Tell us your date. Get a free wedding plan + matched vendors in minutes.</p>
+                  <p>Tell us your date. Get a free wedding plan + matched suppliers in minutes.</p>
                 </div>
               </div>
             )}
@@ -3822,7 +3822,7 @@ export function OnboardingShell({
                       </p>
                     )}
                     <div className="statstrip">
-                      <div className="stat"><b>{state.picks.length}</b><span>vendors<br />lined up</span></div>
+                      <div className="stat"><b>{state.picks.length}</b><span>suppliers<br />lined up</span></div>
                       <div className="stat"><b>{state.interestedServices.length}</b><span>Setnayan<br />add-ons</span></div>
                       <div className="stat"><b>{focusLabel}</b><span>built<br />around</span></div>
                     </div>
@@ -4078,7 +4078,7 @@ export function OnboardingShell({
             <div className="welcome" style={{ paddingTop: 24 }}>
               <div className="mark">✓</div>
               <h1 style={{ fontSize: 34 }}>Your plan is ready.</h1>
-              <p style={{ marginBottom: 24 }}>Create your free account to keep it {'—'} and start finding your vendors.</p>
+              <p style={{ marginBottom: 24 }}>Create your free account to keep it {'—'} and start finding your suppliers.</p>
             </div>
             {/* ONE DOOR, ONE ORDER (owner 2026-09-25: "When a new account is created via
                 website must be similar to the event invitation"). The same order the
@@ -4171,7 +4171,7 @@ export function OnboardingShell({
           {/* 12 FIND FIRST VENDOR — REAL reception venues from the marketplace
               (criteria search, no eventId · WAVE 2). Tap to shortlist → recap count. */}
           <section className={`screen${activeId === 'find' ? ' active' : ''}`} id="screen-find">
-            <div className="eyebrow">Find your first vendor</div>
+            <div className="eyebrow">Find your first supplier</div>
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
             {venuesLoading && (
               <div className="vskel-wrap" aria-live="polite" aria-busy="true">
@@ -4284,13 +4284,13 @@ export function OnboardingShell({
               <div className="eyebrow">Setnayan AI <span className="tag new">New</span></div>
               <h1 className="q">You did the venue. Let us do the rest.</h1>
               <div className="aibenefits">
-                <div className="aibene"><div className="ic">✓</div><div className="tx"><b>Verified vendors, matched to you</b><span>Region · date · guest count · budget · venue · style — checked all at once, every vendor confirmed real.</span></div></div>
+                <div className="aibene"><div className="ic">✓</div><div className="tx"><b>Verified suppliers, matched to you</b><span>Region · date · guest count · budget · venue · style — checked all at once, every supplier confirmed real.</span></div></div>
                 <div className="aibene"><div className="ic">⚡</div><div className="tx"><b>Tuned to your taste</b><span>One quick {'“'}what kind?{'”'} per service narrows it to exactly your style.</span></div></div>
-                <div className="aibene"><div className="ic">💬</div><div className="tx"><b>Free to browse — no obligation</b><span>Shortlist, compare &amp; message vendors at ₱0. Book only if you love them.</span></div></div>
+                <div className="aibene"><div className="ic">💬</div><div className="tx"><b>Free to browse — no obligation</b><span>Shortlist, compare &amp; message suppliers at ₱0. Book only if you love them.</span></div></div>
               </div>
             </div>
             <div className="tapzone">
-              <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => aiAnswer(true)}>Yes — match the rest of my vendors</button>
+              <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => aiAnswer(true)}>Yes — match the rest of my suppliers</button>
               <div className="stayfree"><u onClick={() => aiAnswer(false)}>No thanks, I{'’'}ll browse on my own</u></div>
             </div>
           </section>
@@ -4471,9 +4471,9 @@ export function OnboardingShell({
                 <span className="aikeep-name">Setnayan AI</span>
                 <span className="aikeep-tag">your planning brain</span>
               </div>
-              <div className="aikeep-lede">The <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} we just matched to your date, budget &amp; style? That was <b>Setnayan AI</b>. Keep it for every other vendor.</div>
+              <div className="aikeep-lede">The <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} we just matched to your date, budget &amp; style? That was <b>Setnayan AI</b>. Keep it for every other supplier.</div>
               <ul className="aikeep-bens">
-                <li><span className="ic" aria-hidden="true">✓</span><span><b>Matches every vendor to you</b> — region, date, guests, budget, venue &amp; style, checked at once.</span></li>
+                <li><span className="ic" aria-hidden="true">✓</span><span><b>Matches every supplier to you</b> — region, date, guests, budget, venue &amp; style, checked at once.</span></li>
                 <li><span className="ic" aria-hidden="true">◷</span><span><b>Your deadline timeline</b> — what to lock next, and by when, so nothing slips.</span></li>
                 <li><span className="ic" aria-hidden="true">➤</span><span><b>Reaches your best matches</b> — first inquiries sent for you, plus last-minute access.</span></li>
               </ul>
@@ -4491,7 +4491,7 @@ export function OnboardingShell({
               <div className="optcard optcard-col">
                 <div className="opt-main">
                   <div className="opt-h">Reach my best matches</div>
-                  <div className="opt-d">We&apos;ll send your first inquiry to the best-fit vendors we found. You can always do this yourself later.</div>
+                  <div className="opt-d">We&apos;ll send your first inquiry to the best-fit suppliers we found. You can always do this yourself later.</div>
                 </div>
                 <div className="opt-step">
                   <span className="opt-step-l">inquiries per category</span>
@@ -4641,11 +4641,11 @@ export function OnboardingShell({
 
         {/* BYO vendor — bottom-sheet popup (prototype #byoSheet/#byoBackdrop · vendor_invites auto-connect, CLAUDE.md 2026-05-19) */}
         <div className={`sheet-backdrop${byoOpen ? ' open' : ''}`} onClick={() => setByoOpen(false)} />
-        <div className={`sheet${byoOpen ? ' open' : ''}`} role="dialog" aria-label="Add your own vendor">
+        <div className={`sheet${byoOpen ? ' open' : ''}`} role="dialog" aria-label="Add your own supplier">
           <div className="sheet-handle" />
-          <div className="sheet-h">Add your own vendor</div>
+          <div className="sheet-h">Add your own supplier</div>
           <div className="sheet-sub">We&apos;ll connect you to them on Setnayan.</div>
-          <label className="byo-l"><span className="byo-lk">Vendor name</span><input className="field" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
+          <label className="byo-l"><span className="byo-lk">Supplier name</span><input className="field" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
           <label className="byo-l"><span className="byo-lk">Contact person</span><input className="field" value={byoPerson} onChange={(e) => setByoPerson(e.target.value)} placeholder="Who you talk to" /></label>
           <label className="byo-l"><span className="byo-lk">Email address</span><input className="field" type="email" value={byoEmail} onChange={(e) => setByoEmail(e.target.value)} placeholder="name@email.com" /></label>
           <button className="byo-send" type="button" onClick={sendByo}>Send invite &amp; connect</button>

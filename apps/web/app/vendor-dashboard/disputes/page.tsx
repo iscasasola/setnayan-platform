@@ -11,7 +11,7 @@ import { paginate } from '@/lib/paginate';
 import { readVendorDisputes } from '@/lib/vendor-disputes-read';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Disputes · Vendor' };
+export const metadata = { title: 'Disputes · Supplier' };
 
 /**
  * /vendor-dashboard/disputes — "Stand up for yourself" mediation.
@@ -90,7 +90,7 @@ export default async function VendorDisputesPage({ searchParams }: Props) {
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Disputes</h1>
         <p className="mt-4 text-base text-ink/65">
-          Set up your vendor profile first. If a couple ever raises a concern
+          Set up your supplier profile first. If a couple ever raises a concern
           about a booking, it&rsquo;ll show up here — and a neutral Setnayan team
           reviews it before it can affect your standing.
         </p>

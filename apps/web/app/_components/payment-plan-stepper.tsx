@@ -101,7 +101,7 @@ export function PaymentPlanStepper({
 
       {steps.length === 0 ? (
         <p className="text-[11px] text-ink/55">
-          No installment schedule — pay the vendor directly.
+          No installment schedule — pay the supplier directly.
         </p>
       ) : (
         <ol className="space-y-2" role="list">

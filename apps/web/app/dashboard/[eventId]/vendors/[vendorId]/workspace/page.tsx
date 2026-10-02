@@ -2067,7 +2067,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             )
           ) : (
             <p className="text-xs text-ink/55">
-              This vendor isn&rsquo;t connected to a Setnayan profile, so chat
+              This supplier isn&rsquo;t connected to a Setnayan profile, so chat
               isn&rsquo;t available here. Reach out using the contact details
               above.
             </p>
@@ -2168,7 +2168,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
           {!ev.marketplace_vendor_id ? (
             <p className="text-xs text-ink/55">
-              Documents flow through the marketplace profile. This vendor
+              Documents flow through the marketplace profile. This supplier
               isn&rsquo;t connected yet, so files aren&rsquo;t available here.
             </p>
           ) : contracts.length === 0 ? (
@@ -2374,7 +2374,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               <span className="font-medium text-ink">
                 {coveredCrewMeals} meal{coveredCrewMeals === 1 ? '' : 's'}
               </span>{' '}
-              across the vendors you&rsquo;ve marked as crew-meal covered. Set the Service
+              across the suppliers you&rsquo;ve marked as crew-meal covered. Set the Service
               price above to your per-meal rate × this count.
             </p>
           ) : (
@@ -2586,7 +2586,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
             <div className="min-w-0 space-y-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warn-800">
-                Bring this vendor onto Setnayan
+                Bring this supplier onto Setnayan
               </p>
               <h2
                 id="claim-invite-heading"
@@ -2596,7 +2596,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               </h2>
               <p className="text-xs text-ink/70">
                 They don&rsquo;t have a Setnayan account yet. Share this link
-                so they can register a free vendor account and see the
+                so they can register a free supplier account and see the
                 schedule you&rsquo;ve locked for them.
               </p>
             </div>
@@ -2606,12 +2606,12 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <ClaimLinkShare
               claimUrl={buildClaimUrl(autoShareInvite.claim_token)}
               shareTitle={`Setnayan invite for ${displayName}`}
-              shareText={`Hi! I added you on Setnayan for our ${inviteEventWord}. Claim your free vendor account here:`}
+              shareText={`Hi! I added you on Setnayan for our ${inviteEventWord}. Claim your free supplier account here:`}
             />
           </div>
 
           <p className="mt-3 text-[11px] text-ink/55">
-            Free vendor account · launch promo runs through 30 Jan 2027 ·
+            Free supplier account · launch promo runs through 30 Jan 2027 ·
             Link expires in 90 days
           </p>
         </section>
@@ -2626,7 +2626,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
             <div className="min-w-0 space-y-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-800">
-                Linked to vendor account
+                Linked to supplier account
               </p>
               <h2
                 id="claim-linked-heading"
@@ -2661,7 +2661,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                 The previous invite link is no longer active
               </h2>
               <p className="text-xs text-ink/65">
-                Re-lock this vendor to generate a fresh link, or reach out to
+                Re-lock this supplier to generate a fresh link, or reach out to
                 them using the contact details above.
               </p>
             </div>
@@ -2678,7 +2678,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
             <div className="min-w-0 space-y-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warn-800">
-                Bring this vendor onto Setnayan
+                Bring this supplier onto Setnayan
               </p>
               <h2 id="claim-create-heading" className="text-sm font-semibold text-ink">
                 Invite {displayName} with a free account

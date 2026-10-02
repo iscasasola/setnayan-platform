@@ -8,7 +8,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { uploadVendorContract } from '../actions';
 import { formatFileSize, CONTRACT_MAX_BYTES } from '@/lib/contracts';
 
-export const metadata = { title: 'New contract · Vendor' };
+export const metadata = { title: 'New contract · Supplier' };
 
 type Props = { searchParams: Promise<{ event?: string }> };
 

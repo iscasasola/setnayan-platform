@@ -239,7 +239,7 @@ export function BuildCompare({
   function onSaveNamed() {
     setErr(null);
     if (currentPlan.picks.length === 0) {
-      setErr('Add some vendors to your plan first — shortlist on the Build tab, then save.');
+      setErr('Add some suppliers to your plan first — shortlist on the Build tab, then save.');
       return;
     }
     startTransition(async () => {
@@ -278,7 +278,7 @@ export function BuildCompare({
         <>
           <span className="font-medium text-ink">“{title}”</span> is deleted for
           good — the picks saved in it are not kept anywhere else. Your current
-          build and your locked vendors are untouched.
+          build and your locked suppliers are untouched.
         </>
       ),
       confirmLabel: 'Delete plan',
@@ -321,7 +321,7 @@ export function BuildCompare({
         body: replan ? (
           <>
             <span className="font-medium text-ink">“{title}”</span>’s candidates replace the ones in
-            your build right now. Your locked vendors are untouched — they’re in every plan. Save
+            your build right now. Your locked suppliers are untouched — they’re in every plan. Save
             your current candidates as a plan first if you want to keep them.
           </>
         ) : (
@@ -379,9 +379,9 @@ export function BuildCompare({
         <p className="text-sm text-ink/60">
           {replan
             ? 'Name a set of candidates as a plan, load one back any time, and put them side by side'
-            : 'Save versions of your plan and compare the real vendors side by side'}
+            : 'Save versions of your plan and compare the real suppliers side by side'}
           {budgetPhp != null ? `, against your ${peso(budgetPhp)} budget` : ''}.
-          {replan ? ' Locked vendors are pinned in every plan.' : ''}
+          {replan ? ' Locked suppliers are pinned in every plan.' : ''}
         </p>
       </div>
 
@@ -510,7 +510,7 @@ export function BuildCompare({
                       title={
                         loadable
                           ? undefined
-                          : 'Nothing to load — every vendor in this plan is either locked already or no longer on your shortlist.'
+                          : 'Nothing to load — every supplier in this plan is either locked already or no longer on your shortlist.'
                       }
                       className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/75 transition hover:border-terracotta/50 hover:text-terracotta-700 disabled:opacity-40"
                     >
@@ -545,7 +545,7 @@ export function BuildCompare({
         <div className="sn-tile px-4 py-10 text-center text-sm text-ink/60">
           {replan
             ? 'No suppliers yet. Add some candidates from the bench, then save them under a name to compare plans side by side.'
-            : 'No vendors in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
+            : 'No suppliers in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
         </div>
       ) : (
         <div className="sn-tile overflow-x-auto p-0">
@@ -763,7 +763,7 @@ export function BuildCompare({
                         {!a || a.connectedCount === 0 ? (
                           <span
                             className="text-[10px] text-ink/35"
-                            title="No Setnayan-connected vendors in this build to check calendars for"
+                            title="No Setnayan-connected suppliers in this build to check calendars for"
                           >
                             —
                           </span>
@@ -803,7 +803,7 @@ export function BuildCompare({
                         {!a || a.checkedCount === 0 ? (
                           <span
                             className="text-[10px] text-ink/35"
-                            title="No Setnayan-connected vendors in this plan to check calendars for"
+                            title="No Setnayan-connected suppliers in this plan to check calendars for"
                           >
                             —
                           </span>
@@ -833,7 +833,7 @@ export function BuildCompare({
           below are your <span className="text-ink/70">candidates</span>: save different candidate
           sets under different names, compare them here, then lock the winner.{' '}
           <span className="text-ink/70">Load</span> puts a saved plan’s candidates back into your
-          build — your locked vendors are never touched.
+          build — your locked suppliers are never touched.
         </p>
       ) : (
         <p className="text-xs text-ink/45">
@@ -841,7 +841,7 @@ export function BuildCompare({
           build to bank a version, then change your picks and save another to compare. Use{' '}
           <span className="text-ink/70">Modify</span> to load a saved plan back into your working
           build, or <span className="text-ink/70">Lock</span> to load it and head to the Lock tab to
-          finalize those vendors.
+          finalize those suppliers.
         </p>
       )}
     </div>

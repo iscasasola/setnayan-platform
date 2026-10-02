@@ -302,7 +302,7 @@ export function planPayoutStages(inputs: PlanPayoutInputs): PlannedPayoutStage[]
 
   if (verificationState === 'hidden' || verificationState === 'archived') {
     throw new Error(
-      `Cannot schedule payouts for ${verificationState} vendor — admin must reassign or refund first.`,
+      `Cannot schedule payouts for ${verificationState} supplier — admin must reassign or refund first.`,
     );
   }
 

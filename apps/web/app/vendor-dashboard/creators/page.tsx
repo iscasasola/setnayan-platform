@@ -25,7 +25,7 @@ import { sendCreatorOffer } from './actions';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Creators · Vendor' };
+export const metadata = { title: 'Creators · Supplier' };
 export const dynamic = 'force-dynamic';
 
 type SearchParams = {
@@ -207,7 +207,7 @@ export default async function VendorCreatorsPage({
           </h2>
           <p className="text-[12.5px] text-ink/55">
             Inquiries driven is each creator&rsquo;s all-time public number (the
-            inquiries their chapters drove that a vendor unlocked). Discounts
+            inquiries their chapters drove that a supplier unlocked). Discounts
             settle off-platform, so they&rsquo;re not shown here.
           </p>
           <div className="overflow-x-auto rounded-tile border border-ink/10 bg-white">

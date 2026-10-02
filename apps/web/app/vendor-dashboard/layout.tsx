@@ -243,7 +243,7 @@ export default async function VendorDashboardLayout({
   // The name the rail's context group announces the shop by. Never blank and
   // never an id — a rail heading reading `s89v-…` is worse than a plain word.
   const vendorSidebarName =
-    vendorProfile?.business_name ?? profile?.display_name ?? profile?.email ?? 'Vendor';
+    vendorProfile?.business_name ?? profile?.display_name ?? profile?.email ?? 'Supplier';
   const vendorTier = tierProbe.tier;
 
   /*
@@ -365,7 +365,7 @@ export default async function VendorDashboardLayout({
     redirect('/dashboard');
   }
 
-  const displayName = profile?.display_name ?? profile?.email ?? 'Vendor';
+  const displayName = profile?.display_name ?? profile?.email ?? 'Supplier';
 
   // Top bar — right-aligned utilities cluster. AccountSwitcher pill is
   // mobile-only (lg:hidden); desktop users open the same panel from the

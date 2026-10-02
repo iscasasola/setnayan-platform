@@ -101,7 +101,7 @@ export function CoordinatorColourDomains({
           Colour access
         </p>
         <p className="max-w-prose text-sm text-ink/65">
-          A coordinator isn’t tied to one craft the way a vendor is — they can hold access
+          A coordinator isn’t tied to one craft the way a supplier is — they can hold access
           across several parts of your design at once. Grant only what makes sense; each one
           is its own switch. You’re told about every change, and you can undo any single one
           without touching their access.

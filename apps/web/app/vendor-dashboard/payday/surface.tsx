@@ -12,7 +12,7 @@ import { ShopEmpty } from '../_components/kit';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Payday · Vendor' };
+export const metadata = { title: 'Payday · Supplier' };
 
 /**
  * Payday Calendar & Cash-Flow View (Wave 4 vendor "Soon" benefit).

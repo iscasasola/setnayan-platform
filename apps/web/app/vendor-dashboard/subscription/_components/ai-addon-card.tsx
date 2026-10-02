@@ -107,7 +107,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-base font-semibold text-ink">Vendor AI — the AI Chatbot</h2>
+            <h2 className="text-base font-semibold text-ink">Supplier AI — the AI Chatbot</h2>
             {active ? (
               <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 text-xs font-medium text-success-800">
                 <Check className="h-3 w-3" strokeWidth={2.5} aria-hidden />
@@ -144,7 +144,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
         >
           <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
           <span>
-            Coming soon — Vendor AI is launching shortly. You&rsquo;ll be able to
+            Coming soon — Supplier AI is launching shortly. You&rsquo;ll be able to
             turn it on here the moment it goes live.
           </span>
         </div>
@@ -155,9 +155,9 @@ export function AiAddonCard(props: AiAddonCardProps) {
         >
           <PaidMark state="locked" label={paidMarkLabel('locked', 'a paid plan')} className="mt-0.5" />
           {paidButUnverified ? (
-            <span>Get your shop verified to unlock Vendor AI — it&rsquo;s a verified-only add-on.</span>
+            <span>Get your shop verified to unlock Supplier AI — it&rsquo;s a verified-only add-on.</span>
           ) : (
-            <span>Vendor AI is available on the paid plans (Solo, Pro, Enterprise). Upgrade above to add it.</span>
+            <span>Supplier AI is available on the paid plans (Solo, Pro, Enterprise). Upgrade above to add it.</span>
           )}
         </div>
       ) : (
@@ -188,7 +188,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
             pendingLabel={trialAvailable ? 'Turning on…' : 'Starting…'}
           >
             {trialAvailable
-              ? 'Turn on Vendor AI — free first cycle'
+              ? 'Turn on Supplier AI — free first cycle'
               : active
                 ? `Renew — ${peso(pricePhp)} / 28 days`
                 : `Reactivate — ${peso(pricePhp)} / 28 days`}
@@ -201,7 +201,7 @@ export function AiAddonCard(props: AiAddonCardProps) {
               <p className="mt-1">
                 Pay to {ourAccountPhrase(openRails.map((r) => r.label))} and put{' '}
                 <span className="font-mono font-semibold">{state.referenceCode}</span> in the
-                transfer note. Vendor AI switches on once our team confirms your
+                transfer note. Supplier AI switches on once our team confirms your
                 payment (within 24 hours).
               </p>
             </div>

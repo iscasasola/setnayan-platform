@@ -39,7 +39,7 @@ import type { ReactNode } from 'react';
 import { shopInputClass } from '../_components/kit';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Calendar · Vendor' };
+export const metadata = { title: 'Calendar · Supplier' };
 
 /**
  * Vendor Calendar — one calendar with a UNIVERSAL "All schedules" view plus

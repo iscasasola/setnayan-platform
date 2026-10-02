@@ -97,7 +97,7 @@ export async function findSameDayVendors(
             r.hq_longitude as number,
           )
         : null;
-    const name = (r.business_name ?? '').trim() || 'Setnayan vendor';
+    const name = (r.business_name ?? '').trim() || 'Setnayan supplier';
     return {
       vendorProfileId: r.vendor_profile_id,
       name,

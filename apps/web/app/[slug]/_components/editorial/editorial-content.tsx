@@ -1625,7 +1625,7 @@ function SectionRule({ title }: { title: string }): ReactElement {
 function ReviewsEmptyState(): ReactElement {
   return (
     <p className="mx-auto max-w-xl text-center font-serif text-sm italic text-ink/60">
-      Reviews from guests and vendors will appear here.
+      Reviews from guests and suppliers will appear here.
     </p>
   );
 }

@@ -179,7 +179,7 @@ export const fetchUserRoleSummary = cache(async (
     ownedIds.add(row.vendor_profile_id);
     vendorProfiles.push({
       vendor_profile_id: row.vendor_profile_id,
-      business_name: row.business_name?.trim() || 'My vendor profile',
+      business_name: row.business_name?.trim() || 'My supplier profile',
       logo_url: row.logo_url ?? null,
     });
   }
@@ -191,7 +191,7 @@ export const fetchUserRoleSummary = cache(async (
       : row.vendor_profiles;
     vendorProfiles.push({
       vendor_profile_id: row.vendor_profile_id,
-      business_name: vp?.business_name?.trim() || 'Team vendor',
+      business_name: vp?.business_name?.trim() || 'Team supplier',
       logo_url: vp?.logo_url ?? null,
     });
   }

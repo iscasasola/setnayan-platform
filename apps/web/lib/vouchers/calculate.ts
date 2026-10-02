@@ -126,7 +126,7 @@ export function calculateVoucherDiscount(
       applied: false,
       discount_centavos: 0n,
       final_centavos: original_centavos,
-      reason: 'This code is for vendor accounts only.',
+      reason: 'This code is for supplier accounts only.',
     };
   }
 

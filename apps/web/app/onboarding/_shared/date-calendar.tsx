@@ -339,7 +339,7 @@ export function DateCalendar({
 
   const setRangeMsg =
     mode === 'specific'
-      ? 'Up to 4 dates within ~3 months — we lock the one all your vendors share.'
+      ? 'Up to 4 dates within ~3 months — we lock the one all your suppliers share.'
       : 'Tap a start + end (≤30 days) — we lock the shared date inside it.';
 
   const hint = chrome === 'wedding' ? 'micro' : 'sn-datecal-hint';

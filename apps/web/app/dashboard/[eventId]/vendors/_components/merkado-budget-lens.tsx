@@ -140,7 +140,7 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
           </>
         ) : (
           <p className="mt-2 text-sm text-ink/65">
-            Set your budget and itemize vendor costs to start tracking payments.
+            Set your budget and itemize supplier costs to start tracking payments.
           </p>
         )}
       </div>

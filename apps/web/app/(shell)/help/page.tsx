@@ -237,7 +237,7 @@ export default async function HelpPage({ searchParams }: Props) {
                 </div>
                 <p className="max-w-2xl text-sm text-ink/70">
                   Send us a note and we&rsquo;ll reply to the email you provide. Useful for
-                  anything not covered above — billing questions, vendor onboarding, custom
+                  anything not covered above — billing questions, supplier onboarding, custom
                   quotes, bug reports.
                 </p>
 

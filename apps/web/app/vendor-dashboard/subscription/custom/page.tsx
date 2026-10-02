@@ -26,7 +26,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
  * read-only with an "Adjust" affordance that composes a NEW pending plan.
  */
 
-export const metadata = { title: 'Compose a Custom plan · Vendor' };
+export const metadata = { title: 'Compose a Custom plan · Supplier' };
 
 type Props = {
   searchParams: Promise<{ requested?: string; error?: string }>;

@@ -176,7 +176,7 @@ function PricesOverlay({
           Free website
           <span>Save-the-Date · RSVP · Event · Editorial + unlimited RSVP</span>
         </li>
-        <li>Find only verified vendors</li>
+        <li>Find only verified suppliers</li>
         <li>Customized QR for each guest</li>
         <li>Keep all your memories — free</li>
       </ul>
@@ -193,7 +193,7 @@ function PricesOverlay({
         <div className="hr-gintro">
           <span className="hr-gintro-h">Setnayan AI</span>
           <span className="hr-gintro-b">
-            the planning brain that filters your vendors —{' '}
+            the planning brain that filters your suppliers —{' '}
             {pricing.aiHasSignupPrice ? (
               <>
                 {pricing.aiIntroPrice} while you set your event up ({pricing.aiPrice} after)
@@ -286,10 +286,10 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
       id="vendors"
       current={current}
       onClose={onClose}
-      label="For vendors"
+      label="For suppliers"
       cardClassName="hr-ov-card-glass"
     >
-      <div className="hr-ov-eyebrow">Free for vendors</div>
+      <div className="hr-ov-eyebrow">Free for suppliers</div>
       <h2 className="hr-ov-title">A whole business — free.</h2>
       <p className="hr-ov-sub">
         Get found, get booked, keep 100%. Free while we launch.
@@ -432,14 +432,14 @@ function SetnayanAiOverlay({
             themPct: frac * 100,
             usLabel: `Setnayan AI · ${peso(mine)}`,
             usPct: Math.max((mine / AI_COMPARE_APPS_MAX_PHP) * 100, 1.2),
-            foot: 'Drawn to one scale, and theirs waits for your questions; it doesn’t watch your vendors.',
+            foot: 'Drawn to one scale, and theirs waits for your questions; it doesn’t watch your suppliers.',
           }
         : {
             // "What is your hour worth?" — value the DIY hours at the rate the
             // person sets, then read "you save ₱X" like the other two modes.
             // Both bars share one peso scale (ceiling = the hours' worth at the
             // 26-month end), so raising the rate visibly shrinks Setnayan's bar.
-            sub: 'Keeping every vendor, price and deadline current by hand:',
+            sub: 'Keeping every supplier, price and deadline current by hand:',
             save: `you save ${peso(Math.max(0, diyWorth - mine))}`,
             themLabel: `Your time · ${peso(diyWorth)}`,
             themPct: frac * 100,
@@ -462,7 +462,7 @@ function SetnayanAiOverlay({
       <div className="hr-ov-eyebrow">Setnayan AI · your planning brain</div>
       <h2 className="hr-ov-title">Stop remembering to check on everything.</h2>
       <p style={{ marginTop: 10, fontSize: 15, lineHeight: 1.55, color: '#2a2925' }}>
-        It watches the vendors you’re eyeing and the ones you’ve booked, and taps you only when something needs you.
+        It watches the suppliers you’re eyeing and the ones you’ve booked, and taps you only when something needs you.
         Most weeks, it stays quiet.
       </p>
 

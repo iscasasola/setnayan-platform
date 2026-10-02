@@ -15,6 +15,8 @@ function nextHref(kind: HomeNextKind, eventId: string): string {
   const doors: ReadonlyArray<{ kind: HomeNextKind; href: string }> = [
     { kind: 'guide', href: `/dashboard/${eventId}/launch?tool=details&guide=1` },
     { kind: 'date', href: `/dashboard/${eventId}/date-selection` },
+    { kind: 'guests', href: `/dashboard/${eventId}/guests` },
+    { kind: 'invite', href: `/dashboard/${eventId}/guests/send` },
     { kind: 'papic', href: `/dashboard/${eventId}/studio/papic` },
     { kind: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
     { kind: 'plan', href: '#home-all' },

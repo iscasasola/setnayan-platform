@@ -858,6 +858,15 @@ export function FileUpload({
         } catch {
           /* already dead — nothing left to stop */
         }
+        // 📋 Problems list: a stalled upload is a failure the person never
+        // caused and the server never saw — this watchdog is the only witness.
+        void trackFailure({
+          eventType: 'UPLOAD_STALLED',
+          elementName: 'File upload',
+          filePath: 'app/_components/file-upload.tsx',
+          error: `no bytes moved for ${UPLOAD_STALL_MS / 1000}s`,
+          payload: { bucket, action: 'upload stalled', page: window.location.pathname },
+        });
         if (!isMountedRef.current) return;
         setError(
           `${file.name} stopped uploading — check your connection and pick it again.`,

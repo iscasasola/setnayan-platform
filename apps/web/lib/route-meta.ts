@@ -127,7 +127,7 @@ export const routeMeta = {
     brain: { icon: Brain, label: 'Setnayan AI brain' },
     budgetPlanner: { icon: PiggyBank, label: 'Budget Planner' },
     conciergeAbuse: { icon: Flag, label: 'Setnayan AI abuse' },
-    connectionLogs: { icon: Bug, label: 'Connection logs' },
+    connectionLogs: { icon: Bug, label: 'Problems' },
     demoVendors: { icon: TestTube, label: 'Demo suppliers' },
     directory: { icon: Users, label: 'Directory' },
     discountCodes: { icon: Tag, label: 'Discount codes' },

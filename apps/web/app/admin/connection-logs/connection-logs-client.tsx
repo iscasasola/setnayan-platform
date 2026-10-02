@@ -39,7 +39,9 @@ import { resolveAllActive, setLogStatus } from './actions';
 export type FaultLogRow = {
   id: string;
   created_at: string;
-  event_type: 'BUTTON_FAIL' | 'SUPABASE_SAVE_ERROR' | 'BLANK_FALLBACK' | 'OTHER';
+  // Any of the Problems kinds (lib/telemetry/fault-normalize.ts FAULT_KINDS);
+  // the four with their own pill keep their meta, the rest read as 'Other'.
+  event_type: string;
   element_name: string | null;
   file_path: string | null;
   error_message: string | null;
@@ -58,7 +60,7 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 ];
 
 const TYPE_META: Record<
-  FaultLogRow['event_type'],
+  'BUTTON_FAIL' | 'SUPABASE_SAVE_ERROR' | 'BLANK_FALLBACK' | 'OTHER',
   { label: string; badge: string; Icon: typeof Activity }
 > = {
   BUTTON_FAIL: {
@@ -83,6 +85,11 @@ const TYPE_META: Record<
   },
 };
 
+/** A kind without its own pill (the 2026-10-02 Problems kinds) reads as 'Other' — never undefined. */
+function metaOf(kind: string) {
+  return TYPE_META[kind as keyof typeof TYPE_META] ?? { ...TYPE_META.OTHER, label: kind.replace(/_/g, ' ').toLowerCase() };
+}
+
 function formatRelativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   const diffSec = Math.max(0, Math.floor((Date.now() - then) / 1000));
@@ -104,10 +111,13 @@ export function ConnectionLogsClient({
   initialActive,
   initialResolved,
   rowLimit,
+  problems,
 }: {
   initialActive: FaultLogRow[];
   initialResolved: FaultLogRow[];
   rowLimit: number;
+  /** The grouped Problems list (server-rendered), shown first. */
+  problems?: React.ReactNode;
 }) {
   const [active, setActive] = useState<FaultLogRow[]>(initialActive);
   const [resolved, setResolved] = useState<FaultLogRow[]>(initialResolved);
@@ -222,7 +232,13 @@ export function ConnectionLogsClient({
           it. It moved DOWN to sit beside the tabs it governs, which is what
           rung four asks for: a sentence a page needs goes in the page, next to
           the thing it is about. */}
-      <PageMasthead title="Connection Logs" />
+      <PageMasthead title="Problems" />
+
+      {problems}
+
+      <h2 className="m-label-mono pt-2 text-[11px] uppercase tracking-[0.18em] text-[#8A6B39]">
+        Every trace
+      </h2>
 
       {/* Stats + live indicator */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -348,7 +364,7 @@ function LogRow({
   onIgnore: () => void;
   pending: boolean;
 }) {
-  const meta = TYPE_META[row.event_type];
+  const meta = metaOf(row.event_type);
   const isActive = row.status === 'active';
   return (
     <li className="m-card group flex items-start gap-3 px-4 py-3">
@@ -447,7 +463,7 @@ function EmptyState({ tab }: { tab: 'active' | 'resolved' }) {
 }
 
 function InspectModal({ row, onClose }: { row: FaultLogRow; onClose: () => void }) {
-  const meta = TYPE_META[row.event_type];
+  const meta = metaOf(row.event_type);
   // Mounts only while a row is selected, so mount = open.
   const dialogRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open: true, onClose, containerRef: dialogRef });

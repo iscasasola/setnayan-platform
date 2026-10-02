@@ -18,8 +18,15 @@
  * key count are bounded. Call sites should still pass diagnostic context (ids,
  * counts, status codes, flags) rather than raw records.
  *
- * Pure module (no imports) so it is safe to use from server or client.
+ * VALUES TOO (2026-10-02): a key named `note` can still hold "call Maria
+ * Santos at 0917…". String values now pass through `scrubText` (emails,
+ * phones, quoted values, names), not only PII-shaped KEYS.
+ *
+ * Pure module (imports only the pure fault-normalize) so it is safe to use
+ * from server or client.
  */
+
+import { scrubText } from './fault-normalize';
 
 const REDACT_KEY =
   /(e[-_]?mail|name|phone|mobile|contact|token|secret|pass(word|wd)?|pwd|auth|session|cookie|jwt|bearer|address|street|barangay|city|province|zip|postal|dob|birth|ssn|tin|gov|passport|licen[sc]e|card|iban|account[-_]?no|otp|\bpin\b|latitude|longitude|\blat\b|\blng\b|\blon\b|geo|coord)/i;
@@ -36,7 +43,7 @@ function redactValue(value: unknown, depth: number): unknown {
 
   const t = typeof value;
   if (t === 'string') {
-    const s = value as string;
+    const s = scrubText(value as string, MAX_STRING + 1, { keepIds: true });
     return s.length > MAX_STRING ? `${s.slice(0, MAX_STRING)}…[truncated]` : s;
   }
   if (t === 'number' || t === 'boolean') return value;

@@ -2193,7 +2193,7 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     scope: "admin",
     area: "admin-sidebar",
     route: "/admin/connection-logs",
-    label: "Connection logs",
+    label: "Problems",
     labelKind: "literal",
     iconKind: "lucide",
     lucideName: "Bug",

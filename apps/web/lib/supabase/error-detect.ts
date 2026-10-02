@@ -157,6 +157,26 @@ export function logQueryError(
     };
     if (typeof window === 'undefined') {
       Sentry.captureException(err, hint);
+      // 📋 THE PROBLEMS LIST (2026-10-02). A PostgREST error that carries a
+      // `code` came back as an HTTP response, and the fetch layer every server
+      // client rides (lib/supabase/db-error-log.ts) has ALREADY recorded it —
+      // recording it again here would split one failure into two issues. What
+      // only this helper sees is the rest: a thrown exception, a storage or
+      // auth error, a timeout — anything that never was a PostgREST response.
+      // Those are recorded under this call site's name. Lazily imported (the
+      // recorder is server-only; this module also reaches the browser).
+      if (!(error as SupabaseErrorShape)?.code && !callSite.startsWith('lib/telemetry/')) {
+        void import('@/lib/telemetry/fault-log')
+          .then((m) =>
+            m.recordFault({
+              kind: 'SERVER_THROWN',
+              action: callSite,
+              message: err.message,
+              trace: { call_site: callSite, severity },
+            }),
+          )
+          .catch(() => {});
+      }
     } else {
       // ⚡ IN THE BROWSER, ASK FOR THE SDK INSTEAD OF IMPORTING IT (the diet,
       // 2026-10-01). Client modules reach this file (the event layout's unread

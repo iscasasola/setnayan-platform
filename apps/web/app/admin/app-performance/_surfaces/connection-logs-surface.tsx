@@ -3,7 +3,9 @@
 // studio. Its actions/_components stay under /admin/connection-logs; the legacy
 // route is now a redirect into /admin/app-performance?tab={tab}.
 /**
- * /admin/connection-logs — Connection Logs dashboard (real-time fault tracker).
+ * /admin/connection-logs — PROBLEMS (the person-facing name since 2026-10-02;
+ * code names and the route keep "connection logs"). The grouped issue list
+ * (./problems-list.tsx) sits on top; the per-occurrence trace stream below.
  *
  * WHY · Operator-facing view of front-end faults captured by trackFailure():
  *       broken buttons, failed Supabase saves, and blank fallbacks. Distinct
@@ -30,6 +32,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { ConnectionLogsClient, type FaultLogRow } from '@/app/admin/connection-logs/connection-logs-client';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+
+import { ProblemsList } from './problems-list';
 
 const ROW_LIMIT = 200;
 const SELECT_COLS =
@@ -77,6 +81,7 @@ export async function ConnectionLogsSurface() {
       initialActive={(activeData ?? []) as FaultLogRow[]}
       initialResolved={(resolvedData ?? []) as FaultLogRow[]}
       rowLimit={ROW_LIMIT}
+      problems={<ProblemsList />}
     />
   );
 }

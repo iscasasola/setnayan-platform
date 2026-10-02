@@ -131,6 +131,27 @@ export function DeferredObservability() {
     }
   }, []);
 
+  // 📋 THE PROBLEMS OBSERVER (2026-10-02, "every action that fails is
+  // recorded"). One listener set for the whole app — action timeouts and
+  // returned errors, dead/rage taps, dead ends, crashes, flow drop-off — loaded
+  // at idle as its OWN chunk, so the first load carries only this import()
+  // call. Independent of the Sentry DSN: the Problems list is ours.
+  useEffect(() => {
+    let cancelled = false;
+    const cancelIdle = scheduleIdle(() => {
+      if (cancelled) return;
+      void import('@/lib/telemetry/fault-observer')
+        .then((m) => {
+          if (!cancelled) m.installFaultObserver();
+        })
+        .catch(() => {});
+    });
+    return () => {
+      cancelled = true;
+      cancelIdle();
+    };
+  }, []);
+
   useEffect(() => {
     if (!SENTRY_DSN) return;
 

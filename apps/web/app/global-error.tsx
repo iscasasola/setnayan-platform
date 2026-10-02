@@ -70,6 +70,12 @@ export default function GlobalError({ error, reset }: Props) {
       .catch(() => {
         /* observability is best-effort — never let it crash the crash page */
       });
+    // 📋 Problems list — a browser-born crash is recorded (a server-born one,
+    // with a digest, was already recorded by onRequestError). Lazy: this
+    // boundary pays nothing for it until it renders.
+    void import('@/lib/telemetry/report-crash')
+      .then((m) => m.reportCrash(error, 'global'))
+      .catch(() => {});
   }, [error]);
 
   return (

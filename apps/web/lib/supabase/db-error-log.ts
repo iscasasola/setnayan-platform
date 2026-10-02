@@ -35,6 +35,8 @@
  * message ("column events.venue does not exist") names schema, not people.
  */
 
+import { classifyPostgrest, isTargetedWrite, type PostgrestVerdict } from '@/lib/telemetry/fault-normalize';
+
 /** PostgREST error envelope. `details` is deliberately NOT read — it can echo row values. */
 type PostgrestErrorBody = {
   code?: unknown;
@@ -82,22 +84,109 @@ function describe(body: string): string {
 }
 
 /**
+ * Where a classified response goes. The default records it on the Problems
+ * list (lib/telemetry/server-fault.ts, loaded lazily so this module stays
+ * import-free and edge-safe); tests pass their own.
+ */
+export type DbFaultSink = {
+  verdict: (v: NonNullable<PostgrestVerdict>, extra: Record<string, unknown>) => void;
+  unreachable: (target: string, err: unknown) => void;
+};
+
+const defaultSink: DbFaultSink = {
+  verdict(v, extra) {
+    if (process.env.NEXT_RUNTIME === 'edge') return;
+    void import('@/lib/telemetry/server-fault')
+      .then((m) => m.recordDbVerdict(v, extra))
+      .catch(() => {});
+  },
+  unreachable(target, err) {
+    if (process.env.NEXT_RUNTIME === 'edge') return;
+    void import('@/lib/telemetry/server-fault')
+      .then((m) => m.recordDbUnreachable(target, err))
+      .catch(() => {});
+  },
+};
+
+/**
+ * One RECORD per identical failure per 5 s per process. The console line keeps
+ * its own once-per-process dedupe above; the record is per-occurrence-ish so
+ * the issue's count means something, but a page tree that renders the same
+ * failing query twenty times in one request is one hit, not twenty.
+ */
+const recordedAt = new Map<string, number>();
+function shouldRecord(key: string, now = Date.now()): boolean {
+  const last = recordedAt.get(key);
+  if (last !== undefined && now - last < 5_000) return false;
+  if (recordedAt.size > 1_000) recordedAt.clear();
+  recordedAt.set(key, now);
+  return true;
+}
+
+function errorFields(body: string): { code: string | null; message: string | null } {
+  try {
+    const parsed = JSON.parse(body) as PostgrestErrorBody;
+    return {
+      code: typeof parsed.code === 'string' ? parsed.code : null,
+      message: typeof parsed.message === 'string' ? parsed.message : null,
+    };
+  } catch {
+    return { code: null, message: body.slice(0, 200) };
+  }
+}
+
+function methodOf(input: unknown, init: RequestInit | undefined): string {
+  if (init?.method) return init.method.toUpperCase();
+  if (input && typeof input === 'object' && 'method' in input) return String((input as Request).method).toUpperCase();
+  return 'GET';
+}
+
+/**
  * Wrap `fetch` so non-2xx PostgREST responses are reported. The response is
  * returned untouched — we read a `clone()`, so the caller's body is unconsumed.
  *
  * `/auth/v1/` is skipped: a 400 from the token endpoint is the ordinary
  * "refresh token expired" path and is handled by the auth client.
  */
-export function createLoggingFetch(label: string): typeof fetch {
+export function createLoggingFetch(label: string, sink: DbFaultSink = defaultSink): typeof fetch {
   return async function loggingFetch(input, init) {
-    const res = await fetch(input as Parameters<typeof fetch>[0], init);
+    let res: Response;
     try {
-      if (res.ok) return res;
+      res = await fetch(input as Parameters<typeof fetch>[0], init);
+    } catch (err) {
+      // No answer at all (DNS, reset, timeout). Recorded, then re-thrown
+      // unchanged — the caller's own error path is untouched.
+      try {
+        const url = typeof input === 'string' ? input : (input as Request | URL).toString();
+        if (url.includes('/rest/v1/') && shouldRecord(`unreachable ${safePath(url)}`)) {
+          sink.unreachable(safePath(url).replace(/^.*\/rest\/v1\//, ''), err);
+        }
+      } catch {
+        /* never mask the original error */
+      }
+      throw err;
+    }
+    try {
       const url = typeof input === 'string' ? input : (input as Request | URL).toString();
       if (!url.includes('/rest/v1/') && !url.includes('/storage/v1/')) return res;
+      const method = methodOf(input, init);
+
+      if (res.ok) {
+        // Only a TARGETED PATCH/DELETE can be "saved, but nothing written".
+        if ((method === 'PATCH' || method === 'DELETE') && isTargetedWrite(url)) {
+          const contentRange = res.headers.get('content-range');
+          const bodyText = contentRange?.startsWith('*/') ? '' : await res.clone().text();
+          const verdict = classifyPostgrest({ method, url, status: res.status, contentRange, bodyText });
+          if (verdict && shouldRecord(`${verdict.kind} ${verdict.action}`)) {
+            sink.verdict(verdict, { status: res.status });
+          }
+        }
+        return res;
+      }
 
       const path = safePath(url);
-      const detail = describe(await res.clone().text());
+      const text = await res.clone().text();
+      const detail = describe(text);
       const key = `${res.status} ${path} ${detail}`;
       if (shouldLog(key)) {
         console.error(
@@ -105,6 +194,14 @@ export function createLoggingFetch(label: string): typeof fetch {
             '    ^ this query FAILED. Any `data ?? []` downstream is rendering an ' +
             'empty result for a broken query, not an empty table.',
         );
+      }
+      if (url.includes('/rest/v1/')) {
+        const { code, message } = errorFields(text);
+        // The query string is NOT passed on — it carries filter VALUES.
+        const verdict = classifyPostgrest({ method, url: path, status: res.status, errorCode: code, errorMessage: message });
+        if (verdict && shouldRecord(`${verdict.kind} ${verdict.action} ${verdict.message}`)) {
+          sink.verdict(verdict, { status: res.status, code, client: label });
+        }
       }
     } catch {
       // The logger must never change what the caller sees.

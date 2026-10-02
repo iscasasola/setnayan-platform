@@ -129,7 +129,7 @@ export function sceneTypeWrite(
     return { ok: false, reason: `${label}: those characters cannot be used here.` };
   }
   if (!words && field !== 'title') {
-    return { ok: false, reason: `${label} cannot be left empty — to take them off the page, tap Hide.` };
+    return { ok: false, reason: `${label} cannot be left empty — to take the words off the page, tap Hide.` };
   }
   if (field === 'message') {
     return { ok: true, writeKey: 'events:special_message', patch: { events: { special_message: words } }, words };
@@ -140,7 +140,7 @@ export function sceneTypeWrite(
   if (!CUSTOM_TYPE.test(widgetType)) return { ok: false, reason: `${label}: this scene's words are not typed here.` };
   const base = own ?? { title: '', body: '' };
   const custom = field === 'title' ? { title: words, body: base.body } : { title: base.title, body: words };
-  if (!custom.body) return { ok: false, reason: 'Words cannot be left empty — to take them off the page, tap Hide.' };
+  if (!custom.body) return { ok: false, reason: 'Words cannot be left empty — to take the words off the page, tap Hide.' };
   return {
     ok: true,
     writeKey: `custom:${widgetType}`,

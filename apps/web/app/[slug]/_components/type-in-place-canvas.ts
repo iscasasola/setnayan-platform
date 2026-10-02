@@ -59,6 +59,23 @@ export function typeablePart(part: HTMLElement | null, key: string): HubElementK
   return el && (HUB_TYPE_PARTS as readonly string[]).includes(el) ? el : null;
 }
 
+/**
+ * The Maker's `typeHere` list, read on the canvas — dropped rather than
+ * repaired, like every message the bridge reads: only scene keys, known fields,
+ * strings, and a sane number of them.
+ */
+export function readSceneTypeWords(raw: unknown): SceneTypeWords[] {
+  if (!Array.isArray(raw)) return [];
+  const out: SceneTypeWords[] = [];
+  for (const p of raw.slice(0, 64)) {
+    const m = p as Record<string, unknown> | null;
+    if (!m || typeof m.key !== 'string' || !m.key.startsWith('w:') || m.key.length > 64) continue;
+    if (!isSceneTypeField(m.field) || typeof m.text !== 'string' || m.text.length > 4000) continue;
+    out.push({ key: m.key, field: m.field, text: m.text });
+  }
+  return out;
+}
+
 /** ✍ A scene's part the Maker offered to type in (`markSceneWords`) — the field its words are. */
 export function sceneTypeField(part: HTMLElement | null): SceneTypeField | null {
   const f = part?.getAttribute('data-el-field');

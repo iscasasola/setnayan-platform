@@ -35,7 +35,7 @@ import React from 'react';
 import { stripComments } from '@/lib/strip-comments';
 import { HUB_DRAFT_TEXT_MAX, emptyHubDraft, mergeHubDraft } from '@/lib/hub-draft';
 import { CUSTOM_SECTION_TYPES, CUSTOM_COLUMN_BODY_MAX, CUSTOM_COLUMN_TITLE_MAX } from '@/lib/custom-sections';
-import { readSceneTypeWords, readTypeStart, type SceneTypeWords } from '@/lib/hub-part-words';
+import { readTypeStart, type SceneTypeWords } from '@/lib/hub-part-words';
 import { SCENE_WORDS_TEXT_MAX, sceneFieldMax, sceneTypeWords, sceneTypeWrite } from '@/lib/scene-type-words';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { NO_SCENE_FACTS } from './scene-template';
@@ -363,7 +363,7 @@ test('R1c · a message changed “just here”, an empty scene, and a stale word
   const page = canvas(everyScene());
   const stale = offered(everyScene()).map((p) => ({ ...p, text: `${p.text} (older words)` }));
   assert.deepEqual(canvasHalf.markSceneWords(page as unknown as Document, stale), [], 'words the page does not show are never typed into');
-  assert.deepEqual(readSceneTypeWords([{ key: 'f:hero', field: 'message', text: 'x' }, { key: 'w:x', field: 'nope', text: 'x' }, 'junk']), [], 'the canvas reads only scene keys and known fields');
+  assert.deepEqual(canvasHalf.readSceneTypeWords([{ key: 'f:hero', field: 'message', text: 'x' }, { key: 'w:x', field: 'nope', text: 'x' }, 'junk']), [], 'the canvas reads only scene keys and known fields');
 });
 
 /* ═══ R2 · A TAP PUTS THE CARET IN, IN THE TAP ═══ */

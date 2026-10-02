@@ -28,8 +28,7 @@ import { findMakerSection, sectionAfter } from './maker-section-find';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
-import { createCanvasTyping, markSceneWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
-import { readSceneTypeWords } from '@/lib/hub-part-words';
+import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync

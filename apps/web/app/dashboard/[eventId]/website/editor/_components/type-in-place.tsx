@@ -323,7 +323,7 @@ export function TypeBar(p: TypeBarProps) {
       (reason) => {
         if (custom) noteDraftedOwnWords(sceneType, own, props.current.ownWords ?? null);
         props.current.broadcast({ source: 'setnayan-editor', t: 'typeText', key: session.key, el, field, text: savedScene.current });
-        const said = `${SCENE_FIELD_LABEL[field]} did not save${reason ? ` — ${reason}` : ''}. They are back as they were.`;
+        const said = `${SCENE_FIELD_LABEL[field]}: the new words did not save${reason ? ` — ${reason}` : ''}. The words are back as they were.`;
         setError(said);
         announceMakerSave({ state: 'error', text: said });
       },

@@ -14,6 +14,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { parsePaxSettingsForm } from '@/lib/pax-settings-form';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { STEPS, type StepKey } from '@/lib/planner';
@@ -1166,20 +1167,11 @@ export async function updatePaxSettings(formData: FormData): Promise<GovernedFie
   if (typeof eventId !== 'string' || !eventId) {
     return { ok: false, code: 'invalid_input', message: 'event_id required' };
   }
-  // Deadline: empty clears it (back to the auto default); else a valid ISO date.
-  const deadlineRaw =
-    typeof formData.get('guest_list_edit_deadline') === 'string'
-      ? (formData.get('guest_list_edit_deadline') as string).trim()
-      : '';
-  let deadline: string | null = null;
-  if (deadlineRaw !== '') {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(deadlineRaw) || Number.isNaN(Date.parse(`${deadlineRaw}T00:00:00Z`))) {
-      return { ok: false, code: 'invalid_input', message: 'Enter a valid date.' };
-    }
-    deadline = deadlineRaw;
-  }
-  const modeRaw = formData.get('adaptive_pricing_mode');
-  const mode = modeRaw === 'final_only' ? 'final_only' : 'realtime';
+  // The two columns are written TOGETHER, so every form posting here carries
+  // both (a form that shows one carries the other hidden) — lib/pax-settings-form.ts.
+  const parsed = parsePaxSettingsForm(formData);
+  if (!parsed.ok) return { ok: false, code: 'invalid_input', message: parsed.message };
+  const { deadline, mode } = parsed;
 
   const supabase = await createClient();
   const {

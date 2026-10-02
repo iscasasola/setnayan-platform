@@ -300,7 +300,7 @@ export async function InvitePanel({
           <span className="font-semibold">{GUESTS_GET_IN_LABEL}</span>{' '}
           <span className="text-ink/70">{getIn ?? 'We couldn’t read this just now'}</span>
         </span>
-        <span className="shrink-0 text-xs font-medium text-ink/55">Change in Your info</span>
+        <span className="shrink-0 text-xs font-medium text-ink/55">Change in Event Details</span>
       </Link>
 
       {pendingClaims > 0 ? (

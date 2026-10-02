@@ -57,9 +57,10 @@ import { formatCount } from '@/lib/format-number';
  *                                   Event Details read the same)
  *   · Reply by                     (the couple's deadline, or 30 days before) —
  *                                   a date field RIGHT HERE (Details part 2b; owner
- *                                   rule "no link-outs"), the same column and the
- *                                   same save as Details › pax settings
- *                                   (`updatePaxSettings`): one column, two doors
+ *                                   rule "no link-outs") — the column's ONE
+ *                                   editor (`updatePaxSettings`); Event settings'
+ *                                   Pricing card only carries it back hidden
+ *                                   (audit HOLD, train d 2026-10-02)
  *   (· Reminder emails — REMOVED 2026-09-29: no email to guests, owner ruling;
  *      `GUEST_REMINDER_EMAILS_ON` in lib/guest-reminder-emails-core.ts)
  *   · Requests waiting             — the shipped Requests rows (Keep · Remove ·
@@ -669,9 +670,10 @@ function Switch({
 
 /**
  * THE REPLY-BY DATE, TYPED WHERE IT IS SHOWN. `events.guest_list_edit_deadline`
- * — the column the Details page's "Guest list & pricing" card writes, through
- * the SAME action (`updatePaxSettings`, which writes the pricing view beside it,
- * so the current one is posted back unchanged). Empty = back to the default.
+ * — its ONE editor (Event settings' Pricing card no longer shows it; it only
+ * posts the stored date back hidden, `lib/pax-settings-form.ts`). Saved through
+ * `updatePaxSettings`, which writes the pricing view beside it, so the current
+ * one is posted back unchanged. Empty = back to the default.
  * It is not drafted — the deadline is the guest list's, not the Event Hub's
  * look — so it says it saves immediately.
  */

@@ -265,9 +265,9 @@ export function termsLine(rows: readonly ServiceCardScheduleRow[]): string | nul
   if (!dp) return null;
   const parts: string[] = [];
   if (dp.cancellation_terms?.trim()) parts.push(dp.cancellation_terms.trim());
-  if (dp.downpayment_non_refundable) parts.push(`${dp.label || 'Downpayment'} non-refundable`);
+  if (dp.downpayment_non_refundable) parts.push(`${dp.label || 'First payment'} non-refundable`);
   if (dp.refund_window_days != null && dp.refund_window_days > 0) parts.push(`refund window ${dp.refund_window_days} days`);
-  if (dp.no_show_forfeit) parts.push('no-show forfeits the downpayment');
+  if (dp.no_show_forfeit) parts.push('no-show forfeits the first payment');
   return parts.length ? parts.join(' · ') : null;
 }
 
@@ -283,7 +283,7 @@ export function scheduleFromCard(rows: readonly ServiceCardScheduleRow[]): Quote
   for (const r of sorted) {
     const due = r.due_anchor === 'before_event' ? 'before_event' : 'on_lock';
     const offsetDays = Math.max(0, Math.round(num(r.due_offset_days)));
-    const label = (r.label ?? '').trim() || (r.seq === 0 ? 'Downpayment' : `Payment ${r.seq}`);
+    const label = (r.label ?? '').trim() || (r.seq === 0 ? 'First payment' : `Payment ${r.seq}`);
     if (r.amount_kind === 'percent' && r.percent_bps != null && num(r.percent_bps) > 0) {
       manual.push({ label, kind: 'percent', amountPhp: null, percent: num(r.percent_bps) / 100, due, offsetDays });
     } else if (r.amount_centavos != null && num(r.amount_centavos) > 0) {

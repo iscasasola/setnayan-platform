@@ -248,7 +248,7 @@ export function decideDepositAmount(args: {
 }): DepositAmountDecision {
   const { amountPhp, minimumCentavos } = args;
   if (amountPhp === null || !Number.isFinite(amountPhp) || amountPhp <= 0) {
-    return { ok: false, message: 'Enter the deposit amount you paid.' };
+    return { ok: false, message: 'Enter the payment amount you paid.' };
   }
   const amountCentavos = Math.round(amountPhp * 100);
   if (minimumCentavos !== null && minimumCentavos > 0 && amountCentavos < minimumCentavos) {
@@ -471,7 +471,7 @@ export function decideDepositRecord(args: {
         : '';
     return {
       ok: false,
-      message: `You've already logged a payment to ${who}${amount}, so recording a deposit now would count that money twice. If that payment was your deposit, delete it from your payments list, then record it here.`,
+      message: `You've already logged a payment to ${who}${amount}, so recording a payment now would count that money twice. If that payment was your first payment, delete it from your payments list, then record it here.`,
     };
   }
   return { ok: true, insertLedgerRow: true };

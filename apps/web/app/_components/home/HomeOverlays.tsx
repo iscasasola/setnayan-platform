@@ -303,7 +303,7 @@ function VendorsOverlay({ current, onClose }: { current: OverlayId; onClose: () 
         <li>Get verified — free</li>
         <li>
           Complete business tools
-          <span>bookings · contracts · calendar · proposals</span>
+          <span>bookings · contracts · calendar · quotes</span>
         </li>
         <li>Free sync of all your clients</li>
       </ul>

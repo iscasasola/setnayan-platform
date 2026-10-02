@@ -88,7 +88,7 @@ export function PaymentPlanRows({
     (initial && initial.length > 0
       ? initial
       : [
-          { label: 'Downpayment', kind: 'percent' as const, value: '50', anchor: 'on_lock' as const, days: '0' },
+          { label: 'First payment', kind: 'percent' as const, value: '50', anchor: 'on_lock' as const, days: '0' },
           { label: 'Balance', kind: 'percent' as const, value: '50', anchor: 'before_event' as const, days: '7' },
         ]
     ).map((r, i) => ({ ...r, key: i })),
@@ -202,7 +202,7 @@ export function PaymentPlanRows({
                 value={r.label}
                 disabled={disabled}
                 maxLength={60}
-                placeholder="Downpayment"
+                placeholder="First payment"
                 aria-label={`Payment ${i + 1} name`}
                 onChange={(e) => patch(r.key, { label: e.target.value })}
                 className={`${CELL} min-w-0 flex-1`}

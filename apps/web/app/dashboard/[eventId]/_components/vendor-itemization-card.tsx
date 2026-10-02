@@ -805,7 +805,7 @@ function LineItemSection({
           {!hasManual ? (
             <div className="space-y-2">
               <p className="text-xs text-ink/55">
-                No line items yet — add a Deposit, Balance, or Tip below.
+                No line items yet — add a First payment, Balance, or Tip below.
               </p>
               {/* One-click split — only when there's a total to divide. Seeds an
                   editable Deposit 50% + Balance 50% so the live "next payments"
@@ -825,7 +825,7 @@ function LineItemSection({
               name="label"
               required
               maxLength={64}
-              placeholder="Label (e.g. Deposit)"
+              placeholder="Label (e.g. First payment)"
               className="input-field col-span-2 h-9 py-0 text-xs"
             />
             <input
@@ -1014,7 +1014,7 @@ function PaymentSection({
         </div>
       ) : paymentDoor === 'unknown' ? (
         <p role="status" className="border-t border-ink/10 pt-3 text-xs text-ink/60">
-          We couldn&rsquo;t check whether your deposit to {vendorName} is
+          We couldn&rsquo;t check whether your payment to {vendorName} is
           recorded, so logging a payment is paused. Refresh to try again.
         </p>
       ) : (
@@ -1039,10 +1039,10 @@ function PaymentSection({
           <select
             name="schedule_instance_seq"
             defaultValue=""
-            aria-label="Which installment?"
+            aria-label="Which payment?"
             className="input-field col-span-2 h-9 py-0 text-xs sm:col-span-4"
           >
-            <option value="">Not tied to an installment</option>
+            <option value="">Not tied to a payment</option>
             {planInstallments.map((inst) => (
               <option key={inst.seq} value={inst.seq}>
                 {inst.label}

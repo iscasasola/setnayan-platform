@@ -208,20 +208,20 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
       ) : null}
       {sp.proposed ? (
         <FormFlash tone="success">
-          Proposal sent. The other vendor will see it in their partnerships inbox — the
+          Request sent. The other vendor will see it in their partnerships inbox — the
           badge goes live once they accept.
         </FormFlash>
       ) : null}
       {sp.accepted ? (
         <FormFlash tone="success">Partnership accepted — the badge is now live on both profiles.</FormFlash>
       ) : null}
-      {sp.declined ? <FormFlash tone="success">Proposal declined.</FormFlash> : null}
-      {sp.withdrawn ? <FormFlash tone="success">Proposal withdrawn.</FormFlash> : null}
+      {sp.declined ? <FormFlash tone="success">Request declined.</FormFlash> : null}
+      {sp.withdrawn ? <FormFlash tone="success">Request withdrawn.</FormFlash> : null}
 
       {/* ── INCOMING PROPOSALS (accept / decline) ─────────────────────────── */}
       <section className="mb-8">
         <h2 className="mb-3 flex items-center gap-2 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          <Inbox className="h-3.5 w-3.5" /> Incoming proposals ({incoming.length})
+          <Inbox className="h-3.5 w-3.5" /> Incoming requests ({incoming.length})
         </h2>
         {!partnershipsMeasured ? (
           <p
@@ -229,13 +229,13 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
             className="rounded-xl border-t-[3px] border-mulberry/70 bg-mulberry/5 px-4 py-3 text-sm text-ink/70"
           >
             <strong className="text-ink">We couldn&rsquo;t load your partnerships.</strong>{' '}
-            Proposals, partners and sent invitations are all missing from this
+            Requests, partners and sent invitations are all missing from this
             page because the read failed &mdash; not because there are none.
             Reload before assuming nobody has written to you.
           </p>
         ) : incoming.length === 0 ? (
           <p className="rounded-xl border border-dashed border-ink/15 px-4 py-6 text-center text-sm text-ink/45">
-            No pending proposals. When another vendor proposes a partnership with you, it
+            No pending requests. When another vendor proposes a partnership with you, it
             shows up here to accept or decline.
           </p>
         ) : (
@@ -383,7 +383,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
           <div>
             <h2 className="text-base font-semibold text-ink">Propose a partnership</h2>
             <p className="text-xs text-ink/55">
-              Pick a vendor and a partnership type. They&apos;ll get a proposal to accept —
+              Pick a vendor and a partnership type. They&apos;ll get a request to accept —
               once they do, the badge goes live on both profiles.
             </p>
           </div>
@@ -459,7 +459,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
               pendingLabel="Sending…"
               className="rounded-md bg-ink px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-ink/90"
             >
-              Send proposal
+              Send request
             </SubmitButton>
             <p className="mt-2 text-xs text-ink/45">
               The other vendor decides whether to accept. Nothing goes public until they do.

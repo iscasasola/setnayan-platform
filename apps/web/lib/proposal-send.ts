@@ -107,7 +107,7 @@ async function gateVendorProposalThread(
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return { ok: false, code: 'unauthenticated', message: 'Sign in again to send a proposal.' };
+  if (!user) return { ok: false, code: 'unauthenticated', message: 'Sign in again to send a quote.' };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) return { ok: false, code: 'not_owner', message: 'No vendor profile for this account.' };
@@ -116,12 +116,12 @@ async function gateVendorProposalThread(
   if (!thread || thread.vendor_profile_id !== profile.vendor_profile_id) {
     return { ok: false, code: 'not_owner', message: 'This conversation isn’t yours.' };
   }
-  // A proposal is a real reply — only on an open (accepted) conversation.
+  // A quote is a real reply — only on an open (accepted) conversation.
   if (thread.inquiry_status !== 'accepted') {
     return {
       ok: false,
       code: 'thread_closed',
-      message: 'You can only send a proposal on an open conversation.',
+      message: 'You can only send a quote on an open conversation.',
     };
   }
 
@@ -233,7 +233,7 @@ async function supersedeAndPostCard(
     ? `📄 Updated quote — “${title}” · ${priceLabel}. This replaces the quote you accepted, so please review and accept again.`
     : replacesAny
       ? `📄 Updated quote — “${title}” · ${priceLabel}. This replaces the earlier quote. Tap to review and accept.`
-      : `📄 Proposal — “${title}” · ${priceLabel}. Tap to review and accept.`;
+      : `📄 Quote — “${title}” · ${priceLabel}. Tap to see the quote.`;
   // sender_user_id / sender_role omitted — `authenticated` cannot write either
   // (migration 20271132839561); the DB derives them from auth.uid(). The row
   // still lands as 'vendor' because gateVendorProposalThread has already
@@ -276,7 +276,7 @@ export async function sendProposalCore(
   const { user, profile, thread } = gate;
 
   const templateId = input.templateId?.trim() ?? '';
-  if (!templateId) return { ok: false, code: 'needs_template', message: 'Pick a template to send a proposal.' };
+  if (!templateId) return { ok: false, code: 'needs_template', message: 'Pick a template to send a quote.' };
 
   const eventId = thread.event_id;
 
@@ -286,7 +286,7 @@ export async function sendProposalCore(
     .select('template_id, body, terms, default_package_id')
     .eq('template_id', templateId)
     .maybeSingle();
-  if (!template) return { ok: false, code: 'needs_template', message: 'Pick a template to send a proposal.' };
+  if (!template) return { ok: false, code: 'needs_template', message: 'Pick a template to send a quote.' };
 
   // 2 · Brief — booked threads resolve the rich auto-fill; inquiry threads fall
   // back to a minimal brief (event identity only, no shared planning data).
@@ -329,7 +329,7 @@ export async function sendProposalCore(
   const titleRaw = (input.title ?? '').trim().slice(0, 160);
   const title =
     titleRaw ||
-    `${profile.business_name ?? 'Proposal'} — ${brief.event.display_name ?? 'your event'}`.slice(0, 160);
+    `${profile.business_name ?? 'Quote'} — ${brief.event.display_name ?? 'your event'}`.slice(0, 160);
 
   const validUntil = (input.validUntil ?? '').trim();
 
@@ -368,7 +368,7 @@ export async function sendProposalCore(
     })
     .select('proposal_id, public_id')
     .single();
-  if (insErr || !inserted) return { ok: false, code: 'failed', message: 'Couldn’t send that proposal. Please try again.' };
+  if (insErr || !inserted) return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
 
   // 5b · Booking-fee prepaid SEND-gate RETIRED 2026-07-24 — the fee TRIGGER moved
   // to the LOCK (finalizeVendor → collectBookingFeeAtLock; base = the couple-
@@ -389,7 +389,7 @@ export async function sendProposalCore(
       .delete()
       .eq('proposal_id', inserted.proposal_id)
       .eq('status', 'draft');
-    return { ok: false, code: 'failed', message: 'Couldn’t send that proposal. Please try again.' };
+    return { ok: false, code: 'failed', message: 'Couldn’t send that quote. Please try again.' };
   }
 
   const { cardPosted, priceLabel } = await supersedeAndPostCard(supabase, {

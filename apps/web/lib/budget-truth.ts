@@ -931,7 +931,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
       warnings.push({
         code: 'unreconciled_deposit',
         message:
-          `${v.vendor_name}'s recorded deposit is larger than the payments logged ` +
+          `${v.vendor_name}'s recorded payment is larger than the payments logged ` +
           `against them — the payment log is what we count.`,
         amountPhp: toPhp(depositC - paymentsC),
         vendorId: v.vendor_id,

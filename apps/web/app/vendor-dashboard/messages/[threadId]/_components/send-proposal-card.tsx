@@ -130,7 +130,7 @@ export function SendProposalCard({
             the builder above, so this must not read as "you cannot quote". */}
         Quote the same thing often?{' '}
         <Link href="/vendor-dashboard/proposals" className="font-medium text-mulberry underline hover:text-mulberry-600">
-          Save a proposal template
+          Save a quote template
         </Link>{' '}
         and sending it is one tap from any chat.
       </div>
@@ -152,7 +152,7 @@ export function SendProposalCard({
         </button>
       ) : (
         <form action={sendProposalFromChat} className="space-y-2.5">
-          <p className="text-sm font-semibold text-ink">Send a proposal</p>
+          <p className="text-sm font-semibold text-ink">Send a quote</p>
           <input type="hidden" name="thread_id" value={threadId} />
 
           <label className="block space-y-1">
@@ -252,7 +252,7 @@ export function SendProposalCard({
           />
 
           <p className="text-xs text-ink/55">
-            The proposal appears in this chat. The couple reviews + accepts it — accepting just adds it to
+            The quote appears in this chat. The couple reviews + accepts it — accepting just adds it to
             their plan, never a payment.
           </p>
 
@@ -261,7 +261,7 @@ export function SendProposalCard({
               pendingLabel="Sending…"
               className="inline-flex h-10 items-center rounded-lg bg-mulberry px-4 text-sm font-semibold text-cream hover:bg-mulberry-600"
             >
-              Send proposal
+              Send quote
             </SubmitButton>
             <button
               type="button"

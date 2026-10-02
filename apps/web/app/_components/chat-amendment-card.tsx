@@ -147,7 +147,7 @@ export function ChatAmendmentCard({
       <div className="border-t border-ink/10 px-3.5 py-3">
         {data.baseTotalCentavos != null ? (
           <p className="mb-2 text-[13px] text-ink/60">
-            Current proposal: ₱{(data.baseTotalCentavos / 100).toLocaleString('en-PH')}
+            Current quote: ₱{(data.baseTotalCentavos / 100).toLocaleString('en-PH')}
           </p>
         ) : null}
 

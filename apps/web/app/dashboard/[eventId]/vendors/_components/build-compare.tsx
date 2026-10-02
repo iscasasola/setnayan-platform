@@ -544,7 +544,7 @@ export function BuildCompare({
       {rows.length === 0 ? (
         <div className="sn-tile px-4 py-10 text-center text-sm text-ink/60">
           {replan
-            ? 'No suppliers yet. Add some candidates from the bench, then save them under a name to compare plans side by side.'
+            ? 'No suppliers yet. Add some candidates from your Saved list, then save them under a name to compare plans side by side.'
             : 'No vendors in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
         </div>
       ) : (

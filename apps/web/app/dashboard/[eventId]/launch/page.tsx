@@ -895,7 +895,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       <section className="mt-10">
         <header className="space-y-1">
           <p className="sn-eye">
-            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> On the day
+            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> The Day
           </p>
           <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
             {standing.phase === 'dayof' ? 'Running now' : 'What runs on the day'}

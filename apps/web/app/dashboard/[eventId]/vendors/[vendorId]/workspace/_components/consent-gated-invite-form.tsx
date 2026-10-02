@@ -227,7 +227,7 @@ function ConsentModal({
             />
             <span>
               <strong>Can handle payments</strong> — {who} may submit orders,
-              upload payment proof, and record vendor deposits for this event.
+              upload payment proof, and record vendor payments for this event.
             </span>
           </label>
         </div>

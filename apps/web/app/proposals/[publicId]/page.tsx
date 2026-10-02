@@ -38,7 +38,7 @@ import { readBookedMoney, type BookedMoney } from '@/lib/booked-money-step.serve
 import { moneyStepLine, quoteNoteShown } from '@/lib/accepted-quote-terms';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 
-export const metadata = { title: 'Proposal' };
+export const metadata = { title: 'Quote' };
 
 /**
  * Shared proposal detail + print view — data-link program ③ (corpus
@@ -294,7 +294,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
    * opens the proposal, but when i press back, it doesn't go back."*).
    *
    * Every door into this page is a thread door — the chat's quote card, the
-   * Decisions view's "Review & accept", the Payments tab the chat links to —
+   * Decisions view's "See the quote", the Payments tab the chat links to —
    * and the control in the corner walked off to the Vendors bench instead. The
    * thread is resolved from the quote itself, on the same (event_id,
    * vendor_profile_id) pair the workspace uses for its chat deep-link, so the
@@ -428,7 +428,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
       {/* Body */}
       <section className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink/85">
-        {noteShown || 'No proposal text.'}
+        {noteShown || 'No quote text.'}
       </section>
 
       {/* Line items */}
@@ -511,7 +511,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           {schedule.credit_centavos > 0 ? (
             <p className="mt-1 text-xs text-success-700">
               A crew-meal credit of {formatCentavos(schedule.credit_centavos)} is applied to your final
-              payment — your downpayment is unaffected.
+              payment — your first payment is unaffected.
             </p>
           ) : null}
         </section>
@@ -602,7 +602,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           </form>
           <p className="w-full text-xs text-ink/45">
             Sending freezes these numbers — RSVP changes after today won&rsquo;t alter this
-            proposal.
+            quote.
           </p>
         </div>
       ) : null}
@@ -617,7 +617,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               pendingLabel="Accepting…"
               className="inline-flex items-center gap-1.5 rounded-lg bg-success-700 px-4 py-2 text-sm font-medium text-white"
             >
-              <CheckCircle2 aria-hidden className="h-4 w-4" /> Accept proposal
+              <CheckCircle2 aria-hidden className="h-4 w-4" /> Accept quote
             </SubmitButton>
           </form>
           <form action={respondToProposal}>
@@ -683,7 +683,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
       {/* Standing payment disclosure — every payment-adjacent surface. */}
       <footer className="border-t border-ink/10 pt-3 text-[11px] leading-relaxed text-ink/45">
-        Prices on this proposal are set by {businessName}. You pay the vendor directly —
+        Prices on this quote are set by {businessName}. You pay the vendor directly —
         Setnayan never holds this money. Verify account details with your vendor through a
         channel you trust before paying.
       </footer>

@@ -212,7 +212,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: PartyPopper,
-        title: 'On the day',
+        title: 'The Day',
         body: 'From T-1 hour, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces the photo wall. Your guests get the same view, scoped to their seat + role.',
       },
     ],
@@ -589,7 +589,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: LayoutPanelLeft,
         title: 'One place for the four stages',
-        body: 'Save the Date &middot; Invitation &middot; On the Day &middot; Post Event sit along the top. Pick one and the canvas shows that stage, the way your guests will meet it.',
+        body: 'Save the Date &middot; Invitation &middot; The Day &middot; Post Event sit along the top. Pick one and the canvas shows that stage, the way your guests will meet it.',
       },
       {
         Icon: Sparkles,
@@ -1143,7 +1143,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Receipt,
         title: 'Four resolution paths',
-        body: 'Refund (vendor returns deposit minus expenses), Reschedule (services move to a new date), Substitute (equivalent service later), Partial (some delivered, some refunded). Pick one, both parties get an email.',
+        body: 'Refund (vendor returns payment minus expenses), Reschedule (services move to a new date), Substitute (equivalent service later), Partial (some delivered, some refunded). Pick one, both parties get an email.',
       },
     ],
   },

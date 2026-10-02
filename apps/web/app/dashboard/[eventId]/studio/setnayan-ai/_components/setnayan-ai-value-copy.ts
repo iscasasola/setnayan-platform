@@ -164,7 +164,7 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
           id: 'payments',
           title: 'Flags a payment before it’s due',
           body:
-            'Every balance and due date watched, so a deposit deadline never ' +
+            'Every balance and due date watched, so a payment deadline never ' +
             'costs you the booking.',
         },
         {
@@ -327,7 +327,7 @@ export function buildAiValueSpotlights(terms: AiValueTerms): AiValueSpotlight[] 
       chip: 'Your money',
       t: 'It catches the slips that cost money',
       d:
-        'A deposit coming due. A total creeping past your budget while there’s still ' +
+        'A payment coming due. A total creeping past your budget while there’s still ' +
         'room to trim. A vendor you’re watching who quietly changes their price — we ' +
         'keep the figure you were quoted and check it against what they charge now.',
       caps: ['payments', 'budget', 'price_watch'],

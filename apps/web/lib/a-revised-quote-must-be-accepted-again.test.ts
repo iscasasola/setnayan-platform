@@ -4,7 +4,7 @@
  *
  * ── THE TWO DEFECTS ─────────────────────────────────────────────────────────
  * 1. Owner, live, after #5586 served: the quote card read "₱10,170 · Accepted"
- *    and STILL showed "Review & accept". The label was picked by the viewer,
+ *    and STILL showed "See the quote". The label was picked by the viewer,
  *    never by the status.
  * 2. Owner, testing: "vendor cannot edit the proposal." No path existed to
  *    revise a sent quote; the supersede RPC skipped accepted ones by design.
@@ -74,7 +74,7 @@ test('the sweep is not empty and covers every status the schema allows', () => {
   assert.ok(all.length >= 190, `swept ${all.length} combinations — did a list go empty?`);
 });
 
-test('🔴 an accepted quote is NEVER offered "Review & accept" — for anyone, in any state', () => {
+test('🔴 an accepted quote is NEVER offered "See the quote" — for anyone, in any state', () => {
   let checked = 0;
   for (const { label, input } of every()) {
     if (input.status !== 'accepted') continue;
@@ -113,7 +113,7 @@ test('the live pending quote: the couple reviews & accepts or counters; the supp
     for (const handshake of HANDSHAKES) {
       const couple = quoteCardState({ status, isLatest: true, viewer: 'couple', handshake });
       assert.equal(couple.primary.kind, 'review_accept', `${status}/${handshake}: couple not offered accept`);
-      assert.equal(couple.primary.label, 'Review & accept');
+      assert.equal(couple.primary.label, 'See the quote');
       assert.equal(couple.offerCounter, true);
       assert.equal(couple.offerRevise, false, 'a couple is offered Update this quote');
       assert.equal(couple.offerLock, false, 'a pending quote offers Lock');
@@ -159,7 +159,7 @@ test('the live accepted quote: the couple is pointed at Lock only when no lock i
 test('every combination has exactly one primary, and it is one of the two known labels', () => {
   const labels = new Set<string>();
   for (const { input } of every()) labels.add(quoteCardState(input).primary.label);
-  assert.deepEqual([...labels].sort(), ['Review & accept', 'View proposal']);
+  assert.deepEqual([...labels].sort(), ['See the quote', 'View quote']);
 });
 
 /* ── 2 · THE REVISION SEED, EXECUTED ────────────────────────────────────── */
@@ -222,12 +222,12 @@ test('the scan reads every file (an empty read is a green lie)', () => {
   }
 });
 
-test('the card draws its label from the rule — the literal "Review & accept" is gone from the stream', () => {
+test('the card draws its label from the rule — the literal "See the quote" is gone from the stream', () => {
   const s = read(STREAM);
   assert.equal(count(s, /quoteCardState\(/g), 1, 'quoteCardState must be called exactly once, in the proposal branch');
   assert.equal(count(s, /quoteState\.primary\.label/g), 1, 'the primary button must render the rule’s label, once');
-  assert.equal(count(s, /Review & accept/g), 0, 'a hard-coded accept label is back in the stream');
-  assert.equal(count(s, /viewerRole === 'couple' \? 'Review & accept'/g), 0, 'the viewer-only label is back');
+  assert.equal(count(s, /See the quote/g), 0, 'a hard-coded accept label is back in the stream');
+  assert.equal(count(s, /viewerRole === 'couple' \? 'See the quote'/g), 0, 'the viewer-only label is back');
   // Each affordance is gated on the rule, and the gate sits inside the proposal branch.
   const branch = s.slice(s.indexOf('if (m.proposal_id) {'), s.indexOf('if (negotiationOn && m.appointment_id)'));
   assert.ok(branch.length > 1000, `proposal branch window is ${branch.length} chars — slid?`);

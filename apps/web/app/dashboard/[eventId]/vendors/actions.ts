@@ -354,20 +354,20 @@ async function updateVendorStatus(formData: FormData) {
       const acq = await acquireSchedulePools(supabase, eventId, vendorId, poolIds);
       if (acq.status === 'full') {
         throw new Error(
-          `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before marking the deposit paid.`,
+          `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before marking the payment paid.`,
         );
       }
       if (acq.status === 'blocked' || acq.status === 'locked') {
         // PHASE 5: 'locked' is a vendor's explicit hard hold on the date —
         // same couple-facing outcome as a closure block (never who/why).
         throw new Error(
-          "The vendor has closed this date on their calendar — message them before marking the deposit paid.",
+          "The vendor has closed this date on their calendar — message them before marking the payment paid.",
         );
       }
       if (acq.status === 'whitelist') {
         // PHASE 5: the vendor wants to approve bookings on this date first.
         throw new Error(
-          "This date needs the vendor to confirm before it can be booked — message them before marking the deposit paid.",
+          "This date needs the vendor to confirm before it can be booked — message them before marking the payment paid.",
         );
       }
       if (acq.status === 'error') {
@@ -499,7 +499,7 @@ export async function deleteVendor(formData: FormData) {
   const removingStatus = (removing as { status?: VendorStatus } | null)?.status;
   if (removingStatus && DOWNPAID_STATUSES.has(removingStatus)) {
     throw new Error(
-      'This vendor is already booked (downpayment recorded). Use the cancel flow on their workspace page instead of deleting.',
+      'This vendor is already booked (first payment recorded). Use the cancel flow on their workspace page instead of deleting.',
     );
   }
 
@@ -1454,7 +1454,7 @@ export async function finalizeVendor(
     }
     dpAmountPhp = parseMoney(formData.get('deposit_php'));
     if (dpAmountPhp === null || dpAmountPhp <= 0) {
-      return { status: 'error', message: 'Enter the downpayment amount you paid.' };
+      return { status: 'error', message: 'Enter the first payment amount you paid.' };
     }
     const lockMinimum = await readLockMinimum();
     if (!lockMinimum.ok) {
@@ -2816,8 +2816,8 @@ export async function finalizeVendor(
             await emitNotification({
               userId: vendorUserId,
               type: 'payment_logged',
-              title: 'Downpayment submitted — please confirm',
-              body: `A couple submitted their lock downpayment via ${methodLabel} and the date is held. Open the client to confirm you received it.`,
+              title: 'First payment submitted — please confirm',
+              body: `A couple submitted their first payment via ${methodLabel} and the date is held. Open the client to confirm you received it.`,
               relatedUrl: `/vendor-dashboard/clients/${eventId}`,
             });
           }
@@ -4503,7 +4503,7 @@ export async function recordDeposit(
   }
   const amountPhp = parseMoney(formData.get('deposit_php'));
   if (amountPhp === null || amountPhp <= 0) {
-    return { status: 'error', message: 'Enter the deposit amount you paid.' };
+    return { status: 'error', message: 'Enter the payment amount you paid.' };
   }
 
   const supabase = await createClient();
@@ -4669,7 +4669,7 @@ export async function recordDeposit(
       if (acq.status === 'full') {
         return {
           status: 'error',
-          message: `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before recording the deposit.`,
+          message: `That date is fully booked for ${acq.poolLabel || 'this category'} on the vendor's schedule — message the vendor or adjust the date before recording the payment.`,
         };
       }
       if (acq.status === 'blocked' || acq.status === 'locked') {
@@ -4677,14 +4677,14 @@ export async function recordDeposit(
         // outcome identical to a closure block (privacy lock — never who/why).
         return {
           status: 'error',
-          message: "The vendor has closed this date on their calendar — message them before recording the deposit.",
+          message: "The vendor has closed this date on their calendar — message them before recording the payment.",
         };
       }
       if (acq.status === 'whitelist') {
         // PHASE 5: the vendor wants to approve bookings on this date first.
         return {
           status: 'error',
-          message: "This date needs the vendor to confirm before it can be booked — message them before recording the deposit.",
+          message: "This date needs the vendor to confirm before it can be booked — message them before recording the payment.",
         };
       }
       if (acq.status === 'error') {
@@ -4811,7 +4811,7 @@ export async function recordDeposit(
       return {
         status: 'error',
         message:
-          'Could not record the deposit in your payment ledger — nothing was saved. Please try again.',
+          'Could not record the payment in your payment ledger — nothing was saved. Please try again.',
       };
     }
   }
@@ -4830,8 +4830,8 @@ export async function recordDeposit(
       await emitNotification({
         userId: vendorUserId,
         type: 'payment_logged',
-        title: 'Deposit recorded — please confirm',
-        body: 'A couple recorded a deposit for your booking and the date is held. Open the client to confirm you received it.',
+        title: 'Payment recorded — please confirm',
+        body: 'A couple recorded a payment for your booking and the date is held. Open the client to confirm you received it.',
         relatedUrl: `/vendor-dashboard/clients/${eventId}`,
       });
     }

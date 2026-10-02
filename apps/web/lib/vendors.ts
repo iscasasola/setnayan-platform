@@ -243,7 +243,7 @@ export const VENDOR_STATUS_LABEL: Record<VendorStatus, string> = {
   considering: 'Considering',
   shortlisted: 'Shortlisted',
   contracted: 'Contracted',
-  deposit_paid: 'Deposit paid',
+  deposit_paid: 'First payment paid',
   delivered: 'Delivered',
   complete: 'Complete',
 };

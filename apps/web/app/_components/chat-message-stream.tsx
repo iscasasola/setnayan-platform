@@ -344,7 +344,7 @@ export function ChatMessageStream({
   useEffect(() => {
     // S5 · EVERY quote id, refetched whenever the message set changes — not
     // "each id once". A new quote landing over realtime SUPERSEDES the one
-    // before it, and the old card must repaint from "Review & accept" to
+    // before it, and the old card must repaint from "See the quote" to
     // history in the same moment; fetched-once, it kept offering accept on a
     // quote the database would already refuse. Same shape the appointment and
     // amendment cards use. One query per change, RLS-scoped.
@@ -1116,8 +1116,8 @@ export function ChatMessageStream({
               `quoteCardState`, from the quote's status, whether it is the
               latest, who is looking, and the lock handshake. Owner, live,
               2026-09-18: the card read "₱10,170 · Accepted" and still offered
-              "Review & accept". The label used to be chosen by the viewer
-              alone. Now: pending → Review & accept (couple) / Update this
+              "See the quote". The label used to be chosen by the viewer
+              alone. Now: pending → See the quote (couple) / Update this
               quote (supplier); accepted → no accept, a Lock pointer (couple);
               superseded or any earlier quote → history, view only.
             */
@@ -1143,7 +1143,7 @@ export function ChatMessageStream({
                   }`}
                 >
                   <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta">
-                    📄 Proposal
+                    📄 Quote
                   </p>
                   {card && quoteState ? (
                     <>

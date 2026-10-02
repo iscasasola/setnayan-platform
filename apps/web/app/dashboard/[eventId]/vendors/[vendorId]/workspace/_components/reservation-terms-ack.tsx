@@ -44,7 +44,7 @@ export function ReservationTermsAck({
       </div>
 
       <p className="text-[11px] leading-snug text-ink/55">
-        You agreed to {vendorName}&rsquo;s downpayment policy when you locked this
+        You agreed to {vendorName}&rsquo;s first payment policy when you locked this
         booking. These are the exact terms on record — they can&rsquo;t be changed
         after the fact.
       </p>
@@ -54,7 +54,7 @@ export function ReservationTermsAck({
           <li className="flex items-start gap-1.5">
             <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
             <span>
-              The downpayment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
+              The first payment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
               <strong>non-refundable</strong>.
             </span>
           </li>
@@ -63,7 +63,7 @@ export function ReservationTermsAck({
           <li className="flex items-start gap-1.5">
             <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
             <span>
-              A <strong>no-show forfeits</strong> the downpayment.
+              A <strong>no-show forfeits</strong> the first payment.
             </span>
           </li>
         ) : null}

@@ -257,7 +257,7 @@ const STAGE_ORDER: ReadonlyArray<WorkspaceStage> = [
 
 const STAGE_LABEL: Record<WorkspaceStage, string> = {
   plan_finalized: 'Plan finalized',
-  downpayment_paid: 'Downpayment paid',
+  downpayment_paid: 'First payment paid',
   delivered: 'Delivered',
 };
 
@@ -1279,7 +1279,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           const split = splitProposalToCosting(p.total_centavos, p.line_items);
           return {
             id: p.proposal_id,
-            label: p.title?.trim() || 'Proposal',
+            label: p.title?.trim() || 'Quote',
             source: 'proposal' as const,
             servicePesos: split.servicePesos,
             transportPesos: split.transportPesos,
@@ -1830,7 +1830,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   </p>
                 ) : (
                   <p className="text-[11px] text-ink/55">
-                    {displayName} set up this plan. Pay each installment using the
+                    {displayName} set up this plan. Pay each payment using the
                     methods below; {displayName} confirms each as received.
                   </p>
                 )
@@ -3032,10 +3032,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     railBody = `${displayName} marked this delivered. Settle any balance and leave a review.`;
   } else if (stage === 'downpayment_paid') {
     railTitle = 'Keep payments on track';
-    railBody = `Your downpayment is in. Log each payment to ${displayName} as money moves.`;
+    railBody = `Your first payment is in. Log each payment to ${displayName} as money moves.`;
   } else {
     railTitle = 'Record your payment';
-    railBody = `Your booking with ${displayName} is locked. Log your downpayment to hold the date.`;
+    railBody = `Your booking with ${displayName} is locked. Log your first payment to hold the date.`;
   }
 
   const quickLinkClass =

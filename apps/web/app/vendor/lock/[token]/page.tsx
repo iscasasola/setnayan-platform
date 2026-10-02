@@ -197,7 +197,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
           </span>
         </div>
         <div className="mt-1 flex items-baseline justify-between">
-          <span className="text-sm text-ink/60">Downpayment received</span>
+          <span className="text-sm text-ink/60">First payment received</span>
           <span className="text-sm font-medium text-emerald-700">{formatPhp(paid)}</span>
         </div>
         {agreedDate ? (

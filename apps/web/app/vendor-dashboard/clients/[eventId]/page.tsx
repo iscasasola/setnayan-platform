@@ -1327,15 +1327,15 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       id: 'deposit-recorded',
       kind: 'deposit',
       title: depositAcked
-        ? 'Deposit confirmed'
+        ? 'Payment confirmed'
         : depositDeclined
           ? 'You said this never reached you'
-          : 'Deposit recorded',
+          : 'Payment recorded',
       detail: depositAcked
-        ? 'You confirmed the couple’s deposit — their date is locked in.'
+        ? 'You confirmed the couple’s payment — their date is locked in.'
         : depositDeclined
           ? 'They were told, and their own record of paying was kept. If they send it again you’ll be asked once more.'
-          : 'The couple recorded a deposit — confirm receipt to lock the date.',
+          : 'The couple recorded a payment — confirm receipt to lock the date.',
       at:
         completion.deposit_acknowledged_at ??
         completion.deposit_declined_at ??
@@ -2732,8 +2732,8 @@ function OverviewTab(props: {
               <div className="flex items-center gap-3 text-sm">
                 <CheckCircle2 aria-hidden className="h-5 w-5 shrink-0 text-success-600" strokeWidth={1.75} />
                 <span className="text-ink/75">
-                  <span className="font-medium text-ink">Deposit confirmed.</span> You&rsquo;ve confirmed
-                  you received the couple&rsquo;s deposit — their date is locked in.
+                  <span className="font-medium text-ink">Payment confirmed.</span> You&rsquo;ve confirmed
+                  you received the couple&rsquo;s payment — their date is locked in.
                 </span>
               </div>
               {/* ── THE RECEIPT, BIG ENOUGH TO JUDGE (owner, live, 2026-09-20) ──
@@ -2806,7 +2806,7 @@ function OverviewTab(props: {
           ) : (
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-ink/70">
-                <span className="font-medium text-ink">A couple recorded a deposit.</span> The date is
+                <span className="font-medium text-ink">A couple recorded a payment.</span> The date is
                 held for you. Confirm you received it to lock it in.
               {/* ── THE RECEIPT, BIG ENOUGH TO JUDGE (owner, live, 2026-09-20) ──
                   This was the words "View proof" and nothing else, on the one
@@ -2831,7 +2831,7 @@ function OverviewTab(props: {
                   <input type="hidden" name="vendor_id" value={eventVendorId} />
                   <input type="hidden" name="return_to" value={depositReturnTo} />
                   <SubmitButton className="button-primary w-full shrink-0 sm:w-auto" pendingLabel="Confirming…">
-                    Confirm deposit received
+                    Confirm payment received
                   </SubmitButton>
                 </form>
                 {/* Reject path — the vendor never received this payment. Clears
@@ -3033,7 +3033,7 @@ function QuoteTab(props: {
         {!isBooked ? (
           <p className="flex items-center gap-2 rounded-lg bg-white px-3 py-2.5 text-sm text-ink/55">
             <Wallet aria-hidden className="h-4 w-4 shrink-0 text-ink/40" /> A payment schedule
-            appears once they book you and pay a downpayment.
+            appears once they book you and pay a first payment.
           </p>
         ) : steps && steps.length > 0 && planRollup ? (
           <>
@@ -3097,7 +3097,7 @@ function QuoteTab(props: {
                 </span>
               </div>
             ) : (
-              <p className="mt-3 text-xs text-success-700">All installments settled.</p>
+              <p className="mt-3 text-xs text-success-700">All payments settled.</p>
             )}
             {planStepRows?.reservationAcknowledgedAt ? (
               <p className="mt-2 text-xs text-ink/45">

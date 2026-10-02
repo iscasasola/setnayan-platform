@@ -825,9 +825,9 @@ function DownpaymentModal({
         <div className="flex items-start gap-2.5 pr-6">
           <CreditCard aria-hidden className="mt-0.5 h-5 w-5 shrink-0 text-mulberry" strokeWidth={2} />
           <div className="space-y-1.5">
-            <h3 className="text-sm font-semibold text-ink">Pay the deposit to lock</h3>
+            <h3 className="text-sm font-semibold text-ink">Pay the first payment to book</h3>
             <p className="text-xs leading-snug text-ink/70">
-              To lock <strong>{vendorName}</strong>, pay the deposit through one of
+              To lock <strong>{vendorName}</strong>, pay the first payment through one of
               their methods below, then attach a screenshot so they can confirm. Your
               date is held the moment you submit. Setnayan never touches the money — you
               pay {vendorName} directly.
@@ -939,7 +939,7 @@ function DownpaymentModal({
                   Locking…
                 </>
               ) : (
-                'Lock & submit deposit'
+                'Book & submit first payment'
               )}
             </button>
             <button
@@ -1231,7 +1231,7 @@ function ReservationTermsModal({
               Reservation terms for {vendorName}
             </h3>
             <p className="text-xs leading-snug text-ink/65">
-              Before you lock, please read {vendorName}&rsquo;s downpayment policy.
+              Before you lock, please read {vendorName}&rsquo;s first payment policy.
               Locking records that you understood and agreed to these terms.
             </p>
           </div>
@@ -1243,7 +1243,7 @@ function ReservationTermsModal({
               <li className="flex items-start gap-1.5">
                 <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
                 <span>
-                  The downpayment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
+                  The first payment{amountLabel ? ` (${amountLabel})` : ''} is{' '}
                   <strong>non-refundable</strong>.
                 </span>
               </li>
@@ -1252,7 +1252,7 @@ function ReservationTermsModal({
               <li className="flex items-start gap-1.5">
                 <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" />
                 <span>
-                  A <strong>no-show forfeits</strong> the downpayment.
+                  A <strong>no-show forfeits</strong> the first payment.
                 </span>
               </li>
             ) : null}
@@ -1282,7 +1282,7 @@ function ReservationTermsModal({
             className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
           />
           <span>
-            I understand the downpayment is non-refundable on no-show and agree to{' '}
+            I understand the first payment is non-refundable on no-show and agree to{' '}
             {vendorName}&rsquo;s reservation terms.
           </span>
         </label>

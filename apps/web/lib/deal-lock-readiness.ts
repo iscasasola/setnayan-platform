@@ -59,7 +59,7 @@ export function dealNotLockableLine(
   }
   return viewerRole === 'couple'
     ? `This deal has no quoted price yet, so it can’t be locked. Ask ${them} to send their quote first, then agree the deal on it.`
-    : `This deal has no quoted price yet, so ${them} can’t lock it. Send your proposal first, then agree the deal on it.`;
+    : `This deal has no quoted price yet, so ${them} can’t lock it. Send your quote first, then agree the deal on it.`;
 }
 
 /** The refusal `lockDeal` shows the couple if the button is pressed anyway

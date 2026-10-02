@@ -59,7 +59,7 @@ test('the list is ONE FLAT LIST — the stages (RSVP among them), then Details, 
   const m = makerPlacePick({ stage: 'save_the_date', liveStage: null, openTool: null, hasWork: true });
   // 🗳 2026-09-30 re-plan: the RSVP stage sits between Save the Date and the Invitation.
   assert.deepEqual(m.options.map((o) => o.label), [STAGES[0], 'RSVP', ...STAGES.slice(1), 'Your info', 'Prints']);
-  assert.deepEqual(STAGES, ['Save the Date', 'Invitation', 'On the Day', 'Post Event']);
+  assert.deepEqual(STAGES, ['Save the Date', 'Invitation', 'The Day', 'Post Event']);
   // No headings: one run, no group name (as PickMenu reads them).
   const runs = pickRuns(m.options.map((o) => ({ key: o.key, group: (o as Record<string, unknown>).group as string | undefined })));
   assert.equal(runs.length, 1, 'the list is split into groups again');

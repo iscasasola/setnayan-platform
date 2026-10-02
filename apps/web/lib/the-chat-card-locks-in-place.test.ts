@@ -8,7 +8,7 @@
  * (#5677). Nothing was written from the chat; `lock_requested_at` stayed null.
  *
  * As the supplier: the card read "Accepted · the couple has asked you to lock"
- * and offered only "View proposal" — *"there is no agree and confirm booking"*.
+ * and offered only "View quote" — *"there is no agree and confirm booking"*.
  *
  * ── THE PROPERTY ─────────────────────────────────────────────────────────────
  * One lock mechanism, reachable from two rooms; one answer, reachable from

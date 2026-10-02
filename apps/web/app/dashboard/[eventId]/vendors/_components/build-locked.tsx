@@ -603,8 +603,8 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
       <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-success-200 pt-2.5">
         <span className="text-xs text-ink/70">
           {step === 'due'
-            ? 'Next: pay your deposit to hold the date.'
-            : 'They say your deposit hasn’t reached them.'}
+            ? 'Next: make your first payment to hold the date.'
+            : 'They say your first payment hasn’t reached them.'}
         </span>
         {/* Solid mulberry — the canonical action treatment the review chip above
             measured at 4.76:1 light / 6.20:1 dark. */}
@@ -612,7 +612,7 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
           href={href}
           className="inline-flex items-center rounded-full bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition hover:opacity-90"
         >
-          {step === 'due' ? 'Pay your deposit' : 'Send it again'}
+          {step === 'due' ? 'Pay your first payment' : 'Send it again'}
         </Link>
       </div>
     );
@@ -621,14 +621,14 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
     return (
       <div className="mt-2 text-xs">
         <Link href={href} className="font-medium text-ink/70 underline-offset-2 hover:underline">
-          Deposit &amp; payments
+          First payment &amp; payments
         </Link>
       </div>
     );
   }
   return (
     <p className="mt-2 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/60">
-      {step === 'confirmed' ? 'Deposit confirmed' : 'Deposit sent · waiting for them to confirm'}
+      {step === 'confirmed' ? 'First payment confirmed' : 'First payment sent · waiting for them to confirm'}
     </p>
   );
 }

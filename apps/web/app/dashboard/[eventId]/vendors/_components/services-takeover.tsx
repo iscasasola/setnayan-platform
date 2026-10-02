@@ -13,7 +13,7 @@
  *
  * INTEGRATED SINGLE-SCROLL (2026-07-09): the three sections no longer swap one
  * mount at a time. All three slots render STACKED in one vertical scroll surface
- * — `#svc-shortlist` ("Browse the bench") · `#svc-build` ("Build your team") ·
+ * — `#svc-shortlist` ("Saved") · `#svc-build` ("Build your team") ·
  * `#svc-compare` ("Compare saved builds", collapsed by default). The `BB_TAB_EVENT`
  * bus + `?tab=` contract is UNCHANGED — the mobile dock (`customer-section-subnav.tsx`)
  * and any `goToBuildTab` callers keep working verbatim; the bus listener now
@@ -79,7 +79,7 @@ const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
  *  "budget" stays the money TARGET (the tile + `/budget`). The section KEYS /
  *  anchors / bus events stay `compare` and `budget`. */
 const SECTION_HEADING: Record<BudgetBuildTab, string> = {
-  shortlist: 'Browse the bench',
+  shortlist: 'Saved',
   // "Build your team" → **"Your team"** (2026-07-29 §2). The section is the
   // people you chose — locked, mid-handshake, and candidates — not a verb. The
   // owner's complaint was literal: "why does the build your team has build your

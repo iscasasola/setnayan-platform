@@ -175,23 +175,23 @@ export function teamRowOf(
       const href = depositStepHref(ctx.eventId, f.vendorId);
       switch (f.depositStep) {
         case 'due':
-          return { ...booked, next: 'pay your deposit', action: { kind: 'pay', label: 'Pay', href }, needsYou: true };
+          return { ...booked, next: 'pay your first payment', action: { kind: 'pay', label: 'Pay', href }, needsYou: true };
         case 'refused':
           return {
             ...booked,
-            pill: { text: 'Deposit not received', tone: 'warn' },
-            next: 'send your deposit again',
+            pill: { text: 'Payment not received', tone: 'warn' },
+            next: 'send your payment again',
             action: { kind: 'pay', label: 'Pay', href },
             needsYou: true,
           };
         case 'sent':
-          return { ...booked, next: 'they confirm your deposit', action: null, needsYou: false };
+          return { ...booked, next: 'they confirm your first payment', action: null, needsYou: false };
         case 'unknown':
           // A refused read is NOT "due" — telling a couple who paid to pay again
           // is the failure this whole codebase keeps fencing. Say what is true.
           return {
             ...booked,
-            next: 'we couldn’t check your deposit',
+            next: 'we couldn’t check your payment',
             action: { kind: 'check', label: 'Check', href },
             needsYou: false,
           };

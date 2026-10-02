@@ -69,7 +69,7 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
   reveal_element:
     "Cold sparks, confetti, smoke, a drone show, the gender-reveal burst — the gasp moment. Check the venue allows it before booking.",
   event_insurance:
-    "Cancellation, postponement, venue damage — covered, so one bad week doesn't cost you twice. Arrange it once deposits go out.",
+    "Cancellation, postponement, venue damage — covered, so one bad week doesn't cost you twice. Arrange it once payments go out.",
   personal_accident_insurance:
     "For the two of you, not your guests — medical costs looked after if something happens on the way or on the day.",
   referee_official:

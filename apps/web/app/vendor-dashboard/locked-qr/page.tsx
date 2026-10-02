@@ -146,7 +146,7 @@ export default async function VendorLockedQrListPage() {
           <Lock className="mx-auto h-6 w-6 text-ink/40" strokeWidth={1.5} />
           <p className="mt-2 text-sm text-ink/70">
             No Locked QRs yet. Create one to lock in a customer who already paid a
-            downpayment.
+            first payment.
           </p>
         </ShopEmpty>
       ) : (

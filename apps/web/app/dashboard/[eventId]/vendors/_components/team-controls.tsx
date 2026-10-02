@@ -194,7 +194,7 @@ export function TeamSavePlan({
   function onSaveNamed() {
     setErr(null);
     if (currentPlan.picks.length === 0) {
-      setErr('Add some vendors to your build first — from the bench, then save.');
+      setErr('Add some vendors to your build first — from your Saved list, then save.');
       return;
     }
     startTransition(async () => {

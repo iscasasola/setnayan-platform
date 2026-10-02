@@ -6,7 +6,7 @@ import type { FeeDisclosure } from '@/lib/booking-fee-disclosure';
  * THE SUPPLIER'S ANSWER TO A BOOKING ASK, ON THE ACCEPTED QUOTE CARD.
  *
  * Owner, live as the supplier, 2026-09-19: the card read "Accepted · the couple
- * has asked you to lock" and offered only "View proposal" — *"there is no agree
+ * has asked you to lock" and offered only "View quote" — *"there is no agree
  * and confirm booking"*. The answer already existed, twice: the Overview's
  * request card (`LockRequestBody` in `vendor-dashboard/_components/
  * overview-sections.tsx`) and the client page (`LockRequestAnswer`). This is

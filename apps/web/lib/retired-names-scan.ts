@@ -59,6 +59,11 @@ export interface RetiredName {
    * product name, and must stay.
    */
   readonly common?: string;
+  /**
+   * Match the exact spelling only. "On the Day" is the retired stage NAME;
+   * "on the day of the wedding" is plain English and must stay.
+   */
+  readonly caseSensitive?: boolean;
 }
 
 export const RETIRED_NAMES: readonly RetiredName[] = [
@@ -101,14 +106,14 @@ const GLUED_BEFORE = /[A-Za-z0-9_/.\-@#=?&:$]$/;
 const GLUED_AFTER = /^(?:[A-Za-z0-9_/\-(]|!(?:inner|left)|\.[a-z_])/;
 
 function wordRe(name: RetiredName): RegExp {
-  return new RegExp(`${name.pattern}(?:s)?`, 'gi');
+  return new RegExp(`${name.pattern}(?:s)?`, name.caseSensitive ? 'g' : 'gi');
 }
 
 /**
  * Is the hit at `index` (length `len`) inside `text` a word a person reads?
  * `jsx` = the text is a JSX child (always prose).
  */
-function isVisibleHit(text: string, index: number, len: number, jsx: boolean): boolean {
+export function isVisibleHit(text: string, index: number, len: number, jsx: boolean): boolean {
   const before = text.slice(0, index);
   const after = text.slice(index + len);
   // Part of a longer word ("pakantaSong", "xsamahan") is never this name.
@@ -139,6 +144,8 @@ export function scanRetiredNames(
   const out: RetiredNameFinding[] = [];
 
   const check = (node: ts.Node, text: string, jsx: boolean) => {
+    // A stylesheet held in a string carries `/* … */` notes no person reads.
+    if (!jsx && text.includes('{') && text.includes('/*')) text = text.replace(/\/\*[\s\S]*?\*\//g, ' ');
     for (const name of names) {
       for (const m of text.matchAll(wordRe(name))) {
         if (!isVisibleHit(text, m.index!, m[0].length, jsx)) continue;

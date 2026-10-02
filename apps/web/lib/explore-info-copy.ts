@@ -92,7 +92,7 @@ export const EXPLORE_STATE_LEGEND: ReadonlyArray<{
   meaning: string;
 }> = [
   { state: 'empty', glyph: COVERAGE_GLYPH.empty, label: 'Not started', meaning: 'nothing shortlisted here yet' },
-  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Exploring', meaning: 'you have vendors on the bench' },
+  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Exploring', meaning: 'you have vendors saved' },
   { state: 'picked', glyph: COVERAGE_GLYPH.picked, label: 'In your build', meaning: 'a candidate is pinned to your suppliers' },
   { state: 'locked', glyph: COVERAGE_GLYPH.locked, label: 'Locked', meaning: 'a booking is under way or done' },
   { state: 'covered', glyph: COVERAGE_GLYPH.covered, label: 'Covered', meaning: 'you told us you are done with this one' },

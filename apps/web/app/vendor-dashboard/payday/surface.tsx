@@ -12,7 +12,7 @@ import { ShopEmpty } from '../_components/kit';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Payday · Vendor' };
+export const metadata = { title: 'Money in · Vendor' };
 
 /**
  * Payday Calendar & Cash-Flow View (Wave 4 vendor "Soon" benefit).
@@ -61,11 +61,11 @@ export default async function VendorPaydayPage() {
       <article className="sn-tile flex items-start gap-3 p-4 text-sm text-ink/75">
         <Info aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-terracotta" strokeWidth={1.75} />
         <div className="space-y-1">
-          <p className="font-medium text-ink">How Payday works</p>
+          <p className="font-medium text-ink">How Money in works</p>
           <p className="text-sm text-ink/70">
             When a couple locks you in, the payment plan they picked is frozen
-            into installments. This page gathers those due-dates across all your
-            bookings. An installment shows{' '}
+            into payments. This page gathers those due-dates across all your
+            bookings. A payment shows{' '}
             <span className="font-medium text-emerald-700">Received</span> once
             you&rsquo;ve confirmed the payment on the couple&rsquo;s workspace.
             Couples pay you directly, off-platform.
@@ -75,7 +75,7 @@ export default async function VendorPaydayPage() {
 
       {paydayIncomplete ? (
         <p role="status" className="sn-row p-6 text-sm text-ink/65">
-          Some of your payments couldn&rsquo;t load, so your Payday timeline and
+          Some of your payments couldn&rsquo;t load, so your Money in timeline and
           its totals aren&rsquo;t shown. Please reload the page to try again.
         </p>
       ) : timeline.totals.installmentCount === 0 ? (
@@ -85,10 +85,10 @@ export default async function VendorPaydayPage() {
             className="mx-auto h-8 w-8 text-ink/30"
             strokeWidth={1.5}
           />
-          <p className="mt-3 text-sm font-medium text-ink">No installments yet</p>
+          <p className="mt-3 text-sm font-medium text-ink">No payments yet</p>
           <p className="mx-auto mt-1 max-w-sm text-sm text-ink/55">
             Once a couple books you on a service with a payment schedule, their
-            installment due-dates will appear here. See your{' '}
+            payment due-dates will appear here. See your{' '}
             <Link href="/vendor-dashboard/bookings" className="underline hover:text-ink">
               bookings
             </Link>{' '}
@@ -101,9 +101,9 @@ export default async function VendorPaydayPage() {
 
           {timeline.totals.unresolvedCount > 0 ? (
             <p className="sn-row px-4 py-3 text-xs text-ink/55">
-              {formatCount(timeline.totals.unresolvedCount)} installment
+              {formatCount(timeline.totals.unresolvedCount)} payment
               {timeline.totals.unresolvedCount === 1 ? '' : 's'} couldn&rsquo;t
-              show an amount — these are percentage-based installments on a
+              show an amount — these are percentage-based payments on a
               booking whose total wasn&rsquo;t set when it locked. They&rsquo;re
               listed below with a dash.
             </p>

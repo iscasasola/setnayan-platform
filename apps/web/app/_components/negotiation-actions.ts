@@ -532,7 +532,7 @@ export async function createAmendmentFromChat(formData: FormData): Promise<void>
   if (!eventVendorId) {
     if (back) {
       redirect(
-        `${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent('Book this vendor first to send proposal changes.')}`,
+        `${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent('Book this vendor first to send quote changes.')}`,
       );
     }
     redirect(dest);

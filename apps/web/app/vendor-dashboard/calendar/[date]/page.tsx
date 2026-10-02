@@ -320,9 +320,7 @@ export default async function VendorCalendarDayPage({ params, searchParams }: Pr
             <BellRing aria-hidden className="h-4 w-4 text-terracotta" /> Waitlist
           </h2>
           <p className="mt-1 text-sm text-ink/65">
-            {waitingHere.pendingCount === 1
-              ? '1 couple is waiting on this date.'
-              : `${formatCount(waitingHere.pendingCount)} couples are waiting on this date.`}{' '}
+            {`${formatCount(waitingHere.pendingCount)} ${waitingHere.pendingCount === 1 ? 'couple is' : 'couples are'} waiting on this date.`}{' '}
             When it frees up, let them know — a notify emails everyone waiting. (It’s free.)
           </p>
           <form action={notifyWaitlistSlot} className="mt-3">

@@ -211,7 +211,7 @@ export function LockMilestoneToast({
             Congratulations! You have picked a {milestone.pickedLabel}!
           </p>
           {milestone.dateLocked ? (
-            <p className="text-[11px] text-ink/60">Your date is now locked in. 🎉</p>
+            <p className="text-[11px] text-ink/60">Your date is now locked. 🎉</p>
           ) : null}
           {milestone.finalizeReady ? (
             <div className="pt-1">

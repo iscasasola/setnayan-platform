@@ -965,7 +965,7 @@ export default async function WebsiteEditorPage({
             ? undefined
             : panelGalleryRefs.length > 0
               ? done(`${panelGalleryRefs.length} photo${panelGalleryRefs.length === 1 ? '' : 's'}`)
-              : todo('0 photos'),
+              : todo('No photos yet'),
           panel: galleryLocked ? (
             lockPanel('Photos you add')
           ) : (

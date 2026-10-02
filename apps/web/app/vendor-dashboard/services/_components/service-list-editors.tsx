@@ -274,7 +274,7 @@ export function DiscountsEditor({
         </p>
         <p className="text-xs" style={{ color: 'var(--m-slate-2)' }}>
           Add more than one <strong>Early Booking</strong> row to build a ladder —
-          e.g. 12+ months ahead −15%, 6+ months −10%. The couple&rsquo;s event date
+          for example, a bigger discount the further ahead they book. The couple&rsquo;s event date
           picks their tier automatically and names it on your card
           (&ldquo;Booked 6+ months ahead · −10%&rdquo;); you still confirm the
           final price in your reply.

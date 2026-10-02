@@ -39,7 +39,9 @@ const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 /** The surfaces that print a couple's payment progress. Add one, inherit both checks. */
 const MONEY_SURFACES = [
   'app/dashboard/[eventId]/budget/page.tsx',
-  'app/dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx',
+  // The Merkado lens and the Home first screen read the SAME helper — lib/budget-live-read.ts
+  // is where `budgetLiveSummaryMoney` runs for both (the lens used to carry its own copy).
+  'lib/budget-live-read.ts',
   // BA2 · the Realtime refetch. Not a render surface — a server action — but it
   // WRITES the same card `budget/page.tsx` first-painted, so it is a money
   // surface by every meaning that matters. It returned the raw legacy summary

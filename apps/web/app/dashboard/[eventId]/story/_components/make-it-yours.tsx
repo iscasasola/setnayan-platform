@@ -2002,7 +2002,7 @@ export function MakeItYours({
             </p>
             {input.poolTruncated ? (
               <p className={s.trayEmpty}>
-                Showing the first 1,000 photos and snippets from the day.
+                Showing the first {formatCount(input.poolCap)} photos and snippets from the day.
               </p>
             ) : null}
             {state.sets.length ? (

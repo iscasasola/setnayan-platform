@@ -182,13 +182,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
     sku: null,
     reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
   },
-  {
-    file: 'app/onboarding/wedding/_components/onboarding-shell.tsx',
-    literal: '₱30,000',
-    sku: null,
-    reason: 'Illustrative budget figure in onboarding copy — not a Setnayan SKU.',
-  },
-
 ];
 
 /** '₱1,000' → 1000. Returns null for anything unparseable. */

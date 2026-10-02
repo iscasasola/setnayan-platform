@@ -325,7 +325,7 @@ export function AppWindowHero() {
                 </p>
               </div>
               <span className="rounded-full bg-terracotta/12 px-2 py-0.5 font-mono text-[7px] uppercase tracking-[0.12em] text-terracotta-700">
-                284 days to go
+                Countdown on
               </span>
             </div>
 

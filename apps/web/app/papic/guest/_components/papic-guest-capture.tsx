@@ -1310,7 +1310,7 @@ export function PapicGuestCapture({
         json.error === 'keep_it_sweet'
           ? "Let's keep it sweet 💛 — try rephrasing."
           : json.error === 'limit_reached'
-            ? "You've shared your 10 photo notes for this celebration — salamat!"
+            ? "You've shared all the photo notes this celebration allows — salamat!"
             : json.error === 'too_fast'
               ? 'One photo note at a time — give it a few seconds.'
               : "That didn't send — try again.",
@@ -1355,7 +1355,7 @@ export function PapicGuestCapture({
         json.error === 'keep_it_sweet'
           ? "Let's keep it sweet 💛 — try rephrasing that one."
           : json.error === 'limit_reached'
-            ? "You've shared your 10 photo notes for this celebration — salamat!"
+            ? "You've shared all the photo notes this celebration allows — salamat!"
             : json.error === 'too_fast'
               ? 'One photo note at a time — give it a few seconds.'
               : "That didn't send — try again.",

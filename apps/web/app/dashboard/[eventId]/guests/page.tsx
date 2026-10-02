@@ -10,8 +10,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sharedJoinLinkState } from '@/lib/shared-join-link';
 import {
-  computeGuestStats,
   countsTowardEvent,
+  RSVP_ROW_WORDS,
   computePaxProgress,
   fetchGroupMembershipsByEvent,
   fetchGuestGroupsByEvent,
@@ -904,7 +904,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     </InspectorColumn>
   ) : null;
 
-  const stats = computeGuestStats(guests);
+  // The counts were worked out ONCE, with the read (`MeasuredGuests.stats`) — never
+  // recounted here, so the meters, the counts line and the header cannot disagree.
+  const stats = guestsRead.stats;
   // Pax-target progress (Adaptive Pax Pricing Phase 2) — sure-attending vs the
   // couple's minimum pax (events.estimated_pax). null when no target is set.
   // Read-only here; the vendor-facing pushes land in later phases.
@@ -1948,9 +1950,9 @@ function RosterCountsLine({
   const parts: { n: number; word: string; wine?: boolean }[] = [
     // No total here (the approved rows and frame 2 of the simple phone app:
     // "96 attending · 35 no reply · 58 to invite") — the page's heading carries it.
-    { n: stats.attending, word: 'attending' },
-    { n: stats.declined, word: 'not coming' },
-    { n: stats.pending, word: 'no reply' },
+    { n: stats.attending, word: RSVP_ROW_WORDS.attending.toLowerCase() },
+    { n: stats.declined, word: RSVP_ROW_WORDS.declined.toLowerCase() },
+    { n: stats.pending, word: RSVP_ROW_WORDS.pending.toLowerCase() },
     { n: toInvite, word: 'to invite', wine: true },
     ...(requests > 0 ? [{ n: requests, word: requests === 1 ? 'request' : 'requests', wine: true }] : []),
   ];

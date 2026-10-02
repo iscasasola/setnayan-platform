@@ -96,7 +96,7 @@ const MOMENTS: Moment[] = [
     field: 'kind',
     q: () => 'What kind is yours?',
     opts: () => [
-      { value: 'religious', title: 'Religious', desc: 'Church, mosque, or temple — about 236,000 couples in 2023.' },
+      { value: 'religious', title: 'Religious', desc: 'Church, mosque, or temple — married in your faith.' },
       { value: 'civil', title: 'Civil', desc: 'A judge or registrar — 177,627 in 2023, the top single rite.' },
       { value: 'mixed', title: 'Mixed', desc: 'Two faiths, one celebration — joined by heart.' },
     ],

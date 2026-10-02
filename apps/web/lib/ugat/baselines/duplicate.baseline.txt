@@ -4,15 +4,3 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above — CI fails while it is still listed.
-/[slug] shows days-to-go	# first run 2026-10-02 · guest app · replace means remove — the old copy was left behind
-/dashboard/[eventId] shows days-to-go	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/dashboard/[eventId] shows guests-coming	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/dashboard/[eventId] shows guests-no-reply	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/dashboard/[eventId] shows money-owing	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/dashboard/[eventId]/guests shows guests-coming	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/dashboard/[eventId]/guests shows guests-no-reply	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/dashboard/[eventId]/messages/[threadId] shows locked-in-share	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/dashboard/[eventId]/vendors shows locked-in-share	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/dashboard/[eventId]/vendors shows money-owing	# first run 2026-10-02 · host app · replace means remove — the old copy was left behind
-/vendor-dashboard/customers shows days-to-go	# first run 2026-10-02 · supplier app · replace means remove — the old copy was left behind
-/vendor-dashboard/messages/[threadId] shows locked-in-share	# first run 2026-10-02 · supplier app · replace means remove — the old copy was left behind

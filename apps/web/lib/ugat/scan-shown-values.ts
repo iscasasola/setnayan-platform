@@ -58,6 +58,12 @@ export const RULE_CONSTANTS: ReadonlyArray<{ re: RegExp; why: string }> = [
   { re: /\b(?:up to|max(?:imum)?|min(?:imum)?|at most|no more than|limit|capped at|cap of|cap)\s*\d+/i, why: 'a limit the app enforces ("up to 3 photos")' },
   { re: /\b100\s?%/, why: '"100%" — the whole of something (keep 100%, 100% yours)' },
   { re: /\b\d+\s*(?:-|–|to)\s*\d+\s*(?:days?|guests?|pax|tables?|seats?|photos?|%)/i, why: 'a range given as guidance ("150–200 guests"), not a reading' },
+  // A fixed EXAMPLE sentence, on purpose — the Voice-match preview. Voice never carries facts
+  // (`assertFactFree`), so the card shows the SHAPE of a price answer with sample figures.
+  { re: /^Our (?:starting rates — .*\bfrom|Signature package is) ₱[\d,]+/, why: 'the Voice-match preview is a fixed EXAMPLE sentence (voice never carries facts), not a reading' },
+  // The Add-a-service explainer's sample card — plainly labelled "A sample card — this is what couples browse."
+  // It shows the SHAPE of a card (a starting price is one of its fields), not a reading from anyone's shop.
+  { re: /^from ₱[\d,]+ per event$/, why: 'the sample card on the Add-a-service explainer, labelled as a sample — not a reading' },
 ];
 
 const UNIT_NUMBER = /(?<![\w.$#/-])(\d[\d,]*(?:\.\d+)?)\s*(days?|guests?|pax|tables?|seats?|photos?|couples?)\b/i;

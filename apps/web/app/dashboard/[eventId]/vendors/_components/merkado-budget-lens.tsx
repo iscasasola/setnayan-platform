@@ -1,11 +1,8 @@
 import Link from 'next/link';
 import { Wallet, Clock, ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { fetchBudgetSnapshot, buildBudgetLiveSummary } from '@/lib/budget';
 import { formatPhp } from '@/lib/orders';
-import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
-import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
-import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
+import { readBudgetLiveSummary } from '@/lib/budget-live-read';
 import { yourTeamBudgetHref } from '@/lib/pillar-parts';
 
 /**
@@ -71,23 +68,19 @@ import { yourTeamBudgetHref } from '@/lib/pillar-parts';
  */
 export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
   const supabase = await createClient();
-  const budgetTruth = isBudgetTruthEnabled();
-
-  const [snapshot, money] = await Promise.all([
-    fetchBudgetSnapshot(supabase, eventId).catch(() => null),
-    // Degrade to the legacy figures on ANY resolver failure rather than printing
-    // a confident ₱0 — same rule, same shape, as `budget/page.tsx`. Flag OFF
-    // issues no extra query at all.
-    budgetTruth
-      ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
-      : Promise.resolve<EventMoney | null>(null),
-  ]);
+  // ONE read — `lib/budget-live-read.ts` — the same figures `/budget` and the Home
+  // first screen print: snapshot + resolver behind the flag, degrading to the
+  // legacy figures on ANY resolver failure rather than a confident ₱0. The
+  // 3-milestone cap is this lens's own framing (the /budget card lists them all).
+  const { summary, truth: budgetTruth } = await readBudgetLiveSummary(supabase, eventId, {
+    upcomingCap: 3,
+  });
 
   // The doorway is Your Team's own Budget part (owner 2026-09-29) — the same
   // page, so opening the full budget no longer leaves Your Team.
   const budgetHref = yourTeamBudgetHref(eventId);
 
-  if (!snapshot) {
+  if (!summary) {
     return (
       <div className="sn-tile p-5 text-sm text-ink/65">
         Your budget lives here. <Link href={budgetHref} className="font-medium text-terracotta-700 hover:underline">Open budget &amp; payments</Link> to set a target and track costs.
@@ -95,15 +88,6 @@ export async function MerkadoBudgetLens({ eventId }: { eventId: string }) {
     );
   }
 
-  // ONE core, shared with `/budget`'s live card. Flag OFF → `legacy` verbatim.
-  // The 3-milestone cap is this lens's own framing (the /budget card lists them
-  // all); `budgetLiveSummaryMoney` passes `upcoming` through untouched, so the
-  // cap survives the move onto the resolver.
-  const summary = budgetLiveSummaryMoney({
-    enabled: budgetTruth,
-    money,
-    legacy: buildBudgetLiveSummary(snapshot, 3),
-  });
   const hasBudget = summary.budget > 0;
 
   return (

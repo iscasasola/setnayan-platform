@@ -868,6 +868,8 @@ const NOT_A_PRICE_SHOWN: Record<string, string> = {
   'lib/setnayan-ai-activity.ts':
     'selected for the cockpit’s lock counts; nothing it feeds reads the price (setnayan-ai-cockpit, todays-one-thing)',
   'lib/setnayan-ai-snapshot.ts': 'selected, never read — the AI’s money comes from resolveEventMoney',
+  'lib/ugat/fields.ts':
+    'the Root map’s CALCULATIONS list NAMES the column as an input of “Still owing” — a description of resolveEventMoney, read by no screen',
   'lib/prove-the-flow-watch-format.ts':
     'the T1 watcher’s report to the orchestrator — a test instrument that computes independently on purpose',
 };

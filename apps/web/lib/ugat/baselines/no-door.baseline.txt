@@ -1,0 +1,29 @@
+# Root map baseline — Screens with no way in.
+# ENFORCED: a finding not listed here fails CI.
+# One line per finding: <key><TAB># <why it is on the list>. Written by
+#   pnpm --filter @setnayan/web root-map --baseline
+# Never add a line by hand to make CI pass — fix the finding. A fixed one is
+# dropped by re-running the command above.
+/[slug]/everyone	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
+/[slug]/seat	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
+/claim/[token]	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
+/dashboard/[eventId]/studio/editorial-pro	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
+/dashboard/[eventId]/studio/indoor-blueprint	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
+/dashboard/[eventId]/studio/live-studio-control/setup	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
+/dashboard/[eventId]/studio/playlist	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
+/dashboard/[eventId]/studio/thank-you	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
+/demo-capture/[slug]	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/booth-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/details-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/hero-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/home-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/schedule-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/host/accept/[token]	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
+/onboarding/simple	# first run 2026-10-02 · sign-in & onboarding · a page nobody can reach without typing its address
+/panood/demo/[token]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
+/papic/demo/[token]	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
+/papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
+/privacy/google-access	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
+/suppliers/[event]/[category]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
+/vendor-invite/[slug]	# first run 2026-10-02 · supplier app · a page nobody can reach without typing its address
+/waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address

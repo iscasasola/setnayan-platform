@@ -62,7 +62,11 @@ import { jobPrefillIsRead } from './prefill-consumers';
  * exactly how the previous guard in this feature came to pass while the thing
  * it guarded was broken.
  */
-export const MODEL_CHOICE_CAP = 141;
+export const MODEL_CHOICE_CAP = 142;
+// 141 → 142 on 2026-10-02, measured with the probe this docblock describes:
+// "Categories & event types" folded six admin pages into one (88 pages now)
+// and the -y/-ies match let the owner's word "category" reach every job on
+// /admin/categories (54 jobs share a word with the flagship). 88 + 54 = 142.
 
 export type ModelChoice = { label: string; href: string };
 
@@ -112,6 +116,20 @@ export function choiceIsPrefillCapable(choice: ModelChoice): boolean {
 }
 
 /**
+ * Does the candidate's text carry this word — or its "-ies" plural?
+ *
+ * 🔑 2026-10-02: the taxonomy surface became "/admin/categories", and the
+ * owner's own sentence says "category". A plain substring test cannot see
+ * "category" inside "categories" (the y becomes ies), so every job on the page
+ * that adds a category stopped matching the word for it. Only the -y/-ies
+ * spelling is added; "-s" plurals already match as substrings.
+ */
+function hayHas(hay: string, token: string): boolean {
+  if (hay.includes(token)) return true;
+  return token.length > 3 && token.endsWith('y') && hay.includes(`${token.slice(0, -1)}ies`);
+}
+
+/**
  * The best `cap` candidates for this question, most relevant first.
  *
  * Pure and total: no I/O, no model, no admin session — so it can be executed
@@ -132,7 +150,7 @@ export function rankChoicesForModel<T extends ModelChoice>(
       // surface it lives on, while its address always does.
       const hay = `${choice.label} ${choice.href}`.toLowerCase();
       let hits = 0;
-      for (const token of tokens) if (hay.includes(token)) hits += 1;
+      for (const token of tokens) if (hayHas(hay, token)) hits += 1;
       // Capability counts only once the candidate is already relevant — see
       // PREFILL_CAPABILITY_BONUS for why the `hits > 0` gate is load-bearing.
       const capable = hits > 0 && choiceIsPrefillCapable(choice);

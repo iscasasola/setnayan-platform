@@ -565,10 +565,15 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
     defaultOpen: false,
     items: [
       {
+        // "Categories & event types" (2026-10-02) — supplier categories,
+        // event types and religions on one page. Key kept as 'taxonomy' so the
+        // nav-slot override and search aliases keep keying off it; the word
+        // "taxonomy" itself leaves the label (owner: "no more taxonomy").
         key: 'taxonomy',
-        label: 'Taxonomy',
-        href: '/admin/taxonomy',
+        label: 'Categories & event types',
+        href: '/admin/categories',
         icon: Tag,
+        matchPrefix: '/admin/categories',
       },
       {
         // Onboarding-flow config (background music + future per-flow knobs),
@@ -578,13 +583,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         href: '/admin/ugat?tab=onboarding',
         icon: Compass,
         matchPrefix: '/admin/onboarding',
-      },
-      {
-        key: 'wedding-traditions',
-        label: 'Wedding traditions',
-        href: '/admin/ugat?tab=wedding-traditions',
-        icon: BookOpen,
-        matchPrefix: '/admin/wedding-traditions',
       },
       {
         key: 'brain',

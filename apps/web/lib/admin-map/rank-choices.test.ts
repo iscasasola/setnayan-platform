@@ -94,14 +94,14 @@ test('every admin page still reaches the model — the cap must not fix jobs by 
  */
 test('the flagship sentence pulls its OWN surface\'s jobs in front of the model', () => {
   const { combined } = shippedChoices();
-  const taxonomyJobs = combined.filter((c) => isJob(c) && c.href.startsWith('/admin/taxonomy'));
+  const taxonomyJobs = combined.filter((c) => isJob(c) && c.href.startsWith('/admin/categories'));
   assert.ok(
     taxonomyJobs.length >= 40,
     `only ${taxonomyJobs.length} taxonomy jobs exist — re-measure this guard`,
   );
 
   const kept = rankChoicesForModel(combined, FLAGSHIP, MODEL_CHOICE_CAP);
-  const keptTaxonomy = kept.filter((c) => isJob(c) && c.href.startsWith('/admin/taxonomy')).length;
+  const keptTaxonomy = kept.filter((c) => isJob(c) && c.href.startsWith('/admin/categories')).length;
   assert.equal(
     keptTaxonomy,
     taxonomyJobs.length,
@@ -166,7 +166,7 @@ test('a job that can fill a form is never outranked by one that cannot at the sa
   const worstCapable = Math.max(...capableIdx.map(({ i }) => i));
   const incapableSameSurfaceAbove = ranked
     .slice(0, worstCapable)
-    .filter((c) => !choiceIsPrefillCapable(c) && c.href.startsWith('/admin/taxonomy') && isJob(c));
+    .filter((c) => !choiceIsPrefillCapable(c) && c.href.startsWith('/admin/categories') && isJob(c));
   assert.deepEqual(
     incapableSameSurfaceAbove.map((c) => c.label),
     [],

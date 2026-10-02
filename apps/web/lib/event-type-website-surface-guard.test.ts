@@ -126,7 +126,7 @@ test('🚨 EVERY hardcoded fallback profile satisfies the invariant', () => {
 
 test('🚨 the admin save path refuses a violating combination BEFORE the upsert', () => {
   const body = stripComments(
-    functionBody(read('app/admin/event-types/actions.ts'), 'upsertEventTypeProfile'),
+    functionBody(read('app/admin/categories/event-type-actions.ts'), 'upsertEventTypeProfile'),
   );
 
   const checkAt = body.indexOf('surfacesStrandedWithoutWebsite(');
@@ -159,7 +159,7 @@ test('🪤 the editor prefill for a NEW event type is itself saveable', () => {
   // The default handed to a type with no profile row yet must pass the very
   // rule the save path enforces — otherwise the first save of every new event
   // type is refused and the feature reads as broken.
-  const page = read('app/admin/event-types/[eventType]/profile/page.tsx');
+  const page = read('app/admin/categories/_components/event-type-panel.tsx');
   const decl = stripComments(page).match(/const GENERIC_SURFACES = new Set\(\[([\s\S]*?)\]\)/);
   assert.ok(decl?.[1], 'GENERIC_SURFACES prefill not found — was it renamed?');
   const prefill = [...decl[1].matchAll(/'([a-z_]+)'/g)].map((m) => m[1] as string);

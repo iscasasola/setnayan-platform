@@ -132,7 +132,7 @@ test('admin actions.ts sites (corrections, event-types, verify): the dropped err
   const cReturnAt = indexAfter(corrections, 'if (error || !data) return null;', cLogAt);
   assert.ok(cQueryAt < cLogAt && cLogAt < cReturnAt);
 
-  const eventTypes = src('app/admin/event-types/actions.ts');
+  const eventTypes = src('app/admin/categories/event-type-actions.ts');
   const eLoopAt = indexAfter(eventTypes, 'async function setFolderEventTypeOffered');
   const eLogAt = indexAfter(eventTypes, 'logQueryError(', eLoopAt);
   const eChangedAt = indexAfter(eventTypes, 'changed += 1;', eLogAt);

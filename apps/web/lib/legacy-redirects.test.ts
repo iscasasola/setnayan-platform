@@ -41,7 +41,16 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   [`/dashboard/${EID}/today`, `/dashboard/${EID}`],
   [`/dashboard/${EID}/studio/animated-monogram`, `/dashboard/${EID}/monogram`],
   [`/dashboard/${EID}/website/launch`, `/dashboard/${EID}/website/editor`],
-  ['/admin/refinements', '/admin/taxonomy'],
+  ['/admin/refinements', '/admin/categories'],
+  // "Categories & event types" (2026-10-02) — the six doors it replaced.
+  ['/admin/taxonomy/aliases', '/admin/categories?show=words'],
+  ['/admin/event-types', '/admin/categories?list=event-types'],
+  ['/admin/wedding-traditions', '/admin/categories?list=religions'],
+  ['/admin/wedding-types', '/admin/categories?list=religions'],
+  ['/admin/taxonomy', '/admin/categories'],
+  ['/admin/event-types/birthday/categories', '/admin/categories?list=event-types&open=birthday'],
+  ['/admin/event-types/simple_event/profile', '/admin/categories?list=event-types&open=simple_event'],
+  ['/admin/event-types/wake/onboarding', '/admin/categories?list=event-types&open=wake'],
   ['/admin/marketing', '/admin/studio'],
   ['/vendor-dashboard/funnel', '/vendor-dashboard/performance'],
   ['/vendor-dashboard/tax-documents', '/vendor-dashboard'],
@@ -58,6 +67,14 @@ const DELETED_PAGES: readonly string[] = [
   'dashboard/[eventId]/studio/animated-monogram/page.tsx',
   'dashboard/[eventId]/website/launch/page.tsx',
   'admin/refinements/page.tsx',
+  'admin/taxonomy/aliases/page.tsx',
+  'admin/event-types/page.tsx',
+  'admin/wedding-traditions/page.tsx',
+  'admin/wedding-types/page.tsx',
+  'admin/taxonomy/page.tsx',
+  'admin/event-types/[eventType]/categories/page.tsx',
+  'admin/event-types/[eventType]/profile/page.tsx',
+  'admin/event-types/[eventType]/onboarding/page.tsx',
   'admin/marketing/page.tsx',
   'vendor-dashboard/funnel/page.tsx',
   'vendor-dashboard/tax-documents/page.tsx',
@@ -89,11 +106,22 @@ test('a trailing slash still forwards; a child path or a live path does not', ()
     '/explore',
     '/explore/compare',
     '/vendor-dashboard/performance',
-    '/admin/taxonomy',
+    '/admin/categories',
+    '/admin/event-types/birthday', // a type's own address was never a page
+    '/admin/event-types/birthday/categories/extra',
+    '/admin/taxonomy/other',
     '/',
   ]) {
     assert.equal(legacyRedirectTarget(live), null, `${live} is live and must not be forwarded`);
   }
+});
+
+test('the Studio’s old deep links keep their query, so they land on the same thing', () => {
+  assert.equal(legacyRedirectTarget('/admin/taxonomy', '?view=vocab-event'), '/admin/categories?view=vocab-event');
+  assert.equal(legacyRedirectTarget('/admin/taxonomy', '?open=catering&q=lechon'), '/admin/categories?open=catering&q=lechon');
+  assert.equal(legacyRedirectTarget('/admin/taxonomy', ''), '/admin/categories');
+  // Every other row still drops it, exactly as the stub did.
+  assert.equal(legacyRedirectTarget('/admin/marketing', '?x=1'), '/admin/studio');
 });
 
 test('the map and this test agree on the full list (nothing forwards unpinned)', () => {
@@ -104,7 +132,7 @@ test('the map and this test agree on the full list (nothing forwards unpinned)',
 test('the middleware forwards them as a 308, before the session work', () => {
   const src = readFileSync(path.join(WEB, 'middleware.ts'), 'utf8');
   assert.match(src, /from '@\/lib\/legacy-redirects'/);
-  const call = src.indexOf('legacyRedirectTarget(pathname)');
+  const call = src.indexOf('legacyRedirectTarget(pathname, search)');
   assert.ok(call > 0, 'middleware no longer reads the legacy map');
   const after = src.slice(call, call + 400);
   assert.match(after, /NextResponse\.redirect\(new URL\(retiredTarget, request\.url\), 308\)/);

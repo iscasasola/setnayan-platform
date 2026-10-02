@@ -312,10 +312,9 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
     namesItself: 'title="Master song catalogue"',
   },
   { file: 'ugat/_surfaces/menus-surface.tsx', namesItself: 'title="Menus & icons"' },
-  {
-    file: 'ugat/_surfaces/wedding-traditions-surface.tsx',
-    namesItself: 'title="Wedding traditions"',
-  },
+  // The Traditions tab left /admin/ugat on 2026-10-02 for each religion's
+  // panel on Categories & event types, which names itself the same way.
+  { file: 'categories/page.tsx', namesItself: 'title="Categories & event types"' },
   // ── PR 3/4 · the money and records desks ────────────────────────────────
   { file: 'receipts/page.tsx', namesItself: 'title="Transaction receipts"' },
   { file: 'subscriptions/page.tsx', namesItself: 'title="Subscriptions"' },
@@ -411,21 +410,9 @@ const RECORD_PAGES: Array<{ file: string; keepsVisible: RegExp; why: string }> =
     keepsVisible: /business_name \?\? 'Supplier'\} · Team/,
     why: 'whose team you are looking at',
   },
-  {
-    file: 'event-types/[eventType]/categories/page.tsx',
-    keepsVisible: /\{row\.emoji\}<\/span>/,
-    why: 'which event type these categories belong to',
-  },
-  {
-    file: 'event-types/[eventType]/onboarding/page.tsx',
-    keepsVisible: /\{vocab\.emoji\} \{vocab\.label_en\} · Onboarding content/,
-    why: 'which event type this content belongs to',
-  },
-  {
-    file: 'event-types/[eventType]/profile/page.tsx',
-    keepsVisible: /\{vocab\.emoji\} \{vocab\.label_en\} · Onboarding profile/,
-    why: 'which event type this profile belongs to',
-  },
+  // The three event-type record pages (categories · onboarding · profile) left
+  // on 2026-10-02: they are sections of one event type's panel on
+  // /admin/categories now, whose heading names the type.
 ];
 
 test('a record page keeps its record NAME visible, and moves only the heading element', () => {
@@ -628,7 +615,8 @@ const SENTENCES_THAT_EARNED_THEIR_KEEP: Array<{ file: string; keeps: RegExp; why
     why: 'nothing else says a slider here reaches strangers’ wedding pages',
   },
   {
-    file: 'ugat/_surfaces/wedding-traditions-surface.tsx',
+    // Moved with "What to expect" into each religion's panel (2026-10-02).
+    file: 'categories/_components/religion-panel.tsx',
     keeps: /This is starter content; validate each religion/,
     why: 'it goes live to couples with no deploy and several religions are still unvalidated',
   },

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "de0b53d1f",
-  "routeCount": 430,
-  "destinations": 951,
-  "actions": 674,
-  "blocks": 5373,
+  "generatedFromRef": "340266119",
+  "routeCount": 423,
+  "destinations": 942,
+  "actions": 670,
+  "blocks": 5392,
   "routes": {
     "/": {
       "files": [
@@ -1878,6 +1878,8 @@
         "/admin/background-videos",
         "/admin/booking-fees",
         "/admin/budget-planner",
+        "/admin/categories",
+        "/admin/categories?show=requests",
         "/admin/chat-flags",
         "/admin/completions",
         "/admin/concierge-abuse",
@@ -1935,13 +1937,11 @@
         "/admin/studio?tab=spotlight-awards",
         "/admin/studio?tab=website",
         "/admin/subscriptions",
-        "/admin/taxonomy",
         "/admin/ugat",
         "/admin/ugat/map",
         "/admin/ugat?tab=brain",
         "/admin/ugat?tab=menus",
         "/admin/ugat?tab=onboarding",
-        "/admin/ugat?tab=wedding-traditions",
         "/admin/user-reports",
         "/admin/users",
         "/admin/vendor-partnerships",
@@ -2112,6 +2112,7 @@
         "admin/app-performance/_surfaces/offline-surface.tsx",
         "admin/app-performance/_surfaces/operations-surface.tsx",
         "admin/app-performance/_surfaces/overview-surface.tsx",
+        "admin/app-performance/_surfaces/problems-list.tsx",
         "admin/app-performance/_surfaces/seo-actions.ts",
         "admin/app-performance/_surfaces/seo-rerun-button.tsx",
         "admin/app-performance/_surfaces/seo-surface.tsx",
@@ -2160,6 +2161,7 @@
         "IndexChart",
         "IntelligenceSurface",
         "InterconnectionsSurface",
+        "IssueRow",
         "KpiStatCard",
         "LeadTable",
         "LeaderRow",
@@ -2172,6 +2174,7 @@
         "OfflineSurface",
         "OperationsHiringSurface",
         "PageMasthead",
+        "ProblemsList",
         "ReadFailed",
         "RerunResult",
         "SectionHeading",
@@ -2263,6 +2266,168 @@
         "ConsoleTable",
         "PageMasthead",
         "SubmitButton"
+      ]
+    },
+    "/admin/categories": {
+      "files": [
+        "admin/categories/_components/add-rows.tsx",
+        "admin/categories/_components/ask-prefill.tsx",
+        "admin/categories/_components/back.ts",
+        "admin/categories/_components/category-panels.tsx",
+        "admin/categories/_components/event-type-panel.tsx",
+        "admin/categories/_components/in-place.tsx",
+        "admin/categories/_components/list-pane.tsx",
+        "admin/categories/_components/load.ts",
+        "admin/categories/_components/model.ts",
+        "admin/categories/_components/onboarding-editor.tsx",
+        "admin/categories/_components/pickers.tsx",
+        "admin/categories/_components/picture-and-icon.tsx",
+        "admin/categories/_components/prepared-job-card.tsx",
+        "admin/categories/_components/prepared-jobs.ts",
+        "admin/categories/_components/religion-panel.tsx",
+        "admin/categories/_components/request-controls.tsx",
+        "admin/categories/_components/request-row.tsx",
+        "admin/categories/_components/ui.tsx",
+        "admin/categories/_components/what-couples-choose.tsx",
+        "admin/categories/_components/what-suppliers-fill-in.tsx",
+        "admin/categories/actions.ts",
+        "admin/categories/event-type-actions.ts",
+        "admin/categories/loading.tsx",
+        "admin/categories/page.tsx",
+        "admin/categories/search-word-actions.ts",
+        "admin/categories/tradition-actions.ts"
+      ],
+      "destinations": [],
+      "actions": [
+        "action",
+        "addLeafAttributeFieldAction",
+        "addLeafAttributeOptionAction",
+        "addTradeAlias",
+        "approveTradeAlias",
+        "clearLastMinuteStart",
+        "createCanonicalLeaf",
+        "createEventTypeRoster",
+        "createFaithVocab",
+        "createTaxonomyNode",
+        "deleteTraditionItem",
+        "promoteCategoryRequest",
+        "rejectTradeAlias",
+        "relabelFaithVocab",
+        "relabelLeafAttributeFieldAction",
+        "remapCanonical",
+        "renameCanonicalService",
+        "renameTaxonomyNode",
+        "reorderEventTypeVocab",
+        "reorderFaithVocab",
+        "resetOnboardingSpec",
+        "resetTraditionsToDefaults",
+        "retireLeafAttributeFieldAction",
+        "retireLeafAttributeOptionAction",
+        "seedTraditionsFromDefaults",
+        "setCategoryHidden",
+        "setCategoryPhoto",
+        "setEventTypeStatus",
+        "setFaithAskedOn",
+        "setFaithLaunchStatus",
+        "setFaithLaunchThreshold",
+        "setFaithVocabStatus",
+        "setFolderEventTypeOffered",
+        "setLastMinuteStart",
+        "setServiceEventTypes",
+        "setServiceFaith",
+        "setServiceFlag",
+        "setServiceSecondaryTiles",
+        "setTileEventTypeOffered",
+        "unteachTradeAlias",
+        "updateEventTypePresentation",
+        "updatePlanningDeadline",
+        "upsertEventTypeProfile",
+        "upsertOnboardingSpec",
+        "upsertTraditionItem"
+      ],
+      "blocks": [
+        "AddEventType",
+        "AddFieldForm",
+        "AddOptionForm",
+        "AddReligion",
+        "AddServiceOrCategory",
+        "AddServicePrefill",
+        "AskPrefill",
+        "BackFields",
+        "BackState",
+        "Badge",
+        "C",
+        "CategoriesData",
+        "CategoriesListPane",
+        "CategoryBack",
+        "CategoryPanel",
+        "CategoryRow",
+        "ChipMultiSelect",
+        "CombineService",
+        "DeadlineForm",
+        "DeadlineRows",
+        "DeclinePick",
+        "DeleteCategory",
+        "EditorPack",
+        "EventTypePanel",
+        "EventTypesList",
+        "FieldPick",
+        "FileUpload",
+        "GroupPanel",
+        "Head",
+        "Hidden",
+        "Icon",
+        "ItemForm",
+        "KeyRow",
+        "LeafBlock",
+        "LeafFieldCard",
+        "Link",
+        "ListPageSkeleton",
+        "ListPick",
+        "MapToPick",
+        "MixedFaithPanel",
+        "MoveGroupPick",
+        "NavPick",
+        "NewCategoryPrefill",
+        "OnboardingContent",
+        "OnboardingEditor",
+        "OnboardingOverrideRow",
+        "OnboardingReadFailed",
+        "OptionCard",
+        "OptionGrid",
+        "OrderPick",
+        "PageMasthead",
+        "PickMenu",
+        "PictureAndIcon",
+        "Pill",
+        "PreparedJobCard",
+        "ProfileRow",
+        "PromoteRequestForm",
+        "ReadOnly",
+        "RefThumb",
+        "ReligionPanel",
+        "ReligionsData",
+        "ReligionsList",
+        "RequestDraftNotes",
+        "RequestRow",
+        "Result",
+        "Said",
+        "SavePick",
+        "SearchParamsRecord",
+        "Section",
+        "ServiceBack",
+        "ServicePanel",
+        "StudioActionResult",
+        "SubmitButton",
+        "Switch",
+        "SwitchForm",
+        "T",
+        "TogglePick",
+        "TypeQuestion",
+        "Vocab",
+        "WhatCouplesChoose",
+        "WhatSuppliersFillIn",
+        "WhatToExpect"
       ]
     },
     "/admin/chat-flags": {
@@ -2678,76 +2843,6 @@
       ],
       "blocks": [
         "PageMasthead"
-      ]
-    },
-    "/admin/event-types": {
-      "files": [
-        "admin/event-types/actions.ts",
-        "admin/event-types/loading.tsx",
-        "admin/event-types/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
-    "/admin/event-types/[eventType]/categories": {
-      "files": [
-        "admin/event-types/[eventType]/categories/page.tsx"
-      ],
-      "destinations": [
-        "/admin/taxonomy?view=vocab-event"
-      ],
-      "actions": [
-        "setFolderEventTypeOffered",
-        "setTileEventTypeOffered"
-      ],
-      "blocks": [
-        "Link",
-        "PageMasthead",
-        "SubmitButton"
-      ]
-    },
-    "/admin/event-types/[eventType]/onboarding": {
-      "files": [
-        "admin/event-types/[eventType]/onboarding/_components/onboarding-editor.tsx",
-        "admin/event-types/[eventType]/onboarding/page.tsx"
-      ],
-      "destinations": [
-        "/admin/event-types/wedding/profile",
-        "/admin/taxonomy?view=vocab-event"
-      ],
-      "actions": [
-        "resetOnboardingSpec",
-        "upsertOnboardingSpec"
-      ],
-      "blocks": [
-        "ChipMultiSelect",
-        "EditorPack",
-        "Link",
-        "OnboardingEditor",
-        "OnboardingOverrideRow",
-        "OnboardingReadFailed",
-        "PageMasthead",
-        "SubmitButton",
-        "TypeQuestion"
-      ]
-    },
-    "/admin/event-types/[eventType]/profile": {
-      "files": [
-        "admin/event-types/[eventType]/profile/page.tsx"
-      ],
-      "destinations": [
-        "/admin/taxonomy?view=vocab-event"
-      ],
-      "actions": [
-        "upsertEventTypeProfile"
-      ],
-      "blocks": [
-        "Link",
-        "PageMasthead",
-        "ProfileReadFailed",
-        "ProfileRow",
-        "SubmitButton"
       ]
     },
     "/admin/events": {
@@ -3908,155 +4003,29 @@
         "SubmitButton"
       ]
     },
-    "/admin/taxonomy": {
-      "files": [
-        "admin/taxonomy/_components/prepared-job-card.tsx",
-        "admin/taxonomy/_components/prepared-jobs.ts",
-        "admin/taxonomy/_components/taxonomy-studio.tsx",
-        "admin/taxonomy/actions.ts",
-        "admin/taxonomy/loading.tsx",
-        "admin/taxonomy/page.tsx"
-      ],
-      "destinations": [
-        "/admin/event-types/[seg]/categories",
-        "/admin/event-types/[seg]/onboarding",
-        "/admin/event-types/[seg]/profile",
-        "/admin/taxonomy/aliases"
-      ],
-      "actions": [
-        "action",
-        "addLeafAttributeFieldAction",
-        "addLeafAttributeOptionAction",
-        "clearLastMinuteStart",
-        "createCanonicalLeaf",
-        "createEventTypeRoster",
-        "createFaithVocab",
-        "createTaxonomyNode",
-        "mapCategoryRequest",
-        "promoteCategoryRequest",
-        "relabelEventTypeVocab",
-        "relabelFaithVocab",
-        "relabelLeafAttributeFieldAction",
-        "remapCanonical",
-        "renameTaxonomyNode",
-        "reorderEventTypeVocab",
-        "reorderFaithVocab",
-        "resolveCategoryRequest",
-        "retireEventTypeVocab",
-        "retireLeafAttributeFieldAction",
-        "retireLeafAttributeOptionAction",
-        "setCategoryEventTypes",
-        "setCategoryHidden",
-        "setCategoryIcon",
-        "setCategoryPhoto",
-        "setEventTypeLaunch",
-        "setEventTypeVocabStatus",
-        "setFaithLaunchStatus",
-        "setFaithLaunchThreshold",
-        "setFaithVocabStatus",
-        "setLastMinuteStart",
-        "setServiceFaith",
-        "setServiceFlag",
-        "setServiceSecondaryTiles",
-        "unretireEventTypeVocab",
-        "updateEventTypePresentation",
-        "updatePlanningDeadline"
-      ],
-      "blocks": [
-        "AddLeafFieldForm",
-        "AddOptionForm",
-        "AddServicePrefill",
-        "Badge",
-        "EventTypeVocabPanel",
-        "FaithLaunchButton",
-        "FaithLaunchPill",
-        "FaithVocabPanel",
-        "FileUpload",
-        "GrainGroup",
-        "Icon",
-        "Inspector",
-        "InspectorTab",
-        "KpiStatCard",
-        "LeafBlock",
-        "LeafFieldCard",
-        "LeafHiddenFields",
-        "LeafRefinementsPanel",
-        "Link",
-        "ListPageSkeleton",
-        "LucideByName",
-        "MergeTradeControl",
-        "NewCategoryPrefill",
-        "OptionCard",
-        "OptionGrid",
-        "PageMasthead",
-        "PhotoField",
-        "PreparedCatalogs",
-        "PreparedJobCard",
-        "PromoteRequestForm",
-        "ReadFailed",
-        "RefThumb",
-        "RefinementsTab",
-        "ReorderButtons",
-        "RequestDraftNotes",
-        "RequestsQueue",
-        "ServiceFlagsPanel",
-        "ServicesTab",
-        "Sheet",
-        "StudioActionResult",
-        "StudioView",
-        "SubmitButton",
-        "TaxonomyStudio",
-        "TileCard",
-        "UnfiledTray",
-        "VocabRowShell"
-      ]
-    },
-    "/admin/taxonomy/aliases": {
-      "files": [
-        "admin/taxonomy/aliases/actions.ts",
-        "admin/taxonomy/aliases/page.tsx"
-      ],
-      "destinations": [
-        "/admin/taxonomy"
-      ],
-      "actions": [
-        "approveTradeAlias",
-        "rejectTradeAlias",
-        "unteachTradeAlias"
-      ],
-      "blocks": [
-        "KpiStatCard",
-        "Link",
-        "PageMasthead",
-        "ReadFailed"
-      ]
-    },
     "/admin/ugat": {
       "files": [
         "admin/ugat/_components/ugat-console.tsx",
         "admin/ugat/_surfaces/brain-surface.tsx",
         "admin/ugat/_surfaces/menus-surface.tsx",
         "admin/ugat/_surfaces/onboarding-surface.tsx",
-        "admin/ugat/_surfaces/wedding-traditions-surface.tsx",
+        "admin/ugat/_surfaces/screens-surface.tsx",
         "admin/ugat/actions.ts",
         "admin/ugat/loading.tsx",
         "admin/ugat/page.tsx"
       ],
       "destinations": [
+        "/admin/categories",
+        "/admin/categories?list=religions",
         "/admin/songs",
-        "/admin/taxonomy",
-        "/admin/taxonomy?view=vocab-faith",
         "/admin/ugat/map",
         "/admin/ugat?tab=[seg]"
       ],
       "actions": [
-        "deleteTraditionItem",
-        "resetTraditionsToDefaults",
-        "seedTraditionsFromDefaults",
-        "updateOnboardingMusic",
-        "upsertTraditionItem"
+        "updateOnboardingMusic"
       ],
       "blocks": [
+        "Badge",
         "BrainSurface",
         "ChunkRowView",
         "ComingSoonTab",
@@ -4069,7 +4038,6 @@
         "HTMLInputElement",
         "Ico",
         "Icon",
-        "ItemForm",
         "KpiStatCard",
         "Link",
         "ListPageSkeleton",
@@ -4082,8 +4050,9 @@
         "PageMasthead",
         "ReadFailed",
         "RelatedLink",
-        "ReligionSection",
         "Resolution",
+        "ScreenRow",
+        "ScreensSurface",
         "SubmitButton",
         "Suspense",
         "TablePageSkeleton",
@@ -4091,8 +4060,7 @@
         "UgatCounts",
         "UgatSavedSearch",
         "UgatTableKey",
-        "UgatTablePage",
-        "WeddingTraditionsSurface"
+        "UgatTablePage"
       ]
     },
     "/admin/ugat/map": {
@@ -4449,24 +4417,6 @@
         "Stat"
       ]
     },
-    "/admin/wedding-traditions": {
-      "files": [
-        "admin/wedding-traditions/actions.ts",
-        "admin/wedding-traditions/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
-    "/admin/wedding-types": {
-      "files": [
-        "admin/wedding-types/loading.tsx",
-        "admin/wedding-types/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": []
-    },
     "/admin/work": {
       "files": [
         "admin/work/actions.ts",
@@ -4728,6 +4678,7 @@
       "files": [
         "dashboard/(account)/library/_components/album-shelf.tsx",
         "dashboard/(account)/library/_components/editorials-tab.tsx",
+        "dashboard/(account)/library/_components/gallery-doors.tsx",
         "dashboard/(account)/library/_components/photos-tab.tsx",
         "dashboard/(account)/library/_components/saved-vendor-card.tsx",
         "dashboard/(account)/library/_components/vendors-tab.tsx",
@@ -4752,6 +4703,7 @@
         "EditorialsTab",
         "EventMonogram",
         "FacebookGlyph",
+        "GalleryDoors",
         "Link",
         "LinkPickMenu",
         "PageMasthead",
@@ -9020,6 +8972,7 @@
         "MainBackgroundPanel",
         "MakerHeroPanel",
         "MakerLogoPanel",
+        "MakerMediaMeter",
         "MakerPagePick",
         "MakerRefusesToBeFramed",
         "MakerRevealPanel",

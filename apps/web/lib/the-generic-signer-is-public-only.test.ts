@@ -174,7 +174,7 @@ const PRIVATE_READERS: Array<[file: string, needle: RegExp]> = [
   ['lib/deposit-proof.server.ts', /displayUrlForPrivateStoredAsset\(value, policy\)/],
   ['app/vendor-dashboard/shop/inline-docs-actions.ts', /displayUrlForPrivateStoredAsset\(ref, vendorVerificationDocPolicy\(vendorProfileId\)\)/],
   ['app/(shell)/explore/page.tsx', /displayUrlForCatalogueArt\(ref\)/],
-  ['app/admin/taxonomy/page.tsx', /displayUrlForCatalogueArt\(raw\)/],
+  ['app/admin/categories/_components/load.ts', /displayUrlForCatalogueArt\(raw\)/],
   ['lib/onboarding-refinements.ts', /displayUrlForCatalogueArt\(ref\)/],
 ];
 
@@ -201,7 +201,9 @@ test('the dispute action keeps only the uploader’s own evidence folder (the wr
  * them nothing (null), silently.
  */
 const PRIVATE_UPLOADERS: Record<string, number> = {
-  'app/admin/taxonomy/_components/taxonomy-studio.tsx': 4, // samples → catalogue art
+  // samples → catalogue art (the Taxonomy Studio's four, moved 2026-10-02)
+  'app/admin/categories/_components/picture-and-icon.tsx': 1,
+  'app/admin/categories/_components/what-couples-choose.tsx': 3,
   'app/pay/[reference]/_components/pay-panel.tsx': 1, // thread-files → payments.screenshot_url
   'app/dashboard/[eventId]/disputes/page.tsx': 1, // thread-files → force_majeure_flags.evidence_urls
   'app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx': 1, // thread-files → payments.screenshot_url

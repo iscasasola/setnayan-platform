@@ -132,11 +132,9 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   menus:
     'The single source for the name and icon of every menu across all account types.',
   taxonomy:
-    'Canonical supplier service categories and the sub-category card tree.',
+    'Supplier categories, event types and religions — one list each, one panel per row.',
   onboarding:
     'New-account onboarding settings grouped by type — background music and future per-flow knobs.',
-  'wedding-traditions':
-    'Per-religion wedding-traditions content shown on the couple paperwork guide. Edit items, or reset to the latest starter content.',
   brain:
     'Curated knowledge feeding the Setnayan AI chat. Browse chunks by topic.',
   ugat: 'The live entity map — every platform entity type, its live count, and the audited connections between them.',
@@ -264,7 +262,11 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   secrets: 'keys api credentials rotate env',
   integrations: 'connect services resend openai gcash maya switches',
   compliance: 'npc bir legal privacy dpo',
-  taxonomy: 'categories services vocabulary tags event types setup set up ugat',
+  // "taxonomy" stays findable after it left the label (owner, 2026-10-02), and
+  // the three folded pages keep their old words: traditions, search words,
+  // aliases, wedding types.
+  taxonomy:
+    'taxonomy categories services vocabulary tags event types religions faiths traditions what to expect wedding types search words aliases trade requests setup set up ugat',
   menus: 'labels icons rename nav navigation setup set up ugat',
   // The four phrasings that already reached this page while it was map-only,
   // kept working by hand: a menu item's searchable words are label + group
@@ -292,11 +294,10 @@ export const ADMIN_NAV_ALIASES: Record<string, string> = {
   'app-performance': 'app performance stats metrics speed health uptime',
   // ── "SET UP" / "UGAT" → "ROOT MAP" (owner, DECISION_LOG 2026-10-02 "'UGAT MAP'
   // IS NOW CALLED THE 'ROOT MAP'"). The group label is part of every item's
-  // haystack, so the rename silently dropped "set up" from all seven; the old
+  // haystack, so the rename silently dropped "set up" from every item; the old
   // words live on here. `taxonomy`, `menus` and `search-memory` carry theirs
   // in their own lines above.
   onboarding: 'setup set up ugat root map',
-  'wedding-traditions': 'setup set up ugat root map',
   brain: 'setup set up ugat root map',
   ugat: 'ugat setup set up root map entity connection',
   // Renamed "Problems" 2026-10-02 (owner) — the old name and the words an admin

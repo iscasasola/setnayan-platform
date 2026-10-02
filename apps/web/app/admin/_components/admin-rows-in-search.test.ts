@@ -147,7 +147,7 @@ test('the layout actually hands the rows to the palette', () => {
 
 // ── LAU-18: categories, folders, event types, faiths join the index ─────────
 //
-// The taxonomy Studio hides these under one page's name — a search for
+// Categories & event types hides these under one page's name — a search for
 // "feast" or "civil" answered NOTHING before this, because the map indexes
 // PAGES and these are rows inside one. Fixtures below mirror the real shapes
 // `fetchAdminRows` builds (no DB in this suite), same posture as the price
@@ -156,25 +156,25 @@ test('the layout actually hands the rows to the palette', () => {
 const TAXONOMY_ROWS: RowDest[] = [
   {
     label: 'Feast',
-    href: '/admin/taxonomy',
+    href: '/admin/categories?open=g:feast',
     hay: 'feast folder taxonomy',
     hint: 'folder',
   },
   {
     label: 'Catering',
-    href: '/admin/taxonomy?open=catering',
+    href: '/admin/categories?open=c:catering',
     hay: 'catering catering category tile taxonomy',
     hint: 'category',
   },
   {
     label: 'Debut',
-    href: '/admin/taxonomy?view=vocab-event',
+    href: '/admin/categories?list=event-types&open=debut',
     hay: 'debut debut event type taxonomy',
     hint: 'event type',
   },
   {
     label: 'Civil',
-    href: '/admin/taxonomy?view=vocab-faith',
+    href: '/admin/categories?list=religions&open=Civil',
     hay: 'civil civil faith religion taxonomy',
     hint: 'faith',
   },
@@ -190,23 +190,23 @@ test('the reader indexes folders, categories, event types and faiths', () => {
 test('a category is findable by its own name and lands on its taxonomy node', () => {
   const hits = rank('catering', TAXONOMY_ROWS);
   assert.equal(hits[0]!.label, 'Catering');
-  assert.match(hits[0]!.href, /^\/admin\/taxonomy\?open=/);
+  assert.match(hits[0]!.href, /^\/admin\/categories\?open=c:/);
 });
 
-test('an event type is findable and lands on the event-type vocabulary', () => {
+test('an event type is findable and lands on its own panel', () => {
   const hits = rank('debut', TAXONOMY_ROWS);
   assert.equal(hits[0]!.label, 'Debut');
-  assert.equal(hits[0]!.href, '/admin/taxonomy?view=vocab-event');
+  assert.equal(hits[0]!.href, '/admin/categories?list=event-types&open=debut');
 });
 
-test('a faith is findable and lands on the faith vocabulary', () => {
+test('a faith is findable and lands on its own panel', () => {
   const hits = rank('civil', TAXONOMY_ROWS);
   assert.equal(hits[0]!.label, 'Civil');
-  assert.equal(hits[0]!.href, '/admin/taxonomy?view=vocab-faith');
+  assert.equal(hits[0]!.href, '/admin/categories?list=religions&open=Civil');
 });
 
-test('a folder with no category yet still opens the Studio, not a dead link', () => {
+test('a group opens its own panel, not a dead link', () => {
   const dests = buildDestinations(TAXONOMY_ROWS);
   const folder = dests.find((d) => d.label === 'Feast');
-  assert.equal(folder?.href, '/admin/taxonomy');
+  assert.equal(folder?.href, '/admin/categories?open=g:feast');
 });

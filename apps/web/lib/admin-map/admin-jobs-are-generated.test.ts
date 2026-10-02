@@ -51,12 +51,15 @@ test('the worked example the owner described is read correctly', () => {
   // reader: if bodyOf ever stops finding a function, this is where it shows.
   const job = ADMIN_JOBS.find((j) => j.name === 'createCanonicalLeaf');
   assert.ok(job, 'createCanonicalLeaf is gone — pick another canary');
-  assert.equal(job.ownerPath, '/admin/taxonomy');
+  // Moved with the Studio to Categories & event types (2026-10-02), where the
+  // add row also marks a new service Cultural (is_tradition).
+  assert.equal(job.ownerPath, '/admin/categories');
   assert.deepEqual(job.fields, [
     'tile_id',
     'display_name_en',
     'is_rental',
     'is_ph',
+    'is_tradition',
     'faith',
     'refinement_label',
     'refinement_options',

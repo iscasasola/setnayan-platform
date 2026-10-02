@@ -89,12 +89,19 @@ test('every surface that paints the page ground asks the one rule', () => {
   const gate = helper.lastIndexOf('if (mainGround) {', mount);
   assert.ok(gate > 0 && mount - gate < 800, 'MainGround is mounted outside the `if (mainGround)` gate');
 
-  // The two pages that draw it ask the helper — neither resolves it itself.
+  // The places that draw it ask the helper — none resolves it itself. The guest's
+  // own pages under /invite (the RSVP and the landing) share ONE caller,
+  // `invite/_lib/wear-the-hub.ts` (2026-10-02), and each page asks it.
   const body = read('app/[slug]/_components/site-body.tsx');
-  const reply = read('app/[slug]/invite/reply/page.tsx');
+  const wear = read('app/[slug]/invite/_lib/wear-the-hub.ts');
+  for (const page of ['app/[slug]/invite/reply/page.tsx', 'app/[slug]/invite/enter/page.tsx']) {
+    const src = read(page);
+    assert.match(src, /wearTheHub\(slug, admin, hostDraft, canvas\)/, `${page} does not wear the Event Hub's ground`);
+    assert.doesNotMatch(src, /resolveMainGround\(|<MainGround\b|mainGroundLayerFor\(/, `${page} resolves the Main background itself`);
+  }
   for (const [rel, src] of [
     ['site-body.tsx', body],
-    ['invite/reply/page.tsx', reply],
+    ['invite/_lib/wear-the-hub.ts', wear],
   ] as const) {
     assert.equal(src.split('mainGroundLayerFor(').length - 1, 1, `${rel} does not draw the Main background through the one helper`);
     assert.doesNotMatch(src, /resolveMainGround\(|<MainGround\b/, `${rel} resolves or mounts the Main background itself`);

@@ -140,6 +140,25 @@ const SHELL_ASSETS = [
   '/offline.html',
 ];
 
+// A navigation that WRITES OR CLEARS THE GUEST PASS — a personal link
+// (`?invite=`), its redeem, a seat claim, a Papic hand-off, a sign-out. Left to
+// the browser, never answered from here: the pass must be what the route just
+// wrote, the same on a phone with this worker installed as on one without it
+// (owner's live test 2026-10-02: a personal link opened the Event Hub on the
+// host's long-used phone only). A COPY of `isGuestPassHop` in
+// lib/guest-pass-hop.ts — this file cannot import it — and
+// lib/guest-pass-hop.test.ts runs both over one table and fails if they differ.
+function isGuestPassHop(url) {
+  if ((url.searchParams.get('invite') || '').trim()) return true;
+  const segments = url.pathname.split('/').filter(Boolean);
+  if (segments.length === 0) return false;
+  if (url.pathname === '/auth/sign-out') return true;
+  if (segments[0] === 'papic' && segments[1] === 'me' && segments[3] === 'session') return true;
+  if (segments.length >= 2 && (segments[1] === 'redeem' || segments[1] === 'sign-out')) return true;
+  if (segments[1] === 'seat' && segments[2] === 'claim') return true;
+  return false;
+}
+
 // A navigation to one of these path shapes is the day-of guest experience —
 // cache it stale-while-revalidate in DAYOF_CACHE. `/[slug]` is the guest's
 // personal landing page; `/[slug]/find-my-table` is the table/floorplan view.
@@ -718,6 +737,8 @@ self.addEventListener('fetch', (event) => {
   // (day-of at a venue) while guaranteeing a fresh page whenever the network is up.
   const isNavigation =
     request.mode === 'navigate' || request.destination === 'document';
+  // 🔑 A pass hop is the browser's alone — no respondWith, no cache, no fallback.
+  if (isNavigation && isGuestPassHop(url)) return;
   if (isNavigation && isDayOfGuestNavigation(url)) {
     event.respondWith(
       fetch(request)

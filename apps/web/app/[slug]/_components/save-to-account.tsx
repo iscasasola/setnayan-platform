@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { envFlagEnabled } from '@/lib/env-flag';
 import {
+  SAVE_METHOD_FIELD,
   saveMethodFor,
   saveMethodLine,
   saveMethodSignsIn,
@@ -171,6 +172,9 @@ export function SaveToAccount({
       </span>
     </SubmitButton>
   );
+  /* 🔒 The method the button SAYS rides with the press, so the action opens that
+     provider and no other (`saveMethodFromForm`, lib/guest-one-path.ts). */
+  const chosen = <input type="hidden" name={SAVE_METHOD_FIELD} value={method} />;
   const refused = termsMissing ? (
     <p role="alert" className="text-sm text-terracotta-700">
       Tick the Terms first — saving makes a Setnayan account.
@@ -192,7 +196,10 @@ export function SaveToAccount({
           {through.fields}
           {signsIn && !termsCarried ? termsTick : null}
           {signsIn ? (
-            button
+            <>
+              {chosen}
+              {button}
+            </>
           ) : (
             <SubmitButton name="then" value="done" className="button-primary h-14 w-full text-base" pendingLabel="Saving…">
               Save
@@ -218,6 +225,7 @@ export function SaveToAccount({
       <form action={startAccountSaveAction.bind(null, eventId, slug)} className="space-y-3">
         <input type="hidden" name="return_to" value={INVITE_RETURN} />
         {termsCarried ? null : termsTick}
+        {chosen}
         {button}
       </form>
       {why}

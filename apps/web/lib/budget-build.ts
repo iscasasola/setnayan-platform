@@ -55,7 +55,7 @@ export const TAB_META: Record<
   { label: string; icon: LucideIcon; blurb: string }
 > = {
   shortlist: {
-    label: 'Shortlist',
+    label: 'Saved',
     icon: Bookmark,
     blurb: 'The bench — every service you are considering.',
   },

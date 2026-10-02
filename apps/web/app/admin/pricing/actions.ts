@@ -81,7 +81,10 @@ export async function saveRetailRow(
   const desc = String(formData.get('desc') ?? '');
   const price = String(formData.get('price') ?? '');
   const cost = String(formData.get('cost') ?? '');
-  const active = formData.get('active') === 'on';
+  // ⛔ NO `active` READ. The row card has no on-sale checkbox, so reading one
+  // here yielded false on EVERY save and every save took the product off
+  // sale (LIVE_STUDIO, 2026-09-30). On-sale state changes ONLY
+  // through retire/reactivate below — see lib/admin/pricing-row-diff.ts.
   const onboardingPrice = String(formData.get('onboarding_price') ?? '');
   const billingPeriod = String(formData.get('billing_period') ?? 'one_time');
   const isPaxPriced = formData.get('is_pax_priced') === 'on';
@@ -96,7 +99,6 @@ export async function saveRetailRow(
     desc,
     price,
     cost,
-    active,
     onboardingPrice,
     billingPeriod,
     isPaxPriced,
@@ -111,7 +113,7 @@ export async function saveRetailRow(
   const { data: prior, error: readErr } = await admin
     .from('platform_retail_catalog_v2')
     .select(
-      'service_code,title,description,retail_price_php,saas_overhead_cost_php,is_active,onboarding_price_php,billing_period,is_pax_priced,pax_floor,pax_floor_price_php,pax_increment_size,pax_increment_price_php',
+      'service_code,title,description,retail_price_php,saas_overhead_cost_php,onboarding_price_php,billing_period,is_pax_priced,pax_floor,pax_floor_price_php,pax_increment_size,pax_increment_price_php',
     )
     .eq('service_code', code)
     .maybeSingle();
@@ -125,8 +127,8 @@ export async function saveRetailRow(
 
   // ── VENDOR AGREEMENT § 9.1 · changing what a customer PAYS takes two ─────
   //
-  // Only the price fields are gated. The title, the customer-facing blurb, the
-  // active flag and `saas_overhead_cost_php` save immediately — renaming a SKU
+  // Only the price fields are gated. The title, the customer-facing blurb and
+  // `saas_overhead_cost_php` save immediately — renaming a SKU
   // is copy, and the cost column is OUR margin, not anyone's bill. See
   // lib/retail-price-change.ts for why this covers every price change rather
   // than only mid-quarter ones: the corpus never bounds the review window, and
@@ -499,11 +501,11 @@ export async function saveBundleRow(
   }
   const descRaw = String(formData.get('desc') ?? '').trim();
   const description = descRaw === '' ? null : descRaw;
-  const active = formData.get('active') === 'on';
+  // ⛔ NO `active` READ — a save never changes on-sale state (see saveRetailRow).
 
   const { data: prior } = await admin
     .from('platform_package_catalog')
-    .select('package_code,title,description,retail_price_php,is_active')
+    .select('package_code,title,description,retail_price_php')
     .eq('package_code', code)
     .maybeSingle();
   if (!prior) return { ok: false, message: "Couldn't find that bundle — refresh and try again." };
@@ -512,13 +514,12 @@ export async function saveBundleRow(
   const same =
     prior.title === title &&
     (prior.description ?? null) === description &&
-    Number(prior.retail_price_php) === priceR &&
-    prior.is_active === active;
+    Number(prior.retail_price_php) === priceR;
   if (same) return { ok: true, message: 'No changes to save.' };
 
   const { error } = await admin
     .from('platform_package_catalog')
-    .update({ title, description, retail_price_php: priceR, is_active: active, updated_by_admin_id: adminUserId })
+    .update({ title, description, retail_price_php: priceR, updated_by_admin_id: adminUserId })
     .eq('package_code', code);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
@@ -526,7 +527,7 @@ export async function saveBundleRow(
     action: 'v2_bundle_sku_edit',
     target_id: code,
     actor_user_id: adminUserId,
-    metadata: { table: 'platform_package_catalog', package_code: code, before: prior, after: { title, description, retail_price_php: priceR, is_active: active } },
+    metadata: { table: 'platform_package_catalog', package_code: code, before: prior, after: { title, description, retail_price_php: priceR } },
   });
 
   revalidateCatalogSurfaces();
@@ -629,11 +630,11 @@ export async function saveVendorRow(
   if (!title) return { ok: false, message: 'Give the plan a name suppliers will recognise.' };
   const descRaw = String(formData.get('desc') ?? '').trim();
   const description = descRaw === '' ? null : descRaw;
-  const active = formData.get('active') === 'on';
+  // ⛔ NO `active` READ — a save never changes on-sale state (see saveRetailRow).
 
   const { data: prior } = await admin
     .from('vendor_billing_catalog')
-    .select('sku_code,title,description,price_php,is_active')
+    .select('sku_code,title,description,price_php')
     .eq('sku_code', code)
     .maybeSingle();
   if (!prior) return { ok: false, message: "Couldn't find that row — refresh and try again." };
@@ -642,13 +643,12 @@ export async function saveVendorRow(
   const same =
     Number(prior.price_php) === priceR &&
     prior.title === title &&
-    (prior.description ?? null) === description &&
-    prior.is_active === active;
+    (prior.description ?? null) === description;
   if (same) return { ok: true, message: 'No changes to save.' };
 
   const { error } = await admin
     .from('vendor_billing_catalog')
-    .update({ title, price_php: priceR, description, is_active: active, updated_at: new Date().toISOString() })
+    .update({ title, price_php: priceR, description, updated_at: new Date().toISOString() })
     .eq('sku_code', code);
   if (error) return { ok: false, message: `Couldn't save — ${error.message}` };
 
@@ -656,7 +656,7 @@ export async function saveVendorRow(
     action: 'v2_vendor_sku_edit',
     target_id: code,
     actor_user_id: adminUserId,
-    metadata: { table: 'vendor_billing_catalog', sku_code: code, before: prior, after: { title, price_php: priceR, description, is_active: active } },
+    metadata: { table: 'vendor_billing_catalog', sku_code: code, before: prior, after: { title, price_php: priceR, description } },
   });
 
   revalidateCatalogSurfaces();

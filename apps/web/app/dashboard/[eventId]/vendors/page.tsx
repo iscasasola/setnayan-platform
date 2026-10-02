@@ -16,7 +16,6 @@
 
 import { redirect } from 'next/navigation';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
-import { MiniTour } from '@/app/_components/mini-tour';
 
 import { getCurrentUser } from '@/lib/auth';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -2487,13 +2486,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             />
           }
         />
-        {/* Marketplace mini-tour — rides only on the takeover (this branch), so
-            its bench → build → compare copy never narrates the kill-switch
-            accordion. The mount was deliberately removed on 2026-05-31
-            (879c1c138) when the accordion replaced the card/stage page the old
-            copy described; this remount ships with that copy rewritten for the
-            takeover (lib/tours.ts customer_vendors_v1). */}
-        <MiniTour tourKey="customer_vendors_v1" />
       </>
     );
   }

@@ -9,7 +9,7 @@ import { TOURS, type TourKey } from '@/lib/tours';
 // only when the key is missing.
 //
 // Use from any signed-in page:
-//   <MiniTour tourKey="customer_vendors_v1" />
+//   <MiniTour tourKey="customer_budget_v1" />
 //
 // Returns null when:
 //   - The user is not signed in

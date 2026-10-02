@@ -1,5 +1,5 @@
 /**
- * The Marketplace mini-tour is MOUNTED, not merely defined.
+ * The Marketplace mini-tour (customer_vendors_v1) — RETIRED 2026-10-02.
  *
  * `customer_vendors_v1` sat in lib/tours.ts defined-but-unmounted from
  * 2026-05-31 (879c1c138 removed the mount when the accordion replaced the
@@ -21,25 +21,18 @@ const read = (rel: string) =>
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^[ \t]*\/\/.*$/gm, '');
 
-test('the vendors page mounts the Marketplace mini-tour exactly once, in the takeover branch', () => {
+test('the Suppliers tour is RETIRED — not mounted, not defined (first-timer fix 23)', () => {
+  // ⚖ 2026-10-02 (corpus FIRST_TIMER_TEST_2026-10-02.md, fix 23): the three
+  // slides narrated the desktop page ("marketplace", "Build your team", "Save
+  // plans, compare") on a phone that shows none of it. Retired until the
+  // spotlight tour. This flips the 2026-08-24 remount pin on purpose: a tour
+  // that describes a different screen than the one in front of you is worse
+  // than no tour.
   const page = read('page.tsx');
-  const mounts = page.match(/<MiniTour tourKey="customer_vendors_v1"/g) ?? [];
-  assert.equal(
-    mounts.length,
-    1,
-    `expected exactly one <MiniTour tourKey="customer_vendors_v1"> mount, found ${mounts.length} — ` +
-      'if it moved, keep it inside the isBudgetBuildEnabled() branch: the copy describes the takeover.',
-  );
-  // It must sit in the takeover's return, after <ServicesTakeover …/>: the
-  // rewritten copy narrates bench → build → compare, which the kill-switch
-  // accordion does not render.
-  const takeoverAt = page.indexOf('<ServicesTakeover');
-  const mountAt = page.indexOf('<MiniTour tourKey="customer_vendors_v1"');
-  assert.ok(takeoverAt > -1, 'ServicesTakeover render not found — the takeover branch moved; re-anchor this test');
-  assert.ok(
-    mountAt > takeoverAt,
-    'the mini-tour mount sits before/outside the ServicesTakeover render — it must ride the takeover branch',
-  );
+  assert.equal((page.match(/tourKey="customer_vendors_v1"/g) ?? []).length, 0, 'the retired Suppliers tour is mounted again');
+  const tours = read('../../../../lib/tours.ts');
+  assert.ok(!tours.includes("customer_vendors_v1: {"), 'the retired Suppliers tour is defined again in lib/tours.ts');
+  assert.ok(!/'customer_vendors_v1'/.test(tours), 'customer_vendors_v1 is still a TourKey');
 });
 
 test('the vendor dashboard mounts its welcome tour, gated on the batched profile read', () => {
@@ -59,15 +52,3 @@ test('the vendor dashboard mounts its welcome tour, gated on the batched profile
   );
 });
 
-test('the tour definition describes the takeover, not the retired card/stage page', () => {
-  const tours = read('../../../../lib/tours.ts');
-  assert.ok(
-    tours.includes("customer_vendors_v1: {"),
-    'customer_vendors_v1 definition missing from lib/tours.ts',
-  );
-  // The single strongest stale-copy marker from the pre-2026-05-31 surface.
-  assert.ok(
-    !tours.includes('total/deposit fields'),
-    'lib/tours.ts still carries the retired card/stage copy ("total/deposit fields") — the 2026-08-24 rewrite regressed',
-  );
-});

@@ -8,7 +8,7 @@
  *                         one row; "Goes under ▾" decides which.
  *   Event types         → createEventTypeRoster (the key is made from the name)
  *   Religions           → createFaithVocab (the key is made from the name;
- *                         it starts Coming soon; "Asked on" can be set here)
+ *                         asked on the wedding until its panel says otherwise)
  *
  * 🔑 IT WARNS BEFORE IT ADDS. As the name is typed, the closest things we
  * already have are listed — found by matching words with the shipped ranker
@@ -241,8 +241,7 @@ export function AddEventType({
 }
 
 /**
- * Religions › + Add — Title-Case key from the name; it starts Coming soon and
- * asked on the wedding only. Saving opens its panel, where "Asked on" and the
+ * Religions › + Add — Title-Case key from the name; asked on the wedding only. Saving opens its panel, where "Asked on" and the
  * services only for it are set — each in its one place.
  */
 export function AddReligion({
@@ -278,7 +277,7 @@ export function AddReligion({
         />
       </label>
       <p className="text-xs text-ink/70">
-        {key ? `Key ${key} · made from the name · permanent` : 'The key is made from the name'} · starts Coming soon · asked on Wedding
+        {key ? `Key ${key} · made from the name · permanent` : 'The key is made from the name'} · asked on Wedding
       </p>
       {near.length > 0 ? (
         <p className="rounded-xl bg-warn-50 p-2.5 text-sm text-ink" data-near-matches="">

@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { normalizeIconName } from '@/lib/taxonomy-icon-name';
 import { validateReorder, computeReorder } from '@/lib/taxonomy-studio-order';
 import {
+  VALID_PHOTO,
   addOptionCore,
   removeOptionCore,
   updateLeafCore,
@@ -53,12 +54,9 @@ const VENDOR_ATTR_PATH = '/vendor-dashboard/attributes';
  *  `{ ok }` / `{ error }` shape and the client calls `router.refresh()`. */
 export type StudioActionResult = { ok: true; message: string } | { ok: false; error: string };
 
-/**
- * A sample photo must be a /public image path or an r2:// ref — never arbitrary
- * text (blocks CSS-injection via a tampered POST, since the value can render as
- * a `url(…)` background). Same shape as the /admin/refinements VALID_PHOTO.
- */
-const VALID_PHOTO = /^(\/[\w./-]+\.(?:webp|jpe?g|png)|r2:\/\/[\w./-]+)$/i;
+// A sample photo must be a /public image path or an r2:// ref — never arbitrary
+// text (a tampered POST cannot inject a `url(…)` background). The ONE copy of
+// that rule lives in lib/refinements-mutations.ts (VALID_PHOTO, imported below).
 
 const SAFE_ANCHOR = /[^a-z0-9_-]/g;
 
@@ -2378,7 +2376,7 @@ export async function createFaithVocab(formData: FormData): Promise<never> {
   });
   revalidatePath(BASE);
   revalidatePath('/explore');
-  redirectBack(formData, 'ok', `${label} added — Coming soon until it is ready.`, { open: key });
+  redirectBack(formData, 'ok', `${label} added.`, { open: key });
 }
 
 // ── Faith launch gate (folded from /admin/wedding-types) ─────────────────────

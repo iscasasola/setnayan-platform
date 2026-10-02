@@ -64,8 +64,7 @@ test('(a) the find area is hidden on a phone ONLY while closed — and every doo
   // Find a supplier opens its OWN page now (P3, 2026-10-01) — so ⋯'s section
   // jumps, which always render, are the phone's door to the bench …
   assert.match(body, /href=\{`\/dashboard\/\$\{eventId\}\/vendors\/categories`\}\s*data-find-supplier/);
-  const menu = TAKEOVER.slice(TAKEOVER.indexOf('function TeamMoreMenu('));
-  assert.doesNotMatch(menu, /replan \? <SectionChips/, 'the bench lost its phone door (chips flag-gated again)');
+  assert.match(body, /<PlanningList\b/, 'the bench lost its phone door (the Your planning list)');
   // … and goToSection — the bus listener, every ⋯ row, every ?tab= adopt — opens it first.
   const goTo = body.slice(body.indexOf('const goToSection'), body.indexOf('}, []);', body.indexOf('const goToSection')));
   assert.match(goTo, /setFindOpen\(true\)/, 'a section jump would scroll to a hidden element');
@@ -74,21 +73,21 @@ test('(a) the find area is hidden on a phone ONLY while closed — and every doo
   assert.match(PAGE, /initialFindOpen=\{Boolean\(sp\.open \|\| sp\.inspect \|\| sp\.tab\)\}/);
 });
 
-test('(a) the page hands the takeover the team, and Budget moved behind ⋯', () => {
+test('(a) the page hands the takeover the team, and Budget is a Your planning row', () => {
   assert.match(PAGE, /teamSlot=\{teamSlot\}/);
   assert.match(PAGE, /teamParts=\{teamParts\}/);
-  assert.match(TAKEOVER, /function TeamMoreMenu\(/);
-  assert.match(TAKEOVER, /<TeamMoreMenu parts=\{teamParts\}/);
-  // Every part but the team itself is a ⋯ row, from lib/pillar-parts — no hand-typed href.
-  assert.match(TAKEOVER, /\(parts \?\? \[\]\)\.filter\(\(p\) => p\.key !== 'team'\)/);
-  assert.match(TAKEOVER, /href=\{p\.href\}/);
+  // Budget's address comes from lib/pillar-parts — never a hand-typed href.
+  assert.match(TAKEOVER, /teamParts\?\.find\(\(p\) => p\.key === 'budget'\)\?\.href/);
 });
 
-test('(a) the section jumps are ⋯ menu rows, not a pill row on the page', () => {
+test('(a) the ⋯ menu is gone and the planning list sits after Find a supplier, before the find area', () => {
   const body = takeoverBody();
-  assert.doesNotMatch(body, /<SectionChips \/>/, 'the chips are back on the page as a pill row');
-  const menu = TAKEOVER.slice(TAKEOVER.indexOf('function TeamMoreMenu('));
-  assert.match(menu, /<SectionChips \/>/, 'the section jumps lost their home in ⋯');
+  assert.doesNotMatch(TAKEOVER, /TeamMoreMenu|SectionChips|data-team-more/, 'the ⋯ menu is back');
+  const find = body.indexOf('data-find-supplier');
+  const list = body.indexOf('<PlanningList');
+  const area = body.indexOf('id="team-find-area"');
+  assert.ok(find > -1 && list > -1 && area > -1);
+  assert.ok(find < list && list < area, 'Your planning must follow Find a supplier and precede the find area');
 });
 
 /* ── (b) one next step, from the state the page already read ──────────────── */

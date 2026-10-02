@@ -132,13 +132,13 @@ export const PLAN_A_FEATURES: readonly FeaturePageEntry[] = [
       en: [
         { q: 'Is there a free guest list app in the Philippines?', a: 'Yes. Setnayan Guest list is free with every account. It tracks RSVP, plus-ones, meals, roles and tables for any event, with nothing to buy.' },
         { q: 'How do guests RSVP?', a: 'Each guest opens their personal link or scans their QR, then taps Yes, No or Maybe. If you ask about meals they pick theirs there too, with a note for allergies.' },
-        { q: 'Can I import my existing list?', a: 'Yes. Paste your spreadsheet with Import CSV, or type a name and press Enter. You can also pick from people already in your account.' },
+        { q: 'Can I import my existing list?', a: 'Yes. Tap + and choose Import a file, or type a name and press Enter. You can also pick from people already in your account.' },
         { q: 'Does it know Filipino wedding roles?', a: 'Yes. Principal sponsors, candle, veil and cord sponsors, ninong, ninang, bearers, flower girl, maid of honor, best man and more are ready to assign.' },
       ],
       tl: [
         { q: 'May libreng guest list app ba sa Pilipinas?', a: 'Meron. Libre ang Setnayan Guest list sa bawat account. Sinusubaybayan nito ang RSVP, plus-one, pagkain, role at table para sa kahit anong event, at walang bibilhin.' },
         { q: 'Paano sumasagot ang mga bisita?', a: 'Bubuksan ng bisita ang personal link o i-scan ang QR, tapos mag-tap ng Yes, No o Maybe. Kung nagtatanong ka tungkol sa pagkain, doon na rin sila pipili, may note para sa allergy.' },
-        { q: 'Puwede ko bang i-import ang kasalukuyang listahan ko?', a: 'Puwede. I-paste ang spreadsheet gamit ang Import CSV, o mag-type ng pangalan at pindutin ang Enter. Puwede ring pumili sa mga tao sa account mo.' },
+        { q: 'Puwede ko bang i-import ang kasalukuyang listahan ko?', a: 'Puwede. I-tap ang + at piliin ang Import a file, o mag-type ng pangalan at pindutin ang Enter. Puwede ring pumili sa mga tao sa account mo.' },
         { q: 'Alam ba nito ang mga Pinoy na role sa kasal?', a: 'Oo. Principal sponsors, candle, veil at cord sponsors, ninong, ninang, bearers, flower girl, maid of honor, best man at iba pa ay handang i-assign.' },
       ],
     },

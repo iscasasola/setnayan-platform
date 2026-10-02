@@ -1,5 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -160,7 +161,7 @@ export default async function SetnayanAiPage({ params }: Props) {
   return (
     <section className="space-y-6">
       <Link
-        href={`/dashboard/${eventId}/studio`}
+        href={studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink/5 px-3 py-1.5 text-xs font-medium text-ink/70 hover:bg-ink/10 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { runAnonDraftSweep } from '@/lib/anon-draft-sweep';
+import { runAnonDraftReminders, runAnonDraftSweep } from '@/lib/anon-draft-sweep';
 
 // Abandoned anonymous-draft cleanup (RA 10173 data-minimization).
 //
@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
     (headerSecret.length > 0 && timingSafeEqual(headerSecret, expected));
   if (!ok) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
+  // The reminder first, as the daily run does (owner 2026-10-02, tracker d11).
+  const reminders = await runAnonDraftReminders();
   const { scanned, deleted } = await runAnonDraftSweep();
-  return NextResponse.json({ scanned, deleted });
+  return NextResponse.json({ scanned, deleted, reminded: reminders.sent, noEmail: reminders.noEmail });
 }

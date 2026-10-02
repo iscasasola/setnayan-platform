@@ -1,5 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, ArrowUpRight, Clock, Globe2, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -109,7 +110,7 @@ export default async function WebsiteProBuyPage({ params, searchParams }: Props)
         href: `/dashboard/${eventId}/launch${search.then === 'apply' ? `?${UNLOCK_AND_APPLY_PARAM}=1` : ''}`,
         label: 'Back to the Maker',
       }
-    : { href: `/dashboard/${eventId}/studio`, label: 'Back to services' };
+    : { href: studioHubHref(eventId), label: 'Back to services' };
 
   const user = await getCurrentUser();
   if (!user) redirect('/login');

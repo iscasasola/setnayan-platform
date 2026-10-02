@@ -1,5 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
 import {
   ArrowLeft,
@@ -96,7 +97,7 @@ export default async function EditorialProBuyPage({ params }: Props) {
   return (
     <section className="mx-auto w-full max-w-2xl space-y-6 px-4 py-6 sm:px-6">
       <Link
-        href={`/dashboard/${eventId}/studio`}
+        href={studioHubHref(eventId)}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"
       >
         <ArrowLeft aria-hidden className="h-4 w-4" /> Back to services

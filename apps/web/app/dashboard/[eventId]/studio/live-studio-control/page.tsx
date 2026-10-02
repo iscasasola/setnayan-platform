@@ -1,5 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { notFound, redirect } from 'next/navigation';
 import {
   Video,
@@ -387,7 +388,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       ) : null}
 
       <AppStoreLayout
-        back={{ href: `/dashboard/${eventId}/studio`, label: 'Back to add-ons' }}
+        back={{ href: studioHubHref(eventId), label: 'Back to add-ons' }}
         hero={{
           Icon: Video,
           eyebrow: 'Live Watch',

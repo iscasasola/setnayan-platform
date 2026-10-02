@@ -100,16 +100,16 @@ export async function startThreadCall(
   // Calls are a PAID-vendor capability (owner 2026-07-13: "a service for the
   // paid"). This is the AUTHORITATIVE chokepoint — both the "Call" tab
   // (ThreadCallLauncher) and the appointment video/voice join call this action,
-  // so gating here covers every call-start regardless of the UI. Flag-dark by
-  // default (resolveThreadCallsEnabled returns true until the owner flips
-  // VENDOR_TIER_FEATURE_GATE), so today's free P2P calling is unchanged.
+  // so gating here covers every call-start regardless of the UI. Paid only by
+  // default since 2026-10-02 (owner, tracker d10) — its own switch,
+  // VENDOR_CALLS_PAID_ONLY (lib/thread-calls-rule.ts), not the shared tier gate.
   if (!(await resolveThreadCallsEnabled(thread.vendor_profile_id))) {
     return {
       ok: false,
       error:
         role === 'vendor'
           ? 'Calling clients is a paid feature — upgrade your plan to start voice & video calls.'
-          : 'This vendor hasn’t enabled in-app calling yet.',
+          : 'This supplier hasn’t turned on in-app calling yet.',
     };
   }
 

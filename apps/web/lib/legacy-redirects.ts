@@ -16,9 +16,11 @@
  * 308 = permanent + method-preserving, the same shape as the `/services` and
  * `/add-ons` forwards beside it in the middleware. The destination is the one
  * each stub redirected to, unchanged. The stubs dropped the query string, and so
- * does this: no destination here carries a query string of its own, and the
- * visitor's is not appended (`new URL(target, request.url)` in the middleware
- * takes only the path). `/dashboard/<eventId>/website/what-to-bring` is NOT in
+ * does this: the visitor's query is not appended (`new URL(target,
+ * request.url)` in the middleware takes only the target). The only destinations
+ * carrying a query of their own are the More menu's (`MORE_MENU` below, for the
+ * retired `/suite`, `/studio` and `/design`) — that query IS the address of the
+ * menu, not the visitor's. `/dashboard/<eventId>/website/what-to-bring` is NOT in
  * this map — it is still a page (see `lib/legacy-redirects.test.ts`).
  *
  * ⚠ EXACT PATHS ONLY (a trailing slash is tolerated). A retired path's child is
@@ -30,13 +32,28 @@
  * save.
  */
 
-/** `/dashboard/<eventId>/<segment>` → `/dashboard/<eventId>/<to>` (`to` may be ''). */
+import { MORE_SERVICES_PARAM, MORE_SERVICES_VALUE } from './studio-hub';
+
+/** The More menu's address, relative to the event (`studioHubHref`). */
+const MORE_MENU = `?${MORE_SERVICES_PARAM}=${MORE_SERVICES_VALUE}`;
+
+/**
+ * `/dashboard/<eventId>/<segment>` → `/dashboard/<eventId><to>`. `to` is ''
+ * (the event's Home), a path, or a query on Home (`?…`).
+ */
 const EVENT_SCOPED: readonly (readonly [from: string, to: string])[] = [
   ['for-you', 'vendors'], //                  retired 2026-06-04
-  ['design', 'studio'], //                    retired 2026-06-17
+  // retired 2026-06-17 → /studio, which is itself retired since 2026-10-02 —
+  // so it lands where /studio now does, in one hop.
+  ['design', MORE_MENU],
   ['today', ''], //                           retired 2026-06-03 → the event hub
   ['studio/animated-monogram', 'monogram'], // retired 2026-06-25
   ['website/launch', 'website/editor'], //    retired 2026-07-25
+  // 🧭 The full-page More Services (owner 2026-10-02, tracker d1: "remove the
+  // old page — the More menu is the one place; old links forward"). `/suite`
+  // was the page; `/studio` was its predecessor and had redirected to it.
+  ['suite', MORE_MENU],
+  ['studio', MORE_MENU],
 ];
 
 /** Whole-path pairs (no event id in them). */
@@ -71,5 +88,6 @@ export function legacyRedirectTarget(pathname: string): string | null {
   if (!m) return null;
   const to = EVENT_SCOPED_RE.get(m[2]!);
   if (to === undefined) return null;
-  return to === '' ? `/dashboard/${m[1]}` : `/dashboard/${m[1]}/${to}`;
+  if (to === '' || to.startsWith('?')) return `/dashboard/${m[1]}${to}`;
+  return `/dashboard/${m[1]}/${to}`;
 }

@@ -1,5 +1,6 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
+import { studioHubHref } from '@/lib/studio-hub';
 import { redirect } from 'next/navigation';
 import {
   MonitorPlay,
@@ -93,7 +94,7 @@ export default async function LiveWallConsolePage({
             fills itself as the night unfolds. The Live Wall is a Papic add-on.
           </p>
           <Link
-            href={`/dashboard/${eventId}/studio`}
+            href={studioHubHref(eventId)}
             className="mt-5 inline-flex items-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600"
           >
             <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />

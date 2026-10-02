@@ -213,7 +213,7 @@ function ConsentModal({
               className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
             />
             <span>
-              <strong>Can lock suppliers</strong> — {who} may finalize (lock) a
+              <strong>Can book suppliers</strong> — {who} may book a
               supplier on your behalf, which commits your booking and starts its
               payment schedule.
             </span>
@@ -227,7 +227,7 @@ function ConsentModal({
             />
             <span>
               <strong>Can handle payments</strong> — {who} may submit orders,
-              upload payment proof, and record supplier deposits for this event.
+              upload payment proof, and record supplier payments for this event.
             </span>
           </label>
         </div>

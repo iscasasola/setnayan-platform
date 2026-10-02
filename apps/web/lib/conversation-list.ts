@@ -241,8 +241,8 @@ const GENERATED_PREVIEW_PATTERNS: ReadonlyArray<{
   short: (m: RegExpMatchArray) => string;
 }> = [
   {
-    // `lib/proposal-send.ts` → `📄 Proposal — "Intimate 50 — your event" · ₱187,500. Tap to review and accept.`
-    match: /^📄 Proposal — [“"].+?[”"] · (.+?)\. Tap to review and accept\.$/,
+    // `lib/proposal-send.ts` → `📄 Quote — "Intimate 50 — your event" · ₱187,500. Tap to see the quote.` (older messages say `📄 Proposal … Tap to review and accept.` — both match)
+    match: /^📄 (?:Proposal|Quote) — [“"].+?[”"] · (.+?)\. Tap to (?:review and accept|see the quote)\.$/,
     short: (m) => `Quote ${m[1]} sent`,
   },
   {

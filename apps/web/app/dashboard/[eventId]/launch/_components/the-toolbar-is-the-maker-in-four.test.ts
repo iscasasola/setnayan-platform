@@ -123,7 +123,7 @@ test('the rendered toolbar is EXACTLY Exit · Page ▾ · Look · Details · Und
 
 test('the four stage names are not a top-level row — they live inside Page ▾', async () => {
   const header = headerOf(await paint());
-  for (const word of ['Save the Date', 'On the Day', 'Post Event', 'RSVP', 'Prints', 'Scenes', 'Restore', 'Your info']) {
+  for (const word of ['Save the Date', 'The Day', 'Post Event', 'RSVP', 'Prints', 'Scenes', 'Restore', 'Your info']) {
     assert.ok(!header.includes(`>${word}<`), `"${word}" is on the bar again — it belongs to Page ▾ or ⋯`);
   }
   assert.doesNotMatch(header, /data-maker-bar-item|data-maker-place-pick|data-maker-divider/, 'the stage row is back');
@@ -183,7 +183,7 @@ const pagesOf = (s: Parameters<typeof makerGuestPages>[0]) => makerGuestPages(s,
 
 test('Page ▾ lists the five stages as groups, each with the guest bar’s own pages; RSVP holds its reply', () => {
   const m = makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: 'rsvp', pagesOf, shownPage: null, hasWork: true });
-  assert.deepEqual([...new Set(m.options.map((o) => o.group))], ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event']);
+  assert.deepEqual([...new Set(m.options.map((o) => o.group))], ['Save the Date', 'RSVP', 'Invitation', 'The Day', 'Post Event']);
   for (const stage of ['save_the_date', 'rsvp', 'event', 'editorial'] as const) {
     const own = m.options.filter((o) => o.key.startsWith(`${stage}:`)).map((o) => o.label);
     assert.deepEqual(own, pagesOf(stage).map((p) => p.label), `${stage}: not the guest bar's pages`);
@@ -198,7 +198,7 @@ test('Page ▾ lists the five stages as groups, each with the guest bar’s own 
   assert.equal(m.buttonText, 'Invitation › Welcome');
   const onDay = makerPageMenu({ stage: 'event', rsvpOpen: false, liveStage: null, pagesOf, shownPage: 'gallery', hasWork: true });
   assert.equal(onDay.value, 'event:gallery');
-  assert.match(onDay.buttonText, /^On the Day › /);
+  assert.match(onDay.buttonText, /^The Day › /);
   const rsvp = makerPageMenu({ stage: 'rsvp', rsvpOpen: true, liveStage: null, pagesOf, shownPage: null, hasWork: true });
   assert.equal(rsvp.value, 'rsvp-stage');
   assert.equal(rsvp.buttonText, 'RSVP › Reply');

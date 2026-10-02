@@ -156,7 +156,7 @@ export function DepositReservation({
   const owed = (!recorded || declined) && !acked;
   const noMethods = noPayMethodsSentence(payMethodsState, payMethods.length, vendorName);
   const firstLabel =
-    step && step.kind === 'first_payment_due' ? step.label : 'First payment · locks the date';
+    step && step.kind === 'first_payment_due' ? step.label : 'First payment · books the date';
   const later = step && step.kind === 'installment_due' ? step : null;
   // NOT DUE YET — the next installment's date has not arrived, so nothing is
   // owed today. No due-now CTA; the couple may still choose to pay early,

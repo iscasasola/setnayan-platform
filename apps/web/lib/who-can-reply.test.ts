@@ -1,53 +1,41 @@
+/**
+ * Owner 2026-10-02 (d23): the Guests page asks no "Who can reply?" pop-up on the first
+ * visit. The answer defaults to "Only people on my list" — read, never written — and is
+ * changed in Event Details. This holds the page to that, and holds the default to the
+ * words the owner chose.
+ */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readWhoCanRsvp, resolveRsvpAsk } from './rsvp-ask';
-import { WHO_CAN_REPLY_CHOICES, whoCanReplyBase, whoCanReplyPatch } from './who-can-reply';
+import { existsSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { readWhoCanRsvp } from './rsvp-ask';
+import { GUESTS_GET_IN_CHOICES, guestsGetInLabel, guestsGetInPatch, readGuestsGetIn } from './who-can-reply';
+import { stripComments } from './strip-comments';
+import { allSources, WEB } from './retired-word-guard';
 
-const none = { read: 'ok', drafted: false } as const;
-
-test('asks a host whose event has never answered — live and draft both silent', () => {
-  assert.deepEqual(whoCanReplyBase({ isHost: true, liveMeasured: true, live: null, draft: none }), {});
-  assert.deepEqual(
-    whoCanReplyBase({ isHost: true, liveMeasured: true, live: { meal: false }, draft: none }),
-    { meal: false },
-  );
-});
-
-test('an answer anywhere ends the question — live or drafted, either value', () => {
-  for (const v of ['guest_list', 'anyone']) {
-    assert.equal(whoCanReplyBase({ isHost: true, liveMeasured: true, live: { whoCanRsvp: v }, draft: none }), null);
-    assert.equal(
-      whoCanReplyBase({ isHost: true, liveMeasured: true, live: {}, draft: { read: 'ok', drafted: true, value: { whoCanRsvp: v } } }),
-      null,
-    );
+test('an event that never chose reads "Only people on my list" — no write needed', () => {
+  for (const never of [null, undefined, {}, { meal: false }]) {
+    assert.equal(readWhoCanRsvp(never), 'guest_list');
+    assert.equal(readGuestsGetIn(never), 'list');
   }
+  assert.equal(guestsGetInLabel('list'), 'Only people on my list');
+  assert.equal(GUESTS_GET_IN_CHOICES[0]?.value, 'list', 'the default is the first choice in Event Details');
 });
 
-test('never asks when it cannot know — a refused read is not "unanswered"', () => {
-  assert.equal(whoCanReplyBase({ isHost: true, liveMeasured: false, live: null, draft: none }), null);
-  assert.equal(whoCanReplyBase({ isHost: true, liveMeasured: true, live: null, draft: { read: 'refused' } }), null);
-  // …and never a helper: the writer refuses anyone but a host.
-  assert.equal(whoCanReplyBase({ isHost: false, liveMeasured: true, live: null, draft: none }), null);
+test('choosing it in Event Details stores exactly what the default already reads', () => {
+  const patch = guestsGetInPatch('list');
+  assert.equal(patch.whoCanRsvp, 'guest_list');
+  assert.equal(readGuestsGetIn(patch), 'list');
 });
 
-test('the post keeps every drafted RSVP switch — never the one key alone', () => {
-  const base = whoCanReplyBase({
-    isHost: true,
-    liveMeasured: true,
-    live: { dietary: true },
-    draft: { read: 'ok', drafted: true, value: { meal: false, song_request: false } },
-  });
-  assert.ok(base, 'should ask');
-  const posted = whoCanReplyPatch(base, 'anyone');
-  assert.equal(readWhoCanRsvp(posted), 'anyone');
-  assert.equal(resolveRsvpAsk(posted).meal, false, 'a drafted switch was reset by the pop-up');
-  assert.equal(resolveRsvpAsk(posted).song_request, false, 'a drafted switch was reset by the pop-up');
-});
-
-test('two answers, named by the rules, one per stored value', () => {
-  assert.deepEqual(
-    WHO_CAN_REPLY_CHOICES.map((c) => c.label),
-    ['List only', 'Accept'],
+test('the Guests page mounts no first-visit question, and the pop-up is gone', () => {
+  assert.equal(
+    existsSync(join(WEB, 'app/dashboard/[eventId]/guests/_components/who-can-reply-ask.tsx')),
+    false,
+    'the "Who can reply?" component is back',
   );
-  assert.deepEqual(WHO_CAN_REPLY_CHOICES.map((c) => c.value), ['guest_list', 'anyone']);
+  const page = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/guests/page.tsx'), 'utf8'));
+  assert.doesNotMatch(page, /WhoCanReplyAsk|whoCanReplyBase|who-can-reply-ask/, 'the page still asks the question');
+  const asking = allSources().filter((f) => stripComments(readFileSync(join(WEB, f), 'utf8')).includes('Who can reply?'));
+  assert.deepEqual(asking, [], 'a screen still asks "Who can reply?"');
 });

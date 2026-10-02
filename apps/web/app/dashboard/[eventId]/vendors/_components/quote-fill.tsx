@@ -189,7 +189,7 @@ export function QuoteFillRow({
         <p className="text-xs text-ink/55">
           {budgetPhp != null ? (
             <>
-              Adds the best-priced quotes that fit — nothing is locked, and you can swap or remove
+              Adds the best-priced quotes that fit — nothing is booked, and you can swap or remove
               any of them.
             </>
           ) : (

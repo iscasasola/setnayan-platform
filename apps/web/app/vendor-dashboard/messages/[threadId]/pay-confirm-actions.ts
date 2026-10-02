@@ -199,7 +199,7 @@ export async function refuseVendorPayment(formData: FormData): Promise<void> {
           userId: m.user_id,
           type: 'payment_rejected',
           title: isDeposit
-            ? `${vendorName} couldn't confirm your downpayment`
+            ? `${vendorName} couldn't confirm your first payment`
             : `${vendorName} says your ${amount} payment hasn't reached them`,
           body: reason
             ? `Their words: “${reason}”. Nothing you sent is deleted — Setnayan checks it with both of you.`

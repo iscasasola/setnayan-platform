@@ -735,7 +735,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
       code: 'package_covered_zeroed',
       message:
         `${coveredCount} service${coveredCount === 1 ? '' : 's'} are already inside a ` +
-        `package you locked — they are counted once, in the package price.`,
+        `package you booked — they are counted once, in the package price.`,
       amountPhp: toPhp(coveredC),
     });
   }
@@ -931,7 +931,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
       warnings.push({
         code: 'unreconciled_deposit',
         message:
-          `${v.vendor_name}'s recorded deposit is larger than the payments logged ` +
+          `${v.vendor_name}'s recorded payment is larger than the payments logged ` +
           `against them — the payment log is what we count.`,
         amountPhp: toPhp(depositC - paymentsC),
         vendorId: v.vendor_id,
@@ -999,7 +999,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
       if (priceC === 0) {
         warnings.push({
           code: 'package_total_missing',
-          message: `${v.vendor_name}'s locked package has no agreed total recorded.`,
+          message: `${v.vendor_name}'s booked package has no agreed total recorded.`,
           vendorId: v.vendor_id,
           vendorName: v.vendor_name,
           bucket: bucketId,
@@ -1497,7 +1497,7 @@ const SOURCE_META: Record<
     isEstimate: false,
   },
   vendor_package: {
-    label: 'Package price you locked',
+    label: 'Package price you booked',
     table: 'event_vendors.total_cost_php (package anchor)',
     isEstimate: false,
   },
@@ -1512,7 +1512,7 @@ const SOURCE_META: Record<
     isEstimate: false,
   },
   vendor_change_delta: {
-    label: 'Changes agreed after you locked',
+    label: 'Changes agreed after you booked',
     table: 'event_vendor_line_items (is_change_delta)',
     isEstimate: false,
   },

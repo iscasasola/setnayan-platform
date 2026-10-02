@@ -608,7 +608,7 @@ export default async function VendorOverviewPage({
             </span>
           </Link>
           <Link href="/vendor-dashboard/payday" className="sn-glass-bare sn-press rounded-xl px-3 py-3">
-            <span className="block text-[11.5px] text-ink/55">Confirmed of booked</span>
+            <span className="block text-[11.5px] text-ink/55">Received of booked</span>
             <span className="block font-display text-[20px] leading-tight text-ink">
               {earnings.paydayMeasured
                 ? `${formatPhp(earnings.confirmedPhp)} / ${formatPhp(earnings.expectedPhp)}`

@@ -51,7 +51,7 @@ export function ShareBudgetBandToggle({
           <p className="mt-2 max-w-prose text-sm text-ink/75">
             Suppliers you talk to see a <span className="font-medium text-ink">range</span>{' '}
             for their category only — never your exact numbers. It helps you get
-            accurate quotes faster, since they can tailor a proposal to what you
+            accurate quotes faster, since they can tailor a quote to what you
             planned. Off by default; turn it on or off anytime.
           </p>
           {state?.ok === true ? (

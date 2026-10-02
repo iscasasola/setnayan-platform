@@ -106,7 +106,7 @@ export function TeamClearCandidates({ eventId }: { eventId: string }) {
             body: (
               <>
                 This empties your build — every supplier you’re still weighing up comes off. Your{' '}
-                <span className="font-medium text-ink">locked suppliers stay</span> (they’re
+                <span className="font-medium text-ink">booked suppliers stay</span> (they’re
                 contracts), and so does anything mid-handshake.
               </>
             ),
@@ -194,7 +194,7 @@ export function TeamSavePlan({
   function onSaveNamed() {
     setErr(null);
     if (currentPlan.picks.length === 0) {
-      setErr('Add some suppliers to your build first — from the bench, then save.');
+      setErr('Add some suppliers to your build first — from your Saved list, then save.');
       return;
     }
     startTransition(async () => {

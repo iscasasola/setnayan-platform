@@ -754,7 +754,7 @@ function HowItWorks() {
     {
       Icon: Music,
       title: '1 · Pick 2 templates',
-      body: 'Browse below and lock in one primary + one backup reel. Setnayan-owned music pairs to each template — no licensing surprises.',
+      body: 'Browse below and pick one primary + one backup reel. Setnayan-owned music pairs to each template — no licensing surprises.',
     },
     {
       // Was "2 · Print the booth QR — We email a print-ready PDF". No such PDF

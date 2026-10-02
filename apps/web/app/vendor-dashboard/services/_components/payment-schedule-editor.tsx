@@ -98,7 +98,7 @@ export function PaymentScheduleEditor({
     setRows((prev) =>
       prev.length >= MAX_SCHEDULE_ITEMS
         ? prev
-        : [...prev, blankRow(prev.length === 0 ? 'Downpayment' : `Payment ${prev.length}`)],
+        : [...prev, blankRow(prev.length === 0 ? 'First payment' : `Payment ${prev.length}`)],
     );
   }
   function remove(i: number) {
@@ -129,7 +129,7 @@ export function PaymentScheduleEditor({
         <p className="text-sm font-medium text-ink">Payment schedule</p>
       </div>
       <p className="text-xs text-ink/55">
-        Optional. Lay out how a couple pays — a downpayment plus follow-on
+        Optional. Lay out how a couple pays — a first payment plus follow-on
         payments. Each one can be a % of the total or a fixed peso amount, with a
         due date anchored to booking or the event. The couple sees this on their
         plan.
@@ -137,7 +137,7 @@ export function PaymentScheduleEditor({
 
       {rows.length === 0 ? (
         <p className="rounded-lg border border-dashed border-ink/15 px-3 py-3 text-xs text-ink/45">
-          No schedule yet. Add a downpayment to get started.
+          No schedule yet. Add a first payment to get started.
         </p>
       ) : (
         <ul className="space-y-2">
@@ -148,7 +148,7 @@ export function PaymentScheduleEditor({
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <span className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-                  {i === 0 ? 'Downpayment' : `Payment ${i}`}
+                  {i === 0 ? 'First payment' : `Payment ${i}`}
                 </span>
                 <div className="flex items-center gap-1">
                   <button
@@ -172,7 +172,7 @@ export function PaymentScheduleEditor({
                   <button
                     type="button"
                     onClick={() => remove(i)}
-                    aria-label="Remove installment"
+                    aria-label="Remove payment"
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-ink/5 text-ink/70 hover:bg-terracotta/10 hover:text-terracotta"
                   >
                     <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
@@ -193,7 +193,7 @@ export function PaymentScheduleEditor({
                     maxLength={80}
                     value={r.label}
                     onChange={(e) => update(i, { label: e.target.value })}
-                    placeholder={i === 0 ? 'Downpayment' : `Payment ${i}`}
+                    placeholder={i === 0 ? 'First payment' : `Payment ${i}`}
                     className="input-field"
                   />
                 </label>
@@ -312,7 +312,7 @@ export function PaymentScheduleEditor({
                     </div>
                     <p className="text-[11px] leading-snug text-ink/55">
                       Spell out your cancellation / no-show terms for this
-                      downpayment. The couple must tick &ldquo;I understand&rdquo; before
+                      first payment. The couple must tick &ldquo;I understand&rdquo; before
                       they can lock, and we freeze these exact words as proof if a
                       forfeit is ever disputed. Setnayan never holds the money — you
                       collect it directly.
@@ -327,7 +327,7 @@ export function PaymentScheduleEditor({
                         }
                         className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
                       />
-                      <span>Downpayment is non-refundable</span>
+                      <span>First payment is non-refundable</span>
                     </label>
 
                     <label className="flex items-start gap-2 text-xs text-ink/80">
@@ -337,7 +337,7 @@ export function PaymentScheduleEditor({
                         onChange={(e) => update(i, { no_show_forfeit: e.target.checked })}
                         className="mt-0.5 h-4 w-4 rounded border-ink/30 text-terracotta focus:ring-terracotta"
                       />
-                      <span>A no-show forfeits the downpayment</span>
+                      <span>A no-show forfeits the first payment</span>
                     </label>
 
                     <label className="block space-y-1">
@@ -366,7 +366,7 @@ export function PaymentScheduleEditor({
                         maxLength={2000}
                         value={r.cancellation_terms}
                         onChange={(e) => update(i, { cancellation_terms: e.target.value })}
-                        placeholder="e.g. The reservation downpayment secures your date and is non-refundable. If you cancel within 7 days of booking, the downpayment is returned in full."
+                        placeholder="e.g. The reservation first payment secures your date and is non-refundable. If you cancel within 7 days of booking, the first payment is returned in full."
                         className="input-field"
                       />
                     </label>
@@ -392,7 +392,7 @@ export function PaymentScheduleEditor({
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Plus className="h-3.5 w-3.5" strokeWidth={1.75} />
-          {rows.length === 0 ? 'Add downpayment' : 'Add payment'}
+          {rows.length === 0 ? 'Add first payment' : 'Add payment'}
         </button>
         <SubmitButton
           className="inline-flex h-8 items-center justify-center rounded-md border border-ink/20 bg-white/70 px-3 text-[11px] font-medium text-ink hover:border-ink/40"

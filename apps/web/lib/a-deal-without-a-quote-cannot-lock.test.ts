@@ -80,7 +80,7 @@ test('the line shown in place of Lock asks for the quote and claims no lock', ()
   const vendor = dealNotLockableLine('no_quote', 'vendor', 'Maria & Jose');
   assert.match(couple, /quote/i);
   assert.match(couple, /Villa Catering/);
-  assert.match(vendor, /send your proposal/i);
+  assert.match(vendor, /send your quote/i);
   assert.notEqual(couple, vendor, 'each side must be told its OWN next step');
   for (const role of ['couple', 'vendor'] as const) {
     for (const reason of ['no_quote', 'below_zero'] as const) {
@@ -94,7 +94,7 @@ test('the line shown in place of Lock asks for the quote and claims no lock', ()
 test('the refusal a stale page gets says NOTHING was locked', () => {
   for (const reason of ['no_quote', 'below_zero'] as const) {
     const msg = dealLockRefusal(reason);
-    assert.match(msg, /nothing was locked/i);
+    assert.match(msg, /nothing was (locked|booked)/i);
     assert.doesNotMatch(msg, /deal locked|price frozen|frozen at/i);
   }
 });

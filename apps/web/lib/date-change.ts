@@ -167,11 +167,11 @@ export function dateChangeAnswerLine(s: DateChangeSupplier, now: number): string
       return 'Can move to the new date';
     case 'unlocked':
       return s.moneyToSettle
-        ? 'Unlocked their service — the deposit is settled by your booking’s cancellation terms'
+        ? 'Unlocked their service — the payment is settled by your booking’s cancellation terms'
         : 'Unlocked their service';
     case 'dropped':
       return s.moneyToSettle
-        ? 'You released them — the deposit is settled by your booking’s cancellation terms'
+        ? 'You released them — the payment is settled by your booking’s cancellation terms'
         : 'You released them';
     case 'asked': {
       if (s.overdue) return 'No answer after 3 days';
@@ -215,7 +215,7 @@ export function dateChangeRefusalText(reason: string | undefined): string {
 export const DATE_ANSWER_NOTICE: Record<string, string> = {
   moved: 'Done — you told them you can move. Your held day moves with the date when they apply it.',
   unlocked:
-    'Done — your service is unlocked and the booking released. Any deposit is settled by the cancellation terms on the booking; Setnayan support has the case if money was logged.',
+    'Done — your service is unlocked and the booking released. Any payment is settled by the cancellation terms on the booking; Setnayan support has the case if money was logged.',
   already: 'That was already answered, or the couple withdrew it — nothing changed.',
   not_yours: 'That request belongs to another shop — nothing changed.',
   failed: 'That did not go through. Nothing changed — please try again.',

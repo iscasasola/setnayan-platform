@@ -289,7 +289,7 @@ test('5a · the card\'s rows become manual installments; percent and fixed each 
 test('5b · the terms line is the seq-0 policy in one sentence, and null when nothing is stated', () => {
   assert.equal(
     termsLine([{ seq: 0, label: 'Reservation', amount_kind: 'percent', percent_bps: 3000, amount_centavos: null, due_anchor: 'on_lock', due_offset_days: 0, cancellation_terms: 'Move once for free', downpayment_non_refundable: true, refund_window_days: 14, no_show_forfeit: true }]),
-    'Move once for free · Reservation non-refundable · refund window 14 days · no-show forfeits the downpayment',
+    'Move once for free · Reservation non-refundable · refund window 14 days · no-show forfeits the first payment',
   );
   assert.equal(termsLine([{ seq: 0, label: 'Reservation', amount_kind: 'percent', percent_bps: 3000, amount_centavos: null, due_anchor: 'on_lock', due_offset_days: 0, cancellation_terms: null, downpayment_non_refundable: false, refund_window_days: null, no_show_forfeit: false }]), null);
   assert.equal(scheduleFromCard([]), null, 'no rows → the builder keeps its default schedule');

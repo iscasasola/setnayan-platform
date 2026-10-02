@@ -58,7 +58,7 @@ export function EverythingElseSheet({
           Everything else on this invitation
         </h2>
         <div className="px-5 py-2">
-          {onTheDay.length > 0 ? <RowGroup heading="On the day" rows={onTheDay} /> : null}
+          {onTheDay.length > 0 ? <RowGroup heading="The Day" rows={onTheDay} /> : null}
           {anytime.length > 0 ? <RowGroup heading="Anytime" rows={anytime} /> : null}
         </div>
       </Sheet>

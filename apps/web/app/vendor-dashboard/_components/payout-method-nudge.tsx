@@ -51,10 +51,10 @@ export function PayoutMethodNudge({
   const body = inReview
     ? 'Your payment method is waiting for Setnayan’s review. Couples will see it as soon as it is approved.'
     : context === 'lock'
-      ? 'Couples pay you directly, and you haven’t added a way to be paid yet. Add your bank, e-wallet or QR so they can send your deposit as soon as you agree.'
+      ? 'Couples pay you directly, and you haven’t added a way to be paid yet. Add your bank, e-wallet or QR so they can send your payment as soon as you agree.'
       : context === 'today'
-        ? 'You have bookings, and your couples can’t see anywhere to pay you yet. Add your bank, e-wallet or QR so their deposits can reach you.'
-        : 'This couple can’t see anywhere to pay you. Add your bank, e-wallet or QR so their deposit can reach you.';
+        ? 'You have bookings, and your couples can’t see anywhere to pay you yet. Add your bank, e-wallet or QR so their payments can reach you.'
+        : 'This couple can’t see anywhere to pay you. Add your bank, e-wallet or QR so their payment can reach you.';
 
   return (
     <div

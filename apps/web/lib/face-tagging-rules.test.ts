@@ -327,7 +327,7 @@ test('AUTO · the gate hands Papic-active to the resolver, and no app code asks 
   // Every surface that decides the capture embedder follows the automatic default.
   assert.match(code('app/papic/guest/page.tsx'), /coupleDeclinedFaceTagging,\s*access === 'on',/);
   assert.match(code('app/papic/seat/[token]/page.tsx'), /resolveFaceTagging\(admin, seat\.event_id as string\)\)\.mode/);
-  assert.match(code('app/dashboard/[eventId]/studio/patiktok/booth/page.tsx'), /resolveFaceTagging\(createAdminClient\(\), eventId\)\)\.mode/);
+  assert.match(code('app/dashboard/[eventId]/studio/patiktok/booth/page.tsx'), /resolveFaceTagging\(await eventEntitlementClient\(eventId\), eventId\)\)\.mode/);
   assert.match(code('lib/face-match.ts'), /\(await resolveFaceTagging\(admin, eventId\)\)\.mode !== 'mode_a'/);
   // The couple's card shows wherever tagging would run — not only where an admin chose mode_a.
   assert.match(code('app/dashboard/[eventId]/studio/papic/_components/face-tagging-choice.tsx'), /if \(!tagging\.available\) return null;/);

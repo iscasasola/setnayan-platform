@@ -158,7 +158,9 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     ['app/vendor-dashboard/performance/_components/inquiry-handling-card.tsx', /\$\{REPLY_SPREAD_PCT\}% within/],
     ['app/onboarding/_shared/date-calendar.tsx', /\$\{MAXSPAN \+ 1\} days/],
     ['app/admin/custom-plans/_components/custom-composer.tsx', /CUSTOM_BASE\.seats\)\} seats included/],
-    ['app/admin/pricing/_components/ai-bands-editor.tsx', /\{PAPIC_DISCOUNT_FLOOR_PCT\}% floor/],
+    // The AI family's own discount card (and its "10% floor" sentence) was removed by the
+    // one-sign-up-discount change (d18); the one card left quotes the floor by name.
+    ['app/admin/pricing/_components/signup-discount-card.tsx', /min=\{PAPIC_DISCOUNT_FLOOR_PCT\}/],
     ['app/admin/studio/_surfaces/social-queue-surface.tsx', /SHARE_PUBLISH_GATE_DAYS/],
     ['app/for-suppliers/_components/vendor-grow-sections.tsx', /\{COMMISSION_PCT\}%/],
   ];

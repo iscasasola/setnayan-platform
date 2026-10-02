@@ -12,8 +12,8 @@
  * actually return.
  */
 
-/** What a read of `events.archived` can hand back. */
-export type ArchivedRow = { archived?: boolean | null } | null | undefined;
+/** What a read of `events.archived` (and the Papic answer, `papic_on`) can hand back. */
+export type ArchivedRow = { archived?: boolean | null; papic_on?: boolean | null } | null | undefined;
 
 /**
  * May this celebration accept new photographs?
@@ -36,6 +36,10 @@ export type ArchivedRow = { archived?: boolean | null } | null | undefined;
  */
 export function rowAcceptsNewCaptures(row: ArchivedRow, hadError: boolean): boolean {
   if (hadError || !row) return true;
+  // 🗂 Papic answered "No" (owner 2026-10-02, `papic_on = false`, changed in
+  // Your info): no shot is taken — an explicit decision, so it closes; NULL
+  // (never asked) is on, like every event before the question existed.
+  if (row.papic_on === false) return false;
   return row.archived !== true;
 }
 
@@ -48,4 +52,4 @@ export function rowAcceptsNewCaptures(row: ArchivedRow, hadError: boolean): bool
  * client surface can render it.
  */
 export const EVENT_PUT_AWAY_CAPTURE_COPY =
-  'This celebration has been put away, so it isn’t taking new photos. The host can bring it back any time from its Personalization page.';
+  'This celebration isn’t taking new photos right now. The host can turn photos back on any time.';

@@ -128,8 +128,9 @@ const BUDGET_SURFACES = [
   'app/dashboard/[eventId]/budget/page.tsx',
   'app/dashboard/[eventId]/_components/event-dashboard.tsx',
   'app/dashboard/[eventId]/details/page.tsx',
-  // The Personalization editors moved here whole (2026-10-01) — budget target box included.
-  'app/dashboard/[eventId]/details/change/page.tsx',
+  // The Personalization editors moved whole to /details/change (2026-10-01), then into
+  // the Maker's Your info › Event settings (2026-10-02) — budget target box included.
+  'app/dashboard/[eventId]/launch/_components/details-settings-load.ts',
 ] as const;
 
 test('every surface that prints the budget target consults the shared resolver', () => {

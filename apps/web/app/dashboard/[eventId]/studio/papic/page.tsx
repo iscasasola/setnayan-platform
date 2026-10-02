@@ -77,6 +77,7 @@ import {
   PAPIC_UPLOADS_CAMERA_INDEX,
 } from '@/lib/papic-cameras';
 import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
+import { papicIsOn } from '@/lib/event-answers';
 import { ensureFreePapicOneCameraAdmin, fetchPapicOneTiers } from '@/lib/papic-one';
 // Per-rung display titles + capture-POINT budgets. ONE reader for the whole app
 // (`lib/papic-tier-copy.ts`, #3421) — derived from the admin-editable
@@ -585,6 +586,17 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
     validUntil: papicWindow.endIso,
   });
 
+  // 🗂 The host's "Photos from your guests?" answer (`events.papic_on`, Your info).
+  const { data: papicSwitchRow, error: papicSwitchError } = await supabase
+    .from('events')
+    .select('papic_on')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (papicSwitchError) {
+    logQueryError('PapicStudioPage.papicSwitch', papicSwitchError, { eventId }, 'graceful_degrade');
+  }
+  const papicAnsweredNo = !papicSwitchError && !papicIsOn((papicSwitchRow as { papic_on?: unknown } | null)?.papic_on);
+
   // FREE POOL — the other half of the free tier, and the SELF-HEAL for it.
   // The 3 seats above are useless without points: with no grant at all,
   // papic_event_pool_status() returns applies=FALSE and papic_reserve_event_points()
@@ -593,14 +605,23 @@ export default async function PapicAddonPage({ params, searchParams }: Props) {
   // backstop that catches (a) every event created before 20271017100000 that the
   // backfill somehow missed and (b) any creation-time write that failed its
   // best-effort attempt. Idempotent — the partial unique index collapses repeats.
-  await ensureFreePapicPoolGrantAdmin(unlockAdmin, eventId);
-  // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
-  // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
-  // shared pool because the two are different products — the pool grant does
-  // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
-  // idempotent (fixed seat index + a partial unique index on the grant), so the
-  // creation call and the studio self-heal collapse to one camera.
-  await ensureFreePapicOneCameraAdmin(unlockAdmin, eventId);
+  //
+  // 🗂 …EXCEPT WHERE THE HOST SAID NO (owner 2026-10-02, "EVERY ANSWER … LIVES
+  // IN EVENT DETAILS"): "Photos from your guests? — No" (`papic_on = false`,
+  // changed in Your info) is a DATA condition, not a branch of the render — an
+  // off event takes no capture at all (`eventAcceptsNewCaptures`), so it has
+  // nothing to meter, and arming it here would undo the couple's answer. An
+  // unread switch arms, the self-heal's own direction.
+  if (!papicAnsweredNo) {
+    await ensureFreePapicPoolGrantAdmin(unlockAdmin, eventId);
+    // …and the ONE free Papic ONE camera: a dedicated camera with its own QR and
+    // its own 5 unshared points (owner-locked 2026-07-29). Armed alongside the
+    // shared pool because the two are different products — the pool grant does
+    // NOT create a camera, and a couple with no camera has nothing to try. SQL-side
+    // idempotent (fixed seat index + a partial unique index on the grant), so the
+    // creation call and the studio self-heal collapse to one camera.
+    await ensureFreePapicOneCameraAdmin(unlockAdmin, eventId);
+  }
 
   // …and the couple's own UPLOADS camera — the shutter that is a file picker.
   // Owner 2026-08-26: "papic is the source where they collect media files for

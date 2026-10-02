@@ -12,6 +12,10 @@ import { anchorForType, isAnchorOrigin, resolveCadence } from '../event-anchor';
 import { initialLandingVisibility } from './initial-visibility';
 import { sanitizeRsvpAskConfig, type RsvpAskConfig } from '../rsvp-ask';
 import type { SetupAnswers } from './setup-answers';
+import { answerColumnsFromSetup, type EventAnswerColumn } from '../event-answers';
+
+/** What `style_preferences.setup` keeps: every answer EXCEPT the four that have their own column. */
+export type StoredSetupAnswers = Omit<SetupAnswers, 'papic' | 'gifts' | 'logo' | 'photo'>;
 
 /**
  * 🎟 THE SETUP CARDS' ANSWERS → the event's own columns (G1). Pure; the caller
@@ -28,16 +32,20 @@ import type { SetupAnswers } from './setup-answers';
  *              list's first visit asks "Who can reply?" (owner answer #6) —
  *              except "Guest list + requests", which writes `whoCanRsvp:
  *              'anyone'` (the same field that dropdown writes).
- *   · everything → `style_preferences.setup`, the record Home's "Set up" line
- *              reads.
- * The photo and the guests are intents (the upload needs the event first; the
- * guests card picks the landing — `setupLanding`).
+ *   · Papic · gifts · logo · photo → their OWN columns (`papic_on`,
+ *              `gifts_on`, `logo_wanted`, `cover_photo_wanted` — owner
+ *              2026-10-02, "EVERY ANSWER … LIVES IN EVENT DETAILS"), shown
+ *              and changed in Your info, obeyed by the app (lib/event-answers.ts).
+ *   · the rest → `style_preferences.setup`, the record Home's "Set up" line
+ *              reads — WITHOUT those four, so no answer is kept twice.
+ * The guests are an intent (the guests card picks the landing — `setupLanding`).
  */
 export function setupColumns(a: SetupAnswers): {
   venue_name: string | null;
   invite_theme: string;
   rsvp_ask_config: RsvpAskConfig | null;
-  setup: SetupAnswers;
+  answers: Record<EventAnswerColumn, boolean>;
+  setup: StoredSetupAnswers;
 } {
   const rsvp =
     a.reply === 'no'
@@ -52,8 +60,15 @@ export function setupColumns(a: SetupAnswers): {
     venue_name: a.where === 'place' ? a.whereText.trim() || null : a.where === 'home' ? 'At home' : null,
     invite_theme: a.look,
     rsvp_ask_config: rsvp,
-    setup: a,
+    answers: answerColumnsFromSetup(a),
+    setup: storedSetup(a),
   };
+}
+
+/** The blob's copy of the answers, the four column answers taken out. */
+function storedSetup(a: SetupAnswers): StoredSetupAnswers {
+  const { papic: _papic, gifts: _gifts, logo: _logo, photo: _photo, ...rest } = a;
+  return rest;
 }
 
 export type GenericInsertOpts = {
@@ -144,6 +159,8 @@ export function buildGenericEventInsert(
     venue_address: null,
     ...(setup ? { invite_theme: setup.invite_theme } : {}),
     ...(setup?.rsvp_ask_config ? { rsvp_ask_config: setup.rsvp_ask_config } : {}),
+    // 🗂 Papic · gifts · logo · photo — each to its one column (Your info).
+    ...(setup ? setup.answers : {}),
     slug: opts.slug,
     // Visible by link from the moment it exists — unless this is still an
     // anonymous draft, which stays private until the account is secured.

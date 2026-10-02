@@ -4,6 +4,7 @@ import { parseStoredAsset } from '@/lib/uploads';
 import { pabuyaQrPath } from '@/lib/pabuya-qr-url';
 import type { EgiftMethodKind } from '@/lib/egift-kinds';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { giftsAreOn } from '@/lib/event-answers';
 
 /**
  * apps/web/lib/egift.ts (server-only)
@@ -102,11 +103,22 @@ export async function fetchEgiftMethods(
     .eq('event_id', eventId);
   if (opts.enabledOnly) query = query.eq('is_enabled', true);
 
-  const { data, error } = await query
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
+  const [{ data, error }, giftsSwitch] = await Promise.all([
+    query.order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
+    // 🗂 THE HOST'S "Accept gifts?" (owner 2026-10-02, "EVERY ANSWER … LIVES IN
+    // EVENT DETAILS"): read only for the GUEST-FACING list (`enabledOnly` — the
+    // Event Hub's doors, the gift page, the prints). The host's own E-Gifts page
+    // still lists every method they made.
+    opts.enabledOnly
+      ? supabase.from('events').select('gifts_on').eq('event_id', eventId).maybeSingle()
+      : Promise.resolve(null),
+  ]);
 
   if (error || !data) return [];
+  // An explicit No hides every method from guests at once; an unread switch makes no claim.
+  if (giftsSwitch && !giftsSwitch.error && giftsSwitch.data && !giftsAreOn((giftsSwitch.data as { gifts_on?: unknown }).gifts_on)) {
+    return [];
+  }
 
   const rows = data as unknown as EgiftMethodRow[];
   return rows.map((row): EgiftMethodView => ({ ...row, qrDisplayUrl: qrUrlFor(row) }));

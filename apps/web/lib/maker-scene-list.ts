@@ -368,6 +368,8 @@ export type MakerStageInput = {
   storyRenders: boolean;
   /** The countdown retires once the day arrives. */
   countdownPast?: boolean;
+  /** 🗂 "Accept gifts? — No" (`events.gifts_on = false`, Your info): no E-Gifts tile. */
+  giftsOff?: boolean;
   /** 🔓 The event's type draws "Finish your Event Hub" (`hubSetupApplies`) — its empty parts read "Locked — finish ___". */
   setupLocks?: boolean;
   /**
@@ -569,6 +571,7 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     reminders: null,
     giftHref: null,
     maker: true,
+    giftsOff: input.giftsOff,
   });
   const drawn = new Set<string>();
   const sceneTile = (w: InvitationWidgetRow): MakerTile => {

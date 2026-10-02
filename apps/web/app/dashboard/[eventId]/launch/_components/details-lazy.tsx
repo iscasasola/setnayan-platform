@@ -98,6 +98,10 @@ export const PeopleBody = dynamic(() => import(/* webpackChunkName: "maker-detai
 export const PeopleControls = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleControls), { loading: SlotRows });
 export const ParentCards = dynamic(() => import(/* webpackChunkName: "maker-details" */ './parent-cards').then((m) => m.ParentCards), { loading: SlotRows });
 
+/* ── 🗂 Your info's answers (owner 2026-10-02) — one dropdown per answer, and Event settings ── */
+export const AnswerPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-answers').then((m) => m.AnswerPicker), { loading: SlotRows });
+export const EventSettingsEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-answers').then((m) => m.EventSettingsEditor), { loading: SlotRows });
+
 /* ── Story & plans (Love Story · Schedule · RSVP) ─────────────────────────── */
 export const LoveStoryPieceFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.LoveStoryPieceFocus), { loading: SlotNone });
 export const ScheduleSlots = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-tool-pieces').then((m) => m.ScheduleSlots), { loading: SlotNone });

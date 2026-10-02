@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "340266119",
-  "routeCount": 423,
+  "generatedFromRef": "859cf27ff",
+  "routeCount": 422,
   "destinations": 942,
-  "actions": 670,
-  "blocks": 5392,
+  "actions": 671,
+  "blocks": 5393,
   "routes": {
     "/": {
       "files": [
@@ -1021,6 +1021,7 @@
       "actions": [
         "action",
         "arrivalAction",
+        "joinAction",
         "toggle",
         "toggleBlur",
         "turnOff",
@@ -5693,21 +5694,6 @@
         "T"
       ]
     },
-    "/dashboard/[eventId]/details/change": {
-      "files": [
-        "dashboard/[eventId]/details/change/loading.tsx",
-        "dashboard/[eventId]/details/change/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "DetailsForm",
-        "GovernedFields",
-        "Link",
-        "PageMasthead",
-        "PaxSettingsCard"
-      ]
-    },
     "/dashboard/[eventId]/disputes": {
       "files": [
         "dashboard/[eventId]/disputes/actions.ts",
@@ -6350,6 +6336,8 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/details-answers-parts.tsx",
+        "dashboard/[eventId]/launch/_components/details-answers.tsx",
         "dashboard/[eventId]/launch/_components/details-date-clash.tsx",
         "dashboard/[eventId]/launch/_components/details-date-finder.tsx",
         "dashboard/[eventId]/launch/_components/details-go.tsx",
@@ -6361,6 +6349,7 @@
         "dashboard/[eventId]/launch/_components/details-march.tsx",
         "dashboard/[eventId]/launch/_components/details-people.tsx",
         "dashboard/[eventId]/launch/_components/details-piece.tsx",
+        "dashboard/[eventId]/launch/_components/details-settings-load.ts",
         "dashboard/[eventId]/launch/_components/details-tap.ts",
         "dashboard/[eventId]/launch/_components/details-tool-pieces.tsx",
         "dashboard/[eventId]/launch/_components/details-workspace.tsx",
@@ -6430,6 +6419,8 @@
       "blocks": [
         "AddBtn",
         "AddSceneTool",
+        "AnswerCard",
+        "AnswerPicker",
         "BufferedCanvasFrame",
         "CanvasStaysOnThePage",
         "CategoryLine",
@@ -6446,6 +6437,7 @@
         "DateClashNote",
         "DateEditor",
         "DateState",
+        "DetailsForm",
         "DetailsGoTo",
         "DetailsItemKey",
         "DetailsLookBody",
@@ -6463,6 +6455,8 @@
         "ElementSheet",
         "EntourageOrderPanel",
         "EventPoster",
+        "EventSettingsEditor",
+        "EventSettingsInput",
         "Face",
         "Field",
         "FileUpload",
@@ -6564,6 +6558,7 @@
         "PassCardDesign",
         "PassCardDesignPicker",
         "PassCardsPanel",
+        "PaxSettingsCard",
         "PeopleBody",
         "PeopleControls",
         "PeoplePieces",

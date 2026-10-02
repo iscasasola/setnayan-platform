@@ -58,6 +58,9 @@ const EVENT_SCOPED: readonly (readonly [from: string, to: string])[] = [
   // was the page; `/studio` was its predecessor and had redirected to it.
   ['suite', MORE_MENU],
   ['studio', MORE_MENU],
+  // 🗂 Event settings folded into the Maker's Your info (owner 2026-10-02,
+  // "EVERY ANSWER … LIVES IN EVENT DETAILS") — its editors are the item's own.
+  ['details/change', 'launch?tool=details&item=settings'], // retired 2026-10-02
 ];
 
 /** Whole-path pairs (no event id in them). */

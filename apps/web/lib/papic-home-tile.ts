@@ -68,6 +68,7 @@
  * component boundary.
  */
 
+import { papicIsOn } from '@/lib/event-answers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 import { countEventGuestCaptures } from '@/lib/papic-guest';
@@ -191,8 +192,16 @@ export async function papicNudgeShouldShow(
 ): Promise<boolean> {
   if (!canViewPapicCounts) return false;
   try {
+    const [captures, papicSwitch] = await Promise.all([
+      countPapicCaptures(admin, eventId),
+      admin.from('events').select('papic_on').eq('event_id', eventId).maybeSingle(),
+    ]);
+    // 🗂 "Photos from your guests? — No" (Your info, owner 2026-10-02): there is
+    // no free camera to hand over, so Home never says there is. An unread
+    // switch keeps the nudge off too — never an offer nobody could check.
+    if (papicSwitch.error || !papicIsOn((papicSwitch.data as { papic_on?: unknown } | null)?.papic_on)) return false;
     // `null` (a refused count) is not 0 — the nudge stays off (S41b).
-    return (await countPapicCaptures(admin, eventId)) === 0;
+    return captures === 0;
   } catch {
     return false;
   }

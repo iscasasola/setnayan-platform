@@ -43,7 +43,8 @@ export async function eventAcceptsNewCaptures(
 ): Promise<boolean> {
   const { data, error } = await client
     .from('events')
-    .select('archived')
+    // `papic_on` — the host's "Photos from your guests?" answer (Your info).
+    .select('archived, papic_on')
     .eq('event_id', eventId)
     .maybeSingle();
 

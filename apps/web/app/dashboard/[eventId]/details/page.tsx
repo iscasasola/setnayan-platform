@@ -10,7 +10,19 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { fetchEventViewer } from '@/lib/event-viewer.server';
 import { isDelegateWithoutArea } from '@/lib/event-viewer';
-import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import { profileSetup, resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
+import {
+  LOGO_QUESTION,
+  answerKeyOf,
+  answerSub,
+  coverChoices,
+  coverQuestion,
+  giftsChoices,
+  giftsLabel,
+  logoChoices,
+  papicChoices,
+  papicLabel,
+} from '@/lib/event-answers';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { pickVenueBookingRows, type VenueBookingRow } from '@/lib/event-venues';
 import { planGroupLabelForCategory } from '@/lib/lock-impact-inputs';
@@ -67,8 +79,10 @@ export const metadata = { title: 'Event Details' };
  * DECISION_LOG "EVENT DETAILS LIVES ON EVENT HOME" → "EVENT DETAILS IS
  * INFORMATION ONLY"; design `event_details_one_page_2026-10-01_fable`). It
  * replaces the shipped Personalization page, whose editors moved WHOLE to
- * `/details/change` ("Event settings") — several facts they edit have no other
- * home, so they could not simply go.
+ * `/details/change` ("Event settings") and from there (owner 2026-10-02,
+ * "EVERY ANSWER … LIVES IN EVENT DETAILS") into the Maker's Your info › Event
+ * settings — one place to change every fact; the old address forwards
+ * (`lib/legacy-redirects.ts`).
  *
  *   · SHOWS, NEVER EDITS. Each section carries one quiet "Open … ›" to the page
  *     that handles it — the deliberate exception to "no edit-elsewhere links",
@@ -109,7 +123,9 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
         'guest_list_edit_deadline, adaptive_pricing_mode, monogram_text, invite_theme, role_palette, ' +
         'site_font_key, site_bg_music_r2_key, site_bg_music_enabled, landing_page_hero_image_url, ' +
         'setnayan_ai_active, rsvp_ask_config, love_story, dress_code_config, ' +
-        'std_film_ceremony_name, std_film_venue_name, venue_name',
+        'std_film_ceremony_name, std_film_venue_name, venue_name, ' +
+        // 🗂 The onboarding's last answers, each in its own column (owner 2026-10-02).
+        'papic_on, gifts_on, logo_wanted, cover_photo_wanted',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -138,6 +154,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
     resolveBudgetVisibility(supabase, eventId, user.id),
   ]);
   const words = eventWordsFromProfile(profile);
+  const setupOfType = profileSetup(profile);
   const eventWord = words.eventWord;
   const maker = surfaceEnabled(profile, 'website');
   // A helper the couple did not give the guest list reads "Hidden by the couple",
@@ -344,7 +361,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* ── The basics ── */}
-        <Section k="basics" open={{ href: `${base}/details/change`, label: 'Open Event settings' }}>
+        <Section k="basics" open={maker ? { href: detailsItemHref(eventId, 'settings'), label: 'Open in Your info' } : null}>
           <Row fact="names" label="Names" value={names} />
           <Row
             fact="kind"
@@ -398,7 +415,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
         {/* ── Venues — locked only ── */}
         <Section
           k="venues"
-          open={maker ? { href: detailsItemHref(eventId, 'venues'), label: 'Open in the Event Hub Maker' } : { href: `${base}/details/change`, label: 'Open Event settings' }}
+          open={maker ? { href: detailsItemHref(eventId, 'venues'), label: 'Open in the Event Hub Maker' } : null}
         >
           {vendorsRead.ok ? (
             <>
@@ -507,6 +524,13 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
                   : 'Not added'
             }
           />
+          {/* 🗂 The onboarding's answers (owner 2026-10-02) — changed in Your info, obeyed everywhere. */}
+          {setupOfType.cameraDefault !== 'off' ? (
+            <Row fact="papic-answer" label={papicLabel(words.solemn)} value={answerSub(papicChoices(), answerKeyOf('papic_on', e.papic_on))} />
+          ) : null}
+          {setupOfType.giftsMode !== 'none' ? (
+            <Row fact="gifts-answer" label={giftsLabel(setupOfType.giftsMode)} value={answerSub(giftsChoices(), answerKeyOf('gifts_on', e.gifts_on))} />
+          ) : null}
         </Section>
 
         {/* ── Purchases — the shipped orders, with their status ── */}
@@ -536,6 +560,8 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
         <Section k="look" open={maker ? { href: detailsItemHref(eventId, 'theme'), label: 'Open in the Event Hub Maker' } : null}>
           <Row fact="cover" label="Cover photo" value={str('landing_page_hero_image_url') ? 'Added' : null} />
           <Row label="Logo / monogram" value={str('monogram_text')} />
+          <Row fact="logo-answer" label={LOGO_QUESTION} value={answerSub(logoChoices(words.twoPeople), answerKeyOf('logo_wanted', e.logo_wanted)) || null} />
+          <Row fact="cover-answer" label={coverQuestion(words.solemn)} value={answerSub(coverChoices(words.solemn), answerKeyOf('cover_photo_wanted', e.cover_photo_wanted)) || null} />
           <Row fact="theme" label="Theme" value={proRead.ok ? theme.name : COULD_NOT_LOAD} />
           <Row
             fact="colours"

@@ -92,11 +92,16 @@ test('information only: the sheet mounts no editor and posts nothing (Put this a
 });
 
 test('the moved editors still have a door — nothing the old page edited is stranded', () => {
-  assert.ok(PAGE.includes('`${base}/details/change`'), 'Event Details lost its door to Event settings');
-  const change = read('app/dashboard/[eventId]/details/change/page.tsx');
+  // 🗂 Owner 2026-10-02 ("EVERY ANSWER … LIVES IN EVENT DETAILS"): /details/change
+  // folded into the Maker's Your info › Event settings. Event Details opens it
+  // there; the three shipped editors are that item's own; the old address forwards.
+  assert.ok(PAGE.includes("detailsItemHref(eventId, 'settings')"), 'Event Details lost its door to Your info › Event settings');
+  assert.ok(!PAGE.includes('details/change'), 'Event Details still links the retired Event settings page');
+  const settings = read('app/dashboard/[eventId]/launch/_components/details-answers.tsx');
   for (const editor of ['<DetailsForm', '<GovernedFields', '<PaxSettingsCard']) {
-    assert.ok(change.includes(editor), `Event settings no longer mounts ${editor}`);
+    assert.ok(settings.includes(editor), `Your info › Event settings no longer mounts ${editor}`);
   }
+  assert.match(read('lib/legacy-redirects.ts'), /\['details\/change', 'launch\?tool=details&item=settings'\]/);
 });
 
 test('empty, failed and hidden are three different words, and the page uses all three', () => {

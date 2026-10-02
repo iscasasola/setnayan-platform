@@ -213,6 +213,9 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     'guest',
     'guestHubData',
     'guestLiveGallery',
+    // guestOwnShots (2026-10-01) — the shots THIS guest took (the Gallery's
+    // "Your shots"); their own captures, read by their own guest_id.
+    'guestOwnShots',
     'invitationUrl',
     'kind',
     'needsFaceEnroll',
@@ -220,6 +223,10 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // passCard (2026-09-29) — whether THIS guest has a pass card (accepted and
     // coming) — about the guest's own row only, never anyone else's.
     'passCard',
+    // poolGalleryOpen (2026-10-01) — is the couple's shipped "Shared gallery"
+    // switch on for guests (events.pool_gallery_open); a yes/no about what a
+    // guest may browse, never an owner capability.
+    'poolGalleryOpen',
     // profileDetails (renamed from `profileDetails` 2026-08-21) — THIS PERSON'S OWN
     // offered back as the reply card's default. It is per-person data the guest
     // themselves supplied, never anything about the host or the event, and it is

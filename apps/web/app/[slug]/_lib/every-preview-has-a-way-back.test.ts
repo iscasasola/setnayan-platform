@@ -143,5 +143,7 @@ test('SAME VIEW: a phone or an installed shell opens the preview in place; a des
   assert.doesNotMatch(PLAY, /target="_blank"/, 'no unconditional new tab left in the Play menu');
   assert.match(PLAY, /target=\{sameView \? undefined : '_blank'\}/);
   assert.match(PLAY, /href=\{href\}/);
-  assert.match(PLAY, /previewCarriesPlace\(stageHref, maker\?\.selection\)/, 'the preview carries the Maker’s place');
+  // ✂ The Maker in 4 (2026-10-02): the Preview link is a row of the toolbar's ⋯, drawn by the shell.
+  const SHELL = read('../../dashboard/[eventId]/launch/_components/maker-shell.tsx');
+  assert.match(SHELL, /href=\{previewCarriesPlace\(playHref, selection\)\}/, 'the preview carries the Maker’s place');
 });

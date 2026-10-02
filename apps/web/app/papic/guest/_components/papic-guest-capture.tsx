@@ -44,6 +44,7 @@ import {
   recordUploadSample,
 } from '@/lib/papic-adaptive-quality';
 import { formatCount } from '@/lib/format-number';
+import { cameraExitHref, type HubTabKey } from '@/app/[slug]/_lib/hub-tabs';
 
 // NO PER-PHOTO TAG LIMIT (owner 2026-08-06: "no tag limit. we can tag as many").
 // This file used to hardcode TAG_CAP = 10 and show a counter — while the DATABASE
@@ -224,6 +225,16 @@ type Props = {
    *  of them quietly forgets it. Pinned by
    *  `app/[slug]/_components/the-hub-camera-terms-is-only-the-card.test.ts`. */
   embedded: boolean;
+  /**
+   * 📸 THE WAY BACK (owner 2026-10-01, DECISION_LOG "THE EVENT HUB IS FULL
+   * SCREEN WITH ONE EXIT…"): the Event Hub this camera was opened from, and
+   * the tab — the × goes back there (Live when opened directly) carrying how
+   * many shots landed, and the hub says "N photos added · See them". Null (no
+   * event to return to, or the hub's own inline camera) → no ×, no thumbnail.
+   */
+  exitTo?: { slug: string; tab: HubTabKey | null } | null;
+  /** The guest's OWN latest shot, for the thumbnail beside the shutter (server-read). */
+  lastShotUrl?: string | null;
 };
 
 /**
@@ -284,7 +295,13 @@ export function PapicGuestCapture({
   faceMode,
   storyToken = null,
   embedded,
+  exitTo = null,
+  lastShotUrl = null,
 }: Props) {
+  // 📸 Shots that landed this visit, and the thumbnail of the latest one of
+  // THEIRS — the server's on arrival, then each new shot as it saves.
+  const [added, setAdded] = useState(0);
+  const [thumb, setThumb] = useState<string | null>(lastShotUrl);
   // The event-wide look is LOCKED (couple-set at setup) — baked into every photo.
   const styleRef = useRef<PapicStyle>(eventStyle);
   useEffect(() => {
@@ -650,6 +667,11 @@ export function PapicGuestCapture({
       setRemaining(typeof json.remaining === 'number' ? json.remaining : (r) => Math.max(0, r - 1));
       setJustSaved(true);
       setTimeout(() => setJustSaved(false), 900);
+      setAdded((n) => n + 1);
+      setThumb((was) => {
+        if (was?.startsWith('blob:')) URL.revokeObjectURL(was);
+        return URL.createObjectURL(blob);
+      });
       if (json.captureId) {
         setKwentoCaptureId(json.captureId);
         setKwentoFlashText('');
@@ -747,6 +769,7 @@ export function PapicGuestCapture({
   // affordances anchored on the new capture id. Shared so both paths behave the
   // same. Photos open the Flash prompt; clips skip it (the moment is recorded).
   const onSavedCapture = useCallback((captureId: string, openFlash: boolean) => {
+    setAdded((n) => n + 1);
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 900);
     setKwentoCaptureId(captureId);
@@ -1497,7 +1520,19 @@ export function PapicGuestCapture({
 
   return (
     <main className="flex min-h-screen flex-col bg-ink text-cream">
-      <header className="flex items-center justify-end px-4 py-3">
+      <header className={`flex items-center px-4 py-3 ${exitTo ? 'justify-between' : 'justify-end'}`}>
+        {/* ✕ ONE EXIT, TOP-LEFT — back to the Event Hub tab this was opened
+            from, with the count of shots that landed. */}
+        {exitTo ? (
+          <a
+            data-camera-exit=""
+            href={cameraExitHref(exitTo.slug, exitTo.tab, added)}
+            aria-label="Close the camera"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-cream/10 text-cream hover:bg-cream/20"
+          >
+            <X aria-hidden className="h-5 w-5" strokeWidth={2} />
+          </a>
+        ) : null}
         {/* A PERSONAL COUNTDOWN ONLY WHERE ONE IS REAL.
             It used to be unconditional, so every guest on every celebration was
             shown a number counting down to a ceiling the database does not
@@ -1668,7 +1703,24 @@ export function PapicGuestCapture({
             events (not onClick) drive the hold detection; the guards kill iOS
             long-press selection / the context menu so a hold reliably records. */}
         {!exhausted ? (
-          <div className="flex items-center justify-center">
+          <div className="relative flex items-center justify-center">
+            {/* 🖼 THEIR shots, one tap away (owner 2026-10-01: "the photos one
+                the left will show all their shots") — the Event Hub's Gallery. */}
+            {exitTo ? (
+              <a
+                data-camera-thumb=""
+                href={cameraExitHref(exitTo.slug, null, added, 'gallery')}
+                aria-label="Your shots"
+                className="absolute left-0 top-1/2 flex h-12 w-12 -translate-y-1/2 items-center justify-center overflow-hidden rounded-lg border-2 border-cream/70 bg-cream/10"
+              >
+                {thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumb} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <ImageIcon aria-hidden className="h-5 w-5 text-cream/70" strokeWidth={1.75} />
+                )}
+              </a>
+            ) : null}
             <div className="relative h-[4.5rem] w-[4.5rem]">
               {recording && (
                 <svg

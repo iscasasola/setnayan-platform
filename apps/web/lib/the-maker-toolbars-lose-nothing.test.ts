@@ -51,27 +51,33 @@ const HOME = {
 /** [today's control, its new home, what the home must still say]. */
 const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[]]> = [
   // ── Top toolbar (maker-shell.tsx) ──
+  // ✂ THE MAKER IN 4 (2026-10-02, design `maker_in_four_2026-09-30_fable.html`,
+  // "What moved where — nothing is lost"): the bar is Exit · Page ▾ · Look ·
+  // Details · Undo · Phone · Apply · ⋯, and every other control below is a row
+  // of ⋯ — each still has its home, re-pointed here, not dropped.
   ['✕ Exit', 'topBar', ['data-maker-tool="exit"', '>Exit<']],
-  ['▤ Show / hide the scenes', 'topBar', ['data-maker-tool="scenes"', '>Scenes<']],
-  ['▶ Play menu (this scene · the whole stage)', 'play', ['data-maker-tool="play"', 'Play this scene', 'Preview the whole']],
-  // 2026-09-28 — the ＋ WORKS (DECISION_LOG 2026-09-27 "+ ADD A SCENE"): the shell
-  // draws it from the work area's registration; "coming next" is gone.
-  // 2026-09-28 (owner, on the Logo page: *"cannot see the scenes. and it should
-  // only show on stages."*) — drawn from the registration ON A STAGE only.
-  ['＋ Add a scene', 'topBar', ['tool="Add"', '<AddSceneTool addScene={stageAdd} />', 'makerAddShowsOn(selection) ? addScene : null']],
-  ['"● Invitation ▾" — Stages + Pages in one picker', 'topBar', ['<MakerBar']],
-  // "Both" was a disabled row promising "the next build" until 2026-09-28 (App
-  // Review rejects "coming soon"); it came back BUILT 2026-09-29. The items are
-  // drawn from `makerViewOptions` (Both only at 1024 px and wider).
-  ['Desktop · Phone · Both', 'topBar', ['label="View"', 'makerViewOptions(wide).map', 'setDevice(o.key)']],
-  ['⊞ Snap grid (a note only)', 'topBar', ['Snap grid', 'MAKER_SNAP_NOTE']],
-  ['ⓘ About the Maker', 'topBar', ['About the Maker', "setTour('again')"]],
+  ['▤ Show / hide the scenes (⋯ › Scenes)', 'topBar', ['data-maker-tool-row="scenes"', '>Scenes<', 'setNavOpen((o) => !o)']],
+  ['▶ Play this scene · Preview the whole stage (⋯)', 'topBar', ['Play this scene', 'MAKER_PLAY_SCENE_EVENT', '<PreviewStageLink']],
+  ['…the Preview link itself', 'play', ['Preview the whole']],
+  // 2026-09-28 — the ＋ WORKS (DECISION_LOG 2026-09-27 "+ ADD A SCENE"): drawn from
+  // the work area's registration ON A STAGE only (owner: *"it should only show on stages."*).
+  ['＋ Add a scene (⋯)', 'topBar', ["stageAdd?.kind === 'ready'", 'Add a scene', 'makerAddShowsOn(selection) ? addScene : null']],
+  ['Stage row + "● Invitation ▾" → Page ▾ (the stages and their pages, one picker)', 'topBar', ['label="Page"', 'makerPageMenu({', 'onPick={pickPage}']],
+  // View ▾ (Desktop · Phone · Both) → the bar's Phone button + ⋯'s Both row (1024 px and wider).
+  ['Desktop · Phone · Both', 'topBar', ['data-maker-tool="view"', 'makerViewToggle(shownDevice)', "o.key === 'both'"]],
+  // ⊞ "Snap grid" was a switched-off row carrying only a note (`MAKER_SNAP_NOTE`) —
+  // no control. It went with the bar's other explainers (2026-10-02, "no explainer captions").
+  ['ⓘ About the Maker', 'topBar', ['About the Maker', 'setTour(true)']],
   ['⋯ address, who can view', 'topBar', ['Your Event Hub address', 'Who can view', 'setMoreOpen(true)']],
   ['View as (Guest · Supplier)', 'topBar', ['See it as…', 'setViewAsRole(r.role)']],
   ['Reset this stage…', 'topBar', ['Reset this stage…', 'MAKER_OPEN_RESET_EVENT']],
   ['Reset this stage… (the confirm)', 'draftBar', ['MAKER_OPEN_RESET_EVENT', "intent: 'reset'"]],
-  ['Restore · Undo · Apply', 'topBar', ['{applySlot}']],
-  ['Restore · Undo · Apply (the buttons)', 'draftBar', ['label="Restore"', 'label="Undo"', "intent: 'apply'"]],
+  ['Undo · Apply (the slot)', 'topBar', ['{applySlot}']],
+  ['Undo · Apply (the buttons)', 'draftBar', ['label="Undo"', "intent: 'apply'", '{maker?.viewToggle ?? null}']],
+  ['↺ Restore (⋯ › Restore, the draft bar\'s own act)', 'topBar', ['draft.restore()', 'Restore']],
+  ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({ canRestore']],
+  ['Details (now "Event Details") and Prints (⋯) — doors into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL', "pressDoor('prints')"]],
+  ['Look — the Look part of Details', 'topBar', ['MAKER_LOOK_LABEL', 'pressDoor(door)']],
   // ── Scene inspector ──
   ['Background: No background · Full colour · Opaque glass · Frosted glass · Photo · Snippet', 'background', ["'No background'", "'Plain'", "'Opaque'", "'Frosted'", "'Upload media'", "kind: 'snippet'"]],
   ['Colour picked in a row below the chips', 'background', ['<ColourWell']],

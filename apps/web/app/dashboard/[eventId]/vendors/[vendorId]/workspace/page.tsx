@@ -2693,8 +2693,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           <form action={createAutoShareInviteAction} className="mt-4">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
-            <input type="hidden" name="business_name" value={ev.vendor_name} />
-            <input type="hidden" name="category" value={ev.category} />
+            {/* The name and category are re-read from the row by the action
+                (never trusted from the form), so they are not posted. */}
             <SubmitButton pendingLabel="Creating…" className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-warn-400/60 bg-warn-50 px-3 py-2 text-xs font-medium text-warn-900 transition-colors hover:bg-warn-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">
               <LinkIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
               Create a shareable invite link

@@ -479,7 +479,6 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                           sending is the ordinary weekly act and re-issuing is the rare
                           repair. The common control goes first. */}
                       <GuestInviteModal
-                        guestId={guest.guest_id}
                         guestName={guestDisplayName(guest)}
                         message={inviteMessage}
                         sentAt={guest.invitation_sent_at}
@@ -544,7 +543,6 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
                     sending is the ordinary weekly act and re-issuing is the rare
                     repair. The common control goes first. */}
                 <GuestInviteModal
-                  guestId={guest.guest_id}
                   guestName={guestDisplayName(guest)}
                   message={inviteMessage}
                   sentAt={guest.invitation_sent_at}

@@ -493,7 +493,14 @@ function ServiceSection({
   const showInfo = tab === 'shortlist' && isExploreReplanEnabled();
   return (
     // scroll-mt clears the sticky desktop `.shell-topbar` when scrolled into view.
-    <section id={sectionId(tab)} aria-labelledby={`${sectionId(tab)}-h`} className="scroll-mt-24">
+    <section
+      id={sectionId(tab)}
+      aria-labelledby={`${sectionId(tab)}-h`}
+      className="scroll-mt-24"
+      // 💾 The budget and the plans' totals are money — never kept as
+      // last-seen data, open or closed (lib/last-seen).
+      data-money={tab === 'budget' || tab === 'compare' ? '' : undefined}
+    >
       <header className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2

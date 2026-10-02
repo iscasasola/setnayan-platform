@@ -1,14 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-import { loadRoleNames } from '@/lib/role-names.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
-import {
-  fetchGuestsByEvent,
-  guestDisplayName,
-  guestRoleLabel,
-} from '@/lib/guests';
-import { fetchAssignments, fetchFloorPlan, fetchTables } from '@/lib/seating';
+import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
+import { fetchAssignments, fetchBooths, fetchFloorPlan, fetchSigns, fetchTables } from '@/lib/seating';
+import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import {
@@ -30,8 +26,6 @@ export async function GET(
     new URL(req.url).searchParams.get('mode') === 'blueprint' ? 'blueprint' : 'moodboard';
 
   const supabase = await createClient();
-  // The couple's own words for roles (owner 2026-09-30) — the export prints them.
-  const roleNames = await loadRoleNames(supabase, eventId, 'seatingExport.roleNames');
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -51,17 +45,24 @@ export async function GET(
     return new NextResponse('Event not found', { status: 404 });
   }
 
-  const [tables, assignments, guests, floorPlan] = await Promise.all([
+  // 🪑 The A3 seat plan (owner 2026-10-01): the SAME layout as the 2D and 3D
+  // plan — every placed element (booths and signs included), every table with
+  // its chairs, who sits where, and who still needs a seat.
+  const [tables, assignments, guests, floorPlan, booths, signs, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEvent(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
+    fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
+    fetchSigns(supabase, eventId),
+    resolveRoleSetForEvent(eventId),
   ]);
 
   const pdfGuests: SeatingPdfGuest[] = guests.map((g) => ({
     guest_id: g.guest_id,
     name: guestDisplayName(g),
-    role: g.role ? guestRoleLabel(g.role, roleNames) : 'Guest',
+    role: g.role,
+    rsvp_status: g.rsvp_status,
   }));
 
   // Mood-board palette → flat list of hex colours. Redirected 2026-09-02 from
@@ -119,6 +120,9 @@ export async function GET(
     assignments,
     guests: pdfGuests,
     floorPlan,
+    booths,
+    signs,
+    coupleRoles: roleSet.coupleRoles,
     palette: flatHexPalette,
     logoPng,
     // The Event Hub code in the event's look (lib/qr-look.ts), like every print.

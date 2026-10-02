@@ -48,13 +48,12 @@ import { shopAccountMayNotCreateEvents } from '@/lib/vendor-event-creation';
 
 /* Retired 2026-05-28 V2 cutover */
 // V1 had a DIY / Trial / Paid choice card at the bottom of create-event.
-// V2 has no trial mechanic; the hidden form field is retained for cutover-
-// period continuity but only accepts 'diy' from this surface. Old enum
-// values 'trial' and 'paid' kept in ALLOWED_CONCIERGE_CHOICES so a stale
-// browser tab posting the V1 form payload still validates — the choice
-// gets coerced to 'diy' downstream regardless.
-const ALLOWED_CONCIERGE_CHOICES = ['diy', 'trial', 'paid'] as const;
-type ConciergeChoice = (typeof ALLOWED_CONCIERGE_CHOICES)[number];
+// V2 has no trial mechanic: every new event is DIY. The hidden
+// `concierge_choice` field the picker used to post (always 'diy') was read
+// here and thrown away, so it was removed from both ends (Root map wave 1,
+// "Filled in but not saved"). A stale V1 tab that still posts it is simply
+// ignored — nothing ever acted on its value.
+type ConciergeChoice = 'diy';
 
 // Iteration 0043 — wedding-type picker. Ceremonies the create-event form may
 // submit — derived from lib/faith-registry (the single faith source,
@@ -111,7 +110,6 @@ export async function createWeddingEvent(formData: FormData) {
   // vendor). safeNext() rejects anything that isn't an internal path, so the
   // default dashboard redirect is unchanged when `next` is absent/unsafe.
   const next = safeNext(formData.get('next'));
-  const concierge_choice = String(formData.get('concierge_choice') ?? 'diy') as ConciergeChoice;
 
   // Validate event_type up front so we know whether to read the wedding-
   // type picker fields at all. The DB CHECK constraint
@@ -219,11 +217,8 @@ export async function createWeddingEvent(formData: FormData) {
   /* Retired 2026-05-28 V2 cutover */
   // V1 routed 'trial' / 'paid' choices into Concierge SKU flows here. V2
   // has no trial mechanic and prices Setnayan AI separately from
-  // /pricing. Every new event lands in DIY; the hidden form field is
-  // still parsed for cutover-period continuity but coerced to 'diy' so
-  // the post-create redirect always lands on the dashboard.
-  void ALLOWED_CONCIERGE_CHOICES; // suppress unused-var warning
-  void concierge_choice;          // suppress unused-var warning
+  // /pricing. Every new event lands in DIY, so the post-create redirect
+  // always lands on the dashboard.
   const choice: ConciergeChoice = 'diy';
 
   const supabase = await createClient();

@@ -4,7 +4,8 @@
  *
  *   pnpm --filter @setnayan/web ugat:screens              # write lib/ugat/screens.generated.json
  *   pnpm --filter @setnayan/web ugat:screens --stdout     # print it (the CI check uses this)
- *   pnpm --filter @setnayan/web ugat:screens --baseline   # rewrite the no-door baseline
+ *   (the no-door baseline moved to lib/ugat/baselines/no-door.baseline.txt in part 2 —
+ *    `pnpm --filter @setnayan/web root-map --baseline` writes every Root map baseline)
  *   pnpm --filter @setnayan/web ugat:screens --report <file.md>   # the owner's fix list
  *
  * 🔑 GENERATED, NEVER AUTHORED — the posture of gen-admin-map.ts. Nobody types a
@@ -22,7 +23,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { noDoorBaseline, scanScreens, serializeScreensMap } from '../lib/ugat/scan-screens';
+import { scanScreens, serializeScreensMap } from '../lib/ugat/scan-screens';
 import {
   SCREEN_AREA_LABEL,
   connectingDoors,
@@ -35,7 +36,6 @@ import { UGAT_TYPE_BY_ID } from '../lib/ugat/graph';
 
 const WEB = join(__dirname, '..');
 const OUT = join(WEB, 'lib/ugat/screens.generated.json');
-const BASELINE = join(WEB, 'lib/ugat/screens-no-door.baseline.txt');
 
 const args = process.argv.slice(2);
 const map = scanScreens({ webRoot: WEB });
@@ -43,8 +43,8 @@ const map = scanScreens({ webRoot: WEB });
 if (args.includes('--stdout')) {
   process.stdout.write(serializeScreensMap(map));
 } else if (args.includes('--baseline')) {
-  writeFileSync(BASELINE, noDoorBaseline(map));
-  console.log(`no-door baseline: ${summarizeScreens(map).noDoor} screens → ${BASELINE}`);
+  console.error('The no-door baseline is part of the Root map ratchet now: run  pnpm --filter @setnayan/web root-map --baseline');
+  process.exit(2);
 } else if (args.includes('--report')) {
   const target = args[args.indexOf('--report') + 1];
   if (!target) {

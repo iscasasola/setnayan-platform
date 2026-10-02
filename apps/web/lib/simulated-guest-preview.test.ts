@@ -166,12 +166,18 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     'guest',
     'guestHubData',
     'guestLiveGallery',
+    // `guestOwnShots` (2026-10-01) — null here: the sample guest shot nothing.
+    'guestOwnShots',
     'invitationUrl',
     'kind',
     'needsFaceEnroll',
     'papicGuest',
     // passCard (2026-09-29) — whether THIS guest has a pass card; null in a simulation.
     'passCard',
+    // poolGalleryOpen (2026-10-01) — is the couple's shipped "Shared gallery"
+    // switch on for guests (events.pool_gallery_open); a yes/no about what a
+    // guest may browse, never an owner capability.
+    'poolGalleryOpen',
     // profileDetails (renamed from `profileDetails` 2026-08-21) — THIS PERSON'S OWN
     // offered back as the reply card's default. It is per-person data the guest
     // themselves supplied, never anything about the host or the event, and it is

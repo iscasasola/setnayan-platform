@@ -6,7 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchGuestsByEvent, guestDisplayName } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { layoutSeatingPack, type SeatingPackUnit } from '@/lib/print-seating-pack';
+import { layoutSeatingPack, seatingSignLine, type SeatingPackUnit } from '@/lib/print-seating-pack';
 import { printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
@@ -115,6 +115,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     u.members.flatMap((m) => seatedByTable.get(m.table_id) ?? []).sort((x, y) => x.name.localeCompare(y.name));
 
   const eventWords = await eventWordsForEvent(eventId).catch(() => null);
+  // The sign says the event's own word — "our wedding", "our birthday",
+  // "this gathering" for a wake — never a wedding's, whatever the event is.
+  // ONE line for the HTML pack AND the PDF pack (`seatingSignLine`).
+  const signSub = seatingSignLine(eventWords);
   // A nameless event's pack says "Our Wedding" only on a wedding.
   const untitled = ((event as { event_type?: string | null }).event_type ?? 'wedding') === 'wedding' ? 'Our Wedding' : 'Our Event';
   const coupleNameEarly = event.monogram_text || event.display_name || untitled;
@@ -137,7 +141,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
       qrRef: `t-${u.key}`,
       guests: unitGuests(u).map((g) => ({ name: g.name, qrRef: `g-${g.qr_token}` })),
     }));
-    const docs = layoutSeatingPack({ coupleName: coupleNameEarly, dateLabel: dateLabelEarly, units: packUnits });
+    const docs = layoutSeatingPack({ coupleName: coupleNameEarly, dateLabel: dateLabelEarly, units: packUnits, signLine: signSub });
     if (format === 'preview') {
       return new NextResponse(renderPrintSvg(docs[0]!, {}), {
         status: 200,
@@ -199,11 +203,6 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     })
     .join('');
 
-  // The sign says the event's own word — "our wedding", "our birthday",
-  // "this gathering" for a wake — never a wedding's, whatever the event is.
-  const signSub = eventWords?.solemn
-    ? `Scan to visit this ${eventWords.occasion}`
-    : `Scan to visit our ${eventWords?.eventWord ?? 'event'}`;
   const signs = units
     .map(
       (u) => `

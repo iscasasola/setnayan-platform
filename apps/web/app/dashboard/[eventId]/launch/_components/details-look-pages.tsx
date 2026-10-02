@@ -294,7 +294,7 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
 
   /* ▶ "Play this scene" — only while this item is the one showing. */
   useEffect(() => {
-    if (!showing || item === 'look') return;
+    if (item === 'look' || !showing) return;
     const onPlay = () => {
       const f = frameRef.current;
       if (item === 'reveal') {

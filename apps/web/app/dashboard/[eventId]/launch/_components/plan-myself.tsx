@@ -1,5 +1,5 @@
 import { setPlanningMode } from '@/app/dashboard/[eventId]/actions';
-import { PLANNING_MODE_MANUAL } from '@/lib/setnayan-ai';
+import { PLAN_MYSELF_LABEL } from '@/lib/plan-myself';
 
 /**
  * 🙋 PLAN IT MYSELF — Details › Your event (owner 2026-10-02, tracker d4:
@@ -16,17 +16,6 @@ import { PLANNING_MODE_MANUAL } from '@/lib/setnayan-ai';
  * `on` null = the read failed: say so, offer no switch (a switch drawn from a
  * guess would flip the wrong way).
  */
-export const PLAN_MYSELF_LABEL = 'Plan it myself';
-
-export function planMyselfOn(planningMode: string | null | undefined): boolean {
-  return planningMode === PLANNING_MODE_MANUAL;
-}
-
-export function planMyselfSub(on: boolean | null): string {
-  if (on === null) return 'Could not load';
-  return on ? 'On · no automatic help' : 'Off · Setnayan helps';
-}
-
 const HELP = ['Supplier matching', 'Deadlines', 'Reminders'] as const;
 
 /** The middle: what the switch turns on and off, in plain words. */

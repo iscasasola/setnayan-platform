@@ -151,8 +151,9 @@ test('(2) a door that still says "open the Hero" opens Details — the shell tur
     assert.match(html, /data-maker-page="details"/, `${key}: Details did not open`);
     assert.match(html, /data-stub="details-page"/, `${key}: Details' page is not drawn`);
     assert.doesNotMatch(html, new RegExp(`data-maker-page="${key}"`), `${key}: still opened as a page of its own`);
-    // One highlight, on Details.
-    assert.match(html, /data-maker-bar-item="details"[^>]*aria-pressed="true"/, `${key}: Details is not the highlighted place`);
+    // One highlight, on Look — Logo, Hero and Reveal are the Look's part of Details (the Maker in 4).
+    assert.match(html, /data-maker-tool="look"[^>]*aria-pressed="true"/, `${key}: Look is not the highlighted door`);
+    assert.match(html, /data-maker-tool="details"[^>]*aria-pressed="false"/, `${key}: two doors are highlighted`);
   }
   // Every door goes through that one turn: the context's `select`, the address and the tab's memory.
   const shell = read(`${L}/maker-shell.tsx`);
@@ -324,25 +325,25 @@ const BIRTHDAY: EventTypeProfile = { ...GENERIC_PROFILE, eventType: 'birthday' }
 const ctx = (profile: EventTypeProfile): DetailsItemContext => ({ profile, solemn: eventWordsFromProfile(profile).solemn });
 const ALL = new Set<DetailsItemKey>(DETAILS_ITEM_KEYS);
 
-test('(6) a birthday and a wake get the whole Look — and the place menu is the same five', async () => {
-  const { makerPlacePick } = await import(`../${L}/maker-bar`);
+test('(6) a birthday and a wake get the whole Look — and Page ▾ names the same five stages', async () => {
+  const { makerPageMenu } = await import(`../${L}/maker-bar`);
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
     const look = detailsNavigatorKeys(ctx(p), ALL).find((g) => g.group === 'look');
     assert.deepEqual(look?.keys, ['theme', ...LOOK_ITEM_KEYS], `${p.eventType}: the Look lost an item`);
   }
   assert.equal(ctx(WAKE_PROFILE).solemn, true, 'the wake fixture is not the solemn register');
-  // The place menu names the stages in their ONE vocabulary (`PUBLIC_STAGE_LABELS`
-  // — no per-type stage names ship) and Details; nothing about it is a wedding's.
-  const m = makerPlacePick({ stage: 'rsvp', liveStage: null, openTool: null, hasWork: true }) as { options: Array<{ label: string }> };
+  // Page ▾ (the Maker in 4) names the stages in their ONE vocabulary
+  // (`PUBLIC_STAGE_LABELS` — no per-type stage names ship); nothing about it is a wedding's.
+  const menu = (hasWork: boolean, theHost?: string) =>
+    makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: null, pagesOf: () => [], shownPage: null, hasWork, theHost }) as {
+      options: Array<{ key: string; group?: string; disabledNote?: string }>;
+    };
   // 🗳 2026-09-30 re-plan: RSVP is a stage of its own, between Save the Date and the Invitation.
-  assert.deepEqual(m.options.map((o) => o.label), ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event', 'Your info', 'Prints']);
-  // A viewer Details is not for is told who it IS for — in the type's own word.
+  assert.deepEqual([...new Set(menu(true).options.map((o) => o.group))], ['Save the Date', 'RSVP', 'Invitation', 'On the Day', 'Post Event']);
+  // A viewer the RSVP stage is not for is told who it IS for — in the type's own word.
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
     const theHost = eventWordsFromProfile(p).theHost;
-    const shut = makerPlacePick({ stage: 'rsvp', liveStage: null, openTool: null, hasWork: false, theHost }) as {
-      options: Array<{ key: string; disabledNote?: string }>;
-    };
-    assert.equal(shut.options.find((o) => o.key === 'details')?.disabledNote, `only ${theHost} can open this`, p.eventType);
+    assert.equal(menu(false, theHost).options.find((o) => o.key === 'rsvp-stage')?.disabledNote, `only ${theHost} can open this`, p.eventType);
   }
   assert.match(read('app/dashboard/[eventId]/launch/page.tsx'), /theHost=\{eventWordsFromProfile\(await resolveProfileByEvent\(eventId\)\)\.theHost\}/);
 });

@@ -97,7 +97,39 @@ export type MakerState = {
   liveLoveStoryBook?: ComponentType<Record<string, unknown>>;
   /** ⚡ …and its words panel (Details' Love Story editor, and a stage's tapped story). */
   liveStoryPanel?: ComponentType<Record<string, unknown>>;
+  /**
+   * 📄 PAGE ▾ IN THE TOOLBAR (the Maker in 4, 2026-10-02). The work area knows
+   * the stage's pages and which scenes sit under each (`makerGuestPages`), so it
+   * REPORTS them here — the page it shows included — and the toolbar's Page ▾
+   * draws from that. A pick ASKS (`pageJump`); the work area answers once that
+   * stage's canvas is up, and clears it.
+   */
+  guestPages?: MakerGuestPagesReport | null;
+  setGuestPages?: (next: MakerGuestPagesReport | null) => void;
+  pageJump?: MakerPageJump | null;
+  clearPageJump?: () => void;
+  /** 📱 The bar's Phone button — drawn by the draft bar between Undo and Apply (`hub-draft-bar.tsx`). */
+  viewToggle?: ReactNode;
+  /** ↺ Restore, as the draft bar registers it — the toolbar's ⋯ › Restore runs it. */
+  draft?: MakerDraftDoor | null;
+  setDraft?: (next: MakerDraftDoor | null) => void;
 };
+
+/** What the work area reports about the stage it shows (see `MakerState.guestPages`). */
+export type MakerGuestPagesReport = {
+  stage: LifecyclePhase;
+  /** This event draws a story at all (a birthday has no "Our Love Story" page). */
+  hasStory: boolean;
+  /** The page the canvas and the scenes column show. */
+  shown: string | null;
+  pages: ReadonlyArray<{ key: string; label: string; empty?: boolean }>;
+};
+
+/** A Page ▾ pick waiting for its stage (see `MakerState.pageJump`). `sameStage`: no new canvas to wait for. */
+export type MakerPageJump = { stage: LifecyclePhase; key: string; n: number; sameStage: boolean };
+
+/** ↺ The draft bar's Restore, for the toolbar's ⋯ (see `MakerState.draft`). */
+export type MakerDraftDoor = { canRestore: boolean; restore: () => void };
 
 /**
  * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28

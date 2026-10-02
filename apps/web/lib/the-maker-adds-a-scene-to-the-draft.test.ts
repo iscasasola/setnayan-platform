@@ -200,27 +200,26 @@ test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); th
   assert.match(reg, /'action' in addScene\s*\?\s*\{ kind: 'ready', open: \(\) => setAddOpen\(true\), tried: addScene\.tried === true \}\s*:\s*\{ kind: 'refused', note: addScene\.note \}/);
   // …and the shell draws no padlock and no link to the buy page on either door
   // (owner 2026-09-28: "they can Add. only pay when apply is tirggered").
+  // ✂ THE MAKER IN 4 (2026-10-02): ＋ Add a scene is ONE row of the toolbar's ⋯, on every width.
   const shell = read(SHELL);
-  const tool = fn(shell, 'AddSceneTool');
-  assert.doesNotMatch(tool, /state="locked"|See Event Hub Pro|unlockHref/, 'the toolbar ＋ still wears a Pro padlock');
-  assert.match(tool, /state="try"/, 'the toolbar ＋ does not wear ◆ PRO for a couple trying it');
-  assert.doesNotMatch(tool, /<form\b|formAction|action=/, 'the refused ＋ must not be able to post anything');
-  const row = shell.slice(shell.indexOf("stageAdd?.kind === 'refused' ? ("), shell.indexOf('Snap grid'));
-  assert.doesNotMatch(row, /state="locked"/, 'the phone row still wears a Pro padlock');
+  const row = shell.slice(shell.indexOf("{stageAdd?.kind === 'ready' ? ("), shell.indexOf('Play this scene'));
+  assert.ok(row.length > 100, 'the ⋯ row for Add a scene was not found — the scan is blind');
+  assert.doesNotMatch(row, /state="locked"|See Event Hub Pro|unlockHref/, 'the ⋯ row still wears a Pro padlock');
+  assert.match(row, /state="try"/, 'the ⋯ row does not wear ◆ PRO for a couple trying it');
+  assert.doesNotMatch(row, /<form\b|formAction|action=/, 'the refused row must not be able to post anything');
 });
 
 test('T · the toolbar ＋ is not "coming next" any more — it opens the same drafted sheet', () => {
   // `MAKER_COMING_NEXT` itself is gone (2026-09-28) — `the-maker-promises-nothing.test.ts`.
   const shell = read(SHELL);
   assert.doesNotMatch(shell, /MAKER_COMING_NEXT\.add|<ComingNext label="Add a scene"/);
-  // Two doors in the shell, both drawn from the registration: the desktop
-  // toolbar's ＋ and the phone's More ▾ row.
-  assert.match(shell, /<AddSceneTool addScene=\{stageAdd\} \/>/, 'the toolbar has no ＋');
-  assert.match(fn(shell, 'AddSceneTool'), /onClick=\{addScene\.open\}/, 'the ready ＋ must open the work area\'s sheet');
+  // ✂ THE MAKER IN 4 (2026-10-02): ONE door in the shell, drawn from the
+  // registration — ⋯ › Add a scene, on every width (no toolbar ＋ any more).
+  assert.doesNotMatch(shell, /<AddSceneTool\b/, 'a second ＋ is back on the toolbar');
   assert.match(
     shell,
-    /stageAdd\?\.kind === 'ready' \? \(\s*<MenuItem className="md:hidden" onClick=\{\(\) => \{ close\(\); stageAdd\.open\(\); \}\}>/,
-    'the phone has no Add a scene row',
+    /stageAdd\?\.kind === 'ready' \? \(\s*<MenuItem onClick=\{\(\) => \{ close\(\); stageAdd\.open\(\); \}\}>/,
+    '⋯ has no Add a scene row',
   );
   // …and the same sheet: the navigator's picker is controlled by the state the registration opens.
   const work = read(`${C}editor-shell.tsx`);

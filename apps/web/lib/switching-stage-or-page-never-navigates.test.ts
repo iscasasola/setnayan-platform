@@ -50,11 +50,12 @@ const NAVIGATES = /\buseRouter\b|router\.(push|replace|refresh|back|forward|pref
 
 test('the shell switches stage and page as state — nothing in it navigates', () => {
   assert.doesNotMatch(SHELL, NAVIGATES, 'the Maker shell must never navigate: a switch is state');
-  const press = SHELL.slice(SHELL.indexOf('const pressBar = '), SHELL.indexOf('const playHref = '));
-  assert.match(press, /setStage\(item\.key\)/);
-  assert.match(press, /select\(\{ kind: 'tool', key: item\.key \}\)/);
-  // The compact bar's ONE picker runs the same onPress as the buttons.
-  assert.match(SHELL, /const item = makerPlaceItem\(key, hasWork\);\s*if \(item\) onPress\(item\);/);
+  // ✂ The Maker in 4 (2026-10-02): Page ▾ picks a stage's page, and Look · Details open doors — all state.
+  const press = SHELL.slice(SHELL.indexOf('const pressDoor = '), SHELL.indexOf('const playHref = '));
+  assert.ok(press.length > 200, 'the bar’s handlers moved — re-anchor this test');
+  assert.match(press, /setStage\(pick\.stage\)/);
+  assert.match(press, /select\(\{ kind: 'tool', key: 'rsvp-stage' \}\)/);
+  assert.match(press, /select\(\{ kind: 'tool', key: 'details' \}\)/);
   // The stage is never written into the address — it would re-key the page.
   assert.doesNotMatch(SHELL, /searchParams\.set\(|[?&]stage=/);
 });

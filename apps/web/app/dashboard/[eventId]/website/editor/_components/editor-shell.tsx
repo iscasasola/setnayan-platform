@@ -63,7 +63,6 @@ import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot'
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
 import { makerGuestPages, ME_NOT_ON_CANVAS, type MakerGuestPage } from '@/lib/maker-guest-pages';
-import { MakerPagePick } from './page-pick';
 import {
   canvasKeyOfSelection,
   fixedOfKey,
@@ -843,7 +842,7 @@ export function MakerWork({
     return (
       <DetailsFactSceneContext.Provider value={sceneKey}>
         <section className="flex flex-col gap-2 px-1" data-maker-fact-editor={item}>
-          <p className="text-[12.5px] text-ink/60">The same field as in Your info — saved once, shown everywhere.</p>
+          <p className="text-[12.5px] text-ink/60">The same field as in Event Details — saved once, shown everywhere.</p>
           {node}
         </section>
       </DetailsFactSceneContext.Provider>
@@ -1762,6 +1761,48 @@ export function MakerWork({
       navList?.querySelector(`[data-maker-tile="${CSS.escape(first)}"]`)
     )?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
   };
+  /* 📄 PAGE ▾ LIVES IN THE TOOLBAR NOW (the Maker in 4, 2026-10-02 — design
+     frame D: "This replaces the stage tabs in today's top bar and the navigator
+     column"). This work area knows the stage's pages and the scenes under each,
+     so it REPORTS them to the shell (`MakerState.guestPages`) — the page it
+     shows included — and answers the toolbar's pick (`pageJump`) with the same
+     `jumpToPage` the navigator's dropdown ran. A pick on another stage waits
+     for THAT stage's canvas to hand over its bar (a new `canvasBar`), so it
+     never scrolls the old stage's frame. */
+  const setGuestPagesCtx = maker?.setGuestPages;
+  const shownPageKey = shownPage?.key ?? null;
+  const pagesRef = useRef(guestPages);
+  pagesRef.current = guestPages;
+  /* What a page IS for the bar — re-reported only when one of these changes. */
+  const pagesSig = guestPages.map((p) => `${p.key}|${p.label}|${p.leaves}|${p.tiles.length}`).join(' ');
+  useEffect(() => {
+    if (!setGuestPagesCtx) return;
+    setGuestPagesCtx({
+      stage,
+      hasStory: navigator.hasStory,
+      shown: shownPageKey,
+      // A page of this one with no scenes says so (Me, and a page that leaves, are pickable).
+      pages: pagesRef.current.map((p) => ({
+        key: p.key,
+        label: p.label,
+        ...(!p.leaves && p.key !== 'me' && p.tiles.length === 0 ? { empty: true } : {}),
+      })),
+    });
+  }, [setGuestPagesCtx, stage, navigator.hasStory, shownPageKey, pagesSig]);
+  useEffect(() => () => setGuestPagesCtx?.(null), [setGuestPagesCtx]);
+  const pageJump = maker?.pageJump ?? null;
+  const clearPageJump = maker?.clearPageJump;
+  const jumpRef = useRef(jumpToPage);
+  jumpRef.current = jumpToPage;
+  const jumpWaits = useRef<{ n: number; bar: unknown } | null>(null);
+  useEffect(() => {
+    if (!pageJump || pageJump.stage !== stage) return;
+    if (jumpWaits.current?.n !== pageJump.n) jumpWaits.current = { n: pageJump.n, bar: pageJump.sameStage ? null : canvasBar };
+    if (!canvasBar || canvasBar === jumpWaits.current.bar) return;
+    const page = pagesRef.current.find((p) => p.key === pageJump.key);
+    clearPageJump?.();
+    if (page) jumpRef.current(page);
+  }, [pageJump, stage, canvasBar, clearPageJump]);
   /* …and the navigator keeps the selected tile in view, whichever side picked it. */
   const selectedTileKey = selectedTile?.key ?? null;
   useEffect(() => {
@@ -1841,7 +1882,6 @@ export function MakerWork({
               offers on this stage, in its words (`lib/maker-guest-pages.ts`
               asks `resolveSiteNav`, the bar's own function) and with its icons. */}
           <li className="flex min-w-0 shrink-0 items-center gap-1 self-center lg:mb-3 lg:self-stretch" data-maker-tabs="">
-            {shownPage ? <MakerPagePick pages={guestPages} value={shownPage.key} onPick={jumpToPage} /> : null}
             <button
               type="button"
               onClick={() => select?.({ kind: 'main' })}
@@ -3093,7 +3133,7 @@ function Inspector({
       : selection.kind === 'main'
         ? 'Main · behind every scene'
         : selection.kind === 'tool'
-          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Your info', 'rsvp-page': 'RSVP', 'rsvp-stage': 'RSVP' }[selection.key]
+          ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Event Details', 'rsvp-page': 'RSVP', 'rsvp-stage': 'RSVP' }[selection.key]
           : fixedOfKey(selection.key)
             ? fixedScenePanel(fixedOfKey(selection.key)!).label
             : (rows[selection.key]?.label ?? 'Edit');
@@ -3270,7 +3310,7 @@ function ThemePanel({
         data-maker-theme-opens-details=""
         className="sn-press inline-flex min-h-10 items-center font-semibold underline underline-offset-2 hover:text-ink/80"
       >
-        Change in Your info
+        Change in Event Details
       </button>
     </p>
   );

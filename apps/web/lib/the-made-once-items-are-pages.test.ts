@@ -51,11 +51,17 @@ test('Details is the bar’s one made-once item; Logo, Hero and Reveal are items
   // 🗂 OPTION B (owner 2026-09-28; DECISION_LOG "OPTION B — EVERYTHING MADE ONCE
   // LIVES IN DETAILS; THE TOP MENU IS THE FOUR STAGES + DETAILS"): the bar's
   // made-once group is Details alone, and the pages moved into it.
-  const { MAKER_BAR } = await import(`../${L}/maker-bar`);
-  const madeOnce = (MAKER_BAR as Array<{ key: string; group: string }>).filter((i) => i.group === 'made-once').map((i) => i.key);
-  // 🖨 2026-09-30 ("THE MAKER RE-PLAN IS CUT TO ITS CORE": Details | stages | Prints): Prints is a DOOR into
-  // Details, open on the prints — it is not a page of its own, and Logo/Hero/Reveal still are not on the bar.
-  assert.deepEqual(madeOnce, ['details', 'prints'], 'the bar holds a made-once page besides Details and the Prints door again');
+  // ✂ THE MAKER IN 4 (2026-10-02): the bar's doors into Details are Look and Details (Prints is ⋯'s) —
+  // each a DOOR into the one Details page, never a page of its own; Logo/Hero/Reveal are not on the bar.
+  const { MAKER_TOOLBAR, makerPressDoor } = await import(`../${L}/maker-bar`);
+  assert.deepEqual(
+    (MAKER_TOOLBAR as readonly string[]).filter((k) => !['exit', 'page', 'undo', 'view', 'apply', 'more'].includes(k)),
+    ['look', 'details'],
+    'the bar holds a made-once door besides Look and Details again',
+  );
+  for (const door of ['look', 'details', 'prints'] as const) {
+    assert.equal(makerPressDoor({ detailsItem: null }, door).selectedTool, 'details', `${door} opens a page of its own`);
+  }
   for (const key of ['logo', 'hero', 'reveal'] as const) {
     assert.ok(MAKER_PAGE_KEYS.includes(key), `${key} is no longer a made-once page`);
     assert.equal(movedPageItem(key), key, `${key} does not land on its Details item`);

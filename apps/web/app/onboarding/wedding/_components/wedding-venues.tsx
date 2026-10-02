@@ -269,7 +269,7 @@ function VenueRoleRow({
       ) : null}
       {narrowedNote ? <p className="mt-1 text-xs text-ink/55">{narrowedNote}</p> : null}
       {pick?.kind === 'supplier' ? (
-        <p className="mt-2 text-xs text-ink/55">You can add it anytime in Your info, or when you book the venue.</p>
+        <p className="mt-2 text-xs text-ink/55">You can add it anytime in Event Details, or when you book the venue.</p>
       ) : null}
       {pick?.kind === 'own' ? <OwnVenueForm pick={pick} setPick={setPick} places={state.places} /> : null}
     </div>

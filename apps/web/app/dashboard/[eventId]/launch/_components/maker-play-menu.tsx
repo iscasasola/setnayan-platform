@@ -1,17 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { Play } from 'lucide-react';
-import { InfoTip } from '@/app/_components/info-tip';
-import {
-  PREVIEW_SAME_VIEW_QUERY,
-  previewCarriesPlace,
-  previewOpensInSameView,
-} from '@/lib/maker-preview-way-back';
-import { useMaker } from './maker-context';
+import { PREVIEW_SAME_VIEW_QUERY, previewOpensInSameView } from '@/lib/maker-preview-way-back';
 
 /**
- * ▶ PLAY — two choices (owner 2026-09-25, verbatim: *"make choose play scene
+ * ▶ PLAY — two choices, two rows of the toolbar's ⋯ since the Maker in 4
+ * (2026-10-02; `maker-shell.tsx`) (owner 2026-09-25, verbatim: *"make choose play scene
  * only or preview stage"*, then *"play scene will play on the scene editor
  * only. play stage will open a new page to play the whole stage"*).
  *
@@ -42,87 +35,6 @@ export const MAKER_TOOL_WORD = 'hidden text-[10.5px] font-semibold leading-none 
 
 /** The toolbar's "Play this scene" fires this; the work area plays it in the canvas. */
 export const MAKER_PLAY_SCENE_EVENT = 'setnayan:maker-play-scene';
-
-export function MakerPlayMenu({
-  stageHref,
-  stageLabel,
-  sceneSelected,
-}: {
-  /** `/<slug>?phase=<stage>&preview=draft`. */
-  stageHref: string;
-  stageLabel: string;
-  /** Is a scene (or a fixed section) selected in the navigator? */
-  sceneSelected: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLSpanElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onDown = (e: PointerEvent) => {
-      if (!ref.current?.contains(e.target as Node)) setOpen(false);
-    };
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
-    window.addEventListener('pointerdown', onDown);
-    window.addEventListener('keydown', onKey);
-    return () => {
-      window.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
-
-  const maker = useMaker();
-  const previewHref = previewCarriesPlace(stageHref, maker?.selection);
-
-  const item =
-    'sn-press flex w-full items-center rounded-md px-3 py-2 text-left text-[13px] font-medium text-ink hover:bg-ink/5 disabled:cursor-not-allowed disabled:opacity-40';
-  return (
-    <span ref={ref} className="relative inline-flex">
-      <button
-        type="button"
-        aria-label="Play"
-        title="Play"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-        data-maker-tool="play"
-        className={MAKER_TOOL_BUTTON}
-      >
-        <Play aria-hidden className="h-5 w-5" strokeWidth={1.75} />
-        <span className={MAKER_TOOL_WORD}>Play</span>
-      </button>
-      {open ? (
-        <span role="menu" data-maker-play-menu="" className="sn-glass-bare absolute left-0 top-full z-40 mt-1 w-60 rounded-md p-1">
-          <span className="flex items-center gap-1">
-            <button
-              type="button"
-              role="menuitem"
-              disabled={!sceneSelected}
-              onClick={() => {
-                setOpen(false);
-                window.dispatchEvent(new Event(MAKER_PLAY_SCENE_EVENT));
-              }}
-              className={item}
-            >
-              Play this scene
-            </button>
-            {!sceneSelected ? (
-              <InfoTip label="" ariaLabel="Why Play this scene is off" align="start">
-                Pick a scene in the list first — it plays right where it sits.
-              </InfoTip>
-            ) : null}
-          </span>
-          <PreviewStageLink
-            href={previewHref}
-            stageLabel={stageLabel}
-            storeShell={Boolean(maker?.storeShell)}
-            className={item}
-            onPicked={() => setOpen(false)}
-          />
-        </span>
-      ) : null}
-    </span>
-  );
-}
 
 /**
  * "Preview the whole <stage>" — decided when the menu OPENS (it is never

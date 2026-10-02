@@ -42,10 +42,19 @@ stack.
   baseline regenerated (the Nikah card left `/dashboard/[eventId]`); Root map
   screens regenerated.
 
-Reported in the PR, not built: content that now has no consolidated home (the
-decisions board's book / pick / settle / fill-a-role groups, the dated "Coming
-up" list, the journey-rail stage line, "% locked in" for couples without
-Setnayan AI, supplier-handover "Meanwhile" notice, the Hosts / helper-activity
-card).
+Owner "yes" (2026-10-03) on what the first-screen-only Home left without a page:
+- **"What's next"**: ONE 48px row, no caption, on the first screen (above Your
+  services) opens a sheet (`?sheet=next`, `whats-next-sheet.tsx`) holding the
+  dashboard's own ranked decisions list (with "Today's one thing"), then "Coming
+  up" — `<EventDashboard only="whatsnext">`, the same components and data, moved.
+  The decisions are read only while the sheet is open.
+- **Dropped, code and pinning tests deleted**: the journey-rail stage line
+  (`journey-rail.tsx`, `lib/progress-stages.ts`, `lib/stage-mark.ts` and their
+  tests) and the dashboard's "% locked in" bar (Suppliers shows what is booked;
+  Setnayan AI still states the share on its own page).
+- **Supplier delivery notice**: already a notification — `vendorPostHandover`
+  emits `schedule_suggestion` ("… delivered your handover", opens the supplier's
+  workspace) to the couple. Reused; none added; now pinned by a test.
+- The Hosts card lives in the guest list's Access column / a helper's guest card.
 
 SPEC IMPACT: None.

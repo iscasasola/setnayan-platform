@@ -60,6 +60,7 @@ import { SetDateNudge } from './_components/set-date-nudge';
 import { readHomeGuide } from './_components/details-guide-home-card';
 import { HomeFirstScreen } from './_components/home-first-screen';
 import { DateChangeDoorway } from './_components/date-change-doorway';
+import { WhatsNextSheet } from './_components/whats-next-sheet';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { readNikahImam } from './_components/nikah-imam';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
@@ -146,7 +147,7 @@ export default async function EventHomePage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ sai?: string; inspect?: string }>;
+  searchParams?: Promise<{ sai?: string; inspect?: string; sheet?: string }>;
 }) {
   const { eventId } = await params;
   const search = searchParams ? await searchParams : {};
@@ -933,9 +934,25 @@ export default async function EventHomePage({
          *  numbers · the money line · your services. The old dashboard under it
          *  (the wedding-day / Sai / decisions / schedule / Papic / messages
          *  tiles) is NOT mounted here — it repeated the first screen and drew a
-         *  second, wider page. `<EventDashboard>` is mounted only by the two
-         *  receded views above (day-of · after the day). */
-        homeFirstScreen
+         *  second, wider page. The whole `<EventDashboard>` is mounted only by the
+         *  two receded views above (day-of · after the day); here it is drawn only
+         *  as `only="whatsnext"`, inside the "What's next" sheet. */
+        <>
+          {homeFirstScreen}
+          {/* 📋 "What's next" — the one row's sheet. Drawn ONLY while `?sheet=next` is in the URL,
+              so a Home nobody opens that sheet on never reads the decisions. */}
+          {search.sheet === 'next' ? (
+            <WhatsNextSheet closeHref={`/dashboard/${eventId}`}>
+              <EventDashboard
+                eventId={eventId}
+                saiPreviewParam={search.sai}
+                lifecyclePhase={lifecyclePhase}
+                canViewPapicCounts={canViewPapicCounts}
+                only="whatsnext"
+              />
+            </WhatsNextSheet>
+          ) : null}
+        </>
       )}
     </LastSeenCapture>
   );

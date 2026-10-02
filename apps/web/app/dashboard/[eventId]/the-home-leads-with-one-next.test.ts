@@ -78,6 +78,7 @@ test.before(async () => {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 /** The plan branch — the last arm of the page's phase ternary, up to the closing wrapper. */
+const DASH = stripComments(readFileSync(join(HERE, '_components', 'event-dashboard.tsx'), 'utf8'));
 const PLAN = PAGE.slice(PAGE.lastIndexOf(') : ('), PAGE.indexOf('</LastSeenCapture>'));
 
 const NOTHING: HomeNextInput = { guide: null, hasDate: true, noun: 'wedding', papicReady: false, aiOffer: false };
@@ -133,13 +134,21 @@ test('a · exactly ONE Next card with ONE button, in every state', () => {
   }
 });
 
-test('a · the plan branch IS the first screen — no dashboard under it', () => {
+test('a · the plan branch IS the first screen — the dashboard appears only inside the What\'s next sheet', () => {
   assert.equal(count(PAGE, '<HomeFirstScreen'), 1, 'the first screen is drawn once, in one place');
-  assert.equal(PLAN.replace(/\s+/g, ''), '):(homeFirstScreen)}', `the plan branch must be the first screen and nothing else, found: ${PLAN}`);
   assert.equal(count(PAGE, 'homeFirstScreen'), 2, 'the first screen is built once and mounted once');
-  // The two receded views keep the dashboard — each behind its own disclosure.
-  assert.equal(count(PAGE, '<EventDashboard'), 2, 'EventDashboard is mounted only by the day-of and after-the-day views');
-  assert.equal(count(PAGE, 'firstScreenAbove'), 0, 'the "first screen is above" flag is dead — nothing mounts the dashboard under a first screen');
+  assert.ok(PLAN.includes('{homeFirstScreen}'), 'the plan branch must render the first screen');
+  // The ONLY dashboard in the plan branch is the sheet's, told `only="whatsnext"`, behind the URL param.
+  assert.equal(count(PLAN, '<EventDashboard'), 1, 'the plan branch mounts the dashboard more than once');
+  assert.match(
+    PLAN,
+    /\{search\.sheet === 'next' \? \(\s*<WhatsNextSheet[^>]*>\s*<EventDashboard[^>]*only="whatsnext"[^>]*\/>\s*<\/WhatsNextSheet>\s*\) : null\}/,
+    'the dashboard must sit inside the sheet, only while ?sheet=next, drawn as `only="whatsnext"`',
+  );
+  assert.doesNotMatch(PLAN, /slotAfterBento|firstScreenAbove|home-all/, 'a leftover of the stacked second section');
+  // The two receded views keep the whole dashboard — each behind its own disclosure.
+  assert.equal(count(PAGE, '<EventDashboard'), 3, 'EventDashboard: day-of, after the day, the sheet');
+  assert.equal(count(PAGE, 'firstScreenAbove'), 0, 'the "first screen is above" flag is dead');
   assert.equal(count(PAGE, 'home-all'), 0, 'a "#home-all" anchor with nothing to land on');
 });
 
@@ -307,7 +316,8 @@ test('e · each removed tile\'s content is reachable at its home', () => {
     ['Messages · unread → the chat icon\'s page', 'messages', null, null],
     ['Needs you this week → the Next card, and the suppliers\' own book / pick / lock steps', 'vendors', 'vendors/_components/build-locked.tsx', /Locked in/],
     ['Hosts card · who holds access + what a helper did → the guest list\'s Access column and the helper\'s guest card', 'guests', 'guests/_components/guest-helper-access.tsx', /./],
-    ['Meanwhile · a supplier delivered something → the supplier\'s workspace (reached from Suppliers)', 'vendors/[vendorId]/workspace', null, null],
+    ['Meanwhile · a supplier delivered something → a notification (existing) opening the supplier\'s workspace', 'vendors/[vendorId]/workspace', null, null],
+    ['Decisions list + Coming up → the What\'s next sheet on Home', 'checklist', null, null],
     ['Budget · committed → the money line, whose page is the budget', 'budget', null, null],
     ['Guests · coming / no reply → the three numbers, whose page is the roster', 'guests', null, null],
   ];
@@ -372,4 +382,59 @@ test('e · the nudges of the old second section are not on the plan Home', () =>
   for (const gone of ['SetDateNudge', 'PapicReadyNudge', 'SetnayanAiComebackOffer', 'NikahEssentialsCard', 'planNextYearEvent', 'slotAfterBento']) {
     assert.doesNotMatch(branch, new RegExp(gone), `${gone} is drawn again under the first screen`);
   }
+});
+
+/* ══ f · "WHAT'S NEXT" — the one row (owner "yes", 2026-10-03) ═══════════════════ */
+
+test('f · the first screen carries ONE "What\'s next" row — no caption, 48px, opening the sheet', () => {
+  const html = draw();
+  assert.equal(count(html, 'data-home-whats-next'), 1, 'exactly one What\'s next row');
+  const row = html.slice(html.lastIndexOf('<a', html.indexOf('data-home-whats-next')), html.indexOf('</a>', html.indexOf('data-home-whats-next')) + 4);
+  assert.match(row, /href="\/dashboard\/e1\?sheet=next"/, 'it opens the sheet (the Home URL + ?sheet=next)');
+  assert.match(row, /\bh-12\b/, 'one 48px row (h-12)');
+  assert.equal(row.replace(/<svg[\s\S]*?<\/svg>/g, '').replace(/<[^>]+>/g, '').trim(), 'What’s next', 'no caption, no count, no second line');
+  const at = html.indexOf('data-home-whats-next');
+  assert.ok(at > html.indexOf('data-home-money') && at < html.indexOf('data-home-services'), 'it sits under the money line, above Your services');
+  // present in every state, store shell included
+  assert.equal(count(draw({ services: [] }), 'data-home-whats-next'), 1);
+});
+
+test('f · the sheet draws the dashboard\'s own decisions list, then Coming up — and nothing else of it', () => {
+  assert.match(DASH, /only\?: 'whatsnext'/, 'the dashboard takes the sheet mode');
+  assert.match(DASH, /if \(only\) return inspectorMaster;/, 'in the sheet there is no inspector column — a row opens its room');
+  assert.equal(count(DASH, '{only ? null : ('), 2, 'two blocks leave the sheet: the hero + top grid, and Meanwhile + Around your event');
+  const g1 = DASH.indexOf('{only ? null : (');
+  const g2 = DASH.indexOf('{only ? null : (', g1 + 1);
+  const decisions = DASH.indexOf('<section id="decisions"');
+  const coming = DASH.indexOf('<section id="coming-up"');
+  assert.ok(g1 < decisions && decisions < coming && coming < g2, 'the decisions board, then Coming up, sit between the two removed blocks');
+  assert.match(DASH, /\{slotAfterBento && !only \? \(/, 'the cultural overlays do not ride into the sheet');
+  assert.ok(DASH.indexOf('Today&rsquo;s one thing') > 0 || DASH.includes('Today\'s one thing'), '"Today\'s one thing" is kept with the list');
+  // one wiring: the sheet shell and the row agree on the param
+  const SHEET = stripComments(readFileSync(join(HERE, '_components', 'whats-next-sheet.tsx'), 'utf8'));
+  assert.match(SHEET, /router\.replace\(closeHref/, 'closing returns to the plain Home URL');
+  assert.match(PAGE, /closeHref=\{`\/dashboard\/\$\{eventId\}`\}/);
+});
+
+test('f · replace means remove — the journey-rail stage line and the non-AI "% locked in" are gone, not hidden', () => {
+  for (const gone of ['_components/journey-rail.tsx', '_components/the-rail-states-a-number-once.test.ts']) {
+    assert.throws(() => readFileSync(join(HERE, 'progress', gone), 'utf8'), `${gone} is back`);
+  }
+  for (const lib of ['progress-stages.ts', 'stage-mark.ts']) {
+    assert.throws(() => readFileSync(join(HERE, '..', '..', '..', 'lib', lib), 'utf8'), `lib/${lib} is back`);
+  }
+  assert.doesNotMatch(DASH, /JourneyRail|Read your progress|buildProgressStages|stageModel/, 'the rail is drawn again');
+  assert.doesNotMatch(DASH, /lockedInPct|>\s*locked in\s*</, 'the "% locked in" line is back on the dashboard');
+  // …but Setnayan AI still owns its own statement of the locked share.
+  assert.match(readFileSync(join(HERE, 'studio', 'setnayan-ai', '_components', 'setnayan-ai-value.tsx'), 'utf8'), /% locked in/);
+});
+
+test('f · a supplier delivery reaches the couple as the ONE existing notification — none was added', () => {
+  const actions = stripComments(readFileSync(join(HERE, '..', '..', 'vendor-dashboard', 'clients', '[eventId]', 'actions.ts'), 'utf8'));
+  const at = actions.indexOf(".from('booking_handovers').insert(");
+  assert.ok(at > 0, 'the handover insert exists');
+  const after = actions.slice(at, actions.indexOf('export async function', at) > 0 ? actions.indexOf('export async function', at) : undefined);
+  assert.match(after, /emitNotification\(\{[\s\S]*?type: 'schedule_suggestion'[\s\S]*?delivered your handover/, 'the delivery notification is emitted after the insert');
+  assert.equal(count(after, 'emitNotification('), 1, 'a second notification for the same delivery');
+  assert.match(after, /relatedUrl: `\/dashboard\/\$\{eventId\}\/vendors\/\$\{eventVendorId\}\/workspace`/, 'it opens the supplier\'s workspace');
 });

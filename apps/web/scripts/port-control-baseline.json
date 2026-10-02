@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5666406eb",
+  "generatedFromRef": "25f8aa6d7",
   "routeCount": 423,
-  "destinations": 945,
+  "destinations": 946,
   "actions": 671,
-  "blocks": 5415,
+  "blocks": 5416,
   "routes": {
     "/": {
       "files": [
@@ -5187,6 +5187,7 @@
         "dashboard/[eventId]/_components/vendor-direct-pay.tsx",
         "dashboard/[eventId]/_components/vendor-itemization-card.tsx",
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
+        "dashboard/[eventId]/_components/whats-next-sheet.tsx",
         "dashboard/[eventId]/actions.ts",
         "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
@@ -5223,6 +5224,7 @@
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
         "/dashboard/[seg]/website/dress-code",
+        "/dashboard/[seg]?sheet=next",
         "/dashboard/notifications",
         "/help",
         "/login?next=[seg]",
@@ -5324,7 +5326,6 @@
         "InspectorColumn",
         "InspectorLayout",
         "InspectorTrigger",
-        "JourneyRail",
         "LastSeenCapture",
         "LastSeenFallback",
         "LastSeenScope",
@@ -5422,6 +5423,7 @@
         "VoucherBlock",
         "Watermark",
         "WhatsHappeningCard",
+        "WhatsNextSheet",
         "WizardTaskId",
         "YourTableCard"
       ]
@@ -6842,6 +6844,7 @@
       "blocks": [
         "ListPageSkeleton",
         "NikahEssentialsCard",
+        "NotSharedWithYou",
         "PageMasthead"
       ]
     },
@@ -6997,7 +7000,6 @@
       "files": [
         "dashboard/[eventId]/progress/_actions/free-venue-shortlist.ts",
         "dashboard/[eventId]/progress/_components/free-venue-shortlist-offer.tsx",
-        "dashboard/[eventId]/progress/_components/journey-rail.tsx",
         "dashboard/[eventId]/progress/page.tsx"
       ],
       "destinations": [],

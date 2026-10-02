@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
 import { completeTour } from '@/lib/tour-actions';
@@ -39,7 +40,8 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
  *
  *   ONE Next card (one button) → Edit your Event Hub (always) → days to go ·
  *   coming · no reply → Paid / Still owing → Your services (Papic · Setnayan
- *   AI, owner 2026-10-01; a Muslim wedding adds its Nikah essentials line).
+ *   AI, owner 2026-10-01; a Muslim wedding adds its Nikah essentials line); the one
+ *   "What's next" row (a sheet: decisions, then Coming up) sits above the services.
  *
  * 🔒 THIS IS THE WHOLE HOME (owner 2026-10-02, DECISION_LOG "HOME IS THE FIRST
  * SCREEN ONLY"): there is no "rest of Home" under it, no "See all" and no
@@ -160,6 +162,19 @@ export function HomeFirstScreen({
           </span>
         </Link>
       ) : null}
+
+      {/* ③½ ONE ROW — "What's next" (owner "yes", 2026-10-03). It opens a sheet holding the
+          ranked decisions list, then Coming up (the old dashboard's own components and
+          data, moved). One row, no caption, 48px tall: the Home stays one screen. */}
+      <Link
+        href={`/dashboard/${eventId}?sheet=next`}
+        scroll={false}
+        data-home-whats-next
+        className="sn-glass-bare sn-press flex h-12 items-center justify-between rounded-xl px-4 text-[15px] font-semibold text-ink"
+      >
+        What&rsquo;s next
+        <ChevronRight aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={2} />
+      </Link>
 
       {/* ④ YOUR SERVICES — compact, one line each; never the one that is Next. */}
       {services.length > 0 ? (

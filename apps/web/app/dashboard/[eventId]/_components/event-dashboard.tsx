@@ -81,7 +81,6 @@ import {
 } from '@/lib/setnayan-ai-snapshot';
 import { resolveEventMoney } from '@/lib/budget-truth';
 import { renderTemplate, WEDDING_TERMINOLOGY } from '@/lib/setnayan-ai-templates';
-import { buildProgressStages } from '@/lib/progress-stages';
 import type { EventDatePrecision } from '@/lib/events';
 import type { VendorCategory } from '@/lib/vendors';
 import { ADD_ONS } from '@/lib/add-ons-catalog';
@@ -112,7 +111,6 @@ import {
 import { ProgressRing } from '@/app/_components/progress-ring';
 import { CountUp } from '@/app/_components/count-up';
 import { ExpandCard } from './expand-card';
-import { JourneyRail } from '../progress/_components/journey-rail';
 import { FreeVenueShortlistOffer } from '../progress/_components/free-venue-shortlist-offer';
 import {
   agreedTotalNow,
@@ -252,6 +250,7 @@ export async function EventDashboard({
   dayOfActive = false,
   lifecyclePhase = 'plan',
   canViewPapicCounts = false,
+  only,
 }: {
   eventId: string;
   saiPreviewParam?: string;
@@ -259,6 +258,14 @@ export async function EventDashboard({
    *  (`d:<id>`) or a Sai-on-watch (`w:<key>`) row into the inspector column. */
   inspectId?: string;
   slotAfterBento?: ReactNode;
+  /**
+   * 📋 `'whatsnext'` — draw ONLY the ranked decisions list (with "Today's one
+   * thing") and "Coming up": the body of the Home's "What's next" sheet (owner
+   * "yes", 2026-10-03). The same components and the same data, moved — nothing is
+   * redrawn — and without the inspector column (a row just opens its room).
+   * Omitted ⇒ the whole dashboard, as the day-of and after-the-day views draw it.
+   */
+  only?: 'whatsnext';
   /**
    * True inside the T-1h..T+8h day-of window (resolved by the Home page). When
    * set, the page's DayOfModeGrid renders its "happening now" obsidian focal
@@ -1407,28 +1414,6 @@ export async function EventDashboard({
     venueOfferAvailable &&
     decisionGroups.some((g) => g.items.some((i) => isSaiAssistFreeDecisionId(i.id)));
 
-  // ---- Journey stages (pure lib — see lib/progress-stages.ts). ------------
-  const stageModel = buildProgressStages({
-    eventType,
-    ceremonyType: (event as { ceremony_type?: string | null }).ceremony_type ?? null,
-    eventDate: event.event_date,
-    datePrecision: eventDatePrecision,
-    daysOut,
-    venueName: (event as { venue_name?: string | null }).venue_name ?? null,
-    paletteFinalizedAt:
-      (event as { palette_finalized_at?: string | null }).palette_finalized_at ?? null,
-    budgetTargetCentavos,
-    guestsTotal: stats.total,
-    guestsAttending: stats.attending,
-    guestsResponded: stats.attending + stats.declined + stats.maybe,
-    lockedVendorCount,
-    totalLockableCategories,
-    seatedGuests,
-    paperworkTotal: paperworkSummary.total,
-    paperworkReceived: paperworkSummary.received,
-    pendingPaymentCount: pendingOrders.length,
-    activeServiceCount: paidOrders.length,
-  });
   // ---- "Sai on watch" — render-only pass through the pure trigger engine,
   // fed ONLY what this surface already loaded (payments due + budget). -------
   let watchItems: Array<{ intervention: Intervention; copy: string }> = [];
@@ -1562,29 +1547,6 @@ export async function EventDashboard({
    *  before the first reply, a roster nobody has invited must not be nagged. */
   const rsvpRepliesStarted = stats.attending + stats.declined + stats.maybe > 0;
 
-  /*
-    THE GOLD BAR COUNTS VENDOR CATEGORIES LOCKED — AND NOW SAYS SO.
-
-    🚨 IT USED TO BE CAPTIONED "% planned", and so is the figure on the account
-    home. They are two different measures wearing one word: home reports the
-    event CHECKLIST's real done/total, this one reports the locked share of
-    vendor categories. Neither is broken. Both are right about their own
-    question. Side by side they simply contradicted each other, and a person
-    reading two numbers under one label concludes the product is confused about
-    their wedding.
-
-    🔑 THE HONEST CAPTION ALREADY SHIPS TWICE for this exact value —
-    `setnayan-ai-value.tsx` and `lib/setnayan-ai-activity.ts` both say
-    "% locked in". Reusing their words rather than inventing a third phrase for
-    a number the product already knows how to name. Home is untouched: once the
-    two stop sharing a word they cannot contradict each other.
-
-    ⛔ AND IT IS DELIBERATELY *NOT* "compute it once and show it everywhere".
-    That requires deciding WHICH measure is the real answer to "how planned is
-    this wedding" — a product ruling, and making it inside a caption fix is
-    exactly how this project acquires a lock nobody remembers agreeing to.
-  */
-  const lockedInPct = Math.max(0, Math.min(100, cockpitModel.briefing.lockedPct));
   // One obsidian per view (§ 1.3): the "Big Day" focal is dark EXCEPT on the day
   // itself, where the DayOfModeGrid's "happening now" card owns the obsidian and
   // this focal steps down to a glass tile.
@@ -2165,6 +2127,8 @@ export async function EventDashboard({
   const inspectorMaster = (
     <div className="relative">
       <div className="space-y-10">
+        {only ? null : (
+        <>
         {/* ── Hero ─────────────────────────────────────────────────────── */}
         <header className="sn-reveal pt-1">
             <p className="text-[13px] text-ink/55">
@@ -2305,46 +2269,6 @@ export async function EventDashboard({
                     : 'Your countdown begins the moment your date is set.'}
                 </p>
               )}
-              {/* % planned — gold bar, date-independent (vendor-categories locked).
-                  ⚠ HIDDEN ONCE THE CELEBRATION HAS HAPPENED. A shimmering
-                  progress bar is a promise that the number can still go up.
-                  For the owner's Movie Night it read a shimmering 0%, the
-                  morning after a night that went fine. */}
-              {eventHasHappened ? null : (
-                <>
-              <div
-                className="sn-bar mt-3.5 h-1.5 overflow-hidden rounded-full"
-                style={{
-                  background: focalDark ? 'rgba(255,255,255,.14)' : 'rgba(30,26,18,.08)',
-                }}
-              >
-                <i
-                  className="relative block h-full overflow-hidden rounded-full"
-                  style={{ width: `${lockedInPct}%`, background: 'var(--sn-gold-300)' }}
-                >
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-0 w-2/5"
-                    style={{
-                      background:
-                        'linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent)',
-                      animation: 'sn-shimmer 2.8s var(--sn-ease-out) 1.6s 1 both',
-                    }}
-                  />
-                </i>
-              </div>
-              <p
-                className="mt-2 font-mono text-[10px]"
-                style={{ color: focalDark ? 'rgba(243,236,223,.55)' : 'var(--sn-ink-500)' }}
-              >
-                <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
-                  {Math.round(lockedInPct)}%
-                </b>{' '}
-                locked in
-              </p>
-                </>
-              )}
-
               {/* AI: the Sai briefing sentence + chips, inside the focal. */}
               {aiActive ? (
                 <>
@@ -2642,6 +2566,8 @@ export async function EventDashboard({
             </div>
           </div>
         </section>
+        </>
+        )}
 
         {/* Today's one thing — the resolver's #1 (AI state), a gold-hairlined
          *  glass tile below the top grid. */}
@@ -2702,7 +2628,7 @@ export async function EventDashboard({
          *   `slotAfterBento` slot so the Muslim / Chinese / set-date cards
          *   land in the right visual place on the event Home. Null on the
          *   standalone dashboard. */}
-        {slotAfterBento ? (
+        {slotAfterBento && !only ? (
           <div className="space-y-4 !mt-6">{slotAfterBento}</div>
         ) : null}
 
@@ -2816,6 +2742,8 @@ export async function EventDashboard({
           </section>
         ) : null}
 
+        {only ? null : (
+        <>
         {/* ── Meanwhile — a delivery is waiting ──────────────────────────
          *  Renders ONLY when a vendor has delivered something still
          *  unacknowledged. Absent data ⇒ absent section, never an empty shell.
@@ -3206,27 +3134,17 @@ export async function EventDashboard({
             </Link>
           </div>
         </section>
+        </>
+        )}
 
-        {/* ── Journey rail — moved BELOW the band per the council verdict.
-         *  Narrative reassurance ("Read your progress"), endowed so a fresh
-         *  event never reads 0%, but no longer occupies the daily-job slot
-         *  above the Decisions board. */}
-        <section aria-label="Event progress">
-          <div className="mb-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <h2 className="sn-sec">{spark}Read your progress</h2>
-          </div>
-          <JourneyRail
-            stages={stageModel.stages}
-            currentKey={stageModel.currentKey}
-            aiActive={aiActive}
-          />
-        </section>
         {/* The "Sai on watch" section moved INTO the Big-Day focal's lower half
          *  (top grid, above) so the tall focal is filled and the watch lives in
          *  one place. Its #3265 inspector triggers travelled with it. */}
       </div>
     </div>
   );
+
+  if (only) return inspectorMaster;
 
   return (
     <InspectorLayout

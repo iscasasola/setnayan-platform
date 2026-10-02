@@ -72,17 +72,45 @@ import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 // build skips the createAdminClient throw (the /pricing pattern).
 export const dynamic = 'force-dynamic';
 
+type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
+
+/**
+ * "Solo ₱1,000 · Pro ₱2,500" — only the tiers whose price was READ. A tier whose
+ * catalog row came back empty is left out of the copy entirely; it is never
+ * priced from a typed fallback. `''` when nothing was readable.
+ */
+function tierPriceCopy(
+  p: VendorPrices,
+  tiers: readonly ('solo' | 'pro' | 'enterprise')[],
+  perEach = '',
+): string {
+  const price = {
+    solo: p.soloMonthly,
+    pro: p.proMonthly,
+    enterprise: p.enterpriseMonthly,
+  } as const;
+  const name = { solo: 'Solo', pro: 'Pro', enterprise: 'Enterprise' } as const;
+  return tiers
+    .filter((t) => price[t] !== null)
+    .map((t) => `${name[t]} ${price[t]}${perEach}`)
+    .join(' · ');
+}
+
 // DB-driven metadata — the tier prices come from getVendorPrices().
 export async function generateMetadata() {
   const p = await getVendorPrices();
-  const title = `Setnayan for Suppliers · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`;
+  const all = ['solo', 'pro', 'enterprise'] as const;
+  const allLine = tierPriceCopy(p, all);
+  const title = `Setnayan for Suppliers · Built to grow your business — free${allLine ? ` · ${allLine} / 28d` : ''}`;
+  const perBlock = tierPriceCopy(p, all, '/28d');
+  const perBlockTwo = tierPriceCopy(p, ['solo', 'pro'], '/28d');
   return {
     title,
-    description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join. ${supplierCommissionShort()} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d · Enterprise ${p.enterpriseMonthly}/28d.`,
+    description: `Run your whole wedding business here free — import clients, get a search-ready website, get discovered. Free to join. ${supplierCommissionShort()} — your first ${FREE_BOOKING_LIMIT} are free, and your own clients always stay free.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
       title,
-      description: `Run your whole business here free · ${supplierCommissionShort()} · your own clients always free. Solo ${p.soloMonthly}/28d · Pro ${p.proMonthly}/28d.`,
+      description: `Run your whole business here free · ${supplierCommissionShort()} · your own clients always free.${perBlockTwo ? ` ${perBlockTwo}.` : ''}`,
       url: '/for-suppliers',
       type: 'website',
       siteName: 'Setnayan',
@@ -90,7 +118,7 @@ export async function generateMetadata() {
     twitter: {
       card: 'summary_large_image',
       title,
-      description: `Built to grow your business — free. ${supplierCommissionShort()}. Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly}/28d.`,
+      description: `Built to grow your business — free. ${supplierCommissionShort()}.${allLine ? ` ${allLine}/28d.` : ''}`,
     },
   };
 }
@@ -102,7 +130,35 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 // Schema.org pricing — vendor tier Offers (Solo / Pro / Enterprise · prices
 // from the live catalog, never hardcoded).
-function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
+function forVendorsJsonLd(p: VendorPrices) {
+  // An Offer is emitted only for a tier whose price was actually read.
+  const offer = (
+    id: string,
+    name: string,
+    description: string,
+    price: number | null,
+  ) =>
+    price === null
+      ? null
+      : {
+          '@type': 'Offer',
+          '@id': `${SITE_URL}/for-suppliers#${id}`,
+          name,
+          description,
+          price: String(price),
+          priceCurrency: 'PHP',
+          priceSpecification: {
+            '@type': 'UnitPriceSpecification',
+            price: String(price),
+            priceCurrency: 'PHP',
+            billingDuration: 'P28D',
+            unitText: '28-DAY BLOCK',
+          },
+          availability: 'https://schema.org/InStock',
+          seller: { '@id': `${SITE_URL}/#organization` },
+          url: `${SITE_URL}/open-shop`,
+        };
+  const allLine = tierPriceCopy(p, ['solo', 'pro', 'enterprise']);
   return {
     '@context': 'https://schema.org',
     '@graph': [
@@ -118,7 +174,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
         '@type': 'WebPage',
         '@id': `${SITE_URL}/for-suppliers#webpage`,
         url: `${SITE_URL}/for-suppliers`,
-        name: `Setnayan for suppliers · Built to grow your business — free · Solo ${p.soloMonthly} · Pro ${p.proMonthly} · Enterprise ${p.enterpriseMonthly} / 28d`,
+        name: `Setnayan for suppliers · Built to grow your business — free${allLine ? ` · ${allLine} / 28d` : ''}`,
         isPartOf: { '@id': `${SITE_URL}/#website` },
         about: { '@id': `${SITE_URL}/#organization` },
         audience: {
@@ -127,63 +183,24 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
           geographicArea: { '@type': 'Country', name: 'Philippines' },
         },
       },
-      {
-        '@type': 'Offer',
-        '@id': `${SITE_URL}/for-suppliers#solo-vendor-subscription`,
-        name: 'Solo Supplier (28-day prepaid block)',
-        description:
-          `1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. ${supplierCommissionPromise()}`,
-        price: String(p.num.soloMonthly),
-        priceCurrency: 'PHP',
-        priceSpecification: {
-          '@type': 'UnitPriceSpecification',
-          price: String(p.num.soloMonthly),
-          priceCurrency: 'PHP',
-          billingDuration: 'P28D',
-          unitText: '28-DAY BLOCK',
-        },
-        availability: 'https://schema.org/InStock',
-        seller: { '@id': `${SITE_URL}/#organization` },
-        url: `${SITE_URL}/open-shop`,
-      },
-      {
-        '@type': 'Offer',
-        '@id': `${SITE_URL}/for-suppliers#pro-vendor-subscription`,
-        name: 'Pro Supplier (28-day prepaid block)',
-        description:
-          '3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · Demand Radar · category benchmarks. 28-day prepaid blocks.',
-        price: String(p.num.proMonthly),
-        priceCurrency: 'PHP',
-        priceSpecification: {
-          '@type': 'UnitPriceSpecification',
-          price: String(p.num.proMonthly),
-          priceCurrency: 'PHP',
-          billingDuration: 'P28D',
-          unitText: '28-DAY BLOCK',
-        },
-        availability: 'https://schema.org/InStock',
-        seller: { '@id': `${SITE_URL}/#organization` },
-        url: `${SITE_URL}/open-shop`,
-      },
-      {
-        '@type': 'Offer',
-        '@id': `${SITE_URL}/for-suppliers#enterprise-subscription`,
-        name: 'Enterprise Supplier (28-day prepaid block)',
-        description:
-          'All marketplace categories · up to 10 team accounts + multi-admin · flagship page + video films · reach up to 100 km. 28-day prepaid blocks.',
-        price: String(p.num.enterpriseMonthly),
-        priceCurrency: 'PHP',
-        priceSpecification: {
-          '@type': 'UnitPriceSpecification',
-          price: String(p.num.enterpriseMonthly),
-          priceCurrency: 'PHP',
-          billingDuration: 'P28D',
-          unitText: '28-DAY BLOCK',
-        },
-        availability: 'https://schema.org/InStock',
-        seller: { '@id': `${SITE_URL}/#organization` },
-        url: `${SITE_URL}/open-shop`,
-      },
+      offer(
+        'solo-vendor-subscription',
+        'Solo Supplier (28-day prepaid block)',
+        `1 marketplace category · solo operator · verified profile + microsite + in-app chat + pipeline + calendar. Full in-app suite at the entry price. ${supplierCommissionPromise()}`,
+        p.num.soloMonthly,
+      ),
+      offer(
+        'pro-vendor-subscription',
+        'Pro Supplier (28-day prepaid block)',
+        '3 marketplace categories · 3 team accounts · custom website + slug · priority couple matching · Demand Radar · category benchmarks. 28-day prepaid blocks.',
+        p.num.proMonthly,
+      ),
+      offer(
+        'enterprise-subscription',
+        'Enterprise Supplier (28-day prepaid block)',
+        'All marketplace categories · up to 10 team accounts + multi-admin · flagship page + video films · reach up to 100 km. 28-day prepaid blocks.',
+        p.num.enterpriseMonthly,
+      ),
       {
         '@type': 'BreadcrumbList',
         '@id': `${SITE_URL}/for-suppliers#breadcrumb`,
@@ -192,7 +209,7 @@ function forVendorsJsonLd(p: Awaited<ReturnType<typeof getVendorPrices>>) {
           { '@type': 'ListItem', position: 2, name: 'For Suppliers', item: `${SITE_URL}/for-suppliers` },
         ],
       },
-    ],
+    ].filter((node) => node !== null),
   };
 }
 

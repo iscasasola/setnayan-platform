@@ -182,8 +182,8 @@ export default async function VendorManpowerPage() {
         <aside className="sn-tile mt-6 p-4">
           <p className="sn-eye">Setnayan note</p>
           <p className="mt-1.5 text-sm leading-relaxed text-slate-700">
-            Setnayan doesn&apos;t touch the ₱15,000 — it flows direct from the
-            host to your crew. You handle your own Form 2307 on this. Accepting a
+            Setnayan doesn&apos;t touch a gig&apos;s cash — the amount on each
+            gig flows direct from the host to your crew. You handle your own Form 2307 on this. Accepting a
             gig is free · it stamps your business as the gig owner for event
             rewards.
           </p>

@@ -349,52 +349,43 @@ export const getVendorPrices = cache(async () => {
   // copies of one number. Unreadable → null → the surface omits the figure.
   const customBase = price('vendor_custom_base');
   const pack = rows.find((r) => r.offering_type === 'token_pack' && r.token_grant_count);
-  // Fallback mirrors the live flat ₱200/token ladder (2026-07-15 catalog
-  // restructure: ₱1,000 = 5 tokens) so a DB-unreachable build never renders a
-  // stale ₱100. The live read (price_php ÷ token_grant_count) wins when present.
-  const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : 200;
-  const fmt = (n: number | null, fb: string) => (n == null ? fb : `₱${formatPeso(n)}`);
-  const save = (mo: number | null, yr: number | null, fb: string) =>
-    mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : fb;
-  // Fallback strings/numbers mirror the LIVE vendor_billing_catalog ladder
-  // (Solo ₱1,000/₱10,400 · Pro ₱2,500/₱26,000 · Enterprise ₱10,000/₱104,000 —
-  // owner price sheet 2026-08-27) so a DB-unreachable build never renders a
-  // stale price. They only ever surface if the catalog read returns empty —
-  // the live read wins.
-  //
-  // ⚠ THE THREE `…AnnualSave` FALLBACKS ARE DERIVED, NOT CHOSEN: 28d × 13 − annual
-  // (₱2,600 · ₱6,500 · ₱26,000 — exactly 20% on each, because annual is now
-  // 28d × 10.4 rather than × 10). Re-derive them whenever a price above moves;
-  // they went stale once already, quoting the old ~23% ladder's savings.
-  // ✅ THE ₱1 GAP THIS COMMENT USED TO RECORD IS CLOSED, and closed at the cause.
-  // It said `branch` "deliberately still reads ₱999" because it mirrored
-  // `vendor_branch_28day` while the row that actually CHARGES —
-  // `vendor_additional_branch` — had gone to ₱1,000. Two live rows for one
-  // product, the public quoting one and the checkout charging the other.
-  // This now reads BRANCH_SKU_CODE, the charging row, so the fallback tracks it.
-  // Measured 2026-08-29: both rows are ₱1,000 today, so nothing visible moves.
+  // ⚠ NO TYPED PRICE ANYWHERE BELOW, and that is the point of this block. Every
+  // figure used to carry a hand-typed fallback ("₱1,000", "₱10,400", …, nine of
+  // them) that only rendered when the catalog read came back empty, with a
+  // standing promise that a human re-derived them whenever a price moved. A
+  // price that cannot be read now comes back `null` and each surface renders the
+  // honest "price unavailable" state — a missing price is recoverable, a
+  // confidently stale one is not (the ₱499 that was five times off, 2026-08-13).
+  const tokenUnit = pack && pack.token_grant_count ? pack.price_php / pack.token_grant_count : null;
+  const fmt = (n: number | null): string | null => (n == null ? null : `₱${formatPeso(n)}`);
+  // 28d × 13 − annual: what paying annually saves against thirteen 28-day blocks.
+  const save = (mo: number | null, yr: number | null): string | null =>
+    mo != null && yr != null ? `₱${formatPeso(mo * 13 - yr)}` : null;
+  // ✅ THE BRANCH IS READ FROM BRANCH_SKU_CODE — the row that CHARGES — so the
+  // public figure tracks the price actually taken (see the block above).
   return {
-    soloMonthly: fmt(soloMo, '₱1,000'),
-    soloAnnual: fmt(soloYr, '₱10,400'),
-    soloAnnualSave: save(soloMo, soloYr, '₱2,600'),
-    proMonthly: fmt(proMo, '₱2,500'),
-    proAnnual: fmt(proYr, '₱26,000'),
-    proAnnualSave: save(proMo, proYr, '₱6,500'),
-    enterpriseMonthly: fmt(entMo, '₱10,000'),
-    enterpriseAnnual: fmt(entYr, '₱104,000'),
-    enterpriseAnnualSave: save(entMo, entYr, '₱26,000'),
-    branch: fmt(branch, '₱1,000'),
+    soloMonthly: fmt(soloMo),
+    soloAnnual: fmt(soloYr),
+    soloAnnualSave: save(soloMo, soloYr),
+    proMonthly: fmt(proMo),
+    proAnnual: fmt(proYr),
+    proAnnualSave: save(proMo, proYr),
+    enterpriseMonthly: fmt(entMo),
+    enterpriseAnnual: fmt(entYr),
+    enterpriseAnnualSave: save(entMo, entYr),
+    branch: fmt(branch),
     /** `null` when unreadable — callers render the bare label, never a guess. */
     customFrom: customBase == null ? null : `₱${formatPeso(customBase)}`,
-    tokenUnit: `₱${formatPeso(tokenUnit)}`,
+    tokenUnit: fmt(tokenUnit),
     // Raw numbers for the schema.org JSON-LD Offers (need unformatted values).
+    // `null` = unreadable: the Offer is omitted, never priced from a guess.
     num: {
-      soloMonthly: soloMo ?? 1000,
-      soloAnnual: soloYr ?? 10400,
-      proMonthly: proMo ?? 2500,
-      proAnnual: proYr ?? 26000,
-      enterpriseMonthly: entMo ?? 10000,
-      enterpriseAnnual: entYr ?? 104000,
+      soloMonthly: soloMo,
+      soloAnnual: soloYr,
+      proMonthly: proMo,
+      proAnnual: proYr,
+      enterpriseMonthly: entMo,
+      enterpriseAnnual: entYr,
     },
   };
 });

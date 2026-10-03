@@ -1,6 +1,6 @@
 import { notFound, redirect } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -30,7 +30,7 @@ export const metadata = { title: NIKAH_NAME };
 export default async function NikahEssentialsPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   const user = await getCurrentUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(loginRedirectPath(`/dashboard/${eventId}/nikah`));
   const supabase = await createClient();
 
   const { data: event, error } = await supabase

@@ -2017,6 +2017,30 @@ button.fd-ask.quiet {
     min-height: 44px;
     padding: 0;
   }
+  /* The round controls never give up width to a crowded row — a 44px circle
+     squeezed by flex is the ellipse this block exists to remove. */
+  .fd[data-chrome='app'] .fd-topright .fd-round,
+  .fd[data-chrome='app'] .fd-topright .fd-acct {
+    flex-shrink: 0;
+  }
+
+  /* ── HQ'S CLUSTER FITS THE SAME ROW ──
+     HQ hands in more than the other trees: an SLA pill, the bell, a role tag
+     and the avatar. Measured at 375 with the slim rules alone it ran 19px past
+     the screen ("Queue counts unavailable" · "Setnayan Team") and squeezed the
+     bell to a 27px ellipse. So on a phone the role tag (who you are in HQ —
+     the same on every screen) steps out, and the SLA pill (what needs you
+     now) keeps its words, shortening with "…" only if it still cannot fit.
+     Its full sentence stays in its aria-label. */
+  .fd[data-chrome='app'] .fd-topright {
+    min-width: 0;
+  }
+  .fd[data-chrome='app'] .fd-topright .fd-role {
+    display: none;
+  }
+  .fd[data-chrome='app'] .fd-topright .fd-urgency > svg {
+    flex-shrink: 0;
+  }
 
   /* ── THE SEARCH, AS ITS ICON ── */
   .fd[data-chrome='app'] .fd-searchwrap {
@@ -2071,7 +2095,7 @@ button.fd-ask.quiet {
     padding: 0;
     gap: 0;
     justify-content: center;
-    border-radius: 9999px;
+    border-radius: var(--m-r-full);
   }
   .fd[data-chrome='app'] [data-guests-top-search] input {
     position: absolute;

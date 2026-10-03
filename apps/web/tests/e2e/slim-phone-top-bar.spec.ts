@@ -39,7 +39,7 @@ const BARS = JSON.parse(
     cwd: WEB,
     encoding: 'utf8',
   }),
-) as { event: string; guests: string };
+) as { event: string; guests: string; board: string; shop: string; hq: string };
 
 type Shell = { sheets: string[]; htmlClass: string; bodyClass: string };
 let shell: Shell | null = null;
@@ -175,6 +175,55 @@ for (const [w, hgt] of [
     // The same search, not a second one.
     expect(open.inputs).toBe(1);
   });
+}
+
+/*
+  THE OTHER THREE TREES. Each hands the bar its OWN cluster, so the event
+  tree's pass says nothing about them — measured at 375 before this was added,
+  HQ's worst case ran 19px past the screen and squeezed its bell to a 27px
+  ellipse. Here: nothing spills sideways, one row, and the round controls that
+  tree has are true 44px circles.
+*/
+for (const w of [375, 360] as const) {
+  for (const place of ['board', 'shop', 'hq'] as const) {
+    test(`phone top bar · ${place} · ${w}px — one row, nothing past the edge`, async ({ page }) => {
+      await page.setViewportSize({ width: w, height: 800 });
+      await mount(page, BARS[place]);
+
+      const bar = await page.$eval('.fd-topwrap', (el) => el.getBoundingClientRect().height);
+      expect(bar, `the bar is ${bar}px tall`).toBeLessThanOrEqual(52);
+
+      const row = await page.evaluate(() => {
+        const shown = [...document.querySelectorAll<HTMLElement>('.fd-topbar a, .fd-topbar button')].filter((el) => {
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.height > 0 && !el.closest('[role="dialog"]');
+        });
+        const boxes = shown.map((el) => el.getBoundingClientRect());
+        const cys = boxes.map((r) => r.top + r.height / 2);
+        return {
+          count: shown.length,
+          right: Math.max(...boxes.map((r) => r.right)),
+          page: document.documentElement.scrollWidth,
+          spread: Math.max(...cys) - Math.min(...cys),
+          round: [...document.querySelectorAll<HTMLElement>('.fd-topbar button[aria-label="Menu"], .fd-topright .fd-round, .fd-topright .fd-acct')].map(
+            (el) => {
+              const r = el.getBoundingClientRect();
+              return `${Math.round(r.width)}×${Math.round(r.height)}`;
+            },
+          ),
+        };
+      });
+      expect(row.count, 'no controls on the bar — the harness measured nothing').toBeGreaterThanOrEqual(3);
+      expect(row.page, `the page is ${row.page}px wide on a ${w}px screen`).toBeLessThanOrEqual(w);
+      expect(row.right, `a control ends at ${row.right}px of ${w}`).toBeLessThanOrEqual(w);
+      expect(row.spread, 'the bar broke onto a second row').toBeLessThanOrEqual(1);
+      // ☰ · bell · avatar, all square 44s — never squeezed by a crowded row.
+      expect(row.round.length).toBe(3);
+      for (const size of row.round) expect(size, `a round control is ${size}`).toBe('44×44');
+
+      await page.screenshot({ path: `test-results/slim-phone-top-bar-${place}-${w}.png`, clip: { x: 0, y: 0, width: w, height: 120 } });
+    });
+  }
 }
 
 test('desktop top bar · 1280px — unchanged', async ({ page }) => {

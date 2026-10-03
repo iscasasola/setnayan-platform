@@ -29,4 +29,14 @@ and `fd-acct` (`account-switcher.tsx`); rules in `front-door.css` (one
 `apps/web/tests/e2e/slim-phone-top-bar.spec.ts` (renders the real bar under the
 app's compiled CSS and measures it at 390 and 375; desktop pinned at 61px).
 
+**Finished 2026-10-03 (C5):** the pill radius uses the token
+(`var(--m-r-full)`, not `9999px` — the radius guard was red). "One row on
+every page" is now measured on every tree that hands the bar its own cluster:
+the events board, the supplier app and HQ join the event pages in the spec, at
+375 and 360. HQ's worst case ("Queue counts unavailable" + "Setnayan Team") ran
+19px past a 375 screen and squeezed its bell to a 27px ellipse; on a phone the
+HQ role tag now steps out (`fd-role`), the SLA pill keeps its words and
+shortens with "…" only if it still cannot fit (`fd-urgency`, full sentence in
+its aria-label), and the round controls never shrink. Desktop unchanged.
+
 SPEC IMPACT: None

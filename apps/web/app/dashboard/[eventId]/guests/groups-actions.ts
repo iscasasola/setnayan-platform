@@ -636,7 +636,8 @@ export async function bulkSoftDeleteGuestsForUndo(
   return { ok: true, removedIds, releasedSeats, releasedSongs };
 }
 
-export type RestoreResult = { ok: boolean; error?: string };
+/** `warning`: the guests came back, but something that went with them did not. */
+export type RestoreResult = { ok: boolean; error?: string; warning?: string };
 
 export async function restoreDeletedGuests(
   eventId: string,
@@ -670,13 +671,16 @@ export async function restoreDeletedGuests(
     songs ?? [],
     new Set((restoredRows ?? []).map((r) => r.guest_id as string)),
   );
+  let warning: string | undefined;
   if (songRows.length > 0) {
-    await createAdminClient()
+    const { error: songErr } = await createAdminClient()
       .from('event_song_requests')
       .upsert(
         songRows.map((r) => ({ ...r, event_id: eventId, origin: 'guest', anon_key: null })),
         { onConflict: 'event_id,song_id', ignoreDuplicates: true },
       );
+    // Said where the host pressed Undo — never a restore that looks complete.
+    if (songErr) warning = 'They are back, but their song request could not be put back.';
   }
 
   // Re-place seats — best-effort. Only the guests we just restored, scoped to
@@ -703,5 +707,5 @@ export async function restoreDeletedGuests(
   revalidatePath(`/dashboard/${eventId}/guests`);
   // An undo can put a consent veto back — same reason as the delete above.
   await everyCopyIsNowStale(eventId);
-  return { ok: true };
+  return { ok: true, warning };
 }

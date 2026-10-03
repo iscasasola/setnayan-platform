@@ -60,6 +60,7 @@ const ROWS: Row[] = [
   ['best-man', g({ role: 'best_man' }), {}, true],
   ['bestmen', g({ role: 'best_man' }), {}, true],
   ['bestman', g({ role: 'groomsman' }), {}, false],
+  ['best woman', g({ role: 'best_woman' }), {}, true],
   ['maid of honour', g({ role: 'maid_of_honor' }), {}, true],
   ['maidofhonor', g({ role: 'maid_of_honor' }), {}, true],
   ['groomsmen', g({ role: 'groomsman' }), {}, true],

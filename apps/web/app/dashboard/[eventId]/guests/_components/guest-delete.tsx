@@ -106,6 +106,7 @@ export function useGuestRemoval(eventId: string) {
         const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats, releasedSongs);
         if (r.ok) {
           guestOptimistic.clear(mutation); // un-hide the restored rows
+          if (r.warning) toast.error(r.warning);
         } else {
           toast.error('Could not undo — refresh and try again.');
         }

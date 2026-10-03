@@ -627,11 +627,12 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     }
     // Their song requests — the host reads their own event's (RLS
     // `event_song_requests_read`). Refused → no song words, the rest still match.
-    const { data: songRows } = await supabase
+    const { data: songRows, error: songErr } = await supabase
       .from('event_song_requests')
       .select('guest_id, songs(title, artist)')
       .eq('event_id', eventId)
       .eq('origin', 'guest');
+    if (songErr) logQueryError('GuestsPage (search · event_song_requests)', songErr, { event_id: eventId }, 'graceful_degrade');
     for (const row of (songRows ?? []) as { guest_id: string | null; songs: unknown }[]) {
       if (!row.guest_id) continue;
       const song = (Array.isArray(row.songs) ? row.songs[0] : row.songs) as

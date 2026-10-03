@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "842411983",
-  "routeCount": 423,
-  "destinations": 944,
+  "generatedFromRef": "23561d84",
+  "routeCount": 424,
+  "destinations": 947,
   "actions": 671,
-  "blocks": 5423,
+  "blocks": 5426,
   "routes": {
     "/": {
       "files": [
@@ -5174,6 +5174,7 @@
         "dashboard/[eventId]/_components/more-services-sheet.tsx",
         "dashboard/[eventId]/_components/new-manual-vendor-modal.tsx",
         "dashboard/[eventId]/_components/nikah-essentials-card.tsx",
+        "dashboard/[eventId]/_components/nikah-imam.ts",
         "dashboard/[eventId]/_components/not-shared-with-you.tsx",
         "dashboard/[eventId]/_components/overview-inspector-body.tsx",
         "dashboard/[eventId]/_components/papic-ready-nudge.tsx",
@@ -5192,6 +5193,7 @@
         "dashboard/[eventId]/_components/vendor-direct-pay.tsx",
         "dashboard/[eventId]/_components/vendor-itemization-card.tsx",
         "dashboard/[eventId]/_components/vendor-marketplace-info.tsx",
+        "dashboard/[eventId]/_components/whats-next-sheet.tsx",
         "dashboard/[eventId]/actions.ts",
         "dashboard/[eventId]/archive-actions.ts",
         "dashboard/[eventId]/checklist-actions.ts",
@@ -5208,6 +5210,7 @@
       "destinations": [
         "/dashboard",
         "/dashboard/[seg]/budget",
+        "/dashboard/[seg]/checklist",
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
         "/dashboard/[seg]/details",
@@ -5220,6 +5223,7 @@
         "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/live",
         "/dashboard/[seg]/messages",
+        "/dashboard/[seg]/nikah",
         "/dashboard/[seg]/orders/[seg]",
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/seating",
@@ -5228,6 +5232,7 @@
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
         "/dashboard/[seg]/website/dress-code",
+        "/dashboard/[seg]?sheet=next",
         "/dashboard/notifications",
         "/help",
         "/login?next=[seg]",
@@ -5328,7 +5333,6 @@
         "InspectorColumn",
         "InspectorLayout",
         "InspectorTrigger",
-        "JourneyRail",
         "LastSeenCapture",
         "LastSeenFallback",
         "LastSeenScope",
@@ -5357,7 +5361,6 @@
         "MoreSheet",
         "MoreSheetRow",
         "NextCard",
-        "NikahEssentialsCard",
         "OpenWalletButton",
         "OverviewDecisionInspector",
         "OverviewWatchInspector",
@@ -5427,6 +5430,7 @@
         "VoucherBlock",
         "Watermark",
         "WhatsHappeningCard",
+        "WhatsNextSheet",
         "WizardTaskId",
         "YourTableCard"
       ]
@@ -6857,6 +6861,20 @@
       "actions": [],
       "blocks": []
     },
+    "/dashboard/[eventId]/nikah": {
+      "files": [
+        "dashboard/[eventId]/nikah/loading.tsx",
+        "dashboard/[eventId]/nikah/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "ListPageSkeleton",
+        "NikahEssentialsCard",
+        "NotSharedWithYou",
+        "PageMasthead"
+      ]
+    },
     "/dashboard/[eventId]/orders": {
       "files": [
         "dashboard/[eventId]/orders/actions.ts",
@@ -7009,7 +7027,6 @@
       "files": [
         "dashboard/[eventId]/progress/_actions/free-venue-shortlist.ts",
         "dashboard/[eventId]/progress/_components/free-venue-shortlist-offer.tsx",
-        "dashboard/[eventId]/progress/_components/journey-rail.tsx",
         "dashboard/[eventId]/progress/page.tsx"
       ],
       "destinations": [],

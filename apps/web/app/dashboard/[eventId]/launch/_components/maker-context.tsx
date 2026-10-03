@@ -170,6 +170,8 @@ export type MakerLookPages = {
     font: ReactNode | null;
     colours: ReactNode | null;
     palette: ReactNode | null;
+    /** 🔘 Look › Buttons — Shape · Fill · Colour (owner 2026-10-04). */
+    buttons?: ReactNode | null;
   } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;

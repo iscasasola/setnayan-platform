@@ -30,10 +30,12 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
+import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
+import { hubButtonPage } from '@/lib/hub-buttons';
 import { resolveHero } from '@/lib/event-hero';
 import { MiniTour } from '@/app/_components/mini-tour';
 /* ⚡ The Main background's panel and its hero-colour sync load with the Details pieces — never with the Maker (`details-lazy.tsx`). */
-import { ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
+import { ButtonsLookRow, ColorsPanel, HeroFrameSync, MainBackgroundPanel, ProLockPanel } from '../../launch/_components/details-lazy';
 import { HUB_TRANSITION_LABEL, resolveTransition } from '@/lib/hub-scenes';
 /* 🔴 `done`/`todo` come from `rail-rows.ts`, NOT from `editor-shell.tsx`. That
    file is `'use client'`, and calling a client export from this server page is
@@ -194,7 +196,7 @@ export default async function WebsiteEditorPage({
   const { data: event, error: eventError } = await supabase
     .from('events')
     .select(
-      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
+      `event_id, display_name, slug, event_type, event_date, event_end_date, timezone, venue_name, venue_address, landing_page_visibility, ticket_url, std_launched_at, scheduled_launch_at, website_open_browse, launch_mode, manual_phase, love_story, our_photos, site_bg_music_r2_key, landing_page_hero_image_url, site_art_direction, site_bg_color, site_button_color, site_button_style, site_font_key, site_magic_traveller, special_message, what_to_bring, site_bg_music_enabled, landing_page_hero_video_r2_key, couple_media_bytes, dress_code_config, photo_moments_config, role_palette, std_reveal_template, std_theme, std_background, invite_theme, std_invitation_launch_date, rsvp_backdrop, bride_name, print_details, gifts_on, ${SECTION_CONTENT_EVENT_COLUMNS}`,
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -836,7 +838,7 @@ export default async function WebsiteEditorPage({
         {
           key: 'colors',
           label: 'Colours',
-          blurb: 'Your page and button colours.',
+          blurb: 'Your page colour.',
           href: `${w}/colors`,
           pro: true,
           locked: false,
@@ -873,6 +875,42 @@ export default async function WebsiteEditorPage({
             </>
           ),
         },
+        /* 🔘 LOOK › BUTTONS (owner 2026-10-04, "create them") — Shape · Fill ·
+           Colour for every Event Hub button, into the draft, seen at once on the
+           canvas and by guests at Apply. Measured against the page AS IT PAINTS:
+           the guest page's own composition (`guestLookFrom`, the host's colour
+           left out so "Theme’s" shows what the page wears without it). Free. */
+        (() => {
+          const theme = INVITE_THEMES[currentThemeId];
+          const pageLook = guestLookFrom(
+            {
+              ...(drafted as Record<string, unknown>),
+              role_palette: (event as { role_palette?: unknown }).role_palette,
+              site_button_color: null,
+              site_button_style: null,
+            } as unknown as EventShellRow,
+            { theme: currentThemeId, accent: '#000000', monogram: '' },
+            true,
+          );
+          const swatches = moodBoardSiteColours(sanitizeRolePalette((event as { role_palette?: unknown }).role_palette))?.swatches ?? [];
+          return {
+            key: 'buttons',
+            label: 'Buttons',
+            blurb: 'The shape, fill and colour of every button on your Event Hub.',
+            href: `${base}/launch?open=buttons`,
+            locked: false,
+            panel: (
+              <ButtonsLookRow
+                eventId={eventId}
+                theme={theme}
+                page={hubButtonPage(theme, pageLook.vars)}
+                style={(drafted as { site_button_style?: string | null }).site_button_style ?? null}
+                colour={(drafted.site_button_color as string | null) ?? null}
+                palette={swatches.length > 0 ? swatches : [theme.palette.accent, theme.palette.heading, theme.palette.ink, theme.palette.muted]}
+              />
+            ),
+          };
+        })(),
         {
           key: 'music',
           label: 'Background music',

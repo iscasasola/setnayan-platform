@@ -412,7 +412,12 @@ const config: Config = {
         playfair: ['var(--font-playfair)', ...defaultTheme.fontFamily.serif],
         caslon: ['var(--font-libre-caslon)', ...defaultTheme.fontFamily.serif],
         vidaloka: ['var(--font-vidaloka)', ...defaultTheme.fontFamily.serif],
-        script: ['var(--font-script)', 'cursive'],
+        // A theme's own script face (`--font-theme-script`, set by its
+        // `[data-hub-theme]` block — lib/hub-theme-faces.ts) wins inside that
+        // theme; everywhere else this is Great Vibes, as before. Not a redefined
+        // `--font-script`: that is Great Vibes' own variable, which a host's
+        // font choice also resolves through.
+        script: ['var(--font-theme-script, var(--font-script))', 'cursive'],
         // The story's clock face — every big time stamp, the dial's readout and
         // its labels (Design_Editorial_By_The_Minute_2026-09-07, §7).
         //

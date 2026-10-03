@@ -19,8 +19,14 @@ export function lookScopeProps(look: GuestLook | null) {
     lays the plain paper instead.
   */
   const skin = look?.theme ? siteSkin(look.theme, { accent: look.accent }) : undefined;
+  /* 🔘 Look › Buttons' custom properties ride the same inline bag (inline is
+     what lets them beat the theme block), but they are NOT `look.vars`: the
+     ground below asks whether the PAGE was recoloured, and a button is not. */
+  const buttonVars = look?.buttons?.vars ?? null;
   const style =
-    look && (look.vars || skin) ? { ...(look.vars ?? {}), ...((skin?.style as Record<string, string>) ?? {}) } : null;
+    look && (look.vars || skin || buttonVars)
+      ? { ...(look.vars ?? {}), ...((skin?.style as Record<string, string>) ?? {}), ...(buttonVars ?? {}) }
+      : null;
   /*
     The theme's LOOP and scrim. Unlike the couple's reveal photo this is
     Setnayan's own public theme art, so it may be drawn on every page — the
@@ -35,6 +41,8 @@ export function lookScopeProps(look: GuestLook | null) {
     ground,
     // 🌈 The couple's ombré — painted by the scope's paper in place of the loop.
     ombre: look?.ombre ?? null,
+    // 🔘 Look › Buttons — the two attributes every guest button's rule keys on.
+    buttons: look?.buttons ? { shape: look.buttons.shape, paint: look.buttons.paint } : null,
   };
 }
 

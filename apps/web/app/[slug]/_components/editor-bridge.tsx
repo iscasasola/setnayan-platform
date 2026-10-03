@@ -26,6 +26,7 @@ import {
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { findMakerSection, sectionAfter } from './maker-section-find';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
+import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
@@ -563,6 +564,15 @@ export function EditorBridge() {
           const framed = typeof scene.bare === 'boolean' ? findMakerSection(document, scene.key) : null;
           if (framed && typeof scene.bare === 'boolean') applySceneCardPreview(framed, scene.bare);
         }
+        return;
+      }
+      /* ⚡ LOOK › BUTTONS, AT ONCE (owner 2026-10-04: "Realtime effects …
+         but always need to press apply"). The Maker resolved the buttons with
+         the guest page's own rule; this lays them on every look scope
+         (`buttons-preview.ts`). The draft save follows; guests see it at Apply. */
+      if (data && data.source === 'setnayan-editor' && data.t === 'buttons') {
+        const preview = sanitizeButtonsPreview(data);
+        if (preview) applyButtonsPreview(document, preview);
         return;
       }
       /* ⚡ THE LOVE STORY AND THE PROGRAMME, AS THEY ARE TYPED (owner

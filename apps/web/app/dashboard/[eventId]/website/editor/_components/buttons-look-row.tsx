@@ -1,0 +1,225 @@
+'use client';
+
+/**
+ * 🔘 LOOK › BUTTONS — Shape ▾ · Fill ▾ · Colour ▾, and the Reply button as it will look.
+ *
+ * Owner, 2026-10-04 (DECISION_LOG "LOOK › BUTTONS — THE HOST STYLES THE EVENT
+ * HUB'S BUTTONS"): *"yes we have buttons because the buttons for reply your
+ * answer, or other buttons that may be part of the event hub."* → *"create
+ * them."* And for the panel: *"1. prevent to crowded presentation on mobile.
+ * 2. always maximize full width for body for easier editing. 3. Realtime
+ * effects for seeing what will change but always need to press apply to
+ * publish to the actual event hub"*.
+ *
+ *   · THREE DROPDOWNS, one per row (any set of choices is a dropdown — never a
+ *     pill row), each defaulting to "Theme’s". No explainer captions.
+ *   · REALTIME: a pick is laid on the canvas AT ONCE through the bridge
+ *     (`app/[slug]/_components/buttons-preview.ts`) with the guest page's own
+ *     resolver (`resolveHubButtons`), then saved into the DRAFT with the one
+ *     draft action — `held`, so no whole-Maker render follows, and the save
+ *     answers with the Apply count. Guests see it only at Apply.
+ *   · OPENING WRITES NOTHING: the only write is inside `commit`, reached only
+ *     from a pick that changed something (`the-buttons-look-is-legible.test.ts`).
+ *   · LEGIBILITY: a colour is offered only when its label reaches AA, and
+ *     Outline only when the colour reads on the page (`hubButtonColourOffers`,
+ *     `hubButtonOutlineOffered`) — the same functions the guest render uses.
+ *
+ * ⚡ Loaded lazily with the Look panel's other rows (`details-lazy.tsx`,
+ * "maker-details") — never in the Maker's first load.
+ */
+
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import {
+  HUB_BUTTON_FILLS,
+  HUB_BUTTON_FILL_LABEL,
+  HUB_BUTTON_SHAPES,
+  HUB_BUTTON_SHAPE_LABEL,
+  encodeHubButtonStyle,
+  hubButtonColourOffers,
+  hubButtonOutlineOffered,
+  parseHubButtonStyle,
+  resolveHubButtons,
+  type HubButtonFill,
+  type HubButtonPage,
+  type HubButtonShape,
+} from '@/lib/hub-buttons';
+import type { InviteTheme } from '@/lib/invite-themes';
+import { HUB_DRAFT_BAR_FIELD, makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { hubDraftAction } from '../../hub-draft-actions';
+import { IRow } from './inspector-kit';
+import { PickMenu } from './pick-menu';
+
+/** The guest page's own words on its one main action (`LANDING_WORDS.reply`). */
+const REPLY = 'Reply to the invitation';
+/** "Theme’s" in the Colour menu. */
+const THEME_KEY = 'theme';
+/** The Reply button's own corner when the shape is the theme's (`rounded-lg`). */
+const OWN_RADIUS = '8px';
+
+type Choice = { shape: HubButtonShape; fill: HubButtonFill; colour: string | null };
+
+export function ButtonsLookRow({
+  eventId,
+  theme,
+  page,
+  style,
+  colour,
+  palette,
+}: {
+  eventId: string;
+  /** The theme the canvas wears (drafted over live). */
+  theme: InviteTheme;
+  /** The page as it paints, without a host button colour: its own fill and grounds. */
+  page: HubButtonPage;
+  /** `site_button_style`, drafted over live. */
+  style: string | null;
+  /** `site_button_color`, drafted over live. */
+  colour: string | null;
+  /** The event's palette colours (the Mood Board's, else the theme's). */
+  palette: readonly string[];
+}) {
+  const fromProps = (): Choice => ({ ...parseHubButtonStyle(style), colour: colour ? colour.toLowerCase() : null });
+  const [choice, setChoice] = useState<Choice>(fromProps);
+  const [error, setError] = useState<string | null>(null);
+  const saved = useRef<Choice>(choice);
+  /* A Maker refresh (Undo, Restore, another save) hands in what the draft now
+     holds — follow it. Reading props writes nothing. */
+  useEffect(() => {
+    const next = fromProps();
+    saved.current = next;
+    setChoice(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [style, colour]);
+
+  const offers = hubButtonColourOffers({ theme, palette, saved: choice.colour, fill: choice.fill, page });
+  const outline = hubButtonOutlineOffered({ colour: choice.colour, page });
+  const look = (c: Choice) => resolveHubButtons({ style: encodeHubButtonStyle(c), colour: c.colour, theme, page });
+
+  const preview = (c: Choice) => {
+    const l = look(c);
+    const message = {
+      source: 'setnayan-editor',
+      t: 'buttons',
+      shape: l?.shape ?? null,
+      paint: l?.paint ?? null,
+      vars: l?.vars ?? {},
+    };
+    for (const f of document.querySelectorAll<HTMLIFrameElement>('iframe[data-maker-page-frame], iframe[data-maker-canvas-frame]')) {
+      f.contentWindow?.postMessage(message, window.location.origin);
+    }
+  };
+
+  const lastTap = useRef(0);
+  const commit = (next: Choice) => {
+    const before = choice;
+    if (before.shape === next.shape && before.fill === next.fill && before.colour === next.colour) return;
+    const tap = ++lastTap.current;
+    setChoice(next);
+    setError(null);
+    preview(next);
+    void (async () => {
+      let ok = false;
+      try {
+        const fd = new FormData();
+        fd.set('intent', 'save');
+        fd.set(
+          'patch',
+          JSON.stringify({ events: { site_button_style: encodeHubButtonStyle(next), site_button_color: next.colour } }),
+        );
+        fd.set(HUB_DRAFT_BAR_FIELD, '1');
+        const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh, { held: true });
+        ok = r.ok === true;
+      } catch {
+        ok = false;
+      }
+      if (ok) {
+        saved.current = next;
+        return;
+      }
+      if (tap !== lastTap.current) return; // a newer pick took over
+      setChoice(saved.current);
+      preview(saved.current);
+      setError('That did not save. Please try again.');
+    })();
+  };
+
+  /* A colour that no longer reads as an Outline leaves Outline for Solid — never an Outline nobody can read. */
+  const pickColour = (key: string) => {
+    const c = key === THEME_KEY ? null : key;
+    const fill = choice.fill === 'outline' && !hubButtonOutlineOffered({ colour: c, page }) ? 'solid' : choice.fill;
+    commit({ ...choice, colour: c, fill });
+  };
+
+  const sample = sampleStyle(look(choice), page);
+  return (
+    <div data-buttons-look="" className="flex flex-col">
+      <div className="flex justify-center rounded-md px-3 py-4" style={{ backgroundColor: page.grounds[0] }} data-buttons-sample-ground="">
+        <span data-buttons-sample="" aria-hidden className="inline-flex min-h-[48px] items-center justify-center px-7 text-sm font-semibold tracking-wide" style={sample}>
+          {REPLY}
+        </span>
+      </div>
+      <IRow label="Shape" data="buttons-shape">
+        <PickMenu
+          label="Button shape"
+          value={choice.shape}
+          dataAttr="data-buttons-shape"
+          className="min-w-0 flex-1"
+          options={HUB_BUTTON_SHAPES.map((s) => ({ key: s, label: HUB_BUTTON_SHAPE_LABEL[s] }))}
+          onPick={(k) => commit({ ...choice, shape: k as HubButtonShape })}
+        />
+      </IRow>
+      <IRow label="Fill" data="buttons-fill">
+        <PickMenu
+          label="Button fill"
+          value={choice.fill}
+          dataAttr="data-buttons-fill"
+          className="min-w-0 flex-1"
+          options={HUB_BUTTON_FILLS.filter((f) => f !== 'outline' || outline || choice.fill === 'outline').map((f) => ({
+            key: f,
+            label: HUB_BUTTON_FILL_LABEL[f],
+          }))}
+          onPick={(k) => commit({ ...choice, fill: k as HubButtonFill })}
+        />
+      </IRow>
+      <IRow label="Colour" data="buttons-colour">
+        <PickMenu
+          label="Button colour"
+          value={choice.colour ?? THEME_KEY}
+          dataAttr="data-buttons-colour"
+          className="min-w-0 flex-1"
+          options={[
+            { key: THEME_KEY, label: 'Theme’s', preview: <Swatch hex={page.fill} /> },
+            ...offers.map((o) => ({ key: o.hex, label: o.label, preview: <Swatch hex={o.hex} /> })),
+          ]}
+          onPick={pickColour}
+        />
+      </IRow>
+      {error ? (
+        <p role="alert" className="pt-2 text-sm text-terracotta-700" data-buttons-error="">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function Swatch({ hex }: { hex: string }) {
+  return <span aria-hidden className="block h-5 w-5 rounded-full shadow-[inset_0_0_0_1px_rgba(0,0,0,.15)]" style={{ backgroundColor: hex }} />;
+}
+
+/**
+ * The sample's paint — the SAME values the guest scope wears; with nothing
+ * chosen, today's Reply button: the page's own fill with the page's paper as
+ * its label (`bg-mulberry text-cream`).
+ */
+function sampleStyle(l: ReturnType<typeof resolveHubButtons>, page: HubButtonPage): CSSProperties {
+  const v = l?.vars ?? {};
+  const radius = v['--hub-btn-radius'] ?? OWN_RADIUS;
+  if (!l?.paint) return { borderRadius: radius, backgroundColor: page.fill, color: page.grounds[0] };
+  return {
+    borderRadius: radius,
+    backgroundColor: v['--hub-btn-fill'],
+    color: v['--hub-btn-label'],
+    border: `1.5px solid ${v['--hub-btn-border']}`,
+  };
+}

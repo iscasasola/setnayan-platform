@@ -19,9 +19,7 @@ import { eventWordsFor } from '../../_lib/event-words';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { thankYouWords } from '../../_lib/thank-you-words';
 import { SaveToAccount } from '../../_components/save-to-account';
-import { YourGuests } from '../../_components/your-guests';
 import { InviteQrPanel } from '../_components/invite-qr-panel';
-import { CopyMyLink } from '../../_components/copy-my-link';
 import { passCardEligibilityFor, plusOnePassCardIds, readTicketSeats } from '@/lib/pass-card.server';
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
@@ -99,9 +97,16 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
  * bottom (`LANDING_ORDER`, lib/guest-landing.ts): the couple's message (name as
  * given) · "Reply to the invitation" (gone once replied; a small "Change my
  * reply" stays) · the Digital ticket (faded until a Yes, full with "Save my
- * ticket" after, none after a No) · Your guests · How to use it · Open the
- * invitation. A new or changed ticket pops up first (`TicketPopup`), and an
- * in-app browser gets its one-tap way out (`InAppBar`).
+ * ticket" after, none after a No) · How to use it · Open the invitation. A new
+ * or changed ticket pops up first (`TicketPopup`), and an in-app browser gets
+ * its one-tap way out (`InAppBar`).
+ *
+ * ✂ ONE PLACE EACH (owner 2026-10-03, on the live hub: "too many buttons. too
+ * much going on"). "Your guests · Send their invite", "Copy my link" and "Save
+ * to my account" each also lived on the Event Hub's Me — two places for one
+ * thing. They are Me's now; this page keeps the ticket and its ONE main action,
+ * "Save my ticket". (The Save comes back here only to finish a press that
+ * returned for the Terms tick — `?keep=terms`.)
  *
  * What it grew from —
  *
@@ -109,6 +114,7 @@ export async function generateMetadata({ params }: Pick<Props, 'params'>) {
  *
  *   "Thank you — see you on the 18th!" → "Your guests" (one "Send their
  *   invite" per plus-one) → ONE button "Save to my account" · small "Not now".
+ *   (Since 2026-10-03 the guests and the Save are on Me — see above.)
  *
  * The method behind that one button is CHOSEN BY THE DEVICE, never shown as a
  * choice (`saveMethodFor`, lib/guest-one-path.ts): Messenger / Instagram /
@@ -274,14 +280,9 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() ||
     'you';
 
-  // ── YOUR GUESTS — each named plus-one's OWN key, handed on by the bringer.
+  // ── THE PLUS-ONES THIS GUEST BRINGS — counted for the ticket's "and N guests".
+  // (Their invites and tickets are handed on from Me — owner 2026-10-03.)
   const seats = canvas ? [] : await plusOneSeatsFor(admin, event.event_id as string, guest.guest_id as string);
-  const guestsToSend = seats.map((s) => ({
-    guestId: s.guest_id,
-    name: s.name,
-    // Only a NAMED seat has somebody to send to; a TBA seat is named first.
-    inviteUrl: s.qrToken ? buildInvitationUrl({ ...qrParams, qrToken: s.qrToken }) : null,
-  }));
 
   // ── 🎟 THE TICKETS (owner 2026-09-29, DECISION_LOG "TICKETS ON THE THANK-YOU
   // SCREEN"; prototype guest_ticket_flow_2026-09-29.html frame A): their own
@@ -292,13 +293,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
     passCardEligibilityFor(admin, guest.guest_id as string),
     plusOnePassCardIds(admin, event.event_id as string, guest.guest_id as string),
   ]);
-  const passCards =
-    passCard === 'pass'
-      ? {
-          own: PASS_CARD_ROUTE,
-          plusOnes: Object.fromEntries([...plusOneTicketIds].map((id) => [id, `${PASS_CARD_ROUTE}?guest=${id}`])),
-        }
-      : null;
   const namedComing = seats.filter((s) => plusOneTicketIds.has(s.guest_id)).length;
 
   // ── THE ONE ACCOUNT BUTTON — the same decision the Event Hub's card makes.
@@ -347,8 +341,8 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      (`[slug]/redeem`), and the reply returns here (`submitInviteReply`), so one
      page carries, in `LANDING_ORDER`: the couple's message · "Reply to the
      invitation" (gone once replied) · the Digital ticket (faded before a Yes,
-     full after, none after a No) · Your guests · How to use it · Open the
-     invitation. Every rule is lib/guest-landing.ts, executed by its test. */
+     full after, none after a No) · How to use it · Open the invitation.
+     Every rule is lib/guest-landing.ts, executed by its test. */
   const reply = landingReplyOf(status);
   const ticket = landingTicketOf({ reply, eligibility: passCard, isPlusOne: Boolean(guest.plus_one_of_guest_id) });
   const seatDay = ticketShowsTable({
@@ -608,24 +602,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           </div>
         )}
 
-        {/* 4 · YOUR GUESTS · Send their invite — each named plus-one's own key. */}
-        <div data-landing="guests">
-          <YourGuests
-            guests={guestsToSend}
-            eventName={(event.display_name as string | null) ?? words.eventWord}
-            addNamesHref={`${inviteReplyPath(home)}#plus-ones`}
-            inviteFacts={{
-              hostsName: (event.display_name as string | null) ?? null,
-              eventWord: words.eventWord,
-              solemn: words.solemn,
-              eventDate: (event.event_date as string | null) ?? null,
-              datePrecision: (event.event_date_precision as string | null) ?? null,
-            }}
-            passCards={ticket === 'full' ? passCards : null}
-            ticketRows={{ ownName: guestName }}
-          />
-        </div>
-
         {/* 5 · HOW TO USE IT — on the day, the seat. */}
         {ticket === 'full' || ticket === 'faded' ? (
           <section data-landing="how" aria-labelledby="how-to-use" className="border-t border-ink/10 pt-3.5">
@@ -672,9 +648,8 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           </p>
         ) : null}
 
-        {/* Kept below the Fable frames: their own link (📵 nothing is emailed —
-            owner 2026-09-29), and the one account button (owner 2026-09-26). */}
-        <CopyMyLink link={invitationUrl} />
+        {/* ✂ "Copy my link" is on the Event Hub's Me now (owner 2026-10-03:
+            one place each — Me's ticket carries "Copy link"). */}
 
         {/* 📌 ONE QUIET LINE, AFTER A YES ONLY (owner 2026-10-03, DECISION_LOG
             "GUESTS GET ONE QUIET 'SHORTCUT TO THIS EVENT' LINE"): the steps for
@@ -692,7 +667,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             userAgent={userAgent}
             termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
           />
-        ) : (
+        ) : search.keep === 'terms' ? (
+          /* 🔒 "Save to my account" is Me's (owner 2026-10-03, one place each);
+             it comes back here only to finish a press that returned for the
+             Terms tick (`startAccountSaveAction` → `?keep=terms`), with the
+             tick and the reason. Saved already, the line above says so. */
           <SaveToAccount
             state={account}
             eventId={event.event_id as string}
@@ -700,10 +679,10 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             personalLink={invitationUrl}
             userAgent={userAgent}
             termsCarried={rsvpTermsCarried(cookieStore.get(RSVP_TERMS_COOKIE)?.value)}
-            termsMissing={search.keep === 'terms'}
+            termsMissing
             carries="your name, mobile, meal and your guests come along"
           />
-        )}
+        ) : null}
       </DoorShell>
     </GuestLookScope>
   );

@@ -10,7 +10,6 @@
  * account can land on and reading the emitted HTML — exactly the heading and
  * the one line, and none of the old "Sign in with that one" wording:
  *
- *   · the invitation's account card     (`GuestAccountCard`, held_elsewhere)
  *   · the shared Save                    (`SaveToAccount`,    held_elsewhere)
  *   · the screen a Google / Apple return lands on (`HeldElsewhereDoor`, drawn
  *     by /join/{id}/connect/confirm) — and the two routes that send them there.
@@ -69,23 +68,8 @@ function code(rel: string): string {
   return stripComments(readFileSync(join(process.cwd(), rel), 'utf8'));
 }
 
-test('the account card says exactly the two sentences to a second account', async () => {
-  const { renderToStaticMarkup } = await import('react-dom/server');
-  const { GuestAccountCard } = await import('./guest-account-card');
-  const el = await GuestAccountCard({
-    state: { kind: 'held_elsewhere' },
-    eventId: 'e-1',
-    slug: 'ana-and-ben',
-    personalLink: null,
-    photosClosing: false,
-    eventWord: 'wedding',
-  });
-  const html = renderToStaticMarkup(el);
-  assert.match(html, /data-account-state="held_elsewhere"/);
-  assert.match(html, new RegExp(`<h2[^>]*>${HEADING.replace(/\./g, '\\.')}</h2>`), 'the heading is not the heading');
-  assert.equal(words(html), `${HEADING} ${LINE}`, 'the card says something other than the owner’s words');
-  assert.doesNotMatch(html, /<form|<button|href=/, 'the refused card offers a press');
-});
+/* (The invitation's own account card was removed 2026-10-03 — owner: one
+   place per control; "Save to my account" is Me's `SaveToAccount` alone, below.) */
 
 test('the shared Save says exactly the two sentences to a second account', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');

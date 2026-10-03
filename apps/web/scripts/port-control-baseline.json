@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "88339756",
+  "generatedFromRef": "eb68ea89d",
   "routeCount": 424,
-  "destinations": 948,
-  "actions": 669,
-  "blocks": 5436,
+  "destinations": 946,
+  "actions": 671,
+  "blocks": 5422,
   "routes": {
     "/": {
       "files": [
@@ -815,7 +815,6 @@
         "[slug]/_components/face-tagging-row.tsx",
         "[slug]/_components/get-inside.tsx",
         "[slug]/_components/get-tickets.tsx",
-        "[slug]/_components/guest-account-card.tsx",
         "[slug]/_components/guest-camera-player.tsx",
         "[slug]/_components/guest-checklist.tsx",
         "[slug]/_components/guest-code-keepers.tsx",
@@ -854,6 +853,7 @@
         "[slug]/_components/our-photos-styles.tsx",
         "[slug]/_components/our-photos-widget.tsx",
         "[slug]/_components/our-story.tsx",
+        "[slug]/_components/owner-phase-menu.tsx",
         "[slug]/_components/owner-ribbon.tsx",
         "[slug]/_components/pahina-keepsake.tsx",
         "[slug]/_components/pahina-masthead.tsx",
@@ -1011,7 +1011,6 @@
         "/join/[seg]",
         "/login",
         "/papic/guest",
-        "/papic/guest?from=[seg]",
         "/papic/me/[seg]/photo?id=[seg]&src=guest",
         "/privacy",
         "/signup",
@@ -1130,7 +1129,6 @@
         "GiftDoorCard",
         "GlowBlob",
         "GracefulFallback",
-        "GuestAccountCard",
         "GuestCameraPlayer",
         "GuestCameraWatcher",
         "GuestChecklist",
@@ -1219,7 +1217,6 @@
         "Monogram",
         "NameStyle",
         "NavLinksRow",
-        "NotYouSwitch",
         "OnYourTicket",
         "OneLinePairs",
         "OpenInBrowser",
@@ -1231,6 +1228,7 @@
         "OurPhotosWidget",
         "OurStory",
         "OwnerCapability",
+        "OwnerPhaseMenu",
         "OwnerRibbon",
         "PahinaCoverParallax",
         "PahinaKeepsake",
@@ -1243,7 +1241,6 @@
         "PapicGuestCapture",
         "PartHead",
         "PeWaiting",
-        "PhaseRibbon",
         "Photo",
         "PhotoGallery",
         "PhotoMomentModeBadge",
@@ -1390,7 +1387,6 @@
         "ThankYouScene",
         "TheirSong",
         "TicketPicture",
-        "TicketRow",
         "TierComparisonWidget",
         "ToolTile",
         "UnnameResult",
@@ -1602,7 +1598,6 @@
       ],
       "actions": [],
       "blocks": [
-        "CopyMyLink",
         "DoorNotice",
         "DoorShell",
         "GuestLookScope",
@@ -1615,8 +1610,7 @@
         "SaveToAccount",
         "ShortcutLine",
         "TicketPicture",
-        "TicketPopup",
-        "YourGuests"
+        "TicketPopup"
       ]
     },
     "/[slug]/invite/reply": {
@@ -5249,7 +5243,10 @@
         "logPayment",
         "markNotificationRead",
         "planNextYearEvent",
+        "removeHost",
         "routes.dashboard.accessRequests",
+        "setDelegateBudget",
+        "setDelegatePhotos",
         "toggleChecklistItem"
       ],
       "blocks": [
@@ -5378,6 +5375,7 @@
         "Remaining",
         "RequestResult",
         "Result",
+        "ReturnFields",
         "RevealChoice",
         "ReviewAxis",
         "ReviewRow",
@@ -5433,6 +5431,7 @@
     },
     "/dashboard/[eventId]/access-requests": {
       "files": [
+        "dashboard/[eventId]/access-requests/_components/granted-now.tsx",
         "dashboard/[eventId]/access-requests/_components/request-card.tsx",
         "dashboard/[eventId]/access-requests/actions.ts",
         "dashboard/[eventId]/access-requests/loading.tsx",
@@ -5442,7 +5441,8 @@
       "actions": [],
       "blocks": [
         "AnswerResult",
-        "Link",
+        "GrantRow",
+        "GrantedNow",
         "ListPageSkeleton",
         "PageMasthead",
         "RequestCard"
@@ -5685,30 +5685,22 @@
         "dashboard/[eventId]/details/_components/event-settings-editor.tsx",
         "dashboard/[eventId]/details/_components/governed-fields.tsx",
         "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
-        "dashboard/[eventId]/details/_components/people-with-access.tsx",
         "dashboard/[eventId]/details/_components/put-away-card.tsx",
         "dashboard/[eventId]/details/loading.tsx",
         "dashboard/[eventId]/details/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/date-selection",
-        "/dashboard/[seg]/vendors/[seg]/workspace?tab=details",
         "/help"
       ],
-      "actions": [
-        "removeHost"
-      ],
+      "actions": [],
       "blocks": [
-        "AccessPick",
-        "AddPerson",
-        "AreaPicks",
         "DetailsForm",
         "EditableField",
         "EditableRow",
         "ErrorNote",
         "FormPageSkeleton",
         "GovernedFields",
-        "GuestAccessLevel",
         "HTMLFormElement",
         "LastSeenCapture",
         "LastSeenFallback",
@@ -5716,13 +5708,9 @@
         "LockedRow",
         "PageMasthead",
         "PaxSettingsCard",
-        "PeopleWithAccess",
-        "PickMenu",
         "PutAwayCard",
-        "RemoveCoordinator",
         "Row",
         "Section",
-        "SubmitButton",
         "T"
       ]
     },
@@ -5934,7 +5922,6 @@
         "BringerSeatsContext.Provider",
         "BringerSeatsProvider",
         "CaptureBar",
-        "ChangeAccessLink",
         "ChipTrigger",
         "Closest",
         "ColumnPick",
@@ -5942,6 +5929,7 @@
         "ContactCell",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
+        "CoordinatorSeatControls",
         "Ctx",
         "DeleteGuestButton",
         "DeleteGuestFlow",
@@ -6333,8 +6321,7 @@
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
-        "ReadRefusedNotice",
-        "SetDelegateAreaResult"
+        "ReadRefusedNotice"
       ]
     },
     "/dashboard/[eventId]/invitation": {
@@ -7154,7 +7141,6 @@
         "MiniTour",
         "MomentInspector",
         "NoDateYet",
-        "NotSharedWithYou",
         "PageMasthead",
         "PhaseSection",
         "PickMenu",
@@ -8578,7 +8564,6 @@
         "MerkadoBudgetLens",
         "MerkadoGuardBanner",
         "NewManualVendorModal",
-        "NotSharedWithYou",
         "PageMasthead",
         "PendingLockProposals",
         "PickMenu",
@@ -8726,7 +8711,6 @@
       "blocks": [
         "AppointmentsSection",
         "CancelBookingButton",
-        "ChangeAccessLink",
         "ChangeOrderTrail",
         "ChosenProofField",
         "ClaimLinkShare",
@@ -8737,6 +8721,7 @@
         "ContactShortlistVendorButton",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
+        "CoordinatorSeatControls",
         "DepositReservation",
         "DetailPageSkeleton",
         "DisputeLinkButton",

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { PencilLine } from 'lucide-react';
 
 import type { OwnerRibbonModel } from '@/lib/owner-ribbon';
+import { OwnerPhaseMenu } from './owner-phase-menu';
 
 /**
  * OWNER LAYER · surface 1 — the owner ribbon (owner-locked 2026-07-26).
@@ -12,7 +13,9 @@ import type { OwnerRibbonModel } from '@/lib/owner-ribbon';
  * four lifecycle-phase previews `page.tsx` already authorises for hosts but
  * never advertised.
  *
- * READ-ONLY. Four links and some type. No form, no action, no mutation.
+ * READ-ONLY. One link, one "Preview ▾" dropdown and a line of type. No form,
+ * no action, no mutation. (The four phase pills became ONE dropdown on
+ * 2026-10-03 — owner, on the live hub: "too many buttons"; `OwnerPhaseMenu`.)
  *
  * THE GATE IS UPSTREAM AND SINGULAR. This component renders nothing unless it
  * is handed a model, and the ONLY producer of a model is `buildOwnerRibbon()`,
@@ -42,7 +45,7 @@ export function OwnerRibbon({ model }: { model: OwnerRibbonModel | null }) {
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="font-mono text-[0.7rem] uppercase tracking-[0.18em] text-ink/70">
-          Your live site — as a guest sees it
+          Your Event Hub — as a guest sees it
         </p>
 
         <Link
@@ -53,27 +56,7 @@ export function OwnerRibbon({ model }: { model: OwnerRibbonModel | null }) {
           {model.editorLabel}
         </Link>
 
-        {model.phaseLinks.length > 0 ? (
-          <nav aria-label="Preview a phase" className="flex flex-wrap items-center gap-1.5">
-            <span className="font-mono text-[0.66rem] uppercase tracking-[0.18em] text-ink/55">
-              Preview
-            </span>
-            {model.phaseLinks.map((link) => (
-              <Link
-                key={link.phase}
-                href={link.href}
-                aria-current={link.active ? 'page' : undefined}
-                className={
-                  link.active
-                    ? 'rounded-full border border-terracotta bg-terracotta/10 px-2.5 py-1 text-[0.7rem] font-medium text-terracotta-700'
-                    : 'rounded-full border border-ink/15 px-2.5 py-1 text-[0.7rem] text-ink/65 hover:border-terracotta hover:text-terracotta'
-                }
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-        ) : null}
+        {model.phaseLinks.length > 0 ? <OwnerPhaseMenu links={model.phaseLinks} /> : null}
       </div>
     </aside>
   );

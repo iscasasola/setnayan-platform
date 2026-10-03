@@ -22,12 +22,12 @@ const SRC = readFileSync(join(__dirname, 'site-body.tsx'), 'utf8');
 /** The index of the guest branch's own copy of a mount, not the anonymous tree's. */
 function guestBranchIndex(needle: string): number {
   // The anonymous tree renders its own masthead earlier in the file; the guest
-  // branch is the one that mounts <GuestAccountCard>, so anchor every lookup
+  // branch is the one that mounts <GuestChecklist>, so anchor every lookup
   // after the last hero that precedes it. (It anchored on <GuestHubCard>, then
-  // <KeepOnHomeScreen>, until 2026-09-30, when the owner removed both — the
-  // summary card duplicated the Digital ticket on Me; the home-screen card left
-  // the Event Hub outright.)
-  const guestCard = SRC.indexOf('<GuestAccountCard');
+  // <KeepOnHomeScreen>, until 2026-09-30, when the owner removed both; then on
+  // <GuestAccountCard>, until 2026-10-03, when "Save to my account" became
+  // Me's alone — owner: one place per control.)
+  const guestCard = SRC.indexOf('<GuestChecklist');
   assert.ok(guestCard > 0, 'precondition: the guest branch mounts its first personal card');
   const at = SRC.lastIndexOf(needle, guestCard);
   return at >= 0 ? at : SRC.indexOf(needle, guestCard);
@@ -35,7 +35,7 @@ function guestBranchIndex(needle: string): number {
 
 test('the hero runs BEFORE the guest’s first personal card', () => {
   const hero = guestBranchIndex("plan.body === 'normal' && plan.heroShouldRender");
-  const card = SRC.indexOf('<GuestAccountCard');
+  const card = SRC.indexOf('<GuestChecklist');
   assert.ok(hero > 0, 'precondition: found the hero in the guest branch');
   assert.ok(
     hero < card,
@@ -50,7 +50,7 @@ test('everything personal sits below the hero, not just the status card', () => 
   // `<KeepOnHomeScreen` left this list 2026-09-30: the owner removed the card
   // from the Event Hub outright (the-event-hub-has-no-home-screen-card.test.ts);
   // `<GuestHubCard` left it the same day (the Digital ticket moved onto Me).
-  for (const personal of ['<GuestAccountCard']) {
+  for (const personal of ['<GuestChecklist', '<YourSeatBlock']) {
     const at = SRC.indexOf(personal, hero);
     assert.ok(at > hero, `${personal} renders after the hero`);
   }
@@ -97,10 +97,12 @@ test('a shared phone does not announce the reader before the couple', () => {
 test('nothing was dropped in the move', () => {
   // The reorder is a move, not a rewrite: each mount still appears exactly once
   // in the guest branch.
-  for (const mount of ['<GuestAccountCard']) {
+  for (const mount of ['<GuestChecklist', '<YourSeatBlock']) {
     const count = SRC.split(mount).length - 1;
     assert.equal(count, 1, `${mount} appears once (found ${count})`);
   }
+  // …and the account card that left for Me (2026-10-03) is not back.
+  assert.equal(SRC.split('<GuestAccountCard').length - 1, 0, 'a second "Save to my account" card is back on the page');
   // …and the status card the owner removed (2026-09-30) is not back.
   assert.equal(SRC.split('<GuestHubCard').length - 1, 0, 'the "Hi again · Your invitation summary" card is mounted again');
 });

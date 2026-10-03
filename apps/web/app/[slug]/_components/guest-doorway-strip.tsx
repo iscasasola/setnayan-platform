@@ -1,10 +1,16 @@
 import { giftIsMoneyDance, type EventWords } from '../_lib/event-words';
 import Link from 'next/link';
-import { ArrowRight, Boxes, Gift, Heart, Radio } from 'lucide-react';
+import { ArrowRight, Gift, Heart, Radio } from 'lucide-react';
 
 /**
- * GuestDoorwayStrip — the two finished guest pages, and the one sentence about
- * the broadcast, ON THE PAGE EVERY GUEST ALREADY HAS.
+ * GuestDoorwayStrip — the E-Gifts door (where Welcome does not already carry
+ * it), and the one sentence about the broadcast, ON THE PAGE EVERY GUEST
+ * ALREADY HAS.
+ *
+ * ✂ THE 3D ROOM IS NOT A CARD HERE ANY MORE (owner 2026-10-03, on the live
+ * hub: "too many buttons. too much going on"). "Walk the room in 3D" was drawn
+ * twice — this card AND the "Everything else" sheet's row. It lives in the
+ * sheet only (`_lib/everything-else-rows.ts`), one quiet line.
  *
  * ── WHAT WAS WRONG ──────────────────────────────────────────────────────────
  * The 3D walk-through of the reception and the money-gift page both got cards
@@ -31,16 +37,14 @@ import { ArrowRight, Boxes, Gift, Heart, Radio } from 'lucide-react';
  * Same reasoning, same mount point as `VendorDoorway`.
  *
  * ── EVERY DECISION IS MADE ELSEWHERE ────────────────────────────────────────
- * This component draws what it is handed and settles nothing. `venueWalk` and
- * `pabuya` are `resolveGuestDoorways` output — `null` means the page behind the
- * card would have turned this viewer away, so there is no card. `broadcast` is
+ * This component draws what it is handed and settles nothing. `pabuya` is
+ * `resolveGuestDoorways` output — `null` means the page behind the card would
+ * have turned this viewer away, so there is no card. `broadcast` is
  * `showBroadcastNotice`. Rulings regress; layout does not.
  */
 export function GuestDoorwayStrip({
-  venueWalk,
   pabuya,
   broadcast,
-  personalised,
   dateLabel,
   words,
   tabAttrs = {},
@@ -51,18 +55,14 @@ export function GuestDoorwayStrip({
    *  `pageTabs.attrs`) — `data-hub-tab`, and `hidden` off that tab. Empty on a
    *  page that is one scroll. */
   tabAttrs?: { 'data-hub-tab'?: string; hidden?: boolean };
-  /** `/[slug]/venue`, or null → do not draw. */
-  venueWalk: string | null;
   /** `/[slug]/pabuya`, or null → do not draw. */
   pabuya: string | null;
   /** Draw the "we'll be streaming" notice? */
   broadcast: boolean;
-  /** Does this viewer hold a personal invite? Only changes the 3D room's copy. */
-  personalised?: boolean;
   /** Pre-formatted event date for the broadcast notice, when the page has one. */
   dateLabel?: string | null;
 }) {
-  if (!venueWalk && !pabuya && !broadcast) return null;
+  if (!pabuya && !broadcast) return null;
 
   return (
     <aside
@@ -70,19 +70,6 @@ export function GuestDoorwayStrip({
       className="mx-auto mt-6 w-full max-w-3xl space-y-3 px-4"
       aria-label="More for guests"
     >
-      {venueWalk ? (
-        <DoorCard
-          href={venueWalk}
-          icon={<Boxes aria-hidden className="h-4 w-4" strokeWidth={1.75} />}
-          title="Walk the room in 3D"
-          detail={
-            personalised
-              ? 'Look around the reception and find your table.'
-              : 'Look around the reception before you arrive.'
-          }
-        />
-      ) : null}
-
       {pabuya ? <GiftDoorCard href={pabuya} words={words} /> : null}
 
       {broadcast ? (

@@ -42,7 +42,7 @@
  * test runner can both load it.
  */
 import { AA_BODY, contrastRatio, hubLegibility } from '@/lib/hub-legibility';
-import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
+import { HOUSE_PAPER, hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import type { InviteTheme } from '@/lib/invite-themes';
 
 export const HUB_BUTTON_SHAPES = ['theme', 'square', 'rounded', 'pill'] as const;
@@ -124,7 +124,6 @@ export function hexOfToken(value: string | null | undefined): string | null {
 
 /** House's own button (`--color-mulberry` at the root: #C24E25) and paper. */
 export const HOUSE_BUTTON_FILL = '#c24e25';
-const HOUSE_PAPER = '#ffffff';
 const HOUSE_PLATE = '#f1f1f0';
 
 /**

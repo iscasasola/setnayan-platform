@@ -76,15 +76,16 @@ const sectionsOf = (html: string) => [...html.matchAll(/data-look-section="([a-z
 
 /* ── (1) the render ───────────────────────────────────────────────────── */
 
-test('(1) Look draws Theme · Background · Font · Colours, in that order, each with its own control', async () => {
-  assert.deepEqual([...LOOK_SECTIONS], ['theme', 'background', 'font', 'colours']);
+test('(1) Look draws Theme · Background · Font · Colours · Buttons, in that order, each with its own control', async () => {
+  assert.deepEqual([...LOOK_SECTIONS], ['theme', 'background', 'font', 'colours', 'buttons']);
   const html = await paintPanel({
     background: stub('main-background'),
     font: stub('font-pick'),
     colours: stub('page-and-buttons'),
     palette: stub('palette-look'),
+    buttons: stub('buttons-look'),
   });
-  assert.deepEqual(sectionsOf(html), ['theme', 'background', 'font', 'colours'], 'the sections are out of order');
+  assert.deepEqual(sectionsOf(html), ['theme', 'background', 'font', 'colours', 'buttons'], 'the sections are out of order');
   // Each control sits in ITS section — sliced between one section's mark and the next.
   const at = (k: string) => html.indexOf(`data-look-section="${k}"`);
   const inSection = (k: string, next: string | null, what: string) => {
@@ -94,21 +95,22 @@ test('(1) Look draws Theme · Background · Font · Colours, in that order, each
   inSection('theme', 'background', 'theme-menu');
   inSection('background', 'font', 'main-background');
   inSection('font', 'colours', 'font-pick');
-  inSection('colours', null, 'page-and-buttons');
-  inSection('colours', null, 'palette-look');
+  inSection('colours', 'buttons', 'page-and-buttons');
+  inSection('colours', 'buttons', 'palette-look');
+  inSection('buttons', null, 'buttons-look');
   // The palette sits AFTER the page and button colours.
   assert.ok(html.indexOf('data-stub="palette-look"') > html.indexOf('data-stub="page-and-buttons"'));
-  for (const label of ['Background', 'Font', 'Colours']) assert.match(html, new RegExp(`>${label}</h3>`), `no "${label}" heading`);
+  for (const label of ['Background', 'Font', 'Colours', 'Buttons']) assert.match(html, new RegExp(`>${label}</h3>`), `no "${label}" heading`);
 });
 
 test('(1) a section the event does not offer is absent; one that has not arrived SAYS it is opening', async () => {
   // The store shell builds no Main background row: Look has no Background section — never an empty heading.
-  const shell = await paintPanel({ background: null, font: stub('font-pick'), colours: stub('page-and-buttons'), palette: null });
-  assert.deepEqual(sectionsOf(shell), ['theme', 'font', 'colours']);
+  const shell = await paintPanel({ background: null, font: stub('font-pick'), colours: stub('page-and-buttons'), palette: null, buttons: stub('buttons-look') });
+  assert.deepEqual(sectionsOf(shell), ['theme', 'font', 'colours', 'buttons']);
   // Before the work area registered anything: every section is drawn, waiting — never blank.
   const early = await paintPanel(undefined);
-  assert.deepEqual(sectionsOf(early), ['theme', 'background', 'font', 'colours']);
-  assert.equal((early.match(/data-look-section-waiting=/g) ?? []).length, 3);
+  assert.deepEqual(sectionsOf(early), ['theme', 'background', 'font', 'colours', 'buttons']);
+  assert.equal((early.match(/data-look-section-waiting=/g) ?? []).length, 4);
 });
 
 /* ── (2) the Look door's item ─────────────────────────────────────────── */
@@ -135,6 +137,7 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
     assert.ok(isLookRow(row));
   }
   assert.match(work, /look: \{\s*background: backgroundNode,\s*font: fontNode,\s*colours: coloursNode,\s*palette:/);
+  assert.match(work, /buttons: buttonsNode,\s*\},\s*\}\);/, 'Look › Buttons is not the row the page built');
   // The 🎨 button's panel: the song and the backdrop, nothing that moved.
   const mainRows = /const MAIN_ROWS = (\[[^\]]*\]);/.exec(work)?.[1];
   assert.equal(mainRows, "['music', 'backdrop']", 'the 🎨 panel still holds a Look row');
@@ -156,6 +159,8 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
   assert.equal(page.split('<ColorsPanel').length - 1, 2, 'Font and Colours are not the one panel, drawn as two parts');
   assert.match(page, /key: 'font',[\s\S]*?part="font"/);
   assert.match(page, /key: 'colors',[\s\S]*?part="colours"/);
+  assert.equal(page.split('<ButtonsLookRow').length - 1, 1, 'Look › Buttons is built twice');
+  assert.match(page, /key: 'buttons',[\s\S]*?<ButtonsLookRow/);
 });
 
 /* ── (4) each part posts only its own fields ──────────────────────────── */
@@ -169,7 +174,9 @@ test('(4) Font posts only the typeface; Colours never posts it — absent means 
   assert.doesNotMatch(font, /name="bg_color"|name="button_color"|name="site_art_direction"|name="site_magic_traveller"/);
   const colours = renderToStaticMarkup(React.createElement(ColorsPanel, { ...base, rowKey: 'colors', part: 'colours' }));
   assert.match(colours, /name="bg_color"/);
-  assert.match(colours, /name="button_color"/);
+  // 🔘 The button colour moved to Look › Buttons (2026-10-04): Colours no longer
+  // posts it, which the action reads as "unchanged" — one field, one place.
+  assert.doesNotMatch(colours, /name="button_color"/, 'the button colour is set in two places in Look');
   assert.doesNotMatch(colours, /name="site_font_key"/, 'Colours would post the font');
   // Both go into the draft.
   for (const html of [font, colours]) assert.match(html, new RegExp(`name="${HUB_DRAFT_FIELD}" value="1"`), 'a part saves live, not into the draft');

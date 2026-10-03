@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
  * forwarding the internal-only `?sai=preview` override so stale bookmarks +
  * in-app links land on the live surface with the same AI-state preview.
  *
- * The `_components/*` (journey-rail, free-venue-shortlist-offer) and
+ * The `_components/*` (free-venue-shortlist-offer; the journey rail was deleted 2026-10-03) and
  * `_actions/*` (free-venue-shortlist) under this folder are STILL LIVE —
  * `<EventDashboard>` imports them across from here.
  */

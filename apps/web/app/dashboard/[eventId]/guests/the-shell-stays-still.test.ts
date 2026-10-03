@@ -34,10 +34,15 @@ test('opening the add box never scrolls the page', () => {
 test('the honoree heading folds like every other one', () => {
   // Owner: "these rows should be able to make the content of that grouping
   // collapse and expand like an accordion." Pinned means FIRST, not open.
+  // ⤷ 2026-10-03 (measured live: the pinned heading flipped aria-expanded and
+  // its cards stayed): the fold lives in ONE place now, `foldSections`, for the
+  // honoree exactly as for every other key — held in full by
+  // `_components/every-heading-folds.test.ts`.
   const src = read('guest-list-multiselect.tsx');
+  assert.match(src, /key: 'honoree',/, 'the pinned Bride & Groom section is gone');
   assert.match(
     src,
-    /guests:\s*collapsed\.has\('honoree'\)\s*\?\s*\[\]\s*:\s*honorees/,
+    /const sections = useMemo\(\(\) => foldSections\(builtSections, collapsed\)/,
     'the pinned Bride & Groom section ignores its own fold',
   );
   assert.ok(!/if \(!onToggle \|\| pinned\)/.test(src), 'a pinned heading renders without its fold button again');

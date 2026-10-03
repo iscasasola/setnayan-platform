@@ -148,7 +148,9 @@ const SHOWS_THE_USUAL_WORD_ON_PURPOSE: Array<[file: string, line: string, why: s
   ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'is the foundation of the event', 'bride/groom lock — not renamable'],
   ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'the event is theirs', 'bride/groom RSVP lock — not renamable'],
   ['app/dashboard/[eventId]/guests/_components/chip-editors.tsx', 'const usual = ROLE_LABELS[role]', 'the rename box names the USUAL word it is renaming'],
-  ['app/dashboard/[eventId]/guests/page.tsx', 'const roleSearchLabel =', 'search matches the usual word AND theirs'],
+  // ⤷ 2026-10-03: the guest search moved out of guests/page.tsx into its ONE matcher.
+  ['lib/guest-search.ts', 'out.push(ROLE_LABELS[r], guestRoleLabel(r, names),', 'search matches the usual word AND theirs'],
+  ['lib/guest-search.ts', 'out.push(ROLE_GROUP_LABELS[grp], roleGroupLabel(grp, names));', 'search matches the usual group heading AND theirs'],
   ['app/dashboard/[eventId]/guests/page.tsx', ': ROLE_GROUP_LABELS[grp];', 'a SORT KEY — renamed only where the heading is drawn'],
   ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', ': ROLE_GROUP_LABELS[grp];', 'the same SORT KEY on the client — the heading is re-said by sectionHeadingInTheirWords'],
   ['app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx', "label: grp === 'guest' ? 'Guests' : ROLE_GROUP_LABELS[grp],", 'the honoree heading — bride/groom/celebrant, never renamed'],

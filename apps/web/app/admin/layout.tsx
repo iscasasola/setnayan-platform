@@ -316,7 +316,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     would have dropped both without a diff line to show for it.
   */
   const topBar = (
-    <div className="flex items-center gap-3 sm:gap-2">
+    <div className="flex min-w-0 items-center gap-3 sm:gap-2">
       {/* SLA escalation pills — semantic red/warn classes (council fix #12:
           same color family per urgency state as the sidebar badges + overview
           tiles; the stock Untitled-UI hexes are retired). The ::before inset
@@ -327,29 +327,29 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {urgency.overdue > 0 ? (
         <Link
           href="/admin/work"
-          className="relative inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          className="fd-urgency relative inline-flex min-w-0 items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold text-red-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
           aria-label={`${urgency.overdue} ${urgency.overdue === 1 ? 'queue is' : 'queues are'} past SLA — open the work list`}
         >
           <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
-          {urgency.overdue} overdue
+          <span className="truncate">{urgency.overdue} overdue</span>
         </Link>
       ) : urgency.dueSoon > 0 ? (
         <Link
           href="/admin/work"
-          className="relative inline-flex items-center gap-1.5 rounded-full bg-warn-100 px-2.5 py-1 text-xs font-semibold text-warn-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          className="fd-urgency relative inline-flex min-w-0 items-center gap-1.5 rounded-full bg-warn-100 px-2.5 py-1 text-xs font-semibold text-warn-800 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
           aria-label={`${urgency.dueSoon} ${urgency.dueSoon === 1 ? 'queue is' : 'queues are'} approaching SLA — open the work list`}
         >
           <Clock aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
-          {urgency.dueSoon} due soon
+          <span className="truncate">{urgency.dueSoon} due soon</span>
         </Link>
       ) : urgency.unknownCount > 0 ? (
         <Link
           href="/admin/work"
-          className="relative inline-flex items-center gap-1.5 rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink/70 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
+          className="fd-urgency relative inline-flex min-w-0 items-center gap-1.5 rounded-full bg-ink/10 px-2.5 py-1 text-xs font-semibold text-ink/70 transition-opacity before:absolute before:-inset-x-1 before:-inset-y-2.5 before:content-[''] hover:opacity-90"
           aria-label={`${formatCount(urgency.unknownCount)} queue ${urgency.unknownCount === 1 ? 'count is' : 'counts are'} unavailable — open the work list`}
         >
           <TriangleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
-          Queue counts unavailable
+          <span className="truncate">Queue counts unavailable</span>
         </Link>
       ) : null}
       <UnreadBellBadge
@@ -360,7 +360,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         ariaUnreadSuffix="unread"
       />
       <span
-        className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
+        className={`fd-role inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${badge.tone}`}
       >
         {badge.dot ? (
           <span

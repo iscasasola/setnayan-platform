@@ -31,9 +31,11 @@ const code = (p: string) =>
 const FOCAL = 'app/dashboard/[eventId]/_components/event-dashboard.tsx';
 const HOME = 'app/dashboard/(launcher)/page.tsx';
 
-test('the focal names what it counts — the locked share, not "planned"', () => {
+test('the focal no longer states the locked share at all — and never calls anything "planned"', () => {
+  // Owner 2026-10-03: the dashboard's "% locked in" line was DROPPED (Suppliers shows what is
+  // booked; Setnayan AI states the share on its own page). So the word cannot clash with home's.
   const focal = code(FOCAL);
-  assert.match(focal, /\{Math\.round\(lockedInPct\)\}%[\s\S]{0,80}booked/);
+  assert.doesNotMatch(focal, /lockedInPct|\}%[\s\S]{0,80}(locked in|booked)/);
   assert.ok(
     !/planned/.test(focal),
     'the word that made two different numbers look like one measure',
@@ -86,7 +88,10 @@ test('home still reports its CHECKLIST share — the measure is pinned, not the 
 test('the two still read DIFFERENT sources, and that is the point', () => {
   // If one ever starts reading the other, the caption split becomes a lie in the
   // opposite direction.
-  assert.match(code(FOCAL), /cockpitModel\.briefing\.lockedPct/);
+  assert.ok(
+    !/briefing\.lockedPct/.test(code(FOCAL)),
+    'the dashboard dropped the vendor-lock measure; it must not return without an owner ruling',
+  );
   assert.ok(
     !/briefing\.lockedPct/.test(code(HOME)),
     'home must not adopt the vendor-lock measure without an owner ruling',

@@ -43,4 +43,5 @@ export async function updateNikahDetails(eventId: string, formData: FormData) {
     .eq('event_id', eventId);
 
   revalidatePath(`/dashboard/${eventId}`);
+  revalidatePath(`/dashboard/${eventId}/nikah`);
 }

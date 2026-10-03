@@ -403,13 +403,15 @@ export function AccountSwitcher({ data, currentEventName, homeLabel, referHref }
   return (
     <>
       {/* ── Trigger pill ──────────────────────────────────────── */}
+      {/* `fd-acct` is the shared bar's hook: below 768 `front-door.css` draws
+          this as a plain round photo — no pill, no chevron (owner 2026-10-03). */}
       <button
         type="button"
         aria-label="Open account switcher"
         aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-2 pr-3 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta-700"
+        className="fd-acct inline-flex h-11 items-center gap-2 rounded-full border border-ink/15 bg-cream px-2 pr-3 text-sm font-medium text-ink/70 transition-colors hover:border-terracotta/40 hover:text-terracotta-700 focus:outline-none focus-visible:border-terracotta focus-visible:text-terracotta-700"
       >
         {/* Avatar circle — solid ink so the shape and the initial are both
             legible with nothing else in the pill (see the docblock above). */}

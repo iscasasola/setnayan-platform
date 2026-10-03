@@ -156,7 +156,7 @@ test('6 · the checklist renders the count and ticks as checkboxes', async () =>
 
 // ═══ 4 · ME ═══════════════════════════════════════════════════════════════
 
-test('4 · Me holds name + Switch, the plus-ones, and Save — mounted INTO the one #site-me', async () => {
+test('4 · Me holds the name, the plus-ones, and Save — mounted INTO the one #site-me', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { GuestMe } = await import('../_components/guest-me');
   const html = renderToStaticMarkup(
@@ -181,7 +181,9 @@ test('4 · Me holds name + Switch, the plus-ones, and Save — mounted INTO the 
     }),
   );
   assert.match(html, /Ana Reyes/);
-  assert.match(html, /action="\/ana\/sign-out"/);
+  // No "Not you? Switch" on Me since 2026-10-03 (owner: one place per control):
+  // it posted to the SAME sign-out the foot of Me carries (site-body `signOut`).
+  assert.doesNotMatch(html, /action="\/ana\/sign-out"/, 'Me has a second sign-out again');
   assert.match(html, /Send their invite/);
   assert.match(html, /Show Lola’s ticket/);
   assert.match(html, /data-pass="lola"/);

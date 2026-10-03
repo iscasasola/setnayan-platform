@@ -35,7 +35,9 @@ const WEB = join(HERE, '..', '..', '..', '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
 const PAGE = read('app/dashboard/[eventId]/details/page.tsx');
-const SECTION_KEYS = EVENT_DETAILS_SECTIONS.map((s) => s.key).filter((k) => k !== 'put-away');
+// 'access' (People with access, owner 2026-10-03) is the sheet's one LIVE part
+// and is drawn by its own component, not `<Section>` — held by the test below.
+const SECTION_KEYS = EVENT_DETAILS_SECTIONS.map((s) => s.key).filter((k) => k !== 'put-away' && k !== 'access');
 
 /** The JSX between `<Section k="key"` and the next `<Section k=` (or the end of the grid). */
 function sectionBody(key: string): string {
@@ -80,6 +82,22 @@ test('each section carries at most ONE quiet "Open … ›" link', () => {
     const opens = (head.match(/label: 'Open /g) ?? []).length;
     assert.ok(opens >= 1 && opens <= 2, `section "${key}" has ${opens} Open links in its header (one, or one per kind of event)`);
   }
+});
+
+test('People with access is the ONE live part — mounted once, in its own file, before Put this away', async () => {
+  // ⚖ Owner 2026-10-03: access is set per person, per area, in Event Details ›
+  // People with access. Access is a door, so it changes at once — the one part
+  // of the sheet that is not a read-out. Everything else stays information only.
+  assert.equal((PAGE.match(/<PeopleWithAccess\b/g) ?? []).length, 1, 'People with access is not drawn exactly once');
+  assert.match(PAGE, /from '\.\/_components\/people-with-access'/, 'People with access is not its own component');
+  assert.ok(PAGE.indexOf('<PeopleWithAccess') < PAGE.indexOf('data-section="put-away"'), 'People with access sits after Put this away');
+  // Only a host loads everyone; a delegate sees their own access, as words.
+  assert.match(PAGE, /viewer\.isCouple\s*\?\s*loadPeopleWithAccess\(eventId, user\.id\)/, 'people with access is loaded for a non-host');
+  assert.match(PAGE, /readOnly=\{!people\}/, 'a delegate is handed dropdowns');
+  const section = read('app/dashboard/[eventId]/details/_components/people-with-access.tsx');
+  assert.match(section, /data-section="access"/);
+  const { PEOPLE_WITH_ACCESS_ANCHOR } = await import('@/lib/people-with-access-href');
+  assert.ok(section.includes(`id="${PEOPLE_WITH_ACCESS_ANCHOR}"`), 'the links to People with access land nowhere');
 });
 
 test('information only: the sheet mounts no editor and posts nothing (Put this away aside)', () => {

@@ -61,15 +61,8 @@ test('and it says the thing that IS true, in the words the product already uses'
     .replace(/\{\/\*[\s\S]*?\*\/\}/g, '')
     .replace(/\s+/g, ' ');
   assert.match(src, /winds down about a day after/, 'the honest replacement is gone');
-  // The sibling card in the body says the same thing; if that wording ever
-  // changes, these two must not drift into disagreeing about the same rule.
-  // The sibling moved 2026-09-25: the "Keep this event for good" note folded
-  // into the ONE account card (guest-account-card.tsx, `photosClosing`).
-  assert.match(
-    read('_components', 'guest-account-card.tsx').replace(/\s+/g, ' '),
-    /winds down about a day after/,
-    'the sibling copy moved — the two cards now describe the same rule differently',
-  );
+  // (Its sibling — the account card's "winds down" line — left with the card
+  // on 2026-10-03: owner, one place per control; Save is Me's alone.)
 });
 
 // ── 2 · NO TAB EJECTS A GUEST FROM THE EVENT ────────────────────────────────

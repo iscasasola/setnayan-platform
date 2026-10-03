@@ -68,16 +68,79 @@ export const DELEGATE_AREAS: readonly DelegateArea[] = [
   'photos',
 ] as const;
 
+/**
+ * The area names a person reads (owner 2026-10-03, "People with access"):
+ * Guest list · Seat plan · The Day (schedule + emcee script + songs) ·
+ * Suppliers · Event Hub · Mood Board (palette + dress code) · Budget &
+ * payments · Photos. The KEYS are the database's and never change.
+ */
 export const DELEGATE_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
   guest_list: 'Guest list',
   seat_plan: 'Seat plan',
-  schedule: 'Schedule',
+  schedule: 'The Day',
   vendors: 'Suppliers',
-  invitations: 'Invitations',
-  mood_board: 'Mood board',
-  budget: 'Budget',
-  photos: 'Event photos',
+  invitations: 'Event Hub',
+  mood_board: 'Mood Board',
+  budget: 'Budget & payments',
+  photos: 'Photos',
 };
+
+/** The three words of an area's dropdown (owner 2026-10-03: "Edit · View · Off"). */
+export const AREA_LEVEL_WORD: Readonly<Record<'edit' | 'view' | 'off', string>> = {
+  edit: 'Edit',
+  view: 'View',
+  off: 'Off',
+};
+
+export type AreaChoice = 'edit' | 'view' | 'off';
+
+/**
+ * WHAT A HOST MAY SET EACH AREA TO — only the levels something already
+ * ENFORCES, so a dropdown never offers a choice the app would ignore.
+ *
+ *   · Guest list · Seat plan · The Day · Suppliers → Edit · View · Off. Their
+ *     writes ask `moderator_area_level(…) = 'edit'` and their reads ask
+ *     `IS NOT NULL` (the reads of the last three since 20271262573732).
+ *   · Budget & payments → View · Off. Edit is never offered (locked D1).
+ *   · Photos → View · Off. The guests' likenesses; deleting them was never
+ *     decided (owner 2026-08-06: "only upon approval").
+ *   · Event Hub · Mood Board → null: NOT SETTABLE YET. Nothing anywhere asks
+ *     the database for these two areas — the Maker and the Mood Board save for
+ *     the hosts alone, and every delegate can open both. A dropdown there
+ *     would be a switch wired to nothing, so the row shows what is true
+ *     ({@link FIXED_AREA_LEVEL}) until their gates are built.
+ */
+export function areaChoices(area: DelegateArea): readonly AreaChoice[] | null {
+  switch (area) {
+    case 'guest_list':
+    case 'seat_plan':
+    case 'schedule':
+    case 'vendors':
+      return ['edit', 'view', 'off'];
+    case 'budget':
+    case 'photos':
+      return ['view', 'off'];
+    case 'invitations':
+    case 'mood_board':
+      return null;
+  }
+}
+
+/** What an area the host cannot set yet actually gives every delegate. */
+export const FIXED_AREA_LEVEL: Readonly<Partial<Record<DelegateArea, AreaChoice>>> = {
+  invitations: 'view',
+  mood_board: 'view',
+};
+
+/** An AreaLevel as the dropdown's key ('off' for null). */
+export function choiceOfLevel(level: AreaLevel): AreaChoice {
+  return level ?? 'off';
+}
+
+/** The dropdown's key back to what `permissions_json.areas` stores. */
+export function levelOfChoice(choice: AreaChoice): AreaLevel {
+  return choice === 'off' ? null : choice;
+}
 
 // The coordinator's default grants — locked § 3 table: planning areas Edit,
 // mood board View (aesthetic direction stays the couple's), budget OFF

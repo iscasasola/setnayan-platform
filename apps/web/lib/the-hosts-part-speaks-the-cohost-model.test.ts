@@ -81,26 +81,30 @@ test('a seat is named by its Access word, never by role_subtype’s label first'
   assert.match(HOSTS, /seatAccessWord\(s\.role_subtype\) \?\?/, 'the own-access view says the old label');
 });
 
-test('grants, toggles and coordinator removal reasons live in one component, for coordinator seats only', () => {
-  const coordinator = fn(CONTROLS, 'CoordinatorSeatControls');
-  for (const piece of ['action={setDelegateBudget}', 'action={setDelegatePhotos}', 'aria-label="Reason for removing this coordinator"']) {
-    assert.ok(coordinator.includes(piece), `CoordinatorSeatControls lost ${piece}`);
-    const esc = piece.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    for (const [name, src] of [['/hosts', HOSTS], ['the planner card', CARD], ['the Overview', OVERVIEW]] as const) {
-      assert.equal((src.match(new RegExp(esc, 'g')) ?? []).length, 0, `${piece} is drawn in ${name} too — one component holds it`);
+test('grants, toggles and coordinator removal live in ONE place — People with access (2026-10-03)', () => {
+  // ⚖ Owner 2026-10-03: access is set per person, per area, in Event Details ›
+  // People with access; every other screen SHOWS it and links there.
+  const SECTION = read('app/dashboard/[eventId]/details/_components/people-with-access.tsx');
+  for (const piece of ['setDelegateArea(', 'action={removeHost}', 'name="return_to" value="details"']) {
+    assert.ok(SECTION.includes(piece), `People with access lost ${piece}`);
+  }
+  assert.ok(!/function CoordinatorSeatControls\(/.test(CONTROLS), 'the old seat controls grew back');
+  for (const [name, src] of [['/hosts', HOSTS], ['the planner card', CARD], ['the Overview', OVERVIEW], ['the seat chips', CONTROLS]] as const) {
+    for (const setter of ['setDelegateArea', 'setDelegateBudget', 'setDelegatePhotos', 'removeHost', 'setGuestAccess']) {
+      assert.ok(!src.includes(setter), `${setter} is reached from ${name} too — access has ONE home`);
     }
   }
   // The planner card only ever lists PLANNER seats — never a co-host's.
   assert.match(CARD, /\.eq\('role_subtype', PLANNER_SEAT_ROLE\)/, 'the planner card reads seats other than the planner’s');
   assert.match(CARD, /plannerSeatsForVendor\(/, 'the planner card no longer narrows seats to this booking');
+  assert.match(CARD, /<ChangeAccessLink\b/, 'the planner card lost its door to People with access');
 });
 
-test('the grant actions refuse a full co-host seat at the door', () => {
-  for (const name of ['setDelegateBudget', 'setDelegatePhotos']) {
-    const body = fn(ACTIONS, name);
-    assert.match(body, /\.select\('permissions_json, role_subtype'\)/, `${name} does not read the seat’s kind`);
-    assert.match(body, /seatIsFullCohost\(/, `${name} writes a grant on a co-host`);
-  }
+test('the area action refuses a full co-host seat at the door', () => {
+  const body = fn(ACTIONS, 'setDelegateArea');
+  assert.match(body, /\.select\('permissions_json, role_subtype, user_id'\)/, 'setDelegateArea does not read the seat’s kind');
+  assert.match(body, /seatIsFullCohost\(/, 'setDelegateArea writes a grant on a co-host');
+  assert.ok(!/function setDelegateBudget\(|function setDelegatePhotos\(/.test(ACTIONS), 'a retired one-area door is back');
 });
 
 test('/hosts offers no control any more — its pieces moved', () => {

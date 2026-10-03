@@ -11,6 +11,8 @@
  * and emails stay still on purpose.
  *
  *   1 · the rule is one pure decision, and "moves" means what the player plays;
+ *       every `<CoupleLogo` is handed it (`plays={coupleLogoPlays(svg, …)}`,
+ *       the same svg), so `CoupleLogo` itself never imports `logo-layers`;
  *   2 · what the player puts on a page is allowlisted on the browser's parse;
  *   3 · ♿ reduced motion is the still, from the first paint;
  *   4 · 1️⃣ it plays ONCE — a re-render never replays it, a remount shows it arrived;
@@ -25,6 +27,7 @@ import assert from 'node:assert/strict';
 import React from 'react';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import Module from 'node:module';
 import { stripComments } from './strip-comments';
 import {
   composeLogoSvg,
@@ -35,16 +38,18 @@ import {
   sanitizeLogoMotion,
   type LogoLayer,
 } from './logo-layers';
-import {
-  arrivalMotion,
-  coupleLogoPlayKey,
-  coupleLogoPlays,
-  createLogoArrivals,
-  logoPhaseOnMount,
-} from './couple-logo-plays';
+import { coupleLogoPlays } from './couple-logo-plays';
+import { arrivalMotion, coupleLogoPlayKey, createLogoArrivals, logoPhaseOnMount } from './couple-logo-arrival';
 
 /* The components compile to classic `React.createElement` under this runner. */
 (globalThis as unknown as { React: unknown }).React = React;
+
+// `<EventPoster>`'s styles are a CSS module, which cannot load outside Next:
+// each class name maps to itself (the same hook as the Discover card's test).
+(Module as unknown as { _extensions: Record<string, (m: { exports: unknown }) => void> })._extensions['.css'] = (m) => {
+  const classes = new Proxy({}, { get: (_t, k) => (typeof k === 'string' ? k : undefined) });
+  m.exports = { __esModule: true, default: classes };
+};
 
 const WEB = join(__dirname, '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -93,6 +98,111 @@ test('1 · it plays only when the animation is on AND the logo moves', () => {
   assert.match(gate, /if \(!coupleLogoPlays\(svg, true\)\) return false;\s*return animationOnFor\(/, 'a still logo pays for the ownership read');
   // …and it is the hero's gate, word for word — never a second one.
   assert.match(gate, /return owned && !markAnimationSwitchedOff\(studioConfig\);/);
+});
+
+/**
+ * 📦 WHO ASKS "DOES IT MOVE" (2026-10-04). `CoupleLogo` is a client component
+ * drawn on pages whose logos are almost always stills (every Discover card).
+ * If it asked `logoHasMotion` itself, every such page would ship `logo-layers`
+ * (~52 KB of source plus its fonts) to decide "no". So each SURFACE asks the
+ * one rule — `plays={coupleLogoPlays(svg, animationOn)}`, with the SAME svg it
+ * hands `CoupleLogo` — and `CoupleLogo` only obeys. Two properties hold it:
+ * every `<CoupleLogo` call is handed the rule over its own svg, and
+ * `CoupleLogo`'s static import graph never reaches `logo-layers`.
+ */
+function attrExpr(props: string, name: string): string | null {
+  const at = props.search(new RegExp(`\\b${name}=\\{`));
+  if (at < 0) return null;
+  let depth = 0;
+  const open = props.indexOf('{', at);
+  for (let i = open; i < props.length; i++) {
+    if (props[i] === '{') depth += 1;
+    else if (props[i] === '}' && --depth === 0) return props.slice(open + 1, i).trim();
+  }
+  return null;
+}
+
+/** The `<CoupleLogo` calls in `src` whose `plays` is NOT `coupleLogoPlays(<its own svg>, …)`. */
+function unruledCalls(src: string): string[] {
+  const bad: string[] = [];
+  for (const m of src.matchAll(/<CoupleLogo\b/g)) {
+    const [a, b] = propsSpan(src, m.index!);
+    const props = src.slice(a, b);
+    const svg = attrExpr(props, 'svg');
+    const plays = attrExpr(props, 'plays');
+    const ruled =
+      svg !== null &&
+      plays !== null &&
+      plays.startsWith('coupleLogoPlays(') &&
+      plays.slice('coupleLogoPlays('.length).split(',')[0]!.trim() === svg;
+    if (!ruled) bad.push(props.replace(/\s+/g, ' ').slice(0, 120));
+  }
+  return bad;
+}
+
+/** Every module `entry` imports STATICALLY (an `import(…)` is a lazy chunk, not the graph). */
+function staticGraph(entry: string): string[] {
+  const seen = new Set<string>();
+  const resolve = (from: string, spec: string): string | null => {
+    const base = spec.startsWith('@/') ? join(WEB, spec.slice(2)) : spec.startsWith('.') ? join(from, '..', spec) : null;
+    if (!base) return null;
+    for (const ext of ['', '.ts', '.tsx', '/index.ts', '/index.tsx']) {
+      try {
+        if (statSync(base + ext).isFile()) return base + ext;
+      } catch {
+        /* not this one */
+      }
+    }
+    return null;
+  };
+  const visit = (file: string) => {
+    if (seen.has(file)) return;
+    seen.add(file);
+    const src = stripComments(readFileSync(file, 'utf8'));
+    for (const m of src.matchAll(/^\s*(?:import|export)\s[^;]*?\sfrom\s+'([^']+)'/gm)) {
+      if (/^\s*import\s+type\s/.test(m[0]) || /^\s*export\s+type\s/.test(m[0])) continue;
+      const next = resolve(file, m[1]!);
+      if (next && /\.tsx?$/.test(next)) visit(next);
+    }
+  };
+  visit(join(WEB, entry));
+  return [...seen].map((f) => relative(WEB, f));
+}
+
+test('1 · every <CoupleLogo is handed the one rule over its own svg — and CoupleLogo never imports logo-layers', () => {
+  // The detector can see: a ruled call passes, the three ways to skip the rule fail.
+  assert.deepEqual(unruledCalls(`<CoupleLogo svg={mark} plays={coupleLogoPlays(mark, plays)} place="x" still={<i/>} />`), []);
+  assert.equal(unruledCalls(`<CoupleLogo svg={mark} plays={plays} place="x" still={<i/>} />`).length, 1);
+  assert.equal(unruledCalls(`<CoupleLogo svg={mark} plays place="x" still={<i/>} />`).length, 1);
+  assert.equal(unruledCalls(`<CoupleLogo svg={mark} plays={coupleLogoPlays(other, plays)} place="x" still={<i/>} />`).length, 1);
+
+  const offenders: string[] = [];
+  let calls = 0;
+  for (const full of walk(join(WEB, 'app'))) {
+    const rel = relative(WEB, full);
+    if (rel === 'app/_components/couple-logo.tsx') continue;
+    const src = stripComments(readFileSync(full, 'utf8'));
+    calls += (src.match(/<CoupleLogo\b/g) ?? []).length;
+    for (const bad of unruledCalls(src)) offenders.push(`${rel}: ${bad}`);
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    'Hand CoupleLogo the rule: plays={coupleLogoPlays(svg, animationOn)} with the svg you pass it.\n' + offenders.join('\n'),
+  );
+  assert.ok(calls >= 8, `the sweep found only ${calls} <CoupleLogo calls — the detector went blind`);
+
+  // CoupleLogo obeys `plays`; it never asks whether a logo moves.
+  const logo = code('app/_components/couple-logo.tsx');
+  assert.match(logo, /if \(!plays \|\| !svg\) return <>\{still\}<\/>;/);
+  assert.doesNotMatch(logo, /\b(?:coupleLogoPlays|logoHasMotion)\b/, 'CoupleLogo asks "does it move" itself again');
+  const graph = staticGraph('app/_components/couple-logo.tsx');
+  assert.ok(graph.includes('lib/couple-logo-arrival.ts'), 'the graph walker cannot see CoupleLogo’s imports');
+  for (const heavy of ['lib/logo-layers.ts', 'lib/couple-logo-plays.ts', 'app/_components/layered-logo-player.tsx']) {
+    assert.ok(!graph.includes(heavy), `CoupleLogo statically imports ${heavy} — every page with a still logo ships it`);
+  }
+  // …while the walker does reach logo-layers where it really is imported.
+  assert.ok(staticGraph('lib/couple-logo-plays.ts').includes('lib/logo-layers.ts'), 'the graph walker cannot see a real import');
 });
 
 /* ═══ 2 · what reaches the page ═══════════════════════════════════════════ */
@@ -192,6 +302,9 @@ test('6 · the door seals, the event chip and the hero render the PLAYING logo w
   assert.equal(plays(seal({ plays: true })), true, 'the door seal draws a moving logo still');
   assert.equal(plays(seal({ plays: false })), false, 'the seal plays without the animation');
   assert.match(seal({ plays: false }), /<img[^>]*data:image\/svg\+xml/, 'the still seal changed');
+  // "Moves" is asked by the surface now, not by CoupleLogo — a logo with no
+  // motion stays still even with the animation on.
+  assert.equal(plays(seal({ plays: true, mark: STILL_LAYERS })), false, 'the door seal plays a logo that does not move');
 
 
   const { EventMonogram } = await import('@/app/_components/event-monogram');
@@ -204,19 +317,42 @@ test('6 · the door seals, the event chip and the hero render the PLAYING logo w
     );
   assert.equal(plays(chip({ plays: true })), true, 'the event chip draws a moving logo still');
   assert.equal(plays(chip({})), false, 'the chip plays without being told the animation is on');
+  const stillChip = renderToStaticMarkup(
+    React.createElement(EventMonogram, {
+      event: { display_name: 'Ice & Cale', monogram_text: 'I & C', monogram_color: null, monogram_custom_svg: STILL_LAYERS },
+      plays: true,
+    }),
+  );
+  assert.equal(plays(stillChip), false, 'the event chip plays a logo that does not move');
 
   const { HeroMonogram } = await import('@/app/_components/hero-monogram');
-  const hero = (animatedMonogram: false | 'bloom') =>
+  const hero = (animatedMonogram: false | 'bloom', bespokeSvg = MOVING) =>
     renderToStaticMarkup(
       React.createElement(HeroMonogram, {
         event: {},
         monogram: { text: 'I & C', color: '#5C2542', fontFamily: 'serif', fontStyle: 'italic' } as never,
         animatedMonogram: animatedMonogram as never,
-        bespokeSvg: MOVING,
+        bespokeSvg,
       }),
     );
   assert.equal(plays(hero('bloom')), true, 'the Event Hub hero draws a moving logo still');
   assert.equal(plays(hero(false)), false, 'the hero plays for a couple without the animation');
+  assert.equal(plays(hero('bloom', STILL_LAYERS)), false, 'the hero plays a layered logo that does not move');
+
+  const { EventPoster } = await import('@/app/_components/event-poster');
+  const poster = (svg: string, markPlays: boolean) =>
+    renderToStaticMarkup(
+      React.createElement(EventPoster, {
+        poster: { kind: 'invitation', names: { first: 'Ice', second: 'Cale' }, weekday: null, date: null } as never,
+        markText: 'I & C',
+        markSvg: svg,
+        markSvgUri: 'data:image/svg+xml;base64,AA',
+        markPlays,
+      }),
+    );
+  assert.equal(plays(poster(MOVING, true)), true, 'the event poster draws a moving logo still');
+  assert.equal(plays(poster(MOVING, false)), false, 'the poster plays without the animation');
+  assert.equal(plays(poster(STILL_LAYERS, true)), false, 'the poster plays a logo that does not move');
 });
 
 test('6 · every page-level screen hands its "animation on" answer down', () => {
@@ -228,9 +364,9 @@ test('6 · every page-level screen hands its "animation on" answer down', () => 
     'app/dashboard/(account)/library/_components/album-shelf.tsx': /plays=\{album\.markPlays\}/,
     'app/dashboard/(account)/library/_components/photos-tab.tsx': /plays=\{album\.markPlays\}/,
     'app/[slug]/invite/_lib/load-invite-look.ts': /markPlays: await logoPlaysFor\(/,
-    'app/vendor-dashboard/clients/[eventId]/page.tsx': /plays=\{monogramPlays\}/,
-    'app/live/screen/screen-stage.tsx': /plays=\{brand\.markPlays\}/,
-    'app/[slug]/_components/save-the-date-film.tsx': /plays=\{Boolean\(animatedMonogram\)\}/,
+    'app/vendor-dashboard/clients/[eventId]/page.tsx': /plays=\{coupleLogoPlays\(monogramSvg, monogramPlays\)\}/,
+    'app/live/screen/screen-stage.tsx': /plays=\{coupleLogoPlays\(brand\.markSvg, brand\.markPlays\)\}/,
+    'app/[slug]/_components/save-the-date-film.tsx': /plays=\{coupleLogoPlays\(svg, Boolean\(animatedMonogram\)\)\}/,
   } as const;
   for (const [file, re] of Object.entries(HANDS)) assert.match(code(file), re, `${file} no longer tells its logo whether to play`);
   for (const skin of ['abaca', 'capiz', 'velvet']) {

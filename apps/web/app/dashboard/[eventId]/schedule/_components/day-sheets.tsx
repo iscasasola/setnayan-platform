@@ -546,10 +546,13 @@ export function RequestsSheet({
               return (
                 <li key={r.suggestion_id} className="border-b border-ink/[0.06] pb-5 pt-4">
                   <Eyebrow>
-                    {r.by} · {r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
+                    {r.by} ·{' '}
+                    {r.kind === 'remove' ? 'remove a moment' : r.kind === 'adjust' ? 'change to a moment' : 'new moment'}
                   </Eyebrow>
                   <h3 className="mt-1 font-display text-[21px] leading-tight text-ink">
-                    {r.kind === 'adjust' ? (current?.label ?? 'A moment') : (r.proposed_label ?? 'A new moment')}
+                    {r.kind === 'new'
+                      ? (r.proposed_label ?? 'A new moment')
+                      : (current?.label ?? r.proposed_label ?? 'A moment')}
                   </h3>
                   <div className="mt-3 grid grid-cols-[1fr_auto_1fr] items-end gap-3">
                     <div>
@@ -564,7 +567,9 @@ export function RequestsSheet({
                     <div>
                       <Eyebrow>Asked</Eyebrow>
                       <p className="mt-0.5 text-base font-semibold text-mulberry-700">
-                        {r.proposed_start_at || r.proposed_end_at
+                        {r.kind === 'remove'
+                          ? 'remove it'
+                          : r.proposed_start_at || r.proposed_end_at
                           ? whenOf(r.proposed_start_at ?? current?.start_at ?? null, r.proposed_end_at, refDate)
                           : r.proposed_label && current
                             ? `rename to “${r.proposed_label}”`
@@ -601,7 +606,9 @@ export function RequestsSheet({
                   <p className="mt-2 text-right text-[11.5px] text-ink/50">
                     {r.kind === 'new'
                       ? 'Approving adds it hidden from guests — flip the eye when they should see it.'
-                      : 'Approving changes the moment on the schedule.'}{' '}
+                      : r.kind === 'remove'
+                        ? 'Approving takes the moment off the schedule.'
+                        : 'Approving changes the moment on the schedule.'}{' '}
                     {r.by} is told either way.
                   </p>
                 </li>

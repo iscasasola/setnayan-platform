@@ -66,7 +66,6 @@ void _noOwnerLeakAtTypeLevel;
 const GUEST_ONLY_FIELDS = [
   'guest',
   'qrSvg',
-  'invitationUrl',
   'guestLiveGallery',
   'seatPassActive',
   'needsFaceEnroll',
@@ -74,7 +73,6 @@ const GUEST_ONLY_FIELDS = [
   'seatMap',
   'papicGuest',
   'showClaimAccountCta',
-  'accountlessPhotosClosed',
   'eventVendorCredits',
   'saveFlash',
   'faceMode',
@@ -144,7 +142,6 @@ function guestInput(
       qr_token: 'GUESTSECRET',
     },
     qrSvg: '<svg>GUESTSECRET</svg>',
-    invitationUrl: 'https://example.com/?t=GUESTSECRET',
     guestLiveGallery: null,
     seatPassActive: false,
     needsFaceEnroll: false,
@@ -152,7 +149,6 @@ function guestInput(
     seatMap: null,
     papicGuest: null,
     showClaimAccountCta: false,
-    accountlessPhotosClosed: false,
     eventVendorCredits: [],
     saveFlash: null,
     faceMode: 'mode_a',
@@ -198,7 +194,6 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // own seat (lib/guest-one-path.ts). Per-person, like profileDetails; never
     // anything about the host or the event. Reasoned about, not absorbed.
     'account',
-    'accountlessPhotosClosed',
     // checklist (2026-09-27) — THIS guest's own last-30-days ticks, or null.
     'checklist',
     // didntReply (2026-09-27) — THIS guest's own "Didn't reply · you're in"
@@ -216,7 +211,6 @@ test('guestIdentity() output carries exactly the guest keys, and no more', () =>
     // guestOwnShots (2026-10-01) — the shots THIS guest took (the Gallery's
     // "Your shots"); their own captures, read by their own guest_id.
     'guestOwnShots',
-    'invitationUrl',
     'kind',
     'needsFaceEnroll',
     'papicGuest',

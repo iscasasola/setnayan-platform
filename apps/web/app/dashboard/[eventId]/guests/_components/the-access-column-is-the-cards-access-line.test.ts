@@ -7,12 +7,12 @@
  * What it holds, each as a property of the source rather than a phrasing:
  *   1. BOTH row shapes draw it — the desktop table row and the phone list row —
  *      and the header declares the column, so the table stays one cell per head.
- *   2. It is NOT a second mechanism: the cell (`guest-access-cell.tsx`) calls
- *      the SAME server action the card's line calls (`setGuestAccess`), draws
- *      the SAME PickMenu, and reads the SAME vocabulary (`ACCESS_LEVEL_LABEL`)
- *      — one writer, one dropdown, one set of words.
- *   3. The creator and a celebrant co-host are FIXED: the dropdown is never
- *      drawn for a locked state. Only a co-host (`canManage`) gets a dropdown.
+ *   2. It SHOWS, it does not set (owner 2026-10-03, "People with access": access
+ *      is set in ONE place, Event Details › People with access; other places
+ *      show it and link there). Neither the cell nor the card's line calls
+ *      `setGuestAccess` or draws a dropdown; both read the SAME vocabulary
+ *      (`ACCESS_LEVEL_LABEL`) and link to the one home.
+ *   3. Only a co-host (`canManage`) gets the link; anyone else reads the word.
  *   4. One guest at a time: no `guest_ids[]`, no "Part of the host" — the bulk
  *      picker the owner retired stays retired.
  *   5. The "+Co-host" tag that used to trail the role is gone — the column
@@ -72,28 +72,28 @@ test('both row shapes draw the Access control, and Access is a column any header
   assert.match(ROSTER_COLUMNS_SRC, /access: 'Access'/, 'Access is no longer a column a header can pick');
 });
 
-test('the cell is the card’s Access line in a row’s width — one action, one dropdown, one vocabulary', () => {
+test('the cell and the card’s line SHOW Access and link to its one home — they never set it', () => {
   assert.match(ROSTER, /import \{ GuestAccessCell \} from '\.\/guest-access-cell';/);
-  for (const src of [CELL, CARD_LINE]) {
-    assert.match(src, /import \{ setGuestAccess \} from '\.\.\/\[guestId\]\/access-actions';/, 'a second writer of the seat');
-    assert.match(src, /import \{ PickMenu[^}]*\} from '@\/app\/dashboard\/\[eventId\]\/website\/editor\/_components\/pick-menu';/, 'not the shared PickMenu');
-    assert.match(src, /\bACCESS_LEVEL_LABEL\b/, 'its own words for the three levels');
+  for (const [name, src] of [['the cell', CELL], ['the card line', CARD_LINE]] as const) {
+    assert.doesNotMatch(src, /setGuestAccess/, `${name} sets Access again — People with access is its one home`);
+    assert.doesNotMatch(src, /<PickMenu\b/, `${name} draws a dropdown again — it only shows the word`);
+    assert.match(src, /\bACCESS_LEVEL_LABEL\b/, `${name} uses its own words for the three levels`);
   }
-  const cell = bodyOf(CELL, 'GuestAccessCell');
-  assert.ok(cell.includes('setGuestAccess(eventId, guestId, level)'), 'the cell no longer calls the card’s action');
+  assert.match(CELL, /peopleWithAccessHref\(eventId\)/, 'the cell lost its door to People with access');
+  assert.match(CARD_LINE, /<ChangeAccessLink\b/, 'the card line lost its door to People with access');
   assert.equal((CELL.match(/\.from\(/g) ?? []).length, 0, 'the cell reads the database itself');
   assert.doesNotMatch(CELL, /['"]use server['"]/, 'the cell grew its own server action');
-  // PickMenu matches `value` against option KEYS, not labels (the card's own trap).
-  assert.match(cell, /value=\{shown\.level\}/);
-  assert.doesNotMatch(cell, /value=\{ACCESS_LEVEL_LABEL\[/);
+  // The ONE writer: People with access calls the action the cell used to.
+  const SECTION = read('..', '..', 'details', '_components', 'people-with-access.tsx');
+  assert.match(SECTION, /setGuestAccess\(eventId, guestId, next\)/, 'People with access no longer sets a guest’s Access');
 });
 
-test('a locked state is fixed, and only a co-host gets the dropdown', () => {
+test('only a co-host gets the door; everyone else reads the word', () => {
   const cell = bodyOf(CELL, 'GuestAccessCell');
-  const guardAt = cell.search(/if \(!canManage \|\| shown\.lock\)/);
-  const pickAt = cell.indexOf('<PickMenu');
-  assert.notEqual(guardAt, -1, 'the cell no longer fixes a locked or read-only state');
-  assert.ok(guardAt < pickAt, 'the dropdown is drawn before the lock can stop it');
+  const guardAt = cell.search(/if \(!canManage\)/);
+  const linkAt = cell.indexOf('<Link');
+  assert.notEqual(guardAt, -1, 'the cell no longer keeps a read-only state');
+  assert.ok(guardAt < linkAt, 'the link is drawn before the read-only guard can stop it');
   assert.match(PAGE, /canManageAccess=\{viewer\.isCouple\}/, 'the page does not hand the list the couple gate it resolved');
 });
 

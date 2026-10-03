@@ -4,7 +4,8 @@
  * SETNAYAN UNIVERSE", "DISCOVER — UNPARKED", "DISCOVER BUILD — TWO LAST
  * ANSWERS"). Ported from `prototypes/discover_upcoming_2026-09-29.html`
  * frames 1A/1B; the card is the page's own `.fd-item` grammar with a date
- * plate, a host line and exactly one action.
+ * plate, a host line and exactly one action. Its cover wears the event's look
+ * (`DiscoverEventCover`, 2026-10-03), the mark when it has chosen none.
  *
  *   1 · Upcoming from people you follow   (signed in only)
  *   2 · Upcoming on Setnayan               (everyone, signed out included)
@@ -16,11 +17,8 @@
  * never "you have none") · unavailable ("couldn't load" in the heading and in
  * the card — the page's own CountText rule: an unknown is not a nought).
  *
- * ─── TWO DOORS ON ONE CARD, NEVER NESTED ──────────────────────────────────
- * The title carries the stretched link to `/{slug}`; the host's name opens
- * `/u/{slug}` and the action opens the request door — both raised above the
- * stretch, siblings, never descendants (the `.fd-chan` rule in
- * `front-door.css`).
+ * The event card itself is `discover-event-card.tsx` (two doors on one card,
+ * never nested); its cover is `discover-event-cover.tsx`.
  */
 import Link from 'next/link';
 
@@ -28,67 +26,14 @@ import type { DiscoverEventCard } from '@/lib/discover-events-core';
 import type { DiscoverData, PersonToFollowCard } from '@/lib/discover-events';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
-import { ChannelLink } from './front-door-feed';
 import { DiscoverFollowButton } from './discover-follow-button';
+import { DiscoverEventCard as EventCard } from './discover-event-card';
 
 /** The id the "Find people to follow" invitation scrolls to. Always rendered. */
 export const PEOPLE_TO_FOLLOW_ID = 'people-to-follow';
 
 function Unknown() {
   return <span className="fd-unknown">couldn&rsquo;t load</span>;
-}
-
-function relationText(card: DiscoverEventCard): string | null {
-  if (card.relation === 'connected') return 'Connected';
-  if (card.relation === 'follow') return 'You follow them';
-  return null;
-}
-
-function EventCard({ card }: { card: DiscoverEventCard }) {
-  const rel = relationText(card);
-  const place = [rel, card.regionLabel].filter(Boolean).join(' · ');
-  return (
-    <div className="fd-item" data-discover-card>
-      <div className="fd-thumb fd-thumb-event">
-        <span className="fd-mono-cover" aria-hidden="true">
-          {card.cover}
-        </span>
-        <span className="fd-date">{card.datePlate}</span>
-      </div>
-      <div className="fd-imeta">
-        <span className="fd-ava" aria-hidden="true">
-          {shopInitials(card.host?.name ?? card.title, 2, '·')}
-        </span>
-        <div className="fd-itxt">
-          <p className="fd-ttl">
-            <Link href={card.href} className="fd-stretch">
-              {card.title}
-            </Link>
-          </p>
-          {card.typeLabel || card.host ? (
-            <p className="fd-by">
-              {card.typeLabel ? (
-                <span className="fd-kindtag fd-kindtag-w">{card.typeLabel}</span>
-              ) : null}
-              {card.host ? (
-                <ChannelLink slug={card.host.slug} name={card.host.name} className="fd-chan" />
-              ) : null}
-            </p>
-          ) : null}
-          {place ? <p className="fd-by fd-rel">{place}</p> : null}
-          <div className="fd-act">
-            {card.askHref ? (
-              <Link href={card.askHref} className="fd-ask">
-                Ask to join
-              </Link>
-            ) : (
-              <span className="fd-ask quiet">Guest list only</span>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function EventGrid({ items }: { items: DiscoverEventCard[] }) {

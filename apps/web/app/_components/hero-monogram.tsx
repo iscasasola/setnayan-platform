@@ -10,6 +10,7 @@ import { AnimatedMonogramHero } from '@/app/_components/animated-monogram-hero';
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { isLayeredLogo } from '@/lib/logo-layers';
 
 /**
@@ -115,7 +116,7 @@ export function HeroMonogram({
         <span aria-hidden className="inline-flex" style={{ width: HERO_PX, height: HERO_PX }} data-hero-layered-logo="">
           <CoupleLogo
             svg={bespokeSvg}
-            plays
+            plays={coupleLogoPlays(bespokeSvg, Boolean(animatedMonogram))}
             place={place}
             still={<BespokeMonogramMark svg={bespokeSvg} color={markColor} size="md" shadow={shadow} plate={plate} />}
           />

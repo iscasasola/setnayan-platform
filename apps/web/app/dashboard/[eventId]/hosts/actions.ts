@@ -5,7 +5,14 @@ import { redirect } from 'next/navigation';
 import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { withArea } from '@/lib/delegate-areas';
+import {
+  DELEGATE_AREAS,
+  areaChoices,
+  levelOfChoice,
+  withArea,
+  type AreaChoice,
+  type DelegateArea,
+} from '@/lib/delegate-areas';
 import {
   ROLE_SUBTYPES,
   PERMISSION_TEMPLATES,
@@ -230,127 +237,103 @@ async function requireCoupleMembership(eventId: string): Promise<string> {
   return user.id;
 }
 
-/**
- * Toggle a delegate's budget visibility between OFF and View (locked D1:
- * OFF by default, couple-raiseable to View, Edit never in V1). Writes
- * permissions_json.areas.budget; everything else in the JSON is preserved.
- */
-export async function setDelegateBudget(formData: FormData) {
-  const rawEventId = formData.get('event_id');
-  const rawModeratorId = formData.get('moderator_id');
-  const grant = formData.get('budget_grant'); // 'view' | 'off'
-  if (typeof rawEventId !== 'string' || typeof rawModeratorId !== 'string') {
-    redirect('/dashboard');
-  }
-  const eventId = rawEventId as string;
-  const moderatorId = rawModeratorId as string;
-
-  await requireCoupleMembership(eventId);
-
-  const admin = createAdminClient();
-  const { data: row } = await admin
-    .from('event_moderators')
-    .select('permissions_json, role_subtype')
-    .eq('moderator_id', moderatorId)
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (row && seatIsFullCohost((row as { role_subtype: string }).role_subtype)) {
-    redirect(seatReturnPath(formData, eventId, { invite_error: COHOST_NEEDS_NO_GRANT }));
-  }
-  if (row) {
-    const perms = ((row as { permissions_json: ModeratorPermissions | null })
-      .permissions_json ?? {
-      edit_all: false,
-      checkout: false,
-      invite_hosts: false,
-      remove_hosts: false,
-    }) as ModeratorPermissions;
-    // ⚠ NOT `{ ...(perms.areas ?? {}) }` — that spread is what turned this
-    // button into a withdrawal. A host row minted by the invite door carries no
-    // `areas` map at all, so setting one key wrote a map naming ONE area, and
-    // since 2026-08-25 an area a map does not name resolves to nothing. See
-    // `materializeAreas`.
-    const permissions = withArea(perms, 'budget', grant === 'view' ? 'view' : null);
-    await admin
-      .from('event_moderators')
-      .update({
-        permissions_json: permissions,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('moderator_id', moderatorId)
-      .eq('event_id', eventId);
-  }
-
-  revalidateSeatScreens(eventId, formData);
-  redirect(seatReturnPath(formData, eventId, { grant_updated: '1' }));
-}
+export type SetDelegateAreaResult =
+  | { ok: true; choice: AreaChoice }
+  | { ok: false; error: string };
 
 /**
- * Grant or withdraw a delegate's access to the couple's guest photos.
+ * Set ONE area of ONE delegate's access — Edit · View · Off (owner 2026-10-03,
+ * Event Details › People with access: "access is set PER PERSON, PER AREA, as
+ * Edit · View · Off (one dropdown per area)").
  *
- * Owner ruling 2026-08-06: a coordinator may see them **"but only upon
- * approval"**. This IS the approval — the couple presses it, per delegate.
+ * REPLACES `setDelegateBudget` + `setDelegatePhotos` (this file) and
+ * `revokeArea` (access-requests/actions.ts) — three doors that each set one
+ * area a different way, folded into the one the section's dropdowns call.
+ * The rules each of them held are kept, here, once:
  *
- * 🔑 THE CONTROL EXISTS BECAUSE THE PERMISSION DOES. The `photos` area, its
- * database policies and its fail-closed default all shipped together; without
- * this the couple would hold a right they could never exercise, which is the
- * shape this codebase keeps re-discovering — a column with readers and no
- * writer, a gate with no handle.
- *
- * Mirrors `setDelegateBudget` exactly, including the couple-only check: a
- * coordinator must never be able to widen their own access.
- *
- * VIEW only, never EDIT. Photos are the guests' likenesses; letting a delegate
- * DELETE them is a different decision that was not made.
+ *   · HOST-ONLY. A `couple` member, never a coordinator — a delegate must not
+ *     widen their own access (`requireCoupleMembership`'s rule, as a result).
+ *   · NEVER A FULL CO-HOST. Nothing reads a co-host seat's permissions_json,
+ *     so a grant written there would change nothing and say something.
+ *   · ONLY A LEVEL SOMETHING ENFORCES (`areaChoices`): Budget & payments and
+ *     Photos are View · Off (locked D1 · owner 2026-08-06); Event Hub and Mood
+ *     Board are not settable until their gates exist.
+ *   · MATERIALISED, NEVER SPREAD (`withArea`): setting one area writes every
+ *     other one down as it stands, so a grant is never a silent withdrawal.
+ *     Off is an explicit null, never a deleted key.
+ *   · A REFUSED WRITE IS NOT SUCCESS. The update runs under the host's own
+ *     session (the `a_host_can_take_access_back` policies) and asks for the
+ *     rows it changed: zero rows is "nothing changed — they still have it",
+ *     never a quiet ok (the 2026-09-09 incident on `revokeArea`).
  */
-export async function setDelegatePhotos(formData: FormData) {
-  const rawEventId = formData.get('event_id');
-  const rawModeratorId = formData.get('moderator_id');
-  const grant = formData.get('photos_grant'); // 'view' | 'off'
-  if (typeof rawEventId !== 'string' || typeof rawModeratorId !== 'string') {
-    redirect('/dashboard');
-  }
-  const eventId = rawEventId as string;
-  const moderatorId = rawModeratorId as string;
+export async function setDelegateArea(
+  eventId: string,
+  moderatorId: string,
+  area: string,
+  choice: string,
+): Promise<SetDelegateAreaResult> {
+  if (!(DELEGATE_AREAS as readonly string[]).includes(area)) return { ok: false, error: 'Unknown area.' };
+  const a = area as DelegateArea;
+  const allowed = areaChoices(a);
+  if (!allowed) return { ok: false, error: 'This part cannot be changed yet.' };
+  if (!(allowed as readonly string[]).includes(choice)) return { ok: false, error: 'Pick Edit, View or Off.' };
+  const picked = choice as AreaChoice;
 
-  await requireCoupleMembership(eventId);
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Please sign in.' };
+  const { data: me } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', user.id)
+    .eq('member_type', 'couple')
+    .maybeSingle();
+  if (!me) return { ok: false, error: 'Only a co-host can change who has access.' };
 
-  const admin = createAdminClient();
-  const { data: row } = await admin
+  const { data: row } = await supabase
     .from('event_moderators')
-    .select('permissions_json, role_subtype')
+    .select('permissions_json, role_subtype, user_id')
     .eq('moderator_id', moderatorId)
     .eq('event_id', eventId)
+    .is('removed_at', null)
     .maybeSingle();
-  if (row && seatIsFullCohost((row as { role_subtype: string }).role_subtype)) {
-    redirect(seatReturnPath(formData, eventId, { invite_error: COHOST_NEEDS_NO_GRANT }));
+  if (!row) return { ok: false, error: 'They no longer have access to this event.' };
+  const seat = row as { permissions_json: ModeratorPermissions | null; role_subtype: string; user_id: string | null };
+  if (seatIsFullCohost(seat.role_subtype)) return { ok: false, error: COHOST_NEEDS_NO_GRANT };
+  if (seat.user_id === user.id) return { ok: false, error: 'You cannot change your own access.' };
+
+  const perms = (seat.permissions_json ?? {
+    edit_all: false,
+    checkout: false,
+    invite_hosts: false,
+    remove_hosts: false,
+  }) as ModeratorPermissions;
+  const permissions = withArea(perms, a, levelOfChoice(picked));
+
+  const { data: touched, error } = await supabase
+    .from('event_moderators')
+    .update({ permissions_json: permissions, updated_at: new Date().toISOString() })
+    .eq('moderator_id', moderatorId)
+    .eq('event_id', eventId)
+    .select('moderator_id');
+  if (error) {
+    console.error('[setDelegateArea]', error);
+    return { ok: false, error: 'Could not change their access. Nothing has changed — try again.' };
   }
-  if (row) {
-    const perms = ((row as { permissions_json: ModeratorPermissions | null })
-      .permissions_json ?? {
-      edit_all: false,
-      checkout: false,
-      invite_hosts: false,
-      remove_hosts: false,
-    }) as ModeratorPermissions;
-    // An explicit null, never a deleted key. Absence would fall through to the
-    // resolver's tail, which FAILS OPEN for a delegate with edit_all —
-    // withdrawal has to be written down, not implied.
-    // ⚠ And every OTHER area is written down at the same time, or granting one
-    // silently withdraws the rest — see `materializeAreas`.
-    const permissions = withArea(perms, 'photos', grant === 'view' ? 'view' : null);
-    await admin
-      .from('event_moderators')
-      .update({
-        permissions_json: permissions,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('moderator_id', moderatorId)
-      .eq('event_id', eventId);
+  if (!touched || touched.length === 0) {
+    return {
+      ok: false,
+      error: 'We could not change that. Nothing has changed — they still have what they had. Try again.',
+    };
   }
 
-  revalidateSeatScreens(eventId, formData);
-  redirect(seatReturnPath(formData, eventId, { grant_updated: '1' }));
+  revalidatePath(`/dashboard/${eventId}/details`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+  revalidatePath(`/dashboard/${eventId}/access-requests`);
+  return { ok: true, choice: picked };
 }
 
 /**

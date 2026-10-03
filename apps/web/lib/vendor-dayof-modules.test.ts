@@ -116,13 +116,32 @@ test('anyGrantModuleEnabled drives the access step', () => {
   assert.equal(anyGrantModuleEnabled(djNoGrant), false);
 });
 
-test('registry integrity: unique ids, counsel-gated set is exactly papic + guest_delivery', () => {
+test('registry integrity: unique ids, counsel-gated set is exactly papic', () => {
   const ids = DAY_OF_MODULES.map((m) => m.id);
   assert.equal(new Set(ids).size, ids.length);
   const gated = DAY_OF_MODULES.filter((m) => m.counselGated)
     .map((m) => m.id)
     .sort();
-  assert.deepEqual(gated, ['guest_delivery', 'vendor_papic']);
+  // `guest_delivery` was the other one until 2026-10-04 — removed, not
+  // un-gated (see the next test).
+  assert.deepEqual(gated, ['vendor_papic']);
+});
+
+test('“Who’s received theirs” is gone — a tile that was always padlocked is not a tool', () => {
+  // Owner 2026-10-03 (S1): it shipped with no screen behind it
+  // (dayOfModuleHref → null, counsel-gated), so every caterer's console showed
+  // a locked promise. The supplier scan build replaces it; until then there is
+  // NO tile — replace means remove, not "hide".
+  const ids: readonly string[] = DAY_OF_MODULES.map((m) => m.id);
+  assert.ok(!ids.includes('guest_delivery'), 'the padlocked delivery tile came back');
+  assert.ok(
+    !DAY_OF_MODULES.some((m) => /received theirs/i.test(m.label)),
+    'the padlocked delivery tile came back under another id',
+  );
+  // And a saved console that still names it resolves to nothing, not a crash.
+  const caterer = resolveModules(['catering'], null, ['guest_delivery', 'run_of_show']);
+  assert.ok(!caterer.some((m) => (m.id as string) === 'guest_delivery'));
+  assert.ok(caterer.some((m) => m.id === 'run_of_show' && m.enabled));
 });
 
 // ── Papic is not a photographer's tool (owner, 2026-08-04) ──────────────────

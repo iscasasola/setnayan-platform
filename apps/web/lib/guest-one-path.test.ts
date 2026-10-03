@@ -135,7 +135,10 @@ test('1 · the host pitch shows only AFTER linking', () => {
 
 test('1 · the guest page mounts ONE account prompt, and the old four are gone', () => {
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.equal(count(body, /<GuestAccountCard\b/), 1, 'the one card is not mounted exactly once');
+  // 2026-10-03 (owner: one place per control): the body mounts NO account card —
+  // "Save to my account" is Me's, once (`GuestMe` → `SaveToAccount`).
+  assert.equal(count(body, /<GuestAccountCard\b|<SaveToAccount\b/), 0, 'an account prompt is back in the page body beside Me’s');
+  assert.equal(count(read('app/[slug]/_components/guest-me.tsx'), /<SaveToAccount\b/), 1, 'Me lost its one Save');
   assert.doesNotMatch(body, /claimAccountAction/, 'the second email box is back in the guest tree');
   assert.doesNotMatch(body, /Keep this event for good/, 'the "Keep this event for good" note is back');
   assert.doesNotMatch(body, /the box near the top/, 'a note points at a box again');
@@ -172,9 +175,6 @@ test('2 · 📵 no guest surface posts to an emailing action, and the reply carr
   const submit = actions.slice(actions.indexOf('export async function submitRsvp'));
   const body = submit.slice(0, submit.indexOf('\nexport async function '));
   assert.doesNotMatch(body, /formData\.get\('contact_email'\)/, 'the reply reads an email again');
-  const card = read('app/[slug]/_components/guest-account-card.tsx');
-  assert.equal(count(card, /type="email"/), 0, 'the account card asks for an email');
-  assert.doesNotMatch(card, /Check your email|sign-in link/i);
   const save = read('app/[slug]/_components/save-to-account.tsx');
   assert.equal(count(save, /type="email"/), 0, 'Save to my account asks for an email');
   assert.doesNotMatch(save, /Check your email|Sending your link/);
@@ -235,7 +235,6 @@ test('4 · the callback and signUp ask the event question, not the 120-second cl
   const actions = read('app/[slug]/actions.ts');
   const save = actions.slice(actions.indexOf('export async function startAccountSaveAction'));
   assert.match(save.slice(0, save.indexOf('\n}\n')), /next\.set\('next', eventConnectPath\(eventId\)\)/);
-  assert.match(read('app/[slug]/_components/guest-account-card.tsx'), /<SaveToAccount\b/, 'the card no longer uses the one Save');
 });
 
 // ── 5 · no couple welcome email for a guest ──────────────────────────────────

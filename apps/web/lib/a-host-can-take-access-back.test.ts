@@ -31,6 +31,9 @@ import { test } from 'node:test';
 const WEB = join(import.meta.dirname, '..');
 const REPO = join(WEB, '..', '..');
 const ACTIONS = join(WEB, 'app', 'dashboard', '[eventId]', 'access-requests', 'actions.ts');
+// Taking access back moved 2026-10-03: `revokeArea` (above) was retired for
+// `setDelegateArea`, the one door Event Details › People with access calls.
+const AREA_ACTIONS = join(WEB, 'app', 'dashboard', '[eventId]', 'hosts', 'actions.ts');
 const read = (p: string) => readFileSync(p, 'utf8');
 
 function migration(): string {
@@ -87,30 +90,28 @@ test('⛔ the scope is the COUPLE-only helper, never the one that admits a guest
   );
 });
 
-test('the revoke path refuses to report success when it changed nothing', () => {
-  const src = read(ACTIONS);
-  const revoke = src.slice(src.indexOf('export async function revokeArea'));
+test('the take-back path refuses to report success when it changed nothing', () => {
+  const src = read(AREA_ACTIONS);
+  const at = src.indexOf('export async function setDelegateArea');
+  assert.ok(at > 0, 'setDelegateArea is gone — nothing sets or takes back one area');
+  const fn = src.slice(at, src.indexOf('\nexport ', at + 10));
   assert.match(
-    revoke,
-    /\.update\(\{ permissions_json: merged \}\)[\s\S]{0,200}?\.select\(/,
-    'the revoke no longer asks for the rows it changed — a zero-row write reads as success again',
+    fn,
+    /\.update\(\{ permissions_json: permissions[^}]*\}\)[\s\S]{0,200}?\.select\(/,
+    'the take-back no longer asks for the rows it changed — a zero-row write reads as success again',
   );
-  assert.match(
-    revoke,
-    /length === 0[\s\S]{0,300}?ok: false/,
-    'a zero-row revoke no longer returns ok:false',
-  );
+  assert.match(fn, /length === 0[\s\S]{0,300}?ok: false/, 'a zero-row take-back no longer returns ok:false');
   // The sentence a person actually reads must say the access is still shared.
-  assert.match(
-    revoke,
-    /they still have it/i,
-    'the refusal stopped telling the host that the coordinator still has access',
-  );
+  assert.match(fn, /they still have/i, 'the refusal stopped telling the host that the person still has access');
+  // …under the HOST's own session (the policies this file pins), never the
+  // service role, which would make those policies decoration.
+  assert.ok(!/createAdminClient\(\)/.test(fn), 'setDelegateArea writes as the service role — the host policies are bypassed');
+  assert.ok(!/export async function revokeArea/.test(read(ACTIONS)), 'revokeArea is back — a second door that sets access');
 });
 
 test('the grant path does the same', () => {
   const src = read(ACTIONS);
-  const grant = src.slice(src.indexOf('export async function answerAccessRequest'), src.indexOf('export async function revokeArea'));
+  const grant = src.slice(src.indexOf('export async function answerAccessRequest'));
   assert.match(grant, /\.select\(/, 'the upsert stopped asking for the rows it wrote');
   assert.match(grant, /length === 0[\s\S]{0,300}?ok: false/, 'a zero-row grant reads as success');
 });

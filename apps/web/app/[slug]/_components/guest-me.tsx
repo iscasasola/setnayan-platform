@@ -1,7 +1,6 @@
 import type { GuestAccountState } from '@/lib/guest-one-path';
 import type { CelebrantRow } from '@/lib/event-celebrants.server';
 import { EventCelebrants, type CelebrantActions } from './event-celebrants';
-import { NotYouSwitch } from './not-you-switch';
 import { SaveToAccount } from './save-to-account';
 import { YourGuests } from './your-guests';
 import { FaceTaggingRow } from './face-tagging-row';
@@ -13,7 +12,9 @@ import type { InviteEventFacts } from '@/lib/guest-invite-message';
  * ME — the guest's own tab (owner 2026-09-26/27: Invitation bar Home · Details ·
  * RSVP · Story · Me; The Day bar keeps Me). What it holds, in order:
  *
- *   · their name, with "Not you? Switch" under it (a phone a family shares);
+ *   · their name (the way off a phone a family shares is the ONE "Sign out
+ *     of this invitation" at the foot of Me — owner 2026-10-03: "Not you?
+ *     Switch" posted to the same sign-out, a second button for one thing);
  *   · their guests — "Send their invite" each, "Show <name>'s pass" for a
  *     plus-one with no phone, and "Add name" for a TBA seat, which opens the
  *     four boxes IN PLACE (owner 2026-09-29, frame E — never a link back to
@@ -30,7 +31,6 @@ import type { InviteEventFacts } from '@/lib/guest-invite-message';
 export function GuestMe({
   name,
   slug,
-  hasFaceSelfie = false,
   faceTagging = null,
   eventId,
   guestId,
@@ -54,8 +54,6 @@ export function GuestMe({
   slug: string;
   eventId: string;
   /** Whose key this page holds — the bringer, for "Add name" in place. */
-  /** The guest holds a face-tagging selfie — Switch erases it, and says so first (owner 2026-09-30). */
-  hasFaceSelfie?: boolean;
   /** Me → "Face tagging" (the approved face-registration design, frame D). Null
    *  where face tagging is not on offer — no Papic, or switched off (frame F). */
   faceTagging?: {
@@ -93,10 +91,7 @@ export function GuestMe({
 }) {
   return (
     <div className="space-y-6" data-guest-me>
-      <div>
-        <p className="font-serif text-2xl leading-tight text-ink">{name}</p>
-        <NotYouSwitch slug={slug} erasesSelfie={hasFaceSelfie} />
-      </div>
+      <p className="font-serif text-2xl leading-tight text-ink">{name}</p>
       <YourGuests
         guests={guests}
         eventName={eventName}

@@ -2,7 +2,8 @@
 
 /**
  * access-actions.ts — a co-host sets a guest's Access (None · Co-host ·
- * Limited helper).
+ * Limited helper). Called from ONE place since 2026-10-03: Event Details ›
+ * People with access (its row's Access dropdown and its "Add a person").
  *
  * Owner 2026-09-28 (DECISION_LOG "CO-HOSTS COME FROM THE GUEST LIST — FINAL
  * MODEL"): "host can add another host and also remove a host at any point in
@@ -200,6 +201,7 @@ export async function setGuestAccess(
 
   revalidatePath(`/dashboard/${eventId}/guests`);
   revalidatePath(`/dashboard/${eventId}/hosts`);
+  revalidatePath(`/dashboard/${eventId}/details`);
   return {
     ok: true,
     state: guestAccessState({

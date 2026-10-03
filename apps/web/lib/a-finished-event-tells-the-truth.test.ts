@@ -7,7 +7,6 @@ import { fileURLToPath } from 'node:url';
 import { sortScheduleBlocks } from './schedule';
 import { checklistPhaseLabel, CHECKLIST_PHASES, CHECKLIST_PHASES_SHORT } from './checklist';
 import { buildCustomerMenuTree } from './customer-menu';
-import { buildProgressStages, type ProgressStagesInput } from './progress-stages';
 
 /**
  * a-finished-event-tells-the-truth.test.ts
@@ -204,53 +203,5 @@ test('the chip never uses the gold slot for text', () => {
   assert.ok(!/bg-mulberry\//.test(chip), 'an alpha mulberry fill cannot carry mulberry text');
 });
 
-// ── 4 · the After stage stops promising a clock nobody runs ─────────────────
-
-const STAGE_INPUT: ProgressStagesInput = {
-  eventType: 'wedding',
-  ceremonyType: null,
-  eventDate: '2026-01-01',
-  datePrecision: 'day',
-  daysOut: -30,
-  venueName: null,
-  paletteFinalizedAt: null,
-  budgetTargetCentavos: null,
-  guestsTotal: 0,
-  guestsAttending: 0,
-  guestsResponded: 0,
-  lockedVendorCount: 0,
-  totalLockableCategories: 4,
-  seatedGuests: 0,
-  paperworkTotal: 0,
-  paperworkReceived: 0,
-  pendingPaymentCount: 0,
-  activeServiceCount: 0,
-};
-
-test('no stage promises a review window the product does not run', () => {
-  const { stages } = buildProgressStages(STAGE_INPUT);
-  const words = stages.flatMap((s) => [
-    s.aiNote ?? '',
-    ...s.done.map((i) => `${i.label} ${i.detail ?? ''}`),
-    ...s.todo.map((i) => `${i.label} ${i.detail ?? ''}`),
-  ]);
-  for (const w of words) {
-    assert.ok(
-      !/7[\s-]?day/i.test(w),
-      `nothing counts seven days over a gallery anywhere in this product: "${w}"`,
-    );
-  }
-});
-
-test('the After stage still says the true half — the couple releases it', () => {
-  const after = buildProgressStages(STAGE_INPUT).stages.find((s) => s.key === 'after')!;
-  assert.match(after.aiNote ?? '', /when you release it/);
-  assert.match(after.aiNote ?? '', /nothing goes public without you/);
-});
-
-test('the After percentage is derived from its own items, not hardcoded', () => {
-  assert.ok(
-    !/const afterPct = 0;/.test(code('lib/progress-stages.ts')),
-    'a stub that ignores its own items reads as a measurement and is not one',
-  );
-});
+// 4 · the journey rail's After stage left with the rail itself (owner 2026-10-03: the
+// stage line is dropped — the countdown is on the first screen).

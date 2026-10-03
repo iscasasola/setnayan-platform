@@ -1,6 +1,7 @@
 'use client';
 
 import { useRoleNames } from './role-names-context';
+import { isWhiteSpaceTap } from './row-tap';
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -114,6 +115,7 @@ export {
 } from '@/lib/bulk-role-vocabulary';
 import {
   buildRosterSections,
+  foldSections,
   groupingKeyOf,
   type ArrangeCtx,
   type ArrangeKey,
@@ -329,8 +331,8 @@ function DesktopRow({
       /* "Open · click anywhere on the row" (frame F): a click that lands on no
          control of its own opens the card, through the name's own trigger. */
       onClick={(e) => {
-        const t = e.target as HTMLElement;
-        if (t.closest('a,button,input,label,select,textarea,[role="menu"],[role="dialog"],[data-sheet]')) return;
+        // The same rule as the phone card's white space (row-tap.ts) — one rule.
+        if (!isWhiteSpaceTap(e.target, e.currentTarget)) return;
         openRef.current?.querySelector<HTMLAnchorElement>('a.sn-guest-namelink')?.click();
       }}
       title="Open · click anywhere on the row"
@@ -1023,7 +1025,8 @@ export function GuestListMultiselect({
   // Sections derived from the sort control (redesign Phase 1): role tiers
   // (importance · default), by-side, or one flat grid. Built from the already-
   // sorted `guests`, so order within a section holds + the couple-pin survives.
-  const sections = useMemo(() => {
+  // Built WHOLE — what is folded is applied once, below (`foldSections`).
+  const builtSections = useMemo(() => {
     const groupKey = groupingKeyOf(grouping);
     // No grouping is a real answer: one list, no headings. The honoree still
     // leads it, because the PIN lives in the sort (page.tsx sortCompare), not
@@ -1111,7 +1114,7 @@ export function GuestListMultiselect({
         // should be able to make the content of that grouping collapse and
         // expand like an accordion." Pinned means FIRST, not always-open: a
         // folded honoree heading is still the first heading on the list.
-        guests: collapsed.has('honoree') ? [] : honorees,
+        guests: honorees,
         pinned: true,
       });
     }
@@ -1128,7 +1131,7 @@ export function GuestListMultiselect({
         label: sec.label === null ? null : sectionHeadingInTheirWords(sec.label, roleNames),
         mobileCols: 'grid-cols-2',
         count: sec.count,
-        guests: collapsed.has(sec.key) ? [] : sec.guests,
+        guests: sec.guests,
       });
     }
     return out;
@@ -1139,9 +1142,13 @@ export function GuestListMultiselect({
     groupMemberships,
     groupsById,
     seatByGuest,
-    collapsed,
     roleNames,
   ]);
+  // ⚖ EVERY HEADING FOLDS, THE PINNED HONOREE TOO (measured live 2026-10-03:
+  // "Bride & Groom" flipped aria-expanded and its cards stayed). ONE place
+  // empties a folded section — the same line for every key — and both the
+  // table and the phone list render only from `sections`.
+  const sections = useMemo(() => foldSections(builtSections, collapsed), [builtSections, collapsed]);
 
   return (
     <GuestListFinalizedContext.Provider value={listFinalized}>
@@ -1780,7 +1787,16 @@ function MobileListRow({
           longPressed.current = false;
         }
       }}
-      className={`relative select-none overflow-hidden rounded-xl border bg-cream px-3 py-3 ${
+      onClick={(e) => {
+        // ⚖ Owner 2026-10-03: a tap on the card's white space opens the guest
+        // card — the SAME trigger as the name (so the same panel, the same
+        // way) — and every control on the row keeps its own tap (row-tap.ts).
+        // While picking rows, white space ticks the row instead.
+        if (!isWhiteSpaceTap(e.target, e.currentTarget)) return;
+        if (selectMode) onToggle();
+        else e.currentTarget.querySelector<HTMLElement>('[data-row-name]')?.click();
+      }}
+      className={`relative cursor-pointer select-none overflow-hidden rounded-xl border bg-cream px-3 py-3 ${
         selected ? 'border-[var(--sn-gold-500,#b8923a)] bg-[var(--sn-gold-100)]' : 'border-ink/10'
       } ${bringer ? 'ml-5' : ''}`}
       data-guest-row=""
@@ -1819,6 +1835,7 @@ function MobileListRow({
             <InspectorTrigger
               inspectId={guest.guest_id}
               href={`/dashboard/${eventId}/guests/${guest.guest_id}`}
+              data-row-name=""
               className="block min-w-0 truncate rounded-md text-left font-display text-[16px] leading-snug text-ink"
             >
               {shownName}

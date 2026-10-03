@@ -88,7 +88,7 @@ test('(2) a Buttons choice reaches the rendered Reply button’s CSS', async () 
   const from = loaders.slice(loaders.indexOf('export function guestLookFrom'));
   assert.match(from, /resolveHubButtons\(\{\s*style: event\.site_button_style,\s*colour: event\.site_button_color,/);
   assert.match(from, /page: hubButtonPage\(theme, painted\)/, 'the buttons are not measured against the painted page');
-  assert.match(from, /return \{[\s\S]*?\bbuttons,\s*\}/, 'the look leaves the loader without its buttons');
+  assert.match(from, /vars: painted,\s*buttons,/, 'the look leaves the loader without its buttons');
 
   // b · the one translation hands the scope both attributes and the custom properties.
   const scopeProps = read('app/[slug]/_components/host-draft-look.tsx');

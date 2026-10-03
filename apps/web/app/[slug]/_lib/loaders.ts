@@ -310,8 +310,8 @@ export function guestLookFrom(
     art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
     accent: hub.accent,
     vars: painted,
-    ombre,
     buttons,
+    ombre,
   };
 }
 

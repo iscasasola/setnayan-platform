@@ -111,6 +111,7 @@ const HELD_REASON: Record<HubDraftRefusal, string> = {
   missing_section: 'no longer exists',
   date_in_past: 'has already gone by — pick a day ahead; it stays in your draft',
   date_locked: 'clashes with a supplier you booked — ask them to move or unlock in Details › Date; it stays in your draft',
+  needs_a_day: 'needs your day first — pick it in Details › Date; it stays in your draft',
 };
 
 function useDraftIntent(eventId: string) {

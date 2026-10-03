@@ -46,15 +46,35 @@ export function AddressPinField({
   disabled,
   initialAddress,
   initialPin,
+  hideHints = false,
+  onChange,
 }: {
   id?: string;
   required?: boolean;
   disabled?: boolean;
   initialAddress?: string;
   initialPin?: LatLng | null;
+  /**
+   * 🧭 THE MAKER DRAWS NO CAPTIONS UNDER ITS CONTROLS (the approved B4 design,
+   * `maker_venues_pin_and_time_2026-10-04_fable.html`): the field's two small
+   * hint lines — the one under the address and the unpinned "Drag the map…"
+   * line — are not drawn, and the label is kept for screen readers only. The
+   * "Pinned at …" line stays: it IS the pin. Default (every other caller): shown.
+   */
+  hideHints?: boolean;
+  /** The address and the pin, every time either changes — for a caller with no form (the Maker's draft). */
+  onChange?: (next: { address: string; pin: LatLng | null }) => void;
 }) {
-  const [address, setAddress] = useState(initialAddress ?? '');
-  const [pin, setPin] = useState<LatLng | null>(initialPin ?? null);
+  const [address, setAddressState] = useState(initialAddress ?? '');
+  const [pin, setPinState] = useState<LatLng | null>(initialPin ?? null);
+  const setAddress = (next: string) => {
+    setAddressState(next);
+    onChange?.({ address: next, pin });
+  };
+  const setPin = (next: LatLng | null) => {
+    setPinState(next);
+    onChange?.({ address, pin: next });
+  };
   const [locating, startLocating] = useTransition();
   const [note, setNote] = useState<string | null>(null);
 
@@ -81,7 +101,7 @@ export function AddressPinField({
     <div className="space-y-1.5">
       <label
         htmlFor={id}
-        className="block text-xs font-medium uppercase tracking-[0.08em] text-ink/65"
+        className={hideHints ? 'sr-only' : 'block text-xs font-medium uppercase tracking-[0.08em] text-ink/65'}
       >
         {required ? 'Exact address' : 'Address'}
         {required ? <span className="ml-0.5 text-terracotta-700">*</span> : null}
@@ -117,9 +137,11 @@ export function AddressPinField({
         </button>
       </div>
 
-      <p className="text-[10px] text-ink/45">
-        {required ? MANUAL_VENUE_ADDRESS_HINT : 'Optional — handy for a commissary or studio.'}
-      </p>
+      {hideHints ? null : (
+        <p className="text-[10px] text-ink/45">
+          {required ? MANUAL_VENUE_ADDRESS_HINT : 'Optional — handy for a commissary or studio.'}
+        </p>
+      )}
 
       <div className="sn-addman-field overflow-hidden rounded-md border border-ink/15">
         <BranchPinMap
@@ -141,12 +163,14 @@ export function AddressPinField({
         </>
       ) : null}
 
-      <p className="flex items-center gap-1 text-[10px] text-ink/45">
-        <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.9} />
-        {pin
-          ? `Pinned at ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)} — drag the map to adjust.`
-          : 'Drag the map so the crosshair sits on the entrance. Optional.'}
-      </p>
+      {pin || !hideHints ? (
+        <p className="flex items-center gap-1 text-[10px] text-ink/45" data-pin-line="">
+          <MapPin aria-hidden className="h-3 w-3" strokeWidth={1.9} />
+          {pin
+            ? `Pinned at ${pin.lat.toFixed(5)}, ${pin.lng.toFixed(5)} — drag the map to adjust.`
+            : 'Drag the map so the crosshair sits on the entrance. Optional.'}
+        </p>
+      ) : null}
 
       {note ? <p className="text-[11px] text-warn-800">{note}</p> : null}
     </div>

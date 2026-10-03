@@ -87,6 +87,7 @@ import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
 import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
+import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
 import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
@@ -1090,11 +1091,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       let storyRaw: unknown = storyLiveRes.error ? null : (storyLiveRes.data as { love_story?: unknown } | null)?.love_story;
       // 🎨 The Look's "done" marks read the draft over live too (Details part 3).
       let draftedEvents: Record<string, unknown> = {};
+      // 🏛 The venue cards' source and photo, drafted (owner 2026-10-04: venues wait for Apply).
+      let draftedVenue: unknown = null;
       // 🔳 The QR look being edited — drafted over live (owner 2026-09-29, "yes to all 3").
       let qrPrefs: unknown = printEvent.style_preferences;
       try {
         const d = await readHubDraft(supabase, eventId);
         if (d) draftedEvents = d.events as Record<string, unknown>;
+        if (d) draftedVenue = d.widgets.venue_map?.venue ?? null;
         if (d && 'invite_theme' in d.events) themeSaved = d.events.invite_theme;
         if (d && 'love_story' in d.events) storyRaw = d.events.love_story;
         if (d && 'style_preferences' in d.events) qrPrefs = d.events.style_preferences;
@@ -1139,6 +1143,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         ownsPro: printPro,
         storeShell,
         previewVersion: printInputs ? printPreviewVersion({ printInputs, ownsPro: printPro, storeShell }) : null,
+        /* ✍ The drafted facts the previews draw (names, date, 🕒 ceremony time) —
+           named in each preview's address, so the invitation shows them before Apply. */
+        draftVersion: (() => {
+          const printed = printDraftOf(draftedEvents);
+          return printed ? printPreviewVersion({ draft: printed }) : null;
+        })(),
         /* The Our Story poster prints the Love Story — the same read the print uses. */
         storyEmpty: !storyHasMoments(printStoryChapters(printEvent.love_story)),
         /* 🎫 The pass guests save — its saved look and the couple's zip's name. */
@@ -1186,8 +1196,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         parentCount: printParents.length,
         hostCount: rsvpHosts.length,
         helpFirst: one(search.date) === 'help',
-        // ✍ The names and the date as the couple is editing them (drafted until Apply).
+        // ✍ The names, the date and the venues as the couple is editing them (drafted until Apply).
         drafted: draftedEvents,
+        draftedVenue,
       }).catch((e: unknown) => {
         console.error('[details] your event could not be read:', e instanceof Error ? e.message : e);
         return null;

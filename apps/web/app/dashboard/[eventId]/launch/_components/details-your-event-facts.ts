@@ -8,7 +8,7 @@ import { loadVenueBookings, resolveEventVenues } from '@/lib/event-venues';
 import { resolveProfile, resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import type { EventDatePrecision } from '@/lib/events';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { HUB_DRAFT_FACT_COLUMNS } from '@/lib/hub-draft';
+import { HUB_DRAFT_FACT_COLUMNS, HUB_DRAFT_VENUE_COLUMNS } from '@/lib/hub-draft';
 
 /**
  * ⚡ THE FACTS, APART FROM THE PAGES THAT DRAW THEM. \`readYourEventFacts\` is read
@@ -25,6 +25,7 @@ const YOUR_EVENT_COLUMNS =
   'event_type, display_name, bride_name, groom_name, region, mood_feel_key, event_date, event_date_precision, ' +
   'ceremony_type, secondary_ceremony_type, std_invitation_launch_date, ' +
   'std_film_ceremony_name, std_film_venue_name, std_film_venue_city, ceremony_venue_address, ' +
+  'ceremony_venue_latitude, ceremony_venue_longitude, ' +
   'venue_name, venue_address, venue_latitude, venue_longitude';
 
 type Row = {
@@ -43,6 +44,8 @@ type Row = {
   std_film_venue_name: string | null;
   std_film_venue_city: string | null;
   ceremony_venue_address: string | null;
+  ceremony_venue_latitude: number | string | null;
+  ceremony_venue_longitude: number | string | null;
   venue_name: string | null;
   venue_address: string | null;
   venue_latitude: number | string | null;
@@ -68,6 +71,7 @@ export async function readYourEventFacts({
   parentCount,
   hostCount,
   drafted,
+  draftedVenue,
 }: {
   admin: SupabaseClient;
   eventId: string;
@@ -80,6 +84,8 @@ export async function readYourEventFacts({
    * Omitted = the live row (what a guest reads).
    */
   drafted?: Record<string, unknown>;
+  /** 🏛 The draft's Venue-scene card choices (`widgets.venue_map.venue`) — shown as drafted. */
+  draftedVenue?: unknown;
 }) {
   const rowRes = await admin.from('events').select(YOUR_EVENT_COLUMNS).eq('event_id', eventId).maybeSingle();
   if (rowRes.error || !rowRes.data) {
@@ -87,14 +93,15 @@ export async function readYourEventFacts({
     return null;
   }
   const row = { ...(rowRes.data as unknown as Row) };
-  for (const c of HUB_DRAFT_FACT_COLUMNS) {
+  // 📍 …and the venues typed in the Maker (owner 2026-10-04: venues wait for Apply too).
+  for (const c of [...HUB_DRAFT_FACT_COLUMNS, ...HUB_DRAFT_VENUE_COLUMNS]) {
     if (drafted && c in drafted) (row as Record<string, unknown>)[c] = drafted[c];
   }
 
   const [profile, roleSet, bookings, groups] = await Promise.all([
     resolveProfile(row.event_type ?? 'wedding'),
     resolveRoleSetForEvent(eventId),
-    loadVenueBookings(admin, eventId),
+    loadVenueBookings(admin, eventId, draftedVenue ?? undefined),
     loadEntourage(admin, eventId),
   ]);
   const words = eventWordsFromProfile(profile);

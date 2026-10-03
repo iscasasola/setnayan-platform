@@ -97,7 +97,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
           matrix: Promise.resolve(null),
           nudge: null,
         },
-        venues: { resolved: [], slots: [], city: null, launchDate: null },
+        venues: { resolved: [], slots: [], city: null },
         march: { sections: [], panel: null },
       }
     : null;

@@ -16,6 +16,8 @@ import { joinersFor, swapsFor } from '@/lib/march-moves';
 import { readYourEventFacts } from './details-your-event-facts';
 import { loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
+import { coord } from '@/lib/event-venues';
+import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
 
 /**
  * Everything Details › Your event reads, for the couple's own Maker (Details
@@ -35,6 +37,7 @@ export async function loadYourEvent({
   hostCount,
   helpFirst = false,
   drafted,
+  draftedVenue,
 }: {
   supabase: SupabaseClient;
   admin: SupabaseClient;
@@ -47,13 +50,19 @@ export async function loadYourEvent({
   helpFirst?: boolean;
   /** The Event Hub draft's `events` columns — the names and the date are shown as drafted. */
   drafted?: Record<string, unknown>;
+  /** 🏛 The draft's Venue-scene card choices — the venues are shown as drafted. */
+  draftedVenue?: unknown;
 }): Promise<YourEventInput | null> {
-  const [base, confirmedVendorCount, nameStyle] = await Promise.all([
-    readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted }),
+  const [base, confirmedVendorCount, nameStyle, liveCeremonyTime] = await Promise.all([
+    readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted, draftedVenue }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
     // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
     loadEventNameStyle(admin, eventId),
+    // 🕒 The Schedule's Ceremony start (owner 2026-10-04) — unread is "none yet", never a guess written back.
+    readLiveCeremonyTime(admin, eventId).catch(() => null),
   ]);
+  const ceremonyTime =
+    drafted && typeof drafted.ceremony_time === 'string' ? drafted.ceremony_time : liveCeremonyTime;
   /* …shown as DRAFTED when the couple picked one in the Maker (owner 2026-10-01,
      "in event hub maker will only take effect when pressed apply"). */
   const shownNameStyle = drafted && 'print_details' in drafted ? nameStyleOfPrintDetails(drafted.print_details) : nameStyle;
@@ -87,6 +96,11 @@ export async function loadYourEvent({
         )
       ).filter((e): e is [string, string] => Boolean(e[1])),
     );
+  const pinOf = (lat: unknown, lng: unknown) => {
+    const la = coord(lat);
+    const lo = coord(lng);
+    return la != null && lo != null ? { lat: la, lng: lo } : null;
+  };
   const slotFor = async (
     slot: VenueSlotKey,
     base: Omit<VenueSlot, 'slot' | 'booked' | 'choice' | 'photoUrls'>,
@@ -97,7 +111,9 @@ export async function loadYourEvent({
     return {
       ...base,
       slot,
-      booked: b ? { name: b.name, address: b.address, photos: (b.photos ?? []).filter((r) => photoUrls[r]) } : null,
+      booked: b
+        ? { name: b.name, address: b.address, photos: (b.photos ?? []).filter((r) => photoUrls[r]), pin: pinOf(b.latitude, b.longitude) }
+        : null,
       choice,
       photoUrls,
     };
@@ -105,27 +121,27 @@ export async function loadYourEvent({
   const slots: VenueSlot[] = words.twoPeople
     ? await Promise.all([
         slotFor('ceremony', {
-          field: 'filmCeremonyName',
           label: VENUE_ROLE_LABEL.ceremony,
+          columns: CEREMONY_COLUMNS,
           typed: row.std_film_ceremony_name ?? '',
-          addressField: 'ceremonyAddress',
           address: row.ceremony_venue_address ?? '',
+          pin: pinOf(row.ceremony_venue_latitude, row.ceremony_venue_longitude),
         }),
         slotFor('reception', {
-          field: 'filmVenueName',
           label: VENUE_ROLE_LABEL.reception,
+          columns: RECEPTION_COLUMNS,
           typed: row.std_film_venue_name ?? '',
-          addressField: 'venueAddress',
           address: row.venue_address ?? '',
+          pin: pinOf(row.venue_latitude, row.venue_longitude),
         }),
       ])
     : [
         await slotFor('reception', {
-          field: 'filmVenueName',
           label: 'Venue',
+          columns: RECEPTION_COLUMNS,
           typed: row.std_film_venue_name ?? '',
-          addressField: 'venueAddress',
           address: row.venue_address ?? '',
+          pin: pinOf(row.venue_latitude, row.venue_longitude),
         }),
       ];
 
@@ -153,12 +169,12 @@ export async function loadYourEvent({
       matrix,
       nudge: chinese ? <ChineseSpecialistNudge /> : null,
       helpFirst,
+      ceremonyTime,
     },
     venues: {
       resolved: venues,
       slots,
       city: mayShowStdFilm ? (row.std_film_venue_city ?? '') : null,
-      launchDate: row.std_invitation_launch_date,
     },
     march: {
       sections: marchSections(groups),
@@ -166,6 +182,20 @@ export async function loadYourEvent({
     },
   };
 }
+
+/** 📍 Where each venue card's own details draft into (`HUB_DRAFT_VENUE_COLUMNS`). */
+const CEREMONY_COLUMNS = {
+  name: 'std_film_ceremony_name',
+  address: 'ceremony_venue_address',
+  lat: 'ceremony_venue_latitude',
+  lng: 'ceremony_venue_longitude',
+} as const;
+const RECEPTION_COLUMNS = {
+  name: 'std_film_venue_name',
+  address: 'venue_address',
+  lat: 'venue_latitude',
+  lng: 'venue_longitude',
+} as const;
 
 /**
  * The march as the three parts need it: every section and line in walking

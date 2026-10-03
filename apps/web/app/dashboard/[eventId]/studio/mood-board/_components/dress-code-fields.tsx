@@ -9,7 +9,7 @@ import { roleLabel } from '@/lib/entourage';
 import type { GuestRole } from '@/lib/guests';
 import { ListField } from './list-field';
 import { InfoTip } from '@/app/_components/info-tip';
-import type { DressCodeConfig } from '../actions';
+import type { DressCodeConfig } from '../dress-code-actions';
 
 /**
  * The dress-code form BODY, shared by its own editor page and the unified

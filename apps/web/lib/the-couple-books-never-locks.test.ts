@@ -94,7 +94,6 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'lib/home-first-screen.ts', why: "the date's own lock" },
   { prefix: 'lib/planner.ts', why: 'planner nudges to fix the event date and the table count' },
   { prefix: 'lib/wedding-roadmap.ts', why: "the date's own lock" },
-  { prefix: 'lib/progress-stages.ts', text: /Lock your exact date/, why: "the date's own lock" },
   { prefix: 'lib/checklist.ts', text: /locked date|Lock your date/, why: "the date's own lock" },
   { prefix: 'lib/checklist-event-type-defs.ts', why: 'lock the time of a non-wedding event' },
   { prefix: 'lib/onboarding/specialty-recommendations.ts', text: /lock the reunion date|lock the date to their trip/, why: "the date's own lock" },

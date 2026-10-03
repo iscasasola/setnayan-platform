@@ -75,3 +75,23 @@ test('nothing on the Guest list page claims ⌘K any more — the top bar owns i
   walk(GUESTS);
   assert.deepEqual(offenders, [], 'a Guest list component claims ⌘K — two owners on one page');
 });
+
+/**
+ * ⚖ Owner 2026-10-03 (screenshots: "VIP" and "Bestman" found nobody): ONE
+ * matcher answers the search — `guestMatchesSearch` in lib/guest-search.ts,
+ * table-tested in lib/guest-search.test.ts. The top bar writes `?q=` through
+ * the roster's own writer (above); the page must answer that `?q=` with the one
+ * matcher, never an inline `haystack.includes(q)` of its own.
+ *
+ * 🛡 Sabotaged (see the PR): putting the inline `haystack.includes(q)` back in
+ * the page's filter turns this red.
+ */
+test('the top bar\'s ?q= is answered by the ONE guest matcher', () => {
+  const page = read(join(GUESTS, 'page.tsx'));
+  const live = read(join(GUESTS, '_components', 'live-search.tsx'));
+  assert.match(live, /params\.set\('q', trimmed\)/, 'the top bar no longer writes ?q=');
+  assert.match(page, /const q = \(search\.q \?\? ''\)/, 'the page no longer reads ?q=');
+  assert.match(page, /import \{ guestMatchesSearch \} from '@\/lib\/guest-search';/, 'the page lost the one guest matcher');
+  assert.match(page, /!guestMatchesSearch\(q, g, \{/, 'the page filters ?q= without the one guest matcher');
+  assert.doesNotMatch(page, /haystack|\.includes\(q\)/, 'a second, inline guest matcher is back in the page');
+});

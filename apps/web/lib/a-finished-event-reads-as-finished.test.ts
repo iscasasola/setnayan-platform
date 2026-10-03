@@ -317,7 +317,9 @@ test('the planning dashboard stops stating things that are no longer true', () =
   // The specific statements, each one asserted at its own site.
   assert.match(dash, /marketplaceEnabled && !eventHasHappened/, "today's one thing");
   assert.match(dash, /!eventHasHappened \|\| g\.id === 'pay'/, 'the book/pick/role groups');
-  assert.match(dash, /\{eventHasHappened \? null : \(\s*<>/, 'the % planned bar');
+  // (The "% planned" / "% locked in" gold bar this line used to pin was deleted outright —
+  //  owner 2026-10-03 — so there is nothing left for the phase to gate.)
+  assert.doesNotMatch(dash, /lockedInPct/, 'the locked-share bar is back');
   assert.match(dash, /eventHasHappened \? 'Still open' : 'Needs you this week'/);
   /*
     ⚠ THIS ASSERTION MOVED WITH ITS MECHANISM (2026-09-22), it was not relaxed.
@@ -335,7 +337,7 @@ test('the planning dashboard stops stating things that are no longer true', () =
   assert.equal(
     page.split('lifecyclePhase={lifecyclePhase}').length - 1,
     3,
-    'all three EventDashboard mounts must be told',
+    'all three EventDashboard mounts (day-of, after the day, the What\'s next sheet) must be told',
   );
 });
 

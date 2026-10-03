@@ -1673,14 +1673,20 @@ h2.fd-sechead,
    The cover is the event's LOOK (owner 2026-10-03, "it should have adjusted"):
    the dashboard card's own cover — hero photo → Save-the-Date background →
    the theme's still — from `resolveEventPoster`, read only for a listed public
-   event; the mark as a typographic hero when it has chosen none, and always
-   underneath, so a picture that fails to load shows the mark.
+   event; with no picture, the dashboard's paper invitation card
+   (`<EventPoster>`, ruling A); the mark always underneath, so a picture that
+   fails to load shows the mark.
 
    🔑 `.fd-act` IS RAISED ABOVE THE TITLE'S STRETCH, the same stacking rule as
    `.fd-chan`. Drop its z-index and "Ask to join" still looks like a button and
    presses the card instead. */
+/* 🃏 3:4, THE DASHBOARD POSTER'S SHAPE (owner 2026-10-03, ruling A): a card
+   with no picture draws the dashboard's paper invitation card, whose words
+   cannot fit a 16:9 strip. Every event card takes the shape so a shelf's rows
+   stay even. */
 .fd-up .fd-thumb-event,
 .fd-thumb-event {
+  aspect-ratio: 3 / 4;
   background: linear-gradient(160deg, #efe6d6, #dccdb4);
 }
 .fd-mono-cover {
@@ -1699,6 +1705,20 @@ h2.fd-sechead,
 }
 .fd-event-scrim {
   background: var(--hub-scrim, transparent);
+}
+/* The paper card fills the cover. `.fd-thumb` sets a wide placeholder
+   letter-spacing the poster's type must not inherit, and `.fd-thumb img`
+   stretches every image to the box — the mark in the card's circle keeps the
+   poster's own 80 % / contain (`.circ img`, event-poster.module.css). */
+.fd-paper {
+  position: absolute;
+  inset: 0;
+  letter-spacing: normal;
+}
+.fd-thumb .fd-paper img {
+  width: 80%;
+  height: 80%;
+  object-fit: contain;
 }
 .fd-date {
   position: absolute;

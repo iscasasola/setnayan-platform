@@ -14,6 +14,9 @@ import { renderableImageSrc } from '@/lib/event-card-art';
 import { resolveHero } from '@/lib/event-hero';
 import { sceneCoverFor, type SceneCover } from '@/lib/event-poster';
 import { resolveEventPoster } from '@/lib/event-poster.server';
+import { resolveMonogram } from '@/lib/monogram';
+import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { logoPlaysFor } from '@/lib/logo-plays.server';
 import {
   DISCOVER_CAPS,
   pickViewerRegion,
@@ -21,6 +24,7 @@ import {
   selectPeopleToFollow,
   type DiscoverEventCard,
   type DiscoverEventRow,
+  type DiscoverPaper,
   type DiscoverHost,
   type DiscoverRelation,
   type PersonCandidate,
@@ -279,9 +283,13 @@ async function readHosts(
   return out;
 }
 
-/** Every column `resolveEventPoster` reads, plus the hero photo it is handed. */
+/**
+ * Every column `resolveEventPoster` reads, plus the hero photo it is handed and
+ * the two logo columns the paper card's mark is resolved from
+ * (`resolveEventMonogramSvg` — custom, then uploaded; both read, always).
+ */
 const COVER_COLUMNS =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url';
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, monogram_custom_svg, monogram_uploaded_svg';
 
 type CoverRow = {
   event_id: string;
@@ -294,6 +302,8 @@ type CoverRow = {
   invite_theme: string | null;
   std_background: unknown;
   landing_page_hero_image_url: string | null;
+  monogram_custom_svg: string | null;
+  monogram_uploaded_svg: string | null;
 };
 
 /**
@@ -305,6 +315,11 @@ type CoverRow = {
  * and the Maker ask (hero photo → Save-the-Date background, Pro-gated by the
  * hub → the theme's still) — and narrowed by `sceneCoverFor`, the form a card
  * with its words printed beside the picture (not on it) wears.
+ *
+ * 🃏 NO PICTURE → THE PAPER CARD. An `invitation` poster (Classic, no hero —
+ * Classic never shows a photo) has no picture to wear, so the card draws the
+ * dashboard's own paper invitation card from the SAME poster facts (owner
+ * 2026-10-03, ruling A). A wake keeps its mark.
  *
  * ⛔ ONLY THE SHELVED CARDS. This runs AFTER `selectDiscoverShelves`, on the
  * ≤ 20 cards that passed the allow-list, so no event that is not public and
@@ -320,6 +335,7 @@ async function dressCards(admin: Admin, cards: DiscoverEventCard[]): Promise<voi
     return;
   }
   const scenes = new Map<string, SceneCover>();
+  const papers = new Map<string, DiscoverPaper>();
   await Promise.all(
     ((data ?? []) as unknown as CoverRow[]).map(async (r) => {
       // The column is host-writable; only a real image URL reaches an <img>.
@@ -341,10 +357,25 @@ async function dressCards(admin: Admin, cards: DiscoverEventCard[]): Promise<voi
         heroSrc,
       ).catch(() => null);
       const scene = sceneCoverFor(poster);
-      if (scene) scenes.set(r.event_id, scene);
+      if (scene) {
+        scenes.set(r.event_id, scene);
+      } else if (poster?.kind === 'invitation') {
+        // SEC-3: both logo columns are host-writable — read through the gate.
+        const markSvg = resolveEventMonogramSvg(r);
+        papers.set(r.event_id, {
+          poster,
+          markText: resolveMonogram(r).text,
+          markSvg,
+          // A logo that does not move costs no read (`logoPlaysFor`).
+          markPlays: await logoPlaysFor(r.event_id, markSvg).catch(() => false),
+        });
+      }
     }),
   );
-  for (const c of cards) c.scene = scenes.get(c.key) ?? null;
+  for (const c of cards) {
+    c.scene = scenes.get(c.key) ?? null;
+    c.paper = papers.get(c.key) ?? null;
+  }
 }
 
 async function readTypeLabels(): Promise<Map<string, string>> {

@@ -8,9 +8,11 @@
  *
  * Held here:
  *   1. RENDERED — a card whose event has a hero photo draws that photo (the
- *      shelves' own card, `DiscoverEventCard`), the mark still
- *      under it; a card with no look draws the mark alone; a wake never wears
- *      a photo; a theme's still keeps the hub scrim.
+ *      shelves' own card, `DiscoverEventCard`), the mark still under it; a
+ *      Classic public event with no hero draws the dashboard's PAPER
+ *      INVITATION CARD (owner 2026-10-03, ruling A) — never in place of a
+ *      photo; a card whose look could not be read draws the mark alone; a wake
+ *      never wears a photo or the card; a theme's still keeps the hub scrim.
  *   2. ONE RESOLVER — the cover is the dashboard card's: the loader asks
  *      `resolveEventPoster` and narrows with `sceneCoverFor`, never a second
  *      order; and it reads the hero + the Save-the-Date background it needs.
@@ -28,11 +30,21 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
 import { posterFor, sceneCoverFor } from './event-poster';
 import { selectDiscoverShelves, type DiscoverEventCard, type DiscoverEventRow } from './discover-events-core';
-import { DiscoverEventCard as EventCard } from '../app/_components/frontdoor/discover-event-card';
-import { DiscoverEventCover } from '../app/_components/frontdoor/discover-event-cover';
+import Module from 'node:module';
 
 // The components compile to classic `React.createElement` under tsx.
 (globalThis as unknown as { React: unknown }).React = React;
+
+// The paper card is `<EventPoster>`, whose styles are a CSS module. Outside Next
+// a `.css` import cannot load, so each class name maps to itself — the markup
+// is what is asserted, never the stylesheet.
+(Module as unknown as { _extensions: Record<string, (m: { exports: unknown }) => void> })._extensions['.css'] = (m) => {
+  const classes = new Proxy({}, { get: (_t, k) => (typeof k === 'string' ? k : undefined) });
+  m.exports = { __esModule: true, default: classes };
+};
+// Loaded AFTER the `.css` hook above, so not a static import.
+const { DiscoverEventCard: EventCard } = require('../app/_components/frontdoor/discover-event-card') as typeof import('../app/_components/frontdoor/discover-event-card');
+const { DiscoverEventCover } = require('../app/_components/frontdoor/discover-event-cover') as typeof import('../app/_components/frontdoor/discover-event-cover');
 
 const HERO = 'https://r2.example/hero/cale-ice.webp';
 const STILL = 'https://media.example/velvet-poster.jpg';
@@ -60,6 +72,7 @@ function card(over: Partial<DiscoverEventCard> = {}): DiscoverEventCard {
     datePlate: 'Sat 12 Dec',
     cover: 'C&I',
     scene: null,
+    paper: null,
     host: null,
     regionLabel: null,
     relation: null,
@@ -88,8 +101,37 @@ test('a Discover card whose event has a hero photo renders that photo', () => {
   assert.ok(html.indexOf('fd-date') > html.indexOf(HERO), 'the date plate must follow the photo');
 });
 
-test('a card whose event has chosen no look keeps the monogram, and nothing else', () => {
-  assert.equal(sceneCoverFor(poster()), null, 'an event with nothing chosen must fall back to the mark');
+/** What the loader hands the card for an `invitation` poster (`dressCards`). */
+const paperOf = (p: ReturnType<typeof posterFor>) => ({ poster: p, markText: 'C & I', markSvg: null, markPlays: false });
+
+test('a Classic public event with no hero draws the dashboard\'s paper invitation card on Discover', () => {
+  // cale-ice in production, 2026-10-03: Classic, no hero photo, a Save-the-Date
+  // background that Classic never shows. The poster is the invitation card.
+  const p = poster({ theme: 'house', heroSrc: null, backgroundSrc: null, eventDate: '2026-12-18' });
+  assert.equal(p.kind, 'invitation');
+  assert.equal(sceneCoverFor(p), null, 'Classic must not wear a picture');
+  const html = shelves([card({ paper: paperOf(p) })]);
+  assert.match(html, /data-discover-cover="paper"/, 'the card did not take the paper cover');
+  assert.match(html, /class="fd-paper"/);
+  // The dashboard card's own words, from the same poster facts: the names,
+  // the mark in its circle, and the date.
+  assert.match(html, />Cale</, 'the first name is not on the card');
+  assert.match(html, />Ice</, 'the second name is not on the card');
+  assert.match(html, />C &amp; I</, 'the mark is not in the card');
+  assert.match(html, /18 December 2026/, 'the date is not on the card');
+  assert.doesNotMatch(html, /<img/, 'a Classic card drew a picture');
+  // The date plate is still on top of the card.
+  assert.ok(html.indexOf('fd-date') > html.indexOf('fd-paper'), 'the date plate must follow the card');
+});
+
+test('the paper card never displaces a picture', () => {
+  const scene = sceneCoverFor(poster({ heroSrc: HERO }));
+  const html = shelves([card({ scene, paper: paperOf(poster()) })]);
+  assert.match(html, /data-discover-cover="hero"/);
+  assert.doesNotMatch(html, /fd-paper/);
+});
+
+test('a card whose look could not be read keeps the monogram, and nothing else', () => {
   const html = shelves([card()]);
   assert.match(html, /data-discover-cover="mark"/);
   assert.match(html, /class="fd-mono-cover"[^>]*>C&amp;I</);
@@ -138,10 +180,26 @@ test("the cover is the dashboard card's: resolveEventPoster → sceneCoverFor, n
   assert.match(LOADER, /logQueryError\('discover-events\.covers'/, 'a refused cover read must be logged');
 });
 
+test('the paper card is drawn by <EventPoster> from the same poster, only for an invitation poster', () => {
+  assert.match(LOADER, /else if \(poster\?\.kind === 'invitation'\)/, 'the paper card must be the invitation poster only');
+  assert.match(LOADER, /resolveEventMonogramSvg\(r\)/, 'the mark must be read through the gate');
+  assert.match(LOADER, /logoPlaysFor\(r\.event_id, markSvg\)/);
+  const cols = /const COVER_COLUMNS =\s*'([^']*)'/.exec(LOADER)?.[1] ?? '';
+  for (const c of ['monogram_custom_svg', 'monogram_uploaded_svg']) {
+    assert.match(cols, new RegExp(`\\b${c}\\b`), `the cover read dropped ${c}`);
+  }
+  const COVER = stripComments(readFileSync(join(WEB, 'app/_components/frontdoor/discover-event-cover.tsx'), 'utf8'));
+  assert.match(COVER, /<EventPoster\b[\s\S]*?markPlays=\{paper\.markPlays\}/, 'the cover must draw the dashboard poster');
+  const CSS = readFileSync(join(WEB, 'app/_components/frontdoor/front-door.css'), 'utf8');
+  assert.match(CSS, /\.fd-thumb-event \{\s*aspect-ratio: 3 \/ 4;/, 'the event cover lost the poster shape');
+});
+
 // ─── 3 · ONLY LISTED PUBLIC EVENTS ─────────────────────────────────────────
 
 test('the core never fills a cover — and an unlisted event is never a card to dress', () => {
   assert.match(CORE, /\bscene: null,/, 'the core must leave the cover to the loader');
+  assert.match(CORE, /\bpaper: null,/, 'the core must leave the paper card to the loader');
+  assert.doesNotMatch(CORE, /\bpaper:(?!\s*(?:null\b|DiscoverPaper\b))/, 'the pure core decided a paper card');
   assert.doesNotMatch(CORE, /\bscene:(?!\s*(?:null\b|SceneCover\b))/, 'the pure core decided a cover');
   const row = (over: Partial<DiscoverEventRow>): DiscoverEventRow => ({
     event_id: 'x',
@@ -168,7 +226,7 @@ test('the core never fills a cover — and an unlisted event is never a card to 
     todayISO: '2026-10-03',
     now: Date.parse('2026-10-03T04:00:00Z'),
   });
-  assert.deepEqual(out.world.map((c) => [c.key, c.scene]), [['pub', null]]);
+  assert.deepEqual(out.world.map((c) => [c.key, c.scene, c.paper]), [['pub', null, null]]);
   // The loader dresses exactly the shelved cards, after the allow-list ran.
   const select = LOADER.indexOf('selectDiscoverShelves({');
   const dress = LOADER.indexOf('await dressCards(admin, [...shelves.people, ...shelves.world])');

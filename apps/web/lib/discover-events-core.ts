@@ -50,7 +50,7 @@ import { splitComingUpAndPast } from './coming-up-and-past';
 import { anyoneMayAskToJoin } from './rsvp-ask';
 import { resolveRegion, regionLabel } from './region-source';
 import { shopInitials } from './shop-initials';
-import type { SceneCover } from './event-poster';
+import type { EventPosterFacts, SceneCover } from './event-poster';
 
 /**
  * How many cards each shelf shows. Two full rows of the four-across grid for
@@ -79,6 +79,17 @@ export type DiscoverEventRow = {
   monogram_text: string | null;
   /** `anon=-` column — reduced to ONE boolean below, never carried out. */
   rsvp_ask_config: unknown;
+};
+
+/** What `<EventPoster>` needs to draw the paper card — all resolved server-side. */
+export type DiscoverPaper = {
+  poster: EventPosterFacts;
+  /** `resolveMonogram(event).text` — drawn when there is no logo. */
+  markText: string;
+  /** `resolveEventMonogramSvg(event)` — the read-gated logo markup, or null. */
+  markSvg: string | null;
+  /** `logoPlaysFor(eventId, markSvg)` — the logo moves and the animation is on. */
+  markPlays: boolean;
 };
 
 /** A host of a listed event. `publicSlug` is set ONLY for a public profile. */
@@ -110,6 +121,14 @@ export type DiscoverEventCard = {
    * cover) = the card wears `cover`, the mark.
    */
   scene: SceneCover | null;
+  /**
+   * 🃏 THE DASHBOARD'S PAPER INVITATION CARD — for an event whose poster is
+   * `invitation` (Classic, no hero photo: no picture to wear). Owner
+   * 2026-10-03, ruling (A) "Paper invitation card": the Discover card draws the
+   * same card its dashboard card does (`<EventPoster>`), not a bare monogram.
+   * Filled by the loader with `scene`, under the same allow-list; `null` here.
+   */
+  paper: DiscoverPaper | null;
   /** A host with a PUBLIC profile — their name is the card's second door. */
   host: { name: string; slug: string } | null;
   regionLabel: string | null;
@@ -260,6 +279,7 @@ function toCard(
     datePlate: datePlate(e.event_date, e.event_date_precision, input.todayISO),
     cover: mono && mono.length <= 4 ? mono : shopInitials(title, 2, '·'),
     scene: null,
+    paper: null,
     host: pickHost(hosts, input.people),
     regionLabel: regionLabel(e.region),
     relation,

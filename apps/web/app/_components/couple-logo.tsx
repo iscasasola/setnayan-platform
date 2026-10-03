@@ -8,8 +8,10 @@ import { coupleLogoPlayKey, coupleLogoPlays, logoArrivals, logoPhaseOnMount } fr
  * which an effect sets after mount — never in the server HTML — so a page whose
  * logos are stills (every Discover card without a moving mark) ships none of it.
  * While the chunk arrives the box shows nothing, the same as `pending`'s
- * invisible still, so the entrance still never starts from a finished logo. */
-const LayeredLogoPlayer = dynamic(
+ * invisible still, so the entrance still never starts from a finished logo.
+ * EXPORTED so the Maker's preload (`MAKER_TOOLS` → `maker:logo-player`) can
+ * warm it while the phone is idle — the Maker's first Play never waits. */
+export const LayeredLogoPlayer = dynamic(
   () => import('@/app/_components/layered-logo-player').then((m) => m.LayeredLogoPlayer),
   { ssr: false },
 );

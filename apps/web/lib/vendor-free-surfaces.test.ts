@@ -34,7 +34,6 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { SIMPLE_PROFILE, WEDDING_PROFILE } from './event-type-profile';
-import { buildProgressStages } from './progress-stages';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -104,41 +103,7 @@ test('the "Your team" vendor card is gated on marketplaceEnabled', () => {
   );
 });
 
-test('the day-of stage is not called "Wedding day" on a non-wedding', () => {
-  const base = {
-    ceremonyType: null,
-    eventDate: '2026-09-19',
-    datePrecision: 'day' as const,
-    daysOut: 50,
-    venueName: null,
-    paletteFinalizedAt: null,
-    budgetTargetCentavos: null,
-    guestsTotal: 0,
-    guestsAttending: 0,
-    guestsResponded: 0,
-    lockedVendorCount: 0,
-    totalLockableCategories: 0,
-    seatedGuests: 0,
-    paperworkTotal: 0,
-  };
-
-  const simple = buildProgressStages({ ...base, eventType: 'simple_event' } as never);
-  const simpleDayOf = simple.stages.find((s) => s.key === 'wedding');
-  assert.ok(simpleDayOf, 'the day-of stage must still exist');
-  assert.equal(
-    simpleDayOf.label,
-    'Event day',
-    'a Simple Event has no wedding day — the KEY stays `wedding` (a stable id), ' +
-      'the LABEL is what the couple reads',
-  );
-
-  const wedding = buildProgressStages({ ...base, eventType: 'wedding' } as never);
-  assert.equal(
-    wedding.stages.find((s) => s.key === 'wedding')?.label,
-    'Wedding day',
-    'weddings must be unchanged',
-  );
-});
+// (The journey rail's day-of stage label left with the rail — owner 2026-10-03.)
 
 /* The Suite's free-tools strip test left 2026-10-02 with the page itself
    (owner, tracker d1 — the full-page More Services is gone). Its free tools

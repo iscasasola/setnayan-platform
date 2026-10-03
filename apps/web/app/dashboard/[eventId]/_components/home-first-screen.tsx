@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronDown } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { NextCard } from '@/app/_components/next-card';
 import type { HomeNext, HomeNextKind, HomeService, HomeServiceKey } from '@/lib/home-first-screen';
 import { completeTour } from '@/lib/tour-actions';
@@ -19,9 +19,9 @@ function nextHref(kind: HomeNextKind, eventId: string): string {
     { kind: 'invite', href: `/dashboard/${eventId}/guests/send` },
     { kind: 'papic', href: `/dashboard/${eventId}/studio/papic` },
     { kind: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
-    { kind: 'plan', href: '#home-all' },
+    { kind: 'plan', href: `/dashboard/${eventId}/checklist` },
   ];
-  return doors.find((d) => d.kind === kind)?.href ?? '#home-all';
+  return doors.find((d) => d.kind === kind)?.href ?? `/dashboard/${eventId}/checklist`;
 }
 
 /** Where each service in the "Your services" row goes — `href:` literals, for the same scan. */
@@ -29,6 +29,7 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
   const doors: ReadonlyArray<{ key: HomeServiceKey; href: string }> = [
     { key: 'papic', href: `/dashboard/${eventId}/studio/papic` },
     { key: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
+    { key: 'nikah', href: `/dashboard/${eventId}/nikah` },
   ];
   return doors.find((d) => d.key === key)?.href ?? `/dashboard/${eventId}`;
 }
@@ -41,12 +42,13 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
  *
  *   ONE Next card (one button) → Edit your Event Hub (always) → days to go ·
  *   coming · no reply → Paid / Still owing → Your services (Papic · Setnayan
- *   AI, owner 2026-10-01) → "See all" (the rest of Home).
+ *   AI, owner 2026-10-01; a Muslim wedding adds its Nikah essentials line); the one
+ *   "What's next" row (a sheet: decisions, then Coming up) sits above the services.
  *
- * 🔒 ON A PHONE IT FILLS THE SCREEN, so nothing else sits above the fold: the
- * wrapper is at least one screen tall minus the top bar and the measured dock
- * (`--sn-bottomdock-h`), with "See all" at its foot. From `lg` up the height
- * is released — desktop shows the same things first, then more below.
+ * 🔒 THIS IS THE WHOLE HOME (owner 2026-10-02, DECISION_LOG "HOME IS THE FIRST
+ * SCREEN ONLY"): there is no "rest of Home" under it, no "See all" and no
+ * second, wider section. Phone and desktop draw the same single column; from
+ * `lg` up it is simply wider (`lg:max-w-3xl`).
  *
  * ⚠ `money === null` means the viewer may not see the budget (a delegate
  * without budget access): the line is ABSENT, not "—". A money read that
@@ -81,7 +83,7 @@ export function HomeFirstScreen({
     <section
       data-home-first-screen
       aria-label="Home"
-      className="mx-auto flex w-full max-w-xl flex-col gap-3 max-lg:min-h-[calc(100svh-var(--sn-bottomdock-h,5.5rem)-5rem)]"
+      className="mx-auto flex w-full max-w-xl flex-col gap-3 lg:max-w-3xl"
     >
       {/* 📋 EVENT DETAILS sits beside the name, on the cover (owner 2026-10-01,
           "EVENT DETAILS LIVES ON EVENT HOME") — the one information-only sheet. */}
@@ -163,6 +165,19 @@ export function HomeFirstScreen({
         </Link>
       ) : null}
 
+      {/* ③½ ONE ROW — "What's next" (owner "yes", 2026-10-03). It opens a sheet holding the
+          ranked decisions list, then Coming up (the old dashboard's own components and
+          data, moved). One row, no caption, 48px tall: the Home stays one screen. */}
+      <Link
+        href={`/dashboard/${eventId}?sheet=next`}
+        scroll={false}
+        data-home-whats-next
+        className="sn-glass-bare sn-press flex h-12 items-center justify-between rounded-xl px-4 text-[15px] font-semibold text-ink"
+      >
+        What&rsquo;s next
+        <ChevronRight aria-hidden className="h-4 w-4 text-ink/45" strokeWidth={2} />
+      </Link>
+
       {/* ④ YOUR SERVICES — compact, one line each; never the one that is Next. */}
       {services.length > 0 ? (
         <nav aria-label="Your services" data-home-services className="flex flex-col gap-1">
@@ -177,21 +192,13 @@ export function HomeFirstScreen({
               >
                 <span className="truncate text-[14px] font-semibold text-ink">{svc.name}</span>
                 {/* The Setnayan name, small under the plain one (owner d17). */}
-                <span className="truncate text-[11px] text-ink/50">{svc.brand}</span>
+                {svc.brand ? <span className="truncate text-[11px] text-ink/50">{svc.brand}</span> : null}
                 <span className="truncate text-[12px] text-ink/60">{svc.status}</span>
               </Link>
             ))}
           </div>
         </nav>
       ) : null}
-
-      <a
-        href="#home-all"
-        className="mt-auto inline-flex items-center justify-center gap-1 self-center py-2 text-[13px] font-medium text-ink/55 hover:text-ink lg:hidden"
-      >
-        See all
-        <ChevronDown aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </a>
     </section>
   );
 }

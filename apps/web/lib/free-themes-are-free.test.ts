@@ -205,7 +205,8 @@ test('5b · the page, the door and the print each measure ownership through the 
   // Page ground (Event Hub body + RSVP page): `websiteProActiveFor` = asViewed(eventCoupleWebsiteProActive).
   const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
   assert.match(layer, /const ownsPro = heroGroundNeedsOwnership\(theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);
-  assert.match(layer, /heroMayBePageGround\(theme, ownsPro\)/);
+  assert.match(layer, /guestMainGround\(theme, ownsPro, heroConfig, event\)/);
+  assert.match(read('lib/guest-main-ground.ts'), /heroMayBePageGround\(theme, ownsPro\)/);
   // Door photo.
   const look = read('app/[slug]/_lib/hub-look.ts');
   assert.match(look, /const ownsPro = heroGroundNeedsOwnership\(look\.theme\)\s*\?\s*await websiteProActiveFor\(event\.event_id\)/);

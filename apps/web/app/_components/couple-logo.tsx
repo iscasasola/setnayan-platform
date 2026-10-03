@@ -1,8 +1,22 @@
 'use client';
 
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
-import { coupleLogoPlayKey, coupleLogoPlays, logoArrivals, logoPhaseOnMount } from '@/lib/couple-logo-plays';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { coupleLogoPlayKey, logoArrivals, logoPhaseOnMount } from '@/lib/couple-logo-arrival';
+
+/* 📦 THE PLAYER LOADS WHEN A LOGO PLAYS. It mounts only in the `play` phase,
+ * which an effect sets after mount — never in the server HTML — so a page whose
+ * logos are stills (every Discover card without a moving mark) ships none of it.
+ * While the chunk arrives the box shows nothing, the same as `pending`'s
+ * invisible still, so the entrance still never starts from a finished logo.
+ * A bare `React.lazy`, not `next/dynamic`: it never renders on the server, so
+ * it needs none of `next/dynamic`'s SSR machinery, which a page's chunk group
+ * would otherwise carry (~2 kB gzipped on `/`, measured 2026-10-04).
+ * EXPORTED so the Maker's preload (`MAKER_TOOLS` → `maker:logo-player`,
+ * `warmDynamicExports`) can warm it while the phone is idle — the Maker's
+ * first Play never waits. */
+export const LayeredLogoPlayer = lazy(() =>
+  import('@/app/_components/layered-logo-player').then((m) => ({ default: m.LayeredLogoPlayer })),
+);
 
 /**
  * ▶ THE COUPLE'S LOGO ON A SCREEN — playing when it moves, still when it does not.
@@ -12,12 +26,17 @@ import { coupleLogoPlayKey, coupleLogoPlays, logoArrivals, logoPhaseOnMount } fr
  * is active"*. So every screen that shows the couple's logo hands it here with
  * the still it drew before, and this picks:
  *
- *   · the logo moves (`logoHasMotion` — a layer with an In or a Drift) AND the
- *     animation is on for the event (`plays`: owned, not switched to "Use Static
- *     Image" — `logoPlaysFor` / HeroMonogram's `animatedMonogram`) → it plays
- *     through THE one player, `LayeredLogoPlayer` (the Maker's ▶ Play and every
- *     guest surface), never a new mechanism;
+ *   · `plays` — the logo moves (a layer with an In or a Drift) AND the
+ *     animation is on for the event (owned, not switched to "Use Static Image")
+ *     → it plays through THE one player, `LayeredLogoPlayer` (the Maker's ▶ Play
+ *     and every guest surface), never a new mechanism;
  *   · otherwise → `still`, byte-for-byte what the surface drew before.
+ *
+ * 📦 `plays` IS DECIDED BY THE CALLER, through the one rule:
+ * `plays={coupleLogoPlays(svg, animationOn)}` (`lib/couple-logo-plays.ts`),
+ * with the same svg it hands here. This file never asks whether a logo moves,
+ * so its client graph never imports `logo-layers` — a page of still logos
+ * (Discover's cards) ships neither that nor the player.
  *
  * ♿ `prefers-reduced-motion: reduce` → the still, from the first paint (the
  * still is in the server HTML and only `motion-safe:` hides it).
@@ -43,7 +62,8 @@ export function CoupleLogo({
 }: {
   /** The sanitised mark (`resolveEventMonogramSvg` / `heroMarkSvg`), or null. */
   svg: string | null | undefined;
-  /** The animation is on for this event (owned + not switched off). */
+  /** `coupleLogoPlays(svg, animationOn)` — the logo moves AND the animation is
+   *  on for this event. Asked by the caller, with this same `svg`. */
   plays: boolean;
   /** Which surface this is — the plays-once memory is kept per place. */
   place: string;
@@ -55,8 +75,8 @@ export function CoupleLogo({
   /** An exact box, for a slot sized in px (a door's seal). */
   style?: CSSProperties;
 }) {
-  if (!coupleLogoPlays(svg, plays)) return <>{still}</>;
-  return <PlayingLogo svg={svg as string} place={place} still={still} className={className} style={style} />;
+  if (!plays || !svg) return <>{still}</>;
+  return <PlayingLogo svg={svg} place={place} still={still} className={className} style={style} />;
 }
 
 function PlayingLogo({
@@ -118,7 +138,9 @@ function PlayingLogo({
       style={style}
     >
       {phase === 'play' ? (
-        <LayeredLogoPlayer svg={svg} settled={settled} onRefused={() => setPhase('still')} className="h-full w-full" />
+        <Suspense fallback={null}>
+          <LayeredLogoPlayer svg={svg} settled={settled} onRefused={() => setPhase('still')} className="h-full w-full" />
+        </Suspense>
       ) : (
         /* Until it plays: the still, kept in the HTML (no JavaScript, reduced
            motion, a refused tree), and hidden only while motion is allowed so

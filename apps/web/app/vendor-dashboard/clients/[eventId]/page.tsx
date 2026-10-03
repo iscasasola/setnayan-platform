@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { redirect } from 'next/navigation';
 import {
@@ -2543,7 +2544,7 @@ function OverviewTab(props: {
                    vendor's session. eslint-disable-next-line @next/next/no-img-element */
                 <CoupleLogo
                   svg={monogramSvg}
-                  plays={monogramPlays}
+                  plays={coupleLogoPlays(monogramSvg, monogramPlays)}
                   place="vendor-client-style"
                   className="flex h-full w-full p-0.5"
                   still={

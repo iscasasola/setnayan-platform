@@ -16,6 +16,8 @@ import {
   HUB_DRAFT_EVENT_LABEL,
   HUB_DRAFT_FACT_COLUMNS,
   HUB_DRAFT_ANSWER_COLUMNS,
+  HUB_DRAFT_VENUE_COLUMNS,
+  HUB_DRAFT_CEREMONY_TIME,
   HUB_DRAFT_HISTORY_LIMIT,
   HUB_RESET_EVENT_COLUMNS,
   HUB_RESET_SCOPES,
@@ -119,8 +121,11 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
     const fact = (HUB_DRAFT_FACT_COLUMNS as readonly string[]).includes(c);
     // 🗂 The onboarding's last answers, changed in Your info (2026-10-02) — never Pro.
     const answer = (HUB_DRAFT_ANSWER_COLUMNS as readonly string[]).includes(c);
-    assert.equal([look, free, word && !fact, made, own, fact, answer].filter(Boolean).length, 1, `${c} must be exactly one kind`);
-    if (free || word || fact || answer) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
+    // 📍 The venues and 🕒 the ceremony time typed in the Maker (2026-10-04) — never Pro.
+    // Two venue names are also HUB_WORDS_EVENT_COLUMNS (the Save-the-Date film's words) — a venue first.
+    const venue = (HUB_DRAFT_VENUE_COLUMNS as readonly string[]).includes(c) || c === HUB_DRAFT_CEREMONY_TIME;
+    assert.equal([look, free, word && !fact && !venue, made, own, fact, answer, venue].filter(Boolean).length, 1, `${c} must be exactly one kind`);
+    if (free || word || fact || answer || venue) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
     if (answer) {
       assert.equal(eventItemIsPro(c, false, 'change'), false, `${c}: an answer is never Pro`);
       assert.equal(eventItemIsPro(c, true, 'add'), false, `${c}: an answer is never Pro`);

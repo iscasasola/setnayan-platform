@@ -5,7 +5,6 @@ import { bulkAssignableRolesFor } from '@/lib/bulk-role-vocabulary';
 import { revalidatePath } from 'next/cache';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
@@ -20,7 +19,6 @@ import {
   type GuestSide,
 } from '@/lib/guests';
 import type { ReleasedSeat } from '@/lib/guest-optimistic';
-import { restorableSongRequests, type ReleasedSongRequest } from '@/lib/released-song-requests';
 
 // Side enum values — owner directive 2026-05-23 added bulk Side
 // assignment to the SelectionBar. Mirrors the existing per-guest side
@@ -501,7 +499,7 @@ export async function removeGuestFromGroup(
 // -----------------------------------------------------------------------
 
 export type SoftDeleteForUndoResult =
-  | { ok: true; removedIds: string[]; releasedSeats: ReleasedSeat[]; releasedSongs: ReleasedSongRequest[] }
+  | { ok: true; removedIds: string[]; releasedSeats: ReleasedSeat[] }
   | { ok: false; error: string };
 
 export async function bulkSoftDeleteGuestsForUndo(
@@ -600,35 +598,20 @@ export async function bulkSoftDeleteGuestsForUndo(
   // guest's row in place, and with it their `event_song_requests` (its FK only
   // acts on a HARD delete) — the act would still see the request of somebody
   // who is no longer on the list, and the song's one-per-event slot would stay
-  // taken by them. So the requests are taken here and handed back with the
-  // Undo (`restoreDeletedGuests` puts them back).
-  // 🔑 Service role, because a host may read and decide requests but never
-  // delete one (the table's grants). Scoped to exactly the guests RLS let this
-  // host delete a moment ago, in this event, on the guest lane.
-  let releasedSongs: ReleasedSongRequest[] = [];
+  // taken by them.
+  // 🔒 THE DATABASE KEEPS THEM, NEVER THE BROWSER (2026-10-04 review of #6311):
+  // `release_deleted_guest_song_requests` MOVES the requests of guests that
+  // are really soft-deleted into a service-only pen, attribution and all, and
+  // the Undo's `restore_deleted_guests` reads them back from there. Nothing
+  // about a song request travels to the client, so nothing can be forged on
+  // the way back (which supplier decided it, and when).
   if (deletedIds.length > 0) {
-    const admin = createAdminClient();
-    const { data: songRows } = await admin
-      .from('event_song_requests')
-      .select('request_id, guest_id, song_id, requester_name, status, decided_by_vendor_profile_id, decided_at, created_at')
-      .eq('event_id', eventId)
-      .eq('origin', 'guest')
-      .in('guest_id', deletedIds);
-    releasedSongs = restorableSongRequests(songRows ?? [], new Set(deletedIds));
-    if (releasedSongs.length > 0) {
-      const { error: songErr } = await admin
-        .from('event_song_requests')
-        .delete()
-        .eq('event_id', eventId)
-        .in(
-          'request_id',
-          releasedSongs.map((r) => r.request_id),
-        );
-      // Not taken → nothing to hand back; the Undo must not re-add a row that is still there.
-      if (songErr) {
-        logQueryError('bulkSoftDeleteGuestsForUndo (event_song_requests.delete)', songErr, { event_id: eventId }, 'graceful_degrade');
-        releasedSongs = [];
-      }
+    const { error: songErr } = await supabase.rpc('release_deleted_guest_song_requests', {
+      p_event_id: eventId,
+      p_guest_ids: deletedIds,
+    });
+    if (songErr) {
+      logQueryError('bulkSoftDeleteGuestsForUndo (release_deleted_guest_song_requests)', songErr, { event_id: eventId }, 'graceful_degrade');
     }
   }
 
@@ -637,7 +620,7 @@ export async function bulkSoftDeleteGuestsForUndo(
   // is built from guests who opted out AND are not deleted, so a delete can
   // lift a veto — the cached public surfaces must hear about it now.
   await everyCopyIsNowStale(eventId);
-  return { ok: true, removedIds, releasedSeats, releasedSongs };
+  return { ok: true, removedIds, releasedSeats };
 }
 
 /** `warning`: the guests came back, but something that went with them did not. */
@@ -647,7 +630,6 @@ export async function restoreDeletedGuests(
   eventId: string,
   guestIds: string[],
   seats: ReleasedSeat[],
-  songs: ReleasedSongRequest[] = [],
 ): Promise<RestoreResult> {
   const ids = Array.from(
     new Set((guestIds ?? []).map((s) => String(s).trim()).filter(Boolean)),
@@ -656,47 +638,38 @@ export async function restoreDeletedGuests(
 
   const supabase = await createClient();
 
-  // Un-soft-delete. RLS (couple_writes_guest · FOR ALL, not deleted_at-gated)
-  // lets the couple flip deleted_at back to NULL for their own event's guests.
-  const { data: restoredRows, error: undeleteErr } = await supabase
-    .from('guests')
-    .update({ deleted_at: null })
-    .eq('event_id', eventId)
-    .in('guest_id', ids)
-    .select('guest_id');
+  // 🔒 The SET to restore is decided by the database, never by this list
+  // (2026-10-04 review of #6311). `restore_deleted_guests` un-deletes only
+  // guests that ARE soft-deleted on this event — a live guest's id in the list
+  // changes nothing — and puts back only the song requests the delete held for
+  // exactly those guests, as stored (status, which supplier decided, when).
+  // It takes no song data from here at all. Its caller check is the guests
+  // table's own writers (couple · guest-list moderator · admin).
+  const { data: restoredRows, error: undeleteErr } = await supabase.rpc('restore_deleted_guests', {
+    p_event_id: eventId,
+    p_guest_ids: ids,
+  });
 
   if (undeleteErr) return { ok: false, error: undeleteErr.message };
+  const restored = (Array.isArray(restoredRows) ? restoredRows[0] : restoredRows) as
+    | { restored_guest_ids: string[] | null; songs_restored: number; songs_not_restored: number }
+    | null
+    | undefined;
+  const restoredIds = new Set((restored?.restored_guest_ids ?? []).map(String));
 
-  // Their song requests come back with them — only for guests RLS really
-  // restored just now, in this event, on the guest lane (`restorableSongRequests`
-  // re-checks every field the client handed back). A song somebody else asked
-  // for during the Undo window keeps their request (one per song per event).
-  const songRows = restorableSongRequests(
-    songs ?? [],
-    new Set((restoredRows ?? []).map((r) => r.guest_id as string)),
-  );
-  let warning: string | undefined;
-  if (songRows.length > 0) {
-    const { error: songErr } = await createAdminClient()
-      .from('event_song_requests')
-      .upsert(
-        songRows.map((r) => ({ ...r, event_id: eventId, origin: 'guest', anon_key: null })),
-        { onConflict: 'event_id,song_id', ignoreDuplicates: true },
-      );
-    // Said where the host pressed Undo — never a restore that looks complete.
-    if (songErr) {
-      logQueryError('restoreDeletedGuests (event_song_requests.upsert)', songErr, { event_id: eventId }, 'graceful_degrade');
-      warning = 'They are back, but their song request could not be put back.';
-    }
-  }
+  // A song somebody else asked for during the Undo window keeps their request
+  // (one per song per event) — said where the host pressed Undo.
+  const warning =
+    (restored?.songs_not_restored ?? 0) > 0
+      ? 'They are back, but a song they requested was asked for by someone else meanwhile.'
+      : undefined;
 
   // Re-place seats — best-effort. Only the guests we just restored, scoped to
   // this event. Upsert on (event_id, guest_id) so a retry is idempotent; a
   // physical-chair collision (someone took the seat during the undo window)
   // leaves the guest restored-but-unseated rather than failing the whole undo.
-  const restoreSet = new Set(ids);
   const seatRows = (seats ?? [])
-    .filter((s) => s && restoreSet.has(s.guest_id))
+    .filter((s) => s && restoredIds.has(s.guest_id))
     .map((s) => ({
       event_id: eventId,
       guest_id: s.guest_id,

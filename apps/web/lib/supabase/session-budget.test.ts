@@ -6,18 +6,33 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SESSION_CHECK_BUDGET_MS, withBudget } from './session-budget';
+import { SESSION_CHECK_BUDGET_MS, withBudget, type BudgetOutcome } from './session-budget';
 
 test('a fast answer comes back whole', async () => {
   const r = await withBudget(async () => 'the user', 1000);
   assert.deepEqual(r, { ok: true, value: 'the user' });
 });
 
-test('🔴 a hung call gives up instead of holding the page forever', async () => {
-  const started = Date.now();
-  const r = await withBudget(() => new Promise(() => {}), 40);
-  assert.deepEqual(r, { ok: false, reason: 'timeout' });
-  assert.ok(Date.now() - started < 1000, 'it waited far longer than its budget');
+test('🔴 a hung call gives up at its budget instead of holding the page forever', async (t) => {
+  // 🕰 FAKE CLOCK. This used to measure `Date.now()` around a real 40ms timer
+  // and demand it came back inside a second — which is a claim about how busy
+  // the CI machine is, not about this code, and it flaked. With the clock
+  // faked, "gives up at its budget" is asserted exactly: not one tick early,
+  // and on the tick it is due.
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let settled: BudgetOutcome<unknown> | null = null;
+  const done = withBudget(() => new Promise(() => {}), 40).then((r) => {
+    settled = r;
+  });
+  const drain = () => new Promise<void>((resolve) => setImmediate(resolve));
+
+  t.mock.timers.tick(39);
+  await drain();
+  assert.equal(settled, null, 'it gave up before its budget ran out');
+
+  t.mock.timers.tick(1);
+  await done;
+  assert.deepEqual(settled, { ok: false, reason: 'timeout' });
 });
 
 test('a rejection degrades exactly like a timeout — the caller must not tell them apart', async () => {
@@ -37,7 +52,7 @@ test('the budget is short enough to matter — the platform kills the request at
   assert.ok(SESSION_CHECK_BUDGET_MS >= 1_000, 'too tight — a healthy but busy database would trip it');
 });
 
-test('the timer never outlives the answer', async () => {
+test('the timer never outlives the answer', async (t) => {
   // A leaked timer keeps a serverless invocation alive after the response is
   // sent, and is billed for.
   //
@@ -46,13 +61,19 @@ test('the timer never outlives the answer', async () => {
   // `clearTimeout` left it green (mutation M28). `getActiveResourcesInfo()`
   // does list them, as 'Timeout'. **A guard that watches the wrong list is a
   // guard that watches nothing.**
-  const timers = () =>
-    process.getActiveResourcesInfo().filter((r) => r === 'Timeout').length;
-  const before = timers();
+  //
+  // 🕰 And the SECOND version counted every live 'Timeout' in the process
+  // before and after — a global count any other timer (the runner's own
+  // included) can move, so it could flake. Now it follows the one handle:
+  // the deadline timer `withBudget` created must be the one it cleared.
+  const set = t.mock.method(globalThis, 'setTimeout');
+  const clear = t.mock.method(globalThis, 'clearTimeout');
   await withBudget(async () => 'quick', 30_000);
-  assert.equal(
-    timers(),
-    before,
+  const deadlines = set.mock.calls.filter((c) => c.arguments[1] === 30_000);
+  assert.equal(deadlines.length, 1, 'withBudget did not set exactly one deadline timer');
+  const handle = deadlines[0]!.result;
+  assert.ok(
+    clear.mock.calls.some((c) => c.arguments[0] === handle),
     'a 30s timer is still pending after the answer came back in microseconds',
   );
 });

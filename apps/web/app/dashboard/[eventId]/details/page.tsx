@@ -68,8 +68,19 @@ import {
   type EventDetailsSectionKey,
 } from '@/lib/event-details-sheet';
 import { PutAwayCard } from './_components/put-away-card';
+import { PeopleWithAccess } from './_components/people-with-access';
+import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
+import { areaCells, type PersonRow } from '@/lib/people-with-access';
 
 export const dynamic = 'force-dynamic';
+
+/** The words `removeHost` can bring back here — anything else in the address is
+ *  not ours, so a hand-edited link cannot print its own message on the sheet. */
+const REMOVE_REFUSALS = new Set([
+  'You cannot remove yourself.',
+  'A celebrant stays a co-host. A celebrant can change their role first.',
+  'Could not remove them. Try again.',
+]);
 
 export const metadata = { title: 'Event Details' };
 
@@ -103,8 +114,15 @@ export const metadata = { title: 'Event Details' };
  * showed its SETTING ("Banquet hall") as the venue, and the copy said
  * "vendors". Venues now come from the confirmed bookings themselves.
  */
-export default async function EventDetailsPage({ params }: { params: Promise<{ eventId: string }> }) {
+export default async function EventDetailsPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ eventId: string }>;
+  searchParams?: Promise<{ host_removed?: string; invite_error?: string }>;
+}) {
   const { eventId } = await params;
+  const flashParams = (await searchParams) ?? {};
 
   const supabase = await createClient();
   const {
@@ -164,6 +182,16 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
   const guestsHidden = !mayReadGuests;
   const suppliersHidden = isDelegateWithoutArea(viewer, 'vendors');
   const moneyHidden = !budgetAccess.mayRead;
+
+  // 👥 People with access (owner 2026-10-03) — the ONE place a host sets who
+  // can do what. A host sees every person and sets each area; a delegate sees
+  // their own access, as words; anyone else, nothing.
+  const accessRead = viewer.isCouple
+    ? loadPeopleWithAccess(eventId, user.id).catch((err: unknown) => {
+        console.error('[event-details] people with access failed', err);
+        return { measured: false as const };
+      })
+    : null;
 
   const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead] =
     await Promise.all([
@@ -348,6 +376,33 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
   const lockNote = (what: string) =>
     `${what} is held by your booking — changing it would change what you booked, so we hold it still. If something has changed, tell us and we will sort it out with your supplier.`;
 
+  const people = accessRead ? await accessRead : null;
+  const ownAccess: PersonRow | null =
+    !viewer.isCouple && viewer.delegatePermissions
+      ? {
+          key: 'me',
+          kind: 'helper',
+          name: 'You',
+          roleWord: 'Your access',
+          moderatorId: null,
+          guestId: null,
+          access: null,
+          live: true,
+          areas: areaCells(viewer.delegatePermissions),
+          lastDay: null,
+          ended: false,
+          isViewer: true,
+          canInviteAsCoordinator: false,
+          vendorId: null,
+        }
+      : null;
+  const accessFlash =
+    flashParams.host_removed === '1'
+      ? 'Removed — their access ended immediately.'
+      : flashParams.invite_error && REMOVE_REFUSALS.has(flashParams.invite_error)
+        ? flashParams.invite_error
+        : null;
+
   // 💾 A read that failed shows "Could not load…" — never kept as last-seen
   // data. (Money reads are left out: money is never kept at all.)
   const lastSeenFresh =
@@ -355,6 +410,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
     scheduleRead.ok &&
     proRead.ok &&
     poolRead.ok &&
+    (people === null || people.measured) &&
     (guestsRead === null || (guestsRead.ok && guestsRead.v.measured));
 
   return (
@@ -528,6 +584,21 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
             ))
           )}
         </Section>
+
+        {/* ── People with access — the one place access is SET (owner
+            2026-10-03). The sheet's one live part: access is a door, so it
+            changes at once, never on a later Apply. ── */}
+        {people || ownAccess ? (
+          <PeopleWithAccess
+            eventId={eventId}
+            title={sectionTitle('access')}
+            rows={people && people.measured ? people.rows : ownAccess ? [ownAccess] : []}
+            addable={people && people.measured ? people.addable : []}
+            readOnly={!people}
+            failed={Boolean(people && !people.measured)}
+            flash={accessFlash}
+          />
+        ) : null}
 
         {/* ── Services ── */}
         <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>

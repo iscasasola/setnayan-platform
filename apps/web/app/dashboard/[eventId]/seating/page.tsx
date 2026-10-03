@@ -93,6 +93,12 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   if (isDelegateWithoutArea(viewer, 'guest_list')) {
     return <NotSharedWithYou title="Seating chart" thing="guest list" />;
   }
+  // 👥 People with access (owner 2026-10-03): the seat plan is its own area.
+  // Off means the tables are not theirs to read (20271262573732 closed the
+  // door too) — say so, never draw an empty room.
+  if (isDelegateWithoutArea(viewer, 'seat_plan')) {
+    return <NotSharedWithYou title="Seating chart" thing="seat plan" />;
+  }
 
   const [tables, assignments, guests, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames] =
     await Promise.all([

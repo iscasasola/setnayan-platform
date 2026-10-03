@@ -18,6 +18,8 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  areaChoices,
+  levelOfChoice,
   resolveAreaLevel,
   COORDINATOR_AREAS,
   DELEGATE_AREAS,
@@ -85,28 +87,24 @@ test('the couple has a CONTROL that grants it — a permission needs a handle', 
     join(WEB, 'app/dashboard/[eventId]/hosts/actions.ts'),
     'utf8',
   );
+  // ⚖ MOVED 2026-10-03 ("People with access"): the photos grant is one area of
+  // the one door that sets every area — `setDelegateArea` — called from the
+  // Photos dropdown in Event Details › People with access. The RULES below are
+  // the ones `setDelegatePhotos` held, unchanged.
   assert.ok(
-    // \b or a rename to `setDelegatePhotosX` satisfies the prefix and the guard
-    // passes on a function that no longer exists under that name.
-    /export async function setDelegatePhotos\b/.test(actions),
+    /export async function setDelegateArea\b/.test(actions),
     'Nothing can grant the photos area. The policies exist, the default refuses, ' +
       'and the couple has no way to say yes.',
   );
-  // ⚠ THIS ASSERTION MOVED ON 2026-08-25 AND ITS RULE DID NOT. It used to pin
-  // the literal `areas.photos = grant === 'view' ? 'view' : null`. That exact
-  // spread was found to be a cliff — on a host row with no `areas` map it wrote
-  // a map naming ONE area, and every unnamed area now resolves to nothing — so
-  // the four sites that did it were moved onto `withArea`, which materialises
-  // the whole map first. The RULE being guarded is unchanged and is still the
-  // only thing that matters: withdrawal writes an explicit `null`, never a
-  // deleted key, because absence falls through to a tail that FAILS OPEN for a
-  // delegate with edit_all. Pinning the spelling instead of the rule is what
-  // made this go red on a change that preserved it exactly.
+  const fnBody = actions.slice(actions.indexOf('export async function setDelegateArea'), actions.indexOf('export async function removeHost'));
+  // Photos is View · Off — never Edit (deleting guests' likenesses was not decided).
+  assert.deepEqual(areaChoices('photos'), ['view', 'off'], 'Photos offers more than View · Off');
+  assert.equal(levelOfChoice('off'), null, 'Off must be an explicit null, never a deleted key');
+  // Withdrawal writes an explicit null through withArea — never a spread, never
+  // a deleted key (absence falls through to a tail that FAILS OPEN).
   assert.ok(
-    /withArea\(perms, 'photos', grant === 'view' \? 'view' : null\)/.test(actions),
-    'The grant no longer writes an explicit null on withdrawal. Deleting the key ' +
-      'instead would fall through to the resolver tail, which FAILS OPEN for a ' +
-      'delegate with edit_all — withdrawal must be written down, not implied.',
+    /withArea\(perms, a, levelOfChoice\(picked\)\)/.test(fnBody),
+    'The grant no longer writes through withArea(levelOfChoice) — withdrawal must be written down, not implied.',
   );
   assert.ok(
     !/areas\.photos\s*=/.test(actions),
@@ -114,25 +112,15 @@ test('the couple has a CONTROL that grants it — a permission needs a handle', 
       'shape that silently withdrew five other areas. Use withArea().',
   );
   assert.ok(
-    /requireCoupleMembership/.test(actions.slice(actions.indexOf('setDelegatePhotos'), actions.indexOf('setDelegatePhotos') + 900)),
+    /\.eq\('member_type', 'couple'\)/.test(fnBody),
     'The grant is not couple-gated — a coordinator could widen their own access.',
   );
 
-  // ⚖ The Hosts fold (2026-09-30) moved the control, whole, into the shared
-  // seat controls — drawn on the hired planner's workspace card.
-  const controls = readFileSync(join(WEB, 'app/dashboard/[eventId]/_components/coordinator-seat-controls.tsx'), 'utf8');
-  assert.ok(
-    /action=\{setDelegatePhotos\}/.test(controls),
-    'The action exists but no screen calls it — a handle nobody can reach.',
-  );
-  const card = readFileSync(
-    join(WEB, 'app/dashboard/[eventId]/vendors/[vendorId]/workspace/_components/promote-coordinator-card.tsx'),
-    'utf8',
-  );
-  assert.ok(
-    /<CoordinatorSeatControls\b/.test(card),
-    'The seat controls exist but no screen mounts them — a handle nobody can reach.',
-  );
+  // The handle is REACHABLE: the section calls it, and Event Details mounts it.
+  const section = readFileSync(join(WEB, 'app/dashboard/[eventId]/details/_components/people-with-access.tsx'), 'utf8');
+  assert.ok(/setDelegateArea\(/.test(section), 'The action exists but no screen calls it — a handle nobody can reach.');
+  const details = readFileSync(join(WEB, 'app/dashboard/[eventId]/details/page.tsx'), 'utf8');
+  assert.ok(/<PeopleWithAccess\b/.test(details), 'People with access is not mounted — a handle nobody can reach.');
 });
 
 test('both photo tables gained a read policy routed through the one gate', () => {

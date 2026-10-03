@@ -90,3 +90,21 @@ export function permissionsWithinWindow<T>(
   if (!permissions) return null;
   return delegateAccessHasExpired(input) ? null : permissions;
 }
+
+/**
+ * The LAST DAY a delegate's access is open (`YYYY-MM-DD`), or null when it
+ * never closes on a date — the couple, no date, or a date that is not
+ * day-precise. Same window as {@link delegateAccessHasExpired}: the seventh
+ * day after the event is still open. People with access shows it next to a
+ * delegate's name (owner 2026-10-03: "A delegate's access ends 7 days after
+ * the event; the hosts' never does").
+ */
+export function delegateAccessLastDay(input: Omit<AccessWindowInput, 'now'>): string | null {
+  if (input.isCouple) return null;
+  const anchor = input.eventEndDate?.trim() || input.eventDate?.trim();
+  if (!anchor) return null;
+  if (input.precision && input.precision !== 'day') return null;
+  const end = Date.parse(`${anchor}T00:00:00Z`);
+  if (!Number.isFinite(end)) return null;
+  return new Date(end + DELEGATE_GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+}

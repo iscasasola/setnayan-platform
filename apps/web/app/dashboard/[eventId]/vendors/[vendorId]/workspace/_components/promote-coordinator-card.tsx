@@ -14,8 +14,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { CoordinatorColourDomains } from '@/app/dashboard/[eventId]/_components/coordinator-colour-domains';
 import {
+  ChangeAccessLink,
   CoordinatorGrantChips,
-  CoordinatorSeatControls,
 } from '@/app/dashboard/[eventId]/_components/coordinator-seat-controls';
 import { revokeHostInvite } from '@/app/dashboard/[eventId]/hosts/actions';
 import {
@@ -40,8 +40,9 @@ import { ConsentGatedInviteForm } from './consent-gated-invite-form';
  *     account email (N2, 2026-09-11);
  *   · the invite link once sent, a waiting invite and its Revoke — shown until
  *     it expires, then gone;
- *   · the accepted planner's grants, the budget / photo switches and the
- *     reasoned Remove (`CoordinatorSeatControls`);
+ *   · the accepted planner's grants, SHOWN, with the one door to change them —
+ *     Event Details › People with access (owner 2026-10-03), where the budget /
+ *     photo switches and the reasoned Remove moved;
  *   · their colour domains (`CoordinatorColourDomains`) — which this workspace's
  *     own Colour access card used to send to the Hosts page for.
  *
@@ -361,14 +362,7 @@ export async function PromoteCoordinatorCard({
                 <p className="sn-eye">{roleWord(s)}</p>
                 <CoordinatorGrantChips permissions={s.permissions_json} />
               </div>
-              {s.user_id !== user.id ? (
-                <CoordinatorSeatControls
-                  eventId={eventId}
-                  moderatorId={s.moderator_id}
-                  permissions={s.permissions_json}
-                  returnTo={{ vendorId: vendor.vendor_id }}
-                />
-              ) : null}
+              {s.user_id !== user.id ? <ChangeAccessLink eventId={eventId} /> : null}
             </li>
           ))}
         </ul>

@@ -28,7 +28,10 @@ test('the card section reuses the Hosts pieces and their actions — never a cop
   assert.match(SECTION, /rejectAction=\{rejectColourChange\.bind\(null, eventId\)\}/);
   assert.doesNotMatch(SECTION, /'use server'|export async function/, 'the card grew its own server action');
   // One definition of each piece, anywhere under app/.
-  const defs: Record<string, number> = { CoordinatorGrantChips: 0, CoordinatorSeatControls: 0, CoordinatorColourDomains: 0 };
+  // `CoordinatorSeatControls` is gone (2026-10-03): its switches and Remove
+  // MOVED to Event Details › People with access — the card SHOWS the grant and
+  // links there (`ChangeAccessLink`).
+  const defs: Record<string, number> = { CoordinatorGrantChips: 0, ChangeAccessLink: 0, CoordinatorColourDomains: 0, CoordinatorSeatControls: 0 };
   const walk = (d: string) => {
     for (const n of readdirSync(d)) {
       const p = join(d, n);
@@ -40,13 +43,18 @@ test('the card section reuses the Hosts pieces and their actions — never a cop
     }
   };
   walk(APP);
-  assert.deepEqual(defs, { CoordinatorGrantChips: 1, CoordinatorSeatControls: 1, CoordinatorColourDomains: 1 }, 'a Hosts piece was redrawn');
+  assert.deepEqual(defs, { CoordinatorGrantChips: 1, ChangeAccessLink: 1, CoordinatorColourDomains: 1, CoordinatorSeatControls: 0 }, 'a Hosts piece was redrawn, or a retired setter came back');
+  assert.match(SECTION, /<ChangeAccessLink eventId=\{eventId\} \/>/, 'the helper card lost its door to People with access');
 });
 
-test('a guest-list helper is removed by Access → None, never by the planner\'s reasoned Remove', () => {
-  assert.match(SECTION, /returnTo=\{\{ guestId \}\}\s*withRemove=\{false\}/, 'the helper card draws the planner\'s Remove');
-  const controls = read(join(EVENT, '_components', 'coordinator-seat-controls.tsx'));
-  assert.match(controls, /\{withRemove \? \(\s*<form action=\{removeHost\}/, 'Remove is no longer switchable');
+test('the helper card sets nothing — access is set in People with access', () => {
+  // A helper is removed there by Access → None (`setGuestAccess`), never by the
+  // planner's reasoned Remove, and their areas are its dropdowns.
+  for (const setter of ['removeHost', 'setDelegateArea', 'setDelegateBudget', 'setDelegatePhotos', 'setGuestAccess']) {
+    assert.ok(!SECTION.includes(setter), `the helper card reaches for ${setter}`);
+  }
+  const people = read(join(EVENT, 'details', '_components', 'people-with-access.tsx'));
+  assert.match(people, /row\.kind === 'coordinator' && !row\.isViewer \? \(\s*<RemoveCoordinator/, 'the reasoned Remove is not the coordinator’s alone');
 });
 
 test('grants only for a CURRENT limited-helper seat; the record from any seat they held', () => {

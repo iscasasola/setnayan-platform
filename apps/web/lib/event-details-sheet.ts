@@ -40,6 +40,7 @@ export const EVENT_DETAILS_SECTIONS = [
   { key: 'guests', title: 'Guests' },
   { key: 'budget', title: 'Budget' },
   { key: 'suppliers', title: 'Your suppliers' },
+  { key: 'access', title: 'People with access' },
   { key: 'services', title: 'Services' },
   { key: 'purchases', title: 'Purchases' },
   { key: 'look', title: 'Your Event Hub look' },

@@ -91,6 +91,20 @@ before(async () => {
     `INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'coordinator')`,
     [F.eventId, F.coordinator],
   );
+  // The coordinator's SEAT — the shape every coordinator member has in prod
+  // (measured 2026-10-03: 1 coordinator member, 1 with a live seat, 0 without).
+  // Since 20271262573732 the song picks ask the seat's The Day area (owner
+  // 2026-10-03, People with access: Off means no read); this one holds the
+  // coordinator default, The Day = Edit.
+  await db.query(
+    `INSERT INTO public.event_moderators (event_id, user_id, role_subtype, permissions_json, accepted_at)
+     VALUES ($1, $2, 'wedding_planner_external', $3::jsonb, now())`,
+    [
+      F.eventId,
+      F.coordinator,
+      JSON.stringify({ edit_all: true, checkout: false, invite_hosts: false, remove_hosts: false, areas: { schedule: 'edit' } }),
+    ],
+  );
   const song = await db.query<{ song_id: string }>(
     `INSERT INTO public.songs (title, artist, source)
      VALUES ('First Dance', 'The Test Band', 'seed') RETURNING song_id`,

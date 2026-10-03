@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "842411983",
+  "generatedFromRef": "74ff0bec",
   "routeCount": 423,
-  "destinations": 944,
-  "actions": 671,
-  "blocks": 5423,
+  "destinations": 945,
+  "actions": 669,
+  "blocks": 5432,
   "routes": {
     "/": {
       "files": [
@@ -5244,10 +5244,7 @@
         "logPayment",
         "markNotificationRead",
         "planNextYearEvent",
-        "removeHost",
         "routes.dashboard.accessRequests",
-        "setDelegateBudget",
-        "setDelegatePhotos",
         "toggleChecklistItem"
       ],
       "blocks": [
@@ -5378,7 +5375,6 @@
         "Remaining",
         "RequestResult",
         "Result",
-        "ReturnFields",
         "RevealChoice",
         "ReviewAxis",
         "ReviewRow",
@@ -5433,7 +5429,6 @@
     },
     "/dashboard/[eventId]/access-requests": {
       "files": [
-        "dashboard/[eventId]/access-requests/_components/granted-now.tsx",
         "dashboard/[eventId]/access-requests/_components/request-card.tsx",
         "dashboard/[eventId]/access-requests/actions.ts",
         "dashboard/[eventId]/access-requests/loading.tsx",
@@ -5443,8 +5438,7 @@
       "actions": [],
       "blocks": [
         "AnswerResult",
-        "GrantRow",
-        "GrantedNow",
+        "Link",
         "ListPageSkeleton",
         "PageMasthead",
         "RequestCard"
@@ -5687,22 +5681,30 @@
         "dashboard/[eventId]/details/_components/event-settings-editor.tsx",
         "dashboard/[eventId]/details/_components/governed-fields.tsx",
         "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
+        "dashboard/[eventId]/details/_components/people-with-access.tsx",
         "dashboard/[eventId]/details/_components/put-away-card.tsx",
         "dashboard/[eventId]/details/loading.tsx",
         "dashboard/[eventId]/details/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/date-selection",
+        "/dashboard/[seg]/vendors/[seg]/workspace?tab=details",
         "/help"
       ],
-      "actions": [],
+      "actions": [
+        "removeHost"
+      ],
       "blocks": [
+        "AccessPick",
+        "AddPerson",
+        "AreaPicks",
         "DetailsForm",
         "EditableField",
         "EditableRow",
         "ErrorNote",
         "FormPageSkeleton",
         "GovernedFields",
+        "GuestAccessLevel",
         "HTMLFormElement",
         "LastSeenCapture",
         "LastSeenFallback",
@@ -5710,9 +5712,13 @@
         "LockedRow",
         "PageMasthead",
         "PaxSettingsCard",
+        "PeopleWithAccess",
+        "PickMenu",
         "PutAwayCard",
+        "RemoveCoordinator",
         "Row",
         "Section",
+        "SubmitButton",
         "T"
       ]
     },
@@ -5923,13 +5929,13 @@
         "BringerSeatsContext.Provider",
         "BringerSeatsProvider",
         "CaptureBar",
+        "ChangeAccessLink",
         "ChipTrigger",
         "ColumnPick",
         "ConfirmForm",
         "ContactCell",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
-        "CoordinatorSeatControls",
         "Ctx",
         "DeleteGuestButton",
         "DeleteGuestFlow",
@@ -6321,7 +6327,8 @@
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
-        "ReadRefusedNotice"
+        "ReadRefusedNotice",
+        "SetDelegateAreaResult"
       ]
     },
     "/dashboard/[eventId]/invitation": {
@@ -7128,6 +7135,7 @@
         "MiniTour",
         "MomentInspector",
         "NoDateYet",
+        "NotSharedWithYou",
         "PageMasthead",
         "PhaseSection",
         "PickMenu",
@@ -8551,6 +8559,7 @@
         "MerkadoBudgetLens",
         "MerkadoGuardBanner",
         "NewManualVendorModal",
+        "NotSharedWithYou",
         "PageMasthead",
         "PendingLockProposals",
         "PickMenu",
@@ -8698,6 +8707,7 @@
       "blocks": [
         "AppointmentsSection",
         "CancelBookingButton",
+        "ChangeAccessLink",
         "ChangeOrderTrail",
         "ChosenProofField",
         "ClaimLinkShare",
@@ -8708,7 +8718,6 @@
         "ContactShortlistVendorButton",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
-        "CoordinatorSeatControls",
         "DepositReservation",
         "DetailPageSkeleton",
         "DisputeLinkButton",

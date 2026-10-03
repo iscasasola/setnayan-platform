@@ -16,11 +16,15 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '../../../../../lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SRC = stripComments(readFileSync(join(HERE, 'guest-access-control.tsx'), 'utf8'));
+// The Access dropdown MOVED 2026-10-03 to Event Details › People with access
+// (owner: access has ONE home); the trap it fell into moved with it.
+const SRC = stripComments(readFileSync(join(HERE, '..', '..', 'details', '_components', 'people-with-access.tsx'), 'utf8'));
 
 test('the Access dropdown passes the level KEY as PickMenu value', () => {
-  const pick = SRC.slice(SRC.indexOf('<PickMenu'), SRC.indexOf('/>', SRC.indexOf('<PickMenu')));
-  assert.ok(pick.length > 0, 'PickMenu not found in guest-access-control.tsx');
-  assert.match(pick, /value=\{state\.level\}/, 'PickMenu value must be the level key');
+  const fnAt = SRC.indexOf('function AccessPick(');
+  const at = SRC.indexOf('<PickMenu', fnAt);
+  const pick = SRC.slice(at, SRC.indexOf('/>', at));
+  assert.ok(fnAt > 0 && pick.length > 0, 'the Access PickMenu not found in people-with-access.tsx');
+  assert.match(pick, /value=\{level\}/, 'PickMenu value must be the level key');
   assert.doesNotMatch(pick, /value=\{LABELS\[/, 'a label as value matches no option key');
 });

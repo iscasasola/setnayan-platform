@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { eventNoun } from '@/lib/event-noun';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -169,6 +171,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
      coordinator, an event type with no Event Hub — keeps this page as it was. */
   if (!inMaker && (await detailsIsTheDoor(supabase, eventId, user.id))) {
     redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash }));
+  }
+
+  // 👥 People with access (owner 2026-10-03): The Day is its own area. A
+  // delegate the host set to Off reads no moments (20271262573732 closed the
+  // door) — say so, never draw an empty day.
+  if (isDelegateWithoutArea(await fetchEventViewer(supabase, eventId, user.id), 'schedule')) {
+    return <NotSharedWithYou title="Schedule" thing="schedule" />;
   }
 
   // Pull the event row (for event_date + ceremony_type that drive the

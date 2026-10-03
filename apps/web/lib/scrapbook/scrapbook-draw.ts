@@ -549,10 +549,18 @@ export class TileCache {
   }
 }
 
-export function paintLayers(g: CanvasRenderingContext2D, layers: readonly ScrapLayer[], tiles: TileCache, scale: number): void {
+/** `fadeId` draws one layer see-through — the one being dragged over the bin. */
+export function paintLayers(
+  g: CanvasRenderingContext2D,
+  layers: readonly ScrapLayer[],
+  tiles: TileCache,
+  scale: number,
+  fadeId: string | null = null,
+): void {
   for (const l of layers) {
     const t = tiles.tile(l);
     if (!t) continue;
+    g.globalAlpha = l.id === fadeId ? 0.45 : 1;
     const m = t.inset ?? 0;
     const s = (l.w / (t.width - m * 2)) * scale;
     g.save();
@@ -561,6 +569,7 @@ export function paintLayers(g: CanvasRenderingContext2D, layers: readonly ScrapL
     g.drawImage(t, (-t.width * s) / 2, (-t.height * s) / 2, t.width * s, t.height * s);
     g.restore();
   }
+  g.globalAlpha = 1;
 }
 
 /** The dashed outline and the gold turn-and-resize handle. `dpr` keeps them finger-sized. */

@@ -10,6 +10,7 @@ import {
   PAGE_W,
   edgeAlpha,
   handlePoint,
+  overBin,
   hitTest,
   maskBounds,
   pageHeight,
@@ -119,6 +120,14 @@ test('the soft edge: gone below 0.3, kept above 0.7', () => {
   assert.equal(edgeAlpha(0.2), 0);
   assert.equal(edgeAlpha(0.8), 1);
   assert.ok(edgeAlpha(0.5) > 0.4 && edgeAlpha(0.5) < 0.6);
+});
+
+test('the bin catches a finger near it, and a bin that is not on screen catches nothing', () => {
+  const bin = { left: 100, top: 500, right: 154, bottom: 554 };
+  assert.equal(overBin(bin, 127, 527), true);
+  assert.equal(overBin(bin, 90, 527), true, 'within the slop');
+  assert.equal(overBin(bin, 60, 527), false);
+  assert.equal(overBin({ left: 0, top: 0, right: 0, bottom: 0 }, 0, 0), false, 'a hidden bin measures zero');
 });
 
 test('a finger that barely moved is a tap; one that drew a line is a scribble', () => {

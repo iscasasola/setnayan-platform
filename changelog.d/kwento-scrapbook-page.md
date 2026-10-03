@@ -20,6 +20,11 @@ the couple).
   (`/api/upload` + `recordSeatCapture`), exactly what "Add to your library" does —
   one Papic credit per saved page. With uploads off or unclaimed the page still
   works and says why it cannot save, and where to fix it.
+- **Drag onto the bin to delete** (owner, 2026-10-03: *"in instagram and other editors.
+  there is a trashcan on bottom center of the screen · drag it there to delete"*). While
+  a layer is dragged a bin rises at the bottom centre of the page; over it, the bin turns
+  red and the layer fades; letting go deletes it (Undo brings it back). The Remove button
+  stays for anyone who cannot drag. `overBin` in `scrapbook-layout.ts`, tested.
 - **The cut-out** runs ON THE PHONE: MediaPipe's Interactive Segmenter, from the
   same package and the same two hosts face matching already loads (so the CSP
   already names both — `the-csp-names-what-face-matching-loads.test.ts` now reads

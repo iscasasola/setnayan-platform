@@ -30,6 +30,7 @@ import {
   Scissors,
   Shuffle,
   Sparkles,
+  Trash2,
   Type,
   Undo2,
 } from 'lucide-react';
@@ -49,6 +50,7 @@ import {
   handlePoint,
   hitTest,
   pageHeight,
+  overBin,
   readGesture,
   reshape,
   scatterPhotos,
@@ -168,6 +170,17 @@ export function ScrapbookMaker({ eventName, who, photos, photosRead, saveTarget,
   }, []);
 
   const stageWrap = useRef<HTMLDivElement>(null);
+  const bin = useRef<HTMLDivElement>(null);
+  /** The bin's look, set only when it CHANGES so a drag does not re-render every frame. */
+  const [binState, setBinStateRaw] = useState<'off' | 'on' | 'hot'>('off');
+  const binNow = useRef<'off' | 'on' | 'hot'>('off');
+  const setBinState = (s: 'off' | 'on' | 'hot') => {
+    if (binNow.current === s) return;
+    binNow.current = s;
+    setBinStateRaw(s);
+  };
+  /** The layer drawn see-through while it hovers over the bin. */
+  const binFade = useRef<string | null>(null);
   const stage = useRef<HTMLCanvasElement>(null);
   const geom = useRef({ cssW: 0, dpr: 1 });
   const bgCache = useRef<HTMLCanvasElement | null>(null);
@@ -195,7 +208,7 @@ export function ScrapbookMaker({ eventName, who, photos, photosRead, saveTarget,
         }
         g.clearRect(0, 0, c.width, c.height);
         g.drawImage(bgCache.current, 0, 0);
-        paintLayers(g, pageRef.current.layers, tiles, scale);
+        paintLayers(g, pageRef.current.layers, tiles, scale, binFade.current);
         const l = pageRef.current.layers.find((x) => x.id === selection);
         const s = l ? tiles.size(l) : null;
         if (l && s) paintSelection(g, l, s, scale, geom.current.dpr);
@@ -357,7 +370,7 @@ export function ScrapbookMaker({ eventName, who, photos, photosRead, saveTarget,
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<
     | null
-    | { type: 'drag'; id: string; dx: number; dy: number; moved: boolean }
+    | { type: 'drag'; id: string; dx: number; dy: number; moved: boolean; hot?: boolean }
     | { type: 'turn'; id: string; w: number; rot: number; dist: number; angle: number; moved: boolean }
     | { type: 'pinch'; id: string; w: number; rot: number; dist: number; angle: number; cx: number; cy: number; x0: number; y0: number; moved: boolean }
   >(null);
@@ -418,6 +431,19 @@ export function ScrapbookMaker({ eventName, who, photos, photosRead, saveTarget,
     if (gst.type === 'drag') {
       l.x = clamp(p.x - gst.dx, -100, PAGE_W + 100);
       l.y = clamp(p.y - gst.dy, -100, h + 100);
+      // 🗑 Instagram's bin: it rises while you drag; let go on it to delete.
+      const r = bin.current?.getBoundingClientRect();
+      const hot = r ? overBin(r, e.clientX, e.clientY) : false;
+      if (hot && !gst.hot) {
+        try {
+          navigator.vibrate?.(12);
+        } catch {
+          /* no vibration motor, or not allowed */
+        }
+      }
+      gst.hot = hot;
+      binFade.current = hot ? gst.id : null;
+      setBinState(hot ? 'hot' : 'on');
     } else if (gst.type === 'turn') {
       Object.assign(l, turnAndResize(gst, { dist: Math.hypot(p.x - l.x, p.y - l.y), angle: Math.atan2(p.y - l.y, p.x - l.x) }));
     } else if (gst.type === 'pinch' && pointers.current.size >= 2) {
@@ -432,6 +458,18 @@ export function ScrapbookMaker({ eventName, who, photos, photosRead, saveTarget,
   const onUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!pointers.current.has(e.pointerId)) return;
     pointers.current.delete(e.pointerId);
+    setBinState('off');
+    binFade.current = null;
+    const gst = gesture.current;
+    if (gst?.type === 'drag' && gst.hot && pointers.current.size === 0) {
+      pageRef.current.layers = pageRef.current.layers.filter((l) => l.id !== gst.id);
+      if (selId === gst.id) setSelId(null);
+      gesture.current = null;
+      commit();
+      paint(null);
+      setNotice('Deleted. Undo brings it back.');
+      return;
+    }
     if (gesture.current?.moved && pointers.current.size === 0) commit();
     if (pointers.current.size === 0 || gesture.current?.type === 'pinch') gesture.current = null;
   };
@@ -569,7 +607,17 @@ export function ScrapbookMaker({ eventName, who, photos, photosRead, saveTarget,
             onPointerUp={onUp}
             onPointerCancel={onUp}
           />
-          {notice ? (
+          {/* Always mounted (so it can be measured mid-drag), shown only while dragging. */}
+          <div
+            ref={bin}
+            aria-hidden
+            className={`pointer-events-none absolute bottom-5 left-1/2 flex h-14 w-14 -translate-x-1/2 items-center justify-center rounded-full border-2 border-white/85 text-white shadow-lg transition motion-reduce:transition-none ${
+              binState === 'off' ? 'invisible opacity-0' : 'opacity-100'
+            } ${binState === 'hot' ? 'scale-125 bg-danger-700' : 'bg-ink/75'}`}
+          >
+            <Trash2 className="h-6 w-6" strokeWidth={2} />
+          </div>
+          {notice && binState === 'off' ? (
             <p role="status" className="absolute inset-x-4 bottom-4 rounded-md bg-ink px-3 py-2 text-center text-sm font-medium text-cream shadow">
               {notice}
             </p>
@@ -639,7 +687,7 @@ export function ScrapbookMaker({ eventName, who, photos, photosRead, saveTarget,
             <button type="button" onClick={remove} className="min-h-9 rounded-md px-2.5 py-1.5 text-sm font-medium text-danger-700 hover:bg-ink/5">Remove</button>
           </div>
         ) : (
-          <p className="mt-3 text-center text-xs text-ink/50">Drag to move · gold corner to turn and resize · pinch with two fingers</p>
+          <p className="mt-3 text-center text-xs text-ink/50">Drag to move · drag onto the bin to delete · gold corner to turn and resize · pinch with two fingers</p>
         )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">

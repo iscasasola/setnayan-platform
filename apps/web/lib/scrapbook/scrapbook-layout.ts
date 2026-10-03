@@ -234,6 +234,15 @@ export function scatterPhotos(
   return [...placed, ...layers.filter((l) => l.kind !== 'photo')];
 }
 
+/**
+ * The bin (Instagram's drag-to-delete): is the finger over it? `slop` widens the
+ * target — a thumb dragging a photo covers the bin before its centre does.
+ */
+export function overBin(bin: { left: number; top: number; right: number; bottom: number }, x: number, y: number, slop = 14): boolean {
+  if (bin.right <= bin.left || bin.bottom <= bin.top) return false;
+  return x > bin.left - slop && x < bin.right + slop && y > bin.top - slop && y < bin.bottom + slop;
+}
+
 /** Moving the page between shapes keeps every layer at the same height FRACTION. */
 export function reshape(page: ScrapPage, shape: PageShape): ScrapPage {
   const k = pageHeight(shape) / pageHeight(page.shape);

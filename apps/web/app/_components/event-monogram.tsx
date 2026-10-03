@@ -9,6 +9,7 @@ import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { MonogramMark, type MonogramMarkStyle } from '@/app/_components/monogram-mark';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 
 /**
  * Circular monogram badge — iteration 0000 § event switcher (locked 2026-05-15).
@@ -122,7 +123,7 @@ export function EventMonogram({
       >
         <CoupleLogo
           svg={customSvg}
-          plays={plays}
+          plays={coupleLogoPlays(customSvg, plays)}
           place={place}
           className="flex h-full w-full p-0.5"
           still={

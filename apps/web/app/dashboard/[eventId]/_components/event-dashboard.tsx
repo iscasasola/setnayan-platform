@@ -2818,8 +2818,8 @@ export async function EventDashboard({
                   {hostAccounts.length === 1 ? 'account' : 'accounts'}
                 </span>
               }
-              fullHref={`${base}/guests`}
-              fullLabel="Set access on the guest list"
+              fullHref={`${base}/details#people-with-access`}
+              fullLabel="Set access in People with access"
               preview={
                 /* A collapsed card's preview used to REPEAT the count already
                    in its own header and add "expand to see …" — an instruction

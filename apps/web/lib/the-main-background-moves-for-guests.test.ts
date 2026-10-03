@@ -86,8 +86,10 @@ test('2 · the scene-clip kill switch is ON, and the Main background gate follow
 
 test('3 · mainGroundLayerFor resolves with the Main background gate and signs the guest\'s clip from it', () => {
   const layer = read('app/[slug]/_lib/main-ground-layer.tsx');
+  // Resolved in the one shared module (2026-10-03), which the page asks.
+  assert.match(layer, /guestMainGround\(theme, ownsPro, heroConfig, event\)/);
   assert.match(
-    layer,
+    read('lib/guest-main-ground.ts'),
     /resolveMainGround\(hubMainGround\(heroConfig\), resolveHero\(event\), mainGroundClipRefForGuests\)/,
   );
   assert.doesNotMatch(layer, /heroVideoRefForGuests/, 'the Main background no longer asks the masthead switch');

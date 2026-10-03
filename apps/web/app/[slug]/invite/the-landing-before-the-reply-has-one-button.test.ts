@@ -88,19 +88,25 @@ test('2 · the page returns ONLY that component for an unreplied guest without a
   assert.ok(!/<Link\b|<a\b|<button\b/.test(block), 'the pre-reply return adds a control beside the component');
 });
 
-test('3 · everything removed from the pre-reply landing is drawn after a reply, once', () => {
+test('3 · everything removed from the pre-reply landing is drawn ONCE — after the reply, or on Me', () => {
   const after = ENTER.slice(ENTER.indexOf('if (unreplied && ticket !== \'full\') {'));
   const afterBlock = after.slice(after.indexOf('\n  }\n') + 5);
   for (const [needle, what] of [
-    ['<YourGuests', 'Your guests · Send their invite'],
     ['data-landing="how"', 'How to use it'],
     ['data-landing="open"', 'Open the invitation / save the date'],
-    ['<CopyMyLink link={invitationUrl} />', 'Copy my link'],
-    ['<SaveToAccount', 'Save to my account (and its Terms tick)'],
   ] as const) {
     assert.ok(afterBlock.includes(needle), `${what} no longer appears after the reply`);
   }
-  assert.equal((afterBlock.match(/<CopyMyLink\b/g) ?? []).length, 1, 'Copy my link is drawn more than once');
+  // 2026-10-03 (owner, on the live hub: "too many buttons" — ONE place each):
+  // "Your guests · Send their invite", "Copy my link" and "Save to my account"
+  // live on the Event Hub's Me, not here a second time.
+  const me = stripComments(readFileSync(join(__dirname, '..', '_components', 'guest-me.tsx'), 'utf8'));
+  const ticket = stripComments(readFileSync(join(__dirname, '..', '_components', 'guest-ticket.tsx'), 'utf8'));
+  assert.ok(!afterBlock.includes('<YourGuests') && me.includes('<YourGuests'), 'Send their invite is not on Me alone');
+  assert.ok(!afterBlock.includes('<CopyMyLink') && ticket.includes('<GuestCodeKeepers'), 'Copy my link is not on Me’s ticket alone');
+  assert.ok(me.includes('<SaveToAccount'), 'Me lost Save to my account');
+  // On the landing, Save comes back only to finish a press refused for the Terms.
+  assert.equal((afterBlock.match(/termsMissing\b/g) ?? []).length, 1);
   // The Terms tick is SaveToAccount's own (it is asked where the account is made).
   const save = stripComments(readFileSync(join(__dirname, '..', '_components', 'save-to-account.tsx'), 'utf8'));
   assert.match(save, /I agree to the/, 'the Terms tick left Save to my account — nothing asks for it any more');

@@ -59,27 +59,34 @@ test('the reply card has an anchor to point at', () => {
   assert.ok(!BODY.includes('id="your-details"'), 'a second element now carries the anchor id');
 });
 
-test('a door points at it — the top control\'s Change, or the line in the reply section', async () => {
+test('a door points at it — the top control itself, or the line in the reply section', async () => {
   // Until 2026-09-30 the door was a chip on the "Hi again · Your invitation
   // summary" card; the owner removed that card (it duplicated the Digital
   // ticket on Me). Two doors remain, and between them EVERY guest has one:
-  //   · "You're going · Change" / "You said you can't make it · Change" under
-  //     the mark — its href is a sheet anchor (executed below, not grepped);
+  //   · "RSVP" / "You're going" / "You said you can't make it" under the mark —
+  //     ONE control since 2026-10-03 (owner: "too many buttons"; the quiet
+  //     "Change" beside it opened the same sheet). Its href is a sheet anchor
+  //     (executed below, not grepped);
   //   · the reply section's own `#your-details` line, shown exactly when the
-  //     top control has NO Change (a guest still owed a reply, the day itself).
-  const { resolveArrivalAction } = await import('@/lib/arrival-action');
+  //     top control does NOT open the sheet (the day itself, after) — and, on a
+  //     tabbed page, only for a guest still owed a reply (Me carries "Change
+  //     your reply" for one who answered).
+  const { actionOpensReply, resolveArrivalAction } = await import('@/lib/arrival-action');
   const { hashOpensSheet } = await import('../_components/rsvp-sheet-state');
-  for (const rsvpStatus of ['attending', 'declined'] as const) {
+  for (const rsvpStatus of ['pending', 'attending', 'declined'] as const) {
     const a = resolveArrivalAction({ slug: 'ana-ben', rsvpStatus, eventDate: '2099-01-01', today: '2026-09-30' });
-    assert.ok(a?.secondary, `${rsvpStatus}: the top control lost its Change`);
-    assert.ok(hashOpensSheet(a!.secondary!.href), `${rsvpStatus}: Change (${a!.secondary!.href}) does not open the reply sheet`);
+    assert.ok(a && actionOpensReply(a), `${rsvpStatus}: the top control no longer opens the reply`);
+    assert.ok(hashOpensSheet(a!.href), `${rsvpStatus}: the top control (${a!.href}) does not open the reply sheet`);
   }
+  // On the day it points at the ticket — so the page's own line is the door.
+  const day = resolveArrivalAction({ slug: 'ana-ben', rsvpStatus: 'attending', eventDate: '2026-09-30', today: '2026-09-30', hasPass: true });
+  assert.equal(actionOpensReply(day), false);
   assert.ok(BODY.includes('href="#your-details"'), 'the reply section lost its own door');
   const at = BODY.indexOf('href="#your-details"');
   assert.match(
-    BODY.slice(Math.max(0, at - 200), at),
-    /\{arrivalAction\?\.secondary \? null : \(\s*<a\s*$/,
-    'the reply-section door must render exactly when the top control has no Change — else a guest has none, or two',
+    BODY.slice(Math.max(0, at - 300), at),
+    /\{actionOpensReply\(arrivalAction\) \|\|\s*\(tabs\.on && \(guest\.rsvp_status === 'attending' \|\| guest\.rsvp_status === 'declined'\)\) \? null : \(\s*<a\s*$/,
+    'the reply-section door must render exactly when no other door does — else a guest has none, or two',
   );
 });
 

@@ -153,7 +153,6 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     // `account` (2026-09-25) — the one account prompt's state. NULL here: the
     // host's simulated guest has no seat and no account, so no prompt renders.
     'account',
-    'accountlessPhotosClosed',
     // checklist (2026-09-27) — THIS guest's own last-30-days ticks, or null.
     'checklist',
     // `didntReply` (2026-09-27) — false here: the sample guest has replied.
@@ -168,7 +167,6 @@ test('simulated identity carries exactly the guest keys, and no more', () => {
     'guestLiveGallery',
     // `guestOwnShots` (2026-10-01) — null here: the sample guest shot nothing.
     'guestOwnShots',
-    'invitationUrl',
     'kind',
     'needsFaceEnroll',
     'papicGuest',
@@ -213,7 +211,6 @@ test('the preview wears THIS event’s person (name + allowance only), else a ne
   assert.equal(real.guestHubData.firstName, 'Ana');
   assert.match(real.guestHubData.tableLabel ?? '', /sample/i);
   assert.match(real.qrSvg, /SAMPLE/);
-  assert.match(real.invitationUrl, /sample/i);
 });
 
 test('no real-guest-derived value can appear on the simulated identity', () => {

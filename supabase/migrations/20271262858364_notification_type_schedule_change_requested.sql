@@ -1,0 +1,27 @@
+-- notification_type_schedule_change_requested
+-- ============================================================================
+-- A SUPPLIER ASKED TO ADD, CHANGE OR REMOVE SOMETHING ON THE DAY'S SCHEDULE —
+-- AND THE PEOPLE WHO CAN SAY YES ARE TOLD, IN THE APP AND BY EMAIL.
+-- (owner 2026-10-03, DECISION_LOG "SUPPLIERS WRITE THEIR OWN PART OF THE
+-- SCHEDULE": "the couple (or the coordinator, The Day = Edit) is notified and
+-- APPROVES or DECLINES".)
+--
+-- ⚠ ITS OWN FILE, AND NOTHING ELSE IN IT, ON PURPOSE. notification_type is a
+-- Postgres ENUM and Postgres forbids USING a newly-added value in the same
+-- transaction that adds it. Same shape as
+-- 20271235690341_notification_type_booking_fee_waived.sql.
+--
+-- ⛔ WHY NOT `schedule_suggestion`. That label is the generic "something about
+-- the schedule" register: the couple's answer back to a supplier, appointment
+-- proposals, Papic challenges and change orders all ride it, and it is NOT on
+-- the email allowlist. Putting it there would email every one of those. A
+-- request waiting on the couple's (or their coordinator's) yes is a different
+-- sentence and gets its own type — the one this file adds — which IS on the
+-- email allowlist (lib/notification-emit.ts), because a tray badge reaches
+-- nobody who is not already at a console.
+--
+-- 🔑 A TYPE THE DATABASE HAS NEVER HEARD OF IS REFUSED, NOT THROWN.
+-- `every-notice-type-exists-in-the-database.test.ts` is the other half of it.
+-- ============================================================================
+
+ALTER TYPE public.notification_type ADD VALUE IF NOT EXISTS 'schedule_change_requested';

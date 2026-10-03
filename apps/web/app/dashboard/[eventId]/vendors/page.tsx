@@ -15,6 +15,8 @@
  */
 
 import { redirect } from 'next/navigation';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 
 import { getCurrentUser } from '@/lib/auth';
@@ -246,6 +248,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     <PillarPartPicker label="Suppliers part" parts={teamParts} current="team" />
   );
   const supabase = await createClient();
+
+  // 👥 People with access (owner 2026-10-03): Suppliers is its own area. A
+  // delegate the host set to Off reads no bookings (20271262573732 closed the
+  // door) — say so, never draw an empty team.
+  if (isDelegateWithoutArea(await fetchEventViewer(supabase, eventId, user.id), 'vendors')) {
+    return <NotSharedWithYou title="Suppliers" thing="supplier list" />;
+  }
 
   // No-cron lazy review-request sweep (PR #47, 2026-05-14). Any vendor still
   // in contracted/deposit_paid 24h after the event flips to delivered + fires

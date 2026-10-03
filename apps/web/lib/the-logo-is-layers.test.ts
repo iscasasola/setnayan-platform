@@ -441,7 +441,9 @@ test('6 · every surface that plays the mark plays the layers', () => {
   assert.match(hero, /if \(animatedMonogram && isLayeredLogo\(bespokeSvg\)\)/, 'the hero does not play the layers');
   // Through CoupleLogo (owner 2026-09-29, "all logos should animate if
   // animation is active") — which plays THE one player.
-  assert.match(hero, /<CoupleLogo\s+svg=\{bespokeSvg\}\s+plays\s/);
+  // `plays` is the one rule, asked by the hero over the same svg (2026-10-04:
+  // CoupleLogo no longer imports logo-layers to ask it).
+  assert.match(hero, /<CoupleLogo\s+svg=\{bespokeSvg\}\s+plays=\{coupleLogoPlays\(bespokeSvg, Boolean\(animatedMonogram\)\)\}/);
   assert.match(code('app/_components/couple-logo.tsx'), /<LayeredLogoPlayer svg=\{svg\}/, 'CoupleLogo plays something other than the one player');
   const player = code('app/_components/studio-reveal-player.tsx');
   assert.match(player, /if \(svg && isLayeredLogo\(svg\)\) return <LayeredLogoPlayer/, 'the reveal player does not play the layers');

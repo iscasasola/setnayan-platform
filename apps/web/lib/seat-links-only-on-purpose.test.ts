@@ -200,8 +200,9 @@ test('5 · the question says whose invitation and which account (executed)', () 
   });
   assert.equal(seatDisplayName({ first_name: 'Ice', last_name: 'Casasola' }), 'Ice Casasola');
   assert.equal(seatDisplayName({ display_name: 'Tito Ice', first_name: 'Ice' }), 'Tito Ice');
-  // Both surfaces that offer the one-press link say it before the press.
-  for (const rel of ['app/[slug]/_components/save-to-account.tsx', 'app/[slug]/_components/guest-account-card.tsx']) {
+  // The surface that offers the one-press link says it before the press. (The
+  // invitation's second account card left 2026-10-03 — Save is Me's alone.)
+  for (const rel of ['app/[slug]/_components/save-to-account.tsx']) {
     const src = code(rel);
     const at = src.indexOf("state.kind === 'link_this_seat'");
     const block = src.slice(at, src.indexOf('linkThisSeatAction.bind', at));

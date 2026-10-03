@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation';
+import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
+import { NotSharedWithYou } from '../_components/not-shared-with-you';
 import { eventNoun } from '@/lib/event-noun';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -171,6 +173,13 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
     redirect(detailsDoorHref(eventId, 'schedule', { view: viewParam, ros: rosParam, note: noteParam, host_answers: hostAnswersFlash }));
   }
 
+  // 👥 People with access (owner 2026-10-03): The Day is its own area. A
+  // delegate the host set to Off reads no moments (20271262573732 closed the
+  // door) — say so, never draw an empty day.
+  if (isDelegateWithoutArea(await fetchEventViewer(supabase, eventId, user.id), 'schedule')) {
+    return <NotSharedWithYou title="Schedule" thing="schedule" />;
+  }
+
   // Pull the event row (for event_date + ceremony_type that drive the
   // Preparation agenda's statutory-milestone + paperwork-deadline math),
   // the day-of blocks, and the aggregated Preparation agenda in parallel.
@@ -193,6 +202,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
+      // A change or removal whose moment is already gone (the FK is ON DELETE
+      // SET NULL since 20271263061583) has nothing left to approve.
+      .or('kind.eq.new,block_id.not.is.null')
       .order('created_at', { ascending: true }),
     // Recap publish row — the Journey mode's editorial bookend. RLS lets the
     // couple/coordinator read their own row; a missing table (pre-migration)
@@ -884,7 +896,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 type VendorSuggestion = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new';
+  kind: 'adjust' | 'new' | 'remove';
   suggested_by_name: string | null;
   proposed_label: string | null;
   proposed_start_at: string | null;
@@ -911,7 +923,8 @@ function fmtSuggestionTime(iso: string | null): string | null {
  * Phase 3 § 4). Vendors can't write the timeline — they propose; you (or a
  * delegate with schedule edit) accept or decline. Accepting an 'adjust'
  * applies the proposed fields to the block; accepting a 'new' creates the
- * block as a draft (is_public stays your call).
+ * block as a draft (is_public stays your call); accepting a 'remove' deletes
+ * the block.
  */
 function VendorSuggestionsQueue({
   eventId,
@@ -947,7 +960,14 @@ function VendorSuggestionsQueue({
             <li key={s.suggestion_id} className="space-y-1.5 py-3">
               <p className="text-sm">
                 <span className="font-medium">{s.suggested_by_name ?? 'A booked supplier'}</span>{' '}
-                {s.kind === 'adjust' ? (
+                {s.kind === 'remove' ? (
+                  <>
+                    asks to remove{' '}
+                    <span className="font-medium">
+                      {blockLabel.get(s.block_id ?? '') ?? s.proposed_label ?? 'a timeline block'}
+                    </span>
+                  </>
+                ) : s.kind === 'adjust' ? (
                   <>
                     asks to change{' '}
                     <span className="font-medium">

@@ -127,7 +127,6 @@ const MODULE_ICON: Partial<Record<ResolvedModule['id'], typeof Camera>> = {
   issues_log: Circle,
   production_sheet: UtensilsCrossed,
   vendor_papic: Images,
-  guest_delivery: CheckCircle2,
 };
 
 type Brief = {

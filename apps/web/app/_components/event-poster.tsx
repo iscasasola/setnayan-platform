@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react';
 import type { EventPosterFacts } from '@/lib/event-poster';
 import s from './event-poster.module.css';
 import { CoupleLogo } from './couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 
 /**
  * THE EVENT POSTER — a collection card's `cover`, 3:4, filling the card.
@@ -98,7 +99,7 @@ export function EventPoster({
         {markSvgUri ? (
           <CoupleLogo
             svg={markSvg}
-            plays={markPlays}
+            plays={coupleLogoPlays(markSvg, markPlays)}
             place="event-poster"
             className={s.markImg}
             still={
@@ -163,7 +164,7 @@ function InvitationPaper({
         {markSvgUri ? (
           <CoupleLogo
             svg={markSvg}
-            plays={markPlays}
+            plays={coupleLogoPlays(markSvg, markPlays)}
             place="event-poster"
             className="block h-[80%] w-[80%]"
             still={

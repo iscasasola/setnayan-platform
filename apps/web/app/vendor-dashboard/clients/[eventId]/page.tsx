@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { redirect } from 'next/navigation';
 import {
@@ -22,6 +23,7 @@ import {
   PackageCheck,
   Palette,
   Phone,
+  ScrollText,
   Sparkles,
   UserRound,
   Users,
@@ -408,7 +410,9 @@ type HandoverRow = {
 type SuggestionRow = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new';
+  kind: 'adjust' | 'new' | 'remove';
+  /** For a 'remove', the moment's label as it was when asked — the block may be gone. */
+  proposed_label: string | null;
   note: string;
   status: 'open' | 'accepted' | 'declined';
   created_at: string;
@@ -657,7 +661,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         .order('sort_order', { ascending: true }),
       supabase
         .from('event_schedule_suggestions')
-        .select('suggestion_id, block_id, kind, note, status, created_at')
+        .select('suggestion_id, block_id, kind, proposed_label, note, status, created_at')
         .eq('event_id', eventId)
         .eq('vendor_profile_id', profile.vendor_profile_id)
         .order('created_at', { ascending: false })
@@ -1205,12 +1209,20 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // ("Your slot" + included in "My slots only"). Best-effort fetch — before
   // migration 20270825042743 (or with zero tags) the map is empty and the
   // lens behaves exactly as today. Full-timeline read stays per locked D2.
+  //
+  // The SAME tags decide which moments are this supplier's OWN (owner
+  // 2026-10-03): those it may ask to change or remove; on every other moment
+  // it may only suggest. The category heuristic never makes a moment "own" —
+  // only a tag does, which is also the only thing the database's rule reads
+  // (`current_vendor_owns_schedule_block`, 20271263061583).
+  const ownBlockIds = new Set<string>();
   if (eventVendorId && allBlocks.length > 0) {
     const rosMeta = await fetchBlockRosMeta(supabase, eventId);
     if (rosMeta.size > 0) {
       for (const b of allBlocks) {
         if (isBlockTaggedToVendor(rosMeta, b.block_id, eventVendorId)) {
           relevance.set(b.block_id, 'primary');
+          ownBlockIds.add(b.block_id);
         }
       }
     }
@@ -1316,7 +1328,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     activityEvents.push({
       id: `sug-${s.suggestion_id}`,
       kind: 'schedule',
-      title: s.kind === 'new' ? 'Suggested a new timeline entry' : 'Requested a schedule change',
+      title:
+        s.kind === 'new'
+          ? 'Suggested a new timeline entry'
+          : s.kind === 'remove'
+            ? 'Asked to remove a timeline entry'
+            : 'Requested a schedule change',
       detail: `${s.note.slice(0, 90)}${s.note.length > 90 ? '…' : ''} · ${s.status}`,
       at: s.created_at,
       sortAt: Date.parse(s.created_at),
@@ -1719,6 +1736,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         allBlocks={allBlocks}
         blocks={blocks}
         relevance={relevance}
+        ownBlockIds={ownBlockIds}
         mineOnly={mineOnly}
         mineCount={mineCount}
         runOfShowBlocks={runOfShowBlocks}
@@ -1948,6 +1966,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       label: 'Schedule',
       icon: <CalendarDays aria-hidden className={tabIconClass} />,
       node: gated(scheduleNode),
+    },
+    {
+      // The emcee / host's prep surface, on THIS shell too. It only ever
+      // mounted on the flag-OFF card, so with the relationship workspace ON —
+      // production — the one trade it exists for had no way to reach it.
+      // Same entitlement gate as the flag-OFF tab (`showScript`), same node.
+      id: 'script',
+      label: 'Script',
+      icon: <ScrollText aria-hidden className={tabIconClass} />,
+      node: gated(scriptNode),
+      hidden: !showScript,
     },
     {
       id: 'details',
@@ -2515,7 +2544,7 @@ function OverviewTab(props: {
                    vendor's session. eslint-disable-next-line @next/next/no-img-element */
                 <CoupleLogo
                   svg={monogramSvg}
-                  plays={monogramPlays}
+                  plays={coupleLogoPlays(monogramSvg, monogramPlays)}
                   place="vendor-client-style"
                   className="flex h-full w-full p-0.5"
                   still={
@@ -3280,6 +3309,8 @@ function ScheduleTab(props: {
   allBlocks: LiveBlock[];
   blocks: LiveBlock[];
   relevance: Map<string, ReturnType<typeof blockRelevance>>;
+  /** Moments tagged to this supplier's booking — the ones it may ask to change or remove. */
+  ownBlockIds: Set<string>;
   mineOnly: boolean;
   mineCount: number;
   runOfShowBlocks: RunOfShowBlock[];
@@ -3309,6 +3340,7 @@ function ScheduleTab(props: {
     allBlocks,
     blocks,
     relevance,
+    ownBlockIds,
     mineOnly,
     mineCount,
     runOfShowBlocks,
@@ -3450,6 +3482,12 @@ function ScheduleTab(props: {
             That didn&rsquo;t send — try again.
           </p>
         ) : null}
+        {search.suggest === 'notyours' ? (
+          <p role="alert" className="mt-3 rounded-lg bg-warn-50 px-3 py-2 text-xs text-warn-900">
+            That moment isn&rsquo;t yours, so you can only suggest a change to it, not change or
+            remove it.
+          </p>
+        ) : null}
 
         {allBlocks.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
@@ -3492,32 +3530,94 @@ function ScheduleTab(props: {
                   ) : null}
                   {b.location ? <span className="text-xs text-ink/55">{b.location}</span> : null}
                 </div>
-                <details className="mt-1 pl-0 sm:pl-40">
-                  <summary className="inline-flex cursor-pointer items-center gap-1 text-xs text-ink/55 hover:text-ink">
-                    <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> Request a change
-                  </summary>
-                  <form action={suggestScheduleChange} className="mt-2 grid max-w-md gap-2">
-                    <input type="hidden" name="event_id" value={eventId} />
-                    <input type="hidden" name="block_id" value={b.block_id} />
-                    <textarea
-                      name="note"
-                      required
-                      maxLength={1000}
-                      rows={2}
-                      placeholder={`e.g. "We need ingress 2 hours before ${b.label}."`}
-                      className={shopInputClass}
-                    />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <input type="datetime-local" name="proposed_start_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-                      <span className="text-xs text-ink/45">to</span>
-                      <input type="datetime-local" name="proposed_end_at" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
-                      <span className="text-xs text-ink/45">(optional new time)</span>
-                    </div>
-                    <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
-                      Send request
-                    </SubmitButton>
-                  </form>
-                </details>
+                {/*
+                  OWN vs EVERYONE ELSE'S (owner 2026-10-03, "SUPPLIERS WRITE
+                  THEIR OWN PART OF THE SCHEDULE"). A moment tagged to this
+                  supplier's booking may be asked to change (name · time ·
+                  place) or to come off; any other moment only takes a
+                  suggestion in words. Every ask is still a request the couple
+                  or their coordinator approves. The database holds the same
+                  line (schedule_suggestions_vendor_insert), so this split is
+                  the screen saying what is true, not the rule itself.
+                */}
+                {ownBlockIds.has(b.block_id) ? (
+                  <details className="mt-1 pl-0 sm:pl-40">
+                    <summary className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 text-xs text-ink/55 hover:text-ink">
+                      <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> Change or remove
+                    </summary>
+                    <form action={suggestScheduleChange} className="mt-2 grid max-w-md gap-2">
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="block_id" value={b.block_id} />
+                      <input
+                        type="text"
+                        name="proposed_label"
+                        maxLength={120}
+                        placeholder={`New name (now “${b.label}”)`}
+                        className={shopInputClass}
+                      />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input type="datetime-local" name="proposed_start_at" aria-label="New start" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
+                        <span className="text-xs text-ink/45">to</span>
+                        <input type="datetime-local" name="proposed_end_at" aria-label="New end" className="rounded-lg border border-ink/20 bg-white px-2 py-1 text-xs" />
+                      </div>
+                      <input
+                        type="text"
+                        name="proposed_location"
+                        maxLength={200}
+                        placeholder="New place (optional)"
+                        className={shopInputClass}
+                      />
+                      <textarea
+                        name="note"
+                        required
+                        maxLength={1000}
+                        rows={2}
+                        placeholder="What changes, and why"
+                        className={shopInputClass}
+                      />
+                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                        Send request
+                      </SubmitButton>
+                    </form>
+                    <form action={suggestScheduleChange} className="mt-3 grid max-w-md gap-2 border-t border-ink/10 pt-3">
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="block_id" value={b.block_id} />
+                      <input type="hidden" name="request" value="remove" />
+                      <textarea
+                        name="note"
+                        required
+                        maxLength={1000}
+                        rows={2}
+                        placeholder="Why this should come off the schedule"
+                        className={shopInputClass}
+                      />
+                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg border border-danger-300 bg-danger-50 px-3 py-1.5 text-xs font-medium text-danger-700 hover:bg-danger-100">
+                        Ask to remove
+                      </SubmitButton>
+                    </form>
+                  </details>
+                ) : (
+                  <details className="mt-1 pl-0 sm:pl-40">
+                    <summary className="inline-flex min-h-[44px] cursor-pointer items-center gap-1 text-xs text-ink/55 hover:text-ink">
+                      <MessageSquarePlus aria-hidden className="h-3.5 w-3.5" /> Suggest a change
+                    </summary>
+                    <form action={suggestScheduleChange} className="mt-2 grid max-w-md gap-2">
+                      <input type="hidden" name="event_id" value={eventId} />
+                      <input type="hidden" name="block_id" value={b.block_id} />
+                      <textarea
+                        name="note"
+                        required
+                        maxLength={1000}
+                        rows={2}
+                        placeholder={`e.g. "We need ingress 2 hours before ${b.label}."`}
+                        className={shopInputClass}
+                      />
+                      <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
+                        Send suggestion
+                      </SubmitButton>
+                    </form>
+                  </details>
+                )}
               </li>
             ))}
           </ol>
@@ -3545,28 +3645,36 @@ function ScheduleTab(props: {
           <div className="mt-4">
             <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">Your requests</p>
             <ul className="mt-1.5 space-y-1">
-              {suggestions.map((s) => (
+              {suggestions.map((s) => {
+                // Still open, but the moment it was about is gone (the couple
+                // took it off themselves) — nobody is going to answer it, so
+                // it must not read as waiting.
+                const moot = s.status === 'open' && s.kind !== 'new' && !s.block_id;
+                return (
                 <li key={s.suggestion_id} className="flex flex-wrap items-baseline gap-x-2 text-xs">
                   <span
                     className={`rounded-full px-2 py-0.5 font-medium ${
                       s.status === 'accepted'
                         ? 'bg-success-100 text-success-900'
-                        : s.status === 'declined'
+                        : s.status === 'declined' || moot
                           ? 'bg-ink/5 text-ink/50'
                           : 'bg-warn-100 text-warn-900'
                     }`}
                   >
-                    {s.status}
+                    {moot ? 'moment removed' : s.status}
                   </span>
                   <span className="text-ink/70">
-                    {s.kind === 'adjust'
-                      ? `${blockLabel.get(s.block_id ?? '') ?? 'a block'} — `
-                      : 'New entry — '}
+                    {s.kind === 'remove'
+                      ? `Remove ${blockLabel.get(s.block_id ?? '') ?? s.proposed_label ?? 'a block'} — `
+                      : s.kind === 'adjust'
+                        ? `${blockLabel.get(s.block_id ?? '') ?? 'a block'} — `
+                        : 'New entry — '}
                     {s.note.slice(0, 80)}
                     {s.note.length > 80 ? '…' : ''}
                   </span>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </div>
         ) : null}

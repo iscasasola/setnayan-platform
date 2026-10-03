@@ -156,11 +156,11 @@ const MOD = (id: string, enabled = true) =>
 
 test('the desk never links to a tool that has no address of its own', () => {
   const tools = deskTools(
-    [MOD('qr_scanner'), MOD('review_qr'), MOD('live_reviews'), MOD('guest_delivery')],
+    [MOD('qr_scanner'), MOD('review_qr'), MOD('live_reviews')],
     'E1',
   );
   assert.deepEqual(tools, [], 'these are panels ON the floor console, not destinations');
-  for (const id of ['qr_scanner', 'review_qr', 'live_reviews', 'guest_delivery'] as const) {
+  for (const id of ['qr_scanner', 'review_qr', 'live_reviews'] as const) {
     assert.equal(dayOfModuleHref(id, 'E1'), null, `${id} gained an address — re-read this rule`);
   }
 });

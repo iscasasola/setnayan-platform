@@ -241,7 +241,11 @@ test('R4 · the sign-out controls say it BEFORE the tap — in the owner’s wor
   const foot = body.slice(body.indexOf('action={`/${event.slug}/sign-out`}'), body.indexOf('Sign out of this invitation'));
   assert.match(foot, /\{SIGN_OUT_ERASES_SELFIE\}/, 'the footer sign-out erases the selfie without saying so');
   assert.match(body, /selfieLine=\{guest\.photo_source === 'selfie' \? SELFIE_LIFETIME_LINE : null\}/, '"Photos of you" lost the selfie-lifetime line');
-  assert.match(code('app/[slug]/page.tsx'), /hasFaceSelfie=\{guest\.photo_source === 'selfie'\}/, 'Me’s "Not you? Switch" is not told the guest has a selfie');
+  // Me's own "Not you? Switch" left on 2026-10-03 (owner: one place per control
+  // — it posted to the SAME sign-out as the footer above). The RSVP page keeps
+  // its switch, and it is still told about the selfie.
+  assert.doesNotMatch(code('app/[slug]/_components/guest-me.tsx'), /<NotYouSwitch\b/, 'Me has two sign-outs again');
+  assert.match(code('app/[slug]/invite/reply/page.tsx'), /<NotYouSwitch slug=\{home\} erasesSelfie=\{guest\.photo_source === 'selfie'\} \/>/, 'the reply page’s "Not you? Switch" is not told the guest has a selfie');
 });
 
 // ═══ R6 · the server-side enrol, and the couple's "off" ═════════════════════

@@ -188,10 +188,15 @@ export async function fetchActSongRequests(eventId: string): Promise<ActSongRequ
  * musician answer "which set?" in that moment is a decision they do not need. So
  * this writes a status and nothing else: no ordering table, no `played` state.
  *
- * `event_id` is re-asserted in the WHERE clause even though `request_id` is a
- * primary key, so a request from another event cannot be decided by id alone —
- * service_role bypasses RLS, which means every scope the policy used to enforce
- * has to be written out here.
+ * 🔒 WHO DECIDED IS SET BY THE SERVER (2026-10-04, migration 20271263384666).
+ * This takes NO vendor profile and NO timestamp from the browser: the profile is
+ * the one {@link requireSongDeskAct} resolved from the caller's own session, and
+ * `decided_at` is the database clock. The write goes through
+ * `decide_song_request` — the ONLY writer of the decision columns, service_role
+ * only — which re-asserts `event_id` beside the primary key, refuses a shop with
+ * no booking on the event, and raises on zero rows rather than reporting
+ * success. `authenticated` holds no UPDATE on the table any more: any event
+ * member (guests included) could previously PATCH these columns directly.
  */
 export async function decideActSongRequest(
   eventId: string,
@@ -201,18 +206,16 @@ export async function decideActSongRequest(
   const gate = await requireSongDeskAct(eventId);
   if (!gate.ok) return { ok: false, error: gate.error };
 
-  const { error } = await createAdminClient()
-    .from('event_song_requests')
-    .update({
-      status: decision,
-      decided_by_vendor_profile_id: gate.profile.vendor_profile_id,
-      // The CHECK constraint pairs these: a non-pending row MUST carry a
-      // decided_at, so writing the status without it fails the insert.
-      decided_at: new Date().toISOString(),
-    })
-    .eq('request_id', requestId)
-    .eq('event_id', eventId);
-  if (error) return { ok: false, error: error.message };
+  const { error } = await createAdminClient().rpc('decide_song_request', {
+    p_event_id: eventId,
+    p_request_id: requestId,
+    p_decision: decision,
+    p_vendor_profile_id: gate.profile.vendor_profile_id,
+  });
+  if (error) {
+    logQueryError('decideActSongRequest (decide_song_request)', error, { event_id: eventId, request_id: requestId });
+    return { ok: false, error: 'That didn’t save. Try again.' };
+  }
 
   revalidatePath(`/vendor-dashboard/on-the-day/live/${eventId}`);
   return { ok: true };

@@ -97,13 +97,16 @@ export function useGuestRemoval(eventId: string) {
     // buildUndo carries the released seats through, so restore re-places them.
     const plan = buildUndo({ kind: 'remove', guestIds: result.removedIds }, [], result.releasedSeats);
     const n = result.removedIds.length;
+    const releasedSongs = result.releasedSongs;
     pushUndo({
       label: `${formatCount(n)} guest${n === 1 ? '' : 's'} deleted`,
       undo: async () => {
         if (plan.kind !== 'restore') return;
-        const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
+        // Their song requests come back with them (the warning said they go).
+        const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats, releasedSongs);
         if (r.ok) {
           guestOptimistic.clear(mutation); // un-hide the restored rows
+          if (r.warning) toast.error(r.warning);
         } else {
           toast.error('Could not undo — refresh and try again.');
         }

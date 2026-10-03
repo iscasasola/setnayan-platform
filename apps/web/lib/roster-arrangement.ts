@@ -289,3 +289,25 @@ export function buildRosterSections<G>(
       guests: buckets.get(label)!,
     }));
 }
+
+/**
+ * EVERY HEADING FOLDS — THE PINNED ONE TOO, AND ALL IN ONE PLACE.
+ *
+ * ⚖ Owner 2026-09-21: *"these rows should be able to make the content of that
+ * grouping collapse and expand like an accordion."* Measured live 2026-10-03 at
+ * 375 px on maria-and-jose: tapping the pinned "Bride & Groom" heading flipped
+ * `aria-expanded` and the cards stayed, while Groomsmen folded. The honoree
+ * section was built down its own branch, with its own copy of the fold test
+ * inside the section build — two places for one rule.
+ *
+ * 🔑 The section build no longer knows what is folded. It builds every section
+ * whole, and THIS is the only place a folded one is emptied — the same line for
+ * the honoree as for any other heading. `count` stays, so a folded heading
+ * still says how many it holds.
+ */
+export function foldSections<S extends { key: string; guests: readonly unknown[] }>(
+  sections: readonly S[],
+  collapsed: ReadonlySet<string>,
+): S[] {
+  return sections.map((sec) => (collapsed.has(sec.key) ? ({ ...sec, guests: sec.guests.slice(0, 0) } as S) : sec));
+}

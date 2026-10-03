@@ -117,14 +117,12 @@ test('the board no longer labels a group PRIORITY (ruling 2)', () => {
 test('the expired minis are gated, and the ones that stayed true are not (ruling 3)', () => {
   // Guests and Schedule-next each state a fact about a day still to come.
   for (const anchor of [
-    // (+ `!repeats.guests` — 2026-10-01 "each thing once": the first screen above
-    //  already states coming / no reply; a different gate, same expiry rule)
-    'if (stats.total > 0 && !eventHasHappened && !repeats.guests) {',
+    'if (stats.total > 0 && !eventHasHappened) {',
     'if (!schedulePreview.isEmpty && !eventHasHappened) {',
   ]) {
     assert.ok(source.includes(anchor), `missing gate: ${anchor}`);
   }
-  const gated = countMatches(source, /&& !eventHasHappened(?: && !repeats\.guests)?\)/);
+  const gated = countMatches(source, /&& !eventHasHappened\)/);
   console.log(`  minis gated on !eventHasHappened: ${gated}`);
   assert.equal(gated, 2, 'exactly two minis expire — see below for why Papic does not');
 
@@ -146,8 +144,8 @@ test('the expired minis are gated, and the ones that stayed true are not (ruling
   );
   // Budget stays ungated too — the half of the rule that is easy to lose.
   assert.ok(
-    source.includes('if (!repeats.money && (committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0)) {'),
-    'the budget mini must NOT be gated on the event being ahead (its only gate is the first screen above stating Paid / Still owing — `repeats.money`)',
+    source.includes('if (committedCentavos > 0 || (budgetTargetCentavos ?? 0) > 0) {'),
+    'the budget mini must NOT be gated on the event being ahead (it has no phase gate at all)',
   );
 });
 

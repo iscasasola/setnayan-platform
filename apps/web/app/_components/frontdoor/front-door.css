@@ -1958,6 +1958,210 @@ button.fd-ask.quiet {
      (inherited above), so the search simply takes the slack. */
 }
 
+/* ══ THE SLIM PHONE BAR (owner 2026-10-03) ══════════════════════════════════
+   Owner, on the phone, over the signed-in bar: *"on mobile. this row takes so
+   much space on all pages."* Rule 13 of the 2026-10-02 live phone test: one
+   row, sized to the VISIBLE viewport, room to work.
+
+   ONE ROW OF 44px CONTROLS: ☰ · mark · … · 🔍 · chat · bell · avatar.
+   44 + 3 + 3 padding + the wrapper's 1px hairline = 51px, plus the notch.
+
+   🔑 CSS ONLY, AND NOTHING IS MOUNTED TWICE. The search icon IS the search:
+   the palette trigger keeps its own button and opens its own dialog (pinned
+   here over the bar, full width); the Guest list's real box keeps its own
+   input, collapsed to its icon until a tap focuses it. No second search, no
+   new client code — this bar mounts on every page and the shared bundle has
+   no room.
+
+   ☰ STAYS. The approved phone design (`phone_app_simple_2026-10-01_fable`)
+   draws no top bar at all, so it does not speak to the menu button; the
+   standing ruling does (owner 2026-08-29, *"keep it visible across"*), and on
+   the events board, the account pages and HQ the drawer is the only way to
+   most of the app on a phone.
+
+   Below 768 only. 768–1023 and the desktop are unchanged.                    */
+@media (max-width: 767.98px) {
+  .fd[data-chrome='app'] {
+    /* The token everything parked under the bar reads (the budget summary,
+       the explore strip, help's nav). Measured, not derived: 44 + 6 + 1. */
+    --fd-bar: calc(51px + env(safe-area-inset-top, 0px));
+  }
+  .fd[data-chrome='app'] .fd-topwrap {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .fd[data-chrome='app'] .fd-topbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 4px;
+    padding: 3px 8px;
+    /* The anchor the opened Guest-list box covers. */
+    position: relative;
+  }
+  .fd[data-chrome='app'] .fd-topleft,
+  .fd[data-chrome='app'] .fd-topright,
+  .fd[data-chrome='app'] .fd-topright > div {
+    gap: 4px;
+  }
+
+  /* Every control is a 44px SQUARE, so `border-radius: 50%` draws a circle,
+     not the ellipse globals' `button { min-height: 44px }` makes of a 40px
+     width. */
+  .fd[data-chrome='app'] .fd-topbar .fd-iconbtn,
+  .fd[data-chrome='app'] .fd-topright .fd-round {
+    width: 44px;
+    height: 44px;
+  }
+  .fd[data-chrome='app'] .fd-wordmark-app {
+    display: inline-grid;
+    place-items: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+  }
+  /* The round controls never give up width to a crowded row — a 44px circle
+     squeezed by flex is the ellipse this block exists to remove. */
+  .fd[data-chrome='app'] .fd-topright .fd-round,
+  .fd[data-chrome='app'] .fd-topright .fd-acct {
+    flex-shrink: 0;
+  }
+
+  /* ── HQ'S CLUSTER FITS THE SAME ROW ──
+     HQ hands in more than the other trees: an SLA pill, the bell, a role tag
+     and the avatar. Measured at 375 with the slim rules alone it ran 19px past
+     the screen ("Queue counts unavailable" · "Setnayan Team") and squeezed the
+     bell to a 27px ellipse. So on a phone the role tag (who you are in HQ —
+     the same on every screen) steps out, and the SLA pill (what needs you
+     now) keeps its words, shortening with "…" only if it still cannot fit.
+     Its full sentence stays in its aria-label. */
+  .fd[data-chrome='app'] .fd-topright {
+    min-width: 0;
+  }
+  .fd[data-chrome='app'] .fd-topright .fd-role {
+    display: none;
+  }
+  .fd[data-chrome='app'] .fd-topright .fd-urgency > svg {
+    flex-shrink: 0;
+  }
+
+  /* ── THE SEARCH, AS ITS ICON ── */
+  .fd[data-chrome='app'] .fd-searchwrap {
+    justify-content: flex-end;
+  }
+  /* The palette trigger: the same button, drawn as a circle. */
+  .fd[data-chrome='app'] .fd-searchwrap > button {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+  /* Its words stay in the accessible name — hidden from sight, not removed. */
+  .fd[data-chrome='app'] .fd-searchwrap > button > span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+  /* Opened, the palette sits OVER the bar, edge to edge. ⚠ The bar's wrapper
+     has a `backdrop-filter`, which makes it the containing block for these
+     `fixed` boxes — so the scrim is given the screen's height explicitly
+     rather than trusting `inset: 0` to reach the bottom. */
+  .fd[data-chrome='app'] .fd-searchwrap > [role='presentation'] {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: auto;
+    height: 100dvh;
+  }
+  .fd[data-chrome='app'] .fd-searchwrap [role='dialog'] {
+    width: 100%;
+    margin: 0;
+    border-radius: 0 0 16px 16px;
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  /* The Guest list's own box: its icon until tapped. The input is laid over
+     the icon (invisible) so the tap lands IN it and the keyboard opens. */
+  .fd[data-chrome='app'] [data-guests-top-search] {
+    flex: none;
+    width: 44px;
+  }
+  .fd[data-chrome='app'] [data-guests-top-search] > .sn-tile-glass {
+    position: relative;
+    height: 44px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border-radius: var(--m-r-full);
+  }
+  .fd[data-chrome='app'] [data-guests-top-search] input {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    padding: 0;
+    /* 16px: below it iOS zooms the page on focus. */
+    font-size: 16px;
+  }
+  /* Tapped: the box opens over the whole bar — the whole row, edge to edge,
+     so no badge peeks over its rim. */
+  .fd[data-chrome='app'] [data-guests-top-search]:focus-within {
+    position: absolute;
+    inset: 0;
+    width: auto;
+    padding: 3px 8px;
+    background: var(--fd-cream);
+    z-index: 5;
+  }
+  .fd[data-chrome='app'] [data-guests-top-search]:focus-within > .sn-tile-glass {
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 0 14px;
+    background: var(--fd-cream);
+  }
+  .fd[data-chrome='app'] [data-guests-top-search]:focus-within input {
+    position: static;
+    opacity: 1;
+    flex: 1;
+  }
+  /* A search still applied while the box is shut is marked, never hidden. */
+  .fd[data-chrome='app']
+    [data-guests-top-search]:not(:focus-within):has(input:not(:placeholder-shown))
+    > .sn-tile-glass::after {
+    content: '';
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--fd-gold);
+  }
+
+  /* ── THE AVATAR: a plain round photo, no pill, no chevron ── */
+  .fd[data-chrome='app'] .fd-topright .fd-acct {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    gap: 0;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+  }
+  .fd[data-chrome='app'] .fd-topright .fd-acct > span:first-child {
+    width: 36px;
+    height: 36px;
+  }
+  .fd[data-chrome='app'] .fd-topright .fd-acct > svg,
+  .fd[data-chrome='app'] .fd-topright .fd-acct > span + span {
+    display: none;
+  }
+}
+
 /* The content column is a passthrough. Every account page already ships its
    own `mx-auto max-w-* px-*` container; adding this file's 24px padding and
    1064px cap on top would double-constrain all ~15 of them and break the

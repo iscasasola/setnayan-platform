@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "23561d84",
+  "generatedFromRef": "1f176bbb",
   "routeCount": 424,
   "destinations": 947,
   "actions": 671,
-  "blocks": 5426,
+  "blocks": 5427,
   "routes": {
     "/": {
       "files": [
@@ -5876,6 +5876,7 @@
         "dashboard/[eventId]/guests/_components/roster-controls.tsx",
         "dashboard/[eventId]/guests/_components/roster-meters.tsx",
         "dashboard/[eventId]/guests/_components/roster-tabs.tsx",
+        "dashboard/[eventId]/guests/_components/row-tap.ts",
         "dashboard/[eventId]/guests/_components/seat-chip.tsx",
         "dashboard/[eventId]/guests/_components/send-invite.tsx",
         "dashboard/[eventId]/guests/_components/undo-toast.tsx",
@@ -5928,6 +5929,7 @@
         "BringerSeatsProvider",
         "CaptureBar",
         "ChipTrigger",
+        "Closest",
         "ColumnPick",
         "ConfirmForm",
         "ContactCell",

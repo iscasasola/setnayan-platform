@@ -1,5 +1,6 @@
 import { BespokeMonogramMark } from '@/app/_components/bespoke-monogram-mark';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 
 /**
  * WHAT A DOOR'S SEAL HOLDS — the couple's LOGO when they have one, their
@@ -34,7 +35,7 @@ export function SealMark({
   return (
     <CoupleLogo
       svg={mark}
-      plays={plays}
+      plays={coupleLogoPlays(mark, plays)}
       place="invite-seal"
       className="inline-flex shrink-0"
       style={{ width: px, height: px }}

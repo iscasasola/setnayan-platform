@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { coupleLogoPlayKey, coupleLogoPlays, logoArrivals, logoPhaseOnMount } from '@/lib/couple-logo-plays';
+import { coupleLogoPlayKey, logoArrivals, logoPhaseOnMount } from '@/lib/couple-logo-arrival';
 
 /* 📦 THE PLAYER LOADS WHEN A LOGO PLAYS. It mounts only in the `play` phase,
  * which an effect sets after mount — never in the server HTML — so a page whose
@@ -24,12 +24,17 @@ export const LayeredLogoPlayer = dynamic(
  * is active"*. So every screen that shows the couple's logo hands it here with
  * the still it drew before, and this picks:
  *
- *   · the logo moves (`logoHasMotion` — a layer with an In or a Drift) AND the
- *     animation is on for the event (`plays`: owned, not switched to "Use Static
- *     Image" — `logoPlaysFor` / HeroMonogram's `animatedMonogram`) → it plays
- *     through THE one player, `LayeredLogoPlayer` (the Maker's ▶ Play and every
- *     guest surface), never a new mechanism;
+ *   · `plays` — the logo moves (a layer with an In or a Drift) AND the
+ *     animation is on for the event (owned, not switched to "Use Static Image")
+ *     → it plays through THE one player, `LayeredLogoPlayer` (the Maker's ▶ Play
+ *     and every guest surface), never a new mechanism;
  *   · otherwise → `still`, byte-for-byte what the surface drew before.
+ *
+ * 📦 `plays` IS DECIDED BY THE CALLER, through the one rule:
+ * `plays={coupleLogoPlays(svg, animationOn)}` (`lib/couple-logo-plays.ts`),
+ * with the same svg it hands here. This file never asks whether a logo moves,
+ * so its client graph never imports `logo-layers` — a page of still logos
+ * (Discover's cards) ships neither that nor the player.
  *
  * ♿ `prefers-reduced-motion: reduce` → the still, from the first paint (the
  * still is in the server HTML and only `motion-safe:` hides it).
@@ -55,7 +60,8 @@ export function CoupleLogo({
 }: {
   /** The sanitised mark (`resolveEventMonogramSvg` / `heroMarkSvg`), or null. */
   svg: string | null | undefined;
-  /** The animation is on for this event (owned + not switched off). */
+  /** `coupleLogoPlays(svg, animationOn)` — the logo moves AND the animation is
+   *  on for this event. Asked by the caller, with this same `svg`. */
   plays: boolean;
   /** Which surface this is — the plays-once memory is kept per place. */
   place: string;
@@ -67,8 +73,8 @@ export function CoupleLogo({
   /** An exact box, for a slot sized in px (a door's seal). */
   style?: CSSProperties;
 }) {
-  if (!coupleLogoPlays(svg, plays)) return <>{still}</>;
-  return <PlayingLogo svg={svg as string} place={place} still={still} className={className} style={style} />;
+  if (!plays || !svg) return <>{still}</>;
+  return <PlayingLogo svg={svg} place={place} still={still} className={className} style={style} />;
 }
 
 function PlayingLogo({

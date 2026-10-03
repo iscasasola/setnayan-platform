@@ -41,6 +41,7 @@ import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
@@ -329,7 +330,7 @@ function FilmMonogram({
       <span aria-hidden className={`${sizeCls} inline-flex items-center justify-center`} style={{ filter: glow }}>
         <CoupleLogo
           svg={svg}
-          plays={Boolean(animatedMonogram)}
+          plays={coupleLogoPlays(svg, Boolean(animatedMonogram))}
           place="std-film"
           still={
             // eslint-disable-next-line @next/next/no-img-element

@@ -84,3 +84,33 @@ imports `LayeredLogoPlayer` with `next/dynamic` (`ssr: false`). The player only 
 `play` phase (set by an effect after mount), so the server HTML and the still are unchanged; a page
 whose logos are stills — every Discover card without a moving mark — no longer ships the player. This
 removes the bulk of the `/` route JS growth this PR's `<EventPoster>` import brought in.
+
+**2026-10-04 · perf(logo): "does this logo move" is asked by the surface, so `CoupleLogo` ships no
+`logo-layers`.** Lazy-loading the player was not enough: `CoupleLogo` still imported
+`lib/couple-logo-plays.ts` to ask `coupleLogoPlays(svg, plays)`, and that file imports
+`logoHasMotion` from `lib/logo-layers.ts` (with its print-mark and font modules), so every page that
+drew a still logo, including `/` through Discover's `<EventPoster>`, shipped it to decide "no". Now:
+- `plays` on `CoupleLogo` means the whole rule, "the logo moves AND the animation is on", and every
+  caller hands it `plays={coupleLogoPlays(svg, animationOn)}` with the same svg it passes. The rule
+  is still the one function in `lib/couple-logo-plays.ts`; only where it is called moved. The callers
+  are `EventPoster` (twice), `EventMonogram`, `SealMark`, `HeroMonogram`, the venue screen, the
+  save-the-date film and the supplier's client page. `EventPoster` is a server component, so on `/`
+  the question is answered on the server.
+- `CoupleLogo` returns the still when `!plays || !svg`, and imports its client half
+  (`coupleLogoPlayKey`, `logoPhaseOnMount`, `logoArrivals`, `arrivalMotion`) from a new
+  `lib/couple-logo-arrival.ts`, which imports nothing. The player imports `arrivalMotion` from there.
+- Behaviour is unchanged: each surface computes exactly what `CoupleLogo` used to compute, over the
+  same svg. The SSR still, `data-couple-logo="pending"`, `motion-safe:invisible`, plays-once,
+  offscreen-waits and reduced motion all live in `CoupleLogo` and did not change.
+
+**Guards moved, not weakened.** `lib/every-logo-plays.test.ts` gains a test that (a) walks every
+`.tsx` in `app/` and fails if any `<CoupleLogo` is not handed `plays={coupleLogoPlays(<its own svg>, …)}`
+(with a floor of 8 calls and a self-check that a bare `plays`, a bare `plays={plays}` and a different
+svg are each caught), and (b) walks `couple-logo.tsx`'s static import graph and fails if it reaches
+`logo-layers`, `couple-logo-plays` or the player. Test 6 now also renders the door seal, the event
+chip, the hero and the event poster with a layered logo that does NOT move and the animation on, and
+asserts each stays still. The page-level wiring pins for the venue screen, the save-the-date film and
+the supplier's client page, and `the-logo-is-layers.test.ts`'s hero pin, now match
+`coupleLogoPlays(<svg>, …)` instead of the bare value, because that is where the decision now lives.
+Sabotaged: restoring `plays={plays}` on the seal turns the new test and test 6 red; adding a
+`logo-layers` import to `couple-logo-arrival.ts` turns the graph check red.

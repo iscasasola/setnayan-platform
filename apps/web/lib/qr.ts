@@ -1,5 +1,6 @@
 import QRCode from 'qrcode';
 import { publicEventPath } from './public-event-url';
+import { invitationLinkOn } from './invitation-link';
 import { FREE_QR_LOOK, type QrLook } from './qr-look';
 import { styledQrSvg } from './qr-style-svg';
 
@@ -98,7 +99,7 @@ export function buildInvitationUrl(params: {
   qrToken: string;
   ownerSlug?: string | null;
 }): string {
-  return `${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}?invite=${params.qrToken}`;
+  return invitationLinkOn(`${params.appUrl}${publicEventPath(params.slug, params.ownerSlug)}`, params.qrToken);
 }
 
 /**

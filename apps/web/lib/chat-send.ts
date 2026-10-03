@@ -209,7 +209,7 @@ export async function sendChatMessageCore(
       return {
         ok: false,
         code: 'declined',
-        message: 'This vendor declined the inquiry — browse similar vendors instead.',
+        message: 'This supplier declined the inquiry — browse similar suppliers instead.',
       };
     }
     // Allow the inquiry (priorMessageCount 0) and ONE follow-up (count 1).
@@ -219,7 +219,7 @@ export async function sendChatMessageCore(
         ok: false,
         code: 'followup_used',
         message:
-          'You’ve sent a follow-up — waiting for the vendor to accept before you can keep chatting.',
+          'You’ve sent a follow-up — waiting for the supplier to accept before you can keep chatting.',
       };
     }
   } else if (thread.inquiry_status !== 'accepted') {

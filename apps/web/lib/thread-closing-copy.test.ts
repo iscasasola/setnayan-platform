@@ -120,7 +120,7 @@ test('the shipped decline wording is unchanged, with and without a reason', () =
   });
   assert.equal(
     withReason.sentence,
-    'Liwanag Photo declined this inquiry. Why: “We’re already booked that weekend.” Browse similar vendors to keep your options open.',
+    'Liwanag Photo declined this inquiry. Why: “We’re already booked that weekend.” Browse similar suppliers to keep your options open.',
   );
   const noReason = closingCopy({ inquiry_status: 'declined', archived_at: null }, 'couple', {
     counterpartyLabel: VENDOR,
@@ -128,12 +128,12 @@ test('the shipped decline wording is unchanged, with and without a reason', () =
   });
   assert.equal(
     noReason.sentence,
-    'Liwanag Photo isn’t available for your date. Browse similar vendors to keep your options open.',
+    'Liwanag Photo isn’t available for your date. Browse similar suppliers to keep your options open.',
   );
   assert.equal(
     closingCopy({ inquiry_status: 'declined', archived_at: null }, 'vendor', { counterpartyLabel: 'the couple' })
       .sentence,
-    'You declined this inquiry. The couple has been notified and pointed to other vendors.',
+    'You declined this inquiry. The couple has been notified and pointed to other suppliers.',
   );
 });
 

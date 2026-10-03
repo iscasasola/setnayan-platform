@@ -82,7 +82,7 @@ const KIND_LABEL: Record<CaptureKind, string> = {
 const SOURCE_BADGE: Record<PapicMissionSource, { label: string; cls: string }> = {
   couple: { label: 'Yours', cls: 'bg-mulberry/15 text-mulberry' },
   auto: { label: 'Booth', cls: 'bg-terracotta/15 text-terracotta' },
-  vendor: { label: 'Vendor', cls: 'bg-ink/10 text-ink/60' },
+  vendor: { label: 'Supplier', cls: 'bg-ink/10 text-ink/60' },
   setnayan: { label: 'Recommended', cls: 'bg-gold/15 text-gold-700' },
 };
 
@@ -715,7 +715,7 @@ export async function CoupleChallengesManager({
         </p>
       ) : missions.length === 0 ? (
         <p className="mt-4 text-sm text-ink/45">
-          No challenges yet — add one above, or they&rsquo;ll appear as you book vendors.
+          No challenges yet — add one above, or they&rsquo;ll appear as you book suppliers.
         </p>
       ) : (
         <>

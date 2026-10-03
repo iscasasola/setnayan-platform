@@ -36,7 +36,7 @@ export function VerifiedPriceCard({
         </p>
         <p className="mt-1.5 text-sm text-ink/60">
           Based on {sampleN} confirmed booking{sampleN === 1 ? '' : 's'} with this
-          vendor. A guide, not a quote — your final price depends on your date,
+          supplier. A guide, not a quote — your final price depends on your date,
           guest count, and package. Send an inquiry for an exact figure.
         </p>
       </div>

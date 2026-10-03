@@ -197,9 +197,9 @@ export function buildCockpitModel(
       label: `Pick your ${group.label.toLowerCase()}`,
       detail:
         n === 1
-          ? '1 option saved · none locked yet'
-          : `${n} options saved · none locked yet`,
-      ctaLabel: 'Compare & lock',
+          ? '1 option saved · none booked yet'
+          : `${n} options saved · none booked yet`,
+      ctaLabel: 'Compare & book',
       href: vendorsHref,
     });
     decidedGroupIds.add(group.id);
@@ -219,7 +219,7 @@ export function buildCockpitModel(
           ? 'Not started yet · plenty of time'
           : topPriorityTask.status === 'overdue'
             ? `Nothing booked · ${formatRelativeDays(-topPriorityTask.daysContextual)}`
-            : `Nothing booked · lock by ${formatRelativeDays(topPriorityTask.daysContextual)}`,
+            : `Nothing booked · book by ${formatRelativeDays(topPriorityTask.daysContextual)}`,
       ctaLabel: topPriorityTask.ctaLabel,
       href: topPriorityTask.ctaHref,
     });
@@ -300,7 +300,7 @@ export function buildCockpitModel(
   const firstDeadline = upcoming.find((u) => u.daysOut !== null) ?? null;
   const nextDeadlineDays = firstDeadline?.daysOut ?? null;
 
-  const parts: string[] = [`You're ${lockedPct}% locked in`];
+  const parts: string[] = [`You're ${lockedPct}% booked`];
   if (decisionCount === 0) {
     parts.push('nothing needs a decision right now');
   } else if (decisionCount === 1) {

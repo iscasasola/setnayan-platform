@@ -32,7 +32,7 @@ type SearchParams = {
 };
 
 const STATUS_LABEL: Record<ManpowerGigStatus, string> = {
-  pending: 'Open for vendors',
+  pending: 'Open for suppliers',
   accepted: 'Crew assigned',
   completed: 'Wrapped',
   cancelled: 'Cancelled',
@@ -174,7 +174,7 @@ export default async function HostManpowerPage({
             role="status"
             className="mt-6 rounded-md border border-success-300/50 bg-success-50 px-4 py-3 text-sm text-success-900"
           >
-            Gig posted. Vendors near your venue can now accept.
+            Gig posted. Suppliers near your venue can now accept.
           </div>
         ) : null}
         {sp.cancelled ? (
@@ -182,7 +182,7 @@ export default async function HostManpowerPage({
             role="status"
             className="mt-6 rounded-md border border-warn-300/50 bg-warn-50 px-4 py-3 text-sm text-warn-900"
           >
-            Gig cancelled. The vendor (if assigned) has been notified.
+            Gig cancelled. The supplier (if assigned) has been notified.
           </div>
         ) : null}
         {sp.error ? (
@@ -221,7 +221,7 @@ export default async function HostManpowerPage({
         {/* Gigs lists, grouped by status */}
         <section className="mt-10 space-y-10">
           <GigGroup
-            title="Open for vendors"
+            title="Open for suppliers"
             icon={<Clock className="h-4 w-4" strokeWidth={1.75} />}
             empty="No open gigs. Post one above to start."
             gigs={pending}
@@ -302,7 +302,7 @@ function GigGroup({
                     <p className="mt-1 text-sm text-slate-700">
                       Accepted by{' '}
                       <span className="font-medium">
-                        {vendorNames.get(gig.vendor_profile_id) ?? 'Vendor'}
+                        {vendorNames.get(gig.vendor_profile_id) ?? 'Supplier'}
                       </span>{' '}
                       · {formatRelative(gig.accepted_at)}
                     </p>

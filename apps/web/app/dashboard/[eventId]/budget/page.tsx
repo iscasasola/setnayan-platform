@@ -642,10 +642,10 @@ export default async function BudgetPage({ params, searchParams }: Props) {
        *  from the setter form above is clear. */}
       <div id="budget-payments" className="scroll-mt-24 space-y-4 border-t border-ink/10 pt-6">
         <div className="space-y-2">
-          <h2 className="sn-sec text-2xl sm:text-3xl">Per-vendor itemization</h2>
+          <h2 className="sn-sec text-2xl sm:text-3xl">Per-supplier itemization</h2>
           <p className="max-w-prose text-sm text-ink/65">
-            Vendor-controlled line items come from the vendor&rsquo;s catalog and
-            refresh as they update their pricing. For off-platform vendors, add
+            Supplier-controlled line items come from the supplier&rsquo;s catalog and
+            refresh as they update their pricing. For off-platform suppliers, add
             line items yourself. Log payments against either source as money moves
             — your committed total above updates automatically.
           </p>
@@ -817,7 +817,7 @@ function MahrInfoCard({
         ) : (
           <>
             A Muslim marriage includes the mahr — the groom&rsquo;s gift to the
-            bride, hers alone. It isn&rsquo;t a Setnayan or vendor charge, so it
+            bride, hers alone. It isn&rsquo;t a Setnayan or supplier charge, so it
             lives outside your budget. Record yours from the Nikah card on Home.
           </>
         )}
@@ -866,10 +866,10 @@ function ChineseTraditionInfoCard({ pax }: { pax: number | null }) {
       <p className="mt-2 text-sm text-ink/75">
         A Chinese wedding carries a few costs worth planning for. Ang pao — red
         envelopes — are given to elders during the tea ceremony, kept aside from
-        your vendor spend. The lauriat banquet is typically the main reception
+        your supplier spend. The lauriat banquet is typically the main reception
         cost, and it&rsquo;s priced per table — about {formatCount(LAURIAT_PAX_PER_TABLE)}{' '}
         guests to a table — so it&rsquo;s worth anchoring your budget around it
-        early. These are your own arrangements, not a Setnayan or vendor charge,
+        early. These are your own arrangements, not a Setnayan or supplier charge,
         so they stay outside your committed totals.
       </p>
       {tables !== null && pax !== null ? (
@@ -928,13 +928,13 @@ function NoFinalizedVendors({ eventId }: { eventId: string }) {
   return (
     <div className="sn-row border-dashed p-8 text-center">
       <p className="text-sm text-ink/65">
-        You&rsquo;re still choosing vendors — exactly where you should be at this
+        You&rsquo;re still choosing suppliers — exactly where you should be at this
         stage. The moment you contract one, its itemized costs and payments show
-        up here on their own. Keep shortlisting from your vendors.
+        up here on their own. Keep shortlisting from your suppliers.
       </p>
       <div className="mt-4">
         <Link href={`/dashboard/${eventId}/vendors`} className="button-primary">
-          Open vendors
+          Open suppliers
         </Link>
       </div>
     </div>

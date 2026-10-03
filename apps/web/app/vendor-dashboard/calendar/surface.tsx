@@ -39,7 +39,7 @@ import type { ReactNode } from 'react';
 import { shopInputClass } from '../_components/kit';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Calendar · Vendor' };
+export const metadata = { title: 'Calendar · Supplier' };
 
 /**
  * Vendor Calendar — one calendar with a UNIVERSAL "All schedules" view plus
@@ -623,9 +623,7 @@ export default async function VendorCalendarPage({ searchParams, variant = 'full
               <div>
                 <p className="text-sm font-medium">{fmtDate(w.requestedDate)}</p>
                 <p className="text-xs text-ink/55">
-                  {w.pendingCount === 1
-                    ? '1 couple waiting'
-                    : `${formatCount(w.pendingCount)} couples waiting`}
+                  {`${formatCount(w.pendingCount)} ${w.pendingCount === 1 ? 'couple' : 'couples'} waiting`}
                 </p>
               </div>
               <div className="flex flex-col items-end gap-1.5">

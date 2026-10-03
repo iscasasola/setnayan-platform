@@ -99,7 +99,16 @@ export function FormPick({
         dataAttr={dataAttr}
         className="w-full justify-between border border-ink/15 !bg-white/80 font-medium"
       />
-      <input ref={ref} type="hidden" id={name} name={name} defaultValue={value} data-form-pick="" />
+      {/* 🔴 CONTROLLED — `value={current}`, NEVER `defaultValue={value}`
+          (owner, live iPhone test 2026-10-02: the card's Reply set to "No reply"
+          saved as "Attending" while `updated_at` moved). On a hidden input the
+          default IS the value, and React re-applies `defaultValue` on every
+          re-render (react-dom `updateInput` → `setDefaultValue`). So the
+          re-render that `setCurrent` itself causes put the SERVER's old value
+          back into the input before the autosave read the form — every
+          dropdown on the card posted what it already was. Driven by `current`,
+          a re-render writes the picked value instead. */}
+      <input ref={ref} type="hidden" id={name} name={name} value={current} data-form-pick="" />
     </div>
   );
 }

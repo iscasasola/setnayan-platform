@@ -40,6 +40,7 @@ import { ORDER_STATUS_LABEL, fetchOrdersForEvent } from '@/lib/orders';
 import { computeVatFromBase } from '@/lib/receipts';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { formatPhp, formatPhpRounded } from '@/lib/php';
+import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { formatCount } from '@/lib/format-number';
 import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
@@ -324,7 +325,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
     if (row) {
       return {
         value: row.vendor_name,
-        hint: [row.manual_vendor_id ? 'Added by you · locked' : 'From your booked supplier · locked', settingWord].filter(Boolean).join(' · '),
+        hint: [row.manual_vendor_id ? 'Added by you · fixed' : 'From your booked supplier · fixed', settingWord].filter(Boolean).join(' · '),
         locked: true,
       };
     }
@@ -347,7 +348,22 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
   const lockNote = (what: string) =>
     `${what} is held by your booking — changing it would change what you booked, so we hold it still. If something has changed, tell us and we will sort it out with your supplier.`;
 
+  // 💾 A read that failed shows "Could not load…" — never kept as last-seen
+  // data. (Money reads are left out: money is never kept at all.)
+  const lastSeenFresh =
+    vendorsRead.ok &&
+    scheduleRead.ok &&
+    proRead.ok &&
+    poolRead.ok &&
+    (guestsRead === null || (guestsRead.ok && guestsRead.v.measured));
+
   return (
+    /* 💾 Event Details is kept on the phone and shown at once on the next open,
+       then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA SHOWS
+       INSTANTLY, THEN REFRESHES"). The Budget and Purchases sections and the
+       supplier-payment and Papic-credit rows carry `data-money` and are never
+       kept (lib/last-seen). */
+    <LastSeenCapture page="details" fresh={lastSeenFresh}>
     <section className="sn-col space-y-4" data-event-details>
       <PageMasthead title="Event Details" />
       <header className="space-y-1">
@@ -361,7 +377,9 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
         {/* ── The basics ── */}
-        <Section k="basics" open={maker ? { href: detailsItemHref(eventId, 'settings'), label: 'Open in Your info' } : null}>
+        {/* Event settings save LIVE, so they are their own page, never the Maker
+            (where nothing may take effect before Apply) — 2026-10-02. */}
+        <Section k="basics" open={{ href: `${base}/details/change`, label: 'Open Event settings' }}>
           <Row fact="names" label="Names" value={names} />
           <Row
             fact="kind"
@@ -376,12 +394,13 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
         {/* ── Key dates — one dated list, soonest first ── */}
         <Section k="key-dates" open={{ href: `${base}/schedule`, label: 'Open Schedule' }}>
           {paymentsFailed ? (
-            <Row label="Supplier payments" value={COULD_NOT_LOAD} />
+            <Row money label="Supplier payments" value={COULD_NOT_LOAD} />
           ) : suppliersHidden ? (
             <Row label="Supplier payments" value={HIDDEN_BY_THE_COUPLE} />
           ) : (
             payments.map((p) => (
               <Row
+                money
                 key={p.id}
                 label={sheetDate(p.date.toISOString(), false) ?? '—'}
                 value={`${p.vendorBusinessName ?? p.subtitle} · ${p.title}${p.amountCentavos != null ? ` ${formatPhp(p.amountCentavos / 100)}` : ''}`}
@@ -481,7 +500,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
               />
               {money ? (
                 <>
-                  <Row label="Agreed" value={formatPhp(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} locked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
+                  <Row label="Agreed" value={formatPhp(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} booked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
                   <Row label="Paid" value={formatPhp(money.paid)} />
                   <Row label="Still owed" value={formatPhp(money.owed)} />
                 </>
@@ -497,7 +516,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
           ) : !vendorsRead.ok ? (
             <Row label="Suppliers" value={COULD_NOT_LOAD} />
           ) : lockedSuppliers.length === 0 ? (
-            <Row label="Locked suppliers" value={null} />
+            <Row label="Booked suppliers" value={null} />
           ) : (
             lockedSuppliers.map((s) => (
               <Row
@@ -515,6 +534,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
           <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
           <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
           <Row
+            money
             label="Papic"
             value={
               !poolRead.ok
@@ -637,6 +657,7 @@ export default async function EventDetailsPage({ params }: { params: Promise<{ e
         />
       </div>
     </section>
+    </LastSeenCapture>
   );
 }
 
@@ -665,7 +686,12 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <div className="sn-tile p-4 sm:p-5" data-section={k}>
+    <div
+      className="sn-tile p-4 sm:p-5"
+      data-section={k}
+      // 💾 Money is never kept as last-seen data (lib/last-seen).
+      data-money={k === 'budget' || k === 'purchases' ? '' : undefined}
+    >
       <div className="mb-1 flex items-baseline justify-between gap-3">
         <h3 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">{sectionTitle(k)}</h3>
         {open ? (
@@ -690,7 +716,10 @@ function Row({
   value,
   hint,
   lock,
+  money = false,
 }: {
+  /** A money figure (a payment, a credit balance) — never kept as last-seen data. */
+  money?: boolean;
   /** The MAP fact this row shows (`EVENT_DETAILS_MAP`) — what the guard counts. */
   fact?: string;
   label: string;
@@ -711,19 +740,19 @@ function Row({
   );
   if (!lock) {
     return (
-      <div className="flex items-start justify-between gap-4 py-2.5" data-fact={fact}>
+      <div className="flex items-start justify-between gap-4 py-2.5" data-fact={fact} data-money={money ? '' : undefined}>
         {body}
       </div>
     );
   }
   return (
-    <details className="group py-2.5" data-fact={fact} data-locked>
+    <details className="group py-2.5" data-fact={fact} data-locked data-money={money ? '' : undefined}>
       <summary className="flex cursor-pointer list-none items-start justify-between gap-4 [&::-webkit-details-marker]:hidden">
         {body}
-        <Lock aria-label="Locked by your booking" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={1.75} />
+        <Lock aria-label="Fixed by your booking" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={1.75} />
       </summary>
       <div className="sn-glass-bare mt-2 rounded-xl px-3.5 py-3">
-        <p className="text-sm font-medium text-ink">Locked by your booking</p>
+        <p className="text-sm font-medium text-ink">Fixed by your booking</p>
         <p className="mt-1 text-[13px] text-ink/65">{lock}</p>
         <Link href="/help" className="mt-2 inline-block text-[13px] font-medium text-terracotta underline-offset-2 hover:underline">
           Contact support

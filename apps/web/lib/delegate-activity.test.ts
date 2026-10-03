@@ -35,7 +35,7 @@ test('the object is the couple’s word for the area, the table when no area say
   assert.equal(delegateObject('guest_list', 'guests'), 'a guest');
   assert.equal(delegateObject('seat_plan', 'x'), 'the seat plan');
   assert.equal(delegateObject('schedule', 'x'), 'a schedule block');
-  assert.equal(delegateObject('vendors', 'x'), 'a vendor record');
+  assert.equal(delegateObject('vendors', 'x'), 'a supplier record');
   assert.equal(delegateObject(null, 'mood_boards'), 'mood_boards');
   assert.equal(delegateObject(undefined, null), 'the plan');
 });

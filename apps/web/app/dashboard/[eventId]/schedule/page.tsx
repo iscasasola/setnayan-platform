@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { eventNoun } from '@/lib/event-noun';
 import { applyDelegateAccessWindow } from '@/lib/delegate-access-window.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { Plus, Trash2, Eye, EyeOff, MapPin, CalendarClock, Send } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 // ⚠ NOT from './actions'. That module is `'use server'`, and the version there
@@ -445,7 +446,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         logQueryError('SchedulePage.vps', vpsError, { eventId }, 'graceful_degrade');
       }
       for (const v of (vps ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>)
-        nameByVp.set(v.vendor_profile_id, (v.business_name ?? '').trim() || 'a vendor');
+        nameByVp.set(v.vendor_profile_id, (v.business_name ?? '').trim() || 'a supplier');
     }
     vendorMeetings = rows.map((r) => ({
       appointment_id: r.appointment_id,
@@ -455,7 +456,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       label: r.custom_label?.trim() || 'Meeting',
       scheduled_at: r.scheduled_at,
       status: r.status,
-      vendorName: r.vendor_profile_id ? nameByVp.get(r.vendor_profile_id) ?? 'a vendor' : 'a vendor',
+      vendorName: r.vendor_profile_id ? nameByVp.get(r.vendor_profile_id) ?? 'a supplier' : 'a supplier',
       threadId: r.thread_id ?? null,
     }));
   }
@@ -565,6 +566,11 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
         : 'Moments shown to guests appear on the Event Hub, with a live “happening now” on the day. Hidden moments stay between you, your coordinator and the suppliers you tag.';
 
   return (
+    /* 💾 The schedule is kept on the phone and shown at once on the next
+       open, then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA
+       SHOWS INSTANTLY, THEN REFRESHES"). Payment due dates carry `data-money`
+       and are never kept (lib/last-seen). Not inside the Maker (`?maker=1`). */
+    <LastSeenCapture page="schedule">
     <section className="sn-col space-y-5">
       {/* Inside the Maker, Details' own header names it. */}
       {inMaker ? null : <PageMasthead title="Schedule" />}
@@ -871,6 +877,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
           MiniTour, keyed once per person. */}
       <MiniTour tourKey="customer_schedule_v1" />
     </section>
+    </LastSeenCapture>
   );
 }
 
@@ -921,11 +928,11 @@ function VendorSuggestionsQueue({
     <section className="space-y-3 rounded-2xl border border-terracotta/25 bg-terracotta/[0.04] p-5">
       <header className="space-y-1">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta">
-          Vendor requests · {suggestions.length}
+          Supplier requests · {suggestions.length}
         </p>
         <p className="max-w-prose text-sm text-ink/65">
-          Your booked vendors asked for timeline changes. Accepting applies the
-          change; vendors never edit your timeline directly.
+          Your booked suppliers asked for timeline changes. Accepting applies the
+          change; suppliers never edit your timeline directly.
         </p>
       </header>
       <ul className="divide-y divide-ink/10">
@@ -939,7 +946,7 @@ function VendorSuggestionsQueue({
           return (
             <li key={s.suggestion_id} className="space-y-1.5 py-3">
               <p className="text-sm">
-                <span className="font-medium">{s.suggested_by_name ?? 'A booked vendor'}</span>{' '}
+                <span className="font-medium">{s.suggested_by_name ?? 'A booked supplier'}</span>{' '}
                 {s.kind === 'adjust' ? (
                   <>
                     asks to change{' '}

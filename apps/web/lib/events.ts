@@ -4,6 +4,7 @@ import {
   isMissingRelationError,
   logQueryError,
 } from '@/lib/supabase/error-detect';
+import { anInvitationStillOnTheList } from '@/lib/event-board';
 
 export type EventRow = {
   event_id: string;
@@ -126,6 +127,10 @@ export type EventWithRole = EventRow & {
 type MembershipQueryRow = {
   member_type: EventWithRole['member_type'];
   auto_surfaced?: boolean | null;
+  /** The guest row this membership was saved from (null for most hosts). */
+  guest_id?: string | null;
+  /** That row, read under the caller's RLS — null once it is removed. */
+  seat?: { guest_id: string } | { guest_id: string }[] | null;
   events: EventRow | EventRow[] | null;
 };
 
@@ -152,6 +157,8 @@ export const fetchUserEvents = cache(async (
     .select(
       `member_type,
        auto_surfaced,
+       guest_id,
+       seat:guests!event_members_guest_id_fkey ( guest_id ),
        events:event_id (
          event_id,
          public_id,
@@ -238,6 +245,15 @@ export const fetchUserEvents = cache(async (
   const rows = (data ?? []) as unknown as MembershipQueryRow[];
 
   const events: EventWithRole[] = rows
+    // A removed guest row is not an invitation any more — never a
+    // "You're invited" card onto a hub that says "not on the guest list".
+    .filter((row) =>
+      anInvitationStillOnTheList({
+        member_type: row.member_type,
+        guest_id: row.guest_id,
+        seat: Array.isArray(row.seat) ? row.seat[0] : row.seat,
+      }),
+    )
     .flatMap((row) => {
       const eventArray = Array.isArray(row.events)
         ? row.events

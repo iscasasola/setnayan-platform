@@ -45,13 +45,13 @@ export function ShareBudgetBandToggle({
               id="share-budget-band-heading"
               className="font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta-700"
             >
-              Share budget ranges with vendors
+              Share budget ranges with suppliers
             </h2>
           </div>
           <p className="mt-2 max-w-prose text-sm text-ink/75">
-            Vendors you talk to see a <span className="font-medium text-ink">range</span>{' '}
+            Suppliers you talk to see a <span className="font-medium text-ink">range</span>{' '}
             for their category only — never your exact numbers. It helps you get
-            accurate quotes faster, since they can tailor a proposal to what you
+            accurate quotes faster, since they can tailor a quote to what you
             planned. Off by default; turn it on or off anytime.
           </p>
           {state?.ok === true ? (
@@ -81,7 +81,7 @@ export function ShareBudgetBandToggle({
             type="submit"
             role="switch"
             aria-checked={checked}
-            aria-label="Share budget ranges with vendors"
+            aria-label="Share budget ranges with suppliers"
             disabled={isPending}
             className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
               checked ? 'bg-terracotta' : 'bg-ink/20'

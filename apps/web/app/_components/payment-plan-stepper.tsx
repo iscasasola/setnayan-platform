@@ -95,13 +95,13 @@ export function PaymentPlanStepper({
       {cleared ? (
         <div className="flex items-center gap-2 rounded-lg border border-success-400 bg-success-50 px-3 py-2 text-sm font-semibold text-success-800">
           <PartyPopper aria-hidden className="h-4 w-4" strokeWidth={2} />
-          <span>Payment plan cleared — all installments settled.</span>
+          <span>Payment plan cleared — all payments settled.</span>
         </div>
       ) : null}
 
       {steps.length === 0 ? (
         <p className="text-[11px] text-ink/55">
-          No installment schedule — pay the vendor directly.
+          No payment schedule — pay the supplier directly.
         </p>
       ) : (
         <ol className="space-y-2" role="list">

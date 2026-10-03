@@ -77,7 +77,7 @@ export default async function TodaysFocusSettingsPage({ searchParams }: Props) {
             Your in-app planner that surfaces the next step every time you open the dashboard.
           </p>
           <p className="mt-1 text-sm text-ink/55">
-            All planning tools — guest list, vendors, mood board, schedule — work for every event,
+            All planning tools — guest list, suppliers, mood board, schedule — work for every event,
             regardless of whether Setnayan AI is activated.
           </p>
           <div className="mt-6 inline-flex flex-wrap items-center justify-center gap-3">
@@ -272,7 +272,7 @@ function StatusPanel({
       </header>
       <h2 className="text-2xl font-semibold tracking-tight">{eventName}</h2>
       <p className="mt-1 text-sm text-ink/65">
-        You&rsquo;re planning on your own. Every dashboard tool — guest list, vendors, mood board,
+        You&rsquo;re planning on your own. Every dashboard tool — guest list, suppliers, mood board,
         schedule — works the same. Setnayan AI adds a daily &ldquo;here&rsquo;s the next
         step&rdquo; suggestion every time you open the app.
       </p>

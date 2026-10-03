@@ -16,12 +16,13 @@
  */
 import type { Metadata } from 'next';
 import { SignInCardModal } from './_components/sign-in-card-modal';
+import { LastSeenSignedOutWipe } from '@/app/_components/last-seen/last-seen-wipe-script';
 import { getLoginView, type LoginSearchParams } from './_components/login-data';
 
 export const metadata: Metadata = {
   title: 'Sign in',
   description:
-    'Sign in to your Setnayan account. One account for couples planning their wedding and vendors selling their services.',
+    'Sign in to your Setnayan account. One account for couples planning their wedding and suppliers selling their services.',
   alternates: { canonical: '/login' },
 };
 
@@ -37,6 +38,9 @@ export default async function LoginPage({
   // stark void behind the backdrop before the card settles.
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--m-paper)' }}>
+      {/* 💾 An expired session lands here: no auth cookie → the last-seen store
+          (a host's kept pages) is emptied before anything else runs. */}
+      <LastSeenSignedOutWipe />
       <SignInCardModal
         dismissHref="/"
         next={view.next}

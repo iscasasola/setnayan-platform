@@ -15,6 +15,8 @@ function nextHref(kind: HomeNextKind, eventId: string): string {
   const doors: ReadonlyArray<{ kind: HomeNextKind; href: string }> = [
     { kind: 'guide', href: `/dashboard/${eventId}/launch?tool=details&guide=1` },
     { kind: 'date', href: `/dashboard/${eventId}/date-selection` },
+    { kind: 'guests', href: `/dashboard/${eventId}/guests` },
+    { kind: 'invite', href: `/dashboard/${eventId}/guests/send` },
     { kind: 'papic', href: `/dashboard/${eventId}/studio/papic` },
     { kind: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
     { kind: 'plan', href: '#home-all' },
@@ -146,6 +148,8 @@ export function HomeFirstScreen({
         <Link
           href={`/dashboard/${eventId}/budget`}
           data-home-money
+          /* 💾 Money is never kept as last-seen data (lib/last-seen). */
+          data-money=""
           className="sn-glass-bare flex items-end justify-between rounded-xl px-4 py-3"
         >
           <span className="text-[12.5px] text-ink/60">
@@ -172,6 +176,8 @@ export function HomeFirstScreen({
                 className="sn-glass-bare sn-press flex min-w-0 flex-col rounded-xl px-3 py-2.5"
               >
                 <span className="truncate text-[14px] font-semibold text-ink">{svc.name}</span>
+                {/* The Setnayan name, small under the plain one (owner d17). */}
+                <span className="truncate text-[11px] text-ink/50">{svc.brand}</span>
                 <span className="truncate text-[12px] text-ink/60">{svc.status}</span>
               </Link>
             ))}

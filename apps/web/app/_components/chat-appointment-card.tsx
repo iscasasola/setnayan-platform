@@ -69,7 +69,7 @@ export function ChatAppointmentCard({
     { label: 'Format', value: APPOINTMENT_KIND_LABEL[data.kind] },
     {
       label: 'Requested by',
-      value: isProposer ? 'You' : viewerRole === 'couple' ? 'The vendor' : 'The couple',
+      value: isProposer ? 'You' : viewerRole === 'couple' ? 'The supplier' : 'The couple',
     },
   ];
 

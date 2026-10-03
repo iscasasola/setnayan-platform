@@ -72,7 +72,7 @@ export const STEPS: ReadonlyArray<StepDefinition> = [
   },
   {
     key: 'book_vendors',
-    label: 'Book core vendors',
+    label: 'Book core suppliers',
     hint: 'Photographer, caterer, officiant — at minimum.',
     href: (id) => `/dashboard/${id}/vendors`,
     source: 'manual',
@@ -80,7 +80,7 @@ export const STEPS: ReadonlyArray<StepDefinition> = [
   {
     key: 'finalize_seating',
     label: 'Finalize the seating plan',
-    hint: 'Lock in tables so vendors get clean counts.',
+    hint: 'Lock in tables so suppliers get clean counts.',
     href: (id) => `/dashboard/${id}/seating`,
     source: 'manual',
   },

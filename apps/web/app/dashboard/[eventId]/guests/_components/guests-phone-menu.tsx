@@ -13,7 +13,7 @@
  * the SAME component the computer shows in the page's rows, handed in by the
  * page: Sort ▾ (`RosterSort`), the roster's doors (`RosterTabs` — Share the
  * link, the List · Mind map switch, Scan tickets after the day), and the add
- * doors (`AddDoors` — People · Full form · Import · Quick add list). The row of
+ * doors (`AddDoors` — From your people · Add with details · Import a file · Paste many names). The row of
  * doors is hidden below `lg` ONLY because this sheet draws it — the lesson of
  * the Wedding March, which a `hidden lg:block` once deleted from every phone.
  */

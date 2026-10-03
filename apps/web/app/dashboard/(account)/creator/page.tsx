@@ -65,7 +65,7 @@ const FLASH: Record<string, string> = {
   created: 'Chapter created.',
   saved: 'Chapter saved.',
   deleted: 'Chapter deleted.',
-  accepted: 'Offer accepted — the vendor was notified.',
+  accepted: 'Offer accepted — the supplier was notified.',
   declined: 'Offer declined.',
   linked: 'Chapter linked as the deliverable.',
 };
@@ -310,9 +310,9 @@ function OfferInbox({
         </p>
         <h2 className="sn-sec">Discount offers ({pending.length} to review)</h2>
         <p className="text-sm text-ink/60">
-          A vendor is offering you a discount for a credited feature in one of
+          A supplier is offering you a discount for a credited feature in one of
           your chapters. Setnayan never touches the money — any discount settles
-          directly between you and the vendor.
+          directly between you and the supplier.
         </p>
       </div>
 
@@ -428,7 +428,7 @@ function OfferInbox({
                         className="input-field max-w-[15rem]"
                       >
                         <option value="" disabled>
-                          Credit this vendor in…
+                          Credit this supplier in…
                         </option>
                         {publishedChapters.map((c) => (
                           <option key={c.chapter_id} value={c.chapter_id}>

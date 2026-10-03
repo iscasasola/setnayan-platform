@@ -101,7 +101,6 @@ export type TourKey =
   | 'customer_guest_list_v1'
   | 'customer_budget_v1'
   | 'customer_galleries_v1'
-  | 'customer_vendors_v1'
   | 'customer_seat_plan_v1'
   | 'customer_papic_v1'
   | 'customer_love_story_v1'
@@ -140,7 +139,6 @@ export const TOUR_KEYS: ReadonlyArray<TourKey> = [
   'customer_guest_list_v1',
   'customer_budget_v1',
   'customer_galleries_v1',
-  'customer_vendors_v1',
   'customer_seat_plan_v1',
   'customer_papic_v1',
   'customer_love_story_v1',
@@ -184,7 +182,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Sparkles,
         title: 'Welcome to Setnayan',
-        body: "Your wedding, planned end-to-end in one place — guest list, invitations, vendors, budget, mood board, seating, day-of. Let&rsquo;s walk through what&rsquo;s where.",
+        body: "Your wedding, planned end-to-end in one place — guest list, invitations, suppliers, budget, mood board, seating, day-of. Let&rsquo;s walk through what&rsquo;s where.",
       },
       {
         Icon: Users,
@@ -198,21 +196,21 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       },
       {
         Icon: Briefcase,
-        title: 'Track vendors + budget',
-        body: 'Move every vendor through a 6-stage flow (considering → complete) and itemize their costs into line items. Export upcoming payment due dates as a .ics file.',
+        title: 'Track suppliers + budget',
+        body: 'Move every supplier through a 6-stage flow (considering → complete) and itemize their costs into line items. Export upcoming payment due dates as a .ics file.',
       },
       {
         Icon: MessageSquare,
-        title: 'Chat with vendors',
+        title: 'Chat with suppliers',
         // Corrected 2026-09-10. It said "by their contact email" (a couple is no
         // longer shown one — owner: "not to let them communicate outside the
         // app") and "Identity stays masked" (retired 2026-09-08 — a shop now
         // sees who is asking). Both were promises the product no longer makes.
-        body: 'Message any Setnayan vendor from their page or your list. They reply here, and every message, quote and booking stays with your event.',
+        body: 'Message any Setnayan supplier from their page or your list. They reply here, and every message, quote and booking stays with your event.',
       },
       {
         Icon: PartyPopper,
-        title: 'On the day',
+        title: 'The Day',
         body: 'From T-1 hour, the Day-of card shows you the timeline, lets you reach your coordinator, and surfaces the photo wall. Your guests get the same view, scoped to their seat + role.',
       },
     ],
@@ -230,17 +228,17 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Users,
         title: 'Eight day-to-day surfaces',
-        body: 'Users · Events · Vendors · Verification · Payments · Payouts · Receipts · Reviews. These are your daily-driver tabs along the top — switch in one tap.',
+        body: 'Users · Events · Suppliers · Verification · Payments · Payouts · Receipts · Reviews. These are your daily-driver tabs along the top — switch in one tap.',
       },
       {
         Icon: ShieldAlert,
         title: 'Force-majeure escalations',
-        body: 'When a couple files a force-majeure flag, it lands in Force majeure. The 7-day clock starts; if vendors and couples don&rsquo;t resolve in chat, the flag escalates to you to mediate.',
+        body: 'When a couple files a force-majeure flag, it lands in Force majeure. The 7-day clock starts; if suppliers and couples don&rsquo;t resolve in chat, the flag escalates to you to mediate.',
       },
       {
         Icon: ShieldCheck,
         title: 'Two-admin major decisions',
-        body: 'Routine ops are single-admin. Major decisions (ad activation, vendor verification override, refunds &gt; ₱100K, payment-method config) need a second admin to approve. Both identities are recorded.',
+        body: 'Routine ops are single-admin. Major decisions (ad activation, supplier verification override, refunds &gt; ₱100K, payment-method config) need a second admin to approve. Both identities are recorded.',
       },
       {
         Icon: ClipboardList,
@@ -280,8 +278,8 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   // reply-time line on the public card (3+ replies floor, W3-B 2026-08-24).
   vendor_welcome_v1: {
     key: 'vendor_welcome_v1',
-    label: 'Vendor — welcome tour',
-    blurb: 'Five-step intro to the vendor dashboard. Fires on first sign-in.',
+    label: 'Supplier — welcome tour',
+    blurb: 'Five-step intro to the supplier dashboard. Fires on first sign-in.',
     slides: [
       {
         Icon: Sparkles,
@@ -312,34 +310,11 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   },
   // Rewritten 2026-08-24 for the Marketplace takeover (the surface a couple
   // actually sees — BUDGET_BUILD_ENABLED is live-by-default since 2026-06-09).
-  // The original copy described the pre-2026-05-31 card/stage page and its
-  // mount was deliberately removed when that page was replaced (879c1c138);
-  // the copy was never rewritten, so the tour sat defined-but-unmounted.
-  // ⚠ The takeover's section headings flip with isExploreReplanEnabled()
-  // ("Build your team" ↔ "Your team") — this copy deliberately describes what
-  // each section DOES rather than quoting a heading that can change under it.
-  customer_vendors_v1: {
-    key: 'customer_vendors_v1',
-    label: 'Marketplace mini-tour',
-    blurb: 'Quick walkthrough of the in-event supplier marketplace.',
-    slides: [
-      {
-        Icon: Briefcase,
-        title: 'Browse every category',
-        body: 'Every supplier category for your celebration, in calm folders. Open one to see who you&rsquo;re considering, find more in the marketplace, or add someone you already know by hand.',
-      },
-      {
-        Icon: CheckCircle2,
-        title: 'Build your team',
-        body: 'Your picks come together into one plan, with price ranges held up against your budget. Move a supplier forward when you decide — you can always step back.',
-      },
-      {
-        Icon: Wallet,
-        title: 'Save plans, compare, and see your spend',
-        body: 'Save your team under a name and compare saved plans side by side. Your budget and payments live further down this same page, and they stay in sync on their own.',
-      },
-    ],
-  },
+  // customer_vendors_v1 RETIRED 2026-10-02 (first-timer fix 23): its three
+  // slides narrated the desktop page ("Browse every category", "Build your
+  // team", "Save plans, compare") on a phone whose Suppliers page shows none of
+  // that. It waits for the spotlight tour; a tour that describes another screen
+  // is worse than none.
   customer_seat_plan_v1: {
     key: 'customer_seat_plan_v1',
     label: 'Seating mini-tour',
@@ -566,38 +541,28 @@ export const TOURS: Record<TourKey, TourDefinition> = {
     ⛔ The Pro slide carries `sells` and a `{price}` token: dropped in the store
     shell, and the figure is read from the catalogue at render.
   */
+  /*
+    THE MAKER'S TOUR, SHORT (owner 2026-10-02, "SIMPLIFY FIRST, THEN TOUR";
+    FIRST_TIMER_TEST fix 6 — the 5-slide welcome that opened before the first
+    tap and ended on "What Event Hub Pro adds" scored the invitation HARD).
+    It no longer opens on a first visit at all: the Maker shows one quiet line,
+    "Tap anything to change it", and this plays only from ⋯ › About the Maker.
+    No Pro slide — Pro is met where it is tried (◆ PRO on the thing, Apply asks).
+  */
   customer_event_hub_maker_v1: {
     key: 'customer_event_hub_maker_v1',
     label: 'Event Hub Maker welcome',
-    blurb: 'How the Event Hub Maker builds your one link, stage by stage.',
+    blurb: 'Tap anything to change it — then Apply.',
     slides: [
       {
-        Icon: Wand2,
-        title: 'Your whole Event Hub, made in one place',
-        body: 'The Save the Date, the Invitation, the day itself and the story after it are one link. This is where you make all of it &mdash; and you watch the real page change as you go.',
-      },
-      {
-        Icon: Palette,
-        title: 'Pick a theme and the whole hub is dressed',
-        body: 'A theme sets the look of every stage at once &mdash; colours, lettering and how things move. Choose it once; everything follows.',
-      },
-      {
         Icon: MousePointerClick,
-        title: 'Tap anything to edit it',
-        body: 'Tap a scene on the left, or tap a section on the page itself, and its controls open beside it. The eye hides a scene from guests; drag a scene to move it.',
+        title: 'Tap anything to change it',
+        body: 'Tap words on the page to type over them, or tap a scene for its settings. Your guests see nothing until you press <b>Apply</b>.',
       },
       {
         Icon: LayoutPanelLeft,
-        title: 'One place for the four stages',
-        body: 'Save the Date &middot; Invitation &middot; On the Day &middot; Post Event sit along the top. Pick one and the canvas shows that stage, the way your guests will meet it.',
-      },
-      {
-        Icon: Sparkles,
-        title: 'What Event Hub Pro adds',
-        // The free themes are named from the registry (owner 2026-09-29: Modern
-        // and Cyber Neon joined Classic), never typed here.
-        body: `Themes beyond ${themeNames(FREE_THEMES)}, scenes of your own from the templates (tap + at the top &mdash; each one waits in your draft until you Apply), the reveal that opens your invitation, your own photos and film as backgrounds, music and the animated logo &mdash; one unlock for every stage{price}.`,
-        sells: true,
+        title: 'Page, Look and Event Details',
+        body: '<b>Page</b> picks what you are looking at. <b>Look</b> dresses the whole Event Hub. <b>Event Details</b> holds the facts &mdash; names, date, places &mdash; shown on every page.',
       },
     ],
   },
@@ -980,7 +945,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: Send,
         title: 'Tap Invite to send it',
-        body: 'Pick Messenger, Viber or any app &mdash; the message and their ticket go together. The row then shows it was sent.',
+        body: 'Tap Invite, then <b>Share</b> &mdash; pick Messenger, Viber or any app, and the message and their ticket go together. <b>Copy invitation link</b> gives you just their link.',
       },
       {
         Icon: Laptop,
@@ -1133,17 +1098,17 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       {
         Icon: ShieldAlert,
         title: 'The 7-day window',
-        body: 'When a couple flags force majeure (typhoon, illness, venue closure), vendors get 7 days to propose terms directly. If a resolution lands in chat by day 7, the flag closes without you.',
+        body: 'When a couple flags force majeure (typhoon, illness, venue closure), suppliers get 7 days to propose terms directly. If a resolution lands in chat by day 7, the flag closes without you.',
       },
       {
         Icon: ClipboardList,
         title: "Escalated flags appear here",
-        body: 'If day 7 passes with no resolution, the flag shows up in this queue with an ESCALATED tag. Open the row to see the evidence files, the affected vendors, and the chat history.',
+        body: 'If day 7 passes with no resolution, the flag shows up in this queue with an ESCALATED tag. Open the row to see the evidence files, the affected suppliers, and the chat history.',
       },
       {
         Icon: Receipt,
         title: 'Four resolution paths',
-        body: 'Refund (vendor returns deposit minus expenses), Reschedule (services move to a new date), Substitute (equivalent service later), Partial (some delivered, some refunded). Pick one, both parties get an email.',
+        body: 'Refund (supplier returns payment minus expenses), Reschedule (services move to a new date), Substitute (equivalent service later), Partial (some delivered, some refunded). Pick one, both parties get an email.',
       },
     ],
   },

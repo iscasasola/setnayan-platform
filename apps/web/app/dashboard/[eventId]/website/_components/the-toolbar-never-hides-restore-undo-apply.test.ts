@@ -96,55 +96,63 @@ test('Apply (primary) reads through the shared button-primary class, like every 
 
 /* ═══════════════════════════════ 2 · HubDraftToolbar, proved by its source ═══ */
 
-test('HubDraftToolbar renders exactly Restore, Undo and Apply as DraftButton — unconditionally', () => {
+/*
+ * ✂ THE MAKER IN 4 (2026-10-02, approved design `maker_in_four_2026-09-30_fable.html`,
+ * "Restore → ⋯ › Restore — still restores the last Applied hub"): Undo and Apply
+ * stay in the bar, never hidden; Restore became a row of the Maker toolbar's ONE
+ * ⋯ — registered from this bar (`MakerState.draft`) and still switched off, with
+ * its reason, on the same field. This bar's own ⋯ button went (one ⋯ per bar).
+ */
+test('HubDraftToolbar renders exactly Undo and Apply as DraftButton — unconditionally — and registers Restore for ⋯', () => {
   const fn = body('HubDraftToolbar');
   const calls = [...fn.matchAll(/<DraftButton\b/g)];
-  assert.equal(calls.length, 3, `expected 3 <DraftButton>, found ${calls.length}`);
-  // None of the three may sit behind a truthiness guard the way the retired
-  // "Draft" badge (`if (!summary.hasChanges) return null`) and the old Apply
-  // button (`summary.hasChanges && !onlyPro ? (…) : null`) did.
-  for (const label of ['Restore', 'Undo']) {
-    const at = fn.indexOf(`label="${label}"`);
-    assert.ok(at > 0, `${label}'s DraftButton is missing`);
-    const before = fn.slice(Math.max(0, at - 120), at);
-    assert.doesNotMatch(before, /summary\.hasChanges\s*\?|summary\.hasChanges\s*&&|summary\.canUndo\s*\?|summary\.canUndo\s*&&/, `${label} must not be conditionally rendered`);
-  }
+  assert.equal(calls.length, 2, `expected 2 <DraftButton>, found ${calls.length}`);
+  assert.doesNotMatch(fn, /label="Restore"/, 'Restore is back on the bar — it is ⋯’s row (the Maker in 4)');
+  const at = fn.indexOf('label="Undo"');
+  assert.ok(at > 0, "Undo's DraftButton is missing");
+  const before = fn.slice(Math.max(0, at - 120), at);
+  assert.doesNotMatch(before, /summary\.hasChanges\s*\?|summary\.hasChanges\s*&&|summary\.canUndo\s*\?|summary\.canUndo\s*&&/, 'Undo must not be conditionally rendered');
   const applyAt = fn.indexOf('label={applyLabel}');
   assert.ok(applyAt > 0, "Apply's DraftButton is missing");
   const beforeApply = fn.slice(Math.max(0, applyAt - 160), applyAt);
   assert.doesNotMatch(beforeApply, /summary\.hasChanges\s*&&\s*!onlyPro|onlyPro\s*\?/, 'Apply must not be hidden when every change is Pro-gated — disabled + InfoTip instead');
+  // Restore: registered with the shell unconditionally, running this bar's own act.
+  assert.match(fn, /setDraftDoor\(\{\s*canRestore,\s*restore: \(\) => actRef\.current\(\{ intent: 'restore' \}\),/);
 });
 
-test('each button disables off the field that actually means "nothing to do", not off pending alone', () => {
+test('each control disables off the field that actually means "nothing to do", not off pending alone', () => {
   const fn = body('HubDraftToolbar');
   const block = (label: string) => {
     const at = fn.indexOf(label);
     assert.ok(at > 0, `${label} not found`);
     return fn.slice(at, at + 260);
   };
-  assert.match(block('label="Restore"'), /disabled=\{pending \|\| !summary\.hasChanges\}/, 'Restore: nothing to restore once the draft matches live');
+  assert.match(fn, /const canRestore = !pending && summary\.hasChanges;/, 'Restore: nothing to restore once the draft matches live');
   assert.match(block('label="Undo"'), /disabled=\{pending \|\| !summary\.canUndo\}/, 'Undo: only the history says whether a step back exists');
   assert.match(block('label={applyLabel}'), /disabled=\{pending \|\| !summary\.hasChanges\}/, 'Apply: nothing to apply once the draft matches live');
 });
 
-test('Apply is the one primary (filled) button of the three', () => {
+test('Apply is the one primary (filled) button, and it wears the count of changes waiting', () => {
   const fn = body('HubDraftToolbar');
-  const restore = fn.slice(fn.indexOf('label="Restore"'), fn.indexOf('label="Undo"'));
   const undo = fn.slice(fn.indexOf('label="Undo"'), fn.indexOf('label={applyLabel}'));
-  const apply = fn.slice(fn.indexOf('label={applyLabel}'), fn.indexOf('label={applyLabel}') + 260);
-  assert.doesNotMatch(restore, /\bprimary\b/, 'Restore must not be the primary button');
+  const apply = fn.slice(fn.indexOf('label={applyLabel}'), fn.indexOf('label={applyLabel}') + 900);
   assert.doesNotMatch(undo, /\bprimary\b/, 'Undo must not be the primary button');
   assert.match(apply, /\bprimary\b/, 'Apply must be the primary button');
+  assert.match(apply, /data-maker-apply-count=""/, 'Apply lost its count (design: "Apply 3")');
+  // The bar's Phone button sits between Undo and Apply (Exit · Page ▾ · Look · Details · Undo · Phone · Apply · ⋯).
+  assert.match(undo, /\{maker\?\.viewToggle \?\? null\}/);
 });
 
-test('Reset stays behind the ⋯ (inside <details>), never promoted beside Restore/Undo/Apply', () => {
+test('Reset stays in the draft panel — opened by ⋯ › Reset, never promoted beside Undo/Apply', () => {
   const fn = body('HubDraftToolbar');
-  const detailsAt = fn.indexOf('<details');
-  assert.ok(detailsAt > 0, 'the ⋯ menu (<details>) is gone');
-  const beforeDetails = fn.slice(0, detailsAt);
-  assert.doesNotMatch(beforeDetails, /Reset\s*\{RESET_LABEL/, 'Reset must not render before the ⋯ opens');
-  const afterDetails = fn.slice(detailsAt);
-  assert.match(afterDetails, /Reset\s*\{RESET_LABEL\[stage\]\}/, 'Reset must still be reachable, inside the ⋯');
+  const panelAt = fn.indexOf('data-maker-draft-panel=""');
+  assert.ok(panelAt > 0, 'the draft panel is gone');
+  const beforePanel = fn.slice(0, panelAt);
+  assert.doesNotMatch(beforePanel, /Reset\s*\{RESET_LABEL/, 'Reset must not render before the panel opens');
+  assert.match(fn.slice(panelAt), /Reset\s*\{RESET_LABEL\[stage\]\}/, 'Reset must still be reachable, inside the panel');
+  // Drawn only while open (portalled to the screen since 2026-10-02 — it ran off a phone's left edge).
+  assert.match(fn.slice(panelAt), /\{open && typeof document !== 'undefined' \? createPortal\(/, 'the panel shows only when opened');
+  assert.doesNotMatch(fn, /<summary\b/, 'a second ⋯ is back on the bar');
 });
 
 test('the rest of the Phase 2 dock survives the redesign: Pro line, store-shell line, outcome report', () => {
@@ -155,11 +163,12 @@ test('the rest of the Phase 2 dock survives the redesign: Pro line, store-shell 
   assert.match(fn, /Reset in your draft\. Guests still see the old page until you Apply\./, "Reset's own confirmation copy must still render");
 });
 
-test('the ⋯ opens by itself when an action reports something to read — an Apply that held keys back is never silent', () => {
+test('the ⋯ panel NEVER opens by itself — what an action reports is said beside Apply', () => {
   const fn = body('HubDraftToolbar');
-  // 2026-09-27 (owner, on the live Maker): the panel used to open on EVERY
-  // press and then stayed open after a clean Apply. It now follows the answer —
-  // `hubDraftPanelStaysOpen` (open on an error, a held key or Reset; closed on
-  // a clean Apply) — proved in lib/the-draft-always-fits.test.ts.
-  assert.match(fn, /useEffect\(\(\) => \{\s*if \(result\) setOpen\(hubDraftPanelStaysOpen\(result\)\);\s*\}, \[result\]\);/);
+  // Superseded 2026-10-02 (owner, live phone test: the "Reset Save the Date…"
+  // box came back after every Apply and would not close). The answer is said in
+  // the status line (`hubDraftOutcome` → `OutcomeLine`), and the panel opens
+  // only from ⋯ › "Reset this stage…" — held by lib/the-draft-panel-never-pops-up.test.ts.
+  assert.match(fn, /useEffect\(\(\) => \{\s*if \(result\) setOpen\(false\);\s*\}, \[result\]\);/);
+  assert.match(fn, /<OutcomeLine key=\{outcomeN\} outcome=\{outcome\} \/>/, 'the outcome is no longer said beside Apply');
 });

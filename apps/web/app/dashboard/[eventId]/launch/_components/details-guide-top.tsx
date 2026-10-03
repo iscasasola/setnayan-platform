@@ -47,12 +47,19 @@ export function GuideTop({
   onPick,
   onAllItems,
   tour = null,
+  inSheet = false,
 }: {
   plan: GuidedPlan;
   at: GuidedScreen;
   onPick: (at: GuidedScreen) => void;
   onAllItems: () => void;
   tour?: ReactNode;
+  /**
+   * 📱 Drawn at the top of the guide's phone sheet (`details-workspace.tsx`).
+   * Otherwise this is the desktop's line — on a phone the flow is one chip on
+   * the page instead (owner 2026-10-02: "too clumped").
+   */
+  inSheet?: boolean;
 }) {
   const options: PickOption[] = plan.rounds.flatMap((r) => {
     const group = roundName(plan, r);
@@ -64,7 +71,14 @@ export function GuideTop({
     ];
   });
   return (
-    <div data-details-guide-top="" className="flex shrink-0 items-center gap-2.5 border-b border-ink/10 bg-cream/80 px-3 py-1.5 sm:px-4">
+    <div
+      data-details-guide-top={inSheet ? 'sheet' : ''}
+      className={
+        inSheet
+          ? 'flex shrink-0 items-center gap-2 px-3 pb-1 lg:hidden'
+          : 'flex shrink-0 items-center gap-2.5 border-b border-ink/10 bg-cream/80 px-3 py-1.5 max-lg:hidden sm:px-4'
+      }
+    >
       <span aria-hidden className="block h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-ink/10 sm:w-24">
         <span className="block h-full rounded-full bg-terracotta-700" style={{ width: `${Math.round(progressShare(plan, at) * 100)}%` }} />
       </span>
@@ -89,7 +103,7 @@ export function GuideTop({
       >
         All items
       </button>
-      {tour}
+      {inSheet ? null : tour}
     </div>
   );
 }

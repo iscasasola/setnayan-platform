@@ -687,7 +687,7 @@ export async function startServiceInquiry(input: {
           .eq('vendor_profile_id', vendorProfileId)
           .maybeSingle();
         const vendorNameForRow =
-          (profRow as { business_name?: string | null } | null)?.business_name?.trim() || 'Vendor';
+          (profRow as { business_name?: string | null } | null)?.business_name?.trim() || 'Supplier';
         const { error: insertError } = await supabase.from('event_vendors').insert({
           event_id: eventId,
           category: eventVendorCategoryForCardKind(cardKind, tileForKind),

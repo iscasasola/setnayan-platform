@@ -93,7 +93,7 @@ test('the Explore copy still describes what locking does — it is not empty or 
   );
   assert.match(
     EXPLORE_INFO_HANDSHAKE,
-    /lock/i,
-    'the lock line must still be about locking',
+    /book/i,
+    'the booking line must still be about booking',
   );
 });

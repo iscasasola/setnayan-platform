@@ -208,7 +208,7 @@ function IdleState({
           },
           {
             n: 2,
-            title: 'Vendors deliver',
+            title: 'Suppliers deliver',
             body: 'Each photographer, drone team, and videographer drops their finals into your folder as they finish.',
           },
           {

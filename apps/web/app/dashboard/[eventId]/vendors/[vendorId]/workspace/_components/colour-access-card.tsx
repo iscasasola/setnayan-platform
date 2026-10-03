@@ -109,7 +109,7 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
           Colour access
         </h2>
         <p className="text-xs text-ink/65">
-          Let this vendor adjust colours in their own part of your design — you’ll always
+          Let this supplier adjust colours in their own part of your design — you’ll always
           see what changed, and you can undo any single change without touching their
           access.
         </p>
@@ -192,7 +192,7 @@ export function ColourAccessCard(props: ColourAccessCardProps) {
               <div className="mt-2.5 flex items-start gap-2.5 rounded-lg bg-terracotta/10 px-3.5 py-3 text-xs leading-relaxed text-ink/70">
                 <span aria-hidden>🔑</span>
                 <span>
-                  <b className="font-semibold text-ink">Wider than most vendors.</b> A change
+                  <b className="font-semibold text-ink">Wider than most suppliers.</b> A change
                   here can ripple into your palette, your 3D room, and anything else that
                   reads your main colours. You’ll be notified every time, either way.
                 </span>

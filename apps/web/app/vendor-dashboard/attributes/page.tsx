@@ -16,7 +16,7 @@ import { AttributeFieldRenderer } from './_components/attribute-field-renderer';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ShopNotice } from '../_components/kit';
 
-export const metadata = { title: 'Service attributes · Vendor' };
+export const metadata = { title: 'Service attributes · Supplier' };
 
 type Props = {
   searchParams: Promise<{
@@ -75,9 +75,9 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
     if (!profile) {
       return (
         <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-12 sm:px-6 lg:px-8">
-          <h1 className="text-2xl font-semibold tracking-tight">No vendor profile yet</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">No supplier profile yet</h1>
           <p className="mt-2 text-sm text-ink/65">
-            Set up your basic vendor profile first, then return here to fill in
+            Set up your basic supplier profile first, then return here to fill in
             per-category attributes.
           </p>
           <Link href="/vendor-dashboard" className="button-primary mt-4 inline-flex h-10 px-4">
@@ -134,7 +134,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
             <h1 className="text-2xl font-semibold tracking-tight">Service attributes temporarily unavailable</h1>
             <p className="text-sm text-ink/65">
               We hit an error loading your per-category attribute data. The team has been notified.
-              Refresh in a minute; if it persists, reply to your last vendor email and we&rsquo;ll dig in.
+              Refresh in a minute; if it persists, reply to your last supplier email and we&rsquo;ll dig in.
             </p>
           </div>
         </div>
@@ -178,7 +178,7 @@ export default async function VendorAttributesPage({ searchParams }: Props) {
           Service attributes
         </h1>
         <p className="text-base text-ink/65">
-          Fill in the per-category fields couples will use to find vendors like you.
+          Fill in the per-category fields couples will use to find suppliers like you.
           Each service you offer has its own set of attributes — silhouettes if you
           design gowns, cuisine specialties if you cater, edit aesthetics if you
           shoot. Completing more fields raises your marketplace ranking and unlocks

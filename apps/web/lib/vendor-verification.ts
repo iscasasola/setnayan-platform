@@ -118,7 +118,7 @@ export async function isMarketplaceVendorBookable(
  * verified yet. Single source so every surface reads identically.
  */
 export const VENDOR_NOT_VERIFIED_COUPLE_MESSAGE =
-  "This vendor is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to lock them once they're verified.";
+  "This supplier is completing verification and can't be booked just yet. Keep them shortlisted — you'll be able to book them once they're verified.";
 
 // ---------------------------------------------------------------------------
 // Application type + status

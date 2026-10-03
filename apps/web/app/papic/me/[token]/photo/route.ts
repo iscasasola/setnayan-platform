@@ -52,17 +52,31 @@ export async function GET(req: Request, ctx: { params: Promise<{ token: string }
   const sourceTable = src === 'seat' ? 'papic_photos' : 'papic_guest_captures';
 
   // The requested capture must be one the guest is actually tagged in (dropped-tag
-  // aware) — so a raw token can't pull an arbitrary event photo.
-  const { data: tag } = await admin
-    .from('photo_tags')
-    .select('source_id')
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId)
-    .eq('source_table', sourceTable)
-    .eq('source_id', id)
-    .is('removed_at', null)
-    .maybeSingle();
-  if (!tag) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  // aware) — OR, for a guest capture, one THIS guest shot (owner 2026-10-01:
+  // a guest saves "their own photos and Photos of you"; the Gallery's "Your
+  // shots" opens here). So a raw token still can't pull an arbitrary event photo:
+  // only a photo of them, or a photo by them.
+  const [{ data: tag }, { data: own }] = await Promise.all([
+    admin
+      .from('photo_tags')
+      .select('source_id')
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .eq('source_table', sourceTable)
+      .eq('source_id', id)
+      .is('removed_at', null)
+      .maybeSingle(),
+    src === 'guest'
+      ? admin
+          .from('papic_guest_captures')
+          .select('capture_id')
+          .eq('event_id', eventId)
+          .eq('guest_id', guestId)
+          .eq('capture_id', id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  if (!tag && !own) return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
   const idCol = src === 'seat' ? 'photo_id' : 'capture_id';
   const typeCol = src === 'seat' ? 'photo_type' : 'media_type';

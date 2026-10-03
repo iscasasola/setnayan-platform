@@ -7,7 +7,11 @@ import Link from 'next/link';
  * owner-APPROVED 2026-10-01 "THE SIMPLE PHONE APP — APPROVED") when the supplier
  * app copied the same method (DECISION_LOG 2026-10-01 "THE SUPPLIER PHONE APP —
  * APPROVED, WITH THE THREE RECOMMENDED ANSWERS"). ONE card, ONE button: the
- * eyebrow "Next", a title, one line, and the button.
+ * eyebrow "Your next step", a title, one line, and the button.
+ *
+ * 🗣 "Your next step", not "Next" (owner, live phone test 2026-10-02, asking what
+ * the "Next card" was): the eyebrow says what the card IS in plain words, and
+ * the button names the action. No caption explains it.
  *
  * 🔒 ONE MECHANISM. What goes IN the card is decided by each surface's pure
  * picker (`lib/home-first-screen.ts` for a host, `lib/supplier-today.ts` for a
@@ -41,7 +45,7 @@ export function NextCard({
 }) {
   return (
     <div {...{ [marker]: kind }} className="sn-glass-bare rounded-2xl p-4">
-      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">Next</p>
+      <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-terracotta-700">Your next step</p>
       <h2 className="mt-1 font-display text-[24px] leading-tight text-ink">{title}</h2>
       <p className="mt-1 text-sm text-ink/65">{body}</p>
       <Link

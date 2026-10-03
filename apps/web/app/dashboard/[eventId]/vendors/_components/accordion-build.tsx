@@ -110,7 +110,7 @@ export function AccordionBuildButton({
     return (
       <div className="mt-2.5 flex items-center justify-center gap-1.5 rounded-md border border-dashed border-ink/20 px-3 py-2.5 text-[11.5px] font-medium text-ink/45">
         <Clock className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden />
-        Waiting for the vendor&rsquo;s price
+        Waiting for the supplier&rsquo;s price
       </div>
     );
   }

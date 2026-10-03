@@ -156,7 +156,7 @@ async function notifyCoupleOfSurchargeChange(
       .select('business_name')
       .eq('vendor_profile_id', r.vendorProfileId)
       .maybeSingle();
-    const vendorName = vendor?.business_name?.trim() || 'Your vendor';
+    const vendorName = vendor?.business_name?.trim() || 'Your supplier';
     const delta = r.target - r.applied;
     const direction =
       delta > 0 ? 'increased' : delta < 0 ? 'decreased' : 'updated';

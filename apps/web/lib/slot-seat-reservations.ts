@@ -128,7 +128,7 @@ export function reserveFailureMessage(status: Exclude<ReserveStatus, 'ok'>): str
     case 'already_reserved':
       return 'You already hold a table at this seating. Change the party size instead of booking twice.';
     case 'not_reservable':
-      return 'This vendor has not opened this time for table reservations.';
+      return 'This supplier has not opened this time for table reservations.';
     case 'slot_not_found':
       return 'That seating is no longer available.';
     case 'not_authorized':

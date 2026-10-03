@@ -79,7 +79,7 @@ export function teamPicksForMessages(
     // An unread profile, or the resolver's bare 'Vendor' fallback, reads as a
     // plain phrase — the UI says "supplier", never "vendor".
     const resolved = p ? resolveVendorDisplayName(input) : '';
-    const name = resolved && resolved !== 'Vendor' ? resolved : 'One of your suppliers';
+    const name = resolved && resolved !== 'Supplier' ? resolved : 'One of your suppliers';
     picks.push({ vendorId: r.vendor_id, name });
   }
   return picks.sort((a, b) => a.name.localeCompare(b.name));

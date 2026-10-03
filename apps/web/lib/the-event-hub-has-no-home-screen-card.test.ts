@@ -40,11 +40,29 @@ test('the removed card’s own heading is what this guard catches (it can hit)',
   assert.match("window.addEventListener('beforeinstallprompt', onPrompt);", INSTALL_PROMPT);
 });
 
+/**
+ * ⚖ THE ONE EXCEPTION, BY RULING — DECISION_LOG 2026-10-03 "GUESTS GET ONE QUIET
+ * 'SHORTCUT TO THIS EVENT' LINE, ONLY AFTER THEY REPLY": the guest's thank-you
+ * screen (`/invite/enter` after a Yes) carries ONE line, steps behind a tap,
+ * no popup, no install prompt. Named by FILE so no other guest page can borrow
+ * it; `the-shortcut-line-is-on-the-thank-you-only.test.ts` renders that it
+ * shows on that screen and nowhere else on it.
+ */
+const THANK_YOU = new Set([
+  join('app', '[slug]', 'invite', 'enter', 'page.tsx'),
+  join('app', '[slug]', 'invite', '_components', 'shortcut-line.tsx'),
+]);
+
 test('no guest-page source teaches installing to the home screen', () => {
   const files = guestSources(SLUG);
   assert.ok(files.length > 50, `precondition: scanned the guest tree (${files.length} files)`);
   const offenders: string[] = [];
   for (const f of files) {
+    if (THANK_YOU.has(f.slice(WEB.length + 1))) {
+      // The exception still never PROMPTS an install.
+      assert.doesNotMatch(stripComments(readFileSync(f, 'utf8')), INSTALL_PROMPT, 'the thank-you prompts an install');
+      continue;
+    }
     const src = stripComments(readFileSync(f, 'utf8'));
     if (INSTALL_PROMPT.test(src) || HOME_SCREEN_COPY.test(src)) offenders.push(f.slice(WEB.length + 1));
   }

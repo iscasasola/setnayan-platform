@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { fetchChecklistProgress } from '@/lib/checklist';
-import { eventDateToEpoch, type MenuLifecyclePhase } from '@/lib/day-of-mode';
+import type { MenuLifecyclePhase } from '@/lib/day-of-mode';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -28,7 +28,8 @@ import { isStoreShellRequest } from '@/lib/request-platform';
 import { storeShellAllowsPaidFeature } from '@/lib/store-shell';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { computeGuestStats, fetchGuestsByEvent } from '@/lib/guests';
+import type { GuestStats } from '@/lib/guests';
+import type { EventMoney } from '@/lib/budget-truth';
 import { rsvpSegments, rsvpSummary } from '@/lib/rsvp-segments';
 import { firstScreenRepeats, type FirstScreenAbove } from '@/lib/home-first-screen';
 import { fetchEventUnreadCounts } from '@/lib/event-decisions';
@@ -80,7 +81,6 @@ import {
   loadVendorChangeSignals,
   budgetFromEventMoney,
 } from '@/lib/setnayan-ai-snapshot';
-import { resolveEventMoney } from '@/lib/budget-truth';
 import { renderTemplate, WEDDING_TERMINOLOGY } from '@/lib/setnayan-ai-templates';
 import { buildProgressStages } from '@/lib/progress-stages';
 import type { EventDatePrecision } from '@/lib/events';
@@ -155,28 +155,6 @@ const CONFIRMED_VENDOR_SET = new Set([
   'delivered',
   'complete',
 ]);
-
-/**
- * Whole days from today to the event.
- *
- * ⚠ IT USED TO ANCHOR ON THE RUNTIME'S OWN MIDNIGHT. `new Date(`${d}T00:00:00`)`
- * plus `today.setHours(0,0,0,0)` are both the SERVER's clock — UTC on Vercel —
- * so between 00:00 and 08:00 Manila the day after a wedding this still returned
- * 0 and the hero read "It's your event day". `eventDateToEpoch` exists in
- * lib/day-of-mode.ts precisely because a bare Date parse already broke a
- * countdown once; it is asked here rather than re-derived.
- */
-export function daysUntil(eventDate: string | null, tz?: string): number | null {
-  if (!eventDate) return null;
-  const eventMs = eventDateToEpoch(eventDate, tz);
-  if (!Number.isFinite(eventMs)) return null;
-  // "Today" collapsed in the SAME zone, so both sides of the subtraction are
-  // midnights in one clock rather than midnights in two.
-  const todayIso = new Date().toLocaleDateString('en-CA', tz ? { timeZone: tz } : undefined);
-  const todayMs = eventDateToEpoch(todayIso, tz);
-  if (!Number.isFinite(todayMs)) return null;
-  return Math.round((eventMs - todayMs) / 86_400_000);
-}
 
 /** service_key → couple-facing label via the add-ons catalog, else prettified. */
 function serviceLabel(key: string | null): string {
@@ -254,6 +232,9 @@ export async function EventDashboard({
   lifecyclePhase = 'plan',
   canViewPapicCounts = false,
   firstScreenAbove,
+  daysOut,
+  guestStats,
+  guardMoney = null,
 }: {
   eventId: string;
   saiPreviewParam?: string;
@@ -313,6 +294,22 @@ export async function EventDashboard({
    * forgets it gets no tile, never a wrong one.
    */
   canViewPapicCounts?: boolean;
+  /**
+   * 🔑 HANDED DOWN, NEVER RE-WORKED-OUT (Root map: "the same fact shown twice").
+   * `daysOut` and `guestStats` are what Home's first screen states, computed once
+   * by `homeFacts` (lib/home-facts.ts) in the page. This component used to run
+   * its own `daysUntil` and `computeGuestStats` over its own copy of the guest
+   * list, so the first screen and the dashboard could count one fact two ways.
+   * `daysOut` is null for a date that is only a month / a year (no countdown).
+   */
+  daysOut: number | null;
+  guestStats: GuestStats;
+  /**
+   * The couple's resolved money, read once by the page (lib/budget-live-read.ts)
+   * and only for a viewer the budget is shared with — what the Sai watch rail's
+   * budget guard is fed. Null: not shared, flag off, or the resolver failed.
+   */
+  guardMoney?: EventMoney | null;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -323,7 +320,6 @@ export async function EventDashboard({
   const [
     eventRes,
     viewerRes,
-    guests,
     eventVendorsRes,
     paidOrdersRes,
     pendingOrdersRes,
@@ -383,15 +379,6 @@ export async function EventDashboard({
         return { data: null, error: null } as never;
       }
     })(),
-    fetchGuestsByEvent(supabase, eventId).catch((err: unknown) => {
-      logQueryError(
-        'EventDashboard (fetchGuestsByEvent threw)',
-        err instanceof Error ? err : new Error(String(err)),
-        { event_id: eventId, user_id: user.id },
-        'graceful_degrade',
-      );
-      return [] as Awaited<ReturnType<typeof fetchGuestsByEvent>>;
-    }),
     // Vendor picks — lean select (this surface needs no enrichment columns).
     (async () => {
       try {
@@ -862,7 +849,6 @@ export async function EventDashboard({
         ? 'day'
         : 'year';
   const venueTz = (event as { timezone?: string | null }).timezone ?? undefined;
-  const daysOut = eventDatePrecision === 'day' ? daysUntil(event.event_date, venueTz) : null;
   /*
     THE CELEBRATION HAS ALREADY HAPPENED — handed down, not worked out here.
     Everything below that states something about work still to do is gated on
@@ -874,7 +860,7 @@ export async function EventDashboard({
   // yet" split that produced bug 2).
   const hasFirmDate = eventDatePrecision === 'day' && Boolean(event.event_date);
 
-  const stats = computeGuestStats(guests);
+  const stats = guestStats;
 
   // 🔑 THE CATCH ABOVE THESE READS CAN NEVER FIRE. Supabase RESOLVES with
   // `{ error }` instead of throwing, so a refused query never reaches a
@@ -909,7 +895,7 @@ export async function EventDashboard({
   const latestHandover = handovers[0] ?? null;
   const handoverVendorName = latestHandover
     ? (eventVendors.find((v) => v.vendor_id === latestHandover.event_vendor_id)?.vendor_name ??
-       'Your vendor')
+       'Your supplier')
     : null;
 
   // ---- Committed budget — same formula as the Overview (paid + fulfilled
@@ -1224,7 +1210,7 @@ export async function EventDashboard({
   const groupsUnordered: DecisionGroupView[] = ([
     {
       id: 'book',
-      title: 'Book a vendor',
+      title: 'Book a supplier',
       /*
         Was "N categories still open" — no denominator, and the same word the
         digest used two inches away for a different set. `notBookedLabel` shows
@@ -1237,7 +1223,7 @@ export async function EventDashboard({
     {
       id: 'pick',
       title: 'Pick an option',
-      sub: 'Saved options waiting on a lock',
+      sub: 'Saved options waiting to be booked',
       items: byKind('pick'),
     },
     {
@@ -1461,9 +1447,7 @@ export async function EventDashboard({
     // The couple's money, from THE resolver — see the `budget:` slot below.
     // Fail-soft to null: no money → no GRD-05 here, which beats a guard firing
     // on a figure `/budget` does not print.
-    const aiRailMoney = budgetVisibility.mayRead
-      ? await resolveEventMoney(supabase, eventId).catch(() => null)
-      : null;
+    const aiRailMoney = budgetVisibility.mayRead ? guardMoney : null;
     const snapshot: PlanningSnapshot = {
       eventType,
       payments: upcoming.paymentItemsNext30d.map((item) => ({
@@ -1673,7 +1657,12 @@ export async function EventDashboard({
                         ? CalendarClock
                         : Sparkles;
               return (
-                <article key={group.id} className="sn-tile">
+                <article
+                  key={group.id}
+                  className="sn-tile"
+                  // 💾 Payments due are never kept as last-seen data (lib/last-seen).
+                  data-money={group.id === 'pay' ? '' : undefined}
+                >
                   <div className="mb-2 flex items-center gap-2.5">
                     <span
                       aria-hidden
@@ -1968,6 +1957,8 @@ export async function EventDashboard({
       <Link
         key="budget"
         href={`${base}/budget`}
+        // 💾 Money is never kept as last-seen data (lib/last-seen).
+        data-money=""
         className="sn-tile sn-press flex flex-col text-left"
       >
         <span className="sn-eye">
@@ -2357,7 +2348,7 @@ export async function EventDashboard({
                 <b style={{ color: focalDark ? 'var(--sn-gold-300)' : 'var(--sn-gold-700)' }}>
                   {Math.round(lockedInPct)}%
                 </b>{' '}
-                locked in
+                booked
               </p>
                 </>
               )}
@@ -2575,7 +2566,7 @@ export async function EventDashboard({
                         they are named here so the smaller number cannot read as
                         "we lost six things". */}
                     {datesCount > 0
-                      ? ` · ${formatCount(datesCount)} ${datesCount === 1 ? 'date' : 'dates'} coming`
+                      ? ` · ${formatCount(datesCount)} ${datesCount === 1 ? 'date' : 'dates'} ahead`
                       : ''}
                   </span>
                 </div>
@@ -2900,7 +2891,7 @@ export async function EventDashboard({
               </Link>
               {handovers.length > 1 ? (
                 <p className="mt-2 text-[12px]" style={{ color: '#8A857B' }}>
-                  +{handovers.length - 1} more waiting in your vendor rooms.
+                  +{handovers.length - 1} more waiting in your supplier rooms.
                 </p>
               ) : null}
             </div>
@@ -3027,7 +3018,7 @@ export async function EventDashboard({
                 </span>
               }
               fullHref={`${base}/vendors`}
-              fullLabel="Manage vendors"
+              fullLabel="Manage suppliers"
               preview={
                 !vendorsMeasured ? (
                   // "No vendors booked yet" to a couple with a booked venue is
@@ -3041,7 +3032,7 @@ export async function EventDashboard({
                   <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
                     {eventHasHappened
                       ? 'No suppliers were booked through Setnayan for this one.'
-                      : 'No vendors booked yet — start with the ones that book out first: your venue and catering.'}
+                      : 'No suppliers booked yet — start with the ones that book out first: your venue and catering.'}
                   </p>
                 )
               }
@@ -3108,7 +3099,7 @@ export async function EventDashboard({
                   something to read, the endowed line when there is not. */}
               {unreadCount > 0 ? null : (
                 <p className="border-t border-ink/5 py-2 text-[13px] text-ink/60">
-                  All caught up — when a vendor replies, it lands right here.
+                  All caught up — when a supplier replies, it lands right here.
                 </p>
               )}
             </article>
@@ -3139,6 +3130,8 @@ export async function EventDashboard({
                     <div
                       key={row.id}
                       className="flex items-center gap-2.5 border-t border-ink/5 py-2 text-[13px]"
+                      // 💾 A payment still pending is never kept as last-seen data.
+                      data-money={row.tone === 'warm' ? '' : undefined}
                     >
                       <span className="min-w-0 flex-1 truncate font-semibold text-ink">
                         {row.label}
@@ -3216,7 +3209,7 @@ export async function EventDashboard({
            *  child was removed in #3055). */}
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-ink/5 pt-3 text-[11.5px] text-ink/45">
             <span>
-              Vendors always appear by company — never a personal profile.
+              Suppliers always appear by company — never a personal profile.
             </span>
             <Link
               href={`${base}/activity`}

@@ -276,7 +276,7 @@ export function DetailsForm({
             </option>
           ))}
         </select>
-        <p className="text-[11px] text-ink/50">Where your wedding is — helps us match vendors near you.</p>
+        <p className="text-[11px] text-ink/50">Where your wedding is — helps us match suppliers near you.</p>
       </div>
 
       <div className="space-y-1.5">

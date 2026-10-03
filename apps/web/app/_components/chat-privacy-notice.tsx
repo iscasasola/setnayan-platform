@@ -35,15 +35,15 @@ const COPY = {
   'en-PH': {
     couple: {
       lead: 'All your event info is already in Setnayan',
-      body: '— your vendor sees what they need from your profile. Please don’t share private info in chat.',
+      body: '— your supplier sees what they need from your profile. Please don’t share private info in chat.',
       examples: 'government IDs · card numbers · full addresses · OTPs · passwords',
-      report: 'If a vendor asks for these, report it via Help.',
+      report: 'If a supplier asks for these, report it via Help.',
     },
     vendor: {
       lead: 'Everything you need for this event is already in Setnayan',
       body: '— their profile and this conversation carry it. Never ask for private info in chat.',
       examples: 'government IDs · card numbers · full addresses · OTPs · passwords',
-      report: 'Couples are told to report a vendor who asks for these.',
+      report: 'Couples are told to report a supplier who asks for these.',
     },
   },
   // TL / CEB placeholders — wire the locale key now, copy lands in the next
@@ -148,7 +148,7 @@ const SAFETY_POINTS = [
   'Keep your chats and payments inside Setnayan.',
   'Approve only what you asked for — and pay only the amount you agreed on.',
   'Never share IDs, card numbers, or OTPs in chat.',
-  'A vendor rushing you to pay off Setnayan is a red flag — tell us via Help.',
+  'A supplier rushing you to pay off Setnayan is a red flag — tell us via Help.',
 ] as const;
 
 const SAFETY_IN_BOX = `${NOTE_LINE} border-b border-ink/10 bg-terracotta/[0.04] px-3 py-1 sm:px-4`;

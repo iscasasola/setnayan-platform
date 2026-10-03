@@ -56,7 +56,7 @@ test('THE OWNER’S CASE — a confirmed ₱2,000 deposit is ₱2,000 earned thi
   assert.equal(rows.length, 1);
   assert.equal(rows[0]!.payment_amount_php, 2000);
   assert.equal(rows[0]!.event_display_name, 'Rosa & Ben');
-  assert.equal(rows[0]!.description, 'Deposit · GCash');
+  assert.equal(rows[0]!.description, 'First payment · GCash');
   const { ytdTotal } = computeMonthlySubtotals(rows, new Date('2026-09-19T04:00:00Z'));
   assert.equal(ytdTotal, 2000);
 });

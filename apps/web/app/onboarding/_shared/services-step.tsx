@@ -79,6 +79,7 @@
  * these props to local state to "turn it on everywhere".
  */
 
+import { SERVICE_NAMES, serviceNameLine } from '@/lib/service-names';
 import { useMemo, useState, type ReactNode } from 'react';
 import { Camera, CheckCircle2, Globe2, Sparkles, Users, UserRound } from 'lucide-react';
 
@@ -111,7 +112,7 @@ const TYPE_COPY: Record<
   { title: string; kind: string; desc: string; note?: string; Icon: typeof Users }
 > = {
   pool: {
-    title: 'Papic',
+    title: SERVICE_NAMES.papic.plain,
     kind: 'Unlimited cameras · shared credits',
     desc:
       // ⚠ Same false promise as the studio Pool card (see its comment): there
@@ -128,7 +129,7 @@ const TYPE_COPY: Record<
   // prove the reader survives a stored pre-change draft), and a Record over that
   // union must cover it. Do not read this as a live product.
   one: {
-    title: 'Papic',
+    title: SERVICE_NAMES.papic.plain,
     kind: 'Dedicated camera · its own QR',
     desc:
       'A named camera with its own QR and its own credits — for your best friend, ' +
@@ -434,7 +435,11 @@ function PapicType({
       <div className="flex items-baseline justify-between gap-3 px-4 pb-1 pt-4">
         <h3 className="flex items-center gap-2 text-base font-semibold text-ink">
           <Icon aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2} />
-          {copy.title}
+          <span className="flex flex-col leading-tight">
+            {copy.title}
+            {/* The Setnayan name, small under the plain one (owner d17). */}
+            <span className="text-[11px] font-normal text-ink/50">{SERVICE_NAMES.papic.brand}</span>
+          </span>
         </h3>
         <span className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.1em] text-terracotta">
           {copy.kind}
@@ -680,7 +685,7 @@ export function ServicesStep({
               <>Photo sharing is ready whenever you need it — the free shots and guest QR are set up.</>
             ) : (
               <>
-                <strong className="font-semibold">Papic is live on this {eventWord}.</strong>{' '}
+                <strong className="font-semibold">{SERVICE_NAMES.papic.plain} are live on this {eventWord}.</strong>{' '}
                 Your free shots and guest QR are ready.
               </>
             )}
@@ -705,7 +710,7 @@ export function ServicesStep({
             with Setnayan AI on its own line, sits below both cards. */}
         {interactive ? (
           <p className="mt-4 flex items-baseline justify-between gap-3 rounded-[var(--m-r-md)] border border-ink/12 bg-ink/[0.02] px-4 py-3">
-            <span className="text-sm font-semibold text-ink">Papic</span>
+            <span className="text-sm font-semibold text-ink">{SERVICE_NAMES.papic.plain}</span>
             <span className="font-sans text-xl font-semibold tabular-nums text-ink">
               {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
             </span>
@@ -736,11 +741,11 @@ export function ServicesStep({
         <article className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-terracotta/12 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-terracotta-700">
             <Sparkles aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-            Setnayan AI
+            {serviceNameLine('setnayan-ai')}
           </span>
 
           <h2 className="mt-3 text-balance font-serif text-2xl font-medium italic leading-tight text-ink">
-            A planner that already knows every vendor in the room.
+            A planner that already knows every supplier in the room.
           </h2>
           <p className="mt-1.5 flex flex-wrap items-baseline gap-2">
             {ai.listPricePhp > ai.pricePhp && (
@@ -798,7 +803,7 @@ export function ServicesStep({
                 {selection.ai ? '✓' : ''}
               </span>
               <span className="flex-1 text-sm font-medium text-ink">
-                {selection.ai ? 'Added to your plan' : `Add Setnayan AI to my ${eventWord}`}
+                {selection.ai ? 'Added to your plan' : `Add the ${SERVICE_NAMES['setnayan-ai'].plain.toLowerCase()} to my ${eventWord}`}
               </span>
               <span className="font-mono text-sm font-semibold tabular-nums text-ink">
                 {ai.priceLabel}
@@ -917,14 +922,14 @@ export function ServicesStep({
         <div className="rounded-[var(--m-r-lg)] border border-ink/12 bg-paper p-5 sm:p-6">
           <dl className="flex flex-col gap-2">
             <div className="flex items-baseline justify-between gap-3">
-              <dt className="text-sm text-ink/70">Papic</dt>
+              <dt className="text-sm text-ink/70">{SERVICE_NAMES.papic.plain}</dt>
               <dd className="font-mono text-sm tabular-nums text-ink/80">
                 {quote.papicPhp > 0 ? peso(quote.papicPhp) : 'Free'}
               </dd>
             </div>
             {ai ? (
               <div className="flex items-baseline justify-between gap-3">
-                <dt className="text-sm text-ink/70">Setnayan AI</dt>
+                <dt className="text-sm text-ink/70">{SERVICE_NAMES['setnayan-ai'].plain}</dt>
                 <dd className="font-mono text-sm tabular-nums text-ink/80">
                   {quote.aiPhp > 0 ? peso(quote.aiPhp) : 'Not added'}
                 </dd>

@@ -1031,9 +1031,9 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   );
   const shareWords = (
     <header className="space-y-1">
-      <h2 className="text-2xl font-semibold text-ink">Share with your vendors</h2>
+      <h2 className="text-2xl font-semibold text-ink">Share with your suppliers</h2>
       <p className="max-w-prose text-sm text-ink/65">
-        Send your booked vendors a heads-up that your mood board is ready, so they can match their styling, decor,
+        Send your booked suppliers a heads-up that your mood board is ready, so they can match their styling, decor,
         and booth to your palette and reception design. They see a read-only view — your palette, design, and
         inspirations, no guest details.
       </p>

@@ -185,7 +185,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['next_task', 'why_now'],
     copy: {
       default:
-        'Nice — that’s locked. Next, while there’s time: {next_task} ({why_now}).',
+        'Nice — that’s booked. Next, while there’s time: {next_task} ({why_now}).',
     },
   },
   'SEC-07': {
@@ -218,7 +218,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['locked', 'total', 'remaining_highlight'],
     copy: {
       default:
-        'You’ve locked {locked} of {total} key categories — solid progress. The big one left: {remaining_highlight}.',
+        'You’ve booked {locked} of {total} key categories — solid progress. The big one left: {remaining_highlight}.',
     },
   },
 
@@ -261,7 +261,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'old_price', 'new_price', 'category'],
     copy: {
       default:
-        '{vendor} (on your {category} shortlist) went from ₱{old_price} to ₱{new_price}. Lock it in, or want alternatives?',
+        '{vendor} (on your {category} shortlist) went from ₱{old_price} to ₱{new_price}. Book it, or want alternatives?',
     },
   },
   'GRD-04': {
@@ -327,7 +327,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['vendor', 'date', 'status'],
     copy: {
       default:
-        '{vendor}’s availability for {date} just changed ({status}). If they’re a top pick, lock them soon — want me to reach out?',
+        '{vendor}’s availability for {date} just changed ({status}). If they’re a top pick, book them soon — want me to reach out?',
     },
   },
   'GRD-10': {
@@ -430,7 +430,7 @@ export const SETNAYAN_AI_TEMPLATES: Record<string, SetnayanAiTemplate> = {
     slots: ['area'],
     copy: {
       default:
-        'Your vendors cluster around {area}. Want me to anchor proximity there for the rest of your search?',
+        'Your suppliers cluster around {area}. Want me to anchor proximity there for the rest of your search?',
     },
   },
   'INF-05': {

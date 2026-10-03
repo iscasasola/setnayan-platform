@@ -28,7 +28,7 @@ import type { LifecyclePhase } from '@/lib/invitation-widgets';
 export const PUBLIC_STAGE_LABELS = {
   save_the_date: 'Save the Date',
   rsvp: 'Invitation',
-  event: 'On the Day',
+  event: 'The Day',
   editorial: 'Post Event',
 } as const satisfies Record<LifecyclePhase, string>;
 

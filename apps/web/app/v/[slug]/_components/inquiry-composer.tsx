@@ -816,7 +816,7 @@ export function InquiryComposer({
           tap. Suppressed once they've an existing-thread shortcut (no CTA). */}
       {viewerIsAnonymous ? (
         <SaveGateHint>
-          Free to plan — you’ll save your account to send this to the vendor.
+          Free to plan — you’ll save your account to send this to the supplier.
         </SaveGateHint>
       ) : null}
 

@@ -20,7 +20,6 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
-import { loadEventSettings } from './_components/details-settings-load';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -781,9 +780,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   const memberType = (membership as { member_type?: string | null } | null)?.member_type;
   const hasWork = makerHasWork(memberType, websiteOn);
 
-  /* First visit = the tour (owner 2026-09-25). The same read `MiniTour` makes.
-     ⚠ A refused read shows NO tour: an unread row must not replay a welcome on
-     every visit, and the ⓘ in the toolbar still opens it. */
+  /* First visit = ONE quiet line on the canvas, "Tap anything to change it"
+     (the Maker in 4, 2026-10-02 — no slides and no Pro before the first tap;
+     the first touch records it). The same read `MiniTour` makes.
+     ⚠ A refused read shows nothing: an unread row must not replay the line on
+     every visit, and ⋯ › About the Maker still opens the short tour. */
   const { data: seenRow, error: seenError } = await supabase
     .from('users')
     .select('tour_seen_keys')
@@ -895,7 +896,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       <section className="mt-10">
         <header className="space-y-1">
           <p className="sn-eye">
-            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> On the day
+            <Radio aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> The Day
           </p>
           <h2 className="text-lg font-semibold tracking-tight sm:text-xl">
             {standing.phase === 'dayof' ? 'Running now' : 'What runs on the day'}
@@ -1028,7 +1029,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
-    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn, eventSettings] = await Promise.all([
+    const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
       readRsvpHosts(eventId),
@@ -1054,8 +1055,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         .order('sort_order', { ascending: true }),
       // Announce is a piece of the Schedule where it is on (the schedule page's own flag).
       isCoordinatorP3Enabled().catch(() => false),
-      // 🗂 Your info › Event settings — the retired /details/change page's reads, moved whole.
-      loadEventSettings({ supabase, eventId, userId: user.id }).catch(() => null),
     ]);
     if (storyLiveRes.error) logQueryError('LaunchPage.loveStory', storyLiveRes.error, { event_id: eventId }, 'graceful_degrade');
     if (scheduleRes.error) logQueryError('LaunchPage.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
@@ -1228,7 +1227,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           </>
         ) : (
           <p className="m-auto max-w-sm px-4 text-center text-sm text-ink/70" data-maker-page-no-address="">
-            Set your Event Hub address in Your info to see your RSVP here.
+            Set your Event Hub address in Event Details to see your RSVP here.
           </p>
         ),
         settings: (
@@ -1524,7 +1523,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                 cover: drafted('cover_photo_wanted'),
               };
             })()}
-            settings={eventSettings}
             hasPalette={guided.palette}
             hasGifts={egifts.length > 0}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
@@ -1601,8 +1599,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       rsvpStage={rsvpStage}
       factEditors={factEditors}
       storeShell={storeShell}
-      /* ⛔ The tour's Pro slide: no figure in the store shell (it drops the
-         slide), and only the catalogue's figure anywhere else. */
+      /* ⋯ › About the Maker. The short tour sells nothing (2026-10-02); the
+         store-shell and price rules still apply should a slide ever carry one. */
       tourSlides={makerTourSlideViews({ storeShell, priceLabel: storeShell ? null : proPriceLabel })}
       firstVisit={firstVisit}
       completeTourAction={completeTour}
@@ -1627,17 +1625,15 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       /* Who Details is for, in the event type's own words (a coordinator is told
          why it is shut) — `EventWords`, never a typed "couple". */
       theHost={eventWordsFromProfile(await resolveProfileByEvent(eventId)).theHost}
+      /* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint, mounted by the
+         shell only once the couple is ON Post Event (the Maker in 4, 2026-10-02:
+         nothing pitches Pro before the first tap — its last slide names Pro).
+         Since 2026-09-25 ("POST EVENT IS MANY SMALL SCENES") Post Event is its
+         scenes BEFORE the day too, so it no longer waits for the day. Never on
+         the Maker's very first visit — two first-visit things must not stack.
+         Inside the shell so its dialog sits in the shell's layer. */
+      postEventTour={hasWork && !firstVisit ? <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} /> : null}
     >
-      {/* 📖 POST EVENT (Maker Phase 8) — its own first-visit hint. Since
-          2026-09-25 ("POST EVENT IS MANY SMALL SCENES") Post Event is its scenes
-          BEFORE the day too — waiting, styled, and the couple can add their own
-          — so the hint no longer waits for the day. Never on the Maker's very
-          first visit: the Maker's own welcome goes first, and two tours must not
-          stack. Rendered INSIDE the shell so its dialog sits in the shell's
-          layer, above the toolbar. */}
-      {hasWork && !firstVisit ? (
-        <MiniTour tourKey="customer_post_event_v1" storeShell={storeShell} />
-      ) : null}
       {hasWork ? (
         <WebsiteEditorPage
           params={Promise.resolve({ eventId })}

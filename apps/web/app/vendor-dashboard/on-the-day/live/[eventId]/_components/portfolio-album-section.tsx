@@ -81,8 +81,8 @@ export async function PortfolioAlbumSection({
       <p className="mt-1 flex items-start gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
         <Lock aria-hidden className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={1.75} />
         <span>
-          Only you can see this — never the couple, never their guests. 1 Papic credit
-          imports 1 photo.
+          Only you can see this — never the couple, never their guests. Each photo you import
+          spends one Papic credit.
         </span>
       </p>
 

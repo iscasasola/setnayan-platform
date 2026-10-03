@@ -9,7 +9,7 @@ import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
-export const metadata = { title: 'Cocktail Area · Vendor' };
+export const metadata = { title: 'Cocktail Area · Supplier' };
 
 /**
  * Vendor-facing cocktail / waiting-area editor — the FIRST surface where a

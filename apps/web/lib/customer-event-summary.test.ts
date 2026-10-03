@@ -50,7 +50,7 @@ test('the four asked-for facts are all present, in order', () => {
   const { facts } = buildCustomerEventSummary(REAL);
   assert.deepEqual(
     facts.map((f) => f.label),
-    ['Target date', 'Pax', 'Location', 'Locked suppliers'],
+    ['Target date', 'Pax', 'Location', 'Booked suppliers'],
   );
   assert.equal(facts[0]!.value, 'December 18, 2026');
   // "~230 now", not "~230 planning": the row now carries a SECOND number in its
@@ -65,15 +65,15 @@ test('🔑 "0 of 3" — an empty plan and a live race are different replies', ()
   // A bare "0 locked suppliers" reads as "nobody is working on this yet". The
   // couple has three suppliers in play and this one is racing them.
   assert.equal(
-    buildCustomerEventSummary(REAL).facts.find((f) => f.label === 'Locked suppliers')!.value,
+    buildCustomerEventSummary(REAL).facts.find((f) => f.label === 'Booked suppliers')!.value,
     '0 of 3',
   );
   // Nothing in play at all — say so plainly rather than "0 of 0".
   const empty = buildCustomerEventSummary({ ...REAL, lockedVendors: 0, totalVendors: 0 });
-  assert.equal(empty.facts.find((f) => f.label === 'Locked suppliers')!.value, 'None yet');
+  assert.equal(empty.facts.find((f) => f.label === 'Booked suppliers')!.value, 'None yet');
   // All locked — no fraction to draw.
   const done = buildCustomerEventSummary({ ...REAL, lockedVendors: 3, totalVendors: 3 });
-  assert.equal(done.facts.find((f) => f.label === 'Locked suppliers')!.value, '3 locked');
+  assert.equal(done.facts.find((f) => f.label === 'Booked suppliers')!.value, '3 booked');
 });
 
 test('an unresolved event type degrades to "event", never to "wedding"', () => {

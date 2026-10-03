@@ -83,7 +83,7 @@ export async function notifyWaitlistForDate(
   const v = vendorRow as
     | { business_name: string | null; screen_name: string | null; business_slug: string | null }
     | null;
-  const vendorLabel = v?.business_name?.trim() || v?.screen_name?.trim() || 'a vendor on Setnayan';
+  const vendorLabel = v?.business_name?.trim() || v?.screen_name?.trim() || 'a supplier on Setnayan';
   const vendorSlug = v?.business_slug ?? null;
 
   // Flip pending → notified and get back the affected rows (RETURNING via select).

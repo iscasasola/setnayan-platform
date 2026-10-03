@@ -18,6 +18,7 @@ import {
   DEFAULT_ICON_BG,
   buildEventIconSvg,
   buildEventManifest,
+  eventShortcutMetadata,
   homeScreenLabel,
   iconInitials,
   safeHex,
@@ -103,11 +104,15 @@ test('the icon route is not an open image resizer', () => {
 });
 
 test('the invitation names the manifest AND the apple icon — iOS ignores the manifest', () => {
+  // ONE copy (`eventShortcutMetadata`), worn by the Event Hub and by the
+  // thank-you that carries the "Keep it handy" line (owner 2026-10-03).
+  const meta = eventShortcutMetadata('cale-ice', 'Cale & Ice');
+  assert.equal(meta.manifest, '/cale-ice/manifest.webmanifest', 'the tile does not open THAT event');
+  assert.ok(meta.icons.apple.length > 0, 'without this iOS falls back to a screenshot of the page');
+  assert.equal(meta.icons.apple[0]!.url, '/cale-ice/icon/180.png', 'the size iOS actually asks for first');
+  assert.equal(meta.appleWebApp.title, 'Cale & Ice', 'the label is the couple, not "Setnayan"');
   const page = readFileSync(join(__dirname, '..', 'app', '[slug]', 'page.tsx'), 'utf8');
-  assert.match(page, /manifest: `\/\$\{slug\}\/manifest\.webmanifest`/);
-  assert.match(page, /apple: \[/, 'without this iOS falls back to a screenshot of the page');
-  assert.match(page, /180\.png/, 'the size iOS actually asks for first');
-  assert.match(page, /appleWebApp:[\s\S]{0,120}title: event\.display_name/, 'the label is the couple, not "Setnayan"');
+  assert.match(page, /\.\.\.eventShortcutMetadata\(slug, event\.display_name\),/, 'the Event Hub names its tile some other way');
 });
 
 test('the home-screen label is a word, not a cut — seen in prod as "Indalecio & "', () => {

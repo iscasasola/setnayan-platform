@@ -181,7 +181,8 @@ test('4 · the day’s Live leads with Directions until the programme begins —
   assert.equal(directionsLead({ firstStartAt: null, venueNowMs: 0 }), true, 'no programme → nothing to wait for');
   const BODY = stripComments(read('_components', 'site-body.tsx'));
   assert.match(BODY, /directionsLead\(\{ firstStartAt: scheduleBlocks\[0\]\?\.start_at \?\? null, venueNowMs: venueNowMs\(eventTzForDay\) \}\)/, 'Directions compare against the venue clock');
-  assert.match(BODY, /directionsOnTop \? group\('live', <DayDirections venues=\{event\.venues \?\? \[\]\} \/>/);
+  // 🗺 …to ONE place — where things are happening now (owner 2026-10-01, `lib/day-venue-now.ts`).
+  assert.match(BODY, /directionsOnTop \? group\('live', <DayDirections venues=\{dayVenues\} \/>/);
 });
 
 /* ══ 5 · ONE SHELL · ONE BAR · ONE STATE ═════════════════════════════════════ */

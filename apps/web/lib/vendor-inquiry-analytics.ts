@@ -20,6 +20,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/** The spread tile's percentile — "90% of replies land within" is `p90Minutes`, named once. */
+export const REPLY_SPREAD_PCT = 90;
+
 export type InquiryReplyStats = {
   /** Threads the vendor has replied to (the distribution's N). */
   answeredCount: number;

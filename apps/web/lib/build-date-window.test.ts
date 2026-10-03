@@ -347,7 +347,7 @@ test('convergenceBanner: ONE day left states the CONSEQUENCE + the day — and d
   // carrying only one of them is the defect this replaced.
   const b = convergenceBanner(BUILD_WINDOW);
   assert.equal(b?.tone, 'converged');
-  assert.equal(b.headline, 'Locking these vendors sets your date: Sep 26');
+  assert.equal(b.headline, 'Booking these suppliers sets your date: Sep 26');
   assert.match(b.headline, /sets your date/i);
   assert.ok(b.headline.includes('Sep 26'), 'the headline must name the day, not just the consequence');
   // Rule 3 of the module: the soft tier never implies a held day.

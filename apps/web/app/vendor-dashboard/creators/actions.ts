@@ -54,7 +54,7 @@ function humanizeOfferError(message: string): string {
   if (message.includes('TIER_BELOW_PRO_NO_REACH'))
     return 'Creator collabs are a Pro-and-up feature. Upgrade your plan to offer discounts to storytellers.';
   if (message.includes('CREATOR_OFFERS_OFF'))
-    return 'This creator isn’t accepting vendor offers right now.';
+    return 'This creator isn’t accepting supplier offers right now.';
   if (message.includes('TIER_FREE_NO_REACH'))
     return 'Creator collabs are a Pro-and-up feature. Upgrade your plan to offer discounts to storytellers.';
   // INSUFFICIENT_WALLET_BALANCES can no longer be raised — sending is free
@@ -112,7 +112,7 @@ export async function sendCreatorOffer(formData: FormData) {
     await emitNotification({
       userId: creatorUserId,
       type: 'creator_offer_received',
-      title: 'A vendor sent you a discount offer',
+      title: 'A supplier sent you a discount offer',
       body: 'Open your Creator dashboard to review the creator + audience rates and accept or decline.',
       relatedUrl: '/dashboard/creator?tab=offers',
     });

@@ -13,7 +13,7 @@
  *
  * INTEGRATED SINGLE-SCROLL (2026-07-09): the three sections no longer swap one
  * mount at a time. All three slots render STACKED in one vertical scroll surface
- * — `#svc-shortlist` ("Browse the bench") · `#svc-build` ("Build your team") ·
+ * — `#svc-shortlist` ("Saved") · `#svc-build` ("Build your team") ·
  * `#svc-compare` ("Compare saved builds", collapsed by default). The `BB_TAB_EVENT`
  * bus + `?tab=` contract is UNCHANGED — the mobile dock (`customer-section-subnav.tsx`)
  * and any `goToBuildTab` callers keep working verbatim; the bus listener now
@@ -34,10 +34,11 @@
  * `PlanBudgetAccordion`) lives in `page.tsx` and is unchanged.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { ChevronDown, Info, Sparkles, X } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { PlanningList } from './planning-list';
 import type { PillarPart } from '@/lib/pillar-parts';
 import {
   BUDGET_BUILD_TABS,
@@ -79,7 +80,7 @@ const sectionId = (tab: BudgetBuildTab) => `svc-${tab}`;
  *  "budget" stays the money TARGET (the tile + `/budget`). The section KEYS /
  *  anchors / bus events stay `compare` and `budget`. */
 const SECTION_HEADING: Record<BudgetBuildTab, string> = {
-  shortlist: 'Browse the bench',
+  shortlist: 'Saved',
   // "Build your team" → **"Your team"** (2026-07-29 §2). The section is the
   // people you chose — locked, mid-handshake, and candidates — not a verb. The
   // owner's complaint was literal: "why does the build your team has build your
@@ -109,7 +110,7 @@ export function ServicesTakeover({
 }: {
   eventId: string;
   /**
-   * The chat icon + unread count beside ⋯ (owner-approved 2026-10-01, prototype
+   * The chat icon + unread count beside the title (owner-approved 2026-10-01, prototype
    * `supplier_inbox_and_find` frame 1). Server-rendered by the page — it owns
    * the unread read — and only PLACED here.
    */
@@ -118,7 +119,7 @@ export function ServicesTakeover({
    * The team, as rows — booked first, one next step each (`team-rows.tsx`).
    * Owner-APPROVED 2026-10-01 (prototype frame 4 "Your Team"): on a phone this
    * and ONE "Find a supplier" button are the whole screen; everything below
-   * opens from that button or from ⋯.
+   * opens from that button or from "Your planning".
    */
   teamSlot?: ReactNode;
   /**
@@ -138,8 +139,8 @@ export function ServicesTakeover({
    *  (PR-4 · S5). Purely presentational; gated on the AI subscription upstream. */
   premium?: boolean;
   /** Your Team's parts — Your team · Budget (`lib/pillar-parts.ts`, owner
-   *  2026-09-29). Budget moved behind ⋯ with the approved phone design
-   *  (2026-10-01): every part but the team itself is a row in that menu. */
+   *  2026-09-29). Budget is a row of "Your planning" (2026-10-03; it was
+   *  behind ⋯ from 2026-10-01): every part but the team itself. */
   teamParts?: readonly PillarPart[];
 }) {
   // Read once so the whole surface agrees within a render (same contract as
@@ -153,7 +154,7 @@ export function ServicesTakeover({
   // ── THE FIND AREA (approved phone design, 2026-10-01) ─────────────────────
   // Below lg, the bench · picks · payments · plans sit behind "Find a supplier"
   // so the team is the screen. NOTHING is unmounted — the grid is only
-  // `hidden` — and every door into it opens it: the button, every ⋯ row (they
+  // `hidden` — and every door into it opens it: the button, every "Your planning" row (they
   // all go through `goToSection`), the BB_TAB_EVENT bus, and a deep link
   // (`initialFindOpen`). Desktop always shows it, below the team.
   const [findOpen, setFindOpen] = useState(initialFindOpen);
@@ -246,9 +247,9 @@ export function ServicesTakeover({
       {/* ── THE APPROVED PHONE SCREEN (owner 2026-10-01, prototype frame 4) ──
           The tab is named "Suppliers" (owner 2026-10-01: the bar is Home ·
           Guests · Suppliers · Hub · More; "Your Team" was renamed).
-          Title + ⋯ · the team, booked first, one next step each · ONE "Find a
-          supplier". Budget and the section jumps live behind ⋯; the category
-          walls live inside Find a supplier. The visible title is aria-hidden:
+          Title · the team, booked first, one next step each · ONE "Find a
+          supplier" · "Your planning" (Budget · Saved · Build · Plans ·
+          Payments, 2026-10-03); the category walls live inside Find a supplier. The visible title is aria-hidden:
           the masthead's h1 above already names the page for a screen reader. */}
       <div className="mb-2 flex items-center justify-between gap-3">
         <p aria-hidden className="font-display text-[28px] leading-none text-ink">
@@ -256,7 +257,6 @@ export function ServicesTakeover({
         </p>
         <div className="flex shrink-0 items-center gap-2">
           {chatSlot}
-          <TeamMoreMenu parts={teamParts} />
         </div>
       </div>
 
@@ -264,14 +264,19 @@ export function ServicesTakeover({
 
       {/* 2026-10-01 (P3): ONE Find a supplier opens the Find page — only this
           event type's categories, grouped the way hosts think. The bench and
-          the rest of the find area stay one ⋯ row away (section jumps). */}
+          the rest of the find area stay one "Your planning" row away (section jumps). */}
       <Link
         href={`/dashboard/${eventId}/vendors/categories`}
         data-find-supplier=""
-        className="mb-6 mt-3.5 inline-flex w-full items-center justify-center rounded-full border-[1.5px] border-ink bg-cream px-4 py-3.5 font-display text-base text-ink transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry lg:w-auto lg:px-8"
+        className="mb-4 mt-3.5 inline-flex w-full items-center justify-center rounded-full border-[1.5px] border-ink bg-cream px-4 py-3.5 font-display text-base text-ink transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry lg:w-auto lg:px-8"
       >
         Find a supplier
       </Link>
+
+      {/* 2026-10-03: "Your planning" — Budget · Saved · Build · Plans · Payments,
+          in plain sight. They lived behind ⋯ and the owner could not find them;
+          the ⋯ held nothing else, so it is gone. Same destinations, same bus. */}
+      <PlanningList budgetHref={teamParts?.find((p) => p.key === 'budget')?.href} />
 
       <div id="team-find-area" data-find-area={findOpen ? 'open' : 'closed'} className={findOpen ? undefined : 'hidden lg:block'}>
 
@@ -326,9 +331,9 @@ export function ServicesTakeover({
           on mobile, and a third pinned bar is the stacked-bars defect
           `lint-no-stacked-pinned-bars.mjs` exists to prevent.
 
-          2026-10-01: MOVED BEHIND ⋯ (`TeamMoreMenu`) with the approved phone
-          design — a row of pills is the one shape INTERACTION_RULES §2 bans.
-          Same buttons, same bus; they are now menu rows. */}
+          2026-10-01: moved off the page as pills (INTERACTION_RULES §2 bans a
+          row of pills); 2026-10-03: they are the visible `PlanningList`, one
+          row each — same bus, same destinations. */}
 
       {/* Merkado layout (S1 · 2026-07-09): MOBILE stacks (shortlist → build →
           compare) exactly as before — the grid collapses to one column and the
@@ -493,7 +498,14 @@ function ServiceSection({
   const showInfo = tab === 'shortlist' && isExploreReplanEnabled();
   return (
     // scroll-mt clears the sticky desktop `.shell-topbar` when scrolled into view.
-    <section id={sectionId(tab)} aria-labelledby={`${sectionId(tab)}-h`} className="scroll-mt-24">
+    <section
+      id={sectionId(tab)}
+      aria-labelledby={`${sectionId(tab)}-h`}
+      className="scroll-mt-24"
+      // 💾 The budget and the plans' totals are money — never kept as
+      // last-seen data, open or closed (lib/last-seen).
+      data-money={tab === 'budget' || tab === 'compare' ? '' : undefined}
+    >
       <header className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2
@@ -602,111 +614,6 @@ function ExploreInfoToggle() {
         </span>
       ) : null}
     </span>
-  );
-}
-
-/**
- * SectionChips (B1) — the in-page wayfinding row.
- *
- * ── WHAT IT IS NOT ──────────────────────────────────────────────────────────
- * NOT tabs, and it swaps nothing. The desktop tab strip was removed 2026-07-15
- * because the two-column layout already shows every section, and rebuilding
- * panel-switching is the paid-twice mistake this surface already made once.
- * Each chip calls the SHIPPED `goToBuildTab`, which dispatches the existing
- * `BB_TAB_EVENT` that `goToSection` above already handles — so a chip does
- * exactly what the removed mobile dock did: scroll to `#svc-<tab>`, mirror
- * `?tab=`, and expand the section if it is collapsed. No new key, no new
- * anchor, no new bus, no new state.
- *
- * ── WHY IT READS `tabLabel()` ───────────────────────────────────────────────
- * `tabLabel()` is the single label authority (`lib/budget-build.ts`) and is
- * itself flag-gated, so the chips say "Payments" and "Plans" with the flag on
- * and the pre-rename words with it off — the two can never drift. Authoring
- * strings here is exactly what that helper exists to prevent.
- *
- * The section HEADINGS are deliberately longer than these chips ("Your team"
- * vs "Build"): a chip wants a short word, a heading wants a sentence's worth of
- * orientation. Both are flag-aware, so neither can outlive a rename.
- *
- * ── ORDER ───────────────────────────────────────────────────────────────────
- * `BUDGET_BUILD_TABS` is `shortlist · build · budget · compare`, which after B3
- * moved Plans below the grid is the on-page order exactly. Iterated, never
- * re-listed, so a future reorder happens in one place.
- */
-function SectionChips() {
-  // 2026-10-01 — rendered INSIDE the ⋯ menu (`TeamMoreMenu`) as menu rows, no
-  // longer as a pill row. A press also closes the menu it sits in.
-  return (
-    <nav aria-label="Jump to a section" className="flex flex-col">
-      {BUDGET_BUILD_TABS.map((tab) => (
-        <button
-          key={tab}
-          type="button"
-          onClick={(e) => {
-            e.currentTarget.closest('details')?.removeAttribute('open');
-            goToBuildTab(tab);
-          }}
-          className={MENU_ROW_CLASS}
-        >
-          {tabLabel(tab)}
-        </button>
-      ))}
-    </nav>
-  );
-}
-
-const MENU_ROW_CLASS =
-  'flex w-full items-center rounded-md px-3 py-2.5 text-left text-sm text-ink transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-mulberry';
-
-/**
- * TeamMoreMenu — the ⋯ beside "Your Team" (approved phone design 2026-10-01:
- * "budget, compare quotes, reuse-a-booking behind ⋯").
- *
- * A native `<details>`, so it opens with no JavaScript of its own; the effect
- * only adds what `<details>` lacks — closing on Escape and on a tap outside.
- * Rows: every Your Team part except the team itself (Budget, from
- * `lib/pillar-parts.ts` — never a hand-typed href), then the section jumps
- * (`SectionChips`, unchanged buttons on the unchanged bus). Reusable bookings
- * live in the Picks section they have always been in (dark behind their flag).
- */
-function TeamMoreMenu({ parts }: { parts?: readonly PillarPart[] }) {
-  const ref = useRef<HTMLDetailsElement>(null);
-  useEffect(() => {
-    const close = (e: Event) => {
-      const el = ref.current;
-      if (!el?.open) return;
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !el.contains(e.target as Node)) {
-        el.removeAttribute('open');
-      }
-    };
-    document.addEventListener('pointerdown', close);
-    document.addEventListener('keydown', close);
-    return () => {
-      document.removeEventListener('pointerdown', close);
-      document.removeEventListener('keydown', close);
-    };
-  }, []);
-  const otherParts = (parts ?? []).filter((p) => p.key !== 'team');
-  // The section jumps ALWAYS render (they were replan-only): since Find a
-  // supplier opens its own page (P3, 2026-10-01), ⋯ is the phone's door to the
-  // bench, picks, payments and plans below.
-  return (
-    <details ref={ref} className="relative shrink-0" data-team-more="">
-      <summary
-        aria-label="More for Suppliers"
-        className="flex h-9 w-9 cursor-pointer list-none items-center justify-center rounded-full border border-ink/15 bg-cream text-base font-semibold tracking-[0.04em] text-ink/70 transition hover:bg-ink/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mulberry [&::-webkit-details-marker]:hidden"
-      >
-        ⋯
-      </summary>
-      <div className="absolute right-0 top-11 z-30 w-60 rounded-xl bg-cream p-1.5 shadow-xl ring-1 ring-ink/10">
-        {otherParts.map((p) => (
-          <Link key={p.key} href={p.href} className={MENU_ROW_CLASS} data-team-part={p.key}>
-            {p.label}
-          </Link>
-        ))}
-        <SectionChips />
-      </div>
-    </details>
   );
 }
 

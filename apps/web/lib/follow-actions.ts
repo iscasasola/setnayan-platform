@@ -22,7 +22,7 @@ export async function followVendor(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { ok: false, code: 'NOT_AUTHENTICATED', message: 'Sign in to follow vendors.' };
+    return { ok: false, code: 'NOT_AUTHENTICATED', message: 'Sign in to follow suppliers.' };
   }
 
   const { error } = await supabase.from('vendor_follows').upsert(
@@ -55,7 +55,7 @@ export async function unfollowVendor(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { ok: false, code: 'NOT_AUTHENTICATED', message: 'Sign in to unfollow vendors.' };
+    return { ok: false, code: 'NOT_AUTHENTICATED', message: 'Sign in to unfollow suppliers.' };
   }
 
   const { error } = await supabase

@@ -23,13 +23,24 @@ export function DraftButton({
   label,
   icon,
   primary = false,
+  wordFrom,
+  phone,
   disabled,
   disabledReason,
   onClick,
 }: {
+  /**
+   * 📱 The Maker's one-row phone bar (owner 2026-10-02): this button's phone
+   * width (`MAKER_BAR_PHONE`, lib/maker-phone-room.ts). On a phone a worded
+   * button drops its icon and keeps its word; the "why it is off" ⓘ steps
+   * aside (the button's own label and title still say it) — no third control.
+   */
+  phone?: { width: string; word?: boolean };
   label: string;
   icon: ReactNode;
   primary?: boolean;
+  /** 📱 Show the word only from this width (the Maker's phone bar draws Undo as its icon). */
+  wordFrom?: 'md';
   disabled: boolean;
   disabledReason: string;
   onClick: () => void;
@@ -41,20 +52,23 @@ export function DraftButton({
         disabled={disabled}
         onClick={onClick}
         aria-label={label}
-        title={label}
-        className={
+        title={disabled ? `${label} — ${disabledReason}` : label}
+        data-bar-item={phone ? label : undefined}
+        className={`${
           primary
             ? 'button-primary sn-press inline-flex h-10 min-h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px]'
             : 'sn-press inline-flex h-10 min-h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:text-ink/35 disabled:hover:bg-transparent'
-        }
+        } ${phone ? `${phone.width} max-md:justify-center ${phone.word ? 'max-md:px-3' : 'max-md:px-0'}` : ''}`}
       >
-        {icon}
-        <span>{label}</span>
+        {phone?.word ? <span className="hidden md:inline-flex">{icon}</span> : icon}
+        <span className={wordFrom === 'md' ? 'hidden md:inline' : phone?.word ? 'truncate' : undefined}>{label}</span>
       </button>
       {disabled ? (
-        <InfoTip label="" ariaLabel={`Why ${label} is off`} align="end">
-          {disabledReason}
-        </InfoTip>
+        <span className={phone ? 'hidden md:inline-flex' : 'inline-flex'}>
+          <InfoTip label="" ariaLabel={`Why ${label} is off`} align="end">
+            {disabledReason}
+          </InfoTip>
+        </span>
       ) : null}
     </span>
   );

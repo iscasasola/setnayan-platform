@@ -127,7 +127,7 @@ export function togetherRailItems(
     {
       key: 'together-vendor-chat',
       href: messagesHref,
-      name: 'Vendor chat',
+      name: 'Supplier chat',
       line: 'Talk to your booked suppliers here.',
     },
     {

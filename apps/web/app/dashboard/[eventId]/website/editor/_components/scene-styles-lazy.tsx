@@ -33,6 +33,11 @@ export const SceneStyleCanvasRow = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './scene-style-row').then((m) => m.SceneStyleCanvasRow),
   { loading: SlotRows },
 );
+/* 🎨 Look › Colours › Palette — the Dress code scene's palette look, moved into Look (2026-10-02). */
+export const PaletteLookCanvasRow = dynamic(
+  () => import(/* webpackChunkName: "maker-details" */ './scene-style-row').then((m) => m.PaletteLookCanvasRow),
+  { loading: SlotRows },
+);
 export const FixedSceneStyleRow = dynamic(
   () => import(/* webpackChunkName: "maker-details" */ './fixed-scene-style-row').then((m) => m.FixedSceneStyleRow),
   { loading: SlotRows },

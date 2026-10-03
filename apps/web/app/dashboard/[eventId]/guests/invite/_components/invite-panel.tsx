@@ -353,7 +353,7 @@ export async function InvitePanel({
           />
           <span>
             <span className="font-medium text-ink">Event QR for your crew</span> — pairs
-            your photo &amp; livestream vendors&rsquo; devices to this event. Not for
+            your photo &amp; livestream suppliers&rsquo; devices to this event. Not for
             guest invites.
           </span>
         </span>

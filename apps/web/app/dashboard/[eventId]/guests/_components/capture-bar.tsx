@@ -111,13 +111,27 @@ export function CaptureBar({
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            className="input-field w-full pr-9"
+            className="input-field w-full pr-11"
           />
-          <Plus
-            aria-hidden
-            className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/35"
-            strokeWidth={2}
-          />
+          {/* ⚖ THE + ADDS (owner, live iPhone test 2026-10-02: *"tapping +
+              did nothing; only pressing Enter added the guest"*). It used to be
+              a picture of a button (`pointer-events-none`) — on a phone, whose
+              keyboard may say "return" or "go" and whose host never guesses
+              that Enter is the way, the one visible control did nothing. It is
+              now the SAME submit Enter runs, so the two can never differ.
+              `onMouseDown` keeps the keyboard up so the host can add the next. */}
+          <button
+            type="button"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={submitAdd}
+            disabled={pending || !value.trim()}
+            aria-label="Add this guest"
+            title="Add this guest"
+            data-capture-add=""
+            className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-ink/55 hover:text-ink disabled:text-ink/30"
+          >
+            <Plus aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
         </div>
 
         {/* Hint / shimmer */}
@@ -168,8 +182,9 @@ export function CaptureBar({
 }
 
 /**
- * The four ways in beside the name box — People · Full form · Import · Quick
- * add list. ONE list, drawn twice: as icons beside the box (a computer) and as
+ * The four ways in beside the name box, in plain words (first-timer fix 21,
+ * 2026-10-02): From your people · Add with details · Import a file · Paste many
+ * names. ONE list, drawn twice: as icons beside the box (a computer) and as
  * labelled rows in the phone's ⋯ (the approved simple phone app, frame 2 —
  * DECISION_LOG 2026-10-01 "THE SIMPLE PHONE APP — APPROVED": setup lives behind
  * ⋯, the add box becomes the round +). Same openers, same links.
@@ -190,20 +205,20 @@ export function AddDoors({ eventId, rows = false }: { eventId: string; rows?: bo
   return (
     <>
       <OpenAddFromPeopleButton
-        ariaLabel="Add from your people"
-        label={door(<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Add from your people')}
+        ariaLabel="From your people"
+        label={door(<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'From your people')}
         className={cls}
       />
       <OpenQuickAddButton
-        ariaLabel="Full add form"
-        label={door(<ClipboardList className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Full add form')}
+        ariaLabel="Add with details"
+        label={door(<ClipboardList className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Add with details')}
         className={cls}
       />
-      <Link href={`/dashboard/${eventId}/guests/import`} aria-label="Import CSV" title="Import CSV" className={cls}>
-        {door(<Upload className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Import guests from a file')}
+      <Link href={`/dashboard/${eventId}/guests/import`} aria-label="Import a file" title="Import a file" className={cls}>
+        {door(<Upload className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Import a file')}
       </Link>
-      <Link href={`/dashboard/${eventId}/guests/quick`} aria-label="Quick add list" title="Quick add list" className={cls}>
-        {door(<ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Quick add list')}
+      <Link href={`/dashboard/${eventId}/guests/quick`} aria-label="Paste many names" title="Paste many names" className={cls}>
+        {door(<ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden />, 'Paste many names')}
       </Link>
     </>
   );

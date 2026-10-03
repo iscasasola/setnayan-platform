@@ -12,6 +12,8 @@ import { resolveFaceMode } from '@/lib/papic-face-mode';
 import { dayOfFaceCatchShows } from '@/lib/face-tagging-wish';
 import { isDataPrivacyControlActive } from '@/lib/data-privacy-controls';
 import { PapicGuestCapture } from './_components/papic-guest-capture';
+import { getGuestOwnShots } from '@/lib/guest-live-gallery';
+import { cameraBackTab } from '@/app/[slug]/_lib/hub-tabs';
 import { PapicGuestBuyPanel } from '@/app/papic/_components/papic-guest-buy-panel';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
@@ -42,7 +44,7 @@ export const dynamic = 'force-dynamic';
 export default async function PapicGuestPage({
   searchParams,
 }: {
-  searchParams?: Promise<{ papic_buy_error?: string; papic_release?: string; from?: string }>;
+  searchParams?: Promise<{ papic_buy_error?: string; papic_release?: string; from?: string; back?: string }>;
 }) {
   const sp = await searchParams;
   const buyError = sp?.papic_buy_error ?? null;
@@ -60,6 +62,9 @@ export default async function PapicGuestPage({
    */
   const backSlug =
     typeof sp?.from === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test(sp.from) ? sp.from : null;
+  /** 📸 The Event Hub tab the camera was opened from — its × returns there
+   *  (Live when it was opened directly). Re-checked against the tab keys. */
+  const backTab = backSlug ? cameraBackTab(sp?.back) : null;
   const session = await readGuestSession();
 
   if (!session) {
@@ -292,7 +297,13 @@ export default async function PapicGuestPage({
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
   // "Reuse the face on my account for this event" (owner 2026-09-30) → no
   // selfie to ask for. Flag OFF → false with no read (lib/account-face-profile.ts).
-  const reusesAccountFace = await guestReusesAccountFace(admin, session.event_id, session.guest_id);
+  const [reusesAccountFace, ownShots] = await Promise.all([
+    guestReusesAccountFace(admin, session.event_id, session.guest_id),
+    // 📸 The thumbnail beside the shutter is the guest's OWN latest shot (owner
+    // 2026-10-01: "the photos one the left will show all their shots") — only
+    // when there is an Event Hub to open them in.
+    backSlug ? getGuestOwnShots(session.event_id, session.guest_id, 1) : Promise.resolve(null),
+  ]);
   // The guest's own "Want to be tagged in the photos?" answer — null when never
   // answered. A FAILED read turns the catch off (below) rather than reading as
   // "never answered": a guest who said "No thanks" must not be asked again
@@ -373,6 +384,8 @@ export default async function PapicGuestPage({
       eventStyle={eventStyle}
       faceMode={faceMode}
       storyToken={((g as { qr_token?: string | null } | null)?.qr_token as string | null) ?? null}
+      exitTo={backSlug ? { slug: backSlug, tab: backTab } : null}
+      lastShotUrl={ownShots?.shots[0]?.url ?? null}
     />
     {/* First visit only — the shipped tour registry (owner 2026-09-25: every
         feature gets a first-visit tour). A guest here has no account, so the

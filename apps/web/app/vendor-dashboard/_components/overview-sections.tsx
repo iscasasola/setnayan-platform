@@ -286,7 +286,7 @@ export function WhatsNewFeed({
       />
       {incomplete ? (
         <p role="status" className="sn-tile mb-3 p-4 text-sm text-ink/80">
-          Some booking asks and deposits couldn&rsquo;t load, so this list may be
+          Some booking asks and payments couldn&rsquo;t load, so this list may be
           missing some. Refresh the page to try again.
         </p>
       ) : null}
@@ -754,7 +754,7 @@ function DateChangeBody({
         </form>
       </div>
       <p className="mt-2 max-w-prose text-xs text-ink/60">
-        Unlocking releases this booking. Any deposit is settled by the cancellation terms on the booking — Setnayan
+        Unlocking releases this booking. Any payment is settled by the cancellation terms on the booking — Setnayan
         never decides a refund.
       </p>
     </>
@@ -883,7 +883,7 @@ function LockBody({
   rejectLock: (formData: FormData) => void | Promise<void>;
 }) {
   const detail = metaLine([
-    'They say they have paid your downpayment',
+    'They say they have made your first payment',
     card.eventDate ? monthDay(card.eventDate) : null,
   ]);
   // A local binding, not `card.proofUrl` inline: narrowing a nullable PROPERTY
@@ -1397,7 +1397,7 @@ export function OngoingTasks({ tasks }: { tasks: OngoingTask[] }) {
         }
       />
       {tasks.length === 0 ? (
-        <EmptyCard text="No open tasks right now. Contracts to send, deposits to confirm, and unanswered inquiries will show up here." />
+        <EmptyCard text="No open tasks right now. Contracts to send, payments to confirm, and unanswered inquiries will show up here." />
       ) : (
         <div className="sn-tile p-2 sm:p-2.5">
           <ul className="space-y-1">

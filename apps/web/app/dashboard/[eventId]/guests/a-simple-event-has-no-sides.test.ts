@@ -75,5 +75,5 @@ test('the mind map has no sides either', () => {
 test('the empty Guest list speaks to any event, not only to a couple', () => {
   const page = src('page.tsx');
   assert.doesNotMatch(page, /the couple[’']s first invite/, 'a birthday is told to add "the couple\'s first invite" again');
-  assert.match(page, /No guests yet\. Start by adding your first guest\./);
+  assert.match(page, /'No guests yet\.'/);
 });

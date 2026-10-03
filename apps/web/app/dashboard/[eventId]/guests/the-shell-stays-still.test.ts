@@ -48,8 +48,11 @@ test('the add icon sits INSIDE its box, at the end', () => {
   // and same to the add text box. insert the + inside."
   // ⤷ 2026-10-01: the search box left the page for the top bar (owner
   // 2026-09-30), so only the add half of this correction still lives here.
+  // ⤷ 2026-10-02: the + is a real BUTTON now (owner, live iPhone test: "tapping
+  // + did nothing") — still inside the box at its end, 44 px wide, so the text
+  // stops 44 px short of the edge.
   const src = read('capture-bar.tsx');
-  assert.notEqual(src.search(/<Plus\s[^>]*absolute right-3/), -1, 'capture-bar.tsx: the + is not inside the box at its end');
+  assert.notEqual(src.search(/data-capture-add=""\s+className="absolute right-0 /), -1, 'capture-bar.tsx: the + is not inside the box at its end');
   // …and the text stops before it rather than running under it.
-  assert.match(src, /input-field w-full pr-9/, 'the add text can run under its icon');
+  assert.match(src, /input-field w-full pr-11/, 'the add text can run under its button');
 });

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check, MoreVertical, RotateCcw, Undo2 } from 'lucide-react';
+import { Check, Undo2, X } from 'lucide-react';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
@@ -15,7 +15,7 @@ import { ApplyProSheet } from './apply-pro-sheet';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 import {
   HUB_RESET_NEVER_TOUCHES,
-  hubDraftPanelStaysOpen,
+  hubDraftOutcome,
   type HubDraftActionResult,
   type HubDraftBarLive,
   type HubDraftRefusal,
@@ -26,6 +26,8 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { makerSaveStatusText, onMakerSave, type MakerSaveStatus } from '@/lib/maker-save-status';
 import { formatCount } from '@/lib/format-number';
+import { placePanelAt, type PanelPlace } from '@/lib/maker-panel-place';
+import { MAKER_BAR_PHONE } from '@/lib/maker-phone-room';
 
 /**
  * THE DRAFT CONTROLS — Restore · Undo · Apply, ALWAYS VISIBLE at the upper
@@ -52,6 +54,12 @@ import { formatCount } from '@/lib/format-number';
  * Reset (a confirm flow, never a single tap) and the outcome of the last
  * action stay behind ONE ⋯ — both are read AFTER pressing something, never
  * before, so hiding them costs nothing the owner asked to see.
+ *
+ * ✂ THE MAKER IN 4 (2026-10-02, approved design
+ * `maker_in_four_2026-09-30_fable.html`, "⋯ › Restore"): Undo and Apply stay
+ * in the bar, never hidden, exactly as above; Restore became a row of the
+ * Maker toolbar's one ⋯ (registered from here, still switched off with its
+ * reason), and this bar's own ⋯ button went — the toolbar has ONE ⋯.
  *
  * 🔑 `DraftButton` LIVES IN ITS OWN MODULE (`hub-draft-button.tsx`), same
  * reason `HubDraftField` does (below): this file also imports `hubDraftAction`,
@@ -156,7 +164,7 @@ function ResultLine({ result }: { result: HubDraftActionResult | null }) {
 const RESET_LABEL: Record<HubResetScope, string> = {
   save_the_date: 'Save the Date',
   rsvp: 'Invitation',
-  event: 'On the Day',
+  event: 'The Day',
   editorial: 'Post Event',
   all: 'the whole Event Hub',
 };
@@ -165,13 +173,22 @@ const quietButton =
   'inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5';
 
 /**
- * THE MAKER TOOLBAR'S DRAFT CONTROLS — Restore · Undo · Apply always sit in
- * the bar, in that order, Apply filled. Reset and the outcome of the last
- * action open from one ⋯ beside them. Reset uses the stage the couple is
- * looking at (`useMaker().stage`; Invitation outside the Maker).
+ * THE MAKER TOOLBAR'S DRAFT CONTROLS — Undo · Apply always sit in the bar,
+ * Apply filled and wearing the count of changes waiting, with the shell's
+ * Phone button between them (`useMaker().viewToggle` — the Maker in 4,
+ * 2026-10-02: Exit · Page ▾ · Look · Details · Undo · Phone · Apply · ⋯).
+ * Restore moved to the toolbar's ⋯ (design: "⋯ › Restore"): this bar
+ * registers it there (`MakerState.draft`), so ⋯ runs THIS act.
  *
- * The ⋯ panel opens by itself when an action reports something to read, so an
- * Apply that held keys back is never a silent one — and closes on a clean one.
+ * The draft panel — Reset's confirm, and the outcome of the last action — has
+ * no button of its own any more: ⋯ › "Reset this stage…" opens it, and it
+ * opens by itself when an action reports something to read, so an Apply that
+ * held keys back is never a silent one — and closes on a clean one. Reset uses
+ * the stage the couple is looking at (`useMaker().stage`).
+ *
+ * 📱 Its root is `display: contents`: each control is an item of the Maker's
+ * toolbar row, and takes its line on a phone by `order` (Undo on the top
+ * line, Phone · Apply on the second — `maker-shell.tsx`).
  */
 export function HubDraftToolbar({
   eventId,
@@ -214,6 +231,7 @@ export function HubDraftToolbar({
   const stage: HubResetScope = maker?.stage ?? 'rsvp';
   const { pending, result, run } = useDraftIntent(eventId);
   const [open, setOpen] = useState(false);
+  const [at, setAt] = useState<PanelPlace | null>(null);
   const [asking, setAsking] = useState(false);
   /* A page that autosaves into the draft (the Logo page) reports here, beside
      Apply — `lib/maker-save-status.ts`. An error stays until a save succeeds. */
@@ -228,9 +246,13 @@ export function HubDraftToolbar({
     window.addEventListener(MAKER_REFRESH_EVENT, refresh);
     return () => window.removeEventListener(MAKER_REFRESH_EVENT, refresh);
   }, [router]);
-  /* More ▾ → "Reset this stage…" in the Maker toolbar opens THIS confirm. */
+  /* More ▾ → "Reset this stage…" in the Maker toolbar opens THIS confirm —
+     the ONLY way the panel opens (owner 2026-10-02: it opened by itself after
+     Apply and would not close). Placed against the SCREEN at open, never off
+     its left edge on a phone (`at`). */
   useEffect(() => {
     const open = () => {
+      setAt(placePanel(panelRef.current));
       setOpen(true);
       setAsking(true);
     };
@@ -241,6 +263,48 @@ export function HubDraftToolbar({
     run(fields);
     setAsking(false);
   };
+  /* ↺ RESTORE IS ⋯'S ROW NOW (the Maker in 4) — registered with the shell so
+     the toolbar's ⋯ › Restore runs this bar's own act, switched off on the
+     same field the button was (nothing to restore once the draft matches live). */
+  const actRef = useRef(act);
+  actRef.current = act;
+  const setDraftDoor = maker?.setDraft;
+  const canRestore = !pending && summary.hasChanges;
+  /* ✓ …and what Apply says, for the phone's bottom bar (frame G: "Page ▾ · Look ·
+     Details · Apply (3)"); its press is this bar's own (`pressMakerApply`). */
+  const applyWord = pending ? 'Applying…' : summary.proCount > 0 && summary.proCount !== summary.changeCount ? `Apply ${formatCount(summary.changeCount - summary.proCount)}` : 'Apply';
+  const applyEnabled = !pending && summary.hasChanges;
+  const applyCount = summary.hasChanges ? summary.changeCount : 0;
+  useEffect(() => {
+    if (!setDraftDoor) return;
+    setDraftDoor({
+      canRestore,
+      restore: () => actRef.current({ intent: 'restore' }),
+      apply: { label: applyWord, count: applyCount, enabled: applyEnabled },
+    });
+    return () => setDraftDoor(null);
+  }, [setDraftDoor, canRestore, applyWord, applyCount, applyEnabled]);
+  /* The panel always closes: its × , Cancel, a tap outside it, Esc — and a tap
+     on the canvas, which is a frame of its own (a tap there never reaches this
+     window as a pointerdown; it blurs it). Owner 2026-10-02: "won't close". */
+  const panelRef = useRef<HTMLDivElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const shut = () => setOpen(false);
+    const onDown = (e: PointerEvent) => {
+      if (!boxRef.current?.contains(e.target as Node)) shut();
+    };
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && shut();
+    window.addEventListener('pointerdown', onDown);
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('blur', shut);
+    return () => {
+      window.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('blur', shut);
+    };
+  }, [open]);
   /* The guided flow's Ready screen presses THIS Apply (`maker-press-apply.ts`):
      the same three answers the button gives, and the first of the two mounted
      bars answers — one press is one Apply. */
@@ -280,8 +344,11 @@ export function HubDraftToolbar({
       }
       return;
     }
-    if (j.kind === 'main') maker.select({ kind: 'main' });
-    else if (j.kind === 'row') maker.select({ kind: 'row', key: j.key });
+    if (j.kind === 'look') {
+      /* 🎨 Look — theme, background, font and colours (`lib/maker-look-sections.ts`). */
+      maker.setDetailsItem?.('theme');
+      maker.select({ kind: 'tool', key: 'details' });
+    } else if (j.kind === 'row') maker.select({ kind: 'row', key: j.key });
     else maker.select({ kind: 'tool', key: j.key });
   };
   /* 💎 BACK FROM "UNLOCK PRO AND APPLY" (owner 2026-09-28). The purchase page
@@ -305,67 +372,79 @@ export function HubDraftToolbar({
     // Once, on the render the purchase page lands on.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  /* The ⋯ panel follows the ANSWER, not the press: it opens when there is
-     something to read (an error, a key Apply held back, Reset's note) and
-     closes on a clean Apply · Undo · Restore — owner 2026-09-27, the panel
-     stayed open over the Maker after Apply saying "2 changes are now live". */
+  /* 📣 AN ANSWER NEVER OPENS THE PANEL (owner, live phone test 2026-10-02: it
+     came back by itself after every Apply). What there is to read — an error,
+     a key Apply held back, Reset's note — is SAID beside Apply
+     (`hubDraftOutcome`); a finished action closes the panel. */
   useEffect(() => {
-    if (result) setOpen(hubDraftPanelStaysOpen(result));
+    if (result) setOpen(false);
   }, [result]);
-  const appliedClean = result?.ok === true && result.intent === 'apply' && !hubDraftPanelStaysOpen(result);
+  const outcome = hubDraftOutcome(result);
+  /* Each answer is said afresh (its phone toast fades again). */
+  const [outcomeN, setOutcomeN] = useState(0);
+  useEffect(() => {
+    if (result) setOutcomeN((n) => n + 1);
+  }, [result]);
   /* The newest word wins: a status this page announced, else a form save that
      came back refused (`saveError`). An error is never truncated away. */
   const status: MakerSaveStatus | null = saveStatus ?? (saveError ? { state: 'error', text: saveError } : null);
 
-  const onlyPro = summary.proCount > 0 && summary.proCount === summary.changeCount;
-  const freeCount = summary.changeCount - summary.proCount;
-  const applyLabel = pending ? 'Applying…' : summary.proCount > 0 && !onlyPro ? `Apply ${formatCount(freeCount)}` : 'Apply';
+  const applyLabel = applyWord; // the one word, shared with the phone's bottom bar
 
   return (
-    <div className="flex items-center gap-1" data-maker-draft-actions="">
+    <div className="contents" data-maker-draft-actions="">
       {status ? (
         <span
+          key={`s:${makerSaveStatusText(status)}`}
           role={status.state === 'error' ? 'alert' : 'status'}
           data-maker-save-status={status.state}
-          className={`max-w-[9rem] text-[11px] font-semibold ${
-            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/60'
+          className={`max-w-[9rem] text-[11px] font-semibold ${PHONE_TOAST} ${
+            status.state === 'error' ? 'line-clamp-3 leading-tight text-terracotta-700' : 'truncate text-ink/60 max-md:sn-toast-fades'
           }`}
           title={makerSaveStatusText(status)}
         >
           {makerSaveStatusText(status)}
         </span>
-      ) : appliedClean ? (
-        <span role="status" data-maker-save-status="applied" className="text-[11px] font-semibold text-ink/60">
-          Live now
-        </span>
+      ) : outcome ? (
+        <OutcomeLine key={outcomeN} outcome={outcome} />
       ) : null}
       {readError ? (
-        <span role="alert" className="text-[11px] font-semibold text-terracotta-700">
+        <span role="alert" className={`text-[11px] font-semibold text-terracotta-700 ${PHONE_TOAST}`}>
           Draft could not load
         </span>
       ) : null}
       <DraftButton
-        label="Restore"
-        icon={<RotateCcw aria-hidden className="h-4 w-4" strokeWidth={2} />}
-        disabled={pending || !summary.hasChanges}
-        disabledReason="Guests already see this"
-        onClick={() => act({ intent: 'restore' })}
-      />
-      <DraftButton
         label="Undo"
         icon={<Undo2 aria-hidden className="h-4 w-4" strokeWidth={2} />}
+        wordFrom="md"
+        phone={{ width: MAKER_BAR_PHONE.undoTop }}
         disabled={pending || !summary.canUndo}
         disabledReason="Nothing to undo yet"
         onClick={() => act({ intent: 'undo' })}
       />
-      <DraftButton
-        label={applyLabel}
-        icon={<Check aria-hidden className="h-4 w-4" strokeWidth={2} />}
-        primary
-        disabled={pending || !summary.hasChanges}
-        disabledReason="No changes to apply"
-        onClick={() => (asksForPro ? setSheetOpen(true) : act({ intent: 'apply' }))}
-      />
+      {/* 📱 The shell's Phone button, between Undo and Apply (the Maker in 4). */}
+      {maker?.viewToggle ?? null}
+      <span className="relative inline-flex" data-maker-apply="">
+        <DraftButton
+          label={applyLabel}
+          icon={<Check aria-hidden className="h-4 w-4" strokeWidth={2} />}
+          primary
+          phone={{ width: MAKER_BAR_PHONE.applyTop, word: true }}
+          disabled={pending || !summary.hasChanges}
+          disabledReason="No changes to apply"
+          onClick={() => (asksForPro ? setSheetOpen(true) : act({ intent: 'apply' }))}
+        />
+        {/* Apply (N) — the changes guests do not see yet (design: "Apply 3"). */}
+        {summary.hasChanges ? (
+          <span
+            aria-label={`${formatCount(summary.changeCount)} ${summary.changeCount === 1 ? 'change' : 'changes'} waiting`}
+            data-maker-apply-count=""
+            className="pointer-events-none absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-700 px-1 text-[10px] font-bold leading-none text-cream"
+          >
+            {formatCount(summary.changeCount)}
+          </span>
+        ) : null}
+      </span>
       {/* Portalled to <body>: the toolbar sits in a glass bar, and a `backdrop-filter`
           ancestor would make `position: fixed` hug the bar instead of the screen. */}
       {sheetOpen && proHref ? createPortal(
@@ -385,23 +464,28 @@ export function HubDraftToolbar({
         />,
         document.body,
       ) : null}
-      <details className="relative" open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
-        <summary
-          aria-label="Draft details and Reset"
-          title="Draft details and Reset"
-          className="sn-press relative inline-flex h-10 w-10 min-h-10 cursor-pointer items-center justify-center rounded-full text-ink/60 hover:bg-ink/5 hover:text-ink [&::-webkit-details-marker]:hidden"
+      <div ref={panelRef} className="relative" data-maker-draft-panel="">
+        {/* Portalled and FIXED to the screen (like the Apply sheet): inside the
+            glass bar an absolute box hung off its anchor's right edge and, on a
+            phone's second row, ran off the screen's left (owner 2026-10-02). */}
+        {open && typeof document !== 'undefined' ? createPortal(
+        <div
+          ref={boxRef}
+          role="dialog"
+          aria-label="Your draft"
+          data-maker-draft-box=""
+          style={at ? { position: 'fixed', top: at.top, left: at.left, width: at.width } : { position: 'fixed', top: 64, left: 8, right: 8 }}
+          className="z-[90] flex flex-col gap-2 rounded-xl bg-cream p-3 pr-11 shadow-lg"
         >
-          <MoreVertical aria-hidden className="h-4 w-4" strokeWidth={2} />
-          {summary.hasChanges ? (
-            <span
-              aria-hidden
-              className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta-700 px-1 text-[10px] font-bold leading-none text-cream"
-            >
-              {formatCount(summary.changeCount)}
-            </span>
-          ) : null}
-        </summary>
-        <div className="absolute right-0 top-full z-40 mt-2 flex w-80 flex-col gap-2 rounded-xl bg-cream p-3 shadow-lg">
+          <button
+            type="button"
+            aria-label="Close"
+            data-maker-draft-close=""
+            onClick={() => setOpen(false)}
+            className="sn-press absolute right-1.5 top-1.5 inline-flex h-10 w-10 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+          >
+            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
           {summary.hasChanges ? (
             <p className="text-sm text-ink/80">
               {formatCount(summary.changeCount)} {summary.changeCount === 1 ? 'change' : 'changes'} guests do not see yet.
@@ -470,8 +554,40 @@ export function HubDraftToolbar({
             </p>
           ) : null}
           <ResultLine result={result} />
-        </div>
-      </details>
+        </div>,
+        document.body,
+        ) : null}
+      </div>
     </div>
+  );
+}
+
+function placePanel(anchor: HTMLElement | null): PanelPlace | null {
+  const r = anchor?.getBoundingClientRect();
+  return r ? placePanelAt(r, window.innerWidth) : null;
+}
+
+/**
+ * 📱 ON A PHONE A STATUS IS SAID OVER THE CANVAS, just under the bar — never as a
+ * third toolbar row (owner 2026-10-02: *"the screen is too clumped"*; the bar is
+ * two rows, `MAKER_PHONE_BAR_PX`). A quiet one ("Live now") fades after a few
+ * seconds; an error stays until the next action.
+ */
+const PHONE_TOAST =
+  'max-md:pointer-events-none max-md:absolute max-md:left-2 max-md:right-2 max-md:top-full max-md:z-30 max-md:mt-1 max-md:max-w-none max-md:rounded-full max-md:bg-cream/95 max-md:px-3 max-md:py-1 max-md:shadow-sm';
+
+/** 📣 The outcome, said beside Apply (`hubDraftOutcome`) — never a box that opens. */
+function OutcomeLine({ outcome }: { outcome: NonNullable<ReturnType<typeof hubDraftOutcome>> }) {
+  const quiet = `max-w-[9rem] truncate text-[11px] font-semibold text-ink/60 ${PHONE_TOAST} max-md:sn-toast-fades`;
+  const loud = `max-w-[11rem] line-clamp-3 text-[11px] font-semibold leading-tight text-terracotta-700 ${PHONE_TOAST}`;
+  if (outcome.kind === 'live') return <span role="status" data-maker-save-status="applied" className={quiet}>Live now</span>;
+  if (outcome.kind === 'reset') return <span role="status" data-maker-save-status="reset" className={quiet}>Reset in your draft</span>;
+  if (outcome.kind === 'error') return <span role="alert" data-maker-save-status="error" className={loud}>{outcome.text}</span>;
+  const all = outcome.held.map((h) => `${h.label} ${HELD_REASON[h.reason]}.`).join(' ');
+  const one = outcome.held.length === 1 ? outcome.held[0]! : null;
+  return (
+    <span role="alert" data-maker-save-status="held" title={all} className={loud}>
+      {one ? `${one.label} ${HELD_REASON[one.reason]}.` : `${formatCount(outcome.held.length)} changes stay in your draft — ${HELD_REASON[outcome.held[0]!.reason].split(' — ')[0]}.`}
+    </span>
   );
 }

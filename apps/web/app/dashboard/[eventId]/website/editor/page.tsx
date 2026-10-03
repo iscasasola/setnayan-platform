@@ -27,7 +27,7 @@ import {
   type RailGroup,
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { HUB_THEMES, INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
 import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { resolveHero } from '@/lib/event-hero';
@@ -489,6 +489,9 @@ export default async function WebsiteEditorPage({
   const mainLive = hubMainGround(liveWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const mainNow = hubMainGround(allWidgets.find((r) => r.widget_type === 'hero')?.config_json);
   const draftedHero = resolveHero(overlayHubDraftEvent(event as Record<string, unknown>, hubDraft));
+  /* What guests see today — a different hero shown is the couple's own edit (`lib/hero-frame-sync.ts`). */
+  const liveHeroRef = resolveHero(event as Record<string, unknown>).photoRef;
+  const mainDrafted = JSON.stringify(mainNow) !== JSON.stringify(mainLive);
   const signOrNull = async (ref: string | null) =>
     ref ? await displayUrlForStoredAsset(siteMediaServeRef(ref)).catch(() => null) : null;
   const [heroPhotoUrl, mainOverrideStillUrl] = await Promise.all([
@@ -784,9 +787,10 @@ export default async function WebsiteEditorPage({
                         photoRef: draftedHero.photoRef,
                         photoUrl: heroPhotoUrl,
                         hasClip: Boolean(draftedHero.videoRef),
+                        liveRef: liveHeroRef,
                       }}
                       overrideStillUrl={mainOverrideStillUrl}
-                      drafted={JSON.stringify(mainNow) !== JSON.stringify(mainLive)}
+                      drafted={mainDrafted}
                       ownsPro={ownsPro}
                       /* 🖼 The four choices (owner 2026-09-29): the theme's own
                          (its public still), the hero, the SAME pictures a
@@ -801,10 +805,38 @@ export default async function WebsiteEditorPage({
                 ),
               },
             ]),
+        /* 🔤 FONT · 🎨 COLOURS — two sections of the one Look panel
+           (`lib/maker-look-sections.ts`, owner 2026-10-02): the SAME
+           `ColorsPanel` and the same `updateSiteColors` door, drawn as two
+           parts so Look reads Theme · Background · Font · Colours. */
+        {
+          key: 'font',
+          label: 'Font',
+          blurb: 'One typeface for your whole Event Hub.',
+          href: `${w}/colors`,
+          pro: true,
+          locked: false,
+          panel: (
+            <ColorsPanel
+              action={updateSiteColors.bind(null, eventId)}
+              eventId={eventId}
+              rowKey="font"
+              part="font"
+              proLocked={colorsProLocked}
+              proLock={lockPanel('Typeface')}
+              proMark={proMark}
+              themeId={currentThemeId}
+              bgColor={(drafted.site_bg_color as string | null) ?? null}
+              buttonColor={(drafted.site_button_color as string | null) ?? null}
+              artDirection={(drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null}
+              fontKey={(drafted as { site_font_key?: string | null }).site_font_key ?? null}
+            />
+          ),
+        },
         {
           key: 'colors',
-          label: 'Colors',
-          blurb: 'Background and button colors.',
+          label: 'Colours',
+          blurb: 'Your page and button colours.',
           href: `${w}/colors`,
           pro: true,
           locked: false,
@@ -818,8 +850,9 @@ export default async function WebsiteEditorPage({
               action={updateSiteColors.bind(null, eventId)}
               eventId={eventId}
               rowKey="colors"
+              part="colours"
               proLocked={colorsProLocked}
-              proLock={lockPanel('Typeface and motion')}
+              proLock={lockPanel('Candlelight and motion')}
               proMark={proMark}
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours
@@ -936,7 +969,7 @@ export default async function WebsiteEditorPage({
             ? undefined
             : panelGalleryRefs.length > 0
               ? done(`${panelGalleryRefs.length} photo${panelGalleryRefs.length === 1 ? '' : 's'}`)
-              : todo('0 photos'),
+              : todo('No photos yet'),
           panel: galleryLocked ? (
             lockPanel('Photos you add')
           ) : (
@@ -1310,18 +1343,6 @@ export default async function WebsiteEditorPage({
     sectionRows.filter((row) => isCustomSectionType(row.widget_type)).map((row) => [row.widget_id, makerSectionPanel(row, 'remove')]),
   );
 
-  /* The theme panel reads the registry as it stands at merge time (Phase 3
-     owns it). Only id · name · ready cross — plain strings. */
-  const currentTheme = currentThemeId;
-  // 🔢 The one theme order (owner 2026-09-29: free three first, then Pro by
-  // loop size) — `HUB_THEMES`, never the object's key order.
-  const themes = HUB_THEMES.map((t) => ({
-    id: t.id,
-    name: t.name,
-    ready: t.ready,
-    current: t.id === currentTheme,
-  }));
-
   /* ✍ Each scene of their own's heading and words, drafted over live — what a
      typed heading or body carries along (the draft replaces `custom` whole). */
   const sceneOwnWords = Object.fromEntries(
@@ -1373,6 +1394,8 @@ export default async function WebsiteEditorPage({
                 heroRef={draftedHero.photoRef}
                 heroUrl={heroPhotoUrl}
                 current={mainNow}
+                liveHeroRef={liveHeroRef}
+                mainDrafted={mainDrafted}
                 quiet
               />
             ) : null}
@@ -1467,7 +1490,6 @@ export default async function WebsiteEditorPage({
         names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },
       }}
       rows={rows}
-      themes={themes}
       ownsPro={ownsPro}
       initialScene={typeof sceneParam === 'string' ? sceneParam : null}
       initialOpenRow={typeof openRow === 'string' ? openRow : null}

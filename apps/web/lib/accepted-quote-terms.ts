@@ -128,7 +128,7 @@ export function installmentDueText(
     return `${words} (${shortDate(when)})`;
   }
   if (due === 'on_event') return valid ? `on the event day (${shortDate(valid)})` : 'on the event day';
-  return 'on lock';
+  return 'on booking';
 }
 
 /**
@@ -229,7 +229,7 @@ export function acceptedQuoteTerms(
 export function firstPaymentSentence(terms: AcceptedQuoteTerms | null): string | null {
   if (!terms || terms.firstPaymentCentavos === null) return null;
   const row = terms.schedule.find((s) => s.isFirstPayment);
-  return `First payment requested: ${pesoFromCentavos(terms.firstPaymentCentavos)} — due ${row?.dueText ?? 'on lock'}`;
+  return `First payment requested: ${pesoFromCentavos(terms.firstPaymentCentavos)} — due ${row?.dueText ?? 'on booking'}`;
 }
 
 export type DepositAmountDecision =
@@ -248,7 +248,7 @@ export function decideDepositAmount(args: {
 }): DepositAmountDecision {
   const { amountPhp, minimumCentavos } = args;
   if (amountPhp === null || !Number.isFinite(amountPhp) || amountPhp <= 0) {
-    return { ok: false, message: 'Enter the deposit amount you paid.' };
+    return { ok: false, message: 'Enter the payment amount you paid.' };
   }
   const amountCentavos = Math.round(amountPhp * 100);
   if (minimumCentavos !== null && minimumCentavos > 0 && amountCentavos < minimumCentavos) {
@@ -471,7 +471,7 @@ export function decideDepositRecord(args: {
         : '';
     return {
       ok: false,
-      message: `You've already logged a payment to ${who}${amount}, so recording a deposit now would count that money twice. If that payment was your deposit, delete it from your payments list, then record it here.`,
+      message: `You've already logged a payment to ${who}${amount}, so recording a payment now would count that money twice. If that payment was your first payment, delete it from your payments list, then record it here.`,
     };
   }
   return { ok: true, insertLedgerRow: true };
@@ -632,7 +632,7 @@ export type MoneyStep =
 
 function firstPaymentLabel(terms: AcceptedQuoteTerms | null): string {
   const row = terms?.schedule.find((r) => r.isFirstPayment);
-  return `${row?.label || 'First payment'} · locks the date`;
+  return `${row?.label || 'First payment'} · books the date`;
 }
 
 function laterStep(
@@ -788,7 +788,7 @@ export function moneyStepLine(
  * still said "nothing is booked or paid until you Lock").
  */
 export const DEFAULT_QUOTE_NOTE_TAIL =
-  'Accepting shortlists them at this price so you can compare — nothing is booked or paid until you Lock.';
+  'Accepting shortlists them at this price so you can compare — nothing is booked or paid until you Book.';
 
 /**
  * The quote's note as the page should show it. A supplier's own words are

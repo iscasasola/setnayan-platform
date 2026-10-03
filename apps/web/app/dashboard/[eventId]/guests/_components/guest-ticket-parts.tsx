@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal, X } from 'lucide-react';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
@@ -10,6 +10,9 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { releaseGuestClaim } from '../[guestId]/actions';
 import { ticketFileName, ticketUrl } from './send-invite';
+import { DeleteGuestFlow } from './guest-delete';
+import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
+import { useRouter } from 'next/navigation';
 
 /**
  * guest-ticket-parts.tsx — the top of the guest card, and the ⋯ every Invite
@@ -72,16 +75,26 @@ export function GuestTicketThumb({
         aria-label={`View ${name}'s ticket`}
         data-guest-ticket-thumb=""
       >
-        {/* eslint-disable-next-line @next/next/no-img-element -- our own gated route; the same PNG Save ticket saves */}
-        <img
-          src={src}
-          alt=""
-          width={92}
-          height={123}
-          loading="lazy"
-          onError={() => setBroken(true)}
-          className="aspect-[3/4] w-full rounded-lg bg-white object-cover shadow-[0_6px_18px_-10px_rgba(30,26,18,.45)] ring-1 ring-ink/10 transition-transform group-hover:-translate-y-0.5"
-        />
+        {/* ⚡ The card never waits for its ticket (owner, live iPhone test
+            2026-10-02). The picture is drawn on demand by the server, so it is
+            asked for only once the card is on screen, at low priority — the
+            card's own fields arrive first; the ticket fills its box after. */}
+        {mounted ? (
+          // eslint-disable-next-line @next/next/no-img-element -- our own gated route; the same PNG Save ticket saves
+          <img
+            src={src}
+            alt=""
+            width={92}
+            height={123}
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+            onError={() => setBroken(true)}
+            className="aspect-[3/4] w-full rounded-lg bg-white object-cover shadow-[0_6px_18px_-10px_rgba(30,26,18,.45)] ring-1 ring-ink/10 transition-transform group-hover:-translate-y-0.5"
+          />
+        ) : (
+          <span aria-hidden className="aspect-[3/4] w-full rounded-lg bg-ink/[0.04]" data-guest-ticket-waiting="" />
+        )}
         <span className="text-[11px] italic text-ink/55">
           <span className="lg:hidden">Tap to view</span>
           <span className="hidden lg:inline">Click to view</span>
@@ -140,7 +153,7 @@ export function GuestTicketThumb({
   );
 }
 
-/** ⋯ — Write to NFC · New QR · Unlink account, one list. */
+/** ⋯ — Write to NFC · New QR · Unlink account · Delete guest, one list. */
 export function GuestMoreMenu({
   eventId,
   guestId,
@@ -148,6 +161,7 @@ export function GuestMoreMenu({
   nfcUrl,
   linked,
   returnTo,
+  deletable = false,
 }: {
   eventId: string;
   guestId: string;
@@ -158,22 +172,56 @@ export function GuestMoreMenu({
   linked: boolean;
   /** Where New QR lands — the surface the ⋯ was opened on. */
   returnTo: string;
+  /**
+   * ⚖ Delete guest, on the CARD's ⋯ (owner 2026-10-03, DECISION_LOG "A HOST CAN
+   * DELETE A GUEST WHO ALREADY ACCEPTED"). Any reply state; never the couple.
+   * The same warning and the same delete as the swipe and the selection bar
+   * (`guest-delete.tsx`), and the card closes itself once it is done.
+   */
+  deletable?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState<'new_qr' | 'unlink' | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const inspector = useInspectorContext();
+  const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [portal, setPortal] = useState<HTMLElement | null>(null);
+  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
   const confirmId = useId();
   const menuId = useId();
   const release = releaseGuestClaim.bind(null, eventId, guestId);
+  useEffect(() => setPortal(document.body), []);
+  const portalled = (node: ReactNode) => (portal ? createPortal(node, portal) : node);
+
+  /*
+    ⚖ THE LIST DRAWS OUTSIDE THE ROW (Problems log, live iPhone test
+    2026-10-02: RAGE_TAP on "More for …" — tapped again and again). A phone
+    row clips its content (`overflow-hidden`, for the swipe), and this list
+    used to open BELOW the ⋯ inside it — so it opened, invisibly, under the
+    row's edge. It is drawn on the page now, pinned under the ⋯ where it was
+    tapped, and closes if the page scrolls out from under it.
+  */
+  const place = () => {
+    const r = buttonRef.current?.getBoundingClientRect();
+    if (r) setAt({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+  };
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
       const t = e.target as Element | null;
       // The NFC sheet is drawn by the button inside this menu; a tap in it is not "outside".
-      if (wrapRef.current?.contains(t) || t?.closest?.('[data-sheet]')) return;
+      if (wrapRef.current?.contains(t) || menuRef.current?.contains(t) || t?.closest?.('[data-sheet]')) return;
       setOpen(false);
     };
+    const onScroll = (e: Event) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setOpen(false);
+    };
+    window.addEventListener('scroll', onScroll, true);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setOpen(false);
     };
@@ -182,6 +230,7 @@ export function GuestMoreMenu({
     return () => {
       window.removeEventListener('pointerdown', onDown, true);
       window.removeEventListener('keydown', onKey);
+      window.removeEventListener('scroll', onScroll, true);
     };
   }, [open]);
 
@@ -191,8 +240,12 @@ export function GuestMoreMenu({
   return (
     <div ref={wrapRef} className="relative" data-guest-more-menu="">
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          if (!open) place();
+          setOpen((o) => !o);
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
@@ -203,11 +256,17 @@ export function GuestMoreMenu({
       </button>
       {/* Kept mounted while closed (hidden), so the NFC sheet its button opens
           outlives the menu closing behind it. */}
+      {/* Drawn in place until the page has mounted (so the server and the first
+          paint agree), then on the page itself — see `place` above. */}
+      {portalled(
       <div
+        ref={menuRef}
         id={menuId}
         role="menu"
         hidden={!open}
-        className="absolute right-0 top-full z-[60] mt-1.5 w-56 rounded-2xl bg-cream p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/5"
+        style={at ? { top: at.top, right: at.right } : undefined}
+        data-guest-more-list=""
+        className="fixed z-[96] w-56 rounded-2xl bg-cream p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/5"
       >
         {nfcUrl ? (
           <NfcWriteButton url={nfcUrl} className={item} />
@@ -238,7 +297,37 @@ export function GuestMoreMenu({
             Unlink account
           </button>
         ) : null}
-      </div>
+        {deletable ? (
+          <button
+            type="button"
+            role="menuitem"
+            className={`${item} border-t border-ink/[0.06] text-danger-700`}
+            data-guest-delete=""
+            onClick={() => {
+              setOpen(false);
+              setConfirmDelete(true);
+            }}
+          >
+            Delete guest
+          </button>
+        ) : null}
+      </div>,
+      )}
+
+      {confirmDelete ? (
+        <DeleteGuestFlow
+          eventId={eventId}
+          guestId={guestId}
+          guestName={guestName}
+          onClose={() => setConfirmDelete(false)}
+          onDeleted={() => {
+            // The card is of a guest who is gone — close it (the panel over the
+            // list, or the standalone page back to the list).
+            if (inspector) inspector.close();
+            else router.push(`/dashboard/${eventId}/guests`);
+          }}
+        />
+      ) : null}
 
       <Sheet open={confirm !== null} onClose={() => setConfirm(null)} labelledById={confirmId} rise>
         <form action={release} className="space-y-4 p-5" data-guest-confirm={confirm ?? ''}>

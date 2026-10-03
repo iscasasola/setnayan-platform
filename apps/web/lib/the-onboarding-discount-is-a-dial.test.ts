@@ -97,30 +97,39 @@ test('🪤 no stamped copy of the rule survives in the catalog', () => {
   assert.doesNotMatch(clearing, /SETNAYAN_AI/, 'the AI rows must never be cleared');
 });
 
-test('the set-up discount box is RETIRED, and its column is not', () => {
+test('ONE sign-up discount box — the house number is back, the two family boxes are gone', () => {
   /*
-    ⚖ OWNER 2026-08-29: *"this one doesn't exist anymore. onboarding discounts
-    are already placed for setnayan AI and Papic which are the only services we
-    sell on the onboarding."* That REVERSES his 2026-08-28 *"I want to be able to
-    change 10% anytime"*, which is what this test used to pin.
+    ⚖ OWNER 2026-10-02, tracker d18: *"40% off everything bought during
+    sign-up"*, ONE admin-set number — `platform_settings.onboarding_discount_pct`.
+    That REVERSES his 2026-08-29 retirement of this box ("onboarding discounts
+    are already placed for setnayan AI and Papic"), which this test used to pin.
 
-    🔑 THE ASSERTION FLIPS, AND THE REASON IS THE POINT. A test that keeps
-    asserting a superseded ruling is not a guard, it is a fossil that blocks the
-    decision it used to protect.
+    🔑 THE PROPERTY IS "ONE NUMBER": the box is on the Pricing tab and writes
+    `onboarding_discount_pct`; the per-family boxes on the Papic and Setnayan AI
+    tabs are gone, and nothing reads the per-family columns any more.
   */
   const surface = strip(read('app/admin/pricing/_surfaces/pricing-surface.tsx'));
-  const actions = strip(read('app/admin/pricing/actions.ts'));
-
-  assert.doesNotMatch(
-    surface,
-    /<SetupDiscountForm/,
-    'the box is off the screen — the per-family discounts are the mechanism now',
-  );
-  assert.doesNotMatch(
+  const actions = strip(read('app/admin/pricing/price-control-actions.ts'));
+  assert.match(surface, /<SignupDiscountCard/, 'the one box is on the Pricing tab');
+  assert.match(actions, /export async function saveSignupDiscount/, 'and its save exists');
+  assert.match(
     actions,
-    /export async function saveOnboardingDiscount/,
-    'and its save goes with it: an action nothing can reach is the shape this repo keeps paying for',
+    /update\(\{ onboarding_discount_pct: pct/,
+    'the save writes THE number, not a per-family copy',
   );
+  assert.doesNotMatch(actions, /export async function saveFamilyDiscount/, 'the per-family save is gone');
+
+  for (const rel of [
+    'app/admin/pricing/price-control-actions.ts',
+    'app/admin/pricing/_surfaces/papic-ladder-surface.tsx',
+    'app/admin/pricing/_surfaces/ai-prices-surface.tsx',
+    'app/admin/pricing/_components/papic-ladder-editor.tsx',
+    'app/admin/pricing/_components/ai-bands-editor.tsx',
+  ]) {
+    const src = strip(read(rel));
+    assert.doesNotMatch(src, /(papic|ai)_signup_discount_pct/, `${rel} reads a per-family discount — a second number`);
+    assert.doesNotMatch(src, /FamilyDiscountCard|PapicDiscountCard/, `${rel} still draws a per-family box`);
+  }
 });
 
 test('⚠ the column and its READERS survive — do not "tidy up" the fallback', () => {
@@ -162,11 +171,11 @@ test('🪤 A BLANK BOX IS STILL REFUSED — the guard moved with the control', (
   );
 });
 
-test('a family-wide discount edit is audited — it moves every price at once', () => {
+test('the one sign-up discount edit is audited — it moves every price at once', () => {
   const control = strip(read('app/admin/pricing/price-control-actions.ts'));
   assert.match(
     control,
-    /action: 'family_signup_discount_edit'/,
+    /action: 'signup_discount_edit'/,
     'the edit must be recorded — one box moves sixteen prices',
   );
   assert.match(control, /rowsMoved/, 'with how many actually moved');

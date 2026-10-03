@@ -117,7 +117,6 @@ export async function fillAccountNameFromSeat(
   }
 }
 
-
 /** Does this account already hold a `couple` membership on this event? False on any doubt. */
 export async function isCoupleMember(
   admin: ReturnType<typeof createAdminClient>,
@@ -159,10 +158,13 @@ export async function linkGuestSessionToUser(
     // Defense-in-depth: confirm the guest row exists AND its event_id matches
     // the session's event_id (a signed-but-stale cookie pointing at a deleted
     // guest, or a guest moved between events, must not bind). Also read the
-    // canonical role to mirror onto the membership.
+    // canonical role to mirror onto the membership. The guest columns come
+    // from the shared guest read (`ENTOURAGE_COLUMNS`, lib/entourage.ts) plus
+    // the one this check needs — one list of a guest's columns, never a
+    // second hand-typed one that quietly drops the name parts.
     const { data: guest, error: guestError } = await admin
       .from('guests')
-      .select('guest_id, event_id, role, extra_roles')
+      .select(`${ENTOURAGE_COLUMNS}, event_id`)
       .eq('guest_id', guest_id)
       .maybeSingle();
 

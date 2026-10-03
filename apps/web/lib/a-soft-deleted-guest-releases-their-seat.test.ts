@@ -49,7 +49,10 @@ const APP = join(HERE, '..', 'app');
 const SOFT_DELETERS = [
   join(APP, 'dashboard', '[eventId]', 'guests', 'claims', 'actions.ts'),
   join(APP, 'dashboard', '[eventId]', 'guests', 'groups-actions.ts'),
-  join(APP, 'dashboard', '[eventId]', 'guests', '[guestId]', 'actions.ts'),
+  // ⤷ 2026-10-03: `[guestId]/actions.ts › softDeleteGuest` is RETIRED (owner,
+  // DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY ACCEPTED" — one delete
+  // path, with Undo). That file no longer soft-deletes anybody, so it left this
+  // list; the "no OTHER file" test below would catch a delete creeping back.
 ];
 
 /**

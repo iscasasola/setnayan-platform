@@ -61,9 +61,12 @@ test('both guest-page mounts hand the Venue scene its Map pick and the run of sh
     const src = read('app', '[slug]', '_components', f);
     assert.match(
       src,
-      /<VenueWidget event=\{event\} sceneStyle=\{sceneStyle\} map=\{venueMapOfRow\(widget\)\} blocks=\{scheduleBlocks\} \/>/,
+      // `venueEvent` is the row itself, or on the day the row narrowed to ONE
+      // venue (`dayVenuesNow`, owner 2026-10-01) — the Map pick and the times ride either way.
+      /<VenueWidget event=\{venueEvent\} sceneStyle=\{sceneStyle\} map=\{venueMapOfRow\(widget\)\} blocks=\{scheduleBlocks\} \/>/,
       `${f}: the Venue scene is mounted without its Map pick or its times`,
     );
+    assert.match(src, /const venueEvent = isLive\s*\?\s*\{\s*\.\.\.event,\s*venues: dayVenuesNow\(/, `${f}: on the day the Venue scene draws both venues again`);
   }
 });
 

@@ -869,7 +869,7 @@ test('the event rail is the one tree — five rows (Stage D)', () => {
   const rows = groups.flatMap((g) => g.items);
   const personalization = rows.find((i) => i.key === 'personalization');
   assert.equal(personalization?.href, '/dashboard/EVT123/details');
-  assert.equal(personalization?.label, 'Details', 'Personalization → Details (owner 2026-09-24)');
+  assert.equal(personalization?.label, 'Event Details', 'Personalization → Event Details (owner d15, 2026-10-02: "Event Details" everywhere)');
   assert.ok(
     rows.find((i) => i.key === 'guests')?.alsoMatch?.includes('/dashboard/EVT123/hosts'),
     'Hosts has no home on the rail — the Guest list row must claim it',

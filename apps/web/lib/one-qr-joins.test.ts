@@ -111,7 +111,7 @@ test('5 · the Event Hub offers one "Join as a guest" press to a signed-in stran
 
 test('6 · Your info sets it as ONE dropdown; the Guest list only shows it', () => {
   const maker = read('app/dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx');
-  assert.match(maker, /options=\{GUESTS_GET_IN_CHOICES\.map/);
+  assert.match(maker, /options=\{guestsGetInOptions\(\)/);
   assert.equal((maker.match(/<PickMenu\s+label=\{GUESTS_GET_IN_LABEL\}/g) ?? []).length, 1, 'one dropdown, drawn once');
   assert.doesNotMatch(maker, /role="radiogroup"/, 'the setting is a pill row again');
   const invite = read('app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx');

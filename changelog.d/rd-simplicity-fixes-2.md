@@ -1,0 +1,17 @@
+## 2026-10-02 · feat(copy): simplicity fixes 2 — the word choices the owner approved (d19–d25)
+
+Owner, on the tracker's "Decide" page (DECISION_LOG "OWNER ANSWERS ON THE TRACKER'S "DECIDE" PAGE (d19–d25…"), from the first-timer test (`FIRST_TIMER_TEST_2026-10-02.md` fixes 1, 3, 8, 16, 17, 18, 19). UI copy and defaults only — code identifiers, routes, columns and stored values are unchanged.
+
+- **Couples read "book", never "lock"** (d19). "Ask X to confirm your booking", "Book ›", "This books your date.", "Book this pick / slot / package / deal", "Booked", "Booking…" across the Suppliers page, the chat quote card, the workspace, the planner and Today copy. The accept-quote page now carries the confirm button itself (the same control and server action the chat card mounts) instead of a sentence telling the couple to go and lock it. The supplier side keeps its own word.
+- **"bench" → "Save" / "Saved"** (d20) everywhere a couple reads it.
+- **"quote" everywhere; "proposal" retires** (d21), couple and supplier side. "Review & accept" → "See the quote", "Accept proposal" → "Accept quote", "Send a proposal" → "Send this quote"; the /proposals page and its menu rows read "Quotes". Supplier-to-supplier partnership proposals read "request". The first chat message of a quote now reads `📄 Quote — "…" · ₱… Tap to see the quote.`; the conversation list matches both the old and the new wording, so older threads still shorten.
+- **One money word: "payment"** (d22). deposit / downpayment / installment → "payment" ("first payment" where order matters). "Earnings & payday" → "Money in"; the Payday page title → "Money in"; "Confirmed of booked" → "Received of booked".
+- **No "Who can reply?" pop-up on the Guests first visit** (d23). The pop-up component, its mount, its draft read and the pure rule that decided whether to ask are removed. An event that never chose reads "Only people on my list" with no write; the choice lives in Event Details.
+- **Sign-up drops the "How do guests get in?" card** (d24). `WEDDING_FLOW_ORDER` 13 → 12; the engine resolves no entry card for any event type; the default is a personal QR for each guest (a wake, which has no list, keeps one QR for everyone).
+- **"The Day" everywhere** (d25): `PUBLIC_STAGE_LABELS.event`, the owner ribbon, the Maker's stage picker, the tours and help.
+- **Guards** (`lib/the-couple-books-never-locks`, `the-bench-is-saved`, `the-quote-is-never-a-proposal`, `the-money-word-is-payment`, `the-day-is-the-day` `.test.ts`, sharing `lib/retired-word-guard.ts`): each fails on its retired word in a string a person reads, outside a reasoned allowlist (a marriage proposal, a seat lock, public blog articles, a stamp the database matches…). Each allowlist row must name its reason and still match something, so it can only shrink. `retired-names-scan.ts` learned two things it needed: exact-case matching, and to ignore class names, ids and `{placeholders}`.
+- Regenerated: Root map screens (`screens.generated.json`), port-control baseline (the removed pop-up and entry card are deliberate removals).
+
+Not changed, flagged for the owner: the DATE's own lock state ("Lock this date", "The date is locked") still says "lock" — d19 names the supplier booking; the DPO register (`lib/data-privacy-controls.ts`) still quotes the consent control as "Can lock vendors" while the form now says "Can book vendors" (the register is mirrored by migration 20270902120000, so it changes with a data migration).
+
+SPEC IMPACT: None.

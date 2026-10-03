@@ -304,7 +304,7 @@ export function NewManualVendorModal({
           return;
         }
         if (result.status === 'marketplace_vendor_not_found') {
-          setErrorMsg('This vendor is no longer available. Try searching again.');
+          setErrorMsg('This supplier is no longer available. Try searching again.');
           // Drop back to manual mode so the host can re-search.
           setMode({ kind: 'manual' });
           return;
@@ -332,7 +332,7 @@ export function NewManualVendorModal({
     const savedName =
       typeof nameEntry === 'string' && nameEntry.trim().length > 0
         ? nameEntry.trim()
-        : 'Your vendor';
+        : 'Your supplier';
     if (edit) {
       startTransition(async () => {
         const result = await updateSelfAddedSupplier(fd);
@@ -531,7 +531,7 @@ export function NewManualVendorModal({
                   inside this relative container so it floats above
                   whatever sits below in the form. */}
               <div className="relative">
-                <Field label="Vendor name" htmlFor="manual-vendor-name" required step={0}>
+                <Field label="Supplier name" htmlFor="manual-vendor-name" required step={0}>
                   <input
                     ref={firstFieldRef}
                     id="manual-vendor-name"
@@ -567,7 +567,7 @@ export function NewManualVendorModal({
                 htmlFor="manual-vendor-contact-person"
                 required
                 step={1}
-                hint="Who to call · usually the same as Vendor name."
+                hint="Who to call · usually the same as Supplier name."
               >
                 <input
                   id="manual-vendor-contact-person"
@@ -694,7 +694,7 @@ export function NewManualVendorModal({
               <p className="flex items-start gap-1.5 rounded-md border border-ink/10 bg-paper px-2.5 py-2 text-[11px] leading-snug text-ink/65">
                 <AlertCircle aria-hidden className="mt-px h-3.5 w-3.5 shrink-0 text-ink/40" strokeWidth={2} />
                 <span>
-                  Heads up — vendors you add yourself aren&apos;t verified by
+                  Heads up — suppliers you add yourself aren&apos;t verified by
                   Setnayan. We add them free so you can manage your whole plan in
                   one place 💛 — just vet them yourself before booking.
                 </span>
@@ -861,7 +861,7 @@ function MarketplaceAutocomplete({
     return (
       <div
         role="listbox"
-        aria-label="Marketplace vendor matches"
+        aria-label="Marketplace supplier matches"
         className="absolute left-0 right-0 top-full z-30 mt-1 rounded-lg border border-ink/15 bg-cream p-3 shadow-lg"
       >
         <p className="flex items-center gap-2 text-[11px] text-ink/55">
@@ -869,7 +869,7 @@ function MarketplaceAutocomplete({
             aria-hidden
             className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta"
           />
-          Searching Setnayan vendors…
+          Searching Setnayan suppliers…
         </p>
       </div>
     );
@@ -886,7 +886,7 @@ function MarketplaceAutocomplete({
   return (
     <div
       role="listbox"
-      aria-label="Marketplace vendor matches"
+      aria-label="Marketplace supplier matches"
       className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-y-auto rounded-lg border border-ink/15 bg-cream shadow-lg"
     >
       <header className="sticky top-0 flex items-center justify-end border-b border-ink/10 bg-cream px-3 py-2">
@@ -992,7 +992,7 @@ function SuggestionRow({
           </p>
         ) : (
           <span className="text-[11px] text-ink/55">
-            Pick this vendor for {currentCategoryLabel}
+            Pick this supplier for {currentCategoryLabel}
           </span>
         )}
       </div>
@@ -1094,7 +1094,7 @@ function LinkedVendorConfirmation({
       ) : (
         <p className="text-[11px] text-ink/65">
           Adding to your <span className="font-medium">{currentCategoryLabel}</span>{' '}
-          card as a considering pick. You can lock or remove them anytime.
+          card as a considering pick. You can book or remove them anytime.
         </p>
       )}
     </div>

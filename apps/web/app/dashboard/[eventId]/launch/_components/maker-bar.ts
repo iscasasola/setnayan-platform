@@ -2,132 +2,115 @@ import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { TourKey } from '@/lib/tours';
 import { RSVP_STAGE_KEY, RSVP_STAGE_LABEL } from '@/lib/rsvp-stage-shared';
-import { DETAILS_FIRST_ITEM, DETAILS_FIRST_PRINT, isPrintsItem, type DetailsItemKey } from '@/lib/maker-details-items';
+import {
+  DETAILS_FIRST_ITEM,
+  DETAILS_FIRST_PRINT,
+  DETAILS_ITEM_GROUPS,
+  isPrintsItem,
+  type DetailsItemKey,
+} from '@/lib/maker-details-items';
+import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import type { MakerDevice } from './maker-context';
 
 /**
- * THE EVENT HUB MAKER'S BAR — the one list, pure, so a test can hold it.
+ * THE MAKER IN 4 — THE TOOLBAR, as the approved design draws it
+ * (`prototypes/maker_in_four_2026-09-30_fable.html`; DECISION_LOG "THE MAKER IN
+ * 4 IS A DIRECTION, NOT A COUNT" — the test is that a first-time host
+ * understands what to do; FIRST_TIMER_TEST_2026-10-02 fix 4, task H2 "Hard"):
  *
- * Owner-final (2026-09-28, DECISION_LOG "OPTION B — EVERYTHING MADE ONCE LIVES
- * IN DETAILS; THE TOP MENU IS THE FOUR STAGES + DETAILS"), verbatim: *"B.
- * maximize this concept so it is easier to find everything to populate the
- * event hub"*:
+ *     Exit · Page ▾ · Look · Details · Undo · Phone/Desktop · Apply · ⋯
  *
- *     Save the Date · Invitation · On the Day · Post Event │ Details
+ * Everything else lives under ⋯ or inside Page ▾. The stages are no longer a
+ * row of their own: Page ▾ lists them, each with its guest pages. This list is
+ * what the shell draws, in this order, and nothing else — held on the RENDER by
+ * `the-toolbar-is-the-maker-in-four.test.ts`.
  *
- * — nothing else. Logo, Hero, Reveal, Love Story and RSVP were pages of their
- * own here (the 2026-09-25 bar); they are items of Details now, and an old
- * `?tool=<page>` lands on its item (`lib/maker-details-items.ts`
- * `movedPageItem`). Prints & Tickets folded in on 2026-09-28 the same way.
- *
- * The stages' words are NOT typed here — they are `PUBLIC_STAGE_LABELS` in
- * `PUBLIC_STAGE_ORDER`, the one stage vocabulary (owner 2026-09-24). A second
- * spelling of "Invitation" in this file is how two vocabularies came back.
- *
- * `kind` says what pressing the item DOES, and every item does something:
- *   · 'stage' — switches the canvas to that stage of the live page;
- *   · 'tool'  — opens Details, the page every made-once thing lives in.
- *
- * ⛔ NOTHING HERE PROMISES A LATER BUILD (2026-09-28, before the Apple check —
- * App Review rejects "coming soon"). The old `'next'` kind and the
- * `MAKER_COMING_NEXT` notes ("… is coming in the next build") are gone: a
- * control that is not built is not drawn. `lib/the-maker-promises-nothing.test.ts`
- * holds it.
+ *   · 'undo' and 'apply' are the draft bar's (`hub-draft-bar.tsx`), mounted in
+ *     the shell's `applySlot`; 'view' is the shell's, drawn between them through
+ *     the Maker's context (`MakerState.viewToggle`).
  */
-
-export type MakerBarGroup = 'made-once' | 'stages';
+export const MAKER_TOOLBAR = ['exit', 'page', 'look', 'details', 'undo', 'view', 'apply', 'more'] as const;
+export type MakerToolbarItem = (typeof MAKER_TOOLBAR)[number];
 
 /**
- * The made-once home of every line of wording (owner 2026-09-25: *"the other
- * lines like the opening message and the thank you message on the egifts must
- * have a place along the Logo, Hero, Reveal, Love Story"*). PROVISIONAL name —
- * the owner may rename it, so it lives in this one constant. Renamed "Details" →
- * "Your info" (owner 2026-10-01, "approved, use your defaults"): Event Details is
- * now the information-only sheet on Event Home, and two "Details" would clash.
+ * The Maker's door into the event's facts. "Your info" RETIRED as a name
+ * (owner 2026-10-02, tracker answer d15: *"Event Details" everywhere*) — the
+ * Maker and Event Home now say the same words for the same record.
  */
-export const MAKER_DETAILS_LABEL = 'Your info';
+export const MAKER_DETAILS_LABEL = 'Event Details';
+export const MAKER_LOOK_LABEL = 'Look';
 export const MAKER_PRINTS_LABEL = 'Prints';
 
 /**
- * 🖨 Where the Prints door opens Details: on the print the couple is already on,
- * else on the first print — the place an old `?tool=prints` address always
- * landed (`detailsItemFor`).
+ * 🚪 THREE DOORS, ONE PAGE. Look, Details and Prints (⋯ › Prints) each open
+ * the Maker's one Details page (`maker-details.tsx`), on their own part of it:
+ *
+ *   · Look    — the Look group (Theme · Mood Board · Logo · Hero · Reveal);
+ *   · Prints  — the printed set (`isPrintsItem`);
+ *   · Details — everything else: the event's facts, words, story and plans.
+ *
+ * Never a second page and never a second form: the door only says where it
+ * opens. Exactly one of the three wears the highlight — the one whose part the
+ * open item belongs to (`makerOpenTool`).
  */
+export type MakerDoor = 'look' | 'details' | 'prints';
+
+const LOOK_KEYS: readonly DetailsItemKey[] = DETAILS_ITEM_GROUPS.find((g) => g.group === 'look')?.keys ?? [];
+const EVENT_KEYS: readonly DetailsItemKey[] = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')?.keys ?? [];
+
+/** Where a fresh press of Details opens: the first of the event's facts (the names). */
+export const DETAILS_FACTS_FIRST: DetailsItemKey = EVENT_KEYS[0] ?? DETAILS_FIRST_ITEM;
+
+export function isLookItem(key: unknown): boolean {
+  return typeof key === 'string' && (LOOK_KEYS as readonly string[]).includes(key);
+}
+
+/** Which door's part an item of Details belongs to. */
+export function makerDoorOf(item: string | null | undefined): MakerDoor {
+  if (isPrintsItem(item)) return 'prints';
+  if (isLookItem(item)) return 'look';
+  return 'details';
+}
+
+/** 🖨 Prints opens on the print the couple is on, else the first print (an old `?tool=prints` address). */
 export function makerPrintsDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
   return detailsItem && isPrintsItem(detailsItem) ? detailsItem : DETAILS_FIRST_PRINT;
 }
 
+/** 🎨 Look opens on the Look item the couple is on, else the Theme. */
+export function makerLookDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
+  return detailsItem && isLookItem(detailsItem) ? detailsItem : DETAILS_FIRST_ITEM;
+}
+
 /**
- * 🗂 Where the Details door opens Details: on the item the couple is on, but
- * never on a print — a print is Prints' (`makerOpenTool`), so pressing Details
- * right after Prints would keep the highlight on Prints and look dead. A print
- * (or no item) opens on Details' own first item, the same one a fresh press
- * opens (`detailsItemFor` → `DETAILS_FIRST_ITEM`).
+ * 🗂 Details opens on the item the couple is on — but never on a print or a
+ * Look item (those are Prints' and Look's), else on the first fact.
  */
 export function makerDetailsDoor(detailsItem: DetailsItemKey | null | undefined): DetailsItemKey {
-  return detailsItem && !isPrintsItem(detailsItem) ? detailsItem : DETAILS_FIRST_ITEM;
+  return detailsItem && makerDoorOf(detailsItem) === 'details' ? detailsItem : DETAILS_FACTS_FIRST;
 }
 
-/**
- * 🖨🗂 THE PRESS of Details or Prints — one reducer, so the shell and its test
- * run the same code: both doors open the Details page on their own item.
- */
+/** THE PRESS of Look, Details or Prints — one reducer, so the shell and its test run the same code. */
 export function makerPressDoor(
   state: { detailsItem: DetailsItemKey | null },
-  key: 'details' | 'prints',
+  key: MakerDoor,
 ): { detailsItem: DetailsItemKey; selectedTool: 'details' } {
-  return {
-    detailsItem: key === 'prints' ? makerPrintsDoor(state.detailsItem) : makerDetailsDoor(state.detailsItem),
-    selectedTool: 'details',
-  };
+  const detailsItem =
+    key === 'prints'
+      ? makerPrintsDoor(state.detailsItem)
+      : key === 'look'
+        ? makerLookDoor(state.detailsItem)
+        : makerDetailsDoor(state.detailsItem);
+  return { detailsItem, selectedTool: 'details' };
 }
 
 /**
- * The bar item the open page IS. Details and Prints are one page (Prints is
- * Details open on a print item), so exactly ONE of the two wears the highlight:
- * Prints while the open item is a print, Details otherwise.
+ * The door the open page IS — Look, Details or Prints while the Details page
+ * is open (by the item it is on), else the open tool's own key, else null.
  */
 export function makerOpenTool(openTool: string | null, detailsItem: string | null | undefined): string | null {
-  return openTool === 'details' && isPrintsItem(detailsItem) ? 'prints' : openTool;
+  return openTool === 'details' ? makerDoorOf(detailsItem) : openTool;
 }
-
-export type MakerBarItem =
-  | { key: 'details'; label: string; group: 'made-once'; kind: 'tool' }
-  /** 🖨 Prints — a door into Details, open on the prints (`isPrintsItem`); never a page of its own. */
-  | { key: 'prints'; label: string; group: 'made-once'; kind: 'tool' }
-  /** 🗳 The RSVP stage — a stage of the bar, but a page of the Maker (not a
-   *  lifecycle phase: `rsvp` is the INVITATION's phase key), so pressing it
-   *  opens its own three parts (`maker-rsvp-stage.tsx`) like Details does. */
-  | { key: typeof RSVP_STAGE_KEY; label: string; group: 'stages'; kind: 'tool' }
-  | { key: LifecyclePhase; label: string; group: 'stages'; kind: 'stage' };
-
-export const MAKER_BAR: readonly MakerBarItem[] = [
-  // The stages of the one link, in the order it lives through them — with the
-  // RSVP stage between Save the Date and the Invitation (owner 2026-09-30, the
-  // re-plan's top nav: "Save the Date · RSVP · Invitation · The Day · Post Event")…
-  ...PUBLIC_STAGE_ORDER.flatMap((phase) => [
-    { key: phase, label: PUBLIC_STAGE_LABELS[phase], group: 'stages', kind: 'stage' } as const,
-    ...(phase === 'save_the_date'
-      ? [{ key: RSVP_STAGE_KEY, label: RSVP_STAGE_LABEL, group: 'stages', kind: 'tool' } as const]
-      : []),
-  ]),
-  // …then Details, where everything made once lives (Option B).
-  { key: 'details', label: MAKER_DETAILS_LABEL, group: 'made-once', kind: 'tool' },
-  // …and Prints beside it (owner 2026-09-30, "THE MAKER RE-PLAN IS CUT TO ITS
-  // CORE": the top menu is Details | stages | Prints). It opens Details on the
-  // prints — Prints & Tickets stays folded into Details, only the door is here.
-  { key: 'prints', label: MAKER_PRINTS_LABEL, group: 'made-once', kind: 'tool' },
-];
-
-/**
- * The one note left from `MAKER_COMING_NEXT` — and it promises nothing: it says
- * what the snap grid does today. The hero's "one hero for every stage" was a
- * promise of a later build; it was removed 2026-09-28 rather than kept as a
- * "coming next" line. (The "Both" view went the same way that day, and came
- * back 2026-09-29 as a built view — `makerViewOptions` below.)
- */
-export const MAKER_SNAP_NOTE =
-  'The snap grid is on: every scene keeps its template’s arrangement, so it reflows on a phone.';
 
 export const MAKER_TOUR_KEY: TourKey = 'customer_event_hub_maker_v1';
 
@@ -141,59 +124,128 @@ export function isStagePhase(value: unknown): value is LifecyclePhase {
 }
 
 /**
- * ▾ THE COMPACT BAR IS ONE PICKER (owner 2026-09-27, on "● Invitation ▾" +
- * "Logo ▾": *"combine them in 1 dropdown"*; DECISION_LOG "THE COMPACT MAKER
- * BAR IS ONE PICKER, NOT TWO"). Pure, so a test holds what the couple sees:
+ * 📄 PAGE ▾ — THE ONE DROPDOWN FOR WHERE YOU ARE (design frame D): the stage,
+ * then that stage's guest pages under it, in the guest bar's own words —
  *
- *   · the button names where they ARE — Details when it is open, else the stage;
- *   · the list is ONE FLAT LIST in `MAKER_BAR`'s own order and words — Save the
- *     Date · Invitation · On the Day · Post Event · Details (DECISION_LOG
- *     "OPTION B …": *"the place menu is … — nothing else"*; the Stages / Pages
- *     headings went with the pages). Stages keep the live-today dot;
- *   · a viewer Details is not for (a coordinator) sees it, saying why it is
- *     shut — in the event type's own word for its host (`theHost`).
+ *     Save the Date · RSVP · Invitation · On the Day · Post Event
  *
- * Every key is a `MAKER_BAR` key, and `makerPlaceItem` hands back THAT item, so
- * a pick runs the same `onPress` the full row's button does — never a second
- * meaning.
+ * each a labelled group of its pages (`makerGuestPages`, the guest bar's own
+ * `resolveSiteNav`; never a word typed here). The RSVP stage is a page of the
+ * Maker, not a lifecycle phase, so its group holds its one page, the reply.
+ * The stage words are `PUBLIC_STAGE_LABELS` — the one stage vocabulary — so
+ * "On the Day" stays "On the Day" until that vocabulary changes.
+ *
+ * A pick JUMPS to the page (the canvas and the scenes column go there); it
+ * never filters. Pure, so a test holds the list and the button's words.
  */
-export type MakerPlaceOption = {
-  key: MakerBarItem['key'];
-  label: string;
-  dot?: boolean;
-  disabledNote?: string;
-};
+export type MakerPageStage = LifecyclePhase | typeof RSVP_STAGE_KEY;
 
-export function makerPlacePick(input: {
-  stage: LifecyclePhase;
-  liveStage: LifecyclePhase | null;
-  /** The key of the page open in the Maker, or null when none is. */
-  openTool: string | null;
-  /** The item Details is on — Prints is the open tool while it is a print. */
-  detailsItem?: string | null;
-  hasWork: boolean;
-  /** Who Details is for, in the event type's own words (`EventWords.theHost` —
-   *  "the couple", "the host", "the family"); never a typed noun here. */
-  theHost?: string;
-}): { value: string; options: MakerPlaceOption[] } {
-  const openKey = makerOpenTool(input.openTool, input.detailsItem);
-  const open = MAKER_BAR.find((i) => i.kind === 'tool' && i.key === openKey) ?? null;
-  return {
-    value: open?.key ?? input.stage,
-    options: MAKER_BAR.map((i) =>
-      i.kind === 'stage'
-        ? { key: i.key, label: i.label, ...(input.liveStage === i.key ? { dot: true } : {}) }
-        : { key: i.key, label: i.label, ...(input.hasWork ? {} : { disabledNote: `only ${input.theHost ?? 'the host'} can open this` }) },
-    ),
-  };
+/** Page ▾'s stages, in the order the one link lives through them — RSVP between Save the Date and the Invitation. */
+export const MAKER_PAGE_STAGES: readonly MakerPageStage[] = PUBLIC_STAGE_ORDER.flatMap((p) =>
+  p === 'save_the_date' ? [p, RSVP_STAGE_KEY] : [p],
+);
+
+export function makerStageLabel(stage: MakerPageStage): string {
+  return stage === RSVP_STAGE_KEY ? RSVP_STAGE_LABEL : PUBLIC_STAGE_LABELS[stage];
 }
 
-/** The `MAKER_BAR` item a pick names — null for an unknown key, or for a page
- *  a viewer who is not the couple cannot open. */
-export function makerPlaceItem(key: string, hasWork: boolean): MakerBarItem | null {
-  const item = MAKER_BAR.find((i) => i.key === key) ?? null;
-  if (!item) return null;
-  return item.kind === 'stage' || hasWork ? item : null;
+/** The RSVP stage's one page — the reply the guest fills in (design frame D: "Reply · the questions"). */
+export const MAKER_RSVP_PAGE_LABEL = 'Reply';
+
+/** One guest page, as Page ▾ lists it. */
+export type MakerPageEntry = {
+  key: string;
+  label: string;
+  /** Nothing of the couple's to arrange on it here (no scene sits under it). */
+  empty?: boolean;
+};
+
+const PAGE_SEP = ':';
+
+export function makerPageValue(stage: LifecyclePhase, page: string): string {
+  return `${stage}${PAGE_SEP}${page}`;
+}
+
+/** What a Page ▾ pick names — the RSVP stage, or a stage's page — or null for an unknown key. */
+export function makerPagePick(
+  key: string,
+): { kind: 'rsvp' } | { kind: 'page'; stage: LifecyclePhase; page: string } | null {
+  if (key === RSVP_STAGE_KEY) return { kind: 'rsvp' };
+  const at = key.indexOf(PAGE_SEP);
+  if (at < 0) return null;
+  const stage = key.slice(0, at);
+  return isStagePhase(stage) ? { kind: 'page', stage, page: key.slice(at + 1) } : null;
+}
+
+export function makerPageMenu(input: {
+  stage: LifecyclePhase;
+  /** The RSVP stage is the open page. */
+  rsvpOpen: boolean;
+  /** The stage guests meet today — its first page wears the "live today" dot. */
+  liveStage: LifecyclePhase | null;
+  /** Each lifecycle stage's guest pages, in the guest bar's words and order. */
+  pagesOf: (stage: LifecyclePhase) => readonly MakerPageEntry[];
+  /** The page the canvas shows on `stage`, or null before it has said. */
+  shownPage: string | null;
+  /** False for a viewer the RSVP stage is not for (a coordinator). */
+  hasWork: boolean;
+  /** Who it is for, in the event type's own word (`EventWords.theHost`). */
+  theHost?: string;
+  /**
+   * 📍 A page of the Maker covers the stage (Look · Event Details · Prints): its
+   * name. Page ▾ then names THAT page, never the stage hidden under it (owner,
+   * live phone test 2026-10-02: on a page that was not Welcome, the bar said
+   * "Invitation › Welcome"). Null = the stage's own page is on screen.
+   */
+  openPage?: string | null;
+}): {
+  value: string;
+  buttonText: string;
+  /** 📱 The page alone ("Welcome") — the phone's bottom-bar Page ▾ (frame G: "Page / Welcome ▾"); its top bar names the stage. */
+  pageText: string;
+  options: PickOption[];
+} {
+  const options: PickOption[] = [];
+  for (const s of MAKER_PAGE_STAGES) {
+    const group = makerStageLabel(s);
+    if (s === RSVP_STAGE_KEY) {
+      options.push({
+        key: RSVP_STAGE_KEY,
+        label: MAKER_RSVP_PAGE_LABEL,
+        group,
+        ...(input.hasWork ? {} : { disabledNote: `only ${input.theHost ?? 'the host'} can open this` }),
+      });
+      continue;
+    }
+    const pages = input.pagesOf(s);
+    const list: readonly MakerPageEntry[] = pages.length ? pages : [{ key: '', label: group }];
+    list.forEach((p, i) =>
+      options.push({
+        key: makerPageValue(s, p.key),
+        label: p.label,
+        group,
+        ...(i === 0 && input.liveStage === s ? { dot: true } : {}),
+        ...(p.empty ? { disabledNote: 'nothing to arrange yet' } : {}),
+      }),
+    );
+  }
+  if (input.rsvpOpen) {
+    return { value: RSVP_STAGE_KEY, buttonText: `${RSVP_STAGE_LABEL} › ${MAKER_RSVP_PAGE_LABEL}`, pageText: MAKER_RSVP_PAGE_LABEL, options };
+  }
+  // No stage page is ticked: the page on screen is not one of them.
+  if (input.openPage) return { value: '', buttonText: input.openPage, pageText: input.openPage, options };
+  const own = options.filter((o) => o.key.startsWith(makerPageValue(input.stage, '')));
+  const shown =
+    (input.shownPage !== null ? own.find((o) => o.key === makerPageValue(input.stage, input.shownPage!)) : undefined) ??
+    own.find((o) => !o.disabledNote) ??
+    own[0];
+  const stageLabel = PUBLIC_STAGE_LABELS[input.stage];
+  return {
+    value: shown?.key ?? makerPageValue(input.stage, ''),
+    buttonText: shown && shown.label !== stageLabel ? `${stageLabel} › ${shown.label}` : stageLabel,
+    pageText: shown?.label ?? stageLabel,
+    options,
+  };
 }
 
 /**
@@ -204,6 +256,10 @@ export function makerPlaceItem(key: string, hasWork: boolean): MakerBarItem | nu
  *
  * It needs room for two pages, so it is offered only at 1024 px and wider
  * (`lg`, the app's own mobile↔desktop switch). Pure, so a test holds both rules.
+ *
+ * 📱 THE MAKER IN 4 (2026-10-02): the bar carries ONE button, Phone — pressed
+ * is the phone, unpressed the desktop (`makerViewToggle`). Both is a row
+ * under ⋯, offered from this same list.
  */
 /* = `BREAKPOINTS.lg` (`lib/use-responsive.ts`) — typed, not imported: that
    module is 'use client' and this one is read by the launch page's server tree. */
@@ -224,6 +280,11 @@ export function makerViewOptions(wide: boolean): ReadonlyArray<{ key: MakerDevic
  */
 export function makerShownDevice(picked: MakerDevice, wide: boolean): MakerDevice {
   return picked === 'both' && !wide ? 'desktop' : picked;
+}
+
+/** The bar's Phone button: on the phone it goes back to the desktop; anywhere else (Both included) it shows the phone. */
+export function makerViewToggle(shown: MakerDevice): MakerDevice {
+  return shown === 'phone' ? 'desktop' : 'phone';
 }
 
 /** A remembered view (sessionStorage) — only a real one is put back. */

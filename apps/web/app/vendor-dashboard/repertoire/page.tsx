@@ -15,7 +15,7 @@ import { addRepertoireSong, removeRepertoireSong, setPerformanceLink } from './a
 import { ShopNotice } from '../_components/kit';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 
-export const metadata = { title: 'Your repertoire · Vendor' };
+export const metadata = { title: 'Your repertoire · Supplier' };
 
 type Props = {
   searchParams: Promise<{ q?: string; saved?: string; error?: string }>;

@@ -147,7 +147,7 @@ export function ServiceCardFace({
       ) : snap.hasExclusive ? (
         <p className="flex items-center gap-1 text-[10px]" style={{ color: 'var(--m-orange-2)' }}>
           <Lock aria-hidden className="h-3 w-3" strokeWidth={1.75} />
-          Setnayan Exclusive inside · unlocked in chat
+          Setnayan Exclusive inside · opens in chat
         </p>
       ) : null}
       {footer === undefined ? (

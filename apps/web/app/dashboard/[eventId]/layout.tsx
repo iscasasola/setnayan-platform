@@ -43,6 +43,7 @@ import type { SwitcherData } from '@/app/_components/account-switcher/get-switch
 import { PromoFreeWindowBanner } from '@/app/_components/promo-free-window-banner';
 import { CohostWelcome } from './_components/cohost-welcome';
 import { AppPreload } from '@/app/_components/app-preload';
+import { LastSeenScope } from '@/app/_components/last-seen/last-seen-scope';
 import { appPreloadPlan } from '@/lib/app-preload-sets';
 
 type Props = {
@@ -769,7 +770,13 @@ export default async function EventLayout({ children, params }: Props) {
               {/* "You are now a co-host…" · CONFIRM — shows until acknowledged
                   (owner 2026-09-28). Renders nothing for everyone else. */}
               <CohostWelcome eventId={eventId} userId={user.id} />
-              {children}
+              {/* 💾 Whose last-seen data the five main pages keep and show
+                  (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA SHOWS
+                  INSTANTLY, THEN REFRESHES"). Context only — the store loads
+                  with those pages, never with this layout. */}
+              <LastSeenScope userId={user.id} eventId={eventId}>
+                {children}
+              </LastSeenScope>
             </div>
           </div>
         </main>

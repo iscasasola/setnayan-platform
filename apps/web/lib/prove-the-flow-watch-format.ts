@@ -150,7 +150,7 @@ export function describeAmendment(am: AmendmentRow, thread: ThreadRow): string {
 
 /** Step 6/7: the formal quote and whether the couple has accepted it. */
 export function describeProposal(p: ProposalRow): string {
-  if (!p) return 'No formal quote (proposal) has been sent yet.';
+  if (!p) return 'No formal quote has been sent yet.';
   const total = pesoFromCentavos(p.total_centavos);
   const sent = p.sent_at ? `sent ${p.sent_at}` : 'not yet sent (still a draft)';
   return `Quote is "${p.status}", ${total}, ${sent}.`;

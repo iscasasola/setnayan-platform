@@ -90,7 +90,7 @@ function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
 
-const downpaymentRow = (): Row => ({ label: 'Downpayment', amount: '', date: todayIso() });
+const downpaymentRow = (): Row => ({ label: 'First payment', amount: '', date: todayIso() });
 const blankRow = (n: number): Row => ({ label: `Payment ${n}`, amount: '', date: '' });
 
 /** Presign + PUT a file to R2; resolves the r2 ref. Throws on failure. */
@@ -227,7 +227,7 @@ export function LockedQrGenerator({
     const isDownpayment = i === 0;
     return {
       seq: i + 1,
-      label: r.label.trim() || (isDownpayment ? 'Downpayment' : `Payment ${i + 1}`),
+      label: r.label.trim() || (isDownpayment ? 'First payment' : `Payment ${i + 1}`),
       amount_value: Number(isDownpayment ? initialPaid : r.amount) || 0,
       due_date: ISO_DATE_RE.test(r.date) ? r.date : null,
     };
@@ -414,7 +414,7 @@ export function LockedQrGenerator({
         </div>
         <div className="space-y-1.5">
           <label htmlFor="initial_paid_php" className="block text-sm font-medium text-ink/80">
-            Initial paid / downpayment (₱)
+            Initial paid / first payment (₱)
           </label>
           <input
             id="initial_paid_php"
@@ -427,7 +427,7 @@ export function LockedQrGenerator({
           />
           {overpaid && (
             <p className="text-xs text-terracotta-700">
-              Downpayment can&apos;t be more than the total value.
+              First payment can&apos;t be more than the total value.
             </p>
           )}
         </div>
@@ -556,7 +556,7 @@ export function LockedQrGenerator({
                       type="button"
                       onClick={() => setRows((prev) => prev.filter((_, idx) => idx !== i))}
                       className="rounded-lg p-2 text-ink/40 hover:bg-ink/5 hover:text-terracotta-700"
-                      aria-label="Remove installment"
+                      aria-label="Remove payment"
                     >
                       <Trash2 className="h-4 w-4" strokeWidth={1.75} />
                     </button>
@@ -595,7 +595,7 @@ export function LockedQrGenerator({
                 </div>
                 {isDownpayment ? (
                   <p className="mt-2 text-xs text-ink/45">
-                    Auto-filled from “Initial paid / downpayment” above.
+                    Auto-filled from “Initial paid / first payment” above.
                   </p>
                 ) : badDate ? (
                   <p className="mt-2 text-xs text-terracotta-700">
@@ -609,7 +609,7 @@ export function LockedQrGenerator({
 
         {rows.length >= MAX_SCHEDULE_ITEMS && remaining > 0 && (
           <p className="mt-3 text-xs text-ink/45">
-            Maximum installments reached — adjust the amounts so the balance reaches ₱0.
+            Maximum payments reached — adjust the amounts so the balance reaches ₱0.
           </p>
         )}
 
@@ -667,7 +667,7 @@ export function LockedQrGenerator({
             Proof of payment <span className="text-terracotta-700">*</span>
           </h2>
           <p className="mt-1 text-xs text-ink/50">
-            Upload the receipt/screenshot of the downpayment you received.
+            Upload the receipt/screenshot of the first payment you received.
           </p>
           <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-white px-4 py-2 text-sm text-ink/75 hover:border-terracotta">
             {proof.busy ? (
@@ -725,7 +725,7 @@ export function LockedQrGenerator({
       </SubmitButton>
       {!canGenerate && (
         <p className="-mt-2 text-center text-xs text-ink/45">
-          Complete every field — service(s), event date, scope, total, downpayment, the full payment
+          Complete every field — service(s), event date, scope, total, first payment, the full payment
           schedule (balance at ₱0), a contract, and the payment proof — to generate the QR.
         </p>
       )}

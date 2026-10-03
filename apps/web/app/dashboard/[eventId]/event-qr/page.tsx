@@ -115,7 +115,7 @@ export default async function EventQrPage({ params }: Props) {
                 {tokenPrefix}…
               </div>
               <p className="text-xs text-ink/55">
-                Confirm this matches what your vendor&rsquo;s device shows after
+                Confirm this matches what your supplier&rsquo;s device shows after
                 pairing — a quick sanity check that you handed them the
                 right event&rsquo;s QR.
               </p>
@@ -158,11 +158,11 @@ export default async function EventQrPage({ params }: Props) {
 
       <div className="m-card p-5 sm:p-6">
         <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-ink/70">
-          How vendors use this
+          How suppliers use this
         </h2>
         <ol className="mt-3 space-y-2 text-sm leading-relaxed text-ink/75">
           <li>
-            <span className="font-medium text-ink">1.</span> Your vendor
+            <span className="font-medium text-ink">1.</span> Your supplier
             opens the Setnayan app on their capture device and taps
             <span className="m-mono mx-1 rounded bg-ink/5 px-1.5 py-0.5 text-xs">
               Pair to event
@@ -172,12 +172,12 @@ export default async function EventQrPage({ params }: Props) {
           <li>
             <span className="font-medium text-ink">2.</span> They scan the QR
             above. The device registers itself with your event and your
-            vendor&rsquo;s account.
+            supplier&rsquo;s account.
           </li>
           <li>
-            <span className="font-medium text-ink">3.</span> Each new vendor
+            <span className="font-medium text-ink">3.</span> Each new supplier
             who pairs starts with 0 of their 5 device slots used. Your
-            event&rsquo;s QR is the same for everyone — vendors are kept
+            event&rsquo;s QR is the same for everyone — suppliers are kept
             separate by their account.
           </li>
         </ol>

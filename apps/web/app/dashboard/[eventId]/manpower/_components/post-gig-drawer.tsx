@@ -86,7 +86,7 @@ export function PostGigDrawer({ eventId }: { eventId: string }) {
                 className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-slate-500 focus:outline-none"
               />
               <span className="mt-1 block text-xs text-slate-500">
-                A short headline vendors will see on the gig board.
+                A short headline suppliers will see on the gig board.
               </span>
             </label>
 

@@ -96,8 +96,8 @@ export function WeddingVenues({ state, patch, search }: { state: OnboardingState
     <div className="mt-4 flex flex-col gap-6" data-wedding-venues>
       <p className="text-xs text-ink/55">
         {dates.length > 0
-          ? `Your dates: ${list(dates.map(dayLabel))}. A venue is shortlisted when you pick it; you lock it from Suppliers. Pick either first — the other list narrows to what is free and near.`
-          : 'A venue is shortlisted when you pick it; you lock it from Suppliers. Pick either first — the other list narrows to what is near.'}
+          ? `Your dates: ${list(dates.map(dayLabel))}. A venue is shortlisted when you pick it; you book it from Suppliers. Pick either first — the other list narrows to what is free and near.`
+          : 'A venue is shortlisted when you pick it; you book it from Suppliers. Pick either first — the other list narrows to what is near.'}
       </p>
       {(['parish', 'reception'] as const).map((role) => (
         <VenueRoleRow
@@ -207,7 +207,7 @@ function VenueRoleRow({
     ...(selected && !shown.some((r) => r.vendorId === selected.vendorId)
       ? [{ key: `v:${selected.vendorId}`, label: selected.name, hint: selected.city ?? undefined, group: undefined as string | undefined }]
       : []),
-    { key: 'own', label: 'Add it yourself', hint: 'Name · pin · city — it is locked as your venue', group: 'Or' },
+    { key: 'own', label: 'Add it yourself', hint: 'Name · pin · city — it is set as your venue', group: 'Or' },
     { key: 'later', label: 'I’ll pick later', group: 'Or' },
     { key: 'supplier', label: 'My supplier will fill this in', group: 'Or' },
   ];
@@ -265,11 +265,11 @@ function VenueRoleRow({
         </button>
       ) : null}
       {pick?.kind === 'listed' ? (
-        <p className="mt-2 text-xs text-ink/55">On your shortlist. You lock it from Suppliers, and it shows on your Event Hub once locked.</p>
+        <p className="mt-2 text-xs text-ink/55">On your shortlist. You book it from Suppliers, and it shows on your Event Hub once booked.</p>
       ) : null}
       {narrowedNote ? <p className="mt-1 text-xs text-ink/55">{narrowedNote}</p> : null}
       {pick?.kind === 'supplier' ? (
-        <p className="mt-2 text-xs text-ink/55">You can add it anytime in Your info, or when you book the venue.</p>
+        <p className="mt-2 text-xs text-ink/55">You can add it anytime in Event Details, or when you book the venue.</p>
       ) : null}
       {pick?.kind === 'own' ? <OwnVenueForm pick={pick} setPick={setPick} places={state.places} /> : null}
     </div>

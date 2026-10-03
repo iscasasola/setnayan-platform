@@ -40,6 +40,7 @@ import { SetnayanAiValue } from '@/app/dashboard/[eventId]/studio/setnayan-ai/_c
 import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
 import { OnboardingShell } from './_components/onboarding-shell';
 import { buildOnboardingPricing } from './_components/onboarding-pricing';
+import { fetchOnboardingDiscountPct } from '@/lib/onboarding-discount-server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { CREATION_ASKS, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
@@ -63,7 +64,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Plan your wedding',
   description:
-    "A few quick questions and we'll build a plan made for your day — every vendor sorted to fit. Free to start, always.",
+    "A few quick questions and we'll build a plan made for your day — every supplier sorted to fit. Free to start, always.",
   // Onboarding sits behind a CTA (marketing "Start planning · free" +
   // dashboard "Add event → Wedding"); keep the half-flow out of search.
   robots: { index: false, follow: false },
@@ -146,7 +147,8 @@ export default async function OnboardingWeddingPage({
   // every label renders as a flat "₱X" — matching /pricing's public behavior.
   // The authoritative charge is still recomputed server-side at order time by
   // resolvePaxPricedOrderCentavos in submitOrderAction (unchanged).
-  const pricing = buildOnboardingPricing(customerSkus, bundles);
+  // The sign-up discount is the ONE admin number (d18), never a typed constant.
+  const pricing = buildOnboardingPricing(customerSkus, bundles, null, await fetchOnboardingDiscountPct());
 
   // Date-anchor model: pre-select the faith on a Religious wedding from the
   // user's OWN profile religion (reference-only, opt-in). Only when it maps to

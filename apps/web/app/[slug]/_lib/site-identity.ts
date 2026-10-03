@@ -38,7 +38,7 @@ import type {
   GuestPapicCamera,
   GuestSeatMap,
 } from './types';
-import type { GuestLiveGallery } from '@/lib/guest-live-gallery';
+import type { GuestLiveGallery, GuestOwnShots } from '@/lib/guest-live-gallery';
 import type { VendorCard } from '@/lib/vendor-cards';
 import type { GuestHubData } from '../_components/guest-hub-card';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
@@ -88,6 +88,10 @@ export type GuestSiteIdentity = {
   invitationUrl: string;
   /** This guest's tagged photos so far — live window only, clean-screened. */
   guestLiveGallery: GuestLiveGallery | null;
+  /** 📸 The shots THIS guest took (the Gallery's "Your shots") — null = not read or the read failed. */
+  guestOwnShots: GuestOwnShots | null;
+  /** The couple's shipped "Shared gallery" switch is on — the Gallery offers everyone's photos. */
+  poolGalleryOpen: boolean;
   /** Event owns CUSTOM_QR_GUEST → advertise the personalized seat pass link
    *  (seat-finding PR4). Additive; the find-my-table link is unaffected. */
   seatPassActive: boolean;
@@ -475,8 +479,16 @@ export function anonymousIdentity(input: {
  * one. Absent ⇒ null ⇒ the card behaves exactly as it did before this existed.
  */
 export function guestIdentity(
-  input: Omit<GuestSiteIdentity, 'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard'> &
-    Partial<Pick<GuestSiteIdentity, 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard'>>,
+  input: Omit<
+    GuestSiteIdentity,
+    'kind' | 'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen'
+  > &
+    Partial<
+      Pick<
+        GuestSiteIdentity,
+        'profileDetails' | 'account' | 'didntReply' | 'checklist' | 'passCard' | 'guestOwnShots' | 'poolGalleryOpen'
+      >
+    >,
 ): GuestSiteIdentity {
   return {
     kind: 'guest',
@@ -485,6 +497,8 @@ export function guestIdentity(
     qrSvg: input.qrSvg,
     invitationUrl: input.invitationUrl,
     guestLiveGallery: input.guestLiveGallery,
+    guestOwnShots: input.guestOwnShots ?? null,
+    poolGalleryOpen: input.poolGalleryOpen === true,
     seatPassActive: input.seatPassActive,
     needsFaceEnroll: input.needsFaceEnroll,
     guestHubData: input.guestHubData,

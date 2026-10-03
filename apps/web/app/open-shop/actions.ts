@@ -576,5 +576,7 @@ export async function becomeVendor(formData: FormData): Promise<void> {
 
   revalidatePath('/vendor-dashboard');
   revalidatePath('/vendor-dashboard/shop');
-  redirect('/vendor-dashboard/shop');
+  // 🧭 A NEW SHOP LANDS ON TODAY (first-timer fix 12, 2026-10-02). My Shop is
+  // fifteen tool rows with no next step; Today carries the ordered First steps.
+  redirect('/vendor-dashboard');
 }

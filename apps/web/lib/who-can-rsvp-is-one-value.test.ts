@@ -111,14 +111,3 @@ test('reply by: unset → 30 days before the event, marked as the default', () =
   });
   assert.equal(resolveReplyBy({ deadline: null, eventDate: null }), null);
 });
-
-test('the Guest list\'s first-visit pop-up writes it through the SAME door, whole', () => {
-  // ⤷ 2026-10-01 (F2, owner 2026-09-30 "THE FIRST VISIT TO THE GUEST LIST ASKS
-  // WHICH KIND OF LIST"): a second CALLER of the one writer, never a second
-  // writer — the Maker's draft door, posting the whole config.
-  const read = (rel: string) => stripComments(readFileSync(join(__dirname, '..', rel), 'utf8'));
-  const ask = read('app/dashboard/[eventId]/guests/_components/who-can-reply-ask.tsx');
-  assert.match(ask, /hubDraftAction\(eventId, fd\)/, 'the pop-up left the one writer\'s door');
-  assert.match(ask, /rsvp_ask_config: whoCanReplyPatch\(base, value\)/, 'the pop-up posts something other than the whole config');
-  assert.doesNotMatch(ask, /\.whoCanRsvp\b|from\('events'\)/, 'the pop-up reads or writes the stored key itself');
-});

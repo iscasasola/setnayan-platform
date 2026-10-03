@@ -73,7 +73,7 @@ async function ownVendorId(): Promise<{ vendorId: string } | { error: string }> 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return { error: 'Please sign in again.' };
   const profile = await fetchOwnVendorProfile(supabase, user.id).catch(() => null);
-  if (!profile?.vendor_profile_id) return { error: 'No vendor profile found.' };
+  if (!profile?.vendor_profile_id) return { error: 'No supplier profile found.' };
   return { vendorId: profile.vendor_profile_id };
 }
 

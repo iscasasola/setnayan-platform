@@ -52,7 +52,7 @@ type Row = {
 };
 
 const ANCHOR_LABEL: Record<'on_lock' | 'before_event', string> = {
-  on_lock: 'after you lock', // counts from the day Lock is clicked (owner 2026-09-21)
+  on_lock: 'after you book', // counts from the day Lock is clicked (owner 2026-09-21)
   before_event: 'before the event',
 };
 
@@ -88,7 +88,7 @@ export function PaymentPlanRows({
     (initial && initial.length > 0
       ? initial
       : [
-          { label: 'Downpayment', kind: 'percent' as const, value: '50', anchor: 'on_lock' as const, days: '0' },
+          { label: 'First payment', kind: 'percent' as const, value: '50', anchor: 'on_lock' as const, days: '0' },
           { label: 'Balance', kind: 'percent' as const, value: '50', anchor: 'before_event' as const, days: '7' },
         ]
     ).map((r, i) => ({ ...r, key: i })),
@@ -202,7 +202,7 @@ export function PaymentPlanRows({
                 value={r.label}
                 disabled={disabled}
                 maxLength={60}
-                placeholder="Downpayment"
+                placeholder="First payment"
                 aria-label={`Payment ${i + 1} name`}
                 onChange={(e) => patch(r.key, { label: e.target.value })}
                 className={`${CELL} min-w-0 flex-1`}
@@ -277,7 +277,7 @@ export function PaymentPlanRows({
       <div className="flex items-center justify-between gap-2 border-t border-ink/10 pt-2 text-[11px]">
         <span className="flex items-center gap-1 text-ink/55">
           <CalendarClock aria-hidden className="h-3 w-3" strokeWidth={1.9} />
-          Dates settle against your lock date and event date.
+          Dates settle against your booking date and event date.
         </span>
         <span className={covered ? 'font-medium text-success-800' : 'font-medium text-warn-800'}>
           {totalPhp == null

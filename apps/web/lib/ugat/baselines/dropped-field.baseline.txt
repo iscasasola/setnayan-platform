@@ -1,0 +1,6 @@
+# Root map baseline — Filled in but not saved.
+# ENFORCED: a finding not listed here fails CI.
+# One line per finding: <key><TAB># <why it is on the list>. Written by
+#   pnpm --filter @setnayan/web root-map --baseline
+# Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
+# be dropped by re-running the command above — CI fails while it is still listed.

@@ -5,10 +5,6 @@ import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { answerKeyOf, answerValueOf, type AnswerChoice, type EventAnswerColumn } from '@/lib/event-answers';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
-import { DetailsForm } from '../../details/_components/details-form';
-import { GovernedFields } from '../../details/_components/governed-fields';
-import { PaxSettingsCard } from '../../details/_components/pax-settings-card';
-import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 
 /**
  * 🗂 YOUR INFO — THE ONBOARDING'S ANSWERS, CHANGED WHERE THEY LIVE (owner
@@ -21,11 +17,10 @@ import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
  *     draft door (`hubDraftAction`, the same door the Names and the Name style
  *     use) — a Maker edit waits for Apply (`lib/hub-draft.ts`
  *     `HUB_DRAFT_ANSWER_COLUMNS`). +0 server actions.
- *   · `EventSettingsEditor` — the retired `/details/change` page's three
- *     editors, moved whole: `DetailsForm` (without the names — Your info ›
- *     Names is their field), `GovernedFields` (without the date — Your info ›
- *     Date is its field) and `PaxSettingsCard`. Each still saves through its
- *     own action, exactly as it did on that page.
+ *   · (`EventSettingsEditor` moved OUT of the Maker 2026-10-02 to
+ *     `details/_components/event-settings-editor.tsx`: its three editors save
+ *     live through their own actions, and nothing in the Maker may take effect
+ *     before Apply.)
  *
  * Loaded with the other Details pieces, never with the Maker (`details-lazy.tsx`).
  */
@@ -102,91 +97,5 @@ export function AnswerPicker({
         </p>
       ) : null}
     </section>
-  );
-}
-
-/** The settings item's right column — the three shipped editors, in the page's order. */
-export function EventSettingsEditor({
-  eventId,
-  form,
-  governed,
-  pax,
-}: {
-  eventId: string;
-  form: {
-    region: string;
-    feel: string;
-    budgetPesos: string;
-    mayEditBudget: boolean;
-    showBazi: boolean;
-    baziHasConsent: boolean;
-    partnerABirthDate: string;
-    partnerABirthTime: string;
-    partnerBBirthDate: string;
-    partnerBBirthTime: string;
-    repeatOptions: ReadonlyArray<{ value: string; label: string }>;
-    repeatForced: boolean;
-    cadence: string;
-    showCelebrantShape: boolean;
-    celebrantShape: string;
-    celebrantTypeDefaultLabel: string;
-  };
-  governed: {
-    confirmedVendorCount: number;
-    ceremony: string | null;
-    secondaryCeremony: string | null;
-    venue: string | null;
-    ceremonyVenue: string | null;
-    pax: number | null;
-    dateDisplay: string | null;
-    dateValue: string | null;
-    activeCeremonies: readonly string[] | null;
-    rows: ReadonlyArray<'ceremony' | 'venue' | 'ceremony_venue' | 'pax'>;
-  };
-  pax: { deadline: string | null; mode: 'realtime' | 'final_only' };
-}) {
-  return (
-    <div className="flex flex-col gap-6" data-details-settings="">
-      {/* These three save live through their own actions, as they did on the old page — said, never implied. */}
-      <HubSavesImmediately />
-      <GovernedFields
-        eventId={eventId}
-        confirmedVendorCount={governed.confirmedVendorCount}
-        ceremony={governed.ceremony}
-        secondaryCeremony={governed.secondaryCeremony}
-        venue={governed.venue}
-        ceremonyVenue={governed.ceremonyVenue}
-        pax={governed.pax}
-        dateDisplay={governed.dateDisplay}
-        dateValue={governed.dateValue}
-        only={governed.rows}
-        activeCeremonies={governed.activeCeremonies}
-      />
-      <DetailsForm
-        eventId={eventId}
-        showNames={false}
-        initialBrideFirst=""
-        initialBrideLast=""
-        initialGroomFirst=""
-        initialGroomLast=""
-        initialRegion={form.region}
-        initialFeel={form.feel}
-        initialBudgetPesos={form.budgetPesos}
-        mayEditBudget={form.mayEditBudget}
-        showBaziBirthData={form.showBazi}
-        baziHasConsent={form.baziHasConsent}
-        initialPartnerABirthDate={form.partnerABirthDate}
-        initialPartnerABirthTime={form.partnerABirthTime}
-        initialPartnerBBirthDate={form.partnerBBirthDate}
-        initialPartnerBBirthTime={form.partnerBBirthTime}
-        repeatOptions={form.repeatOptions}
-        repeatForced={form.repeatForced}
-        initialCadence={form.cadence}
-        showCelebrantShape={form.showCelebrantShape}
-        initialCelebrantShape={form.celebrantShape}
-        celebrantTypeDefaultLabel={form.celebrantTypeDefaultLabel}
-      />
-      <PaxSettingsCard eventId={eventId} deadline={pax.deadline} mode={pax.mode} />
-    </div>
   );
 }

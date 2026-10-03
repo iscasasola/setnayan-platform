@@ -76,9 +76,9 @@ export async function runLoginGhostingCheck(
             type: 'inquiry_no_response',
             title:
               n === 1
-                ? 'A vendor hasn’t replied yet'
+                ? 'A supplier hasn’t replied yet'
                 : `${n} of your inquiries haven’t been answered`,
-            body: 'Some inquiries are still waiting on a vendor reply. Explore similar matches so your plans keep moving.',
+            body: 'Some inquiries are still waiting on a supplier reply. Explore similar matches so your plans keep moving.',
             relatedUrl: '/dashboard',
           });
         }

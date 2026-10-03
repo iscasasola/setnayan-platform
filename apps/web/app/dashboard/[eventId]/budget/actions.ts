@@ -284,14 +284,14 @@ export async function addSuggestedMilestones(
   const vendor = vendorRes.data as
     | { total_cost_php: number | null; marketplace_vendor_id: string | null }
     | null;
-  if (!vendor) return { ok: false, error: 'Vendor not found.' };
+  if (!vendor) return { ok: false, error: 'Supplier not found.' };
 
   // Marketplace vendors set their own payment plan / catalog pricing — manual
   // milestones there would double-count. Suggestion is for off-platform vendors.
   if (vendor.marketplace_vendor_id !== null) {
     return {
       ok: false,
-      error: 'This vendor sets their own payment plan, so a suggested split isn’t needed.',
+      error: 'This supplier sets their own payment plan, so a suggested split isn’t needed.',
     };
   }
 
@@ -299,7 +299,7 @@ export async function addSuggestedMilestones(
   if (!Number.isFinite(total) || total <= 0) {
     return {
       ok: false,
-      error: 'Add a total cost for this vendor first, then we can suggest a split.',
+      error: 'Add a total cost for this supplier first, then we can suggest a split.',
     };
   }
 
@@ -307,7 +307,7 @@ export async function addSuggestedMilestones(
   if ((existingRes.data ?? []).length > 0) {
     return {
       ok: false,
-      error: 'This vendor already has line items. Add or edit them individually.',
+      error: 'This supplier already has line items. Add or edit them individually.',
     };
   }
 
@@ -334,7 +334,7 @@ export async function addSuggestedMilestones(
     {
       event_id: eventId,
       vendor_id: vendorId,
-      label: 'Deposit (50%)',
+      label: 'First payment (50%)',
       amount_php: deposit,
       due_date: depositDue,
       sort_order: 0,

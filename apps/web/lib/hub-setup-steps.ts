@@ -81,7 +81,7 @@ export const HUB_SETUP_STEPS: readonly HubSetupStepDef[] = [
     key: 'venues',
     map: 'B2',
     title: 'Parish and reception',
-    shows: 'Your Event Hub shows your locked venues first — or the name you type.',
+    shows: 'Your Event Hub shows your booked venues first — or the name you type.',
     short: 'Parish and reception',
     item: 'venues',
     unlocks: 'Directions on the day, and the Parish and Reception cards',

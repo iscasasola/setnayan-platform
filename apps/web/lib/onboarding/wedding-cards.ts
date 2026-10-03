@@ -21,8 +21,12 @@ import type { BudgetBand } from '@/lib/budget-bands-shared';
 export const WEDDING_CARD_IDS = ['w_names', 'w_kind', 'w_area', 'w_pax', 'w_budget', 'w_colours'] as const;
 export type WeddingCardId = (typeof WEDDING_CARD_IDS)[number];
 
-/** The engine cards a wedding keeps (its where/guests/more are answered elsewhere on this flow). */
-export const WEDDING_ENGINE_CARDS = ['setup_entry', 'setup_photo', 'setup_look'] as const;
+/**
+ * The engine cards a wedding keeps (its where/guests/more are answered elsewhere on this flow).
+ * ⚖ Owner d24 (2026-10-02): sign-up no longer asks "How do guests get in?" — a personal QR for
+ * each guest is the default and Event Details changes it, so `setup_entry` is not a card at all.
+ */
+export const WEDDING_ENGINE_CARDS = ['setup_photo', 'setup_look'] as const;
 
 /**
  * 🧭 THE APPROVED ORDER (prototype A, "1 of 7" … "7 of 7", then the Event Hub
@@ -30,7 +34,7 @@ export const WEDDING_ENGINE_CARDS = ['setup_entry', 'setup_photo', 'setup_look']
  * (DECISION_LOG "ONBOARDING'S WHEN IS IT? IS THE SHIPPED HOT-DATE CALENDAR").
  * `account` sits where it always sat: before anything is saved.
  *
- *   A · your wedding: names · kind · date · area · how guests get in · how many · budget
+ *   A · your wedding: names · kind · date · area · how many · budget
  *   B · your Event Hub: cover photo · theme · colours
  *   C · make it yours: the services step (Pro · Setnayan AI · Papic, one bill)
  */
@@ -39,7 +43,6 @@ export const WEDDING_FLOW_ORDER = [
   'w_kind',
   'date',
   'w_area',
-  'setup_entry',
   'w_pax',
   'w_budget',
   'account',

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Activity, Home, Info, BookOpen, Camera, Images, Radio, User, Lock, CalendarClock, Film, Users } from 'lucide-react';
 import type { NavSlot } from '../_lib/site-nav';
-import { HUB_TAB_PARAM, activeHubTab, inPageTabs } from '../_lib/hub-tabs';
+import { HUB_TAB_PARAM, activeHubTab, cameraHrefWithBack, inPageTabs } from '../_lib/hub-tabs';
 
 /**
  * THE EVENT-SITE BOTTOM BAR — icon + label, one shape for everyone.
@@ -199,7 +199,8 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
           {slot.label}
         </button>
       ) : (
-        <a href={slot.href} className={`${SLOT} text-mulberry hover:text-mulberry-600`}>
+        /* 📸 It carries the tab it was tapped on, so the camera's × comes back here. */
+        <a href={cameraHrefWithBack(slot.href, activeKey)} className={`${SLOT} text-mulberry hover:text-mulberry-600`}>
           <Camera aria-hidden className="h-[1.375rem] w-[1.375rem]" strokeWidth={1.75} />
           {slot.label}
         </a>
@@ -242,7 +243,7 @@ export function SiteMenuBar({ slots }: { slots: readonly NavSlot[] }) {
           </button>
         ) : (
           <a
-            href={slot.href}
+            href={isCamera ? cameraHrefWithBack(slot.href, activeKey) : slot.href}
             aria-current={slot.key === activeKey ? 'page' : undefined}
             className={`${RAIL_SLOT} ${
               isCamera

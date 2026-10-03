@@ -77,7 +77,8 @@ export type HubProEffectJump =
     }
   | { kind: 'row'; key: string }
   | { kind: 'tool'; key: 'hero' | 'reveal' | 'love-story' | 'details' | 'logo' }
-  | { kind: 'main' };
+  /** 🎨 The toolbar's Look — theme, background, font and colours (`lib/maker-look-sections.ts`). */
+  | { kind: 'look' };
 
 export type HubProEffect = {
   /** Stable within one draft: what `drop` names. */
@@ -129,16 +130,16 @@ function eventEffect(
   switch (column) {
     case 'invite_theme': {
       const id = normalizeThemeId(value);
-      return { what: 'Theme', where: id ? INVITE_THEMES[id].name : 'Your theme', jump: { kind: 'tool', key: 'details' } };
+      return { what: 'Theme', where: id ? INVITE_THEMES[id].name : 'Your theme', jump: { kind: 'look' } };
     }
     case 'site_font_key':
-      return { what: 'Typeface', where: 'Whole Event Hub', jump: { kind: 'row', key: 'colors' } };
+      return { what: 'Typeface', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_art_direction':
-      return { what: 'Candlelight', where: 'Whole Event Hub', jump: { kind: 'row', key: 'colors' } };
+      return { what: 'Candlelight', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_magic_traveller':
-      return { what: 'Magic move', where: 'Whole Event Hub', jump: { kind: 'row', key: 'colors' } };
+      return { what: 'Magic move', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'site_bg_color':
-      return { what: 'Ombré background', where: 'Whole Event Hub', jump: { kind: 'row', key: 'colors' } };
+      return { what: 'Ombré background', where: 'Whole Event Hub', jump: { kind: 'look' } };
     case 'rsvp_backdrop':
       return { what: 'Moving backdrop', where: 'Invitation', jump: { kind: 'row', key: 'backdrop' } };
     case 'landing_page_hero_image_url':
@@ -231,7 +232,7 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
         id: 'main',
         what: mainWhat(item.value as HubMainGround | null),
         where: 'Behind every scene',
-        jump: { kind: 'main' },
+        jump: { kind: 'look' },
         remove: { widgets: { [item.widgetType]: { main: liveMain } } as HubDraftPatch['widgets'] },
       });
       continue;

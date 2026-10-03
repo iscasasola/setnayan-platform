@@ -512,7 +512,7 @@ export default async function PapicModerationPage({
             Photos from your cameras
           </h2>
           <p className="text-xs text-ink/60">
-            Everything shot on a camera seat — your paparazzi, and any vendor or
+            Everything shot on a camera seat — your paparazzi, and any supplier or
             coordinator shooting for you. Hiding takes a photo out of the gallery
             and every shared link. You can put it back.
           </p>

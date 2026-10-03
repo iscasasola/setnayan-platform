@@ -1,4 +1,5 @@
 import { GridPageSkeleton } from '@/components/skeletons';
+import { LastSeenFallback } from '@/app/_components/last-seen/last-seen-fallback';
 
 /**
  * NO HEADER BUTTONS ARE RESERVED, because the page's header no longer has any
@@ -19,7 +20,11 @@ import { GridPageSkeleton } from '@/components/skeletons';
  */
 
 export default function GuestsLoading() {
+  // 💾 Last-seen data shows at once, then refreshes (owner 2026-10-02) — the
+  // skeleton stays for a first visit, a filtered view, or nothing kept.
   return (
-    <GridPageSkeleton tiles={15} cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" tileClass="h-24" />
+    <LastSeenFallback page="guests">
+      <GridPageSkeleton tiles={15} cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5" tileClass="h-24" />
+    </LastSeenFallback>
   );
 }

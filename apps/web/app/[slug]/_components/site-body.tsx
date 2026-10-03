@@ -55,8 +55,6 @@ import {
 } from '../_lib/site-nav';
 import { GuestDoorwayStrip } from './guest-doorway-strip';
 import { STAGE_BAR, pageStageFor, makerBarItems } from '../_lib/stage-bar';
-import { EverythingElseSheet } from './everything-else-sheet';
-import { resolveEverythingElseRows } from '../_lib/everything-else-rows';
 import { loadEditorialData } from './editorial/data';
 import { editorialPhotoBlocks, editorialShowsPhotos } from './editorial/gallery-anchor';
 import {
@@ -913,6 +911,12 @@ export async function SiteBody({
       recapBar = { film: false, suppliers: false };
     }
   }
+  /** 🎞 The Recap's "Your keepsake reel" door: the album door `resolveAlbumDoor`
+   *  already resolved (anonymous identity only), on a composed recap that has
+   *  photos, never in the Maker's canvas — the gates the retired "Everything
+   *  else" row carried, unchanged. */
+  const recapKeepsakeHref =
+    recapBody && recapHasPhotos && !isEditorCanvas && identity.kind === 'anonymous' ? identity.publicAlbumHref : null;
   // The id the recap stamps on its first photo block. Null unless the bar is
   // there to aim at it, so a menu-less page keeps its markup unchanged.
   const recapGalleryAnchorId =
@@ -1054,7 +1058,7 @@ export async function SiteBody({
   };
   /* The tabs the tree below resolved for its reader — set by whichever tree
      renders (they are evaluated in JSX order, before the blocks after them that
-     read it: the doorway strip, "Everything else", the stories). */
+     read it: the doorway strip, the stories). */
   let pageTabs = pageTabsFor([]);
   /* 🧭 THE DAY'S WELCOME reads the couple's scenes whatever the day's own list
      says (`welcomePartsOnTheDay`): the dress code and the reminders are made on
@@ -1172,6 +1176,24 @@ export async function SiteBody({
             ]),
           )}
         />
+        {/* 🎞 "YOUR KEEPSAKE REEL" IN THE RECAP (owner 2026-10-04, DECISION_LOG
+            "STORY-TAB PLACEMENT CORRECTED AND APPROVED") — it was a row of the
+            retired "Everything else" sheet; now one quiet line under the story.
+            Gated exactly as before: the album door resolved ONCE by
+            `resolveAlbumDoor` (anonymous identity only — the guest tree has no
+            resolved door), a composed recap that really has photos, and never
+            in the Maker's canvas. */}
+        {recapKeepsakeHref ? (
+          <p className="mx-auto mt-8 w-full max-w-3xl px-4 text-center" data-recap-keepsake="">
+            <Link
+              href={recapKeepsakeHref}
+              className="inline-flex min-h-[44px] items-center gap-1.5 text-[15px] text-ink underline-offset-4 hover:underline"
+            >
+              Your keepsake reel
+              <span aria-hidden>→</span>
+            </Link>
+          </p>
+        ) : null}
         {memento}
         <div aria-hidden className="mx-auto my-12 h-px w-24 max-w-full bg-ink/15" />
         {normalBody()}
@@ -3090,20 +3112,14 @@ export async function SiteBody({
               ) : null}
               {storySceneShown ? null : <OurStory loveStory={event.love_story} variant="full" />}
               </>, { chapters: true, className: 'space-y-12', id: SITE_MENU_ANCHORS.story })}
-              {/* Guest Columns (BUILD ① · GUEST_COLUMNS_ENABLED, default OFF) — the
-                  guest's one column for the couple's paper + the approved columns.
-                  Guest-session tree only (cookie holders); flag off → renders null. */}
-              {group('home', (
-              <GuestColumnCard
-                eventId={event.event_id}
-                guestId={guest.guest_id}
-                eventDate={event.event_date}
-                eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
-                eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
-              />
-              ), { chapters: true, className: 'space-y-12' })}
+              {/* ✍ GUEST COLUMNS ARE NOT ON THE WELCOME ANY MORE (owner 2026-10-04,
+                  DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND APPROVED"):
+                  "Write a column" is in the Camera on the day
+                  (`app/papic/guest/page.tsx`) and in the Recap after it (the
+                  second argument below) — one place per stage, never here. */}
             </>
-          ), memento ? (
+          ), recapBody ? (<>
+          {memento ? (
             /* Design §11, After Event column: the reply-card ticket returns as
                the memento — the stamp reads "You were there", and its copy
                points the guest at the gallery on this same page. Same component,
@@ -3117,7 +3133,21 @@ export async function SiteBody({
               venueName={venueLine}
               eventDate={event.event_date}
             />
-          ) : null)}
+          ) : null}
+          {/* ✍ "WRITE A COLUMN" IN THE RECAP (owner 2026-10-04, DECISION_LOG
+              "STORY-TAB PLACEMENT CORRECTED AND APPROVED"). After the day the
+              guest's column card sits in the Recap, under the story — the paper
+              of approved columns, and the form in its closed state (the card
+              itself mirrors the editorial cutoff). Guest-session tree only;
+              GUEST_COLUMNS_ENABLED + the `guest_columns` DPO control, or null. */}
+          <GuestColumnCard
+            eventId={event.event_id}
+            guestId={guest.guest_id}
+            eventDate={event.event_date}
+            eventTz={eventTimezoneFromCoords(event.venue_latitude, event.venue_longitude)}
+            eventEndDate={(event as { event_end_date?: string | null }).event_end_date ?? null}
+          />
+          </>) : null)}
 
           {/* Menu-shell "Me" anchor (PR6) — used to be an EMPTY div, so a guest
               who tapped Me scrolled to nothing and the real affordance (their
@@ -3442,9 +3472,13 @@ export async function SiteBody({
           guest came for at that moment. */}
       {plan.fullBleed || isEditorCanvas ? null : (
         <GuestDoorwayStrip words={clientWords}
-          /* 📱 On a tabbed page these doors are the Welcome's. (The 3D room
-             is a row in "Everything else" now — one place, owner 2026-10-03.) */
+          /* 📱 On a tabbed page these doors are the Welcome's. */
           tabAttrs={pageTabs.attrs('home')}
+          /* 🪑 "Walk the room in 3D" — on The Day's Welcome only (owner
+             2026-10-04, DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND
+             APPROVED"), one quiet line. `doorways.venueWalk` is null unless
+             the ONE seat rule opens the room (lib/guests-may-see-seats.ts). */
+          venueWalk={pageStage === 'event' ? doorways.venueWalk : null}
           /* 🏠 On the Invitation the gift door is on the Welcome page instead
              (owner 2026-09-30) — one door per page, never two. */
           pabuya={
@@ -3454,27 +3488,6 @@ export async function SiteBody({
           }
           broadcast={broadcastNotice}
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
-        />
-      )}
-      {/* ARRIVAL S6 — "everything else". Same mount reasoning as the doorway
-          strip above it (outside both trees, not on the full-bleed STD film):
-          every input below is a value this render already resolved for its
-          own use, never a new question asked of the database. See
-          `_lib/everything-else-rows.ts` for what each row is gated on. */}
-      {plan.fullBleed || isEditorCanvas ? null : (
-        <EverythingElseSheet
-          tabAttrs={pageTabs.attrs('home')}
-          rows={resolveEverythingElseRows({
-            venueWalkHref: doorways.venueWalk,
-            /* The album door, resolved ONCE by `resolveAlbumDoor` in
-               `_lib/loaders.ts` and carried on the anonymous identity — the
-               rows module never builds `/recap` itself
-               (`the-album-door-is-one-decision`). A guest branch has no
-               resolved door, so it passes null and gets no row. */
-            keepsakeHref: identity.kind === 'anonymous' ? identity.publicAlbumHref : null,
-            recapBodyReady: recapBody,
-            recapHasPhotos,
-          })}
         />
       )}
       {/* STORIES ABOUT THIS DAY — the surface the middle privacy answer needed.

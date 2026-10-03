@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { HUB_DRAFT_LOOK_COLUMNS, overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
 import { sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { hubElementHidden } from '@/lib/element-style';
 import type { InvitationWidgetRow } from '@/lib/invitation-widgets';
 import { resolveHubTheme } from '../../_lib/hub-look';
 import { mainGroundLayerFor } from '../../_lib/main-ground-layer';
@@ -91,13 +92,17 @@ function heroConfigOf(widgets: readonly Pick<InvitationWidgetRow, 'widget_type' 
  * the landing then shows exactly what it showed before — no default sentence is
  * invented for it (the approved landing prototype draws the names alone).
  *
- * ⚖ OWNER CALL, SAID: the couple may HIDE the line on the Event Hub's hero
- * (`hidden: true`) — a choice about the hero's composition. The landing is a
- * different page whose prototype puts the couple's words under their names, so
- * the words show here whatever the hero does with them (owner 2026-10-02, live
- * test: the applied line "doesn't show either").
+ * 🙈 IT FOLLOWS THE EVENT HUB (owner 2026-10-04, "YES TO ALL" (2): *"the
+ * couple's line under the names follows the Event Hub everywhere — hidden there
+ * = hidden on the invitation page too"*). When the couple hid the line on the
+ * hero (Arrange → Show: Hidden), the landing shows no line either — asked
+ * through `hubElementHidden`, the SAME predicate the Event Hub's hero draws
+ * with, so the two pages cannot disagree. (Until 2026-10-04 the landing showed
+ * the words whatever the hero did — #6301's flagged owner call, now answered.)
  */
 export function heroLineWord(heroConfig: unknown): string | null {
-  const word = sanitizeHubCanvas(heroConfig).elements?.line?.word;
+  const line = sanitizeHubCanvas(heroConfig).elements?.line;
+  if (hubElementHidden(line)) return null;
+  const word = line?.word;
   return typeof word === 'string' && word.trim() ? word.trim() : null;
 }

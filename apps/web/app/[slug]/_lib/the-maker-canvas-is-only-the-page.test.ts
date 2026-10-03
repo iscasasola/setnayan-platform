@@ -67,7 +67,6 @@ const CHROME: Array<{ name: string; file: 'body' | 'page'; mount: RegExp; gated:
   { name: 'Live hub pill / event-day bar', file: 'body', mount: /<PublicEventDayBar\b/g, gated: /\{isEditorCanvas \? null : \(\s*<PublicEventDayBar\b/g, count: 1 },
   { name: 'floating music button', file: 'body', mount: /<BackgroundMusic\b/g, gated: /&& !isEditorCanvas \? <BackgroundMusic\b/g, count: 1 },
   { name: 'guest doorway strip', file: 'body', mount: /<GuestDoorwayStrip\b/g, gated: /\{plan\.fullBleed \|\| isEditorCanvas \? null : \(\s*<GuestDoorwayStrip\b/g, count: 1 },
-  { name: 'everything-else sheet', file: 'body', mount: /<EverythingElseSheet\b/g, gated: /\{plan\.fullBleed \|\| isEditorCanvas \? null : \(\s*<EverythingElseSheet\b/g, count: 1 },
   { name: 'supplier doorway', file: 'body', mount: /<VendorDoorway\b/g, gated: /\{vendorCapability && !isEditorCanvas \? \(\s*<VendorDoorway\b/g, count: 1 },
   { name: 'site header', file: 'body', mount: /<InvitationShell\b/g, gated: /editorCanvas=\{!showGuestBars\}/g, count: 1 },
   { name: 'guest hub bar', file: 'page', mount: /<GuestHubBar\b/g, gated: /\{isEditorCanvas \? null : \(\s*<GuestHubBar\b/g, count: 1 },

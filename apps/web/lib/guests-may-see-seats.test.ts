@@ -189,12 +189,14 @@ test('the public landing’s "Find your seat" pill asks the rule (site-body.tsx)
   assert.match(code, /\{seatPassActive && !isMakerCanvas && !seatMap \? \(\s*<SeatDoorLine/, 'the Details seat line (data-seat-door)');
 });
 
-test('the everything-else 3D room opens only with the rule — and "Find my table" is not a second seat door (everything-else-rows.ts + site-nav.ts)', () => {
-  const rows = stripComments(src('app/[slug]/_lib/everything-else-rows.ts'));
-  // 2026-10-03 (owner: one place per control): the seat door is the Welcome's
-  // seat line / "Find your seat"; the sheet's "Find my table" row was a second.
-  assert.doesNotMatch(rows, /key: 'find-my-table'/, 'Everything else offers a second seat door again');
-  assert.match(rows, /if \(input\.venueWalkHref\) \{\s*rows\.push\(\{ key: 'venue-walk'/, 'the 3D room row escaped venueWalkHref');
+test('the day’s 3D room opens only with the rule (guest-doorway-strip.tsx + site-body.tsx + site-nav.ts)', () => {
+  // 2026-10-04 (owner, "STORY-TAB PLACEMENT CORRECTED AND APPROVED"): the 3D
+  // room left the retired "Everything else" sheet for The Day's Welcome — the
+  // doorway strip's quiet line, handed `doorways.venueWalk` and nothing else.
+  const body = stripComments(src('app/[slug]/_components/site-body.tsx'));
+  assert.match(body, /venueWalk=\{pageStage === 'event' \? doorways\.venueWalk : null\}/, 'the 3D room escaped venueWalk (or left The Day)');
+  const strip = stripComments(src('app/[slug]/_components/guest-doorway-strip.tsx'));
+  assert.match(strip, /\{venueWalk \? \(\s*<p className="text-center" data-venue-walk="">\s*<Link\s*href=\{venueWalk\}/, 'the 3D line links somewhere other than venueWalk');
   const nav = stripComments(src('app/[slug]/_lib/site-nav.ts'));
   assert.match(nav, /const venueWalk =\s*input\.seatingSurfaceEnabled && input\.seatingPublished/, 'venueWalkHref is the seat rule');
   const loaders = stripComments(src('app/[slug]/_lib/loaders.ts'));

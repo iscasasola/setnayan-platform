@@ -1,4 +1,5 @@
 import { eventNoun } from '@/lib/event-noun';
+import { guestMatchesSearch } from '@/lib/guest-search';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { Link2, ArrowRight, Send, LayoutGrid, ListOrdered } from 'lucide-react';
@@ -17,9 +18,6 @@ import {
   fetchGuestGroupsByEvent,
   fetchGuestsByEventMeasured,
   guestDisplayName,
-  GROUP_CATEGORY_LABELS,
-  guestRoleLabel,
-  ROLE_LABELS,
   RSVP_LABELS,
   SIDE_LABELS,
   SIDE_ORDER,
@@ -600,12 +598,14 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       )
     : null;
 
-  // Build a guest_id → group-label-blob index so the search haystack
-  // can match against custom-group labels + team_side labels (so typing
-  // "katropa" or "team bride" finds the guests in that group). Done
-  // once before the filter loop instead of inside it to avoid N×M
-  // lookups across the guests × groups cross product.
-  const groupBlobByGuestId = new Map<string, string>();
+  // ── THE SEARCH (owner 2026-10-03: "VIP" and "Bestman" found nobody) ──────
+  // ONE matcher, `guestMatchesSearch` (lib/guest-search.ts), answers `?q=` —
+  // the same `?q=` the top bar's "Search guests" box writes — so the box and
+  // the list can never disagree. What is not on the guest row (their groups,
+  // table, song requests) is read once here, only while somebody is searching.
+  const groupLabelsByGuestId = new Map<string, string[]>();
+  const tableLabelByGuestId = new Map<string, string>();
+  const songsByGuestId = new Map<string, string[]>();
   if (q) {
     const groupById = new Map<string, GuestGroupWithCount>(
       groups.map((g) => [g.group_id, g]),
@@ -618,7 +618,28 @@ export default async function GuestsPage({ params, searchParams }: Props) {
         parts.push(grp.label);
         if (hasSides) parts.push(TEAM_SIDE_LABELS[grp.team_side]);
       }
-      if (parts.length > 0) groupBlobByGuestId.set(guestId, parts.join(' '));
+      if (parts.length > 0) groupLabelsByGuestId.set(guestId, parts);
+    }
+    const tableLabelOf = new Map(tables.map((t) => [t.table_id, t.table_label]));
+    for (const a of assignments) {
+      const label = tableLabelOf.get(a.table_id);
+      if (label) tableLabelByGuestId.set(a.guest_id, label);
+    }
+    // Their song requests — the host reads their own event's (RLS
+    // `event_song_requests_read`). Refused → no song words, the rest still match.
+    const { data: songRows } = await supabase
+      .from('event_song_requests')
+      .select('guest_id, songs(title, artist)')
+      .eq('event_id', eventId)
+      .eq('origin', 'guest');
+    for (const row of (songRows ?? []) as { guest_id: string | null; songs: unknown }[]) {
+      if (!row.guest_id) continue;
+      const song = (Array.isArray(row.songs) ? row.songs[0] : row.songs) as
+        | { title?: string | null; artist?: string | null }
+        | null
+        | undefined;
+      const words = [song?.title, song?.artist].filter(Boolean).join(' ');
+      if (words) songsByGuestId.set(row.guest_id, [...(songsByGuestId.get(row.guest_id) ?? []), words]);
     }
   }
 
@@ -630,46 +651,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     if (rsvpFilter && g.rsvp_status !== rsvpFilter) return false;
     if (tagFilter && !g.custom_tags.includes(tagFilter)) return false;
     if (groupMemberSet && !groupMemberSet.has(g.guest_id)) return false;
-    if (q) {
-      // Haystack covers (owner directive 2026-05-23 PM):
-      //   - names · display name · email · mobile · custom tags
-      //   - role display label (e.g. "Matron of Honor") AND the raw
-      //     enum value space-normalized ("matron of honor") so typing
-      //     either form hits
-      //   - side label ("Bride's side" / "Groom's side" / "Both sides")
-      //   - group category label (Family / Friends / Work / School /
-      //     Officiant / Other)
-      //   - RSVP status label (Attending / Pending / Declined / Maybe)
-      //   - custom group labels (e.g. "Katropa") + team_side labels
-      //     ("Team Bride" / "Team Groom" / "Both sides") for every
-      //     custom group the guest belongs to
-      // NAMED FOR WHAT IT IS. `lib/entourage` exports a `roleLabel` too, built
-      // from the entourage's own printed wording; this is the roster's
-      // ROLE_LABELS, used only to make a role searchable. Two rules, so two
-      // names — a shared identifier would hide that they differ.
-      // + the couple's own word for it (owner 2026-09-30), so "crew" finds the Bride's Crew.
-      const roleSearchLabel = `${ROLE_LABELS[g.role]} ${guestRoleLabel(g.role, roleNames)}`;
-      const roleEnumNormalized = g.role.replace(/_/g, ' ');
-      const groupBlob = groupBlobByGuestId.get(g.guest_id) ?? '';
-      const haystack = [
-        g.first_name,
-        g.last_name,
-        g.display_name ?? '',
-        g.email ?? '',
-        g.mobile ?? '',
-        g.custom_tags.join(' '),
-        roleSearchLabel,
-        roleEnumNormalized,
-        // A sideless event's every guest is 'both' — "both" would match them all.
-        hasSides ? SIDE_LABELS[g.side] : '',
-        GROUP_CATEGORY_LABELS[g.group_category],
-        RSVP_LABELS[g.rsvp_status],
-        groupBlob,
-      ]
-        .join(' ')
-        .toLowerCase();
-      if (!haystack.includes(q)) return false;
-    }
+    if (
+      q &&
+      !guestMatchesSearch(q, g, {
+        roleNames,
+        hasSides,
+        groupLabels: groupLabelsByGuestId.get(g.guest_id),
+        tableLabel: tableLabelByGuestId.get(g.guest_id) ?? null,
+        songRequests: songsByGuestId.get(g.guest_id),
+      })
+    )
+      return false;
     return true;
   });
   // Role-view + custom-group now COMBINE (2026-06-13) — the group-member

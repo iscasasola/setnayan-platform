@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { MoreHorizontal, X } from 'lucide-react';
 import { NfcWriteButton } from '@/app/_components/nfc-write-button';
@@ -8,6 +8,7 @@ import { SaveFileLink } from '@/app/_components/save-file-link';
 import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { placeMenu } from '@/lib/menu-place';
 import { releaseGuestClaim } from '../[guestId]/actions';
 import { ticketFileName, ticketUrl } from './send-invite';
 import { DeleteGuestFlow } from './guest-delete';
@@ -153,6 +154,9 @@ export function GuestTicketThumb({
   );
 }
 
+/** The ⋯ list's width (was `w-56`) — one number for the CSS and the placement. */
+const MORE_MENU_WIDTH = 224;
+
 /** ⋯ — Write to NFC · New QR · Unlink account · Delete guest, one list. */
 export function GuestMoreMenu({
   eventId,
@@ -189,7 +193,7 @@ export function GuestMoreMenu({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [portal, setPortal] = useState<HTMLElement | null>(null);
-  const [at, setAt] = useState<{ top: number; right: number } | null>(null);
+  const [at, setAt] = useState<{ top: number; left: number } | null>(null);
   const confirmId = useId();
   const menuId = useId();
   const release = releaseGuestClaim.bind(null, eventId, guestId);
@@ -204,10 +208,33 @@ export function GuestMoreMenu({
     row's edge. It is drawn on the page now, pinned under the ⋯ where it was
     tapped, and closes if the page scrolls out from under it.
   */
+  /*
+    ⚖ WHOLLY ON SCREEN (live bug on 74ff0be at 375 px, 2026-10-03). The list
+    was pinned by its RIGHT edge to the ⋯'s right edge — and on a phone row the
+    ⋯ sits on the LEFT, beside Invite, so the list ran off the left of the
+    screen and only "…to NFC" showed. It lines up with the ⋯'s right edge when
+    it fits, and is otherwise clamped into the viewport (flipped above when
+    there is no room below) by the one placement rule, lib/menu-place.ts.
+  */
   const place = () => {
     const r = buttonRef.current?.getBoundingClientRect();
-    if (r) setAt({ top: r.bottom + 6, right: Math.max(8, window.innerWidth - r.right) });
+    if (!r) return;
+    const vw = window.innerWidth;
+    setAt(
+      placeMenu(
+        r,
+        { width: vw, height: window.innerHeight },
+        { width: Math.min(MORE_MENU_WIDTH, vw - 16), height: menuRef.current?.offsetHeight ?? 0 },
+        'end',
+      ),
+    );
   };
+  // Measured again once it is showing, so a tall list flips above a ⋯ that sits
+  // low on the screen (its height is 0 while hidden).
+  useLayoutEffect(() => {
+    if (open) place();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, portal]);
 
   useEffect(() => {
     if (!open) return;
@@ -264,9 +291,13 @@ export function GuestMoreMenu({
         id={menuId}
         role="menu"
         hidden={!open}
-        style={at ? { top: at.top, right: at.right } : undefined}
+        style={
+          at
+            ? { top: at.top, left: at.left, width: MORE_MENU_WIDTH, maxWidth: 'calc(100vw - 16px)' }
+            : { width: MORE_MENU_WIDTH, maxWidth: 'calc(100vw - 16px)' }
+        }
         data-guest-more-list=""
-        className="fixed z-[96] w-56 rounded-2xl bg-cream p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/5"
+        className="fixed z-[96] rounded-2xl bg-cream p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/5"
       >
         {nfcUrl ? (
           <NfcWriteButton url={nfcUrl} className={item} />

@@ -28,6 +28,7 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { placeMenu } from '@/lib/menu-place';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
 /** Portal target = document.body, gated on mount so SSR/first paint match. */
@@ -149,13 +150,13 @@ export function Popover({
     const anchor = anchorRef.current;
     const el = ref.current;
     if (!anchor || !el) return;
-    const r = anchor.getBoundingClientRect();
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    const h = el.offsetHeight;
-    const left = Math.max(8, Math.min(r.left, vw - width - 8));
-    let top = r.bottom + 6;
-    if (top + h > vh - 8) top = Math.max(8, r.top - h - 6); // flip above
+    // Under the anchor, clamped wholly on screen, flipped above when there is
+    // no room below — the ONE placement rule (lib/menu-place.ts).
+    const { left, top } = placeMenu(
+      anchor.getBoundingClientRect(),
+      { width: window.innerWidth, height: window.innerHeight },
+      { width, height: el.offsetHeight },
+    );
     setPos({ left, top });
     /*
       🔴 `portal` IS A DEPENDENCY, AND ITS ABSENCE WAS A LIVE BUG. `usePortal`

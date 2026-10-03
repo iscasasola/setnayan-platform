@@ -39,6 +39,9 @@ export const VENDOR_CLIENT_TABS = [
   'payments',
   'files',
   'schedule',
+  // Shown only to a supplier holding the stage-script entitlement (the
+  // emcee / host); `hidden` for everyone else, exactly like the OFF card.
+  'script',
   'details',
 ] as const;
 export type VendorClientTab = (typeof VENDOR_CLIENT_TABS)[number];
@@ -53,7 +56,7 @@ export type VendorClientTab = (typeof VENDOR_CLIENT_TABS)[number];
  * whose `normalizeTab` (app/.../_components/customer-card-nav.tsx) accepts only
  * the list below and silently rewrites everything else to `overview`.
  *
- *     shell ON   chat · quote · payments · files · schedule · details
+ *     shell ON   chat · quote · payments · files · schedule · script · details
  *     shell OFF  overview · quote · files · schedule · script · activity
  *                          └──────── the whole intersection ────────┘
  *

@@ -202,6 +202,9 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
       )
       .eq('event_id', eventId)
       .eq('status', 'open')
+      // A change or removal whose moment is already gone (the FK is ON DELETE
+      // SET NULL since 20271263061583) has nothing left to approve.
+      .or('kind.eq.new,block_id.not.is.null')
       .order('created_at', { ascending: true }),
     // Recap publish row — the Journey mode's editorial bookend. RLS lets the
     // couple/coordinator read their own row; a missing table (pre-migration)
@@ -893,7 +896,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
 type VendorSuggestion = {
   suggestion_id: string;
   block_id: string | null;
-  kind: 'adjust' | 'new';
+  kind: 'adjust' | 'new' | 'remove';
   suggested_by_name: string | null;
   proposed_label: string | null;
   proposed_start_at: string | null;
@@ -920,7 +923,8 @@ function fmtSuggestionTime(iso: string | null): string | null {
  * Phase 3 § 4). Vendors can't write the timeline — they propose; you (or a
  * delegate with schedule edit) accept or decline. Accepting an 'adjust'
  * applies the proposed fields to the block; accepting a 'new' creates the
- * block as a draft (is_public stays your call).
+ * block as a draft (is_public stays your call); accepting a 'remove' deletes
+ * the block.
  */
 function VendorSuggestionsQueue({
   eventId,
@@ -956,7 +960,14 @@ function VendorSuggestionsQueue({
             <li key={s.suggestion_id} className="space-y-1.5 py-3">
               <p className="text-sm">
                 <span className="font-medium">{s.suggested_by_name ?? 'A booked supplier'}</span>{' '}
-                {s.kind === 'adjust' ? (
+                {s.kind === 'remove' ? (
+                  <>
+                    asks to remove{' '}
+                    <span className="font-medium">
+                      {blockLabel.get(s.block_id ?? '') ?? s.proposed_label ?? 'a timeline block'}
+                    </span>
+                  </>
+                ) : s.kind === 'adjust' ? (
                   <>
                     asks to change{' '}
                     <span className="font-medium">

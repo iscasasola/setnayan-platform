@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6602
+# facts: 6604
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4825
 #   policy    944
 #   view      8
-#   func      253
+#   func      255
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -6531,6 +6531,7 @@ func	public.refuse_vendor_payment(p_payment_id uuid, p_reason text)	secdef=yes e
 func	public.reject_colour_change(p_change_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.reject_vendor_deposit(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.reject_vendor_subscription(p_purchase_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=UNPINNED
+func	public.release_deleted_guest_song_requests(p_event_id uuid, p_guest_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.release_schedule_pools(p_event_vendor_id uuid, p_reason text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.release_seating_editor_lock(p_lock_id uuid)	secdef=yes exec=anon,authenticated search_path=public
 func	public.request_event_deletion(p_event_id uuid)	secdef=yes exec=authenticated search_path=public
@@ -6544,6 +6545,7 @@ func	public.resolve_schedule_pool(p_vendor_profile_id uuid, p_category_key text)
 func	public.resolve_supplies_pricing(p_sku_code text, p_service_area_code text, p_quantity integer)	secdef=no exec=anon,authenticated search_path=UNPINNED
 func	public.respond_creator_offer(p_offer_id uuid, p_response text, p_deliverable_chapter_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.respond_vendor_proposal(p_proposal_id uuid, p_response text, p_coarse_category text)	secdef=yes exec=authenticated search_path=public
+func	public.restore_deleted_guests(p_event_id uuid, p_guest_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.review_is_booked_through_setnayan(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public, extensions
 func	public.review_via_vendor_import(p_event_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=anon,authenticated search_path=public, extensions
 func	public.rls_auto_enable()	secdef=yes exec=anon,authenticated search_path=pg_catalog

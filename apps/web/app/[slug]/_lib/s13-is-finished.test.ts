@@ -136,6 +136,14 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
       'so every other line of the seal stays under the scan.',
   },
   {
+    file: 'invite/_components/themes/seal-mark.tsx',
+    snippet: "from '@/lib/couple-logo-plays'",
+    why:
+      'The one "does this logo play" rule (2026-10-04: asked by the seal, not inside CoupleLogo, so ' +
+      'CoupleLogo ships no logo-layers) — the word is in the MODULE NAME and nothing is rendered ' +
+      'from it. Keyed on the LINE, so every other line of the seal stays under the scan.',
+  },
+  {
     file: 'recap/page.tsx',
     snippet: "from '@/lib/couple-website-pro'",
     why: 'The Pro-tier helper import. The rest of this file — its rendered stand-in included — stays under the scan.',

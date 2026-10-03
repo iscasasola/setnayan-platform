@@ -17,9 +17,9 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createElement, Suspense, type ComponentType } from 'react';
+import { createElement, lazy, Suspense, type ComponentType } from 'react';
 import { renderToString } from 'react-dom/server';
-import { isDynamicComponent, warmDynamic, warmDynamicExports } from './warm-dynamic';
+import { isDynamicComponent, isLazyComponent, warmDynamic, warmDynamicExports } from './warm-dynamic';
 
 import appDynamic from 'next/dist/shared/lib/app-dynamic';
 
@@ -75,4 +75,22 @@ test('4 · warmDynamicExports warms every dynamic export and ignores the rest', 
   assert.match(firstRender(B), /real x/);
   assert.equal(isDynamicComponent(Piece), false);
   await warmDynamic(Piece); // a plain component: nothing to do, no throw
+});
+
+test('5 · a bare React.lazy export is warmed too — and a failed one is put back', async () => {
+  const Cold = lazy(() => Promise.resolve({ default: Piece }));
+  assert.ok(isLazyComponent(Cold), 'React.lazy changed shape — warm-dynamic cannot find it');
+  assert.match(firstRender(Cold), /outer/, 'a cold lazy drew without suspending — re-measure before trusting warm-dynamic');
+  const Warm = lazy(() => Promise.resolve({ default: Piece }));
+  await warmDynamicExports({ Warm, helper: () => 1 });
+  assert.match(firstRender(Warm), /real x/, 'a warmed React.lazy export still suspended');
+  let calls = 0;
+  const Flaky = lazy(() => {
+    calls += 1;
+    return calls === 1 ? Promise.reject(new Error('offline')) : Promise.resolve({ default: Piece });
+  });
+  await assert.rejects(warmDynamic(Flaky), /offline/);
+  assert.match(firstRender(Flaky), /outer/);
+  assert.equal(calls, 2, 'the failed lazy load was not retried — React.lazy kept the rejection');
+  assert.equal(isLazyComponent(Piece), false);
 });

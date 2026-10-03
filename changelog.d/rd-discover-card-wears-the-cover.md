@@ -114,3 +114,18 @@ the supplier's client page, and `the-logo-is-layers.test.ts`'s hero pin, now mat
 `coupleLogoPlays(<svg>, …)` instead of the bare value, because that is where the decision now lives.
 Sabotaged: restoring `plays={plays}` on the seal turns the new test and test 6 red; adding a
 `logo-layers` import to `couple-logo-arrival.ts` turns the graph check red.
+
+**2026-10-04 · perf(logo): the player is a bare `React.lazy`, not `next/dynamic`.** With
+`logo-layers` gone, `/` measured 213 kB; the rest was `next/dynamic`'s app runtime, which the page's
+chunk group carried as its own copy (chunk `94321`, ~2.4 kB gzipped, also present in the layout's
+group). The player never renders on the server (it mounts only in the `play` phase, set by an
+effect), so `CoupleLogo` now uses `React.lazy` + `<Suspense fallback={null}>`, which draws the same
+nothing while the chunk arrives. `/` First Load JS: **211 kB** (local `pnpm build`).
+- The Maker's warm still works: `lib/warm-dynamic.ts` now also warms an exported bare `React.lazy`
+  (`isLazyComponent`, the same `_init`, and a failed load is put back), so `maker:logo-player`
+  keeps `import('@/app/_components/couple-logo').then(warmDynamicExports)` and
+  `maker-tools-are-all-preloaded.test.ts` is unchanged. `warm-dynamic.test.ts` test 5 holds it
+  (cold suspends, warmed draws, failure retried); dropping the lazy case from `warmDynamicExports`
+  turns it red.
+- `s13-is-finished.test.ts` gets one LINE-keyed pardon for the seal's new
+  `from '@/lib/couple-logo-plays'` import: the word is in a module name, and nothing is rendered from it.

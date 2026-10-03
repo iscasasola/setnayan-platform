@@ -1,7 +1,6 @@
 'use client';
 
-import dynamic from 'next/dynamic';
-import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { coupleLogoPlayKey, logoArrivals, logoPhaseOnMount } from '@/lib/couple-logo-arrival';
 
 /* 📦 THE PLAYER LOADS WHEN A LOGO PLAYS. It mounts only in the `play` phase,
@@ -9,11 +8,14 @@ import { coupleLogoPlayKey, logoArrivals, logoPhaseOnMount } from '@/lib/couple-
  * logos are stills (every Discover card without a moving mark) ships none of it.
  * While the chunk arrives the box shows nothing, the same as `pending`'s
  * invisible still, so the entrance still never starts from a finished logo.
- * EXPORTED so the Maker's preload (`MAKER_TOOLS` → `maker:logo-player`) can
- * warm it while the phone is idle — the Maker's first Play never waits. */
-export const LayeredLogoPlayer = dynamic(
-  () => import('@/app/_components/layered-logo-player').then((m) => m.LayeredLogoPlayer),
-  { ssr: false },
+ * A bare `React.lazy`, not `next/dynamic`: it never renders on the server, so
+ * it needs none of `next/dynamic`'s SSR machinery, which a page's chunk group
+ * would otherwise carry (~2 kB gzipped on `/`, measured 2026-10-04).
+ * EXPORTED so the Maker's preload (`MAKER_TOOLS` → `maker:logo-player`,
+ * `warmDynamicExports`) can warm it while the phone is idle — the Maker's
+ * first Play never waits. */
+export const LayeredLogoPlayer = lazy(() =>
+  import('@/app/_components/layered-logo-player').then((m) => ({ default: m.LayeredLogoPlayer })),
 );
 
 /**
@@ -136,7 +138,9 @@ function PlayingLogo({
       style={style}
     >
       {phase === 'play' ? (
-        <LayeredLogoPlayer svg={svg} settled={settled} onRefused={() => setPhase('still')} className="h-full w-full" />
+        <Suspense fallback={null}>
+          <LayeredLogoPlayer svg={svg} settled={settled} onRefused={() => setPhase('still')} className="h-full w-full" />
+        </Suspense>
       ) : (
         /* Until it plays: the still, kept in the HTML (no JavaScript, reduced
            motion, a refused tree), and hidden only while motion is allowed so

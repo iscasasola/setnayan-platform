@@ -46,6 +46,7 @@ import {
   type GuestRole,
   type GuestRow,
   type GuestSide,
+  RSVP_ROW_WORDS,
   type RsvpStatus,
 } from '@/lib/guests';
 import type { GuestFieldOverride } from '@/lib/guest-optimistic';
@@ -420,12 +421,7 @@ export function PlusOneChipEditor({ eventId, guest }: { eventId: string; guest: 
 // holds it, so opening the list never rewrites an answer by itself.
 const RSVP_OPTIONS: RsvpStatus[] = ['attending', 'pending', 'declined'];
 /** The row's words for an answer — the approved list says "No reply" / "Not coming". */
-export const ROW_RSVP_WORDS: Record<RsvpStatus, string> = {
-  attending: 'Attending',
-  pending: 'No reply',
-  declined: 'Not coming',
-  maybe: 'Maybe',
-};
+export const ROW_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS;
 
 /** True when this guest's RSVP is locked to Attending (the couple). */
 function rsvpLocked(guest: GuestRow): boolean {

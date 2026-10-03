@@ -109,7 +109,7 @@ export async function saveBlockScript(
   if (!user) return err('Please sign in again.');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return err('No vendor profile found for this account.');
+  if (!profile) return err('No supplier profile found for this account.');
 
   /*
     🔴 THIS GATE WAS DEAD, AND SO WAS EVERY SAVE BEHIND IT.

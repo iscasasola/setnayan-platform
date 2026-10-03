@@ -68,6 +68,6 @@ export function vendorTargetRefusalMessage(args: {
   const target = normalizeId(args.targetVendorProfileId) ?? 'unknown';
   return (
     `SEC-4b: order ${args.orderId} (vendor_profile_id=${order}) may not ` +
-    `provision ${args.serviceKey}, which belongs to vendor ${target}. Refusing to activate.`
+    `provision ${args.serviceKey}, which belongs to supplier ${target}. Refusing to activate.`
   );
 }

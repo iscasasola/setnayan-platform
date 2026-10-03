@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '../security/source-text';
 import { ALLOWED_CEREMONY_VALUES } from '../faith-registry';
 import { BUDGET_BANDS_FALLBACK } from '../budget-bands-shared';
-import { applyGuestsIn, guestsInOf, sanitizeSetupAnswers, setupDefaults, type SetupView } from './setup-answers';
+import { sanitizeSetupAnswers, setupDefaults, type SetupView } from './setup-answers';
 import { setupColumns } from './event-insert';
 import {
   CEREMONY_CHOICES,
@@ -61,9 +61,9 @@ const VIEW: SetupView = {
 
 // ── the order ─────────────────────────────────────────────────────────────
 
-test('the approved order — names · kind · date · area · guests-in · estimate · budget · … · services', () => {
+test('the approved order — names · kind · date · area · estimate · budget · … · services (12 cards, not 13)', () => {
   const all = weddingFlowScreens({
-    engineCards: ['setup_where', 'setup_photo', 'setup_look', 'setup_entry', 'setup_guests', 'setup_more'],
+    engineCards: ['setup_where', 'setup_photo', 'setup_look', 'setup_guests', 'setup_more'],
     skipAccount: false,
     services: true,
   });
@@ -72,7 +72,6 @@ test('the approved order — names · kind · date · area · guests-in · estim
     'w_kind',
     'date',
     'w_area',
-    'setup_entry',
     'w_pax',
     'w_budget',
     'account',
@@ -82,6 +81,9 @@ test('the approved order — names · kind · date · area · guests-in · estim
     'services_step',
     'congrats',
   ]);
+  assert.equal(all.length, 12, 'owner d24: sign-up drops the "How do guests get in?" card — 13 cards became 12');
+  assert.ok(!(WEDDING_FLOW_ORDER as readonly string[]).includes('setup_entry'));
+  assert.ok(!(WEDDING_ENGINE_CARDS as readonly string[]).includes('setup_entry'));
 });
 
 test('the engine cards a wedding does NOT keep (where · guests · more) never appear', () => {
@@ -159,21 +161,14 @@ test('budget rows are per-head median × the estimate; no band is ever hidden by
   assert.equal(budgetRows(BUDGET_BANDS_FALLBACK, 500).find((r) => r.value === 'classic')!.pesos, 2_500_000);
 });
 
-// ── 5 · how do guests get in ──────────────────────────────────────────────
+// ── 5 · how do guests get in — no longer a card (owner d24, 2026-10-02) ───
 
-test('"How do guests get in?" is one three-way answer over fields the engine already holds', () => {
-  for (const g of ['list', 'requests', 'open'] as const) {
-    const a = { ...setupDefaults(VIEW), ...applyGuestsIn(g) };
-    assert.equal(guestsInOf(a), g);
-  }
-  assert.equal(guestsInOf(setupDefaults(VIEW)), 'list', 'a wedding opens on the guest list');
-});
-
-test('each guests-in answer lands in rsvp_ask_config — the field the Guest list already reads', () => {
-  const col = (g: 'list' | 'requests' | 'open') => setupColumns({ ...setupDefaults(VIEW), ...applyGuestsIn(g) }).rsvp_ask_config;
-  assert.equal(col('list'), null, 'the Guest list\'s own first-visit pop-up asks "Who can reply?"');
-  assert.deepEqual(col('requests'), { whoCanRsvp: 'anyone' });
-  assert.deepEqual(col('open'), { guestsReply: false, whoCanRsvp: 'anyone' });
+test('a wedding is never asked how guests get in: the default is a personal QR for each guest, no write', () => {
+  const d = setupDefaults(VIEW);
+  assert.equal(d.reply, 'yes', 'a wedding\'s guests reply');
+  assert.equal(d.entry, 'personal', 'each guest gets a personal QR');
+  // Nothing is stored: an absent `rsvp_ask_config` already reads "Only people on my list" (lib/who-can-reply.ts).
+  assert.equal(setupColumns(d).rsvp_ask_config, null);
 });
 
 test('the wire cannot invent a requests flag — only a literal true counts', () => {

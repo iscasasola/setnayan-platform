@@ -11,6 +11,7 @@ import { fetchInvitationBase } from '../_components/guest-card-data';
 import { loadInviteSetup } from '../_components/invite-message-setup';
 import type { SendInviteGuest } from '../_components/send-invite';
 import { SendRun } from './_components/send-run';
+import { invitationLinkOn } from '@/lib/invitation-link';
 
 export const metadata = { title: 'Send invites one by one' };
 
@@ -71,7 +72,7 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
       formalName: guestFullName(g, setup.facts.nameStyle),
       firstName: g.first_name,
       fullName: guestDisplayName(g),
-      inviteUrl: invitationBase && g.qr_token ? `${invitationBase}?invite=${g.qr_token}` : null,
+      inviteUrl: invitationBase && g.qr_token ? invitationLinkOn(invitationBase, g.qr_token) : null,
       sentAt: g.invitation_sent_at,
     }));
 

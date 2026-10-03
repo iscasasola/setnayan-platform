@@ -1,4 +1,5 @@
 import { TOURS, type TourKey } from '@/lib/tours';
+import { TIP_POPUPS_ON } from '@/lib/tip-popups';
 import { GuidedTourCard } from './guided-tour-card';
 import { tourSlideView, type GuidedTourView } from './tour-slide-view';
 
@@ -22,6 +23,8 @@ type Props = {
 // (`guided-tour-card.tsx`) just those slides. Same props as before, same markup.
 /** One tour, drawn for a carousel — server side. The guest page uses it too (`guest-guided-tour.tsx`). */
 export function guidedTourView(tourKey: TourKey, storeShell = false): GuidedTourView {
+  // Switched off (`lib/tip-popups.ts`): draw nothing, so a guest page does not even carry the words.
+  if (!TIP_POPUPS_ON) return { slides: [], label: '', blurb: '' };
   const tour = TOURS[tourKey];
   return {
     slides: tour.slides.filter((s) => !(storeShell && s.sells)).map(tourSlideView),
@@ -31,5 +34,6 @@ export function guidedTourView(tourKey: TourKey, storeShell = false): GuidedTour
 }
 
 export function GuidedTour({ tourKey, completeAction, storeShell = false }: Props) {
+  if (!TIP_POPUPS_ON) return null;
   return <GuidedTourCard tourKey={tourKey} {...guidedTourView(tourKey, storeShell)} completeAction={completeAction} />;
 }

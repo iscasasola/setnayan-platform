@@ -45,3 +45,21 @@ export function findMakerSection(doc: Document, key: string): HTMLElement | null
   if (anchor.offsetHeight > 0) return anchor;
   return (anchor.closest('section, article, div[id]') as HTMLElement | null) ?? anchor;
 }
+
+/**
+ * 📍 THE SECTION THE COUPLE IS LOOKING AT — the first section whose bottom is
+ * below `line` (px from the top of the canvas viewport). Owner, live phone test
+ * 2026-10-02: after Apply the canvas reloaded onto the RSVP page while Page ▾
+ * still said "Invitation › Welcome". The Maker now keeps THIS section in place
+ * across a reload (`carryScroll`) and names its page in Page ▾ as the canvas
+ * scrolls (`editor-shell.tsx`). Null when the page draws no marked section.
+ */
+export function makerSectionInView(doc: Document, line = 0): string | null {
+  for (const marker of Array.from(doc.querySelectorAll('[data-maker-section]'))) {
+    const section = sectionAfter(marker);
+    if (!section) continue;
+    const r = section.getBoundingClientRect();
+    if (r.height > 0 && r.bottom > line) return marker.getAttribute('data-maker-section');
+  }
+  return null;
+}

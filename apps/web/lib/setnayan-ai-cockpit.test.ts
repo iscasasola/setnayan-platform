@@ -170,7 +170,7 @@ test('lockedPct + briefing sentence reflect the counts', () => {
     NOW,
   );
   assert.equal(m.briefing.lockedPct, 25);
-  assert.match(m.briefing.sentence, /25% locked in/);
+  assert.match(m.briefing.sentence, /25% booked/);
   assert.match(m.briefing.sentence, /1 decision needs you/);
   assert.match(m.briefing.sentence, /next deadline in 4 weeks/);
 });

@@ -15,6 +15,7 @@ import {
   resolveEventSubdomainPath,
 } from '@/lib/custom-domain-resolve';
 import { userNestingRewritePath } from '@/lib/u-nesting';
+import { mayRefreshGuestPass } from '@/lib/guest-pass-hop';
 import { legacyRedirectTarget } from '@/lib/legacy-redirects';
 import {
   isStoreShellSignals,
@@ -145,6 +146,11 @@ async function refreshGuestSessionCookie(
   request: NextRequest,
   response: NextResponse,
 ): Promise<void> {
+  // 🔑 ONE WRITER PER HOP (lib/guest-pass-hop.ts). A personal link's redeem, a
+  // seat claim, a sign-out and every Server Action write or clear the pass
+  // themselves; re-signing the OLD pass onto the same response made two
+  // writers of one cookie, and the phone kept whichever header came last.
+  if (!mayRefreshGuestPass(request.method, request.nextUrl.pathname, request.nextUrl.search)) return;
   const cookie = request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value;
   if (!cookie) return;
 

@@ -68,7 +68,7 @@ export async function proposePartnership(formData: FormData) {
   const relationshipTypeRaw = readString(formData, 'relationship_type');
 
   if (!recommendedId || !relationshipTypeRaw) {
-    back('Please choose a vendor and a partnership type.');
+    back('Please choose a supplier and a partnership type.');
   }
   if (!(RELATIONSHIP_TYPES as readonly string[]).includes(relationshipTypeRaw)) {
     back('Unknown partnership type.');
@@ -133,7 +133,7 @@ async function respondToPartnership(
 
   if (error) back(error.message);
   if (!data) {
-    back('That proposal is no longer pending — it may have been withdrawn or already answered.');
+    back('That request is no longer pending — it may have been withdrawn or already answered.');
   }
 
   revalidatePath(PANEL_PATH);
@@ -175,7 +175,7 @@ export async function withdrawPartnership(formData: FormData) {
 
   if (error) back(error.message);
   if (!data) {
-    back('That proposal can no longer be withdrawn — it may already be accepted, declined, or removed.');
+    back('That request can no longer be withdrawn — it may already be accepted, declined, or removed.');
   }
 
   revalidatePath(PANEL_PATH);
@@ -272,7 +272,7 @@ export async function changePartnershipKind(formData: FormData) {
   });
   if (insertErr) {
     if (insertErr.code === '23505') {
-      back('You already have that kind of partnership with this vendor.');
+      back('You already have that kind of partnership with this supplier.');
     }
     back(insertErr.message);
   }

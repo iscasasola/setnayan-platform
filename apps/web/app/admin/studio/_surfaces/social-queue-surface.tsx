@@ -15,6 +15,8 @@ import {
   coupleCreationCaption,
   shareConsentPublishGatePassed,
   shareConsentPostableFrom,
+  SHARE_PUBLISH_GATE_DAYS,
+  SHARE_PULL_WINDOW_HOURS,
   vendorFeatureCaption,
   type ShareArtifactType,
   type ShareCreditMode,
@@ -857,10 +859,10 @@ export async function SocialQueueSurface({
       {/* ── Couple creations ready to post ── */}
       <QueueSection
         title="Couple creations — ready to post"
-        hint="Consented + past the publish gate (event date + 7 days)."
+        hint={`Consented + past the publish gate (event date + ${SHARE_PUBLISH_GATE_DAYS} days).`}
         count={readyToPost.length}
         loadFailed={Boolean(pendingErr) || consentEventsFailed}
-        empty="Nothing postable yet — consented creations appear here once their event is 7+ days past."
+        empty={`Nothing postable yet — consented creations appear here once their event is ${SHARE_PUBLISH_GATE_DAYS}+ days past.`}
       >
         <ul className="grid gap-3 sm:grid-cols-2">
           {readyToPost.map((c) => {
@@ -939,7 +941,7 @@ export async function SocialQueueSurface({
       {/* ── Waiting on the publish gate — compact ── */}
       <QueueSection
         title="Waiting on publish gate"
-        hint="Consented, but the event isn't 7+ days past yet."
+        hint={`Consented, but the event isn't ${SHARE_PUBLISH_GATE_DAYS}+ days past yet.`}
         count={waitingOnGate.length}
         loadFailed={Boolean(pendingErr) || consentEventsFailed}
         empty="Nothing waiting — every live consent is already postable."
@@ -1474,8 +1476,8 @@ function ScheduledPostCard({
                     <span className="font-medium">
                       {channels.length ? channels.join(' + ') : 'no active channels'}
                     </span>{' '}
-                    and clears the 48-hour pull window. The content gate (event date + 7
-                    days) still applies.
+                    and clears the {SHARE_PULL_WINDOW_HOURS}-hour pull window. The content gate (event date +{' '}
+                    {SHARE_PUBLISH_GATE_DAYS} days) still applies.
                     <span className="mt-2 block rounded border border-ink/10 bg-ink/[0.03] px-2 py-1 text-ink/70">
                       “{firstLine(post.body) || post.title || 'Untitled post'}”
                     </span>

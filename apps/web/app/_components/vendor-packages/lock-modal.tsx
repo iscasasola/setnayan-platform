@@ -83,7 +83,7 @@ import { lockPackage, type LockPackageResult } from '../../dashboard/[eventId]/v
  * when the VENDOR approves payment, so the couple is told that plainly rather
  * than being left to assume the date is held.
  */
-const vendorConfirmsLabel = 'Your vendor confirms once payment is approved.';
+const vendorConfirmsLabel = 'Your supplier confirms once payment is approved.';
 
 /**
  * Everything the SECONDARY action needs — "Ask the vendor about this build
@@ -390,7 +390,7 @@ export function LockPackageModal({
         return;
       }
       if (result.status === 'forbidden') {
-        setError("You can't lock a package on this event.");
+        setError("You can't book a package on this event.");
         return;
       }
       if (result.status === 'package_not_found') {
@@ -398,12 +398,12 @@ export function LockPackageModal({
         return;
       }
       if (result.status === 'package_inactive') {
-        setError('That package is paused by the vendor.');
+        setError('That package is paused by the supplier.');
         return;
       }
       if (result.status === 'vendor_not_verified') {
         setError(
-          `${result.vendorName} is completing verification and can't be booked just yet — you'll be able to lock this package once they're verified.`,
+          `${result.vendorName} is completing verification and can't be booked just yet — you'll be able to book this package once they're verified.`,
         );
         return;
       }
@@ -475,13 +475,13 @@ export function LockPackageModal({
       if (result.status === 'no_event') {
         setAskState({
           kind: 'error',
-          message: 'Create your event first, then you can message this vendor.',
+          message: 'Create your event first, then you can message this supplier.',
         });
         return;
       }
       setAskState({
         kind: 'error',
-        message: result.message ?? 'Could not send that to the vendor.',
+        message: result.message ?? 'Could not send that to the supplier.',
       });
     });
   }
@@ -494,7 +494,7 @@ export function LockPackageModal({
         className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
       >
         <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />
-        Customize &amp; lock this package
+        Customize &amp; book this package
       </button>
 
       {open ? (
@@ -537,7 +537,7 @@ export function LockPackageModal({
                 Uncheck anything you{'’'}d like to skip.{' '}
                 {pkg.is_consumable_flexible
                   ? `That value moves into your consumable budget — you can spend it on something else with ${
-                      pkg.package_name.split(' ')[0] ?? 'this vendor'
+                      pkg.package_name.split(' ')[0] ?? 'this supplier'
                     }.`
                   : 'Removing items reduces your total.'}
               </p>
@@ -711,7 +711,7 @@ export function LockPackageModal({
                                   {!selectable || opt.price_delta_centavos > 0 ? (
                                     <p className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.12em] text-ink/45">
                                       {!selectable
-                                        ? 'Ask your vendor — not part of this total'
+                                        ? 'Ask your supplier — not part of this total'
                                         : `+${formatCentavosPhp(opt.price_delta_centavos)}`}
                                     </p>
                                   ) : null}
@@ -831,7 +831,7 @@ export function LockPackageModal({
                   {unfinished.length === 1
                     ? 'One line still needs your choices'
                     : `${unfinished.length} lines still need your choices`}
-                  . Answering fewer doesn{'’'}t lower the price — your vendor priced
+                  . Answering fewer doesn{'’'}t lower the price — your supplier priced
                   this package with every choice made.
                 </p>
               ) : pendingRequiredChoices.length > 0 ? (
@@ -851,7 +851,7 @@ export function LockPackageModal({
                 className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-terracotta bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition-colors hover:bg-terracotta-deep focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                {isPending ? 'Locking…' : 'Lock this package'}
+                {isPending ? 'Booking…' : 'Book this package'}
               </button>
               {/* ⚠ TRUTHFUL BY OWNER RULING (2026-07-26): "lock will only be
                   locked when the vendor approves their payment." Locking

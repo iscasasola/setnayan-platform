@@ -130,33 +130,33 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
   reception_venue:
     'The first domino — everything downstream waits on this. Your coordinator, caterer, and photographer all key off where your reception lives.',
   ceremony_venue:
-    'Locks the date and starts the paperwork clock. Parish documents take 4-6 weeks to gather; the marriage license has a 120-day countdown.',
+    'Books the date and starts the paperwork clock. Parish documents take 4-6 weeks to gather; the marriage license has a 120-day countdown.',
   coordinator:
-    'Your day-of conductor. Best coordinators book 9-12 months out; the earlier you lock yours, the more they can shape every choice downstream.',
+    'Your day-of conductor. Best coordinators book 9-12 months out; the earlier you book yours, the more they can shape every choice downstream.',
   crew_meals:
-    'Your photo, video, HMUA, and coordination teams all expect a hot meal on the day — usually 15-25 crew across your vendors. A kitchen near your venue caters them for far less than your main caterer per-head.',
+    'Your photo, video, HMUA, and coordination teams all expect a hot meal on the day — usually 15-25 crew across your suppliers. A kitchen near your venue caters them for far less than your main caterer per-head.',
   officiant:
-    'The voice of your ceremony. Priests, ministers, and judges book months ahead; locking yours early is what makes the paperwork chain start moving.',
+    'The voice of your ceremony. Priests, ministers, and judges book months ahead; booking yours early is what makes the paperwork chain start moving.',
   catering:
     'Filipino weddings live or die on the food. Tastings happen 4-6 months out, and the best teams book the same season they’re booked the year before.',
   photography:
-    'The best PH photo and video teams book 9-12 months ahead. Locking yours early means your favorite is still available — and they start shaping the visual story now.',
+    'The best PH photo and video teams book 9-12 months ahead. Booking yours early means your favorite is still available — and they start shaping the visual story now.',
   attire:
     'Custom gowns and barongs need 3-4 months from first fitting; rentals book 6-8 weeks ahead. Either way, the clock is friendlier than you think — start the conversation now.',
   hair_makeup:
-    'Your bridal glam team carries the whole entourage on the morning of. Trials happen 1-2 months before the day; lock the artist first so the trial date even makes sense.',
+    'Your bridal glam team carries the whole entourage on the morning of. Trials happen 1-2 months before the day; book the artist first so the trial date even makes sense.',
   florals_decor:
     'Florals and styling read the palette and theme you’ve been refining. Once your colors are settled, your florist can quote real flowers in real season — not abstract ideas.',
   stylist:
-    'Your stylist executes on the mood board you locked — florals, decor, signage, tablescapes. PH stylists often book 6 months out · pick early to keep their attention on your day.',
+    'Your stylist executes on the mood board you finalized — florals, decor, signage, tablescapes. PH stylists often book 6 months out · pick early to keep their attention on your day.',
   live_band:
-    'A live band sets the energy of your reception. Top bands in PH book 6-9 months ahead; locking early means your favorite is still available.',
+    'A live band sets the energy of your reception. Top bands in PH book 6-9 months ahead; booking early means your favorite is still available.',
   music_entertainment:
     'DJ, string quartet, choir — the music team that carries your program. The best ones run a wedding every weekend in peak season; book early or choose from what’s left.',
   after_party_music:
-    'The reception ends · the after-party begins. A different DJ for the late-night dance floor — different vibe, different playlist. Lock 4-6 weeks out once your program is set.',
+    'The reception ends · the after-party begins. A different DJ for the late-night dance floor — different vibe, different playlist. Book 4-6 weeks out once your program is set.',
   dance_instructor:
-    'First dance · parents-and-couple dance · entourage choreography. Lessons run 2-3 months pre-wedding. Lock the choreographer early so you have time to actually learn the routine.',
+    'First dance · parents-and-couple dance · entourage choreography. Lessons run 2-3 months pre-wedding. Book the choreographer early so you have time to actually learn the routine.',
   host_mc:
     'Your emcee carries the program from cocktail hour through send-off. A great host makes the night feel effortless; book 4-6 months out.',
   lights_sound:
@@ -174,13 +174,13 @@ const WHY_IT_MATTERS: Record<PlanGroupId, string> = {
   guest_shuttle:
     'For venues away from the city, shuttle service keeps guests stress-free. Book 6-8 weeks out once you have an approximate headcount.',
   rings:
-    'The most-photographed object of your wedding. Custom rings take 6-8 weeks; off-the-shelf 2-3 weeks. Lock the design and have backups for emergencies.',
+    'The most-photographed object of your wedding. Custom rings take 6-8 weeks; off-the-shelf 2-3 weeks. Settle the design and have backups for emergencies.',
   accommodation:
-    'Where you and your wedding party rest the night before — sometimes bundled into your reception hotel package. Lock 1-2 months out · venue-affiliated room blocks fill fast.',
+    'Where you and your wedding party rest the night before — sometimes bundled into your reception hotel package. Book 1-2 months out · venue-affiliated room blocks fill fast.',
   invitations_stationery:
-    'Save-the-dates, invitations, monograms, and table cards all share a visual story. Locking your stationery partner early means everything ships out of one consistent hand.',
+    'Save-the-dates, invitations, monograms, and table cards all share a visual story. Booking your stationery partner early means everything ships out of one consistent hand.',
   logistics:
-    'Transportation, security, giveaways — the small choices that make the day actually run. Lock these as your guest list firms up.',
+    'Transportation, security, giveaways — the small choices that make the day actually run. Book these as your guest list firms up.',
 };
 
 /**
@@ -240,33 +240,33 @@ const ACTION_TITLE: Record<PlanGroupId, string> = {
   travel_honeymoon: 'Plan your honeymoon',
   wellness_fitness: 'Start your wellness plan',
   guest_booth: 'Add your guest booths',
-  reception_venue: 'Lock your reception venue',
-  ceremony_venue: 'Lock your ceremony venue',
-  coordinator: 'Lock your coordinator',
-  officiant: 'Lock your officiant',
-  catering: 'Lock your caterer',
+  reception_venue: 'Book your reception venue',
+  ceremony_venue: 'Book your ceremony venue',
+  coordinator: 'Book your coordinator',
+  officiant: 'Book your officiant',
+  catering: 'Book your caterer',
   crew_meals: 'Sort out crew meals',
-  photography: 'Lock your photo & video team',
-  attire: 'Lock your attire',
-  hair_makeup: 'Lock your hair & makeup team',
-  florals_decor: 'Lock your florals and decor',
-  stylist: 'Lock your stylist',
-  live_band: 'Lock your live band',
-  music_entertainment: 'Lock your band / DJ / performer',
-  after_party_music: 'Lock your after-party DJ',
-  dance_instructor: 'Lock your dance instructor',
-  host_mc: 'Lock your host / emcee',
-  lights_sound: 'Lock your lights & sound',
-  led_background: 'Lock your LED background',
-  cocktail_booths: 'Lock your cocktail booths',
-  photobooth: 'Lock your photobooth',
-  cake: 'Lock your cake maker',
-  bridal_car: 'Lock your bridal car',
-  guest_shuttle: 'Lock your guest shuttle',
-  rings: 'Lock your rings',
-  accommodation: 'Lock your accommodation',
-  invitations_stationery: 'Lock your stationery partner',
-  logistics: 'Lock your day-of logistics',
+  photography: 'Book your photo & video team',
+  attire: 'Book your attire',
+  hair_makeup: 'Book your hair & makeup team',
+  florals_decor: 'Book your florals and decor',
+  stylist: 'Book your stylist',
+  live_band: 'Book your live band',
+  music_entertainment: 'Book your band / DJ / performer',
+  after_party_music: 'Book your after-party DJ',
+  dance_instructor: 'Book your dance instructor',
+  host_mc: 'Book your host / emcee',
+  lights_sound: 'Book your lights & sound',
+  led_background: 'Book your LED background',
+  cocktail_booths: 'Book your cocktail booths',
+  photobooth: 'Book your photobooth',
+  cake: 'Book your cake maker',
+  bridal_car: 'Book your bridal car',
+  guest_shuttle: 'Book your guest shuttle',
+  rings: 'Book your rings',
+  accommodation: 'Book your accommodation',
+  invitations_stationery: 'Book your stationery partner',
+  logistics: 'Book your day-of logistics',
 };
 
 type Candidate = {

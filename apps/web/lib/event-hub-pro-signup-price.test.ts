@@ -22,30 +22,29 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { setupPricePhp, DEFAULT_ONBOARDING_DISCOUNT_PCT } from './onboarding-discount';
-import { FAMILY_DISCOUNT_DEFAULT_PCT, familyForServiceCode } from './onboarding-family-discount';
+import { familyForServiceCode } from './onboarding-family-discount';
 
 const MIGRATIONS = join(process.cwd(), '../../supabase/migrations');
 const migration = readdirSync(MIGRATIONS).find((f) =>
   f.endsWith('_event_hub_pro_is_5000_and_3000_at_sign_up.sql'),
 );
 
-test('the sign-up rule charges Pro its own ₱3,000, not the house percentage', () => {
-  // The house rule today (10%) would make it ₱4,500; the row's own price wins.
+test('the sign-up rule charges Pro its own ₱3,000 — and the one number agrees', () => {
+  // The one sign-up number (40%, owner d18) gives ₱3,000 too; the row's own price
+  // is never undercut by a shallower number.
   assert.equal(setupPricePhp(5000, 3000, DEFAULT_ONBOARDING_DISCOUNT_PCT), 3000);
   // …and the saving the card states is the difference, 40% of regular.
   assert.equal(5000 - setupPricePhp(5000, 3000, DEFAULT_ONBOARDING_DISCOUNT_PCT), 2000);
   assert.equal(2000 / 5000, 0.4);
 });
 
-test('Papic and Setnayan AI keep their own numbers — the rule did not change', () => {
-  // A Papic rung with no override still follows the house percentage…
-  assert.equal(setupPricePhp(1000, null, DEFAULT_ONBOARDING_DISCOUNT_PCT), 900);
-  // …the planner's own deeper row price still wins over it…
+test('Papic and Setnayan AI follow the one number; Pro is never re-derived', () => {
+  // A Papic rung with no override follows the one sign-up percentage (40%)…
+  assert.equal(setupPricePhp(1000, null, DEFAULT_ONBOARDING_DISCOUNT_PCT), 600);
+  // …the planner's own row price (₱1,499 ≈ 40%) is kept, being the cheaper…
   assert.equal(setupPricePhp(2499, 1499, DEFAULT_ONBOARDING_DISCOUNT_PCT), 1499);
-  // …and the two family defaults are the owner's, untouched by this change.
-  assert.deepEqual({ ...FAMILY_DISCOUNT_DEFAULT_PCT }, { papic: 10, ai: 40 });
-  // Pro is in NEITHER family, so a family-wide save can never re-derive its
-  // ₱2,100 from somebody else's percentage.
+  // Pro is in NEITHER derived family, so the discount save can never re-derive
+  // its owner-set ₱3,000.
   assert.equal(familyForServiceCode('COUPLE_WEBSITE_PRO'), null);
 });
 

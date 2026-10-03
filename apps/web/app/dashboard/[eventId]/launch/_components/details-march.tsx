@@ -104,7 +104,7 @@ export function MarchAisleFocus({ sections }: { sections: readonly MarchSectionD
   if (sections.length === 0) return null;
   return (
     <figure className="m-0 w-full max-w-sm" data-march-aisle="">
-      <ol ref={ref} className="relative flex max-h-[60vh] flex-col gap-1.5 overflow-y-auto border-x-2 border-dashed border-gild/50 px-3 py-2">
+      <ol ref={ref} className="relative flex max-h-[60dvh] flex-col gap-1.5 overflow-y-auto border-x-2 border-dashed border-gild/50 px-3 py-2">
         {sections.map((s) => {
           const sectionOn = pick === `${SECTION}${s.key}`;
           return (

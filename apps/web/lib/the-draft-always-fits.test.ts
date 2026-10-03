@@ -36,7 +36,7 @@ import {
   hubDraftBounceHref,
   hubDraftBytes,
   hubDraftForWrite,
-  hubDraftPanelStaysOpen,
+  hubDraftOutcome,
   hubDraftSaveFailure,
   hubDraftSaveFailureText,
   mergeHubDraft,
@@ -267,18 +267,21 @@ test('the bounce reaches the RENDER: launch page → HubDraftDock → the toolba
 
 /* ═══════════════════════════════════════════ 5 · the ⋯ panel after Apply ═══ */
 
-test('the ⋯ panel closes after a clean Apply, and opens only when there is something to read', () => {
+test('an action’s answer is SAID beside Apply — it never opens the ⋯ panel (owner 2026-10-02)', () => {
+  // Superseded 2026-10-02 (owner, live phone test): the panel opened by itself
+  // after Apply, would not close and came back. `hubDraftPanelStaysOpen` is
+  // retired; `hubDraftOutcome` says the same things in the status line.
   const ok = (intent: 'apply' | 'undo' | 'restore' | 'reset' | 'save', held: Array<{ label: string; reason: 'needs_pro' }> = []) =>
     ({ ok: true, intent, applied: 2, held }) as const;
-  assert.equal(hubDraftPanelStaysOpen(ok('apply')), false, 'a clean Apply closes the panel');
-  assert.equal(hubDraftPanelStaysOpen(ok('undo')), false);
-  assert.equal(hubDraftPanelStaysOpen(ok('restore')), false);
-  assert.equal(hubDraftPanelStaysOpen(ok('apply', [{ label: 'The ombre', reason: 'needs_pro' }])), true, 'a held key is never silent');
-  assert.equal(hubDraftPanelStaysOpen(ok('reset')), true, "Reset's own note is read in the panel");
-  assert.equal(hubDraftPanelStaysOpen({ ok: false, intent: 'apply', error: 'x' }), true, 'an error is never silent');
+  assert.deepEqual(hubDraftOutcome(ok('apply')), { kind: 'live' }, 'a clean Apply says "Live now"');
+  assert.equal(hubDraftOutcome(ok('undo')), null);
+  assert.equal(hubDraftOutcome(ok('restore')), null);
+  assert.equal(hubDraftOutcome(ok('apply', [{ label: 'The ombre', reason: 'needs_pro' }]))?.kind, 'held', 'a held key is never silent');
+  assert.deepEqual(hubDraftOutcome(ok('reset')), { kind: 'reset' }, "Reset's note is said");
+  assert.deepEqual(hubDraftOutcome({ ok: false, intent: 'apply', error: 'x' }), { kind: 'error', text: 'x' }, 'an error is never silent');
 
   const bar = fnBody(src('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx'), 'HubDraftToolbar');
-  assert.match(bar, /if \(result\) setOpen\(hubDraftPanelStaysOpen\(result\)\);/);
+  assert.match(bar, /if \(result\) setOpen\(false\);/, 'a finished action must close the panel');
   const act = bar.slice(bar.indexOf('const act ='), bar.indexOf('};', bar.indexOf('const act =')));
   assert.doesNotMatch(act, /setOpen\(true\)/, 'pressing a button must not pin the panel open before the answer');
 });

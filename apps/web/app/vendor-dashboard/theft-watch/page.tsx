@@ -15,7 +15,7 @@ import {
 } from '@/lib/vendor-theft-watch';
 import { shopCardClass } from '../_components/kit';
 
-export const metadata = { title: 'Theft Watch · Vendor' };
+export const metadata = { title: 'Theft Watch · Supplier' };
 
 const STATUS: Record<RepostFlagStatus, { label: string; className: string }> = {
   open: { label: 'Under review', className: 'bg-amber-500/12 text-amber-700' },
@@ -130,7 +130,7 @@ export default async function VendorTheftWatchPage() {
       )}
 
       <p className="text-xs text-ink/40">
-        Only you and our review team can see these flags. We never name another vendor on an
+        Only you and our review team can see these flags. We never name another supplier on an
         unconfirmed match — reposts are adjudicated by our team, not automatically.
       </p>
     </section>

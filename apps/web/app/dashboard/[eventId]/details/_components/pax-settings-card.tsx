@@ -65,7 +65,7 @@ export function PaxSettingsCard({
           {
             value: 'realtime',
             label: 'Realtime',
-            help: 'See vendor costs adapt as your confirmed count grows.',
+            help: 'See supplier costs adapt as your confirmed count grows.',
           },
           {
             value: 'final_only',

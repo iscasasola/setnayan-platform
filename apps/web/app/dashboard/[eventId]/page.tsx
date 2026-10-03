@@ -11,18 +11,15 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sweepLapsedSubscriptions } from '@/lib/subscriptions';
 import { sweepExpiredConcierge } from '@/lib/concierge';
-import { computeGuestStats, fetchGuestsByEventMeasured } from '@/lib/guests';
-import { buildBudgetLiveSummary, fetchBudgetSnapshot } from '@/lib/budget';
-import { resolveEventMoney, type EventMoney } from '@/lib/budget-truth';
-import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
-import { budgetLiveSummaryMoney } from '@/lib/budget-page-money';
+import { fetchGuestsByEventMeasured, unmeasuredGuests } from '@/lib/guests';
+import type { EventMoney } from '@/lib/budget-truth';
+import { readBudgetLiveSummary } from '@/lib/budget-live-read';
+import { homeFacts, type HomeMoneyRead } from '@/lib/home-facts';
 import { LastSeenCapture } from '@/app/_components/last-seen/last-seen-capture';
 import { resolveBudgetVisibility } from '@/lib/budget-visibility';
 import {
   aiStatus,
-  glanceCount,
-  glanceDays,
-  glanceMoney,
+  homeGuestsRead,
   homeServices,
   nikahStatus,
   papicStatus,
@@ -64,7 +61,7 @@ import { WhatsNextSheet } from './_components/whats-next-sheet';
 import { PapicReadyNudge } from './_components/papic-ready-nudge';
 import { readNikahImam } from './_components/nikah-imam';
 import { SetnayanAiComebackOffer } from './_components/setnayan-ai-comeback-offer';
-import { EventDashboard, daysUntil } from './_components/event-dashboard';
+import { EventDashboard } from './_components/event-dashboard';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { canPlanNextYear } from '@/lib/event-recurrence';
@@ -231,7 +228,7 @@ export default async function EventHomePage({
       { event_id: eventId, user_id: user.id },
       'graceful_degrade',
     );
-    return { rows: [], measured: false } as Awaited<ReturnType<typeof fetchGuestsByEventMeasured>>;
+    return unmeasuredGuests();
   });
 
   // 📱 Paid / Still owing — the SAME figures the Budget page's Paid/Owed tiles
@@ -241,27 +238,25 @@ export default async function EventHomePage({
   // a refusal that still queries the money is a refusal on the screen only).
   // `fetchBudgetSnapshot` THROWS on any refused read, so `null` below is
   // "not measured" and prints "—", never ₱0. `hidden` = not shared: no line.
-  const moneyRead = (async (): Promise<{ paid: number; owing: number } | null | 'hidden'> => {
+  const moneyRead = (async (): Promise<{ now: HomeMoneyRead; guard: EventMoney | null }> => {
     const access = await resolveBudgetVisibility(supabase, eventId, user.id).catch(() => null);
-    if (!access?.mayRead) return 'hidden';
-    const truth = isBudgetTruthEnabled();
-    const [snapshot, money] = await Promise.all([
-      fetchBudgetSnapshot(supabase, eventId).catch((err: unknown) => {
+    if (!access?.mayRead) return { now: 'hidden', guard: null };
+    // ONE read — `lib/budget-live-read.ts` — the same one the Merkado budget lens
+    // uses; `guard` is the resolved money the Sai watch rail is handed, so the
+    // dashboard below never resolves it a second time.
+    const read = await readBudgetLiveSummary(supabase, eventId, {
+      onSnapshotError: (err: unknown) =>
         logQueryError(
           'EventHome (fetchBudgetSnapshot threw)',
           err instanceof Error ? err : new Error(String(err)),
           { event_id: eventId, user_id: user.id },
           'graceful_degrade',
-        );
-        return null;
-      }),
-      truth
-        ? resolveEventMoney(supabase, eventId).catch((): EventMoney | null => null)
-        : Promise.resolve<EventMoney | null>(null),
-    ]);
-    if (!snapshot) return null;
-    const live = budgetLiveSummaryMoney({ enabled: truth, money, legacy: buildBudgetLiveSummary(snapshot) });
-    return { paid: live.paid, owing: live.remaining };
+        ),
+    });
+    return {
+      now: read.summary ? { paid: read.summary.paid, owing: read.summary.remaining } : null,
+      guard: read.money,
+    };
   })();
 
   // Day-of mode (iteration 0031): inside the day-of window, load the schedule
@@ -560,7 +555,7 @@ export default async function EventHomePage({
 
   // ─── THE ONE WAIT ────────────────────────────────────────────────────────
   const [
-    { rows: guests, measured: guestsMeasured },
+    { rows: guests, measured: guestsMeasured, stats: guestStats },
     afterSummary,
     {
       dayOfBlocks,
@@ -575,7 +570,7 @@ export default async function EventHomePage({
     { aiOffer, aiOfferSettings, paywallOn },
     storeShell,
     homeGuide,
-    moneyNow,
+    { now: moneyNow, guard: guardMoney },
     papicTile,
   ] = await Promise.all([
     guestsRead,
@@ -601,21 +596,26 @@ export default async function EventHomePage({
   const homeNext = pickHomeNext({
     guide: homeGuide,
     hasDate: Boolean(event.event_date),
+    // 👥 "Add your guests" / "Send N invitations" (first-timer fix 9) — from the
+    // SAME measured guest read the numbers below use; a refused read is null.
+    guests: homeGuestsRead(guests, guestsMeasured),
     noun: eventNoun(event.event_type as string | null),
     // Papic's page is web-only in the store shell (STORE_SHELL_HIDDEN_ADDON_KEYS),
     // so the Next card does not send an App Store user there.
     papicReady: Boolean(event.event_date && papicNudgeVisible && !storeShell),
     aiOffer: aiOfferShown,
   });
-  const rawPrecision = (event as { event_date_precision?: string | null }).event_date_precision;
-  const homeDaysOut =
-    rawPrecision === 'month' || rawPrecision === 'year'
-      ? null
-      : daysUntil(
-          (event.event_date as string | null) ?? null,
-          (event as { timezone?: string | null }).timezone ?? undefined,
-        );
-  const homeStats = computeGuestStats(guests);
+  // 🔑 THE NUMBERS HOME STATES ARE WORKED OUT ONCE, HERE — days to go, coming,
+  // no reply, Paid / Still owing (`lib/home-facts.ts`). The first screen DRAWS
+  // them and the dashboard below is handed `daysOut` + the guest counts, so the
+  // two can never count one fact two ways.
+  const facts = homeFacts({
+    eventDate: (event.event_date as string | null) ?? null,
+    precision: (event as { event_date_precision?: string | null }).event_date_precision,
+    timezone: (event as { timezone?: string | null }).timezone,
+    guests: { stats: guestStats, measured: guestsMeasured },
+    money: moneyNow,
+  });
   const homeServiceRow = homeServices({
     next: homeNext.kind,
     storeShell,
@@ -666,15 +666,11 @@ export default async function EventHomePage({
         name: ((event as { display_name?: string | null }).display_name ?? '').trim() || `Your ${homeTypeLabel}`,
       }}
       next={homeNext}
-      days={glanceDays(homeDaysOut)}
-      coming={glanceCount(homeStats.attending, guestsMeasured)}
-      noReply={glanceCount(homeStats.pending, guestsMeasured)}
-      noReplyWaiting={guestsMeasured && homeStats.pending > 0}
-      money={
-        moneyNow === 'hidden'
-          ? null
-          : { paid: glanceMoney(moneyNow?.paid ?? null), owing: glanceMoney(moneyNow?.owing ?? null) }
-      }
+      days={facts.days}
+      coming={facts.coming}
+      noReply={facts.noReply}
+      noReplyWaiting={facts.noReplyWaiting}
+      money={facts.money}
       services={homeServiceRow}
     />
   );
@@ -882,6 +878,9 @@ export default async function EventHomePage({
                 dayOfActive={dayOfActive}
                 lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
+                daysOut={facts.daysOut}
+                guestStats={facts.guestStats}
+                guardMoney={guardMoney}
               />
             </div>
           </details>
@@ -924,6 +923,9 @@ export default async function EventHomePage({
                 dayOfActive={dayOfActive}
                 lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
+                daysOut={facts.daysOut}
+                guestStats={facts.guestStats}
+                guardMoney={guardMoney}
               />
             </div>
           </details>
@@ -948,6 +950,9 @@ export default async function EventHomePage({
                 saiPreviewParam={search.sai}
                 lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
+                daysOut={facts.daysOut}
+                guestStats={facts.guestStats}
+                guardMoney={guardMoney}
                 only="whatsnext"
               />
             </WhatsNextSheet>

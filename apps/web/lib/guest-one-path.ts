@@ -248,6 +248,28 @@ export function saveMethodFor(
   return providers.google ? 'google' : providers.apple ? 'apple' : 'link';
 }
 
+/**
+ * 🔒 THE LABEL AND THE ACTION ARE ONE PICK (owner's live test, 2026-10-02: the
+ * button read "with Apple" and the tap opened Google sign-in). The page decided
+ * the method from the PAGE request's user-agent and the Server Action decided it
+ * AGAIN from the POST's — two decisions that are only the same when two requests
+ * look the same. Now the form carries the method the button SAID
+ * (`SAVE_METHOD_FIELD`), and the action takes it — while that provider is still
+ * switched on — so the provider opened is the one the guest read. Anything else
+ * in the field (absent, tampered, a provider since switched off) falls back to
+ * the device rule, exactly as before. Choosing a sign-in provider is not a
+ * privilege, so a tampered value can only pick the other one-tap door.
+ */
+export const SAVE_METHOD_FIELD = 'save_method';
+export function saveMethodFromForm(
+  posted: unknown,
+  userAgent: string | null | undefined,
+  providers: { apple: boolean; google: boolean },
+): SaveMethod {
+  if ((posted === 'apple' || posted === 'google') && providers[posted]) return posted;
+  return saveMethodFor(userAgent, providers);
+}
+
 /** Is this method a provider sign-in (one tap), rather than the guest's own link? */
 export function saveMethodSignsIn(method: SaveMethod): method is 'apple' | 'google' {
   return method === 'apple' || method === 'google';

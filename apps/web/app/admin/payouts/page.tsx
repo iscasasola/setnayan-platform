@@ -6,7 +6,9 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import {
+  BIR_WITHHOLDING_BPS,
   PAYOUT_STAGE_LABEL,
+  PAYOUT_STAGE_PCT,
   PAYOUT_STAGE_TONE,
   formatCentavosPhp,
   type PayoutStage,
@@ -82,9 +84,9 @@ const FILTER_TABS: Array<{ key: FilterKey; label: string }> = [
 const STAGE_TABS: Array<{ key: StageFilter; label: string }> = [
   { key: 'all', label: 'All stages' },
   { key: 'immediate_full', label: 'Immediate (verified)' },
-  { key: 'stage_1_confirm', label: 'Stage 1 · 20%' },
-  { key: 'stage_2_event_start', label: 'Stage 2 · 60%' },
-  { key: 'stage_3_event_end', label: 'Stage 3 · 20%' },
+  { key: 'stage_1_confirm', label: `Stage 1 · ${PAYOUT_STAGE_PCT.stage_1_confirm}%` },
+  { key: 'stage_2_event_start', label: `Stage 2 · ${PAYOUT_STAGE_PCT.stage_2_event_start}%` },
+  { key: 'stage_3_event_end', label: `Stage 3 · ${PAYOUT_STAGE_PCT.stage_3_event_end}%` },
 ];
 
 export default async function AdminPayoutsPage({ searchParams }: Props) {
@@ -391,7 +393,7 @@ function PayoutCard({ row }: { row: PayoutRow }) {
         <Field label="Rail" value={row.payment_method ?? row.payout_method ?? '—'} />
         <Field label="Gross" value={formatCentavosPhp(row.gross_centavos)} />
         <Field label="Gateway" value={formatCentavosPhp(row.gateway_fee_centavos)} />
-        <Field label="BIR 0.5%" value={formatCentavosPhp(row.bir_withholding_centavos)} />
+        <Field label={`BIR ${BIR_WITHHOLDING_BPS / 100}%`} value={formatCentavosPhp(row.bir_withholding_centavos)} />
         <Field
           label="Disburse fee"
           value={formatCentavosPhp(row.disbursement_fee_centavos)}

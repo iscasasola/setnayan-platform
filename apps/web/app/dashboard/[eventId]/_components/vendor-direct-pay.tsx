@@ -85,7 +85,7 @@ export function VendorDirectPay({ vendorName, methods, amountPhp = null }: Vendo
   if (methods.length === 0) {
     return (
       <p className="text-xs text-ink/55">
-        This vendor hasn&rsquo;t shared a direct payment option yet — message them
+        This supplier hasn&rsquo;t shared a direct payment option yet — message them
         in chat.
       </p>
     );
@@ -189,7 +189,7 @@ function DirectPayTrigger({
               a tap (project_setnayan_vendor_payment_disclosure). The full
               owner-locked disclosure renders inside the sheet. */}
           <p className="text-[11px] leading-relaxed text-ink/45">
-            You pay the vendor directly — Setnayan never holds this money.
+            You pay the supplier directly — Setnayan never holds this money.
           </p>
         </>
       ) : (
@@ -256,9 +256,9 @@ function DirectPayBody({
       >
         <ShieldAlert aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-warn-700" strokeWidth={1.75} />
         <p>
-          Setnayan doesn&rsquo;t control or hold payments to vendors. You&rsquo;re
+          Setnayan doesn&rsquo;t control or hold payments to suppliers. You&rsquo;re
           paying {vendorName} directly — confirm these details are really theirs
-          before you send, and only pay vendors you trust. Setnayan can&rsquo;t
+          before you send, and only pay suppliers you trust. Setnayan can&rsquo;t
           reverse or mediate an off-platform payment.
         </p>
       </div>
@@ -519,7 +519,7 @@ function QrBody({
               </div>
             ) : (
               <p className="rounded-md bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-                This QR couldn&rsquo;t be loaded. Ask the vendor to re-share it in chat.
+                This QR couldn&rsquo;t be loaded. Ask the supplier to re-share it in chat.
               </p>
             )}
 
@@ -577,7 +577,7 @@ function LinkBody({
   if (!url) {
     return (
       <p className="rounded-md bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">
-        This payment link is unavailable. Ask the vendor to re-share it in chat.
+        This payment link is unavailable. Ask the supplier to re-share it in chat.
       </p>
     );
   }

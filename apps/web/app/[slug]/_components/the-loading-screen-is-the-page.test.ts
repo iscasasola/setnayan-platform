@@ -250,7 +250,7 @@ test('4 · the scenes are real scene cards, and nothing says "Loading…" out lo
  *  shimmer stand-in on one side, the stand-in mark on the other. */
 function markAside(hero: string): string {
   return hero
-    .replace(/<span aria-hidden="true" class="skeleton relative inline-flex[^"]*" style="[^"]*"><\/span>/, 'MARK')
+    .replace(/<span aria-hidden="true" data-skeleton-mark="" class="relative inline-flex[^"]*"><\/span>/, 'MARK')
     .replace('<span>the couple’s mark</span>', 'MARK')
     .replace(/(<div data-pahina-parallax="[^"]*" class="absolute inset-0">)[\s\S]*?(<\/div>)/, '$1MEDIA$2');
 }
@@ -354,4 +354,26 @@ test('5c · SOURCE: page.tsx hands the fallback the resolved design; site-body r
   const body = stripComments(read('app/[slug]/_components/site-body.tsx'));
   assert.match(body, /const heroCanvas = heroCanvasOf\(widgets\);/, 'site-body reads the hero canvas its own way — a second resolver');
   assert.doesNotMatch(body, /sanitizeHubCanvas\(heroRow/, 'site-body sanitises the hero row itself again — a second resolver');
+});
+
+/* ── 6 · NO GREY PLACEHOLDER OUTSTAYS ITS CONTENT (owner, live phone test
+ * 2026-10-02: a grey logo circle and grey cards on the guest view). A drawn
+ * mark's slot is EMPTY (its size kept, so nothing jumps) — never a grey disc,
+ * and with no letters, nothing at all; and the scene cards give up after a
+ * while (`.sn-skeleton-gives-up`), so a page that never lands never leaves
+ * grey boxes standing. */
+test('6 · a drawn mark waits in an empty slot, and the grey cards give up', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { InvitationSkeleton } = await import('./invitation-skeleton');
+  const html = renderToStaticMarkup(
+    React.createElement(InvitationSkeleton, { displayName: EVENT.displayName, monogramText: null, eventDate: EVENT.eventDate, mark: null }),
+  );
+  const slot = /<span aria-hidden="true" data-skeleton-mark=""[^>]*>([\s\S]*?)<\/span>/.exec(html);
+  assert.ok(slot, 'the drawn mark’s slot is gone — the page would jump when the mark lands');
+  assert.doesNotMatch(slot[0], /class="[^"]*\bskeleton\b|style=/, 'the drawn mark is a grey shimmer disc again');
+  assert.equal(slot[1], '', 'with no letters the slot must draw nothing');
+  assert.match(html, /<div class="sn-hub-cards sn-skeleton-gives-up[^"]*">/, 'the scene placeholders no longer give up');
+  const css = read('app/globals.css');
+  assert.match(css, /\.sn-skeleton-gives-up \{\s*animation: sn-skeleton-give-up [^;]*forwards;/);
+  assert.match(css, /@keyframes sn-skeleton-give-up \{\s*to \{\s*opacity: 0;\s*visibility: hidden;/);
 });

@@ -162,7 +162,8 @@ export type EventMenuRow = {
 
 /** One of the five services under More Services — PLAIN DATA (an icon NAME,
  *  never a component: this crosses the server→client boundary). */
-export type EventMenuChild = { key: string; label: string; href: string; icon: EventMenuIconName };
+/** `sub` — the small line under the label: a service's Setnayan name (owner d17, `lib/service-names.ts`). */
+export type EventMenuChild = { key: string; label: string; sub?: string; href: string; icon: EventMenuIconName };
 
 /** `event` = the event's name row (Event settings) · `pillars` = the five. */
 export type EventMenuSectionKey = 'event' | 'pillars';
@@ -294,7 +295,7 @@ export function buildEventMenuSections(
   const put = (r: EventMenuRow) => rows.set(r.key, r);
 
   // The event's name row (Event settings) — drawn AS the name, not as a row.
-  put({ key: 'personalization', label: 'Details', href: `${base}/details`, icon: 'details' });
+  put({ key: 'personalization', label: 'Event Details', href: `${base}/details`, icon: 'details' });
 
   // HOME — the event's front page. Sentinel matchPrefix: every other event
   // route shares `${base}/`, so only the exact pathname may light it.

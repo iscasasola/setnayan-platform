@@ -128,7 +128,7 @@ export async function createVendorAccountForShop(input: {
         text: [
           `Welcome to Setnayan.`,
           ``,
-          `Your vendor account is ready. Sign in here:`,
+          `Your supplier account is ready. Sign in here:`,
           `${appUrl}/login`,
           ``,
           `What's next:`,

@@ -112,7 +112,7 @@ const APP_LD = {
   featureList: [
     'Watches the suppliers you shortlist and book — for price changes, availability and risk',
     'Finds and ranks verified suppliers that fit your style, budget, date and guest count',
-    'Guards your deadlines — deposits, contracts, and PH paperwork (marriage license, Pre-Cana, PSA)',
+    'Guards your deadlines — payments, contracts, and PH paperwork (marriage license, Pre-Cana, PSA)',
     'Flags a price hike, a double-booking, or an unverified supplier before it costs you',
     'Chases quiet suppliers and lines up their quotes for you',
     'One calm weekly digest — it earns the interruption, never spams',
@@ -125,7 +125,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'Is Setnayan AI a chatbot?',
-    a: 'No — that’s the whole point. A chatbot waits for you to ask. Setnayan AI watches your suppliers and your dates in the background and taps you only when something needs you: a deposit due, a price that moved, a date about to clash.',
+    a: 'No — that’s the whole point. A chatbot waits for you to ask. Setnayan AI watches your suppliers and your dates in the background and taps you only when something needs you: a payment due, a price that moved, a date about to clash.',
   },
   {
     q: 'Do I have to use it?',
@@ -170,14 +170,14 @@ const STEPS = [
   },
   {
     t: 'It taps you before anything slips',
-    d: 'A deposit due, a price that moved, a double-booking, a paperwork deadline — it flags them early, while there’s still time to act calmly. Most weeks, it stays quiet.',
+    d: 'A payment due, a price that moved, a double-booking, a paperwork deadline — it flags them early, while there’s still time to act calmly. Most weeks, it stays quiet.',
   },
 ];
 
 const VS: readonly DoorwayVersus[] = [
   ['A chatbot you have to remember to go ask', 'An assistant that watches and taps you'],
   ['Finds suppliers once, then forgets them', 'Keeps an eye on them — price, availability, dates'],
-  ['You track every deposit and deadline yourself', 'It flags a deposit or clash before it bites'],
+  ['You track every payment and deadline yourself', 'It flags a payment or clash before it bites'],
   ['Generic, one-size-fits-all', 'Tuned to Filipino weddings, your fit'],
 ];
 
@@ -219,7 +219,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   },
   {
     chip: 'Your date',
-    t: 'Lock in the right team before it’s gone',
+    t: 'Book the right team before it’s gone',
     d: 'Your supplier list marks anyone another couple starts looking at for your date, so you can choose first. And when a supplier you’re considering gets booked — or frees up — you hear it from us, not from a reply three days later.',
     media: { kind: 'still', src: '/add-ons/demo/stills/setnayan-ai-2.jpg', alt: 'Setnayan AI — book the right team before it’s gone' },
   },
@@ -232,13 +232,13 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Your money',
     t: 'It catches the slips that cost money',
-    d: 'A deposit coming due. A total creeping past your budget while there’s still room to trim. A supplier you’re watching who quietly changes their price — it keeps the figure you were quoted and checks it against what they charge now. Each one flagged before it costs you.',
+    d: 'A payment coming due. A total creeping past your budget while there’s still room to trim. A supplier you’re watching who quietly changes their price — it keeps the figure you were quoted and checks it against what they charge now. Each one flagged before it costs you.',
     media: { kind: 'photo', src: '/demo/maria-jose/vendor-catering.webp', alt: 'A catering buffet laid out on a white tablecloth at a reception' },
   },
   {
     chip: 'Quiet weeks',
     t: 'Most weeks, it stays quiet',
-    d: 'It speaks up only when something genuinely can’t wait — a deposit due, a price that moved, two things clashing on the day — while there’s still time to act calmly. No fake countdowns, no manufactured panic.',
+    d: 'It speaks up only when something genuinely can’t wait — a payment due, a price that moved, two things clashing on the day — while there’s still time to act calmly. No fake countdowns, no manufactured panic.',
     media: { kind: 'photo', src: '/demo/maria-jose/ceremony.webp', alt: 'A couple kneeling at a candlelit church altar during their ceremony' },
   },
 ];

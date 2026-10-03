@@ -35,11 +35,11 @@ export type SaveGateAction = 'message' | 'order' | 'unlock' | 'generic';
 
 const ACTION_LINE: Record<SaveGateAction, string> = {
   message:
-    'Save your plan to send this message — so the vendor can reply and the conversation is always here when you come back.',
+    'Save your plan to send this message — so the supplier can reply and the conversation is always here when you come back.',
   order:
     'Save your plan to place this order — so we can process your payment and keep your purchase tied to you.',
   unlock:
-    'Save your plan to add this and reach the vendor. Everything you’ve planned so far stays exactly as it is.',
+    'Save your plan to add this and reach the supplier. Everything you’ve planned so far stays exactly as it is.',
   generic:
     'Save your plan to continue. Everything you’ve planned so far stays exactly as it is.',
 };

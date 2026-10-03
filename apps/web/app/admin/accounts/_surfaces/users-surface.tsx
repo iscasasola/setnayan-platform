@@ -34,6 +34,8 @@ import {
 } from '@/lib/v2-catalog';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { COMP_GRANT_CO_REVIEW_PESOS } from '@/lib/rule-constants';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The ceiling on BOTH reads this surface makes — the account list and the
@@ -939,7 +941,7 @@ function CompGrantsPanel({
                 className="input-field"
               />
               <p className="mt-1 text-xs text-ink/55">
-                Optional but recommended for audit. Grants over ₱10,000 get
+                Optional but recommended for audit. Grants over ₱{formatCount(COMP_GRANT_CO_REVIEW_PESOS)} get
                 flagged for co-approval.
               </p>
             </div>

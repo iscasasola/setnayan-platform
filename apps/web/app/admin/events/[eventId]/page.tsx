@@ -395,7 +395,7 @@ export default async function AdminEventPage({ params, searchParams }: Props) {
               Icon: ScanFace,
               title: 'No guests yet',
               blurb: 'The read went through and this event has no guests on its list.',
-              verifiedNote: 'Verified: read permitted · 0 guests',
+              verifiedNote: 'Verified: read permitted · nobody on the list',
             }}
             columns={[
               { header: 'Guest', cell: (g) => <span className="text-ink">{g.name}</span> },

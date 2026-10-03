@@ -56,5 +56,13 @@ Owner "yes" (2026-10-03) on what the first-screen-only Home left without a page:
   emits `schedule_suggestion` ("… delivered your handover", opens the supplier's
   workspace) to the couple. Reused; none added; now pinned by a test.
 - The Hosts card lives in the guest list's Access column / a helper's guest card.
+- **Merged with batch 7 (#6309, 2026-10-03).** Main's wording wins (d19 "booked",
+  d16 "supplier"); main's handed-down facts (`daysOut`, `guestStats`,
+  `guardMoney` from `lib/home-facts.ts`) now feed the What's next sheet's
+  `<EventDashboard only="whatsnext">` too; main's "% booked" bar stays deleted
+  (owner 2026-10-03). The Your services row takes main's plain-name-first names
+  (`SERVICE_NAMES`, d17); the Nikah row carries no brand line and its name is
+  one constant (`NIKAH_NAME`) shared with its page. Port baseline and Root map
+  screens regenerated with their generators.
 
 SPEC IMPACT: None.

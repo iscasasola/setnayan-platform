@@ -541,7 +541,7 @@ function ConfidenceChip({ confidence }: { confidence: LeafAllocation['confidence
     return (
       <span
         className="inline-flex items-center gap-1 text-[11px] font-medium text-success-700"
-        title="Backed by plenty of real vendor prices"
+        title="Backed by plenty of real supplier prices"
       >
         <CheckCircle2 aria-hidden className="h-3 w-3" strokeWidth={2} />
       </span>

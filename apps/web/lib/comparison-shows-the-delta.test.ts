@@ -77,7 +77,7 @@ test('the LOCKED collapse still ships and was not rebuilt', () => {
   // across columns again and the port made the grid worse.
   assert.match(
     SRC,
-    /locked, the same in every plan/,
+    /booked, the same in every plan/,
     'the locked-row collapse is gone — that half of the archetype already shipped',
   );
   assert.match(SRC, /colSpan=\{columns\.length\}/, 'the locked row no longer spans the columns');

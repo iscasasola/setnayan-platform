@@ -103,7 +103,7 @@ export async function confirmVendorPayment(formData: FormData): Promise<void> {
   // so a double-tap doesn't double-notify). Best-effort.
   if (wasUnconfirmed) {
     try {
-      const vendorName = profile.business_name?.trim() || 'Your vendor';
+      const vendorName = profile.business_name?.trim() || 'Your supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')
@@ -199,7 +199,7 @@ export async function refuseVendorPayment(formData: FormData): Promise<void> {
           userId: m.user_id,
           type: 'payment_rejected',
           title: isDeposit
-            ? `${vendorName} couldn't confirm your downpayment`
+            ? `${vendorName} couldn't confirm your first payment`
             : `${vendorName} says your ${amount} payment hasn't reached them`,
           body: reason
             ? `Their words: “${reason}”. Nothing you sent is deleted — Setnayan checks it with both of you.`
@@ -284,7 +284,7 @@ export async function clearVendorPaymentPlan(formData: FormData): Promise<void> 
   // Best-effort: the DB write already happened; a failed notify must not undo it.
   if (wasUncleared) {
     try {
-      const vendorName = profile.business_name?.trim() || 'Your vendor';
+      const vendorName = profile.business_name?.trim() || 'Your supplier';
       const { data: members } = await admin
         .from('event_members')
         .select('user_id')

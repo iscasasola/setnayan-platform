@@ -81,7 +81,7 @@ async function requireSongDeskAct(eventId: string): Promise<SongDeskGate> {
   if (!user) return { ok: false, error: 'Not signed in.' };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
 
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
 
@@ -240,7 +240,7 @@ export async function saveDayOfModules(
   if (!user) return { ok: false, error: 'Not signed in.' };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
 
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   const booking = bookings.find((b) => b.eventId === eventId);
@@ -375,7 +375,7 @@ async function requireBookedVendor(eventId: string) {
   if (!user) return { error: 'Not signed in.' as const };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { error: 'No vendor profile.' as const };
+  if (!profile) return { error: 'No supplier profile.' as const };
 
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   if (!bookings.some((b) => b.eventId === eventId)) {
@@ -594,7 +594,7 @@ export async function setEventAccessGrant(
   if (!user) return { ok: false, error: 'Not signed in.' };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
 
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   if (!bookings.some((b) => b.eventId === eventId)) {
@@ -670,7 +670,7 @@ export async function createVendorEventSet(
   if (!user) return { ok: false, error: 'Not signed in.' };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
 
   const { data: existing } = await supabase
     .from('vendor_event_sets')
@@ -765,7 +765,7 @@ export async function addSongToVendorEventSet(
   if (!user) return { ok: false, error: 'Not signed in.' };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
 
   const { data: owned } = await supabase
     .from('vendor_songs')

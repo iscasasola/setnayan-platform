@@ -135,6 +135,6 @@ export const CATEGORY_STATE_PROMPTS: Record<
   },
   needs_more_options: {
     title: 'Need more options?',
-    actions: ['Search more vendors', 'Negotiate with current', 'Remove this category'],
+    actions: ['Search more suppliers', 'Negotiate with current', 'Remove this category'],
   },
 }

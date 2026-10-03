@@ -11,12 +11,12 @@ import {
   ladderComplaints,
 } from '@/lib/papic-anchor-ladder';
 import {
-  type DiscountFamily,
-  FAMILY_DISCOUNT_DEFAULT_PCT,
   blockingComplaint,
   discountComplaints,
+  familyForServiceCode,
   signupPriceFor,
 } from '@/lib/onboarding-family-discount';
+import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
 import type { RowActionState } from './actions';
 import { formatCount } from '@/lib/format-number';
@@ -26,7 +26,7 @@ import { formatCount } from '@/lib/format-number';
  *
  *   1. `saveBookingFeeSchedule`  — the vendor booking fee's 5% / ₱100,000 / 1%.
  *   2. `savePapicLadder`         — five anchor prices; eleven rungs computed.
- *   3. `saveFamilyDiscount`      — one sign-up discount for a whole family.
+ *   3. `saveSignupDiscount`      — THE one sign-up discount (owner d18, 2026-10-02).
  *
  * They live in their own file rather than in `actions.ts` for the reason that
  * file's own docblock gives: every action there owns exactly ONE catalog row's
@@ -249,15 +249,15 @@ export async function savePapicLadder(
     return { ok: false, message: `Not saved — ${complaints[0]!.message}` };
   }
 
-  // The family discount in force, so the sign-up half is recomputed in the same
-  // save rather than left stale against the new regular prices.
+  // THE one sign-up discount in force (owner d18), so the sign-up half is
+  // recomputed in the same save rather than left stale against the new regular
+  // prices.
   const { data: settings } = await admin
     .from('platform_settings')
-    .select('papic_signup_discount_pct')
+    .select('onboarding_discount_pct')
     .eq('id', 1)
     .maybeSingle();
-  const discountPct =
-    settings?.papic_signup_discount_pct != null ? Number(settings.papic_signup_discount_pct) : 10;
+  const discountPct = readOnboardingDiscountPct(settings?.onboarding_discount_pct);
 
   const phpByShots = new Map(rungs.map((r) => [r.shots, r.php]));
   let moved = 0;
@@ -307,86 +307,81 @@ export async function savePapicLadder(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// 3 · ONE SIGN-UP DISCOUNT PER FAMILY
+// 3 · THE ONE SIGN-UP DISCOUNT
 // ═══════════════════════════════════════════════════════════════════════════
 
-const FAMILY_COLUMN: Record<DiscountFamily, string> = {
-  papic: 'papic_signup_discount_pct',
-  ai: 'ai_signup_discount_pct',
-};
-
-const FAMILY_LABEL: Record<DiscountFamily, string> = {
-  papic: 'Papic',
-  ai: 'Setnayan AI',
-};
-
 /**
- * Sets a family's single sign-up discount and re-derives every sign-up price in
- * that family from it.
+ * Sets THE sign-up discount — `platform_settings.onboarding_discount_pct` — and
+ * re-derives every stored sign-up price from it.
  *
- * ⚠ ONE BOX, MANY PRICES. Nudging this reprices sixteen rows for Papic and four
- * for Setnayan AI. The screen shows the before → after for every affected row
- * BEFORE the save; this action then reports how many actually moved, so the
- * count is confirmed by the write rather than only promised by the preview.
+ * ⚖ Owner tracker d18 (2026-10-02): *"40% off everything bought during
+ * sign-up"*, ONE admin-set number. That REPLACES the two per-family boxes
+ * (Papic, Setnayan AI) of 2026-08-28 — they are gone from the screen, and
+ * `papic_signup_discount_pct` / `ai_signup_discount_pct` are no longer read.
  *
- * 🔒 The Papic FLOOR REFUSES (owner 2026-08-29) and is scoped to Papic — Setnayan
- * AI answers to no floor. The NONSENSE guards — negative, 100%+ — refuse for both
- * families. A 0% discount still only WARNS: it is legal, just pointless.
+ * What it moves: every Papic rung and every Setnayan AI band (the rows that
+ * carry a DERIVED sign-up price — `familyForServiceCode`). Everything else at
+ * sign-up is priced live from this same number by `setupPricePhp` (the card and
+ * the charge), so no stored copy can lag it.
+ *
+ * ⚠ Event Hub Pro is deliberately NOT re-derived: its ₱3,000 sign-up price is
+ * its own owner-set row (2026-09-25), pinned by `event-hub-pro-signup-price.
+ * test.ts`. `setupPricePhp` still gives it the deeper of the two.
+ *
+ * 🔒 The Papic 10% floor still REFUSES (the number now prices Papic too), and
+ * the nonsense guards refuse. A 0% discount only WARNS.
  */
-export async function saveFamilyDiscount(
+export async function saveSignupDiscount(
   _prev: RowActionState,
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
   const admin = createAdminClient();
 
-  const family = String(formData.get('family') ?? '') as DiscountFamily;
-  if (family !== 'papic' && family !== 'ai') {
-    return { ok: false, message: 'Unrecognised product family.' };
-  }
   const pct = parsePct(formData.get('discount_pct'));
   if (pct == null) return { ok: false, message: 'That is not a number.' };
 
-  // ⚠ WHICH COMPLAINTS ARE FATAL IS NOT DECIDED HERE. `BLOCKING_COMPLAINTS`
-  // lives beside the rule itself and is read by the per-row card too, so the
-  // floor cannot refuse on one writer and wave through on the other.
-  const complaints = discountComplaints(family, pct);
+  // The floor that applies is Papic's — the strictest family this number prices.
+  const complaints = discountComplaints('papic', pct);
   const blocking = blockingComplaint(complaints);
   if (blocking) return { ok: false, message: `Not saved — ${blocking.message}` };
 
-  const column = FAMILY_COLUMN[family];
-  // ⚠ SETNAYAN_AI_RENEW is deliberately absent from the AI set: a renewal is not
-  // an onboarding purchase, so it must never gain a sign-up price. Matching
-  // 'SETNAYAN_AI%' here would have swept it in.
+  const { data: prior, error: priorErr } = await admin
+    .from('platform_settings')
+    .select('onboarding_discount_pct')
+    .eq('id', 1)
+    .maybeSingle();
+  if (priorErr) return { ok: false, message: "Couldn't read the current discount — nothing was saved." };
+
+  // ⚠ SETNAYAN_AI_RENEW is deliberately absent: a renewal is not a sign-up
+  // purchase, so it must never gain a sign-up price. `familyForServiceCode`
+  // already excludes it.
   const SELECT_COLS = 'service_code, retail_price_php, onboarding_price_php';
-  const { data: rows, error: readErr } =
-    family === 'papic'
-      ? await admin
-          .from('platform_retail_catalog_v2')
-          .select(SELECT_COLS)
-          .like('service_code', 'PAPIC_GUEST%')
-      : await admin
-          .from('platform_retail_catalog_v2')
-          .select(SELECT_COLS)
-          .in('service_code', ['SETNAYAN_AI', 'SETNAYAN_AI_B', 'SETNAYAN_AI_C', 'SETNAYAN_AI_D']);
+  const [papicRes, aiRes] = await Promise.all([
+    admin.from('platform_retail_catalog_v2').select(SELECT_COLS).like('service_code', 'PAPIC_GUEST%'),
+    admin
+      .from('platform_retail_catalog_v2')
+      .select(SELECT_COLS)
+      .in('service_code', ['SETNAYAN_AI', 'SETNAYAN_AI_B', 'SETNAYAN_AI_C', 'SETNAYAN_AI_D']),
+  ]);
+  const readErr = papicRes.error ?? aiRes.error;
+  const rows = papicRes.data && aiRes.data ? [...papicRes.data, ...aiRes.data] : null;
 
   // ⚠ Supabase RESOLVES with `{ error }`. An unchecked read here would write a
-  // family-wide reprice against an empty row set and report success.
+  // catalogue-wide reprice against an empty row set and report success.
   if (readErr || !rows) {
     return { ok: false, message: "Couldn't read the prices — nothing was saved." };
   }
 
-  // The column name is chosen from FAMILY_COLUMN above, never from the form, so
-  // the computed key can only ever be one of the two known settings columns.
-  const patch: Record<string, number | string> = {
-    [column]: pct,
-    updated_at: new Date().toISOString(),
-  };
-  const { error: setErr } = await admin.from('platform_settings').update(patch).eq('id', 1);
+  const { error: setErr } = await admin
+    .from('platform_settings')
+    .update({ onboarding_discount_pct: pct, updated_at: new Date().toISOString() })
+    .eq('id', 1);
   if (setErr) return { ok: false, message: `Couldn't save — ${setErr.message}` };
 
   let moved = 0;
   for (const row of rows as { service_code: string; retail_price_php: number | string; onboarding_price_php: number | string | null }[]) {
+    if (familyForServiceCode(row.service_code) === null) continue;
     const regular = Number(row.retail_price_php);
     if (!Number.isFinite(regular) || regular <= 0) continue;
     const next = signupPriceFor(regular, pct);
@@ -401,10 +396,15 @@ export async function saveFamilyDiscount(
   }
 
   await admin.from('admin_audit_log').insert({
-    action: 'family_signup_discount_edit',
-    target_id: `${family}_signup_discount_pct`,
+    action: 'signup_discount_edit',
+    target_id: 'onboarding_discount_pct',
     actor_user_id: adminUserId,
-    metadata: { family, after: pct, rowsMoved: moved, warnings: complaints.map((c) => c.kind) },
+    metadata: {
+      before: (prior as { onboarding_discount_pct?: number | string | null } | null)?.onboarding_discount_pct ?? null,
+      after: pct,
+      rowsMoved: moved,
+      warnings: complaints.map((c) => c.kind),
+    },
   });
 
   revalidatePath('/admin/pricing');
@@ -413,8 +413,8 @@ export async function saveFamilyDiscount(
   const warned = complaints.find((c) => c.kind !== 'out_of_range');
   const head =
     moved === 0
-      ? `Saved — ${FAMILY_LABEL[family]} at ${pct}% off. No sign-up price changed.`
-      : `Saved — ${FAMILY_LABEL[family]} at ${pct}% off. ${moved} sign-up price${moved === 1 ? '' : 's'} changed.`;
+      ? `Saved — ${pct}% off at sign-up. No stored sign-up price changed.`
+      : `Saved — ${pct}% off at sign-up. ${moved} sign-up price${moved === 1 ? '' : 's'} changed.`;
   return { ok: true, message: warned ? `${head} ${warned.message}` : head };
 }
 
@@ -555,16 +555,13 @@ export async function saveAiBandPrice(
 
   const { data: settings } = await admin
     .from('platform_settings')
-    .select('ai_signup_discount_pct')
+    .select('onboarding_discount_pct')
     .eq('id', 1)
     .maybeSingle();
-  const discountPct =
-    settings?.ai_signup_discount_pct != null
-      ? Number(settings.ai_signup_discount_pct)
-      : FAMILY_DISCOUNT_DEFAULT_PCT.ai;
+  const discountPct = readOnboardingDiscountPct(settings?.onboarding_discount_pct);
 
-  // The family discount decides the sign-up half — the same function the
-  // family-wide save uses, so one band edited here and the whole family edited
+  // THE one sign-up discount decides the sign-up half — the same function the
+  // discount save uses, so one band edited here and every price re-derived
   // there can never produce two different answers for the same inputs.
   const signup = signupPriceFor(price, discountPct);
 

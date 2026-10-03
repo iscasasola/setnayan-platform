@@ -345,7 +345,7 @@ const PBA_CSS = `
    Card width = min(300px, calc(100vw - 96px)). On phones the card is the
    viewport minus ~96px, so the PREVIOUS + NEXT cards always peek ~20px at each
    edge — the "there's more to swipe" cue (owner 2026-06-03). Applies to EVERY
-   rail card: vendor picks (.card), in-app Setnayan service cards (.card.svc) and
+   rail card: supplier picks (.card), in-app Setnayan service cards (.card.svc) and
    the Digital Services rail, since they all share .card. The old fixed 300px
    filled the rail (rail width = 100vw - 32px, the <main> px-4 inset) — and on the
    narrowest phones OVERFLOWED it — leaving no peek. Capped at 300px so on the
@@ -492,7 +492,7 @@ const PBA_CSS = `
    mobile nav — recap is the terminal element, no dead scroll (owner 2026-05-31). */
 .pbacc .end-spacer{padding:30px 18px var(--botnav-h)}
 /* Unlock-more-categories affordance — under the recap (has picks) and in the
-   empty-state cover (no picks). Owner 2026-06-02: keep the Vendors page to the
+   empty-state cover (no picks). Owner 2026-06-02: keep the Suppliers page to the
    categories the couple is shopping; this is the door to add the rest. */
 .pbacc .catunlock{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 18px;border-radius: var(--m-r-md);border:1.5px solid var(--gold);background:transparent;color:var(--ink);font-family:var(--sans);font-size:14px;font-weight:600;text-decoration:none;cursor:pointer;transition:background .15s ease,border-color .15s ease}
 .pbacc .catunlock:hover{background:rgba(169,131,75,0.12);border-color:var(--gold-deep)}
@@ -609,7 +609,7 @@ html.dark .pbacc .invite-cta:hover,.pbacc .invite-cta:focus{background:rgba(169,
    Rendered as the FIRST cards in a category rail (Papic/Panood/Save-the-Date →
    Photography & Video · Patiktok → Photobooth · LED → LED Background) + in the
    synthetic Design › Digital Services rail. A full-bleed cinema poster (not the
-   white vendor card) so they read instantly as a Setnayan first-party
+   white supplier card) so they read instantly as a Setnayan first-party
    production, distinct from external-vendor picks — same 300px rail-card sizing
    so the coverflow snap stays aligned. Supplementary + non-saturating: never a
    "pick", no Lock / Remove (Digital_Services_Cross_Surface_Map §2-3). */
@@ -876,7 +876,7 @@ export function PlanBudgetAccordion({
               </button>
               <div className="pc-k">How this works</div>
               <div className="pc-h">
-                You&rsquo;ve shortlisted some vendors — here&rsquo;s the next
+                You&rsquo;ve shortlisted some suppliers — here&rsquo;s the next
                 move.
               </div>
               <div className="pc-list">
@@ -892,7 +892,7 @@ export function PlanBudgetAccordion({
                   <span className="pc-b">Add to build</span>
                   <span>
                     the ones you like — assemble them on the Build tab, then
-                    lock your final picks. You can change it anytime.
+                    book your final picks. You can change it anytime.
                   </span>
                 </div>
               </div>
@@ -1245,7 +1245,7 @@ function ChildRail({
           <p className="cov-note">
             ✓ Covered by {child.coveredBy.vendorName} — their{' '}
             {child.coveredBy.fromGroupLabel} package already includes this. Add
-            someone here only if you want a dedicated vendor.
+            someone here only if you want a dedicated supplier.
           </p>
         ) : null}
         <div className="empty-row">
@@ -1303,7 +1303,7 @@ function ChildRail({
                       name:
                         buildPickRow.marketplace_business_name ??
                         buildPickRow.vendor_name ??
-                        'Vendor',
+                        'Supplier',
                       pricePhp: buildPickRow.rolled_cost_php,
                     }
                   : null
@@ -1392,7 +1392,7 @@ function DependencyNudge({
         {soft ? '↪' : '⏳'}
       </span>
       <span>
-        {soft ? 'Tip: lock your ' : 'Lock your '}
+        {soft ? 'Tip: book your ' : 'Book your '}
         <strong>{dep.prereqLabel}</strong>
         {soft
           ? ` first — it sharpens your ${label} matches.`
@@ -1424,11 +1424,11 @@ function DeadlineChip({
     if (multiPick && lockedCount && lockedCount > 0) {
       return (
         <span className="chip locked">
-          ✓ {formatCount(lockedCount)} locked · add more
+          ✓ {formatCount(lockedCount)} booked · add more
         </span>
       );
     }
-    return <span className="chip locked">✓ Locked</span>;
+    return <span className="chip locked">✓ Booked</span>;
   }
   if (status === 'overdue' && daysLeft !== null) {
     return <span className="chip over">⚠ {Math.abs(daysLeft)}d overdue</span>;
@@ -1478,7 +1478,7 @@ function VendorCardAtom({
   const showLockHint =
     lockHintKey !== null && lockHintKey === `${groupId}|${pick.vendor_id}`;
   const displayName =
-    pick.marketplace_business_name ?? pick.vendor_name ?? 'Vendor';
+    pick.marketplace_business_name ?? pick.vendor_name ?? 'Supplier';
   const photo =
     pick.service_primary_photo_url ??
     pick.manual_vendor_photo_url ??
@@ -1582,9 +1582,9 @@ function VendorCardAtom({
   // muted ink. Absent (off-platform / custom / no thread) → no badge.
   const inquiryBadge =
     pick.inquiry_status === 'pending'
-      ? { label: '⏳ Inquiry sent · waiting for vendor', color: null as string | null, bg: null as string | null }
+      ? { label: '⏳ Inquiry sent · waiting for supplier', color: null as string | null, bg: null as string | null }
       : pick.inquiry_status === 'accepted'
-        ? { label: '✓ Vendor accepted · chat open', color: '#2f6f4e', bg: 'rgba(47,111,78,.12)' }
+        ? { label: '✓ Supplier accepted · chat open', color: '#2f6f4e', bg: 'rgba(47,111,78,.12)' }
         : pick.inquiry_status === 'declined'
           ? { label: 'Not available — see similar', color: 'rgba(30,26,18,.6)', bg: 'rgba(30,26,18,.08)' }
           : null;
@@ -1637,7 +1637,7 @@ function VendorCardAtom({
           {match && (
             <span
               className={`hmatch ${match.tier}`}
-              title="How well this candidate fits your event — based on distance, reviews, and verification. Sharpens as vendors fill in their service details."
+              title="How well this candidate fits your event — based on distance, reviews, and verification. Sharpens as suppliers fill in their service details."
             >
               {match.score}% match
             </span>
@@ -1790,8 +1790,8 @@ function VendorCardAtom({
       {!locked && showLockHint && (
         <p className="lockhint">
           Adding to your build pins this pick for the category — your budget
-          updates. Confirm it on the Lock tab when you&rsquo;re ready; nothing&rsquo;s
-          committed until you lock.
+          updates. Confirm it on the Book tab when you&rsquo;re ready; nothing&rsquo;s
+          committed until you book.
         </p>
       )}
 
@@ -2019,7 +2019,7 @@ function CompareSheet({
   // Same field extraction as VendorCardAtom so screen-name/real-name
   // resolution + enrichment stay identical to the cards.
   const vendors = child.picks.map((pick) => {
-    const name = pick.marketplace_business_name ?? pick.vendor_name ?? 'Vendor';
+    const name = pick.marketplace_business_name ?? pick.vendor_name ?? 'Supplier';
     const priceNum = pick.rolled_cost_php;
     const price =
       priceNum !== null
@@ -2113,7 +2113,7 @@ function CompareSheet({
           <table className="cmptable">
             <tbody>
               <tr className="cmprow-name">
-                <th>Vendor</th>
+                <th>Supplier</th>
                 {vendors.map((v) => (
                   <td key={v.id}>{v.name}</td>
                 ))}
@@ -2180,7 +2180,7 @@ function CompareSheet({
 
         <div className="cmpfoot">
           Comparing only shows what you&rsquo;ve shortlisted — it never changes
-          your pick. Lock a vendor from its card.
+          your pick. Book a supplier from its card.
         </div>
       </div>
     </div>

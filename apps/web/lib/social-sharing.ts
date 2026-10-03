@@ -41,6 +41,12 @@ export const SHARE_ARTIFACT_LABEL: Record<ShareArtifactType, string> = {
   reel: 'Reel',
 };
 
+/** Days after the event before a consented couple creation may be posted (the publish gate below). */
+export const SHARE_PUBLISH_GATE_DAYS = 7;
+
+/** Hours a queued couple-creation post is held so the team or couple can pull it. */
+export const SHARE_PULL_WINDOW_HOURS = 48;
+
 /**
  * The publish gate — APP-SIDE on purpose (no review-window column exists).
  * A consented artifact is postable once `event_date + 7 days` is in the
@@ -53,7 +59,7 @@ export function shareConsentPublishGatePassed(eventDate: string | null): boolean
   if (!eventDate) return false;
   const event = new Date(`${eventDate}T00:00:00`);
   if (Number.isNaN(event.getTime())) return false;
-  const gate = new Date(event.getTime() + 7 * 86_400_000);
+  const gate = new Date(event.getTime() + SHARE_PUBLISH_GATE_DAYS * 86_400_000);
   return gate.getTime() < Date.now();
 }
 
@@ -62,7 +68,7 @@ export function shareConsentPostableFrom(eventDate: string | null): string | nul
   if (!eventDate) return null;
   const event = new Date(`${eventDate}T00:00:00`);
   if (Number.isNaN(event.getTime())) return null;
-  return new Date(event.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
+  return new Date(event.getTime() + SHARE_PUBLISH_GATE_DAYS * 86_400_000).toISOString().slice(0, 10);
 }
 
 /**
@@ -118,6 +124,6 @@ export function vendorFeatureCaption({
   }
   return (
     `A new ${categoryLabel.toLowerCase()} in ${region} just got verified ✅ — ` +
-    `the Setnayan vendor marketplace keeps growing.\n\n#Setnayan #SetNaYan`
+    `the Setnayan supplier marketplace keeps growing.\n\n#Setnayan #SetNaYan`
   );
 }

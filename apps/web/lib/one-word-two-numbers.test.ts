@@ -35,7 +35,7 @@ test('the focal no longer states the locked share at all — and never calls any
   // Owner 2026-10-03: the dashboard's "% locked in" line was DROPPED (Suppliers shows what is
   // booked; Setnayan AI states the share on its own page). So the word cannot clash with home's.
   const focal = code(FOCAL);
-  assert.doesNotMatch(focal, /lockedInPct|\}%[\s\S]{0,80}locked in/);
+  assert.doesNotMatch(focal, /lockedInPct|\}%[\s\S]{0,80}(locked in|booked)/);
   assert.ok(
     !/planned/.test(focal),
     'the word that made two different numbers look like one measure',
@@ -45,10 +45,10 @@ test('the focal no longer states the locked share at all — and never calls any
 test('and it reuses the wording the product already has for this value', () => {
   // Inventing a third phrase for a number named twice already is how a product
   // ends up with three vocabularies for one fact.
-  assert.match(code('lib/setnayan-ai-activity.ts'), /% locked in/);
+  assert.match(code('lib/setnayan-ai-activity.ts'), /% booked/);
   assert.match(
     code('app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx'),
-    /% locked in/,
+    /% booked/,
   );
 });
 

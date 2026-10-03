@@ -169,7 +169,7 @@ export async function applyBuildToWorking(input: {
   return {
     ok: false,
     error:
-      'None of this plan’s vendors are still on your shortlist. Re-save the plan and try again.',
+      'None of this plan’s suppliers are still on your shortlist. Re-save the plan and try again.',
   };
 }
 

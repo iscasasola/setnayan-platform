@@ -106,7 +106,8 @@ function genericScreens(eventType: string): string[] {
   });
 }
 
-const CARDS = ['setup_where', 'setup_photo', 'setup_look', 'setup_entry', 'setup_guests', 'setup_more'];
+// ⚖ Owner d24 (2026-10-02): sign-up no longer asks "How do guests get in?" — five cards, not six.
+const CARDS = ['setup_where', 'setup_photo', 'setup_look', 'setup_guests', 'setup_more'];
 
 // ── 1 · per type, the exact step list ─────────────────────────────────────
 
@@ -144,11 +145,11 @@ test('date — exact screens', () => {
   ]);
 });
 
-test('get-together (simple_event) — its one form asks name + date, then the same six cards', () => {
+test('get-together (simple_event) — its one form asks name + date, then the same five cards', () => {
   assert.deepEqual(resolveSetupSteps(viewOf(SEEDED.simple_event!), CREATION_ASKS.simple), CARDS);
 });
 
-test('wedding — the six cards, slotted into its own shell before the services step', () => {
+test('wedding — the five cards, slotted into its own shell before the services step', () => {
   assert.deepEqual(resolveSetupSteps(viewOf(SEEDED.wedding!), CREATION_ASKS.wedding), CARDS);
   assert.equal(WEDDING_SETUP_INSERT_BEFORE, 'services_step');
 });
@@ -162,12 +163,12 @@ test('with the engine on the long quiz has left onboarding (pax · region · tq_
   }
 });
 
-test('the defaults by type: wedding replies, the casual types come in on one QR', () => {
+test('the defaults by type: wedding replies, and every type with a guest list hands each guest a personal QR', () => {
   assert.equal(viewOf(SEEDED.wedding!).replyDefault, 'yes');
   for (const t of ['birthday', 'hangout', 'date', 'simple_event']) {
     const v = viewOf(SEEDED[t]!);
     assert.equal(v.replyDefault, 'no', t);
-    assert.equal(setupDefaults(v).entry, 'one_qr', t);
+    assert.equal(setupDefaults(v).entry, 'personal', t);
   }
 });
 
@@ -207,7 +208,6 @@ test('🔁 NEVER ASKS TWICE — what a creation flow collected never comes back 
     setup_where: 'where',
     setup_photo: 'photo',
     setup_look: 'look',
-    setup_entry: 'entry',
     setup_guests: 'guests',
   };
   for (const flow of Object.keys(CREATION_ASKS) as CreationFlow[]) {
@@ -246,7 +246,7 @@ test('a wake has no guest-list step, and its guests default to "later"', () => {
   }
   assert.equal(setupDefaults(view).guests, 'later');
   assert.equal(view.replyDefault, 'no');
-  assert.equal(setupDefaults(view).entry, 'one_qr');
+  assert.equal(setupDefaults(view).entry, 'one_qr', 'a wake has no list to hand a QR to — one QR for everyone');
   // The wire cannot put a guest-list step back.
   assert.equal(sanitizeSetupAnswers({ guests: 'type' }, view)?.guests, 'later');
 });
@@ -266,7 +266,7 @@ test('a card the type defaults is answered from the first render; where and gues
   const d = setupDefaults(view);
   assert.equal(setupCardAnswered('setup_where', d), false);
   assert.equal(setupCardAnswered('setup_guests', d), false);
-  for (const c of ['setup_photo', 'setup_look', 'setup_entry', 'setup_more'] as const) assert.equal(setupCardAnswered(c, d), true);
+  for (const c of ['setup_photo', 'setup_look', 'setup_more'] as const) assert.equal(setupCardAnswered(c, d), true);
   assert.equal(setupCardAnswered('setup_where', { ...d, where: 'place', whereText: '  ' }), false);
   assert.equal(setupCardAnswered('setup_where', { ...d, where: 'undecided' }), true);
 });
@@ -280,7 +280,7 @@ test('the wire is never trusted: unknown keys and values fall back to the type d
   const a = sanitizeSetupAnswers({ look: 'no-such-look', reply: 'maybe', entry: 'door', gifts: 'yes', logo: 'yes' }, view)!;
   assert.notEqual(a.look, 'no-such-look');
   assert.equal(a.reply, 'no');
-  assert.equal(a.entry, 'one_qr');
+  assert.equal(a.entry, 'personal');
   assert.equal(a.gifts, 'no', 'a gift-free type cannot be given a gifts row');
   assert.equal(a.logo, view.logoRow ? 'yes' : 'no');
 });

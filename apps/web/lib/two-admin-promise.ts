@@ -136,7 +136,7 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
   },
   {
     key: 'vendor-force-delisting',
-    asPublished: 'force-delisting a vendor without the due-process timeline',
+    asPublished: 'force-delisting a supplier without the due-process timeline',
     whyPerClause: 'Vendor protection',
     actionType: null,
     note: '⚠ NOT ENFORCED. Distinct from `approve_fraud_wipe_ban`, which is in the live CHECK and covers the fraud path; this row is the NON-fraud revocation that skips the timeline the vendor was promised.',
@@ -150,7 +150,7 @@ export const TWO_ADMIN_PROMISES: readonly TwoAdminPromise[] = [
   },
   {
     key: 'republish-rejected-vendor',
-    asPublished: 're-publishing a previously rejected vendor application',
+    asPublished: 're-publishing a previously rejected supplier application',
     whyPerClause: 'Verification integrity',
     actionType: null,
     note: '⚠ NOT ENFORCED. `approve_vendor_partnership` is in the live CHECK but covers the partnership decision, not the re-publication of an application already rejected once.',

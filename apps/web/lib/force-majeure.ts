@@ -18,7 +18,7 @@ export type FlagType = (typeof FLAG_TYPES)[number];
 export const FLAG_TYPE_LABEL: Record<FlagType, string> = {
   typhoon: 'Typhoon',
   family_emergency: 'Family emergency',
-  vendor_cancellation: 'Vendor cancellation',
+  vendor_cancellation: 'Supplier cancellation',
   venue_cancellation: 'Venue cancellation',
   other: 'Other',
 };

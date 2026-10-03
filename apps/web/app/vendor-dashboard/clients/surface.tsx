@@ -32,7 +32,7 @@ import {
   INQUIRY_CUSTOMER_UNKNOWN,
 } from '@/lib/inquiry-customer.server';
 
-export const metadata = { title: 'Clients · Vendor' };
+export const metadata = { title: 'Clients · Supplier' };
 
 /**
  * Vendor Clients — the book of business, three buckets (owner lock
@@ -325,7 +325,7 @@ export default async function VendorClientsPage({ searchParams }: Props) {
         {bookedByEvent.size === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
             No booked clients yet — one lands here the moment you agree to a
-            couple&rsquo;s lock or their downpayment is recorded. New leads are waiting in{' '}
+            couple&rsquo;s lock or their first payment is recorded. New leads are waiting in{' '}
             <Link
               href="/vendor-dashboard/bookings"
               className="font-medium text-mulberry underline"

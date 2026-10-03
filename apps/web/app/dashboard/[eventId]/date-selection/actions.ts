@@ -117,7 +117,7 @@ export async function lockEventDate(formData: FormData): Promise<void> {
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
     if ((count ?? 0) > 0) {
       throw new Error(
-        `Date is locked — ${count} confirmed vendor${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
+        `Date is locked — ${count} confirmed supplier${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
       );
     }
   }

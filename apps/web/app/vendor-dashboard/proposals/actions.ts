@@ -124,7 +124,7 @@ export async function createProposal(formData: FormData) {
   const titleRaw = String(formData.get('title') ?? '').trim().slice(0, 160);
   const title =
     titleRaw ||
-    `${profile.business_name ?? 'Proposal'} — ${brief.event.display_name ?? 'your event'}`.slice(
+    `${profile.business_name ?? 'Quote'} — ${brief.event.display_name ?? 'your event'}`.slice(
       0,
       160,
     );

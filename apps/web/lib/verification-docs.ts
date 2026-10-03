@@ -70,7 +70,7 @@ export const VERIFICATION_PREFIX = 'vendors/';
  * Rendered verbatim, so it has to read as a sentence a person can act on.
  */
 export const EMPTY_REFERENCE_SET_REASON =
-  'no vendor record points at ANY file in this bucket — which is what a broken check looks like, not what a tidy bucket looks like';
+  'no supplier record points at ANY file in this bucket — which is what a broken check looks like, not what a tidy bucket looks like';
 
 /**
  * Every string a stored reference value could be naming, at any depth.

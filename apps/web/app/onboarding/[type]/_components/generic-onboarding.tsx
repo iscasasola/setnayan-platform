@@ -1471,7 +1471,7 @@ export function GenericOnboarding(props: Props) {
           <Eyebrow>The basics</Eyebrow>
           <Title>Where is it happening?</Title>
           <p className="mt-2 text-ink/55">
-            {vendorFree ? 'So your plan fits where it happens.' : 'So we can line up vendors near you.'}
+            {vendorFree ? 'So your plan fits where it happens.' : 'So we can line up suppliers near you.'}
           </p>
           <select
             value={region}

@@ -77,7 +77,7 @@ export const EXPLORE_INFO_STRIP =
  * `explore-info-copy.test.ts`. Do not restore the promise ahead of the step.
  */
 export const EXPLORE_INFO_HANDSHAKE =
-  'Locking books this vendor and tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
+  'Booking this vendor tells them straight away. You then pay them directly and send the receipt — once they accept it, your date is reserved on their calendar.';
 
 /**
  * §11.1 — the state-glyph legend, in journey order. Glyphs come from
@@ -92,9 +92,9 @@ export const EXPLORE_STATE_LEGEND: ReadonlyArray<{
   meaning: string;
 }> = [
   { state: 'empty', glyph: COVERAGE_GLYPH.empty, label: 'Not started', meaning: 'nothing shortlisted here yet' },
-  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Exploring', meaning: 'you have vendors on the bench' },
+  { state: 'exploring', glyph: COVERAGE_GLYPH.exploring, label: 'Exploring', meaning: 'you have vendors saved' },
   { state: 'picked', glyph: COVERAGE_GLYPH.picked, label: 'In your build', meaning: 'a candidate is pinned to your suppliers' },
-  { state: 'locked', glyph: COVERAGE_GLYPH.locked, label: 'Locked', meaning: 'a booking is under way or done' },
+  { state: 'locked', glyph: COVERAGE_GLYPH.locked, label: 'Booked', meaning: 'a booking is under way or done' },
   { state: 'covered', glyph: COVERAGE_GLYPH.covered, label: 'Covered', meaning: 'you told us you are done with this one' },
   { state: 'skipped', glyph: '–', label: 'Skipped', meaning: 'not needed for your event' },
 ];
@@ -125,7 +125,7 @@ export function coverageTileLabel(args: {
     args.state === 'covered'
       ? 'covered'
       : args.state === 'locked'
-        ? `${formatCount(args.lockedCount)} locked`
+        ? `${formatCount(args.lockedCount)} booked`
         : // PR-H · the screen-reader label must not borrow "locked" for a
           // supplier who has not answered. This is the one place a couple using
           // a screen reader learns the state at all.
@@ -140,7 +140,7 @@ export function coverageTileLabel(args: {
 }
 
 /** Folder-head summary pills (§11 applies to their tooltips too). */
-export const FOLDER_SUMMARY_LOCKED = (n: number) => `● ${n} locked`;
+export const FOLDER_SUMMARY_LOCKED = (n: number) => `● ${n} booked`;
 export const FOLDER_SUMMARY_TO_DECIDE = (n: number) => `${n} to decide`;
 export const FOLDER_SUMMARY_MORE = (n: number) => `＋${n} more`;
 export const FOLDER_SUMMARY_ALL_COVERED = '✓ All covered';
@@ -251,7 +251,7 @@ export function removeFromPlanButtonLabel(label: string): string {
  * the server action when it refuses — one sentence, one home.
  */
 export const REMOVE_BLOCKED_LOCKED =
-  'This category has a locked vendor. Unlock (or undo) that booking first — removing a category never cancels a booking.';
+  'This category has a booked vendor. Undo that booking first — removing a category never cancels a booking.';
 
 /** A folder whose in-plan set is empty but whose pool is not. Visible copy, so
  *  it takes the same noun as the heading and the ⓘ panel. */
@@ -286,7 +286,7 @@ export const CARD_NEEDS_PRICE = 'Ask for a price to add this to your build';
  * declined card never claims "not free on your date" — only that they said no.
  */
 /** The Picks column's list of build picks that cannot be locked right now. */
-export const CANT_LOCK_YET_HEADING = "In your build — can't lock right now";
+export const CANT_LOCK_YET_HEADING = "In your build — can't book right now";
 /** One short reason per row there; the card carries the longer version. */
 export const BLOCKED_LOCK_ROW: Record<BlockedLockReason, string> = {
   not_available: 'Not available on your date',
@@ -297,7 +297,7 @@ export const BLOCKED_LOCK_ROW: Record<BlockedLockReason, string> = {
 export const LOCK_WITHHELD_COPY: Record<LockWithheldReason, { headline: string; line: string }> = {
   inquiry_declined: {
     headline: 'They declined your inquiry',
-    line: "So there's nothing to lock. You can still message them.",
+    line: "So there's nothing to book. You can still message them.",
   },
   slot_taken: {
     headline: 'Another booking took their slot',
@@ -335,7 +335,7 @@ export function cardCheckInquiryLabel(name: string): string {
  * amendment a lock is a REQUEST until the vendor accepts the payment, so no
  * customer-facing control may promise finality before that step.
  */
-export const CARD_LOCK = 'Lock this';
+export const CARD_LOCK = 'Book this';
 export const CARD_LOCKING = 'Requesting…';
 
 /**
@@ -374,7 +374,7 @@ export function lockedNamesLine(names: readonly string[]): string {
   return names.join(' · ');
 }
 export function lockedNamesLabel(names: readonly string[], categoryLabel: string): string {
-  return `Locked for ${categoryLabel}: ${names.join(', ')}`;
+  return `Booked for ${categoryLabel}: ${names.join(', ')}`;
 }
 
 /** Rail end — a locked, still-open category invites the next pick (#3789). */
@@ -498,6 +498,6 @@ export function cardDatesPopupTitle(vendorName: string): string {
  */
 export function dateOutcomeLine(o: DateOutcome): string | null {
   if (!o) return null;
-  if (o.kind === 'sets') return `Locking this sets your date to ${formatDayKeyLabel(o.day)}`;
+  if (o.kind === 'sets') return `Booking this sets your date to ${formatDayKeyLabel(o.day)}`;
   return `Leaves ${formatCount(o.count)} possible dates — your date is not set yet`;
 }

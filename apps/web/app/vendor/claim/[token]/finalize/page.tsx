@@ -102,7 +102,7 @@ export default async function FinalizeClaimPage({ params }: Props) {
     if (transferErr || !transferred) {
       return (
         <ErrorShell
-          title="Couldn't transfer your vendor profile."
+          title="Couldn't transfer your supplier profile."
           body={transferErr?.message ?? 'The pre-staged profile may already be claimed.'}
         />
       );
@@ -123,7 +123,7 @@ export default async function FinalizeClaimPage({ params }: Props) {
     if (createErr || !created) {
       return (
         <ErrorShell
-          title="Couldn't create your vendor profile."
+          title="Couldn't create your supplier profile."
           body={createErr?.message ?? 'Please try again or contact support.'}
         />
       );

@@ -94,7 +94,7 @@ export async function markVendorPendingReview(
 ): Promise<PendingReviewFlip> {
   const { vendorProfileId, userId, nowIso } = args;
   if (!vendorProfileId || !userId) {
-    return { ok: false, error: 'Missing vendor identity — please sign in again.' };
+    return { ok: false, error: 'Missing supplier identity — please sign in again.' };
   }
 
   const { data: row, error: readErr } = await admin

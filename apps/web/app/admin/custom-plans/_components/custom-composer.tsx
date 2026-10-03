@@ -242,7 +242,7 @@ export function CustomComposer({
               <Knob
                 icon={<Users className="h-4 w-4" strokeWidth={2} />}
                 label={`Team seats · ${comp.seats}`}
-                hint="10 seats included. Extra seats beyond the base 10 are billed."
+                hint={`${formatCount(CUSTOM_BASE.seats)} seats included. Extra seats beyond the base ${formatCount(CUSTOM_BASE.seats)} are billed.`}
               >
                 <input
                   type="range"
@@ -274,7 +274,7 @@ export function CustomComposer({
               <Knob
                 icon={<Images className="h-4 w-4" strokeWidth={2} />}
                 label={`Portfolio photos · ${formatCount(comp.photos)}`}
-                hint="300 photos included. Billed per +100-photo pack."
+                hint={`${formatCount(CUSTOM_BASE.photos)} photos included. Billed per +100-photo pack.`}
               >
                 <input
                   type="range"

@@ -131,8 +131,8 @@ function RowAction({ eventId, row }: { eventId: string; row: TeamRow }) {
         groupLabel={row.service ?? row.name}
         vendorId={row.vendorId}
         vendorName={row.name}
-        label="Lock ›"
-        pendingLabel="Locking…"
+        label="Book ›"
+        pendingLabel="Booking…"
         className={GO_CLASS}
         // A column flex, not a block: a block wrapper adds a line-box strut that
         // made the Lock row taller than its Pay/Nudge siblings, and the button's

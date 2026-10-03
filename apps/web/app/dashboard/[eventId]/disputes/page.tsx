@@ -219,14 +219,14 @@ function NewFlagForm({
             minLength={30}
             maxLength={4000}
             rows={5}
-            placeholder="Brief but specific — date, vendor, what you expected vs. what happened, any deadlines you've already missed."
+            placeholder="Brief but specific — date, supplier, what you expected vs. what happened, any deadlines you've already missed."
             className="input-field min-h-[120px] py-2"
           />
         </label>
 
         <label htmlFor="event_vendor_id" className="block space-y-1">
           <span className="sn-eye">
-            Affects which vendor? (optional)
+            Affects which supplier? (optional)
           </span>
           <select
             id="event_vendor_id"
@@ -234,7 +234,7 @@ function NewFlagForm({
             defaultValue=""
             className="input-field"
           >
-            <option value="">Whole event (no specific vendor)</option>
+            <option value="">Whole event (no specific supplier)</option>
             {vendors.map((v) => (
               <option key={v.vendor_id} value={v.vendor_id}>
                 {v.vendor_name} · {v.status.replace(/_/g, ' ')}
@@ -243,7 +243,7 @@ function NewFlagForm({
           </select>
           {vendors.length === 0 ? (
             <span className="block text-xs text-ink/55">
-              No contracted vendors yet. You can still file a whole-event flag.
+              No contracted suppliers yet. You can still file a whole-event flag.
             </span>
           ) : null}
         </label>

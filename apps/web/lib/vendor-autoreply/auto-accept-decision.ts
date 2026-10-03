@@ -105,7 +105,7 @@ export function evaluateAutoAccept(input: AutoAcceptGateInput): AutoAcceptDecisi
  * so the acceptance is never disguised as a hand-typed reply.
  */
 export function buildAutoAcceptWelcome(businessName: string, reasons: string[]): string {
-  const name = businessName.trim() || 'This vendor';
+  const name = businessName.trim() || 'This supplier';
   const why =
     reasons.length > 0
       ? ` Why you match: ${reasons.slice(0, 3).join(' · ')}.`

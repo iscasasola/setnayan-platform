@@ -25,7 +25,7 @@ const ADDON_KEY_BY_SERVICE_CODE = new Map<string, string>(
   ).map((a) => [a.serviceKey as string, a.key]),
 );
 
-export const metadata = { title: 'Recommend · Vendor' };
+export const metadata = { title: 'Recommend · Supplier' };
 export const dynamic = 'force-dynamic';
 
 type Props = {

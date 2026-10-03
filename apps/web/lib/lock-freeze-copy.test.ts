@@ -17,7 +17,7 @@ import assert from 'node:assert/strict';
 import { lockFreezeLine } from '@/lib/lock-freeze-copy';
 import type { LockRequestState } from '@/lib/lock-request-state';
 
-const BOOKED_WORDS = /deal locked/i;
+const BOOKED_WORDS = /deal locked|booked — price frozen/i;
 const ROLES = ['couple', 'vendor'] as const;
 const ALL_STATES: LockRequestState[] = [
   'none',

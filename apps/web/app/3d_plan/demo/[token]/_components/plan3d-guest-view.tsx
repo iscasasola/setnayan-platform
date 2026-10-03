@@ -156,7 +156,7 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
               Tap the floor to walk · swipe to look around
             </div>
             <p style={{ margin: '8px 0 0', fontSize: 12, color: '#a8a4a0' }}>
-              Tap a booth to meet the vendor.
+              Tap a booth to meet the supplier.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14 }}>
               <button

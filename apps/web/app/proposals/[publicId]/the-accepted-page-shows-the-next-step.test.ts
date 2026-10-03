@@ -39,16 +39,16 @@ test('the accepted couple-side state resolves a Lock link from event_vendors', (
      "Your team"), and since #5614 a bare workspace landing redirects to the
      conversation. The destination is now the shared rule in lib/lock-door.ts,
      fed the pick's own category so the bench opens on the right tile. */
-  assert.match(src, /lockDoorHref = coupleLockDoorHref\(\s*proposal\.event_id,/);
+  assert.match(src, /lockTarget = coupleLockTarget\(\s*proposal\.event_id,/);
   assert.match(src, /\.select\('vendor_id, category'\)/, 'the pick is read without its category — the door cannot pick a tile');
-  assert.doesNotMatch(src, /lockDoorHref = `[^`]*\/workspace`/, 'the lock link points at the workspace, which holds no Lock');
+  assert.doesNotMatch(src, /lockTarget = `[^`]*\/workspace`/, 'the lock link points at the workspace, which holds no Lock');
 });
 
 test('the next-step block is gated to the couple, accepted, with an event', () => {
   const src = source();
-  const gate = src.match(/let lockDoorHref[^;]*;\s*if \(([^)]*)\)/);
+  const gate = src.match(/let lockTarget[^;]*;\s*if \(([^)]*)\)/);
   const cond = gate?.[1];
-  assert.ok(cond, 'expected the lockDoorHref resolution to be gated');
+  assert.ok(cond, 'expected the lockTarget resolution to be gated');
   assert.match(cond, /!isVendorSide/);
   assert.match(cond, /proposal\.status === 'accepted'/);
   assert.match(cond, /proposal\.event_id/);
@@ -56,10 +56,14 @@ test('the next-step block is gated to the couple, accepted, with an event', () =
 
 test('the next-step block only renders when a link was resolved, and only once', () => {
   const src = source();
-  const occurrences = src.match(/lockDoorHref \?/g) ?? [];
+  const occurrences = src.match(/lockTarget \?/g) ?? [];
   // One to gate the JSX render; the read-error / not-found branches never see it.
-  assert.equal(occurrences.length, 1, 'expected exactly one render gate on lockDoorHref');
-  assert.match(src, /You&rsquo;ve accepted\. To book \{businessName\}, ask them to lock/);
+  assert.equal(occurrences.length, 1, 'expected exactly one render gate on lockTarget');
+  // ⚖ Owner d19 (2026-10-02): the page carries the confirm button itself — the sentence that sent the
+  // couple off to go and lock it is gone, and so is the word "lock" on the couple's side of this page.
+  assert.match(src, /<AccordionLockButton/);
+  assert.match(src, /to confirm your booking/);
+  assert.doesNotMatch(src, /ask them to lock|Go ask/);
 });
 
 test('a failed event_vendors read is logged, not swallowed silent', () => {

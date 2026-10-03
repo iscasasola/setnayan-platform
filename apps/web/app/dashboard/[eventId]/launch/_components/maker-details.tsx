@@ -72,7 +72,7 @@ import { updateOurStory } from '../../website/our-story/actions';
 import { InMakerLiveStoryPanel } from '../../website/our-story/_components/in-maker-return-to';
 
 // ⚡ Opened on a tap — the Look editors load with the Details pieces (`details-lazy.tsx`).
-import { DetailsLookBody, DetailsLookEditor, DetailsLookPieces } from './details-lazy';
+import { DetailsLookBody, DetailsLookEditor, DetailsLookPageBody, DetailsLookPieces, LookPanel } from './details-lazy';
 /* ⚡ Each piece's editor and picture load when Details is opened — never with the
    Maker (`details-lazy.tsx`; held by `details-pieces-are-lazy.test.ts`). */
 import {
@@ -94,7 +94,6 @@ import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { PlanMyselfBody, PlanMyselfSwitch } from './plan-myself';
 import { PLAN_MYSELF_LABEL, planMyselfSub } from '@/lib/plan-myself';
 import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from './details-answers-parts';
-import type { EventSettingsInput } from './details-settings-load';
 import type { DetailsGuide } from './details-guide';
 import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
@@ -291,8 +290,6 @@ export type MakerDetailsProps = {
    * editing it (the draft over live). Null/absent = not offered (the lab).
    */
   answers?: AnswersInput | null;
-  /** 🗂 Event settings — the retired `/details/change` page, moved whole (`loadEventSettings`). Null = not read. */
-  settings?: EventSettingsInput | null;
   /**
    * 🙋 "Plan it myself" (owner 2026-10-02, tracker d4) — the one free switch
    * for the automatic help, the last row of Your event. `on` is
@@ -416,8 +413,8 @@ export function MakerDetails(props: MakerDetailsProps) {
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;
-  /* 🗂 Your info's answers and Event settings (`details-answers-parts.tsx`). */
-  const ap = answerParts({ eventId, answers: props.answers ?? null, settings: props.settings ?? null });
+  /* 🗂 Your info's answers (`details-answers-parts.tsx`). */
+  const ap = answerParts({ eventId, answers: props.answers ?? null });
   const logoA = props.answers ? logoAnswer(eventId, props.answers) : null;
   const coverA = props.answers ? coverAnswer(eventId, props.answers) : null;
 
@@ -445,7 +442,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     if (k === 'theme') {
       return {
         label: 'Theme',
-        sub: 'Samples · Maria & Jose',
+        sub: 'Background · font · colours',
+        panelLabel: 'Look',
         done: theme.chosen,
         usedOn: ['every stage', 'every print'],
         icon: still ? (
@@ -535,15 +533,21 @@ export function MakerDetails(props: MakerDetailsProps) {
 
   /* ══ BODIES — each item's picture ══ */
   const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
+    /* 🖼 Look's body is the couple's own page (every Look change shows on it);
+       the sample gallery of every theme is one switch away (2026-10-02). */
     theme: (
       <>
-        <MakerThemeGallery
-          themes={theme.themes}
-          ownsPro={theme.ownsPro}
-          storeShell={theme.storeShell}
-          suggested={theme.suggested}
-          sampleVersion={theme.sampleVersion}
-          posters={theme.posters}
+        <DetailsLookPageBody
+          gallery={
+            <MakerThemeGallery
+              themes={theme.themes}
+              ownsPro={theme.ownsPro}
+              storeShell={theme.storeShell}
+              suggested={theme.suggested}
+              sampleVersion={theme.sampleVersion}
+              posters={theme.posters}
+            />
+          }
         />
         {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
       </>
@@ -698,7 +702,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     </p>
   );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
-    theme: <MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} blurbs={theme.blurbs} />,
+    /* 🎨 LOOK IS ONE PANEL — Theme · Background · Font · Colours (`lib/maker-look-sections.ts`). */
+    theme: <LookPanel theme={<MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} blurbs={theme.blurbs} />} />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */

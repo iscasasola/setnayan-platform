@@ -29,7 +29,7 @@ import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked
 import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 
-export const metadata = { title: 'Mood Board · Vendor' };
+export const metadata = { title: 'Mood Board · Supplier' };
 
 /**
  * Read-only mood board for booked vendors — lets them align their booth,

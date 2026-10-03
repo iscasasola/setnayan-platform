@@ -307,7 +307,7 @@ export function VendorPaymentLive({
                       {rollup.next.dueDate ? ` · due ${rollup.next.dueDate}` : ''}
                     </>
                   ) : (
-                    'All installments confirmed.'
+                    'All payments confirmed.'
                   )}
                 </p>
               </div>
@@ -332,12 +332,12 @@ export function VendorPaymentLive({
                 </div>
                 {!canClear ? (
                   <p className="mt-2 text-xs text-ink/55">
-                    Confirm every installment above before you can mark the plan
+                    Confirm every payment above before you can mark the plan
                     cleared.
                   </p>
                 ) : (
                   <p className="mt-2 text-xs text-ink/55">
-                    All installments confirmed — mark the plan cleared to let the
+                    All payments confirmed — mark the plan cleared to let the
                     couple know nothing more is owed.
                   </p>
                 )}

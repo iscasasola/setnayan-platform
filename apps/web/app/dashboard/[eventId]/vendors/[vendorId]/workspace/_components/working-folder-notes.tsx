@@ -130,7 +130,7 @@ export async function WorkingFolderNotes({
         <p className="text-xs text-ink/60">
           {viewer.isCoordinator
             ? 'Prep privately, share when ready — private notes stay between coordinators; shared notes are visible to the couple.'
-            : 'Notes you and your coordinator keep on this vendor. Your coordinator may also keep private working notes.'}
+            : 'Notes you and your coordinator keep on this supplier. Your coordinator may also keep private working notes.'}
         </p>
       </header>
 

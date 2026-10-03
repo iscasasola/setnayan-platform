@@ -503,7 +503,7 @@ function FieldControl({
           label="Logo"
           htmlFor="logo_url"
           required
-          help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every vendor card."
+          help="PNG, JPEG, or WebP up to 2 MB. Couples see this on every supplier card."
         >
           <FileUpload
             bucket="media"

@@ -29,6 +29,7 @@
  *
  * PURE — no I/O and no `server-only`, so the rules above are tested directly.
  */
+import { SERVICE_NAMES, type ServiceNameKey } from '@/lib/service-names';
 import type { LucideIcon } from 'lucide-react';
 import { addOnHref, appStoreDetailHref, type AddOnEntry } from './add-ons-catalog';
 import type { EventMenuChild, EventMenuIconName } from './customer-menu';
@@ -50,8 +51,10 @@ export type OurServicePart = { key: string; name: string; href: string; line: st
 
 export type OurService = {
   key: string;
-  /** The name a person reads. Only Papic and Patiktok keep custom names. */
+  /** The name a person reads FIRST — what it does (owner d17: "Guest photos"). */
   name: string;
+  /** The Setnayan name, drawn small underneath ("Papic"). `lib/service-names.ts`. */
+  brand: string;
   /** One short, plain line about what it does. */
   line: string;
   /** Where the card goes; `null` = an inert card (see `inertReason`). */
@@ -69,8 +72,11 @@ export type OurService = {
 };
 
 type CatalogueService = {
-  key: string;
-  name: string;
+  key: ServiceNameKey;
+  /** What it does — first (owner d17, `lib/service-names.ts`). */
+  plain: string;
+  /** The Setnayan name — small, underneath. */
+  brand: string;
   line: string;
   /** Catalogue keys, first offered one wins (Live Watch's two tiles). */
   addOnKeys: readonly string[];
@@ -95,13 +101,13 @@ type CatalogueService = {
 const SERVICES: readonly CatalogueService[] = [
   {
     key: 'setnayan-ai',
-    name: 'Setnayan AI (SAI)',
+    ...SERVICE_NAMES['setnayan-ai'],
     line: 'Watches your suppliers for you',
     addOnKeys: ['setnayan-ai'],
   },
   {
     key: 'papic',
-    name: 'Papic',
+    ...SERVICE_NAMES.papic,
     line: 'Your guests take the photos',
     // `papic` has no single SKU (variablePricing); the Pool and the camera
     // passes that mean "Papic is on here" arrive as `papicOwnedBy`.
@@ -111,7 +117,7 @@ const SERVICES: readonly CatalogueService[] = [
   },
   {
     key: 'live-studio',
-    name: 'Live Watch',
+    ...SERVICE_NAMES['live-studio'],
     line: 'Your day, streamed live',
     // Exactly one of these passes `addOnOfferedForEvent` (the livestream
     // de-dupe lives there): the unified tile when its flag is on, else Cast.
@@ -119,14 +125,14 @@ const SERVICES: readonly CatalogueService[] = [
   },
   {
     key: 'music-maker',
-    name: 'Music Maker',
+    ...SERVICE_NAMES['music-maker'],
     line: 'A song written from your story',
     addOnKeys: ['pakanta'],
     part: { key: 'playlist', name: 'Playlist', line: 'The right song for every moment' },
   },
   {
     key: 'patiktok',
-    name: 'Patiktok',
+    ...SERVICE_NAMES.patiktok,
     line: 'Short video reels from your day',
     addOnKeys: ['patiktok'],
   },
@@ -237,7 +243,8 @@ function catalogueCard(svc: CatalogueService, input: OurServicesInput): OurServi
 
   const base = {
     key: svc.key,
-    name: svc.name,
+    name: svc.plain,
+    brand: svc.brand,
     line: svc.line,
     Icon: entry.Icon,
     gradient: entry.poster.baseBackground,
@@ -321,7 +328,7 @@ export function ourServicesMenuChildren(
 ): EventMenuChild[] {
   return cards.flatMap((c) =>
     c.href
-      ? [{ key: c.key, label: c.name, href: c.href, icon: MENU_ICON[c.key] ?? 'product' }]
+      ? [{ key: c.key, label: c.name, sub: c.brand, href: c.href, icon: MENU_ICON[c.key] ?? 'product' }]
       : [],
   );
 }
@@ -353,10 +360,10 @@ export const TOOL_HOMES: Readonly<Record<string, ToolHome>> = {
   // Stage D (2026-09-29): the menu is five rows. Budget is a part of Your
   // Team; Schedule and the Mood Board are Details items of the Maker.
   guests: { home: 'the Guest list menu row' },
-  budget: { home: 'Your Team — its Budget part' },
+  budget: { home: 'Suppliers — its Budget part' },
   schedule: { home: 'the Event Hub Maker — Event Details › Schedule', needsWebsite: true },
   checklist: { home: 'Overview — "View your full checklist"' },
-  compare: { home: 'Your Team — its Compare tab' },
+  compare: { home: 'Suppliers — its Compare tab' },
   // Catalogue tools.
   'mood-board': { home: 'the Event Hub Maker — Look › Mood Board', needsWebsite: true },
   // Train n (2026-09-29): the Seat plan row left the menu — its home is

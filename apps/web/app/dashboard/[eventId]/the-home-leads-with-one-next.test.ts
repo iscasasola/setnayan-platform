@@ -80,14 +80,17 @@ const PAGE = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
 /** The plan branch — the last arm of the page's phase ternary, up to the closing wrapper. */
 const DASH = stripComments(readFileSync(join(HERE, '_components', 'event-dashboard.tsx'), 'utf8'));
 const PLAN = PAGE.slice(PAGE.lastIndexOf(') : ('), PAGE.indexOf('</LastSeenCapture>'));
+const FACTS = stripComments(readFileSync(join(HERE, '..', '..', '..', 'lib', 'home-facts.ts'), 'utf8'));
 
-const NOTHING: HomeNextInput = { guide: null, hasDate: true, noun: 'wedding', papicReady: false, aiOffer: false };
+const NOTHING: HomeNextInput = { guide: null, hasDate: true, guests: { total: 96, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false };
 const GUIDE = { round: 2, roundTitle: 'Invitations', done: 3, total: 7, nextTitle: 'Schedule' };
 
 /** One input per kind, so every branch of the picker is drawn. */
 const EVERY_STATE: HomeNextInput[] = [
-  { ...NOTHING, guide: GUIDE, hasDate: false, papicReady: true, aiOffer: true },
-  { ...NOTHING, hasDate: false, papicReady: true, aiOffer: true },
+  { ...NOTHING, guide: GUIDE, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  { ...NOTHING, hasDate: false, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  { ...NOTHING, guests: { total: 0, unsent: 0 }, papicReady: true, aiOffer: true },
+  { ...NOTHING, guests: { total: 96, unsent: 58 }, papicReady: true, aiOffer: true },
   { ...NOTHING, papicReady: true, aiOffer: true },
   { ...NOTHING, aiOffer: true },
   NOTHING,
@@ -186,10 +189,12 @@ test('c · an unread number prints "—", never 0', () => {
 
 test('c · the page hands the measurement to the render, not only the rows', () => {
   assert.match(PAGE, /fetchGuestsByEventMeasured\(/, 'Home must take the measured guest read');
-  assert.match(PAGE, /glanceCount\(homeStats\.attending,\s*guestsMeasured\)/, '"coming" must know whether it was measured');
-  assert.match(PAGE, /glanceCount\(homeStats\.pending,\s*guestsMeasured\)/, '"no reply" must know whether it was measured');
-  assert.match(PAGE, /glanceMoney\(moneyNow\?\.paid \?\? null\)/, 'Paid must print "—" when the money read failed');
-  assert.match(PAGE, /glanceMoney\(moneyNow\?\.owing \?\? null\)/, 'Still owing must print "—" when the money read failed');
+  // The page hands the measurement to `homeFacts`; `homeFacts` is the one place the numbers are printed.
+  assert.match(PAGE, /guests:\s*\{\s*stats:\s*guestStats,\s*measured:\s*guestsMeasured\s*\}/, 'the page must pass the measured flag with the counts');
+  assert.match(FACTS, /glanceCount\(guests\.stats\.attending,\s*guests\.measured\)/, '"coming" must know whether it was measured');
+  assert.match(FACTS, /glanceCount\(guests\.stats\.pending,\s*guests\.measured\)/, '"no reply" must know whether it was measured');
+  assert.match(FACTS, /glanceMoney\(money\?\.paid \?\? null\)/, 'Paid must print "—" when the money read failed');
+  assert.match(FACTS, /glanceMoney\(money\?\.owing \?\? null\)/, 'Still owing must print "—" when the money read failed');
   assert.doesNotMatch(PAGE, /measured:\s*true[^}]*\}\s*as Awaited/, 'a failed guest read must never be recast as measured');
 });
 
@@ -310,11 +315,12 @@ test('e · each removed tile\'s content is reachable at its home', () => {
   // [tile, the route it now lives at, a file under that route, what that file still states]
   const homes: Array<[string, string, string | null, RegExp | null]> = [
     ['Papic · N shots / photos → the Your services row, then its page', 'studio/papic', null, null],
-    ['Sai · your briefing · % locked in → the Setnayan AI page (live state)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /locked in/],
-    ['Setnayan AI · The Watch → the Setnayan AI page (deadlines + payments it keeps; the alerts themselves are notifications)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /every vendor, deadline and payment/],
+    // The share's word is "booked" since d19 (2026-10-02, "couples read book, never lock").
+    ['Sai · your briefing · % booked → the Setnayan AI page (live state)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /% booked/],
+    ['Setnayan AI · The Watch → the Setnayan AI page (deadlines + payments it keeps; the alerts themselves are notifications)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /every supplier, deadline and payment/],
     ['Schedule · next → the Schedule page', 'schedule', null, null],
     ['Messages · unread → the chat icon\'s page', 'messages', null, null],
-    ['Needs you this week → the Next card, and the suppliers\' own book / pick / lock steps', 'vendors', 'vendors/_components/build-locked.tsx', /Locked in/],
+    ['Needs you this week → the Next card, and the suppliers\' own book / pick steps', 'vendors', 'vendors/_components/build-locked.tsx', />Booked</],
     ['Hosts card · who holds access + what a helper did → the guest list\'s Access column and the helper\'s guest card', 'guests', 'guests/_components/guest-helper-access.tsx', /./],
     ['Meanwhile · a supplier delivered something → a notification (existing) opening the supplier\'s workspace', 'vendors/[vendorId]/workspace', null, null],
     ['Decisions list + Coming up → the What\'s next sheet on Home', 'checklist', null, null],
@@ -437,4 +443,49 @@ test('f · a supplier delivery reaches the couple as the ONE existing notificati
   assert.match(after, /emitNotification\(\{[\s\S]*?type: 'schedule_suggestion'[\s\S]*?delivered your handover/, 'the delivery notification is emitted after the insert');
   assert.equal(count(after, 'emitNotification('), 1, 'a second notification for the same delivery');
   assert.ok(after.includes('/vendors/${eventVendorId}/workspace`'), 'it opens the supplier\'s workspace');
+});
+
+test('f · the guests cards: "Add your guests" on an empty list, "Send N invitations" from the real unsent count', async () => {
+  // First-timer fix 9 (corpus FIRST_TIMER_TEST_2026-10-02.md, H3).
+  const { homeGuestsRead } = await import('../../../lib/home-first-screen');
+  const rows = [
+    { role: 'bride', invitation_sent_at: null },
+    { role: 'groom', invitation_sent_at: null },
+    { role: 'guest', invitation_sent_at: null },
+    { role: 'guest', invitation_sent_at: '2026-10-01T00:00:00Z' },
+    { role: null, invitation_sent_at: '  ' },
+  ];
+  // The couple are not invited; a blank stamp is not a send.
+  assert.deepEqual(homeGuestsRead(rows, true), { total: 3, unsent: 2 });
+  // A refused read is null — never "Add your guests" to a couple with names.
+  assert.equal(homeGuestsRead(rows, false), null);
+  assert.equal(pickHomeNext({ ...NOTHING, guests: null }).kind, 'plan');
+
+  const invite = pickHomeNext({ ...NOTHING, guests: homeGuestsRead(rows, true) });
+  assert.equal(invite.kind, 'invite');
+  assert.equal(invite.title, 'Send 2 invitations');
+  assert.equal(pickHomeNext({ ...NOTHING, guests: { total: 1, unsent: 1 } }).title, 'Send 1 invitation');
+  assert.equal(pickHomeNext({ ...NOTHING, guests: { total: 0, unsent: 0 } }).title, 'Add your guests');
+  // The page feeds the picker from the SAME measured read the numbers use.
+  assert.match(PAGE, /guests: homeGuestsRead\(guests, guestsMeasured\),/);
+  // And each card goes where it says.
+  const html = draw({}, { ...NOTHING, guests: { total: 96, unsent: 58 } });
+  assert.match(html, /href="\/dashboard\/e1\/guests\/send"/);
+});
+
+/*
+  🗣 THE CARD SAYS WHAT IT IS (owner, live phone test 2026-10-02, asking what the
+  "Next card" was). Its eyebrow reads "Your next step" in plain words, and its
+  button names the action — never a bare "Continue" or "Next". No caption
+  explains it: the words do.
+*/
+test('the Next card reads "Your next step", and its button names the action — in every state', () => {
+  for (const state of EVERY_STATE) {
+    const html = draw({}, state);
+    const kind = pickHomeNext(state).kind;
+    const card = html.slice(html.indexOf('data-home-next='), html.lastIndexOf('<a', html.indexOf('data-home-edit-hub')));
+    assert.match(card, />Your next step<\/p>/, `${kind}: the eyebrow does not say what the card is`);
+    const button = /<a [^>]*>([^<]*)<\/a>/.exec(card)?.[1]?.trim() ?? '';
+    assert.ok(!/^(Continue|Next|Go|Open)$/i.test(button), `${kind}: the button says "${button}" — it must name the action`);
+  }
 });

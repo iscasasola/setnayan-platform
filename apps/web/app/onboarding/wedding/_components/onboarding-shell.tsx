@@ -172,7 +172,7 @@ const NO_SETUP_STEPS: readonly SetupCardId[] = [];
    it is the first time this funnel tells a couple that Papic exists at all. The
    2026-06-21 "no paywall in onboarding" lock is untouched; `plan`/`services`/
    `summary` stay filtered out exactly as before. */
-const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_entry','setup_guests','setup_more','w_names','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
+const FLOW_IDS = ['welcome','role','kind','faith','name','date','love_intro','love_spark','love_almost','love_proposal','love_milestones','love_tone','love_preview','alaala_promise','region','pax','budget','exp_for_whom','exp_feel','exp_energy','exp_roots','exp_effort','exp_help','exp_source','exp_reveal','team_intro','reception_setting','find','team_payoff','aigate','team_basics','refine_basic','team_extras','refine_extras','songs','mood','account','setup_where','setup_photo','setup_look','setup_guests','setup_more','w_names','w_kind','w_area','w_pax','w_budget','w_colours','services_step','congrats','plan','services','summary'] as const;
 type ScreenId = typeof FLOW_IDS[number];
 /* The love collection screens dropped when the couple skips the stage (love_intro,
    the gate, always stays). */
@@ -285,7 +285,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   account:'Create account', find:'Continue', congrats:'Continue', plan:'Continue',
   // The services step informs; it never asks for money — so its CTA is a plain
   // acknowledgement, not "Add" or "Continue to checkout".
-  services_step:'Continue — Papic is on',
+  services_step:'Continue — guest photos are on',
   services:'Review my picks', summary:'Done',
   // Dream Team chapter. aigate carries its OWN two in-screen CTAs (chrome CTA hidden
   // via AIGATE_NOCTA) — its key is required only to satisfy the exhaustive Record.
@@ -301,7 +301,7 @@ const NEXT_LABEL_BY_ID: Record<ScreenId, string> = {
   exp_for_whom:'Continue', exp_feel:'Continue', exp_energy:'Continue', exp_roots:'Continue', exp_effort:'Continue',
   exp_help:'Continue', exp_source:'Continue', exp_reveal:'Continue',
   // 🎟 The setup cards (G1) — the shared SetupCard, advanced by the chrome Continue.
-  setup_where:'Continue', setup_photo:'Continue', setup_look:'Continue', setup_entry:'Continue', setup_guests:'Continue', setup_more:'Continue',
+  setup_where:'Continue', setup_photo:'Continue', setup_look:'Continue', setup_guests:'Continue', setup_more:'Continue',
   // 🧭 The approved wedding cards (lib/onboarding/wedding-cards.ts).
   w_names:'Continue', w_kind:'Continue', w_area:'Continue', w_pax:'Continue', w_budget:'Continue', w_colours:'Continue',
 };
@@ -469,7 +469,7 @@ const BASIC_SET = new Set<string>(BASIC_CATS);
 const PICK_INFO: Record<string, { d: string }> = {
   reception: { d: 'Where your celebration happens — the dinner, the program, and the dancing.' },
   ceremony: { d: 'Where you exchange vows — church, mosque, temple, garden, or civil hall.' },
-  coordinator: { d: 'Runs your timeline and vendors so you can just enjoy the day.' },
+  coordinator: { d: 'Runs your timeline and suppliers so you can just enjoy the day.' },
   catering: { d: 'Food and service for your guests — buffet, plated, or family-style.' },
   cake: { d: 'Your wedding cake and dessert centerpiece.' },
   stations: { d: 'Live food stations — carving, pasta, lechon, and more.' },
@@ -952,11 +952,6 @@ const INAPP_VS: Record<string, string> = {
   advanced_website: 'a hired web developer', animated_monogram: 'a motion studio', panood: 'a livestream crew', pakanta: 'a composer + singer', indoor_blueprint: 'a floor-plan service', live_background: 'an LED wall rental + crew', guest_stories: 'per-guest manual editing', thank_you: 'a hired cinematographer', live_photowall: 'an onsite slideshow team',
 };
 
-/* Onboarding promo — a fraction off any in-app add-on added during onboarding, applied to the
-   services-summary total (screen 16). ⚠ THE FIGURE IS NOT TYPED HERE: it arrives as
-   `pricing.promo` (onboarding-pricing.ts — the ONE constant, listed for an owner decision), and
-   the "−N% onboarding promo" label below is rendered from that same value so the label and the
-   arithmetic cannot disagree. */
 
 /* Pick → recommended in-app add-ons (owner 2026-06-05 · "recommended services for the other
    services" → "Matched to their picks"). For each vendor category the couple picks, suggest the
@@ -1044,12 +1039,6 @@ function WeddingCountdown({ iso, active }: { iso: string; active: boolean }) {
 /* MatchedBundle removed 2026-06-05 — the paid upsell is now the à-la-carte in-app-services flow on
    screens 15–16 (browse + detail + savings → interested summary → Purchase Now). See INAPP_* above. */
 
-/* ── Live savings compute — Time & Money Saved model §H/§I (owner-LOCKED 2026-06-03) ──
-   Per-couple from the onboarding state — REPLACES the hardcoded demo strip (owner 2026-06-02:
-   "why is this the same for everybody?"). Money is mostly flat (everyone gets the same free
-   tools → ₱53,486) + ₱2,500 × expos; hours scale with the couple's picks · shortlist · runway ·
-   expos. Setnayan AI stays EXCLUDED (paid SKU, retired 2026-06-03).
-   See FREE_TOOL_DRIVERS below for the per-tool breakdown the Your Plan slider renders. */
 /* Name fields (bride/groom · screen 4) accept letters only — no digits, no symbols
    (owner 2026-06-02). Allows Unicode letters (Filipino ñ + accents), spaces (compound
    names + spaced surnames like "Dela Cruz"/"De Leon"), hyphens ("Anne-Marie") and
@@ -1058,112 +1047,55 @@ function sanitizeName(raw: string): string {
   return (raw || '').replace(/[^\p{L}\s'-]/gu, '');
 }
 
-/* Free-tool value drivers — Time & Money Saved model §H/§I (owner-LOCKED 2026-06-03,
-   supersedes the old §A–§F set). `money` = market-equivalent "what you'd pay elsewhere"
-   (NOT a Setnayan SKU price — these are free); `hours` = practical-time-audited (§I).
-   Apparatus rule (LOCKED): every tool replaces *hiring people / DIY toil*, the couple
-   brings their own. Flat money sums to ₱53,486; marketplace adds ₱2,500 × expos. The Your
-   Plan slider renders this breakdown; .plansave + congrats sum it. lockedVendors/invited are
-   0 at onboarding (those hours accrue post-commit), so the headline shows ~₱63.5K / ~290h. */
-type SavingsInputs = {
-  categories: number; shortlisted: number; runwayDays: number;
-  exposReplaced: number; lockedVendors: number; invitedVendors: number;
-};
-type FreeToolValue = { key: string; label: string; blurb: string; vsRole: string; money: number; hours: number };
-const FREE_TOOL_DRIVERS: ReadonlyArray<{
-  key: string; label: string; blurb: string; vsRole: string;
-  money: (c: SavingsInputs) => number; hours: (c: SavingsInputs) => number;
-}> = [
-  { key: 'website', label: 'Basic website', blurb: 'RSVP, your event site, and an editorial page — built for you.', vsRole: 'a hired web developer', money: () => 14999, hours: () => 50 },
-  { key: 'drive', label: 'Photos on your Google Drive', blurb: 'Every original synced to your own Drive, yours to keep.', vsRole: 'a USB-and-delivery service', money: () => 5000, hours: () => 5 },
-  { key: 'mood', label: 'Mood board', blurb: 'One styled board your vendors actually follow.', vsRole: 'a styling consult', money: () => 3999, hours: () => 5 },
-  { key: 'budget', label: 'Budget tracker', blurb: 'Live spend and payment reminders — never a missed due date.', vsRole: "a planner's budget service", money: () => 3999, hours: () => 12 },
-  { key: 'dashboard', label: 'Your planning dashboard', blurb: 'Checklist, schedule, and every vendor in one hub.', vsRole: 'spreadsheets and group chats', money: () => 3999, hours: (c) => 0.25 * c.runwayDays },
-  { key: 'guest', label: 'Guest list + seat plan', blurb: 'Guests, RSVPs, and seating in one connected place.', vsRole: 'a guest-management service', money: () => 2999, hours: () => 12 },
-  { key: 'marketplace', label: 'Verified vendor marketplace', blurb: 'Every verified PH vendor — like 50 bridal expos in your pocket.', vsRole: 'bridal-expo trips', money: (c) => 2500 * c.exposReplaced, hours: (c) => 10 * c.exposReplaced },
-  { key: 'comparison', label: 'Side-by-side compare', blurb: 'Line up quotes and pick with clarity.', vsRole: 'quote-vetting legwork', money: () => 2499, hours: (c) => c.shortlisted },
-  { key: 'dayof', label: 'Day-of guest portal', blurb: 'Guests self-serve their table, schedule, and photos on the day.', vsRole: 'day-of guest coordination', money: () => 1999, hours: () => 6 },
-  { key: 'contract', label: 'Contract organizer', blurb: 'Upload, track key terms, e-sign, and never miss a deadline.', vsRole: 'contract admin', money: () => 1999, hours: () => 3 },
-  { key: 'songlist', label: 'Songlist maker', blurb: 'Your must-play and do-not-play list for the band or DJ.', vsRole: 'a music planner', money: () => 1499, hours: () => 3 },
-  { key: 'papic', label: 'Papic sampler', blurb: '3 guest seats to taste candid-capture tagging — every shot lands in your gallery, free.', vsRole: 'a second shooter for an hour', money: () => 0, hours: () => 4 },
-  { key: 'foodplanner', label: 'Food planner', blurb: 'Menu plus dietary, allergy, and halal prefs for your caterer.', vsRole: 'a menu planner', money: () => 1499, hours: () => 4 },
-  { key: 'monogram', label: 'Basic monogram', blurb: 'A custom mark for your wedding, generated in seconds.', vsRole: 'a designer', money: () => 1499, hours: () => 4 },
-  { key: 'qr', label: 'Branded QR', blurb: 'One scan opens everything for your guests.', vsRole: 'an invitation designer', money: () => 999, hours: () => 2 },
-  { key: 'fanout', label: 'One-tap inquiries', blurb: 'Reach your top matches in one tap — not one chat at a time.', vsRole: 'messaging each vendor yourself', money: () => 0, hours: (c) => 0.5 * c.categories },
-  { key: 'chat', label: 'All chats in one place', blurb: 'Every vendor thread in one app, not scattered across Viber and email.', vsRole: 'chasing replies everywhere', money: () => 0, hours: (c) => 0.5 * c.lockedVendors },
-  { key: 'invite', label: 'Bring your own vendor', blurb: 'Already love a vendor? Invite them — they plug right in.', vsRole: 'onboarding them yourself', money: () => 0, hours: (c) => c.invitedVendors },
-  { key: 'trust', label: 'Verified-vendor safety', blurb: 'Real reviews and verified badges — no guessing, no scams.', vsRole: 'due-diligence and asking around', money: () => 0, hours: () => 0 },
+/* Everything a couple gets free — the LIST only (owner tracker d12, 2026-10-02:
+   *"keep the list, drop the ₱ and hours total … this is not a real measurement."*).
+   The old `FREE_TOOL_DRIVERS` priced each row (~₱63.5K + ~290 h) from figures with no
+   cited source; corpus FREE_TOOLS_MARKET_VALUE_2026-10-02.md found only 4 of 19 rows
+   priceable and no source for any time saving. So there is no money, no hours and no
+   total here — a value line returns only with cited figures. */
+type FreeTool = { key: string; label: string; blurb: string };
+const FREE_TOOLS: ReadonlyArray<FreeTool> = [
+  { key: 'website', label: 'Basic website', blurb: 'RSVP, your event site, and an editorial page — built for you.' },
+  { key: 'drive', label: 'Photos on your Google Drive', blurb: 'Every original synced to your own Drive, yours to keep.' },
+  { key: 'mood', label: 'Mood board', blurb: 'One styled board your suppliers actually follow.' },
+  { key: 'budget', label: 'Budget tracker', blurb: 'Live spend and payment reminders — never a missed due date.' },
+  { key: 'dashboard', label: 'Your planning dashboard', blurb: 'Checklist, schedule, and every supplier in one hub.' },
+  { key: 'guest', label: 'Guest list + seat plan', blurb: 'Guests, RSVPs, and seating in one connected place.' },
+  { key: 'marketplace', label: 'Verified supplier marketplace', blurb: 'Every verified PH supplier, in your pocket.' },
+  { key: 'comparison', label: 'Side-by-side compare', blurb: 'Line up quotes and pick with clarity.' },
+  { key: 'dayof', label: 'Day-of guest portal', blurb: 'Guests self-serve their table, schedule, and photos on the day.' },
+  { key: 'contract', label: 'Contract organizer', blurb: 'Upload, track key terms, e-sign, and never miss a deadline.' },
+  { key: 'songlist', label: 'Songlist maker', blurb: 'Your must-play and do-not-play list for the band or DJ.' },
+  { key: 'foodplanner', label: 'Food planner', blurb: 'Menu plus dietary, allergy, and halal prefs for your caterer.' },
+  { key: 'monogram', label: 'Basic monogram', blurb: 'A custom mark for your wedding, generated in seconds.' },
+  { key: 'qr', label: 'Branded QR', blurb: 'One scan opens everything for your guests.' },
+  { key: 'fanout', label: 'One-tap inquiries', blurb: 'Reach your top matches in one tap — not one chat at a time.' },
+  { key: 'chat', label: 'All chats in one place', blurb: 'Every supplier thread in one app, not scattered across Viber and email.' },
+  { key: 'invite', label: 'Bring your own supplier', blurb: 'Already love a supplier? Invite them — they plug right in.' },
+  { key: 'trust', label: 'Verified-supplier safety', blurb: 'Real reviews and verified badges — no guessing, no scams.' },
 ];
 
-function computeOnboardingSavings(
-  state: OnboardingState,
-  now: Date,
-): { money: number; hours: number; breakdown: FreeToolValue[] } {
-  const categories = state.picks.length;
-  const shortlisted = state.shortlist.length;
-  const exposReplaced = Math.min(5, Math.max(1, Math.ceil(Math.max(categories, 1) / 3)));
-  // runway = earliest committed/candidate date (or window start) − today, clamped ≥0
-  const iso =
-    state.dateMode === 'window' && state.windowStart
-      ? state.windowStart
-      : ((state.dateCandidates ?? []).filter(Boolean).slice().sort()[0] ?? null);
-  let runwayDays = 365; // 12-mo default when no date yet (the date screen gates, so rare)
-  if (iso) {
-    const days = Math.round((new Date(iso + 'T00:00:00').getTime() - now.getTime()) / 86400000);
-    if (Number.isFinite(days)) runwayDays = Math.max(0, days);
-  }
-  // No vendors locked / no BYO invites yet at onboarding-commit time — those hours accrue later.
-  const c: SavingsInputs = { categories, shortlisted, runwayDays, exposReplaced, lockedVendors: 0, invitedVendors: 0 };
-  const breakdown: FreeToolValue[] = FREE_TOOL_DRIVERS.map((d) => ({
-    key: d.key, label: d.label, blurb: d.blurb, vsRole: d.vsRole,
-    money: Math.round(d.money(c)), hours: d.hours(c),
-  }));
-  const money = breakdown.reduce((s, d) => s + d.money, 0);
-  const hours = Math.round(breakdown.reduce((s, d) => s + d.hours, 0));
-  return { money, hours, breakdown };
-}
-
-/* Free-value slider on Your Plan (owner 2026-06-05) — renders the locked §H breakdown as a
-   swipeable list: each free tool with its time saved + market-equivalent "what you'd pay
-   elsewhere" (apparatus rule: instead of hiring people / DIY toil). Closes on a tally card =
-   the grand total. Horizontal scroll-snap keeps the no-scroll golden rule (no extra vertical
-   height). Cards shown only when they save real money or ≥1 hr for this couple. */
-function FreeValueSlider({ tools, money, hours, active }: { tools: FreeToolValue[]; money: number; hours: number; active: boolean }) {
-  const cards = tools
-    .filter((t) => t.money > 0 || t.hours >= 1)
-    .slice()
-    .sort((a, b) => b.money - a.money || b.hours - a.hours);
+/* The free list on Your Plan — a swipeable row of cards, each tool with a "Free" mark.
+   No total, no per-card price, no hours (d12 above). Horizontal scroll-snap keeps the
+   no-scroll golden rule. */
+function FreeValueSlider({ tools }: { tools: ReadonlyArray<FreeTool> }) {
   return (
     <section className="freeblock" aria-label="What you get free">
       <div className="fb-pad">
         <div className="fb-eyebrow">Everything you get · free</div>
-        <div className="fb-hero">
-          <span className="fb-amt"><CountUp value={money} prefix="₱" active={active} /></span>
-          <span className="fb-hrs">+ <CountUp value={hours} suffix=" hours" active={active} /></span>
-        </div>
-        <div className="fb-lbl">Tools a wedding planner would charge you for. Yours, ₱0 — forever.</div>
-        <div className="fb-meter"><i /></div>
       </div>
       <div className="fvs-track">
-        {cards.map((t, i) => (
+        {tools.map((t, i) => (
           <article className="fvs-card" key={t.key} data-i={String(i + 1).padStart(2, '0')}>
             <div className="fvs-label">{t.label}</div>
             <div className="fvs-blurb">{t.blurb}</div>
             <div className="fvs-foot">
               <div className="fvs-price">
-                {t.money > 0 && <span className="fvs-was">{pesoB(t.money)}</span>}
                 <span className="fvs-free">Free</span>
-                <span className="fvs-vs">{t.money > 0 ? `vs ${t.vsRole}` : `instead of ${t.vsRole}`}</span>
               </div>
-              {t.hours >= 1 && <span className="fvs-hrs">⏱ {Math.round(t.hours)}h</span>}
             </div>
           </article>
         ))}
-        <article className="fvs-card fvs-tally" key="__tally">
-          <div className="fvs-tally-lbl">All of it</div>
-          <div className="fvs-tally-amt"><CountUp value={money} prefix="₱" active={active} /> · <CountUp value={hours} suffix="h" active={active} /></div>
-          <div className="fvs-tally-sub">Yours, ₱0, forever — plus one-place chat, bring-your-own-vendor &amp; verified-vendor safety.</div>
-        </article>
       </div>
     </section>
   );
@@ -1180,40 +1112,9 @@ const ANALYZING_HOLD_MS = 2200;
 // "thinking" dots, so no trailing "…"). The loader cycles these internally.
 const ANALYZING_STAGES = [
   'Analyzing your preferences',
-  'Matching your vendors',
+  'Matching your suppliers',
   'Building your personalized dashboard',
 ];
-
-/* Savings counter — counts up on screen entry (prototype countUp/runCounters · cubic ease-out ~1.15s). */
-function CountUp({ value, prefix = '', suffix = '', active }: { value: number; prefix?: string; suffix?: string; active: boolean }) {
-  const [disp, setDisp] = useState(0);
-  const raf = useRef<number | null>(null);
-  useEffect(() => {
-    if (!active) {
-      setDisp(0);
-      return;
-    }
-    const dur = 1150;
-    const start = performance.now();
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / dur);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setDisp(Math.round(value * eased));
-      if (t < 1) raf.current = requestAnimationFrame(tick);
-    };
-    raf.current = requestAnimationFrame(tick);
-    return () => {
-      if (raf.current) cancelAnimationFrame(raf.current);
-    };
-  }, [active, value]);
-  return (
-    <b>
-      {prefix}
-      {formatCount(disp)}
-      {suffix}
-    </b>
-  );
-}
 
 export function OnboardingShell({
   authed,
@@ -2164,7 +2065,7 @@ export function OnboardingShell({
     // Functional update so two quick "Send" taps can't clobber each other's entry.
     setState((s) => ({ ...s, byoVendors: [...s.byoVendors, { name, person, email }] }));
     setByoDone(
-      `✓ ${name} added to your wedding. They'll appear in your dashboard's vendor list, where you can track and manage them.`,
+      `✓ ${name} added to your wedding. They'll appear in your dashboard's supplier list, where you can track and manage them.`,
     );
     setByoAdded(true);
     setByoName('');
@@ -2491,8 +2392,6 @@ export function OnboardingShell({
   })();
   const recapWhere = REGLABEL[state.region ?? 'ncr'] ?? 'Philippines';
   const recapGuests = state.pax != null ? formatCount(state.pax) : '—';
-  /* live per-couple savings — replaces the hardcoded demo strip (owner 2026-06-02) */
-  const savings = computeOnboardingSavings(state, new Date());
 
   /* ── Full congrats recap + services-summary extras (owner 2026-06-05) ── */
   const isHelper = state.role === 'helper';
@@ -2561,17 +2460,8 @@ export function OnboardingShell({
   // The woven "Our Love Story" prose — same call the love-stage reveal uses (loveTone + weaveCtx).
   const bloomStoryProse = bloomHasStory ? weaveStory(loveTone, state.loveStory, weaveCtx) : null;
 
-  /* services summary (16): pick-matched recommendations · onboarding duration · grand total saved */
+  /* services summary (16): pick-matched recommendations */
   const recommendedSet = useMemo(() => new Set(recommendedInappFor(state.picks)), [state.picks]);
-  const elapsedMin = state.startedAt ? Math.max(1, Math.round((Date.now() - state.startedAt) / 60000)) : null;
-  // Live SELLING price from the admin catalog (pricing.svc[k].set). Every live
-  // SKU is flat-priced since the 2026-07-29 Papic reprice (PAPIC_GUEST was the
-  // last pax-curve row); the authoritative charge is still recomputed at order
-  // time. The `out` market anchors are illustrative (not Setnayan prices) and
-  // are 0 for both Papic keys, so neither contributes to this "saved" figure.
-  const addonSetTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.set ?? 0), 0);
-  const addonMarketTotal = state.interestedServices.reduce((sum, k) => sum + (pricing.svc[k]?.out ?? 0), 0);
-  const grandMoney = savings.money + Math.max(0, addonMarketTotal - Math.round(addonSetTotal * (1 - pricing.promo)));
 
   /* ════ THE MIRROR ════ a live wedding-website preview ribbon that accretes one real
      element with every answer (prototype Onboarding_Wedding_Adaptive_Flow §3 · port plan §4).
@@ -3153,7 +3043,7 @@ export function OnboardingShell({
                 <HeroImg src={ASSET('welcome')} />
                 <div className="welcomeoverlay">
                   <h1>Start with the view. We{'’'}ll handle the details.</h1>
-                  <p>Tell us your date. Get a free wedding plan + matched vendors in minutes.</p>
+                  <p>Tell us your date. Get a free wedding plan + matched suppliers in minutes.</p>
                 </div>
               </div>
             )}
@@ -3932,7 +3822,7 @@ export function OnboardingShell({
                       </p>
                     )}
                     <div className="statstrip">
-                      <div className="stat"><b>{state.picks.length}</b><span>vendors<br />lined up</span></div>
+                      <div className="stat"><b>{state.picks.length}</b><span>suppliers<br />lined up</span></div>
                       <div className="stat"><b>{state.interestedServices.length}</b><span>Setnayan<br />add-ons</span></div>
                       <div className="stat"><b>{focusLabel}</b><span>built<br />around</span></div>
                     </div>
@@ -4188,7 +4078,7 @@ export function OnboardingShell({
             <div className="welcome" style={{ paddingTop: 24 }}>
               <div className="mark">✓</div>
               <h1 style={{ fontSize: 34 }}>Your plan is ready.</h1>
-              <p style={{ marginBottom: 24 }}>Create your free account to keep it {'—'} and start finding your vendors.</p>
+              <p style={{ marginBottom: 24 }}>Create your free account to keep it {'—'} and start finding your suppliers.</p>
             </div>
             {/* ONE DOOR, ONE ORDER (owner 2026-09-25: "When a new account is created via
                 website must be similar to the event invitation"). The same order the
@@ -4281,7 +4171,7 @@ export function OnboardingShell({
           {/* 12 FIND FIRST VENDOR — REAL reception venues from the marketplace
               (criteria search, no eventId · WAVE 2). Tap to shortlist → recap count. */}
           <section className={`screen${activeId === 'find' ? ' active' : ''}`} id="screen-find">
-            <div className="eyebrow">Find your first vendor</div>
+            <div className="eyebrow">Find your first supplier</div>
             <h1 className="q" style={{ fontSize: 30 }}>{findHeading}</h1>
             {venuesLoading && (
               <div className="vskel-wrap" aria-live="polite" aria-busy="true">
@@ -4394,13 +4284,13 @@ export function OnboardingShell({
               <div className="eyebrow">Setnayan AI <span className="tag new">New</span></div>
               <h1 className="q">You did the venue. Let us do the rest.</h1>
               <div className="aibenefits">
-                <div className="aibene"><div className="ic">✓</div><div className="tx"><b>Verified vendors, matched to you</b><span>Region · date · guest count · budget · venue · style — checked all at once, every vendor confirmed real.</span></div></div>
+                <div className="aibene"><div className="ic">✓</div><div className="tx"><b>Verified suppliers, matched to you</b><span>Region · date · guest count · budget · venue · style — checked all at once, every supplier confirmed real.</span></div></div>
                 <div className="aibene"><div className="ic">⚡</div><div className="tx"><b>Tuned to your taste</b><span>One quick {'“'}what kind?{'”'} per service narrows it to exactly your style.</span></div></div>
-                <div className="aibene"><div className="ic">💬</div><div className="tx"><b>Free to browse — no obligation</b><span>Shortlist, compare &amp; message vendors at ₱0. Book only if you love them.</span></div></div>
+                <div className="aibene"><div className="ic">💬</div><div className="tx"><b>Free to browse — no obligation</b><span>Shortlist, compare &amp; message suppliers at ₱0. Book only if you love them.</span></div></div>
               </div>
             </div>
             <div className="tapzone">
-              <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => aiAnswer(true)}>Yes — match the rest of my vendors</button>
+              <button type="button" className="btn btn-primary" style={{ width: '100%', marginBottom: 10 }} onClick={() => aiAnswer(true)}>Yes — match the rest of my suppliers</button>
               <div className="stayfree"><u onClick={() => aiAnswer(false)}>No thanks, I{'’'}ll browse on my own</u></div>
             </div>
           </section>
@@ -4573,7 +4463,7 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'plan' ? ' active' : ''}`} id="screen-plan">
             <div className="eyebrow">Your plan</div>
             <h1 className="q" style={{ fontSize: 31, lineHeight: 1.08 }}><span>{coupleDisplay}</span></h1>
-            <FreeValueSlider tools={savings.breakdown} money={savings.money} hours={savings.hours} active={activeId === 'plan'} />
+            <FreeValueSlider tools={FREE_TOOLS} />
             <div className="grouplbl">The part that did the work</div>
             <div className="aikeep">
               <div className="aikeep-top">
@@ -4581,17 +4471,17 @@ export function OnboardingShell({
                 <span className="aikeep-name">Setnayan AI</span>
                 <span className="aikeep-tag">your planning brain</span>
               </div>
-              <div className="aikeep-lede">The <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} we just matched to your date, budget &amp; style? That was <b>Setnayan AI</b>. Keep it for every other vendor.</div>
+              <div className="aikeep-lede">The <b>{teamMatched}</b> {teamMatched === 1 ? 'venue' : 'venues'} we just matched to your date, budget &amp; style? That was <b>Setnayan AI</b>. Keep it for every other supplier.</div>
               <ul className="aikeep-bens">
-                <li><span className="ic" aria-hidden="true">✓</span><span><b>Matches every vendor to you</b> — region, date, guests, budget, venue &amp; style, checked at once.</span></li>
-                <li><span className="ic" aria-hidden="true">◷</span><span><b>Your deadline timeline</b> — what to lock next, and by when, so nothing slips.</span></li>
+                <li><span className="ic" aria-hidden="true">✓</span><span><b>Matches every supplier to you</b> — region, date, guests, budget, venue &amp; style, checked at once.</span></li>
+                <li><span className="ic" aria-hidden="true">◷</span><span><b>Your deadline timeline</b> — what to book next, and by when, so nothing slips.</span></li>
                 <li><span className="ic" aria-hidden="true">➤</span><span><b>Reaches your best matches</b> — first inquiries sent for you, plus last-minute access.</span></li>
               </ul>
               {pricing.setnayanAi && (
                 <div className="aikeep-price">
                   <span className="aikeep-now">{pricing.setnayanAi.label}</span>
                   <span className="aikeep-unit">active until your wedding day</span>
-                  <span className="aikeep-anchor">₱30,000+ coordinator</span>
+                  <span className="aikeep-anchor">instead of a hired coordinator</span>
                 </div>
               )}
               <button type="button" className="aikeep-cta" disabled={committing} onClick={() => { void handleFinish(true, 'setnayan-ai'); }}>{committing ? 'Setting up…' : `Keep Setnayan AI${pricing.setnayanAi ? ` · ${pricing.setnayanAi.label}` : ''}`}</button>
@@ -4601,7 +4491,7 @@ export function OnboardingShell({
               <div className="optcard optcard-col">
                 <div className="opt-main">
                   <div className="opt-h">Reach my best matches</div>
-                  <div className="opt-d">We&apos;ll send your first inquiry to the best-fit vendors we found. You can always do this yourself later.</div>
+                  <div className="opt-d">We&apos;ll send your first inquiry to the best-fit suppliers we found. You can always do this yourself later.</div>
                 </div>
                 <div className="opt-step">
                   <span className="opt-step-l">inquiries per category</span>
@@ -4673,11 +4563,6 @@ export function OnboardingShell({
           <section className={`screen${activeId === 'summary' ? ' active' : ''}`} id="screen-services-summary">
             <div className="eyebrow">Your picks</div>
             <h1 className="q" style={{ fontSize: 28, lineHeight: 1.08 }}>Services you&apos;re interested in</h1>
-            {/* Grand total — the climactic "what you saved, and how fast" stat (owner 2026-06-05). */}
-            <div className="svc-grand">
-              <div className="svc-grand-h"><CountUp value={grandMoney} prefix="₱" active={activeId === 'summary'} /> <span className="svc-grand-and">·</span> <CountUp value={savings.hours} suffix=" hrs" active={activeId === 'summary'} /></div>
-              <div className="svc-grand-l">saved with Setnayan{elapsedMin ? ` — you did all this in ${elapsedMin} minute${elapsedMin === 1 ? '' : 's'}` : ''}</div>
-            </div>
             {state.interestedServices.length === 0 ? (
               <div className="svc-empty">No add-ons selected — and that&apos;s perfectly fine. Your free plan already has everything you need to start.</div>
             ) : (
@@ -4707,7 +4592,7 @@ export function OnboardingShell({
                   return (
                     <div className="svc-totals">
                       <div className="svc-tot-k">{state.interestedServices.length} {state.interestedServices.length === 1 ? 'service' : 'services'} · total</div>
-                      <div className="svc-tot-promo"><span className="svc-tot-was">{pesoB(setTotal)}</span><span className="svc-tot-tag">−{Math.round(pricing.promo * 100)}% onboarding promo</span></div>
+                      <div className="svc-tot-promo"><span className="svc-tot-was">{pesoB(setTotal)}</span><span className="svc-tot-tag">−{Math.round(pricing.promo * 100)}% at sign-up</span></div>
                       <div className="svc-tot-a">{pesoB(due)}</div>
                     </div>
                   );
@@ -4756,11 +4641,11 @@ export function OnboardingShell({
 
         {/* BYO vendor — bottom-sheet popup (prototype #byoSheet/#byoBackdrop · vendor_invites auto-connect, CLAUDE.md 2026-05-19) */}
         <div className={`sheet-backdrop${byoOpen ? ' open' : ''}`} onClick={() => setByoOpen(false)} />
-        <div className={`sheet${byoOpen ? ' open' : ''}`} role="dialog" aria-label="Add your own vendor">
+        <div className={`sheet${byoOpen ? ' open' : ''}`} role="dialog" aria-label="Add your own supplier">
           <div className="sheet-handle" />
-          <div className="sheet-h">Add your own vendor</div>
+          <div className="sheet-h">Add your own supplier</div>
           <div className="sheet-sub">We&apos;ll connect you to them on Setnayan.</div>
-          <label className="byo-l"><span className="byo-lk">Vendor name</span><input className="field" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
+          <label className="byo-l"><span className="byo-lk">Supplier name</span><input className="field" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
           <label className="byo-l"><span className="byo-lk">Contact person</span><input className="field" value={byoPerson} onChange={(e) => setByoPerson(e.target.value)} placeholder="Who you talk to" /></label>
           <label className="byo-l"><span className="byo-lk">Email address</span><input className="field" type="email" value={byoEmail} onChange={(e) => setByoEmail(e.target.value)} placeholder="name@email.com" /></label>
           <button className="byo-send" type="button" onClick={sendByo}>Send invite &amp; connect</button>

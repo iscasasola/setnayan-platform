@@ -6,9 +6,7 @@ import { Check, AlertTriangle } from 'lucide-react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
 import type { AiPriceTier } from '@/lib/setnayan-ai-type-pricing';
 import {
-  discountComplaints,
   effectiveDiscountPct,
-  previewFamilySave,
   signupPriceFor,
 } from '@/lib/onboarding-family-discount';
 
@@ -45,7 +43,6 @@ export function AiBandsEditor({
   totalKinds,
   discountPct,
   setBandAction,
-  saveDiscountAction,
   savePriceAction,
 }: {
   bands: AiBandView[];
@@ -53,8 +50,7 @@ export function AiBandsEditor({
   totalKinds: number;
   discountPct: number;
   setBandAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
-  saveDiscountAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
-  /** Sets ONE band's regular price. The sign-up price follows the family discount. */
+  /** Sets ONE band's regular price. The sign-up price follows the one sign-up discount. */
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
 }) {
   const router = useRouter();
@@ -63,7 +59,6 @@ export function AiBandsEditor({
     message: null,
   });
 
-  const priced = bands.filter((b) => b.regularPhp != null);
   // Every kind, wherever it currently sits — so each band can offer the ones it
   // does not already hold.
   const allKinds: EventKindView[] = [...bands.flatMap((b) => b.kinds), ...unassigned];
@@ -83,17 +78,6 @@ export function AiBandsEditor({
         <Stat label="No price chosen" value={String(unassigned.length)} bad={unassigned.length > 0} />
         <Stat label="Sold as its own row" value={String(bands.filter((b) => b.isSellable).length)} />
       </div>
-
-      <FamilyDiscountCard
-        discountPct={discountPct}
-        rows={priced.map((b) => ({
-          serviceCode: b.serviceCode!,
-          title: `Band ${b.band}`,
-          regularPhp: b.regularPhp!,
-          signupPhp: b.signupPhp,
-        }))}
-        action={saveDiscountAction}
-      />
 
       {/*
         ⚠ THE TRAY IS PERMANENT, EVEN WHEN EMPTY. Its whole job is to turn a
@@ -149,132 +133,6 @@ function Stat({ label, value, bad }: { label: string; value: string; bad?: boole
         {value}
       </span>
     </div>
-  );
-}
-
-/**
- * ONE discount for the whole family, with the before → after of every row it
- * would move shown BEFORE the save.
- *
- * ⚠ THIS PREVIEW IS THE WHOLE RISK OF THE SINGLE-DISCOUNT SHAPE. Nudging one box
- * reprices every row in the family. The warning is not for the person who chose
- * today's number — it is for the next person who nudges it.
- */
-function FamilyDiscountCard({
-  discountPct,
-  rows,
-  action,
-}: {
-  discountPct: number;
-  rows: { serviceCode: string; title: string; regularPhp: number; signupPhp: number | null }[];
-  action: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
-}) {
-  const [state, formAction] = useActionState<RowActionState, FormData>(action, {
-    ok: false,
-    message: null,
-  });
-  const [pct, setPct] = useState(String(discountPct));
-
-  const n = Number(pct);
-  const usable = Number.isFinite(n);
-  const complaints = usable ? discountComplaints('ai', n) : [];
-  const preview = usable && complaints.every((c) => c.kind !== 'out_of_range')
-    ? previewFamilySave(rows, n)
-    : [];
-  const moving = preview.filter((p) => p.moves);
-
-  return (
-    <form
-      action={formAction}
-      className="mb-6 rounded-r-2xl border border-l-[3px] border-ink/10 border-l-gold bg-ink/[0.02] p-4"
-    >
-      <input type="hidden" name="family" value="ai" />
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div className="min-w-0 flex-1">
-          <h3 className="text-[15px] font-bold">One saving for every Setnayan AI band</h3>
-          <p className="mt-1 max-w-prose text-[13px] leading-relaxed text-ink/65">
-            Buy it while setting up the celebration and it costs this much less. One number covers
-            all four bands — each band&apos;s sign-up price is worked out from its regular price, so
-            you never type it.
-            <br />
-            <span className="text-ink/50">
-              Papic has its own separate saving, and its 10% floor does not apply here.
-            </span>
-          </p>
-        </div>
-        <label className="block shrink-0 text-right">
-          <span className="mb-1.5 block font-mono text-[9.5px] uppercase tracking-[0.15em] text-ink/55">
-            Saving at set-up
-          </span>
-          <div className="relative">
-            <input
-              name="discount_pct"
-              type="number"
-              step="0.01"
-              min="0"
-              max="99.99"
-              value={pct}
-              onChange={(e) => setPct(e.target.value)}
-              className="input-field w-28 pr-7 text-right font-mono tabular-nums"
-            />
-            <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[13px] text-ink/50">
-              %
-            </span>
-          </div>
-        </label>
-      </div>
-
-      {complaints.map((c) => (
-        <p
-          key={c.kind}
-          className="mt-2.5 rounded-lg border border-danger-700/30 bg-danger-700/[0.06] px-3 py-2 text-[12.5px] font-semibold text-danger-700"
-        >
-          {c.message}
-        </p>
-      ))}
-
-      {moving.length > 0 && (
-        <div className="mt-3 rounded-xl border border-danger-700/30 bg-danger-700/[0.05] p-3">
-          <p className="flex items-center gap-2 text-[13px] font-bold text-danger-700">
-            <AlertTriangle className="h-4 w-4" strokeWidth={2} aria-hidden />
-            Saving this changes {moving.length} sign-up price{moving.length === 1 ? '' : 's'}
-          </p>
-          <ul className="mt-2 space-y-1 text-[12.5px] text-ink/75">
-            {moving.map((p) => (
-              <li key={p.serviceCode} className="tabular-nums">
-                <span className="font-semibold">{p.title}</span> — {peso(p.regularPhp)} regular ·
-                sign-up{' '}
-                <span className="font-mono">
-                  {p.currentSignupPhp == null ? 'none' : peso(p.currentSignupPhp)}
-                </span>{' '}
-                → <span className="font-mono font-bold text-danger-700">
-                  {p.nextSignupPhp == null ? 'none' : peso(p.nextSignupPhp)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      {usable && complaints.length === 0 && moving.length === 0 && (
-        <p className="mt-2.5 text-[12.5px] text-ink/55">
-          No sign-up price changes at this saving.
-        </p>
-      )}
-
-      <div className="mt-3 flex items-center gap-2">
-        <button
-          type="submit"
-          className="rounded-md bg-terracotta-700 px-4 py-2 text-sm font-semibold text-cream transition hover:bg-terracotta-800"
-        >
-          Save the saving
-        </button>
-        {state.message && (
-          <span className={`text-xs ${state.ok ? 'text-success-800' : 'text-danger-700'}`}>
-            {state.message}
-          </span>
-        )}
-      </div>
-    </form>
   );
 }
 

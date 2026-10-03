@@ -91,14 +91,30 @@ export function explainFailedSignIn(input: {
 /**
  * What the card prints under the provider sentence, given whether the OAuth
  * buttons are on screen at all (the phone shell hides them: Google refuses to
- * run inside a WebView). A door the person cannot see is not help.
+ * run inside a WebView). `null` when there is nothing to point at.
+ *
+ * 🔑 THE PHONE SHELL USED TO BE TOLD "Open setnayan.com in Safari or Chrome" —
+ * a dead end inside the app (owner, on their own account, 2026-10-03). That
+ * line is gone: where no button is visible, the card offers "Email me a link to
+ * set a password" instead (SET_PASSWORD_BUTTON), which works right there.
  */
-export function providerNextStep(provider: KnownProvider, oauthVisible: boolean): string {
-  const name = provider === 'google' ? 'Google' : 'Apple';
-  return oauthVisible
-    ? `Use the ${name} button above.`
-    : `Open setnayan.com in Safari or Chrome and use the ${name} button there.`;
+export function providerNextStep(provider: KnownProvider, oauthVisible: boolean): string | null {
+  if (!oauthVisible) return null;
+  return `Use the ${provider === 'google' ? 'Google' : 'Apple'} button above.`;
 }
+
+/**
+ * The words of the in-card "set a password" door, shown ONLY beside a provider
+ * refusal (never on first render — the 2026-09-23 rule: the provider is revealed
+ * only after a failed attempt). Plain strings so the server action and the card
+ * say the same thing.
+ */
+export const SET_PASSWORD_WORDS = {
+  button: 'Email me a link to set a password',
+  pending: 'Sending…',
+  retry: 'Try again',
+  sent: 'Check your email. We sent a link to set a password.',
+} as const;
 
 /**
  * The `?provider=` query value on the /login route is untrusted text; only the

@@ -30,7 +30,7 @@ export default async function CustomerContractDetailPage({ params }: Props) {
     .select('business_name')
     .eq('vendor_profile_id', contract.vendor_profile_id)
     .maybeSingle();
-  const vendorName = (vendorRes.data?.business_name as string | undefined) ?? 'Vendor';
+  const vendorName = (vendorRes.data?.business_name as string | undefined) ?? 'Supplier';
 
   const isCancelled = contract.status === 'cancelled';
 
@@ -81,14 +81,14 @@ export default async function CustomerContractDetailPage({ params }: Props) {
       <p className="sn-row px-3 py-2 text-xs text-ink/65">
         This contract was uploaded by <strong>{vendorName}</strong> for your
         reference. Setnayan hosts the PDF so both sides have a copy on hand —
-        signing happens between you and the vendor outside the app (email,
+        signing happens between you and the supplier outside the app (email,
         in-person, or your own e-sig tool). Keep a signed copy with your
         records.
       </p>
 
       {isCancelled && contract.cancelled_at ? (
         <p className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-xs text-danger-900">
-          This contract was cancelled by the vendor on{' '}
+          This contract was cancelled by the supplier on{' '}
           {new Date(contract.cancelled_at).toLocaleString('en-PH', {
             dateStyle: 'medium',
             timeStyle: 'short',

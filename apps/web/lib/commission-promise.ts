@@ -37,6 +37,13 @@ import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 /**
+ * The commission rate the promise is about — the ONE figure behind every
+ * "0% commission" headline. A screen that has to draw the bare figure (a stat
+ * tile, a meta description) reads it from here instead of typing a literal.
+ */
+export const COMMISSION_PCT = 0;
+
+/**
  * The promise as a COUPLE reads it. True unqualified, and deliberately carries
  * no fee sentence: a couple is not billed and never will be, so adding one
  * would raise a question they do not have.

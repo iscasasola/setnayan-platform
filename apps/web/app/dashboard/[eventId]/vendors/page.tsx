@@ -16,7 +16,6 @@
 
 import { redirect } from 'next/navigation';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
-import { MiniTour } from '@/app/_components/mini-tour';
 
 import { getCurrentUser } from '@/lib/auth';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -386,12 +385,12 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           logQueryError('CoupleVendorsPage.vs', vsError, { eventId }, 'graceful_degrade');
         }
         const nameById = new Map(
-          (vs ?? []).map((v) => [v.vendor_id as string, v.vendor_name ?? 'A vendor']),
+          (vs ?? []).map((v) => [v.vendor_id as string, v.vendor_name ?? 'A supplier']),
         );
         pendingLockProposals = rows.map((r) => ({
           id: r.id as number,
           eventVendorId: r.event_vendor_id as string,
-          vendorName: nameById.get(r.event_vendor_id as string) ?? 'A vendor',
+          vendorName: nameById.get(r.event_vendor_id as string) ?? 'A supplier',
         }));
       }
     }
@@ -815,7 +814,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       if (inquiryByProfile.get(pid) === 'pending') {
         waitingForQuotes.push({
           vendorId: v.vendor_id,
-          name: resolvedName || v.vendor_name || 'Vendor',
+          name: resolvedName || v.vendor_name || 'Supplier',
           city: s.location_city ?? null,
           waitingSince: pendingSinceByProfile.get(pid) ?? null,
           // 🔴 THIS WAS THE INBOX, WITH THE THREAD ID RESOLVED ELEVEN LINES
@@ -1195,7 +1194,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
     >
       <span className="text-sm text-ink/80">
         <span className="font-medium text-mulberry">See your ranked shortlist.</span>{' '}
-        Setnayan AI sorts every vendor by how well they fit your date, budget &amp; guest count.
+        Setnayan AI sorts every supplier by how well they fit your date, budget &amp; guest count.
       </span>
       <span className="shrink-0 rounded-md bg-mulberry px-3 py-1.5 text-xs font-medium text-cream">
         Unlock
@@ -1521,7 +1520,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
               vendorId: v.vendor_id,
               profileId: v.marketplace_vendor_id,
               name:
-                marketplaceCardByVendorId.get(v.vendor_id)?.name ?? v.vendor_name ?? 'Your vendor',
+                marketplaceCardByVendorId.get(v.vendor_id)?.name ?? v.vendor_name ?? 'Your supplier',
             });
           }
         }
@@ -2174,7 +2173,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         if (!v.marketplace_vendor_id) continue;
         profileByVendorId.set(v.vendor_id, {
           profileId: v.marketplace_vendor_id,
-          name: marketplaceCardByVendorId.get(v.vendor_id)?.name ?? v.vendor_name ?? 'Vendor',
+          name: marketplaceCardByVendorId.get(v.vendor_id)?.name ?? v.vendor_name ?? 'Supplier',
         });
       }
       const fmt = (k: string) => {
@@ -2215,7 +2214,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
               r.availableDayKeys.length === 0
                 ? r.conflictPair
                   ? `No single date works — ${r.conflictPair[0]} and ${r.conflictPair[1]} don't overlap. Swap one.`
-                  : 'No single date works for this combination — swap a vendor.'
+                  : 'No single date works for this combination — swap a supplier.'
                 : null,
           };
         }
@@ -2261,7 +2260,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           nameOf: (vendorId) =>
             marketplaceCardByVendorId.get(vendorId)?.name ??
             vendors.find((v) => v.vendor_id === vendorId)?.vendor_name ??
-            'A vendor',
+            'A supplier',
         }),
       };
     })();
@@ -2352,7 +2351,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
               .filter((p) => p.total_cost_php != null)
               .map((p) => ({
                 vendorId: p.vendor_id,
-                name: p.marketplace_business_name ?? p.vendor_name ?? 'Vendor',
+                name: p.marketplace_business_name ?? p.vendor_name ?? 'Supplier',
                 pricePhp: p.rolled_cost_php ?? p.total_cost_php ?? null,
               })),
           }))
@@ -2494,13 +2493,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             />
           }
         />
-        {/* Marketplace mini-tour — rides only on the takeover (this branch), so
-            its bench → build → compare copy never narrates the kill-switch
-            accordion. The mount was deliberately removed on 2026-05-31
-            (879c1c138) when the accordion replaced the card/stage page the old
-            copy described; this remount ships with that copy rewritten for the
-            takeover (lib/tours.ts customer_vendors_v1). */}
-        <MiniTour tourKey="customer_vendors_v1" />
       </LastSeenCapture>
     );
   }
@@ -2783,7 +2775,7 @@ async function sweepRipeReviewRequests(
       await emitNotification({
         userId: coupleUserId,
         type: 'review_request',
-        title: `How was ${v.vendor_name ?? 'your vendor'}?`,
+        title: `How was ${v.vendor_name ?? 'your supplier'}?`,
         body: 'Their service is marked delivered. Take a minute to leave a public review.',
         relatedUrl: `/dashboard/${eventId}/vendors/${v.vendor_id}/review`,
       });

@@ -99,7 +99,7 @@ export const PLAN_EMPTY = 'Add at least one payment.';
 export const PLAN_TOO_MANY = `A plan can have at most ${MAX_SCHEDULE_ITEMS} payments.`;
 export const PLAN_NEEDS_TOTAL =
   'Set the price first — a payment plan has to add up to something.';
-export const PLAN_LABEL_REQUIRED = 'Give every payment a name, like "Downpayment".';
+export const PLAN_LABEL_REQUIRED = 'Give every payment a name, like "First payment".';
 export const PLAN_AMOUNT_REQUIRED = 'Every payment needs an amount above zero.';
 export const PLAN_ANCHOR_REQUIRED =
   'Every payment needs a due date — that is what "until fully paid" means.';
@@ -206,7 +206,7 @@ export function buildCouplePaymentPlan(opts: {
   if (undated) {
     return {
       ok: false,
-      message: `"${undated.label}" is set before the event, but your event date isn't fixed yet. Set it for after you lock instead, or set your date first.`,
+      message: `"${undated.label}" is set before the event, but your event date isn't fixed yet. Set it for after you book instead, or set your date first.`,
     };
   }
 

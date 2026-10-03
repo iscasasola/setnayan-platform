@@ -23,7 +23,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { postVendorReply, submitFlagAsFake } from './actions';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Reviews · Vendor' };
+export const metadata = { title: 'Reviews · Supplier' };
 
 export default async function VendorReviewsPage() {
   const supabase = await createClient();
@@ -38,7 +38,7 @@ export default async function VendorReviewsPage() {
       <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Reviews</h1>
         <p className="mt-4 text-base text-ink/65">
-          Set up your vendor profile first — once it&rsquo;s published and a couple marks a
+          Set up your supplier profile first — once it&rsquo;s published and a couple marks a
           service delivered, their review will land here.
         </p>
       </div>

@@ -190,7 +190,7 @@ test('a date-setting lock still says exactly what it always said', () => {
   // a couple mid-flow.
   // AREA-COUPLE 2026-09-19: "wedding" dropped deliberately — the same modal
   // confirms a debut's or birthday's date (lib/a-debut-is-not-a-wedding-…).
-  assert.match(MODAL, /This locks your date\./);
+  assert.match(MODAL, /This books your date\./);
   assert.match(MODAL, /leaves only one of your\s+candidate dates open/);
-  assert.match(MODAL, /Lock \$\{dateLabel\}/, 'the date confirm keeps its own label');
+  assert.match(MODAL, /Book \$\{dateLabel\}/, 'the date confirm keeps its own label');
 });

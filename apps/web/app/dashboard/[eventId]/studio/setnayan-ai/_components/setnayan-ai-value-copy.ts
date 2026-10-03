@@ -126,7 +126,7 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
   return [
     {
       heading: 'Finds the right people',
-      blurb: `Turns the whole vendor directory into a shortlist made for your ${eventWord}.`,
+      blurb: `Turns the whole supplier directory into a shortlist made for your ${eventWord}.`,
       caps: [
         {
           id: 'rank',
@@ -164,7 +164,7 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
           id: 'payments',
           title: 'Flags a payment before it’s due',
           body:
-            'Every balance and due date watched, so a deposit deadline never ' +
+            'Every balance and due date watched, so a payment deadline never ' +
             'costs you the booking.',
         },
         {
@@ -176,7 +176,7 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
         },
         {
           id: 'price_watch',
-          title: 'Tells you when a vendor you’re watching changes their price',
+          title: 'Tells you when a supplier you’re watching changes their price',
           body:
             'We keep the figure you were quoted and check it against what they ' +
             'charge now, so a quiet rise never lands on the invoice.',
@@ -207,8 +207,8 @@ export function buildAiValueGroups(terms: AiValueTerms): AiCapabilityGroupCopy[]
           // card was truthful.
           title: 'Shows you who else is eyeing your date',
           body:
-            `Your vendor list marks anyone another ${organizerNoun} starts ` +
-            'looking at for your date, so you can lock them in first.',
+            `Your supplier list marks anyone another ${organizerNoun} starts ` +
+            'looking at for your date, so you can book them first.',
         },
       ],
     },
@@ -280,7 +280,7 @@ export function buildAiValueSpotlights(terms: AiValueTerms): AiValueSpotlight[] 
       ? {
           kind: 'still',
           src: '/add-ons/demo/stills/setnayan-ai-2.jpg',
-          alt: 'Setnayan AI — a vendor card marked as chosen, with others eyeing the same date',
+          alt: 'Setnayan AI — a supplier card marked as chosen, with others eyeing the same date',
         }
       : {
           kind: 'photo',
@@ -291,7 +291,7 @@ export function buildAiValueSpotlights(terms: AiValueTerms): AiValueSpotlight[] 
   return [
     {
       chip: 'Ranked shortlist',
-      t: 'Your best vendors, sorted to the top',
+      t: 'Your best suppliers, sorted to the top',
       d:
         `The whole directory becomes a shortlist built for your ${eventWord} — ` +
         'ranked by date, budget and style, and picked by best fit, never cheapest first.',
@@ -299,12 +299,12 @@ export function buildAiValueSpotlights(terms: AiValueTerms): AiValueSpotlight[] 
       media: {
         kind: 'still',
         src: '/add-ons/demo/stills/setnayan-ai-1.jpg',
-        alt: 'Setnayan AI — three vendors ranked by how well they match',
+        alt: 'Setnayan AI — three suppliers ranked by how well they match',
       },
     },
     {
       chip: 'Your date',
-      t: 'Lock in the right team before it’s gone',
+      t: 'Book the right team before it’s gone',
       d:
         `Your list marks anyone another ${organizerNoun} starts looking at for your ` +
         'date, and you hear it from us when someone you’re considering gets booked — ' +
@@ -327,8 +327,8 @@ export function buildAiValueSpotlights(terms: AiValueTerms): AiValueSpotlight[] 
       chip: 'Your money',
       t: 'It catches the slips that cost money',
       d:
-        'A deposit coming due. A total creeping past your budget while there’s still ' +
-        'room to trim. A vendor you’re watching who quietly changes their price — we ' +
+        'A payment coming due. A total creeping past your budget while there’s still ' +
+        'room to trim. A supplier you’re watching who quietly changes their price — we ' +
         'keep the figure you were quoted and check it against what they charge now.',
       caps: ['payments', 'budget', 'price_watch'],
       media: {

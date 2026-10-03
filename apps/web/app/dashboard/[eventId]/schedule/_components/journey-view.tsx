@@ -301,7 +301,7 @@ function JourneyEmptyState({
       <p className="text-sm font-medium text-ink">Your journey starts here.</p>
       <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
         {hasEventDate
-          ? 'As you plan — booking vendors, scheduling meetings, working through paperwork — every dated step lands on this timeline. It runs from the day you started, through the big day, all the way to the editorial you publish afterward.'
+          ? 'As you plan — booking suppliers, scheduling meetings, working through paperwork — every dated step lands on this timeline. It runs from the day you started, through the big day, all the way to the editorial you publish afterward.'
           : 'Set your date first. Then, as you plan, every dated step gathers here into one continuous story — from the day you started, through the big day, to the editorial you publish afterward.'}
       </p>
       <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
@@ -309,7 +309,7 @@ function JourneyEmptyState({
           href={`/dashboard/${eventId}/vendors`}
           className="rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink hover:border-mulberry/50 hover:text-mulberry"
         >
-          Find vendors
+          Find suppliers
         </Link>
         <Link
           href={`/dashboard/${eventId}/schedule?view=preparation`}

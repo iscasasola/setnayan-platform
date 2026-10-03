@@ -32,6 +32,7 @@ import { fetchInvitationBase } from '../_components/guest-card-data';
 import { REQUEST_WORDS, undoStillOpen } from '@/lib/request-key';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { preMatchFor } from '@/lib/find-me';
+import { invitationLinkOn } from '@/lib/invitation-link';
 
 export const metadata = { title: 'Requests' };
 
@@ -248,7 +249,7 @@ export default async function RequestsPage({ params, searchParams }: Props) {
                 formalName: guestFullName(row, setup.facts.nameStyle),
                 firstName: (row.first_name as string | null) ?? null,
                 fullName: who_,
-                inviteUrl: base && row.qr_token ? `${base}?invite=${row.qr_token as string}` : null,
+                inviteUrl: base && row.qr_token ? invitationLinkOn(base, row.qr_token as string) : null,
                 sentAt: (row.invitation_sent_at as string | null) ?? null,
               }}
               facts={setup.facts}

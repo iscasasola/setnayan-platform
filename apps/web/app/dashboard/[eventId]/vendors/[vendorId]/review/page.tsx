@@ -277,15 +277,15 @@ export default async function CoupleReviewVendorPage({ params, searchParams }: P
           className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
         >
           <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-          Back to vendors
+          Back to suppliers
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
           How was {vendorProfile.business_name || eventVendor.vendor_name}?
         </h1>
         <p className="max-w-prose text-base text-ink/65">
-          Reviews are public on the Setnayan marketplace and on the vendor&rsquo;s landing
+          Reviews are public on the Setnayan marketplace and on the supplier&rsquo;s landing
           page. They&rsquo;re permanent per the Vendor Agreement &sect;&nbsp;3.10 — the
-          vendor can reply once, but the review itself stays as you wrote it.
+          supplier can reply once, but the review itself stays as you wrote it.
         </p>
       </header>
 
@@ -372,7 +372,7 @@ function NotEligibleState({
         className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to vendors
+        Back to suppliers
       </Link>
       <h1 className="text-2xl font-semibold tracking-tight">Not yet ready for a review</h1>
       <p className="max-w-prose text-base text-ink/65">
@@ -406,7 +406,7 @@ function ConfirmReceiptState({
         className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to vendors
+        Back to suppliers
       </Link>
       <h1 className="text-2xl font-semibold tracking-tight">
         Did you get everything from {vendorName}?
@@ -447,7 +447,7 @@ function DisputedState({ eventId, vendorName }: { eventId: string; vendorName: s
         className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to vendors
+        Back to suppliers
       </Link>
       <h1 className="text-2xl font-semibold tracking-tight">You reported a problem</h1>
       <p className="max-w-prose text-base text-ink/65">
@@ -475,14 +475,14 @@ function NoLinkedProfileState({
         className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to vendors
+        Back to suppliers
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">Vendor isn&rsquo;t on Setnayan</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">Supplier isn&rsquo;t on Setnayan</h1>
       <p className="max-w-prose text-base text-ink/65">
         <span className="font-medium text-ink">{vendorName}</span> (
         {VENDOR_CATEGORY_LABEL[category as keyof typeof VENDOR_CATEGORY_LABEL] ?? category})
-        doesn&rsquo;t have a Setnayan vendor profile linked yet, so a public review
-        can&rsquo;t be posted. You can still note your private notes inside the vendor
+        doesn&rsquo;t have a Setnayan supplier profile linked yet, so a public review
+        can&rsquo;t be posted. You can still note your private notes inside the supplier
         card on the tracker.
       </p>
     </section>
@@ -512,7 +512,7 @@ function SelfReviewBlockedState({
         className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to vendors
+        Back to suppliers
       </Link>
       <header className="space-y-2">
         <p className="inline-flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-danger-700">
@@ -529,8 +529,8 @@ function SelfReviewBlockedState({
         {SELF_REVIEW_SIGNAL_LABEL[signal].toLowerCase()}
       </p>
       <p className="max-w-prose text-sm text-ink/60">
-        Reviews exist to help future couples decide which vendors to book — that signal
-        gets noisy when a vendor (or someone connected to one) rates their own catalog,
+        Reviews exist to help future couples decide which suppliers to book — that signal
+        gets noisy when a supplier (or someone connected to one) rates their own catalog,
         so the platform hard-blocks self-reviews at submission.
       </p>
 
@@ -541,8 +541,8 @@ function SelfReviewBlockedState({
         </div>
       ) : isHard ? (
         <div className="rounded-xl border border-danger-200 bg-danger-50 p-4 text-sm text-danger-900">
-          This block is final — owners and team members can never review the vendor they
-          run. If you booked this vendor from a separate account that has no connection
+          This block is final — owners and team members can never review the supplier they
+          run. If you booked this supplier from a separate account that has no connection
           to its team, sign in with that account to leave the review.
         </div>
       ) : (
@@ -670,9 +670,9 @@ function AlreadyReviewedState({
         className="inline-flex items-center gap-1 text-xs font-medium text-ink/60 hover:text-terracotta-700"
       >
         <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-        Back to vendors
+        Back to suppliers
       </Link>
-      <h1 className="text-2xl font-semibold tracking-tight">You already reviewed this vendor</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">You already reviewed this supplier</h1>
       <p className="max-w-prose text-base text-ink/65">
         Thanks for the review of <span className="font-medium text-ink">{vendorName}</span>.
         Reviews are one-per-event per the Vendor Agreement &sect;&nbsp;3.10 — visit their
@@ -680,7 +680,7 @@ function AlreadyReviewedState({
       </p>
       {slug ? (
         <Link className="button-secondary inline-flex" href={`/v/${slug}`}>
-          Open vendor profile
+          Open supplier profile
         </Link>
       ) : null}
 

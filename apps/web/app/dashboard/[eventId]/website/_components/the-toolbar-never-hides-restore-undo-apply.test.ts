@@ -117,7 +117,7 @@ test('HubDraftToolbar renders exactly Undo and Apply as DraftButton — uncondit
   const beforeApply = fn.slice(Math.max(0, applyAt - 160), applyAt);
   assert.doesNotMatch(beforeApply, /summary\.hasChanges\s*&&\s*!onlyPro|onlyPro\s*\?/, 'Apply must not be hidden when every change is Pro-gated — disabled + InfoTip instead');
   // Restore: registered with the shell unconditionally, running this bar's own act.
-  assert.match(fn, /setDraftDoor\(\{ canRestore, restore: \(\) => actRef\.current\(\{ intent: 'restore' \}\) \}\)/);
+  assert.match(fn, /setDraftDoor\(\{\s*canRestore,\s*restore: \(\) => actRef\.current\(\{ intent: 'restore' \}\),/);
 });
 
 test('each control disables off the field that actually means "nothing to do", not off pending alone', () => {
@@ -150,7 +150,8 @@ test('Reset stays in the draft panel — opened by ⋯ › Reset, never promoted
   const beforePanel = fn.slice(0, panelAt);
   assert.doesNotMatch(beforePanel, /Reset\s*\{RESET_LABEL/, 'Reset must not render before the panel opens');
   assert.match(fn.slice(panelAt), /Reset\s*\{RESET_LABEL\[stage\]\}/, 'Reset must still be reachable, inside the panel');
-  assert.match(fn.slice(panelAt), /hidden=\{!open\}/, 'the panel shows only when opened');
+  // Drawn only while open (portalled to the screen since 2026-10-02 — it ran off a phone's left edge).
+  assert.match(fn.slice(panelAt), /\{open && typeof document !== 'undefined' \? createPortal\(/, 'the panel shows only when opened');
   assert.doesNotMatch(fn, /<summary\b/, 'a second ⋯ is back on the bar');
 });
 
@@ -162,11 +163,12 @@ test('the rest of the Phase 2 dock survives the redesign: Pro line, store-shell 
   assert.match(fn, /Reset in your draft\. Guests still see the old page until you Apply\./, "Reset's own confirmation copy must still render");
 });
 
-test('the ⋯ opens by itself when an action reports something to read — an Apply that held keys back is never silent', () => {
+test('the ⋯ panel NEVER opens by itself — what an action reports is said beside Apply', () => {
   const fn = body('HubDraftToolbar');
-  // 2026-09-27 (owner, on the live Maker): the panel used to open on EVERY
-  // press and then stayed open after a clean Apply. It now follows the answer —
-  // `hubDraftPanelStaysOpen` (open on an error, a held key or Reset; closed on
-  // a clean Apply) — proved in lib/the-draft-always-fits.test.ts.
-  assert.match(fn, /useEffect\(\(\) => \{\s*if \(result\) setOpen\(hubDraftPanelStaysOpen\(result\)\);\s*\}, \[result\]\);/);
+  // Superseded 2026-10-02 (owner, live phone test: the "Reset Save the Date…"
+  // box came back after every Apply and would not close). The answer is said in
+  // the status line (`hubDraftOutcome` → `OutcomeLine`), and the panel opens
+  // only from ⋯ › "Reset this stage…" — held by lib/the-draft-panel-never-pops-up.test.ts.
+  assert.match(fn, /useEffect\(\(\) => \{\s*if \(result\) setOpen\(false\);\s*\}, \[result\]\);/);
+  assert.match(fn, /<OutcomeLine key=\{outcomeN\} outcome=\{outcome\} \/>/, 'the outcome is no longer said beside Apply');
 });

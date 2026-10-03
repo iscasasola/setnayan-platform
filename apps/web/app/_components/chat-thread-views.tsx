@@ -385,7 +385,7 @@ function ReplyControls({ reply, ctx }: { reply: DecisionReply; ctx: ReplyContext
       return (
         <div className="mt-2.5">
           <Link href={`/proposals/${reply.publicId}`} className={PRIMARY}>
-            Review &amp; accept →
+            See the quote →
           </Link>
         </div>
       );

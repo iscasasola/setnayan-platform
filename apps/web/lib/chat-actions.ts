@@ -157,7 +157,7 @@ export async function notifyOtherParty(args: {
   ]);
 
   const eventName = eventRes.data?.display_name ?? 'your event';
-  const vendorName = vendorRes.data?.business_name?.trim() || 'a vendor';
+  const vendorName = vendorRes.data?.business_name?.trim() || 'a supplier';
   const preview = args.body.slice(0, 140);
 
   if (args.senderRole === 'couple') {
@@ -324,7 +324,7 @@ async function loadVendorThreadForActor(threadId: string) {
     .eq('vendor_profile_id', thread.vendor_profile_id)
     .eq('user_id', user.id)
     .maybeSingle();
-  if (!vendor) throw new Error('Only the vendor can respond to this inquiry');
+  if (!vendor) throw new Error('Only the supplier can respond to this inquiry');
 
   return { supabase, thread };
 }
@@ -506,14 +506,14 @@ async function notifyCoupleOfInquiryOutcome(args: {
   const admin = createAdminClient();
   const accepted = args.type === 'inquiry_accepted';
 
-  let vendorName = 'A vendor';
+  let vendorName = 'A supplier';
   if (accepted) {
     const { data } = await admin
       .from('vendor_profiles')
       .select('business_name')
       .eq('vendor_profile_id', args.vendorProfileId)
       .maybeSingle();
-    vendorName = data?.business_name?.trim() || 'A vendor';
+    vendorName = data?.business_name?.trim() || 'A supplier';
   }
 
   const { data: members } = await admin
@@ -528,12 +528,12 @@ async function notifyCoupleOfInquiryOutcome(args: {
       type: args.type,
       title: accepted
         ? `${vendorName} accepted your inquiry`
-        : 'A vendor declined your inquiry',
+        : 'A supplier declined your inquiry',
       body: accepted
         ? 'Your chat is open — send a message to keep planning together.'
         : args.reason
-          ? `Why: “${args.reason}” — browse similar vendors to keep your options open.`
-          : 'They are not available — browse similar vendors to keep your options open.',
+          ? `Why: “${args.reason}” — browse similar suppliers to keep your options open.`
+          : 'They are not available — browse similar suppliers to keep your options open.',
       relatedUrl: accepted
         ? `/dashboard/${args.eventId}/messages/${args.threadId}`
         : `/dashboard/${args.eventId}/vendors`,

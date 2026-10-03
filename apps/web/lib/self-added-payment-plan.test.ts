@@ -132,7 +132,7 @@ describe('every payment needs a day', () => {
     const r = build(HALF_HALF, 80000, null);
     assert.equal(r.ok, false);
     assert.match(r.ok === false ? r.message : '', /event date isn't fixed yet/);
-    assert.match(r.ok === false ? r.message : '', /Set it for after you lock instead/);
+    assert.match(r.ok === false ? r.message : '', /Set it for after you book instead/);
   });
 });
 

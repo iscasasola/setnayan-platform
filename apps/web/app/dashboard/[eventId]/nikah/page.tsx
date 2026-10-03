@@ -9,10 +9,11 @@ import { isMuslimWedding } from '@/lib/chinese-wedding';
 import { NikahEssentialsCard } from '../_components/nikah-essentials-card';
 import { readNikahImam } from '../_components/nikah-imam';
 import { NotSharedWithYou } from '../_components/not-shared-with-you';
+import { NIKAH_NAME } from '@/lib/home-first-screen';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Nikah essentials' };
+export const metadata = { title: NIKAH_NAME };
 
 /**
  * /dashboard/[eventId]/nikah — the five essentials of the Nikah.
@@ -57,7 +58,7 @@ export default async function NikahEssentialsPage({ params }: { params: Promise<
   // helper the couple has not given the guest list to is told so — never "none yet".
   const viewer = await fetchEventViewer(supabase, eventId, user.id);
   if (isDelegateWithoutArea(viewer, 'guest_list')) {
-    return <NotSharedWithYou title="Nikah essentials" thing="guest list" />;
+    return <NotSharedWithYou title={NIKAH_NAME} thing="guest list" />;
   }
 
   const [{ rows: guests, measured }, { nikahImamBooked, nikahImamNote }] = await Promise.all([
@@ -67,7 +68,7 @@ export default async function NikahEssentialsPage({ params }: { params: Promise<
 
   return (
     <section className="mx-auto w-full max-w-xl space-y-4">
-      <PageMasthead title="Nikah essentials" />
+      <PageMasthead title={NIKAH_NAME} />
       {/* A refused guest read is not "no wali and no witnesses yet" — the card
           would tick nothing and tell the couple to add people already there. */}
       {measured ? (

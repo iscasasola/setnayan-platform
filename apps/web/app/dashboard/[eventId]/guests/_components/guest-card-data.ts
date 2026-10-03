@@ -130,37 +130,85 @@ export async function loadGuestCard(
   eventId: string,
   guestId: string,
 ): Promise<GuestCardData | null> {
-  const stored = await fetchGuestById(supabase, eventId, guestId);
-  if (!stored) return null;
-  // 👤 Linked to an account with a formal name → the card wears the profile's
-  // name, exactly as the list does (lib/linked-profile-names.ts).
-  const [profileNames, viewerId] = await Promise.all([
+  /*
+    ⚡ ONE ROUND TRIP, NOT TWELVE (owner, live iPhone test 2026-10-02: the card
+    took ~7–8 s to open). Every read below used to wait for the one before it —
+    the guest, then the profile names, then the singleton holders, the role set,
+    the ceremony, the +1, the seat, the groups, the tables, the access, the
+    linked account, the role words — although none of them needs another's
+    answer. They now leave together; only the three that genuinely depend on an
+    earlier answer (the access map and the "is this +1 linked" check need the
+    guest row, the linked account needs to know the viewer is a co-host) wait.
+    Same queries, same degradations, same log lines.
+  */
+  const [
+    stored,
+    profileNames,
+    viewerId,
+    singletonHolders,
+    roleSet,
+    { data: ceremonyRow, error: ceremonyRowError },
+    { data: plusOneRow, error: plusOneRowError },
+    { data: seatRow, error: seatRowError },
+    { data: groupRows, error: groupRowsError },
+    { data: tableRows, error: tableRowsError },
+    { data: eventGroupRows, error: eventGroupRowsError },
+    roleNames,
+  ] = await Promise.all([
+    fetchGuestById(supabase, eventId, guestId),
+    // 👤 Linked to an account with a formal name → the card wears the profile's
+    // name, exactly as the list does (lib/linked-profile-names.ts).
     accountNamesByGuest(supabase, eventId),
     supabase.auth.getUser().then((r) => r.data.user?.id ?? null),
+    // Hide bride/groom from the role dropdown if someone else already has
+    // them — DB partial unique indexes enforce this regardless, but the UI
+    // shouldn't offer an option that will fail on save.
+    fetchSingletonRoleHolders(supabase, eventId, guestId),
+    resolveRoleSetForEvent(eventId),
+    supabase
+      .from('events')
+      // `secondary_ceremony_type` too: the common Tsinoy case is a CHURCH wedding
+      // with a tea ceremony as the OVERLAY rite, and `isChineseWedding` matches
+      // primary OR secondary. Reading only the primary would hide the tea-ceremony
+      // field from exactly the couples who need it.
+      .select('ceremony_type, secondary_ceremony_type')
+      .eq('event_id', eventId)
+      .maybeSingle(),
+    supabase
+      .from('guests')
+      .select('guest_id, first_name, last_name, plus_one_name_confirmed_at')
+      .eq('event_id', eventId)
+      .eq('plus_one_of_guest_id', guestId)
+      .is('deleted_at', null)
+      .maybeSingle(),
+    supabase
+      .from('event_seat_assignments')
+      // 🔴 `table_label`, NOT `label`. There is no `label` column on
+      // `event_tables` — PostgREST answers 42703 and REFUSES THE WHOLE QUERY.
+      .select('table_id, event_tables(table_label)')
+      .eq('event_id', eventId)
+      .eq('guest_id', guestId)
+      .maybeSingle(),
+    supabase
+      .from('guest_group_memberships')
+      .select('group_id, guest_groups(label, team_side)')
+      .eq('guest_id', guestId),
+    // The Table and Groups dropdowns' choices — this event's tables and groups.
+    supabase.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
+    supabase.from('guest_groups').select('group_id, label').eq('event_id', eventId),
+    // The couple's words for roles — its own read, graceful (usual words on a refusal).
+    loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames'),
   ]);
+  if (!stored) return null;
   const guest = withProfileName(stored, profileNames);
   const linkedProfile = profileNames[guestId];
 
-  // Hide bride/groom from the role dropdown if someone else already has
-  // them — DB partial unique indexes enforce this regardless, but the UI
-  // shouldn't offer an option that will fail on save.
-  const singletonHolders = await fetchSingletonRoleHolders(supabase, eventId, guestId);
   const isCouple = guest.role === 'bride' || guest.role === 'groom';
-  const roleSet = await resolveRoleSetForEvent(eventId);
   const hasSides = eventHasSides(roleSet);
   const availableRoles = roleSet.offeredRoles.filter(
     (r) => !roleSet.coupleRoles.has(r) && !(r in singletonHolders),
   );
 
-  const { data: ceremonyRow, error: ceremonyRowError } = await supabase
-    .from('events')
-    // `secondary_ceremony_type` too: the common Tsinoy case is a CHURCH wedding
-    // with a tea ceremony as the OVERLAY rite, and `isChineseWedding` matches
-    // primary OR secondary. Reading only the primary would hide the tea-ceremony
-    // field from exactly the couples who need it.
-    .select('ceremony_type, secondary_ceremony_type')
-    .eq('event_id', eventId)
-    .maybeSingle();
   // ⚠ the ceremony context this card reads against. Refused, it degrades silently.
   if (ceremonyRowError) {
     logQueryError('loadGuestCard.ceremonyRow', ceremonyRowError, { eventId, guestId }, 'graceful_degrade');
@@ -169,13 +217,6 @@ export async function loadGuestCard(
   // Both rite columns — a mixed wedding with an INC side reads as INC here too.
   const isIncWedding = ceremonyMatches(ceremonyRow, 'inc');
 
-  const { data: plusOneRow, error: plusOneRowError } = await supabase
-    .from('guests')
-    .select('guest_id, first_name, last_name, plus_one_name_confirmed_at')
-    .eq('event_id', eventId)
-    .eq('plus_one_of_guest_id', guestId)
-    .is('deleted_at', null)
-    .maybeSingle();
   // ⚠ 🚨 A FALSE STATEMENT ABOUT A GUEST. Refused, this renders "Allowed but no +1
   // ⚠ has been added to the list yet" — telling the couple their guest has not named
   // ⚠ a plus-one when they may well have. Not an empty list: a claim about a person.
@@ -197,14 +238,6 @@ export async function loadGuestCard(
     (b): b is InvitedToBlock => (INVITED_TO_BLOCKS as readonly string[]).includes(b),
   );
 
-  const { data: seatRow, error: seatRowError } = await supabase
-    .from('event_seat_assignments')
-    // 🔴 `table_label`, NOT `label`. There is no `label` column on
-    // `event_tables` — PostgREST answers 42703 and REFUSES THE WHOLE QUERY.
-    .select('table_id, event_tables(table_label)')
-    .eq('event_id', eventId)
-    .eq('guest_id', guestId)
-    .maybeSingle();
   // ⚠ A SEATED GUEST READS AS UNSEATED. `seatedAt` falls to null on a refused read,
   // ⚠ so a guest the couple placed at a table shows no seat at all — and seating is
   // ⚠ some of the most laborious work in the product.
@@ -220,10 +253,6 @@ export async function loadGuestCard(
         : ((seatRow.event_tables as { table_label?: string }).table_label ?? null)
       : null;
 
-  const { data: groupRows, error: groupRowsError } = await supabase
-    .from('guest_group_memberships')
-    .select('group_id, guest_groups(label, team_side)')
-    .eq('guest_id', guestId);
   // ⚠ the guest's group memberships. Refused, they read as belonging to no group,
   // ⚠ which is how a couple loses track of who is with whom.
   if (groupRowsError) {
@@ -242,12 +271,6 @@ export async function loadGuestCard(
     })
     .filter((g): g is GroupChip => g !== null && g.label !== '');
 
-  // The Table and Groups dropdowns' choices — this event's tables and groups.
-  const [{ data: tableRows, error: tableRowsError }, { data: eventGroupRows, error: eventGroupRowsError }] =
-    await Promise.all([
-      supabase.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
-      supabase.from('guest_groups').select('group_id, label').eq('event_id', eventId),
-    ]);
   // ⚠ Refused → the Table dropdown is not drawn (the seat shows as text), so a
   // ⚠ refusal can never offer "Not seated" as if it were the truth.
   if (tableRowsError) {
@@ -275,8 +298,9 @@ export async function loadGuestCard(
             .filter((id): id is string => typeof id === 'string'),
         };
 
-  // Access (co-host / limited helper) and whether the viewer may change it.
-  const [accessMap, canManageAccess] = await Promise.all([
+  // Access (co-host / limited helper) and whether the viewer may change it —
+  // plus, beside them, whether a +1 holds their own account (needs the row).
+  const [accessMap, canManageAccess, nameLinked] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
       if (!viewerId) return false;
@@ -294,12 +318,23 @@ export async function loadGuestCard(
       }
       return Boolean(me);
     })(),
+    guest.plus_one_of_guest_id
+      ? (async () => {
+          const { data, error } = await createAdminClient()
+            .from('event_members')
+            .select('id')
+            .eq('event_id', eventId)
+            .eq('guest_id', guest.guest_id)
+            .limit(1)
+            .maybeSingle();
+          if (error) logQueryError('loadGuestCard.nameLinked', error, { eventId, guestId }, 'graceful_degrade');
+          return Boolean(data);
+        })()
+      : Promise.resolve(false),
   ]);
 
   // Who holds this row — read only for the couple (another account's email).
   const linkedAccount = canManageAccess ? await readSeatAccount(eventId, guest.guest_id) : null;
-  // The couple's words for roles — its own read, graceful (usual words on a refusal).
-  const roleNames = await loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames');
 
   return {
     roleNames,
@@ -324,19 +359,7 @@ export async function loadGuestCard(
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),
     access: accessMap?.get(guest.guest_id) ?? null,
     canManageAccess,
-    nameLinked: guest.plus_one_of_guest_id
-      ? await (async () => {
-          const { data, error } = await createAdminClient()
-            .from('event_members')
-            .select('id')
-            .eq('event_id', eventId)
-            .eq('guest_id', guest.guest_id)
-            .limit(1)
-            .maybeSingle();
-          if (error) logQueryError('loadGuestCard.nameLinked', error, { eventId, guestId }, 'graceful_degrade');
-          return Boolean(data);
-        })()
-      : false,
+    nameLinked,
     linkedAccount,
     profileName: linkedProfile ? { isYou: linkedProfile.userId === viewerId } : null,
   };

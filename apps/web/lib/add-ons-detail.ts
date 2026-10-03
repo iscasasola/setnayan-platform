@@ -62,7 +62,7 @@ export const ADD_ON_DETAILS: Record<string, AddOnDetail> = {
     eyebrow: 'Setnayan AI',
     heroTitle: 'Your shortlist. Already made.',
     tagline:
-      'The vendors that fit your budget, your date, and your style — at the top, every time.',
+      'The suppliers that fit your budget, your date, and your style — at the top, every time.',
     paragraphs: [
       'Stop hunting. Start choosing.',
       'The right team makes the day. Setnayan puts yours in front of you — so planning feels like deciding, not digging.',

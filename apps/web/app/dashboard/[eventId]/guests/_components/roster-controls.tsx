@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useTransition, type ReactNode } from 'react';
 import { Sheet } from '@/app/_components/sheet';
+import { RSVP_ROW_WORDS } from '@/lib/guests';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 
 /**
@@ -26,10 +27,10 @@ type Opt = { key: string; label: string };
 
 const RSVP_OPTIONS: Opt[] = [
   { key: '', label: 'Everyone' },
-  { key: 'attending', label: 'Attending' },
-  { key: 'pending', label: 'No reply' },
-  { key: 'declined', label: 'Not coming' },
-  { key: 'maybe', label: 'Maybe' },
+  { key: 'attending', label: RSVP_ROW_WORDS.attending },
+  { key: 'pending', label: RSVP_ROW_WORDS.pending },
+  { key: 'declined', label: RSVP_ROW_WORDS.declined },
+  { key: 'maybe', label: RSVP_ROW_WORDS.maybe },
 ];
 
 const SIDE_OPTIONS: Opt[] = [

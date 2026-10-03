@@ -97,7 +97,7 @@ export function BudgetSetter({
           className="input-field h-12 font-mono text-xl tabular-nums disabled:opacity-60"
         />
         <p id="budget_php_help" className="text-xs text-ink/65">
-          Helps Setnayan project your final cost as you book vendors. You can change
+          Helps Setnayan project your final cost as you book suppliers. You can change
           this anytime.
         </p>
       </div>

@@ -12,7 +12,7 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { cancelContract, publishContractToCouple } from '../actions';
 import { formatCalendarDate } from '@/lib/events';
 
-export const metadata = { title: 'Contract · Vendor' };
+export const metadata = { title: 'Contract · Supplier' };
 
 type Props = { params: Promise<{ contractId: string }> };
 

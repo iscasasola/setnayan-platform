@@ -10,7 +10,7 @@ import {
   fetchVendorTrackRecord,
 } from '../_components/vendor-track-record-panel';
 
-export const metadata = { title: 'Track record · Vendor' };
+export const metadata = { title: 'Track record · Supplier' };
 
 /**
  * /vendor-dashboard/track-record — "One profile, every life event."
@@ -42,7 +42,7 @@ export default async function VendorTrackRecordPage() {
           Track record
         </h1>
         <p className="mt-4 text-base text-ink/65">
-          Set up your vendor profile first — once couples mark your bookings
+          Set up your supplier profile first — once couples mark your bookings
           delivered, your record across every kind of event shows up here.
         </p>
         <Link

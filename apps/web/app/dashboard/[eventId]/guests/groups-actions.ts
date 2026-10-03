@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import {
@@ -624,7 +625,10 @@ export async function bulkSoftDeleteGuestsForUndo(
           releasedSongs.map((r) => r.request_id),
         );
       // Not taken → nothing to hand back; the Undo must not re-add a row that is still there.
-      if (songErr) releasedSongs = [];
+      if (songErr) {
+        logQueryError('bulkSoftDeleteGuestsForUndo (event_song_requests.delete)', songErr, { event_id: eventId }, 'graceful_degrade');
+        releasedSongs = [];
+      }
     }
   }
 
@@ -680,7 +684,10 @@ export async function restoreDeletedGuests(
         { onConflict: 'event_id,song_id', ignoreDuplicates: true },
       );
     // Said where the host pressed Undo — never a restore that looks complete.
-    if (songErr) warning = 'They are back, but their song request could not be put back.';
+    if (songErr) {
+      logQueryError('restoreDeletedGuests (event_song_requests.upsert)', songErr, { event_id: eventId }, 'graceful_degrade');
+      warning = 'They are back, but their song request could not be put back.';
+    }
   }
 
   // Re-place seats — best-effort. Only the guests we just restored, scoped to

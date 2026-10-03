@@ -207,6 +207,7 @@ import { DetailsPieceButton, useDetailsEditorOpener, useDetailsPiece } from '../
 import { useMaker } from '../../launch/_components/maker-context';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { SeatPlanPortal } from './seat-plan-slots';
+import { useOneOpen } from '@/lib/one-open';
 
 // True when a thrown error is the server lock-guard's "you no longer hold the
 // editor lock" signal (SeatingLockError · code 'seating_lock_not_held'). Server
@@ -810,6 +811,7 @@ export function SeatingEditor({
   // the candidate footprint on canvas; `degEdit` holds the click-to-type rotation.
   const [editChairs, setEditChairs] = useState(false);
   const [dockOverflow, setDockOverflow] = useState(false);
+  useOneOpen(dockOverflow, setDockOverflow); // one open at a time — lib/one-open.ts
   const [shapePickerOpen, setShapePickerOpen] = useState(false);
   const [previewType, setPreviewType] = useState<TableType | null>(null);
   const [degEdit, setDegEdit] = useState<string | null>(null);
@@ -817,6 +819,7 @@ export function SeatingEditor({
   const [seatNotice, setSeatNotice] = useState<{ tableId: string; seat: number } | null>(null);
   // §5.3 — the Auto Arrange gold split-button's caret menu (Build draft / Fill).
   const [autoMenuOpen, setAutoMenuOpen] = useState(false);
+  useOneOpen(autoMenuOpen, setAutoMenuOpen); // one open at a time — lib/one-open.ts
   useEffect(() => {
     // Selecting a different table (or deselecting) resets every table sub-state.
     setPickerOpen(false);

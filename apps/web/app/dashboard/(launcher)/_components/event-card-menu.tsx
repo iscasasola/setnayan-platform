@@ -28,6 +28,7 @@ import {
   reasonIsComplete,
 } from '@/lib/event-deletion-reasons';
 import { buildWeddingIcs, icsDataHref } from '@/lib/calendar-links';
+import { useOneOpen } from '@/lib/one-open';
 
 /**
  * event-card-menu.tsx — the per-card "⋯" on My Events.
@@ -161,6 +162,7 @@ export function EventCardMenu({
   const [step, setStep] = useState<'why' | 'confirm'>('why');
   /** The note is one line until it is asked for — see `step`. */
   const [noteOpen, setNoteOpen] = useState(false);
+  useOneOpen(open, close); // one open at a time — lib/one-open.ts
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 

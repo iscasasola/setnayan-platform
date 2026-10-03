@@ -3,6 +3,7 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
+import { useOneOpen } from '@/lib/one-open';
 import { fontRowClass, groupHeadClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
@@ -22,6 +23,9 @@ export function PickMenu({
   stickyGroups = false,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
+  // ONE OPEN AT A TIME (owner 2026-10-04): opening this list — by tap OR keyboard —
+  // closes every other open dropdown, menu, popover or fold. `lib/one-open.ts`.
+  useOneOpen(open, setOpen);
   const [at, setAt] = useState<PickListPlacement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);

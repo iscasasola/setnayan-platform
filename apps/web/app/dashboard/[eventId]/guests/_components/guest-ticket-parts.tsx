@@ -14,6 +14,7 @@ import { ticketFileName, ticketUrl } from './send-invite';
 import { DeleteGuestFlow } from './guest-delete';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { useRouter } from 'next/navigation';
+import { useOneOpen } from '@/lib/one-open';
 
 /**
  * guest-ticket-parts.tsx — the top of the guest card, and the ⋯ every Invite
@@ -187,6 +188,7 @@ export function GuestMoreMenu({
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState<'new_qr' | 'unlink' | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
   const inspector = useInspectorContext();
   const router = useRouter();
   const wrapRef = useRef<HTMLDivElement>(null);

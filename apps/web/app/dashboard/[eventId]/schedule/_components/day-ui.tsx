@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import type { ScheduleBlockType } from '@/lib/schedule';
 import type { DayActions } from './day-types';
+import { useOneOpen } from '@/lib/one-open';
 
 /**
  * EVERY SET OF CHOICES IS ONE `PickMenu` (owner, 2026-09-27: *"this should be a
@@ -74,6 +75,7 @@ export function toFormData(values: Record<string, string | string[] | null | und
  */
 export function Tip({ children, align = 'center' }: { children: ReactNode; align?: 'center' | 'end' }) {
   const [open, setOpen] = useState(false);
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
   return (
     <span className="relative inline-flex align-middle">
       <button

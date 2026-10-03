@@ -10,6 +10,7 @@ import {
   MENU_TITLE_MAX,
   type MenuMoment,
 } from '@/lib/print-pieces';
+import { useOneOpen } from '@/lib/one-open';
 
 /**
  * THE MENU EDITOR — owner 2026-09-28: *"add to print out our meals for
@@ -50,6 +51,7 @@ export function PrintMenuEditor({
   const [started, setStarted] = useState(initial.length > 0);
   /** The one row whose move / remove buttons are showing (`m<i>` or `d<i>-<j>`). */
   const [open, setOpen] = useState<string | null>(null);
+  useOneOpen(open !== null, () => setOpen(null)); // the row's ⋯: one open at a time — lib/one-open.ts
 
   const used = new Set(moments.map((m) => m.title.trim().toLowerCase()));
   const offers = suggestions.filter((s) => !used.has(s.toLowerCase()));

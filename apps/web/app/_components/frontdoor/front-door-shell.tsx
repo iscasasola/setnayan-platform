@@ -70,6 +70,7 @@ import { activeRailKey, railMatchRows } from './rail-active';
 import type { RailMatchRow } from './rail-active';
 import { RailActiveKeyProvider } from './rail-active-key';
 import { publicSearchPlaceholder } from '@/lib/public-search-nouns';
+import { useOneOpen } from '@/lib/one-open';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
   Until now they drew TYPOGRAPHIC CHARACTERS — ⌂ ◎ ⌕ ▦ ✧ ❖ ✎ ▣ ⛨ ▸ ⌃ ⌄ — while
@@ -650,6 +651,7 @@ export function FrontDoorShell({
   const [railClosing, setRailClosing] = useState(false);
   const railCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  useOneOpen(menuOpen, setMenuOpen); // the account menu: one open at a time — lib/one-open.ts
   const menuRef = useRef<HTMLDivElement | null>(null);
   const railId = useId();
 

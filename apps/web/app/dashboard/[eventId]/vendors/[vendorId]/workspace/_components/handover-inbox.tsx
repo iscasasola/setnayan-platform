@@ -197,7 +197,7 @@ function HandoverItem({
                 onChange={(e) => setAdvance(e.target.checked)}
                 className="h-3.5 w-3.5 rounded border-ink/30 text-terracotta focus:ring-terracotta"
               />
-              Also mark this vendor delivered (asks you for a review)
+              Also mark this supplier delivered (asks you for a review)
             </label>
           ) : null}
           {errorMsg ? (

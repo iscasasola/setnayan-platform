@@ -276,7 +276,7 @@ export const routeMeta = {
     more: { icon: Menu, label: 'More' },
     paymentOptions: { icon: Wallet, label: 'How clients pay you' },
     profile: { icon: User, label: 'Profile' },
-    proposals: { icon: FileText, label: 'Proposals' },
+    proposals: { icon: FileText, label: 'Quotes' },
     realStories: { icon: Sparkles, label: 'Stories' },
     recaps: { icon: Images, label: 'Recaps' },
     repertoire: { icon: Music, label: 'Repertoire' },

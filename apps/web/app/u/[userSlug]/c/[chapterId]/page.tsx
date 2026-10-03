@@ -247,7 +247,7 @@ export default async function ChapterDetailPage({ params }: Props) {
 
             {vendors.length > 0 ? (
               <div className="uchap-block">
-                <p className="uchap-block-label">Vendors</p>
+                <p className="uchap-block-label">Suppliers</p>
                 <ul className="uchap-vendors">
                   {vendors.map((v) => {
                     // GAP-3 — a shoppable/bookable card renders ONLY for a vendor
@@ -329,7 +329,7 @@ export default async function ChapterDetailPage({ params }: Props) {
                               This storyteller partnered with {v.name}. Book
                               through this chapter and {v.name} honors the promo
                               shown — the discount is offered and settled by the
-                              vendor directly.
+                              supplier directly.
                             </p>
                           ) : null}
                         </div>
@@ -501,7 +501,7 @@ const UCHAP_CSS = `
     border-color: var(--m-orange, #A9834B);
     box-shadow: 0 10px 30px -12px rgba(30,26,18,.18);
   }
-  /* Plain-text (unlinked) vendor — a name the creator mentioned, with no
+  /* Plain-text (unlinked) supplier — a name the creator mentioned, with no
      relationship. Non-interactive: no lift, no pointer, no hover accent. */
   .uchap-vendor--text { cursor: default; }
   .uchap-vendor--text:hover {

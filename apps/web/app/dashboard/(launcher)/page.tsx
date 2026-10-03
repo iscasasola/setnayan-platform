@@ -982,7 +982,7 @@ export default async function LauncherPage({
         icon: Store,
         logoUrl: shopLogoUrls[i] ?? null,
         title: vp.business_name,
-        subtitle: 'Vendor shop',
+        subtitle: 'Supplier shop',
         tone: 'default',
         attention: shopAttention(
           inquiryByShop.get(vp.vendor_profile_id) ?? 0,

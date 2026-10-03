@@ -58,8 +58,11 @@ test('every OTHER refusal passes through untouched, whatever the door says', () 
 
 test('the next step names a button the person can actually see', () => {
   assert.equal(providerNextStep('google', true), 'Use the Google button above.');
-  assert.match(providerNextStep('google', false), /Safari or Chrome/);
-  assert.match(providerNextStep('apple', false), /Apple button/);
+  assert.equal(providerNextStep('apple', true), 'Use the Apple button above.');
+  // Where no button is visible (the phone app) there is NOTHING to point at — the card
+  // offers the set-password button instead of the old "Open setnayan.com in Safari" dead end.
+  assert.equal(providerNextStep('google', false), null);
+  assert.equal(providerNextStep('apple', false), null);
 });
 
 test('the ?provider= param honours only the two doors the card has', () => {
@@ -119,4 +122,39 @@ test('🔴 no client file imports the server lookup, and the RPC is service-role
   assert.match(sql, /REVOKE ALL ON FUNCTION public\.sign_in_door_for_email\(text\) FROM PUBLIC, anon, authenticated;/);
   assert.match(sql, /GRANT EXECUTE ON FUNCTION public\.sign_in_door_for_email\(text\) TO service_role;/);
   assert.doesNotMatch(sql, /GRANT EXECUTE ON FUNCTION public\.sign_in_door_for_email\(text\) TO (anon|authenticated)/);
+});
+
+// ── "Email me a link to set a password" (a Google-only account that typed a password) ──
+const CARD = stripComments(readFileSync('app/login/_components/sign-in-card.tsx', 'utf8'));
+
+test('🔴 the set-password button is rendered ONLY inside the provider-refusal gate — never on first render', () => {
+  // shownProvider is derived from shownError, so it is null until a password attempt failed.
+  assert.match(CARD, /const shownProvider: KnownProvider \| null = shownError \? /, 'shownProvider is no longer tied to a refusal');
+  const gate = CARD.indexOf('{shownProvider ? (\n        <form action={sendReset}');
+  assert.ok(gate > 0, 'the set-password form is not behind the shownProvider gate');
+  assert.equal((CARD.match(/SET_PASSWORD_WORDS\.button/g) || []).length, 1, 'the button text must appear exactly once, inside the gate');
+  assert.ok(CARD.indexOf('SET_PASSWORD_WORDS.button') > gate, 'the button text sits outside the gate');
+  assert.match(CARD, /<input type="hidden" name="intent" value="reset" \/>/);
+});
+
+test('🔴 the button calls the EXISTING send (signInInPlace, intent=reset) — and the dead end is gone', () => {
+  assert.equal((CARD.match(/useActionState\(\s*signInInPlace/g) || []).length, 2, 'the reset must reuse signInInPlace, not a new action');
+  assert.doesNotMatch(CARD, /Safari or Chrome/);
+  assert.doesNotMatch(stripComments(readFileSync('lib/sign-in-door.ts', 'utf8')), /Safari or Chrome/, 'the dead-end sentence is still in the door');
+  // the email is never carried in the URL
+  assert.doesNotMatch(CARD, /email=\$\{|\?email=/);
+});
+
+test('🔴 intent=reset runs the shipped recovery send, behind captcha + rate limit, and adds NO exported action', () => {
+  const branch = ACTIONS.indexOf("formData.get('intent') === 'reset'");
+  const exchange = ACTIONS.indexOf('await exchangeCredentials(formData);', branch);
+  assert.ok(branch > 0 && exchange > branch, 'the reset intent must be handled BEFORE any password exchange');
+  const send = ACTIONS.slice(ACTIONS.indexOf('async function sendSetPasswordLink('), ACTIONS.indexOf('export async function signInInPlace('));
+  const order = ['verifyTurnstileToken(', "rateLimit(`pwreset:email:", 'sendPasswordRecoveryLink('].map((t) => send.indexOf(t));
+  const [captcha, limit, mail] = order as [number, number, number];
+  assert.ok(order.every((n) => n > 0) && captcha < limit && limit < mail, 'captcha → rate limit → send, in that order');
+  // anti-enumeration: the send result must never choose between two messages
+  assert.doesNotMatch(send, /if \(!sent\)[\s\S]{0,160}return refuse/, 'the send result must not change what the person is told');
+  const exported = [...ACTIONS.matchAll(/^export\s+async\s+function\s+(\w+)/gm)].map((m) => m[1]).sort();
+  assert.deepEqual(exported, ['signInInPlace', 'signInWithPassword'], 'a new exported server action was added (route budget)');
 });

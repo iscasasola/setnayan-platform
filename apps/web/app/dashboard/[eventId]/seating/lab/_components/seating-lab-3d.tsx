@@ -3037,7 +3037,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
                     </span>
                   ))}
                 </div>
-                <p className="mt-1.5 text-[11px] text-white/50">Tap a dashed booth in the room to find vendors.</p>
+                <p className="mt-1.5 text-[11px] text-white/50">Tap a dashed booth in the room to find suppliers.</p>
               </div>
             ) : null
           ) : (
@@ -3048,7 +3048,7 @@ export default function SeatingLab3D({ eventId, inMaker = false, tables: initial
                 type="submit"
                 className="rounded-full border border-white/15 bg-black/40 px-3 py-1.5 text-xs text-white/80 backdrop-blur-md transition hover:text-white"
               >
-                Show vendor suggestions
+                Show supplier suggestions
               </button>
             </form>
           )}

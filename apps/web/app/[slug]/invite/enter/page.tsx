@@ -23,13 +23,21 @@ import { InviteQrPanel } from '../_components/invite-qr-panel';
 import { passCardEligibilityFor, plusOnePassCardIds, readTicketSeats } from '@/lib/pass-card.server';
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
-import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../_lib/load-invite-look';
+import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor } from '../_lib/load-invite-look';
+import { heroLineWord, wearTheHub } from '../_lib/wear-the-hub';
+import { hubDoorSkin } from '../_components/hub-door-skin';
+import { GuestLookScope } from '../../_components/guest-look-scope';
+import { lookScopeProps } from '../../_components/host-draft-look';
+import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
+import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { guestReplyBy, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
-import { loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { loadEventShell, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { eventShortcutMetadata } from '@/lib/event-app-icon';
+import { ShortcutLine } from '../_components/shortcut-line';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
 import { getCurrentUser } from '@/lib/auth';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
@@ -56,13 +64,30 @@ import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
 import { LandingPreReply } from '../_components/landing-pre-reply';
 
-export const metadata = { title: 'Your invitation', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ rsvp?: string; keep?: string; in?: string; editor?: string; preview?: string; as?: string }>;
 };
+
+/**
+ * 📌 THIS PAGE NAMES THE COUPLE'S TILE (owner 2026-10-03, DECISION_LOG "GUESTS GET
+ * ONE QUIET 'SHORTCUT TO THIS EVENT' LINE"): the thank-you carries "Keep it handy
+ * — add this event to your home screen", so a shortcut made HERE must open THAT
+ * event under the couple's own icon — the per-event manifest and apple-touch-icon
+ * the Event Hub names, through the ONE helper (`eventShortcutMetadata`). Without
+ * them a phone would make a tile of our generic app, or a screenshot.
+ */
+export async function generateMetadata({ params }: Pick<Props, 'params'>) {
+  const { slug } = await params;
+  const shell = await loadEventShell(slug).catch(() => null);
+  return {
+    title: 'Your invitation',
+    robots: { index: false, follow: false },
+    ...(shell?.slug ? eventShortcutMetadata(shell.slug as string, shell.display_name as string | null) : {}),
+  };
+}
 
 /**
  * 🚪 THE GUEST'S OWN LANDING PAGE (owner 2026-09-30, DECISION_LOG "THE PERSONAL
@@ -117,7 +142,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
       // already carry display_name · monogram_text · monogram_color · the two
       // SVGs · role_palette): the pass drawn below wears the event's look —
       // lib/qr-look.server.ts.
-      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase`,
+      `event_id, public_id, slug, display_name, event_date, event_date_precision, venue_name, rsvp_ask_config, print_details, guest_list_edit_deadline, guest_count_locked_at, ${INVITE_LOOK_COLUMNS}, ${INVITE_MARK_COLUMNS}, ${QR_LOOK_COLUMNS_AFTER_INVITE_MARK}, event_end_date, venue_latitude, venue_longitude, launch_mode, manual_phase, monogram_studio_config`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -190,7 +215,23 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           }
         : null;
 
-  const look = await loadInviteLook(event);
+  /* 🎨 THE EVENT HUB'S LOOK, NOT THE DOOR'S (owner 2026-10-02, live test on a
+     Classic event with a palette: this page came out white, terracotta, sans).
+     The SAME look and Main background the RSVP and every Event Hub page wear —
+     `wearTheHub`, one function for both pages — with the couple's logo as the
+     crest and their own button colour (`hubDoorSkin` paints nothing over it). */
+  const [hub, animationOwned] = await Promise.all([
+    wearTheHub(slug, admin, hostDraft, canvas),
+    eventAnimatedMonogramActive(admin, event.event_id as string).catch(() => false),
+  ]);
+  const skin = hubDoorSkin({
+    ...doorMarkFor(event),
+    animate: animationOwned && !markAnimationSwitchedOff((event as { monogram_studio_config?: unknown }).monogram_studio_config),
+  });
+  /* ✍ THE COUPLE'S OWN INVITATION LINE under their names — the words they typed
+     over "invite you to celebrate…" in the Maker (`heroLineWord`); none typed,
+     none shown. A "You're in!" arrival keeps its own line in that place. */
+  const inviteLine = heroLineWord(hub.heroConfig);
 
   /* ── WHAT THIS DOOR IS ABOUT TO OPEN ────────────────────────────────────────
      🔒 ASKED, NEVER RESTATED. `arrivalDestinationFor` runs the SAME composition
@@ -374,7 +415,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   ) : (
     hosts
   );
-  const soft = 'inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-white/80 px-4 text-sm font-medium text-ink/80 shadow-sm ring-1 ring-ink/10'; // no-card-ok: a pressable pill
+  const soft = 'inline-flex min-h-[48px] w-full items-center justify-center rounded-full bg-cream/80 px-4 text-sm font-medium text-ink/80 shadow-sm ring-1 ring-ink/10'; // no-card-ok: a pressable pill
 
   /* ☝️ BEFORE THE REPLY THE LANDING HAS ONE BUTTON (owner 2026-10-01, DECISION_LOG
      "THE GUEST LANDING BEFORE THE REPLY HAS ONE BUTTON"): the couple's names, the
@@ -386,9 +427,10 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      and the account button. */
   if (unreplied && ticket !== 'full') {
     return (
-      <>
+      <GuestLookScope {...lookScopeProps(hub.look)}>
+        {hub.ground}
         <InAppBar handoff={inApp} />
-        <DoorShell eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : undefined} skin={look.skin}>
+        <DoorShell eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
           {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
           <LandingPreReply
             message={message}
@@ -406,15 +448,16 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             </DoorNotice>
           ) : null}
         </DoorShell>
-      </>
+      </GuestLookScope>
     );
   }
 
   return (
-    <>
+    <GuestLookScope {...lookScopeProps(hub.look)}>
+      {hub.ground}
       {/* 1b · INSIDE MESSENGER — a thin bar of ours at the very top, never over the page. */}
       <InAppBar handoff={inApp} />
-      <DoorShell eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : undefined} skin={look.skin}>
+      <DoorShell eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
         {/* 🎟 5 · A NEW OR CHANGED TICKET POPS UP FIRST, WITH SAVE — once per version. */}
         {ticket === 'full' && !canvas ? (
           <TicketPopup
@@ -436,12 +479,12 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
             (frame 3); after a No, the card carries "When they decline" (frame 4). */}
         <div data-landing="message" className="space-y-3">
           {unreplied ? (
-            <div className="sn-glass-bare rounded-2xl bg-white/95 px-[18px] py-4 text-[15px] leading-relaxed text-ink shadow-sm" data-landing-message="">
+            <div className="sn-glass-bare rounded-2xl bg-cream/95 px-[18px] py-4 text-[15px] leading-relaxed text-ink shadow-sm" data-landing-message="">
               <p>{message}</p>
               <p className="mt-2.5 font-serif text-base italic text-mulberry">— {hosts}</p>
             </div>
           ) : reply === 'no' ? (
-            <div className="sn-glass-bare rounded-2xl bg-white/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">
+            <div className="sn-glass-bare rounded-2xl bg-cream/95 px-5 py-7 text-center shadow-sm" data-landing-missed="">
               <p
                 className="font-serif text-[34px] font-medium leading-tight text-ink"
                 data-landing-heading=""
@@ -608,6 +651,13 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         {/* ✂ "Copy my link" is on the Event Hub's Me now (owner 2026-10-03:
             one place each — Me's ticket carries "Copy link"). */}
 
+        {/* 📌 ONE QUIET LINE, AFTER A YES ONLY (owner 2026-10-03, DECISION_LOG
+            "GUESTS GET ONE QUIET 'SHORTCUT TO THIS EVENT' LINE"): the steps for
+            THIS phone open in place on a tap — a `<details>`, no script, never
+            a popup — and the tile it makes is the couple's (`generateMetadata`
+            above). Never on the Event Hub: the 2026-09-30 removal stands. */}
+        {reply === 'yes' ? <ShortcutLine userAgent={userAgent} /> : null}
+
         {nothingToSave ? (
           <SaveToAccount
             state={account}
@@ -634,6 +684,6 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
           />
         ) : null}
       </DoorShell>
-    </>
+    </GuestLookScope>
   );
 }

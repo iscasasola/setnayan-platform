@@ -195,8 +195,8 @@ const DEPOSIT_OUTCOMES = ['payment_stands', 'not_received'] as const;
 type DepositOutcome = (typeof DEPOSIT_OUTCOMES)[number];
 
 const DEPOSIT_OUTCOME_LABEL: Record<DepositOutcome, string> = {
-  payment_stands: 'Setnayan confirmed the downpayment reached the supplier',
-  not_received: 'Setnayan confirmed the downpayment did not arrive',
+  payment_stands: 'Setnayan confirmed the first payment reached the supplier',
+  not_received: 'Setnayan confirmed the first payment did not arrive',
 };
 
 export async function settleDepositDispute(formData: FormData) {
@@ -320,8 +320,8 @@ export async function settleDepositDispute(formData: FormData) {
   const eventId = booking.event_id as string | null;
   const title =
     outcome === 'payment_stands'
-      ? 'Setnayan settled the downpayment question'
-      : 'Setnayan could not confirm your downpayment';
+      ? 'Setnayan settled the first payment question'
+      : 'Setnayan could not confirm your first payment';
   const body = `${DEPOSIT_OUTCOME_LABEL[outcome]}. Note from the Setnayan team: ${note}`;
 
   try {

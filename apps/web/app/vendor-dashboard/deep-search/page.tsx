@@ -40,7 +40,7 @@ import { DossierView } from './_components/dossier-view';
  * row, so they can never surface here).
  */
 
-export const metadata = { title: 'Deep Search · Vendor' };
+export const metadata = { title: 'Deep Search · Supplier' };
 
 const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
 

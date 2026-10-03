@@ -42,7 +42,7 @@ export async function notifyAdminsApplicationSubmitted(args: {
       .select('business_name')
       .eq('vendor_profile_id', args.vendorProfileId)
       .maybeSingle();
-    const name = v?.business_name ?? 'A vendor';
+    const name = v?.business_name ?? 'A supplier';
 
     const { data: admins } = await admin
       .from('users')
@@ -113,7 +113,7 @@ export async function notifyVendorStatusChange(args: {
       args.decision === 'approved'
         ? {
             title: 'Your verification was approved',
-            body: `You're now a verified Setnayan vendor — your profile is live in the marketplace.${reasonSuffix}`,
+            body: `You're now a verified Setnayan supplier — your profile is live in the marketplace.${reasonSuffix}`,
           }
         : args.decision === 'rejected'
           ? {
@@ -123,7 +123,7 @@ export async function notifyVendorStatusChange(args: {
           : args.decision === 'demoted'
             ? {
                 title: 'Your account was moved to limited status',
-                body: `Your vendor account was demoted from verified status.${reasonSuffix} Reach the Setnayan team if you have questions or to re-apply.`,
+                body: `Your supplier account was demoted from verified status.${reasonSuffix} Reach the Setnayan team if you have questions or to re-apply.`,
               }
             : args.decision === 'listed'
               ? {

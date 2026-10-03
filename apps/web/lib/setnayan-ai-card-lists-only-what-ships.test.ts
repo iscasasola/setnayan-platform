@@ -132,28 +132,38 @@ test('🔴 the two FREE features stay off the paid card', () => {
   );
 });
 
-test('🔴 buying Setnayan AI can be undone — the off-ramp exists and ACTS', () => {
+test('🔴 buying Setnayan AI can be undone — the off-ramp exists, ACTS, and lives in ONE place', () => {
   // Until 2026-08-12 the flip between guided and manual had ZERO callers: the
   // product could be bought and never switched off. Worse, a button reading
   // "Turn on Assisted planning" was a LINK to /dashboard, a page with no such
   // control — it spent the one moment someone was willing to act.
+  //
+  // 2026-10-02 (owner d4 + simplicity fix 7): the switch is "Plan it myself" in
+  // Event Details › Your event, free for every host. The Setnayan AI page's own
+  // two forms were a SECOND place for the same fact, so they are gone — and
+  // this test now pins both halves: the one switch acts both ways, and the AI
+  // page does not grow a second one back.
+  const SWITCH = read(
+    'app', 'dashboard', '[eventId]', 'launch', '_components', 'plan-myself.tsx',
+  );
+  const forms = [...SWITCH.matchAll(/<form\b[\s\S]*?<\/form>/g)].map((m) => m[0]);
+  const posting = forms.filter((f) => /action=\{setPlanningMode\}/.test(f));
+  assert.equal(posting.length, 1, 'Event Details must carry exactly one planning-mode switch');
+  const f = posting[0]!;
+  // The one form flips BOTH ways: the mode it sets is the opposite of now.
+  assert.match(
+    f,
+    /name="mode" value=\{on \? 'guided' : 'manual'\}/,
+    'the switch must be able to turn the help back ON and OFF',
+  );
+  assert.match(f, /name="event_id"/, 'a planning-mode form must carry event_id');
+
   const PAGE = read(
     'app', 'dashboard', '[eventId]', 'studio', 'setnayan-ai', 'page.tsx',
   );
-  const forms = [...PAGE.matchAll(/<form\b[\s\S]*?<\/form>/g)].map((m) => m[0]);
-  const posting = forms.filter((f) => /action=\{setPlanningMode\}/.test(f));
-
-  assert.ok(
-    posting.some((f) => /name="mode" value="guided"/.test(f)),
-    'no form turns Assisted planning ON — if it is a <Link>, it is not a control',
+  assert.doesNotMatch(
+    PAGE,
+    /setPlanningMode/,
+    'the Setnayan AI page must not hold a second "Plan it myself" switch — Event Details is the one place',
   );
-  assert.ok(
-    posting.some((f) => /name="mode" value="manual"/.test(f)),
-    'no form turns Assisted planning OFF — nobody should be able to buy '
-      + 'something they cannot stop',
-  );
-  // Both need the event, or the action throws rather than flipping anything.
-  for (const f of posting) {
-    assert.match(f, /name="event_id"/, 'a planning-mode form must carry event_id');
-  }
 });

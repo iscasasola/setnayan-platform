@@ -228,7 +228,7 @@ async function fetchAppointments(
     const title = resolveAppointmentLabel(row, {});
     const kindLabel = APPOINTMENT_KIND_LABEL[row.kind as AppointmentKind] ?? 'Appointment';
     const vendor = row.vendor_profile_id ? vendorByProfile.get(row.vendor_profile_id) : undefined;
-    const name = vendor?.name ?? 'your vendor';
+    const name = vendor?.name ?? 'your supplier';
     const where = row.location ? ` · ${row.location}` : ` with ${name}`;
     return {
       id: `appointment:${row.appointment_id}`,
@@ -402,7 +402,7 @@ async function fetchVendorPaymentItems(
     // due_date is a DATE (no time component). Anchor to noon local so
     // the day-bucketing in the merged stream is unambiguous.
     const date = new Date(`${row.due_date}T12:00:00`);
-    const name = vendorName.get(row.vendor_id) ?? 'Vendor';
+    const name = vendorName.get(row.vendor_id) ?? 'Supplier';
     const amountCentavos = toCentavos(row.amount_php);
     return {
       id: `vendor_payment:${row.line_item_id}`,

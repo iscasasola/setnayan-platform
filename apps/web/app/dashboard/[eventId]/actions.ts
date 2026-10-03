@@ -143,12 +143,12 @@ export async function updateEventDate(formData: FormData) {
     // original Task #37 lock message — the more specific guidance.
     if (refusal === 'widens') {
       throw new Error(
-        `Can't widen precision — you have ${count} confirmed vendor${count === 1 ? '' : 's'}. Narrow your date instead (year → month → day), don't broaden it.`,
+        `Can't widen precision — you have ${count} confirmed supplier${count === 1 ? '' : 's'}. Narrow your date instead (year → month → day), don't broaden it.`,
       );
     }
     if (refusal === 'locked') {
       throw new Error(
-        `Date is locked — ${count} confirmed vendor${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
+        `Date is locked — ${count} confirmed supplier${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
       );
     }
   }

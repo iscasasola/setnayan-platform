@@ -37,7 +37,7 @@ async function requireVendorProfile(
   if (!user) redirect('/login');
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) throw new Error('Vendor profile not found.');
+  if (!profile) throw new Error('Supplier profile not found.');
   return { user, profile };
 }
 

@@ -30,6 +30,7 @@ import {
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
 import { PAPIC_FREE_ONE_CAMERA_COUNT } from '@/lib/papic-one';
+import { COMMISSION_PCT } from '@/lib/commission-promise';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 
 /**
@@ -84,7 +85,7 @@ export const metadata = {
   openGraph: {
     title: 'Pricing · Setnayan',
     description:
-      'Plan free, add the magic as you go. Transparent PHP prices. Suppliers transact directly. Setnayan takes 0%.',
+      `Plan free, add the magic as you go. Transparent PHP prices. Suppliers transact directly. Setnayan takes ${COMMISSION_PCT}%.`,
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',

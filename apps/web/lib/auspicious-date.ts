@@ -187,16 +187,16 @@ const DAY_OF_WEEK_VARIANTS: Record<number, ReadonlyArray<string>> = {
   2: [
     'Martes ay tibay — strength and resilience for the couple',
     'Tuesday weddings settle into a steady mid-week mood · neither beginning nor weekend',
-    'A Martes ceremony catches vendors at their freshest · the booking volume hasn\'t hit yet',
+    'A Martes ceremony catches suppliers at their freshest · the booking volume hasn\'t hit yet',
     'Pinoy tradition holds Tuesday as a day of building — the perfect tempo for foundations',
     'Off-cycle Martes · venues quiet, photographers attentive, every detail gets full focus',
     'Tuesday weddings feel like a secret · only the people who really matter make the trip',
   ],
   3: [
-    'Mid-week balance — vendors often offer their best rates and quieter venues',
+    'Mid-week balance — suppliers often offer their best rates and quieter venues',
     'Miyerkules ceremonies live in the calendar\'s sweet spot · enough buildup, enough breathing room',
     'Hump-day weddings turn the dullest workday into the most-loved one · everyone needs the break',
-    'A Wednesday ceremony catches vendors mid-stride · momentum without weekend overload',
+    'A Wednesday ceremony catches suppliers mid-stride · momentum without weekend overload',
     'Mid-week Miyerkules · the day everyone secretly waits for, made into a wedding',
     'Wednesday weddings have a quiet confidence — they don\'t need a weekend to feel big',
   ],
@@ -265,7 +265,7 @@ const MONTH_VARIANTS: Record<number, ReadonlyArray<string>> = {
   5: [
     'Flores de Mayo — floral abundance and the most colorful month',
     'Mayo ceremonies catch the year\'s warmth at its peak · classic Filipino summer wedding',
-    'Late-summer May · last big sunshine month before the rains · vendors at their seasonal peak',
+    'Late-summer May · last big sunshine month before the rains · suppliers at their seasonal peak',
     'A Mayo wedding carries Flores de Mayo\'s floral legacy · the country is already in celebration rhythm',
     'May weddings feel celebratory by birthright · the fiesta month, made personal',
   ],
@@ -280,14 +280,14 @@ const MONTH_VARIANTS: Record<number, ReadonlyArray<string>> = {
     'Romantic showers — rain on a wedding is considered prosperity in many Filipino traditions',
     'Hulyo · the rainy-but-romantic month · indoor receptions glow softer when it pours',
     'July ceremonies have the most personal energy · only the people truly invited show up',
-    'Mid-monsoon Hulyo · vendors aren\'t booked solid, every detail gets deep attention',
+    'Mid-monsoon Hulyo · suppliers aren\'t booked solid, every detail gets deep attention',
     'A July wedding feels like a brave bright spot in the rains · its own kind of beauty',
   ],
   8: [
-    'Mid-year reset — refreshing breezes and softer vendor demand',
+    'Mid-year reset — refreshing breezes and softer supplier demand',
     'Late-monsoon Agosto · the rains often pause for the most photogenic afternoons',
     'August ceremonies catch the late-summer second wind · golden light, fewer crowds',
-    'A Agosto wedding lands in the strong, steady month · vendors deliver, guests show up',
+    'A Agosto wedding lands in the strong, steady month · suppliers deliver, guests show up',
     'Pre-ber-month August · long buildup of anticipation before holiday season kicks in',
   ],
   9: [
@@ -302,7 +302,7 @@ const MONTH_VARIANTS: Record<number, ReadonlyArray<string>> = {
     'Oktubre · the autumn glow the Filipino calendar borrows · soft, warm, golden',
     'October ceremonies feel pre-holiday · families already in joy mode, but no Christmas chaos yet',
     'A Oktubre wedding catches the year\'s most photogenic light · cool dry mornings, warm evenings',
-    'Mid-ber-month October · holiday energy building, vendors still flexible',
+    'Mid-ber-month October · holiday energy building, suppliers still flexible',
   ],
   11: [
     'Family-gathering season — everyone is in town and ready to celebrate',
@@ -329,7 +329,7 @@ const MONTH_VARIANTS: Record<number, ReadonlyArray<string>> = {
 function positionInMonthReason(date: Date): string | null {
   const day = date.getDate();
   if (day <= 7) {
-    return 'Opening week of the month · invitations carry full lead time, vendors arrive fresh-energy';
+    return 'Opening week of the month · invitations carry full lead time, suppliers arrive fresh-energy';
   }
   if (day <= 14) {
     return 'Second-week pacing · the month is still wide-open, momentum just building';
@@ -1098,7 +1098,7 @@ function sensitiveReframes(date: Date, ceremonyType: CeremonyType | null): strin
   // Weekday — already covered in day-of-week positive, but add a budget angle.
   if (dow >= 1 && dow <= 4) {
     reasons.push(
-      'Weekday weddings often unlock the best vendor rates and the calmest venues — your budget stretches further',
+      'Weekday weddings often unlock the best supplier rates and the calmest venues — your budget stretches further',
     );
   }
 

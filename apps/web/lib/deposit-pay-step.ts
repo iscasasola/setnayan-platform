@@ -138,5 +138,5 @@ export function noPayMethodsSentence(
     return `${vendorName} isn’t on Setnayan, so their payment details aren’t here. Pay them the way you agreed with them.`;
   }
   if (methodCount > 0) return null;
-  return `${vendorName} hasn’t added a way to pay them on Setnayan yet, so there’s nothing to show here. Ask them in chat where to send your deposit — we’ve asked them to add one.`;
+  return `${vendorName} hasn’t added a way to pay them on Setnayan yet, so there’s nothing to show here. Ask them in chat where to send your payment — we’ve asked them to add one.`;
 }

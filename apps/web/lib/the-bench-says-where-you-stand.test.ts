@@ -201,7 +201,7 @@ test('🔑 9b · a paid deposit, a confirmed meeting and a moved headcount are s
       meeting: { atMs: NOW + DAY + 3_600_000 },
       guestCounts: { atInquiry: 150, live: 170 },
     }),
-    'Booked · Replied yesterday · Deposit paid · Meeting confirmed for tomorrow · Guest count changed: 150 → ~170',
+    'Booked · Replied yesterday · First payment paid · Meeting confirmed for tomorrow · Guest count changed: 150 → ~170',
   );
   // "waiting on you" stays beside the number it is about.
   assert.equal(
@@ -209,7 +209,7 @@ test('🔑 9b · a paid deposit, a confirmed meeting and a moved headcount are s
     'Quoted ₱95,000 · waiting on you · Guest count changed: 150 → ~170',
   );
   // A booked rung with nobody talking still says the facts.
-  assert.equal(say({ stage: 'booked', lastSpeaker: null, lastSaidAtMs: null, depositPaid: true }), 'Booked · Deposit paid');
+  assert.equal(say({ stage: 'booked', lastSpeaker: null, lastSaidAtMs: null, depositPaid: true }), 'Booked · First payment paid');
   // And a floor rung with only a fact is not an empty line.
   assert.equal(
     say({ lastSpeaker: null, lastSaidAtMs: null, meeting: { atMs: null } }),
@@ -241,7 +241,7 @@ test('🔑 9c · each fact is said only when it is true', () => {
   const supplier = buildSupplierStanding(
     facts({ viewer: 'vendor', stage: 'booked', depositPaid: true, guestCounts: { atInquiry: 150, live: 170 } }),
   );
-  assert.ok(supplier && standingSentence(supplier).endsWith('Deposit paid · Guest count changed: 150 → ~170'));
+  assert.ok(supplier && standingSentence(supplier).endsWith('First payment paid · Guest count changed: 150 → ~170'));
 });
 
 // ── 2 · the roll-up is the same derivation, counted ─────────────────────────

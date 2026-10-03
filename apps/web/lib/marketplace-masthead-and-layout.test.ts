@@ -40,6 +40,8 @@ const code = (rel: string) =>
 
 const TAKEOVER = 'app/dashboard/[eventId]/vendors/_components/services-takeover.tsx';
 const COMPONENTS = 'app/dashboard/[eventId]/vendors/_components';
+// The chips became the visible "Your planning" list (owner 2026-10-03) — same bus, own file.
+const PLANNING = `${COMPONENTS}/planning-list.tsx`;
 
 /** The body of a top-level `function <name>(` — so an assertion about the chips
  *  cannot accidentally be satisfied by the rail 200 lines away. */
@@ -85,7 +87,7 @@ test('a chip calls the SHIPPED bus — it does not rebuild panel switching', () 
   // removed 2026-07-15; `?tab=` and BB_TAB_EVENT still work but SCROLL. A chip
   // must go through `goToBuildTab`, which dispatches the existing event the
   // takeover's own listener consumes — no new key, no new anchor, no new state.
-  const chips = fnBody(code(TAKEOVER), 'SectionChips');
+  const chips = fnBody(code(PLANNING), 'PlanningList');
   assert.match(chips, /goToBuildTab\(/, 'chips must dispatch the existing bus');
   assert.doesNotMatch(chips, /useState|setCompareOpen|setBudgetOpen/, 'no local panel state');
 });
@@ -94,21 +96,22 @@ test('chip labels come from tabLabel(), never authored here', () => {
   // `tabLabel()` is flag-gated, so the chips say "Payments"/"Plans" with the
   // flag on and the pre-rename words with it off. Hardcoding a label is how the
   // two drift.
-  const chips = fnBody(code(TAKEOVER), 'SectionChips');
+  const chips = fnBody(code(PLANNING), 'PlanningList');
   assert.match(chips, /tabLabel\(/);
   assert.doesNotMatch(chips, /'Payments'|'Plans'|"Payments"|"Plans"/);
 });
 
-test('the chips iterate BUDGET_BUILD_TABS rather than re-listing the four', () => {
-  // A re-listed array is a second source of truth for the section set.
-  assert.match(fnBody(code(TAKEOVER), 'SectionChips'), /BUDGET_BUILD_TABS\.map/);
+test('the rows iterate the one ordered key list, a permutation of BUDGET_BUILD_TABS', () => {
+  // `planning-list.test.ts` executes that the order is a permutation of the
+  // shipped tab set; here, that the rows are mapped from it, never re-typed.
+  assert.match(fnBody(code(PLANNING), 'PlanningList'), /PLANNING_JUMP_ORDER\.map/);
 });
 
 test('the chip row is NOT a third pinned bar', () => {
   // The bottom nav and the team chip already dock on mobile. A third pinned bar
   // is the stacked-bars defect `lint-no-stacked-pinned-bars.mjs` exists for.
   // Scoped to the function: this FILE legitimately contains `lg:sticky` (the rail).
-  const chips = fnBody(code(TAKEOVER), 'SectionChips');
+  const chips = fnBody(code(PLANNING), 'PlanningList');
   assert.doesNotMatch(chips, /\bfixed\b|\bsticky\b/);
 });
 

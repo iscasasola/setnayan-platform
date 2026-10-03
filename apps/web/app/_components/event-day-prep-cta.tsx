@@ -174,7 +174,7 @@ export function EventDayPrepCta({ eventId, eventDate, finished = false, now = ne
           </h2>
           <p className="max-w-prose text-sm text-ink/65">
             {phase === 'done'
-              ? "Guest list, seating, schedule, vendors, budget, and recent messages are saved on this device. You'll see live data when you're online."
+              ? "Guest list, seating, schedule, suppliers, budget, and recent messages are saved on this device. You'll see live data when you're online."
               : phase === 'error'
                 ? (errorMsg ?? 'Something went wrong. Try again — the cache hasn’t been changed.')
                 : 'Download a copy of everything you need for the day so the dashboard works on bad venue WiFi.'}

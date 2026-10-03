@@ -57,7 +57,7 @@ export function delegateObject(area: string | null | undefined, table: string | 
     case 'schedule':
       return 'a schedule block';
     case 'vendors':
-      return 'a vendor record';
+      return 'a supplier record';
     default:
       return table ?? 'the plan';
   }

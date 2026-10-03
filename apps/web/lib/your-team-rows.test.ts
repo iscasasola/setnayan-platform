@@ -42,7 +42,7 @@ test('booked + deposit due → Pay, to the deposit card', () => {
   const r = teamRowOf(facts({ status: 'contracted', depositStep: 'due' }), CTX)!;
   assert.equal(r.group, 'booked');
   assert.equal(r.pill.text, 'Booked');
-  assert.equal(r.next, 'pay your deposit');
+  assert.equal(r.next, 'pay your first payment');
   assert.deepEqual(r.action, {
     kind: 'pay',
     label: 'Pay',
@@ -54,7 +54,7 @@ test('booked + deposit due → Pay, to the deposit card', () => {
 test('booked + deposit refused → Pay again, and the pill says why', () => {
   const r = teamRowOf(facts({ status: 'contracted', depositStep: 'refused' }), CTX)!;
   assert.equal(r.action?.kind, 'pay');
-  assert.equal(r.pill.text, 'Deposit not received');
+  assert.equal(r.pill.text, 'Payment not received');
 });
 
 test('a REFUSED deposit read is never "pay" — it is a neutral Check', () => {
@@ -64,12 +64,12 @@ test('a REFUSED deposit read is never "pay" — it is a neutral Check', () => {
   const r = teamRowOf(facts({ status: 'contracted', depositStep: 'unknown' }), CTX)!;
   assert.equal(r.action?.kind, 'check');
   assert.equal(r.needsYou, false);
-  assert.doesNotMatch(r.next, /pay/i);
+  assert.doesNotMatch(r.next, /\bpay\b/i);
 });
 
 test('booked + deposit sent → nothing to press; confirmed/deposit_paid → all set', () => {
   assert.equal(kindOf(facts({ status: 'contracted', depositStep: 'sent' })), null);
-  assert.equal(teamRowOf(facts({ status: 'contracted', depositStep: 'sent' }), CTX)!.next, 'they confirm your deposit');
+  assert.equal(teamRowOf(facts({ status: 'contracted', depositStep: 'sent' }), CTX)!.next, 'they confirm your first payment');
   assert.equal(kindOf(facts({ status: 'contracted', depositStep: 'confirmed' })), null);
   const paid = teamRowOf(facts({ status: 'deposit_paid' }), CTX)!;
   assert.equal(paid.action, null);
@@ -99,7 +99,7 @@ test('asked to lock → Waiting on THEM; Nudge opens the conversation', () => {
   )!;
   assert.equal(r.group, 'asked');
   assert.equal(r.pill.text, 'Waiting');
-  assert.match(r.next, /^they agree to your lock · 20 hours left to answer$/);
+  assert.match(r.next, /^they confirm your booking · 20 hours left to answer$/);
   assert.deepEqual(r.action, { kind: 'nudge', label: 'Nudge', href: '/dashboard/E/messages/t9' });
   assert.equal(r.needsYou, false, 'the ball is in the supplier’s court');
 });
@@ -116,10 +116,10 @@ test('handshake flag OFF → a pending marker is not an ask (lockRequestStateOf 
 test('in the build and lockable → Lock, with the price when there is one', () => {
   const r = teamRowOf(facts({ inBuild: true, lockGroupId: 'catering', pricePhp: 96000 }), CTX)!;
   assert.equal(r.pill.text, 'Quote in');
-  assert.equal(r.next, 'lock the price — ₱96,000');
-  assert.deepEqual(r.action, { kind: 'lock', label: 'Lock', groupId: 'catering' });
+  assert.equal(r.next, 'book at ₱96,000');
+  assert.deepEqual(r.action, { kind: 'lock', label: 'Book', groupId: 'catering' });
   const unpriced = teamRowOf(facts({ inBuild: true, lockGroupId: 'catering' }), CTX)!;
-  assert.equal(unpriced.next, 'lock them in');
+  assert.equal(unpriced.next, 'book them');
 });
 
 test('a quote waiting on the couple (not in the build) → Lock when the card offers it', () => {

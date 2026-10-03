@@ -193,7 +193,7 @@ export default async function PapicStoragePage() {
         <KpiStatCard
           label="Real web-copy ratio"
           value={rows === null ? null : pct(portfolioRatio)}
-          hint={`modelled ~8% · over ${measuredStills.toLocaleString()} stills`}
+          hint={`compare with the plan's modelled ratio · over ${measuredStills.toLocaleString()} stills`}
         />
         <KpiStatCard
           label="Events with data"

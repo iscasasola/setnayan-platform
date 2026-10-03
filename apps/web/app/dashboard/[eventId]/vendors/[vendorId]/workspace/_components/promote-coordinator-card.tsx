@@ -232,7 +232,7 @@ export async function PromoteCoordinatorCard({
         </h2>
         <p className="max-w-prose text-xs text-ink/65">
           Your booked coordinator can plan WITH you — edit the guest list, seat plan, schedule,
-          and vendor records, with every change logged. Publishing the seat plan and the first
+          and supplier records, with every change logged. Publishing the seat plan and the first
           invitation send always stay with you.
         </p>
       </div>

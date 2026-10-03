@@ -80,7 +80,7 @@ export function SaveToBenchButton({
     return (
       <span className="inline-flex items-center gap-1 text-[12.5px] font-semibold text-ink/60">
         <Check className="h-3.5 w-3.5" aria-hidden />
-        On your bench
+        Saved
       </span>
     );
   }
@@ -93,7 +93,7 @@ export function SaveToBenchButton({
         className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 px-3 py-2 text-[12.5px] font-semibold text-ink transition-colors hover:bg-ink/5 disabled:opacity-60"
       >
         <Bookmark className="h-3.5 w-3.5" aria-hidden />
-        {pending ? 'Saving…' : 'Save to bench'}
+        {pending ? 'Saving…' : 'Save'}
       </button>
       {error ? (
         <span role="alert" className="mt-1 text-[11px] text-danger-700">

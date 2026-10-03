@@ -83,7 +83,7 @@ import { formatCount } from '@/lib/format-number';
  * tier_expires_at are not in FULL_VENDOR_PROFILE_SELECT).
  */
 
-export const metadata = { title: 'Plan · Vendor' };
+export const metadata = { title: 'Plan · Supplier' };
 
 const NUMBER = new Intl.NumberFormat('en-PH');
 

@@ -102,7 +102,7 @@ async function sendVendorInvite(formData: FormData): Promise<SendInviteResult> {
     return {
       ok: false,
       code: 'NOT_AUTHENTICATED',
-      message: 'Sign in to invite vendors.',
+      message: 'Sign in to invite suppliers.',
     };
   }
   // Anon-draft guard: inviting a vendor emails them and pulls them into a thread
@@ -112,7 +112,7 @@ async function sendVendorInvite(formData: FormData): Promise<SendInviteResult> {
     return {
       ok: false,
       code: 'NOT_SECURED',
-      message: 'Secure your account first to invite vendors.',
+      message: 'Secure your account first to invite suppliers.',
     };
   }
 
@@ -126,7 +126,7 @@ async function sendVendorInvite(formData: FormData): Promise<SendInviteResult> {
     return {
       ok: false,
       code: 'VENDOR_NOT_FOUND',
-      message: 'Vendor not found or not accessible.',
+      message: 'Supplier not found or not accessible.',
     };
   }
   // The fifth gate on "may this supplier be invited?", and the one that was
@@ -250,7 +250,7 @@ async function connectExistingVendorProfile(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
-    return { ok: false, code: 'NOT_AUTHENTICATED', message: 'Sign in to connect vendors.' };
+    return { ok: false, code: 'NOT_AUTHENTICATED', message: 'Sign in to connect suppliers.' };
   }
   // Anon-draft guard: connecting links the couple to a real vendor profile
   // (follow + chat unlock) — a vendor-contact surface where the couple identity
@@ -260,7 +260,7 @@ async function connectExistingVendorProfile(
     return {
       ok: false,
       code: 'NOT_SECURED',
-      message: 'Secure your account first to connect vendors.',
+      message: 'Secure your account first to connect suppliers.',
     };
   }
 
@@ -622,7 +622,7 @@ export async function registerClaimedServiceToCouple(args: {
   if (!user) return { ok: false, code: 'NOT_AUTHENTICATED', message: 'Sign in first.' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) {
-    return { ok: false, code: 'NO_VENDOR_PROFILE', message: 'No vendor profile for this user.' };
+    return { ok: false, code: 'NO_VENDOR_PROFILE', message: 'No supplier profile for this user.' };
   }
   const vendorProfileId = profile.vendor_profile_id;
 
@@ -646,7 +646,7 @@ export async function registerClaimedServiceToCouple(args: {
     return {
       ok: false,
       code: 'PROFILE_MISMATCH',
-      message: 'This claim resolved to a different vendor profile.',
+      message: 'This claim resolved to a different supplier profile.',
     };
   }
   const eventVendorId = invite.vendor_id as string | null;
@@ -691,7 +691,7 @@ export async function registerClaimedServiceToCouple(args: {
     return {
       ok: false,
       code: 'LINK_MISMATCH',
-      message: 'The couple is not linked to this vendor profile.',
+      message: 'The couple is not linked to this supplier profile.',
     };
   }
   if (parent.service_id) {
@@ -754,8 +754,8 @@ export async function registerClaimedServiceToCouple(args: {
           emitNotification({
             userId: uid,
             type: 'vendor_joined',
-            title: 'Your vendor joined Setnayan',
-            body: 'A vendor you added has linked their service to your plan.',
+            title: 'Your supplier joined Setnayan',
+            body: 'A supplier you added has linked their service to your plan.',
             relatedUrl: `/dashboard/${eventId}/vendors`,
           }),
         ),

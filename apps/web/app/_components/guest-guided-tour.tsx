@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { GuidedTourCard } from '@/app/_components/guided-tour-card';
 import type { GuidedTourView } from '@/app/_components/tour-slide-view';
 import type { TourKey } from '@/lib/tours';
+import { TIP_POPUPS_ON } from '@/lib/tip-popups';
 
 const STORAGE_PREFIX = 'setnayan.tour_seen.';
 
@@ -22,6 +23,8 @@ export function GuestGuidedTour({ tourKey, tour }: { tourKey: TourKey; tour: Gui
   const [shouldShow, setShouldShow] = useState(false);
 
   useEffect(() => {
+    // Switched off until the spotlight tour ships (`lib/tip-popups.ts`) — never even read localStorage.
+    if (!TIP_POPUPS_ON) return;
     try {
       const seen = window.localStorage.getItem(STORAGE_PREFIX + tourKey);
       if (!seen) setShouldShow(true);

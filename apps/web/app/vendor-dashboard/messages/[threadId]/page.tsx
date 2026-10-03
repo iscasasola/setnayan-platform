@@ -144,7 +144,7 @@ import {
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Thread · Vendor' };
+export const metadata = { title: 'Thread · Supplier' };
 
 type Props = {
   params: Promise<{ threadId: string }>;
@@ -160,12 +160,12 @@ type Props = {
 };
 
 const PROPOSAL_NOTICE: Record<string, string> = {
-  proposal_sent: 'Proposal sent — it’s in the conversation below.',
-  proposal_failed: 'Couldn’t send that proposal. Please try again.',
-  proposal_needs_template: 'Pick a template to send a proposal.',
-  proposal_tier_free: 'Get your account verified to send proposals to couples.',
-  proposal_sent_no_card: 'Proposal sent — find it in your Proposals list (the in-chat card didn’t post).',
-  proposal_thread_closed: 'You can only send a proposal on an open conversation.',
+  proposal_sent: 'Quote sent — it’s in the conversation below.',
+  proposal_failed: 'Couldn’t send that quote. Please try again.',
+  proposal_needs_template: 'Pick a template to send a quote.',
+  proposal_tier_free: 'Get your account verified to send quotes to couples.',
+  proposal_sent_no_card: 'Quote sent — find it in your Quotes list (the in-chat card didn’t post).',
+  proposal_thread_closed: 'You can only send a quote on an open conversation.',
   // S5 · a new quote would replace an ACCEPTED one that the booking already
   // rests on. Name the door that IS open instead of saying "failed".
   proposal_deal_locked:

@@ -35,7 +35,7 @@ export const TOKEN_HINTS: Record<ProposalTokenKey, string> = {
   guest_count: 'Confirmed attending guests',
   guest_count_expected: 'Confirmed + maybes',
   guest_count_ceiling: 'If every pending guest shows',
-  meal_breakdown: 'Meal mix, e.g. "61 beef · 44 chicken" (food vendors)',
+  meal_breakdown: 'Meal mix, e.g. "61 beef · 44 chicken" (food suppliers)',
   table_count: 'Tables on the seat plan',
   my_slot: 'Your earliest key slot on the day-of timeline',
   call_time: 'Suggested setup/call time',

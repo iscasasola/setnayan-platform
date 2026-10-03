@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Camera, Gift, SlidersHorizontal } from 'lucide-react';
+import { Camera, Gift } from 'lucide-react';
 import type { GiftsMode } from '@/lib/event-type-profile';
 import type { AnswerItemKey, DetailsItemModel } from '@/lib/maker-details-items';
 import {
@@ -19,9 +19,8 @@ import {
   type EventAnswerColumn,
 } from '@/lib/event-answers';
 import { NOT_SET_YET } from '@/lib/event-details-sheet';
-import type { EventSettingsInput } from './details-settings-load';
-/* ⚡ The dropdowns and the settings editors load when Details is opened — never with the Maker. */
-import { AnswerPicker, EventSettingsEditor } from './details-lazy';
+/* ⚡ The dropdowns load when Details is opened — never with the Maker. */
+import { AnswerPicker } from './details-lazy';
 
 /**
  * 🗂 YOUR INFO › THE ANSWERS — the rows, pictures and editors for
@@ -30,7 +29,8 @@ import { AnswerPicker, EventSettingsEditor } from './details-lazy';
  * way `details-your-event-parts.tsx` composes Your event: per item, the
  * navigator row, the body and the editor.
  *
- *   · Event settings — the retired `/details/change` page, moved whole.
+ *   · (Event settings left the Maker 2026-10-02 — it saves live; it lives on
+ *     the Event Details page, `details/page.tsx`.)
  *   · Photos from guests · Gifts — one dropdown each over their column.
  *   · The logo and the event-photo answers ride on the items they are about
  *     (Logo · Hero): `logoAnswer` / `coverAnswer`, and their line under the row.
@@ -72,11 +72,9 @@ function answerOf(column: EventAnswerColumn, value: boolean | null, choices: rea
 export function answerParts({
   eventId,
   answers,
-  settings,
 }: {
   eventId: string;
   answers: AnswersInput | null;
-  settings: EventSettingsInput | null;
 }): {
   keys: AnswerItemKey[];
   rows: Partial<Record<AnswerItemKey, NavRow>>;
@@ -87,24 +85,6 @@ export function answerParts({
   const rows: Partial<Record<AnswerItemKey, NavRow>> = {};
   const bodies: Partial<Record<AnswerItemKey, ReactNode>> = {};
   const editors: Partial<Record<AnswerItemKey, ReactNode>> = {};
-
-  if (settings) {
-    keys.push('settings');
-    rows.settings = { label: 'Event settings', sub: settings.sub, icon: <SlidersHorizontal aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
-    bodies.settings = (
-      <section className="sn-tile w-full max-w-md p-5" data-details-settings-readout="">
-        <dl className="divide-y divide-ink/5">
-          {settings.readout.map((r) => (
-            <div key={r.label} className="flex items-baseline justify-between gap-4 py-2 text-sm">
-              <dt className="text-ink/70">{r.label}</dt>
-              <dd className="text-right font-medium text-ink">{r.value ?? NOT_SET_YET}</dd>
-            </div>
-          ))}
-        </dl>
-      </section>
-    );
-    editors.settings = <EventSettingsEditor eventId={eventId} form={settings.form} governed={settings.governed} pax={settings.pax} />;
-  }
 
   if (answers?.papic.offered) {
     const choices = papicChoices();

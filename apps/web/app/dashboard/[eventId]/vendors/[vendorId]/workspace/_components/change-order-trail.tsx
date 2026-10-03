@@ -287,7 +287,7 @@ export function ChangeOrderTrail({
               name="description"
               rows={2}
               maxLength={2000}
-              placeholder="Anything the vendor should know"
+              placeholder="Anything the supplier should know"
               className="w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
           </div>

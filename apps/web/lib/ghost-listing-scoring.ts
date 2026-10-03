@@ -156,7 +156,7 @@ export function scoreGhostListing(inputs: {
 export const GHOST_LISTING_REASON_LABEL: Record<string, string> = {
   duplicate_identity:
     'Shares a business name or contact email with another listing (possible clone / squatted identity).',
-  never_answered: 'Couples have messaged this vendor but they have never replied.',
+  never_answered: 'Couples have messaged this supplier but they have never replied.',
   no_active_services: 'No active bookable services.',
   no_logo: 'No business logo uploaded.',
   abandoned_listing: 'Long dormant — not updated in a long time.',

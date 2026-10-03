@@ -29,7 +29,7 @@ import {
 import type { WaivedFeeCharge } from '@/lib/booking-fee-disclosure';
 import { WaivedFeeRows } from '@/app/_components/booking-fee-notice';
 
-export const metadata = { title: 'Booking fees · Vendor' };
+export const metadata = { title: 'Booking fees · Supplier' };
 
 function fmtDate(s: string) {
   return new Date(s).toLocaleDateString('en-PH', {

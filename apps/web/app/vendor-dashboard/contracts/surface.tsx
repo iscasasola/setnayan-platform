@@ -7,7 +7,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorContracts } from '@/lib/contracts';
 import { ContractCard, ContractsEmptyState } from '@/app/_components/contracts/contract-card';
 
-export const metadata = { title: 'Contracts · Vendor' };
+export const metadata = { title: 'Contracts · Supplier' };
 
 export default async function VendorContractsPage() {
   const supabase = await createClient();

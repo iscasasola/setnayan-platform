@@ -1670,7 +1670,7 @@ export function ProposalMaker({
                   type="text"
                   value={r.label}
                   onChange={(e) => patchInstallment(r.key, { label: e.target.value })}
-                  aria-label="Installment name"
+                  aria-label="Payment name"
                   className="min-w-0 flex-1 border-none bg-transparent text-sm text-ink focus:outline-none"
                 />
                 {r.kind === 'percent' ? (
@@ -1701,7 +1701,7 @@ export function ProposalMaker({
                       step="0.01"
                       value={r.amountPhp ?? 0}
                       onChange={(e) => patchInstallment(r.key, { amountPhp: Number(e.target.value) || 0 })}
-                      aria-label="Installment amount"
+                      aria-label="Payment amount"
                       className={`${numField} w-24`}
                     />
                   </span>
@@ -1730,7 +1730,7 @@ export function ProposalMaker({
                   <button
                     type="button"
                     onClick={() => removeInstallment(r.key)}
-                    aria-label="Remove installment"
+                    aria-label="Remove payment"
                     className="px-1 text-sm text-ink/40 hover:text-danger-700"
                   >
                     ✕
@@ -1831,7 +1831,7 @@ export function ProposalMaker({
           + Add payment · splits the balance
         </button>
         <p className="text-[11px] text-ink/45">
-          First payment is the downpayment the couple pays to lock the date. The final balance always
+          The first payment is what the couple pays to lock the date. The final balance always
           settles the plan to ₱0{credit > 0 ? '; the crew-meal credit comes off it first' : ''}.
         </p>
       </div>

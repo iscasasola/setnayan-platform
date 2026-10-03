@@ -891,6 +891,26 @@ html.guests-subnav-docked [data-shell-main] {
    * visitors — no per-element guard needed. Consumed by
    * `@/components/skeletons`.
    */
+  /* ⏳ A loading screen's placeholders give up (owner, live phone test
+   * 2026-10-02: grey cards still showing on the guest view). If the content
+   * has not replaced them after 12 s it is not coming soon, and a grey box
+   * that lingers reads as broken — so they fade to nothing. Pure CSS: the
+   * loading screen is drawn before any script runs. */
+  .sn-skeleton-gives-up {
+    animation: sn-skeleton-give-up 0.4s ease 12s forwards;
+  }
+  /* 📱 A quiet Maker status said over the canvas on a phone fades after 4 s
+   * (`hub-draft-bar.tsx` PHONE_TOAST) — the page is the couple's, not ours. */
+  .sn-toast-fades {
+    animation: sn-skeleton-give-up 0.3s ease 4s forwards;
+  }
+  @keyframes sn-skeleton-give-up {
+    to {
+      opacity: 0;
+      visibility: hidden;
+    }
+  }
+
   .skeleton {
     background-color: rgb(30 34 41 / 0.06);
     background-image: linear-gradient(
@@ -4802,8 +4822,13 @@ html.dark {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  /* ROUND, not an oval (owner, live iPhone test 2026-10-02). The base layer's
+   * 44 px `min-height` on every <button> stretched a 32 × 32 circle into a
+   * 32 × 44 pill. Equal sides, the touch minimum on both, the floor reset. */
+  min-width: 0;
+  min-height: 0;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   color: var(--sn-ink-500);
   background: rgba(30, 26, 18, 0.05);
@@ -4881,7 +4906,7 @@ html.dark {
   border-radius: 24px 0 0 24px;
   background: var(--sn-paper, #fffdf8);
   box-shadow: -18px 0 40px -20px rgba(30, 26, 18, 0.45);
-  padding: 1.25rem 1.25rem max(1.25rem, env(safe-area-inset-bottom));
+  padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem max(1.25rem, env(safe-area-inset-bottom));
   /* `backwards`, NOT `both`. A `both` fill holds `transform: none` after the
    * animation ends, and a held transform — even the identity — makes this
    * element the containing block for every `position: fixed` descendant, which
@@ -4889,6 +4914,72 @@ html.dark {
    * lib/an-identity-transform-unpins-every-fixed-child.test.ts. */
   animation: sn-sheet-in 0.32s var(--sn-ease) backwards;
 }
+/* ⚖ THE CARD'S HEADER STAYS IN VIEW (owner 2026-10-02: *"maybe we can leave
+ * this part persistent?"*). Eyebrow · name · reply · × in one slim bar, sticky
+ * to the top of whichever box scrolls the card (the phone/tablet sheet, or the
+ * desktop rail's panel), bleeding to that box's edges so the body scrolls
+ * cleanly under it. The hairline appears only once something has scrolled
+ * beneath (`data-scrolled`, set by InspectorColumn). On a phone it sits below
+ * the status bar, and the strip above it is painted so nothing shows through.
+ * Scoped to the guest card's two frames — Studio, Vendors and Overview keep
+ * their short quick views as they were. */
+.sn-inspector-shell--card .sn-inspector-head,
+.sn-inspector-sheet .sn-inspector-head {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 2;
+  align-items: center;
+  margin: -20px -20px 0;
+  padding: 10px 20px;
+  background: var(--sn-paper, #fffdf8);
+  box-shadow: 0 calc(-1 * env(safe-area-inset-top, 0px)) 0 0 var(--sn-paper, #fffdf8);
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--sn-dur-control, 0.15s);
+}
+.sn-inspector-shell--card .sn-inspector-head[data-scrolled='true'],
+.sn-inspector-sheet .sn-inspector-head[data-scrolled='true'] { border-bottom-color: var(--sn-hairline); }
+.sn-inspector-sheet .sn-inspector-head { margin: -1.25rem -1.25rem 0; padding: 10px 1.25rem; }
+.sn-inspector-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sn-ink-700, #3d362b);
+}
+.sn-inspector-sheet .sn-inspector-title { font-size: 19px; }
+
+/* ⚖ THE CARD FITS THE SHEET (owner, live iPhone test 2026-10-02: "its right
+ * side was clipped on the phone"). The sheet hands its body the SAME
+ * `<InspectorColumn>` the desktop rail draws, and `.sn-inspector-panel` is
+ * sized for that rail — `width: clamp(340px, …)`, its own padding, sticky, its
+ * own scroll. At 390 px the sheet leaves 390 − 56 (the peek) − 40 (padding)
+ * = 294 px, so a 340 px panel ran 46 px past the edge and the sheet's overflow
+ * cut it off. Inside the sheet the panel is just its content: the sheet's
+ * width, no second padding, no second scroller. */
+.sn-inspector-sheet .sn-inspector-panel {
+  position: static;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+.sn-inspector-sheet { overflow-x: hidden; }
+.sn-inspector-sheet .sn-inspector-body { min-width: 0; }
+/* ⚖ ONE PANEL, NO EMPTY FRAME (owner 2026-10-03, screenshot of a computer:
+ * "the card inside a frame inside the popup"). From a tablet up the sheet is a
+ * right-hand panel sized to the card, not the whole window minus a 56 px peek
+ * with a 420 px card floating in it; the list behind stays the way back. */
+@media (min-width: 768px) {
+  .sn-inspector-sheet { left: auto; width: min(36rem, calc(100vw - 3.5rem)); }
+}
+
 @media (min-width: 1280px) {
   /* The rail owns the card at ≥xl; the sheet must never double it. */
   .sn-inspector-peek,

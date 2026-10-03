@@ -224,7 +224,7 @@ test('the empty state does not tell a couple to widen filters they never set', (
     /\{query\.trim\(\) \|\| filterCount > 0 \? \(/,
     'the empty copy must branch on whether anything is actually narrowing the search',
   );
-  assert.match(src, /vendors here yet/);
+  assert.match(src, /suppliers here yet/);
 });
 
 test('the accordion call site is untouched — tile + onAdded are optional', () => {

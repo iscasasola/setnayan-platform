@@ -116,7 +116,7 @@ export async function linkCreatorOfferDeliverable(formData: FormData) {
   const { supabase } = await ensureUser();
   const offerId = readString(formData, 'offer_id');
   const chapterId = readString(formData, 'deliverable_chapter_id');
-  if (!offerId || !chapterId) back('Pick a published chapter to credit the vendor.');
+  if (!offerId || !chapterId) back('Pick a published chapter to credit the supplier.');
 
   const { error } = await supabase.rpc('link_creator_offer_deliverable', {
     p_offer_id: offerId,

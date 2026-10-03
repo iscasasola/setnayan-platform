@@ -76,7 +76,7 @@ test('the Maker opens the made-once workspaces for Logo · Hero · Reveal (in De
   // "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS") each is an item of Details —
   // the SAME workspaces, handed over (`the-look-moves-into-details.test.ts`).
   assert.match(shell, /logo: madeOnce\?\.logo \?\? null/);
-  assert.match(shell, /\{madeOnce\.hero\}/);
+  assert.match(shell, /hero: madeOnce\?\.hero \?\? null/);
   assert.match(shell, /reveal: madeOnce\?\.reveal \?\? null/);
   assert.match(shell, /scene\?\.type === 'hero' && madeOnce\?\.hero/);
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');

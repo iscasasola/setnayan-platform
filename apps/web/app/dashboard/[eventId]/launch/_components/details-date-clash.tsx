@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import type { DateClash } from '@/lib/date-fits-booked';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { DATE_CHANGE_DUE_DAYS } from '@/lib/rule-constants';
 
 /**
  * 🗓 A PICK A BOOKED SUPPLIER CANNOT DO — said plainly ("Your photographer is
@@ -64,7 +65,7 @@ export function DateClashNote({
       ) : confirming ? (
         <div className="flex flex-col gap-2" data-date-change-confirm="">
           <p className="text-[13px] text-ink/80">
-            We&rsquo;ll ask {who} to move to the new date or unlock their service. They have 3 days to answer. Your
+            We&rsquo;ll ask {who} to move to the new date or unlock their service. They have {DATE_CHANGE_DUE_DAYS} days to answer. Your
             date stays as it is meanwhile, and guests see nothing.
           </p>
           <div className="flex flex-wrap gap-2">

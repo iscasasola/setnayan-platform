@@ -60,7 +60,12 @@ test('the services, in the owner’s order, with the owner’s names', () => {
   const cards = buildOurServices(input());
   assert.deepEqual(
     cards.map((c) => c.name),
-    ['Setnayan AI (SAI)', 'Papic', 'Live Watch', 'Music Maker', 'Patiktok'],
+    ['Planner', 'Guest photos', 'Live stream', 'Music', 'Video booth'],
+  );
+  // Owner d17 (2026-10-02): the plain name first, the Setnayan name small under it.
+  assert.deepEqual(
+    cards.map((c) => c.brand),
+    ['Setnayan AI', 'Papic', 'Live Watch', 'Music Maker', 'Patiktok'],
   );
 });
 

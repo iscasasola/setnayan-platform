@@ -99,7 +99,7 @@ export default function VendorDashboardError({ error, reset }: Props) {
           Your shop console is temporarily unavailable.
         </h1>
         <p className="font-sans text-base sm:text-lg text-ink/70 leading-relaxed mb-10 max-w-md mx-auto">
-          We hit a transient error loading your vendor dashboard. Try again in
+          We hit a transient error loading your supplier dashboard. Try again in
           a moment — fresh deploys sometimes need a beat to settle. If it
           keeps happening, switch to your customer view and we&rsquo;ll dig in
           on our end.

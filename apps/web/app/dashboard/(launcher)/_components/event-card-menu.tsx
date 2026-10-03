@@ -1031,7 +1031,7 @@ function SupplierRecordsNote() {
     <p className="mt-1.5 text-[12px] leading-snug text-ink/70">
       <strong className="font-semibold text-ink">Suppliers you worked with</strong> keep a
       record of payments they confirmed (the amount and date, never your bank details,
-      notes or screenshots), plus the proposals and contracts they sent you. Your
+      notes or screenshots), plus the quotes and contracts they sent you. Your
       conversations with them, their payment schedules and their deliveries for this
       celebration are removed with it.
     </p>

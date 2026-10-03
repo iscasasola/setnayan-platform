@@ -174,7 +174,7 @@ async function assertVendorAddonActivationEligible(
   const verdict = { tier, verification, minTier, allTiersAllowed };
   if (!vendorAddonActivationAllowed(verdict)) {
     throw new Error(
-      `vendor add-on activation blocked: ${ctx.serviceKey} ` +
+      `supplier add-on activation blocked: ${ctx.serviceKey} ` +
         vendorAddonActivationBlockedReason(verdict),
     );
   }
@@ -487,7 +487,7 @@ async function grantVendorPapicPortfolioPack(ctx: ActivationContext): Promise<vo
         ctx,
         new Error(
           `vendor_papic_portfolio_pack order ${ctx.orderId} has no ` +
-            `${!vendorProfileId ? 'vendor_profile_id' : 'event_id'} — credits are per (vendor, event)`,
+            `${!vendorProfileId ? 'vendor_profile_id' : 'event_id'} — credits are per (supplier, event)`,
         ),
       );
       return;
@@ -2026,7 +2026,7 @@ const PREFIX_HOOKS: ReadonlyArray<{
         // plan. Throw so the order stays 'paid' + recoverable (Sentry-alerted by
         // the dispatcher's outer catch); an admin reconciles the mismatch.
         throw new Error(
-          `vendor_custom_plan: no payable plan for vendor ${vendorProfileId} matches the paid amount ${amountPhp}`,
+          `vendor_custom_plan: no payable plan for supplier ${vendorProfileId} matches the paid amount ${amountPhp}`,
         );
       }
 

@@ -51,7 +51,7 @@ export async function notifyAdminsSubscriptionPending(
       .select('business_name')
       .eq('vendor_profile_id', p.vendor_id)
       .maybeSingle();
-    const name = v?.business_name ?? 'A vendor';
+    const name = v?.business_name ?? 'A supplier';
     const tier = TIER_LABEL[p.tier as string] ?? (p.tier as string);
 
     const { data: admins } = await admin

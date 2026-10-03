@@ -212,6 +212,24 @@ async function createJoinRequest(
   },
 ): Promise<string | null> {
   const { eventId, answers, userId } = args;
+  /* 🚪 THE ONE WRITER ASKS THE SETTING ITSELF (owner 2026-10-03: cale-ice is
+     "Only people on my list" and showed "2 requests to join"). Every caller
+     already refuses a list-only event first; this is the property, not the
+     courtesy — whatever reaches this function tomorrow, a list-only event
+     gets no new request. Read LIVE, so a setting flipped under an open page
+     wins. Unreadable fails closed. */
+  const { data: setting, error: settingErr } = await admin
+    .from('events')
+    .select('rsvp_ask_config')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (settingErr) {
+    // Recorded, then closed: every caller turns null into the visible
+    // "join_failed" sentence on the door — never a silent request.
+    console.error('[supabase-error] app/join/[eventId]/actions.ts · from:events.select', settingErr);
+    return null;
+  }
+  if (!anyoneMayAskToJoin(setting?.rsvp_ask_config)) return null;
   const now = new Date().toISOString();
   const answerColumns = {
     rsvp_status: answers.rsvp_status,

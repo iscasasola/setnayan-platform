@@ -168,7 +168,7 @@ export function ledgerEarningRows(
     if (!booking || !isEarnedPayment(p, booking)) continue;
     const amount = Number(p.amount_php);
     if (!Number.isFinite(amount)) continue;
-    const kind = p.is_deposit_record ? 'Deposit' : 'Payment';
+    const kind = p.is_deposit_record ? 'First payment' : 'Payment';
     rows.push({
       order_id: p.payment_id,
       public_id: p.payment_id,

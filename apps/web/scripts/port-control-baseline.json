@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "0d7db6752",
-  "routeCount": 422,
-  "destinations": 942,
+  "generatedFromRef": "c2abda6e",
+  "routeCount": 423,
+  "destinations": 943,
   "actions": 671,
-  "blocks": 5408,
+  "blocks": 5418,
   "routes": {
     "/": {
       "files": [
@@ -865,6 +865,7 @@
         "[slug]/_components/photos-of-you-styles.tsx",
         "[slug]/_components/preview-way-back.tsx",
         "[slug]/_components/private-landing.tsx",
+        "[slug]/_components/provider-stall.tsx",
         "[slug]/_components/public-event-day-bar.tsx",
         "[slug]/_components/public-hideable-widget.tsx",
         "[slug]/_components/reveal/four-flap.tsx",
@@ -1261,6 +1262,7 @@
         "PreviousEdition",
         "PrivateLanding",
         "ProgressRing",
+        "ProviderStall",
         "PublicEventDayBar",
         "PublicEventDetails",
         "PublicHideableWidget",
@@ -1560,6 +1562,7 @@
         "[slug]/invite/_components/hub-door-skin.tsx",
         "[slug]/invite/_components/invite-qr-panel.tsx",
         "[slug]/invite/_components/landing-pre-reply.tsx",
+        "[slug]/invite/_components/shortcut-line.tsx",
         "[slug]/invite/_components/themes/abaca.tsx",
         "[slug]/invite/_components/themes/capiz.tsx",
         "[slug]/invite/_components/themes/galeriya.tsx",
@@ -1567,6 +1570,7 @@
         "[slug]/invite/_components/themes/seal-mark.tsx",
         "[slug]/invite/_components/themes/velvet.tsx",
         "[slug]/invite/_lib/load-invite-look.ts",
+        "[slug]/invite/_lib/wear-the-hub.ts",
         "[slug]/invite/actions.ts",
         "[slug]/invite/page.tsx"
       ],
@@ -1596,6 +1600,7 @@
       "blocks": [
         "DoorNotice",
         "DoorShell",
+        "GuestLookScope",
         "InAppBar",
         "InviteQrPanel",
         "LandingPreReply",
@@ -1603,6 +1608,7 @@
         "RsvpCanvasBridge",
         "SavePassCardButton",
         "SaveToAccount",
+        "ShortcutLine",
         "TicketPicture",
         "TicketPopup"
       ]
@@ -3447,6 +3453,7 @@
         "admin/pricing/_components/papic-ladder-editor.tsx",
         "admin/pricing/_components/papic-rest-editor.tsx",
         "admin/pricing/_components/papic-type-sizing-editor.tsx",
+        "admin/pricing/_components/signup-discount-card.tsx",
         "admin/pricing/_surfaces/ai-prices-surface.tsx",
         "admin/pricing/_surfaces/custom-plans-surface.tsx",
         "admin/pricing/_surfaces/free-windows-actions.ts",
@@ -3481,8 +3488,8 @@
         "retireFormAction",
         "save",
         "saveBookingFeeSchedule",
-        "saveDiscountAction",
         "savePriceAction",
+        "saveSignupDiscount",
         "setFreeWindowActive"
       ],
       "blocks": [
@@ -3499,7 +3506,6 @@
         "CustomPlansSurface",
         "EmptyState",
         "Family",
-        "FamilyDiscountCard",
         "Field",
         "FieldLabel",
         "FreeWindowsSurface",
@@ -3511,7 +3517,6 @@
         "Link",
         "MoneyField",
         "PageMasthead",
-        "PapicDiscountCard",
         "PapicLadderEditor",
         "PapicLadderSurface",
         "PapicRestEditor",
@@ -3530,6 +3535,7 @@
         "SaveSection",
         "ServiceCatalogRow",
         "Shelf",
+        "SignupDiscountCard",
         "Stat",
         "SubmitButton",
         "Suspense",
@@ -5199,6 +5205,8 @@
         "/dashboard/[seg]/clearance",
         "/dashboard/[seg]/date-selection",
         "/dashboard/[seg]/details",
+        "/dashboard/[seg]/guests",
+        "/dashboard/[seg]/guests/send",
         "/dashboard/[seg]/guests/tea-ceremony",
         "/dashboard/[seg]/invitation",
         "/dashboard/[seg]/launch",
@@ -5284,7 +5292,6 @@
         "EventDashboard",
         "EventDayPrepCta",
         "EventMenuChild",
-        "EventMoney",
         "EventMonogram",
         "EventRailContext",
         "EventScene",
@@ -5671,6 +5678,7 @@
     "/dashboard/[eventId]/details": {
       "files": [
         "dashboard/[eventId]/details/_components/details-form.tsx",
+        "dashboard/[eventId]/details/_components/event-settings-editor.tsx",
         "dashboard/[eventId]/details/_components/governed-fields.tsx",
         "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
         "dashboard/[eventId]/details/_components/put-away-card.tsx",
@@ -5683,20 +5691,35 @@
       ],
       "actions": [],
       "blocks": [
+        "DetailsForm",
         "EditableField",
         "EditableRow",
         "ErrorNote",
         "FormPageSkeleton",
+        "GovernedFields",
         "HTMLFormElement",
         "LastSeenCapture",
         "LastSeenFallback",
         "Link",
         "LockedRow",
         "PageMasthead",
+        "PaxSettingsCard",
         "PutAwayCard",
         "Row",
         "Section",
         "T"
+      ]
+    },
+    "/dashboard/[eventId]/details/change": {
+      "files": [
+        "dashboard/[eventId]/details/change/loading.tsx",
+        "dashboard/[eventId]/details/change/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "EventSettingsEditor",
+        "PageMasthead"
       ]
     },
     "/dashboard/[eventId]/disputes": {
@@ -5820,6 +5843,7 @@
         "dashboard/[eventId]/guests/_components/guest-card-body.tsx",
         "dashboard/[eventId]/guests/_components/guest-card-data.ts",
         "dashboard/[eventId]/guests/_components/guest-checkin-cell.tsx",
+        "dashboard/[eventId]/guests/_components/guest-delete.tsx",
         "dashboard/[eventId]/guests/_components/guest-helper-access.tsx",
         "dashboard/[eventId]/guests/_components/guest-invite-cell.tsx",
         "dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx",
@@ -5838,7 +5862,6 @@
         "dashboard/[eventId]/guests/_components/phone-show-pick.tsx",
         "dashboard/[eventId]/guests/_components/plus-one-seats-note.tsx",
         "dashboard/[eventId]/guests/_components/quick-add-sheet.tsx",
-        "dashboard/[eventId]/guests/_components/remove-guest-confirm.tsx",
         "dashboard/[eventId]/guests/_components/role-names-context.tsx",
         "dashboard/[eventId]/guests/_components/roster-controls.tsx",
         "dashboard/[eventId]/guests/_components/roster-meters.tsx",
@@ -5849,7 +5872,6 @@
         "dashboard/[eventId]/guests/_components/use-roster-columns.ts",
         "dashboard/[eventId]/guests/_components/view-switcher.tsx",
         "dashboard/[eventId]/guests/_components/walking-order-lines.tsx",
-        "dashboard/[eventId]/guests/_components/who-can-reply-ask.tsx",
         "dashboard/[eventId]/guests/entourage-order-actions.ts",
         "dashboard/[eventId]/guests/finalize-actions.ts",
         "dashboard/[eventId]/guests/groups-actions.ts",
@@ -5869,7 +5891,6 @@
         "/dashboard/[seg]/guests/checkin",
         "/dashboard/[seg]/guests/claims",
         "/dashboard/[seg]/guests/import",
-        "/dashboard/[seg]/guests/new",
         "/dashboard/[seg]/guests/quick",
         "/dashboard/[seg]/guests/send",
         "/dashboard/[seg]/guests/send?ids=[seg]",
@@ -5904,6 +5925,9 @@
         "CoordinatorGrantChips",
         "CoordinatorSeatControls",
         "Ctx",
+        "DeleteGuestButton",
+        "DeleteGuestFlow",
+        "DeleteGuestSheet",
         "DesktopCanvas",
         "DesktopRow",
         "Drawer",
@@ -5984,6 +6008,7 @@
         "NfcWriteButton",
         "OpenAddFromPeopleButton",
         "OpenAddGuestButton",
+        "OpenAddGuestTextButton",
         "OpenQuickAddButton",
         "OptionRow",
         "PageMasthead",
@@ -5999,7 +6024,6 @@
         "QuickAddSheet",
         "QuickGroupResult",
         "QuickRoleResult",
-        "RemoveGuestConfirm",
         "RenameRoleResult",
         "RenameThisRole",
         "RestoreResult",
@@ -6041,8 +6065,7 @@
         "TierHeader",
         "Toggle",
         "UndoToastHost",
-        "WalkingOrderLines",
-        "WhoCanReplyAsk"
+        "WalkingOrderLines"
       ]
     },
     "/dashboard/[eventId]/guests/[guestId]": {
@@ -6380,6 +6403,7 @@
         "dashboard/[eventId]/launch/_components/maker-reveal.tsx",
         "dashboard/[eventId]/launch/_components/maker-rsvp-ask.tsx",
         "dashboard/[eventId]/launch/_components/maker-rsvp-stage.tsx",
+        "dashboard/[eventId]/launch/_components/maker-sheet.tsx",
         "dashboard/[eventId]/launch/_components/maker-shell.tsx",
         "dashboard/[eventId]/launch/_components/maker-theme-picker.tsx",
         "dashboard/[eventId]/launch/_components/maker-tools.tsx",
@@ -6396,6 +6420,7 @@
         "dashboard/[eventId]/launch/_components/print-save-button.tsx",
         "dashboard/[eventId]/launch/_components/qr-look-controls.tsx",
         "dashboard/[eventId]/launch/_components/same-field.ts",
+        "dashboard/[eventId]/launch/_components/sheet-sections.tsx",
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
         "dashboard/[eventId]/launch/_components/special-message-field.tsx",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
@@ -6442,11 +6467,11 @@
         "DateClashNote",
         "DateEditor",
         "DateState",
-        "DetailsForm",
         "DetailsGoTo",
         "DetailsItemKey",
         "DetailsLookBody",
         "DetailsLookEditor",
+        "DetailsLookPageBody",
         "DetailsLookPieces",
         "DetailsPieceButton",
         "DetailsPieceContext.Provider",
@@ -6460,7 +6485,6 @@
         "ElementSheet",
         "EntourageOrderPanel",
         "EventPoster",
-        "EventSettingsEditor",
         "EventSettingsInput",
         "Face",
         "Field",
@@ -6513,6 +6537,7 @@
         "LiveReplyByField",
         "LogoLayer",
         "LookFrame",
+        "LookPanel",
         "LoveStoryPieceFocus",
         "MadeOnce",
         "MakerAddScene",
@@ -6564,7 +6589,6 @@
         "PassCardDesign",
         "PassCardDesignPicker",
         "PassCardsPanel",
-        "PaxSettingsCard",
         "PeopleBody",
         "PeopleControls",
         "PeoplePieces",
@@ -6607,7 +6631,10 @@
         "SeatPlan3dNote",
         "SeatPlanSlot",
         "Segmented",
+        "SheetGrip",
         "SheetHead",
+        "SheetScrim",
+        "SheetSections",
         "ShutDoor",
         "SiteStage",
         "Sk",
@@ -8326,9 +8353,7 @@
       "destinations": [
         "/dashboard/[seg]/vendors"
       ],
-      "actions": [
-        "setPlanningMode"
-      ],
+      "actions": [],
       "blocks": [
         "InlineCheckoutDrawer",
         "Link",
@@ -8336,8 +8361,7 @@
         "PaidMark",
         "SetnayanAiValue",
         "Spotlights",
-        "StudioBuyHero",
-        "SubmitButton"
+        "StudioBuyHero"
       ]
     },
     "/dashboard/[eventId]/studio/thank-you": {
@@ -8397,6 +8421,7 @@
         "dashboard/[eventId]/vendors/_components/merkado-guard-banner.tsx",
         "dashboard/[eventId]/vendors/_components/pending-lock-proposals.tsx",
         "dashboard/[eventId]/vendors/_components/plan-budget-accordion.tsx",
+        "dashboard/[eventId]/vendors/_components/planning-list.tsx",
         "dashboard/[eventId]/vendors/_components/quote-fill.tsx",
         "dashboard/[eventId]/vendors/_components/reuse-bookings-panel.tsx",
         "dashboard/[eventId]/vendors/_components/saved-photo-marker.tsx",
@@ -8480,7 +8505,6 @@
         "DialogState",
         "DigitalServicesRail",
         "DownpaymentModal",
-        "EventMoney",
         "EventVendorRowInput",
         "ExceptionModal",
         "ExploreInfoToggle",
@@ -8493,7 +8517,6 @@
         "FolderSection",
         "HTMLAnchorElement",
         "HTMLButtonElement",
-        "HTMLDetailsElement",
         "HTMLDivElement",
         "HTMLFormElement",
         "HTMLInputElement",
@@ -8521,13 +8544,13 @@
         "MarketplaceVendorSuggestion",
         "MerkadoBudgetLens",
         "MerkadoGuardBanner",
-        "MiniTour",
         "NewManualVendorModal",
         "PageMasthead",
         "PendingLockProposals",
         "PickMenu",
         "PillarPartPicker",
         "PlanBudgetAccordion",
+        "PlanningList",
         "PlansRowPick",
         "PoolIcon",
         "QuoteFillRow",
@@ -8545,7 +8568,6 @@
         "SaveCategoryRequirementsResult",
         "SavedPhotoMarker",
         "SearchMarketplaceVendorsResult",
-        "SectionChips",
         "SectionStub",
         "SelfAddedPrice",
         "SelfAddedSupplierPrefill",
@@ -8560,7 +8582,6 @@
         "SupplierInviteView",
         "TeamClearCandidates",
         "TeamDecisionDoorway",
-        "TeamMoreMenu",
         "TeamRemoveCandidate",
         "TeamRows",
         "TeamSavePlan",
@@ -8794,7 +8815,9 @@
         "MakerPressApplyDetail",
         "MakerSaveStatus",
         "MiniTour",
+        "OutcomeLine",
         "PaidMark",
+        "PanelPlace",
         "ResultLine"
       ]
     },
@@ -8995,6 +9018,7 @@
         "NameStyle",
         "OpenBrowsePanel",
         "PaidMark",
+        "PaletteLookCanvasRow",
         "PaletteLookRow",
         "PaletteLookThumb",
         "PartAnimateTab",
@@ -9035,6 +9059,8 @@
         "SchedulePeekPanel",
         "SectionColourChoices",
         "SectionsPanel",
+        "SheetGrip",
+        "SheetScrim",
         "SiteChromePanel",
         "Slider",
         "StdLeadSwitch",
@@ -9044,7 +9070,6 @@
         "Swatch",
         "T",
         "TextPanel",
-        "ThemePanel",
         "Thumb",
         "TileHead",
         "ToolsResizeHandle",
@@ -9726,6 +9751,7 @@
         "/forgot-password"
       ],
       "actions": [
+        "sendReset",
         "signInWithPassword",
         "submitInPlace"
       ],
@@ -9868,9 +9894,9 @@
         "BranchPinMap",
         "BudgetCard",
         "ColoursCard",
-        "CountUp",
         "CoupleCarry",
         "DateCalendar",
+        "FreeTool",
         "FreeValueSlider",
         "HTMLAudioElement",
         "HTMLButtonElement",
@@ -10408,6 +10434,7 @@
         "sendProposal"
       ],
       "blocks": [
+        "AccordionLockButton",
         "Link",
         "PrintButton",
         "SubmitButton"

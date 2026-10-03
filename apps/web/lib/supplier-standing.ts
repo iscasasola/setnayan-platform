@@ -310,7 +310,7 @@ export function buildSupplierStanding(facts: SupplierStandingFacts): SupplierSta
   // meeting and a changed headcount read true from either side of the thread,
   // so `viewer` does not touch them.
   if (voice.saysFacts) {
-    if (facts.depositPaid) segments.push({ kind: 'quiet', text: 'Deposit paid' });
+    if (facts.depositPaid) segments.push({ kind: 'quiet', text: 'First payment paid' });
     if (facts.meeting) {
       if (facts.meeting.atMs == null) {
         segments.push({ kind: 'said', text: 'Meeting confirmed' });

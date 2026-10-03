@@ -1,6 +1,7 @@
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
 import { after } from 'next/server';
@@ -318,23 +319,8 @@ export async function generateMetadata({ params, searchParams }: Props) {
     // for a private event would be harmless (they answer 404), but the reverse
     // — a public event whose metadata omits them — is the failure that leaves a
     // guest with a grey tile, so they are named on every shareable state.
-    manifest: `/${slug}/manifest.webmanifest`,
-    appleWebApp: {
-      capable: true,
-      title: event.display_name ?? 'Invitation',
-      statusBarStyle: 'default' as const,
-    },
-    icons: {
-      icon: [
-        { url: `/${slug}/icon/192.svg`, type: 'image/svg+xml', sizes: '192x192' },
-        { url: `/${slug}/icon/512.png`, type: 'image/png', sizes: '512x512' },
-      ],
-      apple: [
-        { url: `/${slug}/icon/180.png`, sizes: '180x180', type: 'image/png' },
-        { url: `/${slug}/icon/167.png`, sizes: '167x167', type: 'image/png' },
-        { url: `/${slug}/icon/152.png`, sizes: '152x152', type: 'image/png' },
-      ],
-    },
+    // ONE copy, shared with the thank-you's "Keep it handy" line (owner 2026-10-03).
+    ...eventShortcutMetadata(slug, event.display_name),
     description,
     // An Unlisted site that shows its card is still kept out of search.
     ...(preview.indexable ? {} : { robots: { index: false, follow: false } }),
@@ -1701,7 +1687,7 @@ async function InvitationBody({
     search.save === 'ok'
       ? 'Saved to your account — find it in your Library for your own plans.'
       : search.save === 'needs_account'
-        ? 'Make a free account (the box above) to save vendors for your future plans.'
+        ? 'Make a free account (the box above) to save suppliers for your future plans.'
         : search.save === 'error'
           ? 'Couldn’t save that just now — please try again.'
           : null;

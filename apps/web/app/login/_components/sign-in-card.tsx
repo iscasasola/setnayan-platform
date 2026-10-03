@@ -25,7 +25,7 @@
  * is actually on, which is what brings an OAuth round trip back to the shop
  * they were reading instead of dropping them on the account board.
  */
-import { useActionState, useEffect } from 'react';
+import { useActionState, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
@@ -34,7 +34,8 @@ import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
-import { providerNextStep, type KnownProvider } from '@/lib/sign-in-door';
+import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
+import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
 import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
 
 export type SignInCardProps = {
@@ -100,6 +101,17 @@ export function SignInCard({
     SIGN_IN_IN_PLACE_INITIAL,
   );
 
+  // The "email me a link to set a password" send: the SAME action, intent=reset,
+  // its own state so it never disturbs the sign-in's banner.
+  const [reset, sendReset] = useActionState(signInInPlace, SIGN_IN_IN_PLACE_INITIAL);
+  // The address typed above — tracked live, and carried across the route's
+  // full-page redirect on a failed attempt, so the button needs no second input.
+  const [typed, setTyped] = useState(prefilledEmail);
+  useEffect(() => {
+    const back = recallTypedEmail();
+    if (back) setTyped(back);
+  }, []);
+
   // Success is reported by the ACTION, not by the click — a submit that never
   // reached the server must never look like a sign-in.
   useEffect(() => {
@@ -155,6 +167,33 @@ export function SignInCard({
         </p>
       ) : null}
 
+      {/* 🔒 SHOWN ONLY BESIDE A PROVIDER REFUSAL — `shownProvider` is null until a
+          password attempt has failed (the 2026-09-23 rule). In the phone app this
+          REPLACES the old "Open setnayan.com in Safari or Chrome" dead end. */}
+      {shownProvider ? (
+        <form action={sendReset} className="hr-si-form">
+          <input type="hidden" name="intent" value="reset" />
+          <input type="hidden" name="email" value={typed} />
+          <TurnstileField action="password_reset" />
+          {reset.resetSent ? (
+            <p role="status" className="hr-si-banner">
+              {SET_PASSWORD_WORDS.sent}
+            </p>
+          ) : (
+            <>
+              {reset.error ? (
+                <p role="alert" className="hr-si-banner hr-si-banner--error">
+                  {reset.error}
+                </p>
+              ) : null}
+              <SubmitButton className="hr-si-submit" pendingLabel={SET_PASSWORD_WORDS.pending} overlay={false}>
+                {reset.error ? SET_PASSWORD_WORDS.retry : SET_PASSWORD_WORDS.button}
+              </SubmitButton>
+            </>
+          )}
+        </form>
+      ) : null}
+
       {justSignedUpEmail ? (
         <p role="status" className="hr-si-banner">
           Account created. We sent a confirmation link to{' '}
@@ -187,6 +226,12 @@ export function SignInCard({
       <form
         action={inPlace ? submitInPlace : signInWithPassword}
         className="hr-si-form"
+        onSubmit={(e) => {
+          const email = String(new FormData(e.currentTarget).get('email') ?? '').trim();
+          setTyped(email);
+          // The route redirects (the form is empty afterwards); in place the card stays.
+          if (!inPlace) rememberTypedEmail(email);
+        }}
       >
         <input type="hidden" name="next" value={next} />
         <TurnstileField action="login" />
@@ -202,6 +247,7 @@ export function SignInCard({
             inputMode="email"
             placeholder="you@email.com"
             defaultValue={prefilledEmail}
+            onChange={(e) => setTyped(e.target.value)}
             required
             className="hr-si-input"
           />

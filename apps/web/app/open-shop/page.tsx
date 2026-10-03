@@ -20,7 +20,7 @@ import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
  *     the wizard (owner 2026-09-22 "account inside step 3" — supersedes the
  *     2026-07-10 login-first bounce to /login?next=/open-shop&as=vendor, which
  *     survives only as the no-JavaScript fallback of that link)
- *   • logged in, shop with a NAME    → /vendor-dashboard/shop
+ *   • logged in, shop with a NAME    → /vendor-dashboard (Today — first-timer fix 12)
  *   • logged in, no shop             → the onboarding wizard (mode 'create')
  *   • logged in, never-named shop    → the wizard (mode 'complete' — a fresh
  *     signup's trigger-provisioned bare shop lands here to fill the basics)
@@ -81,7 +81,7 @@ export default async function OpenShopPage({
     contact_phone?: string | null;
     contact_email?: string | null;
   } | null;
-  if (row?.business_name?.trim()) redirect('/vendor-dashboard/shop');
+  if (row?.business_name?.trim()) redirect('/vendor-dashboard');
 
   // Taxonomy-driven labels for the primary-service picker (degrades to the
   // in-code names on a hiccup).

@@ -740,6 +740,11 @@ export async function reactivateVendorRow(
 }
 
 /*
+  ⚖ SUPERSEDED 2026-10-02 (owner tracker d18): the house number is THE one
+  sign-up discount again — 40%, edited by `saveSignupDiscount` in
+  price-control-actions.ts, drawn by `SignupDiscountCard` on the Pricing tab.
+  The history below is kept because it explains why the column survived.
+
   ── THE HOUSE SET-UP DISCOUNT IS RETIRED AS A CONTROL, 2026-08-29 ───────────
   Owner: *"this one doesn't exist anymore. onboarding discounts are already
   placed for setnayan AI and Papic which are the only services we sell on the

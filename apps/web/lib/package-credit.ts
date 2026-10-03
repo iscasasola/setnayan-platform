@@ -93,7 +93,7 @@ import { formatCount } from '@/lib/format-number';
  * price_delta_centavos). Never mix in pesos.
  *
  * Schema: 20271006413374_vendor_package_credit_required_and_choice_options.sql
- * Flag:   ./package-credit-flag  (NEXT_PUBLIC_PACKAGE_CREDIT, default OFF)
+ * Flag:   ./package-credit-flag  (NEXT_PUBLIC_PACKAGE_CREDIT, ON by default; 0/false/off kills it)
  */
 
 /* ──────────────────────────────────────────────────────────────────────── */

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
+import { parsePersonName } from '@/lib/person-name-parse';
 
 type QuickEntry = { firstName: string; lastName: string };
 
@@ -46,18 +47,27 @@ export async function bulkAddGuests(eventId: string, formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const rows = entries.map((e) => ({
-    event_id: eventId,
-    first_name: e.firstName,
-    last_name: e.lastName || '',
-    side: 'both' as const,
-    group_category: 'other' as const,
-    role: 'guest' as const,
-    rsvp_status: 'pending' as const,
-    meal_preference: 'no_preference' as const,
-    invited_to_blocks: ['ceremony', 'reception'],
-    custom_tags: [],
-  }));
+  const rows = entries.map((e) => {
+    // The SAME split as the capture bar, the full form and the import
+    // (lib/person-name-parse.ts): a title, a typed initial and a suffix land in
+    // their own parts, and no bare word is guessed into a middle name.
+    const p = parsePersonName(`${e.firstName} ${e.lastName}`.trim());
+    return {
+      event_id: eventId,
+      first_name: p.firstName || e.firstName,
+      last_name: p.firstName ? p.lastName : e.lastName || '',
+      name_prefix: p.prefix || null,
+      middle_name: p.middleName || null,
+      name_suffix: p.suffix || null,
+      side: 'both' as const,
+      group_category: 'other' as const,
+      role: 'guest' as const,
+      rsvp_status: 'pending' as const,
+      meal_preference: 'no_preference' as const,
+      invited_to_blocks: ['ceremony', 'reception'],
+      custom_tags: [],
+    };
+  });
 
   const { error } = await supabase.from('guests').insert(rows);
   if (error) {

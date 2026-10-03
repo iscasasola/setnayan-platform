@@ -15,12 +15,15 @@ import { pageGround } from '@/lib/page-ground';
  * not be re-skinned by these."* An ancestor attribute would reach straight into
  * it — Velvet's page ink is a light cream, and the door's card is bright.
  *
- * ⚖ ONE PAGE UNDER `invite` WEARS THE LOOK ANYWAY — `/invite/reply`, the RSVP
+ * ⚖ TWO PAGES UNDER `invite` WEAR THE LOOK ANYWAY — `/invite/reply`, the RSVP
  * (owner 2026-09-28: "background should follow the background of the event
- * hub"). It wears it from INSIDE its own page (`<GuestLookScope
- * {...lookScopeProps(…)}>`, with `hubDoorSkin` keeping its card a card on the
- * page's paper), so the rule here stays one segment wide and the other two
- * doors keep their own compositions.
+ * hub"), and `/invite/enter`, the guest's own landing and thank-you (owner
+ * 2026-10-02, live test: it came out white on a Classic + palette event). Each
+ * wears it from INSIDE its own page through ONE function
+ * (`invite/_lib/wear-the-hub.ts` → `<GuestLookScope {...lookScopeProps(…)}>`,
+ * with `hubDoorSkin` keeping the card a card on the page's paper), so the rule
+ * here stays one segment wide and the arrival door (`/invite`) keeps its own
+ * composition.
  */
 export const SEGMENTS_THAT_DRESS_THEMSELVES: readonly string[] = ['invite'];
 

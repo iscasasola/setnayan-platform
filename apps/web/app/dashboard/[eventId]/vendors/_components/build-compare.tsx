@@ -239,7 +239,7 @@ export function BuildCompare({
   function onSaveNamed() {
     setErr(null);
     if (currentPlan.picks.length === 0) {
-      setErr('Add some vendors to your plan first — shortlist on the Build tab, then save.');
+      setErr('Add some suppliers to your plan first — shortlist on the Build tab, then save.');
       return;
     }
     startTransition(async () => {
@@ -278,7 +278,7 @@ export function BuildCompare({
         <>
           <span className="font-medium text-ink">“{title}”</span> is deleted for
           good — the picks saved in it are not kept anywhere else. Your current
-          build and your locked vendors are untouched.
+          build and your booked suppliers are untouched.
         </>
       ),
       confirmLabel: 'Delete plan',
@@ -321,7 +321,7 @@ export function BuildCompare({
         body: replan ? (
           <>
             <span className="font-medium text-ink">“{title}”</span>’s candidates replace the ones in
-            your build right now. Your locked vendors are untouched — they’re in every plan. Save
+            your build right now. Your booked suppliers are untouched — they’re in every plan. Save
             your current candidates as a plan first if you want to keep them.
           </>
         ) : (
@@ -331,7 +331,7 @@ export function BuildCompare({
             you want to keep it.
           </>
         ),
-        confirmLabel: replan ? 'Load' : destination === 'lock' ? 'Lock' : 'Replace',
+        confirmLabel: replan ? 'Load' : destination === 'lock' ? 'Book' : 'Replace',
         cancelLabel: 'Cancel',
         destructive: true,
       });
@@ -379,9 +379,9 @@ export function BuildCompare({
         <p className="text-sm text-ink/60">
           {replan
             ? 'Name a set of candidates as a plan, load one back any time, and put them side by side'
-            : 'Save versions of your plan and compare the real vendors side by side'}
+            : 'Save versions of your plan and compare the real suppliers side by side'}
           {budgetPhp != null ? `, against your ${peso(budgetPhp)} budget` : ''}.
-          {replan ? ' Locked vendors are pinned in every plan.' : ''}
+          {replan ? ' Booked suppliers are pinned in every plan.' : ''}
         </p>
       </div>
 
@@ -510,7 +510,7 @@ export function BuildCompare({
                       title={
                         loadable
                           ? undefined
-                          : 'Nothing to load — every vendor in this plan is either locked already or no longer on your shortlist.'
+                          : 'Nothing to load — every supplier in this plan is either booked already or no longer on your shortlist.'
                       }
                       className="inline-flex items-center gap-1 rounded-full border border-ink/15 px-2.5 py-1 text-xs font-medium text-ink/75 transition hover:border-terracotta/50 hover:text-terracotta-700 disabled:opacity-40"
                     >
@@ -544,8 +544,8 @@ export function BuildCompare({
       {rows.length === 0 ? (
         <div className="sn-tile px-4 py-10 text-center text-sm text-ink/60">
           {replan
-            ? 'No suppliers yet. Add some candidates from the bench, then save them under a name to compare plans side by side.'
-            : 'No vendors in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
+            ? 'No suppliers yet. Add some candidates from your Saved list, then save them under a name to compare plans side by side.'
+            : 'No suppliers in your plan yet. Shortlist some and add them on the Build tab, then save a plan to compare versions side by side.'}
         </div>
       ) : (
         <div className="sn-tile overflow-x-auto p-0">
@@ -598,10 +598,10 @@ export function BuildCompare({
                               type="button"
                               onClick={() => onApply(c.snapshot, 'lock', c.title)}
                               disabled={pending || !canApply}
-                              aria-label={`Lock ${c.title}`}
+                              aria-label={`Book ${c.title}`}
                               className="inline-flex items-center gap-0.5 text-[9px] normal-case tracking-normal text-ink/40 hover:text-terracotta-700 disabled:opacity-40"
                             >
-                              <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden /> lock
+                              <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden /> book
                             </button>
                             <button
                               type="button"
@@ -645,7 +645,7 @@ export function BuildCompare({
                       >
                         <span className="font-medium text-ink">{r.vendorName}</span>
                         <span className="tabular-nums"> · {peso(r.costPhp)}</span>
-                        <span className="text-ink/45"> — locked, the same in every plan</span>
+                        <span className="text-ink/45"> — booked, the same in every plan</span>
                       </td>
                     </tr>
                   ))
@@ -716,7 +716,7 @@ export function BuildCompare({
                             </div>
                             <div className="tabular-nums text-[11px] text-ink/55">
                               {peso(p.costPhp)}
-                              {p.locked ? ' · locked' : ''}
+                              {p.locked ? ' · booked' : ''}
                             </div>
                             {hasInclusions && isOpen ? (
                               <div className="mt-0.5 text-[10px] leading-snug text-ink/45">
@@ -763,7 +763,7 @@ export function BuildCompare({
                         {!a || a.connectedCount === 0 ? (
                           <span
                             className="text-[10px] text-ink/35"
-                            title="No Setnayan-connected vendors in this build to check calendars for"
+                            title="No Setnayan-connected suppliers in this build to check calendars for"
                           >
                             —
                           </span>
@@ -803,7 +803,7 @@ export function BuildCompare({
                         {!a || a.checkedCount === 0 ? (
                           <span
                             className="text-[10px] text-ink/35"
-                            title="No Setnayan-connected vendors in this plan to check calendars for"
+                            title="No Setnayan-connected suppliers in this plan to check calendars for"
                           >
                             —
                           </span>
@@ -828,20 +828,20 @@ export function BuildCompare({
 
       {replan ? (
         <p className="text-xs text-ink/45">
-          <span className="text-success-700">●</span> Locked picks are{' '}
+          <span className="text-success-700">●</span> Booked picks are{' '}
           <span className="text-ink/70">pinned identical rows</span> — every plan has them. The rows
           below are your <span className="text-ink/70">candidates</span>: save different candidate
-          sets under different names, compare them here, then lock the winner.{' '}
+          sets under different names, compare them here, then book the winner.{' '}
           <span className="text-ink/70">Load</span> puts a saved plan’s candidates back into your
-          build — your locked vendors are never touched.
+          build — your booked suppliers are never touched.
         </p>
       ) : (
         <p className="text-xs text-ink/45">
           <span className="text-terracotta-700">Current</span> is your live plan. Save it as a new named
           build to bank a version, then change your picks and save another to compare. Use{' '}
           <span className="text-ink/70">Modify</span> to load a saved plan back into your working
-          build, or <span className="text-ink/70">Lock</span> to load it and head to the Lock tab to
-          finalize those vendors.
+          build, or <span className="text-ink/70">Book</span> to load it and head to the Book tab to
+          finalize those suppliers.
         </p>
       )}
     </div>

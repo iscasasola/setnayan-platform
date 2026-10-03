@@ -104,7 +104,18 @@ export function ColorsPanel({
   proMark = null,
   themeId = 'house',
   moodBoard = null,
+  part = null,
 }: {
+  /**
+   * 🎨 THE LOOK IS ONE PANEL (owner, live iPhone test 2026-10-02 — tracker f40;
+   * `lib/maker-look-sections.ts`): Look draws this row as two of its sections,
+   * in order — **Font** (`'font'`: the one font dropdown, alone) then
+   * **Colours** (`'colours'`: page and button colour, Candlelight, Magic
+   * Move). Each part is its own form posting only its own fields, and the
+   * action reads an absent field as "unchanged", so neither part can clear the
+   * other's. Null (the panel whole) is kept for the harnesses that draw it.
+   */
+  part?: 'font' | 'colours' | null;
   /**
    * 🎨 THE COLOURS THE MOOD BOARD GIVES THE PAGE (`moodBoardSiteColours`, the
    * guest page's own resolver) — what the wells show while a colour is left
@@ -142,6 +153,37 @@ export function ColorsPanel({
   proMark?: PaidMarkState | null;
 }) {
   const mark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
+  /* ══ THE TYPEFACE ═════════════════════════════════════════════════
+     Owner's Pro list names "Custom Fonts". A FIXED list, because
+     `next/font` resolves at build time: every face here is already served
+     from our own origin, so choosing one costs a guest nothing and cannot
+     fail. A couple-uploaded file would mean a runtime `@font-face` against
+     R2 on a guest's first paint and a face that fails to load SILENTLY —
+     the page simply set in something else, with nothing logged.
+
+     🔤 THE ONE FONT DROPDOWN (owner 2026-09-29: "the font across all event
+     hub editor. can be one style") — `FontPick`: Recently used · Most used
+     · All fonts, each name SET IN ITS OWN FACE, "In use" marked. It posts
+     `site_font_key` from a hidden field, exactly as the radios it replaced.
+
+     ⛔ "The theme's own" is always first and always available — a couple
+     must be able to take a choice back. It posts `''`, which the action
+     reads as "clear", distinct from an absent field meaning "unchanged". */
+  const typeface = (
+    <fieldset className={part === 'font' ? undefined : 'mt-3 border-t border-dashed border-ink/10 pt-3'}>
+      <legend className="sr-only">Typeface</legend>
+      <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Typeface{mark}</p>
+      <FontPick
+        eventId={eventId}
+        label="Typeface"
+        name="site_font_key"
+        dataAttr="data-site-font"
+        value={sanitizeHubFontKey(fontKey)}
+        lead="The theme’s own"
+        className="mt-1.5 min-h-11 w-full justify-between border border-ink/15"
+      />
+    </fieldset>
+  );
   return (
     <form action={action} className="border-t border-dashed border-ink/10 bg-cream/40 p-3">
       {/* Into the draft (`updateSiteColors`' door) — a free couple may TRY the
@@ -152,10 +194,22 @@ export function ColorsPanel({
         name="return_to"
         value={`/dashboard/${eventId}/website/editor?open=${rowKey}`}
       />
+      {part === 'font' ? (
+        proLocked ? (
+          proLock
+        ) : (
+          <>
+            {typeface}
+            <SaveButton />
+          </>
+        )
+      ) : (
+      <>
       {/* 🌈 THE BACKGROUND — one colour, one effect (owner 2026-09-25). One
           field, one hidden `bg_color`. Full width: the four effect chips need
           the room, and the button colour sits under it. */}
-      <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} />
+      {/* In Look the "Background" is the section above (behind every scene); here it is the page's colour. */}
+      <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} label={part === 'colours' ? 'Page' : 'Background'} />
       {/* 🎨 Free for everyone since 2026-09-28 (owner: "change … color …
           only when you start adding themes will it be pro") — never locked. */}
       <div className="mt-3">
@@ -207,35 +261,7 @@ export function ColorsPanel({
         </div>
       </fieldset>
 
-      {/* ══ THE TYPEFACE ═════════════════════════════════════════════════
-          Owner's Pro list names "Custom Fonts". A FIXED list, because
-          `next/font` resolves at build time: every face here is already served
-          from our own origin, so choosing one costs a guest nothing and cannot
-          fail. A couple-uploaded file would mean a runtime `@font-face` against
-          R2 on a guest's first paint and a face that fails to load SILENTLY —
-          the page simply set in something else, with nothing logged.
-
-          🔤 THE ONE FONT DROPDOWN (owner 2026-09-29: "the font across all event
-          hub editor. can be one style") — `FontPick`: Recently used · Most used
-          · All fonts, each name SET IN ITS OWN FACE, "In use" marked. It posts
-          `site_font_key` from a hidden field, exactly as the radios it replaced.
-
-          ⛔ "The theme's own" is always first and always available — a couple
-          must be able to take a choice back. It posts `''`, which the action
-          reads as "clear", distinct from an absent field meaning "unchanged". */}
-      <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
-        <legend className="sr-only">Typeface</legend>
-        <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Typeface{mark}</p>
-        <FontPick
-          eventId={eventId}
-          label="Typeface"
-          name="site_font_key"
-          dataAttr="data-site-font"
-          value={sanitizeHubFontKey(fontKey)}
-          lead="The theme’s own"
-          className="mt-1.5 min-h-11 w-full justify-between border border-ink/15"
-        />
-      </fieldset>
+      {part === 'colours' ? null : typeface}
 
       {/* ══ MAGIC MOVE ═══════════════════════════════════════════════════
           Owner, 2026-09-23: element animation is *"something I really want"*,
@@ -300,6 +326,8 @@ export function ColorsPanel({
       </fieldset>
 
       <SaveButton />
+      </>
+      )}
       </>
       )}
     </form>
@@ -377,7 +405,9 @@ function BackgroundField({
   themeId,
   eventId,
   moodBoard,
+  label = 'Background',
 }: {
+  label?: string;
   id: string;
   value: string | null;
   themeId: string;
@@ -403,7 +433,7 @@ function BackgroundField({
     <div data-background-field="" id={id}>
       <input type="hidden" name="bg_color" value={posted} />
       <div className="mb-1.5">
-        <InfoTip label="Background" labelClassName="text-[0.7rem] font-semibold text-ink/60" align="start">
+        <InfoTip label={label} labelClassName="text-[0.7rem] font-semibold text-ink/60" align="start">
           Pick one colour, then an effect. Plain is the flat colour; Dawn, Diagonal and Glow blend it
           softly, lighter and darker, like a wallpaper. Your words are re-measured over the whole
           blend so they stay easy to read.

@@ -54,18 +54,18 @@ export function dealNotLockableLine(
     counterpartyLabel?.trim() || (viewerRole === 'couple' ? 'the supplier' : 'the couple');
   if (reason === 'below_zero') {
     return viewerRole === 'couple'
-      ? 'These changes take the total below zero, so this deal can’t be locked. Agree a new deal first.'
+      ? 'These changes take the total below zero, so this deal can’t be booked. Agree a new deal first.'
       : 'These changes take the total below zero, so the couple can’t lock this deal. Agree a new deal first.';
   }
   return viewerRole === 'couple'
-    ? `This deal has no quoted price yet, so it can’t be locked. Ask ${them} to send their quote first, then agree the deal on it.`
-    : `This deal has no quoted price yet, so ${them} can’t lock it. Send your proposal first, then agree the deal on it.`;
+    ? `This deal has no quoted price yet, so it can’t be booked. Ask ${them} to send their quote first, then agree the deal on it.`
+    : `This deal has no quoted price yet, so ${them} can’t lock it. Send your quote first, then agree the deal on it.`;
 }
 
 /** The refusal `lockDeal` shows the couple if the button is pressed anyway
  *  (a stale page, a replayed form). Same meaning as the card's line. */
 export function dealLockRefusal(reason: 'no_quote' | 'below_zero'): string {
   return reason === 'no_quote'
-    ? 'This deal has no quoted price yet, so nothing was locked. Ask the supplier to send their quote first.'
-    : 'These changes take the total below zero, so nothing was locked. Agree a new deal first.';
+    ? 'This deal has no quoted price yet, so nothing was booked. Ask the supplier to send their quote first.'
+    : 'These changes take the total below zero, so nothing was booked. Agree a new deal first.';
 }

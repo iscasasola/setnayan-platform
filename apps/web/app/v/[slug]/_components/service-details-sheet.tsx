@@ -266,7 +266,7 @@ export function ServiceDetailsSheet({
               </a>
             )}
             <p className="mt-2 text-center text-[10px] text-ink/45">
-              Starting price set by the vendor. Final quotes happen in chat.
+              Starting price set by the supplier. Final quotes happen in chat.
             </p>
           </div>
         ) : null}

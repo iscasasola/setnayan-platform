@@ -189,7 +189,7 @@ export function QuoteFillRow({
         <p className="text-xs text-ink/55">
           {budgetPhp != null ? (
             <>
-              Adds the best-priced quotes that fit — nothing is locked, and you can swap or remove
+              Adds the best-priced quotes that fit — nothing is booked, and you can swap or remove
               any of them.
             </>
           ) : (
@@ -276,7 +276,7 @@ function FallbackPanel({
         setAdded((prev) => new Set(prev).add(vendorProfileId));
         router.refresh();
       } else {
-        setErr('Could not add that vendor — try another.');
+        setErr('Could not add that supplier — try another.');
       }
     });
   }
@@ -306,7 +306,7 @@ function FallbackPanel({
 
       {opened && suggestions.length === 0 && !pending ? (
         <p className="mt-2 text-[11px] italic text-ink/50">
-          No other vendors found for this category right now.
+          No other suppliers found for this category right now.
         </p>
       ) : null}
 

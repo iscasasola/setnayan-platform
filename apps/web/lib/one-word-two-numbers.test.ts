@@ -33,7 +33,7 @@ const HOME = 'app/dashboard/(launcher)/page.tsx';
 
 test('the focal names what it counts — the locked share, not "planned"', () => {
   const focal = code(FOCAL);
-  assert.match(focal, /\{Math\.round\(lockedInPct\)\}%[\s\S]{0,80}locked in/);
+  assert.match(focal, /\{Math\.round\(lockedInPct\)\}%[\s\S]{0,80}booked/);
   assert.ok(
     !/planned/.test(focal),
     'the word that made two different numbers look like one measure',
@@ -43,10 +43,10 @@ test('the focal names what it counts — the locked share, not "planned"', () =>
 test('and it reuses the wording the product already has for this value', () => {
   // Inventing a third phrase for a number named twice already is how a product
   // ends up with three vocabularies for one fact.
-  assert.match(code('lib/setnayan-ai-activity.ts'), /% locked in/);
+  assert.match(code('lib/setnayan-ai-activity.ts'), /% booked/);
   assert.match(
     code('app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx'),
-    /% locked in/,
+    /% booked/,
   );
 });
 

@@ -133,7 +133,7 @@ const FAQ = [
   },
   {
     q: 'Do we have to type everyone in?',
-    a: 'No. Type a name and press Enter — “Ana Cruz +1 groom vip #Barkada” lands as a row with her side, her plus-one, her role and her group. Or paste your spreadsheet with Import CSV, or pick from the people already in your account. Anyone who joins from your shared invite link shows up for you to confirm.',
+    a: 'No. Type a name and press Enter — “Ana Cruz +1 groom vip #Barkada” lands as a row with her side, her plus-one, her role and her group. Or tap + and choose Import a file, or From your people. Anyone who joins from your shared invite link shows up for you to confirm.',
   },
 ];
 

@@ -90,17 +90,17 @@ export const PARTNERSHIP_PUBLIC_LABEL: Record<PartnershipKind, string> = {
 export const PARTNERSHIP_PUBLIC_HINT: Record<PartnershipKind, string> = {
   included_in_package: 'Booked through them, at no extra cost to you',
   discounted_together: 'A discount when you book both',
-  accredited: 'They formally certify this vendor',
+  accredited: 'They formally certify this supplier',
   general: 'They work together often',
 };
 
 /** What a VENDOR is told, choosing a kind. Long form, on the proposal form. */
 export const PARTNERSHIP_VENDOR_LABEL: Record<PartnershipKind, string> = {
   included_in_package:
-    'Included in package — recommended vendor is part of your offering at no extra cost',
+    'Included in package — recommended supplier is part of your offering at no extra cost',
   discounted_together:
-    'Discounted — recommended vendor offers a discount when booked alongside you',
-  accredited: 'Accredited — you formally certify this vendor',
+    'Discounted — recommended supplier offers a discount when booked alongside you',
+  accredited: 'Accredited — you formally certify this supplier',
   general: 'General referral — informal "works well with" recommendation',
 };
 

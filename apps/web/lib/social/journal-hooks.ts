@@ -43,7 +43,7 @@ export const JOURNAL_SOCIAL_HOOKS: Record<string, string> = {
   'free-printable-wedding-checklist-philippines':
     "Planning a Filipino wedding and not sure where to begin? We made a free, printable checklist that takes you from “yes” to “I do” — every step, none of the overwhelm. ✨",
   'what-to-do-12-months-before-your-philippine-wedding':
-    "12 months out and quietly panicking? Here’s exactly what to lock in first — and what can happily wait. Save yourself the 2am spiral. 👇",
+    "12 months out and quietly panicking? Here’s exactly what to book first — and what can happily wait. Save yourself the 2am spiral. 👇",
   'how-much-do-wedding-suppliers-cost-philippines':
     "The honest answer to the question every couple Googles at midnight: how much do wedding suppliers in the Philippines actually cost? Real ranges, no surprises.",
   'civil-vs-church-wedding-philippines':

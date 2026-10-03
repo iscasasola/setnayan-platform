@@ -154,7 +154,11 @@ test('2 · the RSVP page wears the Event Hub\'s look and Main background — the
   assert.match(REPLY, /return \(\s*<GuestLookScope \{\.\.\.lookScopeProps\(hub\.look\)\}>\s*\{hub\.ground\}\s*<DoorShell\b/);
   // For a guest: the very value the layout wears (cached). On the canvas with a
   // drafted colour: re-resolved from the drafted row, as the Event Hub canvas does.
-  const wear = REPLY.slice(REPLY.indexOf('async function wearTheHub('));
+  // ONE function for the RSVP and the landing (`_lib/wear-the-hub.ts`, 2026-10-02).
+  assert.match(REPLY, /wearTheHub\(slug, admin, hostDraft, canvas\)/, 'the RSVP resolves the hub look some other way');
+  assert.doesNotMatch(REPLY, /async function wearTheHub\(/, 'a second copy of wearTheHub lives in the RSVP');
+  const WEAR = read('[slug]/invite/_lib/wear-the-hub.ts');
+  const wear = WEAR.slice(WEAR.indexOf('export async function wearTheHub('));
   assert.match(wear, /const row = overlayHubDraftEvent\(shell as Record<string, unknown>, hostDraft\) as EventShellRow;/);
   assert.match(wear, /HUB_DRAFT_LOOK_COLUMNS\.some\(\(c\) => c in hostDraft\.events\)/);
   assert.match(wear, /\? guestLookFrom\(row, await resolveHubTheme\(row\), true\)\s*: await loadGuestLook\(slug\)/);
@@ -163,4 +167,38 @@ test('2 · the RSVP page wears the Event Hub\'s look and Main background — the
   assert.match(wear, /mainGroundLayerFor\(\{\s*theme: look\.theme,/);
   const PAGE = read('[slug]/page.tsx');
   assert.match(PAGE, /guestLookFrom\(event, hub, true\)/, 'the Event Hub canvas resolves its drafted look some other way — keep the two in step');
+});
+
+// ═══ 3 · the landing wears it too (owner 2026-10-02, live iPhone test) ═══════
+
+test('3 · the personal landing and thank-you (/invite/enter) wear the Event Hub look — never the bare door', () => {
+  const ENTER = read('[slug]/invite/enter/page.tsx');
+  // 🔴 The bug: the door resolver returns NO skin for Classic and never reads the
+  // palette, so Classic + a mood-board palette rendered the bare white door.
+  assert.doesNotMatch(ENTER, /loadInviteLook\(|look\.skin/, 'the landing paints the door composition again');
+  assert.match(ENTER, /wearTheHub\(slug, admin, hostDraft, canvas\)/, 'the landing resolves the look some other way than the RSVP');
+  // BOTH renders (before the reply, and the thank-you after it) sit inside the look.
+  const scopes = ENTER.match(/<GuestLookScope \{\.\.\.lookScopeProps\(hub\.look\)\}>\s*\{hub\.ground\}/g) ?? [];
+  assert.equal(scopes.length, 2, `found ${scopes.length} looked renders — one of the two landing renders is bare`);
+  const shells = ENTER.match(/<DoorShell\b[^>]*skin=\{skin\}/g) ?? [];
+  assert.equal(shells.length, 2, 'a landing DoorShell wears a skin other than the hub door');
+  assert.match(ENTER, /const skin = hubDoorSkin\(\{\s*\.\.\.doorMarkFor\(event\),/, 'the landing crest is not the couple\'s logo');
+  // No literal white card under a theme's ink.
+  assert.doesNotMatch(ENTER, /bg-white\/(80|95)/, 'a landing card is painted literal white, not the page\'s paper');
+  assert.doesNotMatch(read('[slug]/invite/_components/landing-pre-reply.tsx'), /bg-white\//, 'the pre-reply card is literal white');
+});
+
+test('3 · the couple\'s own invitation line shows under their names — read from the hero\'s line part', async () => {
+  const { heroLineWord } = await import('./_lib/wear-the-hub');
+  const cfg = { canvas: { design: 'marquee', elements: { line: { word: 'Invite you to celebrate our wedding', hidden: true } } } };
+  assert.equal(heroLineWord(cfg), 'Invite you to celebrate our wedding', 'the applied line did not reach the landing');
+  assert.equal(heroLineWord({ canvas: { elements: { line: { size: 2 } } } }), null, 'a line with no words invented one');
+  assert.equal(heroLineWord(null), null);
+  // The one sanitiser runs — never a raw config string (React prints it as text).
+  assert.equal(heroLineWord({ canvas: { elements: { line: { word: 'x'.repeat(500) } } } }), null, 'the line skipped the element-word sanitiser');
+  assert.equal(heroLineWord({ canvas: { elements: { line: { word: 'our\u202Ewedding' } } } }), null, 'a bidi control reached the landing');
+  const ENTER = read('[slug]/invite/enter/page.tsx');
+  assert.match(ENTER, /const inviteLine = heroLineWord\(hub\.heroConfig\);/);
+  const subs = ENTER.match(/sub=\{justIn \? REQUEST_WORDS\.inSub\(hosts, null\) : \(inviteLine \?\? undefined\)\}/g) ?? [];
+  assert.equal(subs.length, 2, 'the line is missing from one of the two landing renders');
 });

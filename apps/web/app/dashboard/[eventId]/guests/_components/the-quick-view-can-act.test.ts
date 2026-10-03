@@ -1,186 +1,76 @@
 /**
- * the-quick-view-can-act.test.ts — the one guest surface you could read but not
- * use.
+ * the-quick-view-can-act.test.ts — the guest card can delete its guest.
  *
- * Every other place a host meets a guest can remove them: the desktop bulk bar
- * (optimistic + undo), both phone densities (swipe-left), and the `[guestId]`
- * page ("Remove guest"). The QUICK VIEW — one body behind two frames, the
- * below-xl sheet and the desktop inspector column — could not. A host could
- * open a guest, read their contact, groups, RSVP, seat and QR, and then have
- * exactly one exit: "Open full details", i.e. leave the roster they were
- * working in to do the one thing the panel existed to save them a trip for.
+ * ── HISTORY ────────────────────────────────────────────────────────────────
+ * The card once could only be READ; on 2026-09-06 it gained a "Remove guest"
+ * behind a second tap, posting `softDeleteGuest` — a second remove path that
+ * kept the "reset their RSVP first" rule and had no Undo.
  *
- * ── WHY THIS IS THE LAST ONE, AND WHY IT LOOKED DELIBERATE ─────────────────
- * The file's own docblock called it "read-only", and read-only is a legitimate
- * design — for a PREVIEW. It stopped being one once the roster row beside it
- * grew inline editors for side, role, RSVP and groups: every field on the row
- * became actionable while the panel that shows those same fields in detail
- * stayed inert. The panel was not more careful than the row, it was just older.
+ * ── RE-ANCHORED 2026-10-03 ─────────────────────────────────────────────────
+ * Owner, after the live iPhone test where an accepted guest's delete was
+ * silently refused (DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY
+ * ACCEPTED"): *"add a way to delete someone even if they accepted … add delete
+ * function on the guest card and when we select guests"*. So:
+ *   · Delete is in the card's ⋯ (`GuestMoreMenu`, `deletable`), never for the
+ *     couple, who keep their sentence instead of a button that always fails;
+ *   · the first tap only opens the in-page warning (`DeleteGuestFlow` →
+ *     `DeleteGuestSheet`) — Delete there is the second, deliberate tap;
+ *   · it is the SAME delete as the swipe and the selection bar
+ *     (`useGuestRemoval` → `bulkSoftDeleteGuestsForUndo`, with Undo), and the
+ *     old path (`softDeleteGuest`, `RemoveGuestConfirm`) no longer exists;
+ *   · no RSVP gate anywhere — not re-spelled in the UI, not kept in the action.
  *
- * ── ONE ACTION, NOT A SECOND RULE ──────────────────────────────────────────
- * It posts the SAME `softDeleteGuest` the full detail page posts. That action
- * owns both gates — the couple is refused, and a guest who has already RSVP'd
- * must be reset to Pending first — so this file must NOT re-spell them. The one
- * thing mirrored here is the COUPLE case, and only because a button that can
- * only ever fail is worse than no button: the couple gets the same sentence the
- * detail page shows instead.
- *
- * ⚠ KNOWN, ACCEPTED: a refusal redirects to `[guestId]?error=…`, so removing an
- * RSVP'd guest from the sheet bounces to their full page carrying the reason.
- * That is `softDeleteGuest`'s existing behaviour, shared with the detail page.
- * Forking a nicer in-sheet error would mean a second copy of the failure path —
- * the thing this file exists to prevent.
- *
- * 🛡 Mutation-checked against the real file, failures counted, each RED:
- * ── THE SECOND TAP (2026-09-06) ────────────────────────────────────────────
- * The remove shipped as ONE unguarded tap on a full-width danger button sitting
- * directly beneath the full-width "Open full details" — two stacked full-width
- * targets, the lower destructive, on a panel opened casually mid-scan. Every
- * other delete path here has a guard (the swipe IS the confirm; the desktop
- * bulk delete has a 6s undo); this one had none while being the LEAST undoable,
- * because `softDeleteGuest` hard-deletes the seat assignment and only the bulk
- * path can put a seat back. It is now armed by a first tap and disarms itself.
- *
- * ── RE-ANCHORED 2026-09-22 ─────────────────────────────────────────────────
- * The quick view and the edit form merged into ONE card (`guest-card-body.tsx`)
- * and `GuestDetailBody` was deleted. These assertions follow the SYMBOLS, not
- * the old filename — a guard left pointing at a deleted component goes green by
- * finding nothing, which is the failure this file already survived once when the
- * remove moved into its own component.
- *
- * One thing got STRONGER and the wording below now says so: the roster panel and
- * the standalone route render the SAME body, so "two doors, one rule" is no
- * longer something to assert about two files — there is one door.
- *
- * 🛡 Mutation-checked against the real files, failures counted, each RED:
- *  · drop the <form action={softDeleteGuest…}>       → RED
- *  · remove the isCouple branch (dangle the button)  → RED
- *  · re-spell the RSVP gate                          → RED
- *  · make the resting button a submit (first tap deletes) → RED
- *  · drop the auto-disarm timer                      → RED
+ * 🛡 Sabotaged (see the PR): dropping `deletable={!isCouple}` from the card → RED.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BODY = stripComments(readFileSync(join(HERE, 'guest-card-body.tsx'), 'utf8'));
-const DATA = stripComments(readFileSync(join(HERE, 'guest-card-data.ts'), 'utf8'));
-const ROSTER = stripComments(readFileSync(resolve(HERE, '..', 'page.tsx'), 'utf8'));
-// The remove moved into its own client component when the second tap was added
-// (2026-09-06). These assertions follow the action rather than the file — a test
-// that kept pointing at the body would have gone green by finding nothing.
-const REMOVE = stripComments(
-  readFileSync(join(HERE, 'remove-guest-confirm.tsx'), 'utf8'),
-);
-const DETAIL = stripComments(
-  readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8'),
-);
+const read = (...p: string[]) => stripComments(readFileSync(join(HERE, ...p), 'utf8'));
+const BODY = read('guest-card-body.tsx');
+const DATA = read('guest-card-data.ts');
+const MENU = read('guest-ticket-parts.tsx');
+const DELETE = read('guest-delete.tsx');
+const DETAIL = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'page.tsx'), 'utf8'));
+const GUEST_ACTIONS = stripComments(readFileSync(resolve(HERE, '..', '[guestId]', 'actions.ts'), 'utf8'));
+const GROUP_ACTIONS = stripComments(readFileSync(resolve(HERE, '..', 'groups-actions.ts'), 'utf8'));
 
-test('the quick view can remove a guest', () => {
-  assert.ok(
-    /action=\{softDeleteGuest\.bind\(null, eventId, guestId\)\}/.test(REMOVE),
-    'the quick view has no remove action — a host can read the guest and do ' +
-      'nothing about them',
-  );
-  assert.ok(
-    /from '\.\.\/\[guestId\]\/actions'/.test(REMOVE),
-    'it must import the shipped action, not declare its own',
-  );
-  assert.ok(
-    /<RemoveGuestConfirm/.test(BODY),
-    'and the body must actually mount it',
-  );
+test('the card can delete its guest — from its ⋯, never for the couple', () => {
+  assert.match(BODY, /<MoreMenu[\s\S]*?deletable=\{!isCouple\}/, 'the card’s ⋯ offers no Delete (or offers it for the couple)');
+  assert.match(MENU, /\{deletable \? \([\s\S]*?data-guest-delete=""[\s\S]*?Delete guest/, 'the ⋯ has no Delete guest item');
+  assert.match(MENU, /<DeleteGuestFlow\b/, 'the ⋯’s Delete does not go through the one delete flow');
 });
 
-test('THE SECOND TAP IS REAL — the first one cannot submit', () => {
-  // The hazard this guards: a full-width destructive button directly under the
-  // full-width "Open full details", on a panel opened casually mid-scan.
-  assert.ok(
-    /const \[armed, setArmed\] = useState\(false\)/.test(REMOVE),
-    'the button must start disarmed',
-  );
-  // The resting button is type="button" — a submit here would fire the action
-  // on the FIRST tap and the arming state would be decorative.
-  const resting = REMOVE.slice(REMOVE.indexOf(') : ('));
-  assert.ok(
-    /type="button"/.test(resting) && /onClick=\{\(\) => setArmed\(true\)\}/.test(resting),
-    'the resting button must arm, not submit',
-  );
-  assert.ok(
-    /armed \?/.test(REMOVE),
-    'the submit must be gated behind the armed state',
-  );
+test('the first tap only WARNS — Delete is the second, deliberate tap', () => {
+  const item = MENU.slice(MENU.indexOf('data-guest-delete=""') - 400, MENU.indexOf('data-guest-delete=""') + 200);
+  assert.match(item, /setConfirmDelete\(true\)/, 'the ⋯ item no longer opens the warning');
+  assert.doesNotMatch(item, /remove\(/, 'the ⋯ item deletes on its first tap');
+  assert.match(DELETE, /data-guest-delete-confirm=""/, 'the warning has no Delete button');
+  assert.doesNotMatch(DELETE, /window\.confirm\(|\bconfirm\(\s*['"`]/, 'a browser confirm() — the owner asked for an in-page warning');
 });
 
-test('an armed button disarms itself', () => {
-  // Arming and then scrolling away must not leave a one-tap delete on screen.
-  assert.ok(/setTimeout\(\(\) => setArmed\(false\), ARM_MS\)/.test(REMOVE),
-    'no auto-disarm — an armed delete would lie in wait',
-  );
-  assert.ok(/clearTimeout/.test(REMOVE), 'the disarm timer must be cleaned up');
-  assert.ok(/Cancel/.test(REMOVE), 'an armed state needs a way out that is not waiting');
-});
-
-test('there is ONE remove path, because there is one body', () => {
-  // Since the merge, the roster panel and the standalone route render the same
-  // component. That is the guarantee: not "two doors agree" but "one door".
-  assert.ok(
-    /<GuestCardBody/.test(ROSTER),
-    'the roster panel no longer renders the shared card',
-  );
-  assert.ok(
-    /<GuestCardBody/.test(DETAIL),
-    'the standalone route no longer renders the shared card — it has forked',
-  );
-  assert.ok(
-    /softDeleteGuest/.test(REMOVE),
-    'the card must post the shipped action',
-  );
-  // And the card must not have grown a second, lighter delete of its own.
-  assert.equal(
-    /softDeleteGuest/.test(BODY),
-    false,
-    'the card calls the action directly — it should go through RemoveGuestConfirm',
-  );
+test('there is ONE delete path — the old card remove is gone', () => {
+  assert.equal(existsSync(join(HERE, 'remove-guest-confirm.tsx')), false, 'RemoveGuestConfirm is back');
+  assert.doesNotMatch(GUEST_ACTIONS, /export async function softDeleteGuest\s*\(/, 'softDeleteGuest is back — a second delete with no Undo');
+  assert.match(DELETE, /bulkSoftDeleteGuestsForUndo\(/);
+  assert.match(DETAIL, /<GuestCardBody/, 'the standalone route no longer renders the same card');
 });
 
 test('the couple gets the sentence, not a button that always fails', () => {
-  // The fact itself moved to the loader when the card gained one; the card
-  // reads it rather than re-deciding who the couple is.
-  assert.ok(
-    /const isCouple = guest\.role === 'bride' \|\| guest\.role === 'groom';/.test(
-      DATA,
-    ),
-    'the couple must still be identified once, in the loader',
-  );
-  assert.ok(
-    /isCouple \?/.test(BODY),
-    'the couple must be branched before the button is rendered',
-  );
-  assert.ok(
-    /Foundation of the event/.test(BODY),
-    'and told why, in the same words the detail page uses',
-  );
-  // The standalone route renders this same body, so the sentence cannot differ
-  // between the two presentations any more.
-  assert.ok(
-    /<GuestCardBody/.test(DETAIL),
-    'the detail route must render the same body that carries the sentence',
-  );
+  assert.ok(/const isCouple = guest\.role === 'bride' \|\| guest\.role === 'groom';/.test(DATA));
+  assert.ok(/Foundation of the event/.test(BODY), 'the couple is no longer told why they cannot be removed');
 });
 
-test('the RSVP gate is NOT re-spelled here', () => {
-  // softDeleteGuest owns it. A second copy in the UI is a rule that can drift
-  // out of step with the server silently.
-  for (const [label, src] of [['body', BODY], ['remove button', REMOVE]] as const) {
-    assert.equal(
-      /rsvp_status !== 'pending'/.test(src),
-      false,
-      `the quick view's ${label} is re-implementing the RSVP gate — leave it in the action`,
-    );
+test('the RSVP gate is retired — not re-spelled in the UI, not kept in the action', () => {
+  for (const [label, src] of [['card', BODY], ['delete flow', DELETE], ['⋯', MENU]] as const) {
+    assert.doesNotMatch(src, /rsvp_status !== 'pending'/, `the ${label} re-implements the retired RSVP gate`);
   }
+  const at = GROUP_ACTIONS.indexOf('export async function bulkSoftDeleteGuestsForUndo(');
+  const fn = GROUP_ACTIONS.slice(at, GROUP_ACTIONS.indexOf('export async function restoreDeletedGuests(', at));
+  assert.doesNotMatch(fn, /rsvp_status !== 'pending'|Reset their RSVP/, 'the delete still refuses a guest who replied');
+  assert.match(fn, /role === 'bride' \|\| r\.role === 'groom'/, 'the couple gate is gone from the action');
 });

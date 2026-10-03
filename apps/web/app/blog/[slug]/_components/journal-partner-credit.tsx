@@ -178,7 +178,7 @@ export async function JournalPartnerCredit({
       </ul>
 
       <p className="mt-5 text-xs text-ink/45">
-        Vendors are credited by the Setnayan editorial team.{' '}
+        Suppliers are credited by the Setnayan editorial team.{' '}
         {spotlights.some((s) => s.is_sponsored)
           ? 'Placements marked “Sponsored” are paid partnerships.'
           : null}

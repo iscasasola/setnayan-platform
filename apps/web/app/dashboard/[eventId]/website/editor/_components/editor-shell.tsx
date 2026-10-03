@@ -1,5 +1,7 @@
 'use client';
 
+import { SheetGrip, SheetScrim } from '../../../launch/_components/maker-sheet';
+import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
@@ -29,6 +31,7 @@ import { ScenePreview } from './scene-preview';
 import type { ElementDraftAction, ElementPalette, ElementTarget } from './element-sheet';
 import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
+import { LOOK_ROW_OF, PALETTE_STYLES_LINE, isLookRow } from '@/lib/maker-look-sections';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
 import { askScheduleFocus } from '../../../schedule/_components/schedule-focus';
 import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
@@ -84,7 +87,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
 import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
-import { FixedSceneStyleRow, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
+import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
 import { postEventSetElements } from '@/lib/post-event-draft';
@@ -217,9 +220,11 @@ const TOOL_ROWS: Record<string, string[]> = {
   'post-event': ['editorial'],
 };
 
-// 'main-background' first: it replaces the theme's own loop, the layer every
-// other Main control sits on (Maker Phase 10). Absent in the store shell.
-const MAIN_ROWS = ['main-background', 'colors', 'music', 'backdrop'];
+// 🎨 The 🎨 button's panel: the song and the invitation backdrop. The Main
+// background, the font and the colours MOVED into Look (owner 2026-10-02,
+// tracker f40 — `lib/maker-look-sections.ts`); an old `?open=` naming one of
+// them opens Look (`isLookRow`).
+const MAIN_ROWS = ['music', 'backdrop'];
 
 /** The canvas's "Event Bar" switch (was "Guest bars"), remembered for this browser session. */
 const GUEST_BARS_KEY = 'setnayan:maker-guest-bars';
@@ -232,7 +237,6 @@ export function MakerWork({
   navigator,
   scenePanels,
   rows,
-  themes,
   ownsPro,
   initialScene = null,
   initialOpenRow = null,
@@ -372,7 +376,6 @@ export function MakerWork({
   navigator: MakerNavigatorData;
   scenePanels: Record<string, ReactNode>;
   rows: Record<string, MakerRowPanel>;
-  themes: Array<{ id: string; name: string; ready: boolean; current: boolean }>;
   ownsPro: boolean;
   initialScene?: string | null;
   initialOpenRow?: string | null;
@@ -603,17 +606,23 @@ export function MakerWork({
   /* The first selection comes from the address (a save lands back here with
      `?scene=` or `?open=`). After that the shell's state owns it. */
   const seeded = useRef(false);
+  const setMakerItem = maker?.setDetailsItem;
   useEffect(() => {
     if (seeded.current || !select) return;
     seeded.current = true;
     if (initialScene && scenes.some((s) => s.id === initialScene)) {
       select({ kind: 'scene', id: initialScene });
     } else if (initialOpenRow && rows[initialOpenRow]) {
+      if (isLookRow(initialOpenRow)) {
+        setMakerItem?.('theme');
+        select({ kind: 'tool', key: 'details' });
+        return;
+      }
       select(
         MAIN_ROWS.includes(initialOpenRow) ? { kind: 'main' } : { kind: 'row', key: initialOpenRow },
       );
     }
-  }, [initialScene, initialOpenRow, scenes, rows, select]);
+  }, [initialScene, initialOpenRow, scenes, rows, select, setMakerItem]);
 
   useEffect(() => {
     setMoreHost(document.getElementById(MAKER_MORE_ROWS_ID));
@@ -700,20 +709,20 @@ export function MakerWork({
      identity until the next server render, so this runs once per render of the
      page, not once per click. */
   const setLookPages = maker?.setLookPages;
-  const mainBackgroundRow = rows['main-background'] ?? null;
+  /* 🎨 LOOK › BACKGROUND · FONT · COLOURS (owner 2026-10-02, tracker f40) —
+     the rows this page always built, handed to Look as they are. */
+  const backgroundNode = rows[LOOK_ROW_OF.background]?.node ?? null;
+  const fontNode = rows[LOOK_ROW_OF.font]?.node ?? null;
+  const coloursNode = rows[LOOK_ROW_OF.colours]?.node ?? null;
+  const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
   useEffect(() => {
     if (!setLookPages) return;
     setLookPages({
       logo: madeOnce?.logo ?? null,
-      hero: madeOnce?.hero ? (
-        <>
-          {madeOnce.hero}
-          {/* The hero carries the Main background (Maker P10), made here as it always was. */}
-          {mainBackgroundRow ? <RowBlock row={mainBackgroundRow} /> : null}
-        </>
-      ) : null,
+      /* The Main background is no longer the hero's: it is Look › Background. */
+      hero: madeOnce?.hero ?? null,
       reveal: madeOnce?.reveal ?? null,
       revealOptions: madeOnce?.['reveal-options'] ?? null,
       /* The hero's parts, edited by the same sheet a tap on the hero scene opens. */
@@ -729,8 +738,26 @@ export function MakerWork({
       revealStages: revealStagesKey ? (revealStagesKey.split(',') as LifecyclePhase[]) : [],
       publicLandingUrl,
       fontsInUse: elementEditing?.fontsInUse ?? [],
+      look: {
+        background: backgroundNode,
+        font: fontNode,
+        colours: coloursNode,
+        palette:
+          elementEditing && hasDressCode ? (
+            <PaletteLookCanvasRow
+              eventId={eventId}
+              canvas={draftedCanvasOr('dress_code', elementEditing.canvases['dress_code'])}
+              eventType={sceneFormat?.eventType ?? null}
+              draftAction={elementEditing.draftAction}
+              colours={sceneFormat?.colorChoices ?? []}
+              line={PALETTE_STYLES_LINE}
+            />
+          ) : null,
+      },
     });
-  }, [setLookPages, madeOnce, mainBackgroundRow, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
+    // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {
@@ -1650,7 +1677,6 @@ export function MakerWork({
               stage={stage}
               eventType={sceneFormat.eventType ?? null}
               draftAction={elementEditing.draftAction}
-              colours={sceneFormat.colorChoices}
             />
             <SceneBackgroundRow
               key={type}
@@ -1773,6 +1799,32 @@ export function MakerWork({
   const shownPageKey = shownPage?.key ?? null;
   const pagesRef = useRef(guestPages);
   pagesRef.current = guestPages;
+  /* 📍 PAGE ▾ NAMES THE PAGE ON SCREEN (owner, live phone test 2026-10-02:
+     the canvas showed RSVP while Page ▾ said "Invitation › Welcome"). As the
+     couple scrolls the canvas, the page holding the section in view becomes
+     the shown page (`makerSectionInView`, a line a third of the way down). */
+  useEffect(() => {
+    const win = frameRef.current?.contentWindow;
+    if (!win) return;
+    let raf = 0;
+    const onScroll = () => {
+      window.cancelAnimationFrame(raf);
+      raf = window.requestAnimationFrame(() => {
+        try {
+          const key = makerSectionInView(win.document, win.innerHeight / 3);
+          const page = key ? pagesRef.current.find((p) => p.tiles.includes(key)) : undefined;
+          if (page) setTabKey((k) => (k === page.key ? k : page.key));
+        } catch {
+          /* a frame we cannot read keeps the page it was given */
+        }
+      });
+    };
+    win.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      win.removeEventListener('scroll', onScroll);
+      window.cancelAnimationFrame(raf);
+    };
+  }, [shownFrameKey]);
   /* What a page IS for the bar — re-reported only when one of these changes. */
   const pagesSig = guestPages.map((p) => `${p.key}|${p.label}|${p.leaves}|${p.tiles.length}`).join(' ');
   useEffect(() => {
@@ -1869,7 +1921,8 @@ export function MakerWork({
           {/* 🧭 THE STAGE'S MENU — the tabs a guest sees on this stage, never a
               generic "Main". Each lists its own scenes; a tab that opens a page of
               its own (Camera, Join, Watch) says so. The look behind every scene
-              (theme, colours, music, backdrop) is the palette button. */}
+              (music, backdrop) is the palette button; theme, background, font
+              and colours are the toolbar's Look (2026-10-02). */}
           {/* 🧭 THE STAGE'S MENU AS ONE CONTROL (owner 2026-09-27, on the pill row
               that wrapped to 140px in the 168px column: *"this should be a tap
               to show option to pick or a drop down"*). It shows the group in
@@ -1886,8 +1939,8 @@ export function MakerWork({
               type="button"
               onClick={() => select?.({ kind: 'main' })}
               aria-pressed={selection?.kind === 'main'}
-              aria-label="Theme, colours and music — behind every scene"
-              title="Theme, colours and music — behind every scene"
+              aria-label="Music and the invitation backdrop"
+              title="Music and the invitation backdrop"
               className={`sn-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
                 selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
               }`}
@@ -2728,7 +2781,6 @@ export function MakerWork({
           scenePanel={selectedScene ? scenePanels[selectedScene.id] : null}
           sceneTabs={sceneTabs}
           rows={rows}
-          themes={themes}
           eventId={eventId}
           madeOnce={madeOnce}
           showMotionTabs={ownsPro || !maker.storeShell}
@@ -3071,7 +3123,6 @@ function Inspector({
   scene,
   scenePanel,
   rows,
-  themes,
   eventId,
   madeOnce,
   showMotionTabs,
@@ -3109,7 +3160,6 @@ function Inspector({
   scene: MakerScene | null;
   scenePanel: ReactNode;
   rows: Record<string, MakerRowPanel>;
-  themes: Array<{ id: string; name: string; ready: boolean; current: boolean }>;
   eventId: string;
   showMotionTabs: boolean;
   onClose: () => void;
@@ -3131,7 +3181,7 @@ function Inspector({
       : selection.kind === 'post-event'
         ? (postEventTile?.label ?? 'Post Event')
       : selection.kind === 'main'
-        ? 'Main · behind every scene'
+        ? 'Music and backdrop'
         : selection.kind === 'tool'
           ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Event Details', 'rsvp-page': 'RSVP', 'rsvp-stage': 'RSVP' }[selection.key]
           : fixedOfKey(selection.key)
@@ -3228,7 +3278,6 @@ function Inspector({
   } else if (selection.kind === 'main') {
     body = (
       <>
-        <ThemePanel themes={themes} onOpen={() => onOpenTool('details')} />
         {MAIN_ROWS.filter((k) => rows[k]).map((k) => (
           <RowBlock key={k} row={rows[k]!} />
         ))}
@@ -3252,13 +3301,19 @@ function Inspector({
   }
 
   return (
+    <>
+    {/* 📱 The dimmed page behind the scene's sheet — a tap on it goes back to the page. */}
+    <SheetScrim onClose={onClose} />
     <aside
       aria-label="Inspector"
+      data-phone-chrome="panel"
       style={{ ['--maker-tools-w' as string]: `${resize.width}px` }}
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-h-[70dvh] flex-col rounded-t-3xl lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
+      /* 📱 The bar + this ≤ 45% of a phone (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts). */
+      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
     >
       <ToolsResizeHandle onPointerDown={resize.onPointerDown} />
-      <div className="flex items-center gap-2 px-4 pt-3">
+      <SheetGrip onClose={onClose} />
+      <div className="flex items-center gap-2 px-4 pt-1 lg:pt-3">
         <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
         <button
           type="button"
@@ -3279,40 +3334,7 @@ function Inspector({
         {selection.kind === 'scene' && tab === 'content' ? sceneTabs?.contentExtra : null}
       </div>
     </aside>
-  );
-}
-
-/**
- * THE THEME, NAMED — and where it is chosen. Owner 2026-09-28: the theme is
- * picked on the Maker's Details page, as a preview of the couple's own page in
- * each theme (`launch/_components/maker-theme-picker.tsx`). ONE place chooses
- * it; this line only reads it and opens Details — never a second picker, never
- * a link out of the Maker.
- */
-function ThemePanel({
-  themes,
-  onOpen,
-}: {
-  themes: Array<{ id: string; name: string; ready: boolean; current: boolean }>;
-  onOpen: () => void;
-}) {
-  const yours = themes.find((t) => t.current) ?? themes.find((t) => t.id === 'house');
-  return (
-    <p className="flex flex-wrap items-center gap-x-2 px-1 text-[13.5px] text-ink" data-maker-theme-panel="">
-      <span className="font-semibold">Theme</span>
-      <span>{yours?.name ?? 'Classic'}</span>
-      <span aria-hidden className="text-ink/40">
-        ·
-      </span>
-      <button
-        type="button"
-        onClick={onOpen}
-        data-maker-theme-opens-details=""
-        className="sn-press inline-flex min-h-10 items-center font-semibold underline underline-offset-2 hover:text-ink/80"
-      >
-        Change in Event Details
-      </button>
-    </p>
+    </>
   );
 }
 

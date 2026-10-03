@@ -113,7 +113,7 @@ test('the rail is the owner’s five — nothing more — in every phase', () =>
     const labels = ['Events', ...rail(WEDDING, phase).flatMap((g) => g.items.map((i) => i.label))];
     assert.deepEqual(
       labels,
-      ['Events', 'Details', 'Home', 'Guests', 'Suppliers', 'Hub', OUR_SERVICES],
+      ['Events', 'Event Details', 'Home', 'Guests', 'Suppliers', 'Hub', OUR_SERVICES],
       `${phase}: ${labels.join(' · ')}`,
     );
   }

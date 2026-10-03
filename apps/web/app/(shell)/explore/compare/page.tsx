@@ -408,7 +408,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
           </h1>
           <p className="max-w-prose text-sm text-ink/65">
             Specs that matter — location, rating, services, faith fit, distance
-            from your reception venue if you&rsquo;ve locked one. Save the ones
+            from your reception venue if you&rsquo;ve booked one. Save the ones
             you like; their state stays in sync with your wedding shortlist.
           </p>
         </div>

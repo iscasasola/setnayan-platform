@@ -16,6 +16,7 @@ import {
 import { datetimeLocalToIso } from '@/lib/schedule';
 import { emitNotification } from '@/lib/notification-emit';
 import { compGiftNoticeBody } from '@/lib/comp-gift-notice';
+import { COMP_GRANT_CO_REVIEW_PESOS } from '@/lib/rule-constants';
 
 // TTL of the temp-password flash cookie (see TEMP_PASSWORD_FLASH_COOKIE) — a
 // copy-it-now window, not a store.
@@ -670,7 +671,7 @@ export async function issueCompGrant(formData: FormData) {
       expiry,
       rationale_preview: rationale.slice(0, 120),
       requires_two_admin_review:
-        (retailValueCentavos ?? 0) > 10_000 * 100,
+        (retailValueCentavos ?? 0) > COMP_GRANT_CO_REVIEW_PESOS * 100,
     },
   });
   // Don't throw on audit failure — the grant itself succeeded and rolling

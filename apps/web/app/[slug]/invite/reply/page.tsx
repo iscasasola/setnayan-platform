@@ -25,22 +25,12 @@ import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
 import { plusOneSeatsFor } from '../../_lib/plus-one-seats.server';
 import { asksForHostCanvas } from '../../_lib/editor-canvas';
-import {
-  guestLookFrom,
-  loadEventShell,
-  loadGuestLook,
-  loadHostMembership,
-  loadHostPreviewDraft,
-  loadWidgets,
-  type EventShellRow,
-  type GuestLook,
-} from '../../_lib/loaders';
-import { resolveHubTheme } from '../../_lib/hub-look';
-import { mainGroundLayerFor } from '../../_lib/main-ground-layer';
+import { loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
+import { wearTheHub } from '../_lib/wear-the-hub';
 import { GuestLookScope } from '../../_components/guest-look-scope';
 import { lookScopeProps } from '../../_components/host-draft-look';
 import { getCurrentUser } from '@/lib/auth';
-import { HUB_DRAFT_LOOK_COLUMNS, overlayHubDraftEvent, overlayHubDraftWidgets } from '@/lib/hub-draft';
+import { overlayHubDraftEvent } from '@/lib/hub-draft';
 import { rsvpCanvasGuestFor } from '@/lib/simulated-guest-preview';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
 
@@ -381,51 +371,6 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
       </DoorShell>
     </GuestLookScope>
   );
-}
-
-/**
- * THE EVENT HUB'S LOOK AND MAIN BACKGROUND, for the RSVP page.
- *
- *   · the look — for a guest, `loadGuestLook(slug)`: the very value the
- *     guest-tree layout wears on every Event Hub page (and `cache()`d, so it
- *     costs nothing — the layout already asked). On the Maker's canvas, when the
- *     couple's DRAFT holds a Colors-panel column, it is re-resolved from the
- *     drafted row exactly as the Event Hub canvas does (`guestLookFrom(…, true)`,
- *     app/[slug]/page.tsx), so a colour tried in the Maker shows here before
- *     Apply.
- *   · the ground — `mainGroundLayerFor`, the helper the Event Hub body itself
- *     calls, over the (draft-overlaid) hero row. Pro themes only, by the one
- *     page-ground rule.
- *
- * ⚖ BEST-EFFORT, LIKE THE LAYOUT'S LOOK. A background that cannot be read
- * renders the page in the house look — never takes the reply form down.
- */
-async function wearTheHub(
-  slug: string,
-  admin: ReturnType<typeof createAdminClient>,
-  hostDraft: Awaited<ReturnType<typeof loadHostPreviewDraft>>,
-  viewerIsHost: boolean,
-): Promise<{ look: GuestLook | null; ground: React.ReactNode }> {
-  try {
-    const shell = await loadEventShell(slug);
-    if (!shell?.event_id) return { look: null, ground: null };
-    const row = overlayHubDraftEvent(shell as Record<string, unknown>, hostDraft) as EventShellRow;
-    const draftsLook = Boolean(hostDraft && HUB_DRAFT_LOOK_COLUMNS.some((c) => c in hostDraft.events));
-    const look = draftsLook
-      ? guestLookFrom(row, await resolveHubTheme(row), true)
-      : await loadGuestLook(slug);
-    if (!look?.theme) return { look, ground: null };
-    const widgets = overlayHubDraftWidgets(await loadWidgets(admin, shell.event_id), hostDraft);
-    const ground = await mainGroundLayerFor({
-      theme: look.theme,
-      heroConfig: widgets.find((w) => w.widget_type === 'hero')?.config_json,
-      event: row,
-      viewerIsHost,
-    });
-    return { look, ground };
-  } catch {
-    return { look: null, ground: null };
-  }
 }
 
 /**

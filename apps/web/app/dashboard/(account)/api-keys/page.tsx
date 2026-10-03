@@ -141,7 +141,7 @@ export default async function ApiKeysPage({ searchParams }: Props) {
         <h2 className="sn-sec">Create a key</h2>
         <p className="text-sm text-ink/70">
           The Setnayan API is an{' '}
-          <span className="font-medium text-ink">Enterprise vendor</span> feature —
+          <span className="font-medium text-ink">Enterprise supplier</span> feature —
           integrate Setnayan with your own systems. It&rsquo;s enabled per
           request on a <span className="font-medium text-ink">Custom</span> plan;
           talk to us about a Custom plan with API access to mint keys.
@@ -150,7 +150,7 @@ export default async function ApiKeysPage({ searchParams }: Props) {
           href="/vendor-dashboard/subscription"
           className="button-primary inline-flex w-fit items-center gap-2"
         >
-          View vendor plans
+          View supplier plans
         </Link>
       </section>
       )}
@@ -241,8 +241,8 @@ export default async function ApiKeysPage({ searchParams }: Props) {
             (requires <span className="font-mono">events.read</span>).
           </li>
           <li>
-            <code className="font-mono text-xs">GET /api/v1/vendors</code> — browse published
-            vendors (public, no auth).
+            <code className="font-mono text-xs">GET /api/v1/suppliers</code> — browse published
+            suppliers (public, no auth).
           </li>
           <li>
             See <Link href="/api/v1" prefetch={false} className="underline">/api/v1</Link> for the full reference.

@@ -49,7 +49,7 @@ const ERROR_COPY: Record<string, string> = {
   invalid_type:
     "That event type isn't available yet — pick one to continue.",
   missing_ceremony_type:
-    'Pick a wedding type so we can match vendors compatible with your ceremony.',
+    'Pick a wedding type so we can match suppliers compatible with your ceremony.',
   missing_sub_type: 'Pick a tradition for the ceremony type you chose.',
   missing_secondary: 'Pick a secondary ceremony for your interfaith wedding.',
   wedding_exists:

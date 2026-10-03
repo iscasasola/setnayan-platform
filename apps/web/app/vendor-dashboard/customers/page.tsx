@@ -729,7 +729,7 @@ async function CustomersPipeline({ searchParams }: Props) {
               </p>
             ) : payments.isEmpty ? (
               <p className="mt-3 text-sm" style={{ color: 'var(--m-slate-2)' }}>
-                No installments due this month. Amounts appear here once a couple
+                No payments due this month. Amounts appear here once a couple
                 books you on a service with a payment schedule.
               </p>
             ) : (
@@ -767,7 +767,7 @@ async function CustomersPipeline({ searchParams }: Props) {
               className="mt-3 inline-flex items-center gap-1 text-sm font-medium"
               style={{ color: 'var(--m-orange-2)' }}
             >
-              Payday timeline <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+              Money in timeline <ChevronRight className="h-4 w-4" strokeWidth={1.75} aria-hidden />
             </Link>
           </article>
 
@@ -974,8 +974,8 @@ const CUSTOMER_SECTIONS: AccordionSection[] = [
   */
   {
     key: 'proposals',
-    label: 'Proposals',
-    sub: 'Build quotes and reusable proposal templates',
+    label: 'Quotes',
+    sub: 'Build quotes and reusable quote templates',
     icon: <FileText className="h-4 w-4" strokeWidth={1.75} />,
   },
   {

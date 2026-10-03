@@ -73,7 +73,7 @@ function VendorProgress({
   return (
     <section className="sn-tile !px-4 !py-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="sn-eye">Vendor progress</p>
+        <p className="sn-eye">Supplier progress</p>
         <Link
           href={`/dashboard/${eventId}/vendors?tab=shortlist`}
           className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta transition hover:underline"

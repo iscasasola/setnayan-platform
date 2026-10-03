@@ -381,7 +381,7 @@ export const KEEPSAKE_CSS = `
   margin: 1.5mm 0 0;
 }
 
-/* ── vendor credit ledger ─────────────────────────────────────────────────── */
+/* ── supplier credit ledger ─────────────────────────────────────────────────── */
 .k-credits { columns: 2; column-gap: 9mm; list-style: none; margin: 0; padding: 0; }
 .k-credit {
   break-inside: avoid;

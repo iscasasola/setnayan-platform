@@ -93,7 +93,7 @@ async function syncInstagramMedia(): Promise<SyncResult> {
   }
   const vendorProfileId = await ownVendorProfileId();
   if (!vendorProfileId) {
-    return { ok: false, message: 'Not signed in as a vendor.' };
+    return { ok: false, message: 'Not signed in as a supplier.' };
   }
 
   const admin = createAdminClient();

@@ -38,7 +38,7 @@ export function SuggestMilestonesButton({
           hint: 'Saving',
         });
         if (result.ok) {
-          toast.success('Added a Deposit (50%) and Balance (50%) — edit or delete any time.');
+          toast.success('Added a First payment (50%) and Balance (50%) — edit or delete any time.');
         } else {
           toast.error(result.error);
         }
@@ -56,7 +56,7 @@ export function SuggestMilestonesButton({
       className="inline-flex items-center justify-center gap-1.5 rounded-md border border-terracotta/40 bg-terracotta/[0.06] px-3 py-1.5 text-xs font-medium text-terracotta-700 hover:bg-terracotta/10 disabled:opacity-60"
     >
       <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-      {pending ? 'Adding…' : 'Suggest a deposit + balance split'}
+      {pending ? 'Adding…' : 'Suggest a first payment + balance split'}
     </button>
   );
 }

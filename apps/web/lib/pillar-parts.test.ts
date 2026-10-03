@@ -84,13 +84,14 @@ test('Your Team MOUNTS the shipped Budget page as its part, and offers it from t
   const page = read('vendors', 'page.tsx');
   assert.match(page, /import BudgetPage from '\.\.\/budget\/page'/, 'Budget is no longer the shipped page');
   assert.match(page, /if \(sp\.part === YOUR_TEAM_BUDGET_PART\)[\s\S]*?<BudgetPage[\s\S]*?part: YOUR_TEAM_BUDGET_PART/, 'the Budget part is not rendered, or does not tell the page it is embedded');
-  // ⚖ Approved phone design (owner 2026-10-01): on the team, Budget is a row
-  // behind ⋯ rather than a dropdown above the team. Still every part from
-  // `yourTeamParts`, still a link to its own URL — only its place moved.
+  // ⚖ Owner 2026-10-03: Budget is a visible row of "Your planning" (it was
+  // behind ⋯ from 2026-10-01). Still the part from `yourTeamParts`, still a
+  // link to its own URL — only its place moved.
   assert.match(page, /teamParts=\{teamParts\}/, 'the takeover lost the Your Team parts');
   const takeover = read('vendors', '_components', 'services-takeover.tsx');
-  assert.match(takeover, /<TeamMoreMenu parts=\{teamParts\}/, 'the takeover no longer offers the parts');
-  assert.match(takeover, /\(parts \?\? \[\]\)\.filter\(\(p\) => p\.key !== 'team'\)[\s\S]*?href=\{p\.href\}/, 'the ⋯ menu no longer links each part');
+  assert.match(takeover, /<PlanningList budgetHref=\{teamParts\?\.find\(\(p\) => p\.key === 'budget'\)\?\.href\}/, 'the takeover no longer offers the Budget part');
+  const list = read('vendors', '_components', 'planning-list.tsx');
+  assert.match(list, /<Link href=\{budgetHref\}/, 'the Your planning list no longer links Budget');
 });
 
 test('/budget lands in Your Team only where Your Team exists', () => {

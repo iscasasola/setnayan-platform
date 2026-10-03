@@ -136,7 +136,7 @@ async function tellAdminsOfMoneyCases(admin: Client, flagIds: readonly string[])
         userId: a.user_id,
         type: 'force_majeure_filed',
         title: 'Date change · a booking with money logged was released',
-        body: 'Settle the deposit by the cancellation terms on the booking — the case carries them.',
+        body: 'Settle the payment by the cancellation terms on the booking — the case carries them.',
         relatedUrl: `/admin/force-majeure/${flagId}`,
       });
     }
@@ -328,7 +328,7 @@ export async function settleDateChange({
       userId,
       type: 'date_change_closed',
       title: `${who} released your booking`,
-      body: `You had not answered their ask to move to ${dateChangeWhen(view.proposedDate, view.proposedPrecision)} after 3 days, so they released the booking. Any deposit is settled by the cancellation terms on the booking.`,
+      body: `You had not answered their ask to move to ${dateChangeWhen(view.proposedDate, view.proposedPrecision)} after 3 days, so they released the booking. Any payment is settled by the cancellation terms on the booking.`,
       relatedUrl: SUPPLIER_DESK,
       eventId,
     });
@@ -398,7 +398,7 @@ export async function answerDateChange({
         body: [
           answer === 'unlocked'
             ? money
-              ? 'They are no longer booked. Money was logged with them, so the deposit is settled by the cancellation terms on your booking — Setnayan support has the case.'
+              ? 'They are no longer booked. Money was logged with them, so the payment is settled by the cancellation terms on your booking — Setnayan support has the case.'
               : 'They are no longer booked for your celebration.'
             : 'They confirmed they can do the new date.',
           env.ready

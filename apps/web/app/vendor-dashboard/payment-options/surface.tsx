@@ -33,7 +33,7 @@ import { AddPaymentMethod } from './_components/add-payment-method';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'How clients pay you · Vendor · Setnayan' };
+export const metadata = { title: 'How clients pay you · Supplier · Setnayan' };
 
 type Props = {
   searchParams: Promise<{ msg?: string; error?: string }>;

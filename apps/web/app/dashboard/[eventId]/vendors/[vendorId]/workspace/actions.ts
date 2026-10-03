@@ -81,7 +81,7 @@ export async function createAutoShareInviteAction(formData: FormData): Promise<v
     businessName:
       typeof row.vendor_name === 'string' && row.vendor_name.trim().length > 0
         ? row.vendor_name.trim()
-        : 'Vendor',
+        : 'Supplier',
     serviceCategory: typeof row.category === 'string' && row.category.length > 0
       ? row.category
       : null,

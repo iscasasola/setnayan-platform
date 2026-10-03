@@ -138,19 +138,27 @@ test('there is ONE removal path, not one per density', () => {
   // would have gone RED for the right reason, and an "at most 1" test would have
   // gone GREEN BY FINDING NOTHING. The mechanism changed; the assertion follows
   // it. What replaced it is stronger.
+  // ⤷ 2026-10-03: the hook moved to guest-delete.tsx so the guest card's ⋯
+  // could share it (owner: delete on the card, the swipe and the selection —
+  // one path). This list still calls it from BOTH its call sites, and the
+  // action is still called from exactly one place: the hook.
   const hookRefs = SRC.match(/useGuestRemoval\(/g) ?? [];
   assert.ok(
-    hookRefs.length >= 3,
-    'expected the hook definition plus BOTH call sites (bulk bar + swipe), ' +
-      `found ${hookRefs.length} references`,
+    hookRefs.length >= 2,
+    `expected BOTH call sites (bulk bar + swipe), found ${hookRefs.length} references`,
   );
-  const actionCalls = SRC.match(/bulkSoftDeleteGuestsForUndo\(/g) ?? [];
+  assert.match(SRC, /import \{[^}]*\buseGuestRemoval\b[^}]*\} from '\.\/guest-delete';/, 'the list grew its own delete hook again');
+  const DELETE = stripComments(readFileSync(join(HERE, 'guest-delete.tsx'), 'utf8'));
+  const callers = [SRC, DELETE, stripComments(readFileSync(join(HERE, 'guest-ticket-parts.tsx'), 'utf8'))]
+    .map((src) => (src.match(/bulkSoftDeleteGuestsForUndo\(/g) ?? []).length)
+    .reduce((a, b) => a + b, 0);
   assert.equal(
-    actionCalls.length,
+    callers,
     1,
     'the delete action must be called from exactly one place (the hook), found ' +
-      `${actionCalls.length} — a second caller is a second set of rules to drift`,
+      `${callers} — a second caller is a second set of rules to drift`,
   );
+  assert.match(DELETE, /export function useGuestRemoval\(/);
 });
 
 test('the delete that cannot be undone no longer EXISTS', () => {

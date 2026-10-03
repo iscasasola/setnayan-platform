@@ -338,7 +338,7 @@ export function formatPackagePicksBlock(
     }
     if (line.extraHours > 0) {
       rendered.push(
-        `${indent}  → ${line.extraHours} extra hour${line.extraHours === 1 ? '' : 's'} (your vendor quotes these)`,
+        `${indent}  → ${line.extraHours} extra hour${line.extraHours === 1 ? '' : 's'} (your supplier quotes these)`,
       );
     }
     const cost = rendered.reduce((n, l) => n + l.length + 1, 0);
@@ -425,7 +425,7 @@ export function buildNotSentCopy(
   vendorLabel: string,
   serverMessage?: string | null,
 ): string {
-  const vendor = (vendorLabel ?? '').trim() || 'This vendor';
+  const vendor = (vendorLabel ?? '').trim() || 'This supplier';
   switch (reason) {
     case 'followup_used':
       return (

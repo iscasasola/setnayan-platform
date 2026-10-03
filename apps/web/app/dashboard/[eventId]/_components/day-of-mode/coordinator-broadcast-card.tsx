@@ -94,7 +94,7 @@ function LiveBroadcastCard({
       } else if (result.reason === 'not_configured') {
         setEmailStatus('Email sending is not configured yet.');
       } else if (result.reason === 'nothing_to_send') {
-        setEmailStatus('No call times to send — tag vendors on schedule rows first.');
+        setEmailStatus('No call times to send — tag suppliers on schedule rows first.');
       } else {
         setEmailStatus('Could not send call-time emails. Try again.');
       }
@@ -172,12 +172,12 @@ function LiveBroadcastCard({
               className="inline-flex items-center gap-1.5 rounded-md border border-ink/15 bg-cream/60 px-3 py-1.5 text-sm text-ink/80 transition-colors hover:border-ink/30 disabled:opacity-50"
             >
               <Mail aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-              Email call-times to vendors
+              Email call-times to suppliers
               {broadcast.callTimeCount > 0 ? ` (${broadcast.callTimeCount})` : ''}
             </button>
             {broadcast.callTimeCount === 0 ? (
               <p className="mt-1 text-[11px] text-ink/45">
-                Tag vendors as responsible on schedule rows to derive their call
+                Tag suppliers as responsible on schedule rows to derive their call
                 times.
               </p>
             ) : !broadcast.emailConfigured ? (

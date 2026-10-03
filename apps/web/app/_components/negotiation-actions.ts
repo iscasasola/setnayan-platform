@@ -334,7 +334,7 @@ async function notifyChangeCounterparty(
         await emitNotification({
           userId: m.user_id,
           type: 'schedule_suggestion',
-          title: `Vendor ${verb}: ${title.slice(0, 60)}`,
+          title: `Supplier ${verb}: ${title.slice(0, 60)}`,
           body: 'Open the chat to respond.',
           relatedUrl: `/dashboard/${thread.event_id}/messages/${thread.thread_id}`,
         });
@@ -532,7 +532,7 @@ export async function createAmendmentFromChat(formData: FormData): Promise<void>
   if (!eventVendorId) {
     if (back) {
       redirect(
-        `${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent('Book this vendor first to send proposal changes.')}`,
+        `${back}${back.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent('Book this supplier first to send quote changes.')}`,
       );
     }
     redirect(dest);
@@ -812,11 +812,11 @@ export async function lockDeal(formData: FormData): Promise<void> {
     }
     if (outcome.status === 'hard_single_blocked') {
       failBack(
-        'You already locked another vendor in this category. Switch them from the vendor page first, then lock this deal.',
+        'You already booked another supplier in this category. Switch them from the supplier page first, then book this deal.',
       );
     }
     if (outcome.status === 'error') {
-      failBack('We could not lock this deal just now — please try again.');
+      failBack('We could not book this deal just now — please try again.');
     }
 
     // ── THE PRICE MUST HAVE LANDED BEFORE WE CALL IT FROZEN ──────────────────
@@ -833,7 +833,7 @@ export async function lockDeal(formData: FormData): Promise<void> {
     // thread freeze IS the whole record and falling through is correct.
     if ('priceLanded' in outcome && !outcome.priceLanded) {
       failBack(
-        'We could not apply the agreed price to this booking — nothing has changed. Please try again, or open the supplier from your vendors page.',
+        'We could not apply the agreed price to this booking — nothing has changed. Please try again, or open the supplier from your suppliers page.',
       );
     }
 

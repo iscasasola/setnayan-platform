@@ -38,6 +38,7 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (...p: string[]) => stripComments(readFileSync(join(HERE, ...p), 'utf8'));
 const CARD = read('guest-card-body.tsx');
+const GUESTS_LIB = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'guests.ts'), 'utf8'));
 const PARTS = read('guest-ticket-parts.tsx');
 const CELL = read('guest-invite-cell.tsx');
 const ROWS = read('guest-list-multiselect.tsx');
@@ -106,8 +107,10 @@ test('card body: the name is open; the rest fold, one open at a time', () => {
 
 test('card: RSVP is Attending · No reply · Not coming — Maybe only for a guest who said it', () => {
   assert.match(CARD, /RSVP_OPTIONS\.filter\(\(v\) => v !== 'maybe' \|\| guest\.rsvp_status === 'maybe'\)/);
-  assert.match(CARD, /pending: 'No reply'/);
-  assert.match(CARD, /declined: 'Not coming'/);
+  // The words live in ONE list (lib/guests RSVP_ROW_WORDS) that the card, the row picker and the filter all read.
+  assert.match(CARD, /CARD_RSVP_WORDS: Record<RsvpStatus, string> = RSVP_ROW_WORDS/);
+  assert.match(GUESTS_LIB, /RSVP_ROW_WORDS: Record<RsvpStatus, string> = \{[^}]*pending: 'No reply'/);
+  assert.match(GUESTS_LIB, /RSVP_ROW_WORDS: Record<RsvpStatus, string> = \{[^}]*declined: 'Not coming'/);
 });
 
 test('card: no email anywhere a couple can see — the address is only CARRIED for guests', () => {

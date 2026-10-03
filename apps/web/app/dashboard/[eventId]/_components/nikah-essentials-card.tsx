@@ -119,7 +119,7 @@ export function NikahEssentialsCard({
       help: imamDone
         ? imamCount >= 1
           ? 'Your officiant is on your guest list.'
-          : imamNote ?? 'Your officiant is booked in your vendor list.'
+          : imamNote ?? 'Your officiant is booked in your supplier list.'
         : 'Add the imam or qadi who will solemnize the nikah.',
       cta: imamDone ? null : { href: guestsHref, label: 'Add imam' },
     },

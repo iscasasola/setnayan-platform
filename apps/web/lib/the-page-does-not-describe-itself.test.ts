@@ -77,7 +77,7 @@ const REMOVED: ReadonlyArray<readonly [string, string]> = [
 */
 const KEPT_ENDOWED: ReadonlyArray<readonly [string, string]> = [
   ['team, empty', 'start with the ones that book out first'],
-  ['conversations, empty', 'when a vendor replies, it lands right here'],
+  ['conversations, empty', 'when a supplier replies, it lands right here'],
   ['services, empty', 'the Studio has everything for the day'],
   ['schedule, empty', 'your guests follow the timeline live on the day'],
   ['hosts, alone', 'invite your partner, family, or a coordinator'],

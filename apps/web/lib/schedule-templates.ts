@@ -62,7 +62,7 @@ export const SCHEDULE_TEMPLATES: readonly ScheduleTemplate[] = [
     eventTypes: ['wedding'],
     rows: [
       { label: 'Hair & makeup / preparations', block_type: 'pre_ceremony', startHour: 8, startMinute: 0, durationMinutes: 240, is_public: false },
-      { label: 'Vendor ingress & styling', block_type: 'pre_ceremony', startHour: 10, startMinute: 0, durationMinutes: 180, is_public: false },
+      { label: 'Supplier ingress & styling', block_type: 'pre_ceremony', startHour: 10, startMinute: 0, durationMinutes: 180, is_public: false },
       { label: 'Guests arrive', block_type: 'pre_ceremony', startHour: 13, startMinute: 30, durationMinutes: 30, is_public: true },
       { label: 'Ceremony', block_type: 'ceremony', startHour: 14, startMinute: 0, durationMinutes: 90, is_public: true },
       { label: 'Post-ceremony photos', block_type: 'custom', startHour: 15, startMinute: 30, durationMinutes: 30, is_public: false },

@@ -42,7 +42,7 @@ import {
 import { ShopNotice } from '../_components/kit';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Team · Vendor' };
+export const metadata = { title: 'Team · Supplier' };
 
 type Props = {
   searchParams: Promise<{

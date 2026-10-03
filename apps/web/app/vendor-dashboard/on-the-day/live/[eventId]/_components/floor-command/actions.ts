@@ -34,7 +34,7 @@ async function requireCoordinator(eventId: string) {
   if (!user) return { error: 'Not signed in.' as const };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { error: 'No vendor profile.' as const };
+  if (!profile) return { error: 'No supplier profile.' as const };
   if (!profile.services?.includes(COORDINATOR_TILE)) {
     return { error: 'Only the coordinator can run the floor.' as const };
   }

@@ -919,7 +919,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             <div className="min-w-0">
               <p className="text-sm font-medium text-ink">Download my data</p>
               <p className="text-xs text-ink/60">
-                Your profile, events you&rsquo;re on, vendor profile (if any), and chat messages you
+                Your profile, events you&rsquo;re on, supplier profile (if any), and chat messages you
                 wrote.
               </p>
             </div>
@@ -1269,7 +1269,7 @@ export default async function ProfilePage({ searchParams }: Props) {
             on={remindersOn}
             id="planning-reminders"
             label="Planning reminders"
-            help="Nudges on your Overview tab for when to book each vendor."
+            help="Nudges on your Overview tab for when to book each supplier."
           >
             <input type="hidden" name="reminders_enabled" value={remindersOn ? 'false' : 'true'} />
           </SwitchRow>

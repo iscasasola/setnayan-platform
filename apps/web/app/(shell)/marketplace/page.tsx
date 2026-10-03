@@ -230,7 +230,7 @@ export default function MarketplaceLandingPage() {
       steps={STEPS}
       differentiator={{
         heading: 'Free to browse, and nothing taken out of your booking',
-        lede: 'Setnayan never touches money between you and a vendor. You find them here, you compare them here, and you deal with them directly.',
+        lede: 'Setnayan never touches money between you and a supplier. You find them here, you compare them here, and you deal with them directly.',
         rows: VS,
       }}
       faq={FAQ}

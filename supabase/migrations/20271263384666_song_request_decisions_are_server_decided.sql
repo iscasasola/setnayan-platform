@@ -69,6 +69,11 @@
 -- service role may call this.
 -- ============================================================================
 
+-- The refusals below are tagged `songdecide:*`, NOT `songreq:*`: they are the
+-- ACT's refusals and can never reach a guest. `songreq:*` is the guest lane's
+-- vocabulary, which lib/a-guest-can-ask-the-band.test.ts requires to be mapped
+-- to guest-readable copy.
+
 BEGIN;
 
 -- ── 1 · no browser role may UPDATE the table, at any granularity ──────────
@@ -95,7 +100,7 @@ BEGIN
   -- coalesce: `NULL IN (...)` is NULL, and plpgsql's IF reads NULL as "not
   -- refused". A missing decision must be a refusal.
   IF NOT coalesce(p_decision IN ('accepted', 'declined'), false) THEN
-    RAISE EXCEPTION 'songreq:bad_decision' USING ERRCODE = '22023';
+    RAISE EXCEPTION 'songdecide:bad_decision' USING ERRCODE = '22023';
   END IF;
 
   -- The attributed shop must be on this event at all (backstop — see header).
@@ -117,7 +122,7 @@ BEGIN
          )
        ),
        false) THEN
-    RAISE EXCEPTION 'songreq:not_on_event' USING ERRCODE = '42501';
+    RAISE EXCEPTION 'songdecide:not_on_event' USING ERRCODE = '42501';
   END IF;
 
   UPDATE public.event_song_requests r
@@ -129,7 +134,7 @@ BEGIN
   GET DIAGNOSTICS v_touched = ROW_COUNT;
 
   IF v_touched = 0 THEN
-    RAISE EXCEPTION 'songreq:not_found' USING ERRCODE = 'P0002';
+    RAISE EXCEPTION 'songdecide:not_found' USING ERRCODE = 'P0002';
   END IF;
   RETURN TRUE;
 END;

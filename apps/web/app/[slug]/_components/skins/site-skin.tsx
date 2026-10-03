@@ -35,13 +35,18 @@ import type { InviteThemeId } from '@/lib/invite-themes';
  * infer it, and without it the swap from the metric fallback to the real face
  * reflows the page — `app/layout.tsx` carries the same note.
  *
- * ⏭ NO STAND-INS LEFT. Every face the spec names for a theme's heading or its
- * labels is downloaded (OFL, from google/fonts) and wired to the CSS var that
- * theme reads. A theme's BODY and script faces (Lora, Kaushan Script, Libre
- * Baskerville, Crimson Pro, Josefin Sans, Outfit's script cousin Monoton, …)
- * are not wired to a per-theme CSS var at all yet — no `--font-body` /
- * `--font-script` hook exists in `globals.css` for a theme to override, so
- * there was nothing here to point at a face. That is a separate delta.
+ * ⏭ HEADING AND LABELS: no stand-ins. Every face the spec names for a theme's
+ * heading or its labels is downloaded (OFL, from google/fonts) and wired to the
+ * CSS var that theme reads.
+ *
+ * ✅ BODY AND SCRIPT ARE WIRED TOO (B5, 2026-10-04) — and need NOTHING here.
+ * Each theme block in `globals.css` now sets `--font-body` (also `--font-sans`
+ * and the inherited `font-family`), `--font-theme-script` and `--font-mono`,
+ * pointing at faces ALREADY declared on `<html>` with `preload: false`
+ * (`app/layout.tsx`, `app/_fonts/choice-faces.ts`), so no class is added here
+ * and no file downloads until a themed page sets text in it. Which face each
+ * role wears — and the ten spec families worn through a shipped stand-in until
+ * the owner says whether to add them — is `lib/hub-theme-faces.ts`.
  */
 const bodoni = localFont({
   src: [{ path: '../../../_fonts/bodoni-moda/bodoni-moda-600.woff2', weight: '600', style: 'normal' }],

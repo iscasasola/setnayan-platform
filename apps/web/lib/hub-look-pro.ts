@@ -309,9 +309,10 @@ export const HUB_WORDS_EVENT_COLUMNS = [
  * Look columns that are FREE (owner 2026-09-24: *"changing background color is
  * free"*; 2026-09-28: *"change … color … only when you start adding themes will
  * it be pro"* — the button colour joins it). A colour is not media — it is the
- * page we write, recoloured.
+ * page we write, recoloured. 🔘 And Look › Buttons' shape + fill (2026-10-04,
+ * `site_button_style`): a button's shape is design, which that same line frees.
  */
-export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color', 'site_button_color'] as const;
+export const HUB_FREE_LOOK_EVENT_COLUMNS = ['site_bg_color', 'site_button_color', 'site_button_style'] as const;
 
 /** Is this `events` column the page's look (Pro), a free colour, or words? */
 export function hubColumnKind(column: string): 'look' | 'free-look' | 'words' | 'other' {

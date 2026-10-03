@@ -134,6 +134,7 @@ import { resolveRevealStages, sanitizeRevealStages } from '@/lib/reveal-stages';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { sanitizeMagicTraveller } from '@/lib/magic-move';
+import { sanitizeHubButtonStyle } from '@/lib/hub-buttons';
 import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -326,6 +327,9 @@ export const HUB_DRAFT_LOOK_COLUMNS = [
   'site_font_key',
   'site_magic_traveller',
   'invite_theme',
+  // 🔘 LOOK › BUTTONS (owner 2026-10-04, "create them") — shape + fill as one
+  // value (`lib/hub-buttons.ts`); the colour stays `site_button_color` above.
+  'site_button_style',
 ] as const;
 
 /**
@@ -609,6 +613,9 @@ export function sanitizeHubDraftEventValue(
       return sanitizeHubFontKey(raw) ?? undefined;
     case 'site_magic_traveller':
       return sanitizeMagicTraveller(raw) ?? undefined;
+    // 🔘 Look › Buttons — a known '<shape>-<fill>', or back to the theme's.
+    case 'site_button_style':
+      return sanitizeHubButtonStyle(raw);
     // 🎨 The theme — only a live id of a SHIPPED theme (`setInviteTheme`'s old
     // rule: `isInviteThemeId` + `ready`). A retired alias is never written.
     case 'invite_theme':
@@ -1989,6 +1996,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_art_direction: 'Candlelight',
   site_font_key: 'Your typeface',
   site_magic_traveller: 'Magic move',
+  site_button_style: 'Your buttons',
   invite_theme: 'Your theme',
   site_bg_music_r2_key: 'Your background music',
   site_bg_music_enabled: 'Background music on or off',

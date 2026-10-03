@@ -3842,6 +3842,12 @@ html.dark {
   --m-ink: rgb(var(--color-ink));
   --font-display: var(--font-pahina-display);
   --pahina-face: var(--font-pahina-display);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-cardo);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-script);
+  --font-mono: var(--font-hub-cardo);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3875,6 +3881,11 @@ html.dark {
   --font-display: var(--font-galeriya-display);
   --pahina-face: var(--font-galeriya-display);
   --font-mono: var(--font-velvet-utility);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-jost);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-galeriya-display);
+  font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3907,6 +3918,12 @@ html.dark {
   --m-ink: rgb(var(--color-ink));
   --font-display: var(--font-cinderella-display);
   --pahina-face: var(--font-cinderella-display);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-editorial-display);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-script);
+  --font-mono: var(--font-hub-cormorantsc);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3941,6 +3958,11 @@ html.dark {
   --font-display: var(--font-velvet-display);
   --pahina-face: var(--font-velvet-display);
   --font-mono: var(--font-velvet-labels);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-editorial-display);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-pinyon);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3973,6 +3995,12 @@ html.dark {
   --m-ink: rgb(var(--color-ink));
   --font-display: var(--font-playfair);
   --pahina-face: var(--font-playfair);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-cardo);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-haviland);
+  --font-mono: var(--font-hub-cardo);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -4006,6 +4034,11 @@ html.dark {
   --font-display: var(--font-whimsical-display);
   --pahina-face: var(--font-whimsical-display);
   --font-mono: var(--font-whimsical-labels);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-quicksand);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-script);
+  font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -4038,6 +4071,12 @@ html.dark {
   --m-ink: rgb(var(--color-ink));
   --font-display: var(--font-regency-display);
   --pahina-face: var(--font-regency-display);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-cardo);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-script);
+  --font-mono: var(--font-hub-cardo);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -4072,6 +4111,11 @@ html.dark {
   --font-display: var(--font-gatsby-display);
   --pahina-face: var(--font-gatsby-display);
   --font-mono: var(--font-gatsby-labels);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-jost);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-gatsby-display);
+  font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -4106,9 +4150,65 @@ html.dark {
   --font-display: var(--font-cyber-display);
   --pahina-face: var(--font-cyber-display);
   --font-mono: var(--font-cyber-labels);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-outfit);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-poiret);
+  font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
+}
+
+/* ── LOOK › BUTTONS (owner 2026-10-04: "create them") ────────────────────────
+   The host's ONE choice for every Event Hub button — Shape · Fill · Colour —
+   decided by `lib/hub-buttons.ts` (`resolveHubButtons`) and worn by the guest
+   scope (`GuestLookScope`) as two attributes plus their custom properties,
+   inline. Nothing here applies until a host chooses: an event that never did
+   wears neither attribute, and every button renders exactly as before.
+
+   WHICH BUTTONS — the guest Event Hub's shared ones, by the hooks they already
+   carry, so no page had to be re-drawn:
+     · `.button-primary` — Send my reply, Save RSVP, Get inside, Save to my
+       account, the plus-one door, the song card, the tickets…;
+     · the arrival's one main action (`[data-arrival-action] a.bg-mulberry`) —
+       "Reply to the invitation" under the names;
+     · the RSVP's answers (`[data-rsvp-answer]`) — Joyfully accepts /
+       Regretfully declines. The form stays standard (DECISION_LOG 2026-09-27):
+       they follow the one choice, with no editing of their own. A PICKED answer
+       always wears the solid pair, even under Outline — a picked answer must
+       look picked.
+     · Shape only: `.button-secondary` (the quiet second action).
+
+   🔑 THE LABEL IS NEVER CHOSEN HERE. `--hub-btn-label` is the legibility rule's
+   ink on the fill (AA), and an Outline's colour is drawn only where it clears AA
+   on the page's paper and plates — otherwise the resolver drew it Solid.
+
+   ⚖ SPECIFICITY, NOT !important: two selectors deep, so a call site's own
+   `rounded-full` / `bg-mulberry` / `hover:bg-mulberry-600` utility (one deep)
+   gives way only while the host has chosen. */
+[data-hub-btn-shape] .button-primary,
+[data-hub-btn-shape] .button-secondary,
+[data-hub-btn-shape] [data-arrival-action] a.bg-mulberry,
+[data-hub-btn-shape] [data-rsvp-answer] {
+  border-radius: var(--hub-btn-radius);
+}
+[data-hub-btn-paint] .button-primary,
+[data-hub-btn-paint] [data-arrival-action] a.bg-mulberry {
+  background-color: var(--hub-btn-fill);
+  color: var(--hub-btn-label);
+  /* A border, not an inset shadow: Tailwind's focus ring IS a box-shadow, and
+     this rule (two deep, after the utilities) would erase it. border-box keeps
+     every button its size. */
+  border: 1.5px solid var(--hub-btn-border);
+}
+[data-hub-btn-paint] .button-primary:hover,
+[data-hub-btn-paint] [data-arrival-action] a.bg-mulberry:hover {
+  background-color: var(--hub-btn-hover);
+}
+[data-hub-btn-paint] [data-rsvp-answer]:has(:checked) {
+  background-color: var(--hub-btn-solid);
+  color: var(--hub-btn-solid-label);
 }
 
 /* ── FOIL NAMES (owner 2026-09-25: "i like that shimmer effect") ─────────────

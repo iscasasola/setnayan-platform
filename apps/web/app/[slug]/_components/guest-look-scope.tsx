@@ -82,6 +82,7 @@ export function GuestLookScope({
   style,
   ground = null,
   ombre = null,
+  buttons = null,
   children,
 }: {
   theme: Exclude<InviteThemeId, 'house'> | null;
@@ -100,6 +101,13 @@ export function GuestLookScope({
    * background, and a guest's phone should not decode a video to hide it.
    */
   ombre?: string | null;
+  /**
+   * 🔘 LOOK › BUTTONS (`lib/hub-buttons.ts`): the host's chosen shape and how
+   * the buttons are painted. Worn as `data-hub-btn-shape` / `data-hub-btn-paint`
+   * — the attributes the guest button rules in `globals.css` key on; their
+   * values travel in `style`. Null = the theme's buttons, nothing worn.
+   */
+  buttons?: { shape: string | null; paint: string | null } | null;
   children: React.ReactNode;
 }) {
   const worn = lookIsWorn(useSelectedLayoutSegment(), { theme, art, style, ombre });
@@ -120,6 +128,8 @@ export function GuestLookScope({
       data-art={worn && art ? art : undefined}
       data-guest-look={worn ? '' : undefined}
       data-hub-foil={worn && ground?.foil && !ombre ? '' : undefined}
+      data-hub-btn-shape={worn && buttons?.shape ? buttons.shape : undefined}
+      data-hub-btn-paint={worn && buttons?.paint ? buttons.paint : undefined}
       style={worn && style ? (style as React.CSSProperties) : undefined}
     >
       {/* 🧱 The ONE page-ground rule (`lib/page-ground.ts`): the base is always

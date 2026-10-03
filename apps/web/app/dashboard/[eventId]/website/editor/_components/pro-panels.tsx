@@ -211,10 +211,16 @@ export function ColorsPanel({
       {/* In Look the "Background" is the section above (behind every scene); here it is the page's colour. */}
       <BackgroundField id={`${rowKey}-bg`} value={bgColor} themeId={themeId} eventId={eventId} moodBoard={moodBoard} label={part === 'colours' ? 'Page' : 'Background'} />
       {/* 🎨 Free for everyone since 2026-09-28 (owner: "change … color …
-          only when you start adding themes will it be pro") — never locked. */}
-      <div className="mt-3">
-        <ButtonColourField name="button_color" defaultValue={buttonColor} eventId={eventId} moodBoard={moodBoard} themeId={themeId} />
-      </div>
+          only when you start adding themes will it be pro") — never locked.
+          🔘 In Look it lives in Look › Buttons (2026-10-04) — the same
+          `site_button_color`, beside the shape and fill it goes with — so the
+          Colours section no longer draws it (one field, one place). This form
+          then posts no `button_color`, which the action reads as unchanged. */}
+      {part === 'colours' ? null : (
+        <div className="mt-3">
+          <ButtonColourField name="button_color" defaultValue={buttonColor} eventId={eventId} moodBoard={moodBoard} themeId={themeId} />
+        </div>
+      )}
       <p className="mt-1.5 text-[0.7rem] text-ink/45">
         {moodBoard
           ? 'Until you pick a colour, the page wears your Mood Board’s.'

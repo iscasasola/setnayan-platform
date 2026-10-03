@@ -11,6 +11,9 @@ import { regionBySlug } from '@/lib/region-source';
 import { getEventTypeVocab } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { renderableImageSrc } from '@/lib/event-card-art';
+import { resolveHero } from '@/lib/event-hero';
+import { sceneCoverFor, type SceneCover } from '@/lib/event-poster';
+import { resolveEventPoster } from '@/lib/event-poster.server';
 import {
   DISCOVER_CAPS,
   pickViewerRegion,
@@ -48,9 +51,11 @@ import {
  * Supabase query resolves `{ data: null, error }`; every read below checks
  * `error` explicitly, because there is nothing for a `catch` to catch.
  *
- * 💸 NAMED COST. Signed out: 3 reads (upcoming public events, their hosts'
- * names, public profiles) + the event-type vocabulary (React-cached). Signed
- * in: up to 5 more, each small and scoped to the viewer's own ids.
+ * 💸 NAMED COST. Signed out: 4 reads (upcoming public events, their hosts'
+ * names, the shelved cards' covers, public profiles) + the event-type
+ * vocabulary (React-cached). Signed in: up to 5 more, each small and scoped to
+ * the viewer's own ids. The covers add one presign per card with a hero photo,
+ * and — only for a Pro theme — the hub's ownership read (`resolveHubLook`).
  */
 
 export type ShelfState<T> = { status: 'ok'; items: T[] } | { status: 'unavailable' };
@@ -274,6 +279,74 @@ async function readHosts(
   return out;
 }
 
+/** Every column `resolveEventPoster` reads, plus the hero photo it is handed. */
+const COVER_COLUMNS =
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url';
+
+type CoverRow = {
+  event_id: string;
+  display_name: string | null;
+  event_date: string | null;
+  venue_name: string | null;
+  event_type: string | null;
+  monogram_text: string | null;
+  monogram_color: string | null;
+  invite_theme: string | null;
+  std_background: unknown;
+  landing_page_hero_image_url: string | null;
+};
+
+/**
+ * 🖼 THE CARD WEARS THE EVENT'S COVER — the dashboard card's, not a second one.
+ *
+ * Owner, 2026-10-03, on the cale-ice card: *"why is the cover like this? it
+ * should have adjusted."* Discover drew only the mark. The cover is now read
+ * through `resolveEventPoster` — the ONE resolver the home board, the Overview
+ * and the Maker ask (hero photo → Save-the-Date background, Pro-gated by the
+ * hub → the theme's still) — and narrowed by `sceneCoverFor`, the form a card
+ * with its words printed beside the picture (not on it) wears.
+ *
+ * ⛔ ONLY THE SHELVED CARDS. This runs AFTER `selectDiscoverShelves`, on the
+ * ≤ 20 cards that passed the allow-list, so no event that is not public and
+ * listed ever has its hero read or presigned here. A refused read costs only
+ * the picture — the card keeps its mark, logged — never the card.
+ */
+async function dressCards(admin: Admin, cards: DiscoverEventCard[]): Promise<void> {
+  const ids = [...new Set(cards.map((c) => c.key))];
+  if (ids.length === 0) return;
+  const { data, error } = await admin.from('events').select(COVER_COLUMNS).in('event_id', ids);
+  if (error) {
+    logQueryError('discover-events.covers', error, {}, 'graceful_degrade');
+    return;
+  }
+  const scenes = new Map<string, SceneCover>();
+  await Promise.all(
+    ((data ?? []) as unknown as CoverRow[]).map(async (r) => {
+      // The column is host-writable; only a real image URL reaches an <img>.
+      const heroSrc = renderableImageSrc(
+        await displayUrlForStoredAsset(resolveHero(r).photoRef).catch(() => null),
+      );
+      const poster = await resolveEventPoster(
+        {
+          event_id: r.event_id,
+          display_name: r.display_name ?? '',
+          event_date: r.event_date,
+          venue_name: r.venue_name,
+          event_type: r.event_type ?? '',
+          monogram_text: r.monogram_text,
+          monogram_color: r.monogram_color,
+          invite_theme: r.invite_theme,
+          std_background: r.std_background,
+        },
+        heroSrc,
+      ).catch(() => null);
+      const scene = sceneCoverFor(poster);
+      if (scene) scenes.set(r.event_id, scene);
+    }),
+  );
+  for (const c of cards) c.scene = scenes.get(c.key) ?? null;
+}
+
 async function readTypeLabels(): Promise<Map<string, string>> {
   try {
     const vocab = await getEventTypeVocab();
@@ -378,6 +451,9 @@ async function readEventShelves(
     now: Date.now(),
     typeLabels,
   });
+  await dressCards(admin, [...shelves.people, ...shelves.world]).catch((caught) =>
+    logQueryError('discover-events.covers', caught, {}, 'graceful_degrade'),
+  );
   return { ok: true, ...shelves };
 }
 

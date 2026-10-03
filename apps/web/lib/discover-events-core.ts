@@ -50,6 +50,7 @@ import { splitComingUpAndPast } from './coming-up-and-past';
 import { anyoneMayAskToJoin } from './rsvp-ask';
 import { resolveRegion, regionLabel } from './region-source';
 import { shopInitials } from './shop-initials';
+import type { SceneCover } from './event-poster';
 
 /**
  * How many cards each shelf shows. Two full rows of the four-across grid for
@@ -98,7 +99,17 @@ export type DiscoverEventCard = {
   title: string;
   typeLabel: string | null;
   datePlate: string;
+  /** The event's mark — the cover when it has chosen no look (`scene` null). */
   cover: string;
+  /**
+   * 🖼 THE EVENT'S LOOK — `sceneCoverFor(resolveEventPoster(…))`, the dashboard
+   * card's own cover (hero photo → Save-the-Date background → theme still).
+   * The core never decides it: it is `null` here and filled by the loader ONLY
+   * for a card that already passed `isDiscoverable`, so no event that is not
+   * public ever has its photo read, let alone shown. `null` (or a `quiet`
+   * cover) = the card wears `cover`, the mark.
+   */
+  scene: SceneCover | null;
   /** A host with a PUBLIC profile — their name is the card's second door. */
   host: { name: string; slug: string } | null;
   regionLabel: string | null;
@@ -248,6 +259,7 @@ function toCard(
     typeLabel: e.event_type ? (input.typeLabels?.get(e.event_type) ?? null) : null,
     datePlate: datePlate(e.event_date, e.event_date_precision, input.todayISO),
     cover: mono && mono.length <= 4 ? mono : shopInitials(title, 2, '·'),
+    scene: null,
     host: pickHost(hosts, input.people),
     regionLabel: regionLabel(e.region),
     relation,

@@ -171,8 +171,14 @@ export type DayOfModuleId =
   | 'setlist'
   | 'issues_log'
   | 'production_sheet'
-  | 'vendor_papic'
-  | 'guest_delivery';
+  | 'vendor_papic';
+// 🗑 `guest_delivery` ("Who’s received theirs") was REMOVED 2026-10-04 (owner,
+// 2026-10-03 S1): it shipped always padlocked — `dayOfModuleHref` was null and
+// no screen ever existed behind it — so every caterer saw a locked promise. The
+// supplier scan build (S2, DECISION_LOG 2026-10-03 "SUPPLIER SCAN = ALL FIVE
+// MODES") REPLACES it on the console. A saved `enabled_modules` list that still
+// names it is harmless: `saveDayOfOverride` and `resolveModules` only ever read
+// ids in DAY_OF_MODULES.
 
 export type DayOfModule = {
   id: DayOfModuleId;
@@ -301,15 +307,6 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     // host, a stylist catching moments between setups — should not have to ask.
     defaultOnFor: [],
     alwaysAvailable: true,
-    requiresGrant: true,
-    counselGated: true,
-  },
-  {
-    id: 'guest_delivery',
-    label: 'Who’s received theirs',
-    blurb: 'A per-guest checklist of who has and hasn’t received your product.',
-    defaultOnFor: ['serve'],
-    alwaysAvailable: false,
     requiresGrant: true,
     counselGated: true,
   },

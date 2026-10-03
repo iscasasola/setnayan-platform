@@ -16,6 +16,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isSupplierDateAnswer } from '@/lib/date-change';
 import { answerDateChange } from '@/lib/date-change.server';
 import { createVendorChallenge } from '@/lib/papic-games';
+import { notifyScheduleRequest } from '@/lib/schedule-request-notify.server';
 
 /**
  * Vendor Suggest flow on the shared day-of timeline — feature-access program
@@ -23,7 +24,8 @@ import { createVendorChallenge } from '@/lib/papic-games';
  * § 4). Vendors PROPOSE changes; the couple (or a delegate with schedule
  * edit) approves or declines on the couple's Schedule page. No direct vendor
  * writes to event_schedule_blocks — RLS enforces the booked gate + own-org
- * authorship on the suggestion row itself.
+ * authorship on the suggestion row itself, and (since 2026-10-03) that an
+ * edit or a delete is asked only about the supplier's OWN items.
  */
 
 function nullIfBlank(raw: FormDataEntryValue | null, max = 200): string | null {
@@ -422,49 +424,77 @@ export async function suggestScheduleChange(formData: FormData) {
   if (!profile) redirect('/vendor-dashboard');
 
   const blockId = nullIfBlank(formData.get('block_id'), 64);
+  /*
+    THE THREE ASKS (owner 2026-10-03, "SUPPLIERS WRITE THEIR OWN PART OF THE
+    SCHEDULE"): no block = add ('new'); a block + `request=remove` = delete
+    ('remove'); a block otherwise = change ('adjust'). An edit or a delete is
+    for the supplier's OWN items only, and that rule is the database's —
+    `schedule_suggestions_vendor_insert` (20271263061583) refuses it on anybody
+    else's item, so this action cannot be talked past by a hand-made POST. On
+    another's item the supplier may only suggest, in words.
+  */
+  const kind: 'new' | 'adjust' | 'remove' = !blockId
+    ? 'new'
+    : formData.get('request') === 'remove'
+      ? 'remove'
+      : 'adjust';
 
-  // RLS enforces: booked on the event, own org, own user, status open.
+  // The block's own label: the notice names it, and a 'remove' keeps it as
+  // `proposed_label` so the request still says what it was about once the
+  // block is gone (the FK is ON DELETE SET NULL since 20271263061583).
+  let blockLabel: string | null = null;
+  if (blockId) {
+    const { data: block } = await supabase
+      .from('event_schedule_blocks')
+      .select('label')
+      .eq('block_id', blockId)
+      .eq('event_id', eventId)
+      .maybeSingle();
+    blockLabel = (block as { label: string | null } | null)?.label ?? null;
+  }
+
+  const proposed =
+    kind === 'remove'
+      ? { proposed_label: blockLabel?.slice(0, 120) ?? null, proposed_start_at: null, proposed_end_at: null, proposed_location: null }
+      : {
+          proposed_label: nullIfBlank(formData.get('proposed_label'), 120),
+          proposed_start_at: parseDatetimeLocal(formData.get('proposed_start_at')),
+          proposed_end_at: parseDatetimeLocal(formData.get('proposed_end_at')),
+          proposed_location: nullIfBlank(formData.get('proposed_location'), 200),
+        };
+  const proposesChange =
+    kind === 'adjust' &&
+    Boolean(proposed.proposed_label || proposed.proposed_start_at || proposed.proposed_end_at || proposed.proposed_location);
+
+  // RLS enforces: booked on the event, own org, own user, status open — and
+  // an edit or a delete only on the supplier's own item.
   const { error } = await supabase.from('event_schedule_suggestions').insert({
     event_id: eventId,
     block_id: blockId,
     vendor_profile_id: profile.vendor_profile_id,
     suggested_by_user_id: user.id,
     suggested_by_name: profile.business_name ?? null,
-    kind: blockId ? 'adjust' : 'new',
-    proposed_label: nullIfBlank(formData.get('proposed_label'), 120),
-    proposed_start_at: parseDatetimeLocal(formData.get('proposed_start_at')),
-    proposed_end_at: parseDatetimeLocal(formData.get('proposed_end_at')),
-    proposed_location: nullIfBlank(formData.get('proposed_location'), 200),
+    kind,
+    ...proposed,
     note: (note as string).trim().slice(0, 1000),
     status: 'open',
   });
 
-  // Notify every couple member that a timeline suggestion is waiting for their
-  // okay (best-effort — never block the suggestion). event_schedule_suggestions
-  // is a vendor write the couple has no read-push for, so without this the
-  // proposal lands silently on the couple's Schedule page. Uses the admin
-  // client to fan out over event_members without leaking the vendor's scope.
+  // Tell everyone who can approve it — the couple AND a coordinator holding
+  // The Day = Edit — in the app and by email (best-effort: the request is
+  // already written; a failed notice must never undo it).
   if (!error) {
     try {
-      const admin = createAdminClient();
-      const vendorName = profile.business_name?.trim() || 'A supplier';
-      const { data: members } = await admin
-        .from('event_members')
-        .select('user_id')
-        .eq('event_id', eventId)
-        .eq('member_type', 'couple');
-      for (const m of members ?? []) {
-        if (!m.user_id) continue;
-        await emitNotification({
-          userId: m.user_id,
-          type: 'schedule_suggestion',
-          title: `${vendorName} suggested a timeline change`,
-          body: (note as string).trim().slice(0, 200),
-          relatedUrl: `/dashboard/${eventId}/schedule`,
-        });
-      }
+      await notifyScheduleRequest({
+        eventId,
+        supplierName: profile.business_name?.trim() || 'A supplier',
+        kind,
+        itemLabel: kind === 'new' ? proposed.proposed_label : blockLabel,
+        proposesChange,
+        note: note as string,
+      });
     } catch (e) {
-      console.error('[suggestScheduleChange] couple notify failed:', e);
+      console.error('[suggestScheduleChange] notify failed:', e);
     }
   }
 
@@ -472,7 +502,9 @@ export async function suggestScheduleChange(formData: FormData) {
   redirect(
     vendorClientSurfaceHref(eventId, 'delivery', {
       shellOn: isRelationshipWorkspaceEnabled(),
-      query: { suggest: error ? 'error' : 'sent' },
+      // 42501 = the own-items rule said no. Its own word, so the supplier is
+      // told WHY rather than "try again" (which would fail the same way).
+      query: { suggest: !error ? 'sent' : error.code === '42501' ? 'notyours' : 'error' },
     }),
   );
 }

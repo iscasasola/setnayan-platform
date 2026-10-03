@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6601
+# facts: 6602
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       4825
 #   policy    944
 #   view      8
-#   func      252
+#   func      253
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -5681,7 +5681,7 @@ policy	public.event_schedule_blocks|event_schedule_blocks_moderator_write	mode=P
 policy	public.event_schedule_blocks|event_schedule_blocks_public_read	mode=PERMISSIVE cmd=SELECT roles=anon using=((is_public = true) AND (visibility <> 'coordinator_only'::text)) check=NULL
 policy	public.event_schedule_suggestions|schedule_suggestions_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (event_id IN ( SELECT current_moderator_event_ids() AS current_moderator_event_ids))) check=NULL
 policy	public.event_schedule_suggestions|schedule_suggestions_couple_resolve	mode=PERMISSIVE cmd=UPDATE roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) = 'edit'::text)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (moderator_area_level(event_id, 'schedule'::text) = 'edit'::text))
-policy	public.event_schedule_suggestions|schedule_suggestions_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (suggested_by_user_id = auth.uid()) AND (status = 'open'::text))
+policy	public.event_schedule_suggestions|schedule_suggestions_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) AND (suggested_by_user_id = auth.uid()) AND (status = 'open'::text) AND ((kind = 'new'::text) = (block_id IS NULL)) AND ((block_id IS NULL) OR (EXISTS ( SELECT 1 FROM event_schedule_blocks b WHERE ((b.block_id = event_schedule_suggestions.block_id) AND (b.event_id = event_schedule_suggestions.event_id))))) AND ((kind = 'new'::text) OR ((kind = 'adjust'::text) AND (proposed_label IS NULL) AND (proposed_start_at IS NULL) AND (proposed_end_at IS NULL) AND (proposed_location IS NULL)) OR current_vendor_owns_schedule_block(block_id, vendor_profile_id)))
 policy	public.event_schedule_suggestions|schedule_suggestions_vendor_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.event_seat_assignments|event_seat_assignments_coordinator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = event_seat_assignments.event_id) AND (em.user_id = auth.uid()) AND (em.member_type = 'coordinator'::member_type)))) AND (moderator_area_level(event_id, 'seat_plan'::text) IS NOT NULL)) check=NULL
 policy	public.event_seat_assignments|event_seat_assignments_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
@@ -6431,6 +6431,7 @@ func	public.current_vendor_booked_event_ids()	secdef=yes exec=anon,authenticated
 func	public.current_vendor_dayof_grant_event_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.current_vendor_event_vendor_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.current_vendor_ids(min_role text)	secdef=yes exec=anon,authenticated search_path=public
+func	public.current_vendor_owns_schedule_block(p_block_id uuid, p_vendor_profile_id uuid)	secdef=yes exec=authenticated search_path=public
 func	public.current_vendor_profile_ids()	secdef=yes exec=anon,authenticated search_path=public
 func	public.decline_change_order(p_change_order_id uuid, p_reason text)	secdef=yes exec=authenticated search_path=public
 func	public.demand_radar_admin()	secdef=yes exec=anon,authenticated search_path=public

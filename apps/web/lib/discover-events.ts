@@ -12,11 +12,17 @@ import { getEventTypeVocab } from '@/lib/event-types-db';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { renderableImageSrc } from '@/lib/event-card-art';
 import { resolveHero } from '@/lib/event-hero';
-import { sceneCoverFor, type SceneCover } from '@/lib/event-poster';
+import { sceneCoverFor } from '@/lib/event-poster';
 import { resolveEventPoster } from '@/lib/event-poster.server';
 import { resolveMonogram } from '@/lib/monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
 import { logoPlaysFor } from '@/lib/logo-plays.server';
+import { guestMainGround } from '@/lib/guest-main-ground';
+import { mainGroundIsNone, hubMainGround } from '@/lib/hub-canvas';
+import { heroGroundNeedsOwnership, pageGround } from '@/lib/page-ground';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { resolveHubTheme, websiteProActiveFor } from '@/app/[slug]/_lib/hub-look';
+import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import {
   DISCOVER_CAPS,
   pickViewerRegion,
@@ -25,6 +31,8 @@ import {
   type DiscoverEventCard,
   type DiscoverEventRow,
   type DiscoverPaper,
+  type DiscoverScene,
+  paperGroundOf,
   type DiscoverHost,
   type DiscoverRelation,
   type PersonCandidate,
@@ -289,7 +297,7 @@ async function readHosts(
  * (`resolveEventMonogramSvg` — custom, then uploaded; both read, always).
  */
 const COVER_COLUMNS =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, monogram_custom_svg, monogram_uploaded_svg';
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, monogram_custom_svg, monogram_uploaded_svg, role_palette, site_bg_color, site_button_color, site_font_key, site_art_direction';
 
 type CoverRow = {
   event_id: string;
@@ -304,6 +312,12 @@ type CoverRow = {
   landing_page_hero_image_url: string | null;
   monogram_custom_svg: string | null;
   monogram_uploaded_svg: string | null;
+  landing_page_hero_video_r2_key: string | null;
+  role_palette: unknown;
+  site_bg_color: string | null;
+  site_button_color: string | null;
+  site_font_key: string | null;
+  site_art_direction: string | null;
 };
 
 /**
@@ -321,6 +335,20 @@ type CoverRow = {
  * dashboard's own paper invitation card from the SAME poster facts (owner
  * 2026-10-03, ruling A). A wake keeps its mark.
  *
+ * 🎨 AND IT FOLLOWS WHAT THE COUPLE CUSTOMISED (owner 2026-10-03, amending A:
+ * *"if they customized it and changed its main background, it should also
+ * adjust"*). The card wears what the guest's Event Hub draws behind the event,
+ * from the hub's own answers — never a second resolver:
+ *   • their MAIN BACKGROUND (`guestMainGround`, the one gated answer the page
+ *     ground asks; Pro media, never on Classic) → that picture, a video as its
+ *     still;
+ *   • their background COLOUR or ombré (`guestLookFrom` → `paperGroundOf`;
+ *     free) → the paper card's ground; and where the hub draws no theme loop
+ *     (an ombré, or "None — just the colour") neither does the card.
+ * Only PUBLISHED values are read — the event's columns and the live hero row
+ * in `invitation_widgets`; an unapplied Maker draft (`event_site_drafts`) never
+ * reaches a guest, so it never reaches this card.
+ *
  * ⛔ ONLY THE SHELVED CARDS. This runs AFTER `selectDiscoverShelves`, on the
  * ≤ 20 cards that passed the allow-list, so no event that is not public and
  * listed ever has its hero read or presigned here. A refused read costs only
@@ -334,10 +362,57 @@ async function dressCards(admin: Admin, cards: DiscoverEventCard[]): Promise<voi
     logQueryError('discover-events.covers', error, {}, 'graceful_degrade');
     return;
   }
-  const scenes = new Map<string, SceneCover>();
+  // The PUBLISHED hero row carries the Main background (`config_json.main`).
+  // A refused read costs only that background — the rest of the card stands.
+  const heroConfigById = new Map<string, unknown>();
+  const { data: heroRows, error: heroError } = await admin
+    .from('invitation_widgets')
+    .select('event_id, config_json')
+    .eq('widget_type', 'hero')
+    .in('event_id', ids);
+  if (heroError) {
+    logQueryError('discover-events.mainGrounds', heroError, {}, 'graceful_degrade');
+  } else {
+    for (const w of (heroRows ?? []) as Array<{ event_id: string; config_json: unknown }>) {
+      heroConfigById.set(w.event_id, w.config_json);
+    }
+  }
+  const scenes = new Map<string, DiscoverScene>();
   const papers = new Map<string, DiscoverPaper>();
   await Promise.all(
     ((data ?? []) as unknown as CoverRow[]).map(async (r) => {
+      const heroConfig = heroConfigById.get(r.event_id) ?? null;
+      // The theme the hub wears — the one gate (`resolveHubTheme`).
+      const hub = await resolveHubTheme({
+        event_id: r.event_id,
+        display_name: r.display_name,
+        invite_theme: r.invite_theme,
+        monogram_text: r.monogram_text,
+        monogram_color: r.monogram_color,
+        site_button_color: r.site_button_color,
+        event_type: r.event_type,
+      }).catch(() => null);
+
+      // 1 · THE MAIN BACKGROUND, as the guest's Event Hub draws it. Ownership
+      //     is read only where it can change the answer, as the page reads it.
+      if (hub) {
+        const ownsPro = heroGroundNeedsOwnership(hub.theme)
+          ? await websiteProActiveFor(r.event_id).catch(() => false)
+          : false;
+        const main = guestMainGround(hub.theme, ownsPro, heroConfig, r);
+        const mainSrc = main?.stillRef
+          ? renderableImageSrc(await displayUrlForStoredAsset(siteMediaServeRef(main.stillRef)).catch(() => null))
+          : null;
+        if (mainSrc) {
+          scenes.set(r.event_id, { kind: 'photo', src: mainSrc, ground: 'main', legibility: null });
+          return;
+        }
+      }
+
+      // The paper the hub paints: their colour or ombré (free). `proActive`
+      // only adds the Pro face (`proSiteVarsFor`), which the card never reads.
+      const look = hub ? guestLookFrom(r as unknown as EventShellRow, hub, false) : null;
+
       // The column is host-writable; only a real image URL reaches an <img>.
       const heroSrc = renderableImageSrc(
         await displayUrlForStoredAsset(resolveHero(r).photoRef).catch(() => null),
@@ -356,14 +431,29 @@ async function dressCards(admin: Admin, cards: DiscoverEventCard[]): Promise<voi
         },
         heroSrc,
       ).catch(() => null);
-      const scene = sceneCoverFor(poster);
+      let scene = sceneCoverFor(poster);
+      let paperPoster = poster?.kind === 'invitation' ? poster : null;
+      // 2 · NO THEME LOOP WHERE THE HUB DRAWS NONE — under an ombré
+      //     (`pageGround`) or "None — just the colour": the card is then the
+      //     invitation card, which `posterFor` words identically.
+      if (
+        poster &&
+        scene?.kind === 'theme' &&
+        hub &&
+        (mainGroundIsNone(hubMainGround(heroConfig)) ||
+          !pageGround({ theme: hub.theme, ombre: Boolean(look?.ombre), heroGround: false }).themeLoop)
+      ) {
+        scene = null;
+        paperPoster = { ...poster, kind: 'invitation', dark: false, photoSrc: null, ground: null, legibility: null };
+      }
       if (scene) {
         scenes.set(r.event_id, scene);
-      } else if (poster?.kind === 'invitation') {
+      } else if (paperPoster) {
         // SEC-3: both logo columns are host-writable — read through the gate.
         const markSvg = resolveEventMonogramSvg(r);
         papers.set(r.event_id, {
-          poster,
+          poster: paperPoster,
+          ground: paperGroundOf(look),
           markText: resolveMonogram(r).text,
           markSvg,
           // A logo that does not move costs no read (`logoPlaysFor`).

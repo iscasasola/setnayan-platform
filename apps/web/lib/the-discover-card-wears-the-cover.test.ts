@@ -16,6 +16,12 @@
  *   2. ONE RESOLVER — the cover is the dashboard card's: the loader asks
  *      `resolveEventPoster` and narrows with `sceneCoverFor`, never a second
  *      order; and it reads the hero + the Save-the-Date background it needs.
+ *   2b. WHAT THE COUPLE CUSTOMISED (owner 2026-10-03, amending A: *"if they
+ *      customized it and changed its main background, it should also
+ *      adjust"*) — through the hub's OWN answers (`guestLookFrom`,
+ *      `guestMainGround`): Classic + nothing customised → the plain paper card;
+ *      a background colour → the card's ground is that colour; a Pro main
+ *      background image → that image; an UNAPPLIED draft never shows.
  *   3. ONLY LISTED PUBLIC EVENTS — the core never fills `scene`; the loader
  *      dresses the cards AFTER `selectDiscoverShelves` has applied the
  *      allow-list, so no unlisted event's photo is ever read here.
@@ -31,6 +37,10 @@ import { stripComments } from './strip-comments';
 import { posterFor, sceneCoverFor } from './event-poster';
 import { selectDiscoverShelves, type DiscoverEventCard, type DiscoverEventRow } from './discover-events-core';
 import Module from 'node:module';
+import { createRequire } from 'node:module';
+import { guestMainGround } from './guest-main-ground';
+import { encodeSiteBackground } from './ombre';
+import { paperGroundOf } from './discover-events-core';
 
 // The components compile to classic `React.createElement` under tsx.
 (globalThis as unknown as { React: unknown }).React = React;
@@ -42,6 +52,31 @@ import Module from 'node:module';
   const classes = new Proxy({}, { get: (_t, k) => (typeof k === 'string' ? k : undefined) });
   m.exports = { __esModule: true, default: classes };
 };
+/* ── `server-only` shim (same as a-fee-lock-failure-keeps-its-reason.test.ts) ──
+   so the hub's REAL look translation (`guestLookFrom`, in `app/[slug]/_lib/
+   loaders.ts`) is what these tests run — never a copy of it. */
+type CjsModuleCtor = {
+  _resolveFilename: (request: string, ...rest: unknown[]) => string;
+  _cache: Record<string, unknown>;
+  new (id: string): { filename: string; loaded: boolean; exports: unknown; paths: string[] };
+};
+const CjsModule = (createRequire(__filename)('node:module') as { Module: CjsModuleCtor }).Module;
+const STUB = join(process.cwd(), '__server_only_stub_discover_cover__.js');
+{
+  const stub = new CjsModule(STUB);
+  stub.filename = STUB;
+  stub.loaded = true;
+  stub.exports = {};
+  stub.paths = [];
+  CjsModule._cache[STUB] = stub;
+  const original = CjsModule._resolveFilename;
+  CjsModule._resolveFilename = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only') return STUB;
+    return original.call(this, request, ...rest);
+  };
+}
+const { guestLookFrom } = require('../app/[slug]/_lib/loaders') as typeof import('../app/[slug]/_lib/loaders');
+
 // Loaded AFTER the `.css` hook above, so not a static import.
 const { DiscoverEventCard: EventCard } = require('../app/_components/frontdoor/discover-event-card') as typeof import('../app/_components/frontdoor/discover-event-card');
 const { DiscoverEventCover } = require('../app/_components/frontdoor/discover-event-cover') as typeof import('../app/_components/frontdoor/discover-event-cover');
@@ -102,7 +137,81 @@ test('a Discover card whose event has a hero photo renders that photo', () => {
 });
 
 /** What the loader hands the card for an `invitation` poster (`dressCards`). */
-const paperOf = (p: ReturnType<typeof posterFor>) => ({ poster: p, markText: 'C & I', markSvg: null, markPlays: false });
+const paperOf = (p: ReturnType<typeof posterFor>, ground: ReturnType<typeof paperGroundOf> = null) => ({
+  poster: p,
+  ground,
+  markText: 'C & I',
+  markSvg: null,
+  markPlays: false,
+});
+
+/** The hub's look for a row, through `guestLookFrom` itself — Classic, as cale-ice is. */
+const HOUSE_HUB = { theme: 'house' as const, accent: '#a9834b', monogram: 'C & I' };
+const lookOf = (row: Record<string, unknown>) =>
+  guestLookFrom(
+    { role_palette: null, site_bg_color: null, site_button_color: null, site_font_key: null, site_art_direction: null, ...row } as never,
+    HOUSE_HUB,
+    false,
+  );
+
+test('2b·1 · Classic with nothing customised draws the PLAIN paper invitation card', () => {
+  const ground = paperGroundOf(lookOf({}));
+  assert.equal(ground, null, 'an uncustomised hub must give the plain paper');
+  const html = shelves([card({ paper: paperOf(poster(), ground) })]);
+  assert.match(html, /data-discover-cover="paper"/);
+  assert.doesNotMatch(html, /data-paper-ground/, 'an uncustomised card painted a ground of its own');
+  assert.doesNotMatch(html, /--color-cream/);
+});
+
+test('2b·2 · a custom background colour is the paper card\'s ground — the hub\'s own paper and ink', () => {
+  const ground = paperGroundOf(lookOf({ site_bg_color: '#1e3a5f' }));
+  assert.ok(ground, 'a saved background colour did not reach the card');
+  assert.equal(ground.cream, '30 58 95', 'the card ground is not the couple\'s colour');
+  assert.ok(ground.ink, 'the ink did not follow the colour');
+  const html = shelves([card({ paper: paperOf(poster(), ground) })]);
+  assert.match(html, /data-paper-ground="own"/);
+  assert.match(html, /--color-cream:30 58 95/);
+  assert.match(html, /background-color:rgb\(var\(--color-cream\)\)/);
+  assert.match(html, /--m-paper:transparent/, 'the poster\'s own paper still covers the colour');
+  assert.match(html, /--m-ink:rgb\(var\(--color-ink\)\)/, 'the card\'s words do not follow the hub\'s ink');
+  // An ombré is the paper too, as on the hub.
+  const ombre = paperGroundOf(lookOf({ site_bg_color: encodeSiteBackground({ kind: 'ombre', ombre: { shape: 'dawn', base: '#1e3a5f' } }) }));
+  assert.ok(ombre?.ombre, 'an ombré did not reach the card');
+  assert.match(shelves([card({ paper: paperOf(poster(), ombre) })]), /background-image:/);
+});
+
+test('2b·3 · a custom main background image (Pro) is the card\'s picture — never on Classic', () => {
+  const MAIN = 'r2://setnayan-media/events/E1/main-background/p.jpg';
+  const own = { main: { kind: 'photo', media: MAIN } };
+  const resolved = guestMainGround('velvet', true, own, { landing_page_hero_image_url: null });
+  assert.equal(resolved?.stillRef, MAIN, 'the hub\'s main background was not resolved');
+  assert.equal(guestMainGround('house', true, own, {}), null, 'Classic showed a main background');
+  assert.equal(guestMainGround('galeriya', false, own, {}), null, 'a free couple showed Pro media');
+  const SIGNED = 'https://r2.example/main-background/p.jpg';
+  const html = shelves([card({ scene: { kind: 'photo', src: SIGNED, ground: 'main', legibility: null }, paper: paperOf(poster()) })]);
+  assert.match(html, /data-discover-cover="main"/);
+  assert.match(html, new RegExp(`<img[^>]*src="${SIGNED.replace(/[.]/g, '\\.')}"`), 'the main background is not on the card');
+  assert.doesNotMatch(html, /fd-paper/, 'the paper card covered the main background');
+});
+
+test('2b·4 · an UNAPPLIED draft background never reaches the card — only published values are read', () => {
+  // The published hero row says nothing; a draft would say "photo". The card
+  // is resolved from the published row only, so nothing is drawn.
+  assert.equal(guestMainGround('velvet', true, {}, {}), null);
+  assert.match(LOADER, /from\('invitation_widgets'\)\s*\.select\('event_id, config_json'\)\s*\.eq\('widget_type', 'hero'\)/);
+  assert.match(LOADER, /guestMainGround\(hub\.theme, ownsPro, heroConfig, r\)/, 'the card does not ask the hub\'s one main-background answer');
+  assert.match(LOADER, /guestLookFrom\(r as unknown as EventShellRow, hub, false\)/, 'the card does not ask the hub\'s one look');
+  assert.match(LOADER, /paperGroundOf\(look\)/);
+  assert.doesNotMatch(
+    LOADER,
+    /event_site_drafts|readHubDraft|overlayHubDraftWidgets|mergeHubDraft|draft_json|loadHostPreviewDraft/,
+    'Discover read an unapplied draft',
+  );
+  const cols = /const COVER_COLUMNS =\s*'([^']*)'/.exec(LOADER)?.[1] ?? '';
+  for (const c of ['site_bg_color', 'role_palette', 'landing_page_hero_video_r2_key']) {
+    assert.match(cols, new RegExp(`\\b${c}\\b`), `the cover read dropped ${c}`);
+  }
+});
 
 test('a Classic public event with no hero draws the dashboard\'s paper invitation card on Discover', () => {
   // cale-ice in production, 2026-10-03: Classic, no hero photo, a Save-the-Date
@@ -181,7 +290,10 @@ test("the cover is the dashboard card's: resolveEventPoster → sceneCoverFor, n
 });
 
 test('the paper card is drawn by <EventPoster> from the same poster, only for an invitation poster', () => {
-  assert.match(LOADER, /else if \(poster\?\.kind === 'invitation'\)/, 'the paper card must be the invitation poster only');
+  assert.match(LOADER, /let paperPoster = poster\?\.kind === 'invitation' \? poster : null;/, 'the paper card must be the invitation poster only');
+  // A theme still drops to the paper card ONLY where the hub draws no loop.
+  assert.match(LOADER, /mainGroundIsNone\(hubMainGround\(heroConfig\)\)/);
+  assert.match(LOADER, /pageGround\(\{ theme: hub\.theme, ombre: Boolean\(look\?\.ombre\), heroGround: false \}\)\.themeLoop/);
   assert.match(LOADER, /resolveEventMonogramSvg\(r\)/, 'the mark must be read through the gate');
   assert.match(LOADER, /logoPlaysFor\(r\.event_id, markSvg\)/);
   const cols = /const COVER_COLUMNS =\s*'([^']*)'/.exec(LOADER)?.[1] ?? '';
@@ -200,7 +312,7 @@ test('the core never fills a cover — and an unlisted event is never a card to 
   assert.match(CORE, /\bscene: null,/, 'the core must leave the cover to the loader');
   assert.match(CORE, /\bpaper: null,/, 'the core must leave the paper card to the loader');
   assert.doesNotMatch(CORE, /\bpaper:(?!\s*(?:null\b|DiscoverPaper\b))/, 'the pure core decided a paper card');
-  assert.doesNotMatch(CORE, /\bscene:(?!\s*(?:null\b|SceneCover\b))/, 'the pure core decided a cover');
+  assert.doesNotMatch(CORE, /\bscene:(?!\s*(?:null\b|DiscoverScene\b))/, 'the pure core decided a cover');
   const row = (over: Partial<DiscoverEventRow>): DiscoverEventRow => ({
     event_id: 'x',
     slug: 'x',

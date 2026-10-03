@@ -2,12 +2,12 @@ import 'server-only';
 
 import type { ReactNode } from 'react';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
-import { hubMainGround, mainGroundIsNone, resolveMainGround } from '@/lib/hub-canvas';
-import { heroGroundNeedsOwnership, heroMayBePageGround } from '@/lib/page-ground';
+import { hubMainGround, mainGroundIsNone } from '@/lib/hub-canvas';
+import { heroGroundNeedsOwnership } from '@/lib/page-ground';
+import { guestMainGround } from '@/lib/guest-main-ground';
 import { websiteProActiveFor } from './hub-look';
-import { resolveHero, type HeroEventInput } from '@/lib/event-hero';
+import type { HeroEventInput } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
-import { mainGroundClipRefForGuests } from '@/lib/guest-hero-video';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { MainGround, MainGroundNone } from '../_components/main-ground';
@@ -79,9 +79,8 @@ export async function mainGroundLayerFor({
   const ownsPro = heroGroundNeedsOwnership(theme)
     ? await websiteProActiveFor(event.event_id).catch(() => false)
     : false;
-  const mainGround = heroMayBePageGround(theme, ownsPro)
-    ? resolveMainGround(hubMainGround(heroConfig), resolveHero(event), mainGroundClipRefForGuests)
-    : null;
+  // The ONE answer to "what is behind the event", shared with Discover's card.
+  const mainGround = guestMainGround(theme, ownsPro, heroConfig, event);
   if (mainGround) {
     const adaptive = resolveAdaptiveTheme(INVITE_THEMES[theme], mainGround.tint);
     const sign = async (ref: string | null) =>

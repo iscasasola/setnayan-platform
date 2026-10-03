@@ -76,13 +76,19 @@ test('every surface that paints the page ground asks the one rule', () => {
     The gate assertions below are the same ones that read site-body before.
   */
   const helper = read('app/[slug]/_lib/main-ground-layer.tsx');
-  assert.match(helper, /import \{ heroGroundNeedsOwnership, heroMayBePageGround \} from '@\/lib\/page-ground';/);
+  // The gated resolution itself lives in ONE pure module (2026-10-03), shared
+  // with Discover's event card; the page's helper asks it and resolves nothing.
+  const gated = read('lib/guest-main-ground.ts');
+  assert.match(gated, /import \{ heroMayBePageGround \} from '@\/lib\/page-ground';/);
   assert.match(
-    helper,
-    /const mainGround = heroMayBePageGround\(theme, ownsPro\)\s*\?\s*resolveMainGround\(/,
+    gated,
+    /return heroMayBePageGround\(theme, ownsPro\)\s*\?\s*resolveMainGround\(/,
     'the Main background is resolved without asking the one rule',
   );
-  assert.equal(helper.split('resolveMainGround(').length - 1, 1, 'a second, ungated resolveMainGround call');
+  assert.equal(gated.split('resolveMainGround(').length - 1, 1, 'a second, ungated resolveMainGround call');
+  assert.match(helper, /import \{ heroGroundNeedsOwnership \} from '@\/lib\/page-ground';/);
+  assert.match(helper, /const mainGround = guestMainGround\(theme, ownsPro, heroConfig, event\);/, 'the page no longer asks the one gated answer');
+  assert.doesNotMatch(helper, /resolveMainGround\(/, 'the page resolves the Main background itself, past the gate');
   // (`<MainGroundNone />` is "None — just the colour": no media, no gate needed — owner 2026-09-29.)
   assert.equal((helper.match(/<MainGround[\s>]/g) ?? []).length, 1, 'MainGround is mounted twice');
   const mount = helper.search(/<MainGround[\s>]/);

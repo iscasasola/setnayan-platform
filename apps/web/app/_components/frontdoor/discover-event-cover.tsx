@@ -7,13 +7,18 @@
  * the event's dashboard card wears, read by the loader for public, listed
  * events only (`dressCards` in `lib/discover-events.ts`):
  *
- *   • `card.scene` — `sceneCoverFor(resolveEventPoster(…))`: the hero photo →
- *     the Save-the-Date background → the theme's still, the same picture the
+ *   • `card.scene` — the couple's own MAIN BACKGROUND when their Event Hub
+ *     draws one (ground `main`, a video's still); else
+ *     `sceneCoverFor(resolveEventPoster(…))`: the hero photo → the
+ *     Save-the-Date background → the theme's still, the same picture the
  *     home board's cards and the Overview band wear;
  *   • `card.paper` — no picture to wear (Classic, no hero; Classic never shows
  *     a photo): the dashboard's own paper invitation card, `<EventPoster>`
  *     from the same poster facts (owner 2026-10-03, ruling A, "Paper
- *     invitation card"). The cover is a 3:4 poster, as on the dashboard.
+ *     invitation card"). The cover is a 3:4 poster, as on the dashboard. When
+ *     the couple chose a background colour or ombré, the card's paper IS that
+ *     ground (`paper.ground`, the hub's own `--color-cream` / `--color-ink`),
+ *     owner 2026-10-03: *"if they customized it … it should also adjust"*.
  *
  * 🔑 THE MARK IS ALWAYS DRAWN, UNDERNEATH. A wake (`quiet` — it never wears a
  * photo) and an event whose look could not be read show it exactly as before.
@@ -27,9 +32,28 @@
  */
 import type { CSSProperties } from 'react';
 
-import type { DiscoverEventCard } from '@/lib/discover-events-core';
+import type { DiscoverEventCard, DiscoverPaperGround } from '@/lib/discover-events-core';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { EventPoster } from '../event-poster';
+
+/**
+ * The couple's paper as the paper card's ground: the hub's own channels, the
+ * poster's paper made transparent over them, and its ink following the hub's
+ * legibility answer. Every value was built from parsed hexes (`guestLookFrom`).
+ */
+function paperGroundStyle(g: DiscoverPaperGround): CSSProperties {
+  const style: Record<string, string> = { '--m-paper': 'transparent' };
+  if (g.cream) {
+    style['--color-cream'] = g.cream;
+    style.backgroundColor = 'rgb(var(--color-cream))';
+  }
+  if (g.ink) {
+    style['--color-ink'] = g.ink;
+    style['--m-ink'] = 'rgb(var(--color-ink))';
+  }
+  if (g.ombre) style.backgroundImage = g.ombre;
+  return style as CSSProperties;
+}
 
 export function DiscoverEventCover({
   card,
@@ -57,7 +81,11 @@ export function DiscoverEventCover({
         </>
       ) : null}
       {paper ? (
-        <div className="fd-paper">
+        <div
+          className="fd-paper"
+          data-paper-ground={paper.ground ? 'own' : undefined}
+          style={paper.ground ? paperGroundStyle(paper.ground) : undefined}
+        >
           <EventPoster
             poster={paper.poster}
             markText={paper.markText}

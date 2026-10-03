@@ -1,8 +1,18 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { LayeredLogoPlayer } from '@/app/_components/layered-logo-player';
 import { coupleLogoPlayKey, coupleLogoPlays, logoArrivals, logoPhaseOnMount } from '@/lib/couple-logo-plays';
+
+/* 📦 THE PLAYER LOADS WHEN A LOGO PLAYS. It mounts only in the `play` phase,
+ * which an effect sets after mount — never in the server HTML — so a page whose
+ * logos are stills (every Discover card without a moving mark) ships none of it.
+ * While the chunk arrives the box shows nothing, the same as `pending`'s
+ * invisible still, so the entrance still never starts from a finished logo. */
+const LayeredLogoPlayer = dynamic(
+  () => import('@/app/_components/layered-logo-player').then((m) => m.LayeredLogoPlayer),
+  { ssr: false },
+);
 
 /**
  * ▶ THE COUPLE'S LOGO ON A SCREEN — playing when it moves, still when it does not.

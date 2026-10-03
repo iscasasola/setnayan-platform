@@ -78,3 +78,9 @@ SPEC IMPACT: None. This reverses an implementation note in `front-door.css`,
 "no hero image is read: a public event's photo is the host's to show on their
 own page", on the owner's 2026-10-03 instruction. Photos still appear only for
 events the host made public and listed.
+
+**2026-10-04 · perf(logo): the logo player loads only when a logo plays.** `CoupleLogo` now
+imports `LayeredLogoPlayer` with `next/dynamic` (`ssr: false`). The player only ever mounted in the
+`play` phase (set by an effect after mount), so the server HTML and the still are unchanged; a page
+whose logos are stills — every Discover card without a moving mark — no longer ships the player. This
+removes the bulk of the `/` route JS growth this PR's `<EventPoster>` import brought in.

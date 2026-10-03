@@ -1151,6 +1151,19 @@ export function hubElementMotionDeclarations(
 }
 
 /**
+ * 🙈 THE ONE "HIDDEN" RULE (Arrange → Show: Hidden): a part the couple hid is
+ * never drawn for a guest. The Event Hub's hero answers it here
+ * (`hubElementDeclarations` below) and so does every other guest page that
+ * prints a hero part's words — the invitation landing's line under the names
+ * (`heroLineWord`, owner 2026-10-04 "YES TO ALL" (2): hidden on the Event Hub =
+ * hidden on the invitation page too). One question, one answer — never a
+ * second switch per page.
+ */
+export function hubElementHidden(style: HubElementStyle | null | undefined): boolean {
+  return style?.hidden === true;
+}
+
+/**
  * The element's LOOK — font · colour · size — as `property → value` in CSS
  * spelling. An empty style contributes nothing, so an element the couple never
  * touched renders exactly as before. Its MOTION is deliberately not here: it
@@ -1183,7 +1196,7 @@ export function hubElementDeclarations(
   if (style.leading) out.push(['line-height', String(style.leading)]);
   if (style.tracking !== undefined) out.push(['letter-spacing', `${style.tracking / 100}em`]);
   // Hidden: never drawn for a guest; ghosted in the Maker so it can come back.
-  if (style.hidden) out.push(opts.editor ? ['opacity', '0.3'] : ['display', 'none']);
+  if (hubElementHidden(style)) out.push(opts.editor ? ['opacity', '0.3'] : ['display', 'none']);
   return out;
 }
 

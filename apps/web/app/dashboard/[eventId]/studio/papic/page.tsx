@@ -28,6 +28,7 @@ import {
   BatteryWarning,
   QrCode,
   Upload,
+  BookImage,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
@@ -2405,6 +2406,17 @@ async function GalleryPreviewCard({
             shared with you.
           </p>
         )}
+        {/* Kwento scrapbook page (2026-10-03) — the couple's door; pages from
+            the whole gallery, saved through the uploads camera like one photo. */}
+        {seesAll && hasPhotos ? (
+          <Link
+            href={`/dashboard/${eventId}/studio/papic/scrapbook`}
+            className="mt-2 inline-flex min-h-11 items-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 hover:bg-ink/10"
+          >
+            <BookImage aria-hidden className="h-4 w-4" strokeWidth={2} />
+            Make a scrapbook page
+          </Link>
+        ) : null}
       </div>
 
       {hasPhotos ? (

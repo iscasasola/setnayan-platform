@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
+import { ArrowRight, BookImage, Camera, CircleAlert, Clock, Download, Images, Sparkles } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveGuestCamera } from '@/lib/papic-limited';
@@ -156,6 +156,15 @@ async function GuestGallery({
       >
         <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
         Decorate a photo
+      </a>
+      {/* Kwento scrapbook page (2026-10-03) — several photos, cut-outs, paper,
+          tape, words. Same session bridge, its own allowlisted destination. */}
+      <a
+        href={`/papic/me/${token}/session?next=scrapbook`}
+        className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
+      >
+        <BookImage aria-hidden className="h-4 w-4" strokeWidth={2} />
+        Make a scrapbook page
       </a>
       {/* FREE Guest Stories — one-tap 30s reel from these tagged photos. */}
       <GuestStoryMaker token={token} />

@@ -270,6 +270,7 @@ const STILL: Record<string, string> = {
   'app/monogram/public-monogram-studio.tsx': 'the public monogram tool’s download (an export), not a couple’s saved logo',
   'app/dev/hero-lab/page.tsx': 'a dev-only lab',
   'app/papic/decorate/_components/kwento-decorator.tsx': 'a flat colour swatch beside each caption-colour option in a dropdown — not a logo',
+  'app/_components/scrapbook/scrapbook-maker.tsx': 'the same flat colour swatch beside each word-colour option in the scrapbook page maker\u2019s dropdown — not a logo',
 };
 
 /** A still draw OUTSIDE CoupleLogo that is correct, counted per file. */

@@ -7,6 +7,9 @@ import { eventPapicGuestAccess } from '@/lib/papic-guest';
 import { eventKwentoEnabled } from '@/lib/kwento-access';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { KwentoDecorator } from './_components/kwento-decorator';
+import { ScrapbookMaker, type ScrapbookPhoto } from '@/app/_components/scrapbook/scrapbook-maker';
+import { readGuestScrapbookPhotos } from '@/lib/guest-stories';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 // Papic · Kwento Decorator (owner 2026-07-08 "this is ideally kwento"). The
 // session-backed decoration surface: a guest who redeemed their invite carries
@@ -17,7 +20,12 @@ import { KwentoDecorator } from './_components/kwento-decorator';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PapicDecoratePage() {
+export default async function PapicDecoratePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ make?: string }>;
+}) {
+  const { make } = await searchParams;
   const session = await readGuestSession();
   if (!session) {
     return (
@@ -95,6 +103,32 @@ export default async function PapicDecoratePage() {
   const themeColors = Array.from(
     new Set([...(palette.reception ?? []), ...(palette.bride ?? []), ...(palette.groom ?? [])]),
   ).slice(0, 6);
+
+  /* 📒 THE SCRAPBOOK PAGE (owner 2026-10-03, option A): the same door, the
+     same gates, a page of several photos instead of one. The guest's photos are
+     the ones they are tagged in, read through the reel's blur gate at display
+     size. A refused read says so — it never reads as "you're in none". */
+  if (make === 'scrapbook') {
+    let photos: ScrapbookPhoto[] = [];
+    let photosRead: 'ok' | 'unavailable' = 'ok';
+    try {
+      photos = await readGuestScrapbookPhotos(session.event_id, session.guest_id);
+    } catch (err) {
+      photosRead = 'unavailable';
+      logQueryError('PapicDecoratePage.scrapbookPhotos', err, { eventId: session.event_id }, 'graceful_degrade');
+    }
+    return (
+      <ScrapbookMaker
+        eventName={eventName}
+        who="guest"
+        photos={photos}
+        photosRead={photosRead}
+        saveTarget={{ kind: 'guest' }}
+        backHref={myPhotosHref}
+        backLabel="Back to my photos"
+      />
+    );
+  }
 
   return (
     <KwentoDecorator

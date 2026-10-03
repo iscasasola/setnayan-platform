@@ -24,7 +24,7 @@
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { resolveStillRef } from '@/lib/papic-display-ref';
+import { resolveStillRef, type PapicDisplayRow } from '@/lib/papic-display-ref';
 import { assembleStoryPhotoSet } from '@/lib/guest-stories-photo-set';
 import {
   loadGuestBlurGate,
@@ -142,9 +142,15 @@ function templateSummary(slug: string): StoryTemplateSummary {
 async function readTaggedPhotos(
   eventId: string,
   guestId: string,
+  /** Which stored copy a PHOTO resolves to. The reel's small thumbs by default;
+   *  the scrapbook asks for the display copy (`readGuestScrapbookPhotos`). */
+  photoStill: (row: PapicDisplayRow) => string | null = resolveStillRef,
 ): Promise<{ photos: StoryPhoto[]; total: number; media: StoryMediaItem[] }> {
   const admin = createAdminClient();
-  const { data: tags } = await admin
+  // 🔴 A REFUSED READ THROWS, never reads as "no photos". The reel's caller
+  // already turns any throw into its empty plan, so this changes nothing there;
+  // the scrapbook needs to tell "we could not look" from "you are in none".
+  const { data: tags, error: tagsError } = await admin
     .from('photo_tags')
     .select('source_table, source_id, created_at')
     .eq('event_id', eventId)
@@ -152,6 +158,7 @@ async function readTaggedPhotos(
     .is('removed_at', null)
     .order('created_at', { ascending: false })
     .limit(80);
+  if (tagsError) throw tagsError;
   if (!tags || tags.length === 0) return { photos: [], total: 0, media: [] };
 
   const photoIds = tags
@@ -172,7 +179,7 @@ async function readTaggedPhotos(
           // PICKER set through their geo-stripped web copy (photos-only auto
           // path is unchanged — clips are filtered out of it below).
           .select(
-            'photo_id, photo_type, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, clip_web_r2_key, full_res_dropped_at',
+            'photo_id, photo_type, r2_object_key, display_r2_key, tile_r2_key, thumb_r2_key, poster_r2_key, clip_web_r2_key, full_res_dropped_at',
           )
           .in('photo_id', photoIds)
           .eq('moderation_state', 'clean')
@@ -183,6 +190,7 @@ async function readTaggedPhotos(
             photo_type: string | null;
             r2_object_key: string | null;
             display_r2_key: string | null;
+            tile_r2_key: string | null;
             thumb_r2_key: string | null;
             poster_r2_key: string | null;
             clip_web_r2_key: string | null;
@@ -193,7 +201,7 @@ async function readTaggedPhotos(
       ? admin
           .from('papic_guest_captures')
           .select(
-            'capture_id, media_type, duration_ms, r2_object_key, display_r2_key, thumb_r2_key, poster_r2_key, clip_web_r2_key, full_res_dropped_at, subject_center_x, subject_center_y',
+            'capture_id, media_type, duration_ms, r2_object_key, display_r2_key, tile_r2_key, thumb_r2_key, poster_r2_key, clip_web_r2_key, full_res_dropped_at, subject_center_x, subject_center_y',
           )
           .in('capture_id', captureIds)
           .eq('moderation_state', 'clean')
@@ -205,6 +213,7 @@ async function readTaggedPhotos(
             duration_ms: number | null;
             r2_object_key: string | null;
             display_r2_key: string | null;
+            tile_r2_key: string | null;
             thumb_r2_key: string | null;
             poster_r2_key: string | null;
             clip_web_r2_key: string | null;
@@ -214,6 +223,10 @@ async function readTaggedPhotos(
           }[],
         }),
   ]);
+
+  for (const res of [photosRes, capturesRes]) {
+    if ('error' in res && res.error) throw res.error;
+  }
 
   const keyById = new Map<string, string>();
   // Tier-2 dominant-face center per capture (guest captures only) → subjectCenter.
@@ -242,10 +255,11 @@ async function readTaggedPhotos(
       });
       continue;
     }
-    const ref = resolveStillRef({
+    const ref = photoStill({
       photo_type: 'photo',
       r2_object_key: p.r2_object_key,
       display_r2_key: p.display_r2_key,
+      tile_r2_key: p.tile_r2_key,
       thumb_r2_key: p.thumb_r2_key,
       full_res_dropped_at: p.full_res_dropped_at,
     });
@@ -274,10 +288,11 @@ async function readTaggedPhotos(
       });
       continue;
     }
-    const ref = resolveStillRef({
+    const ref = photoStill({
       media_type: 'photo',
       r2_object_key: c.r2_object_key,
       display_r2_key: c.display_r2_key,
+      tile_r2_key: c.tile_r2_key,
       thumb_r2_key: c.thumb_r2_key,
       full_res_dropped_at: c.full_res_dropped_at,
     });
@@ -577,6 +592,32 @@ async function listMusicOptions(eventId: string): Promise<StoryMusic[]> {
     // music trouble must never block a free Story — chooser just shrinks
   }
   return options;
+}
+
+/**
+ * The Kwento scrapbook's photo tray (owner 2026-10-03): the same photos the
+ * reel may use — the guest's tagged, clean captures, through the SAME blur gate
+ * — but at DISPLAY size, because a scrapbook photo can fill half a 1440 px page
+ * (or all of it, as the background) where a reel frame starts from a thumb.
+ *
+ *   photo: display ?? tile ?? thumb ?? r2_object_key (unless dropped)
+ *
+ * Photos only (a clip has no single still worth pinning). THROWS when a read
+ * is refused — the page must say "we couldn't load them", never "you're in none".
+ */
+export async function readGuestScrapbookPhotos(
+  eventId: string,
+  guestId: string,
+): Promise<Array<{ id: string; url: string; thumbUrl: string | null }>> {
+  const displayFirst = (row: PapicDisplayRow): string | null => {
+    const droppedRaw = row.full_res_dropped_at ? null : (row.r2_object_key ?? null);
+    for (const ref of [row.display_r2_key, row.tile_r2_key, row.thumb_r2_key, droppedRaw]) {
+      if (typeof ref === 'string' && ref.trim().length > 0) return ref;
+    }
+    return null;
+  };
+  const { media } = await readTaggedPhotos(eventId, guestId, displayFirst);
+  return media.filter((m) => m.kind === 'photo').map((m) => ({ id: m.id, url: m.url, thumbUrl: null }));
 }
 
 /**

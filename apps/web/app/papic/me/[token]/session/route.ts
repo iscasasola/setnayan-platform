@@ -28,6 +28,9 @@ const NEXT_DESTINATIONS: Record<string, string> = {
      camera stood open. It is session-scoped like the other two, so it needs the
      same bridge. Allowlisted key, fixed path: no caller-supplied redirect. */
   guest: '/papic/guest',
+  /* 2026-10-03 — the Kwento scrapbook page: the same session-scoped decorator
+     door, opened on its page maker. Allowlisted like the rest. */
+  scrapbook: '/papic/decorate?make=scrapbook',
 };
 
 export async function GET(req: Request, ctx: { params: Promise<{ token: string }> }) {

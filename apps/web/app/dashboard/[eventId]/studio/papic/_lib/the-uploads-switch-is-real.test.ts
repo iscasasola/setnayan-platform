@@ -192,12 +192,19 @@ test('7 · the value the picker branches on is actually SELECTED from the databa
  * ⚠ Counted at the CALL, not by importing the module: the point is how many
  * places can put a row in, and an import that is never called is not a path.
  */
-test('8 · exactly three things record a capture — a fourth must answer for the OFF copy', () => {
+test('8 · exactly four things record a capture — a fifth must answer for the OFF copy', () => {
   const WEB = join(import.meta.dirname, '..', '..', '..', '..', '..', '..');
   const known = [
     'app/dashboard/[eventId]/studio/papic/_components/add-to-library.tsx',
     'app/papic/seat/[token]/_components/camera-bridge-panel.tsx',
     'app/papic/seat/[token]/_components/papic-seat-capture.tsx',
+    // 2026-10-03 · the couple's Kwento scrapbook page. It adds a page BY HAND,
+    // so it answers for the OFF copy the only way that counts: it saves through
+    // the Uploads camera's own seat token — `/api/upload` then
+    // `recordSeatCapture`, both of which ask papicManualUploadsClosed keyed on
+    // that seat before the presign and before the write. With uploads OFF its
+    // screen also offers no save at all (`studio/papic/scrapbook/page.tsx`).
+    'lib/scrapbook/scrapbook-save.ts',
   ];
 
   const found = execFileSync(

@@ -51,13 +51,13 @@ const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
  * face matching actually runs. A guard that checks one host is the same
  * half-fix wearing a test.
  */
-function faceGateOrigins(): string[] {
-  const src = read('lib/face-gate.ts');
+function faceGateOrigins(rel = 'lib/face-gate.ts'): string[] {
+  const src = read(rel);
   const hosts = [...src.matchAll(/https:\/\/([a-z0-9.-]+)\//gi)].map((m) => m[1]!);
   const unique = [...new Set(hosts)];
   assert.ok(
     unique.length >= 2,
-    `face-gate.ts names ${unique.length} host(s); it loads a wasm runtime AND a model, so fewer ` +
+    `${rel} names ${unique.length} host(s); it loads a wasm runtime AND a model, so fewer ` +
       'than two means this guard has stopped seeing one of them',
   );
   return unique;
@@ -116,4 +116,16 @@ test('the first-party origins are named too — they were the other half', () =>
   for (const host of ['r2.dev', 'tile.openstreetmap.org']) {
     assert.ok(img.includes(host), `img-src does not name ${host}`);
   }
+});
+
+/**
+ * The Kwento scrapbook's cut-out (`lib/scrapbook/scrapbook-cutout.ts`) loads the
+ * same package from the same two kinds of host — a wasm runtime and a model.
+ * Read out of THAT file, so a version bump or a new model host there fails here.
+ */
+test('the CSP names EVERY host the scrapbook cut-out loads from', () => {
+  const hosts = faceGateOrigins('lib/scrapbook/scrapbook-cutout.ts');
+  const missing = hosts.filter((host) => !directive('connect-src').includes(host));
+  if (!directive('script-src').includes('cdn.jsdelivr.net')) missing.push('script-src: cdn.jsdelivr.net');
+  assert.deepEqual(missing, [], 'The CSP does not name something the scrapbook cut-out loads: ' + missing.join(', '));
 });

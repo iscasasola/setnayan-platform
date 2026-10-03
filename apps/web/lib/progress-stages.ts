@@ -197,7 +197,7 @@ export function buildProgressStages(
   }
   if (lockedVendorCount > 0) {
     bookingDone.push({
-      label: 'Vendor categories booked',
+      label: 'Supplier categories booked',
       detail: `${lockedVendorCount} of ${totalLockableCategories}`,
     });
   }
@@ -308,7 +308,7 @@ export function buildProgressStages(
   */
   const afterTodo: ProgressStageItem[] = [
     { label: 'Gallery review & unlock', detail: 'you release it when you are ready' },
-    { label: 'Thank your vendors' },
+    { label: 'Thank your suppliers' },
   ];
   // Derived like every other stage rather than hardcoded to 0. Same value
   // today (nothing here is tickable yet) — but a stub that IGNORES its own
@@ -335,8 +335,8 @@ export function buildProgressStages(
       todo: bookingTodo,
       aiNote:
         openCategories === 0
-          ? 'Every category is booked — your vendor team is complete.'
-          : `${formatCount(lockedVendorCount)} of ${formatCount(totalLockableCategories)} categories locked · ${openCategories} still open.`,
+          ? 'Every category is booked — your supplier team is complete.'
+          : `${formatCount(lockedVendorCount)} of ${formatCount(totalLockableCategories)} categories booked · ${openCategories} still open.`,
     },
     {
       key: 'inviting',

@@ -189,7 +189,7 @@ export default async function PackageBookingPage({ params }: Props) {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/45">
-            Vendor package
+            Supplier package
           </p>
           <h1 className="mt-0.5 text-xl font-semibold tracking-tight text-ink sm:text-2xl">
             {pkg.package_name}
@@ -219,7 +219,7 @@ export default async function PackageBookingPage({ params }: Props) {
         {isLocked ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-success-100 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
             <BookmarkCheck aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            Locked
+            Booked
           </span>
         ) : isReleased ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-ink/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-ink/60">
@@ -236,7 +236,7 @@ export default async function PackageBookingPage({ params }: Props) {
       <section className="mt-5 rounded-2xl border border-ink/10 bg-cream p-5">
         <dl className="space-y-2 text-sm">
           <div className="flex items-center justify-between">
-            <dt className="text-ink/70">Total locked</dt>
+            <dt className="text-ink/70">Total booked</dt>
             <dd className="font-mono text-base text-ink">
               {formatCentavosPhp(typedBooking.total_locked_centavos)}
             </dd>
@@ -263,7 +263,7 @@ export default async function PackageBookingPage({ params }: Props) {
                   pkg.consumable_budget_centavos,
               )}
             </span>{' '}
-            from removed items. Talk to {vendor?.business_name ?? 'the vendor'}{' '}
+            from removed items. Talk to {vendor?.business_name ?? 'the supplier'}{' '}
             about how to apply it.
           </p>
         ) : null}
@@ -389,7 +389,7 @@ export default async function PackageBookingPage({ params }: Props) {
             Not included in this booking ({notIncludedItems.length})
           </h2>
           <p className="mt-2 text-xs leading-relaxed text-ink/60">
-            Optional extras {vendor?.business_name ?? 'this vendor'} offers on
+            Optional extras {vendor?.business_name ?? 'this supplier'} offers on
             this package. They weren{'’'}t part of what you booked, and nothing
             was charged for them.
           </p>

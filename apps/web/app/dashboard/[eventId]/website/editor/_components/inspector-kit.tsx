@@ -1,5 +1,6 @@
 'use client';
 
+import { PickMenu } from './pick-menu';
 import type { ReactNode } from 'react';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 
@@ -31,7 +32,19 @@ export function InspectorTabs<K extends string>({
   label: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex border-b border-ink/10 px-3 pt-1" data-inspector-tabs="">
+    <>
+    {/* 📱 On a phone the tabs are ONE dropdown (owner 2026-10-02: "any set of
+        choices is one dropdown, never a pill row"); the desktop keeps its tabs. */}
+    <div className="flex shrink-0 px-3 pt-1 lg:hidden" data-inspector-tabs-pick="">
+      <PickMenu
+        label={label}
+        value={value}
+        options={tabs.map((t) => ({ key: t.key, label: t.label }))}
+        onPick={(k) => onChange(k as K)}
+        className="w-full"
+      />
+    </div>
+    <div role="tablist" aria-label={label} className="hidden border-b border-ink/10 px-3 pt-1 lg:flex" data-inspector-tabs="">
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -48,6 +61,7 @@ export function InspectorTabs<K extends string>({
         </button>
       ))}
     </div>
+    </>
   );
 }
 

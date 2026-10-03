@@ -48,7 +48,7 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
   event_medic:
     "A nurse or paramedic quietly on standby at outdoor, sports, or large events. Many venues and tournaments require one.",
   everything_else:
-    "Someone you added yourself whose trade we could not place. They stay here so you can still see them, price them and lock them.",
+    "Someone you added yourself whose trade we could not place. They stay here so you can still see them, price them and book them.",
   tour_activity:
     "Island hopping, a city tour, team-building — the day your visiting guests talk about longest. Book once your headcount is firm.",
   tour_guide:
@@ -69,7 +69,7 @@ export const TILE_HINTS: Readonly<Record<string, string>> = {
   reveal_element:
     "Cold sparks, confetti, smoke, a drone show, the gender-reveal burst — the gasp moment. Check the venue allows it before booking.",
   event_insurance:
-    "Cancellation, postponement, venue damage — covered, so one bad week doesn't cost you twice. Arrange it once deposits go out.",
+    "Cancellation, postponement, venue damage — covered, so one bad week doesn't cost you twice. Arrange it once payments go out.",
   personal_accident_insurance:
     "For the two of you, not your guests — medical costs looked after if something happens on the way or on the day.",
   referee_official:

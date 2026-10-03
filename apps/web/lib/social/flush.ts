@@ -7,6 +7,7 @@ import {
   SHARE_ARTIFACT_LABEL,
   coupleCreationCaption,
   shareConsentPostableFrom,
+  SHARE_PULL_WINDOW_HOURS,
   vendorFeatureCaption,
   type ShareArtifactType,
   type ShareCreditMode,
@@ -56,7 +57,7 @@ import { JOURNAL_SOCIAL_HOOKS } from '@/lib/social/journal-hooks';
 const FLUSH_THROTTLE_MS = 10 * 60 * 1000;
 
 /** Couple-creation pull window: 48h for the team/couple to pull the post. */
-const CREATION_HOLD_MS = 48 * 60 * 60 * 1000;
+const CREATION_HOLD_MS = SHARE_PULL_WINDOW_HOURS * 60 * 60 * 1000;
 
 /** Evergreen floor: repost only when the page had nothing for 3 days … */
 const EVERGREEN_QUIET_MS = 3 * 24 * 60 * 60 * 1000;

@@ -46,7 +46,7 @@ async function requireShotListVendor(eventId: string): Promise<Ctx> {
   if (!user) return { ok: false, error: 'Not signed in.' };
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
 
   const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
   if (!bookings.some((b) => b.eventId === eventId)) {

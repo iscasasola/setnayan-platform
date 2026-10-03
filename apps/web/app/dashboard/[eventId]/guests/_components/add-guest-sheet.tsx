@@ -40,6 +40,25 @@ export function OpenAddGuestButton({ label }: { label: string }) {
   );
 }
 
+/**
+ * The empty list's one button (first-timer fix 11, 2026-10-02): "No guests yet."
+ * + **Add a guest** — the SAME sheet the header + opens, so there is one way in,
+ * worded, where the eye lands on an empty page.
+ */
+export function OpenAddGuestTextButton({ label }: { label: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new CustomEvent(OPEN_EVENT))}
+      data-guests-empty-add=""
+      className="button-primary inline-flex min-h-[44px] items-center gap-2"
+    >
+      <Plus className="h-4 w-4" strokeWidth={2} aria-hidden />
+      {label}
+    </button>
+  );
+}
+
 export function AddGuestSheet({
   nameBox,
   doors,

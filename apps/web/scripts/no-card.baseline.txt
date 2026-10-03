@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 722 files · 2007 lines
+# 722 files · 2003 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -197,11 +197,11 @@
 3 apps/web/app/admin/payments/_components/inbox-matcher.tsx
 6 apps/web/app/admin/payments/page.tsx
 1 apps/web/app/admin/payouts/page.tsx
-8 apps/web/app/admin/pricing/_components/ai-bands-editor.tsx
+6 apps/web/app/admin/pricing/_components/ai-bands-editor.tsx
 3 apps/web/app/admin/pricing/_components/booking-fee-form.tsx
 9 apps/web/app/admin/pricing/_components/catalog-editor.tsx
 1 apps/web/app/admin/pricing/_components/legacy-catalog.tsx
-4 apps/web/app/admin/pricing/_components/papic-ladder-editor.tsx
+3 apps/web/app/admin/pricing/_components/papic-ladder-editor.tsx
 2 apps/web/app/admin/pricing/_components/papic-rest-editor.tsx
 3 apps/web/app/admin/pricing/_components/papic-type-sizing-editor.tsx
 1 apps/web/app/admin/pricing/_surfaces/ai-prices-surface.tsx
@@ -473,7 +473,7 @@
 3 apps/web/app/dashboard/[eventId]/studio/save-the-date/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/save-the-date/stamp/wax-stamp-maker.tsx
 1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx
-2 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/page.tsx
+1 apps/web/app/dashboard/[eventId]/studio/setnayan-ai/page.tsx
 3 apps/web/app/dashboard/[eventId]/studio/thank-you/_components/thank-you-maker.tsx
 2 apps/web/app/dashboard/[eventId]/studio/website-pro/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/_components/accordion-build.tsx

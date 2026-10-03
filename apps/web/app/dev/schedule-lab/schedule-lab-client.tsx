@@ -49,7 +49,7 @@ type Seed = [
 
 const SEEDS: Seed[] = [
   ['hmua', 'Hair & makeup', 'pre_ceremony', '08:00', '12:00', false, { responsible_vendor_ids: ['v-kat'], responsible_party: 'HMUA team', location: 'Bridal suite, Peninsula Manila', notes: 'Claire first, then the entourage. Mom at 10:30 AM.' }],
-  ['ingress', 'Vendor ingress & styling', 'pre_ceremony', '10:00', '13:00', false, { responsible_vendor_ids: ['v-gaia'], location: 'San Agustin Church · Grand ballroom' }],
+  ['ingress', 'Supplier ingress & styling', 'pre_ceremony', '10:00', '13:00', false, { responsible_vendor_ids: ['v-gaia'], location: 'San Agustin Church · Grand ballroom' }],
   ['arrive', 'Guests arrive', 'pre_ceremony', '13:30', '14:00', true, { location: 'San Agustin Church, Intramuros', notes: 'Ushers at both doors. Programs on the pews.' }],
   ['cer', 'Ceremony', 'ceremony', '14:00', '15:30', true, { responsible_party: 'Coordinator', location: 'San Agustin Church, Intramuros', notes: 'Unplugged ceremony — ushers remind at the door.' }],
   ['cer-1', 'Procession', 'ceremony', '14:00', null, true, { parent_block_id: 'cer' }],

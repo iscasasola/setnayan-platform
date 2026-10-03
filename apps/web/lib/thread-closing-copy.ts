@@ -155,8 +155,8 @@ export function closingCopy(
         return {
           kind,
           sentence: reason
-            ? `${other} declined this inquiry. Why: “${reason}” Browse similar vendors to keep your options open.`
-            : `${other} isn’t available for your date. Browse similar vendors to keep your options open.`,
+            ? `${other} declined this inquiry. Why: “${reason}” Browse similar suppliers to keep your options open.`
+            : `${other} isn’t available for your date. Browse similar suppliers to keep your options open.`,
           showSimilarVendors: true,
           showWithdraw: true,
         };
@@ -193,7 +193,7 @@ export function closingCopy(
       return {
         kind,
         sentence:
-          'You declined this inquiry. The couple has been notified and pointed to other vendors.',
+          'You declined this inquiry. The couple has been notified and pointed to other suppliers.',
         showSimilarVendors: false,
         showWithdraw: false,
       };

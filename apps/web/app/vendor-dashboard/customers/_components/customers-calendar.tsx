@@ -500,9 +500,7 @@ export function CustomersCalendar({
                         : { color: 'var(--m-blush-deepest)', background: 'var(--m-blush)' }
                     }
                     title={
-                      day.inquiryCount === 1
-                        ? '1 couple is asking about this date'
-                        : `${formatCount(day.inquiryCount)} couples are asking about this date`
+                      `${formatCount(day.inquiryCount)} ${day.inquiryCount === 1 ? 'couple is' : 'couples are'} asking about this date`
                     }
                   >
                     {day.inquiryCount === 1 ? '1 asking' : `${formatCount(day.inquiryCount)} asking`}

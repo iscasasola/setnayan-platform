@@ -14,7 +14,7 @@ import { vendorClientSurfaceHref } from '@/lib/vendor-client-return';
 import { isRelationshipWorkspaceEnabled } from '@/lib/relationship-workspace-flag';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Production Sheet · Vendor' };
+export const metadata = { title: 'Production Sheet · Supplier' };
 
 /**
  * Caterer Production Sheet — Vendor Portal data-link program ②
@@ -304,8 +304,8 @@ export default async function ProductionSheetPage({ params, searchParams }: Prop
           </p>
         ) : rules.length === 0 ? (
           <p className="mt-3 text-sm text-ink/55">
-            No portion rules yet — add your first below (e.g. &ldquo;Rice — 0.2 kg per
-            guest, +10% buffer&rdquo;).
+            No portion rules yet — add your first below (for example, how much rice per guest,
+            and a buffer on top).
           </p>
         ) : (
           <table className="mt-3 w-full text-sm">

@@ -33,8 +33,14 @@
 /** Ceiling shared with the admin form and the column's CHECK constraint. */
 export const MAX_ONBOARDING_DISCOUNT_PCT = 90;
 
-/** What the house rule falls back to when the setting cannot be read. */
-export const DEFAULT_ONBOARDING_DISCOUNT_PCT = 10;
+/**
+ * What the rule falls back to when the setting cannot be read — the owner's
+ * number, so a failed read neither retracts nor deepens the advertised saving.
+ * ⚖ Owner tracker d18 (2026-10-02): 40% off everything bought during sign-up;
+ * `platform_settings.onboarding_discount_pct` holds it (migration
+ * `*_one_signup_discount_is_forty.sql`). Was 10 (the 2026-08-28 house rule).
+ */
+export const DEFAULT_ONBOARDING_DISCOUNT_PCT = 40;
 
 /**
  * A percentage we are willing to act on, or the default.

@@ -83,9 +83,9 @@ test('3 · the couple’s ⋮ still reaches the workspace, and every one of thos
 });
 
 test('4 · the sent-quote page’s next step goes through the same rule', () => {
-  assert.equal(count(proposal, /lockDoorHref = coupleLockDoorHref\(/g), 1, 'the proposals page derives the lock door itself');
-  assert.equal(count(proposal, /lockDoorHref = `[^`]*workspace`/g), 0, 'the lock link points at the workspace again');
-  assert.equal(count(proposal, /href=\{lockDoorHref\}/g), 1, 'the next-step button is not handed the lock door');
+  assert.equal(count(proposal, /lockTarget = coupleLockTarget\(/g), 1, 'the proposals page derives the lock door itself');
+  assert.equal(count(proposal, /lockTarget = `[^`]*workspace`/g), 0, 'the lock link points at the workspace again');
+  assert.equal(count(proposal, /href=\{lockTarget\.benchHref\}/g), 1, 'the next-step button is not handed the lock door');
   assert.equal(count(proposal, /\.select\('vendor_id, category'\)/g), 1);
 });
 

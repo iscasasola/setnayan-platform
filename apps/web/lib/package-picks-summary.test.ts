@@ -236,7 +236,7 @@ test('the block reads as one message and always closes with the estimate note', 
   assert.equal(lines[5], '  • Which lechon style?', 'a follow-up is indented under its pick');
   assert.equal(lines[6], '    → Cebu style', 'a free pick is never annotated');
   assert.equal(lines[7], '• Photo booth');
-  assert.equal(lines[8], '  → 1 extra hour (your vendor quotes these)');
+  assert.equal(lines[8], '  → 1 extra hour (your supplier quotes these)');
   assert.equal(lines[9], 'Skipped: Second shooter');
   assert.equal(
     lines[10],
@@ -377,7 +377,7 @@ test('PARITY — the message never annotates an option the modal renders bare', 
       );
       assert.doesNotMatch(
         rendered,
-        /your vendor quotes this\)/,
+        /your supplier quotes this\)/,
         'a free preference must never invite a quote — the screen presents it as free',
       );
     } else {
@@ -418,7 +418,7 @@ test('the only surviving "vendor quotes" note is the extra-hours caveat', () => 
     surchargeCentavos: 0,
   });
   const block = formatPackagePicksBlock(summary);
-  assert.match(block, /→ 2 extra hours \(your vendor quotes these\)/);
+  assert.match(block, /→ 2 extra hours \(your supplier quotes these\)/);
   // …and that phrasing matches the modal's own hourly caveat ("your vendor
   // quotes these"), which is the only place the screen says it.
 });
@@ -521,7 +521,7 @@ test('a contact block surfaces the SERVER’s own teaching copy, verbatim', () =
 
 test('a missing vendor label degrades to a sentence that still reads', () => {
   const copy = buildNotSentCopy('failed', '   ');
-  assert.match(copy, /This vendor/);
+  assert.match(copy, /This supplier/);
 });
 
 function escapeRe(s: string): string {

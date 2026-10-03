@@ -194,7 +194,7 @@ test('after Lock, the couple has a next step on the Vendors page', () => {
     /<DepositLine\s+step=\{depositStepByVendorId\?\.get\(r\.vendorId\)\}\s+href=\{depositStepHref\(eventId, r\.vendorId\)\}/,
     'the locked row no longer carries the deposit step',
   );
-  assert.match(locked, /'Pay your deposit'/);
+  assert.match(locked, /'Pay your first payment'/);
   const page = read(VENDORS_PAGE);
   assert.match(page, /depositStepByVendorId=\{depositStepByVendorId\}/, 'the page never passes it');
   assert.match(page, /filter\(\(v\) => v\.status === 'contracted'\)/, 'the deposit ask widened past contracted');
@@ -206,7 +206,7 @@ test('the tile says what it measures — build picks NOT yet locked', () => {
   // the unpriced count) and prettier split it over four lines, which broke this
   // assertion while the property it guards was still true. The property is the
   // LABEL and the FIGURE, not their line breaks.
-  assert.match(locked, /k="Still to lock"\s+v=\{pesoFromPhp\(money\.inBuildPhp\)/);
+  assert.match(locked, /k="Still to book"\s+v=\{pesoFromPhp\(money\.inBuildPhp\)/);
   assert.doesNotMatch(locked, /k="In build"/, '"In build ₱0" beside a locked supplier is back');
 });
 

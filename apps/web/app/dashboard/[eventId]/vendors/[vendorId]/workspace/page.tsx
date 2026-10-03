@@ -257,7 +257,7 @@ const STAGE_ORDER: ReadonlyArray<WorkspaceStage> = [
 
 const STAGE_LABEL: Record<WorkspaceStage, string> = {
   plan_finalized: 'Plan finalized',
-  downpayment_paid: 'Downpayment paid',
+  downpayment_paid: 'First payment paid',
   delivered: 'Delivered',
 };
 
@@ -1279,7 +1279,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           const split = splitProposalToCosting(p.total_centavos, p.line_items);
           return {
             id: p.proposal_id,
-            label: p.title?.trim() || 'Proposal',
+            label: p.title?.trim() || 'Quote',
             source: 'proposal' as const,
             servicePesos: split.servicePesos,
             transportPesos: split.transportPesos,
@@ -1478,7 +1478,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           ) : (
             <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-success-100 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-success-800">
               <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Locked
+              Booked
             </span>
           )}
         </div>
@@ -1710,8 +1710,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             Their choices
           </h2>
           <p className="mb-3 text-xs text-ink/55">
-            What was picked when this package was locked, at the prices agreed
-            then. These are part of the locked total.
+            What was picked when this package was booked, at the prices agreed
+            then. These are part of the booked total.
           </p>
           <ul className="space-y-2">
             {packageChoiceLines.map((line) => (
@@ -1830,7 +1830,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                   </p>
                 ) : (
                   <p className="text-[11px] text-ink/55">
-                    {displayName} set up this plan. Pay each installment using the
+                    {displayName} set up this plan. Pay each payment using the
                     methods below; {displayName} confirms each as received.
                   </p>
                 )
@@ -2067,7 +2067,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             )
           ) : (
             <p className="text-xs text-ink/55">
-              This vendor isn&rsquo;t connected to a Setnayan profile, so chat
+              This supplier isn&rsquo;t connected to a Setnayan profile, so chat
               isn&rsquo;t available here. Reach out using the contact details
               above.
             </p>
@@ -2168,7 +2168,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
           {!ev.marketplace_vendor_id ? (
             <p className="text-xs text-ink/55">
-              Documents flow through the marketplace profile. This vendor
+              Documents flow through the marketplace profile. This supplier
               isn&rsquo;t connected yet, so files aren&rsquo;t available here.
             </p>
           ) : contracts.length === 0 ? (
@@ -2374,7 +2374,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               <span className="font-medium text-ink">
                 {coveredCrewMeals} meal{coveredCrewMeals === 1 ? '' : 's'}
               </span>{' '}
-              across the vendors you&rsquo;ve marked as crew-meal covered. Set the Service
+              across the suppliers you&rsquo;ve marked as crew-meal covered. Set the Service
               price above to your per-meal rate × this count.
             </p>
           ) : (
@@ -2521,7 +2521,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
           {changesSinceLockNum !== 0 ? (
             <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="text-ink/65">Changes you both agreed after the lock</span>
+              <span className="text-ink/65">Changes you both agreed after the booking</span>
               <span className="font-medium text-ink">
                 {changesSinceLockNum < 0 ? '−' : '+'}
                 {formatPHP(Math.abs(changesSinceLockNum))}
@@ -2586,7 +2586,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
             <div className="min-w-0 space-y-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warn-800">
-                Bring this vendor onto Setnayan
+                Bring this supplier onto Setnayan
               </p>
               <h2
                 id="claim-invite-heading"
@@ -2596,8 +2596,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               </h2>
               <p className="text-xs text-ink/70">
                 They don&rsquo;t have a Setnayan account yet. Share this link
-                so they can register a free vendor account and see the
-                schedule you&rsquo;ve locked for them.
+                so they can register a free supplier account and see the
+                schedule you&rsquo;ve booked for them.
               </p>
             </div>
           </header>
@@ -2606,12 +2606,12 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <ClaimLinkShare
               claimUrl={buildClaimUrl(autoShareInvite.claim_token)}
               shareTitle={`Setnayan invite for ${displayName}`}
-              shareText={`Hi! I added you on Setnayan for our ${inviteEventWord}. Claim your free vendor account here:`}
+              shareText={`Hi! I added you on Setnayan for our ${inviteEventWord}. Claim your free supplier account here:`}
             />
           </div>
 
           <p className="mt-3 text-[11px] text-ink/55">
-            Free vendor account · launch promo runs through 30 Jan 2027 ·
+            Free supplier account · launch promo runs through 30 Jan 2027 ·
             Link expires in 90 days
           </p>
         </section>
@@ -2626,7 +2626,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
             <div className="min-w-0 space-y-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-success-800">
-                Linked to vendor account
+                Linked to supplier account
               </p>
               <h2
                 id="claim-linked-heading"
@@ -2661,7 +2661,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
                 The previous invite link is no longer active
               </h2>
               <p className="text-xs text-ink/65">
-                Re-lock this vendor to generate a fresh link, or reach out to
+                Re-book this supplier to generate a fresh link, or reach out to
                 them using the contact details above.
               </p>
             </div>
@@ -2678,7 +2678,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             </div>
             <div className="min-w-0 space-y-1">
               <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-warn-800">
-                Bring this vendor onto Setnayan
+                Bring this supplier onto Setnayan
               </p>
               <h2 id="claim-create-heading" className="text-sm font-semibold text-ink">
                 Invite {displayName} with a free account
@@ -2686,7 +2686,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               <p className="text-xs text-ink/70">
                 They don&rsquo;t have a Setnayan account yet. Create a shareable
                 link to send them — they register free and can see the schedule
-                you&rsquo;ve locked for them.
+                you&rsquo;ve booked for them.
               </p>
             </div>
           </header>
@@ -3032,10 +3032,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     railBody = `${displayName} marked this delivered. Settle any balance and leave a review.`;
   } else if (stage === 'downpayment_paid') {
     railTitle = 'Keep payments on track';
-    railBody = `Your downpayment is in. Log each payment to ${displayName} as money moves.`;
+    railBody = `Your first payment is in. Log each payment to ${displayName} as money moves.`;
   } else {
     railTitle = 'Record your payment';
-    railBody = `Your booking with ${displayName} is locked. Log your downpayment to hold the date.`;
+    railBody = `Your booking with ${displayName} is confirmed. Log your first payment to hold the date.`;
   }
 
   const quickLinkClass =
@@ -3056,7 +3056,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           ) : (
             <span className="inline-flex items-center gap-1 rounded-full bg-success-100 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.1em] text-success-800">
               <BookmarkCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-              Locked
+              Booked
             </span>
           )}
           {stage ? (

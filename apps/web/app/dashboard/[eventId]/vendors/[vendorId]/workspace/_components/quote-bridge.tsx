@@ -313,7 +313,7 @@ export function QuoteBridge({
               ))}
 
               <p className="text-[11px] leading-relaxed text-ink/55">
-                Saving overwrites your stored costs for this vendor. Transport &amp; food
+                Saving overwrites your stored costs for this supplier. Transport &amp; food
                 start from your current values — change them only if you mean to.
               </p>
 

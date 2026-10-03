@@ -48,7 +48,7 @@ export async function submitVendorEditorialMedia(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
 
   // ── SEC-1 lane #3: pin both refs to THIS vendor, on THIS event ─────────────
   //
@@ -81,7 +81,7 @@ export async function submitVendorEditorialMedia(
   if (!eventVendorId) {
     return {
       ok: false,
-      error: 'Only the couple’s recommended vendor for a category can add editorial media.',
+      error: 'Only the couple’s recommended supplier for a category can add editorial media.',
     };
   }
 
@@ -148,7 +148,7 @@ export async function deleteVendorEditorialMedia(
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: 'Please sign in.' };
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) return { ok: false, error: 'No vendor profile.' };
+  if (!profile) return { ok: false, error: 'No supplier profile.' };
 
   const admin = createAdminClient();
   // Scope the delete to THIS vendor's own row on THIS event — never another's.

@@ -190,7 +190,7 @@ test('every PR-C string is non-empty and lives in explore-info-copy', () => {
   // an "event" chip pool is the regression these three lines pin together.
   assert.ok(ADD_TO_PLAN_HEADING.includes('Add to your event'));
   assert.ok(REMOVE_FROM_PLAN_LABEL.length > 0);
-  assert.ok(REMOVE_BLOCKED_LOCKED.toLowerCase().includes('unlock'));
+  assert.ok(REMOVE_BLOCKED_LOCKED.toLowerCase().includes('undo'));
   assert.ok(REMOVE_BLOCKED_LOCKED.toLowerCase().includes('never cancels'));
   assert.equal(addToPlanChipLabel('Catering'), 'Add Catering to your event');
   assert.equal(removeFromPlanButtonLabel('Catering'), 'Remove Catering from your event');

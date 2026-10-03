@@ -109,7 +109,7 @@ export function VendorQuickViewInspector({
       fullHref={fullHref}
       fullLabel="Open full profile"
       swapKey={`v:${v.vendorId}`}
-      ariaLabel={`${v.name} — vendor details`}
+      ariaLabel={`${v.name} — supplier details`}
     >
       <div className="space-y-4">
         {/* Hero image / initials — mirrors the card's photo ladder. */}

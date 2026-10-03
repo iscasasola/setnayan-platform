@@ -570,7 +570,14 @@ test('the Overview rail resolves money only when the viewer may read the budget'
   const src = code('app/dashboard/[eventId]/_components/event-dashboard.tsx');
   assert.match(
     src,
-    /budgetVisibility\.mayRead\s*\?[\s\S]{0,160}?resolveEventMoney\s*\(/,
-    'The Overview must gate resolveEventMoney on budgetVisibility.mayRead.',
+    /budgetVisibility\.mayRead\s*\?\s*guardMoney\s*:\s*null/,
+    'The Overview must hand the guard the money only when budgetVisibility.mayRead.',
+  );
+  // …and the money it is handed was resolved by the PAGE only after the same visibility check — never before it.
+  const page = code('app/dashboard/[eventId]/page.tsx');
+  assert.match(
+    page,
+    /if \(!access\?\.mayRead\) return \{ now: 'hidden', guard: null \};[\s\S]{0,800}?readBudgetLiveSummary\(/,
+    'Home must check who may read the budget BEFORE it resolves any money.',
   );
 });

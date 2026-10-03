@@ -156,7 +156,7 @@ export function RosLensPreview({
         <p className="rounded-md bg-ink/[0.03] p-3 text-sm text-ink/60">
           {lens.kind === 'guest'
             ? 'No public blocks yet — flip a block to “Show to guests” on the master.'
-            : 'Nothing tagged to this vendor yet — assign them a row on the master.'}
+            : 'Nothing tagged to this supplier yet — assign them a row on the master.'}
         </p>
       ) : (
         <ol className="divide-y divide-ink/10">
@@ -344,7 +344,7 @@ export function ResponsiblePartyEditor({
         </label>
         {vendors.length > 0 ? (
           <label className="space-y-1">
-            <span className="block font-medium text-ink">Tag booked vendors</span>
+            <span className="block font-medium text-ink">Tag booked suppliers</span>
             <select
               name="responsible_vendor_ids"
               multiple
@@ -359,7 +359,7 @@ export function ResponsiblePartyEditor({
               ))}
             </select>
             <span className="block text-[11px] text-ink/50">
-              Tagged vendors get this row in their filtered run-of-show slice.
+              Tagged suppliers get this row in their filtered run-of-show slice.
             </span>
           </label>
         ) : null}

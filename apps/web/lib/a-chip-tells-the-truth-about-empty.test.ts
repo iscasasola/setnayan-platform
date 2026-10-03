@@ -99,8 +99,9 @@ test('PARSED · every row the page builds states its own meaning', () => {
     `${assigns} rows, ${undefineds} deliberately chip-less, but only ${claims} state whether they are filled`,
   );
 
-  // And the four that started this must be `todo`, by name.
-  for (const label of ['Private', 'No schedule', '0 photos', '0 showing']) {
+  // And the four that started this must be `todo`, by name. (The empty gallery now says "No photos yet" —
+  // a typed "0 photos" is a number written into the words, which the Root map's shown-values check refuses.)
+  for (const label of ['Private', 'No schedule', 'No photos yet', '0 showing']) {
     const re = new RegExp(`todo\\('${label.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\\\$&')}'\\)`);
     assert.match(page, re, `"${label}" is no longer declared empty — it will paint success-green`);
   }

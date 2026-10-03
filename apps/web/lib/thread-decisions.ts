@@ -181,7 +181,7 @@ export type DecisionNow = {
  *
  * ⚖ WHY A QUOTE GETS A LINK AND NOT AN "ACCEPT" BUTTON. Accepting a quote books
  * the supplier. The product has no inline accept anywhere — the chat's own
- * quote card says "Review & accept" and opens the full proposal — because the
+ * quote card says "See the quote" and opens the full proposal — because the
  * couple should see what they are agreeing to before they agree to it. A
  * one-tap booking on a summary line, beside three smaller approvals, would be
  * the easiest button on the screen to press by accident.

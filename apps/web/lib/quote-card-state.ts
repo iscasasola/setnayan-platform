@@ -2,7 +2,7 @@
  * WHAT A QUOTE CARD MAY OFFER — the one rule the in-thread card renders from.
  *
  * ── THE DEFECT THIS CLOSES (owner, live, 2026-09-18) ────────────────────────
- * The quote card read "₱10,170 · Accepted" and STILL showed "Review & accept".
+ * The quote card read "₱10,170 · Accepted" and STILL showed "See the quote".
  * The label was chosen by WHO was looking (couple → accept, supplier → view)
  * and never by what the quote's status was. An accepted quote must not offer
  * accept again; a superseded one must not offer anything but its history.
@@ -47,9 +47,9 @@ export type QuoteCardInput = {
 
 export type QuoteCardPrimary =
   /** The couple reviews the full proposal and may accept there. */
-  | { kind: 'review_accept'; label: 'Review & accept' }
+  | { kind: 'review_accept'; label: 'See the quote' }
   /** Open the full proposal — no decision is offered. */
-  | { kind: 'view'; label: 'View proposal' };
+  | { kind: 'view'; label: 'View quote' };
 
 export type QuoteCardState = {
   /** The one button that opens `/proposals/<publicId>`. */
@@ -70,7 +70,7 @@ export type QuoteCardState = {
    * answered: the supplier's Agree / Turn it down (`vendorAgreeToLock` /
    * `vendorDeclineLock` — the same two actions the Overview and the client
    * page post). Owner, live as the supplier, 2026-09-19: the card said "the
-   * couple has asked you to lock" and offered only "View proposal" — "there is
+   * couple has asked you to lock" and offered only "View quote" — "there is
    * no agree and confirm booking". A state that asks for an answer must carry
    * the control that gives it.
    */
@@ -90,7 +90,7 @@ const CONFIRMED_HANDSHAKE: ReadonlySet<LockRequestState> = new Set(['locked', 'r
 export function quoteCardState(input: QuoteCardInput): QuoteCardState {
   const { status, isLatest, viewer, handshake = null } = input;
   const couple = viewer === 'couple';
-  const view: QuoteCardPrimary = { kind: 'view', label: 'View proposal' };
+  const view: QuoteCardPrimary = { kind: 'view', label: 'View quote' };
 
   // ── HISTORY: anything that is not the live quote. A superseded row stays in
   // the thread so the trail of what changed is legible; an earlier row that
@@ -110,7 +110,7 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
   // ── THE LIVE QUOTE, PENDING: the couple decides; the supplier may revise.
   if (status === 'sent' || status === 'viewed') {
     return {
-      primary: couple ? { kind: 'review_accept', label: 'Review & accept' } : view,
+      primary: couple ? { kind: 'review_accept', label: 'See the quote' } : view,
       offerCounter: couple,
       offerRevise: !couple,
       offerLock: false,
@@ -129,10 +129,10 @@ export function quoteCardState(input: QuoteCardInput): QuoteCardState {
         ? 'Accepted · booked'
         : handshake === 'requested'
           ? couple
-            ? 'Accepted · you have asked them to lock'
+            ? 'Accepted · you asked them to confirm your booking'
             : 'Accepted · the couple has asked you to lock'
           : couple
-            ? 'Accepted · nothing is booked until you lock'
+            ? 'Accepted · not booked yet'
             : 'Accepted · waiting for the couple to lock';
     return {
       primary: view,

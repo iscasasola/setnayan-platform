@@ -14,7 +14,9 @@ import {
   type VendorRowProp,
 } from '@/app/admin/pricing/_components/catalog-editor';
 import { BookingFeeForm } from '@/app/admin/pricing/_components/booking-fee-form';
-import { saveBookingFeeSchedule } from '@/app/admin/pricing/price-control-actions';
+import { saveBookingFeeSchedule, saveSignupDiscount } from '@/app/admin/pricing/price-control-actions';
+import { SignupDiscountCard } from '@/app/admin/pricing/_components/signup-discount-card';
+import { familyForServiceCode } from '@/lib/onboarding-family-discount';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 import { readOnboardingDiscountPct } from '@/lib/onboarding-discount';
@@ -164,10 +166,19 @@ export async function PricingSurface(_props: Props) {
 
   const settingsFee = settingsRes.data?.setnayan_pay_fee_pct;
 
-  // The house set-up discount. Owner 2026-08-28 — editable at any moment, so it
-  // is READ here every time rather than baked into any catalog row.
-  const storedDiscount = settingsRes.data?.onboarding_discount_pct;
-
+  // THE one sign-up discount (owner d18, 2026-10-02: "40% off everything bought
+  // during sign-up"). READ here every time rather than baked into any row.
+  const signupDiscountPct = readOnboardingDiscountPct(settingsRes.data?.onboarding_discount_pct);
+  // The rows whose STORED sign-up price the discount re-derives on save — so the
+  // card can show every before → after before anything is written.
+  const signupDerivedRows = retailRows
+    .filter((r) => familyForServiceCode(r.service_code) !== null && Number(r.retail_price_php) > 0)
+    .map((r) => ({
+      serviceCode: r.service_code,
+      title: r.title,
+      regularPhp: Number(r.retail_price_php),
+      signupPhp: r.onboarding_price_php == null ? null : Number(r.onboarding_price_php),
+    }));
 
   // The SUPPLIER-side booking fee. Falls back to the locked code schedule so an
   // unreadable settings row shows today's numbers rather than blanks or zeros.
@@ -310,6 +321,14 @@ export async function PricingSurface(_props: Props) {
         </div>
       )}
 
+      {!settingsRes.error && !retailRes.error && (
+        <SignupDiscountCard
+          discountPct={signupDiscountPct}
+          rows={signupDerivedRows}
+          action={saveSignupDiscount}
+        />
+      )}
+
       <PriceCatalogBrowser
         rows={rows}
         retailTitlesForReplacement={retailTitlesForReplacement}
@@ -317,6 +336,10 @@ export async function PricingSurface(_props: Props) {
       />
 
       {/*
+        ⚖ 2026-10-02 (owner d18): the SET-UP DISCOUNT IS BACK as the ONE
+        sign-up number — the SignupDiscountCard above. The note below is the
+        2026-08-29 history and still holds for the Platform fee.
+
         ── TWO CONTROLS REMOVED HERE, 2026-08-29 ────────────────────────────
         Owner, of the Platform fee: *"vendor booking fee is our gateway
         correct? so platform fee can be removed since we already assigned the

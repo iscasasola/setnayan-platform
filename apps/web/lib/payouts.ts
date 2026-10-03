@@ -61,11 +61,24 @@ export type VendorVerificationState =
   | 'hidden'
   | 'archived';
 
+/**
+ * The share of the vendor net each stage releases — THE one place the 100 / 20 /
+ * 60 / 20 split is written. `planPayoutStages` pays by it, the stage labels and
+ * the admin stage tabs quote it, so a change moves all three together. The three
+ * milestone stages must sum to 100 (a test holds that).
+ */
+export const PAYOUT_STAGE_PCT: Record<PayoutStage, number> = {
+  immediate_full: 100,
+  stage_1_confirm: 20,
+  stage_2_event_start: 60,
+  stage_3_event_end: 20,
+};
+
 export const PAYOUT_STAGE_LABEL: Record<PayoutStage, string> = {
   immediate_full: 'Immediate (T+1)',
-  stage_1_confirm: 'Stage 1 · Booking confirmation (20%)',
-  stage_2_event_start: 'Stage 2 · Pre-event (60%)',
-  stage_3_event_end: 'Stage 3 · Post-event (20%)',
+  stage_1_confirm: `Stage 1 · Booking confirmation (${PAYOUT_STAGE_PCT.stage_1_confirm}%)`,
+  stage_2_event_start: `Stage 2 · Pre-event (${PAYOUT_STAGE_PCT.stage_2_event_start}%)`,
+  stage_3_event_end: `Stage 3 · Post-event (${PAYOUT_STAGE_PCT.stage_3_event_end}%)`,
 };
 
 export const PAYOUT_STAGE_TONE: Record<PayoutStage, string> = {
@@ -302,7 +315,7 @@ export function planPayoutStages(inputs: PlanPayoutInputs): PlannedPayoutStage[]
 
   if (verificationState === 'hidden' || verificationState === 'archived') {
     throw new Error(
-      `Cannot schedule payouts for ${verificationState} vendor — admin must reassign or refund first.`,
+      `Cannot schedule payouts for ${verificationState} supplier — admin must reassign or refund first.`,
     );
   }
 
@@ -313,7 +326,7 @@ export function planPayoutStages(inputs: PlanPayoutInputs): PlannedPayoutStage[]
     return [
       {
         payout_stage: 'immediate_full',
-        pct: 100,
+        pct: PAYOUT_STAGE_PCT.immediate_full,
         amount_centavos: net,
         scheduled_at: addDays(paidAt, 1),
         dispute_window_ends_at: null,
@@ -332,8 +345,8 @@ export function planPayoutStages(inputs: PlanPayoutInputs): PlannedPayoutStage[]
     return [
       {
         payout_stage: 'stage_1_confirm',
-        pct: 20,
-        amount_centavos: Math.floor((net * 20) / 100),
+        pct: PAYOUT_STAGE_PCT.stage_1_confirm,
+        amount_centavos: Math.floor((net * PAYOUT_STAGE_PCT.stage_1_confirm) / 100),
         scheduled_at: addDays(paidAt, 1),
         dispute_window_ends_at: null,
         legacy_stage: 'reservation',
@@ -343,8 +356,8 @@ export function planPayoutStages(inputs: PlanPayoutInputs): PlannedPayoutStage[]
   }
 
   // Standard 3-stage coming_soon schedule.
-  const stage1 = Math.floor((net * 20) / 100);
-  const stage2 = Math.floor((net * 60) / 100);
+  const stage1 = Math.floor((net * PAYOUT_STAGE_PCT.stage_1_confirm) / 100);
+  const stage2 = Math.floor((net * PAYOUT_STAGE_PCT.stage_2_event_start) / 100);
   // Stage 3 mops up the rounding remainder so the three stages always sum
   // exactly to `net` (no centavo lost to integer division).
   const stage3 = net - stage1 - stage2;
@@ -352,7 +365,7 @@ export function planPayoutStages(inputs: PlanPayoutInputs): PlannedPayoutStage[]
   return [
     {
       payout_stage: 'stage_1_confirm',
-      pct: 20,
+      pct: PAYOUT_STAGE_PCT.stage_1_confirm,
       amount_centavos: stage1,
       scheduled_at: addDays(paidAt, 1),
       dispute_window_ends_at: null,
@@ -361,7 +374,7 @@ export function planPayoutStages(inputs: PlanPayoutInputs): PlannedPayoutStage[]
     },
     {
       payout_stage: 'stage_2_event_start',
-      pct: 60,
+      pct: PAYOUT_STAGE_PCT.stage_2_event_start,
       amount_centavos: stage2,
       // Spec: T+7 from event start. The dispute window opens at T-14 and
       // closes 7 days later (auto-release on silence). We use event_date
@@ -374,7 +387,7 @@ export function planPayoutStages(inputs: PlanPayoutInputs): PlannedPayoutStage[]
     },
     {
       payout_stage: 'stage_3_event_end',
-      pct: 20,
+      pct: PAYOUT_STAGE_PCT.stage_3_event_end,
       amount_centavos: stage3,
       // Spec: T+7 from event end (using event_date as start; equals event
       // end for single-day events).

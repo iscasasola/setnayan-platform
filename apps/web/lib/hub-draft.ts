@@ -1947,16 +1947,27 @@ export type HubDraftBarLive = {
 };
 
 /**
- * Does the Maker toolbar's ⋯ panel stay OPEN once an action reports back? Only
- * when there is something to read there: an error, a key Apply held back, or
- * Reset's own note. A clean Apply, Undo or Restore closes it — owner,
- * 2026-09-27: after Apply the panel stayed open over the Maker saying "2 changes
- * are now live".
+ * 📣 WHAT AN ACTION SAYS BACK — in the toolbar's own status line, never by
+ * opening a box. Owner, live phone test 2026-10-02: the draft panel ("Reset
+ * Save the Date…") opened by itself after Apply, would not close, and came back
+ * after the next Apply. The panel now opens ONLY from ⋯ › "Reset this stage…";
+ * an outcome worth reading is said beside Apply instead — an error, a key Apply
+ * held back, Reset's note — so nothing is ever silent and nothing pops up.
+ * (Replaces `hubDraftPanelStaysOpen`, which opened the panel on these.)
  */
-export function hubDraftPanelStaysOpen(result: HubDraftActionResult): boolean {
-  if (!result.ok) return true;
-  if (result.intent === 'reset') return true;
-  return result.held.length > 0;
+export type HubDraftOutcome =
+  | { kind: 'error'; text: string }
+  | { kind: 'live' }
+  | { kind: 'held'; held: ReadonlyArray<{ label: string; reason: HubDraftRefusal }> }
+  | { kind: 'reset' }
+  | null;
+
+export function hubDraftOutcome(result: HubDraftActionResult | null): HubDraftOutcome {
+  if (!result) return null;
+  if (!result.ok) return { kind: 'error', text: result.error };
+  if (result.intent === 'reset') return { kind: 'reset' };
+  if (result.intent !== 'apply') return null;
+  return result.held.length > 0 ? { kind: 'held', held: result.held } : { kind: 'live' };
 }
 
 /** Which typed fact (the names, the date, the name style) an `events` column carries — null for every other column. */

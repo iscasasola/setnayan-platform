@@ -323,13 +323,13 @@ export function appStoreDetailHref(key: string, eventId: string): string {
 const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
   {
     key: 'setnayan-ai',
-    tags: ['Setnayan AI', 'Planning', 'Vendors', 'Popular'],
+    tags: ['Setnayan AI', 'Planning', 'Suppliers', 'Popular'],
     label: 'Setnayan AI',
     Icon: Gem,
     iteration: '0016',
     status: 'live',
     category: 'tool',
-    blurb: 'Your whole planning office — it matches vendors to your budget and date, reminds you what’s next, and guards every deadline.',
+    blurb: 'Your whole planning office — it matches suppliers to your budget and date, reminds you what’s next, and guards every deadline.',
     cta: 'Open your planner',
     studioGroup: 'setnayan_ai',
     serviceKey: 'SETNAYAN_AI',

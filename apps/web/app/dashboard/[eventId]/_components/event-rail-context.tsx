@@ -304,7 +304,7 @@ export function EventRailContext({
                         {item.children.map((c) => (
                           <li key={c.key}>
                             <Link href={c.href} className="fd-row fd-mrow fd-mchild">
-                              {rowInner(c.icon, c.label)}
+                              {rowInner(c.icon, c.label, c.description)}
                             </Link>
                           </li>
                         ))}
@@ -345,13 +345,23 @@ export function EventRailContext({
 }
 
 /** One rail row's icon, word and 72px-strip caption — shared by every row. */
-function rowInner(Icon: NavItem['icon'], label: string) {
+function rowInner(Icon: NavItem['icon'], label: string, sub?: string) {
   return (
     <>
       <span className="fd-gi" aria-hidden="true">
         <Icon className="h-[18px] w-[18px]" strokeWidth={1.75} aria-hidden />
       </span>
-      <span className="fd-label-text">{label}</span>
+      {/* A service's Setnayan name sits small UNDER its plain name (owner d17). */}
+      <span className="fd-label-text">
+        {sub ? (
+          <span className="flex flex-col leading-tight">
+            {label}
+            <span className="text-[12.5px] text-ink/55">{sub}</span>
+          </span>
+        ) : (
+          label
+        )}
+      </span>
       <span className="fd-icon-caption">{label}</span>
     </>
   );

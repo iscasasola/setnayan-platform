@@ -130,7 +130,7 @@ export async function saveSelfAddedPaymentPlan(formData: FormData): Promise<void
     .eq('event_vendor_id', vendorId)
     .maybeSingle();
   if (anchorErr) {
-    throw new Error('Could not read when this booking was locked — try again.');
+    throw new Error('Could not read when this booking was confirmed — try again.');
   }
   const lockDateIso = onLockAnchorIso(
     (anchorRow as { on_lock_anchor_date: string | null } | null)?.on_lock_anchor_date,

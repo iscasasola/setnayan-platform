@@ -134,7 +134,7 @@ test('copy: opportunity-framed, names couple + category, points at proposals, an
   assert.match(body, /Maria & Jose/);
   assert.match(body, /Catering/);
   assert.match(body, /\/vendor-dashboard\/proposals/);
-  assert.match(body, /new proposition/i);
+  assert.match(body, /new quote/i);
   // Withheld budget: no peso sign and no run of digits that could be an amount.
   assert.ok(!body.includes('₱'), 'must not contain a peso amount');
   assert.ok(!/\d{3,}/.test(body), 'must not contain a budget-like number');

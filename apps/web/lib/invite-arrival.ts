@@ -83,6 +83,16 @@ export function inviteReplyPath(slug: string): string {
 export const GUEST_LIST_ONLY = 'guest_list_only' as const;
 
 /**
+ * 🚪 WHAT A STRANGER IS TOLD ON A LIST-ONLY EVENT (owner 2026-10-03: cale-ice is
+ * "Only people on my list" and still showed "2 requests to join" — those two
+ * were made 2026-09-21, BEFORE the 2026-09-27 ruling "Only my Guest List has no
+ * ask-to-join ANYWHERE"; they stay for the hosts to review). Every door that
+ * turns a keyless person away on such an event says THIS, so they know there is
+ * nothing to request and what to ask for instead. Event-type neutral: "hosts".
+ */
+export const INVITATION_ONLY_LINE = 'This event is by invitation only — ask the hosts for your link.';
+
+/**
  * Where a refused self-join goes back to (owner 2026-09-25: "the link process
  * must be easy to understand"). The guest came in through `/{slug}/invite`, so
  * that is where the sentence explaining the refusal is shown — not the opaque

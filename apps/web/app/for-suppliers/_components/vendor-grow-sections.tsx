@@ -14,7 +14,7 @@
 import Link from 'next/link';
 import { bookingFeeScheduleSummary } from '@/lib/booking-fee';
 import { FREE_BOOKING_LIMIT } from '@/lib/booking-fee-lock';
-import { supplierCommissionShort } from '@/lib/commission-promise';
+import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 /* ── shared primitives ─────────────────────────────────────────────────── */
@@ -155,7 +155,7 @@ export function VendorGrowThesis() {
     // the propagation guard on 2026-09-22, while production had already
     // collected ₱837.50. A fix applied to one string in a file is not a fix
     // applied to the file.
-    { b: '0%', s: 'commission — couples pay you directly and we never sit between you at checkout' },
+    { b: `${COMMISSION_PCT}%`, s: 'commission — couples pay you directly and we never sit between you at checkout' },
     { b: 'First 5 free', s: `the bookings we bring you are on us — after that ${bookingFeeScheduleSummary()}, only on couples we source` },
   ];
   return (
@@ -259,7 +259,7 @@ export function VendorGrowAI() {
             <Eyebrow onDark>Setnayan AI · free for suppliers</Eyebrow>
             <H2 onDark>It doesn&rsquo;t just list you. It sells for you — free.</H2>
             <Lede onDark>
-              Setnayan AI is free for every vendor. It helps couples plan, and it steers the right ones toward locking their booking with <em>you</em>. Here&rsquo;s the lever most vendors miss:{' '}
+              Setnayan AI is free for every supplier. It helps couples plan, and it steers the right ones toward locking their booking with <em>you</em>. Here&rsquo;s the lever most suppliers miss:{' '}
               <b style={{ color: '#fff' }}>the more of your couples who activate it, the harder we can push.</b>
             </Lede>
             <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -395,7 +395,7 @@ export function VendorGrowFairPay() {
           Most platforms charge you big just to hand you data. We don&rsquo;t. Joining is free, running your whole business is free, and bringing your own clients is always free.{' '}
           {feeLive ? null : (
             <>
-              While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>0%</b>.{' '}
+              While we launch, commission is <b style={{ color: 'var(--m-ink)' }}>{COMMISSION_PCT}%</b>.{' '}
             </>
           )}
           Your first {FREE_BOOKING_LIMIT} Setnayan-sourced bookings are on us —{' '}
@@ -484,7 +484,7 @@ export function VendorGrowNoFakes() {
         <Eyebrow center>Merit only</Eyebrow>
         <H2>No fakes. No pay-to-win. Ever.</H2>
         <Lede style={{ maxWidth: '56ch', margin: '0 auto' }}>
-          Ranking is merit-only — you can&rsquo;t buy your way up, ever. Any vendor caught faking results to inflate their own standing loses all their data and is permanently banned. In return, we ask one thing: your best work, and honest communication with couples.
+          Ranking is merit-only — you can&rsquo;t buy your way up, ever. Any supplier caught faking results to inflate their own standing loses all their data and is permanently banned. In return, we ask one thing: your best work, and honest communication with couples.
         </Lede>
       </section>
     </div>
@@ -530,7 +530,7 @@ export function VendorGrowTools() {
         <GridCard icon="✎" title="Contracts on record" body="Every agreement timestamped to a per-event paper trail." />
         <GridCard icon="👥" title="Your team" body="Add crew with their own scoped logins — no shared passwords." />
         <GridCard icon="📇" title="Client CRM & pipeline" body="Every couple, inquiry and booking tracked from first message to signed." />
-        <GridCard icon="＋" title="…and more" body="Calendar, proposals, payments, recaps — the whole business, in one place." />
+        <GridCard icon="＋" title="…and more" body="Calendar, quotes, payments, recaps — the whole business, in one place." />
       </CardGrid>
     </section>
   );
@@ -550,10 +550,10 @@ export function VendorGrowGetPaid() {
           </Lede>
         </div>
         <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <FeatureLI icon="₱" title="Direct to your GCash / bank" body="0% while we launch — and we never hold a peso of yours." />
+          <FeatureLI icon="₱" title="Direct to your GCash / bank" body="Couples pay you directly, and we never hold a peso of yours." />
           <FeatureLI icon="◷" title="PH-style milestone tracking" body="Reservation → progress → balance, with proof — the way couples pay here." />
-          <FeatureLI icon="🛡" title="No-show downpayment protection" body="A frozen, agreed cancellation policy makes a forfeited deposit defensible." />
-          <FeatureLI icon="📆" title="Payday calendar" body="Every upcoming due-date across all your bookings, on one timeline." />
+          <FeatureLI icon="🛡" title="No-show first payment protection" body="A frozen, agreed cancellation policy makes a forfeited payment defensible." />
+          <FeatureLI icon="📆" title="Money in calendar" body="Every upcoming due-date across all your bookings, on one timeline." />
         </ul>
       </div>
     </section>
@@ -576,7 +576,7 @@ export function VendorGrowCTA() {
             List your business — free
           </Link>
           <Link href="/for-suppliers#model" className="m-btn m-btn-ghost m-btn-lg">
-            See vendor plans
+            See supplier plans
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>

@@ -76,7 +76,8 @@ export function FindAddRow({
       owner 2026-10-01 "okay keep it similar" — one round + at every width
       (`add-guest-sheet.tsx`), whose sheet holds the name box and the other ways.
     */
-    <div className="flex flex-wrap items-start gap-2 border-b border-ink/[0.07] py-2 lg:py-3">
+    // No top padding: the page's one gap sits above this row (owner 2026-10-03).
+    <div className="flex flex-wrap items-start gap-2 border-b border-ink/[0.07] pb-2 lg:pb-3">
       <button
         type="button"
         onClick={() => setFilterOpen((v) => !v)}

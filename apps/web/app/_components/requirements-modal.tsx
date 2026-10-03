@@ -195,7 +195,7 @@ export function RequirementsModal({
               disabled={isSubmitting || sent}
               maxLength={2000}
               rows={3}
-              placeholder="Anything specific you'd like this vendor to know?"
+              placeholder="Anything specific you'd like this supplier to know?"
               className="input-field w-full"
             />
           </div>
@@ -212,7 +212,7 @@ export function RequirementsModal({
             <span className="text-sm text-ink/80">
               Keep this to reuse for other {categoryName} inquiries
               <span className="mt-0.5 block text-xs text-ink/55">
-                We&rsquo;ll auto-fill these for your next {categoryName} vendor.
+                We&rsquo;ll auto-fill these for your next {categoryName} supplier.
               </span>
             </span>
           </label>

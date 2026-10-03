@@ -37,7 +37,7 @@ const ERROR_MESSAGE: Record<ApiAuthError['error'], string> = {
   invalid_key: 'API key not recognised.',
   revoked: 'API key has been revoked.',
   expired: 'API key has expired.',
-  no_api_access: 'The Setnayan API requires a Custom vendor plan with API access enabled.',
+  no_api_access: 'The Setnayan API requires a Custom supplier plan with API access enabled.',
 };
 
 function authError(error: ApiAuthError['error']): ApiAuthError {

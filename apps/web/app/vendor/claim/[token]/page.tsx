@@ -33,7 +33,7 @@ export default async function VendorClaimPage({ params }: Props) {
   // claim surface still renders meaningful identity for either source.
   const categoryLabel = parentVendor
     ? (VENDOR_CATEGORY_LABEL[parentVendor.category as VendorCategory] ?? parentVendor.category)
-    : (invite.service_category ?? 'Vendor');
+    : (invite.service_category ?? 'Supplier');
   // THE SUPPLIER'S OWN DOOR, OPENED SIGNED OUT FROM AN EMAILED LINK — and it
   // said "They're planning their wedding on 3 September 2026" on every event
   // type. A funeral home invited by a family arranging a wake read that
@@ -163,7 +163,7 @@ export default async function VendorClaimPage({ params }: Props) {
               What you get
             </p>
             <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
-              <Perk>Free vendor profile + marketplace listing</Perk>
+              <Perk>Free supplier profile + marketplace listing</Perk>
               <Perk>Chat with {inviterName} in-app</Perk>
               <Perk>Calendar + payments + contracts tracking</Perk>
               <Perk>Marketplace exposure to other PH couples</Perk>
@@ -183,7 +183,7 @@ export default async function VendorClaimPage({ params }: Props) {
             <DeclineForm token={invite.claim_token} />
           </div>
           <p className="text-xs text-ink/50">
-            Not the right vendor? Just ignore this page — we won&rsquo;t
+            Not the right supplier? Just ignore this page — we won&rsquo;t
             follow up.
           </p>
         </article>
@@ -224,7 +224,7 @@ export default async function VendorClaimPage({ params }: Props) {
               What you get
             </p>
             <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
-              <Perk>Free vendor profile + marketplace listing</Perk>
+              <Perk>Free supplier profile + marketplace listing</Perk>
               <Perk>Chat with couples in-app</Perk>
               <Perk>Calendar + bookings dashboard</Perk>
               {/* A perk list is where half a promise hides best: "0% commission
@@ -271,7 +271,7 @@ export default async function VendorClaimPage({ params }: Props) {
     return (
       <DoorShell
         width="lg"
-        eyebrow="Already a vendor"
+        eyebrow="Already a supplier"
         title={
           <>
             You&rsquo;re already on Setnayan as{' '}
@@ -382,7 +382,7 @@ export default async function VendorClaimPage({ params }: Props) {
             What you get
           </p>
           <ul className="grid grid-cols-1 gap-2 text-sm text-ink/70 sm:grid-cols-2">
-            <Perk>Free vendor profile + marketplace listing</Perk>
+            <Perk>Free supplier profile + marketplace listing</Perk>
             <Perk>Chat with {inviterName} in-app</Perk>
             <Perk>Payment + contract tracking pre-filled</Perk>
             <Perk>Marketplace exposure to other PH couples</Perk>
@@ -401,7 +401,7 @@ export default async function VendorClaimPage({ params }: Props) {
           <DeclineForm token={invite.claim_token} />
         </div>
         <p className="text-xs text-ink/50">
-          Not the right vendor? Just ignore this page — we won&rsquo;t follow up.
+          Not the right supplier? Just ignore this page — we won&rsquo;t follow up.
         </p>
       </article>
     </DoorShell>
@@ -492,7 +492,7 @@ function DeclineForm({ token }: { token: string }) {
         className="inline-flex items-center justify-center rounded-md bg-cream px-6 py-3 text-sm font-medium text-ink/70 ring-1 ring-inset ring-ink/15 hover:bg-ink/5"
         pendingLabel="…"
       >
-        I&rsquo;m not this vendor
+        I&rsquo;m not this supplier
       </SubmitButton>
     </form>
   );

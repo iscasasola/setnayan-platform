@@ -120,7 +120,8 @@ const FLAGS: FlagSpec[] = [
       // "our money": if this one stops asking the flag while `/budget` keeps
       // asking, the two print different totals for the same wedding on the day
       // the flag flips (measured: ₱80,000 apart on prod event `044f7e64…`).
-      'app/dashboard/[eventId]/vendors/_components/merkado-budget-lens.tsx',
+      // (Now through `lib/budget-live-read.ts`, the one helper the lens and Home's first screen share.)
+      'lib/budget-live-read.ts',
       // BA2 — the Realtime refetch behind that same /budget card. The server
       // render and this action are TWO WRITERS of one number; if this one stops
       // asking the flag, the card silently reverts to the legacy total (which

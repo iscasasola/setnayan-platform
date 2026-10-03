@@ -35,8 +35,9 @@ import { ListPager, keepParamsFrom } from '../_components/list-pager';
 import { paginate } from '@/lib/paginate';
 import { readInChunks } from '@/lib/read-all-pages';
 import { formatCount } from '@/lib/format-number';
+import { manilaTodayISO } from '@/lib/event-board';
 
-export const metadata = { title: 'Bookings · Vendor' };
+export const metadata = { title: 'Bookings · Supplier' };
 
 type BookingStatus = BookingListStatus;
 
@@ -70,13 +71,21 @@ type BookingRow = VendorThreadWithEvent & {
   unread: boolean;
 };
 
-function daysUntil(eventDate: string | null): number | null {
+const DAY_MS = 86_400_000;
+
+/**
+ * How far an event is from today, in MILLISECONDS — an ORDERING key for this
+ * queue (soonest first), never a number the page prints. "Days to go" is the
+ * Customers roster's to state, beside each customer, from the same Manila
+ * calendar; this queue used to state it a second time on every row (with the
+ * server's own midnight, which disagreed with the roster near midnight Manila).
+ * Root map "the same fact, twice": one rendering, the roster's.
+ */
+function eventOffsetMs(eventDate: string | null): number | null {
   if (!eventDate) return null;
-  const event = new Date(`${eventDate}T00:00:00`);
-  if (Number.isNaN(event.getTime())) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((event.getTime() - today.getTime()) / 86_400_000);
+  const event = Date.parse(`${eventDate}T00:00:00Z`);
+  if (Number.isNaN(event)) return null;
+  return event - Date.parse(`${manilaTodayISO()}T00:00:00Z`);
 }
 
 export default async function VendorBookingsPage({ searchParams }: Props) {
@@ -215,18 +224,18 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
   }
   if (upcoming) {
     visible = visible.filter((r) => {
-      const d = daysUntil(r.event?.event_date ?? null);
+      const d = eventOffsetMs(r.event?.event_date ?? null);
       // Treat undated threads as "upcoming" too — couples often book before
       // a firm date is set. Only events more than 30 days in the past get
       // hidden by the toggle.
-      return d === null || d >= -30;
+      return d === null || d >= -30 * DAY_MS;
     });
   }
 
   // Sort: event-date proximity ascending (closest first), undated last.
   visible.sort((a, b) => {
-    const da = daysUntil(a.event?.event_date ?? null);
-    const db = daysUntil(b.event?.event_date ?? null);
+    const da = eventOffsetMs(a.event?.event_date ?? null);
+    const db = eventOffsetMs(b.event?.event_date ?? null);
     if (da === null && db === null) {
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     }
@@ -392,14 +401,8 @@ export default async function VendorBookingsPage({ searchParams }: Props) {
       ) : (
         <ul className="space-y-2">
           {pageRows.map((r) => {
-            const d = daysUntil(r.event?.event_date ?? null);
-            const dateLabel = (() => {
-              if (!r.event?.event_date) return 'No date set';
-              if (d === null) return r.event.event_date;
-              if (d === 0) return `${r.event.event_date} · today`;
-              if (d > 0) return `${r.event.event_date} · in ${d} day${d === 1 ? '' : 's'}`;
-              return `${r.event.event_date} · ${Math.abs(d)} day${Math.abs(d) === 1 ? '' : 's'} ago`;
-            })();
+            // The plain date. How many days away it is lives on the roster row above.
+            const dateLabel = r.event?.event_date ?? 'No date set';
             // Hybrid Preparation (2026-06-03) — the vendor may add dated
             // prep items only for ACCEPTED bookings (RLS gates the insert to
             // accepted threads; we gate the UI to match). Undated bookings

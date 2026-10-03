@@ -472,7 +472,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   booking_cancelled: 'Booking cancelled',
   dispute_filed: 'Dispute filed',
   inquiry_awaiting_reply: 'Inquiry awaiting your reply',
-  inquiry_no_response: 'Vendor hasn’t replied',
+  inquiry_no_response: 'Supplier hasn’t replied',
   photo_delivery_complete: 'Photos delivered',
   photo_delivery_failed: 'Photo delivery failed',
   guest_claim_pending: 'Guest request to confirm',
@@ -485,7 +485,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   vendor_status_change: 'Account status updated',
   vendor_payout_update: 'Payout update',
   dispute_resolved: 'Dispute resolved',
-  vendor_review_reply: 'Vendor replied to your review',
+  vendor_review_reply: 'Supplier replied to your review',
   schedule_suggestion: 'Schedule suggestion',
   papic_challenge_pending: 'Papic Challenge to approve',
   lock_request_received: 'Booking request — agree?',
@@ -506,7 +506,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   deletion_request_declined: 'A supplier would rather keep it for now',
   event_deletion_answered: 'About removing a celebration',
   pax_surcharge_changed: 'Guest-count charge updated',
-  vendor_joined: 'Vendor joined',
+  vendor_joined: 'Supplier joined',
   editorial_decision: 'Editorial decision',
   showcase_featured: 'Featured in the showcase',
   guest_claim_rejected: 'Guest request declined',
@@ -530,7 +530,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   mood_board_share: 'Mood board shared',
   // A comp grant from the Setnayan team (2026-09-18).
   gift: 'A gift from Setnayan',
-  vendor_feature_suggested: 'A vendor suggested a service',
+  vendor_feature_suggested: 'A supplier suggested a service',
   // Setnayan AI guard delivery (2026-07-09) — concise tray copy; the rendered
   // GRD template body carries the specifics.
   ai_payment_due: 'Payment due soon',

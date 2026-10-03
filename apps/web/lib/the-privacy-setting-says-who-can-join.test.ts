@@ -12,7 +12,7 @@
  * camera to anyone with the link. **This file stayed green the whole time,
  * because it was asserting the old promise.** A couple choosing Public or
  * Unlisted was told strangers could walk in; in fact a stranger can only ASK,
- * and only when the couple turned on "Anyone, I approve".
+ * and only when the couple turned on "Accept".
  *
  * 🔑 SO THE COUPLING IS NOW TO THE REQUEST PATH TOO, NOT ONLY TO THE 'private'
  * COMPARISON. Both are asserted below. If either moves, the blurbs are wrong
@@ -25,7 +25,7 @@
  *  · GETTING INSIDE (the Event Hub, a camera): only a guest's own key — the
  *    personal link or QR — or a request the couple Keeps or Links.
  *  · ASKING to join: only when `anyoneMayAskToJoin` (the RSVP setting
- *    "Anyone, I approve"), and never on 'private'.
+ *    "Accept"), and never on 'private'.
  *
  * ⚠ STILL A COPY TEST WITH COUPLING, NOT A WARNING TEST. The behaviour is the
  * owner's; what was wrong was that the couple could not learn it from the
@@ -71,7 +71,7 @@ test('🔒 every setting that leaves the join door OPEN says it is a REQUEST', (
       `"${value}" must say where an asker waits — Requests`);
     assert.match(blurb, /Keep, Link or Remove/,
       `"${value}" must name the couple's three answers to a request`);
-    assert.match(blurb, /"Anyone, I approve"/,
+    assert.match(blurb, /"Accept"/,
       `"${value}" must name the RSVP setting that opens requests — the door is shut without it`);
   }
 });
@@ -136,10 +136,10 @@ test('🔒 an arrival WITHOUT a key becomes a request — if that changes, this 
   assert.equal(requests, 2,
     'joinEventAction and selfJoinAction should each end an unkeyed arrival in createJoinRequest — revisit the privacy copy');
   assert.match(action, /anyoneMayAskToJoin\(/,
-    'the join door no longer checks "Anyone, I approve" — revisit the privacy copy');
+    'the join door no longer checks "Accept" — revisit the privacy copy');
 
   const ask = read('lib', 'rsvp-ask.ts');
-  assert.match(ask, /anyone: 'Anyone, I approve'/,
+  assert.match(ask, /anyone: GUEST_ENTRY_RULE\.accept/,
     'the RSVP setting was renamed — the privacy copy quotes its label');
 });
 
@@ -158,12 +158,12 @@ test('🔒 the gate still refuses ONLY "private" — if that changes, this copy 
 
 test('🌐 Public says requests are ON by default — because choosing it turns them on', () => {
   /* Owner 2026-09-29 (DECISION_LOG "DISCOVER BUILD — TWO LAST ANSWERS"):
-     switching visibility TO public sets "Anyone, I approve". The Public blurb
+     switching visibility TO public sets "Accept". The Public blurb
      must say so — and say it can be turned off — and that is only true while
      the visibility action still turns it on. Both halves are asserted. */
   const src = read(...PRIVACY);
   const blurb = unescape(blurbFor(src, 'public'));
-  assert.match(blurb, /Choosing Public here turns on "Anyone, I approve"/,
+  assert.match(blurb, /Choosing Public here turns on "Accept"/,
     'the Public blurb must say choosing it turns requests on');
   /* ⚖ Owner 2026-09-29 ("no"): a Save-the-Date launch also makes the page
      public and does NOT turn requests on — the blurb must not let a couple who
@@ -172,7 +172,7 @@ test('🌐 Public says requests are ON by default — because choosing it turns 
     'the Public blurb must say a Save-the-Date launch leaves requests as they were');
   assert.match(blurb, /turn requests off/i, 'and that the couple can turn them off again');
   for (const value of ['unlisted', 'invited_accounts']) {
-    assert.doesNotMatch(unescape(blurbFor(src, value)), /turns on "Anyone, I approve"/,
+    assert.doesNotMatch(unescape(blurbFor(src, value)), /turns on "Accept"/,
       `"${value}" does not turn requests on — only Public does`);
   }
 

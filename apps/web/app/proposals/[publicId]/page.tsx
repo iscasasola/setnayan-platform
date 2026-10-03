@@ -32,13 +32,15 @@ import {
 import { formatCalendarDate } from '@/lib/events';
 import { quoteSetnayanGift } from '@/lib/setnayan-gift.server';
 import { giftQuoteCopy } from '@/lib/setnayan-gift';
-import { coupleLockDoorHref } from '@/lib/lock-door';
+import { coupleLockTarget, type CoupleLockTarget } from '@/lib/lock-door';
+import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
+import { AccordionLockButton } from '@/app/dashboard/[eventId]/vendors/_components/accordion-lock';
 import { proposalBackDoor } from '@/lib/proposal-back';
 import { readBookedMoney, type BookedMoney } from '@/lib/booked-money-step.server';
 import { moneyStepLine, quoteNoteShown } from '@/lib/accepted-quote-terms';
 import { depositStepHref } from '@/lib/deposit-pay-step';
 
-export const metadata = { title: 'Proposal' };
+export const metadata = { title: 'Quote' };
 
 /**
  * Shared proposal detail + print view — data-link program ③ (corpus
@@ -186,7 +188,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
   const businessName =
     vendorProfile?.business_name ??
     proposal.merge_snapshot.values?.business_name ??
-    'Your vendor';
+    'Your supplier';
   // Resolved ONCE for this render — see resolveDisplayUrl: the stored value is
   // an `r2://` reference, not something an <img> can load.
   const logoDisplayUrl = await resolveDisplayUrl(vendorProfile?.logo_url ?? null);
@@ -294,7 +296,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
    * opens the proposal, but when i press back, it doesn't go back."*).
    *
    * Every door into this page is a thread door — the chat's quote card, the
-   * Decisions view's "Review & accept", the Payments tab the chat links to —
+   * Decisions view's "See the quote", the Payments tab the chat links to —
    * and the control in the corner walked off to the Vendors bench instead. The
    * thread is resolved from the quote itself, on the same (event_id,
    * vendor_profile_id) pair the workspace uses for its chat deep-link, so the
@@ -333,7 +335,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
     threadId: backThreadId,
   });
 
-  let lockDoorHref: string | null = null;
+  let lockTarget: CoupleLockTarget | null = null;
   if (!isVendorSide && proposal.status === 'accepted' && proposal.event_id && !bookedMoney) {
     const { data: pick, error: pickError } = await supabase
       .from('event_vendors')
@@ -347,8 +349,9 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
         vendorProfileId: proposal.vendor_profile_id,
       });
     } else if (pick) {
-      lockDoorHref = coupleLockDoorHref(
+      lockTarget = coupleLockTarget(
         proposal.event_id,
+        (pick as { vendor_id: string }).vendor_id,
         (pick as { category?: string | null }).category ?? null,
       );
     }
@@ -428,7 +431,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
 
       {/* Body */}
       <section className="whitespace-pre-wrap text-[15px] leading-relaxed text-ink/85">
-        {noteShown || 'No proposal text.'}
+        {noteShown || 'No quote text.'}
       </section>
 
       {/* Line items */}
@@ -487,7 +490,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
                     {inst.label}
                     {inst.is_downpayment ? (
                       <span className="rounded-full bg-terracotta/10 px-2 py-0.5 text-[10px] font-medium text-terracotta-700">
-                        locks the date
+                        books the date
                       </span>
                     ) : null}
                   </p>
@@ -511,7 +514,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           {schedule.credit_centavos > 0 ? (
             <p className="mt-1 text-xs text-success-700">
               A crew-meal credit of {formatCentavos(schedule.credit_centavos)} is applied to your final
-              payment — your downpayment is unaffected.
+              payment — your first payment is unaffected.
             </p>
           ) : null}
         </section>
@@ -602,7 +605,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
           </form>
           <p className="w-full text-xs text-ink/45">
             Sending freezes these numbers — RSVP changes after today won&rsquo;t alter this
-            proposal.
+            quote.
           </p>
         </div>
       ) : null}
@@ -617,7 +620,7 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
               pendingLabel="Accepting…"
               className="inline-flex items-center gap-1.5 rounded-lg bg-success-700 px-4 py-2 text-sm font-medium text-white"
             >
-              <CheckCircle2 aria-hidden className="h-4 w-4" /> Accept proposal
+              <CheckCircle2 aria-hidden className="h-4 w-4" /> Accept quote
             </SubmitButton>
           </form>
           <form action={respondToProposal}>
@@ -666,25 +669,42 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
             </Link>
           ) : null}
         </section>
-      ) : lockDoorHref ? (
+      ) : lockTarget ? (
         <section className="rounded-xl border border-terracotta/30 bg-terracotta/[0.06] p-4 print:hidden">
-          <p className="text-sm text-ink/80">
-            You&rsquo;ve accepted. To book {businessName}, ask them to lock &mdash; once they
-            confirm, it&rsquo;s booked.
-          </p>
-          <Link
-            href={lockDoorHref}
-            className="mt-3 inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
-          >
-            Go ask {businessName} to lock <ArrowRight aria-hidden className="h-4 w-4" />
-          </Link>
+          {/* The confirm button itself — the same control and server action the chat
+              card and the Suppliers page mount — not a sentence sending them off to find it. */}
+          {lockTarget.groupId ? (
+            <AccordionLockButton
+              eventId={lockTarget.eventId}
+              groupId={lockTarget.groupId}
+              groupLabel={lockTarget.groupLabel}
+              vendorId={lockTarget.vendorId}
+              vendorName={businessName}
+              label={
+                isLockHandshakeEnabled()
+                  ? `Ask ${businessName} to confirm your booking`
+                  : `Book ${businessName}`
+              }
+              pendingLabel={isLockHandshakeEnabled() ? 'Asking…' : 'Booking…'}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
+              wrapperClassName="flex w-full flex-col items-start"
+              source="quote_page"
+            />
+          ) : (
+            <Link
+              href={lockTarget.benchHref}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-mulberry px-4 text-sm font-medium text-cream hover:bg-mulberry-600"
+            >
+              Book on your Suppliers page <ArrowRight aria-hidden className="h-4 w-4" />
+            </Link>
+          )}
         </section>
       ) : null}
 
       {/* Standing payment disclosure — every payment-adjacent surface. */}
       <footer className="border-t border-ink/10 pt-3 text-[11px] leading-relaxed text-ink/45">
-        Prices on this proposal are set by {businessName}. You pay the vendor directly —
-        Setnayan never holds this money. Verify account details with your vendor through a
+        Prices on this quote are set by {businessName}. You pay the supplier directly —
+        Setnayan never holds this money. Verify account details with your supplier through a
         channel you trust before paying.
       </footer>
     </main>

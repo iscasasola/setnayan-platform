@@ -425,7 +425,8 @@ test('6 · the Logo page has no header bar, and adds Text · Image · Frame', ()
   assert.match(page, /aria-label="Layer tools"/);
   for (const kind of ['Text', 'Image', 'Frame']) assert.match(page, new RegExp(`<AddBtn label="${kind}"`), `no "+ ${kind}"`);
   // Phone: both panels are sheets from the bottom (the Maker inspector's own classes).
-  assert.equal((page.match(/fixed inset-x-0 bottom-0 z-30 max-h-\[50dvh\]/g) ?? []).length, 2);
+  // 📱 Capped by the Maker's room rule (lib/maker-phone-room.ts, owner 2026-10-02: "too clumped") — was 50dvh.
+  assert.equal((page.match(/fixed inset-x-0 bottom-0 z-30 max-lg:max-h-\[calc\(45dvh-52px\)\]/g) ?? []).length, 2);
   // The status is the toolbar's, not a bar of the page's own.
   assert.match(page, /announceMakerSave\(\{ state: 'saving' \}\)/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');

@@ -408,7 +408,7 @@ export async function lockPackage(
     .eq('vendor_profile_id', pkg.vendor_profile_id)
     .maybeSingle();
   if (!vendorRow) {
-    return { status: 'error', message: 'Vendor profile missing for package' };
+    return { status: 'error', message: 'Supplier profile missing for package' };
   }
   // 🔒 A shop's contact_email / contact_phone are not readable by a browser
   // session (20271221366210) — naming them on `supabase` would refuse the WHOLE
@@ -438,7 +438,7 @@ export async function lockPackage(
   if (!(await isMarketplaceVendorBookable(createAdminClient(), pkg.vendor_profile_id))) {
     return {
       status: 'vendor_not_verified',
-      vendorName: vendor.business_name || pkg.package_name || 'this vendor',
+      vendorName: vendor.business_name || pkg.package_name || 'this supplier',
     };
   }
 
@@ -648,7 +648,7 @@ export async function lockPackage(
     return {
       status: 'lock_requested',
       bookingId,
-      vendorName: vendor.business_name || pkg.package_name || 'this vendor',
+      vendorName: vendor.business_name || pkg.package_name || 'this supplier',
     };
   }
 
@@ -772,7 +772,7 @@ export async function removeItemFromPackage(formData: FormData) {
     .maybeSingle();
   if (!booking) throw new Error('Package booking not found');
   if (booking.status !== 'locked') {
-    throw new Error('Can only remove items from a locked package');
+    throw new Error('Can only remove items from a booked package');
   }
 
   const { data: pkgRow } = await supabase
@@ -866,7 +866,7 @@ export async function removeItemFromPackage(formData: FormData) {
     // bookings locked before the snapshot shipped can land here, and prod has
     // none (0 locked bookings).
     throw new Error(
-      'This booking was locked before prices were recorded. Ask support to re-price it before removing a line.',
+      'This booking was confirmed before prices were recorded. Ask support to re-price it before removing a line.',
     );
   }
 
@@ -915,7 +915,7 @@ export async function removeItemFromPackage(formData: FormData) {
     // on that total.
     throw new Error(
       repriced.reason === 'total_increased'
-        ? 'Removing this line would increase the locked total, which should never happen. Ask support to check this booking.'
+        ? 'Removing this line would increase the booked total, which should never happen. Ask support to check this booking.'
         : 'Package pricing could not be computed.',
     );
   }

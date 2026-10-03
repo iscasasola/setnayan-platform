@@ -77,17 +77,17 @@ export function GigCard({
       } else if (result.status === 'already_claimed') {
         setBanner({
           kind: 'error',
-          msg: 'Another vendor already claimed this gig.',
+          msg: 'Another supplier already claimed this gig.',
         });
       } else if (result.status === 'race_lost') {
         setBanner({
           kind: 'error',
-          msg: 'Another vendor claimed this gig at the same moment. Try another open gig.',
+          msg: 'Another supplier claimed this gig at the same moment. Try another open gig.',
         });
       } else if (result.status === 'no_vendor_profile') {
         setBanner({
           kind: 'error',
-          msg: 'Finish vendor verification before claiming gigs.',
+          msg: 'Finish supplier verification before claiming gigs.',
         });
       } else {
         setBanner({

@@ -70,7 +70,7 @@ const ITEMS: readonly ItemDef[] = [
   { key: 'ceremony_venue', label: 'Book your ceremony venue', band: '12+ months', dueWithinMonths: null, idealByMonths: 12 },
   { key: 'budget', label: 'Set your budget', band: '9–12 months', dueWithinMonths: 12, idealByMonths: 9 },
   { key: 'guest_list', label: 'Build your guest list', band: '9–12 months', dueWithinMonths: 12, idealByMonths: 9 },
-  { key: 'core_vendors', label: 'Start booking your core vendors', band: '9–12 months', dueWithinMonths: 12, idealByMonths: 9 },
+  { key: 'core_vendors', label: 'Start booking your core suppliers', band: '9–12 months', dueWithinMonths: 12, idealByMonths: 9 },
   { key: 'reception_look', label: 'Decide your reception look', band: '6–9 months', dueWithinMonths: 9, idealByMonths: 6 },
   { key: 'save_the_dates', label: 'Send your save-the-dates', band: '6–9 months', dueWithinMonths: 9, idealByMonths: 6 },
   { key: 'setnayan_capture', label: 'Set up your Setnayan capture', band: '4–6 months', dueWithinMonths: 6, idealByMonths: 4 },

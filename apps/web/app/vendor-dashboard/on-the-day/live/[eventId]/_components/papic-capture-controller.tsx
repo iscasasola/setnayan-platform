@@ -343,7 +343,7 @@ export function PapicCaptureController({
             <li>You have the couple’s go-ahead to shoot at this event.</li>
             <li>Only candid event moments — no nudity, harassment, or anything a guest hasn’t agreed to.</li>
             <li>Guests can ask you to delete a shot; the always-on filter also removes explicit content.</li>
-            <li>Your captures stay in your vendor gallery for this event; location is never stored.</li>
+            <li>Your captures stay in your supplier gallery for this event; location is never stored.</li>
           </ul>
         </div>
         <button

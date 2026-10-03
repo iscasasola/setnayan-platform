@@ -307,7 +307,7 @@ const SLCAT_CSS = `
    BOTH ways. overflow clips the body while collapsing; a delayed visibility flip
    pulls collapsed content out of the tab order without cutting the animation. */
 /* ⚠ 'grid-template-columns:minmax(0,1fr)' is LOAD-BEARING (PRs #3799/#3801) —
-   it is what stops a wide child (the vendor rail, a long name) from blowing the
+   it is what stops a wide child (the supplier rail, a long name) from blowing the
    row out horizontally on mobile. Never drop it when tuning this transition.
    Duration tightened .3s → .24s (2026-07-28) so the expand reads as quick on a
    phone; the technique and the track values are untouched. */
@@ -358,13 +358,13 @@ const SLCAT_CSS = `
 .slcat .cat.open .cat-chev{transform:rotate(180deg);color:var(--mulberry)}
 .slcat .cat-body{padding:2px 0 12px}
 
-/* ── Level 3 · vendor carousel + find / add-manually ── */
+/* ── Level 3 · supplier carousel + find / add-manually ── */
 .slcat .rail{display:flex;gap:11px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 16px 4px 0;scrollbar-width:none}
 .slcat .rail::-webkit-scrollbar{display:none}
 .slcat .vc{position:relative;flex:0 0 min(206px, calc(100vw - 132px));scroll-snap-align:start;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius: var(--m-r-md);overflow:hidden;text-decoration:none;color:inherit;transition:transform .13s cubic-bezier(.2,.7,.2,1),box-shadow .3s var(--ease)}
 .slcat .vc:active{transform:scale(.98)}
 .slcat .vc:hover{box-shadow:0 10px 28px -18px rgba(0,0,0,.4)}
-/* selected (desktop inspector open on this vendor) — quiet gold ring, kept even
+/* selected (desktop inspector open on this supplier) — quiet gold ring, kept even
    through the card's own hover shadow (matches the other inspector consumers) */
 .slcat .vc[data-inspector-selected='true'],.slcat .vc[data-inspector-selected='true']:hover{border-color:transparent;box-shadow:0 0 0 2px var(--gold),0 10px 28px -18px rgba(0,0,0,.4)}
 .slcat .vc .img{height:108px;flex:0 0 108px;background:linear-gradient(135deg,#3a3f47,#565b63);display:flex;align-items:center;justify-content:center;position:relative}
@@ -394,7 +394,7 @@ html.dark .slcat .vc .rpill.soft{color:#FBFBFA;background:rgba(30,26,18,.7)}
 .slcat .sortsep{width:1px;height:16px;background:var(--line);flex:0 0 auto}
 html.dark .slcat .sortseg{background:rgba(251,251,250,.05)}
 html.dark .slcat .sortseg button.on{color:#1B1A17;background:#C99DB0}
-/* bench search — client-side filter over categories + considered vendors */
+/* bench search — client-side filter over categories + considered suppliers */
 .slcat .bench-search{display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:0 13px;height:42px;background:var(--card);border:1px solid var(--line);border-radius:var(--m-r-md);transition:border-color .18s var(--ease),box-shadow .18s var(--ease)}
 .slcat .bench-search:focus-within{border-color:rgba(30,26,18,.28);box-shadow:0 0 0 3px rgba(30,26,18,.06)}
 .slcat .bench-search svg{color:var(--ink-faint);flex:0 0 auto}
@@ -461,7 +461,7 @@ html.dark .slcat .vc .fit.ok{color:#7bc79a;background:rgba(46,125,79,.18)}
 html.dark .slcat .vc .fit.warn{color:#e2b968;background:rgba(169,131,75,.2)}
 .slcat .vc .price{font-family:var(--serif);font-style:italic;font-weight:600;font-size:17px;color:var(--ink);margin-top:auto;padding-top:4px}
 .slcat .vc .incl{font-size:11px;font-weight:600;color:#2e7d4f;margin-top:auto;padding-top:4px}
-/* dashed action cards (in the rail, after the vendors) */
+/* dashed action cards (in the rail, after the suppliers) */
 .slcat .act{flex:0 0 116px;scroll-snap-align:start;display:flex}
 .slcat .act>*{flex:1;min-height:182px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;border-radius: var(--m-r-md);text-decoration:none;font:inherit;cursor:pointer;transition:transform .13s cubic-bezier(.2,.7,.2,1),background .2s var(--ease)}
 .slcat .act>*:active{transform:scale(.97)}
@@ -646,7 +646,7 @@ html.dark .slcat .vact.primary{background:#C99DB0;color:#1B1A17;border-color:#C9
    The prototype drew this as a red pill + emoji banner; production draws it in
    the bench's own language — the same .plan-strip shell geometry, var(--sans)
    / var(--mono) tokens, gold-deep accent and Lucide icons as everything above.
-   Amber, never red: the vendor is fine, it is the couple's build that narrowed
+   Amber, never red: the supplier is fine, it is the couple's build that narrowed
    past them, and un-narrowing it is one tap away. Flag OFF ⇒ no banner, no
    .is-dim, no divider, and none of these selectors ever match. */
 .slcat .convrg{display:flex;gap:10px;align-items:flex-start;margin:0 0 14px;padding:11px 13px;border:0.5px solid var(--line);border-radius:var(--m-r-md);background:rgba(30,26,18,.035)}
@@ -671,7 +671,7 @@ html.dark .slcat .convrg.t-converged,html.dark .slcat .convrg.t-conflict{backgro
 .slcat .vcw.is-dim>.vc{opacity:.62;filter:saturate(.8)}
 .slcat .vcw.is-dim:hover>.vc,.slcat .vcw.is-dim:focus-within>.vc{opacity:1;filter:none}
 
-/* The vendor's own free days, in the same mono voice as the price/meta rows. */
+/* The supplier's own free days, in the same mono voice as the price/meta rows. */
 .slcat .vc .freedays{display:block;font-family:var(--mono);font-size:8.5px;letter-spacing:.03em;line-height:1.3;color:var(--ink-soft);margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* The withheld build CTA — a reason, not an error. Wraps, unlike .vact.note. */

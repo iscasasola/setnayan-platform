@@ -124,7 +124,7 @@ export async function offerServiceCore(
       .select('business_name')
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
-    const vendorName = vendor?.business_name?.trim() || 'a vendor';
+    const vendorName = vendor?.business_name?.trim() || 'a supplier';
     const { data: members } = await admin
       .from('event_members')
       .select('user_id')

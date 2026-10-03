@@ -365,6 +365,36 @@ export function mergeBoardMemberships(
 }
 
 /**
+ * IS THIS INVITATION STILL ON THE GUEST LIST? An invited card is only true while
+ * the guest row it was saved from is live.
+ *
+ * 🔑 THE INCIDENT (live test, 2026-10-02): a host removed a guest, the account
+ * that had saved the invitation kept its membership, and its Home still said
+ * "You're invited" — onto a hub that answered "You're not on the guest list".
+ * The database now ends that membership when the row is removed (trigger
+ * `a_deleted_guest_ends_its_account_link`, migration
+ * `…_a_deleted_guest_ends_its_account_link.sql`); this is the defence in depth
+ * on the READ, so a membership the trigger did not catch still never renders.
+ *
+ * `seat` is the membership's guest row read through the ACCOUNT'S OWN session.
+ * RLS `guest_reads_own_row` admits it only while `deleted_at IS NULL`, so a
+ * removed row reads back as null — the same answer the hub's gate gives.
+ *
+ * Only a `guest` membership WITH a guest_id is judged: an organiser / helper
+ * card is not an invitation, and a guest membership with no row named has no
+ * row to have been removed.
+ */
+export function anInvitationStillOnTheList(row: {
+  member_type: EventWithRole['member_type'];
+  guest_id?: string | null;
+  seat?: unknown;
+}): boolean {
+  if (row.member_type !== 'guest') return true;
+  if (!row.guest_id) return true;
+  return row.seat != null;
+}
+
+/**
  * The launcher's landing rule: which event (if any) should `/dashboard` jump
  * straight into, instead of showing the board?
  *

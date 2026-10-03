@@ -77,6 +77,13 @@ export type MakerState = {
    */
   detailsItem?: DetailsItemKey | null;
   setDetailsItem?: (key: DetailsItemKey) => void;
+  /**
+   * 📱 How many times a door (Look · Event Details · Prints) has opened Details —
+   * on a phone each press opens the item's editor as a bottom sheet (owner
+   * 2026-10-02, frame G: "Look and Details open as bottom sheets over the
+   * preview"); opened any other way, the page shows clean. Optional.
+   */
+  detailsDoor?: number;
   /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
   lookPages?: MakerLookPages | null;
   setLookPages?: (next: MakerLookPages | null) => void;
@@ -129,7 +136,12 @@ export type MakerGuestPagesReport = {
 export type MakerPageJump = { stage: LifecyclePhase; key: string; n: number; sameStage: boolean };
 
 /** ↺ The draft bar's Restore, for the toolbar's ⋯ (see `MakerState.draft`). */
-export type MakerDraftDoor = { canRestore: boolean; restore: () => void };
+/**
+ * ↺ Restore (⋯) and the phone's Apply (the bottom bar — frame G: "Page ▾ · Look ·
+ * Details · Apply (3)"), as the draft bar registered them: what Apply says and
+ * whether it can be pressed; the press itself is `pressMakerApply`, the bar's own act.
+ */
+export type MakerDraftDoor = { canRestore: boolean; restore: () => void; apply: { label: string; count: number; enabled: boolean } };
 
 /**
  * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28
@@ -143,8 +155,22 @@ export type MakerDraftDoor = { canRestore: boolean; restore: () => void };
 export type MakerLookPages = {
   /** The Logo studio — canvas and panel, its own split. */
   logo: ReactNode | null;
-  /** The Hero's controls: Designs 1–4, its parts, the photo — and the Main background it carries. */
+  /** The Hero's controls: Designs 1–4, its parts, the photo. */
   hero: ReactNode | null;
+  /**
+   * 🎨 LOOK › BACKGROUND · FONT · COLOURS (owner 2026-10-02, tracker f40 —
+   * `lib/maker-look-sections.ts`): the rows the work area always built — the
+   * Main background ("Behind every scene"), the one font dropdown, the page and
+   * button colours — and the Dress code scene's palette look. Drawn by Look
+   * (`details-look-pages.tsx` `LookPanel`) under the theme. Optional: a
+   * harness may leave it out, and Look then says it is opening.
+   */
+  look?: {
+    background: ReactNode | null;
+    font: ReactNode | null;
+    colours: ReactNode | null;
+    palette: ReactNode | null;
+  } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;
   /** The Reveal's openings — its pieces, listed in Details' NAVIGATOR. */

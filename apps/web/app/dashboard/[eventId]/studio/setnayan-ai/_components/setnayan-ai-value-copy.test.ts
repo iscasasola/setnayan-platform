@@ -133,7 +133,7 @@ test('COVERAGE — every capability is shown by exactly one spotlight', () => {
  *
  * So each capability also names a word its spotlight's prose must contain. The
  * words are deliberately the PLAIN ones a reader would recognise, not internal
- * vocabulary: if a rewrite can no longer say "deposit" anywhere near the money
+ * vocabulary: if a rewrite can no longer say "payment" anywhere near the money
  * spotlight, the claim has probably gone with it.
  */
 const CLAIM_IN_PROSE: Record<AiCapabilityId, RegExp> = {
@@ -143,7 +143,7 @@ const CLAIM_IN_PROSE: Record<AiCapabilityId, RegExp> = {
   deadlines: /booking window/i,
   next_move: /most urgent thing to do next/i,
   schedule_clash: /booked over each other/i,
-  payments: /deposit/i,
+  payments: /payment/i,
   budget: /budget/i,
   price_watch: /changes their price/i,
 };

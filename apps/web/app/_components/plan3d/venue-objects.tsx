@@ -500,7 +500,7 @@ function setnayanPromoTexture(): THREE.CanvasTexture {
   ctx.fillStyle = 'rgba(197,160,89,0.62)';
   ctx.font = '400 22px system-ui, -apple-system, sans-serif';
   ctx.letterSpacing = '4px';
-  ctx.fillText('YOUR VENDOR HERE', W / 2, 118);
+  ctx.fillText('YOUR SUPPLIER HERE', W / 2, 118);
   const tex = new THREE.CanvasTexture(canvas);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { envFlagEnabled } from '@/lib/env-flag';
 import {
+  SAVE_METHOD_FIELD,
   saveMethodFor,
   saveMethodLine,
   saveMethodSignsIn,
@@ -14,6 +15,7 @@ import { TERMS_FIELD } from '@/lib/terms-agreement';
 import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, seatConfirmLine } from '@/lib/seat-binding';
 import { startAccountSaveAction, linkThisSeatAction } from '../actions';
 import { CopyMyLink, OpenInBrowser } from './copy-my-link';
+import { ProviderStall } from './provider-stall';
 
 /**
  * "SAVE TO MY ACCOUNT" — ONE button; the method is chosen by the device and
@@ -163,6 +165,10 @@ export function SaveToAccount({
       value="keep"
       className="button-primary flex h-auto min-h-[56px] w-full flex-col items-center justify-center gap-0.5 py-2.5"
       pendingLabel={method === 'apple' ? 'Opening Apple…' : 'Opening Google…'}
+      /* No full-screen veil: the press leaves for the provider's site, whose page
+         has no loader of ours to take the veil down — a stalled or abandoned
+         sign-in left the whole screen covered (owner's live test 2026-10-02). */
+      overlay={false}
     >
       <span className="text-base">Save to my account</span>
       <span className="text-xs font-normal opacity-80">
@@ -171,6 +177,11 @@ export function SaveToAccount({
       </span>
     </SubmitButton>
   );
+  /* 🔒 The method the button SAYS rides with the press, so the action opens that
+     provider and no other (`saveMethodFromForm`, lib/guest-one-path.ts). */
+  const chosen = <input type="hidden" name={SAVE_METHOD_FIELD} value={method} />;
+  // The way back when the provider does not open (`ProviderStall`).
+  const stall = signsIn ? <ProviderStall provider={method === 'apple' ? 'Apple' : 'Google'} /> : null;
   const refused = termsMissing ? (
     <p role="alert" className="text-sm text-terracotta-700">
       Tick the Terms first — saving makes a Setnayan account.
@@ -192,7 +203,11 @@ export function SaveToAccount({
           {through.fields}
           {signsIn && !termsCarried ? termsTick : null}
           {signsIn ? (
-            button
+            <>
+              {chosen}
+              {button}
+              {stall}
+            </>
           ) : (
             <SubmitButton name="then" value="done" className="button-primary h-14 w-full text-base" pendingLabel="Saving…">
               Save
@@ -218,7 +233,9 @@ export function SaveToAccount({
       <form action={startAccountSaveAction.bind(null, eventId, slug)} className="space-y-3">
         <input type="hidden" name="return_to" value={INVITE_RETURN} />
         {termsCarried ? null : termsTick}
+        {chosen}
         {button}
+        {stall}
       </form>
       {why}
     </div>

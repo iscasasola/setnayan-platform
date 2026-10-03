@@ -232,7 +232,7 @@ export async function quoteReuseRequest(
     userId: requester,
     type: 'order_quoted',
     title: 'Your re-booking has a new quote',
-    body: 'The vendor re-priced your re-booking. Review and accept to lock it in.',
+    body: 'The supplier re-priced your re-booking. Review and accept to book it.',
     relatedUrl: `/dashboard/${targetEventId}/vendors`,
   });
   return { status: 'ok', requestId: args.requestId };
@@ -272,7 +272,7 @@ export async function declineReuseRequest(
     userId: requester,
     type: 'inquiry_declined',
     title: 'A re-booking request was declined',
-    body: 'The vendor can’t re-offer this booking right now.',
+    body: 'The supplier can’t re-offer this booking right now.',
     relatedUrl: `/dashboard/${targetEventId}/vendors`,
   });
   return { status: 'ok', requestId: args.requestId };
@@ -365,7 +365,7 @@ export async function acceptReuseRequest(
         marketplace_vendor_id: row.vendor_profile_id,
         linked_vendor_profile_id: row.vendor_profile_id,
         category: (row.category ?? 'misc') as string,
-        vendor_name: row.vendor_name ?? 'Vendor',
+        vendor_name: row.vendor_name ?? 'Supplier',
         status: 'shortlisted',
         total_cost_php: row.quoted_total_php,
         source: 'reuse_accept',

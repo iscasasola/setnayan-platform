@@ -59,13 +59,13 @@ export function meetsPapicFloor(discountPct: number): boolean {
   return discountPct >= PAPIC_DISCOUNT_FLOOR_PCT - DISCOUNT_FLOOR_EPSILON_PCT;
 }
 
-/** Defaults — the values live in prod today. Fallbacks when settings are unreadable. */
-export const FAMILY_DISCOUNT_DEFAULT_PCT: Readonly<Record<DiscountFamily, number>> = {
-  papic: 10,
-  // ⚖ Owner-set 2026-08-28, chosen with the arithmetic in front of him and
-  // knowing two sign-up prices move. Not a computed value — his number.
-  ai: 40,
-};
+/*
+  FAMILY_DISCOUNT_DEFAULT_PCT is GONE (2026-10-02, owner tracker d18): there is
+  no per-family percentage any more. ONE number — `platform_settings.
+  onboarding_discount_pct`, default `DEFAULT_ONBOARDING_DISCOUNT_PCT` — prices
+  every family. A "family" now only names WHICH rows store a derived sign-up
+  price (`familyForServiceCode`), and the Papic floor below still applies to it.
+*/
 
 /** Which family a catalog row belongs to, or null when it is in neither. */
 export function familyForServiceCode(code: string): DiscountFamily | null {

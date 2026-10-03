@@ -119,7 +119,7 @@ test('all six label sites say Event Hub (or its one-word strip caption)', () => 
   // …and the More row follows the bottom-nav slot's rename, so an admin who
   // renamed the old tab still renames the row.
   assert.match(read('lib/vendor-more-rows.ts'), /slot: 'vendor\.bottom-nav\.onday'/);
-  assert.match(read('app/vendor-dashboard/on-the-day/page.tsx'), /title: 'Event Hub · Vendor'/);
+  assert.match(read('app/vendor-dashboard/on-the-day/page.tsx'), /title: 'Event Hub · Supplier'/);
 });
 
 test('🔒 THE KEY AND THE ROUTE ARE UNCHANGED — four systems read them, three silently', () => {

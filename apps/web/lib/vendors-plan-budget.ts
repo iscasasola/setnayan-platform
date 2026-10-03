@@ -958,7 +958,7 @@ export function buildPlanBudgetModel(args: {
           for (const ls of p.linked_services ?? []) {
             if (!ls.groupId || coverage.has(ls.groupId)) continue;
             coverage.set(ls.groupId, {
-              vendorName: p.marketplace_business_name ?? p.vendor_name ?? 'your vendor',
+              vendorName: p.marketplace_business_name ?? p.vendor_name ?? 'your supplier',
               fromGroupLabel: c.label,
               locked,
             });

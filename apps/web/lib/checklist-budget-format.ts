@@ -53,7 +53,7 @@ export function budgetHealthCopy(health: ChecklistBudgetHealth): BudgetHealthCop
     return {
       tone: 'tight',
       headline: "You're close",
-      detail: `Fine if vendors come in at the lower end (${best} to spare), but tight if they run higher (${worst} over).`,
+      detail: `Fine if suppliers come in at the lower end (${best} to spare), but tight if they run higher (${worst} over).`,
     };
   }
   return {

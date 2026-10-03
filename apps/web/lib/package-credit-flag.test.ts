@@ -1,10 +1,11 @@
 /**
- * packageCreditEnabled() — the package CREDIT model launch flag.
+ * packageCreditEnabled() — the package CREDIT model, ARMED BY DEFAULT.
  *
- * Locks LAUNCH-flag semantics (OFF unless the exact string 'true'), which is
- * the opposite of a kill-switch. If this ever flipped to default-ON, every
- * package booking would start pricing on the new engine before any UI existed
- * to show a couple what their credit did.
+ * ⚖ Owner tracker d8 (2026-10-02): turn it ON, with a kill switch — the same
+ * shape as the free-transport flag. Unset (production) must read ON; only an
+ * explicit `0` / `false` / `off` turns it off. If this ever regressed to a
+ * launch flag (OFF unless 'true'), production would silently go back to the
+ * legacy model, because production never sets the variable.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,20 +25,21 @@ function withEnv(value: string | undefined, fn: () => void) {
   }
 }
 
-test('packageCreditEnabled: OFF when unset (dark by default)', () => {
-  withEnv(undefined, () => assert.equal(packageCreditEnabled(), false));
+test('packageCreditEnabled: ON when unset — production never sets it (owner d8)', () => {
+  withEnv(undefined, () => assert.equal(packageCreditEnabled(), true));
+  withEnv('', () => assert.equal(packageCreditEnabled(), true));
 });
 
-test('packageCreditEnabled: ON for any spelling that means yes', () => {
-  for (const value of ['true', 'True', 'TRUE', '1', 'yes', 'on']) {
+test('packageCreditEnabled: any yes-ish value keeps it ON', () => {
+  for (const value of ['true', 'True', '1', 'yes', 'on']) {
     withEnv(value, () =>
       assert.equal(packageCreditEnabled(), true, `expected ON for ${JSON.stringify(value)}`),
     );
   }
 });
 
-test('packageCreditEnabled: near-misses stay OFF', () => {
-  for (const value of ['', 'false', '0', 'no', 'off', 'ture', 'enabled']) {
+test('packageCreditEnabled: the kill switch — 0 / false / off, any case, any spacing', () => {
+  for (const value of ['0', 'false', 'FALSE', 'off', ' Off ']) {
     withEnv(value, () =>
       assert.equal(packageCreditEnabled(), false, `expected OFF for ${JSON.stringify(value)}`),
     );

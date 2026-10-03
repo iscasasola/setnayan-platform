@@ -90,7 +90,7 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
     admin.from('vendor_services').select('starting_price_php, is_active').eq('vendor_profile_id', vendorId),
   ]);
   const card = cardMap.get(vendorId);
-  const displayName = card?.displayName ?? market.business_name ?? 'This vendor';
+  const displayName = card?.displayName ?? market.business_name ?? 'This supplier';
   const logoUrl = card?.logoUrl ?? market.logo_url ?? null;
   const tierState = (profRes.data as { tier_state: string | null } | null)?.tier_state ?? null;
   const startingPricePhp =

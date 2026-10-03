@@ -122,6 +122,6 @@ test('welcome copy cites up to 3 reasons and survives an empty business name', (
   assert.doesNotMatch(withReasons, /Free on your dates/);
 
   const bare = buildAutoAcceptWelcome('  ', []);
-  assert.match(bare, /This vendor accepted your inquiry automatically/);
+  assert.match(bare, /This supplier accepted your inquiry automatically/);
   assert.doesNotMatch(bare, /Why you match/);
 });

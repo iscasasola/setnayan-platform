@@ -551,7 +551,7 @@ export const REVIEW_FLAG_REASON_LABEL: Record<ReviewFlagReason, string> = {
   fake_reviewer: 'Fake or anonymous reviewer',
   competitor_account: 'Suspected competitor account',
   defamatory_content: 'Defamatory or false claims',
-  wrong_vendor: 'Review is for a different vendor',
+  wrong_vendor: 'Review is for a different supplier',
   other: 'Other reason',
 };
 

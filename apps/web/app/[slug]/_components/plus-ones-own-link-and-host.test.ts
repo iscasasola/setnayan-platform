@@ -301,7 +301,7 @@ test('F · the save writes only their own four, then takes the device’s method
   assert.match(save, /\.not\('plus_one_of_guest_id', 'is', null\)/, 'the door can write a row that is not a plus-one');
   assert.match(save, /\.eq\('guest_id', guest\.guest_id\)/);
   assert.match(save, /session\.guest_id/, 'the guest is not the one the pass names');
-  assert.match(save, /saveMethodFor\(/, 'the method is not the device’s');
+  assert.match(save, /saveMethodFromForm\(formData\.get\(SAVE_METHOD_FIELD\)/, 'the method is not the one the button said (2026-10-02)');
   assert.match(save, /signInWithApple\(next\)/);
   // 📵 No emailed link any more (owner 2026-09-29, "NO EMAIL TO GUESTS").
   assert.doesNotMatch(save, /claimAccountAction|sendEmail|sendEventAccountMagicLink/, 'the plus-one door mails a sign-in link again');
@@ -411,15 +411,19 @@ test('G · the row says "+3 (2 named)", and "3 named · 1 allowed" with a Remove
     React.createElement(PlusOneOverNote, { eventId: 'e', guestName: 'Tito Boy Santos', count: 1, seats: three }),
   );
   assert.match(over, /3 named · 1 allowed\./);
-  assert.equal((over.match(/aria-label="Remove /g) ?? []).length, 3, 'not one Remove per name');
+  assert.equal((over.match(/aria-label="Delete /g) ?? []).length, 3, 'not one Delete per name');
 });
 
-test('G · Remove is the host’s own remove-a-guest, behind its own two taps — no second delete', () => {
+test('G · Delete is the host’s own delete-a-guest, behind the one warning — no second delete', () => {
+  // ⤷ 2026-10-03 (owner, DECISION_LOG "A HOST CAN DELETE A GUEST WHO ALREADY
+  // ACCEPTED"): `RemoveGuestConfirm` + `softDeleteGuest` were retired; every
+  // delete is the one warning + `useGuestRemoval` (with Undo).
   const note = read(...G, '_components', 'plus-one-seats-note.tsx');
-  assert.match(note, /<RemoveGuestConfirm eventId=\{eventId\} guestId=\{s\.guest_id\} guestName=\{s\.label\} compact \/>/);
-  const confirm = read(...G, '_components', 'remove-guest-confirm.tsx');
-  assert.match(confirm, /action=\{softDeleteGuest\.bind\(null, eventId, guestId\)\}/);
-  assert.match(confirm, /Tap again to remove/);
+  assert.match(note, /<DeleteGuestButton eventId=\{eventId\} guestId=\{s\.guest_id\} guestName=\{s\.label\} \/>/);
+  const del = read(...G, '_components', 'guest-delete.tsx');
+  assert.match(del, /export function DeleteGuestButton\(/);
+  assert.match(del, /useGuestRemoval\(eventId\)/);
+  assert.match(del, /<DeleteGuestSheet\b/);
 });
 
 test('G · both roster rows draw the summary and the warning, from the FULL roster', () => {

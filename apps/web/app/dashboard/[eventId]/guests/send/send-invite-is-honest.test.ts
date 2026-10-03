@@ -96,7 +96,10 @@ test('⓷ a copy is not a send; a closed share sheet stamps nothing', () => {
   const sharedAt = share.indexOf("return 'shared'");
   assert.ok(shareAt > 0 && sharedAt > shareAt, 'Sent ✓ is stamped before the phone handed the message over');
   assert.match(share, /'AbortError'\)\s*return 'closed';/, 'closing the share sheet must not read as a send');
-  for (const [file, caller] of [[SEND, 'send'], [CELL, 'invite']] as const) {
+  // The Guest list's cell shares from `share()` — since 2026-10-02 Invite opens
+  // a sheet at every width and its "Share message + ticket" row is the share
+  // (owner, live iPhone test: Copy invitation link sits beside it).
+  for (const [file, caller] of [[SEND, 'send'], [CELL, 'share']] as const) {
     const b = body(read(file), caller);
     assert.match(b, /if \(out === 'shared'\) return mark\(true\);/, `${caller}() stamps on something other than a completed share`);
     assert.match(b, /if \(out === 'closed'\) return;/, `${caller}() treats a closed sheet as something to act on`);
@@ -111,6 +114,7 @@ test('⓸ the QR image is fetched before the tap, never between the tap and navi
   assert.doesNotMatch(body(src, 'send'), /\bfetch\(/, 'a fetch inside send() can spend iOS’s user activation');
   assert.doesNotMatch(body(src, 'shareInvite'), /\bfetch\(/, 'a fetch inside shareInvite() can spend iOS’s user activation');
   assert.doesNotMatch(body(read(CELL), 'invite'), /\bfetch\(/, 'a fetch inside the Invite column’s tap can spend iOS’s user activation');
+  assert.doesNotMatch(body(read(CELL), 'share'), /\bfetch\(/, 'a fetch inside the Invite sheet’s Share can spend iOS’s user activation');
   assert.match(body(src, 'useTicketFile'), /useEffect\([\s\S]*fetch\(ticketUrl\(guestId\)/);
 });
 

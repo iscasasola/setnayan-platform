@@ -114,14 +114,14 @@ export function LockConfirmModal({
           )}
           <div className="space-y-1.5">
             <h3 className="text-sm font-semibold text-ink">
-              {dateLabel ? 'This locks your date.' : copy?.headline}
+              {dateLabel ? 'This books your date.' : copy?.headline}
             </h3>
             {dateLabel ? (
               <p className="text-xs leading-snug text-ink/70">
-                Locking <strong>{vendorName}</strong> leaves only one of your
+                Booking <strong>{vendorName}</strong> leaves only one of your
                 candidate dates open. Continuing will finally set your
                 date to <strong>{dateLabel}</strong>. You can still change
-                vendors, but the date becomes official.
+                suppliers, but the date becomes official.
               </p>
             ) : null}
             {/* What else it closes. Rendered under the date sentence when this
@@ -157,10 +157,10 @@ export function LockConfirmModal({
             {isPending ? (
               <>
                 <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                Locking…
+                Booking…
               </>
             ) : (
-              <>{dateLabel ? `Lock ${dateLabel}` : (copy?.confirmLabel ?? `Lock ${vendorName}`)}</>
+              <>{dateLabel ? `Book ${dateLabel}` : (copy?.confirmLabel ?? `Book ${vendorName}`)}</>
             )}
           </button>
         </div>
@@ -211,7 +211,7 @@ export function LockMilestoneToast({
             Congratulations! You have picked a {milestone.pickedLabel}!
           </p>
           {milestone.dateLocked ? (
-            <p className="text-[11px] text-ink/60">Your date is now locked in. 🎉</p>
+            <p className="text-[11px] text-ink/60">Your date is now booked. 🎉</p>
           ) : null}
           {milestone.finalizeReady ? (
             <div className="pt-1">

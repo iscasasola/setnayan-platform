@@ -72,7 +72,7 @@ export const VENDOR_MORE_ROWS: readonly VendorMoreRow[] = [
   },
   {
     key: 'payday',
-    label: 'Earnings & payday',
+    label: 'Money in',
     sub: 'What came in, what is due, when it lands.',
     href: customerLandingHref('payday'),
     Icon: Wallet,

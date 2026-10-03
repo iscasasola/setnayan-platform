@@ -5,7 +5,6 @@
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above.
 app/_components/account-switcher/account-switcher.tsx "Secure your plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
-app/_components/chat-thread-views.tsx "Review accept →" → /proposals/[publicId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/_components/frontdoor/command-data.ts "Saved suppliers" → /dashboard/library	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/_components/frontdoor/front-door-feed.tsx "New uploads" → /realstories	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/_components/frontdoor/front-door-feed.tsx "See how sharing works" → /realstories	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
@@ -29,7 +28,6 @@ app/creators/_components/creator-story-hero.tsx "Publish your story — free" �
 app/creators/_components/creator-story-sections.tsx "Publish your story — free" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/_components/secure-account-banner.tsx "Secure my plan" → /signup	# first run 2026-10-02 · sign-in & onboarding · a "Messages" row that opens the roster
 app/dashboard/(account)/create-event/page.tsx "Buksan ang" → /dashboard/[eventId]	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/(account)/library/_components/photos-tab.tsx "ago today — relive the day" → /dashboard/[eventId]/studio/papic	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/(account)/library/_components/saved-vendor-card.tsx "Contact" → /v/[slug]	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/(account)/library/page.tsx "Spaces on your home" → /dashboard	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/(account)/life-flash/_components/flash.tsx "Plan what’s next →" → /dashboard/create-event	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
@@ -46,9 +44,8 @@ app/dashboard/[eventId]/clearance/page.tsx "Stop the livestream" → /dashboard/
 app/dashboard/[eventId]/date-selection/_components/chinese-specialist-nudge.tsx "Find a date / feng-shui specialist" → /explore	# first run 2026-10-02 · public site · a "Messages" row that opens the roster
 app/dashboard/[eventId]/documents/page.tsx "· · Ref" → /dashboard/[eventId]/orders	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/documents/page.tsx "TXN- - · ·" → /receipts/[receiptId]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster
+app/dashboard/[eventId]/guests/_components/capture-bar.tsx "Paste many names" → /dashboard/[eventId]/guests/quick	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/guests/invite/_components/invite-panel.tsx "waiting for you to confirm" → /dashboard/[eventId]/guests/claims	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/guests/page.tsx "or use the full form" → /dashboard/[eventId]/guests/new	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
-app/dashboard/[eventId]/guests/page.tsx "Paste a list" → /dashboard/[eventId]/guests/import	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/guests/page.tsx "Who came" → /dashboard/[eventId]/guests/checkin	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/_components/hub-pro-offer.tsx "What s included" → /dashboard/[eventId]/website/editor	# first run 2026-10-02 · host app · a "Messages" row that opens the roster
 app/dashboard/[eventId]/launch/_components/hub-stage.tsx "Open the live page" → /[slug]	# first run 2026-10-02 · guest app · a "Messages" row that opens the roster

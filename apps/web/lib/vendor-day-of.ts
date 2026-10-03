@@ -93,7 +93,7 @@ export const DAY_OF_CONSOLE_META: Record<
   coordinator: {
     eyebrow: 'Command center',
     blurb:
-      'Run the floor. Follow the live run-of-show, keep the vendors moving, and keep a clean record of anything that comes up on the day.',
+      'Run the floor. Follow the live run-of-show, keep the suppliers moving, and keep a clean record of anything that comes up on the day.',
   },
   photo: {
     eyebrow: 'Shot list & run-of-show',
@@ -111,7 +111,7 @@ export const DAY_OF_CONSOLE_META: Record<
       'Your set for the day — the songs you play, ready against the couple’s requests so you go on knowing the room.',
   },
   general: {
-    eyebrow: 'On the day',
+    eyebrow: 'The Day',
     blurb:
       'Your day-of view — the events you’re booked on, their live run-of-show, and a quick way into each couple’s brief.',
   },

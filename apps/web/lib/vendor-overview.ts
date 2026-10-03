@@ -907,7 +907,7 @@ export async function fetchVendorOverviewData(
     const meta = eventMeta.get(lr.eventId);
     ongoing.push({
       id: `ong-lock-${lr.eventVendorId}`,
-      label: `Confirm the deposit from ${lr.coupleName ?? meta?.displayName ?? 'a couple'}`,
+      label: `Confirm the payment from ${lr.coupleName ?? meta?.displayName ?? 'a couple'}`,
       dueChip: awaitingChip(lr.recordedAt),
       // Money, so 'quote' — the Quote & Payments tab is the ONE money section
       // both shells render (`?tab=payments` is not in `normalizeTab` and would

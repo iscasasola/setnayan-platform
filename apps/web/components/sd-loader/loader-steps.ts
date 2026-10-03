@@ -42,7 +42,7 @@ export const LOADER_STEPS = {
   /** Vendor matching / recommendations (handpicking by refinements). */
   matching: [
     'Reading your preferences',
-    'Cross-referencing vendors',
+    'Cross-referencing suppliers',
     'Ranking your best matches',
   ],
 
@@ -83,8 +83,8 @@ export const ROUTE_STEPS = {
     hint: 'Guest list',
   },
   vendors: {
-    steps: ['Opening your vendors', 'Loading their details', 'Checking your bookings'],
-    hint: 'Vendors',
+    steps: ['Opening your suppliers', 'Loading their details', 'Checking your bookings'],
+    hint: 'Suppliers',
   },
   budget: {
     steps: ['Opening your budget', 'Tallying your payments', 'Balancing the numbers'],
@@ -111,7 +111,7 @@ export const ROUTE_STEPS = {
     hint: 'Website',
   },
   explore: {
-    steps: ['Reading your preferences', 'Cross-referencing vendors', 'Ranking your best matches'],
+    steps: ['Reading your preferences', 'Cross-referencing suppliers', 'Ranking your best matches'],
     hint: 'Explore',
   },
   orders: {

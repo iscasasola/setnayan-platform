@@ -8,7 +8,6 @@ import { ChevronDown, Trash2, X } from 'lucide-react';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { guestSelection, useGuestSelection } from './guest-selection-store';
 import { guestOptimistic, useGuestOptimistic } from './guest-optimistic-store';
-import { pushUndo } from './undo-toast';
 import {
   InspectorTrigger,
   useInspectorContext,
@@ -50,18 +49,18 @@ import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/edi
 import { publishPhoneColumn } from './phone-column-channel';
 import { Sheet } from '@/app/_components/sheet';
 import { setGuestInvitationSent } from '../../invitation/actions';
-import { buildUndo, projectGuests } from '@/lib/guest-optimistic';
+import { projectGuests } from '@/lib/guest-optimistic';
+import { DeleteGuestSheet, useGuestRemoval } from './guest-delete';
 import { plusOnesUnderBringers } from '@/lib/plus-ones-under-bringers';
 import {
   bulkApplyRoleAndGroup,
-  bulkSoftDeleteGuestsForUndo,
   createGuestGroup,
   removeGuestFromGroup,
-  restoreDeletedGuests,
 } from '../groups-actions';
 import {
   guestDisplayName,
   guestFullName,
+  guestHasTicket,
   guestInitials,
   plusOneSeats,
   guestRoleLabel,
@@ -120,6 +119,7 @@ import {
   type ArrangeKey,
 } from '@/lib/roster-arrangement';
 import { formatCount } from '@/lib/format-number';
+import { invitationLinkOn } from '@/lib/invitation-link';
 
 type SectionGroup = RoleGroup | 'guest';
 
@@ -758,7 +758,7 @@ function RowInvite({
   if (!invite) {
     return size === 'row' ? <span className="text-xs text-ink/40">—</span> : null;
   }
-  const inviteUrl = guest.qr_token ? `${invite.base}?invite=${guest.qr_token}` : null;
+  const inviteUrl = guest.qr_token ? invitationLinkOn(invite.base, guest.qr_token) : null;
   return (
     <GuestInviteCell
       eventId={eventId}
@@ -782,6 +782,7 @@ function RowInvite({
         fullName: guestDisplayName(guest),
         inviteUrl,
         sentAt: guest.invitation_sent_at,
+        hasTicket: guestHasTicket(guest),
       }}
       facts={invite.facts}
       template={invite.template}
@@ -1151,7 +1152,10 @@ export function GuestListMultiselect({
       {/* The bulk bar — every width, floating at the bottom (owner 2026-09-30,
           frames C and G). On a phone a long press starts picking; on a
           computer, the row's box. */}
-      {selectedIds.length > 0 ? (
+      {/* ⚖ Drawn whenever the list is SELECTING, not only while something is
+          ticked — its Done is the way out of select mode (owner, live iPhone
+          test 2026-10-02: "after deselecting there was no Done button"). */}
+      {selectedIds.length > 0 || selectMode ? (
         <RosterBulkBar
           eventId={eventId}
           selectedIds={selectedIds}
@@ -1440,7 +1444,9 @@ function RosterBulkBar({
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [newGroup, setNewGroup] = useState(false);
-  const { remove } = useGuestRemoval(eventId);
+  const { removing, remove } = useGuestRemoval(eventId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const count = selectedIds.length;
 
   const picked = selectedIds.map((id) => guestsById.get(id)).filter((g): g is GuestRow => Boolean(g));
@@ -1485,7 +1491,15 @@ function RosterBulkBar({
       })),
     ),
     { key: 'mark', label: 'Mark invited', group: 'More', disabledNote: invitable.length === 0 ? 'nobody to invite' : undefined },
-    { key: 'remove', label: 'Remove from list', group: 'More' },
+    // ⚖ Owner 2026-10-03: delete works for ANY reply — one warning for all.
+    // The couple can never be deleted (the server refuses them), so a
+    // selection holding them says so here instead of failing on the tap.
+    {
+      key: 'remove',
+      label: `Delete ${formatCount(count)} ${count === 1 ? 'guest' : 'guests'}`,
+      group: 'More',
+      disabledNote: picked.some((g) => g.role === 'bride' || g.role === 'groom') ? 'the couple stays' : undefined,
+    },
   ];
 
   const inviteIds = invitable.map((g) => g.guest_id).join(',');
@@ -1495,6 +1509,9 @@ function RosterBulkBar({
       role="region"
       aria-label="Bulk actions for selected guests"
       data-roster-bulk-bar=""
+      /* A list mid-selection is not the page to show on the next open — the
+         last-seen copy waits until the selection is over. */
+      data-last-seen-hold=""
       className="fixed inset-x-3 bottom-[calc(var(--sn-bottomdock-h,calc(env(safe-area-inset-bottom)+64px))+0.75rem)] z-40 mx-auto max-w-3xl rounded-2xl bg-ink px-3 py-2.5 text-cream shadow-[0_18px_40px_-14px_rgba(26,26,26,0.6)] lg:bottom-6"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -1556,13 +1573,28 @@ function RosterBulkBar({
               if (key.startsWith('side:')) apply('side', key.slice(5));
               else if (key.startsWith('role:')) apply('role', key.slice(5));
               else if (key === 'mark') markInvited();
-              else if (key === 'remove') void remove(selectedIds);
+              else if (key === 'remove') {
+                setDeleteError(null);
+                setConfirmDelete(true);
+              }
             }}
             dataAttr="data-bulk-more"
           />
         </div>
       </div>
       {busy ? <p className="pt-1 text-xs text-cream/70">Saving…</p> : null}
+      {/* The one in-page warning (owner 2026-10-03) — never a browser confirm(). */}
+      <DeleteGuestSheet
+        open={confirmDelete}
+        names={picked.map((g) => guestFullName(g) ?? guestDisplayName(g))}
+        busy={removing}
+        error={deleteError}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          const refused = await remove(selectedIds, () => setConfirmDelete(false));
+          setDeleteError(refused);
+        }}
+      />
       <Sheet open={newGroup} onClose={() => setNewGroup(false)} labelledById="bulk-new-group-title" rise>
         <div className="space-y-3 p-5 text-ink">
           <h2 id="bulk-new-group-title" className="font-display text-xl">
@@ -1580,84 +1612,6 @@ function tableWord(label: string): string {
   return /^\d+$/.test(label.trim()) ? `Table ${label.trim()}` : label;
 }
 
-// Optimistic bulk-delete (Living Roster P1). Hides the selected rows via the
-// optimistic overlay, clears the selection (so the SelectionBar retracts), then
-// calls the return-based `bulkSoftDeleteGuestsForUndo`. On success it drops a 6s
-// undo snackbar whose Undo restores the guests + their released seats; on a
-// server-side gate rejection (couple/RSVP) it rolls the overlay back and toasts
-// the reason. No confirm dialog — undo is the safety net.
-/**
- * useGuestRemoval — the ONE way this page removes a guest.
- *
- * ⚠ IT EXISTS BECAUSE THERE WERE TWO, AND ONLY ONE OF THEM COULD BE UNDONE.
- * The desktop bulk bar called `bulkSoftDeleteGuestsForUndo`, which CAPTURES the
- * seats it releases so an undo can re-place them. The mobile swipe posted a
- * plain form to `bulkSoftDeleteGuests`, which does not — and
- * `event_seat_assignments` rows are HARD deleted (a soft delete does not trip
- * the FK cascade, so the seat is dropped on purpose). So the same act, from a
- * phone, permanently lost the guest's chair with no undo offered, and a host
- * who re-added them found a hole in the seating plan they had to rediscover.
- *
- * Two call sites, one rule. A test asserts this hook is the only thing that
- * calls the delete action.
- */
-function useGuestRemoval(eventId: string) {
-  const toast = useToast();
-  const [removing, setRemoving] = useState(false);
-
-  /** @param onRemoved runs only after the server confirms; the swipe uses it to
-   *  reset its own gesture state, the bulk bar has nothing to reset. */
-  async function remove(guestIds: string[], onRemoved?: () => void) {
-    if (removing) return;
-    const ids = [...guestIds];
-    if (ids.length === 0) return;
-    const mutation = { kind: 'remove' as const, guestIds: ids };
-
-    setRemoving(true);
-    guestOptimistic.apply(mutation); // hide rows now
-    guestSelection.clear(); // retract the bar (the acted-on guests are gone)
-
-    let result;
-    try {
-      result = await bulkSoftDeleteGuestsForUndo(eventId, ids);
-    } catch {
-      guestOptimistic.clear(mutation); // rollback the hide
-      setRemoving(false);
-      toast.error('Could not remove — check your connection and try again.');
-      return;
-    }
-    setRemoving(false);
-
-    if (!result.ok) {
-      guestOptimistic.clear(mutation); // rollback — server refused (gate)
-      toast.error(result.error);
-      return;
-    }
-    onRemoved?.();
-
-    // buildUndo carries the released seats through, so restore re-places them.
-    const plan = buildUndo(
-      { kind: 'remove', guestIds: result.removedIds },
-      [],
-      result.releasedSeats,
-    );
-    const n = result.removedIds.length;
-    pushUndo({
-      label: `${formatCount(n)} guest${n === 1 ? '' : 's'} removed`,
-      undo: async () => {
-        if (plan.kind !== 'restore') return;
-        const r = await restoreDeletedGuests(eventId, plan.guestIds, plan.seats);
-        if (r.ok) {
-          guestOptimistic.clear(mutation); // un-hide the restored rows
-        } else {
-          toast.error('Could not undo — refresh and try again.');
-        }
-      },
-    });
-  }
-
-  return { removing, remove };
-}
 
 function NewGroupInlineForm({
   eventId,
@@ -1960,11 +1914,12 @@ function MobileListRow({
 
 // -----------------------------------------------------------------------
 // SwipeToDelete — wraps a mobile guest card so a left-swipe reveals a Delete
-// action (owner directive 2026-06-03). The swipe-then-tap IS the confirmation
-// (iOS-style), and deletion goes through `useGuestRemoval` — the SAME path
-// the desktop bulk bar uses — so the same gates apply (couple blocked upstream
-// · RSVP'd guests get the reset-first message), the delete is a recoverable
-// SOFT one, AND the released seat is captured so an undo can re-place it. Touch-only — the desktop table keeps
+// action (owner directive 2026-06-03). Delete opens the ONE in-page warning
+// (`DeleteGuestSheet`, owner 2026-10-03 — any reply state may be deleted), and
+// deletion goes through `useGuestRemoval` (guest-delete.tsx) — the SAME path
+// the bulk bar and the guest card's ⋯ use — so the delete is a recoverable
+// SOFT one, a refusal is said where they swiped, AND the released seat is
+// captured so an undo can re-place it. Touch-only — the desktop table keeps
 // its own row affordances. Rendered by the phone list (MobileListRow) — the
 // photo-card grid it once also served was removed on the owner's ruling
 // (2026-09-20: "make it same sa row view only").
@@ -1987,6 +1942,8 @@ function SwipeToDelete({
 }) {
   const REVEAL = 84; // px width of the revealed Delete action
   const { removing, remove } = useGuestRemoval(eventId);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [tx, setTx] = useState(0);
   const [dragging, setDragging] = useState(false);
   // Gesture state in a ref so the touch handlers never read a stale closure.
@@ -2037,7 +1994,10 @@ function SwipeToDelete({
             go through `useGuestRemoval`. */}
         <button
           type="button"
-          onClick={() => remove([guestId], () => setTx(0))}
+          onClick={() => {
+            setDeleteError(null);
+            setConfirmDelete(true);
+          }}
           disabled={removing}
           aria-label={`Delete ${guestName}`}
           tabIndex={tx === 0 ? -1 : 0}
@@ -2082,13 +2042,30 @@ function SwipeToDelete({
         }}
         className="relative z-10"
         style={{
-          transform: `translateX(${tx}px)`,
+          // No transform at rest: a transform (even translateX(0)) makes this
+          // box the frame for every `position: fixed` inside the row, so the
+          // row's own sheets (New QR · Unlink from its ⋯) were cut to the row.
+          transform: tx === 0 && !dragging ? undefined : `translateX(${tx}px)`,
           transition: dragging ? 'none' : 'transform 0.2s ease',
           touchAction: 'pan-y',
         }}
       >
         {children}
       </div>
+      {/* Swipe → Delete → the one in-page warning (owner 2026-10-03). A refusal
+          is said HERE, where they swiped, as well as in the toast. */}
+      <DeleteGuestSheet
+        open={confirmDelete}
+        names={[guestName]}
+        busy={removing}
+        error={deleteError}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={async () => {
+          const refused = await remove([guestId], () => setTx(0));
+          if (refused) setDeleteError(refused);
+          else setConfirmDelete(false);
+        }}
+      />
     </div>
   );
 }

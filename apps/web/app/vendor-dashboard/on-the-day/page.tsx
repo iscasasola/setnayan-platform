@@ -62,7 +62,7 @@ import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
 import { EventLockedPage } from '@/app/vendor-dashboard/_components/event-locked-by-fee';
 import { formatCount } from '@/lib/format-number';
 
-export const metadata = { title: 'Event Hub · Vendor' };
+export const metadata = { title: 'Event Hub · Supplier' };
 
 /**
  * Vendor "On the Day" console — reskinned to the finalized 6-menu vendor
@@ -1060,7 +1060,7 @@ function ShotListSection({
           className="sn-tile mt-3 text-sm"
           style={{ color: 'var(--m-slate-2)' }}
         >
-          Your must-get shot list appears here on an event day, ready to check off as you shoot. Once you save it, the couple sees it on their vendor page.
+          Your must-get shot list appears here on an event day, ready to check off as you shoot. Once you save it, the couple sees it on their supplier page.
         </p>
       </div>
     );
@@ -1159,7 +1159,7 @@ function NonPhotoConsole({
     coordinator: {
       icon: UserCheck,
       title: 'Run the floor',
-      sub: 'Follow the live run-of-show, keep vendors moving, and log anything that comes up — all from the couple’s brief.',
+      sub: 'Follow the live run-of-show, keep suppliers moving, and log anything that comes up — all from the couple’s brief.',
     },
     caterer: {
       icon: UtensilsCrossed,

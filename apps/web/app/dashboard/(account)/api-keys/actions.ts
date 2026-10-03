@@ -40,7 +40,7 @@ export async function createApiKey(formData: FormData) {
   // gating minting keeps an ungranted user from ever holding a dead key.
   if (!(await userHasApiAccessGrant(createAdminClient(), user.id))) {
     return redirect(
-      `/dashboard/api-keys?error=${encodeURIComponent('API access requires a Custom vendor plan with API access enabled.')}`,
+      `/dashboard/api-keys?error=${encodeURIComponent('API access requires a Custom supplier plan with API access enabled.')}`,
     );
   }
 

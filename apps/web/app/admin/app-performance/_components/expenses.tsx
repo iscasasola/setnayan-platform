@@ -168,7 +168,7 @@ export async function ExpensesZone() {
           {!measured ? (
             <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>
               Coverage could not be worked out — the expenses it divides were
-              not read. It is not 0%.
+              not read. That is not the same as zero.
             </p>
           ) : coveragePct === null ? (
             <p className="text-sm" style={{ color: 'var(--m-slate-2)' }}>

@@ -29,7 +29,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
     return (
       <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
         <p className="text-sm text-ink/60">
-          We couldn&rsquo;t load your saved vendors right now. Refresh in a moment.
+          We couldn&rsquo;t load your saved suppliers right now. Refresh in a moment.
         </p>
       </div>
     );
@@ -38,7 +38,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
   if (own.length === 0 && attended.length === 0) {
     return (
       <div className="rounded-2xl border border-dashed border-ink/15 p-10 text-center">
-        <p className="text-sm text-ink/60">No saved vendors yet.</p>
+        <p className="text-sm text-ink/60">No saved suppliers yet.</p>
         <Link
           href="/explore"
           className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream transition-colors hover:bg-terracotta-800"
@@ -54,7 +54,7 @@ export async function VendorsTab({ userId }: { userId: string }) {
     <div className="space-y-8">
       {ownUnreadable ? (
         <p className="text-sm text-ink/60">
-          We couldn&rsquo;t load the vendors saved in your own plans right now.
+          We couldn&rsquo;t load the suppliers saved in your own plans right now.
         </p>
       ) : null}
       {own.length > 0 ? (

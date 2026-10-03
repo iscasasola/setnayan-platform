@@ -328,7 +328,7 @@ export function CustomersRoster({
                 Availability &amp; capacity
               </Link>
               <Link href="?open=proposals#customer-tools" scroll={false} className="rounded-lg px-3 py-2 hover:bg-ink/5">
-                Proposals
+                Quotes
               </Link>
               <Link href="?open=contracts#customer-tools" scroll={false} className="rounded-lg px-3 py-2 hover:bg-ink/5">
                 Contracts

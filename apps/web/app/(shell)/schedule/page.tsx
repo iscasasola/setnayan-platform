@@ -187,7 +187,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
     media: { kind: 'photo', src: '/demo/maria-jose/firstdance.webp', alt: 'A couple’s first dance on the reception floor' },
   },
   {
-    chip: 'Vendors',
+    chip: 'Suppliers',
     t: 'They suggest, you decide',
     d: 'Booked suppliers can ask for a timeline change or propose a new entry. Accepting applies it; suppliers never edit your timeline directly, and they hear back either way.',
     media: { kind: 'photo', src: '/demo/maria-jose/reception.webp', alt: 'A laid reception table set for a Filipino wedding' },

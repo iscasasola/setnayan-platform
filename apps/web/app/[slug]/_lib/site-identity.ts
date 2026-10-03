@@ -85,7 +85,6 @@ export type GuestSiteIdentity = {
    */
   passCard: PassCardEligibility | null;
   qrSvg: string;
-  invitationUrl: string;
   /** This guest's tagged photos so far — live window only, clean-screened. */
   guestLiveGallery: GuestLiveGallery | null;
   /** 📸 The shots THIS guest took (the Gallery's "Your shots") — null = not read or the read failed. */
@@ -116,9 +115,6 @@ export type GuestSiteIdentity = {
    * simulated preview). Per-person, about THIS guest's own seat.
    */
   account: GuestAccountState | null;
-  /** Invite/Join v2: the no-login photo grace has ended (>~24h after the
-   *  wedding) for this accountless viewer. */
-  accountlessPhotosClosed: boolean;
   /** Invite/Join v2: the couple's booked marketplace vendors ("vendors who
    *  made this day"), each savable to the guest's own account. */
   eventVendorCredits: VendorCard[];
@@ -495,7 +491,6 @@ export function guestIdentity(
     guest: input.guest,
     passCard: input.passCard ?? null,
     qrSvg: input.qrSvg,
-    invitationUrl: input.invitationUrl,
     guestLiveGallery: input.guestLiveGallery,
     guestOwnShots: input.guestOwnShots ?? null,
     poolGalleryOpen: input.poolGalleryOpen === true,
@@ -506,7 +501,6 @@ export function guestIdentity(
     papicGuest: input.papicGuest,
     showClaimAccountCta: input.showClaimAccountCta,
     account: input.account ?? null,
-    accountlessPhotosClosed: input.accountlessPhotosClosed,
     eventVendorCredits: input.eventVendorCredits,
     saveFlash: input.saveFlash,
     rsvpFlash: input.rsvpFlash,

@@ -23,6 +23,9 @@
  * element in it carries React's `_init`/`_payload`. `_init` starts the load —
  * exactly what React calls when it renders it.
  *
+ * A bare `React.lazy` export (a piece that never renders on the server, like
+ * `CoupleLogo`'s player) is warmed the same way, from its own `_init`.
+ *
  * ⚠ A FAILED LOAD IS PUT BACK. `React.lazy` remembers a rejection forever, so a
  * background preload that failed (a dropped connection) would make that tool
  * throw when tapped. The lazy is returned to "not started", so the tap asks
@@ -60,7 +63,13 @@ function findLazy(node: unknown, depth = 0): LazyType | null {
  * rejects when it failed (the lazy is reset first, so a tap loads it afresh).
  * Anything that is not a dynamic component resolves at once.
  */
+/** Is this a bare `React.lazy` component (a stand-in that needs no SSR, e.g. `CoupleLogo`'s player)? */
+export function isLazyComponent(c: unknown): c is LazyType {
+  return Boolean(c) && typeof c === 'object' && (c as { $$typeof?: symbol }).$$typeof === LAZY;
+}
+
 export function warmDynamic(c: unknown): Promise<void> {
+  if (isLazyComponent(c)) return warmLazy(c);
   if (!isDynamicComponent(c)) return Promise.resolve();
   let lazy: LazyType | null;
   try {
@@ -69,6 +78,11 @@ export function warmDynamic(c: unknown): Promise<void> {
     return Promise.resolve();
   }
   if (!lazy) return Promise.resolve();
+  return warmLazy(lazy);
+}
+
+/** Start a lazy's load (React's own `_init`) and resolve once it has settled; a failure is put back. */
+function warmLazy(lazy: LazyType): Promise<void> {
   const payload = lazy._payload;
   const ctor = payload._status === -1 ? payload._result : null;
   try {
@@ -90,8 +104,13 @@ export function warmDynamic(c: unknown): Promise<void> {
   }
 }
 
-/** Warm every `next/dynamic` export of a stand-in module. Resolves when all have arrived; rejects if any failed. */
+/**
+ * Warm every lazy export of a stand-in module — a `next/dynamic` component, or a
+ * bare `React.lazy` (one that never renders on the server, so it needs none of
+ * `next/dynamic`'s machinery on the page). Resolves when all have arrived;
+ * rejects if any failed.
+ */
 export function warmDynamicExports(ns: Record<string, unknown>): Promise<void> {
-  const pieces = Object.values(ns).filter(isDynamicComponent);
+  const pieces = Object.values(ns).filter((c) => isDynamicComponent(c) || isLazyComponent(c));
   return Promise.all(pieces.map(warmDynamic)).then(() => undefined);
 }

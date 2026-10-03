@@ -59,7 +59,9 @@ test('the persistent chip is mounted on `started`, not merely styled', () => {
   // existing in the tab order under the veil.
   assert.match(
     src,
-    /\{started && !preview && \(content\.icsHref \|\| content\.gcalUrl\) \?/,
+    // …and not on the closing beat, which has its own full button (owner
+    // 2026-10-03: one of each per screen) — `idx !== closeIdx`.
+    /\{started && !preview && idx !== closeIdx && \(content\.icsHref \|\| content\.gcalUrl\) \?/,
     'the persistent Add-to-calendar chip lost its `started` mount condition — ' +
       'aria-hidden and pointer-events-none do NOT remove an element from the ' +
       'tab order, so it would be Tab-reachable under the veil, before the ' +

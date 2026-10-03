@@ -70,8 +70,9 @@ test('A · the personal link lands on the landing page; the reply returns to it'
 
 // ═══ B · the order ══════════════════════════════════════════════════════════
 
-test('B · the page runs message · reply · ticket · guests · how to use · open, in that order', () => {
-  assert.deepEqual([...LANDING_ORDER], ['message', 'reply', 'ticket', 'guests', 'how', 'open']);
+test('B · the page runs message · reply · ticket · how to use · open, in that order', () => {
+  // "guests" left 2026-10-03 — Send their invite lives on Me (owner: one place each).
+  assert.deepEqual([...LANDING_ORDER], ['message', 'reply', 'ticket', 'how', 'open']);
   const at = LANDING_ORDER.map((k) => ENTER.indexOf(`data-landing="${k}"`));
   assert.ok(at.every((n) => n > -1), `a section is missing its marker: ${LANDING_ORDER.map((k, i) => `${k}@${at[i]}`).join(' ')}`);
   assert.deepEqual([...at].sort((a, b) => a - b), at, `the landing page is out of order: ${LANDING_ORDER.map((k, i) => `${k}@${at[i]}`).join(' ')}`);

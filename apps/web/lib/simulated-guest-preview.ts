@@ -268,7 +268,6 @@ export function buildSimulatedGuestIdentity(input: {
   return guestIdentity({
     guest: { ...SIMULATED_GUEST_ROW, ...who.row, custom_tags: [] },
     qrSvg: SIMULATED_GUEST_QR_SVG,
-    invitationUrl: SIMULATED_GUEST_INVITATION_TEXT,
     // Null / false / empty across the board: every one of these is a real
     // per-guest lookup on the live path, and the preview performs none of them.
     guestLiveGallery: null,
@@ -291,7 +290,6 @@ export function buildSimulatedGuestIdentity(input: {
     // The host already has an account (that is how they hold the capability),
     // so the claim-account prompt would be nonsense here.
     showClaimAccountCta: false,
-    accountlessPhotosClosed: false,
     // Empty rather than the couple's real booked vendors: this is a preview of
     // the RSVPed state, and the vendor-credits strip is not part of that fork.
     eventVendorCredits: [],

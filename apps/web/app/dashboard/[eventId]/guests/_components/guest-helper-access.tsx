@@ -1,6 +1,6 @@
 import {
+  ChangeAccessLink,
   CoordinatorGrantChips,
-  CoordinatorSeatControls,
 } from '@/app/dashboard/[eventId]/_components/coordinator-seat-controls';
 import { CoordinatorColourDomains } from '@/app/dashboard/[eventId]/_components/coordinator-colour-domains';
 import { setCoordinatorColourDomain, rejectColourChange } from '@/app/dashboard/[eventId]/colour-access-actions';
@@ -9,8 +9,8 @@ import type { GuestHelperCard } from '@/lib/guest-helper-card.server';
 
 /**
  * guest-helper-access.tsx — under the Access line of a LIMITED HELPER's guest
- * card: what they may open, their budget / photo switches, their colour
- * domains, and what they did. The Hosts page's pieces, MOVED here in the Hosts
+ * card: what they may open (SHOWN — set in Event Details › People with access,
+ * owner 2026-10-03), their colour domains, and what they did. The Hosts page's pieces, MOVED here in the Hosts
  * fold (owner 2026-09-30, DECISION_LOG "GUEST LIST: ACCESS + CHECK-IN BECOME
  * COLUMNS; HOSTS FOLDS INTO THE GUEST LIST"; build F2) — the same components and
  * the same actions (`hosts/actions.ts`, `colour-access-actions.ts`), none
@@ -21,11 +21,11 @@ import type { GuestHelperCard } from '@/lib/guest-helper-card.server';
  */
 export function GuestHelperAccess({
   eventId,
-  guestId,
   firstName,
   helper,
 }: {
   eventId: string;
+  /** The card's guest — kept so the two card screens pass one shape. */
   guestId: string;
   firstName: string;
   helper: GuestHelperCard;
@@ -47,13 +47,7 @@ export function GuestHelperAccess({
             What {firstName} can open
           </span>
           <CoordinatorGrantChips permissions={seat.permissions} />
-          <CoordinatorSeatControls
-            eventId={eventId}
-            moderatorId={seat.moderatorId}
-            permissions={seat.permissions}
-            returnTo={{ guestId }}
-            withRemove={false}
-          />
+          <ChangeAccessLink eventId={eventId} />
         </div>
       ) : null}
       {colour ? (

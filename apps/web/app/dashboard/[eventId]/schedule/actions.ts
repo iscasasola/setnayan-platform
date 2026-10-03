@@ -572,7 +572,8 @@ export async function generateEmceeScript(
  * Resolve a vendor timeline suggestion — feature-access program Phase 3
  * (corpus 03_Strategy/Feature_Access_By_Vendor_Category_2026-06-12.md § 4).
  * Accept applies the proposal (adjust → update the block's proposed fields;
- * new → create a draft block); decline just flips the status. RLS gates both
+ * new → create a draft block tagged to the supplier; remove → delete the
+ * block); decline just flips the status. RLS gates both
  * sides: the suggestion UPDATE policy + the block write policies admit the
  * couple and delegates holding schedule edit, nobody else.
  */
@@ -606,6 +607,24 @@ export async function resolveScheduleSuggestion(formData: FormData) {
     redirect(`/dashboard/${eventId}/schedule?view=event-day`);
   }
 
+  // The status flip, done AFTER the change it answers lands — so a refused
+  // write never leaves a request reading 'accepted' over an unchanged
+  // schedule. (A 'remove' survives its own block: the FK is ON DELETE SET NULL
+  // since 20271263061583, so the row is still there to flip.)
+  const flip = async () => {
+    const { error: resolveError } = await supabase
+      .from('event_schedule_suggestions')
+      .update({
+        status: decision === 'accept' ? 'accepted' : 'declined',
+        resolved_by_user_id: user.id,
+        resolved_at: new Date().toISOString(),
+      })
+      .eq('suggestion_id', suggestionId)
+      .eq('event_id', eventId)
+      .eq('status', 'open');
+    if (resolveError) throw new Error(resolveError.message);
+  };
+
   if (decision === 'accept') {
     if (suggestion.kind === 'adjust' && suggestion.block_id) {
       const patch: Record<string, string> = {};
@@ -621,33 +640,55 @@ export async function resolveScheduleSuggestion(formData: FormData) {
           .eq('event_id', eventId);
         if (error) throw new Error(error.message);
       }
+      await flip();
     } else if (suggestion.kind === 'new') {
+      /*
+        THE ITEM A SUPPLIER ADDS IS THAT SUPPLIER'S (owner 2026-10-03). It lands
+        tagged to their booking — `responsible_vendor_ids`, the column the
+        "Your slot" / "My slots only" lens and the own-items rule both read — so
+        they can later ask to change or remove it. Before this it landed with
+        an empty tag and became nobody's.
+        Admin read, scoped by this event and the supplier on the request the
+        caller just read under RLS: a coordinator holding The Day = Edit may
+        have Suppliers set Off, and must still be able to approve.
+      */
+      const { data: bookings } = await createAdminClient()
+        .from('event_vendors')
+        .select('vendor_id')
+        .eq('event_id', eventId)
+        .eq('marketplace_vendor_id', suggestion.vendor_profile_id)
+        .is('archived_at', null);
+      const tags = ((bookings ?? []) as { vendor_id: string }[]).map((b) => b.vendor_id);
       // Lands as a PRIVATE draft — the couple decides when guests see it.
       const { error } = await supabase.from('event_schedule_blocks').insert({
         event_id: eventId,
-        label: (suggestion.proposed_label ?? 'Vendor-requested slot').slice(0, 120),
+        label: (suggestion.proposed_label ?? 'Supplier-requested moment').slice(0, 120),
         block_type: 'custom',
         start_at: suggestion.proposed_start_at,
         end_at: suggestion.proposed_end_at,
         location: suggestion.proposed_location,
         notes: suggestion.note,
         is_public: false,
+        responsible_vendor_ids: tags,
       });
       if (error) throw new Error(error.message);
+      await flip();
+    } else if (suggestion.kind === 'remove') {
+      if (suggestion.block_id) {
+        const { error } = await supabase
+          .from('event_schedule_blocks')
+          .delete()
+          .eq('block_id', suggestion.block_id)
+          .eq('event_id', eventId);
+        if (error) throw new Error(error.message);
+      }
+      await flip();
+    } else {
+      await flip();
     }
+  } else {
+    await flip();
   }
-
-  const { error: resolveError } = await supabase
-    .from('event_schedule_suggestions')
-    .update({
-      status: decision === 'accept' ? 'accepted' : 'declined',
-      resolved_by_user_id: user.id,
-      resolved_at: new Date().toISOString(),
-    })
-    .eq('suggestion_id', suggestionId)
-    .eq('event_id', eventId)
-    .eq('status', 'open');
-  if (resolveError) throw new Error(resolveError.message);
 
   // Notify the suggesting vendor of the couple's decision (best-effort — the
   // suggestion is already resolved; a failed notify must not roll it back).
@@ -679,7 +720,9 @@ export async function resolveScheduleSuggestion(formData: FormData) {
             ? `${eventName} accepted your timeline suggestion`
             : `${eventName} declined your timeline suggestion`,
           body: accepted
-            ? 'Your proposed change is now on their schedule.'
+            ? suggestion.kind === 'remove'
+              ? 'That moment is off their schedule.'
+              : 'Your proposed change is now on their schedule.'
             : 'Your proposed change was not applied.',
           relatedUrl: `/vendor-dashboard/clients/${eventId}`,
         });

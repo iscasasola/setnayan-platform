@@ -138,7 +138,9 @@ test('handoff · EVERY save-the-date event mounts the wrapper — no flag gates 
 test('handoff · a persistent exit is mounted once the film has STARTED', () => {
   assert.match(
     FILM,
-    /\{canExit && started && !preview \?/,
+    // …and not on the closing beat, whose own full "See our page" stands
+    // there (owner 2026-10-03: one of each per screen).
+    /\{canExit && started && !preview && idx !== closeIdx \?/,
     'the persistent exit must be gated on canExit AND started — `started` is what ' +
       'keeps it out of the DOM (and out of the tab order) under the veil, before ' +
       'the music, the clip and the gallery have played',
@@ -146,7 +148,7 @@ test('handoff · a persistent exit is mounted once the film has STARTED', () => 
 });
 
 test('handoff · the persistent exit is not merely hidden, and fires the exit event', () => {
-  const block = FILM.slice(FILM.indexOf('{canExit && started && !preview ?'));
+  const block = FILM.slice(FILM.indexOf('{canExit && started && !preview && idx !== closeIdx ?'));
   const upToClose = block.slice(0, block.indexOf('</button>'));
   assert.ok(
     upToClose.includes(`new CustomEvent(STD_FILM_EXIT_EVENT)`),

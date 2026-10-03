@@ -82,6 +82,7 @@ export const NOTIFICATION_EMAIL_REASONS: Partial<Record<NotificationType, string
   date_change_answered: R('a supplier answered your request to move a booking date'),
   date_change_closed: R('a request to move a booking date was closed'),
   date_moved: R('the date of a booking you are part of moved'),
+  schedule_change_requested: R('a booked supplier asked for a change to a schedule you can approve'),
 };
 
 /** Said when a type has no line of its own yet — true of every account mail. */

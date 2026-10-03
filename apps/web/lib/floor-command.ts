@@ -25,7 +25,7 @@
 
 import type { RunOfShowBlock, RunState } from './run-of-show';
 import { deriveRunOfShow } from './run-of-show';
-import type { DelegateArea } from './event-moderators';
+import { DELEGATE_AREA_LABEL, type DelegateArea } from './delegate-areas';
 import { MAX_RETIME_MINUTES } from './schedule-ros';
 import { parsePapicTagScan } from './papic-tag';
 import { DEFAULT_EVENT_TZ } from './schedule';
@@ -171,31 +171,14 @@ export const FLOOR_REQUESTABLE_AREAS: readonly DelegateArea[] = [
 ];
 
 /**
- * Client-safe labels for the askable areas.
- *
- * `lib/event-moderators.ts` is `import 'server-only'` (it mints invitation
- * tokens), so its `DELEGATE_AREA_LABEL` cannot cross into a client component —
- * the type import above is erased at compile time, but a runtime value would
- * break the build. These four live here, next to `FLOOR_REQUESTABLE_AREAS`,
- * which is the only list that can use them.
+ * The area names, ONE vocabulary (owner 2026-10-03, "People with access":
+ * Guest list · Seat plan · The Day · Suppliers · Event Hub · Mood Board ·
+ * Budget & payments · Photos). This used to be a second, client-safe copy of
+ * `DELEGATE_AREA_LABEL`, because that lived behind `event-moderators`'
+ * `server-only`; it now lives in the pure `delegate-areas`, so the copy is the
+ * original and the two can never drift.
  */
-export const FLOOR_AREA_LABEL: Readonly<Record<DelegateArea, string>> = {
-  guest_list: 'Guest list',
-  seat_plan: 'Seat plan',
-  schedule: 'Schedule',
-  vendors: 'Suppliers',
-  invitations: 'Invitations',
-  mood_board: 'Mood board',
-  budget: 'Budget',
-  // Required by the exhaustive Record — TypeScript refused the build without it,
-  // which is the type system doing its job. NOT added to
-  // FLOOR_REQUESTABLE_AREAS above: that list is what a vendor-coordinator may
-  // ASK FOR mid-event from the floor console, and whether photo access should be
-  // requestable in the middle of someone's wedding is a separate question the
-  // owner has not been asked. The label exists so the area can be NAMED wherever
-  // it is granted.
-  photos: 'Event photos',
-};
+export const FLOOR_AREA_LABEL: Readonly<Record<DelegateArea, string>> = DELEGATE_AREA_LABEL;
 
 export type AreaVerdict = 'granted' | 'declined';
 

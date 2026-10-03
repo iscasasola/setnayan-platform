@@ -443,7 +443,16 @@ export type NotificationType =
      one notice per person per event. The request itself (YES / NO) lives on the
      Events page. ⚠ ENUM value in 20271252186265. In-app only (an SQL row never
      passes emitNotification). */
-  | 'event_invitation';
+  | 'event_invitation'
+  /* 📅 A BOOKED SUPPLIER ASKED TO ADD, CHANGE OR REMOVE SOMETHING ON THE DAY'S
+     SCHEDULE (owner 2026-10-03, "SUPPLIERS WRITE THEIR OWN PART OF THE
+     SCHEDULE"). → the couple AND every delegate holding The Day = Edit — the
+     people who can approve it (`lib/schedule-request-notify.server.ts`).
+     ⚠ Its own type, NOT `schedule_suggestion`: that one is the generic
+     schedule register (answers back to suppliers, appointments, challenges,
+     change orders) and is in-app only. This one is on EMAIL_ENABLED_TYPES —
+     a request nobody sees waits forever. Enum value: 20271262858364. */
+  | 'schedule_change_requested';
 
 export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   event_auto_surfaced: 'You were added to an event',
@@ -555,6 +564,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   papic_pool_spent: 'Guests have run out of Papic shots',
   cohost_added: 'You’re now a co-host',
   event_invitation: 'You’re invited',
+  schedule_change_requested: 'Schedule request',
 };
 
 export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
@@ -756,6 +766,8 @@ export const NOTIFICATION_TYPE_TONE: Record<NotificationType, string> = {
   cohost_added: 'bg-success-100 text-success-800',
   // An invitation to answer — the same informational sky as rsvp_received.
   event_invitation: 'bg-sky-100 text-sky-800',
+  // A supplier is waiting on a yes or no → amber, the "action needed" tone.
+  schedule_change_requested: 'bg-warn-100 text-warn-900',
 };
 
 export type NotificationRow = {

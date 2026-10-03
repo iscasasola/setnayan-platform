@@ -42,8 +42,6 @@ export function dayOfModuleHref(id: DayOfModuleId, eventId: string): string | nu
       // Counsel-gated: callers filter it out unless the capability is live
       // (isVendorPapicCaptureEnabled); the page itself also fail-closes.
       return `/vendor-dashboard/on-the-day/live/${eventId}/papic`;
-    case 'guest_delivery':
-      return null; // counsel-gated — not launched here yet
   }
 }
 

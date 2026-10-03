@@ -41,6 +41,7 @@ import { readableTextOn } from '@/lib/site-palette';
 import { bespokeSvgToDataUri } from '@/lib/bespoke-monogram-shared';
 import { HeroMonogram } from '@/app/_components/hero-monogram';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 import { StudioRevealPlayer, type StudioAnim } from '@/app/_components/studio-reveal-player';
 import { type MonogramConfig } from '@/lib/monogram';
 import type { MonogramMotionKey } from '@/lib/monogram-motion';
@@ -329,7 +330,7 @@ function FilmMonogram({
       <span aria-hidden className={`${sizeCls} inline-flex items-center justify-center`} style={{ filter: glow }}>
         <CoupleLogo
           svg={svg}
-          plays={Boolean(animatedMonogram)}
+          plays={coupleLogoPlays(svg, Boolean(animatedMonogram))}
           place="std-film"
           still={
             // eslint-disable-next-line @next/next/no-img-element
@@ -1571,7 +1572,10 @@ export function SaveTheDateFilm({
           Deliberately quiet: same size and weight as the mute control it
           mirrors on the other side, so it reads as chrome rather than as a
           competing call to action. The closing beat keeps its full button. */}
-      {canExit && started && !preview ? (
+      {/* ☝ …and NOT on the closing beat, which carries its own full "See our
+          page" — two of the same button on one screen (owner 2026-10-03, "too
+          many buttons"). */}
+      {canExit && started && !preview && idx !== closeIdx ? (
         <div className="absolute bottom-5 left-4 z-20" onClick={(e) => e.stopPropagation()}>
           <button
             type="button"
@@ -1607,7 +1611,9 @@ export function SaveTheDateFilm({
           Sits above the bottom row rather than in it: that row already holds the
           way-out on the left and mute on the right, and a centred chip between
           them overlaps both on a 375px phone. */}
-      {started && !preview && (content.icsHref || content.gcalUrl) ? (
+      {/* ☝ Not on the closing beat either: it has its own full "Add to
+          calendar" — one per screen (owner 2026-10-03). */}
+      {started && !preview && idx !== closeIdx && (content.icsHref || content.gcalUrl) ? (
         <div
           className="pointer-events-none absolute inset-x-0 bottom-16 z-20 flex justify-center px-4"
           onClick={(e) => e.stopPropagation()}

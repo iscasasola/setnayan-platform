@@ -1,6 +1,6 @@
 import { Fragment, isValidElement } from 'react';
 import Link from 'next/link';
-import { resolveArrivalAction } from '@/lib/arrival-action';
+import { actionOpensReply, resolveArrivalAction } from '@/lib/arrival-action';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
@@ -9,7 +9,6 @@ import { resolveDayOfLead } from '@/lib/day-of-lead';
 import { hasVenueContent } from '@/lib/website-section-content';
 import { firstVenue, receptionVenue, venueNamesLine } from '@/lib/event-venues';
 import { stdFilmPlaceLine } from '@/lib/venue-disclosure';
-import { resolveEffectiveVisibility } from '@/lib/launch-save-the-date';
 import { formatEventDate } from '@/lib/events';
 import type { ChapterOnThisDay } from '@/lib/chapters-on-this-day';
 // The event hub's sanctioned column widths — a page-level column outside the
@@ -209,7 +208,6 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } f
 import { PreviewWayBack } from './preview-way-back';
 import { PahinaMasthead } from './pahina-masthead';
 import { EntourageSection } from './entourage-section';
-import { GuestAccountCard } from './guest-account-card';
 import { GetInside } from './get-inside';
 import { GetTickets } from './get-tickets';
 import { askOneAtATime } from '@/lib/rsvp-one-at-a-time';
@@ -1585,11 +1583,11 @@ export async function SiteBody({
                 /* THE HOST'S OWN PAGE. Wins over every `reason` variant below:
                    a stale or absent guest cookie says nothing about somebody
                    whose host membership the database just confirmed, and the
-                   invite-error wording would be actively wrong for them. */
-                <p className="mx-auto max-w-prose text-sm text-ink/70">
-                  This is your event page — the view your guests get. Invited guests see
-                  their own name, seat and RSVP here when they open their personal link.
-                </p>
+                   invite-error wording would be actively wrong for them.
+                   ✂ No explaining paragraph (owner 2026-10-03, "too much going
+                   on"): the host ribbon above already says "Your Event Hub — as
+                   a guest sees it". The host simply meets no "Get inside". */
+                null
               ) : (
                 /* ── THE STRANGER'S ONE BUTTON (owner 2026-09-26/27) ──────────
                    General details above; ONE way in below — "Get inside: Scan
@@ -1992,7 +1990,6 @@ export async function SiteBody({
   const guestTree = (g: GuestSiteIdentity) => {
     const {
       guest,
-      invitationUrl,
       guestLiveGallery,
       guestOwnShots,
       poolGalleryOpen,
@@ -2003,7 +2000,6 @@ export async function SiteBody({
       papicGuest,
       showClaimAccountCta,
       account,
-      accountlessPhotosClosed,
       profileDetails,
       eventVendorCredits,
       saveFlash,
@@ -2481,23 +2477,13 @@ export async function SiteBody({
               webmanifest · icon/[spec]), so a guest can still install from the
               browser's own menu — the page just no longer teaches it. Pinned by
               `lib/the-event-hub-has-no-home-screen-card.test.ts`. */}
-          {/* ── THE ONE ACCOUNT PROMPT (owner 2026-09-25). One card, one place,
-              until the invitation is linked — then one quiet "Linked to …" line.
-              It replaced the email box that asked for the address a second time,
-              the top-corner "Link to account" chip and the "Keep this event for
-              good" note. Never on the Save the Date (the reply it borrows the
-              address from is not there yet). See guest-account-card.tsx and
-              lib/guest-one-path.ts; pinned by guest-one-path.test.ts. */}
-          {account && lifecyclePhase !== 'save_the_date' ? (
-            <GuestAccountCard
-              state={account}
-              eventId={event.event_id}
-              slug={event.slug ?? ''}
-              personalLink={invitationUrl}
-              photosClosing={accountlessPhotosClosed}
-              eventWord={clientWords.eventWord}
-            />
-          ) : null}
+          {/* ── "SAVE TO MY ACCOUNT" LIVES ON ME, ONCE (owner 2026-10-03, on the
+              live hub: "too many buttons. too much going on" — each control has
+              ONE place). The account card that stood here asked the same thing
+              as Me's Save, in a second place on the same visit. Me carries every
+              state it drew (offer · sign in · this seat · linked · held
+              elsewhere) through the shared `SaveToAccount`. Pinned by
+              `each-guest-page-has-one-main-action.test.ts`. */}
 
           {seatMap ? (
             <YourSeatBlock
@@ -2897,7 +2883,13 @@ export async function SiteBody({
                       Keyed on the action HAVING a Change, not on its words: on
                       the day, or for a guest still owed a reply, it has none and
                       this line is the way in. */}
-                  {arrivalAction?.secondary ? null : (
+                  {/* ☝ ONE DOOR TO THE SHEET (owner 2026-10-03). Not when the
+                      action under the mark already opens it, and not for a
+                      guest who replied on a tabbed page — Me carries "Change
+                      your reply" there. A guest still owed a reply on the day
+                      keeps this line: it is their only way in. */}
+                  {actionOpensReply(arrivalAction) ||
+                  (tabs.on && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined')) ? null : (
                   <a
                     href="#your-details"
                     className="flex min-h-[52px] w-full items-center justify-between gap-3 text-sm text-ink/80 underline-offset-4 transition-colors hover:text-ink hover:underline"
@@ -2998,7 +2990,11 @@ export async function SiteBody({
                 />
               ) : null, { chapters: true, className: 'space-y-12' })}
 
-              {group('home', guest.photo_source === 'selfie' ? (
+              {/* 🙂 The face-data controls (blur · receipt · remove) are Me's on a
+                  tabbed page, beside the Face tagging row (owner 2026-10-03:
+                  each thing in one place; Welcome is the guest's look,
+                  reminders and E-Gifts). One scroll: here, as before. */}
+              {tabs.on ? null : group('home', guest.photo_source === 'selfie' ? (
                 <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
               ) : null, { chapters: true, className: 'space-y-12' })}
 
@@ -3144,11 +3140,16 @@ export async function SiteBody({
             reply sheet (rsvp-sheet-state.ts); a guest who has replied changes it
             with this button, which points at the sheet's own anchor. Gated on the
             sheet's own gate (`plan.rsvpShouldRender`) so the button and its
-            destination can never disagree about existing. */}
+            destination can never disagree about existing — and drawn only when
+            the action under the mark does NOT already open the sheet (before the
+            day "You're going" is that door; owner 2026-10-03, one place each). */}
         {tabs.on ? group('me', (
           <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
             {meSection}
-            {plan.rsvpShouldRender && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') ? (
+            {guest.photo_source === 'selfie' ? (
+              <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
+            ) : null}
+            {plan.rsvpShouldRender && (guest.rsvp_status === 'attending' || guest.rsvp_status === 'declined') && !actionOpensReply(arrivalAction) ? (
               <a
                 href="#your-details"
                 data-me-change-reply=""
@@ -3441,10 +3442,9 @@ export async function SiteBody({
           guest came for at that moment. */}
       {plan.fullBleed || isEditorCanvas ? null : (
         <GuestDoorwayStrip words={clientWords}
-          /* 📱 On a tabbed page these doors are the Welcome's (the 3D room is
-             "find your table"; the gift door is the Welcome's already). */
+          /* 📱 On a tabbed page these doors are the Welcome's. (The 3D room
+             is a row in "Everything else" now — one place, owner 2026-10-03.) */
           tabAttrs={pageTabs.attrs('home')}
-          venueWalk={doorways.venueWalk}
           /* 🏠 On the Invitation the gift door is on the Welcome page instead
              (owner 2026-09-30) — one door per page, never two. */
           pabuya={
@@ -3453,7 +3453,6 @@ export async function SiteBody({
               : doorways.pabuya
           }
           broadcast={broadcastNotice}
-          personalised={identity.kind === 'guest'}
           dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
         />
       )}
@@ -3466,24 +3465,15 @@ export async function SiteBody({
         <EverythingElseSheet
           tabAttrs={pageTabs.attrs('home')}
           rows={resolveEverythingElseRows({
-            slug: event.slug,
-            viewerKind: identity.kind,
-            isLive: dayOfPhase === 'live',
-            eventDateLabel: event.event_date ? formatEventDate(event.event_date) : '',
-            cameraFeatureOn: hostCameraOpen,
-            broadcastConfigured: plan.liveMediaVisible && Boolean(watchLive),
             venueWalkHref: doorways.venueWalk,
             /* The album door, resolved ONCE by `resolveAlbumDoor` in
-               `_lib/loaders.ts` and carried on the anonymous identity. The rows
-               module used to build `/recap` itself, which is a second place
-               deciding where the album lives — `the-album-door-is-one-decision`
-               caught it. A guest branch with no resolved door passes null, and
-               the row falls back to its dated "after" badge instead of a link
-               that may not open. */
+               `_lib/loaders.ts` and carried on the anonymous identity — the
+               rows module never builds `/recap` itself
+               (`the-album-door-is-one-decision`). A guest branch has no
+               resolved door, so it passes null and gets no row. */
             keepsakeHref: identity.kind === 'anonymous' ? identity.publicAlbumHref : null,
             recapBodyReady: recapBody,
             recapHasPhotos,
-            canShare: resolveEffectiveVisibility(event) === 'public',
           })}
         />
       )}

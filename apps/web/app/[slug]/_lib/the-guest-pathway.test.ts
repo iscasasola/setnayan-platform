@@ -263,15 +263,19 @@ test('3 · the method is chosen by the DEVICE, never shown as a choice', () => {
   assert.equal(saveMethodFor(ANDROID, { apple: false, google: false }), 'link', 'no provider must fall back to the guest’s own link, never an email');
 });
 
-test('3 · WIRING: the landing page mounts ONE Save, "Your guests", and ONE way into the invitation', () => {
-  assert.match(ENTER, /<SaveToAccount\b/);
-  assert.match(ENTER, /<YourGuests\b/);
+test('3 · WIRING: the landing page keeps the ticket and ONE way into the invitation; guests and Save are Me’s', () => {
+  // 2026-10-03 (owner, on the live hub: "too many buttons" — each control in
+  // ONE place): "Your guests · Send their invite" and "Save to my account" are
+  // on Me. The landing draws Save only to finish a press that came back for the
+  // Terms tick (`?keep=terms`), or the "Saved ✓" line once it is kept.
+  assert.doesNotMatch(ENTER, /<YourGuests\b/, 'the landing hands out plus-one invites again — a second home beside Me');
+  assert.doesNotMatch(ENTER, /<CopyMyLink\b/, 'the landing has its own "Copy my link" again — Me’s ticket carries it');
+  assert.match(ENTER, /\) : search\.keep === 'terms' \? \(\s*<SaveToAccount\b/, 'the Terms refusal no longer finishes here');
+  assert.match(read('[slug]/_components/guest-me.tsx'), /<YourGuests\b[\s\S]*<SaveToAccount\b/, 'Me lost its guests or its Save');
   // 2026-09-30: "Open the invitation" (the phase's own words) replaced the
   // thank-you's "Not now" — the landing page has one way in, not two.
   assert.equal(ENTER.split('{destinationWords.cta}').length - 1, 2, 'one open link before a reply, one button after — never both');
   assert.doesNotMatch(ENTER, />\s*Not now\s*</, 'a second way into the invitation came back');
-  // Each plus-one's link is built from THEIR OWN key by the one url speller.
-  assert.match(ENTER, /buildInvitationUrl\(\{ \.\.\.qrParams, qrToken: s\.qrToken \}\)/);
 });
 
 test('3 · 🔒 the Terms ticked on the RSVP page reach a Google/Apple account — the callback writes them', () => {

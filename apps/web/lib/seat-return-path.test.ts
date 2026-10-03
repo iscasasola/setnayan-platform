@@ -38,3 +38,13 @@ test('a flash is encoded, never pasted', () => {
     '/dashboard/E/guests?invite_error=A+%26+B%3F%23',
   );
 });
+
+test('from People with access (Event Details), back to that section', () => {
+  assert.equal(
+    seatReturnPath(form({ return_to: 'details' }), 'E', { host_removed: '1' }),
+    '/dashboard/E/details?host_removed=1#people-with-access',
+  );
+  assert.equal(seatReturnScreen(form({ return_to: 'details' }), 'E'), '/dashboard/E/details');
+  // Only the one word — anything else falls through to the old rules.
+  assert.equal(seatReturnPath(form({ return_to: '/admin' }), 'E', {}), '/dashboard/E/guests');
+});

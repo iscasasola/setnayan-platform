@@ -118,15 +118,6 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
       'on the LINE, so the rest of this file stays under the guard.',
   },
   {
-    file: '_lib/everything-else-rows.ts',
-    snippet: "viewerKind: 'anonymous' | 'guest' | 'couple' | 'vendor';",
-    why:
-      'A TYPE UNION naming viewer roles, not text a guest reads. `couple` here is the role the ' +
-      'identity discriminator already uses across the guest tree (site-identity.ts); resolving it ' +
-      'from the event type would rename a role, not a word on a screen. Keyed on the LINE, so the ' +
-      'rest of this file stays under the guard.',
-  },
-  {
     file: 'invite/_components/themes/seal-mark.tsx',
     snippet: "from '@/app/_components/couple-logo'",
     why:
@@ -134,6 +125,14 @@ const ALLOWED_LINES: ReadonlyArray<{ file: string; snippet: string; why: string 
       'animation is active") — the word is in the MODULE NAME and nothing is rendered from it; ' +
       'the seal draws the event\'s own mark or initials for every event type. Keyed on the LINE, ' +
       'so every other line of the seal stays under the scan.',
+  },
+  {
+    file: 'invite/_components/themes/seal-mark.tsx',
+    snippet: "from '@/lib/couple-logo-plays'",
+    why:
+      'The one "does this logo play" rule (2026-10-04: asked by the seal, not inside CoupleLogo, so ' +
+      'CoupleLogo ships no logo-layers) — the word is in the MODULE NAME and nothing is rendered ' +
+      'from it. Keyed on the LINE, so every other line of the seal stays under the scan.',
   },
   {
     file: 'recap/page.tsx',

@@ -7,13 +7,20 @@
  * from the approved prototype `Setnayan/prototypes/guest_ticket_flow_2026-09-29.html`,
  * frames A and A′.
  *
+ * ✂ AMENDED 2026-10-03 (owner, on the live Event Hub: "too many buttons. too
+ * much going on" — each control in ONE place): the plus-ones' tickets with
+ * Send, "Copy my link" and "Save to my account" are the Event Hub's Me, not
+ * the thank-you a second time. The thank-you keeps THEIR ticket and its Save.
+ *
  * What this pins:
  *   1. the thank-you shows THEIR Digital ticket — the route's own PNG, only when
  *      `passCardEligibility` says they have one (accepted and coming);
- *   2. one ticket per NAMED plus-one (Save · Send), a blank seat keeps "Add
- *      name", and "Save all tickets" closes the section naming the files;
- *   3. "Copy my link" with their OWN link, the frame-A words;
- *   4. then Save to my account and "Not now".
+ *   2. each NAMED plus-one keeps Send and their own Save — on Me; a blank seat
+ *      keeps "Add name"; "Save all tickets" saves every card;
+ *   3. "Copy my link" still hands over their OWN link, in the frame-A words
+ *      (the component that remains for the in-app hand-off and requests);
+ *   4. the thank-you has no "Not now", and no Save except to finish a Terms
+ *      refusal.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -39,26 +46,21 @@ const ENTER = read('[slug]/invite/enter/page.tsx');
 
 test('1 · the landing page draws their Digital ticket only when they have one, and the QR panel otherwise', () => {
   assert.match(ENTER, /passCardEligibilityFor\(admin, guest\.guest_id as string\)/, 'eligibility is not asked of the guest the session named');
-  assert.match(ENTER, /passCard === 'pass'\s*\?\s*\{\s*own: PASS_CARD_ROUTE,/, 'a ticket is offered to a guest who has none');
   // 2026-09-30 (guest_landing_page frame 3): the ticket is the big picture
   // with "Save my ticket", decided by `landingTicketOf` over that eligibility.
   assert.match(ENTER, /const ticket = landingTicketOf\(\{ reply, eligibility: passCard,/);
   const at = ENTER.indexOf("{ticket === 'full' ? (");
   assert.ok(at > -1, 'the ticket section moved — re-point this guard');
-  const block = ENTER.slice(at, ENTER.indexOf('<YourGuests', at));
+  const block = ENTER.slice(at, ENTER.indexOf('data-landing="how"', at));
   assert.match(block, /<TicketPicture src=\{PASS_CARD_ROUTE\}/, 'the ticket is no longer the route’s own picture');
   assert.match(block, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE\]\}/, 'the ticket lost its Save');
   assert.match(block, /Your \{PASS_CARD_WORDS\.digitalTicket\}/);
   assert.match(block, /<InviteQrPanel\b/, 'a guest with no ticket lost their QR');
-  // Order: ticket → guests → link → save.
-  const order = ["{ticket === 'full' ? (", '<YourGuests', '<CopyMyLink link={invitationUrl} />', '<SaveToAccount'].map((k) => ENTER.indexOf(k));
-  assert.ok(order.every((n) => n > -1), `a part is missing: ${order.join(',')}`);
-  assert.deepEqual([...order].sort((a, b) => a - b), order, `the landing page is out of order: ${order.join(',')}`);
-  // A plus-one's ticket is offered only beside a full own ticket.
-  assert.match(ENTER, /passCards=\{ticket === 'full' \? passCards : null\}\s*ticketRows=\{\{ ownName: guestName \}\}/);
+  // ✂ ONE PLACE EACH (2026-10-03): no plus-one tickets, no Copy my link here.
+  assert.doesNotMatch(ENTER, /<YourGuests\b|<CopyMyLink\b/, 'the thank-you is a second home for Me’s controls again');
 });
 
-test('2 · each NAMED plus-one is their own ticket (Save · Send); a blank seat keeps Add name; Save all names the files', async () => {
+test('2 · each NAMED plus-one keeps Send and their own Save (on Me); a blank seat keeps Add name; Save all saves every card', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { YourGuests } = await import('../_components/your-guests');
   const html = renderToStaticMarkup(
@@ -70,18 +72,15 @@ test('2 · each NAMED plus-one is their own ticket (Save · Send); a blank seat 
       eventName: 'Indalecio & Claire',
       addNamesHref: '/ana/invite/reply#plus-ones',
       passCards: { own: '/api/guest/pass-card', plusOnes: { p1: '/api/guest/pass-card?guest=p1' } },
-      ticketRows: { ownName: 'Maria Santos' },
     }),
   );
-  assert.match(html, /<img[^>]*src="\/api\/guest\/pass-card\?guest=p1"/, 'Ben is not shown his ticket');
-  assert.match(html, /data-ticket-row=""[\s\S]*Ben Reyes[\s\S]*>Save<[\s\S]*>Send</, 'Ben’s row is not Save · Send');
+  assert.match(html, /Ben Reyes[\s\S]*>Send their invite</, 'Ben has no Send');
+  assert.match(html, /Save Ben’s/, 'Ben’s own ticket has no Save');
   assert.match(html, /\+2 · TBA/);
-  assert.match(html, />Add their name</, 'a blank seat was given a ticket instead of "Add name"');
-  assert.equal((html.match(/data-ticket-row=""/g) ?? []).length, 1, 'a ticket for a seat with no name');
-  const all = html.slice(html.indexOf('data-save-all-tickets'));
-  assert.match(all, />Save all tickets</);
-  assert.match(all, /2 pictures · Maria-Santos-ticket-… · Ben-Reyes-ticket-…/);
+  assert.match(html, />Add their name</, 'a blank seat lost "Add name"');
   assert.match(html, /data-save-pass-card="2"/, 'Save all does not save both tickets');
+  // No grey line explaining the section (BUILD_PROMPTS rule 13).
+  assert.doesNotMatch(html, /Each name gets their own/);
 });
 
 test('3 · "Copy my link" hands over their own link, in the frame-A words', async () => {
@@ -99,8 +98,8 @@ test('3 · "Copy my link" hands over their own link, in the frame-A words', asyn
   assert.match(src, /Link copied — paste it anywhere you’ll find it again\./);
 });
 
-test('4 · then ONE Save to my account, saying what comes along', () => {
-  assert.match(ENTER, /carries="your name, mobile, meal and your guests come along"/);
+test('4 · no "Not now", and Save on the thank-you only to finish a Terms refusal', () => {
   // "Not now" went 2026-09-30: "Open the invitation" above it is the way in.
   assert.doesNotMatch(ENTER, />\s*Not now\s*</);
+  assert.match(ENTER, /search\.keep === 'terms' \? \(\s*<SaveToAccount[\s\S]*?termsMissing[\s\S]*?carries="your name, mobile, meal and your guests come along"/);
 });

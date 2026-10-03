@@ -14,7 +14,7 @@ import {
   writeRevealPlan,
 } from '@/lib/logo-layers';
 import { boxToPart, logoParts, partCovers } from '@/lib/logo-parts-dom';
-import { arrivalMotion } from '@/lib/couple-logo-plays';
+import { arrivalMotion } from '@/lib/couple-logo-arrival';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 

@@ -161,11 +161,17 @@ test('⛔ the PROTECTED 0.66rem gild eyebrows are untouched across the guest tre
   // the shipped Photo card names it, in the same protected treatment — written
   // ONCE (`RoleLabel` in venue-styles.tsx) for both looks, so the source gains
   // one line, not two. The treatment is untouched.
+  //
+  // 18 SINCE 2026-10-03 (owner, on the live hub: "too many buttons") — a
+  // REMOVAL, written down rather than absorbed. The host ribbon's "Preview"
+  // label stood over a row of four phase pills; the pills became ONE dropdown
+  // (`OwnerPhaseMenu`) that names itself, so the label went with them. Host
+  // chrome, not a guest section head — the protected treatment is untouched.
   assert.equal(
     gild,
-    19,
+    18,
     `the guest tree carries ${gild} of the 0.66rem gild section eyebrows; it ` +
-      `carried 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
+      `carried 18 from 2026-10-03, 19 from 2026-10-01, 18 from 2026-09-28, 17 from 2026-09-25 (19 from 2026-09-20, 20 between the role panel ` +
       `and the reply sheet, 19 when AP-3 shipped). They are an explicitly PROTECTED design ` +
       `decision — AP-3 must not have crept into them. If a legitimate change ` +
       `moves this number, change it here deliberately and say why.`,

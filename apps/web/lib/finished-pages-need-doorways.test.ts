@@ -238,7 +238,9 @@ test('the dead-link scan can still SEE a dead link (the guard is not vacuous)', 
 
 test('the editorial cross-phase links point at destinations that exist', () => {
   const editorial = read('../app/[slug]/_components/editorial/editorial-content.tsx');
-  assert.ok(editorial.includes('href={`/${slug}`}'), 'the RSVP link lost its destination');
+  // No "The Invitation (RSVP)" link since 2026-10-03: after the day `/[slug]` IS
+  // the editorial — the link pointed at itself (owner: one place per control).
+  assert.ok(!editorial.includes('href={`/${slug}`}'), 'a link from the story to its own address is back');
   assert.ok(editorial.includes('href={`/${slug}/hub`}'), 'the wedding-day link lost its destination');
   // The third link's destination was never missing — "Watch the Film" is a
   // SECTION OF THIS PAGE (the Live Studio broadcast replay). It had no id to
@@ -278,7 +280,6 @@ test('each editorial footer link is drawn only when its destination is really th
     guardedBy('watchFilmShown', '`#\\$\\{WATCH_FILM_ANCHOR_ID\\}`'),
     'the film link is not guarded by the film section actually rendering',
   );
-  assert.ok(guardedBy('slug', '`/\\$\\{slug\\}`'), 'the RSVP link is not guarded by the slug');
   assert.ok(
     guardedBy('slug', '`/\\$\\{slug\\}/hub`'),
     'the wedding-day link is not guarded by the slug',

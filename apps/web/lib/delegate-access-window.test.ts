@@ -106,6 +106,9 @@ test('🔑 EVERY reader of permissions_json applies the window', () => {
     'lib/budget-visibility.ts',
     'lib/run-of-show-advance.ts',
     'app/dashboard/[eventId]/schedule/page.tsx',
+    // Who is told about a supplier's schedule request (S1, 2026-10-04): an
+    // expired coordinator cannot approve, so must not be told.
+    'lib/schedule-request-recipients.ts',
   ];
   for (const f of READERS) {
     const src = stripComments(readFileSync(join(process.cwd(), f), 'utf8'));

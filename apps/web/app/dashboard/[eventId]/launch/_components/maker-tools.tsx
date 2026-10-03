@@ -90,4 +90,8 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
      `maker-logo.tsx` when a word is drawn. The library only, never a font file
      or anything the couple uploaded. */
   { key: 'maker:logo-outlines', label: 'Logo outlines', load: () => import('opentype.js') },
+  /* The couple's logo plays through `CoupleLogo`, which loads its player only
+     when a logo plays (so a page of still logos ships none of it). Warmed here
+     so a Maker Play never waits for the download. */
+  { key: 'maker:logo-player', label: 'Logo player', load: () => import('@/app/_components/couple-logo').then(warmDynamicExports) },
 ];

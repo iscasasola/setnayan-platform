@@ -333,6 +333,17 @@ const EMAIL_ENABLED_TYPES: ReadonlySet<NotificationType> = new Set([
   'date_change_answered',
   'date_change_closed',
   'date_moved',
+  /*
+    📅 A SUPPLIER'S SCHEDULE REQUEST (owner 2026-10-03, "SUPPLIERS WRITE THEIR
+    OWN PART OF THE SCHEDULE"): add / change / remove, waiting on a yes from the
+    couple or a coordinator holding The Day = Edit. Nothing reaches the schedule
+    until one of them answers, so a request that reaches nobody away from the
+    console simply waits forever. 🔑 The notification and this line are two
+    halves of one mechanism. Transactional — deliberately NOT in
+    MARKETING_GATED_EMAIL_TYPES below. `a-schedule-request-reaches-the-coordinator.test.ts`
+    fails if it drops off this set or lands in the gated one.
+  */
+  'schedule_change_requested',
 ]);
 
 // Consent gate for the ENGAGEMENT (non-transactional) subset of the email

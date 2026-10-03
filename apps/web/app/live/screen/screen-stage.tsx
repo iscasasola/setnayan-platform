@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { LIVE_SCREEN_POLL_MS, VENUE_SCREEN_LOCKED_TV_MESSAGE } from '@/lib/live-screens';
 import type { LoadedScreen } from '../_lib/load-screen';
 import { CoupleLogo } from '@/app/_components/couple-logo';
+import { coupleLogoPlays } from '@/lib/couple-logo-plays';
 
 type Ready = Extract<LoadedScreen, { state: 'ready' }>;
 
@@ -109,7 +110,7 @@ function LiveBackground({ brand }: { brand: Ready['brand'] }) {
            Drift; the 5-second poll re-renders it without replaying it. */
         <CoupleLogo
           svg={brand.markSvg}
-          plays={brand.markPlays}
+          plays={coupleLogoPlays(brand.markSvg, brand.markPlays)}
           place="venue-screen"
           className="flex h-[38vh] w-[38vh] max-w-[70vw]"
           still={

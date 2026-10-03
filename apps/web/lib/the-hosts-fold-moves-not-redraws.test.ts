@@ -69,7 +69,9 @@ test('the Promote card is the couple’s only, like every action behind it', () 
   const forms = CARD.match(/<form action=\{revokeHostInvite\}>[\s\S]*?<\/form>/g) ?? [];
   assert.equal(forms.length, 1, 'the waiting invite lost its Revoke');
   assert.match(forms[0] ?? '', /name="vendor_id"/);
-  assert.match(CARD, /returnTo=\{\{ vendorId: vendor\.vendor_id \}\}/);
+  // The planner's grants are SHOWN here and changed in Event Details › People
+  // with access (owner 2026-10-03) — the card carries the one door there.
+  assert.match(CARD, /<ChangeAccessLink eventId=\{eventId\} \/>/);
 });
 
 test('a waiting planner invite shows until it expires, then is gone', () => {
@@ -88,7 +90,7 @@ test('the Overview carries "What your helpers did", couple-only, from the one st
   assert.match(OVERVIEW, /What your helpers did/);
   // A refused read says so; an empty stream says nothing — never "nothing" for a refusal.
   assert.match(OVERVIEW, /helperActivity !== null && \(!helperActivity\.measured \|\| helperActivity\.lines\.length > 0\)/);
-  assert.match(OVERVIEW, /fullHref=\{`\$\{base\}\/guests`\}\s*fullLabel="Set access on the guest list"/, 'the Hosts card still sends the couple to /hosts');
+  assert.match(OVERVIEW, /fullHref=\{`\$\{base\}\/details#people-with-access`\}\s*fullLabel="Set access in People with access"/, 'the Hosts card does not send the couple to the one place access is set');
 });
 
 test('old email co-hosts carry over ONLY when already linked to a guest row on that event', () => {

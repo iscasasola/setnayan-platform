@@ -79,10 +79,18 @@ import { stripComments } from './strip-comments';
  * matches in every OTHER file.
  */
 const MUST_STAY_REACHABLE: ReadonlyArray<{ fn: string; definedIn: string; lostMeans: string }> = [
+  // `revokeArea` (access-requests) was RETIRED 2026-10-03 — superseded by
+  // `setDelegateArea`, the one door Event Details › People with access calls
+  // for every area of every delegate (Edit · View · Off). Its guard moved with it.
   {
-    fn: 'revokeArea',
-    definedIn: 'app/dashboard/[eventId]/access-requests/actions.ts',
-    lostMeans: 'sharing an area with a coordinator becomes a one-way door again',
+    fn: 'setDelegateArea',
+    definedIn: 'app/dashboard/[eventId]/hosts/actions.ts',
+    lostMeans: 'sharing an area with a coordinator or helper becomes a one-way door again',
+  },
+  {
+    fn: 'setGuestAccess',
+    definedIn: 'app/dashboard/[eventId]/guests/[guestId]/access-actions.ts',
+    lostMeans: 'no host can make a guest a co-host or a helper, or take it back',
   },
   {
     fn: 'saveRsvpBackdrop',

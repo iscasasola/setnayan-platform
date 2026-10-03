@@ -50,6 +50,7 @@ import { splitComingUpAndPast } from './coming-up-and-past';
 import { anyoneMayAskToJoin } from './rsvp-ask';
 import { resolveRegion, regionLabel } from './region-source';
 import { shopInitials } from './shop-initials';
+import type { EventPosterFacts, SceneCover } from './event-poster';
 
 /**
  * How many cards each shelf shows. Two full rows of the four-across grid for
@@ -80,6 +81,48 @@ export type DiscoverEventRow = {
   rsvp_ask_config: unknown;
 };
 
+/**
+ * The card's picture: the dashboard cover (`SceneCover`), or the couple's own
+ * Main background as the guest's Event Hub draws it (a video's still — Discover
+ * plays no video). Words never sit on it, so it carries no veil.
+ */
+export type DiscoverScene = SceneCover | { kind: 'photo'; src: string; ground: 'main'; legibility: null };
+
+/**
+ * The paper card's ground when the couple CHOSE one: the Event Hub's own paper
+ * colour and ink (`--color-cream` / `--color-ink`, `r g b` channels from
+ * `guestLookFrom`) and their ombré (`background-image`, built from parsed hexes
+ * only). Free — no entitlement is consulted, exactly as on the hub.
+ */
+export type DiscoverPaperGround = { cream: string | null; ink: string | null; ombre: string | null };
+
+/**
+ * The paper ground the guest's Event Hub paints, read off its resolved look
+ * (`guestLookFrom` — the ONE translation every guest page wears). Null when the
+ * couple customised nothing: the card keeps the plain paper.
+ */
+export function paperGroundOf(
+  look: { vars: Record<string, string> | null; ombre: string | null } | null,
+): DiscoverPaperGround | null {
+  const cream = look?.vars?.['--color-cream'] ?? null;
+  const ombre = look?.ombre ?? null;
+  if (!cream && !ombre) return null;
+  return { cream, ink: look?.vars?.['--color-ink'] ?? null, ombre };
+}
+
+/** What `<EventPoster>` needs to draw the paper card — all resolved server-side. */
+export type DiscoverPaper = {
+  poster: EventPosterFacts;
+  /** The couple's own paper colour / ombré from the hub's look, or null (plain paper). */
+  ground: DiscoverPaperGround | null;
+  /** `resolveMonogram(event).text` — drawn when there is no logo. */
+  markText: string;
+  /** `resolveEventMonogramSvg(event)` — the read-gated logo markup, or null. */
+  markSvg: string | null;
+  /** `logoPlaysFor(eventId, markSvg)` — the logo moves and the animation is on. */
+  markPlays: boolean;
+};
+
 /** A host of a listed event. `publicSlug` is set ONLY for a public profile. */
 export type DiscoverHost = {
   userId: string;
@@ -98,7 +141,29 @@ export type DiscoverEventCard = {
   title: string;
   typeLabel: string | null;
   datePlate: string;
+  /** The event's mark — the cover when it has chosen no look (`scene` null). */
   cover: string;
+  /**
+   * 🖼 THE EVENT'S LOOK — what the guest's Event Hub shows behind the event:
+   * the couple's own MAIN BACKGROUND when the hub draws one (`guestMainGround`,
+   * ground `main` — owner 2026-10-03, "if they customized it and changed its
+   * main background, it should also adjust"); otherwise
+   * `sceneCoverFor(resolveEventPoster(…))`, the dashboard card's own cover
+   * (hero photo → Save-the-Date background → theme still).
+   * The core never decides it: it is `null` here and filled by the loader ONLY
+   * for a card that already passed `isDiscoverable`, so no event that is not
+   * public ever has its photo read, let alone shown. `null` (or a `quiet`
+   * cover) = the card wears `cover`, the mark.
+   */
+  scene: DiscoverScene | null;
+  /**
+   * 🃏 THE DASHBOARD'S PAPER INVITATION CARD — for an event whose poster is
+   * `invitation` (Classic, no hero photo: no picture to wear). Owner
+   * 2026-10-03, ruling (A) "Paper invitation card": the Discover card draws the
+   * same card its dashboard card does (`<EventPoster>`), not a bare monogram.
+   * Filled by the loader with `scene`, under the same allow-list; `null` here.
+   */
+  paper: DiscoverPaper | null;
   /** A host with a PUBLIC profile — their name is the card's second door. */
   host: { name: string; slug: string } | null;
   regionLabel: string | null;
@@ -248,6 +313,8 @@ function toCard(
     typeLabel: e.event_type ? (input.typeLabels?.get(e.event_type) ?? null) : null,
     datePlate: datePlate(e.event_date, e.event_date_precision, input.todayISO),
     cover: mono && mono.length <= 4 ? mono : shopInitials(title, 2, '·'),
+    scene: null,
+    paper: null,
     host: pickHost(hosts, input.people),
     regionLabel: regionLabel(e.region),
     relation,

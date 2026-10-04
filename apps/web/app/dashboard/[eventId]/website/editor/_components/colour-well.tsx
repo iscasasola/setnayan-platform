@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEv
 import { ChevronDown, Plus, X } from 'lucide-react';
 import { colourOpacity, hexToHsv, hsvToHex, wheelPoint, wheelPosition, withOpacity, type Hsv } from '@/lib/colour-wheel';
 import { hubElementColor } from '@/lib/element-style';
+import { useOneOpen } from '@/lib/one-open';
 
 /**
  * 🎨 KEYNOTE'S SPLIT COLOUR WELL, AND ITS COLOUR PANEL.
@@ -94,6 +95,7 @@ export function ColourWell({
 }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
   const current = value ?? shown;
   const [hsv, setHsv] = useState<Hsv>(() => hexToHsv(current) ?? { h: 0, s: 0, v: 1 });
   const [opacity, setOpacity] = useState(() => colourOpacity(current));

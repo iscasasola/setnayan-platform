@@ -26,6 +26,7 @@ import {
 import { postEventElementScope } from '@/lib/post-event-styles';
 import { findMakerSection, sectionAfter } from './maker-section-find';
 import { applySceneBgPreview, sanitizeSceneBgPreview } from './scene-bg-preview';
+import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
@@ -509,6 +510,17 @@ export function EditorBridge() {
       if (el) bind(el, key);
     }
 
+    /* 📱 A tap that lands on NO section (the page's margins, the ground between
+       scenes) — the Maker folds an open part sheet to its bar on a phone
+       (owner 2026-10-04, `lib/element-sheet-state.ts`). A bound section stops
+       its own clicks, so only a stray tap reaches here. */
+    const onStray = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest?.('[data-setnayan-editor-bound="1"]')) return;
+      window.parent?.postMessage({ source: 'setnayan-site', t: 'tapOutside' }, origin);
+    };
+    document.addEventListener('click', onStray);
+    cleanups.push(() => document.removeEventListener('click', onStray));
+
     // ── canvas → Maker: a selection inside a part's text (✍ runs) ──────────
     let selTimer: number | null = null;
     const onSelection = () => {
@@ -563,6 +575,15 @@ export function EditorBridge() {
           const framed = typeof scene.bare === 'boolean' ? findMakerSection(document, scene.key) : null;
           if (framed && typeof scene.bare === 'boolean') applySceneCardPreview(framed, scene.bare);
         }
+        return;
+      }
+      /* ⚡ LOOK › BUTTONS, AT ONCE (owner 2026-10-04: "Realtime effects …
+         but always need to press apply"). The Maker resolved the buttons with
+         the guest page's own rule; this lays them on every look scope
+         (`buttons-preview.ts`). The draft save follows; guests see it at Apply. */
+      if (data && data.source === 'setnayan-editor' && data.t === 'buttons') {
+        const preview = sanitizeButtonsPreview(data);
+        if (preview) applyButtonsPreview(document, preview);
         return;
       }
       /* ⚡ THE LOVE STORY AND THE PROGRAMME, AS THEY ARE TYPED (owner

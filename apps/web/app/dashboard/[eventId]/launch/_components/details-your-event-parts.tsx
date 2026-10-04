@@ -75,8 +75,10 @@ export type YourEventInput = {
     nudge: ReactNode;
     /** Open on "Help me choose" (`?date=help`). */
     helpFirst?: boolean;
+    /** 🕒 The Ceremony block's start, HH:MM — as drafted, else live. */
+    ceremonyTime?: string | null;
   };
-  venues: { resolved: readonly EventVenue[]; slots: readonly VenueSlot[]; city: string | null; launchDate: string | null };
+  venues: { resolved: readonly EventVenue[]; slots: readonly VenueSlot[]; city: string | null };
   /** The walking order, as the invitation prints it — its sections and lines, each line's moves already asked of the rule. */
   march: { sections: readonly MarchSectionData[]; panel: ReactNode };
 };
@@ -197,6 +199,7 @@ export function yourEventParts({
         matrix={input.date.matrix}
         nudge={input.date.nudge}
         helpFirst={input.date.helpFirst}
+        ceremonyTime={input.date.ceremonyTime ?? null}
       />
     ),
     venues: venuesEditorFor(eventId, input),
@@ -255,6 +258,6 @@ function VenuesSeen({ venues, single }: { venues: readonly EventVenue[]; single:
  */
 export function venuesEditorFor(eventId: string, input: Pick<YourEventInput, 'venues'>): ReactNode {
   return (
-    <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} launchDate={input.venues.launchDate} />
+    <VenuesEditor eventId={eventId} slots={input.venues.slots} city={input.venues.city} />
   );
 }

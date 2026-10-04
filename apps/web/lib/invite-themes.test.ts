@@ -28,6 +28,7 @@ import { HUB_MOTION_PRESETS } from '@/lib/hub-canvas';
 import { HUB_TRANSITIONS } from '@/lib/hub-scenes';
 import { REVEAL_TEMPLATE_IDS } from '@/lib/reveal-config-pure';
 import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
+import { themeFaceVar } from '@/lib/hub-theme-faces';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS = join(HERE, '..', '..', '..', 'supabase', 'migrations');
@@ -381,6 +382,49 @@ test("every Pro theme's page block in globals.css paints exactly its registry pa
     checked += 1;
   }
   assert.equal(checked, 9, `checked ${checked} Pro themes, expected 9`);
+});
+
+/* ── B5 · EVERY THEME'S FACES REACH EVERY ROLE (2026-10-04) ────────────────
+   INVITATION_RSVP_GUEST_FLOW_REMAINING_2026-10-04.md § B5: each theme names four
+   faces, and the page blocks wired only the heading (and five themes' labels) —
+   every paragraph, RSVP question and button was set in the app's Hanken Grotesk.
+   Each block must now carry the body face (and point `--font-sans` and the
+   inherited `font-family` at it), the script face and the labels face, through
+   the ONE family → variable table (`lib/hub-theme-faces.ts`), and every variable
+   must be one `<html>` already declares — or the "face" is the fallback stack
+   with no error anywhere. */
+test("every theme block wires its body, script and labels faces — not only its heading", () => {
+  const css = readFileSync(join(HERE, '..', 'app', 'globals.css'), 'utf8');
+  const loaders = ['layout.tsx', join('_fonts', 'choice-faces.ts')]
+    .map((f) => readFileSync(join(HERE, '..', 'app', f), 'utf8'))
+    .join('\n');
+  const declared = (v: string) => new RegExp(`variable:\\s*'${v}'`).test(loaders);
+  let checked = 0;
+  for (const t of HUB_THEMES) {
+    if (t.id === 'house') continue;
+    const blocks = [...css.matchAll(new RegExp(`\\[data-hub-theme='${t.id}'\\] \\{([^}]*)\\}`, 'g'))].map((m) => m[1] ?? '');
+    const body = stripComments(blocks.find((b) => /--hub-canvas/.test(b)) ?? '');
+    assert.ok(body, `${t.id} has no page block`);
+    const decl = (name: string) => new RegExp(`(?:^|[\\s;])${name}:\\s*([^;]+);`).exec(body)?.[1]?.trim();
+    const v = (family: string) => `var(${themeFaceVar(family)})`;
+    assert.equal(decl('--font-body'), v(t.fonts.body), `${t.id}: the body face (${t.fonts.body}) is not wired`);
+    assert.equal(decl('--font-sans'), 'var(--font-body)', `${t.id}: font-sans text is not set in the body face`);
+    assert.match(decl('font-family') ?? '', /^var\(--font-body\),/, `${t.id}: text that names no face does not inherit the body face`);
+    const script = t.fonts.script ? v(t.fonts.script) : decl('--font-display');
+    assert.equal(decl('--font-theme-script'), script, `${t.id}: the script face (${t.fonts.script ?? 'none — the heading'}) is not wired`);
+    assert.ok(decl('--font-mono'), `${t.id}: the labels face (${t.fonts.labels}) is not wired`);
+    // 🔑 Never redefine Great Vibes' own variable: a host's Great Vibes would become the theme's script.
+    assert.equal(decl('--font-script'), undefined, `${t.id} redefines --font-script — a host's chosen Great Vibes would change face`);
+    for (const role of ['--font-body', '--font-theme-script', '--font-mono']) {
+      const name = /^var\((--[a-z0-9-]+)\)$/.exec(decl(role) ?? '')?.[1];
+      assert.ok(name && (declared(name) || /--font-(velvet|galeriya|cinderella|whimsical|regency|gatsby|cyber)-/.test(name)), `${t.id} ${role} names ${name}, which nothing declares`);
+    }
+    checked += 1;
+  }
+  assert.equal(checked, 9, `checked ${checked} themes, expected the nine with a block`);
+  // Tailwind's font-script reads the theme's script first, Great Vibes otherwise.
+  const tw = readFileSync(join(HERE, '..', 'tailwind.config.ts'), 'utf8');
+  assert.match(tw, /script: \['var\(--font-theme-script, var\(--font-script\)\)', 'cursive'\]/);
 });
 
 test('no file outside the registry declares the theme list', () => {

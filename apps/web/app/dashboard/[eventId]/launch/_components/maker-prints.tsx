@@ -106,10 +106,18 @@ export type PrintsInput = {
    * cached `immutable` by the route. Null (the read failed): the old 60 s.
    */
   previewVersion?: string | null;
+  /**
+   * ✍ A hash of the couple's DRAFTED facts (names, date, name style, 🕒
+   * ceremony time), when there are any — each on-screen preview's address
+   * carries it as `draft`, so the route draws the draft and a new draft is a
+   * new address (owner 2026-10-04: the invitation shows the new time before
+   * Apply). Null / absent: the preview is drawn from what is live.
+   */
+  draftVersion?: string | null;
 };
 
 /** The addresses and file names every part below shares — computed once, one rule. */
-export function printPlan({ eventId, slug, theme, ownsPro, storeShell, formats, previewVersion = null }: PrintsInput) {
+export function printPlan({ eventId, slug, theme, ownsPro, storeShell, formats, previewVersion = null, draftVersion = null }: PrintsInput) {
   const access = printAccess({ ownsPro, storeShell });
   const t = INVITE_THEMES[theme];
   // "Themed" = not Classic (a file that names its theme, a "· Classic" twin
@@ -138,7 +146,7 @@ export function printPlan({ eventId, slug, theme, ownsPro, storeShell, formats, 
       piece,
       format && isPrintPieceKey(piece) ? (formatFamilyOf(piece) ?? undefined) : undefined,
       format,
-    )}${mode === 'screen' && previewVersion ? `&v=${previewVersion}` : ''}`;
+    )}${mode === 'screen' && previewVersion ? `&v=${previewVersion}` : ''}${mode === 'screen' && draftVersion ? `&draft=${draftVersion}` : ''}`;
   /** The same piece in CLASSIC — print-ready and free for every event. */
   const classic = (piece: string) => `/api/hub-print/${piece}?event=${eventId}&mode=print&theme=${CLASSIC_PRINT_THEME}${sizesFor(piece)}`;
   const themeWord = t.name.toLowerCase().replace(/[^a-z0-9]+/g, '-');

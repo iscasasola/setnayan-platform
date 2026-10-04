@@ -3842,6 +3842,12 @@ html.dark {
   --m-ink: rgb(var(--color-ink));
   --font-display: var(--font-pahina-display);
   --pahina-face: var(--font-pahina-display);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-cardo);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-script);
+  --font-mono: var(--font-hub-cardo);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3875,6 +3881,11 @@ html.dark {
   --font-display: var(--font-galeriya-display);
   --pahina-face: var(--font-galeriya-display);
   --font-mono: var(--font-velvet-utility);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-jost);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-galeriya-display);
+  font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3907,6 +3918,12 @@ html.dark {
   --m-ink: rgb(var(--color-ink));
   --font-display: var(--font-cinderella-display);
   --pahina-face: var(--font-cinderella-display);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-editorial-display);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-script);
+  --font-mono: var(--font-hub-cormorantsc);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3941,6 +3958,11 @@ html.dark {
   --font-display: var(--font-velvet-display);
   --pahina-face: var(--font-velvet-display);
   --font-mono: var(--font-velvet-labels);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-editorial-display);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-pinyon);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -3973,6 +3995,12 @@ html.dark {
   --m-ink: rgb(var(--color-ink));
   --font-display: var(--font-playfair);
   --pahina-face: var(--font-playfair);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-cardo);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-haviland);
+  --font-mono: var(--font-hub-cardo);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -4006,6 +4034,11 @@ html.dark {
   --font-display: var(--font-whimsical-display);
   --pahina-face: var(--font-whimsical-display);
   --font-mono: var(--font-whimsical-labels);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-quicksand);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-script);
+  font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -4038,6 +4071,12 @@ html.dark {
   --m-ink: rgb(var(--color-ink));
   --font-display: var(--font-regency-display);
   --pahina-face: var(--font-regency-display);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-cardo);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-script);
+  --font-mono: var(--font-hub-cardo);
+  font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -4072,6 +4111,11 @@ html.dark {
   --font-display: var(--font-gatsby-display);
   --pahina-face: var(--font-gatsby-display);
   --font-mono: var(--font-gatsby-labels);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-jost);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-gatsby-display);
+  font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
@@ -4106,9 +4150,65 @@ html.dark {
   --font-display: var(--font-cyber-display);
   --pahina-face: var(--font-cyber-display);
   --font-mono: var(--font-cyber-labels);
+  /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
+  --font-body: var(--font-hub-outfit);
+  --font-sans: var(--font-body);
+  --font-theme-script: var(--font-hub-poiret);
+  font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
   --pahina-rule-len: 3rem;
+}
+
+/* ── LOOK › BUTTONS (owner 2026-10-04: "create them") ────────────────────────
+   The host's ONE choice for every Event Hub button — Shape · Fill · Colour —
+   decided by `lib/hub-buttons.ts` (`resolveHubButtons`) and worn by the guest
+   scope (`GuestLookScope`) as two attributes plus their custom properties,
+   inline. Nothing here applies until a host chooses: an event that never did
+   wears neither attribute, and every button renders exactly as before.
+
+   WHICH BUTTONS — the guest Event Hub's shared ones, by the hooks they already
+   carry, so no page had to be re-drawn:
+     · `.button-primary` — Send my reply, Save RSVP, Get inside, Save to my
+       account, the plus-one door, the song card, the tickets…;
+     · the arrival's one main action (`[data-arrival-action] a.bg-mulberry`) —
+       "Reply to the invitation" under the names;
+     · the RSVP's answers (`[data-rsvp-answer]`) — Joyfully accepts /
+       Regretfully declines. The form stays standard (DECISION_LOG 2026-09-27):
+       they follow the one choice, with no editing of their own. A PICKED answer
+       always wears the solid pair, even under Outline — a picked answer must
+       look picked.
+     · Shape only: `.button-secondary` (the quiet second action).
+
+   🔑 THE LABEL IS NEVER CHOSEN HERE. `--hub-btn-label` is the legibility rule's
+   ink on the fill (AA), and an Outline's colour is drawn only where it clears AA
+   on the page's paper and plates — otherwise the resolver drew it Solid.
+
+   ⚖ SPECIFICITY, NOT !important: two selectors deep, so a call site's own
+   `rounded-full` / `bg-mulberry` / `hover:bg-mulberry-600` utility (one deep)
+   gives way only while the host has chosen. */
+[data-hub-btn-shape] .button-primary,
+[data-hub-btn-shape] .button-secondary,
+[data-hub-btn-shape] [data-arrival-action] a.bg-mulberry,
+[data-hub-btn-shape] [data-rsvp-answer] {
+  border-radius: var(--hub-btn-radius);
+}
+[data-hub-btn-paint] .button-primary,
+[data-hub-btn-paint] [data-arrival-action] a.bg-mulberry {
+  background-color: var(--hub-btn-fill);
+  color: var(--hub-btn-label);
+  /* A border, not an inset shadow: Tailwind's focus ring IS a box-shadow, and
+     this rule (two deep, after the utilities) would erase it. border-box keeps
+     every button its size. */
+  border: 1.5px solid var(--hub-btn-border);
+}
+[data-hub-btn-paint] .button-primary:hover,
+[data-hub-btn-paint] [data-arrival-action] a.bg-mulberry:hover {
+  background-color: var(--hub-btn-hover);
+}
+[data-hub-btn-paint] [data-rsvp-answer]:has(:checked) {
+  background-color: var(--hub-btn-solid);
+  color: var(--hub-btn-solid-label);
 }
 
 /* ── FOIL NAMES (owner 2026-09-25: "i like that shimmer effect") ─────────────
@@ -6110,6 +6210,11 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 @keyframes hub-out-movefade-above { to   { opacity: 0; transform: translate3d(0, -26px, 0); } }
 @keyframes hub-out-movefade-left { to   { opacity: 0; transform: translate3d(-28px, 0, 0); } }
 @keyframes hub-out-movefade-right { to   { opacity: 0; transform: translate3d(28px, 0, 0); } }
+/* 🎛 A scene's composed In / Out — the same four effects as a part (above,
+   "ELEMENT MOTION"), its far end in `--hub-in-*` / `--hub-out-*` from
+   `hubCanvasVars`. The parts of a one-after-another scene inherit them. */
+@keyframes hub-in-mix  { from { opacity: var(--hub-in-o, 1); transform: var(--hub-in-t, none); filter: var(--hub-in-f, none); } }
+@keyframes hub-out-mix { to   { opacity: var(--hub-out-o, 1); transform: var(--hub-out-t, none); filter: var(--hub-out-f, none); } }
 
 @keyframes hub-during-lift {
   from { transform: scale(var(--hub-zoom, 1)) translate3d(0, 2.5%, 0); }
@@ -6133,6 +6238,25 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 @keyframes el-out-fade   { to { opacity: 0; } }
 @keyframes el-out-lift   { to { opacity: 0; transform: translate3d(0, -22px, 0); } }
 @keyframes el-out-settle { to { opacity: 0; transform: scale(0.965); } }
+/* 🎛 THE FOUR EFFECTS, COMPOSED (owner 2026-10-04: Fade · Move from 8
+   directions · Size · Blur combine). A combination that shipped keeps its
+   keyframe above; any other is ONE keyframe whose far end is three custom
+   properties `lib/motion-effects.ts` builds from closed-set keys
+   (`motionFxVars`: opacity · translate-by-direction + scale · blur(8px)).
+   Nothing typed reaches here. `-p` is the Play twin, as above. Every use sits
+   behind the reduced-motion gate, so a guest who asked for stillness gets it. */
+@keyframes el-in-mix    { from { opacity: var(--el-in-o, 1); transform: var(--el-in-t, none); filter: var(--el-in-f, none); } }
+@keyframes el-in-mix-p  { from { opacity: var(--el-in-o, 1); transform: var(--el-in-t, none); filter: var(--el-in-f, none); } }
+@keyframes el-out-mix   { to { opacity: var(--el-out-o, 1); transform: var(--el-out-t, none); filter: var(--el-out-f, none); } }
+
+/* ⬚ PICKMENU GRID — Move ▾ opens a 3×3 grid of arrows (owner 2026-10-04:
+   "drop down shows the 3x3 grid?" → yes). `PickMenu` stamps `data-pick-grid`
+   on its list; the cells are its ordinary options, laid out here: 44px
+   squares, the arrow shown, the words kept for a screen reader only. CSS, not
+   code, because pick-menu.tsx sits at its inline-size line. */
+[data-pick-grid] { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; width: max-content; min-width: 0 !important; }
+[data-pick-grid] > li > button { width: 44px; min-height: 44px; height: 44px; padding: 0; justify-content: center; gap: 0; font-size: 18px; }
+[data-pick-grid] > li > button > span:not([aria-hidden]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ── SCROLL · SCRUB — the page's scenes (owner 2026-09-24: "hybrid perfect";
    contract in lib/hub-scenes.ts, renderer in app/[slug]/_components/hub-scenes.tsx)

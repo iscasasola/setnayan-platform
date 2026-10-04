@@ -61,9 +61,9 @@ const WORD: Record<LookPageKey, string> = { logo: 'Logo', hero: 'hero', reveal: 
 /**
  * 🎨 LOOK IS ONE PANEL (owner, live iPhone test 2026-10-02 — tracker f40;
  * `lib/maker-look-sections.ts`; design `maker_in_four_2026-09-30_fable.html`
- * frame E): Theme · Background · Font · Colours, in that order, in the one
- * editor the toolbar's Look opens. The theme pick is handed in (the server
- * builds it); the other three are the rows the work area always built
+ * frame E): Theme · Background · Font · Colours · Buttons (2026-10-04), in
+ * that order, in the one editor the toolbar's Look opens. The theme pick is
+ * handed in (the server builds it); the others are the rows the work area built
  * (`MakerLookPages.look`), moved here — the same controls, the same fields,
  * into the draft. A section the event does not offer (the store shell's Main
  * background) is simply absent; one that has not arrived SAYS so.
@@ -73,7 +73,7 @@ export function LookPanel({ theme }: { theme: ReactNode }) {
   const look = maker?.lookPages?.look ?? null;
   const late = useLate(Boolean(look));
   const of = (k: Exclude<LookSection, 'theme'>): ReactNode =>
-    !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : look[k];
+    !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : (look[k] ?? null);
   return (
     <div data-look-panel="" className="flex flex-col gap-5">
       {LOOK_SECTIONS.map((k) => {

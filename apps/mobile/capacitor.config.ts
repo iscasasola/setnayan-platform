@@ -34,7 +34,13 @@ const config: CapacitorConfig = {
   // from the very first request of a fresh install — before the
   // `setnayan-client-type` cookie exists. Keep in sync with
   // `isCapacitorClient()` in apps/web/middleware.ts.
-  appendUserAgent: 'SetnayanApp',
+  //
+  // `SetnayanSignIn/1` (B3, 2026-10-04): this build carries the native sign-in
+  // plugin (ios/App/App/SetnayanAuthPlugin.swift · android …/SetnayanAuthPlugin.java),
+  // so the web shows Google + Apple and runs them natively
+  // (apps/web/lib/oauth-shell-gate.ts). An older build lacks the token and
+  // stays email-only — never a button with nothing behind it.
+  appendUserAgent: 'SetnayanApp SetnayanSignIn/1',
   server: {
     url: SERVER_URL,
     // Only HTTPS in production. Flip to true (and use http://) when you point

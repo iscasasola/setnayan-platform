@@ -115,9 +115,9 @@ export type MakerState = {
   setGuestPages?: (next: MakerGuestPagesReport | null) => void;
   pageJump?: MakerPageJump | null;
   clearPageJump?: () => void;
-  /** 📱 The bar's Phone button — drawn by the draft bar between Undo and Apply (`hub-draft-bar.tsx`). */
-  viewToggle?: ReactNode;
-  /** ↺ Restore, as the draft bar registers it — the toolbar's ⋯ › Restore runs it. */
+  /** 👁 The bar's Preview menu — drawn by the draft bar between Undo and Apply (`hub-draft-bar.tsx`). */
+  previewMenu?: ReactNode;
+  /** ↺ Restore, as the draft bar registers it — Page ▾ › Restore runs it. */
   draft?: MakerDraftDoor | null;
   setDraft?: (next: MakerDraftDoor | null) => void;
 };
@@ -135,13 +135,8 @@ export type MakerGuestPagesReport = {
 /** A Page ▾ pick waiting for its stage (see `MakerState.pageJump`). `sameStage`: no new canvas to wait for. */
 export type MakerPageJump = { stage: LifecyclePhase; key: string; n: number; sameStage: boolean };
 
-/** ↺ The draft bar's Restore, for the toolbar's ⋯ (see `MakerState.draft`). */
-/**
- * ↺ Restore (⋯) and the phone's Apply (the bottom bar — frame G: "Page ▾ · Look ·
- * Details · Apply (3)"), as the draft bar registered them: what Apply says and
- * whether it can be pressed; the press itself is `pressMakerApply`, the bar's own act.
- */
-export type MakerDraftDoor = { canRestore: boolean; restore: () => void; apply: { label: string; count: number; enabled: boolean } };
+/** ↺ The draft bar's Restore, as it registered it — Page ▾ › Restore runs it (see `MakerState.draft`). */
+export type MakerDraftDoor = { canRestore: boolean; restore: () => void };
 
 /**
  * 🎨 THE LOOK PAGES THAT MOVED INTO DETAILS (Details part 3, owner 2026-09-28
@@ -170,6 +165,8 @@ export type MakerLookPages = {
     font: ReactNode | null;
     colours: ReactNode | null;
     palette: ReactNode | null;
+    /** 🔘 Look › Buttons — Shape · Fill · Colour (owner 2026-10-04). */
+    buttons?: ReactNode | null;
   } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;

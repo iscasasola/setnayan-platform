@@ -24,6 +24,7 @@ import {
 import { becomeVendor } from '../actions';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
+import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { SignInHereLink } from '@/app/_components/auth/sign-in-here-link';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
@@ -102,7 +103,7 @@ export function OpenShopWizard({
   feeNotice = null,
   initialStep = 1,
   guest = false,
-  oauth = { show: false, desktop: false },
+  oauth = { show: false, desktop: false, native: false },
   signInHref = '/login?next=%2Fopen-shop&as=vendor',
 }: {
   /**
@@ -154,7 +155,7 @@ export function OpenShopWizard({
   /** No session: step 3 also creates the account (owner 2026-09-22). */
   guest?: boolean;
   /** OAuth visibility by shell, decided on the server exactly as /login does. */
-  oauth?: { show: boolean; desktop: boolean };
+  oauth?: { show: boolean; desktop: boolean; native: boolean };
   /** The no-JavaScript fallback for "Have an account? Sign in". */
   signInHref?: string;
 }) {
@@ -450,6 +451,8 @@ export function OpenShopWizard({
               <>
                 {oauth.desktop ? (
                   <DesktopOAuthButtons next="/open-shop" />
+                ) : oauth.native ? (
+                  <NativeOAuthButtons next="/open-shop" accountType="vendor" />
                 ) : (
                   <OAuthButtonRow next="/open-shop" withAccountType defaultAccountType="vendor" />
                 )}

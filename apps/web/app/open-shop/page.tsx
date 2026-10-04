@@ -8,8 +8,8 @@ import { OpenShopWizard } from './_components/open-shop-wizard';
 import { getOpenShopServiceTree } from '@/lib/open-shop-service-tree';
 import { readBookingFeeJoinSchedule } from '@/lib/booking-fee-disclosure.server';
 import { bookingFeeJoinDisclosure } from '@/lib/booking-fee-disclosure';
-import { getClientShell } from '@/lib/request-platform';
-import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
+import { getOAuthGate } from '@/lib/request-platform';
+import { OAUTH_FLAGS } from '@/app/_components/oauth-button-row';
 
 /**
  * /open-shop — the ONE smart entry point behind every "Register your business"
@@ -49,10 +49,8 @@ export default async function OpenShopPage({
   // the tree falls back to the flat select if a read is refused.
   const guest = !user;
   // OAuth visibility by shell — the same gate /login applies (see login-data.ts):
-  // web + desktop show the buttons, mobile / embedded WebViews stay email-only.
-  const shell = await getClientShell();
-  const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
-  const desktopOAuth = showOAuth && shell === 'desktop';
+  // web + desktop show the buttons; the phone app only its native variant.
+  const gate = await getOAuthGate(OAUTH_FLAGS);
 
   // Own-row read passes RLS. A shop that has a NAME finished onboarding.
   const { data: owned } = user ? await supabase
@@ -186,7 +184,7 @@ export default async function OpenShopPage({
         contactEmail: row?.contact_email ?? user?.email ?? '',
       }}
       guest={guest}
-      oauth={{ show: showOAuth, desktop: desktopOAuth }}
+      oauth={gate}
       signInHref={'/login?next=' + encodeURIComponent('/open-shop') + '&as=vendor'}
       error={error}
       initialStep={(['1', '2', '3', '4'].includes(step ?? '') ? Number(step) : 1) as 1 | 2 | 3 | 4}

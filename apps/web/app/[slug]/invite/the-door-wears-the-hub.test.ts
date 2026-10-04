@@ -190,8 +190,12 @@ test('3 · the personal landing and thank-you (/invite/enter) wear the Event Hub
 
 test('3 · the couple\'s own invitation line shows under their names — read from the hero\'s line part', async () => {
   const { heroLineWord } = await import('./_lib/wear-the-hub');
-  const cfg = { canvas: { design: 'marquee', elements: { line: { word: 'Invite you to celebrate our wedding', hidden: true } } } };
+  const cfg = { canvas: { design: 'marquee', elements: { line: { word: 'Invite you to celebrate our wedding' } } } };
   assert.equal(heroLineWord(cfg), 'Invite you to celebrate our wedding', 'the applied line did not reach the landing');
+  // 🙈 Hidden on the Event Hub = hidden here (owner 2026-10-04 "YES TO ALL" (2)).
+  // The full both-surfaces proof is `the-couples-line-follows-the-hub.test.ts`.
+  const hid = { canvas: { design: 'marquee', elements: { line: { word: 'Invite you to celebrate our wedding', hidden: true } } } };
+  assert.equal(heroLineWord(hid), null, 'a line the couple hid on the Event Hub still shows on the landing');
   assert.equal(heroLineWord({ canvas: { elements: { line: { size: 2 } } } }), null, 'a line with no words invented one');
   assert.equal(heroLineWord(null), null);
   // The one sanitiser runs — never a raw config string (React prints it as text).

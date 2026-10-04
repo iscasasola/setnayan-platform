@@ -75,8 +75,10 @@ test('⛔ a value this product did not write is DROPPED, never rounded into plac
   });
   assert.deepEqual(c, {}, 'every one of them is absent, not repaired');
   // …and the section still draws, on the preset, rather than blanking.
-  const m = resolveHubMotion(c);
+  const { inFx, outFx, ...m } = resolveHubMotion(c);
   assert.deepEqual(m, HUB_PRESET_BODY[HUB_DEFAULT_PRESET], 'an unreadable config falls back whole');
+  // …and the preset's In / Out read as the four effects (Calm: Fade in, Fade away).
+  assert.deepEqual({ inFx, outFx }, { inFx: { fade: true }, outFx: { fade: true } });
 });
 
 test('⛔ config_json is data, not a promise about type', () => {

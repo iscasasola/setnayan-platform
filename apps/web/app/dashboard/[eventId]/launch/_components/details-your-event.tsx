@@ -1,15 +1,16 @@
 'use client';
 
 import { Suspense, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check } from 'lucide-react';
+import { Check, MapPin } from 'lucide-react';
 import { sanitizeName } from '@/lib/match-criteria';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import type { ScheduleMatrix } from '@/lib/schedule-matrix';
 import { hubDraftAction } from '../../website/hub-draft-actions';
-import { saveAllStdContent } from '../../studio/save-the-date/actions';
+import { AddressPinField } from '../../_components/address-pin-field';
+import type { LatLng } from '@/app/vendor-dashboard/_components/branch-pin-map';
+import { CityPick, nearestCity } from './details-city-pick';
 import { GovernedFields } from '../../details/_components/governed-fields';
 import { FindDateCandidates, FindDatePicked, useDateState } from './details-date-finder';
-import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import { FileUpload } from '@/app/_components/file-upload';
 import type { VenueChoice, VenueSlotKey } from '@/lib/event-venues';
@@ -41,16 +42,18 @@ import { DateClashNote } from './details-date-clash';
  *     `updateEventDate`'s own gates (`eventDateRefusal`) when it goes live.
  *     "Help me choose" is the shipped Find your date, opened in place; "Use
  *     <day>" hands the day to that row. A month is drafted the same way.
- *   · Venues → `saveAllStdContent` — the typed venue names the Event Hub, the
- *     prints and the Save-the-Date already read (`std_film_ceremony_name`,
- *     `std_film_venue_name`, `std_film_venue_city`; `lib/event-venues.ts`). A
- *     BOOKED venue comes from its booking and is shown, not retyped — unless
- *     the couple picks "Enter your own" (owner 2026-09-30); that choice and
- *     each card's photo save through the same action (`venueChoice`).
+ *   · Venues → the DRAFT too (owner 2026-10-04, design "venues get a pin and
+ *     a picked city"): the typed venue names, street addresses and map pins
+ *     the Event Hub, the prints and the Save-the-Date read
+ *     (`HUB_DRAFT_VENUE_COLUMNS`; `lib/event-venues.ts`), the one City or area
+ *     (a closed pick), and each card's source and photo
+ *     (`widgets.venue_map.venue`). A BOOKED venue comes from its booking and
+ *     is shown, not retyped — unless the couple picks "Enter your own".
+ *   · Ceremony time → the DRAFT (`ceremony_time`): at Apply it creates or
+ *     moves the Schedule's Ceremony block — the one the invitation prints.
  *
- * The names and the date wait for Apply (guests, Home and suppliers read the
- * live row until then); the venues still write live and say so
- * (`HubSavesImmediately`).
+ * Everything here waits for Apply (guests, Home and suppliers read the live
+ * row until then). Opening an item never writes.
  */
 
 /** What a drafted save says — saved, and when guests see it. */
@@ -292,9 +295,12 @@ export function DateEditor({
   matrix,
   nudge = null,
   helpFirst = false,
+  ceremonyTime = null,
 }: {
   eventId: string;
   governed: GovernedDate;
+  /** 🕒 The Ceremony block's start, `HH:MM` on the venue's wall clock — as drafted, else live (null = none yet). */
+  ceremonyTime?: string | null;
   /** Open on "Help me choose" — where the old /find-date lands. */
   helpFirst?: boolean;
   /** The shipped Find your date's matrix, still loading — read only when "Help me choose" opens. */
@@ -390,6 +396,7 @@ export function DateEditor({
         />
       </div>
       {mode === 'have' ? (
+        <>
         <GovernedFields
           eventId={eventId}
           confirmedVendorCount={governed.confirmedVendorCount}
@@ -406,6 +413,8 @@ export function DateEditor({
           embedded
           saveDate={saveDay}
         />
+        <CeremonyTimeEditor eventId={eventId} initial={ceremonyTime} hasDay={Boolean(governed.dateValue)} />
+        </>
       ) : (
         <Suspense fallback={<p className="text-sm text-ink/60">Checking your suppliers’ calendars…</p>}>
           <FindDatePicked matrix={matrix} onUse={pickDay} onMonth={month} monthError={monthError} pending={pending} />
@@ -419,6 +428,58 @@ export function DateEditor({
         </p>
       ) : null}
       <p className="text-[11.5px] text-ink/60">Guests see a new date when you Apply.</p>
+    </section>
+  );
+}
+
+/**
+ * 🕒 CEREMONY TIME — one line under the date (owner 2026-10-04, "YES TO ALL";
+ * frame 3 of `maker_venues_pin_and_time_2026-10-04_fable.html`). It IS the
+ * Schedule's Ceremony start — the time the invitation prints ("Ceremony at
+ * 3:00 PM"). The phone's own time picker; Save drafts it (`ceremony_time`) and
+ * the invitation beside it redraws with the drafted time; at Apply the Ceremony
+ * block is made on the day if there is none, else its time moves. Ceremony
+ * only — the reception's time stays in the Schedule (owner, answer 3).
+ */
+function CeremonyTimeEditor({ eventId, initial, hasDay }: { eventId: string; initial: string | null; hasDay: boolean }) {
+  const [time, setTime] = useState(initial ?? '');
+  const [pending, start] = useTransition();
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const save = () => {
+    setError(null);
+    setSaved(false);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
+      setError('Pick a time first');
+      return;
+    }
+    start(async () => {
+      try {
+        const refused = await draftFacts(eventId, { ceremony_time: time });
+        if (refused) setError(refused);
+        else setSaved(true);
+      } catch {
+        setError('That did not save. Nothing changed — please try again.');
+      }
+    });
+  };
+  return (
+    <section data-details-ceremony-time="" className="flex flex-col gap-2">
+      <label className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-ink/70">Ceremony time</span>
+        <input
+          type="time"
+          value={time}
+          onChange={(e) => {
+            setTime(e.target.value);
+            setSaved(false);
+          }}
+          aria-label="Ceremony time"
+          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+        />
+      </label>
+      {hasDay ? null : <p className="text-[11.5px] text-ink/60">It goes on your invitation once your day is set.</p>}
+      <SaveRow pending={pending} saved={saved} savedText={DRAFTED} error={error} onSave={save} />
     </section>
   );
 }
@@ -441,22 +502,26 @@ export function DateBody({ matrix, picture, helpFirst = false }: { matrix: Promi
 // ── VENUES ────────────────────────────────────────────────────────────────────
 
 export type VenueSlot = {
-  /** Which typed column this slot saves to (`saveAllStdContent`'s key). */
-  field: 'filmCeremonyName' | 'filmVenueName';
   /** "Ceremony" · "Reception" (`VENUE_ROLE_LABEL`), or "Venue" for one place. */
   label: string;
   /** Which venue card this is (`config_json.venue[slot]` on the Venue scene). */
   slot: VenueSlotKey;
   /** The booked supplier AS OFFERED — shown under "Use the supplier's details";
-   *  `photos` are their public shop photos (refs), in their order. */
-  booked: { name: string; address: string | null; photos: readonly string[] } | null;
+   *  `photos` are their public shop photos (refs), in their order; `pin` is
+   *  where their record puts them. */
+  booked: { name: string; address: string | null; photos: readonly string[]; pin: LatLng | null } | null;
+  /** The `events` columns this card's own details draft into (`HUB_DRAFT_VENUE_COLUMNS`). */
+  columns: {
+    name: 'std_film_ceremony_name' | 'std_film_venue_name';
+    address: 'ceremony_venue_address' | 'venue_address';
+    lat: 'ceremony_venue_latitude' | 'venue_latitude';
+    lng: 'ceremony_venue_longitude' | 'venue_longitude';
+  };
+  /** Its typed name, street address and pin — as drafted, else as stored. */
   typed: string;
-  /** Where its street address saves (`saveAllStdContent`): the reception's is
-   *  `venue_address`, the ceremony's `ceremony_venue_address`. */
-  addressField: 'venueAddress' | 'ceremonyAddress';
-  /** Its typed street address as stored. */
   address: string;
-  /** The couple's choice for this card, as stored (validated). */
+  pin: LatLng | null;
+  /** The couple's choice for this card — as drafted, else as stored (validated). */
   choice: VenueChoice;
   /** ref → signed URL, for every photo this card can show. */
   photoUrls: Record<string, string>;
@@ -466,74 +531,106 @@ const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const PHOTO_NONE = 'none';
 const PHOTO_UPLOAD = 'upload';
 
+/**
+ * 🏛 A venue card's choice → the Event Hub DRAFT (`widgets.venue_map.venue`),
+ * through the one draft door. Apply writes it into the Venue scene's own
+ * `config_json.venue` (owner 2026-10-04: venues wait for Apply like everything
+ * else in the Maker). Resolves null when saved, else the reason in words.
+ */
+async function draftVenueChoice(eventId: string, slot: VenueSlotKey, choice: VenueChoice): Promise<string | null> {
+  const fd = new FormData();
+  fd.set('intent', 'save');
+  fd.set('patch', JSON.stringify({ widgets: { venue_map: { venue: { [slot]: choice } } } }));
+  const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
+  return r.ok ? null : r.error || 'That did not save. Nothing changed — please try again.';
+}
+
+/**
+ * 📍 DETAILS › VENUES (owner 2026-10-01, "A REAL PIN AND A PICKED CITY";
+ * design approved 2026-10-04). A BOOKED venue shows the supplier's details and
+ * pin and follows the booking; "Enter your own" is the name, the shipped
+ * `AddressPinField` (exact address · Find · the crosshair map · the Pinned-at
+ * line — its hint lines hidden here) and the photo. City or area is ONE
+ * dropdown from onboarding's list (`CityPick`) — never typed, one per event,
+ * the reception's; dropping the reception pin pre-fills it with the nearest
+ * place by km. Save puts everything in the DRAFT; guests see it at Apply
+ * (which also moves the event's own location anchor to the reception pin).
+ */
 export function VenuesEditor({
   eventId,
   slots,
   city,
-  launchDate,
 }: {
   eventId: string;
   slots: readonly VenueSlot[];
   /** The reception's city or area (the Save-the-Date's line) — null where the film does not apply. */
   city: string | null;
-  /** Posted back unchanged — `saveAllStdContent` always writes the launch date. */
-  launchDate: string | null;
 }) {
-  const [values, setValues] = useState<Record<string, string>>(() =>
-    Object.fromEntries(slots.flatMap((s) => [[s.field, s.typed], [s.addressField, s.address]])),
+  const [values, setValues] = useState<Record<string, { name: string; address: string; pin: LatLng | null }>>(() =>
+    Object.fromEntries(slots.map((s) => [s.slot, { name: s.typed, address: s.address, pin: s.pin }])),
   );
-  /* 🏛 Each card's choice, held here so a pick shows at once and saves behind it
-     (owner: instant — no reload). Switching source never touches the typed
-     words: they stay in `values` and in their columns. */
+  /* 🏛 Each card's choice, held here so a pick shows at once and drafts behind
+     it. Switching source never touches the typed words: they stay in `values`. */
   const [choices, setChoices] = useState<Record<string, VenueChoice>>(() =>
     Object.fromEntries(slots.map((s) => [s.slot, s.choice])),
   );
   const [cityValue, setCityValue] = useState(city ?? '');
+  /* A city is sent only once PICKED here — a stored line from before the list
+     (typed by hand) is never re-sent, so it can never be refused on a save
+     that did not touch it. */
+  const [cityPicked, setCityPicked] = useState(false);
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ownDetails = (s: VenueSlot) => !s.booked || choices[s.slot]?.source === 'own';
   const typedSlots = slots.filter(ownDetails);
+  const reception = slots.find((s) => s.slot === 'reception') ?? null;
+  const receptionPin = reception ? (ownDetails(reception) ? values.reception?.pin : reception.booked?.pin) ?? null : null;
+
+  const edit = (slot: VenueSlotKey, next: Partial<{ name: string; address: string; pin: LatLng | null }>) => {
+    setValues((v) => ({ ...v, [slot]: { ...v[slot]!, ...next } }));
+    setSaved(false);
+    /* 📍 The reception pin pre-fills the city with the nearest place on the
+       list, by km (owner 2026-10-04, "YES TO ALL" (1)) — until one is picked. */
+    if (slot === 'reception' && next.pin && city !== null && !cityPicked) {
+      const near = nearestCity(next.pin);
+      if (near) setCityValue(near.n);
+    }
+  };
 
   const save = () => {
     setError(null);
     setSaved(false);
-    const data: Parameters<typeof saveAllStdContent>[1] = { launchDate };
+    const events: Record<string, unknown> = {};
     for (const s of typedSlots) {
-      data[s.field] = values[s.field]?.trim() || null;
-      data[s.addressField] = values[s.addressField]?.trim() || null;
+      const v = values[s.slot]!;
+      events[s.columns.name] = v.name.trim() || null;
+      events[s.columns.address] = v.address.trim() || null;
+      events[s.columns.lat] = v.pin?.lat ?? null;
+      events[s.columns.lng] = v.pin?.lng ?? null;
     }
-    if (city !== null) data.filmVenueCity = cityValue.trim() || null;
+    if (city !== null && cityValue && (cityPicked || cityValue !== city)) events.std_film_venue_city = cityValue;
     start(async () => {
       try {
-        const r = await makerSave(() => saveAllStdContent(eventId, data), requestMakerRefresh);
-        if (r.ok) setSaved(true);
-        else
-          setError(
-            r.error === 'address-too-long'
-              ? 'That address is longer than 300 characters — please shorten it.'
-              : 'That did not save. Nothing changed — please try again.',
-          );
+        const refused = await draftFacts(eventId, events);
+        if (refused) setError(refused);
+        else setSaved(true);
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
     });
   };
 
-  /** One card's choice: shown now, saved behind it. */
+  /** One card's choice: shown now, drafted behind it. */
   const choose = (slot: VenueSlotKey, next: VenueChoice) => {
     const was = choices[slot] ?? {};
     setChoices((c) => ({ ...c, [slot]: next }));
     setError(null);
-    void makerSave(() => saveAllStdContent(eventId, { launchDate, venueChoice: { slot, choice: next } }), requestMakerRefresh)
-      .then((r) => {
-        if (r.ok) return;
+    void draftVenueChoice(eventId, slot, next)
+      .then((refused) => {
+        if (!refused) return;
         setChoices((c) => ({ ...c, [slot]: was }));
-        setError(
-          r.error === 'no-venue-scene'
-            ? 'Add the Venue scene to your Event Hub first, then pick its photo.'
-            : 'That did not save. Nothing changed — please try again.',
-        );
+        setError(refused);
       })
       .catch(() => {
         setChoices((c) => ({ ...c, [slot]: was }));
@@ -545,52 +642,53 @@ export function VenuesEditor({
     <section data-details-venues="" className="flex flex-col gap-4">
       {slots.map((s) => {
         const own = ownDetails(s);
+        const v = values[s.slot]!;
         return (
-          <div key={s.field} className="flex flex-col gap-1.5" data-venue-slot={s.field}>
-            <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{s.label}</p>
-            {s.booked ? (
-              <PickMenu
-                label={`${s.label} — where its details come from`}
-                value={own ? 'own' : 'supplier'}
-                options={[
-                  { key: 'supplier', label: 'Use the supplier’s details' },
-                  { key: 'own', label: 'Enter your own' },
-                ]}
-                onPick={(k) => choose(s.slot, { ...(choices[s.slot] ?? {}), source: k === 'own' ? 'own' : 'supplier' })}
-                dataAttr="data-venue-source"
-              />
-            ) : null}
+          <div key={s.slot} className="flex flex-col gap-1.5" data-venue-slot={s.slot}>
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">{s.label}</p>
+              {s.booked ? (
+                <PickMenu
+                  label={`${s.label} — where its details come from`}
+                  value={own ? 'own' : 'supplier'}
+                  options={[
+                    { key: 'supplier', label: 'Use the supplier’s details' },
+                    { key: 'own', label: 'Enter your own' },
+                  ]}
+                  onPick={(k) => choose(s.slot, { ...(choices[s.slot] ?? {}), source: k === 'own' ? 'own' : 'supplier' })}
+                  dataAttr="data-venue-source"
+                />
+              ) : null}
+            </div>
             {!own && s.booked ? (
-              <div className="rounded-md bg-ink/[0.03] px-3 py-2">
-                <p className="text-sm font-medium text-ink">{s.booked.name}</p>
-                {s.booked.address ? <p className="text-xs text-ink/65">{s.booked.address}</p> : null}
-                <p className="mt-1 text-[11.5px] text-ink/55">From your booked supplier — it follows the booking.</p>
+              <div className="flex items-start gap-3 rounded-md bg-ink/[0.03] px-3 py-2" data-venue-booked="">
+                <span aria-hidden className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-terracotta-700">
+                  <MapPin className="h-4 w-4" strokeWidth={1.9} />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">{s.booked.name}</p>
+                  {s.booked.address ? <p className="text-xs text-ink/65">{s.booked.address}</p> : null}
+                  <p className="mt-1 text-[11.5px] text-ink/55">
+                    Booked · follows the booking{s.booked.pin ? ' · pinned on the map' : ''}
+                  </p>
+                </div>
               </div>
             ) : (
               <>
                 <input
-                  value={values[s.field] ?? ''}
-                  onChange={(e) => {
-                    setValues((v) => ({ ...v, [s.field]: e.target.value }));
-                    setSaved(false);
-                  }}
+                  value={v.name}
+                  onChange={(e) => edit(s.slot, { name: e.target.value })}
                   maxLength={160}
                   placeholder="Name of the place"
                   aria-label={`${s.label} — name of the place`}
                   className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
                 />
-                <input
-                  value={values[s.addressField] ?? ''}
-                  onChange={(e) => {
-                    setValues((v) => ({ ...v, [s.addressField]: e.target.value }));
-                    setSaved(false);
-                  }}
-                  maxLength={300}
-                  autoComplete="street-address"
-                  placeholder="Street address — e.g. 1 Tandang Sora Ave, Quezon City"
-                  aria-label={`${s.label} — street address`}
-                  data-venue-address={s.addressField}
-                  className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
+                <AddressPinField
+                  id={`venue-address-${s.slot}`}
+                  initialAddress={v.address}
+                  initialPin={v.pin}
+                  hideHints
+                  onChange={(next) => edit(s.slot, next)}
                 />
               </>
             )}
@@ -599,25 +697,18 @@ export function VenuesEditor({
         );
       })}
       {city !== null ? (
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-ink/70">City or area</span>
-          <input
-            value={cityValue}
-            onChange={(e) => {
-              setCityValue(e.target.value);
-              setSaved(false);
-            }}
-            maxLength={80}
-            placeholder="e.g. Quezon City"
-            className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
-          />
-        </label>
+        <CityPick
+          value={cityValue}
+          near={receptionPin}
+          onPick={(name) => {
+            setCityValue(name);
+            setCityPicked(true);
+            setSaved(false);
+          }}
+        />
       ) : null}
       {typedSlots.length > 0 || city !== null ? (
-        <>
-          <SaveRow pending={pending} saved={saved} error={error} onSave={save} />
-          <HubSavesImmediately />
-        </>
+        <SaveRow pending={pending} saved={saved} savedText={DRAFTED} error={error} onSave={save} />
       ) : error ? (
         <p role="alert" className="text-xs text-danger-800">
           {error}

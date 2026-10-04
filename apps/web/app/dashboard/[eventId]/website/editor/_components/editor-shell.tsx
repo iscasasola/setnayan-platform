@@ -1,12 +1,13 @@
 'use client';
 
-import { SheetGrip, SheetScrim } from '../../../launch/_components/maker-sheet';
+import { MakerHalfSheet } from '../../../launch/_components/maker-sheet';
 import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
+import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import { ELEMENT_SHEET_CLOSED, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
+import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -456,16 +457,33 @@ export function MakerWork({
   const stage = maker?.stage ?? 'rsvp';
   const selection = maker?.selection ?? null;
   const select = maker?.select;
+  /* ▁ The selection now, for a canvas tap: another scene keeps the sheet's section (its tab). */
+  const selectionNow = useRef(selection);
+  selectionNow.current = selection;
   /* 🔤 The element being edited — a tap ON a part in the canvas. Its own sheet
      takes the inspector's place; choosing anything in the navigator closes it. */
-  const [elementTarget, setElementTarget] = useState<ElementTarget | null>(null);
+  /* 📱 …held as ONE small state — the part, whether the sheet is folded to its
+     bar on a phone, and its section (Text · Motion · Arrange) — whose every
+     transition is `elementSheetStep` (owner 2026-10-04: a tap outside the part
+     folds the sheet; a tap on another part switches it, same section). */
+  const [sheet, sheetDo] = useReducer(
+    (st: ElementSheetState<ElementTarget>, ev: ElementSheetEvent<ElementTarget>) => elementSheetStep(st, ev),
+    ELEMENT_SHEET_CLOSED as ElementSheetState<ElementTarget>,
+  );
+  const elementTarget = sheet.target;
+  const setElementTarget = useCallback(
+    (next: ElementTarget | null | ((prev: ElementTarget | null) => ElementTarget | null)) => sheetDo({ t: 'set', target: next }),
+    [],
+  );
   const elementRef = useRef<ElementTarget | null>(null);
   elementRef.current = elementTarget;
+  const sheetFolded = useRef(false);
+  sheetFolded.current = sheet.collapsed;
   const elementEditingOn = Boolean(elementEditing);
   const selectionKey = canvasKeyOfSelection(selection, scenes);
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
-  }, [selectionKey, stage]);
+  }, [selectionKey, stage, setElementTarget]);
   /* ✍ TAP-TO-TYPE (Maker core part 2): the tap that began typing on the
      canvas. Only the tap is kept here — the bar (`type-in-place.tsx`, loaded
      with the Details pieces) hears every keystroke itself, so a letter never
@@ -489,7 +507,7 @@ export function MakerWork({
     };
     window.addEventListener('message', onType);
     return () => window.removeEventListener('message', onType);
-  }, [scenes, select]);
+  }, [scenes, select, setElementTarget]);
   const endTyping = () => {
     (typeStart?.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
     setTypeStart(null);
@@ -541,7 +559,7 @@ export function MakerWork({
     };
     window.addEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
     return () => window.removeEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
-  }, []);
+  }, [setElementTarget]);
 
   /* ⚡ THE CANVAS HOLD (`element-preview.ts`). The canvas iframe is keyed on
      `canvasStamp`, not on every server render's `renderStamp`: an element
@@ -714,6 +732,7 @@ export function MakerWork({
   const backgroundNode = rows[LOOK_ROW_OF.background]?.node ?? null;
   const fontNode = rows[LOOK_ROW_OF.font]?.node ?? null;
   const coloursNode = rows[LOOK_ROW_OF.colours]?.node ?? null;
+  const buttonsNode = rows[LOOK_ROW_OF.buttons]?.node ?? null;
   const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
@@ -753,11 +772,12 @@ export function MakerWork({
               line={PALETTE_STYLES_LINE}
             />
           ) : null,
+        buttons: buttonsNode,
       },
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {
@@ -942,6 +962,21 @@ export function MakerWork({
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
+      /* 📱 THE PART SHEET ON A PHONE (owner 2026-10-04, `lib/element-sheet-state.ts`):
+         a tap on the canvas that hits no part folds the open sheet to its bar
+         and does nothing else; once folded, the next such tap goes through
+         (the sheet closes, the tap selects what it hit). The part stays
+         outlined while the sheet is only folded. */
+      const phoneSheet = window.innerWidth < 1024 && elementRef.current !== null;
+      if (data?.source === 'setnayan-site' && phoneSheet && (data.t === 'tapOutside' || (data.t === 'edit' && !isHubElementKey(data.el)))) {
+        const was = elementRef.current!;
+        sheetDo({ t: 'tapOutside' });
+        if (!sheetFolded.current) {
+          postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: was.key, el: was.el });
+          return;
+        }
+        postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: was.key, el: null });
+      }
       if (!data || data.source !== 'setnayan-site' || data.t !== 'edit' || typeof data.key !== 'string') return;
       /* 🔤 A tap ON an element (the hero's names, a scene's heading) opens that
          element's sheet; its scene's panel stays as it was. */
@@ -984,7 +1019,10 @@ export function MakerWork({
         return;
       }
       if (picked) {
-        select?.(picked);
+        /* ▁ Tap another scene → the sheet switches to it on the SAME section
+           (owner 2026-10-04, "…the sheet switches to it in the same section"). */
+        const now = selectionNow.current;
+        select?.(picked.kind === 'scene' && now?.kind === 'scene' && now.tab ? { ...picked, tab: now.tab } : picked);
         /* 🖥📱 BOTH: A TAP IN EITHER PANE SELECTS THE SAME PART IN THE OTHER —
            outlined, and its scene brought into view. The pane tapped already
            drew its own outline (the bridge's `mark`), so it is skipped. */
@@ -1005,12 +1043,10 @@ export function MakerWork({
                 ? postEventElementScope(peScene)
                 : null;
         const el = data.el;
-        setElementTarget((prev) =>
-          isHubElementKey(el) && elementEditingOn && widgetType
-            ? // The same part tapped again keeps the text selected in it (✍ runs).
-              { key: data.key!, widgetType, el, range: prev && prev.key === data.key && prev.el === el ? prev.range : null }
-            : null,
-        );
+        /* 📱 Another part switches the sheet to it, on the same section; the same
+           part changes nothing (its selected text is kept — ✍ runs). */
+        if (isHubElementKey(el) && elementEditingOn && widgetType) sheetDo({ t: 'tapPart', target: { key: data.key, widgetType, el, range: null } });
+        else setElementTarget(null);
         return;
       }
       setElementTarget(null);
@@ -1057,7 +1093,7 @@ export function MakerWork({
       window.removeEventListener('message', onMessage);
       window.removeEventListener('message', onSelect);
     };
-  }, [rows, scenes, select, elementEditingOn, postToShownCanvases]);
+  }, [rows, scenes, select, elementEditingOn, postToShownCanvases, setElementTarget]);
 
   /* 🖼 THE TILES' PREVIEWS (owner 2026-09-26: *"the navigator preview must
      really show the preview"*). Each tile shows a static copy of its section
@@ -2619,8 +2655,13 @@ export function MakerWork({
           }
           onClose={() => {
             postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null });
-            setElementTarget(null);
+            sheetDo({ t: 'close' });
           }}
+          collapsed={sheet.collapsed}
+          onCollapse={() => sheetDo({ t: 'dragDown' })}
+          onRestore={() => sheetDo({ t: 'restore' })}
+          section={sheet.section}
+          onSection={(section) => sheetDo({ t: 'section', section })}
         />
       ) : selection ? (
         <CanvasWordsContext.Provider value={canvasWords}>
@@ -2785,6 +2826,7 @@ export function MakerWork({
           madeOnce={madeOnce}
           showMotionTabs={ownsPro || !maker.storeShell}
           onClose={() => select?.(null)}
+          onReveal={() => scrollPreviewTo(selectedKeyRef.current ?? undefined)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
           onOpenTool={(key) => select?.({ kind: 'tool', key })}
           fixedFact={
@@ -3127,6 +3169,7 @@ function Inspector({
   madeOnce,
   showMotionTabs,
   onClose,
+  onReveal,
   onTab,
   onOpenTool,
   onElement,
@@ -3163,6 +3206,8 @@ function Inspector({
   eventId: string;
   showMotionTabs: boolean;
   onClose: () => void;
+  /** 📱 Bring what is edited into view above the half sheet (the canvas's own scroll). */
+  onReveal?: () => void;
   onTab: (tab: MakerSceneTab) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -3300,30 +3345,25 @@ function Inspector({
     );
   }
 
+  /* ▁ THE HALF SHEET (PR-0, owner 2026-10-04): on a phone the scene's sheet rests
+     at half the screen over a LIVE page — the scene in view above it, a tap on
+     another scene switches it, a tap on nothing folds it to a slim bar, Peek
+     hides it while held (`MakerHalfSheet`; its moves are the part sheet’s reducer, lib/element-sheet-state.ts). The
+     desktop's panel beside the page is unchanged. */
+  const sectionWord = selection.kind === 'scene' ? (tabs.find((t) => t.key === tab)?.label ?? null) : null;
   return (
-    <>
-    {/* 📱 The dimmed page behind the scene's sheet — a tap on it goes back to the page. */}
-    <SheetScrim onClose={onClose} />
-    <aside
-      aria-label="Inspector"
-      data-phone-chrome="panel"
+    <MakerHalfSheet
+      label="Inspector"
+      title={title}
+      target={makerSelectionKey(selection)}
+      section={sectionWord}
+      closeLabel="Close the inspector"
+      onClose={onClose}
+      onReveal={onReveal}
       style={{ ['--maker-tools-w' as string]: `${resize.width}px` }}
-      /* 📱 The bar + this ≤ 45% of a phone (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts). */
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
+      desktopClassName="lg:relative lg:z-auto lg:order-3 lg:h-auto lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
+      beforeGrip={<ToolsResizeHandle onPointerDown={resize.onPointerDown} />}
     >
-      <ToolsResizeHandle onPointerDown={resize.onPointerDown} />
-      <SheetGrip onClose={onClose} />
-      <div className="flex items-center gap-2 px-4 pt-1 lg:pt-3">
-        <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close the inspector"
-          className="sn-press inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </div>
       {selection.kind === 'scene' ? (
         /* 🧰 Format · Animate · Arrange · Content — the inspector's own tab row,
            their ONE home (never the top bar: "repeated. just place it on the sidebar"). */
@@ -3333,9 +3373,22 @@ function Inspector({
         {body}
         {selection.kind === 'scene' && tab === 'content' ? sceneTabs?.contentExtra : null}
       </div>
-    </aside>
-    </>
+    </MakerHalfSheet>
   );
+}
+
+/** ▁ One key per selected thing — a new key switches the half sheet to it (its tab is the sheet's section, not its target). */
+function makerSelectionKey(selection: NonNullable<MakerSelection>): string {
+  switch (selection.kind) {
+    case 'scene':
+      return `scene:${selection.id}`;
+    case 'post-event':
+      return `post-event:${selection.scene}`;
+    case 'main':
+      return 'main';
+    default:
+      return `${selection.kind}:${selection.key}`;
+  }
 }
 
 /**

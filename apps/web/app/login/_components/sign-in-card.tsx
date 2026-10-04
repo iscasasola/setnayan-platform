@@ -30,6 +30,7 @@ import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
+import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
@@ -45,6 +46,8 @@ export type SignInCardProps = {
   signupHref: string;
   showOAuth: boolean;
   desktopOAuth: boolean;
+  /** The phone app's native variant (Apple sheet + Google in the system browser). */
+  nativeOAuth?: boolean;
   /** Route-only status banners; null/absent on the marketing overlay. */
   errorMessage?: string | null;
   /** Route-only: the door the account uses, from ?provider= (the in-place action carries its own). */
@@ -86,6 +89,7 @@ export function SignInCard({
   signupHref,
   showOAuth,
   desktopOAuth,
+  nativeOAuth = false,
   errorMessage = null,
   provider = null,
   justSignedUpEmail = null,
@@ -210,10 +214,17 @@ export function SignInCard({
       ) : null}
 
       {/* OAuth above the email form — same placement + components as before.
-          Shell-gated by the caller; desktop gets the loopback variant. */}
+          Shell-gated by the caller; desktop gets the loopback variant, the
+          phone app the native one (never the web redirect Google refuses). */}
       {showOAuth ? (
         <div className="hr-si-oauth">
-          {desktopOAuth ? <DesktopOAuthButtons next={next} /> : <OAuthButtonRow next={next} />}
+          {desktopOAuth ? (
+            <DesktopOAuthButtons next={next} />
+          ) : nativeOAuth ? (
+            <NativeOAuthButtons next={next} />
+          ) : (
+            <OAuthButtonRow next={next} />
+          )}
         </div>
       ) : null}
 

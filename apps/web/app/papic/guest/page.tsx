@@ -20,6 +20,9 @@ import { resolveGuestOwnCamera } from '@/lib/papic-guest-own-camera';
 import { papicGuestBuyEnabled } from '@/lib/papic-guest-buy-flag';
 import { GuestGuidedTour } from '@/app/_components/guest-guided-tour';
 import { guidedTourView } from '@/app/_components/guided-tour';
+import { GuestColumnCard } from '@/app/[slug]/_components/guest-column-card';
+import { guestColumnsActive } from '@/lib/guest-columns-gate';
+import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 
 // Papic · guest camera (PAPIC_GUEST — "Every guest's phone, a candid camera").
 // This is the shared "Papic Pool" pass: unlimited guest phones draw from one
@@ -116,7 +119,7 @@ export default async function PapicGuestPage({
     eventPapicGuestAccess(admin, session.event_id),
     admin
       .from('events')
-      .select(`display_name, papic_face_mode, event_type, face_tagging_declined_by_couple, ${GUEST_CAPTURE_GATE_COLUMNS}`)
+      .select(`display_name, papic_face_mode, event_type, face_tagging_declined_by_couple, venue_latitude, venue_longitude, event_end_date, ${GUEST_CAPTURE_GATE_COLUMNS}`)
       .eq('event_id', session.event_id)
       .maybeSingle(),
     // Resolved only for spec § 7b's "change your mind" offer. The buy panel
@@ -387,6 +390,21 @@ export default async function PapicGuestPage({
       exitTo={backSlug ? { slug: backSlug, tab: backTab } : null}
       lastShotUrl={ownShots?.shots[0]?.url ?? null}
     />
+    {/* ✍ "WRITE A COLUMN" ON THE DAY LIVES IN THE CAMERA (owner 2026-10-04,
+        DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND APPROVED"), under the
+        camera — the shutter stays the page's one main action. Same gates as
+        ever (GUEST_COLUMNS_ENABLED + the `guest_columns` DPO control); this is
+        the open-camera branch, so it shows only while the guest can shoot. */}
+    <CameraColumn
+      eventId={session.event_id}
+      guestId={session.guest_id}
+      eventDate={(ev as { event_date?: string | null } | null)?.event_date ?? null}
+      eventTz={eventTimezoneFromCoords(
+        (ev as { venue_latitude?: number | null } | null)?.venue_latitude ?? null,
+        (ev as { venue_longitude?: number | null } | null)?.venue_longitude ?? null,
+      )}
+      eventEndDate={(ev as { event_end_date?: string | null } | null)?.event_end_date ?? null}
+    />
     {/* First visit only — the shipped tour registry (owner 2026-09-25: every
         feature gets a first-visit tour). A guest here has no account, so the
         "seen" mark lives on their phone (GuestGuidedTour), not in `users`. */}
@@ -416,5 +434,39 @@ export default async function PapicGuestPage({
     />
     )}
     </>
+  );
+}
+
+/**
+ * The guest's column card, framed for the Camera page (a cream band under the
+ * dark camera). Asks the column gate first, so a switched-off feature draws no
+ * empty band; the event's date and the venue's clock come from the page's own
+ * event read (no second query), as the Event Hub's own mount passes them.
+ */
+async function CameraColumn({
+  eventId,
+  guestId,
+  eventDate,
+  eventTz,
+  eventEndDate,
+}: {
+  eventId: string;
+  guestId: string;
+  eventDate: string | null;
+  eventTz: string;
+  eventEndDate: string | null;
+}) {
+  if (!(await guestColumnsActive())) return null;
+  return (
+    <div className="bg-cream text-ink empty:hidden" data-camera-column="">
+      <GuestColumnCard
+        className="mx-auto w-full max-w-3xl px-4 py-12"
+        eventId={eventId}
+        guestId={guestId}
+        eventDate={eventDate}
+        eventTz={eventTz}
+        eventEndDate={eventEndDate}
+      />
+    </div>
   );
 }

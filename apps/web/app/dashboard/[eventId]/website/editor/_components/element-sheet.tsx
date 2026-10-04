@@ -13,7 +13,7 @@ import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { scrollToClearSheet } from '@/lib/part-above-sheet';
-import { SheetGrip, SheetScrim } from '../../../launch/_components/maker-sheet';
+import { SheetGrip } from '../../../launch/_components/maker-sheet';
 import {
   HUB_ELEMENT_LABEL,
   HUB_ELEMENT_RUN_KEYS,
@@ -32,7 +32,8 @@ import {
   type HubElementMotion,
   type HubElementRun,
 } from '@/lib/element-style';
-import { InspectorTabs, IReset, ISeg, ISegmented } from './inspector-kit';
+import type { MotionFx } from '@/lib/motion-effects';
+import { IReset, ISeg, ISegmented } from './inspector-kit';
 import { PART_TABS, PartAnimateTab, PartArrangeTab, PartPicker, PartTextTab, type PartTab } from './part-inspector';
 import { elementPreview, refusedChoiceWords, revertAfterFailedSave, type ElementPreviewMessage } from './element-preview';
 
@@ -151,7 +152,25 @@ export function ElementSheet({
   hideLocked = false,
   saveCanvasWith,
   wordsSlot = null,
+  collapsed = false,
+  onCollapse,
+  onRestore,
+  section,
+  onSection,
 }: {
+  /**
+   * 📱 Folded to the slim bar at the bottom (owner 2026-10-04 — a tap on the
+   * canvas outside the part collapses the sheet; `lib/element-sheet-state.ts`).
+   * The sheet stays MOUNTED, so its section and every pick are kept.
+   */
+  collapsed?: boolean;
+  /** The handle dragged down: fold to the bar (the Maker owns the state). Absent = the handle closes. */
+  onCollapse?: () => void;
+  /** The bar tapped: open again, as it was. */
+  onRestore?: () => void;
+  /** Text · Motion · Arrange, held by the Maker so it survives a switch to another part. */
+  section?: PartTab;
+  onSection?: (section: PartTab) => void;
   /**
    * 🎞 A part that is NOT on a section row (a Post Event scene's, whose looks
    * live in the story's `sceneLooks`): how its canvas is saved instead of the
@@ -225,7 +244,9 @@ export function ElementSheet({
   }, [canvasJson, targetKey]);
 
   /* 🧰 Text · Animate · Arrange (Pages' inspector + Keynote's Animate). */
-  const [tab, setTab] = useState<PartTab>('text');
+  const [ownTab, setOwnTab] = useState<PartTab>('text');
+  const tab = section ?? ownTab;
+  const setTab = onSection ?? setOwnTab;
   /* 💎 Font ▾ and Animate are the part's only Pro rows (owner 2026-09-28) —
      the mark sits on them, never on the whole sheet: ◆ PRO while a couple
      without Pro tries them (the pick is drafted; Apply asks), the diamond once
@@ -312,7 +333,7 @@ export function ElementSheet({
       field,
     );
   const motion: HubElementMotion = style.motion ?? {};
-  const moveTo = (part: keyof HubElementMotion, value: string | null) =>
+  const moveTo = (part: keyof HubElementMotion, value: string | MotionFx | null) =>
     commit(withElementMotion(latest.current.elements, target.el, part, value), 'motion');
 
   /* ⚡ A colour DRAG on the wheel or a slider: on the canvas now, nothing saved
@@ -347,8 +368,23 @@ export function ElementSheet({
 
   return (
     <>
-    {/* 📱 The dimmed page behind the part's sheet — a tap on it goes back to the page. */}
-    <SheetScrim onClose={onClose} />
+    {/* 📱 NO DIMMED PAGE behind the part's sheet (owner 2026-10-04): the canvas
+        stays live, so a tap on another part switches the sheet to it and a tap
+        anywhere else folds it to the bar below (`lib/element-sheet-state.ts`). */}
+    {collapsed ? (
+      <button
+        type="button"
+        data-element-sheet-bar=""
+        onClick={onRestore}
+        aria-label={`Open ${HUB_ELEMENT_LABEL[target.el]} · ${tabs.find((t) => t.key === tab)?.label ?? 'Text'} again`}
+        className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex min-h-[52px] items-center justify-between gap-2 rounded-t-2xl px-4 pb-[env(safe-area-inset-bottom)] text-[14px] font-semibold text-ink lg:hidden"
+      >
+        <span className="min-w-0 truncate">
+          {HUB_ELEMENT_LABEL[target.el]} · {tabs.find((t) => t.key === tab)?.label ?? 'Text'}
+        </span>
+        <span aria-hidden>▴</span>
+      </button>
+    ) : null}
     <aside
       ref={sheetRef}
       data-phone-chrome="panel"
@@ -360,10 +396,11 @@ export function ElementSheet({
         if (e.key === 'Escape') onClose();
       }}
       /* 📱 The bar + this ≤ 45% of a phone (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts). */
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none"
+      className={`${collapsed ? 'max-lg:hidden ' : ''}sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none`}
     >
       {resize ? <ToolsResizeHandle onPointerDown={resize.onPointerDown} /> : null}
-      <SheetGrip onClose={onClose} />
+      {/* 📱 The handle folds the sheet to the bar; × closes it. */}
+      <SheetGrip onClose={onCollapse ?? onClose} />
       <div className="flex items-center gap-2 px-4 pt-2">
         <p id={titleId} className="min-w-0 flex-1 truncate font-serif text-lg text-ink">
           Part
@@ -406,7 +443,18 @@ export function ElementSheet({
           </div>
         ) : null}
       </div>
-      <InspectorTabs tabs={tabs} value={tab} onChange={setTab} label="Edit this part" />
+      {/* ▣ THE PART'S THREE SECTIONS as ONE segmented control (owner 2026-10-04:
+          "segmented control") — Text · Motion · Arrange, the chosen one in the
+          Setnayan wine. Every control inside is the one that shipped. */}
+      <div className="shrink-0 px-4 pt-1" data-element-sections="">
+        <ISegmented label="Edit this part">
+          {tabs.map((t) => (
+            <ISeg key={t.key} tone="wine" on={tab === t.key} onClick={() => setTab(t.key)} data={`section-${t.key}`}>
+              {t.label}
+            </ISeg>
+          ))}
+        </ISegmented>
+      </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 pb-4" aria-busy={pending} data-element-tab={tab}>
         {tab === 'text' ? (

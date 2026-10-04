@@ -45,6 +45,7 @@ import { buildSitePaletteVars } from '@/lib/site-palette';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
+import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
 import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
 import { resolveHubTheme, websiteProActiveFor } from './hub-look';
 import { eventPapicGuestActive, fetchGuestQuota } from '@/lib/papic-guest';
@@ -151,7 +152,7 @@ export const loadEventShell = cache(async (slug: string) => {
   const { data, error } = await admin
     .from('events')
     .select(
-      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, gifts_on',
+      'event_id, public_id, display_name, event_date, event_end_date, cleared_at, venue_name, venue_address, venue_latitude, venue_longitude, event_type, ceremony_type, secondary_ceremony_type, gender_separation, slug, monogram_text, monogram_color, monogram_style, monogram_font_key, monogram_frame_key, monogram_motion_key, monogram_custom_svg, monogram_uploaded_svg, monogram_studio_config, photo_moments_config, landing_page_visibility, scheduled_launch_at, dress_code_config, landing_page_hero_image_url, special_message, what_to_bring, our_photos, landing_page_hero_video_r2_key, site_bg_music_enabled, site_bg_music_r2_key, role_palette, site_art_direction, invite_theme, site_bg_color, site_button_color, site_button_style, site_font_key, site_magic_traveller, love_story, wax_seal_config, std_reveal_template, std_reveal_effects, reveal_stages, std_invitation_launch_date, std_theme, std_background, std_media, std_film_venue_name, std_film_venue_city, std_film_ceremony_name, ceremony_venue_address, ceremony_venue_latitude, ceremony_venue_longitude, std_film_accent_hex, is_sample, live_media_public, website_open_browse, launch_mode, manual_phase, guest_list_edit_deadline, guest_count_locked_at, rsvp_ask_config, style_preferences, ticket_url, gifts_on',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -203,6 +204,14 @@ export type GuestLook = {
    * colour, a palette or nothing. Free (owner 2026-09-25: plain or ombré).
    */
   ombre: string | null;
+  /**
+   * 🔘 LOOK › BUTTONS (`lib/hub-buttons.ts`, owner 2026-10-04): the attributes
+   * and custom properties the scope wears so every guest button takes the
+   * host's shape, fill and colour — or null when nothing was chosen. Kept OUT of
+   * `vars` on purpose: `vars` also answers "did the couple recolour the page?"
+   * (`resolveThemeGround`'s `ownColours`), and a button is not the page.
+   */
+  buttons: HubButtonsLook | null;
 };
 
 /**
@@ -280,14 +289,28 @@ export function guestLookFrom(
     vars = { ...(vars ?? {}), ...look.vars };
   }
 
+  // 🔒 LAST: the plate keeps an ink that reads on the plate paper every layer
+  // above left it with (owner 2026-09-30, "I cannot see the venues properly" —
+  // a dark theme's light plate ink met a mood-board palette's light plate).
+  const painted = vars && Object.keys(vars).length > 0 ? pinPlateInk(vars, hub.theme) : null;
+  /* 🔘 LOOK › BUTTONS — measured against the page AS IT PAINTS (`painted`:
+     palette → the couple's colours → ombré), so an Outline is drawn only where
+     its colour reads on that paper and those plates, and a fill's label is the
+     legibility rule's. Free: no entitlement is read. */
+  const theme = INVITE_THEMES[hub.theme] ?? INVITE_THEMES.house;
+  const buttons = resolveHubButtons({
+    style: event.site_button_style,
+    colour: event.site_button_color,
+    theme,
+    page: hubButtonPage(theme, painted),
+  });
+
   return {
     theme: hub.theme === 'house' ? null : hub.theme,
     art: event.site_art_direction === 'candlelight' ? 'candlelight' : null,
     accent: hub.accent,
-    // 🔒 LAST: the plate keeps an ink that reads on the plate paper every layer
-    // above left it with (owner 2026-09-30, "I cannot see the venues properly" —
-    // a dark theme's light plate ink met a mood-board palette's light plate).
-    vars: vars && Object.keys(vars).length > 0 ? pinPlateInk(vars, hub.theme) : null,
+    vars: painted,
+    buttons,
     ombre,
   };
 }
@@ -518,7 +541,12 @@ export const loadWidgets = cache(
  * preserved exactly as the inline block ran them.
  */
 export const loadMedia = cache(
-  async (admin: AdminClient, event: EventShellRow): Promise<EventMedia> => {
+  async (
+    admin: AdminClient,
+    event: EventShellRow,
+    /** 🏛 The host's DRAFTED venue cards (their canvas only; null for every guest). */
+    draftedVenueChoices: unknown = null,
+  ): Promise<EventMedia> => {
     const monogram = resolveMonogram(event);
 
     // Paid ANIMATED_MONOGRAM upgrade (₱999 · "Your initials, drawn live").
@@ -726,7 +754,7 @@ export const loadMedia = cache(
     // Venue scene cannot name different places. `eventVenues` is UN-WITHHELD:
     // page.tsx hands it to `withheldVenue`, which closes each address and pin
     // for a viewer who has not replied, exactly as it closes the event's own.
-    const venueBookings = await loadVenueBookings(admin, event.event_id);
+    const venueBookings = await loadVenueBookings(admin, event.event_id, draftedVenueChoices ?? undefined);
     const stdVenues = {
       ceremony:
         venueBookings.ceremony?.name ?? (event.std_film_ceremony_name as string | null) ?? null,
@@ -751,6 +779,9 @@ export const loadMedia = cache(
       std_film_ceremony_name: event.std_film_ceremony_name as string | null,
       std_film_venue_name: event.std_film_venue_name as string | null,
       ceremony_venue_address: (event as { ceremony_venue_address?: string | null }).ceremony_venue_address ?? null,
+      // 📍 The ceremony's own pin (20271263730696) — guests' Directions open it.
+      ceremony_venue_latitude: (event as { ceremony_venue_latitude?: number | string | null }).ceremony_venue_latitude ?? null,
+      ceremony_venue_longitude: (event as { ceremony_venue_longitude?: number | string | null }).ceremony_venue_longitude ?? null,
     });
     // 🏛📷 Each venue card's picture (owner 2026-09-30), signed here beside the
     // other site media. The ref was already checked against the supplier's

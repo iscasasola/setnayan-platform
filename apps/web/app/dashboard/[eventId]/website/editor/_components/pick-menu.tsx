@@ -3,10 +3,10 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
+import { useOneOpen } from '@/lib/one-open';
 import { fontRowClass, groupHeadClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
-/** ONE COMPACT PICKER — its design notes and types: `pick-menu-types.ts`. */
 export type { PickOption, PickMenuProps } from './pick-menu-types';
 
 export function PickMenu({
@@ -20,8 +20,10 @@ export function PickMenu({
   picked,
   compact = false,
   stickyGroups = false,
+  grid,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
+  useOneOpen(open, setOpen);
   const [at, setAt] = useState<PickListPlacement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
@@ -135,6 +137,7 @@ export function PickMenu({
               }}
               style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth, maxHeight: at.maxHeight }}
               data-pick-side={at.side}
+              data-pick-grid={grid || undefined}
               className="sn-glass-bare z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
             >
               {pickRuns(options).map((run, ri) =>

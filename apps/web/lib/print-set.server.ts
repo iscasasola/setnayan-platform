@@ -26,6 +26,8 @@ import type { QrLook } from '@/lib/qr-look';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
+import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
+import { overlayHubDraftEvent, type HubDraftEvents } from '@/lib/hub-draft';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import type { GuestRole } from '@/lib/guests';
 import type { RoleNames } from '@/lib/role-names';
@@ -597,15 +599,23 @@ export async function printInputsVersion(eventId: string): Promise<string | null
 export async function loadPrintSet(
   eventId: string,
   opts: { mode: PrintMode; previewTheme?: string | null; withEventQr?: boolean },
+  /**
+   * ✍ THE HOST'S DRAFT, for the Maker's on-screen preview only (the route
+   * passes it for `mode=screen&draft=…`, after its host gate): the drafted
+   * names, date, name style and 🕒 ceremony time are drawn as they will be
+   * after Apply. Never for a file that is saved or printed.
+   */
+  draft: HubDraftEvents | null = null,
 ): Promise<LoadedPrintSet | null> {
   const admin = createAdminClient();
-  const event = await readPrintEvent(admin, eventId);
-  if (!event) return null;
+  const liveEvent = await readPrintEvent(admin, eventId);
+  if (!liveEvent) return null;
+  const event = draft ? overlayHubDraftEvent(liveEvent, { events: draft, widgets: {} }) : liveEvent;
   const theme = printThemeFor(event, opts.previewTheme);
   const look = printLookFor(theme);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
-  const [{ stored, blocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu }, stillRaw, printMark] = await Promise.all([
+  const [{ stored, blocks: liveBlocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu }, stillRaw, printMark] = await Promise.all([
     readPrintSetInputs(admin, eventId, event),
     look.still !== 'none'
       ? heroMayBePageGround(theme, heroGroundNeedsOwnership(theme) ? await printOwnsPro(eventId) : false)
@@ -615,6 +625,12 @@ export async function loadPrintSet(
     printMarkFor(event),
   ]);
   const inc = stored.include;
+  // 🕒 A drafted ceremony time stands where Apply will put it (`blocksWithDraftedCeremony`).
+  const draftDay =
+    typeof event.event_date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(event.event_date) && ((event as { event_date_precision?: unknown }).event_date_precision ?? 'day') === 'day'
+      ? event.event_date.slice(0, 10)
+      : null;
+  const blocks = draft && 'ceremony_time' in draft ? blocksWithDraftedCeremony(liveBlocks, draft.ceremony_time, draftDay) : liveBlocks;
 
   const ceremony = ceremonyBlock(blocks);
   const reception = firstBlockOf(blocks, 'reception');

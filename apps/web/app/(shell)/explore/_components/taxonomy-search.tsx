@@ -6,6 +6,7 @@ import { Search } from 'lucide-react';
 
 import { rankTaxonomyOptions } from '@/lib/taxonomy-search-rank';
 import { formatCount } from '@/lib/format-number';
+import { useOneOpen } from '@/lib/one-open';
 
 export type TaxonomyOption = {
   /** The canonical_service key — written verbatim into `?category=` on select. */
@@ -87,6 +88,7 @@ export function TaxonomySearch({
   const [value, setValue] = useState(initialQuery);
   const [open, setOpen] = useState(false);
   const [activeIdx, setActiveIdx] = useState(0);
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
 
   // Click-outside + ESC close.
   useEffect(() => {

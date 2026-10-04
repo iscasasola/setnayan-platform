@@ -125,6 +125,9 @@ export function RsvpStyledAnswers({
         {options.map((option) => (
           <label
             key={option.key}
+            /* 🔘 Look › Buttons reaches a pill answer through this hook (globals.css).
+               A STAMP is not a button — it keeps its stamp. */
+            data-rsvp-answer={stamp ? undefined : ''}
             className={
               stamp
                 ? 'flex min-h-16 min-w-0 cursor-pointer items-center justify-center break-words rounded-md border-2 border-dashed border-ink/25 px-1 text-center font-sans text-xs font-semibold uppercase leading-tight tracking-[0.04em] text-ink/70 transition-colors has-[:checked]:-rotate-2 has-[:checked]:border-solid has-[:checked]:border-terracotta has-[:checked]:text-terracotta-700'

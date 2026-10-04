@@ -406,11 +406,10 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   ['app/dashboard/[eventId]/launch/_components/maker-details.tsx', /<HubSavesImmediately\s*\/>[\s{}]*<PabuyaMessageEditor\b/, 'the thank-you message is the E-Gifts message, written live'],
   // (The Pro QR left this list on 2026-09-29: Shape · Pattern · Colour are
   // DRAFTED now — owner "yes to all 3" — held by the test below.)
-  // Details part 2a · Your event (2026-09-29): the event's facts — the typed
-  // venue names (saveAllStdContent) and the march's order (the Guest list's own
-  // island) write live. (The names and the date left this list on 2026-10-01:
-  // they are DRAFTED now — owner "wait for apply" — held by the test below.)
-  ['app/dashboard/[eventId]/launch/_components/details-your-event.tsx', /data-details-venues=""[\s\S]*?<SaveRow\b[^>]*\/>[\s{}]*<HubSavesImmediately\b/, 'the venue names write live and must say so'],
+  // Details part 2a · Your event (2026-09-29): the march's order (the Guest
+  // list's own island) writes live. (The names and the date left this list on
+  // 2026-10-01, the venues on 2026-10-04: they are DRAFTED now — owner "wait
+  // for apply" / "venues wait for Apply" — held by the test below.)
   ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-section-controls=\{key\}[^>]*>[\s{}]*<HubSavesImmediately \/>/, 'a march section writes live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-line-controls=[\s\S]*?<HubSavesImmediately \/>[\s{}]*<\/section>/, 'a march line writes live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-people.tsx', /data-people-controls="parent"[^>]*>[\s{}]*<HubSavesImmediately \/>/, "a parent's card writes live and must say so"],
@@ -436,6 +435,9 @@ test('✍ the names and the date are DRAFT doors now — no "Saves immediately" 
     [/data-details-names=""[\s\S]*?<\/section>/, 'the names'],
     [/data-details-one-name=""[\s\S]*?<\/section>/, 'a one-person name'],
     [/data-details-date=""[\s\S]*?<\/section>/, 'the date'],
+    // 📍 The venues and 🕒 the ceremony time (owner 2026-10-04).
+    [/data-details-venues=""[\s\S]*?<\/section>/, 'the venues'],
+    [/data-details-ceremony-time=""[\s\S]*?<\/section>/, 'the ceremony time'],
   ] as const) {
     const block = anchor.exec(editors)?.[0] ?? '';
     assert.ok(block.length > 0, `${what}: its editor is gone`);

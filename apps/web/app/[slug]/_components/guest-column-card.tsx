@@ -11,8 +11,17 @@ import { guestColumnsActive } from '@/lib/guest-columns-gate';
 import { GuestColumnForm } from './guest-column-form';
 
 /**
- * Guest Columns — the Story-section card on the guest (cookie-holding) site
- * (OnTheDay BUILD ① · studies doc § 1.4). Two halves:
+ * Guest Columns — "Write a column", for the guest (cookie-holding) only
+ * (OnTheDay BUILD ① · studies doc § 1.4).
+ *
+ * 📍 WHERE IT RENDERS — two places, one per stage, never anywhere else (owner
+ * 2026-10-04, DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND APPROVED"):
+ *   · The Day → the Camera (`app/papic/guest/page.tsx`, under the camera);
+ *   · Post Event → the Recap (`site-body.tsx`, under the story).
+ * Not on the Invitation's Welcome any more. Pinned by
+ * `app/[slug]/_lib/each-card-renders-in-its-own-tab.test.ts`.
+ *
+ * Two halves:
  *
  *   1. "The Paper" — the approved columns, read fail-closed exactly like the
  *      editorial Kwento canon (status='approved' AND moderation_state='clean'
@@ -35,6 +44,7 @@ export async function GuestColumnCard({
   eventDate,
   eventTz,
   eventEndDate,
+  className,
 }: {
   eventId: string;
   guestId: string;
@@ -44,6 +54,8 @@ export async function GuestColumnCard({
    *  hours before it did at the wedding — or the reverse. */
   eventTz?: string;
   eventEndDate?: string | null;
+  /** Extra classes for the card's own root (the Camera page frames it). */
+  className?: string;
 }) {
   if (!(await guestColumnsActive())) return null;
 
@@ -133,7 +145,7 @@ export async function GuestColumnCard({
        surface on the site, so it drops the card shell entirely — an unnumbered
        eyebrow, a display-face masthead, and columns separated by hairlines with
        mono bylines. Moderation gating and the form below are untouched. */
-    <section className="space-y-4">
+    <section className={className ? `space-y-4 ${className}` : 'space-y-4'}>
       <p className="pahina-eyebrow">
         <span>Guest columns</span>
       </p>

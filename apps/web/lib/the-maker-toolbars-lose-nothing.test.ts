@@ -39,6 +39,7 @@ const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'))
 const HOME = {
   topBar: `${LAUNCH}/maker-shell.tsx`,
   play: `${LAUNCH}/maker-play-menu.tsx`,
+  pageMenu: `${LAUNCH}/maker-bar.ts`,
   draftBar: 'app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx',
   background: `${EDITOR}/scene-background-row.tsx`,
   colour: `${EDITOR}/colour-well.tsx`,
@@ -55,28 +56,37 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   // "What moved where — nothing is lost"): the bar is Exit · Page ▾ · Look ·
   // Details · Undo · Phone · Apply · ⋯, and every other control below is a row
   // of ⋯ — each still has its home, re-pointed here, not dropped.
-  ['✕ Exit', 'topBar', ['data-maker-tool="exit"', '>Exit<']],
-  ['▤ Show / hide the scenes (⋯ › Scenes)', 'topBar', ['data-maker-tool-row="scenes"', '>Scenes<', 'setNavOpen((o) => !o)']],
-  ['▶ Play this scene · Preview the whole stage (⋯)', 'topBar', ['Play this scene', 'MAKER_PLAY_SCENE_EVENT', '<PreviewStageLink']],
+  // → 2026-10-04 (PR-0, owner: ⋯ → 👁 Preview; "apply icon · undo icon · exit
+  // icon"): ⋯'s rows moved to 👁 Preview (how the page is seen) and Page ▾ (the
+  // rest, `makerPageActions`) — re-pointed again, still not dropped.
+  ['✕ Exit (now ‹, a 44 px icon)', 'topBar', ['data-maker-tool="exit"', 'aria-label="Exit"']],
+  ['▤ Show / hide the scenes (👁 Preview › Scenes)', 'topBar', ['data-maker-tool-row="scenes"', '>Scenes<', 'setNavOpen((o) => !o)']],
+  ['▶ Play this scene · Preview the whole stage (👁 Preview)', 'topBar', ['Play this scene', 'MAKER_PLAY_SCENE_EVENT', '<PreviewStageLink']],
   ['…the Preview link itself', 'play', ['Preview the whole']],
   // 2026-09-28 — the ＋ WORKS (DECISION_LOG 2026-09-27 "+ ADD A SCENE"): drawn from
   // the work area's registration ON A STAGE only (owner: *"it should only show on stages."*).
-  ['＋ Add a scene (⋯)', 'topBar', ["stageAdd?.kind === 'ready'", 'Add a scene', 'makerAddShowsOn(selection) ? addScene : null']],
+  ['＋ Add a scene (Page ▾, end of the stage)', 'topBar', ["stageAdd?.kind === 'ready'", 'stageAdd.open()', 'makerAddShowsOn(selection) ? addScene : null']],
+  ['…its row', 'pageMenu', ["label: '＋ Add a scene'"]],
   ['Stage row + "● Invitation ▾" → Page ▾ (the stages and their pages, one picker)', 'topBar', ['label="Page"', 'makerPageMenu({', 'onPick={pickPage}']],
-  // View ▾ (Desktop · Phone · Both) → the bar's Phone button + ⋯'s Both row (1024 px and wider).
-  ['Desktop · Phone · Both', 'topBar', ['data-maker-tool="view"', 'makerViewToggle(shownDevice)', "o.key === 'both'"]],
+  // View ▾ (Desktop · Phone · Both) → 👁 Preview's Phone / Desktop row + its Both row (1024 px and wider).
+  ['Desktop · Phone · Both', 'topBar', ['data-maker-tool-row="view"', 'makerViewToggle(shownDevice)', "o.key === 'both'"]],
   // ⊞ "Snap grid" was a switched-off row carrying only a note (`MAKER_SNAP_NOTE`) —
   // no control. It went with the bar's other explainers (2026-10-02, "no explainer captions").
-  ['ⓘ About the Maker', 'topBar', ['About the Maker', 'setTour(true)']],
-  ['⋯ address, who can view', 'topBar', ['Your Event Hub address', 'Who can view', 'setMoreOpen(true)']],
-  ['View as (Guest · Supplier)', 'topBar', ['See it as…', 'setViewAsRole(r.role)']],
-  ['Reset this stage…', 'topBar', ['Reset this stage…', 'MAKER_OPEN_RESET_EVENT']],
+  ['ⓘ About the Maker (Page ▾ › Your Event Hub)', 'topBar', ["act === 'about'", 'setTour(true)']],
+  ['…its row', 'pageMenu', ["label: 'About the Maker'"]],
+  ['address, who can view (Page ▾ › Your Event Hub)', 'topBar', ['setMoreOpen(true)']],
+  ['…their rows', 'pageMenu', ["label: 'Your Event Hub address'", "label: 'Who can view'"]],
+  ['View as (Guest · Supplier) — 👁 Preview › See it as', 'topBar', ['See it as…', 'setViewAsRole(r.role)']],
+  ['Reset this stage… (Page ▾, end of the stage)', 'topBar', ["act === 'reset'", 'MAKER_OPEN_RESET_EVENT']],
+  ['…its row', 'pageMenu', ["label: 'Reset this stage…'"]],
   ['Reset this stage… (the confirm)', 'draftBar', ['MAKER_OPEN_RESET_EVENT', "intent: 'reset'"]],
   ['Undo · Apply (the slot)', 'topBar', ['{applySlot}']],
-  ['Undo · Apply (the buttons)', 'draftBar', ['label="Undo"', "intent: 'apply'", '{maker?.viewToggle ?? null}']],
-  ['↺ Restore (⋯ › Restore, the draft bar\'s own act)', 'topBar', ['draft.restore()', 'Restore']],
+  ['Undo · Apply (the buttons)', 'draftBar', ['label="Undo"', "intent: 'apply'", '{maker?.previewMenu ?? null}']],
+  ['↺ Restore (Page ▾ › Restore, the draft bar\'s own act)', 'topBar', ['draft.restore()', "act === 'restore'"]],
+  ['…its row', 'pageMenu', ["label: 'Restore what guests see'"]],
   ['↺ Restore (the act, registered)', 'draftBar', ["intent: 'restore'", 'setDraftDoor({\n      canRestore,']],
-  ['Details (now "Event Details") and Prints (⋯) — doors into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL', "pressDoor('prints')"]],
+  ['Details (now "Event Details") and Prints (Page ▾) — doors into the one Details page', 'topBar', ['MAKER_DETAILS_LABEL', "pressDoor('prints')"]],
+  ['…Prints\' row', 'pageMenu', ['label: MAKER_PRINTS_LABEL']],
   ['Look — the Look part of Details', 'topBar', ['MAKER_LOOK_LABEL', 'pressDoor(door)']],
   // ── Scene inspector ──
   ['Background: No background · Full colour · Opaque glass · Frosted glass · Photo · Snippet', 'background', ["'No background'", "'Plain'", "'Opaque'", "'Frosted'", "'Upload media'", "kind: 'snippet'"]],
@@ -87,7 +97,8 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Auto · Shown · Hidden (the mode chips) / the eye', 'scene', ["'shown', 'auto', 'hidden'", 'onEye']],
   ['Move up / Move down', 'scene', ['Move up', 'Move down']],
   ['How it moves — Auto · Still · Calm · Editorial · Cinematic', 'scene', ['HUB_MOTION_PRESETS', 'How it moves']],
-  ['Timing · Comes in · From · Goes out · Toward · Parts', 'scene', ['label="Timing"', 'label="Comes in"', 'label="From"', 'label="Goes out"', 'label="Toward"', 'label="Parts"']],
+  // 🎛 2026-10-04: Comes in / From and Goes out / Toward became the four effects (Fade · Move ▾ arrow grid · Size · Blur), each end with its own Auto.
+  ['Timing · Comes in · Goes out (four effects each, Move from 8 directions) · Parts', 'scene', ['label="Timing"', '<ISection>Comes in</ISection>', '<MotionFxRows end="in"', '<ISection>Goes out</ISection>', '<MotionFxRows end="out"', 'Back to Auto', 'label="Parts"']],
   ['Into the next section — Scroll · Scrub · Auto-scroll + Speed', 'scene', ['Into the next scene', 'HUB_TRANSITIONS', 'HUB_AUTO_SPEEDS']],
   ['Reset how it moves (free)', 'scene', ['Reset how it moves']],
   ['Layout (a scene of their own)', 'scene', ['HUB_ARRANGEMENTS', 'label="Layout"']],
@@ -96,7 +107,8 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Font ▾ (Event Hub font, then the one font dropdown’s shelves)', 'part', ['lead="Event Hub font"', '<FontPick']],
   ['Colour swatches + "+" + "Hard to read here"', 'part', ['<ColourWell', 'Hard to read here']],
   ['Size: S · M · L · XL', 'part', ['label="Size"', 'stepHubElementSize']],
-  ['Motion: Plays once / Follows the scroll · In · During · Out · Duration · Delay', 'part', ['HUB_EL_TIMELINE', 'HUB_EL_IN', 'HUB_EL_DURING_WORDS', 'HUB_EL_OUT', 'HUB_EL_DURATION', 'HUB_EL_DELAY']],
+  // 🎛 2026-10-04: In / Out are four effects + Speed (was Duration), in the order a guest sees it.
+  ['Motion: Comes in (Fade · Move · Size · Blur · Speed · Delay) · During · Goes out · When it plays', 'part', ['<MotionFxRows end="in"', '<MotionSpeedRow', 'HUB_EL_DELAY', 'HUB_EL_DURING_WORDS', '<MotionFxRows end="out"', 'HUB_EL_TIMELINE']],
   ['▶ Play', 'part', ['Preview']],
   ['Resets: font · colour · motion · element', 'part', ['Use the Event Hub style', 'Move with the scene']],
   ['Saved + theme colours', 'colour', ['Theme colours', 'Saved colours', 'Save the current colour']],
@@ -105,7 +117,8 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['The Pro mark on Font ▾ and on Animate', 'part', ['fontMark ?', 'data-part-animate-pro']],
   ['…drawn by the sheet, which reads ownsPro', 'sheet', ['fontMark={fontMark}', 'proMark={animateMark}', '<PaidMark']],
   ['"Whole part / this selection" (a run of letters)', 'sheet', ['data-element-range', 'Whole {HUB_ELEMENT_LABEL', 'Clear this selection']],
-  ['The sheet’s tabs — Text · Animate · Arrange', 'sheet', ['PART_TABS', '<InspectorTabs tabs={tabs}', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
+  // ▣ 2026-10-04 ("segmented control"): the sheet's sections are one segmented control, Text · Motion · Arrange.
+  ['The sheet’s sections — Text · Motion · Arrange', 'sheet', ['PART_TABS', 'data-element-sections', '<ISeg key={t.key} tone="wine"', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
   // ── The wiring: every tab is mounted in the Maker, and #6048's words stay ──
   ['Scene tabs mounted: Format · Animate · Arrange · Content', 'shell', ['<InspectorTabs tabs={tabs}', '<SceneBackgroundRow', '<SceneAnimateTab', '<SceneArrangeTab', '<SceneLayoutRow', '<SceneParts']],
   ['Transition folded into Animate (an old address opens Animate)', 'shell', ["asked === 'transition' ? 'animate' : asked", "tab: 'animate' })"]],
@@ -133,7 +146,7 @@ test('Format · Animate · Arrange are the inspector’s tabs, never the top bar
   const { SCENE_TABS } = await import(`../${EDITOR}/scene-inspector`);
   const { PART_TABS } = await import(`../${EDITOR}/part-inspector`);
   assert.deepEqual((SCENE_TABS as Array<{ label: string }>).map((t) => t.label), ['Format', 'Animate', 'Arrange', 'Content']);
-  assert.deepEqual((PART_TABS as Array<{ label: string }>).map((t) => t.label), ['Text', 'Animate', 'Arrange']);
+  assert.deepEqual((PART_TABS as Array<{ label: string }>).map((t) => t.label), ['Text', 'Motion', 'Arrange']);
   const top = src(HOME.topBar);
   const header = top.slice(top.indexOf('data-maker-toolbar'), top.indexOf('</header>'));
   assert.ok(header.length > 200, 'found the toolbar');

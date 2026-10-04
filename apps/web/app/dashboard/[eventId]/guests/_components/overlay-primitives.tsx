@@ -30,6 +30,7 @@ import {
 import { createPortal } from 'react-dom';
 import { placeMenu } from '@/lib/menu-place';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 /** Portal target = document.body, gated on mount so SSR/first paint match. */
 function usePortal(): HTMLElement | null {
@@ -144,6 +145,10 @@ export function Popover({
   const ref = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
   useModalA11y({ open: true, onClose, containerRef: ref, lockScroll: false });
+  // One open at a time (lib/one-open.ts): mounted only while open, so mounting IS
+  // opening — it closes any other open dropdown/menu/fold; a picker inside it is
+  // its child (the scope below) and leaves it open.
+  const oneOpenId = useOneOpen(true, onClose, true);
 
   // Measure after layout so `ref` height is known for the flip-up clamp.
   useLayoutEffect(() => {
@@ -188,7 +193,7 @@ export function Popover({
           visibility: pos ? 'visible' : 'hidden',
         }}
       >
-        {children}
+        <OneOpenScope id={oneOpenId}>{children}</OneOpenScope>
       </div>
     </>,
     portal,

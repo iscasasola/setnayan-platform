@@ -18,6 +18,7 @@
  */
 import { headers, cookies } from 'next/headers';
 import { isStoreShellSignals, STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store-shell';
+import { classifyShell, oauthGate, type ClientShell, type OAuthFlags, type OAuthGate } from '@/lib/oauth-shell-gate';
 
 export type RequestPlatform = 'web' | 'ios' | 'android';
 
@@ -30,8 +31,10 @@ export function isRequestPlatform(v: unknown): v is RequestPlatform {
 /**
  * Coarser shell bucket for auth-UI decisions: 'desktop' (Tauri), 'mobile'
  * (Capacitor) or 'web'. OAuth handling differs by shell — desktop gets
- * system-browser loopback OAuth, mobile is email-only (for now), web gets the
- * normal redirect.
+ * system-browser loopback OAuth, the phone app gets the NATIVE flow (Apple
+ * sheet + Google in the system browser) when its build carries the plugin, web
+ * gets the normal redirect. The rule itself lives in lib/oauth-shell-gate.ts so
+ * the browser-side mirror runs the same function.
  *
  * 'desktop' requires the `SetnayanApp/desktop` UA marker that only the REBUILT
  * desktop app carries (added alongside loopback support). A current Tauri app
@@ -39,22 +42,37 @@ export function isRequestPlatform(v: unknown): v is RequestPlatform {
  * so its non-functional OAuth buttons stay hidden until it updates — never a
  * dead-end. Safe outside a request scope → 'web'.
  */
-export type ClientShell = 'web' | 'desktop' | 'mobile';
+export type { ClientShell } from '@/lib/oauth-shell-gate';
 
-export async function getClientShell(): Promise<ClientShell> {
-  let ua = '';
-  let clientType = '';
+async function readShellSignals(): Promise<{ ua: string; clientType: string } | null> {
   try {
     const h = await headers();
-    ua = h.get('user-agent') ?? '';
     const c = await cookies();
-    clientType = c.get('setnayan-client-type')?.value ?? '';
+    return {
+      ua: h.get('user-agent') ?? '',
+      clientType: c.get('setnayan-client-type')?.value ?? '',
+    };
   } catch {
-    return 'web';
+    return null;
   }
-  if (/SetnayanApp\/desktop/i.test(ua)) return 'desktop';
-  if (/SetnayanApp/i.test(ua) || clientType === 'capacitor' || clientType === 'tauri') return 'mobile';
-  return 'web';
+}
+
+export async function getClientShell(): Promise<ClientShell> {
+  const s = await readShellSignals();
+  if (!s) return 'web';
+  return classifyShell(s.ua, s.clientType);
+}
+
+/**
+ * Which Google / Apple buttons this request sees — `show`, and which flow
+ * (`desktop` loopback · `native` phone-app · otherwise the web redirect).
+ * Pass OAUTH_FLAGS (app/_components/oauth-button-row). Safe outside a request
+ * scope → the web gate.
+ */
+export async function getOAuthGate(flags: OAuthFlags): Promise<OAuthGate> {
+  const s = await readShellSignals();
+  if (!s) return oauthGate('web', '', flags);
+  return oauthGate(classifyShell(s.ua, s.clientType), s.ua, flags);
 }
 
 export async function getRequestPlatform(): Promise<RequestPlatform> {

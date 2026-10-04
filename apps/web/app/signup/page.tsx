@@ -50,9 +50,10 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { ANY_OAUTH_ENABLED, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
+import { OAUTH_FLAGS, OAuthButtonRow, SIGNUP_OAUTH_VERB } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
-import { getClientShell } from '@/lib/request-platform';
+import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
+import { getOAuthGate } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
@@ -131,12 +132,14 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
     }
   }
 
-  // OAuth visibility by shell (mirrors /login): web + desktop show the buttons;
-  // mobile / embedded WebViews stay email-only because Google refuses OAuth
-  // there. Desktop gets the loopback variant, web the server-action row.
-  const shell = await getClientShell();
-  const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
-  const desktopOAuth = showOAuth && shell === 'desktop';
+  // OAuth visibility by shell (mirrors /login — lib/oauth-shell-gate.ts): web +
+  // desktop show the buttons; the phone app only in a build with the native
+  // flow (Google refuses the embedded web view). Desktop gets the loopback
+  // variant, the phone app the native one, web the server-action row.
+  const gate = await getOAuthGate(OAUTH_FLAGS);
+  const showOAuth = gate.show;
+  const desktopOAuth = gate.desktop;
+  const nativeOAuth = gate.native;
   const prefilledEmail = typeof params.prefill_email === 'string' ? params.prefill_email : '';
   const refParam = params.ref === 'guest' ? 'guest' : '';
   const srcEvent = refParam === 'guest' && typeof params.src_event === 'string' ? params.src_event : '';
@@ -210,6 +213,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             <div className="hr-si-oauth">
               {desktopOAuth ? (
                 <DesktopOAuthButtons next={next} verb={SIGNUP_OAUTH_VERB} />
+              ) : nativeOAuth ? (
+                <NativeOAuthButtons next={next} verb={SIGNUP_OAUTH_VERB} accountType={accountType} />
               ) : (
                 <OAuthButtonRow next={next} withAccountType defaultAccountType={accountType} verb={SIGNUP_OAUTH_VERB} />
               )}

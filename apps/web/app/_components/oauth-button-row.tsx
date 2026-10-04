@@ -163,6 +163,9 @@ const FACEBOOK_ENABLED =
  */
 export const ANY_OAUTH_ENABLED = GOOGLE_ENABLED || APPLE_ENABLED || FACEBOOK_ENABLED;
 
+/** The flags the shell gate reads (lib/oauth-shell-gate.ts `oauthGate`). */
+export const OAUTH_FLAGS = { any: ANY_OAUTH_ENABLED, apple: APPLE_ENABLED } as const;
+
 export function OAuthButtonRow({
   next,
   withAccountType = false,

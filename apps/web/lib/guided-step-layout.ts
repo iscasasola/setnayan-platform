@@ -26,6 +26,8 @@
  * could not show it being made:
  *   · Your logo  → the logo itself, as it is drawn (no editor guide lines);
  *   · Seat plan  → the floor plan the guests are seated on;
+ *   · Schedule (and the guests' arrival) → the day's rail, where a moment is
+ *     picked, dragged and resized — the page shows the day, not the rail;
  *   · Cover photo → the cover photo itself (the page lays the invitation card
  *     over it); the page when there is no photo yet.
  *
@@ -51,7 +53,7 @@ export type GuidedStepBody =
   | { kind: 'cover'; phase: LifecyclePhase };
 
 /** Steps whose subject exists only in its own tool (see the docblock). */
-export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan'];
+export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan', 'schedule', 'arrive'];
 
 /**
  * Where on the stage's page each step's part sits — the section ids every
@@ -61,8 +63,6 @@ export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan'];
 const STEP_ANCHOR: Partial<Record<GuidedStepKey, string>> = {
   'love-story': '#site-story',
   venues: '#site-details',
-  schedule: '#site-details',
-  arrive: '#site-details',
   parents: '#site-entourage',
   march: '#site-entourage',
 };

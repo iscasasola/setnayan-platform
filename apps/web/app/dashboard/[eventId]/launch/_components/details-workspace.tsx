@@ -640,6 +640,20 @@ export function DetailsWorkspace({
           >
             {/* ONE layout for every step (`lib/guided-step-layout.ts`): the header row
                 above, then the step's field, then its foot — no rows between. */}
+            {/* 🧩 A step on a whole item that has sections (the Schedule's moments, the
+                parents and hosts, the march's lines): ONE dropdown of them, the
+                first line of the field — the same `SheetSections` All items wears. */}
+            {at?.kind === 'step' && stepHere && !stepHere.piece && pieces[selected] ? (
+              <div className="flex shrink-0 px-4 pt-1 lg:hidden" data-details-step-sections="">
+                <SheetSections
+                  items={[]}
+                  selected={selected}
+                  onPick={select}
+                  pieces={pieces[selected] ?? null}
+                  current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? null}
+                />
+              </div>
+            ) : null}
             {/* Every step's field is IN its sheet — the Logo's answer included (owner 2026-10-05). */}
             {editorsBody(false)}
             {at?.kind === 'step' ? (

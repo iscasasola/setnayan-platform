@@ -45,7 +45,7 @@ function plan() {
   return { nav, plan: buildGuidedPlan(nav as GuidedItem[], { solemn: false, parentsOffered: true }) };
 }
 
-async function paintStep(step: GuidedStepKey, round: string, item: string): Promise<string> {
+async function paintStep(step: GuidedStepKey, round: string, item: string, pieces: Record<string, React.ReactNode> = {}): Promise<string> {
   const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
   const { nav, plan: p } = plan();
   return renderSettled(
@@ -54,6 +54,7 @@ async function paintStep(step: GuidedStepKey, round: string, item: string): Prom
       bodies: Object.fromEntries(ITEMS.map((k) => [k, React.createElement('i', { 'data-stub-body': k })])),
       editors: Object.fromEntries(ITEMS.map((k) => [k, React.createElement('i', { 'data-stub-editor': k })])),
       initial: item,
+      pieces,
       guide: { plan: p, open: true, entry: { kind: 'step', step, round }, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' } },
     }),
   );
@@ -182,6 +183,8 @@ const STEP_EDITORS: ReadonlyArray<[file: string, saves: number, submits: number,
   [`${L}/special-message-field.tsx`, 1, 1, '"Save message" is the no-Maker form only (`eventId` absent); in the Maker it saves as typed'],
   [`${L}/maker-made-once.tsx`, 0, 1, 'the one submit is "Use the invitation card instead" — an action, not a Save; the photo drafts itself'],
   ['app/dashboard/[eventId]/studio/mood-board/_components/dress-code-lists-form.tsx', 1, 1, 'the studio page’s own Save; in the Maker the lists draft when a row is left'],
+  ['app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx', 0, 0, 'Schedule: every moment field saves as it is made'],
+  [`${L}/details-tool-pieces.tsx`, 0, 0, 'Schedule: the inspector and Announce slots'],
   ['app/dashboard/[eventId]/details/_components/governed-fields.tsx', 0, 0, 'the record page’s "Check & save" only — an embedded step hides it (autoRow)'],
 ];
 
@@ -217,4 +220,18 @@ test('(6) the logo step: "Do you want a logo?" is in its sheet; the logo shows w
   const logo = read(`${L}/maker-logo.tsx`);
   assert.match(logo, /data-logo-guides=""\s*className="group-data-\[details-mode=guided\]\/ws:hidden"/, 'the editor guide lines show in the flow');
   assert.match(logo, /max-lg:group-data-\[details-mode=guided\]\/ws:max-w-\[min\(100%,calc\(55dvh-8rem\)\)\]/, 'the logo is not fitted above the sheet');
+});
+
+/* ── (7) the Schedule step: the rail behind, one sections ▾, no row of its own ── */
+
+test('(7) the Schedule step: its rail behind the sheet, its moments in ONE dropdown, the inspector without a header or a status line of its own', async () => {
+  const html = await paintStep('schedule', 'rsvp', 'schedule', { schedule: React.createElement('i', { 'data-stub-piece': 'moments' }) });
+  assert.doesNotMatch(html, /data-guided-step-preview=/, 'the page covers the rail the moments are picked on');
+  const sheet = sheetOf(html);
+  assert.match(sheet, /data-details-step-sections=""[\s\S]*data-sheet-sections=""/, 'the step has no way to pick a moment');
+  for (const key of ['schedule', 'arrive'] as const) assert.equal(guidedStepBody(key, 'rsvp').kind, 'own', key);
+  const insp = read('app/dashboard/[eventId]/schedule/_components/moment-inspector.tsx');
+  assert.match(insp, /group-data-\[details-mode=guided\]\/ws:hidden" data-moment-head=""/, 'the inspector’s own header row shows in the step');
+  assert.match(insp, /save === 'error' \? '' : 'group-data-\[details-mode=guided\]\/ws:hidden'/, 'the inspector’s status line shows in the step');
+  assert.doesNotMatch(read(`${L}/details-tool-pieces.tsx`), /<p className/, 'a caption came back under Announce');
 });

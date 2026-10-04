@@ -25,6 +25,7 @@ import { nearestColorName } from '@/lib/color-names';
 import { searchColorNames } from '@/lib/color-search';
 import type { PaletteKey } from '@/lib/mood-board';
 import { usePaletteBoard } from './palette-board-context';
+import { useOneOpen } from '@/lib/one-open';
 
 type Props = {
   paletteKey: PaletteKey;
@@ -54,6 +55,7 @@ export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, remo
   const board = usePaletteBoard();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
 
   const name = nearestColorName(hex) ?? hex.toUpperCase();
   const results = query.trim() ? searchColorNames(query) : null;

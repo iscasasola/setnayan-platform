@@ -78,6 +78,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
 import { ViewAsFreeKeeper, ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -933,6 +934,7 @@ export function ShutDoor({
 }) {
   const [open, setOpen] = useState(false);
   const [at, setAt] = useState<{ top: number; left: number; width: number } | null>(null);
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
   const ref = useRef<HTMLSpanElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   /* Placed against the VIEWPORT, not the button's box: a bar that wraps or
@@ -1009,6 +1011,7 @@ function ToolMenu({
   const ref = useRef<HTMLSpanElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const close = useCallback(() => setOpen(false), []);
+  const oneOpenId = useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
   useEffect(() => {
     if (!open) return;
     const onDown = (e: PointerEvent) => {
@@ -1055,7 +1058,7 @@ function ToolMenu({
           style={{ position: 'fixed', top: at.top, left: at.left, width: Math.min(260, typeof window === 'undefined' ? 260 : window.innerWidth - 16) }}
           className="z-50 flex max-h-[70dvh] flex-col overflow-y-auto rounded-xl bg-white p-1 ring-1 ring-ink/10 shadow-[0_24px_48px_-20px_rgba(30,26,18,.45)]"
         >
-          {children(close)}
+          <OneOpenScope id={oneOpenId}>{children(close)}</OneOpenScope>
         </span>
       ) : null}
     </span>

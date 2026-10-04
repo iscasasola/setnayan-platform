@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
 
 import { Collapsible } from '../../_components/collapsible';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 /**
  * "Your services" — the top-level disclosure that hosts the whole Services
@@ -23,6 +24,9 @@ export function ServicesDisclosure({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // One open at a time (lib/one-open.ts): another dropdown, menu or fold opening
+  // folds this away; one opening INSIDE it (the scope below) leaves it open.
+  const oneOpenId = useOneOpen(open, setOpen);
   return (
     <section className="space-y-3">
       <button
@@ -51,7 +55,9 @@ export function ServicesDisclosure({
         />
       </button>
       <Collapsible open={open}>
-        <div className="pt-1">{children}</div>
+        <div className="pt-1">
+          <OneOpenScope id={oneOpenId}>{children}</OneOpenScope>
+        </div>
       </Collapsible>
     </section>
   );

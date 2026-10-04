@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Ban, ExternalLink, Flag, MoreVertical, RotateCcw, X } from 'lucide-react';
 import { blockUser, reportUser, unblockUser } from '@/lib/chat-actions';
+import { useOneOpen } from '@/lib/one-open';
 
 // Apple Guideline 1.2 (UGC safety): an in-app way to REPORT abusive content and
 // BLOCK the other person, reachable from every chat thread. Report files a
@@ -38,6 +39,7 @@ export function ChatThreadMenu({
 }) {
   const [open, setOpen] = useState(false);
   const [showReport, setShowReport] = useState(false);
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
 
   const close = () => {
     setOpen(false);

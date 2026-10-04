@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { AlertTriangle, Check, ChevronDown, Loader2, type LucideIcon } from 'lucide-react';
 import { formatCount } from '@/lib/format-number';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
 
@@ -171,53 +172,58 @@ export function BarMenu({
     setOpen(v);
     onOpenChange?.(v);
   };
+  // One open at a time (lib/one-open.ts): another menu opening closes this one;
+  // anything that opens INSIDE it is its child and leaves it open.
+  const oneOpenId = useOneOpen(open, set);
   return (
-    <div className="relative shrink-0">
-      <button
-        type="button"
-        onClick={() => set(!open)}
-        onMouseEnter={onHover}
-        disabled={disabled}
-        title={title}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 text-xs font-medium text-ink transition-colors hover:border-terracotta disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
-        <span className="whitespace-nowrap">{label}</span>
-        <ChevronDown className="h-3 w-3 text-ink/40" />
-        {stateBadge ? (
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-cream bg-terracotta" />
+    <OneOpenScope id={oneOpenId}>
+      <div className="relative shrink-0">
+        <button
+          type="button"
+          onClick={() => set(!open)}
+          onMouseEnter={onHover}
+          disabled={disabled}
+          title={title}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          className="relative inline-flex h-9 items-center gap-1.5 rounded-lg border border-ink/15 bg-cream px-3 text-xs font-medium text-ink transition-colors hover:border-terracotta disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Icon className="h-3.5 w-3.5" strokeWidth={1.75} />
+          <span className="whitespace-nowrap">{label}</span>
+          <ChevronDown className="h-3 w-3 text-ink/40" />
+          {stateBadge ? (
+            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full border border-cream bg-terracotta" />
+          ) : null}
+        </button>
+        {open ? (
+          <>
+            <button
+              type="button"
+              aria-hidden
+              tabIndex={-1}
+              onClick={() => set(false)}
+              className="fixed inset-0 z-30 cursor-default"
+            />
+            <div
+              role="menu"
+              // Verdict §5.1 — close ONLY on a leaf action (an element flagged
+              // `data-close`, e.g. MenuRow). Steppers, radios, checkboxes and text
+              // inputs inside the body carry no `data-close`, so a click on them
+              // keeps the menu open (Arrange's walkway stepper, the Share menu's
+              // photo-visibility radios). Fixes the container-level close bug.
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('[data-close]')) set(false);
+              }}
+              className={`absolute ${
+                align === 'right' ? 'right-0' : 'left-0'
+              } z-40 mt-1 ${width} max-h-[60dvh] overflow-y-auto overscroll-contain rounded-xl border border-ink/10 bg-cream p-1 shadow-lg`}
+            >
+              {children}
+            </div>
+          </>
         ) : null}
-      </button>
-      {open ? (
-        <>
-          <button
-            type="button"
-            aria-hidden
-            tabIndex={-1}
-            onClick={() => set(false)}
-            className="fixed inset-0 z-30 cursor-default"
-          />
-          <div
-            role="menu"
-            // Verdict §5.1 — close ONLY on a leaf action (an element flagged
-            // `data-close`, e.g. MenuRow). Steppers, radios, checkboxes and text
-            // inputs inside the body carry no `data-close`, so a click on them
-            // keeps the menu open (Arrange's walkway stepper, the Share menu's
-            // photo-visibility radios). Fixes the container-level close bug.
-            onClick={(e) => {
-              if ((e.target as HTMLElement).closest('[data-close]')) set(false);
-            }}
-            className={`absolute ${
-              align === 'right' ? 'right-0' : 'left-0'
-            } z-40 mt-1 ${width} max-h-[60dvh] overflow-y-auto overscroll-contain rounded-xl border border-ink/10 bg-cream p-1 shadow-lg`}
-          >
-            {children}
-          </div>
-        </>
-      ) : null}
-    </div>
+      </div>
+    </OneOpenScope>
   );
 }
 

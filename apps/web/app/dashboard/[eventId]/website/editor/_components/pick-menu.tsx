@@ -7,7 +7,7 @@ import { useOneOpen } from '@/lib/one-open';
 import { fontRowClass, groupHeadClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
-/** ONE COMPACT PICKER — its design notes and types: `pick-menu-types.ts`. */
+/** Notes + types: `pick-menu-types.ts`. */
 export type { PickOption, PickMenuProps } from './pick-menu-types';
 
 export function PickMenu({
@@ -23,8 +23,6 @@ export function PickMenu({
   stickyGroups = false,
 }: PickMenuProps) {
   const [open, setOpen] = useState(false);
-  // ONE OPEN AT A TIME (owner 2026-10-04): opening this list — by tap OR keyboard —
-  // closes every other open dropdown, menu, popover or fold. `lib/one-open.ts`.
   useOneOpen(open, setOpen);
   const [at, setAt] = useState<PickListPlacement | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);

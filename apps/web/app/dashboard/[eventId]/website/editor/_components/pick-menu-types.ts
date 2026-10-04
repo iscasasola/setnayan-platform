@@ -20,6 +20,7 @@ import type { ReactNode } from 'react';
  * · Placed BEFORE paint, twice: first from the button alone (the list is not mounted yet), then with the list's real height, which may flip it above the button. `place` keeps the same object when nothing moved, so this settles after one extra pass. …and focus moves into the list the first time it is actually mounted (on a first open the list only exists after the placement pass, so a focus call in the `[open]` effect below found nothing — measured in the browser).
  * · The CURRENT option first — a selector list would return whichever comes first in the document, i.e. always the top option.
  * · A FONT ROW (`fontFamily`) is `content-visibility: auto`: a face is fetched when text is laid out in it, and that skips laying out a row that is off the list's screen — so a font row's face downloads only once it scrolls into view.
+ * · ONE OPEN AT A TIME (owner 2026-10-04, "when a dropdown opens, the other dropdown collapses"): `useOneOpen(open, setOpen)` — opening this list, by tap OR keyboard, closes every other open dropdown, menu, popover or fold (`lib/one-open.ts`). It is a leaf: nothing inside the list can open, so it needs no `OneOpenScope`.
  * · A labelled GROUP (owner 2026-09-27, the compact Maker bar: "combine them in 1 dropdown" — Stages and Pages in one list). The heading is not an option: no button, so the arrow keys and the first-focus query pass over it; the group is announced by its aria-label, the visible word is aria-hidden.
  */
 

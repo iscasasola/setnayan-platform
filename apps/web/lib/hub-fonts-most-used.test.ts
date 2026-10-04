@@ -9,7 +9,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { HUB_FONT_BY_KEY, HUB_FONTS_MOST_USED } from './hub-fonts';
+import { HUB_FONT_BY_KEY, HUB_FONTS, HUB_FONTS_MOST_USED } from './hub-fonts';
 import {
   MOST_USED_OWNER_TIE_ORDER,
   countHubFontUse,
@@ -77,19 +77,21 @@ test('🔑 the owner tie order names only offered faces, each once, and is reach
 });
 
 test('🔑 theme count breaks a slot tie — a fixture, so the rule is proven, not today\'s data', () => {
-  // Jost fills two slots of ONE theme; Cardo one slot in each of TWO themes.
-  // Equal slots (2 = 2); Cardo is in more themes, so Cardo ranks first —
-  // although Jost sits earlier in HUB_FONTS.
+  // Jost fills two slots of ONE theme; Poppins one slot in each of TWO themes.
+  // Equal slots (2 = 2); Poppins is in more themes, so Poppins ranks first —
+  // although Jost sits EARLIER in HUB_FONTS (so list order alone would put Jost first).
   const fixture = [
     { fonts: { heading: 'Fraunces', body: 'Jost', labels: 'Jost', script: null } },
-    { fonts: { heading: 'Cardo', body: 'Fraunces', labels: 'Fraunces', script: null } },
-    { fonts: { heading: 'Cardo', body: 'Fraunces', labels: 'Fraunces', script: null } },
+    { fonts: { heading: 'Poppins', body: 'Fraunces', labels: 'Fraunces', script: null } },
+    { fonts: { heading: 'Poppins', body: 'Fraunces', labels: 'Fraunces', script: null } },
   ];
+  const listed = HUB_FONTS.map((f) => f.key);
+  assert.ok(listed.indexOf('jost') < listed.indexOf('poppins'), 'precondition: list order alone would rank Jost first');
   const themesOf = countThemesUsingFace(fixture);
   assert.equal(themesOf.get('Jost'), 1);
-  assert.equal(themesOf.get('Cardo'), 2);
+  assert.equal(themesOf.get('Poppins'), 2);
   assert.equal(themesOf.get('Fraunces'), 3, 'a theme counts once however many slots it fills');
-  assert.deepEqual(mostUsedHubFontKeys(3, fixture), ['fraunces', 'cardo', 'jost']);
+  assert.deepEqual(mostUsedHubFontKeys(3, fixture), ['fraunces', 'poppins', 'jost']);
   // And a tie the counts leave goes to the owner's order, not the list's:
   // Lora is listed AFTER Jost in HUB_FONTS, yet leads it here.
   const tie = [

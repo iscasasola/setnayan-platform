@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "88809933be",
-  "routeCount": 425,
-  "destinations": 946,
+  "generatedFromRef": "6b462f5ff6",
+  "routeCount": 426,
+  "destinations": 948,
   "actions": 669,
-  "blocks": 5487,
+  "blocks": 5500,
   "routes": {
     "/": {
       "files": [
@@ -9484,6 +9484,31 @@
         "MakerLookPages",
         "MakerState",
         "Stand"
+      ]
+    },
+    "/dev/guests-lab": {
+      "files": [
+        "dev/guests-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/guests-lab",
+        "/dev/guests-lab?part=notices"
+      ],
+      "actions": [],
+      "blocks": [
+        "AddDoors",
+        "AddGuestSheet",
+        "BottomDock",
+        "DockStandIn",
+        "GuestCardBody",
+        "GuestRow",
+        "GuestsPhoneMenu",
+        "GuestsViewSwitcher",
+        "HomePillNav",
+        "NotificationsList",
+        "OpenAddGuestButton",
+        "RosterSort",
+        "RosterTabs"
       ]
     },
     "/dev/hero-lab": {

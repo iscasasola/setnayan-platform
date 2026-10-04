@@ -175,11 +175,13 @@ export async function exchangeReentryCode(
    so every render that day names the SAME code, and the row behind it is
    written once:
 
-     · `readTileReentryCode` — READ ONLY (the page's metadata): the first of the
-       day's candidates that is not yet spent;
-     · `ensureTileReentryCode` — the page BODY: that same code, its row written
-       if it is not there yet (a concurrent twin's duplicate key is the same
-       row, not a failure).
+     · `readTileReentryCode` — READ ONLY: the first of the day's candidates
+       that is not yet spent (and whether its row is stored);
+     · `ensureTileReentryCode` — that same code, its row written if it is not
+       there yet (a concurrent twin's duplicate key is the same row, not a
+       failure) — and NULL unless the row is stored, so a code whose write
+       failed is never named (the tile would start at a dead exchange). The
+       thank-you's metadata and body share ONE call per request.
 
    `n` exists only so a tile already made today (its code SPENT) does not leave
    a second tile, added the same day, without a code: at most

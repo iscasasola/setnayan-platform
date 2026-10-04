@@ -151,6 +151,11 @@ const UA = {
   whatsappPreview: 'WhatsApp/2.23.20.0 A',
   metaAgent: 'meta-externalagent/1.1 (+https://developers.facebook.com/docs/sharing/webmasters/crawler)',
   telegram: 'TelegramBot (like TwitterBot)',
+  // Published fetcher strings (sources in lib/guest-pass-hop.ts beside LINK_PREVIEW_FETCHER).
+  viberPreview: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) QtWebEngine/5.6.0 Chrome/45.0.2454.101 Safari/537.36 Viber',
+  viberBot: 'Mozilla/5.0 (compatible; ViberBot/1.0; +https://developers.viber.com)',
+  linePreview: 'facebookexternalhit/1.1;line-poker/1.0',
+  signalPreview: 'WhatsApp/2',
   // People — every one of these must be redirected to the redeem as before.
   messengerIos: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/22A3354 [FBAN/MessengerForiOS;FBAV/480.0.0.40.109;FBBV/1;FBDV/iPhone15,2;FBMD/iPhone;FBSN/iOS;FBSV/18.0;FBSS/3;FBID/phone;FBLC/en_US;FBOP/5]',
   messengerAndroid: 'Mozilla/5.0 (Linux; Android 14; SM-S918B Build/UP1A; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/129.0.6668.81 Mobile Safari/537.36 [FB_IAB/Orca-Android;FBAV/480.0.0.40.109;]',
@@ -171,12 +176,16 @@ const VISITS: Array<[string, string, boolean]> = [
   ['WhatsApp draws the card', UA.whatsappPreview, true],
   ['Meta\'s newer fetcher', UA.metaAgent, true],
   ['Telegram draws the card', UA.telegram, true],
+  ['Viber draws the card', UA.viberPreview, true],
+  ['Viber\'s bot', UA.viberBot, true],
+  ['LINE draws the card', UA.linePreview, true],
+  ['Signal draws the card', UA.signalPreview, true],
   ['first visit — the guest taps the link in Messenger (iPhone)', UA.messengerIos, false],
   ['first visit — Messenger on Android', UA.messengerAndroid, false],
   ['first visit — the Facebook app', UA.facebookIos, false],
   ['first visit — Instagram DM', UA.instagram, false],
   ['first visit — Line', UA.line, false],
-  ['first visit — Viber', UA.viber, false],
+  ['first visit — Viber (its in-app browser, a PERSON)', UA.viber, false],
   ['second visit in Safari (service worker installed)', UA.safari, false],
   ['the home-screen tile', UA.homeScreenTile, false],
   ['Chrome on Android', UA.chromeAndroid, false],
@@ -312,7 +321,7 @@ async function redeemAs(userAgent: string, query: string) {
 }
 
 test('9 · a link-preview fetcher on a `?k=` (or a token) is answered in place — no code spent, no cookie, no redirect', async () => {
-  for (const ua of [UA.facebookCrawler, UA.iMessagePreview, UA.whatsappPreview, UA.telegram]) {
+  for (const ua of [UA.facebookCrawler, UA.iMessagePreview, UA.whatsappPreview, UA.telegram, UA.viberPreview, UA.linePreview, UA.signalPreview]) {
     for (const query of [`slug=maria-and-jose&k=${SECRET_CODE}&to=landing`, `slug=maria-and-jose&k=${SECRET_CODE}&to=hub`, `slug=maria-and-jose&token=${SECRET_TOKEN}`]) {
       const { res, calls } = await redeemAs(ua, query);
       assert.ok(res, `${uaFamily(ua)} ${query}: the route threw`);

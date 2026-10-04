@@ -658,9 +658,11 @@ export async function hubDraftAction(
       const shifted = await moveScheduleWithDate({ supabase, eventId, fromDay: priorDay, toDay: nextDay });
       if (!shifted.ok) {
         console.error('[hub-draft] the schedule did not follow the date:', shifted.error);
-        // Said as it is: the date IS live now and NO block moved (all or
-        // nothing), so Apply again would not move it — the Schedule can.
-        return { ok: false, intent, error: 'Your new date is live, but your Schedule stayed on the old day. Open your Schedule to move it.' };
+        // Said as it is: NO block moved (all or nothing), so Apply again would
+        // not move it — the Schedule can. `stale`: the date changed again meanwhile.
+        return shifted.error === 'stale'
+          ? { ok: false, intent, error: 'Your date changed again while this was applying. Open your Schedule to check its times.' }
+          : { ok: false, intent, error: 'Your new date is live, but your Schedule stayed on the old day. Open your Schedule to move it.' };
       }
     }
 

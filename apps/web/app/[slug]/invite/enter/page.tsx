@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -48,7 +49,7 @@ import {
   type PassHopHeld,
   type PassHopMissRule,
 } from '@/lib/guest-pass-hop';
-import { ensureTileReentryCode, mintReentryCode, readTileReentryCode } from '@/lib/guest-reentry.server';
+import { ensureTileReentryCode, mintReentryCode } from '@/lib/guest-reentry.server';
 import { GUEST_SESSION_COOKIE_NAME, readGuestSession } from '@/lib/guest-session';
 import { isInAppWebview } from '@/lib/guest-one-path';
 import { recordFault } from '@/lib/telemetry/fault-log';
@@ -118,10 +119,13 @@ export async function generateMetadata({ params, searchParams }: Props) {
  * (lib/guest-reentry.server.ts). Never the pass token, never an account.
  * Anyone else — no key, not attending — gets the plain manifest.
  *
- * 🔁 ONE CODE PER GUEST PER DAY, AND THE METADATA NEVER WRITES (2026-10-04,
- * train-g audit: a code was minted on EVERY render). The code is the day's
- * derived one (`readTileReentryCode`, READ ONLY here); its row is written once
- * by the page body (`ensureTileReentryCode`, at the thank-you's ShortcutLine).
+ * 🔁 ONE CODE PER GUEST PER DAY (2026-10-04, train-g audit: a code was minted
+ * on EVERY render). The code is the day's derived one, and its row is written
+ * at most ONCE a day (`ensureTileReentryCode`). 🔒 A code is named only once
+ * its row is STORED (train-g review): a code whose write failed would start the
+ * tile at a dead exchange — a stranger again — so a failed write names none.
+ * The metadata and the page body share ONE call per request (`tileCodeOnce`),
+ * so whichever runs first writes the row and both name the same answer.
  */
 async function tileReentryCodeFor(eventId: string): Promise<string | null> {
   const session = await readGuestSessionForEvent(eventId).catch(() => null);
@@ -134,8 +138,11 @@ async function tileReentryCodeFor(eventId: string): Promise<string | null> {
     .is('deleted_at', null)
     .maybeSingle();
   if (landingReplyOf(row?.rsvp_status as string | null | undefined) !== 'yes') return null;
-  return readTileReentryCode({ eventId, guestId: session.guest_id });
+  return tileCodeOnce(eventId, session.guest_id);
 }
+
+/** Today's STORED tile code (or null), once per request — React's `cache`. */
+const tileCodeOnce = cache((eventId: string, guestId: string) => ensureTileReentryCode({ eventId, guestId }));
 
 /**
  * 🤖 A LINK-PREVIEW FETCHER CARRYING `?k=` (a chat app previewing a pasted
@@ -466,11 +473,11 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      full after, none after a No) · How to use it · Open the invitation.
      Every rule is lib/guest-landing.ts, executed by its test. */
   const reply = landingReplyOf(status);
-  /* 📲 The tile's code for today — the SAME one the metadata named (read only
-     there), its row written here, once a day (`ensureTileReentryCode`). Only
-     after a Yes, where the ShortcutLine is offered; never on the Maker canvas. */
+  /* 📲 The tile's code for today — the SAME call the metadata makes
+     (`tileCodeOnce`), so its row is stored before the page is done. Only after
+     a Yes, where the ShortcutLine is offered; never on the Maker canvas. */
   if (!canvas && reply === 'yes') {
-    await ensureTileReentryCode({ eventId: event.event_id as string, guestId: guest.guest_id as string });
+    await tileCodeOnce(event.event_id as string, guest.guest_id as string);
   }
   const ticket = landingTicketOf({ reply, eligibility: passCard, isPlusOne: Boolean(guest.plus_one_of_guest_id) });
   const seatDay = ticketShowsTable({

@@ -137,29 +137,40 @@ export async function placeCeremonyBlock({
 /**
  * 📅 THE WHOLE SCHEDULE FOLLOWS THE DATE (owner 2026-10-04, DECISION_LOG
  * "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE", verbatim: *"Yes if
- * possible"*). When Apply moves the event from `fromDay` to `toDay`, EVERY
- * block of the event's Schedule — every type, parents and their parts alike —
- * moves by the same number of days, each keeping its own wall-clock time.
- * Order, lengths and nesting are therefore unchanged.
+ * possible"*). When Apply moves the event to `toDay`, EVERY block of the
+ * event's Schedule — every type, parents and their parts alike, the
+ * coordinator's own prep too — moves by the same number of days, each keeping
+ * its own wall-clock time. Order, lengths and nesting are therefore unchanged.
  *
- * 🔒 ALL OR NOTHING, AND ONCE (2026-10-04, the train-g audit). This used to be
- * one UPDATE per block from here: a refusal part-way left half the day on the
- * new date, and two Applies racing each moved every block — the day shifted
- * twice. The move is now ONE SQL function,
- * `public.move_event_schedule_with_date` (migration 20271264726195): one
- * statement inside one transaction, the event row locked, run only once the
- * live date IS `toDay`, and remembered (`event_schedule_date_moves`) so the
- * same move asked twice moves nothing. It checks the caller itself (the couple
- * or a Schedule edit delegate — the table's own write policies) and refuses
- * anyone else. A failure therefore means NOTHING moved.
+ * 🔒 ALL OR NOTHING, ONCE, AND FROM WHERE IT STANDS (2026-10-04, train-g audit
+ * and review). ONE SQL function, `public.move_event_schedule_with_date`
+ * (migration 20271264726195): one statement in one transaction, the event row
+ * locked, run only once the live date IS `toDay`. The distance is measured
+ * from the day the Schedule STANDS ON (`event_schedule_day_anchor`, seeded by
+ * a trigger the first time an exact date changes) — never from a day the
+ * caller names — so the same move asked twice finds it already there, and a
+ * date sent back by a path that does not move the Schedule can never make a
+ * real move be skipped. It checks the caller itself (the couple or a Schedule
+ * edit delegate) and refuses anyone else. A failure means NOTHING moved.
+ *
+ * Answers, said as they are:
+ *   · `moved`   — every block moved (`moved` = how many);
+ *   · `aligned` — the Schedule already stands on `toDay` (a second Apply) — true;
+ *   · `stale`   — the live date is no longer `toDay` (changed again meanwhile);
+ *   · `no-anchor` — no day to measure from — nothing moved.
+ * The last two are NOT ok: the host expected a move and none happened.
  *
  * It never creates or deletes a block — placing the ceremony at a typed time
  * stays `placeCeremonyBlock`'s job, run AFTER this one.
  *
- * Only when both days are exact (`YYYY-MM-DD`) and differ: a date that was a
- * month or a year has no day to measure from, so nothing moves (`moved: 0`).
+ * Asked only when both days are exact (`YYYY-MM-DD`) and differ: a date that
+ * was a month or a year has no day to measure from, so nothing moves.
  * The couple's OWN session calls it (the function reads `auth.uid()`).
  */
+export type ScheduleMove =
+  | { ok: true; status: 'moved' | 'aligned' | 'unchanged'; moved: number }
+  | { ok: false; error: string };
+
 export async function moveScheduleWithDate({
   supabase,
   eventId,
@@ -172,15 +183,17 @@ export async function moveScheduleWithDate({
   fromDay: string | null;
   /** YYYY-MM-DD the event is on after this Apply, or null when it is not one day. */
   toDay: string | null;
-}): Promise<{ ok: true; moved: number } | { ok: false; error: string }> {
-  if (wallClockDayShift(fromDay, toDay) === 0) return { ok: true, moved: 0 };
+}): Promise<ScheduleMove> {
+  if (wallClockDayShift(fromDay, toDay) === 0) return { ok: true, status: 'unchanged', moved: 0 };
   const { data, error } = await supabase.rpc('move_event_schedule_with_date', {
     p_event_id: eventId,
-    p_from_day: fromDay,
     p_to_day: toDay,
   });
   if (error) return { ok: false, error: error.message };
-  const moved = typeof data === 'number' ? data : Number(data);
-  if (!Number.isInteger(moved) || moved < 0) return { ok: false, error: 'no-answer' };
-  return { ok: true, moved };
+  const answer = (data ?? {}) as { status?: unknown; moved?: unknown };
+  const moved = Number(answer.moved);
+  if ((answer.status === 'moved' || answer.status === 'aligned') && Number.isInteger(moved) && moved >= 0) {
+    return { ok: true, status: answer.status, moved };
+  }
+  return { ok: false, error: typeof answer.status === 'string' ? answer.status : 'no-answer' };
 }

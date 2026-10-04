@@ -5,7 +5,6 @@ import type { ReentryPurpose } from '@/lib/guest-pass-hop';
 import { resolveGuestSessionSecret } from '@/lib/guest-session';
 import {
   ensureTileReentryCode as ensureTileWith,
-  readTileReentryCode as readTileWith,
   exchangeReentryCode as exchangeWith,
   mintReentryCode as mintWith,
   reentryCodeGuest as guestWith,
@@ -45,12 +44,7 @@ function tileKey(): string | null {
   return seal.ok ? seal.material : null;
 }
 
-/** Today's tile code for this guest — READ ONLY (safe for `generateMetadata`). */
-export async function readTileReentryCode(input: { eventId: string; guestId: string }): Promise<string | null> {
-  return (await readTileWith({ ...input, key: tileKey() }, admin()))?.code ?? null;
-}
-
-/** Today's tile code, its row written once — the thank-you's BODY, never its metadata. */
+/** Today's tile code, its row written at most once a day; null unless the row is STORED. */
 export function ensureTileReentryCode(input: { eventId: string; guestId: string }): Promise<string | null> {
   return ensureTileWith({ ...input, key: tileKey() }, admin());
 }

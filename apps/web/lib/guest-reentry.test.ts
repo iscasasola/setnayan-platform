@@ -188,7 +188,7 @@ test('7 · the tile: the thank-you names a manifest whose start spends the code 
   const enter = read('app/[slug]/invite/enter/page.tsx');
   const mint = enter.slice(enter.indexOf('async function tileReentryCodeFor('));
   assert.ok(
-    mint.indexOf("!== 'yes') return null;") > -1 && mint.indexOf("!== 'yes') return null;") < mint.indexOf('readTileReentryCode('),
+    mint.indexOf("!== 'yes') return null;") > -1 && mint.indexOf("!== 'yes') return null;") < mint.indexOf('tileCodeOnce('),
     'a tile code is named for a guest who has not said Yes (the shortcut line is offered only after a Yes)',
   );
 });
@@ -242,17 +242,38 @@ test('8b · a spent tile code makes way for the next — at most a few a day, a 
   assert.notEqual((await readTileReentryCode({ ...input, guestId: 'g-other' }, db))?.code, tomorrow);
 });
 
-test('8c · the thank-you\'s metadata only READS the tile code; the body writes it, after a Yes', () => {
+test('8c · the metadata names a tile code only once its row is STORED — one shared call, never a mint', () => {
   const enter = read('app/[slug]/invite/enter/page.tsx');
   const meta = enter.slice(enter.indexOf('export async function generateMetadata('), enter.indexOf('async function heldKind('));
   assert.ok(enter.indexOf('async function heldKind(') > enter.indexOf('export async function generateMetadata('), 'anti-vacuity: the metadata window is empty');
   assert.ok(meta.includes('tileReentryCodeFor('), 'anti-vacuity: the metadata no longer names a tile code');
-  assert.doesNotMatch(meta, /mintReentryCode\(|ensureTileReentryCode\(|\.insert\(/, 'the metadata writes a code on every render');
-  assert.match(meta, /return readTileReentryCode\(\{ eventId, guestId: session\.guest_id \}\);/);
+  assert.doesNotMatch(meta, /mintReentryCode\(|readTileReentryCode\(|\.insert\(/, 'the metadata mints, or names a code whose row may not exist');
+  assert.match(meta, /return tileCodeOnce\(eventId, session\.guest_id\);/);
+  assert.match(enter, /const tileCodeOnce = cache\(\(eventId: string, guestId: string\) => ensureTileReentryCode\(\{ eventId, guestId \}\)\);/, 'the metadata and the body do not share ONE stored-code call');
   const body = enter.slice(enter.indexOf('export default async function InviteEnterPage('));
-  assert.match(
-    body,
-    /if \(!canvas && reply === 'yes'\) \{\s*await ensureTileReentryCode\(\{ eventId: event\.event_id as string, guestId: guest\.guest_id as string \}\);/,
-    'the body does not write the tile code the metadata named',
-  );
+  assert.match(body, /if \(!canvas && reply === 'yes'\) \{\s*await tileCodeOnce\(event\.event_id as string, guest\.guest_id as string\);/, 'the body does not store the code the metadata names');
+});
+
+test('8d · a tile code whose row could not be written is NEVER named — the tile would open as a stranger', async () => {
+  const { tables, db } = world();
+  const refusing = {
+    from: (name: string) => {
+      const q = (db as unknown as { from: (n: string) => Record<string, unknown> }).from(name);
+      return { ...q, insert: async () => ({ error: { message: 'permission denied', code: '42501' } }) };
+    },
+  } as unknown as ReentryDb;
+  const input = { eventId: EVENT, guestId: GUEST, now: T0, key: KEY };
+  assert.ok((await readTileReentryCode(input, refusing))?.code, 'anti-vacuity: a code would have been derived');
+  assert.equal(await ensureTileReentryCode(input, refusing), null, 'a code with no stored row was named');
+  assert.equal(tables.guest_reentry_codes.length, 0);
+  // A twin's duplicate key IS the stored row — that one is named.
+  const first = await ensureTileReentryCode(input, db);
+  const dup = {
+    from: (name: string) => {
+      const q = (db as unknown as { from: (n: string) => Record<string, unknown> }).from(name);
+      return { ...q, insert: async () => ({ error: { message: 'duplicate key value violates unique constraint', code: '23505' } }) };
+    },
+  } as unknown as ReentryDb;
+  tables.guest_reentry_codes.length = 0; // the read sees no row, the write meets the twin's
+  assert.equal(await ensureTileReentryCode(input, dup), first, 'a twin render\'s row was refused');
 });

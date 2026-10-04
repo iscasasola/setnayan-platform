@@ -94,8 +94,22 @@ export function mayRefreshGuestPass(method: string, pathname: string, search: st
    below names only crawler agents that no person's browser sends — an in-app
    browser (FBAN/FB_IAB/Messenger/Instagram/Line/Viber) is NOT on it, and the
    table test in guest-pass-hop.test.ts holds real in-app UAs to `false`. */
+/* + 2026-10-04 (train-g review): the chat apps big in the Philippines, each
+   from a PUBLISHED string, never a guess —
+     · Viber's link-sharing fetcher (Viber support, quoted on the Netlify forum
+       thread "Prerendering: Viber support"): `Mozilla/5.0 (Macintosh; Intel Mac
+       OS X 10_11_4) AppleWebKit/537.36 (KHTML, like Gecko) QtWebEngine/5.6.0
+       Chrome/45.0.2454.101 Safari/537.36 Viber` — a QtWebEngine agent ENDING in
+       a bare "Viber", never the in-app browser's `… Viber/22.0.0.0`; and
+       `ViberBot` (crawler lists: plainsignal.com/agents/viber-bot);
+     · LINE's preview poker (udger.com "line-poker"):
+       `facebookexternalhit/1.1;line-poker/1.0` — named on its own too;
+     · Signal sends `WhatsApp/2` for its previews (Signal-Android
+       LinkPreviewRepository), already caught by `WhatsApp\/`.
+   Zalo is NOT listed: no published string could be found, and a guessed one
+   could catch a person. */
 const LINK_PREVIEW_FETCHER =
-  /facebookexternalhit|\bFacebot\b|meta-externalagent|Twitterbot|WhatsApp\/|TelegramBot|Slackbot|Discordbot|LinkedInBot|SkypeUriPreview|redditbot|Pinterestbot|Embedly|Googlebot|bingbot|Applebot/i;
+  /facebookexternalhit|\bFacebot\b|meta-externalagent|Twitterbot|WhatsApp\/|TelegramBot|Slackbot|Discordbot|LinkedInBot|SkypeUriPreview|redditbot|Pinterestbot|Embedly|Googlebot|bingbot|Applebot|line-poker|\bViberBot\b|QtWebEngine\/[\d.]+ .*\bViber$/i;
 
 export function isLinkPreviewFetch(userAgent: string | null | undefined): boolean {
   return LINK_PREVIEW_FETCHER.test(userAgent ?? '');

@@ -75,6 +75,9 @@ test('the whole-Schedule move is the ONE SQL function — never a loop of per-bl
   const src = stripComments(readFileSync(join(process.cwd(), 'lib/ceremony-time.server.ts'), 'utf8'));
   const fn = src.slice(src.indexOf('export async function moveScheduleWithDate('));
   assert.ok(fn.length > 0 && src.includes('export async function moveScheduleWithDate('), 'anti-vacuity: the move is gone');
-  assert.match(fn, /supabase\.rpc\('move_event_schedule_with_date', \{\s*p_event_id: eventId,\s*p_from_day: fromDay,\s*p_to_day: toDay,\s*\}\)/);
+  assert.match(fn, /supabase\.rpc\('move_event_schedule_with_date', \{\s*p_event_id: eventId,\s*p_to_day: toDay,\s*\}\)/);
+  assert.doesNotMatch(fn, /p_from_day/, 'the caller chooses where the move is measured from again');
+  // A move that did not happen is never "ok": only moved / aligned are.
+  assert.match(fn, /if \(\(answer\.status === 'moved' \|\| answer\.status === 'aligned'\) && Number\.isInteger\(moved\) && moved >= 0\) \{/);
   assert.doesNotMatch(fn, /\.from\('event_schedule_blocks'\)|\.update\(|for \(/, 'the Schedule is moved block by block again — a failure part-way leaves half a day');
 });

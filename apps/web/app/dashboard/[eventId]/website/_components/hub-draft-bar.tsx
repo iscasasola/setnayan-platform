@@ -451,6 +451,7 @@ export function HubDraftToolbar({
         <ApplyProSheet
           effects={asksForPro ? proEffects : []}
           changeCount={summary.changeCount}
+          changes={summary.changes}
           heldOnWeb={storeShell ? summary.proCount : 0}
           priceLabel={priceLabel}
           proHref={proHref}

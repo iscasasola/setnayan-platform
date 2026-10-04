@@ -87,8 +87,12 @@ test('no seat, no ticket — nothing renders (Me then offers "My QR", as it alwa
 
 test('ONE SOURCE — the card shown and the file saved are the same route, the same drawing', () => {
   const ticket = read('guest-ticket.tsx');
-  assert.match(ticket, /<TicketPicture\s+src=\{PASS_CARD_ROUTE\}/, 'the picture is not the saved file');
-  assert.match(ticket, /passCardHref=\{PASS_CARD_ROUTE\}/, 'Save is not the same file as the picture');
+  // 👁 PR-10: the source is a prop that DEFAULTS to the ticket route — only the
+  // Maker's See as sample passes another (page.tsx, held below) — and the
+  // picture and the save still read the one value.
+  assert.match(ticket, /\bsrc = PASS_CARD_ROUTE,/, 'a real guest’s picture is not the ticket route');
+  assert.match(ticket, /<TicketPicture\s+src=\{src\}/, 'the picture is not the saved file');
+  assert.match(ticket, /passCardHref=\{src\}/, 'Save is not the same file as the picture');
   // …and the route itself serves the pending ticket from the same renderer the
   // request-ticket route uses, so the Event Hub and Send agree.
   const route = stripComments(readFileSync(join(HERE, '..', '..', 'api', 'guest', 'pass-card', 'route.ts'), 'utf8'));
@@ -113,7 +117,13 @@ test('the ticket is on Me — mounted into the Me section, first', () => {
   assert.match(me, /<GuestTicket\b/, 'the ticket is not on Me');
   assert.match(me, /state=\{passCard\}/, 'the ticket does not read passCardEligibility');
   assert.match(me, /widgetShouldRender\(widgetByType\(widgets, 'qr_card'\)\)/, 'the couple’s QR-card switch is not honoured');
-  assert.equal(page.split('<GuestTicket').length - 1, 1, 'one mount, one #site-pass');
+  // One mount per render, one #site-pass: the real guest's Me, and — in another
+  // return of the page — the Maker's See as sample (PR-10), the ONLY mount that
+  // hands in a picture of its own.
+  assert.equal(page.split('<GuestTicket').length - 1, 2, 'a third ticket mount appeared');
+  assert.doesNotMatch(me, /\bsrc=/, 'a real guest’s ticket was handed another picture');
+  const sample = page.slice(page.indexOf('const seeAs = resolveSampleViewer('), page.indexOf("if (guestViewer.kind === 'anonymous')"));
+  assert.match(sample, /<GuestTicket[\s\S]*?src=\{sampleTicketSrc\(event\.event_id\)\}/, 'the second mount is not the See as sample');
 });
 
 test('Home has no pass: no QR block, no facts grid, no second #site-pass', () => {

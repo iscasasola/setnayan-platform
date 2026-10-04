@@ -273,7 +273,9 @@ test('the ?as=replied host preview is still gated on the capability, and is stil
   // a preview mode; the host body is not.
   assert.match(
     PAGE,
-    /shouldSimulateRepliedGuest\(\{\s*\n?\s*ownerCapability,/,
+    // 👁 PR-10: the branch asks `resolveSampleViewer` (the ?as=replied door AND
+    // the Maker's See as states) — still keyed on the capability first.
+    /resolveSampleViewer\(\{\s*\n?\s*ownerCapability,/,
     'the ?as=replied preview no longer keys on ownerCapability — either it is ungated (any ' +
       'visitor could fabricate a guest view) or it is unreachable for the host it exists for.',
   );

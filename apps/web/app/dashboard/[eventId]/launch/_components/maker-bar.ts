@@ -24,7 +24,7 @@ import type { MakerDevice } from './maker-context';
  *     ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply (n)
  *
  * Every bar button is a 44 × 44 icon with its name. ⋯ is gone: its rows moved —
- * See it as · Phone / Desktop · Both · Scenes · Play this scene · Preview the
+ * See as · Phone / Desktop · Both · Scenes · Play this scene · Preview the
  * stage into 👁 Preview's menu; Add a scene · Reset this stage · Prints ·
  * Restore · the address · who can view · About the Maker into Page ▾
  * (`makerPageActions`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`.
@@ -45,6 +45,8 @@ export type MakerToolbarItem = (typeof MAKER_TOOLBAR)[number];
 export const MAKER_DETAILS_LABEL = 'Event Details';
 export const MAKER_LOOK_LABEL = 'Look';
 export const MAKER_PRINTS_LABEL = 'Prints';
+/** Page ▾'s own name — what it reads while Look, Event Details or Prints covers the stage. */
+export const MAKER_PAGE_MENU_LABEL = 'Page';
 
 /**
  * 🚪 THREE DOORS, ONE PAGE. Look, Details and Prints (Page ▾ › Prints) each open
@@ -218,9 +220,13 @@ export function makerPageMenu(input: {
   theHost?: string;
   /**
    * 📍 A page of the Maker covers the stage (Look · Event Details · Prints): its
-   * name. Page ▾ then names THAT page, never the stage hidden under it (owner,
-   * live phone test 2026-10-02: on a page that was not Welcome, the bar said
-   * "Invitation › Welcome"). Null = the stage's own page is on screen.
+   * name. Page ▾ then never names the stage hidden under it (owner, live phone
+   * test 2026-10-02: on a page that was not Welcome, the bar said "Invitation ›
+   * Welcome") — and never that page either: Look and Event Details are buttons
+   * of the same bar, so the bar read "Event Details ▾ · Look · Event Details"
+   * (seen live at 375 px, maria-and-jose, 2026-10-04). It reads its own name,
+   * "Page" (`MAKER_PAGE_MENU_LABEL`). Null = the stage's own page is on screen.
+   * `no-two-bar-buttons-share-a-label.test.ts` holds it.
    */
   openPage?: string | null;
 }): {
@@ -257,8 +263,9 @@ export function makerPageMenu(input: {
   if (input.rsvpOpen) {
     return { value: RSVP_STAGE_KEY, buttonText: `${RSVP_STAGE_LABEL} › ${MAKER_RSVP_PAGE_LABEL}`, pageText: MAKER_RSVP_PAGE_LABEL, options };
   }
-  // No stage page is ticked: the page on screen is not one of them.
-  if (input.openPage) return { value: '', buttonText: input.openPage, pageText: input.openPage, options };
+  // No stage page is ticked: the page on screen is not one of them — and the
+  // button that opened it already says its name, so Page ▾ says its own.
+  if (input.openPage) return { value: '', buttonText: MAKER_PAGE_MENU_LABEL, pageText: MAKER_PAGE_MENU_LABEL, options };
   const own = options.filter((o) => o.key.startsWith(makerPageValue(input.stage, '')));
   const shown =
     (input.shownPage !== null ? own.find((o) => o.key === makerPageValue(input.stage, input.shownPage!)) : undefined) ??

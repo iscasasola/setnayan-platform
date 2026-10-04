@@ -1980,21 +1980,57 @@ export type HubDraftSummary = {
   /** Of those, how many need Event Hub Pro to Apply (0 for an owning couple). */
   proCount: number;
   canUndo: boolean;
+  /**
+   * 📋 The same changes BY NAME, one line each, in the order Apply meets them —
+   * what the Apply sheet lists (owner 2026-10-04, "Yes"). Filled by the bar's
+   * loader (`hubDraftChangeLines`); absent = not read, never "nothing".
+   */
+  changes?: HubDraftChangeLine[];
 };
+
+/** One named change on the Apply sheet — "Look · Buttons". */
+export type HubDraftChangeLine = {
+  /** Where it lives — "Look", "Invitation · When & where", "Event Details". */
+  place: string;
+  /** What it is — "Buttons", "Venue", "Ceremony time". */
+  what: string;
+  /** Would it need Event Hub Pro for a couple without it? (◆, as everywhere.) */
+  pro: boolean;
+  /** Held back at this Apply — it needs Event Hub Pro, or the web. */
+  held: boolean;
+};
+
+/**
+ * 🔢 THE CHANGES, ONE PER THING THE COUPLE CHANGED — the ONE reader the bar's
+ * count (`summarizeHubDraft`) and the Apply sheet's named list
+ * (`hubDraftChangeLines`, lib/hub-draft-change-lines.ts) both walk, so the
+ * list can never name more, or fewer, than the badge counts.
+ *
+ * Each is a plan item; `held` = refused (it needs Event Hub Pro, or the web).
+ */
+export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: HubDraftItem; held: boolean }> {
+  // A held scene's free part is the same scene as its refused twin — one change.
+  // ✍ …and the names (three columns) or the date (two) are ONE change each.
+  const facts = new Set<string>();
+  const out: Array<{ item: HubDraftItem; held: boolean }> = [];
+  const walk = [
+    ...plan.apply.filter((i) => !(i.kind !== 'event' && i.freePart)).map((item) => ({ item, held: false })),
+    ...plan.refused.map((item) => ({ item, held: true })),
+  ];
+  for (const c of walk) {
+    const i = c.item;
+    const fact = i.kind === 'event' ? hubDraftFactOf(i.column) : i.kind === 'widget' && i.field === 'venue' ? 'venues' : null;
+    if (fact && facts.has(fact)) continue;
+    if (fact) facts.add(fact);
+    out.push(c);
+  }
+  return out;
+}
 
 export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ownsPro: boolean): HubDraftSummary {
   if (!draft) return { hasChanges: false, changeCount: 0, proCount: 0, canUndo: false };
   const plan = planHubDraftApply(draft, live, ownsPro);
-  // A held scene's free part is the same scene as its refused twin — one change.
-  // ✍ …and the names (three columns) or the date (two) are ONE change each.
-  const facts = new Set<string>();
-  let changeCount = 0;
-  for (const i of [...plan.apply.filter((i) => !(i.kind !== 'event' && i.freePart)), ...plan.refused]) {
-    const fact = i.kind === 'event' ? hubDraftFactOf(i.column) : i.kind === 'widget' && i.field === 'venue' ? 'venues' : null;
-    if (fact && facts.has(fact)) continue;
-    if (fact) facts.add(fact);
-    changeCount += 1;
-  }
+  const changeCount = hubDraftCountedChanges(plan).length;
   return {
     hasChanges: changeCount > 0,
     changeCount,

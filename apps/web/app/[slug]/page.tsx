@@ -4,6 +4,8 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { isLinkPreviewFetch, isUrlSecretShaped } from '@/lib/guest-pass-hop';
+import { invitationLinkOn } from '@/lib/invitation-link';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -57,6 +59,8 @@ import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
+import { seatNameOfferFor } from '@/lib/seat-name-offer.server';
+import { adoptSeatNameOnProfile } from '@/app/dashboard/(account)/profile/actions';
 import { withdrawFaceConsent } from './actions';
 import { loadPreviewPerson } from './_lib/preview-person.server';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
@@ -125,8 +129,14 @@ import { siteMenuEnabled } from './_lib/site-menu';
 import { PublicPageActions } from '@/app/_components/public-page-actions';
 import {
   buildSimulatedGuestIdentity,
-  shouldSimulateRepliedGuest,
+  resolveSampleViewer,
+  sampleTicketSrc,
+  sampleTicketState,
+  SIMULATED_GUEST_INVITATION_TEXT,
 } from '@/lib/simulated-guest-preview';
+import { SampleViewerInert } from './_components/sample-viewer-inert';
+import { OwnerRibbon } from './_components/owner-ribbon';
+import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { PrivateLanding } from './_components/private-landing';
 // The ONE body tree (OPEN-BROWSE PR3) — renders every identity tier; the
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
@@ -268,6 +278,14 @@ export async function generateMetadata({ params, searchParams }: Props) {
   const admin = createAdminClient();
   const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
   const canonicalUrl = publicEventUrl(siteUrl, event.slug, ownerSlug);
+  /* 🔗 A PERSONAL LINK'S PREVIEW KEEPS THE PERSONAL LINK (I4, 2026-10-04 —
+     lib/guest-pass-hop.ts `isLinkPreviewFetch`). Only a link-preview fetcher
+     ever reads this metadata on a tokened URL (a person is redirected to the
+     redeem below), and the card a chat app draws OPENS og:url — which was the
+     bare Event Hub, so tapping the card under a guest's link met "Get inside". */
+  const personalLink = isUrlSecretShaped(search.invite?.trim())
+    ? invitationLinkOn(canonicalUrl, search.invite!.trim())
+    : null;
 
   /*
     ══ THE SHARE CARD'S ADDRESS CARRIES THE MOMENT THE STORY LAST CHANGED ═════
@@ -323,11 +341,11 @@ export async function generateMetadata({ params, searchParams }: Props) {
     ...eventShortcutMetadata(slug, event.display_name),
     description,
     // An Unlisted site that shows its card is still kept out of search.
-    ...(preview.indexable ? {} : { robots: { index: false, follow: false } }),
-    alternates: { canonical: canonicalUrl },
+    ...(preview.indexable && !personalLink ? {} : { robots: { index: false, follow: false } }),
+    alternates: { canonical: personalLink ?? canonicalUrl },
     openGraph: {
       type: 'website',
-      url: canonicalUrl,
+      url: personalLink ?? canonicalUrl,
       title: `${event.display_name} · Setnayan`,
       description,
       siteName: 'Setnayan',
@@ -365,10 +383,26 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   // If an invite token is in the URL, hand off to the redeem route handler
   // which can write the session cookie (Server Components in Next 15 can't).
+  //
+  // 🔗 …EXCEPT for a link-preview fetcher (Messenger · Facebook · iMessage ·
+  // WhatsApp — lib/guest-pass-hop.ts `isLinkPreviewFetch`, I4 2026-10-04).
+  // Followed through the redeem it ENDED on the bare Event Hub (no cookie) or
+  // the landing (with one) — and the preview card it drew opened THAT address,
+  // with no token: "Get inside". It now gets a 200 HERE, so the address it
+  // records is the personal link itself (og:url above), and it never redeems
+  // the guest's link (no pass minted for a robot, no false "opened" scan).
   if (invite) {
-    redirect(
-      `/${slug}/redeem?slug=${encodeURIComponent(slug)}&token=${encodeURIComponent(invite)}`,
-    );
+    const redeemHref = `/${slug}/redeem?slug=${encodeURIComponent(slug)}&token=${encodeURIComponent(invite)}`;
+    if (isLinkPreviewFetch((await headers()).get('user-agent'))) {
+      return (
+        <main className="px-4 py-10 text-center">
+          <a href={redeemHref} className="underline underline-offset-4">
+            Open your invitation
+          </a>
+        </main>
+      );
+    }
+    redirect(redeemHref);
   }
 
   const admin = createAdminClient();
@@ -1428,25 +1462,116 @@ async function InvitationBody({
   // host's preview. Placed above the session branches so it also wins for a host
   // who happens to hold a guest cookie for their own event: they asked for the
   // simulated view explicitly. Preview only — nothing is written or persisted.
-  if (
-    shouldSimulateRepliedGuest({
-      ownerCapability,
-      asParam: search.as,
-      lifecyclePhase,
-      eventId: event.event_id,
-    })
-  ) {
+  //
+  // 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the SAME branch, extended: `?as=`
+  // may name any of the four See as states (lib/see-as.ts `SEE_AS`) on any
+  // stage, for a verified host only — from the Maker's canvas (👁 Preview) or
+  // their own Event Hub (the ribbon's Preview ▾): one preview mechanism. The
+  // sample is drawn AS A GUEST, never as the host: the owner and supplier
+  // capabilities are dropped for the body (the ribbon keeps the host's, off the
+  // canvas), and `sampleViewer` makes the body swallow every submit and every
+  // press that could act (sample-viewer-inert.tsx). 🔒 READS ONLY —
+  // `loadPreviewPerson` is a select; nothing here inserts, updates or deletes
+  // (`see-as-never-writes.test.ts`).
+  const seeAs = resolveSampleViewer({
+    ownerCapability,
+    asParam: search.as,
+    lifecyclePhase,
+    eventId: event.event_id,
+  });
+  const asSample = seeAs
+    ? {
+        ...siteProps,
+        ownerCapability: null,
+        // The host's own ribbon stays on their page (never in the canvas) — so
+        // the ribbon's Preview ▾ can switch back. The BODY is drawn as a guest.
+        ribbonCapability: ownerCapability,
+        vendorCapability: null,
+        supplierDesk: null,
+        chaptersOnThisDay: [],
+        songRequestDoor: null,
+        sampleViewer: seeAs,
+      }
+    : siteProps;
+  if (seeAs === 'signed-out') {
     timer.flush();
+    // 🚪 THE DOOR a signed-out visitor meets. On a private event that is the lock
+    // screen itself — the same component, never a softer copy of it.
+    if (visibility === 'private' || visibility === 'invited_accounts') {
+      return (
+        <>
+          {/* Off the canvas, the host keeps their ribbon — its Preview ▾ is the way back. */}
+          {isEditorCanvas ? null : (
+            <OwnerRibbon
+              model={buildOwnerRibbon({
+                ownerCapability,
+                eventId: event.event_id,
+                slug: event.slug ?? null,
+                phasesEnabled,
+                lifecyclePhase,
+                seeAs,
+              })}
+            />
+          )}
+          <PrivateLanding
+            event={event}
+            monogram={monogram}
+            animatedMonogram={animatedMonogram}
+            bespokeSvg={bespokeSvg}
+            proWatermarkHidden={proWatermarkHidden}
+          />
+          <SampleViewerInert canvas={isEditorCanvas} />
+        </>
+      );
+    }
+    return wearDraft(
+      <SiteBody
+        {...asSample}
+        identity={anonymousIdentity({
+          reason: null,
+          publicCandidCameraActive,
+          publicAlbumHref,
+          signedInNotListed: false,
+        })}
+      />,
+    );
+  }
+  if (seeAs) {
+    timer.flush();
+    const sampleIdentity = buildSimulatedGuestIdentity({
+      slug: event.slug ?? slug,
+      // "Each editor of each event will adapt to their event" (owner
+      // 2026-09-27): a real person's name and plus-one allowance, read only.
+      person: await loadPreviewPerson(admin, event.event_id),
+      seeAs,
+    });
+    const sampleName =
+      sampleIdentity.guest.display_name?.trim() ||
+      `${sampleIdentity.guest.first_name ?? ''} ${sampleIdentity.guest.last_name ?? ''}`.trim();
     return wearDraft(
       <>
         <SiteBody
-          {...siteProps}
-          identity={buildSimulatedGuestIdentity({
-            slug: event.slug ?? slug,
-            // "Each editor of each event will adapt to their event" (owner
-            // 2026-09-27): a real person's name and plus-one allowance, read only.
-            person: await loadPreviewPerson(admin, event.event_id),
-          })}
+          {...asSample}
+          identity={sampleIdentity}
+          /* 👤 ME, DRAWN FOR A SAMPLE GUEST (calm audit PR-E · PR-10) — the
+             guest page's own Me section and ticket, the ticket's picture the
+             host's own preview (the sample has no ticket session). */
+          meSection={
+            widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
+              <GuestMeSection
+                meSlot={
+                  <GuestTicket
+                    state={sampleTicketState(seeAs)}
+                    name={sampleName}
+                    invitationUrl={SIMULATED_GUEST_INVITATION_TEXT}
+                    src={sampleTicketSrc(event.event_id)}
+                  />
+                }
+                galleryCount={0}
+                asTab
+              />
+            ) : null
+          }
         />
         {pageFooter}
       </>
@@ -1748,6 +1873,12 @@ async function InvitationBody({
     !isEditorCanvas && viewerAccount?.id && account.kind === 'linked'
       ? await celebrantsForViewer(admin, event.event_id, viewerAccount.id)
       : [];
+  // 🪪 "Use this on your profile" (B9) — the same door: only a viewer whose OWN
+  // account holds this seat. Read-only here; only the person's confirm writes.
+  const seatNameOffer =
+    !isEditorCanvas && viewerAccount?.id && account.kind === 'linked'
+      ? await seatNameOfferFor(admin, viewerAccount.id, event.event_id, guest.guest_id)
+      : null;
   const meSlot = isEditorCanvas ? null : (
     <>
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
@@ -1795,6 +1926,7 @@ async function InvitationBody({
       celebrants={celebrants}
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
+      profileName={seatNameOffer ? { name: seatNameOffer.name, adopt: adoptSeatNameOnProfile } : null}
       /* Me → "Face tagging" (face-registration design, frame D): only where
          face tagging is on offer — no Papic, no row (frame F). */
       faceTagging={

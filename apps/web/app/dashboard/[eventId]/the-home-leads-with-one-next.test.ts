@@ -83,7 +83,7 @@ const PLAN = PAGE.slice(PAGE.lastIndexOf(') : ('), PAGE.indexOf('</LastSeenCaptu
 const FACTS = stripComments(readFileSync(join(HERE, '..', '..', '..', 'lib', 'home-facts.ts'), 'utf8'));
 
 const NOTHING: HomeNextInput = { guide: null, hasDate: true, guests: { total: 96, unsent: 0 }, noun: 'wedding', papicReady: false, aiOffer: false };
-const GUIDE = { round: 2, roundTitle: 'Invitations', done: 3, total: 7, nextTitle: 'Schedule' };
+const GUIDE = { done: 9, total: 20, stageTitle: 'Invitation', stageDone: 4, stageTotal: 8 };
 
 /** One input per kind, so every branch of the picker is drawn. */
 const EVERY_STATE: HomeNextInput[] = [

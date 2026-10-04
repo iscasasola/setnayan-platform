@@ -108,7 +108,8 @@ import { postEventPreset } from '@/lib/post-event-presets';
 import { CONFIRMED_VENDOR_STATUSES, eventDateChangeIsGoverned, eventDatePrecisionOf, eventDateRefusal } from '@/lib/events';
 import { isDateChangeAction } from '@/lib/date-change';
 import { afterDateApplied, askDateChange, clashStillOpen, dateApplyClearance, settleDateChange } from '@/lib/date-change.server';
-import { placeCeremonyBlock } from '@/lib/ceremony-time.server';
+import { moveScheduleWithDate, placeCeremonyBlock } from '@/lib/ceremony-time.server';
+import { exactDayOf } from '@/lib/schedule-datetime-local';
 import { isListedPlaceName } from '@/lib/listed-place';
 import { readVenueChoices, VENUE_CHOICES_KEY } from '@/lib/event-venues';
 
@@ -392,14 +393,13 @@ export async function hubDraftAction(
     /* 🕒 THE CEREMONY TIME STANDS ON THE EVENT'S DAY — the day as it will be
        after this Apply (a drafted date that goes live now, else the live one).
        No single day yet (a month, a year) → the time waits in the draft, said
-       by name. `priorDay` is where the ceremony stood: when only the date
-       moves, the ceremony follows it from there (owner 2026-10-04). */
-    const dayOf = (date: unknown, precision: unknown) =>
-      typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date) && (eventDatePrecisionOf(precision) ?? 'day') === 'day' ? date.slice(0, 10) : null;
-    const priorDay = dayOf(live.events.event_date, live.events.event_date_precision);
+       by name. `priorDay` is the day the event stood on: when the date
+       moves, the whole Schedule follows it from there (owner 2026-10-04).
+       ONE exact-day rule (`exactDayOf`) for both. */
+    const priorDay = exactDayOf(live.events.event_date, live.events.event_date_precision);
     const dateGoes = !dateHeld && plan.apply.some(isDateItem);
     const nextDay = dateGoes
-      ? dayOf(
+      ? exactDayOf(
           'event_date' in current.events ? current.events.event_date : live.events.event_date,
           'event_date_precision' in current.events ? current.events.event_date_precision : live.events.event_date_precision,
         )
@@ -646,17 +646,27 @@ export async function hubDraftAction(
       }
     }
 
+    /* 📅 THE WHOLE SCHEDULE FOLLOWS THE DATE (owner 2026-10-04, DECISION_LOG
+       "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE", *"Yes if possible"*):
+       the date went live above, so every block — the ceremony, its parts and
+       the rest of the day — moves by the same number of days, each keeping its
+       time. Only when both days are exact and differ (a month or a year has no
+       day to measure from). Pressing Apply again finds the date already live —
+       no move, no second shift. The couple's own session. */
+    if (dateWritten) {
+      const shifted = await moveScheduleWithDate({ supabase, eventId, fromDay: priorDay, toDay: nextDay });
+      if (!shifted.ok) {
+        console.error('[hub-draft] the schedule did not follow the date:', shifted.error, `${shifted.moved} moved`);
+        // Said as it is: the date IS live now, so Apply again would not finish the move.
+        return { ok: false, intent, error: 'Your new date is live, but some Schedule times stayed on the old day. Open your Schedule to check them.' };
+      }
+    }
+
     /* 🕒 THE CEREMONY BLOCK (owner 2026-10-04, "YES TO ALL" (2)): a typed time
-       creates the Ceremony on the event's day, or moves the one there is; a
-       date that moved takes the ceremony with it. The couple's own session. */
-    if (nextDay && (ceremonyTimeWrite !== undefined || (dateWritten && priorDay && priorDay !== nextDay))) {
-      const placed = await placeCeremonyBlock({
-        supabase,
-        eventId,
-        day: nextDay,
-        time: ceremonyTimeWrite ?? null,
-        fromDay: ceremonyTimeWrite === undefined ? priorDay : null,
-      });
+       creates the Ceremony on the event's day, or moves the one there is. (A
+       date that moved already took it along, with the whole Schedule, above.) */
+    if (nextDay && ceremonyTimeWrite !== undefined) {
+      const placed = await placeCeremonyBlock({ supabase, eventId, day: nextDay, time: ceremonyTimeWrite });
       if (!placed.ok) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }

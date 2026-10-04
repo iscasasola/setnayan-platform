@@ -68,7 +68,7 @@ test('the work area follows the stage by props alone — no router, no document 
   const stageEffect = WORK.slice(WORK.indexOf('/* A new stage has its own bar'), WORK.indexOf('}, [stage]);') + 12);
   assert.doesNotMatch(stageEffect, /router|location|fetch\(/);
   // The canvas is keyed by stage — a switch changes an iframe, not the page.
-  assert.match(WORK, /group=\{`\$\{stage\}:\$\{maker\.viewAsHref \?\? ''\}`\}/);
+  assert.match(WORK, /group=\{`\$\{stage\}:\$\{maker\.seeAs \?\? ''\}`\}/);
 });
 
 test('a page opened over the work area HIDES the canvas — never unmounts it', () => {

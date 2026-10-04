@@ -3,20 +3,23 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { makerHasWork } from '@/lib/maker-details-items';
-import { homeProgress, stepTitleOf } from '@/lib/details-guided-flow';
+import { roundName } from '@/lib/details-guided-flow';
+import { setupProgress, stageProgress } from '@/lib/stage-setup';
 import { HUB_SETUP_OFFER_TOUR } from '@/lib/tours';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { readGuidedPlan } from '../launch/_components/details-guided-progress';
 
 /**
- * 🪜 HOME'S READ OF THE GUIDED FLOW — "Round N · x of y · Continue"
- * (DECISION_LOG 2026-09-29 "THE GUIDED FLOW IS APPROVED — AND ANY STEP CAN BE
+ * 🪜 HOME'S READ OF THE GUIDED FLOW — "Finish your Event Hub — n of m" (by
+ * stage since PR-2, owner 2026-10-04; it read "Round N · x of y · Continue",
+ * DECISION_LOG 2026-09-29 "THE GUIDED FLOW IS APPROVED — AND ANY STEP CAN BE
  * PICKED ANY TIME": *"Home shows 'Round N · x of y · Continue'"*; Details part 5).
  *
  * The same plan the Maker's Details draws (`readGuidedPlan` — the same columns,
  * the same helpers, the same "done"), so Home and the flow can never count a
- * different round. Continue opens the Maker on What's left, at the step still
- * to do (`?guide=1`).
+ * different count. Its button opens the Maker on "Which stage do you want
+ * ready?" (`?guide=1`) — the same picker the Maker's What's left and the
+ * once-offer open.
  *
  * Drawn only for whom Details is (`makerHasWork`: the host of an event whose
  * type has an Event Hub), and only while something is left. A plan that could
@@ -40,15 +43,18 @@ export async function readHomeGuide({ eventId, memberType }: { eventId: string; 
   });
   if (!read) return null;
   const { plan } = read;
-  const at = homeProgress(plan);
-  if (!at) return null;
+  /* 🗂 By stage (PR-2): every fact once for the whole; the first stage still to
+     do, with its own count — the picker's numbers, from the same plan. */
+  const whole = setupProgress(plan);
+  if (!whole.next) return null;
+  const stage = stageProgress(plan, whole.next);
   /* 🧭 "Finish your Event Hub" (the setup, B) — offered ONCE right after the
      onboarding that made this event (Start / Later): until the couple answers
-     it (Later, here; Start, by the setup's own first screen in the Maker —
+     it (Later, here; Start, by the flow's own first-visit tour in the Maker —
      both mark the one key seen), the card is the offer. Older events: the
      slim card. */
   let offer = false;
-  if (at.round === 0 && read.setupOffered) {
+  if (read.setupOffered) {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -64,13 +70,11 @@ export async function readHomeGuide({ eventId, memberType }: { eventId: string; 
     }
   }
   return {
-    round: at.round,
-    roundTitle: at.title,
-    done: at.done,
-    total: at.total,
-    nextTitle: stepTitleOf(plan, at.next),
-    thenTitle: at.then ? stepTitleOf(plan, at.then) : null,
-    setup: at.round === 0,
+    done: whole.done,
+    total: whole.total,
+    stageTitle: roundName(plan, whole.next),
+    stageDone: stage.done,
+    stageTotal: stage.total,
     offer,
   };
 }

@@ -17,7 +17,7 @@
  *
  *     ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply (n)
  *
- *   ⋯ is gone and NOTHING it held is lost: See it as · Phone / Desktop · Both ·
+ *   ⋯ is gone and NOTHING it held is lost: See as · Phone / Desktop · Both ·
  *   Scenes · Play · Preview the stage are 👁 Preview's rows; Add a scene ·
  *   Reset this stage · Prints · Restore · the address · who can view · About
  *   are Page ▾'s (`makerPageActions`). Apply's first tap opens the Apply sheet.
@@ -170,12 +170,12 @@ test('by SOURCE: the real draft bar draws Undo · Preview · Apply in that order
 
 /* ── 2 · nothing ⋯ held is lost: 👁 Preview and Page ▾ hold it ────────────── */
 
-test('👁 Preview holds how the page is SEEN: See it as · Phone / Desktop · Both · Scenes · Play this scene · Preview the stage', () => {
+test('👁 Preview holds how the page is SEEN: See as · Phone / Desktop · Both · Scenes · Play this scene · Preview the stage', () => {
   const shell = src('maker-shell.tsx');
   const menu = shell.slice(shell.indexOf('const previewRows = '), shell.indexOf('  return (\n    <MakerContext.Provider'));
   assert.ok(menu.length > 400, 'Preview’s rows were not found — the scan is blind');
   assert.equal((shell.match(/<ToolMenu label="Preview" tool="preview"/g) ?? []).length, 1, 'there is not exactly one Preview menu');
-  const order = ['See it as…', 'makerViewToggle(shownDevice)', 'Phone and desktop', '>Scenes<', 'Play this scene', '<PreviewStageLink'];
+  const order = ['<MenuHeading>See as</MenuHeading>', 'makerViewToggle(shownDevice)', 'Phone and desktop', '>Scenes<', 'Play this scene', '<PreviewStageLink'];
   let at = -1;
   for (const row of order) {
     const i = menu.indexOf(row);

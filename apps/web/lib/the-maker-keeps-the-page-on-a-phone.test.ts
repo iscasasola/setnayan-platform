@@ -12,8 +12,9 @@
  * from the phone height its own classes declare — at 390 × 844 and 375 × 667,
  * against the VISIBLE height (the Maker is `100dvh`; the caps are `dvh`). Three
  * sheets live inside very large modules (the scene sheet in `editor-shell.tsx`,
- * the logo studio's two) or open only on a tap (the guide's), and are read from
- * their source tags — the same classes, the same sum.
+ * the logo studio's two), and are read from their source tags — the same
+ * classes, the same sum. A step of the guided flow is the HALF sheet (PR-2),
+ * measured from its render.
  *
  *   · NO sheet open: the page takes everything between the two bars — nothing
  *     but the top bar and the bottom bar is chrome, and nothing is dimmed;
@@ -113,7 +114,7 @@ async function shell(details: React.ReactElement | null): Promise<string> {
 }
 
 /** Event Details as the launch page hands it in — four items, with the flow or not. */
-async function details(guide: 'none' | 'open', initial: string): Promise<React.ReactElement> {
+async function details(guide: 'none' | 'open' | 'stages', initial: string): Promise<React.ReactElement> {
   const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
   const navItems = ['names', 'date', 'theme', 'address'].map((k) => ({ key: k, group: 'g', label: k, icon: null, done: k === 'date' }));
   const plan = buildGuidedPlan(navItems as GuidedItem[], { solemn: false, parentsOffered: true });
@@ -123,8 +124,8 @@ async function details(guide: 'none' | 'open', initial: string): Promise<React.R
     editors: { names: 'E', date: 'E', theme: 'E', address: 'E' },
     initial,
     guide:
-      guide === 'open'
-        ? { plan, open: true, ready: null, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' } }
+      guide !== 'none'
+        ? { plan, open: true, entry: guide === 'stages' ? { kind: 'stages' } : null, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' } }
         : null,
   });
 }
@@ -162,10 +163,11 @@ type State = { name: string; sheet: boolean; html?: () => Promise<string>; chrom
 const STATES: State[] = [
   { name: 'the stage, nothing open', sheet: false, chrome: barsOnly },
   {
-    name: 'Event Details, its sheet shut (with the flow)',
+    // 🗂 PR-2: the flow opens on "Which stage do you want ready?" — a screen of the page, no sheet.
+    name: 'Event Details on the stage picker (the flow, no step open)',
     sheet: false,
-    html: async () => shell(await details('open', 'names')),
-    chrome: async () => phoneChromeIn(await shell(await details('open', 'names'))),
+    html: async () => shell(await details('stages', 'names')),
+    chrome: async () => phoneChromeIn(await shell(await details('stages', 'names'))),
   },
   {
     name: 'Look / Event Details after a door — its sheet open',
@@ -174,11 +176,11 @@ const STATES: State[] = [
     chrome: async () => [...(await barsOnly()), ...phoneChromeIn(await detailsAfterADoor('none', 'theme'))],
   },
   {
-    name: 'a step of the flow after a door — its sheet open',
+    // 🪜 PR-2: a step IS its half sheet (`MakerHalfSheet`) — the step's line, its field and its foot in one sheet; the page live.
+    name: 'a step of the flow — its half sheet (step ▾, field, Back · Skip · Next), the page live',
     sheet: true,
     chrome: async () => [...(await barsOnly()), ...phoneChromeIn(await detailsAfterADoor('open', 'names'))],
   },
-  { name: 'the guide’s sheet (from its chip)', sheet: true, chrome: async () => [...(await barsOnly()), sourceChrome(`${L}/details-workspace.tsx`, 'data-details-guide-sheet=""')] },
   {
     name: 'a part sheet',
     sheet: true,
@@ -283,8 +285,8 @@ test('🌗 a tap on the dimmed page closes the sheet — every Maker sheet has i
   assert.match(el.props.className, /\btop-\[52px\]/, 'the scrim covers the top bar — Apply must stay in reach');
   // Each sheet wires its own close to the scrim AND the grip.
   const wiring: Array<[string, RegExp]> = [
-    [`${L}/details-workspace.tsx`, /<SheetScrim onClose=\{\(\) => setSheetOpen\(false\)\} \/>[\s\S]*<SheetScrim onClose=\{\(\) => setGuideSheet\(false\)\} \/>/],
-    [`${L}/details-workspace.tsx`, /<SheetGrip onClose=\{\(\) => setSheetOpen\(false\)\} \/>[\s\S]*<SheetGrip onClose=\{\(\) => setGuideSheet\(false\)\} \/>/],
+    [`${L}/details-workspace.tsx`, /<SheetScrim onClose=\{\(\) => setSheetOpen\(false\)\} \/>/],
+    [`${L}/details-workspace.tsx`, /<SheetGrip onClose=\{\(\) => setSheetOpen\(false\)\} \/>/],
     // 📱 The PART sheet has no scrim since 2026-10-04 (owner: a tap on the canvas
     // folds it, a tap on another part switches it — `lib/element-sheet-state.ts`);
     // its grip folds it to the bar. Held in `element-sheet-state.test.ts`.
@@ -295,6 +297,8 @@ test('🌗 a tap on the dimmed page closes the sheet — every Maker sheet has i
   for (const [file, re] of wiring) assert.match(stripComments(read(file)), re, `${file}: a sheet lost its dimmed-page close or its grip`);
   // The scene sheet is the HALF sheet instead: a live page, a grip that drags, a slim bar (owner 2026-10-04).
   assert.match(stripComments(read(`${E}/editor-shell.tsx`)), /<MakerHalfSheet\s+label="Inspector"/, 'the scene sheet is no longer the half sheet');
+  // …and so is a step of the guided flow (PR-2): the page live above it, × back to the stages.
+  assert.match(stripComments(read(`${L}/details-workspace.tsx`)), /<MakerHalfSheet\s+label="What’s left"[\s\S]{0,400}onClose=\{\(\) => move\(\{ kind: 'stages' \}\)\}/, 'a step of the flow is no longer the half sheet');
 });
 
 /* ── NO PILL ROWS IN A SHEET ─────────────────────────────────────────────── */

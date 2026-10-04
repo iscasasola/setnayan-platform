@@ -163,8 +163,9 @@ type Props = {
      *  (`lib/maker-details-items.ts`). */
     tool?: string | string[];
     item?: string | string[];
-    /** 🪜 `?guide=1` opens Details on its guided "What's left" (Details part 5);
-     *  `?guide=ready-2` on Round 2's Ready screen (`lib/details-guided-flow.ts`). */
+    /** 🪜 `?guide=1` opens Details on its guided "What's left" — "Which stage do you
+     *  want ready?" (PR-2); `?guide=walk-rsvp` walks the Invitation, `?guide=ready-event`
+     *  is The Day's Ready screen (`lib/details-guided-flow.ts` `parseGuideParam`). */
     guide?: string | string[];
     /** `?date=help` — Details › Date opens on "Help me choose" (where /find-date lands). */
     date?: string | string[];
@@ -1460,7 +1461,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             /* 🪜 Details part 5 — the guided "What's left" over these very items. */
             guide={{
               open: guideAddress !== null || (detailsUnfinished && detailsLandsPlain),
-              ready: guideAddress?.ready ?? null,
+              address: guideAddress,
               itemNamed,
               guideNamed: guideAddress !== null,
               // Never on the Maker's very first visit — its own welcome is showing.
@@ -1623,12 +1624,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          controller's stage duplicated the canvas; its View as is now the
          toolbar's switch, and the address moves to the Details panel (P9). */
       more={null}
-      viewAs={Object.fromEntries(
-        Object.entries(roleViewsByPhase).map(([phase, roles]) => [
-          phase,
-          roles.map((r) => ({ role: r.role, name: r.name, href: r.previewHref })),
-        ]),
-      )}
       /* 💾 Phase 2: the draft's Apply · Restore · Reset, in the toolbar. Only
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}

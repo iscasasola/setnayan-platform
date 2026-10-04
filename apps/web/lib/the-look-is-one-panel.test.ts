@@ -59,7 +59,7 @@ async function paintPanel(look: unknown) {
     moreOpen: false,
     renderStamp: '1',
     storeShell: false,
-    viewAsHref: null,
+    seeAs: null,
     addScene: null,
     setAddScene: noop,
     detailsItem: 'theme',

@@ -149,7 +149,8 @@ test("the host's canvas wears the drafted colours; a guest's render never builds
   );
   const wraps = [...page.matchAll(/return wearDraft\(|renderAnonymous = \(reason: AnonymousReason\) => wearDraft\(/g)].length;
   console.log(`[live-savers] InvitationBody renders wrapped in wearDraft: ${wraps}`);
-  assert.equal(wraps, 3, 'the anonymous view, the ?as= preview and the guest view are all wrapped');
+  // 👁 PR-10 adds one: See as › Signed out (the stranger's page drawn in the canvas).
+  assert.equal(wraps, 4, 'the anonymous view, See as › Signed out, the ?as= preview and the guest view are all wrapped');
   // The layout and the canvas dress the page through ONE translation.
   assert.match(read('app/[slug]/layout.tsx'), /<GuestLookScope \{\.\.\.lookScopeProps\(look\)\}>/);
   assert.match(read('app/[slug]/_components/host-draft-look.tsx'), /<GuestLookScope \{\.\.\.lookScopeProps\(look\)\}>/);

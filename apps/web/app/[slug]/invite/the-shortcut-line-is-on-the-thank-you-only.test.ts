@@ -80,7 +80,8 @@ test('3 · the shortcut made from the thank-you is the couple\'s tile for THAT e
   assert.match(ENTER, /export async function generateMetadata\(/, 'the thank-you names no tile');
   assert.match(
     ENTER,
-    /\.\.\.\(shell\?\.slug \? eventShortcutMetadata\(shell\.slug as string, shell\.display_name as string \| null\) : \{\}\)/,
+    // + the tile's one-time re-entry code (I9, 2026-10-04 — lib/guest-reentry.test.ts).
+    /eventShortcutMetadata\(shell\.slug as string, shell\.display_name as string \| null, \{ reentryCode: tileCode \}\)/,
     'the thank-you names its tile some other way than the Event Hub',
   );
   assert.doesNotMatch(ENTER, /export const metadata\b/, 'a static metadata export would drop the tile');

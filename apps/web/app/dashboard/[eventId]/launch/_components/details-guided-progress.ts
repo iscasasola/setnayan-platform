@@ -2,7 +2,7 @@ import 'server-only';
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
-import { GENERIC_PROFILE, resolveProfile } from '@/lib/event-type-profile';
+import { GENERIC_PROFILE, profileSetup, resolveProfile } from '@/lib/event-type-profile';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { resolveMoments } from '@/lib/love-story-moments';
 import { parsePrintDetails } from '@/lib/print-pieces';
@@ -219,6 +219,8 @@ export function guidedPresent(input: {
   hasSlug: boolean;
   /** 🪑 The Seat plan was read for this event (Details part 4 draws its item); the type's own rule still applies. */
   seatPlan?: boolean;
+  /** 📷 This type asks "Photos from your guests" (`profileSetup(...).cameraDefault !== 'off'` — Details' `answerParts`). */
+  papic?: boolean;
 }): Set<DetailsItemKey> {
   return new Set<DetailsItemKey>([
     'theme',
@@ -227,6 +229,7 @@ export function guidedPresent(input: {
     ...WORDS_ITEM_KEYS,
     ...(input.storyApplies ? (['love-story'] as const) : []),
     ...(input.seatPlan ? (['seating'] as const) : []),
+    ...(input.papic ? (['papic'] as const) : []),
     'schedule',
     'rsvp',
     'download',
@@ -313,6 +316,7 @@ export async function readGuidedPlan({
     storyApplies,
     hasSlug: Boolean(event.slug),
     seatPlan: detailsItemApplies('seating', ctx),
+    papic: profileSetup(profile).cameraDefault !== 'off',
   });
   const plan = guidedPlanFromFacts({
     ctx,

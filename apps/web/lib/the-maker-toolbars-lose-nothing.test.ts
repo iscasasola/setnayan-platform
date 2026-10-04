@@ -76,7 +76,9 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['…its row', 'pageMenu', ["label: 'About the Maker'"]],
   ['address, who can view (Page ▾ › Your Event Hub)', 'topBar', ['setMoreOpen(true)']],
   ['…their rows', 'pageMenu', ["label: 'Your Event Hub address'", "label: 'Who can view'"]],
-  ['View as (Guest · Supplier) — 👁 Preview › See it as', 'topBar', ['See it as…', 'setViewAsRole(r.role)']],
+  // 2026-10-04 PR-10: the role chips became See as ▾ — a SAMPLE guest drawn on the
+  // canvas (hasn't replied · Replied Yes · Declined · Signed out); desktop: above the preview.
+  ['View as (Guest · Supplier) — 👁 Preview › See as', 'topBar', ['<MenuHeading>See as</MenuHeading>', 'setSeeAs(s.key)']],
   ['Reset this stage… (Page ▾, end of the stage)', 'topBar', ["act === 'reset'", 'MAKER_OPEN_RESET_EVENT']],
   ['…its row', 'pageMenu', ["label: 'Reset this stage…'"]],
   ['Reset this stage… (the confirm)', 'draftBar', ['MAKER_OPEN_RESET_EVENT', "intent: 'reset'"]],

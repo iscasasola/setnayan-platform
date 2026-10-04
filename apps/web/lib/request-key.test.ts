@@ -81,8 +81,19 @@ test('the words are the approved prototype’s, verbatim', () => {
 test('🔒 redeem: a pending or declined key is remembered as a REQUEST and never becomes a guest session', () => {
   const r = read('app/[slug]/redeem/route.ts');
   const ask = r.indexOf('const keyState = requestKeyState(keyRow)');
-  const session = r.indexOf('await setGuestSession(');
-  assert.ok(ask > -1 && session > ask, 'the redeem hop mints a session before asking the key’s state');
+  const keyRead = r.indexOf('const { data: keyRow }');
+  // The TOKEN path: from reading the key to asking its state, nothing mints a pass.
+  assert.ok(keyRead > -1 && ask > keyRead, 'the redeem lost its key read / state check');
+  assert.doesNotMatch(r.slice(keyRead, ask), /setGuestSession\(/, 'the redeem hop mints a session before asking the key’s state');
+  const session = r.indexOf('await setGuestSession(', ask);
+  assert.ok(session > ask, 'the accepted key never becomes a guest session');
+  // The one pass written BEFORE the key read is a spent re-entry code (2026-10-04,
+  // lib/guest-reentry.ts): codes are minted only for a guest who already holds a
+  // pass, and the exchange refuses a removed row — a pending or declined
+  // request can never hold one.
+  const early = r.slice(0, keyRead).match(/await setGuestSession\(/g) ?? [];
+  assert.equal(early.length, 1, 'a second pass is written before the key is read');
+  assert.match(r.slice(0, keyRead), /await setGuestSession\(\{ guest_id: spent\.guestId,/);
   const gate = r.slice(ask, session);
   assert.match(gate, /keyState\.kind === 'pending' \|\| keyState\.kind === 'declined'\) \{\s*await rememberRequestKey\([^)]*\);\s*return NextResponse\.redirect\(new URL\(`\/\$\{event\.slug\}\/request`/);
   assert.match(gate, /keyState\.kind === 'none'\) \{\s*target\.searchParams\.set\('invite_error', 'invalid_token'\)/, 'a removed list guest’s key opens their page');

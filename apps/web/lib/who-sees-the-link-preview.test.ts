@@ -43,7 +43,8 @@ test('/{slug} and /{slug}/recap decide their metadata by the rule — not by vis
   const meta = page.slice(page.indexOf('export async function generateMetadata'), page.indexOf('export default async function'));
   assert.match(meta, /const preview = linkPreviewFor\(visibility, shareState\.published\);/);
   assert.match(meta, /if \(!preview\.namesTheCouple\) \{/);
-  assert.match(meta, /preview\.indexable \? \{\} : \{ robots: \{ index: false, follow: false \} \}/);
+  // (+ 2026-10-04: a personal link's preview is never indexed — lib/guest-pass-hop.test.ts § 6.)
+  assert.match(meta, /preview\.indexable && !personalLink \? \{\} : \{ robots: \{ index: false, follow: false \} \}/);
   assert.doesNotMatch(meta, /if \(visibility !== 'public'\) \{/, 'the old gate is back: an Unlisted published story loses its card');
   assert.match(meta, /ogCardUrlFor\(siteUrl, event\.slug, shareState\.versionAt\)/);
 

@@ -14,6 +14,9 @@ import type { ReactNode } from 'react';
  * here too it inlined again. Types and notes cost nothing here, so this is
  * where they grow; keep pick-menu.tsx to behaviour, comment-free. Guard:
  * `pick-menu-stays-inline.test.ts`.
+ * Train 2026-10-04 e: one-open (`useOneOpen`) + motion (`data-pick-grid`) together
+ * measured 9,838 B, so pick-menu.tsx's last pointer comment ("Notes + types:
+ * `pick-menu-types.ts`") moved here — this file IS its notes. No behaviour dropped.
  *
  * ── HOW pick-menu.tsx BEHAVES (its inline notes, kept here for the same reason) ──
  * · The list's FULL height — `scrollHeight` ignores the maxHeight cap, so a re-measure never feeds the cap back into itself.

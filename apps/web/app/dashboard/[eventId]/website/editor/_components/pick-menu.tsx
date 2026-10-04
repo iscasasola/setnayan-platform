@@ -7,7 +7,6 @@ import { useOneOpen } from '@/lib/one-open';
 import { fontRowClass, groupHeadClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
-/** Notes + types: `pick-menu-types.ts`. */
 export type { PickOption, PickMenuProps } from './pick-menu-types';
 
 export function PickMenu({

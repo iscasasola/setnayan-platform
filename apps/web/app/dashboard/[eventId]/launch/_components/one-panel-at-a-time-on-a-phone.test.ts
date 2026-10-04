@@ -26,7 +26,7 @@ test('on a phone the flow’s progress is in the sheet header, never over the pa
   // 2026-10-04 (live at 375 px): the floating "● Finish · 1 of 6" chip covered the page's own header line.
   assert.doesNotMatch(WORKSPACE, /data-details-guide-chip/, 'the floating chip came back over the page');
   assert.match(WORKSPACE, /data-details-sheet-head=""[\s\S]{0,900}data-details-guide-progress=""/, 'the progress is not in the sheet’s header');
-  assert.match(TOP, /'flex shrink-0 items-center gap-2\.5 border-b border-ink\/10 bg-cream\/80 px-3 py-1\.5 max-lg:hidden sm:px-4'/, 'the flow’s line shows on a phone’s page again');
+  assert.match(TOP, /"flex shrink-0 items-center gap-2\.5 border-b border-ink\/10 bg-cream\/80 px-3 py-1\.5 max-lg:hidden sm:px-4"/, 'the flow’s line shows on a phone’s page again');
   assert.match(WORKSPACE, /<div data-details-guide-head-wrap="" className="hidden lg:contents">/, 'the step’s heading shows on a phone’s page again');
   assert.match(WORKSPACE, /<div data-details-guide-foot-wrap="" data-phone-chrome="strip" className="hidden lg:contents">/, 'the flow’s foot shows on a phone’s page again');
 });
@@ -39,7 +39,8 @@ test('a step’s HALF SHEET holds the step ▾, the step’s heading, its field 
   const sheet = WORKSPACE.slice(at, WORKSPACE.indexOf('</MakerHalfSheet>', at));
   assert.ok(at > 0 && sheet.length > 0, 'the step is not the half sheet');
   assert.match(sheet, /data-details-guide-sheet=""/);
-  assert.match(sheet, /<GuideTop [\s\S]{0,300}?inSheet \/>/, 'the step’s sheet has no step dropdown');
+  // 2026-10-05: the step ▾ IS the sheet's header row (`head`) — step ▾ · Peek · ×, one row.
+  assert.match(sheet, /head=\{at\?\.kind === 'step' && stepHere \? <GuideTop [\s\S]{0,200}?inSheet \/> : null\}/, 'the step’s sheet has no step dropdown in its header');
   assert.match(sheet, /<GuideHead step=\{stepHere\}[^>]*bare \/>/, 'the step’s sheet has no step heading');
   assert.match(sheet, /\{editorsBody\(/, 'the step’s sheet has no field');
   for (const act of ['onBack', 'onSkip', 'onNext']) assert.match(sheet, new RegExp(`${act}=\\{`), `the step’s sheet has no ${act}`);

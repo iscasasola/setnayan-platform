@@ -119,10 +119,11 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * opens on "Which stage do you want ready?" (`StagePicker`), then that stage's
  * Before we start (`BeforeWeStartScreen`, the first time), then its steps — and
  * a step on a phone is the HALF SHEET over the live page (`MakerHalfSheet`, the
- * shape every Maker sheet mounts into): the step's ▾ and its line on top, the
- * SAME editor the item always draws (on the item's one section where the step
- * is one — RSVP's "Reply by"), Back · Skip · Next at its foot; Peek and the slim
- * bar as everywhere. The picker, Before we start and Ready are screens of the
+ * shape every Maker sheet mounts into): ONE slim header — the step's ▾ (All
+ * items inside it) · Peek · × (owner, live iPhone test 2026-10-05) — the SAME
+ * editor the item always draws (on the item's one section where the step is
+ * one — RSVP's "Reply by"), Back · Skip · Next at its foot; each step opens at
+ * half, and Peek and the slim bar work as everywhere. The picker, Before we start and Ready are screens of the
  * flow like Ready always was — the items step aside, hidden, never unmounted.
  * Opening any of them writes nothing.
  */
@@ -596,6 +597,12 @@ export function DetailsWorkspace({
             target={stepHere?.key ?? selected}
             section={walking ? roundName(plan!, walking) : null}
             onClose={() => move({ kind: 'stages' })}
+            /* 📱 ONE slim header (owner, live iPhone test 2026-10-05): the step ▾ —
+               "Save the Date · 3 of 6 ▾", All items inside it — · Peek · ×. No
+               second line, no stage eyebrow, no repeated title. */
+            head={at?.kind === 'step' && stepHere ? <GuideTop plan={plan!} at={at} onPick={(to) => move(to)} onAllItems={allItems} inSheet /> : null}
+            /* Each step opens at half — a sheet dragged up comes back down on Next. */
+            restOn={stepHere?.key ?? null}
             /* A desk keeps its column; with no step open (the picker, Before we start,
                a Ready screen) the sheet is not drawn on a phone either — its editors
                stay mounted under it. */
@@ -605,7 +612,6 @@ export function DetailsWorkspace({
           >
             {at?.kind === 'step' && stepHere ? (
               <div data-details-guide-sheet="" className="flex shrink-0 flex-col lg:hidden">
-                <GuideTop plan={plan!} at={at} onPick={(to) => move(to)} onAllItems={allItems} inSheet />
                 <GuideHead step={stepHere} roundTitle={roundName(plan!, at.round)} itemLabel={current.label} compact bare />
               </div>
             ) : null}

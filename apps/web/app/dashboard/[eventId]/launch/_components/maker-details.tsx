@@ -195,7 +195,6 @@ export type MakerDetailsProps = {
     storeShell: boolean;
     suggested: string | null;
     sampleVersion: string | null;
-    blurbs: Record<string, string>;
     /** Each theme's saved poster, resolved (`INVITE_THEMES[id].media.poster`). */
     posters: Record<string, string | null>;
     /** Mount the first-visit tours (off on the Maker's own first visit). */
@@ -727,7 +726,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
     /* 🎨 LOOK IS ONE PANEL — Theme · Background · Font · Colours (`lib/maker-look-sections.ts`). */
-    theme: <LookPanel theme={<MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} blurbs={theme.blurbs} />} />,
+    theme: <LookPanel theme={<MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} />} />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */

@@ -2,14 +2,9 @@
 
 import { sanitizeHubFontKey } from '@/lib/hub-fonts';
 import { FontPick } from './font-pick';
-import {
-  MAGIC_TRAVELLERS,
-  MAGIC_TRAVELLER_LABEL,
-  MAGIC_TRAVELLER_NOTE,
-} from '@/lib/magic-move';
+import { MAGIC_TRAVELLERS, MAGIC_TRAVELLER_LABEL } from '@/lib/magic-move';
 import Link from 'next/link';
 import { useState } from 'react';
-import { useFormStatus } from 'react-dom';
 import { WEBSITE_PRO_ITEMS } from '@/lib/website-pro-items';
 import { INVITE_THEMES, LEGACY_THEME_ALIASES, type InviteThemeId } from '@/lib/invite-themes';
 import {
@@ -27,6 +22,8 @@ import { HubDraftField } from '../../_components/hub-draft-field';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import { ColourWell } from './colour-well';
+import { PickMenu } from './pick-menu';
+import { DraftsAsYouGo } from './drafts-as-you-go';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
@@ -194,14 +191,13 @@ export function ColorsPanel({
         name="return_to"
         value={`/dashboard/${eventId}/website/editor?open=${rowKey}`}
       />
+      {/* ✍ Every change drafts itself — no Save button (INTERACTION_RULES §8). */}
+      <DraftsAsYouGo />
       {part === 'font' ? (
         proLocked ? (
           proLock
         ) : (
-          <>
-            {typeface}
-            <SaveButton />
-          </>
+          typeface
         )
       ) : (
       <>
@@ -221,51 +217,16 @@ export function ColorsPanel({
           <ButtonColourField name="button_color" defaultValue={buttonColor} eventId={eventId} moodBoard={moodBoard} themeId={themeId} />
         </div>
       )}
-      <p className="mt-1.5 text-[0.7rem] text-ink/45">
-        {moodBoard
-          ? 'Until you pick a colour, the page wears your Mood Board’s.'
-          : 'Until you pick a colour, the page wears its theme’s.'}
-      </p>
-
       {proLocked ? (
-        <>
-          <div className="mt-3">{proLock}</div>
-          <SaveButton />
-        </>
+        <div className="mt-3">{proLock}</div>
       ) : (
       <>
 
-      {/* Candlelight (design spec §4) — the second half of the Pro colour row.
-          A radio pair rather than a checkbox so the form ALWAYS posts one of the
-          two values: the action treats an absent field as "leave unchanged", and
-          an unchecked checkbox posts nothing, which would make the dark
-          direction impossible to turn back off from this panel. */}
-      <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
-        <legend className="sr-only">Art direction</legend>
-        <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Art direction{mark}</p>
-        <div className="mt-1.5 flex gap-4">
-          {(
-            [
-              ['daylight', 'Daylight', 'Light paper — the default.'],
-              ['candlelight', 'Candlelight', 'Dark, warm, evening.'],
-            ] as const
-          ).map(([value, label, hint]) => (
-            <label key={value} className="flex cursor-pointer items-start gap-1.5">
-              <input
-                type="radio"
-                name="site_art_direction"
-                value={value}
-                defaultChecked={(artDirection ?? 'daylight') === value}
-                className="mt-0.5"
-              />
-              <span>
-                <span className="block text-[0.72rem] font-medium text-ink">{label}</span>
-                <span className="block text-[0.66rem] leading-tight text-ink/45">{hint}</span>
-              </span>
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      {/* Candlelight (design spec §4) — ONE dropdown (owner: any set of choices
+          is one dropdown). A hidden field ALWAYS posts one of the two values:
+          the action treats an absent field as "leave unchanged", so the dark
+          direction can always be turned back off from here. */}
+      <ArtDirectionPick value={artDirection ?? 'daylight'} mark={mark} />
 
       {part === 'colours' ? null : typeface}
 
@@ -273,65 +234,18 @@ export function ColorsPanel({
           Owner, 2026-09-23: element animation is *"something I really want"*,
           and *"the idea is like how keynote's magic move operate"*.
 
-          🔑 IT IS A DIFFERENT KIND OF MOTION FROM THE CANVAS, and the copy has
-          to say so. Everything in "How it moves" is a HANDOVER — one section
-          fades out, the next fades in. This is one element staying on screen
-          and travelling between two real places. A couple reading "animation"
-          twice in one editor would reasonably expect them to be the same knob.
+          🔑 IT IS A DIFFERENT KIND OF MOTION FROM THE CANVAS: everything in
+          "How it moves" is a HANDOVER — one section fades out, the next fades
+          in; this is one element staying on screen and travelling between two
+          real places. Its option says so in its own name ("Your monogram
+          travels down the page") — no caption under it (owner 2026-10-05).
 
           ⛔ "Nothing travels" is first, always available, and posts `''` — the
           action reads that as "clear", distinct from an absent field meaning
           "unchanged", exactly as the typeface above does. A couple must be able
           to take this back, and this is the first motion on the guest page that
           moves an element ACROSS the viewport. */}
-      <fieldset className="mt-3 border-t border-dashed border-ink/10 pt-3">
-        <legend className="sr-only">Magic Move</legend>
-        <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Magic Move{mark}</p>
-        <p className="mt-0.5 text-[0.62rem] leading-snug text-ink/45">
-          One thing stays on screen and travels as your guests scroll — not a fade from one
-          section to the next.
-        </p>
-        <div className="mt-1.5 grid gap-1.5">
-          <label className="flex cursor-pointer items-start gap-1.5 rounded-md border border-ink/12 px-2 py-1.5">
-            <input
-              type="radio"
-              name="site_magic_traveller"
-              value=""
-              defaultChecked={!magicTraveller}
-              className="mt-0.5"
-            />
-            <span className="text-[0.72rem] text-ink/70">Nothing travels</span>
-          </label>
-          {MAGIC_TRAVELLERS.map((t) => (
-            <label
-              key={t}
-              className="flex cursor-pointer items-start gap-1.5 rounded-md border border-ink/12 px-2 py-1.5"
-            >
-              <input
-                type="radio"
-                name="site_magic_traveller"
-                value={t}
-                defaultChecked={magicTraveller === t}
-                className="mt-0.5"
-              />
-              <span className="min-w-0">
-                <span className="block text-[0.72rem] leading-tight text-ink">
-                  {MAGIC_TRAVELLER_LABEL[t]}
-                </span>
-                <span className="block text-[0.62rem] leading-snug text-ink/45">
-                  {MAGIC_TRAVELLER_NOTE[t]}
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
-        <p className="mt-1.5 text-[0.62rem] leading-snug text-ink/45">
-          Guests who have asked their phone for less motion see it sit still instead — nothing
-          is lost, it simply stays where it is.
-        </p>
-      </fieldset>
-
-      <SaveButton />
+      <MagicMovePick value={magicTraveller} mark={mark} />
       </>
       )}
       </>
@@ -517,15 +431,51 @@ function BackgroundField({
   );
 }
 
-function SaveButton() {
-  const { pending } = useFormStatus();
+/**
+ * 🌗 ART DIRECTION — Daylight · Candlelight as ONE dropdown, ◆ beside its name
+ * (owner, live iPhone test 2026-10-05: any set of choices is one dropdown).
+ */
+function ArtDirectionPick({ value, mark }: { value: 'daylight' | 'candlelight'; mark: React.ReactNode }) {
+  const [art, setArt] = useState<'daylight' | 'candlelight'>(value);
   return (
-    <button
-      type="submit"
-      disabled={pending}
-      className="mt-2 inline-flex items-center rounded-full bg-ink px-4 py-1.5 text-xs font-semibold text-cream transition-colors hover:bg-ink/90 disabled:opacity-60"
-    >
-      {pending ? 'Saving…' : 'Save'}
-    </button>
+    <div className="mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-dashed border-ink/10 pt-3" data-look-art-direction="">
+      <p className="inline-flex items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Art direction{mark}</p>
+      <input type="hidden" name="site_art_direction" value={art} />
+      <PickMenu
+        label="Art direction"
+        value={art}
+        dataAttr="data-art-direction-pick"
+        options={[
+          { key: 'daylight', label: 'Daylight' },
+          { key: 'candlelight', label: 'Candlelight' },
+        ]}
+        onPick={(k) => setArt(k === 'candlelight' ? 'candlelight' : 'daylight')}
+      />
+    </div>
+  );
+}
+
+/**
+ * ✈ MAGIC MOVE — "Nothing travels" or the one thing that travels, as ONE
+ * dropdown. "Nothing travels" is first and always there; it posts `''`, which
+ * the action reads as "clear" (an absent field means "unchanged").
+ */
+function MagicMovePick({ value, mark }: { value: string | null; mark: React.ReactNode }) {
+  const [magic, setMagic] = useState<string>(value && (MAGIC_TRAVELLERS as readonly string[]).includes(value) ? value : '');
+  return (
+    <div className="mt-3 flex min-h-11 items-center justify-between gap-3 border-t border-dashed border-ink/10 pt-3" data-look-magic-move="">
+      <p className="inline-flex shrink-0 items-center gap-1.5 text-[0.72rem] font-semibold text-ink/80">Magic Move{mark}</p>
+      <input type="hidden" name="site_magic_traveller" value={magic} />
+      <PickMenu
+        label="Magic Move"
+        value={magic === '' ? 'none' : magic}
+        dataAttr="data-magic-move-pick"
+        options={[
+          { key: 'none', label: 'Nothing travels' },
+          ...MAGIC_TRAVELLERS.map((t) => ({ key: t, label: MAGIC_TRAVELLER_LABEL[t] })),
+        ]}
+        onPick={(k) => setMagic(k === 'none' ? '' : k)}
+      />
+    </div>
   );
 }

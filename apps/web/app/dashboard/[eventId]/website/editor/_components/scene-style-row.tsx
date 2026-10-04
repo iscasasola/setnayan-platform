@@ -159,8 +159,8 @@ export function SceneStyleCanvasRow({
  * (`noteDraftedCanvas`), so a Style pick on that scene right after builds on it.
  * Drawn only where "Our colours" is drawn in the look — the Colours and roles
  * layout on the Invitation — and only when there are colours to show, so a
- * pick is never one that changes nothing. Its one line says WHERE it shows: it
- * never recolours the page itself.
+ * pick is never one that changes nothing. No line under it (owner, live
+ * iPhone test 2026-10-05: no captions under controls).
  */
 export function PaletteLookCanvasRow({
   eventId,
@@ -168,7 +168,6 @@ export function PaletteLookCanvasRow({
   eventType,
   draftAction,
   colours,
-  line,
 }: {
   eventId: string;
   /** The Dress code scene's canvas (drafted over live). */
@@ -177,8 +176,6 @@ export function PaletteLookCanvasRow({
   draftAction: ElementDraftAction;
   /** The couple's Mood Board colours — the dropdown's thumbnails. */
   colours: readonly string[];
-  /** Where the look shows (`PALETTE_STYLES_LINE`). */
-  line: string;
 }) {
   const { shown, save, pending, error } = useSceneCanvas(eventId, 'dress_code', canvas, draftAction, (next) =>
     noteDraftedCanvas('dress_code', next, canvas),
@@ -194,9 +191,6 @@ export function PaletteLookCanvasRow({
         /* Tags is the default, and "Auto is an absence": picking it clears the key. */
         onPick={(id) => save((c) => { if (id === PALETTE_LOOK_DEFAULT) delete c.palette; else c.palette = id; })}
       />
-      <p className="text-[12px] text-ink/60" data-look-palette-line="">
-        {line}
-      </p>
       {error ? (
         <p role="alert" className="py-2 text-[12.5px] font-semibold text-terracotta-700">
           {error}

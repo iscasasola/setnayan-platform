@@ -67,7 +67,15 @@ export type DetailsGuide = {
   tour?: ReactNode;
 };
 
-/** A step's heading: its stage, its name, where it shows. `bare` — the title is the sheet's own (the phone's half sheet). */
+/**
+ * A step's heading: its stage and its name. `bare` (the phone's half sheet) —
+ * the stage and the step are the sheet's own step ▾, so only the setup's 🔓
+ * line is left, and with none there is no heading at all.
+ *
+ * No "where it shows" line under it (owner, live iPhone test 2026-10-05: no
+ * captions — "The look of your whole Event Hub and every print." sat between
+ * the header and the field). A step's place shows on the page beside it.
+ */
 export function GuideHead({
   step,
   roundTitle,
@@ -82,14 +90,16 @@ export function GuideHead({
   compact: boolean;
   bare?: boolean;
 }) {
+  if (bare && !step.unlocks) return null;
   const eyebrow = `${roundTitle}${step.optional ? ' · optional' : ''}${itemLabel && step.items.length > 1 ? ` · ${itemLabel}` : ''}`;
   return (
     <header data-details-guide-head={step.key} className={compact ? 'flex shrink-0 flex-col gap-0.5 px-4 pb-1 pt-2.5 sm:px-6' : 'flex flex-col gap-0.5'}>
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{eyebrow}</p>
-      {bare ? null : <h2 className={compact ? 'font-serif text-lg text-ink' : 'font-serif text-2xl text-ink'}>{step.title}</h2>}
-      <p className="text-[13px] text-ink/65" data-details-guide-shows="">
-        {step.shows}
-      </p>
+      {bare ? null : (
+        <>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{eyebrow}</p>
+          <h2 className={compact ? 'font-serif text-lg text-ink' : 'font-serif text-2xl text-ink'}>{step.title}</h2>
+        </>
+      )}
       {/* 🔓 The setup's line under every step — what filling it in turns on (filled in, never a paywall). */}
       {step.unlocks ? (
         <p

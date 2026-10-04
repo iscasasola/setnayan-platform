@@ -229,9 +229,11 @@ test('⛔ the traveller is stamped at the SLOT, and has a box to transform', () 
 
 test('⛔ a couple can turn it on, and can take it back', () => {
   assert.match(PANEL, /name="site_magic_traveller"/, 'the editor needs the control');
-  const radios = [...PANEL.matchAll(/name="site_magic_traveller"/g)];
-  assert.ok(radios.length >= 2, `an off option and at least one traveller, saw ${radios.length}`);
-  assert.match(PANEL, /value=""\n\s*defaultChecked=\{!magicTraveller\}/, '"nothing travels" posts the clear');
+  // ONE dropdown (owner 2026-10-05: any set of choices is one dropdown) — its
+  // hidden field posts the pick; "Nothing travels" is first and posts the clear.
+  assert.match(PANEL, /<input type="hidden" name="site_magic_traveller" value=\{magic\} \/>/, 'the pick is not what the form posts');
+  assert.match(PANEL, /\{ key: 'none', label: 'Nothing travels' \},\s*\.\.\.MAGIC_TRAVELLERS\.map/, 'an off option, first, then the travellers');
+  assert.match(PANEL, /onPick=\{\(k\) => setMagic\(k === 'none' \? '' : k\)\}/, '"nothing travels" posts the clear');
   assert.match(PANEL, /MAGIC_TRAVELLERS\.map/, 'the options come from the contract, not a retyped list');
   assert.match(PANEL, /MAGIC_TRAVELLER_LABEL/, 'and so does their copy');
 });

@@ -337,7 +337,8 @@ test('(6) a step is its item, one at a time: the heading, the narrowed navigator
   assert.match(html, /data-details-mode="guided"/);
   assert.match(html, /data-details-guide-top=""/, 'no progress line');
   assert.match(html, /data-details-guide-head="names"/, 'no step heading');
-  assert.match(html, /Shows on your page, your invitation, every print and every pass\./);
+  // 🚫 No "where it shows" caption under the step (owner, live iPhone test 2026-10-05).
+  assert.doesNotMatch(html, /Shows on your page, your invitation, every print and every pass\./, 'a caption came back under the step');
   assert.match(html, /NAMES-BODY/, 'the step does not show its item’s own picture');
   assert.match(html, /data-details-guide-next=""/);
   assert.match(html, /data-details-guide-skip=""/);

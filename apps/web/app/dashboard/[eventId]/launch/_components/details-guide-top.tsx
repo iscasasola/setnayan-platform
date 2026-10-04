@@ -50,6 +50,9 @@ export function screenFromKey(key: string): GuidedScreen | null {
   return null;
 }
 
+/** The step ▾'s own row for "All items" — leaves the flow for the grouped list. */
+const ALL_ITEMS = 'all-items';
+
 /** The top line: progress, the step list (one dropdown), All items. */
 export function GuideTop({
   plan,
@@ -65,9 +68,10 @@ export function GuideTop({
   onAllItems: () => void;
   tour?: ReactNode;
   /**
-   * 📱 Drawn at the top of the guide's phone sheet (`details-workspace.tsx`).
-   * Otherwise this is the desktop's line — on a phone the flow is one chip on
-   * the page instead (owner 2026-10-02: "too clumped").
+   * 📱 The step sheet's header lead (`MakerHalfSheet`'s `head`, details-workspace.tsx):
+   * ONLY the step ▾ — "Save the Date · 3 of 6 ▾" — and All items is its last
+   * row (owner, live iPhone test 2026-10-05: one slim header, step ▾ · Peek · ×).
+   * Otherwise this is the desktop's line, with its bar and its All items button.
    */
   inSheet?: boolean;
 }) {
@@ -84,31 +88,42 @@ export function GuideTop({
         { key: `ready:${r}`, label: `Apply · ${plan.roundWords[r].ready}`, group },
       ];
     }),
+    ...(inSheet ? [{ key: ALL_ITEMS, label: 'All items' }] : []),
   ];
+  const steps = (
+    <PickMenu
+      label="Pick a step — any time"
+      value={screenKey(at)}
+      options={options}
+      onPick={(k) => {
+        if (k === ALL_ITEMS) {
+          onAllItems();
+          return;
+        }
+        const next = screenFromKey(k);
+        if (next) onPick(next);
+      }}
+      buttonText={progressLabel(plan, at)}
+      dataAttr="data-details-guide-steps"
+      className="font-mono !text-[12px] tracking-[0.04em]"
+    />
+  );
+  if (inSheet) {
+    return (
+      <div data-details-guide-top="sheet" className="flex min-w-0 items-center lg:hidden">
+        {steps}
+      </div>
+    );
+  }
   return (
     <div
-      data-details-guide-top={inSheet ? 'sheet' : ''}
-      className={
-        inSheet
-          ? 'flex shrink-0 items-center gap-2 px-3 pb-1 lg:hidden'
-          : 'flex shrink-0 items-center gap-2.5 border-b border-ink/10 bg-cream/80 px-3 py-1.5 max-lg:hidden sm:px-4'
-      }
+      data-details-guide-top=""
+      className="flex shrink-0 items-center gap-2.5 border-b border-ink/10 bg-cream/80 px-3 py-1.5 max-lg:hidden sm:px-4"
     >
       <span aria-hidden className="block h-1.5 w-12 shrink-0 overflow-hidden rounded-full bg-ink/10 sm:w-24">
         <span className="block h-full rounded-full bg-terracotta-700" style={{ width: `${Math.round(progressShare(plan, at) * 100)}%` }} />
       </span>
-      <PickMenu
-        label="Pick a step — any time"
-        value={screenKey(at)}
-        options={options}
-        onPick={(k) => {
-          const next = screenFromKey(k);
-          if (next) onPick(next);
-        }}
-        buttonText={progressLabel(plan, at)}
-        dataAttr="data-details-guide-steps"
-        className="font-mono !text-[12px] tracking-[0.04em]"
-      />
+      {steps}
       <span className="flex-1" />
       <button
         type="button"
@@ -118,7 +133,7 @@ export function GuideTop({
       >
         All items
       </button>
-      {inSheet ? null : tour}
+      {tour}
     </div>
   );
 }

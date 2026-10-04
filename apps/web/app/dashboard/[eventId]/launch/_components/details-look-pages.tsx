@@ -7,6 +7,7 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import { canvasKeyOfSelection } from '@/lib/maker-selection';
 import { CanvasStaysOnThePage } from '../../website/editor/_components/maker-canvas-guard';
+import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { MakerPageFrame, MakerPageSwitch } from './maker-page';
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { useMaker } from './maker-context';
@@ -112,23 +113,23 @@ export function LookPanel({ theme }: { theme: ReactNode }) {
  * change shows as it is made). The page they are editing — the stage the Maker
  * is on, its draft, through the host-only canvas door — fills the body; the
  * sample gallery of every theme (`MakerThemeGallery`, the 2026-09-28 quick
- * preview) is one switch away. Two choices: a switch, never a dropdown.
+ * preview) is one switch away — THE one segmented control (`ISegmented`, the
+ * chosen segment in Setnayan wine; DECISION_LOG 2026-10-04 "ONE SEGMENTED
+ * CONTROL FOR SECTIONS, ACROSS THE APP"), never a pill row of its own.
  */
 export function DetailsLookPageBody({ gallery }: { gallery: ReactNode }) {
   const [view, setView] = useState<'page' | 'themes'>('page');
-  const seg = (on: boolean) =>
-    `sn-press inline-flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
-      on ? 'bg-ink text-cream' : 'bg-white/80 text-ink/75 hover:bg-white'
-    }`;
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-details-look-body={view}>
-      <div role="group" aria-label="What the page shows" className="flex shrink-0 gap-1.5 px-4 pb-2 sm:px-6">
-        <button type="button" aria-pressed={view === 'page'} data-look-view="page" onClick={() => setView('page')} className={seg(view === 'page')}>
-          Your page
-        </button>
-        <button type="button" aria-pressed={view === 'themes'} data-look-view="themes" onClick={() => setView('themes')} className={seg(view === 'themes')}>
-          All themes
-        </button>
+      <div className="flex w-full shrink-0 px-4 pb-2 sm:px-6 lg:max-w-md" data-look-view-switch="">
+        <ISegmented label="What the page shows">
+          <ISeg tone="wine" on={view === 'page'} onClick={() => setView('page')} data="look-view-page">
+            Your page
+          </ISeg>
+          <ISeg tone="wine" on={view === 'themes'} onClick={() => setView('themes')} data="look-view-themes">
+            All themes
+          </ISeg>
+        </ISegmented>
       </div>
       {view === 'page' ? (
         <DetailsLookBody item="look" />

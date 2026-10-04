@@ -21,7 +21,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
-import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
+import { pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
@@ -1484,7 +1484,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               storeShell,
               suggested: themeMatchingFeel(feelRes.data?.mood_feel_key),
               sampleVersion,
-              blurbs: Object.fromEntries(themes.map((t) => [t.id, INVITE_THEMES[t.id].blurb])),
               // Each theme's SAVED poster (already on R2) — the gallery's picture until a page is there.
               posters: Object.fromEntries(themes.map((t) => [t.id, t.media ? publicUrlForStoredAsset(t.media.poster) : null])),
               // Never on the Maker's very first visit — its own welcome is showing.

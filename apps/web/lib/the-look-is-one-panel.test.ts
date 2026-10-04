@@ -13,7 +13,7 @@
  * Held here, each where it can be EXECUTED:
  *   (1) RENDER — the panel draws the four sections in `LOOK_SECTIONS` order,
  *       each with the control the work area registered (palette under Colours,
- *       with the line that says where it shows);
+ *       with no caption under it — owner 2026-10-05);
  *   (2) the Look door's item mounts that panel, and its body is the couple's
  *       own page (a change shows as it is made), the theme gallery one switch away;
  *   (3) MOVED, NOT COPIED — the same rows the editor page always built, and
@@ -31,7 +31,7 @@ import { join } from 'node:path';
 import React from 'react';
 
 import { stripComments } from './strip-comments';
-import { LOOK_ROW_OF, LOOK_SECTIONS, PALETTE_STYLES_LINE, isLookRow } from './maker-look-sections';
+import { LOOK_ROW_OF, LOOK_SECTIONS, isLookRow } from './maker-look-sections';
 import { HUB_DRAFT_FIELD } from './hub-draft';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -149,8 +149,10 @@ test('(3) the SAME rows move into Look, and their old places no longer hold them
   const styleRow = style.slice(style.indexOf('export function SceneStyleCanvasRow'), style.indexOf('export function PaletteLookCanvasRow'));
   assert.ok(styleRow.length > 200, 'anti-vacuity: the Style row was not found');
   assert.doesNotMatch(styleRow, /PaletteLookRow/, 'the palette is drawn in two places');
-  assert.match(work, /line=\{PALETTE_STYLES_LINE\}/, 'the palette does not say where it shows');
-  assert.match(PALETTE_STYLES_LINE, /Our colours/);
+  // 🚫 No caption under the palette (owner, live iPhone test 2026-10-05: no captions under controls).
+  const palette = style.slice(style.indexOf('export function PaletteLookCanvasRow'));
+  assert.ok(palette.includes('<PaletteLookRow'), 'anti-vacuity: the palette row was not found');
+  assert.doesNotMatch(palette, /data-look-palette-line|\{line\}/, 'a caption came back under the palette');
   // An old `?open=` naming a moved row opens Look.
   assert.match(work, /if \(isLookRow\(initialOpenRow\)\) \{\s*setMakerItem\?\.\('theme'\);\s*select\(\{ kind: 'tool', key: 'details' \}\);/);
   // Each control is still built ONCE, by the editor page.

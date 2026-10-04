@@ -9,6 +9,8 @@ import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { planPersonalInfoPatch } from '@/lib/profile-personal-info-patch';
 import { isSettingsGroup } from '@/lib/profile-settings-groups';
+import { seatNameOfferFor } from '@/lib/seat-name-offer.server';
+import type { FormalNameField } from '@/lib/formal-name';
 
 // 2026-05-22 brand pivot (CLAUDE.md decision-log). 5-theme list retired —
 // replaced with 3-mode (Light · Dark · Auto). Owner directive: "make our
@@ -117,6 +119,55 @@ export async function updatePersonalInfo(formData: FormData) {
 
   revalidatePath('/dashboard', 'layout');
   redirect(`/dashboard/profile?saved=1${tabQs}`);
+}
+
+/**
+ * 🪪 "USE THIS ON YOUR PROFILE" (B9 · owner 2026-09-30, DECISION_LOG "THE
+ * EVENT'S FORMAL NAME FILLS THE PERSON'S OWN PROFILE — ONE TAP, NEVER SILENT").
+ * The person's own Me tab offers it; their confirm lands here.
+ *
+ *   · WHOSE PROFILE: the signed-in user's, always — the write goes through the
+ *     user's own client, so RLS (`user_owns_row`) refuses any other row. No id
+ *     in the input names a profile; a host has no way to aim this at a guest.
+ *   · WHICH NAME: read again on the server from the seat this account saved
+ *     (`seatNameOfferFor`) — nothing typed by the browser is written.
+ *   · WHAT CHANGES: the profile's EMPTY formal-name parts, nothing else. Each
+ *     filled part is matched on its own NULL, so a part the person typed since
+ *     the tab opened is never replaced.
+ */
+export async function adoptSeatNameOnProfile(input: {
+  eventId: string;
+  guestId: string;
+}): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Sign in to change your profile.' };
+
+  const offer = await seatNameOfferFor(createAdminClient(), user.id, input.eventId, input.guestId);
+  if (!offer) return { ok: false, error: 'Nothing to change on your profile.' };
+
+  const columns = Object.keys(offer.fill) as FormalNameField[];
+  let write = supabase.from('users').update(offer.fill).eq('user_id', user.id);
+  for (const f of columns) write = write.is(f, null);
+  const { data, error } = await write.select('user_id');
+  if (error) {
+    await insertFaultLog({
+      event_type: 'SUPABASE_SAVE_ERROR',
+      element_name: 'Use this on your profile',
+      file_path: 'app/dashboard/(account)/profile/actions.ts',
+      error_message: error.message,
+      payload_snapshot: { userId: user.id, columns },
+    });
+    return { ok: false, error: 'Couldn’t save that just now — please try again.' };
+  }
+  if (!data || data.length === 0) {
+    return { ok: false, error: 'Your profile changed — open it to check your name.' };
+  }
+
+  revalidatePath('/dashboard', 'layout');
+  return { ok: true, name: offer.name };
 }
 
 /**

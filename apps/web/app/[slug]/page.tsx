@@ -57,6 +57,8 @@ import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
 import { celebrantsForViewer } from '@/lib/event-celebrants.server';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { addCelebrantFromEvent, setFollowByPublicId } from '@/app/dashboard/(account)/people/actions';
+import { seatNameOfferFor } from '@/lib/seat-name-offer.server';
+import { adoptSeatNameOnProfile } from '@/app/dashboard/(account)/profile/actions';
 import { withdrawFaceConsent } from './actions';
 import { loadPreviewPerson } from './_lib/preview-person.server';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
@@ -1748,6 +1750,12 @@ async function InvitationBody({
     !isEditorCanvas && viewerAccount?.id && account.kind === 'linked'
       ? await celebrantsForViewer(admin, event.event_id, viewerAccount.id)
       : [];
+  // 🪪 "Use this on your profile" (B9) — the same door: only a viewer whose OWN
+  // account holds this seat. Read-only here; only the person's confirm writes.
+  const seatNameOffer =
+    !isEditorCanvas && viewerAccount?.id && account.kind === 'linked'
+      ? await seatNameOfferFor(admin, viewerAccount.id, event.event_id, guest.guest_id)
+      : null;
   const meSlot = isEditorCanvas ? null : (
     <>
     {/* 🎫 THE DIGITAL TICKET — first on Me, and only on Me (owner 2026-09-30).
@@ -1795,6 +1803,7 @@ async function InvitationBody({
       celebrants={celebrants}
       canAddCelebrants={peopleConnectionsEnabled()}
       celebrantActions={{ follow: setFollowByPublicId, add: addCelebrantFromEvent }}
+      profileName={seatNameOffer ? { name: seatNameOffer.name, adopt: adoptSeatNameOnProfile } : null}
       /* Me → "Face tagging" (face-registration design, frame D): only where
          face tagging is on offer — no Papic, no row (frame F). */
       faceTagging={

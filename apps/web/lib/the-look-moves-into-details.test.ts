@@ -214,7 +214,7 @@ async function paintLook(part: 'body' | 'editor', item: 'logo' | 'hero' | 'revea
     moreOpen: false,
     renderStamp: '1',
     storeShell: false,
-    viewAsHref: null,
+    seeAs: null,
     addScene: null,
     setAddScene: noop,
     detailsItem: item,
@@ -408,7 +408,7 @@ test('(7) Hero: its parts in the navigator; a pick opens that part’s style on 
     return renderToStaticMarkup(
       React.createElement(
         MakerContext.Provider,
-        { value: { eventId: 'e', stage: 'rsvp', setStage: noop, device: 'phone', navOpen: true, selection: null, select: noop, moreOpen: false, renderStamp: '1', storeShell: false, viewAsHref: null, addScene: null, setAddScene: noop, lookPages: LOOK } },
+        { value: { eventId: 'e', stage: 'rsvp', setStage: noop, device: 'phone', navOpen: true, selection: null, select: noop, moreOpen: false, renderStamp: '1', storeShell: false, seeAs: null, addScene: null, setAddScene: noop, lookPages: LOOK } },
         React.createElement(DetailsLookPieces, { item: 'hero' }),
         React.createElement(DetailsLookPieces, { item: 'reveal' }),
       ),

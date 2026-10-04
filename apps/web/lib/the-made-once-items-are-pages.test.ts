@@ -142,7 +142,7 @@ async function paintWork(selection: unknown, opts: { revealStages?: string[] } =
     moreOpen: false,
     renderStamp: '1',
     storeShell: false,
-    viewAsHref: null,
+    seeAs: null,
   };
   return renderToStaticMarkup(
     React.createElement(

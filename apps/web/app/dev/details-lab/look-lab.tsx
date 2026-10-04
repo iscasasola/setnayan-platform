@@ -84,7 +84,7 @@ export function LookLab({ children }: { children: ReactNode }) {
       moreOpen: false,
       renderStamp: 'lab',
       storeShell: false,
-      viewAsHref: null,
+      seeAs: null,
       addScene: null,
       setAddScene: noop,
       detailsItem,

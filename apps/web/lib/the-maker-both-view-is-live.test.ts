@@ -106,7 +106,7 @@ test('3 · the phone pane is one more buffered frame of the same address, held s
   const canvas = frameWith('frameRef={frameRef}');
   const phone = frameWith('frameRef={bothFrameRef}');
   // Same address, same key — a held pick reloads neither; a release reloads both, buffered.
-  assert.match(phone, /frameKey=\{`\$\{stage\}:\$\{canvasStamp\}:\$\{maker\.viewAsHref \?\? ''\}`\}/);
+  assert.match(phone, /frameKey=\{`\$\{stage\}:\$\{canvasStamp\}:\$\{maker\.seeAs \?\? ''\}`\}/);
   assert.equal(
     phone.match(/frameKey=\{[^}]*\}[^}]*\}/)?.[0],
     canvas.match(/frameKey=\{[^}]*\}[^}]*\}/)?.[0],

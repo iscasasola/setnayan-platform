@@ -41,6 +41,8 @@ export function OwnerRibbon({ model }: { model: OwnerRibbonModel | null }) {
   return (
     <aside
       aria-label="Host controls"
+      /* 👁 The host's own controls stay pressable while the page is drawn for a See as sample (sample-viewer-inert.tsx). */
+      data-owner-ribbon=""
       className="sticky top-0 z-[90] mb-8 border border-ink/10 bg-paper-deep/95 px-4 py-2.5 backdrop-blur"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -56,7 +58,9 @@ export function OwnerRibbon({ model }: { model: OwnerRibbonModel | null }) {
           {model.editorLabel}
         </Link>
 
-        {model.phaseLinks.length > 0 ? <OwnerPhaseMenu links={model.phaseLinks} /> : null}
+        {model.phaseLinks.length > 0 || model.seeAsLinks.length > 0 ? (
+          <OwnerPhaseMenu links={model.phaseLinks} seeAs={model.seeAsLinks} />
+        ) : null}
       </div>
     </aside>
   );

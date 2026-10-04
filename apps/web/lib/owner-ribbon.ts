@@ -28,6 +28,7 @@
 import { viewerIsEventHost } from '@/app/[slug]/_lib/site-identity';
 import type { OwnerCapability } from '@/app/[slug]/_lib/site-identity';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
+import { SEE_AS, SEE_AS_PARAM, SEE_AS_YOU, type SeeAs } from '@/lib/see-as';
 
 /**
  * The four lifecycle phases, in the order the site lives through them — the
@@ -90,6 +91,22 @@ export type OwnerRibbonModel = {
    * offering the links would promise a preview that cannot happen.
    */
   phaseLinks: OwnerRibbonPhaseLink[];
+  /**
+   * 👁 SEE AS (PR-10, coordinator 2026-10-04: "one preview mechanism") — the
+   * SAME states the Maker's 👁 Preview offers (`SEE_AS`, lib/see-as.ts), as
+   * links on this page: You (the host's own view) · Guest who hasn't replied ·
+   * Replied Yes · Declined · Signed out. Each is `?as=<key>` on the stage on
+   * screen; the guest page draws it (`resolveSampleViewer`). Links only.
+   */
+  seeAsLinks: OwnerRibbonSeeAsLink[];
+};
+
+export type OwnerRibbonSeeAsLink = {
+  key: SeeAs | typeof SEE_AS_YOU.key;
+  label: string;
+  href: string;
+  /** The viewer this render is drawn for. */
+  active: boolean;
 };
 
 /**
@@ -113,8 +130,11 @@ export function buildOwnerRibbon(input: {
   phasesEnabled: boolean;
   /** The phase the page ACTUALLY rendered — `phaseOverride ?? getLifecyclePhase(date)`. */
   lifecyclePhase: LifecyclePhase;
+  /** 👁 The See as state this render is drawn for, or null for the host's own view. */
+  seeAs?: SeeAs | null;
 }): OwnerRibbonModel | null {
   const { ownerCapability, eventId, slug, phasesEnabled, lifecyclePhase } = input;
+  const seeAs = input.seeAs ?? null;
   // The first two refusals are ONE question — "is this viewer a verified host of
   // THIS event?" — and it is asked by the shared `viewerIsEventHost`, which the
   // host body copy in site-body.tsx also asks. Two copies of this rule is how
@@ -132,16 +152,29 @@ export function buildOwnerRibbon(input: {
   // so an absent or false value can only ever send somebody to the planning
   // desk — a page the event layout already admits every host to.
   const maySiteEdit = ownerCapability?.maySiteEdit === true;
+  // The stage on screen, as an address — a See as pick stays on it.
+  const here = phasesEnabled ? `${base}?phase=${lifecyclePhase}` : base;
   return {
     editorHref: maySiteEdit ? `${dash}/website/editor` : dash,
-    editorLabel: maySiteEdit ? 'Edit this site' : 'Open the planning desk',
+    // "Event Hub", never "website" or "site" (the owner's word rule, 2026-09-24).
+    editorLabel: maySiteEdit ? 'Edit your Event Hub' : 'Open the planning desk',
     phaseLinks: phasesEnabled
       ? OWNER_RIBBON_PHASES.map((phase) => ({
           phase,
           label: PHASE_LABELS[phase],
-          href: `${base}?phase=${phase}`,
+          // A stage pick keeps whose eyes the page is drawn with.
+          href: `${base}?phase=${phase}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}`,
           active: phase === lifecyclePhase,
         }))
       : [],
+    seeAsLinks: [
+      { key: SEE_AS_YOU.key, label: SEE_AS_YOU.label, href: here, active: seeAs === null },
+      ...SEE_AS.map((s) => ({
+        key: s.key,
+        label: s.label,
+        href: `${here}${here.includes('?') ? '&' : '?'}${SEE_AS_PARAM}=${s.key}`,
+        active: seeAs === s.key,
+      })),
+    ],
   };
 }

@@ -127,8 +127,14 @@ import { siteMenuEnabled } from './_lib/site-menu';
 import { PublicPageActions } from '@/app/_components/public-page-actions';
 import {
   buildSimulatedGuestIdentity,
-  shouldSimulateRepliedGuest,
+  resolveSampleViewer,
+  sampleTicketSrc,
+  sampleTicketState,
+  SIMULATED_GUEST_INVITATION_TEXT,
 } from '@/lib/simulated-guest-preview';
+import { SampleViewerInert } from './_components/sample-viewer-inert';
+import { OwnerRibbon } from './_components/owner-ribbon';
+import { buildOwnerRibbon } from '@/lib/owner-ribbon';
 import { PrivateLanding } from './_components/private-landing';
 // The ONE body tree (OPEN-BROWSE PR3) — renders every identity tier; the
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
@@ -1430,25 +1436,116 @@ async function InvitationBody({
   // host's preview. Placed above the session branches so it also wins for a host
   // who happens to hold a guest cookie for their own event: they asked for the
   // simulated view explicitly. Preview only — nothing is written or persisted.
-  if (
-    shouldSimulateRepliedGuest({
-      ownerCapability,
-      asParam: search.as,
-      lifecyclePhase,
-      eventId: event.event_id,
-    })
-  ) {
+  //
+  // 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the SAME branch, extended: `?as=`
+  // may name any of the four See as states (lib/see-as.ts `SEE_AS`) on any
+  // stage, for a verified host only — from the Maker's canvas (👁 Preview) or
+  // their own Event Hub (the ribbon's Preview ▾): one preview mechanism. The
+  // sample is drawn AS A GUEST, never as the host: the owner and supplier
+  // capabilities are dropped for the body (the ribbon keeps the host's, off the
+  // canvas), and `sampleViewer` makes the body swallow every submit and every
+  // press that could act (sample-viewer-inert.tsx). 🔒 READS ONLY —
+  // `loadPreviewPerson` is a select; nothing here inserts, updates or deletes
+  // (`see-as-never-writes.test.ts`).
+  const seeAs = resolveSampleViewer({
+    ownerCapability,
+    asParam: search.as,
+    lifecyclePhase,
+    eventId: event.event_id,
+  });
+  const asSample = seeAs
+    ? {
+        ...siteProps,
+        ownerCapability: null,
+        // The host's own ribbon stays on their page (never in the canvas) — so
+        // the ribbon's Preview ▾ can switch back. The BODY is drawn as a guest.
+        ribbonCapability: ownerCapability,
+        vendorCapability: null,
+        supplierDesk: null,
+        chaptersOnThisDay: [],
+        songRequestDoor: null,
+        sampleViewer: seeAs,
+      }
+    : siteProps;
+  if (seeAs === 'signed-out') {
     timer.flush();
+    // 🚪 THE DOOR a signed-out visitor meets. On a private event that is the lock
+    // screen itself — the same component, never a softer copy of it.
+    if (visibility === 'private' || visibility === 'invited_accounts') {
+      return (
+        <>
+          {/* Off the canvas, the host keeps their ribbon — its Preview ▾ is the way back. */}
+          {isEditorCanvas ? null : (
+            <OwnerRibbon
+              model={buildOwnerRibbon({
+                ownerCapability,
+                eventId: event.event_id,
+                slug: event.slug ?? null,
+                phasesEnabled,
+                lifecyclePhase,
+                seeAs,
+              })}
+            />
+          )}
+          <PrivateLanding
+            event={event}
+            monogram={monogram}
+            animatedMonogram={animatedMonogram}
+            bespokeSvg={bespokeSvg}
+            proWatermarkHidden={proWatermarkHidden}
+          />
+          <SampleViewerInert canvas={isEditorCanvas} />
+        </>
+      );
+    }
+    return wearDraft(
+      <SiteBody
+        {...asSample}
+        identity={anonymousIdentity({
+          reason: null,
+          publicCandidCameraActive,
+          publicAlbumHref,
+          signedInNotListed: false,
+        })}
+      />,
+    );
+  }
+  if (seeAs) {
+    timer.flush();
+    const sampleIdentity = buildSimulatedGuestIdentity({
+      slug: event.slug ?? slug,
+      // "Each editor of each event will adapt to their event" (owner
+      // 2026-09-27): a real person's name and plus-one allowance, read only.
+      person: await loadPreviewPerson(admin, event.event_id),
+      seeAs,
+    });
+    const sampleName =
+      sampleIdentity.guest.display_name?.trim() ||
+      `${sampleIdentity.guest.first_name ?? ''} ${sampleIdentity.guest.last_name ?? ''}`.trim();
     return wearDraft(
       <>
         <SiteBody
-          {...siteProps}
-          identity={buildSimulatedGuestIdentity({
-            slug: event.slug ?? slug,
-            // "Each editor of each event will adapt to their event" (owner
-            // 2026-09-27): a real person's name and plus-one allowance, read only.
-            person: await loadPreviewPerson(admin, event.event_id),
-          })}
+          {...asSample}
+          identity={sampleIdentity}
+          /* 👤 ME, DRAWN FOR A SAMPLE GUEST (calm audit PR-E · PR-10) — the
+             guest page's own Me section and ticket, the ticket's picture the
+             host's own preview (the sample has no ticket session). */
+          meSection={
+            widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
+              <GuestMeSection
+                meSlot={
+                  <GuestTicket
+                    state={sampleTicketState(seeAs)}
+                    name={sampleName}
+                    invitationUrl={SIMULATED_GUEST_INVITATION_TEXT}
+                    src={sampleTicketSrc(event.event_id)}
+                  />
+                }
+                galleryCount={0}
+                asTab
+              />
+            ) : null
+          }
         />
         {pageFooter}
       </>

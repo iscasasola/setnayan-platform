@@ -104,7 +104,7 @@ test('9 · the section in view is found, so a reload keeps it and Page ▾ follo
   assert.match(shell, /makerSectionInView\(win\.document, win\.innerHeight \/ 3\)[\s\S]{0,200}setTabKey/, 'Page ▾ no longer follows the canvas as it scrolls');
 });
 
-test('9 · a Maker page covering the stage is the page Page ▾ names', () => {
+test('9 · a Maker page covering the stage: Page ▾ names neither it (a neighbouring button) nor the stage under it', () => {
   const base = {
     stage: 'rsvp' as const,
     rsvpOpen: false,
@@ -113,7 +113,8 @@ test('9 · a Maker page covering the stage is the page Page ▾ names', () => {
     shownPage: 'welcome',
     hasWork: true,
   };
-  assert.equal(makerPageMenu({ ...base, openPage: 'Event Details' }).buttonText, 'Event Details', 'Page ▾ names the stage hidden under Event Details');
+  // 2026-10-04: neither the stage hidden under it nor Event Details itself (a neighbouring button) — "Page".
+  assert.equal(makerPageMenu({ ...base, openPage: 'Event Details' }).buttonText, 'Page', 'Page ▾ repeats a neighbour or names the stage hidden under Event Details');
   assert.equal(makerPageMenu({ ...base, openPage: 'Event Details' }).value, '', 'a stage page is ticked while Event Details is on screen');
   assert.notEqual(makerPageMenu(base).buttonText, 'Event Details');
   const shell = code('app/dashboard/[eventId]/launch/_components/maker-shell.tsx');

@@ -1,0 +1,47 @@
+## 2026-10-04 · feat(maker): See as — preview the Event Hub as a guest who hasn't replied, replied Yes, declined, or is signed out (PR-10)
+
+EVENT_DETAILS_STUDY_2026-10-04 §7 PR-10 (prototype screen 12). The Maker's 👁 Preview
+"See it as…" row (a role's door: You / Coordinator / Supplier / Guest / Stranger) becomes
+**See as ▾** — You · editing · Guest who hasn't replied · Replied Yes · Declined · Signed out.
+On a phone they are rows of 👁 Preview; on a desktop the same pick is one dropdown above the
+preview (each width has exactly one). A small "See as · …" tag sits on the phone canvas while
+a guest state is on.
+
+It is the SAME mechanism as the old `?as=replied` sample-guest preview, extended — never a
+second preview. The canvas keeps its address (`?phase=…&editor=1`, the draft, the bridge) and
+gains `?as=<state>`; `app/[slug]/page.tsx`'s sample-viewer branch (`resolveSampleViewer`,
+lib/simulated-guest-preview.ts) draws the guest page's own components for a SAMPLE guest:
+the arrival action reads RSVP / "You're going" / the declined line; **Me is drawn on the
+canvas** (the guest page's own `GuestMeSection` + `GuestTicket`, the picture the host's own
+ticket preview); Signed out draws the stranger's door (`GetInside`), or `PrivateLanding` on a
+private event. Outside the canvas only `?as=replied` on the RSVP stage is honoured, exactly as
+before.
+
+Nothing the sample guest does writes: See as is Maker state only (not the draft, not the tab's
+memory); the branch only reads; the sample keeps `SIMULATED_GUEST_ID` (matches no row; the
+reply action refuses it); the canvas mounts `SampleViewerInert`, which swallows every submit
+and every press; the guest's sign-out form and the door's join action are not rendered for it.
+
+New: `lib/see-as.ts` (the words + param), `app/[slug]/_components/sample-viewer-inert.tsx`.
+Guards: `lib/see-as-draws-the-guest-components.test.ts`, `lib/see-as-never-writes.test.ts`;
+thirteen existing guards re-pointed to the new shape (`viewAsHref`→`seeAs`, "See it as…"→"See as", `GuestTicket`'s `src` prop defaulting to the ticket route, one more `wearDraft` return, the door's join gated off for the sample).
+
+Two live bugs in the same area, fixed here (coordinator, seen at 375 px on maria-and-jose,
+prod 5a1e75a):
+- **The phone bar read "Event Details ▾ · Look · Event Details".** With Look, Event Details or
+  Prints covering the stage, Page ▾ took that page's name, which is its neighbour's label. It now
+  reads its own name, "Page" (`MAKER_PAGE_MENU_LABEL`, maker-bar.ts). NEW guard
+  `lib/no-two-bar-buttons-share-a-label.test.ts` sweeps every stage × covering page × RSVP-open,
+  for both bars.
+- **The host ribbon said "Edit this site"**: it now says "Edit your Event Hub". Its "Preview:
+  Invitation" dropdown is now the SAME preview: one PickMenu with the stages, then See as (You ·
+  the four states), each a `?as=` address. So `resolveSampleViewer` honours the four states for a
+  verified host on their own Event Hub as well as in the canvas: one mechanism, one gate. Off the
+  canvas the body is still drawn as a guest and stays inert to buttons and submits. The host keeps
+  their ribbon (`ribbonCapability`), links, the tab bar, and the ribbon's own list, so they can
+  look around and switch back.
+
+SPEC IMPACT: None — builds EVENT_DETAILS_STUDY_2026-10-04_fable.md §7 PR-10 as written. One
+call flagged for the owner: the prototype's default row reads "Guest who hasn't replied"; this
+build keeps the couple's own editing canvas ("You · editing") as the default, because the
+editing canvas draws empty scenes for the couple to fill and a guest view does not.

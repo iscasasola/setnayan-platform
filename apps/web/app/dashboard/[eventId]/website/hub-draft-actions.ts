@@ -651,14 +651,18 @@ export async function hubDraftAction(
        the date went live above, so every block — the ceremony, its parts and
        the rest of the day — moves by the same number of days, each keeping its
        time. Only when both days are exact and differ (a month or a year has no
-       day to measure from). Pressing Apply again finds the date already live —
-       no move, no second shift. The couple's own session. */
+       day to measure from). ONE SQL function moves every block in one
+       statement — all or nothing — and only once per move, so a second Apply
+       racing this one shifts nothing. The couple's own session. */
     if (dateWritten) {
       const shifted = await moveScheduleWithDate({ supabase, eventId, fromDay: priorDay, toDay: nextDay });
       if (!shifted.ok) {
-        console.error('[hub-draft] the schedule did not follow the date:', shifted.error, `${shifted.moved} moved`);
-        // Said as it is: the date IS live now, so Apply again would not finish the move.
-        return { ok: false, intent, error: 'Your new date is live, but some Schedule times stayed on the old day. Open your Schedule to check them.' };
+        console.error('[hub-draft] the schedule did not follow the date:', shifted.error);
+        // Said as it is: NO block moved (all or nothing), so Apply again would
+        // not move it — the Schedule can. `stale`: the date changed again meanwhile.
+        return shifted.error === 'stale'
+          ? { ok: false, intent, error: 'Your date changed again while this was applying. Open your Schedule to check its times.' }
+          : { ok: false, intent, error: 'Your new date is live, but your Schedule stayed on the old day. Open your Schedule to move it.' };
       }
     }
 

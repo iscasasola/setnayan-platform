@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ceremonyBlock } from '@/lib/print-pieces';
-import { fromDatetimeLocalValue, shiftWallClockDays, toDatetimeLocalValue, wallClockDayShift } from '@/lib/schedule-datetime-local';
+import { fromDatetimeLocalValue, toDatetimeLocalValue, wallClockDayShift } from '@/lib/schedule-datetime-local';
 
 /**
  * 🕒 THE CEREMONY TIME TYPED UNDER THE DATE (owner 2026-10-04, "YES TO ALL" on
@@ -137,23 +137,43 @@ export async function placeCeremonyBlock({
 /**
  * 📅 THE WHOLE SCHEDULE FOLLOWS THE DATE (owner 2026-10-04, DECISION_LOG
  * "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE", verbatim: *"Yes if
- * possible"*). When Apply moves the event from `fromDay` to `toDay`, EVERY
- * block of the event's Schedule — every type, parents and their parts alike —
- * moves by the same number of days, each keeping its own wall-clock time
- * (`shiftWallClockDays`, the round-trip rule of lib/schedule-datetime-local.ts).
- * Order, lengths and nesting are therefore unchanged.
+ * possible"*). When Apply moves the event to `toDay`, EVERY block of the
+ * event's Schedule — every type, parents and their parts alike, the
+ * coordinator's own prep too — moves by the same number of days, each keeping
+ * its own wall-clock time. Order, lengths and nesting are therefore unchanged.
+ *
+ * 🔒 ALL OR NOTHING, ONCE, AND FROM WHERE IT STANDS (2026-10-04, train-g audit
+ * and review). ONE SQL function, `public.move_event_schedule_with_date`
+ * (migration 20271264726195): one statement in one transaction, the event row
+ * locked, run only once the live date IS `toDay`. The distance is measured
+ * from the day the Schedule STANDS ON (`event_schedule_day_anchor`, seeded by
+ * a trigger the first time an exact date changes) — never from a day the
+ * caller names — so the same move asked twice finds it already there, and a
+ * date sent back by a path that does not move the Schedule can never make a
+ * real move be skipped. A HAND edit of the Schedule (the Schedule page, the
+ * typed ceremony time) forgets that record, and the next exact date change
+ * seeds it again from the day it changed FROM — so a move is never measured
+ * from where the blocks no longer are. It checks the caller itself (the couple or a Schedule
+ * edit delegate) and refuses anyone else. A failure means NOTHING moved.
+ *
+ * Answers, said as they are:
+ *   · `moved`   — every block moved (`moved` = how many);
+ *   · `aligned` — the Schedule already stands on `toDay` (a second Apply) — true;
+ *   · `stale`   — the live date is no longer `toDay` (changed again meanwhile);
+ *   · `no-anchor` — no day to measure from — nothing moved.
+ * The last two are NOT ok: the host expected a move and none happened.
  *
  * It never creates or deletes a block — placing the ceremony at a typed time
  * stays `placeCeremonyBlock`'s job, run AFTER this one.
  *
- * Only when both days are exact (`YYYY-MM-DD`) and differ: a date that was a
- * month or a year has no day to measure from, so nothing moves (`wrote: 'none'`).
- * The caller asks only when the date really moved in THIS Apply — the live date
- * is then the new one, so pressing Apply again finds no move and is a no-op.
- *
- * The couple's OWN session (RLS on `event_schedule_blocks` still applies), and
- * every write asks for its row back: a zero-row UPDATE is success-shaped.
+ * Asked only when both days are exact (`YYYY-MM-DD`) and differ: a date that
+ * was a month or a year has no day to measure from, so nothing moves.
+ * The couple's OWN session calls it (the function reads `auth.uid()`).
  */
+export type ScheduleMove =
+  | { ok: true; status: 'moved' | 'aligned' | 'unchanged'; moved: number }
+  | { ok: false; error: string };
+
 export async function moveScheduleWithDate({
   supabase,
   eventId,
@@ -166,29 +186,17 @@ export async function moveScheduleWithDate({
   fromDay: string | null;
   /** YYYY-MM-DD the event is on after this Apply, or null when it is not one day. */
   toDay: string | null;
-}): Promise<{ ok: true; moved: number } | { ok: false; error: string; moved: number }> {
-  const days = wallClockDayShift(fromDay, toDay);
-  if (days === 0) return { ok: true, moved: 0 };
-  const { data, error } = await supabase
-    .from('event_schedule_blocks')
-    .select('block_id, start_at, end_at')
-    .eq('event_id', eventId);
-  if (error) return { ok: false, error: error.message, moved: 0 };
-  let moved = 0;
-  for (const b of (data ?? []) as Array<{ block_id: string; start_at: string | null; end_at: string | null }>) {
-    if (!b.start_at && !b.end_at) continue;
-    const { data: rows, error: upErr } = await supabase
-      .from('event_schedule_blocks')
-      .update({
-        start_at: shiftWallClockDays(b.start_at, days),
-        end_at: shiftWallClockDays(b.end_at, days),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('block_id', b.block_id)
-      .eq('event_id', eventId)
-      .select('block_id');
-    if (upErr || !rows?.length) return { ok: false, error: upErr?.message ?? 'no-row', moved };
-    moved += 1;
+}): Promise<ScheduleMove> {
+  if (wallClockDayShift(fromDay, toDay) === 0) return { ok: true, status: 'unchanged', moved: 0 };
+  const { data, error } = await supabase.rpc('move_event_schedule_with_date', {
+    p_event_id: eventId,
+    p_to_day: toDay,
+  });
+  if (error) return { ok: false, error: error.message };
+  const answer = (data ?? {}) as { status?: unknown; moved?: unknown };
+  const moved = Number(answer.moved);
+  if ((answer.status === 'moved' || answer.status === 'aligned') && Number.isInteger(moved) && moved >= 0) {
+    return { ok: true, status: answer.status, moved };
   }
-  return { ok: true, moved };
+  return { ok: false, error: typeof answer.status === 'string' ? answer.status : 'no-answer' };
 }

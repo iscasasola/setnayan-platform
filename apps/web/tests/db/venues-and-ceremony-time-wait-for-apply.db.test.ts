@@ -22,7 +22,16 @@
  *      block, every type, parents and parts, by the same number of days, each
  *      keeping its time — through the REAL `moveScheduleWithDate`, as the
  *      couple; pressing Apply again moves nothing; a date that was a month (no
- *      exact day) moves nothing; a stranger's session moves nothing.
+ *      exact day) moves nothing; a stranger's session is refused;
+ *   6. 🔒 the move is ALL OR NOTHING and ONCE (`move_event_schedule_with_date`,
+ *      20271264726195): a block that refuses leaves every block where it was,
+ *      the coordinator's hidden prep moves too, and the same move asked twice
+ *      (two racing Applies) shifts the day once; the move is measured from the
+ *      day the Schedule STANDS ON (`event_schedule_day_anchor`), so a date sent
+ *      back elsewhere never makes a real move be skipped or doubled (12); an
+ *      edit delegate may move it, a view delegate and anon may not (13); a
+ *      HAND edit of the Schedule forgets the anchor, so the next move measures
+ *      from where the host put the blocks — never from a stale record (14).
  *
  * Draft JSON and Apply's plan come from the SAME pure functions the server
  * action calls (`mergeHubDraft`, `planHubDraftApply`).
@@ -107,6 +116,14 @@ function coupleClient(uid: string): SupabaseClient {
   };
   const cols = (c: string) => c.split(',').map((x) => `"${x.trim()}"`).join(', ');
   return {
+    /** `supabase.rpc(name, args)` — the function runs as the couple, named arguments. */
+    rpc(name: string, args: Record<string, unknown>) {
+      const keys = Object.keys(args);
+      const sql = `SELECT public."${name}"(${keys.map((k, i) => `${k} => $${i + 1}`).join(', ')}) AS r`;
+      return run(sql, keys.map((k) => args[k])).then((res) =>
+        res.error ? { data: null, error: res.error } : { data: (res.data as Array<{ r: unknown }>)[0]?.r ?? null, error: null },
+      );
+    },
     from(table: string) {
       const eqs: Array<[string, unknown]> = [];
       const where = (params: unknown[]) =>
@@ -381,7 +398,7 @@ test('6 · APPLY moves EVERY block by the same days — each keeps its time, its
     fromDay: exactDayOf(prior.event_date, prior.event_date_precision),
     toDay: exactDayOf(D2, 'day'),
   });
-  assert.deepEqual(r, { ok: true, moved: 5 }, 'not every block moved');
+  assert.deepEqual(r, { ok: true, status: 'moved', moved: 5 }, 'not every block moved');
   const after = await blocksOf(G.eventId);
   assert.equal(after.length, before.length, 'a block was created or deleted — the move only moves');
   for (const b of before) {
@@ -412,7 +429,7 @@ test('7 · pressing Apply AGAIN moves nothing — the live date is already the n
     fromDay: exactDayOf(live.event_date, live.event_date_precision),
     toDay: exactDayOf(D2, 'day'),
   });
-  assert.deepEqual(r, { ok: true, moved: 0 });
+  assert.deepEqual(r, { ok: true, status: 'unchanged', moved: 0 });
   assert.deepEqual(await blocksOf(G.eventId), before, 'a second Apply moved the schedule again');
 });
 
@@ -429,14 +446,242 @@ test('8 · a date that was NOT one exact day (a month) moves nothing — there i
     fromDay: exactDayOf(prior.event_date, prior.event_date_precision),
     toDay: exactDayOf('2031-07-05', 'day'),
   });
-  assert.deepEqual(r, { ok: true, moved: 0 });
+  assert.deepEqual(r, { ok: true, status: 'unchanged', moved: 0 });
   assert.deepEqual(await blocksOf(G.eventId), before, 'a month-precision date moved the schedule');
   await db.query(`UPDATE public.events SET event_date = $2, event_date_precision = 'day' WHERE event_id = $1`, [G.eventId, D2]);
 });
 
-test('9 · only the host moves it — a stranger’s session moves no block (RLS as today)', async () => {
+test('9 · only the host moves it — a stranger’s session is REFUSED and moves no block', async () => {
   const before = await blocksOf(G.eventId);
+  await db.query(`UPDATE public.events SET event_date = '2031-08-02' WHERE event_id = $1`, [G.eventId]);
   const r = await moveScheduleWithDate({ supabase: coupleClient(G.stranger), eventId: G.eventId, fromDay: D2, toDay: '2031-08-02' });
-  assert.equal(r.ok === true ? r.moved : r.moved, 0, 'a stranger moved a block');
+  assert.equal(r.ok, false, 'a stranger’s move was answered as a success');
   assert.deepEqual(await blocksOf(G.eventId), before, 'a stranger’s session moved the couple’s schedule');
+  await db.query(`UPDATE public.events SET event_date = $2 WHERE event_id = $1`, [G.eventId, D2]);
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🔒 ALL OR NOTHING, AND ONCE (2026-10-04, the train-g audit of #6337). The
+   move is ONE SQL function (`move_event_schedule_with_date`): a failure on any
+   block leaves EVERY block where it was, and the same move asked twice — two
+   Applies that both read the old date — shifts the day once.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const D3 = '2031-06-28';
+
+/** The day the Schedule stands on, as the database records it (null = none). */
+async function anchorOf(eventId: string) {
+  return (
+    await db.query<{ d: string }>(
+      `SELECT to_char(anchor_day, 'YYYY-MM-DD') AS d FROM public.event_schedule_day_anchor WHERE event_id = $1`,
+      [eventId],
+    )
+  ).rows[0]?.d ?? null;
+}
+/** The ceremony's day and time, as the invitation prints it. */
+async function ceremonyAt(eventId: string) {
+  return toDatetimeLocalValue(ceremonyBlock(await blocksOf(eventId))!.start_at);
+}
+/** A date written by a path that does NOT move the Schedule (the dashboard's date field, an admin). */
+async function dateElsewhere(eventId: string, date: string) {
+  await db.query(`UPDATE public.events SET event_date = $2 WHERE event_id = $1`, [eventId, date]);
+}
+
+test('10 · a failure on ONE block moves NO block — and leaves the anchor, so the move can still run', async () => {
+  // The coordinator's own prep, hidden from the couple's read — it must move too.
+  await db.query(
+    `INSERT INTO public.event_schedule_blocks (event_id, label, block_type, start_at, end_at, visibility)
+     VALUES ($1, 'Coordinator prep', 'custom'::public.schedule_block_type, $2, $3, 'coordinator_only')`,
+    [G.eventId, `${D2}T06:00:00Z`, `${D2}T07:00:00Z`],
+  );
+  const before = await blocksOf(G.eventId);
+  assert.equal(before.length, 6, 'anti-vacuity: six blocks to move');
+  // A block added by hand: the record of where the Schedule stood is forgotten…
+  assert.equal(await anchorOf(G.eventId), null, 'a hand-added block left the old anchor standing');
+  await applyDate(G.eventId, D3);
+  // …and the date's own change seeds it again from the day it changed FROM.
+  assert.equal(await anchorOf(G.eventId), D2, 'the date change did not record where the Schedule stood');
+  // A block that refuses to move — sorted LAST of six, so a per-block loop
+  // would already have moved five when it hit it.
+  await db.exec(`
+    CREATE OR REPLACE FUNCTION public.zz_test_refuse_reception() RETURNS trigger LANGUAGE plpgsql AS $f$
+    BEGIN RAISE EXCEPTION 'forced: the reception refuses to move'; END $f$;
+    CREATE TRIGGER zz_refuse_reception BEFORE UPDATE ON public.event_schedule_blocks
+      FOR EACH ROW WHEN (NEW.label = 'Reception') EXECUTE FUNCTION public.zz_test_refuse_reception();
+  `);
+  try {
+    const r = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: G.eventId, fromDay: D2, toDay: D3 });
+    assert.equal(r.ok, false, 'a refused block was answered as a success');
+    assert.deepEqual(await blocksOf(G.eventId), before, 'a failure part-way left part of the Schedule on the new day');
+    assert.equal(await anchorOf(G.eventId), D2, 'a failed move was recorded as done');
+  } finally {
+    await db.exec(`DROP TRIGGER IF EXISTS zz_refuse_reception ON public.event_schedule_blocks; DROP FUNCTION IF EXISTS public.zz_test_refuse_reception()`);
+  }
+  const ok = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: G.eventId, fromDay: D2, toDay: D3 });
+  assert.deepEqual(ok, { ok: true, status: 'moved', moved: 6 }, 'the move did not run once the block could move — or skipped the coordinator’s prep');
+  const after = await blocksOf(G.eventId);
+  for (const b of before) {
+    const a = after.find((x) => x.label === b.label)!;
+    assert.equal(Date.parse(a.start_at) - Date.parse(b.start_at), 7 * 86_400_000, `${b.label}: did not move 7 days`);
+  }
+  assert.equal(await anchorOf(G.eventId), D3);
+});
+
+test('11 · two Applies that both read the old date move the day ONCE; a stale move is said, not "ok"', async () => {
+  const before = await blocksOf(G.eventId);
+  // The second Apply computed the SAME move (D2 → D3) from the same stale read.
+  const again = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: G.eventId, fromDay: D2, toDay: D3 });
+  assert.deepEqual(again, { ok: true, status: 'aligned', moved: 0 }, 'the second Apply moved the Schedule again');
+  assert.deepEqual(await blocksOf(G.eventId), before, 'the day shifted twice');
+  // A move to a day that is no longer live: nothing moves, and it is NOT ok.
+  const stale = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: G.eventId, fromDay: D1, toDay: D2 });
+  assert.deepEqual(stale, { ok: false, error: 'stale' }, 'a move that did not happen was answered as ok');
+  assert.deepEqual(await blocksOf(G.eventId), before);
+  // …and moving BACK is a real move, which runs.
+  await applyDate(G.eventId, D2);
+  const back = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: G.eventId, fromDay: D3, toDay: D2 });
+  assert.deepEqual(back, { ok: true, status: 'moved', moved: 6 }, 'moving back was mistaken for the move already done');
+});
+
+test('12 · A→B, the date sent back to A ELSEWHERE, then A→B again: the Schedule ends on B — never skipped, never doubled', async () => {
+  const A = D2;
+  const B = '2031-07-12';
+  assert.equal((await ceremonyAt(G.eventId)).slice(0, 10), A, 'anti-vacuity: the ceremony stands on A');
+  await applyDate(G.eventId, B);
+  assert.equal((await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: G.eventId, fromDay: A, toDay: B })).ok, true);
+  assert.equal(await ceremonyAt(G.eventId), `${B}T15:00`, 'A→B did not take the ceremony to B');
+  const onB = await blocksOf(G.eventId);
+  // The date goes back to A by a path that does NOT move the Schedule: it stays on B.
+  await dateElsewhere(G.eventId, A);
+  assert.deepEqual(await blocksOf(G.eventId), onB, 'a date change elsewhere moved the Schedule');
+  assert.equal(await anchorOf(G.eventId), B, 'the record of where the Schedule stands was lost');
+  // A→B again through Apply: the Schedule is ALREADY on B — said so, nothing doubled.
+  await applyDate(G.eventId, B);
+  const again = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: G.eventId, fromDay: A, toDay: B });
+  assert.deepEqual(again, { ok: true, status: 'aligned', moved: 0 });
+  assert.equal(await ceremonyAt(G.eventId), `${B}T15:00`, 'the Schedule is not on the live date B');
+  // The date goes elsewhere to C, then Apply C→D: the Schedule moves from where it STANDS (B) to D.
+  const C = '2031-07-20';
+  const D = '2031-07-27';
+  await dateElsewhere(G.eventId, C);
+  await applyDate(G.eventId, D);
+  const real = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: G.eventId, fromDay: C, toDay: D });
+  assert.deepEqual(real, { ok: true, status: 'moved', moved: 6 }, 'a real move was skipped');
+  assert.equal(await ceremonyAt(G.eventId), `${D}T15:00`, 'the Schedule did not land on the live date D');
+  assert.equal(await anchorOf(G.eventId), D);
+});
+
+test('13 · who may move it, at runtime: an EDIT delegate yes; a VIEW delegate and anon are refused (42501)', async () => {
+  const mk = async (email: string) =>
+    (
+      await db.query<{ id: string }>(
+        `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, jsonb_build_object('account_type', 'customer')) RETURNING id`,
+        [email],
+      )
+    ).rows[0]!.id;
+  const viewer = await mk('schedule-view@apply.test');
+  const editor = await mk('schedule-edit@apply.test');
+  for (const [uid, level] of [[viewer, 'view'], [editor, 'edit']] as const) {
+    await db.query(
+      `INSERT INTO public.event_moderators (event_id, user_id, role_subtype, accepted_at, permissions_json)
+       VALUES ($1, $2, 'wedding_planner_external', now(), jsonb_build_object('areas', jsonb_build_object('schedule', $3::text)))`,
+      [G.eventId, uid, level],
+    );
+  }
+  const E = '2031-08-03';
+  const before = await blocksOf(G.eventId);
+  await dateElsewhere(G.eventId, E); // the Schedule stands on D (27 Jul); the live date is now E
+  // A VIEW delegate: refused, nothing moved.
+  const viewed = await moveScheduleWithDate({ supabase: coupleClient(viewer), eventId: G.eventId, fromDay: '2031-07-27', toDay: E });
+  assert.equal(viewed.ok, false, 'a view-only delegate moved the Schedule');
+  assert.match(viewed.ok ? '' : viewed.error, /not_allowed/);
+  assert.deepEqual(await blocksOf(G.eventId), before);
+  // anon — the public key over REST: refused before the body runs.
+  try {
+    await db.exec('SET ROLE anon');
+    await assert.rejects(
+      db.query(`SELECT public.move_event_schedule_with_date($1, $2)`, [G.eventId, E]),
+      (e: Error) => /permission denied|not_allowed/.test(e.message),
+      'anon could call the move',
+    );
+  } finally {
+    await reset();
+  }
+  assert.deepEqual(await blocksOf(G.eventId), before);
+  // An EDIT delegate: allowed — the whole Schedule moves to E.
+  const edited = await moveScheduleWithDate({ supabase: coupleClient(editor), eventId: G.eventId, fromDay: '2031-07-27', toDay: E });
+  assert.deepEqual(edited, { ok: true, status: 'moved', moved: 6 }, 'an edit delegate was refused');
+  assert.equal(await ceremonyAt(G.eventId), `${E}T15:00`);
+});
+
+test('14 · dashboard A→B, the host drags the blocks to B BY HAND, then Apply to C: the Schedule lands on C — not C+(B−A)', async () => {
+  const A = '2031-09-06';
+  const B = '2031-09-13';
+  const C = '2031-09-20';
+  const H = (
+    await db.query<{ e: string }>(
+      `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date, event_date_precision)
+       VALUES ('Lia & Ben', 'wedding', 'catholic', 'garden', $1, 'day') RETURNING event_id AS e`,
+      [A],
+    )
+  ).rows[0]!.e;
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [H, F.couple]);
+  await db.query(
+    `INSERT INTO public.event_schedule_blocks (event_id, label, block_type, start_at, end_at) VALUES
+       ($1, 'Ceremony', 'ceremony'::public.schedule_block_type, $2, $3),
+       ($1, 'Reception', 'reception'::public.schedule_block_type, $4, $5)`,
+    [H, `${A}T15:00:00Z`, `${A}T16:00:00Z`, `${A}T18:00:00Z`, `${A}T22:00:00Z`],
+  );
+  // The dashboard's date field moves the date, not the Schedule: the anchor records A.
+  await dateElsewhere(H, B);
+  assert.equal(await anchorOf(H), A, 'anti-vacuity: the Schedule is recorded on A');
+  // The host drags every block to B themselves — their own session, as the Schedule page does.
+  const drag = await as(
+    F.couple,
+    `UPDATE public.event_schedule_blocks
+        SET start_at = start_at + interval '168 hours', end_at = end_at + interval '168 hours'
+      WHERE event_id = $1 RETURNING block_id`,
+    [H],
+  );
+  assert.equal(drag.err, null, `the host could not move their own blocks: ${drag.err}`);
+  assert.equal(drag.n, 2);
+  assert.equal(await ceremonyAt(H), `${B}T15:00`);
+  assert.equal(await anchorOf(H), null, 'a hand edit left the stale anchor (A) standing — the next move would land 7 days late');
+  // Apply to C: measured from where the host put the blocks (B), never from the stale A.
+  await applyDate(H, C);
+  const r = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: H, fromDay: B, toDay: C });
+  assert.deepEqual(r, { ok: true, status: 'moved', moved: 2 });
+  assert.equal(await ceremonyAt(H), `${C}T15:00`, 'the Schedule did not land on C');
+  // The move's OWN bulk shift is not a hand edit: the anchor stands on C afterwards.
+  assert.equal(await anchorOf(H), C, 'the move forgot its own anchor — the next Apply could not move');
+  // And the next normal Apply still moves.
+  const D = '2031-09-27';
+  await applyDate(H, D);
+  assert.deepEqual(await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: H, fromDay: C, toDay: D }), { ok: true, status: 'moved', moved: 2 });
+  assert.equal(await ceremonyAt(H), `${D}T15:00`);
+});
+
+test('14b · with no record of where the Schedule stands, the move refuses SAFE — nothing moves, and it is not ok', async () => {
+  const H = (await db.query<{ e: string }>(`SELECT event_id AS e FROM public.events WHERE display_name = 'Lia & Ben'`)).rows[0]!.e;
+  const before = await blocksOf(H);
+  // A hand edit forgets the anchor; nothing has changed the date since.
+  const touch = await as(F.couple, `UPDATE public.event_schedule_blocks SET end_at = end_at + interval '1 hour' WHERE event_id = $1 AND label = 'Reception' RETURNING block_id`, [H]);
+  assert.equal(touch.n, 1);
+  assert.equal(await anchorOf(H), null);
+  const after = await blocksOf(H);
+  const r = await moveScheduleWithDate({ supabase: coupleClient(F.couple), eventId: H, fromDay: '2031-09-20', toDay: '2031-09-27' });
+  assert.deepEqual(r, { ok: false, error: 'no-anchor' }, 'a move with nothing to measure from was guessed, or read as ok');
+  assert.deepEqual(await blocksOf(H), after, 'a move with no anchor moved blocks');
+  assert.notDeepEqual(after, before, 'anti-vacuity: the hand edit changed a block');
+});
+
+test('15 · the move locks the event row FOR NO KEY UPDATE — a guest or child row inserted meanwhile is not blocked', async () => {
+  // PGlite is one connection, so the wait itself cannot be staged; the lock
+  // the APPLIED function takes is read from the database's own definition.
+  const def = (
+    await db.query<{ d: string }>(`SELECT pg_get_functiondef('public.move_event_schedule_with_date(uuid, date)'::regprocedure) AS d`)
+  ).rows[0]!.d;
+  const eventLock = def.slice(def.indexOf('FROM public.events e'), def.indexOf(';', def.indexOf('FROM public.events e')));
+  assert.ok(eventLock.length > 0, 'anti-vacuity: the event read is gone');
+  assert.match(eventLock, /FOR NO KEY UPDATE\s*$/, 'the move takes a key lock on the event row — every guest insert waits on it');
 });

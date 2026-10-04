@@ -27,9 +27,12 @@ import { stripComments } from '@/lib/strip-comments';
 import { REENTRY_TTL_SECONDS, reentryRedeemPath } from './guest-pass-hop';
 import { buildEventManifest, eventShortcutMetadata } from './event-app-icon';
 import {
+  TILE_CODES_PER_DAY,
+  ensureTileReentryCode,
   exchangeReentryCode,
   hashReentryCode,
   mintReentryCode,
+  readTileReentryCode,
   reentryCodeGuest,
   type ReentryDb,
 } from './guest-reentry';
@@ -53,6 +56,7 @@ function fakeDb(tables: Record<string, Row[]>) {
         return { error: null };
       },
       eq: (c: string, v: unknown) => (filters.push((r) => r[c] === v), q),
+      in: (c: string, vs: unknown[]) => (filters.push((r) => vs.includes(r[c])), q),
       is: (c: string, v: unknown) => (filters.push((r) => (r[c] ?? null) === v), q),
       lt: (c: string, v: string) => (filters.push((r) => String(r[c]) < v), q),
       gt: (c: string, v: string) => (filters.push((r) => String(r[c]) > v), q),
@@ -64,8 +68,9 @@ function fakeDb(tables: Record<string, Row[]>) {
       then: (resolve: (v: unknown) => void) => {
         if (op === 'delete') {
           for (let i = rows.length - 1; i >= 0; i -= 1) if (filters.every((f) => f(rows[i]!))) rows.splice(i, 1);
+          return resolve({ error: null });
         }
-        resolve({ error: null });
+        resolve({ data: rows.filter((r) => filters.every((f) => f(r))).map((r) => ({ ...r })), error: null });
       },
     };
     return q;
@@ -183,7 +188,92 @@ test('7 · the tile: the thank-you names a manifest whose start spends the code 
   const enter = read('app/[slug]/invite/enter/page.tsx');
   const mint = enter.slice(enter.indexOf('async function tileReentryCodeFor('));
   assert.ok(
-    mint.indexOf("!== 'yes') return null;") > -1 && mint.indexOf("!== 'yes') return null;") < mint.indexOf("purpose: 'tile'"),
-    'a tile code is minted for a guest who has not said Yes (the shortcut line is offered only after a Yes)',
+    mint.indexOf("!== 'yes') return null;") > -1 && mint.indexOf("!== 'yes') return null;") < mint.indexOf('tileCodeOnce('),
+    'a tile code is named for a guest who has not said Yes (the shortcut line is offered only after a Yes)',
   );
+});
+
+/* ══ 8 · ONE TILE CODE PER GUEST PER DAY — AND THE METADATA NEVER WRITES ══════
+   2026-10-04, train-g audit: `generateMetadata` minted a fresh 24-hour code on
+   EVERY render of the thank-you. */
+const KEY = 's'.repeat(64);
+
+test('8 · a reload names the SAME tile code and writes no second row; the metadata\'s read writes nothing', async () => {
+  const { tables, db } = world();
+  const input = { eventId: EVENT, guestId: GUEST, now: T0, key: KEY };
+  // The metadata's read: a code, and NOTHING written.
+  const named = await readTileReentryCode(input, db);
+  assert.ok(named && /^[A-Za-z0-9_-]{43}$/.test(named.code) && named.stored === false);
+  assert.equal(tables.guest_reentry_codes.length, 0, 'reading the tile code wrote a row');
+  // The body's ensure writes it once — the SAME code — and a reload writes nothing more.
+  const first = await ensureTileReentryCode(input, db);
+  assert.equal(first, named!.code, 'the body wrote a different code from the one the metadata named');
+  for (let i = 0; i < 5; i += 1) {
+    assert.equal(await ensureTileReentryCode({ ...input, now: at(60 * (i + 1)) }, db), first, `render ${i + 2} named a new code`);
+    assert.equal((await readTileReentryCode({ ...input, now: at(60 * (i + 1)) }, db))?.code, first);
+  }
+  assert.equal(tables.guest_reentry_codes.length, 1, 'a reload minted another code');
+  const [row] = tables.guest_reentry_codes;
+  assert.equal(row!.purpose, 'tile');
+  assert.equal(row!.code_hash, hashReentryCode(first!), 'the raw code is stored');
+  assert.ok(!JSON.stringify(tables).includes(first!), 'the raw code is stored');
+  // It is a real single-use code: spent once, for the guest's normal pass.
+  assert.equal((await exchangeReentryCode({ code: first, eventId: EVENT, now: at(600) }, db)).ok, true);
+  assert.equal((await exchangeReentryCode({ code: first, eventId: EVENT, now: at(601) }, db)).ok, false);
+});
+
+test('8b · a spent tile code makes way for the next — at most a few a day, a new one tomorrow, none without a key', async () => {
+  const { tables, db } = world();
+  const input = { eventId: EVENT, guestId: GUEST, now: T0, key: KEY };
+  const seen = new Set<string>();
+  for (let n = 0; n < TILE_CODES_PER_DAY; n += 1) {
+    const code = await ensureTileReentryCode(input, db);
+    assert.ok(code && !seen.has(code), `code ${n + 1} of the day repeated a spent one`);
+    seen.add(code!);
+    assert.equal((await exchangeReentryCode({ code, eventId: EVENT, now: at(10) }, db)).ok, true);
+  }
+  assert.equal(await ensureTileReentryCode(input, db), null, 'more than TILE_CODES_PER_DAY codes in one day');
+  assert.equal(tables.guest_reentry_codes.length, TILE_CODES_PER_DAY);
+  const tomorrow = await ensureTileReentryCode({ ...input, now: at(24 * 60 * 60 + 5) }, db);
+  assert.ok(tomorrow && !seen.has(tomorrow), 'the next day did not get its own code');
+  assert.equal(await ensureTileReentryCode({ ...input, key: null }, db), null, 'a code was named with no key');
+  assert.equal(await readTileReentryCode(input, null), null, 'no database is not "no code"');
+  // Another guest — or another key — never names this guest's code.
+  assert.notEqual((await readTileReentryCode({ ...input, guestId: 'g-other' }, db))?.code, tomorrow);
+});
+
+test('8c · the metadata names a tile code only once its row is STORED — one shared call, never a mint', () => {
+  const enter = read('app/[slug]/invite/enter/page.tsx');
+  const meta = enter.slice(enter.indexOf('export async function generateMetadata('), enter.indexOf('async function heldKind('));
+  assert.ok(enter.indexOf('async function heldKind(') > enter.indexOf('export async function generateMetadata('), 'anti-vacuity: the metadata window is empty');
+  assert.ok(meta.includes('tileReentryCodeFor('), 'anti-vacuity: the metadata no longer names a tile code');
+  assert.doesNotMatch(meta, /mintReentryCode\(|readTileReentryCode\(|\.insert\(/, 'the metadata mints, or names a code whose row may not exist');
+  assert.match(meta, /return tileCodeOnce\(eventId, session\.guest_id\);/);
+  assert.match(enter, /const tileCodeOnce = cache\(\(eventId: string, guestId: string\) => ensureTileReentryCode\(\{ eventId, guestId \}\)\);/, 'the metadata and the body do not share ONE stored-code call');
+  const body = enter.slice(enter.indexOf('export default async function InviteEnterPage('));
+  assert.match(body, /if \(!canvas && reply === 'yes'\) \{\s*await tileCodeOnce\(event\.event_id as string, guest\.guest_id as string\);/, 'the body does not store the code the metadata names');
+});
+
+test('8d · a tile code whose row could not be written is NEVER named — the tile would open as a stranger', async () => {
+  const { tables, db } = world();
+  const refusing = {
+    from: (name: string) => {
+      const q = (db as unknown as { from: (n: string) => Record<string, unknown> }).from(name);
+      return { ...q, insert: async () => ({ error: { message: 'permission denied', code: '42501' } }) };
+    },
+  } as unknown as ReentryDb;
+  const input = { eventId: EVENT, guestId: GUEST, now: T0, key: KEY };
+  assert.ok((await readTileReentryCode(input, refusing))?.code, 'anti-vacuity: a code would have been derived');
+  assert.equal(await ensureTileReentryCode(input, refusing), null, 'a code with no stored row was named');
+  assert.equal(tables.guest_reentry_codes.length, 0);
+  // A twin's duplicate key IS the stored row — that one is named.
+  const first = await ensureTileReentryCode(input, db);
+  const dup = {
+    from: (name: string) => {
+      const q = (db as unknown as { from: (n: string) => Record<string, unknown> }).from(name);
+      return { ...q, insert: async () => ({ error: { message: 'duplicate key value violates unique constraint', code: '23505' } }) };
+    },
+  } as unknown as ReentryDb;
+  tables.guest_reentry_codes.length = 0; // the read sees no row, the write meets the twin's
+  assert.equal(await ensureTileReentryCode(input, dup), first, 'a twin render\'s row was refused');
 });

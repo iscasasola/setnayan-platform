@@ -8,10 +8,11 @@ import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { PLUS_ONE_WELCOMED_COOKIE, plusOneWelcomeDue } from '@/lib/plus-one-welcome';
 import { requestKeyState } from '@/lib/request-key';
 import { REQUEST_KEY_COOKIE, forgetRequestKey, rememberRequestKey } from '@/lib/request-key.server';
-import { readGuestSession } from '@/lib/guest-session';
+import { GUEST_SESSION_COOKIE_NAME, readGuestSession } from '@/lib/guest-session';
 import {
   REENTRY_PARAM,
   isLinkPreviewFetch,
+  passHeldKind,
   passHopMissFault,
   reentryDestinationOf,
   type PassHopMiss,
@@ -52,6 +53,17 @@ async function recordMiss(request: NextRequest, miss: Omit<PassHopMiss, 'userAge
 // `%` and `_` as WILDCARDS, so `?slug=%` matched an arbitrary event. Rejecting
 // anything outside [a-z0-9-] removes that too.
 
+/** What a link-preview fetcher gets here: the page in place, and nothing else —
+ *  no Set-Cookie, no redirect, nothing it could follow to spend a code. */
+function linkPreviewAnswer(): NextResponse {
+  return new NextResponse(
+    '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Your invitation</title>' +
+      '<meta name="robots" content="noindex, nofollow"></head>' +
+      '<body><main><p>Open this link on your phone to see your invitation.</p></main></body></html>',
+    { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'private, no-store' } },
+  );
+}
+
 /** A real slug: lowercase alphanumerics and hyphens. No slashes, no dots, no
  *  backslashes, no colons, no wildcards — none of the characters that let a
  *  path turn into another origin or a LIKE pattern. */
@@ -77,6 +89,18 @@ export async function GET(request: NextRequest) {
     await recordMiss(request, { rule: 'redeem:missing', steps: ['redeem'], held: 'none', carriedCode: false });
     target.searchParams.set('invite_error', 'missing');
     return NextResponse.redirect(target);
+  }
+
+  /* 🤖 A LINK-PREVIEW FETCHER NEVER SPENDS ANYTHING (2026-10-04, the train-g
+     audit). A chat app that previews a pasted landing address
+     (`/{slug}/invite/enter?k=` → here) used to EXCHANGE the guest's single-use
+     re-entry code and take the Set-Cookie — the guest's own tap then found the
+     code spent. A personal link redeemed here the same way minted a pass for a
+     robot and a false "opened" scan. A fetcher is answered IN PLACE: a 200,
+     no redirect, no code spent, no pass written, no database read — the same
+     rule as the personal-link branch of `app/[slug]/page.tsx`. */
+  if (isLinkPreviewFetch(request.headers.get('user-agent'))) {
+    return linkPreviewAnswer();
   }
 
   const admin = createAdminClient();
@@ -142,7 +166,11 @@ export async function GET(request: NextRequest) {
       await recordMiss(request, {
         rule: 'reentry:refused',
         steps,
-        held: held ? 'other-event' : 'none',
+        held: passHeldKind({
+          cookiePresent: Boolean(request.cookies.get(GUEST_SESSION_COOKIE_NAME)?.value),
+          pass: held,
+          eventId: event.event_id,
+        }),
         carriedCode: true,
         reason: spent.reason,
       });

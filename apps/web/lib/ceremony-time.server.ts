@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ceremonyBlock } from '@/lib/print-pieces';
-import { fromDatetimeLocalValue, toDatetimeLocalValue } from '@/lib/schedule-datetime-local';
+import { fromDatetimeLocalValue, shiftWallClockDays, toDatetimeLocalValue, wallClockDayShift } from '@/lib/schedule-datetime-local';
 
 /**
  * 🕒 THE CEREMONY TIME TYPED UNDER THE DATE (owner 2026-10-04, "YES TO ALL" on
@@ -132,4 +132,63 @@ export async function placeCeremonyBlock({
     if (pErr) return { ok: false, error: pErr.message };
   }
   return { ok: true, wrote: 'moved' };
+}
+
+/**
+ * 📅 THE WHOLE SCHEDULE FOLLOWS THE DATE (owner 2026-10-04, DECISION_LOG
+ * "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE", verbatim: *"Yes if
+ * possible"*). When Apply moves the event from `fromDay` to `toDay`, EVERY
+ * block of the event's Schedule — every type, parents and their parts alike —
+ * moves by the same number of days, each keeping its own wall-clock time
+ * (`shiftWallClockDays`, the round-trip rule of lib/schedule-datetime-local.ts).
+ * Order, lengths and nesting are therefore unchanged.
+ *
+ * It never creates or deletes a block — placing the ceremony at a typed time
+ * stays `placeCeremonyBlock`'s job, run AFTER this one.
+ *
+ * Only when both days are exact (`YYYY-MM-DD`) and differ: a date that was a
+ * month or a year has no day to measure from, so nothing moves (`wrote: 'none'`).
+ * The caller asks only when the date really moved in THIS Apply — the live date
+ * is then the new one, so pressing Apply again finds no move and is a no-op.
+ *
+ * The couple's OWN session (RLS on `event_schedule_blocks` still applies), and
+ * every write asks for its row back: a zero-row UPDATE is success-shaped.
+ */
+export async function moveScheduleWithDate({
+  supabase,
+  eventId,
+  fromDay,
+  toDay,
+}: {
+  supabase: SupabaseClient;
+  eventId: string;
+  /** YYYY-MM-DD the event was on before this Apply, or null when it was not one day. */
+  fromDay: string | null;
+  /** YYYY-MM-DD the event is on after this Apply, or null when it is not one day. */
+  toDay: string | null;
+}): Promise<{ ok: true; moved: number } | { ok: false; error: string; moved: number }> {
+  const days = wallClockDayShift(fromDay, toDay);
+  if (days === 0) return { ok: true, moved: 0 };
+  const { data, error } = await supabase
+    .from('event_schedule_blocks')
+    .select('block_id, start_at, end_at')
+    .eq('event_id', eventId);
+  if (error) return { ok: false, error: error.message, moved: 0 };
+  let moved = 0;
+  for (const b of (data ?? []) as Array<{ block_id: string; start_at: string | null; end_at: string | null }>) {
+    if (!b.start_at && !b.end_at) continue;
+    const { data: rows, error: upErr } = await supabase
+      .from('event_schedule_blocks')
+      .update({
+        start_at: shiftWallClockDays(b.start_at, days),
+        end_at: shiftWallClockDays(b.end_at, days),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('block_id', b.block_id)
+      .eq('event_id', eventId)
+      .select('block_id');
+    if (upErr || !rows?.length) return { ok: false, error: upErr?.message ?? 'no-row', moved };
+    moved += 1;
+  }
+  return { ok: true, moved };
 }

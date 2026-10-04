@@ -101,3 +101,55 @@ export function formatWallClock(iso: string | null | undefined, opts?: { hour12?
   const h12 = h % 12 === 0 ? 12 : h % 12;
   return `${h12}:${m} ${suffix}`;
 }
+
+/* ── 📅 A MOVED DATE MOVES THE WHOLE DAY ─────────────────────────────────────
+   Owner 2026-10-04 (DECISION_LOG "CHANGING THE EVENT DATE MOVES THE WHOLE
+   SCHEDULE"), verbatim: *"Yes if possible"* — every schedule block moves by the
+   same number of days as the event's date, each keeping its own time.
+
+   Same rule as the round trip above: the stored value IS the wall clock, so a
+   day is moved on the wall clock's own components. Whole days of UTC epoch
+   arithmetic do exactly that — UTC has no daylight saving, so 14:00 stays 14:00
+   whatever the venue's timezone does that week. Never `setDate()` on a local
+   Date: that is the runtime-timezone dependence this module exists to kill. */
+
+const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DAY_MS = 86_400_000;
+
+/**
+ * The ONE day an event stands on — `YYYY-MM-DD` — or null when its date is not
+ * one exact day (precision 'month' or 'year', or no date). An unknown precision
+ * reads as 'day', the column's own default. Apply's ceremony time and the
+ * whole-Schedule move both ask this one rule.
+ */
+export function exactDayOf(date: unknown, precision: unknown): string | null {
+  if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(date)) return null;
+  if (precision === 'month' || precision === 'year') return null;
+  return date.slice(0, 10);
+}
+
+/**
+ * How many whole days `toDay` is after `fromDay` (both `YYYY-MM-DD`; negative
+ * when it is before). 0 when either is not one exact day — no day, no move.
+ */
+export function wallClockDayShift(fromDay: string | null | undefined, toDay: string | null | undefined): number {
+  if (typeof fromDay !== 'string' || typeof toDay !== 'string') return 0;
+  const a = DAY_RE.exec(fromDay);
+  const b = DAY_RE.exec(toDay);
+  if (!a || !b) return 0;
+  const days = (Date.UTC(+b[1]!, +b[2]! - 1, +b[3]!) - Date.UTC(+a[1]!, +a[2]! - 1, +a[3]!)) / DAY_MS;
+  return Number.isInteger(days) ? days : 0;
+}
+
+/**
+ * A stored schedule time moved by `days` whole days, its wall clock (hour,
+ * minute, second) untouched: `toDatetimeLocalValue(out).slice(11)` equals
+ * `toDatetimeLocalValue(iso).slice(11)` for every value. Null stays null; an
+ * unreadable value is returned as it was (never replaced by a guess).
+ */
+export function shiftWallClockDays(iso: string | null | undefined, days: number): string | null {
+  if (typeof iso !== 'string') return null;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t) || !Number.isInteger(days)) return iso;
+  return new Date(t + days * DAY_MS).toISOString();
+}

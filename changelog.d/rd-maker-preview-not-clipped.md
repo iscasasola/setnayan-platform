@@ -9,3 +9,13 @@ The owner's iPhone review of the Maker (maria-and-jose), three defects, each mea
 Guards: `app/[slug]/_components/canvas-bring-up.test.ts`, `lib/the-scene-strip-never-scrolls-down.test.ts`, `lib/the-print-box-takes-the-pieces-shape.test.ts` — each sabotage-run (break → red → restore → green). `lib/every-scene-is-in-the-navigator.test.ts` re-anchored to the strip's template className (its assertions unchanged).
 
 SPEC IMPACT: None — layout and scroll fixes to shipped Maker surfaces; no decision, SKU or schema changed.
+
+## 2026-10-04 · fix(maker): review notes — the way back is the Maker's one rule; strip notes float; prints held in their box
+
+- **End in "Maria" kept the bug.** Home / End / PageUp / PageDown cleared the saved place even inside the words being typed (where they only move the caret). Now only a paging key OUTSIDE editable text counts as the couple scrolling (`isTypingTarget`).
+- **No timer to race.** Measured on the live Maker: pressing Style ▾ sends typeStop and markEl from one click (the canvas's typing `end` came 186 ms after it), so the 250 ms settle never bounced in Chrome. The race was still possible in principle, so the timer is gone. Typing ending on the canvas no longer sends the page back at all. The type bar stays open after typing ends, and Style ▾ hands the edit to the part's sheet.
+- **One rule for every way an edit ends.** `editor-shell.tsx` broadcasts `settle` to every canvas (warm ones too) on the ONE transition to "neither the type bar nor the part's sheet is open". That covers Done, ✕, Escape, a tap outside, a tile, Page ▾ and a stage switch. When a tap ON THE CANVAS ended it (a fact, a scene's words, the folded sheet's second tap), it sends `settle` + `forget`, and the page stays where that tap put it. A Maker jump (`scrollTo`) forgets the old place.
+- **Strip notes no longer clipped.** Measured at 375 px in Desktop view: a tile label had 81 px above it and 35 px below it in a 116 px strip, and the longest real note is 132 px. On a phone, every navigator `(i)` now floats on the viewport (`InfoTip floatOnPhone` and `tipPlacement`: below its `(i)` when it fits, else above). Fixed positioning resolves against the viewport there (checked live), and the note closes on any scroll.
+- **Print pictures held in their box.** Both pictures are `object-contain`. The guard now proves every tappable piece (the invitation family) is portrait, so its 308 px cap always lands inside its box.
+
+SPEC IMPACT: None.

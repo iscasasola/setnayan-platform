@@ -171,7 +171,7 @@ export function PrintPreview({
               decoding="async"
               onLoad={() => settle('loaded')}
               onError={() => settle('error')}
-              className={`max-h-[308px] max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
+              className={`max-h-[308px] max-w-full object-contain drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
                 view.imageVisible ? 'opacity-100' : 'opacity-0'
               }`}
             />
@@ -207,7 +207,7 @@ export function PrintPreview({
             decoding="async"
             onLoad={() => settle('loaded')}
             onError={() => settle('error')}
-            className={`max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
+            className={`max-h-full max-w-full object-contain drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
               view.imageVisible ? 'opacity-100' : 'opacity-0'
             }`}
           />

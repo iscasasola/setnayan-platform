@@ -13,86 +13,79 @@
  *
  * Now, one helper owns both halves:
  *   · `up(part)` — the part lands {@link BRING_UP_GAP_PX} below the canvas's top
- *     edge (never flush under the bar), and the page's resting place is kept;
- *   · `down()`  — when the edit is over, the page goes back to that resting place,
- *     a moment later ({@link SETTLE_MS}) so an edit that hands on to another
- *     (the type bar's Style opens the part's sheet) never bounces;
- *   · `hold()`  — the edit continues on another surface: no way back yet;
- *   · `forget()` — the Maker moved the page on purpose (a tile, Page ▾): its
- *     place wins, and there is nothing to go back to;
- *   · a scroll the COUPLE makes (touch, wheel, keys) while editing means they
- *     chose where the page is — then `down()` leaves it there.
+ *     edge (never flush under the bar), and the page's resting place is kept
+ *     (the FIRST one, across a chain of edits);
+ *   · `down()`  — the edit is over: the page goes back to that resting place, at
+ *     once. ONLY the Maker says so (`settle`), when its LAST editing surface —
+ *     the type bar or the part's sheet — closes (`editor-shell.tsx`). The end of
+ *     typing on the canvas is NOT the end of the edit (the type bar stays open;
+ *     Style ▾ hands it to the sheet), so there is no timer to race;
+ *   · `forget()` — the page's place is no longer ours to restore: the Maker moved
+ *     it on purpose (a tile, Page ▾), or a tap on the canvas ended the edit there;
+ *   · a scroll the COUPLE makes (touch, wheel, a paging key OUTSIDE the words
+ *     being typed) means they chose where the page is — then `down()` leaves it.
  *
  * Pure DOM, no React; `canvas-bring-up.test.ts` drives it with a fake window.
  */
 
 /** Room left above a part brought up — it never sits flush under the Maker's bar. */
 export const BRING_UP_GAP_PX = 16;
-/** The pause before the way back, so a hand-over (typing → the part's sheet) can hold it. */
-export const SETTLE_MS = 250;
 /** Below this width the Maker is a phone and a part is brought up at all. */
 export const BRING_UP_BELOW_PX = 1024;
 
-type BringUpWindow = Pick<
-  Window,
-  'innerWidth' | 'scrollY' | 'scrollTo' | 'setTimeout' | 'clearTimeout' | 'addEventListener' | 'removeEventListener'
->;
+type BringUpWindow = Pick<Window, 'innerWidth' | 'scrollY' | 'scrollTo' | 'addEventListener' | 'removeEventListener'>;
 
 export type CanvasBringUp = {
   up: (part: HTMLElement) => void;
   down: () => void;
-  hold: () => void;
   forget: () => void;
   dispose: () => void;
 };
 
+/** The keys that scroll a page — but inside words being typed they only move the caret. */
+const PAGING_KEYS = new Set(['PageUp', 'PageDown', 'Home', 'End']);
+
+/** Is this keystroke's target something being typed into (where a paging key moves the caret)? */
+export function isTypingTarget(target: EventTarget | null): boolean {
+  const el = target as (HTMLElement & { isContentEditable?: boolean }) | null;
+  if (!el || typeof el !== 'object') return false;
+  if (el.isContentEditable) return true;
+  const tag = typeof el.tagName === 'string' ? el.tagName.toUpperCase() : '';
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT';
+}
+
 export function createCanvasBringUp(win: BringUpWindow): CanvasBringUp {
   /** Where the page rested before the first bring-up of this edit; null = nothing to undo. */
   let rest: number | null = null;
-  let timer: number | null = null;
-  const cancel = () => {
-    if (timer !== null) win.clearTimeout(timer);
-    timer = null;
-  };
-  /** The couple moved the page themselves: their place wins. */
-  const theyScrolled = () => {
+  /** The couple moved the page themselves (or the Maker did, on purpose): that place wins. */
+  const theirPlace = () => {
     rest = null;
-    cancel();
   };
   const onKey = (e: Event) => {
-    const k = (e as KeyboardEvent).key;
-    if (k === 'PageUp' || k === 'PageDown' || k === 'Home' || k === 'End') theyScrolled();
+    const k = e as KeyboardEvent;
+    // ✍ Home / End in "Maria" move the caret, not the page — never a scroll of theirs.
+    if (PAGING_KEYS.has(k.key) && !isTypingTarget(k.target)) theirPlace();
   };
-  win.addEventListener('wheel', theyScrolled, { passive: true });
-  win.addEventListener('touchmove', theyScrolled, { passive: true });
+  win.addEventListener('wheel', theirPlace, { passive: true });
+  win.addEventListener('touchmove', theirPlace, { passive: true });
   win.addEventListener('keydown', onKey);
 
   return {
     up(part) {
       if (win.innerWidth >= BRING_UP_BELOW_PX) return;
-      cancel();
       if (rest === null) rest = win.scrollY;
       const top = part.getBoundingClientRect().top + win.scrollY - BRING_UP_GAP_PX;
       win.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
     },
     down() {
-      if (rest === null) return;
-      cancel();
-      timer = win.setTimeout(() => {
-        timer = null;
-        const to = rest;
-        rest = null;
-        if (to !== null) win.scrollTo({ top: to, behavior: 'smooth' });
-      }, SETTLE_MS);
+      const to = rest;
+      rest = null;
+      if (to !== null) win.scrollTo({ top: to, behavior: 'smooth' });
     },
-    hold() {
-      cancel();
-    },
-    forget: theyScrolled,
+    forget: theirPlace,
     dispose() {
-      cancel();
-      win.removeEventListener('wheel', theyScrolled);
-      win.removeEventListener('touchmove', theyScrolled);
+      win.removeEventListener('wheel', theirPlace);
+      win.removeEventListener('touchmove', theirPlace);
       win.removeEventListener('keydown', onKey);
     },
   };

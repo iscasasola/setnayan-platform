@@ -234,8 +234,8 @@ export type CanvasTyping = {
 export function createCanvasTyping(
   win: Window,
   post: (message: Record<string, unknown>) => void,
-  /** 📱 The bring-up and its way back (`canvas-bring-up.ts`) — shared with the bridge's own taps. */
-  lift?: Pick<CanvasBringUp, 'up' | 'down'>,
+  /** 📱 The bring-up (`canvas-bring-up.ts`) — shared with the bridge's own taps; its way back is the Maker's `settle`. */
+  lift?: Pick<CanvasBringUp, 'up'>,
 ): CanvasTyping {
   const doc = win.document;
   let session: {
@@ -270,8 +270,9 @@ export function createCanvasTyping(
     s.off();
     s.target.removeAttribute('contenteditable');
     session = null;
-    // 📱 The typing is over: the page goes back to where it rested (`canvas-bring-up.ts`).
-    lift?.down();
+    /* 📱 NO way back here: the end of typing is not the end of the edit — the
+       Maker's type bar stays open, and Style ▾ hands the part to its sheet. The
+       Maker says when the LAST surface closes (`settle`, `canvas-bring-up.ts`). */
   };
 
   return {

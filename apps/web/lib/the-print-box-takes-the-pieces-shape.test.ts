@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { PRINT_PREVIEW_MAX_PX, printPreviewBox } from './print-preview-view';
-import { PRINT_FORMATS } from './print-pieces';
+import { PRINT_FORMATS, formatFamilyOf } from './print-pieces';
 
 const PAD = 16; // the box's p-4
 
@@ -64,4 +64,37 @@ test('3 · SOURCE: the box is drawn from printPreviewBox, and every piece body h
   const body = PRINTS.slice(PRINTS.indexOf('export function PrintPieceBody'), PRINTS.indexOf('export function PrintPieceEditor'));
   assert.ok(body.length > 200, 'PrintPieceBody was not found — this scan is blind, not clean');
   assert.match(body, /aspect=\{fam \? formats\[fam\]\.wMm \/ formats\[fam\]\.hMm : spec\.widthPt \/ spec\.heightPt\}/);
+});
+
+const DETAILS = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
+
+test('4 · the picture is held INSIDE its box — never a few px over a short landscape edge', () => {
+  // The plain picture: both caps are the box's own inner size (a definite height,
+  // from its shape), and it keeps its proportions inside them.
+  const plain = PREVIEW.slice(PREVIEW.lastIndexOf('<img'));
+  assert.match(plain, /max-h-full max-w-full object-contain/, 'the plain picture is capped by the box on both axes');
+  // The tappable picture is capped at 308 px (340 − the box's 2 × 16 px), which fits
+  // only a PORTRAIT box. Every tappable piece is the invitation family — prove each
+  // of its sizes is portrait, so the 308 cap and the width cap always land inside.
+  const tapped = PREVIEW.slice(PREVIEW.indexOf('<img'), PREVIEW.lastIndexOf('<img'));
+  assert.match(tapped, /max-h-\[308px\] max-w-full object-contain/);
+  assert.equal(308, PRINT_PREVIEW_MAX_PX - 2 * PAD);
+  const pieces = new Set<string>();
+  for (const m of DETAILS.matchAll(/piece="(\w+)"[^>]*\btappable\b(?!=\{false\})/g)) pieces.add(m[1]!);
+  for (const m of DETAILS.matchAll(/tappable=\{k === '(\w+)' \|\| k === '(\w+)'\}/g)) (pieces.add(m[1]!), pieces.add(m[2]!));
+  console.log(`  tappable pieces: ${[...pieces].join(', ')}`);
+  assert.ok(pieces.size > 0, 'no tappable piece found — this scan is blind, not clean');
+  for (const piece of pieces) {
+    assert.equal(formatFamilyOf(piece as never), 'invitation', `${piece} is tappable but not in the portrait invitation family`);
+  }
+  for (const f of Object.values(PRINT_FORMATS).filter((f) => f.for === 'invitation')) {
+    const a = f.wMm / f.hMm;
+    assert.ok(a < 1, `${f.id} is not portrait — the tappable picture's 308 px cap would overflow its box`);
+    // Width-limited inside a box of this shape (w × w/a, padding inside): the picture's height fits.
+    for (const w of [180, 210, 243, 300]) {
+      const innerH = Math.min(PRINT_PREVIEW_MAX_PX, w / a) - 2 * PAD;
+      const picH = Math.min(308, (w - 2 * PAD) / a);
+      assert.ok(picH <= innerH + 0.5, `${f.id} at ${w} px: ${picH.toFixed(0)} px picture in ${innerH.toFixed(0)} px`);
+    }
+  }
 });

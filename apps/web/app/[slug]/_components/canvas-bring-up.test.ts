@@ -15,13 +15,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { BRING_UP_GAP_PX, SETTLE_MS, createCanvasBringUp } from './canvas-bring-up';
+import { BRING_UP_GAP_PX, createCanvasBringUp, isTypingTarget } from './canvas-bring-up';
 
-type Listener = () => void;
+type Listener = (e?: unknown) => void;
 function fakeWindow(innerWidth = 375) {
-  let now = 0;
-  const timers = new Map<number, { at: number; fn: () => void }>();
-  let id = 0;
   const listeners: Record<string, Listener[]> = {};
   const win = {
     innerWidth,
@@ -31,25 +28,14 @@ function fakeWindow(innerWidth = 375) {
       win.scrollY = o.top;
       win.scrolls.push(o.top);
     },
-    setTimeout(fn: () => void, ms: number) {
-      timers.set(++id, { at: now + ms, fn });
-      return id;
-    },
-    clearTimeout(t: number) {
-      timers.delete(t);
-    },
     addEventListener(type: string, fn: Listener) {
       (listeners[type] ??= []).push(fn);
     },
     removeEventListener(type: string, fn: Listener) {
       listeners[type] = (listeners[type] ?? []).filter((f) => f !== fn);
     },
-    tick(ms: number) {
-      now += ms;
-      for (const [k, t] of [...timers]) if (t.at <= now) (timers.delete(k), t.fn());
-    },
-    fire(type: string) {
-      for (const f of listeners[type] ?? []) f();
+    fire(type: string, e?: unknown) {
+      for (const f of listeners[type] ?? []) f(e);
     },
   };
   return win;
@@ -57,6 +43,9 @@ function fakeWindow(innerWidth = 375) {
 /** A part whose top sits `docTop` px down the page. */
 const partAt = (win: { scrollY: number }, docTop: number) =>
   ({ getBoundingClientRect: () => ({ top: docTop - win.scrollY }) }) as unknown as HTMLElement;
+/** The words being typed ("Maria", contenteditable) and the page around them. */
+const WORDS = { isContentEditable: true, tagName: 'SPAN' } as unknown as EventTarget;
+const PAGE = { isContentEditable: false, tagName: 'BODY' } as unknown as EventTarget;
 
 test('1 · the part comes up with room above it — never flush under the bar', () => {
   const win = fakeWindow();
@@ -66,51 +55,59 @@ test('1 · the part comes up with room above it — never flush under the bar', 
   assert.ok(BRING_UP_GAP_PX >= 12, 'the gap is what keeps the part off the bar');
 });
 
-test('2 · when the edit is over the page goes back to where it rested — the card’s top in view again', () => {
+test('2 · when the edit is over the page goes back to where it rested — at once, no timer to race', () => {
   const win = fakeWindow();
   const lift = createCanvasBringUp(win as unknown as Window);
   lift.up(partAt(win, 293));
   lift.down();
-  assert.equal(win.scrollY, 293 - BRING_UP_GAP_PX, 'not at once — a hand-over may still hold it');
-  win.tick(SETTLE_MS);
-  assert.equal(win.scrollY, 0, 'Done must put the page back where the couple left it');
+  assert.equal(win.scrollY, 0, 'settle must put the page back where the couple left it');
 });
 
-test('3 · a hand-over (typing → the part’s sheet) holds the way back; the first resting place is kept', () => {
+test('3 · a chain of edits (typing → Style ▾ → another part) goes back to the FIRST resting place', () => {
   const win = fakeWindow();
   win.scrollY = 40;
   const lift = createCanvasBringUp(win as unknown as Window);
-  lift.up(partAt(win, 293));
-  lift.down(); // the type bar's Style ends the typing…
-  lift.hold(); // …and the part's sheet opens on it
-  win.tick(SETTLE_MS * 4);
-  assert.equal(win.scrollY, 293 - BRING_UP_GAP_PX, 'held: the part stays up while its sheet is open');
-  lift.up(partAt(win, 500)); // another part, same edit
-  lift.down(); // the sheet closes
-  win.tick(SETTLE_MS);
+  lift.up(partAt(win, 293)); // typing "Maria"
+  lift.up(partAt(win, 500)); // the sheet moves on to another part
+  lift.down(); // the last surface closes
   assert.equal(win.scrollY, 40, 'back to where the page rested BEFORE the first bring-up');
+  lift.down();
+  assert.equal(win.scrolls.length, 3, 'a second settle has nothing left to undo');
 });
 
-test('4 · a page the couple moved themselves, or the Maker moved on purpose, stays where it was put', () => {
-  for (const how of ['touchmove', 'wheel', 'forget'] as const) {
+test('4 · Home / End / PageUp / PageDown INSIDE the words being typed move the caret — the way back is kept', () => {
+  assert.equal(isTypingTarget(WORDS), true);
+  assert.equal(isTypingTarget({ tagName: 'INPUT' } as unknown as EventTarget), true);
+  assert.equal(isTypingTarget(PAGE), false);
+  for (const key of ['End', 'Home', 'PageUp', 'PageDown']) {
+    const win = fakeWindow();
+    const lift = createCanvasBringUp(win as unknown as Window);
+    lift.up(partAt(win, 293)); // tap "Maria"
+    win.fire('keydown', { key, target: WORDS }); // …press End while typing
+    lift.down(); // …Done
+    assert.equal(win.scrollY, 0, `${key} in the words must not cost the way back (the original bug, again)`);
+  }
+});
+
+test('5 · a page the couple moved themselves, or the Maker moved on purpose, stays where it was put', () => {
+  for (const how of ['touchmove', 'wheel', 'End on the page', 'forget'] as const) {
     const win = fakeWindow();
     const lift = createCanvasBringUp(win as unknown as Window);
     lift.up(partAt(win, 293));
     win.scrollY = 700; // they scrolled on
     if (how === 'forget') lift.forget();
+    else if (how === 'End on the page') win.fire('keydown', { key: 'End', target: PAGE });
     else win.fire(how);
     lift.down();
-    win.tick(SETTLE_MS);
     assert.equal(win.scrollY, 700, `${how}: their place wins`);
   }
 });
 
-test('5 · on a desktop nothing is brought up and nothing goes back', () => {
+test('6 · on a desktop nothing is brought up and nothing goes back', () => {
   const win = fakeWindow(1280);
   const lift = createCanvasBringUp(win as unknown as Window);
   lift.up(partAt(win, 293));
   lift.down();
-  win.tick(SETTLE_MS);
   assert.deepEqual(win.scrolls, []);
 });
 
@@ -119,24 +116,38 @@ const TYPING = read('type-in-place-canvas.ts');
 const BRIDGE = read('editor-bridge.tsx');
 const SHELL = read('../../dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
 
-test('6 · SOURCE: both phone edits bring the part up through the helper, and both have a way back', () => {
-  // Typing: no raw scroll of its own; up on begin, down on end.
+const HELPER = read('canvas-bring-up.ts');
+
+test('7 · SOURCE: both phone edits bring the part up through the helper; ONLY the Maker sends it back', () => {
+  // No timer anywhere: a hand-over (typing → Style ▾ → sheet) can never race a pending way back.
+  assert.doesNotMatch(HELPER, /setTimeout|SETTLE_MS/, 'the way back is the Maker’s word, never a timer');
+  // Typing: no raw scroll of its own; up on begin — and NO way back at the end of typing.
   assert.doesNotMatch(TYPING, /scrollIntoView\(/, 'typing must not scroll the page itself — `lift.up` keeps the way back');
   assert.match(TYPING, /lift\?\.up\(part\)/);
   const end = TYPING.slice(TYPING.indexOf('const end = (cancel: boolean)'), TYPING.indexOf('inside: (t)'));
   assert.ok(end.length > 50, 'the end of typing was not found — this scan is blind, not clean');
-  assert.match(end, /lift\?\.down\(\)/, 'the end of typing must put the page back');
-  // The bridge: one helper, handed to typing, used by the sheet tap, held by markEl, released by settle.
+  assert.doesNotMatch(end, /lift/, 'the end of typing is not the end of the edit — the type bar stays open');
+  // The bridge: one helper, handed to typing, used by the sheet tap, released by settle (or forgotten).
   assert.match(BRIDGE, /const lift = createCanvasBringUp\(window\)/);
   assert.match(BRIDGE, /createCanvasTyping\(window, [^\n]*, lift\)/);
   const tap = BRIDGE.slice(BRIDGE.indexOf('const part = tappedElement(e.target, el)'), BRIDGE.indexOf('const empty = el.matches'));
   assert.ok(tap.length > 50, 'the tap path was not found — this scan is blind, not clean');
   assert.match(tap, /lift\.up\(part\)/);
   assert.doesNotMatch(tap, /part\.scrollIntoView/, 'the sheet tap must not scroll the page without a way back');
-  assert.match(BRIDGE, /data\.t === 'settle'\) \{\s*lift\.down\(\);/);
-  assert.match(BRIDGE, /if \(part\) lift\.hold\(\);/);
-  // The Maker says the sheet closed.
-  const close = SHELL.slice(SHELL.indexOf("t: 'markEl', key: elementTarget.key, el: null"), SHELL.indexOf("sheetDo({ t: 'close' })"));
-  assert.ok(close.length > 0, 'the part sheet’s close was not found — this scan is blind, not clean');
-  assert.match(close, /t: 'settle'/, 'closing the part sheet must tell the canvas to settle');
+  assert.match(BRIDGE, /data\.t === 'settle'\) \{\s*if \(\(data as \{ forget\?: unknown \}\)\.forget === true\) lift\.forget\(\);\s*else lift\.down\(\);/);
+  assert.match(BRIDGE, /lift\.forget\(\);[^\n]*\n\s*el\.scrollIntoView\(\{ behavior: 'smooth', block: 'start' \}\)/, 'a Maker jump (scrollTo) forgets the way back');
+});
+
+test('8 · SOURCE: the Maker settles by ONE rule — when the last editing surface closes, however it closes', () => {
+  // Every `settle` the Maker sends comes from the one effect (never a single close button).
+  const sends = SHELL.match(/t: 'settle'/g)?.length ?? 0;
+  console.log(`  settle sends in the Maker: ${sends}`);
+  assert.equal(sends, 1, 'one rule, not one close path at a time — a path without it left a stale resting place');
+  assert.match(SHELL, /const editingOpen = typeStart !== null \|\| elementTarget !== null;/);
+  const effect = SHELL.slice(SHELL.indexOf('const editingOpen ='), SHELL.indexOf('const editingOpen =') + 900);
+  assert.match(effect, /if \(wasEditing\.current && !editingOpen\)/, 'settle on the transition to NOTHING open');
+  assert.match(effect, /broadcastToCanvasRef\.current\(/, 'to every canvas, warm ones too (a stage switch)');
+  assert.match(effect, /\[editingOpen, typeStart, elementTarget, sheet\]/, 'the tap flag is cleared by every edit change');
+  // A canvas tap that ends the edit keeps the tap's place.
+  assert.match(SHELL, /\(data\.t === 'edit' \|\| data\.t === 'tapOutside'\) && \(elementRef\.current \|\| typeRef\.current\)\) \{\s*endedByCanvasTap\.current = true;/);
 });

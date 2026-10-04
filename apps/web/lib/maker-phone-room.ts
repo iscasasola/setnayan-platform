@@ -104,12 +104,15 @@ export const MAKER_BAR_PHONE_SIDE_PX = 8;
  * swipe or Page ▾'s `scrollIntoView({ block: 'start' })` slid every tile up
  * under the strip's top edge.
  *
- * On a phone, then: a closed bubble takes no room, an open one hangs ABOVE its
- * label (over its own tile, inside the strip), and the strip cannot scroll on
- * Y at all. Held by `lib/the-scene-strip-never-scrolls-down.test.ts`.
+ * On a phone, then: a closed bubble takes no room and the strip cannot scroll
+ * on Y at all. An OPEN bubble does not live in the strip either — it floats on
+ * the viewport (`InfoTip floatOnPhone`): MEASURED at 375 px with the Maker in
+ * Desktop view, a tile label had 81 px above it and 35 below in a 116 px strip,
+ * and the longest real note (a fixed scene's "where it comes from") is 132 px,
+ * so neither above nor below fits inside the strip.
+ * Held by `lib/the-scene-strip-never-scrolls-down.test.ts`.
  */
-export const MAKER_STRIP_PHONE =
-  'max-lg:overflow-y-hidden max-lg:[&_.sn-tip:not([data-open=true])]:hidden max-lg:[&_.sn-tip]:top-auto max-lg:[&_.sn-tip]:bottom-full max-lg:[&_.sn-tip]:pb-2 max-lg:[&_.sn-tip]:pt-0';
+export const MAKER_STRIP_PHONE = 'max-lg:overflow-y-hidden max-lg:[&_.sn-tip:not([data-open=true])]:hidden';
 
 /* ─── the measuring half (pure — for the guard) ─────────────────────────── */
 

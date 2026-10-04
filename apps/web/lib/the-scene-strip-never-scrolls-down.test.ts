@@ -25,23 +25,43 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { MAKER_STRIP_PHONE } from './maker-phone-room';
+import { tipPlacement } from '../app/_components/info-tip';
 import { buildTileDocument, type TileHead, type TileSnapshot } from './maker-tile-preview';
 
 const read = (p: string) => stripComments(readFileSync(join(import.meta.dirname, '..', p), 'utf8'));
 const SHELL = read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
 const SNAPSHOT = read('app/dashboard/[eventId]/website/editor/_components/scene-snapshot.ts');
+const TIP = read('app/_components/info-tip.tsx');
 
-test('1 · on a phone the strip has no vertical scroll range: closed bubbles take no room, open ones hang above', () => {
+test('1 · on a phone the strip has no vertical scroll range: closed bubbles take no room', () => {
   const classes = MAKER_STRIP_PHONE.split(/\s+/);
   assert.ok(classes.includes('max-lg:overflow-y-hidden'), 'the strip must not scroll on Y on a phone');
   assert.ok(
     classes.includes('max-lg:[&_.sn-tip:not([data-open=true])]:hidden'),
     'a CLOSED (i) bubble must take no room — it was 110 px of scroll range under the tiles',
   );
-  assert.ok(
-    classes.includes('max-lg:[&_.sn-tip]:bottom-full') && classes.includes('max-lg:[&_.sn-tip]:top-auto'),
-    'an OPEN bubble hangs above its label, inside the strip, never below it',
-  );
+});
+
+test('1b · an OPEN bubble floats on the viewport — the strip, which cannot scroll, never clips it', () => {
+  // MEASURED at 375 × 812, the Maker in Desktop view: a tile label 81 px below the
+  // strip's top (strip at y 695, 116 px tall), the longest real note 132 px.
+  const strip = { top: 695, height: 116 };
+  const trigger = { top: strip.top + 81, bottom: strip.top + 81 + 16, left: 250 };
+  const at = tipPlacement(trigger, 132, { width: 375, height: 812 });
+  console.log(`  132 px note from a label at y ${trigger.top}: placed at y ${at.top}…${at.top + 132}, x ${at.left}…${at.left + at.width}`);
+  assert.ok(at.top >= 8 && at.top + 132 <= 812 - 8, 'the whole note is on screen');
+  assert.ok(at.left >= 16 && at.left + at.width <= 375 - 16, 'never off the side of a 375 px phone');
+  assert.ok(at.top + 132 <= trigger.top || at.top >= trigger.bottom, 'it never covers its own (i)');
+  // Inside the strip it could not have fit — which is why it floats.
+  assert.ok(132 > 81 && 132 > strip.height - 81 - 16);
+  // Every (i) in the navigator floats on a phone.
+  const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
+  const tips = nav.match(/<InfoTip\b[^>]*>/g) ?? [];
+  console.log(`  navigator (i)s: ${tips.length}`);
+  assert.ok(tips.length > 0, 'no (i) found in the navigator — this scan is blind, not clean');
+  assert.deepEqual(tips.filter((t) => !/\bfloatOnPhone\b/.test(t)), [], 'a strip (i) that does not float is clipped by the strip');
+  assert.match(TIP, /tip\.style\.position = 'fixed'/, 'the floating bubble is placed against the viewport');
+  assert.match(TIP, /window\.innerWidth >= 1024/, 'only on a phone — the desktop column keeps its own bubbles');
 });
 
 test('2 · SOURCE: the navigator strip wears the phone rule, and Page ▾ never scrolls it to block start on a phone', () => {

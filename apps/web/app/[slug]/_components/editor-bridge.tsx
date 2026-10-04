@@ -54,8 +54,9 @@ import { createCanvasBringUp } from './canvas-bring-up';
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
- *   parent → frame  { source:'setnayan-editor', t:'settle' } — 📱 the part's sheet closed: the
- *                    page goes back to where it rested (`canvas-bring-up.ts`)
+ *   parent → frame  { source:'setnayan-editor', t:'settle', forget? } — 📱 the Maker's last editing
+ *                    surface closed: the page goes back to where it rested, or (`forget`, a
+ *                    canvas tap ended it) stays put (`canvas-bring-up.ts`)
  *   frame  ⇄ parent  t:'type' · 'typeText' · 'typeStop' · 'typeSync' · 'typeHere' — ✍ tap-to-type
  *                    (`type-in-place-canvas.ts` has the whole protocol)
  *
@@ -613,10 +614,13 @@ export function EditorBridge() {
         typing.stop();
         return;
       }
-      /* 📱 The part's sheet closed: the edit is over, the page goes back to
-         where it rested before the part was brought up (`canvas-bring-up.ts`). */
+      /* 📱 The Maker's LAST editing surface closed (the type bar, the part's
+         sheet): the page goes back to where it rested before the part was
+         brought up — or, when a tap on the canvas ended the edit, stays where
+         that tap put it (`forget`). `canvas-bring-up.ts`. */
       if (data && data.source === 'setnayan-editor' && data.t === 'settle') {
-        lift.down();
+        if ((data as { forget?: unknown }).forget === true) lift.forget();
+        else lift.down();
         return;
       }
       if (data && data.source === 'setnayan-editor' && data.t === 'typeSync') {
@@ -691,8 +695,6 @@ export function EditorBridge() {
             ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`)
             : null;
         mark(part);
-        // 📱 A sheet now open on a part carries the edit on: no way back yet.
-        if (part) lift.hold();
         return;
       }
       if (data.t === 'scenePlaceholder') {

@@ -495,6 +495,8 @@ export function MakerWork({
      on a desktop it selects the scene too (on a phone nothing rises over the
      keyboard). */
   const [typeStart, setTypeStart] = useState<TypeStart | null>(null);
+  const typeRef = useRef<TypeStart | null>(null);
+  typeRef.current = typeStart;
   useEffect(() => {
     const onType = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -516,6 +518,24 @@ export function MakerWork({
     (typeStart?.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
     setTypeStart(null);
   };
+  /* 📱 THE PAGE GOES BACK WHEN THE LAST EDIT CLOSES (`canvas-bring-up.ts`). A
+     part brought up for the keyboard or its sheet is put back by ONE rule, here,
+     whichever way the edit ends — Done, ✕, Escape, a tap outside, a tile, Page ▾,
+     a stage switch: when NEITHER the type bar NOR the part's sheet is open any
+     more, every canvas (warm ones too) is told to `settle`. Style ▾ closes the
+     bar and opens the sheet in one render, so it never settles in between —
+     nothing is timed. When a TAP ON THE CANVAS ended it (a fact, a scene's words,
+     the folded sheet's second tap), that tap's place wins: `forget`. */
+  const editingOpen = typeStart !== null || elementTarget !== null;
+  const wasEditing = useRef(false);
+  const endedByCanvasTap = useRef(false);
+  useEffect(() => {
+    if (wasEditing.current && !editingOpen) {
+      broadcastToCanvasRef.current({ source: 'setnayan-editor', t: 'settle', ...(endedByCanvasTap.current ? { forget: true } : {}) });
+    }
+    wasEditing.current = editingOpen;
+    endedByCanvasTap.current = false;
+  }, [editingOpen, typeStart, elementTarget, sheet]);
   /* ✍ …ON EVERY SCENE (`lib/scene-type-words.ts`): each canvas that loads is
      told which scene words a tap types in, and says back which it found, by
      stage. Where the caret really reaches, that scene's words box steps aside
@@ -968,6 +988,11 @@ export function MakerWork({
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
+      /* 📱 A tap on the canvas while an edit is open: if it ends the edit, the
+         page stays where the tap put it (`settle` + `forget`, above). */
+      if (data?.source === 'setnayan-site' && (data.t === 'edit' || data.t === 'tapOutside') && (elementRef.current || typeRef.current)) {
+        endedByCanvasTap.current = true;
+      }
       /* 📱 THE PART SHEET ON A PHONE (owner 2026-10-04, `lib/element-sheet-state.ts`):
          a tap on the canvas that hits no part folds the open sheet to its bar
          and does nothing else; once folded, the next such tap goes through
@@ -2009,14 +2034,14 @@ export function MakerWork({
           {/* 👤 Me with a See as guest picked is ON the canvas (PR-10) — no note. */}
           {shownPage?.key === 'me' && !seeAsDrawsMe(seeAs) ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:mb-2 lg:self-stretch" data-maker-page-me="">
-              <InfoTip className="min-w-0 max-w-full" label={ME_NOT_ON_CANVAS.label} align="start">
+              <InfoTip floatOnPhone className="min-w-0 max-w-full" label={ME_NOT_ON_CANVAS.label} align="start">
                 {ME_NOT_ON_CANVAS.body}
               </InfoTip>
             </li>
           ) : null}
           {shownPage?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
-              <InfoTip className="min-w-0 max-w-full" label={`${shownPage.label} opens its own page`} align="start">
+              <InfoTip floatOnPhone className="min-w-0 max-w-full" label={`${shownPage.label} opens its own page`} align="start">
                 On this stage, “{shownPage.label}” takes a guest to a page of its own, so there are no scenes to arrange
                 here, and it can’t be shown on this canvas yet. Pick another page to see its scenes.
               </InfoTip>
@@ -2028,19 +2053,19 @@ export function MakerWork({
           {stage === 'editorial' && navigator.postEvent ? (
             <li className="shrink-0 self-center px-1 text-[11px] font-semibold text-ink/60 lg:mb-2 lg:self-stretch" data-maker-post-event-state="">
               {navigator.postEvent === 'unreadable' ? (
-                <InfoTip className="min-w-0 max-w-full" label="Scenes unavailable" align="start">
+                <InfoTip floatOnPhone className="min-w-0 max-w-full" label="Scenes unavailable" align="start">
                   Your story’s scenes could not be read just now. The story itself is unchanged — open the Maker
                   again in a moment.
                 </InfoTip>
               ) : !navigator.postEvent.dayHappened ? (
                 /* 🕰 Before the day — the same scenes, waiting (owner 2026-09-25). */
-                <InfoTip className="min-w-0 max-w-full" label="Before the day · scenes wait" align="start">
+                <InfoTip floatOnPhone className="min-w-0 max-w-full" label="Before the day · scenes wait" align="start">
                   Post Event is its own scenes, and each one is here already. The ones marked Not yet fill themselves
                   from your day once it has happened — until then your guests never meet an empty box. Pick each
                   scene’s style, hide the ones you do not want and move them earlier or later.
                 </InfoTip>
               ) : (
-                <InfoTip className="min-w-0 max-w-full"
+                <InfoTip floatOnPhone className="min-w-0 max-w-full"
                   label={`Auto · written ${new Date(navigator.postEvent.generatedAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`}
                   align="start"
                 >
@@ -2215,7 +2240,7 @@ export function MakerWork({
                       ) : null}
                     </div>
                     {tile.kind === 'fixed' ? (
-                      <InfoTip className="min-w-0 max-w-full" label={tile.label} align="start" labelClassName="min-w-0 line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
+                      <InfoTip floatOnPhone className="min-w-0 max-w-full" label={tile.label} align="start" labelClassName="min-w-0 line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
                         {tile.why}
                         {MAKER_FIXED_SOURCE[tile.fixed] ? (
                           <span className="mt-1.5 block">
@@ -2230,7 +2255,7 @@ export function MakerWork({
                         ) : null}
                       </InfoTip>
                     ) : tile.kind === 'post-event' ? (
-                      <InfoTip className="min-w-0 max-w-full"
+                      <InfoTip floatOnPhone className="min-w-0 max-w-full"
                         label={tile.label}
                         align="start"
                         labelClassName={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}
@@ -2294,7 +2319,7 @@ export function MakerWork({
                     return (
                       <li key={f.key} data-maker-folded={f.key} className="flex items-center gap-1 text-[11.5px] text-ink/70">
                         <span className="min-w-0 flex-1">
-                          <InfoTip className="min-w-0 max-w-full" label={f.label} align="start" labelClassName="min-w-0 truncate">
+                          <InfoTip floatOnPhone className="min-w-0 max-w-full" label={f.label} align="start" labelClassName="min-w-0 truncate">
                             {f.reason}
                           </InfoTip>
                         </span>
@@ -2392,7 +2417,7 @@ export function MakerWork({
               </div>
             ) : addScene && 'note' in addScene ? (
               <span className="flex items-center gap-1 pl-4 text-[11px] text-ink/60">
-                <InfoTip className="min-w-0 max-w-full" label="New scene" align="start">
+                <InfoTip floatOnPhone className="min-w-0 max-w-full" label="New scene" align="start">
                   {addScene.note}
                 </InfoTip>
               </span>
@@ -2695,9 +2720,6 @@ export function MakerWork({
           }
           onClose={() => {
             postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null });
-            /* 📱 …and the page goes back to where it rested before the part was
-               brought up for the sheet (`canvas-bring-up.ts`). */
-            postToShownCanvases({ source: 'setnayan-editor', t: 'settle' });
             sheetDo({ t: 'close' });
           }}
           collapsed={sheet.collapsed}

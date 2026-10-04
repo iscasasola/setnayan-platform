@@ -27,6 +27,8 @@ export function TypeLab({ children }: { children: ReactNode }) {
       window,
       (m) => {
         add(`${String(m.phase)} · ${String(m.el)} · “${String(m.text ?? '').slice(0, 44)}”${m.caret === false ? ' · Format ▾ only' : ''}`);
+        // No Maker here to say `settle`: the lab's edit is over when the typing is.
+        if (m.phase === 'end') lift.down();
       },
       lift,
     );

@@ -361,6 +361,10 @@ export type EventVenueColumns = {
   /** The ceremony's typed street address (owner 2026-09-29, "yes to all 4";
    *  migration 20271252997367). Used only when no ceremony is booked. */
   ceremony_venue_address?: string | null;
+  /** The ceremony's own map pin (owner 2026-10-01, "A REAL PIN"; migration
+   *  20271263730696). Used only when no ceremony is booked. */
+  ceremony_venue_latitude?: number | string | null;
+  ceremony_venue_longitude?: number | string | null;
 };
 
 const norm = (s: string | null) =>
@@ -400,18 +404,19 @@ export function resolveEventVenues(bookings: VenueBookings, event: EventVenueCol
   const choices = bookings.choices ?? {};
   const ceremonyPhoto = venuePhotoFor(bookings.ceremony, choices.ceremony);
   const receptionPhoto = venuePhotoFor(bookings.reception, choices.reception);
+  const ceremonyPin = pin(event.ceremony_venue_latitude, event.ceremony_venue_longitude);
 
   const ceremony: (EventVenue & { placeKey?: string | null }) | null = bookings.ceremony
     ? { role: 'ceremony', ...bookings.ceremony, photo: ceremonyPhoto }
-    : clean(event.std_film_ceremony_name) || clean(event.ceremony_venue_address)
+    : clean(event.std_film_ceremony_name) || clean(event.ceremony_venue_address) || ceremonyPin.latitude != null
       ? {
           role: 'ceremony',
           name: clean(event.std_film_ceremony_name),
           // 🏠 The couple's typed street address (Details › Venues) — maps and
           // directions search it with the name (`venueSearchQuery`).
           address: clean(event.ceremony_venue_address),
-          latitude: null,
-          longitude: null,
+          // 📍 …and the pin they placed on the map (guests' Directions open it).
+          ...ceremonyPin,
           photo: ceremonyPhoto,
         }
       : null;
@@ -500,7 +505,17 @@ export function receptionVenue(event: { venues?: readonly EventVenue[] | null })
  * Never throws. A refused read degrades to "no booking" (the event's own venue
  * columns then answer) and leaves its reason in the log.
  */
-export async function loadVenueBookings(admin: SupabaseClient, eventId: string): Promise<VenueBookings> {
+export async function loadVenueBookings(
+  admin: SupabaseClient,
+  eventId: string,
+  /**
+   * 🏛 The couple's DRAFTED card choices (the Event Hub draft's `venue_map`
+   * `venue` bag), laid over the stored ones card by card — the Maker and the
+   * host's canvas show the venues as they are being edited. Omitted for every
+   * guest read.
+   */
+  drafted?: unknown,
+): Promise<VenueBookings> {
   const none: VenueBookings = { ceremony: null, reception: null };
   try {
     // 🏛📷 The couple's per-venue choices live in the Venue scene's own config.
@@ -514,7 +529,8 @@ export async function loadVenueBookings(admin: SupabaseClient, eventId: string):
         .eq('widget_type', 'venue_map')
         .limit(1);
       if (we) console.error('[supabase-error] lib/event-venues.ts · from:invitation_widgets.select', we);
-      return readVenueChoices((ws as { config_json?: unknown }[] | null)?.[0]?.config_json ?? null, eventId);
+      const stored = readVenueChoices((ws as { config_json?: unknown }[] | null)?.[0]?.config_json ?? null, eventId);
+      return drafted ? { ...stored, ...readVenueChoices({ [VENUE_CHOICES_KEY]: drafted }, eventId) } : stored;
     })().catch((): VenueChoices => ({}));
     const { data, error } = await admin
       .from('event_vendors')

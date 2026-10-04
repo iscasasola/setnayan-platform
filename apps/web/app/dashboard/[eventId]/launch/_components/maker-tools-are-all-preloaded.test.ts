@@ -49,6 +49,7 @@ const NOT_A_TOOL: Record<string, string> = {
   'lib/vendor-qr-guard-client.ts': 'runs on a file the couple picked (upload pipeline) — there is nothing to run before the pick',
   'lib/watermark.ts': 'runs on a file the couple picked (upload pipeline)',
   'lib/image-compress.ts': 'runs on a file the couple picked (upload pipeline)',
+  'app/onboarding/wedding/_data/ph-places.ts': 'data, not a panel — the ~80 KB PSGC place list City or area searches once the couple TYPES (the curated cities are already in the panel); loaded on the first keystroke exactly as onboarding loads it, never ahead of a search (owner 2026-10-04, B4)',
   'lib/video-compress.ts': 'runs on a video the couple picked (upload pipeline)',
   '@ffmpeg/ffmpeg': 'video compression of a picked file — megabytes of WebAssembly, never on a hunch',
   '@ffmpeg/util': 'video compression of a picked file (with @ffmpeg/ffmpeg)',

@@ -108,6 +108,9 @@ import { postEventPreset } from '@/lib/post-event-presets';
 import { CONFIRMED_VENDOR_STATUSES, eventDateChangeIsGoverned, eventDatePrecisionOf, eventDateRefusal } from '@/lib/events';
 import { isDateChangeAction } from '@/lib/date-change';
 import { afterDateApplied, askDateChange, clashStillOpen, dateApplyClearance, settleDateChange } from '@/lib/date-change.server';
+import { placeCeremonyBlock } from '@/lib/ceremony-time.server';
+import { isListedPlaceName } from '@/lib/listed-place';
+import { readVenueChoices, VENUE_CHOICES_KEY } from '@/lib/event-venues';
 
 const FORBIDDEN = 'Forbidden — only current hosts can edit this Event Hub.';
 
@@ -174,6 +177,14 @@ export async function hubDraftAction(
       /* ⚡ The bar is read BESIDE the write (from the same merge, which is pure),
          so asking for it adds no round trip after the save. */
       const wantsBar = formData.get(HUB_DRAFT_BAR_FIELD) === '1';
+      /* 📍 THE CITY OR AREA IS A CLOSED PICK (owner 2026-10-01, "never a
+         free-typed city"): the onboarding's own list — the curated cities and
+         every PH city and municipality — or nothing. A typed name is refused
+         here, in the one door, so it can never reach the draft. */
+      const city = patch.events?.std_film_venue_city;
+      if (typeof city === 'string' && city.trim() && !isListedPlaceName(city)) {
+        return { ok: false, intent, error: 'Pick the city or area from the list.' };
+      }
       /* 🗓 A DAY OR MONTH A BOOKED SUPPLIER CANNOT DO IS NEVER ACCEPTED INTO THE
          DRAFT (owner 2026-10-01, "refused at the pick"): asked here, in the one
          door every date goes through (typed, picked, month), with the shipped
@@ -378,10 +389,30 @@ export async function hubDraftAction(
       }
     }
 
+    /* 🕒 THE CEREMONY TIME STANDS ON THE EVENT'S DAY — the day as it will be
+       after this Apply (a drafted date that goes live now, else the live one).
+       No single day yet (a month, a year) → the time waits in the draft, said
+       by name. `priorDay` is where the ceremony stood: when only the date
+       moves, the ceremony follows it from there (owner 2026-10-04). */
+    const dayOf = (date: unknown, precision: unknown) =>
+      typeof date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(date) && (eventDatePrecisionOf(precision) ?? 'day') === 'day' ? date.slice(0, 10) : null;
+    const priorDay = dayOf(live.events.event_date, live.events.event_date_precision);
+    const dateGoes = !dateHeld && plan.apply.some(isDateItem);
+    const nextDay = dateGoes
+      ? dayOf(
+          'event_date' in current.events ? current.events.event_date : live.events.event_date,
+          'event_date_precision' in current.events ? current.events.event_date_precision : live.events.event_date_precision,
+        )
+      : priorDay;
+
     const toWrite: HubDraftItem[] = [];
     for (const item of plan.apply) {
       if (dateHeld && isDateItem(item)) {
         held.push({ item, reason: dateHeld });
+        continue;
+      }
+      if (item.kind === 'event' && item.column === 'ceremony_time' && !nextDay) {
+        held.push({ item, reason: 'needs_a_day' });
         continue;
       }
       if (
@@ -450,6 +481,12 @@ export async function hubDraftAction(
        the wedding fence above — the same order `setInviteTheme` kept. */
     const themeWrite = 'invite_theme' in eventsPatch ? eventsPatch.invite_theme : undefined;
     delete eventsPatch.invite_theme;
+    /* 🕒 THE CEREMONY TIME IS NOT AN `events` COLUMN — it is the Schedule's
+       Ceremony block, placed below (`placeCeremonyBlock`) once the date the
+       block stands on has been written. */
+    const ceremonyTimeWrite = typeof eventsPatch.ceremony_time === 'string' ? eventsPatch.ceremony_time : undefined;
+    delete eventsPatch.ceremony_time;
+    const dateWritten = 'event_date' in eventsPatch;
     /* 🔳 THE QR LOOK LEAVES THE SESSION UPDATE TOO. The draft holds `{ qr }`
        only; `style_preferences` also carries the couple's onboarding answers,
        so it is MERGED into the blob as it stands at write time — through the
@@ -609,6 +646,22 @@ export async function hubDraftAction(
       }
     }
 
+    /* 🕒 THE CEREMONY BLOCK (owner 2026-10-04, "YES TO ALL" (2)): a typed time
+       creates the Ceremony on the event's day, or moves the one there is; a
+       date that moved takes the ceremony with it. The couple's own session. */
+    if (nextDay && (ceremonyTimeWrite !== undefined || (dateWritten && priorDay && priorDay !== nextDay))) {
+      const placed = await placeCeremonyBlock({
+        supabase,
+        eventId,
+        day: nextDay,
+        time: ceremonyTimeWrite ?? null,
+        fromDay: ceremonyTimeWrite === undefined ? priorDay : null,
+      });
+      if (!placed.ok) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+
     // 2 · Sections, in WIDGET_TYPES order; one UPDATE per section. The canvas
     //     is merged into the LIVE config_json, so every sibling key survives.
     const byWidget = new Map<string, HubDraftItem[]>();
@@ -653,10 +706,15 @@ export async function hubDraftAction(
                   ? STD_LEAD_KEY
                   : item.field === 'custom'
                     ? 'custom'
-                    : 'canvas';
+                    : item.field === 'venue'
+                      ? VENUE_CHOICES_KEY
+                      : 'canvas';
           before[key] = base[key] ?? null;
-          if (item.value === null) delete base[key];
-          else base[key] = item.value;
+          /* 🏛 A drafted venue bag goes through the guest page's own reader with
+             THIS event: an own photo outside its own folder is dropped. */
+          const value = item.field === 'venue' ? readVenueChoices({ [VENUE_CHOICES_KEY]: item.value }, eventId) : item.value;
+          if (value === null) delete base[key];
+          else base[key] = value;
           patch.config_json = base;
         }
       }

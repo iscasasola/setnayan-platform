@@ -122,8 +122,11 @@ test('every editor saves through a door that already exists — +0 server action
   assert.doesNotMatch(EDITORS, /fd\.set\('region'|fd\.set\('mood_feel_key'/, 'the draft carries the names only');
   assert.match(EDITORS, /<GovernedFields[\s\S]*?only=\{\['date'\]\}[\s\S]*?proposal=\{proposal\}/, 'date: the governed row, conflict preview and all');
   assert.match(EDITORS, /event_date_precision: 'month'/, 'a month is drafted with its precision');
-  assert.match(EDITORS, /makerSave\(\(\) => saveAllStdContent\(eventId, data\), requestMakerRefresh\)/, 'venues: the typed names the hub already reads');
-  assert.match(EDITORS, /const data: Parameters<typeof saveAllStdContent>\[1\] = \{ launchDate \}/, 'the launch date is posted back, never cleared');
+  // 📍 The venues are DRAFTED too (owner 2026-10-04, "venues wait for Apply"):
+  // the same draft door, the columns the hub already reads — never a live write.
+  assert.doesNotMatch(EDITORS, /saveAllStdContent/, 'venues: a live write from inside the Maker');
+  assert.match(EDITORS, /const refused = await draftFacts\(eventId, events\);/, 'venues: the Event Hub draft');
+  assert.match(EDITORS, /events\[s\.columns\.name\] = v\.name\.trim\(\) \|\| null;/, 'venues: the typed names the hub already reads');
   // "Help me choose" is the shipped finder's ranking and words, in the three parts.
   const finder = read(`${L}details-date-finder.tsx`);
   assert.match(finder, /from '\.\.\/\.\.\/find-date\/_components\/find-your-date'/);
@@ -227,9 +230,12 @@ test('(4) each venue takes a street address — reception reuses venue_address, 
   const std = read('app/dashboard/[eventId]/studio/save-the-date/actions.ts');
   assert.match(std, /patch\.venue_address = v;/);
   assert.match(std, /patch\.ceremony_venue_address = v;/);
-  assert.match(EDITORS, /data\[s\.addressField\] = values\[s\.addressField\]\?\.trim\(\) \|\| null;/);
-  assert.match(LOAD, /addressField: 'ceremonyAddress',\s*address: row\.ceremony_venue_address \?\? ''/);
-  assert.match(LOAD, /addressField: 'venueAddress',\s*address: row\.venue_address \?\? ''/);
+  // Drafted since 2026-10-04 (owner: venues wait for Apply) — into the same two columns.
+  assert.match(EDITORS, /events\[s\.columns\.address\] = v\.address\.trim\(\) \|\| null;/);
+  assert.match(LOAD, /columns: CEREMONY_COLUMNS,\s*typed: row\.std_film_ceremony_name \?\? '',\s*address: row\.ceremony_venue_address \?\? ''/);
+  assert.match(LOAD, /columns: RECEPTION_COLUMNS,\s*typed: row\.std_film_venue_name \?\? '',\s*address: row\.venue_address \?\? ''/);
+  assert.match(LOAD, /address: 'ceremony_venue_address',/);
+  assert.match(LOAD, /address: 'venue_address',/);
 });
 
 test('(4) the ceremony’s typed address reaches maps — and closes until the guest replies', async () => {

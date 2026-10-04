@@ -1,6 +1,12 @@
 /**
  * event-details-shows-the-map.test.ts — Event Details shows every collected
- * fact, edits none of them, and keeps empty, failed and hidden apart.
+ * fact and keeps empty, failed and hidden apart.
+ *
+ * ⚖ 2026-10-04 (DECISION_LOG "YES TO ALL"): the rows are now EDITED IN PLACE —
+ * each opens the Maker's own field (held by `every-fact-has-one-editor.test.ts`),
+ * and the record is four folds on the phone (held by
+ * `the-record-is-four-folds-on-the-phone.test.ts`). Every MAP fact is still
+ * here, now inside its group's fold.
  *
  * ⚖ Owner 2026-10-01 (DECISION_LOG "EVENT DETAILS IS INFORMATION ONLY"):
  * *"Technically, everything that is collected will be here."* The build spec's
@@ -39,12 +45,12 @@ const PAGE = read('app/dashboard/[eventId]/details/page.tsx');
 // and is drawn by its own component, not `<Section>` — held by the test below.
 const SECTION_KEYS = EVENT_DETAILS_SECTIONS.map((s) => s.key).filter((k) => k !== 'put-away' && k !== 'access');
 
-/** The JSX between `<Section k="key"` and the next `<Section k=` (or the end of the grid). */
+/** The JSX between `<Section k="key"` and the next `<Section k=` / fold (or the end of the grid). */
 function sectionBody(key: string): string {
   const m = new RegExp(`<Section\\s+k="${key}"`).exec(PAGE);
   assert.ok(m, `the page draws no "${key}" section`);
   const start = m.index;
-  const next = PAGE.slice(start + 1).search(/<Section\s+k="/);
+  const next = PAGE.slice(start + 1).search(/<Section\s+k="|<RecordFold\b/);
   const end = next < 0 ? PAGE.indexOf('data-section="put-away"') : start + 1 + next;
   return PAGE.slice(start, end);
 }
@@ -75,12 +81,13 @@ test('the page draws each section exactly once, and Put this away last', () => {
   assert.match(PAGE, /<PutAwayCard\b/);
 });
 
-test('each section carries at most ONE quiet "Open … ›" link', () => {
+test('only the parts another flow owns carry a quiet "Open … ›" link — one each', () => {
   for (const key of SECTION_KEYS) {
     const body = sectionBody(key);
     const head = body.slice(0, body.indexOf('>') + 1 + 400);
     const opens = (head.match(/label: 'Open /g) ?? []).length;
-    assert.ok(opens >= 1 && opens <= 2, `section "${key}" has ${opens} Open links in its header (one, or one per kind of event)`);
+    const owned = ['guests', 'budget', 'suppliers', 'services', 'purchases'].includes(key);
+    assert.equal(opens, owned ? 1 : 0, `section "${key}" has ${opens} Open links in its header (${owned ? 'one' : 'none — its rows open their own field'})`);
   }
 });
 
@@ -100,28 +107,32 @@ test('People with access is the ONE live part — mounted once, in its own file,
   assert.ok(section.includes(`id="${PEOPLE_WITH_ACCESS_ANCHOR}"`), 'the links to People with access land nowhere');
 });
 
-test('information only: the sheet mounts no editor and posts nothing (Put this away aside)', () => {
-  for (const editor of ['DetailsForm', 'GovernedFields', 'PaxSettingsCard']) {
-    assert.ok(!PAGE.includes(editor), `Event Details mounts ${editor} — it is a read-out, the editors live in Event settings`);
+test('the record itself mounts no editor and posts nothing — the fields arrive in the @field slot', () => {
+  // ⚖ 2026-10-04: rows open the Maker's editors — but in the field slot
+  // (`record-field-slot.tsx`), one at a time, never all of them in the record.
+  for (const editor of ['DetailsForm', 'GovernedFields', 'PaxSettingsCard', 'EventSettingsEditor', 'RecordEditor']) {
+    assert.ok(!PAGE.includes(editor), `the record mounts ${editor} itself — it belongs in the open row's field`);
   }
   assert.ok(!/<form\b/.test(PAGE), 'Event Details draws a form');
   assert.ok(!/from '\.\.?\/[^']*actions'/.test(PAGE), 'Event Details imports a server action');
   assert.ok(!/'use client'/.test(PAGE), 'Event Details became a client component (shared bundle has no room)');
+  const layout = read('app/dashboard/[eventId]/details/layout.tsx');
+  assert.match(layout, /\{children\}\s*\{field\}/, 'the record lost its field slot');
 });
 
-test('Event settings is its own page, opened from The basics — and never mounted in the Maker', () => {
-  // 🗂 Owner 2026-10-02 ("EVERY ANSWER … LIVES IN EVENT DETAILS") folded
-  // /details/change into the Maker's Your info › Event settings (#6280). Its
-  // three editors save LIVE through their own actions, which broke "nothing in
-  // the Maker takes effect until Apply" (simplicity fix 8) — and none can ride
-  // the draft (see event-settings-editor.tsx). So they are their own page again,
-  // and this information-only sheet links to it like every other part.
-  assert.ok(PAGE.includes('`${base}/details/change`'), 'Event Details lost its door to Event settings');
+test('Event settings open in place from their rows — and are never mounted in the Maker', () => {
+  // 🗂 The /details/change page's three editors save LIVE through their own
+  // actions, which breaks "nothing in the Maker takes effect until Apply" — so
+  // they never ride the Maker. Since 2026-10-04 the record's own rows (kind,
+  // area, the estimate, the list's closing day, how costs are shown) open them
+  // in place; the page stays for its address.
   const page = read('app/dashboard/[eventId]/details/change/page.tsx');
   assert.match(page, /<EventSettingsEditor\b/);
+  const editor = read('app/dashboard/[eventId]/details/_components/record-editor.tsx');
+  assert.match(editor, /case 'settings': \{[\s\S]{0,300}?<EventSettingsEditor\b/);
   const settings = read('app/dashboard/[eventId]/details/_components/event-settings-editor.tsx');
-  for (const editor of ['<DetailsForm', '<GovernedFields', '<PaxSettingsCard']) {
-    assert.ok(settings.includes(editor), `Event settings no longer mounts ${editor}`);
+  for (const e of ['<DetailsForm', '<GovernedFields', '<PaxSettingsCard']) {
+    assert.ok(settings.includes(e), `Event settings no longer mounts ${e}`);
   }
   for (const rel of [
     'app/dashboard/[eventId]/launch/_components/details-answers.tsx',

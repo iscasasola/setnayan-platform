@@ -30,6 +30,7 @@ import { CEREMONY_LABEL, VENUE_LABEL, titleCase } from '@/lib/personalized-menu'
 import { CEREMONY_VENUE_SETTING_SHORT_LABEL } from '@/lib/venue-settings';
 import { fetchScheduleBlocks } from '@/lib/schedule';
 import { blockTime, ceremonyBlock, firstBlockOf } from '@/lib/print-pieces';
+import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { fetchUpcomingItems, type UpcomingItem } from '@/lib/upcoming-items';
 import { computeGuestStats, fetchGuestsByEventMeasured, type GuestRole } from '@/lib/guests';
 import { isBudgetTruthEnabled } from '@/lib/budget-truth-flag';
@@ -46,6 +47,7 @@ import { eventCoupleWebsiteProActive } from '@/lib/couple-website-pro';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { INVITE_THEMES, resolveInviteTheme } from '@/lib/invite-themes';
 import { HUB_FONT_BY_KEY, sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { HUB_BUTTON_FILL_LABEL, HUB_BUTTON_SHAPE_LABEL, parseHubButtonStyle } from '@/lib/hub-buttons';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { resolveDisplayPalette } from '@/lib/room-palette';
 import { sanitizeRoleAttire } from '@/lib/role-dress-code';
@@ -53,9 +55,12 @@ import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { dressCodeForEveryone } from '@/lib/dress-code-for-everyone';
 import { roleLabel } from '@/lib/entourage';
 import { resolveMoments } from '@/lib/love-story-moments';
-import { resolveReplyBy } from '@/lib/rsvp-ask';
-import { detailsItemHref } from '@/lib/maker-details-items';
+import { readGuestsReply, resolveReplyBy } from '@/lib/rsvp-ask';
 import { studioHubHref } from '@/lib/studio-hub';
+import { isStoreShellRequest } from '@/lib/request-platform';
+import { readHubDraft } from '@/lib/hub-draft-store';
+import { overlayHubDraftEvent, type HubDraft } from '@/lib/hub-draft';
+import { HOME_GUIDE_ACTION } from '@/lib/home-first-screen';
 import {
   COULD_NOT_LOAD,
   HIDDEN_BY_THE_COUPLE,
@@ -67,8 +72,21 @@ import {
   sheetDate,
   type EventDetailsSectionKey,
 } from '@/lib/event-details-sheet';
+import {
+  RECORD_GROUPS,
+  RECORD_ROW_EDITOR,
+  foldSummary,
+  recordFieldHref,
+  recordHref,
+  type RecordGroupKey,
+  type RecordRowKey,
+} from '@/lib/event-details-record';
+import { HubDraftDock } from '../website/_components/hub-draft-dock';
+import { readHomeGuide } from '../_components/details-guide-home-card';
 import { PutAwayCard } from './_components/put-away-card';
 import { PeopleWithAccess } from './_components/people-with-access';
+import { RecordFold } from './_components/record-fold';
+import { RecordRowLink } from './_components/record-row-link';
 import { loadPeopleWithAccess } from '@/lib/people-with-access.server';
 import { areaCells, type PersonRow } from '@/lib/people-with-access';
 
@@ -87,22 +105,30 @@ export const metadata = { title: 'Event Details' };
 /**
  * Event Details · /dashboard/[eventId]/details
  *
- * 📋 ONE INFORMATION-ONLY SHEET OF EVERYTHING COLLECTED (owner 2026-10-01,
- * DECISION_LOG "EVENT DETAILS LIVES ON EVENT HOME" → "EVENT DETAILS IS
- * INFORMATION ONLY"; design `event_details_one_page_2026-10-01_fable`). It
- * replaces the shipped Personalization page, whose editors moved WHOLE to
- * `/details/change` ("Event settings") and from there (owner 2026-10-02,
- * "EVERY ANSWER … LIVES IN EVENT DETAILS") into the Maker's Your info › Event
- * settings — one place to change every fact; the old address forwards
- * (`lib/legacy-redirects.ts`).
+ * 📋 THE EVENT'S ONE RECORD — EDITED ON THE PAGE (owner 2026-10-04, DECISION_LOG
+ * "YES TO ALL": *"Event Details rows are edited in place (money/supplier rows
+ * read-only with their link) — supersedes the 2026-10-01 'information only'
+ * line"*; and "EVENT DETAILS / MAKER: FOUR FIXES BEFORE BUILD" (2): four folded
+ * groups on the phone). Study `EVENT_DETAILS_STUDY_2026-10-04_fable.md` § 1,
+ * § 4, § 6 rows 4·5·19, § 7 PR-1; prototype screens 4 and 5.
  *
- *   · SHOWS, NEVER EDITS. Each section carries one quiet "Open … ›" to the page
- *     that handles it — the deliberate exception to "no edit-elsewhere links",
- *     because this page is a read-out. No suggestions, no tips, no next steps.
- *   · EVERY ROW READS ITS APP'S OWN FIELD (the Maker, the Guest list, Budget,
- *     the Schedule, the Bench's locks, the orders) — no copy, no sync — so the
- *     sheet and the app cannot disagree. `lib/event-details-sheet.ts` holds THE
- *     MAP; `event-details-sheet.test.ts` holds this page to it.
+ *   · FOUR GROUPS — How it looks · How it works · Your event · Guests & money
+ *     (`RECORD_GROUPS`). Phone: four folds, one line + summary each, one open
+ *     at a time (`record-fold.tsx`, the app's one-open mechanism); the
+ *     Finish-your-Event-Hub card on top. Desktop: every group open.
+ *   · EVERY ROW OPENS ITS FIELD — the SAME editor the Maker opens for that fact
+ *     (`RECORD_ROW_EDITOR` → `record-editor.tsx`), on the phone in the Maker's
+ *     half sheet, on a desktop in place under the row. A row's address
+ *     (`…/details/field/<row>`) arrives in the `@field` slot, so opening writes
+ *     nothing and the record stays as it is.
+ *   · DRAFTED — what the Event Hub draws saves into the Event Hub draft; this
+ *     page carries the Maker's own Undo · Apply (`HubDraftDock`), and a row
+ *     shows the drafted value with "Waiting for Apply" until it is applied.
+ *     Event settings keep their own Save (they are not Hub publications).
+ *   · READ-ONLY, WITH ONE QUIET LINK — Budget, Suppliers, Services, Purchases
+ *     and the guest names (the Guest list owns them). The studios (the media
+ *     library, the Logo studio, the Schedule, the Mood Board) open as
+ *     themselves from their row (`RECORD_ROW_TOOL`).
  *   · EMPTY ≠ FAILED ≠ HIDDEN. An empty fact reads "Not set yet"; a read that
  *     FAILED reads "Could not load this…"; a part the couple did not share with
  *     a helper reads "Hidden by the couple". The three are never drawn alike.
@@ -140,8 +166,8 @@ export default async function EventDetailsPage({
         'ceremony_type, secondary_ceremony_type, event_date, event_date_precision, date_mode, date_candidates, ' +
         'date_window_start, date_window_end, estimated_pax, venue_setting, ceremony_venue_setting, ' +
         'guest_list_edit_deadline, adaptive_pricing_mode, monogram_text, invite_theme, role_palette, ' +
-        'site_font_key, site_bg_music_r2_key, site_bg_music_enabled, landing_page_hero_image_url, ' +
-        'setnayan_ai_active, rsvp_ask_config, love_story, dress_code_config, ' +
+        'site_font_key, site_button_style, site_button_color, site_bg_music_r2_key, site_bg_music_enabled, landing_page_hero_image_url, ' +
+        'setnayan_ai_active, rsvp_ask_config, love_story, dress_code_config, special_message, ' +
         'std_film_ceremony_name, std_film_venue_name, venue_name, ' +
         // 🗂 The onboarding's last answers, each in its own column (owner 2026-10-02).
         'papic_on, gifts_on, logo_wanted, cover_photo_wanted',
@@ -182,6 +208,11 @@ export default async function EventDetailsPage({
   const guestsHidden = !mayReadGuests;
   const suppliersHidden = isDelegateWithoutArea(viewer, 'vendors');
   const moneyHidden = !budgetAccess.mayRead;
+  /* ✍ Who may open a row's field: who may change that fact in the Maker — the
+     couple, on an event whose type has an Event Hub. Event settings save live
+     and are not Hub publications, so they only need the couple. */
+  const canEditHub = viewer.isCouple && maker;
+  const canEditSettings = viewer.isCouple;
 
   // 👥 People with access (owner 2026-10-03) — the ONE place a host sets who
   // can do what. A host sees every person and sets each area; a delegate sees
@@ -193,7 +224,7 @@ export default async function EventDetailsPage({
       })
     : null;
 
-  const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead] =
+  const [vendorsRead, scheduleRead, upcomingRead, guestsRead, ordersRead, vatRead, privateRead, moneyRead, snapshotRead, proRead, poolRead, draftRead, guideRead, storeShell] =
     await Promise.all([
       settle(
         (async () => {
@@ -244,7 +275,25 @@ export default async function EventDetailsPage({
       moneyHidden || budgetTruth ? Promise.resolve(null) : settle(fetchBudgetSnapshot(supabase, eventId)),
       settle(eventCoupleWebsiteProActive(await eventEntitlementClient(eventId), eventId)),
       readEventPoolStatus(admin, eventId),
+      /* 💾 The Event Hub draft — what the couple changed and has not applied.
+         A draft that cannot be read shows the live values (no "waiting" marks). */
+      canEditHub ? settle(readHubDraft(supabase, eventId)) : Promise.resolve(null),
+      /* 🧭 "Finish your Event Hub" — Home's own read of the guided flow. */
+      viewer.isCouple ? settle(readHomeGuide({ eventId, memberType: 'couple' })) : Promise.resolve(null),
+      isStoreShellRequest(),
     ]);
+
+  /* ✍ As the couple is editing it: the draft laid over the live row (the
+     Maker's own overlay). A fact waits for Apply while the two differ. */
+  const draft: HubDraft | null = draftRead && draftRead.ok ? draftRead.v : null;
+  const shown = overlayHubDraftEvent(e, draft);
+  const shownStr = (k: string): string | null => {
+    const v = shown[k];
+    return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
+  };
+  const draftEvents = (draft?.events ?? {}) as Record<string, unknown>;
+  const waiting = (...cols: string[]): boolean =>
+    cols.some((c) => c in draftEvents && JSON.stringify(draftEvents[c] ?? null) !== JSON.stringify(e[c] ?? null));
 
   // ── Suppliers + venues: the confirmed bookings, one read ───────────────────
   const confirmed = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
@@ -256,13 +305,23 @@ export default async function EventDetailsPage({
   const bookingLocks = lockedSuppliers.length > 0;
   const venuesWon = vendorsRead.ok ? pickVenueBookingRows(vendorsRead.v) : { ceremony: null, reception: null };
 
-  // ── The look ──────────────────────────────────────────────────────────────
+  // ── The look (as drafted) ─────────────────────────────────────────────────
   const ownsPro = proRead.ok && proRead.v === true;
-  const theme = INVITE_THEMES[resolveInviteTheme({ saved: e.invite_theme, ownsPro })];
-  const headingFontKey = sanitizeHubFontKey(e.site_font_key);
+  const theme = INVITE_THEMES[resolveInviteTheme({ saved: shown.invite_theme, ownsPro: ownsPro || (canEditHub && !storeShell) })];
+  const headingFontKey = sanitizeHubFontKey(shown.site_font_key);
+  const headingFont = headingFontKey ? HUB_FONT_BY_KEY[headingFontKey].family : theme.fonts.heading;
   const storedPalette = sanitizeRolePalette(e.role_palette);
   const board = resolveDisplayPalette(storedPalette);
   const mainColours = (board.reception ?? []).filter((h) => typeof h === 'string' && h.length > 0);
+  const buttonStyle = parseHubButtonStyle(shown.site_button_style);
+  const buttons = [
+    buttonStyle.shape === 'theme' && buttonStyle.fill === 'theme'
+      ? HUB_BUTTON_SHAPE_LABEL.theme
+      : `${HUB_BUTTON_SHAPE_LABEL[buttonStyle.shape]} · ${HUB_BUTTON_FILL_LABEL[buttonStyle.fill]}`,
+    shownStr('site_button_color') ? 'your colour' : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
   const dress = dressCodeForEveryone({
     stored: storedPalette,
     board,
@@ -270,15 +329,16 @@ export default async function EventDetailsPage({
     groups: sanitizeGroupAttire((e.dress_code_config as { groups?: unknown } | null)?.groups),
     ceremonyType: str('ceremony_type'),
   });
-  const moments = resolveMoments(e.love_story).filter((m) => !m.hidden);
-  const getIn = howGuestsGetIn(e.rsvp_ask_config);
-  const questions = rsvpQuestions(e.rsvp_ask_config);
-  const replyBy = resolveReplyBy({ deadline: str('guest_list_edit_deadline'), eventDate: str('event_date') });
+  const moments = resolveMoments(shown.love_story).filter((m) => !m.hidden);
+  const getIn = howGuestsGetIn(shown.rsvp_ask_config);
+  const questions = rsvpQuestions(shown.rsvp_ask_config);
+  const guestsReply = readGuestsReply(shown.rsvp_ask_config);
+  const replyBy = resolveReplyBy({ deadline: str('guest_list_edit_deadline'), eventDate: shownStr('event_date') });
 
-  // ── Names ─────────────────────────────────────────────────────────────────
-  const personA = str('bride_name');
-  const personB = str('groom_name');
-  const names = personA && personB ? `${personA} & ${personB}` : (personA ?? personB ?? str('display_name'));
+  // ── Names (as drafted) ────────────────────────────────────────────────────
+  const personA = shownStr('bride_name');
+  const personB = shownStr('groom_name');
+  const names = personA && personB ? `${personA} & ${personB}` : (personA ?? personB ?? shownStr('display_name'));
   const kind =
     eventWord === 'wedding'
       ? (() => {
@@ -300,6 +360,15 @@ export default async function EventDetailsPage({
   const reception = firstBlockOf(blocks, 'reception');
   const firstPublic = blocks.find((b) => b.is_public && !b.parent_block_id && b.start_at) ?? null;
   const arrive = firstPublic && firstPublic !== ceremony && firstPublic !== reception ? firstPublic : null;
+  /* 🕒 The ceremony time as drafted under the Date (`ceremony_time`, HH:MM on
+     the venue's wall clock) — else the Ceremony block's own. */
+  const draftedCeremonyTime = typeof draftEvents.ceremony_time === 'string' ? draftEvents.ceremony_time : null;
+  const ceremonyTime = draftedCeremonyTime
+    ? formatWallClock(`2000-01-01T${draftedCeremonyTime}:00`)
+    : ceremony
+      ? blockTime(ceremony)
+      : null;
+  const eventDateShown = describeEventDate(shown);
 
   // ── Money (the Budget page's own four numbers, under either flag state) ───
   const priv = privateRead && privateRead.ok ? privateRead.v : null;
@@ -330,12 +399,15 @@ export default async function EventDetailsPage({
   const totalPaid = shownOrders
     .filter((o) => o.status === 'paid' || o.status === 'fulfilled')
     .reduce((n, o) => n + (grossOf(o) ?? 0), 0);
+  const targetWords = money
+    ? [budgetBand, money.target != null && money.target > 0 ? `about ${formatPhpRounded(money.target)}` : null].filter(Boolean).join(' · ') || null
+    : null;
 
   // ── Guests ────────────────────────────────────────────────────────────────
   const stats = guestsRead && guestsRead.ok && guestsRead.v.measured ? computeGuestStats(guestsRead.v.rows) : null;
   const estimate = num('estimated_pax');
 
-  // ── Venues: LOCKED only (the Event Hub reads the same) ────────────────────
+  // ── Venues: LOCKED first (the Event Hub reads the same), else the typed name as drafted ──
   const venueRow = (
     slot: 'ceremony' | 'reception',
     row: VenueBookingRow | null,
@@ -362,19 +434,26 @@ export default async function EventDetailsPage({
       .join(' · ');
     return { value: null, hint: hint || null, locked: false };
   };
-  const ceremonySheetRow = venueRow('ceremony', venuesWon.ceremony, str('std_film_ceremony_name'), str('ceremony_venue_setting'));
+  const ceremonySheetRow = venueRow('ceremony', venuesWon.ceremony, shownStr('std_film_ceremony_name'), str('ceremony_venue_setting'));
   const receptionSheetRow = venueRow(
     'reception',
     venuesWon.reception,
-    str('venue_name') ?? str('std_film_venue_name'),
+    shownStr('venue_name') ?? shownStr('std_film_venue_name'),
     str('venue_setting'),
   );
+  const venuesWaiting = waiting('std_film_ceremony_name', 'std_film_venue_name', 'venue_name');
 
   // ── Services ──────────────────────────────────────────────────────────────
   const pool = poolRead.status;
 
   const lockNote = (what: string) =>
     `${what} is held by your booking — changing it would change what you booked, so we hold it still. If something has changed, tell us and we will sort it out with your supplier.`;
+
+  /* ✍ The door each row opens: its field (the Maker's own editor) — or nothing
+     for a viewer who may not change it. A row never gets an editor of its own. */
+  const opens = (row: RecordRowKey): string | null =>
+    (RECORD_ROW_EDITOR[row] === 'settings' ? canEditSettings : canEditHub) ? recordFieldHref(eventId, row) : null;
+  const record = recordHref(eventId);
 
   const people = accessRead ? await accessRead : null;
   const ownAccess: PersonRow | null =
@@ -413,6 +492,30 @@ export default async function EventDetailsPage({
     (people === null || people.measured) &&
     (guestsRead === null || (guestsRead.ok && guestsRead.v.measured));
 
+  /* 📁 Each fold's one line on the phone — built from its own rows' values. */
+  const summary: Record<RecordGroupKey, string> = {
+    looks: foldSummary([proRead.ok ? theme.name : null, headingFont, mainColours.length > 0 ? `${mainColours.length} colours` : null, buttons]),
+    works: foldSummary([
+      getIn.value,
+      guestsReply ? (questions.length > 1 ? questions.slice(1).join(', ') : null) : null,
+      guestsReply && replyBy ? `Reply by ${sheetDate(replyBy.date, false)}` : null,
+    ]),
+    event: foldSummary([
+      eventDateShown,
+      ceremonyTime,
+      ceremonySheetRow.value ?? shownStr('std_film_ceremony_name'),
+      receptionSheetRow.value ?? shownStr('venue_name') ?? shownStr('std_film_venue_name'),
+    ]),
+    'guests-money': foldSummary([
+      stats ? `${formatCount(stats.total)} listed` : null,
+      moneyHidden ? null : targetWords,
+      lockedSuppliers.length > 0 ? `${formatCount(lockedSuppliers.length)} booked` : null,
+    ]),
+  };
+  const groupTitle = (k: RecordGroupKey) => RECORD_GROUPS.find((g) => g.key === k)!.title;
+
+  const guide = guideRead && guideRead.ok ? guideRead.v : null;
+
   return (
     /* 💾 Event Details is kept on the phone and shown at once on the next open,
        then refreshed (owner 2026-10-02, DECISION_LOG "LAST-SEEN DATA SHOWS
@@ -422,301 +525,439 @@ export default async function EventDetailsPage({
     <LastSeenCapture page="details" fresh={lastSeenFresh}>
     <section className="sn-col space-y-4" data-event-details>
       <PageMasthead title="Event Details" />
-      <header className="space-y-1">
-        <h2 className="font-display text-[26px] leading-tight text-ink">Event Details</h2>
-        <p className="text-sm text-ink/60">
-          {names ? `${names} · ` : ''}
-          {titleCase(eventWord)}
-        </p>
-        <p className="text-[13px] text-ink/55">Everything about your event, in one place. Change anything in its own app and it updates here.</p>
-      </header>
+      {/* The slim bar: the record's name and the Maker's own Undo · Apply — a
+          change made here is the same waiting change as one made in the Maker. */}
+      <div className="sticky top-0 z-20 -mx-4 flex min-h-[52px] items-center gap-2 border-b border-ink/10 bg-cream/95 px-4 py-1.5 backdrop-blur" data-record-bar="">
+        <div className="min-w-0 flex-1">
+          <h2 className="truncate font-display text-[22px] leading-tight text-ink">{names ?? 'Event Details'}</h2>
+          <p className="truncate text-[12.5px] text-ink/60">
+            {[kind ?? titleCase(eventWord), eventDateShown, str('region')].filter(Boolean).join(' · ')}
+          </p>
+        </div>
+        {canEditHub ? (
+          <div className="flex shrink-0 items-center gap-1.5" data-record-draft-bar="">
+            <HubDraftDock eventId={eventId} />
+          </div>
+        ) : null}
+      </div>
+
+      {/* 🧭 Finish your Event Hub — on top, while anything is left (Home's own read). */}
+      {guide ? (
+        <div className="sn-tile flex items-center gap-3 p-4" data-record-finish="">
+          <div className="min-w-0 flex-1">
+            <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/60">
+              {guide.setup ? 'Finish your Event Hub' : guide.roundTitle} · {formatCount(guide.done)} of {formatCount(guide.total)}
+            </p>
+            {guide.nextTitle ? (
+              <p className="mt-1 truncate text-sm text-ink/80">
+                Next: {guide.nextTitle}
+                {guide.thenTitle ? ` · then ${guide.thenTitle}` : ''}
+              </p>
+            ) : null}
+          </div>
+          <Link
+            href={`/dashboard/${eventId}/launch?tool=details&guide=1`}
+            className="sn-press inline-flex min-h-11 shrink-0 items-center rounded-full bg-ink px-4 text-sm font-semibold text-cream"
+          >
+            {HOME_GUIDE_ACTION}
+          </Link>
+        </div>
+      ) : null}
 
       <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
-        {/* ── The basics ── */}
-        {/* Event settings save LIVE, so they are their own page, never the Maker
-            (where nothing may take effect before Apply) — 2026-10-02. */}
-        <Section k="basics" open={{ href: `${base}/details/change`, label: 'Open Event settings' }}>
-          <Row fact="names" label="Names" value={names} />
-          <Row
-            fact="kind"
-            label={`Kind of ${eventWord}`}
-            value={kind}
-            lock={bookingLocks && eventWord === 'wedding' ? lockNote(`Your kind of ${eventWord}`) : null}
-          />
-          <Row fact="area" label="Area" value={str('region')} />
-          <Row label="Event Hub address" value={str('slug') ? `setnayan.com/${str('slug')}` : null} />
-        </Section>
+        {/* ══ HOW IT LOOKS ══ */}
+        <RecordFold group="looks" title={groupTitle('looks')} summary={summary.looks} recordHref={record}>
+          <Section k="look" titled={false}>
+            <Row row="theme" fact="theme" label="Theme" value={proRead.ok ? theme.name : COULD_NOT_LOAD} open={opens('theme')} record={record} waiting={waiting('invite_theme')} />
+            <Row
+              row="fonts"
+              fact="fonts"
+              label="Font"
+              value={`Header ${headingFont} · Text ${theme.fonts.body} · Accent ${theme.fonts.script}`}
+              open={opens('fonts')}
+              record={record}
+              waiting={waiting('site_font_key')}
+            />
+            <Row
+              row="colours"
+              fact="colours"
+              label="Colours"
+              open={opens('colours')}
+              record={record}
+              waiting={waiting('site_bg_color', 'site_art_direction', 'site_magic_traveller')}
+              value={
+                mainColours.length > 0 ? (
+                  <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                    {mainColours.map((h) => (
+                      <span key={h} className="inline-flex items-center gap-1">
+                        <span aria-hidden className="inline-block h-3.5 w-3.5 rounded-full border border-ink/15" style={{ backgroundColor: h }} />
+                        <span className="font-mono text-[11px] text-ink/60">{h.toUpperCase()}</span>
+                      </span>
+                    ))}
+                  </span>
+                ) : null
+              }
+            />
+            <Row row="buttons" label="Buttons" value={buttons} open={opens('buttons')} record={record} waiting={waiting('site_button_style', 'site_button_color')} />
+            <Row
+              row="cover"
+              fact="cover"
+              label="Cover photo"
+              value={shownStr('landing_page_hero_image_url') ? 'Added' : null}
+              tool={maker ? `${base}/launch?open=main-background` : null}
+              waiting={waiting('landing_page_hero_image_url')}
+            />
+            <Row row="logo" label="Logo / monogram" value={str('monogram_text')} tool={maker ? `${base}/launch?tool=logo` : null} />
+            <Row
+              row="music"
+              fact="music"
+              label="Music"
+              value={shownStr('site_bg_music_r2_key') ? (shown.site_bg_music_enabled === false ? 'Added · switched off' : 'Added · plays on open') : null}
+              tool={maker ? `${base}/website/site-chrome` : null}
+              waiting={waiting('site_bg_music_r2_key', 'site_bg_music_enabled')}
+            />
+          </Section>
+        </RecordFold>
 
-        {/* ── Key dates — one dated list, soonest first ── */}
-        <Section k="key-dates" open={{ href: `${base}/schedule`, label: 'Open Schedule' }}>
-          {paymentsFailed ? (
-            <Row money label="Supplier payments" value={COULD_NOT_LOAD} />
-          ) : suppliersHidden ? (
-            <Row label="Supplier payments" value={HIDDEN_BY_THE_COUPLE} />
-          ) : (
-            payments.map((p) => (
-              <Row
-                money
-                key={p.id}
-                label={sheetDate(p.date.toISOString(), false) ?? '—'}
-                value={`${p.vendorBusinessName ?? p.subtitle} · ${p.title}${p.amountCentavos != null ? ` ${formatPhp(p.amountCentavos / 100)}` : ''}`}
-                hint="Supplier payment"
-              />
-            ))
-          )}
-          <Row
-            fact="reply-by"
-            label="Guests reply by"
-            value={replyBy ? sheetDate(replyBy.date) : null}
-            hint={replyBy?.isDefault ? 'Suggested — 30 days before the day. The guest list closes the same day.' : replyBy ? 'The guest list closes the same day.' : null}
-          />
-          <Row
-            fact="date"
-            label={`The ${eventWord}`}
-            value={describeEventDate(e)}
-            lock={bookingLocks ? lockNote(`Your ${eventWord} date`) : null}
-          />
-          {scheduleRead.ok ? (
-            <>
-              <Row fact="arrive" label="Guests arrive" value={arrive ? blockTime(arrive) : null} />
-              <Row label="Ceremony" value={ceremony ? blockTime(ceremony) : null} />
-              <Row label="Reception" value={reception ? blockTime(reception) : null} />
-            </>
-          ) : (
-            <Row fact="arrive" label="Times on the day" value={COULD_NOT_LOAD} />
-          )}
-        </Section>
-
-        {/* ── Venues — locked only ── */}
-        <Section
-          k="venues"
-          open={maker ? { href: detailsItemHref(eventId, 'venues'), label: 'Open in the Event Hub Maker' } : null}
-        >
-          {vendorsRead.ok ? (
-            <>
-              <Row
-                fact="venues"
-                label={eventWord === 'wedding' ? 'Ceremony' : 'Ceremony venue'}
-                value={ceremonySheetRow.value}
-                hint={ceremonySheetRow.hint}
-                lock={ceremonySheetRow.locked ? lockNote(ceremonySheetRow.value ?? 'This venue') : null}
-              />
-              <Row
-                label="Reception"
-                value={receptionSheetRow.value}
-                hint={receptionSheetRow.hint}
-                lock={receptionSheetRow.locked ? lockNote(receptionSheetRow.value ?? 'This venue') : null}
-              />
-            </>
-          ) : (
-            <Row fact="venues" label="Venues" value={COULD_NOT_LOAD} />
-          )}
-        </Section>
-
-        {/* ── Guests ── */}
-        <Section k="guests" open={{ href: `${base}/guests`, label: 'Open Guest list' }}>
-          <Row
-            fact="estimate"
-            label="Your estimate"
-            value={estimate != null && estimate > 0 ? `About ${formatCount(estimate)}` : null}
-            hint="From onboarding"
-            lock={bookingLocks && eventWord === 'wedding' ? lockNote('Your guest estimate') : null}
-          />
-          <Row
-            fact="listed"
-            label="On your list"
-            value={
-              guestsHidden
-                ? HIDDEN_BY_THE_COUPLE
-                : stats
-                  ? `${formatCount(stats.total)} on your list`
-                  : COULD_NOT_LOAD
-            }
-            hint={stats && stats.plus_ones > 0 ? `${formatCount(stats.total + stats.plus_ones)} expected with their plus-ones` : null}
-          />
-          <Row fact="guests-get-in" label="How guests get in" value={getIn.value} hint={getIn.chosen ? null : 'The default — not chosen yet'} />
-          <Row label="Guest list closes" value={sheetDate(str('guest_list_edit_deadline'))} />
-          <Row label="How you see costs" value={str('adaptive_pricing_mode') === 'final_only' ? 'Final only' : 'Realtime'} />
-        </Section>
-
-        {/* ── Budget — the Budget page's own four numbers ── */}
-        <Section k="budget" open={surfaceEnabled(profile, 'budget') ? { href: `${base}/budget`, label: 'Open Budget' } : null}>
-          {moneyHidden ? (
-            <Row fact="budget-target" label="Budget" value={HIDDEN_BY_THE_COUPLE} />
-          ) : (
-            <>
-              <Row
-                fact="budget-target"
-                label="Target"
-                value={
-                  money
-                    ? [budgetBand, money.target != null && money.target > 0 ? `about ${formatPhpRounded(money.target)}` : null].filter(Boolean).join(' · ') || null
-                    : COULD_NOT_LOAD
-                }
-              />
-              {money ? (
-                <>
-                  <Row label="Agreed" value={formatPhp(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} booked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
-                  <Row label="Paid" value={formatPhp(money.paid)} />
-                  <Row label="Still owed" value={formatPhp(money.owed)} />
-                </>
-              ) : null}
-            </>
-          )}
-        </Section>
-
-        {/* ── Your suppliers — the locks on the Bench ── */}
-        <Section k="suppliers" open={profile.marketplaceEnabled ? { href: `${base}/vendors`, label: 'Open Suppliers' } : null}>
-          {suppliersHidden ? (
-            <Row label="Suppliers" value={HIDDEN_BY_THE_COUPLE} />
-          ) : !vendorsRead.ok ? (
-            <Row label="Suppliers" value={COULD_NOT_LOAD} />
-          ) : lockedSuppliers.length === 0 ? (
-            <Row label="Booked suppliers" value={null} />
-          ) : (
-            lockedSuppliers.map((s) => (
-              <Row
-                key={s.vendor_id}
-                label={planGroupLabelForCategory(s.category)}
-                value={s.vendor_name}
-                lock={lockNote(s.vendor_name ?? 'This supplier')}
-              />
-            ))
-          )}
-        </Section>
-
-        {/* ── People with access — the one place access is SET (owner
-            2026-10-03). The sheet's one live part: access is a door, so it
-            changes at once, never on a later Apply. ── */}
-        {people || ownAccess ? (
-          <PeopleWithAccess
-            eventId={eventId}
-            title={sectionTitle('access')}
-            rows={people && people.measured ? people.rows : ownAccess ? [ownAccess] : []}
-            addable={people && people.measured ? people.addable : []}
-            readOnly={!people}
-            failed={Boolean(people && !people.measured)}
-            flash={accessFlash}
-          />
-        ) : null}
-
-        {/* ── Services ── */}
-        <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>
-          <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
-          <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
-          <Row
-            money
-            label="Papic"
-            value={
-              !poolRead.ok
-                ? COULD_NOT_LOAD
-                : pool.applies
-                  ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
-                  : 'Not added'
-            }
-          />
-          {/* 🗂 The onboarding's answers (owner 2026-10-02) — changed in Your info, obeyed everywhere. */}
-          {setupOfType.cameraDefault !== 'off' ? (
-            <Row fact="papic-answer" label={papicLabel(words.solemn)} value={answerSub(papicChoices(), answerKeyOf('papic_on', e.papic_on))} />
-          ) : null}
-          {setupOfType.giftsMode !== 'none' ? (
-            <Row fact="gifts-answer" label={giftsLabel(setupOfType.giftsMode)} value={answerSub(giftsChoices(), answerKeyOf('gifts_on', e.gifts_on))} />
-          ) : null}
-        </Section>
-
-        {/* ── Purchases — the shipped orders, with their status ── */}
-        <Section k="purchases" open={{ href: `${base}/orders`, label: 'Open Purchases' }}>
-          {moneyHidden ? (
-            <Row fact="purchases" label="Purchases" value={HIDDEN_BY_THE_COUPLE} />
-          ) : !orders || vat == null ? (
-            <Row fact="purchases" label="Purchases" value={COULD_NOT_LOAD} />
-          ) : shownOrders.length === 0 ? (
-            <Row fact="purchases" label="Purchases" value={null} />
-          ) : (
-            <>
-              {shownOrders.slice(0, 6).map((o) => (
+        {/* ══ HOW IT WORKS ══ */}
+        <RecordFold group="works" title={groupTitle('works')} summary={summary.works} recordHref={record}>
+          <Section k="rsvp">
+            {/* "RSVP or not" is NOT a second switch — the "No reply" choices are it (study § 1b). */}
+            <Row
+              row="guests-get-in"
+              fact="guests-get-in"
+              label="How guests get in"
+              value={getIn.value}
+              hint={getIn.chosen ? null : 'The default — not chosen yet'}
+              open={opens('guests-get-in')}
+              record={record}
+              waiting={waiting('rsvp_ask_config')}
+            />
+            {guestsReply ? (
+              <>
                 <Row
-                  key={o.order_id}
-                  label={sheetDate(o.created_at) ?? '—'}
-                  value={`${o.description} · ${formatPhp(grossOf(o) ?? 0)}`}
-                  hint={ORDER_STATUS_LABEL[o.status]}
+                  row="rsvp-questions"
+                  fact="rsvp-questions"
+                  label="What to ask"
+                  value={questions.length > 0 ? `${questions.length} · ${questions.join(' · ')}` : null}
+                  open={opens('rsvp-questions')}
+                  record={record}
+                  waiting={waiting('rsvp_ask_config')}
                 />
-              ))}
-              <Row fact="purchases" label="Total paid" value={formatPhp(totalPaid)} hint="Including VAT" />
-            </>
-          )}
-        </Section>
-
-        {/* ── Your Event Hub look ── */}
-        <Section k="look" open={maker ? { href: detailsItemHref(eventId, 'theme'), label: 'Open in the Event Hub Maker' } : null}>
-          <Row fact="cover" label="Cover photo" value={str('landing_page_hero_image_url') ? 'Added' : null} />
-          <Row label="Logo / monogram" value={str('monogram_text')} />
-          <Row fact="logo-answer" label={LOGO_QUESTION} value={answerSub(logoChoices(words.twoPeople), answerKeyOf('logo_wanted', e.logo_wanted)) || null} />
-          <Row fact="cover-answer" label={coverQuestion(words.solemn)} value={answerSub(coverChoices(words.solemn), answerKeyOf('cover_photo_wanted', e.cover_photo_wanted)) || null} />
-          <Row fact="theme" label="Theme" value={proRead.ok ? theme.name : COULD_NOT_LOAD} />
-          <Row
-            fact="colours"
-            label="Colours"
-            value={
-              mainColours.length > 0 ? (
-                <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                  {mainColours.map((h) => (
-                    <span key={h} className="inline-flex items-center gap-1">
-                      <span aria-hidden className="inline-block h-3.5 w-3.5 rounded-full border border-ink/15" style={{ backgroundColor: h }} />
-                      <span className="font-mono text-[11px] text-ink/60">{h.toUpperCase()}</span>
-                    </span>
-                  ))}
-                </span>
-              ) : null
-            }
-          />
-          <Row
-            fact="fonts"
-            label="Fonts"
-            value={`Header ${headingFontKey ? HUB_FONT_BY_KEY[headingFontKey].family : theme.fonts.heading} · Text ${theme.fonts.body} · Accent ${theme.fonts.script}`}
-          />
-          <Row
-            fact="music"
-            label="Music"
-            value={str('site_bg_music_r2_key') ? (e.site_bg_music_enabled === false ? 'Added · switched off' : 'Added · plays on open') : null}
-          />
-        </Section>
-
-        {/* ── Love Story ── */}
-        <Section k="love-story" open={maker ? { href: `${base}/website/our-story`, label: 'Open Love Story' } : null}>
-          <Row fact="love-story" label="Moments" value={moments.length > 0 ? `${moments.length} moment${moments.length === 1 ? '' : 's'}` : null} />
-        </Section>
-
-        {/* ── What everyone wears — the Mood Board's own rows ── */}
-        <Section k="wears" open={{ href: `${base}/studio/mood-board`, label: 'Open Mood Board' }}>
-          {dress.rows.length === 0 ? (
-            <Row fact="wears" label="Dress code" value={null} />
-          ) : (
-            dress.rows.slice(0, 8).map((r, i) => (
+                <Row
+                  row="reply-by"
+                  fact="reply-by"
+                  label="Guests reply by"
+                  value={replyBy ? sheetDate(replyBy.date) : null}
+                  hint={replyBy?.isDefault ? 'Suggested — 30 days before the day. The guest list closes the same day.' : replyBy ? 'The guest list closes the same day.' : null}
+                  open={opens('reply-by')}
+                  record={record}
+                />
+              </>
+            ) : null}
+          </Section>
+          <Section k="hub">
+            {setupOfType.cameraDefault !== 'off' ? (
               <Row
-                key={r.key}
-                fact={i === 0 ? 'wears' : undefined}
-                label={r.label}
-                value={
-                  r.lines.length > 0
-                    ? r.lines.map((l) => `${l.styleLabel}${l.note ? ` — ${l.note}` : ''}`).join(' · ')
-                    : `${r.hexes.length} colour${r.hexes.length === 1 ? '' : 's'}`
-                }
+                row="papic-answer"
+                fact="papic-answer"
+                label={papicLabel(words.solemn)}
+                value={answerSub(papicChoices(), answerKeyOf('papic_on', shown.papic_on))}
+                open={opens('papic-answer')}
+                record={record}
+                waiting={waiting('papic_on')}
               />
-            ))
-          )}
-        </Section>
+            ) : null}
+            {setupOfType.giftsMode !== 'none' ? (
+              <Row
+                row="gifts-answer"
+                fact="gifts-answer"
+                label={giftsLabel(setupOfType.giftsMode)}
+                value={answerSub(giftsChoices(), answerKeyOf('gifts_on', shown.gifts_on))}
+                open={opens('gifts-answer')}
+                record={record}
+                waiting={waiting('gifts_on')}
+              />
+            ) : null}
+            <Row
+              row="logo-answer"
+              fact="logo-answer"
+              label={LOGO_QUESTION}
+              value={answerSub(logoChoices(words.twoPeople), answerKeyOf('logo_wanted', shown.logo_wanted)) || null}
+              open={opens('logo-answer')}
+              record={record}
+              waiting={waiting('logo_wanted')}
+            />
+            <Row
+              row="cover-answer"
+              fact="cover-answer"
+              label={coverQuestion(words.solemn)}
+              value={answerSub(coverChoices(words.solemn), answerKeyOf('cover_photo_wanted', shown.cover_photo_wanted)) || null}
+              open={opens('cover-answer')}
+              record={record}
+              waiting={waiting('cover_photo_wanted')}
+            />
+            <Row label="Event Hub address" value={str('slug') ? `setnayan.com/${str('slug')}` : null} />
+          </Section>
+        </RecordFold>
 
-        {/* ── RSVP ── */}
-        <Section k="rsvp" open={maker ? { href: detailsItemHref(eventId, 'rsvp'), label: 'Open RSVP' } : null}>
-          <Row
-            fact="rsvp-questions"
-            label="Questions"
-            value={questions.length > 0 ? `${questions.length} · ${questions.join(' · ')}` : 'No reply needed'}
-          />
-          <Row label="Reply by" value={replyBy ? sheetDate(replyBy.date) : null} />
-          <Row label="Who can reply" value={getIn.value} hint="Same as “How guests get in”" />
-        </Section>
+        {/* ══ YOUR EVENT ══ */}
+        <RecordFold group="event" title={groupTitle('event')} summary={summary.event} recordHref={record}>
+          <Section k="basics">
+            <Row row="names" fact="names" label="Names" value={names} open={opens('names')} record={record} waiting={waiting('bride_name', 'groom_name', 'display_name')} />
+            <Row
+              row="kind"
+              fact="kind"
+              label={`Kind of ${eventWord}`}
+              value={kind}
+              lock={bookingLocks && eventWord === 'wedding' ? lockNote(`Your kind of ${eventWord}`) : null}
+              open={eventWord === 'wedding' ? opens('kind') : null}
+              record={record}
+            />
+            <Row row="area" fact="area" label="Area" value={str('region')} open={opens('area')} record={record} />
+          </Section>
+
+          {/* ── Key dates — the day, its times, and what is due ── */}
+          <Section k="key-dates">
+            <Row
+              row="date"
+              fact="date"
+              label={`The ${eventWord}`}
+              value={eventDateShown}
+              lock={bookingLocks ? lockNote(`Your ${eventWord} date`) : null}
+              open={opens('date')}
+              record={record}
+              waiting={waiting('event_date', 'event_date_precision')}
+            />
+            {scheduleRead.ok ? (
+              <>
+                <Row row="ceremony-time" label="Ceremony" value={ceremonyTime} open={opens('ceremony-time')} record={record} waiting={draftedCeremonyTime !== null} />
+                <Row row="arrive" fact="arrive" label="Guests arrive" value={arrive ? blockTime(arrive) : null} tool={`${base}/schedule`} />
+                <Row row="reception-time" label="Reception" value={reception ? blockTime(reception) : null} tool={`${base}/schedule`} />
+              </>
+            ) : (
+              <Row fact="arrive" label="Times on the day" value={COULD_NOT_LOAD} />
+            )}
+            {paymentsFailed ? (
+              <Row money label="Supplier payments" value={COULD_NOT_LOAD} />
+            ) : suppliersHidden ? (
+              <Row label="Supplier payments" value={HIDDEN_BY_THE_COUPLE} />
+            ) : (
+              payments.map((p) => (
+                <Row
+                  money
+                  key={p.id}
+                  label={sheetDate(p.date.toISOString(), false) ?? '—'}
+                  value={`${p.vendorBusinessName ?? p.subtitle} · ${p.title}${p.amountCentavos != null ? ` ${formatPhp(p.amountCentavos / 100)}` : ''}`}
+                  hint="Supplier payment"
+                />
+              ))
+            )}
+          </Section>
+
+          {/* ── Venues — a booked one is fixed; otherwise the venue is typed here ── */}
+          <Section k="venues">
+            {vendorsRead.ok ? (
+              <>
+                <Row
+                  row="venues"
+                  fact="venues"
+                  label={eventWord === 'wedding' ? 'Ceremony' : 'Ceremony venue'}
+                  value={ceremonySheetRow.value}
+                  hint={ceremonySheetRow.hint}
+                  lock={ceremonySheetRow.locked ? lockNote(ceremonySheetRow.value ?? 'This venue') : null}
+                  open={opens('venues')}
+                  record={record}
+                  waiting={venuesWaiting}
+                />
+                <Row
+                  row="reception-venue"
+                  label="Reception"
+                  value={receptionSheetRow.value}
+                  hint={receptionSheetRow.hint}
+                  lock={receptionSheetRow.locked ? lockNote(receptionSheetRow.value ?? 'This venue') : null}
+                  open={opens('reception-venue')}
+                  record={record}
+                  waiting={venuesWaiting}
+                />
+              </>
+            ) : (
+              <Row fact="venues" label="Venues" value={COULD_NOT_LOAD} />
+            )}
+          </Section>
+
+          {/* ── Love Story & the special message — the couple's own words ── */}
+          <Section k="love-story">
+            <Row
+              row="love-story"
+              fact="love-story"
+              label="Love Story"
+              value={moments.length > 0 ? `${moments.length} moment${moments.length === 1 ? '' : 's'}` : null}
+              open={opens('love-story')}
+              record={record}
+              waiting={waiting('love_story')}
+            />
+            <Row
+              row="special-message"
+              label="Special message"
+              value={shownStr('special_message')}
+              open={opens('special-message')}
+              record={record}
+              waiting={waiting('special_message')}
+            />
+          </Section>
+
+          {/* ── What everyone wears — the Mood Board's own rows ── */}
+          <Section k="wears">
+            {dress.rows.length === 0 ? (
+              <Row row="wears" fact="wears" label="Dress code" value={null} tool={`${base}/studio/mood-board`} />
+            ) : (
+              dress.rows.slice(0, 8).map((r, i) => (
+                <Row
+                  key={r.key}
+                  row={i === 0 ? 'wears' : undefined}
+                  fact={i === 0 ? 'wears' : undefined}
+                  label={r.label}
+                  tool={`${base}/studio/mood-board`}
+                  value={
+                    r.lines.length > 0
+                      ? r.lines.map((l) => `${l.styleLabel}${l.note ? ` — ${l.note}` : ''}`).join(' · ')
+                      : `${r.hexes.length} colour${r.hexes.length === 1 ? '' : 's'}`
+                  }
+                />
+              ))
+            )}
+          </Section>
+        </RecordFold>
+
+        {/* ══ GUESTS & MONEY ══ */}
+        <RecordFold group="guests-money" title={groupTitle('guests-money')} summary={summary['guests-money']} recordHref={record}>
+          {/* ── Guests — the names are the Guest list's; the numbers are set here ── */}
+          <Section k="guests" open={{ href: `${base}/guests`, label: 'Open Guest list' }}>
+            <Row
+              row="estimate"
+              fact="estimate"
+              label="Your estimate"
+              value={estimate != null && estimate > 0 ? `About ${formatCount(estimate)}` : null}
+              lock={bookingLocks && eventWord === 'wedding' ? lockNote('Your guest estimate') : null}
+              open={opens('estimate')}
+              record={record}
+            />
+            <Row
+              fact="listed"
+              label="On your list"
+              value={
+                guestsHidden
+                  ? HIDDEN_BY_THE_COUPLE
+                  : stats
+                    ? `${formatCount(stats.total)} on your list`
+                    : COULD_NOT_LOAD
+              }
+              hint={stats && stats.plus_ones > 0 ? `${formatCount(stats.total + stats.plus_ones)} expected with their plus-ones` : null}
+            />
+            <Row row="list-closes" label="Guest list closes" value={sheetDate(str('guest_list_edit_deadline'))} open={opens('list-closes')} record={record} />
+            <Row
+              row="costs-view"
+              label="How you see costs"
+              value={str('adaptive_pricing_mode') === 'final_only' ? 'Final only' : 'Realtime'}
+              open={opens('costs-view')}
+              record={record}
+            />
+          </Section>
+
+          {/* ── Budget — the Budget page's own four numbers ── */}
+          <Section k="budget" open={surfaceEnabled(profile, 'budget') ? { href: `${base}/budget`, label: 'Open Budget' } : null}>
+            {moneyHidden ? (
+              <Row fact="budget-target" label="Budget" value={HIDDEN_BY_THE_COUPLE} />
+            ) : (
+              <>
+                <Row fact="budget-target" label="Target" value={money ? targetWords : COULD_NOT_LOAD} />
+                {money ? (
+                  <>
+                    <Row label="Agreed" value={formatPhp(money.agreed)} hint={lockedSuppliers.length > 0 ? `with ${lockedSuppliers.length} booked supplier${lockedSuppliers.length === 1 ? '' : 's'}` : null} />
+                    <Row label="Paid" value={formatPhp(money.paid)} />
+                    <Row label="Still owed" value={formatPhp(money.owed)} />
+                  </>
+                ) : null}
+              </>
+            )}
+          </Section>
+
+          {/* ── Your suppliers — the locks on the Bench ── */}
+          <Section k="suppliers" open={profile.marketplaceEnabled ? { href: `${base}/vendors`, label: 'Open Suppliers' } : null}>
+            {suppliersHidden ? (
+              <Row label="Suppliers" value={HIDDEN_BY_THE_COUPLE} />
+            ) : !vendorsRead.ok ? (
+              <Row label="Suppliers" value={COULD_NOT_LOAD} />
+            ) : lockedSuppliers.length === 0 ? (
+              <Row label="Booked suppliers" value={null} />
+            ) : (
+              lockedSuppliers.map((s) => (
+                <Row
+                  key={s.vendor_id}
+                  label={planGroupLabelForCategory(s.category)}
+                  value={s.vendor_name}
+                  lock={lockNote(s.vendor_name ?? 'This supplier')}
+                />
+              ))
+            )}
+          </Section>
+
+          {/* ── People with access — the one place access is SET (owner
+              2026-10-03). Access is a door, so it changes at once, never on a
+              later Apply. ── */}
+          {people || ownAccess ? (
+            <PeopleWithAccess
+              eventId={eventId}
+              title={sectionTitle('access')}
+              rows={people && people.measured ? people.rows : ownAccess ? [ownAccess] : []}
+              addable={people && people.measured ? people.addable : []}
+              readOnly={!people}
+              failed={Boolean(people && !people.measured)}
+              flash={accessFlash}
+            />
+          ) : null}
+
+          {/* ── Services ── */}
+          <Section k="services" open={{ href: studioHubHref(eventId), label: 'Open Services' }}>
+            <Row fact="services" label="Event Hub Pro" value={proRead.ok ? (ownsPro ? 'Active' : 'Not added') : COULD_NOT_LOAD} />
+            <Row label="Setnayan AI" value={e.setnayan_ai_active === true ? 'Active' : 'Not added'} />
+            <Row
+              money
+              label="Papic"
+              value={
+                !poolRead.ok
+                  ? COULD_NOT_LOAD
+                  : pool.applies
+                    ? `${formatCount(pool.remainingPoints)} of ${formatCount(pool.totalPoints)} credits left`
+                    : 'Not added'
+              }
+            />
+          </Section>
+
+          {/* ── Purchases — the shipped orders, with their status ── */}
+          <Section k="purchases" open={{ href: `${base}/orders`, label: 'Open Purchases' }}>
+            {moneyHidden ? (
+              <Row fact="purchases" label="Purchases" value={HIDDEN_BY_THE_COUPLE} />
+            ) : !orders || vat == null ? (
+              <Row fact="purchases" label="Purchases" value={COULD_NOT_LOAD} />
+            ) : shownOrders.length === 0 ? (
+              <Row fact="purchases" label="Purchases" value={null} />
+            ) : (
+              <>
+                {shownOrders.slice(0, 6).map((o) => (
+                  <Row
+                    key={o.order_id}
+                    label={sheetDate(o.created_at) ?? '—'}
+                    value={`${o.description} · ${formatPhp(grossOf(o) ?? 0)}`}
+                    hint={ORDER_STATUS_LABEL[o.status]}
+                  />
+                ))}
+                <Row fact="purchases" label="Total paid" value={formatPhp(totalPaid)} hint="Including VAT" />
+              </>
+            )}
+          </Section>
+        </RecordFold>
       </div>
 
       {/* ── Put this away — last and quiet, as shipped. ── */}
@@ -724,7 +965,7 @@ export default async function EventDetailsPage({
         <PutAwayCard
           eventId={eventId}
           archived={Boolean(e.archived)}
-          eventName={typeof e.display_name === 'string' && e.display_name.trim() ? e.display_name : 'this celebration'}
+          eventName={typeof e.display_name === 'string' && e.display_name.trim() ? e.display_name : 'this event'}
         />
       </div>
     </section>
@@ -748,47 +989,69 @@ async function settle<T>(p: Promise<T>): Promise<Settled<T>> {
 
 function Section({
   k,
-  open,
+  open = null,
+  titled = true,
   children,
 }: {
   k: EventDetailsSectionKey;
-  /** The ONE quiet link to the page that handles this part (null = none for this kind of event). */
-  open: { href: string; label: string } | null;
+  /**
+   * The ONE quiet link — only where another flow owns the part (the guest
+   * names, Budget, Suppliers, Services, Purchases). A part the record edits
+   * carries none: its rows open their own field.
+   */
+  open?: { href: string; label: string } | null;
+  /** A group with one section needs no heading of its own. */
+  titled?: boolean;
   children: ReactNode;
 }) {
   return (
     <div
-      className="sn-tile p-4 sm:p-5"
+      className="border-t border-ink/10 pt-3 first:border-t-0 first:pt-0"
       data-section={k}
       // 💾 Money is never kept as last-seen data (lib/last-seen).
       data-money={k === 'budget' || k === 'purchases' ? '' : undefined}
     >
-      <div className="mb-1 flex items-baseline justify-between gap-3">
-        <h3 className="m-display-tight text-base uppercase tracking-[0.02em] text-ink">{sectionTitle(k)}</h3>
-        {open ? (
-          <Link href={open.href} className="inline-flex shrink-0 items-center gap-0.5 text-[12.5px] text-ink/55 hover:text-ink">
-            {open.label}
-            <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          </Link>
-        ) : null}
-      </div>
-      <dl className="divide-y divide-ink/5">{children}</dl>
+      {titled || open ? (
+        <div className="mb-0.5 flex items-baseline justify-between gap-3">
+          {titled ? <h3 className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/60">{sectionTitle(k)}</h3> : <span />}
+          {open ? (
+            <Link href={open.href} className="inline-flex min-h-11 shrink-0 items-center gap-0.5 text-[12.5px] text-ink/60 hover:text-ink">
+              {open.label}
+              <ChevronRight aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+      <div className="divide-y divide-ink/5">{children}</div>
     </div>
   );
 }
 
 /**
- * One read-out row: label · value. `value` null = "Not set yet". A row with
- * `lock` carries 🔒 and opens "Locked by your booking" in place (zero JS).
+ * One row: label · value. `value` null = "Not set yet".
+ *
+ *   · `open` — the row's field address: the whole row opens the Maker's own
+ *     editor for that fact (`RecordRowLink`; the field arrives in `@field`).
+ *   · `tool` — a fact whose field is a whole studio: the row opens it as itself.
+ *   · `lock` — 🔒 and "Locked by your booking" in place (zero JS); a booked fact
+ *     never opens a field.
+ *   · `waiting` — the draft holds a change guests do not see yet.
  */
 function Row({
+  row,
   fact,
   label,
   value,
   hint,
   lock,
   money = false,
+  open = null,
+  tool = null,
+  record = '',
+  waiting = false,
 }: {
+  /** The record row (`RECORD_ROW_EDITOR` / `RECORD_ROW_TOOL` key) — what the field sheet scrolls into view. */
+  row?: string;
   /** A money figure (a payment, a credit balance) — never kept as last-seen data. */
   money?: boolean;
   /** The MAP fact this row shows (`EVENT_DETAILS_MAP`) — what the guard counts. */
@@ -797,38 +1060,67 @@ function Row({
   value: ReactNode;
   hint?: string | null;
   lock?: string | null;
+  open?: string | null;
+  tool?: string | null;
+  /** The record with nothing open (where an open row's second tap returns). */
+  record?: string;
+  waiting?: boolean;
 }) {
   const shown =
     value == null || value === '' ? <span className="font-normal text-ink/40">{NOT_SET_YET}</span> : value;
   const body = (
     <>
-      <dt className="text-sm text-ink/60">{label}</dt>
-      <dd className="min-w-0 text-right">
+      <span className="text-sm text-ink/60">{label}</span>
+      <span className="min-w-0 flex-1 text-right">
         <span className="text-sm font-medium text-ink/85">{shown}</span>
-        {hint ? <span className="block text-[11.5px] text-ink/50">{hint}</span> : null}
-      </dd>
+        {hint ? <span className="block text-[11.5px] text-ink/60">{hint}</span> : null}
+        {waiting ? (
+          <span className="block text-[11.5px] font-semibold text-ink/60" data-record-waiting="">
+            Waiting for Apply
+          </span>
+        ) : null}
+      </span>
     </>
   );
-  if (!lock) {
+  if (lock) {
     return (
-      <div className="flex items-start justify-between gap-4 py-2.5" data-fact={fact} data-money={money ? '' : undefined}>
-        {body}
+      <details className="group py-2.5" data-fact={fact} data-record-row={row} data-locked data-money={money ? '' : undefined}>
+        <summary className="flex cursor-pointer list-none items-start justify-between gap-4 [&::-webkit-details-marker]:hidden">
+          {body}
+          <Lock aria-label="Fixed by your booking" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={1.75} />
+        </summary>
+        <div className="sn-glass-bare mt-2 rounded-xl px-3.5 py-3">
+          <p className="text-sm font-medium text-ink">Fixed by your booking</p>
+          <p className="mt-1 text-[13px] text-ink/65">{lock}</p>
+          <Link href="/help" className="mt-2 inline-block text-[13px] font-medium text-terracotta underline-offset-2 hover:underline">
+            Contact support
+          </Link>
+        </div>
+      </details>
+    );
+  }
+  if (open && row) {
+    return (
+      <div data-fact={fact} data-record-row={row} data-money={money ? '' : undefined}>
+        <RecordRowLink row={row} href={open} recordHref={record}>
+          {body}
+        </RecordRowLink>
+      </div>
+    );
+  }
+  if (tool) {
+    return (
+      <div data-fact={fact} data-record-row={row} data-opens-tool="" data-money={money ? '' : undefined}>
+        <Link href={tool} className="sn-press -mx-2 flex min-h-11 items-start justify-between gap-4 rounded-lg px-2 py-2.5 hover:bg-ink/[0.03]">
+          {body}
+          <ChevronRight aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/40" strokeWidth={1.75} />
+        </Link>
       </div>
     );
   }
   return (
-    <details className="group py-2.5" data-fact={fact} data-locked data-money={money ? '' : undefined}>
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 [&::-webkit-details-marker]:hidden">
-        {body}
-        <Lock aria-label="Fixed by your booking" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-ink/45" strokeWidth={1.75} />
-      </summary>
-      <div className="sn-glass-bare mt-2 rounded-xl px-3.5 py-3">
-        <p className="text-sm font-medium text-ink">Fixed by your booking</p>
-        <p className="mt-1 text-[13px] text-ink/65">{lock}</p>
-        <Link href="/help" className="mt-2 inline-block text-[13px] font-medium text-terracotta underline-offset-2 hover:underline">
-          Contact support
-        </Link>
-      </div>
-    </details>
+    <div className="flex items-start justify-between gap-4 py-2.5" data-fact={fact} data-record-row={row} data-money={money ? '' : undefined}>
+      {body}
+    </div>
   );
 }

@@ -664,8 +664,10 @@ test('the host still reads their own room, and admin still oversees', async () =
      WHERE schemaname='public' AND tablename='event_song_requests'`,
   );
   for (const row of r.rows) {
+    // The host leg is the COUPLE helper since 20271263627893 — the member-wide
+    // `current_event_ids()` admitted every invited guest.
     assert.ok(
-      (row.qual ?? '').includes('current_event_ids'),
+      (row.qual ?? '').includes('current_couple_event_ids'),
       `${row.policyname} must keep the host leg — the couple owns their own room`,
     );
     assert.ok(

@@ -174,9 +174,11 @@ test('no browser role holds UPDATE on event_song_requests — table or decision 
       assert.equal(c.rows[0]!.ok, false, `${role} must not hold UPDATE (${col})`);
     }
   }
-  // The read the guest list's search uses is untouched.
+  // The read the guest list's search uses is untouched. It is a COLUMN grant
+  // since 20271263627893 (anon_key is readable by no browser role — asserted in
+  // a-guest-reads-only-their-own-song-requests.db.test.ts).
   const sel = await db.query<{ ok: boolean }>(
-    `SELECT has_table_privilege('authenticated', 'public.event_song_requests', 'SELECT') AS ok`,
+    `SELECT has_column_privilege('authenticated', 'public.event_song_requests', 'guest_id', 'SELECT') AS ok`,
   );
   assert.equal(sel.rows[0]!.ok, true, 'the couple still reads their own room');
 });

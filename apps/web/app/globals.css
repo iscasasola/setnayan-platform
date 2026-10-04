@@ -3843,10 +3843,10 @@ html.dark {
   --font-display: var(--font-pahina-display);
   --pahina-face: var(--font-pahina-display);
   /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
-  --font-body: var(--font-hub-cardo);
+  --font-body: var(--font-hub-lora);
   --font-sans: var(--font-body);
-  --font-theme-script: var(--font-script);
-  --font-mono: var(--font-hub-cardo);
+  --font-theme-script: var(--font-hub-kaushan);
+  --font-mono: var(--font-hub-lora);
   font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
@@ -3921,7 +3921,7 @@ html.dark {
   /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
   --font-body: var(--font-editorial-display);
   --font-sans: var(--font-body);
-  --font-theme-script: var(--font-script);
+  --font-theme-script: var(--font-hub-alexbrush);
   --font-mono: var(--font-hub-cormorantsc);
   font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
@@ -3996,10 +3996,10 @@ html.dark {
   --font-display: var(--font-playfair);
   --pahina-face: var(--font-playfair);
   /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
-  --font-body: var(--font-hub-cardo);
+  --font-body: var(--font-hub-baskerville);
   --font-sans: var(--font-body);
-  --font-theme-script: var(--font-hub-haviland);
-  --font-mono: var(--font-hub-cardo);
+  --font-theme-script: var(--font-hub-delafield);
+  --font-mono: var(--font-hub-baskerville);
   font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
@@ -4037,7 +4037,7 @@ html.dark {
   /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
   --font-body: var(--font-hub-quicksand);
   --font-sans: var(--font-body);
-  --font-theme-script: var(--font-script);
+  --font-theme-script: var(--font-hub-cookie);
   font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
@@ -4072,10 +4072,10 @@ html.dark {
   --font-display: var(--font-regency-display);
   --pahina-face: var(--font-regency-display);
   /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
-  --font-body: var(--font-hub-cardo);
+  --font-body: var(--font-hub-crimson);
   --font-sans: var(--font-body);
-  --font-theme-script: var(--font-script);
-  --font-mono: var(--font-hub-cardo);
+  --font-theme-script: var(--font-hub-parisienne);
+  --font-mono: var(--font-hub-crimson);
   font-family: var(--font-body), serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;
@@ -4112,7 +4112,7 @@ html.dark {
   --pahina-face: var(--font-gatsby-display);
   --font-mono: var(--font-gatsby-labels);
   /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
-  --font-body: var(--font-hub-jost);
+  --font-body: var(--font-hub-josefin);
   --font-sans: var(--font-body);
   --font-theme-script: var(--font-gatsby-display);
   font-family: var(--font-body), sans-serif;
@@ -4153,7 +4153,7 @@ html.dark {
   /* B5 (2026-10-04) — the theme's body, labels and script faces (`lib/hub-theme-faces.ts`). */
   --font-body: var(--font-hub-outfit);
   --font-sans: var(--font-body);
-  --font-theme-script: var(--font-hub-poiret);
+  --font-theme-script: var(--font-hub-monoton);
   font-family: var(--font-body), sans-serif;
   --pahina-grain-opacity: 0;
   --pahina-frame-opacity: 1;

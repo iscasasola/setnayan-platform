@@ -36,6 +36,7 @@ import { SAVE_METHOD_FIELD, saveMethodFromForm, saveMethodSignsIn } from '@/lib/
 import { envFlagEnabled } from '@/lib/env-flag';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
 import { eventConnectPath } from '@/lib/signup-landing';
+import { NATIVE_SAVE_FIELD, nativeSaveHandOff, type NativeSaveHandOff } from '@/lib/native-account-save';
 import { applyTick, isChecklistKey } from '@/lib/guest-checklist';
 import { moderateKwentoText } from '@/lib/kwento-moderation';
 import { SONG_ARTIST_MAX, SONG_TITLE_MAX } from '@/lib/guest-song-request-rule';
@@ -130,7 +131,11 @@ async function eventHome(eventId: string): Promise<string> {
  * tick is carried into the provider round-trip by that same cookie, which the
  * OAuth callback records (app/auth/callback/route.ts).
  */
-export async function startAccountSaveAction(eventId: string, _slug: string, formData: FormData) {
+export async function startAccountSaveAction(
+  eventId: string,
+  _slug: string,
+  formData: FormData,
+): Promise<NativeSaveHandOff | void> {
   const home = await eventHome(eventId);
   const fromThankYou = isInviteReturn(formData.get('return_to')) && home !== '/';
   const back = fromThankYou ? inviteEnterPath(home.slice(1)) : home;
@@ -156,6 +161,20 @@ export async function startAccountSaveAction(eventId: string, _slug: string, for
     google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
   });
   if (!saveMethodSignsIn(method)) return redirect(back);
+  // 📱 Inside the phone app: hand the SAME `next` back to the app's native
+  // sign-in instead of redirecting this web view to the provider (which left
+  // the app for Safari). lib/native-account-save.ts.
+  const handOff = nativeSaveHandOff({
+    posted: formData.get(NATIVE_SAVE_FIELD),
+    userAgent: (await headers()).get('user-agent'),
+    providers: {
+      apple: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED),
+      google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
+    },
+    method,
+    next: eventConnectPath(eventId),
+  });
+  if (handOff) return handOff;
   const next = new FormData();
   next.set('next', eventConnectPath(eventId));
   return method === 'apple' ? signInWithApple(next) : signInWithGoogle(next);

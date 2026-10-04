@@ -94,6 +94,7 @@ import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../../studio/mood-board/dress-code-actions';
 import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-fields';
+import { incDressCodeStarter } from '../../studio/mood-board/_components/inc-dress-code-starter';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
@@ -600,9 +601,23 @@ export default async function WebsiteEditorPage({
       ? (drafted.love_story as LoveStoryBlob)
       : {};
 
-  const dressCodeConfig = normalizeDressCodeConfig(
+  /* 👗 An INC event's EMPTY dress code starts from the modest guidance (owner
+     2026-10-04) — the one rule the Mood Board's form uses too
+     (`incDressCodeStarter`). Form defaults only: nothing is written until the
+     couple presses Save. Its own small read, so the event select stays as is;
+     a refused read offers no starter, which is the form as it was. */
+  const { data: riteRow, error: riteError } = await supabase
+    .from('events')
+    .select('ceremony_type, secondary_ceremony_type')
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (riteError) {
+    logQueryError('WebsiteEditorPage.dressCodeRite', riteError, { eventId }, 'graceful_degrade');
+  }
+  const savedDressCode = normalizeDressCodeConfig(
     (drafted as { dress_code_config?: unknown }).dress_code_config,
   );
+  const { config: dressCodeConfig, started: dressCodeIncStarter } = incDressCodeStarter(riteRow, savedDressCode);
   /* 👗 THE ROLES ON THIS GUEST LIST, for the Dress code scene's "What each role
      wears" (owner 2026-09-30: a host sets each role's outfit right here). The
      panel was handed none, so it said the guest list had no ninongs to a couple
@@ -1031,6 +1046,7 @@ export default async function WebsiteEditorPage({
               action={updateDressCode.bind(null, eventId)}
               eventId={eventId}
               config={dressCodeConfig}
+              incStarter={dressCodeIncStarter}
               eventRoles={dressCodeRoles}
               eventNoun={eventNoun((event.event_type as string | null) ?? 'wedding')}
             />
@@ -1334,8 +1350,9 @@ export default async function WebsiteEditorPage({
             time: formatWallClock(firstBlock.start_at) || null,
           }
         : null,
-      dressTitle: dressCodeConfig.title || null,
-      dressLine: dressCodeConfig.description || null,
+      // The SAVED dress code — the INC starter is a form default, not a choice.
+      dressTitle: savedDressCode.title || null,
+      dressLine: savedDressCode.description || null,
       photoMomentsLine: photoMomentsConfig.intro_copy || photoMomentsConfig.moments[0]?.title || null,
       // The draft over live — the tiles show what the canvas shows.
       specialMessage: (drafted.special_message as string | null) ?? null,

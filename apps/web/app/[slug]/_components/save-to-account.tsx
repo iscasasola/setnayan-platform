@@ -16,6 +16,13 @@ import { COUPLE_SEAT_REFUSED, SEAT_HELD_ELSEWHERE, seatConfirmLine } from '@/lib
 import { startAccountSaveAction, linkThisSeatAction } from '../actions';
 import { CopyMyLink, OpenInBrowser } from './copy-my-link';
 import { ProviderStall } from './provider-stall';
+import { NativeSaveForm } from './native-save-form';
+import {
+  NATIVE_SAVE_FIELD,
+  saveSignsInNatively,
+  type NativeSaveHandOff,
+  type WebFormAction,
+} from '@/lib/native-account-save';
 
 /**
  * "SAVE TO MY ACCOUNT" — ONE button; the method is chosen by the device and
@@ -35,6 +42,13 @@ import { ProviderStall } from './provider-stall';
  *                    in to → one "Sign in" link;
  *   linked         → "Saved to your account ✓";
  *   held_elsewhere → said plainly, never re-bound.
+ *
+ * 📱 INSIDE THE PHONE APP (a build carrying `SetnayanSignIn/1`, 2026-10-04) the
+ * same press posts the same action, but through `NativeSaveForm`: the action
+ * hands back `{ native, next }` instead of redirecting to the provider, and the
+ * app's NATIVE sign-in runs (the Apple sheet · Google in the system browser) —
+ * so the account lands in the app, not in Safari. Same `next`, same linking
+ * path (lib/native-account-save.ts). The web and the desktop app are unchanged.
  *
  * 📵 NO EMAIL, ANYWHERE ON IT (owner 2026-09-29, DECISION_LOG "NO EMAIL TO
  * GUESTS — THE QR AND THE LINK DO EVERYTHING"). The webview arm used to email a
@@ -81,7 +95,11 @@ export function SaveToAccount({
    * is handed over under it. `after` is drawn inside the same form, under the
    * button ("Not now"). Every other state renders exactly as without it.
    */
-  through?: { action: (formData: FormData) => Promise<void>; fields: ReactNode; after?: ReactNode };
+  through?: {
+    action: (formData: FormData) => Promise<void | NativeSaveHandOff>;
+    fields: ReactNode;
+    after?: ReactNode;
+  };
 }) {
   if (state.kind === 'linked') {
     return (
@@ -135,6 +153,9 @@ export function SaveToAccount({
   };
   const method: SaveMethod = saveMethodFor(userAgent, providers);
   const signsIn = saveMethodSignsIn(method);
+  // 📱 The phone app's native sign-in — the one gate /login uses (oauthGate).
+  const native = signsIn && saveSignsInNatively(userAgent, providers);
+  const nativeField = native ? <input type="hidden" name={NATIVE_SAVE_FIELD} value="1" /> : null;
   const handOver =
     !signsIn && personalLink ? (
       method === 'browser' ? <OpenInBrowser link={personalLink} /> : <CopyMyLink link={personalLink} />
@@ -199,22 +220,34 @@ export function SaveToAccount({
     return (
       <div className="space-y-2" data-save-method={method} data-save-through>
         {refused}
-        <form action={through.action} className="space-y-4">
-          {through.fields}
-          {signsIn && !termsCarried ? termsTick : null}
-          {signsIn ? (
-            <>
-              {chosen}
-              {button}
-              {stall}
-            </>
-          ) : (
-            <SubmitButton name="then" value="done" className="button-primary h-14 w-full text-base" pendingLabel="Saving…">
-              Save
-            </SubmitButton>
-          )}
-          {through.after}
-        </form>
+        {native ? (
+          <NativeSaveForm action={through.action} className="space-y-4">
+            {through.fields}
+            {termsCarried ? null : termsTick}
+            {nativeField}
+            {chosen}
+            {button}
+            {stall}
+            {through.after}
+          </NativeSaveForm>
+        ) : (
+          <form action={through.action as WebFormAction} className="space-y-4">
+            {through.fields}
+            {signsIn && !termsCarried ? termsTick : null}
+            {signsIn ? (
+              <>
+                {chosen}
+                {button}
+                {stall}
+              </>
+            ) : (
+              <SubmitButton name="then" value="done" className="button-primary h-14 w-full text-base" pendingLabel="Saving…">
+                Save
+              </SubmitButton>
+            )}
+            {through.after}
+          </form>
+        )}
         {handOver}
         {signsIn ? why : null}
       </div>
@@ -227,16 +260,28 @@ export function SaveToAccount({
       </div>
     ) : null;
   }
+  const returnTo = <input type="hidden" name="return_to" value={INVITE_RETURN} />;
   return (
     <div className="space-y-2" data-save-method={method}>
       {refused}
-      <form action={startAccountSaveAction.bind(null, eventId, slug)} className="space-y-3">
-        <input type="hidden" name="return_to" value={INVITE_RETURN} />
-        {termsCarried ? null : termsTick}
-        {chosen}
-        {button}
-        {stall}
-      </form>
+      {native ? (
+        <NativeSaveForm action={startAccountSaveAction.bind(null, eventId, slug)} className="space-y-3">
+          {returnTo}
+          {termsCarried ? null : termsTick}
+          {nativeField}
+          {chosen}
+          {button}
+          {stall}
+        </NativeSaveForm>
+      ) : (
+        <form action={startAccountSaveAction.bind(null, eventId, slug) as WebFormAction} className="space-y-3">
+          {returnTo}
+          {termsCarried ? null : termsTick}
+          {chosen}
+          {button}
+          {stall}
+        </form>
+      )}
       {why}
     </div>
   );

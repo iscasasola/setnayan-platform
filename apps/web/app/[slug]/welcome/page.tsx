@@ -17,6 +17,7 @@ import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
 import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
+import type { WebFormAction } from '@/lib/native-account-save';
 import { eventWordsFor } from '../_lib/event-words';
 import { PlusOneDoor } from './_components/plus-one-door';
 
@@ -169,7 +170,10 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const errorKey = search.error ?? null;
   const errorMessage = errorKey ? (ERROR_COPY[errorKey] ?? errorKey) : null;
 
-  const confirmAction = confirmPlusOneName.bind(null, home);
+  // Typed as a plain form action for the door's own forms: it hands back
+  // `{ native, next }` ONLY to the phone app's Save form, which reads it at run
+  // time (lib/native-account-save.ts) — a web form never asks for it.
+  const confirmAction = confirmPlusOneName.bind(null, home) as WebFormAction;
   const abandonAction = abandonPlusOneInvite.bind(null, home);
 
   // 🎩 No "Welcome, <first name>" (owner, DECISION_LOG 2026-09-30 — no casual

@@ -20,6 +20,8 @@ import {
 } from '@/lib/terms-agreement';
 import { PLUS_ONE_WELCOMED_COOKIE, PLUS_ONE_WELCOMED_MAX_AGE, plusOneUnnamed } from '@/lib/plus-one-welcome';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
+import { eventConnectPath } from '@/lib/signup-landing';
+import { NATIVE_SAVE_FIELD, nativeSaveHandOff, type NativeSaveHandOff } from '@/lib/native-account-save';
 
 /**
  * THE PLUS-ONE'S OWN DOOR — the save (prototype `rsvp_plus_ones_2026-09-29.html`,
@@ -42,7 +44,7 @@ import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
  * it), dietary (only when asked). Never an answer, a song, a note, a selfie.
  * Their attendance is not touched — it follows their own reply if they give one.
  */
-export async function confirmPlusOneName(slug: string, formData: FormData): Promise<void> {
+export async function confirmPlusOneName(slug: string, formData: FormData): Promise<NativeSaveHandOff | void> {
   const then = String(formData.get('then') ?? '');
   const first_name = String(formData.get('first_name') ?? '').trim();
   const last_name = String(formData.get('last_name') ?? '').trim();
@@ -168,8 +170,21 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
     google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
   });
   if (method === 'apple' || method === 'google') {
+    // 📱 Inside the phone app: the app's native sign-in, same `next`
+    // (lib/native-account-save.ts) — never the provider in this web view.
+    const handOff = nativeSaveHandOff({
+      posted: formData.get(NATIVE_SAVE_FIELD),
+      userAgent: (await headers()).get('user-agent'),
+      providers: {
+        apple: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_APPLE_ENABLED),
+        google: envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED),
+      },
+      method,
+      next: eventConnectPath(event.event_id as string),
+    });
+    if (handOff) return handOff;
     const next = new FormData();
-    next.set('next', `/join/${event.event_id}/connect`);
+    next.set('next', eventConnectPath(event.event_id as string));
     return method === 'apple' ? signInWithApple(next) : signInWithGoogle(next);
   }
   // 📵 No provider on this device (an in-app browser): there is no email link

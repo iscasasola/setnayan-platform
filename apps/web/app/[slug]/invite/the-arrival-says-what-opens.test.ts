@@ -102,7 +102,9 @@ test('the promise it does make is one the provider flow keeps', () => {
   // RSVP page still reads the account's own details as defaults.
   // The one Save posts to `startAccountSaveAction`, which hands the provider
   // THIS event's connect route (📵 never an emailed link — owner 2026-09-29).
-  assert.match(SAVE, /action=\{startAccountSaveAction\.bind\(null, eventId, slug\)\}/, 'the Save button no longer posts to the one save');
+  // The web form casts it to React's void action type (the phone app's native
+  // form calls the same action — lib/native-account-save.ts); still the one save.
+  assert.match(SAVE, /<form action=\{startAccountSaveAction\.bind\(null, eventId, slug\)(?: as WebFormAction)?\}/, 'the Save button no longer posts to the one save');
   const actions = read('[slug]/actions.ts');
   const save = actions.slice(actions.indexOf('export async function startAccountSaveAction'));
   assert.match(save.slice(0, save.indexOf('\n}\n')), /next\.set\('next', eventConnectPath\(eventId\)\)/, 'the Save no longer returns through THIS event’s connect route');

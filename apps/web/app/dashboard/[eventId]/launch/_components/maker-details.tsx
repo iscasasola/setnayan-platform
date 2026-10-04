@@ -524,13 +524,13 @@ export function MakerDetails(props: MakerDetailsProps) {
      "Which stage do you want ready?"; an address that names a stage opens that
      stage's screen, and a walk opens on the item it names, else on the stage's
      first step still to do. */
-  const address = props.guide?.address ?? null;
+  const guideAt = props.guide?.address ?? null;
   const entry: GuidedScreen | null = (() => {
     if (!props.guide || !plan || !props.guide.open) return null;
-    if (!address || address.kind === 'stages') return { kind: 'stages' };
-    if (address.kind !== 'walk') return { kind: address.kind, round: address.round };
-    const named = props.guide.itemNamed ? stepOfItem(plan, initialItem, address.round) : null;
-    return named && named.stages.includes(address.round) ? { kind: 'step', step: named.key, round: address.round } : firstOpenScreen(plan, address.round);
+    if (!guideAt || guideAt.kind === 'stages') return { kind: 'stages' };
+    if (guideAt.kind !== 'walk') return { kind: guideAt.kind, round: guideAt.round };
+    const named = props.guide.itemNamed ? stepOfItem(plan, initialItem, guideAt.round) : null;
+    return named && named.stages.includes(guideAt.round) ? { kind: 'step', step: named.key, round: guideAt.round } : firstOpenScreen(plan, guideAt.round);
   })();
   const openingStep = entry?.kind === 'step' ? plan!.steps.find((s) => s.key === entry.step) : undefined;
   /* A walk opens on its step's item still not done (a named item stays). */

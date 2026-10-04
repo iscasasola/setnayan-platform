@@ -22,7 +22,7 @@ import { announceMakerSave } from '@/lib/maker-save-status';
 import type { MakerLogoOpening } from '@/lib/maker-logo-opening';
 import type { HubFontKey } from '@/lib/hub-fonts';
 import { FontPick } from '../../website/editor/_components/font-pick';
-import { logoFontOutlineUrl, outlineWords, type OtFace } from '@/lib/logo-fonts';
+import { logoFontOutlineUrl, outlineWords, pinLogoFaceWeight, type OtFace } from '@/lib/logo-fonts';
 import { fileToMarkSvg } from '@/lib/monogram-studio/upload';
 import { paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
@@ -148,6 +148,7 @@ async function textShapes(text: string, key: HubFontKey, italic: boolean): Promi
   const words = text.trim();
   if (!words) return null;
   const face = await loadFace(logoFontOutlineUrl(key, italic));
+  pinLogoFaceWeight(face, key);
   const S = 200;
   const bb = outlineWords(face, words, 0, 0, S).getBoundingBox();
   if (!(bb.x2 > bb.x1) || !(bb.y2 > bb.y1)) return null;

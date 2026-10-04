@@ -124,18 +124,13 @@ const EXCLUDED: Record<string, string> = {
   Cormorant:
     'the base cut of Cormorant Garamond, already offered as "Cormorant"; a second line with the same name and near-identical letters would be two names for one look',
   /*
-    ⏳ THE TEN THEME FACES (2026-10-04) — added so each Event Hub theme wears its
-    real body / labels / script face (`lib/hub-theme-faces.ts`). They are an OWNER
-    QUESTION for the dropdown, not a decision against it: offering one means
-    widening the `events.site_font_key` CHECK (a migration) AND the "Most used"
-    count would then tie six faces at 2 for places 3–8, which
-    `hub-fonts-most-used.test.ts` says a person must break.
+    ✅ THE TEN THEME FACES (2026-10-04) are no longer excluded: owner "Yes to
+    both" — Lora · Libre Baskerville · Crimson Pro · Josefin Sans · Kaushan
+    Script · Alex Brush · Parisienne · Cookie · Mrs Saint Delafield · Monoton are
+    in HUB_FONTS, the site_font_key CHECK accepts them (migration 20271263752844),
+    and the Most-used tie they create is ordered by theme count, then the
+    owner's named order (`hub-fonts-most-used.test.ts`).
   */
-  ...Object.fromEntries(
-    ['Lora', 'Libre Baskerville', 'Crimson Pro', 'Josefin Sans', 'Kaushan Script', 'Alex Brush', 'Parisienne', 'Cookie', 'Mrs Saint Delafield', 'Monoton'].map(
-      (f) => [f, 'a theme face, not yet a dropdown choice — owner question: offering it needs a site_font_key migration and a Most-used tie-break'],
-    ),
-  ),
 };
 
 async function shippedFamilies(): Promise<Map<string, string>> {

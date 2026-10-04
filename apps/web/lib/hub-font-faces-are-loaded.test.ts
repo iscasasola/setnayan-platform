@@ -26,9 +26,17 @@ function loadedFaces(): Map<string, { weights: Set<number>; italic: boolean }> {
       const body = block.slice(0, block.indexOf(`variable: '${variable}'`));
       const weights = new Set<number>();
       let italic = false;
-      for (const m of body.matchAll(/weight:\s*'(\d+)',\s*style:\s*'(normal|italic)'/g)) {
-        if (m[2] === 'italic') italic = true;
-        else weights.add(Number(m[1]));
+      // A static file names one weight ('400'); a variable file a range ('400 700'),
+      // which loads every hundred inside it (2026-10-04: Lora, Libre Baskerville,
+      // Josefin Sans are variable, and stay whole — their names are reserved).
+      for (const m of body.matchAll(/weight:\s*'(\d+)(?:\s+(\d+))?',\s*style:\s*'(normal|italic)'/g)) {
+        if (m[3] === 'italic') {
+          italic = true;
+          continue;
+        }
+        const lo = Number(m[1]);
+        const hi = m[2] ? Number(m[2]) : lo;
+        for (let w = lo; w <= hi; w += 100) weights.add(w);
       }
       out.set(variable, { weights, italic });
     }

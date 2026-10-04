@@ -15,10 +15,21 @@ Run from the repo root (needs python3 + fontTools + brotli):
     python3 scripts/make-logo-outline-fonts.py
 `lib/logo-fonts.test.ts` fails when a stage font has no outline file.
 All faces are SIL OFL 1.1 (see apps/web/public/logo-fonts/LICENSES.md).
+
+⛔ RESERVED FONT NAMES (2026-10-04, the ten theme faces of PR #6332). A face
+whose OFL.txt or name table reserves its name may NOT be subset or instanced
+and keep that name (OFL §3; OFL-FAQ 2.6) — the rule
+apps/web/scripts/build-theme-faces.py follows. So each `WHOLE` face below is the
+stage's WOFF2 DECOMPRESSED and nothing else: every glyph, every table, a
+variable font left variable (the Logo pins its weight at draw time —
+`LOGO_FONT_VARIATION`, lib/logo-fonts.ts). The script refuses to cut an RFN
+face, and proves the decompressed file has the source's glyph set.
 """
+import io
 import os
 import shutil
-from fontTools.ttLib import TTFont
+import sys
+from fontTools.ttLib import TTFont, woff2
 from fontTools.varLib import instancer
 from fontTools import subset
 
@@ -58,11 +69,52 @@ SOURCES = {
     'poppins': ('app/_fonts/poppins/poppins-400.woff2', 400),
 }
 
+# The ten theme faces (2026-10-04). key -> (source, weight the stage draws, whole?)
+# `whole=True` — a Reserved Font Name: decompressed only, never cut. Crimson Pro
+# and Alex Brush reserve nothing; their stage files are already latin cuts.
+THEME_FACES = {
+    'lora': ('app/_fonts/lora/lora-variable.woff2', 400, True),
+    'baskerville': ('app/_fonts/libre-baskerville/libre-baskerville-variable.woff2', 400, True),
+    'crimson': ('app/_fonts/crimson-pro/crimson-pro-400.woff2', 400, False),
+    'josefin': ('app/_fonts/josefin-sans/josefin-sans-variable.woff2', 400, True),
+    'kaushan': ('app/_fonts/kaushan-script/kaushan-script-400.woff2', 400, True),
+    'alexbrush': ('app/_fonts/alex-brush/alex-brush-400.woff2', 400, False),
+    'parisienne': ('app/_fonts/parisienne/parisienne-400.woff2', 400, True),
+    'cookie': ('app/_fonts/cookie/cookie-400.woff2', 400, True),
+    'delafield': ('app/_fonts/mrs-saint-delafield/mrs-saint-delafield-400.woff2', 400, True),
+    'monoton': ('app/_fonts/monoton/monoton-400.woff2', 400, True),
+}
+
+
+def reserved(src_path: str) -> bool:
+    """The family reserves its name — in its OFL.txt or its own name table."""
+    ofl = open(os.path.join(os.path.dirname(src_path), 'OFL.txt'), encoding='utf8').read()
+    font = TTFont(src_path)
+    notice = (font['name'].getDebugName(0) or '') + (font['name'].getDebugName(13) or '')
+    return 'Reserved' in notice or 'Reserved' in ofl[: ofl.index('This Font Software is licensed')]
+
+
 # Basic Latin · Latin-1 · Latin Extended-A/B · Latin Extended Additional ·
 # general punctuation · currency.
 LATIN = [*range(0x20, 0x7F), *range(0xA0, 0x250), *range(0x1E00, 0x1F00), *range(0x2000, 0x2070), *range(0x20A0, 0x20D0)]
 
 os.makedirs(OUT, exist_ok=True)
+for key, (src, weight, whole) in THEME_FACES.items():
+    path = os.path.join(ROOT, src)
+    dest = os.path.join(OUT, f'{key}.ttf')
+    if reserved(path) != whole:
+        print(f'refusing {key}: reserved={reserved(path)} but whole={whole}', file=sys.stderr)
+        sys.exit(1)
+    if whole:
+        woff2.decompress(path, dest)
+        a, b = TTFont(path), TTFont(dest)
+        if a.getGlyphOrder() != b.getGlyphOrder() or sorted(a.keys()) != sorted(b.keys()):
+            print(f'{key}: decompression changed the font', file=sys.stderr)
+            sys.exit(1)
+        print(f'{key:12s} {os.path.getsize(dest):>7d}  <- {src} (whole, RFN)')
+        continue
+    SOURCES[key] = (src, weight)
+
 for key, (src, weight) in SOURCES.items():
     path = os.path.join(ROOT, src)
     dest = os.path.join(OUT, f'{key}.ttf')

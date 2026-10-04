@@ -28,8 +28,8 @@ import {
  *     `PickMenu`: every step of every stage with ✓ / ○, any one picked any time
  *     — owner: *"they can still pick a step anytime?"*), and "All items", the
  *     grouped navigator one tap away;
- *   · the step's heading — its stage, its name, and where it shows in plain
- *     words;
+ *   · the step's heading — its stage and its name (no "where it shows" line
+ *     since 2026-10-05: no captions; the step data still carries `shows`);
  *   · each stage's Ready screen — the stage's steps ✓ / ○, and its real action
  *     beside Apply: Preview · Share (the Save the Date), Send invitations (the
  *     Guest list's own invite flow), Apply (the bar's ONE Apply);

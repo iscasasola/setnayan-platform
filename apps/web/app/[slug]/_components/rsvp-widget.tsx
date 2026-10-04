@@ -491,6 +491,8 @@ export function RsvpWidget({
           {answerOptions.map((option) => (
             <label
               key={option.key}
+              /* 🔘 Look › Buttons reaches the answers through this hook (globals.css). */
+              data-rsvp-answer=""
               className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
             >
               <input

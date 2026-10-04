@@ -138,6 +138,7 @@ export const SceneBackgroundRow = dynamic(() => import(/* webpackChunkName: "mak
    taps, never the Maker's arrival — so they ride this chunk instead of the first
    load, like the background panel above. Room in the 505KB Maker budget for #6205
    and #6209 without raising it. */
+export const ButtonsLookRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/buttons-look-row').then((m) => m.ButtonsLookRow), { loading: SlotRows });
 export const ColorsPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/pro-panels').then((m) => m.ColorsPanel), { loading: SlotRows });
 export const ProLockPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/pro-panels').then((m) => m.ProLockPanel), { loading: SlotRows });
 

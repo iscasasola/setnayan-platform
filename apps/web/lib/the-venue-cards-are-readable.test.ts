@@ -159,8 +159,11 @@ test('guestLookFrom spreads palette → the couple’s colours → ombré, and p
     at(/buildSitePaletteVars\(sanitizeRolePalette\(event\.role_palette\)\)/),
     at(/proSiteVarsFor\(event, proActive, hub\.theme\)/),
     at(/ombreLook\(INVITE_THEMES\[hub\.theme\]/),
-    at(/vars:\s*vars && Object\.keys\(vars\)\.length > 0 \? pinPlateInk\(vars, hub\.theme\) : null/),
+    // 🔘 Since Look › Buttons (2026-10-04) the pinned bag is named `painted` — the
+    // buttons are measured against it — and returned as the look's `vars`.
+    at(/const painted = vars && Object\.keys\(vars\)\.length > 0 \? pinPlateInk\(vars, hub\.theme\) : null/),
   ];
+  assert.match(body, /vars: painted,/, 'the pinned bag is not what the look returns');
   assert.ok(order.every((i) => i >= 0), `a layer moved out of guestLookFrom (positions ${order.join(', ')}) — this test composes the same layers; keep them in step`);
   assert.deepEqual([...order].sort((a, b) => a - b), order, 'the layers are spread in a different order than this test measures');
 });

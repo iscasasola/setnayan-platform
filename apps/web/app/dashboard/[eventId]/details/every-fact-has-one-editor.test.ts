@@ -73,7 +73,8 @@ const SAME_AS_THE_MAKER: Record<RecordEditorKey, { defined: string; maker: strin
   venues: { defined: `${L}/details-your-event.tsx`, maker: `${L}/details-your-event-parts.tsx`, mount: /<VenuesEditor\b/ },
   'love-story': { defined: 'app/dashboard/[eventId]/website/our-story/_components/love-story-live.tsx', maker: `${L}/maker-shell.tsx`, mount: /liveStoryPanel: LiveStoryPanel/ },
   'special-message': { defined: `${L}/special-message-field.tsx`, maker: `${L}/maker-details.tsx`, mount: /<SpecialMessageField\b/ },
-  settings: { defined: `${D}/_components/event-settings-editor.tsx`, maker: `${D}/change/page.tsx`, mount: /<EventSettingsEditor\b/ },
+  /* Never in the Maker (it saves live): its other door was /details/change, which now lands on this row's field. */
+  settings: { defined: `${D}/_components/event-settings-editor.tsx`, maker: `${D}/change/page.tsx`, mount: /redirect\(`\/dashboard\/\$\{eventId\}\/details\/field\/area`\)/ },
 };
 
 /** How the record reaches each editor: the component itself, or the Maker's own builder of it. */
@@ -169,8 +170,7 @@ test('opening a row writes nothing — a GET to its field, and nothing on that p
     `${D}/@field/(.)field/[row]/page.tsx`,
     `${D}/@field/(.)field/[row]/loading.tsx`,
     `${D}/@field/default.tsx`,
-    `${D}/@field/page.tsx`,
-    `${D}/@field/[...catchAll]/page.tsx`,
+    `${D}/change/page.tsx`,
     `${D}/field/[row]/page.tsx`,
     `${D}/_components/record-field-slot.tsx`,
     `${D}/_components/record-editor.tsx`,

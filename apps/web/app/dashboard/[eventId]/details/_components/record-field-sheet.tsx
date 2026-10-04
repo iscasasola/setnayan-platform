@@ -2,8 +2,9 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { OneOpenScope } from '@/lib/one-open';
+import { recordRowOfPath } from '@/lib/event-details-record';
 import { MakerHalfSheet } from '../../launch/_components/maker-sheet';
 import { recordFoldId } from './record-fold';
 
@@ -49,6 +50,11 @@ export function RecordFieldSheet({
   children: ReactNode;
 }) {
   const router = useRouter();
+  /* 🔑 Shown only while the address names THIS row. Closing is a soft
+     navigation back to the record, and Next keeps a parallel slot's last
+     content when the new address does not match it — so the field hides
+     itself the moment its address is gone, instead of a slot page per route. */
+  const here = recordRowOfPath(usePathname()) === row;
   /* Where the desktop draws it: the row's own slot. Unknown until mounted —
      until then a desktop draws nothing, so it never flashes at the page's foot. */
   const [inPlace, setInPlace] = useState<HTMLElement | null>(null);
@@ -88,5 +94,6 @@ export function RecordFieldSheet({
       </div>
     </MakerHalfSheet>
   );
+  if (!here) return null;
   return inPlace ? createPortal(sheet, inPlace) : sheet;
 }

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "d1d3bb51e",
-  "routeCount": 423,
-  "destinations": 945,
+  "generatedFromRef": "b2ddc9ae5",
+  "routeCount": 425,
+  "destinations": 946,
   "actions": 668,
-  "blocks": 5444,
+  "blocks": 5466,
   "routes": {
     "/": {
       "files": [
@@ -5682,11 +5682,18 @@
         "dashboard/[eventId]/details/_components/pax-settings-card.tsx",
         "dashboard/[eventId]/details/_components/people-with-access.tsx",
         "dashboard/[eventId]/details/_components/put-away-card.tsx",
+        "dashboard/[eventId]/details/_components/record-editor.tsx",
+        "dashboard/[eventId]/details/_components/record-field-sheet.tsx",
+        "dashboard/[eventId]/details/_components/record-field-slot.tsx",
+        "dashboard/[eventId]/details/_components/record-fold.tsx",
+        "dashboard/[eventId]/details/_components/record-row-link.tsx",
+        "dashboard/[eventId]/details/layout.tsx",
         "dashboard/[eventId]/details/loading.tsx",
         "dashboard/[eventId]/details/page.tsx"
       ],
       "destinations": [
         "/dashboard/[seg]/date-selection",
+        "/dashboard/[seg]/launch?tool=details&guide=1",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=details",
         "/help"
       ],
@@ -5697,28 +5704,60 @@
         "AccessPick",
         "AddPerson",
         "AreaPicks",
+        "ButtonsLookRow",
+        "ColorsPanel",
+        "CouldNotOpen",
         "DetailsForm",
         "EditableField",
         "EditableRow",
         "ErrorNote",
+        "EventSettingsEditor",
         "FormPageSkeleton",
         "GovernedFields",
         "GuestAccessLevel",
+        "HTMLElement",
         "HTMLFormElement",
+        "HubDraftDock",
         "LastSeenCapture",
         "LastSeenFallback",
         "Link",
+        "LiveStoryPanel",
         "LockedRow",
+        "MakerHalfSheet",
+        "MakerRsvpSettings",
+        "MakerThemeMenu",
+        "OneOpenScope",
         "PageMasthead",
         "PaxSettingsCard",
         "PeopleWithAccess",
         "PickMenu",
+        "ProLockPanel",
         "PutAwayCard",
+        "ReactNode",
+        "RecordEditor",
+        "RecordFieldSheet",
+        "RecordFold",
+        "RecordRowLink",
         "RemoveCoordinator",
+        "RequestsPage",
         "Row",
         "Section",
+        "SpecialMessageField",
         "SubmitButton",
-        "T"
+        "Suspense",
+        "T",
+        "ThemePickProvider"
+      ]
+    },
+    "/dashboard/[eventId]/details/@field/(.)field/[row]": {
+      "files": [
+        "dashboard/[eventId]/details/@field/(.)field/[row]/loading.tsx",
+        "dashboard/[eventId]/details/@field/(.)field/[row]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RecordFieldSlot"
       ]
     },
     "/dashboard/[eventId]/details/change": {
@@ -5728,9 +5767,17 @@
       ],
       "destinations": [],
       "actions": [],
+      "blocks": []
+    },
+    "/dashboard/[eventId]/details/field/[row]": {
+      "files": [
+        "dashboard/[eventId]/details/field/[row]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
-        "EventSettingsEditor",
-        "PageMasthead"
+        "EventDetailsPage",
+        "RecordFieldSlot"
       ]
     },
     "/dashboard/[eventId]/disputes": {

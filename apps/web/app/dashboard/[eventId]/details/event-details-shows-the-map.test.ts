@@ -125,9 +125,10 @@ test('Event settings open in place from their rows — and are never mounted in 
   // actions, which breaks "nothing in the Maker takes effect until Apply" — so
   // they never ride the Maker. Since 2026-10-04 the record's own rows (kind,
   // area, the estimate, the list's closing day, how costs are shown) open them
-  // in place; the page stays for its address.
+  // in place; the page's address lands there.
+  // The old address lands on the record with that field open — one editor, one home.
   const page = read('app/dashboard/[eventId]/details/change/page.tsx');
-  assert.match(page, /<EventSettingsEditor\b/);
+  assert.match(page, /redirect\(`\/dashboard\/\$\{eventId\}\/details\/field\/area`\)/);
   const editor = read('app/dashboard/[eventId]/details/_components/record-editor.tsx');
   assert.match(editor, /case 'settings': \{[\s\S]{0,300}?<EventSettingsEditor\b/);
   const settings = read('app/dashboard/[eventId]/details/_components/event-settings-editor.tsx');

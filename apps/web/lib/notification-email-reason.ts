@@ -69,7 +69,7 @@ export const NOTIFICATION_EMAIL_REASONS: Partial<Record<NotificationType, string
   deletion_request_nudge: R('a request to remove a celebration is still waiting for your answer'),
   deletion_request_agreed: R('a supplier agreed to let your celebration be removed'),
   deletion_request_declined: R('a supplier did not agree to let your celebration be removed'),
-  event_deletion_answered: R('we answered your request to remove a celebration'),
+  event_deletion_answered: R('we answered your request to remove an event'),
   part_finalization_requested: R('a couple asked you to finalize part of their design'),
   part_finalization_agreed: R('a supplier finalized part of your design'),
   part_finalization_declined: R('a supplier did not finalize part of your design yet'),

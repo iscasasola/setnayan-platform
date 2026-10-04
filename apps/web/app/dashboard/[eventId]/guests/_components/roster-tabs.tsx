@@ -28,6 +28,8 @@
  * ⚠ Roster and Wedding March are VIEWS of this page (`?gview=`), so they are
  * real tabs with a current state. Share the link is a different page, so it is
  * a link styled to sit in the row — it never claims to be the current tab.
+ * (2026-10-04: the row is ONE `.sn-seg` segmented control, and the List · Mind
+ * map switch stands in the Roster tab's place — see the render below.)
  *
  * Server component: no state of its own. The dropdown that needs one arrives
  * through `trailing`; the QR PDF door (below) mounts `SaveFileLink`, a client
@@ -38,11 +40,12 @@
 import Link from 'next/link';
 import { ClipboardCheck, Send } from 'lucide-react';
 import { rosterDoors } from '@/lib/roster-doors';
+import { SEG_ITEM } from './view-switcher';
 
 export type RosterView = 'list' | 'map' | 'share';
 
 const ICON: Record<'share' | 'checkin', React.ReactNode> = {
-  share: <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />,
+  share: <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
   checkin: <ClipboardCheck aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
 };
 
@@ -71,31 +74,42 @@ export function RosterTabs({
   // the masthead's buttons moved in.
   const { tabs, trailing } = rosterDoors({ eventId, view, finished, hasJoinLink });
 
+  /*
+    ⚖ ONE SEGMENTED CONTROL (owner, live iPhone review 2026-10-04: the row
+    mixed underline tabs — Roster · Share the link — with the List · Mind map
+    pill, two looks for one job; "sections = ONE segmented control style").
+    It is the shipped `.sn-seg` (globals.css), the one the List · Mind map
+    switch already drew. List and Mind map ARE the roster, so when the switch
+    is handed in it stands where the Roster tab stood — every door still
+    reaches exactly where it did (`lib/roster-doors.ts` is unchanged).
+  */
   return (
-    <div className="flex items-center gap-2 border-b border-ink/[0.07]">
-      {/* The carousel. One row at every width; when the doors do not fit, the
-          row scrolls sideways instead of wrapping into a second line. */}
+    <div className="flex items-center gap-2">
+      {/* A <nav> of LINKS (review of #6352): every door goes to a URL, so it
+          keeps the nav landmark and the current one says `aria-current="page"`
+          — no tablist, which would promise arrow-key tabs and make "Share the
+          link" a broken tab. `.sn-seg-item[aria-current='page']` lights it. */}
       <nav
         aria-label="Guest list"
-        // 🪤 A CAROUSEL THAT CUTS A WORD IN HALF READS AS A BUG. Measured at
-        // 380px, the three wedding tabs needed 297px and had 282, so "Share the
-        // link" was chopped mid-word at the edge — the same complaint as the
-        // header's "CONTA", and a scrollable row gives no other hint that it
-        // scrolls. Two answers: tighter tabs on phones so they FIT at 380, and
-        // an 8px fade on the edge for narrower phones, which fades empty space
-        // when everything fits and reads as "more" when it does not.
-        className="-mb-px flex min-w-0 flex-1 snap-x snap-proximity items-stretch overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%_-_8px),transparent)] [scrollbar-width:none] sm:[mask-image:none] [&::-webkit-scrollbar]:hidden"
+        className="sn-seg min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] lg:flex-none [&::-webkit-scrollbar]:hidden"
+        data-roster-seg=""
       >
         {tabs.map((d) =>
           d.kind === 'tab' ? (
-            <Tab
-              key={d.key}
-              href={d.href}
-              current={d.current}
-              icon={d.key === 'share' ? ICON.share : undefined}
-            >
-              {d.label}
-            </Tab>
+            d.key === 'roster' && viewSwitch ? (
+              <span key={d.key} className="contents">
+                {viewSwitch}
+              </span>
+            ) : (
+              <Tab
+                key={d.key}
+                href={d.href}
+                current={d.current}
+                icon={d.key === 'share' ? ICON.share : undefined}
+              >
+                {d.label}
+              </Tab>
+            )
           ) : d.kind === 'link' ? (
             <Tab key={d.key} href={d.href} icon={ICON[d.key]}>
               {d.label}
@@ -104,28 +118,26 @@ export function RosterTabs({
         )}
       </nav>
 
-      <div className="flex shrink-0 items-center gap-1.5 pb-1">
-        {viewSwitch}
-        {trailing.map((d) =>
-          d.kind === 'link' ? (
-            // The one door that LEAVES for another editor (or, after the day,
-            // the check-in desk). Owner: an icon on a phone, so it stays in
-            // this row instead of wrapping onto its own.
-            <Link
-              key={d.key}
-              href={d.href}
-              title={d.label}
-              className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"
-            >
-              {ICON[d.key]}
-              <span className="hidden sm:inline">{d.label}</span>
-              <span className="sr-only sm:hidden">{d.label}</span>
-            </Link>
-          ) : d.kind === 'shareMenu' ? (
-            <span key={d.key}>{shareMenu}</span>
-          ) : null,
-        )}
-      </div>
+      {trailing.length > 0 ? (
+        <div className="flex shrink-0 items-center gap-1.5">
+          {trailing.map((d) =>
+            d.kind === 'link' ? (
+              <Link
+                key={d.key}
+                href={d.href}
+                title={d.label}
+                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm text-ink/70 hover:bg-ink/5 hover:text-ink"
+              >
+                {ICON[d.key]}
+                <span className="hidden sm:inline">{d.label}</span>
+                <span className="sr-only sm:hidden">{d.label}</span>
+              </Link>
+            ) : d.kind === 'shareMenu' ? (
+              <span key={d.key}>{shareMenu}</span>
+            ) : null,
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -137,7 +149,6 @@ function Tab({
   children,
 }: {
   href: string;
-  /** Omitted for a door to ANOTHER page — it is never the current tab. */
   current?: boolean;
   icon?: React.ReactNode;
   children: React.ReactNode;
@@ -146,13 +157,7 @@ function Tab({
     <Link
       href={href}
       aria-current={current ? 'page' : undefined}
-      // px-2 on a phone is what lets three tabs FIT at 380px (273 of 282px);
-      // px-3 from `sm` up, where there is room.
-      className={`inline-flex shrink-0 snap-start items-center gap-1.5 whitespace-nowrap border-b-2 px-2 py-2.5 text-sm transition-colors sm:px-3 ${
-        current
-          ? 'border-terracotta-700 font-medium text-ink'
-          : 'border-transparent text-ink/60 hover:text-ink'
-      }`}
+      className={SEG_ITEM}
     >
       {icon}
       {children}

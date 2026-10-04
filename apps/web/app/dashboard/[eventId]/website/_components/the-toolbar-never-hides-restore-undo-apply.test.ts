@@ -103,7 +103,7 @@ test('Apply (primary) reads through the shared button-primary class, like every 
  * ⋯ — registered from this bar (`MakerState.draft`) and still switched off, with
  * its reason, on the same field. This bar's own ⋯ button went (one ⋯ per bar).
  */
-test('HubDraftToolbar renders exactly Undo and Apply as DraftButton — unconditionally — and registers Restore for ⋯', () => {
+test('HubDraftToolbar renders exactly Undo and Apply as DraftButton — unconditionally — and registers Restore for Page ▾', () => {
   const fn = body('HubDraftToolbar');
   const calls = [...fn.matchAll(/<DraftButton\b/g)];
   assert.equal(calls.length, 2, `expected 2 <DraftButton>, found ${calls.length}`);
@@ -112,7 +112,7 @@ test('HubDraftToolbar renders exactly Undo and Apply as DraftButton — uncondit
   assert.ok(at > 0, "Undo's DraftButton is missing");
   const before = fn.slice(Math.max(0, at - 120), at);
   assert.doesNotMatch(before, /summary\.hasChanges\s*\?|summary\.hasChanges\s*&&|summary\.canUndo\s*\?|summary\.canUndo\s*&&/, 'Undo must not be conditionally rendered');
-  const applyAt = fn.indexOf('label={applyLabel}');
+  const applyAt = fn.indexOf('label="Apply"');
   assert.ok(applyAt > 0, "Apply's DraftButton is missing");
   const beforeApply = fn.slice(Math.max(0, applyAt - 160), applyAt);
   assert.doesNotMatch(beforeApply, /summary\.hasChanges\s*&&\s*!onlyPro|onlyPro\s*\?/, 'Apply must not be hidden when every change is Pro-gated — disabled + InfoTip instead');
@@ -125,25 +125,64 @@ test('each control disables off the field that actually means "nothing to do", n
   const block = (label: string) => {
     const at = fn.indexOf(label);
     assert.ok(at > 0, `${label} not found`);
-    return fn.slice(at, at + 260);
+    return fn.slice(at, at + 420);
   };
   assert.match(fn, /const canRestore = !pending && summary\.hasChanges;/, 'Restore: nothing to restore once the draft matches live');
   assert.match(block('label="Undo"'), /disabled=\{pending \|\| !summary\.canUndo\}/, 'Undo: only the history says whether a step back exists');
-  assert.match(block('label={applyLabel}'), /disabled=\{pending \|\| !summary\.hasChanges\}/, 'Apply: nothing to apply once the draft matches live');
+  assert.match(block('label="Apply"'), /disabled=\{pending \|\| !summary\.hasChanges\}/, 'Apply: nothing to apply once the draft matches live');
 });
 
 test('Apply is the one primary (filled) button, and it wears the count of changes waiting', () => {
   const fn = body('HubDraftToolbar');
-  const undo = fn.slice(fn.indexOf('label="Undo"'), fn.indexOf('label={applyLabel}'));
-  const apply = fn.slice(fn.indexOf('label={applyLabel}'), fn.indexOf('label={applyLabel}') + 900);
+  const undo = fn.slice(fn.indexOf('label="Undo"'), fn.indexOf('label="Apply"'));
+  const apply = fn.slice(fn.indexOf('label="Apply"'), fn.indexOf('label="Apply"') + 900);
   assert.doesNotMatch(undo, /\bprimary\b/, 'Undo must not be the primary button');
   assert.match(apply, /\bprimary\b/, 'Apply must be the primary button');
   assert.match(apply, /data-maker-apply-count=""/, 'Apply lost its count (design: "Apply 3")');
-  // The bar's Phone button sits between Undo and Apply (Exit · Page ▾ · Look · Details · Undo · Phone · Apply · ⋯).
-  assert.match(undo, /\{maker\?\.viewToggle \?\? null\}/);
+  // The bar's Preview menu sits between Undo and Apply (owner 2026-10-04: ‹ · stage · ↶ · 👁 · ✓N).
+  assert.match(undo, /\{maker\?\.previewMenu \?\? null\}/);
 });
 
-test('Reset stays in the draft panel — opened by ⋯ › Reset, never promoted beside Undo/Apply', () => {
+/*
+ * ✓ A MIS-TAP NEVER PUBLISHES (owner 2026-10-04, *"apply icon"*): the bar's Apply
+ * is a 44 px ✓ circle, so its FIRST tap opens the Apply sheet — with or without
+ * Pro effects — and only the sheet's labelled Apply writes.
+ */
+test('✓ Apply’s first tap OPENS THE SHEET and does not publish; the sheet’s labelled Apply is the only write', async () => {
+  const fn = body('HubDraftToolbar');
+  const apply = fn.slice(fn.indexOf('label="Apply"'), fn.indexOf('label="Apply"') + 600);
+  const click = /onClick=\{([^}]*\}?)\}/.exec(apply)?.[1] ?? '';
+  assert.equal(click.trim(), '() => setSheetOpen(true)', `Apply's tap does something besides opening the sheet: ${click}`);
+  assert.doesNotMatch(click, /act\(|intent|run\(/, 'the first tap on Apply writes');
+  assert.match(apply, /name=\{applyName\}/, 'Apply is not named with its count ("Apply 3 changes")');
+  assert.match(fn, /const applyName = `Apply \$\{formatCount\(applyCount\)\} \$\{applyCount === 1 \? 'change' : 'changes'\}`;/);
+  // The sheet opens without Pro effects too (it was gated on a Pro link), and its Apply is the write.
+  assert.match(fn, /\{sheetOpen && typeof document !== 'undefined' \? createPortal\(/, 'the sheet only opens when Pro is asked for');
+  assert.match(fn, /onApplyFree=\{\(\) => \{\s*setSheetOpen\(false\);\s*act\(\{ intent: 'apply' \}\);/, 'the sheet’s Apply does not apply');
+  // Mounted: with nothing Pro, the sheet says how many changes wait and offers ONE labelled Apply.
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { ApplyProSheet } = await import('./apply-pro-sheet');
+  let applied = 0;
+  const html = renderToStaticMarkup(
+    React.createElement(ApplyProSheet as never, {
+      effects: [],
+      changeCount: 3,
+      priceLabel: null,
+      proHref: null,
+      pending: false,
+      onGo: () => {},
+      onRemove: () => {},
+      onApplyFree: () => (applied += 1),
+      onClose: () => {},
+    }),
+  );
+  assert.match(html, /Ready to apply/);
+  assert.match(html, /3 changes guests do not see yet/, 'the sheet does not say what is waiting');
+  assert.equal((html.match(/>Apply</g) ?? []).length, 1, 'the sheet has no single labelled Apply');
+  assert.equal(applied, 0, 'opening the sheet applied something');
+});
+
+test('Reset stays in the draft panel — opened by Page ▾ › Reset, never promoted beside Undo/Apply', () => {
   const fn = body('HubDraftToolbar');
   const panelAt = fn.indexOf('data-maker-draft-panel=""');
   assert.ok(panelAt > 0, 'the draft panel is gone');
@@ -163,7 +202,7 @@ test('the rest of the Phase 2 dock survives the redesign: Pro line, store-shell 
   assert.match(fn, /Reset in your draft\. Guests still see the old page until you Apply\./, "Reset's own confirmation copy must still render");
 });
 
-test('the ⋯ panel NEVER opens by itself — what an action reports is said beside Apply', () => {
+test('the draft panel NEVER opens by itself — what an action reports is said beside Apply', () => {
   const fn = body('HubDraftToolbar');
   // Superseded 2026-10-02 (owner, live phone test: the "Reset Save the Date…"
   // box came back after every Apply and would not close). The answer is said in

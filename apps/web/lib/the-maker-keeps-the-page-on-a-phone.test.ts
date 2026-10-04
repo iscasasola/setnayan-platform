@@ -21,10 +21,15 @@
  *     top bar + sheet ≤ 45% — the dimmed page keeps ≥ 55%; one sheet at a time;
  *   · a tap on the dimmed page closes the sheet;
  *   · no pill rows in a sheet on a phone — a set of choices is one dropdown;
- *   · each bar is ONE row at 375 px and EXACTLY frame G's: ‹ Exit · the stage ·
- *     Undo · ⋯ on top; Page ▾ · Look · Details · Apply at the bottom (owner
- *     2026-10-02: "no" to bars that differ from the approved design) — every
- *     word fits its button;
+ *   · each bar is ONE row at 375 px: ‹ Exit · the stage · ↶ Undo · 👁 Preview ·
+ *     ✓ Apply on top; Page ▾ · Look · Event Details at the bottom (frame G as
+ *     the owner rearranged it on 2026-10-04 — Undo beside Apply, ⋯ → Preview,
+ *     *"apply icon · undo icon · exit icon"*) — every bar button a 44 px target
+ *     with its name, every word fits its button;
+ *   · the scene sheet is the HALF sheet (`MakerHalfSheet`): it rests at half,
+ *     and its page is live, not dimmed (owner 2026-10-04 — the change is seen
+ *     live, and a tap on another element must reach the canvas;
+ *     `lib/a-phone-sheet-opens-at-half.test.ts`);
  *   · the Maker is sized to the VISIBLE screen: `100dvh`, never `vh`.
  */
 import test from 'node:test';
@@ -64,16 +69,22 @@ async function withRouter(el: React.ReactElement): Promise<React.ReactElement> {
   return React.createElement(AppRouterContext.Provider, { value: ROUTER as never }, el);
 }
 
-/** Undo · Apply as the draft bar draws them (`HubDraftToolbar` — pinned below to these exact props). */
+/** Undo · Preview · Apply as the draft bar draws them (`HubDraftToolbar` — pinned below to these exact props). */
 async function draftButtons(): Promise<React.ReactElement> {
   const { DraftButton } = await import('../app/dashboard/[eventId]/website/_components/hub-draft-button');
+  const { useMaker } = await import(`../${L}/maker-context`);
   const off = { disabled: true, disabledReason: 'Nothing yet', onClick: () => {} };
-  return React.createElement(
-    React.Fragment,
-    null,
-    React.createElement(DraftButton, { label: 'Undo', icon: null, wordFrom: 'md', phone: { width: MAKER_BAR_PHONE.undoTop }, ...off }),
-    React.createElement(DraftButton, { label: 'Apply', icon: null, primary: true, phone: { width: MAKER_BAR_PHONE.applyTop, word: true }, ...off }),
-  );
+  function Slot() {
+    const maker = useMaker();
+    return React.createElement(
+      React.Fragment,
+      null,
+      React.createElement(DraftButton, { label: 'Undo', icon: null, bar: 'icon', phone: { width: MAKER_BAR_PHONE.undoTop }, ...off }),
+      maker?.previewMenu ?? null,
+      React.createElement(DraftButton, { label: 'Apply', name: 'Apply 0 changes', icon: null, primary: true, bar: 'apply', phone: { width: MAKER_BAR_PHONE.applyTop }, ...off }),
+    );
+  }
+  return React.createElement(Slot);
 }
 
 /** The Maker shell, on a phone's first paint — with `details` as its open page, or none. */
@@ -198,13 +209,23 @@ const STATES: State[] = [
       return [...(await barsOnly()), ...phoneChromeIn(html)];
     },
   },
-  { name: 'a scene sheet', sheet: true, chrome: async () => [...(await barsOnly()), sourceChrome(`${E}/editor-shell.tsx`, 'aria-label="Inspector"')] },
+  {
+    name: 'a scene sheet (the half sheet, at rest — its page is live, not dimmed)',
+    sheet: true,
+    chrome: async () => {
+      const { MakerHalfSheet } = await import(`../${L}/maker-sheet`);
+      const html = renderToStaticMarkup(
+        React.createElement(MakerHalfSheet, { label: 'Inspector', title: 'Scene', target: 'scene:1', onClose: () => {} }, 'rows'),
+      );
+      return [...(await barsOnly()), ...phoneChromeIn(html)];
+    },
+  },
   { name: 'the logo studio’s layers', sheet: true, chrome: async () => [...(await barsOnly()), sourceChrome(`${L}/maker-logo.tsx`, 'data-logo-navigator=""')] },
   { name: 'the logo studio’s tools', sheet: true, chrome: async () => [...(await barsOnly()), sourceChrome(`${L}/maker-logo.tsx`, 'data-logo-tools=""')] },
 ];
 
 for (const state of STATES) {
-  test(`📱 ${state.name}: the page keeps ${state.sheet ? '≥ 55% (dimmed)' : 'everything between the bars'}`, async () => {
+  test(`📱 ${state.name}: the page keeps ${state.sheet ? '≥ 55%' : 'everything between the bars'}`, async () => {
     const all = (await state.chrome()).filter((c) => !hiddenOnPhone(c.classes));
     assert.ok(all.some((c) => c.kind === 'bar'), 'the top bar was not found — it no longer says it is phone chrome');
     const panels = all.filter((c) => c.kind === 'panel');
@@ -265,11 +286,12 @@ test('🌗 a tap on the dimmed page closes the sheet — every Maker sheet has i
     [`${L}/details-workspace.tsx`, /<SheetScrim onClose=\{\(\) => setSheetOpen\(false\)\} \/>[\s\S]*<SheetScrim onClose=\{\(\) => setGuideSheet\(false\)\} \/>/],
     [`${L}/details-workspace.tsx`, /<SheetGrip onClose=\{\(\) => setSheetOpen\(false\)\} \/>[\s\S]*<SheetGrip onClose=\{\(\) => setGuideSheet\(false\)\} \/>/],
     [`${E}/element-sheet.tsx`, /<SheetScrim onClose=\{onClose\} \/>[\s\S]*<SheetGrip onClose=\{onClose\} \/>/],
-    [`${E}/editor-shell.tsx`, /<SheetScrim onClose=\{onClose\} \/>[\s\S]{0,400}aria-label="Inspector"[\s\S]{0,800}<SheetGrip onClose=\{onClose\} \/>/],
     [`${L}/maker-page.tsx`, /<SheetScrim onClose=\{\(\) => setOpen\(false\)\} \/>[\s\S]*<SheetGrip onClose=\{\(\) => setOpen\(false\)\} \/>/],
     [`${L}/maker-logo.tsx`, /\{sheet \? <SheetScrim onClose=\{\(\) => setSheet\(null\)\} \/> : null\}/],
   ];
   for (const [file, re] of wiring) assert.match(stripComments(read(file)), re, `${file}: a sheet lost its dimmed-page close or its grip`);
+  // The scene sheet is the HALF sheet instead: a live page, a grip that drags, a slim bar (owner 2026-10-04).
+  assert.match(stripComments(read(`${E}/editor-shell.tsx`)), /<MakerHalfSheet\s+label="Inspector"/, 'the scene sheet is no longer the half sheet');
 });
 
 /* ── NO PILL ROWS IN A SHEET ─────────────────────────────────────────────── */
@@ -346,7 +368,7 @@ function fitsOneRow(row: ReturnType<typeof barRow>, need: string[], where: strin
     const w = pxOf(i.classes);
     assert.ok(w !== null, `${i.label} declares no phone width — the ${where} bar cannot be measured`);
     used += w;
-    if (['Exit', 'Look', 'Event Details', 'Apply'].includes(i.label)) {
+    if (['Look', 'Event Details'].includes(i.label)) {
       const word = i.label.length * MAKER_BAR_PHONE_WORD_PX * 0.6 + 2 * MAKER_BAR_PHONE_PAD_PX;
       assert.ok(word <= w, `"${i.label}" needs ${Math.ceil(word)} px on a phone but its button is ${w} px — the word would be cut`);
     }
@@ -354,22 +376,43 @@ function fitsOneRow(row: ReturnType<typeof barRow>, need: string[], where: strin
   assert.ok(used <= 375, `the ${where} bar needs ${used} px at least — more than 375, so it wraps or overflows`);
 }
 
-test('📏 each bar is ONE row at 375 px, exactly frame G — ‹ Exit · stage · Undo · ⋯ on top; Page ▾ · Look · Details · Apply at the bottom', async () => {
+test('📏 each bar is ONE row at 375 px — ‹ Exit · stage · ↶ Undo · 👁 Preview · ✓ Apply on top; Page ▾ · Look · Event Details at the bottom', async () => {
   const html = await shell(null);
   const top = barRow(html, '<header', '</header>');
-  // prototypes/maker_in_four_2026-09-30_fable.html, frame G ("Phone — the preview is the screen").
-  fitsOneRow(top, ['Exit', 'Stage', 'Undo', 'More'], 'top');
+  // Frame G as the owner rearranged it, 2026-10-04 (Undo beside Apply · ⋯ → Preview · icons).
+  fitsOneRow(top, ['Exit', 'Stage', 'Undo', 'Preview', 'Apply'], 'top');
   assert.match(top.head, /max-md:h-\[52px\]/, 'the top bar is no longer one 52 px row');
   const bottom = barRow(html, '<nav aria-label="Maker tools"', '</nav>');
-  fitsOneRow(bottom, ['Page', 'Look', 'Event Details', 'Apply'], 'bottom');
+  fitsOneRow(bottom, ['Page', 'Look', 'Event Details'], 'bottom');
   assert.match(top.head + html.slice(html.indexOf('<header'), html.indexOf('</header>')), /as a guest sees it/, 'the top bar does not name the stage the way frame G does');
   assert.match(bottom.head, /env\(safe-area-inset-bottom\)/, 'the bottom bar does not respect the phone’s bottom safe area');
+  assert.doesNotMatch(html.slice(html.indexOf('<nav aria-label="Maker tools"')), /data-maker-tool="apply-phone"/, 'Apply is in the bottom bar again — it sits beside Undo');
   // The draft bar draws Undo and Apply with exactly these phone props (the stub above is its copy).
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /wordFrom="md"\s*phone=\{\{ width: MAKER_BAR_PHONE\.undoTop \}\}/, 'the draft bar’s Undo is not the phone top bar’s icon');
-  assert.match(bar, /primary\s*phone=\{\{ width: MAKER_BAR_PHONE\.applyTop, word: true \}\}/, 'the draft bar’s Apply shows on the phone’s top bar — it is the bottom bar’s');
-  assert.match(bar, /apply: \{ label: applyWord, count: applyCount, enabled: applyEnabled \}/, 'the bottom bar’s Apply no longer reads the draft bar’s word, count and state');
+  assert.match(bar, /bar="icon"\s*phone=\{\{ width: MAKER_BAR_PHONE\.undoTop \}\}/, 'the draft bar’s Undo is not the bar’s 44 px icon');
+  assert.match(bar, /primary\s*bar="apply"\s*phone=\{\{ width: MAKER_BAR_PHONE\.applyTop \}\}/, 'the draft bar’s Apply is not the bar’s filled ✓');
   assert.doesNotMatch(bar, /\border-2\b/, 'a draft-bar item is ordered onto a second row again');
+});
+
+test('🔘 every button on the bar is a ≥ 44 px target with its name — Exit · Undo · Preview · Apply (phone AND desktop)', async () => {
+  const html = await shell(null);
+  const header = html.slice(html.indexOf('<header'), html.indexOf('</header>'));
+  const want: Record<string, RegExp> = {
+    Exit: /aria-label="Exit"/,
+    Undo: /aria-label="Undo"/,
+    Preview: /aria-label="Preview"/,
+    Apply: /aria-label="Apply \d+ changes?"/,
+  };
+  for (const [item, name] of Object.entries(want)) {
+    const tag = new RegExp(`<(?:a|button)\\b[^>]*data-bar-item="${item}"[^>]*>`).exec(header)?.[0];
+    assert.ok(tag, `${item} is not on the bar`);
+    assert.match(tag, name, `${item} has no name a screen reader says`);
+    const cls = /\bclass="([^"]*)"/.exec(tag)?.[1] ?? '';
+    assert.match(cls, /(?:^|\s)h-11(?:\s|$)/, `${item} is under 44 px tall`);
+    assert.match(cls, /(?:^|\s)w-11(?:\s|$)/, `${item} is under 44 px wide`);
+    assert.doesNotMatch(cls, /(?:^|\s)(?:md|lg):(?:h|w)-(?:[0-9]|10)(?:\s|$)/, `${item} shrinks under 44 px on a wider screen`);
+  }
+  assert.doesNotMatch(header, /aria-label="More"/, 'the ⋯ is back on the bar — it became 👁 Preview');
 });
 
 test('📐 the Maker is sized to the VISIBLE screen — dvh, never vh', () => {

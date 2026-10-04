@@ -45,8 +45,8 @@ import type { InviteThemeId } from '@/lib/invite-themes';
  * pointing at faces ALREADY declared on `<html>` with `preload: false`
  * (`app/layout.tsx`, `app/_fonts/choice-faces.ts`), so no class is added here
  * and no file downloads until a themed page sets text in it. Which face each
- * role wears — and the ten spec families worn through a shipped stand-in until
- * the owner says whether to add them — is `lib/hub-theme-faces.ts`.
+ * role wears is `lib/hub-theme-faces.ts` — every one the spec's own face since
+ * the ten missing Google families were added (2026-10-04).
  */
 const bodoni = localFont({
   src: [{ path: '../../../_fonts/bodoni-moda/bodoni-moda-600.woff2', weight: '600', style: 'normal' }],

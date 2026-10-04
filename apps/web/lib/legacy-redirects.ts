@@ -58,6 +58,10 @@ const EVENT_SCOPED: readonly (readonly [from: string, to: string])[] = [
   // was the page; `/studio` was its predecessor and had redirected to it.
   ['suite', MORE_MENU],
   ['studio', MORE_MENU],
+  // 👗 The old Dress code page (owner 2026-10-01, DECISION_LOG "THE DRESS CODE
+  // IS SET IN THE MOOD BOARD"; replace means remove, 2026-10-04). The Mood
+  // Board carries the same form; a couple lands on it in the Maker.
+  ['website/dress-code', 'studio/mood-board'],
   // (`details/change` is a real page again, 2026-10-02 — Event settings save
   // live, so they cannot sit in the Maker. Its redirect from #6280 is gone.)
 ];

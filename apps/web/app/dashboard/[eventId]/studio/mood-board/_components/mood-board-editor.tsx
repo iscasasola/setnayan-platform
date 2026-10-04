@@ -91,8 +91,8 @@ import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/orders';
 import { draftedEventColumn } from '@/lib/hub-draft-store';
-import { normalizeDressCodeConfig } from '../../../website/dress-code/_components/dress-code-fields';
-import { DressCodeListsForm } from '../../../website/dress-code/_components/dress-code-lists-form';
+import { normalizeDressCodeConfig } from './dress-code-fields';
+import { DressCodeListsForm } from './dress-code-lists-form';
 
 /**
  * THE MOOD BOARD — the whole studio, as ONE component, drawn in two places

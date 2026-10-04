@@ -209,7 +209,7 @@ test('a COLOUR is free, MEDIA is Pro — the two writers encode the owner\'s lin
 test('the words stay free — no words writer asks the look gate', () => {
   const WORDS: Array<[string, string]> = [
     ['app/dashboard/[eventId]/website/our-story/actions.ts', 'updateOurStory'],
-    ['app/dashboard/[eventId]/website/dress-code/actions.ts', 'updateDressCode'],
+    ['app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts', 'updateDressCode'],
     ['app/dashboard/[eventId]/website/special-message/actions.ts', 'updateSpecialMessage'],
     ['app/dashboard/[eventId]/website/what-to-bring/actions.ts', 'updateWhatToBring'],
     ['app/dashboard/[eventId]/website/photo-moments/actions.ts', 'updatePhotoMoments'],

@@ -217,7 +217,7 @@ export type EventRow = {
   photo_moments_config: unknown;
   // Host-curated dress code (CLAUDE.md 2026-05-22 PR #382). Stored as JSONB so a
   // brand-new event gets `{}` and the renderer's empty-state branch fires.
-  // Editor at /dashboard/[eventId]/website/dress-code stamps this shape.
+  // The Mood Board's dress code (studio/mood-board/dress-code-actions.ts) stamps this shape.
   dress_code_config?: {
     title?: string;
     description?: string;

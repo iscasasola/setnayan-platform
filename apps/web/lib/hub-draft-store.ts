@@ -1,4 +1,5 @@
 import 'server-only';
+import { hubDraftChangeLines } from '@/lib/hub-draft-change-lines';
 import { fixedSceneStylesFromPreferences } from '@/lib/fixed-scene-styles';
 import { sanitizeCustomSection } from '@/lib/custom-sections';
 import { cache } from 'react';
@@ -385,6 +386,8 @@ export const loadHubDraftBarData = cache(async function loadHubDraftBarData(
       // so a Pro key reads as needing the web even for an owning couple.
       summary = summarizeHubDraft(draft, live, ownsPro && !storeShell);
       if (!storeShell) proEffects = hubDraftProEffects(draft, live, ownsPro).map(hubProEffectView);
+      // 📋 …and the same changes BY NAME, for the Apply sheet (one reader, one walk).
+      summary.changes = hubDraftChangeLines(draft, live, ownsPro && !storeShell);
     }
   } catch (e) {
     console.error('[hub-draft] could not load the draft bar:', e instanceof Error ? e.message : e);
@@ -429,8 +432,8 @@ export async function hubDraftBarAfterSave(
 ): Promise<HubDraftBarLive | null> {
   try {
     const live = await readHubLiveState(supabase, eventId);
-    const free = summarizeHubDraft(draft, live, false);
-    const owned = summarizeHubDraft(draft, live, true);
+    const free = { ...summarizeHubDraft(draft, live, false), changes: hubDraftChangeLines(draft, live, false) };
+    const owned = { ...summarizeHubDraft(draft, live, true), changes: hubDraftChangeLines(draft, live, true) };
     const proEffects = hubDraftProEffects(draft, live, false).map(hubProEffectView);
     let priceLabel: string | null = null;
     if (free.proCount > 0) {

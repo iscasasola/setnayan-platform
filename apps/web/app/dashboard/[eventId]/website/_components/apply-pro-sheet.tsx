@@ -8,6 +8,10 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { formatCount } from '@/lib/format-number';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/lib/hub-pro-effect-view';
+import type { HubDraftChangeLine } from '@/lib/hub-draft';
+
+/** How many named changes the sheet shows before "+ N more" — a short list, never a scroll. */
+export const APPLY_SHEET_MAX_LINES = 8;
 
 /**
  * 💎 THE APPLY SHEET — Apply is where Event Hub Pro is asked for.
@@ -37,6 +41,13 @@ import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/l
  * effect it is "Ready to apply", saying how many changes are waiting, and its
  * ONE labelled Apply is the only press that puts them live.
  *
+ * 📋 …AND NAMES EACH ONE (owner 2026-10-04, *"Yes"* — DECISION_LOG "… THE
+ * APPLY SHEET NAMES EACH CHANGE"): under the count, up to eight plain lines
+ * grouped by where each lives — "Look · Buttons", "Event Details · Ceremony
+ * time" — then "+ N more". `changes` is `HubDraftSummary.changes`, the same
+ * walk the count makes (`hubDraftCountedChanges`), so the lines and the number
+ * cannot disagree. A Pro line keeps its ◆. Reading it writes nothing.
+ *
  * No server imports — its actions come in as props, so a test can mount it.
  */
 export function ApplyProSheet({
@@ -50,11 +61,14 @@ export function ApplyProSheet({
   onClose,
   tour = null,
   changeCount = 0,
+  changes,
   heldOnWeb = 0,
 }: {
   effects: readonly HubProEffectView[];
   /** How many changes guests do not see yet (`HubDraftSummary.changeCount`). */
   changeCount?: number;
+  /** The same changes by name (`HubDraftSummary.changes`) — absent = not read, then only the count shows. */
+  changes?: readonly HubDraftChangeLine[];
   /** 📵 The store shell: how many of them can be applied on the web only. */
   heldOnWeb?: number;
   /** `formatPhp` over the live catalogue row, or null — then no figure is shown. */
@@ -116,11 +130,33 @@ export function ApplyProSheet({
 
         {none ? null : tour}
         {none ? (
-          <div className="px-4 py-3 text-sm text-ink/70" data-apply-ready="">
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm text-ink/70" data-apply-ready="">
             <p>
               {changeCount === 1 ? '1 change' : `${formatCount(changeCount)} changes`} guests do not see yet. Apply puts{' '}
               {changeCount === 1 ? 'it' : 'them'} on your Event Hub.
             </p>
+            {changes && changes.length > 0 ? (
+              <ul className="mt-2 flex flex-col gap-1" data-apply-changes="">
+                {changes.slice(0, APPLY_SHEET_MAX_LINES).map((c, i) => (
+                  <li key={`${c.place}·${c.what}·${i}`} data-apply-change="" className="flex min-w-0 items-center gap-1.5 text-ink">
+                    {c.pro ? (
+                      <PaidMark state={c.held ? 'try' : 'unlocked'} bare label="Event Hub Pro" size="xs" />
+                    ) : (
+                      <span aria-hidden className="inline-block h-1 w-1 shrink-0 rounded-full bg-ink/30" />
+                    )}
+                    <span className="min-w-0 truncate">
+                      <span className="text-ink/60">{c.place} · </span>
+                      <span className="font-semibold">{c.what}</span>
+                    </span>
+                  </li>
+                ))}
+                {changes.length > APPLY_SHEET_MAX_LINES ? (
+                  <li data-apply-change-more="" className="pl-2.5 text-ink/60">
+                    + {formatCount(changes.length - APPLY_SHEET_MAX_LINES)} more
+                  </li>
+                ) : null}
+              </ul>
+            ) : null}
             {heldOnWeb > 0 ? (
               <p className="mt-1">{heldOnWeb === 1 ? 'One change' : `${formatCount(heldOnWeb)} changes`} can be applied on the web.</p>
             ) : null}

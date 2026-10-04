@@ -16,7 +16,13 @@
  *      day when the Schedule has none, and MOVES it (its parts with it) when it
  *      has one — through the REAL `placeCeremonyBlock`, as the couple; the
  *      invitation's own read (`ceremonyBlock` · `blockTime`) then prints it;
- *   4. a date that moves takes the ceremony with it.
+ *   4. a date that moves takes the ceremony with it;
+ *   5. 📅 a date that moves takes THE WHOLE SCHEDULE with it (owner 2026-10-04,
+ *      DECISION_LOG "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE") — every
+ *      block, every type, parents and parts, by the same number of days, each
+ *      keeping its time — through the REAL `moveScheduleWithDate`, as the
+ *      couple; pressing Apply again moves nothing; a date that was a month (no
+ *      exact day) moves nothing; a stranger's session moves nothing.
  *
  * Draft JSON and Apply's plan come from the SAME pure functions the server
  * action calls (`mergeHubDraft`, `planHubDraftApply`).
@@ -40,11 +46,13 @@ import {
   type HubLiveState,
 } from '../../lib/hub-draft';
 import { blockTime, ceremonyBlock } from '../../lib/print-pieces';
+import { exactDayOf, toDatetimeLocalValue } from '../../lib/schedule-datetime-local';
 
 let replay: ReplayResult;
 let db: PGlite;
 let placeCeremonyBlock: typeof import('../../lib/ceremony-time.server').placeCeremonyBlock;
 let readLiveCeremonyTime: typeof import('../../lib/ceremony-time.server').readLiveCeremonyTime;
+let moveScheduleWithDate: typeof import('../../lib/ceremony-time.server').moveScheduleWithDate;
 let writeHubDraft: typeof import('../../lib/hub-draft-store').writeHubDraft;
 
 const F = { couple: '', eventId: '' };
@@ -171,7 +179,7 @@ before(async () => {
   replay = await createReplayedDb();
   db = replay.db;
   await reset();
-  ({ placeCeremonyBlock, readLiveCeremonyTime } = await import('../../lib/ceremony-time.server'));
+  ({ placeCeremonyBlock, readLiveCeremonyTime, moveScheduleWithDate } = await import('../../lib/ceremony-time.server'));
   ({ writeHubDraft } = await import('../../lib/hub-draft-store'));
   F.couple = (
     await db.query<{ id: string }>(
@@ -286,4 +294,149 @@ test('4 · a date that moves takes the ceremony with it — its time kept', asyn
   // A ceremony the couple put on ANOTHER day stays where they put it.
   const stay = await placeCeremonyBlock({ supabase: coupleClient(F.couple), eventId: F.eventId, day: '2031-05-01', time: null, fromDay: DAY });
   assert.deepEqual(stay, { ok: true, wrote: 'none' });
+});
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   📅 THE WHOLE SCHEDULE FOLLOWS THE DATE — owner 2026-10-04, verbatim: "Yes if
+   possible". Its own event, so the blocks above never blur what moved.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+const D1 = '2031-06-07';
+const D2 = '2031-06-21';
+const G = { eventId: '', stranger: '' };
+
+async function blocksOf(eventId: string) {
+  return (
+    await db.query<{ label: string; block_type: string; start_at: string; end_at: string | null; parent: string | null }>(
+      `SELECT b.label, b.block_type::text AS block_type,
+              to_char(b.start_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS start_at,
+              to_char(b.end_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS end_at,
+              p.label AS parent
+         FROM public.event_schedule_blocks b LEFT JOIN public.event_schedule_blocks p ON p.block_id = b.parent_block_id
+        WHERE b.event_id = $1 ORDER BY b.label`,
+      [eventId],
+    )
+  ).rows;
+}
+
+/** The live date as Apply reads it — through the couple's session. */
+async function liveDate(eventId: string) {
+  const r = await as<{ event_date: string; event_date_precision: string }>(
+    F.couple,
+    `SELECT to_char(event_date, 'YYYY-MM-DD') AS event_date, event_date_precision FROM public.events WHERE event_id = $1`,
+    [eventId],
+  );
+  assert.equal(r.err, null, `the couple cannot read their own date: ${r.err}`);
+  return r.rows[0]!;
+}
+
+/** Apply's date write, as the couple, asking for the row back. */
+async function applyDate(eventId: string, date: string) {
+  const w = await as(F.couple, `UPDATE public.events SET event_date = $2 WHERE event_id = $1 RETURNING event_id`, [eventId, date]);
+  assert.equal(w.err, null, `Apply’s date write was refused: ${w.err}`);
+  assert.equal(w.n, 1, 'the date write reached no row');
+}
+
+test('5 · setup — a full day on D1: hair at 8, the ceremony with a part, the reception, and the civil rite the day before', async () => {
+  G.eventId = (
+    await db.query<{ e: string }>(
+      `INSERT INTO public.events (display_name, event_type, ceremony_type, venue_setting, event_date, event_date_precision)
+       VALUES ('Rina & Paolo', 'wedding', 'catholic', 'garden', $1, 'day') RETURNING event_id AS e`,
+      [D1],
+    )
+  ).rows[0]!.e;
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [G.eventId, F.couple]);
+  G.stranger = (
+    await db.query<{ id: string }>(
+      `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ('stranger@apply.test', jsonb_build_object('account_type', 'customer')) RETURNING id`,
+    )
+  ).rows[0]!.id;
+  const ins = async (label: string, type: string, start: string, end: string | null, parent: string | null = null) =>
+    (
+      await db.query<{ id: string }>(
+        `INSERT INTO public.event_schedule_blocks (event_id, label, block_type, start_at, end_at, parent_block_id)
+         VALUES ($1, $2, $3::public.schedule_block_type, $4, $5, $6) RETURNING block_id AS id`,
+        [G.eventId, label, type, start, end, parent],
+      )
+    ).rows[0]!.id;
+  await ins('Civil rite', 'custom', '2031-06-06T10:00:00Z', '2031-06-06T10:30:00Z');
+  await ins('Hair & make-up', 'custom', `${D1}T08:00:00Z`, `${D1}T10:00:00Z`);
+  const ceremony = await ins('Ceremony', 'ceremony', `${D1}T15:00:00Z`, `${D1}T16:00:00Z`);
+  await ins('Sand ceremony', 'custom', `${D1}T15:30:00Z`, null, ceremony);
+  await ins('Reception', 'reception', `${D1}T18:00:00Z`, `${D1}T23:30:00Z`);
+  assert.equal((await blocksOf(G.eventId)).length, 5, 'anti-vacuity: the day has five blocks to move');
+});
+
+test('6 · APPLY moves EVERY block by the same days — each keeps its time, its length and its parent', async () => {
+  const before = await blocksOf(G.eventId);
+  // The draft and the plan the action runs: the date is the one change.
+  const draft = mergeHubDraft(emptyHubDraft(), { events: { event_date: D2 } });
+  const prior = await liveDate(G.eventId);
+  const plan = planHubDraftApply(draft, { events: { ...prior, ceremony_time: null } as HubLiveState['events'], widgets: [] }, false);
+  assert.ok(plan.apply.some((i) => i.kind === 'event' && i.column === 'event_date'), 'the plan does not write the date');
+  await applyDate(G.eventId, D2);
+  const r = await moveScheduleWithDate({
+    supabase: coupleClient(F.couple),
+    eventId: G.eventId,
+    fromDay: exactDayOf(prior.event_date, prior.event_date_precision),
+    toDay: exactDayOf(D2, 'day'),
+  });
+  assert.deepEqual(r, { ok: true, moved: 5 }, 'not every block moved');
+  const after = await blocksOf(G.eventId);
+  assert.equal(after.length, before.length, 'a block was created or deleted — the move only moves');
+  for (const b of before) {
+    const a = after.find((x) => x.label === b.label)!;
+    const was = toDatetimeLocalValue(b.start_at);
+    const now = toDatetimeLocalValue(a.start_at);
+    assert.equal(now.slice(11), was.slice(11), `${b.label}: its time changed (${was} → ${now})`);
+    const days = (Date.parse(`${now.slice(0, 10)}T00:00Z`) - Date.parse(`${was.slice(0, 10)}T00:00Z`)) / 86_400_000;
+    assert.equal(days, 14, `${b.label}: moved ${days} days, not 14`);
+    if (b.end_at) assert.equal(Date.parse(a.end_at!) - Date.parse(a.start_at), Date.parse(b.end_at) - Date.parse(b.start_at), `${b.label}: its length changed`);
+    else assert.equal(a.end_at, null, `${b.label}: an open block gained an end`);
+    assert.equal(a.parent, b.parent, `${b.label}: its parent changed`);
+  }
+  assert.equal(after.find((b) => b.label === 'Sand ceremony')!.start_at, `${D2}T15:30:00.000Z`, 'the part did not move with its ceremony');
+  assert.equal(after.find((b) => b.label === 'Civil rite')!.start_at, '2031-06-20T10:00:00.000Z', 'the day before did not stay the day before');
+  assert.equal(blockTime(ceremonyBlock(after)), '3:00 PM', 'the invitation no longer reads the ceremony at 3:00 PM');
+});
+
+test('7 · pressing Apply AGAIN moves nothing — the live date is already the new one', async () => {
+  const before = await blocksOf(G.eventId);
+  const draft = mergeHubDraft(emptyHubDraft(), { events: { event_date: D2 } });
+  const live = await liveDate(G.eventId);
+  const plan = planHubDraftApply(draft, { events: { ...live, ceremony_time: null } as HubLiveState['events'], widgets: [] }, false);
+  assert.equal(plan.apply.length, 0, 'Apply would write the same date twice');
+  const r = await moveScheduleWithDate({
+    supabase: coupleClient(F.couple),
+    eventId: G.eventId,
+    fromDay: exactDayOf(live.event_date, live.event_date_precision),
+    toDay: exactDayOf(D2, 'day'),
+  });
+  assert.deepEqual(r, { ok: true, moved: 0 });
+  assert.deepEqual(await blocksOf(G.eventId), before, 'a second Apply moved the schedule again');
+});
+
+test('8 · a date that was NOT one exact day (a month) moves nothing — there is no day to measure from', async () => {
+  await db.query(`UPDATE public.events SET event_date_precision = 'month' WHERE event_id = $1`, [G.eventId]);
+  const before = await blocksOf(G.eventId);
+  const prior = await liveDate(G.eventId);
+  assert.equal(exactDayOf(prior.event_date, prior.event_date_precision), null, 'a month read as a day');
+  assert.equal(exactDayOf('2031-06-01', 'year'), null, 'a year read as a day');
+  await applyDate(G.eventId, '2031-07-05');
+  const r = await moveScheduleWithDate({
+    supabase: coupleClient(F.couple),
+    eventId: G.eventId,
+    fromDay: exactDayOf(prior.event_date, prior.event_date_precision),
+    toDay: exactDayOf('2031-07-05', 'day'),
+  });
+  assert.deepEqual(r, { ok: true, moved: 0 });
+  assert.deepEqual(await blocksOf(G.eventId), before, 'a month-precision date moved the schedule');
+  await db.query(`UPDATE public.events SET event_date = $2, event_date_precision = 'day' WHERE event_id = $1`, [G.eventId, D2]);
+});
+
+test('9 · only the host moves it — a stranger’s session moves no block (RLS as today)', async () => {
+  const before = await blocksOf(G.eventId);
+  const r = await moveScheduleWithDate({ supabase: coupleClient(G.stranger), eventId: G.eventId, fromDay: D2, toDay: '2031-08-02' });
+  assert.equal(r.ok === true ? r.moved : r.moved, 0, 'a stranger moved a block');
+  assert.deepEqual(await blocksOf(G.eventId), before, 'a stranger’s session moved the couple’s schedule');
 });

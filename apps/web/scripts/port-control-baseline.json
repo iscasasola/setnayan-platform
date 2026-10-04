@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "8234d5d698",
+  "generatedFromRef": "cc5debdd46",
   "routeCount": 425,
   "destinations": 946,
   "actions": 668,
-  "blocks": 5477,
+  "blocks": 5478,
   "routes": {
     "/": {
       "files": [
@@ -1608,6 +1608,7 @@
         "InviteQrPanel",
         "LandingPreReply",
         "Link",
+        "PassHopHeld",
         "RsvpCanvasBridge",
         "SavePassCardButton",
         "SaveToAccount",

@@ -101,6 +101,9 @@ function usePick(): Pick {
   return v;
 }
 
+/** The gallery's label — plain words; never the names of somebody else's event on this one (B6). */
+export const THEME_SAMPLES_LABEL = 'Each theme on a sample Event Hub';
+
 export function ThemePickProvider({
   eventId,
   current,
@@ -266,7 +269,8 @@ export function MakerThemeGallery({
     <section data-maker-theme-picker="" aria-busy={pending} className="flex flex-col gap-3">
       <p className="flex flex-wrap items-center gap-2">
         <span className="rounded-full border border-dashed border-ink/25 px-3 py-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/60">
-          Samples · Maria &amp; Jose
+          {/* B6: plain words — never the names of somebody else's event. */}
+          {THEME_SAMPLES_LABEL}
         </span>
         <InfoTip label="About the samples" align="start">
           Each theme on our sample Event Hub — its page and its prints. Tap one and your own Event Hub and every print wear

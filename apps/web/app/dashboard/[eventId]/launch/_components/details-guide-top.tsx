@@ -6,16 +6,17 @@ import {
   progressLabel,
   progressShare,
   roundName,
+  stageSteps,
   type GuidedPlan,
-  type GuidedRound,
   type GuidedScreen,
-  type GuidedStep,
+  type GuidedStepKey,
   type GuidedStepState,
 } from '@/lib/details-guided-flow';
+import { isSetupStage } from '@/lib/stage-setup';
 
 /**
  * DETAILS › WHAT'S LEFT — THE PARTS DRAWN BEFORE A STEP IS (Details part 5):
- * the top line (progress and the ONE step dropdown, "Round 1 · 3 of 7 ▾"), the
+ * the top line (progress and the ONE step dropdown, "Save the Date · 3 of 7 ▾"), the
  * "What's left" door back into the flow, and the unsaved-typing check. They
  * stay in the Maker's first load; the step's own heading, its foot and the
  * Ready screens (\`details-guide.tsx\`) load with the Details pieces
@@ -30,13 +31,22 @@ const MARK: Record<GuidedStepState, NonNullable<PickOption['trail']>> = {
 };
 
 export function screenKey(at: GuidedScreen): string {
-  return at.kind === 'step' ? `step:${at.step}` : `ready:${at.round}`;
+  switch (at.kind) {
+    case 'stages':
+      return 'stages';
+    case 'step':
+      return `step:${at.round}:${at.step}`;
+    default:
+      return `${at.kind}:${at.round}`;
+  }
 }
 
 export function screenFromKey(key: string): GuidedScreen | null {
-  const [kind, v] = key.split(':');
-  if (kind === 'step' && v) return { kind: 'step', step: v as GuidedStep['key'] };
-  if (kind === 'ready' && (v === '0' || v === '1' || v === '2' || v === '3')) return { kind: 'ready', round: Number(v) as GuidedRound };
+  if (key === 'stages') return { kind: 'stages' };
+  const [kind, round, step] = key.split(':');
+  if (!isSetupStage(round)) return null;
+  if (kind === 'step' && step) return { kind: 'step', step: step as GuidedStepKey, round };
+  if (kind === 'ready' || kind === 'before') return { kind, round };
   return null;
 }
 
@@ -61,15 +71,20 @@ export function GuideTop({
    */
   inSheet?: boolean;
 }) {
-  const options: PickOption[] = plan.rounds.flatMap((r) => {
-    const group = roundName(plan, r);
-    return [
-      ...plan.steps
-        .filter((s) => s.round === r)
-        .map((s): PickOption => ({ key: `step:${s.key}`, label: s.optional ? `${s.title} · optional` : s.title, group, trail: MARK[s.state] })),
-      { key: `ready:${r}`, label: `Apply · ${plan.roundWords[r].ready}`, group },
-    ];
-  });
+  /* 🗂 Every stage's steps, each under its stage — a fact two stages share is
+     listed under both (one step, picked from either), then the stage's Apply. */
+  const options: PickOption[] = [
+    { key: 'stages', label: 'Which stage do you want ready?' },
+    ...plan.rounds.flatMap((r) => {
+      const group = roundName(plan, r);
+      return [
+        ...stageSteps(plan, r).map(
+          (s): PickOption => ({ key: `step:${r}:${s.key}`, label: s.optional ? `${s.title} · optional` : s.title, group, trail: MARK[s.state] }),
+        ),
+        { key: `ready:${r}`, label: `Apply · ${plan.roundWords[r].ready}`, group },
+      ];
+    }),
+  ];
   return (
     <div
       data-details-guide-top={inSheet ? 'sheet' : ''}

@@ -95,7 +95,14 @@ import { PlanMyselfBody, PlanMyselfSwitch } from './plan-myself';
 import { PLAN_MYSELF_LABEL, planMyselfSub } from '@/lib/plan-myself';
 import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from './details-answers-parts';
 import type { DetailsGuide } from './details-guide';
-import { buildGuidedPlan, firstOpenScreen, stepOfItem, wordsAndPlansInputFrom, type GuidedRound } from '@/lib/details-guided-flow';
+import {
+  buildGuidedPlan,
+  firstOpenScreen,
+  stepOfItem,
+  wordsAndPlansInputFrom,
+  type GuideAddress,
+  type GuidedScreen,
+} from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
 import { hubSetupRound, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { previewCarriesPlace } from '@/lib/maker-preview-way-back';
@@ -265,8 +272,12 @@ export type MakerDetailsProps = {
   guide?: {
     /** Open on the flow (an unfinished event with nothing else named, or `?guide=`). */
     open: boolean;
-    /** `?guide=ready-N` — that round's Ready screen. */
-    ready: GuidedRound | null;
+    /**
+     * What `?guide=` named (`parseGuideParam`): the stage picker (`1`), a stage's
+     * Before we start, its walk, or its Ready screen — null when the address
+     * named no screen (a plain landing on an unfinished event opens the picker).
+     */
+    address: GuideAddress;
     /** The address named an item (`?item=`) — open on its step, or in All items. */
     itemNamed: boolean;
     /** The address named the flow itself (`?guide=`). */
@@ -508,16 +519,29 @@ export function MakerDetails(props: MakerDetailsProps) {
         props.guide.setup ? hubSetupRound(props.guide.setup, new Set(groups.flatMap((g) => g.items.map((i) => i.key)))) : null,
       )
     : null;
-  const opening = props.guide && plan && props.guide.open && !props.guide.itemNamed && !props.guide.ready ? firstOpenScreen(plan) : null;
-  const openingStep = opening?.kind === 'step' ? plan!.steps.find((s) => s.key === opening.step) : undefined;
-  /* The flow opens on its first step still left — on the item of it still not done. */
-  const startItem: DetailsItemKey = openingStep ? (openingStep.left[0] ?? openingStep.items[0]!) : initialItem;
+  /* 🗂 WHERE THE FLOW OPENS (PR-2, by stage): every door — Home's card, the
+     once-offer, What's left, a plain landing on an unfinished event — opens
+     "Which stage do you want ready?"; an address that names a stage opens that
+     stage's screen, and a walk opens on the item it names, else on the stage's
+     first step still to do. */
+  const guideAt = props.guide?.address ?? null;
+  const entry: GuidedScreen | null = (() => {
+    if (!props.guide || !plan || !props.guide.open) return null;
+    if (!guideAt || guideAt.kind === 'stages') return { kind: 'stages' };
+    if (guideAt.kind !== 'walk') return { kind: guideAt.kind, round: guideAt.round };
+    const named = props.guide.itemNamed ? stepOfItem(plan, initialItem, guideAt.round) : null;
+    return named && named.stages.includes(guideAt.round) ? { kind: 'step', step: named.key, round: guideAt.round } : firstOpenScreen(plan, guideAt.round);
+  })();
+  const openingStep = entry?.kind === 'step' ? plan!.steps.find((s) => s.key === entry.step) : undefined;
+  /* A walk opens on its step's item still not done (a named item stays). */
+  const startItem: DetailsItemKey =
+    openingStep && !openingStep.items.includes(initialItem) ? (openingStep.left[0] ?? openingStep.items[0]!) : initialItem;
   const guide: DetailsGuide | null =
     props.guide && plan
       ? {
           plan,
-          open: props.guide.open && (!props.guide.itemNamed || stepOfItem(plan, initialItem) !== null),
-          ready: props.guide.ready ?? (opening?.kind === 'ready' ? opening.round : null),
+          open: props.guide.open,
+          entry,
           addressed: props.guide.itemNamed || props.guide.guideNamed,
           actions: {
             // The Save the Date as guests meet it, the draft — its way back lands on Details.

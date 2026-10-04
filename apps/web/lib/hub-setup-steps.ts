@@ -11,8 +11,10 @@
  * 🔑 THE ONE RULE — every fact is asked once and stored where its app already
  * reads it. A setup step is NOT a new screen and NOT a new field: it is a
  * Details item of the Event Hub Maker (`item`), opened one at a time by the
- * Maker's "What's left" (`lib/details-guided-flow.ts`, which puts these steps
- * first). What a step writes is what that item's editor already writes
+ * Maker's "What's left" (`lib/details-guided-flow.ts`). Since 2026-10-04 (PR-2,
+ * "Setup by stage") each step is walked in the stage(s) whose parts show its
+ * fact (`lib/stage-setup.ts` `STEP_PARTS`) — B5–6 as the RSVP stage's own
+ * settings (how guests get in · what to ask · reply by). What a step writes is what that item's editor already writes
  * (`writes`) — so opening the Maker after the setup shows everything filled in.
  * No setup-only table, no copy, no sync job.
  *
@@ -276,10 +278,20 @@ export { HUB_SETUP_LOCKED_SCENES, hubSetupApplies, lockedLine } from './hub-setu
  * handed to the plan, so the step table never rides in the Maker's first load.
  */
 export type HubSetupRoundStep = Pick<HubSetupStep, 'key' | 'title' | 'shows' | 'item' | 'state'> & { unlocks: string };
-export type HubSetupRound = { steps: HubSetupRoundStep[]; claims: HubSetupItem[] };
+export type HubSetupRound = {
+  steps: HubSetupRoundStep[];
+  claims: HubSetupItem[];
+  /**
+   * Guests reply from a list (onboarding's "How do guests get in?"). Off — one QR
+   * for everyone — the RSVP stage asks only how guests get in: no questions, no
+   * reply-by (study § 1b "hidden when guests do not reply").
+   */
+  guestList: boolean;
+};
 
 export function hubSetupRound(f: HubSetupFacts, items: ReadonlySet<string>): HubSetupRound {
   return {
+    guestList: f.guestList,
     steps: hubSetupSteps(f, items).map((s) => ({
       key: s.key,
       title: s.title,

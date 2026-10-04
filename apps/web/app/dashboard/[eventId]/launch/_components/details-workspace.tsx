@@ -9,14 +9,17 @@ import {
   backScreen,
   firstOpenScreen,
   guideParamOf,
-  homeProgress,
   nextScreen,
+  roundName,
   skipScreen,
+  startScreen,
   stepOf,
   stepOfItem,
   type GuidedRound,
   type GuidedScreen,
+  type GuidedStepKey,
 } from '@/lib/details-guided-flow';
+import { setupProgress } from '@/lib/stage-setup';
 import type { DetailsGuide } from './details-guide';
 /* The flow's top line and its door are drawn before any step; a step's own
    heading, foot and the Ready screens load with the Details pieces (\`details-lazy.tsx\`). */
@@ -26,9 +29,9 @@ import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { GuideFoot, GuideHead, GuideReady } from './details-lazy';
+import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideReady, StagePicker, StepBackground } from './details-lazy';
 import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
-import { SheetGrip, SheetScrim } from './maker-sheet';
+import { MakerHalfSheet, SheetGrip, SheetScrim } from './maker-sheet';
 import { SheetSections } from './sheet-sections';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
@@ -106,11 +109,22 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  *     ONE dropdown — the other items here and the item's own sections (what the
  *     navigator strip held). A door (Look · Event Details · Prints) opens it;
  *     shut, an "Edit" chip on the page opens it again;
- *   · the guided flow is ONE slim chip on the page ("Finish · 4 of 5"); it opens
- *     the guide in the same kind of sheet — its step ▾, the step's title, where
- *     it shows and what it unlocks, and Back · Skip · Next — and nowhere else.
+ *   · the guided flow's progress ("Finish · 9 of 20") is ONE button in the
+ *     sheet's header — never a chip floating over the page — and opens "Which
+ *     stage do you want ready?"; in the flow it is the step sheet's own ▾ line.
  * One sheet at a time; nothing is dimmed while none is open. The desktop is
  * unchanged: navigator left, body, editor right, the flow's line and foot.
+ *
+ * 🗂 SETUP BY STAGE (PR-2, owner 2026-10-04 — `lib/stage-setup.ts`): the flow
+ * opens on "Which stage do you want ready?" (`StagePicker`), then that stage's
+ * Before we start (`BeforeWeStartScreen`, the first time), then its steps — and
+ * a step on a phone is the HALF SHEET over the live page (`MakerHalfSheet`, the
+ * shape every Maker sheet mounts into): the step's ▾ and its line on top, the
+ * SAME editor the item always draws (on the item's one section where the step
+ * is one — RSVP's "Reply by"), Back · Skip · Next at its foot; Peek and the slim
+ * bar as everywhere. The picker, Before we start and Ready are screens of the
+ * flow like Ready always was — the items step aside, hidden, never unmounted.
+ * Opening any of them writes nothing.
  */
 export function DetailsWorkspace({
   groups,
@@ -152,13 +166,10 @@ export function DetailsWorkspace({
      page, the Edit chip, or a step picked — never on its own (the page shows clean). */
   const door = maker?.detailsDoor ?? 0;
   const [sheetOpen, setSheetOpen] = useState(door > 0);
-  /* 📱 The guide's sheet (its chip on the page opens it). One sheet at a time. */
-  const [guideSheet, setGuideSheet] = useState(false);
   const lastDoor = useRef(door);
   useEffect(() => {
     if (door === lastDoor.current) return;
     lastDoor.current = door;
-    setGuideSheet(false);
     setSheetOpen(true);
   }, [door]);
   /* The piece picked under each item (the three columns meet here). */
@@ -197,18 +208,29 @@ export function DetailsWorkspace({
     [tellMaker],
   );
 
-  /* ══ 🪜 THE GUIDED FLOW ══ */
+  /* ══ 🪜 THE GUIDED FLOW — BY STAGE (PR-2) ══ */
   const plan = guide && guide.plan.steps.length > 0 ? guide.plan : null;
+  const entry = plan && guide?.open ? guide.entry : null;
   const [mode, setMode] = useState<'guided' | 'all'>(plan && guide?.open ? 'guided' : 'all');
-  const [ready, setReady] = useState<GuidedRound | null>(
-    plan && guide?.open && guide.ready !== null && plan.rounds.includes(guide.ready) ? guide.ready : null,
-  );
+  /** A screen of the flow that is not a step — the stage picker, a Before we start, a Ready screen. */
+  const [pane, setPane] = useState<Exclude<GuidedScreen, { kind: 'step' }> | null>(entry && entry.kind !== 'step' ? entry : null);
+  /** The stage being walked — a step two stages share is walked as part of this one. */
+  const [walk, setWalk] = useState<GuidedRound | null>(entry && entry.kind !== 'stages' ? entry.round : null);
+  /** The step picked — an item can carry several (RSVP's three settings), so the item alone cannot say. */
+  const [stepKey, setStepKey] = useState<GuidedStepKey | null>(entry?.kind === 'step' ? entry.step : null);
   /** Next (or any move) found unsaved typing here: where it was going. */
   const [unsavedTo, setUnsavedTo] = useState<GuidedScreen | null>(null);
-  const stepHere = plan ? stepOfItem(plan, selected) : null;
-  const onReady = mode === 'guided' && plan !== null && ready !== null;
-  const guidedOn = mode === 'guided' && plan !== null && (onReady || stepHere !== null);
-  const at: GuidedScreen | null = !guidedOn ? null : onReady ? { kind: 'ready', round: ready! } : { kind: 'step', step: stepHere!.key };
+  const pickedStep = plan && stepKey ? stepOf(plan, stepKey) : null;
+  const pieceHere = pieceMap[selected] ?? null;
+  const stepHere = plan
+    ? pickedStep && pickedStep.items.includes(selected) && (!pickedStep.piece || pieceHere === null || pieceHere === pickedStep.piece)
+      ? pickedStep
+      : stepOfItem(plan, selected, walk, pieceHere)
+    : null;
+  const onPane = mode === 'guided' && plan !== null && pane !== null;
+  const guidedOn = mode === 'guided' && plan !== null && (onPane || stepHere !== null);
+  const walking: GuidedRound | null = stepHere ? (walk && stepHere.stages.includes(walk) ? walk : stepHere.stages[0]!) : null;
+  const at: GuidedScreen | null = !guidedOn ? null : onPane ? pane : { kind: 'step', step: stepHere!.key, round: walking! };
   const guideAddr = at ? guideParamOf(at) : null;
   const modeKey = maker?.eventId ? `sn-details-mode:${maker.eventId}` : null;
   const remember = (m: 'guided' | 'all') => {
@@ -229,25 +251,44 @@ export function DetailsWorkspace({
     // Once, on the first paint.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  /* A door elsewhere in the Maker that opens another item leaves the Ready screen. */
+  /* A door elsewhere in the Maker that opens another item leaves the flow's other screens. */
   const lastAsked = useRef(asked);
   useEffect(() => {
-    if (asked && asked !== lastAsked.current && asked !== own) setReady(null);
+    if (asked && asked !== lastAsked.current && asked !== own) setPane(null);
     lastAsked.current = asked;
   }, [asked, own]);
 
+  /* 📋 "Before we start" shows the first time a stage is picked (approved frame 0:
+     "once"), then a pick goes straight to the steps — remembered on this phone
+     only (a convenience, never data: lost, it simply shows once more). */
+  const beforeKey = (r: GuidedRound) => (maker?.eventId ? `sn-before-seen:${maker.eventId}:${r}` : null);
+  const beforeSeen = (r: GuidedRound): boolean => {
+    const k = beforeKey(r);
+    try {
+      return k !== null && window.localStorage.getItem(k) === '1';
+    } catch {
+      return false;
+    }
+  };
+
   const goTo = (to: GuidedScreen) => {
     setUnsavedTo(null);
-    setGuideSheet(false);
     if (!plan) return;
-    if (to.kind === 'ready') {
-      setReady(to.round);
+    if (to.kind !== 'step') {
+      setPane(to);
+      if (to.kind !== 'stages') setWalk(to.round);
       return;
     }
     const step = stepOf(plan, to.step);
     if (!step) return;
-    setReady(null);
-    select(step.items.includes(selected) ? selected : (step.left[0] ?? step.items[0]!));
+    setPane(null);
+    setWalk(to.round);
+    setStepKey(step.key);
+    const item = step.items.includes(selected) ? selected : (step.left[0] ?? step.items[0]!);
+    select(item);
+    /* 🧩 A step that is one section of its item (RSVP's "Reply by") opens on that section. */
+    const piece = step.piece;
+    if (piece) setPieceMap((m) => (m[item] === piece ? m : { ...m, [item]: piece }));
     setSheetOpen(true);
   };
   /** Every move away from a step first asks: is there typing here that is not saved? */
@@ -260,44 +301,55 @@ export function DetailsWorkspace({
         root?.querySelector(`[data-details-body-item="${k}"]`) ?? null,
       ]);
       if (hasUnsavedEdits(scopes)) {
+        // The question is asked at the step's own foot, in its sheet.
         setUnsavedTo(to);
-        // 📱 The question lives in the guide's sheet on a phone — open it there.
-        setSheetOpen(false);
-        setGuideSheet(true);
         return;
       }
     }
     goTo(to);
   };
+  /** A stage picked: its Before we start the first time, else its first step still to do. */
+  const pickStage = (r: GuidedRound) => {
+    if (!plan) return;
+    goTo(startScreen(plan, r, beforeSeen(r)));
+  };
+  /** "I'm ready" · "Start anyway": past Before we start, to the stage's first step still to do. */
+  const startStage = (r: GuidedRound) => {
+    if (!plan) return;
+    const k = beforeKey(r);
+    try {
+      if (k) window.localStorage.setItem(k, '1');
+    } catch {
+      /* it shows once more next time — nothing else depends on it */
+    }
+    goTo(firstOpenScreen(plan, r));
+  };
+  /** Every door into the flow opens "Which stage do you want ready?". */
   const openGuide = () => {
     if (!plan) return;
     setMode('guided');
     remember('guided');
-    if (stepOfItem(plan, selected)) {
-      setReady(null);
-      setSheetOpen(true);
-    } else {
-      const first = firstOpenScreen(plan);
-      if (first) goTo(first);
-    }
+    goTo({ kind: 'stages' });
   };
   const allItems = () => {
     setMode('all');
-    setReady(null);
+    setPane(null);
     setUnsavedTo(null);
     remember('all');
   };
   const whatsLeftLine = (() => {
     if (!plan) return '';
-    const h = homeProgress(plan);
-    return h ? `${h.round === 0 ? 'Finish' : `Round ${h.round}`} · ${formatCount(h.done)} of ${formatCount(h.total)}` : 'All set';
+    const w = setupProgress(plan);
+    return w.next ? `Finish · ${formatCount(w.done)} of ${formatCount(w.total)}` : 'All set';
   })();
   /* The navigator, narrowed in the flow to the step's own items (and their pieces). */
   const navGroups: DetailsNavGroup[] =
     guidedOn && stepHere
       ? [{ key: 'step', label: stepHere.title, items: items.filter((i) => stepHere.items.includes(i.key)) }]
       : groups;
-  const showNav = !guidedOn || (!onReady && (navGroups[0]!.items.length > 1 || Boolean(pieces[selected])));
+  const showNav = !guidedOn || (!onPane && (navGroups[0]!.items.length > 1 || Boolean(pieces[selected])));
+  /* 📱 In the flow the editor is the step's HALF SHEET (`MakerHalfSheet`); in All items, the sheet over the dimmed page. */
+  const stepSheet = mode === 'guided' && plan !== null;
 
   /* The item showing — whoever picked it — is mounted, told to the Maker, and
      kept in the address. */
@@ -351,6 +403,26 @@ export function DetailsWorkspace({
     }, 60);
   }, [selected]);
 
+  /** Every item's editor — all mounted, the picked one shown (`hidden` never unmounts: a hidden field still posts). */
+  const editorsBody = (whole: boolean) => (
+    <div
+      ref={editorRef}
+      hidden={whole}
+      className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 ${
+        whole ? 'hidden' : stepSheet || sheetOpen ? '' : 'hidden lg:block'
+      }`}
+    >
+      {items.map((i) => (
+        <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key !== selected ? 'hidden' : 'flex flex-col gap-3'}>
+          {editors[i.key] ?? null}
+          {/* 🖼 The cover step's background (B6) — Look › Background's own row, in place. */}
+          {i.key === 'hero' && at?.kind === 'step' && stepHere?.key === 'hero' ? <StepBackground /> : null}
+        </div>
+      ))}
+      {persistent}
+    </div>
+  );
+
   return (
     <DetailsTapContext.Provider value={tap}>
       <DetailsSelectContext.Provider value={select}>
@@ -366,10 +438,11 @@ export function DetailsWorkspace({
       {plan && at ? <GuideTop plan={plan} at={at} onPick={(to) => move(to)} onAllItems={allItems} tour={guide?.tour ?? null} /> : null}
       <div
         data-details-row=""
-        /* On a round's Ready screen the items step aside — hidden, never
-           unmounted, so every editor's fields still post. */
-        hidden={onReady}
-        className={`${onReady ? 'hidden' : 'flex'} min-h-0 w-full flex-1 flex-col lg:flex-row`}
+        /* On the flow's other screens (the stage picker, Before we start, a
+           Ready screen) the items step aside — hidden, never unmounted, so every
+           editor's fields still post. */
+        hidden={onPane}
+        className={`${onPane ? 'hidden' : 'flex'} min-h-0 w-full flex-1 flex-col lg:flex-row`}
       >
         {/* ══ BODY — the picked item's picture (or, for a page that moved in, the page) ══ */}
         <section
@@ -379,31 +452,12 @@ export function DetailsWorkspace({
             layout === 'flow' ? 'overflow-y-auto px-4 py-5 sm:px-6' : 'overflow-hidden'
           }`}
         >
-          {/* 📱 The guided flow, as ONE slim chip on the page — it opens the guide's sheet. */}
-          {plan ? (
-            <button
-              type="button"
-              data-details-guide-chip=""
-              onClick={() => {
-                if (!guidedOn) openGuide();
-                setSheetOpen(false);
-                setGuideSheet(true);
-              }}
-              className="sn-press absolute left-1/2 top-2 z-10 inline-flex min-h-9 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-white/95 px-3.5 font-mono text-[11.5px] tracking-[0.04em] text-ink shadow-sm ring-1 ring-ink/10 lg:hidden"
-            >
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-terracotta-700" />
-              {whatsLeftLine}
-            </button>
-          ) : null}
           {/* 📱 The editor, shut: one chip on the page opens it again (never a strip). */}
-          {!sheetOpen && layout !== 'whole' ? (
+          {!sheetOpen && !stepSheet && layout !== 'whole' ? (
             <button
               type="button"
               data-details-edit-chip=""
-              onClick={() => {
-                setGuideSheet(false);
-                setSheetOpen(true);
-              }}
+              onClick={() => setSheetOpen(true)}
               className="sn-press absolute bottom-3 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-[14px] font-semibold text-cream shadow-lg lg:hidden"
             >
               {current.panelLabel ?? `Edit · ${current.label}`}
@@ -427,7 +481,7 @@ export function DetailsWorkspace({
                     /* 🪜 In the flow: the step's round, its name, where it shows — plain words.
                        📱 On a phone these live only in the guide's sheet. */
                     <div data-details-guide-head-wrap="" className="hidden lg:contents">
-                      <GuideHead step={stepHere} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
+                      <GuideHead step={stepHere} roundTitle={roundName(plan!, walking!)} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
                     </div>
                   ) : detailsItemLayout(i.key) === 'flow' ? (
                     <header className="flex flex-col gap-0.5">
@@ -532,6 +586,44 @@ export function DetailsWorkspace({
         ) : null}
 
         {/* ══ RIGHT — the picked item's editor (a panel that opens, on a phone) ══ */}
+        {stepSheet ? (
+          /* 🪜 IN THE FLOW: the step's HALF SHEET over the live page (PR-2) — the
+             step ▾ and its line, the item's own editor, Back · Skip · Next. On a
+             desk it is the column beside the page, exactly as before. */
+          <MakerHalfSheet
+            label="What’s left"
+            title={stepHere?.title ?? current.panelLabel ?? current.label}
+            target={stepHere?.key ?? selected}
+            section={walking ? roundName(plan!, walking) : null}
+            onClose={() => move({ kind: 'stages' })}
+            /* A desk keeps its column; with no step open (the picker, Before we start,
+               a Ready screen) the sheet is not drawn on a phone either — its editors
+               stay mounted under it. */
+            desktopClassName={`lg:static lg:z-auto lg:order-3 lg:h-auto lg:max-h-none lg:w-[360px] lg:shrink-0 lg:rounded-none lg:border-l lg:border-ink/10 lg:bg-cream lg:shadow-none ${
+              layout === 'whole' ? 'lg:hidden' : ''
+            } ${at?.kind === 'step' ? '' : 'max-lg:hidden'}`}
+          >
+            {at?.kind === 'step' && stepHere ? (
+              <div data-details-guide-sheet="" className="flex shrink-0 flex-col lg:hidden">
+                <GuideTop plan={plan!} at={at} onPick={(to) => move(to)} onAllItems={allItems} inSheet />
+                <GuideHead step={stepHere} roundTitle={roundName(plan!, at.round)} itemLabel={current.label} compact bare />
+              </div>
+            ) : null}
+            {editorsBody(layout === 'whole')}
+            {at?.kind === 'step' ? (
+              <div data-details-guide-foot-sheet="" className="contents lg:hidden">
+                <GuideFoot
+                  onBack={backScreen(plan!, at) ? () => move(backScreen(plan!, at)) : null}
+                  onSkip={skipScreen(plan!, at) ? () => move(skipScreen(plan!, at)) : null}
+                  onNext={nextScreen(plan!, at) ? () => move(nextScreen(plan!, at)) : null}
+                  warning={unsavedTo !== null}
+                  onKeepEditing={() => setUnsavedTo(null)}
+                  onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
+                />
+              </div>
+            ) : null}
+          </MakerHalfSheet>
+        ) : (
         <aside
           aria-label={`${current.label} — edit`}
           data-details-editor-panel=""
@@ -552,6 +644,19 @@ export function DetailsWorkspace({
           <SheetGrip onClose={() => setSheetOpen(false)} />
           <div className="flex shrink-0 items-center gap-2 px-4 pb-1 lg:hidden" data-details-sheet-head="">
             <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{current.panelLabel ?? current.label}</p>
+            {/* 🧭 The setup's progress lives HERE, in the sheet's header — never a chip floating
+                over the page (it covered the page's own header line, 2026-10-04 at 375 px).
+                In the flow it is the step sheet's own ▾ line (`GuideTop`). */}
+            {plan ? (
+              <button
+                type="button"
+                data-details-guide-progress=""
+                onClick={openGuide}
+                className="sn-press inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-terracotta-700/10 px-3 font-mono text-[11.5px] tracking-[0.04em] text-terracotta-800"
+              >
+                {whatsLeftLine}
+              </button>
+            ) : null}
             <SheetSections
               items={navGroups.flatMap((g) => g.items)}
               selected={selected}
@@ -561,71 +666,29 @@ export function DetailsWorkspace({
             />
           </div>
           <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{current.panelLabel ?? current.label}</p>
-          <div
-            ref={editorRef}
-            className={`min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2 ${sheetOpen ? '' : 'hidden lg:block'}`}
-          >
-            {items.map((i) => (
-              <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key !== selected ? 'hidden' : 'flex flex-col gap-3'}>
-                {editors[i.key] ?? null}
-              </div>
-            ))}
-            {persistent}
-          </div>
+          {editorsBody(false)}
         </aside>
-        {/* 📱 The dimmed page behind an open sheet — a tap on it goes back to the page. */}
-        {sheetOpen && layout !== 'whole' ? <SheetScrim onClose={() => setSheetOpen(false)} /> : null}
+        )}
+        {/* 📱 The dimmed page behind an open sheet — a tap on it goes back to the page. (The step's half sheet leaves the page live.) */}
+        {sheetOpen && !stepSheet && layout !== 'whole' ? <SheetScrim onClose={() => setSheetOpen(false)} /> : null}
       </div>
-      {/* 📱 THE GUIDE'S SHEET — the chip on the page opens it: its step ▾, the step's
-          title, where it shows, what it unlocks, and Back · Skip · Next. Phone only. */}
-      {plan && at && guideSheet ? (
-        <>
-          <SheetScrim onClose={() => setGuideSheet(false)} />
-          <section
-            aria-label="What’s left"
-            data-details-guide-sheet=""
-            data-phone-chrome="panel"
-            className={`fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl bg-cream shadow-[0_-18px_40px_-24px_rgba(30,26,18,.5)] lg:hidden ${MAKER_PHONE_PANEL_CAP}`}
-          >
-            <SheetGrip onClose={() => setGuideSheet(false)} />
-            <GuideTop plan={plan} at={at} onPick={(to) => move(to)} onAllItems={() => { setGuideSheet(false); allItems(); }} inSheet />
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-1 py-2">
-              {at.kind === 'step' && stepHere ? <GuideHead step={stepHere} itemLabel={current.label} compact /> : null}
-            </div>
-            <GuideFoot
-              at={at}
-              plan={plan}
-              onBack={backScreen(plan, at) ? () => move(backScreen(plan, at)) : null}
-              onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at)) : null}
-              onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at)) : null}
-              warning={unsavedTo !== null}
-              onKeepEditing={() => {
-                setUnsavedTo(null);
-                setGuideSheet(false);
-                setSheetOpen(true);
-              }}
-              onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
-            />
-          </section>
-        </>
+      {/* 🗂 The flow's other screens — the stage picker, a stage's Before we start, its Ready screen. */}
+      {plan && at?.kind === 'stages' ? <StagePicker plan={plan} onPick={pickStage} initial={walk} /> : null}
+      {plan && at?.kind === 'before' ? (
+        <BeforeWeStartScreen plan={plan} round={at.round} onStart={() => startStage(at.round)} onBack={() => goTo({ kind: 'stages' })} />
       ) : null}
       {plan && at?.kind === 'ready' && guide ? (
         <GuideReady plan={plan} round={at.round} actions={guide.actions} onGo={(to) => move(to)} />
       ) : null}
-      {plan && at ? (
-        /* 📱 On a phone the foot lives in the guide's sheet (above); this one is the desktop's. */
+      {plan && at?.kind === 'step' ? (
+        /* 📱 On a phone the foot lives in the step's half sheet (above); this one is the desktop's. */
         <div data-details-guide-foot-wrap="" data-phone-chrome="strip" className="hidden lg:contents">
         <GuideFoot
-          at={at}
-          plan={plan}
           onBack={backScreen(plan, at) ? () => move(backScreen(plan, at)) : null}
           onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at)) : null}
           onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at)) : null}
           warning={unsavedTo !== null}
-          onKeepEditing={() => {
-            setUnsavedTo(null);
-            setSheetOpen(true);
-          }}
+          onKeepEditing={() => setUnsavedTo(null)}
           onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
         />
         </div>

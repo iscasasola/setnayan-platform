@@ -10,6 +10,7 @@ import { PreviewStageLink } from './maker-play-menu';
 import { useMaker } from './maker-context';
 import {
   roundName,
+  stageSteps,
   type GuidedPlan,
   type GuidedRound,
   type GuidedScreen,
@@ -23,17 +24,19 @@ import {
  * so a step is never a copy of a Details item, it IS the item, one at a time.
  *
  *   · the top line (in \`details-guide-top.tsx\`, drawn before a step is) — the
- *     progress bar and "Round 1 · 3 of 7 ▾" (ONE dropdown,
- *     the shared `PickMenu`: every step of all three rounds with ✓ / ○, any one
- *     picked any time — owner: *"they can still pick a step anytime?"*), and
- *     "All items", the grouped navigator one tap away;
- *   · the step's heading — its round, its name, and where it shows in plain
- *     words (no "stage" or "scene" on this path);
- *   · each round's Ready screen — the round's steps ✓ / ○, and its real action
+ *     progress bar and "Save the Date · 3 of 7 ▾" (ONE dropdown, the shared
+ *     `PickMenu`: every step of every stage with ✓ / ○, any one picked any time
+ *     — owner: *"they can still pick a step anytime?"*), and "All items", the
+ *     grouped navigator one tap away;
+ *   · the step's heading — its stage, its name, and where it shows in plain
+ *     words;
+ *   · each stage's Ready screen — the stage's steps ✓ / ○, and its real action
  *     beside Apply: Preview · Share (the Save the Date), Send invitations (the
  *     Guest list's own invite flow), Apply (the bar's ONE Apply);
- *   · the foot — ‹ Back · Skip for now · Next ›, in the flow (never fixed over
- *     the page).
+ *   · the foot — ‹ Back · Skip for now · Next ›, in the flow;
+ *   · 🖼 the cover step's background (B6): Look › Background's own row, the
+ *     same node — one setting, two doors.
+ * "Which stage do you want ready?" and Before we start are `stage-picker.tsx`.
  */
 
 export type DetailsGuideActions = {
@@ -51,8 +54,12 @@ export type DetailsGuide = {
   plan: GuidedPlan;
   /** Open on the flow (else on the grouped navigator). */
   open: boolean;
-  /** The address named a Ready screen (`?guide=ready-N`). */
-  ready: GuidedRound | null;
+  /**
+   * The screen the flow opens on — the stage picker, a stage's Before we start
+   * or Ready screen, or a step (walked as part of its stage). Null: the step of
+   * the item showing.
+   */
+  entry: GuidedScreen | null;
   /** The address itself named what to open (a `?guide=` or an `?item=`), so a remembered choice does not override it. */
   addressed: boolean;
   actions: DetailsGuideActions;
@@ -60,15 +67,26 @@ export type DetailsGuide = {
   tour?: ReactNode;
 };
 
-/** A step's heading: its round, its name, where it shows. */
-export function GuideHead({ step, itemLabel, compact }: { step: GuidedStep; itemLabel: string | null; compact: boolean }) {
-  const eyebrow = `${step.round === 0 ? step.roundTitle : `Round ${step.round} · ${step.roundTitle}`}${step.optional ? ' · optional' : ''}${
-    itemLabel && step.items.length > 1 ? ` · ${itemLabel}` : ''
-  }`;
+/** A step's heading: its stage, its name, where it shows. `bare` — the title is the sheet's own (the phone's half sheet). */
+export function GuideHead({
+  step,
+  roundTitle,
+  itemLabel,
+  compact,
+  bare = false,
+}: {
+  step: GuidedStep;
+  /** The stage being walked, by name ("Save the Date"). */
+  roundTitle: string;
+  itemLabel: string | null;
+  compact: boolean;
+  bare?: boolean;
+}) {
+  const eyebrow = `${roundTitle}${step.optional ? ' · optional' : ''}${itemLabel && step.items.length > 1 ? ` · ${itemLabel}` : ''}`;
   return (
     <header data-details-guide-head={step.key} className={compact ? 'flex shrink-0 flex-col gap-0.5 px-4 pb-1 pt-2.5 sm:px-6' : 'flex flex-col gap-0.5'}>
       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{eyebrow}</p>
-      <h2 className={compact ? 'font-serif text-lg text-ink' : 'font-serif text-2xl text-ink'}>{step.title}</h2>
+      {bare ? null : <h2 className={compact ? 'font-serif text-lg text-ink' : 'font-serif text-2xl text-ink'}>{step.title}</h2>}
       <p className="text-[13px] text-ink/65" data-details-guide-shows="">
         {step.shows}
       </p>
@@ -93,7 +111,7 @@ const APPLY_SAID: Record<MakerApplyOutcome, string | null> = {
   busy: 'Still working on the last one — try again in a moment.',
 };
 
-/** A round's Ready screen: what is set, what is not, and the round's own action beside Apply. */
+/** A stage's Ready screen: what is set, what is not, and the stage's own action beside Apply. */
 export function GuideReady({
   plan,
   round,
@@ -106,8 +124,8 @@ export function GuideReady({
   onGo: (at: GuidedScreen) => void;
 }) {
   const maker = useMaker();
-  const steps = plan.steps.filter((s) => s.round === round);
-  const links = plan.links.filter((l) => l.round === round);
+  const steps = stageSteps(plan, round);
+  const links = plan.links.filter((l) => l.stages.includes(round));
   const left = steps.filter((s) => s.state === 'left' && !s.optional).length + links.filter((l) => l.state === 'left').length;
   const [said, setSaid] = useState<string | null>(null);
   /* The preview link reads the window (phone → same view), so it is drawn only
@@ -148,7 +166,7 @@ export function GuideReady({
             <li key={s.key}>
               <button
                 type="button"
-                onClick={() => onGo({ kind: 'step', step: s.key })}
+                onClick={() => onGo({ kind: 'step', step: s.key, round })}
                 data-details-guide-ready-step={s.key}
                 data-state={s.state}
                 className="sn-press flex min-h-12 w-full items-center justify-between gap-3 text-left text-[14px] text-ink"
@@ -192,7 +210,7 @@ export function GuideReady({
         </ul>
         <p className="text-[12.5px] text-ink/60">Guests see what is set once you apply. Anything not yet stays yours until you fill it.</p>
         <div className="flex flex-wrap items-center gap-2">
-          {round === 1 ? (
+          {round === 'save_the_date' ? (
             <>
               {actions.previewHref && mounted ? (
                 <PreviewStageLink
@@ -215,7 +233,7 @@ export function GuideReady({
               ) : null}
             </>
           ) : null}
-          {round === 2 ? (
+          {round === 'rsvp' ? (
             <Link href={actions.sendHref} className={quiet} data-details-guide-send="">
               <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Send invitations
@@ -231,7 +249,7 @@ export function GuideReady({
             Apply
           </button>
         </div>
-        {round === 1 && !actions.shareUrl ? (
+        {round === 'save_the_date' && !actions.shareUrl ? (
           <p className="text-[12.5px] text-ink/60">Choose your Event Hub address under All items to share it.</p>
         ) : null}
         {said ? (
@@ -239,15 +257,23 @@ export function GuideReady({
             {said}
           </p>
         ) : null}
+        {/* 🗂 Then progress per stage: back to "Which stage do you want ready?". */}
+        <button
+          type="button"
+          onClick={() => onGo({ kind: 'stages' })}
+          data-details-guide-stages=""
+          className="sn-press inline-flex min-h-11 items-center gap-1 self-start text-[14px] font-semibold text-terracotta-700 underline underline-offset-2"
+        >
+          <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
+          Pick another stage
+        </button>
       </div>
     </section>
   );
 }
 
-/** The foot: ‹ Back · Skip for now · Next › — or, on a Ready screen, on to the next round. */
+/** The foot of a step: ‹ Back · Skip for now · Next ›. A stage's other screens carry their own buttons. */
 export function GuideFoot({
-  at,
-  plan,
   onBack,
   onSkip,
   onNext,
@@ -255,8 +281,6 @@ export function GuideFoot({
   onKeepEditing,
   onGoAnyway,
 }: {
-  at: GuidedScreen;
-  plan: GuidedPlan;
   onBack: (() => void) | null;
   onSkip: (() => void) | null;
   onNext: (() => void) | null;
@@ -265,7 +289,6 @@ export function GuideFoot({
   onKeepEditing: () => void;
   onGoAnyway: () => void;
 }) {
-  const nextRound = at.kind === 'ready' ? plan.rounds[plan.rounds.indexOf(at.round) + 1] : undefined;
   return (
     <div data-details-guide-foot="" className="shrink-0 border-t border-ink/10 bg-cream px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4">
       {warning ? (
@@ -292,42 +315,50 @@ export function GuideFoot({
           </button>
         ) : null}
         <span className="flex-1" />
-        {at.kind === 'step' ? (
-          <>
-            {onSkip ? (
-              <button
-                type="button"
-                onClick={onSkip}
-                data-details-guide-skip=""
-                className="sn-press inline-flex min-h-11 items-center px-2 text-[14px] font-semibold text-terracotta-700 underline underline-offset-2"
-              >
-                Skip for now
-              </button>
-            ) : null}
-            {onNext ? (
-              <button
-                type="button"
-                onClick={onNext}
-                data-details-guide-next=""
-                className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
-              >
-                Next
-                <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-              </button>
-            ) : null}
-          </>
-        ) : nextRound && onNext ? (
+        {onSkip ? (
+          <button
+            type="button"
+            onClick={onSkip}
+            data-details-guide-skip=""
+            className="sn-press inline-flex min-h-11 items-center px-2 text-[14px] font-semibold text-terracotta-700 underline underline-offset-2"
+          >
+            Skip for now
+          </button>
+        ) : null}
+        {onNext ? (
           <button
             type="button"
             onClick={onNext}
             data-details-guide-next=""
-            className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full border border-ink/15 bg-white px-4 text-[14px] font-semibold text-ink"
+            className="sn-press inline-flex min-h-11 items-center gap-1 rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
           >
-            Next round: {plan.roundWords[nextRound].title}
+            Next
             <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
         ) : null}
       </div>
     </div>
+  );
+}
+
+/**
+ * 🖼 THE COVER STEP'S BACKGROUND (B6; DECISION_LOG 2026-10-01 "'FINISH YOUR EVENT
+ * HUB' CARRIES THE EVENT HUB'S IMPORTANT PARTS — THE MAIN BACKGROUND INCLUDED":
+ * *"Its event photo step also sets Behind every scene (the same saveMain / hub
+ * draft the 🎨 panel writes — one setting, two doors)"*). Not a copy: the very
+ * node Look › Background draws (`LookPanel`, `maker.lookPages.look.background`
+ * — the work area's `MainBackgroundPanel`), so the two show one value and write
+ * through one `saveMain`. Where the event has no such row (the store shell), or
+ * the work area has not registered it yet, nothing is drawn — never a second
+ * control.
+ */
+export function StepBackground() {
+  const node = useMaker()?.lookPages?.look?.background ?? null;
+  if (!node) return null;
+  return (
+    <section data-step-background="" className="flex flex-col gap-2 border-t border-ink/10 pt-4">
+      <h3 className="text-[15px] font-semibold text-ink">Background</h3>
+      {node}
+    </section>
   );
 }

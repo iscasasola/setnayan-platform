@@ -10,8 +10,9 @@
  * 🔑 NOTHING HERE IS NEW. The Next card is the Home's EXISTING nudges collapsed
  * into one, in the order the Home already stacked them (page.tsx `overlays`):
  *
- *   guide → the Event Hub's guided "What's left" (Details part 5 —
- *           "Round N · x of y · Open the next step"), for whom Details is
+ *   guide → "Finish your Event Hub — n of m" (the guided "What's left", by
+ *           stage — PR-2: its button opens "Which stage do you want ready?"),
+ *           for whom Details is
  *   date  → the set-your-date nudge, while no date is set
  *   guests → "Add your guests", while the (measured) list is empty
  *   invite → "Send N invitations", N = the measured guests not yet sent one
@@ -33,23 +34,28 @@ import { SERVICE_NAMES } from '@/lib/service-names';
 
 export type HomeNextKind = 'guide' | 'date' | 'guests' | 'invite' | 'papic' | 'ai' | 'plan';
 
-/** The guided flow's button — it names what the tap does (owner, live phone test 2026-10-02). */
-export const HOME_GUIDE_ACTION = 'Open the next step';
+/**
+ * The guided flow's button — it names what the tap does (owner, live phone test
+ * 2026-10-02): it opens "Which stage do you want ready?" (PR-2, owner 2026-10-04).
+ */
+export const HOME_GUIDE_ACTION = 'Pick a stage';
 
 /** The order the Home already stacked its nudges in — the first that applies is Next. */
 export const HOME_NEXT_ORDER: readonly HomeNextKind[] = ['guide', 'date', 'guests', 'invite', 'papic', 'ai', 'plan'];
 
-/** The guided flow's position, as Home reads it (null = nothing left, not for this viewer, or unread). */
+/**
+ * The guided flow, as Home reads it (null = nothing left, not for this viewer,
+ * or unread) — counted by stage (`lib/stage-setup.ts`): every fact ONCE for the
+ * whole, and the first stage still to do with its own count.
+ */
 export type HomeGuide = {
-  round: number;
-  roundTitle: string;
+  /** Every fact of the Event Hub, once — in place, of all. */
   done: number;
   total: number;
-  nextTitle: string | null;
-  /** The step after the next one still to do (the setup's slim card names two). */
-  thenTitle?: string | null;
-  /** 🧭 The setup round ("Finish your Event Hub", B) is what is left. */
-  setup?: boolean;
+  /** The first stage with a fact still to do, and its own "n of m". */
+  stageTitle: string;
+  stageDone: number;
+  stageTotal: number;
   /** …and it is still to be offered once, right after onboarding (Start / Later). */
   offer?: boolean;
 } | null;
@@ -113,29 +119,21 @@ export type HomeNextInput = {
  */
 export function pickHomeNext(input: HomeNextInput): HomeNext {
   const { guide, hasDate, guests, noun, papicReady, aiOffer } = input;
-  if (guide?.setup) {
-    /* "Finish your Event Hub — n of m · Open the next step" (frame 10): the next two steps
-       still to do; the count is what is really in place. */
-    const next = guide.nextTitle ? `Next: ${guide.nextTitle}${guide.thenTitle ? ` · then ${guide.thenTitle}` : ''}` : '';
+  if (guide) {
+    /* "Finish your Event Hub — n of m · Pick a stage": the whole in place, then
+       the first stage still to do with its own count. */
+    const left = guide.total - guide.done;
     return {
       kind: 'guide',
       title: `Finish your Event Hub — ${formatCount(guide.done)} of ${formatCount(guide.total)}`,
       /* The offer is frame 0, "Before we start", in one card: what we already
          have, what is left, what helps — and that none of it is required. */
       body: guide.offer
-        ? `From sign-up we already have your names, dates, look and how guests get in — we won’t ask again. ${formatCount(guide.total - guide.done)} short ${guide.total - guide.done === 1 ? 'step finishes' : 'steps finish'} your Event Hub; Love Story photos help. None of it is required.`
-        : next,
+        ? `From sign-up we already have your names, dates, look and how guests get in — we won’t ask again. ${formatCount(left)} short ${left === 1 ? 'step finishes' : 'steps finish'} your Event Hub; Love Story photos help. None of it is required.`
+        : `Next: ${guide.stageTitle} — ${formatCount(guide.stageDone)} of ${formatCount(guide.stageTotal)} in place`,
       /* The button names the action (owner 2026-10-02) — never a bare "Continue". */
       action: guide.offer ? 'Start' : HOME_GUIDE_ACTION,
       ...(guide.offer ? { offer: true } : {}),
-    };
-  }
-  if (guide) {
-    return {
-      kind: 'guide',
-      title: guide.nextTitle ?? guide.roundTitle,
-      body: `Your Event Hub · ${guide.roundTitle} · ${formatCount(guide.done)} of ${formatCount(guide.total)} done.`,
-      action: HOME_GUIDE_ACTION,
     };
   }
   if (!hasDate) {

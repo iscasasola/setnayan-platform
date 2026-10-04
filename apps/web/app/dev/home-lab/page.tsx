@@ -28,7 +28,7 @@ export const dynamic = 'force-dynamic';
 const DONE_GUESTS = { total: 96, unsent: 0 };
 const STATES: Record<string, HomeNextInput> = {
   guide: {
-    guide: { round: 2, roundTitle: 'Invitations', done: 3, total: 7, nextTitle: 'Schedule' },
+    guide: { done: 9, total: 20, stageTitle: 'Invitation', stageDone: 4, stageTotal: 8 },
     hasDate: true,
     guests: DONE_GUESTS,
     noun: 'wedding',

@@ -108,7 +108,7 @@ test('the invitation preview prints the DRAFTED ceremony time — creating or mo
   assert.match(read(`${L}maker-prints.tsx`), /mode === 'screen' && draftVersion \? `&draft=\$\{draftVersion\}` : ''/);
   const route = read('app/api/hub-print/[piece]/route.ts');
   assert.match(route, /mode !== 'print' && piece !== 'passes' && url\.searchParams\.get\('draft'\)/, 'a saved or printed file was drawn from a draft');
-  assert.match(read('lib/print-set.server.ts'), /blocksWithDraftedCeremony\(liveBlocks, opts\.draft\.ceremony_time, draftDay\)/);
+  assert.match(read('lib/print-set.server.ts'), /blocksWithDraftedCeremony\(liveBlocks, draft\.ceremony_time, draftDay\)/);
 });
 
 // ── 3 · the city is a closed pick ───────────────────────────────────────────

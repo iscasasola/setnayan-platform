@@ -482,7 +482,8 @@ export const HUB_DRAFT_FACT_GROUP: Readonly<
 /** The typed facts a draft counts once each: the names, the date, the name style, the venues, the ceremony time. */
 export type HubDraftFact = 'names' | 'date' | 'name-style' | 'venues' | 'ceremony-time';
 
-export const HUB_DRAFT_EVENT_COLUMNS = [
+/** The draft's `events` keys that ARE `events` columns — what a live read selects. */
+export const HUB_DRAFT_EVENT_READ_COLUMNS = [
   'rsvp_backdrop',
   'landing_page_hero_image_url',
   'std_reveal_template',
@@ -510,13 +511,12 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   ...HUB_DRAFT_FACT_COLUMNS,
   // 🗂 THE ONBOARDING'S LAST ANSWERS, CHANGED IN YOUR INFO (owner 2026-10-02).
   ...HUB_DRAFT_ANSWER_COLUMNS,
-  // 📍 THE VENUES AND 🕒 THE CEREMONY TIME TYPED IN THE MAKER (owner 2026-10-04).
+  // 📍 THE VENUES TYPED IN THE MAKER (owner 2026-10-04).
   ...HUB_DRAFT_VENUE_COLUMNS,
-  HUB_DRAFT_CEREMONY_TIME,
 ] as const;
 
-/** The draft's `events` keys that ARE `events` columns — what a live read selects. */
-export const HUB_DRAFT_EVENT_READ_COLUMNS = HUB_DRAFT_EVENT_COLUMNS.filter((c) => c !== HUB_DRAFT_CEREMONY_TIME);
+/** Every key the draft's `events` may hold: the columns, and 🕒 the ceremony time (owner 2026-10-04). */
+export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
 export const HUB_DRAFT_LOGO_MAX_BYTES = 400_000;

@@ -64,8 +64,10 @@ COMMENT ON COLUMN public.events.ceremony_venue_latitude IS
 COMMENT ON COLUMN public.events.ceremony_venue_longitude IS
   'The CEREMONY venue''s map pin (longitude) — see ceremony_venue_latitude. Both or neither.';
 
-GRANT SELECT (ceremony_venue_latitude, ceremony_venue_longitude) ON public.events TO authenticated;
-GRANT UPDATE (ceremony_venue_latitude, ceremony_venue_longitude) ON public.events TO authenticated;
+GRANT SELECT (ceremony_venue_latitude) ON public.events TO authenticated;
+GRANT UPDATE (ceremony_venue_latitude) ON public.events TO authenticated;
+GRANT SELECT (ceremony_venue_longitude) ON public.events TO authenticated;
+GRANT UPDATE (ceremony_venue_longitude) ON public.events TO authenticated;
 
 DROP VIEW IF EXISTS public.events_host;
 

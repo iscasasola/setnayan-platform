@@ -293,7 +293,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     // The pass batch and the print file lay out (and fetch their still) at
     // print resolution; the on-screen view is the same design, unmarked.
     const drawMode: PrintMode = mode === 'screen' ? 'screen' : 'print';
-    const set = await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme, draft: drawMode === 'screen' ? draft : null });
+    const set = await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme }, drawMode === 'screen' ? draft : null);
     if (!set) return new NextResponse('Event not found.', { status: 404 });
     const spot = spotLayersFor(set.theme);
     const input = { look: set.look, data: withPassDesign(set.data, url), mode: drawMode, foil: spot.foil, whiteInk: spot.whiteInk };
@@ -359,7 +359,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   // JPEG with placeholder QRs — never a PDF, never a vector. This is also what
   // a free couple's Maker shows on screen.
   if (!isPrintSetKey(piece) && !wantsSet) return new NextResponse('No such piece.', { status: 404 });
-  const set = await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme, draft });
+  const set = await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme }, draft);
   if (!set) return new NextResponse('Event not found.', { status: 404 });
   const spot = spotLayersFor(set.theme);
   const input = { look: set.look, data: withPassDesign(set.data, url), mode: 'sample' as const, foil: spot.foil };

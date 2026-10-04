@@ -281,10 +281,11 @@ test('GUARD: no free path reaches the THEMED print-ready renderer — Classic pr
   assert.ok(themeAt > 0 && proBlock > themeAt, 'the theme is resolved before the print-ready block');
   assert.ok(refuse > proBlock && refuse - proBlock < 200, 'the print-ready block must OPEN with the mayServe refusal');
   // …and draws exactly the theme it checked (no second read of ?theme=).
-  const load = route.indexOf('await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme })', refuse);
+  // (+ the Maker preview's draft as a third argument — B4, 2026-10-04; the theme is still the checked one.)
+  const load = route.indexOf('await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme }', refuse);
   assert.ok(load > refuse, 'the print-ready loader draws the CHECKED theme');
   assert.equal((route.match(/url\.searchParams\.get\('theme'\)/g) ?? []).length, 1, '?theme= is read in exactly one place');
-  const samplePath = route.indexOf("await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme })");
+  const samplePath = route.indexOf("await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme }");
   assert.ok(samplePath > refuse, 'the sample path follows the print-ready block');
   const freeGroupEnd = route.indexOf("if (PRINT_PIECES[piece].kind === 'free') return");
   assert.ok(freeGroupEnd > 0 && freeGroupEnd < themeAt, 'the free group returns before the theme gate');

@@ -598,23 +598,19 @@ export async function printInputsVersion(eventId: string): Promise<string | null
 
 export async function loadPrintSet(
   eventId: string,
-  opts: {
-    mode: PrintMode;
-    previewTheme?: string | null;
-    withEventQr?: boolean;
-    /**
-     * ✍ THE HOST'S DRAFT, for the Maker's on-screen preview only (the route
-     * passes it for `mode=screen&draft=…`, after its host gate): the drafted
-     * names, date, name style and 🕒 ceremony time are drawn as they will be
-     * after Apply. Never for a file that is saved or printed.
-     */
-    draft?: HubDraftEvents | null;
-  },
+  opts: { mode: PrintMode; previewTheme?: string | null; withEventQr?: boolean },
+  /**
+   * ✍ THE HOST'S DRAFT, for the Maker's on-screen preview only (the route
+   * passes it for `mode=screen&draft=…`, after its host gate): the drafted
+   * names, date, name style and 🕒 ceremony time are drawn as they will be
+   * after Apply. Never for a file that is saved or printed.
+   */
+  draft: HubDraftEvents | null = null,
 ): Promise<LoadedPrintSet | null> {
   const admin = createAdminClient();
   const liveEvent = await readPrintEvent(admin, eventId);
   if (!liveEvent) return null;
-  const event = opts.draft ? overlayHubDraftEvent(liveEvent, { events: opts.draft, widgets: {} }) : liveEvent;
+  const event = draft ? overlayHubDraftEvent(liveEvent, { events: draft, widgets: {} }) : liveEvent;
   const theme = printThemeFor(event, opts.previewTheme);
   const look = printLookFor(theme);
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
@@ -634,7 +630,7 @@ export async function loadPrintSet(
     typeof event.event_date === 'string' && /^\d{4}-\d{2}-\d{2}/.test(event.event_date) && ((event as { event_date_precision?: unknown }).event_date_precision ?? 'day') === 'day'
       ? event.event_date.slice(0, 10)
       : null;
-  const blocks = opts.draft && 'ceremony_time' in opts.draft ? blocksWithDraftedCeremony(liveBlocks, opts.draft.ceremony_time, draftDay) : liveBlocks;
+  const blocks = draft && 'ceremony_time' in draft ? blocksWithDraftedCeremony(liveBlocks, draft.ceremony_time, draftDay) : liveBlocks;
 
   const ceremony = ceremonyBlock(blocks);
   const reception = firstBlockOf(blocks, 'reception');

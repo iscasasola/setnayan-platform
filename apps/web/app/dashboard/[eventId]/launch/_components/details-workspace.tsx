@@ -432,12 +432,15 @@ export function DetailsWorkspace({
     >
       {items.map((i) => (
         <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key !== selected ? 'hidden' : 'flex flex-col gap-3'}>
-          {editors[i.key] ?? null}
+          {/* A server-made editor arrives as a lazy client reference — keyed, so it is
+              never an unkeyed child beside the cover step's background (React's key check;
+              the dev badge's "1 Issue" on every Maker screen, 2026-10-05). */}
+          <Fragment key="editor">{editors[i.key] ?? null}</Fragment>
           {/* 🖼 The cover step's background (B6) — Look › Background's own row, in place. */}
           {i.key === 'hero' && at?.kind === 'step' && stepHere?.key === 'hero' ? <StepBackground /> : null}
         </div>
       ))}
-      {persistent}
+      <Fragment key="persistent">{persistent}</Fragment>
     </div>
   );
 

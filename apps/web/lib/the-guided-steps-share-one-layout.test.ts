@@ -235,3 +235,12 @@ test('(7) the Schedule step: its rail behind the sheet, its moments in ONE dropd
   assert.match(insp, /save === 'error' \? '' : 'group-data-\[details-mode=guided\]\/ws:hidden'/, 'the inspector’s status line shows in the step');
   assert.doesNotMatch(read(`${L}/details-tool-pieces.tsx`), /<p className/, 'a caption came back under Announce');
 });
+
+/* ── (8) no React key warning from the Maker's editors ─────────────────── */
+
+test('(8) a server-made editor sits in a keyed slot — never an unkeyed child (the dev badge’s "1 Issue" on every step)', () => {
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /<Fragment key="editor">\{editors\[i\.key\] \?\? null\}<\/Fragment>/, 'the editor is an unkeyed child beside the cover background again');
+  assert.match(ws, /<Fragment key="persistent">\{persistent\}<\/Fragment>/, 'the persistent part is an unkeyed child beside the editors');
+  assert.match(ws, /<Fragment key="body">\{bodies\[i\.key\] \?\? null\}<\/Fragment>/);
+});

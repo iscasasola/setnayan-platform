@@ -184,6 +184,10 @@ export const HUB_CANVAS_LOOK_KEYS = [
   'inFrom',
   'out',
   'outTo',
+  // 🎛 The four effects a scene's In / Out can combine (2026-10-04) — stored
+  // only where `in`/`inFrom` · `out`/`outTo` cannot say them.
+  'inFx',
+  'outFx',
   'during',
   'timeline',
   'sequence',
@@ -248,6 +252,10 @@ export const HUB_CANVAS_MOTION_KEYS = [
   'inFrom',
   'out',
   'outTo',
+  // 🎛 The four effects a scene's In / Out can combine (2026-10-04) — stored
+  // only where `in`/`inFrom` · `out`/`outTo` cannot say them.
+  'inFx',
+  'outFx',
   'during',
   'timeline',
   'sequence',

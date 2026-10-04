@@ -105,4 +105,17 @@ export type PickMenuProps = {
   compact?: boolean;
   /** A long list (the font dropdown's shelves): each group heading stays in view while its options scroll. */
   stickyGroups?: boolean;
+  /**
+   * ⬚ A 3×3 GRID OF ICON CELLS instead of a list (owner 2026-10-04, Move ▾:
+   * *"drop down shows the 3x3 grid?"* → yes). The SAME dropdown — same button,
+   * same open / close, outside tap and Esc — whose open body lays its nine
+   * options out row by row, each a 44 px cell showing its `icon` with its
+   * `label` as the accessible name. Picking one closes it; ↑/↓ step through
+   * the cells. Options are given in grid order.
+   * 🪤 THE GRID IS CSS, NOT CODE: `pick-menu.tsx` only stamps `data-pick-grid`
+   * on the list and `globals.css` ("PICKMENU GRID") lays it out — that file
+   * sits at its inline-size line (`pick-menu-stays-inline.test.ts`), and a
+   * second render path there would split it into its own chunk.
+   */
+  grid?: boolean;
 };

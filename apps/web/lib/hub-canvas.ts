@@ -46,6 +46,7 @@ import { CUSTOM_COLUMN_TITLE_MAX } from '@/app/[slug]/_components/editorial/cust
 import { sanitizeHubTint, type HubTint } from '@/lib/adaptive-theme';
 import { sanitizeHubElements, type HubElementStyles } from '@/lib/element-style';
 import { ombreCss } from '@/lib/ombre';
+import { motionFxOn, motionFxVars, sanitizeMotionFx, type MotionFx } from '@/lib/motion-effects';
 import { sanitizeDetailsOverrides, type HubDetailsOverrides } from '@/lib/details-bound';
 import { sanitizeHeroDesign, type HeroDesignId } from '@/lib/hero-design';
 import { isStdLibrarySrc } from '@/lib/std-backgrounds';
@@ -283,6 +284,17 @@ export type HubSectionCanvas = {
   out?: HubOut;
   /** Where it goes TO. Ignored, and not stored, unless `out` travels. */
   outTo?: HubDirection;
+  /**
+   * 🎛 THE FOUR EFFECTS (2026-10-04, `lib/motion-effects.ts`) — Fade · Move
+   * from 8 directions · Size · Blur, combined. Stored ONLY for a combination
+   * the shipped `in` + `inFrom` cannot say (a corner, Grow, Blur …); anything
+   * they CAN say is written as them (`hubSceneFxFields`), so a page that never
+   * used the new effects stores and draws exactly what it did. Beside it,
+   * `in` / `inFrom` are dropped — one answer per end.
+   */
+  inFx?: MotionFx;
+  /** The Out's four effects — same rule against `out` + `outTo`. */
+  outFx?: MotionFx;
   during?: HubDuring;
   timeline?: HubTimeline;
   stagger?: number;
@@ -424,6 +436,9 @@ export type HubResolvedMotion = {
   inFrom: HubDirection;
   out: HubOut;
   outTo: HubDirection;
+  /** The In as the four effects — the couple's `inFx`, or `in` + `inFrom` read as them. */
+  inFx: MotionFx | null;
+  outFx: MotionFx | null;
   during: HubDuring;
   timeline: HubTimeline;
   stagger: number;
@@ -438,7 +453,7 @@ export type HubResolvedMotion = {
  * every couple on Auto moves with it, which is the point. A couple who reached
  * in and chose "Fade" keeps Fade.
  */
-export const HUB_PRESET_BODY: Record<HubMotionPreset, HubResolvedMotion> = {
+export const HUB_PRESET_BODY: Record<HubMotionPreset, Omit<HubResolvedMotion, 'inFx' | 'outFx'>> = {
   still:     { sequence: 'together',          in: 'none',      inFrom: 'below', out: 'none',      outTo: 'above', during: 'still', timeline: 'time',  stagger: 0,    duration: 0.6 },
   calm:      { sequence: 'together',          in: 'fade',      inFrom: 'below', out: 'fade',      outTo: 'above', during: 'still', timeline: 'time',  stagger: 0.12, duration: 1.1 },
   editorial: { sequence: 'one_after_another', in: 'move_fade', inFrom: 'below', out: 'move_fade', outTo: 'above', during: 'still', timeline: 'scrub', stagger: 0.12, duration: 1.1 },
@@ -647,6 +662,20 @@ export function sanitizeHubCanvas(raw: unknown): HubSectionCanvas {
      on anything — the defect this build exists to remove, in miniature. */
   if (inSet(HUB_DIRECTIONS, canvas.inFrom) && hubInMoves(out.in ?? 'none')) out.inFrom = canvas.inFrom;
   if (inSet(HUB_DIRECTIONS, canvas.outTo) && hubOutMoves(out.out ?? 'none')) out.outTo = canvas.outTo;
+  /* 🎛 The four effects — kept only where the shipped fields cannot say them;
+     otherwise folded back into `in` / `inFrom` (`hubSceneFxFields`). */
+  const inFx = sanitizeMotionFx(canvas.inFx);
+  if (inFx) {
+    delete out.in;
+    delete out.inFrom;
+    Object.assign(out, hubSceneFxFields('in', inFx));
+  }
+  const outFx = sanitizeMotionFx(canvas.outFx, { settle: true });
+  if (outFx) {
+    delete out.out;
+    delete out.outTo;
+    Object.assign(out, hubSceneFxFields('out', outFx));
+  }
   if (inSet(HUB_DURING, canvas.during)) out.during = canvas.during;
   if (inSet(HUB_TIMELINE, canvas.timeline)) out.timeline = canvas.timeline;
   if (inSet(HUB_SEQUENCES, canvas.sequence)) out.sequence = canvas.sequence;
@@ -834,12 +863,22 @@ export function hubBackgroundOwnsBox(canvas: HubSectionCanvas, painted: boolean)
 /** The preset, with any override the couple reached in and set. */
 export function resolveHubMotion(canvas: HubSectionCanvas): HubResolvedMotion {
   const body = HUB_PRESET_BODY[canvas.preset ?? HUB_DEFAULT_PRESET];
+  const inFx = canvas.inFx ?? null;
+  const outFx = canvas.outFx ?? null;
+  const shippedIn = canvas.in ?? body.in;
+  const shippedOut = canvas.out ?? body.out;
+  const inFrom = canvas.inFrom ?? body.inFrom;
+  const outTo = canvas.outTo ?? body.outTo;
   return {
     sequence: canvas.sequence ?? body.sequence,
-    in: canvas.in ?? body.in,
-    inFrom: canvas.inFrom ?? body.inFrom,
-    out: canvas.out ?? body.out,
-    outTo: canvas.outTo ?? body.outTo,
+    /* A composed end still answers "does it travel / is it nothing" for the
+       frame's classes (`hub-in-move` clips the body sideways). */
+    in: inFx ? (inFx.move ? (inFx.fade ? 'move_fade' : 'move') : 'fade') : shippedIn,
+    inFrom,
+    out: outFx ? (outFx.move ? (outFx.fade ? 'move_fade' : 'move') : 'fade') : shippedOut,
+    outTo,
+    inFx: inFx ?? hubShippedFx(shippedIn, inFrom),
+    outFx: outFx ?? hubShippedFx(shippedOut, outTo),
     during: canvas.during ?? body.during,
     timeline: canvas.timeline ?? body.timeline,
     stagger: canvas.stagger ?? body.stagger,
@@ -855,17 +894,50 @@ export function resolveHubMotion(canvas: HubSectionCanvas): HubResolvedMotion {
  * silently dropped two of Cinematic's three choices when they had the same
  * specificity and the later one won.
  */
-export function hubInKeyframe(m: Pick<HubResolvedMotion, 'in' | 'inFrom'>): string {
+export function hubInKeyframe(m: Pick<HubResolvedMotion, 'in' | 'inFrom'> & { composed?: boolean }): string {
+  if (m.composed) return 'hub-in-mix';
   if (m.in === 'none') return 'none';
   if (m.in === 'fade') return 'hub-in-fade';
   return `hub-in-${m.in === 'move_fade' ? 'movefade' : 'move'}-${m.inFrom}`;
 }
 
-export function hubOutKeyframe(m: Pick<HubResolvedMotion, 'out' | 'outTo'>): string {
+export function hubOutKeyframe(m: Pick<HubResolvedMotion, 'out' | 'outTo'> & { composed?: boolean }): string {
+  if (m.composed) return 'hub-out-mix';
   if (m.out === 'none') return 'none';
   if (m.out === 'fade') return 'hub-out-fade';
   if (m.out === 'settle') return 'hub-out-settle';
   return `hub-out-${m.out === 'move_fade' ? 'movefade' : 'move'}-${m.outTo}`;
+}
+
+/** How far a scene travels: 28px across, 26px up or down — the shipped `hub-in-move-*`. */
+const HUB_SCENE_DIST = [28, 26] as const;
+
+/** The shipped In / Out + direction, read as the four effects. Null = nothing. */
+export function hubShippedFx(effect: HubIn | HubOut, dir: HubDirection): MotionFx | null {
+  if (effect === 'none') return null;
+  if (effect === 'fade') return { fade: true };
+  if (effect === 'settle') return { fade: true, size: 'settle' };
+  return effect === 'move_fade' ? { fade: true, move: dir } : { move: dir };
+}
+
+/**
+ * 🎛 THE FOUR EFFECTS AS A SCENE STORES THEM — in the shipped fields whenever
+ * they can say it (Fade; Move from one of the four sides, with or without Fade;
+ * Settle back), so those draw with their shipped keyframes, and as `inFx` /
+ * `outFx` only for a combination they cannot (a corner, Grow, Shrink, Blur).
+ * Null fx = None (`in: 'none'`), which is a choice that overrides the preset.
+ */
+export function hubSceneFxFields(end: 'in' | 'out', fx: MotionFx | null): Partial<HubSectionCanvas> {
+  if (!motionFxOn(fx)) return end === 'in' ? { in: 'none' } : { out: 'none' };
+  const side = fx.move && (HUB_DIRECTIONS as readonly string[]).includes(fx.move) ? (fx.move as HubDirection) : null;
+  const plainMove = !fx.size && !fx.blur && (fx.move ? side : true);
+  if (plainMove) {
+    if (!fx.move) return end === 'in' ? { in: 'fade' } : { out: 'fade' };
+    const effect = fx.fade ? 'move_fade' : 'move';
+    return end === 'in' ? { in: effect, inFrom: side! } : { out: effect, outTo: side! };
+  }
+  if (end === 'out' && fx.fade && fx.size === 'settle' && !fx.move && !fx.blur) return { out: 'settle' };
+  return end === 'in' ? { inFx: fx } : { outFx: fx };
 }
 
 /** `object-position` for a 1–9 focal point. 1 is top-left, 5 centre, 9 bottom-right. */
@@ -925,8 +997,13 @@ export function hubCanvasVars(
        same specificity, so the later one won and took `animation-name` with it,
        and `.hub-during-lift` (one class) lost to both. A control whose effect
        is decided by source order is not a control. */
-    '--hub-in-kf': hubInKeyframe(m),
-    '--hub-out-kf': hubOutKeyframe(m),
+    '--hub-in-kf': hubInKeyframe({ ...m, composed: Boolean(canvas.inFx) }),
+    '--hub-out-kf': hubOutKeyframe({ ...m, composed: Boolean(canvas.outFx) }),
+    /* 🎛 A composed end's far end — three closed-set values the one
+       `hub-in-mix` / `hub-out-mix` keyframe reads (`motionFxVars`). Only for a
+       combination the shipped keyframes cannot draw; absent otherwise. */
+    ...(canvas.inFx ? Object.fromEntries(motionFxVars(canvas.inFx, 'in', '--hub-in', HUB_SCENE_DIST)) : {}),
+    ...(canvas.outFx ? Object.fromEntries(motionFxVars(canvas.outFx, 'out', '--hub-out', HUB_SCENE_DIST)) : {}),
     '--hub-duration': `${m.duration}s`,
     /* 🔑 `--hub-stagger` IS EMITTED AGAIN, and this time a rule reads it. It was
        withdrawn when the frame held one child and there was nothing to stagger;

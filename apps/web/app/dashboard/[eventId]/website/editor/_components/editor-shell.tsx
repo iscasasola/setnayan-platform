@@ -5,7 +5,8 @@ import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find'
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useReducer, useRef, useState, type ReactNode } from 'react';
+import { ELEMENT_SHEET_CLOSED, elementSheetStep, type ElementSheetEvent, type ElementSheetState } from '@/lib/element-sheet-state';
 import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
@@ -458,14 +459,28 @@ export function MakerWork({
   const select = maker?.select;
   /* 🔤 The element being edited — a tap ON a part in the canvas. Its own sheet
      takes the inspector's place; choosing anything in the navigator closes it. */
-  const [elementTarget, setElementTarget] = useState<ElementTarget | null>(null);
+  /* 📱 …held as ONE small state — the part, whether the sheet is folded to its
+     bar on a phone, and its section (Text · Motion · Arrange) — whose every
+     transition is `elementSheetStep` (owner 2026-10-04: a tap outside the part
+     folds the sheet; a tap on another part switches it, same section). */
+  const [sheet, sheetDo] = useReducer(
+    (st: ElementSheetState<ElementTarget>, ev: ElementSheetEvent<ElementTarget>) => elementSheetStep(st, ev),
+    ELEMENT_SHEET_CLOSED as ElementSheetState<ElementTarget>,
+  );
+  const elementTarget = sheet.target;
+  const setElementTarget = useCallback(
+    (next: ElementTarget | null | ((prev: ElementTarget | null) => ElementTarget | null)) => sheetDo({ t: 'set', target: next }),
+    [],
+  );
   const elementRef = useRef<ElementTarget | null>(null);
   elementRef.current = elementTarget;
+  const sheetFolded = useRef(false);
+  sheetFolded.current = sheet.collapsed;
   const elementEditingOn = Boolean(elementEditing);
   const selectionKey = canvasKeyOfSelection(selection, scenes);
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
-  }, [selectionKey, stage]);
+  }, [selectionKey, stage, setElementTarget]);
   /* ✍ TAP-TO-TYPE (Maker core part 2): the tap that began typing on the
      canvas. Only the tap is kept here — the bar (`type-in-place.tsx`, loaded
      with the Details pieces) hears every keystroke itself, so a letter never
@@ -489,7 +504,7 @@ export function MakerWork({
     };
     window.addEventListener('message', onType);
     return () => window.removeEventListener('message', onType);
-  }, [scenes, select]);
+  }, [scenes, select, setElementTarget]);
   const endTyping = () => {
     (typeStart?.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
     setTypeStart(null);
@@ -541,7 +556,7 @@ export function MakerWork({
     };
     window.addEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
     return () => window.removeEventListener(MAKER_OPEN_PART_EVENT, onOpenPart);
-  }, []);
+  }, [setElementTarget]);
 
   /* ⚡ THE CANVAS HOLD (`element-preview.ts`). The canvas iframe is keyed on
      `canvasStamp`, not on every server render's `renderStamp`: an element
@@ -942,6 +957,21 @@ export function MakerWork({
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
+      /* 📱 THE PART SHEET ON A PHONE (owner 2026-10-04, `lib/element-sheet-state.ts`):
+         a tap on the canvas that hits no part folds the open sheet to its bar
+         and does nothing else; once folded, the next such tap goes through
+         (the sheet closes, the tap selects what it hit). The part stays
+         outlined while the sheet is only folded. */
+      const phoneSheet = window.innerWidth < 1024 && elementRef.current !== null;
+      if (data?.source === 'setnayan-site' && phoneSheet && (data.t === 'tapOutside' || (data.t === 'edit' && !isHubElementKey(data.el)))) {
+        const was = elementRef.current!;
+        sheetDo({ t: 'tapOutside' });
+        if (!sheetFolded.current) {
+          postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: was.key, el: was.el });
+          return;
+        }
+        postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: was.key, el: null });
+      }
       if (!data || data.source !== 'setnayan-site' || data.t !== 'edit' || typeof data.key !== 'string') return;
       /* 🔤 A tap ON an element (the hero's names, a scene's heading) opens that
          element's sheet; its scene's panel stays as it was. */
@@ -1005,12 +1035,10 @@ export function MakerWork({
                 ? postEventElementScope(peScene)
                 : null;
         const el = data.el;
-        setElementTarget((prev) =>
-          isHubElementKey(el) && elementEditingOn && widgetType
-            ? // The same part tapped again keeps the text selected in it (✍ runs).
-              { key: data.key!, widgetType, el, range: prev && prev.key === data.key && prev.el === el ? prev.range : null }
-            : null,
-        );
+        /* 📱 Another part switches the sheet to it, on the same section; the same
+           part changes nothing (its selected text is kept — ✍ runs). */
+        if (isHubElementKey(el) && elementEditingOn && widgetType) sheetDo({ t: 'tapPart', target: { key: data.key, widgetType, el, range: null } });
+        else setElementTarget(null);
         return;
       }
       setElementTarget(null);
@@ -1057,7 +1085,7 @@ export function MakerWork({
       window.removeEventListener('message', onMessage);
       window.removeEventListener('message', onSelect);
     };
-  }, [rows, scenes, select, elementEditingOn, postToShownCanvases]);
+  }, [rows, scenes, select, elementEditingOn, postToShownCanvases, setElementTarget]);
 
   /* 🖼 THE TILES' PREVIEWS (owner 2026-09-26: *"the navigator preview must
      really show the preview"*). Each tile shows a static copy of its section
@@ -2619,8 +2647,13 @@ export function MakerWork({
           }
           onClose={() => {
             postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null });
-            setElementTarget(null);
+            sheetDo({ t: 'close' });
           }}
+          collapsed={sheet.collapsed}
+          onCollapse={() => sheetDo({ t: 'dragDown' })}
+          onRestore={() => sheetDo({ t: 'restore' })}
+          section={sheet.section}
+          onSection={(section) => sheetDo({ t: 'section', section })}
         />
       ) : selection ? (
         <CanvasWordsContext.Provider value={canvasWords}>

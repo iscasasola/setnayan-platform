@@ -33,7 +33,7 @@ import { ScenePreview } from './scene-preview';
 import type { ElementDraftAction, ElementPalette, ElementTarget } from './element-sheet';
 import { detailsItemForSection, detailsItemForTap } from '@/lib/maker-details-selection';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
-import { LOOK_ROW_OF, PALETTE_STYLES_LINE, isLookRow } from '@/lib/maker-look-sections';
+import { LOOK_ROW_OF, isLookRow } from '@/lib/maker-look-sections';
 import { DetailsFactSceneContext } from '../../../launch/_components/details-tap';
 import { askScheduleFocus } from '../../../schedule/_components/schedule-focus';
 import { detailsFactOfScene, sceneBoundText, type DetailsFact } from '@/lib/details-bound';
@@ -794,7 +794,6 @@ export function MakerWork({
               eventType={sceneFormat?.eventType ?? null}
               draftAction={elementEditing.draftAction}
               colours={sceneFormat?.colorChoices ?? []}
-              line={PALETTE_STYLES_LINE}
             />
           ) : null,
         buttons: buttonsNode,

@@ -7,6 +7,7 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES } from '@/lib/reveal-stages';
 import { canvasKeyOfSelection } from '@/lib/maker-selection';
 import { CanvasStaysOnThePage } from '../../website/editor/_components/maker-canvas-guard';
+import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { MakerPageFrame, MakerPageSwitch } from './maker-page';
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { useMaker } from './maker-context';
@@ -15,6 +16,8 @@ import { DetailsGoTo, DetailsPieceButton, useDetailsPiece } from './details-go';
 import { ElementSheet } from './details-lazy';
 import { HUB_ELEMENT_LABEL, isHubElementKey, type HubElementKey } from '@/lib/element-style';
 import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
+import { stagePageSrc, type GuidedStepBody } from '@/lib/guided-step-layout';
+import { usePickedTheme } from './theme-pick-context';
 
 /**
  * 🎨 LOGO · HERO · REVEAL, MOVED INTO DETAILS WHOLE (Details part 3; owner
@@ -112,23 +115,23 @@ export function LookPanel({ theme }: { theme: ReactNode }) {
  * change shows as it is made). The page they are editing — the stage the Maker
  * is on, its draft, through the host-only canvas door — fills the body; the
  * sample gallery of every theme (`MakerThemeGallery`, the 2026-09-28 quick
- * preview) is one switch away. Two choices: a switch, never a dropdown.
+ * preview) is one switch away — THE one segmented control (`ISegmented`, the
+ * chosen segment in Setnayan wine; DECISION_LOG 2026-10-04 "ONE SEGMENTED
+ * CONTROL FOR SECTIONS, ACROSS THE APP"), never a pill row of its own.
  */
 export function DetailsLookPageBody({ gallery }: { gallery: ReactNode }) {
   const [view, setView] = useState<'page' | 'themes'>('page');
-  const seg = (on: boolean) =>
-    `sn-press inline-flex min-h-9 items-center rounded-full px-3.5 text-[13px] font-semibold transition-colors duration-sn-control ease-sn ${
-      on ? 'bg-ink text-cream' : 'bg-white/80 text-ink/75 hover:bg-white'
-    }`;
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-details-look-body={view}>
-      <div role="group" aria-label="What the page shows" className="flex shrink-0 gap-1.5 px-4 pb-2 sm:px-6">
-        <button type="button" aria-pressed={view === 'page'} data-look-view="page" onClick={() => setView('page')} className={seg(view === 'page')}>
-          Your page
-        </button>
-        <button type="button" aria-pressed={view === 'themes'} data-look-view="themes" onClick={() => setView('themes')} className={seg(view === 'themes')}>
-          All themes
-        </button>
+      <div className="flex w-full shrink-0 px-4 pb-2 sm:px-6 lg:max-w-md" data-look-view-switch="">
+        <ISegmented label="What the page shows">
+          <ISeg tone="wine" on={view === 'page'} onClick={() => setView('page')} data="look-view-page">
+            Your page
+          </ISeg>
+          <ISeg tone="wine" on={view === 'themes'} onClick={() => setView('themes')} data="look-view-themes">
+            All themes
+          </ISeg>
+        </ISegmented>
       </div>
       {view === 'page' ? (
         <DetailsLookBody item="look" />
@@ -282,11 +285,13 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
   const [revealPick, setRevealPick] = useState<LifecyclePhase | null>(null);
   const stages = look.revealStages;
   const revealStage = revealPick && stages.includes(revealPick) ? revealPick : (stages[0] ?? null);
-  /* 🎨 Look: the page being edited, on the stage the Maker is on (the canvas door, its draft). */
+  /* 🎨 Look: the page being edited, on the stage the Maker is on (the canvas door, its draft),
+     wearing the theme being picked — at the tap, before its save lands (`theme=`). */
+  const picked = usePickedTheme();
   const src =
     item === 'look'
       ? look.publicLandingUrl
-        ? `${look.publicLandingUrl}?phase=${maker.stage}&editor=1`
+        ? `${look.publicLandingUrl}?phase=${maker.stage}&editor=1${picked ? `&theme=${encodeURIComponent(picked)}` : ''}`
         : null
       : makerPageCanvasSrc(look.publicLandingUrl, item, maker.stage, { revealStage });
   const frameKey = `${item}:${src}:${maker.renderStamp}`;
@@ -364,6 +369,39 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
           if (f && at) f.src = at;
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * 🖼 BEHIND A GUIDED STEP — what the stage produces (`lib/guided-step-layout.ts`):
+ * its page, live, in the draft, wearing the theme being picked, at the part the
+ * step fills; or, on the cover step, the cover photo itself. The SAME frame
+ * every Maker page uses (`MakerPageFrame`, double-buffered).
+ */
+export function StageStepPreview({ body, coverUrl = null }: { body: GuidedStepBody; coverUrl?: string | null }) {
+  const maker = useMaker();
+  const picked = usePickedTheme();
+  const base = maker?.lookPages?.publicLandingUrl ?? null;
+  if (body.kind === 'cover' && coverUrl) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center px-2 py-2" data-guided-step-body="cover">
+        {/* eslint-disable-next-line @next/next/no-img-element -- the couple's own cover, already signed */}
+        <img src={coverUrl} alt="Your cover photo" className="max-h-full max-w-full rounded-md object-contain shadow-sm" />
+      </div>
+    );
+  }
+  const src = base ? stagePageSrc(base, body, picked) : null;
+  if (!maker || !src) {
+    return (
+      <p role="status" className="m-auto px-4 text-center text-sm text-ink/60" data-guided-step-body="waiting">
+        Opening your page…
+      </p>
+    );
+  }
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-guided-step-body={body.kind}>
+      <MakerPageFrame src={src} title="Your page, as guests will see it" device="phone" frameKey={`step:${src}:${maker.renderStamp}`} />
     </div>
   );
 }

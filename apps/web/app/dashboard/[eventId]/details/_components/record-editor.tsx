@@ -96,7 +96,6 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
               themes={themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier }))}
               ownsPro={ctx.ownsPro}
               storeShell={ctx.storeShell}
-              blurbs={Object.fromEntries(themes.map((t) => [t.id, INVITE_THEMES[t.id].blurb]))}
             />
           </ThemePickProvider>
         );

@@ -675,7 +675,12 @@ export function MakerLogoDoor({
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-start p-3 lg:justify-center lg:p-6">
         {/* The frame is SQUARE: as wide as the space allows, never taller than
             the space left under the Maker bar. */}
-        <div className="relative aspect-square w-full max-w-[min(100%,calc(100dvh-13rem))]" data-logo-frame="">
+        {/* 📱 In the guided flow the logo is the step's picture above its half sheet:
+            the frame fits the half above it, so the whole logo is seen as it changes. */}
+        <div
+          className="relative aspect-square w-full max-w-[min(100%,calc(100dvh-13rem))] max-lg:group-data-[details-mode=guided]/ws:max-w-[min(100%,calc(55dvh-8rem))]"
+          data-logo-frame=""
+        >
           {playing ? (
             <div className="absolute inset-0 rounded-md bg-white shadow-sm" data-logo-playing="">
               {composed ? <LayeredLogoPlayer key={playKey} svg={composed} /> : null}
@@ -687,14 +692,24 @@ export function MakerLogoDoor({
               role="img"
               aria-label="Your logo — drag a layer to move it"
               data-logo-canvas=""
-              className="absolute inset-0 h-full w-full touch-none select-none rounded-md bg-white shadow-sm"
+              /* `overflow-hidden`: nothing is drawn past the frame — the logo guests
+                 get is cut at the same edge, so the studio never shows more. */
+              className="absolute inset-0 h-full w-full touch-none select-none overflow-hidden rounded-md bg-white shadow-sm"
               onPointerDown={onDown}
               onPointerMove={onMove}
               onPointerUp={onUp}
               onPointerCancel={onUp}
             >
-              {/* The frame's guides: its centre lines, faint. */}
-              <path d={`M${LOGO_FRAME / 2} 0V${LOGO_FRAME}M0 ${LOGO_FRAME / 2}H${LOGO_FRAME}`} stroke="#00000010" strokeWidth={2} />
+              {/* The frame's guides: its centre lines, faint — an editing aid only:
+                  guests never see them, so the guided flow's picture of the logo
+                  does not draw them either (owner 2026-10-05). */}
+              <path
+                d={`M${LOGO_FRAME / 2} 0V${LOGO_FRAME}M0 ${LOGO_FRAME / 2}H${LOGO_FRAME}`}
+                stroke="#00000010"
+                strokeWidth={2}
+                data-logo-guides=""
+                className="group-data-[details-mode=guided]/ws:hidden"
+              />
               {layers.map((l) =>
                 l.body ? (
                   <g

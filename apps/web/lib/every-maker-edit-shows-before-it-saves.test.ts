@@ -79,13 +79,11 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
   'launch/_components/details-your-event.tsx › draftVenueChoice':
     'Details › Venues (owner 2026-10-04, venues wait for Apply): the card\'s source or photo is drawn first by `choose` (its own state, set before this draft save), and put back if the save is refused.',
   'launch/_components/details-your-event.tsx › draftFactsFull':
-    'Details › Names, Name and Date (owner 2026-10-01, "wait for apply"): what the couple typed or picked IS the visible change (the inputs’ own state); Save drafts it, and the canvas redraws with the draft in the one render after it.',
+    'Details › Names, Name and Date (owner 2026-10-01, "wait for apply"): what the couple typed or picked IS the visible change (the inputs’ own state); it drafts itself a moment later (AutoDraft — no Save, owner 2026-10-05), and the canvas redraws with the draft in the one render after it.',
   'website/editor/_components/main-background-panel.tsx › <effect>':
     'Not a tap — the Main background reads the hero photo’s colours by itself and saves them.',
   'website/editor/_components/main-background-panel.tsx › save':
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
-  'launch/_components/maker-rsvp-ask.tsx › saveReplyBy':
-    'Reply-by date: the date the couple typed IS the visible change (the input\'s own state); Save stores it and says "Saved."',
   'launch/_components/parent-cards.tsx › add':
     'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
   'launch/_components/details-march.tsx › leaveBlank':

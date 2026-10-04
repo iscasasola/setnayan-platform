@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import Image from 'next/image';
 import { Check, Maximize2 } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -26,6 +26,7 @@ import { THEME_OWN_LOOK_RESET, themePickSends } from '@/lib/theme-own-look';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { ThemePreviewOverlay } from './theme-preview-overlay';
+import { ThemePickContext, type ThemePick } from './theme-pick-context';
 
 /**
  * THE THEME PICKER — the ONE place the Event Hub's theme is chosen, on the
@@ -86,14 +87,8 @@ import { ThemePreviewOverlay } from './theme-preview-overlay';
  * feel (`themeMatchingFeel`); it applies nothing (owner: *"4 keep it"*).
  */
 
-type Pick = {
-  picked: string;
-  pending: boolean;
-  error: string | null;
-  pick: (id: string) => void;
-};
-
-const PickContext = createContext<Pick | null>(null);
+type Pick = ThemePick;
+const PickContext = ThemePickContext;
 
 function usePick(): Pick {
   const v = useContext(PickContext);
@@ -387,30 +382,28 @@ export function MakerThemeGallery({
 
 /**
  * THE MENU — the Details editor while Theme is picked: the same themes as ONE
- * dropdown, the picked theme's own line, and what a pick does.
+ * dropdown, ◆ on a Pro one. No line under it (owner, live iPhone test
+ * 2026-10-05: no captions under controls) — what a theme is shows on the page
+ * above the sheet the moment it is picked, and the (i) says the rest.
  */
 export function MakerThemeMenu({
   themes,
   ownsPro,
   storeShell,
-  blurbs,
 }: {
   themes: ThemeTile[];
   ownsPro: boolean;
   storeShell: boolean;
-  /** Each theme's own line (`INVITE_THEMES[id].blurb`). */
-  blurbs: Record<string, string>;
 }) {
   const { picked, error, pick } = usePick();
   const shown = tilesShown(themes, { ownsPro, storeShell, current: picked });
-  const current = shown.find((t) => t.id === picked) ?? null;
   return (
     <div data-maker-theme-menu="" className="flex flex-col gap-2">
       <div className="flex min-h-11 items-center justify-between gap-3">
         <InfoTip label="Theme" align="start">
           Your whole Event Hub wears it — colours, lettering and motion — and so does every print.{' '}
           {themeNames(FREE_THEMES)} are free; the others come with Event Hub Pro. Pick one anyway — Apply names it and
-          asks.
+          asks. It goes into your draft: Undo steps it back, Apply puts it live.
         </InfoTip>
         <PickMenu
           label="Theme"
@@ -420,13 +413,6 @@ export function MakerThemeMenu({
           onPick={pick}
         />
       </div>
-      {current ? <p className="text-xs text-ink/65">{blurbs[current.id]}</p> : null}
-      {current?.tier === 'pro' && !ownsPro && !storeShell ? (
-        <p className="flex items-center gap-1.5 text-xs text-ink/65">
-          <ProMark tier="pro" ownsPro={ownsPro} storeShell={storeShell} /> Event Hub Pro — Apply will ask for it.
-        </p>
-      ) : null}
-      <p className="text-xs text-ink/55">Drafted — Undo steps it back, Apply puts it live.</p>
       {error ? (
         <p role="alert" className="text-xs text-danger-800">
           {error}

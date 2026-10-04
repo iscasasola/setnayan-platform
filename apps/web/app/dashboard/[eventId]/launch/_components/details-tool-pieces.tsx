@@ -25,9 +25,8 @@ export function ScheduleSlots() {
   return (
     <>
       <div id={DETAILS_SCHEDULE_INSPECTOR_SLOT} hidden={announce} className={announce ? 'hidden' : 'flex flex-col'} data-details-schedule-inspector="" />
-      <div id={DETAILS_SCHEDULE_ANNOUNCE_SLOT} hidden={!announce} className={announce ? 'flex flex-col gap-2' : 'hidden'} data-details-schedule-announce="">
-        <p className="text-xs text-ink/60">Send your guests a short note — it shows at the top of their Event Hub as soon as it is sent.</p>
-      </div>
+      {/* The shipped Announce button is drawn in here — no caption under it (owner 2026-10-05). */}
+      <div id={DETAILS_SCHEDULE_ANNOUNCE_SLOT} hidden={!announce} className={announce ? 'flex flex-col gap-2' : 'hidden'} data-details-schedule-announce="" />
     </>
   );
 }

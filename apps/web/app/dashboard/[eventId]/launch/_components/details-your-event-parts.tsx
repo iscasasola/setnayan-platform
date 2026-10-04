@@ -220,7 +220,7 @@ export function yourEventFactEditors({
   input: Pick<YourEventInput, 'names' | 'oneName' | 'nameStyle' | 'date' | 'venues'>;
 }): { names: ReactNode; date: ReactNode; venues: ReactNode } {
   const namesEditor = input.oneName ? (
-    <OneNameEditor eventId={eventId} initial={input.oneName.initial} hint={input.oneName.hint} />
+    <OneNameEditor eventId={eventId} initial={input.oneName.initial} />
   ) : input.names ? (
     input.names.wholeForm ?? (
       <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} />

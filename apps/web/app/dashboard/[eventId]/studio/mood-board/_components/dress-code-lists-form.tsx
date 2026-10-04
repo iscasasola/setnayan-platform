@@ -2,6 +2,7 @@ import { ListField } from './list-field';
 import { updateDressCodeLists } from '../dress-code-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HubDraftField } from '../../../website/_components/hub-draft-field';
+import { DraftsAsYouGo } from '../../../website/editor/_components/drafts-as-you-go';
 import { IncDressCodeStarterNote } from './inc-dress-code-starter-note';
 
 /**
@@ -57,12 +58,18 @@ export function DressCodeListsForm({
           <p className="font-mono text-xs uppercase tracking-[0.18em] text-danger-700">Don&rsquo;t</p>
           <ListField key={donts.join('\u0001')} name="donts" tone="dont" initial={donts} />
         </div>
-        <SubmitButton
-          pendingLabel="Saving…"
-          className="inline-flex min-h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-cream transition-colors hover:bg-ink/90"
-        >
-          Save
-        </SubmitButton>
+        {/* ✍ In the Maker the lists draft themselves when a row is left (owner
+            2026-10-05: no Save button in a step); the studio keeps its Save. */}
+        {inMaker ? (
+          <DraftsAsYouGo settle />
+        ) : (
+          <SubmitButton
+            pendingLabel="Saving…"
+            className="inline-flex min-h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-cream transition-colors hover:bg-ink/90"
+          >
+            Save
+          </SubmitButton>
+        )}
       </form>
     </section>
   );

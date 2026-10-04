@@ -253,7 +253,10 @@ export function MomentInspector({
 
   return (
     <div className="px-5 pb-7 pt-3 lg:rounded-2xl lg:bg-white/80 lg:shadow-[-30px_0_60px_-40px_rgba(30,26,18,0.35)] lg:backdrop-blur">
-      <div className="flex min-h-11 items-center gap-2">
+      {/* 🪜 In the Maker's guided flow the step's sheet IS this moment's frame —
+          one header row (step ▾ · Peek · ×) — so this row of its own steps aside
+          there (owner 2026-10-05: one layout for every step). */}
+      <div className="flex min-h-11 items-center gap-2 group-data-[details-mode=guided]/ws:hidden" data-moment-head="">
         <span className="flex-1">
           <Eyebrow>{readOnly ? 'Moment · view only' : 'Moment'}</Eyebrow>
         </span>
@@ -606,8 +609,9 @@ export function MomentInspector({
         </div>
       ) : null}
 
+      {/* The step's sheet says nothing under its fields (no captions) — only a refusal. */}
       {canEdit ? (
-        <p role="status" className="mt-3 text-xs text-ink/55">
+        <p role="status" className={`mt-3 text-xs text-ink/55 ${save === 'error' ? '' : 'group-data-[details-mode=guided]/ws:hidden'}`} data-moment-status="">
           {save === 'saving' ? (
             'Saving…'
           ) : save === 'error' ? (

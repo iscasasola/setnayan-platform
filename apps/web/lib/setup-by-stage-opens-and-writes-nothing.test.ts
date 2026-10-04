@@ -100,10 +100,9 @@ test('🔑 (2) opening a stage, Before we start or a step writes nothing — no 
     assert.ok(src.length > 500, `anti-vacuity: ${f} was not read`);
     for (const [re, what] of WRITES) assert.doesNotMatch(src, re, `${f} holds ${what} — opening the flow must write nothing`);
   }
-  // The one press that publishes is Apply — the bar's own, and only on a press (`pressMakerApply` in an onClick).
+  // The one press that publishes is Apply — the bar's own ✓ (owner 2026-10-05: ONE Apply). The flow presses none.
   const guide = read(`${L}/details-guide.tsx`);
-  assert.equal((guide.match(/pressMakerApply\(\)/g) ?? []).length, 1);
-  assert.match(guide, /const apply = \(\) => \{\s*const outcome = pressMakerApply\(\);/);
+  assert.equal((guide.match(/pressMakerApply\(/g) ?? []).length, 0, 'the flow grew its own Apply again');
   // The only thing a press remembers is a per-phone "seen" (never data), and only on Start.
   const ws = read(`${L}/details-workspace.tsx`);
   assert.equal((ws.match(/localStorage\.setItem/g) ?? []).length, 1, 'the flow remembers something else on this phone');

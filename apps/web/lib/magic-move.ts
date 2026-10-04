@@ -53,10 +53,6 @@ export const MAGIC_TRAVELLER_LABEL: Record<MagicTraveller, string> = {
   mark: 'Your monogram travels down the page',
 };
 
-export const MAGIC_TRAVELLER_NOTE: Record<MagicTraveller, string> = {
-  mark: 'It starts large at the top and shrinks into the bar as your guests scroll — one mark the whole way, never two.',
-};
-
 /** The attribute the travelling element carries. */
 export const MAGIC_TRAVELLER_ATTR = 'data-magic-traveller';
 /** The attribute on the empty box it travels INTO. */

@@ -225,7 +225,9 @@ test('in the app-store shell (proLocked) a free couple can recolour the backgrou
   for (const f of ['site_art_direction', 'site_font_key', 'site_magic_traveller']) {
     assert.doesNotMatch(html, new RegExp(`name="${f}"`), f);
   }
-  assert.match(html, /type="submit"/, 'the background can still be saved');
+  // ✍ No Save button (owner 2026-10-05, INTERACTION_RULES §8): the form drafts each change itself.
+  assert.match(html, /data-drafts-as-you-go=""/, 'the background can no longer be saved');
+  assert.doesNotMatch(html, /type="submit"/, 'a Save button came back inside Look');
 });
 
 test('💎 a free couple on the web sees the whole Colours row with ◆ PRO on its Pro half', async () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { answerKeyOf, answerValueOf, type AnswerChoice, type EventAnswerColumn } from '@/lib/event-answers';
 import { hubDraftAction } from '../../website/hub-draft-actions';
@@ -48,6 +48,16 @@ export function AnswerPicker({
   const [pending, start] = useTransition();
   const latest = useRef(initial);
   const stored = useRef(initial);
+  /* 🔁 The draft is the one value: Undo, Apply or the same question answered in
+     its other place (the guided step's sheet, the item's own strip) move it, and
+     this follows — never while a pick of its own is on its way. */
+  useEffect(() => {
+    if (pending || initial === stored.current) return;
+    stored.current = initial;
+    latest.current = initial;
+    setShown(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- follows the saved answer only
+  }, [initial]);
 
   const pick = (key: string) => {
     const value = answerValueOf(column, key);

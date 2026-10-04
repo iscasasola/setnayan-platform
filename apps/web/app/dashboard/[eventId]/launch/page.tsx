@@ -21,7 +21,10 @@ import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
-import { INVITE_THEMES, pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
+import { pickableInviteThemes, resolveInviteTheme, themeMatchingFeel } from '@/lib/invite-themes';
+import { resolveHero } from '@/lib/event-hero';
+import { siteMediaServeRef } from '@/lib/site-media-ref';
+import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { eventSkuActive } from '@/lib/entitlements';
 import { resolveAddOnState } from '@/lib/add-on-state';
@@ -1364,6 +1367,17 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
         seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
       });
+      /* 🖼 The cover photo itself — what the guided cover step shows behind its
+         sheet (owner 2026-10-05: the page lays the invitation card over it).
+         Drafted over live, signed the way the hero panel signs it. */
+      const coverRef = resolveHero({
+        landing_page_hero_image_url:
+          'landing_page_hero_image_url' in draftedEvents
+            ? (draftedEvents.landing_page_hero_image_url as string | null)
+            : printEvent.landing_page_hero_image_url,
+        landing_page_hero_video_r2_key: null,
+      }).photoRef;
+      const coverUrl = coverRef ? await displayUrlForStoredAsset(siteMediaServeRef(coverRef)).catch(() => null) : null;
       /* 🧭 "FINISH YOUR EVENT HUB" (the setup, B — lib/hub-setup-steps.ts): its
          facts from what this page already read (the draft over live), plus the
          guests' count — the SAME derivation Home's card reads
@@ -1453,6 +1467,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       details = {
         page: (
           <MakerDetails
+            coverUrl={coverUrl}
             yourEvent={yourEvent}
             seatPlan={seatPlan}
             /* 🙋 Plan it myself (owner 2026-10-02, tracker d4) — the same
@@ -1469,6 +1484,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               tour: !firstVisit ? <MiniTour tourKey="customer_details_guided_v1" storeShell={storeShell} /> : null,
               setup: setupFacts,
               guestsHref: hubSetupGuestsHref(eventId),
+              // 🔢 One count: the facts Home and Event Details count from.
+              doneFacts: guided,
             }}
             eventId={eventId}
             slug={printEvent.slug}
@@ -1484,7 +1501,6 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               storeShell,
               suggested: themeMatchingFeel(feelRes.data?.mood_feel_key),
               sampleVersion,
-              blurbs: Object.fromEntries(themes.map((t) => [t.id, INVITE_THEMES[t.id].blurb])),
               // Each theme's SAVED poster (already on R2) — the gallery's picture until a page is there.
               posters: Object.fromEntries(themes.map((t) => [t.id, t.media ? publicUrlForStoredAsset(t.media.poster) : null])),
               // Never on the Maker's very first visit — its own welcome is showing.

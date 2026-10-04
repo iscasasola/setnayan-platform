@@ -6,6 +6,19 @@ import type { DetailsItemKey } from '@/lib/maker-details-items';
 import { DetailsPieceButton } from '@/app/dashboard/[eventId]/launch/_components/details-go';
 import { FontPick } from '@/app/dashboard/[eventId]/website/editor/_components/font-pick';
 import type { HubFontKey } from '@/lib/hub-fonts';
+import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
+
+/**
+ * The lab's stand-in for `updateSiteColors`: what a Look form drafted, kept on
+ * the window (`__labDrafts`) so the as-you-go drafting can be watched — no
+ * database, no Save button.
+ */
+function labDraft(fd: FormData) {
+  const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
+  const sent = Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+  (w.__labDrafts ??= []).push(sent);
+  console.info('[lab] drafted', sent);
+}
 
 /**
  * `/dev/details-lab?look=1` — the Look items (Details part 3) on fixtures. The
@@ -65,6 +78,16 @@ export function LookLab({ children }: { children: ReactNode }) {
         </>
       ),
       heroParts: null,
+      /* 🎨 Look's Font and Colours — the REAL `ColorsPanel` parts, drafting into the lab's stand-in. */
+      look: {
+        background: null,
+        font: <ColorsPanel action={labDraft} eventId="lab" rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} />,
+        colours: (
+          <ColorsPanel action={labDraft} eventId="lab" rowKey="colors" part="colours" bgColor={null} buttonColor={null} artDirection={null} magicTraveller={null} />
+        ),
+        palette: null,
+        buttons: null,
+      },
       /* Classic's faces + a couple's part font, as the page would register them. */
       fontsInUse: ['cormorant', 'cormorantsc', 'playfair'],
       revealStages: ['save_the_date', 'rsvp'],

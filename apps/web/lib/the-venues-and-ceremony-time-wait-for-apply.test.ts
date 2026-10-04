@@ -144,7 +144,9 @@ test('AddressPinField hides its two hint lines behind a prop — set in the Make
 
 test('opening Venues or Date writes nothing, and nothing in them writes live', () => {
   const src = stripComments(EDITORS);
-  assert.doesNotMatch(src, /useEffect\(/, 'an editor that saves on open');
+  // The ONE effect is AutoDraft's (owner 2026-10-05: no Save) — and it sends only a CHANGE, never what was drawn.
+  assert.equal((src.match(/useEffect\(/g) ?? []).length, 1, 'an editor that saves on open');
+  assert.match(src, /function AutoDraft\([\s\S]{0,400}useEffect\(\(\) => \{\s*if \(watch === sent\.current\) return;/, 'AutoDraft would send what it was drawn with');
   assert.doesNotMatch(src, /saveAllStdContent|HubSavesImmediately/, 'a live write from inside the Maker');
   // CityPick's only effects load the place list.
   const effects = [...stripComments(CITY).matchAll(/useEffect\(\(\) => \{([\s\S]*?)\n  \}, \[/g)].map((m) => m[1]!);

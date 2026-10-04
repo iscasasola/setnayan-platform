@@ -1,7 +1,7 @@
 'use client';
 
-import { Suspense, useRef, useState, useTransition, type ReactNode } from 'react';
-import { Check, MapPin } from 'lucide-react';
+import { Suspense, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { MapPin } from 'lucide-react';
 import { sanitizeName } from '@/lib/match-criteria';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import type { ScheduleMatrix } from '@/lib/schedule-matrix';
@@ -56,8 +56,14 @@ import { DateClashNote } from './details-date-clash';
  * row until then). Opening an item never writes.
  */
 
-/** What a drafted save says — saved, and when guests see it. */
-const DRAFTED = 'Saved — guests see it when you Apply';
+/**
+ * ✍ NO SAVE BUTTON IN A STEP (owner, live iPhone test 2026-10-05 — "why are
+ * there so many inconsistencies"; INTERACTION_RULES §8): every field here is
+ * drafted AS IT IS TYPED, a short pause after the last change (`AutoDraft`),
+ * shown on the page at once, and guests see it at Apply. The ✓ Apply count
+ * rising is the "saved".
+ */
+const AUTO_DRAFT_MS = 900;
 
 /**
  * ✍ A typed name or date → the Event Hub DRAFT, through the one draft door
@@ -94,19 +100,16 @@ export function NamesEditor({
   const [a, setA] = useState<PersonName>(initial[0]);
   const [b, setB] = useState<PersonName>(initial[1]);
   const [pending, start] = useTransition();
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const save = () => {
     setError(null);
-    setSaved(false);
     // The Personalization writer's own composition; an all-blank form leaves the page's names alone.
     const events = coupleNameColumns(a, b);
     start(async () => {
       try {
         const refused = await draftFacts(eventId, events);
         if (refused) setError(refused);
-        else setSaved(true);
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
@@ -121,7 +124,6 @@ export function NamesEditor({
           value={v.first}
           onChange={(e) => {
             set({ ...v, first: sanitizeName(e.target.value) });
-            setSaved(false);
           }}
           maxLength={80}
           autoCapitalize="words"
@@ -133,7 +135,6 @@ export function NamesEditor({
           value={v.last}
           onChange={(e) => {
             set({ ...v, last: sanitizeName(e.target.value) });
-            setSaved(false);
           }}
           maxLength={80}
           autoCapitalize="words"
@@ -149,7 +150,7 @@ export function NamesEditor({
     <section data-details-names="" className="flex flex-col gap-3">
       {row(people[0], a, setA)}
       {row(people[1], b, setB)}
-      <SaveRow pending={pending} saved={saved} savedText={DRAFTED} error={error} onSave={save} />
+      <AutoDraft watch={JSON.stringify([a, b])} pending={pending} error={error} onSave={save} />
     </section>
   );
 }
@@ -202,7 +203,8 @@ export function NameStylePicker({ eventId, saved }: { eventId: string; saved: Na
     });
   };
 
-  const example = NAME_STYLE_CHOICES.find((c) => c.key === shown)?.example ?? '';
+  /* No line under it (owner 2026-10-05: no captions under controls) — the
+     style shows on the cards above the sheet the moment it is picked. */
   return (
     <section data-name-style={shown} aria-busy={pending || undefined} className="flex flex-col gap-1.5 border-t border-ink/10 pt-3">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -215,9 +217,6 @@ export function NameStylePicker({ eventId, saved }: { eventId: string; saved: Na
           dataAttr="data-name-style-pick"
         />
       </div>
-      <p className="text-xs text-ink/65">
-        {example} — on the entourage, tickets, printed cards and name lists. A Display name prints as you typed it. Guests see a new style when you Apply.
-      </p>
       {error ? (
         <p role="alert" className="text-[12.5px] text-terracotta-700">
           {error}
@@ -234,24 +233,19 @@ export function NameStylePicker({ eventId, saved }: { eventId: string; saved: Na
  * (owner 2026-10-01, "wait for apply") — `display_name` and nothing else, the
  * one column `updateEventMatchCriteria`'s `celebrant_name` door writes live.
  */
-export function OneNameEditor({ eventId, initial, hint }: { eventId: string; initial: string; hint: string }) {
+export function OneNameEditor({ eventId, initial }: { eventId: string; initial: string }) {
   const [name, setName] = useState(initial);
   const [pending, start] = useTransition();
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const save = () => {
     setError(null);
-    setSaved(false);
     const typed = name.replace(/\s+/g, ' ').trim();
-    if (!typed) {
-      setError('Type a name first');
-      return;
-    }
+    // An emptied box is a name being retyped — nothing is sent until there is one.
+    if (!typed) return;
     start(async () => {
       try {
         const refused = await draftFacts(eventId, { display_name: typed });
         if (refused) setError(refused);
-        else setSaved(true);
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
@@ -263,18 +257,14 @@ export function OneNameEditor({ eventId, initial, hint }: { eventId: string; ini
         <span className="text-xs font-medium text-ink/70">Name</span>
         <input
           value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setSaved(false);
-          }}
+          onChange={(e) => setName(e.target.value)}
           maxLength={80}
           autoCapitalize="words"
           aria-label="Name, as guests read it"
           className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
         />
-        <span className="text-xs text-ink/60">{hint}</span>
       </label>
-      <SaveRow pending={pending} saved={saved} savedText={DRAFTED} error={error} onSave={save} />
+      <AutoDraft watch={name} pending={pending} error={error} onSave={save} />
     </section>
   );
 }
@@ -427,7 +417,6 @@ export function DateEditor({
           {note}
         </p>
       ) : null}
-      <p className="text-[11.5px] text-ink/60">Guests see a new date when you Apply.</p>
     </section>
   );
 }
@@ -444,20 +433,15 @@ export function DateEditor({
 function CeremonyTimeEditor({ eventId, initial, hasDay }: { eventId: string; initial: string | null; hasDay: boolean }) {
   const [time, setTime] = useState(initial ?? '');
   const [pending, start] = useTransition();
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const save = () => {
     setError(null);
-    setSaved(false);
-    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) {
-      setError('Pick a time first');
-      return;
-    }
+    // A time half picked is not sent; a whole one is.
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return;
     start(async () => {
       try {
         const refused = await draftFacts(eventId, { ceremony_time: time });
         if (refused) setError(refused);
-        else setSaved(true);
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
@@ -470,16 +454,12 @@ function CeremonyTimeEditor({ eventId, initial, hasDay }: { eventId: string; ini
         <input
           type="time"
           value={time}
-          onChange={(e) => {
-            setTime(e.target.value);
-            setSaved(false);
-          }}
+          onChange={(e) => setTime(e.target.value)}
           aria-label="Ceremony time"
           className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
         />
       </label>
-      {hasDay ? null : <p className="text-[11.5px] text-ink/60">It goes on your invitation once your day is set.</p>}
-      <SaveRow pending={pending} saved={saved} savedText={DRAFTED} error={error} onSave={save} />
+      <AutoDraft watch={time} pending={pending} error={error} onSave={save} />
     </section>
   );
 }
@@ -580,7 +560,6 @@ export function VenuesEditor({
      that did not touch it. */
   const [cityPicked, setCityPicked] = useState(false);
   const [pending, start] = useTransition();
-  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const ownDetails = (s: VenueSlot) => !s.booked || choices[s.slot]?.source === 'own';
   const typedSlots = slots.filter(ownDetails);
@@ -589,7 +568,6 @@ export function VenuesEditor({
 
   const edit = (slot: VenueSlotKey, next: Partial<{ name: string; address: string; pin: LatLng | null }>) => {
     setValues((v) => ({ ...v, [slot]: { ...v[slot]!, ...next } }));
-    setSaved(false);
     /* 📍 The reception pin pre-fills the city with the nearest place on the
        list, by km (owner 2026-10-04, "YES TO ALL" (1)) — until one is picked. */
     if (slot === 'reception' && next.pin && city !== null && !cityPicked) {
@@ -600,7 +578,6 @@ export function VenuesEditor({
 
   const save = () => {
     setError(null);
-    setSaved(false);
     const events: Record<string, unknown> = {};
     for (const s of typedSlots) {
       const v = values[s.slot]!;
@@ -614,7 +591,6 @@ export function VenuesEditor({
       try {
         const refused = await draftFacts(eventId, events);
         if (refused) setError(refused);
-        else setSaved(true);
       } catch {
         setError('That did not save. Nothing changed — please try again.');
       }
@@ -703,12 +679,11 @@ export function VenuesEditor({
           onPick={(name) => {
             setCityValue(name);
             setCityPicked(true);
-            setSaved(false);
           }}
         />
       ) : null}
       {typedSlots.length > 0 || city !== null ? (
-        <SaveRow pending={pending} saved={saved} savedText={DRAFTED} error={error} onSave={save} />
+        <AutoDraft watch={JSON.stringify([values, cityValue])} pending={pending} error={error} onSave={save} />
       ) : error ? (
         <p role="alert" className="text-xs text-danger-800">
           {error}
@@ -771,11 +746,7 @@ function VenuePhotoPicker({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={shown} alt="" className="aspect-[16/9] w-full max-w-md rounded-md border border-ink/10 object-cover" />
       ) : null}
-      {noneYet ? (
-        <p className="text-[12.5px] text-ink/65">
-          {own || !slot.booked ? 'Add a photo of the place — it shows on the venue card.' : 'This supplier has no photos on their shop yet. Upload one of the place.'}
-        </p>
-      ) : (
+      {noneYet ? null : (
         <PickMenu
           label={`${slot.label} — photo`}
           value={uploading ? PHOTO_UPLOAD : (current ?? PHOTO_NONE)}
@@ -821,33 +792,27 @@ function VenuePhotoPicker({
 
 // ── SHARED ────────────────────────────────────────────────────────────────────
 
-function SaveRow({
-  pending,
-  saved,
-  savedText = 'Saved',
-  error,
-  onSave,
-}: {
-  pending: boolean;
-  saved: boolean;
-  /** What "saved" means here — a drafted fact says when guests see it. */
-  savedText?: string;
-  error: string | null;
-  onSave: () => void;
-}) {
+/**
+ * ✍ AUTO-DRAFT — the step's field saves itself (no Save button): a change to
+ * `watch` (what the field would send) is sent `AUTO_DRAFT_MS` after the last
+ * one, through the editor's own draft door. Opening sends nothing — only a
+ * value that differs from what was last sent (or drawn). Only a refusal is
+ * said, where the field is.
+ */
+function AutoDraft({ watch, pending, error, onSave }: { watch: string; pending: boolean; error: string | null; onSave: () => void }) {
+  const sent = useRef(watch);
+  const save = useRef(onSave);
+  save.current = onSave;
+  useEffect(() => {
+    if (watch === sent.current) return;
+    const t = window.setTimeout(() => {
+      sent.current = watch;
+      save.current();
+    }, AUTO_DRAFT_MS);
+    return () => window.clearTimeout(t);
+  }, [watch]);
   return (
-    <div className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-3">
-        <button type="button" onClick={onSave} disabled={pending} className="button-primary text-sm disabled:opacity-50">
-          {pending ? 'Saving…' : 'Save'}
-        </button>
-        {saved ? (
-          <span role="status" className="inline-flex items-center gap-1 text-xs font-medium text-success-700">
-            <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {savedText}
-          </span>
-        ) : null}
-      </div>
+    <div data-auto-draft="" aria-busy={pending || undefined} className="contents">
       {error ? (
         <p role="alert" className="text-xs text-danger-800">
           {error}

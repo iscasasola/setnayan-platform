@@ -105,6 +105,13 @@ function onPhone(): boolean {
  * On a desktop it is the panel beside the page, exactly as before
  * (`desktopClassName`): every phone move wears a `max-lg:` class.
  *
+ * ONE SLIM HEADER (owner, live iPhone test 2026-10-05: "Theme · Peek · × ·
+ * progress bar · Save the Date · 3 of 6 ▾ · All items", then "SAVE THE DATE",
+ * then "Theme" again): a sheet that has its own way to say where it is (the
+ * guided flow's step ▾) hands it in as `head`, and on a phone it takes the
+ * title's place in the one row — `head` · Peek · ×. `restOn` (the step) puts a
+ * sheet dragged up back to half when it moves on: every step opens at rest.
+ *
  * 🔒 NOTHING HERE WRITES. Opening, dragging, peeking and collapsing are state
  * of the draw; there is no action, save or fetch in this module
  * (`lib/a-phone-sheet-opens-at-half.test.ts`).
@@ -120,6 +127,8 @@ export function MakerHalfSheet({
   desktopClassName = '',
   style,
   beforeGrip = null,
+  head = null,
+  restOn,
   children,
 }: {
   /** The sheet's accessible name (the aside's `aria-label`). */
@@ -140,6 +149,10 @@ export function MakerHalfSheet({
   style?: CSSProperties;
   /** Drawn before the grip — the desktop's resize handle. */
   beforeGrip?: ReactNode;
+  /** 📱 The phone header's own lead (the guided step ▾) — drawn in place of the title, in the one row. */
+  head?: ReactNode;
+  /** When this changes, a sheet dragged up comes back to half (each guided step opens at rest). */
+  restOn?: string | null;
   children: ReactNode;
 }) {
   const [state, dispatch] = useReducer(
@@ -166,6 +179,15 @@ export function MakerHalfSheet({
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, []);
+  /* ▁ A new step rests at half again — "drag up for more" is per step, never carried on. */
+  const raisedRef = useRef(Boolean(state.raised));
+  raisedRef.current = Boolean(state.raised);
+  const lastRest = useRef(restOn);
+  useEffect(() => {
+    if (restOn === lastRest.current) return;
+    lastRest.current = restOn;
+    if (raisedRef.current) dispatch({ t: 'dragDown' });
+  }, [restOn]);
   /* 📱 The edited thing in view above the sheet — on opening, on a switch, on a restore. */
   const shown = Boolean(state.target) && !state.collapsed;
   const revealRef = useRef(onReveal);
@@ -240,8 +262,13 @@ export function MakerHalfSheet({
         >
           <span aria-hidden className="h-1 w-10 rounded-full bg-ink/20" />
         </button>
-        <div className="flex items-center gap-2 px-4 pt-1 lg:pt-3">
-          <p className={`min-w-0 flex-1 truncate font-serif text-lg text-ink ${state.peeking ? 'max-lg:opacity-0' : ''}`}>{title}</p>
+        <div className="flex items-center gap-2 px-4 pt-1 lg:pt-3" data-half-sheet-head="">
+          {head ? (
+            <div className={`flex min-w-0 flex-1 items-center lg:hidden ${state.peeking ? 'max-lg:opacity-0' : ''}`} data-half-sheet-lead="">
+              {head}
+            </div>
+          ) : null}
+          <p className={`min-w-0 flex-1 truncate font-serif text-lg text-ink ${head ? 'max-lg:hidden' : ''} ${state.peeking ? 'max-lg:opacity-0' : ''}`}>{title}</p>
           {/* 👁 PEEK — press and hold: the sheet slides away while held (phone). */}
           <button
             type="button"

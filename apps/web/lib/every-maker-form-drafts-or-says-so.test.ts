@@ -443,8 +443,9 @@ test('✍ the names and the date are DRAFT doors now — no "Saves immediately" 
     assert.ok(block.length > 0, `${what}: its editor is gone`);
     assert.doesNotMatch(block, /<HubSavesImmediately\b/, `${what} is drafted but says it saves immediately`);
   }
-  assert.match(editors, /const DRAFTED = 'Saved — guests see it when you Apply';/);
-  assert.match(editors, /Guests see a new date when you Apply\./);
+  // ✍ No Save and no caption (owner 2026-10-05): each field drafts itself (AutoDraft) and the ✓ Apply count says it.
+  assert.match(editors, /function AutoDraft\(/, 'the names and the date no longer draft themselves');
+  assert.doesNotMatch(editors, /<SaveRow\b|Guests see a new date when you Apply/, 'a Save or a caption came back');
 });
 
 test('controls that write without a form of their own say "Saves immediately" beside them', () => {

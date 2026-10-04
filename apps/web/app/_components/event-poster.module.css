@@ -6,7 +6,8 @@
  * public-profile poster language of
  * `build-sessions/prototypes/public_profile_icecasa_FABLE3_2026-09-23.html`).
  * Every size is in `cqw` — the card is a size container — so one poster reads
- * the same at two columns on a phone and five on a desktop.
+ * the same at two columns on a phone and five on a desktop. The paper card
+ * also reads the card's HEIGHT, so its words fit at every size.
  *
  * Which treatment an event gets is decided in `lib/event-poster.ts`
  * (`posterFor`), never here. This file only draws them.
@@ -21,7 +22,10 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  container-type: inline-size;
+  /* A SIZE container: the paper reads its own height (`cqh`) to fit its words
+     (see "EVERY LINE FITS" below). The poster is absolutely placed over a box
+     of its own, so containing its size changes nothing about it. */
+  container-type: size;
   --sb: 54px;
   background: var(--m-paper-2);
   color: var(--m-ink);
@@ -351,7 +355,48 @@
 .invGround {
   background: var(--m-paper);
 }
+/*
+ * 📏 EVERY LINE FITS — THE DATE IS NEVER CUT OFF (owner 2026-10-04, dashboard
+ * at phone width: "12 December 2026" clipped by the card's foot).
+ *
+ * The paper is a fixed-height flex column, and part of what it must hold does
+ * NOT grow with the card: the chips' clearance on top (7rem, or 34 % on a
+ * narrow card), the private strip at the foot (`--sb`, 54 px) and the date's
+ * 13 px floor. Words sized only in `cqw` therefore ran out of room on every
+ * card between a 128 px Maker thumbnail and a ~260 px desktop column — measured
+ * 4–46 px over, the date printed under the strip from 221 px to 245 px.
+ *
+ * So the paper sizes its words AS A GROUP from the room it actually has:
+ *
+ *   --room   the content box, `100cqh` (the poster is a SIZE container) less the
+ *            paper's own padding;
+ *   --small  the lines that keep a px floor and do not scale with the group —
+ *            the date, and on a wide card the eyebrow and the invitation line;
+ *   --big    how many `--f` units the scaling lines take, stacked: the circle,
+ *            the names, the joiner and every gap. It is the SUM of the
+ *            coefficients below, plus slack — `lib/event-poster-fits.test.ts`
+ *            re-adds them from this file and fails if it is short;
+ *   --f      one unit of the group: `1cqw` when there is room (the approved
+ *            look, unchanged), less when there is not.
+ *
+ * Every line carries its own `line-height`, so a line box is
+ * `font-size × line-height` whatever face sets it — a taller face cannot make
+ * the stack taller than the sum says. The eyebrow and the invitation line stay
+ * on one line (ellipsis), and the date never wraps: its size is capped at
+ * `8.8cqw` so "30 September 2026" (9.17 em in Fraunces) fits the paper's
+ * 82cqw. Nothing here clips the date — no `overflow: hidden` on it, and it
+ * never shrinks.
+ */
 .paper {
+  --pt: max(10cqw, 7rem);
+  --pb: calc(var(--sb) + 6cqw);
+  --eb-fs: max(6.5px, 3.3cqw);
+  --ln-fs: max(7px, 3.7cqw);
+  --dt-fs: min(max(13px, 4.6cqw), 8.8cqw);
+  --small: calc(var(--dt-fs) * 1.15 + var(--eb-fs) * 1.3 + var(--ln-fs) * 1.3);
+  --big: 64;
+  --room: calc(100cqh - var(--pt) - var(--pb));
+  --f: min(1cqw, calc((var(--room) - var(--small)) / var(--big)));
   position: absolute;
   inset: 0;
   display: flex;
@@ -359,8 +404,12 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 10% 9% calc(var(--sb) + 6%);
+  padding: var(--pt) 9cqw var(--pb);
   color: var(--m-ink);
+}
+.paper > * {
+  flex-shrink: 0;
+  max-width: 100%;
 }
 .paper::before {
   content: '';
@@ -370,27 +419,31 @@
   pointer-events: none;
 }
 .eb {
-  font-size: max(6.5px, 3.3cqw);
+  font-size: var(--eb-fs);
+  line-height: 1.3;
   letter-spacing: 0.3em;
   text-transform: uppercase;
   opacity: 0.62;
   padding-left: 0.3em;
-  margin-bottom: 3cqw;
+  margin-bottom: calc(var(--f) * 3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .circ {
   /* The paper is a fixed-height flex column: when its words run tall (a
      theme's own body face, a long name), flex would shrink this to an oval
      and crop the logo. A circle never shrinks. */
   flex-shrink: 0;
-  width: 21cqw;
+  width: calc(var(--f) * 21);
   aspect-ratio: 1;
   border: 1px solid rgba(169, 131, 75, 0.45);
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font: italic 500 max(10px, 6cqw) / 1 var(--font-pahina-display), Georgia, serif;
+  font: italic 500 clamp(calc(var(--f) * 6), 10px, calc(var(--f) * 6.4)) / 1 var(--font-pahina-display), Georgia, serif;
   color: var(--sn-gold-700);
-  margin-bottom: 3cqw;
+  margin-bottom: calc(var(--f) * 3);
   overflow: hidden;
   white-space: nowrap;
 }
@@ -400,44 +453,50 @@
   object-fit: contain;
 }
 .paper .names {
-  font-size: 11cqw;
+  font-size: calc(var(--f) * 11);
   line-height: 1.02;
   font-weight: 300;
 }
 .paper .amp {
   font-size: 0.5em;
+  line-height: 1.02;
   color: var(--sn-gold-700);
-  margin: 0.6cqw 0;
+  margin: calc(var(--f) * 0.6) 0;
 }
 .ln {
-  margin-top: 2.6cqw;
-  font-size: max(7px, 3.7cqw);
+  margin-top: calc(var(--f) * 2.6);
+  font-size: var(--ln-fs);
+  line-height: 1.3;
   opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .paper .dt {
-  margin-top: 2.6cqw;
-  font-size: max(13px, 4.6cqw);
+  margin-top: calc(var(--f) * 2.6);
+  font-size: var(--dt-fs);
+  line-height: 1.15;
+  white-space: nowrap;
 }
 
 /* 🏷 THE CARD'S CHIPS ARE A FIXED SIZE, NOT A SHARE OF THE CARD (owner 2026-09-26,
    desktop screenshot: "You organise this" printed over "Together with their
    families"). The kind + role chips end ~105 px down at EVERY card width, so on
-   a wide card the paper's content starts below them in px, not in %. The
-   narrow case below keeps its own 34 % + dropped minor lines. */
-@container (min-width: 221px) {
-  .paper {
-    padding-top: max(10%, 7rem);
-  }
-}
+   a wide card the paper's content starts below them in px, not in % — the
+   `max(10cqw, 7rem)` of `--pt` above. The narrow case below keeps its own 34 %
+   + dropped minor lines. */
 
 /* 📱 A NARROW CARD (two across on a phone, ~140–180 px): the card's own chips
    (the kind + "You organise this") sit over the paper's top, so the eyebrow
    was printed under them — "THER WITH THE" — and the words crowded the mark.
    Under 220 px the paper drops the two minor lines (eyebrow · "invite you to…")
-   and starts below the chips; the mark, names and date stay. */
+   and starts below the chips; the mark, names and date stay. Without those two
+   lines the group needs fewer units and only the date is small print. */
 @container (max-width: 220px) {
   .paper {
-    padding-top: 34%;
+    --pt: 34cqw;
+    --small: calc(var(--dt-fs) * 1.15);
+    --big: 58;
   }
   .eb,
   .ln {

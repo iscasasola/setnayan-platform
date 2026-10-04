@@ -5,6 +5,7 @@ import { useRef, type ReactNode } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ArrowUpRight, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { formatCount } from '@/lib/format-number';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 
@@ -117,11 +118,11 @@ export function ApplyProSheet({
         {none ? (
           <div className="px-4 py-3 text-sm text-ink/70" data-apply-ready="">
             <p>
-              {changeCount === 1 ? '1 change' : `${changeCount} changes`} guests do not see yet. Apply puts{' '}
+              {changeCount === 1 ? '1 change' : `${formatCount(changeCount)} changes`} guests do not see yet. Apply puts{' '}
               {changeCount === 1 ? 'it' : 'them'} on your Event Hub.
             </p>
             {heldOnWeb > 0 ? (
-              <p className="mt-1">{heldOnWeb === 1 ? 'One change' : `${heldOnWeb} changes`} can be applied on the web.</p>
+              <p className="mt-1">{heldOnWeb === 1 ? 'One change' : `${formatCount(heldOnWeb)} changes`} can be applied on the web.</p>
             ) : null}
           </div>
         ) : (

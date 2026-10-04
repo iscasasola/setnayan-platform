@@ -52,11 +52,14 @@ export async function mintReentryCode(
   const now = input.now ?? new Date();
   const code = newReentryCode();
   try {
-    await admin
+    // Housekeeping: a failed clear-out only leaves dead rows (each still
+    // refused by its own expiry), so it is logged and the mint goes on.
+    const { error: clearError } = await admin
       .from('guest_reentry_codes')
       .delete()
       .eq('guest_id', input.guestId)
       .lt('expires_at', now.toISOString());
+    if (clearError) console.error('[supabase-error] lib/guest-reentry.ts · from:guest_reentry_codes.delete', clearError);
     const { error } = await admin.from('guest_reentry_codes').insert({
       code_hash: hashReentryCode(code),
       event_id: input.eventId,

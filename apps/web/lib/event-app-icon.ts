@@ -157,9 +157,17 @@ export function homeScreenLabel(raw: string | null | undefined, max = 12): strin
  * `appleWebApp.title` is the label under the icon — without it iOS writes
  * "Setnayan" under a couple's monogram.
  */
-export function eventShortcutMetadata(slug: string, displayName: string | null | undefined) {
+export function eventShortcutMetadata(
+  slug: string,
+  displayName: string | null | undefined,
+  opts: { reentryCode?: string | null } = {},
+) {
+  // 📲 The thank-you's tile carries the guest in (I9, 2026-10-04): a manifest
+  // whose start address spends a one-time re-entry code (`?k=`), because an
+  // iPhone home-screen web app keeps its own cookies. See the manifest route.
+  const tileQuery = opts.reentryCode ? `?${new URLSearchParams({ k: opts.reentryCode }).toString()}` : '';
   return {
-    manifest: `/${slug}/manifest.webmanifest`,
+    manifest: `/${slug}/manifest.webmanifest${tileQuery}`,
     appleWebApp: {
       capable: true,
       title: displayName || 'Invitation',
@@ -189,15 +197,18 @@ export function buildEventManifest(input: {
   displayName: string | null;
   eventDate?: string | null;
   background?: string | null;
+  /** The tile's first open, when it must carry a guest in (a path inside `base`). Default: `base`. */
+  startUrl?: string | null;
 }): Record<string, unknown> {
   const name = (input.displayName ?? '').trim() || 'Our celebration';
   const base = `/${input.slug}`;
+  const start = input.startUrl && input.startUrl.startsWith(`${base}/`) ? input.startUrl : base;
   const bg = safeHex(input.background, DEFAULT_ICON_BG);
   return {
     name,
     short_name: homeScreenLabel(name),
     description: input.eventDate ? `${name} · ${input.eventDate}` : name,
-    start_url: base,
+    start_url: start,
     scope: base,
     id: base,
     display: 'standalone',

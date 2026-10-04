@@ -8,6 +8,25 @@ import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { PLUS_ONE_WELCOMED_COOKIE, plusOneWelcomeDue } from '@/lib/plus-one-welcome';
 import { requestKeyState } from '@/lib/request-key';
 import { REQUEST_KEY_COOKIE, forgetRequestKey, rememberRequestKey } from '@/lib/request-key.server';
+import { readGuestSession } from '@/lib/guest-session';
+import {
+  REENTRY_PARAM,
+  isLinkPreviewFetch,
+  passHopMissFault,
+  reentryDestinationOf,
+  type PassHopMiss,
+} from '@/lib/guest-pass-hop';
+import { exchangeReentryCode, mintReentryCode, reentryCodeGuest } from '@/lib/guest-reentry.server';
+import { recordFault } from '@/lib/telemetry/fault-log';
+
+/** One Problems-log row for a personal-link visit that will not land on the
+ *  invitation (lib/guest-pass-hop.ts `passHopMissFault` — no token, no code,
+ *  no name). A link-preview robot's miss is not a guest's, so it is not one. */
+async function recordMiss(request: NextRequest, miss: Omit<PassHopMiss, 'userAgent'>): Promise<void> {
+  const userAgent = request.headers.get('user-agent');
+  if (isLinkPreviewFetch(userAgent)) return;
+  await recordFault(passHopMissFault({ ...miss, userAgent }));
+}
 
 // Resolves an `?invite=<token>` link by validating the token, signing the
 // guest-session cookie, recording a scan_events row, and redirecting to
@@ -52,7 +71,10 @@ export async function GET(request: NextRequest) {
   // The fallback target is ALWAYS same-origin and never contains caller text.
   const target = slugIsSafe ? new URL(`/${slug}`, url.origin) : new URL('/', url.origin);
 
-  if (!slugIsSafe || !token) {
+  const reentryCode = url.searchParams.get(REENTRY_PARAM) ?? '';
+
+  if (!slugIsSafe || (!token && !reentryCode)) {
+    await recordMiss(request, { rule: 'redeem:missing', steps: ['redeem'], held: 'none', carriedCode: false });
     target.searchParams.set('invite_error', 'missing');
     return NextResponse.redirect(target);
   }
@@ -86,10 +108,48 @@ export async function GET(request: NextRequest) {
     if (movedToSlug && SAFE_SLUG.test(movedToSlug)) {
       const moved = new URL(`/${movedToSlug}/redeem`, url.origin);
       moved.searchParams.set('slug', movedToSlug);
-      moved.searchParams.set('token', token);
+      if (token) moved.searchParams.set('token', token);
+      else moved.searchParams.set(REENTRY_PARAM, reentryCode);
+      if (url.searchParams.has('to')) moved.searchParams.set('to', reentryDestinationOf(url.searchParams.get('to')));
       return NextResponse.redirect(moved);
     }
     return NextResponse.redirect(target);
+  }
+
+  /* 🔁 A RE-ENTRY CODE (`?k=`, lib/guest-reentry.server.ts) — the SAME guest,
+     carried into ANOTHER cookie jar once: a chat app's own "Open in Safari"
+     from the landing (`to=landing`), or the iPhone home-screen tile, which
+     keeps its own cookies (`to=hub`, the tile's start address).
+     ⚠ Unlike a personal link, a code is SPENT, so it is asked of the phone
+     first: a jar that already holds a pass for THIS event (the tile's second
+     launch, a reload) goes on with no code spent and nothing logged. Only a
+     phone with no pass here spends it; a refused code goes where the guest
+     would have gone without it — the Event Hub — and is logged. */
+  if (!token && reentryCode) {
+    const to = reentryDestinationOf(url.searchParams.get('to'));
+    const destination = new URL(to === 'landing' ? inviteEnterPath(event.slug) : `/${event.slug}`, url.origin);
+    const steps = ['reentry', to === 'landing' ? 'enter' : 'hub'];
+    const held = await readGuestSession();
+    if (held && held.event_id === event.event_id) {
+      // …but only if it is THIS code's guest (or a code long gone): a phone
+      // holding ANOTHER guest's pass for this event — the host's own phone —
+      // is re-keyed by the code, exactly as a personal link re-keys it.
+      const owner = await reentryCodeGuest({ code: reentryCode, eventId: event.event_id });
+      if (owner === null || owner === held.guest_id) return NextResponse.redirect(destination);
+    }
+    const spent = await exchangeReentryCode({ code: reentryCode, eventId: event.event_id });
+    if (!spent.ok) {
+      await recordMiss(request, {
+        rule: 'reentry:refused',
+        steps,
+        held: held ? 'other-event' : 'none',
+        carriedCode: true,
+        reason: spent.reason,
+      });
+      return NextResponse.redirect(new URL(`/${event.slug}`, url.origin));
+    }
+    await setGuestSession({ guest_id: spent.guestId, event_id: spent.eventId, qr_token: spent.qrToken });
+    return NextResponse.redirect(destination);
   }
 
   // Read WITH removed rows: a Declined or Linked request's key still answers
@@ -103,6 +163,7 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   if (!keyRow || keyRow.event_id !== event.event_id) {
+    await recordMiss(request, { rule: 'redeem:unknown-token', steps: ['link', 'redeem'], held: 'none', carriedCode: false });
     target.searchParams.set('invite_error', 'invalid_token');
     return NextResponse.redirect(target);
   }
@@ -203,5 +264,12 @@ export async function GET(request: NextRequest) {
      invitation" until they reply, their Digital ticket, their guests, how to
      use it, and "Open the invitation". Built from `event.slug` — the
      database's own spelling, never the query's. */
-  return NextResponse.redirect(new URL(inviteEnterPath(event.slug), url.origin));
+  /* 🔁 …carrying a short-lived landing code (`?k=`), so the landing's OWN
+     address re-enters this guest once in another browser — a chat app's
+     "Open in Safari" opens the address bar, which never held the token. A code
+     that cannot be minted leaves the address bare (the behaviour before). */
+  const landing = new URL(inviteEnterPath(event.slug), url.origin);
+  const landingCode = await mintReentryCode({ eventId: guest.event_id, guestId: guest.guest_id, purpose: 'landing' });
+  if (landingCode) landing.searchParams.set(REENTRY_PARAM, landingCode);
+  return NextResponse.redirect(landing);
 }

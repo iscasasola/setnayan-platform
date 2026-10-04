@@ -4,6 +4,8 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { notFound, redirect } from 'next/navigation';
 import { headers } from 'next/headers';
+import { isLinkPreviewFetch, isUrlSecretShaped } from '@/lib/guest-pass-hop';
+import { invitationLinkOn } from '@/lib/invitation-link';
 import { after } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -276,6 +278,14 @@ export async function generateMetadata({ params, searchParams }: Props) {
   const admin = createAdminClient();
   const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
   const canonicalUrl = publicEventUrl(siteUrl, event.slug, ownerSlug);
+  /* 🔗 A PERSONAL LINK'S PREVIEW KEEPS THE PERSONAL LINK (I4, 2026-10-04 —
+     lib/guest-pass-hop.ts `isLinkPreviewFetch`). Only a link-preview fetcher
+     ever reads this metadata on a tokened URL (a person is redirected to the
+     redeem below), and the card a chat app draws OPENS og:url — which was the
+     bare Event Hub, so tapping the card under a guest's link met "Get inside". */
+  const personalLink = isUrlSecretShaped(search.invite?.trim())
+    ? invitationLinkOn(canonicalUrl, search.invite!.trim())
+    : null;
 
   /*
     ══ THE SHARE CARD'S ADDRESS CARRIES THE MOMENT THE STORY LAST CHANGED ═════
@@ -331,11 +341,11 @@ export async function generateMetadata({ params, searchParams }: Props) {
     ...eventShortcutMetadata(slug, event.display_name),
     description,
     // An Unlisted site that shows its card is still kept out of search.
-    ...(preview.indexable ? {} : { robots: { index: false, follow: false } }),
-    alternates: { canonical: canonicalUrl },
+    ...(preview.indexable && !personalLink ? {} : { robots: { index: false, follow: false } }),
+    alternates: { canonical: personalLink ?? canonicalUrl },
     openGraph: {
       type: 'website',
-      url: canonicalUrl,
+      url: personalLink ?? canonicalUrl,
       title: `${event.display_name} · Setnayan`,
       description,
       siteName: 'Setnayan',
@@ -373,10 +383,26 @@ export default async function PublicInvitationPage({ params, searchParams }: Pro
 
   // If an invite token is in the URL, hand off to the redeem route handler
   // which can write the session cookie (Server Components in Next 15 can't).
+  //
+  // 🔗 …EXCEPT for a link-preview fetcher (Messenger · Facebook · iMessage ·
+  // WhatsApp — lib/guest-pass-hop.ts `isLinkPreviewFetch`, I4 2026-10-04).
+  // Followed through the redeem it ENDED on the bare Event Hub (no cookie) or
+  // the landing (with one) — and the preview card it drew opened THAT address,
+  // with no token: "Get inside". It now gets a 200 HERE, so the address it
+  // records is the personal link itself (og:url above), and it never redeems
+  // the guest's link (no pass minted for a robot, no false "opened" scan).
   if (invite) {
-    redirect(
-      `/${slug}/redeem?slug=${encodeURIComponent(slug)}&token=${encodeURIComponent(invite)}`,
-    );
+    const redeemHref = `/${slug}/redeem?slug=${encodeURIComponent(slug)}&token=${encodeURIComponent(invite)}`;
+    if (isLinkPreviewFetch((await headers()).get('user-agent'))) {
+      return (
+        <main className="px-4 py-10 text-center">
+          <a href={redeemHref} className="underline underline-offset-4">
+            Open your invitation
+          </a>
+        </main>
+      );
+    }
+    redirect(redeemHref);
   }
 
   const admin = createAdminClient();

@@ -126,7 +126,10 @@ test('the page that mounts it has already matched the cookie to THIS event', () 
   );
   assert.match(
     ENTER,
-    /if \(!canvas && \(!session \|\| session\.event_id !== event\.event_id\)\) redirect\(`\/\$\{home\}`\);/,
+    // (Since 2026-10-04 the miss spends a landing re-entry code or leaves for the
+    // Event Hub WITH a Problems-log row — lib/guest-pass-hop.test.ts § 8 — but the
+    // match itself is unchanged: no key for THIS event, no QR.)
+    /if \(!canvas && \(!session \|\| session\.event_id !== event\.event_id\)\) \{[\s\S]{0,400}?return leaveForTheHub\(home,/,
     'the session/event match is gone — a cookie for another event would be shown this event’s QR',
   );
   assert.match(ENTER, /\.eq\('guest_id', session!\.guest_id\)/, 'the guest row is no longer keyed on the session');

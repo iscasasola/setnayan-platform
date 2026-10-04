@@ -38,6 +38,19 @@ import { asksForHostCanvas } from '../../_lib/editor-canvas';
 import { loadEventShell, loadHostMembership, loadHostPreviewDraft } from '../../_lib/loaders';
 import { eventShortcutMetadata } from '@/lib/event-app-icon';
 import { ShortcutLine } from '../_components/shortcut-line';
+import {
+  REENTRY_PARAM,
+  isLinkPreviewFetch,
+  isUrlSecretShaped,
+  passHopMissFault,
+  reentryRedeemPath,
+  type PassHopHeld,
+  type PassHopMissRule,
+} from '@/lib/guest-pass-hop';
+import { mintReentryCode } from '@/lib/guest-reentry.server';
+import { GUEST_SESSION_COOKIE_NAME, readGuestSession } from '@/lib/guest-session';
+import { isInAppWebview } from '@/lib/guest-one-path';
+import { recordFault } from '@/lib/telemetry/fault-log';
 import { loadPreviewPerson } from '../../_lib/preview-person.server';
 import { getCurrentUser } from '@/lib/auth';
 import { overlayHubDraftEvent } from '@/lib/hub-draft';
@@ -68,7 +81,7 @@ export const dynamic = 'force-dynamic';
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ rsvp?: string; keep?: string; in?: string; editor?: string; preview?: string; as?: string }>;
+  searchParams: Promise<{ rsvp?: string; keep?: string; in?: string; editor?: string; preview?: string; as?: string; k?: string }>;
 };
 
 /**
@@ -79,14 +92,73 @@ type Props = {
  * the Event Hub names, through the ONE helper (`eventShortcutMetadata`). Without
  * them a phone would make a tile of our generic app, or a screenshot.
  */
-export async function generateMetadata({ params }: Pick<Props, 'params'>) {
+export async function generateMetadata({ params, searchParams }: Props) {
   const { slug } = await params;
   const shell = await loadEventShell(slug).catch(() => null);
+  const tileCode = shell?.event_id && !asksForHostCanvas(await searchParams)
+    ? await tileReentryCodeFor(shell.event_id as string)
+    : null;
   return {
     title: 'Your invitation',
     robots: { index: false, follow: false },
-    ...(shell?.slug ? eventShortcutMetadata(shell.slug as string, shell.display_name as string | null) : {}),
+    ...(shell?.slug
+      ? eventShortcutMetadata(shell.slug as string, shell.display_name as string | null, { reentryCode: tileCode })
+      : {}),
   };
+}
+
+/**
+ * 📲 THE TILE KEEPS THE GUEST IN (I9, owner 2026-10-04). A home-screen web app
+ * on iPhone keeps its OWN cookies, so the couple's tile opened as a stranger
+ * and asked "Get inside" again. The thank-you (after a Yes — the only screen
+ * that offers the shortcut, `ShortcutLine`) names a manifest whose start
+ * address carries a SHORT-LIVED, SINGLE-USE re-entry code — server-issued,
+ * stored hashed, spent once by `/{slug}/redeem?k=` for the guest's NORMAL pass
+ * (lib/guest-reentry.server.ts). Never the pass token, never an account.
+ * Anyone else — no key, not attending — gets the plain manifest.
+ */
+async function tileReentryCodeFor(eventId: string): Promise<string | null> {
+  const session = await readGuestSessionForEvent(eventId).catch(() => null);
+  if (!session || session.event_id !== eventId) return null;
+  const { data: row } = await createAdminClient()
+    .from('guests')
+    .select('rsvp_status')
+    .eq('guest_id', session.guest_id)
+    .eq('event_id', eventId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (landingReplyOf(row?.rsvp_status as string | null | undefined) !== 'yes') return null;
+  return mintReentryCode({ eventId, guestId: session.guest_id, purpose: 'tile' });
+}
+
+/** What the phone held when the landing could not open — a KIND, never a value. */
+async function heldKind(eventId: string): Promise<PassHopHeld> {
+  const raw = (await cookies()).get(GUEST_SESSION_COOKIE_NAME)?.value;
+  if (!raw) return 'none';
+  const pass = await readGuestSession();
+  if (!pass) return 'revoked';
+  return pass.event_id === eventId ? 'this-event' : 'other-event';
+}
+
+/**
+ * 🚨 A PERSONAL-LINK VISIT THAT DID NOT END ON THE LANDING (I4 evidence). Only a
+ * personal hop ever reaches this address, so leaving it for the Event Hub is
+ * always a miss — one Problems-log row per rule (lib/guest-pass-hop.ts
+ * `passHopMissFault`: no token, no code, no name), then the Event Hub as before.
+ */
+async function leaveForTheHub(
+  home: string,
+  eventId: string,
+  rule: PassHopMissRule,
+  carriedCode: boolean,
+): Promise<never> {
+  const userAgent = (await headers()).get('user-agent');
+  if (!isLinkPreviewFetch(userAgent)) {
+    await recordFault(
+      passHopMissFault({ rule, steps: ['enter'], userAgent, held: await heldKind(eventId), carriedCode }),
+    );
+  }
+  redirect(`/${home}`);
 }
 
 /**
@@ -172,7 +244,14 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   // The guest's KEY for THIS event — their pass, or the seat their signed-in
   // account holds (`readGuestSessionForEvent` never answers for another event).
   const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
-  if (!canvas && (!session || session.event_id !== event.event_id)) redirect(`/${home}`);
+  const carriedCode = isUrlSecretShaped(search.k);
+  if (!canvas && (!session || session.event_id !== event.event_id)) {
+    // 🔁 No pass in THIS browser, but the address carries the landing's
+    // re-entry code (a chat app's "Open in Safari" opens the address bar):
+    // spend it once at the redeem, which writes the pass and comes back here.
+    if (carriedCode) redirect(reentryRedeemPath(home, search.k!, 'landing'));
+    return leaveForTheHub(home, event.event_id as string, 'enter:no-key', false);
+  }
 
   const { data: guest, error: guestError } = canvas
     ? {
@@ -196,7 +275,25 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   if (guestError) {
     throw new Error(`invite/enter: could not read guest ${session?.guest_id}: ${guestError.message}`);
   }
-  if (!guest) redirect(`/${home}`);
+  if (!guest) return leaveForTheHub(home, event.event_id as string, 'enter:guest-gone', carriedCode);
+
+  /* 🔁 INSIDE A CHAT APP'S BROWSER the address must carry a live re-entry code:
+     the app's own "Open in Safari / external browser" opens the address bar,
+     which never held the token (the reply and every return land here bare).
+     One short-lived landing code, minted here and put in the address once. */
+  if (!canvas && !carriedCode && isInAppWebview((await headers()).get('user-agent'))) {
+    const code = await mintReentryCode({
+      eventId: event.event_id as string,
+      guestId: session!.guest_id,
+      purpose: 'landing',
+    });
+    if (code) {
+      const q = new URLSearchParams();
+      for (const [key, value] of Object.entries(search)) if (typeof value === 'string') q.set(key, value);
+      q.set(REENTRY_PARAM, code);
+      redirect(`/${home}/invite/enter?${q.toString()}`);
+    }
+  }
 
   const cookieStore = await cookies();
 

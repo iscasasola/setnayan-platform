@@ -59,7 +59,10 @@ const PAGE = read('[slug]/page.tsx');
 test('A · the personal link lands on the landing page; the reply returns to it', () => {
   // The redeem hop's last word is the landing page, built from the DATABASE slug.
   const tail = REDEEM.slice(REDEEM.lastIndexOf('return NextResponse.redirect('));
-  assert.match(tail, /^return NextResponse\.redirect\(new URL\(inviteEnterPath\(event\.slug\), url\.origin\)\);/, 'the personal link no longer ends on the landing page');
+  // (Since 2026-10-04 the landing address also carries a short-lived re-entry
+  // code — lib/guest-reentry.test.ts — so its URL is built one line earlier.)
+  assert.match(tail, /^return NextResponse\.redirect\(landing\);/, 'the personal link no longer ends on the landing page');
+  assert.match(REDEEM, /const landing = new URL\(inviteEnterPath\(event\.slug\), url\.origin\);/, 'the landing is not built from the database slug');
   // The reply's save sends the guest back to the same page.
   assert.match(ACTIONS, /redirect\(`\$\{inviteEnterPath\(ev\.slug\)\}\?rsvp=\$\{outcome\}`\)/, 'the reply no longer returns to the landing page');
   // "Open the invitation" before a reply passes the reply gate — on the exact mark only.

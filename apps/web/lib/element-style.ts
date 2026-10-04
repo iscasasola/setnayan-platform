@@ -48,6 +48,7 @@ import { HUB_FONT_BY_KEY, sanitizeHubFontKey, type HubFontKey } from '@/lib/hub-
 import { contrastRatio } from '@/lib/hub-legibility';
 import { adaptHubRuns } from '@/lib/element-runs-adapt';
 import { isHubDateFormat, isHubTimeFormat } from '@/lib/hub-part-words';
+import { motionFxVars, sameMotionFx, sanitizeMotionFx, type MotionFx, type MotionSpeed } from '@/lib/motion-effects';
 
 /* ── THE ELEMENTS ───────────────────────────────────────────────────────── */
 
@@ -468,7 +469,15 @@ export function sanitizeHubElementWord(raw: unknown, key: HubElementKey): string
 
    🔑 IN AND DURING ARE NOT ALTERNATIVES. They are two comma-separated
    animations on the same element, and choosing one never clears the other.
-   Every value is a closed-set key; none of it is CSS text from input. */
+   Every value is a closed-set key; none of it is CSS text from input.
+
+   🎛 2026-10-04 — IN AND OUT ARE NOW FOUR EFFECTS THAT COMBINE (Fade · Move
+   from 8 directions · Size · Blur, `lib/motion-effects.ts`) plus Speed ▾ =
+   Fast · Regular · Gentle. `HUB_EL_IN` / `HUB_EL_OUT` / `HUB_EL_DURATION`
+   below are the SHIPPED single choices, kept because drafts and live pages
+   still hold them: `sanitizeHubElementMotion` maps each one onto the four on
+   read, and the page draws the mapped value with the very keyframe it drew
+   before (`IN_LEGACY_KF`), so nothing a couple already chose moves a pixel. */
 export const HUB_EL_IN = ['rise', 'fade', 'none'] as const;
 export const HUB_EL_DURING = ['drift', 'still', 'kenburns', 'parallax'] as const;
 export const HUB_EL_DURING_WORDS = ['drift', 'still'] as const;
@@ -502,25 +511,46 @@ export const HUB_EL_DELAY_LABEL: Record<HubElDelay, string> = { none: 'None', sh
 const DURATION_S: Record<HubElDuration, number> = { quick: 0.6, normal: 1.1, slow: 1.8 };
 const DELAY_S: Record<HubElDelay, number> = { none: 0, short: 0.3, long: 0.8 };
 
-/** One element's motion. Every field absent = its default (In none · Still · Plays once). */
+/** Fast · Gentle (Regular is the absence) — the shipped quick · slow. */
+export type HubElSpeed = Exclude<MotionSpeed, 'regular'>;
+
+/**
+ * One element's motion. Every field absent = its default (In none · Still ·
+ * Plays once · Regular). `in` / `out` are the FOUR EFFECTS (`MotionFx`): absent
+ * = every one None.
+ */
 export type HubElementMotion = {
-  in?: Exclude<HubElIn, 'none'>;
+  in?: MotionFx;
   during?: Exclude<HubElDuring, 'still'>;
   /** Only beside `timeline: 'scroll'` — a timed element has no Out. */
-  out?: Exclude<HubElOut, 'stay'>;
+  out?: MotionFx;
   timeline?: 'scroll';
-  /** Only beside a timed In. */
-  duration?: Exclude<HubElDuration, 'normal'>;
+  /** The In's speed — only beside an In. On the clock a duration; following the scroll, how far the thumb travels. */
+  speed?: HubElSpeed;
+  /** The Out's own speed — only beside an Out. */
+  outSpeed?: HubElSpeed;
   /** Only beside a timed In. */
   delay?: Exclude<HubElDelay, 'none'>;
+};
+
+/** The shipped single In / Out choices, as the four effects (`sanitizeHubElementMotion`). */
+export const HUB_EL_IN_AS_FX: Record<Exclude<HubElIn, 'none'>, MotionFx> = {
+  rise: { fade: true, move: 'below' },
+  fade: { fade: true },
+};
+export const HUB_EL_OUT_AS_FX: Record<Exclude<HubElOut, 'stay'>, MotionFx> = {
+  fade: { fade: true },
+  lift: { fade: true, move: 'above' },
+  settle: { fade: true, size: 'settle' },
 };
 
 /**
  * The OLD single "Animation" row (#6019: Still · Calm · Editorial · Cinematic)
  * mapped onto the model — the nearest In + During pair — so a choice a couple
- * already made is carried, never dropped.
+ * already made is carried, never dropped. Written in the shipped words and
+ * read through `sanitizeHubElementMotion` like any other stored value.
  */
-const LEGACY_ANIM: Record<string, HubElementMotion | null> = {
+const LEGACY_ANIM: Record<string, Record<string, string> | null> = {
   still: null,
   calm: { in: 'fade' },
   editorial: { in: 'rise' },
@@ -686,18 +716,49 @@ export function hubRunsTarget(texts: readonly string[], style: HubElementStyle |
 
 const isIn = <T,>(list: readonly T[], v: unknown): v is T => (list as readonly unknown[]).includes(v);
 
-/** A motion, or null. Drops what the model does not allow (an Out on a timed element). */
+/** A stored In — the four effects, or a shipped single choice mapped onto them. */
+function readElIn(raw: unknown): MotionFx | null {
+  if (typeof raw === 'string') return isIn(HUB_EL_IN, raw) && raw !== 'none' ? { ...HUB_EL_IN_AS_FX[raw] } : null;
+  return sanitizeMotionFx(raw);
+}
+/** A stored Out — the four effects (Settle back carried), or a shipped single choice. */
+function readElOut(raw: unknown): MotionFx | null {
+  if (typeof raw === 'string') return isIn(HUB_EL_OUT, raw) && raw !== 'stay' ? { ...HUB_EL_OUT_AS_FX[raw] } : null;
+  return sanitizeMotionFx(raw, { settle: true });
+}
+/** A stored speed — Fast · Gentle, or the shipped Duration's quick · slow. */
+function readElSpeed(raw: unknown, legacyDuration?: unknown): HubElSpeed | null {
+  if (raw === 'fast' || raw === 'gentle') return raw;
+  if (legacyDuration === 'quick') return 'fast';
+  if (legacyDuration === 'slow') return 'gentle';
+  return null;
+}
+
+/**
+ * A motion, or null. Drops what the model does not allow (an Out on a timed
+ * element, a Delay beside no timed In, a Speed beside nothing that moves).
+ * 🔁 A SHIPPED VALUE IS MAPPED ON READ (`rise` → Fade + Move from below,
+ * `lift` → Fade + Move to the top, `settle` → Fade + Settle back, Duration
+ * quick · slow → Speed Fast · Gentle) — no data migration: what the page draws
+ * for the mapped value is byte-for-byte what it drew for the old one.
+ */
 export function sanitizeHubElementMotion(raw: unknown): HubElementMotion | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const src = raw as Record<string, unknown>;
   const out: HubElementMotion = {};
-  if (isIn(HUB_EL_IN, src.in) && src.in !== 'none') out.in = src.in;
+  const scroll = src.timeline === 'scroll';
+  const fxIn = readElIn(src.in);
+  if (fxIn) out.in = fxIn;
   // Words drift or stay still; Ken Burns and Parallax are for a photo.
   if (isIn(HUB_EL_DURING_WORDS, src.during) && src.during !== 'still') out.during = src.during;
-  const scroll = src.timeline === 'scroll';
   if (scroll) out.timeline = 'scroll';
-  if (scroll && isIn(HUB_EL_OUT, src.out) && src.out !== 'stay') out.out = src.out;
-  if (!scroll && out.in && isIn(HUB_EL_DURATION, src.duration) && src.duration !== 'normal') out.duration = src.duration;
+  const fxOut = scroll ? readElOut(src.out) : null;
+  if (fxOut) out.out = fxOut;
+  /* The shipped Duration only ever lived beside a timed In. */
+  const speed = out.in ? readElSpeed(src.speed, scroll ? undefined : src.duration) : null;
+  if (speed) out.speed = speed;
+  const outSpeed = out.out ? readElSpeed(src.outSpeed) : null;
+  if (outSpeed) out.outSpeed = outSpeed;
   if (!scroll && out.in && isIn(HUB_EL_DELAY, src.delay) && src.delay !== 'none') out.delay = src.delay;
   return Object.keys(out).length > 0 ? out : null;
 }
@@ -763,7 +824,7 @@ export function sanitizeHubElementStyle(raw: unknown, key: HubElementKey): HubEl
       src.motion !== undefined
         ? sanitizeHubElementMotion(src.motion)
         : typeof src.anim === 'string'
-          ? (LEGACY_ANIM[src.anim] ?? null)
+          ? sanitizeHubElementMotion(LEGACY_ANIM[src.anim] ?? null)
           : null;
     if (motion) out.motion = motion;
   }
@@ -870,12 +931,16 @@ export function hasTextStyle(style: HubElementStyle | null | undefined): boolean
   return HUB_ELEMENT_TEXT_FIELDS.some((f) => style[f] !== undefined) || Boolean(style.runs?.length);
 }
 
-/** One motion choice changed (`null` = back to its default). In and During never clear each other. */
+/**
+ * One motion choice changed (`null` = back to its default). In and During never
+ * clear each other. `in` / `out` take the WHOLE effect set (`withMotionFx`
+ * builds it from one effect's pick); the rest take their closed-set key.
+ */
 export function withElementMotion(
   elements: HubElementStyles | null | undefined,
   key: HubElementKey,
   part: keyof HubElementMotion,
-  value: string | null,
+  value: string | MotionFx | null,
 ): HubElementStyles | null {
   const next: Record<string, unknown> = { ...(elements ?? {}) };
   const style: Record<string, unknown> = { ...(elements?.[key] ?? {}) };
@@ -984,13 +1049,39 @@ export function withoutElement(elements: HubElementStyles | null | undefined, ke
 
 const EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';
 /** In, During and Out keyframes (`globals.css`, "ELEMENT MOTION"). `-p` twins replay In. */
-const IN_KF: Record<Exclude<HubElIn, 'none'>, string> = { rise: 'el-in-rise', fade: 'el-in-fade' };
 const DURING_KF: Record<'drift', string> = { drift: 'el-during-drift' };
-const OUT_KF: Record<Exclude<HubElOut, 'stay'>, string> = {
-  fade: 'el-out-fade',
-  lift: 'el-out-lift',
-  settle: 'el-out-settle',
-};
+/** Fast · Regular · Gentle on the clock — the shipped quick · normal · slow. Gentle is the slow, eased one. */
+const SPEED_DURATION: Record<MotionSpeed, HubElDuration> = { fast: 'quick', regular: 'normal', gentle: 'slow' };
+/** How far a part travels: 18px in, 22px out — the distances `el-in-rise` / `el-out-lift` shipped with. */
+const EL_IN_DIST = [18, 18] as const;
+const EL_OUT_DIST = [22, 22] as const;
+
+/**
+ * 🔁 A COMBINATION THAT SHIPPED KEEPS ITS SHIPPED KEYFRAME. Fade alone, Fade +
+ * Move from below (Rise), Fade + Move to the top (Lift away), Fade + Settle back
+ * are drawn by the very `@keyframes` they were drawn by before — so every value
+ * already stored renders exactly as it did. Any other combination is ONE
+ * composed keyframe, `el-in-mix` / `el-out-mix`, whose far end is three custom
+ * properties built from closed-set keys (`motionFxVars`).
+ */
+const IN_LEGACY_KF: ReadonlyArray<[MotionFx, string]> = [
+  [HUB_EL_IN_AS_FX.fade, 'el-in-fade'],
+  [HUB_EL_IN_AS_FX.rise, 'el-in-rise'],
+];
+const OUT_LEGACY_KF: ReadonlyArray<[MotionFx, string]> = [
+  [HUB_EL_OUT_AS_FX.fade, 'el-out-fade'],
+  [HUB_EL_OUT_AS_FX.lift, 'el-out-lift'],
+  [HUB_EL_OUT_AS_FX.settle, 'el-out-settle'],
+];
+/** The In's keyframe name, and the custom properties a composed one reads. */
+export function hubElInKeyframe(fx: MotionFx): { name: string; vars: Array<[string, string]> } {
+  const legacy = IN_LEGACY_KF.find(([f]) => sameMotionFx(f, fx));
+  return legacy ? { name: legacy[1], vars: [] } : { name: 'el-in-mix', vars: motionFxVars(fx, 'in', '--el-in', EL_IN_DIST) };
+}
+export function hubElOutKeyframe(fx: MotionFx): { name: string; vars: Array<[string, string]> } {
+  const legacy = OUT_LEGACY_KF.find(([f]) => sameMotionFx(f, fx));
+  return legacy ? { name: legacy[1], vars: [] } : { name: 'el-out-mix', vars: motionFxVars(fx, 'out', '--el-out', EL_OUT_DIST) };
+}
 
 /**
  * 🧭 WHERE THE ELEMENT SITS decides which scroll its "Follows the scroll" follows.
@@ -1045,6 +1136,15 @@ const SCENE_OUT_SLOT: MotionSlot = {
  */
 type MotionSlot = { a: string; timeline: string; range: string };
 
+/**
+ * ⏩ SPEED, FOLLOWING THE SCROLL — the thumb sets the pace, so Speed is how far
+ * it travels: Fast finishes sooner, Gentle stretches it. Regular is exactly the
+ * shipped range. Only the ordinary page's `view()` ranges take it: a pinned
+ * Scrub scene's ranges are tied to its hold and stay as shipped.
+ */
+const SCROLL_IN_RANGE: Record<HubElSpeed, string> = { fast: 'entry 0% entry 100%', gentle: 'entry 0% cover 50%' };
+const SCROLL_OUT_RANGE: Record<HubElSpeed, string> = { fast: 'exit 0% exit 50%', gentle: 'cover 50% exit 100%' };
+
 /** The timeline and ranges a part's OWN scroll-linked In and Out take, by where it sits. */
 const OWN_SCROLL: Record<Exclude<HubElementPlace, 'hero'>, { tl: string; in: string; out: string }> = {
   page: { tl: 'view()', in: 'entry 0% cover 30%', out: 'exit 0% exit 100%' },
@@ -1066,19 +1166,23 @@ function motionSlots(
   motion: HubElementMotion,
   place: HubElementPlace,
   approached: boolean,
-): { slots: MotionSlot[]; timedIn: boolean; ownScroll: boolean } {
+): { slots: MotionSlot[]; timedIn: boolean; ownScroll: boolean; vars: Array<[string, string]> } {
   const scroll = motion.timeline === 'scroll';
   const slots: MotionSlot[] = [];
+  const vars: Array<[string, string]> = [];
   let timedIn = false;
   let ownScroll = false;
   if (motion.in) {
+    const kf = hubElInKeyframe(motion.in);
+    vars.push(...kf.vars);
     if (scroll && place !== 'hero') {
       const r = OWN_SCROLL[place];
       ownScroll = true;
-      slots.push({ a: `1s linear 0s backwards ${IN_KF[motion.in]}`, timeline: r.tl, range: r.in });
+      const range = place === 'scrub' || !motion.speed ? r.in : SCROLL_IN_RANGE[motion.speed];
+      slots.push({ a: `1s linear 0s backwards ${kf.name}`, timeline: r.tl, range });
     } else {
       timedIn = true;
-      const dur = scroll ? DURATION_S.normal : DURATION_S[motion.duration ?? 'normal'];
+      const dur = scroll ? DURATION_S.normal : DURATION_S[SPEED_DURATION[motion.speed ?? 'regular']];
       const delay = scroll ? 0 : DELAY_S[motion.delay ?? 'none'];
       /* 🔑 fill `none`, NOT `backwards`: words move but are NEVER hidden while
          they wait. `backwards` painted the from-keyframe (opacity 0) for the
@@ -1087,7 +1191,7 @@ function motionSlots(
          page's observer marks the scene `.pahina-in` the slot is `none`, and
          the part rests where it is, visible. */
       slots.push({
-        a: approached || place === 'hero' ? `${dur}s ${EASE} ${delay}s none ${IN_KF[motion.in]}` : '0s none none',
+        a: approached || place === 'hero' ? `${dur}s ${EASE} ${delay}s none ${kf.name}` : '0s none none',
         timeline: 'auto',
         range: 'normal',
       });
@@ -1100,17 +1204,20 @@ function motionSlots(
   }
   if (scroll && motion.out) {
     const r = OWN_SCROLL[place === 'hero' ? 'page' : place];
+    const kf = hubElOutKeyframe(motion.out);
+    vars.push(...kf.vars);
+    const range = place === 'scrub' || !motion.outSpeed ? r.out : SCROLL_OUT_RANGE[motion.outSpeed];
     ownScroll = true;
     /* 🔑 `backwards`, NOT `both`. An Out that HOLDS its end state stays gone
        whenever the timeline stops driving it — exactly what an engine without
        scroll timelines did: it ran the Out on a one-second clock and held
        opacity 0 for good. The gate keeps that engine away entirely; this makes
        the Out incapable of it even so. */
-    slots.push({ a: `1s linear 0s backwards ${OUT_KF[motion.out]}`, timeline: r.tl, range: r.out });
+    slots.push({ a: `1s linear 0s backwards ${kf.name}`, timeline: r.tl, range });
   } else if (place !== 'hero') {
     slots.push(SCENE_OUT_SLOT);
   }
-  return { slots, timedIn, ownScroll };
+  return { slots, timedIn, ownScroll, vars };
 }
 
 /**
@@ -1134,8 +1241,10 @@ export function hubElementMotionDeclarations(
   place: HubElementPlace = 'page',
   approached = true,
 ): Array<[string, string]> {
+  /* 🔁 Read again at the door — a shipped value that reached here unread
+     (`rise`, `lift` …) still draws its shipped keyframe, never nothing. */
   if (!motion) return [];
-  const { slots } = motionSlots(motion, place, approached);
+  const { slots, vars } = motionSlots(sanitizeHubElementMotion(motion) ?? {}, place, approached);
   if (slots.length === 0) {
     return [
       ['animation', 'none'],
@@ -1143,7 +1252,10 @@ export function hubElementMotionDeclarations(
       ['animation-range', 'normal'],
     ];
   }
+  /* A composed In / Out's far end rides beside it — closed-set values the one
+     `el-in-mix` / `el-out-mix` keyframe reads (`hubElInKeyframe`). */
   return [
+    ...vars,
     ['animation', slots.map((x) => x.a).join(', ')],
     ['animation-timeline', slots.map((x) => x.timeline).join(', ')],
     ['animation-range', slots.map((x) => x.range).join(', ')],
@@ -1221,9 +1333,11 @@ export function hubElementInlineStyle(
  * motion of its own.
  */
 export function hubElementHeroMotionVars(style: HubElementStyle | null | undefined): Array<[string, string]> {
-  const motion = Object.fromEntries(hubElementMotionDeclarations(style?.motion, 'hero'));
+  const decl = hubElementMotionDeclarations(style?.motion, 'hero');
+  const motion = Object.fromEntries(decl);
   if (!motion.animation) return [];
   return [
+    ...decl.filter(([p]) => p.startsWith('--el-')),
     ['--el-anim', motion.animation],
     ['--el-tl', motion['animation-timeline'] ?? 'auto'],
     ['--el-range', motion['animation-range'] ?? 'normal'],
@@ -1289,6 +1403,12 @@ export const HUB_ELEMENT_MOTION_PROPS = [
   '--el-anim',
   '--el-tl',
   '--el-range',
+  '--el-in-o',
+  '--el-in-t',
+  '--el-in-f',
+  '--el-out-o',
+  '--el-out-t',
+  '--el-out-f',
   'animation',
   'animation-timeline',
   'animation-range',
@@ -1344,6 +1464,7 @@ export function hubElementScope(widgetType: string): string | null {
  * Play button, which replays an element by writing its inline style.
  */
 const OWN = ':not(#el-own)';
+const sideways = (fx: MotionFx | undefined) => Boolean(fx?.move && fx.move !== 'above' && fx.move !== 'below');
 const GATE_OPEN = '@supports (animation-timeline: view()){@media (prefers-reduced-motion: no-preference){';
 const SCENES_GATE_OPEN = '@supports (animation-range: entry 0% exit 100%) and (timeline-scope: none){';
 
@@ -1379,6 +1500,7 @@ export function hubElementSceneCss(
   const moving: string[] = [];
   const scenes: string[] = [];
   const decl = (d: Array<[string, string]>) => d.map(([p, v]) => `${p}:${v}`).join(';');
+  let clipX = false;
   for (const key of HUB_SCENE_ELEMENT_KEYS) {
     const style = elements[key];
     const target = `:is(${HUB_SCENE_ELEMENT_SELECTOR[key]})`;
@@ -1396,8 +1518,11 @@ export function hubElementSceneCss(
     }
     const look = hubElementDeclarations(style ? { ...style, hidden: undefined } : style, opts);
     if (look.length > 0) looks.push(`${host} ${target}{${look.map(([p, v]) => `${p}:${v} !important`).join(';')}}`);
-    const motion = style?.motion;
+    const motion = style?.motion ? (sanitizeHubElementMotion(style.motion) ?? {}) : null;
     if (!motion) continue;
+    /* ↔ A part that travels SIDEWAYS must not widen the page — the scene's own
+       rule (`.hub-in-move > .hub-canvas-body`, globals.css), for a part's move. */
+    if (sideways(motion.in) || sideways(motion.out)) clipX = true;
     const { timedIn, ownScroll } = motionSlots(motion, 'page', true);
     const at = (place: HubElementPlace, approached: boolean) => decl(hubElementMotionDeclarations(motion, place, approached));
     moving.push(`${host} ${target}${OWN}{${at('page', false)}}`);
@@ -1412,6 +1537,7 @@ export function hubElementSceneCss(
     }
   }
   const css = [...looks];
+  if (clipX) moving.unshift(`${host}{overflow-x:clip}`);
   if (moving.length > 0 || scenes.length > 0) {
     css.push(
       `${GATE_OPEN}\n${moving.join('\n')}${scenes.length > 0 ? `\n${SCENES_GATE_OPEN}\n${scenes.join('\n')}\n}` : ''}\n}}`,

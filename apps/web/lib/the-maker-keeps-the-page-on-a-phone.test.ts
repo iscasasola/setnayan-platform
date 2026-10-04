@@ -285,7 +285,10 @@ test('🌗 a tap on the dimmed page closes the sheet — every Maker sheet has i
   const wiring: Array<[string, RegExp]> = [
     [`${L}/details-workspace.tsx`, /<SheetScrim onClose=\{\(\) => setSheetOpen\(false\)\} \/>[\s\S]*<SheetScrim onClose=\{\(\) => setGuideSheet\(false\)\} \/>/],
     [`${L}/details-workspace.tsx`, /<SheetGrip onClose=\{\(\) => setSheetOpen\(false\)\} \/>[\s\S]*<SheetGrip onClose=\{\(\) => setGuideSheet\(false\)\} \/>/],
-    [`${E}/element-sheet.tsx`, /<SheetScrim onClose=\{onClose\} \/>[\s\S]*<SheetGrip onClose=\{onClose\} \/>/],
+    // 📱 The PART sheet has no scrim since 2026-10-04 (owner: a tap on the canvas
+    // folds it, a tap on another part switches it — `lib/element-sheet-state.ts`);
+    // its grip folds it to the bar. Held in `element-sheet-state.test.ts`.
+    [`${E}/element-sheet.tsx`, /<SheetGrip onClose=\{onCollapse \?\? onClose\} \/>/],
     [`${L}/maker-page.tsx`, /<SheetScrim onClose=\{\(\) => setOpen\(false\)\} \/>[\s\S]*<SheetGrip onClose=\{\(\) => setOpen\(false\)\} \/>/],
     [`${L}/maker-logo.tsx`, /\{sheet \? <SheetScrim onClose=\{\(\) => setSheet\(null\)\} \/> : null\}/],
   ];
@@ -315,7 +318,10 @@ test('🔽 no pill row in a phone sheet — a set of choices is one dropdown', a
   for (const m of part.matchAll(/<[a-z]+\b[^>]*role="tablist"[^>]*>/g)) {
     assert.ok(hiddenOnPhone(/class="([^"]*)"/.exec(m[0])?.[1] ?? ''), `a tab row shows in the part sheet on a phone: ${m[0]}`);
   }
-  assert.match(part, /data-inspector-tabs-pick=""/, 'the part sheet has no dropdown for its tabs on a phone');
+  // ▣ …and its three SECTIONS are the one segmented control the owner chose for
+  // it (2026-10-04, "segmented control": Text · Motion · Arrange) — a section
+  // switch, not a set of values; every value inside stays a dropdown.
+  assert.match(part, /data-element-sections=""/, 'the part sheet lost its Text · Motion · Arrange control');
   // "The questions / After they reply" (and Love Story's two views) — one dropdown.
   const page = stripComments(read(`${L}/maker-page.tsx`));
   const sw = page.slice(page.indexOf('export function MakerPageSwitch'), page.indexOf('export function MakerRsvpCanvas'));

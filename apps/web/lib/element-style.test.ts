@@ -53,7 +53,13 @@ test('the sanitizer keeps closed-set values and drops everything else', () => {
   });
   assert.deepEqual(got, {
     // ♻ the old S · L · XL are carried onto the stepper's scale (85 · 120 · 145)
-    names: { font: 'cormorant', color: '#aabbcc', size: 145, motion: { in: 'rise', during: 'drift', timeline: 'scroll', out: 'lift' } },
+    // 🔁 the shipped Rise / Lift away are READ as the four effects (2026-10-04)
+    names: {
+      font: 'cormorant',
+      color: '#aabbcc',
+      size: 145,
+      motion: { in: { fade: true, move: 'below' }, during: 'drift', timeline: 'scroll', out: { fade: true, move: 'above' } },
+    },
     // the mark is a drawing: no font or colour of its own
     mark: { size: 120 },
   });
@@ -69,9 +75,9 @@ test("#6019's single Animation choice is carried onto the model — the nearest 
   );
   assert.deepEqual(carried, {
     still: null,
-    calm: { in: 'fade' },
-    editorial: { in: 'rise' },
-    cinematic: { in: 'rise', during: 'drift', timeline: 'scroll' },
+    calm: { in: { fade: true } },
+    editorial: { in: { fade: true, move: 'below' } },
+    cinematic: { in: { fade: true, move: 'below' }, during: 'drift', timeline: 'scroll' },
   });
 });
 

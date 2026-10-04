@@ -8,19 +8,11 @@ import {
   HUB_ARRANGEMENTS,
   HUB_ARRANGEMENT_LABEL,
   HUB_DEFAULT_ARRANGEMENT,
-  HUB_DIRECTIONS,
-  HUB_IN,
-  HUB_IN_DIRECTION_LABEL,
-  HUB_IN_LABEL,
   HUB_MOTION_PRESETS,
   HUB_MOTION_PRESET_LABEL,
-  HUB_OUT,
-  HUB_OUT_DIRECTION_LABEL,
-  HUB_OUT_LABEL,
   HUB_SEQUENCE_LABEL,
   HUB_TIMELINE_LABEL,
-  hubInMoves,
-  hubOutMoves,
+  hubSceneFxFields,
   resolveHubMotion,
   type HubSectionCanvas,
 } from '@/lib/hub-canvas';
@@ -38,6 +30,8 @@ import {
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import type { ElementDraftAction } from './element-sheet';
 import { IButton, IHint, IReset, IRow, ISection, ISeg, ISegmented } from './inspector-kit';
+import { MotionFxRows } from './motion-fx-rows';
+import type { MotionFx } from '@/lib/motion-effects';
 
 /**
  * 🎬 THE SCENE INSPECTOR'S TABS — Keynote's slide inspector for one scene
@@ -190,14 +184,28 @@ export function SceneAnimateTab({
               ))}
             </ISegmented>
           </IRow>
-          <ChipRow label="Comes in" values={HUB_IN} labels={HUB_IN_LABEL} isAuto={!shown.in} current={m.in} onPick={(v) => save((c) => { if (v === 'auto') { delete c.in; delete c.inFrom; } else { c.in = v; } })} />
-          {hubInMoves(m.in) ? (
-            <ChipRow label="From" values={HUB_DIRECTIONS} labels={HUB_IN_DIRECTION_LABEL} isAuto={!shown.inFrom} current={m.inFrom} onPick={(v) => save((c) => { if (v === 'auto') delete c.inFrom; else c.inFrom = v; })} />
-          ) : null}
-          <ChipRow label="Goes out" values={HUB_OUT} labels={HUB_OUT_LABEL} isAuto={!shown.out} current={m.out} onPick={(v) => save((c) => { if (v === 'auto') { delete c.out; delete c.outTo; } else { c.out = v; } })} />
-          {hubOutMoves(m.out) ? (
-            <ChipRow label="Toward" values={HUB_DIRECTIONS} labels={HUB_OUT_DIRECTION_LABEL} isAuto={!shown.outTo} current={m.outTo} onPick={(v) => save((c) => { if (v === 'auto') delete c.outTo; else c.outTo = v; })} />
-          ) : null}
+          {/* 🎛 The same four effects as a part (owner 2026-10-04: "scenes share
+              the vocabulary") — Fade · Move ▾ (the arrow grid, 8 directions) ·
+              Size · Blur, for the In and for the Out. Stored in the shipped
+              fields whenever they can say it (`hubSceneFxFields`). */}
+          <div data-motion-step="scene-in">
+            <ISection>Comes in</ISection>
+            <MotionFxRows end="in" fx={m.inFx} onChange={(fx) => save((c) => sceneFx(c, 'in', fx))} />
+            {shown.in || shown.inFx ? (
+              <IReset data="scene-in-auto" onClick={() => save((c) => { delete c.in; delete c.inFrom; delete c.inFx; })}>
+                Back to Auto
+              </IReset>
+            ) : null}
+          </div>
+          <div data-motion-step="scene-out">
+            <ISection>Goes out</ISection>
+            <MotionFxRows end="out" fx={m.outFx} onChange={(fx) => save((c) => sceneFx(c, 'out', fx))} />
+            {shown.out || shown.outFx ? (
+              <IReset data="scene-out-auto" onClick={() => save((c) => { delete c.out; delete c.outTo; delete c.outFx; })}>
+                Back to Auto
+              </IReset>
+            ) : null}
+          </div>
           <IRow label="Parts" wrap data="scene-sequence">
             <ISegmented label="How its parts arrive">
               {(['auto', 'together', 'one_after_another'] as const).map((q) => (
@@ -255,35 +263,18 @@ export function SceneAnimateTab({
   );
 }
 
-function ChipRow<V extends string>({
-  label,
-  values,
-  labels,
-  isAuto,
-  current,
-  onPick,
-}: {
-  label: string;
-  values: readonly V[];
-  labels: Record<V, string>;
-  isAuto: boolean;
-  current: V;
-  onPick: (v: V | 'auto') => void;
-}) {
-  return (
-    <IRow label={label} wrap>
-      <ISegmented label={label}>
-        <ISeg on={isAuto} onClick={() => onPick('auto')}>
-          Auto
-        </ISeg>
-        {values.map((v) => (
-          <ISeg key={v} on={!isAuto && current === v} onClick={() => onPick(v)}>
-            {labels[v]}
-          </ISeg>
-        ))}
-      </ISegmented>
-    </IRow>
-  );
+/** One end of the scene's motion, written as `hubSceneFxFields` stores it — one answer per end. */
+function sceneFx(c: Record<string, unknown>, end: 'in' | 'out', fx: MotionFx | null) {
+  if (end === 'in') {
+    delete c.in;
+    delete c.inFrom;
+    delete c.inFx;
+  } else {
+    delete c.out;
+    delete c.outTo;
+    delete c.outFx;
+  }
+  Object.assign(c, hubSceneFxFields(end, fx));
 }
 
 /* ── FORMAT · LAYOUT (a scene of their own) ─────────────────────────────── */

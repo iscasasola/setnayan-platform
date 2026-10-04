@@ -16,7 +16,9 @@
  *   · Peek is in its header, a 44 px press-and-hold, named;
  *   · the scene sheet (the Inspector) is mounted in it;
  *   · 🔒 opening, dragging, peeking and collapsing never write: the sheet and
- *     its reducer import no action, save or fetch.
+ *     its reducer import no action, save or fetch;
+ *   · ONE reducer: the half sheet runs the part sheet's `elementSheetStep`
+ *     (`lib/element-sheet-state.ts`), never a second mechanism.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,7 +27,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
-import { HALF_SHEET_REST, HALF_SHEET_UP } from './maker-half-sheet';
+import { HALF_SHEET_REST, HALF_SHEET_UP } from './element-sheet-state';
 import { MAKER_PHONE_BAR_PX, phoneHeightPx } from './maker-phone-room';
 
 (globalThis as unknown as { React: unknown }).React = React;
@@ -96,13 +98,16 @@ test('🧩 the scene sheet (the Inspector) is mounted in the half sheet, and rev
 });
 
 test('🔒 opening, dragging, peeking and collapsing NEVER write — no action, save or fetch in the sheet or its reducer', () => {
-  for (const rel of [SHEET, 'lib/maker-half-sheet.ts']) {
+  for (const rel of [SHEET, 'lib/element-sheet-state.ts']) {
     const src = read(rel);
     assert.ok(src.length > 400, `${rel} scanned nearly empty`);
     for (const write of [/\bfetch\(/, /\bFormData\b/, /makerSave/, /Action\(/, /draftAction/, /'use server'/, /from '[^']*actions'/, /router\.(refresh|push|replace)/]) {
       assert.doesNotMatch(src, write, `${rel} can write (${write}) — a sheet's moves are draw-time state only`);
     }
   }
+  // ONE reducer for every sheet over the canvas — the part sheet's.
+  assert.match(read(SHEET), /elementSheetStep\(st, ev\)/, 'the half sheet runs its own reducer — it must run the part sheet’s');
+  assert.doesNotMatch(read(SHEET), /function \w*[Rr]educer\b/, 'a second sheet reducer grew back in maker-sheet.tsx');
   const imports = [...read(SHEET).matchAll(/from '([^']+)'/g)].map((m) => m[1]).sort();
-  assert.deepEqual(imports, ['@/lib/maker-half-sheet', 'lucide-react', 'react'], 'the sheet imports something new — check it cannot write');
+  assert.deepEqual(imports, ['@/lib/element-sheet-state', 'lucide-react', 'react'], 'the sheet imports something new — check it cannot write');
 });

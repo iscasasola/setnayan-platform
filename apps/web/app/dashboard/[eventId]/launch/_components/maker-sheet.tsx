@@ -3,14 +3,20 @@
 import { useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import {
-  HALF_SHEET_CLOSED,
+  ELEMENT_SHEET_CLOSED,
+  HALF_SHEET_REST,
   HALF_SHEET_SLIM,
-  HALF_SHEET_TAP_PX,
-  halfSheetHeightClass,
-  halfSheetReducer,
-  isCanvasTapEmpty,
+  HALF_SHEET_UP,
+  elementSheetStep,
+  isCanvasTapOutside,
   slimBarWords,
-} from '@/lib/maker-half-sheet';
+  type ElementSheetEvent,
+  type ElementSheetState,
+} from '@/lib/element-sheet-state';
+
+/** A drag shorter than this is a tap, not a drag; past `HALF_SHEET_DRAG_PX` it changes the size. */
+const HALF_SHEET_TAP_PX = 6;
+const HALF_SHEET_DRAG_PX = 40;
 
 /**
  * 📱 THE MAKER'S PHONE SHEET — owner, live phone test 2026-10-02: *"dim the
@@ -81,7 +87,8 @@ function onPhone(): boolean {
  * BUILD" + "TAPPING THE PAGE OUTSIDE THE SELECTED ELEMENT COLLAPSES ITS SHEET TO
  * A SLIM BAR"; screen 8 of `prototypes/event_details_improved_2026-10-04_fable.html`).
  * The shape every Maker sheet over the canvas mounts into; its moves are the
- * pure reducer in `lib/maker-half-sheet.ts`.
+ * ONE sheet reducer the part sheet runs too (`elementSheetStep`,
+ * `lib/element-sheet-state.ts`) — never a second mechanism.
  *
  * On a phone:
  *   · it rests at HALF the screen (`HALF_SHEET_REST`) and the page above it is
@@ -89,8 +96,9 @@ function onPhone(): boolean {
  *     the sheet (`onReveal`), so a change is seen as it is made, and a tap on
  *     another element switches the sheet to it (the parent hands a new `target`);
  *   · the grab handle drags it up for more rows and back down; down from half,
- *     or a tap on the page where nothing is selectable (the canvas's `tapEmpty`),
- *     collapses it to a SLIM BAR ("Names · Motion ▴") that restores on a tap;
+ *     or a tap on the page where nothing is selectable (the canvas's
+ *     `tapOutside`), collapses it to a SLIM BAR ("Names · Motion ▴") that
+ *     restores on a tap; a second such tap once folded goes through (closes);
  *   · Peek — press and hold — slides it away while held, to see the whole scene;
  *   · × closes and deselects (`onClose`).
  * On a desktop it is the panel beside the page, exactly as before
@@ -133,27 +141,32 @@ export function MakerHalfSheet({
   beforeGrip?: ReactNode;
   children: ReactNode;
 }) {
-  const [state, dispatch] = useReducer(halfSheetReducer, HALF_SHEET_CLOSED, (s) =>
-    halfSheetReducer(s, { type: 'open', target, section }),
+  const [state, dispatch] = useReducer(
+    (st: ElementSheetState<string>, ev: ElementSheetEvent<string>) => elementSheetStep(st, ev),
+    ELEMENT_SHEET_CLOSED as ElementSheetState<string>,
+    (s: ElementSheetState<string>) => elementSheetStep(s, { t: 'set', target }),
   );
   /* A new target (a tap on another element, a navigator pick) switches the sheet. */
   useEffect(() => {
-    dispatch({ type: 'open', target });
+    dispatch({ t: 'set', target });
   }, [target]);
-  useEffect(() => {
-    dispatch({ type: 'section', section });
-  }, [section]);
-  /* 🫳 A tap on the page where nothing is selectable → the slim bar (phone only). */
+  /* 🫳 A tap on the page where nothing is selectable → the slim bar; once folded,
+     the next one goes through and closes (the reducer's `tapOutside`). Phone only. */
+  const foldedRef = useRef(state.collapsed);
+  foldedRef.current = state.collapsed;
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== window.location.origin || !isCanvasTapEmpty(e.data) || !onPhone()) return;
-      dispatch({ type: 'tapEmpty' });
+      if (e.origin !== window.location.origin || !isCanvasTapOutside(e.data) || !onPhone()) return;
+      if (foldedRef.current) closeRef.current();
+      else dispatch({ t: 'tapOutside' });
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
   }, []);
   /* 📱 The edited thing in view above the sheet — on opening, on a switch, on a restore. */
-  const shown = state.size === 'half' || state.size === 'up';
+  const shown = Boolean(state.target) && !state.collapsed;
   const revealRef = useRef(onReveal);
   revealRef.current = onReveal;
   useEffect(() => {
@@ -169,24 +182,31 @@ export function MakerHalfSheet({
     setDragDy(0);
     if (start === null || clientY === null) return;
     const dy = clientY - start;
-    dispatch(Math.abs(dy) < HALF_SHEET_TAP_PX ? { type: 'gripTap' } : { type: 'drag', dy });
+    if (Math.abs(dy) < HALF_SHEET_TAP_PX) dispatch({ t: 'gripTap' });
+    else if (Math.abs(dy) >= HALF_SHEET_DRAG_PX) dispatch({ t: dy < 0 ? 'dragUp' : 'dragDown' });
   };
 
   /* Peek — held while pressed; a pointer captured on the button keeps it until let go. */
-  const peekOn = () => dispatch({ type: 'peekStart' });
-  const peekOff = () => dispatch({ type: 'peekEnd' });
+  const peekOn = () => dispatch({ t: 'peekStart' });
+  const peekOff = () => dispatch({ t: 'peekEnd' });
+  /* × — close and deselect. */
+  const close = () => {
+    dispatch({ t: 'close' });
+    onClose();
+  };
 
-  const slim = state.size === 'slim';
+  const slim = state.collapsed;
+  const size = slim ? 'slim' : state.raised ? 'up' : 'half';
   const words = slimBarWords(title, section);
   return (
     <>
       <aside
         aria-label={label}
         data-phone-chrome="panel"
-        data-half-sheet={state.size}
+        data-half-sheet={size}
         data-peeking={state.peeking ? '' : undefined}
         style={{ ...style, ...(dragDy > 0 ? { transform: `translateY(${dragDy}px)` } : {}) }}
-        className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl ${halfSheetHeightClass(state.size)} ${
+        className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex flex-col rounded-t-3xl ${state.raised ? HALF_SHEET_UP : HALF_SHEET_REST} ${
           slim ? 'max-lg:hidden' : ''
         } ${state.peeking ? 'max-lg:translate-y-[calc(100%-64px)]' : ''} ${
           dragDy > 0 ? '' : 'transition-[height,transform] duration-200 ease-out motion-reduce:transition-none'
@@ -195,7 +215,7 @@ export function MakerHalfSheet({
         {beforeGrip}
         <button
           type="button"
-          aria-label={state.size === 'up' ? 'Show less' : 'Show more'}
+          aria-label={state.raised ? 'Show less' : 'Show more'}
           data-sheet-grip=""
           data-half-sheet-grip=""
           onPointerDown={(e) => {
@@ -209,7 +229,7 @@ export function MakerHalfSheet({
           onPointerCancel={() => endDrag(null)}
           onClick={(e) => {
             // A keyboard press (no pointer): half ⇄ up.
-            if (e.detail === 0) dispatch({ type: 'gripTap' });
+            if (e.detail === 0) dispatch({ t: 'gripTap' });
           }}
           className={`flex h-6 w-full shrink-0 touch-none items-center justify-center lg:hidden ${state.peeking ? 'opacity-0' : ''}`}
         >
@@ -220,7 +240,7 @@ export function MakerHalfSheet({
           {/* 👁 PEEK — press and hold: the sheet slides away while held (phone). */}
           <button
             type="button"
-            aria-pressed={state.peeking}
+            aria-pressed={Boolean(state.peeking)}
             aria-label="Peek — hold to see the whole page"
             data-half-sheet-peek=""
             onPointerDown={(e) => {
@@ -249,7 +269,7 @@ export function MakerHalfSheet({
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label={closeLabel}
             data-half-sheet-close=""
             className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink"
@@ -280,7 +300,7 @@ export function MakerHalfSheet({
             type="button"
             data-half-sheet-restore=""
             aria-label={`Open ${words} again`}
-            onClick={() => dispatch({ type: 'restore' })}
+            onClick={() => dispatch({ t: 'restore' })}
             className="sn-press flex h-11 min-w-0 flex-1 items-center gap-1.5 truncate rounded-full px-2 text-left text-[13px] font-semibold text-ink/75"
           >
             <span className="truncate font-serif text-[17px] font-medium text-ink">{title}</span>
@@ -289,7 +309,7 @@ export function MakerHalfSheet({
           </button>
           <button
             type="button"
-            onClick={onClose}
+            onClick={close}
             aria-label={closeLabel}
             className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
           >

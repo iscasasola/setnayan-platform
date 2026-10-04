@@ -97,7 +97,8 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Auto · Shown · Hidden (the mode chips) / the eye', 'scene', ["'shown', 'auto', 'hidden'", 'onEye']],
   ['Move up / Move down', 'scene', ['Move up', 'Move down']],
   ['How it moves — Auto · Still · Calm · Editorial · Cinematic', 'scene', ['HUB_MOTION_PRESETS', 'How it moves']],
-  ['Timing · Comes in · From · Goes out · Toward · Parts', 'scene', ['label="Timing"', 'label="Comes in"', 'label="From"', 'label="Goes out"', 'label="Toward"', 'label="Parts"']],
+  // 🎛 2026-10-04: Comes in / From and Goes out / Toward became the four effects (Fade · Move ▾ arrow grid · Size · Blur), each end with its own Auto.
+  ['Timing · Comes in · Goes out (four effects each, Move from 8 directions) · Parts', 'scene', ['label="Timing"', '<ISection>Comes in</ISection>', '<MotionFxRows end="in"', '<ISection>Goes out</ISection>', '<MotionFxRows end="out"', 'Back to Auto', 'label="Parts"']],
   ['Into the next section — Scroll · Scrub · Auto-scroll + Speed', 'scene', ['Into the next scene', 'HUB_TRANSITIONS', 'HUB_AUTO_SPEEDS']],
   ['Reset how it moves (free)', 'scene', ['Reset how it moves']],
   ['Layout (a scene of their own)', 'scene', ['HUB_ARRANGEMENTS', 'label="Layout"']],
@@ -106,7 +107,8 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Font ▾ (Event Hub font, then the one font dropdown’s shelves)', 'part', ['lead="Event Hub font"', '<FontPick']],
   ['Colour swatches + "+" + "Hard to read here"', 'part', ['<ColourWell', 'Hard to read here']],
   ['Size: S · M · L · XL', 'part', ['label="Size"', 'stepHubElementSize']],
-  ['Motion: Plays once / Follows the scroll · In · During · Out · Duration · Delay', 'part', ['HUB_EL_TIMELINE', 'HUB_EL_IN', 'HUB_EL_DURING_WORDS', 'HUB_EL_OUT', 'HUB_EL_DURATION', 'HUB_EL_DELAY']],
+  // 🎛 2026-10-04: In / Out are four effects + Speed (was Duration), in the order a guest sees it.
+  ['Motion: Comes in (Fade · Move · Size · Blur · Speed · Delay) · During · Goes out · When it plays', 'part', ['<MotionFxRows end="in"', '<MotionSpeedRow', 'HUB_EL_DELAY', 'HUB_EL_DURING_WORDS', '<MotionFxRows end="out"', 'HUB_EL_TIMELINE']],
   ['▶ Play', 'part', ['Preview']],
   ['Resets: font · colour · motion · element', 'part', ['Use the Event Hub style', 'Move with the scene']],
   ['Saved + theme colours', 'colour', ['Theme colours', 'Saved colours', 'Save the current colour']],
@@ -115,7 +117,8 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['The Pro mark on Font ▾ and on Animate', 'part', ['fontMark ?', 'data-part-animate-pro']],
   ['…drawn by the sheet, which reads ownsPro', 'sheet', ['fontMark={fontMark}', 'proMark={animateMark}', '<PaidMark']],
   ['"Whole part / this selection" (a run of letters)', 'sheet', ['data-element-range', 'Whole {HUB_ELEMENT_LABEL', 'Clear this selection']],
-  ['The sheet’s tabs — Text · Animate · Arrange', 'sheet', ['PART_TABS', '<InspectorTabs tabs={tabs}', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
+  // ▣ 2026-10-04 ("segmented control"): the sheet's sections are one segmented control, Text · Motion · Arrange.
+  ['The sheet’s sections — Text · Motion · Arrange', 'sheet', ['PART_TABS', 'data-element-sections', '<ISeg key={t.key} tone="wine"', '<PartTextTab', '<PartAnimateTab', '<PartArrangeTab']],
   // ── The wiring: every tab is mounted in the Maker, and #6048's words stay ──
   ['Scene tabs mounted: Format · Animate · Arrange · Content', 'shell', ['<InspectorTabs tabs={tabs}', '<SceneBackgroundRow', '<SceneAnimateTab', '<SceneArrangeTab', '<SceneLayoutRow', '<SceneParts']],
   ['Transition folded into Animate (an old address opens Animate)', 'shell', ["asked === 'transition' ? 'animate' : asked", "tab: 'animate' })"]],
@@ -143,7 +146,7 @@ test('Format · Animate · Arrange are the inspector’s tabs, never the top bar
   const { SCENE_TABS } = await import(`../${EDITOR}/scene-inspector`);
   const { PART_TABS } = await import(`../${EDITOR}/part-inspector`);
   assert.deepEqual((SCENE_TABS as Array<{ label: string }>).map((t) => t.label), ['Format', 'Animate', 'Arrange', 'Content']);
-  assert.deepEqual((PART_TABS as Array<{ label: string }>).map((t) => t.label), ['Text', 'Animate', 'Arrange']);
+  assert.deepEqual((PART_TABS as Array<{ label: string }>).map((t) => t.label), ['Text', 'Motion', 'Arrange']);
   const top = src(HOME.topBar);
   const header = top.slice(top.indexOf('data-maker-toolbar'), top.indexOf('</header>'));
   assert.ok(header.length > 200, 'found the toolbar');

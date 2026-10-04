@@ -52,7 +52,7 @@ export const MAKER_PHONE_GUIDED_PANEL_CAP = 'max-lg:max-h-[calc(45dvh-104px)]';
  *   BOTTOM  Page ▾ (the page: "Welcome ▾") · Look · Event Details.
  *
  * Apply sits up top beside Undo: one place per control, and in reach while a
- * half sheet (`lib/maker-half-sheet.ts`) covers the bottom of the screen.
+ * half sheet (`MakerHalfSheet`, lib/element-sheet-state.ts) covers the bottom of the screen.
  *
  * One row each at 375 px: each item declares its phone width (`w-[…]`, or
  * `min-w-[…]` for the one that takes what is left); `lib/the-maker-keeps-the-page-on-a-phone.test.ts`

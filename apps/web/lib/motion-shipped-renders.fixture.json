@@ -1,0 +1,572 @@
+{
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "e0237eb8801d33fb",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "d87430256a44fb4a",
+  "scrub": "e0237eb8801d33fb",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "8cd708deb4c34b9c",
+  "heroInline": "6d4736e7a68dcbf5"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"normal\"}": {
+  "page": "e179ab01f7f68fb5",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "33b33ce175f89926",
+  "scrub": "e179ab01f7f68fb5",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "eb1e28e79c9bc62b",
+  "heroInline": "dfe6f3ef9fbdebc7"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"slow\"}": {
+  "page": "4dc5adf61b9b1c55",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "5528446432a93232",
+  "scrub": "4dc5adf61b9b1c55",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "02369844cf5ed932",
+  "heroInline": "11189c3d0c8cd902"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"quick\"}": {
+  "page": "0f16c9e98de523e0",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "1a5b4da257ac42d0",
+  "scrub": "0f16c9e98de523e0",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "0547f85c48727783",
+  "heroInline": "452f3a4a7d1e9cd6"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"normal\"}": {
+  "page": "6924917c95f0ce33",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "b4dba09a8aa02928",
+  "scrub": "6924917c95f0ce33",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "6f830d9d3afbca57",
+  "heroInline": "d3f4094d0d64f057"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"slow\"}": {
+  "page": "18f5c3d63daf6095",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "3e8be6145e1ee52b",
+  "scrub": "18f5c3d63daf6095",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "2f1d4d1e5c883e05",
+  "heroInline": "9246c20ee2a499b6"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"quick\"}": {
+  "page": "59157be9e9958fb2",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "3199b31886dd8300",
+  "scrub": "59157be9e9958fb2",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "4e2c569b7b8c92b0",
+  "heroInline": "5ad4bcca93e4c302"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"normal\"}": {
+  "page": "62684ca898a60b97",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "658d4d15957d6402",
+  "scrub": "62684ca898a60b97",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "d50fc513342a34d3",
+  "heroInline": "dbb5da9d08498992"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"slow\"}": {
+  "page": "aefe3c71ae2e4a12",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "ca03a0a92575e236",
+  "scrub": "aefe3c71ae2e4a12",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "c66a61fd4263dc8e",
+  "heroInline": "72d3d5d5c0f54b3a"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "e53181fed00b4938",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "ac6bfa212bd55227",
+  "scrub": "e53181fed00b4938",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "ac33ea3a14d9afa1",
+  "heroInline": "a99d11c2803d0faf"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"normal\"}": {
+  "page": "c02e3accf13e8c2f",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "60ce617fe644df56",
+  "scrub": "c02e3accf13e8c2f",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "9b3d794235638c31",
+  "heroInline": "66d495fa3c01ac9b"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"slow\"}": {
+  "page": "43adda151d75303e",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "e1713dc4b7b82ed4",
+  "scrub": "43adda151d75303e",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "1ddbc46516f3fbec",
+  "heroInline": "1a2e4d8c4e644b12"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"quick\"}": {
+  "page": "47577a1e2ec11729",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "8cd1902bcfc2a131",
+  "scrub": "47577a1e2ec11729",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "4476429d275404f4",
+  "heroInline": "8059e7d94df975b2"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"normal\"}": {
+  "page": "b45d8f0dfabbe504",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "31a0ed3a9d30f582",
+  "scrub": "b45d8f0dfabbe504",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "986b5f6b4767db4a",
+  "heroInline": "badb307d961700bc"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"slow\"}": {
+  "page": "a6a419c792a2ba41",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "ca6e78844299866e",
+  "scrub": "a6a419c792a2ba41",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "2f1e80dbe3b6dd59",
+  "heroInline": "2fd44c303d4a1d9d"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"quick\"}": {
+  "page": "b623217c37192b03",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "368e40b789fea308",
+  "scrub": "b623217c37192b03",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "90a7b6c0ac0fd11d",
+  "heroInline": "c3750d3006217523"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"normal\"}": {
+  "page": "f5761da66ea5a336",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "efdc675de535e3ff",
+  "scrub": "f5761da66ea5a336",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "188c3e0a4318d629",
+  "heroInline": "75a9137192af7c10"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"slow\"}": {
+  "page": "eb80fa16a1025010",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "8bc4bcd049eeac38",
+  "scrub": "eb80fa16a1025010",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "47660ca84daa3a67",
+  "heroInline": "d85332cd450a6ce0"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "365f8bbbcf62f986",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "0f27a5d8eeda9371",
+  "scrub": "365f8bbbcf62f986",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "aaf92fb0531ddc66",
+  "heroInline": "5b7c5f9520205384"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"normal\"}": {
+  "page": "fe433574d6454ad9",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "2282752643cc3fb6",
+  "scrub": "fe433574d6454ad9",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "9c4f5f4b5e8aa4b6",
+  "heroInline": "193fc50cd7b8e836"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"slow\"}": {
+  "page": "1561ec106ea487ae",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "bff074167b04a678",
+  "scrub": "1561ec106ea487ae",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "24e11441341dbb49",
+  "heroInline": "f24e29e40381ea52"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"quick\"}": {
+  "page": "eb0a0664f86feca1",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "251c141379010f04",
+  "scrub": "eb0a0664f86feca1",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "04e94ca496f0ab20",
+  "heroInline": "4bac07e9e3fbd253"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"normal\"}": {
+  "page": "9f888500cad7b5f0",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "aad11d4d19d1c5ae",
+  "scrub": "9f888500cad7b5f0",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "d7b7ead3f6f90605",
+  "heroInline": "a1bd651e22d848f0"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"slow\"}": {
+  "page": "3eacff41c1119abd",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "e6f06bc2b6ff9ad3",
+  "scrub": "3eacff41c1119abd",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "21d0929fa899e59d",
+  "heroInline": "5345ce8539fd4c02"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"quick\"}": {
+  "page": "7851286b031c295a",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "00e308ad38df8995",
+  "scrub": "7851286b031c295a",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "290f135b8d71917f",
+  "heroInline": "fec94e9a24461fdb"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"normal\"}": {
+  "page": "399b725999011c97",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "5b797ffd098d8a57",
+  "scrub": "399b725999011c97",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "68d629af3470f090",
+  "heroInline": "d7e91b65b62d4255"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"slow\"}": {
+  "page": "e2f35326d24cbace",
+  "page:waiting": "075ea7a0daf21424",
+  "hero": "aecabbc0b6786f70",
+  "scrub": "e2f35326d24cbace",
+  "auto:waiting": "075ea7a0daf21424",
+  "scene": "e613b0c839dd684e",
+  "heroInline": "3c8387c2dfb0899a"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "9899f89d07fd3163",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "514a0eb285688ae1",
+  "scrub": "9899f89d07fd3163",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "49ddb03508863d23",
+  "heroInline": "b821e78cff9e1962"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"normal\"}": {
+  "page": "c8fd6ecd47c9a31c",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "2d6bac8dc3b6dde6",
+  "scrub": "c8fd6ecd47c9a31c",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "f0b053eb92854f61",
+  "heroInline": "9052ece461614a39"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"slow\"}": {
+  "page": "4f272cbbf5abf929",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "6b7794aba19ca425",
+  "scrub": "4f272cbbf5abf929",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "769ea46d6695b439",
+  "heroInline": "2ddf6f15ea407112"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"quick\"}": {
+  "page": "55c6262582c58b59",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "b8f8ed38a0ccfb9d",
+  "scrub": "55c6262582c58b59",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "4618b314225adf36",
+  "heroInline": "52017a86e90cd280"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"normal\"}": {
+  "page": "c01966a3a5891e74",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "73f92e21c26c725e",
+  "scrub": "c01966a3a5891e74",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "952e66ef0c7a96c5",
+  "heroInline": "13428ad14290a3c1"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"short\",\"duration\":\"slow\"}": {
+  "page": "8528c4e8ff6d77d0",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "24603cd6bc681b46",
+  "scrub": "8528c4e8ff6d77d0",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "73b9ee51b9f3fb43",
+  "heroInline": "51b44b2b0056ed51"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"quick\"}": {
+  "page": "658da308e30dfa5c",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "ada7c6740ec86b9b",
+  "scrub": "658da308e30dfa5c",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "e1f830a76ad38641",
+  "heroInline": "cec1bc553b58e2b2"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"normal\"}": {
+  "page": "de51427f71d0f513",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "5bcdf7f759620d4f",
+  "scrub": "de51427f71d0f513",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "29fddd981d70733d",
+  "heroInline": "ad1ee6d63eb65153"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"long\",\"duration\":\"slow\"}": {
+  "page": "01eb100509e012e5",
+  "page:waiting": "06e4ee6a8f0f7645",
+  "hero": "d5c086aabde577e3",
+  "scrub": "01eb100509e012e5",
+  "auto:waiting": "06e4ee6a8f0f7645",
+  "scene": "c4b92a8b2135f541",
+  "heroInline": "94c7c62d5baaef3b"
+ },
+ "{\"in\":\"none\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "508650b392992c19",
+  "page:waiting": "508650b392992c19",
+  "hero": "796742adf7359b99",
+  "scrub": "508650b392992c19",
+  "auto:waiting": "508650b392992c19",
+  "scene": "c70d58d2e3cf8510",
+  "heroInline": "a5962ee44cafd96f"
+ },
+ "{\"in\":\"none\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"once\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "da39a3ee5e6b4b0d",
+  "page:waiting": "da39a3ee5e6b4b0d",
+  "hero": "da39a3ee5e6b4b0d",
+  "scrub": "da39a3ee5e6b4b0d",
+  "auto:waiting": "da39a3ee5e6b4b0d",
+  "scene": "da39a3ee5e6b4b0d",
+  "heroInline": "2be88ca4242c76e8"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "ea4e96fcadb997b9",
+  "page:waiting": "ea4e96fcadb997b9",
+  "hero": "6bacca3c2663fb03",
+  "scrub": "0120e54b00236a7d",
+  "auto:waiting": "ac7289a94d1f55a4",
+  "scene": "3d154dfce0307f3a",
+  "heroInline": "ee667431e5a9afc7"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"lift\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "907070734427d940",
+  "page:waiting": "907070734427d940",
+  "hero": "cd6255a40f892885",
+  "scrub": "6ce7b05bfc603cf3",
+  "auto:waiting": "1355aed11b4b86d8",
+  "scene": "95b03a4013a8f464",
+  "heroInline": "3b6e6654e4f1028a"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"settle\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "759712c5b2b32176",
+  "page:waiting": "759712c5b2b32176",
+  "hero": "f038a6f0b3faa656",
+  "scrub": "ba7be7c5049ff305",
+  "auto:waiting": "bd7b2c7aa74c5dbe",
+  "scene": "d09e95f7673ff90b",
+  "heroInline": "2db588a8b6100f7b"
+ },
+ "{\"in\":\"rise\",\"during\":\"drift\",\"out\":\"stay\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "20d69abe5383a937",
+  "page:waiting": "20d69abe5383a937",
+  "hero": "33b33ce175f89926",
+  "scrub": "7f67b66fbcee2439",
+  "auto:waiting": "ed8b398ac882629e",
+  "scene": "c38f828c2ee11cc7",
+  "heroInline": "dfe6f3ef9fbdebc7"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "cf33d6a2e9ebe1c3",
+  "page:waiting": "cf33d6a2e9ebe1c3",
+  "hero": "0fc453ada21555cf",
+  "scrub": "4e77a034b43c8ed6",
+  "auto:waiting": "ca06a870090c971a",
+  "scene": "c6f301314e059bed",
+  "heroInline": "8b1bfc1f407ad2aa"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"lift\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "4f1d9a7b821fe05f",
+  "page:waiting": "4f1d9a7b821fe05f",
+  "hero": "848b629227f64a6e",
+  "scrub": "1be6457b1a92422b",
+  "auto:waiting": "49a22e3b21e63a4e",
+  "scene": "5a701fc7d1ff7bbe",
+  "heroInline": "6bc42088af87ed30"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"settle\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "4cbc35a47516151e",
+  "page:waiting": "4cbc35a47516151e",
+  "hero": "c097220f7c499715",
+  "scrub": "584352a36d3966ee",
+  "auto:waiting": "ce28791e87a5f818",
+  "scene": "b538f1347ba7c554",
+  "heroInline": "4a44fd6b276915d2"
+ },
+ "{\"in\":\"rise\",\"during\":\"still\",\"out\":\"stay\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "3d8816ed0238d7d8",
+  "page:waiting": "3d8816ed0238d7d8",
+  "hero": "60ce617fe644df56",
+  "scrub": "569590973c0e9518",
+  "auto:waiting": "b5b2d5a822af62c2",
+  "scene": "60f172f7778ddfa7",
+  "heroInline": "66d495fa3c01ac9b"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "943a8120d36261c8",
+  "page:waiting": "943a8120d36261c8",
+  "hero": "7094bc8d6ba1bd08",
+  "scrub": "36b8442b7b39d799",
+  "auto:waiting": "0b47eb2f60836882",
+  "scene": "c36dcb449ae852d4",
+  "heroInline": "4afbe1acd47f5bee"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"lift\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "610b716732dd553a",
+  "page:waiting": "610b716732dd553a",
+  "hero": "3ad9a3847a35df77",
+  "scrub": "c2f8ce090c56a6cd",
+  "auto:waiting": "45cea38f03aef6db",
+  "scene": "4e026bfd296bbe42",
+  "heroInline": "60b5e65296e1bc95"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"settle\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "3d9d639658362536",
+  "page:waiting": "3d9d639658362536",
+  "hero": "bd0543f4941f39e0",
+  "scrub": "c0c5d6628f070353",
+  "auto:waiting": "6e305d8523197b62",
+  "scene": "7e7c180c5a6c3e1a",
+  "heroInline": "788ded32c835029e"
+ },
+ "{\"in\":\"fade\",\"during\":\"drift\",\"out\":\"stay\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "fd126dc9b938ea65",
+  "page:waiting": "fd126dc9b938ea65",
+  "hero": "2282752643cc3fb6",
+  "scrub": "cff670245c53d206",
+  "auto:waiting": "fd14ac70c9f06d27",
+  "scene": "925fc7bb77ec9ddb",
+  "heroInline": "193fc50cd7b8e836"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "d037b3c498bc0074",
+  "page:waiting": "d037b3c498bc0074",
+  "hero": "b770035c7e69ff1e",
+  "scrub": "0e9a232c48bbb029",
+  "auto:waiting": "0780a5ae4962cc6c",
+  "scene": "c6e4ab07e4ca78b7",
+  "heroInline": "cb352037d95c1c60"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"lift\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "334a3b73271bb393",
+  "page:waiting": "334a3b73271bb393",
+  "hero": "65ce8dd5023ed62b",
+  "scrub": "b178cafbff6e6ab1",
+  "auto:waiting": "d6ef377eae3f979e",
+  "scene": "e2063d7a38e2ecf9",
+  "heroInline": "6f1cb74398d03917"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"settle\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "d8578ba058620a3c",
+  "page:waiting": "d8578ba058620a3c",
+  "hero": "e270acc94c06c1f6",
+  "scrub": "44f382c31eefe036",
+  "auto:waiting": "516762eaf8e2002f",
+  "scene": "43032fa0a8129903",
+  "heroInline": "660beb82ad2e7b66"
+ },
+ "{\"in\":\"fade\",\"during\":\"still\",\"out\":\"stay\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "4e2a184e02e31733",
+  "page:waiting": "4e2a184e02e31733",
+  "hero": "2d6bac8dc3b6dde6",
+  "scrub": "743a5405d65b63e1",
+  "auto:waiting": "e98ca6ab7a102fd4",
+  "scene": "a84f40c3604dee95",
+  "heroInline": "9052ece461614a39"
+ },
+ "{\"in\":\"none\",\"during\":\"drift\",\"out\":\"fade\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "45f3c71286ae0955",
+  "page:waiting": "45f3c71286ae0955",
+  "hero": "d35147352ccd30cd",
+  "scrub": "8b2029da7e9244dc",
+  "auto:waiting": "cef7b59823592dc7",
+  "scene": "5fbcc3cd15831ffe",
+  "heroInline": "de569c6645ddd955"
+ },
+ "{\"in\":\"none\",\"during\":\"drift\",\"out\":\"lift\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "95cf22634cdd0eb2",
+  "page:waiting": "95cf22634cdd0eb2",
+  "hero": "87c4125d7c90c011",
+  "scrub": "4f8540bc28d1d677",
+  "auto:waiting": "72fed022bc328d9d",
+  "scene": "d24faf5dc17ca402",
+  "heroInline": "f9dc20e07acfe961"
+ },
+ "{\"in\":\"none\",\"during\":\"drift\",\"out\":\"settle\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "fbef2521b2bb34f4",
+  "page:waiting": "fbef2521b2bb34f4",
+  "hero": "8431a65a516fd6d7",
+  "scrub": "676067ed3bc23a59",
+  "auto:waiting": "875086ffe7bd4a16",
+  "scene": "f280ff93256c11a9",
+  "heroInline": "eea689d77b9411fb"
+ },
+ "{\"in\":\"none\",\"during\":\"drift\",\"out\":\"stay\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "508650b392992c19",
+  "page:waiting": "508650b392992c19",
+  "hero": "796742adf7359b99",
+  "scrub": "508650b392992c19",
+  "auto:waiting": "508650b392992c19",
+  "scene": "c70d58d2e3cf8510",
+  "heroInline": "a5962ee44cafd96f"
+ },
+ "{\"in\":\"none\",\"during\":\"still\",\"out\":\"fade\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "d498d8345879ff6f",
+  "page:waiting": "d498d8345879ff6f",
+  "hero": "6e03fea71d79bc69",
+  "scrub": "0cb9566e527f2f00",
+  "auto:waiting": "80b329d926b39d02",
+  "scene": "f398eb8694b124c8",
+  "heroInline": "59629e1b8e9a215d"
+ },
+ "{\"in\":\"none\",\"during\":\"still\",\"out\":\"lift\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "3c8daeb7cd8a0e53",
+  "page:waiting": "3c8daeb7cd8a0e53",
+  "hero": "83443898c7144968",
+  "scrub": "9a8403fb45449e67",
+  "auto:waiting": "061e792cfb9e5189",
+  "scene": "4f6be4d1992d614b",
+  "heroInline": "899c071565e14f74"
+ },
+ "{\"in\":\"none\",\"during\":\"still\",\"out\":\"settle\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "ab564e9e7d59c518",
+  "page:waiting": "ab564e9e7d59c518",
+  "hero": "0d4628e0e1fb1037",
+  "scrub": "86c3b9ad80a22497",
+  "auto:waiting": "55e22635be72715a",
+  "scene": "d8b1d7dabc9fd7da",
+  "heroInline": "3dcdc26dab6b70d1"
+ },
+ "{\"in\":\"none\",\"during\":\"still\",\"out\":\"stay\",\"timeline\":\"scroll\",\"delay\":\"none\",\"duration\":\"quick\"}": {
+  "page": "490c76319d2955c1",
+  "page:waiting": "490c76319d2955c1",
+  "hero": "df01973699457ac1",
+  "scrub": "490c76319d2955c1",
+  "auto:waiting": "490c76319d2955c1",
+  "scene": "c29b00d94960e0bf",
+  "heroInline": "00dc63ddcca2ff1d"
+ },
+ "{\"anim\":\"still\"}": {
+  "scene": "da39a3ee5e6b4b0d"
+ },
+ "{\"anim\":\"calm\"}": {
+  "scene": "f0b053eb92854f61"
+ },
+ "{\"anim\":\"editorial\"}": {
+  "scene": "9b3d794235638c31"
+ },
+ "{\"anim\":\"cinematic\"}": {
+  "scene": "c38f828c2ee11cc7"
+ }
+}

@@ -64,5 +64,17 @@ test('Apply moves the WHOLE Schedule when the date was written — before the ce
   // One exact-day rule for the ceremony's day and the move's two days.
   assert.match(src, /const priorDay = exactDayOf\(live\.events\.event_date, live\.events\.event_date_precision\);/);
   // A failed move is SAID — the date is live, so Apply again would not finish it.
-  assert.match(src, /if \(!shifted\.ok\) \{[\s\S]{0,300}?some Schedule times stayed on the old day/, 'a half-moved Schedule reads as "press Apply again", which cannot finish it');
+  assert.match(src, /if \(!shifted\.ok\) \{[\s\S]{0,600}?your Schedule stayed on the old day/, 'a Schedule that did not move reads as "press Apply again", which cannot move it');
+});
+
+/* 🔒 ALL OR NOTHING, AND ONCE (2026-10-04, train-g audit): the move is ONE SQL
+   function — one statement, one transaction, once per move. The behaviour
+   (a block that refuses moves nothing; two Applies shift once) is proven in
+   tests/db/venues-and-ceremony-time-wait-for-apply.db.test.ts (10 · 11). */
+test('the whole-Schedule move is the ONE SQL function — never a loop of per-block writes from here', () => {
+  const src = stripComments(readFileSync(join(process.cwd(), 'lib/ceremony-time.server.ts'), 'utf8'));
+  const fn = src.slice(src.indexOf('export async function moveScheduleWithDate('));
+  assert.ok(fn.length > 0 && src.includes('export async function moveScheduleWithDate('), 'anti-vacuity: the move is gone');
+  assert.match(fn, /supabase\.rpc\('move_event_schedule_with_date', \{\s*p_event_id: eventId,\s*p_from_day: fromDay,\s*p_to_day: toDay,\s*\}\)/);
+  assert.doesNotMatch(fn, /\.from\('event_schedule_blocks'\)|\.update\(|for \(/, 'the Schedule is moved block by block again — a failure part-way leaves half a day');
 });

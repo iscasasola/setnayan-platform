@@ -21,6 +21,7 @@ import {
   isGuestPassHop,
   isLinkPreviewFetch,
   mayRefreshGuestPass,
+  passHeldKind,
   passHopMissFault,
   uaFamily,
   type PassHopMissRule,
@@ -274,4 +275,86 @@ test('8 · the misses are recorded where they happen — and no recorder is hand
       assert.doesNotMatch(code, /\btoken\b|reentryCode|search\.k|url\b|qr_token/, `${file} hands a secret to the Problems log: ${c}`);
     }
   }
+});
+
+/* ══ 9 · A LINK-PREVIEW FETCHER NEVER SPENDS A GUEST'S CODE (2026-10-04 audit) ══
+   A chat app previewing a pasted landing address (`/{slug}/invite/enter?k=`)
+   followed it to the redeem, EXCHANGED the single-use code and took the
+   Set-Cookie. Driven through the REAL route: every database read goes through
+   `fetch`, so a fetcher's request must reach no `fetch` at all — while a
+   person's identical request does (the anti-vacuity half). */
+async function redeemAs(userAgent: string, query: string) {
+  const saved = { url: process.env.NEXT_PUBLIC_SUPABASE_URL, key: process.env.SUPABASE_SERVICE_ROLE_KEY, fetch: globalThis.fetch };
+  const calls: string[] = [];
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://db.invalid';
+  process.env.SUPABASE_SERVICE_ROLE_KEY = 'x'.repeat(64);
+  globalThis.fetch = (async (input: unknown) => {
+    calls.push(String(input instanceof Request ? input.url : input));
+    return new Response('[]', { status: 200, headers: { 'content-type': 'application/json' } });
+  }) as typeof fetch;
+  try {
+    const { GET } = nodeRequire('@/app/[slug]/redeem/route') as typeof import('@/app/[slug]/redeem/route');
+    const { NextRequest } = nodeRequire('next/server') as typeof import('next/server');
+    let res: Response | null = null;
+    try {
+      res = await GET(new NextRequest(`https://setnayan.test/maria-and-jose/redeem?${query}`, { headers: { 'user-agent': userAgent } }));
+    } catch {
+      res = null; // a person's request runs on into request-scoped reads this harness does not provide
+    }
+    return { res, calls };
+  } finally {
+    globalThis.fetch = saved.fetch;
+    if (saved.url === undefined) delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    else process.env.NEXT_PUBLIC_SUPABASE_URL = saved.url;
+    if (saved.key === undefined) delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+    else process.env.SUPABASE_SERVICE_ROLE_KEY = saved.key;
+  }
+}
+
+test('9 · a link-preview fetcher on a `?k=` (or a token) is answered in place — no code spent, no cookie, no redirect', async () => {
+  for (const ua of [UA.facebookCrawler, UA.iMessagePreview, UA.whatsappPreview, UA.telegram]) {
+    for (const query of [`slug=maria-and-jose&k=${SECRET_CODE}&to=landing`, `slug=maria-and-jose&k=${SECRET_CODE}&to=hub`, `slug=maria-and-jose&token=${SECRET_TOKEN}`]) {
+      const { res, calls } = await redeemAs(ua, query);
+      assert.ok(res, `${uaFamily(ua)} ${query}: the route threw`);
+      assert.equal(res!.status, 200, `${uaFamily(ua)}: a fetcher was redirected (it would follow it)`);
+      assert.equal(res!.headers.get('set-cookie'), null, `${uaFamily(ua)}: a fetcher was handed a cookie`);
+      assert.equal(res!.headers.get('location'), null);
+      assert.deepEqual(calls, [], `${uaFamily(ua)}: a fetcher reached the database (a code could be spent)`);
+      const html = await res!.text();
+      assert.ok(!html.includes(SECRET_CODE) && !html.includes(SECRET_TOKEN), 'the answer echoes the secret');
+    }
+  }
+  // Anti-vacuity: the SAME request from a person reaches the database.
+  const person = await redeemAs(UA.safari, `slug=maria-and-jose&k=${SECRET_CODE}&to=landing`);
+  assert.ok(person.calls.length > 0, 'the harness cannot see a database read — the fetcher half proves nothing');
+});
+
+test('9b · the landing answers a fetcher carrying `?k=` in place — it is never sent on to the redeem', () => {
+  const enter = read('app/[slug]/invite/enter/page.tsx');
+  const body = enter.slice(enter.indexOf('export default async function InviteEnterPage('));
+  const branch = body.slice(body.indexOf('if (carriedCode) {'));
+  assert.ok(body.includes('if (carriedCode) {'), 'anti-vacuity: the landing lost its code branch');
+  const asks = branch.indexOf("isLinkPreviewFetch((await headers()).get('user-agent'))");
+  const sends = branch.indexOf("redirect(reentryRedeemPath(home, search.k!, 'landing'));");
+  assert.ok(asks > -1 && sends > asks, 'a fetcher is redirected to the redeem before anyone asks who is fetching');
+  assert.ok(/return <LinkPreviewAnswer href=\{reentryRedeemPath\(home, search\.k!, 'landing'\)\} \/>;/.test(branch.slice(asks, sends)), 'a fetcher is not answered in place');
+  const answer = enter.slice(enter.indexOf('function LinkPreviewAnswer('), enter.indexOf('async function heldKind('));
+  assert.ok(answer.length > 0 && !/redirect\(|setGuestSession|cookies\(\)/.test(answer), 'the in-place answer redirects or writes a pass');
+});
+
+/* ══ 10 · WHAT THE PHONE HELD IS SAID HONESTLY (2026-10-04 audit) ═════════════ */
+test('10 · the held label: a pass for THIS event (any guest) is `this-event`, never `other-event`', () => {
+  const E = 'ev-1';
+  assert.equal(passHeldKind({ cookiePresent: false, pass: null, eventId: E }), 'none');
+  assert.equal(passHeldKind({ cookiePresent: true, pass: null, eventId: E }), 'revoked');
+  assert.equal(passHeldKind({ cookiePresent: true, pass: { event_id: E }, eventId: E }), 'this-event');
+  assert.equal(passHeldKind({ cookiePresent: true, pass: { event_id: 'ev-2' }, eventId: E }), 'other-event');
+  // The redeem and the landing both say it through the ONE answer.
+  const route = read('app/[slug]/redeem/route.ts');
+  const refused = route.slice(route.indexOf("rule: 'reentry:refused'"), route.indexOf('carriedCode: true', route.indexOf("rule: 'reentry:refused'")));
+  assert.ok(refused.length > 0, 'anti-vacuity: the refused-code record moved');
+  assert.match(refused, /held: passHeldKind\(\{[\s\S]*?pass: held,[\s\S]*?eventId: event\.event_id,?\s*\}\)/, 'the redeem guesses what the phone held');
+  assert.doesNotMatch(route, /held \? 'other-event'/, 'any pass is logged as another event again');
+  const enter = read('app/[slug]/invite/enter/page.tsx');
+  assert.match(enter, /return passHeldKind\(\{ cookiePresent, pass: cookiePresent \? await readGuestSession\(\) : null, eventId \}\);/);
 });

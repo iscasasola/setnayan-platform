@@ -1,7 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ceremonyBlock } from '@/lib/print-pieces';
-import { fromDatetimeLocalValue, shiftWallClockDays, toDatetimeLocalValue, wallClockDayShift } from '@/lib/schedule-datetime-local';
+import { fromDatetimeLocalValue, toDatetimeLocalValue, wallClockDayShift } from '@/lib/schedule-datetime-local';
 
 /**
  * 🕒 THE CEREMONY TIME TYPED UNDER THE DATE (owner 2026-10-04, "YES TO ALL" on
@@ -139,20 +139,26 @@ export async function placeCeremonyBlock({
  * "CHANGING THE EVENT DATE MOVES THE WHOLE SCHEDULE", verbatim: *"Yes if
  * possible"*). When Apply moves the event from `fromDay` to `toDay`, EVERY
  * block of the event's Schedule — every type, parents and their parts alike —
- * moves by the same number of days, each keeping its own wall-clock time
- * (`shiftWallClockDays`, the round-trip rule of lib/schedule-datetime-local.ts).
+ * moves by the same number of days, each keeping its own wall-clock time.
  * Order, lengths and nesting are therefore unchanged.
+ *
+ * 🔒 ALL OR NOTHING, AND ONCE (2026-10-04, the train-g audit). This used to be
+ * one UPDATE per block from here: a refusal part-way left half the day on the
+ * new date, and two Applies racing each moved every block — the day shifted
+ * twice. The move is now ONE SQL function,
+ * `public.move_event_schedule_with_date` (migration 20271264726195): one
+ * statement inside one transaction, the event row locked, run only once the
+ * live date IS `toDay`, and remembered (`event_schedule_date_moves`) so the
+ * same move asked twice moves nothing. It checks the caller itself (the couple
+ * or a Schedule edit delegate — the table's own write policies) and refuses
+ * anyone else. A failure therefore means NOTHING moved.
  *
  * It never creates or deletes a block — placing the ceremony at a typed time
  * stays `placeCeremonyBlock`'s job, run AFTER this one.
  *
  * Only when both days are exact (`YYYY-MM-DD`) and differ: a date that was a
- * month or a year has no day to measure from, so nothing moves (`wrote: 'none'`).
- * The caller asks only when the date really moved in THIS Apply — the live date
- * is then the new one, so pressing Apply again finds no move and is a no-op.
- *
- * The couple's OWN session (RLS on `event_schedule_blocks` still applies), and
- * every write asks for its row back: a zero-row UPDATE is success-shaped.
+ * month or a year has no day to measure from, so nothing moves (`moved: 0`).
+ * The couple's OWN session calls it (the function reads `auth.uid()`).
  */
 export async function moveScheduleWithDate({
   supabase,
@@ -166,29 +172,15 @@ export async function moveScheduleWithDate({
   fromDay: string | null;
   /** YYYY-MM-DD the event is on after this Apply, or null when it is not one day. */
   toDay: string | null;
-}): Promise<{ ok: true; moved: number } | { ok: false; error: string; moved: number }> {
-  const days = wallClockDayShift(fromDay, toDay);
-  if (days === 0) return { ok: true, moved: 0 };
-  const { data, error } = await supabase
-    .from('event_schedule_blocks')
-    .select('block_id, start_at, end_at')
-    .eq('event_id', eventId);
-  if (error) return { ok: false, error: error.message, moved: 0 };
-  let moved = 0;
-  for (const b of (data ?? []) as Array<{ block_id: string; start_at: string | null; end_at: string | null }>) {
-    if (!b.start_at && !b.end_at) continue;
-    const { data: rows, error: upErr } = await supabase
-      .from('event_schedule_blocks')
-      .update({
-        start_at: shiftWallClockDays(b.start_at, days),
-        end_at: shiftWallClockDays(b.end_at, days),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('block_id', b.block_id)
-      .eq('event_id', eventId)
-      .select('block_id');
-    if (upErr || !rows?.length) return { ok: false, error: upErr?.message ?? 'no-row', moved };
-    moved += 1;
-  }
+}): Promise<{ ok: true; moved: number } | { ok: false; error: string }> {
+  if (wallClockDayShift(fromDay, toDay) === 0) return { ok: true, moved: 0 };
+  const { data, error } = await supabase.rpc('move_event_schedule_with_date', {
+    p_event_id: eventId,
+    p_from_day: fromDay,
+    p_to_day: toDay,
+  });
+  if (error) return { ok: false, error: error.message };
+  const moved = typeof data === 'number' ? data : Number(data);
+  if (!Number.isInteger(moved) || moved < 0) return { ok: false, error: 'no-answer' };
   return { ok: true, moved };
 }

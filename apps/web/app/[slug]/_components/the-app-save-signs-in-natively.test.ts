@@ -206,3 +206,22 @@ test('6 · the app is named Setnayan wherever the phone shows it — the bundle 
   assert.match(strings, /<string name="app_name">Setnayan<\/string>/);
   assert.match(strings, /<string name="title_activity_main">Setnayan<\/string>/);
 });
+
+/* 7 · ONE NEXT-PATH RULE (2026-10-04, train-g audit). The hand-off's `next`
+   was judged by a second, weaker check of its own ("starts with `/`, not
+   `//`"), which a backslash or a tab walks past: `new URL('/\\evil.com', o)` is
+   https://evil.com/. It is `isSafeNext` (lib/safe-next.ts) now — THE rule. */
+test('7 · a hand-off\'s `next` is judged by the ONE where-next rule — the backslash and tab tricks are refused', () => {
+  for (const next of ['/\\evil.example', '/\t/evil.example', '/%5cevil.example', '/%2f%2fevil.example', '/\n/evil.example', '\\\\evil.example']) {
+    assert.equal(isNativeSaveHandOff({ native: 'apple', next }), false, `${JSON.stringify(next)} passed as a same-site path`);
+    assert.equal(isNativeSaveHandOff({ native: 'google', next }), false, `${JSON.stringify(next)} passed as a same-site path`);
+  }
+  for (const next of ['/maria-and-jose/invite/enter', '/maria-and-jose?save=1', '/']) {
+    assert.equal(isNativeSaveHandOff({ native: 'apple', next }), true, `${next} was refused`);
+  }
+  assert.equal(isNativeSaveHandOff({ native: 'facebook', next: '/maria-and-jose' }), false);
+  const src = stripComments(readFileSync(join(process.cwd(), 'lib/native-account-save.ts'), 'utf8'));
+  const fn = src.slice(src.indexOf('export function isNativeSaveHandOff('));
+  assert.match(fn.slice(0, 400), /isSafeNext\(v\.next\)/, 'the hand-off does not use isSafeNext');
+  assert.doesNotMatch(fn.slice(0, 400), /startsWith\('\/'\)|startsWith\('\/\/'\)/, 'a second, weaker next-path check is back');
+});

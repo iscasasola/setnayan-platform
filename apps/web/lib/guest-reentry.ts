@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { REENTRY_TTL_SECONDS, isUrlSecretShaped, type ReentryPurpose } from '@/lib/guest-pass-hop';
 
@@ -163,5 +163,112 @@ export async function exchangeReentryCode(
   } catch (err) {
     console.error('[guest-reentry] exchange threw', err);
     return { ok: false, reason: 'unreachable' };
+  }
+}
+
+/* ══ ONE TILE CODE PER GUEST PER DAY (2026-10-04, the train-g audit) ═══════════
+   The thank-you names the tile's manifest with a code, and it used to MINT a
+   fresh one on EVERY render — a reload, a prefetch, a back-and-forth each wrote
+   another live 24-hour code for the same guest. A code is stored only hashed,
+   so an existing one cannot be read back to reuse; the tile code is therefore
+   DERIVED — an HMAC, under a server-only key, of (event, guest, UTC day, n) —
+   so every render that day names the SAME code, and the row behind it is
+   written once:
+
+     · `readTileReentryCode` — READ ONLY (the page's metadata): the first of the
+       day's candidates that is not yet spent;
+     · `ensureTileReentryCode` — the page BODY: that same code, its row written
+       if it is not there yet (a concurrent twin's duplicate key is the same
+       row, not a failure).
+
+   `n` exists only so a tile already made today (its code SPENT) does not leave
+   a second tile, added the same day, without a code: at most
+   `TILE_CODES_PER_DAY` codes per guest per day, ever. Still 32 bytes, still
+   stored only as sha256, still spent once by the same exchange; never derived
+   from the pass token. No key → no code (the plain manifest), never a throw. */
+export const TILE_CODES_PER_DAY = 3;
+
+type Row = Record<string, unknown>;
+
+export type TileCodeInput = { eventId: string; guestId: string; now?: Date; key: string | null };
+
+/** The day's candidate codes, in order. Pure. */
+export function tileCodeCandidates(input: TileCodeInput): string[] {
+  if (!input.key) return [];
+  const day = (input.now ?? new Date()).toISOString().slice(0, 10);
+  // A sub-key, so the material is never used directly for anything but this.
+  const subKey = createHmac('sha256', input.key).update('setnayan:guest-reentry-tile-key:v1').digest();
+  return Array.from({ length: TILE_CODES_PER_DAY }, (_, n) =>
+    createHmac('sha256', subKey).update(`${input.eventId}|${input.guestId}|${day}|${n}`).digest('base64url'),
+  );
+}
+
+/** Today's tile code for this guest — READ ONLY. `stored` = its row exists. */
+export async function readTileReentryCode(
+  input: TileCodeInput,
+  db: ReentryDb | null,
+): Promise<{ code: string; stored: boolean } | null> {
+  const candidates = tileCodeCandidates(input);
+  if (!db || candidates.length === 0) return null;
+  const nowIso = (input.now ?? new Date()).toISOString();
+  try {
+    const { data, error } = await db
+      .from('guest_reentry_codes')
+      .select('code_hash, event_id, guest_id, purpose, used_at, expires_at')
+      .in('code_hash', candidates.map(hashReentryCode));
+    if (error) {
+      console.error('[supabase-error] lib/guest-reentry.ts · from:guest_reentry_codes.select(tile)', error);
+      return null;
+    }
+    const rows = new Map(((data ?? []) as Row[]).map((r) => [r.code_hash as string, r]));
+    for (const code of candidates) {
+      const row = rows.get(hashReentryCode(code));
+      if (!row) return { code, stored: false };
+      const live =
+        row.event_id === input.eventId &&
+        row.guest_id === input.guestId &&
+        row.purpose === 'tile' &&
+        !row.used_at &&
+        String(row.expires_at) > nowIso;
+      if (live) return { code, stored: true };
+    }
+    return null;
+  } catch (err) {
+    console.error('[guest-reentry] tile read threw', err);
+    return null;
+  }
+}
+
+/** Today's tile code, its row written if missing — the page body, never the metadata. */
+export async function ensureTileReentryCode(input: TileCodeInput, db: ReentryDb | null): Promise<string | null> {
+  const pick = await readTileReentryCode(input, db);
+  if (!pick || !db) return null;
+  if (pick.stored) return pick.code;
+  const now = input.now ?? new Date();
+  try {
+    // The once-a-day write also clears the guest's dead codes (as a mint does).
+    const { error: clearError } = await db
+      .from('guest_reentry_codes')
+      .delete()
+      .eq('guest_id', input.guestId)
+      .lt('expires_at', now.toISOString());
+    if (clearError) console.error('[supabase-error] lib/guest-reentry.ts · from:guest_reentry_codes.delete(tile)', clearError);
+    const { error } = await db.from('guest_reentry_codes').insert({
+      code_hash: hashReentryCode(pick.code),
+      event_id: input.eventId,
+      guest_id: input.guestId,
+      purpose: 'tile',
+      created_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + REENTRY_TTL_SECONDS.tile * 1000).toISOString(),
+    });
+    // A twin render wrote the same row first — it is this code's row.
+    if (error && (error as { code?: string }).code !== '23505' && !/duplicate key/i.test(error.message ?? '')) {
+      console.error('[supabase-error] lib/guest-reentry.ts · from:guest_reentry_codes.insert(tile)', error);
+      return null;
+    }
+    return pick.code;
+  } catch (err) {
+    console.error('[guest-reentry] tile ensure threw', err);
+    return null;
   }
 }

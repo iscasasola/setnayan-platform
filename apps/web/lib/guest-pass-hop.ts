@@ -146,6 +146,27 @@ export type PassHopMissRule =
 
 export type PassHopHeld = 'none' | 'other-event' | 'revoked' | 'this-event';
 
+/**
+ * What the phone held, as a KIND — the ONE answer both the redeem and the
+ * landing log. 🔴 2026-10-04 (train-g audit): the redeem's `reentry:refused`
+ * logged `other-event` whenever the phone held ANY pass, so a pass for THIS
+ * event and another guest (the host's own phone) read as a different event.
+ *
+ *   · no cookie at all → `none`;
+ *   · a cookie that does not verify (expired, rotated, forged) → `revoked`;
+ *   · a pass for this event (any guest of it) → `this-event`;
+ *   · a pass for another event → `other-event`.
+ */
+export function passHeldKind(input: {
+  cookiePresent: boolean;
+  pass: { event_id: string } | null | undefined;
+  eventId: string;
+}): PassHopHeld {
+  if (!input.cookiePresent) return 'none';
+  if (!input.pass) return 'revoked';
+  return input.pass.event_id === input.eventId ? 'this-event' : 'other-event';
+}
+
 export function uaFamily(userAgent: string | null | undefined): string {
   const ua = userAgent ?? '';
   if (!ua) return 'none';

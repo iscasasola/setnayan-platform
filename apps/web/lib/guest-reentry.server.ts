@@ -2,7 +2,10 @@ import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { ReentryPurpose } from '@/lib/guest-pass-hop';
+import { resolveGuestSessionSecret } from '@/lib/guest-session';
 import {
+  ensureTileReentryCode as ensureTileWith,
+  readTileReentryCode as readTileWith,
   exchangeReentryCode as exchangeWith,
   mintReentryCode as mintWith,
   reentryCodeGuest as guestWith,
@@ -34,4 +37,20 @@ export function exchangeReentryCode(input: { code: string | null | undefined; ev
 
 export function reentryCodeGuest(input: { code: string | null | undefined; eventId: string }): Promise<string | null> {
   return guestWith(input, admin());
+}
+
+/** The tile code's key: the server's guest-pass seal (never sent anywhere). None → no tile code. */
+function tileKey(): string | null {
+  const seal = resolveGuestSessionSecret();
+  return seal.ok ? seal.material : null;
+}
+
+/** Today's tile code for this guest — READ ONLY (safe for `generateMetadata`). */
+export async function readTileReentryCode(input: { eventId: string; guestId: string }): Promise<string | null> {
+  return (await readTileWith({ ...input, key: tileKey() }, admin()))?.code ?? null;
+}
+
+/** Today's tile code, its row written once — the thank-you's BODY, never its metadata. */
+export function ensureTileReentryCode(input: { eventId: string; guestId: string }): Promise<string | null> {
+  return ensureTileWith({ ...input, key: tileKey() }, admin());
 }

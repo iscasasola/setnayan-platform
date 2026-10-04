@@ -951,18 +951,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 10,
   },
   {
-    key: "customer.website-editor.dress-code",
-    scope: "customer",
-    area: "website-editor",
-    route: "/dashboard/[eventId]/website/dress-code",
-    label: "Edit dress code",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Shirt",
-    customRef: null,
-    sortOrder: 0,
-  },
-  {
     key: "customer.website-editor.photo-moments",
     scope: "customer",
     area: "website-editor",

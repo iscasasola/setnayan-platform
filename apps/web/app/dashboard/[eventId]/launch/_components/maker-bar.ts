@@ -16,20 +16,24 @@ import type { MakerDevice } from './maker-context';
  * THE MAKER IN 4 — THE TOOLBAR, as the approved design draws it
  * (`prototypes/maker_in_four_2026-09-30_fable.html`; DECISION_LOG "THE MAKER IN
  * 4 IS A DIRECTION, NOT A COUNT" — the test is that a first-time host
- * understands what to do; FIRST_TIMER_TEST_2026-10-02 fix 4, task H2 "Hard"):
+ * understands what to do; FIRST_TIMER_TEST_2026-10-02 fix 4, task H2 "Hard"),
+ * as rearranged on 2026-10-04 (PR-0 of the Maker rearrangement; owner, verbatim:
+ * *"that can be a preview icon?"* and *"apply icon · undo icon · exit icon"*):
  *
- *     Exit · Page ▾ · Look · Details · Undo · Phone/Desktop · Apply · ⋯
+ *     ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply (n)
  *
- * Everything else lives under ⋯ or inside Page ▾. The stages are no longer a
- * row of their own: Page ▾ lists them, each with its guest pages. This list is
- * what the shell draws, in this order, and nothing else — held on the RENDER by
- * `the-toolbar-is-the-maker-in-four.test.ts`.
+ * Every bar button is a 44 × 44 icon with its name. ⋯ is gone: its rows moved —
+ * See it as · Phone / Desktop · Both · Scenes · Play this scene · Preview the
+ * stage into 👁 Preview's menu; Add a scene · Reset this stage · Prints ·
+ * Restore · the address · who can view · About the Maker into Page ▾
+ * (`makerPageActions`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`.
  *
  *   · 'undo' and 'apply' are the draft bar's (`hub-draft-bar.tsx`), mounted in
- *     the shell's `applySlot`; 'view' is the shell's, drawn between them through
- *     the Maker's context (`MakerState.viewToggle`).
+ *     the shell's `applySlot`; 'preview' is the shell's, drawn between them
+ *     through the Maker's context (`MakerState.previewMenu`).
+ *   · Apply's first tap opens the Apply sheet; only its labelled Apply publishes.
  */
-export const MAKER_TOOLBAR = ['exit', 'page', 'look', 'details', 'undo', 'view', 'apply', 'more'] as const;
+export const MAKER_TOOLBAR = ['exit', 'page', 'look', 'details', 'undo', 'preview', 'apply'] as const;
 export type MakerToolbarItem = (typeof MAKER_TOOLBAR)[number];
 
 /**
@@ -42,7 +46,7 @@ export const MAKER_LOOK_LABEL = 'Look';
 export const MAKER_PRINTS_LABEL = 'Prints';
 
 /**
- * 🚪 THREE DOORS, ONE PAGE. Look, Details and Prints (⋯ › Prints) each open
+ * 🚪 THREE DOORS, ONE PAGE. Look, Details and Prints (Page ▾ › Prints) each open
  * the Maker's one Details page (`maker-details.tsx`), on their own part of it:
  *
  *   · Look    — the Look group (Theme · Mood Board · Logo · Hero · Reveal);
@@ -249,6 +253,91 @@ export function makerPageMenu(input: {
 }
 
 /**
+ * 📄 PAGE ▾ ALSO HOLDS WHAT ⋯ HELD (owner 2026-10-04: the bar's ⋯ became 👁
+ * Preview — *"that can be a preview icon?"*). Nothing is lost; each row moved
+ * to where it belongs:
+ *
+ *   · the stage on screen gains, at the end of its pages, "＋ Add a scene" (a
+ *     STAGE tool — never on a page) and "Reset this stage…" (a confirm, never
+ *     one tap — `hub-draft-bar.tsx` asks);
+ *   · after Post Event, a "Your Event Hub" line: Prints · Restore · the
+ *     address · who can view · About the Maker (the address and who can view
+ *     move to Event Details in a later PR).
+ *
+ * An action row is never the value of Page ▾: its key starts `do:` and a pick
+ * runs it (`makerPageAction`). Pure, so a test holds the list.
+ */
+export const MAKER_PAGE_ACTIONS = {
+  addScene: 'do:add-scene',
+  reset: 'do:reset',
+  prints: 'do:prints',
+  restore: 'do:restore',
+  address: 'do:address',
+  who: 'do:who',
+  about: 'do:about',
+} as const;
+export type MakerPageAction = keyof typeof MAKER_PAGE_ACTIONS;
+
+/** The "Your Event Hub" line of Page ▾. */
+export const MAKER_PAGE_HUB_GROUP = 'Your Event Hub';
+
+export function makerPageAction(key: string): MakerPageAction | null {
+  for (const [name, k] of Object.entries(MAKER_PAGE_ACTIONS)) if (k === key) return name as MakerPageAction;
+  return null;
+}
+
+export function makerPageActions(
+  options: readonly PickOption[],
+  input: {
+    stage: LifecyclePhase;
+    /** ＋ Add a scene, as the work area registered it — null where it is not offered (a page, not a stage). */
+    addScene: { kind: 'ready'; tried: boolean } | { kind: 'refused'; note: string } | null;
+    /** The viewer has a draft to reset, restore and print from (the host). */
+    hasWork: boolean;
+    /** ↺ Restore: there is something to restore (the draft differs from live) — null when no draft bar answers. */
+    canRestore: boolean | null;
+  },
+): PickOption[] {
+  const out = [...options];
+  const group = makerStageLabel(input.stage);
+  const stageRows: PickOption[] = [];
+  if (input.addScene?.kind === 'ready') {
+    stageRows.push({
+      key: MAKER_PAGE_ACTIONS.addScene,
+      label: '＋ Add a scene',
+      group,
+      ...(input.addScene.tried ? { trail: { text: 'Pro', tone: 'muted' as const, label: 'Event Hub Pro — asked for at Apply' } } : {}),
+    });
+  } else if (input.addScene?.kind === 'refused') {
+    stageRows.push({ key: MAKER_PAGE_ACTIONS.addScene, label: '＋ Add a scene', group, disabledNote: input.addScene.note });
+  }
+  if (input.hasWork) stageRows.push({ key: MAKER_PAGE_ACTIONS.reset, label: 'Reset this stage…', group });
+  // At the end of the stage's own pages (consecutive options share one heading).
+  let at = -1;
+  out.forEach((o, i) => {
+    if (o.group === group && o.key.startsWith(makerPageValue(input.stage, ''))) at = i;
+  });
+  if (at >= 0) out.splice(at + 1, 0, ...stageRows);
+  else out.push(...stageRows);
+  const hub = MAKER_PAGE_HUB_GROUP;
+  if (input.hasWork) out.push({ key: MAKER_PAGE_ACTIONS.prints, label: MAKER_PRINTS_LABEL, group: hub });
+  if (input.canRestore !== null) {
+    out.push({
+      key: MAKER_PAGE_ACTIONS.restore,
+      label: 'Restore what guests see',
+      group: hub,
+      ...(input.canRestore ? {} : { disabledNote: 'Guests already see this.' }),
+    });
+  }
+  out.push(
+    { key: MAKER_PAGE_ACTIONS.address, label: 'Your Event Hub address', group: hub },
+    { key: MAKER_PAGE_ACTIONS.who, label: 'Who can view', group: hub },
+    { key: MAKER_PAGE_ACTIONS.about, label: 'About the Maker', group: hub },
+  );
+  return out;
+}
+
+/**
  * 🖥📱 VIEW ▾ — Desktop · Phone · Both (DECISION_LOG 2026-09-28, "THE MAKER'S
  * TOOLBARS ARE BUILT AFTER KEYNOTE + PAGES": *"View ▾ (Desktop · Phone ·
  * Both)"*). Both draws the phone (390 px) and the desktop (1280 px, scaled to
@@ -257,9 +346,9 @@ export function makerPageMenu(input: {
  * It needs room for two pages, so it is offered only at 1024 px and wider
  * (`lg`, the app's own mobile↔desktop switch). Pure, so a test holds both rules.
  *
- * 📱 THE MAKER IN 4 (2026-10-02): the bar carries ONE button, Phone — pressed
- * is the phone, unpressed the desktop (`makerViewToggle`). Both is a row
- * under ⋯, offered from this same list.
+ * 📱 THE MAKER IN 4 (2026-10-02): ONE toggle, Phone — on is the phone, off
+ * the desktop (`makerViewToggle`); since 2026-10-04 it is a row of 👁 Preview's
+ * menu, with Both beside it, offered from this same list.
  */
 /* = `BREAKPOINTS.lg` (`lib/use-responsive.ts`) — typed, not imported: that
    module is 'use client' and this one is read by the launch page's server tree. */

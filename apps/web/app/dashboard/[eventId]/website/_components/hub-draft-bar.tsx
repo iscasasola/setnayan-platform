@@ -173,22 +173,20 @@ const quietButton =
   'inline-flex items-center rounded-full px-3 py-1.5 text-sm font-medium text-ink/70 hover:bg-ink/5';
 
 /**
- * THE MAKER TOOLBAR'S DRAFT CONTROLS — Undo · Apply always sit in the bar,
- * Apply filled and wearing the count of changes waiting, with the shell's
- * Phone button between them (`useMaker().viewToggle` — the Maker in 4,
- * 2026-10-02: Exit · Page ▾ · Look · Details · Undo · Phone · Apply · ⋯).
- * Restore moved to the toolbar's ⋯ (design: "⋯ › Restore"): this bar
- * registers it there (`MakerState.draft`), so ⋯ runs THIS act.
+ * THE MAKER TOOLBAR'S DRAFT CONTROLS — ↶ Undo and ✓ Apply always sit in the
+ * bar as 44 px icons, Apply the filled wine circle wearing the count of changes
+ * waiting, with the shell's 👁 Preview menu between them (`useMaker().previewMenu`;
+ * owner 2026-10-04: ‹ Exit · stage · ↶ · 👁 · ✓N). Apply's first tap opens the
+ * Apply sheet (`ApplyProSheet`) — only its labelled Apply publishes.
+ * Restore is a row of Page ▾ ("Your Event Hub"): this bar registers it there
+ * (`MakerState.draft`), so Page ▾ runs THIS act.
  *
- * The draft panel — Reset's confirm, and the outcome of the last action — has
- * no button of its own any more: ⋯ › "Reset this stage…" opens it, and it
- * opens by itself when an action reports something to read, so an Apply that
- * held keys back is never a silent one — and closes on a clean one. Reset uses
- * the stage the couple is looking at (`useMaker().stage`).
+ * The draft panel — Reset's confirm — has no button of its own: Page ▾ ›
+ * "Reset this stage…" opens it. Reset uses the stage the couple is looking at
+ * (`useMaker().stage`).
  *
  * 📱 Its root is `display: contents`: each control is an item of the Maker's
- * toolbar row, and takes its line on a phone by `order` (Undo on the top
- * line, Phone · Apply on the second — `maker-shell.tsx`).
+ * one toolbar row (`maker-shell.tsx`).
  */
 export function HubDraftToolbar({
   eventId,
@@ -270,20 +268,20 @@ export function HubDraftToolbar({
   actRef.current = act;
   const setDraftDoor = maker?.setDraft;
   const canRestore = !pending && summary.hasChanges;
-  /* ✓ …and what Apply says, for the phone's bottom bar (frame G: "Page ▾ · Look ·
-     Details · Apply (3)"); its press is this bar's own (`pressMakerApply`). */
-  const applyWord = pending ? 'Applying…' : summary.proCount > 0 && summary.proCount !== summary.changeCount ? `Apply ${formatCount(summary.changeCount - summary.proCount)}` : 'Apply';
-  const applyEnabled = !pending && summary.hasChanges;
-  const applyCount = summary.hasChanges ? summary.changeCount : 0;
   useEffect(() => {
     if (!setDraftDoor) return;
     setDraftDoor({
       canRestore,
       restore: () => actRef.current({ intent: 'restore' }),
-      apply: { label: applyWord, count: applyCount, enabled: applyEnabled },
     });
     return () => setDraftDoor(null);
-  }, [setDraftDoor, canRestore, applyWord, applyCount, applyEnabled]);
+  }, [setDraftDoor, canRestore]);
+  /* ✓ APPLY IS AN ICON NOW (owner 2026-10-04, *"apply icon · undo icon · exit
+     icon"*): its name says the count — "Apply 3 changes" — and its FIRST tap
+     opens the Apply sheet; only the sheet's labelled Apply publishes, so a
+     mis-tap on a 44 px circle never puts anything live. */
+  const applyCount = summary.hasChanges ? summary.changeCount : 0;
+  const applyName = `Apply ${formatCount(applyCount)} ${applyCount === 1 ? 'change' : 'changes'}`;
   /* The panel always closes: its × , Cancel, a tap outside it, Esc — and a tap
      on the canvas, which is a frame of its own (a tap there never reaches this
      window as a pointerdown; it blurs it). Owner 2026-10-02: "won't close". */
@@ -389,7 +387,6 @@ export function HubDraftToolbar({
      came back refused (`saveError`). An error is never truncated away. */
   const status: MakerSaveStatus | null = saveStatus ?? (saveError ? { state: 'error', text: saveError } : null);
 
-  const applyLabel = applyWord; // the one word, shared with the phone's bottom bar
 
   return (
     <div className="contents" data-maker-draft-actions="">
@@ -415,24 +412,26 @@ export function HubDraftToolbar({
       ) : null}
       <DraftButton
         label="Undo"
-        icon={<Undo2 aria-hidden className="h-4 w-4" strokeWidth={2} />}
-        wordFrom="md"
+        icon={<Undo2 aria-hidden className="h-5 w-5" strokeWidth={2} />}
+        bar="icon"
         phone={{ width: MAKER_BAR_PHONE.undoTop }}
         disabled={pending || !summary.canUndo}
         disabledReason="Nothing to undo yet"
         onClick={() => act({ intent: 'undo' })}
       />
-      {/* 📱 The shell's Phone button, between Undo and Apply (the Maker in 4). */}
-      {maker?.viewToggle ?? null}
+      {/* 👁 The shell's Preview menu, between Undo and Apply (owner 2026-10-04: ⋯ → Preview). */}
+      {maker?.previewMenu ?? null}
       <span className="relative inline-flex" data-maker-apply="">
         <DraftButton
-          label={applyLabel}
-          icon={<Check aria-hidden className="h-4 w-4" strokeWidth={2} />}
+          label="Apply"
+          name={applyName}
+          icon={<Check aria-hidden className="h-5 w-5" strokeWidth={2.4} />}
           primary
-          phone={{ width: MAKER_BAR_PHONE.applyTop, word: true }}
+          bar="apply"
+          phone={{ width: MAKER_BAR_PHONE.applyTop }}
           disabled={pending || !summary.hasChanges}
           disabledReason="No changes to apply"
-          onClick={() => (asksForPro ? setSheetOpen(true) : act({ intent: 'apply' }))}
+          onClick={() => setSheetOpen(true)}
         />
         {/* Apply (N) — the changes guests do not see yet (design: "Apply 3"). */}
         {summary.hasChanges ? (
@@ -447,9 +446,11 @@ export function HubDraftToolbar({
       </span>
       {/* Portalled to <body>: the toolbar sits in a glass bar, and a `backdrop-filter`
           ancestor would make `position: fixed` hug the bar instead of the screen. */}
-      {sheetOpen && proHref ? createPortal(
+      {sheetOpen && typeof document !== 'undefined' ? createPortal(
         <ApplyProSheet
           effects={asksForPro ? proEffects : []}
+          changeCount={summary.changeCount}
+          heldOnWeb={storeShell ? summary.proCount : 0}
           priceLabel={priceLabel}
           proHref={proHref}
           pending={pending}

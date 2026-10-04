@@ -1,12 +1,12 @@
 'use client';
 
-import { SheetGrip, SheetScrim } from '../../../launch/_components/maker-sheet';
+import { MakerHalfSheet } from '../../../launch/_components/maker-sheet';
 import { makerSectionInView } from '@/app/[slug]/_components/maker-section-find';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { createPortal } from 'react-dom';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode, X } from 'lucide-react';
+import { Eye, EyeOff, Lock, Palette, PanelsTopLeft, PencilLine, QrCode } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { QrActions } from '@/app/_components/qr-actions';
 import { PUBLIC_STAGE_LABELS, PUBLIC_STAGE_ORDER } from '@/lib/public-site-stage-labels';
@@ -456,6 +456,9 @@ export function MakerWork({
   const stage = maker?.stage ?? 'rsvp';
   const selection = maker?.selection ?? null;
   const select = maker?.select;
+  /* ▁ The selection now, for a canvas tap: another scene keeps the sheet's section (its tab). */
+  const selectionNow = useRef(selection);
+  selectionNow.current = selection;
   /* 🔤 The element being edited — a tap ON a part in the canvas. Its own sheet
      takes the inspector's place; choosing anything in the navigator closes it. */
   const [elementTarget, setElementTarget] = useState<ElementTarget | null>(null);
@@ -984,7 +987,10 @@ export function MakerWork({
         return;
       }
       if (picked) {
-        select?.(picked);
+        /* ▁ Tap another scene → the sheet switches to it on the SAME section
+           (owner 2026-10-04, "…the sheet switches to it in the same section"). */
+        const now = selectionNow.current;
+        select?.(picked.kind === 'scene' && now?.kind === 'scene' && now.tab ? { ...picked, tab: now.tab } : picked);
         /* 🖥📱 BOTH: A TAP IN EITHER PANE SELECTS THE SAME PART IN THE OTHER —
            outlined, and its scene brought into view. The pane tapped already
            drew its own outline (the bridge's `mark`), so it is skipped. */
@@ -2785,6 +2791,7 @@ export function MakerWork({
           madeOnce={madeOnce}
           showMotionTabs={ownsPro || !maker.storeShell}
           onClose={() => select?.(null)}
+          onReveal={() => scrollPreviewTo(selectedKeyRef.current ?? undefined)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
           onOpenTool={(key) => select?.({ kind: 'tool', key })}
           fixedFact={
@@ -3127,6 +3134,7 @@ function Inspector({
   madeOnce,
   showMotionTabs,
   onClose,
+  onReveal,
   onTab,
   onOpenTool,
   onElement,
@@ -3163,6 +3171,8 @@ function Inspector({
   eventId: string;
   showMotionTabs: boolean;
   onClose: () => void;
+  /** 📱 Bring what is edited into view above the half sheet (the canvas's own scroll). */
+  onReveal?: () => void;
   onTab: (tab: MakerSceneTab) => void;
 }) {
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -3300,30 +3310,25 @@ function Inspector({
     );
   }
 
+  /* ▁ THE HALF SHEET (PR-0, owner 2026-10-04): on a phone the scene's sheet rests
+     at half the screen over a LIVE page — the scene in view above it, a tap on
+     another scene switches it, a tap on nothing folds it to a slim bar, Peek
+     hides it while held (`MakerHalfSheet`, lib/maker-half-sheet.ts). The
+     desktop's panel beside the page is unchanged. */
+  const sectionWord = selection.kind === 'scene' ? (tabs.find((t) => t.key === tab)?.label ?? null) : null;
   return (
-    <>
-    {/* 📱 The dimmed page behind the scene's sheet — a tap on it goes back to the page. */}
-    <SheetScrim onClose={onClose} />
-    <aside
-      aria-label="Inspector"
-      data-phone-chrome="panel"
+    <MakerHalfSheet
+      label="Inspector"
+      title={title}
+      target={makerSelectionKey(selection)}
+      section={sectionWord}
+      closeLabel="Close the inspector"
+      onClose={onClose}
+      onReveal={onReveal}
       style={{ ['--maker-tools-w' as string]: `${resize.width}px` }}
-      /* 📱 The bar + this ≤ 45% of a phone (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts). */
-      className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
+      desktopClassName="lg:relative lg:z-auto lg:order-3 lg:h-auto lg:w-[var(--maker-tools-w)] lg:shrink-0 lg:rounded-none"
+      beforeGrip={<ToolsResizeHandle onPointerDown={resize.onPointerDown} />}
     >
-      <ToolsResizeHandle onPointerDown={resize.onPointerDown} />
-      <SheetGrip onClose={onClose} />
-      <div className="flex items-center gap-2 px-4 pt-1 lg:pt-3">
-        <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close the inspector"
-          className="sn-press inline-flex h-10 w-10 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink"
-        >
-          <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-        </button>
-      </div>
       {selection.kind === 'scene' ? (
         /* 🧰 Format · Animate · Arrange · Content — the inspector's own tab row,
            their ONE home (never the top bar: "repeated. just place it on the sidebar"). */
@@ -3333,9 +3338,22 @@ function Inspector({
         {body}
         {selection.kind === 'scene' && tab === 'content' ? sceneTabs?.contentExtra : null}
       </div>
-    </aside>
-    </>
+    </MakerHalfSheet>
   );
+}
+
+/** ▁ One key per selected thing — a new key switches the half sheet to it (its tab is the sheet's section, not its target). */
+function makerSelectionKey(selection: NonNullable<MakerSelection>): string {
+  switch (selection.kind) {
+    case 'scene':
+      return `scene:${selection.id}`;
+    case 'post-event':
+      return `post-event:${selection.scene}`;
+    case 'main':
+      return 'main';
+    default:
+      return `${selection.kind}:${selection.key}`;
+  }
 }
 
 /**

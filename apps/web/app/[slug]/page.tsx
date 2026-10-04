@@ -710,7 +710,7 @@ async function InvitationBody({
     eventVenues,
     ourPhotoUrls,
     ownsStdReveal,
-  } = await timer.track('media', () => loadMedia(admin, event));
+  } = await timer.track('media', () => loadMedia(admin, event, hostDraft?.widgets.venue_map?.venue ?? null));
   // 🏛💒 The event WITH its ceremony + reception venues (lib/event-venues.ts).
   // Only the two SiteBody mounts below read it, and both go through
   // `withheldVenue` — which closes every venue's address and pin — unless this

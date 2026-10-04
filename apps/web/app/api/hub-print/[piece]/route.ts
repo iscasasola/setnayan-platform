@@ -46,6 +46,9 @@ import { formatCount } from '@/lib/format-number';
 import { previewCacheControl } from '@/lib/print-preview-cache';
 import { sampleView } from '@/lib/print-sample-door.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { readHubDraft } from '@/lib/hub-draft-store';
+import type { HubDraftEvents } from '@/lib/hub-draft';
+import { printDraftOf } from '@/lib/ceremony-time';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -253,6 +256,18 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   ]);
   if (!printEvent) return new NextResponse('Event not found.', { status: 404 });
   const access = printAccess({ ownsPro, storeShell });
+  /* ✍ THE MAKER'S PREVIEW DRAWS THE DRAFT (owner 2026-10-04: "the preview
+     above shows the new time at once"): an on-screen picture whose address
+     names the draft (`draft=<hash of it>`, `maker-prints.tsx`) is drawn with
+     the host's drafted names, date and ceremony time laid on — read through
+     the host's own session, after the host gate above. A file that is saved
+     or printed (`mode=print`, `passes`) is always drawn from what is live. */
+  const draft: HubDraftEvents | null =
+    mode !== 'print' && piece !== 'passes' && url.searchParams.get('draft')
+      ? await readHubDraft(await createClient(), eventId)
+          .then((d) => printDraftOf(d?.events as Record<string, unknown> | undefined))
+          .catch(() => null)
+      : null;
   // The theme this request would draw — decided ONCE, here, and handed to the
   // loader below, so the gate and the drawing cannot disagree about it.
   const theme = printThemeFor(printEvent, url.searchParams.get('theme'));
@@ -278,7 +293,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     // The pass batch and the print file lay out (and fetch their still) at
     // print resolution; the on-screen view is the same design, unmarked.
     const drawMode: PrintMode = mode === 'screen' ? 'screen' : 'print';
-    const set = await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme });
+    const set = await loadPrintSet(eventId, { mode: drawMode, previewTheme: theme }, drawMode === 'screen' ? draft : null);
     if (!set) return new NextResponse('Event not found.', { status: 404 });
     const spot = spotLayersFor(set.theme);
     const input = { look: set.look, data: withPassDesign(set.data, url), mode: drawMode, foil: spot.foil, whiteInk: spot.whiteInk };
@@ -344,7 +359,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
   // JPEG with placeholder QRs — never a PDF, never a vector. This is also what
   // a free couple's Maker shows on screen.
   if (!isPrintSetKey(piece) && !wantsSet) return new NextResponse('No such piece.', { status: 404 });
-  const set = await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme });
+  const set = await loadPrintSet(eventId, { mode: 'sample', previewTheme: theme }, draft);
   if (!set) return new NextResponse('Event not found.', { status: 404 });
   const spot = spotLayersFor(set.theme);
   const input = { look: set.look, data: withPassDesign(set.data, url), mode: 'sample' as const, foil: spot.foil };

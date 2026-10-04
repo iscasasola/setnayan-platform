@@ -413,6 +413,40 @@ export const HUB_DRAFT_FACT_COLUMNS = [
 ] as const;
 
 /**
+ * 📍 THE VENUES TYPED IN THE MAKER (owner 2026-10-01, DECISION_LOG "THE MAKER'S
+ * VENUES GET A REAL PIN AND A PICKED CITY" + "NOTHING TAKES EFFECT UNTIL
+ * APPLY"; design approved 2026-10-04): Details › Venues' "Enter your own" —
+ * each venue's typed name, street address and map pin, and the ONE city or
+ * area per event (the reception's, a closed pick from the onboarding list —
+ * `hubDraftAction` refuses a name that is not on it). The columns
+ * `saveAllStdContent` wrote live until now, plus the ceremony's own pin
+ * (20271263730696). The reception's pin IS `venue_latitude/longitude`, the
+ * event's distance + coverage anchor, so Apply refreshes it. Never Pro.
+ */
+export const HUB_DRAFT_VENUE_COLUMNS = [
+  'std_film_ceremony_name',
+  'ceremony_venue_address',
+  'ceremony_venue_latitude',
+  'ceremony_venue_longitude',
+  'std_film_venue_name',
+  'venue_address',
+  'venue_latitude',
+  'venue_longitude',
+  'std_film_venue_city',
+] as const;
+
+/**
+ * 🕒 THE CEREMONY TIME, typed under the Date (owner 2026-10-04, "YES TO ALL").
+ * NOT an `events` column: it is the Ceremony schedule block's start, `HH:MM` on
+ * the venue's wall clock — the very block the invitation prints
+ * (`ceremonyBlock` · `blockTime`, lib/print-pieces.ts). Apply creates that block
+ * on the event's day if there is none, else moves its time
+ * (`placeCeremonyBlock`, lib/ceremony-time.server.ts); the live value is read
+ * from the block (`readHubLiveState`). It never reaches an `events` UPDATE.
+ */
+export const HUB_DRAFT_CEREMONY_TIME = 'ceremony_time' as const;
+
+/**
  * 🗂 THE ONBOARDING'S LAST ANSWERS (owner 2026-10-02, DECISION_LOG "EVERY ANSWER
  * ABOUT AN EVENT LIVES IN EVENT DETAILS ("YOUR INFO") — ONE HOME, MAPPED"):
  * Photos from guests · Gifts · Do you want a logo? · Event photo — each its
@@ -431,19 +465,25 @@ export const HUB_DRAFT_PRINT_DETAILS_KEY = 'name_style';
  * Apply counts a fact ONCE however many columns carry it (the prototype, frame
  * B: *"Apply counts it once"*) — the names are three columns, the date two.
  */
-export const HUB_DRAFT_FACT_GROUP: Readonly<Record<(typeof HUB_DRAFT_FACT_COLUMNS)[number], HubDraftFact>> = {
+export const HUB_DRAFT_FACT_GROUP: Readonly<
+  Record<(typeof HUB_DRAFT_FACT_COLUMNS)[number] | (typeof HUB_DRAFT_VENUE_COLUMNS)[number] | typeof HUB_DRAFT_CEREMONY_TIME, HubDraftFact>
+> = {
   display_name: 'names',
   bride_name: 'names',
   groom_name: 'names',
   event_date: 'date',
   event_date_precision: 'date',
   print_details: 'name-style',
+  // 📍 The venues are ONE change however many of their nine columns moved.
+  ...(Object.fromEntries(HUB_DRAFT_VENUE_COLUMNS.map((c) => [c, 'venues'])) as Record<(typeof HUB_DRAFT_VENUE_COLUMNS)[number], 'venues'>),
+  ceremony_time: 'ceremony-time',
 };
 
-/** The typed facts a draft counts once each: the names, the date, the name style. */
-export type HubDraftFact = 'names' | 'date' | 'name-style';
+/** The typed facts a draft counts once each: the names, the date, the name style, the venues, the ceremony time. */
+export type HubDraftFact = 'names' | 'date' | 'name-style' | 'venues' | 'ceremony-time';
 
-export const HUB_DRAFT_EVENT_COLUMNS = [
+/** The draft's `events` keys that ARE `events` columns — what a live read selects. */
+export const HUB_DRAFT_EVENT_READ_COLUMNS = [
   'rsvp_backdrop',
   'landing_page_hero_image_url',
   'std_reveal_template',
@@ -471,7 +511,12 @@ export const HUB_DRAFT_EVENT_COLUMNS = [
   ...HUB_DRAFT_FACT_COLUMNS,
   // 🗂 THE ONBOARDING'S LAST ANSWERS, CHANGED IN YOUR INFO (owner 2026-10-02).
   ...HUB_DRAFT_ANSWER_COLUMNS,
+  // 📍 THE VENUES TYPED IN THE MAKER (owner 2026-10-04).
+  ...HUB_DRAFT_VENUE_COLUMNS,
 ] as const;
+
+/** Every key the draft's `events` may hold: the columns, and 🕒 the ceremony time (owner 2026-10-04). */
+export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
 export const HUB_DRAFT_LOGO_MAX_BYTES = 400_000;
@@ -522,7 +567,35 @@ export type HubDraftWidget = {
    * line); editing words a scene already has is free.
    */
   custom?: CustomSectionContent | null;
+  /**
+   * 🏛 `venue_map` ROW ONLY — each venue card's source and photo
+   * (`config_json.venue`, lib/event-venues.ts `VenueChoice`), drafted with the
+   * venues' words and pins (owner 2026-10-04). Merged slot by slot. Apply
+   * re-reads it through `readVenueChoices` (this event's own photos only).
+   */
+  venue?: HubDraftVenueChoices;
 };
+
+/** The Venue scene's per-card choices as the draft holds them (shape only — the event is checked at Apply). */
+export type HubDraftVenueChoice = { source?: 'supplier' | 'own'; supplierPhoto?: string | null; ownPhoto?: string | null };
+export type HubDraftVenueChoices = Partial<Record<'ceremony' | 'reception', HubDraftVenueChoice>>;
+
+/** A stored or posted `config_json.venue` bag → its shape, refs `r2://` only (the event is checked at Apply). */
+export function draftVenueChoices(raw: unknown): HubDraftVenueChoices {
+  const out: HubDraftVenueChoices = {};
+  if (!isPlainObject(raw)) return out;
+  const ref = (v: unknown) => (typeof v === 'string' && v.startsWith('r2://') && v.length <= 512 && !v.includes('..') ? v : undefined);
+  for (const key of ['ceremony', 'reception'] as const) {
+    const r = raw[key];
+    if (!isPlainObject(r)) continue;
+    const c: HubDraftVenueChoice = {};
+    if (r.source === 'supplier' || r.source === 'own') c.source = r.source;
+    if (r.supplierPhoto === null || ref(r.supplierPhoto)) c.supplierPhoto = (r.supplierPhoto as string | null);
+    if (r.ownPhoto === null || ref(r.ownPhoto)) c.ownPhoto = (r.ownPhoto as string | null);
+    if (Object.keys(c).length) out[key] = c;
+  }
+  return out;
+}
 
 export type HubDraftState = {
   events: HubDraftEvents;
@@ -569,8 +642,9 @@ export function sanitizeHubDraftEventValue(
   column: HubDraftEventColumn,
   raw: unknown,
 ): unknown | undefined {
-  // A page is never nameless, and a date always says how precise it is.
-  if (raw === null) return column === 'display_name' || column === 'event_date_precision' ? undefined : null;
+  // A page is never nameless, a date always says how precise it is, and a
+  // ceremony time is moved, never erased, from here.
+  if (raw === null) return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' ? undefined : null;
   switch (column) {
     case 'rsvp_backdrop':
       return parseRsvpBackdropConfig(raw) ?? undefined;
@@ -663,6 +737,24 @@ export function sanitizeHubDraftEventValue(
     // precisions). Whether a date may be WRITTEN (past, a booked supplier) is
     // Apply's question, asked against live — never dropped here, so a draft
     // that ages past its date is said at Apply, not silently lost.
+    // 📍 The venues — `saveAllStdContent`'s own bounds (trimmed; '' clears).
+    case 'std_film_ceremony_name':
+    case 'std_film_venue_name':
+      return draftText(raw, 160);
+    case 'ceremony_venue_address':
+    case 'venue_address':
+      return draftText(raw, 300);
+    case 'std_film_venue_city':
+      return draftText(raw, 80);
+    case 'ceremony_venue_latitude':
+    case 'venue_latitude':
+      return draftCoord(raw, 90);
+    case 'ceremony_venue_longitude':
+    case 'venue_longitude':
+      return draftCoord(raw, 180);
+    // 🕒 A wall-clock HH:MM; there is no "clear" (null was dropped above).
+    case 'ceremony_time':
+      return typeof raw === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(raw) ? raw : undefined;
     case 'display_name':
       return cleanDisplayName(raw) ?? undefined;
     case 'bride_name':
@@ -682,6 +774,12 @@ export function sanitizeHubDraftEventValue(
         : undefined;
     }
   }
+}
+
+/** A map coordinate within ±`max`, to the column's 7 decimals. */
+function draftCoord(raw: unknown, max: number): number | undefined {
+  const n = typeof raw === 'number' ? raw : typeof raw === 'string' && raw.trim() ? Number(raw) : NaN;
+  return Number.isFinite(n) && Math.abs(n) <= max ? Math.round(n * 1e7) / 1e7 : undefined;
 }
 
 /** A real day written YYYY-MM-DD (never "2027-02-30"). */
@@ -762,6 +860,10 @@ function sanitizeWidget(raw: unknown, type: WidgetType): HubDraftWidget | null {
       const words = readCustomSectionInput(src.custom.title, src.custom.body);
       if (words.ok) out.custom = words.value;
     }
+  }
+  if (type === 'venue_map' && isPlainObject(src.venue)) {
+    const venue = draftVenueChoices(src.venue);
+    if (Object.keys(venue).length) out.venue = venue;
   }
   if (type === 'our_photos' && 'std_lead' in src) {
     if (src.std_lead === null) out.std_lead = null;
@@ -865,6 +967,8 @@ export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft
       ...w,
       // ↕ Places merge STAGE BY STAGE — a drag on one stage never forgets another's.
       ...(w.stage_order ? { stage_order: { ...(prev.stage_order ?? {}), ...w.stage_order } } : {}),
+      // 🏛 …and venue cards card by card.
+      ...(w.venue ? { venue: { ...(prev.venue ?? {}), ...w.venue } } : {}),
     };
   }
   // 📖 Post Event: each story key the save carries replaces the drafted one whole
@@ -951,6 +1055,13 @@ export function configWithMainGround(config: unknown, main: HubMainGround | null
   return base;
 }
 
+/** `config_json` with the drafted venue cards laid over its `venue` bag, card by card. */
+export function configWithVenue(config: unknown, venue: HubDraftVenueChoices): Record<string, unknown> {
+  const base = isPlainObject(config) ? { ...config } : {};
+  base.venue = { ...draftVenueChoices(base.venue), ...venue };
+  return base;
+}
+
 /** The live widget rows with the draft's mode / order / canvas on top (new objects). */
 export function overlayHubDraftWidgets(
   rows: readonly InvitationWidgetRow[],
@@ -966,6 +1077,7 @@ export function overlayHubDraftWidgets(
     if (w.stage_order !== undefined) config = configWithStageOrder(config, w.stage_order);
     if (w.std_lead !== undefined && row.widget_type === 'our_photos') config = configWithStdLead(config, w.std_lead);
     if (w.custom !== undefined && isCustomSectionType(row.widget_type)) config = configWithCustom(config, w.custom);
+    if (w.venue !== undefined && row.widget_type === 'venue_map') config = configWithVenue(config, w.venue);
     return {
       ...row,
       ...(w.mode !== undefined && !row.is_always_on ? { mode: w.mode } : {}),
@@ -1012,7 +1124,7 @@ export type HubDraftItem =
       kind: 'widget';
       widgetType: WidgetType;
       widgetId: string;
-      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom';
+      field: 'mode' | 'is_visible' | 'display_order' | 'canvas' | 'main' | 'stage_order' | 'std_lead' | 'custom' | 'venue';
       value: unknown;
       change: LookChange;
       pro: boolean;
@@ -1129,6 +1241,14 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
         return Object.keys(s).length > 0 ? JSON.stringify(s) : null;
       };
       return refChange(qr(live), qr(next));
+    }
+    case 'ceremony_venue_latitude':
+    case 'ceremony_venue_longitude':
+    case 'venue_latitude':
+    case 'venue_longitude': {
+      // As the NUMERIC(10,7) column holds it — "14.5541000" and 14.5541 are one pin.
+      const at = (v: unknown) => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v).toFixed(7));
+      return refChange(at(live), at(next));
     }
     case 'print_details': {
       // Only the Name style is compared — and as the prints read it: absent is Full.
@@ -1631,6 +1751,15 @@ export function classifyHubDraft(
         });
       }
     }
+    /* 🏛 The venue cards' source and photo — compared as the page reads the
+       bag; the value written is the WHOLE merged bag. Never Pro. */
+    if (w.venue !== undefined && type === 'venue_map') {
+      const liveBag = draftVenueChoices(isPlainObject(row.config_json) ? row.config_json.venue : null);
+      const nextBag = configWithVenue(row.config_json, w.venue).venue;
+      if (JSON.stringify(liveBag) !== JSON.stringify(nextBag)) {
+        items.push({ kind: 'widget', widgetType: type, widgetId: row.widget_id, field: 'venue', value: nextBag, change: 'change', pro: false });
+      }
+    }
     if (w.canvas !== undefined) {
       const liveCanvas = liveCanvasOf(row.config_json);
       const nextCanvas = w.canvas ?? {};
@@ -1854,7 +1983,7 @@ export function summarizeHubDraft(draft: HubDraft | null, live: HubLiveState, ow
   const facts = new Set<string>();
   let changeCount = 0;
   for (const i of [...plan.apply.filter((i) => !(i.kind !== 'event' && i.freePart)), ...plan.refused]) {
-    const fact = i.kind === 'event' ? hubDraftFactOf(i.column) : null;
+    const fact = i.kind === 'event' ? hubDraftFactOf(i.column) : i.kind === 'widget' && i.field === 'venue' ? 'venues' : null;
     if (fact && facts.has(fact)) continue;
     if (fact) facts.add(fact);
     changeCount += 1;
@@ -1901,7 +2030,9 @@ export type HubDraftRefusal =
   /** 🗓 A drafted date that has already gone by (`eventDateRefusal` → `in_past`). */
   | 'date_in_past'
   /** 🗓 A drafted date a booked supplier holds (`eventDateRefusal` → `locked` · `widens`). */
-  | 'date_locked';
+  | 'date_locked'
+  /** 🕒 A ceremony time with no day to stand on (the event's date is not a single day). */
+  | 'needs_a_day';
 
 export type HubDraftActionResult =
   | {
@@ -1970,7 +2101,7 @@ export function hubDraftOutcome(result: HubDraftActionResult | null): HubDraftOu
   return result.held.length > 0 ? { kind: 'held', held: result.held } : { kind: 'live' };
 }
 
-/** Which typed fact (the names, the date, the name style) an `events` column carries — null for every other column. */
+/** Which typed fact (the names, the date, the name style, the venues, the ceremony time) an `events` key carries — null for every other column. */
 export function hubDraftFactOf(column: HubDraftEventColumn): HubDraftFact | null {
   return (HUB_DRAFT_FACT_GROUP as Partial<Record<string, HubDraftFact>>)[column] ?? null;
 }
@@ -2009,6 +2140,17 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   event_date: 'Your date',
   event_date_precision: 'Your date',
   print_details: 'Your name style',
+  // The venues are ONE change however many columns carry them.
+  std_film_ceremony_name: 'Your venues',
+  ceremony_venue_address: 'Your venues',
+  ceremony_venue_latitude: 'Your venues',
+  ceremony_venue_longitude: 'Your venues',
+  std_film_venue_name: 'Your venues',
+  venue_address: 'Your venues',
+  venue_latitude: 'Your venues',
+  venue_longitude: 'Your venues',
+  std_film_venue_city: 'Your venues',
+  ceremony_time: 'Your ceremony time',
   papic_on: 'Photos from guests',
   gifts_on: 'Gifts',
   logo_wanted: 'Do you want a logo',
@@ -2032,6 +2174,7 @@ export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetTy
   if (item.field === 'main') return 'Behind every scene';
   if (item.field === 'std_lead') return 'Save the Date · Film or Photos';
   if (item.field === 'custom') return `${sectionLabel(item.widgetType)} · its words`;
+  if (item.field === 'venue') return 'Your venues';
   const what =
     item.field === 'mode' || item.field === 'is_visible'
       ? 'shown or hidden'

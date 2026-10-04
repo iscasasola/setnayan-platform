@@ -111,6 +111,9 @@ export type VenueFields = {
   venue_address?: string | null;
   /** The ceremony's typed street address — closes with `venue_address`. */
   ceremony_venue_address?: string | null;
+  /** The ceremony's own map pin (20271263730696) — closes with it. */
+  ceremony_venue_latitude?: number | string | null;
+  ceremony_venue_longitude?: number | string | null;
   venue_latitude?: number | null;
   venue_longitude?: number | null;
   venue_withheld?: boolean;
@@ -133,6 +136,9 @@ export function withheldVenue<T extends VenueFields>(event: T): T {
     venue_address: null,
     // 🏠 The ceremony's own typed address closes under the same rule (2026-09-29).
     ...('ceremony_venue_address' in event ? { ceremony_venue_address: null } : {}),
+    // 📍 …and so does its own pin (2026-10-04).
+    ...('ceremony_venue_latitude' in event ? { ceremony_venue_latitude: null } : {}),
+    ...('ceremony_venue_longitude' in event ? { ceremony_venue_longitude: null } : {}),
     venue_latitude: null,
     venue_longitude: null,
     // 🏛💒 BOTH venues close, never just the one the event columns describe

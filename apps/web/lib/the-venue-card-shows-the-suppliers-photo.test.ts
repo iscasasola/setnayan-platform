@@ -212,9 +212,13 @@ test('a venue card tapped on a stage opens Details › Venues in place', () => {
   assert.match(parts, /venues: venuesEditorFor\(eventId, input\)/, 'Details and the stage draw the SAME editor');
 });
 
-test('the choice saves through the action Details › Venues already uses — into the Venue scene’s config', () => {
+test('the choice drafts into the Venue scene’s config — and Apply writes it there (owner 2026-10-04: venues wait for Apply)', () => {
   const editor = read('app/dashboard/[eventId]/launch/_components/details-your-event.tsx');
-  assert.match(editor, /saveAllStdContent\(eventId, \{ launchDate, venueChoice: \{ slot, choice: next \} \}\)/);
+  assert.match(editor, /fd\.set\('patch', JSON\.stringify\(\{ widgets: \{ venue_map: \{ venue: \{ \[slot\]: choice \} \} \} \}\)\);/);
+  assert.match(editor, /void draftVenueChoice\(eventId, slot, next\)/);
+  assert.doesNotMatch(editor, /saveAllStdContent/, 'a venue pick writes live from inside the Maker');
+  const apply = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
+  assert.match(apply, /item\.field === 'venue' \? readVenueChoices\(\{ \[VENUE_CHOICES_KEY\]: item\.value \}, eventId\) : item\.value/, 'Apply re-reads the bag with THIS event');
   assert.match(editor, /'Use the supplier’s details'/);
   assert.match(editor, /'Enter your own'/);
   assert.match(editor, /<FileUpload[\s\S]{0,200}pathPrefix=\{sceneBackgroundPathPrefix\(eventId\)\}[\s\S]{0,200}compressImage/);

@@ -32,6 +32,7 @@ import type { NotificationType } from '@/lib/notifications';
 import { APPOINTMENT_KIND_LABEL, type AppointmentInitiator, type AppointmentKind } from '@/lib/appointments';
 import { datetimeLocalToIso } from '@/lib/schedule';
 import { revalidationTarget } from '@/lib/return-path';
+import { safeNext } from '@/lib/safe-next';
 
 function str(v: FormDataEntryValue | null, max = 200): string | null {
   if (typeof v !== 'string') return null;
@@ -77,8 +78,9 @@ function formatWhenManila(iso: string | null): string {
 function safeReturnPath(v: FormDataEntryValue | null): string {
   // Only ever revalidate/redirect to an in-app absolute path — never an
   // attacker-controlled external URL.
-  const p = str(v, 300);
-  return p && p.startsWith('/') ? p : '/dashboard';
+  // THE ONE RULE (lib/safe-next.ts) — a bare `startsWith('/')` let `//host`,
+  // `/\host` and `/<TAB>/host` through.
+  return safeNext(str(v, 300), '/dashboard');
 }
 
 /**

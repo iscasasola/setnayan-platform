@@ -2,6 +2,7 @@ import 'server-only';
 import { cache } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
+import { isSafeNext, safeNext } from '@/lib/safe-next';
 
 // Per-request memoization of `supabase.auth.getUser()`. Each dashboard
 // navigation used to call `getUser()` from middleware, the outer layout,
@@ -20,19 +21,12 @@ export const getCurrentUser = cache(async (): Promise<User | null> => {
   return user;
 });
 
-// Sanitize a user-controlled "next" / "redirect-after-login" string.
-// Only same-site relative paths are accepted. Protocol-relative URLs
-// (`//evil.com`) are rejected because the browser treats them as
-// off-domain. Anything else falls back to `/`.
-//
-// Centralized so /login, /signup, /auth/callback, and every page-level
-// `redirect('/login?next=...')` builder use the same definition.
-export function safeNext(raw: unknown): string {
-  if (typeof raw !== 'string') return '/';
-  if (!raw.startsWith('/')) return '/';
-  if (raw.startsWith('//')) return '/';
-  return raw;
-}
+// Sanitize a user-controlled "next" / "redirect-after-login" string — THE ONE
+// RULE, which lives in the pure `lib/safe-next.ts` (no `server-only`) so client
+// code, the phone bridge and tests read the same definition. Re-exported here so
+// /login, /signup, /auth/callback, and every page-level `redirect('/login?next=...')`
+// builder keep importing it from `@/lib/auth`. Never write a second copy.
+export { safeNext, isSafeNext };
 
 // Build a `/login?next=<safe>` URL for use with `redirect()` from a
 // page-level auth gate. Preserves the user's destination through the

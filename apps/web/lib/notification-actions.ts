@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { isSafeNext } from '@/lib/safe-next';
 
 export async function markNotificationRead(formData: FormData) {
   const notificationId = formData.get('notification_id');
@@ -21,7 +22,7 @@ export async function markNotificationRead(formData: FormData) {
     .eq('notification_id', notificationId)
     .eq('user_id', user.id);
 
-  if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+  if (isSafeNext(returnTo)) {
     revalidatePath(returnTo);
     redirect(returnTo);
   }
@@ -41,7 +42,7 @@ export async function markAllNotificationsRead(formData: FormData) {
     .eq('user_id', user.id)
     .is('read_at', null);
 
-  if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+  if (isSafeNext(returnTo)) {
     revalidatePath(returnTo);
     redirect(returnTo);
   }

@@ -7,7 +7,12 @@ import { stampLastLogin } from '@/lib/login-activity';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
 import { isBrandNewAccount, isEventConnectNext, youHref } from '@/lib/signup-landing';
 import { RSVP_TERMS_COOKIE, TERMS_VERSION, rsvpTermsCarried } from '@/lib/terms-agreement';
-import { NATIVE_SESSION_PARAM } from '@/lib/native-oauth-plan';
+import {
+  NATIVE_LANDING_COOKIE,
+  NATIVE_MARKER_PARAM,
+  NATIVE_SESSION_PARAM,
+  nativeMarkerMatches,
+} from '@/lib/native-oauth-plan';
 
 /** How recent a native sign-in must be for `?native=1` to run the landing. */
 const NATIVE_SESSION_FRESH_MS = 5 * 60_000;
@@ -30,10 +35,10 @@ async function freshNativeSession(supabase: Awaited<ReturnType<typeof createClie
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get('code');
-  // safeNext() rejects protocol-relative URLs (`//evil.com`) and any
-  // value that doesn't start with `/`. Without it this route is an
-  // open redirect — anything in `?next=` lands the browser off-domain
-  // after a successful exchange.
+  // safeNext() (THE ONE RULE, lib/safe-next.ts) accepts only a same-origin
+  // relative path — no `//host`, no backslash, no tab/CR/LF, nothing encoded
+  // that decodes to those. Without it this route is an open redirect: EVERY
+  // exit below — with a code, without one, on `?native=1` — redirects to it.
   const rawNext = safeNext(url.searchParams.get('next'));
   // A real destination is honoured exactly as given; only the bare `/` becomes
   // the Events board (owner 2026-08-28). ONE rule, shared with
@@ -50,10 +55,30 @@ export async function GET(request: NextRequest) {
 
   // 📱 THE PHONE APP'S APPLE SHEET arrives here with the session ALREADY SET in
   // the web view (signInWithIdToken, lib/native-oauth.ts) and no code — only
-  // `?native=1`. It runs the SAME landing below, never a copy of it. Only a
-  // sign-in from the last few minutes counts, so an old session following a
-  // crafted link is just sent on to `next` with nothing written.
-  const nativeSession = !code && url.searchParams.get(NATIVE_SESSION_PARAM) === '1';
+  // `?native=1`. It runs the SAME landing below, never a copy of it.
+  // 🔒 ONLY WITH THE ONE-TIME MARKER the app's own sheet minted
+  // (lib/native-oauth-plan.ts, "THE NATIVE LANDING MARKER"): the URL's
+  // `native_marker` must equal the httpOnly cookie's. Without it — a crafted
+  // `/auth/callback?native=1&as=vendor` — the person is sent on to `next` and
+  // NOTHING is written (no promotion, no terms stamp, no last-login). The
+  // cookie is deleted on every native visit, so a marker is spent once. And
+  // even a valid marker needs a sign-in from the last few minutes.
+  const nativeFlag = !code && url.searchParams.get(NATIVE_SESSION_PARAM) === '1';
+  /** Every response on a native visit spends the marker, matched or not. */
+  const spend = (res: NextResponse): NextResponse => {
+    if (nativeFlag) res.cookies.set(NATIVE_LANDING_COOKIE, '', { path: '/auth/callback', maxAge: 0 });
+    return res;
+  };
+  if (
+    nativeFlag &&
+    !nativeMarkerMatches(
+      request.cookies.get(NATIVE_LANDING_COOKIE)?.value,
+      url.searchParams.get(NATIVE_MARKER_PARAM),
+    )
+  ) {
+    return spend(NextResponse.redirect(new URL(fallbackNext, url.origin)));
+  }
+  const nativeSession = nativeFlag; // past this line, the marker matched
 
   if (code || nativeSession) {
     const supabase = await createClient();
@@ -63,7 +88,7 @@ export async function GET(request: NextRequest) {
     if (error && nativeSession) {
       // No fresh native sign-in behind `?native=1` — nothing is written; the
       // person goes on to where they were headed (a gated page asks again).
-      return NextResponse.redirect(new URL(fallbackNext, url.origin));
+      return spend(NextResponse.redirect(new URL(fallbackNext, url.origin)));
     }
     if (error) {
       return NextResponse.redirect(
@@ -204,8 +229,8 @@ export async function GET(request: NextRequest) {
     // Keep where they were headed, so signing in the other way still lands
     // them where they meant to go rather than on the account board.
     back.searchParams.set('next', fallbackNext);
-    return NextResponse.redirect(back);
+    return spend(NextResponse.redirect(back));
   }
 
-  return NextResponse.redirect(new URL(landing, url.origin));
+  return spend(NextResponse.redirect(new URL(landing, url.origin)));
 }

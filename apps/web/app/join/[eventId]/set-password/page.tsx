@@ -12,6 +12,7 @@
  */
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { safeNext } from '@/lib/safe-next';
 import { createClient } from '@/lib/supabase/server';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -35,7 +36,9 @@ const ERROR_COPY: Record<string, string> = {
 export default async function SetPasswordPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const sp = await searchParams;
-  const next = sp.next || `/dashboard/${eventId}`;
+  // THE ONE RULE (lib/safe-next.ts): this lands in a <Link href> and a hidden
+  // `next` field, so a raw `?next=` here was an off-site link on our own page.
+  const next = safeNext(sp.next, `/dashboard/${eventId}`);
 
   // Authenticated (they just clicked the magic link). If not, bounce to login.
   const supabase = await createClient();

@@ -154,10 +154,18 @@ BEGIN
                              'signature_details','honoree_label')) <> 5 THEN
     RAISE EXCEPTION 'events_host lost a host-only private column in the rebuild';
   END IF;
-  -- Its neighbours must have survived the view rebuild.
-  IF (SELECT count(*) FROM information_schema.columns
-       WHERE table_schema = 'public' AND table_name = 'events_host'
-         AND column_name IN ('ceremony_venue_address','papic_on','rsvp_ask_config','venue_latitude')) <> 4 THEN
+  -- Its neighbours must have survived the view rebuild: EVERY events column a
+  -- couple's session may read is projected (named by privilege, never by a
+  -- list — a replay that skips another migration has fewer columns, not a loss).
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns c
+     WHERE c.table_schema = 'public' AND c.table_name = 'events'
+       AND has_column_privilege('authenticated', 'public.events', c.column_name, 'SELECT')
+       AND NOT EXISTS (
+         SELECT 1 FROM information_schema.columns v
+          WHERE v.table_schema = 'public' AND v.table_name = 'events_host' AND v.column_name = c.column_name
+       )
+  ) THEN
     RAISE EXCEPTION 'events_host lost a neighbouring column in the rebuild';
   END IF;
   -- The rebuild must not have widened the private list into the secrets.

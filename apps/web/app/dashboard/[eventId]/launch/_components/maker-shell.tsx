@@ -42,6 +42,7 @@ import {
 } from './maker-context';
 import { movedPageItem, type DetailsItemKey } from '@/lib/maker-details-items';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
+import { SEE_AS, SEE_AS_EDITING, type SeeAs } from '@/lib/see-as';
 import { MakerTour } from './maker-tour';
 import { MAKER_PLAY_SCENE_EVENT, PreviewStageLink } from './maker-play-menu';
 import { MAKER_OPEN_RESET_EVENT } from '../../website/_components/maker-open-reset';
@@ -145,7 +146,6 @@ export function MakerShell({
   rsvpStage = null,
   factEditors = NO_FACT_EDITORS,
   hasWork,
-  viewAs = {},
   viewAsFree = null,
   theHost = 'the host',
   postEventTour = null,
@@ -156,9 +156,6 @@ export function MakerShell({
   /** 👁 "View as a free couple" — internal (§10a) viewers only; null draws
    *  nothing. `on` is the server's reading of this request (`asViewed`). */
   viewAsFree?: { on: boolean } | null;
-  /** VIEW AS, per stage — each role's chip word and its server-gated preview
-   *  door (`resolveHubRoleView`), or null when there is honestly none. */
-  viewAs?: Partial<Record<LifecyclePhase, ReadonlyArray<{ role: string; name: string; href: string | null }>>>;
   eventId: string;
   slug: string | null;
   /** The stage guests meet today — Page ▾'s red dot. Null when unmeasured. */
@@ -219,9 +216,10 @@ export function MakerShell({
   const [moreOpen, setMoreOpen] = useState(false);
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
   const [tour, setTour] = useState(false);
-  const [viewAsRole, setViewAsRole] = useState<string | null>(null);
-  const stageRoles = viewAs[stage] ?? [];
-  const viewAsHref = viewAsRole ? (stageRoles.find((r) => r.role === viewAsRole)?.href ?? null) : null;
+  /* 👁 SEE AS ▾ (PR-10) — the canvas as a sample guest, or null for the couple's
+     own editing canvas. Kept across stages (a guest is a guest on every stage);
+     never written anywhere — not the draft, not the tab's memory. */
+  const [seeAs, setSeeAs] = useState<SeeAs | null>(null);
   /* 📄 Page ▾ — what the work area reports, and the pick waiting for its stage. */
   const [guestPages, setGuestPages] = useState<MakerGuestPagesReport | null>(null);
   const [pageJump, setPageJump] = useState<MakerPageJump | null>(null);
@@ -286,9 +284,6 @@ export function MakerShell({
      bar; nothing at all with Save-Data on. Only where there is work: a
      coordinator has no tools to open. */
   const preload = useMakerPreload(hasWork);
-
-  /* A role is read per stage: a new stage starts back on the host's preview. */
-  useEffect(() => setViewAsRole(null), [stage]);
 
   /* The document under the Maker must not scroll behind it. */
   useEffect(() => {
@@ -405,7 +400,7 @@ export function MakerShell({
   const [addScene, setAddScene] = useState<MakerAddScene | null>(null);
 
   /* 👁 PREVIEW — the bar's eye (owner 2026-10-04, on the ⋯ beside Apply: *"that
-     can be a preview icon?"*). One menu of how the page is SEEN: See it as ·
+     can be a preview icon?"*). One menu of how the page is SEEN: See as ·
      Phone / Desktop · Both · Scenes · Play this scene · Preview the stage
      (`previewRows`, below). Drawn by the draft bar between Undo and Apply
      (`MakerState.previewMenu`), or alone by a viewer with no draft. Its rows
@@ -428,7 +423,8 @@ export function MakerShell({
       moreOpen,
       renderStamp,
       storeShell,
-      viewAsHref,
+      seeAs,
+      setSeeAs,
       addScene,
       setAddScene,
       detailsItem,
@@ -449,7 +445,7 @@ export function MakerShell({
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, viewAsHref, addScene, detailsItem, detailsDoor, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -576,31 +572,29 @@ export function MakerShell({
       );
     });
 
-  /* 👁 PREVIEW'S ROWS — how the page is SEEN (owner 2026-10-04): See it as ·
+  /* 👁 PREVIEW'S ROWS — how the page is SEEN (owner 2026-10-04): See as ·
      Phone / Desktop · Both · Scenes · Play this scene · Preview the stage. What
      ⋯ held besides moved to Page ▾ (`makerPageActions`) — nothing is lost
      (`the-toolbar-is-the-maker-in-four.test.ts`). */
   const previewRows = (close: () => void) => (
         <>
-          {/* 👀 See it as — PR-10 turns this into See as ▾ (a sample guest's states). */}
-          {hasWork && stageRoles.length > 0 ? (
-            <>
-              <MenuHeading>See it as…</MenuHeading>
-              <MenuItem on={viewAsRole === null} onClick={() => { setViewAsRole(null); close(); }}>
-                You · editing
+          {/* 👁 SEE AS ▾ (PR-10, owner 2026-10-04 — it was "See it as…", a role's
+              door): the canvas as a SAMPLE guest who hasn't replied, replied Yes,
+              declined or is signed out (`SEE_AS`). On a phone these rows; on a
+              desktop the same pick is the one dropdown above the preview
+              (editor-shell.tsx `data-maker-see-as`), so each width has one. */}
+          {hasWork ? (
+            <div className="contents lg:hidden" data-maker-see-as-rows="">
+              <MenuHeading>See as</MenuHeading>
+              <MenuItem on={seeAs === null} onClick={() => { setSeeAs(null); close(); }}>
+                {SEE_AS_EDITING.label}
               </MenuItem>
-              {stageRoles.map((r) => (
-                <MenuItem
-                  key={r.role}
-                  on={viewAsRole === r.role}
-                  disabled={!r.href}
-                  note={r.href ? undefined : 'No preview for this one yet.'}
-                  onClick={() => { setViewAsRole(r.role); close(); }}
-                >
-                  {r.name}
+              {SEE_AS.map((s) => (
+                <MenuItem key={s.key} on={seeAs === s.key} note={s.note ?? undefined} onClick={() => { setSeeAs(s.key); close(); }}>
+                  {s.label}
                 </MenuItem>
               ))}
-            </>
+            </div>
           ) : null}
           {/* 👁 Internal accounts only — see `view-as-free.tsx`. */}
           {viewAsFree ? <ViewAsFreeRow on={viewAsFree.on} close={close} /> : null}
@@ -678,7 +672,7 @@ export function MakerShell({
             wrapped and Apply dropped to a second row) — on a phone each item
             declares its width (`MAKER_BAR_PHONE`). ⛔ Nothing else sits here:
             the stages, Add a scene, Reset, Prints, Restore, the address, who
-            can view and About are Page ▾'s; See it as · Phone / Desktop ·
+            can view and About are Page ▾'s; See as · Phone / Desktop ·
             Both · Scenes · Play are 👁 Preview's. Format · Animate · Arrange live only as the
             inspector's own tabs (owner: *"repeated. just place it on the
             sidebar instead of the top bar?"*). */}

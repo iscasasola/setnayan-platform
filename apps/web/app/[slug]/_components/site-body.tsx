@@ -202,6 +202,8 @@ import {
   PublicEventDetails,
 } from './empty-states';
 import { EditorBridge } from './editor-bridge';
+import { SampleViewerInert } from './sample-viewer-inert';
+import type { SeeAs } from '@/lib/see-as';
 import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene } from '../_lib/editor-canvas';
 import { PreviewWayBack } from './preview-way-back';
 import { PahinaMasthead } from './pahina-masthead';
@@ -470,6 +472,16 @@ type SiteBodyProps = {
    * rather than under its closing footer. Null everywhere else.
    */
   meSection?: React.ReactNode;
+  /**
+   * 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the Maker's canvas drawn as a SAMPLE
+   * viewer (page.tsx `resolveSampleViewer`, verified host + `?editor=1` only):
+   * the guest tree for a sample guest who hasn't replied / replied Yes /
+   * declined, or the stranger's page with its door for Signed out. Null
+   * everywhere else — every real guest's and stranger's bytes are unchanged.
+   * While set, `SampleViewerInert` swallows every submit and press, and Me is
+   * drawn on the canvas (`meSection`).
+   */
+  sampleViewer?: SeeAs | null;
 };
 
 export async function SiteBody({
@@ -520,6 +532,7 @@ export async function SiteBody({
   activeTab = null,
   shotsAdded = null,
   meSection = null,
+  sampleViewer = null,
 }: SiteBodyProps) {
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
   // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
@@ -1327,7 +1340,8 @@ export async function SiteBody({
       identified: false,
       reminders: event.what_to_bring,
       giftHref: doorways.pabuya,
-      maker: isMakerCanvas,
+      // 👁 See as › Signed out: the stranger's Welcome, not the canvas's every place.
+      maker: isMakerCanvas && sampleViewer === null,
       // 🗂 "Accept gifts? — No" (Your info): the canvas draws no gift place either.
       giftsOff: event.gifts_on === false,
     });
@@ -1629,7 +1643,10 @@ export async function SiteBody({
                       QR or invite link to switch.
                     </p>
                   ) : null}
-                  {vendorCapability || isEditorCanvas ? null : (
+                  {/* 👁 See as › Signed out draws THE DOOR on the canvas — the
+                      same GetInside, with no join action bound (a sample
+                      viewer asks to join nothing). */}
+                  {vendorCapability || (isEditorCanvas && sampleViewer !== 'signed-out') ? null : (
                     <GetInside
                       slug={event.slug}
                       eventId={event.event_id}
@@ -1637,7 +1654,9 @@ export async function SiteBody({
                       theOrganizer={clientWords.theOrganizer}
                       mayAskToJoin={anyoneMayAskToJoin(event.rsvp_ask_config)}
                       joinAction={
-                        oneQrLetsYouIn(event.rsvp_ask_config) ? joinEventAction.bind(null, event.event_id, '') : undefined
+                        sampleViewer === null && oneQrLetsYouIn(event.rsvp_ask_config)
+                          ? joinEventAction.bind(null, event.event_id, '')
+                          : undefined
                       }
                     />
                   )}
@@ -2101,7 +2120,8 @@ export async function SiteBody({
       stage: pageStage,
       bodyNormal: plan.body === 'normal',
       scenes: plan.hideableInOrder.map((w) => w.widget_type),
-      identified: !isMakerCanvas,
+      // 👁 A See as sample guest is identified — their own look, like any guest's.
+      identified: !isMakerCanvas || sampleViewer !== null,
       reminders: event.what_to_bring,
       giftHref: doorways.pabuya,
       maker: false,
@@ -2213,7 +2233,8 @@ export async function SiteBody({
        couple's reminders and E-Gifts. */
     const dayWelcome = welcomePartsOnTheDay({
       ...dayWelcomeFacts,
-      identified: !isMakerCanvas,
+      // 👁 A See as sample guest is identified — their own look, like any guest's.
+      identified: !isMakerCanvas || sampleViewer !== null,
       // 🚶🗺 Scrolled, the day's Welcome carries the walking order and the ONE
       // venue (owner 2026-10-01, prototype the_day_guest_phone frame 2b).
       march: pageStage === 'event' && stageShowsEntourage(pageStage) && entourage.length > 0,
@@ -2264,7 +2285,8 @@ export async function SiteBody({
     const tabs = pageTabsFor(guestBar);
     pageTabs = tabs;
     const { group } = tabs;
-    const signOut = (
+    // 👁 A See as sample guest has no session to sign out of — no form at all.
+    const signOut = sampleViewer !== null ? null : (
       <section className="border-t border-ink/10 pt-6 text-center text-xs text-ink/50">
         <form action={`/${event.slug}/sign-out`} method="post">
           {/* 🧽 Said BEFORE the tap (owner 2026-09-30): the sign-out route
@@ -3173,7 +3195,10 @@ export async function SiteBody({
             destination can never disagree about existing — and drawn only when
             the action under the mark does NOT already open the sheet (before the
             day "You're going" is that door; owner 2026-10-03, one place each). */}
-        {tabs.on ? group('me', (
+        {/* 👁 …and in the Maker's canvas for a See as sample guest (PR-10):
+            Me drawn for a sample guest — its ticket from the guest page's own
+            GuestTicket (page.tsx), never a Maker-only twin. */}
+        {tabs.on || sampleViewer !== null ? group('me', (
           <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
             {meSection}
             {guest.photo_source === 'selfie' ? (
@@ -3541,6 +3566,8 @@ export async function SiteBody({
           who passed `?editor=1`; for every guest/anonymous visitor this renders
           nothing, so their HTML is byte-identical to before. */}
       {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
+      {/* 👁 See as: the sample viewer touches nothing (sample-viewer-inert.tsx). */}
+      {sampleViewer !== null ? <SampleViewerInert /> : null}
       {sceneRunsOnPage ? <HubSceneRuns /> : null}
       </EventWordsProvider>
     </InvitationShell>

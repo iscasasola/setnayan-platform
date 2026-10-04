@@ -67,6 +67,8 @@ import { canvasDocument, readTileHead, snapshotSection } from './scene-snapshot'
 import type { TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 import { navigatorRows, navigatorTabs, parseNavigatorBar, tabOfTile, type NavigatorBarItem } from '@/lib/maker-navigator-tabs';
 import { makerGuestPages, ME_NOT_ON_CANVAS, type MakerGuestPage } from '@/lib/maker-guest-pages';
+import { SEE_AS, SEE_AS_EDITING, SEE_AS_PARAM, seeAsDrawsMe, seeAsLabel, seeAsOf } from '@/lib/see-as';
+import { PickMenu } from './pick-menu';
 import {
   canvasKeyOfSelection,
   fixedOfKey,
@@ -796,12 +798,14 @@ export function MakerWork({
       }
       return next;
     });
+  /* 👁 SEE AS ▾ (PR-10) — the SAME canvas address, drawn as a sample guest:
+     `?as=<state>` (lib/see-as.ts `SEE_AS_PARAM`). The draft, the
+     bridge and the stage are unchanged; only who the page is drawn for. */
+  const seeAs = maker?.seeAs ?? null;
   const previewSrc = publicLandingUrl
-    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}`
+    ? `${publicLandingUrl}?phase=${stage}&editor=1${guestBars ? '&bars=1' : ''}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}`
     : null;
-  /* VIEW AS (toolbar) re-points the canvas at a role's own door; otherwise the
-     host's editing preview, which shows the draft. */
-  const canvasSrc = maker?.viewAsHref ?? previewSrc;
+  const canvasSrc = previewSrc;
   /* 🔥 LOAD EVERYTHING UP FRONT (owner 2026-09-28: *"is it possible to load
      everything so it runs smoothly?"*). The other three stages, as the host's
      editing canvas, loaded hidden behind this one once it is up and the tab is
@@ -836,7 +840,7 @@ export function MakerWork({
     });
   }, [warmBudget, photoUrlsKey]);
   const warmStages: CanvasFrame[] =
-    publicLandingUrl && !maker?.viewAsHref
+    publicLandingUrl && !seeAs
       ? warmStageOrder(stage).map((s) => ({
           key: `${s}:${canvasStamp}:`,
           group: `${s}:`,
@@ -1290,7 +1294,7 @@ export function MakerWork({
     });
     ro.observe(el);
     return () => ro.disconnect();
-  }, [scheduleSnapshots, stage, shownFrameKey, maker?.viewAsHref]);
+  }, [scheduleSnapshots, stage, shownFrameKey, seeAs]);
 
   /* ▶ "Play this scene" (the toolbar's ▶ menu) — played IN PLACE in the
      canvas: the bridge replays the selected section's entrance where it sits. */
@@ -1815,6 +1819,8 @@ export function MakerWork({
     const first = page.tiles[0];
     if (!first) {
       navList?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+      // 👤 Me, drawn for a See as sample guest (PR-10): the canvas goes to it.
+      if (key === 'me' && seeAsDrawsMe(seeAs)) scrollPreviewTo('me');
       return;
     }
     scrollPreviewTo(first);
@@ -1996,7 +2002,8 @@ export function MakerWork({
               />
             </li>
           ) : null}
-          {shownPage?.key === 'me' ? (
+          {/* 👤 Me with a See as guest picked is ON the canvas (PR-10) — no note. */}
+          {shownPage?.key === 'me' && !seeAsDrawsMe(seeAs) ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:mb-2 lg:self-stretch" data-maker-page-me="">
               <InfoTip className="min-w-0 max-w-full" label={ME_NOT_ON_CANVAS.label} align="start">
                 {ME_NOT_ON_CANVAS.body}
@@ -2407,6 +2414,35 @@ export function MakerWork({
         data-maker-stage={stage}
         className="relative order-1 flex min-h-0 min-w-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 pb-2 pt-2 lg:order-2 lg:px-6 lg:pb-5 lg:pt-4"
       >
+        {/* 👁 SEE AS ▾ (PR-10, owner 2026-10-04; prototype screen 12). On a desktop
+            the ONE dropdown above the preview; on a phone the same pick is a row
+            of 👁 Preview (maker-shell.tsx `data-maker-see-as-rows`), and the page
+            wears a small tag saying whose eyes it is drawn with. Only where the
+            canvas is the page — nothing to see as otherwise. */}
+        {canvasSrc && maker?.setSeeAs ? (
+          <div className="mb-2 hidden w-full shrink-0 items-center lg:flex" data-maker-see-as="">
+            <PickMenu
+              label="See as"
+              dataAttr="data-maker-see-as-menu"
+              value={seeAs ?? SEE_AS_EDITING.key}
+              buttonText={`See as · ${seeAsLabel(seeAs)}`}
+              options={[
+                { key: SEE_AS_EDITING.key, label: SEE_AS_EDITING.label },
+                ...SEE_AS.map((o) => (o.note ? { key: o.key, label: o.label, hint: o.note } : { key: o.key, label: o.label })),
+              ]}
+              onPick={(key) => maker.setSeeAs?.(seeAsOf(key))}
+              compact
+            />
+          </div>
+        ) : null}
+        {canvasSrc && seeAs ? (
+          <p
+            data-maker-see-as-tag=""
+            className="mb-1.5 self-start rounded-full px-2.5 py-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-terracotta-700 ring-1 ring-terracotta/40 lg:hidden"
+          >
+            See as · {seeAsLabel(seeAs)}
+          </p>
+        ) : null}
         {canvasSrc ? (
           /* 🖥📱 One row: the canvas, and — in Both — the phone pane beside it.
              ⚠ The canvas keeps its PLACE in the tree in every view: moving an
@@ -2431,8 +2467,8 @@ export function MakerWork({
              behind the page the couple is looking at and swaps in when ready —
              no blank screen, no reload from the top, after any Maker write. */}
           <BufferedCanvasFrame
-            frameKey={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
-            group={`${stage}:${maker.viewAsHref ?? ''}`}
+            frameKey={`${stage}:${canvasStamp}:${maker.seeAs ?? ''}`}
+            group={`${stage}:${maker.seeAs ?? ''}`}
             src={canvasSrc}
             title={`Your Event Hub — ${PUBLIC_STAGE_LABELS[stage]}`}
             frameRef={frameRef}
@@ -2465,8 +2501,8 @@ export function MakerWork({
               style={bothFit ? { width: bothFit.phone.boxWidth, height: bothFit.phone.boxHeight } : undefined}
             >
               <BufferedCanvasFrame
-                frameKey={`${stage}:${canvasStamp}:${maker.viewAsHref ?? ''}`}
-                group={`${stage}:${maker.viewAsHref ?? ''}`}
+                frameKey={`${stage}:${canvasStamp}:${maker.seeAs ?? ''}`}
+                group={`${stage}:${maker.seeAs ?? ''}`}
                 src={canvasSrc}
                 title={`Your Event Hub on a phone — ${PUBLIC_STAGE_LABELS[stage]}`}
                 frameRef={bothFrameRef}

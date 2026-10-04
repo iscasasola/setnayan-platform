@@ -28,13 +28,14 @@
  * one) lists no scenes; picking it says so rather than pretending.
  *
  * 👤 ME IS EACH GUEST'S OWN. It carries no scenes the couple arranges — it is
- * drawn from the guest list, and the canvas (the host's own render) never
- * draws a guest's Me: `app/[slug]/page.tsx` builds `meSlot` only for a real
- * guest and leaves it null in the canvas, and the sample-guest preview
- * (`?as=replied`, `lib/simulated-guest-preview.ts`) renders the page without
- * it. `ME_NOT_ON_CANVAS` says so in the navigator rather than leaving a pick
- * that silently does nothing. Drawing Me for a sample guest is a change to the
- * guest route and follows the Digital-ticket-on-Me work.
+ * drawn from the guest list, and the host's own editing canvas never draws a
+ * guest's Me (`app/[slug]/page.tsx` builds `meSlot` only for a real guest).
+ * 👁 SEE AS (PR-10, 2026-10-04) DRAWS IT FOR A SAMPLE GUEST: with a guest
+ * state picked (`SEE_AS`, lib/see-as.ts), the canvas is the guest page as that sample guest
+ * (`lib/simulated-guest-preview.ts`), Me included — their ticket, from the
+ * guest page's own `GuestTicket`. `seeAsDrawsMe` (lib/see-as.ts) says when; otherwise
+ * `ME_NOT_ON_CANVAS` says so in the navigator rather than leaving a pick that
+ * silently does nothing.
  *
  * Pure: no DOM, no React.
  */
@@ -61,11 +62,11 @@ export type MakerGuestPage = {
   tiles: string[];
 };
 
-/** What the navigator says under "Me" — it has no scenes to arrange here. */
+/** What the navigator says under "Me" while the canvas is the host's own (no See as guest picked). */
 export const ME_NOT_ON_CANVAS = {
   label: 'Me is each guest’s own page',
   body:
-    'Each guest’s Me holds their name, their own QR and the guests they bring — made from your guest list, so every guest sees their own. It can’t be shown on this canvas yet; the canvas stays where it was.',
+    'Each guest’s Me holds their name, their own ticket and the guests they bring — made from your guest list, so every guest sees their own. Pick a guest in Preview › See as to see one here.',
 } as const;
 
 /**

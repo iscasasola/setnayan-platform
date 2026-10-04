@@ -125,8 +125,12 @@ import { siteMenuEnabled } from './_lib/site-menu';
 import { PublicPageActions } from '@/app/_components/public-page-actions';
 import {
   buildSimulatedGuestIdentity,
-  shouldSimulateRepliedGuest,
+  resolveSampleViewer,
+  sampleTicketSrc,
+  sampleTicketState,
+  SIMULATED_GUEST_INVITATION_TEXT,
 } from '@/lib/simulated-guest-preview';
+import { SampleViewerInert } from './_components/sample-viewer-inert';
 import { PrivateLanding } from './_components/private-landing';
 // The ONE body tree (OPEN-BROWSE PR3) — renders every identity tier; the
 // retained PublicLanding/InvitationSite pair (the duplicated 3-way body)
@@ -1428,27 +1432,103 @@ async function InvitationBody({
   // host's preview. Placed above the session branches so it also wins for a host
   // who happens to hold a guest cookie for their own event: they asked for the
   // simulated view explicitly. Preview only — nothing is written or persisted.
-  if (
-    shouldSimulateRepliedGuest({
-      ownerCapability,
-      asParam: search.as,
-      lifecyclePhase,
-      eventId: event.event_id,
-    })
-  ) {
+  //
+  // 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the SAME branch, extended. In the
+  // Maker's canvas (`isEditorCanvas`: the param AND a verified host) `?as=` may
+  // name any of the four See as states (lib/see-as.ts `SEE_AS`) on any
+  // stage; outside it only `?as=replied` on the RSVP stage, exactly as before.
+  // The canvas sample is drawn AS A GUEST, never as the host: the owner and
+  // supplier capabilities are dropped for it, and `sampleViewer` makes the body
+  // swallow every submit and press (sample-viewer-inert.tsx). 🔒 READS ONLY —
+  // `loadPreviewPerson` is a select; nothing here inserts, updates or deletes
+  // (`see-as-never-writes.test.ts`).
+  const seeAs = resolveSampleViewer({
+    ownerCapability,
+    asParam: search.as,
+    lifecyclePhase,
+    eventId: event.event_id,
+    canvas: isEditorCanvas,
+  });
+  const sampleCanvas = isEditorCanvas && seeAs !== null;
+  const asSample = sampleCanvas
+    ? {
+        ...siteProps,
+        ownerCapability: null,
+        vendorCapability: null,
+        supplierDesk: null,
+        chaptersOnThisDay: [],
+        songRequestDoor: null,
+        sampleViewer: seeAs,
+      }
+    : siteProps;
+  if (seeAs === 'signed-out') {
     timer.flush();
+    // 🚪 THE DOOR a signed-out visitor meets. On a private event that is the lock
+    // screen itself — the same component, never a softer copy of it.
+    if (visibility === 'private' || visibility === 'invited_accounts') {
+      return (
+        <>
+          <PrivateLanding
+            event={event}
+            monogram={monogram}
+            animatedMonogram={animatedMonogram}
+            bespokeSvg={bespokeSvg}
+            proWatermarkHidden={proWatermarkHidden}
+          />
+          <SampleViewerInert />
+        </>
+      );
+    }
+    return wearDraft(
+      <SiteBody
+        {...asSample}
+        identity={anonymousIdentity({
+          reason: null,
+          publicCandidCameraActive,
+          publicAlbumHref,
+          signedInNotListed: false,
+        })}
+      />,
+    );
+  }
+  if (seeAs) {
+    timer.flush();
+    const sampleIdentity = buildSimulatedGuestIdentity({
+      slug: event.slug ?? slug,
+      // "Each editor of each event will adapt to their event" (owner
+      // 2026-09-27): a real person's name and plus-one allowance, read only.
+      person: await loadPreviewPerson(admin, event.event_id),
+      seeAs,
+    });
+    const sampleName =
+      sampleIdentity.guest.display_name?.trim() ||
+      `${sampleIdentity.guest.first_name ?? ''} ${sampleIdentity.guest.last_name ?? ''}`.trim();
     return wearDraft(
       <>
         <SiteBody
-          {...siteProps}
-          identity={buildSimulatedGuestIdentity({
-            slug: event.slug ?? slug,
-            // "Each editor of each event will adapt to their event" (owner
-            // 2026-09-27): a real person's name and plus-one allowance, read only.
-            person: await loadPreviewPerson(admin, event.event_id),
-          })}
+          {...asSample}
+          identity={sampleIdentity}
+          /* 👤 ME, DRAWN FOR A SAMPLE GUEST (calm audit PR-E · PR-10) — the
+             guest page's own Me section and ticket, the ticket's picture the
+             host's own preview (the sample has no ticket session). */
+          meSection={
+            sampleCanvas && widgetShouldRender(widgetByType(widgets, 'qr_card')) ? (
+              <GuestMeSection
+                meSlot={
+                  <GuestTicket
+                    state={sampleTicketState(seeAs)}
+                    name={sampleName}
+                    invitationUrl={SIMULATED_GUEST_INVITATION_TEXT}
+                    src={sampleTicketSrc(event.event_id)}
+                  />
+                }
+                galleryCount={0}
+                asTab
+              />
+            ) : null
+          }
         />
-        {pageFooter}
+        {sampleCanvas ? null : pageFooter}
       </>
     );
   }

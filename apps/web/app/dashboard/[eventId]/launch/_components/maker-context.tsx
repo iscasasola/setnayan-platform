@@ -6,6 +6,7 @@ import type { DetailsItemKey } from '@/lib/maker-details-items';
 import type { HubElementKey } from '@/lib/element-style';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubFontKey } from '@/lib/hub-fonts';
+import type { SeeAs } from '@/lib/see-as';
 import type { ElementDraftAction, ElementPalette } from '../../website/editor/_components/element-sheet';
 
 /**
@@ -61,11 +62,15 @@ export type MakerState = {
   /** App-store shell: Pro-only controls are HIDDEN, not locked, and no price. */
   storeShell: boolean;
   /**
-   * VIEW AS (moved from the ⋯ sheet's old stage, owner 2026-09-25): the guest
-   * page as one role sees it, or null for the host's own editing preview. The
-   * canvas iframe loads this instead of `?editor=1` while it is set.
+   * 👁 SEE AS ▾ (PR-10, owner 2026-10-04 — it was "See it as…", a role's door):
+   * the canvas as a SAMPLE guest who hasn't replied, replied Yes, declined or is
+   * signed out (`SEE_AS`, lib/see-as.ts), or null for the couple's
+   * own editing canvas. A draw-time switch: the canvas address gains `?as=`,
+   * and nothing is written — not the draft, not a row.
    */
-  viewAsHref: string | null;
+  seeAs: SeeAs | null;
+  /** Pick a See as state — the Preview menu's rows and the desktop's dropdown above the preview. */
+  setSeeAs?: (next: SeeAs | null) => void;
   /** ＋ Add a scene, as the work area registered it — see `MakerAddScene` below. */
   addScene: MakerAddScene | null;
   setAddScene: (next: MakerAddScene | null) => void;

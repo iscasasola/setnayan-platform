@@ -59,6 +59,8 @@ import {
 } from '../app/[slug]/_lib/site-identity';
 import type { GuestRow } from '../app/[slug]/_lib/types';
 import type { LifecyclePhase } from './invitation-widgets';
+import { seeAsOf, type SeeAs } from './see-as';
+import { PASS_CARD_FORMAT_ID, passCardEligibility, type PassCardEligibility } from './pass-card';
 
 /** The query param the editor's RSVP'd tab appends. Deliberately NOT `phase` —
  *  see the module doc: `?phase=` has a closed four-value allow-list. */
@@ -104,6 +106,70 @@ export function shouldSimulateRepliedGuest(input: {
   if (lifecyclePhase !== SIMULATED_GUEST_PHASE) return false;
   if (typeof asParam !== 'string') return false;
   return asParam.toLowerCase() === SIMULATED_GUEST_PARAM_VALUE;
+}
+
+/**
+ * 👁 SEE AS ▾ — WHICH SAMPLE VIEWER THIS RENDER DRAWS (PR-10, owner 2026-10-04).
+ *
+ * The Maker's canvas (`?editor=1`, a verified host) may ask for any of the four
+ * See as states (`SEE_AS`, lib/see-as.ts) on any stage — a guest is
+ * a guest on every stage. Outside the canvas only the old `?as=replied` door is
+ * honoured, exactly as `shouldSimulateRepliedGuest` always decided it (the RSVP
+ * stage only), so that surface is not widened by a byte.
+ *
+ * THE GATE IS THE SAME ONE: no `OwnerCapability`, or one for another event,
+ * and the answer is null — a guest or a stranger who types `?as=declined`
+ * gets the ordinary page.
+ */
+export function resolveSampleViewer(input: {
+  ownerCapability: OwnerCapability | null;
+  asParam: string | string[] | undefined;
+  lifecyclePhase: LifecyclePhase;
+  eventId: string;
+  /** `isEditorCanvas` — the param AND a verified host (page.tsx). */
+  canvas: boolean;
+}): SeeAs | null {
+  const { ownerCapability, eventId } = input;
+  if (!ownerCapability || ownerCapability.ownerEventId !== eventId) return null;
+  if (input.canvas) {
+    const asked = seeAsOf(input.asParam);
+    if (asked) return asked;
+  }
+  return shouldSimulateRepliedGuest(input) ? 'replied' : null;
+}
+
+/** The reply each sample guest state has given. */
+const SAMPLE_REPLY: Readonly<Record<Exclude<SeeAs, 'signed-out'>, GuestRow['rsvp_status']>> = {
+  pending: 'pending',
+  replied: 'attending',
+  declined: 'declined',
+};
+
+/**
+ * 🎫 THE SAMPLE GUEST'S TICKET STATE — `passCardEligibility`, reused, never
+ * re-decided: a guest who hasn't replied and one who said Yes hold a ticket; one
+ * who declined holds the declined line. The token handed in is the sample's id —
+ * a placeholder that only says "a code exists"; it encodes nothing and is never
+ * drawn (the picture is `sampleTicketSrc`).
+ */
+export function sampleTicketState(seeAs: Exclude<SeeAs, 'signed-out'>): PassCardEligibility {
+  return passCardEligibility({
+    guest_id: SIMULATED_GUEST_ID,
+    event_id: SIMULATED_GUEST_ID,
+    rsvp_status: SAMPLE_REPLY[seeAs],
+    qr_token: SIMULATED_GUEST_ID,
+  });
+}
+
+/**
+ * The sample guest's ticket PICTURE — the host's own ticket preview from Prints
+ * (`/api/hub-print/pass`, `mode=screen`: a host-only, read-only GET that draws
+ * the ticket with placeholder codes). A guest's real ticket route
+ * (`/api/guest/pass-card`) answers only a guest's own session, and the sample
+ * guest has none.
+ */
+export function sampleTicketSrc(eventId: string): string {
+  return `/api/hub-print/pass?event=${encodeURIComponent(eventId)}&mode=screen&pass_format=${PASS_CARD_FORMAT_ID}`;
 }
 
 // ── The fabricated guest ────────────────────────────────────────────────────
@@ -263,10 +329,13 @@ export function buildSimulatedGuestIdentity(input: {
   slug: string;
   /** "Each editor of each event will adapt to their event" — see `PreviewPerson`. */
   person?: PreviewPerson | null;
+  /** 👁 See as ▾ — which reply the sample guest has given. Default: Replied Yes (`?as=replied`). */
+  seeAs?: Exclude<SeeAs, 'signed-out'>;
 }): GuestSiteIdentity {
   const who = previewNames(input.person);
+  const rsvpStatus = SAMPLE_REPLY[input.seeAs ?? 'replied'];
   return guestIdentity({
-    guest: { ...SIMULATED_GUEST_ROW, ...who.row, custom_tags: [] },
+    guest: { ...SIMULATED_GUEST_ROW, ...who.row, rsvp_status: rsvpStatus, custom_tags: [] },
     qrSvg: SIMULATED_GUEST_QR_SVG,
     // Null / false / empty across the board: every one of these is a real
     // per-guest lookup on the live path, and the preview performs none of them.
@@ -276,7 +345,7 @@ export function buildSimulatedGuestIdentity(input: {
     guestHubData: {
       firstName: who.row.first_name,
       displayName: who.row.display_name ?? SIMULATED_GUEST_DISPLAY_NAME,
-      rsvpStatus: 'attending',
+      rsvpStatus,
       tableLabel: SIMULATED_GUEST_TABLE_LABEL,
       mealPreference: null,
       dietaryRestrictions: null,

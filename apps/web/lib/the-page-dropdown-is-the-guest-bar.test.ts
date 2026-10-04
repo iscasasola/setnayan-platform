@@ -163,7 +163,8 @@ test('3 · a pick is instant: one message to the loaded canvas — no reload, re
 });
 
 test('3 · Me, and a page that leaves, say what they are instead of a pick that silently does nothing', () => {
-  assert.match(SHELL, /\{shownPage\?\.key === 'me' \? \(\s*<li[^>]*data-maker-page-me="">/);
+  // 👁 PR-10: with a See as guest picked, Me IS on the canvas — the note is for the editing canvas only.
+  assert.match(SHELL, /\{shownPage\?\.key === 'me' && !seeAsDrawsMe\(seeAs\) \? \(\s*<li[^>]*data-maker-page-me="">/);
   assert.match(SHELL, /\{shownPage\?\.leaves \? \(\s*<li[^>]*data-maker-tab-leaves="">/);
   assert.match(SHELL, /label=\{ME_NOT_ON_CANVAS\.label\}/);
   assert.match(ME_NOT_ON_CANVAS.body, /guest list/);

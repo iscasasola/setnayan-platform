@@ -24,7 +24,7 @@ import type { MakerDevice } from './maker-context';
  *     ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply (n)
  *
  * Every bar button is a 44 × 44 icon with its name. ⋯ is gone: its rows moved —
- * See it as · Phone / Desktop · Both · Scenes · Play this scene · Preview the
+ * See as · Phone / Desktop · Both · Scenes · Play this scene · Preview the
  * stage into 👁 Preview's menu; Add a scene · Reset this stage · Prints ·
  * Restore · the address · who can view · About the Maker into Page ▾
  * (`makerPageActions`). Held on the RENDER by `the-toolbar-is-the-maker-in-four.test.ts`.

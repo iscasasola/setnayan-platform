@@ -37,10 +37,17 @@ export function GuestTicket({
   state,
   name,
   invitationUrl,
+  src = PASS_CARD_ROUTE,
 }: {
   state: PassCardEligibility;
   name: string;
   invitationUrl: string;
+  /**
+   * 👁 SEE AS (PR-10): the Maker's sample guest has no session for the guest
+   * ticket route, so its picture is the host's own ticket preview
+   * (`sampleTicketSrc`, lib/simulated-guest-preview.ts). Every real guest: the default.
+   */
+  src?: string;
 }) {
   if (state === 'none') return null;
   if (state === 'cannotCome') {
@@ -60,7 +67,7 @@ export function GuestTicket({
       className="scroll-mt-6 text-center"
     >
       <TicketPicture
-        src={PASS_CARD_ROUTE}
+        src={src}
         alt={`${name}’s ${PASS_CARD_WORDS.digitalTicket}`}
         fallback={
           <div data-ticket-fallback="" className="mx-auto w-[min(300px,100%)]">
@@ -87,7 +94,7 @@ export function GuestTicket({
       <p className="mx-auto mt-3 max-w-prose text-sm text-ink/60">
         {pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}
       </p>
-      <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={PASS_CARD_ROUTE} />
+      <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} />
     </section>
   );
 }

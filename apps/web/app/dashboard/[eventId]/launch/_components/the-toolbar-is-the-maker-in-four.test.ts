@@ -194,7 +194,7 @@ test('📄 Page ▾ holds the rest: Add a scene + Reset at the end of the stage 
   const lastPage = Math.max(...all.map((o, i) => (o.key.startsWith('rsvp:') ? i : -1)));
   assert.deepEqual(keys.slice(lastPage + 1, lastPage + 3), [MAKER_PAGE_ACTIONS.addScene, MAKER_PAGE_ACTIONS.reset]);
   assert.equal(all[lastPage + 1]!.group, 'Invitation', 'Add a scene is not under the stage it adds to');
-  assert.equal(all[lastPage + 1]!.trail?.text, 'Pro', 'a tried Add a scene lost its Pro mark');
+  assert.equal(all[lastPage + 1]!.trail?.text, '◆ PRO', 'a tried Add a scene lost its ◆ PRO mark');
   // After Post Event, the "Your Event Hub" line.
   const hub = all.filter((o) => o.group === MAKER_PAGE_HUB_GROUP).map((o) => o.label);
   assert.deepEqual(hub, ['Prints', 'Restore what guests see', 'Your Event Hub address', 'Who can view', 'About the Maker']);

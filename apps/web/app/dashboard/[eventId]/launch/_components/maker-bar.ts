@@ -10,6 +10,7 @@ import {
   type DetailsItemKey,
 } from '@/lib/maker-details-items';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
+import { paidMarkLabel } from '@/lib/paid-mark';
 import type { MakerDevice } from './maker-context';
 
 /**
@@ -306,7 +307,8 @@ export function makerPageActions(
       key: MAKER_PAGE_ACTIONS.addScene,
       label: '＋ Add a scene',
       group,
-      ...(input.addScene.tried ? { trail: { text: 'Pro', tone: 'muted' as const, label: 'Event Hub Pro — asked for at Apply' } } : {}),
+      // ◆ PRO for a couple trying it — usable now, asked for at Apply (never a padlock).
+      ...(input.addScene.tried ? { trail: { text: '◆ PRO', tone: 'muted' as const, label: paidMarkLabel('try', 'Event Hub Pro') } } : {}),
     });
   } else if (input.addScene?.kind === 'refused') {
     stageRows.push({ key: MAKER_PAGE_ACTIONS.addScene, label: '＋ Add a scene', group, disabledNote: input.addScene.note });

@@ -96,7 +96,7 @@ test('🔊 on a SAVE, a group or style the build does not know is named — neve
   assert.deepEqual(dropped.sort(), ['not_a_group', 'officiants.style']);
   assert.deepEqual(Object.keys(out), ['bridesmaids'], 'reporting must not change what is kept');
   // And the dress-code save refuses, out loud, when anything was named.
-  const action = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/website/dress-code/actions.ts'), 'utf8');
+  const action = readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts'), 'utf8');
   assert.match(action, /sanitizeGroupAttire\(rawGroups, droppedGroups\);\s*if \(droppedGroups\.length > 0\) \{\s*redirect\(/);
 });
 

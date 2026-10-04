@@ -114,14 +114,21 @@ test('the invitation shows a role-holder THEIR line instead of the whole palette
 });
 
 test('the editor offers only the roles this wedding actually has', () => {
+  // The old /website/dress-code page is gone (2026-10-04, "THE DRESS CODE IS SET
+  // IN THE MOOD BOARD"); the Maker's Dress code scene reads the guest list and
+  // folds it through the ONE `foldEventRoles`.
   const page = readFileSync(
-    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'dress-code', 'page.tsx'),
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'editor', 'page.tsx'),
     'utf8',
   );
-  assert.match(page, /from\('guests'\)/, 'it reads the real guest list');
-  assert.match(page, /roleLabel\(role\) === null/, 'unpublished roles are not offered');
+  assert.match(page, /from\('guests'\)[\s\S]{0,400}?const dressCodeRoles = foldEventRoles\(/, 'it reads the real guest list');
+  const fields = readFileSync(
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'dress-code-fields.tsx'),
+    'utf8',
+  );
+  assert.match(fields, /roleLabel\(role as GuestRole\) === null/, 'unpublished roles are not offered');
   const field = readFileSync(
-    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'dress-code', '_components', 'role-attire-field.tsx'),
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', '_components', 'role-attire-field.tsx'),
     'utf8',
   );
   assert.match(field, /value=""[\s\S]{0,40}Not set/, '"Not set" is offered and is the default');
@@ -272,7 +279,7 @@ test('⛔ the editor submits a call time for EVERY role, so the zip cannot slip'
   (globalThis as unknown as { React: unknown }).React = React;
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { RoleAttireField } = await import(
-    '../app/dashboard/[eventId]/website/dress-code/_components/role-attire-field'
+    '../app/dashboard/[eventId]/studio/mood-board/_components/role-attire-field'
   );
 
   const html = renderToStaticMarkup(
@@ -300,7 +307,7 @@ test('⛔ the editor submits a call time for EVERY role, so the zip cannot slip'
   assert.match(html, /value="13:00"/, 'the set time is the one that comes back');
 
   const actions = readFileSync(
-    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'website', 'dress-code', 'actions.ts'),
+    join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'studio', 'mood-board', 'dress-code-actions.ts'),
     'utf8',
   );
   assert.match(actions, /getAll\('role_call_time'\)/, 'the action reads the fourth array');

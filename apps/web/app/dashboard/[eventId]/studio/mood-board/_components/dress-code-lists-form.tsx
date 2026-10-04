@@ -1,7 +1,7 @@
 import { ListField } from './list-field';
-import { updateDressCodeLists } from '../actions';
+import { updateDressCodeLists } from '../dress-code-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { HubDraftField } from '../../_components/hub-draft-field';
+import { HubDraftField } from '../../../website/_components/hub-draft-field';
 
 /**
  * ✅ THE DO'S AND DON'TS, ON THE MOOD BOARD (owner 2026-09-30: *"do's and

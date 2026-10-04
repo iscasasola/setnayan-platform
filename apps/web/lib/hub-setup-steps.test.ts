@@ -100,7 +100,7 @@ test('🔑 each setup step writes the field its Maker place already writes — n
     { step: 'love-story', files: [`${D}/website/our-story/actions.ts`], field: /love_story:\s*merged/ },
     // B4 → the Mood Board's dress code: the Maker's Mood Board reads it drafted, the dress-code writer stamps it.
     { step: 'wear', files: [`${D}/studio/mood-board/_components/mood-board-editor.tsx`], field: /draftedEventColumn\(eventId, 'dress_code_config'\)/ },
-    { step: 'wear', files: [`${D}/website/dress-code/actions.ts`], field: /dress_code_config:\s*config/ },
+    { step: 'wear', files: [`${D}/studio/mood-board/dress-code-actions.ts`], field: /dress_code_config:\s*config/ },
     // B5–6 → Details › RSVP: the questions (drafted) and the reply-by date.
     { step: 'ask', files: [`${D}/launch/_components/maker-rsvp-ask.tsx`], field: /rsvp_ask_config:\s*next/ },
     { step: 'ask', files: [`${D}/launch/_components/maker-rsvp-ask.tsx`], field: /'guest_list_edit_deadline'/ },

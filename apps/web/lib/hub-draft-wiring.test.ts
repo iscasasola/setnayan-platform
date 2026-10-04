@@ -74,9 +74,9 @@ const DRAFTABLE: Array<[file: string, name: string, divert: RegExp]> = [
   ['app/dashboard/[eventId]/website/what-to-bring/actions.ts', 'updateWhatToBring', /draftEventsAndReturn\(/],
   ['app/dashboard/[eventId]/website/our-story/actions.ts', 'updateOurStory', /draftEventsAndReturn\(/],
   ['app/dashboard/[eventId]/website/our-story/actions.ts', 'loveStoryMomentAction', /draftEventsAndReturn\(/],
-  ['app/dashboard/[eventId]/website/dress-code/actions.ts', 'updateDressCode', /draftEventsAndReturn\(/],
+  ['app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts', 'updateDressCode', /draftEventsAndReturn\(/],
   // The Mood Board's Do's & Don'ts (owner 2026-09-30) — the same column, the same door.
-  ['app/dashboard/[eventId]/website/dress-code/actions.ts', 'updateDressCodeLists', /draftEventsAndReturn\(/],
+  ['app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts', 'updateDressCodeLists', /draftEventsAndReturn\(/],
   ['app/dashboard/[eventId]/website/photo-moments/actions.ts', 'updatePhotoMoments', /saveHubDraftPatch\(/],
 ];
 

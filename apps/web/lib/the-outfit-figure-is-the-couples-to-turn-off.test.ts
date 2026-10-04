@@ -20,12 +20,13 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from './strip-comments';
 import type { RolePalette } from './mood-board';
+import { legacyRedirectTarget } from './legacy-redirects';
 
 (globalThis as unknown as { React: unknown }).React = React;
 {
@@ -85,7 +86,7 @@ test('🙈 show_figure: false hides the figure everywhere in the scene — and o
 
 test('🔘 the editor posts the switch either way, and a missing key reads as ON', async () => {
   const { DressCodeFields, normalizeDressCodeConfig } = await import(
-    '../app/dashboard/[eventId]/website/dress-code/_components/dress-code-fields'
+    '../app/dashboard/[eventId]/studio/mood-board/_components/dress-code-fields'
   );
   assert.equal(normalizeDressCodeConfig({}).show_figure, true, 'no key → on (today’s look)');
   assert.equal(normalizeDressCodeConfig({ show_figure: false }).show_figure, false);
@@ -110,7 +111,7 @@ test('🔘 the editor posts the switch either way, and a missing key reads as ON
   assert.doesNotMatch(box(off), /\schecked=""/, 'unticked → only “off” posts');
   assert.match(on, /Show the outfit figure/, 'the switch is named on the page');
 
-  const action = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/website/dress-code/actions.ts'), 'utf8'));
+  const action = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts'), 'utf8'));
   assert.match(
     action,
     /figureValues\.length === 0 \|\| figureValues\.includes\('on'\)/,
@@ -120,7 +121,7 @@ test('🔘 the editor posts the switch either way, and a missing key reads as ON
 
 test('🛟 a form that cannot list the roles still posts every saved outfit back', async () => {
   const { DressCodeFields, normalizeDressCodeConfig } = await import(
-    '../app/dashboard/[eventId]/website/dress-code/_components/dress-code-fields'
+    '../app/dashboard/[eventId]/studio/mood-board/_components/dress-code-fields'
   );
   const config = normalizeDressCodeConfig({
     roles: { principal_sponsor_ninong: { style: 'barong_tagalog', note: 'ecru', callTime: '14:30' } },
@@ -141,7 +142,7 @@ test('🛟 a form that cannot list the roles still posts every saved outfit back
 });
 
 test('👔 the Maker’s Dress code scene lists this guest list’s roles, so a host sets each outfit right there', async () => {
-  const { foldEventRoles } = await import('../app/dashboard/[eventId]/website/dress-code/_components/dress-code-fields');
+  const { foldEventRoles } = await import('../app/dashboard/[eventId]/studio/mood-board/_components/dress-code-fields');
   const roles = foldEventRoles([
     { role: 'principal_sponsor_ninang' },
     { role: 'principal_sponsor_ninang' },
@@ -177,21 +178,30 @@ test('🏷 a guest reads a colour’s name, never its hex code', async () => {
 });
 
 test('✍ the Do’s and Don’ts are one list, fixable in the Dress code scene and on the Mood Board', () => {
-  const list = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/website/dress-code/_components/list-field.tsx'), 'utf8'));
+  const list = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/mood-board/_components/list-field.tsx'), 'utf8'));
   assert.match(list, /key=\{r\.id\}/, 'a row is keyed by its own id, so removing one never drops another’s edit');
   assert.doesNotMatch(list, /key=\{i\}/);
 
-  const form = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/website/dress-code/_components/dress-code-lists-form.tsx'), 'utf8'));
+  const form = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/mood-board/_components/dress-code-lists-form.tsx'), 'utf8'));
   assert.match(form, /action=\{updateDressCodeLists\.bind\(null, eventId\)\}/, 'the Mood Board saves through the lists writer');
   assert.match(form, /name="dos"/);
   assert.match(form, /name="donts"/);
   assert.match(form, /inMaker \? \(\s*<HubDraftField \/>/, 'in the Maker it saves to the draft, beside the scene');
 
-  const action = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/website/dress-code/actions.ts'), 'utf8'));
+  const action = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts'), 'utf8'));
   assert.match(action, /return \{ \.\.\.base, dos, donts \}/, 'only the two lists are replaced; the rest of the dress code is kept');
   assert.match(action, /draftedEventColumn\(eventId, 'dress_code_config'\)/, 'a draft save builds on the drafted dress code');
 
   const board = stripComments(readFileSync(join(WEB, 'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx'), 'utf8'));
   assert.match(board, /<MoodPart part="palette">\{parts\.dressLists\}<\/MoodPart>/, 'the Maker’s Mood Board shows the lists');
   assert.match(board, /\{parts\.dressLists\}<\/div>/, 'and so does its own page');
+  // 👗 THE DRESS CODE IS SET IN THE MOOD BOARD (2026-10-01; replace means remove,
+  // 2026-10-04): the form and its writer live with the Mood Board, a live save
+  // lands back on it, and the old page is gone — its address forwards here.
+  assert.match(form, /import \{ updateDressCodeLists \} from '\.\.\/dress-code-actions';/, 'the lists form no longer saves through the Mood Board’s own writer');
+  assert.match(board, /import \{ DressCodeListsForm \} from '\.\/dress-code-lists-form';/, 'the Mood Board no longer mounts its own lists form');
+  assert.match(action, /const back = `\/dashboard\/\$\{eventId\}\/studio\/mood-board`;[\s\S]*?return landAfterWrite\(formData, `\$\{back\}\?saved=1`/, 'a live save no longer lands on the Mood Board');
+  assert.doesNotMatch(action, /website\/dress-code/, 'a save still names the removed dress-code page');
+  assert.ok(!existsSync(join(WEB, 'app/dashboard/[eventId]/website/dress-code')), 'the old dress-code page is back');
+  assert.equal(legacyRedirectTarget('/dashboard/E1/website/dress-code'), '/dashboard/E1/studio/mood-board', 'the old address does not forward to the Mood Board');
 });

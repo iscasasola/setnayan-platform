@@ -2,7 +2,7 @@
 # radius (rounded-lg|xl|2xl|3xl|card|tile). GENERATED — never hand-edit:
 #   node apps/web/scripts/lint-no-card.mjs --update-baseline
 # A RATCHET: a count may fall, never rise; a file not listed may hold none.
-# 720 files · 1998 lines
+# 719 files · 1994 lines
 4 apps/web/app/_components/account-switcher/account-switcher.tsx
 3 apps/web/app/_components/alaala/lens-body.tsx
 1 apps/web/app/_components/amendment-builder.tsx
@@ -406,7 +406,9 @@
 2 apps/web/app/dashboard/[eventId]/studio/indoor-blueprint/_components/blueprint-studio.tsx
 2 apps/web/app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx
 9 apps/web/app/dashboard/[eventId]/studio/live-studio-control/page.tsx
+1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/dress-code-fields.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx
+2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/group-attire-field.tsx
 4 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx
 5 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx
 3 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx
@@ -415,6 +417,7 @@
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/part-finalization-panel.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/render-pool-picker.tsx
+2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx
 2 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx
 3 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx
 1 apps/web/app/dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx
@@ -506,10 +509,6 @@
 8 apps/web/app/dashboard/[eventId]/vendors/packages/[bookingId]/page.tsx
 1 apps/web/app/dashboard/[eventId]/vendors/page.tsx
 1 apps/web/app/dashboard/[eventId]/website/_components/website-pro-lock.tsx
-1 apps/web/app/dashboard/[eventId]/website/dress-code/_components/dress-code-fields.tsx
-2 apps/web/app/dashboard/[eventId]/website/dress-code/_components/group-attire-field.tsx
-2 apps/web/app/dashboard/[eventId]/website/dress-code/_components/role-attire-field.tsx
-4 apps/web/app/dashboard/[eventId]/website/dress-code/page.tsx
 2 apps/web/app/dashboard/[eventId]/website/editor/_components/media-panels.tsx
 1 apps/web/app/dashboard/[eventId]/website/editor/_components/text-panel.tsx
 2 apps/web/app/dashboard/[eventId]/website/hero-photo/page.tsx

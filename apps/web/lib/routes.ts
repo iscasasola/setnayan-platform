@@ -395,7 +395,6 @@ export const routes = {
     },
     website: {
       index: (eventId: string) => `/dashboard/${eventId}/website`,
-      dressCode: (eventId: string) => `/dashboard/${eventId}/website/dress-code`,
       heroPhoto: (eventId: string) => `/dashboard/${eventId}/website/hero-photo`,
       ourPhotos: (eventId: string) => `/dashboard/${eventId}/website/our-photos`,
       photoMoments: (eventId: string) => `/dashboard/${eventId}/website/photo-moments`,

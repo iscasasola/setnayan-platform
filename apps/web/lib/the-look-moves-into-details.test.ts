@@ -298,7 +298,8 @@ test('(5) the Mood Board is ONE component — Details draws it, and its old page
   assert.match(launch, /<Suspense fallback=\{[^}]*Opening your Mood Board…[\s\S]{0,80}<MoodBoardMakerControls eventId=\{eventId\} \/>/, 'Details does not stream the board’s controls');
   const page = read(`${MB}/page.tsx`);
   assert.match(page, /if \(makerHasWork\(memberType, websiteOn\)\) redirect\(detailsItemHref\(eventId, 'mood-board'\)\);/);
-  assert.match(page, /return <MoodBoardEditor eventId=\{eventId\} \/>;/, 'everyone else keeps the page');
+  // Everyone else keeps the page: its return draws the board (beside the save notice, #6321).
+  assert.match(page, /return \(\s*<>[\s\S]{0,200}<MoodBoardEditor eventId=\{eventId\} \/>\s*<\/>\s*\);/, 'everyone else keeps the page');
   // The one rule, shared with the launch page's `hasWork`.
   assert.match(launch, /const hasWork = makerHasWork\(memberType, websiteOn\);/);
   assert.equal(makerHasWork('couple', true), true);

@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "f69bbb472e",
-  "routeCount": 424,
-  "destinations": 947,
-  "actions": 669,
-  "blocks": 5431,
+  "generatedFromRef": "6c8557f50",
+  "routeCount": 423,
+  "destinations": 945,
+  "actions": 668,
+  "blocks": 5427,
   "routes": {
     "/": {
       "files": [
@@ -5221,11 +5221,11 @@
         "/dashboard/[seg]/orders/[seg]",
         "/dashboard/[seg]/schedule",
         "/dashboard/[seg]/seating",
+        "/dashboard/[seg]/studio/mood-board",
         "/dashboard/[seg]/studio/papic",
         "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors?tab=shortlist",
         "/dashboard/[seg]/vendors?tab=shortlist&open=[seg]",
-        "/dashboard/[seg]/website/dress-code",
         "/dashboard/[seg]?sheet=next",
         "/dashboard/notifications",
         "/help",
@@ -7601,9 +7601,13 @@
     "/dashboard/[eventId]/studio/mood-board": {
       "files": [
         "dashboard/[eventId]/studio/mood-board/_components/concept-pdf-button.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/dress-code-fields.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/dress-code-lists-form.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/event-linked-badge.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/gallery-picker.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/group-attire-field.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/inspiration-board.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/list-field.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/majors-editor.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/make-it-real.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx",
@@ -7611,24 +7615,29 @@
         "dashboard/[eventId]/studio/mood-board/_components/mood-board-parts.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/moodboard-board.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-board-context.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/palette-field.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/palette-section.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/part-finalization-panel.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/printable-pdf-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/recolor-studio.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/render-pool-picker.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/role-attire-field.tsx",
+        "dashboard/[eventId]/studio/mood-board/_components/save-notice.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/share-with-vendors-button.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/template-gallery.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/theme-card.tsx",
         "dashboard/[eventId]/studio/mood-board/_components/theme-studio.tsx",
         "dashboard/[eventId]/studio/mood-board/actions.ts",
+        "dashboard/[eventId]/studio/mood-board/dress-code-actions.ts",
         "dashboard/[eventId]/studio/mood-board/finalization-actions.ts",
         "dashboard/[eventId]/studio/mood-board/loading.tsx",
         "dashboard/[eventId]/studio/mood-board/page.tsx",
         "dashboard/[eventId]/studio/mood-board/render-actions.ts"
       ],
       "destinations": [
-        "/dashboard/[seg]/seating/lab"
+        "/dashboard/[seg]/seating/lab",
+        "/dashboard/[seg]/studio/mood-board"
       ],
       "actions": [],
       "blocks": [
@@ -7637,6 +7646,7 @@
         "ApplySummary",
         "ApplyTemplateSummary",
         "BoardCardView",
+        "CarriedAttire",
         "Chip",
         "ChoiceButton",
         "ChoosePlanSheet",
@@ -7651,16 +7661,20 @@
         "FinalizationActionResult",
         "GalleryPage",
         "GalleryPicker",
+        "GroupAttireField",
         "HTMLCanvasElement",
         "HTMLDivElement",
         "HTMLImageElement",
+        "HubDraftField",
         "ImageData",
         "InfoTip",
         "InspirationBoard",
         "Link",
+        "ListField",
         "MajorsEditor",
         "MakeItReal",
         "MoodBoardEditor",
+        "MoodBoardSaveNotice",
         "MoodPart",
         "MoodPartNote",
         "MoodboardBoard",
@@ -7671,6 +7685,7 @@
         "PaletteBoardContext.Provider",
         "PaletteBoardProvider",
         "PaletteBoardValue",
+        "PaletteField",
         "PaletteGroup",
         "PaletteKey",
         "PaletteSection",
@@ -7686,6 +7701,7 @@
         "RenderGallery",
         "RenderPoolPage",
         "RenderPoolPicker",
+        "RoleAttireField",
         "RoleCard",
         "RoleFigure",
         "RolePalette",
@@ -7694,6 +7710,7 @@
         "ShareWithVendorsButton",
         "Slider",
         "SlotTile",
+        "SubmitButton",
         "SwapSource",
         "SwatchPopover",
         "TemplateGallery",
@@ -8857,41 +8874,6 @@
       "destinations": [],
       "actions": [],
       "blocks": []
-    },
-    "/dashboard/[eventId]/website/dress-code": {
-      "files": [
-        "dashboard/[eventId]/website/dress-code/_components/dress-code-fields.tsx",
-        "dashboard/[eventId]/website/dress-code/_components/dress-code-lists-form.tsx",
-        "dashboard/[eventId]/website/dress-code/_components/group-attire-field.tsx",
-        "dashboard/[eventId]/website/dress-code/_components/list-field.tsx",
-        "dashboard/[eventId]/website/dress-code/_components/palette-field.tsx",
-        "dashboard/[eventId]/website/dress-code/_components/role-attire-field.tsx",
-        "dashboard/[eventId]/website/dress-code/actions.ts",
-        "dashboard/[eventId]/website/dress-code/loading.tsx",
-        "dashboard/[eventId]/website/dress-code/page.tsx"
-      ],
-      "destinations": [
-        "/[seg]",
-        "/dashboard/[seg]/studio/mood-board",
-        "/dashboard/[seg]/website"
-      ],
-      "actions": [
-        "updateAction"
-      ],
-      "blocks": [
-        "CarriedAttire",
-        "DressCodeFields",
-        "DressCodePreview",
-        "GroupAttireField",
-        "HubDraftField",
-        "InfoTip",
-        "Link",
-        "ListField",
-        "PageMasthead",
-        "PaletteField",
-        "RoleAttireField",
-        "SubmitButton"
-      ]
     },
     "/dashboard/[eventId]/website/editor": {
       "files": [

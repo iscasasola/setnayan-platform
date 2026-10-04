@@ -13,6 +13,11 @@
  * fields are simple HTML inputs — anyone POSTing a longer-than-80-char title
  * or a 100-item dos[] would otherwise blow the JSONB column up. Limits match
  * the migration comment in 20260605030000_events_dress_code_config.sql.
+ *
+ * 👗 THE DRESS CODE IS SET IN THE MOOD BOARD (DECISION_LOG 2026-10-01; replace
+ * means remove, 2026-10-04): this file and its fields moved here from the old
+ * `/website/dress-code` page, which is gone — its address forwards to the Mood
+ * Board (`lib/legacy-redirects.ts`). A live save lands back on the Mood Board.
  */
 import { landAfterWrite } from '@/lib/maker-land.server';
 import { redirect } from 'next/navigation';
@@ -100,8 +105,8 @@ function readList(formData: FormData, name: string, maxItem: number, maxLen: num
  * members (couple / host moderators) can write — the server action runs
  * with the host's JWT, not the admin client.
  *
- * Errors redirect back to the editor with `?error=...`; success redirects
- * back with `?saved=1` so the page can show a polite confirmation chip.
+ * Errors redirect to the Mood Board with `?error=...`; success lands there
+ * with `?saved=1` (the Maker's Dress code scene drafts and lands in the Maker).
  */
 export async function updateDressCode(
   eventId: string,
@@ -184,7 +189,7 @@ export async function updateDressCode(
   const groups = sanitizeGroupAttire(rawGroups, droppedGroups);
   if (droppedGroups.length > 0) {
     redirect(
-      `/dashboard/${eventId}/website/dress-code?error=${encodeURIComponent(
+      `/dashboard/${eventId}/studio/mood-board?error=${encodeURIComponent(
         `Nothing was saved — this page is out of date (${droppedGroups.join(', ')}). Reload it and try again.`,
       )}`,
     );
@@ -199,7 +204,7 @@ export async function updateDressCode(
     if (!name && !hex) continue; // empty row — skip
     if (!HEX_PATTERN.test(hex)) {
       redirect(
-        `/dashboard/${eventId}/website/dress-code?error=${encodeURIComponent(`Palette swatch ${i + 1}: hex must look like #RRGGBB.`)}`,
+        `/dashboard/${eventId}/studio/mood-board?error=${encodeURIComponent(`Palette swatch ${i + 1}: hex must look like #RRGGBB.`)}`,
       );
     }
     palette.push({ name: name || hex.toUpperCase(), hex: hex.toUpperCase() });
@@ -243,7 +248,7 @@ export async function updateDressCode(
 
   if (error) {
     redirect(
-      `/dashboard/${eventId}/website/dress-code?error=${encodeURIComponent(error.message)}`,
+      `/dashboard/${eventId}/studio/mood-board?error=${encodeURIComponent(error.message)}`,
     );
   }
   // 🔑 A ZERO-ROW UPDATE IS NOT A SAVE. The live row is writable only by the
@@ -251,14 +256,14 @@ export async function updateDressCode(
   // raises nothing — and used to be told "Saved".
   if (!written || written.length === 0) {
     redirect(
-      `/dashboard/${eventId}/website/dress-code?error=${encodeURIComponent(NOT_SAVED)}`,
+      `/dashboard/${eventId}/studio/mood-board?error=${encodeURIComponent(NOT_SAVED)}`,
     );
   }
 
   // Revalidate the dashboard hub so its preview iframe + the public slug
   // page both reflect the new dress code on the next render.
   revalidatePath(`/dashboard/${eventId}/website`);
-  revalidatePath(`/dashboard/${eventId}/website/dress-code`);
+  revalidatePath(`/dashboard/${eventId}/studio/mood-board`);
 
   // Pull the slug so we can revalidate the public landing page too.
   const { data: event } = await supabase
@@ -270,7 +275,7 @@ export async function updateDressCode(
     revalidatePath(`/${event.slug}`);
   }
 
-  return landAfterWrite(formData, `/dashboard/${eventId}/website/dress-code?saved=1`, '?saved=1');
+  return landAfterWrite(formData, `/dashboard/${eventId}/studio/mood-board?saved=1`, '?saved=1');
 }
 
 /**
@@ -340,7 +345,6 @@ export async function updateDressCodeLists(eventId: string, formData: FormData):
   if (error) redirect(`${back}?error=${encodeURIComponent(error.message)}`);
   if (!written || written.length === 0) redirect(`${back}?error=${encodeURIComponent(NOT_SAVED)}`);
 
-  revalidatePath(`/dashboard/${eventId}/website/dress-code`);
   revalidatePath(back);
   if (row.slug) revalidatePath(`/${row.slug}`);
   return landAfterWrite(formData, `${back}?saved=1`, '?saved=1');

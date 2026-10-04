@@ -10,7 +10,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { HUB_FONT_BY_KEY, HUB_FONTS_MOST_USED } from './hub-fonts';
-import { countHubFontUse, countThemeFaceSlots, mostUsedHubFontKeys } from './hub-fonts-most-used';
+import {
+  MOST_USED_OWNER_TIE_ORDER,
+  countHubFontUse,
+  countThemeFaceSlots,
+  countThemesUsingFace,
+  mostUsedHubFontKeys,
+} from './hub-fonts-most-used';
 import { HUB_THEMES } from './invite-themes';
 
 test('⭐ the "Most used" shelf is exactly the five the themes use most', () => {
@@ -21,7 +27,7 @@ test('⭐ the "Most used" shelf is exactly the five the themes use most', () => 
     `HUB_FONTS_MOST_USED is stale — paste: ${JSON.stringify(counted)}\n` +
       countHubFontUse()
         .slice(0, 8)
-        .map((r) => `  ${r.family}: ${r.uses}`)
+        .map((r) => `  ${r.family}: ${r.uses} slots · ${r.themes} themes`)
         .join('\n'),
   );
   assert.equal(HUB_FONTS_MOST_USED.length, 5);
@@ -29,15 +35,68 @@ test('⭐ the "Most used" shelf is exactly the five the themes use most', () => 
   for (const k of HUB_FONTS_MOST_USED) assert.ok(HUB_FONT_BY_KEY[k], `${k} is an offered face`);
 });
 
-test('🔑 no tie decides who is in the five — fifth place beats sixth outright', () => {
-  // A tie at the cut would mean the ORDER of HUB_FONTS, not the count, chose a
-  // face — a taste call wearing a measurement's clothes. If a theme change
-  // creates one, this fails and a person decides.
+test('🔑 no LIST ORDER decides who is in the five — the counts or a person do', () => {
+  // A tie at the cut broken by the ORDER of HUB_FONTS would be a taste call
+  // wearing a measurement's clothes. Owner, 2026-10-04 ("Yes to both"): equal
+  // slot counts order by how many THEMES use the face; what both counts leave
+  // tied, the owner's named order (MOST_USED_OWNER_TIE_ORDER) decides. If a
+  // theme change creates a tie at the cut that neither settles, this fails and
+  // a person decides again.
   const ranked = countHubFontUse();
-  const fifth = ranked[4]?.uses ?? 0;
-  const sixth = ranked[5]?.uses ?? 0;
-  assert.ok(fifth > sixth, `5th (${ranked[4]?.family}: ${fifth}) is tied with 6th (${ranked[5]?.family}: ${sixth})`);
-  assert.ok(fifth > 0, 'the five are faces the themes actually use');
+  const fifth = ranked[4]!;
+  const sixth = ranked[5]!;
+  assert.ok(fifth.uses > 0, 'the five are faces the themes actually use');
+  const byCount = fifth.uses > sixth.uses || fifth.themes > sixth.themes;
+  const byOwner =
+    MOST_USED_OWNER_TIE_ORDER.includes(fifth.key) &&
+    (!MOST_USED_OWNER_TIE_ORDER.includes(sixth.key) ||
+      MOST_USED_OWNER_TIE_ORDER.indexOf(fifth.key) < MOST_USED_OWNER_TIE_ORDER.indexOf(sixth.key));
+  assert.ok(
+    byCount || byOwner,
+    `5th (${fifth.family}: ${fifth.uses} slots, ${fifth.themes} themes) and 6th (${sixth.family}: ${sixth.uses} slots, ` +
+      `${sixth.themes} themes) are separated only by HUB_FONTS order — a person must break this tie`,
+  );
+  // And the ranking really is uses → themes → owner order, pair by pair.
+  for (let i = 1; i < ranked.length; i++) {
+    const a = ranked[i - 1]!;
+    const b = ranked[i]!;
+    assert.ok(a.uses >= b.uses, `${a.family} before ${b.family}: more slots first`);
+    if (a.uses === b.uses) assert.ok(a.themes >= b.themes, `${a.family} before ${b.family}: tied slots → more themes first`);
+  }
+});
+
+test('🔑 the owner tie order names only offered faces, each once, and is reached by today\'s tie', () => {
+  assert.deepEqual([...MOST_USED_OWNER_TIE_ORDER], ['lora', 'baskerville', 'crimson'], 'owner 2026-10-04: Lora, Libre Baskerville, Crimson Pro first');
+  for (const k of MOST_USED_OWNER_TIE_ORDER) assert.ok(HUB_FONT_BY_KEY[k], `${k} is an offered face`);
+  // Today the counts leave Lora · Libre Baskerville · Crimson Pro · Jost · Quicksand ·
+  // Outfit tied (2 slots in 1 theme each) — so the owner's order is what decides.
+  const ranked = countHubFontUse();
+  const tied = ranked.filter((r) => r.uses === 2 && r.themes === 1).map((r) => r.key);
+  assert.deepEqual(tied.slice(0, 3), ['lora', 'baskerville', 'crimson'], 'among the tied, the owner\'s three lead');
+  assert.ok(tied.includes('jost') && tied.includes('quicksand') && tied.includes('outfit'), `the tie is as measured: ${tied.join(', ')}`);
+});
+
+test('🔑 theme count breaks a slot tie — a fixture, so the rule is proven, not today\'s data', () => {
+  // Jost fills two slots of ONE theme; Cardo one slot in each of TWO themes.
+  // Equal slots (2 = 2); Cardo is in more themes, so Cardo ranks first —
+  // although Jost sits earlier in HUB_FONTS.
+  const fixture = [
+    { fonts: { heading: 'Fraunces', body: 'Jost', labels: 'Jost', script: null } },
+    { fonts: { heading: 'Cardo', body: 'Fraunces', labels: 'Fraunces', script: null } },
+    { fonts: { heading: 'Cardo', body: 'Fraunces', labels: 'Fraunces', script: null } },
+  ];
+  const themesOf = countThemesUsingFace(fixture);
+  assert.equal(themesOf.get('Jost'), 1);
+  assert.equal(themesOf.get('Cardo'), 2);
+  assert.equal(themesOf.get('Fraunces'), 3, 'a theme counts once however many slots it fills');
+  assert.deepEqual(mostUsedHubFontKeys(3, fixture), ['fraunces', 'cardo', 'jost']);
+  // And a tie the counts leave goes to the owner's order, not the list's:
+  // Lora is listed AFTER Jost in HUB_FONTS, yet leads it here.
+  const tie = [
+    { fonts: { heading: 'EB Garamond', body: 'Jost', labels: 'Jost', script: null } },
+    { fonts: { heading: 'EB Garamond', body: 'Lora', labels: 'Lora', script: null } },
+  ];
+  assert.deepEqual(mostUsedHubFontKeys(2, tie), ['lora', 'jost']);
 });
 
 test('the count reads every theme slot — and only the four face slots', () => {

@@ -17,6 +17,11 @@
  * Also held: each of the ten files exists and IS a WOFF2; its family's licence
  * sits beside it; none of them is preloaded (a guest downloads a face only on a
  * page whose theme sets text in it).
+ *
+ * 2026-10-04 (owner "Yes to both"): the ten are no longer theme-only — each is
+ * a Look › Font choice too, and the last test holds that the dropdown's entry
+ * loads the SAME variable the theme wears, so "Lora" picked is the Lora a
+ * Rustic page already sets.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,6 +32,8 @@ import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { HUB_THEMES } from '@/lib/invite-themes';
 import * as faces from '@/lib/hub-theme-faces';
+import { HUB_FONTS, sanitizeHubFontKey } from '@/lib/hub-fonts';
+import { hubFontShelves } from '@/lib/hub-font-shelves';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TEN = [
@@ -209,5 +216,18 @@ test('📱 none of the ten is preloaded, and none rides layout.tsx', () => {
     assert.match(d.body, /\bpreload:\s*false\b/, `${family} (${v}) would download on every page`);
     assert.match(d.body, /display:\s*'swap'/, `${family} (${v}) would block text`);
     assert.ok(!layout.includes(`'${v}'`), `${v} is declared in layout.tsx`);
+  }
+});
+
+test('🔤 each of the ten is a Font ▾ choice that loads the very face the theme wears', () => {
+  for (const family of TEN) {
+    const offered = HUB_FONTS.filter((f) => f.family === family);
+    assert.equal(offered.length, 1, `${family} is offered exactly once in Look › Font`);
+    assert.equal(offered[0]!.cssVar, faces.themeFaceVar(family), `${family}: the dropdown and the theme load different faces`);
+    // …it is on the one font dropdown's list (`FontPick` draws `hubFontShelves`),
+    // and a saved key survives the sanitizer every reader runs.
+    const key = offered[0]!.key;
+    assert.equal(hubFontShelves().filter((r) => r.key === key).length, 1, `${family} is on the Font ▾ list once`);
+    assert.equal(sanitizeHubFontKey(key), key, `${key} survives sanitizeHubFontKey`);
   }
 });

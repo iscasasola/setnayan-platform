@@ -81,6 +81,18 @@ export const HUB_FONT_KEYS = [
   'outfit',
   'schibsted',
   'poppins',
+  // ── 2026-10-04 · the ten real theme faces (#6332), owner "Yes to both": every
+  //    face a theme wears is a face a couple can pick.
+  'lora',
+  'baskerville',
+  'crimson',
+  'josefin',
+  'kaushan',
+  'alexbrush',
+  'parisienne',
+  'cookie',
+  'delafield',
+  'monoton',
 ] as const;
 export type HubFontKey = (typeof HUB_FONT_KEYS)[number];
 
@@ -148,6 +160,20 @@ export const HUB_FONTS: readonly HubFont[] = [
   { key: 'outfit', label: 'Outfit', family: 'Outfit', note: 'Even, contemporary sans', group: 'Sans', cssVar: '--font-hub-outfit', fallback: SANS },
   { key: 'schibsted', label: 'Schibsted Grotesk', family: 'Schibsted Grotesk', note: 'Bold newsroom sans', group: 'Sans', cssVar: '--font-hub-schibsted', fallback: SANS },
   { key: 'poppins', label: 'Poppins', family: 'Poppins', note: 'Round geometric sans', group: 'Sans', cssVar: '--font-hub-poppins', fallback: SANS },
+
+  /* 2026-10-04 — the ten theme faces (`app/_fonts/choice-faces.ts`, from
+     google/fonts, never preloaded). `family` is exactly what `lib/invite-themes.ts`
+     names, so the theme's own faces read "In use" and the Most-used count sees them. */
+  { key: 'lora', label: 'Lora', family: 'Lora', note: 'Warm, bookish serif', group: 'Serif', cssVar: '--font-hub-lora', fallback: SERIF },
+  { key: 'baskerville', label: 'Libre Baskerville', family: 'Libre Baskerville', note: 'Classic, readable book serif', group: 'Serif', cssVar: '--font-hub-baskerville', fallback: SERIF },
+  { key: 'crimson', label: 'Crimson Pro', family: 'Crimson Pro', note: 'Graceful old-style serif', group: 'Serif', cssVar: '--font-hub-crimson', fallback: SERIF },
+  { key: 'josefin', label: 'Josefin Sans', family: 'Josefin Sans', note: 'Vintage geometric sans', group: 'Sans', cssVar: '--font-hub-josefin', fallback: SANS },
+  { key: 'kaushan', label: 'Kaushan Script', family: 'Kaushan Script', note: 'Casual brush script', group: 'Script', cssVar: '--font-hub-kaushan', fallback: 'cursive' },
+  { key: 'alexbrush', label: 'Alex Brush', family: 'Alex Brush', note: 'Flowing brush calligraphy', group: 'Script', cssVar: '--font-hub-alexbrush', fallback: 'cursive' },
+  { key: 'parisienne', label: 'Parisienne', family: 'Parisienne', note: 'Elegant French script', group: 'Script', cssVar: '--font-hub-parisienne', fallback: 'cursive' },
+  { key: 'cookie', label: 'Cookie', family: 'Cookie', note: 'Sweet, retro script', group: 'Script', cssVar: '--font-hub-cookie', fallback: 'cursive' },
+  { key: 'delafield', label: 'Mrs Saint Delafield', family: 'Mrs Saint Delafield', note: 'Antique signature hand', group: 'Script', cssVar: '--font-hub-delafield', fallback: 'cursive' },
+  { key: 'monoton', label: 'Monoton', family: 'Monoton', note: 'Neon-tube capitals', group: 'Display', cssVar: '--font-hub-monoton', fallback: SANS },
 ];
 
 /**
@@ -164,8 +190,13 @@ export const HUB_FONTS: readonly HubFont[] = [
  * constant (so the client bundle does not carry the theme registry) and
  * `hub-fonts-most-used.test.ts` fails the moment it and the count disagree —
  * change a theme's faces and that test prints the five to paste here.
+ *
+ * Ties (2026-10-04, owner "Yes to both"): equal slot counts order by how many
+ * themes use the face, then by the owner's named order (Lora, Libre
+ * Baskerville, Crimson Pro first) — `MOST_USED_OWNER_TIE_ORDER` in
+ * `lib/hub-fonts-most-used.ts`, which says why the second step is needed.
  */
-export const HUB_FONTS_MOST_USED: readonly HubFontKey[] = ['cormorant', 'cormorantsc', 'jost', 'quicksand', 'outfit'];
+export const HUB_FONTS_MOST_USED: readonly HubFontKey[] = ['cormorant', 'cormorantsc', 'lora', 'baskerville', 'crimson'];
 
 /*
  * The dropdown's order — Recently used · Most used · All fonts, each face once —
@@ -267,6 +298,17 @@ export const HUB_FONT_FACES: Readonly<Record<HubFontKey, { weights: readonly num
   outfit: { weights: [400, 500], italic: false },
   schibsted: { weights: [600], italic: false },
   poppins: { weights: [400, 500, 700], italic: false },
+  // A variable file covers every hundred in its range ('400 700', '100 700').
+  lora: { weights: [400, 500, 600, 700], italic: true },
+  baskerville: { weights: [400, 500, 600, 700], italic: true },
+  crimson: { weights: [400, 700], italic: true },
+  josefin: { weights: [100, 200, 300, 400, 500, 600, 700], italic: false },
+  kaushan: { weights: [400], italic: false },
+  alexbrush: { weights: [400], italic: false },
+  parisienne: { weights: [400], italic: false },
+  cookie: { weights: [400], italic: false },
+  delafield: { weights: [400], italic: false },
+  monoton: { weights: [400], italic: false },
 };
 
 /** The face's heaviest loaded weight from 600 to 700 — what B makes it — or null (no B). */

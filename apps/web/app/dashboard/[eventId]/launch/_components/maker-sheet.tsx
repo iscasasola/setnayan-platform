@@ -7,6 +7,7 @@ import {
   HALF_SHEET_REST,
   HALF_SHEET_SLIM,
   HALF_SHEET_UP,
+  SLIM_BAR_SEAT,
   elementSheetStep,
   isCanvasTapOutside,
   slimBarWords,
@@ -125,8 +126,8 @@ export function MakerHalfSheet({
   label: string;
   /** Its title — the Hub's own name for what is being edited. */
   title: string;
-  /** What is selected (a scene, a row, an element) — a new one switches the sheet to it. */
-  target: string;
+  /** What is selected (a scene, a row, an element) — a new one switches the sheet to it. Null: nothing is, and nothing is drawn. */
+  target: string | null;
   /** The section the sheet is on (a tab) — the slim bar says it ("Names · Motion ▴"). */
   section?: string | null;
   closeLabel?: string;
@@ -144,7 +145,7 @@ export function MakerHalfSheet({
   const [state, dispatch] = useReducer(
     (st: ElementSheetState<string>, ev: ElementSheetEvent<string>) => elementSheetStep(st, ev),
     ELEMENT_SHEET_CLOSED as ElementSheetState<string>,
-    (s: ElementSheetState<string>) => elementSheetStep(s, { t: 'set', target }),
+    (s: ElementSheetState<string>) => elementSheetStep<string>(s, { t: 'set', target }),
   );
   /* A new target (a tap on another element, a navigator pick) switches the sheet. */
   useEffect(() => {
@@ -195,9 +196,13 @@ export function MakerHalfSheet({
     onClose();
   };
 
+  /* 🚫 CLOSED IS NOT DRAWN (live dead end, 2026-10-04): a sheet with nothing
+     selected has no aside, no slim bar and no hit area — never an empty glass
+     panel lying over the Maker's bottom bar. */
+  if (!state.target) return null;
+
   const slim = state.collapsed;
   const size = slim ? 'slim' : state.raised ? 'up' : 'half';
-  const words = slimBarWords(title, section);
   return (
     <>
       <aside
@@ -290,33 +295,64 @@ export function MakerHalfSheet({
       ) : null}
       {/* ▁ THE SLIM BAR — "Names · Motion ▴": a tap brings the sheet back; × closes. */}
       {slim ? (
-        <div
-          data-phone-chrome="panel"
-          data-phone-chrome-name="the slim bar"
-          data-half-sheet-slim=""
-          className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 rounded-t-2xl border-t border-ink/10 px-3 pb-[env(safe-area-inset-bottom)] ${HALF_SHEET_SLIM} lg:hidden`}
-        >
-          <button
-            type="button"
-            data-half-sheet-restore=""
-            aria-label={`Open ${words} again`}
-            onClick={() => dispatch({ t: 'restore' })}
-            className="sn-press flex h-11 min-w-0 flex-1 items-center gap-1.5 truncate rounded-full px-2 text-left text-[13px] font-semibold text-ink/75"
-          >
-            <span className="truncate font-serif text-[17px] font-medium text-ink">{title}</span>
-            {section ? <span className="truncate">· {section}</span> : null}
-            <span aria-hidden className="shrink-0">▴</span>
-          </button>
-          <button
-            type="button"
-            onClick={close}
-            aria-label={closeLabel}
-            className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
-          >
-            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </button>
-        </div>
+        <HalfSheetSlimBar
+          title={title}
+          section={section}
+          closeLabel={closeLabel}
+          onRestore={() => dispatch({ t: 'restore' })}
+          onClose={close}
+        />
       ) : null}
     </>
+  );
+}
+
+/**
+ * ▁ THE HALF SHEET FOLDED — one 56 px row, "Names · Motion ▴" (a tap restores
+ * the sheet) and × (closes it). On a phone it rests ON TOP of the Maker's
+ * bottom bar (`SLIM_BAR_SEAT`), so Page ▾ · Look · Event Details stay in reach
+ * while a sheet is folded.
+ */
+export function HalfSheetSlimBar({
+  title,
+  section = null,
+  closeLabel = 'Close',
+  onRestore,
+  onClose,
+}: {
+  title: string;
+  section?: string | null;
+  closeLabel?: string;
+  onRestore: () => void;
+  onClose: () => void;
+}) {
+  const words = slimBarWords(title, section);
+  return (
+    <div
+      data-phone-chrome="panel"
+      data-phone-chrome-name="the slim bar"
+      data-half-sheet-slim=""
+      className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex items-center gap-2 rounded-t-2xl border-t border-ink/10 px-3 pb-[env(safe-area-inset-bottom)] ${HALF_SHEET_SLIM} ${SLIM_BAR_SEAT} lg:hidden`}
+    >
+      <button
+        type="button"
+        data-half-sheet-restore=""
+        aria-label={`Open ${words} again`}
+        onClick={onRestore}
+        className="sn-press flex h-11 min-w-0 flex-1 items-center gap-1.5 truncate rounded-full px-2 text-left text-[13px] font-semibold text-ink/75"
+      >
+        <span className="truncate font-serif text-[17px] font-medium text-ink">{title}</span>
+        {section ? <span className="truncate">· {section}</span> : null}
+        <span aria-hidden className="shrink-0">▴</span>
+      </button>
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label={closeLabel}
+        className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/60 hover:bg-ink/5"
+      >
+        <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+      </button>
+    </div>
   );
 }

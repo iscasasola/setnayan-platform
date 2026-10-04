@@ -117,6 +117,26 @@ export function makerOpenTool(openTool: string | null, detailsItem: string | nul
   return openTool === 'details' ? makerDoorOf(detailsItem) : openTool;
 }
 
+/**
+ * 🧱 THE PAGES THE SHELL DRAWS OVER THE WORK AREA — Event Details (Look · Event
+ * Details · Prints) and the RSVP stage (Page ▾ › RSVP · Reply), each a layer of
+ * `maker-shell.tsx` that covers the stage. Under one of them the work area
+ * (`editor-shell.tsx`) draws NOTHING of its own — no navigator, no scene sheet,
+ * no part sheet: a stage's sheet is `fixed` to the screen, so it is not covered
+ * by the layer and would lie over the bottom bar (live dead end, 2026-10-04: on
+ * the RSVP stage an empty "RSVP" scene sheet covered Page ▾ · Look · Event
+ * Details, and there was no way to another stage). A new layer in the shell
+ * joins this list — `lib/a-sheet-never-covers-the-bottom-bar.test.ts` reads
+ * the shell's layers and fails one that is missing.
+ */
+export const MAKER_SHELL_PAGES = ['details', 'rsvp-stage'] as const;
+export type MakerShellPage = (typeof MAKER_SHELL_PAGES)[number];
+
+/** Is this tool one the shell draws over the work area? */
+export function isMakerShellPage(key: string): key is MakerShellPage {
+  return (MAKER_SHELL_PAGES as readonly string[]).includes(key);
+}
+
 export const MAKER_TOUR_KEY: TourKey = 'customer_event_hub_maker_v1';
 
 /* The tour's SLIDES are built on the server — `maker-tour-slides.tsx`, never

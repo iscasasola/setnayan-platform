@@ -14,6 +14,7 @@ import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { scrollToClearSheet } from '@/lib/part-above-sheet';
 import { SheetGrip } from '../../../launch/_components/maker-sheet';
+import { SLIM_BAR_SEAT } from '@/lib/element-sheet-state';
 import {
   HUB_ELEMENT_LABEL,
   HUB_ELEMENT_RUN_KEYS,
@@ -377,7 +378,8 @@ export function ElementSheet({
         data-element-sheet-bar=""
         onClick={onRestore}
         aria-label={`Open ${HUB_ELEMENT_LABEL[target.el]} · ${tabs.find((t) => t.key === tab)?.label ?? 'Text'} again`}
-        className="sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex min-h-[52px] items-center justify-between gap-2 rounded-t-2xl px-4 pb-[env(safe-area-inset-bottom)] text-[14px] font-semibold text-ink lg:hidden"
+        /* ▁ On a phone it rests ON TOP of the Maker's bottom bar, never over it (`SLIM_BAR_SEAT`). */
+        className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex min-h-[52px] items-center justify-between gap-2 rounded-t-2xl px-4 pb-[env(safe-area-inset-bottom)] text-[14px] font-semibold text-ink ${SLIM_BAR_SEAT} lg:hidden`}
       >
         <span className="min-w-0 truncate">
           {HUB_ELEMENT_LABEL[target.el]} · {tabs.find((t) => t.key === tab)?.label ?? 'Text'}

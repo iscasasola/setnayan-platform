@@ -144,8 +144,21 @@ export function elementSheetStep<T extends Part | string>(s: ElementSheetState<T
 export const HALF_SHEET_REST = 'max-lg:h-[calc(45dvh-52px)]';
 /** Dragged up for more rows (`raised`): the page keeps a strip above it. */
 export const HALF_SHEET_UP = 'max-lg:h-[calc(85dvh-52px)]';
-/** The slim bar: one 56 px row (+ the phone's own bottom safe area). */
-export const HALF_SHEET_SLIM = 'max-lg:h-[calc(56px+env(safe-area-inset-bottom))]';
+/** The slim bar: one 56 px row (+ the phone's own bottom safe area where it is the screen's last row). */
+export const HALF_SHEET_SLIM = 'max-lg:h-[calc(56px+env(safe-area-inset-bottom))] max-md:h-14';
+
+/**
+ * ▁ WHERE EVERY SLIM BAR SITS — ON TOP OF THE MAKER'S BOTTOM BAR, NEVER OVER IT
+ * (live dead end, 2026-10-04: a sheet over the bottom bar left Page ▾ · Look ·
+ * Event Details unreachable). Below `md` the Maker has its bottom bar (Page ▾ ·
+ * Look · Event Details, `maker-shell.tsx`, `MAKER_PHONE_BOTTOM_BAR_PX` + the
+ * phone's safe area), so a folded sheet rests on it, and the safe area is the
+ * bottom bar's, not the slim bar's. From `md` up there is no bottom bar: it
+ * stays at the foot of the screen. Worn by the scene sheet's slim bar
+ * (`MakerHalfSheet`) and the part sheet's (`element-sheet.tsx`) alike —
+ * `lib/a-sheet-never-covers-the-bottom-bar.test.ts` holds it on their renders.
+ */
+export const SLIM_BAR_SEAT = 'max-md:bottom-[calc(52px+env(safe-area-inset-bottom))] max-md:pb-0';
 
 /** "Names · Motion ▴" — what the slim bar says. */
 export function slimBarWords(title: string, section: string | null): string {

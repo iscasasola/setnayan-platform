@@ -22,6 +22,7 @@ import {
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
+import { isMakerShellPage, type MakerShellPage } from '../../../launch/_components/maker-bar';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
 import { CanvasStaysOnThePage, MakerRefusesToBeFramed } from './maker-canvas-guard';
@@ -2909,9 +2910,9 @@ function warmStageOrder(stage: LifecyclePhase): LifecyclePhase[] {
     .sort((a, b) => Math.abs(order.indexOf(a) - at) - Math.abs(order.indexOf(b) - at) || order.indexOf(a) - order.indexOf(b));
 }
 
-/** Details is drawn by the shell over this area (RSVP moved into it, part 2b). */
-function isShellPage(key: string): key is 'details' {
-  return key === 'details';
+/** Event Details and the RSVP stage are drawn by the shell over this area (`MAKER_SHELL_PAGES`). */
+function isShellPage(key: string): key is MakerShellPage {
+  return isMakerShellPage(key);
 }
 
 

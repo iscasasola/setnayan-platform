@@ -150,7 +150,10 @@ export async function placeCeremonyBlock({
  * a trigger the first time an exact date changes) — never from a day the
  * caller names — so the same move asked twice finds it already there, and a
  * date sent back by a path that does not move the Schedule can never make a
- * real move be skipped. It checks the caller itself (the couple or a Schedule
+ * real move be skipped. A HAND edit of the Schedule (the Schedule page, the
+ * typed ceremony time) forgets that record, and the next exact date change
+ * seeds it again from the day it changed FROM — so a move is never measured
+ * from where the blocks no longer are. It checks the caller itself (the couple or a Schedule
  * edit delegate) and refuses anyone else. A failure means NOTHING moved.
  *
  * Answers, said as they are:

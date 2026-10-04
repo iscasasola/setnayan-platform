@@ -23,7 +23,7 @@
 --     Schedule — the SAME predicate as the table's two write policies
 --     (`current_couple_event_ids()`, `moderator_area_level(…, 'schedule')`);
 --     anyone else is refused (42501), never answered with a quiet zero;
---   · the event row is locked (FOR UPDATE), so two Applies run one after the
+--   · the event row is locked (FOR NO KEY UPDATE), so two Applies run one after the
 --     other, never side by side;
 --   · it moves only when the event's LIVE date already IS the new day, as one
 --     exact day — a stale or duplicate call after another move finds a
@@ -54,6 +54,14 @@
 --     measure from): the anchor is dropped, and the next exact change starts
 --     it again from its own previous day.
 --   · The move shifts by (new day − anchor) and sets the anchor to the new day.
+--   · A HAND EDIT of the Schedule (a block added, removed, or its time or day
+--     changed — the Schedule page, the typed ceremony time) FORGETS the anchor:
+--     the host has put the blocks where they want them, so the old record of
+--     where they stood is no longer true. The next exact date change seeds it
+--     again from the day it changed FROM — the day the host just arranged the
+--     Schedule against (train-g re-review: "the anchor goes stale when the host
+--     moves blocks by hand"). The move's OWN bulk shift fires that trigger too,
+--     so the move writes the anchor AFTER the shift, in the same transaction.
 -- So: A→B moves the day to B; the date sent back to A elsewhere leaves the
 -- Schedule on B; a later A→B finds it already on B ("aligned", nothing to
 -- move — and true); a later C→D moves it from B to D. A real move is never
@@ -117,6 +125,37 @@ CREATE TRIGGER events_schedule_anchor_follow_date
   AFTER UPDATE OF event_date, event_date_precision ON public.events
   FOR EACH ROW EXECUTE FUNCTION public.event_schedule_anchor_follow_date();
 
+-- ── 2b · A HAND EDIT OF THE SCHEDULE FORGETS THE ANCHOR ──────────────────────
+CREATE OR REPLACE FUNCTION public.event_schedule_anchor_forget_on_hand_edit()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_temp
+AS $$
+BEGIN
+  IF TG_OP = 'UPDATE'
+     AND NEW.start_at IS NOT DISTINCT FROM OLD.start_at
+     AND NEW.end_at   IS NOT DISTINCT FROM OLD.end_at
+     AND NEW.event_id IS NOT DISTINCT FROM OLD.event_id THEN
+    RETURN NULL;
+  END IF;
+  IF TG_OP IN ('UPDATE', 'DELETE') THEN
+    DELETE FROM public.event_schedule_day_anchor WHERE event_id = OLD.event_id;
+  END IF;
+  IF TG_OP IN ('INSERT', 'UPDATE') THEN
+    DELETE FROM public.event_schedule_day_anchor WHERE event_id = NEW.event_id;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.event_schedule_anchor_forget_on_hand_edit() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS event_schedule_blocks_forget_day_anchor ON public.event_schedule_blocks;
+CREATE TRIGGER event_schedule_blocks_forget_day_anchor
+  AFTER INSERT OR UPDATE OF start_at, end_at, event_id OR DELETE ON public.event_schedule_blocks
+  FOR EACH ROW EXECUTE FUNCTION public.event_schedule_anchor_forget_on_hand_edit();
+
 -- ── 3 · THE ONE WRITER ───────────────────────────────────────────────────────
 CREATE OR REPLACE FUNCTION public.move_event_schedule_with_date(
   p_event_id  UUID,
@@ -148,12 +187,13 @@ BEGIN
     RAISE EXCEPTION 'schedulemove:not_allowed' USING ERRCODE = '42501';
   END IF;
 
-  -- One Apply at a time per event.
+  -- One Apply at a time per event (FOR NO KEY UPDATE: a guest or any child
+  -- row inserted meanwhile is not blocked).
   SELECT e.event_date, e.event_date_precision
     INTO v_date, v_precision
     FROM public.events e
    WHERE e.event_id = p_event_id
-   FOR UPDATE;
+   FOR NO KEY UPDATE;  -- serialises Applies; does not block rows that reference the event
   IF NOT FOUND THEN
     RAISE EXCEPTION 'schedulemove:no_event' USING ERRCODE = 'P0002';
   END IF;
@@ -186,12 +226,16 @@ BEGIN
      AND (b.start_at IS NOT NULL OR b.end_at IS NOT NULL);
   GET DIAGNOSTICS v_moved = ROW_COUNT;
 
-  UPDATE public.event_schedule_day_anchor
-     SET anchor_day   = p_to_day,
-         moved_blocks = v_moved,
-         moved_at     = now(),
-         moved_by     = v_uid
-   WHERE event_id = p_event_id;
+  -- AFTER the shift: the shift's own rows fired the hand-edit trigger below,
+  -- which forgot the anchor — so it is written again, here, in the same
+  -- transaction, as the day the Schedule now stands on.
+  INSERT INTO public.event_schedule_day_anchor (event_id, anchor_day, moved_blocks, moved_at, moved_by)
+  VALUES (p_event_id, p_to_day, v_moved, now(), v_uid)
+  ON CONFLICT (event_id) DO UPDATE
+     SET anchor_day   = EXCLUDED.anchor_day,
+         moved_blocks = EXCLUDED.moved_blocks,
+         moved_at     = EXCLUDED.moved_at,
+         moved_by     = EXCLUDED.moved_by;
 
   RETURN jsonb_build_object('status', 'moved', 'moved', v_moved, 'days', v_days);
 END;
@@ -221,7 +265,8 @@ BEGIN
   IF has_function_privilege('anon', 'public.move_event_schedule_with_date(uuid, date)', 'EXECUTE') THEN
     RAISE EXCEPTION 'move_event_schedule_with_date is callable by anon';
   END IF;
-  IF has_function_privilege('authenticated', 'public.event_schedule_anchor_follow_date()', 'EXECUTE') THEN
+  IF has_function_privilege('authenticated', 'public.event_schedule_anchor_follow_date()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.event_schedule_anchor_forget_on_hand_edit()', 'EXECUTE') THEN
     RAISE EXCEPTION 'the anchor trigger function is callable by a browser role';
   END IF;
 END $$;

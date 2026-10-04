@@ -28,11 +28,14 @@ The independent audit's follow-ups on train g (#6348).
   measured from the day the Schedule STANDS ON — `event_schedule_day_anchor`,
   seeded by a trigger on `events` the first time an exact date changes, kept
   through date changes made elsewhere (which do not move the Schedule), dropped
-  when a month/year breaks the chain — never from a caller-chosen day. So a
+  when a month/year breaks the chain, and FORGOTTEN by any hand edit of a block
+  (a trigger on `event_schedule_blocks`; the move writes it back after its own
+  shift) — never from a caller-chosen day or a stale record. The event row is
+  locked `FOR NO KEY UPDATE`, so guest/child inserts are not blocked. So a
   second Apply finds it `aligned`; a date sent back elsewhere can never make a
   real move be skipped or doubled; and a move that did not happen (`stale`,
   `no-anchor`) is never reported as ok. Held by
-  `tests/db/venues-and-ceremony-time-wait-for-apply.db.test.ts` 9–13.
+  `tests/db/venues-and-ceremony-time-wait-for-apply.db.test.ts` 9–15.
 - **Honest held label.** `reentry:refused` logged `held: 'other-event'` whenever
   the phone held any pass; one `passHeldKind` answer now says `this-event` for a
   pass of this event (another guest), shared with the landing.

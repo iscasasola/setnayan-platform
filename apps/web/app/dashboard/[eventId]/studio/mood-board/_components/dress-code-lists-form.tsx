@@ -2,6 +2,7 @@ import { ListField } from './list-field';
 import { updateDressCodeLists } from '../dress-code-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { HubDraftField } from '../../../website/_components/hub-draft-field';
+import { IncDressCodeStarterNote } from './inc-dress-code-starter-note';
 
 /**
  * ✅ THE DO'S AND DON'TS, ON THE MOOD BOARD (owner 2026-09-30: *"do's and
@@ -21,11 +22,14 @@ export function DressCodeListsForm({
   dos,
   donts,
   inMaker,
+  incStarter = false,
 }: {
   eventId: string;
   dos: string[];
   donts: string[];
   inMaker: boolean;
+  /** The lists hold the INC starter guidance, not a saved answer (`incDressCodeStarter`). */
+  incStarter?: boolean;
 }) {
   return (
     <section id="dos-and-donts" className="scroll-mt-24 space-y-4" data-mood-board-dress-lists="">
@@ -36,6 +40,7 @@ export function DressCodeListsForm({
           either place.
         </p>
       </header>
+      {incStarter ? <IncDressCodeStarterNote /> : null}
       <form action={updateDressCodeLists.bind(null, eventId)} className="space-y-4">
         {inMaker ? (
           <HubDraftField />

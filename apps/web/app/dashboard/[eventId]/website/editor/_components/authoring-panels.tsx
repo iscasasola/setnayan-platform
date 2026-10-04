@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { DressCodeFields } from '../../../studio/mood-board/_components/dress-code-fields';
+import { IncDressCodeStarterNote } from '../../../studio/mood-board/_components/inc-dress-code-starter-note';
 import type { LoveStoryBlob } from '../../our-story/_components/story-fields';
 import { LoveStoryChaptersPanel } from '../../our-story/_components/love-story-chapters-panel';
 import { WordsReturnTo } from '../../our-story/_components/words-return-to';
@@ -32,11 +33,14 @@ export function DressCodePanel({
   config,
   eventNoun,
   eventRoles = [],
+  incStarter = false,
 }: {
   action: (formData: FormData) => void | Promise<void>;
   eventId: string;
   config: DressCodeConfig;
   eventNoun: string;
+  /** `config` holds the INC starter guidance, not a saved answer (`incDressCodeStarter`). */
+  incStarter?: boolean;
   /** The roles on this event's guest list — so each role's outfit is set right here. */
   eventRoles?: React.ComponentProps<typeof DressCodeFields>['eventRoles'];
 }) {
@@ -48,6 +52,11 @@ export function DressCodePanel({
         name="return_to"
         value={`/dashboard/${eventId}/website/editor?open=dress-code`}
       />
+      {incStarter ? (
+        <div className="mb-3">
+          <IncDressCodeStarterNote />
+        </div>
+      ) : null}
       <DressCodeFields config={config} eventNoun={eventNoun} eventRoles={eventRoles} compact />
       <SubmitButton
         pendingLabel="Saving…"

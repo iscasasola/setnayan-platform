@@ -93,6 +93,7 @@ import { formatPhp } from '@/lib/orders';
 import { draftedEventColumn } from '@/lib/hub-draft-store';
 import { normalizeDressCodeConfig } from './dress-code-fields';
 import { DressCodeListsForm } from './dress-code-lists-form';
+import { incDressCodeStarter } from './inc-dress-code-starter';
 
 /**
  * THE MOOD BOARD — the whole studio, as ONE component, drawn in two places
@@ -352,13 +353,18 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   /* ✅ THE DO'S AND DON'TS (owner 2026-09-30). In the Maker they are read
      through the couple's draft — the same place the Dress code scene saves —
      so the two show one list. A refused draft read is said, never guessed. */
-  let dressLists: { dos: string[]; donts: string[] } | null = null;
+  let dressLists: { dos: string[]; donts: string[]; incStarter: boolean } | null = null;
   try {
     const drafted = inMaker ? await draftedEventColumn(eventId, 'dress_code_config') : { drafted: false as const };
-    const cfg = normalizeDressCodeConfig(
-      drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config,
+    /* 👗 An INC event's EMPTY dress code starts from the modest guidance
+       (owner 2026-10-04) — form defaults only; nothing is written until Save. */
+    const { config: cfg, started } = incDressCodeStarter(
+      event,
+      normalizeDressCodeConfig(
+        drafted.drafted ? drafted.value : (event as { dress_code_config?: unknown }).dress_code_config,
+      ),
     );
-    dressLists = { dos: cfg.dos, donts: cfg.donts };
+    dressLists = { dos: cfg.dos, donts: cfg.donts, incStarter: started };
   } catch (err) {
     console.error(`[moodBoard] dress-code draft unreadable for event_id=${eventId}:`, err);
   }
@@ -1040,7 +1046,13 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     </header>
   );
   const dressListsPart = dressLists ? (
-    <DressCodeListsForm eventId={eventId} dos={dressLists.dos} donts={dressLists.donts} inMaker={inMaker} />
+    <DressCodeListsForm
+      eventId={eventId}
+      dos={dressLists.dos}
+      donts={dressLists.donts}
+      inMaker={inMaker}
+      incStarter={dressLists.incStarter}
+    />
   ) : (
     <p role="alert" className="text-sm text-terracotta-700" data-mood-board-unread="">
       Your do&rsquo;s and don&rsquo;ts could not be loaded just now. Nothing was changed — please reopen this in a

@@ -263,7 +263,12 @@ test('6 · exactly one theme picker in the Maker — one module writes the theme
   const mounts = (re: RegExp) => files.filter((f) => re.test(readFileSync(f, 'utf8'))).map((f) => f.slice(APP.length + 1));
   const DETAILS = 'dashboard/[eventId]/launch/_components/maker-details.tsx';
   assert.deepEqual(mounts(/<MakerThemeGallery\b/), [DETAILS]);
-  assert.deepEqual(mounts(/<MakerThemeMenu\b/), [DETAILS]);
+  // …and the dropdown face has ONE second door, by owner ruling: Event Details'
+  // Theme row opens THE SAME menu in place (2026-10-04 "YES TO ALL": rows are
+  // edited in place; `every-fact-has-one-editor.test.ts`). Still one writer (above).
+  const RECORD = 'dashboard/[eventId]/details/_components/record-editor.tsx';
+  assert.deepEqual(mounts(/<MakerThemeMenu\b/), [RECORD, DETAILS]);
+  assert.equal([...read(RECORD).matchAll(/<MakerThemeMenu\b/g)].length, 1);
   assert.equal([...read(DETAILS).matchAll(/<MakerThemeGallery\b/g)].length, 1);
   assert.equal([...read(DETAILS).matchAll(/<MakerThemeMenu\b/g)].length, 1);
   // The old side-panel rail is gone, not merely unmounted.

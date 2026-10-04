@@ -172,37 +172,10 @@ export function yourEventParts({
     ),
   };
 
-  const namesEditor = input.oneName ? (
-    <OneNameEditor eventId={eventId} initial={input.oneName.initial} hint={input.oneName.hint} />
-  ) : input.names ? (
-    input.names.wholeForm ?? (
-      <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} />
-    )
-  ) : null;
   const editors: Partial<Record<EventItemKey, ReactNode>> = {
-    /* 🔤 Name style ▾ sits under the Names, in place (owner 2026-09-30). */
-    names: namesEditor ? (
-      <div className="flex flex-col gap-3">
-        {namesEditor}
-        <NameStylePicker eventId={eventId} saved={input.nameStyle ?? DEFAULT_NAME_STYLE} />
-      </div>
-    ) : null,
-    date: (
-      <DateEditor
-        eventId={eventId}
-        governed={{
-          confirmedVendorCount: input.date.confirmedVendorCount,
-          dateDisplay: input.date.dateDisplay,
-          dateValue: input.date.dateValue,
-          label: input.date.label,
-        }}
-        matrix={input.date.matrix}
-        nudge={input.date.nudge}
-        helpFirst={input.date.helpFirst}
-        ceremonyTime={input.date.ceremonyTime ?? null}
-      />
-    ),
-    venues: venuesEditorFor(eventId, input),
+    /* ✍ Names · Date · Venues — the ONE builder (`yourEventFactEditors`), which
+       Event Details' rows open too (owner 2026-10-04, rows edited in place). */
+    ...yourEventFactEditors({ eventId, input }),
     parents: (
       <PeopleControls
         parents={people}
@@ -231,6 +204,53 @@ export function yourEventParts({
     ...(facts.marchLines > 0 ? { march: <MarchPieces sections={input.march.sections} /> } : {}),
   };
   return { keys, rows, bodies, editors, pieces };
+}
+
+/**
+ * ✍ THE EDITORS OF NAMES · DATE · VENUES — built ONCE, here, for Details AND for
+ * the Event Details page's rows (owner 2026-10-04, "YES TO ALL": rows are edited
+ * in place with the SAME field the Maker opens; study § 2 "one editor, three
+ * doors"). A row and the Maker can never hold two different forms for one fact.
+ */
+export function yourEventFactEditors({
+  eventId,
+  input,
+}: {
+  eventId: string;
+  input: Pick<YourEventInput, 'names' | 'oneName' | 'nameStyle' | 'date' | 'venues'>;
+}): { names: ReactNode; date: ReactNode; venues: ReactNode } {
+  const namesEditor = input.oneName ? (
+    <OneNameEditor eventId={eventId} initial={input.oneName.initial} hint={input.oneName.hint} />
+  ) : input.names ? (
+    input.names.wholeForm ?? (
+      <NamesEditor eventId={eventId} people={input.names.people} initial={input.names.initial} />
+    )
+  ) : null;
+  return {
+    /* 🔤 Name style ▾ sits under the Names, in place (owner 2026-09-30). */
+    names: namesEditor ? (
+      <div className="flex flex-col gap-3">
+        {namesEditor}
+        <NameStylePicker eventId={eventId} saved={input.nameStyle ?? DEFAULT_NAME_STYLE} />
+      </div>
+    ) : null,
+    date: (
+      <DateEditor
+        eventId={eventId}
+        governed={{
+          confirmedVendorCount: input.date.confirmedVendorCount,
+          dateDisplay: input.date.dateDisplay,
+          dateValue: input.date.dateValue,
+          label: input.date.label,
+        }}
+        matrix={input.date.matrix}
+        nudge={input.date.nudge}
+        helpFirst={input.date.helpFirst}
+        ceremonyTime={input.date.ceremonyTime ?? null}
+      />
+    ),
+    venues: venuesEditorFor(eventId, input),
+  };
 }
 
 /** The venues as the Event Hub resolves them — what a guest reads. */

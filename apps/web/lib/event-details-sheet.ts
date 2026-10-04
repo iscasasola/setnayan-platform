@@ -1,5 +1,10 @@
 /**
- * EVENT DETAILS — the one information-only sheet on Event Home (the pure half).
+ * EVENT DETAILS — the one record on Event Home (the pure half).
+ *
+ * ⚖ 2026-10-04 (DECISION_LOG "YES TO ALL"): the rows are now EDITED IN PLACE —
+ * each opens the field the Maker opens (`lib/event-details-record.ts`); money
+ * and supplier rows stay read-only with their quiet link. That supersedes the
+ * 2026-10-01 "information only" line below for every other row.
  *
  * ⚖ Owner 2026-10-01 (DECISION_LOG "EVENT DETAILS LIVES ON EVENT HOME" →
  * "EVENT DETAILS IS INFORMATION ONLY"): *"purchases, budget, dates, etc · no
@@ -30,24 +35,28 @@ export const COULD_NOT_LOAD = 'Could not load this right now — refresh to try 
 export const HIDDEN_BY_THE_COUPLE = 'Hidden by the couple';
 
 /**
- * The sheet's sections, in the order the page draws them (the approved
- * design's thirteen). `key` is what the page marks each section with.
+ * The record's sections, in the order the page draws them, each inside one of
+ * the four groups (`RECORD_GROUPS`, `lib/event-details-record.ts` — owner
+ * 2026-10-04, "FOUR FIXES BEFORE BUILD" (2): How it looks · How it works · Your
+ * event · Guests & money). `key` is what the page marks each section with;
+ * `group` is the fold it sits in. Put this away stays last, outside the folds.
  */
 export const EVENT_DETAILS_SECTIONS = [
-  { key: 'basics', title: 'The basics' },
-  { key: 'key-dates', title: 'Key dates' },
-  { key: 'venues', title: 'Venues' },
-  { key: 'guests', title: 'Guests' },
-  { key: 'budget', title: 'Budget' },
-  { key: 'suppliers', title: 'Your suppliers' },
-  { key: 'access', title: 'People with access' },
-  { key: 'services', title: 'Services' },
-  { key: 'purchases', title: 'Purchases' },
-  { key: 'look', title: 'Your Event Hub look' },
-  { key: 'love-story', title: 'Love Story' },
-  { key: 'wears', title: 'What everyone wears' },
-  { key: 'rsvp', title: 'RSVP' },
-  { key: 'put-away', title: 'Put this away' },
+  { key: 'look', title: 'Your Event Hub look', group: 'looks' },
+  { key: 'rsvp', title: 'RSVP', group: 'works' },
+  { key: 'hub', title: 'Your Event Hub', group: 'works' },
+  { key: 'basics', title: 'The basics', group: 'event' },
+  { key: 'key-dates', title: 'Key dates', group: 'event' },
+  { key: 'venues', title: 'Venues', group: 'event' },
+  { key: 'love-story', title: 'Love Story & message', group: 'event' },
+  { key: 'wears', title: 'What everyone wears', group: 'event' },
+  { key: 'guests', title: 'Guests', group: 'guests-money' },
+  { key: 'budget', title: 'Budget', group: 'guests-money' },
+  { key: 'suppliers', title: 'Your suppliers', group: 'guests-money' },
+  { key: 'access', title: 'People with access', group: 'guests-money' },
+  { key: 'services', title: 'Services', group: 'guests-money' },
+  { key: 'purchases', title: 'Purchases', group: 'guests-money' },
+  { key: 'put-away', title: 'Put this away', group: null },
 ] as const;
 export type EventDetailsSectionKey = (typeof EVENT_DETAILS_SECTIONS)[number]['key'];
 
@@ -67,7 +76,7 @@ export const EVENT_DETAILS_MAP: ReadonlyArray<{ asked: string; question: string;
   { asked: 'A3', question: 'When is it?', fact: 'date', section: 'key-dates' },
   { asked: 'A4', question: 'Where will it be?', fact: 'area', section: 'basics' },
   { asked: 'A4b', question: 'We already have our venue', fact: 'venues', section: 'venues' },
-  { asked: 'A5', question: 'How do guests get in?', fact: 'guests-get-in', section: 'guests' },
+  { asked: 'A5', question: 'How do guests get in?', fact: 'guests-get-in', section: 'rsvp' },
   { asked: 'A6', question: 'About how many guests?', fact: 'estimate', section: 'guests' },
   { asked: 'A7', question: 'About how much is your budget?', fact: 'budget-target', section: 'budget' },
   { asked: 'A-Hub', question: 'Cover photo', fact: 'cover', section: 'look' },
@@ -82,7 +91,7 @@ export const EVENT_DETAILS_MAP: ReadonlyArray<{ asked: string; question: string;
   { asked: 'B3', question: 'Love Story', fact: 'love-story', section: 'love-story' },
   { asked: 'B4', question: 'What everyone wears', fact: 'wears', section: 'wears' },
   { asked: 'B5–6', question: 'What to ask guests', fact: 'rsvp-questions', section: 'rsvp' },
-  { asked: 'B5–6', question: 'Reply-by', fact: 'reply-by', section: 'key-dates' },
+  { asked: 'B5–6', question: 'Reply-by', fact: 'reply-by', section: 'rsvp' },
   { asked: 'B7', question: 'Guest names', fact: 'listed', section: 'guests' },
 ];
 

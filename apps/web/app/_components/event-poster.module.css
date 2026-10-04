@@ -378,6 +378,10 @@
   margin-bottom: 3cqw;
 }
 .circ {
+  /* The paper is a fixed-height flex column: when its words run tall (a
+     theme's own body face, a long name), flex would shrink this to an oval
+     and crop the logo. A circle never shrinks. */
+  flex-shrink: 0;
   width: 21cqw;
   aspect-ratio: 1;
   border: 1px solid rgba(169, 131, 75, 0.45);

@@ -231,3 +231,18 @@ test('the Save-the-Date background reaches the poster: read by both callers, han
   const maker = readFileSync(join(web, 'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx'), 'utf8');
   assert.match(maker, /const EVENT_SELECT =\s*'[^']*\bstd_background\b/, 'the Maker’s poster preview stopped reading the background');
 });
+
+// ⭕ THE CIRCLE NEVER SQUASHES (owner, 2026-10-04: "something might be wrong
+// with the logo" — the dashboard card drew the logo's circle as a 51×17 oval and
+// cropped the mark). The paper is a fixed-height flex column, so without
+// `flex-shrink: 0` a tall run of words (a theme's own body face) shrank the
+// circle's height while its width held. Pin the property, not the phrasing.
+test('the poster circle never shrinks into an oval', () => {
+  const css = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), '..', 'app', '_components', 'event-poster.module.css'),
+    'utf8',
+  );
+  const block = /\n\.circ\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.match(block, /aspect-ratio:\s*1/, 'the circle lost its 1:1 shape');
+  assert.match(block, /flex-shrink:\s*0/, 'the circle can shrink — a tall paper squashes it into an oval');
+});

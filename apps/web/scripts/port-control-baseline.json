@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5aa554c020",
+  "generatedFromRef": "88809933be",
   "routeCount": 425,
   "destinations": 946,
   "actions": 669,
-  "blocks": 5486,
+  "blocks": 5487,
   "routes": {
     "/": {
       "files": [
@@ -777,6 +777,7 @@
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/background-music.tsx",
         "[slug]/_components/buttons-preview.ts",
+        "[slug]/_components/canvas-bring-up.ts",
         "[slug]/_components/copy-my-link.tsx",
         "[slug]/_components/countdown-styles.tsx",
         "[slug]/_components/countdown.tsx",
@@ -1608,6 +1609,7 @@
         "InviteQrPanel",
         "LandingPreReply",
         "Link",
+        "LinkPreviewAnswer",
         "PassHopHeld",
         "RsvpCanvasBridge",
         "SavePassCardButton",

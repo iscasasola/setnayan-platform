@@ -123,6 +123,14 @@ const EXCLUDED: Record<string, string> = {
   'Space Mono': 'a monospaced UI face (the app chrome) — reads as code, not wedding text',
   Cormorant:
     'the base cut of Cormorant Garamond, already offered as "Cormorant"; a second line with the same name and near-identical letters would be two names for one look',
+  /*
+    ✅ THE TEN THEME FACES (2026-10-04) are no longer excluded: owner "Yes to
+    both" — Lora · Libre Baskerville · Crimson Pro · Josefin Sans · Kaushan
+    Script · Alex Brush · Parisienne · Cookie · Mrs Saint Delafield · Monoton are
+    in HUB_FONTS, the site_font_key CHECK accepts them (migration 20271263752844),
+    and the Most-used tie they create is ordered by theme count, then the
+    owner's named order (`hub-fonts-most-used.test.ts`).
+  */
 };
 
 async function shippedFamilies(): Promise<Map<string, string>> {

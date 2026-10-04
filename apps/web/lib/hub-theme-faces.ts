@@ -31,13 +31,13 @@
  * when text is set in it, i.e. only on a page wearing the theme that names it.
  * So this wiring adds no font declaration, no JavaScript and no preload.
  *
- * ── STAND-INS (an owner question, not a decision) ───────────────────────────
- * Ten of the spec's body/labels/script families are not in the repo
- * (`app/_fonts/`). Each is worn through the CLOSEST face we ship, named in
- * `THEME_FACE_STAND_INS` with its reason, until the owner says whether the real
- * OFL files may be added from google/fonts. Swapping one in later is one line
- * here plus a declaration in `choice-faces.ts`; `lib/invite-themes.test.ts`
- * re-derives every block from this table, so the CSS follows.
+ * ── NO STAND-INS (2026-10-04) ───────────────────────────────────────────────
+ * Until this date ten of the spec's families were worn through the closest
+ * face we shipped. The owner then asked for the real ones (*"Can you add them
+ * for me?"*), and every family below is now its own face, from google/fonts
+ * (`scripts/build-theme-faces.py`, declared in `app/_fonts/choice-faces.ts`).
+ * A family missing from this table THROWS — there is no "closest face" path
+ * left to fall back through. `lib/theme-faces-are-real.test.ts` holds it.
  *
  * Pure data. No I/O.
  */
@@ -54,31 +54,22 @@ export const THEME_FACE_VAR: Readonly<Record<string, string>> = {
   'Pinyon Script': '--font-hub-pinyon',
   'Great Vibes': '--font-script',
   'Mr De Haviland': '--font-hub-haviland',
+  // ── 2026-10-04 · the ten that used to be stand-ins, now the real faces.
+  Lora: '--font-hub-lora',
+  'Libre Baskerville': '--font-hub-baskerville',
+  'Crimson Pro': '--font-hub-crimson',
+  'Josefin Sans': '--font-hub-josefin',
+  'Kaushan Script': '--font-hub-kaushan',
+  'Alex Brush': '--font-hub-alexbrush',
+  Parisienne: '--font-hub-parisienne',
+  Cookie: '--font-hub-cookie',
+  'Mrs Saint Delafield': '--font-hub-delafield',
+  Monoton: '--font-hub-monoton',
 };
 
-/**
- * A spec family the repo does NOT ship → the shipped face worn in its place, and why.
- * 🔑 Every entry is an open owner question (flagged in the PR): add the real file?
- */
-export const THEME_FACE_STAND_INS: Readonly<Record<string, { face: string; why: string }>> = {
-  Lora: { face: 'Cardo', why: 'a sturdy old-style book serif for running text, like Lora' },
-  'Libre Baskerville': { face: 'Cardo', why: 'a transitional book serif made for body text, like Libre Baskerville' },
-  'Crimson Pro': { face: 'Cardo', why: 'a Garalde book serif, like Crimson Pro' },
-  'Josefin Sans': { face: 'Jost', why: 'a geometric, vintage-modern sans, like Josefin Sans' },
-  'Kaushan Script': { face: 'Great Vibes', why: 'the brush-script role; no casual brush face ships' },
-  'Alex Brush': { face: 'Great Vibes', why: 'same designer (Rob Leuschke) and the same formal brush script' },
-  Parisienne: { face: 'Great Vibes', why: 'same designer (Rob Leuschke), the same flowing script' },
-  Cookie: { face: 'Great Vibes', why: 'the script role; no rounded brush face ships' },
-  'Mrs Saint Delafield': { face: 'Mr De Haviland', why: 'same foundry (Sudtipos), the same formal signature hand' },
-  Monoton: { face: 'Poiret One', why: 'a thin-line deco display, the closest to a neon tube that ships' },
-};
-
-/** The CSS variable a spec family is worn through (its own, or its stand-in's). */
+/** The CSS variable a spec family is worn through — its own face, never another's. */
 export function themeFaceVar(family: string): string {
   const own = THEME_FACE_VAR[family];
-  if (own) return own;
-  const stand = THEME_FACE_STAND_INS[family];
-  const via = stand ? THEME_FACE_VAR[stand.face] : undefined;
-  if (!via) throw new Error(`No loaded face for "${family}" — add it to THEME_FACE_VAR or THEME_FACE_STAND_INS`);
-  return via;
+  if (!own) throw new Error(`No loaded face for "${family}" — add its file (scripts/build-theme-faces.py) and its row to THEME_FACE_VAR`);
+  return own;
 }

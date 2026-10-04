@@ -61,7 +61,38 @@ export const LOGO_FONT_OUTLINE: Readonly<Record<HubFontKey, string>> = {
   outfit: `${OWN}outfit.ttf`,
   schibsted: `${OWN}schibsted.ttf`,
   poppins: `${OWN}poppins.ttf`,
+  // 2026-10-04 · the ten theme faces. Eight reserve their name, so their files
+  // are the stage WOFF2 decompressed and nothing else — never cut, never
+  // instanced (`scripts/make-logo-outline-fonts.py`, THEME_FACES).
+  lora: `${OWN}lora.ttf`,
+  baskerville: `${OWN}baskerville.ttf`,
+  crimson: `${OWN}crimson.ttf`,
+  josefin: `${OWN}josefin.ttf`,
+  kaushan: `${OWN}kaushan.ttf`,
+  alexbrush: `${OWN}alexbrush.ttf`,
+  parisienne: `${OWN}parisienne.ttf`,
+  cookie: `${OWN}cookie.ttf`,
+  delafield: `${OWN}delafield.ttf`,
+  monoton: `${OWN}monoton.ttf`,
 };
+
+/**
+ * A variable outline file whose DEFAULT instance is not the weight the stage
+ * draws → the weight to pin at draw time. Josefin Sans defaults to 100 (a
+ * hairline); the stage sets it at 400. Its name is reserved, so the file may not
+ * be instanced to 400 (OFL §3) — opentype.js pins it instead (`pinLogoFaceWeight`).
+ * Lora and Libre Baskerville already default to 400. 🔒 `lib/logo-fonts.test.ts`
+ * fails when a variable outline file would draw at any other weight.
+ */
+export const LOGO_FONT_VARIATION: Readonly<Partial<Record<HubFontKey, Readonly<Record<string, number>>>>> = {
+  josefin: { wght: 400 },
+};
+
+/** Pin a variable outline face to the weight the stage draws (a no-op for every other face). */
+export function pinLogoFaceWeight(face: OtFace, key: HubFontKey): void {
+  const v = LOGO_FONT_VARIATION[key];
+  if (v) face.variation?.set({ ...v });
+}
 
 /**
  * The italic outlines we hold. Only Cardo's — the face every logo made before
@@ -102,6 +133,8 @@ export type OtFace = {
   getPath: (text: string, x: number, y: number, size: number) => OtPath;
   charToGlyph: (ch: string) => OtGlyph;
   getKerningValue: (a: OtGlyph, b: OtGlyph) => number;
+  /** opentype.js 2's variable-font manager — present on every parsed face. */
+  variation?: { set: (coords: Record<string, number>) => void };
 };
 
 /** The words' outlines, pen at (x, y) on the baseline, `size` units per em. */

@@ -138,3 +138,62 @@ test('📱 folded: a slim bar "Names · Motion ▴" and the sheet kept (hidden o
   const openHtml = await sheet({ section: 'animate' });
   assert.doesNotMatch(openHtml, /data-element-sheet-bar/);
 });
+
+/* ── ▁ THE HALF SHEET'S MOVES (PR-0, 2026-10-04) — the scene sheet runs this same
+   reducer with a string target (`MakerHalfSheet`, launch/_components/maker-sheet.tsx):
+   drag up → raised; down → half; down again → the bar; a grip tap is half ⇄ up;
+   Peek held → slid away, let go → back; another target → switch, same section. */
+
+const at = (target: string) => elementSheetStep(ELEMENT_SHEET_CLOSED as ElementSheetState<string>, { t: 'set', target });
+
+test('▁ a scene sheet opens at HALF on its target — not raised, not peeking, not folded', () => {
+  const s = at('scene:names');
+  assert.deepEqual(s, { target: 'scene:names', collapsed: false, section: 'text' });
+});
+
+test('▲ the handle: up → raised; down → half again; down from half → the bar; the bar restores to where it was', () => {
+  const half = at('scene:names');
+  const up = elementSheetStep(half, { t: 'dragUp' });
+  assert.equal(up.raised, true, 'a drag up does not give more rows');
+  assert.equal(elementSheetStep(up, { t: 'dragUp' }), up, 'a second drag up changed something');
+  const back = elementSheetStep(up, { t: 'dragDown' });
+  assert.deepEqual(back, half, 'a drag down from up does not drop back to half');
+  const bar = elementSheetStep(back, { t: 'dragDown' });
+  assert.equal(bar.collapsed, true, 'a drag down from half does not fold to the bar');
+  assert.deepEqual(elementSheetStep(bar, { t: 'restore' }), half);
+  // A sheet folded while raised comes back raised.
+  const upBar = elementSheetStep(up, { t: 'tapOutside' });
+  assert.equal(upBar.collapsed, true);
+  assert.equal(elementSheetStep(upBar, { t: 'restore' }).raised, true, 'a raised sheet did not come back raised');
+  // A tap on the handle (or a key) is half ⇄ up, and restores the bar.
+  assert.equal(elementSheetStep(half, { t: 'gripTap' }).raised, true);
+  assert.deepEqual(elementSheetStep(up, { t: 'gripTap' }), half);
+  assert.equal(elementSheetStep(bar, { t: 'gripTap' }).collapsed, false);
+});
+
+test('👁 Peek: held → slid away; let go → back exactly; never on the bar or with no sheet', () => {
+  const half = at('scene:names');
+  const held = elementSheetStep(half, { t: 'peekStart' });
+  assert.equal(held.peeking, true);
+  assert.deepEqual(elementSheetStep(held, { t: 'peekEnd' }), half, 'letting go of Peek did not put the sheet back');
+  const up = elementSheetStep(half, { t: 'dragUp' });
+  assert.deepEqual(elementSheetStep(elementSheetStep(up, { t: 'peekStart' }), { t: 'peekEnd' }), up, 'Peek on a raised sheet did not return it raised');
+  const bar = elementSheetStep(half, { t: 'tapOutside' });
+  assert.equal(elementSheetStep(bar, { t: 'peekStart' }).peeking, undefined, 'Peek on the slim bar');
+  assert.equal(elementSheetStep(ELEMENT_SHEET_CLOSED as ElementSheetState<string>, { t: 'peekStart' }).peeking, undefined);
+  // Folding, switching or closing lets go.
+  assert.equal(elementSheetStep(held, { t: 'tapOutside' }).peeking, undefined);
+  assert.equal(elementSheetStep(held, { t: 'set', target: 'scene:date' }).peeking, undefined);
+  assert.deepEqual(elementSheetStep(held, { t: 'close' }), ELEMENT_SHEET_CLOSED);
+});
+
+test('🔁 a scene sheet: another target switches it (same section, same size); the same target changes nothing; × closes', () => {
+  const s = { ...at('scene:names'), section: 'animate' as const };
+  const up = elementSheetStep(s, { t: 'dragUp' });
+  const other = elementSheetStep(up, { t: 'set', target: 'scene:date' });
+  assert.deepEqual([other.target, other.section, other.raised], ['scene:date', 'animate', true]);
+  assert.equal(elementSheetStep(up, { t: 'set', target: 'scene:names' }), up, 'the same target changed the sheet');
+  const bar = elementSheetStep(s, { t: 'tapOutside' });
+  assert.equal(elementSheetStep(bar, { t: 'set', target: 'scene:date' }).collapsed, false, 'another target did not bring the sheet back');
+  assert.deepEqual(elementSheetStep(up, { t: 'close' }), ELEMENT_SHEET_CLOSED);
+});

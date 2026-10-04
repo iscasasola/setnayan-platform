@@ -39,36 +39,51 @@ export const MAKER_PHONE_PANEL_CAP = 'max-lg:max-h-[calc(45dvh-52px)]';
 export const MAKER_PHONE_GUIDED_PANEL_CAP = 'max-lg:max-h-[calc(45dvh-104px)]';
 
 /*
- * 📏 THE PHONE'S TWO BARS, EXACTLY AS APPROVED — frame G ("Phone — the preview
- * is the screen") of `prototypes/maker_in_four_2026-09-30_fable.html` (owner
- * 2026-10-02: "no" to bars that differ from the approved design):
+ * 📏 THE PHONE'S TWO BARS — frame G ("Phone — the preview is the screen") of
+ * `prototypes/maker_in_four_2026-09-30_fable.html`, as rearranged by the owner on
+ * 2026-10-04 (PR-0 of the Maker rearrangement): fix 5 of "FOUR FIXES BEFORE
+ * BUILD" put Undo beside Apply; then *"that can be a preview icon?"* (⋯ → 👁)
+ * and *"apply icon · undo icon · exit icon"*:
  *
  *   TOP     ‹ Exit · the stage you are on ("Invitation · as a guest sees it")
- *           · Undo ↶ · ⋯
- *   BOTTOM  Page ▾ (the page: "Welcome ▾") · Look · Details · Apply (n) —
- *           "the same four as the desktop, where a thumb can reach".
+ *           · ↶ Undo · 👁 Preview · ✓ Apply (n) — every button a 44 × 44 icon
+ *           with its name (`MAKER_BAR_ICON`); Apply's first tap opens the Apply
+ *           sheet, and only its labelled Apply publishes.
+ *   BOTTOM  Page ▾ (the page: "Welcome ▾") · Look · Event Details.
  *
- * Phone/Desktop is not offered on a phone ("you are already on one"). One row
- * each at 375 px: each item declares its phone width (`w-[…]`, or `min-w-[…]`
- * for the one that takes what is left); `lib/the-maker-keeps-the-page-on-a-phone.test.ts`
- * adds each row up and fails a row over 375, or a word its button cannot hold.
+ * Apply sits up top beside Undo: one place per control, and in reach while a
+ * half sheet (`MakerHalfSheet`, lib/element-sheet-state.ts) covers the bottom of the screen.
+ *
+ * One row each at 375 px: each item declares its phone width (`w-[…]`, or
+ * `min-w-[…]` for the one that takes what is left); `lib/the-maker-keeps-the-page-on-a-phone.test.ts`
+ * adds each row up and fails a row over 375, a word its button cannot hold, or
+ * a bar button under 44 px or without a name.
  * (Details wears its current name, "Event Details" — tracker d15.)
  */
 export const MAKER_BAR_PHONE = {
   /* top */
-  exit: 'max-md:w-[68px]',
+  exit: 'max-md:w-11',
   stage: 'max-md:min-w-[120px]',
   undoTop: 'max-md:w-11',
-  more: 'max-md:w-11',
-  /** The bar's own Page ▾ and Apply — on a phone they are the bottom bar's. */
+  preview: 'max-md:w-11',
+  applyTop: 'max-md:w-11',
+  /** The bar's own Page ▾ — on a phone it is the bottom bar's. */
   pageTop: 'max-md:hidden',
-  applyTop: 'max-md:hidden',
   /* bottom */
   page: 'max-md:min-w-[100px]',
   look: 'max-md:w-[48px]',
   details: 'max-md:w-[118px]',
-  apply: 'max-md:w-[60px]',
 } as const;
+
+/**
+ * 🔘 A BAR BUTTON: a 44 × 44 icon, on every width (owner 2026-10-04, *"apply
+ * icon · undo icon · exit icon"*). Its name is its `aria-label` (and `title`).
+ */
+export const MAKER_BAR_ICON =
+  'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink aria-expanded:bg-ink/[0.09] disabled:cursor-not-allowed disabled:text-ink/35 disabled:hover:bg-transparent';
+/** ✓ Apply: the one filled button — a wine circle (`bg-mulberry`, the house primary). */
+export const MAKER_BAR_APPLY =
+  'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream transition-colors duration-sn-control ease-sn hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:bg-ink/10 disabled:text-ink/40 disabled:hover:bg-ink/10';
 /** The phone's bottom bar: one 52 px row (+ the bottom safe area, which is the phone's, not the page's). */
 export const MAKER_PHONE_BOTTOM_BAR_PX = 52;
 /** A word on a phone bar: 13 px, 8 px each side. */

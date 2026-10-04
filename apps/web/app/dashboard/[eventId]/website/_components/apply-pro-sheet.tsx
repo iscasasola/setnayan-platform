@@ -5,6 +5,7 @@ import { useRef, type ReactNode } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { ArrowUpRight, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { formatCount } from '@/lib/format-number';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/lib/hub-pro-effect-view';
 
@@ -31,6 +32,11 @@ import { hubProEffectLine, unlockAndApplyHref, type HubProEffectView } from '@/l
  * 📵 Never in the app-store shell: the bar passes no effects there, and no
  * price or link reaches it (App Review 3.1.1).
  *
+ * ✓ EVERY APPLY OPENS IT FIRST (owner 2026-10-04, *"apply icon"* — the bar's
+ * Apply is now a small ✓ circle, so a mis-tap must never publish): with no Pro
+ * effect it is "Ready to apply", saying how many changes are waiting, and its
+ * ONE labelled Apply is the only press that puts them live.
+ *
  * No server imports — its actions come in as props, so a test can mount it.
  */
 export function ApplyProSheet({
@@ -43,11 +49,18 @@ export function ApplyProSheet({
   onApplyFree,
   onClose,
   tour = null,
+  changeCount = 0,
+  heldOnWeb = 0,
 }: {
   effects: readonly HubProEffectView[];
+  /** How many changes guests do not see yet (`HubDraftSummary.changeCount`). */
+  changeCount?: number;
+  /** 📵 The store shell: how many of them can be applied on the web only. */
+  heldOnWeb?: number;
   /** `formatPhp` over the live catalogue row, or null — then no figure is shown. */
   priceLabel: string | null;
-  proHref: string;
+  /** The one Event Hub Pro page — null in the store shell (then no effects are passed either). */
+  proHref: string | null;
   pending: boolean;
   onGo: (effect: HubProEffectView) => void;
   onRemove: (effect: HubProEffectView) => void;
@@ -103,7 +116,15 @@ export function ApplyProSheet({
 
         {none ? null : tour}
         {none ? (
-          <p className="px-4 py-3 text-sm text-ink/70">Nothing in your draft needs Event Hub Pro now.</p>
+          <div className="px-4 py-3 text-sm text-ink/70" data-apply-ready="">
+            <p>
+              {changeCount === 1 ? '1 change' : `${formatCount(changeCount)} changes`} guests do not see yet. Apply puts{' '}
+              {changeCount === 1 ? 'it' : 'them'} on your Event Hub.
+            </p>
+            {heldOnWeb > 0 ? (
+              <p className="mt-1">{heldOnWeb === 1 ? 'One change' : `${formatCount(heldOnWeb)} changes`} can be applied on the web.</p>
+            ) : null}
+          </div>
         ) : (
           <ul className="mt-2 flex-1 overflow-y-auto px-2" data-apply-pro-effects="">
             {effects.map((e) => (
@@ -152,6 +173,7 @@ export function ApplyProSheet({
               {/* Owner 2026-09-28, verbatim: "Unlock Pro and Apply". The one
                   purchase page, asked to come back and finish the Apply
                   (`unlockAndApplyOnReturn`); the price is the catalogue's. */}
+              {proHref ? (
               <Link
                 href={unlockAndApplyHref(proHref)}
                 data-apply-pro-unlock=""
@@ -159,6 +181,7 @@ export function ApplyProSheet({
               >
                 Unlock Pro and Apply{priceLabel ? ` · ${priceLabel}` : ''}
               </Link>
+              ) : null}
               <button
                 type="button"
                 disabled={pending}

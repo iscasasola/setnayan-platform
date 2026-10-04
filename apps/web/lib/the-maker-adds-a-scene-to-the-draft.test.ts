@@ -55,6 +55,7 @@ const WIDGETS = 'app/dashboard/[eventId]/website/widgets/actions.ts';
 const C = 'app/dashboard/[eventId]/website/editor/_components/';
 const PAGE = 'app/dashboard/[eventId]/website/editor/page.tsx';
 const SHELL = 'app/dashboard/[eventId]/launch/_components/maker-shell.tsx';
+const BAR = 'app/dashboard/[eventId]/launch/_components/maker-bar.ts';
 
 /** The text of one function, up to the next top-level function. */
 function fn(src: string, name: string): string {
@@ -200,12 +201,15 @@ test('P · 💎 a free couple gets the sheet on the web (Apply asks for Pro); th
   assert.match(reg, /'action' in addScene\s*\?\s*\{ kind: 'ready', open: \(\) => setAddOpen\(true\), tried: addScene\.tried === true \}\s*:\s*\{ kind: 'refused', note: addScene\.note \}/);
   // …and the shell draws no padlock and no link to the buy page on either door
   // (owner 2026-09-28: "they can Add. only pay when apply is tirggered").
-  // ✂ THE MAKER IN 4 (2026-10-02): ＋ Add a scene is ONE row of the toolbar's ⋯, on every width.
-  const shell = read(SHELL);
-  const row = shell.slice(shell.indexOf("{stageAdd?.kind === 'ready' ? ("), shell.indexOf('Play this scene'));
-  assert.ok(row.length > 100, 'the ⋯ row for Add a scene was not found — the scan is blind');
-  assert.doesNotMatch(row, /state="locked"|See Event Hub Pro|unlockHref/, 'the ⋯ row still wears a Pro padlock');
-  assert.match(row, /state="try"/, 'the ⋯ row does not wear ◆ PRO for a couple trying it');
+  // ✂ THE MAKER IN 4 (2026-10-02): ＋ Add a scene was ONE row of the toolbar's ⋯;
+  // since 2026-10-04 (⋯ → 👁 Preview) it is ONE row of Page ▾, at the end of the
+  // stage on screen (`makerPageActions`), on every width.
+  const bar = read(BAR);
+  const row = bar.slice(bar.indexOf("if (input.addScene?.kind === 'ready') {"), bar.indexOf('if (input.hasWork) stageRows.push'));
+  assert.ok(row.length > 100, 'the Page ▾ row for Add a scene was not found — the scan is blind');
+  assert.doesNotMatch(row, /'locked'|See Event Hub Pro|unlockHref/, 'the Add a scene row still wears a Pro padlock');
+  assert.match(row, /paidMarkLabel\('try', 'Event Hub Pro'\)/, 'the row does not wear ◆ PRO for a couple trying it');
+  assert.match(row, /disabledNote: input\.addScene\.note/, 'a refused Add a scene does not say why');
   assert.doesNotMatch(row, /<form\b|formAction|action=/, 'the refused row must not be able to post anything');
 });
 
@@ -216,11 +220,13 @@ test('T · the toolbar ＋ is not "coming next" any more — it opens the same d
   // ✂ THE MAKER IN 4 (2026-10-02): ONE door in the shell, drawn from the
   // registration — ⋯ › Add a scene, on every width (no toolbar ＋ any more).
   assert.doesNotMatch(shell, /<AddSceneTool\b/, 'a second ＋ is back on the toolbar');
+  // …since 2026-10-04 a row of Page ▾ (`makerPageActions`), whose pick opens the sheet.
   assert.match(
     shell,
-    /stageAdd\?\.kind === 'ready' \? \(\s*<MenuItem onClick=\{\(\) => \{ close\(\); stageAdd\.open\(\); \}\}>/,
-    '⋯ has no Add a scene row',
+    /if \(act === 'addScene'\) \{\s*if \(stageAdd\?\.kind === 'ready'\) stageAdd\.open\(\);/,
+    'Page ▾ has no Add a scene row that opens the sheet',
   );
+  assert.match(read(BAR), /label: '＋ Add a scene'/, 'Page ▾ lost its Add a scene row');
   // …and the same sheet: the navigator's picker is controlled by the state the registration opens.
   const work = read(`${C}editor-shell.tsx`);
   assert.match(work, /<SceneTemplatePicker\s+overlay\s+draft\s+open=\{addOpen\}\s+onOpenChange=\{setAddOpen\}\s+onPick=\{onPickTemplate\}\s+tour=\{addScene\.tour \?\? null\}\s+action=\{addScene\.action\}/);

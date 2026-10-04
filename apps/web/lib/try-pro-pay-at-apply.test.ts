@@ -263,7 +263,11 @@ test('the bar’s list comes from the one plan, as the viewer is shown it — an
   assert.match(load, /summary = summarizeHubDraft\(draft, live, ownsPro && !storeShell\);\s*if \(!storeShell\) proEffects = hubDraftProEffects\(draft, live, ownsPro\)\.map\(hubProEffectView\);/);
   const bar = code('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /const asksForPro = !storeShell && proHref !== null && proEffects\.length > 0;/);
-  assert.match(bar, /onClick=\{\(\) => \(asksForPro \? setSheetOpen\(true\) : act\(\{ intent: 'apply' \}\)\)\}/);
+  // ✓ Since 2026-10-04 EVERY Apply opens the sheet first (the bar's Apply is a 44 px
+  // icon — a mis-tap never publishes); the sheet names the Pro effects when
+  // `asksForPro`, else says "Ready to apply" with the count.
+  assert.match(bar, /onClick=\{\(\) => setSheetOpen\(true\)\}/);
+  assert.match(bar, /effects=\{asksForPro \? proEffects : \[\]\}/);
   // The price is the catalogue's, never typed.
   const sheet = code('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
   assert.match(sheet, /Unlock Pro and Apply\{priceLabel \? ` · \$\{priceLabel\}` : ''\}/);

@@ -126,7 +126,9 @@ test('(2) the step sheet’s header is ONE row: step ▾ · Peek · × — no ba
 
 /* ── (3)(4)(5) the Look panel's own controls ───────────────────────────── */
 
-async function paintLookControls(): Promise<Record<string, string>> {
+type LookControls = { font: string; colours: string; 'colours (no Mood Board, owned)': string; 'colours (locked)': string; 'step head': string };
+
+async function paintLookControls(): Promise<LookControls> {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { ColorsPanel } = await import(`../${E}/pro-panels`);
   const { GuideHead } = await import(`../${L}/details-guide`);

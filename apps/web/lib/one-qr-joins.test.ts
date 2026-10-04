@@ -104,7 +104,8 @@ test('5 · the Event Hub offers one "Join as a guest" press to a signed-in stran
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(
     body,
-    /joinAction=\{\s*oneQrLetsYouIn\(event\.rsvp_ask_config\) \? joinEventAction\.bind\(null, event\.event_id, ''\) : undefined\s*\}/,
+    // 👁 PR-10: never for the Maker's See as sample viewer — it asks to join nothing.
+    /joinAction=\{\s*sampleViewer === null && oneQrLetsYouIn\(event\.rsvp_ask_config\)\s*\? joinEventAction\.bind\(null, event\.event_id, ''\)\s*: undefined\s*\}/,
     'the one-QR button is offered on an event that does not let people straight in',
   );
 });

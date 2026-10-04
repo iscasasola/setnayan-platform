@@ -91,7 +91,7 @@ test('the facts render on the ticket, at the anchor the action links to', () => 
   // `guestPassFacts`) — so the anchor and the facts live on one element.
   const ticket = stripComments(readFileSync(join(__dirname, '..', 'app', '[slug]', '_components', 'guest-ticket.tsx'), 'utf8'));
   assert.match(ticket, /id=\{PASS_ANCHOR\}/, 'the anchor "Show your ticket" points at');
-  assert.match(ticket, /src=\{PASS_CARD_ROUTE\}/, 'the ticket shown is the ticket route');
+  assert.match(ticket, /\bsrc = PASS_CARD_ROUTE,[\s\S]*<TicketPicture\s+src=\{src\}/, 'the ticket shown is the ticket route');
   const layout = stripComments(readFileSync(join(__dirname, 'print-layout.ts'), 'utf8'));
   assert.match(layout, /return guestPassFacts\(\{/, 'and the ticket draws these facts');
   // The ticket's ARRIVE uses the programme's own formatter too.

@@ -1528,7 +1528,7 @@ async function InvitationBody({
             ) : null
           }
         />
-        {sampleCanvas ? null : pageFooter}
+        {pageFooter}
       </>
     );
   }

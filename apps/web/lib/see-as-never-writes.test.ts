@@ -87,12 +87,12 @@ test('4 · in the canvas the sample touches nothing — the door joins nothing, 
 
 /* ── The guard itself, executed ─────────────────────────────────────────── */
 
-type Fake = { prevented: number; stopped: number; target: unknown; preventDefault(): void; stopImmediatePropagation(): void };
+type Fake = { prevented: number; stopped: number; target: EventTarget | null; preventDefault(): void; stopImmediatePropagation(): void };
 function fakeEvent(target: unknown): Fake {
   return {
     prevented: 0,
     stopped: 0,
-    target,
+    target: target as EventTarget | null,
     preventDefault() {
       this.prevented++;
     },

@@ -24,7 +24,7 @@ and every press; the guest's sign-out form and the door's join action are not re
 
 New: `lib/see-as.ts` (the words + param), `app/[slug]/_components/sample-viewer-inert.tsx`.
 Guards: `lib/see-as-draws-the-guest-components.test.ts`, `lib/see-as-never-writes.test.ts`;
-eight existing guards re-pointed from `viewAsHref`/"See it as…" to `seeAs`/"See as".
+thirteen existing guards re-pointed to the new shape (`viewAsHref`→`seeAs`, "See it as…"→"See as", `GuestTicket`'s `src` prop defaulting to the ticket route, one more `wearDraft` return, the door's join gated off for the sample).
 
 SPEC IMPACT: None — builds EVENT_DETAILS_STUDY_2026-10-04_fable.md §7 PR-10 as written. One
 call flagged for the owner: the prototype's default row reads "Guest who hasn't replied"; this

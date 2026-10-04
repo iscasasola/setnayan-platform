@@ -146,6 +146,10 @@ export const ProLockPanel = dynamic(() => import(/* webpackChunkName: "maker-det
 export const GuideHead = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideHead), { loading: SlotNone });
 export const GuideReady = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideReady), { loading: SlotFill });
 export const GuideFoot = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideFoot), { loading: SlotButton });
+export const StepBackground = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.StepBackground), { loading: SlotNone });
+/* 🗂 PR-2 — "Which stage do you want ready?" and the stage's Before we start. */
+export const StagePicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-picker').then((m) => m.StagePicker), { loading: SlotFill });
+export const BeforeWeStartScreen = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-picker').then((m) => m.BeforeWeStartScreen), { loading: SlotFill });
 
 /* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });

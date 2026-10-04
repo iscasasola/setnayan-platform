@@ -17,7 +17,7 @@
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
  *   ?type=birthday|wake   another celebration (default: wedding) — no Love Story item
- *   ?guide=1|ready-N      the guided "What's left" (Details part 5) — with Your event on
+ *   ?guide=1|walk-S|ready-S  the guided "What's left", by stage (S = save_the_date, rsvp-stage, …) — with Your event on
  *                         fixtures; `&fresh=1` a new event (nothing filled in yet)
  */
 import { notFound } from 'next/navigation';
@@ -154,7 +154,7 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         yourEvent={yourEvent}
         guide={
           guideAddr
-            ? { open: true, ready: guideAddr.ready, itemNamed: Boolean(one('item')), guideNamed: true, tour: null }
+            ? { open: true, address: guideAddr, itemNamed: Boolean(one('item')), guideNamed: true, tour: null }
             : null
         }
         look={

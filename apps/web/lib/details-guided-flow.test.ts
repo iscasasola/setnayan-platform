@@ -39,17 +39,19 @@ import {
   guideParamOf,
   guidedItemDone,
   guidedScreens,
-  homeProgress,
   isUnfinished,
   nextScreen,
   parseGuideParam,
   progressLabel,
   skipScreen,
+  stageSteps,
+  startScreen,
   stepStateOf,
   wordsAndPlansInputFrom,
   type GuidedItem,
   type GuidedDoneFacts,
 } from './details-guided-flow';
+import { setupProgress, stageProgress } from './stage-setup';
 import { DETAILS_ITEM_KEYS, FREE_PRINT_KEYS, wordsAndPlansItem, type DetailsItemKey } from './maker-details-items';
 import { yourEventDone, type YourEventFacts } from './details-your-event';
 import { parsePrintDetails } from './print-pieces';
@@ -80,33 +82,38 @@ const WORDS = { solemn: false, parentsOffered: true };
 /** A new event: nothing filled in (the items with a "done" say false; the rest have none). */
 const fresh = () => buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? false : undefined)), WORDS);
 
-/* ── (1) the order ──────────────────────────────────────────────────────── */
+/* ── (1) the order, by stage ─────────────────────────────────────────────── */
 
-test('(1) three rounds in the approved order, each ending in its Ready screen', () => {
+const keysOf = (plan: ReturnType<typeof fresh>, r: Parameters<typeof stageSteps>[1]) => stageSteps(plan, r).map((s) => s.key);
+
+test('(1) each stage walks its own facts, in the approved order; Post Event is never walked', () => {
   const plan = fresh();
-  assert.deepEqual(
-    plan.steps.map((s) => `${s.round}:${s.key}`),
-    [
-      '1:names', '1:date', '1:venues', '1:theme', '1:colours', '1:logo', '1:hero',
-      '2:parents', '2:march', '2:schedule', '2:rsvp', '2:words', '2:love-story', '2:prints',
-      '3:day-prints',
-    ],
-    'the sequence is not the approved one',
-  );
-  const screens = guidedScreens(plan).map((s) => (s.kind === 'step' ? s.step : `ready-${s.round}`));
-  assert.equal(screens.indexOf('ready-1'), 7, 'Round 1 does not end in its Ready screen');
-  assert.equal(screens.indexOf('ready-2'), 15);
-  assert.equal(screens.at(-1), 'ready-3');
-  // Each step shows the SAME item Details draws — Colours is the Mood Board, First screen the hero.
+  assert.deepEqual(plan.rounds, ['save_the_date', 'rsvp-stage', 'rsvp', 'event'], 'the stages walked are not the four (Post Event fills itself)');
+  assert.deepEqual(keysOf(plan, 'save_the_date'), ['names', 'date', 'theme', 'logo', 'hero', 'love-story']);
+  assert.deepEqual(keysOf(plan, 'rsvp-stage'), ['who', 'rsvp', 'reply-by'], 'the RSVP stage is not its three settings');
+  assert.deepEqual(keysOf(plan, 'rsvp'), [
+    'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'venues', 'schedule', 'parents', 'march', 'colours', 'message',
+  ]);
+  assert.deepEqual(keysOf(plan, 'event'), ['names', 'date', 'theme', 'logo', 'hero', 'venues', 'schedule', 'parents', 'march']);
+  assert.deepEqual(keysOf(plan, 'editorial'), []);
+  const screens = guidedScreens(plan, 'save_the_date').map((s) => (s.kind === 'step' ? s.step : s.kind));
+  assert.deepEqual(screens, ['before', 'names', 'date', 'theme', 'logo', 'hero', 'love-story', 'ready'], 'a stage is not Before · steps · Ready');
+  // Each step shows the SAME item Details draws — Colours is the Mood Board, the cover the hero.
   const by = Object.fromEntries(plan.steps.map((s) => [s.key, s.items]));
   assert.deepEqual(by.colours, ['mood-board']);
   assert.deepEqual(by.hero, ['hero']);
-  assert.deepEqual(by.words, ['opening-line', 'kindly-reply', 'special-message']);
-  assert.deepEqual(by.prints, ['download']);
+  assert.deepEqual(by.message, ['special-message']);
+  // RSVP's three settings are ONE item, each its own section (`RSVP_PIECES`).
+  for (const [k, piece] of [['who', 'who'], ['rsvp', 'questions'], ['reply-by', 'reply-by']] as const) {
+    assert.deepEqual(by[k], ['rsvp']);
+    assert.equal(plan.steps.find((s) => s.key === k)!.piece, piece, `${k} does not open on its own section`);
+  }
   // The march's name is its item's (the event type writes it) — never typed here.
   assert.equal(plan.steps.find((s) => s.key === 'march')!.title, 'Wedding March');
-  assert.equal(progressLabel(plan, { kind: 'step', step: 'venues' }), 'Round 1 · 3 of 7');
-  assert.equal(progressLabel(plan, { kind: 'ready', round: 2 }), 'Round 2 · Apply', 'a Ready screen with steps left says "done"');
+  assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'save_the_date' }), 'Save the Date · 3 of 6');
+  assert.equal(progressLabel(plan, { kind: 'step', step: 'theme', round: 'rsvp' }), 'Invitation · 3 of 12', 'a shared step counts in the stage being walked');
+  assert.equal(progressLabel(plan, { kind: 'ready', round: 'rsvp' }), 'Invitation · Apply', 'a Ready screen with steps left says "done"');
+  assert.equal(progressLabel(plan, { kind: 'stages' }), 'Which stage?');
 });
 
 /* ── (2) a step IS an item ──────────────────────────────────────────────── */
@@ -119,9 +126,9 @@ test('(2) a step’s state is its items’ own done — done · left · a look-o
   assert.equal(stepStateOf([true, undefined]), 'done');
   const plan = fresh();
   assert.equal(plan.steps.find((s) => s.key === 'rsvp')!.state, 'check');
+  assert.equal(plan.steps.find((s) => s.key === 'who')!.state, 'check', 'without the setup’s facts, how guests get in makes no claim');
   assert.equal(plan.steps.find((s) => s.key === 'names')!.state, 'left');
-  const words = plan.steps.find((s) => s.key === 'words')!;
-  assert.deepEqual(words.left, ['opening-line', 'kindly-reply', 'special-message'], 'the step does not open on what is still left');
+  assert.deepEqual(plan.steps.find((s) => s.key === 'names')!.left, ['names'], 'the step does not open on what is still left');
 });
 
 test('(2) a step whose item this event lacks is not in the plan — a birthday, and the Seat plan until its item exists', () => {
@@ -137,11 +144,8 @@ test('(2) a step whose item this event lacks is not in the plan — a birthday, 
     [...items(WEDDING_ITEMS, () => false), { key: SEAT_PLAN_STEP_ITEMS[0] as DetailsItemKey, label: 'Seat plan', done: false }],
     WORDS,
   );
-  assert.deepEqual(
-    withSeat.steps.filter((s) => s.round === 3).map((s) => s.key),
-    ['seat-plan', 'day-prints'],
-    'Round 3 is not Seat plan, then Day-of prints',
-  );
+  assert.deepEqual(stageSteps(withSeat, 'event').map((s) => s.key).slice(-1), ['seat-plan'], 'The Day does not end on the Seat plan');
+  assert.deepEqual(withSeat.steps.find((s) => s.key === 'seat-plan')!.stages, ['event'], 'the Seat plan shows on another stage');
 });
 
 test('(2) tripwire: every seat item Details gains is known to the Seat plan step', () => {
@@ -158,9 +162,9 @@ test('(2) tripwire: every seat item Details gains is known to the Seat plan step
     'the Seat plan step no longer reads SEAT_PLAN_STEP_ITEMS',
   );
   // …and the day the Seat plan item EXISTS (Details part 4 keys it `seating`, its
-  // done = the door is open), the pages that decide before Details draws — the
-  // Maker opening on the flow, Home's "Round N · x of y" — must read it too, or
-  // they would count Round 3 differently from the step list.
+  // done = arranged), the pages that decide before Details draws — the Maker
+  // opening on the flow, Home's card — must read it too, or they would count
+  // The Day differently from the step list.
   const early = read(`${L}/details-guided-progress.ts`) + read('lib/details-guided-flow.ts').slice(read('lib/details-guided-flow.ts').indexOf('export function guidedItemDone'));
   for (const k of SEAT_PLAN_STEP_ITEMS.filter((k) => (DETAILS_ITEM_KEYS as readonly string[]).includes(k))) {
     assert.ok(
@@ -170,64 +174,82 @@ test('(2) tripwire: every seat item Details gains is known to the Seat plan step
   }
 });
 
-/* ── (3) Next · Skip · Back ─────────────────────────────────────────────── */
+/* ── (3) Next · Skip · Back, within a stage ─────────────────────────────── */
 
-test('(3) Next goes to the next UNFINISHED step, never over a look-over, then the Ready screen', () => {
-  // Round 1: names, date and theme done; venues, colours, logo, hero left.
+test('(3) Next goes to the next UNFINISHED step of the stage, never over a look-over, then its Ready screen', () => {
+  // Save the Date: names, date and theme done; logo, hero left.
   const done = new Set<DetailsItemKey>(['names', 'date', 'theme', 'parents', 'march', 'schedule']);
   const plan = buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? done.has(k) : undefined)), WORDS);
-  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'names' }), { kind: 'step', step: 'venues' }, 'Next did not skip the done date');
-  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'venues' }), { kind: 'step', step: 'colours' }, 'Next did not skip the done theme');
-  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'hero' }), { kind: 'ready', round: 1 }, 'the round does not end on its Ready');
-  // From Round 1's Ready: parents, march and schedule are done → RSVP, a look-over, is where Next stops.
-  assert.deepEqual(nextScreen(plan, { kind: 'ready', round: 1 }), { kind: 'step', step: 'rsvp' }, 'Next skipped a look-over');
-  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'love-story' }), { kind: 'step', step: 'prints' });
-  assert.equal(nextScreen(plan, { kind: 'ready', round: 3 }), null, 'there is a screen after the last Ready');
+  const STD = 'save_the_date' as const;
+  assert.deepEqual(nextScreen(plan, { kind: 'before', round: STD }), { kind: 'step', step: 'logo', round: STD }, 'Before we start does not open on the first step still to do');
+  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'names', round: STD }), { kind: 'step', step: 'logo', round: STD }, 'Next did not skip the done date and theme');
+  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'love-story', round: STD }), { kind: 'ready', round: STD }, 'the stage does not end on its Ready');
+  // The RSVP stage: three look-overs — Next stops at each.
+  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'who', round: 'rsvp-stage' }), { kind: 'step', step: 'rsvp', round: 'rsvp-stage' }, 'Next skipped a look-over');
+  // From a Ready screen: back to the stages — never on into another stage by itself.
+  assert.deepEqual(nextScreen(plan, { kind: 'ready', round: STD }), { kind: 'stages' });
+  assert.equal(nextScreen(plan, { kind: 'stages' }), null, 'the picker has a Next — a stage is picked, not walked into');
   // A done step still opens when picked; its Next moves on as usual.
-  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'date' }), { kind: 'step', step: 'venues' });
+  assert.deepEqual(nextScreen(plan, { kind: 'step', step: 'date', round: STD }), { kind: 'step', step: 'logo', round: STD });
 });
 
-test('(3) Skip goes to the very next screen and marks nothing; Back to the one before', () => {
+test('(3) Skip goes to the very next screen and marks nothing; Back to the one before — Before we start, then the stages', () => {
   const done = new Set<DetailsItemKey>(['date']);
   const plan = buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? done.has(k) : undefined)), WORDS);
-  assert.deepEqual(skipScreen(plan, { kind: 'step', step: 'names' }), { kind: 'step', step: 'date' }, 'Skip jumped over a step');
+  const STD = 'save_the_date' as const;
+  assert.deepEqual(skipScreen(plan, { kind: 'step', step: 'names', round: STD }), { kind: 'step', step: 'date', round: STD }, 'Skip jumped over a step');
   assert.equal(plan.steps.find((s) => s.key === 'names')!.state, 'left', 'Skip changed a step');
-  assert.deepEqual(skipScreen(plan, { kind: 'step', step: 'hero' }), { kind: 'ready', round: 1 });
-  assert.equal(backScreen(plan, { kind: 'step', step: 'names' }), null, 'the first screen has a Back');
-  assert.deepEqual(backScreen(plan, { kind: 'step', step: 'parents' }), { kind: 'ready', round: 1 });
+  assert.deepEqual(skipScreen(plan, { kind: 'step', step: 'love-story', round: STD }), { kind: 'ready', round: STD });
+  assert.deepEqual(backScreen(plan, { kind: 'step', step: 'names', round: STD }), { kind: 'before', round: STD }, 'the first step has no way back to Before we start');
+  assert.deepEqual(backScreen(plan, { kind: 'before', round: STD }), { kind: 'stages' });
+  assert.equal(backScreen(plan, { kind: 'stages' }), null, 'the picker has a Back');
+  // A step two stages share keeps the stage being walked.
+  assert.deepEqual(backScreen(plan, { kind: 'step', step: 'venues', round: 'rsvp' }), { kind: 'step', step: 'love-story', round: 'rsvp' });
+  assert.deepEqual(backScreen(plan, { kind: 'step', step: 'venues', round: 'event' }), { kind: 'step', step: 'hero', round: 'event' });
 });
 
 /* ── (4) where it opens, Home, the address ─────────────────────────────── */
 
-test('(4) unfinished = a step still left that is not optional; the flow opens on the first', () => {
+test('(4) unfinished = a step still left that is not optional; a stage opens on its first', () => {
   const plan = fresh();
   assert.equal(isUnfinished(plan), true);
-  assert.deepEqual(firstOpenScreen(plan), { kind: 'step', step: 'names' });
-  // Everything filled but the (optional) Love Story → finished; it opens on the last Ready when asked.
+  assert.deepEqual(firstOpenScreen(plan, 'save_the_date'), { kind: 'step', step: 'names', round: 'save_the_date' });
+  assert.deepEqual(firstOpenScreen(plan, 'rsvp-stage'), { kind: 'ready', round: 'rsvp-stage' }, 'a stage of look-overs opens anywhere but its Ready');
+  // Everything filled but the (optional) Love Story → finished; it opens on the Love Story when walked.
   const almost = buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? k !== 'love-story' : undefined)), WORDS);
   assert.equal(isUnfinished(almost), false, 'an optional step holds the event open');
-  assert.deepEqual(firstOpenScreen(almost), { kind: 'step', step: 'love-story' });
+  assert.deepEqual(firstOpenScreen(almost, 'save_the_date'), { kind: 'step', step: 'love-story', round: 'save_the_date' });
   const all = buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? true : undefined)), WORDS);
-  assert.deepEqual(firstOpenScreen(all), { kind: 'ready', round: 3 });
+  assert.deepEqual(firstOpenScreen(all, 'event'), { kind: 'ready', round: 'event' });
+  // A stage picked: Before we start the first time, its first step after.
+  assert.deepEqual(startScreen(plan, 'rsvp', false), { kind: 'before', round: 'rsvp' });
+  assert.deepEqual(startScreen(plan, 'rsvp', true), { kind: 'step', step: 'names', round: 'rsvp' });
 });
 
-test('(4) Home says "Round N · x of y" for the first round with a step still left', () => {
+test('(4) Home and the picker count by stage — every fact once for the whole, each stage its own', () => {
   const done = new Set<DetailsItemKey>(['names', 'date', 'venues', 'theme', 'mood-board', 'logo', 'hero', 'parents']);
   const plan = buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? done.has(k) : undefined)), WORDS);
-  // Round 1 all done → Round 2: parents done, rsvp + prints are look-overs, love story optional-left.
-  assert.deepEqual(homeProgress(plan), { round: 2, title: 'Invitations', done: 3, total: 7, next: 'march', then: 'schedule' });
-  const r1 = homeProgress(fresh());
-  assert.deepEqual(r1, { round: 1, title: 'Save the Date', done: 0, total: 7, next: 'names', then: 'date' });
+  // 15 facts in all, each once: the Love Story (optional) · schedule · march · message left.
+  assert.deepEqual(setupProgress(plan), { done: 11, total: 15, next: 'rsvp' }, 'the whole is not every fact once');
+  // Save the Date is done but for the optional Love Story — it never holds a stage open.
+  assert.deepEqual(stageProgress(plan, 'save_the_date'), { done: 5, total: 6 });
+  assert.deepEqual(stageProgress(plan, 'rsvp-stage'), { done: 3, total: 3 }, 'three look-overs are not in place');
+  assert.deepEqual(stageProgress(plan, 'rsvp'), { done: 8, total: 12 });
   const all = buildGuidedPlan(items(WEDDING_ITEMS, (k) => (DONE_BY_DATA.has(k) ? true : undefined)), WORDS);
-  assert.equal(homeProgress(all), null, 'Home still says something is left');
+  assert.equal(setupProgress(all).next, null, 'Home still says something is left');
 });
 
-test('(4) the address: ?guide=1 and ?guide=ready-N, and nothing else', () => {
-  assert.deepEqual(parseGuideParam('1'), { ready: null });
-  assert.deepEqual(parseGuideParam('ready-2'), { ready: 2 });
-  for (const bad of [undefined, null, '', '0', 'ready-4', 'ready-', 'yes', '1 ']) assert.equal(parseGuideParam(bad), null, String(bad));
-  assert.equal(guideParamOf({ kind: 'step', step: 'venues' }), '1');
-  assert.deepEqual(parseGuideParam(guideParamOf({ kind: 'ready', round: 3 })), { ready: 3 });
+test('(4) the address: ?guide=1 is the picker; walk-, before- and ready- name a stage; nothing else', () => {
+  assert.deepEqual(parseGuideParam('1'), { kind: 'stages' });
+  assert.deepEqual(parseGuideParam('ready-rsvp'), { kind: 'ready', round: 'rsvp' });
+  assert.deepEqual(parseGuideParam('walk-rsvp-stage'), { kind: 'walk', round: 'rsvp-stage' });
+  assert.deepEqual(parseGuideParam('before-event'), { kind: 'before', round: 'event' });
+  for (const bad of [undefined, null, '', '0', 'ready-2', 'ready-', 'walk-wedding', 'yes', '1 ']) assert.equal(parseGuideParam(bad), null, String(bad));
+  assert.equal(guideParamOf({ kind: 'step', step: 'venues', round: 'rsvp' }), 'walk-rsvp');
+  assert.equal(guideParamOf({ kind: 'stages' }), '1');
+  for (const at of [{ kind: 'ready', round: 'event' }, { kind: 'before', round: 'save_the_date' }] as const) {
+    assert.deepEqual(parseGuideParam(guideParamOf(at)), at);
+  }
 });
 
 /* ── (5) the same "done" everywhere ─────────────────────────────────────── */
@@ -301,7 +323,7 @@ async function paint(guide: Record<string, unknown>, initial: string) {
         address: React.createElement('i', { 'data-stub-editor': 'address' }),
       },
       initial,
-      guide: { plan, open: true, ready: null, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' }, ...guide },
+      guide: { plan, open: true, entry: null, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' }, ...guide },
     });
   /* ⚡ A step's heading, its foot and the Ready screens load lazily with the
      Details pieces (\`details-lazy.tsx\`). \`renderSettled\` waits on the loads
@@ -311,7 +333,7 @@ async function paint(guide: Record<string, unknown>, initial: string) {
 }
 
 test('(6) a step is its item, one at a time: the heading, the narrowed navigator, Back · Skip · Next', async () => {
-  const html = await paint({}, 'names');
+  const html = await paint({ entry: { kind: 'step', step: 'names', round: 'save_the_date' } }, 'names');
   assert.match(html, /data-details-mode="guided"/);
   assert.match(html, /data-details-guide-top=""/, 'no progress line');
   assert.match(html, /data-details-guide-head="names"/, 'no step heading');
@@ -319,6 +341,10 @@ test('(6) a step is its item, one at a time: the heading, the narrowed navigator
   assert.match(html, /NAMES-BODY/, 'the step does not show its item’s own picture');
   assert.match(html, /data-details-guide-next=""/);
   assert.match(html, /data-details-guide-skip=""/);
+  // 📱 …in the step's half sheet over the live page (`MakerHalfSheet`), titled by the step.
+  assert.match(html, /data-half-sheet="half"/, 'the step is not the half sheet');
+  assert.match(html, /data-details-guide-sheet=""/);
+  assert.match(html, /Save the Date · 1 of 3/, 'the step does not say where it sits in its stage');
   // One item, no pieces → the navigator steps aside; every editor is still mounted.
   assert.doesNotMatch(html, /aria-label="Details — what to edit"/, 'the whole navigator shows in the flow');
   for (const k of ['names', 'date', 'theme', 'address']) assert.match(html, new RegExp(`data-stub-editor="${k}"`), `${k}’s editor was unmounted`);
@@ -329,13 +355,26 @@ test('(6) a step is its item, one at a time: the heading, the narrowed navigator
 });
 
 test('(6) a Ready screen hides the items — never unmounts them — and offers Apply', async () => {
-  const html = await paint({ ready: 1 }, 'names');
-  assert.match(html, /data-details-guide-ready="1"/);
+  const html = await paint({ entry: { kind: 'ready', round: 'save_the_date' } }, 'names');
+  assert.match(html, /data-details-guide-ready="save_the_date"/);
   assert.match(html, /data-details-row="" hidden=""/, 'the items are not hidden on the Ready screen');
   for (const k of ['names', 'date', 'theme', 'address']) assert.match(html, new RegExp(`data-stub-editor="${k}"`), `${k}’s editor was unmounted on Ready`);
-  assert.match(html, /data-details-guide-apply="1"/);
+  assert.match(html, /data-details-guide-apply="save_the_date"/);
   assert.match(html, /data-details-guide-ready-step="names"[^>]*data-state="left"/, 'the Ready list does not say what is left');
-  assert.match(html, /Almost ready/, 'a round with a step left claims it is ready');
+  assert.match(html, /Almost ready/, 'a stage with a step left claims it is ready');
+  assert.match(html, /data-details-guide-stages=""/, 'a Ready screen has no way back to the stages');
+});
+
+test('(6) every door opens "Which stage do you want ready?" — the items hidden, never unmounted', async () => {
+  const html = await paint({ entry: { kind: 'stages' } }, 'names');
+  assert.match(html, /data-stage-picker=""/, 'the picker is not what the flow opens on');
+  assert.match(html, /Which stage do you want ready\?/);
+  assert.match(html, /data-details-row="" hidden=""/);
+  for (const k of ['names', 'date', 'theme', 'address']) assert.match(html, new RegExp(`data-stub-editor="${k}"`), `${k}’s editor was unmounted under the picker`);
+  // The five stages, Post Event listed but never walked.
+  for (const st of ['save_the_date', 'rsvp-stage', 'rsvp', 'event', 'editorial']) assert.match(html, new RegExp(`data-stage-row="${st}"`), `${st} is not listed`);
+  assert.match(html, /data-stage-row="editorial"[^>]*disabled=""|disabled=""[^>]*data-stage-row="editorial"/, 'Post Event can be walked');
+  assert.match(html, /Fills itself from the day/);
 });
 
 test('(6) Apply is the bar’s ONE Apply — pressed once even with the bar mounted twice', async () => {
@@ -369,7 +408,7 @@ test('(6) Apply is the bar’s ONE Apply — pressed once even with the bar moun
 
 /* ── (7) plain words ───────────────────────────────────────────────────── */
 
-test('(7) no wedding word, and no "stage" or "scene", on the guided path', () => {
+test('(7) no wedding word, and no "stage" or "scene" in a step’s own words', () => {
   const words = [
     ...GUIDED_STEPS.flatMap((s) => [
       typeof s.title === 'string' ? s.title : s.title('X'),
@@ -379,35 +418,37 @@ test('(7) no wedding word, and no "stage" or "scene", on the guided path', () =>
     ...Object.values(GUIDED_ROUNDS).flatMap((r) => [r.title, r.ready]),
     ...Object.values(WAKE_ROUNDS).flatMap((r) => [r.title, r.ready]),
   ];
-  assert.ok(words.length > 40, 'anti-vacuity: the step words were not read');
+  assert.ok(words.length > 50, 'anti-vacuity: the step words were not read');
   for (const w of words) {
     assert.doesNotMatch(w, /\b(wedding|couple|bride|groom)\b/i, w);
     assert.doesNotMatch(w, /\b(stage|stages|scene|scenes)\b/i, w);
   }
   // A solemn event is never promised a countdown.
   assert.doesNotMatch(GUIDED_STEPS.find((s) => s.key === 'date')!.shows({ solemn: true, parentsOffered: false }), /countdown/);
-  for (const f of [`${L}/details-guide.tsx`, `${L}/details-guide-top.tsx`, 'lib/details-guided-flow.ts']) {
+  for (const f of [`${L}/details-guide.tsx`, `${L}/details-guide-top.tsx`, `${L}/stage-picker.tsx`, 'lib/details-guided-flow.ts', 'lib/stage-setup.ts']) {
     assert.doesNotMatch(read(f), /\b(wedding|couple|bride|groom)\b/i, `${f} types a wedding word`);
   }
   // …and the flow's pieces never pop up over the page (the Maker's in-flow rule).
-  for (const f of [`${L}/details-guide.tsx`, `${L}/details-guide-top.tsx`]) {
+  for (const f of [`${L}/details-guide.tsx`, `${L}/details-guide-top.tsx`, `${L}/stage-picker.tsx`]) {
     assert.doesNotMatch(read(f), /role=["']dialog["']|aria-modal|\bfixed inset-0\b/, `${f} pops up over the page`);
   }
 });
 
-// 🕯 OWNER 2026-09-29, "OWNER ANSWERS — TEN OPEN QUESTIONS" (6): per-type round
-// names — a wake's rounds are "Share the news · Service details · The day", and
-// every surface that names a round reads the plan's own words.
-test('(8) a wake’s rounds are its own, read off EventWords; the celebration keeps its names', () => {
-  // Round 0 ("Finish your Event Hub", the setup) is only ever drawn where its facts are handed in — a wedding.
-  assert.deepEqual(([1, 2, 3] as const).map((r) => guidedRoundsFor({ solemn: true })[r].title), ['Share the news', 'Service details', 'The day']);
-  assert.deepEqual(([1, 2, 3] as const).map((r) => guidedRoundsFor({ solemn: false })[r].title), ['Save the Date', 'Invitations', 'The day']);
+// 🕯 OWNER 2026-09-29, "OWNER ANSWERS — TEN OPEN QUESTIONS" (6): nobody sends a
+// wake a "Save the Date". Since PR-2 (owner 2026-10-04) the rounds are the
+// STAGES, named in the one vocabulary the Maker's Page ▾ uses for every type
+// (`the-look-moves-into-details.test.ts` (6)); what a wake's Ready screen
+// promises stays the wake's own.
+test('(8) the stages wear the one stage vocabulary; a wake’s Ready lines are its own', () => {
+  const stages = ['save_the_date', 'rsvp-stage', 'rsvp', 'event', 'editorial'] as const;
+  assert.deepEqual(stages.map((r) => guidedRoundsFor({ solemn: false })[r].title), ['Save the Date', 'RSVP', 'Invitation', 'The Day', 'Post Event']);
+  assert.deepEqual(stages.map((r) => guidedRoundsFor({ solemn: true })[r].title), ['Save the Date', 'RSVP', 'Invitation', 'The Day', 'Post Event'], 'a wake’s stages are named differently from Page ▾');
   const wake = buildGuidedPlan(items(WEDDING_ITEMS, () => undefined), { ...WORDS, solemn: true });
-  assert.equal(wake.roundWords[1].title, 'Share the news');
-  assert.ok(wake.steps.every((s) => s.roundTitle === WAKE_ROUNDS[s.round].title), 'a step names a round the wake does not have');
-  assert.doesNotMatch(JSON.stringify(wake.roundWords), /Save the Date|Invitation/, 'a wake is asked to send a Save the Date');
-  for (const f of ['details-guide.tsx', 'details-guide-top.tsx']) {
+  assert.equal(wake.roundWords.save_the_date.ready, 'Your news is ready to share');
+  assert.equal(wake.roundWords.rsvp.ready, 'Your service details are ready to share');
+  assert.doesNotMatch(Object.values(wake.roundWords).map((r) => r.ready).join(' '), /Save the Date|invitations/i, 'a wake is asked to send a Save the Date');
+  for (const f of ['details-guide.tsx', 'details-guide-top.tsx', 'stage-picker.tsx']) {
     const src = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'launch', '_components', f), 'utf8');
-    assert.doesNotMatch(src, /GUIDED_ROUNDS\[/, `${f} names a round from the fixed celebration list`);
+    assert.doesNotMatch(src, /GUIDED_ROUNDS\[/, `${f} names a stage from the fixed list instead of the plan's own words`);
   }
 });

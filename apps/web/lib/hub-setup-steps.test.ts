@@ -11,8 +11,9 @@
  *       Maker after the setup shows it filled in); a fact onboarding (A) asked
  *       is never a step here;
  *   (2) 🚪 THREE DOORS, ONE SET OF STEPS — the once-offer after onboarding,
- *       Home's slim card and the Maker's What's left all open the same steps,
- *       counted by the same derivation;
+ *       Home's slim card and the Maker's What's left all open the same stage
+ *       picker over the same steps, counted by the same derivation (PR-2: the
+ *       setup's steps are walked in the stages that show them);
  *   (3) 🔓 THE UNLOCK LABELS — every step names what it turns on, "Unlocked"
  *       once it has, and the Maker's waiting parts read "Locked — finish ___"
  *       (filled in, never a paywall);
@@ -35,7 +36,8 @@ import {
   unlockLine,
   type HubSetupFacts,
 } from './hub-setup-steps';
-import { buildGuidedPlan, firstOpenScreen, homeProgress, isUnfinished, stepTitleOf, type GuidedItem } from './details-guided-flow';
+import { buildGuidedPlan, firstOpenScreen, isUnfinished, stageSteps, type GuidedItem } from './details-guided-flow';
+import { setupProgress } from './stage-setup';
 import { DETAILS_ITEM_KEYS, FREE_PRINT_KEYS, type DetailsItemKey } from './maker-details-items';
 import { pickHomeNext } from './home-first-screen';
 import { makerEmptyPrompt } from './maker-scene-list';
@@ -196,33 +198,50 @@ test('🏛 B2 is done when each venue is LOCKED or has a TYPED name — the Hub\
 
 // ── (2) THREE DOORS, ONE SET OF STEPS ──────────────────────────────────────
 
-test('🚪 the Maker\'s What\'s left puts the setup first — the very steps, the very count', () => {
+test('🚪 the Maker\'s What\'s left walks the setup in the stages that show it — the very steps, one step per item', () => {
   const facts: HubSetupFacts = { ...FRESH, arrival: true, loveStoryMoments: 2 };
   const steps = hubSetupSteps(facts, ALL_ITEMS);
   const plan = buildGuidedPlan(items(), WORDS, hubSetupRound(facts, ALL_ITEMS));
-  assert.equal(plan.rounds[0], 0, 'the setup is round 0, first');
-  const round0 = [...plan.steps.filter((s) => s.round === 0).map((s) => s.key), ...plan.links.map((l) => l.key)];
-  assert.deepEqual(round0, steps.map((s) => s.key), 'the What\'s left is the setup\'s own list');
-  // Each setup item is ONE step — it left the later rounds.
-  for (const s of plan.steps.filter((x) => x.round === 0)) {
-    for (const k of s.items) assert.equal(plan.steps.filter((x) => x.items.includes(k)).length, 1, `${k} is in two steps`);
+  // 🗂 Owner 2026-10-04 (PR-2): the setup is no longer a round of its own — each
+  // setup step is walked in every stage whose parts show its fact.
+  const of = (k: string) => plan.steps.find((s) => s.key === k);
+  assert.deepEqual(of('arrive')?.stages, ['rsvp', 'event'], 'when guests arrive is not the Schedule’s');
+  assert.deepEqual(of('venues')?.stages, ['rsvp', 'event']);
+  assert.deepEqual(of('love-story')?.stages, ['save_the_date', 'rsvp']);
+  assert.deepEqual(of('wear')?.stages, ['rsvp'], 'what everyone wears is not the Dress code’s');
+  assert.deepEqual(plan.links.map((l) => [l.key, l.stages]), [['guests', ['rsvp', 'event']]], 'each guest’s own greeting shows on the Invitation and The Day');
+  // Every setup step with a part is in the plan; B5–6 is the RSVP stage's own three settings.
+  for (const s of steps) {
+    if (s.key === 'ask') continue;
+    assert.ok(of(s.key) || plan.links.some((l) => l.key === s.key), `${s.key} left the plan`);
   }
-  // Home's count is the setup's count.
-  const h = homeProgress(plan)!;
-  const p = hubSetupProgress(steps);
-  assert.equal(h.round, 0);
-  assert.deepEqual([h.done, h.total], [p.done, p.total]);
-  assert.equal(stepTitleOf(plan, h.next), p.nextTitle);
-  // `?guide=1` (every door's address) opens on the first setup step still left.
-  assert.deepEqual(firstOpenScreen(plan), { kind: 'step', step: 'venues' });
+  assert.equal(of('ask'), undefined, 'B5–6 is a second step on the RSVP item');
+  assert.deepEqual(stageSteps(plan, 'rsvp-stage').map((s) => s.key), ['who', 'rsvp', 'reply-by']);
+  // How guests get in is onboarding's answer — asked once, never again; the reply-by date is B5–6's own fact.
+  assert.equal(of('who')?.state, 'done');
+  assert.equal(of('reply-by')?.state, 'left');
+  assert.equal(buildGuidedPlan(items(), WORDS, hubSetupRound({ ...facts, replyBy: true }, ALL_ITEMS)).steps.find((s) => s.key === 'reply-by')?.state, 'done');
+  // Each setup item is ONE step — the row it stands for is gone.
+  assert.equal(of('schedule'), undefined, 'the Schedule row stayed beside when guests arrive');
+  assert.equal(of('colours'), undefined, 'Your colours stayed beside what everyone wears');
+  for (const s of plan.steps.filter((x) => !x.piece)) {
+    for (const k of s.items) assert.equal(plan.steps.filter((x) => !x.piece && x.items.includes(k)).length, 1, `${k} is in two steps`);
+  }
+  // Home counts the plan the Maker walks (every fact once), and the picker opens on `?guide=1`.
+  assert.equal(setupProgress(plan).total, plan.steps.length + plan.links.length);
+  assert.equal(setupProgress(plan).next, 'save_the_date', 'names are still to do — Save the Date first');
   assert.equal(isUnfinished(plan), true);
-  // No setup (another type, or the facts unread): the rounds are exactly as before.
+  // An open event (one QR for everyone): the RSVP stage asks only how guests get in.
+  const open = buildGuidedPlan(items(), WORDS, hubSetupRound({ ...facts, guestList: false }, ALL_ITEMS));
+  assert.deepEqual(stageSteps(open, 'rsvp-stage').map((s) => s.key), ['who']);
+  assert.deepEqual(open.links, [], 'an open event is asked for guests’ names');
+  // No setup (another type, or the facts unread): the generic rows, as before.
   const before = buildGuidedPlan(items(), WORDS);
-  assert.ok(!before.rounds.includes(0));
+  assert.ok(before.steps.some((s) => s.key === 'schedule') && before.steps.some((s) => s.key === 'colours'));
   assert.deepEqual(before.links, []);
 });
 
-test('🚪 only the guests\' names left: the flow opens on the setup\'s Ready screen, which links to the import', () => {
+test('🚪 only the guests\' names left: the Invitation opens on its Ready screen, which links to the import', () => {
   const facts: HubSetupFacts = {
     ...FRESH,
     arrival: true,
@@ -231,9 +250,10 @@ test('🚪 only the guests\' names left: the flow opens on the setup\'s Ready sc
     wear: true,
     replyBy: true,
   };
-  const plan = buildGuidedPlan(items((k) => (AFTER_A.has(k) || k === 'venues' || k === 'love-story' ? true : k === 'schedule' ? true : undefined)), WORDS, hubSetupRound(facts, ALL_ITEMS));
-  assert.deepEqual(firstOpenScreen(plan), { kind: 'ready', round: 0 });
-  assert.equal(homeProgress(plan)?.next, 'guests');
+  const all = new Set<DetailsItemKey>([...AFTER_A, 'venues', 'love-story', 'schedule', 'logo', 'parents', 'march', 'special-message']);
+  const plan = buildGuidedPlan(items((k) => (all.has(k) ? true : undefined)), WORDS, hubSetupRound(facts, ALL_ITEMS));
+  assert.deepEqual(firstOpenScreen(plan, 'rsvp'), { kind: 'ready', round: 'rsvp' });
+  assert.equal(setupProgress(plan).next, 'rsvp');
   const ready = code(`${D}/launch/_components/details-guide.tsx`);
   assert.match(ready, /href=\{actions\.guestsHref\}/);
   assert.match(code(`${D}/launch/page.tsx`), /guestsHref: hubSetupGuestsHref\(eventId\)/);
@@ -266,13 +286,13 @@ test('🚪 the three doors open the SAME address, read through the SAME derivati
   assert.match(code(`${D}/_components/details-guide-home-card.tsx`), /readGuidedPlan\(/);
 });
 
-test('🚪 Home\'s card reads "Finish your Event Hub — n of m · Open the next step", and the once-offer "Start / Later"', () => {
-  const base = { round: 0, roundTitle: 'Finish your Event Hub', done: 3, total: 6, nextTitle: 'What everyone wears', thenTitle: 'What to ask guests · reply-by', setup: true };
+test('🚪 Home\'s card reads "Finish your Event Hub — n of m · Pick a stage", and the once-offer "Start / Later"', () => {
+  const base = { done: 9, total: 20, stageTitle: 'Invitation', stageDone: 4, stageTotal: 8 };
   const card = pickHomeNext({ guide: base, hasDate: true, guests: null, noun: 'wedding', papicReady: false, aiOffer: false });
-  assert.equal(card.title, 'Finish your Event Hub — 3 of 6');
-  assert.equal(card.body, 'Next: What everyone wears · then What to ask guests · reply-by');
-  // The button names the action (owner, live phone test 2026-10-02) — it was a bare "Continue".
-  assert.equal(card.action, 'Open the next step');
+  assert.equal(card.title, 'Finish your Event Hub — 9 of 20');
+  assert.equal(card.body, 'Next: Invitation — 4 of 8 in place');
+  // The button names the action (owner, live phone test 2026-10-02): it opens the stage picker (PR-2).
+  assert.equal(card.action, 'Pick a stage');
   assert.equal(card.offer, undefined);
   const offer = pickHomeNext({ guide: { ...base, done: 0, offer: true }, hasDate: true, guests: null, noun: 'wedding', papicReady: false, aiOffer: false });
   assert.equal(offer.action, 'Start');
@@ -284,6 +304,10 @@ test('🚪 Home\'s card reads "Finish your Event Hub — n of m · Open the next
   assert.match(code('lib/tours.ts'), /HUB_SETUP_OFFER_TOUR: TourKey = 'customer_details_guided_v1'/);
   assert.match(code(`${D}/launch/page.tsx`), /<MiniTour tourKey="customer_details_guided_v1"/);
   assert.match(offer.body, /we won’t ask again/);
+  // Home's numbers are the picker's: the same plan, every fact once, the stage's own.
+  const read = code(`${D}/_components/details-guide-home-card.tsx`);
+  assert.match(read, /const whole = setupProgress\(plan\);/);
+  assert.match(read, /stageProgress\(plan, whole\.next\)/);
 });
 
 // ── (3) THE UNLOCK LABELS ───────────────────────────────────────────────────

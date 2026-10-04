@@ -106,7 +106,7 @@ export const MAKER_BAR_PHONE_SIDE_PX = 8;
  *
  * On a phone, then: a closed bubble takes no room and the strip cannot scroll
  * on Y at all. An OPEN bubble does not live in the strip either — it floats on
- * the viewport (`InfoTip floatOnPhone`): MEASURED at 375 px with the Maker in
+ * the viewport (`lib/float-open-tips.ts`): MEASURED at 375 px with the Maker in
  * Desktop view, a tile label had 81 px above it and 35 below in a 116 px strip,
  * and the longest real note (a fixed scene's "where it comes from") is 132 px,
  * so neither above nor below fits inside the strip.

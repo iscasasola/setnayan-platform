@@ -25,13 +25,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from './strip-comments';
 import { MAKER_STRIP_PHONE } from './maker-phone-room';
-import { tipPlacement } from '../app/_components/info-tip';
+import { tipPlacement } from './float-open-tips';
 import { buildTileDocument, type TileHead, type TileSnapshot } from './maker-tile-preview';
 
 const read = (p: string) => stripComments(readFileSync(join(import.meta.dirname, '..', p), 'utf8'));
 const SHELL = read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
 const SNAPSHOT = read('app/dashboard/[eventId]/website/editor/_components/scene-snapshot.ts');
-const TIP = read('app/_components/info-tip.tsx');
+const TIP = read('lib/float-open-tips.ts');
 
 test('1 · on a phone the strip has no vertical scroll range: closed bubbles take no room', () => {
   const classes = MAKER_STRIP_PHONE.split(/\s+/);
@@ -54,14 +54,13 @@ test('1b · an OPEN bubble floats on the viewport — the strip, which cannot sc
   assert.ok(at.top + 132 <= trigger.top || at.top >= trigger.bottom, 'it never covers its own (i)');
   // Inside the strip it could not have fit — which is why it floats.
   assert.ok(132 > 81 && 132 > strip.height - 81 - 16);
-  // Every (i) in the navigator floats on a phone.
-  const nav = SHELL.slice(SHELL.indexOf('aria-label="Scenes"'), SHELL.indexOf('</nav>'));
-  const tips = nav.match(/<InfoTip\b[^>]*>/g) ?? [];
-  console.log(`  navigator (i)s: ${tips.length}`);
-  assert.ok(tips.length > 0, 'no (i) found in the navigator — this scan is blind, not clean');
-  assert.deepEqual(tips.filter((t) => !/\bfloatOnPhone\b/.test(t)), [], 'a strip (i) that does not float is clipped by the strip');
-  assert.match(TIP, /tip\.style\.position = 'fixed'/, 'the floating bubble is placed against the viewport');
-  assert.match(TIP, /window\.innerWidth >= 1024/, 'only on a phone — the desktop column keeps its own bubbles');
+  // Every open (i) under the navigator floats on a phone — and InfoTip itself, which
+  // ships on the home page, is untouched (its first-load JS must not grow).
+  assert.match(SHELL, /useEffect\(\(\) => \(navList \? floatOpenTips\(navList, window\) : undefined\), \[navList\]\)/);
+  assert.match(TIP, /tip\.style\.position = 'fixed'/, 'the floating note is placed against the viewport');
+  assert.match(TIP, /attributeFilter: \['data-open'\]/, 'it follows every note as it opens and closes');
+  assert.match(TIP, /win\.innerWidth >= FLOAT_TIPS_BELOW_PX/, 'only on a phone — the desktop column keeps its own notes');
+  assert.doesNotMatch(read('app/_components/info-tip.tsx'), /position = 'fixed'|floatOnPhone/, 'InfoTip ships on every page: the float lives with the Maker');
 });
 
 test('2 · SOURCE: the navigator strip wears the phone rule, and Page ▾ never scrolls it to block start on a phone', () => {

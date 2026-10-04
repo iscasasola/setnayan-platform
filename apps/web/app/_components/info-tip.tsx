@@ -28,7 +28,7 @@
  * balances, errors and consequences stay on the page.
  */
 
-import { useEffect, useId, useLayoutEffect, useReducer, useRef, type ReactNode } from 'react';
+import { useEffect, useId, useReducer, useRef, type ReactNode } from 'react';
 import { TIP_CLOSED, tipReducer } from './info-tip-state';
 import { useOneOpen } from '@/lib/one-open';
 
@@ -49,34 +49,7 @@ export type InfoTipProps = {
   /** Which edge the popover hangs from. `start` near a left edge, `end` near a right one. */
   align?: 'center' | 'start' | 'end';
   className?: string;
-  /**
-   * 📱 On a phone (< 1024 px) the open popover is placed against the VIEWPORT
-   * (below its `(i)` when it fits, else above), never inside its box — for a tip
-   * that lives in a scroller which clips (the Maker's scene strip: 81 px above a
-   * label, a 132 px note — `tipPlacement`). Closes when anything scrolls.
-   */
-  floatOnPhone?: boolean;
 };
-
-/** Where a floating popover goes: below its trigger when it fits, else above; inside the viewport. */
-export function tipPlacement(
-  trigger: { top: number; bottom: number; left: number },
-  tipHeight: number,
-  viewport: { width: number; height: number },
-): { top: number; left: number; width: number } {
-  const M = 8;
-  const width = Math.min(288, viewport.width - 32);
-  const left = Math.max(16, Math.min(trigger.left - 4, viewport.width - width - 16));
-  const below = trigger.bottom + 6;
-  const above = trigger.top - 6 - tipHeight;
-  const top =
-    below + tipHeight <= viewport.height - M
-      ? below
-      : above >= M
-        ? above
-        : Math.max(M, Math.min(below, viewport.height - M - tipHeight));
-  return { top, left, width };
-}
 
 export function InfoTip({
   label,
@@ -87,7 +60,6 @@ export function InfoTip({
   ariaLabel,
   align = 'center',
   className,
-  floatOnPhone = false,
 }: InfoTipProps) {
   const [state, dispatch] = useReducer(tipReducer, TIP_CLOSED);
   const rootRef = useRef<HTMLElement>(null);
@@ -122,40 +94,6 @@ export function InfoTip({
     };
   }, [state.open]);
 
-  /* 📱 FLOAT ON A PHONE (`floatOnPhone`): placed against the viewport once open
-     and measured; the inline placement is dropped again when it closes. */
-  const tipRef = useRef<HTMLSpanElement>(null);
-  useLayoutEffect(() => {
-    const tip = tipRef.current;
-    const btn = btnRef.current;
-    if (!floatOnPhone || !tip || !btn) return;
-    const clear = () => {
-      for (const p of ['position', 'top', 'left', 'right', 'bottom', 'width', 'max-width', 'translate', 'padding-top'])
-        tip.style.removeProperty(p);
-    };
-    if (!state.open || window.innerWidth >= 1024) {
-      clear();
-      return;
-    }
-    const vw = window.innerWidth;
-    tip.style.position = 'fixed';
-    tip.style.right = 'auto';
-    tip.style.bottom = 'auto';
-    tip.style.translate = 'none';
-    tip.style.paddingTop = '0px';
-    tip.style.maxWidth = 'none';
-    tip.style.width = `${Math.min(288, vw - 32)}px`;
-    const at = tipPlacement(btn.getBoundingClientRect(), tip.offsetHeight, { width: vw, height: window.innerHeight });
-    tip.style.top = `${at.top}px`;
-    tip.style.left = `${at.left}px`;
-    // A placed popover would drift from its (i) as anything scrolls — it closes instead.
-    const onScroll = (e: Event) => {
-      if (!tip.contains(e.target as Node)) dispatch({ type: 'outside' });
-    };
-    window.addEventListener('scroll', onScroll, true);
-    return () => window.removeEventListener('scroll', onScroll, true);
-  }, [state.open, floatOnPhone]);
-
   // A block label (heading or paragraph) needs a block wrapper — a <span>
   // around an <h2> or a <p> is invalid HTML.
   const block = labelAs !== 'span';
@@ -186,7 +124,6 @@ export function InfoTip({
         <span aria-hidden="true">i</span>
       </button>
       <span
-        ref={tipRef}
         id={tipId}
         role="tooltip"
         className="sn-tip"

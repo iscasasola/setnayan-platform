@@ -102,6 +102,7 @@ import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '..
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
 import { MAKER_STRIP_PHONE } from '@/lib/maker-phone-room';
+import { floatOpenTips } from '@/lib/float-open-tips';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -1926,6 +1927,9 @@ export function MakerWork({
     clearPageJump?.();
     if (page) jumpRef.current(page);
   }, [pageJump, stage, canvasBar, clearPageJump]);
+  /* 📱 The strip's open (i) notes float on the viewport (`lib/float-open-tips.ts`):
+     the strip cannot scroll on Y (`MAKER_STRIP_PHONE`), so a note inside it was clipped. */
+  useEffect(() => (navList ? floatOpenTips(navList, window) : undefined), [navList]);
   /* …and the navigator keeps the selected tile in view, whichever side picked it. */
   const selectedTileKey = selectedTile?.key ?? null;
   useEffect(() => {
@@ -2034,14 +2038,14 @@ export function MakerWork({
           {/* 👤 Me with a See as guest picked is ON the canvas (PR-10) — no note. */}
           {shownPage?.key === 'me' && !seeAsDrawsMe(seeAs) ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:mb-2 lg:self-stretch" data-maker-page-me="">
-              <InfoTip floatOnPhone className="min-w-0 max-w-full" label={ME_NOT_ON_CANVAS.label} align="start">
+              <InfoTip className="min-w-0 max-w-full" label={ME_NOT_ON_CANVAS.label} align="start">
                 {ME_NOT_ON_CANVAS.body}
               </InfoTip>
             </li>
           ) : null}
           {shownPage?.leaves ? (
             <li className="shrink-0 self-center px-2 text-[11.5px] text-ink/65 lg:self-stretch" data-maker-tab-leaves="">
-              <InfoTip floatOnPhone className="min-w-0 max-w-full" label={`${shownPage.label} opens its own page`} align="start">
+              <InfoTip className="min-w-0 max-w-full" label={`${shownPage.label} opens its own page`} align="start">
                 On this stage, “{shownPage.label}” takes a guest to a page of its own, so there are no scenes to arrange
                 here, and it can’t be shown on this canvas yet. Pick another page to see its scenes.
               </InfoTip>
@@ -2053,19 +2057,19 @@ export function MakerWork({
           {stage === 'editorial' && navigator.postEvent ? (
             <li className="shrink-0 self-center px-1 text-[11px] font-semibold text-ink/60 lg:mb-2 lg:self-stretch" data-maker-post-event-state="">
               {navigator.postEvent === 'unreadable' ? (
-                <InfoTip floatOnPhone className="min-w-0 max-w-full" label="Scenes unavailable" align="start">
+                <InfoTip className="min-w-0 max-w-full" label="Scenes unavailable" align="start">
                   Your story’s scenes could not be read just now. The story itself is unchanged — open the Maker
                   again in a moment.
                 </InfoTip>
               ) : !navigator.postEvent.dayHappened ? (
                 /* 🕰 Before the day — the same scenes, waiting (owner 2026-09-25). */
-                <InfoTip floatOnPhone className="min-w-0 max-w-full" label="Before the day · scenes wait" align="start">
+                <InfoTip className="min-w-0 max-w-full" label="Before the day · scenes wait" align="start">
                   Post Event is its own scenes, and each one is here already. The ones marked Not yet fill themselves
                   from your day once it has happened — until then your guests never meet an empty box. Pick each
                   scene’s style, hide the ones you do not want and move them earlier or later.
                 </InfoTip>
               ) : (
-                <InfoTip floatOnPhone className="min-w-0 max-w-full"
+                <InfoTip className="min-w-0 max-w-full"
                   label={`Auto · written ${new Date(navigator.postEvent.generatedAt).toLocaleString('en-PH', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}`}
                   align="start"
                 >
@@ -2240,7 +2244,7 @@ export function MakerWork({
                       ) : null}
                     </div>
                     {tile.kind === 'fixed' ? (
-                      <InfoTip floatOnPhone className="min-w-0 max-w-full" label={tile.label} align="start" labelClassName="min-w-0 line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
+                      <InfoTip className="min-w-0 max-w-full" label={tile.label} align="start" labelClassName="min-w-0 line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
                         {tile.why}
                         {MAKER_FIXED_SOURCE[tile.fixed] ? (
                           <span className="mt-1.5 block">
@@ -2255,7 +2259,7 @@ export function MakerWork({
                         ) : null}
                       </InfoTip>
                     ) : tile.kind === 'post-event' ? (
-                      <InfoTip floatOnPhone className="min-w-0 max-w-full"
+                      <InfoTip className="min-w-0 max-w-full"
                         label={tile.label}
                         align="start"
                         labelClassName={`line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight ${showing ? 'text-ink/75' : 'text-ink/45'}`}
@@ -2319,7 +2323,7 @@ export function MakerWork({
                     return (
                       <li key={f.key} data-maker-folded={f.key} className="flex items-center gap-1 text-[11.5px] text-ink/70">
                         <span className="min-w-0 flex-1">
-                          <InfoTip floatOnPhone className="min-w-0 max-w-full" label={f.label} align="start" labelClassName="min-w-0 truncate">
+                          <InfoTip className="min-w-0 max-w-full" label={f.label} align="start" labelClassName="min-w-0 truncate">
                             {f.reason}
                           </InfoTip>
                         </span>
@@ -2417,7 +2421,7 @@ export function MakerWork({
               </div>
             ) : addScene && 'note' in addScene ? (
               <span className="flex items-center gap-1 pl-4 text-[11px] text-ink/60">
-                <InfoTip floatOnPhone className="min-w-0 max-w-full" label="New scene" align="start">
+                <InfoTip className="min-w-0 max-w-full" label="New scene" align="start">
                   {addScene.note}
                 </InfoTip>
               </span>

@@ -27,10 +27,10 @@
  */
 import { useActionState, useEffect, useState } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
-import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
@@ -38,6 +38,14 @@ import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
 import { recallTypedEmail, rememberTypedEmail } from '@/lib/sign-in-typed-email';
 import { GUEST_SIGN_IN_WORDS } from '@/lib/sign-in-for-a-guest';
+
+// The phone app's row renders only inside the app, yet this card is on the
+// front door (/) and /login for every web visitor: a static import put it in
+// their first load (train 2026-10-04 e, `/` over 211 kB). Lazy, so the web
+// never downloads it; the app gets the same component when its arm renders.
+const NativeOAuthButtons = dynamic(() =>
+  import('@/app/_components/native-oauth-buttons').then((m) => m.NativeOAuthButtons),
+);
 
 export type SignInCardProps = {
   /** Post-sign-in destination. '/' lets the action route by account_type. */

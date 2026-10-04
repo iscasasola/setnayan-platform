@@ -606,7 +606,6 @@ export function DetailsWorkspace({
             title={stepHere?.title ?? current.panelLabel ?? current.label}
             target={stepHere?.key ?? selected}
             section={walking ? roundName(plan!, walking) : null}
-            closeLabel="Back to the stages"
             onClose={() => move({ kind: 'stages' })}
             /* A desk keeps its column; with no step open (the picker, Before we start,
                a Ready screen) the sheet is not drawn on a phone either — its editors

@@ -163,7 +163,11 @@ test('owner ribbon: phase links are withheld when the lifecycle engine is off', 
 
 test('owner ribbon: the model is links and labels only — no action surface', () => {
   const model = must(build());
-  assert.deepEqual(Object.keys(model).sort(), ['editorHref', 'editorLabel', 'phaseLinks']);
+  assert.deepEqual(Object.keys(model).sort(), ['editorHref', 'editorLabel', 'phaseLinks', 'seeAsLinks']);
+  for (const link of model.seeAsLinks) {
+    assert.deepEqual(Object.keys(link).sort(), ['active', 'href', 'key', 'label']);
+    assert.equal(typeof link.href, 'string');
+  }
   for (const link of model.phaseLinks) {
     assert.deepEqual(Object.keys(link).sort(), ['active', 'href', 'label', 'phase']);
     assert.equal(typeof link.href, 'string');
@@ -181,7 +185,8 @@ test('owner ribbon: the model is links and labels only — no action surface', (
 test('owner ribbon: the couple get the editor', () => {
   const model = must(build({ ownerCapability: ownerOf(EVENT_ID, true) }));
   assert.equal(model.editorHref, `/dashboard/${EVENT_ID}/website/editor`);
-  assert.equal(model.editorLabel, 'Edit this site');
+  // "Event Hub", never "site" (coordinator 2026-10-04, the owner's word rule).
+  assert.equal(model.editorLabel, 'Edit your Event Hub');
 });
 
 test('owner ribbon: a host who is NOT the couple is sent somewhere that works', () => {
@@ -191,7 +196,7 @@ test('owner ribbon: a host who is NOT the couple is sent somewhere that works', 
     `/dashboard/${EVENT_ID}`,
     'a coordinator must not be pointed at the editor that redirects them',
   );
-  assert.notEqual(model.editorLabel, 'Edit this site');
+  assert.notEqual(model.editorLabel, 'Edit your Event Hub');
   assert.ok(
     model.editorLabel.length > 0,
     'removing the only way out of the guest site would be a second defect, not a fix',

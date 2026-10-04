@@ -111,11 +111,11 @@ export function shouldSimulateRepliedGuest(input: {
 /**
  * 👁 SEE AS ▾ — WHICH SAMPLE VIEWER THIS RENDER DRAWS (PR-10, owner 2026-10-04).
  *
- * The Maker's canvas (`?editor=1`, a verified host) may ask for any of the four
- * See as states (`SEE_AS`, lib/see-as.ts) on any stage — a guest is
- * a guest on every stage. Outside the canvas only the old `?as=replied` door is
- * honoured, exactly as `shouldSimulateRepliedGuest` always decided it (the RSVP
- * stage only), so that surface is not widened by a byte.
+ * A verified host may ask for any of the four See as states (`SEE_AS`,
+ * lib/see-as.ts) on any stage — a guest is a guest on every stage — from the
+ * Maker's canvas (👁 Preview) or from their own Event Hub (the ribbon's
+ * Preview ▾): ONE preview mechanism (coordinator 2026-10-04). The old
+ * `?as=replied` door is one of the four, unchanged on the RSVP stage.
  *
  * THE GATE IS THE SAME ONE: no `OwnerCapability`, or one for another event,
  * and the answer is null — a guest or a stranger who types `?as=declined`
@@ -126,16 +126,10 @@ export function resolveSampleViewer(input: {
   asParam: string | string[] | undefined;
   lifecyclePhase: LifecyclePhase;
   eventId: string;
-  /** `isEditorCanvas` — the param AND a verified host (page.tsx). */
-  canvas: boolean;
 }): SeeAs | null {
   const { ownerCapability, eventId } = input;
   if (!ownerCapability || ownerCapability.ownerEventId !== eventId) return null;
-  if (input.canvas) {
-    const asked = seeAsOf(input.asParam);
-    if (asked) return asked;
-  }
-  return shouldSimulateRepliedGuest(input) ? 'replied' : null;
+  return seeAsOf(input.asParam);
 }
 
 /** The reply each sample guest state has given. */

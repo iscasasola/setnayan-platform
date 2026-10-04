@@ -482,6 +482,8 @@ type SiteBodyProps = {
    * drawn on the canvas (`meSection`).
    */
   sampleViewer?: SeeAs | null;
+  /** 👁 The host's capability for the RIBBON alone while the body is drawn for a See as sample (page.tsx). Null: `ownerCapability`. */
+  ribbonCapability?: OwnerCapability | null;
 };
 
 export async function SiteBody({
@@ -533,6 +535,7 @@ export async function SiteBody({
   shotsAdded = null,
   meSection = null,
   sampleViewer = null,
+  ribbonCapability = null,
 }: SiteBodyProps) {
   // 🎨 SECTION BACKGROUNDS — signed ONCE for the whole page.
   // Every arranged section's `config_json.canvas.media` is an `r2://` ref, held
@@ -630,13 +633,15 @@ export async function SiteBody({
   // server-verified capability, so `<OwnerRibbon>` renders nothing and their
   // DOM is byte-identical to before this PR. Read-only: links only.
   const ownerRibbon = buildOwnerRibbon({
-    ownerCapability,
+    // 👁 A See as sample keeps the HOST's ribbon (its Preview ▾ switches back) while the body is drawn as a guest.
+    ownerCapability: ribbonCapability ?? ownerCapability,
     eventId: event.event_id,
     slug: event.slug ?? null,
     phasesEnabled,
     // The phase the body is ACTUALLY being built from on this render — the
     // same value `plan` is computed with, so `?phase=` overrides are reflected.
     lifecyclePhase,
+    seeAs: sampleViewer,
   });
 
   /**
@@ -3567,7 +3572,7 @@ export async function SiteBody({
           nothing, so their HTML is byte-identical to before. */}
       {isEditorCanvas && editorBridge && !themeTile ? <EditorBridge /> : null}
       {/* 👁 See as: the sample viewer touches nothing (sample-viewer-inert.tsx). */}
-      {sampleViewer !== null ? <SampleViewerInert /> : null}
+      {sampleViewer !== null ? <SampleViewerInert canvas={isEditorCanvas} /> : null}
       {sceneRunsOnPage ? <HubSceneRuns /> : null}
       </EventWordsProvider>
     </InvitationShell>

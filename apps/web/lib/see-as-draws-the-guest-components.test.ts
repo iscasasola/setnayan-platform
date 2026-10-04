@@ -32,6 +32,7 @@ import {
   SIMULATED_GUEST_ID,
 } from './simulated-guest-preview';
 import { resolveArrivalAction } from './arrival-action';
+import { buildOwnerRibbon } from './owner-ribbon';
 import type { OwnerCapability } from '../app/[slug]/_lib/site-identity';
 
 const WEB = join(__dirname, '..');
@@ -63,25 +64,37 @@ test('1 · the four states, in the owner’s words and order', () => {
   assert.equal(seeAsOf('maybe'), null);
 });
 
-test('1 · each state resolves for a verified host’s canvas — on every stage — and for nobody else', () => {
+test('1 · each state resolves for a verified host — on every stage, canvas or their own Event Hub — and for nobody else', () => {
   for (const s of SEE_AS) {
     for (const phase of ['save_the_date', 'rsvp', 'event', 'editorial'] as const) {
       assert.equal(
-        resolveSampleViewer({ ownerCapability: HOST, asParam: s.key, lifecyclePhase: phase, eventId: 'ev-1', canvas: true }),
+        resolveSampleViewer({ ownerCapability: HOST, asParam: s.key, lifecyclePhase: phase, eventId: 'ev-1' }),
         s.key,
-        `${s.key} on ${phase} is not drawn on the canvas`,
+        `${s.key} on ${phase} is not drawn`,
       );
     }
     // No capability, or another event's: the ordinary page, whatever the address says.
-    assert.equal(resolveSampleViewer({ ownerCapability: null, asParam: s.key, lifecyclePhase: 'rsvp', eventId: 'ev-1', canvas: true }), null);
-    assert.equal(resolveSampleViewer({ ownerCapability: HOST, asParam: s.key, lifecyclePhase: 'rsvp', eventId: 'ev-2', canvas: true }), null);
+    assert.equal(resolveSampleViewer({ ownerCapability: null, asParam: s.key, lifecyclePhase: 'rsvp', eventId: 'ev-1' }), null);
+    assert.equal(resolveSampleViewer({ ownerCapability: HOST, asParam: s.key, lifecyclePhase: 'rsvp', eventId: 'ev-2' }), null);
   }
-  // Outside the canvas the old door is exactly as wide as it was: ?as=replied, the RSVP stage.
-  assert.equal(resolveSampleViewer({ ownerCapability: HOST, asParam: 'replied', lifecyclePhase: 'rsvp', eventId: 'ev-1', canvas: false }), 'replied');
-  assert.equal(resolveSampleViewer({ ownerCapability: HOST, asParam: 'replied', lifecyclePhase: 'event', eventId: 'ev-1', canvas: false }), null);
-  for (const k of ['pending', 'declined', 'signed-out']) {
-    assert.equal(resolveSampleViewer({ ownerCapability: HOST, asParam: k, lifecyclePhase: 'rsvp', eventId: 'ev-1', canvas: false }), null, `${k} leaked out of the canvas`);
-  }
+  assert.equal(resolveSampleViewer({ ownerCapability: HOST, asParam: undefined, lifecyclePhase: 'rsvp', eventId: 'ev-1' }), null);
+  assert.equal(resolveSampleViewer({ ownerCapability: HOST, asParam: ['replied'], lifecyclePhase: 'rsvp', eventId: 'ev-1' }), null);
+});
+
+test('1 · ONE preview mechanism: the host ribbon’s Preview ▾ offers the same states, as ?as= addresses', () => {
+  const model = buildOwnerRibbon({ ownerCapability: { ...HOST, maySiteEdit: true } as OwnerCapability, eventId: 'ev-1', slug: 'mj', phasesEnabled: true, lifecyclePhase: 'rsvp', seeAs: 'declined' });
+  assert.ok(model);
+  assert.deepEqual(model.seeAsLinks.map((l) => l.label), ['You', ...SEE_AS.map((s) => s.label)]);
+  assert.deepEqual(model.seeAsLinks.map((l) => l.href), ['/mj?phase=rsvp', ...SEE_AS.map((s) => `/mj?phase=rsvp&as=${s.key}`)]);
+  assert.deepEqual(model.seeAsLinks.filter((l) => l.active).map((l) => l.key), ['declined']);
+  assert.ok(model.phaseLinks.every((l) => l.href.endsWith('&as=declined')), 'a stage pick drops whose eyes the page is drawn with');
+  assert.equal(model.editorLabel, 'Edit your Event Hub');
+  const menu = read('app/[slug]/_components/owner-phase-menu.tsx');
+  assert.equal((menu.match(/<PickMenu\b/g) ?? []).length, 1, 'the ribbon’s preview is not ONE dropdown');
+  // Both groups are DRAWN FROM the model's links — the stages, then every See as link.
+  assert.match(menu, /\.\.\.links\.map\(\(l\) => \(\{ key: `\$\{STAGE\}\$\{l\.phase\}`, label: l\.label, group: 'Stage' \}\)\)/);
+  assert.match(menu, /\.\.\.seeAs\.map\(\(l\) => \(\{\s*key: `\$\{AS\}\$\{l\.key\}`,\s*label: l\.label,\s*group: 'See as'/, 'the ribbon’s Preview ▾ lost See as');
+  assert.match(menu, /seeAs\.find\(\(l\) => `\$\{AS\}\$\{l\.key\}` === key\)/, 'a See as pick goes nowhere');
 });
 
 test('2 · each guest state IS the guest page’s reply state — RSVP · You’re going · the declined line', () => {
@@ -135,13 +148,13 @@ test('4 · Signed out draws the door — the stranger’s GetInside, or the priv
   // In the canvas the door is hidden for the host — and drawn for Signed out.
   assert.match(BODY, /vendorCapability \|\| \(isEditorCanvas && sampleViewer !== 'signed-out'\) \? null : \(\s*<GetInside/);
   // …drawn as a GUEST, never as the host: the owner and supplier capabilities are dropped.
-  const props = branch.slice(branch.indexOf('const asSample = sampleCanvas'), branch.indexOf("if (seeAs === 'signed-out')"));
-  for (const k of ['ownerCapability: null', 'vendorCapability: null', 'supplierDesk: null', 'sampleViewer: seeAs']) {
+  const props = branch.slice(branch.indexOf('const asSample = seeAs'), branch.indexOf("if (seeAs === 'signed-out')"));
+  for (const k of ['ownerCapability: null', 'vendorCapability: null', 'supplierDesk: null', 'sampleViewer: seeAs', 'ribbonCapability: ownerCapability']) {
     assert.ok(props.includes(k), `the sample is still drawn with "${k.split(':')[0]}" — it must be drawn as a guest`);
   }
 });
 
-test('5 · See as lives only in 👁 Preview — phone rows in the menu, the one dropdown above the preview on a desktop', () => {
+test('5 · See as lives only in 👁 Preview — phone rows in the menu, the one dropdown above the preview on a desktop (and the host ribbon’s Preview ▾)', () => {
   // Phone: rows of the Preview menu, hidden from lg up.
   const rows = MAKER.slice(MAKER.indexOf('const previewRows = '), MAKER.indexOf('  return (\n    <MakerContext.Provider'));
   assert.ok(rows.length > 400, 'Preview’s rows were not found — the scan is blind');
@@ -168,8 +181,10 @@ test('5 · See as lives only in 👁 Preview — phone rows in the menu, the one
     'app/dashboard/[eventId]/launch/_components/maker-context.tsx',
     'app/dashboard/[eventId]/launch/_components/maker-shell.tsx',
     'app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx',
+    // The host's own Event Hub: the ribbon's Preview ▾ — the same preview, off the canvas (coordinator 2026-10-04).
+    'lib/owner-ribbon.ts',
     'lib/simulated-guest-preview.ts',
-  ], 'See as is read somewhere new — it lives only in 👁 Preview (and the guest page that draws it)');
+  ], 'See as is read somewhere new — it lives only in 👁 Preview, the ribbon’s Preview ▾ and the guest page that draws it');
 });
 
 test('5 · no Maker-only twin: the Maker draws none of the guest states itself', () => {

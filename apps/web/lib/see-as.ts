@@ -41,6 +41,9 @@ export type SeeAs = (typeof SEE_AS)[number]['key'];
 /** The editing canvas's row — the couple's own view, nobody's eyes borrowed. */
 export const SEE_AS_EDITING = { key: 'editing', label: 'You · editing' } as const;
 
+/** The same row on the host's own Event Hub (the ribbon's Preview ▾) — nothing is being edited there. */
+export const SEE_AS_YOU = { key: 'you', label: 'You' } as const;
+
 /** The value of `?as=`, read strictly: one of the four keys, or null. A repeated param (an array) is never a match. */
 export function seeAsOf(v: unknown): SeeAs | null {
   if (typeof v !== 'string') return null;

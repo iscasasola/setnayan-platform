@@ -185,7 +185,8 @@ test('Post Event · no phase ribbon repeating the footer, and no link to its own
 
 test('The host’s own hub · "Preview ▾" is ONE dropdown, not a pill row', () => {
   const ribbon = read('_components/owner-ribbon.tsx');
-  assert.match(ribbon, /<OwnerPhaseMenu links=\{model\.phaseLinks\} \/>/);
+  // 👁 PR-10: the ONE dropdown also holds See as (one preview mechanism with the Maker).
+  assert.match(ribbon, /<OwnerPhaseMenu links=\{model\.phaseLinks\} seeAs=\{model\.seeAsLinks\} \/>/);
   assert.doesNotMatch(ribbon, /phaseLinks\.map\(/, 'the phase pills are back');
   assert.match(read('_components/owner-phase-menu.tsx'), /<PickMenu\b/, 'the preview is not the shared dropdown');
   const body = read('_components/site-body.tsx');

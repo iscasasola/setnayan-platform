@@ -26,6 +26,21 @@ New: `lib/see-as.ts` (the words + param), `app/[slug]/_components/sample-viewer-
 Guards: `lib/see-as-draws-the-guest-components.test.ts`, `lib/see-as-never-writes.test.ts`;
 thirteen existing guards re-pointed to the new shape (`viewAsHref`→`seeAs`, "See it as…"→"See as", `GuestTicket`'s `src` prop defaulting to the ticket route, one more `wearDraft` return, the door's join gated off for the sample).
 
+Two live bugs in the same area, fixed here (coordinator, seen at 375 px on maria-and-jose,
+prod 5a1e75a):
+- **The phone bar read "Event Details ▾ · Look · Event Details".** With Look, Event Details or
+  Prints covering the stage, Page ▾ took that page's name, which is its neighbour's label. It now
+  reads its own name, "Page" (`MAKER_PAGE_MENU_LABEL`, maker-bar.ts). NEW guard
+  `lib/no-two-bar-buttons-share-a-label.test.ts` sweeps every stage × covering page × RSVP-open,
+  for both bars.
+- **The host ribbon said "Edit this site"**: it now says "Edit your Event Hub". Its "Preview:
+  Invitation" dropdown is now the SAME preview: one PickMenu with the stages, then See as (You ·
+  the four states), each a `?as=` address. So `resolveSampleViewer` honours the four states for a
+  verified host on their own Event Hub as well as in the canvas: one mechanism, one gate. Off the
+  canvas the body is still drawn as a guest and stays inert to buttons and submits. The host keeps
+  their ribbon (`ribbonCapability`), links, the tab bar, and the ribbon's own list, so they can
+  look around and switch back.
+
 SPEC IMPACT: None — builds EVENT_DETAILS_STUDY_2026-10-04_fable.md §7 PR-10 as written. One
 call flagged for the owner: the prototype's default row reads "Guest who hasn't replied"; this
 build keeps the couple's own editing canvas ("You · editing") as the default, because the

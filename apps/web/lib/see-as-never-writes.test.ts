@@ -78,11 +78,11 @@ test('3 · the sample guest is never a real row — and the reply action refuses
 });
 
 test('4 · in the canvas the sample touches nothing — the door joins nothing, there is no sign-out, the guard is mounted', () => {
-  assert.match(BODY, /\{sampleViewer !== null \? <SampleViewerInert \/> : null\}/, 'the inert guard is not mounted for a sample');
+  assert.match(BODY, /\{sampleViewer !== null \? <SampleViewerInert canvas=\{isEditorCanvas\} \/> : null\}/, 'the inert guard is not mounted for a sample');
   assert.match(BODY, /const signOut = sampleViewer !== null \? null : \(/, 'the sample guest is offered a sign-out form');
   assert.match(BODY, /joinAction=\{\s*sampleViewer === null && oneQrLetsYouIn/, 'the door binds a join action for a sample viewer');
   // The private door (no SiteBody) gets the guard too.
-  assert.match(PAGE, /<PrivateLanding[\s\S]{0,300}?\/>\s*<SampleViewerInert \/>/);
+  assert.match(PAGE, /<PrivateLanding[\s\S]{0,300}?\/>\s*<SampleViewerInert canvas=\{isEditorCanvas\} \/>/);
 });
 
 /* ── The guard itself, executed ─────────────────────────────────────────── */
@@ -102,7 +102,10 @@ function fakeEvent(target: unknown): Fake {
   };
 }
 /** An element whose `closest` answers from a list of selectors it "is inside". */
-const el = (inside: string[]) => ({ closest: (sel: string) => (inside.some((s) => sel.split(',').map((x) => x.trim()).includes(s)) ? {} : null) });
+const el = (inside: string[]) => ({
+  closest: (sel: string) =>
+    inside.some((s) => sel.split(',').map((x) => x.trim()).includes(s)) ? { matches: (m: string) => inside[0] === m } : null,
+});
 
 test('4 · every submit is stopped before anything reads it', () => {
   const e = fakeEvent(null);
@@ -111,19 +114,36 @@ test('4 · every submit is stopped before anything reads it', () => {
   assert.equal(e.stopped, 1);
 });
 
-test('4 · a press on a link / button / field: no default; outside a scene, no handler either', () => {
+test('4 · in the canvas: a press on a link / button / field — no default; outside a scene, no handler either', () => {
   for (const what of ['a[href]', 'button', 'input', '[role="button"]']) {
     assert.ok(SAMPLE_PRESSABLE.includes(what), `${what} is not covered`);
     const outside = fakeEvent(el([what]));
-    stopSamplePress(outside);
+    stopSamplePress(outside, true);
     assert.deepEqual([outside.prevented, outside.stopped], [1, 1], `${what} outside a scene still acts`);
     // Inside a scene the Maker's bridge turns the tap into "select this scene" — only the default goes.
     const inScene = fakeEvent(el([what, '[data-setnayan-editor-bound="1"]']));
-    stopSamplePress(inScene);
+    stopSamplePress(inScene, true);
     assert.deepEqual([inScene.prevented, inScene.stopped], [1, 0], `${what} inside a scene lost the scene selection`);
   }
   // A tap on plain words is left alone (the bridge's tap-to-type keeps working).
   const words = fakeEvent(el([]));
-  stopSamplePress(words);
+  stopSamplePress(words, true);
   assert.deepEqual([words.prevented, words.stopped], [0, 0]);
+});
+
+test('4 · off the canvas (the host’s own Event Hub): buttons and fields still act on nothing; links, tabs and the ribbon move the host around', () => {
+  for (const what of ['button', 'input', '[role="button"]']) {
+    const e = fakeEvent(el([what]));
+    stopSamplePress(e, false);
+    assert.deepEqual([e.prevented, e.stopped], [1, 1], `${what} acts on the host’s own sample page`);
+  }
+  for (const free of [['a[href]'], ['button', '[data-owner-ribbon]'], ['[role="option"]', '[role="listbox"]'], ['button', 'nav[aria-label="Site sections"]']]) {
+    const e = fakeEvent(el(free));
+    stopSamplePress(e, false);
+    assert.deepEqual([e.prevented, e.stopped], [0, 0], `${free.join(' in ')} is stopped — the host cannot look around or switch back`);
+  }
+  // …and the submit guard has no exemption at all.
+  const sub = fakeEvent(el(['[data-owner-ribbon]']));
+  stopSampleSubmit(sub);
+  assert.deepEqual([sub.prevented, sub.stopped], [1, 1]);
 });

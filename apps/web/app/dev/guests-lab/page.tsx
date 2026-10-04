@@ -47,10 +47,10 @@ const NOTICES: NotificationRow[] = [
     read_at: null,
     created_at: new Date(Date.now() - 86_400_000).toISOString(),
   },
-  ...Array.from({ length: 5 }, (_, i) => ({
+  ...["Ana RSVP'd: attending", "Ben RSVP'd: attending", "Carla RSVP'd: attending", "Dino RSVP'd: attending", "Ella RSVP'd: attending"].map((title, i) => ({
     notification_id: `r${i}`,
     type: 'rsvp_received' as NotificationRow['type'],
-    title: `Guest ${i + 1} RSVP'd: attending`,
+    title,
     body: 'Maybe for one of a few people sharing a mobile number. They told you what to call them.',
     related_url: '/dashboard',
     read_at: i > 2 ? new Date().toISOString() : null,
@@ -82,7 +82,7 @@ function guest(p: Partial<GuestRow>): GuestRow {
     display_name: null,
     side: 'groom',
     group_category: 'friends',
-    role: 'best_man',
+    role: 'guest',
     extra_roles: [],
     plus_one_allowed: false,
     plus_one_count: 0,
@@ -264,9 +264,9 @@ export default async function GuestsLabPage({
               </div>
               <p className="text-sm text-ink/60">Guests can reply until you finalize.</p>
               <div className="hidden lg:block">{rosterTabs}</div>
-              {Array.from({ length: 14 }, (_, i) => (
-                <div key={i} className="border-b border-ink/10 py-3 text-sm text-ink/70">
-                  Guest row {i + 1}
+              {['Ana Cruz', 'Ben Reyes', 'Carla Lim', 'Dino Tan', 'Ella Go', 'Fe Uy', 'Gino Sy', 'Hana Ong', 'Ivy Chua', 'Jun Dy', 'Kat Yu', 'Leo Co'].map((who) => (
+                <div key={who} className="border-b border-ink/10 py-3 text-sm text-ink/70">
+                  {who}
                 </div>
               ))}
             </section>

@@ -52,6 +52,7 @@ import {
 } from '@/lib/story-find';
 import { STORY_OPEN_MINUTE_EVENT } from './story-clock';
 import { STORY_OPEN_TAB_EVENT } from './story-index-tabs';
+import { useOneOpen } from '@/lib/one-open';
 
 /** Marks an entry the current query did not hit. Styled in `globals.css`. */
 const DIM_ATTR = 'data-story-dim';
@@ -177,6 +178,7 @@ export function FindInThisDay({
     },
     [],
   );
+  useOneOpen(open, () => close(false)); // one open at a time — lib/one-open.ts
 
   /* Escape closes from anywhere inside, and a click outside dismisses — the
      contract a disclosure owes, without claiming the page behind it is inert. */

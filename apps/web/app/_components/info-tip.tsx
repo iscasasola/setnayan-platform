@@ -30,6 +30,7 @@
 
 import { useEffect, useId, useReducer, useRef, type ReactNode } from 'react';
 import { TIP_CLOSED, tipReducer } from './info-tip-state';
+import { useOneOpen } from '@/lib/one-open';
 
 type LabelTag = 'span' | 'p' | 'h2' | 'h3' | 'h4';
 
@@ -64,6 +65,10 @@ export function InfoTip({
   const rootRef = useRef<HTMLElement>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
   const tipId = useId();
+  // One open at a time (lib/one-open.ts): a tap-PINNED tip is an open popover —
+  // pinning it closes any other open dropdown/menu/fold, and one opening closes
+  // it. A mouse hover-peek is not an "open" and never closes anything.
+  useOneOpen(state.pinned, () => dispatch({ type: 'outside' }));
 
   useEffect(() => {
     if (!state.open) return;

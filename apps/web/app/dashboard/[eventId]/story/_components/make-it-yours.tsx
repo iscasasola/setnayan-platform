@@ -108,6 +108,7 @@ import { saveArrangement } from '../arrangement-actions';
 import type { MakeItYoursInput } from '../_lib/load-make-it-yours';
 import s from './make-it-yours.module.css';
 import { formatCount } from '@/lib/format-number';
+import { useOneOpen } from '@/lib/one-open';
 
 const cx = (...c: Array<string | false | null | undefined>) => c.filter(Boolean).join(' ');
 
@@ -230,6 +231,7 @@ export function MakeItYours({
   const [dragOrder, setDragOrder] = useState<string[] | null>(null);
   const [draggingRow, setDraggingRow] = useState<string | null>(null);
   const [pop, setPop] = useState(false);
+  useOneOpen(pop, setPop); // the text-colour popover: one open at a time — lib/one-open.ts
   /* The browsers that do not know `plaintext-only` would make the box not editable at all; they get
      `true`, and the paste filter below keeps pasted formatting out either way. */
   const [plainOnly, setPlainOnly] = useState(true);

@@ -79,6 +79,7 @@ import { setEntourageLineOrder } from '../entourage-order-actions';
 import { joinEntourageLine, swapEntouragePlaces } from '../march-actions';
 import type { MarchResult } from '@/lib/march-result';
 import { formatCount } from '@/lib/format-number';
+import { useOneOpen } from '@/lib/one-open';
 
 export type WalkingLine = {
   /** The line's lead guest id — how the server names it. */
@@ -461,6 +462,7 @@ function MarchCell({
 }) {
   const [open, setOpen] = useState(false);
   const [over, setOver] = useState(false);
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
   const root = useRef<HTMLSpanElement>(null);
   const button = useRef<HTMLButtonElement>(null);
   const menuId = useId();

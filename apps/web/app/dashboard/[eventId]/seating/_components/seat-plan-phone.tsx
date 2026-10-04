@@ -6,6 +6,7 @@ import { ChevronDown, ChevronRight, MoreHorizontal, Sparkles, X } from 'lucide-r
 import { formatCount } from '@/lib/format-number';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 /**
  * 📱 THE SEAT PLAN ON A PHONE — its chrome (owner 2026-10-01, DECISION_LOG
@@ -43,34 +44,37 @@ function Pop({
   data: string;
 }) {
   const [open, setOpen] = useState(false);
+  const oneOpenId = useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts; what opens inside is its child
   return (
-    <div className="relative shrink-0">
-      <button
-        type="button"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={label}
-        onClick={() => setOpen((v) => !v)}
-        {...{ [data]: '' }}
-        className="sn-press inline-flex h-11 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3.5 text-[13px] font-medium text-ink"
-      >
-        {button}
-      </button>
-      {open ? (
-        <>
-          <button type="button" aria-hidden tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
-          <div
-            role="menu"
-            onClick={(e) => {
-              if ((e.target as HTMLElement).closest('[data-close]')) setOpen(false);
-            }}
-            className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
-          >
-            {children}
-          </div>
-        </>
-      ) : null}
-    </div>
+    <OneOpenScope id={oneOpenId}>
+      <div className="relative shrink-0">
+        <button
+          type="button"
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-label={label}
+          onClick={() => setOpen((v) => !v)}
+          {...{ [data]: '' }}
+          className="sn-press inline-flex h-11 items-center gap-1 rounded-full border border-ink/15 bg-cream px-3.5 text-[13px] font-medium text-ink"
+        >
+          {button}
+        </button>
+        {open ? (
+          <>
+            <button type="button" aria-hidden tabIndex={-1} onClick={() => setOpen(false)} className="fixed inset-0 z-40 cursor-default" />
+            <div
+              role="menu"
+              onClick={(e) => {
+                if ((e.target as HTMLElement).closest('[data-close]')) setOpen(false);
+              }}
+              className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} z-50 mt-1 w-[min(20rem,calc(100vw-2rem))] max-h-[65dvh] overflow-y-auto overscroll-contain rounded-xl bg-cream p-2 shadow-lg`}
+            >
+              {children}
+            </div>
+          </>
+        ) : null}
+      </div>
+    </OneOpenScope>
   );
 }
 

@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useId, useState, type ReactNode } from 'react';
 import { ChevronDown } from 'lucide-react';
+import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
 /**
  * <ExpandCard> — a doorstep card that EXPANDS IN PLACE instead of navigating
@@ -68,6 +69,9 @@ export function ExpandCard({
   const expandable = children != null && children !== false;
   const [open, setOpen] = useState(defaultOpen && expandable);
   const bodyId = useId();
+  // One open at a time (lib/one-open.ts): another dropdown, menu or fold opening
+  // folds this card; one opening INSIDE it (the scope below) leaves it open.
+  const oneOpenId = useOneOpen(open, setOpen);
 
   return (
     <article className={`${cardClassName} relative px-5 py-4`}>
@@ -105,7 +109,9 @@ export function ExpandCard({
         )}
       </h3>
 
-      <div id={bodyId}>{expandable && open ? children : preview}</div>
+      <div id={bodyId}>
+        {expandable && open ? <OneOpenScope id={oneOpenId}>{children}</OneOpenScope> : preview}
+      </div>
 
       {fullHref ? (
         <Link

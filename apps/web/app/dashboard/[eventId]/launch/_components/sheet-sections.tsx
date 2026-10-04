@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
+import { useOneOpen } from '@/lib/one-open';
 
 /**
  * 📱 THE EDITOR SHEET'S ONE DROPDOWN (owner, live phone test 2026-10-02:
@@ -31,6 +32,7 @@ export function SheetSections({
   current: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  useOneOpen(open, setOpen); // one open at a time — lib/one-open.ts
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;

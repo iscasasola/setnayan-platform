@@ -546,14 +546,12 @@ export default async function EventDetailsPage({
         <div className="sn-tile flex items-center gap-3 p-4" data-record-finish="">
           <div className="min-w-0 flex-1">
             <p className="font-mono text-[11px] uppercase tracking-[0.16em] text-ink/60">
-              {guide.setup ? 'Finish your Event Hub' : guide.roundTitle} · {formatCount(guide.done)} of {formatCount(guide.total)}
+              Finish your Event Hub · {formatCount(guide.done)} of {formatCount(guide.total)}
             </p>
-            {guide.nextTitle ? (
-              <p className="mt-1 truncate text-sm text-ink/80">
-                Next: {guide.nextTitle}
-                {guide.thenTitle ? ` · then ${guide.thenTitle}` : ''}
-              </p>
-            ) : null}
+            {/* Counted by stage (PR-2, lib/stage-setup.ts) — the same line Home's Next card says. */}
+            <p className="mt-1 truncate text-sm text-ink/80">
+              Next: {guide.stageTitle} — {formatCount(guide.stageDone)} of {formatCount(guide.stageTotal)} in place
+            </p>
           </div>
           <Link
             href={`/dashboard/${eventId}/launch?tool=details&guide=1`}

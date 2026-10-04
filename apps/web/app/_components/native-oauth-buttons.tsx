@@ -18,7 +18,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { GoogleGIcon, AppleIcon } from '@/app/_components/oauth-icons';
-import { signInWithProviderNative } from '@/lib/native-oauth';
 import type { NativeOAuthProvider } from '@/lib/native-oauth-plan';
 import { envFlagEnabled } from '@/lib/env-flag';
 
@@ -47,7 +46,12 @@ export function NativeOAuthButtons({
     setPending(provider);
     // Resolves false when the person closed the sheet / browser → buttons back.
     // On success the page navigates away; on failure the helper routes to /login?error.
-    signInWithProviderNative(provider, next, accountType)
+    // Loaded on tap, not with the page: this row only renders inside the phone
+    // app, yet a static import put the whole native flow (bridge, Turnstile,
+    // callback plan) into the first load of /, /login, /signup, /open-shop for
+    // every web visitor (+3 kB on /, train 2026-10-04 e). Same call, same order.
+    import('@/lib/native-oauth')
+      .then(({ signInWithProviderNative }) => signInWithProviderNative(provider, next, accountType))
       .then((left) => {
         if (!left) setPending(null);
       })

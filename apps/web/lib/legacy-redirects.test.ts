@@ -57,6 +57,8 @@ const FORWARDS: readonly (readonly [string, string])[] = [
   ['/explore/categories', '/explore'],
   [`/dashboard/${EID}/suite`, MORE],
   [`/dashboard/${EID}/studio`, MORE],
+  // 👗 "THE DRESS CODE IS SET IN THE MOOD BOARD" (2026-10-01; removed 2026-10-04).
+  [`/dashboard/${EID}/website/dress-code`, `/dashboard/${EID}/studio/mood-board`],
 ];
 
 /** The page file each old path used to be (relative to app/). */
@@ -81,6 +83,7 @@ const DELETED_PAGES: readonly string[] = [
   'explore/categories/page.tsx',
   'dashboard/[eventId]/suite/page.tsx',
   'dashboard/[eventId]/studio/page.tsx',
+  'dashboard/[eventId]/website/dress-code/page.tsx',
 ];
 
 test('every retired path forwards to the destination its stub had', () => {

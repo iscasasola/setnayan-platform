@@ -245,11 +245,11 @@ export function NikahEssentialsCard({
         </form>
 
         <Link
-          href={`/dashboard/${eventId}/website/dress-code`}
+          href={`/dashboard/${eventId}/studio/mood-board`}
           className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-800 hover:text-emerald-900"
         >
           <Shirt aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-          Set a guest modesty note on your invitation
+          Set a guest modesty note in your Mood Board
           <ArrowRight aria-hidden className="h-3 w-3" strokeWidth={2} />
         </Link>
 

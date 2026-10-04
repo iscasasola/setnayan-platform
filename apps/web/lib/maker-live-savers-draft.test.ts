@@ -58,8 +58,8 @@ const WRITERS: Array<[file: string, name: string, door: RegExp, columns: string[
   [`${W}what-to-bring/actions.ts`, 'updateWhatToBring', /draftEventsAndReturn\(/, ['what_to_bring']],
   [`${W}our-story/actions.ts`, 'updateOurStory', /draftEventsAndReturn\(/, ['love_story', 'together_since']],
   [`${W}our-story/actions.ts`, 'loveStoryMomentAction', /draftEventsAndReturn\(/, ['love_story']],
-  [`${W}dress-code/actions.ts`, 'updateDressCode', /draftEventsAndReturn\(/, ['dress_code_config']],
-  [`${W}dress-code/actions.ts`, 'updateDressCodeLists', /draftEventsAndReturn\(/, ['dress_code_config']],
+  [`app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts`, 'updateDressCode', /draftEventsAndReturn\(/, ['dress_code_config']],
+  [`app/dashboard/[eventId]/studio/mood-board/dress-code-actions.ts`, 'updateDressCodeLists', /draftEventsAndReturn\(/, ['dress_code_config']],
   [`${W}photo-moments/actions.ts`, 'updatePhotoMoments', /saveHubDraftPatch\(/, ['photo_moments_config']],
 ];
 

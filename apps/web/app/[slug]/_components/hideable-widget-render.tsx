@@ -45,7 +45,7 @@ import { DetailsBigDate, DetailsCard } from './event-details-styles';
  * content from existing events.* columns or from the guest record. The
  * widget editor's job is the layer ABOVE this — which widgets render
  * + in what order — NOT the per-widget content (which lives in
- * sibling editors at /website/dress-code, /website/photo-moments, etc.).
+ * sibling editors at /website/photo-moments, etc.).
  */
 type HideableWidgetProps = {
   widget: InvitationWidgetRow;

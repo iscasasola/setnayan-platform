@@ -61,8 +61,9 @@ export function GuestsViewSwitcher({
       <Link
         key={key}
         href={hrefFor(key)}
-        role="tab"
-        aria-selected={on}
+        // Inside the roster's <nav> (bare) these are links with a current page;
+        // on its own the switch is a tablist of tabs.
+        {...(bare ? { 'aria-current': on ? ('page' as const) : undefined } : { role: 'tab', 'aria-selected': on })}
         className={SEG_ITEM}
       >
         <Icon className="h-4 w-4" strokeWidth={1.75} aria-hidden />

@@ -37,9 +37,10 @@ test('the topic and the message are not side by side in one flex row', () => {
   assert.doesNotMatch(ITEM.slice(ITEM.indexOf('<span'), topic), /shrink-0/, 'the topic is shrink-0 again');
 });
 
-test('a person\'s words are shown with our names spelled our way', () => {
-  assert.match(ITEM, /\{brandWords\(n\.title\)\}/, 'the title is printed raw');
-  assert.match(ITEM, /\{brandWords\(n\.body\)\}/, 'the body is printed raw — "papic" stays lower-case');
+test('the team\'s typed words are shown with our names spelled our way — never a name', () => {
+  assert.match(ITEM, /TEAM_TYPED_BODY\.has\(n\.type\) \? brandWords\(n\.body\)/, 'the admin\'s note is printed raw — "papic" stays lower-case');
+  assert.match(SRC, /TEAM_TYPED_BODY[^=]*= new Set\(\['event_deletion_answered'\]\)/, 'the removal answer is not respelled');
+  assert.doesNotMatch(ITEM, /brandWords\(n\.title\)/, 'a title — which carries event and guest NAMES — is respelled');
 });
 
 test('the removal answer says "event", never "celebration"', () => {

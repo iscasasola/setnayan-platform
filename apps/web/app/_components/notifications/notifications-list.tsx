@@ -72,6 +72,13 @@ export function NotificationsList({ items, returnTo, emptyState }: Props) {
   );
 }
 
+/**
+ * The notices whose BODY is the Setnayan team's own typed note (the admin's
+ * answer to a removal request, sent as-is) — the only words `brandWords`
+ * respells. A title carries names (an event's, a guest's) and is never touched.
+ */
+const TEAM_TYPED_BODY: ReadonlySet<NotificationRow['type']> = new Set(['event_deletion_answered']);
+
 function NotificationItem({
   item: n,
   returnTo,
@@ -103,8 +110,10 @@ function NotificationItem({
         {NOTIFICATION_TYPE_LABEL[n.type]}
       </span>
       <div className="mt-2 min-w-0" data-notice-message="">
-        <p className="text-sm font-semibold text-ink">{brandWords(n.title)}</p>
-        {n.body ? <p className="text-sm text-ink/65">{brandWords(n.body)}</p> : null}
+        <p className="text-sm font-semibold text-ink">{n.title}</p>
+        {n.body ? (
+          <p className="text-sm text-ink/65">{TEAM_TYPED_BODY.has(n.type) ? brandWords(n.body) : n.body}</p>
+        ) : null}
       </div>
       <div className="mt-2 flex items-center gap-2" data-notice-foot="">
         <p className="mr-auto font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">

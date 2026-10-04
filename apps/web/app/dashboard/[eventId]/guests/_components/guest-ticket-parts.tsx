@@ -8,7 +8,7 @@ import { SaveFileLink } from '@/app/_components/save-file-link';
 import { Sheet } from '@/app/_components/sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
-import { menuRoomOf, placeMenuIn } from '@/lib/menu-place';
+import { menuNudge, menuRoomOf, menuWidthIn, nudgeUp, placeMenuIn } from '@/lib/menu-place';
 import { releaseGuestClaim } from '../[guestId]/actions';
 import { ticketFileName, ticketUrl } from './send-invite';
 import { DeleteGuestFlow } from './guest-delete';
@@ -199,7 +199,9 @@ export function GuestMoreMenu({
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [portal, setPortal] = useState<HTMLElement | null>(null);
-  const [at, setAt] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [at, setAt] = useState<{ top: number; left: number; width: number; maxHeight?: number } | null>(null);
+  /** When WE scrolled the card to make room — that scroll must not close the list. */
+  const nudgedAt = useRef(0);
   const confirmId = useId();
   const menuId = useId();
   const release = releaseGuestClaim.bind(null, eventId, guestId);
@@ -230,16 +232,37 @@ export function GuestMoreMenu({
     its LEFT edge like the Invite list, and clamped between the card's edges. A
     guest-list row has no such box and keeps the right-edge rule above.
   */
+  /*
+    ⚖ NEVER OVER THE TICKET, EVEN ON A SHORT PHONE (review of #6352: on a
+    375×667 iPhone SE with the ticket row low on screen, the list flipped ABOVE
+    and covered the ticket again). In the card it never flips: if two lines of
+    it cannot fit under the row, the card is brought up first; what still does
+    not fit scrolls inside the list. Its height is measured at the width it is
+    drawn — narrowed to the card, a list wraps taller.
+  */
   const place = () => {
-    const r = buttonRef.current?.getBoundingClientRect();
-    if (!r) return;
+    const btn = buttonRef.current;
+    if (!btn) return;
     const vw = window.innerWidth;
-    const room = menuRoomOf(buttonRef.current);
+    const vh = window.innerHeight;
+    let room = menuRoomOf(btn);
+    const menuEl = menuRef.current;
+    if (menuEl) menuEl.style.width = `${menuWidthIn(Math.min(MORE_MENU_WIDTH, vw - 16), room)}px`;
+    const height = menuEl?.offsetHeight ?? 0;
+    if (room && height > 0) {
+      const by = menuNudge(room, { height: vh }, height, { boxTop: room.top });
+      if (by > 0) {
+        nudgedAt.current = Date.now();
+        nudgeUp(btn, by);
+        room = menuRoomOf(btn);
+      }
+    }
+    const r = btn.getBoundingClientRect();
     setAt(
       placeMenuIn(
         r,
-        { width: vw, height: window.innerHeight },
-        { width: Math.min(MORE_MENU_WIDTH, vw - 16), height: menuRef.current?.offsetHeight ?? 0 },
+        { width: vw, height: vh },
+        { width: Math.min(MORE_MENU_WIDTH, vw - 16), height },
         room ? 'start' : 'end',
         room,
       ),
@@ -262,6 +285,7 @@ export function GuestMoreMenu({
     };
     const onScroll = (e: Event) => {
       if (menuRef.current?.contains(e.target as Node)) return;
+      if (Date.now() - nudgedAt.current < 500) return; // our own nudge, not the person scrolling away
       setOpen(false);
     };
     window.addEventListener('scroll', onScroll, true);
@@ -309,7 +333,13 @@ export function GuestMoreMenu({
         hidden={!open}
         style={
           at
-            ? { top: at.top, left: at.left, width: at.width, maxWidth: 'calc(100vw - 16px)' }
+            ? {
+                top: at.top,
+                left: at.left,
+                width: at.width,
+                maxWidth: 'calc(100vw - 16px)',
+                ...(at.maxHeight != null ? { maxHeight: at.maxHeight, overflowY: 'auto' as const } : {}),
+              }
             : { width: MORE_MENU_WIDTH, maxWidth: 'calc(100vw - 16px)' }
         }
         data-guest-more-list=""

@@ -18,7 +18,7 @@ test('the popover re-measures once its portal exists', () => {
   assert.ok(at > -1, 'Popover is gone — this guard is pointing at nothing');
   const body = src.slice(at, src.indexOf('\nexport function', at + 1) === -1 ? undefined : src.indexOf('\nexport function', at + 1));
   // (2026-10-04: the placed WIDTH rides along — a menu narrows to fit the guest card.)
-  const deps = body.match(/setPos\(\{ left, top(?:, width: \w+)? \}\);\s*\},\s*\[([^\]]*)\]\);/);
+  const deps = body.match(/setPos\(\{ left, top(?:, width: \w+)?(?:, maxHeight)? \}\);\s*\},\s*\[([^\]]*)\]\);/);
   assert.ok(deps, 'the measuring effect is gone or reshaped — re-check this guard');
   assert.match(deps[1] ?? '', /\bportal\b/, 'the popover measures before its portal exists and never again — it opens invisible');
 });

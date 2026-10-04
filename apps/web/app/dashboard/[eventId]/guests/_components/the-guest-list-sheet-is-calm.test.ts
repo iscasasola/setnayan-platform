@@ -62,3 +62,11 @@ test('4 · the doors are ONE segmented control', () => {
   assert.match(SWITCH, /if \(bare\) return <>\{items\}<\/>;/, 'the bare switch draws its own .sn-seg inside the doors');
   assert.match(PAGE, /<GuestsViewSwitcher [^>]*\bbare\b/, 'the page hands the doors a switch with its own pill — two controls');
 });
+
+test('4 · the segmented doors are a <nav> of LINKS — Share the link is a link, never a broken tab', () => {
+  const nav = TABS.slice(TABS.indexOf('<nav'), TABS.indexOf('>', TABS.indexOf('<nav')));
+  assert.match(nav, /aria-label="Guest list"/, 'the doors lost their nav landmark name');
+  assert.doesNotMatch(TABS, /role="tablist"|role="tab"|aria-selected/, 'the doors pose as tabs again');
+  assert.match(TABS, /aria-current=\{current \? 'page' : undefined\}/, 'the current door does not say it is the current page');
+  assert.match(SWITCH, /bare \? \{ 'aria-current': on \? \('page' as const\) : undefined \}/, 'List · Mind map pose as tabs inside the nav');
+});

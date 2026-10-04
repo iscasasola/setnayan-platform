@@ -59,7 +59,7 @@ test('the ⋯ list and the popovers both place through placeMenu, by their LEFT 
   // inside the guest card it opens below the card's row (the-card-reads-in-one-voice.test.ts).
   assert.match(menu, /room \? 'start' : 'end',/, 'the ⋯ list no longer lines up with the ⋯ by its right edge when it fits');
   assert.doesNotMatch(menu, /innerWidth - r\.right|right: at\.right/, 'the ⋯ list is pinned by its right edge again — it runs off a phone');
-  assert.match(menu, /\{ top: at\.top, left: at\.left,/, 'the ⋯ list is not drawn at its placed left edge');
+  assert.match(menu, /top: at\.top,\s*left: at\.left,/, 'the ⋯ list is not drawn at its placed left edge');
   assert.match(menu, /maxWidth: 'calc\(100vw - 16px\)'/, 'the ⋯ list can be wider than the phone');
   const overlay = stripComments(readFileSync(join(dir, 'overlay-primitives.tsx'), 'utf8'));
   assert.match(overlay, /= placeMenuIn\(\s*anchor\.getBoundingClientRect\(\)/, 'the table popovers keep a private placement rule');

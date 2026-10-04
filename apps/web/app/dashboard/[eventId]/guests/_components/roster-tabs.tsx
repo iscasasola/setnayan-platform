@@ -85,9 +85,12 @@ export function RosterTabs({
   */
   return (
     <div className="flex items-center gap-2">
+      {/* A <nav> of LINKS (review of #6352): every door goes to a URL, so it
+          keeps the nav landmark and the current one says `aria-current="page"`
+          — no tablist, which would promise arrow-key tabs and make "Share the
+          link" a broken tab. `.sn-seg-item[aria-current='page']` lights it. */}
       <nav
         aria-label="Guest list"
-        role="tablist"
         className="sn-seg min-w-0 flex-1 overflow-x-auto [scrollbar-width:none] lg:flex-none [&::-webkit-scrollbar]:hidden"
         data-roster-seg=""
       >
@@ -153,8 +156,7 @@ function Tab({
   return (
     <Link
       href={href}
-      role="tab"
-      aria-selected={current ? true : false}
+      aria-current={current ? 'page' : undefined}
       className={SEG_ITEM}
     >
       {icon}

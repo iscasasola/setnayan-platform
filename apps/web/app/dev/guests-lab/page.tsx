@@ -17,6 +17,8 @@
  *   ?part=head      Guests title + round + + ⋯ (tap ⋯ for the Guest list sheet)
  *   ?part=card      a guest's card (Daniel Ramos) — tap Invite or ⋯
  *   ?part=host      the bride's card — a host, ⋯ only
+ *   &low=1          push the card's ticket row to the bottom of a short phone
+ *                   (375×667), where a menu has no room under it
  */
 import { notFound } from 'next/navigation';
 import { NotificationsList } from '@/app/_components/notifications/notifications-list';
@@ -188,6 +190,7 @@ export default async function GuestsLabPage({
 
   if (part === 'card' || part === 'host') {
     const host = part === 'host';
+    const low = sp.low === '1';
     const g = host
       ? guest({ guest_id: 'g-maria', first_name: 'Maria', last_name: 'Santos', side: 'bride', group_category: 'family', role: 'bride' })
       : guest({});
@@ -198,6 +201,7 @@ export default async function GuestsLabPage({
             <div className="sn-page-enter">
               {/* The panel over the Guest list, as a phone shows it: inset from the left. */}
               <div className="ml-12 min-h-dvh rounded-l-3xl bg-cream px-[18px] pb-10 pt-6 shadow-xl" data-lab-card="">
+                {low ? <div aria-hidden className="h-[440px]" data-lab-low="" /> : null}
                 <GuestCardBody
                   eventId={EVENT}
                   data={cardData(g, host)}

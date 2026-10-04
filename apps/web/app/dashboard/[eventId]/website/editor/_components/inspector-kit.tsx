@@ -123,6 +123,7 @@ export function ISeg({
   title,
   data,
   className = '',
+  tone = 'plain',
 }: {
   on: boolean;
   onClick: () => void;
@@ -131,6 +132,8 @@ export function ISeg({
   title?: string;
   data?: string;
   className?: string;
+  /** `wine` — the chosen segment filled in the Setnayan wine (`mulberry`, the CTA token) with white words: a SECTION switch (the part sheet's Text · Motion · Arrange). */
+  tone?: 'plain' | 'wine';
 }) {
   return (
     <button
@@ -141,7 +144,7 @@ export function ISeg({
       data-seg={data}
       onClick={onClick}
       className={`sn-press inline-flex min-h-11 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-8 ${
-        on ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+        on ? (tone === 'wine' ? 'bg-mulberry text-white shadow-sm' : 'bg-white text-ink shadow-sm') : 'text-ink/60 hover:text-ink'
       } ${className}`}
     >
       {children}

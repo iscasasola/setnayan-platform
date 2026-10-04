@@ -510,6 +510,17 @@ export function EditorBridge() {
       if (el) bind(el, key);
     }
 
+    /* 📱 A tap that lands on NO section (the page's margins, the ground between
+       scenes) — the Maker folds an open part sheet to its bar on a phone
+       (owner 2026-10-04, `lib/element-sheet-state.ts`). A bound section stops
+       its own clicks, so only a stray tap reaches here. */
+    const onStray = (e: MouseEvent) => {
+      if ((e.target as Element | null)?.closest?.('[data-setnayan-editor-bound="1"]')) return;
+      window.parent?.postMessage({ source: 'setnayan-site', t: 'tapOutside' }, origin);
+    };
+    document.addEventListener('click', onStray);
+    cleanups.push(() => document.removeEventListener('click', onStray));
+
     // ── canvas → Maker: a selection inside a part's text (✍ runs) ──────────
     let selTimer: number | null = null;
     const onSelection = () => {

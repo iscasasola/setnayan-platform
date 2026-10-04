@@ -6210,6 +6210,11 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 @keyframes hub-out-movefade-above { to   { opacity: 0; transform: translate3d(0, -26px, 0); } }
 @keyframes hub-out-movefade-left { to   { opacity: 0; transform: translate3d(-28px, 0, 0); } }
 @keyframes hub-out-movefade-right { to   { opacity: 0; transform: translate3d(28px, 0, 0); } }
+/* 🎛 A scene's composed In / Out — the same four effects as a part (above,
+   "ELEMENT MOTION"), its far end in `--hub-in-*` / `--hub-out-*` from
+   `hubCanvasVars`. The parts of a one-after-another scene inherit them. */
+@keyframes hub-in-mix  { from { opacity: var(--hub-in-o, 1); transform: var(--hub-in-t, none); filter: var(--hub-in-f, none); } }
+@keyframes hub-out-mix { to   { opacity: var(--hub-out-o, 1); transform: var(--hub-out-t, none); filter: var(--hub-out-f, none); } }
 
 @keyframes hub-during-lift {
   from { transform: scale(var(--hub-zoom, 1)) translate3d(0, 2.5%, 0); }
@@ -6233,6 +6238,25 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 @keyframes el-out-fade   { to { opacity: 0; } }
 @keyframes el-out-lift   { to { opacity: 0; transform: translate3d(0, -22px, 0); } }
 @keyframes el-out-settle { to { opacity: 0; transform: scale(0.965); } }
+/* 🎛 THE FOUR EFFECTS, COMPOSED (owner 2026-10-04: Fade · Move from 8
+   directions · Size · Blur combine). A combination that shipped keeps its
+   keyframe above; any other is ONE keyframe whose far end is three custom
+   properties `lib/motion-effects.ts` builds from closed-set keys
+   (`motionFxVars`: opacity · translate-by-direction + scale · blur(8px)).
+   Nothing typed reaches here. `-p` is the Play twin, as above. Every use sits
+   behind the reduced-motion gate, so a guest who asked for stillness gets it. */
+@keyframes el-in-mix    { from { opacity: var(--el-in-o, 1); transform: var(--el-in-t, none); filter: var(--el-in-f, none); } }
+@keyframes el-in-mix-p  { from { opacity: var(--el-in-o, 1); transform: var(--el-in-t, none); filter: var(--el-in-f, none); } }
+@keyframes el-out-mix   { to { opacity: var(--el-out-o, 1); transform: var(--el-out-t, none); filter: var(--el-out-f, none); } }
+
+/* ⬚ PICKMENU GRID — Move ▾ opens a 3×3 grid of arrows (owner 2026-10-04:
+   "drop down shows the 3x3 grid?" → yes). `PickMenu` stamps `data-pick-grid`
+   on its list; the cells are its ordinary options, laid out here: 44px
+   squares, the arrow shown, the words kept for a screen reader only. CSS, not
+   code, because pick-menu.tsx sits at its inline-size line. */
+[data-pick-grid] { display: grid; grid-template-columns: repeat(3, 44px); gap: 4px; width: max-content; min-width: 0 !important; }
+[data-pick-grid] > li > button { width: 44px; min-height: 44px; height: 44px; padding: 0; justify-content: center; gap: 0; font-size: 18px; }
+[data-pick-grid] > li > button > span:not([aria-hidden]) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ── SCROLL · SCRUB — the page's scenes (owner 2026-09-24: "hybrid perfect";
    contract in lib/hub-scenes.ts, renderer in app/[slug]/_components/hub-scenes.tsx)

@@ -147,7 +147,8 @@ test('R4 · hostile runs are dropped — no CSS text, no out-of-range offsets, n
 test('M1 · In and During play TOGETHER — two comma-separated animations, and one never clears the other', () => {
   let els = withElementMotion(null, 'names', 'in', 'rise');
   els = withElementMotion(els, 'names', 'during', 'drift');
-  assert.deepEqual(els?.names?.motion, { in: 'rise', during: 'drift' }, 'choosing During cleared In');
+  // 🔁 The shipped `rise` is READ as Fade + Move from below (2026-10-04).
+  assert.deepEqual(els?.names?.motion, { in: { fade: true, move: 'below' }, during: 'drift' }, 'choosing During cleared In');
   const decl = Object.fromEntries(hubElementMotionDeclarations(els?.names?.motion));
   // (the name is written LAST in each slot — see `MotionSlot`)
   assert.match(decl.animation ?? '', / none el-in-rise, 7s ease-in-out 0s infinite alternate el-during-drift, /);
@@ -158,10 +159,18 @@ test('M1 · In and During play TOGETHER — two comma-separated animations, and 
 });
 
 test('M2 · under "Plays once" there is no Out; under "Follows the scroll" Out runs on the exit range', () => {
-  assert.deepEqual(sanitizeHubElementMotion({ in: 'rise', out: 'lift', duration: 'slow' }), { in: 'rise', duration: 'slow' });
+  // 🔁 Shipped values are read as the four effects; Duration slow is Speed Gentle.
+  assert.deepEqual(sanitizeHubElementMotion({ in: 'rise', out: 'lift', duration: 'slow' }), {
+    in: { fade: true, move: 'below' },
+    speed: 'gentle',
+  });
   const scroll = sanitizeHubElementMotion({ in: 'fade', out: 'lift', timeline: 'scroll', duration: 'slow', delay: 'long' });
-  assert.deepEqual(scroll, { in: 'fade', out: 'lift', timeline: 'scroll' }, 'Duration and Delay do not apply to a scrolled element');
-  const once = Object.fromEntries(hubElementMotionDeclarations({ in: 'rise' }));
+  assert.deepEqual(
+    scroll,
+    { in: { fade: true }, out: { fade: true, move: 'above' }, timeline: 'scroll' },
+    'Duration and Delay do not apply to a scrolled element',
+  );
+  const once = Object.fromEntries(hubElementMotionDeclarations(sanitizeHubElementMotion({ in: 'rise' })!));
   assert.doesNotMatch(once.animation ?? '', /el-out-/);
   // 🔑 A timed element STATES its timeline, so a scene's `view()` cannot take it over.
   assert.match(once['animation-timeline'] ?? '', /^auto, /);
@@ -169,10 +178,10 @@ test('M2 · under "Plays once" there is no Out; under "Follows the scroll" Out r
   assert.match(scrolled.animation ?? '', /el-in-fade, .* el-out-lift$/);
   assert.equal(scrolled['animation-timeline'], 'view(), view()');
   assert.equal(scrolled['animation-range'], 'entry 0% cover 30%, exit 0% exit 100%');
-  // The sheet only offers Out when the element follows the scroll (the Animate
-  // tab's rows live in `part-inspector.tsx` since the Keynote rebuild).
+  // The sheet only offers Goes out when the element follows the scroll (the
+  // Motion section's rows live in `part-inspector.tsx`).
   const TAB = stripComments(read('app/dashboard/[eventId]/website/editor/_components/part-inspector.tsx'));
-  assert.match(TAB, /\{scroll \? \(\s*<IRow label="Out"/);
+  assert.match(TAB, /\{scroll \? \(\s*<div data-motion-step="out">/);
 });
 
 test('M3 · a hostile motion value is dropped — only closed-set keys ever reach CSS', () => {
@@ -210,7 +219,7 @@ test('Pro · a run or a motion is Pro at Apply; taking one off is free', () => {
     widgets: { hero: { canvas: { elements: { names: { runs: [{ start: 0, end: 1, font: 'script' }], of: hubTextHash(NAMES_TEXT) } } } } },
   });
   assert.equal(planHubDraftApply(withRun, live, false).refused.length, 1, 'a free couple applied a run');
-  const withMotion = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { canvas: { elements: { names: { motion: { in: 'rise' } } } } } } });
+  const withMotion = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { canvas: { elements: { names: { motion: { in: { fade: true, move: 'below' } } } } } } } });
   assert.equal(planHubDraftApply(withMotion, live, false).refused.length, 1, 'a free couple applied a motion');
   const liveRun: HubLiveState = { events: {}, widgets: [widget({ canvas: { elements: { names: { motion: { in: 'rise' } } } } })] };
   const off = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { canvas: {} } } });

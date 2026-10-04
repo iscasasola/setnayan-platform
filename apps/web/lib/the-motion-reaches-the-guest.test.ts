@@ -43,6 +43,9 @@ import {
   type HubElementMotion,
 } from './element-style';
 
+/** A STORED shipped motion (`rise`, `lift` …), read as the page reads it. */
+const L = (raw: Record<string, string>): HubElementMotion => sanitizeHubElementMotion(raw)!;
+
 const WEB = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
 const CSS = stripComments(read('app/globals.css'));
@@ -173,7 +176,7 @@ test('2 🔴 no scene FRAME is a scroll container by accident — `clip`, never 
 });
 
 test('2 🔑 inside the DELIBERATE scroll containers, scroll-linked motion follows the scene\'s own timeline', () => {
-  const css = hubElementSceneCss('schedule', { label: { motion: { in: 'rise', timeline: 'scroll', out: 'fade' } } })!;
+  const css = hubElementSceneCss('schedule', { label: { motion: L({ in: 'rise', timeline: 'scroll', out: 'fade' }) } })!;
   assert.match(css, /\.hub-scrub > :has\(\+ style\[data-hub-els="schedule"\]\)[^{]*\{[^}]*animation-timeline:var\(--hub-tl\)/);
   assert.match(css, /\.hub-arun\[data-armed\] > \.hub-auto > :has\([^{]*\{[^}]*animation-timeline:var\(--hub-tl\)/);
   assert.match(CSS, /\.hub-scrub > \.hub-seq-parts > \.hub-canvas-body > \* > \*:nth-child\(n \+ 2\)\s*\{[^}]*--hub-part-in-tl:\s*var\(--hub-tl\)/);
@@ -206,7 +209,7 @@ test('5 ⏳ every "Plays once" arrival binds only on a scene the page has marked
     }
   }
   assert.ok(rules >= 2, `anti-vacuity: the whole and the parts rule were found (${rules})`);
-  const css = hubElementSceneCss('schedule', { body: { motion: { in: 'fade' } } })!;
+  const css = hubElementSceneCss('schedule', { body: { motion: L({ in: 'fade' }) } })!;
   const before = /(^|\n):has\(\+ style[^{]*\{([^}]*)\}/.exec(css);
   assert.ok(before, 'the not-yet-reached rule exists');
   assert.doesNotMatch(before[2]!, /el-in-/, 'a timed In plays before the guest reaches it');
@@ -277,11 +280,11 @@ test('8 🔑 every element motion STATES its timeline and range — a scene\'s v
 
 test('9 ⏳ a timed In never paints its from-state during a Delay', () => {
   for (const place of ['page', 'hero'] as const) {
-    const a = Object.fromEntries(hubElementMotionDeclarations({ in: 'rise', delay: 'long' }, place)).animation ?? '';
+    const a = Object.fromEntries(hubElementMotionDeclarations(L({ in: 'rise', delay: 'long' }), place)).animation ?? '';
     assert.match(a, /0\.8s none el-in-rise/, `a delayed In at ${place} is hidden while it waits: ${a}`);
   }
   // The hero is on screen when the page opens: its "Follows the scroll" In plays on arrival.
-  const hero = Object.fromEntries(hubElementMotionDeclarations({ in: 'fade', timeline: 'scroll', out: 'lift' }, 'hero'));
+  const hero = Object.fromEntries(hubElementMotionDeclarations(L({ in: 'fade', timeline: 'scroll', out: 'lift' }), 'hero'));
   assert.match(hero['animation-timeline'] ?? '', /^auto, view\(\)$/);
 });
 

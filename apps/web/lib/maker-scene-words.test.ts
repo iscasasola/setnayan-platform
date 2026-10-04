@@ -294,7 +294,10 @@ test('the canvas tap and the navigator tile open Content with the box focused', 
   const onEdit = shell.slice(shell.indexOf("data.t !== 'edit'"), shell.indexOf("window.addEventListener('message', onMessage)"));
   const words = onEdit.indexOf('openWordsOnTap(');
   assert.ok(words > 0, 'the canvas tap asks whether it opens the words');
-  assert.ok(words < onEdit.indexOf('setElementTarget((prev)'), 'before the style sheet can take the tap');
+  // (the part sheet opens through the one sheet reducer since 2026-10-04 — `lib/element-sheet-state.ts`)
+  const sheet = onEdit.indexOf("sheetDo({ t: 'tapPart'");
+  assert.ok(sheet > 0, 'found where a part tap opens the style sheet');
+  assert.ok(words < sheet, 'before the style sheet can take the tap');
   assert.match(onEdit.slice(words), /select\?\.\(\{ \.\.\.picked, tab: 'content' \}\)[\s\S]*?setWordsFocus\(/);
   const tile = shell.slice(shell.indexOf('select?.(selectionForTile(tile));'), shell.indexOf('select?.(selectionForTile(tile));') + 700);
   assert.match(tile, /isWordsScene\(tile\.type/, 'the tile asks too');

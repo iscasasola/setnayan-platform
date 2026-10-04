@@ -31,6 +31,9 @@ import React from 'react';
 import * as es from '@/lib/element-style';
 import { HUB_FONTS_MOST_USED } from '@/lib/hub-fonts';
 import * as ep from './element-preview';
+/** The shipped Rise and Fade, as the four effects they are read as. */
+const RISE = es.HUB_EL_IN_AS_FX.rise;
+const FADE = es.HUB_EL_IN_AS_FX.fade;
 
 (globalThis as unknown as { React: unknown }).React = React;
 
@@ -298,17 +301,17 @@ test('THE MARK: every size step reaches the canvas as the zoom the server render
 });
 
 test('a font or colour change never touches the animation — only a motion change re-lays it', () => {
-  const live = masthead({ names: { motion: { in: 'rise' } } }).find('data-el', 'names');
+  const live = masthead({ names: { motion: { in: RISE } } }).find('data-el', 'names');
   // ▶ Play left its `-p` twin inline; a font change must leave the arrival alone.
   live.style.setProperty('animation-name', 'el-in-rise-p');
   const before = live.style.getPropertyValue('--el-anim');
   assert.match(before, /el-in-rise/, 'precondition: the server laid the motion');
-  bridge.applyHeroPartStyle(live as unknown as HTMLElement, { font: FONT, motion: { in: 'rise' } }, false);
+  bridge.applyHeroPartStyle(live as unknown as HTMLElement, { font: FONT, motion: { in: RISE } }, false);
   assert.equal(live.style.getPropertyValue('--el-anim'), before);
   assert.equal(live.style.getPropertyValue('animation-name'), 'el-in-rise-p');
   assert.ok(live.style.getPropertyValue('font-family'));
   // A motion change clears the twin and lays the new motion.
-  bridge.applyHeroPartStyle(live as unknown as HTMLElement, { font: FONT, motion: { in: 'fade' } }, true);
+  bridge.applyHeroPartStyle(live as unknown as HTMLElement, { font: FONT, motion: { in: FADE } }, true);
   assert.equal(live.style.getPropertyValue('animation-name'), '');
   assert.match(live.style.getPropertyValue('--el-anim'), /el-in-fade/);
   assert.equal(live.getAttribute('data-el-motion'), '', 'the gated rule\'s hook is laid with the motion');
@@ -368,7 +371,7 @@ test('a date part keeps its gold rules while its runs are re-cut', () => {
 test("a scene's parts: the bridge writes the SAME scoped <style> the frame renders", () => {
   const elements = es.sanitizeHubElements({
     heading: { color: '#112233', size: 120, font: FONT },
-    body: { motion: { in: 'fade' } },
+    body: { motion: { in: FADE } },
   })!;
   const widget = {
     widget_id: 'w1',
@@ -473,7 +476,7 @@ test('a refused save reverts to the last saved canvas — unless a later choice 
   assert.equal(ep.revertAfterFailedSave(failed, failed, saved), saved);
   assert.equal(ep.revertAfterFailedSave(failed, later, saved), null);
   // The revert is laid on the canvas quietly — no replay.
-  const msg = ep.elementPreview('f:hero', 'names', { elements: { names: { motion: { in: 'rise' } } } }, saved, false);
+  const msg = ep.elementPreview('f:hero', 'names', { elements: { names: { motion: { in: RISE } } } }, saved, false);
   assert.equal(msg.replay, false);
   assert.equal(msg.motion, true);
 });
@@ -496,9 +499,9 @@ test('the sheet previews BEFORE it saves, and a refusal previews the saved look'
 
 test('a motion change replays the In; a size, font or colour change does not', () => {
   const base: Canvas = { elements: { names: { size: 120 } } };
-  const withIn: Canvas = { elements: { names: { size: 120, motion: { in: 'rise' } } } };
-  const slower: Canvas = { elements: { names: { size: 120, motion: { in: 'rise', duration: 'slow' } } } };
-  const bigger: Canvas = { elements: { names: { size: 145, motion: { in: 'rise', duration: 'slow' } } } };
+  const withIn: Canvas = { elements: { names: { size: 120, motion: { in: RISE } } } };
+  const slower: Canvas = { elements: { names: { size: 120, motion: { in: RISE, speed: 'gentle' } } } };
+  const bigger: Canvas = { elements: { names: { size: 145, motion: { in: RISE, speed: 'gentle' } } } };
   const inOn = ep.elementPreview('f:hero', 'names', base, withIn);
   assert.deepEqual([inOn.motion, inOn.replay], [true, true]);
   const dur = ep.elementPreview('f:hero', 'names', withIn, slower);

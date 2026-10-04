@@ -9,14 +9,8 @@ import { FontPick } from './font-pick';
 import {
   HUB_EL_DELAY,
   HUB_EL_DELAY_LABEL,
-  HUB_EL_DURATION,
-  HUB_EL_DURATION_LABEL,
   HUB_EL_DURING_LABEL,
   HUB_EL_DURING_WORDS,
-  HUB_EL_IN,
-  HUB_EL_IN_LABEL,
-  HUB_EL_OUT,
-  HUB_EL_OUT_LABEL,
   HUB_EL_TIMELINE,
   HUB_EL_TIMELINE_LABEL,
   HUB_ELEMENT_ALIGNS,
@@ -46,6 +40,8 @@ import {
 import { ColourWell } from './colour-well';
 import { IButton, IHint, IReset, IRow, ISection, ISeg, ISegmented, IStepper } from './inspector-kit';
 import { PickMenu } from './pick-menu';
+import { MotionFxRows, MotionSpeedRow } from './motion-fx-rows';
+import { motionFxOn, type MotionFx } from '@/lib/motion-effects';
 
 /**
  * 🔤 THE PART INSPECTOR'S TABS — Pages' Text inspector for one part, with
@@ -77,7 +73,7 @@ import { PickMenu } from './pick-menu';
 export type PartTab = 'text' | 'animate' | 'arrange';
 export const PART_TABS: ReadonlyArray<{ key: PartTab; label: string }> = [
   { key: 'text', label: 'Text' },
-  { key: 'animate', label: 'Animate' },
+  { key: 'animate', label: 'Motion' },
   { key: 'arrange', label: 'Arrange' },
 ];
 
@@ -499,12 +495,19 @@ export function PartAnimateTab({
   /** 💎 How a part moves is Event Hub Pro — its `<PaidMark>`, or null (none to draw). */
   proMark?: ReactNode;
   motion: HubElementMotion;
-  moveTo: (part: keyof HubElementMotion, value: string | null) => void;
+  moveTo: (part: keyof HubElementMotion, value: string | MotionFx | null) => void;
   /** ▶ Preview — replay the part's In on the canvas. */
   onPreview?: () => void;
   resetMotion: (() => void) | null;
 }) {
+  /* 🎛 IN THE ORDER A GUEST SEES IT (owner 2026-10-04): 1 Comes in → 2 While on
+     screen → 3 Goes out → 4 When it plays. Each effect's details sit under it
+     and show only once it is on, so a fresh part opens short: four None rows,
+     During and When it plays. */
   const scroll = motion.timeline === 'scroll';
+  const inOn = motionFxOn(motion.in);
+  const outOn = motionFxOn(motion.out);
+  const row = 'min-h-11 min-w-0 flex-1 lg:min-h-9';
   return (
     <div data-part-tab="animate">
       {proMark ? (
@@ -512,74 +515,72 @@ export function PartAnimateTab({
           {proMark}
         </p>
       ) : null}
-      <IRow data="timeline">
-        <ISegmented label="Plays once or follows the scroll">
-          {HUB_EL_TIMELINE.map((t) => (
-            <ISeg key={t} on={(motion.timeline ?? 'once') === t} onClick={() => moveTo('timeline', t === 'once' ? null : t)}>
-              {HUB_EL_TIMELINE_LABEL[t]}
-            </ISeg>
-          ))}
-        </ISegmented>
-      </IRow>
-      {/* In is a ▾ like Keynote's Build In. In and During play TOGETHER. */}
-      <IRow label="In" data="in">
-        <PickMenu
-          label="How it comes in"
-          dataAttr="data-element-in"
-          value={motion.in ?? 'none'}
-          options={HUB_EL_IN.map((v) => ({ key: v, label: HUB_EL_IN_LABEL[v] }))}
-          onPick={(v) => moveTo('in', v === 'none' ? null : v)}
-          className="min-h-11 min-w-0 flex-1 lg:min-h-9"
-        />
-      </IRow>
-      <IRow label="During" data="during">
-        <ISegmented label="While they read">
-          {HUB_EL_DURING_WORDS.map((v) => (
-            <ISeg key={v} on={(motion.during ?? 'still') === v} onClick={() => moveTo('during', v === 'still' ? null : v)}>
-              {HUB_EL_DURING_LABEL[v]}
-            </ISeg>
-          ))}
-        </ISegmented>
-      </IRow>
+      <div data-motion-step="in">
+        <ISection>Comes in</ISection>
+        <MotionFxRows end="in" fx={motion.in} onChange={(fx) => moveTo('in', fx)} />
+        {inOn ? (
+          <div data-part-timed="">
+            <MotionSpeedRow data="speed" label="How fast it comes in" value={motion.speed} onPick={(v) => moveTo('speed', v)} />
+            {/* Following the scroll, the thumb sets the pace — there is nothing to wait for. */}
+            {!scroll ? (
+              <IRow label="Delay" data="delay">
+                <PickMenu
+                  label="Delay"
+                  dataAttr="data-motion-delay"
+                  value={motion.delay ?? 'none'}
+                  options={HUB_EL_DELAY.map((v) => ({ key: v, label: HUB_EL_DELAY_LABEL[v] }))}
+                  onPick={(v) => moveTo('delay', v === 'none' ? null : v)}
+                  className={row}
+                />
+              </IRow>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+      <div data-motion-step="during">
+        <ISection>While on screen</ISection>
+        {/* In and During play TOGETHER — choosing one never clears the other. */}
+        <IRow label="During" data="during">
+          <PickMenu
+            label="While on screen"
+            dataAttr="data-motion-during"
+            value={motion.during ?? 'still'}
+            options={HUB_EL_DURING_WORDS.map((v) => ({ key: v, label: HUB_EL_DURING_LABEL[v] }))}
+            onPick={(v) => moveTo('during', v === 'still' ? null : v)}
+            className={row}
+          />
+        </IRow>
+      </div>
+      {/* A part that plays once has no Out — it stays. */}
       {scroll ? (
-        <IRow label="Out" wrap data="out">
-          <ISegmented label="How it leaves">
-            {HUB_EL_OUT.map((v) => (
-              <ISeg key={v} on={(motion.out ?? 'stay') === v} onClick={() => moveTo('out', v === 'stay' ? null : v)}>
-                {HUB_EL_OUT_LABEL[v]}
-              </ISeg>
-            ))}
-          </ISegmented>
-        </IRow>
+        <div data-motion-step="out">
+          <ISection>Goes out</ISection>
+          <MotionFxRows end="out" fx={motion.out} onChange={(fx) => moveTo('out', fx)} />
+          {outOn ? (
+            <MotionSpeedRow data="out-speed" label="How fast it goes out" value={motion.outSpeed} onPick={(v) => moveTo('outSpeed', v)} />
+          ) : null}
+        </div>
       ) : null}
-      {/* Timed: Duration and Delay apply. Following the scroll: distance is the control, so they dim. */}
-      <div className={scroll || !motion.in ? 'pointer-events-none opacity-40' : ''} aria-disabled={scroll || !motion.in} data-part-timed="">
-        <IRow label="Duration" data="duration">
-          <ISegmented label="Duration">
-            {HUB_EL_DURATION.map((v) => (
-              <ISeg key={v} on={(motion.duration ?? 'normal') === v} onClick={() => moveTo('duration', v === 'normal' ? null : v)}>
-                {HUB_EL_DURATION_LABEL[v]}
-              </ISeg>
-            ))}
-          </ISegmented>
-        </IRow>
-        <IRow label="Delay" data="delay">
-          <ISegmented label="Delay">
-            {HUB_EL_DELAY.map((v) => (
-              <ISeg key={v} on={(motion.delay ?? 'none') === v} onClick={() => moveTo('delay', v === 'none' ? null : v)}>
-                {HUB_EL_DELAY_LABEL[v]}
-              </ISeg>
-            ))}
-          </ISegmented>
+      <div data-motion-step="when">
+        <ISection>When it plays</ISection>
+        <IRow data="timeline">
+          <PickMenu
+            label="When it plays"
+            dataAttr="data-motion-timeline"
+            value={motion.timeline ?? 'once'}
+            options={HUB_EL_TIMELINE.map((t) => ({ key: t, label: HUB_EL_TIMELINE_LABEL[t] }))}
+            onPick={(t) => moveTo('timeline', t === 'once' ? null : t)}
+            className={row}
+          />
         </IRow>
       </div>
       {scroll ? (
         <IHint data="scroll">
-          Following the scroll: the guest’s thumb sets the pace, so there is no duration. Out is the hand-off to the next scene.
+          Following the scroll: the guest’s thumb sets the pace — Speed is how far they scroll. Goes out is the hand-off to the next scene.
         </IHint>
       ) : null}
       <div className="flex flex-wrap items-center gap-2 py-2.5">
-        {onPreview && motion.in ? (
+        {onPreview && inOn ? (
           <IButton fill onClick={onPreview} data="preview">
             <Play aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
             Preview

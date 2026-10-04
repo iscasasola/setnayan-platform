@@ -669,6 +669,8 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
      but doing it here as well means a stored config never carries a "from the
      left" beside a plain fade, which would be a saved setting with no effect. */
   const inRaw = formData.get('in');
+  /* 🎛 One answer per end: writing the shipped field takes the four-effect one off. */
+  if (inRaw === 'auto' || isHubIn(inRaw)) delete canvas.inFx;
   if (inRaw === 'auto') { delete canvas.in; delete canvas.inFrom; }
   else if (isHubIn(inRaw)) {
     canvas.in = inRaw;
@@ -680,6 +682,7 @@ export async function setWidgetMotion(formData: FormData): Promise<void> {
   }
 
   const outRaw = formData.get('out');
+  if (outRaw === 'auto' || isHubOut(outRaw)) delete canvas.outFx;
   if (outRaw === 'auto') { delete canvas.out; delete canvas.outTo; }
   else if (isHubOut(outRaw)) {
     canvas.out = outRaw;

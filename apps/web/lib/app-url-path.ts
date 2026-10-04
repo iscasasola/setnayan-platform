@@ -1,3 +1,5 @@
+import { isSafeNext } from '@/lib/safe-next';
+
 /**
  * A link that opened the phone app → the path the app's web view should show.
  *
@@ -10,6 +12,11 @@
  *     e.g. setnayan://auth/callback?code=…&next=/x → /auth/callback?code=…&next=/x
  *
  * Anything else (another scheme, a malformed URL) → null: ignore it.
+ *
+ * 🔒 The custom scheme can be opened by ANY app or web page, so the mapped
+ * path goes through THE ONE RULE (lib/safe-next.ts) before the web view is sent
+ * there: `setnayan:////evil.com` maps to `//evil.com`, which would leave the
+ * site inside the app. Unsafe → null.
  */
 export function appUrlToPath(url: string | null | undefined): string | null {
   if (!url) return null;
@@ -19,10 +26,11 @@ export function appUrlToPath(url: string | null | undefined): string | null {
   } catch {
     return null;
   }
-  if (u.protocol === 'https:') return u.pathname + u.search;
-  if (u.protocol === 'setnayan:') {
+  let mapped: string | null = null;
+  if (u.protocol === 'https:') mapped = u.pathname + u.search;
+  else if (u.protocol === 'setnayan:') {
     const path = (u.host ? `/${u.host}` : '') + u.pathname;
-    return (path || '/') + u.search;
+    mapped = (path || '/') + u.search;
   }
-  return null;
+  return isSafeNext(mapped) ? mapped : null;
 }

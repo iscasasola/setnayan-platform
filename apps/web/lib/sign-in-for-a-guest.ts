@@ -1,4 +1,5 @@
 import { isReservedSlug } from '@/lib/reserved-slugs';
+import { isSafeNext } from '@/lib/safe-next';
 
 /**
  * WHICH EVENT A SIGN-IN IS FOR — the slug a `next` path opens, or null.
@@ -14,7 +15,7 @@ import { isReservedSlug } from '@/lib/reserved-slugs';
  * also lives at the bare root). A reserved word is never a candidate.
  */
 export function eventSlugFromNext(next: string | null | undefined): string | null {
-  if (typeof next !== 'string' || !next.startsWith('/') || next.startsWith('//')) return null;
+  if (!isSafeNext(next)) return null;
   const path = next.split(/[?#]/)[0] ?? '';
   const parts = path.split('/').filter(Boolean);
   const slug = parts[0] === 'u' ? parts[2] : parts[0];

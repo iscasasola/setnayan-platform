@@ -19,6 +19,7 @@ import {
   FOUNDER_INQUIRY_NOTIFICATION_TITLE,
   FOUNDER_INQUIRY_NOTIFICATION_PREFIX,
 } from '@/lib/founder-seats';
+import { isSafeNext } from '@/lib/safe-next';
 
 /**
  * Mark a thread as read for the current user — stamps (or refreshes)
@@ -93,7 +94,7 @@ export async function sendChatMessage(formData: FormData) {
   if (!result.ok) {
     // Empty body is a no-op redirect on web (the textarea simply stays put).
     if (result.code === 'empty') {
-      if (typeof returnTo === 'string' && returnTo.startsWith('/')) redirect(returnTo);
+      if (isSafeNext(returnTo)) redirect(returnTo);
       return;
     }
     if (result.code === 'unauthenticated') redirect('/login');
@@ -110,7 +111,7 @@ export async function sendChatMessage(formData: FormData) {
       result.code === 'attachment_failed' ||
       result.code === 'contact_blocked'
     ) {
-      if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+      if (isSafeNext(returnTo)) {
         redirect(
           `${returnTo}${returnTo.includes('?') ? '&' : '?'}error=1&msg=${encodeURIComponent(result.message)}`,
         );
@@ -120,7 +121,7 @@ export async function sendChatMessage(formData: FormData) {
     throw new Error(result.message);
   }
 
-  if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+  if (isSafeNext(returnTo)) {
     revalidatePath(returnTo);
     redirect(returnTo);
   }
@@ -337,7 +338,7 @@ export async function acceptInquiry(formData: FormData) {
   // Expected token/tier failures below redirect back with ?error= (the toast
   // bridge surfaces it inline) instead of throwing to the error boundary.
   const back =
-    typeof returnTo === 'string' && returnTo.startsWith('/')
+    isSafeNext(returnTo)
       ? returnTo
       : `/vendor-dashboard/messages/${threadId}`;
   const fail = (msg: string): never =>
@@ -443,7 +444,7 @@ export async function acceptInquiry(formData: FormData) {
     }
   }
 
-  if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+  if (isSafeNext(returnTo)) {
     revalidatePath(returnTo);
     redirect(returnTo);
   }
@@ -481,7 +482,7 @@ export async function declineInquiry(formData: FormData) {
     });
   }
 
-  if (typeof returnTo === 'string' && returnTo.startsWith('/')) {
+  if (isSafeNext(returnTo)) {
     revalidatePath(returnTo);
     redirect(returnTo);
   }
@@ -665,7 +666,7 @@ async function resolveThreadRole(
 }
 
 function safeReturn(returnTo: FormDataEntryValue | null, suffix: string): string | null {
-  return typeof returnTo === 'string' && returnTo.startsWith('/')
+  return isSafeNext(returnTo)
     ? `${returnTo}${returnTo.includes('?') ? '&' : '?'}${suffix}`
     : null;
 }

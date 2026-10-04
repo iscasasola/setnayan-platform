@@ -32,6 +32,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { safeNext } from '@/lib/safe-next';
 
 export type DesktopOAuthProvider = 'google' | 'apple' | 'facebook';
 
@@ -140,7 +141,7 @@ export async function signInWithProviderDesktop(
           fail(error.message);
           return;
         }
-        window.location.assign(next);
+        window.location.assign(safeNext(next)); // THE ONE RULE (lib/safe-next.ts)
       } catch (err) {
         settled = true;
         cleanup();

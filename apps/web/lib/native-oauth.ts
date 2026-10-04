@@ -16,8 +16,10 @@
  *     2. SetnayanAuth.signInWithApple → the identity token
  *     3. supabase.auth.signInWithIdToken({ provider: 'apple', token, nonce }) —
  *        the session lands in THIS web view's cookies
- *     4. → /auth/callback?native=1&next=… — the same landing as every other
- *        door (terms on the RSVP page, vendor intent, the You card), never a copy
+ *     4. a one-time landing marker from the server (issueNativeLandingMarker)
+ *     5. → /auth/callback?native=1&native_marker=…&next=… — the same landing as
+ *        every other door (terms on the RSVP page, vendor intent, the You
+ *        card), never a copy; without the marker it writes nothing
  *
  *   GOOGLE (and APPLE ON ANDROID) — the SYSTEM browser.
  *     1. supabase.auth.signInWithOAuth({ redirectTo: setnayan://auth/callback?…,
@@ -41,6 +43,7 @@
  */
 
 import { createClient } from '@/lib/supabase/client';
+import { issueNativeLandingMarker } from '@/app/auth/native-marker-action';
 import { mintTurnstileToken } from '@/lib/turnstile-client';
 import type { OAuthIntentAccountType } from '@/lib/oauth-signup';
 import {
@@ -140,7 +143,14 @@ async function appleSheet(next: string, accountType: OAuthIntentAccountType): Pr
       .updateUser({ data: { full_name: [given, family].filter(Boolean).join(' '), given_name: given, family_name: family } })
       .catch(() => undefined);
   }
-  window.location.assign(nativeSessionLandingPath(next, accountType));
+  // 🔒 The landing runs only with the one-time marker this call mints
+  // (lib/native-oauth-plan.ts, "THE NATIVE LANDING MARKER"). If minting fails
+  // the person is still signed in — the callback then just sends them on to
+  // `next` and writes nothing, the same as an expired sign-in.
+  const marker = await issueNativeLandingMarker()
+    .then((r) => r.marker)
+    .catch(() => null);
+  window.location.assign(nativeSessionLandingPath(next, accountType, marker));
   return true;
 }
 

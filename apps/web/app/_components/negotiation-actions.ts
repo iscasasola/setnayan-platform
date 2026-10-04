@@ -37,6 +37,7 @@ import {
 import { dealLockReadiness, dealLockRefusal } from '@/lib/deal-lock-readiness';
 import { revalidationTarget } from '@/lib/return-path';
 import { formatCount } from '@/lib/format-number';
+import { isSafeNext } from '@/lib/safe-next';
 
 function str(v: FormDataEntryValue | null, max: number): string | null {
   if (typeof v !== 'string') return null;
@@ -46,7 +47,7 @@ function str(v: FormDataEntryValue | null, max: number): string | null {
 
 function safeReturn(v: FormDataEntryValue | null): string | null {
   const p = str(v, 300);
-  return p && p.startsWith('/') ? p : null;
+  return isSafeNext(p) ? p : null; // THE ONE RULE (lib/safe-next.ts)
 }
 
 /**

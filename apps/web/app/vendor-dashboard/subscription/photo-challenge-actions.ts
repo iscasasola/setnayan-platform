@@ -32,6 +32,7 @@ import {
   PHOTO_CHALLENGE_DENY_MESSAGE,
 } from '@/lib/vendor-photo-challenge';
 import { formatCount } from '@/lib/format-number';
+import { isSafeNext } from '@/lib/safe-next';
 
 /**
  * Papic Challenges — the vendor turns guest photo missions ON FOR THEIR SHOP.
@@ -100,7 +101,7 @@ function generateReferenceCode(): string {
  */
 function parseReturnPath(raw: FormDataEntryValue | null): string {
   const s = String(raw ?? '').trim();
-  return s.startsWith('/vendor-dashboard/') ? s : '/vendor-dashboard/subscription';
+  return s.startsWith('/vendor-dashboard/') && isSafeNext(s) ? s : '/vendor-dashboard/subscription';
 }
 
 export async function sponsorPhotoChallenge(

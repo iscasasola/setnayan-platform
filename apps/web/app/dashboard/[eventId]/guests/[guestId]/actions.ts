@@ -34,6 +34,7 @@ import { resolveSubmittedSide } from '@/lib/guest-side-question';
 import { applyReconcileForEvent } from '@/lib/seating-reconcile';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
+import { isSafeNext } from '@/lib/safe-next';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
@@ -357,7 +358,7 @@ export async function updateGuest(eventId: string, guestId: string, formData: Fo
   const requestedReturn = clean(formData.get('return_to'));
   const backTo =
     requestedReturn.startsWith(`/dashboard/${eventId}/guests`) &&
-    !requestedReturn.startsWith('//')
+    isSafeNext(requestedReturn)
       ? requestedReturn
       : detailRoute;
 
@@ -876,7 +877,7 @@ async function giveSpotToSomeoneElse(eventId: string, guestId: string, newName: 
  */
 async function newGuestQr(eventId: string, guestId: string, requestedReturn: string): Promise<void> {
   const back =
-    requestedReturn.startsWith(`/dashboard/${eventId}/guests`) && !requestedReturn.startsWith('//')
+    requestedReturn.startsWith(`/dashboard/${eventId}/guests`) && isSafeNext(requestedReturn)
       ? requestedReturn
       : `/dashboard/${eventId}/guests/${guestId}`;
   const join = back.includes('?') ? '&' : '?';

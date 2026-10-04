@@ -35,6 +35,7 @@ import {
   resolveGuestOwnCamera,
   resolveSeatDedicatedStanding,
 } from '@/lib/papic-guest-own-camera';
+import { isSafeNext } from '@/lib/safe-next';
 
 /**
  * GUESTS CAN BUY PAPIC — the I/O half (owner-locked 2026-07-29).
@@ -111,7 +112,7 @@ function backTo(returnTo: string, error: string): never {
  */
 function safeReturnTo(raw: unknown): string {
   const v = typeof raw === 'string' ? raw.trim() : '';
-  if (!v.startsWith('/papic/') || v.startsWith('//')) return '/papic';
+  if (!v.startsWith('/papic/') || !isSafeNext(v)) return '/papic';
   return v;
 }
 

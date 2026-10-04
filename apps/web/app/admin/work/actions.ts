@@ -17,6 +17,7 @@ import {
   holdPaymentMethod,
 } from '@/app/admin/payment-options/actions';
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { safeNext } from '@/lib/safe-next';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { approvePaymentCore } from '@/app/admin/payments/actions';
 import { overridePublishReview } from '@/app/admin/reviews/actions';
@@ -59,7 +60,7 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
   const { userId } = await requireAdmin();
 
   const paymentId = formData.get('payment_id');
-  const back = typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  const back = safeNext(formData.get('back'), '/admin/work');
   if (typeof paymentId !== 'string' || paymentId.length === 0) {
     redirect(`${back}${back.includes('?') ? '&' : '?'}settle=missing`);
   }
@@ -130,7 +131,7 @@ export async function approveVerificationFromWorkList(formData: FormData): Promi
   // an audit column.
   const { userId } = await requireAdmin();
   const applicationId = formData.get('application_id');
-  const back = typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  const back = safeNext(formData.get('back'), '/admin/work');
   if (typeof applicationId !== 'string' || applicationId.length === 0) {
     redirect(`${back}${back.includes('?') ? '&' : '?'}settle=missing`);
   }
@@ -188,8 +189,7 @@ export async function agreeToRequestFromWorkList(formData: FormData): Promise<vo
 export async function publishReviewFromWorkList(formData: FormData): Promise<void> {
   await requireAdmin();
 
-  const back =
-    typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  const back = safeNext(formData.get('back'), '/admin/work');
 
   // The page's own action ends in redirect('/admin/reviews?override=1') — right
   // for that page, and the exact page-jump the owner asked to remove when the
@@ -241,8 +241,7 @@ export async function recordPayoutFromWorkList(formData: FormData): Promise<void
  */
 export async function settleHelpFromWorkList(formData: FormData): Promise<void> {
   await requireAdmin();
-  const back =
-    typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  const back = safeNext(formData.get('back'), '/admin/work');
   await setHelpMessageStatus(formData);
   revalidatePath('/admin/work');
   revalidatePath('/admin/help');
@@ -259,8 +258,7 @@ export async function settleHelpFromWorkList(formData: FormData): Promise<void> 
  */
 export async function settleChatFlagFromWorkList(formData: FormData): Promise<void> {
   await requireAdmin();
-  const back =
-    typeof formData.get('back') === 'string' ? String(formData.get('back')) : '/admin/work';
+  const back = safeNext(formData.get('back'), '/admin/work');
   await resolveChatFlag(formData);
   revalidatePath('/admin/work');
   revalidatePath('/admin/chat-flags');
@@ -288,7 +286,7 @@ async function settleViaRedirectingAction(
 }
 
 const backOf = (fd: FormData) =>
-  typeof fd.get('back') === 'string' ? String(fd.get('back')) : '/admin/work';
+  safeNext(fd.get('back'), '/admin/work');
 
 /** Apply or decline a shop's request to fix a locked detail, from the list. */
 export async function settleCorrectionFromWorkList(formData: FormData): Promise<void> {

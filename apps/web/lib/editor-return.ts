@@ -20,6 +20,7 @@
  */
 
 import { MAKER_STAY_FIELD } from './maker-stay';
+import { isSafeNext } from './safe-next';
 
 /**
  * Resolve the post-save destination.
@@ -49,16 +50,11 @@ export function resolveReturnTo(
 }
 
 /**
- * TRUE only for a plain internal dashboard path: starts with a single `/`,
- * is under `/dashboard/`, and carries no scheme, host, backslash, control
- * character, or protocol-relative `//` prefix.
+ * TRUE only for a plain internal dashboard path: under `/dashboard/`, and a
+ * same-origin path by THE ONE RULE (`lib/safe-next.ts` — no scheme, host,
+ * backslash, control character, whitespace or protocol-relative `//` prefix,
+ * encoded or not). The prefix is this helper's scope; the rule is shared.
  */
 export function isSafeInternalPath(value: string): boolean {
-  if (!value.startsWith('/dashboard/')) return false;
-  if (value.startsWith('//')) return false;
-  if (value.includes('\\')) return false;
-  // Reject whitespace + C0/C1 control characters (header-splitting shapes).
-  if (/[\s\u0000-\u001f\u007f-\u009f]/.test(value)) return false;
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(value)) return false; // scheme
-  return true;
+  return value.startsWith('/dashboard/') && isSafeNext(value);
 }

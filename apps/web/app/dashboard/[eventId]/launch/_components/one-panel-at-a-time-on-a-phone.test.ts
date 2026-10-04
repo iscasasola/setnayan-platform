@@ -22,8 +22,10 @@ const read = (f: string) => stripComments(readFileSync(join(HERE, f), 'utf8'));
 const WORKSPACE = read('details-workspace.tsx');
 const TOP = read('details-guide-top.tsx');
 
-test('on a phone the flow is ONE chip on the page — its line, heading and foot are the desktop’s', () => {
-  assert.match(WORKSPACE, /data-details-guide-chip=""/, 'the flow has no chip on a phone’s page');
+test('on a phone the flow’s progress is in the sheet header, never over the page — its line, heading and foot are the desktop’s', () => {
+  // 2026-10-04 (live at 375 px): the floating "● Finish · 1 of 6" chip covered the page's own header line.
+  assert.doesNotMatch(WORKSPACE, /data-details-guide-chip/, 'the floating chip came back over the page');
+  assert.match(WORKSPACE, /data-details-sheet-head=""[\s\S]{0,900}data-details-guide-progress=""/, 'the progress is not in the sheet’s header');
   assert.match(TOP, /'flex shrink-0 items-center gap-2\.5 border-b border-ink\/10 bg-cream\/80 px-3 py-1\.5 max-lg:hidden sm:px-4'/, 'the flow’s line shows on a phone’s page again');
   assert.match(WORKSPACE, /<div data-details-guide-head-wrap="" className="hidden lg:contents">/, 'the step’s heading shows on a phone’s page again');
   assert.match(WORKSPACE, /<div data-details-guide-foot-wrap="" data-phone-chrome="strip" className="hidden lg:contents">/, 'the flow’s foot shows on a phone’s page again');

@@ -109,8 +109,9 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  *     ONE dropdown — the other items here and the item's own sections (what the
  *     navigator strip held). A door (Look · Event Details · Prints) opens it;
  *     shut, an "Edit" chip on the page opens it again;
- *   · the guided flow is ONE slim chip on the page ("Finish · 9 of 20"), which
- *     opens "Which stage do you want ready?".
+ *   · the guided flow's progress ("Finish · 9 of 20") is ONE button in the
+ *     sheet's header — never a chip floating over the page — and opens "Which
+ *     stage do you want ready?"; in the flow it is the step sheet's own ▾ line.
  * One sheet at a time; nothing is dimmed while none is open. The desktop is
  * unchanged: navigator left, body, editor right, the flow's line and foot.
  *
@@ -451,18 +452,6 @@ export function DetailsWorkspace({
             layout === 'flow' ? 'overflow-y-auto px-4 py-5 sm:px-6' : 'overflow-hidden'
           }`}
         >
-          {/* 📱 The guided flow, as ONE slim chip on the page — it opens "Which stage do you want ready?". */}
-          {plan ? (
-            <button
-              type="button"
-              data-details-guide-chip=""
-              onClick={() => (guidedOn ? move({ kind: 'stages' }) : openGuide())}
-              className="sn-press absolute left-1/2 top-2 z-10 inline-flex min-h-9 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-white/95 px-3.5 font-mono text-[11.5px] tracking-[0.04em] text-ink shadow-sm ring-1 ring-ink/10 lg:hidden"
-            >
-              <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-terracotta-700" />
-              {whatsLeftLine}
-            </button>
-          ) : null}
           {/* 📱 The editor, shut: one chip on the page opens it again (never a strip). */}
           {!sheetOpen && !stepSheet && layout !== 'whole' ? (
             <button
@@ -655,6 +644,19 @@ export function DetailsWorkspace({
           <SheetGrip onClose={() => setSheetOpen(false)} />
           <div className="flex shrink-0 items-center gap-2 px-4 pb-1 lg:hidden" data-details-sheet-head="">
             <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{current.panelLabel ?? current.label}</p>
+            {/* 🧭 The setup's progress lives HERE, in the sheet's header — never a chip floating
+                over the page (it covered the page's own header line, 2026-10-04 at 375 px).
+                In the flow it is the step sheet's own ▾ line (`GuideTop`). */}
+            {plan ? (
+              <button
+                type="button"
+                data-details-guide-progress=""
+                onClick={openGuide}
+                className="sn-press inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-terracotta-700/10 px-3 font-mono text-[11.5px] tracking-[0.04em] text-terracotta-800"
+              >
+                {whatsLeftLine}
+              </button>
+            ) : null}
             <SheetSections
               items={navGroups.flatMap((g) => g.items)}
               selected={selected}

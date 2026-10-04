@@ -29,6 +29,11 @@ closes each stage and leads back to the picker with every stage's progress.
   that show them; B5–6 is the RSVP stage's own settings.
 - The three doors (Home's "Finish your Event Hub" card — now "n of m · Pick a
   stage", the Maker's What's left, the once-offer) all open the picker.
+- The floating "● Finish · n of m" chip that sat over the page (it covered the
+  page's own header line at 375 px — "Sat, 12 Dec 2026 · 69 days to go") is
+  gone: the setup's progress is one button in the sheet's header, and in the
+  flow the step sheet's own ▾ line. Render-guarded (nothing of the flow is
+  absolutely placed over the top of the page).
 - **B6**: the cover step shows Look › Background's own row — the same node
   (`lookPages.look.background`), one value, one `saveMain`; the theme picker's
   "Samples · Maria & Jose" label is now "Each theme on a sample Event Hub".

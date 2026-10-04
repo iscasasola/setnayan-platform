@@ -178,6 +178,49 @@ test('🔑 (3) the cover step’s background and Look › Background draw ONE no
   assert.equal(drawn(html), 'follows the hero · tint 3', 'the cover step in the flow has no background');
 });
 
+/* ── (5) the progress never sits over the page ─────────────────────────── */
+
+test('🔑 (5) the setup’s progress is in the sheet’s header — nothing of the flow floats over the page', async () => {
+  // Live bug 2026-10-04 at 375 px (maria-and-jose): a floating "● Finish · 1 of 6" chip,
+  // absolutely placed at the top of the page, covered the page's own header line.
+  const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
+  const { MakerContext } = await import(`../${L}/maker-context`);
+  const draw = (entry: unknown, door: number) =>
+    renderSettled(
+      React.createElement(
+        MakerContext.Provider,
+        { value: { eventId: 'e1', detailsDoor: door } as never },
+        React.createElement(DetailsWorkspace, {
+          groups: [{ key: 'g', label: 'G', items: navItems }],
+          bodies: Object.fromEntries(NAV.map((k) => [k, React.createElement('i', { 'data-stub-body': k })])),
+          editors: Object.fromEntries(NAV.map((k) => [k, React.createElement('i', { 'data-stub-editor': k })])),
+          initial: entry ? 'names' : 'address',
+          guide: { plan, open: Boolean(entry), entry, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' } },
+        }),
+      ),
+    );
+  const bodyOf = (html: string) => {
+    const at = html.indexOf('data-details-body=""');
+    assert.ok(at > 0, 'anti-vacuity: no page body drawn');
+    return html.slice(at, html.indexOf('</section>', at));
+  };
+  // All items, its sheet opened by a door: the progress is ONE button in the sheet's header.
+  const all = await draw(null, 1);
+  const head = all.slice(all.indexOf('data-details-sheet-head=""'), all.indexOf('</div>', all.indexOf('data-details-sheet-head=""')));
+  assert.match(head, /data-details-guide-progress=""[^>]*>Finish · \d+ of \d+</, 'the progress is not in the sheet’s header');
+  // A step of the flow: the progress is the step sheet's own line, inside the half sheet.
+  const step = await draw({ kind: 'step', step: 'names', round: 'save_the_date' }, 0);
+  const sheet = step.slice(step.indexOf('data-half-sheet='));
+  assert.match(sheet, /data-details-guide-top="sheet"/, 'the step sheet has no progress line');
+  for (const html of [all, step]) {
+    const body = bodyOf(html);
+    assert.doesNotMatch(html, /data-details-guide-chip/, 'the floating chip came back');
+    assert.doesNotMatch(body, /Finish ·|data-details-guide-progress|data-details-guide-top/, 'the flow’s progress is drawn over the page');
+    // Nothing absolutely placed at the TOP of the page (where the page's own header line sits).
+    assert.doesNotMatch(body, /class="[^"]*\babsolute\b[^"]*\btop-/, 'something floats over the top of the page');
+  }
+});
+
 /* ── (4) B6 — the theme picker's label ──────────────────────────────────── */
 
 test('(4) the theme picker says plain words — never somebody else’s names on this event (B6)', () => {

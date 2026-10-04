@@ -76,7 +76,7 @@ export function RecordFieldSheet({
         el?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       }}
       /* Above the dashboard's bottom bar on the phone; in the column on a desktop. */
-      desktopClassName={`max-lg:z-[45] lg:static lg:inset-auto lg:z-auto lg:mb-2 lg:mt-1 lg:h-auto lg:rounded-2xl lg:border lg:border-ink/10 lg:bg-white/70 ${
+      desktopClassName={`max-lg:z-[45] lg:static lg:inset-auto lg:z-auto lg:mb-2 lg:mt-1 lg:h-auto lg:rounded-2xl lg:shadow-sm ${
         placed ? '' : 'lg:hidden'
       }`}
     >

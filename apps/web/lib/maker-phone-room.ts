@@ -93,6 +93,24 @@ export const MAKER_BAR_PHONE_PAD_PX = 8;
 export const MAKER_BAR_PHONE_GAP_PX = 4;
 export const MAKER_BAR_PHONE_SIDE_PX = 8;
 
+/**
+ * 🎞 THE SCENE STRIP NEVER SCROLLS DOWN ON A PHONE (owner, iPhone, 2026-10-05:
+ * under the canvas every thumbnail was cut at its TOP — "ticket" and "RSVP"
+ * sliced in half). MEASURED on the live Maker at 375 and 430 px: the strip
+ * (`<ol>`, `overflow-x: auto`, which makes its Y overflow `auto` too) was 185 px
+ * tall and 295 px deep. The extra 110 px were the CLOSED `(i)` bubbles of the
+ * tile labels — `.sn-tip` is always in the DOM, `visibility: hidden`, hanging
+ * BELOW its label — so the strip had a vertical scroll range, and a diagonal
+ * swipe or Page ▾'s `scrollIntoView({ block: 'start' })` slid every tile up
+ * under the strip's top edge.
+ *
+ * On a phone, then: a closed bubble takes no room, an open one hangs ABOVE its
+ * label (over its own tile, inside the strip), and the strip cannot scroll on
+ * Y at all. Held by `lib/the-scene-strip-never-scrolls-down.test.ts`.
+ */
+export const MAKER_STRIP_PHONE =
+  'max-lg:overflow-y-hidden max-lg:[&_.sn-tip:not([data-open=true])]:hidden max-lg:[&_.sn-tip]:top-auto max-lg:[&_.sn-tip]:bottom-full max-lg:[&_.sn-tip]:pb-2 max-lg:[&_.sn-tip]:pt-0';
+
 /* ─── the measuring half (pure — for the guard) ─────────────────────────── */
 
 const PHONE_PREFIXES = ['max-md:', 'max-lg:', 'max-sm:'];

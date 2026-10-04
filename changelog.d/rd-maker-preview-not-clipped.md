@@ -1,0 +1,11 @@
+## 2026-10-04 · fix(maker): the invitation preview and Event Bar thumbnails show in full; no empty box under the print card
+
+The owner's iPhone review of the Maker (maria-and-jose), three defects, each measured on the live Maker at 375 px before fixing:
+
+- **The invitation's top was cut under the Maker's bar.** A tap on a part ("Maria") brought it up for the keyboard or its sheet with `scrollIntoView({ block: 'start' })` — names flush at 0 px — and nothing put the page back: after Done the canvas stayed 309 px down, the card's border, first line and monogram gone. New `app/[slug]/_components/canvas-bring-up.ts` owns both halves: the part lands 16 px below the top, and when the edit ends (typing ends, or the part's sheet closes → new `settle` message) the page goes back to where it rested. A hand-over (Style ▾ → sheet) holds it; a scroll the couple makes, or a Maker jump (tile, Page ▾), wins.
+- **Every Event Bar thumbnail was cut at its top, and Guest's look / Reminders were bare white.** The strip `<ol>` (`overflow-x: auto`) was 185 px tall and 295 px deep — the closed `(i)` bubbles under the tile labels — so Page ▾'s `scrollIntoView({ block: 'start' })` slid it 85 px down. On a phone (`MAKER_STRIP_PHONE`, lib/maker-phone-room.ts) closed bubbles take no room, open ones hang above their label, the strip has no Y scroll, and Page ▾ scrolls it sideways only. The tiles' static copies now carry the page's ground (`[data-guest-ground]`, the theme backdrop — a sibling of the page, so it was never copied), with a backdrop loop drawn as its still.
+- **The "empty grey box" under the 5 × 7 card was the event pass** — a landscape card 255 × 153 px centred in the fixed 340 px box every piece got, its top 93 px empty and the card under the guided sheet. `printPreviewBox` (lib/print-preview-view.ts) shapes the box to its piece (width ÷ height, capped at 340 px).
+
+Guards: `app/[slug]/_components/canvas-bring-up.test.ts`, `lib/the-scene-strip-never-scrolls-down.test.ts`, `lib/the-print-box-takes-the-pieces-shape.test.ts` — each sabotage-run (break → red → restore → green). `lib/every-scene-is-in-the-navigator.test.ts` re-anchored to the strip's template className (its assertions unchanged).
+
+SPEC IMPACT: None — layout and scroll fixes to shipped Maker surfaces; no decision, SKU or schema changed.

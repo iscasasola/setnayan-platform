@@ -30,6 +30,7 @@ import { applyButtonsPreview, sanitizeButtonsPreview } from './buttons-preview';
 import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
+import { createCanvasBringUp } from './canvas-bring-up';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -53,6 +54,8 @@ import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField,
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *   parent → frame  { source:'setnayan-editor', t:'settle' } — 📱 the part's sheet closed: the
+ *                    page goes back to where it rested (`canvas-bring-up.ts`)
  *   frame  ⇄ parent  t:'type' · 'typeText' · 'typeStop' · 'typeSync' · 'typeHere' — ✍ tap-to-type
  *                    (`type-in-place-canvas.ts` has the whole protocol)
  *
@@ -419,7 +422,11 @@ export function EditorBridge() {
     /* ✍ TAP ANY TEXT, TYPE RIGHT THERE (Maker core part 2): a tap on a hero
        part's words puts the caret in them; the Maker hears every keystroke and
        writes it (`type-in-place-canvas.ts`). */
-    const typing = createCanvasTyping(window, (m) => window.parent?.postMessage(m, origin));
+    /* 📱 ONE bring-up for every phone edit — the typing's and the part sheet's —
+       with the way back once the edit is over (`canvas-bring-up.ts`). */
+    const lift = createCanvasBringUp(window);
+    cleanups.push(() => lift.dispose());
+    const typing = createCanvasTyping(window, (m) => window.parent?.postMessage(m, origin), lift);
     cleanups.push(() => typing.dispose());
 
     // ── canvas → Maker: a tapped section selects its navigator tile ─────────
@@ -466,9 +473,10 @@ export function EditorBridge() {
         }
         typing.stop();
         // 📱 On a phone the element's sheet rises over the lower canvas, so the
-        // part is brought up to where it stays in view while it is edited.
+        // part is brought up to where it stays in view while it is edited —
+        // and the page goes back when the sheet closes (`settle`).
         try {
-          if (part && (window.top?.innerWidth ?? 1024) < 1024) part.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          if (part && (window.top?.innerWidth ?? 1024) < 1024) lift.up(part);
         } catch {
           /* a parent we cannot measure — the part stays where it was tapped */
         }
@@ -605,6 +613,12 @@ export function EditorBridge() {
         typing.stop();
         return;
       }
+      /* 📱 The part's sheet closed: the edit is over, the page goes back to
+         where it rested before the part was brought up (`canvas-bring-up.ts`). */
+      if (data && data.source === 'setnayan-editor' && data.t === 'settle') {
+        lift.down();
+        return;
+      }
       if (data && data.source === 'setnayan-editor' && data.t === 'typeSync') {
         typing.sync();
         return;
@@ -677,6 +691,8 @@ export function EditorBridge() {
             ? el.querySelector<HTMLElement>(`[data-el="${CSS.escape(data.el)}"]`)
             : null;
         mark(part);
+        // 📱 A sheet now open on a part carries the edit on: no way back yet.
+        if (part) lift.hold();
         return;
       }
       if (data.t === 'scenePlaceholder') {
@@ -712,6 +728,7 @@ export function EditorBridge() {
         /* To the scene's TOP, always (owner 2026-09-27: "a scene is as tall as
            its content — never a forced full screen"). A short scene lands with
            the next one below it on the same screen; nothing is resized. */
+        lift.forget(); // 📱 the Maker moved the page on purpose — its place wins
         el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         flash(el);
       } else if (data.t === 'play') {

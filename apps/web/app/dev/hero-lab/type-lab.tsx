@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createCanvasTyping, typeablePart } from '@/app/[slug]/_components/type-in-place-canvas';
+import { createCanvasBringUp } from '@/app/[slug]/_components/canvas-bring-up';
 
 /**
  * /dev/hero-lab?maker=1&type=1 — ✍ TAP-TO-TYPE ON THE REAL MASTHEAD, measured.
@@ -20,9 +21,15 @@ export function TypeLab({ children }: { children: ReactNode }) {
   const typingRef = useRef<ReturnType<typeof createCanvasTyping> | null>(null);
   useEffect(() => {
     const add = (line: string) => setLog((l) => [line, ...l].slice(0, 12));
-    const typing = createCanvasTyping(window, (m) => {
-      add(`${String(m.phase)} · ${String(m.el)} · “${String(m.text ?? '').slice(0, 44)}”${m.caret === false ? ' · Format ▾ only' : ''}`);
-    });
+    // 📱 The same bring-up (and way back) the Maker's canvas uses on a phone.
+    const lift = createCanvasBringUp(window);
+    const typing = createCanvasTyping(
+      window,
+      (m) => {
+        add(`${String(m.phase)} · ${String(m.el)} · “${String(m.text ?? '').slice(0, 44)}”${m.caret === false ? ' · Format ▾ only' : ''}`);
+      },
+      lift,
+    );
     typingRef.current = typing;
     const el = root.current!;
     const onClick = (e: MouseEvent) => {
@@ -49,6 +56,7 @@ export function TypeLab({ children }: { children: ReactNode }) {
       el.removeEventListener('click', onClick);
       el.removeEventListener('keydown', onKey, true);
       typing.dispose();
+      lift.dispose();
     };
   }, []);
   const pick = (el: string, text: string) => {

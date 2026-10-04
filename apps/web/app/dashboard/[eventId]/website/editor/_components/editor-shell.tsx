@@ -101,6 +101,7 @@ import type { SceneUpload } from './scene-background-row';
 import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
+import { MAKER_STRIP_PHONE } from '@/lib/maker-phone-room';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -1130,7 +1131,7 @@ export function MakerWork({
     }
     setTileHead((prev) =>
       prev && prev.styles.join('') === head.styles.join('') &&
-      JSON.stringify([prev.htmlAttrs, prev.bodyAttrs]) === JSON.stringify([head.htmlAttrs, head.bodyAttrs])
+      JSON.stringify([prev.htmlAttrs, prev.bodyAttrs, prev.grounds]) === JSON.stringify([head.htmlAttrs, head.bodyAttrs, head.grounds])
         ? prev
         : head,
     );
@@ -1828,7 +1829,9 @@ export function MakerWork({
     (
       navList?.querySelector(`[data-maker-group="${CSS.escape(key)}"]`) ??
       navList?.querySelector(`[data-maker-tile="${CSS.escape(first)}"]`)
-    )?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
+      /* 🎞 A phone's strip scrolls SIDEWAYS only (`MAKER_STRIP_PHONE`): never
+         `block: 'start'` there — it slid every tile up under the strip's top. */
+    )?.scrollIntoView({ block: window.innerWidth < 1024 ? 'nearest' : 'start', inline: 'start', behavior: 'smooth' });
   };
   /* 📄 PAGE ▾ LIVES IN THE TOOLBAR NOW (the Maker in 4, 2026-10-02 — design
      frame D: "This replaces the stage tabs in today's top bar and the navigator
@@ -1960,7 +1963,7 @@ export function MakerWork({
             an 18rem box, so a 168px column held 314px of scrollable width, and
             `overflow-x: hidden` still lets focus and scrollIntoView scroll it.
             The bubbles are held to the column's own width here. */}
-        <ol ref={setNavList} className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4 lg:[&_.sn-tip]:max-w-[calc(var(--maker-nav-w)-2rem)]">
+        <ol ref={setNavList} className={`${MAKER_STRIP_PHONE} flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4 lg:[&_.sn-tip]:max-w-[calc(var(--maker-nav-w)-2rem)]`}>
           {/* 🧭 THE STAGE'S MENU — the tabs a guest sees on this stage, never a
               generic "Main". Each lists its own scenes; a tab that opens a page of
               its own (Camera, Join, Watch) says so. The look behind every scene
@@ -2692,6 +2695,9 @@ export function MakerWork({
           }
           onClose={() => {
             postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null });
+            /* 📱 …and the page goes back to where it rested before the part was
+               brought up for the sheet (`canvas-bring-up.ts`). */
+            postToShownCanvases({ source: 'setnayan-editor', t: 'settle' });
             sheetDo({ t: 'close' });
           }}
           collapsed={sheet.collapsed}

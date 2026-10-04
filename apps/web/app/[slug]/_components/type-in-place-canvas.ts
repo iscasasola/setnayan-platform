@@ -38,6 +38,7 @@
  * Only in the Maker's canvas: it is reached from `EditorBridge`, which a guest
  * page never mounts.
  */
+import type { CanvasBringUp } from './canvas-bring-up';
 import {
   HUB_TYPE_PARTS,
   SCENE_TYPE_ELS,
@@ -230,7 +231,12 @@ export type CanvasTyping = {
   dispose: () => void;
 };
 
-export function createCanvasTyping(win: Window, post: (message: Record<string, unknown>) => void): CanvasTyping {
+export function createCanvasTyping(
+  win: Window,
+  post: (message: Record<string, unknown>) => void,
+  /** 📱 The bring-up and its way back (`canvas-bring-up.ts`) — shared with the bridge's own taps. */
+  lift?: Pick<CanvasBringUp, 'up' | 'down'>,
+): CanvasTyping {
   const doc = win.document;
   let session: {
     part: HTMLElement;
@@ -264,6 +270,8 @@ export function createCanvasTyping(win: Window, post: (message: Record<string, u
     s.off();
     s.target.removeAttribute('contenteditable');
     session = null;
+    // 📱 The typing is over: the page goes back to where it rested (`canvas-bring-up.ts`).
+    lift?.down();
   };
 
   return {
@@ -333,13 +341,12 @@ export function createCanvasTyping(win: Window, post: (message: Record<string, u
         target.focus({ preventScroll: true });
         placeCaret(doc, target, at.x, at.y);
       }
-      // 📱 Above the keyboard: on a phone the part is brought to the top of the page.
-      if (win.innerWidth < 1024) {
-        try {
-          part.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } catch {
-          /* the part stays where it was tapped */
-        }
+      // 📱 Above the keyboard: on a phone the part is brought up the page — with
+      // room above it, and the way back kept for when the typing ends.
+      try {
+        lift?.up(part);
+      } catch {
+        /* the part stays where it was tapped */
       }
       send('start', {
         auto: part.getAttribute('data-el-word') ?? target.getAttribute('data-el-word') ?? undefined,

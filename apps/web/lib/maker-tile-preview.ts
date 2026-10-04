@@ -53,11 +53,23 @@ export type TileSnapshot = {
   frameWidth: number;
 };
 
+/**
+ * 🌄 THE PAGE'S GROUND — the theme's backdrop (its poster photo, its colour),
+ * a `fixed inset-0 -z-10` layer every scene floats over (`[data-guest-ground]`).
+ * It is a SIBLING of the page, never an ancestor of a section, so a copy made
+ * from the section alone came out on bare white: the owner's iPhone, 2026-10-05,
+ * "Guest's look" a plain white tile, "Reminders" white with only its eye. Each
+ * ground travels with its own theme scope, already made static (no autoplay).
+ */
+export type TileGround = { chain: readonly TileAncestor[]; html: string };
+
 export type TileHead = {
   htmlAttrs: readonly TileAttr[];
   bodyAttrs: readonly TileAttr[];
   /** Serialized `<link rel=stylesheet>` and `<style>` elements, in document order. */
   styles: readonly string[];
+  /** The page's ground layers, in document order (absent = the page draws none). */
+  grounds?: readonly TileGround[];
 };
 
 /**
@@ -158,11 +170,23 @@ export function buildTileDocument(head: TileHead, snap: TileSnapshot): string {
     .map((a) => `</${safeTag(a.tag)}>`)
     .join('');
   const anchor = tileCropAnchor(snap.section) === 'bottom' ? `<style>${TILE_ANCHOR_BOTTOM_CSS}</style>` : '';
+  /* 🌄 The ground first, under everything — each inside its own theme scope. */
+  const grounds = (head.grounds ?? [])
+    .map(
+      (g) =>
+        g.chain.map((a) => `<${safeTag(a.tag)}${attrString(filterTileAttrs(a.attrs))}>`).join('') +
+        g.html +
+        [...g.chain]
+          .reverse()
+          .map((a) => `</${safeTag(a.tag)}>`)
+          .join(''),
+    )
+    .join('');
   return (
     `<!doctype html><html${attrString(filterTileAttrs(head.htmlAttrs))}><head><meta charset="utf-8">` +
     head.styles.join('') +
     `<style>${TILE_FREEZE_CSS}</style>${anchor}</head>` +
-    `<body${attrString(filterTileAttrs(head.bodyAttrs))}>${open}${snap.section}${close}</body></html>`
+    `<body${attrString(filterTileAttrs(head.bodyAttrs))}>${grounds}${open}${snap.section}${close}</body></html>`
   );
 }
 

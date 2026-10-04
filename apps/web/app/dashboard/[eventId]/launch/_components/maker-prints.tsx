@@ -214,6 +214,9 @@ export function PrintPieceBody({
            pick is instant. Only those three: warming every piece of the
            invitation family too doubled the first open's server requests. */
         prefetch={fam && HAS_SIZES(k) ? formatsFor(fam).filter((f) => f.id !== formats[fam].id).map((f) => q(k, 'screen', f.id)) : []}
+        /* 📐 The box takes the piece's shape — a landscape pass is never a
+           small card adrift in a tall grey box (`printPreviewBox`). */
+        aspect={fam ? formats[fam].wMm / formats[fam].hMm : spec.widthPt / spec.heightPt}
       />
       <p className="text-xs text-ink/60">
         {fam ? `${formats[fam].label} · ${formats[fam].wMm} × ${formats[fam].hMm} mm` : spec.size}

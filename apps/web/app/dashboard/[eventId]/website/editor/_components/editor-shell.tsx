@@ -101,6 +101,8 @@ import type { SceneUpload } from './scene-background-row';
 import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
+import { MAKER_STRIP_PHONE } from '@/lib/maker-phone-room';
+import { floatOpenTips } from '@/lib/float-open-tips';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -494,6 +496,8 @@ export function MakerWork({
      on a desktop it selects the scene too (on a phone nothing rises over the
      keyboard). */
   const [typeStart, setTypeStart] = useState<TypeStart | null>(null);
+  const typeRef = useRef<TypeStart | null>(null);
+  typeRef.current = typeStart;
   useEffect(() => {
     const onType = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
@@ -515,6 +519,24 @@ export function MakerWork({
     (typeStart?.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
     setTypeStart(null);
   };
+  /* 📱 THE PAGE GOES BACK WHEN THE LAST EDIT CLOSES (`canvas-bring-up.ts`). A
+     part brought up for the keyboard or its sheet is put back by ONE rule, here,
+     whichever way the edit ends — Done, ✕, Escape, a tap outside, a tile, Page ▾,
+     a stage switch: when NEITHER the type bar NOR the part's sheet is open any
+     more, every canvas (warm ones too) is told to `settle`. Style ▾ closes the
+     bar and opens the sheet in one render, so it never settles in between —
+     nothing is timed. When a TAP ON THE CANVAS ended it (a fact, a scene's words,
+     the folded sheet's second tap), that tap's place wins: `forget`. */
+  const editingOpen = typeStart !== null || elementTarget !== null;
+  const wasEditing = useRef(false);
+  const endedByCanvasTap = useRef(false);
+  useEffect(() => {
+    if (wasEditing.current && !editingOpen) {
+      broadcastToCanvasRef.current({ source: 'setnayan-editor', t: 'settle', ...(endedByCanvasTap.current ? { forget: true } : {}) });
+    }
+    wasEditing.current = editingOpen;
+    endedByCanvasTap.current = false;
+  }, [editingOpen, typeStart, elementTarget, sheet]);
   /* ✍ …ON EVERY SCENE (`lib/scene-type-words.ts`): each canvas that loads is
      told which scene words a tap types in, and says back which it found, by
      stage. Where the caret really reaches, that scene's words box steps aside
@@ -967,6 +989,11 @@ export function MakerWork({
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return;
       const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
+      /* 📱 A tap on the canvas while an edit is open: if it ends the edit, the
+         page stays where the tap put it (`settle` + `forget`, above). */
+      if (data?.source === 'setnayan-site' && (data.t === 'edit' || data.t === 'tapOutside') && (elementRef.current || typeRef.current)) {
+        endedByCanvasTap.current = true;
+      }
       /* 📱 THE PART SHEET ON A PHONE (owner 2026-10-04, `lib/element-sheet-state.ts`):
          a tap on the canvas that hits no part folds the open sheet to its bar
          and does nothing else; once folded, the next such tap goes through
@@ -1130,7 +1157,7 @@ export function MakerWork({
     }
     setTileHead((prev) =>
       prev && prev.styles.join('') === head.styles.join('') &&
-      JSON.stringify([prev.htmlAttrs, prev.bodyAttrs]) === JSON.stringify([head.htmlAttrs, head.bodyAttrs])
+      JSON.stringify([prev.htmlAttrs, prev.bodyAttrs, prev.grounds]) === JSON.stringify([head.htmlAttrs, head.bodyAttrs, head.grounds])
         ? prev
         : head,
     );
@@ -1828,7 +1855,9 @@ export function MakerWork({
     (
       navList?.querySelector(`[data-maker-group="${CSS.escape(key)}"]`) ??
       navList?.querySelector(`[data-maker-tile="${CSS.escape(first)}"]`)
-    )?.scrollIntoView({ block: 'start', inline: 'start', behavior: 'smooth' });
+      /* 🎞 A phone's strip scrolls SIDEWAYS only (`MAKER_STRIP_PHONE`): never
+         `block: 'start'` there — it slid every tile up under the strip's top. */
+    )?.scrollIntoView({ block: window.innerWidth < 1024 ? 'nearest' : 'start', inline: 'start', behavior: 'smooth' });
   };
   /* 📄 PAGE ▾ LIVES IN THE TOOLBAR NOW (the Maker in 4, 2026-10-02 — design
      frame D: "This replaces the stage tabs in today's top bar and the navigator
@@ -1898,6 +1927,9 @@ export function MakerWork({
     clearPageJump?.();
     if (page) jumpRef.current(page);
   }, [pageJump, stage, canvasBar, clearPageJump]);
+  /* 📱 The strip's open (i) notes float on the viewport (`lib/float-open-tips.ts`):
+     the strip cannot scroll on Y (`MAKER_STRIP_PHONE`), so a note inside it was clipped. */
+  useEffect(() => (navList ? floatOpenTips(navList, window) : undefined), [navList]);
   /* …and the navigator keeps the selected tile in view, whichever side picked it. */
   const selectedTileKey = selectedTile?.key ?? null;
   useEffect(() => {
@@ -1960,7 +1992,7 @@ export function MakerWork({
             an 18rem box, so a 168px column held 314px of scrollable width, and
             `overflow-x: hidden` still lets focus and scrollIntoView scroll it.
             The bubbles are held to the column's own width here. */}
-        <ol ref={setNavList} className="flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4 lg:[&_.sn-tip]:max-w-[calc(var(--maker-nav-w)-2rem)]">
+        <ol ref={setNavList} className={`${MAKER_STRIP_PHONE} flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4 lg:[&_.sn-tip]:max-w-[calc(var(--maker-nav-w)-2rem)]`}>
           {/* 🧭 THE STAGE'S MENU — the tabs a guest sees on this stage, never a
               generic "Main". Each lists its own scenes; a tab that opens a page of
               its own (Camera, Join, Watch) says so. The look behind every scene

@@ -85,3 +85,21 @@ export function printPreviewView(status: PrintPreviewStatus, label: string): Pri
     errorLabel: null,
   };
 }
+
+/** The tallest a piece's picture is ever drawn on screen. */
+export const PRINT_PREVIEW_MAX_PX = 340;
+
+/**
+ * 📐 THE BOX TAKES THE PIECE'S SHAPE (owner, iPhone, 2026-10-05: under the 5 × 7
+ * invitation on Event Details, "a large empty grey rounded box with nothing in
+ * it"). MEASURED on the live Maker at 375 px: it was the EVENT PASS — a
+ * landscape card, 255 × 153 px, centred in the same fixed 340 px box every
+ * piece got, so its top 93 px were empty grey and the guided sheet covered the
+ * card itself. A box shaped like its piece (`aspect` = width ÷ height, capped at
+ * {@link PRINT_PREVIEW_MAX_PX}) starts with the picture, whichever way it lies.
+ * No aspect (a caller that does not know its piece's size) keeps the old box.
+ */
+export function printPreviewBox(aspect?: number | null): { className: string; style?: { aspectRatio: string } } {
+  if (!aspect || !Number.isFinite(aspect) || aspect <= 0) return { className: 'h-[340px]' };
+  return { className: 'max-h-[340px]', style: { aspectRatio: String(Math.round(aspect * 10000) / 10000) } };
+}

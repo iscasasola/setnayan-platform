@@ -7,6 +7,25 @@ import { stampLastLogin } from '@/lib/login-activity';
 import { shouldPromoteToVendor } from '@/lib/oauth-signup';
 import { isBrandNewAccount, isEventConnectNext, youHref } from '@/lib/signup-landing';
 import { RSVP_TERMS_COOKIE, TERMS_VERSION, rsvpTermsCarried } from '@/lib/terms-agreement';
+import { NATIVE_SESSION_PARAM } from '@/lib/native-oauth-plan';
+
+/** How recent a native sign-in must be for `?native=1` to run the landing. */
+const NATIVE_SESSION_FRESH_MS = 5 * 60_000;
+
+/**
+ * The session a native Apple sign-in just set, shaped like the code exchange's
+ * answer. No user, or a sign-in older than the window → an error, and the
+ * caller writes nothing.
+ */
+async function freshNativeSession(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data, error } = await supabase.auth.getUser();
+  const user = data?.user ?? null;
+  const signedInAt = user?.last_sign_in_at ? Date.parse(user.last_sign_in_at) : NaN;
+  if (error || !user || !(Date.now() - signedInAt < NATIVE_SESSION_FRESH_MS)) {
+    return { data: { user: null }, error: { message: 'Sign-in expired. Please try again.' } };
+  }
+  return { data: { user }, error: null };
+}
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -29,9 +48,23 @@ export async function GET(request: NextRequest) {
   // Vendor-signup intent, round-tripped by oauth-actions.ts (?as=vendor).
   const intent = url.searchParams.get('as');
 
-  if (code) {
+  // 📱 THE PHONE APP'S APPLE SHEET arrives here with the session ALREADY SET in
+  // the web view (signInWithIdToken, lib/native-oauth.ts) and no code — only
+  // `?native=1`. It runs the SAME landing below, never a copy of it. Only a
+  // sign-in from the last few minutes counts, so an old session following a
+  // crafted link is just sent on to `next` with nothing written.
+  const nativeSession = !code && url.searchParams.get(NATIVE_SESSION_PARAM) === '1';
+
+  if (code || nativeSession) {
     const supabase = await createClient();
-    const { error, data } = await supabase.auth.exchangeCodeForSession(code);
+    const { error, data } = code
+      ? await supabase.auth.exchangeCodeForSession(code)
+      : await freshNativeSession(supabase);
+    if (error && nativeSession) {
+      // No fresh native sign-in behind `?native=1` — nothing is written; the
+      // person goes on to where they were headed (a gated page asks again).
+      return NextResponse.redirect(new URL(fallbackNext, url.origin));
+    }
     if (error) {
       return NextResponse.redirect(
         new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin),

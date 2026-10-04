@@ -68,6 +68,15 @@ final class SetnayanBridgeViewController: CAPBridgeViewController {
     /// — a fallback that interrupts a working load is a different bug.
     private static let launchDeadline: TimeInterval = 12
 
+    /// In-app plugins (no npm package) register here — Capacitor's documented
+    /// hook, which runs before the web view loads, so the JS proxy is injected
+    /// for the very first page. `SetnayanAuth` is the native sign-in (B3):
+    /// the Sign in with Apple sheet + Google in the system browser.
+    override func capacitorDidLoad() {
+        super.capacitorDidLoad()
+        bridge?.registerPluginInstance(SetnayanAuthPlugin())
+    }
+
     override func viewDidLoad() {
         // Installing AFTER super is deliberate. `capacitorDidLoad()` is the
         // documented extension point, but it runs BEFORE `loadWebView()` and

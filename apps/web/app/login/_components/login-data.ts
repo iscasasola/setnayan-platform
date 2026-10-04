@@ -11,12 +11,13 @@
  * PRESERVED from the prior /login/page.tsx (per [[feedback_setnayan_button_preservation]]):
  *   - searchParams contract: error / check_email / ready / next.
  *   - safeNext() validation of the redirect destination.
- *   - getClientShell() OAuth gating (web + desktop show OAuth; mobile/native
- *     WebView stays email-only because Google refuses OAuth in an embedded view).
+ *   - the shell OAuth gate (lib/oauth-shell-gate.ts): web + desktop show OAuth;
+ *     the phone app shows it only in a build with the native sign-in plugin,
+ *     which never uses the web view for Google (Google refuses an embedded view).
  */
-import { getClientShell } from '@/lib/request-platform';
+import { getOAuthGate } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
-import { ANY_OAUTH_ENABLED } from '@/app/_components/oauth-button-row';
+import { OAUTH_FLAGS } from '@/app/_components/oauth-button-row';
 import { parseProviderParam, type KnownProvider } from '@/lib/sign-in-door';
 import { loginErrorFromParam } from '@/lib/human-auth-error';
 import { eventSlugFromNext } from '@/lib/sign-in-for-a-guest';
@@ -49,6 +50,8 @@ export type LoginView = {
   signupHref: string;
   showOAuth: boolean;
   desktopOAuth: boolean;
+  /** The phone app: Apple sheet + Google in the system browser (lib/native-oauth.ts). */
+  nativeOAuth: boolean;
   /** `next` opens an event — the card speaks to a guest, not a planner. */
   forGuest: boolean;
 };
@@ -96,12 +99,13 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
   const signupQuery = signupParams.toString();
   const signupHref = `/signup${signupQuery ? `?${signupQuery}` : ''}`;
 
-  // OAuth visibility by shell — see prior /login/page.tsx note. Desktop renders
-  // the loopback variant; web renders the server-action row; mobile stays
-  // email-only.
-  const shell = await getClientShell();
-  const showOAuth = ANY_OAUTH_ENABLED && shell !== 'mobile';
-  const desktopOAuth = showOAuth && shell === 'desktop';
+  // OAuth visibility by shell (lib/oauth-shell-gate.ts). Desktop renders the
+  // loopback variant; the phone app the native variant (only in a build that
+  // carries it — an older one stays email-only); web the server-action row.
+  const gate = await getOAuthGate(OAUTH_FLAGS);
+  const showOAuth = gate.show;
+  const desktopOAuth = gate.desktop;
+  const nativeOAuth = gate.native;
   const forGuest = await nextOpensAnEvent(next);
 
   return {
@@ -114,6 +118,7 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
     signupHref,
     showOAuth,
     desktopOAuth,
+    nativeOAuth,
     forGuest,
   };
 }

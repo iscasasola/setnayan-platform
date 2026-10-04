@@ -128,7 +128,7 @@ test('Google / Apple come FIRST, in the one shared wording, on every sign-up doo
       continue;
     }
     if (oauth > d.formAt) offenders.push(`${d.where}: Google / Apple sit BELOW the email form`);
-    for (const m of d.code.matchAll(/<(OAuthButtonRow|DesktopOAuthButtons)\b[^>]*>/g)) {
+    for (const m of d.code.matchAll(/<(OAuthButtonRow|DesktopOAuthButtons|NativeOAuthButtons)\b[^>]*>/g)) {
       if (!/verb=\{SIGNUP_OAUTH_VERB\}/.test(m[0])) {
         offenders.push(`${d.where}: ${m[1]} does not use SIGNUP_OAUTH_VERB — ${m[0]}`);
       }

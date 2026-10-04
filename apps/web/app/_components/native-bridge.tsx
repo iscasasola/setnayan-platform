@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
+import { appUrlToPath } from '@/lib/app-url-path';
 
 /**
  * Wires the Capacitor native shell (iteration 0052) to the hosted web app.
@@ -83,17 +84,14 @@ export function NativeBridge() {
     //    already carries the Supabase session cookie, so SSO is preserved.
     track(
       App?.addListener('appUrlOpen', ({ url }) => {
-        if (!url) return;
-        try {
-          const u = new URL(url);
-          // https://www.setnayan.com/<path> → navigate to <path>.
-          // setnayan://<host>/<path>      → treat host+path as the path.
-          const path = u.protocol === 'https:' ? u.pathname + u.search : (u.host ? `/${u.host}` : '') + u.pathname + u.search;
-          if (path && path !== window.location.pathname + window.location.search) {
-            window.location.assign(path);
-          }
-        } catch {
-          /* malformed deep link — ignore */
+        // https://www.setnayan.com/<path> → <path>; setnayan://<host>/<path> →
+        // /<host>/<path> (lib/app-url-path). This is also how a Google sign-in
+        // in the SYSTEM browser comes home on Android: setnayan://auth/callback
+        // ?code=… → /auth/callback, which finishes the session in this web view
+        // (lib/native-oauth.ts). A malformed deep link maps to null — ignored.
+        const path = appUrlToPath(url);
+        if (path && path !== window.location.pathname + window.location.search) {
+          window.location.assign(path);
         }
       }),
       (h) => {

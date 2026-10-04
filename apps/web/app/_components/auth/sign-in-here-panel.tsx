@@ -135,6 +135,7 @@ export function SignInHerePanel({
           signupHref={`/signup?next=${encodeURIComponent(next)}`}
           showOAuth={oauth.show}
           desktopOAuth={oauth.desktop}
+          nativeOAuth={oauth.native}
           onNavigate={onClose}
           onSignedIn={handleSignedIn}
         />

@@ -12,6 +12,9 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // In-app plugins register BEFORE super.onCreate (Capacitor's rule).
+        // SetnayanAuth = Google / Apple sign-in in the system browser (B3).
+        registerPlugin(SetnayanAuthPlugin.class);
         super.onCreate(savedInstanceState);
 
         // Offline fallback. The shell normally loads the hosted app

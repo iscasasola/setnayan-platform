@@ -16,8 +16,10 @@
  *      person's profile (no trigger carries a host's typing across);
  *   4. a signed-in stranger cannot write it either.
  *
- * 🛡 Sabotage: `CREATE POLICY … ON public.users FOR UPDATE USING (true)` for
- *    authenticated → 2 and 4 go red.
+ * 🛡 Sabotage (run 2026-10-04): `CREATE POLICY … ON public.users FOR ALL TO
+ *    authenticated USING (true) WITH CHECK (true)` → 2 and 4 go red. An
+ *    UPDATE-only open policy stays green, correctly: the WHERE still needs the
+ *    row visible under `user_owns_row`'s SELECT, so the host matches nothing.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

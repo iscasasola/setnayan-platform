@@ -159,11 +159,14 @@ test('Landing · after the reply ONE main action, and nothing that Me already ho
   assert.match(body, /search\.keep === 'terms' \? \(\s*<SaveToAccount/);
 });
 
-test('The 3D room · one door, in Everything else — not a card AND a row', () => {
+test('The 3D room · one quiet line, on The Day’s Welcome — not a card AND a row', () => {
+  // Owner 2026-10-04 (DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND
+  // APPROVED"): "Walk the room in 3D" on Welcome on the day; "Everything else"
+  // is gone. The doorway strip draws it as a quiet line, never a DoorCard.
   const strip = read('_components/guest-doorway-strip.tsx');
-  assert.doesNotMatch(strip, /Walk the room in 3D|venueWalk/, 'the doorway strip draws the 3D room again');
-  const rows = read('_lib/everything-else-rows.ts');
-  assert.equal((rows.match(/Walk the room in 3D/g) ?? []).length, 1);
+  assert.equal((strip.match(/Walk the room in 3D/g) ?? []).length, 1, 'the strip draws the 3D room more than once');
+  assert.doesNotMatch(strip, /<DoorCard[^>]*venueWalk/, 'the 3D room is a card again');
+  assert.match(strip, /\{venueWalk \? \(\s*<p className="text-center" data-venue-walk="">/, 'the 3D room is not the quiet line');
 });
 
 test('Save the Date film · one "See our page" and one "Add to calendar" per beat', () => {

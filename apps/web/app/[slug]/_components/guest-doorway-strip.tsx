@@ -4,13 +4,14 @@ import { ArrowRight, Gift, Heart, Radio } from 'lucide-react';
 
 /**
  * GuestDoorwayStrip — the E-Gifts door (where Welcome does not already carry
- * it), and the one sentence about the broadcast, ON THE PAGE EVERY GUEST
- * ALREADY HAS.
+ * it), the one sentence about the broadcast, and — on The Day's Welcome only —
+ * "Walk the room in 3D", ON THE PAGE EVERY GUEST ALREADY HAS.
  *
- * ✂ THE 3D ROOM IS NOT A CARD HERE ANY MORE (owner 2026-10-03, on the live
- * hub: "too many buttons. too much going on"). "Walk the room in 3D" was drawn
- * twice — this card AND the "Everything else" sheet's row. It lives in the
- * sheet only (`_lib/everything-else-rows.ts`), one quiet line.
+ * 🪑 THE 3D ROOM IS ONE QUIET LINE, NOT A CARD (owner 2026-10-03, on the live
+ * hub: "too many buttons. too much going on"; placement owner 2026-10-04,
+ * DECISION_LOG "STORY-TAB PLACEMENT CORRECTED AND APPROVED": *"Walk the room in
+ * 3D" on Welcome on the day*). The "Everything else" sheet that carried it is
+ * gone; this line is its one place. The caller hands it in only on The Day.
  *
  * ── WHAT WAS WRONG ──────────────────────────────────────────────────────────
  * The 3D walk-through of the reception and the money-gift page both got cards
@@ -44,6 +45,7 @@ import { ArrowRight, Gift, Heart, Radio } from 'lucide-react';
  */
 export function GuestDoorwayStrip({
   pabuya,
+  venueWalk = null,
   broadcast,
   dateLabel,
   words,
@@ -57,12 +59,15 @@ export function GuestDoorwayStrip({
   tabAttrs?: { 'data-hub-tab'?: string; hidden?: boolean };
   /** `/[slug]/pabuya`, or null → do not draw. */
   pabuya: string | null;
+  /** `/[slug]/venue` — `resolveGuestDoorways(...).venueWalk` on The Day, null
+   *  on every other stage or when the seat rule keeps the room shut. */
+  venueWalk?: string | null;
   /** Draw the "we'll be streaming" notice? */
   broadcast: boolean;
   /** Pre-formatted event date for the broadcast notice, when the page has one. */
   dateLabel?: string | null;
 }) {
-  if (!pabuya && !broadcast) return null;
+  if (!pabuya && !broadcast && !venueWalk) return null;
 
   return (
     <aside
@@ -71,6 +76,19 @@ export function GuestDoorwayStrip({
       aria-label="More for guests"
     >
       {pabuya ? <GiftDoorCard href={pabuya} words={words} /> : null}
+
+      {venueWalk ? (
+        /* A quiet line, not a card — one main action per page (#6308). */
+        <p className="text-center" data-venue-walk="">
+          <Link
+            href={venueWalk}
+            className="inline-flex min-h-[44px] items-center gap-1.5 text-[15px] text-ink underline-offset-4 hover:underline"
+          >
+            Walk the room in 3D
+            <span aria-hidden>→</span>
+          </Link>
+        </p>
+      ) : null}
 
       {broadcast ? (
         /* NOT A LINK, ON PURPOSE. A broadcast URL saved weeks ahead cannot be

@@ -10,6 +10,7 @@ import {
   markNotificationRead,
 } from '@/lib/notification-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { brandWords } from '@/lib/brand-words';
 
 /**
  * Shared notifications list + item + empty-state.
@@ -24,7 +25,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
  *
  * No behavior or visual change — rendered output matches the prior per-page
  * markup byte-for-byte (same classes, copy, and order). Pure dedup. Style
- * modelled on `app/_components/chat-message-stream.tsx`.
+ * modelled on `app/_components/chat-message-stream.tsx`. (The item's layout
+ * changed on 2026-10-04 — topic above, message full width; see below.)
  */
 
 type EmptyState = {
@@ -78,27 +80,36 @@ function NotificationItem({
   returnTo: string;
 }) {
   const unread = !n.read_at;
+  /*
+    ⚖ THE MESSAGE GETS THE WHOLE WIDTH (owner, live iPhone review 2026-10-04:
+    "ABOUT REMOVING A CELEBRATION" took most of the row and squeezed the
+    message to one word per line). The topic sits on its OWN line above the
+    message; the time and the buttons share the line under it. Nothing sits
+    beside the message, at any width.
+  */
   return (
     <li
-      className={`flex items-start gap-3 rounded-xl border p-4 ${
+      className={`rounded-xl border p-4 ${
         unread ? 'border-terracotta/30 bg-terracotta/5' : 'border-ink/10 bg-cream'
       }`}
+      data-notice=""
     >
       <span
-        className={`mt-0.5 inline-flex shrink-0 rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
+        className={`inline-flex max-w-full rounded-full px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] ${
           NOTIFICATION_TYPE_TONE[n.type]
         }`}
+        data-notice-topic=""
       >
         {NOTIFICATION_TYPE_LABEL[n.type]}
       </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold text-ink">{n.title}</p>
-        {n.body ? <p className="text-sm text-ink/65">{n.body}</p> : null}
-        <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
+      <div className="mt-2 min-w-0" data-notice-message="">
+        <p className="text-sm font-semibold text-ink">{brandWords(n.title)}</p>
+        {n.body ? <p className="text-sm text-ink/65">{brandWords(n.body)}</p> : null}
+      </div>
+      <div className="mt-2 flex items-center gap-2" data-notice-foot="">
+        <p className="mr-auto font-mono text-[10px] uppercase tracking-[0.15em] text-ink/50">
           {relativeTime(n.created_at)}
         </p>
-      </div>
-      <div className="flex shrink-0 flex-col gap-1">
         {n.related_url ? (
           <Link
             href={n.related_url}
@@ -112,7 +123,7 @@ function NotificationItem({
             <input type="hidden" name="notification_id" value={n.notification_id} />
             <input type="hidden" name="return_to" value={returnTo} />
             <SubmitButton
-              className="w-full rounded-md bg-ink/5 px-3 py-1 text-xs text-ink/70 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-md bg-ink/5 px-3 py-1 text-xs text-ink/70 hover:bg-ink/10 disabled:cursor-not-allowed disabled:opacity-60"
               pendingLabel="…"
             >
               Mark read

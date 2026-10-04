@@ -513,7 +513,7 @@ export const NOTIFICATION_TYPE_LABEL: Record<NotificationType, string> = {
   deletion_request_nudge: 'Still waiting on your answer',
   deletion_request_agreed: 'A supplier agreed to the removal',
   deletion_request_declined: 'A supplier would rather keep it for now',
-  event_deletion_answered: 'About removing a celebration',
+  event_deletion_answered: 'About removing an event',
   pax_surcharge_changed: 'Guest-count charge updated',
   vendor_joined: 'Supplier joined',
   editorial_decision: 'Editorial decision',

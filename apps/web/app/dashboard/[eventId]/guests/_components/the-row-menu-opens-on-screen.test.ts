@@ -54,11 +54,13 @@ test('the ⋯ list and the popovers both place through placeMenu, by their LEFT 
   const dir = join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components');
   const parts = stripComments(readFileSync(join(dir, 'guest-ticket-parts.tsx'), 'utf8'));
   const menu = parts.slice(parts.indexOf('export function GuestMoreMenu('));
-  assert.match(menu, /placeMenu\(\s*r,/, 'the ⋯ list no longer uses the one placement rule');
-  assert.match(menu, /'end',\s*\)/, 'the ⋯ list no longer lines up with the ⋯ by its right edge when it fits');
+  assert.match(menu, /placeMenuIn\(\s*r,/, 'the ⋯ list no longer uses the one placement rule');
+  // On a guest-list row (no box to stay in) it still lines up by its right edge;
+  // inside the guest card it opens below the card's row (the-card-reads-in-one-voice.test.ts).
+  assert.match(menu, /room \? 'start' : 'end',/, 'the ⋯ list no longer lines up with the ⋯ by its right edge when it fits');
   assert.doesNotMatch(menu, /innerWidth - r\.right|right: at\.right/, 'the ⋯ list is pinned by its right edge again — it runs off a phone');
   assert.match(menu, /\{ top: at\.top, left: at\.left,/, 'the ⋯ list is not drawn at its placed left edge');
   assert.match(menu, /maxWidth: 'calc\(100vw - 16px\)'/, 'the ⋯ list can be wider than the phone');
   const overlay = stripComments(readFileSync(join(dir, 'overlay-primitives.tsx'), 'utf8'));
-  assert.match(overlay, /= placeMenu\(\s*anchor\.getBoundingClientRect\(\)/, 'the table popovers keep a private placement rule');
+  assert.match(overlay, /= placeMenuIn\(\s*anchor\.getBoundingClientRect\(\)/, 'the table popovers keep a private placement rule');
 });

@@ -18,7 +18,8 @@
  * the Wedding March, which a `hidden lg:block` once deleted from every phone.
  */
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MoreHorizontal, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
@@ -32,8 +33,10 @@ export function GuestsPhoneMenu({
   addDoors: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const sheetRef = useRef<HTMLDivElement>(null);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: sheetRef });
+  useEffect(() => setMounted(true), []);
 
   return (
     // ⚖ At EVERY width (controller, owner reminder 2026-10-01: "Desktop keeps its
@@ -50,9 +53,16 @@ export function GuestsPhoneMenu({
       >
         <MoreHorizontal className="h-5 w-5" strokeWidth={1.8} aria-hidden />
       </button>
-      {open ? (
+      {/* ⚖ THE SHEET IS DRAWN ON <body>, NOT IN THE PAGE (owner, live iPhone
+          review 2026-10-04: the bottom bar sat OVER this sheet). The page's
+          <main> carries `view-transition-name` (`.sn-vt-page`), which makes it
+          its own stacking context — so a `z-50` drawn inside it can never rise
+          above the bottom bar's `z-30`, drawn outside it. On <body> it does.
+          The blur behind it is light (1px, the Drawer's): at 4px the header's
+          round + dissolved into a plain black circle. */}
+      {open && mounted ? createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/[0.32] backdrop-blur-[4px] sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-ink/[0.32] backdrop-blur-[1px] sm:items-center"
           role="presentation"
           onClick={(e) => {
             if (e.target === e.currentTarget) setOpen(false);
@@ -76,8 +86,9 @@ export function GuestsPhoneMenu({
                 <X className="h-5 w-5" strokeWidth={1.8} aria-hidden />
               </button>
             </div>
-            <div className="flex items-center justify-between gap-3" data-guests-phone-menu-sort="">
-              <span className="text-sm text-ink">Sort</span>
+            {/* ONE Sort (owner 2026-10-04: "Sort" was a row label AND the
+                button's own word) — the dropdown names itself. */}
+            <div className="flex items-center gap-3" data-guests-phone-menu-sort="">
               {sort}
             </div>
             {/* A door that goes somewhere closes the sheet behind it (a link to
@@ -101,7 +112,8 @@ export function GuestsPhoneMenu({
               {addDoors}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </div>
   );

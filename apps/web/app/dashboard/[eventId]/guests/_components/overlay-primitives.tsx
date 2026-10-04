@@ -28,7 +28,7 @@ import {
   type RefObject,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { placeMenu } from '@/lib/menu-place';
+import { menuRoomOf, placeMenuIn } from '@/lib/menu-place';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
 
@@ -143,7 +143,7 @@ export function Popover({
 }) {
   const portal = usePortal();
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState<{ left: number; top: number } | null>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; width: number } | null>(null);
   useModalA11y({ open: true, onClose, containerRef: ref, lockScroll: false });
   // One open at a time (lib/one-open.ts): mounted only while open, so mounting IS
   // opening — it closes any other open dropdown/menu/fold; a picker inside it is
@@ -156,13 +156,18 @@ export function Popover({
     const el = ref.current;
     if (!anchor || !el) return;
     // Under the anchor, clamped wholly on screen, flipped above when there is
-    // no room below — the ONE placement rule (lib/menu-place.ts).
-    const { left, top } = placeMenu(
+    // no room below — the ONE placement rule (lib/menu-place.ts). Opened from
+    // inside a box (`data-menus-open-below`, the guest card's top), it stays
+    // between the box's edges and opens BELOW the box, so it covers neither the
+    // ticket nor "Tap to view" (owner, live iPhone review 2026-10-04).
+    const { left, top, width: placedWidth } = placeMenuIn(
       anchor.getBoundingClientRect(),
       { width: window.innerWidth, height: window.innerHeight },
       { width, height: el.offsetHeight },
+      'start',
+      menuRoomOf(anchor),
     );
-    setPos({ left, top });
+    setPos({ left, top, width: placedWidth });
     /*
       🔴 `portal` IS A DEPENDENCY, AND ITS ABSENCE WAS A LIVE BUG. `usePortal`
       is null on the first render (it is set in an effect), so that render
@@ -186,7 +191,7 @@ export function Popover({
         aria-labelledby={labelledById}
         className="gl-pop fixed z-[80] overflow-hidden rounded-xl border border-ink/10 bg-paper p-1.5 shadow-lg outline-none"
         style={{
-          width,
+          width: pos?.width ?? width,
           left: pos?.left ?? -9999,
           top: pos?.top ?? -9999,
           // Hidden until measured so it never flashes at (0,0).

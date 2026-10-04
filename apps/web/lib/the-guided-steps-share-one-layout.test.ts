@@ -1,0 +1,220 @@
+/**
+ * the-guided-steps-share-one-layout.test.ts — EVERY GUIDED STEP WEARS ONE
+ * LAYOUT AND BEHAVES THE SAME (`lib/guided-step-layout.ts`).
+ *
+ * Owner, live iPhone test 2026-10-05, walking "Finish your Event Hub": *"why
+ * are there so many inconsistencies"*. The logo step's control sat outside its
+ * sheet; the names step had its own Save; Love Story's Back/Next ran off the
+ * screen behind a whole studio; the bar's title flipped between "Look" and
+ * "Event Details" inside one stage; what sat behind the sheet changed from step
+ * to step; "Almost ready" had two Apply buttons; RSVP's "before we start"
+ * listed 2 of its 3 facts.
+ *
+ * This fails when ANY step brings back its own Save, a caption or heading row
+ * in its sheet, a header row of its own, or a picture of its own behind the
+ * sheet. Held where it can be EXECUTED — the workspace rendered on every step of
+ * every stage — and, for the steps' real editors (which need the Maker's server
+ * and draft door to render), on their sources, file by file.
+ *
+ * Lives in `lib/` because node's test glob does not descend into `[eventId]`.
+ */
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import React from 'react';
+import { stripComments } from './strip-comments';
+import { renderSettled } from './render-settled.test-helper';
+import { buildGuidedPlan, type GuidedItem, type GuidedStepKey } from './details-guided-flow';
+import { STEP_PARTS, stagesOfStep, beforeWeStart, stageProgress, SETUP_STAGES } from './stage-setup';
+import { STEP_OWN_BODY, guidedStepBody, stagePageSrc } from './guided-step-layout';
+import { phoneHeightPx } from './maker-phone-room';
+
+(globalThis as unknown as { React: unknown }).React = React;
+
+const WEB = join(__dirname, '..');
+const L = 'app/dashboard/[eventId]/launch/_components';
+const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+const SCREEN_H = 812;
+
+/** Every Details item a step can stand on — so every step of every stage is in the plan. */
+const ITEMS = ['names', 'date', 'theme', 'logo', 'hero', 'love-story', 'rsvp', 'venues', 'schedule', 'parents', 'march', 'mood-board', 'special-message', 'seating', 'papic', 'address'];
+
+function plan() {
+  const nav = ITEMS.map((k) => ({ key: k, group: 'g', label: k, icon: null, done: false }));
+  return { nav, plan: buildGuidedPlan(nav as GuidedItem[], { solemn: false, parentsOffered: true }) };
+}
+
+async function paintStep(step: GuidedStepKey, round: string, item: string): Promise<string> {
+  const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
+  const { nav, plan: p } = plan();
+  return renderSettled(
+    React.createElement(DetailsWorkspace, {
+      groups: [{ key: 'g', label: 'G', items: nav }],
+      bodies: Object.fromEntries(ITEMS.map((k) => [k, React.createElement('i', { 'data-stub-body': k })])),
+      editors: Object.fromEntries(ITEMS.map((k) => [k, React.createElement('i', { 'data-stub-editor': k })])),
+      initial: item,
+      guide: { plan: p, open: true, entry: { kind: 'step', step, round }, addressed: true, actions: { previewHref: null, shareUrl: null, sendHref: '/x' } },
+    }),
+  );
+}
+
+/** The phone sheet's markup — from its aside to the aside's end. */
+function sheetOf(html: string): string {
+  const at = html.indexOf('data-half-sheet=');
+  assert.ok(at > 0, 'anti-vacuity: no half sheet');
+  return html.slice(html.lastIndexOf('<aside', at), html.indexOf('</aside>', at));
+}
+
+/* ── (1) the layout, on every step of every stage ──────────────────────── */
+
+test('(1) every step of every stage: half sheet, ONE header row, the field, the foot — no row between, nothing of its own', async () => {
+  const { plan: p } = plan();
+  let walked = 0;
+  for (const s of p.steps) {
+    for (const round of s.stages) {
+      const html = await paintStep(s.key, round, s.items[0]!);
+      const sheet = sheetOf(html);
+      const where = `${s.key} on ${round}`;
+      // Half, at rest.
+      const aside = sheet.slice(0, sheet.indexOf('>') + 1);
+      assert.match(aside, /data-half-sheet="half"/, `${where}: not at half`);
+      const px = phoneHeightPx(/\bclass="([^"]*)"/.exec(aside)?.[1] ?? '', SCREEN_H);
+      assert.ok(px !== null && px <= SCREEN_H * 0.5, `${where}: the sheet rests over half the screen`);
+      // ONE header row: the step ▾ · Peek · ×.
+      const head = sheet.slice(sheet.indexOf('data-half-sheet-head'), sheet.indexOf('data-half-sheet-close'));
+      assert.match(head, /data-half-sheet-lead=""[\s\S]*data-details-guide-steps=""/, `${where}: the step ▾ is not the header`);
+      assert.match(head, /data-half-sheet-peek=""/, `${where}: no Peek in the header`);
+      // Nothing between the header and the field: no heading, eyebrow, caption or second line.
+      const afterHead = sheet.indexOf('</div>', sheet.indexOf('data-half-sheet-close'));
+      const between = sheet.slice(afterHead, sheet.indexOf('data-details-editor='));
+      assert.doesNotMatch(between, /<(p|h2|h3|header|small)\b/, `${where}: a row came back between the header and the field`);
+      assert.doesNotMatch(between, /data-details-guide-(top|head|unlocks)|data-details-guide-all/, `${where}: the flow's line or heading is in the sheet again`);
+      // The step's field is in the sheet, shown; then the foot.
+      const item = s.items[0]!;
+      assert.match(sheet, new RegExp(`data-details-editor="${item}" class="flex flex-col gap-3"`), `${where}: its field is not in the sheet`);
+      assert.match(sheet, /data-details-guide-foot-sheet=""/, `${where}: no Back · Next in the sheet`);
+      assert.doesNotMatch(sheet, /type="submit"|>\s*Save\s*</, `${where}: a Save in the step's chrome`);
+      // Behind the sheet: the stage's ONE rule.
+      const body = guidedStepBody(s.key, round as never);
+      if (body.kind === 'own') {
+        assert.doesNotMatch(html, /data-guided-step-preview=/, `${where}: its own tool is covered by the stage page`);
+      } else {
+        assert.match(html, new RegExp(`data-guided-step-preview="${body.kind}"[^>]*`), `${where}: the stage's page is not behind the sheet`);
+        assert.match(html, /class="flex min-h-0 flex-1 flex-col pb-\[calc\(45dvh-104px\)\] lg:hidden" data-guided-step-preview=/, `${where}: the preview is not the phone's, fitted above the sheet`);
+        assert.match(html, /max-lg:hidden"><div hidden="" data-details-body-item=|max-lg:hidden"><div data-details-body-item=/, `${where}: the item's own picture still shows behind the sheet on a phone`);
+      }
+      walked += 1;
+    }
+  }
+  assert.ok(walked >= 15, `anti-vacuity: walked only ${walked} steps`);
+});
+
+/* ── (2) one rule per stage, exhaustive ────────────────────────────────── */
+
+test('(2) behind the sheet: each stage’s page (RSVP: its reply page), except a subject only its own tool shows', () => {
+  for (const step of Object.keys(STEP_PARTS) as GuidedStepKey[]) {
+    for (const stage of stagesOfStep(step)) {
+      const body = guidedStepBody(step, stage);
+      if (STEP_OWN_BODY.includes(step)) assert.equal(body.kind, 'own', step);
+      else if (stage === 'rsvp-stage') assert.equal(body.kind, 'rsvp-page', `${step} on RSVP`);
+      else assert.ok(body.kind === 'page' || (step === 'hero' && body.kind === 'cover'), `${step} on ${stage}: ${body.kind}`);
+      if (body.kind === 'page' || body.kind === 'cover') assert.equal(body.phase, stage, `${step} shows another stage's page`);
+    }
+  }
+  // The page is the draft (`editor=1`) wearing the theme being picked (the live-preview fix).
+  assert.equal(stagePageSrc('/m-j', { kind: 'page', phase: 'save_the_date', anchor: '' }, 'cyber'), '/m-j?phase=save_the_date&editor=1&theme=cyber');
+  assert.equal(stagePageSrc('/m-j', { kind: 'page', phase: 'rsvp', anchor: '#site-story' }, null), '/m-j?phase=rsvp&editor=1#site-story');
+  assert.equal(stagePageSrc('/m-j', { kind: 'own' }, 'cyber'), null);
+});
+
+/* ── (3) one title per stage ───────────────────────────────────────────── */
+
+test('(3) the bar says ONE title per stage while the flow is on screen — never Look and Event Details by turns', () => {
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /const guideTitle = !at \|\| !plan \? null : at\.kind === 'stages' \? GUIDED_FLOW_TITLE : roundName\(plan, at\.round\);/, 'the flow does not name its stage');
+  assert.match(ws, /setGuideTitle\?\.\(guideTitle\);/);
+  assert.match(ws, /useEffect\(\(\) => \(\) => setGuideTitle\?\.\(null\), \[setGuideTitle\]\);/, 'the title outlives the flow');
+  const shell = read(`${L}/maker-shell.tsx`);
+  assert.match(shell, /const openStageWord = \(openDoor === 'look' \|\| openDoor === 'details'\) && guideTitle \? guideTitle :/, 'the bar does not read the flow’s title');
+});
+
+/* ── (4) one Apply; the counts list what they count ────────────────────── */
+
+test('(4) "Almost ready" has no Apply of its own; "before we start" lists every fact its stage counts', async () => {
+  const ready = read(`${L}/details-guide.tsx`);
+  assert.doesNotMatch(ready, /data-details-guide-apply|pressMakerApply\(/, 'a second Apply came back on the Ready screen');
+  const { plan: p } = plan();
+  for (const stage of SETUP_STAGES) {
+    if (!p.rounds.includes(stage as never)) continue;
+    const b = beforeWeStart(p, stage);
+    const n = stageProgress(p, stage);
+    assert.equal(b.have.length + b.ask.length, n.total, `${stage}: "before we start" lists ${b.have.length + b.ask.length} of the ${n.total} the picker counts`);
+    assert.equal(b.have.length, n.done, `${stage}: "in place" disagrees with the picker`);
+  }
+  // The Maker counts with the function Home and Event Details count with.
+  const details = read(`${L}/maker-details.tsx`);
+  assert.match(details, /done: guidedItemDone\(i\.key, doneFacts\) \?\? i\.done/, 'the Maker counts done its own way again');
+  assert.match(read('app/dashboard/[eventId]/launch/page.tsx'), /doneFacts: guided,/);
+});
+
+/* ── (5) no Save in any step's own field ───────────────────────────────── */
+
+/** A button that saves on a press: its words, a submit, or the shared Save rows. */
+const SAVE_RE = />\s*(?:Save|Saving…|Save message|Use this photo)\s*</g;
+const SUBMIT_RE = /type="submit"|<SubmitButton\b|<SaveRow\b/g;
+
+/**
+ * Every source a step's sheet draws, with the presses it may still hold and
+ * why — a step's own field drafts as it changes (owner 2026-10-05). A count
+ * that grows is a Save coming back.
+ */
+const STEP_EDITORS: ReadonlyArray<[file: string, saves: number, submits: number, why: string]> = [
+  [`${L}/details-your-event.tsx`, 0, 0, 'Names · Date · Ceremony time · Venues: AutoDraft'],
+  [`${L}/details-answers.tsx`, 0, 0, 'every "Do you want …?" answer drafts at the pick'],
+  [`${L}/maker-theme-picker.tsx`, 0, 0, 'Theme: at the pick'],
+  [`${L}/maker-rsvp-ask.tsx`, 0, 0, 'RSVP: who · questions · reply by — at the pick'],
+  [`${L}/maker-logo.tsx`, 0, 0, 'the logo studio saves itself'],
+  [`${L}/details-people.tsx`, 0, 0, 'Parents & hosts'],
+  [`${L}/details-march.tsx`, 0, 0, 'The march'],
+  ['app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx', 0, 0, 'Font · Colours: DraftsAsYouGo'],
+  ['app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx', 0, 0, 'Behind every scene: at the pick'],
+  [`${L}/special-message-field.tsx`, 1, 1, '"Save message" is the no-Maker form only (`eventId` absent); in the Maker it saves as typed'],
+  [`${L}/maker-made-once.tsx`, 0, 1, 'the one submit is "Use the invitation card instead" — an action, not a Save; the photo drafts itself'],
+  ['app/dashboard/[eventId]/studio/mood-board/_components/dress-code-lists-form.tsx', 1, 1, 'the studio page’s own Save; in the Maker the lists draft when a row is left'],
+  ['app/dashboard/[eventId]/details/_components/governed-fields.tsx', 0, 0, 'the record page’s "Check & save" only — an embedded step hides it (autoRow)'],
+];
+
+test('(5) no step’s own field brings back a Save — each drafts as it changes', () => {
+  for (const [file, saves, submits, why] of STEP_EDITORS) {
+    const src = read(file);
+    assert.ok(src.length > 400, `anti-vacuity: ${file} was not read`);
+    const s = (src.match(SAVE_RE) ?? []).length;
+    const b = (src.match(SUBMIT_RE) ?? []).length;
+    assert.equal(s, saves, `${file}: ${s} Save press(es), expected ${saves} — ${why}`);
+    assert.equal(b, submits, `${file}: ${b} submit(s), expected ${submits} — ${why}`);
+  }
+  // The ones that remain are outside a step.
+  assert.match(read(`${L}/special-message-field.tsx`), /\{eventId \? \(\s*<span hidden data-special-save-state=\{state\} \/>\s*\) : \(/, 'the message’s Save shows in the Maker');
+  assert.match(read('app/dashboard/[eventId]/studio/mood-board/_components/dress-code-lists-form.tsx'), /\{inMaker \? \(\s*<DraftsAsYouGo settle \/>\s*\) : \(\s*<SubmitButton/, 'the lists’ Save shows in the Maker');
+  const gf = read('app/dashboard/[eventId]/details/_components/governed-fields.tsx');
+  assert.match(gf, /\{autoRow \? null : \(\s*<div className="flex flex-wrap items-center gap-2">\s*<button\s+type="button"\s+onClick=\{checkAndSave\}/, 'the date step shows "Check & save" again');
+  assert.match(gf, /const t = window\.setTimeout\(\(\) => autoSave\.current\(\), 900\);/, 'the date step does not save its pick');
+  // AutoDraft sends only a CHANGE (opening never writes).
+  const ye = read(`${L}/details-your-event.tsx`);
+  assert.match(ye, /if \(watch === sent\.current\) return;/, 'an opened step would draft what it was drawn with');
+});
+
+/* ── (6) the logo step: its answer in the sheet, the logo as guests see it ── */
+
+test('(6) the logo step: "Do you want a logo?" is in its sheet; the logo shows without guide lines, fitted above the sheet', () => {
+  const details = read(`${L}/maker-details.tsx`);
+  assert.match(details, /if \(logoA\) editors\.logo = logoA\.node;/, 'the logo’s answer is not the step’s field');
+  assert.match(details, /max-lg:group-data-\[details-mode=guided\]\/ws:hidden" data-details-logo-strip=""/, 'the answer strip still shows over the logo in the flow');
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /className="group\/ws flex h-full/, 'the workspace no longer names the group the tools dress by');
+  assert.match(ws, /\{editorsBody\(false\)\}\s*\{at\?\.kind === 'step' \? \(/, 'a step whose item draws its own tools hides its field');
+  const logo = read(`${L}/maker-logo.tsx`);
+  assert.match(logo, /data-logo-guides=""\s*className="group-data-\[details-mode=guided\]\/ws:hidden"/, 'the editor guide lines show in the flow');
+  assert.match(logo, /max-lg:group-data-\[details-mode=guided\]\/ws:max-w-\[min\(100%,calc\(55dvh-8rem\)\)\]/, 'the logo is not fitted above the sheet');
+});

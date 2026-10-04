@@ -3,8 +3,7 @@
 import { formatCount } from '@/lib/format-number';
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Check, ChevronLeft, ChevronRight, Send } from 'lucide-react';
-import { pressMakerApply, type MakerApplyOutcome } from '../../website/_components/maker-press-apply';
+import { ChevronLeft, ChevronRight, Send } from 'lucide-react';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { PreviewStageLink } from './maker-play-menu';
 import { useMaker } from './maker-context';
@@ -114,13 +113,6 @@ export function GuideHead({
   );
 }
 
-const APPLY_SAID: Record<MakerApplyOutcome, string | null> = {
-  applying: 'Applying — guests see it in a moment.',
-  'pro-sheet': null,
-  nothing: 'Nothing new to apply — guests already see this.',
-  busy: 'Still working on the last one — try again in a moment.',
-};
-
 /** A stage's Ready screen: what is set, what is not, and the stage's own action beside Apply. */
 export function GuideReady({
   plan,
@@ -137,16 +129,10 @@ export function GuideReady({
   const steps = stageSteps(plan, round);
   const links = plan.links.filter((l) => l.stages.includes(round));
   const left = steps.filter((s) => s.state === 'left' && !s.optional).length + links.filter((l) => l.state === 'left').length;
-  const [said, setSaid] = useState<string | null>(null);
   /* The preview link reads the window (phone → same view), so it is drawn only
      once mounted in the browser — a Ready screen can be the first paint. */
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  useEffect(() => setSaid(null), [round]);
-  const apply = () => {
-    const outcome = pressMakerApply();
-    setSaid(outcome === null ? 'Apply is at the top right.' : APPLY_SAID[outcome]);
-  };
   const quiet =
     'sn-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-white px-4 text-[14px] font-semibold text-ink hover:bg-ink/[0.04]';
   return (
@@ -162,7 +148,7 @@ export function GuideReady({
           <p className="text-[14px] text-ink/75" data-details-guide-ready-line="">
             {left ? (
               <>
-                {formatCount(left)} {left === 1 ? 'thing is' : 'things are'} still to do — or Apply what is set now.
+                {formatCount(left)} {left === 1 ? 'thing is' : 'things are'} still to do — or ✓ Apply what is set now.
               </>
             ) : (
               <>
@@ -218,7 +204,6 @@ export function GuideReady({
             </li>
           ))}
         </ul>
-        <p className="text-[12.5px] text-ink/60">Guests see what is set once you apply. Anything not yet stays yours until you fill it.</p>
         <div className="flex flex-wrap items-center gap-2">
           {round === 'save_the_date' ? (
             <>
@@ -249,24 +234,9 @@ export function GuideReady({
               Send invitations
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={apply}
-            data-details-guide-apply={round}
-            className="sn-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-ink px-6 text-[15px] font-semibold text-cream hover:bg-ink/90"
-          >
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Apply
-          </button>
+          {/* ✓ ONE Apply (owner 2026-10-05: "two Apply buttons") — the bar's own,
+              top right, with its count. This screen has none of its own. */}
         </div>
-        {round === 'save_the_date' && !actions.shareUrl ? (
-          <p className="text-[12.5px] text-ink/60">Choose your Event Hub address under All items to share it.</p>
-        ) : null}
-        {said ? (
-          <p role="status" className="text-[13px] font-medium text-ink/75" data-details-guide-applied="">
-            {said}
-          </p>
-        ) : null}
         {/* 🗂 Then progress per stage: back to "Which stage do you want ready?". */}
         <button
           type="button"

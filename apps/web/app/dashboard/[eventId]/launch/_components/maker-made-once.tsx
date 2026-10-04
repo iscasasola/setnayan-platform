@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { readHubDraft } from '@/lib/hub-draft-store';
 import { overlayHubDraftEvent, type HubDraft } from '@/lib/hub-draft';
 import { resolveHero } from '@/lib/event-hero';
+import { DraftsAsYouGo } from '../../website/editor/_components/drafts-as-you-go';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { renderableImageSrc } from '@/lib/event-card-art';
 import { resolveEventPoster } from '@/lib/event-poster.server';
@@ -119,15 +120,6 @@ function CouldNotLoad({ what }: { what: string }) {
   );
 }
 
-function DraftNote({ drafted }: { drafted: boolean }) {
-  if (!drafted) return null;
-  return (
-    <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
-      In your draft — guests see it after you Apply.
-    </p>
-  );
-}
-
 const themeOf = (raw: string | null): InviteThemeId => normalizeThemeId(raw) ?? 'house';
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -155,9 +147,8 @@ export async function MakerHeroPanel({
 }) {
   const m = await loadMadeOnce(eventId);
   if (!m.ok) return <CouldNotLoad what="hero" />;
-  const { live, drafted } = m;
+  const { drafted } = m;
   const hero = resolveHero(drafted);
-  const liveHero = resolveHero(live);
   const heroSrc = renderableImageSrc(await displayUrlForStoredAsset(hero.photoRef).catch(() => null));
   const poster = await resolveEventPoster(
     {
@@ -212,12 +203,8 @@ export async function MakerHeroPanel({
           <p className="text-[14px] font-semibold text-ink" data-made-once-hero-kind={hero.kind}>
             {hero.kind === 'photo' ? 'Your photo' : 'Your invitation card'}
           </p>
-          <p className="text-[12.5px] text-ink/65">
-            {hero.kind === 'photo'
-              ? 'Your photo sits behind your names at the top of every stage.'
-              : 'Your names, date and monogram, set in your theme — no photo needed.'}
-          </p>
-          <DraftNote drafted={hero.photoRef !== liveHero.photoRef} />
+          {/* No caption lines here (owner 2026-10-05: no captions under controls) —
+              the cover shows above the sheet, and the ✓ Apply count says it is drafted. */}
         </div>
       </div>
 
@@ -233,7 +220,7 @@ export async function MakerHeroPanel({
             bucket="media"
             pathPrefix={`events/${eventId}/landing-page-hero`}
             name="hero_image_url"
-            unsavedHint="press Use this photo below"
+            unsavedHint="it goes into your draft in a moment"
             multiple={false}
             maxSizeMB={10}
             acceptedTypes={['image/jpeg', 'image/jpg', 'image/png', 'image/webp']}
@@ -246,17 +233,8 @@ export async function MakerHeroPanel({
                worded copy of the same limit ("JPG, PNG or WebP up to 10 MB.")
                used to render right under it — phone-polish sweep, 2026-09-26. */
           />
-          <button
-            type="submit"
-            className="sn-press inline-flex min-h-10 items-center justify-center self-start rounded-full bg-ink px-4 text-[13px] font-semibold text-cream hover:bg-ink/90"
-          >
-            Use this photo
-          </button>
-          {!ownsPro && !storeShell ? (
-            <p className="text-[12px] text-ink/60">
-              Your own photo is part of Event Hub Pro. Try it here — guests see it only after you Apply with Pro.
-            </p>
-          ) : null}
+          {/* ✍ The uploaded photo drafts itself (owner 2026-10-05: no Save in a step) — ◆ above says it is Pro. */}
+          <DraftsAsYouGo />
         </form>
       ) : null}
 

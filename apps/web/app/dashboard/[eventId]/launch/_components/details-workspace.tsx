@@ -29,7 +29,8 @@ import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideReady, StagePicker, StepBackground } from './details-lazy';
+import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
+import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
 import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
 import { MakerHalfSheet, SheetGrip, SheetScrim } from './maker-sheet';
 import { SheetSections } from './sheet-sections';
@@ -135,7 +136,10 @@ export function DetailsWorkspace({
   persistent = null,
   pieces = {},
   guide = null,
+  coverUrl = null,
 }: {
+  /** 🖼 The couple's cover photo (drafted over live, signed) — what the cover step shows behind its sheet. */
+  coverUrl?: string | null;
   /** 🪜 The guided "What's left" (Details part 5); null = the navigator only (the lab without it). */
   guide?: DetailsGuide | null;
   /**
@@ -233,6 +237,19 @@ export function DetailsWorkspace({
   const walking: GuidedRound | null = stepHere ? (walk && stepHere.stages.includes(walk) ? walk : stepHere.stages[0]!) : null;
   const at: GuidedScreen | null = !guidedOn ? null : onPane ? pane : { kind: 'step', step: stepHere!.key, round: walking! };
   const guideAddr = at ? guideParamOf(at) : null;
+  /* 🖼 ONE STEP LAYOUT (owner 2026-10-05, `lib/guided-step-layout.ts`): behind
+     every step's sheet, on a phone, what the STAGE produces — its page, at the
+     part the step fills — unless the step's subject exists only in its own tool. */
+  const stepBody = at?.kind === 'step' && stepHere ? guidedStepBody(stepHere.key, at.round) : null;
+  const stagePreviewed = stepBody !== null && stepBody.kind !== 'own';
+  /* 🏷 ONE TITLE PER STAGE on the Maker's bar while the flow is on screen —
+     the stage being walked; the flow's own name on the stage picker. */
+  const setGuideTitle = maker?.setGuideTitle;
+  const guideTitle = !at || !plan ? null : at.kind === 'stages' ? GUIDED_FLOW_TITLE : roundName(plan, at.round);
+  useEffect(() => {
+    setGuideTitle?.(guideTitle);
+  }, [setGuideTitle, guideTitle]);
+  useEffect(() => () => setGuideTitle?.(null), [setGuideTitle]);
   const modeKey = maker?.eventId ? `sn-details-mode:${maker.eventId}` : null;
   const remember = (m: 'guided' | 'all') => {
     try {
@@ -434,7 +451,8 @@ export function DetailsWorkspace({
         data-details-item={selected}
         data-details-layout={layout}
         data-details-mode={guidedOn ? 'guided' : 'all'}
-        className="flex h-full min-h-0 w-full flex-1 flex-col"
+        /* `group/ws`: a tool drawn inside (the Logo studio) dresses itself for the flow — `group-data-[details-mode=guided]/ws:`. */
+        className="group/ws flex h-full min-h-0 w-full flex-1 flex-col"
       >
       {plan && at ? <GuideTop plan={plan} at={at} onPick={(to) => move(to)} onAllItems={allItems} tour={guide?.tour ?? null} /> : null}
       <div
@@ -451,8 +469,16 @@ export function DetailsWorkspace({
           data-details-body=""
           className={`relative order-1 flex min-h-0 flex-1 flex-col overscroll-contain bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] lg:order-2 ${
             layout === 'flow' ? 'overflow-y-auto px-4 py-5 sm:px-6' : 'overflow-hidden'
-          }`}
+          } ${stagePreviewed ? 'max-lg:overflow-hidden max-lg:p-0' : ''}`}
         >
+          {/* 🖼 Behind a step's sheet on a phone: the stage's own page (or the cover).
+              The items' own pictures step aside — hidden, never unmounted. The
+              frame ends where the sheet begins, so the part shown is never under it. */}
+          {stagePreviewed && stepBody ? (
+            <div className="flex min-h-0 flex-1 flex-col pb-[calc(45dvh-104px)] lg:hidden" data-guided-step-preview={stepBody.kind}>
+              <StageStepPreview body={stepBody} coverUrl={coverUrl} />
+            </div>
+          ) : null}
           {/* 📱 The editor, shut: one chip on the page opens it again (never a strip). */}
           {!sheetOpen && !stepSheet && layout !== 'whole' ? (
             <button
@@ -465,7 +491,9 @@ export function DetailsWorkspace({
               <ChevronUp aria-hidden className="h-4 w-4" />
             </button>
           ) : null}
-          <div className={layout === 'flow' ? 'mx-auto flex w-full max-w-4xl flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'}>
+          <div
+            className={`${layout === 'flow' ? 'mx-auto flex w-full max-w-4xl flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'} ${stagePreviewed ? 'max-lg:hidden' : ''}`}
+          >
             {items.map((i) =>
               visited.has(i.key) || i.key === selected ? (
                 <div
@@ -610,12 +638,10 @@ export function DetailsWorkspace({
               layout === 'whole' ? 'lg:hidden' : ''
             } ${at?.kind === 'step' ? '' : 'max-lg:hidden'}`}
           >
-            {at?.kind === 'step' && stepHere ? (
-              <div data-details-guide-sheet="" className="flex shrink-0 flex-col lg:hidden">
-                <GuideHead step={stepHere} roundTitle={roundName(plan!, at.round)} itemLabel={current.label} compact bare />
-              </div>
-            ) : null}
-            {editorsBody(layout === 'whole')}
+            {/* ONE layout for every step (`lib/guided-step-layout.ts`): the header row
+                above, then the step's field, then its foot — no rows between. */}
+            {/* Every step's field is IN its sheet — the Logo's answer included (owner 2026-10-05). */}
+            {editorsBody(false)}
             {at?.kind === 'step' ? (
               <div data-details-guide-foot-sheet="" className="contents lg:hidden">
                 <GuideFoot

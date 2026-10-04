@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
+import { useContext, useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
 import Image from 'next/image';
 import { Check, Maximize2 } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -26,6 +26,7 @@ import { THEME_OWN_LOOK_RESET, themePickSends } from '@/lib/theme-own-look';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { ThemePreviewOverlay } from './theme-preview-overlay';
+import { ThemePickContext, type ThemePick } from './theme-pick-context';
 
 /**
  * THE THEME PICKER — the ONE place the Event Hub's theme is chosen, on the
@@ -86,14 +87,8 @@ import { ThemePreviewOverlay } from './theme-preview-overlay';
  * feel (`themeMatchingFeel`); it applies nothing (owner: *"4 keep it"*).
  */
 
-type Pick = {
-  picked: string;
-  pending: boolean;
-  error: string | null;
-  pick: (id: string) => void;
-};
-
-const PickContext = createContext<Pick | null>(null);
+type Pick = ThemePick;
+const PickContext = ThemePickContext;
 
 function usePick(): Pick {
   const v = useContext(PickContext);

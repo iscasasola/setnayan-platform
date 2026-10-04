@@ -122,7 +122,8 @@ test('(2) the Look item mounts the one panel, and its body is the couple’s own
   assert.match(details, /panelLabel: 'Look'/, 'the phone sheet does not say "Look"');
   const pages = read(`${L}/details-look-pages.tsx`);
   // The body: the page being edited, through the canvas door, on the Maker's stage.
-  assert.match(pages, /item === 'look'\s*\?\s*look\.publicLandingUrl\s*\?\s*`\$\{look\.publicLandingUrl\}\?phase=\$\{maker\.stage\}&editor=1`/);
+  // …wearing the theme being picked, at the tap (`theme=`, owner 2026-10-05: the page drew Classic under a Cyber Neon pick).
+  assert.match(pages, /item === 'look'\s*\?\s*look\.publicLandingUrl\s*\?\s*`\$\{look\.publicLandingUrl\}\?phase=\$\{maker\.stage\}&editor=1\$\{picked \? `&theme=\$\{encodeURIComponent\(picked\)\}` : ''\}`/);
   assert.match(pages, /view === 'page' \? \(\s*<DetailsLookBody item="look" \/>/, 'the page is not what Look shows first');
   // On a phone, opening Look opens its sheet.
   assert.match(read(`${L}/details-workspace.tsx`), /if \(selected === 'theme'\) setSheetOpen\(true\);/);

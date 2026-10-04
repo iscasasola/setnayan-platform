@@ -196,7 +196,7 @@ const MEDIA_FOR: Partial<Record<GuidedStepKey, readonly string[]>> = {
 };
 
 export type BeforeWeStart = {
-  /** Already in place — never asked again. */
+  /** Already in place — done, or set and only to be looked over (the picker's "in place"). */
   have: string[];
   /** Media that helps the steps still to do (optional). */
   media: string[];
@@ -208,8 +208,12 @@ export type BeforeWeStart = {
 export function beforeWeStart(plan: Pick<GuidedPlan, 'steps' | 'links'>, stage: SetupStage): BeforeWeStart {
   const facts = stageFacts(plan, stage);
   const left = facts.filter((f) => f.state === 'left');
+  /* 🔢 Every fact the stage counts is listed ONCE (owner 2026-10-05: RSVP's
+     "before we start" listed 2 while the picker said 3): what is in place —
+     done, or set and waiting to be looked over (`inPlace`, the picker's own
+     count) — and what is still to do. have + ask = the picker's "of m". */
   return {
-    have: facts.filter((f) => f.state === 'done').map((f) => f.title),
+    have: facts.filter(inPlace).map((f) => (f.state === 'check' ? `${f.title} · look it over` : f.title)),
     media: [...new Set(left.flatMap((f) => MEDIA_FOR[f.key] ?? []))],
     ask: left.map((f) => f.title),
   };

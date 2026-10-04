@@ -164,7 +164,7 @@ export function BeforeWeStartScreen({
         {b.have.length > 0 ? (
           <div className="flex flex-col gap-1.5" data-before-have="">
             <p className={head}>
-              Already have <span className="normal-case tracking-normal">never asked again</span>
+              In place <span className="normal-case tracking-normal">{formatCount(b.have.length)}</span>
             </p>
             <ul className={card}>
               {b.have.map((t) => (

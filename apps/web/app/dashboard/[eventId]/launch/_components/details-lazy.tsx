@@ -128,6 +128,7 @@ export const DetailsLookEditor = dynamic(() => import(/* webpackChunkName: "make
 export const LookPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.LookPanel), { loading: SlotRows });
 export const DetailsLookPageBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPageBody), { loading: SlotFill });
 export const DetailsLookPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.DetailsLookPieces), { loading: SlotRows });
+export const StageStepPreview = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-look-pages').then((m) => m.StageStepPreview), { loading: SlotFill });
 
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
 export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });

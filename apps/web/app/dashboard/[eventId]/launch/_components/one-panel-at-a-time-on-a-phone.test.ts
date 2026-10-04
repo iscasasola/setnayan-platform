@@ -38,10 +38,10 @@ test('a step’s HALF SHEET holds the step ▾, the step’s heading, its field 
   const at = WORKSPACE.indexOf('<MakerHalfSheet');
   const sheet = WORKSPACE.slice(at, WORKSPACE.indexOf('</MakerHalfSheet>', at));
   assert.ok(at > 0 && sheet.length > 0, 'the step is not the half sheet');
-  assert.match(sheet, /data-details-guide-sheet=""/);
   // 2026-10-05: the step ▾ IS the sheet's header row (`head`) — step ▾ · Peek · ×, one row.
   assert.match(sheet, /head=\{at\?\.kind === 'step' && stepHere \? <GuideTop [\s\S]{0,200}?inSheet \/> : null\}/, 'the step’s sheet has no step dropdown in its header');
-  assert.match(sheet, /<GuideHead step=\{stepHere\}[^>]*bare \/>/, 'the step’s sheet has no step heading');
+  // 2026-10-05 (one layout for every step): no heading rows under the header — the step ▾ names the step.
+  assert.doesNotMatch(sheet, /<GuideHead /, 'a heading row came back in the step’s sheet');
   assert.match(sheet, /\{editorsBody\(/, 'the step’s sheet has no field');
   for (const act of ['onBack', 'onSkip', 'onNext']) assert.match(sheet, new RegExp(`${act}=\\{`), `the step’s sheet has no ${act}`);
   // One sheet at a time: no second, guide-only sheet.

@@ -27,7 +27,18 @@ function snapshot(form: HTMLFormElement): string {
  *
  * One at a time: while a draft is on its way the next one waits for it.
  */
-export function DraftsAsYouGo({ delay = DRAFT_AS_YOU_GO_MS }: { delay?: number }) {
+export function DraftsAsYouGo({
+  delay = DRAFT_AS_YOU_GO_MS,
+  settle = false,
+}: {
+  delay?: number;
+  /**
+   * ⌨ Text that redraws when it lands (a list whose rows are keyed on what was
+   * saved): drafted when a field is LEFT (or a pick is made), never mid-word —
+   * a redraw under the caret would steal the keyboard.
+   */
+  settle?: boolean;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const { pending } = useFormStatus();
   const pendingRef = useRef(pending);
@@ -59,14 +70,14 @@ export function DraftsAsYouGo({ delay = DRAFT_AS_YOU_GO_MS }: { delay?: number }
       if (timer !== undefined) window.clearTimeout(timer);
       timer = window.setTimeout(check, delay);
     };
-    const kinds = ['click', 'change', 'input', 'keyup', 'pointerup'] as const;
+    const kinds = settle ? (['click', 'change', 'focusout'] as const) : (['click', 'change', 'input', 'keyup', 'pointerup'] as const);
     for (const k of kinds) document.addEventListener(k, poke, true);
     return () => {
       window.clearTimeout(settle);
       if (timer !== undefined) window.clearTimeout(timer);
       for (const k of kinds) document.removeEventListener(k, poke, true);
     };
-  }, [delay]);
+  }, [delay, settle]);
 
   return <span ref={ref} hidden data-drafts-as-you-go="" />;
 }

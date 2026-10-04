@@ -371,7 +371,6 @@ export function MakerRsvpSettings({
               eventId={eventId}
               own={replyByOwn.deadline}
               pricingMode={replyByOwn.pricingMode}
-              live
               fallback={replyByFallback}
               action={replyByAction}
             />
@@ -444,7 +443,7 @@ export function MakerRsvpSettings({
           <p className="text-sm text-ink/60">Set your event date first.</p>
         )}
         {replyByOwn ? (
-          <ReplyByField eventId={eventId} own={replyByOwn.deadline} pricingMode={replyByOwn.pricingMode} />
+          <ReplyByField eventId={eventId} own={replyByOwn.deadline} pricingMode={replyByOwn.pricingMode} fallback={replyByFallback} action={replyByAction} />
         ) : (
           <p role="alert" className="text-[13px] text-terracotta-700">
             We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
@@ -476,11 +475,7 @@ export function MakerRsvpSettings({
       </section>
       </DetailsPieceOnly>
 
-      {drafted ? (
-        <p className="text-[12px] font-semibold text-terracotta-700" data-made-once-drafted="">
-          In your draft — guests see it after you Apply.
-        </p>
-      ) : null}
+      {/* No "in your draft" line under the settings (owner 2026-10-05: no captions) — the ✓ Apply count says it. */}
       {error ? (
         <p role="alert" className="text-[13px] text-terracotta-700">
           {error}
@@ -666,7 +661,6 @@ function ReplyByField({
   eventId,
   own,
   pricingMode,
-  live = false,
   fallback = null,
   action = updatePaxSettings,
 }: {
@@ -674,13 +668,12 @@ function ReplyByField({
   own: string | null;
   pricingMode: 'realtime' | 'final_only';
   action?: typeof updatePaxSettings;
-  /** 🗳 The RSVP stage: no Save button — the date shows on the canvas at once and saves behind it. */
-  live?: boolean;
   /** The 30-day default the line reads while no date of their own is set. */
   fallback?: string | null;
 }) {
-  if (live) return <LiveReplyByField eventId={eventId} own={own} pricingMode={pricingMode} fallback={fallback} action={action} />;
-  return <SavedReplyByField eventId={eventId} own={own} pricingMode={pricingMode} />;
+  /* ✍ No Save button anywhere (owner 2026-10-05): the RSVP stage's field is
+     the one field — the date shows at the pick and saves behind it. */
+  return <LiveReplyByField eventId={eventId} own={own} pricingMode={pricingMode} fallback={fallback} action={action} />;
 }
 
 /**
@@ -774,75 +767,6 @@ function LiveReplyByField({
           </button>
         ) : null}
       </div>
-      <p className="text-xs text-ink/60">After this date your guests can no longer reply on your Event Hub.</p>
-      <HubSavesImmediately />
-      {note ? (
-        <p role={note.ok ? 'status' : 'alert'} className={`text-[13px] ${note.ok ? 'text-success-800' : 'text-terracotta-700'}`}>
-          {note.text}
-        </p>
-      ) : null}
-    </div>
-  );
-}
-
-function SavedReplyByField({
-  eventId,
-  own,
-  pricingMode,
-}: {
-  eventId: string;
-  own: string | null;
-  pricingMode: 'realtime' | 'final_only';
-}) {
-  const [value, setValue] = useState(own ?? '');
-  const [pending, start] = useTransition();
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
-  useEffect(() => setValue(own ?? ''), [own]);
-  const dirty = value !== (own ?? '');
-  const saveReplyBy = () =>
-    start(async () => {
-      setNote(null);
-      const fd = new FormData();
-      fd.set('event_id', eventId);
-      fd.set('guest_list_edit_deadline', value);
-      fd.set('adaptive_pricing_mode', pricingMode);
-      try {
-        const r = await makerSave(() => updatePaxSettings(fd), requestMakerRefresh);
-        setNote(r.ok ? { ok: true, text: 'Saved.' } : { ok: false, text: r.message });
-      } catch {
-        setNote({ ok: false, text: 'That did not save. Please try again.' });
-      }
-    });
-  return (
-    <div className="flex flex-col gap-1.5" data-reply-by-field="">
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          type="date"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          aria-label="Reply by — your own date"
-          className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-sm text-ink"
-        />
-        <button
-          type="button"
-          onClick={saveReplyBy}
-          disabled={pending || !dirty}
-          className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-4 text-[13px] font-semibold text-cream disabled:opacity-50"
-        >
-          {pending ? 'Saving…' : 'Save'}
-        </button>
-        {own ? (
-          <button
-            type="button"
-            onClick={() => setValue('')}
-            disabled={pending}
-            className="sn-press inline-flex min-h-11 items-center px-2 text-[13px] font-semibold text-ink/70 underline underline-offset-2"
-          >
-            Use the default
-          </button>
-        ) : null}
-      </div>
-      <p className="text-xs text-ink/60">After this date your guests can no longer reply on your Event Hub.</p>
       <HubSavesImmediately />
       {note ? (
         <p role={note.ok ? 'status' : 'alert'} className={`text-[13px] ${note.ok ? 'text-success-800' : 'text-terracotta-700'}`}>

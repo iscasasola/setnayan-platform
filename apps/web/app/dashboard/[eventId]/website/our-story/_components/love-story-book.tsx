@@ -169,10 +169,9 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
         <p data-love-story-theme-line className="mt-6 flex flex-wrap items-center justify-center gap-x-2 text-[14px]">
           <span className={eye}>Theme</span>
           <b className="font-medium">{p.themeName}</b>
-          <span aria-hidden>·</span>
-          {p.inMaker ? (
-            <span className="text-[color:var(--ls-muted)]">Change it in Event Details</span>
-          ) : (
+          {/* In the Maker: the name only — never "change it over there" (owner rule: no go-edit-elsewhere). */}
+          {p.inMaker ? null : <span aria-hidden>·</span>}
+          {p.inMaker ? null : (
             <Link
               href={`${p.makerHref}?tool=details&item=theme`}
               className="text-[color:var(--ls-heading)] underline decoration-1 underline-offset-4"

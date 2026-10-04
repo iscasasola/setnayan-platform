@@ -16,6 +16,8 @@ import { DetailsGoTo, DetailsPieceButton, useDetailsPiece } from './details-go';
 import { ElementSheet } from './details-lazy';
 import { HUB_ELEMENT_LABEL, isHubElementKey, type HubElementKey } from '@/lib/element-style';
 import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
+import { stagePageSrc, type GuidedStepBody } from '@/lib/guided-step-layout';
+import { usePickedTheme } from './theme-pick-context';
 
 /**
  * 🎨 LOGO · HERO · REVEAL, MOVED INTO DETAILS WHOLE (Details part 3; owner
@@ -283,11 +285,13 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
   const [revealPick, setRevealPick] = useState<LifecyclePhase | null>(null);
   const stages = look.revealStages;
   const revealStage = revealPick && stages.includes(revealPick) ? revealPick : (stages[0] ?? null);
-  /* 🎨 Look: the page being edited, on the stage the Maker is on (the canvas door, its draft). */
+  /* 🎨 Look: the page being edited, on the stage the Maker is on (the canvas door, its draft),
+     wearing the theme being picked — at the tap, before its save lands (`theme=`). */
+  const picked = usePickedTheme();
   const src =
     item === 'look'
       ? look.publicLandingUrl
-        ? `${look.publicLandingUrl}?phase=${maker.stage}&editor=1`
+        ? `${look.publicLandingUrl}?phase=${maker.stage}&editor=1${picked ? `&theme=${encodeURIComponent(picked)}` : ''}`
         : null
       : makerPageCanvasSrc(look.publicLandingUrl, item, maker.stage, { revealStage });
   const frameKey = `${item}:${src}:${maker.renderStamp}`;
@@ -365,6 +369,39 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
           if (f && at) f.src = at;
         }}
       />
+    </div>
+  );
+}
+
+/**
+ * 🖼 BEHIND A GUIDED STEP — what the stage produces (`lib/guided-step-layout.ts`):
+ * its page, live, in the draft, wearing the theme being picked, at the part the
+ * step fills; or, on the cover step, the cover photo itself. The SAME frame
+ * every Maker page uses (`MakerPageFrame`, double-buffered).
+ */
+export function StageStepPreview({ body, coverUrl = null }: { body: GuidedStepBody; coverUrl?: string | null }) {
+  const maker = useMaker();
+  const picked = usePickedTheme();
+  const base = maker?.lookPages?.publicLandingUrl ?? null;
+  if (body.kind === 'cover' && coverUrl) {
+    return (
+      <div className="flex min-h-0 flex-1 items-center justify-center px-2 py-2" data-guided-step-body="cover">
+        {/* eslint-disable-next-line @next/next/no-img-element -- the couple's own cover, already signed */}
+        <img src={coverUrl} alt="Your cover photo" className="max-h-full max-w-full rounded-md object-contain shadow-sm" />
+      </div>
+    );
+  }
+  const src = base ? stagePageSrc(base, body, picked) : null;
+  if (!maker || !src) {
+    return (
+      <p role="status" className="m-auto px-4 text-center text-sm text-ink/60" data-guided-step-body="waiting">
+        Opening your page…
+      </p>
+    );
+  }
+  return (
+    <div className="flex min-h-0 flex-1 flex-col" data-guided-step-body={body.kind}>
+      <MakerPageFrame src={src} title="Your page, as guests will see it" device="phone" frameKey={`step:${src}:${maker.renderStamp}`} />
     </div>
   );
 }

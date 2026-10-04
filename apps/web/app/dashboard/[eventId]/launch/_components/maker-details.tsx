@@ -98,9 +98,11 @@ import type { DetailsGuide } from './details-guide';
 import {
   buildGuidedPlan,
   firstOpenScreen,
+  guidedItemDone,
   stepOfItem,
   wordsAndPlansInputFrom,
   type GuideAddress,
+  type GuidedDoneFacts,
   type GuidedScreen,
 } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
@@ -268,6 +270,8 @@ export type MakerDetailsProps = {
    * a step's "done" is its item's done — never a second opinion. Null = no flow
    * (the lab without `?guide`).
    */
+  /** 🖼 The couple's cover photo (drafted over live, signed) — the guided cover step shows it. */
+  coverUrl?: string | null;
   guide?: {
     /** Open on the flow (an unfinished event with nothing else named, or `?guide=`). */
     open: boolean;
@@ -291,6 +295,14 @@ export type MakerDetailsProps = {
     setup?: HubSetupFacts | null;
     /** Where the setup's guests' names open (the Guest list's template import). */
     guestsHref?: string;
+    /**
+     * 🔢 ONE COUNT (owner 2026-10-05: the stage picker said "10 of 18" while
+     * Event Details said "9 of 18"): the saved facts Home and Event Details
+     * count from (`guidedFactsFrom`, the launch page's own read). Given → every
+     * step's done is `guidedItemDone` over these — the SAME function those
+     * pages ask — so the three doors say the same numbers.
+     */
+    doneFacts?: GuidedDoneFacts;
   } | null;
   /**
    * 🗂 THE ONBOARDING'S ANSWERS, CHANGED HERE (owner 2026-10-02, DECISION_LOG
@@ -510,9 +522,10 @@ export function MakerDetails(props: MakerDetailsProps) {
   }));
 
   /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
+  const doneFacts = props.guide?.doneFacts ?? null;
   const plan = props.guide
     ? buildGuidedPlan(
-        groups.flatMap((g) => g.items),
+        groups.flatMap((g) => g.items).map((i) => (doneFacts ? { ...i, done: guidedItemDone(i.key, doneFacts) ?? i.done } : i)),
         { solemn: eventContext.solemn, parentsOffered: props.yourEvent ? parentsOffered(props.yourEvent.kind) : switches.parents },
         // 🧭 The setup round over these very rows (built here, on the server).
         props.guide.setup ? hubSetupRound(props.guide.setup, new Set(groups.flatMap((g) => g.items.map((i) => i.key)))) : null,
@@ -698,7 +711,10 @@ export function MakerDetails(props: MakerDetailsProps) {
     /* 🗂 "Do you want a logo?" sits above the Logo studio — the answer, changed where the logo is made. */
     bodies.logo = logoA ? (
       <div className="flex min-h-0 flex-1 flex-col" data-details-logo-answer="">
-        <div className="shrink-0 px-4 pb-2 pt-3 sm:px-6">{logoA.node}</div>
+        {/* 📱 In the guided flow this answer is IN the step's sheet (`editors.logo`), never a strip over the logo. */}
+        <div className="shrink-0 px-4 pb-2 pt-3 sm:px-6 max-lg:group-data-[details-mode=guided]/ws:hidden" data-details-logo-strip="">
+          {logoA.node}
+        </div>
         <DetailsLookBody item="logo" />
       </div>
     ) : (
@@ -896,6 +912,9 @@ export function MakerDetails(props: MakerDetailsProps) {
         f.editor
       );
   }
+  /* 🗂 The Logo's step field — "Do you want a logo?" — in the step's sheet like
+     every other step's (owner 2026-10-05). The studio is the logo's picture. */
+  if (logoA) editors.logo = logoA.node;
   if (ye) Object.assign(editors, ye.editors);
   Object.assign(editors, ap.editors);
   /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
@@ -914,6 +933,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         editors={editors}
         initial={startItem}
         guide={guide}
+        coverUrl={props.coverUrl ?? null}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{

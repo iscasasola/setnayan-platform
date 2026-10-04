@@ -19,7 +19,6 @@ app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx → /dashboar
 app/dashboard/[eventId]/studio/papic/crew/page.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/studio/patiktok/page.tsx → /dashboard/[eventId]/studio/[addon]	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/vendors/actions.ts → /vendor-dashboard/bookings	# first run 2026-10-02 · supplier app · works, but through an old address — retarget at the real one
-app/dashboard/[eventId]/website/dress-code/page.tsx → /dashboard/[eventId]/website	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx → /dashboard/[eventId]/event-page	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx → /dashboard/[eventId]/more	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one
 app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx → /dashboard/[eventId]/progress	# first run 2026-10-02 · host app · works, but through an old address — retarget at the real one

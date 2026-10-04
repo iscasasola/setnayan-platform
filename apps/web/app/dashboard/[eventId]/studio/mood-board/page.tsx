@@ -4,10 +4,14 @@ import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile'
 import { detailsItemHref, makerHasWork } from '@/lib/maker-details-items';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { MoodBoardEditor } from './_components/mood-board-editor';
+import { MoodBoardSaveNotice, readSaveNotice } from './_components/save-notice';
 
 export const metadata = { title: 'Mood Board' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = {
+  params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ saved?: string | string[]; error?: string | string[] }>;
+};
 
 /**
  * /dashboard/<id>/studio/mood-board — the Mood Board's old address.
@@ -24,8 +28,9 @@ type Props = { params: Promise<{ eventId: string }> };
  * Event Hub (`makerHasWork`, the launch page's own rule). A membership read that
  * fails keeps this page too — it never sends anyone to a Maker on a guess.
  */
-export default async function MoodBoardPage({ params }: Props) {
+export default async function MoodBoardPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const notice = readSaveNotice(await searchParams);
   const supabase = await createClient();
   const {
     data: { user },
@@ -43,5 +48,11 @@ export default async function MoodBoardPage({ params }: Props) {
   const websiteOn = surfaceEnabled(await resolveProfileByEvent(eventId), 'website');
   if (makerHasWork(memberType, websiteOn)) redirect(detailsItemHref(eventId, 'mood-board'));
 
-  return <MoodBoardEditor eventId={eventId} />;
+  /* A save made here lands back here with `?saved=1` / `?error=…` — say which. */
+  return (
+    <>
+      <MoodBoardSaveNotice saved={notice.saved} error={notice.error} />
+      <MoodBoardEditor eventId={eventId} />
+    </>
+  );
 }

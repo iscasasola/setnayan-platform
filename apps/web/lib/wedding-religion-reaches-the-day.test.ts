@@ -107,10 +107,13 @@ test('5 · buildScheduleSeed has a caller again', () => {
 });
 
 test('6 · (follow-up) every readable-rite reader looks at BOTH rite columns, and the sponsors redirect is primary-only on purpose', () => {
-  assert.match(read('app/dashboard/[eventId]/website/dress-code/page.tsx'), /ceremonyMatches\(event, 'inc'\) && isConfigEmpty/);
-  assert.match(read('app/dashboard/[eventId]/website/dress-code/page.tsx'), /ceremony_type, secondary_ceremony_type'\)/);
+  // The old dress-code editor's INC prefill left with its page (2026-10-04); the
+  // guest's dress-code scene says the INC / Muslim guidance itself, keyed on BOTH
+  // rite columns through `dressRiteOf`.
+  assert.match(readFileSync(join(WEB, 'lib/chinese-wedding.ts'), 'utf8'), /export function dressRiteOf[\s\S]{0,200}?if \(ceremonyMatches\(event, 'inc'\)\) return 'inc';/);
+  assert.match(read('app/[slug]/_components/hideable-widget-render.tsx'), /<DressCodeWidget [^>]*ceremonyType=\{dressRiteOf\(event\)\}/);
   assert.match(read('app/dashboard/[eventId]/guests/_components/guest-card-data.ts'), /isIncWedding = ceremonyMatches\(ceremonyRow, 'inc'\)/);
-  assert.doesNotMatch(read('app/dashboard/[eventId]/website/dress-code/page.tsx'), /ceremony_type === 'inc'/);
+  assert.doesNotMatch(read('app/[slug]/_components/dress-code-widget.tsx'), /ceremony_type === 'inc'/);
   assert.doesNotMatch(read('app/dashboard/[eventId]/guests/_components/guest-card-data.ts'), /ceremony_type === 'inc'/);
   // chinese-wedding.ts names the sponsors redirect as the check that must stay primary-only.
   assert.match(readFileSync(join(WEB, 'lib/chinese-wedding.ts'), 'utf8'), /sponsors-page muslim-primary redirect\) must NOT use this/);

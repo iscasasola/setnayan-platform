@@ -127,7 +127,7 @@ test('every /website child route survived the merge', () => {
   */
   const CHILDREN = [
     'editor', 'editorial', 'our-story', 'privacy', 'hero-photo', 'colors',
-    'dress-code', 'what-to-bring', 'widgets', 'site-chrome', 'living-hero',
+    'what-to-bring', 'widgets', 'site-chrome', 'living-hero',
     'photo-moments', 'our-photos', 'special-message', 'stories',
   ];
   const websiteDir = path.join(APP_DIR, 'dashboard', '[eventId]', 'website');
@@ -137,4 +137,8 @@ test('every /website child route survived the merge', () => {
       `/website/${child} lost its page — it is one of the controller's doors`,
     );
   }
+  // 👗 `dress-code` LEFT on purpose (2026-10-04, DECISION_LOG "THE DRESS CODE IS
+  // SET IN THE MOOD BOARD"; replace means remove): its address forwards to the
+  // Mood Board, which carries the same form.
+  assert.ok(!fs.existsSync(path.join(websiteDir, 'dress-code', 'page.tsx')), '/website/dress-code is back as a second dress-code page');
 });

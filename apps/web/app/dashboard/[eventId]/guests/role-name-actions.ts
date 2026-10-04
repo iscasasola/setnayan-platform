@@ -74,7 +74,7 @@ export async function renameRole(
   await revalidateMarch(eventId);
   for (const path of [
     `/dashboard/${eventId}/invitation`,
-    `/dashboard/${eventId}/website/dress-code`,
+    `/dashboard/${eventId}/studio/mood-board`,
     `/dashboard/${eventId}/prints`,
     `/dashboard/${eventId}/schedule`,
   ]) {

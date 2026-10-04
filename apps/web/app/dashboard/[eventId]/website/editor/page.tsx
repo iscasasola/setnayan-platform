@@ -90,8 +90,8 @@ import type { LoveStoryBlob } from '../our-story/_components/story-fields';
 import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
 import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
-import { updateDressCode } from '../dress-code/actions';
-import { foldEventRoles, normalizeDressCodeConfig } from '../dress-code/_components/dress-code-fields';
+import { updateDressCode } from '../../studio/mood-board/dress-code-actions';
+import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-fields';
 import { loadRoleNames } from '@/lib/role-names.server';
 import { updatePhotoMoments } from '../photo-moments/actions';
 import { parsePhotoMomentsConfig } from '../photo-moments/config';
@@ -986,7 +986,7 @@ export default async function WebsiteEditorPage({
           key: 'dress-code',
           label: 'Dress code',
           blurb: 'Palette, dos and don’ts.',
-          href: `${w}/dress-code`,
+          href: `${base}/studio/mood-board`,
           anchor: 'details',
           panel: (
             <DressCodePanel

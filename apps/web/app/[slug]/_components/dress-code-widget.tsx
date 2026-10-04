@@ -75,7 +75,7 @@ const MODEST_GUIDANCE = {
  * Dress code section on the public landing page (CLAUDE.md 2026-05-22).
  *
  * Reads `events.dress_code_config` (migration 20260605030000) — host edits
- * via /dashboard/[eventId]/website/dress-code. When every field is empty
+ * on the Mood Board (/dashboard/[eventId]/studio/mood-board). When every field is empty
  * (brand-new event, host hasn't set anything yet), renders a polite
  * brand-voice fallback so guests know the section is intentional and to
  * check back closer to the day.

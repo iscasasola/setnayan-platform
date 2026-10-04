@@ -114,7 +114,9 @@ test('there is NO INSERT policy — the RPCs are the only write path', async () 
      WHERE c.relname = 'event_song_requests'`,
   );
   const cmds = r.rows.map((x) => x.cmd).sort();
-  assert.deepEqual(cmds, ['SELECT', 'UPDATE'], 'only read + decide; never INSERT/DELETE');
+  // The `_decide` UPDATE policy was dropped on 2026-10-04 (20271263384666):
+  // a decision is written only by `decide_song_request`, service_role only.
+  assert.deepEqual(cmds, ['SELECT'], 'only read; never INSERT/UPDATE/DELETE');
 });
 
 test('neither submit RPC is callable by anon or authenticated', async () => {
@@ -638,7 +640,14 @@ test('NEITHER request policy gates on booked-vendor any more — booked is not p
     `SELECT policyname, qual, with_check AS withcheck FROM pg_policies
      WHERE schemaname='public' AND tablename='event_song_requests'`,
   );
-  assert.ok(r.rows.length >= 2, 'both the read and decide policies must still exist');
+  // Only the READ policy remains: the `_decide` UPDATE policy was dropped on
+  // 2026-10-04 (20271263384666) — decisions go through `decide_song_request`,
+  // service_role only, and no browser role holds UPDATE. That is asserted in
+  // a-song-decision-is-server-decided.db.test.ts.
+  assert.ok(
+    r.rows.some((row) => row.policyname === 'event_song_requests_read'),
+    'the read policy must still exist',
+  );
   for (const row of r.rows) {
     const text = `${row.qual ?? ''} ${row.withcheck ?? ''}`;
     assert.ok(

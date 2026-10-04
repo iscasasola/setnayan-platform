@@ -34,6 +34,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from './strip-comments';
+
 const CSS = readFileSync(
   join(dirname(fileURLToPath(import.meta.url)), '..', 'app', '_components', 'event-poster.module.css'),
   'utf8',
@@ -45,7 +47,7 @@ function rule(sel: string, css = CSS): Record<string, string> {
   const m = new RegExp(`(?:^|\\n)\\s*${esc}\\s*\\{([^}]*)\\}`).exec(css);
   assert.ok(m, `no \`${sel}\` rule in event-poster.module.css`);
   const out: Record<string, string> = {};
-  for (const d of m[1]!.replace(/\/\*[\s\S]*?\*\//g, '').split(';')) {
+  for (const d of stripComments(m[1]!).split(';')) {
     const i = d.indexOf(':');
     if (i > 0) out[d.slice(0, i).trim()] = d.slice(i + 1).trim();
   }

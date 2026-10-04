@@ -2,6 +2,7 @@ import type { GuestAccountState } from '@/lib/guest-one-path';
 import type { CelebrantRow } from '@/lib/event-celebrants.server';
 import { EventCelebrants, type CelebrantActions } from './event-celebrants';
 import { SaveToAccount } from './save-to-account';
+import { UseOnProfile, type AdoptSeatName } from './use-on-profile';
 import { YourGuests } from './your-guests';
 import { FaceTaggingRow } from './face-tagging-row';
 import type { PapicFaceMode } from '@/lib/papic-face-mode';
@@ -15,6 +16,9 @@ import type { InviteEventFacts } from '@/lib/guest-invite-message';
  *   · their name (the way off a phone a family shares is the ONE "Sign out
  *     of this invitation" at the foot of Me — owner 2026-10-03: "Not you?
  *     Switch" posted to the same sign-out, a second button for one thing);
+ *   · under it, when the seat they saved to their account lists a fuller
+ *     formal name than their profile, ONE quiet "Use this on your profile"
+ *     (B9, owner 2026-09-30: one tap, never silent);
  *   · their guests — "Send their invite" each, "Show <name>'s pass" for a
  *     plus-one with no phone, and "Add name" for a TBA seat, which opens the
  *     four boxes IN PLACE (owner 2026-09-29, frame E — never a link back to
@@ -49,6 +53,7 @@ export function GuestMe({
   celebrants = [],
   canAddCelebrants = false,
   celebrantActions = null,
+  profileName = null,
 }: {
   name: string;
   slug: string;
@@ -88,10 +93,18 @@ export function GuestMe({
   canAddCelebrants?: boolean;
   /** Follow + Add, handed in by the page (server actions). */
   celebrantActions?: CelebrantActions | null;
+  /** "Use this on your profile" — null unless the viewer's OWN account holds
+   *  this seat and the seat's name is fuller (page.tsx · seatNameOfferFor). */
+  profileName?: { name: string; adopt: AdoptSeatName } | null;
 }) {
   return (
     <div className="space-y-6" data-guest-me>
-      <p className="font-serif text-2xl leading-tight text-ink">{name}</p>
+      <div className="space-y-1">
+        <p className="font-serif text-2xl leading-tight text-ink">{name}</p>
+        {profileName ? (
+          <UseOnProfile eventId={eventId} guestId={guestId} name={profileName.name} adopt={profileName.adopt} />
+        ) : null}
+      </div>
       <YourGuests
         guests={guests}
         eventName={eventName}

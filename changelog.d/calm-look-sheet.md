@@ -40,3 +40,8 @@ From the owner's question "why are there so many inconsistencies" (live iPhone w
 - Guard: `lib/the-guided-steps-share-one-layout.test.ts`, which renders every step of every stage, checks one rule per stage, one title, one Apply, the counts, per-file Save counts for each step's editor, and the logo step. Each part was sabotaged red → green. The port-controls baseline was regenerated with its generator.
 
 SPEC IMPACT: None. This applies the owner's 2026-10-05 ruling (one shared step layout) and standing rules (INTERACTION_RULES §8; no captions; no go-edit-elsewhere links).
+
+## 2026-10-04 · fix(maker): the Schedule step joins the one step layout; the editors' slot is keyed
+
+- **Schedule step.** The day's rail stays behind the sheet: the moments are picked, dragged and resized there, so `schedule` and `arrive` join the "subject only in its own tool" exceptions. A step on an item with sections (the Schedule's moments, parents and hosts, the march's lines) gets ONE dropdown of them as the first line of its field (`SheetSections`, the one All items wears). In the guided flow the moment inspector hides its own "Moment ×" header row and its status line; only a refusal is said. Announce lost its caption. The inspector already saved each field as it was made, so it has no Save press. Guard (7), and Schedule's sources are added to the Save counts (5).
+- **The dev badge's "1 Issue" on every Maker screen** was a real React key warning from our code: `DetailsWorkspace` put the server-made editor (a lazy client reference) unkeyed beside the cover step's background. The editor and the persistent part now sit in keyed fragments, the same fix the body already had. Guard (8).

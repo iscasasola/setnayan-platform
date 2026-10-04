@@ -646,10 +646,10 @@ export function DetailsWorkspace({
             {/* 🧩 A step on a whole item that has sections (the Schedule's moments, the
                 parents and hosts, the march's lines): ONE dropdown of them, the
                 first line of the field — the same `SheetSections` All items wears. */}
-            {at?.kind === 'step' && stepHere && !stepHere.piece && pieces[selected] ? (
+            {at?.kind === 'step' && stepHere && !stepHere.piece && (pieces[selected] || stepHere.items.length > 1) ? (
               <div className="flex shrink-0 px-4 pt-1 lg:hidden" data-details-step-sections="">
                 <SheetSections
-                  items={[]}
+                  items={navGroups.flatMap((g) => g.items)}
                   selected={selected}
                   onPick={select}
                   pieces={pieces[selected] ?? null}

@@ -403,7 +403,8 @@ test('7a · picking a Name style writes NO live row before Apply — both contro
 test('7b · Apply merges the one key into the prints’ blob — through the admin client, after the host check; a save never writes it', () => {
   const action = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
   assert.match(action, /delete eventsPatch\.print_details;/, 'the blob leaves the session UPDATE (no UPDATE grant on it)');
-  assert.match(action, /const stored = parsePrintDetails\(pdRow\.print_details\);[\s\S]*?serializePrintDetails\(\{ \.\.\.stored, nameStyle: nameStyleWrite \}\)/, 'every other key of the blob is carried untouched');
+  // 🎫 Since 2026-10-05 the drafted Ticket style rides the same merge — each key only when the draft holds it.
+  assert.match(action, /const stored = parsePrintDetails\(pdRow\.print_details\);[\s\S]*?serializePrintDetails\(\{\s*\.\.\.stored,\s*\.\.\.\(nameStyleWrite !== undefined \? \{ nameStyle: nameStyleWrite \} : \{\}\),/, 'every other key of the blob is carried untouched');
   assert.match(action, /if \(pdWriteErr \|\| !Array\.isArray\(pdRows\) \|\| pdRows\.length === 0\)/, 'a zero-row write is not success');
   assert.ok(
     action.indexOf('requireHostMembershipOrThrow(eventId, FORBIDDEN)') < action.indexOf('const nameStyleWrite'),

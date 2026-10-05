@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { AlignCenter, AlignLeft, AlignRight, PencilLine, Play } from 'lucide-react';
+import { AlignCenter, AlignLeft, AlignRight, Play } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { HUB_FONT_FACES, hubFontBoldWeight } from '@/lib/hub-fonts';
@@ -55,7 +55,7 @@ import { motionFxOn, type MotionFx } from '@/lib/motion-effects';
  *            Alignment · Line · Letter · ↺ Use the Event Hub style
  *   ANIMATE  Plays once / Follows the scroll · In ▾ · During · Out · Duration ·
  *            Delay · ▶ Preview · ↺ Move with the scene
- *   ARRANGE  Show: Shown · Hidden · Where it sits (rails on) · Open the Hero editor
+ *   ARRANGE  Show: Shown · Hidden · Where it sits (rails on)
  *
  * 💎 FREE VS PRO (owner 2026-09-28, *"free to change design, change text,
  * size, color, background color, only when you start adding themes will it be
@@ -600,13 +600,10 @@ export function PartArrangeTab({
   el,
   hidden,
   setHidden,
-  onOpenHero,
 }: {
   el: HubElementKey;
   hidden: boolean;
   setHidden: (hidden: boolean) => void;
-  /** The hero's parts: their words are written in the Hero editor. */
-  onOpenHero?: () => void;
 }) {
   return (
     <div data-part-tab="arrange">
@@ -627,18 +624,8 @@ export function PartArrangeTab({
         </>
       ) : null}
       <ISection>Where it sits</ISection>
-      <IHint>
-        Parts keep {onOpenHero ? 'the hero’s' : 'the scene’s'} order on every screen — rails on, so nothing lands off a phone.
-        {onOpenHero ? ' Change the words in the Hero editor.' : ''}
-      </IHint>
-      {onOpenHero ? (
-        <div className="py-1.5">
-          <IButton onClick={onOpenHero} data="open-hero">
-            <PencilLine aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Open the Hero editor
-          </IButton>
-        </div>
-      ) : null}
+      {/* ✋ No "Open the Hero editor" (owner 2026-10-05): the words are typed on the page. */}
+      <IHint>Parts keep the scene’s order on every screen — rails on, so nothing lands off a phone.</IHint>
     </div>
   );
 }

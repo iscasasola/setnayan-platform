@@ -28,6 +28,7 @@ import { makerSaveStatusText, onMakerSave, type MakerSaveStatus } from '@/lib/ma
 import { formatCount } from '@/lib/format-number';
 import { placePanelAt, type PanelPlace } from '@/lib/maker-panel-place';
 import { MAKER_BAR_PHONE } from '@/lib/maker-phone-room';
+import { IconPill } from '../../launch/_components/icon-pill';
 
 /**
  * THE DRAFT CONTROLS — Restore · Undo · Apply, ALWAYS VISIBLE at the upper
@@ -411,17 +412,22 @@ export function HubDraftToolbar({
           Draft could not load
         </span>
       ) : null}
-      <DraftButton
-        label="Undo"
-        icon={<Undo2 aria-hidden className="h-5 w-5" strokeWidth={2} />}
-        bar="icon"
-        phone={{ width: MAKER_BAR_PHONE.undoTop }}
-        disabled={pending || !summary.canUndo}
-        disabledReason="Nothing to undo yet"
-        onClick={() => act({ intent: 'undo' })}
-      />
-      {/* 👁 The shell's Preview menu, between Undo and Apply (owner 2026-10-04: ⋯ → Preview). */}
-      {maker?.previewMenu ?? null}
+      {/* 💊 [ ↺ Undo | 👁 Preview ] — ONE shared pill (owner 2026-10-05, the pill
+          system: related controls share one pill); ✓ Apply is its own, green. */}
+      <IconPill label="Undo and preview">
+        <DraftButton
+          label="Undo"
+          icon={<Undo2 aria-hidden className="h-5 w-5" strokeWidth={2} />}
+          bar="icon"
+          phone={{ width: MAKER_BAR_PHONE.undoTop }}
+          disabled={pending || !summary.canUndo}
+          disabledReason="Nothing to undo yet"
+          onClick={() => act({ intent: 'undo' })}
+        />
+        {/* 👁 The shell's Preview menu, beside Undo (owner 2026-10-04: ⋯ → Preview). */}
+        {maker?.previewMenu ?? null}
+      </IconPill>
+      <IconPill tone="apply">
       <span className="relative inline-flex" data-maker-apply="">
         <DraftButton
           label="Apply"
@@ -445,6 +451,7 @@ export function HubDraftToolbar({
           </span>
         ) : null}
       </span>
+      </IconPill>
       {/* Portalled to <body>: the toolbar sits in a glass bar, and a `backdrop-filter`
           ancestor would make `position: fixed` hug the bar instead of the screen. */}
       {sheetOpen && typeof document !== 'undefined' ? createPortal(

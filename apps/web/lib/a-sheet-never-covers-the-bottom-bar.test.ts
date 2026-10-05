@@ -1,31 +1,19 @@
 /**
- * a-sheet-never-covers-the-bottom-bar.test.ts — A CLOSED OR FOLDED SHEET NEVER
- * COVERS THE MAKER'S BOTTOM BAR (live dead end on prod 5a1e75a, 2026-10-04, at
- * 375 × 812 on the RSVP stage → Reply page: *"there is nothing on the bottom
- * left of the screen"*).
+ * a-sheet-never-covers-the-bottom-bar.test.ts — A SHEET NEVER COVERS THE MAKER'S
+ * WAY OUT OF IT (live dead end on prod 5a1e75a, 2026-10-04, at 375 × 812 on the
+ * RSVP stage → Reply page: *"there is nothing on the bottom left of the
+ * screen"* — an empty scene sheet lay over Page ▾ · Look · Event Details).
  *
- * What it was: Page ▾ › RSVP selects the tool `rsvp-stage`, which the SHELL
- * (`maker-shell.tsx`) draws as a layer over the work area. The work area
- * (`editor-shell.tsx`) hid its own chrome only under Event Details
- * (`isShellPage` said `details` alone), so it still mounted the scene sheet
- * (the Inspector, titled "RSVP", body "Nothing to set here…"). Since PR-0
- * (#6329) that sheet is `MakerHalfSheet` — `fixed bottom-0 z-30` at a FIXED
- * half height (313 px at 812) with no scrim — so its top lay under the RSVP
- * layer and its empty foot lay OVER the bottom bar (`relative z-20`): Page ▾ ·
- * Look · Event Details unreachable, and no way to another stage.
- *
- * Held here, on renders:
+ * Since 2026-10-05 (the owner's lower third, "approve") the bottom bar is the
+ * LOWER THIRD — the menu and the navigator — and a tool opens INSIDE it, beside
+ * the column whose × finishes it. Held here, on renders:
  *   · 🧱 every layer the shell draws over the work area is in
  *     `MAKER_SHELL_PAGES`, and the work area draws no sheet under one;
  *   · 📱 on EVERY stage (Save the Date · RSVP · Invitation · The Day · Post
- *     Event) the bottom bar is drawn, visible on a phone, with no sheet open;
+ *     Event) the lower third is drawn, visible on a phone, with no tool open;
  *   · 🚫 a CLOSED half sheet draws nothing — no aside, no slim bar, no hit area;
- *   · ▁ a FOLDED sheet is only its slim bar (≤ 56 px on a phone), and it rests
- *     ON TOP of the bottom bar, never over it — the scene sheet's and the part
- *     sheet's alike.
- * (An OPEN sheet covers the bottom bar by design — `lib/maker-phone-room.ts`,
- * "Apply sits up top … in reach while a half sheet covers the bottom of the
- * screen" — and closes with its ×.)
+ *   · ▁ in the Maker a tool never folds to a slim bar over anything — the
+ *     column's × (or a tap on the empty page) finishes it.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -88,33 +76,11 @@ async function shell(stage: string, selection: unknown): Promise<string> {
   );
 }
 
-/** The bottom bar's opening tag in a render. */
-function bottomBarOf(html: string): { tag: string; classes: string } {
-  const tag = /<nav\b[^>]*data-maker-bottom-bar=""[^>]*>/.exec(html)?.[0];
-  assert.ok(tag, 'the Maker’s bottom bar was not drawn');
+/** The lower third's opening tag in a render. */
+function lowerThirdOf(html: string): { tag: string; classes: string } {
+  const tag = /<section\b[^>]*data-maker-lower-third=""[^>]*>/.exec(html)?.[0];
+  assert.ok(tag, 'the Maker’s lower third was not drawn');
   return { tag, classes: /\bclass="([^"]*)"/.exec(tag)?.[1] ?? '' };
-}
-
-/** A phone (`max-md:`) bottom offset in px, from a class list — null when none is declared. */
-function phoneBottomPx(classes: string): number | null {
-  for (const t of classes.split(/\s+/).reverse()) {
-    const m = /^max-md:bottom-\[([^\]]+)\]$/.exec(t);
-    if (!m) continue;
-    const v = m[1]!;
-    const calc = /^calc\((\d+)px\+env\(safe-area-inset-bottom\)\)$/.exec(v);
-    if (calc) return Number(calc[1]);
-    const px = /^(\d+)px$/.exec(v);
-    if (px) return Number(px[1]);
-  }
-  return null;
-}
-
-/** The bottom bar's own phone height, from its render (52 px, over the safe area). */
-async function bottomBarPx(): Promise<number> {
-  const { classes } = bottomBarOf(await shell('invitation', null));
-  const px = phoneHeightPx(classes.split(/\s+/).filter((t) => !t.startsWith('md:')).join(' '), PHONE_H);
-  assert.ok(px !== null && px >= 44, `the bottom bar declares no phone height (${classes})`);
-  return px;
 }
 
 /* ── 🧱 the shell's layers and the work area agree ─────────────────────────── */
@@ -153,24 +119,23 @@ test('🧱 the work area hides its sheets under a shell page — the scene sheet
   assert.match(work, /\{typeStart && elementEditing && !workHidden \? \(/, 'the type bar mounts under a shell page');
 });
 
-/* ── 📱 every stage keeps its bottom bar ──────────────────────────────────── */
+/* ── 📱 every stage keeps its lower third ─────────────────────────────── */
 
 const STAGES: Array<{ name: string; stage: string; selection: unknown }> = [
   ...PUBLIC_STAGE_ORDER.map((stage) => ({ name: PUBLIC_STAGE_LABELS[stage], stage, selection: null })),
-  { name: 'RSVP (Page ▾ › RSVP · Reply)', stage: 'save_the_date', selection: { kind: 'tool', key: 'rsvp-stage' } },
+  { name: 'RSVP (the menu › RSVP)', stage: 'save_the_date', selection: { kind: 'tool', key: 'rsvp-stage' } },
 ];
 
 for (const s of STAGES) {
-  test(`📱 ${s.name}: the bottom bar is drawn and visible on a phone, and no sheet is open over it`, async () => {
+  test(`📱 ${s.name}: the lower third is drawn and visible on a phone, and no tool is open over it`, async () => {
     const { isMakerShellPage } = await import(`../${L}/maker-bar`);
     const html = await shell(s.stage, s.selection);
-    const bar = bottomBarOf(html);
-    assert.ok(!hiddenOnPhone(bar.classes.split(/\s+/).filter((t) => !t.startsWith('md:')).join(' ')), `${s.name}: the bottom bar is hidden on a phone`);
-    assert.match(bar.tag, /aria-label="Maker tools"/);
-    assert.match(html, /data-maker-page-menu-phone/, `${s.name}: Page ▾ is not in the bottom bar`);
+    const lt = lowerThirdOf(html);
+    assert.ok(!hiddenOnPhone(lt.classes), `${s.name}: the lower third is hidden on a phone`);
+    assert.match(html, /data-lt-menu-button=""/, `${s.name}: the menu ▾ is not in the lower third`);
     const open = phoneChromeIn(html).filter((c) => c.kind === 'panel' && !hiddenOnPhone(c.classes));
-    assert.equal(open.length, 0, `${s.name}: a sheet is open with none opened — ${open.map((c) => c.label).join(' · ')}`);
-    assert.doesNotMatch(html, /data-sheet-scrim=""/, `${s.name}: the page is dimmed with no sheet open`);
+    assert.equal(open.length, 0, `${s.name}: a tool is open with none opened — ${open.map((c) => c.label).join(' · ')}`);
+    assert.doesNotMatch(html, /data-sheet-scrim=""/, `${s.name}: the page is dimmed`);
     // A tool page the shell covers draws NOTHING of the work area's own (the guard above).
     const sel = s.selection as { kind: string; key: string } | null;
     if (sel?.kind === 'tool') assert.ok(isMakerShellPage(sel.key), `${s.name}: the work area would mount its scene sheet under this page`);
@@ -192,54 +157,23 @@ test('🚫 a CLOSED half sheet draws nothing — no aside, no slim bar, no hit a
   assert.match(open, /<aside\b[^>]*aria-label="Inspector"/);
 });
 
-/* ── ▁ folded = the slim bar, on top of the bottom bar ───────────────────── */
+/* ── ▁ in the Maker a tool never folds ─────────────────────────────────── */
 
-async function slimBars(): Promise<Array<{ name: string; classes: string }>> {
-  const { HalfSheetSlimBar } = await import(`../${L}/maker-sheet`);
-  const scene = renderToStaticMarkup(
-    React.createElement(HalfSheetSlimBar, { title: 'Names', section: 'Motion', onRestore: () => {}, onClose: () => {} }),
-  );
-  const { ElementSheet } = await import(`../${E}/element-sheet`);
-  const part = renderToStaticMarkup(
-    await withRouter(
-      React.createElement(ElementSheet, {
-        eventId: 'e1',
-        target: { key: 'f:hero', widgetType: 'hero', el: 'names' },
-        canvas: {},
-        palette: { ink: '#1b1a17', heading: '#1b1a17', accent: '#a0522d', muted: '#6b6b6b', surface: '#ffffff' },
-        ownsPro: true,
-        draftAction: async () => {
-          throw new Error('folding the sheet wrote to the draft');
-        },
-        onClose: () => {},
-        collapsed: true,
-        onRestore: () => {},
-      }),
+test('▁ in the Maker a tool never folds to a slim bar — the column’s × or a tap on the empty page finishes it', async () => {
+  const { MakerHalfSheet } = await import(`../${L}/maker-sheet`);
+  const { MakerContext } = await import(`../${L}/maker-context`);
+  const html = renderToStaticMarkup(
+    React.createElement(
+      MakerContext.Provider,
+      { value: { eventId: 'e1' } as never },
+      React.createElement(MakerHalfSheet, { label: 'Inspector', title: 'Names', target: 'scene:1', onClose: () => {} }, 'rows'),
     ),
   );
-  const classOf = (html: string, marker: RegExp, name: string) => {
-    const tag = marker.exec(html)?.[0];
-    assert.ok(tag, `${name} was not drawn`);
-    return { name, classes: /\bclass="([^"]*)"/.exec(tag)?.[1] ?? '' };
-  };
-  // The part sheet's own sheet is kept, folded — hidden on a phone.
-  const aside = /<aside\b[^>]*data-maker-element-sheet="names"[^>]*>/.exec(part)?.[0] ?? '';
-  assert.ok(aside && hiddenOnPhone(/\bclass="([^"]*)"/.exec(aside)?.[1] ?? ''), 'the folded part sheet still shows on a phone');
-  return [
-    classOf(scene, /<div\b[^>]*data-half-sheet-slim=""[^>]*>/, 'the scene sheet’s slim bar'),
-    classOf(part, /<button\b[^>]*data-element-sheet-bar=""[^>]*>/, 'the part sheet’s slim bar'),
-  ];
-}
-
-test('▁ a FOLDED sheet is only its slim bar, and on a phone it rests ON TOP of the bottom bar — never over it', async () => {
-  const bar = await bottomBarPx();
-  for (const slim of await slimBars()) {
-    assert.match(slim.classes, /\bfixed\b/, `${slim.name} is no longer fixed — re-read this guard`);
-    const lift = phoneBottomPx(slim.classes);
-    assert.ok(lift !== null, `${slim.name} sits at the foot of the screen on a phone — over the bottom bar (no max-md:bottom-[…])`);
-    assert.ok(lift >= bar, `${slim.name} rests ${lift} px up — the bottom bar is ${bar} px, so it covers the bar`);
-    const h = phoneHeightPx(slim.classes.split(/\s+/).filter((t) => !/^(lg|md):/.test(t)).join(' '), PHONE_H);
-    if (h !== null) assert.ok(h <= 56, `${slim.name} is ${h} px tall on a phone — a slim bar is one 56 px row`);
-    assert.doesNotMatch(slim.classes, /(^|\s)max-md:pb-\[env/, `${slim.name} pads for the safe area the bottom bar already covers`);
-  }
+  assert.match(html, /data-half-sheet="tool"/, 'the half sheet is not a lower-third tool in the Maker');
+  assert.doesNotMatch(html, /data-half-sheet-slim=""|data-half-sheet-peek=""|data-half-sheet-grip=""/, 'a slim bar, Peek or a grip is back in the Maker');
+  // The part sheet has no slim bar of its own any more.
+  assert.doesNotMatch(read(`${E}/element-sheet.tsx`), /data-element-sheet-bar=/, 'the part sheet’s slim bar is back');
+  // A tap on the empty page closes it (the half sheet's own listener, and the part sheet's in the work area).
+  assert.match(read(`${L}/maker-sheet.tsx`), /if \(foldedRef\.current \|\| inMakerRef\.current\) closeRef\.current\(\);/);
+  assert.match(read(`${E}/editor-shell.tsx`), /sheetDo\(\{ t: 'close' \}\);\s*postToShownCanvases\(\{ source: 'setnayan-editor', t: 'markEl', key: was\.key, el: null \}\);/);
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, type ComponentType, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, type ComponentType, type ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { DetailsItemKey } from '@/lib/maker-details-items';
 import type { HubElementKey } from '@/lib/element-style';
@@ -90,6 +90,14 @@ export type MakerState = {
    */
   detailsDoor?: number;
   /**
+   * 🎨 WHICH door that last press was. Look opens the Look tools DIRECTLY
+   * (owner 2026-10-05 — it opened the guided flow's stage list): Details leaves
+   * the flow's screens for a Look press (`details-workspace.tsx`). Optional.
+   */
+  detailsDoorKind?: 'look' | 'details' | 'prints' | null;
+  /** 🎨 Counts each opening of Look (a door press, or Theme in the lower third) — Details answers it. */
+  lookVisit?: number;
+  /**
    * 🏷 THE GUIDED FLOW'S ONE TITLE (owner 2026-10-05: the bar flipped between
    * "Look" and "Event Details" inside one stage). While "Finish your Event Hub"
    * is on screen, Details names what it is on — the stage being walked ("Save
@@ -134,7 +142,65 @@ export type MakerState = {
   /** ↺ Restore, as the draft bar registers it — Page ▾ › Restore runs it. */
   draft?: MakerDraftDoor | null;
   setDraft?: (next: MakerDraftDoor | null) => void;
+  /**
+   * 🧰 THE LOWER THIRD (owner 2026-10-05, *"all tools can only reside on the
+   * thumb area / lower third"*; `maker-lower-third.tsx`). On a phone every
+   * editor opens IN it: the one open says so here (`useMakerTool`), and the
+   * lower third folds its menu and navigator into the left column — the
+   * tool's name, ‹ › and × — while the tool takes the rest. Optional.
+   */
+  tool?: MakerTool | null;
+  setTool?: (next: MakerTool | null | ((cur: MakerTool | null) => MakerTool | null)) => void;
+  /**
+   * 🧭 The lower third's NAVIGATOR (phone): the layer on screen draws its own
+   * tiles into it (the stage's scenes, Details' items, the RSVP screens) with
+   * `createPortal` — one navigator, each tile still its own layer's button.
+   */
+  ltNav?: HTMLElement | null;
+  /** 🖼 The canvas's Event Bar switch, registered by the work area — Settings' tile. */
+  eventBar?: MakerEventBar | null;
+  setEventBar?: (next: MakerEventBar | null) => void;
+  /** 🏷 The part on screen, in the layer's own words ("RSVP form", "Names") — the lower third's "where you are" and the top line. */
+  setLtWhere?: (words: string | null) => void;
 };
+
+/** The canvas's Event Bar: the stage's own guest bars over the slide, on or off. */
+export type MakerEventBar = { on: boolean; toggle: () => void };
+
+/** One tool open in the lower third — its name and how it closes; ‹ › when it has its own steps. */
+export type MakerTool = {
+  key: string;
+  name: string;
+  close: () => void;
+  /** ‹ › between this tool's own neighbours (a part's parts). Absent: the navigator's tiles. */
+  step?: { prev: (() => void) | null; next: (() => void) | null };
+};
+
+/**
+ * 🧰 Say "this tool is open" to the lower third while `open` holds. The last
+ * one opened is the one the left column names; closing clears only its own.
+ */
+export function useMakerTool(open: boolean, tool: MakerTool): void {
+  const maker = useContext(MakerContext);
+  const setTool = maker?.setTool;
+  const ref = useRef(tool);
+  ref.current = tool;
+  const { key, name } = tool;
+  const hasPrev = Boolean(tool.step?.prev);
+  const hasNext = Boolean(tool.step?.next);
+  useEffect(() => {
+    if (!setTool || !open) return;
+    setTool({
+      key,
+      name,
+      close: () => ref.current.close(),
+      ...(ref.current.step
+        ? { step: { prev: hasPrev ? () => ref.current.step?.prev?.() : null, next: hasNext ? () => ref.current.step?.next?.() : null } }
+        : {}),
+    });
+    return () => setTool((cur) => (cur?.key === key ? null : cur));
+  }, [setTool, open, key, name, hasPrev, hasNext]);
+}
 
 /** What the work area reports about the stage it shows (see `MakerState.guestPages`). */
 export type MakerGuestPagesReport = {

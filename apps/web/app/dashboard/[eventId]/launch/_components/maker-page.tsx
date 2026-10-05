@@ -3,8 +3,8 @@
 import { useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import { BufferedCanvasFrame } from '../../website/editor/_components/buffered-canvas-frame';
 import { MAKER_PAGE_TITLE, type MakerPageKey } from '@/lib/maker-made-once-pages';
-import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
-import { SheetGrip, SheetScrim } from './maker-sheet';
+import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
+import { useMakerTool } from './maker-context';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 
 /**
@@ -21,12 +21,11 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
  *     the page, never `fixed` over it — a strip, not a sheet).
  *
  * 📱 PHONE FIRST (owner 2026-09-25: *"99% of the viewers will use the phone"*).
- * On a phone the page sits on top and the controls in a strip under it, both in
- * the flow. The strip is capped so the bar + it take at most 45% of the screen
- * (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts — owner 2026-10-02: *"the
- * screen is too clumped"*); it no longer grows while typing — a focused field is
- * brought into view instead, and the Maker shell itself follows the on-screen
- * keyboard (`visualViewport`, `maker-shell.tsx`).
+ * On a phone the page fills the workspace and its controls are a TOOL of the
+ * Maker's lower third (owner 2026-10-05, "approve": `MAKER_LT_TOOL`,
+ * `useMakerTool`) — opened from the lower third's tiles, never a sheet over the
+ * page; a focused field is brought into view, and the Maker shell itself
+ * follows the on-screen keyboard (`visualViewport`, `maker-shell.tsx`).
  *
  * ⛔ NOT A DIALOG. No `role="dialog"`, no portal, no backdrop, no focus trap:
  * the bar stays live above it, and picking a stage puts the stage back.
@@ -41,9 +40,17 @@ export function MakerPage({
   page,
   controls = null,
   initiallyOpen = false,
+  open: openProp,
+  onOpenChange,
+  toolName,
 }: {
-  /** 📱 Open the controls' sheet at once on a phone (a door that names them). */
+  /** 📱 Open the controls at once on a phone (a door that names them). */
   initiallyOpen?: boolean;
+  /** 📱 The controls' open state, held by the page's owner (the lower third's tiles open them). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** The lower third's column names the open controls by this (else the page's title). */
+  toolName?: string;
   pageKey: MakerPageKey;
   /** The item's own page — the body. */
   page: ReactNode;
@@ -55,7 +62,15 @@ export function MakerPage({
   /* 📱 On a phone the controls are a bottom sheet over the dimmed page (owner
      2026-10-02: "dim the negative space … pressing on the dimmed part will go
      back"); shut, one chip on the page opens them. The desktop keeps its column. */
-  const [open, setOpen] = useState(initiallyOpen);
+  const [ownOpen, setOwnOpen] = useState(initiallyOpen);
+  const open = openProp ?? ownOpen;
+  const setOpen = (next: boolean) => {
+    setOwnOpen(next);
+    onOpenChange?.(next);
+  };
+  /* 🧰 On a phone the controls are a TOOL of the lower third (owner 2026-10-05,
+     "approve") — the column names them and closes them; nothing over the page. */
+  useMakerTool(Boolean(controls) && open, { key: `page:${pageKey}`, name: toolName ?? title, close: () => setOpen(false) });
   return (
     <div data-maker-page={pageKey} className="flex h-full min-h-0 w-full flex-1 flex-col lg:flex-row">
       <section
@@ -64,18 +79,7 @@ export function MakerPage({
         className="relative order-1 flex min-h-0 flex-1 flex-col"
       >
         {page}
-        {controls && !open ? (
-          <button
-            type="button"
-            data-maker-page-edit=""
-            onClick={() => setOpen(true)}
-            className="sn-press absolute bottom-3 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-[14px] font-semibold text-cream shadow-lg lg:hidden"
-          >
-            Edit · {title}
-          </button>
-        ) : null}
       </section>
-      {controls && open ? <SheetScrim onClose={() => setOpen(false)} /> : null}
       {controls ? (
         <aside
           aria-label={`${title} — controls`}
@@ -88,13 +92,11 @@ export function MakerPage({
             window.setTimeout(() => t.scrollIntoView({ block: 'center', behavior: 'smooth' }), 300);
           }}
           className={`order-2 flex min-h-0 shrink-0 flex-col border-ink/10 bg-cream lg:static lg:flex lg:max-h-none lg:w-[360px] lg:border-l ${
-            open
-              ? `max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:rounded-t-3xl max-lg:shadow-[0_-18px_40px_-24px_rgba(30,26,18,.5)] ${MAKER_PHONE_PANEL_CAP}`
-              : 'max-lg:hidden'
+            open ? MAKER_LT_TOOL : 'max-lg:hidden'
           }`}
         >
-          <SheetGrip onClose={() => setOpen(false)} />
-          <div className="flex items-center gap-2 px-4 pt-1 lg:pt-3">
+          {/* The title is the desktop's — on a phone the lower third's column names the controls. */}
+          <div className="hidden items-center gap-2 px-4 pt-3 lg:flex">
             <p className="min-w-0 flex-1 truncate font-serif text-lg text-ink">{title}</p>
           </div>
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-3 pb-6 pt-2">

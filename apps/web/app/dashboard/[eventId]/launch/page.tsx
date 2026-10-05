@@ -95,7 +95,7 @@ import { updateSpecialMessage } from '../website/special-message/actions';
 import { fetchEgiftMethods } from '@/lib/egift';
 import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
 import { printStoryChapters } from '@/lib/love-story-moments';
-import { passCardsZipFileNameOf } from '@/lib/pass-card';
+import { passCardDesignFrom, passCardsZipFileNameOf } from '@/lib/pass-card';
 import { isHostMemberType } from '@/app/[slug]/_lib/host-scope';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
@@ -1168,7 +1168,11 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         /* The Our Story poster prints the Love Story — the same read the print uses. */
         storyEmpty: !storyHasMoments(printStoryChapters(printEvent.love_story)),
         /* 🎫 The pass guests save — its saved look and the couple's zip's name. */
-        passDesign: stored.passDesign,
+        /* …the DRAFTED look when the draft holds one (owner Q7 2026-10-02: it waits for Apply). */
+        passDesign:
+          typeof draftedEvents.print_details === 'object' && draftedEvents.print_details && 'pass_design' in draftedEvents.print_details
+            ? passCardDesignFrom((draftedEvents.print_details as { pass_design?: unknown }).pass_design)
+            : stored.passDesign,
         /* 🖼 The Our Story poster's own photo (owner 2026-09-29). */
         posterPhoto: stored.posterPhoto ?? null,
         passCardsZip: passCardsZipFileNameOf(printEvent),

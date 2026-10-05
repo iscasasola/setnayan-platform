@@ -64,9 +64,12 @@ test('1b · an OPEN bubble floats on the viewport — the strip, which cannot sc
 });
 
 test('2 · SOURCE: the navigator strip wears the phone rule, and Page ▾ never scrolls it to block start on a phone', () => {
-  const ol = SHELL.match(/<ol ref=\{setNavList\} className=\{`([^`]*)`\}>/);
+  const ol = SHELL.match(/<ol ref=\{ltNav \? undefined : setNavList\} className=\{`([^`]*)`\}>/);
   assert.ok(ol, 'the navigator <ol> was not found — this scan is blind, not clean');
   assert.match(ol![1]!, /^\$\{MAKER_STRIP_PHONE\} /, 'the strip must carry MAKER_STRIP_PHONE');
+  // 🧰 On a phone the tiles are the lower third's navigator (2026-10-05) — its row wears the same rule.
+  const lt = read('app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx');
+  assert.match(lt, /data-lt-navigator=""[\s\S]{0,200}className=\{`\$\{MAKER_STRIP_PHONE\} /, 'the lower third’s navigator does not carry MAKER_STRIP_PHONE');
   const jump = SHELL.slice(SHELL.indexOf('const jumpToPage = '), SHELL.indexOf('const setGuestPagesCtx'));
   assert.ok(jump.length > 100, 'jumpToPage was not found — this scan is blind, not clean');
   const calls = [...jump.matchAll(/scrollIntoView\(\{([^}]*)\}\)/g)].map((m) => m[1]!);

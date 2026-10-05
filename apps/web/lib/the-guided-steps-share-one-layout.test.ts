@@ -102,7 +102,8 @@ test('(1) every step of every stage: half sheet, ONE header row, the field, the 
         assert.doesNotMatch(html, /data-guided-step-preview=/, `${where}: its own tool is covered by the stage page`);
       } else {
         assert.match(html, new RegExp(`data-guided-step-preview="${body.kind}"[^>]*`), `${where}: the stage's page is not behind the sheet`);
-        assert.match(html, /class="flex min-h-0 flex-1 flex-col pb-\[calc\(45dvh-104px\)\] lg:hidden" data-guided-step-preview=/, `${where}: the preview is not the phone's, fitted above the sheet`);
+        // 🧰 The page ends where the lower third begins (2026-10-05) — the step's tool is IN it, so no room is left under the preview.
+        assert.match(html, /class="flex min-h-0 flex-1 flex-col lg:hidden" data-guided-step-preview=/, `${where}: the preview is not the phone's, filling the page above the lower third`);
         assert.match(html, /max-lg:hidden"><div hidden="" data-details-body-item=|max-lg:hidden"><div data-details-body-item=/, `${where}: the item's own picture still shows behind the sheet on a phone`);
       }
       walked += 1;

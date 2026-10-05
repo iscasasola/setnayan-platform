@@ -7,7 +7,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import { HUB_DRAFT_BAR_FIELD, SUPERSEDED, makerLatestWrite, makerSave } from '@/lib/maker-refresh';
-import { canvasWriteKey, draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
+import { canvasWriteKey, draftedCanvasOr, hearDraftedCanvas, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
 import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
@@ -227,6 +227,27 @@ export function ElementSheet({
     setStyle(canvas.elements?.[target.el] ?? {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canvasJson, targetKey]);
+  /* ✍ ANOTHER WRITER OF THIS CANVAS, OPEN BESIDE THE SHEET (a phone: the words
+     typed in place while the part's tools stay open — `type-in-place.tsx`):
+     its every note is adopted, so the next pick here builds on the words as
+     typed and the rows show them — never this sheet's older copy. */
+  const serverRef = useRef(serverCanvas);
+  /** True while THIS sheet notes its own canvas — not another writer's. */
+  const ownNote = useRef(false);
+  serverRef.current = serverCanvas;
+  useEffect(
+    () =>
+      hearDraftedCanvas((type) => {
+        if (type !== target.widgetType || ownNote.current) return;
+        const now = draftedCanvasOr(type, serverRef.current);
+        if (now === latest.current) return;
+        latest.current = now;
+        // The other writer answers for its own save (and puts its words back if refused).
+        if (inflight.current === 0) saved.current = now;
+        setStyle(now.elements?.[target.el] ?? {});
+      }),
+    [target.widgetType, target.el],
+  );
 
   /* 🧰 Text · Animate · Arrange (Pages' inspector + Keynote's Animate). */
   const [ownTab, setOwnTab] = useState<PartTab>('text');
@@ -257,7 +278,9 @@ export function ElementSheet({
     /* ⚡ On the canvas first — the save runs behind it. */
     onPreview?.(elementPreview(target.key, target.el, before, next));
     onSaving?.(target.widgetType, next);
+    ownNote.current = true;
     noteDraftedCanvas(target.widgetType, next, serverCanvas);
+    ownNote.current = false;
     inflight.current += 1;
     start(async () => {
       let res: HubDraftActionResult | typeof SUPERSEDED;
@@ -288,7 +311,9 @@ export function ElementSheet({
           setStyle(back.elements?.[target.el] ?? {});
           onPreview?.(elementPreview(target.key, target.el, next, back, false));
           onSaving?.(target.widgetType, back);
+          ownNote.current = true;
           noteDraftedCanvas(target.widgetType, back, serverCanvas);
+          ownNote.current = false;
         }
         setError(refusedChoiceWords(target.el, what, res.error || null));
         return;

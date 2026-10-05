@@ -94,6 +94,12 @@ import { draftedEventColumn } from '@/lib/hub-draft-store';
 import { normalizeDressCodeConfig } from './dress-code-fields';
 import { DressCodeListsForm } from './dress-code-lists-form';
 import { incDressCodeStarter } from './inc-dress-code-starter';
+import { logQueryError } from '@/lib/supabase/error-detect';
+
+/** The suppliers a part may be ASKED — the booked marketplace shop, named by its key (see the read). */
+export const BOOKED_SUPPLIER_SELECT = 'vendor_id, vendor_name, shop:vendor_profiles!event_vendors_marketplace_vendor_id_fkey ( services )';
+/** Said on each part when the booked suppliers could not be read — never "book one first". */
+export const BOOKED_SUPPLIERS_UNREAD = 'Your booked suppliers could not be read just now, so nobody can be asked yet. Nothing was changed — please reopen this in a moment.';
 
 /**
  * THE MOOD BOARD — the whole studio, as ONE component, drawn in two places
@@ -332,7 +338,11 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     // ineligible rather than silently allowed.
     supabase
       .from('event_vendors')
-      .select('vendor_id, vendor_name, shop:vendor_profiles ( services )')
+      /* 🔗 The embed NAMES its key: event_vendors reaches vendor_profiles twice
+         (the booked marketplace shop · a manual row's linked profile), and an
+         unnamed embed is refused outright (PGRST201 — every Maker open since
+         2026-09-05). The shop that was BOOKED is the marketplace one. */
+      .select(BOOKED_SUPPLIER_SELECT)
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
     // Owner ruling 2026-09-11: only the couple (and Setnayan admins) start a
@@ -516,6 +526,11 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   // relationship; both are normalised here rather than cast, because a wrong
   // guess produces an EMPTY services list — which reads as "this shop does not
   // work in that trade" and silently hides every Ask button.
+  /* 🚫 A REFUSED READ IS NOT "NOTHING BOOKED". It used to fall to `[]`, and every
+     part then told a couple with suppliers to "Book a … first". Logged, and
+     said in place of the Ask rows. */
+  if (bookedSupplierRes.error) logQueryError('moodBoard.bookedSuppliers', bookedSupplierRes.error, { eventId });
+  const bookedUnread = Boolean(bookedSupplierRes.error);
   const bookedSuppliers: BookedSupplier[] = (bookedSupplierRes.data ?? []).map((r) => {
     const raw = (r as { shop?: unknown }).shop;
     const shop = Array.isArray(raw) ? raw[0] : raw;
@@ -543,8 +558,8 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   const asPanelPart = (p: RenderPart): FinalizationPanelPart => ({
     id: p.id,
     label: p.label,
-    blockerMessage: finalizeBlocker(p.id, bookedSuppliers)?.message ?? null,
-    eligible: eligibleSuppliersForPart(p.id, bookedSuppliers).map((s) => ({
+    blockerMessage: bookedUnread ? BOOKED_SUPPLIERS_UNREAD : (finalizeBlocker(p.id, bookedSuppliers)?.message ?? null),
+    eligible: (bookedUnread ? [] : eligibleSuppliersForPart(p.id, bookedSuppliers)).map((s) => ({
       vendorId: s.vendorId,
       name: s.name,
     })),

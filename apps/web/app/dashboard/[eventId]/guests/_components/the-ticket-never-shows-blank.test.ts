@@ -67,7 +67,7 @@ test('(2) the picture is hidden until it LOADS, and the placeholder holds the bo
       'utf8',
     ),
   );
-  const thumb = src.slice(src.indexOf('export function GuestTicketThumb('), src.indexOf('function TicketPlaceholder('));
+  const thumb = src.slice(src.indexOf('export function GuestTicketThumb('), src.indexOf('const MORE_MENU_WIDTH'));
   assert.ok(thumb.length > 0, 'GuestTicketThumb moved — re-anchor this guard');
   const img = /<img\b[\s\S]*?\/>/.exec(thumb)?.[0] ?? '';
   assert.ok(img, 'the thumb lost its <img>');

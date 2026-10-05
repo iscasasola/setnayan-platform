@@ -280,6 +280,16 @@ export function DetailsWorkspace({
     setGuideTitle?.(guideTitle);
   }, [setGuideTitle, guideTitle]);
   useEffect(() => () => setGuideTitle?.(null), [setGuideTitle]);
+  /* 🧰 THE GUIDE OWNS THE LOWER THIRD (owner 2026-10-05, live at 375: the stage
+     picker on the page AND Theme's navigator below it — two things at once).
+     While the flow shows a screen of its own (the picker, Before we start, a
+     Ready screen) the lower third draws nothing of an item's: only the menu. */
+  const setGuideBare = maker?.setGuideBare;
+  const guideBare = at !== null && at.kind !== 'step';
+  useEffect(() => {
+    setGuideBare?.(guideBare);
+  }, [setGuideBare, guideBare]);
+  useEffect(() => () => setGuideBare?.(false), [setGuideBare]);
   const modeKey = maker?.eventId ? `sn-details-mode:${maker.eventId}` : null;
   const remember = (m: 'guided' | 'all') => {
     try {
@@ -761,6 +771,10 @@ export function DetailsWorkspace({
             head={at?.kind === 'step' && stepHere ? <GuideTop plan={plan!} at={at} onPick={(to) => move(to)} onAllItems={allItems} inSheet /> : null}
             /* Each step opens at half — a sheet dragged up comes back down on Next. */
             restOn={stepHere?.key ?? null}
+            /* 🧰 Only a STEP's sheet is drawn in the lower third (the picker, Before
+               we start and a Ready screen draw none — see below), so only a step
+               folds it: never a column naming a tool that is not on screen. */
+            tool={at?.kind === 'step'}
             /* A desk keeps its column; with no step open (the picker, Before we start,
                a Ready screen) the sheet is not drawn on a phone either — its editors
                stay mounted under it. */

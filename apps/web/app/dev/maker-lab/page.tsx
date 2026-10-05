@@ -113,6 +113,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       scenes={scenes}
       navigator={navigator}
       details={detailsLabNode({ ...sp, shape: 'mj' })}
+      openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
     />
   );
 }

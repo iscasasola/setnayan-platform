@@ -225,6 +225,8 @@ export function MakerShell({
   const takeLookVisit = useMemo(() => lookVisitTaker(), []);
   /* 🏷 The guided flow's one title while it is on screen (`MakerState.guideTitle`). */
   const [guideTitle, setGuideTitle] = useState<string | null>(null);
+  /* 🧰 …and whether that flow is on a screen of its own (the picker, a Ready screen) — the lower third is then only its menu. */
+  const [guideBare, setGuideBare] = useState(false);
   const [selection, setSelection] = useState<MakerSelection>(() => movedSelection(initialSelection).selection);
   const [lookPages, setLookPages] = useState<MakerLookPages | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -487,6 +489,7 @@ export function MakerShell({
       takeLookVisit,
       guideTitle,
       setGuideTitle,
+      setGuideBare,
       lookPages,
       setLookPages,
       factEditors,
@@ -661,14 +664,27 @@ export function MakerShell({
               const pk = makerPagePick(o.key);
               return pk?.kind === 'page' && pk.stage === stage;
             })
-            .map((o) => ({
-              key: o.key,
-              label: o.label,
-              on: o.key === page.value,
-              disabled: Boolean(o.disabledNote),
-              note: o.disabledNote,
-              onPick: () => pickPage(o.key),
-            }))
+            .map((o) => {
+              /* 📖 AN EMPTY LOVE STORY OPENS ITS EDITOR, in place (owner 2026-10-05,
+                 live: "Our Love Story" could not be pressed) — Details' Love Story,
+                 the same item its tap on the page opens. Nothing is written. */
+              const pk = makerPagePick(o.key);
+              const storyEditor = hasWork && Boolean(o.disabledNote) && pk?.kind === 'page' && pk.page === 'story';
+              return {
+                key: o.key,
+                label: o.label,
+                on: o.key === page.value,
+                disabled: Boolean(o.disabledNote) && !storyEditor,
+                note: storyEditor ? undefined : o.disabledNote,
+                onPick: storyEditor
+                  ? () => {
+                      setDetailsItem('love-story');
+                      setDetailsDoor((n) => n + 1);
+                      select({ kind: 'tool', key: 'details' });
+                    }
+                  : () => pickPage(o.key),
+              };
+            })
         : [];
   /* "Where you are": the part on screen — the page of a stage, or what the layer says. */
   const ltWhereWords = isStagePhase(ltPick) ? page.pageText : ltPick === 'settings' ? 'Your Event Hub' : (ltWhere ?? ltPickLabel);
@@ -984,6 +1000,8 @@ export function MakerShell({
           onPick={onLtPick}
           parts={ltParts}
           tool={phone ? tool : null}
+          /* The guided flow's own screen is on the page: nothing of an item's below it. */
+          bare={phone && guideBare && (openDoor === 'look' || openDoor === 'details')}
           setNav={setLtSlot}
           stepTiles={ltNav !== null}
         />

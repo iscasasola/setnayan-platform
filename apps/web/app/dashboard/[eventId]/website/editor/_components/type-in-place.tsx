@@ -12,6 +12,7 @@ import { HUB_ELEMENT_LABEL, withElementChoice, type HubElementKey } from '@/lib/
 import { HUB_FORMAT_DEFAULT } from '@/lib/hub-date-formats';
 import { formatChoices, formatWords, isTypeCaretPart, withTypedFormat, withTypedWords, wordingLines } from '@/lib/type-in-place';
 import { PickMenu } from './pick-menu';
+import { IRow } from './inspector-kit';
 import { elementPreview, refusedChoiceWords } from './element-preview';
 import type { ElementDraftAction } from './element-sheet';
 import type { TypeStart } from '@/lib/hub-part-words';
@@ -110,6 +111,14 @@ export type TypeBarProps = {
   onSaving: (widgetType: string, canvas: HubSectionCanvas) => void;
   onStyle: () => void;
   onClose: () => void;
+  /**
+   * 🧰 A PHONE: no floating bar (owner 2026-10-05, the lower third approved —
+   * one tap on a part opens ITS tools). The bar's rows are drawn INSIDE the
+   * part's own Text tools, in `slot` (null while another tab is on — the bar
+   * stays mounted, so every keystroke is still heard and written). Style is
+   * the tools themselves, Hide is Arrange's row, Done is the column's ×.
+   */
+  inline?: { slot: HTMLElement | null } | null;
 };
 
 export function TypeBar(p: TypeBarProps) {
@@ -143,14 +152,16 @@ export function TypeBar(p: TypeBarProps) {
       if (e.key === 'Escape') closeRef.current();
     };
     /* A tap outside the bar and outside a list it opened closes it (a tap in
-       the canvas is the canvas's own — `edit`, or a new `type`). */
+       the canvas is the canvas's own — `edit`, or a new `type`). Inline (a
+       phone), the bar lives as long as the part's tools it sits in. */
     const onDown = (e: PointerEvent) => {
       const t = e.target as Element | null;
       if (!t?.closest?.('[data-type-bar], [role="listbox"]')) closeRef.current();
     };
+    const inline = Boolean(p.inline);
     window.addEventListener('message', onMessage);
     window.addEventListener('keydown', onKey);
-    window.addEventListener('pointerdown', onDown, true);
+    if (!inline) window.addEventListener('pointerdown', onDown, true);
     // Letters typed while this bar loaded: the canvas says the words as they are now.
     from?.postMessage({ source: 'setnayan-editor', t: 'typeSync' }, origin);
     return () => {
@@ -528,6 +539,53 @@ export function TypeBar(p: TypeBarProps) {
     setAt((prev) => (prev && prev.top === top && prev.left === left ? prev : { top, left }));
   }, [session.rect, session.vw, session.source, tick]);
 
+  /* 🧰 A PHONE: the rows, inside the part's own Text tools — never over the page. */
+  if (p.inline) {
+    if (!p.inline.slot) return null;
+    return createPortal(
+      <div role="group" aria-label={`${field ? SCENE_FIELD_LABEL[field] : HUB_ELEMENT_LABEL[el]} — words`} data-type-bar={el} data-type-bar-inline="">
+        {nameChoices.length > 0 ? (
+          <IRow label="Wording" data="type-wording">
+            <PickMenu
+              label={`${HUB_ELEMENT_LABEL[el]} — name style`}
+              dataAttr="data-type-wording"
+              value={nameStyle}
+              options={nameChoices.map((c) => ({ key: c.key, label: c.example, hint: c.label }))}
+              onPick={pickNameStyle}
+            />
+          </IRow>
+        ) : lines.length > 0 ? (
+          <IRow label="Wording" data="type-wording">
+            <PickMenu
+              label={`${HUB_ELEMENT_LABEL[el]} — wording`}
+              dataAttr="data-type-wording"
+              value={words(current) || null}
+              buttonText={lines.includes(words(current)) ? undefined : 'Choose a line'}
+              options={lines.map((line, i) => ({ key: line, label: line, ...(i === 0 ? { hint: 'Automatic' } : {}) }))}
+              onPick={pickLine}
+            />
+          </IRow>
+        ) : null}
+        {formats.length > 0 ? (
+          <IRow label="Format" data="type-format">
+            <PickMenu
+              label={`${HUB_ELEMENT_LABEL[el]} — format`}
+              dataAttr="data-type-format"
+              value={style.format ?? HUB_FORMAT_DEFAULT}
+              options={formats}
+              onPick={pickFormat}
+            />
+          </IRow>
+        ) : null}
+        {error ? (
+          <p role="alert" className="py-2 text-[12px] font-semibold text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </div>,
+      p.inline.slot,
+    );
+  }
   const phone = typeof window !== 'undefined' && window.innerWidth < 1024;
   /* Portalled to <body>: a glass ancestor (`backdrop-filter`) would become the
      box `position: fixed` is measured from (PickMenu's own rule). */

@@ -106,6 +106,8 @@ export type MakerState = {
    */
   guideTitle?: string | null;
   setGuideTitle?: (title: string | null) => void;
+  /** 🧰 The guided flow shows a screen of its own (not a step): the lower third keeps only its menu. */
+  setGuideBare?: (on: boolean) => void;
   /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
   lookPages?: MakerLookPages | null;
   setLookPages?: (next: MakerLookPages | null) => void;

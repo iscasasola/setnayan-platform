@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { normalizeThemeId } from '@/lib/invite-themes';
 import { loadPrintSet } from '@/lib/print-set.server';
+import { paletteFromSampleParam } from '@/lib/theme-colours';
 import { layoutPieceView } from '@/lib/print-layout';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { spotLayersFor } from '@/lib/print-pieces';
@@ -37,7 +38,16 @@ export async function sampleView(rawPiece: string, url: URL): Promise<NextRespon
   const sampleId = await findSampleEventId();
   if (!sampleId) return new NextResponse('No sample.', { status: 404 });
   const theme = normalizeThemeId(url.searchParams.get('theme')) ?? 'house';
-  const set = await loadPrintSet(sampleId, { mode: 'screen', previewTheme: theme });
+  /* 🎨 The gallery asks the sample in the COUPLE's palette (`samplePaletteParam`,
+     owner 2026-10-05 "THE MOOD BOARD PALETTE IS THE PRIORITY"): their swatches,
+     or `none` for each theme's own colours. Colours only — nothing else of the
+     request reaches the sample. Absent or malformed = the sample's own board. */
+  const samplePalette = paletteFromSampleParam(url.searchParams.get('palette'));
+  const set = await loadPrintSet(sampleId, {
+    mode: 'screen',
+    previewTheme: theme,
+    ...(samplePalette !== undefined ? { samplePalette } : {}),
+  });
   if (!set) return new NextResponse('No sample.', { status: 404 });
   const spot = spotLayersFor(set.theme);
   const svg = renderPrintSvg(

@@ -1,3 +1,4 @@
+import { paletteFromSampleParam } from '@/lib/theme-colours';
 import { asksForHostCanvas, asksForEditorBridge, canvasOnlyScene, canvasTriedTheme, previewWayBackHref } from './_lib/editor-canvas';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
@@ -180,6 +181,8 @@ type Props = {
     // couple's page in that theme, bridge-less. Canvas-only (host-verified,
     // `canvasTriedTheme`); inert everywhere else.
     theme?: string;
+    /** 🎨 The sample tile's palette (`samplePaletteParam`) — the sample row only. */
+    palette?: string;
     // ↩ The Maker's place, carried by "Preview the whole stage" so the preview's
     // "Back to the Maker" lands where the couple was (`previewWayBackHref`).
     // Read only for a verified host's `?preview=draft`; inert everywhere else.
@@ -705,8 +708,20 @@ async function InvitationBody({
      verified host on `?editor=1`, so a guest never reaches this; the wedding
      fence still answers; Apply holds the theme without Pro. */
   const triesDraftedTheme = hostDraft !== null && 'invite_theme' in hostDraft.events;
+  /* 🎨 THE SAMPLE IN THE COUPLE'S COLOURS (owner 2026-10-05, "THE MOOD BOARD
+     PALETTE IS THE PRIORITY"): the Details gallery asks the sample in each
+     theme WITH the couple's palette (`samplePaletteParam` — their swatches, or
+     `none` for each theme's own colours), so every entry shows the theme as
+     their page would wear it. The sample row only, and only beside its tile's
+     `theme=`; colours are all it carries. Absent or malformed = its own board. */
+  const samplePalette = triedTheme && sampleTile ? paletteFromSampleParam(search.palette) : undefined;
   const event = triedTheme
-    ? { ...draftedEvent, invite_theme: triedTheme, theme_try_on: true }
+    ? {
+        ...draftedEvent,
+        invite_theme: triedTheme,
+        theme_try_on: true,
+        ...(samplePalette !== undefined ? { role_palette: samplePalette } : {}),
+      }
     : triesDraftedTheme
       ? { ...draftedEvent, theme_try_on: true }
       : draftedEvent;

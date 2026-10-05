@@ -35,6 +35,7 @@ export function ThemePreviewOverlay({
   picked,
   onUse,
   onClose,
+  samplePalette = null,
 }: {
   theme: ThemeTile;
   /** ◆ PRO / the diamond, as the gallery draws it. */
@@ -43,6 +44,8 @@ export function ThemePreviewOverlay({
   picked: boolean;
   onUse: () => void;
   onClose: () => void;
+  /** 🎨 The palette the sample wears — the gallery's (`samplePaletteParam`). */
+  samplePalette?: string | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const exitRef = useRef<HTMLButtonElement>(null);
@@ -96,7 +99,7 @@ export function ThemePreviewOverlay({
       </div>
       <div className="flex min-h-0 flex-1 justify-center bg-ink/[0.03]">
         <iframe
-          src={sampleHubTileSrc(theme.id)}
+          src={sampleHubTileSrc(theme.id, samplePalette)}
           title={`${theme.name} — the sample Event Hub`}
           /* The sample page, scrollable; no top navigation, no pop-ups, no forms. */
           sandbox="allow-scripts allow-same-origin"

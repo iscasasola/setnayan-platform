@@ -13,6 +13,12 @@ export type ThemePick = {
   pending: boolean;
   error: string | null;
   pick: (id: string) => void;
+  /**
+   * 🎨 The palette the theme samples wear (`samplePaletteParam`): the couple's
+   * Mood Board swatches, `none` (no palette — each theme in its own colours),
+   * or null where the provider was not told (the sample's own board).
+   */
+  samplePalette: string | null;
 };
 
 export const ThemePickContext = createContext<ThemePick | null>(null);

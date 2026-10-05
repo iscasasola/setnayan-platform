@@ -116,6 +116,9 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
     // an existing song on or off is free; the QR's look (`style_preferences`,
     // drafted as `{ qr }` only) is Pro to add or change.
     const own = ['site_bg_music_enabled', 'style_preferences'].includes(c);
+    // 🎨 The Mood Board palette a theme pick fills onto an EMPTY board (owner
+    // 2026-10-05, "THE MOOD BOARD PALETTE IS THE PRIORITY") — never Pro.
+    const fill = c === 'role_palette';
     // ✍ The names and the date typed in the Maker (2026-10-01, "wait for apply").
     // Two of them are also HUB_WORDS_EVENT_COLUMNS (display_name, event_date) — a fact first.
     const fact = (HUB_DRAFT_FACT_COLUMNS as readonly string[]).includes(c);
@@ -124,8 +127,8 @@ test('every drafted column is look, the one free colour, or the couple\'s words 
     // 📍 The venues and 🕒 the ceremony time typed in the Maker (2026-10-04) — never Pro.
     // Two venue names are also HUB_WORDS_EVENT_COLUMNS (the Save-the-Date film's words) — a venue first.
     const venue = (HUB_DRAFT_VENUE_COLUMNS as readonly string[]).includes(c) || c === HUB_DRAFT_CEREMONY_TIME;
-    assert.equal([look, free, word && !fact && !venue, made, own, fact, answer, venue].filter(Boolean).length, 1, `${c} must be exactly one kind`);
-    if (free || word || fact || answer || venue) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
+    assert.equal([look, free, word && !fact && !venue, made, own, fact, answer, venue, fill].filter(Boolean).length, 1, `${c} must be exactly one kind`);
+    if (free || word || fact || answer || venue || fill) assert.equal(eventColumnIsPro(c), false, `${c} is free`);
     if (answer) {
       assert.equal(eventItemIsPro(c, false, 'change'), false, `${c}: an answer is never Pro`);
       assert.equal(eventItemIsPro(c, true, 'add'), false, `${c}: an answer is never Pro`);

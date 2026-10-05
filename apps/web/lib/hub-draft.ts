@@ -141,6 +141,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { paletteIsSet, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
 import type { DateClash } from '@/lib/date-fits-booked';
@@ -330,6 +331,13 @@ export const HUB_DRAFT_LOOK_COLUMNS = [
   // 🔘 LOOK › BUTTONS (owner 2026-10-04, "create them") — shape + fill as one
   // value (`lib/hub-buttons.ts`); the colour stays `site_button_color` above.
   'site_button_style',
+  // 🎨 THE MOOD BOARD PALETTE A THEME PICK FILLS (owner 2026-10-05, "THE MOOD
+  // BOARD PALETTE IS THE PRIORITY": *"If the mood board does not have a
+  // palette, use our original theme and place it on the moodboard's
+  // palette"*). Only ever a theme's own colours (`sanitizeSeedPalette`), only
+  // onto an EMPTY board: a board that has colours is never overwritten — not
+  // overlaid on the canvas, not counted, not applied (`eventColumnChange`).
+  'role_palette',
 ] as const;
 
 /**
@@ -648,7 +656,11 @@ export function sanitizeHubDraftEventValue(
 ): unknown | undefined {
   // A page is never nameless, a date always says how precise it is, and a
   // ceremony time is moved, never erased, from here.
-  if (raw === null) return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' ? undefined : null;
+  // 🎨 …and the Mood Board palette is only ever FILLED from here, never cleared.
+  if (raw === null)
+    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette'
+      ? undefined
+      : null;
   switch (column) {
     case 'rsvp_backdrop':
       return parseRsvpBackdropConfig(raw) ?? undefined;
@@ -690,6 +702,9 @@ export function sanitizeHubDraftEventValue(
     // 🔘 Look › Buttons — a known '<shape>-<fill>', or back to the theme's.
     case 'site_button_style':
       return sanitizeHubButtonStyle(raw);
+    // 🎨 A theme's own colours as the board's main colours — nothing else.
+    case 'role_palette':
+      return sanitizeSeedPalette(raw);
     // 🎨 The theme — only a live id of a SHIPPED theme (`setInviteTheme`'s old
     // rule: `isInviteThemeId` + `ready`). A retired alias is never written.
     case 'invite_theme':
@@ -1012,6 +1027,10 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   const picks = draft.fixedStyles && Object.keys(draft.fixedStyles).length > 0 ? draft.fixedStyles : null;
   if (Object.keys(draft.events).length === 0 && !picks) return row;
   const out: Record<string, unknown> = { ...row, ...draft.events };
+  /* 🎨 A Mood Board that HAS colours wins over a theme's drafted fill — the
+     board was painted after the pick, and the owner's rule is "the priority
+     palette will always be based on the mood board". */
+  if ('role_palette' in draft.events && paletteIsSet(row.role_palette)) out.role_palette = row.role_palette;
   /* 🔳 The drafted QR look is laid INTO the live blob — the blob's other keys
      (onboarding answers the page may read) are never overlaid away. */
   if ('style_preferences' in draft.events) {
@@ -1220,6 +1239,12 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'cover_photo_wanted': {
       const said = (v: unknown) => (v === true ? 'yes' : v === false ? 'no' : null);
       return refChange(said(live), said(next));
+    }
+    case 'role_palette': {
+      // 🎨 Only onto an EMPTY board: one with colours is the couple's own and
+      // is never replaced by a theme's (the draft's fill is then nothing).
+      if (paletteIsSet(live)) return 'none';
+      return refChange(null, paletteIsSet(next) ? JSON.stringify(next) : null);
     }
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
@@ -2165,6 +2190,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   site_magic_traveller: 'Magic move',
   site_button_style: 'Your buttons',
   invite_theme: 'Your theme',
+  role_palette: 'Your Mood Board colours',
   site_bg_music_r2_key: 'Your background music',
   site_bg_music_enabled: 'Background music on or off',
   landing_page_hero_video_r2_key: 'Your hero video',

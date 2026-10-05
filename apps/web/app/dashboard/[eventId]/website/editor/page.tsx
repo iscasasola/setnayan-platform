@@ -28,6 +28,7 @@ import {
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { themeColours } from '@/lib/theme-colours';
 import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
@@ -900,7 +901,6 @@ export default async function WebsiteEditorPage({
           const pageLook = guestLookFrom(
             {
               ...(drafted as Record<string, unknown>),
-              role_palette: (event as { role_palette?: unknown }).role_palette,
               site_button_color: null,
               site_button_style: null,
             } as unknown as EventShellRow,
@@ -1330,9 +1330,15 @@ export default async function WebsiteEditorPage({
       setupLocks: hubSetupApplies((event.event_type as string | null) ?? null),
     },
     sectionRows,
+    /* 🎨 A words-only tile wears the page's colours — the Mood Board palette
+       over the theme (owner 2026-10-05, "THE MOOD BOARD PALETTE IS THE
+       PRIORITY"), read through the ONE resolver the guest page wears
+       (`lib/theme-colours.ts`), with the palette as the couple is editing it.
+       It read the theme's own palette, so a light board under Cyber Neon drew
+       every tile dark while the canvas above it was light. */
     tint: (() => {
-      const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
-      return { canvas: pal.canvas, ink: pal.ink, accent: pal.accent };
+      const { colours } = themeColours(currentThemeId, (drafted as { role_palette?: unknown }).role_palette);
+      return { canvas: colours.canvas, ink: colours.ink, accent: colours.accent };
     })(),
     facts: {
       // ✍ As the couple is editing them — the names and the date are drafted until Apply.

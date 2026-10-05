@@ -35,6 +35,8 @@ import {
   type HubLiveState,
 } from '@/lib/hub-draft';
 import { postEventItemLabel } from '@/lib/post-event-draft';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { seededTheme } from '@/lib/theme-colours';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -47,6 +49,8 @@ const DETAILS = 'Event Details';
  */
 export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string; what: string }> = {
   invite_theme: { place: LOOK, what: LOOK_SECTION_LABEL.theme },
+  // 🎨 Named with the theme it came from — "Mood Board · Colours from Cyber Neon" (`hubDraftChangePlace`).
+  role_palette: { place: 'Mood Board', what: 'Colours' },
   site_art_direction: { place: LOOK, what: 'Candlelight' },
   site_font_key: { place: LOOK, what: LOOK_SECTION_LABEL.font },
   site_bg_color: { place: LOOK, what: LOOK_SECTION_LABEL.colours },
@@ -131,8 +135,15 @@ function canvasWhat(liveConfig: unknown, next: unknown): string {
 /** One draft item → where · what. Exhaustive over the item kinds and widget fields. */
 export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { place: string; what: string } {
   switch (item.kind) {
-    case 'event':
+    case 'event': {
+      /* 🎨 A theme's colours placed on an empty Mood Board (owner 2026-10-05)
+         say which theme they came from — "Mood Board · Colours from Cyber Neon". */
+      if (item.column === 'role_palette') {
+        const from = seededTheme(item.value);
+        return { place: 'Mood Board', what: from ? `Colours from ${INVITE_THEMES[from].name}` : 'Colours' };
+      }
       return HUB_DRAFT_EVENT_PLACE[item.column];
+    }
     case 'editorial': {
       // "Post Event · which scenes show" → Post Event · Which scenes show.
       const [place, ...rest] = postEventItemLabel(item.item).split(' · ');

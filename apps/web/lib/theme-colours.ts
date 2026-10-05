@@ -1,0 +1,228 @@
+/**
+ * lib/theme-colours.ts — THE ONE ANSWER TO "WHAT COLOURS DOES THIS THEME WEAR?"
+ *
+ * 🎨 Owner, 2026-10-05 (DECISION_LOG "THE MOOD BOARD PALETTE IS THE PRIORITY"),
+ * verbatim: *"The priority palette will always be based on the mood board. If
+ * the mood board does not have a palette, use our original theme and place it
+ * on the moodboard's palette. If a moodboard has a color palette already then
+ * all themes will adapt to the color palette of the moodboard."*
+ *
+ *   · THEME = layout, type and motion.  PALETTE = colour.
+ *   · A Mood Board palette set → every theme, and every PICTURE of a theme (the
+ *     guest page, the Maker's scene tiles, the theme gallery, the prints), is
+ *     painted in the palette's colours.
+ *   · No palette → the theme's own colours; picking a theme then writes them
+ *     into the Mood Board palette (`themeSeedPalette`, through the hub draft —
+ *     `maker-theme-picker.tsx`), so the palette is never empty after a pick.
+ *
+ * 🔑 ONE RESOLVER, TWO SHAPES OF ONE ANSWER:
+ *   · `paletteColourVars` — the `--color-*` custom properties the guest page
+ *     wears (`guestLookFrom`, `app/[slug]/_lib/loaders.ts`);
+ *   · `themeColours` — the same answer as hexes, for every picture that cannot
+ *     wear custom properties (the Maker's words-only scene tiles, the prints).
+ * Both branch on the SAME three cases below, so a tile and the page it pictures
+ * cannot disagree. `lib/a-theme-preview-wears-the-palette.test.ts` fails if a
+ * theme preview reads `INVITE_THEMES[…].palette` for its colours around this.
+ *
+ * ── THE THREE CASES ─────────────────────────────────────────────────────────
+ *   1. No palette            → the worn theme's own colours.
+ *   2. A theme's SEED         → THAT theme's own colours (`seededTheme`). A
+ *      palette written by a theme pick is the theme's colours exactly; the
+ *      Mood Board's generic derivation (`buildSitePaletteVars`) cannot draw a
+ *      dark page (its paper is always near-white), so a seed is read back as
+ *      the very tokens the seeding theme's own page block is generated from
+ *      (`hubThemePageTokens`) — Cyber Neon picked on an empty board stays dark,
+ *      and every other theme then wears Cyber Neon's colours.
+ *   3. Any other palette      → the Mood Board derivation the guest page has
+ *      always worn (`buildSitePaletteVars`) — unchanged, byte for byte.
+ *
+ * Pure. No I/O. Client-safe (no `server-only`), but the Maker's client
+ * components are handed its answers as props rather than importing it.
+ */
+import { HUB_THEMES, INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
+import { buildSitePaletteVars } from '@/lib/site-palette';
+import { channels, hubThemePageTokens } from '@/lib/hub-theme-tokens';
+import { compositeOver, contrastRatio, relativeLuminance } from '@/lib/hub-legibility';
+import { PALETTE_LIMITS, PALETTE_ORDER, sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { SEED_PALETTE_MAX, paletteIsSet } from '@/lib/mood-board-palette-set';
+
+/** A theme's colours — the registry's palette shape (`INVITE_THEMES[id].palette`). */
+export type ThemePaletteColours = InviteTheme['palette'];
+
+export type ThemeColours = {
+  /** Where the colours came from: the Mood Board palette, or the worn theme itself. */
+  source: 'palette' | 'theme';
+  colours: ThemePaletteColours;
+};
+
+const HEX = /^#[0-9a-f]{6}$/i;
+
+/** The palette's colours, de-duplicated, upper-case, in the palette's key order. */
+function swatchesOf(palette: unknown): string[] {
+  const p = sanitizeRolePalette(palette) as Record<string, unknown>;
+  const seen = new Set<string>();
+  for (const key of PALETTE_ORDER) {
+    const v = p[key];
+    if (Array.isArray(v)) for (const c of v) if (typeof c === 'string' && HEX.test(c)) seen.add(c.toUpperCase());
+  }
+  return [...seen];
+}
+
+export { paletteIsSet };
+
+/** The colours a theme writes into an empty Mood Board — its five page colours. */
+function seedHexes(t: InviteTheme): string[] {
+  const p = t.palette;
+  return [...new Set([p.canvas, p.surface, p.ink, p.accent, p.heading].map((h) => h.toUpperCase()))];
+}
+
+/**
+ * 🌱 A THEME'S COLOURS AS A MOOD BOARD PALETTE — what a pick writes when the
+ * board is empty. The five go into `reception` (the board's five "main
+ * colours", `PALETTE_LIMITS.reception`), so the Mood Board shows them as the
+ * couple's majors and every role derives from them as it would from any pick.
+ */
+export function themeSeedPalette(id: InviteThemeId): RolePalette {
+  return { reception: seedHexes(INVITE_THEMES[id]).slice(0, SEED_PALETTE_MAX) };
+}
+
+/** Every theme's seed, keyed by id — handed to the Maker's picker as plain data. */
+export function themeSeedPalettes(): Record<string, RolePalette> {
+  return Object.fromEntries(HUB_THEMES.map((t) => [t.id, themeSeedPalette(t.id)]));
+}
+
+/** A set of colours as one comparable key — order never matters. */
+function colourSetKey(hexes: readonly string[]): string {
+  return [...hexes].sort().join(',');
+}
+
+/** The theme whose seed this palette IS (same colours, nothing else), or null. */
+export function seededTheme(palette: unknown): InviteThemeId | null {
+  const have = swatchesOf(palette);
+  if (have.length === 0) return null;
+  const key = colourSetKey(have);
+  return HUB_THEMES.find((t) => colourSetKey(seedHexes(t).slice(0, SEED_PALETTE_MAX)) === key)?.id ?? null;
+}
+
+/** The colour half of a theme's generated page block (`globals.css` "THE TEN THEMES ON THE PAGE"). */
+function themeBlockVars(t: InviteTheme): Record<string, string> {
+  const p = t.palette;
+  const k = hubThemePageTokens(t);
+  return {
+    '--hub-canvas': p.canvas,
+    '--hub-surface': p.surface,
+    '--hub-ink': p.ink,
+    '--hub-muted': p.muted,
+    '--hub-accent': p.accent,
+    '--hub-accent-ink': p.accentInk,
+    '--hub-heading': p.heading,
+    '--color-cream': channels(p.canvas),
+    '--color-paper': channels(p.canvas),
+    '--color-veil': channels(p.canvas),
+    '--color-paper-deep': channels(p.surface),
+    '--color-ink': channels(k.ink),
+    '--color-ink-on-plate': channels(k.ink),
+    '--color-gild': channels(k.gild),
+    '--color-terracotta': channels(k.eyebrow),
+    '--color-terracotta-600': channels(k.eyebrow),
+    '--color-terracotta-700': channels(k.eyebrow),
+    '--color-mulberry': channels(k.cta),
+    '--color-mulberry-600': channels(k.cta),
+    '--color-mulberry-700': channels(k.cta),
+  };
+}
+
+/**
+ * 🎨 THE GUEST PAGE'S COLOURS — the `--color-*` vars the worn theme is painted
+ * with, or null when the theme paints its own (no palette, or the palette is
+ * this very theme's seed — the page is then byte-identical to the theme alone).
+ */
+export function paletteColourVars(palette: unknown, worn: InviteThemeId): Record<string, string> | null {
+  if (!paletteIsSet(palette)) return null;
+  const seed = seededTheme(palette);
+  if (seed) return seed === worn ? null : themeBlockVars(INVITE_THEMES[seed]);
+  return buildSitePaletteVars(sanitizeRolePalette(palette));
+}
+
+const hexOf = (ch: string | undefined, fallback: string): string => {
+  const parts = (ch ?? '').trim().split(/\s+/).map(Number);
+  if (parts.length !== 3 || !parts.every((n) => Number.isFinite(n))) return fallback;
+  return `#${parts.map((n) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0')).join('')}`;
+};
+
+/**
+ * 🎨 THE SAME ANSWER AS HEXES — for a picture of the theme that is not the
+ * page: the Maker's words-only scene tiles, the prints. The palette case reads
+ * the very vars the guest page wears (`buildSitePaletteVars`), so a tile shows
+ * the paper, ink and accent the page paints.
+ */
+export function themeColours(themeId: InviteThemeId, palette: unknown): ThemeColours {
+  const worn = INVITE_THEMES[themeId] ?? INVITE_THEMES.house;
+  if (!paletteIsSet(palette)) return { source: 'theme', colours: worn.palette };
+  const seed = seededTheme(palette);
+  if (seed) return { source: seed === worn.id ? 'theme' : 'palette', colours: INVITE_THEMES[seed].palette };
+  const vars = buildSitePaletteVars(sanitizeRolePalette(palette));
+  if (!vars) return { source: 'theme', colours: worn.palette };
+  const canvas = hexOf(vars['--color-cream'], worn.palette.canvas);
+  const ink = hexOf(vars['--color-ink'], worn.palette.ink);
+  const accent = hexOf(vars['--color-terracotta'], worn.palette.accent);
+  const cta = hexOf(vars['--color-mulberry'], accent);
+  const [lightInk, darkInk] = relativeLuminance(canvas) >= relativeLuminance(ink) ? [canvas, ink] : [ink, canvas];
+  return {
+    source: 'palette',
+    colours: {
+      canvas,
+      surface: hexOf(vars['--color-paper-deep'], canvas),
+      ink,
+      // The page's muted words are `text-ink/60` — the same blend, as a colour.
+      muted: compositeOver(ink, 0.6, canvas),
+      accent,
+      // A word set on the accent: whichever of the page's two inks reads on it.
+      accentInk: contrastRatio(lightInk, cta) >= contrastRatio(darkInk, cta) ? lightInk : darkInk,
+      heading: accent,
+      lightInk,
+      darkInk,
+    },
+  };
+}
+
+/* ── THE SAMPLE GALLERY'S PALETTE ────────────────────────────────────────────
+   The Details theme gallery shows the curated SAMPLE Event Hub in each theme
+   (`lib/theme-sample-stills.ts`). By the rule above it must show each theme in
+   the COUPLE's colours — so the gallery tells the sample page and the sample
+   print door which palette to wear: the couple's swatches, or `none` (no
+   palette: each theme in its own colours, which a pick would then write). Only
+   the sample answers it (`app/[slug]/page.tsx`, `lib/print-sample-door.server.ts`);
+   a palette is colours, never a name or a word. */
+
+/** Most swatches a sample param carries — every key's cap, summed, is far more than any board holds. */
+const SAMPLE_PARAM_MAX = 24;
+
+/** `none`, or the couple's swatches as `RRGGBB.RRGGBB…` (no `#`, URL-safe). */
+export function samplePaletteParam(palette: unknown): string {
+  const s = swatchesOf(palette).slice(0, SAMPLE_PARAM_MAX);
+  return s.length === 0 ? 'none' : s.map((h) => h.slice(1)).join('.');
+}
+
+/**
+ * The sample's palette from its param: a palette, `null` for `none`, or
+ * `undefined` when absent or malformed (the sample keeps its own). The swatches
+ * are laid into the board's keys in order, each up to its cap, so the pool —
+ * the only thing either resolver reads — round-trips exactly.
+ */
+export function paletteFromSampleParam(raw: string | null | undefined): RolePalette | null | undefined {
+  if (raw === 'none') return null;
+  if (typeof raw !== 'string' || raw.length === 0) return undefined;
+  const parts = raw.split('.').slice(0, SAMPLE_PARAM_MAX);
+  if (!parts.every((p) => /^[0-9a-f]{6}$/i.test(p))) return undefined;
+  const hexes = parts.map((p) => `#${p.toUpperCase()}`);
+  const out: Record<string, string[]> = {};
+  let i = 0;
+  for (const key of PALETTE_ORDER) {
+    if (i >= hexes.length) break;
+    const take = hexes.slice(i, i + PALETTE_LIMITS[key].max);
+    out[key] = take;
+    i += take.length;
+  }
+  return sanitizeRolePalette(out);
+}

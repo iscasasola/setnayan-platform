@@ -88,6 +88,7 @@ import { GuestCardBody } from '../guests/_components/guest-card-body';
 import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
+import { paletteIsSet, samplePaletteParam, themeSeedPalettes } from '@/lib/theme-colours';
 import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
@@ -1524,6 +1525,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               chosen: guided.themeChosen,
               // The look they set themselves (draft over live) — a re-tap of the current theme hands it back.
               ownLook: hasOwnLook(feelRes.data as Record<string, unknown> | null, draftedEvents),
+              /* 🎨 THE MOOD BOARD PALETTE IS THE PRIORITY (owner 2026-10-05): an
+                 empty board takes the picked theme's colours (into the draft);
+                 a board with colours dresses every sample in them. LIVE board —
+                 a drafted fill is the theme's own, re-written by the next pick. */
+              seeds: paletteIsSet(printEvent.role_palette) ? null : themeSeedPalettes(),
+              samplePalette: samplePaletteParam(printEvent.role_palette),
             }}
             prints={prints}
             menu={{

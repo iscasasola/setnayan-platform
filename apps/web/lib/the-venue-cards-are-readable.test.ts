@@ -36,6 +36,7 @@ import { join } from 'node:path';
 
 import { INVITE_THEMES, INVITE_THEME_IDS, type InviteThemeId } from '@/lib/invite-themes';
 import { buildSitePaletteVars } from '@/lib/site-palette';
+import { paletteColourVars } from '@/lib/theme-colours';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
 import {
@@ -82,7 +83,7 @@ function cascade(themeId: InviteThemeId, inline: Record<string, string> | null) 
 
 /** Exactly the layers `guestLookFrom` spreads, in its order (asserted below). */
 function look(themeId: InviteThemeId, event: Record<string, unknown>, proActive: boolean) {
-  const palette = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
+  const palette = paletteColourVars(event.role_palette, themeId);
   const pro = proSiteVarsFor(event, proActive, themeId);
   let vars = pro ? { ...(palette ?? {}), ...pro } : palette;
   const bg = parseSiteBackground(event.site_bg_color);
@@ -156,7 +157,8 @@ test('guestLookFrom spreads palette → the couple’s colours → ombré, and p
   const body = LOADERS.slice(start, LOADERS.indexOf('\n}\n', start));
   const at = (re: RegExp) => body.search(re);
   const order = [
-    at(/buildSitePaletteVars\(sanitizeRolePalette\(event\.role_palette\)\)/),
+    // 🎨 The board through the ONE resolver since 2026-10-05 (`lib/theme-colours.ts`).
+    at(/paletteColourVars\(event\.role_palette, hub\.theme\)/),
     at(/proSiteVarsFor\(event, proActive, hub\.theme\)/),
     at(/ombreLook\(INVITE_THEMES\[hub\.theme\]/),
     // 🔘 Since Look › Buttons (2026-10-04) the pinned bag is named `painted` — the

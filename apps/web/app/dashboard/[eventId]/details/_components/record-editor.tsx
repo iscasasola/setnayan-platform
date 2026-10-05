@@ -16,6 +16,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { recordFieldHref, type RecordEditorKey } from '@/lib/event-details-record';
+import { paletteIsSet, themeSeedPalettes } from '@/lib/theme-colours';
 import { MakerThemeMenu, ThemePickProvider } from '../../launch/_components/maker-theme-picker';
 import { ButtonsLookRow, ColorsPanel, MakerRsvpSettings, ProLockPanel, SpecialMessageField } from '../../launch/_components/details-lazy';
 import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from '../../launch/_components/details-answers-parts';
@@ -91,7 +92,13 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
         const themes = pickableInviteThemes();
         const current = resolveInviteTheme({ saved: drafted.invite_theme, ownsPro: ctx.ownsPro || !ctx.storeShell });
         return (
-          <ThemePickProvider eventId={eventId} current={current} ownLook={hasOwnLook(live, draft?.events as Record<string, unknown> | undefined)}>
+          <ThemePickProvider
+            eventId={eventId}
+            current={current}
+            ownLook={hasOwnLook(live, draft?.events as Record<string, unknown> | undefined)}
+            /* 🎨 An empty Mood Board takes the picked theme's colours (owner 2026-10-05). */
+            seeds={paletteIsSet(live.role_palette) ? null : themeSeedPalettes()}
+          >
             <MakerThemeMenu
               themes={themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier }))}
               ownsPro={ctx.ownsPro}

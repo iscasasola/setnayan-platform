@@ -41,7 +41,7 @@ import {
 } from '@/lib/entourage';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { paletteColourVars, themeColours } from '@/lib/theme-colours';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
@@ -120,7 +120,6 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
-import { sanitizeRolePalette } from '@/lib/mood-board';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -266,7 +265,11 @@ export function guestLookFrom(
   proActive: boolean,
 ): GuestLook {
 
-  const palette = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
+  /* 🎨 THE MOOD BOARD PALETTE DRESSES THE THEME (owner 2026-10-05, DECISION_LOG
+     "THE MOOD BOARD PALETTE IS THE PRIORITY") — through the ONE resolver every
+     picture of a theme reads (`lib/theme-colours.ts`), so the Maker's tiles and
+     the prints cannot paint a colour this page does not. */
+  const palette = paletteColourVars(event.role_palette, hub.theme);
   const pro = proSiteVarsFor(event, proActive, hub.theme);
   // Byte-safety, as the shell always had it: with no Pro colours the bag IS the
   // palette's; with some, they are spread over it (the couple's own pick wins).
@@ -662,10 +665,15 @@ export const loadMedia = cache(
 
     // Step-1 Save-the-Date background (events.std_background). Realistic → the
     // public scene src; upload → a presigned R2 url; plain/paper → no image.
-    // 🎨 Unpicked → the THEME's paper (owner 2026-10-05, `stdFilmBackground`); picked → the couple's own.
+    // 🎨 Unpicked → the THEME's paper (owner 2026-10-05, `stdFilmBackground`) —
+    // as the Mood Board palette dresses it (the same day's "THE MOOD BOARD
+    // PALETTE IS THE PRIORITY", `themeColours`); picked → the couple's own.
     const stdBackground =
       event.std_background === null || event.std_background === undefined
-        ? stdFilmBackground(null, INVITE_THEMES[(await resolveHubTheme(event).catch(() => null))?.theme ?? 'house']?.palette.canvas ?? null)
+        ? stdFilmBackground(
+            null,
+            themeColours((await resolveHubTheme(event).catch(() => null))?.theme ?? 'house', event.role_palette).colours.canvas,
+          )
         : resolveStdBackground(event.std_background);
     const stdBackgroundUrl =
       stdBackground.kind === 'realistic'

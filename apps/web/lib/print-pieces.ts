@@ -27,6 +27,7 @@
  */
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import type { ThemeColours } from '@/lib/theme-colours';
 import { sanitizeInviteTemplate } from '@/lib/guest-invite-message';
 import { DEFAULT_PASS_CARD_DESIGN, passCardDesignFrom, type PassCardDesign } from '@/lib/pass-card';
 import { DEFAULT_NAME_STYLE, nameStyleFrom, type NameStyle } from '@/lib/name-style';
@@ -396,19 +397,44 @@ const TYPE: Record<
   cyber: { head: 'poppinsBold', script: null, body: 'poppins', ornament: '◆', caps: true },
 };
 
-export function printLookFor(theme: InviteThemeId): PrintLook {
+/**
+ * 🎨 A print wears the Mood Board palette over its theme (owner 2026-10-05,
+ * DECISION_LOG "THE MOOD BOARD PALETTE IS THE PRIORITY") — its colours come
+ * from the ONE resolver the guest page wears (`themeColours`,
+ * `lib/theme-colours.ts`); the theme gives the type, the ornament and the
+ * still. The caller asks the resolver with the event's `role_palette` (drafted
+ * over live on the Maker's preview — `loadPrintSet`) and hands the answer in;
+ * absent = the theme's own colours. (Handed in, not imported: three client
+ * components import this module for its constants, and the resolver stays
+ * out of their bundles.)
+ *
+ * A palette-dressed print over a FULL still is veiled in the palette's paper
+ * (the guest page's ground does the same: its scrim is `bg-cream`), at least
+ * the 0.8 the layout's own default veil uses, so its ink reads on the photo.
+ */
+export function printLookFor(
+  theme: InviteThemeId,
+  dressed: ThemeColours = { source: 'theme', colours: INVITE_THEMES[theme].palette },
+): PrintLook {
   const t = INVITE_THEMES[theme];
   const type = TYPE[theme];
   const still = STILLS[theme];
+  const { source, colours } = dressed;
+  const scrim =
+    still !== 'full'
+      ? null
+      : source === 'palette'
+        ? { color: colours.canvas, opacity: Math.max(0.8, t.scrim?.opacity ?? 0) }
+        : t.scrim;
   return {
     theme,
-    paper: t.palette.canvas,
-    ink: t.palette.ink,
-    muted: t.palette.muted,
-    accent: t.palette.accent,
-    heading: t.palette.heading,
+    paper: colours.canvas,
+    ink: colours.ink,
+    muted: colours.muted,
+    accent: colours.accent,
+    heading: colours.heading,
     still: t.media ? still : 'none',
-    scrim: still === 'full' ? t.scrim : null,
+    scrim,
     sepia: theme === 'vintage',
     ornament: type.ornament,
     headFont: type.head,

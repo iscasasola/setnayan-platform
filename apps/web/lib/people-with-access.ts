@@ -29,7 +29,7 @@ import {
   type ModeratorPermissions,
 } from './delegate-areas';
 import { delegateAccessHasExpired, delegateAccessLastDay } from './delegate-access-window';
-import { ACCESS_LEVEL_LABEL, guestAccessState, seatIsFullCohost, type GuestAccessState } from './guest-access';
+import { ACCESS_LEVEL_LABEL, CREATOR_WORD, guestAccessState, seatIsFullCohost, type GuestAccessState } from './guest-access';
 
 /** The hired planner's seat kind (`lib/planner-seats.ts` PLANNER_SEAT_ROLE). */
 const PLANNER_ROLE = 'wedding_planner_external';
@@ -158,7 +158,8 @@ export function buildPeopleWithAccess(input: {
       key: `host:${h.userId}`,
       kind: 'co_host',
       name: h.name,
-      roleWord: 'Co-host',
+      // The creator is the Host; everyone else here is a Co-host (owner 2026-10-04).
+      roleWord: h.isCreator ? CREATOR_WORD : 'Co-host',
       moderatorId: seat?.moderatorId ?? null,
       guestId: guest?.guestId ?? null,
       access:

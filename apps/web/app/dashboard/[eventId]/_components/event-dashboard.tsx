@@ -61,7 +61,7 @@ import {
 import { isSetnayanAiActiveForEvent } from '@/lib/setnayan-ai';
 import { cockpitEnabled } from '@/lib/setnayan-ai-cockpit-flag';
 import { ROLE_SUBTYPE_LABEL, isRoleSubtype } from '@/lib/event-moderators';
-import { seatAccessWord } from '@/lib/guest-access';
+import { CREATOR_WORD, seatAccessWord } from '@/lib/guest-access';
 import { fetchDelegateActivity } from '@/lib/delegate-activity.server';
 import { delegateActivityWhen } from '@/lib/delegate-activity';
 import {
@@ -546,7 +546,7 @@ export async function EventDashboard({
         const [membersRes, modsRes] = await Promise.all([
           adminClient
             .from('event_members')
-            .select('user_id')
+            .select('user_id, joined_via')
             .eq('event_id', eventId)
             .eq('member_type', 'couple'),
           adminClient
@@ -558,7 +558,10 @@ export async function EventDashboard({
             .is('removed_at', null)
             .order('accepted_at', { ascending: true }),
         ]);
-        const members = (membersRes.data ?? []) as Array<{ user_id: string }>;
+        const members = (membersRes.data ?? []) as Array<{ user_id: string; joined_via: string | null }>;
+        // The account that created the event is the Host — never "Co-host",
+        // even though its own seat is a full co-host kind (owner 2026-10-04).
+        const creatorIds = new Set(members.filter((m) => m.joined_via === 'created_event').map((m) => m.user_id));
         const mods = (modsRes.data ?? []) as Array<{
           moderator_id: string;
           user_id: string | null;
@@ -619,7 +622,7 @@ export async function EventDashboard({
               usersById[m.user_id]?.display_name ??
               usersById[m.user_id]?.email ??
               'Event owner',
-            roleLabel: 'Owner',
+            roleLabel: creatorIds.has(m.user_id) ? CREATOR_WORD : 'Owner',
             state: 'active' as const,
           })),
           ...acceptedMods.map((m) => ({
@@ -630,7 +633,7 @@ export async function EventDashboard({
                 : null) ??
               m.invitation_email ??
               'Host',
-            roleLabel: modRoleLabel(m),
+            roleLabel: m.user_id && creatorIds.has(m.user_id) ? CREATOR_WORD : modRoleLabel(m),
             state: 'active' as const,
           })),
           ...pendingMods.map((m) => ({

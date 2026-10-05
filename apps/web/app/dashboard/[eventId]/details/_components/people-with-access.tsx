@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { AREA_LEVEL_WORD, type AreaChoice } from '@/lib/delegate-areas';
-import { ACCESS_LEVEL_LABEL, type GuestAccessLevel } from '@/lib/guest-access';
+import { ACCESS_LEVEL_LABEL, accessWordFor, type GuestAccessLevel } from '@/lib/guest-access';
 import type { AreaCell, PersonRow } from '@/lib/people-with-access';
 import { setDelegateArea, removeHost } from '@/app/dashboard/[eventId]/hosts/actions';
 import { setGuestAccess } from '@/app/dashboard/[eventId]/guests/[guestId]/access-actions';
@@ -116,7 +116,7 @@ function AccessPick({ eventId, row }: { eventId: string; row: PersonRow }) {
   if (!row.access || !row.guestId) return null;
   const guestId = row.guestId;
   if (row.access.lock || row.isViewer) {
-    return <span className="text-sm text-ink/60">{ACCESS_LEVEL_LABEL[row.access.level]}</span>;
+    return <span className="text-sm text-ink/60">{accessWordFor(row.access)}</span>;
   }
   const pick = (key: string) => {
     const next = key as GuestAccessLevel;

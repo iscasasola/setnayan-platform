@@ -45,6 +45,7 @@ import { resolveRegion } from '@/lib/region-source';
 import { PERMISSION_TEMPLATES, type RoleSubtype } from '@/lib/event-moderators';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { captchaOptions } from '@/lib/turnstile';
+import { creatorCoupleRowId } from '@/lib/creator-couple-row';
 import { getInPlanningWedding } from '@/app/dashboard/(account)/create-event/wedding-guard';
 import {
   RECEPTION_PICK_TO_VENUE_SETTING,
@@ -843,8 +844,11 @@ export async function commitOnboardingWedding(
   // NOT NULL → fall back to '' (the couple fills it on the guest list). Each
   // side seeds only when its first name is present (canContinue requires ≥1).
   // Mirrors the canonical quickAddGuest insert shape.
+  // 🪪 Which row each seed became — the creator is attached to theirs below.
+  let brideGuestId: string | null = null;
+  let groomGuestId: string | null = null;
   if (brideFirst) {
-    const { error: brideErr } = await admin.from('guests').insert({
+    const { data: brideRow, error: brideErr } = await admin.from('guests').insert({
       event_id: insertedEvent.event_id,
       first_name: brideFirst,
       last_name: brideLast,
@@ -855,7 +859,8 @@ export async function commitOnboardingWedding(
       photo_consent: true,
       invited_to_blocks: defaultInvitedToForRole('bride'),
       custom_tags: [],
-    });
+    }).select('guest_id').single();
+    brideGuestId = (brideRow?.guest_id as string | undefined) ?? null;
     if (brideErr) {
       console.error(
         '[commitOnboardingWedding] bride guest seed failed:',
@@ -866,7 +871,7 @@ export async function commitOnboardingWedding(
     }
   }
   if (groomFirst) {
-    const { error: groomErr } = await admin.from('guests').insert({
+    const { data: groomRow, error: groomErr } = await admin.from('guests').insert({
       event_id: insertedEvent.event_id,
       first_name: groomFirst,
       last_name: groomLast,
@@ -877,7 +882,8 @@ export async function commitOnboardingWedding(
       photo_consent: true,
       invited_to_blocks: defaultInvitedToForRole('groom'),
       custom_tags: [],
-    });
+    }).select('guest_id').single();
+    groomGuestId = (groomRow?.guest_id as string | undefined) ?? null;
     if (groomErr) {
       console.error(
         '[commitOnboardingWedding] groom guest seed failed:',
@@ -885,6 +891,27 @@ export async function commitOnboardingWedding(
         '| event_id:',
         insertedEvent.event_id,
       );
+    }
+  }
+
+  // 🪪 THE CREATOR IS THEIR OWN ROW (owner 2026-10-04). Screen 2 asked who they
+  // are; the bride or groom they said they are is the row they just named, so
+  // their membership holds it from the first second — "Linked", and never the
+  // "Not linked" host row that had no way to be claimed. A helper (or no
+  // answer) holds no row: nobody is guessed, and the card's "This is me" is the
+  // way in. Best-effort and conditional (`guest_id IS NULL`): the event and
+  // membership are already saved, so a failure here only leaves "This is me".
+  const creatorRowId = creatorCoupleRowId(payload.role, { bride: brideGuestId, groom: groomGuestId });
+  if (creatorRowId) {
+    const { error: linkErr } = await admin
+      .from('event_members')
+      .update({ guest_id: creatorRowId, role: payload.role })
+      .eq('event_id', insertedEvent.event_id)
+      .eq('user_id', user.id)
+      .eq('member_type', 'couple')
+      .is('guest_id', null);
+    if (linkErr) {
+      console.error('[commitOnboardingWedding] creator row link failed (non-fatal):', linkErr.message, '| event_id:', insertedEvent.event_id);
     }
   }
 

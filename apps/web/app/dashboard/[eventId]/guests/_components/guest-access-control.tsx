@@ -9,8 +9,8 @@
  */
 
 import {
-  ACCESS_LEVEL_LABEL,
   accessNote,
+  accessWordFor,
   type GuestAccessState,
 } from '@/lib/guest-access';
 import { ChangeAccessLink } from '@/app/dashboard/[eventId]/_components/coordinator-seat-controls';
@@ -31,7 +31,7 @@ export function GuestAccessControl({
     <div className="space-y-2" data-guest-access>
       <div className="flex items-center justify-between gap-3">
         <span className="text-sm text-ink">Access</span>
-        <span className="text-sm text-ink/60">{ACCESS_LEVEL_LABEL[initial.level]}</span>
+        <span className="text-sm text-ink/60">{accessWordFor(initial)}</span>
       </div>
       <p className="text-xs text-ink/55">{accessNote(initial, firstName)}</p>
       {canManage && initial.lock !== 'creator' ? <ChangeAccessLink eventId={eventId} /> : null}

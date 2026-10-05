@@ -49,7 +49,8 @@ import type { InviteSetup } from './invite-message-setup';
 import type { ComponentType } from 'react';
 import { AutosaveForm, AutosaveState } from './guest-card-autosave';
 import { GuestAccessControl } from './guest-access-control';
-import { ACCESS_LEVEL_LABEL, accessTag } from '@/lib/guest-access';
+import { accessTag, accessWordFor } from '@/lib/guest-access';
+import { THIS_IS_ME_REFUSAL_COPY } from '@/lib/creator-couple-row';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 import { invitationLinkOn } from '@/lib/invitation-link';
@@ -171,6 +172,8 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   // ⋯ › New QR (releaseGuestClaim › newGuestQr).
   new_qr_failed: 'A new QR could not be made just now — the old one still works. Please try again.',
   new_qr_rate_limited: 'This QR was already replaced 3 times in the last 24 hours — try again later.',
+  // 🪪 "This is me" (releaseGuestClaim › thisIsMe › claim_my_couple_row).
+  ...THIS_IS_ME_REFUSAL_COPY,
 };
 
 export function GuestCardBody({
@@ -244,6 +247,7 @@ export function GuestCardBody({
     recordedAt,
     access,
     canManageAccess,
+    offersThisIsMe,
     nameLinked,
     linkedAccount,
     profileName,
@@ -271,7 +275,8 @@ export function GuestCardBody({
   const linked: boolean | null = canManageAccess ? Boolean(linkedAccount) : null;
   const hasTicket = guestHasTicket(guest);
   const seats = plusOneSeats(guest);
-  const hostWord = access?.level === 'co_host' ? 'Co-host' : 'Host';
+  // The creator is the Host; a couple row someone chose is a Co-host (owner 2026-10-04).
+  const hostWord = access?.level === 'co_host' ? accessWordFor(access) : 'Host';
 
   const more = MoreMenu ? (
     <MoreMenu
@@ -308,8 +313,7 @@ export function GuestCardBody({
   const photosSummary = `Tagging ${guest.photo_consent ? 'on' : 'off'}${guest.faceblock_enabled ? ' · Blurred' : ''}`;
   const accessSummary = [
     linked === null ? null : linked ? 'Linked' : 'Not linked',
-    access ? ACCESS_LEVEL_LABEL[access.level] : null,
-    access?.lock === 'creator' ? 'creator' : null,
+    access ? accessWordFor(access) : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -460,6 +464,21 @@ export function GuestCardBody({
                   .filter(Boolean)
                   .join(' · ') || '—'}
               </p>
+              {/* 🪪 A host's own unlinked bride / groom row (owner 2026-10-04):
+                  one action, in place — it attaches the host's membership to
+                  this row (claim_my_couple_row re-checks everything). */}
+              {offersThisIsMe ? (
+                <form action={releaseAction} data-this-is-me="">
+                  <input type="hidden" name="this_is_me" value="1" />
+                  <input type="hidden" name="return_to" value={returnTo} />
+                  <SubmitButton
+                    className="mt-1 block min-h-[44px] w-full rounded-full border border-ink/15 px-4 text-sm font-medium text-ink/75 transition-colors hover:border-ink/40 hover:text-ink disabled:opacity-60"
+                    pendingLabel="Saving…"
+                  >
+                    This is me
+                  </SubmitButton>
+                </form>
+              ) : null}
             </div>
           )}
         </div>

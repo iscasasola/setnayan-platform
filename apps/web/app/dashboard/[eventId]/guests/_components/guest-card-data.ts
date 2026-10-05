@@ -24,6 +24,7 @@ import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { readSeatAccount } from '@/lib/seat-unlink';
 import { accountNamesByGuest } from '@/lib/linked-profile-names';
 import { withProfileName } from '@/lib/formal-name';
+import { offersThisIsMe } from '@/lib/creator-couple-row';
 
 /**
  * The base every guest's own invitation link (and NFC tag) is built from —
@@ -91,6 +92,12 @@ export type GuestCardData = {
   access: GuestAccessState | null;
   /** The viewer is a co-host, so the Access dropdown is theirs to change. */
   canManageAccess: boolean;
+  /**
+   * 🪪 "This is me" (owner 2026-10-04): the viewer is a host who holds no row,
+   * and this is a live, unlinked bride / groom row no other account owns.
+   * False on any doubt — the database (`claim_my_couple_row`) re-checks it all.
+   */
+  offersThisIsMe: boolean;
   /** 🔒 A plus-one who linked their OWN account — their name is shown read-only,
    *  "Linked to their account" (owner 2026-09-29, OWNER ANSWERS (10)). */
   nameLinked: boolean;
@@ -300,13 +307,13 @@ export async function loadGuestCard(
 
   // Access (co-host / limited helper) and whether the viewer may change it —
   // plus, beside them, whether a +1 holds their own account (needs the row).
-  const [accessMap, canManageAccess, nameLinked] = await Promise.all([
+  const [accessMap, viewerMembership, nameLinked] = await Promise.all([
     loadGuestAccessMap(eventId, [{ guest_id: guest.guest_id, role: guest.role }]),
     (async () => {
-      if (!viewerId) return false;
+      if (!viewerId) return null;
       const { data: me, error: meError } = await supabase
         .from('event_members')
-        .select('member_type')
+        .select('member_type, guest_id')
         .eq('event_id', eventId)
         .eq('user_id', viewerId)
         .eq('member_type', 'couple')
@@ -316,7 +323,7 @@ export async function loadGuestCard(
       if (meError) {
         logQueryError('loadGuestCard.canManageAccess', meError, { eventId, guestId }, 'graceful_degrade');
       }
-      return Boolean(me);
+      return me ? { holdsRow: Boolean((me as { guest_id: string | null }).guest_id) } : null;
     })(),
     guest.plus_one_of_guest_id
       ? (async () => {
@@ -333,8 +340,30 @@ export async function loadGuestCard(
       : Promise.resolve(false),
   ]);
 
-  // Who holds this row — read only for the couple (another account's email).
-  const linkedAccount = canManageAccess ? await readSeatAccount(eventId, guest.guest_id) : null;
+  const canManageAccess = viewerMembership !== null;
+
+  // Who holds this row — read only for the couple (another account's email) —
+  // and, beside it (never behind it), 🪪 the two facts "This is me" needs, read
+  // only on a host's couple row while the host holds no row.
+  const askThisIsMe =
+    viewerMembership !== null && !viewerMembership.holdsRow && isCouple && guest.passed_away !== true;
+  const [linkedAccount, rowFacts] = canManageAccess
+    ? await Promise.all([
+        readSeatAccount(eventId, guest.guest_id),
+        askThisIsMe ? readCoupleRowHolders(eventId, guest.guest_id, viewerId) : Promise.resolve(null),
+      ])
+    : [null, null];
+  // A refused read (null) offers nothing.
+  const thisIsMe =
+    rowFacts !== null &&
+    offersThisIsMe({
+      viewerIsHost: canManageAccess,
+      viewerHoldsARow: viewerMembership?.holdsRow ?? true,
+      rowIsCouple: isCouple,
+      rowIsLinked: rowFacts.linked || linkedAccount !== null,
+      rowPassedAway: guest.passed_away === true,
+      rowOwnedByAnotherAccount: rowFacts.ownedByAnother,
+    });
 
   return {
     roleNames,
@@ -359,8 +388,48 @@ export async function loadGuestCard(
     recordedAt: formatRecordedAt(guest.rsvp_responded_at),
     access: accessMap?.get(guest.guest_id) ?? null,
     canManageAccess,
+    offersThisIsMe: thisIsMe,
     nameLinked,
     linkedAccount,
     profileName: linkedProfile ? { isYou: linkedProfile.userId === viewerId } : null,
   };
+}
+
+/**
+ * 🪪 The two facts `claim_my_couple_row` refuses on: does any account hold this
+ * row, and is its person another account's? Admin client (another account's
+ * link is not the viewer's to read); the caller has already passed the host
+ * gate. NULL ON ANY DOUBT: a refused read must not offer an action.
+ */
+async function readCoupleRowHolders(
+  eventId: string,
+  guestId: string,
+  viewerId: string | null,
+): Promise<{ linked: boolean; ownedByAnother: boolean } | null> {
+  if (!viewerId) return null;
+  const admin = createAdminClient();
+  const [held, row] = await Promise.all([
+    admin.from('event_members').select('id').eq('event_id', eventId).eq('guest_id', guestId).limit(1),
+    admin.from('guests').select('person_id').eq('event_id', eventId).eq('guest_id', guestId).maybeSingle(),
+  ]);
+  if (held.error || row.error) {
+    logQueryError('loadGuestCard.thisIsMe', held.error ?? row.error, { eventId, guestId }, 'graceful_degrade');
+    return null;
+  }
+  if (!row.data) return null;
+  const personId = (row.data as { person_id: string | null }).person_id;
+  let owner: string | null = null;
+  if (personId) {
+    const { data: person, error } = await admin
+      .from('people')
+      .select('claimed_by_user_id')
+      .eq('person_id', personId)
+      .maybeSingle();
+    if (error) {
+      logQueryError('loadGuestCard.thisIsMe.person', error, { eventId, guestId }, 'graceful_degrade');
+      return null;
+    }
+    owner = (person as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id ?? null;
+  }
+  return { linked: (held.data ?? []).length > 0, ownedByAnother: owner !== null && owner !== viewerId };
 }

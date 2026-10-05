@@ -30,6 +30,19 @@ export const ACCESS_LEVEL_LABEL: Readonly<Record<GuestAccessLevel, string>> = {
   limited_helper: 'Limited helper',
 };
 
+/**
+ * THE CREATOR'S WORD — "Host", never "Co-host" (owner 2026-10-04: the account
+ * that created the event read "Co-host" on its own row). A co-host is someone
+ * the host CHOSE; the person who made the event is the host. Every surface that
+ * prints a person's access asks `accessWordFor`, so the two words can never split.
+ */
+export const CREATOR_WORD = 'Host';
+
+/** The word for one person's access: the creator is the Host; everyone else by level. */
+export function accessWordFor(state: Pick<GuestAccessState, 'level' | 'lock'>): string {
+  return state.lock === 'creator' ? CREATOR_WORD : ACCESS_LEVEL_LABEL[state.level];
+}
+
 /** event_moderators.role_subtype written for each level. */
 export const ACCESS_SEAT_KIND: Readonly<Record<Exclude<GuestAccessLevel, 'none'>, string>> = {
   co_host: 'co_host',
@@ -128,16 +141,16 @@ export function guestAccessState(input: {
   return { level, live, lock };
 }
 
-/** The tag on the guest list, or null. The word is "Co-host", never "Host". */
+/** The tag on the guest list, or null. "Co-host" for a chosen co-host; the creator is the "Host". */
 export function accessTag(state: GuestAccessState): string | null {
   if (state.level === 'none') return null;
-  const word = ACCESS_LEVEL_LABEL[state.level];
+  const word = accessWordFor(state);
   return state.live ? word : `${word} · waiting for them to join`;
 }
 
 /** The one line under the Access dropdown. */
 export function accessNote(state: GuestAccessState, firstName: string): string {
-  if (state.lock === 'creator') return 'Created this event — always a co-host.';
+  if (state.lock === 'creator') return 'Created this event — the host.';
   if (state.lock === 'celebrant') {
     return `${firstName} is a celebrant, so ${firstName} stays a co-host. A celebrant can change ${firstName}'s role first.`;
   }

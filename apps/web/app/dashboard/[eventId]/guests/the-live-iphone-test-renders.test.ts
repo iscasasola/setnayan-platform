@@ -99,6 +99,7 @@ async function paintCard(over: Partial<GuestRow> = {}, opts: { withMenu?: boolea
     recordedAt: null,
     access: null,
     canManageAccess: true,
+    offersThisIsMe: false,
     nameLinked: false,
     linkedAccount: null,
     profileName: null,

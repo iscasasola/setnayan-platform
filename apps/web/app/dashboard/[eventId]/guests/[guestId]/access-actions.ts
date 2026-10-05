@@ -17,7 +17,7 @@
  * ── WHAT THIS REFUSES, AND WHERE ────────────────────────────────────────────
  *   · not a co-host → here (the `couple` membership is the co-host test; a
  *     limited helper or hired planner is `coordinator` and cannot grant).
- *   · the creator's own row → here (always a co-host).
+ *   · the creator's own row → here (always the host).
  *   · removing or narrowing a CELEBRANT co-host → the database
  *     (`a_celebrant_cohost_stays`); we translate its error into words.
  *
@@ -110,7 +110,7 @@ export async function setGuestAccess(
 
   const isCreator = await guestIsCreator(admin, eventId, g.person_id);
   if (isCreator) {
-    return { ok: false, error: 'The person who created the event is always a co-host.' };
+    return { ok: false, error: 'The person who created the event is always the host.' };
   }
 
   const { data: seatRow } = await admin

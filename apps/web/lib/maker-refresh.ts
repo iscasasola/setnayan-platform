@@ -290,8 +290,8 @@ export function makerWritesPending(key?: string): number {
 export function makerSave<T>(send: () => Promise<T>, refresh: () => void, options: MakerSaveOptions<T> = {}): Promise<T> {
   if (!options.held) announceUnheldWrite();
   if (!options.held) unheldInFlight += 1;
-  return shared
-    .save(send, refresh, options.ok, Boolean(options.held))
+  const saved = shared.save(send, refresh, options.ok, Boolean(options.held));
+  return saved
     .finally(() => {
       if (!options.held) unheldInFlight -= 1;
     })

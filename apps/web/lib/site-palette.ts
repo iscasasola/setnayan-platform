@@ -173,7 +173,7 @@ export function buildSitePaletteVars(
   // The plates are moved toward the paper until that ink reads on them at the
   // same bar — a Supporting that already reads is used as it is; a dark or mid
   // one is softened to a tint of itself.
-  let plate = supporting ?? darken(paper, 0.04);
+  let plate = whole(supporting ?? darken(paper, 0.04));
   const from = plate;
   for (let t = 0.05; t <= 1.0001 && !readsMuted(ink, plate); t += 0.05) plate = whole(blend(from, paper, t));
 

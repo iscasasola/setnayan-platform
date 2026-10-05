@@ -269,7 +269,9 @@ test('FUZZ (seeded): a few hundred boards, light and dark Neutral — every text
     const dark = i % 2 === 1;
     // A light Neutral (≥ #D8 per channel) or a dark one (≤ #30) — mid-grey is best-effort by design.
     const n = dark ? hex(rnd() * 48, rnd() * 48, rnd() * 48) : hex(216 + rnd() * 39, 216 + rnd() * 39, 216 + rnd() * 39);
-    const v = buildSitePaletteVars({ reception: [any(), any(), any(), n, any()] })!;
+    // Every third board leaves Supporting empty — the plate is then derived from the paper.
+    // (an unreadable slot reads as missing — `hexToRgb` refuses it — while the Neutral stays in place).
+    const v = buildSitePaletteVars({ reception: [any(), i % 3 === 0 ? '' : any(), any(), n, any()] })!;
     const paper = v['--color-cream']!;
     const plate = v['--color-paper-deep']!;
     for (const g of [paper, plate]) {

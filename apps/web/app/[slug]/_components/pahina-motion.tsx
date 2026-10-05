@@ -247,6 +247,44 @@ q();
  * and neither can count siblings in CSS.
  * Fail-visible like everything else here: no mark, nothing bound, the row sits
  * where the layout put it.
+ *
+ * ── 🔴 A CHAPTER THAT ARRIVES AFTER THE ATTACH IS STILL REVEALED (2026-10-05)
+ * Owner, on his iPhone, on /maria-and-jose seen as "Guest who hasn't replied":
+ * *"nothing is showing anything"* — the greeting and the "RSVP for the event"
+ * link sat at opacity 0, so a guest could not reach the reply button.
+ *
+ * The attach ran ONCE (`done`), on the chapters that existed at that instant.
+ * But this script runs only on a full document load: a client navigation (the
+ * host's Preview ▾ "see as", any `<Link>` into the hub), a `router.refresh()`
+ * (the day-of live tick, a reply) or a client-rendered section mounts NEW
+ * chapter nodes, and the inline script is never run again. `.pahina-js` stays
+ * on <html> — it outlives the page that set it — so every new chapter was
+ * hidden by the CSS and observed by nobody, forever. A re-render that rewrites
+ * a chapter's `className` drops a `.pahina-in` it had already earned the same
+ * way. The fail-visible contract was broken by the case it never imagined: a
+ * chapter that did not exist yet when the observer looked.
+ *
+ * So once attached, two things keep watching, and both fail VISIBLE:
+ *   1. A MutationObserver on <body> (it survives client navigations; the
+ *      `.sn-editorial` root does not) schedules a `sweep` on any added node,
+ *      `class` change or `hidden` toggle (a tab switch). The sweep observes
+ *      every chapter that lacks `.pahina-in` — observing twice is a no-op by
+ *      the IntersectionObserver spec — so a late chapter still gets its fade.
+ *   2. The same `sweep` is the safety net: any chapter that is RENDERED (has a
+ *      box — a hidden tab's chapters have none and wait for their tab) and
+ *      whose top is in or above the viewport is revealed outright. It runs on
+ *      scroll and resize (throttled to one per 200ms, so the last position is
+ *      always swept) and once 1.2s after attach — so a document where
+ *      IntersectionObserver never delivers (a hidden tab, a webview) still
+ *      shows what the guest has scrolled to. A chapter below the screen is left
+ *      for the fade: the choreography is kept for the normal case.
+ * A chapter that already faded in and then loses `.pahina-in` to a re-render
+ * (React writing its `className` afresh — `router.refresh()`, the live tick)
+ * gets it back IN the MutationObserver callback, which runs before the next
+ * paint — so it never dips and fades in again. A viewport with no height, or a
+ * throw anywhere in either, drops `.pahina-js`: the page is un-hidden, never
+ * stranded. Once the flag is gone the watcher disconnects itself. `every-chapter-is-revealed.test.ts` runs this script against a
+ * DOM that mounts chapters after the attach, and is sabotage-checked.
  */
 export function PahinaMotionObserver() {
   return (
@@ -259,16 +297,40 @@ if(!r.classList.contains('pahina-js'))return;
 window.__pahinaArmed=true;
 var give=function(saw){try{console.warn('[pahina] scroll choreography stood down: no chapters to observe (matched '+saw+'). The page stays fully visible.')}catch(e){}r.classList.remove('pahina-js')};
 var sel='.sn-editorial [data-pahina-chapters] > *';
-var done=false;
+var done=false,io=null,net=false,due=false,mo=null;
+var won=typeof WeakSet==='function'?new WeakSet():null;
+var show=function(el){el.classList.add('pahina-in');if(won)won.add(el);io.unobserve(el)};
+var watch=function(n){for(var i=0;i<n.length;i++){if(!n[i].classList.contains('pahina-in'))io.observe(n[i])}};
+var stop=function(){try{if(mo)mo.disconnect();if(window.removeEventListener){window.removeEventListener('scroll',soon);window.removeEventListener('resize',soon)}}catch(e){}};
+var sweep=function(){due=false;try{
+if(!r.classList.contains('pahina-js')){stop();return}
+if(!io)return;
+var n=document.querySelectorAll(sel);
+if(!n.length)return;
+watch(n);
+var h=window.innerHeight||r.clientHeight||0;
+if(!h){r.classList.remove('pahina-js');stop();return}
+for(var i=0;i<n.length;i++){var el=n[i];
+if(el.classList.contains('pahina-in')||!el.getClientRects().length)continue;
+if(el.getBoundingClientRect().top<h)show(el)}
+}catch(e){r.classList.remove('pahina-js')}};
+var soon=function(){if(due)return;due=true;setTimeout(sweep,200)};
+var mut=function(ms){try{if(won&&ms){for(var i=0;i<ms.length;i++){var t=ms[i].target;if(ms[i].attributeName==='class'&&won.has(t)&&!t.classList.contains('pahina-in'))t.classList.add('pahina-in')}}}catch(e){}soon()};
+var guard=function(){if(net)return;net=true;try{
+if(typeof MutationObserver==='function'){mo=new MutationObserver(mut);mo.observe(document.body||r,{childList:true,subtree:true,attributes:true,attributeFilter:['class','hidden']})}
+if(window.addEventListener){window.addEventListener('scroll',soon,{passive:true});window.addEventListener('resize',soon,{passive:true})}
+setTimeout(sweep,1200);
+}catch(e){r.classList.remove('pahina-js')}};
 var attach=function(){
 if(done)return true;
 var n=document.querySelectorAll(sel);
 if(!n.length)return false;
 done=true;
-var io=new IntersectionObserver(function(es){
-for(var i=0;i<es.length;i++){if(es[i].isIntersecting){es[i].target.classList.add('pahina-in');io.unobserve(es[i].target)}}
+io=new IntersectionObserver(function(es){
+for(var i=0;i<es.length;i++){if(es[i].isIntersecting)show(es[i].target)}
 },{rootMargin:'0px 0px -6% 0px',threshold:0.01});
-for(var i=0;i<n.length;i++){io.observe(n[i])}
+watch(n);
+guard();
 return true};
 var hsel='.hub-canvas, style[data-hub-els]';
 var rsel='.hub-canvas [data-hub-rows] > *';

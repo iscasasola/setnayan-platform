@@ -58,14 +58,28 @@ function shippedScript(): string {
 
 type FakeEl = {
   classes: Set<string>;
-  classList: { add(c: string): void };
+  classList: { add(c: string): void; contains(c: string): boolean; remove(c: string): void };
   tagName?: string;
   previousElementSibling?: FakeEl | null;
+  /** Unrendered by default: the safety sweep (`every-chapter-is-revealed.test.ts`)
+   *  leaves a chapter with no box alone, so these tests see only the observer. */
+  getClientRects(): unknown[];
+  getBoundingClientRect(): { top: number };
 };
 
 function makeEl(): FakeEl {
   const classes = new Set<string>();
-  return { classes, classList: { add: (c: string) => void classes.add(c) }, tagName: 'SECTION' };
+  return {
+    classes,
+    classList: {
+      add: (c: string) => void classes.add(c),
+      contains: (c: string) => classes.has(c),
+      remove: (c: string) => void classes.delete(c),
+    },
+    tagName: 'SECTION',
+    getClientRects: () => [],
+    getBoundingClientRect: () => ({ top: 0 }),
+  };
 }
 
 /** A hub scene: a `.hub-canvas` frame, or a bare scene followed by its element `<style>`. */
@@ -95,6 +109,7 @@ function run(chaptersAfterFlush: number, chaptersNow = 0, hubAfterFlush: Array<'
   const timers: Array<() => void> = [];
   const observed: FakeEl[] = [];
   const warnings: string[] = [];
+  let chapterObservers = 0;
   let ioCallback: ((entries: Array<{ isIntersecting: boolean; target: FakeEl }>) => void) | null = null;
 
   const document = {
@@ -117,7 +132,8 @@ function run(chaptersAfterFlush: number, chaptersNow = 0, hubAfterFlush: Array<'
           : hubs.slice(0, hubVisible).map((h) => h.node),
     addEventListener: (_ev: string, fn: () => void) => void listeners.push(fn),
   };
-  const win: Record<string, unknown> = {};
+  // A real height: the safety sweep un-hides the page when the viewport has none.
+  const win: Record<string, unknown> = { innerHeight: 800 };
   class FakeIO {
     private hub: boolean;
     constructor(
@@ -128,9 +144,10 @@ function run(chaptersAfterFlush: number, chaptersNow = 0, hubAfterFlush: Array<'
       // the chapters' fires inside the screen. That is how the two are told apart.
       this.hub = /^0px 0px \d/.test(opts?.rootMargin ?? '');
       if (this.hub) hubCallback = cb;
-      else ioCallback = cb;
+      else { ioCallback = cb; chapterObservers++; }
     }
-    observe(t: FakeEl) { (this.hub ? hubObserved : observed).push(t); }
+    // Observing a target twice is a no-op in the IntersectionObserver spec.
+    observe(t: FakeEl) { const l = this.hub ? hubObserved : observed; if (!l.includes(t)) l.push(t); }
     unobserve() {}
   }
   const console = { warn: (m: string) => void warnings.push(m) };
@@ -149,6 +166,7 @@ function run(chaptersAfterFlush: number, chaptersNow = 0, hubAfterFlush: Array<'
     intersect(i: number) { ioCallback?.([{ isIntersecting: true, target: els[i]! }]); },
     approach(i: number) { hubCallback?.([{ isIntersecting: true, target: hubs[i]!.scene }]); },
     timerCount: () => timers.length,
+    chapterObservers: () => chapterObservers,
   };
 }
 
@@ -211,6 +229,7 @@ test('it attaches once, not twice, when both paths fire', () => {
   r.flush();
   r.fireTimer();
   assert.equal(r.observed.length, 4, 'the chapters were observed twice — both retry paths ran');
+  assert.equal(r.chapterObservers(), 1, 'a second chapter observer was built — both retry paths attached');
 });
 
 test('it does nothing at all when the flag was never set (reduced motion / no IO)', () => {

@@ -165,23 +165,30 @@ export function buildSitePaletteVars(
   const ctaBase = slot(MAIN_SLOT.accent) ?? deepColorful[0] ?? accentBase;
   const cta = ensureReadable(ctaBase, paper, 4.5);
 
-  // Supporting → the cards and sections (the plates); their words computed on them.
-  const plate = slot(MAIN_SLOT.supporting) ?? darken(paper, 0.04);
+  // Supporting → the cards and sections (the plates). Many cards set their words
+  // in the PAGE ink, so the plate is moved toward the paper until that ink reads
+  // on it (AA 4.5) — a light Supporting is used as it is; a dark or mid one is
+  // softened to a tint of itself. Its own computed ink rides `--color-ink-on-plate`.
+  const supporting = slot(MAIN_SLOT.supporting);
+  let plate = supporting ?? darken(paper, 0.04);
+  for (let t = 0.05; supporting && t <= 1.0001 && contrast(ink, plate) < 4.5; t += 0.05) plate = blend(supporting, paper, t);
   // Dominant → headings and large blocks — readable as large text (AA-large) on the paper.
   const heading = ensureReadable(slot(MAIN_SLOT.dominant) ?? accentBase, paper, 3);
   // Accent 2 → ornaments and dividers. Decor only — no contrast floor.
   const gild = slot(MAIN_SLOT.accent2) ?? gildFromPool(pool);
   const veilBoard: RolePalette = { reception: pool.map(toHex) };
+  const away = (c: RGB, amount: number) => (luminance(paper) > 0.18 ? darken(c, amount) : lighten(c, amount));
 
   return {
     '--color-cream': channels(paper),
     '--color-ink': channels(ink),
     '--color-terracotta': channels(accent),
-    '--color-terracotta-600': channels(darken(accent, 0.12)),
-    '--color-terracotta-700': channels(darken(accent, 0.24)),
+    // Hover / pressed steps move AWAY from the paper — darker on a light page, lighter on a dark one.
+    '--color-terracotta-600': channels(away(accent, 0.12)),
+    '--color-terracotta-700': channels(away(accent, 0.24)),
     '--color-mulberry': channels(cta),
-    '--color-mulberry-600': channels(darken(cta, 0.15)),
-    '--color-mulberry-700': channels(darken(cta, 0.28)),
+    '--color-mulberry-600': channels(away(cta, 0.15)),
+    '--color-mulberry-700': channels(away(cta, 0.28)),
     // Pahina material tokens (design 2026-07-25 §4). Root fallbacks live in
     // globals.css so palette-less events (this fn returns null) get the same three tokens.
     '--color-gild': channels(gild),

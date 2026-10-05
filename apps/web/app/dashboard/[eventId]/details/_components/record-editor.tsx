@@ -4,7 +4,7 @@ import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import { profileSetup, type EventTypeProfile } from '@/lib/event-type-profile';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
-import { INVITE_THEMES, normalizeThemeId, pickableInviteThemes, resolveInviteTheme } from '@/lib/invite-themes';
+import { normalizeThemeId, pickableInviteThemes, resolveInviteTheme } from '@/lib/invite-themes';
 import { hasOwnLook } from '@/lib/theme-own-look';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import { makerProMark } from '@/lib/paid-mark';
@@ -15,7 +15,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { recordFieldHref, type RecordEditorKey } from '@/lib/event-details-record';
-import { boardIsTheCouples, boardSiteColours, buttonFallback, themeColours, themeSeedPalettes } from '@/lib/theme-colours';
+import { boardIsTheCouples, boardSiteColours, buttonFallback, dressedTheme, themeColours, themeSeedPalettes } from '@/lib/theme-colours';
 import { MakerThemeMenu, ThemePickProvider } from '../../launch/_components/maker-theme-picker';
 import { ButtonsLookRow, ColorsPanel, MakerRsvpSettings, ProLockPanel, SpecialMessageField } from '../../launch/_components/details-lazy';
 import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from '../../launch/_components/details-answers-parts';
@@ -113,7 +113,8 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
         /* 🔘 Look › Buttons — measured against the page as it paints, the
            host's own colour left out so "Theme’s" shows the page without it
            (the work area's own composition). */
-        const theme = INVITE_THEMES[themeId];
+        // 🎨 Measured on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
+        const theme = dressedTheme(themeId, drafted.role_palette);
         const pageLook = guestLookFrom(
           { ...drafted, site_button_color: null, site_button_style: null } as unknown as EventShellRow,
           { theme: themeId, accent: '#000000', monogram: '' },

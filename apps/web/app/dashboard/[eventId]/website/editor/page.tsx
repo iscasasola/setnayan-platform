@@ -28,7 +28,7 @@ import {
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { boardSiteColours, buttonFallback, themeColours } from '@/lib/theme-colours';
+import { boardSiteColours, buttonFallback, dressedTheme, themeColours } from '@/lib/theme-colours';
 import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
@@ -896,7 +896,8 @@ export default async function WebsiteEditorPage({
            the guest page's own composition (`guestLookFrom`, the host's colour
            left out so "Theme’s" shows what the page wears without it). Free. */
         (() => {
-          const theme = INVITE_THEMES[currentThemeId];
+          // 🎨 Measured on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
+          const theme = dressedTheme(currentThemeId, (drafted as { role_palette?: unknown }).role_palette);
           const pageLook = guestLookFrom(
             {
               ...(drafted as Record<string, unknown>),

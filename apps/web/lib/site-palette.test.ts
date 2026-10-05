@@ -74,8 +74,12 @@ test('Pahina: gild warms toward metallic on a warm palette (not the raw swatch)'
 
 test('Pahina: the plates are the Supporting colour (slot 2); with none, a hair darker than paper', () => {
   // 🎨 THE 5 MAIN COLOURS, ONE JOB EACH (owner 2026-10-05): Supporting → cards / sections.
-  const slotted = buildSitePaletteVars({ reception: ['#C97B4B', '#824A2A', '#A9B89E', '#FAF7F2', '#B08D57'] })!;
-  assert.deepEqual(chanToRgb(slotted['--color-paper-deep']!), { r: 0x82, g: 0x4a, b: 0x2a });
+  const slotted = buildSitePaletteVars({ reception: ['#C97B4B', '#E3D3C2', '#A9B89E', '#FAF7F2', '#B08D57'] })!;
+  assert.deepEqual(chanToRgb(slotted['--color-paper-deep']!), { r: 0xe3, g: 0xd3, b: 0xc2 });
+  // A dark Supporting is softened to a tint of itself, toward the paper, until the words read.
+  const dark = buildSitePaletteVars({ reception: ['#C97B4B', '#824A2A', '#A9B89E', '#FAF7F2', '#B08D57'] })!;
+  const p = chanToRgb(dark['--color-paper-deep']!);
+  assert.ok(p.r > 0x82 && p.r <= 0xfa && p.r > p.b, 'the cards are a warm tint of the Supporting colour, lifted toward the paper');
   const vars = buildSitePaletteVars({ reception: ['#FAF7F2'] });
   assert.ok(vars);
   const paper = chanToRgb(vars!['--color-cream']!);
@@ -182,4 +186,22 @@ test('THE 5 MAIN COLOURS (owner 2026-10-05): each slot does its one job, and att
   assert.ok(contrast(v['--color-ink-on-plate']!, v['--color-paper-deep']!) >= 4.5, 'card words read on the Supporting colour');
   // A board with ONLY attire colours does not dress the page at all.
   assert.equal(buildSitePaletteVars({ bridesmaids: ['#00E5FF'], guest: ['#FF00AA'] }), null);
+});
+
+test('a dark, mid or light Supporting colour: card words (the page ink and the plate ink) always read on the cards', () => {
+  for (const supporting of ['#1E2229', '#6B4F3A', '#9CA98B', '#C9A9A6', '#E8DCC8']) {
+    const v = buildSitePaletteVars({ reception: ['#2E4A3F', supporting, '#8A3B52', '#F7F2EA', '#B08D57'] })!;
+    assert.ok(contrast(v['--color-ink']!, v['--color-paper-deep']!) >= 4.5, `${supporting}: page ink on the cards ${contrast(v['--color-ink']!, v['--color-paper-deep']!).toFixed(2)}`);
+    assert.ok(contrast(v['--color-ink-on-plate']!, v['--color-paper-deep']!) >= 4.5, `${supporting}: plate ink on the cards`);
+  }
+  // A light Supporting is the cards exactly.
+  const light = buildSitePaletteVars({ reception: ['#2E4A3F', '#E8DCC8', '#8A3B52', '#F7F2EA', '#B08D57'] })!;
+  assert.deepEqual(chanToRgb(light['--color-paper-deep']!), { r: 0xe8, g: 0xdc, b: 0xc8 });
+});
+
+test('hover steps move away from the paper — lighter on a dark page', () => {
+  const dark = buildSitePaletteVars({ reception: ['#E9D8A6', '#2A2A35', '#C77DFF', '#121218', '#B08D57'] })!;
+  assert.ok(lum(chanToRgb(dark['--color-mulberry-600']!)) > lum(chanToRgb(dark['--color-mulberry']!)), 'a hover on a dark page went darker');
+  const light = buildSitePaletteVars({ reception: ['#2E4A3F', '#E8DCC8', '#8A3B52', '#F7F2EA', '#B08D57'] })!;
+  assert.ok(lum(chanToRgb(light['--color-mulberry-600']!)) < lum(chanToRgb(light['--color-mulberry']!)));
 });

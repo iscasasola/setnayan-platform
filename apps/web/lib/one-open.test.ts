@@ -135,7 +135,6 @@ const WIRED: ReadonlyArray<{ file: string; scope: boolean; calls?: number }> = [
   { file: 'app/dashboard/[eventId]/studio/mood-board/_components/swatch-popover.tsx', scope: false },
   { file: 'app/dashboard/[eventId]/schedule/_components/day-ui.tsx', scope: false },
   { file: 'app/dashboard/[eventId]/story/_components/make-it-yours.tsx', scope: false },
-  { file: 'app/dashboard/[eventId]/guests/_components/walking-order-lines.tsx', scope: false },
   { file: 'app/dashboard/[eventId]/_components/expand-card.tsx', scope: true },
   { file: 'app/dashboard/(launcher)/_components/event-card-menu.tsx', scope: false },
   { file: 'app/(shell)/explore/_components/taxonomy-search.tsx', scope: false },

@@ -410,8 +410,8 @@ const NO_FORM_WRITERS: Array<[file: string, anchor: RegExp, why: string]> = [
   // list's own island) writes live. (The names and the date left this list on
   // 2026-10-01, the venues on 2026-10-04: they are DRAFTED now — owner "wait
   // for apply" / "venues wait for Apply" — held by the test below.)
-  ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-section-controls=\{key\}[^>]*>[\s{}]*<HubSavesImmediately \/>/, 'a march section writes live and must say so'],
-  ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-line-controls=[\s\S]*?<HubSavesImmediately \/>[\s{}]*<\/section>/, 'a march line writes live and must say so'],
+  // 🚶 Since 2026-10-06 the march is ONE drag maker; it writes live and says so at its top.
+  ['app/dashboard/[eventId]/launch/_components/details-march.tsx', /data-march-maker=""\s+data-writes-live=""[\s\S]*?<HubSavesImmediately \/>/, 'the march maker writes live and must say so'],
   ['app/dashboard/[eventId]/launch/_components/details-people.tsx', /data-people-controls="parent"[^>]*>[\s{}]*<HubSavesImmediately \/>/, "a parent's card writes live and must say so"],
 ];
 

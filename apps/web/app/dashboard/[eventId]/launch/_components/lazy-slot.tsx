@@ -2,7 +2,7 @@ import { Sk, SkLine } from '@/components/skeletons';
 
 /**
  * ⏳ THE SLOT A LAZY DETAILS PIECE HOLDS WHILE ITS CODE ARRIVES
- * (`details-lazy.tsx` · `mood-board-lazy.tsx` · `schedule-lazy.tsx` · `entourage-lazy.tsx`).
+ * (`details-lazy.tsx` · `mood-board-lazy.tsx` · `schedule-lazy.tsx`).
  *
  * Each Details piece's editor or picture loads the first time its item is
  * opened (owner 2026-09-29: "the Maker must never be slow" — its first-load

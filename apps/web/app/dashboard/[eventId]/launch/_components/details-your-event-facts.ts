@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { loadEntourage } from '@/app/[slug]/_lib/loaders';
+import { ENTOURAGE_ROLES } from '@/lib/entourage';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { parentsOffered, peopleLabels, splitStoredName } from '@/lib/details-your-event';
@@ -102,7 +103,8 @@ export async function readYourEventFacts({
     resolveProfile(row.event_type ?? 'wedding'),
     resolveRoleSetForEvent(eventId),
     loadVenueBookings(admin, eventId, draftedVenue ?? undefined),
-    loadEntourage(admin, eventId),
+    /* 🚶 The march as the maker draws it — the couple's sides too (owner 2026-10-06). */
+    loadEntourage(admin, eventId, undefined, true),
   ]);
   const words = eventWordsFromProfile(profile);
   const kind = { words, offeredRoles: roleSet.offeredRoles };
@@ -121,7 +123,10 @@ export async function readYourEventFacts({
      always offered (owner 2026-09-29, "yes to all 4", item 3). */
   const nameWritable = people === null || namesWritable;
   const venues = resolveEventVenues(bookings, row);
-  const marchLines = groups.reduce((n, g) => n + g.rows.length, 0);
+  /* Walks with an entourage member in them — the couple alone is not "a march
+     arranged" (the step's ✓ and its "N lines" mean the entourage, as before). */
+  const printed = new Set<string>(ENTOURAGE_ROLES);
+  const marchLines = groups.reduce((n, g) => n + g.rows.filter((r) => r.some((p) => p !== null && printed.has(p.role))).length, 0);
 
   return {
     row,

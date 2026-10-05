@@ -1,300 +1,778 @@
 'use client';
 
-import { useEffect, useRef, useState, useTransition, type ReactNode } from 'react';
-import { ArrowDown, ArrowUp } from 'lucide-react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
-import type { MarchOption } from '@/lib/march-moves';
+import { isMarchOnlyGroup } from '@/lib/entourage';
+import {
+  keyTarget,
+  leadOf,
+  planMove,
+  planSectionsDefault,
+  readSource,
+  sectionsMoved,
+  readTarget,
+  type MarchMove,
+  type MarchSection,
+  type MarchSource,
+  type MarchStep,
+} from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import { setEntourageLineOrder } from '../../guests/entourage-order-actions';
-import { joinEntourageLine, swapEntouragePlaces } from '../../guests/march-actions';
+import { joinEntourageLine, moveEntourageSection, resetEntourageSections, swapEntouragePlaces } from '../../guests/march-actions';
 import { unpairGuestAction } from '../../guests/pair-actions';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
-import { DetailsPieceButton, useDetailsPiece } from './details-go';
 
 /**
- * THE MARCH, IN THE MAKER'S THREE PARTS (owner 2026-09-29, DECISION_LOG "A TOOL
- * MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS" + "THE WEDDING MARCH
- * ON THE INVITATION TELLS EACH ENTOURAGE MEMBER THEIR ROLE…"):
+ * THE WEDDING MARCH MAKER — drag the names (owner 2026-10-06, DECISION_LOG "THE
+ * WEDDING MARCH ITEM IS A DRAG-AND-DROP MARCH MAKER — NOT A LIST OF NAMES";
+ * prototype `prototypes/wedding_march_drag_maker_2026-10-06_fable.html`).
  *
- *   LEFT    the sections and their lines, in walking order (`MarchPieces`);
- *   MIDDLE  the aisle, the picked line or section in focus (`MarchAisleFocus`);
- *   RIGHT   the picked line's controls — move it earlier or later, who walks
- *           beside whom — or, for a picked section, the Guest list's own
- *           walking-order panel for that section (`MarchControls`).
+ *   *"i don't need this to expand the names"* → the navigator shows ONE item;
+ *   the lines are no longer its pieces. *"no need to the toolbar. we can just
+ *   drag the names"* → no buttons, no ↑↓: every edit is a drag.
+ *   *"the 2 columns that can drag names on both sides"* → two columns, the
+ *   left and the right of the aisle; each walk one numbered row.
  *
- * 🔑 +0 WRITERS, ONE ORDER. Every move is a shipped march action
- * (`setEntourageLineOrder` · `swapEntouragePlaces` · `joinEntourageLine`) and
- * every option is the rule the server asks again (`lib/march-moves.ts`,
- * computed on the server and handed in). The lines are `buildEntourage`'s —
- * the order the invitation and The Entourage card print.
+ * What each drop means, and which SHIPPED action carries it, is
+ * `lib/march-drag.ts` (pure, tested gesture by gesture). This file only lifts,
+ * hit-tests, draws the drop at once, and sends the steps in order through
+ * `makerSave` — one refresh per burst. A refused step puts the march back as
+ * the server has it and says why.
+ *
+ * 📱 Touch: a long-press (~250 ms) lifts a name, so a plain swipe still
+ * scrolls; the list auto-scrolls near its edges. Desktop: a 4 px drag lifts.
+ * ⌨ Keyboard (no buttons are drawn for it): Space picks a name or a walk's
+ * number up, Space on a name or an empty spot puts it there, ↑ / ↓ move it one
+ * walk, Escape puts it back — every outcome said in a polite live region.
+ *
+ * ⚖ Pairs are NOT couples ("A WALK AND A COUPLE ARE INDEPENDENT"): nothing here
+ * says one. The word is "walk alone", never "solo".
+ *
+ * ⏱ IT WRITES LIVE (the march is not part of the Event Hub draft): it says so
+ * with `HubSavesImmediately`, and `data-writes-live` tells the guided flow's
+ * Skip that nothing is left unsaved.
  */
 
-export type MarchSlotData =
-  | { kind: 'name'; id: string; name: string; role: string | null; swapWith: MarchOption[] }
-  | { kind: 'empty'; anchorId: string; anchorName: string; joiners: MarchOption[] };
+export type MarchSectionData = MarchSection;
 
-export type MarchLineData = {
-  leadId: string;
-  /** "Ramon Casasola and Lita Reyes". */
-  label: string;
-  /** Its step in the whole march, 1-based. */
-  step: number;
-  slots: [MarchSlotData, MarchSlotData];
-  /* ⚖ No couple state here (owner 2026-10-01, "A WALK AND A COUPLE ARE
-     INDEPENDENT"): the march sets only who walks together and in what order. */
+/** The words for a step nobody could carry out (a thrown action says nothing a person can act on). */
+const DID_NOT_GO = 'That did not go through — nothing was changed.';
+// no-card-ok: a NAME you drag (a pressable chip), not a container — its edge is what the finger picks up.
+const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col justify-center rounded-lg border px-2.5 py-1.5 transition-[box-shadow,opacity] duration-150 [-webkit-touch-callout:none]'; // no-card-ok: a draggable name chip
+/** A refusal after part of the same move was saved. */
+const partly = (reason: string) =>
+  `${reason.replace(/\s*[—-]\s*nothing was changed\.?$/i, '.').replace(/\.\.$/, '.')} Part of the move was saved — the march shows where everyone is now.`;
+const LAB_SAVED: MarchResult = { ok: true, written: 1 };
+const LAB_NO_RENDER = () => {};
+const LONG_PRESS_MS = 250;
+const SETTLE_MS = 240;
+const EDGE_PX = 56;
+
+/** One shipped action per step — the only door to the server from this maker. */
+async function callStep(eventId: string, step: MarchStep): Promise<MarchResult> {
+  switch (step.kind) {
+    case 'swap':
+      return swapEntouragePlaces(eventId, step.section, step.a, step.b);
+    case 'join':
+      return joinEntourageLine(eventId, step.section, step.anchor, step.joiner);
+    case 'order':
+      return setEntourageLineOrder(eventId, step.section, step.leads);
+    case 'section':
+      return moveEntourageSection(eventId, step.section, step.direction);
+    case 'sections-default':
+      return resetEntourageSections(eventId);
+    case 'unpair':
+      /* "they walk alone, right behind it" — the Guest list's own unpair, in place
+         (a refusal is THROWN in this mode; the catch below says it). */
+      await unpairGuestAction(eventId, step.guest, 'in-place');
+      return { ok: true, written: 1 };
+  }
+}
+
+type Drag = {
+  source: MarchSource;
+  key: string;
+  ghost: HTMLElement;
+  ox: number;
+  oy: number;
+  x: number;
+  y: number;
+  scroller: HTMLElement;
+  dir: number;
 };
 
-export type MarchSectionData = { key: string; label: string; lines: MarchLineData[] };
+/** What the maker shows: the walks, and the printed sections' saved order (what a header drag steps through). */
+type Shown = { sections: MarchSection[]; printed: string[] };
+type Toast = { said: string; undo: MarchStep[] | null; before: Shown | null; refused?: boolean };
 
-const SECTION = 'section:';
+const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
-/** The picked piece: a line's lead id, or `section:<key>`; the first section when none. */
-function usePick(sections: readonly MarchSectionData[]): [string | null, (v: string | null) => void] {
-  const first = sections[0] ? `${SECTION}${sections[0].key}` : null;
-  // Part 3's ONE piece mechanism (`details-go.tsx`), under the item's own key.
-  const [pick, setPick] = useDetailsPiece('march');
-  const known =
-    pick !== null &&
-    sections.some((s) => `${SECTION}${s.key}` === pick || s.lines.some((l) => l.leadId === pick));
-  return [known ? pick : first, (v) => setPick(v, { openEditor: true })];
+/** The scroller's visible top and bottom — clamped to the screen (a tall box may run past it). */
+function edgesOf(el: HTMLElement): [number, number] {
+  const page = el === document.scrollingElement || el === document.documentElement;
+  if (page) return [0, window.innerHeight];
+  const r = el.getBoundingClientRect();
+  return [Math.max(0, r.top), Math.min(window.innerHeight, r.bottom)];
 }
 
-/** LEFT — the sections and their lines, as part 3's navigator pieces. */
-export function MarchPieces({ sections }: { sections: readonly MarchSectionData[] }) {
-  const [pick, setPick] = usePick(sections);
-  return (
-    <>
-      {sections.map((s) => (
-        <div key={s.key} className="contents" data-march-piece-section={s.key}>
-          <p className="hidden px-1 pb-0.5 pt-2 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/50 lg:block">{s.label}</p>
-          <DetailsPieceButton on={pick === `${SECTION}${s.key}`} onPick={() => setPick(`${SECTION}${s.key}`)} data={`${SECTION}${s.key}`}>
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate">{s.label}</span>
-              <small className="truncate text-[11px] opacity-70">
-                {s.lines.length} line{s.lines.length === 1 ? '' : 's'} · the whole section
-              </small>
-            </span>
-          </DetailsPieceButton>
-          {s.lines.map((l) => (
-            <DetailsPieceButton key={l.leadId} on={pick === l.leadId} onPick={() => setPick(l.leadId)} data={l.leadId}>
-              <span className="w-5 shrink-0 text-right font-mono text-[11px] opacity-60">{l.step}</span>
-              <span className="truncate">{l.label}</span>
-            </DetailsPieceButton>
-          ))}
-        </div>
-      ))}
-    </>
-  );
+/** The nearest box that scrolls the march — the body column, else the page. */
+function scrollerOf(el: HTMLElement): HTMLElement {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const oy = getComputedStyle(p).overflowY;
+    if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+  }
+  return (document.scrollingElement as HTMLElement) ?? document.documentElement;
 }
 
-/** MIDDLE — the aisle, top to bottom; the picked line (or section) in focus. */
-export function MarchAisleFocus({ sections }: { sections: readonly MarchSectionData[] }) {
-  const [pick, setPick] = usePick(sections);
-  const ref = useRef<HTMLOListElement>(null);
-  /* Bring the picked line into view — inside the aisle only, never the page. */
-  useEffect(() => {
-    const box = ref.current;
-    const el = box?.querySelector<HTMLElement>('[data-march-focus="on"]');
-    if (!box || !el) return;
-    if (el.offsetTop < box.scrollTop || el.offsetTop > box.scrollTop + box.clientHeight - el.clientHeight) {
-      box.scrollTop = Math.max(0, el.offsetTop - 40);
-    }
-  }, [pick]);
-  if (sections.length === 0) return null;
-  return (
-    <figure className="m-0 w-full max-w-sm" data-march-aisle="">
-      <ol ref={ref} className="relative flex max-h-[60dvh] flex-col gap-1.5 overflow-y-auto border-x-2 border-dashed border-gild/50 px-3 py-2">
-        {sections.map((s) => {
-          const sectionOn = pick === `${SECTION}${s.key}`;
-          return (
-            <li key={s.key} className="flex flex-col gap-1.5">
-              <button
-                type="button"
-                onClick={() => setPick(`${SECTION}${s.key}`)}
-                className={`min-h-9 rounded-md pt-2 text-center font-mono text-[10px] uppercase tracking-[0.18em] ${sectionOn ? 'text-ink' : 'text-ink/50'}`}
-              >
-                {s.label}
-              </button>
-              {s.lines.map((l) => {
-                const on = pick === l.leadId || sectionOn;
-                return (
-                  <button
-                    key={l.leadId}
-                    type="button"
-                    onClick={() => setPick(l.leadId)}
-                    data-march-focus={pick === l.leadId ? 'on' : undefined}
-                    aria-pressed={pick === l.leadId}
-                    className={`flex min-h-11 items-baseline gap-2 rounded-md px-2.5 py-1.5 text-left text-sm transition-opacity ${
-                      pick === l.leadId ? 'bg-white ring-2 ring-ink' : 'bg-white/80'
-                    } ${on ? '' : 'opacity-55'}`}
-                  >
-                    <span className="w-6 shrink-0 text-right font-mono text-[11px] text-ink/45">{l.step}</span>
-                    <span className="min-w-0 flex-1 text-ink">{l.label}</span>
-                  </button>
-                );
-              })}
-            </li>
-          );
-        })}
-      </ol>
-      <figcaption className="mt-1.5 text-center text-xs text-ink/55">The aisle, in walking order — tap a line</figcaption>
-    </figure>
-  );
-}
-
-/** RIGHT — the picked line's controls, or the picked section's own panel. */
-export function MarchControls({
+/**
+ * The march maker — the Wedding March item's page (Details › Your event).
+ * `lab` (the dev Maker lab only): the steps are not sent, so the gestures can be
+ * walked on fixture data with no database.
+ */
+export function MarchMaker({
   eventId,
   sections,
-  sectionPanel,
+  printed = [],
+  lab = false,
 }: {
   eventId: string;
-  sections: readonly MarchSectionData[];
-  /** The Guest list's walking-order panel (every section; this shows the picked one). */
-  sectionPanel: ReactNode;
+  sections: readonly MarchSection[];
+  /** The printed sections with someone in them, in the saved order (`printedSectionOrder`). */
+  printed?: readonly string[];
+  lab?: boolean;
 }) {
-  const [pick] = usePick(sections);
-  const [pending, start] = useTransition();
-  const [problem, setProblem] = useState<string | null>(null);
-  if (!pick) return null;
+  /* The drop, drawn before the server answers; null = the server's march. */
+  const [mine, setMine] = useState<Shown | null>(null);
+  const shown = mine?.sections ?? (sections as MarchSection[]);
+  const shownPrinted = mine?.printed ?? (printed as string[]);
+  const anyone = shown.length > 0;
+  const [lifted, setLifted] = useState<string | null>(null);
+  const [over, setOver] = useState<{ zone: string; ok: boolean } | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  /* ⌨ What the keyboard is holding, and what it last did (said aloud). */
+  const [carried, setCarried] = useState<{ source: MarchSource; key: string; name: string } | null>(null);
+  const [heard, setHeard] = useState('');
+  const refocus = useRef<string | null>(null);
 
-  if (pick.startsWith(SECTION)) {
-    const key = pick.slice(SECTION.length);
+  const root = useRef<HTMLElement>(null);
+  const chain = useRef<Promise<void>>(Promise.resolve());
+  const inFlight = useRef(0);
+  const era = useRef(0);
+  const flip = useRef<Map<string, DOMRect> | null>(null);
+  const landing = useRef<{ ghost: HTMLElement; key: string } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* The server's march came back (one refresh per burst): show it — unless
+     more of this burst is still on its way. */
+  useEffect(() => {
+    if (inFlight.current === 0) setMine(null);
+  }, [sections, printed]);
+
+  const say = useCallback((t: Toast | null) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(t);
+    if (t) toastTimer.current = setTimeout(() => setToast(null), t.refused ? 6000 : 4200);
+  }, []);
+  useEffect(() => () => void (toastTimer.current && clearTimeout(toastTimer.current)), []);
+
+  /** Where every name and walk stands now — the start of the re-flow animation. */
+  const measure = () => {
+    const m = new Map<string, DOMRect>();
+    root.current?.querySelectorAll<HTMLElement>('[data-march-flip]').forEach((el) => m.set(el.dataset.marchFlip!, el.getBoundingClientRect()));
+    return m;
+  };
+
+  /**
+   * Show `next` NOW, then send `steps` one after another (each re-reads the
+   * march on the server, so they may not overlap). A refusal ends the burst:
+   * what is still queued is dropped and the march goes back to the server's.
+   */
+  const commit = useCallback(
+    (next: Shown, steps: readonly MarchStep[], said: Toast) => {
+      flip.current = measure();
+      setMine(next);
+      say(said);
+      const mineEra = era.current;
+      let landed = 0;
+      for (const step of steps) {
+        inFlight.current += 1;
+        chain.current = chain.current
+          .then(async () => {
+          try {
+            if (era.current !== mineEra) return;
+            // The lab draws the drop and sends nothing; a thrown action is said in plain words.
+            const r: MarchResult = await makerSave(
+              () => (lab ? Promise.resolve(LAB_SAVED) : callStep(eventId, step).catch(() => ({ ok: false as const, reason: DID_NOT_GO }))),
+              // The lab has no server march to come back, so it asks for no render either.
+              lab ? LAB_NO_RENDER : requestMakerRefresh,
+            );
+            if (r.ok) landed += 1;
+            else if (era.current === mineEra) {
+              era.current += 1;
+              flip.current = measure();
+              setMine(null);
+              // Half a move is not "nothing changed": say what stands (the refresh draws it).
+              say({ said: landed > 0 ? partly(r.reason) : r.reason, undo: null, before: null, refused: true });
+            }
+          } finally {
+            inFlight.current -= 1;
+          }
+          })
+          // A save that throws must never wedge the queue (every later step would wait forever).
+          .catch(() => {});
+      }
+    },
+    [eventId, lab, say],
+  );
+
+  const run = useCallback(
+    (plan: MarchMove | null) => {
+      if (!plan) return;
+      if (!plan.ok) {
+        say({ said: plan.reason, undo: null, before: null, refused: true });
+        return;
+      }
+      commit({ sections: plan.sections, printed: plan.printed }, plan.steps, {
+        said: plan.said,
+        undo: plan.undo,
+        before: { sections: shown, printed: shownPrinted },
+      });
+    },
+    [commit, say, shown, shownPrinted],
+  );
+
+  const undo = () => {
+    if (!toast?.undo?.length || !toast.before) return;
+    commit(toast.before, toast.undo, { said: 'Put back', undo: null, before: null });
+  };
+
+  /* ── the re-flow (FLIP) and the ghost's landing, after the drop is drawn ── */
+  useLayoutEffect(() => {
+    if (refocus.current) {
+      root.current?.querySelector<HTMLElement>(`[data-march-key="${CSS.escape(refocus.current)}"]`)?.focus({ preventScroll: false });
+      refocus.current = null;
+    }
+    const was = flip.current;
+    flip.current = null;
+    const quiet = reduced();
+    // Where the ghost lands — measured BEFORE the re-flow animations shift the boxes.
+    const land = landing.current;
+    landing.current = null;
+    const home = land
+      ? root.current?.querySelector<HTMLElement>(`[data-march-flip="${CSS.escape(land.key)}"],[data-march-key="${CSS.escape(land.key)}"]`)
+      : null;
+    const homeAt = home?.getBoundingClientRect() ?? null;
+    if (was && !quiet) {
+      /* A name inside a walk that moved too travels WITH it: animate only its
+         own share of the move, or it would slide twice as far. */
+      const els = [...(root.current?.querySelectorAll<HTMLElement>('[data-march-flip]') ?? [])];
+      const delta = new Map<HTMLElement, [number, number] | null>();
+      for (const el of els) {
+        const b = was.get(el.dataset.marchFlip!);
+        const a = el.getBoundingClientRect();
+        delta.set(el, b ? [b.left - a.left, b.top - a.top] : null);
+      }
+      for (const el of els) {
+        const d = delta.get(el);
+        if (!d) {
+          el.animate([{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }], { duration: SETTLE_MS, easing: 'cubic-bezier(.16,1,.3,1)' });
+          continue;
+        }
+        const up = el.parentElement?.closest<HTMLElement>('[data-march-flip]');
+        const pd = (up && delta.get(up)) || [0, 0];
+        const dx = d[0] - pd[0];
+        const dy = d[1] - pd[1];
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+        el.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: SETTLE_MS, easing: 'cubic-bezier(.16,1,.3,1)' });
+      }
+    }
+    if (!land) return;
+    let once = false;
+    const done = () => {
+      if (once) return;
+      once = true;
+      land.ghost.remove();
+      // Only clear the dim if no newer drag has lifted something since.
+      setLifted((k) => (k === land.key && !drag.current ? null : k));
+    };
+    if (!homeAt || quiet) return done();
+    const anim = land.ghost.animate(
+      [{ transform: land.ghost.style.transform, opacity: 1 }, { transform: `translate(${homeAt.left}px,${homeAt.top}px)`, opacity: 0.2 }],
+      { duration: 220, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' },
+    );
+    anim.onfinish = done;
+    // A hidden tab may never finish the animation.
+    setTimeout(done, 320);
+  });
+
+  /* ── the drag ─────────────────────────────────────────────────────────── */
+  const drag = useRef<Drag | null>(null);
+  const pending = useRef<{ el: HTMLElement; source: MarchSource; key: string; x: number; y: number; touch: boolean; pid: number; timer: ReturnType<typeof setTimeout> | null } | null>(null);
+  const raf = useRef(0);
+  const target = useRef<string | null>(null);
+  const [, redraw] = useState(0);
+  /* The window listeners are stable wrappers around the latest handlers. */
+  const onMoveRef = useRef<(e: PointerEvent) => void>(() => {});
+  const onUpRef = useRef<(e?: PointerEvent) => void>(() => {});
+  const onCancelRef = useRef<() => void>(() => {});
+  const moveL = useRef((e: PointerEvent) => onMoveRef.current(e));
+  const upL = useRef((e: PointerEvent) => onUpRef.current(e));
+  const cancelL = useRef(() => onCancelRef.current());
+
+  /** What the finger is over: a drop zone (a name, an empty spot, a gap), or the nearest gap in its section. */
+  const hit = useCallback(
+    (d: Drag) => {
+      const box = root.current;
+      if (!box) return;
+      let zone: string | null = null;
+      for (const el of document.elementsFromPoint(d.x, d.y)) {
+        if (!box.contains(el)) continue;
+        const z = (el as HTMLElement).closest<HTMLElement>('[data-march-drop]');
+        // A walk lands only in a gap; a section only on a section's header; a name anywhere else.
+        const kind = z?.dataset.marchDrop?.split('|')[0];
+        const fits = d.source.kind === 'name' ? kind !== 'section' : d.source.kind === 'walk' ? kind === 'gap' : kind === 'section';
+        if (z && box.contains(z) && fits) {
+          zone = z.dataset.marchDrop!;
+          break;
+        }
+        // Over a walk or a heading but not on a zone: the nearest gap in that section.
+        const sec = (el as HTMLElement).closest<HTMLElement>('[data-march-section]');
+        if (sec && d.source.kind === 'section') {
+          // A section dragged over another section takes its place.
+          zone = `section|${sec.dataset.marchSection}`;
+          break;
+        }
+        if (sec) {
+          let best: string | null = null;
+          let bd = d.source.kind === 'walk' ? 80 : 40;
+          sec.querySelectorAll<HTMLElement>('[data-march-drop^="gap|"]').forEach((g) => {
+            const r = g.getBoundingClientRect();
+            const dy = Math.abs(d.y - (r.top + r.height / 2));
+            if (dy < bd) {
+              bd = dy;
+              best = g.dataset.marchDrop!;
+            }
+          });
+          zone = best;
+          break;
+        }
+      }
+      const plan = zone ? planMove(shown, shownPrinted, d.source, readTarget(zone)!) : null;
+      const next = plan ? zone : null;
+      if (next === target.current) return;
+      target.current = next;
+      setOver(next && plan ? { zone: next, ok: plan.ok } : null);
+    },
+    [shown, shownPrinted],
+  );
+
+  const stopAll = useCallback(() => {
+    const p = pending.current;
+    if (p?.timer) clearTimeout(p.timer);
+    pending.current = null;
+    cancelAnimationFrame(raf.current);
+    window.removeEventListener('pointermove', moveL.current);
+    window.removeEventListener('pointerup', upL.current);
+    window.removeEventListener('pointercancel', cancelL.current);
+  }, []);
+
+  /* The latest hit-test (it reads the march as drawn NOW, not as it was at the lift). */
+  const hitRef = useRef(hit);
+  hitRef.current = hit;
+  const loop = useCallback(() => {
+    const d = drag.current;
+    if (!d) return;
+    if (d.dir) {
+      const [top, bottom] = edgesOf(d.scroller);
+      const dist = d.dir < 0 ? top + EDGE_PX - d.y : d.y - (bottom - EDGE_PX);
+      d.scroller.scrollTop += d.dir * Math.min(18, 4 + dist / 4);
+      hitRef.current(d);
+    }
+    raf.current = requestAnimationFrame(loop);
+  }, []);
+
+  const lift = useCallback(
+    (x: number, y: number) => {
+      const p = pending.current;
+      if (!p || drag.current) return;
+      const r = p.el.getBoundingClientRect();
+      const ghost = p.el.cloneNode(true) as HTMLElement;
+      ghost.removeAttribute('data-march-flip');
+      ghost.removeAttribute('data-march-drop');
+      ghost.setAttribute('aria-hidden', 'true');
+      Object.assign(ghost.style, {
+        position: 'fixed',
+        left: '0',
+        top: '0',
+        width: `${r.width}px`,
+        height: `${r.height}px`,
+        margin: '0',
+        zIndex: '9999',
+        pointerEvents: 'none',
+        transform: `translate(${r.left}px,${r.top}px)`,
+        boxShadow: '0 18px 34px -14px rgba(44,42,41,.55)',
+        willChange: 'transform',
+      });
+      ghost.dataset.marchGhost = '';
+      document.body.appendChild(ghost);
+      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller: scrollerOf(p.el), dir: 0 };
+      ghost.style.transform = `translate(${x - drag.current.ox}px,${y - drag.current.oy}px) scale(1.03)`;
+      setLifted(p.key);
+      try {
+        navigator.vibrate?.(10);
+      } catch {
+        /* no haptics here */
+      }
+      raf.current = requestAnimationFrame(loop);
+    },
+    [loop],
+  );
+
+  const onMove = useCallback(
+    (e: PointerEvent) => {
+      const p = pending.current;
+      // One finger drags; a second one is ignored.
+      if (!p || e.pointerId !== p.pid) return;
+      if (!drag.current) {
+        const moved = Math.hypot(e.clientX - p.x, e.clientY - p.y);
+        if (p.touch) {
+          // Moving before the long-press ends is a scroll — let it be one.
+          if (moved > 8) stopAll();
+          return;
+        }
+        if (moved > 4) lift(e.clientX, e.clientY);
+        if (!drag.current) return;
+      }
+      e.preventDefault();
+      const d = drag.current;
+      d.x = e.clientX;
+      d.y = e.clientY;
+      d.ghost.style.transform = `translate(${d.x - d.ox}px,${d.y - d.oy}px) scale(1.03)`;
+      hit(d);
+      const [top, bottom] = edgesOf(d.scroller);
+      d.dir = d.y < top + EDGE_PX && d.y > top - 40 ? -1 : d.y > bottom - EDGE_PX && d.y < bottom + 40 ? 1 : 0;
+    },
+    [hit, lift, stopAll],
+  );
+
+  const onUp = useCallback((e?: PointerEvent) => {
+    if (e && pending.current && e.pointerId !== pending.current.pid) return;
+    const d = drag.current;
+    stopAll();
+    if (!d) return;
+    drag.current = null;
+    const zone = target.current;
+    target.current = null;
+    setOver(null);
+    const plan = zone ? planMove(shown, shownPrinted, d.source, readTarget(zone)!) : null;
+    landing.current = { ghost: d.ghost, key: d.key };
+    if (plan) run(plan);
+    // Nowhere to go: one more paint, and the ghost settles back where it came from.
+    else redraw((n) => n + 1);
+  }, [run, shown, shownPrinted, stopAll]);
+
+  const onCancel = useCallback(() => {
+    const d = drag.current;
+    stopAll();
+    drag.current = null;
+    target.current = null;
+    setOver(null);
+    if (d) {
+      d.ghost.remove();
+      setLifted(null);
+    }
+  }, [stopAll]);
+
+  useEffect(() => {
+    onMoveRef.current = onMove;
+    onUpRef.current = onUp;
+    onCancelRef.current = onCancel;
+  });
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
+    if (e.button !== 0 || drag.current || pending.current) return;
+    const el = (e.target as HTMLElement).closest<HTMLElement>('[data-march-drag]');
+    if (!el || !root.current?.contains(el)) return;
+    const source = readSource(el.dataset.marchDrag);
+    if (!source) return;
+    const key = source.kind === 'name' ? source.id : source.kind === 'walk' ? `walk:${source.lead}` : `section:${source.key}`;
+    const touch = e.pointerType !== 'mouse';
+    pending.current = { el, source, key, x: e.clientX, y: e.clientY, touch, pid: e.pointerId, timer: null };
+    if (touch) pending.current.timer = setTimeout(() => lift(e.clientX, e.clientY), LONG_PRESS_MS);
+    window.addEventListener('pointermove', moveL.current, { passive: false });
+    window.addEventListener('pointerup', upL.current);
+    window.addEventListener('pointercancel', cancelL.current);
+  };
+  /* 📱 While a name is lifted the page must not scroll under the finger (the
+     edges auto-scroll instead). The listener is on the maker from the start,
+     NOT added at the lift: a browser decides at touchstart whether anything may
+     block its scroll, and a listener that arrives later is too late — the pan
+     wins and the drag is cancelled. A touch keeps its first target, so every
+     move of a drag that began here comes through here. */
+  useEffect(() => {
+    const box = root.current;
+    const block = (e: TouchEvent) => {
+      if (drag.current) e.preventDefault();
+    };
+    box?.addEventListener('touchmove', block, { passive: false });
+    const move = moveL.current;
+    const up = upL.current;
+    const cancel = cancelL.current;
+    return () => {
+      // Leaving mid-drag (a Skip, a navigation): no ghost left on the page, no loop left running.
+      cancelAnimationFrame(raf.current);
+      if (pending.current?.timer) clearTimeout(pending.current.timer);
+      pending.current = null;
+      drag.current?.ghost.remove();
+      drag.current = null;
+      box?.removeEventListener('touchmove', block);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      window.removeEventListener('pointercancel', cancel);
+    };
+    // Re-attached when the maker first has someone to draw (the empty state has no root).
+  }, [anyone]);
+  /** ⌨ The same drops, from the keyboard. */
+  const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
+    const el = e.target as HTMLElement;
+    if (el.closest('[data-march-toast]')) return;
+    if (e.key === 'Escape' && carried) {
+      e.preventDefault();
+      setCarried(null);
+      setHeard(`${carried.name} put back — nothing moved.`);
+      return;
+    }
+    if (e.key === ' ' || e.key === 'Enter') {
+      if (carried) {
+        e.preventDefault();
+        const zone = el.closest<HTMLElement>('[data-march-drop]')?.dataset.marchDrop;
+        const plan = zone ? planMove(shown, shownPrinted, carried.source, readTarget(zone)!) : null;
+        setCarried(null);
+        refocus.current = carried.key;
+        if (plan) run(plan);
+        setHeard(plan ? (plan.ok ? plan.said : plan.reason) : `${carried.name} put back — nothing moved.`);
+        return;
+      }
+      const from = el.closest<HTMLElement>('[data-march-drag]');
+      const source = readSource(from?.dataset.marchDrag);
+      if (!from || !source) return;
+      e.preventDefault();
+      const name = from.dataset.marchName ?? '';
+      setCarried({ source, key: from.dataset.marchKey ?? '', name });
+      setHeard(`${name} picked up. Space on a name or an empty spot puts them there; arrow keys move them a walk; Escape puts them back.`);
+      return;
+    }
+    if (carried && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+      e.preventDefault();
+      const to = keyTarget(shown, carried.source, e.key === 'ArrowUp' ? -1 : 1);
+      const plan = to ? planMove(shown, shownPrinted, carried.source, to) : null;
+      refocus.current = carried.key;
+      if (plan) run(plan);
+      setHeard(plan ? (plan.ok ? plan.said : plan.reason) : `${carried.name} cannot go further.`);
+      // Still carried: ↑ / ↓ again keeps moving it (a name keeps its id; a walk moved by ↑ / ↓ keeps its lead).
+    }
+  };
+
+  if (!anyone) {
     return (
-      <section data-march-section-controls={key} data-writes-live="" className="flex flex-col gap-2">
-        <HubSavesImmediately />
-        {/* The shipped panel, one section showing: its arrows, its swaps, its
-            section moves and its Reset — the same island the Guest list used. */}
-        <div data-march-only={key}>
-          {sectionPanel}
-          <style>{`[data-march-only="${key}"] [data-march-section]:not([data-march-section="${key}"]){display:none}`}</style>
-        </div>
-      </section>
+      <p className="mx-auto max-w-md text-sm text-ink/65" data-march-maker="">
+        Nobody walks yet. Give a guest a role on their guest card — a sponsor, a bearer, the honour attendants — and
+        they appear here in walking order.
+      </p>
     );
   }
 
-  const section = sections.find((s) => s.lines.some((l) => l.leadId === pick))!;
-  const at = section.lines.findIndex((l) => l.leadId === pick);
-  const line = section.lines[at]!;
-
-  const run = (send: () => Promise<MarchResult>) => {
-    setProblem(null);
-    start(async () => {
-      try {
-        const r = await makerSave(send, requestMakerRefresh);
-        if (!r.ok) setProblem(r.reason);
-      } catch {
-        setProblem('That did not go through — nothing was changed.');
-      }
-    });
-  };
-  /* "Leave the other side blank" — the Guest list's own unpair, in place: the
-     pair becomes two lines, each with its other side blank (owner: "a blank
-     stays blank"). */
-  const pairIds = line.slots.flatMap((sl) => (sl.kind === 'name' && sl.id ? [sl.id] : []));
-  const leaveBlank = () => {
-    setProblem(null);
-    start(async () => {
-      try {
-        await makerSave(async () => {
-          await unpairGuestAction(eventId, pairIds[0]!, 'in-place');
-          return { ok: true as const };
-        }, requestMakerRefresh);
-      } catch (e) {
-        setProblem(e instanceof Error ? e.message : 'That did not go through — nothing was changed.');
-      }
-    });
-  };
-  const move = (delta: -1 | 1) => {
-    const order = section.lines.map((l) => l.leadId);
-    const to = at + delta;
-    if (to < 0 || to >= order.length) return;
-    order.splice(to, 0, order.splice(at, 1)[0]!);
-    run(() => setEntourageLineOrder(eventId, section.key, order));
-  };
+  const walks = shown.reduce((n, s) => n + s.rows.length, 0);
+  const people = shown.reduce((n, s) => n + s.rows.reduce((k, r) => k + (r[0] ? 1 : 0) + (r[1] ? 1 : 0), 0), 0);
+  const dragging = lifted !== null;
+  const ring = (zone: string) =>
+    over?.zone === zone ? (over.ok ? ' ring-2 ring-terracotta-700 ring-offset-1' : ' ring-2 ring-danger-500/60 ring-offset-1') : '';
+  let step = 0;
 
   return (
-    <section data-march-line-controls={line.leadId} data-writes-live="" className="flex flex-col gap-3">
-      <div>
-        <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">
-          {section.label} · step {line.step}
+    <section
+      ref={root}
+      data-march-maker=""
+      data-writes-live=""
+      aria-label="Wedding March — drag a name to move it"
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+      /* ♿ A screen reader's "activate" is a click with no pointer (detail 0):
+         the same pick-up and drop as Space. A mouse drags instead. */
+      onClick={(e) => {
+        if (e.detail !== 0 || (e.target as HTMLElement).closest('[data-march-toast]')) return;
+        if (!(e.target as HTMLElement).closest('[data-march-drag],[data-march-drop]')) return;
+        onKeyDown({ ...e, key: ' ', target: e.target, preventDefault: () => e.preventDefault() } as unknown as ReactKeyboardEvent<HTMLElement>);
+      }}
+      onContextMenu={(e) => {
+        if ((e.target as HTMLElement).closest('[data-march-drag]')) e.preventDefault();
+      }}
+      onDragStart={(e) => e.preventDefault()}
+      className={`mx-auto flex w-full max-w-2xl select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
+        <p className="text-xs text-ink/60" data-march-count="">
+          {walks} walk{walks === 1 ? '' : 's'} · {people} walking
         </p>
-        <p className="font-serif text-lg text-ink">{line.label}</p>
+        <HubSavesImmediately />
       </div>
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={pending || at === 0}
-          onClick={() => move(-1)}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 text-sm font-medium text-ink disabled:opacity-40"
-        >
-          <ArrowUp aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Walk earlier
-        </button>
-        <button
-          type="button"
-          disabled={pending || at === section.lines.length - 1}
-          onClick={() => move(1)}
-          className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-ink/15 bg-white px-3 text-sm font-medium text-ink disabled:opacity-40"
-        >
-          <ArrowDown aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Walk later
-        </button>
+      <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-800">
+        <span />
+        <span className="text-center">Left</span>
+        <span className="text-center">Right</span>
       </div>
-      {line.slots.map((slot, i) => (
-        <div key={i} className="flex flex-col gap-1.5" data-march-slot={slot.kind}>
-          {slot.kind === 'name' ? (
-            <>
-              <p className="text-sm text-ink">
-                {slot.name}
-                {slot.role ? <span className="text-ink/55"> · {slot.role}</span> : null}
-              </p>
-              {slot.swapWith.length ? (
-                <PickMenu
-                  label="Trade places with…"
-                  value={null}
-                  dataAttr="data-march-swap"
-                  options={slot.swapWith.map((o) => ({ key: o.id, label: o.note ? `${o.name} — ${o.note}` : o.name }))}
-                  onPick={(id) => run(() => swapEntouragePlaces(eventId, section.key, slot.id, id))}
-                />
-              ) : null}
-            </>
-          ) : (
-            <>
-              <p className="text-sm italic text-ink/45">Left blank beside {slot.anchorName}</p>
-              {slot.joiners.length ? (
-                <PickMenu
-                  label="Walks with…"
-                  value={null}
-                  dataAttr="data-march-join"
-                  options={slot.joiners.map((o) => ({ key: o.id, label: o.note ? `${o.name} — ${o.note}` : o.name }))}
-                  onPick={(id) => run(() => joinEntourageLine(eventId, section.key, slot.anchorId, id))}
-                />
-              ) : (
-                <p className="text-xs text-ink/55">Nobody else in this section can walk here.</p>
-              )}
-            </>
-          )}
+      {shown.map((sec) => {
+        /* 🚶 A section moves by dragging its HEADER — every one but the groom's
+           side (always first) and the bride's (always last). */
+        const fixed = isMarchOnlyGroup(sec.key);
+        const sectionKey = `section:${sec.key}`;
+        return (
+        <div key={sec.key} data-march-section={sec.key} className={`flex flex-col transition-opacity ${lifted === sectionKey ? 'opacity-30' : ''}`}>
+          <p
+            data-march-drag={fixed ? undefined : `section|${sec.key}`}
+            data-march-drop={fixed ? undefined : `section|${sec.key}`}
+            data-march-key={fixed ? undefined : sectionKey}
+            data-march-name={sec.label}
+            tabIndex={fixed ? undefined : 0}
+            role={fixed ? undefined : 'button'}
+            aria-pressed={fixed ? undefined : carried?.key === sectionKey}
+            aria-label={fixed ? undefined : `${sec.label} — drag to move the whole section`}
+            className={`mt-3 flex min-h-9 items-baseline gap-2 rounded-lg px-1 pt-1 font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/65 ${
+              fixed ? '' : 'cursor-grab touch-pan-y [-webkit-touch-callout:none]'
+            }${carried?.key === sectionKey ? ' ring-2 ring-ink' : ''}${ring(`section|${sec.key}`)}`}
+          >
+            {sec.label}
+            <small className="font-sans text-[11px] normal-case tracking-normal text-ink/50">
+              {sec.rows.length} walk{sec.rows.length === 1 ? '' : 's'}
+            </small>
+          </p>
+          <Gap zone={`gap|${sec.key}|0`} on={over?.zone === `gap|${sec.key}|0`} ok={over?.ok ?? true} />
+          {sec.rows.map((row, i) => {
+            step += 1;
+            const lead = leadOf(row);
+            const walkKey = `walk:${lead}`;
+            return (
+              <div key={lead || i} className="flex flex-col">
+                <div
+                  data-march-flip={walkKey}
+                  data-march-walk={step}
+                  className={`grid grid-cols-[2rem_1fr_1fr] items-stretch gap-1.5 rounded-xl bg-white p-1.5 ring-1 ring-ink/10 transition-opacity ${lifted === walkKey ? 'opacity-30' : ''}`}
+                >
+                  <span
+                    data-march-drag={`walk|${sec.key}|${lead}`}
+                    data-march-key={walkKey}
+                    data-march-name={row.filter((x) => x !== null).map((x) => x!.name).join(' and ')}
+                    tabIndex={0}
+                    role="button"
+                    aria-pressed={carried?.key === walkKey}
+                    aria-label={`Step ${step} — drag to move this walk`}
+                    className="flex min-h-11 cursor-grab touch-pan-y select-none items-center justify-center font-serif text-xl text-terracotta-800 [-webkit-touch-callout:none]"
+                  >
+                    {step}
+                  </span>
+                  {[0, 1].map((c) => {
+                    const p = row[c as 0 | 1];
+                    if (p) {
+                      const zone = `name|${p.id}`;
+                      return (
+                        <div
+                          key={p.id || c}
+                          data-march-flip={p.id}
+                          data-march-drop={zone}
+                          data-march-drag={p.id ? `name|${p.id}` : undefined}
+                          data-march-key={p.id}
+                          data-march-name={p.name}
+                          tabIndex={p.id ? 0 : undefined}
+                          role="button"
+                          aria-pressed={carried?.key === p.id}
+                          data-march-side={c === 0 ? 'left' : 'right'}
+                          aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}`}
+                          className={`${NAME_CHIP} ${
+                            p.tag ? 'border-terracotta-700/60 bg-white' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
+                          } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${ring(zone)}`}
+                        >
+                          <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">{p.name}</span>
+                          {p.tag ? (
+                            <span className="mt-0.5 font-mono text-[9.5px] uppercase tracking-[0.18em] text-terracotta-800">{p.tag}</span>
+                          ) : null}
+                        </div>
+                      );
+                    }
+                    const anchor = row[c === 0 ? 1 : 0];
+                    const zone = `beside|${anchor?.id ?? ''}`;
+                    return (
+                      <div
+                        key={`empty-${c}`}
+                        data-march-drop={anchor?.id ? zone : undefined}
+                        tabIndex={anchor?.id && carried ? 0 : undefined}
+                        role={anchor?.id ? 'button' : undefined}
+                        aria-label={anchor ? `Walk beside ${anchor.name}` : undefined}
+                        className={`flex min-h-11 items-center justify-center rounded-lg border-[1.5px] border-dashed px-2 text-center text-[11px] leading-tight transition-colors ${
+                          dragging ? 'border-terracotta-700/40 text-terracotta-800' : 'border-ink/15 text-ink/50'
+                        }${ring(zone)}`}
+                      >
+                        {dragging || carried ? 'walk together' : 'walks alone'}
+                      </div>
+                    );
+                  })}
+                </div>
+                <Gap zone={`gap|${sec.key}|${i + 1}`} on={over?.zone === `gap|${sec.key}|${i + 1}`} ok={over?.ok ?? true} />
+              </div>
+            );
+          })}
         </div>
-      ))}
-      {pairIds.length === 2 ? (
+        );
+      })}
+      {sectionsMoved(shownPrinted) ? (
+        /* One line, not a toolbar: the built-in section order back (Undo puts yours back). */
         <button
           type="button"
-          className="inline-flex min-h-11 w-fit items-center rounded-xl border border-ink/15 bg-white px-3 text-sm font-medium text-ink disabled:opacity-40"
-          disabled={pending}
-          onClick={leaveBlank}
-          data-march-leave-blank=""
+          data-march-sections-default=""
+          onClick={() => run(planSectionsDefault(shown, shownPrinted))}
+          className="mt-3 min-h-9 self-start px-1 text-xs text-ink/60 underline decoration-ink/25 underline-offset-2"
         >
-          Leave the other side blank
+          Put the sections back in their usual order
         </button>
       ) : null}
-      {problem ? (
-        <p role="status" className="rounded-md border border-danger-200 bg-danger-50/70 px-2 py-1.5 text-xs text-danger-900">
-          {problem}
-        </p>
+      <p aria-live="polite" className="sr-only" data-march-heard="">
+        {heard}
+      </p>
+      {toast ? (
+        <div
+          role="status"
+          data-march-toast={toast.refused ? 'refused' : 'done'}
+          /* The toast never blocks a name under it — only its Undo takes a tap. */
+          className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--maker-lt-h,0px)+12px)] z-40 mx-auto flex max-w-md select-none items-center gap-3 rounded-xl bg-ink px-3.5 py-2.5 text-sm text-cream shadow-lg lg:bottom-4"
+        >
+          <span className="min-w-0 flex-1">{toast.said}</span>
+          {toast.undo ? (
+            <button type="button" onClick={undo} data-march-undo="" className="pointer-events-auto min-h-9 shrink-0 rounded-full bg-cream/15 px-3.5 text-sm font-semibold">
+              Undo
+            </button>
+          ) : null}
+        </div>
       ) : null}
-      <HubSavesImmediately />
     </section>
+  );
+}
+
+/** The gap between two walks — a gold line where the drop would land. */
+function Gap({ zone, on, ok }: { zone: string; on: boolean; ok: boolean }) {
+  return (
+    <div data-march-drop={zone} aria-hidden className={`relative mx-1 transition-[height] duration-200 ${on ? 'h-5' : 'h-2.5'}`}>
+      <span
+        className={`absolute inset-x-8 top-1/2 h-0.5 -translate-y-1/2 rounded-full transition-opacity duration-150 ${
+          on ? (ok ? 'bg-terracotta-700 opacity-100' : 'bg-danger-500/60 opacity-100') : 'opacity-0'
+        }`}
+      />
+    </div>
   );
 }

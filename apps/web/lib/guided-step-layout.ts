@@ -31,7 +31,9 @@
  *   · Schedule (and the guests' arrival) → the day's rail, where a moment is
  *     picked, dragged and resized — the page shows the day, not the rail;
  *   · Cover photo → the cover photo itself (the page lays the invitation card
- *     over it); the page when there is no photo yet.
+ *     over it); the page when there is no photo yet;
+ *   · Wedding March → the march maker, where the names are dragged (owner
+ *     2026-10-06 — the page shows the printed list, not the walks being made).
  *
  * Pure: no React, no I/O — the workspace (`details-workspace.tsx`) draws it and
  * `the-guided-steps-share-one-layout.test.ts` holds every step to it.
@@ -55,7 +57,7 @@ export type GuidedStepBody =
   | { kind: 'cover'; phase: LifecyclePhase };
 
 /** Steps whose subject exists only in its own tool (see the docblock). */
-export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan', 'schedule', 'arrive', 'colours', 'wear'];
+export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan', 'schedule', 'arrive', 'colours', 'wear', 'march'];
 
 /**
  * Where on the stage's page each step's part sits — the section ids every

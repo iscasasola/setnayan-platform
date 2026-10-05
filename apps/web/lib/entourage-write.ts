@@ -3,10 +3,11 @@
  *
  * ⚠ NO `import 'server-only'`, DELIBERATELY. It would be true — this file
  * builds a Supabase server client and nothing else may — but it is not
- * importable from `tsx --test`, and `lib/a-pair-walks-as-one-line.test.ts`
- * reaches this module transitively (test → panel → actions → here) to execute
- * `printedGroupsForView`. `lib/capture-credit-pure.ts` records the same trade
- * in the other direction. The boundary is held by construction instead: the
+ * importable from `tsx --test`, and tests reach the two action files that
+ * import it (the walking-order panel that first needed this was retired on
+ * 2026-10-06; adding the import now is its own change, with its own run of the
+ * suite). `lib/capture-credit-pure.ts` records the same trade in the other
+ * direction. The boundary is held by construction instead: the
  * only importers are the two `'use server'` action files, and this module's
  * exports take a Supabase client, which no client component can produce.
  *
@@ -40,7 +41,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import {
   ENTOURAGE_COLUMNS,
-  ENTOURAGE_GROUP_KEYS,
+  MARCH_GROUP_KEYS,
   entourageLines,
   type EntourageGuestRow,
   type EntourageRow,
@@ -70,7 +71,8 @@ export async function readMarchLines(
   | { ok: true; supabase: SupabaseServerClient; lines: EntourageRow[] }
   | { ok: false; reason: string }
 > {
-  if (!ENTOURAGE_GROUP_KEYS.includes(groupKey)) {
+  // 🚶 The march's own sections too (the couple's sides, owner 2026-10-06) — every key `entourageLines` knows.
+  if (!MARCH_GROUP_KEYS.includes(groupKey)) {
     return { ok: false, reason: 'That part of the entourage does not exist.' };
   }
   const supabase = await createClient();

@@ -90,9 +90,7 @@ export const OneNameEditor = dynamic(() => import(/* webpackChunkName: "maker-de
 export const DateEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateEditor), { loading: SlotRows });
 export const DateBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.DateBody), { loading: SlotFill });
 export const VenuesEditor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-your-event').then((m) => m.VenuesEditor), { loading: SlotRows });
-export const MarchPieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchPieces), { loading: SlotNone });
-export const MarchAisleFocus = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchAisleFocus), { loading: SlotFill });
-export const MarchControls = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchControls), { loading: SlotRows });
+export const MarchMaker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-march').then((m) => m.MarchMaker), { loading: SlotFill });
 export const PeoplePieces = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeoplePieces), { loading: SlotNone });
 export const PeopleBody = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleBody), { loading: SlotFill });
 export const PeopleControls = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-people').then((m) => m.PeopleControls), { loading: SlotRows });

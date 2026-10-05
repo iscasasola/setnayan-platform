@@ -637,7 +637,7 @@ export function MakerShell({
             : []),
           { key: 'who', label: 'Who can view', icon: <Users aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: moreOpen, onPick: () => setMoreOpen(true) },
           ...(hasWork
-            ? [{ key: 'prints', label: MAKER_PRINTS_LABEL, icon: <Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: openDoor === 'prints', onPick: () => openDoor !== 'prints' && pressDoor('prints') }]
+            ? [{ key: 'prints', label: MAKER_PRINTS_LABEL, icon: <Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: openDoor === 'prints', onPick: () => openDoorOnNavigator('prints') }]
             : []),
           ...(draft
             ? [{

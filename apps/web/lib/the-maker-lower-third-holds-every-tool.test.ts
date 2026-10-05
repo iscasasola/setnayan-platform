@@ -213,7 +213,7 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
   const DOORS: Array<[string, RegExp]> = [
     ['Event Bar', /key: 'event-bar'[\s\S]*?toggle: true, on: eventBar\.on, onPick: eventBar\.toggle/],
     ['Who can view', /key: 'who'[\s\S]*?onPick: \(\) => setMoreOpen\(true\)/],
-    ['Prints', /key: 'prints'[\s\S]*?pressDoor\('prints'\)/],
+    ['Prints', /key: 'prints'[\s\S]*?openDoorOnNavigator\('prints'\)/],
     ['Restore what guests see', /key: 'restore'[\s\S]*?draft\.restore\(\)/],
     ['Reset this stage…', /key: 'reset'[\s\S]*?new Event\(MAKER_OPEN_RESET_EVENT\)/],
     ['About the Maker', /key: 'about'[\s\S]*?setTour\(true\)/],
@@ -313,4 +313,52 @@ test('5 · no tool of the lower third links out of the Maker — the known few a
   assert.equal(linkOuts(more), 1, 'the Your Event Hub tool links out beyond its Pro unlock');
   // The fixed scenes' "where it comes from" is said, never linked.
   assert.match(inspector, /data-maker-fixed-source=\{fixed\}>\s*\{f\.source\.text\}\s*<\/p>/);
+});
+
+/* ── 6 · a door used once never opens the next Details mount (review round 2) ── */
+
+test('🔑 6 · after Settings › Prints, a later Theme/Details mount lands on its navigator — the tool stays shut', async () => {
+  // The sequence: Settings › Prints (the Maker's door count moved), × the tool, a stage, then
+  // Theme. Details mounts FRESH with that count > 0 — and once opened its editor straight away.
+  const { renderSettled } = await import('./render-settled.test-helper');
+  const { DetailsWorkspace } = await import(`../${L}/details-workspace`);
+  const { MakerContext } = await import(`../${L}/maker-context`);
+  const NAV = ['names', 'date', 'theme', 'hero', 'address'];
+  const items = NAV.map((k) => ({ key: k, group: 'g', label: k, icon: null, done: false }));
+  const mount = (value: Record<string, unknown>) =>
+    renderSettled(
+      React.createElement(
+        MakerContext.Provider,
+        { value: { eventId: 'e1', ...value } as never },
+        React.createElement(DetailsWorkspace, {
+          groups: [{ key: 'g', label: 'G', items }],
+          bodies: Object.fromEntries(NAV.map((k) => [k, 'B'])),
+          editors: Object.fromEntries(NAV.map((k) => [k, React.createElement('i', { 'data-stub-editor': k })])),
+          initial: 'theme',
+        }),
+      ),
+    );
+  const panelOpen = (html: string) => {
+    const at = html.indexOf('data-details-editor-panel=""');
+    assert.ok(at > 0, 'anti-vacuity: no editor panel drawn');
+    return /^[^>]*data-open=""/.test(html.slice(at));
+  };
+  for (const door of [1, 3]) {
+    assert.equal(panelOpen(await mount({ detailsDoor: door, lowerThird: true })), false, `a phone mount after ${door} door press(es) opened the tool`);
+  }
+  // Desktop unchanged: a door's mount still opens its column as before.
+  assert.equal(panelOpen(await mount({ detailsDoor: 1, lowerThird: false })), true, 'anti-vacuity: the desktop door no longer opens');
+  // …and the lower third's Prints tile opens on the NAVIGATOR (its print tiles), never as a door press.
+  const shell = read(`${L}/maker-shell.tsx`);
+  const prints = shell.slice(shell.indexOf("key: 'prints', label: MAKER_PRINTS_LABEL"));
+  assert.match(prints.slice(0, 300), /onPick: \(\) => openDoorOnNavigator\('prints'\)/, 'the Prints tile presses a door again');
+  const nav = shell.slice(shell.indexOf('const openDoorOnNavigator'), shell.indexOf('const openDoorOnNavigator') + 400);
+  assert.doesNotMatch(nav, /setDetailsDoor/, 'opening on the navigator moved the door count');
+});
+
+test('7 · a ‹ › step keeps focus on the stepper — the panel takes it only on the first open', () => {
+  const lt = read(`${L}/maker-lower-third.tsx`);
+  const fx = lt.slice(lt.indexOf('const lastKey'), lt.indexOf('}, [toolKey]);'));
+  assert.match(fx, /else if \(document\.activeElement instanceof HTMLElement && document\.activeElement\.closest\('\[data-lt-step\]'\)\) return;/, 'a step pulls focus off ‹ ›');
+  assert.ok(fx.indexOf("closest('[data-lt-step]')") < fx.indexOf('panel.focus('), 'the stepper check runs after the panel is focused');
 });

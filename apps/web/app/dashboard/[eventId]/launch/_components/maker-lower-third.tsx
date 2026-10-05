@@ -127,6 +127,8 @@ export function MakerLowerThird({
     if (toolKey) {
       // What opened the first tool (a tile, a part on the page) — kept across ‹ › steps.
       if (!was) opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      // A ‹ › step keeps focus on the stepper, so a keyboard can press › again.
+      else if (document.activeElement instanceof HTMLElement && document.activeElement.closest('[data-lt-step]')) return;
       const panel = [...document.querySelectorAll<HTMLElement>('[data-phone-chrome="panel"]')].find((el) => el.getClientRects().length > 0);
       if (!panel || panel.contains(document.activeElement)) return;
       if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '-1');

@@ -1,6 +1,6 @@
 ## 2026-10-05 · feat(maker): three zones — the hub top nav, the page, and the LOWER THIRD where every phone tool lives · the ticket style waits for Apply
 
-Builds `prototypes/maker_lower_third_interactive_2026-10-05_fable.html` + `maker_keynote_chrome_2026-10-05_fable.*` (frames 1–9). The owner approved the design ("approve") and asked for it in full ("make it happen · no bugs · fully functional"; "each scene and setting must be there and not links. editing should be on the actual tool thirds"). Phone (< lg) only; the desktop keeps its columns.
+Builds `prototypes/maker_lower_third_interactive_2026-10-05_fable.html` + `maker_keynote_chrome_2026-10-05_fable.*` (frames 1–9). The owner approved the design ("approve") and asked for it in full ("make it happen · no bugs · fully functional"; "each scene and setting must be there and not links. editing should be on the actual tool thirds"). Phone (< lg) only; the desktop keeps its columns. Three desktop changes are deliberate, under the same no-links rule: the Event Bar (i) note is gone; a fixed scene edits in place instead of "Open editor"; the part sheet has one Part ▾ instead of a pill row, with no "Open Hero editor". Tablets (768–1023) take the lower third.
 
 - **Top nav** (the whole Event Hub):
   - ✕ Exit: red, its own pill, an X. It used to be "‹", which reads as back one step.

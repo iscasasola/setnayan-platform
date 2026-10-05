@@ -183,7 +183,9 @@ export function DetailsWorkspace({
   /* 📱 The editor sheet: opened by a door (`MakerState.detailsDoor`), a tap on the
      page, the Edit chip, or a step picked — never on its own (the page shows clean). */
   const door = maker?.detailsDoor ?? 0;
-  const [sheetOpen, setSheetOpen] = useState(door > 0);
+  /* In the lower third (a phone) a mount never opens the tool: Theme · Details ·
+     Prints land on their navigator, and only a door pressed WHILE mounted opens it. */
+  const [sheetOpen, setSheetOpen] = useState(() => door > 0 && !maker?.lowerThird);
   const lastDoor = useRef(door);
   useEffect(() => {
     if (door === lastDoor.current) return;

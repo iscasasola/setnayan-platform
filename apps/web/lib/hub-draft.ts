@@ -98,6 +98,7 @@ import {
   HUB_MAIN_GROUND_KEY,
   hubMainGround,
   isHubMainFollow,
+  isHubMainLoop,
   isHubMainOwn,
   sanitizeHubCanvas,
   sanitizeHubMainGround,
@@ -1696,7 +1697,9 @@ export function presetSceneOf(canvas: HubSectionCanvas): string | null {
 export function mainGroundChange(live: HubMainGround | null, next: HubMainGround | null): LookChange {
   /* 🖼 "The theme's background" and "None — just the colour" carry no media
      and no tint: going to either is a removal (free), never an addition. */
-  const ref = (m: HubMainGround | null) => (isHubMainOwn(m) ? `${m.kind}:${m.media}` : null);
+  /* 🎞 A moving background of ours is an ADDITION like media (Event Hub Pro, owner
+     2026-10-05): going to one, or from one loop to another, is never free. */
+  const ref = (m: HubMainGround | null) => (isHubMainOwn(m) ? `${m.kind}:${m.media}` : isHubMainLoop(m) ? `loop:${m.loop}` : null);
   const poster = (m: HubMainGround | null) => (isHubMainOwn(m) ? (m.poster ?? null) : null);
   const tint = (m: HubMainGround | null) =>
     isHubMainFollow(m) ? asText({ of: m.of, ...m.tint }) : isHubMainOwn(m) ? asText(m.tint ?? null) : null;

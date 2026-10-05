@@ -4,8 +4,7 @@ import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import { profileSetup, type EventTypeProfile } from '@/lib/event-type-profile';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
-import { normalizeThemeId, pickableInviteThemes, resolveInviteTheme } from '@/lib/invite-themes';
-import { hasOwnLook } from '@/lib/theme-own-look';
+import { normalizeThemeId } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import { makerProMark } from '@/lib/paid-mark';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -15,8 +14,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { recordFieldHref, type RecordEditorKey } from '@/lib/event-details-record';
-import { boardIsTheCouples, boardSiteColours, buttonFallback, dressedTheme, themeColours, themeSeedPalettes } from '@/lib/theme-colours';
-import { MakerThemeMenu, ThemePickProvider } from '../../launch/_components/maker-theme-picker';
+import { boardSiteColours, buttonFallback, dressedTheme, themeColours } from '@/lib/theme-colours';
 import { ButtonsLookRow, ColorsPanel, MakerRsvpSettings, ProLockPanel, SpecialMessageField } from '../../launch/_components/details-lazy';
 import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from '../../launch/_components/details-answers-parts';
 import { loadYourEvent } from '../../launch/_components/details-your-event-load';
@@ -73,8 +71,8 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
   const { eventId, supabase, admin, draft } = ctx;
 
   switch (editor) {
-    /* ══ 🎨 HOW IT LOOKS — Look's own sections (`lib/maker-look-sections.ts`) ══ */
-    case 'theme':
+    /* ══ 🎨 HOW IT LOOKS — Look's own sections (`lib/maker-look-sections.ts`).
+       No Theme row since 2026-10-05: a couple no longer picks a theme. ══ */
     case 'font':
     case 'colours':
     case 'buttons': {
@@ -85,27 +83,6 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
       }
       const live = data as unknown as Record<string, unknown>;
       const drafted = overlayHubDraftEvent(live, draft);
-      if (editor === 'theme') {
-        /* The Maker's theme dropdown, in its one pick (`ThemePickProvider`):
-           drafted, Pro tried here and asked at Apply (#6091). */
-        const themes = pickableInviteThemes();
-        const current = resolveInviteTheme({ saved: drafted.invite_theme, ownsPro: ctx.ownsPro || !ctx.storeShell });
-        return (
-          <ThemePickProvider
-            eventId={eventId}
-            current={current}
-            ownLook={hasOwnLook(live, draft?.events as Record<string, unknown> | undefined)}
-            /* 🎨 A board that is not the couple's own takes the picked theme's colours (owner 2026-10-05). */
-            seeds={boardIsTheCouples(live.role_palette) ? null : themeSeedPalettes()}
-          >
-            <MakerThemeMenu
-              themes={themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier }))}
-              ownsPro={ctx.ownsPro}
-              storeShell={ctx.storeShell}
-            />
-          </ThemePickProvider>
-        );
-      }
       const themeId = normalizeThemeId(drafted.invite_theme) ?? 'house';
       // 🎨 The board as the couple is editing it — a theme's drafted fill included (2026-10-05).
       const palette = sanitizeRolePalette(drafted.role_palette);
@@ -138,7 +115,7 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
       const proLocked =
         ctx.storeShell &&
         !ctx.ownsPro &&
-        !(live.site_font_key || live.site_magic_traveller || live.site_art_direction === 'candlelight');
+        !(live.site_magic_traveller || live.site_art_direction === 'candlelight');
       const priceLabel = ctx.storeShell ? null : proPriceLabelFrom((await formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null))?.price_php, formatPhp);
       const lockPanel = (featureName: string) =>
         ctx.storeShell ? null : (

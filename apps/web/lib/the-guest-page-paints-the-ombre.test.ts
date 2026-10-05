@@ -107,7 +107,8 @@ test('4 · the invitation shell leaves its opaque paper off for an ombré, Class
   const shell = read(`${SLUG}_components/invitation-shell.tsx`);
   assert.match(shell, /const themed = !pageGround\(\{ theme: hubTheme, ombre: ownGround, heroGround: false \}\)\.shellPaper;/);
   const body = read(`${SLUG}_components/site-body.tsx`);
-  assert.match(body, /<InvitationShell[\s\S]*?ownGround=\{isOmbreValue\(event\.site_bg_color\)\}[\s\S]*?>/);
+  // …and for any Main background layer (a moving background of ours may sit under Classic since 2026-10-05).
+  assert.match(body, /<InvitationShell[\s\S]*?ownGround=\{isOmbreValue\(event\.site_bg_color\) \|\| mainGroundLayer !== null\}[\s\S]*?>/);
   assert.match(body, /import \{ isOmbreValue \} from '@\/lib\/ombre'/);
 });
 

@@ -3,7 +3,9 @@ import { buildMakerNavigatorData } from '@/app/dashboard/[eventId]/website/edito
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { WEDDING_PROFILE } from '@/lib/event-type-profile';
-import { INVITE_THEMES } from '@/lib/invite-themes';
+import { INVITE_THEMES, themeBackgroundName } from '@/lib/invite-themes';
+import { hubMovingBackgroundIds } from '@/lib/hub-canvas';
+import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { detailsLabNode } from '../details-lab/details-lab-node';
 import { MakerLabShell } from './maker-lab-shell';
@@ -113,6 +115,12 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       scenes={scenes}
       navigator={navigator}
       details={detailsLabNode({ ...sp, shape: 'mj' })}
+      /* 🎞 Look › Background's moving backgrounds, built as the editor page builds them. */
+      loops={hubMovingBackgroundIds().map((id) => ({
+        id,
+        name: themeBackgroundName(id),
+        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+      }))}
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
     />
   );

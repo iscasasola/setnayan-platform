@@ -87,7 +87,14 @@ test('every surface that paints the page ground asks the one rule', () => {
   );
   assert.equal(gated.split('resolveMainGround(').length - 1, 1, 'a second, ungated resolveMainGround call');
   assert.match(helper, /import \{ heroGroundNeedsOwnership \} from '@\/lib\/page-ground';/);
-  assert.match(helper, /const mainGround = guestMainGround\(theme, ownsPro, heroConfig, event\);/, 'the page no longer asks the one gated answer');
+  // 🎞 …or, for a moving background of ours (2026-10-05, Event Hub Pro), the
+  // loop — only once `loopShows` (owned, or the host's own canvas).
+  assert.match(
+    helper,
+    /const mainGround = loop && loopShows \? loop\.ground : guestMainGround\(theme, ownsPro, heroConfig, event\);/,
+    'the page no longer asks the one gated answer',
+  );
+  assert.match(helper, /const loopShows = loop \? tryOn \|\| \(await websiteProActiveFor\(event\.event_id\)/, 'a moving background is drawn without the Pro read');
   assert.doesNotMatch(helper, /resolveMainGround\(/, 'the page resolves the Main background itself, past the gate');
   // (`<MainGroundNone />` is "None — just the colour": no media, no gate needed — owner 2026-09-29.)
   assert.equal((helper.match(/<MainGround[\s>]/g) ?? []).length, 1, 'MainGround is mounted twice');

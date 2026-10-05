@@ -44,7 +44,7 @@ import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
-import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
+import { ThemePickProvider } from './maker-theme-picker';
 import { FilmFollowsTheme } from './film-follows-theme';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
@@ -88,7 +88,6 @@ import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
-import { themeStillSrc } from '@/lib/theme-sample-stills';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { SeatPlanSlot } from '../../seating/_components/seat-plan-slots';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
@@ -459,7 +458,6 @@ export function MakerDetails(props: MakerDetailsProps) {
   const coverA = props.answers ? coverAnswer(eventId, props.answers) : null;
 
   /* ══ THE NAVIGATOR — groups are data (`DETAILS_ITEM_GROUPS`) ══ */
-  const still = themeStillSrc(theme.current);
   /* Each item's model (`DetailsItemModel`): done and used-on are derived from
      data that already exists — part 1 fills them for its own items. */
   const menuDone = menu.saved.some((m) => m.dishes.length > 0) || menu.caterer.some((m) => m.dishes.length > 0);
@@ -480,18 +478,16 @@ export function MakerDetails(props: MakerDetailsProps) {
       return row;
     }
     if (k === 'theme') {
+      /* 🎨 The Look item (its key stays `theme` — addresses and the guided flow
+         name it; the couple never reads it): Background · Font · Colours ·
+         Buttons, no theme to pick since 2026-10-05. */
       return {
-        label: 'Theme',
-        sub: 'Background · font · colours',
+        label: 'Look',
+        sub: 'Background · font · colours · buttons',
         panelLabel: 'Look',
         done: theme.chosen,
         usedOn: ['every stage', 'every print'],
-        icon: still ? (
-          // eslint-disable-next-line @next/next/no-img-element -- the committed still of the couple's theme on the sample
-          <img src={still} alt="" className="h-full w-full object-cover object-top" />
-        ) : (
-          <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        ),
+        icon: <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
       };
     }
     if (k === 'address') {
@@ -590,25 +586,10 @@ export function MakerDetails(props: MakerDetailsProps) {
 
   /* ══ BODIES — each item's picture ══ */
   const bodies: Partial<Record<DetailsItemKey, ReactNode>> = {
-    /* 🖼 Look's body is the couple's own page (every Look change shows on it);
-       the sample gallery of every theme is one switch away (2026-10-02). */
-    theme: (
-      <>
-        <DetailsLookPageBody
-          gallery={
-            <MakerThemeGallery
-              themes={theme.themes}
-              ownsPro={theme.ownsPro}
-              storeShell={theme.storeShell}
-              suggested={theme.suggested}
-              sampleVersion={theme.sampleVersion}
-              posters={theme.posters}
-            />
-          }
-        />
-        {theme.tour ? <MiniTour tourKey="customer_theme_picker_v1" storeShell={theme.storeShell} /> : null}
-      </>
-    ),
+    /* 🖼 Look's body is the couple's own page (every Look change shows on it).
+       No theme gallery since 2026-10-05 — a couple no longer picks a theme
+       (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS"). */
+    theme: <DetailsLookPageBody />,
     address: (
       <section
         data-details-page-address=""
@@ -655,8 +636,7 @@ export function MakerDetails(props: MakerDetailsProps) {
         <div className="w-full max-w-md">
           <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
         </div>
-        {/* Waits for the theme's tour, so two never stack on one first visit. */}
-        {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} after="customer_theme_picker_v1" /> : null}
+        {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} /> : null}
       </section>
     ),
     download: <PrintSetBody input={prints} />,
@@ -755,7 +735,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* ✍ The two print-only words — each ONE field in two doors (its Words item
      and its print's switch), posting through the print words form. */
   const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
-  /* 🎞 Under Theme, only while the Save the Date film keeps a background of its own. */
+  /* 🎞 Under Look › Background, only while the Save the Date film keeps a background of its own. */
   const filmLine = theme.filmOwnBackground ? <FilmFollowsTheme eventId={eventId} legibility={theme.filmLegibility} /> : null;
   const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
   const printsOn = (piece: PrintSetKey) => (
@@ -764,8 +744,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     </p>
   );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
-    /* 🎨 LOOK IS ONE PANEL — Theme · Background · Font · Colours (`lib/maker-look-sections.ts`). */
-    theme: <LookPanel theme={<MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} filmLine={filmLine} />} />,
+    /* 🎨 LOOK IS ONE PANEL — Background · Font · Colours · Buttons (`lib/maker-look-sections.ts`). */
+    theme: <LookPanel filmLine={filmLine} />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */

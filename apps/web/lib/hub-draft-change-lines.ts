@@ -50,7 +50,7 @@ const DETAILS = 'Event Details';
  * (the compiler refuses it) — never a "Something changed".
  */
 export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string; what: string }> = {
-  invite_theme: { place: LOOK, what: LOOK_SECTION_LABEL.theme },
+  invite_theme: { place: LOOK, what: 'Theme' },
   // 🎨 Named with the theme it came from — "Mood Board · Colours from Cyber Neon" (`hubDraftChangePlace`).
   role_palette: { place: 'Mood Board', what: 'Colours' },
   site_art_direction: { place: LOOK, what: 'Candlelight' },

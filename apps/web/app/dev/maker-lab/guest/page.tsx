@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
 
 /**
  * /dev/maker-lab/guest — the Maker lab's CANVAS stand-in: maria-and-jose's
@@ -11,6 +13,25 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   const sp = await searchParams;
   const rsvp = typeof sp.rsvp === 'string' ? sp.rsvp : null;
   const phase = typeof sp.phase === 'string' ? sp.phase : 'rsvp';
+  /* 🎞 The lab's drafted Main background (a cookie the lab's draft stand-in
+     sets), drawn by the REAL guest layer — `mainGroundLayerFor`, on the host's
+     canvas (`tryOn`), Classic like maria-and-jose. A moving background needs no
+     database on this path. */
+  let main: unknown = null;
+  try {
+    main = JSON.parse(decodeURIComponent((await cookies()).get('lab_main')?.value ?? 'null'));
+  } catch {
+    main = null;
+  }
+  const ground = main
+    ? await mainGroundLayerFor({
+        theme: 'house',
+        heroConfig: { main },
+        event: { event_id: '00000000-0000-4000-8000-000000000000' },
+        viewerIsHost: true,
+        tryOn: true,
+      })
+    : null;
   if (rsvp) {
     return (
       <main className="min-h-dvh bg-[#FBF9F5] px-5 py-6 text-ink">
@@ -35,7 +56,8 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
     );
   }
   return (
-    <main className="min-h-dvh bg-[#FBF9F5] text-center text-ink" data-lab-phase={phase}>
+    <main className={`min-h-dvh text-center text-ink ${ground ? 'relative' : 'bg-[#FBF9F5]'}`} data-lab-phase={phase}>
+      {ground}
       <div className="flex justify-between border-b border-ink/10 px-4 py-2.5 text-[9.5px] font-semibold uppercase tracking-[0.3em] text-gild">
         <span>Setnayan</span>
         <span>{phase === 'save_the_date' ? 'Save the Date' : phase === 'event' ? 'The Day' : phase === 'editorial' ? 'Post Event' : 'Invitation'}</span>

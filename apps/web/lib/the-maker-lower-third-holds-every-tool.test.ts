@@ -362,3 +362,13 @@ test('7 · a ‹ › step keeps focus on the stepper — the panel takes it only
   assert.match(fx, /else if \(document\.activeElement instanceof HTMLElement && document\.activeElement\.closest\('\[data-lt-step\]'\)\) return;/, 'a step pulls focus off ‹ ›');
   assert.ok(fx.indexOf("closest('[data-lt-step]')") < fx.indexOf('panel.focus('), 'the stepper check runs after the panel is focused');
 });
+
+test('the tool column never breaks a word mid-way ("Backgro / und", owner 2026-10-05)', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx'), 'utf8') as string;
+  const at = src.indexOf('data-lt-column-name=""');
+  const name = src.slice(at, src.indexOf('</button>', at));
+  assert.ok(name.length > 0, 'anti-vacuity: the column name was not found');
+  assert.doesNotMatch(name, /break-words|break-all|overflow-wrap:anywhere/, 'the column name may break a word mid-way again');
+  assert.match(name, /\[word-break:keep-all\]/, 'the column name does not keep its words whole');
+  assert.match(name, /longestWord\(tool\.name\) > 8 \? 'text-\[9px\]'/, 'a long single word is not set smaller to fit');
+});

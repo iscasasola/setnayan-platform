@@ -52,14 +52,14 @@ export const HUB_BUTTON_FILLS = ['theme', 'solid', 'outline'] as const;
 export type HubButtonFill = (typeof HUB_BUTTON_FILLS)[number];
 
 export const HUB_BUTTON_SHAPE_LABEL: Readonly<Record<HubButtonShape, string>> = {
-  theme: 'Theme’s',
+  theme: 'Default',
   square: 'Square',
   rounded: 'Rounded',
   pill: 'Pill',
 };
 
 export const HUB_BUTTON_FILL_LABEL: Readonly<Record<HubButtonFill, string>> = {
-  theme: 'Theme’s',
+  theme: 'Default',
   solid: 'Solid',
   outline: 'Outline',
 };

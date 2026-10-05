@@ -244,33 +244,18 @@ test('⭐ every key has a distinct face, a label and a preview stack', () => {
    THE CHOICE REACHES THE PAGE — and is gated like the rest of the look
    ══════════════════════════════════════════════════════════════════════════ */
 
-test('⛔ the face is Pro-gated, in the SAME place the colours are', () => {
-  // A second gate would be a second opinion about who owns the look, and the
-  // two would drift the moment an unlock lapsed.
-  //
-  // 🪤 owner 2026-09-25 bg-colour fix moved `proSiteVarsFor` out of
-  // `loaders.ts` into its own pure `_lib/pro-site-vars.ts` (so its math is
-  // directly unit-testable without `loaders.ts`'s request-scoped import
-  // graph) and made the BACKGROUND colour free; 2026-09-28 freed the button
-  // colour too — only the face still rides the Pro gate. The anchor moves with the code it
-  // anchors; the PROPERTY it checks does not change.
+test('🆓 the face is FREE — painted for every event, in the same bag as the colours, behind no gate', () => {
+  // Owner 2026-10-05 (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL
+  // SETTINGS"): *"Colors, and Fonts are all free"*. Until then the face rode
+  // the one Pro gate in `pro-site-vars.ts`; that gate is gone, and a second one
+  // growing back (a second opinion about who may wear a face) turns this red.
   const proSiteVars = readFileSync(
     join(__dirname, '..', 'app', '[slug]', '_lib', 'pro-site-vars.ts'),
     'utf8',
   );
-  const at = proSiteVars.indexOf('if (proWatermarkHidden) {');
-  assert.ok(at > 0, 'the face rides the Pro-gated bag');
-  const block = proSiteVars.slice(at, at + 400);
-  assert.match(block, /hubFontVars\(/, 'and the face is in it');
-  // 💎 2026-09-28: the button colour left this block — it is free now (the
-  // free-vs-Pro redraw) and paints beside the background, for every event.
-  assert.doesNotMatch(block.slice(0, block.indexOf('}') + 1), /site_button_color/, 'the free button colour is back behind Pro');
-
-  // ONE gate, not two: exactly one `if (proWatermarkHidden)` in the module,
-  // so a future edit that grows a second Pro guard — two opinions about who
-  // owns the look — cannot pass unnoticed.
+  assert.match(proSiteVars, /\n  Object\.assign\(proSiteVars, hubFontVars\(event\.site_font_key\)\);/, 'the face is not painted for every event');
   const gates = [...proSiteVars.matchAll(/if \(proWatermarkHidden\)/g)].length;
-  assert.equal(gates, 1, `there is ${gates} Pro gates in pro-site-vars.ts, expected exactly one`);
+  assert.equal(gates, 0, `there is ${gates} Pro gate(s) in pro-site-vars.ts — the face and colours are free`);
 
   const loaders = readFileSync(
     join(__dirname, '..', 'app', '[slug]', '_lib', 'loaders.ts'),
@@ -279,7 +264,7 @@ test('⛔ the face is Pro-gated, in the SAME place the colours are', () => {
   assert.match(loaders, /site_font_key/, 'the column is actually selected');
 });
 
-test('⛔ the editor offers every face, and a way back to the theme', async () => {
+test('⛔ the editor offers every face, and a way back to the default', async () => {
   const React = (await import('react')).default;
   (globalThis as unknown as { React: unknown }).React = React;
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -339,7 +324,8 @@ test('⛔ the editor offers every face, and a way back to the theme', async () =
   );
   const pick = /<FontPick\s[\s\S]*?\/>/.exec(panel)?.[0] ?? '';
   assert.match(pick, /name="site_font_key"/);
-  assert.match(pick, /lead="The theme’s own"/, 'and a way back to the theme’s own face');
+  // ("The theme’s own" until 2026-10-05 — a couple no longer picks a theme, so the way back is "Default".)
+  assert.match(pick, /lead="Default"/, 'and a way back to the default face');
   assert.doesNotMatch(pick, /\boptions=/);
   // The theme's own posts '' — the action's "clear".
   const none = renderToStaticMarkup(

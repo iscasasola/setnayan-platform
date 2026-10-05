@@ -32,8 +32,6 @@ export type RecordGroupKey = (typeof RECORD_GROUPS)[number]['key'];
  * that fact, named here so a guard can hold the page to it.
  */
 export const RECORD_EDITOR_COMPONENT = {
-  /** Look › Theme — the Maker's theme dropdown (`maker-theme-picker.tsx`). */
-  theme: 'MakerThemeMenu',
   /** Look › Font — the Colors panel's font part (`pro-panels.tsx`). */
   font: 'ColorsPanel',
   /** Look › Colours — the Colors panel's colours part. */
@@ -66,7 +64,6 @@ export type RecordEditorKey = keyof typeof RECORD_EDITOR_COMPONENT;
  * them) or listed in `RECORD_ROW_TOOL`.
  */
 export const RECORD_ROW_EDITOR = {
-  theme: 'theme',
   fonts: 'font',
   colours: 'colours',
   buttons: 'buttons',
@@ -139,7 +136,6 @@ export function recordHref(eventId: string): string {
 
 /** The group a row sits in (the fold that must be open while its field is). */
 export const RECORD_ROW_GROUP: Readonly<Record<RecordRowKey | RecordToolRowKey, RecordGroupKey>> = {
-  theme: 'looks',
   fonts: 'looks',
   colours: 'looks',
   buttons: 'looks',

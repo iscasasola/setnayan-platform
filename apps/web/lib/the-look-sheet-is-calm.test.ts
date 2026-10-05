@@ -112,7 +112,8 @@ test('(2) the step sheet’s header is ONE row: step ▾ · Peek · × — no ba
   assert.match(head, /data-half-sheet-peek=""/, 'Peek is not in the header row');
   assert.match(head, /Save the Date · \d of \d/, 'the step ▾ does not say where the step sits');
   // The title stays for a desk and for the slim bar — hidden on a phone, where the step ▾ says it.
-  assert.match(head, /<p class="[^"]*max-lg:hidden[^"]*">Theme<\/p>/, 'the title is drawn on a phone beside the step ▾');
+  // (The Look step's title — "Theme" until 2026-10-05, when the theme pick left Look.)
+  assert.match(head, /<p class="[^"]*max-lg:hidden[^"]*">Look<\/p>/, 'the title is drawn on a phone beside the step ▾');
   // Nothing else stacks under it on a phone.
   assert.doesNotMatch(sheet, /data-details-guide-all=""/, 'an All items button came back beside the step ▾');
   assert.doesNotMatch(sheet, /rounded-full bg-terracotta-700" style="width/, 'the progress bar came back in the sheet');
@@ -216,14 +217,15 @@ test('(5) Art direction and Magic Move are ONE dropdown each, with the ◆ besid
 
 /* ── (6) the segmented control ─────────────────────────────────────────── */
 
-test('(6) "Your page / All themes" is the one segmented control — wine on the chosen segment', async () => {
+test('(6) Look’s body is the couple’s own page alone — the "Your page / All themes" switch left with the theme pick', async () => {
+  // 2026-10-05 (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS"):
+  // with no theme to pick there is no sample gallery to switch to — the
+  // segmented control it needed is gone, and the page is what Look shows.
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { DetailsLookPageBody } = await import(`../${L}/details-look-pages`);
-  const html = renderToStaticMarkup(React.createElement(DetailsLookPageBody, { gallery: null }));
-  const sw = html.slice(html.indexOf('data-look-view-switch'), html.indexOf('</div></div>', html.indexOf('data-look-view-switch')));
-  assert.match(sw, /role="group" aria-label="What the page shows" class="flex min-w-0 flex-wrap gap-0\.5 rounded-lg bg-ink\/\[0\.06\]/, 'not the shared ISegmented track');
-  assert.match(sw, /aria-pressed="true"[^>]*class="[^"]*bg-mulberry text-white[^"]*"[^>]*>Your page</, 'the chosen segment is not wine');
-  assert.match(sw, /aria-pressed="false"[^>]*>All themes</);
+  const html = renderToStaticMarkup(React.createElement(DetailsLookPageBody));
+  assert.match(html, /data-details-look-body="page"/, 'Look’s body is not the page');
+  assert.doesNotMatch(html, /data-look-view-switch|All themes/, 'the theme gallery switch came back');
   assert.doesNotMatch(read(`${L}/details-look-pages.tsx`), /data-look-view=/, 'the old pill row came back');
 });
 

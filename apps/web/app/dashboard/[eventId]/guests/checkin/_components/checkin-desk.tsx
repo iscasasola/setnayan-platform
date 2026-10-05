@@ -22,6 +22,7 @@ import { checkInGuest, checkTicketLive, undoCheckIn, type CheckinMethod, type Ti
 import { DOOR_WORDS } from '@/lib/request-key';
 import Link from 'next/link';
 import { formatCount } from '@/lib/format-number';
+import { tableWords } from '@/lib/table-words';
 
 export type DeskGuest = {
   guestId: string;
@@ -619,7 +620,7 @@ export function CheckinDesk({
                   <span className="block truncate text-sm text-ink">{guest.name}</span>
                   <span className="block text-xs text-ink/50">
                     {timeLabel(at)}
-                    {guest.tableLabel ? ` · Table ${guest.tableLabel}` : ''}
+                    {guest.tableLabel ? ` · ${tableWords(guest.tableLabel)}` : ''}
                   </span>
                 </span>
                 <button

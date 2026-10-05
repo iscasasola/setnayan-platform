@@ -848,8 +848,8 @@ export function PlanBudgetAccordion({
           past the recap rubber-banded the document down into the bare html
           background (a gap below the surface — owner 2026-06-01 "should not
           move up like this"). Pinning the document over-scroll stops that
-          bounce. (The shell-topbar hide is owned by the ServicesTakeover wrapper
-          now — mobile-only — so it is NOT re-injected here; the dark P0 budget
+          bounce. (The shared top bar is never hidden here — owner 2026-10-05 —
+          so nothing is injected for it; the dark P0 budget
           bar was removed 2026-06-09, the live readout lives on the Summary tab.) */}
       <style>{`html,body{overscroll-behavior-y:none}`}</style>
       <div className="body">

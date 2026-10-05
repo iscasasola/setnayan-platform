@@ -175,7 +175,7 @@ export function teamRowOf(
       const href = depositStepHref(ctx.eventId, f.vendorId);
       switch (f.depositStep) {
         case 'due':
-          return { ...booked, next: 'pay your first payment', action: { kind: 'pay', label: 'Pay', href }, needsYou: true };
+          return { ...booked, next: 'make your first payment', action: { kind: 'pay', label: 'Pay', href }, needsYou: true };
         case 'refused':
           return {
             ...booked,

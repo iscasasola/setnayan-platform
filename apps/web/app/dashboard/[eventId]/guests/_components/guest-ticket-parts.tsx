@@ -51,12 +51,24 @@ export function GuestTicketThumb({
   const [open, setOpen] = useState(false);
   const [broken, setBroken] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const titleId = useId();
   const boxRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const src = ticketUrl(guestId);
   useEffect(() => setMounted(true), []);
+  // A picture already in the browser's cache can finish before React attaches
+  // `onLoad` — read it once it is in the DOM, so a cached ticket is not held
+  // behind the placeholder.
+  // Keyed on the address too: a card that switches guests starts over.
+  useEffect(() => {
+    setLoaded(false);
+    setBroken(false);
+    const img = imgRef.current;
+    if (mounted && img?.complete && img.naturalWidth > 0) setLoaded(true);
+  }, [mounted, src]);
   useModalA11y({ open, onClose: () => setOpen(false), containerRef: boxRef });
 
-  const src = ticketUrl(guestId);
   if (!available || broken) {
     return (
       <div
@@ -81,22 +93,35 @@ export function GuestTicketThumb({
             2026-10-02). The picture is drawn on demand by the server, so it is
             asked for only once the card is on screen, at low priority — the
             card's own fields arrive first; the ticket fills its box after. */}
-        {mounted ? (
-          // eslint-disable-next-line @next/next/no-img-element -- our own gated route; the same PNG Save ticket saves
-          <img
-            src={src}
-            alt=""
-            width={92}
-            height={123}
-            loading="lazy"
-            decoding="async"
-            fetchPriority="low"
-            onError={() => setBroken(true)}
-            className="aspect-[3/4] w-full rounded-lg bg-white object-cover shadow-[0_6px_18px_-10px_rgba(30,26,18,.45)] ring-1 ring-ink/10 transition-transform group-hover:-translate-y-0.5"
-          />
-        ) : (
-          <span aria-hidden className="aspect-[3/4] w-full rounded-lg bg-ink/[0.04]" data-guest-ticket-waiting="" />
-        )}
+        {/* 🎟 NEVER A BLANK WHITE BOX (owner 2026-10-05, live on maria-and-jose:
+            "the ticket picture is blank white for ~4 s before it appears"). The
+            server draws the 1080×1440 PNG on demand — seconds, not
+            milliseconds — and the <img> used to sit there white while it did.
+            Until the picture has actually LOADED, the box is the ticket's own
+            shape with their name and a QR mark; the picture fades in over it.
+            A broken picture still falls back to "No ticket" above. */}
+        <span className="relative block aspect-[3/4] w-full">
+          {loaded ? null : <TicketPlaceholder name={name} />}
+          {mounted ? (
+            // eslint-disable-next-line @next/next/no-img-element -- our own gated route; the same PNG Save ticket saves
+            <img
+              ref={imgRef}
+              src={src}
+              alt=""
+              width={92}
+              height={123}
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+              onLoad={() => setLoaded(true)}
+              onError={() => setBroken(true)}
+              data-guest-ticket-img={loaded ? 'loaded' : 'loading'}
+              className={`absolute inset-0 h-full w-full rounded-lg object-cover shadow-[0_6px_18px_-10px_rgba(30,26,18,.45)] ring-1 ring-ink/10 transition-[opacity,transform] duration-300 group-hover:-translate-y-0.5 ${
+                loaded ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          ) : null}
+        </span>
         <span className="text-[11px] italic text-ink/55">
           <span className="lg:hidden">Tap to view</span>
           <span className="hidden lg:inline">Click to view</span>
@@ -152,6 +177,27 @@ export function GuestTicketThumb({
           )
         : null}
     </>
+  );
+}
+
+/**
+ * The ticket while its picture is still being drawn: the ticket's own shape —
+ * a cream card, a band at the top, their name, a QR mark — so the box reads as
+ * "their ticket, on its way", never as an empty white rectangle.
+ */
+function TicketPlaceholder({ name }: { name: string }) {
+  return (
+    <span
+      aria-hidden
+      className="absolute inset-0 flex flex-col items-center overflow-hidden rounded-lg bg-cream shadow-[0_6px_18px_-10px_rgba(30,26,18,.45)] ring-1 ring-ink/10"
+      data-guest-ticket-waiting=""
+    >
+      <span className="block h-[18%] w-full bg-ink/[0.06]" />
+      <span className="mt-2 line-clamp-2 px-1.5 text-center font-display text-[11px] leading-tight text-ink/70">
+        {name}
+      </span>
+      <QrCode className="mt-auto mb-3 h-7 w-7 animate-pulse text-ink/25" strokeWidth={1.5} />
+    </span>
   );
 }
 

@@ -193,7 +193,7 @@ test('⑦ swipe, bar and card all go through the one warning and the one delete 
   const list = read('_components', 'guest-list-multiselect.tsx');
   const swipe = list.slice(list.indexOf('function SwipeToDelete('));
   assert.match(swipe.slice(0, swipe.indexOf('function GroupChipList(')), /<DeleteGuestSheet\b/, 'the swipe deletes without the warning');
-  const bar = list.slice(list.indexOf('function RosterBulkBar('), list.indexOf('function tableWord('));
+  const bar = list.slice(list.indexOf('function RosterBulkBar('), list.indexOf('function NewGroupInlineForm('));
   assert.match(bar, /<DeleteGuestSheet\b/, 'the selection bar deletes without the warning');
   assert.match(bar, /label: `Delete \$\{formatCount\(count\)\}/, 'the bar does not say "Delete N guests"');
   const del = read('_components', 'guest-delete.tsx');

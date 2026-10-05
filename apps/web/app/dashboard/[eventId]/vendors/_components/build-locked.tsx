@@ -612,7 +612,7 @@ function DepositLine({ step, href }: { step: DepositStep | undefined; href: stri
           href={href}
           className="inline-flex items-center rounded-full bg-mulberry px-3 py-1.5 text-xs font-semibold text-cream transition hover:opacity-90"
         >
-          {step === 'due' ? 'Pay your first payment' : 'Send it again'}
+          {step === 'due' ? 'Make your first payment' : 'Send it again'}
         </Link>
       </div>
     );

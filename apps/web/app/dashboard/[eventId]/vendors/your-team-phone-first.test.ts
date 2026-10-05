@@ -4,7 +4,8 @@
  *
  *   (a) the booked suppliers render BEFORE "Find a supplier", and the category
  *       walls sit INSIDE it — hidden on a phone until it is pressed, never
- *       unmounted, never unreachable;
+ *       unreachable (since 2026-10-05 it is also not DRAWN on a phone until it
+ *       first opens — `suppliers-opens-fast.test.ts`);
  *   (b) each row's one next step comes from real state — executed in
  *       `lib/your-team-rows.test.ts`; here, that the page feeds the rows from
  *       the SAME maps the Picks list and the bench already read, and the row

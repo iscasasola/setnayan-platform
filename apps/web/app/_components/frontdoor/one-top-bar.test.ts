@@ -332,10 +332,10 @@ test('sign-out still has exactly one home on every surface', () => {
 
 test('the `shell-topbar` hide hook survived the move', () => {
   /*
-    ONE shipped event page still injects `.shell-topbar{display:none}` — the
-    Vendors takeover, and only `@media (max-width:1023px)`. The hook was
-    SidebarShell's, then AdminStickyTopBar's. If the shared bar does not carry
-    it, that page silently grows back a bar it deliberately removed.
+    The hook was SidebarShell's, then AdminStickyTopBar's, and it is still the
+    one stable name for the shared bar's wrapper. (No event page hides the
+    bar any more: the Vendors takeover's phone-only hide was removed on the
+    owner's word 2026-10-05 — `suppliers-keeps-the-shell-bar.test.ts`.)
 
     ⚠ THE GUESTS PAGE USED TO BE THE SECOND, AND WAS THE REASON THIS HOOK LOOKED
     HARMLESS. Its rule carried no media query, so once the one-shell move gave
@@ -346,8 +346,8 @@ test('the `shell-topbar` hide hook survived the move', () => {
   const src = code(read(SHELL));
   assert.ok(
     /shell-topbar/.test(src),
-    'The shared bar dropped the `shell-topbar` class. The Vendors takeover ' +
-      'hides the strip by naming exactly that word.',
+    'The shared bar dropped the `shell-topbar` class — the one stable name ' +
+      'every surface finds the shared bar by.',
   );
   /*
     And it must be on a WRAPPER, not on `.fd-topbar` itself: `.fd-topbar` sets

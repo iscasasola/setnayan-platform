@@ -6,6 +6,7 @@ import {
   progressLabel,
   progressShare,
   roundName,
+  stageLinks,
   stageSteps,
   type GuidedPlan,
   type GuidedScreen,
@@ -13,6 +14,7 @@ import {
   type GuidedStepState,
 } from '@/lib/details-guided-flow';
 import { isSetupStage } from '@/lib/stage-setup';
+import type { HubSetupStepKey } from '@/lib/hub-setup-steps';
 
 /**
  * DETAILS › WHAT'S LEFT — THE PARTS DRAWN BEFORE A STEP IS (Details part 5):
@@ -36,6 +38,8 @@ export function screenKey(at: GuidedScreen): string {
       return 'stages';
     case 'step':
       return `step:${at.round}:${at.step}`;
+    case 'link':
+      return `link:${at.round}:${at.link}`;
     default:
       return `${at.kind}:${at.round}`;
   }
@@ -46,6 +50,7 @@ export function screenFromKey(key: string): GuidedScreen | null {
   const [kind, round, step] = key.split(':');
   if (!isSetupStage(round)) return null;
   if (kind === 'step' && step) return { kind: 'step', step: step as GuidedStepKey, round };
+  if (kind === 'link' && step) return { kind: 'link', link: step as HubSetupStepKey, round };
   if (kind === 'ready' || kind === 'before') return { kind, round };
   return null;
 }
@@ -85,6 +90,7 @@ export function GuideTop({
         ...stageSteps(plan, r).map(
           (s): PickOption => ({ key: `step:${r}:${s.key}`, label: s.optional ? `${s.title} · optional` : s.title, group, trail: MARK[s.state] }),
         ),
+        ...stageLinks(plan, r).map((l): PickOption => ({ key: `link:${r}:${l.key}`, label: l.title, group, trail: MARK[l.state] })),
         { key: `ready:${r}`, label: `Apply · ${plan.roundWords[r].ready}`, group },
       ];
     }),
@@ -165,10 +171,15 @@ export function WhatsLeftDoor({ label, onOpen }: { label: string; onOpen: () => 
  * a false alarm); a <select> whose drawn choice is unknown is skipped for the
  * same reason. It only ever ASKS — "Go on without saving" is always there.
  */
-export function hasUnsavedEdits(scopes: ReadonlyArray<Element | null>): boolean {
+export function hasUnsavedEdits(scopes: ReadonlyArray<Element | null>, touched?: ReadonlySet<Element>): boolean {
   for (const scope of scopes) {
     if (!scope) continue;
     for (const el of scope.querySelectorAll('input, textarea, select')) {
+      /* 🔒 OPENING IS NEVER DIRTY (owner 2026-10-05: "What everyone wears" asked
+         "You changed something…" though nothing was touched — a field a tool
+         fills on its own after it draws). Only a field the couple typed in or
+         picked in, on this step, can be unsaved. */
+      if (touched && !touched.has(el)) continue;
       if (el instanceof HTMLInputElement) {
         if (el.disabled || ['hidden', 'submit', 'button', 'reset', 'file', 'image'].includes(el.type)) continue;
         if (el.type === 'checkbox' || el.type === 'radio') {

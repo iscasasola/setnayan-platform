@@ -79,7 +79,7 @@ import { hasOwnLook } from '@/lib/theme-own-look';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
-import { countSetupGuests, guidedFactsFrom, guidedPresent, hubSetupFactsFrom, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
+import { countSetupGuests, guidedFactsFrom, guidedPresent, hubSetupFactsFrom, readGuidedPlan, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
 import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
@@ -1260,6 +1260,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                     eventDate: printEvent.event_date,
                   })
             }
+            /* The 30-days-before default the field shows while no date of their own is set. */
+            replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
             /* ✍ Typed right here (no link out): the couple's own date and the
                pricing view its one writer (`updatePaxSettings`) posts beside it. */
             replyByOwn={
@@ -1367,6 +1369,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
         seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
       });
+      /* 🔢 ONE COUNT (owner 2026-10-05, still "10 of 18" here and "9 of 18" on
+         Event Details): the flow's step states come from the SAME read Home and
+         Event Details count with (`readGuidedPlan`) — one function, one answer. */
+      const sharedPlan = await readGuidedPlan({ supabase, admin: printAdmin, eventId }).catch(() => null);
       /* 🖼 The cover photo itself — what the guided cover step shows behind its
          sheet (owner 2026-10-05: the page lays the invitation card over it).
          Drafted over live, signed the way the hero panel signs it. */
@@ -1486,6 +1492,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               guestsHref: hubSetupGuestsHref(eventId),
               // 🔢 One count: the facts Home and Event Details count from.
               doneFacts: guided,
+              shared: sharedPlan
+                ? {
+                    steps: Object.fromEntries(sharedPlan.plan.steps.map((st) => [st.key, st.state])),
+                    links: Object.fromEntries(sharedPlan.plan.links.map((l) => [l.key, l.state])),
+                  }
+                : null,
             }}
             eventId={eventId}
             slug={printEvent.slug}

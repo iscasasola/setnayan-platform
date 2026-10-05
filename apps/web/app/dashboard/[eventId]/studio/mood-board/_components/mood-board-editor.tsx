@@ -1202,8 +1202,13 @@ export async function MoodBoardMakerControls({ eventId }: { eventId: string }) {
       <MoodPart part="palette">{parts.peopleAgreed}</MoodPart>
       <MoodPart part="reception">{parts.roomAgreed}</MoodPart>
       <MoodPart part="share">{parts.shareButton}</MoodPart>
-      <MoodPartNote />
-      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3" data-mood-board-exports="">
+      {/* 🪜 In the Maker's guided flow (a step is a setup control, nothing else):
+          no note under the part, no downloads — the board itself is the step's
+          picture (owner 2026-10-05). */}
+      <div className="contents group-data-[details-mode=guided]/ws:hidden" data-mood-board-note-wrap="">
+        <MoodPartNote />
+      </div>
+      <div className="flex flex-col gap-2 border-t border-ink/10 pt-3 group-data-[details-mode=guided]/ws:hidden" data-mood-board-exports="">
         <p className="text-xs font-semibold text-ink/60">Download your board</p>
         <div className="flex flex-wrap items-center gap-2">{parts.pdfs}</div>
         {parts.lastSaved}

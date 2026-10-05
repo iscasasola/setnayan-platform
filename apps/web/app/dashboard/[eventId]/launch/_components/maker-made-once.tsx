@@ -17,7 +17,6 @@ import { REVEAL_NONE } from '@/lib/reveal-access';
 import { INVITE_THEMES, normalizeThemeId, type InviteThemeId } from '@/lib/invite-themes';
 import { revealMaterialsFor } from '@/lib/reveal-materials';
 import { makerLogoOpening } from '@/lib/maker-logo-opening';
-import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { STD_THRESHOLD_DAYS } from '@/lib/invitation-widgets';
 import { resolveRevealStages, type RevealStage } from '@/lib/reveal-stages';
 import { resolveRevealEffects, revealTuneHouse } from '@/lib/std-reveal-effects';
@@ -173,11 +172,7 @@ export async function MakerHeroPanel({
 
   return (
     <section className="flex flex-col gap-3 px-1" data-made-once="hero">
-      <p className="text-[13.5px] text-ink/75">
-        Made once, shown everywhere: {PUBLIC_STAGE_LABELS.save_the_date}, {PUBLIC_STAGE_LABELS.rsvp},{' '}
-        {PUBLIC_STAGE_LABELS.event} and your poster. {PUBLIC_STAGE_LABELS.editorial} starts from it until you choose
-        a cover from the day.
-      </p>
+      {/* No "made once, shown everywhere" line (owner 2026-10-05: no captions under controls). */}
 
       {/* 🎴 Design 1 The Card · 2 The Marquee · 3 The Crest · 4 The Letter —
           one dropdown; a starting point whose every part is tap-to-edit on

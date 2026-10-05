@@ -69,7 +69,8 @@ function spotlightContent(
     case 'watch_live':
       return {
         eyebrow: 'Happening now',
-        title: `Watch the ${occasion} live`,
+        // "event", never "celebration" (owner 2026-10-05); a funeral keeps its own word.
+        title: `Watch the ${occasion === 'celebration' ? 'event' : occasion} live`,
         href: `#${SITE_MENU_ANCHORS.gallery}`,
       };
     // std_film / countdown / editorial_cover are full-body moments — no card.

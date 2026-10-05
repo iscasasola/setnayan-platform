@@ -29,7 +29,7 @@ import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
+import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
 import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
 import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
 import { MakerHalfSheet, SheetGrip, SheetScrim } from './maker-sheet';
@@ -309,6 +309,25 @@ export function DetailsWorkspace({
     if (piece) setPieceMap((m) => (m[item] === piece ? m : { ...m, [item]: piece }));
     setSheetOpen(true);
   };
+  /* ✍ The fields the couple touched on THIS step — the only ones that can be unsaved. */
+  const touchedRef = useRef<Set<Element>>(new Set());
+  const touchedStep = at?.kind === 'step' ? `${at.round}:${at.step}` : null;
+  useEffect(() => {
+    touchedRef.current = new Set();
+    if (!touchedStep) return;
+    const note = (e: Event) => {
+      const t = e.target;
+      if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t instanceof HTMLSelectElement) {
+        if (e.isTrusted) touchedRef.current.add(t);
+      }
+    };
+    document.addEventListener('input', note, true);
+    document.addEventListener('change', note, true);
+    return () => {
+      document.removeEventListener('input', note, true);
+      document.removeEventListener('change', note, true);
+    };
+  }, [touchedStep]);
   /** Every move away from a step first asks: is there typing here that is not saved? */
   const move = (to: GuidedScreen | null) => {
     if (!to) return;
@@ -318,7 +337,7 @@ export function DetailsWorkspace({
         root?.querySelector(`[data-details-editor="${k}"]`) ?? null,
         root?.querySelector(`[data-details-body-item="${k}"]`) ?? null,
       ]);
-      if (hasUnsavedEdits(scopes)) {
+      if (hasUnsavedEdits(scopes, touchedRef.current)) {
         // The question is asked at the step's own foot, in its sheet.
         setUnsavedTo(to);
         return;
@@ -653,7 +672,8 @@ export function DetailsWorkspace({
                   selected={selected}
                   onPick={select}
                   pieces={pieces[selected] ?? null}
-                  current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? null}
+                  /* Named in the STEP's words ("Cover photo"), never the item's ("Hero"). */
+                  current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? stepHere.title}
                 />
               </div>
             ) : null}
@@ -725,6 +745,23 @@ export function DetailsWorkspace({
       {plan && at?.kind === 'stages' ? <StagePicker plan={plan} onPick={pickStage} initial={walk} /> : null}
       {plan && at?.kind === 'before' ? (
         <BeforeWeStartScreen plan={plan} round={at.round} onStart={() => startStage(at.round)} onBack={() => goTo({ kind: 'stages' })} />
+      ) : null}
+      {plan && at?.kind === 'link' ? (
+        <GuideLinkScreen
+          plan={plan}
+          link={at.link}
+          href={guide?.actions.guestsHref ?? null}
+          foot={
+            <GuideFoot
+              onBack={backScreen(plan, at) ? () => move(backScreen(plan, at)) : null}
+              onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at)) : null}
+              onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at)) : null}
+              warning={false}
+              onKeepEditing={() => setUnsavedTo(null)}
+              onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
+            />
+          }
+        />
       ) : null}
       {plan && at?.kind === 'ready' && guide ? (
         <GuideReady plan={plan} round={at.round} actions={guide.actions} onGo={(to) => move(to)} />

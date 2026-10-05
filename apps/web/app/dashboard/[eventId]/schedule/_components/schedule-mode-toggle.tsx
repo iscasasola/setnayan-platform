@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Route, CalendarRange, CalendarClock } from 'lucide-react';
+import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 
 /**
  * ScheduleModeToggle — the segmented control at the top of /schedule that
@@ -20,6 +20,11 @@ import { Route, CalendarRange, CalendarClock } from 'lucide-react';
  *
  * `prepCount` / `journeyCount` let those segments show a small count badge so
  * the couple knows there's something there before they tap.
+ *
+ * 🎚 THE ONE SEGMENTED CONTROL (DECISION_LOG 2026-10-04 "ONE SEGMENTED CONTROL
+ * FOR SECTIONS, ACROSS THE APP"; owner, live walk 2026-10-05: this was a pill
+ * row behind the guided Schedule step) — `ISegmented`, the chosen segment in
+ * Setnayan wine. A tap swaps the view in place (`router.replace`, no scroll).
  */
 
 type Mode = 'journey' | 'preparation' | 'event-day';
@@ -35,80 +40,44 @@ export function ScheduleModeToggle({
 }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
-  function hrefFor(mode: Mode): string {
+  function go(mode: Mode) {
+    if (mode === active) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set('view', mode);
-    return `${pathname}?${params.toString()}`;
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }
 
-  return (
-    <div
-      role="tablist"
-      aria-label="Schedule view"
-      className="sn-seg w-full max-w-md sm:w-auto"
-    >
-      <Segment
-        key={`journey-${active === 'journey'}`}
-        href={hrefFor('journey')}
-        isActive={active === 'journey'}
-        Icon={Route}
-        label="Journey"
-        badge={journeyCount > 0 ? journeyCount : undefined}
-      />
-      <Segment
-        key={`preparation-${active === 'preparation'}`}
-        href={hrefFor('preparation')}
-        isActive={active === 'preparation'}
-        Icon={CalendarRange}
-        label="Preparation"
-        badge={prepCount > 0 ? prepCount : undefined}
-      />
-      <Segment
-        key={`event-day-${active === 'event-day'}`}
-        href={hrefFor('event-day')}
-        isActive={active === 'event-day'}
-        Icon={CalendarClock}
-        label="Event Day"
-      />
-    </div>
-  );
-}
+  const badge = (n: number, on: boolean) =>
+    n > 0 ? (
+      <span
+        className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none ${
+          on ? 'bg-white/25 text-white' : 'bg-terracotta/15 text-terracotta'
+        }`}
+      >
+        {n}
+      </span>
+    ) : null;
 
-function Segment({
-  href,
-  isActive,
-  Icon,
-  label,
-  badge,
-}: {
-  href: string;
-  isActive: boolean;
-  Icon: typeof CalendarRange;
-  label: string;
-  badge?: number;
-}) {
   return (
-    <Link
-      href={href}
-      role="tab"
-      aria-selected={isActive}
-      scroll={false}
-      className={`sn-seg-item gap-2 text-sm font-medium sm:flex-none sm:px-4${
-        isActive ? ' sn-bounce' : ''
-      }`}
-    >
-      <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-      <span>{label}</span>
-      {badge !== undefined ? (
-        <span
-          className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none ${
-            isActive ? 'bg-ink/10 text-ink' : 'bg-terracotta/15 text-terracotta'
-          }`}
-        >
-          {badge}
-        </span>
-      ) : null}
-    </Link>
+    <div className="w-full max-w-md sm:w-auto" data-schedule-view-switch="">
+      <ISegmented label="Schedule view">
+        <ISeg tone="wine" on={active === 'journey'} onClick={() => go('journey')} data="schedule-view-journey">
+          <Route aria-hidden className="h-4 w-4 max-sm:hidden" strokeWidth={1.75} />
+          Journey
+          {badge(journeyCount, active === 'journey')}
+        </ISeg>
+        <ISeg tone="wine" on={active === 'preparation'} onClick={() => go('preparation')} data="schedule-view-preparation">
+          <CalendarRange aria-hidden className="h-4 w-4 max-sm:hidden" strokeWidth={1.75} />
+          Preparation
+          {badge(prepCount, active === 'preparation')}
+        </ISeg>
+        <ISeg tone="wine" on={active === 'event-day'} onClick={() => go('event-day')} data="schedule-view-event-day">
+          <CalendarClock aria-hidden className="h-4 w-4 max-sm:hidden" strokeWidth={1.75} />
+          Event Day
+        </ISeg>
+      </ISegmented>
+    </div>
   );
 }

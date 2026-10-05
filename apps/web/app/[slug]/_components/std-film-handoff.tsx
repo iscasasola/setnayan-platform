@@ -121,7 +121,13 @@ export function StdFilmHandoff({
       <>
         {marker}
         {film}
-        <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
+        {/* `#std-after-film`: where the theme starts. The film wears its OWN
+            background (`std_background`), never the Event Hub theme — so the
+            Maker's guided Theme step opens the Save the Date page HERE, on the
+            part the theme dresses (owner 2026-10-05). */}
+        <div id="std-after-film" className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
+          {children}
+        </div>
       </>
     );
   }

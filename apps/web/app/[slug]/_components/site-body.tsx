@@ -1422,8 +1422,10 @@ export async function SiteBody({
     const publicWidgetNodes = sceneNodes(detailsSceneList);
     // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
     // guest at the venue without a session cookie still sees "happening now".
+    // ONE "Happening now" (owner 2026-10-05: it showed twice, overlapping the
+    // card) — when the live spotlight card already says it, the masthead does not.
     const dayOfBadge =
-      dayOfPhase === 'live' ? (
+      dayOfPhase === 'live' && plan.spotlight?.kind !== 'watch_live' ? (
         <p className="inline-flex items-center gap-2 rounded-full border border-terracotta px-3 py-1 font-mono text-xs uppercase tracking-[0.15em] text-terracotta">
           <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-terracotta" />
           Happening now

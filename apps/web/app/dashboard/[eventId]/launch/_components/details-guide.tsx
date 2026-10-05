@@ -252,6 +252,50 @@ export function GuideReady({
   );
 }
 
+/**
+ * 🧭 A LINK STEP'S SCREEN (the guests' names) — a screen of the walk like every
+ * step (owner 2026-10-05: Skip from the step before jumped straight to Ready).
+ * Its field lives on the Guest list (the names are typed there, with its
+ * template), so the screen is its name, where it stands, the one way in, and
+ * the same Back · Skip · Next.
+ */
+export function GuideLinkScreen({
+  plan,
+  link,
+  href,
+  foot,
+}: {
+  plan: GuidedPlan;
+  link: string;
+  /** Where the names are typed — the Guest list's own import. */
+  href: string | null;
+  foot: ReactNode;
+}) {
+  const l = plan.links.find((x) => x.key === link) ?? null;
+  return (
+    <section data-details-guide-link={link} aria-label={l?.title ?? 'Step'} className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
+          <h2 className="font-serif text-2xl text-ink">{l?.title}</h2>
+          <p className={`text-[13px] font-semibold ${l?.state === 'done' ? 'text-success-700' : 'text-terracotta-700'}`}>
+            {l?.state === 'done' ? '✓ set' : '○ not yet'}
+          </p>
+          {href ? (
+            <Link
+              href={href}
+              data-details-guide-link-go={link}
+              className="sn-press inline-flex min-h-11 items-center justify-center self-start rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
+            >
+              {l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
+            </Link>
+          ) : null}
+        </div>
+      </div>
+      {foot}
+    </section>
+  );
+}
+
 /** The foot of a step: ‹ Back · Skip for now · Next ›. A stage's other screens carry their own buttons. */
 export function GuideFoot({
   onBack,

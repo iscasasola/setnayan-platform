@@ -235,6 +235,9 @@ const TABLE_KIND_WORD: Record<TableShapeHint, string> = {
 // Room-size presets: ROOM_PRESETS (lib/seat-plan-details.ts) — the phone's status
 // line and the A3 print name the room from the same list.
 
+/** The whole-room overview's zoom — a margin around the room, so the floor's labels at the walls are never cut. */
+const ROOM_OVERVIEW_ZOOM = 0.9;
+
 export type SeatingGuest = {
   guest_id: string;
   name: string;
@@ -3958,8 +3961,14 @@ export function SeatingEditor({
   // Reset to a clean whole-room overview (zoom 1, no pan) whenever to-scale mode
   // toggles — the height-capped canvas then shows every table at once. The
   // couple zooms in (smooth pan, or Fit) to work on individual tables.
+  /* 📐 The overview keeps a margin (owner, live walk 2026-10-05: the floor's
+     own labels at the walls were cut — "OTO BOOTH", "CAKE T"): the room at
+     ROOM_OVERVIEW_ZOOM, centred, so a label at the edge stays whole. */
   useEffect(() => {
-    if (venueScaled) applyView(1, { x: 0, y: 0 });
+    if (!venueScaled) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    const z = ROOM_OVERVIEW_ZOOM;
+    applyView(z, rect ? { x: (rect.width * (1 - z)) / 2, y: (rect.height * (1 - z)) / 2 } : { x: 0, y: 0 });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venueScaled]);
 

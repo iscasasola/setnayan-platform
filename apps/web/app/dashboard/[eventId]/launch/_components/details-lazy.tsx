@@ -145,6 +145,7 @@ export const ProLockPanel = dynamic(() => import(/* webpackChunkName: "maker-det
 
 /* ── What's left (Details part 5): a step's heading, its foot, the Ready screens ── */
 export const GuideHead = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideHead), { loading: SlotNone });
+export const GuideLinkScreen = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideLinkScreen), { loading: SlotFill });
 export const GuideReady = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideReady), { loading: SlotFill });
 export const GuideFoot = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.GuideFoot), { loading: SlotButton });
 export const StepBackground = dynamic(() => import(/* webpackChunkName: "maker-details" */ './details-guide').then((m) => m.StepBackground), { loading: SlotNone });

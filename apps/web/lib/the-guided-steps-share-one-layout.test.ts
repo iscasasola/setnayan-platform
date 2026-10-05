@@ -244,3 +244,107 @@ test('(8) a server-made editor sits in a keyed slot — never an unkeyed child (
   assert.match(ws, /<Fragment key="persistent">\{persistent\}<\/Fragment>/, 'the persistent part is an unkeyed child beside the editors');
   assert.match(ws, /<Fragment key="body">\{bodies\[i\.key\] \?\? null\}<\/Fragment>/);
 });
+
+/* ══ ROUND 2 — the owner's live walk on maria-and-jose, 2026-10-05 ══════════ */
+
+test('(9) the Theme step opens the Save the Date page PAST its film — the part the theme dresses (the film wears its own background)', () => {
+  const body = guidedStepBody('theme', 'save_the_date');
+  assert.equal(body.kind === 'page' && body.anchor, '#std-after-film', 'the Theme step opens on the film, which never wears the theme');
+  assert.match(read('app/[slug]/_components/std-film-handoff.tsx'), /<div id="std-after-film" className=/, 'the page has no place past the film to open on');
+});
+
+test('(10) one count: the Maker wears the step states Home and Event Details count from', () => {
+  const page = read('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(page, /const sharedPlan = await readGuidedPlan\(\{ supabase, admin: printAdmin, eventId \}\)/, 'the Maker no longer reads the shared plan');
+  assert.match(page, /shared: sharedPlan\s*\?/);
+  const details = read(`${L}/maker-details.tsx`);
+  assert.match(details, /steps: rawPlan\.steps\.map\(\(st\) => \(sharedStates\.steps\[st\.key\] \? \{ \.\.\.st, state: sharedStates\.steps\[st\.key\]! \} : st\)\)/, 'the Maker counts its own way again');
+  assert.match(details, /links: rawPlan\.links\.map\(/);
+});
+
+test('(11) Parents & hosts opens on what is in place — a host before "Add a parent" — so the step agrees with its ✓ set', () => {
+  const people = read(`${L}/details-people.tsx`);
+  assert.match(people, /const first = parentsOffered \? \(parents\[0\]\?\.key \?\? hosts\[0\]\?\.key \?\? ADD\)/, 'the step opens on "Add a parent" beside a host already in place');
+  assert.doesNotMatch(people, /A host’s number comes from their own account/, 'a caption came back under the host');
+});
+
+test('(12) opening a step is never dirty; the Mood Board steps show the board, with no note and no downloads in the sheet', () => {
+  const top = read(`${L}/details-guide-top.tsx`);
+  assert.match(top, /if \(touched && !touched\.has\(el\)\) continue;/, 'an untouched field can read as unsaved again');
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /hasUnsavedEdits\(scopes, touchedRef\.current\)/, 'the step asks about fields nobody touched');
+  assert.match(ws, /if \(e\.isTrusted\) touchedRef\.current\.add\(t\);/, 'a field a tool fills itself counts as touched');
+  for (const key of ['colours', 'wear'] as const) assert.equal(guidedStepBody(key, 'rsvp').kind, 'own', key);
+  const mb = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
+  assert.match(mb, /className="contents group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-note-wrap=""/, 'the board’s note shows in the step');
+  assert.match(mb, /group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-exports=""/, 'the downloads show in the step');
+});
+
+test('(13) Reply by: one date line, the date in the field, one date format', () => {
+  const ask = read(`${L}/maker-rsvp-ask.tsx`);
+  const at = ask.lastIndexOf('data-rsvp-setting="reply-by"');
+  const block = ask.slice(at, ask.indexOf('</DetailsPieceOnly>', at));
+  assert.ok(block.length > 50, 'anti-vacuity: the reply-by block was not found');
+  assert.doesNotMatch(block, /Set your event date first|formatDay\(replyBy\.date\)/, 'the date is said twice again');
+  assert.match(block, /fallback=\{replyByFallback \?\? \(replyBy\?\.isDefault \? replyBy\.date : null\)\}/);
+  assert.match(ask, /value=\{value \|\| fallback \|\| ''\}/, 'the field is empty while a date is in force');
+  assert.match(ask, /toLocaleDateString\('en-US', \{\s*day: 'numeric',\s*month: 'long',/, 'not the Maker’s one date format');
+  // Both RSVP panels (Details' settings and the RSVP stage) are handed the default the field shows.
+  assert.equal((read('app/dashboard/[eventId]/launch/page.tsx').match(/replyByFallback=\{resolveReplyBy\(\{ deadline: null, eventDate: printEvent\.event_date \}\)\?\.date \?\? null\}/g) ?? []).length, 2);
+});
+
+test('(14) the March has no caption in the step; the cover has no "made once" line; the cover’s dropdown says the step’s word', () => {
+  assert.match(read('app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx'), /group-data-\[details-mode=guided\]\/ws:hidden" data-march-caption=""/, 'the march’s caption shows in the step');
+  assert.doesNotMatch(read(`${L}/maker-made-once.tsx`), /Made once, shown everywhere/, 'the cover’s caption came back');
+  assert.match(read(`${L}/details-workspace.tsx`), /current=\{pieceLabels\[selected\]\?\.\[pieceMap\[selected\] \?\? ''\] \?\? stepHere\.title\}/, 'the step’s dropdown says the item’s word ("Hero")');
+});
+
+test('(15) How guests get in: label and dropdown on ONE row', () => {
+  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="who-can-rsvp">/);
+});
+
+test('(16) the Schedule’s Journey · Preparation · Event Day is the one segmented control', () => {
+  const t = read('app/dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx');
+  assert.match(t, /<ISegmented label="Schedule view">/, 'a pill row came back');
+  assert.equal((t.match(/<ISeg tone="wine"/g) ?? []).length, 3);
+  assert.doesNotMatch(t, /sn-seg-item|role="tab"/);
+});
+
+test('(17) The Day: ONE "Happening now", and "event" — never "celebration" — on the live card', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { SpotlightCard } = await import('../app/[slug]/_components/spotlight-card');
+  const html = renderToStaticMarkup(React.createElement(SpotlightCard, { spotlight: { kind: 'watch_live' } as never }));
+  assert.match(html, /Watch the event live/, 'the live card says something else');
+  assert.doesNotMatch(html, /celebration/);
+  assert.match(read('app/[slug]/_components/site-body.tsx'), /dayOfPhase === 'live' && plan\.spotlight\?\.kind !== 'watch_live' \?/, 'the masthead pill doubles the live card again');
+});
+
+test('(18) the Seat plan step: the tool’s head is its controls only, and the room overview keeps its edges', () => {
+  const phone = read('app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx');
+  assert.match(phone, /text-ink group-data-\[details-mode=guided\]\/ws:hidden">Seat plan<\/h2>/, 'the tool’s title shows above the step');
+  assert.match(phone, /data-seat-plan-status="" className="[^"]*group-data-\[details-mode=guided\]\/ws:hidden"/, 'the status line shows above the step');
+  const editor = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  assert.match(editor, /const ROOM_OVERVIEW_ZOOM = 0\.9;/);
+  assert.match(editor, /const z = ROOM_OVERVIEW_ZOOM;\s*applyView\(z, rect \?/, 'the overview fills the canvas edge to edge again (labels at the walls cut)');
+});
+
+test('(19) Skip goes to the VERY next screen — a link step (the guests’ names) is a screen of the walk', async () => {
+  const { hubSetupRound } = await import('./hub-setup-steps');
+  const { skipScreen, nextScreen, guidedScreens, stageSteps, progressLabel } = await import('./details-guided-flow');
+  const keys = ['names', 'date', 'theme', 'logo', 'hero', 'love-story', 'venues', 'schedule', 'parents', 'march', 'mood-board', 'special-message', 'rsvp'];
+  const nav = keys.map((k) => ({ key: k, label: k, done: false }));
+  const facts = { guestList: true, arrival: false, venuesLocked: { ceremony: false, reception: false }, venuesNamed: { ceremony: false, reception: false }, loveStoryMoments: 0, wear: false, replyBy: false, guests: 0 };
+  const p = buildGuidedPlan(nav as GuidedItem[], { solemn: false, parentsOffered: true }, hubSetupRound(facts, new Set(keys)));
+  const round = p.rounds.find((r) => p.links.some((l) => l.stages.includes(r)));
+  assert.ok(round, 'anti-vacuity: no stage carries a link step');
+  const last = stageSteps(p, round!).at(-1)!;
+  const link = p.links.find((l) => l.stages.includes(round!))!;
+  const at = { kind: 'step', step: last.key, round: round! } as const;
+  assert.deepEqual(skipScreen(p, at), { kind: 'link', link: link.key, round }, 'Skip from the last step jumps past the guests’ names');
+  assert.deepEqual(nextScreen(p, at), { kind: 'link', link: link.key, round });
+  assert.ok(guidedScreens(p, round!).some((sc) => sc.kind === 'link'), 'the link step is not a screen');
+  const total = stageSteps(p, round!).length + p.links.filter((l) => l.stages.includes(round!)).length;
+  assert.match(progressLabel(p, { kind: 'link', link: link.key, round: round! }), new RegExp(`${total} of ${total}$`), 'the link step is not counted in its place');
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /\{plan && at\?\.kind === 'link' \? \(\s*<GuideLinkScreen/, 'the link screen is not drawn');
+});

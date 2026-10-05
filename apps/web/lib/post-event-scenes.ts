@@ -584,7 +584,6 @@ export function draftToScenes(draftJson: unknown, chapterKeys: readonly string[]
   const rows: SceneRow[] = [
     { key: 'cover', hidden: false },
     { key: 'before', hidden: false },
-    { key: 'you', hidden: false },
     { key: 'numbers', hidden: off('byTheNumbers') },
   ];
   for (const block of resolveSectionOrder(savedOrder)) {
@@ -595,6 +594,10 @@ export function draftToScenes(draftJson: unknown, chapterKeys: readonly string[]
     if (block === 'watchFilm') {
       // The replay and the couple's own films — one block, one switch, two scenes.
       rows.push({ key: 'film', hidden: off('watchFilm') }, { key: 'videos', hidden: off('watchFilm') });
+      // 📑 "Were you there?" follows the film (owner 2026-10-05, DECISION_LOG
+      // "APPROVED — EVERY GUEST PAGE'S DEFAULT SECTION ORDER") — wherever the
+      // couple's order puts the film, as the page draws it (`editorial-content.tsx`).
+      rows.push({ key: 'you', hidden: false });
       continue;
     }
     const sceneKey = SCENE_FOR_BLOCK[block as Exclude<EditorialOrderKey, 'chapters'>];

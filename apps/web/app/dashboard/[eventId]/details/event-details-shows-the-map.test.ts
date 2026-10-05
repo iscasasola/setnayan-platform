@@ -56,8 +56,11 @@ function sectionBody(key: string): string {
 }
 
 test('every MAP row with an Event Details column renders, in its own section (count)', () => {
-  // The spec's MAP (2026-10-01) has 22 rows with an "Event Details row" column.
-  assert.equal(EVENT_DETAILS_MAP.length, 22, 'the MAP list shrank or grew — re-read it against the build spec');
+  // The spec's MAP (2026-10-01) had 22 rows with an "Event Details row" column;
+  // 21 since 2026-10-05, when A-Hub "Theme" left with the theme pick (DECISION_LOG
+  // "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS").
+  assert.equal(EVENT_DETAILS_MAP.length, 21, 'the MAP list shrank or grew — re-read it against the build spec');
+  assert.ok(!EVENT_DETAILS_MAP.some((r) => r.fact === 'theme'), 'a Theme fact came back to Event Details');
   const missing: string[] = [];
   let checked = 0;
   for (const row of EVENT_DETAILS_MAP) {

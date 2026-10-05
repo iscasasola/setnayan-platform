@@ -248,7 +248,9 @@ test('💎 a free couple on the web sees the whole Colours row with ◆ PRO on i
   for (const f of ['site_art_direction', 'site_font_key', 'site_magic_traveller']) {
     assert.match(html, new RegExp(`name="${f}"`), f);
   }
-  assert.equal(count(html, 'data-paid-mark="try"'), 3, 'Art direction · Typeface · Magic Move each wear ◆ PRO');
+  // 🆓 The Typeface is FREE since 2026-10-05 ("Colors, and Fonts are all free") —
+  // only Art direction and Magic Move wear ◆ PRO.
+  assert.equal(count(html, 'data-paid-mark="try"'), 2, 'Art direction · Magic Move each wear ◆ PRO — and the Typeface none');
   assert.match(html, /name="draft" value="1"/, 'the Colours row writes live');
 });
 

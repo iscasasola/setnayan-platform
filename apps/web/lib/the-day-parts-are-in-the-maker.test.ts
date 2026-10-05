@@ -6,9 +6,10 @@
  * three premade styles"; controller: "their Format tab with the Style row only").
  *
  * Held here:
- *   1. the navigator lists them on the stages where guests meet them, right
- *      after the entourage, and the canvas draws its stand-ins in that SAME
- *      list and order (`makerDayPartsOn` is read by both);
+ *   1. the navigator lists them on the stages where guests meet them, at their
+ *      places in the approved order (owner 2026-10-05), and the canvas draws
+ *      its stand-ins in that SAME list, order and places (`makerDayPartsOn` is
+ *      read by both);
  *   2. a tile tap and a canvas tap make the same selection, and its panel is
  *      never blank;
  *   3. the stand-ins are drawn on the Maker's canvas only — never for a guest;
@@ -44,18 +45,26 @@ const input = (stage: MakerStageInput['stage'], dayParts = true): MakerStageInpu
   dayParts,
 });
 
-test('1 · the day’s parts are listed where guests meet them, right after the entourage', () => {
+test('1 · the day’s parts are listed where guests meet them, in the approved order (owner 2026-10-05)', () => {
   const day = makerStageList(input('event')).shown.map((t) => t.key);
-  const at = day.indexOf('f:entourage');
-  assert.ok(at >= 0, 'the fixture draws the entourage');
-  // 📱 In the order of The Day's tabs (owner 2026-09-30): Live's live hub, the
-  // Welcome's table, the Gallery's photos — so the navigator's headers fall
-  // between them (`lib/maker-navigator-tabs.ts`).
-  assert.deepEqual(day.slice(at + 1, at + 5), ['f:announcements', 'f:live_hub', 'f:find_your_seat', 'f:photos_of_you']);
+  assert.ok(day.includes('f:entourage'), 'the fixture draws the entourage');
+  // 📑 DECISION_LOG 2026-10-05 "APPROVED — EVERY GUEST PAGE'S DEFAULT SECTION
+  // ORDER": Live + Announcements first, then find your seat · schedule · venue,
+  // then photo moments · your photos · photos of you, then the entourage.
+  assert.deepEqual(
+    day.filter((k) => k !== 'f:hero' && k !== 'f:greeting' && k !== 'f:pass' && k !== 'f:rsvp'),
+    ['f:announcements', 'f:live_hub', 'f:find_your_seat', 'w:schedule', 'w:venue_map', 'w:photo_moments', 'f:photos_of_you', 'f:entourage'],
+    `The Day lists ${day.join(' · ')}`,
+  );
   assert.deepEqual(makerDayPartsOn('event'), ['announcements', 'live_hub', 'find_your_seat', 'photos_of_you'], 'the canvas draws the same list');
+  assert.deepEqual(makerDayPartsOn('event', 'before'), ['announcements', 'live_hub', 'find_your_seat']);
+  assert.deepEqual(makerDayPartsOn('event', 'after'), ['photos_of_you']);
+  assert.deepEqual(makerDayPartsOn('event', 'last'), []);
 
   const inv = makerStageList(input('rsvp')).shown.map((t) => t.key);
   assert.deepEqual(inv.filter((k) => ['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:photos_of_you'].includes(k)), ['f:announcements']);
+  assert.equal(inv[inv.length - 1], 'f:announcements', 'the Invitation’s announcement stays after the entourage');
+  assert.deepEqual(makerDayPartsOn('rsvp', 'last'), ['announcements']);
   assert.deepEqual(makerStageList(input('save_the_date')).shown.filter((t) => t.key === 'f:announcements'), []);
   assert.deepEqual(
     makerStageList(input('event', false)).shown.filter((t) => t.key.startsWith('f:') && t.key !== 'f:entourage' && t.key !== 'f:hero'),
@@ -78,12 +87,24 @@ test('2 · a tile tap and a canvas tap are the same selection, and the panel is 
 
 const WEB = join(__dirname, '..');
 
-test('3 · the stand-ins are the Maker canvas’s alone — never a guest’s', () => {
+test('3 · the stand-ins are the Maker canvas’s alone — never a guest’s — at the navigator’s three places', () => {
   const body = stripComments(readFileSync(join(WEB, 'app/[slug]/_components/site-body.tsx'), 'utf8'));
-  const at = body.indexOf('makerDayPartsOn(pageStage)');
-  assert.ok(at > 0, 'the canvas reads the navigator’s list');
+  const at = body.indexOf('makerDayPartsOn(pageStage, place)');
+  assert.ok(at > 0, 'the canvas reads the navigator’s list, place by place');
   assert.match(body.slice(at - 40, at), /isMakerCanvas\s*\?\s*$/, 'drawn only on the Maker’s canvas');
   assert.match(body.slice(at, at + 200), /makerMark\(`f:\$\{part\}`\)/, 'each with its navigator marker');
+  // The three places sit where the navigator lists them: before the stage's
+  // sections, right after them, and after the entourage.
+  const before = body.indexOf("makerDayStandIns('before')");
+  const scenes = body.indexOf('{group(scenesTab, plan.openBrowse ? (');
+  const after = body.indexOf("makerDayStandIns('after')");
+  const entourage = body.indexOf('<EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} />');
+  const last = body.indexOf("makerDayStandIns('last')");
+  assert.ok(before > 0 && scenes > 0 && after > 0 && entourage > 0 && last > 0, 'every place is drawn');
+  assert.ok(before < scenes && scenes < after && after < entourage && entourage < last, 'before · sections · after · entourage · last');
+  for (const k of ['before', 'after', 'last']) {
+    assert.equal(body.split(`makerDayStandIns('${k}')`).length - 1, 1, `${k} is drawn exactly once`);
+  }
 });
 
 test('4 · the fixed panel carries the one Style row for exactly the five parts', () => {

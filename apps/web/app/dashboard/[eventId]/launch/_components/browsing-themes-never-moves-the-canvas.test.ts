@@ -246,7 +246,7 @@ test('5 · the full-screen preview is an overlay with a way back — Exit previe
 
 // ═══ 6 · ONE theme picker in the Maker ════════════════════════════════════
 
-test('6 · exactly one theme picker in the Maker — one module writes the theme, each face mounted once', async () => {
+test('6 · no theme picker is mounted — one module still holds the theme write, and no face of it is drawn (2026-10-05)', async () => {
   const { readdirSync, statSync } = await import('node:fs');
   const files: string[] = [];
   const walk = (dir: string) => {
@@ -260,18 +260,13 @@ test('6 · exactly one theme picker in the Maker — one module writes the theme
   // A theme write is a draft patch naming invite_theme — one file makes it.
   const writers = files.filter((f) => /invite_theme: id/.test(readFileSync(f, 'utf8')));
   assert.deepEqual(writers.map((f) => f.slice(APP.length + 1)), [PICKER], 'a second theme picker writes the theme');
-  // Its two faces, each mounted exactly once — on Details.
+  // 🚫 Its two faces are mounted NOWHERE since 2026-10-05 (DECISION_LOG "THEMES
+  // ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS"): a couple no longer picks a
+  // theme — not in the Maker's Look, not on Event Details. Every theme's loop
+  // is a Moving background under Look › Background instead.
   const mounts = (re: RegExp) => files.filter((f) => re.test(readFileSync(f, 'utf8'))).map((f) => f.slice(APP.length + 1));
-  const DETAILS = 'dashboard/[eventId]/launch/_components/maker-details.tsx';
-  assert.deepEqual(mounts(/<MakerThemeGallery\b/), [DETAILS]);
-  // …and the dropdown face has ONE second door, by owner ruling: Event Details'
-  // Theme row opens THE SAME menu in place (2026-10-04 "YES TO ALL": rows are
-  // edited in place; `every-fact-has-one-editor.test.ts`). Still one writer (above).
-  const RECORD = 'dashboard/[eventId]/details/_components/record-editor.tsx';
-  assert.deepEqual(mounts(/<MakerThemeMenu\b/), [RECORD, DETAILS]);
-  assert.equal([...read(RECORD).matchAll(/<MakerThemeMenu\b/g)].length, 1);
-  assert.equal([...read(DETAILS).matchAll(/<MakerThemeGallery\b/g)].length, 1);
-  assert.equal([...read(DETAILS).matchAll(/<MakerThemeMenu\b/g)].length, 1);
+  assert.deepEqual(mounts(/<MakerThemeGallery\b/), [], 'the theme gallery came back');
+  assert.deepEqual(mounts(/<MakerThemeMenu\b/), [], 'the theme dropdown came back');
   // The old side-panel rail is gone, not merely unmounted.
   assert.equal(mounts(/MakerThemePicker\b/).length, 0, 'the retired side-panel picker is still in the tree');
 });

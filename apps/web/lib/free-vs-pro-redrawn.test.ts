@@ -186,9 +186,11 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
   assert.doesNotMatch(call, /button/, 'the live writer still asks Pro for the button colour');
   // The guest page paints it outside the Pro branch.
   const vars = code('app/[slug]/_lib/pro-site-vars.ts');
-  const proBranch = vars.slice(vars.indexOf('if (proWatermarkHidden)'));
-  assert.ok(proBranch.length > 10, 'the Pro branch was not found — the scan is blind');
-  assert.doesNotMatch(proBranch.slice(0, proBranch.indexOf('}') + 1), /site_button_color/, 'the button colour still paints only for Pro');
+  // 2026-10-05: the face left the Pro branch too ("Colors, and Fonts are all
+  // free"), so the bag has NO Pro branch — and the button colour is built
+  // unconditionally, beside the background.
+  assert.doesNotMatch(vars, /if \(proWatermarkHidden\)/, 'a Pro branch came back into the colours bag');
+  assert.match(vars, /buildCustomSiteColorVars\(bgHex, \(event\.site_button_color as string \| null\) \?\? null\)/, 'the button colour is not built for every event');
   // The panel draws the button colour whether or not the Pro half is locked.
   const panel = code('app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx');
   const between = panel.slice(panel.indexOf('<BackgroundField'), panel.indexOf('<ButtonColourField'));

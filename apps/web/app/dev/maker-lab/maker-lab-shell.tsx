@@ -8,6 +8,11 @@ import type { MakerNavigatorData } from '@/app/dashboard/[eventId]/website/edito
 import { HubDraftToolbar } from '@/app/dashboard/[eventId]/website/_components/hub-draft-bar';
 import type { HubDraftActionResult, HubDraftSummary } from '@/lib/hub-draft';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { MainBackgroundPanel, type MovingBackgroundOption } from '@/app/dashboard/[eventId]/website/editor/_components/main-background-panel';
+import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_components/pro-panels';
+import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { hubButtonPage } from '@/lib/hub-buttons';
 
 /**
  * The Maker lab's client half (`page.tsx` says what is real): the real shell,
@@ -23,6 +28,16 @@ function labSummary(n: number): HubDraftSummary {
 async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionResult> {
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
   (w.__labDrafts ??= []).push(Object.fromEntries([...fd].filter(([, v]) => typeof v === 'string')) as Record<string, string>);
+  /* 🎞 The lab's "draft": a Look › Background pick rides a cookie the lab's
+     canvas (`./guest`) reads on its next load — the browser only, no database. */
+  try {
+    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { widgets?: { hero?: { main?: unknown } } };
+    if (patch.widgets?.hero && 'main' in patch.widgets.hero) {
+      document.cookie = `lab_main=${encodeURIComponent(JSON.stringify(patch.widgets.hero.main ?? null))}; path=/; SameSite=Lax`;
+    }
+  } catch {
+    /* not a Background patch */
+  }
   labChanges += 1;
   const s = labSummary(labChanges);
   return { ok: true, intent: 'save', applied: 0, held: [], bar: { free: s, owned: s, proEffects: [], priceLabel: null } } as HubDraftActionResult;
@@ -35,12 +50,14 @@ export function MakerLabShell({
   scenes,
   navigator,
   details,
+  loops = [],
   openDetails = false,
 }: {
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
   details: ReactNode;
+  loops?: readonly MovingBackgroundOption[];
   openDetails?: boolean;
 }) {
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
@@ -60,6 +77,44 @@ export function MakerLabShell({
     }),
     [eventId],
   );
+  /* 🎨 Look's rows — the REAL controls (Background · Font · Colours · Buttons), on
+     maria-and-jose's shape: Classic, no hero photo, nothing chosen yet. A
+     Background pick drafts into the lab (`window.__labDrafts`), never a database. */
+  const house = INVITE_THEMES.house;
+  const formDraft = (fd: FormData) => void labDraft(eventId, fd);
+  const lookRows = {
+    'main-background': {
+      label: 'Behind every scene',
+      node: (
+        <MainBackgroundPanel
+          eventId={eventId}
+          themeId="house"
+          colours={house.palette}
+          current={null}
+          hero={{ photoRef: null, photoUrl: null, hasClip: false, liveRef: null }}
+          overrideStillUrl={null}
+          drafted={false}
+          ownsPro={false}
+          loops={loops}
+          draftAction={labDraft as never}
+        />
+      ),
+    },
+    font: {
+      label: 'Font',
+      node: <ColorsPanel action={formDraft} eventId={eventId} rowKey="font" part="font" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} proMark="try" />,
+    },
+    colors: {
+      label: 'Colours',
+      node: (
+        <ColorsPanel action={formDraft} eventId={eventId} rowKey="colors" part="colours" bgColor={null} buttonColor={null} artDirection={null} fontKey={null} magicTraveller={null} proMark="try" />
+      ),
+    },
+    buttons: {
+      label: 'Buttons',
+      node: <ButtonsLookRow eventId={eventId} theme={house} page={hubButtonPage(house, null)} style={null} colour={null} palette={[house.palette.accent, house.palette.ink]} />,
+    },
+  };
   return (
     <MakerShell
       eventId={eventId}
@@ -87,7 +142,7 @@ export function MakerLabShell({
         scenes={scenes}
         navigator={navigator}
         scenePanels={Object.fromEntries(scenes.map((s) => [s.id, stand(`${s.label} — its settings`)]))}
-        rows={{}}
+        rows={lookRows}
         ownsPro={false}
         toggleAction={formNoop}
         setModeAction={formNoop}

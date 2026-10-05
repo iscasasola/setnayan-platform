@@ -463,7 +463,7 @@ export function DetailsWorkspace({
      NAVIGATOR's tiles — Look's under Theme, the prints under Settings › Prints,
      the rest under Details — and the picked item's editor is its TOOL. */
   const allItemsSheet = sheetOpen && !(mode === 'guided' && plan !== null) && layout !== 'whole';
-  /* 🎨 The Look section a Theme tile opened (Theme · Background · Font · Colours · Buttons). */
+  /* 🎨 The Look section a Look tile opened (Background · Font · Colours · Buttons). */
   const [lookAt, setLookAt] = useState<LookSection | null>(null);
   useMakerTool(allItemsSheet, {
     key: `details:${selected}`,
@@ -480,9 +480,10 @@ export function DetailsWorkspace({
      item (Look → the address) moves the lower third's pick with it. */
   const ltDoor = makerDoorOf(selected);
   const ltNav = maker?.ltNav ?? null;
-  /* 🎨 Theme's PARTS first (frame 6: "Theme → Look · Fonts · Colours"): the Look
-     panel's own sections (`LOOK_SECTIONS`); a tile opens the panel at it. Then
-     the other Look items (Mood Board · Logo · …), each its own editor. */
+  /* 🎨 Look's PARTS first: the Look panel's own sections (`LOOK_SECTIONS` —
+     Background · Font · Colours · Buttons; no Theme since 2026-10-05); a tile
+     opens the panel at it. Then the other Look items (Mood Board · Logo · …),
+     each its own editor. */
   const themeParts = ltDoor === 'look' && items.some((i) => i.key === 'theme') ? LOOK_SECTIONS : [];
   useEffect(() => {
     if (!lookAt || !sheetOpen || selected !== 'theme') return;

@@ -107,6 +107,10 @@ const POOL_ORDER: PaletteKey[] = [
  */
 export const MAIN_SLOT = { dominant: 0, supporting: 1, accent: 2, neutral: 3, accent2: 4 } as const;
 
+/** = `PLATE_MUTED_ALPHA` / `PLATE_MIN_CONTRAST` (`app/[slug]/_lib/pro-site-vars.ts`, which imports this module — so restated, and a test holds them equal). */
+export const PLATE_MUTED_ALPHA_BAR = 0.65;
+export const PLATE_MIN_CONTRAST_BAR = 4.5;
+
 /** The board's colours that may dress the Event Hub — main first, then the ceremony's. Never attire. */
 function hubPool(palette: RolePalette): RGB[] {
   const seen = new Set<string>();
@@ -124,19 +128,7 @@ function hubPool(palette: RolePalette): RGB[] {
   return pool;
 }
 
-/** Move `color` until it clears `target` against `bg`: darker on a light ground, lighter on a dark one. */
-function ensureReadable(color: RGB, bg: RGB, target: number): RGB {
-  if (luminance(bg) > 0.18) return ensureContrast(color, bg, target);
-  let c = color;
-  for (let i = 0; i < 24 && contrast(c, bg) < target; i++) c = lighten(c, 0.1);
-  return c;
-}
 
-/** The readable text colour on `bg` — the safe obsidian, or near-white on a dark ground. */
-function inkOn(bg: RGB): RGB {
-  const light: RGB = { r: 250, g: 250, b: 248 };
-  return contrast(DEFAULTS.ink, bg) >= contrast(light, bg) ? DEFAULTS.ink : light;
-}
 
 /**
  * Build the `--color-*` overrides for the couple-site subtree, or null when the
@@ -154,31 +146,59 @@ export function buildSitePaletteVars(
   // Neutral → paper. Missing: a genuinely near-white main/ceremony colour, else alabaster.
   const lightest = [...pool].sort((a, b) => luminance(b) - luminance(a))[0]!;
   const paper = slot(MAIN_SLOT.neutral) ?? (luminance(lightest) >= 0.82 ? lightest : DEFAULTS.paper);
-  // Ink is computed, never a slot: the readable text on the paper.
-  const ink = inkOn(paper);
 
-  // Accent → links (as text on the paper, AA) and buttons (their label is the paper, AA).
+  /* 📏 THE BAR EVERY WORD CLEARS — the repo's own (`plateInkReads`,
+     `app/[slug]/_lib/pro-site-vars.ts`): AA 4.5 at the FAINTEST step the guest
+     pages set words (`text-ink/65`), on the paper AND on the cards. */
+  const readsMuted = (ink: RGB, bg: RGB) => contrast(blend(bg, ink, PLATE_MUTED_ALPHA_BAR), bg) >= PLATE_MIN_CONTRAST_BAR;
+  // Supporting → the cards and sections (the plates).
+  const supporting = slot(MAIN_SLOT.supporting);
+  // Ink is computed, never a slot: the first candidate that reads muted on the
+  // paper AND on the Supporting as chosen (so a light Supporting stays exact);
+  // else the first that reads on the paper.
+  const inkCandidates: RGB[] = [DEFAULTS.ink, { r: 0, g: 0, b: 0 }, { r: 250, g: 250, b: 248 }, WHITE];
+  const ink =
+    inkCandidates.find((c) => readsMuted(c, paper) && (!supporting || readsMuted(c, supporting))) ??
+    inkCandidates.find((c) => readsMuted(c, paper)) ??
+    inkCandidates.reduce((best, c) => (contrast(c, paper) > contrast(best, paper) ? c : best));
+
+  // The plates are moved toward the paper until that ink reads on them at the
+  // same bar — a Supporting that already reads is used as it is; a dark or mid
+  // one is softened to a tint of itself.
+  let plate = supporting ?? darken(paper, 0.04);
+  const from = plate;
+  for (let t = 0.05; t <= 1.0001 && !readsMuted(ink, plate); t += 0.05) plate = blend(from, paper, t);
+
+  /* Every COLOURED word reads on BOTH grounds it meets — the paper and the
+     cards — moved away from them (darker on a light page, lighter on a dark
+     one), so no card needs a second token. */
+  const lightPage = luminance(paper) > 0.18;
+  const readableOnBoth = (c: RGB, target: number): RGB => {
+    let out = c;
+    for (let i = 0; i < 40 && Math.min(contrast(out, paper), contrast(out, plate)) < target; i++) {
+      out = lightPage ? darken(out, 0.06) : lighten(out, 0.08);
+    }
+    return out;
+  };
+
+  // Accent → links (text) and buttons (the label is the paper) — both AA.
   const colorful = [...pool].filter((c) => chroma(c) >= 0.12).sort((a, b) => chroma(b) - chroma(a));
   const accentBase = slot(MAIN_SLOT.accent) ?? colorful[0] ?? DEFAULTS.accent;
-  const accent = ensureReadable(accentBase, paper, 4.5);
+  const accent = readableOnBoth(accentBase, 4.5);
   const deepColorful = colorful.filter((c) => contrast(c, WHITE) >= 3).sort((a, b) => luminance(a) - luminance(b));
   const ctaBase = slot(MAIN_SLOT.accent) ?? deepColorful[0] ?? accentBase;
-  const cta = ensureReadable(ctaBase, paper, 4.5);
-
-  // Supporting → the cards and sections (the plates). Many cards set their words
-  // in the PAGE ink, so the plate is moved toward the paper until that ink reads
-  // on it (AA 4.5) — a light Supporting is used as it is; a dark or mid one is
-  // softened to a tint of itself. Its own computed ink rides `--color-ink-on-plate`.
-  const supporting = slot(MAIN_SLOT.supporting);
-  let plate = supporting ?? darken(paper, 0.04);
-  for (let t = 0.05; supporting && t <= 1.0001 && contrast(ink, plate) < 4.5; t += 0.05) plate = blend(supporting, paper, t);
-  // Dominant → headings and large blocks — readable as large text (AA-large) on the paper.
-  const heading = ensureReadable(slot(MAIN_SLOT.dominant) ?? accentBase, paper, 3);
-  // Accent 2 → ornaments and dividers. It also sets WORDS (`text-gild`: the
-  // "and" between the names, small italic lines) — measured on maria-and-jose,
-  // a raw Accent 2 drew "and" at 1.2:1 — so it is moved until it reads (AA 4.5).
-  const accent2 = slot(MAIN_SLOT.accent2);
-  const gild = accent2 ? ensureReadable(accent2, paper, 4.5) : gildFromPool(pool);
+  const cta = readableOnBoth(ctaBase, 4.5);
+  // Dominant → headings and large blocks — AA-large (3) on the paper and the cards.
+  const heading = readableOnBoth(slot(MAIN_SLOT.dominant) ?? accentBase, 3);
+  // Accent 2 → ornaments and dividers, AS IT IS (borders, rings, seals, dots —
+  // no contrast pull, or a gold ornament turns to ink). Words set in it
+  // (`text-gild`: the "and" between the names, small italic lines — measured on
+  // maria-and-jose at 1.2:1 raw) take their own TEXT token, the same hue moved
+  // until it reads on the paper and the cards: `--color-gild-text`, which
+  // Tailwind's `text-gild` reads (`tailwind.config.ts` textColor) while
+  // `bg-`/`border-gild` keep the raw.
+  const gild = slot(MAIN_SLOT.accent2) ?? gildFromPool(pool);
+  const gildText = readableOnBoth(gild, 4.5);
   const veilBoard: RolePalette = { reception: pool.map(toHex) };
   const away = (c: RGB, amount: number) => (luminance(paper) > 0.18 ? darken(c, amount) : lighten(c, amount));
 
@@ -195,8 +215,10 @@ export function buildSitePaletteVars(
     // Pahina material tokens (design 2026-07-25 §4). Root fallbacks live in
     // globals.css so palette-less events (this fn returns null) get the same three tokens.
     '--color-gild': channels(gild),
+    '--color-gild-text': channels(gildText),
     '--color-paper-deep': channels(plate),
-    '--color-ink-on-plate': channels(inkOn(plate)),
+    // The plate was moved until the page ink reads on it at the bar — the card words ARE the page ink.
+    '--color-ink-on-plate': channels(ink),
     '--color-veil': channels(hexToRgb(veilColorFromPalette(veilBoard)) ?? PAHINA_VEIL_FALLBACK),
     '--hub-heading': toHex(heading),
   };

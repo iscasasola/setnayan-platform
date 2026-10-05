@@ -1,4 +1,7 @@
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { buildSitePaletteVars, ledPaletteFromMoodBoard } from './site-palette';
 
@@ -165,9 +168,7 @@ test('THE 5 MAIN COLOURS (owner 2026-10-05): each slot does its one job, and att
   const v = buildSitePaletteVars(board)!;
   assert.deepEqual(chanToRgb(v['--color-cream']!), { r: 0xf7, g: 0xf2, b: 0xea }, 'Neutral is the paper');
   assert.deepEqual(chanToRgb(v['--color-paper-deep']!), { r: 0xe8, g: 0xdc, b: 0xc8 }, 'Supporting is the cards');
-  // Accent 2 is the ornaments — kept in hue, moved only as far as its words need to read.
-  const gild = chanToRgb(v['--color-gild']!);
-  assert.ok(gild.r > gild.b && gild.r <= 0xb0, 'Accent 2 (a gold) is the ornaments, darkened at most');
+  assert.deepEqual(chanToRgb(v['--color-gild']!), { r: 0xb0, g: 0x8d, b: 0x57 }, 'Accent 2 is the ornaments, exactly');
   const button = chanToRgb(v['--color-mulberry']!);
   const link = chanToRgb(v['--color-terracotta']!);
   const near = (c: { r: number; g: number; b: number }, hex: string) => {
@@ -208,9 +209,51 @@ test('hover steps move away from the paper — lighter on a dark page', () => {
   assert.ok(lum(chanToRgb(light['--color-mulberry-600']!)) < lum(chanToRgb(light['--color-mulberry']!)));
 });
 
-test("Accent 2 sets words too (the \"and\" between the names): it always reads on the paper — maria-and-jose's real board", () => {
-  // Measured live 2026-10-05: #D8C7B0 on #C9A9A6 = 1.2:1, the "and" all but gone.
+test("Accent 2: ornaments keep the raw hue; WORDS set in it read — maria-and-jose's real board", () => {
+  // Measured live 2026-10-05: #D8C7B0 on #C9A9A6 = 1.2:1, the "and" all but gone —
+  // and pulling the ornament token itself turned every border, ring and seal to ink.
   const maria = { reception: ['#FBFBFA', '#C5A059', '#9CA98B', '#C9A9A6', '#D8C7B0'] };
   const v = buildSitePaletteVars(maria)!;
-  assert.ok(contrast(v['--color-gild']!, v['--color-cream']!) >= 4.5, `gild on paper ${contrast(v['--color-gild']!, v['--color-cream']!).toFixed(2)}`);
+  assert.equal(v['--color-gild'], '216 199 176', 'the ornaments are Accent 2 exactly — never pulled toward ink');
+  assert.ok(contrast(v['--color-gild-text']!, v['--color-cream']!) >= 4.5, `gild words on paper ${contrast(v['--color-gild-text']!, v['--color-cream']!).toFixed(2)}`);
+  // On a dark page the words lighten instead.
+  const dark = buildSitePaletteVars({ reception: ['#E9D8A6', '#2A2A35', '#C77DFF', '#121218', '#5A4A2A'] })!;
+  assert.equal(dark['--color-gild'], '90 74 42');
+  assert.ok(contrast(dark['--color-gild-text']!, dark['--color-cream']!) >= 4.5);
+  // `text-gild` reads the text token; `bg-`/`border-gild` keep the raw one.
+  const tw = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'tailwind.config.ts'), 'utf8');
+  assert.match(tw, /textColor: \{\s*gild: 'rgb\(var\(--color-gild-text, var\(--color-gild\)\) \/ <alpha-value>\)',/);
+  assert.match(tw, /\n\s+gild: 'rgb\(var\(--color-gild\) \/ <alpha-value>\)',/, 'the decor gild colour is gone');
+});
+
+test('THE BAR (controller 2026-10-05): every TEXT role reads on the paper AND on the cards, at the faintest step; decor keeps its raw hue', async () => {
+  const { plateInkReads, contrastOf, PLATE_MUTED_ALPHA, PLATE_MIN_CONTRAST } = await import('@/app/[slug]/_lib/pro-site-vars');
+  const { PLATE_MUTED_ALPHA_BAR, PLATE_MIN_CONTRAST_BAR } = await import('./site-palette');
+  assert.equal(PLATE_MUTED_ALPHA_BAR, PLATE_MUTED_ALPHA, 'the restated bar drifted from pro-site-vars');
+  assert.equal(PLATE_MIN_CONTRAST_BAR, PLATE_MIN_CONTRAST);
+  const boards: Record<string, string[]> = {
+    '(a) deep + wine + gold on ivory': ['#2B2B2B', '#7A1F3D', '#D4AF37', '#FFF8F0', '#EBD9C8'],
+    '(b) dusty-blue Supporting': ['#2E4A3F', '#7D93AD', '#8A3B52', '#F7F2EA', '#B08D57'],
+    'maria-and-jose (prod)': ['#FBFBFA', '#C5A059', '#9CA98B', '#C9A9A6', '#D8C7B0'],
+    'a dark Neutral': ['#E9D8A6', '#2A2A35', '#C77DFF', '#121218', '#5A4A2A'],
+  };
+  for (const [name, reception] of Object.entries(boards)) {
+    const v = buildSitePaletteVars({ reception })!;
+    const paper = v['--color-cream']!;
+    const plate = v['--color-paper-deep']!;
+    const hex = (h: string) => h; // hub-heading is a hex; contrastOf takes either
+    for (const [ground, g] of [['paper', paper], ['cards', plate]] as const) {
+      assert.ok(plateInkReads(v['--color-ink']!, g), `${name}: page ink /65 on the ${ground}`);
+      assert.ok(plateInkReads(v['--color-ink-on-plate']!, plate), `${name}: card ink /65 on the cards`);
+      for (const k of ['--color-terracotta', '--color-mulberry', '--color-gild-text'] as const) {
+        assert.ok(contrastOf(v[k]!, g) >= 4.5, `${name}: ${k} on the ${ground} ${contrastOf(v[k]!, g).toFixed(2)}`);
+      }
+      assert.ok(contrastOf(hex(v['--hub-heading']!), g) >= 3, `${name}: heading on the ${ground}`);
+    }
+    assert.ok(contrastOf(paper, v['--color-mulberry']!) >= 4.5, `${name}: the button label`);
+    // Decor keeps the raw Accent 2.
+    const raw = reception[4]!;
+    const n = parseInt(raw.slice(1), 16);
+    assert.equal(v['--color-gild'], `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`, `${name}: the ornaments were pulled`);
+  }
 });

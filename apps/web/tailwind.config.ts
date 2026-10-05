@@ -43,6 +43,14 @@ const config: Config = {
       '2xl': '1536px',
     },
     extend: {
+      /* 🎨 WORDS SET IN GILD read (owner 2026-10-05, "THE 5 MAIN COLOURS"):
+         `text-gild` takes the TEXT token a Mood Board's Accent 2 is moved into
+         for legibility (`--color-gild-text`, lib/site-palette.ts); with none
+         (no board, a theme's own gild) it is `--color-gild`. Only text — the
+         ornaments (`bg-gild`, `border-gild`, rings, seals) keep the raw hue. */
+      textColor: {
+        gild: 'rgb(var(--color-gild-text, var(--color-gild)) / <alpha-value>)',
+      },
       // Single radius source of truth — every `rounded-*` class resolves to the
       // --m-r-* token scale in globals.css (Approach B "softer corners", owner-
       // locked 2026-06-20 · UI_UX_Polish_Remediation_2026-06-20.md). Do NOT add

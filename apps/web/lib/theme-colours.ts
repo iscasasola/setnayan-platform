@@ -94,6 +94,8 @@ function themeBlockVars(t: InviteTheme): Record<string, string> {
     '--color-ink': channels(k.ink),
     '--color-ink-on-plate': channels(k.ink),
     '--color-gild': channels(k.gild),
+    // A theme's gild already reads as text (`hubThemePageTokens`) — its words use it as is.
+    '--color-gild-text': channels(k.gild),
     '--color-terracotta': channels(k.eyebrow),
     '--color-terracotta-600': channels(k.eyebrow),
     '--color-terracotta-700': channels(k.eyebrow),

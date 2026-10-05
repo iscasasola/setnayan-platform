@@ -3143,7 +3143,8 @@ html.dark {
     font-weight: 300;
     padding-right: 0.09em;
     padding-top: 0.04em;
-    color: rgb(var(--color-gild));
+    /* A drop cap is a letter — it reads (the gild TEXT token, 2026-10-05). */
+    color: rgb(var(--color-gild-text, var(--color-gild)));
   }
   .sn-editorial .pahina-quote {
     font-family: var(--pahina-face, var(--font-pahina-display)), Georgia, serif;

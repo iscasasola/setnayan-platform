@@ -63,11 +63,9 @@ export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan', 'sc
  * not named here is at the top (the hero: names · date · theme · cover).
  */
 const STEP_ANCHOR: Partial<Record<GuidedStepKey, string>> = {
-  /* 🎨 The theme dresses the PAGE, never the Save the Date film above it — the
-     film wears its own background (`std_background`; on maria-and-jose a plain
-     #e8d9bd, measured 2026-10-05). So the Theme step opens past the film; on a
-     stage with no film the anchor is absent and the page opens at its top. */
-  theme: '#std-after-film',
+  /* 🎨 The Theme step opens at the TOP, film included: a film whose couple never
+     picked a background wears the theme's paper (`stdFilmBackground`, owner
+     2026-10-05), so the theme shows from the first slide. */
   'love-story': '#site-story',
   venues: '#site-details',
   parents: '#site-entourage',

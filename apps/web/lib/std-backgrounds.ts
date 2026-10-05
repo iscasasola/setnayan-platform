@@ -240,3 +240,17 @@ export function resolveStdBackground(raw: unknown, fallbackColor = DEFAULT_PLAIN
   }
   return { kind: 'plain', value: fallbackColor, legibility: 'auto' };
 }
+
+/**
+ * 🎨 THE FILM FOLLOWS THE THEME (owner, 2026-10-05): a Save the Date film whose
+ * couple never picked a background of their own (`std_background` is unset —
+ * the Save the Date studio is its only writer) wears the Event Hub THEME's own
+ * paper colour, so picking a theme changes the film too. A background the
+ * couple picked themselves is theirs and stays.
+ */
+export function stdFilmBackground(raw: unknown, themeCanvas: string | null): StdBackground {
+  if ((raw === null || raw === undefined) && themeCanvas && /^#[0-9a-fA-F]{3,8}$/.test(themeCanvas)) {
+    return { kind: 'plain', value: themeCanvas, legibility: 'auto' };
+  }
+  return resolveStdBackground(raw);
+}

@@ -247,10 +247,17 @@ test('(8) a server-made editor sits in a keyed slot — never an unkeyed child (
 
 /* ══ ROUND 2 — the owner's live walk on maria-and-jose, 2026-10-05 ══════════ */
 
-test('(9) the Theme step opens the Save the Date page PAST its film — the part the theme dresses (the film wears its own background)', () => {
+test('(9) the Save the Date film follows the theme unless the couple picked its background — so the Theme step opens at the top, film included', async () => {
   const body = guidedStepBody('theme', 'save_the_date');
-  assert.equal(body.kind === 'page' && body.anchor, '#std-after-film', 'the Theme step opens on the film, which never wears the theme');
-  assert.match(read('app/[slug]/_components/std-film-handoff.tsx'), /<span id="std-after-film" aria-hidden className="block" \/>\s*<div className="mx-auto w-full max-w-3xl/, 'the page has no place past the film to open on');
+  assert.equal(body.kind === 'page' && body.anchor, '', 'the Theme step skips the film again');
+  const { stdFilmBackground, resolveStdBackground } = await import('./std-backgrounds');
+  // Never picked → the theme's paper; picked → the couple's own, untouched.
+  assert.deepEqual(stdFilmBackground(null, '#0b0a12'), { kind: 'plain', value: '#0b0a12', legibility: 'auto' });
+  assert.deepEqual(stdFilmBackground(undefined, '#0b0a12'), { kind: 'plain', value: '#0b0a12', legibility: 'auto' });
+  const picked = { kind: 'plain', value: '#e8d9bd', legibility: 'auto' };
+  assert.deepEqual(stdFilmBackground(picked, '#0b0a12'), resolveStdBackground(picked), 'a background the couple picked was overridden');
+  const loaders = read('app/[slug]/_lib/loaders.ts');
+  assert.match(loaders, /event\.std_background === null \|\| event\.std_background === undefined\s*\? stdFilmBackground\(null, INVITE_THEMES\[/, 'the guest page does not dress an unpicked film in the theme');
 });
 
 test('(10) one count: the Maker wears the step states Home and Event Details count from', () => {
@@ -347,4 +354,14 @@ test('(19) Skip goes to the VERY next screen — a link step (the guests’ name
   assert.match(progressLabel(p, { kind: 'link', link: link.key, round: round! }), new RegExp(`${total} of ${total}$`), 'the link step is not counted in its place');
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /\{plan && at\?\.kind === 'link' \? \(\s*<GuideLinkScreen/, 'the link screen is not drawn');
+});
+
+test('(20) a control that writes live says so plainly: "Guests see this right away" — the March order and Reply by included', () => {
+  const field = read('app/dashboard/[eventId]/website/_components/hub-draft-field.tsx');
+  assert.match(field, /export const HUB_LIVE_WORDS = 'Guests see this right away';/);
+  assert.match(field, /<InfoTip label=\{HUB_LIVE_WORDS\}/, 'the live mark shows the plain words, not "Saves immediately"');
+  assert.doesNotMatch(field, /['">]Saves immediately/, 'the old words are gone from the mark');
+  for (const f of [`${L}/details-march.tsx`, `${L}/maker-rsvp-ask.tsx`]) {
+    assert.match(read(f), /<HubSavesImmediately\b/, `${f} still says it writes live (owner: they stay instant)`);
+  }
 });

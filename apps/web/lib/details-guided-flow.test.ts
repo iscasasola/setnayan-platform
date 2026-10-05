@@ -138,7 +138,7 @@ test('(2) a step whose item this event lacks is not in the plan — a birthday, 
   );
   const keys = birthday.steps.map((s) => s.key);
   for (const k of ['names', 'march', 'love-story'] as const) assert.ok(!keys.includes(k), `a birthday is asked for ${k}`);
-  assert.equal(birthday.steps.find((s) => s.key === 'parents')!.shows, 'Hosts are who guests reply to.', 'a birthday is told about parents');
+  assert.equal(birthday.steps.find((s) => s.key === 'parents')!.shows, 'Optional — who guests reply to.', 'a birthday is told about parents');
   assert.ok(!fresh().steps.some((s) => s.key === 'seat-plan'), 'the Seat plan step shows before its item exists');
   const withSeat = buildGuidedPlan(
     [...items(WEDDING_ITEMS, () => false), { key: SEAT_PLAN_STEP_ITEMS[0] as DetailsItemKey, label: 'Seat plan', done: false }],

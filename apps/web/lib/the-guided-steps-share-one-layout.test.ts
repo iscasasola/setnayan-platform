@@ -323,6 +323,19 @@ test('(11) Parents & hosts shows the people the INVITATION names — never a das
   assert.doesNotMatch(people, /No parents on the invitation yet/, 'a second "none yet" line came back above the add');
   const pieces = renderToStaticMarkup(React.createElement(PeoplePieces, { parents: [], hosts: [], parentsOffered: true }));
   assert.doesNotMatch(pieces, /Host|@/, 'an empty Hosts heading (or an email) shows in the step');
+  // …and a wedding with no parents to list can still finish its stage: the step is optional
+  // (like the Love Story), and it never says hosts are a co-host account's job.
+  const allDone = ITEMS.map((k) => ({ key: k, label: k, done: k !== 'parents' })) as GuidedItem[];
+  const noParents = buildGuidedPlan(allDone, { solemn: false, parentsOffered: true });
+  const step = noParents.steps.find((x) => x.key === 'parents')!;
+  assert.equal(step.state, 'left', 'anti-vacuity: the parents step is not left');
+  assert.equal(step.optional, true, 'a wedding with no parents can never finish the Parents step');
+  for (const r of stagesOfStep('parents')) {
+    assert.ok(!noParents.steps.some((x) => x.stages.includes(r) && x.state === 'left' && !x.optional), `${r}: anti-vacuity — another step holds the stage`);
+  }
+  const { setupProgress: progress } = await import('./stage-setup');
+  assert.ok(!stagesOfStep('parents').includes(progress(noParents).next as never), 'the Parents step still holds its stage open');
+  assert.doesNotMatch(step.shows, /Hosts are who guests reply to/, 'the step still says hosts are who guests reply to');
 });
 
 test('(12) opening a step is never dirty; the Mood Board steps show the board, with no note and no downloads in the sheet', () => {

@@ -7,8 +7,9 @@
  * Welcome's button read **"RSVP for the celebration"**, and the host's Me tab
  * **"You don't need an invitation to your own celebration"**. The word came in
  * through `EventWords.occasion`, whose default is 'celebration' for every type
- * but the funeral — so these strings now say "event" outright instead of
- * borrowing that noun. (The noun itself, and the words a couple typed, are not
+ * but the funeral — so these strings now pass it through `watchLiveOccasion`
+ * (lib/watch-live-occasion.ts, the one mapping the watch-live strings use):
+ * 'celebration' → "event", a funeral's 'gathering' kept. (The noun itself, and the words a couple typed, are not
  * changed here; the verb "celebrate" in a sentence is not the name of a thing.)
  *
  * Rendered where the component is pure enough to render; read (comments
@@ -45,6 +46,11 @@ test('1 · the Welcome’s reply button says "RSVP for the event" — even with 
   );
   assert.match(html, /RSVP for the event/);
   assert.doesNotMatch(html, NOUN);
+  // A funeral keeps its own word — the one mapping the watch-live card uses (`watchLiveOccasion`).
+  const wake = renderToStaticMarkup(
+    React.createElement(SpotlightCard, { spotlight: { kind: 'rsvp' } as never, occasion: 'gathering' }),
+  );
+  assert.match(wake, /RSVP for the gathering/);
 });
 
 test('2 · a guest holding another event’s invite is told "a different event"', async () => {
@@ -59,8 +65,7 @@ test('2 · a guest holding another event’s invite is told "a different event"'
 
 test('3 · the host’s Me tab, the reply card’s pitch and Me’s fallback name say "event"', () => {
   const body = read('app/[slug]/_components/site-body.tsx');
-  assert.match(body, /You don&rsquo;t need an invitation to your own event\./);
-  assert.doesNotMatch(body, /invitation to your own \{clientWords\.occasion\}/);
+  assert.match(body, /You don&rsquo;t need an invitation to your own \{watchLiveOccasion\(clientWords\.occasion\)\}\./);
 
   const reply = read('app/[slug]/_components/rsvp-widget.tsx');
   const pitch = /headline="([^"]*)"/.exec(reply)?.[1] ?? '';

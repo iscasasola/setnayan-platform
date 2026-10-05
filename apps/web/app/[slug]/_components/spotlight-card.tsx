@@ -58,8 +58,9 @@ function spotlightContent(
       return {
         eyebrow: 'Your invitation',
         // "event", never "celebration" — the name of the thing (owner
-        // 2026-10-04, DECISION_LOG "ONE WORD: EVENT"; fits a wake too).
-        title: 'RSVP for the event',
+        // 2026-10-04, DECISION_LOG "ONE WORD: EVENT"); the one mapping the
+        // watch-live card uses, so a funeral keeps its own word.
+        title: `RSVP for the ${watchLiveOccasion(occasion)}`,
         // The reply sheet's anchor — Me is the guest's ticket and no longer raises it.
         href: '#your-details',
       };

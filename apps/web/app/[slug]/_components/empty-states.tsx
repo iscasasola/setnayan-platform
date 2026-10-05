@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 import { CalendarClock, MapPin, ScanLine } from 'lucide-react';
 import { VENUE_ROLE_LABEL, type EventVenue } from '@/lib/event-venues';
 import { DetailsBigDate, DetailsCard } from './event-details-styles';
@@ -89,7 +90,7 @@ export function FindModeCard({
   const heading = pastTense
     ? 'Were you a guest?'
     : reason === 'wrong_event'
-      ? 'That invite is for a different event'
+      ? `That invite is for a different ${watchLiveOccasion(occasion)}`
       : reason === 'invalid_invite'
         ? 'We couldn’t find that invitation'
         : 'Have an invitation?';

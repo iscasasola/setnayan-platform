@@ -1,5 +1,6 @@
 import { Fragment, isValidElement } from 'react';
 import Link from 'next/link';
+import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 import { actionOpensReply, meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
@@ -1990,7 +1991,7 @@ export async function SiteBody({
             <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
               <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-ink/60">
-                You don&rsquo;t need an invitation to your own event. Guests
+                You don&rsquo;t need an invitation to your own {watchLiveOccasion(clientWords.occasion)}. Guests
                 who open their personal link see their greeting, seat and RSVP in this spot.
               </p>
             </div>

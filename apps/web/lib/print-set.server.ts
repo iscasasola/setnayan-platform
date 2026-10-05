@@ -20,7 +20,8 @@ import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { sanitizeRoleAttire, ATTIRE_STYLE_LABEL, type RoleAttireRule } from '@/lib/role-dress-code';
 import { sanitizeGroupAttire } from '@/lib/role-group-dress-code';
 import { ROLE_GROUP_LABELS, roleGroupLabel } from '@/lib/role-groups';
-import { sanitizeRolePalette } from '@/lib/mood-board';
+import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { themeColours } from '@/lib/theme-colours';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
 import type { QrLook } from '@/lib/qr-look';
 import { resolveEventQrLook } from '@/lib/qr-look.server';
@@ -598,7 +599,17 @@ export async function printInputsVersion(eventId: string): Promise<string | null
 
 export async function loadPrintSet(
   eventId: string,
-  opts: { mode: PrintMode; previewTheme?: string | null; withEventQr?: boolean },
+  opts: {
+    mode: PrintMode;
+    previewTheme?: string | null;
+    withEventQr?: boolean;
+    /**
+     * 🎨 The SAMPLE door only (`lib/print-sample-door.server.ts`): the palette
+     * the gallery's sample prints wear — the couple's, or null for "no palette"
+     * (each theme in its own colours). Absent = the event's own `role_palette`.
+     */
+    samplePalette?: RolePalette | null;
+  },
   /**
    * ✍ THE HOST'S DRAFT, for the Maker's on-screen preview only (the route
    * passes it for `mode=screen&draft=…`, after its host gate): the drafted
@@ -612,7 +623,12 @@ export async function loadPrintSet(
   if (!liveEvent) return null;
   const event = draft ? overlayHubDraftEvent(liveEvent, { events: draft, widgets: {} }) : liveEvent;
   const theme = printThemeFor(event, opts.previewTheme);
-  const look = printLookFor(theme);
+  // 🎨 The Mood Board palette dresses the theme (`lib/theme-colours.ts`, the
+  // resolver the guest page wears) — drafted over live when the Maker asks.
+  const look = printLookFor(
+    theme,
+    themeColours(theme, opts.samplePalette !== undefined ? opts.samplePalette : event.role_palette),
+  );
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
 
   const [{ stored, blocks: liveBlocks, entourage, venues, ownerSlug, giftLines, hosts, catererMenu }, stillRaw, printMark] = await Promise.all([

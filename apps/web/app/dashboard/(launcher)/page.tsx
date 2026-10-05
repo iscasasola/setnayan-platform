@@ -2259,12 +2259,12 @@ async function planningPosters(
 ): Promise<Map<string, EventPosterFacts>> {
   const out = new Map<string, EventPosterFacts>();
   if (events.length === 0) return out;
-  const saved = new Map<string, { invite_theme: string | null; std_background: unknown }>();
+  const saved = new Map<string, { invite_theme: string | null; std_background: unknown; role_palette: unknown }>();
   const savedRead = (async () => {
     try {
       const { data, error } = await supabase
         .from('events')
-        .select('event_id, invite_theme, std_background')
+        .select('event_id, invite_theme, std_background, role_palette')
         .in(
           'event_id',
           events.map((e) => e.event_id),
@@ -2272,8 +2272,8 @@ async function planningPosters(
       if (error) {
         logQueryError('Launcher (events.invite_theme SELECT)', error, { user_id: userId }, 'graceful_degrade');
       } else {
-        for (const r of (data ?? []) as Array<{ event_id: string; invite_theme: string | null; std_background: unknown }>) {
-          saved.set(r.event_id, { invite_theme: r.invite_theme, std_background: r.std_background });
+        for (const r of (data ?? []) as Array<{ event_id: string; invite_theme: string | null; std_background: unknown; role_palette: unknown }>) {
+          saved.set(r.event_id, { invite_theme: r.invite_theme, std_background: r.std_background, role_palette: r.role_palette });
         }
       }
     } catch (caught) {
@@ -2293,6 +2293,7 @@ async function planningPosters(
           ...e,
           invite_theme: saved.get(e.event_id)?.invite_theme ?? null,
           std_background: saved.get(e.event_id)?.std_background ?? null,
+          role_palette: saved.get(e.event_id)?.role_palette ?? null,
         },
         ownHeroById.get(e.event_id) ?? null,
       );

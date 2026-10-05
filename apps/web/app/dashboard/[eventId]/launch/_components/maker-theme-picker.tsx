@@ -103,12 +103,26 @@ export function ThemePickProvider({
   eventId,
   current,
   ownLook = false,
+  seeds = null,
+  samplePalette = null,
   children,
 }: {
   eventId: string;
   current: string;
   /** The couple has their own page colour, button colour or typeface set (`hasOwnLook`) — re-tapping the current theme hands it back. */
   ownLook?: boolean;
+  /**
+   * 🎨 EVERY THEME'S COLOURS AS A MOOD BOARD PALETTE (`themeSeedPalettes`) —
+   * handed in ONLY while the couple's Mood Board has no palette (owner
+   * 2026-10-05: *"If the mood board does not have a palette, use our original
+   * theme and place it on the moodboard's palette"*). A pick then drafts the
+   * picked theme's colours into the board beside the theme, one patch, one
+   * Undo; Apply puts them live ("Mood Board · Colours from <theme>"). Null =
+   * the board has colours, and a pick never touches them.
+   */
+  seeds?: Record<string, unknown> | null;
+  /** The palette the gallery's samples wear (`sampleBoardQuery`). */
+  samplePalette?: string | null;
   children: ReactNode;
 }) {
   const [pending, start] = useTransition();
@@ -146,7 +160,8 @@ export function ThemePickProvider({
       try {
         const fd = new FormData();
         fd.set('intent', 'save');
-        fd.set('patch', JSON.stringify({ events: { invite_theme: id, ...THEME_OWN_LOOK_RESET } }));
+        const seed = seeds?.[id];
+        fd.set('patch', JSON.stringify({ events: { invite_theme: id, ...THEME_OWN_LOOK_RESET, ...(seed ? { role_palette: seed } : {}) } }));
         r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh);
       } catch {
         r = { ok: false, error: 'That did not save. Please try again.' };
@@ -166,7 +181,7 @@ export function ThemePickProvider({
     });
   };
 
-  return <PickContext.Provider value={{ picked, pending, error, pick }}>{children}</PickContext.Provider>;
+  return <PickContext.Provider value={{ picked, pending, error, pick, samplePalette }}>{children}</PickContext.Provider>;
 }
 
 /** ◆ PRO on a Pro theme a couple may still pick (information, never a lock); the diamond once owned; nothing in the app-store shell (`makerProMark`, #6091). */
@@ -201,7 +216,7 @@ export function MakerThemeGallery({
    *  under an entry until its page (still or live) is there. Classic has none. */
   posters?: Record<string, string | null>;
 }) {
-  const { picked, pending, error, pick } = usePick();
+  const { picked, pending, error, pick, samplePalette } = usePick();
   const shown = tilesShown(themes, { ownsPro, storeShell, current: picked });
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -213,7 +228,12 @@ export function MakerThemeGallery({
   const [loading, setLoading] = useState<string | null>(null);
   const order = shown.map((t) => t.id);
   const orderKey = order.join(',');
-  const live = shown.filter((t) => !themeStillSrc(t.id)).map((t) => t.id);
+  /* 🎨 A still is each theme in its OWN colours (captured with `palette=none`,
+     `scripts/capture-theme-samples.ts`) — exactly what an empty board shows.
+     A couple with a board of their own sees every entry as the live sample
+     wearing it (owner 2026-10-05, "THE MOOD BOARD PALETTE IS THE PRIORITY"). */
+  const stillOf = (id: string) => (samplePalette && samplePalette !== 'palette=none' ? null : themeStillSrc(id));
+  const live = shown.filter((t) => !stillOf(t.id)).map((t) => t.id);
   const liveKey = live.join(',');
 
   useEffect(() => {
@@ -276,8 +296,8 @@ export function MakerThemeGallery({
         {shown.map((t) => {
           const on = t.id === picked;
           const seen = inView.has(t.id);
-          const still = themeStillSrc(t.id);
-          const liveSrc = !still && mounted.includes(t.id) ? sampleHubTileSrc(t.id) : null;
+          const still = stillOf(t.id);
+          const liveSrc = !still && mounted.includes(t.id) ? sampleHubTileSrc(t.id, samplePalette) : null;
           return (
             <li key={t.id} data-theme-tile={t.id} className="relative">
               <button
@@ -328,7 +348,7 @@ export function MakerThemeGallery({
                       {seen ? (
                         // eslint-disable-next-line @next/next/no-img-element -- the sample's print in this theme, from our own route
                         <img
-                          src={samplePrintSrc(p, t.id, sampleVersion)}
+                          src={samplePrintSrc(p, t.id, sampleVersion, samplePalette)}
                           alt=""
                           loading="lazy"
                           decoding="async"
@@ -374,6 +394,7 @@ export function MakerThemeGallery({
           picked={picked === previewTheme.id}
           onUse={() => pick(previewTheme.id)}
           onClose={() => setPreview(null)}
+          samplePalette={samplePalette}
         />
       ) : null}
     </section>

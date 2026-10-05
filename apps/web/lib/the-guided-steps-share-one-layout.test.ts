@@ -266,7 +266,8 @@ test('(9) the Save the Date film follows the theme unless the couple picked its 
   const picked = { kind: 'plain', value: '#e8d9bd', legibility: 'auto' };
   assert.deepEqual(stdFilmBackground(picked, '#0b0a12'), resolveStdBackground(picked), 'a background the couple picked was overridden');
   const loaders = read('app/[slug]/_lib/loaders.ts');
-  assert.match(loaders, /stdFollowsTheme\(event\.std_background\)\s*\? stdFilmBackground\(event\.std_background, INVITE_THEMES\[/, 'the guest page does not dress an unpicked film in the theme');
+  // 🎨 …the theme's paper as the Mood Board dresses it (2026-10-05, `themeColours`), Readability kept.
+  assert.match(loaders, /stdFollowsTheme\(event\.std_background\)\s*\? stdFilmBackground\(\s*event\.std_background,\s*themeColours\(/, 'the guest page does not dress an unpicked film in the theme');
 });
 
 test('(10) one count: Event Details\' number IS the Maker\'s number — totals too — and the read costs no second pass', async () => {

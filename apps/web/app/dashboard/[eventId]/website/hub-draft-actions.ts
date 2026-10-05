@@ -90,6 +90,8 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
+import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-write';
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
@@ -481,6 +483,13 @@ export async function hubDraftAction(
        the wedding fence above — the same order `setInviteTheme` kept. */
     const themeWrite = 'invite_theme' in eventsPatch ? eventsPatch.invite_theme : undefined;
     delete eventsPatch.invite_theme;
+    /* 🎨 THE BOARD'S FILL LEAVES THE SESSION UPDATE TOO — written after the
+       theme it came from (owner 2026-10-05, "THE MOOD BOARD PALETTE IS THE
+       PRIORITY"), merged into the board and only while it still holds what this
+       Apply read (`writePaletteFill`). */
+    const paletteWrite = 'role_palette' in eventsPatch ? eventsPatch.role_palette : undefined;
+    const paletteRead = live.events.role_palette ?? null;
+    delete eventsPatch.role_palette;
     /* 🕒 THE CEREMONY TIME IS NOT AN `events` COLUMN — it is the Schedule's
        Ceremony block, placed below (`placeCeremonyBlock`) once the date the
        block stands on has been written. */
@@ -642,6 +651,16 @@ export async function hubDraftAction(
         .select('event_id');
       if (themeErr || !Array.isArray(themeRows) || themeRows.length === 0) {
         // Anything written above stays; the draft is untouched, so Apply again finishes it.
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+    if (paletteWrite !== undefined) {
+      /* Compare-and-swap on the board as read, the fill MERGED into it, and the
+         rows counted (`writePaletteFill`): never over a board the couple made,
+         even one painted between the read and now. */
+      const seed = sanitizeSeedPalette(paletteWrite);
+      const filled = seed ? await writePaletteFill(supabase as unknown as PaletteFillClient, eventId, paletteRead, seed) : { ok: true };
+      if (!filled.ok) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }

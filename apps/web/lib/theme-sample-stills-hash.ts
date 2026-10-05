@@ -25,9 +25,19 @@ export function doorCssOf(id: InviteThemeId, webRoot: string): string | null {
 }
 
 /** What shapes a theme's still in code: its definition and its door's CSS. */
+/**
+ * 🎨 THE CAPTURE'S OWN TERMS — part of every still's hash. `palette=none`: a
+ * still is the sample in each theme's OWN colours (owner 2026-10-05, "THE MOOD
+ * BOARD PALETTE IS THE PRIORITY"; `scripts/capture-theme-samples.ts`). A still
+ * captured under any other terms (before this, the sample wore its own board)
+ * hashes differently, so `theme-sample-stills-are-current.test.ts` goes red and
+ * names the re-capture. Change it whenever what a capture asks for changes.
+ */
+export const THEME_STILL_CAPTURE_TAG = 'palette=none';
+
 export function themeLookHash(id: InviteThemeId, doorCss: string | null): string {
   return createHash('sha256')
-    .update(JSON.stringify(stable({ theme: INVITE_THEMES[id], doorCss })))
+    .update(JSON.stringify(stable({ theme: INVITE_THEMES[id], doorCss, capture: THEME_STILL_CAPTURE_TAG })))
     .digest('hex')
     .slice(0, 16);
 }

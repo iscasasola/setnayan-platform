@@ -212,6 +212,10 @@ export type MakerDetailsProps = {
     filmLegibility?: 'auto' | 'lighten' | 'darken';
     /** They wear their own page colour, button colour or typeface (`hasOwnLook`) — re-tapping the current theme hands it back. */
     ownLook?: boolean;
+    /** 🎨 Every theme's colours as a palette — only while the Mood Board has none (`ThemePickProvider`). */
+    seeds?: Record<string, unknown> | null;
+    /** 🎨 The palette the gallery's samples wear (`sampleBoardQuery`). */
+    samplePalette?: string | null;
   };
   /** The couple's own prints, in the theme being edited. */
   prints: PrintsInput;
@@ -945,7 +949,13 @@ export function MakerDetails(props: MakerDetailsProps) {
   }
 
   return (
-    <ThemePickProvider eventId={eventId} current={theme.current} ownLook={theme.ownLook ?? false}>
+    <ThemePickProvider
+      eventId={eventId}
+      current={theme.current}
+      ownLook={theme.ownLook ?? false}
+      seeds={theme.seeds ?? null}
+      samplePalette={theme.samplePalette ?? null}
+    >
       <DetailsWorkspace
         groups={groups}
         bodies={bodies}

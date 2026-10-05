@@ -28,6 +28,8 @@ import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
 import { resolveMoments } from '@/lib/love-story-moments';
 import { readOurEvents } from './_components/our-events-read';
 import { readHubDraft } from '@/lib/hub-draft-store';
+import { overlayHubDraftEvent } from '@/lib/hub-draft';
+import { themeColours } from '@/lib/theme-colours';
 import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
 import { detailsDoorHref } from '@/lib/maker-details-items';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
@@ -93,7 +95,7 @@ export default async function OurStoryEditorPage({
     supabase
       .from('events')
       .select(
-        'event_id, display_name, slug, event_type, event_date, timezone, love_story, invite_theme, monogram_text, monogram_color',
+        'event_id, display_name, slug, event_type, event_date, timezone, love_story, invite_theme, monogram_text, monogram_color, role_palette',
       )
       .eq('event_id', eventId)
       .maybeSingle(),
@@ -147,9 +149,12 @@ export default async function OurStoryEditorPage({
      fails closed in the action (it re-reads the draft and refuses on error). */
   let draftReadFailed = false;
   let drafted: { value: unknown } | null = null;
+  // 🎨 The Mood Board as drafted over live — the scrapbook's colours (below).
+  let board: unknown = (event as { role_palette?: unknown }).role_palette ?? null;
   try {
     const d = await readHubDraft(supabase, eventId);
     if (d && 'love_story' in d.events) drafted = { value: d.events.love_story };
+    board = overlayHubDraftEvent({ role_palette: board }, d).role_palette;
   } catch (e) {
     draftReadFailed = true;
     logQueryError('OurStoryPage.draft', { message: e instanceof Error ? e.message : String(e) }, { event_id: eventId }, 'graceful_degrade');
@@ -196,7 +201,9 @@ export default async function OurStoryEditorPage({
      keeps the free cap in the UI. */
   const proUsable = makerProUsable({ owns: proActive, storeShell });
   const refused = search.pro === 'photos' ? 'photos' : search.pro === 'stories' ? 'stories' : null;
-  const p = theme.palette;
+  /* 🎨 The scrapbook wears the page's colours — the Mood Board over the theme
+     (`themeColours`, owner 2026-10-05 "THE MOOD BOARD PALETTE IS THE PRIORITY"). */
+  const p = themeColours(theme.id, board).colours;
   const pickSlot = (
     <PickFromOurEvents
       events={otherEvents}

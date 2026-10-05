@@ -37,6 +37,10 @@ export function themeStillSrc(id: string): string | null {
 }
 
 /** The live fallback: the sample page itself in that theme (`[slug]` honours `theme=` on the sample row only). */
-export function sampleHubTileSrc(id: string): string {
-  return `${SAMPLE_HUB_PATH}?theme=${encodeURIComponent(id)}`;
+export function sampleHubTileSrc(
+  id: string,
+  /** 🎨 The sample's board, as `sampleBoardQuery` wrote it (`palette=none` · `board=…&bv=…`); absent = the sample's own. */
+  board: string | null = null,
+): string {
+  return `${SAMPLE_HUB_PATH}?theme=${encodeURIComponent(id)}${board ? `&${board}` : ''}`;
 }

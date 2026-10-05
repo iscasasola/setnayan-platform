@@ -1,4 +1,7 @@
 import { test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 import { buildSitePaletteVars, ledPaletteFromMoodBoard } from './site-palette';
 
@@ -72,8 +75,15 @@ test('Pahina: gild warms toward metallic on a warm palette (not the raw swatch)'
   assert.ok(r <= 201 && r >= 176, 'red channel between swatch and gold target');
 });
 
-test('Pahina: paper-deep is a hair darker than paper', () => {
-  const vars = buildSitePaletteVars({ reception: ['#C97B4B', '#824A2A', '#FAF7F2'] });
+test('Pahina: the plates are the Supporting colour (slot 2); with none, a hair darker than paper', () => {
+  // 🎨 THE 5 MAIN COLOURS, ONE JOB EACH (owner 2026-10-05): Supporting → cards / sections.
+  const slotted = buildSitePaletteVars({ reception: ['#C97B4B', '#E3D3C2', '#A9B89E', '#FAF7F2', '#B08D57'] })!;
+  assert.deepEqual(chanToRgb(slotted['--color-paper-deep']!), { r: 0xe3, g: 0xd3, b: 0xc2 });
+  // A dark Supporting is softened to a tint of itself, toward the paper, until the words read.
+  const dark = buildSitePaletteVars({ reception: ['#C97B4B', '#824A2A', '#A9B89E', '#FAF7F2', '#B08D57'] })!;
+  const p = chanToRgb(dark['--color-paper-deep']!);
+  assert.ok(p.r > 0x82 && p.r <= 0xfa && p.r > p.b, 'the cards are a warm tint of the Supporting colour, lifted toward the paper');
+  const vars = buildSitePaletteVars({ reception: ['#FAF7F2'] });
   assert.ok(vars);
   const paper = chanToRgb(vars!['--color-cream']!);
   const deep = chanToRgb(vars!['--color-paper-deep']!);
@@ -145,3 +155,135 @@ function chanFromHex(hex: string): { r: number; g: number; b: number } {
   const n = parseInt(hex.slice(1), 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
+
+test('THE 5 MAIN COLOURS (owner 2026-10-05): each slot does its one job, and attire never dresses the Event Hub', () => {
+  // Dominant · Supporting · Accent · Neutral · Accent 2.
+  const board = {
+    reception: ['#2E4A3F', '#E8DCC8', '#8A3B52', '#F7F2EA', '#B08D57'],
+    // The most saturated colour on the board is a bridesmaid's — it must NOT become the button.
+    bridesmaids: ['#00E5FF'],
+    guest: ['#FF00AA'],
+    bride: ['#FF2200'],
+  };
+  const v = buildSitePaletteVars(board)!;
+  assert.deepEqual(chanToRgb(v['--color-cream']!), { r: 0xf7, g: 0xf2, b: 0xea }, 'Neutral is the paper');
+  assert.deepEqual(chanToRgb(v['--color-paper-deep']!), { r: 0xe8, g: 0xdc, b: 0xc8 }, 'Supporting is the cards');
+  assert.deepEqual(chanToRgb(v['--color-gild']!), { r: 0xb0, g: 0x8d, b: 0x57 }, 'Accent 2 is the ornaments, exactly');
+  const button = chanToRgb(v['--color-mulberry']!);
+  const link = chanToRgb(v['--color-terracotta']!);
+  const near = (c: { r: number; g: number; b: number }, hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return Math.abs(c.r - ((n >> 16) & 255)) + Math.abs(c.g - ((n >> 8) & 255)) + Math.abs(c.b - (n & 255));
+  };
+  assert.ok(near(button, '#8A3B52') < near(button, '#00E5FF'), 'the button is the Accent, not the bridesmaids’ colour');
+  assert.ok(near(link, '#8A3B52') < 60, 'links are the Accent (only darkened for contrast)');
+  for (const hex of ['#00E5FF', '#FF00AA', '#FF2200']) {
+    for (const [k, val] of Object.entries(v)) {
+      if (k.startsWith('--color-')) assert.ok(near(chanToRgb(val), hex) > 40, `${k} took an attire colour ${hex}`);
+    }
+  }
+  // Text is computed: every word reads on what it sits on.
+  assert.ok(contrast(v['--color-ink']!, v['--color-cream']!) >= 4.5);
+  assert.ok(contrast(v['--color-terracotta']!, v['--color-cream']!) >= 4.5);
+  assert.ok(contrast(v['--color-cream']!, v['--color-mulberry']!) >= 4.5, 'the button label (the paper) reads on the button');
+  assert.ok(contrast(v['--color-ink-on-plate']!, v['--color-paper-deep']!) >= 4.5, 'card words read on the Supporting colour');
+  // A board with ONLY attire colours does not dress the page at all.
+  assert.equal(buildSitePaletteVars({ bridesmaids: ['#00E5FF'], guest: ['#FF00AA'] }), null);
+});
+
+test('a dark, mid or light Supporting colour: card words (the page ink and the plate ink) always read on the cards', () => {
+  for (const supporting of ['#1E2229', '#6B4F3A', '#9CA98B', '#C9A9A6', '#E8DCC8']) {
+    const v = buildSitePaletteVars({ reception: ['#2E4A3F', supporting, '#8A3B52', '#F7F2EA', '#B08D57'] })!;
+    assert.ok(contrast(v['--color-ink']!, v['--color-paper-deep']!) >= 4.5, `${supporting}: page ink on the cards ${contrast(v['--color-ink']!, v['--color-paper-deep']!).toFixed(2)}`);
+    assert.ok(contrast(v['--color-ink-on-plate']!, v['--color-paper-deep']!) >= 4.5, `${supporting}: plate ink on the cards`);
+  }
+  // A light Supporting is the cards exactly.
+  const light = buildSitePaletteVars({ reception: ['#2E4A3F', '#E8DCC8', '#8A3B52', '#F7F2EA', '#B08D57'] })!;
+  assert.deepEqual(chanToRgb(light['--color-paper-deep']!), { r: 0xe8, g: 0xdc, b: 0xc8 });
+});
+
+test('hover steps move away from the paper — lighter on a dark page', () => {
+  const dark = buildSitePaletteVars({ reception: ['#E9D8A6', '#2A2A35', '#C77DFF', '#121218', '#B08D57'] })!;
+  assert.ok(lum(chanToRgb(dark['--color-mulberry-600']!)) > lum(chanToRgb(dark['--color-mulberry']!)), 'a hover on a dark page went darker');
+  const light = buildSitePaletteVars({ reception: ['#2E4A3F', '#E8DCC8', '#8A3B52', '#F7F2EA', '#B08D57'] })!;
+  assert.ok(lum(chanToRgb(light['--color-mulberry-600']!)) < lum(chanToRgb(light['--color-mulberry']!)));
+});
+
+test("Accent 2: ornaments keep the raw hue; WORDS set in it read — maria-and-jose's real board", () => {
+  // Measured live 2026-10-05: #D8C7B0 on #C9A9A6 = 1.2:1, the "and" all but gone —
+  // and pulling the ornament token itself turned every border, ring and seal to ink.
+  const maria = { reception: ['#FBFBFA', '#C5A059', '#9CA98B', '#C9A9A6', '#D8C7B0'] };
+  const v = buildSitePaletteVars(maria)!;
+  assert.equal(v['--color-gild'], '216 199 176', 'the ornaments are Accent 2 exactly — never pulled toward ink');
+  assert.ok(contrast(v['--color-gild-text']!, v['--color-cream']!) >= 4.5, `gild words on paper ${contrast(v['--color-gild-text']!, v['--color-cream']!).toFixed(2)}`);
+  // On a dark page the words lighten instead.
+  const dark = buildSitePaletteVars({ reception: ['#E9D8A6', '#2A2A35', '#C77DFF', '#121218', '#5A4A2A'] })!;
+  assert.equal(dark['--color-gild'], '90 74 42');
+  assert.ok(contrast(dark['--color-gild-text']!, dark['--color-cream']!) >= 4.5);
+  // `text-gild` reads the text token; `bg-`/`border-gild` keep the raw one.
+  const tw = readFileSync(join(dirname(fileURLToPath(import.meta.url)), '..', 'tailwind.config.ts'), 'utf8');
+  assert.match(tw, /textColor: \{\s*gild: 'rgb\(var\(--color-gild-text, var\(--color-gild\)\) \/ <alpha-value>\)',/);
+  assert.match(tw, /\n\s+gild: 'rgb\(var\(--color-gild\) \/ <alpha-value>\)',/, 'the decor gild colour is gone');
+});
+
+test('THE BAR (controller 2026-10-05): every TEXT role reads on the paper AND on the cards, at the faintest step; decor keeps its raw hue', async () => {
+  const { plateInkReads, contrastOf, PLATE_MUTED_ALPHA, PLATE_MIN_CONTRAST } = await import('@/app/[slug]/_lib/pro-site-vars');
+  const { PLATE_MUTED_ALPHA_BAR, PLATE_MIN_CONTRAST_BAR } = await import('./site-palette');
+  assert.equal(PLATE_MUTED_ALPHA_BAR, PLATE_MUTED_ALPHA, 'the restated bar drifted from pro-site-vars');
+  assert.equal(PLATE_MIN_CONTRAST_BAR, PLATE_MIN_CONTRAST);
+  const boards: Record<string, string[]> = {
+    '(a) deep + wine + gold on ivory': ['#2B2B2B', '#7A1F3D', '#D4AF37', '#FFF8F0', '#EBD9C8'],
+    '(b) dusty-blue Supporting': ['#2E4A3F', '#7D93AD', '#8A3B52', '#F7F2EA', '#B08D57'],
+    'maria-and-jose (prod)': ['#FBFBFA', '#C5A059', '#9CA98B', '#C9A9A6', '#D8C7B0'],
+    'a dark Neutral': ['#E9D8A6', '#2A2A35', '#C77DFF', '#121218', '#5A4A2A'],
+  };
+  for (const [name, reception] of Object.entries(boards)) {
+    const v = buildSitePaletteVars({ reception })!;
+    const paper = v['--color-cream']!;
+    const plate = v['--color-paper-deep']!;
+    const hex = (h: string) => h; // hub-heading is a hex; contrastOf takes either
+    for (const [ground, g] of [['paper', paper], ['cards', plate]] as const) {
+      assert.ok(plateInkReads(v['--color-ink']!, g), `${name}: page ink /65 on the ${ground}`);
+      assert.ok(plateInkReads(v['--color-ink-on-plate']!, plate), `${name}: card ink /65 on the cards`);
+      for (const k of ['--color-terracotta', '--color-mulberry', '--color-gild-text'] as const) {
+        assert.ok(contrastOf(v[k]!, g) >= 4.5, `${name}: ${k} on the ${ground} ${contrastOf(v[k]!, g).toFixed(2)}`);
+      }
+      assert.ok(contrastOf(hex(v['--hub-heading']!), g) >= 3, `${name}: heading on the ${ground}`);
+    }
+    assert.ok(contrastOf(paper, v['--color-mulberry']!) >= 4.5, `${name}: the button label`);
+    // Decor keeps the raw Accent 2.
+    const raw = reception[4]!;
+    const n = parseInt(raw.slice(1), 16);
+    assert.equal(v['--color-gild'], `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`, `${name}: the ornaments were pulled`);
+  }
+});
+
+test('FUZZ (seeded): a few hundred boards, light and dark Neutral — every text role clears the bar AS WRITTEN (rounded channels)', async () => {
+  const { plateInkReads, contrastOf } = await import('@/app/[slug]/_lib/pro-site-vars');
+  let seed = 0x5e7a1;
+  const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32);
+  const hex = (r: number, g: number, b: number) => `#${[r, g, b].map((n) => Math.round(n).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+  const any = () => hex(rnd() * 255, rnd() * 255, rnd() * 255);
+  let checked = 0;
+  for (let i = 0; i < 400; i++) {
+    const dark = i % 2 === 1;
+    // A light Neutral (≥ #D8 per channel) or a dark one (≤ #30) — mid-grey is best-effort by design.
+    const n = dark ? hex(rnd() * 48, rnd() * 48, rnd() * 48) : hex(216 + rnd() * 39, 216 + rnd() * 39, 216 + rnd() * 39);
+    // Every third board leaves Supporting empty — the plate is then derived from the paper.
+    // (an unreadable slot reads as missing — `hexToRgb` refuses it — while the Neutral stays in place).
+    const v = buildSitePaletteVars({ reception: [any(), i % 3 === 0 ? '' : any(), any(), n, any()] })!;
+    const paper = v['--color-cream']!;
+    const plate = v['--color-paper-deep']!;
+    for (const g of [paper, plate]) {
+      assert.ok(plateInkReads(v['--color-ink']!, g), `board ${i}: ink /65 ${contrastOf(v['--color-ink']!, g).toFixed(2)}`);
+      for (const k of ['--color-terracotta', '--color-mulberry', '--color-gild-text'] as const) {
+        assert.ok(contrastOf(v[k]!, g) >= 4.5, `board ${i} (${dark ? 'dark' : 'light'}): ${k} ${contrastOf(v[k]!, g).toFixed(3)}`);
+      }
+      assert.ok(contrastOf(v['--hub-heading']!, g) >= 3, `board ${i}: heading`);
+    }
+    assert.ok(plateInkReads(v['--color-ink-on-plate']!, plate), `board ${i}: card ink`);
+    assert.ok(contrastOf(paper, v['--color-mulberry']!) >= 4.5, `board ${i}: button label ${contrastOf(paper, v['--color-mulberry']!).toFixed(3)}`);
+    checked += 1;
+  }
+  assert.equal(checked, 400);
+});

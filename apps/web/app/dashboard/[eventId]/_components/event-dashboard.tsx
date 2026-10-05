@@ -337,7 +337,7 @@ export async function EventDashboard({
     // Overview's fallback-to-'*' pattern for migration drift.
     (async () => {
       const leanSelect =
-        'event_id, display_name, event_date, event_date_precision, timezone, venue_name, region, estimated_budget_centavos, palette_finalized_at, event_type, ceremony_type, planning_mode, setnayan_ai_active, landing_page_hero_image_url, invite_theme, std_background, monogram_text, monogram_color';
+        'event_id, display_name, event_date, event_date_precision, timezone, venue_name, region, estimated_budget_centavos, palette_finalized_at, event_type, ceremony_type, planning_mode, setnayan_ai_active, landing_page_hero_image_url, invite_theme, std_background, monogram_text, monogram_color, role_palette';
       const leanRes = await supabase
         // SEC-2b: public.events_host, not public.events — this select names a column
         // (budget / birth data / Drive folder) that is SELECT-denied to `authenticated`
@@ -825,6 +825,7 @@ export async function EventDashboard({
         monogram_color: (event as { monogram_color?: string | null }).monogram_color ?? null,
         invite_theme: (event as { invite_theme?: string | null }).invite_theme ?? null,
         std_background: (event as { std_background?: unknown }).std_background ?? null,
+        role_palette: (event as { role_palette?: unknown }).role_palette ?? null,
       },
       ownHeroSrc,
     ).catch(() => null),

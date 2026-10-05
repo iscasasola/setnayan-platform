@@ -428,6 +428,7 @@ async function dressCards(admin: Admin, cards: DiscoverEventCard[]): Promise<voi
           monogram_color: r.monogram_color,
           invite_theme: r.invite_theme,
           std_background: r.std_background,
+          role_palette: r.role_palette,
         },
         heroSrc,
       ).catch(() => null);

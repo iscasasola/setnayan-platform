@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server';
 import { findSampleEventId } from '@/app/tour/_lib/sample-event';
 import { normalizeThemeId } from '@/lib/invite-themes';
 import { loadPrintSet } from '@/lib/print-set.server';
+import { sampleBoardFor } from '@/lib/sample-board.server';
 import { layoutPieceView } from '@/lib/print-layout';
 import { renderPrintSvg } from '@/lib/print-render-svg';
 import { spotLayersFor } from '@/lib/print-pieces';
@@ -37,7 +38,16 @@ export async function sampleView(rawPiece: string, url: URL): Promise<NextRespon
   const sampleId = await findSampleEventId();
   if (!sampleId) return new NextResponse('No sample.', { status: 404 });
   const theme = normalizeThemeId(url.searchParams.get('theme')) ?? 'house';
-  const set = await loadPrintSet(sampleId, { mode: 'screen', previewTheme: theme });
+  /* 🎨 The gallery asks the sample in the COUPLE's board (owner 2026-10-05 "THE
+     MOOD BOARD PALETTE IS THE PRIORITY") — one of a fixed set, read on the
+     server (`sampleBoardFor`), never colours from the address. */
+  const board = url.searchParams.get('board');
+  const samplePalette = await sampleBoardFor({ palette: url.searchParams.get('palette'), board });
+  const set = await loadPrintSet(sampleId, {
+    mode: 'screen',
+    previewTheme: theme,
+    ...(samplePalette !== undefined ? { samplePalette } : {}),
+  });
   if (!set) return new NextResponse('No sample.', { status: 404 });
   const spot = spotLayersFor(set.theme);
   const svg = renderPrintSvg(
@@ -47,7 +57,11 @@ export async function sampleView(rawPiece: string, url: URL): Promise<NextRespon
   );
   return new NextResponse(svg, {
     status: 200,
-    headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': samplePreviewCacheControl(url.searchParams.get('v')) },
+    headers: {
+      'content-type': 'image/svg+xml; charset=utf-8',
+      // A couple's own board is theirs — never a shared cache; its address carries `bv`, so an edit is a new picture.
+      'cache-control': board ? 'private, max-age=3600' : samplePreviewCacheControl(url.searchParams.get('v')),
+    },
   });
 }
 

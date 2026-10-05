@@ -57,7 +57,8 @@ test('1 · guestLookFrom reads the column through parseSiteBackground, asks ombr
   assert.match(src, /import \{[^}]*\bombreLook\b[^}]*\} from '@\/lib\/ombre'/);
   const body = fn(src, 'guestLookFrom');
   const parse = body.search(/parseSiteBackground\(event\.site_bg_color\)/);
-  const look = body.search(/ombreLook\(INVITE_THEMES\[hub\.theme\]/);
+  // 🎨 The resolved theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
+  const look = body.search(/ombreLook\(dressed, background\.ombre\)/);
   const spread = body.search(/vars = \{ \.\.\.\(vars \?\? \{\}\), \.\.\.look\.vars \}/);
   const ret = body.search(/return \{/);
   assert.ok(parse > 0, 'the column is not read through the one reader');

@@ -16,6 +16,8 @@ import { QR_LOOK_COLUMNS, resolveEventQrLook, type QrLookRow } from '@/lib/qr-lo
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { DoorShell, DoorNotice } from '@/app/_components/door/door-shell';
+import { doorMarkFor, type InviteLookEvent } from '../invite/_lib/load-invite-look';
+import { hubDoorSkin } from '../invite/_components/hub-door-skin';
 import { abandonPlusOneInvite, confirmPlusOneName } from './actions';
 import type { WebFormAction } from '@/lib/native-account-save';
 import { eventWordsFor } from '../_lib/event-words';
@@ -181,7 +183,13 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const formalName = missing.name ? null : composeFormalName(row);
 
   return (
+    /* 🎨 The plus-one's first page is a page of the reply — it wears the
+       event's theme like the RSVP (owner 2026-10-05): the layout already wears
+       the look and its ground; the RSVP's skin keeps the frame from painting
+       cream over it, and the crest is the couple's mark. */
     <DoorShell
+      brand="foot"
+      skin={hubDoorSkin(doorMarkFor(event as unknown as InviteLookEvent))}
       eyebrow="You’re invited"
       title={formalName ?? `You are the +1 of ${primaryName}`}
       sub={<>{primaryName} is bringing you as their guest.</>}

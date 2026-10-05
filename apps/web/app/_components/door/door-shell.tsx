@@ -161,6 +161,16 @@ export type DoorShellProps = {
    * is read aloud. Omit and the door renders exactly as before.
    */
   lead?: React.ReactNode;
+  /**
+   * 🏷 WHERE SETNAYAN'S NAME SITS. `'top'` (the default) is the way home above
+   * the card — a door that is Setnayan's own page (sign-in, claim, a dead link).
+   * `'foot'` is the couple's page (owner 2026-10-05, on the guests' RSVP reply
+   * page: *"wears the event's theme; the SETNAYAN top bar becomes a small
+   * 'Made with Setnayan' line at the bottom"*): nothing of ours above their
+   * mark, one small line under the card that still links home. Every door under
+   * `app/[slug]/` passes it (`the-guest-doors-wear-the-event.test.ts`).
+   */
+  brand?: 'top' | 'foot';
   children?: React.ReactNode;
 };
 
@@ -179,6 +189,7 @@ export function DoorShell({
   width = 'md',
   skin,
   lead,
+  brand = 'top',
   children,
 }: DoorShellProps) {
   const threshold = tone === 'threshold';
@@ -276,15 +287,18 @@ export function DoorShell({
         {/*
           The way out. A door is often the first Setnayan page a person ever
           opens, and on a dead link it is the ONLY thing they can still do — so
-          it sits outside the card, above it, and is never conditional.
+          it sits outside the card and is never absent: above it on our own
+          doors, as "Made with Setnayan" under it on the couple's (`brand`).
         */}
-        <Link
-          href="/"
-          aria-label="Setnayan home"
-          className="mb-4 inline-flex rounded-sm sm:mb-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
-        >
-          <Wordmark size={24} />
-        </Link>
+        {brand === 'top' ? (
+          <Link
+            href="/"
+            aria-label="Setnayan home"
+            className="mb-4 inline-flex rounded-sm sm:mb-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry focus-visible:ring-offset-2 focus-visible:ring-offset-cream"
+          >
+            <Wordmark size={24} />
+          </Link>
+        ) : null}
 
         <div
           className={[
@@ -337,6 +351,17 @@ export function DoorShell({
 
           {children ? <div className="mt-4 space-y-4 sm:mt-6">{children}</div> : null}
         </div>
+        {/* The couple's page: the way home is one small line UNDER the card. */}
+        {brand === 'foot' ? (
+          <p className="mt-4 text-center text-[11px] text-ink/55" data-door-made-with="">
+            <Link
+              href="/"
+              className="rounded-sm underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
+            >
+              Made with Setnayan
+            </Link>
+          </p>
+        ) : null}
       </div>
     </main>
   );

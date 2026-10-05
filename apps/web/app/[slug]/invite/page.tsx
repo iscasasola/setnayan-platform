@@ -185,6 +185,7 @@ export default async function SlugInvitePage({ params, searchParams }: Props) {
     <>
       {reveal}
       <JoinFlow
+        brand="foot"
         event={event}
         token={token}
         errorKey={search.error ?? null}

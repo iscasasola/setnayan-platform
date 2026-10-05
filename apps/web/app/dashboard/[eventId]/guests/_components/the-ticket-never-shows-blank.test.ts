@@ -74,7 +74,14 @@ test('(2) the picture is hidden until it LOADS, and the placeholder holds the bo
   assert.match(img, /onLoad=\{\(\) => setLoaded\(true\)\}/, 'nothing records that the picture arrived');
   assert.match(img, /loaded \? 'opacity-100' : 'opacity-0'/, 'the picture is visible before it has loaded');
   assert.doesNotMatch(img, /bg-white/, 'the empty picture paints a white box');
-  assert.match(thumb, /\{loaded \? null : <TicketPlaceholder name=\{name\} \/>\}/, 'the placeholder does not hold the box');
+  // The placeholder is UNDER the picture, always — so neither the wait nor the
+  // fade-in ever shows an empty box — and the picture is drawn after it.
+  const ph = thumb.indexOf('<TicketPlaceholder name={name} waiting={!loaded} />');
+  assert.ok(ph > -1, 'the placeholder does not hold the box');
+  assert.ok(ph < thumb.indexOf('<img'), 'the placeholder must sit UNDER the picture (drawn before it)');
+  assert.doesNotMatch(thumb, /loaded \? null : <TicketPlaceholder/, 'the placeholder leaves before the fade-in ends — an empty box for 300 ms');
+  // An error already reported for this ticket is never wiped by the reset.
+  assert.match(thumb, /if \(shownSrc\.current !== src\) \{[\s\S]{0,120}setBroken\(false\);/, 'the reset can swallow a real error');
   // A cached picture can finish before onLoad is attached — it must not be held
   // behind the placeholder forever.
   assert.match(thumb, /img\?\.complete && img\.naturalWidth > 0\) setLoaded\(true\)/);

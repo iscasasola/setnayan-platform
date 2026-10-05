@@ -66,7 +66,7 @@ test('(2) no guest row, card, heading or check-in line prefixes a table name its
   const offenders: string[] = [];
   for (const f of files) {
     const src = stripComments(readFileSync(f, 'utf8'));
-    for (const m of src.matchAll(/`[^`\n]*?\bTable \$\{[^}]*\}/g)) {
+    for (const m of src.matchAll(/`[^`\n]*?\bTable\s*[·:\-]?\s*\$\{[^}]*\}|>\s*Table\s*[·:\-]?\s*\{[^}]*\}/g)) {
       offenders.push(`${f.slice(root.length + 1)}: ${m[0]}`);
     }
   }

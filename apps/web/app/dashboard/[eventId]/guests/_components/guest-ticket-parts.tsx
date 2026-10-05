@@ -57,13 +57,18 @@ export function GuestTicketThumb({
   const imgRef = useRef<HTMLImageElement>(null);
   const src = ticketUrl(guestId);
   useEffect(() => setMounted(true), []);
-  // A picture already in the browser's cache can finish before React attaches
-  // `onLoad` — read it once it is in the DOM, so a cached ticket is not held
-  // behind the placeholder.
-  // Keyed on the address too: a card that switches guests starts over.
+  // A card that switches guests starts over — only when the ADDRESS changes, so
+  // an error that already fired for this ticket is never wiped.
+  const shownSrc = useRef(src);
   useEffect(() => {
-    setLoaded(false);
-    setBroken(false);
+    if (shownSrc.current !== src) {
+      shownSrc.current = src;
+      setLoaded(false);
+      setBroken(false);
+    }
+    // A picture already in the browser's cache can finish before React attaches
+    // `onLoad` — read it once it is in the DOM, so a cached ticket is not held
+    // behind the placeholder.
     const img = imgRef.current;
     if (mounted && img?.complete && img.naturalWidth > 0) setLoaded(true);
   }, [mounted, src]);
@@ -98,10 +103,11 @@ export function GuestTicketThumb({
             server draws the 1080×1440 PNG on demand — seconds, not
             milliseconds — and the <img> used to sit there white while it did.
             Until the picture has actually LOADED, the box is the ticket's own
-            shape with their name and a QR mark; the picture fades in over it.
-            A broken picture still falls back to "No ticket" above. */}
+            shape with their name and a QR mark; the picture fades in OVER it
+            (the placeholder stays underneath, so the fade never shows an empty
+            box). A broken picture still falls back to "No ticket" above. */}
         <span className="relative block aspect-[3/4] w-full">
-          {loaded ? null : <TicketPlaceholder name={name} />}
+          <TicketPlaceholder name={name} waiting={!loaded} />
           {mounted ? (
             // eslint-disable-next-line @next/next/no-img-element -- our own gated route; the same PNG Save ticket saves
             <img
@@ -183,20 +189,22 @@ export function GuestTicketThumb({
 /**
  * The ticket while its picture is still being drawn: the ticket's own shape —
  * a cream card, a band at the top, their name, a QR mark — so the box reads as
- * "their ticket, on its way", never as an empty white rectangle.
+ * "their ticket, on its way", never as an empty white rectangle. It stays
+ * UNDER the picture once it arrives (the opaque ticket covers it), so the
+ * fade-in never passes through an empty box; only the pulse stops.
  */
-function TicketPlaceholder({ name }: { name: string }) {
+function TicketPlaceholder({ name, waiting }: { name: string; waiting: boolean }) {
   return (
     <span
       aria-hidden
       className="absolute inset-0 flex flex-col items-center overflow-hidden rounded-lg bg-cream shadow-[0_6px_18px_-10px_rgba(30,26,18,.45)] ring-1 ring-ink/10"
-      data-guest-ticket-waiting=""
+      data-guest-ticket-waiting={waiting ? '' : undefined}
     >
       <span className="block h-[18%] w-full bg-ink/[0.06]" />
       <span className="mt-2 line-clamp-2 px-1.5 text-center font-display text-[11px] leading-tight text-ink/70">
         {name}
       </span>
-      <QrCode className="mt-auto mb-3 h-7 w-7 animate-pulse text-ink/25" strokeWidth={1.5} />
+      <QrCode className={`mt-auto mb-3 h-7 w-7 text-ink/25${waiting ? ' animate-pulse' : ''}`} strokeWidth={1.5} />
     </span>
   );
 }

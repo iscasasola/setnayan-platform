@@ -3,7 +3,7 @@
 Three defects the controller found live on maria-and-jose at 375 px (2026-10-05).
 
 - **Guest list rows — one "Table" word, and the name fits.** The phone row, the
-  seat headings and the check-in desk prefixed every table name with "Table ",
+  seat headings and the check-in desk ("Table · Table 9") prefixed every table name with "Table ",
   so the couple's "Sweetheart Table" read "Table Sweetheart Table" and "Table 9"
   read "Table Table 9" (all 32 rows on the live event; 26 of them ran off the
   card's edge, the sponsors' showing only "· T"). One rule now, `tableWords()`
@@ -31,7 +31,8 @@ Three defects the controller found live on maria-and-jose at 375 px (2026-10-05)
 - **Guest card — the ticket never shows as a blank white box.** The ticket is a
   1080×1440 PNG drawn on demand (10–24 s measured on prod for a fresh draw);
   until it has loaded, the box is the ticket's own shape with the guest's name
-  and a QR mark, and the picture fades in over it. Guard:
+  and a QR mark, and the picture fades in over it (the placeholder stays
+  underneath, so the fade never shows an empty box). Guard:
   `guests/_components/the-ticket-never-shows-blank.test.ts`.
 
 `/dev/guests-lab?part=rows` draws the real Guest list rows on a copy of

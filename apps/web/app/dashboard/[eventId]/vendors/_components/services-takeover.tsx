@@ -165,11 +165,12 @@ export function ServicesTakeover({
   // maria-and-jose: the closed find area was 342 KB of the page's 365 KB of
   // markup — a whole bench, Picks, Payments and Plans drawn, shipped and
   // hydrated on a phone that shows NONE of it until a "Your planning" row is
-  // tapped. It is now rendered the moment it opens (same commit as
-  // `setFindOpen(true)`, so `goToSection`'s next-frame scroll still lands on a
-  // laid-out element), stays mounted after that (its state survives, nothing
-  // is drawn twice), and is mounted straight away on a computer, where it is
-  // always on screen. A deep link (`initialFindOpen`) renders it in the FIRST
+  // tapped. It is now rendered in the same render that opens it
+  // (`findRendered` reads `findOpen` directly — no extra effect hop), so
+  // `goToSection`'s next-frame scroll meets it exactly as it met the hidden
+  // area before; it stays mounted after that (its state survives, nothing is
+  // drawn twice), and it is mounted straight away on a computer, where it is
+  // always on screen (there it appears just after hydration). A deep link (`initialFindOpen`) renders it in the FIRST
   // paint, so the bench's own mount-time scroll to the opened tile still works.
   const [findMounted, setFindMounted] = useState(initialFindOpen);
   useEffect(() => {

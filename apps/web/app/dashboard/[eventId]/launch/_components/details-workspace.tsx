@@ -29,7 +29,8 @@ import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
+import { MAKER_TOUCH_EVENT, leaveAsks, newStepTouch, noteTouch, touchOrigin, type StepTouch } from '@/lib/guided-step-touch';
+import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
 import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
 import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
 import { MakerHalfSheet, SheetGrip, SheetScrim } from './maker-sheet';
@@ -128,6 +129,16 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * flow like Ready always was — the items step aside, hidden, never unmounted.
  * Opening any of them writes nothing.
  */
+/** A step's own ground — its items' editors and bodies; never the sheet's head or foot. */
+function stepScopesOf(root: Element | null, items: readonly string[]): Element[] {
+  if (!root) return [];
+  return items.flatMap((k) =>
+    [root.querySelector(`[data-details-editor="${k}"]`), root.querySelector(`[data-details-body-item="${k}"]`)].filter(
+      (el): el is Element => el !== null,
+    ),
+  );
+}
+
 export function DetailsWorkspace({
   groups,
   bodies,
@@ -309,17 +320,39 @@ export function DetailsWorkspace({
     if (piece) setPieceMap((m) => (m[item] === piece ? m : { ...m, [item]: piece }));
     setSheetOpen(true);
   };
-  /** Every move away from a step first asks: is there typing here that is not saved? */
-  const move = (to: GuidedScreen | null) => {
+  /* ✍ What the couple changed on THIS step (`lib/guided-step-touch.ts`): a
+     keystroke or pick in a field (remembered by name, so a remount is the same
+     field), a press on a control that is a choice (the one dropdown's options
+     included — `touchOrigin`), or a picker's own announcement — only inside the
+     step's own item, never its head or foot. */
+  const touchRef = useRef<StepTouch>(newStepTouch());
+  const touchedStep = at?.kind === 'step' ? `${at.round}:${at.step}` : null;
+  const stepItems = stepHere ? stepHere.items.join(' ') : '';
+  useEffect(() => {
+    touchRef.current = newStepTouch();
+    if (!touchedStep) return;
+    const items = stepItems.split(' ').filter(Boolean);
+    const note = (e: Event) => {
+      // A pick in the one dropdown's list (portalled to <body>) is its button's.
+      const t = touchOrigin(e.target, document);
+      if (!(t instanceof Node) || !stepScopesOf(rootRef.current, items).some((sc) => sc.contains(t))) return;
+      noteTouch(touchRef.current, e);
+    };
+    const kinds = ['input', 'change', 'click', MAKER_TOUCH_EVENT];
+    for (const k of kinds) document.addEventListener(k, note, true);
+    return () => {
+      for (const k of kinds) document.removeEventListener(k, note, true);
+    };
+  }, [touchedStep, stepItems]);
+  const [askKind, setAskKind] = useState<'unsaved' | 'skip'>('unsaved');
+  /** Every move away from a step first asks: is there a change here that is not saved — or, on Skip, any change at all? */
+  const move = (to: GuidedScreen | null, via: 'skip' | 'next' | 'back' | 'pick' = 'pick') => {
     if (!to) return;
     if (at?.kind === 'step' && stepHere) {
-      const root = rootRef.current;
-      const scopes = stepHere.items.flatMap((k) => [
-        root?.querySelector(`[data-details-editor="${k}"]`) ?? null,
-        root?.querySelector(`[data-details-body-item="${k}"]`) ?? null,
-      ]);
-      if (hasUnsavedEdits(scopes)) {
+      const asks = leaveAsks({ via, unsaved: hasUnsavedEdits(stepScopesOf(rootRef.current, stepHere.items), touchRef.current.fields), touched: touchRef.current.any });
+      if (asks) {
         // The question is asked at the step's own foot, in its sheet.
+        setAskKind(asks);
         setUnsavedTo(to);
         return;
       }
@@ -653,7 +686,8 @@ export function DetailsWorkspace({
                   selected={selected}
                   onPick={select}
                   pieces={pieces[selected] ?? null}
-                  current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? null}
+                  /* Named in the STEP's words ("Cover photo"), never the item's ("Hero"). */
+                  current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? stepHere.title}
                 />
               </div>
             ) : null}
@@ -662,10 +696,10 @@ export function DetailsWorkspace({
             {at?.kind === 'step' ? (
               <div data-details-guide-foot-sheet="" className="contents lg:hidden">
                 <GuideFoot
-                  onBack={backScreen(plan!, at) ? () => move(backScreen(plan!, at)) : null}
-                  onSkip={skipScreen(plan!, at) ? () => move(skipScreen(plan!, at)) : null}
-                  onNext={nextScreen(plan!, at) ? () => move(nextScreen(plan!, at)) : null}
-                  warning={unsavedTo !== null}
+                  onBack={backScreen(plan!, at) ? () => move(backScreen(plan!, at), 'back') : null}
+                  onSkip={skipScreen(plan!, at) ? () => move(skipScreen(plan!, at), 'skip') : null}
+                  onNext={nextScreen(plan!, at) ? () => move(nextScreen(plan!, at), 'next') : null}
+                  warning={unsavedTo !== null ? askKind : null}
                   onKeepEditing={() => setUnsavedTo(null)}
                   onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
                 />
@@ -726,6 +760,23 @@ export function DetailsWorkspace({
       {plan && at?.kind === 'before' ? (
         <BeforeWeStartScreen plan={plan} round={at.round} onStart={() => startStage(at.round)} onBack={() => goTo({ kind: 'stages' })} />
       ) : null}
+      {plan && at?.kind === 'link' ? (
+        <GuideLinkScreen
+          plan={plan}
+          link={at.link}
+          href={guide?.actions.guestsHref ?? null}
+          foot={
+            <GuideFoot
+              onBack={backScreen(plan, at) ? () => move(backScreen(plan, at), 'back') : null}
+              onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at), 'skip') : null}
+              onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at), 'next') : null}
+              warning={null}
+              onKeepEditing={() => setUnsavedTo(null)}
+              onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
+            />
+          }
+        />
+      ) : null}
       {plan && at?.kind === 'ready' && guide ? (
         <GuideReady plan={plan} round={at.round} actions={guide.actions} onGo={(to) => move(to)} />
       ) : null}
@@ -733,10 +784,10 @@ export function DetailsWorkspace({
         /* 📱 On a phone the foot lives in the step's half sheet (above); this one is the desktop's. */
         <div data-details-guide-foot-wrap="" data-phone-chrome="strip" className="hidden lg:contents">
         <GuideFoot
-          onBack={backScreen(plan, at) ? () => move(backScreen(plan, at)) : null}
-          onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at)) : null}
-          onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at)) : null}
-          warning={unsavedTo !== null}
+          onBack={backScreen(plan, at) ? () => move(backScreen(plan, at), 'back') : null}
+          onSkip={skipScreen(plan, at) ? () => move(skipScreen(plan, at), 'skip') : null}
+          onNext={nextScreen(plan, at) ? () => move(nextScreen(plan, at), 'next') : null}
+          warning={unsavedTo !== null ? askKind : null}
           onKeepEditing={() => setUnsavedTo(null)}
           onGoAnyway={() => unsavedTo && goTo(unsavedTo)}
         />

@@ -59,6 +59,7 @@ export async function JoinFlow({
   errorKey,
   returnPath,
   skin,
+  brand,
 }: {
   event: JoinFlowEvent;
   token: string;
@@ -66,6 +67,8 @@ export async function JoinFlow({
   returnPath: string;
   /** The invite link's theme skin, from `/[slug]/invite`. The opaque /join URL passes none. */
   skin?: DoorSkin;
+  /** `'foot'` from `/[slug]/invite` — the couple's page (DoorShell `brand`). */
+  brand?: 'top' | 'foot';
 }) {
   const eventId = event.event_id;
   // JoinShell wants a non-null display_name; coerce once (renders nothing if blank).
@@ -138,7 +141,7 @@ export async function JoinFlow({
       const found = await readFindState(eventId);
       const findMe = findMeAction.bind(null, eventId, token);
       return (
-        <JoinShell event={shellEvent} skin={skin}>
+        <JoinShell event={shellEvent} skin={skin} brand={brand}>
           {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
           {!found ? (
             <FindMeNameStep action={findMe} organizer={w.theOrganizer} />
@@ -172,7 +175,7 @@ export async function JoinFlow({
     }
     // No public page yet → fall back to the account wall.
     return (
-      <JoinShell event={shellEvent} skin={skin}>
+      <JoinShell event={shellEvent} skin={skin} brand={brand}>
         <p className="text-base text-ink/70">
           Sign in or create an account to ask {w.theOrganizer} to add you to this event.
         </p>
@@ -217,7 +220,7 @@ export async function JoinFlow({
     .eq('claimer_user_id', user.id)
     .maybeSingle();
   if (claim?.status === 'pending_review' && claim.target_guest_id) {
-    return <RequestSentScreen event={shellEvent} organizer={Organizer} slug={event.slug} skin={skin} />;
+    return <RequestSentScreen event={shellEvent} organizer={Organizer} slug={event.slug} skin={skin} brand={brand} />;
   }
 
   const action = joinEventAction.bind(null, eventId, token);
@@ -269,7 +272,7 @@ export async function JoinFlow({
 
   if (seeded) {
     return (
-      <JoinShell event={shellEvent} steps={event.slug ? arrivalSteps('name') : undefined} skin={skin}>
+      <JoinShell event={shellEvent} steps={event.slug ? arrivalSteps('name') : undefined} skin={skin} brand={brand}>
         {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
         <p className="text-base text-ink/70">
           You&rsquo;re signed in as <span className="font-medium text-ink">{accountEmail}</span>, and {w.theOrganizer}{' '}
@@ -286,7 +289,7 @@ export async function JoinFlow({
   }
 
   return (
-    <JoinShell event={shellEvent} skin={skin}>
+    <JoinShell event={shellEvent} skin={skin} brand={brand}>
       {errorMessage ? <FormFlash tone="error">{errorMessage}</FormFlash> : null}
       <AskToJoinIntro organizer={w.theOrganizer} />
       <RequestForm
@@ -420,15 +423,17 @@ export function RequestSentScreen({
   organizer,
   slug,
   skin,
+  brand,
 }: {
   event: JoinShellEvent;
   /** Capitalised: "The couple" / "The family". */
   organizer: string;
   slug: string | null;
   skin?: DoorSkin;
+  brand?: 'top' | 'foot';
 }) {
   return (
-    <JoinShell event={event} skin={skin}>
+    <JoinShell event={event} skin={skin} brand={brand}>
       <div className="space-y-3" data-request-sent="">
         <p className="font-serif text-3xl text-ink">Request sent</p>
         <p className="text-base text-ink/75">

@@ -252,6 +252,50 @@ export function GuideReady({
   );
 }
 
+/**
+ * 🧭 A LINK STEP'S SCREEN (the guests' names) — a screen of the walk like every
+ * step (owner 2026-10-05: Skip from the step before jumped straight to Ready).
+ * Its field lives on the Guest list (the names are typed there, with its
+ * template), so the screen is its name, where it stands, the one way in, and
+ * the same Back · Skip · Next.
+ */
+export function GuideLinkScreen({
+  plan,
+  link,
+  href,
+  foot,
+}: {
+  plan: GuidedPlan;
+  link: string;
+  /** Where the names are typed — the Guest list's own import. */
+  href: string | null;
+  foot: ReactNode;
+}) {
+  const l = plan.links.find((x) => x.key === link) ?? null;
+  return (
+    <section data-details-guide-link={link} aria-label={l?.title ?? 'Step'} className="flex min-h-0 flex-1 flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
+        <div className="mx-auto flex w-full max-w-xl flex-col gap-3">
+          <h2 className="font-serif text-2xl text-ink">{l?.title}</h2>
+          <p className={`text-[13px] font-semibold ${l?.state === 'done' ? 'text-success-700' : 'text-terracotta-700'}`}>
+            {l?.state === 'done' ? '✓ set' : '○ not yet'}
+          </p>
+          {href ? (
+            <Link
+              href={href}
+              data-details-guide-link-go={link}
+              className="sn-press inline-flex min-h-11 items-center justify-center self-start rounded-full bg-ink px-5 text-[15px] font-semibold text-cream"
+            >
+              {l?.state === 'done' ? 'Open your guest list ›' : 'Add names ›'}
+            </Link>
+          ) : null}
+        </div>
+      </div>
+      {foot}
+    </section>
+  );
+}
+
 /** The foot of a step: ‹ Back · Skip for now · Next ›. A stage's other screens carry their own buttons. */
 export function GuideFoot({
   onBack,
@@ -264,21 +308,27 @@ export function GuideFoot({
   onBack: (() => void) | null;
   onSkip: (() => void) | null;
   onNext: (() => void) | null;
-  /** Next found typing here that is not saved yet. */
-  warning: boolean;
+  /**
+   * Leaving asked first (`leaveAsks`, lib/guided-step-touch.ts): `unsaved` — a
+   * field here differs from what it was drawn with; `skip` — Skip, from a step
+   * the couple changed something on. Null: nothing to ask.
+   */
+  warning: 'unsaved' | 'skip' | null;
   onKeepEditing: () => void;
   onGoAnyway: () => void;
 }) {
   return (
     <div data-details-guide-foot="" className="shrink-0 border-t border-ink/10 bg-cream px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4">
       {warning ? (
-        <div role="alert" data-details-guide-unsaved="" className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-terracotta-50 px-3 py-2 text-[13px] text-terracotta-800">
-          <span className="basis-full">You changed something here that isn’t saved yet.</span>
+        <div role="alert" data-details-guide-unsaved={warning} className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-terracotta-50 px-3 py-2 text-[13px] text-terracotta-800">
+          <span className="basis-full">
+            {warning === 'skip' ? 'You changed something on this step.' : 'You changed something here that isn’t saved yet.'}
+          </span>
           <button type="button" onClick={onKeepEditing} className="sn-press min-h-10 rounded-full bg-white px-3 font-semibold text-ink">
             Keep editing
           </button>
           <button type="button" onClick={onGoAnyway} className="sn-press min-h-10 rounded-full px-3 font-semibold underline underline-offset-2">
-            Go on without saving
+            {warning === 'skip' ? 'Skip anyway' : 'Go on without saving'}
           </button>
         </div>
       ) : null}

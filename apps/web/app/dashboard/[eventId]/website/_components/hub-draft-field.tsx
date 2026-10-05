@@ -31,9 +31,16 @@ export function HubDraftField() {
 }
 
 /**
- * "Saves immediately ⓘ" — beside a control whose writer is NOT in the draft.
- * The words are on the page (a consequence is never hidden behind the `(i)`);
- * the tip explains that Apply, Undo and Restore do not cover it.
+ * The words beside a control whose writer is NOT in the draft — said plainly,
+ * as the owner put it (2026-10-05, the Wedding March and Reply by stay
+ * instant): "Guests see this right away" (it read "Saves immediately").
+ */
+export const HUB_LIVE_WORDS = 'Guests see this right away';
+
+/**
+ * "Guests see this right away ⓘ" — beside a control whose writer is NOT in the
+ * draft. The words are on the page (a consequence is never hidden behind the
+ * `(i)`); the tip explains that Apply, Undo and Restore do not cover it.
  */
 export function HubSavesImmediately({ className }: { className?: string }) {
   return (
@@ -41,7 +48,7 @@ export function HubSavesImmediately({ className }: { className?: string }) {
       data-hub-saves-immediately=""
       className={`inline-flex text-[11.5px] font-medium text-terracotta-700${className ? ` ${className}` : ''}`}
     >
-      <InfoTip label="Saves immediately" align="start">
+      <InfoTip label={HUB_LIVE_WORDS} align="start">
         This goes straight to your live Event Hub — guests see it as soon as you save. It is not part
         of your draft, so Apply, Undo and Restore do not cover it.
       </InfoTip>

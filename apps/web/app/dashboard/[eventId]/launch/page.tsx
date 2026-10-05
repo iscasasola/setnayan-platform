@@ -79,7 +79,7 @@ import { hasOwnLook } from '@/lib/theme-own-look';
 import { detailsItemApplies, detailsItemFor, makerHasWork, makerToolFor, schedulePieces, type DetailsItemKey } from '@/lib/maker-details-items';
 import { guidedPlanFromFacts, isUnfinished, parseGuideParam } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
-import { countSetupGuests, guidedFactsFrom, guidedPresent, hubSetupFactsFrom, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
+import { countSetupGuests, guidedFactsFrom, guidedPresent, hubSetupFactsFrom, readGuidedPlan, setupRoundFor, type SetupScheduleBlock } from './_components/details-guided-progress';
 import { hubSetupApplies, hubSetupGuestsHref, type HubSetupFacts } from '@/lib/hub-setup-steps';
 import { formatBlockTime } from '@/lib/schedule';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
@@ -1114,6 +1114,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       } catch (e) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
+      /* 🔢 ONE COUNT, STARTED NOW (owner 2026-10-05: "10 of 18" here, "9 of 18"
+         on Event Details; review 2026-10-05: it ran serially, re-reading what
+         this page had just read, on every refresh). The plan Home and Event
+         Details count from (\`readGuidedPlan\`) — handed this page's own reads so
+         it repeats none of them, and left running beside the rest of the page;
+         awaited only where the guide is drawn. */
+      const sharedPlanP = readGuidedPlan({
+        supabase,
+        admin: printAdmin,
+        eventId,
+        pre: { event: printEvent, hosts: rsvpHosts, parents: printParents, drafted: draftedEvents, scheduleRows: scheduleMoments },
+      }).catch(() => null);
       /* Each column "as the couple is editing it" (the draft's, else live) for the
          Look's ✓ is `guidedFactsFrom` below — one derivation, shared with the
          guided flow's decision to open (Details part 5). */
@@ -1260,6 +1272,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                     eventDate: printEvent.event_date,
                   })
             }
+            /* The 30-days-before default the field shows while no date of their own is set. */
+            replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
             /* ✍ Typed right here (no link out): the couple's own date and the
                pricing view its one writer (`updatePaxSettings`) posts beside it. */
             replyByOwn={
@@ -1367,6 +1381,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
         seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
       });
+      const sharedPlan = await sharedPlanP;
       /* 🖼 The cover photo itself — what the guided cover step shows behind its
          sheet (owner 2026-10-05: the page lays the invitation card over it).
          Drafted over live, signed the way the hero panel signs it. */
@@ -1486,6 +1501,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               guestsHref: hubSetupGuestsHref(eventId),
               // 🔢 One count: the facts Home and Event Details count from.
               doneFacts: guided,
+              shared: sharedPlan ? sharedPlan.plan : null,
             }}
             eventId={eventId}
             slug={printEvent.slug}

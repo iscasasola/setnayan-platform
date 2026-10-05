@@ -1,6 +1,7 @@
 import type { WatchLiveData } from '../_lib/types';
 import { RoamWatchPicker } from './roam-watch-picker';
 import { WatchLiveEmbed } from './watch-live-embed';
+import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 
 /**
  * Panood Watch-Live — the broadcast embedded on the day-of page (spec §7.5:
@@ -24,7 +25,7 @@ import { WatchLiveEmbed } from './watch-live-embed';
 export function WatchLiveBlock({
   watchLive,
   slug,
-  occasion = 'celebration',
+  occasion = 'event',
 }: {
   watchLive: WatchLiveData;
   /**
@@ -33,7 +34,7 @@ export function WatchLiveBlock({
    * Unused by the Roam-picker and Facebook-only branches below.
    */
   slug: string;
-  /** EventWords.occasion — 'celebration' (default) or the funeral's 'gathering'.
+  /** EventWords.occasion — said through `watchLiveOccasion` ("event", or the funeral's 'gathering').
    *  Reaches only assistive text (aria-labels, the iframe title). */
   occasion?: string;
 }) {
@@ -87,14 +88,14 @@ export function WatchLiveBlock({
  */
 function FacebookWatchCard({
   href,
-  occasion = 'celebration',
+  occasion = 'event',
 }: {
   href: string;
   occasion?: string;
 }) {
   return (
     <section
-      aria-label={`Watch the ${occasion} live on Facebook`}
+      aria-label={`Watch the ${watchLiveOccasion(occasion)} live on Facebook`}
       className="rounded-2xl border-2 border-terracotta/40 bg-ink px-4 py-3 shadow-sm"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">

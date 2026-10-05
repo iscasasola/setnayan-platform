@@ -21,7 +21,7 @@
  * already tinted by side, so it became the trigger for the thing it already
  * signalled, adding no pixels.
  *
- * The sub-line is ONE horizontally-scrolling flex line, never a wrapping one:
+ * The sub-line's editors are ONE horizontally-scrolling track, never a wrapping one:
  * a guest in four groups must not grow the row a third time. That is what the
  * `w-max` + `m-no-scrollbar` pairing below is for, and why this file asserts it
  * rather than leaving it to look like styling.
@@ -34,6 +34,8 @@
  *  · unwrap RoleChips from RoleChipEditor        → 0 → 1 failing · RED
  *  · delete THIS row's AddToGroupControl         → 0 → 1 failing · RED
  *  · let the sub-line wrap (flex-wrap, no w-max) → 0 → 1 failing · RED
+ *    (2026-10-05: only the TABLE may wrap now — owner; the editors' track
+ *    still may not — see that test)
  *
  * ⚠ The AddToGroupControl mutation had to be applied by LINE, not by string:
  * the same six-line block appears three times in this file (desktop row, photo
@@ -118,23 +120,39 @@ test('side rides the avatar — the signal became its own control', () => {
   );
 });
 
-test('the sub-line scrolls, it never wraps', () => {
+test('the sub-line\'s editors scroll, never wrap — only the TABLE may drop under them', () => {
   // A wrapping sub-line grows the row a THIRD time for a guest in several
-  // groups, which would give the compact density away entirely.
+  // groups, which would give the compact density away entirely. So the
+  // editors (role · groups · + · +N) sit in ONE track that never shrinks and
+  // never wraps — wider than the card, it scrolls.
+  // ⚖ 2026-10-05, owner on maria-and-jose at 375 px ("the name fits —
+  // truncate gracefully or wrap"): the TABLE name is the one thing allowed
+  // under that track. A sponsor's "Principal Sponsor (Ninong)" left it ~13 px,
+  // so it was cut off at the card's edge ("· T"); it now moves under the
+  // line, whole (lib/table-words.test.ts pins the span itself).
   const row = bodyOf('MobileListRow');
   assert.ok(
-    /flex w-max items-center/.test(row),
-    'the sub-line track needs w-max so chips keep their natural width',
+    /<span className="flex shrink-0 items-center gap-1\.5">/.test(row),
+    'the editors need one unshrinkable track so chips keep their natural width',
   );
   assert.ok(
     /m-no-scrollbar/.test(row),
     'use the shared .m-no-scrollbar utility (globals.css), not a re-rolled one',
   );
-  assert.equal(
-    /flex-wrap[\s\S]{0,400}<RoleChipEditor/.test(row),
-    false,
-    'the sub-line must not wrap',
+  // The only wrapping box is the line itself, and its FIRST child is that
+  // unshrinkable track — so nothing among the editors can ever wrap.
+  const wrapAt = row.indexOf('flex flex-wrap');
+  assert.ok(wrapAt > -1, 're-anchor: the line lost its wrap');
+  const afterWrap = row.slice(wrapAt);
+  assert.match(
+    afterWrap,
+    /^flex flex-wrap[^"]*">\s*<span className="flex shrink-0 items-center gap-1\.5">/,
+    'the wrapping line must hold the editors in ONE unshrinkable track — the editors themselves must not wrap',
   );
+  const track = afterWrap.slice(0, afterWrap.indexOf('data-row-table'));
+  assert.equal(track.indexOf('flex-wrap', 'flex flex-wrap'.length), -1, 'a second wrapping box appeared among the editors');
+  assert.match(track, /<RoleChipEditor/, 'the role editor left the unshrinkable track');
+  assert.match(track, /<GroupChipList/, 'the groups left the unshrinkable track');
 });
 
 test('the couple lock is not re-spelled here', () => {

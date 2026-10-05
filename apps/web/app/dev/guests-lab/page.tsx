@@ -154,6 +154,8 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
  * maria-and-jose's roster, as it is in production (read 2026-10-05): first and
  * last name, role, side, reply and the name of the table they sit at. Copied,
  * not invented — the row defects only show on the couple's own table names.
+ * (Daniel Ramos is the event's best man — `best_man`; a `best_woman` stands in
+ * exactly the same place and row.)
  */
 const MJ_ROSTER: ReadonlyArray<[string, string, GuestRow['role'], GuestRow['side'], string]> = [
   ['Maria', 'Santos', 'bride', 'bride', 'Sweetheart Table'],

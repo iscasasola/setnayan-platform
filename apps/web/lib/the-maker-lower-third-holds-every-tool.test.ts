@@ -372,3 +372,13 @@ test('the tool column never breaks a word mid-way ("Backgro / und", owner 2026-1
   assert.match(name, /\[word-break:keep-all\]/, 'the column name does not keep its words whole');
   assert.match(name, /longestWord\(tool\.name\) > 8 \? 'text-\[9px\]'/, 'a long single word is not set smaller to fit');
 });
+
+test('the shut menu is invisible, never only slid down ("Something is peeking from the bottom", owner 2026-10-06)', () => {
+  const src = require('node:fs').readFileSync(require('node:path').join(__dirname, '..', 'app/dashboard/[eventId]/launch/_components/maker-lower-third.tsx'), 'utf8') as string;
+  const at = src.indexOf('data-lt-menu=""');
+  const sheet = src.slice(at, src.indexOf('>', src.indexOf('}`}', at)));
+  assert.ok(sheet.length > 0, 'anti-vacuity: the menu sheet was not found');
+  // On the guided flow's short row, 104% of the sheet lands inside the iPhone home-bar padding.
+  assert.match(sheet, /menuOpen \? 'visible translate-y-0' : 'invisible translate-y-\[104%\]'/, 'the shut menu can peek out under the Menu button again');
+  assert.match(sheet, /transition-\[transform,visibility\]/, 'visibility does not wait for the slide, so the close no longer animates');
+});

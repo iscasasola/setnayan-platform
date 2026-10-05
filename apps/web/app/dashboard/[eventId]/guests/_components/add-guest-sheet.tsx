@@ -15,6 +15,7 @@
  */
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { ChevronDown, Plus, X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
@@ -88,10 +89,13 @@ export function AddGuestSheet({
     );
   }, [open]);
 
-  if (!open) return null;
-  return (
+  // ⚖ Drawn on <body> (guests-phone-menu.tsx says why: inside the page's
+  // `view-transition-name` <main> no z-index rises above the bottom bar), and
+  // only once the page has mounted — a portal on the server has no body.
+  if (!open || typeof document === 'undefined') return null;
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/[0.32] backdrop-blur-[4px] sm:items-center"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/[0.32] backdrop-blur-[1px] sm:items-center"
       role="presentation"
       onClick={(e) => {
         if (e.target === e.currentTarget) setOpen(false);
@@ -147,6 +151,7 @@ export function AddGuestSheet({
           {doors}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

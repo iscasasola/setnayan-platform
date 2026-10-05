@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
-import { printPreviewLoad, printPreviewView, type PrintPreviewStatus } from '@/lib/print-preview-view';
+import { printPreviewBox, printPreviewLoad, printPreviewView, type PrintPreviewStatus } from '@/lib/print-preview-view';
 import { PRINT_FIELD_LABEL, parsePrintFields, useDetailsTap, type PrintFieldsHeader } from './details-tap';
 
 /**
@@ -57,6 +57,7 @@ export function PrintPreview({
   priority = false,
   prefetch = [],
   tappable = false,
+  aspect = null,
 }: {
   /** `/api/hub-print/<piece>?event=…&mode=screen…` */
   src: string;
@@ -69,6 +70,8 @@ export function PrintPreview({
   prefetch?: readonly string[];
   /** Its print-only words open their field on the right (Details only). */
   tappable?: boolean;
+  /** The piece's shape, width ÷ height — the box takes it (`printPreviewBox`). */
+  aspect?: number | null;
 }) {
   const tap = useDetailsTap();
   const fetched = tappable && tap !== null;
@@ -83,6 +86,7 @@ export function PrintPreview({
   const [attempt, setAttempt] = useState(0);
   const plan = printPreviewLoad(priority);
   const view = printPreviewView(status, label);
+  const box = printPreviewBox(aspect);
 
   // Warm the other sizes once this one is on screen — idle time only.
   const prefetchKey = prefetch.join('\n');
@@ -150,7 +154,8 @@ export function PrintPreview({
       data-print-preview={priority ? 'first' : 'later'}
       data-print-preview-src={src}
       data-print-prefetch={prefetch.join(' ')}
-      className="relative flex h-[340px] w-full items-center justify-center overflow-hidden rounded-xl bg-ink/[0.04] p-4"
+      style={box.style}
+      className={`relative flex ${box.className} w-full items-center justify-center overflow-hidden rounded-xl bg-ink/[0.04] p-4`}
     >
       {view.showImage && imgSrc ? (
         fetched ? (
@@ -166,7 +171,7 @@ export function PrintPreview({
               decoding="async"
               onLoad={() => settle('loaded')}
               onError={() => settle('error')}
-              className={`max-h-[308px] max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
+              className={`max-h-[308px] max-w-full object-contain drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
                 view.imageVisible ? 'opacity-100' : 'opacity-0'
               }`}
             />
@@ -202,7 +207,7 @@ export function PrintPreview({
             decoding="async"
             onLoad={() => settle('loaded')}
             onError={() => settle('error')}
-            className={`max-h-full max-w-full drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
+            className={`max-h-full max-w-full object-contain drop-shadow-[0_18px_24px_rgba(0,0,0,0.28)] transition-opacity duration-300 ${
               view.imageVisible ? 'opacity-100' : 'opacity-0'
             }`}
           />

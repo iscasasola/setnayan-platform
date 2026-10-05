@@ -457,12 +457,6 @@ export function MainBackgroundPanel({
           }}
         />
       </div>
-      {choice === 'none' ? (
-        <p className="text-[12px] text-ink/60" data-main-ground-note="none">
-          No picture and no moving background — your page colour (Colours, below) is all there is.
-        </p>
-      ) : null}
-
       {choice === 'hero' && hero.photoRef ? (
         <HeroFrameSync eventId={eventId} heroRef={hero.photoRef} heroUrl={hero.photoUrl} current={current} liveHeroRef={hero.liveRef} mainDrafted={drafted} />
       ) : null}

@@ -378,7 +378,7 @@ export function GuestCardBody({
               there once, not twice. The standalone page and the Maker's parent
               cards have no such header, so they draw them here. */}
           {headerShown ? null : (
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">
+            <p className="sn-eye">
               {guestCardEyebrow(guest, { hasSides, roleNames })}
             </p>
           )}
@@ -400,8 +400,11 @@ export function GuestCardBody({
       </div>
 
       {/* ── TOP · their ticket, Invite · ⋯, the status line ─────────────────
-          Outside the autosave form: Invite and ⋯ bring their own actions. */}
-      <section className="flex items-start gap-3.5 border-b border-ink/10 pb-4" data-guest-card-top="">
+          Outside the autosave form: Invite and ⋯ bring their own actions.
+          `data-menus-open-below` (lib/menu-place.ts): the Invite and ⋯ lists
+          open UNDER this row and inside the card's edges, so neither covers
+          the ticket, "Tap to view" or the status line (owner 2026-10-04). */}
+      <section className="flex items-start gap-3.5 border-b border-ink/10 pb-4" data-guest-card-top="" data-menus-open-below="">
         {TicketThumb ? (
           <TicketThumb guestId={guest.guest_id} name={name} available={hasTicket} />
         ) : hasTicket ? (
@@ -417,9 +420,13 @@ export function GuestCardBody({
         ) : null}
         <div className="min-w-0 flex-1 space-y-2">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-terracotta-700">Their ticket</p>
-            <p className="mt-0.5 text-[13px] leading-snug text-ink/65">
-              {isCouple ? 'A host — nothing to send.' : 'What they see on Me.'}
+            {/* ⚖ ONE LABEL STYLE ON THE CARD (owner 2026-10-04): every section
+                label is the eyebrow's own `.sn-eye`. And plain words: "Me" is
+                the guest's own tab on the Event Hub — a host reading this card
+                does not know that name, so it says where they see it. */}
+            <p className="sn-eye">Their ticket</p>
+            <p className="mt-1 text-[13px] leading-snug text-ink/65">
+              {isCouple ? 'A host — nothing to send.' : 'What they see on their phone.'}
             </p>
           </div>
           {/* 🕯 Nothing is offered for a guest marked Passed away, and the couple
@@ -462,7 +469,7 @@ export function GuestCardBody({
         {/* ── NAME · open, and saves itself (no caption — owner 2026-10-03) ── */}
         <section className="space-y-2.5" data-guest-card-name="">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="font-mono text-[11px] uppercase tracking-[0.18em] text-ink/45">Name · mobile</h2>
+            <h2 className="sn-eye">Name · mobile</h2>
             <span className="flex items-center gap-2 text-xs text-ink/45">
               <AutosaveState />
             </span>

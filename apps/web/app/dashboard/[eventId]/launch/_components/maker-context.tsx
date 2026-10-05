@@ -89,6 +89,15 @@ export type MakerState = {
    * preview"); opened any other way, the page shows clean. Optional.
    */
   detailsDoor?: number;
+  /**
+   * 🏷 THE GUIDED FLOW'S ONE TITLE (owner 2026-10-05: the bar flipped between
+   * "Look" and "Event Details" inside one stage). While "Finish your Event Hub"
+   * is on screen, Details names what it is on — the stage being walked ("Save
+   * the Date"), or the flow itself on the stage picker — and the bar's stage
+   * line says THAT, never which item group the step happens to live in.
+   */
+  guideTitle?: string | null;
+  setGuideTitle?: (title: string | null) => void;
   /** 🎨 The Look pages the work area moved into Details — see `MakerLookPages`. */
   lookPages?: MakerLookPages | null;
   setLookPages?: (next: MakerLookPages | null) => void;

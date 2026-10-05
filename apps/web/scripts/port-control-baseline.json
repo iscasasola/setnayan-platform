@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "749e561511",
-  "routeCount": 425,
-  "destinations": 946,
-  "actions": 668,
-  "blocks": 5478,
+  "generatedFromRef": "6b462f5ff6",
+  "routeCount": 426,
+  "destinations": 948,
+  "actions": 669,
+  "blocks": 5500,
   "routes": {
     "/": {
       "files": [
@@ -777,6 +777,7 @@
         "[slug]/_components/arrival-greeting.tsx",
         "[slug]/_components/background-music.tsx",
         "[slug]/_components/buttons-preview.ts",
+        "[slug]/_components/canvas-bring-up.ts",
         "[slug]/_components/copy-my-link.tsx",
         "[slug]/_components/countdown-styles.tsx",
         "[slug]/_components/countdown.tsx",
@@ -1608,6 +1609,7 @@
         "InviteQrPanel",
         "LandingPreReply",
         "Link",
+        "LinkPreviewAnswer",
         "PassHopHeld",
         "RsvpCanvasBridge",
         "SavePassCardButton",
@@ -6492,6 +6494,7 @@
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
         "dashboard/[eventId]/launch/_components/special-message-field.tsx",
         "dashboard/[eventId]/launch/_components/stage-picker.tsx",
+        "dashboard/[eventId]/launch/_components/theme-pick-context.ts",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
         "dashboard/[eventId]/launch/_components/view-as-free.tsx",
         "dashboard/[eventId]/launch/loading.tsx",
@@ -6522,6 +6525,7 @@
         "AddressPinField",
         "AnswerCard",
         "AnswerPicker",
+        "AutoDraft",
         "Bar",
         "BeforeWeStartScreen",
         "BufferedCanvasFrame",
@@ -6555,6 +6559,7 @@
         "DetailsTapContext.Provider",
         "DetailsWorkspace",
         "DraftNote",
+        "DraftsAsYouGo",
         "Element",
         "ElementSheet",
         "EntourageOrderPanel",
@@ -6597,6 +6602,8 @@
         "HubSavesImmediately",
         "HubSectionCanvas",
         "HubStage",
+        "ISeg",
+        "ISegmented",
         "Icon",
         "IconBtn",
         "Image",
@@ -6671,7 +6678,6 @@
         "PeopleControls",
         "PeoplePieces",
         "PersonName",
-        "Pick",
         "PickContext.Provider",
         "PickMenu",
         "PickOption",
@@ -6701,10 +6707,8 @@
         "RsvpStageScene",
         "SVGGElement",
         "SVGSVGElement",
-        "SaveRow",
         "SaveState",
         "SaveWords",
-        "SavedReplyByField",
         "ScheduleMatrix",
         "ScheduleSlots",
         "SeatPlan3dNote",
@@ -6725,6 +6729,7 @@
         "SoftPost",
         "SpecialMessageField",
         "StagePicker",
+        "StageStepPreview",
         "State",
         "StepBackground",
         "StoredQrStyle",
@@ -6732,6 +6737,7 @@
         "Suspense",
         "Switch",
         "SwitchRow",
+        "ThemePick",
         "ThemePickProvider",
         "ThemePreviewOverlay",
         "Toggle",
@@ -7729,6 +7735,7 @@
         "CouldNotLoad",
         "CustomRolesEditor",
         "DetailsPieceButton",
+        "DraftsAsYouGo",
         "DressCodeListsForm",
         "EventLinkedBadge",
         "FinalizationActionResult",
@@ -8958,6 +8965,7 @@
         "dashboard/[eventId]/website/editor/_components/canvas-words.tsx",
         "dashboard/[eventId]/website/editor/_components/colour-well.tsx",
         "dashboard/[eventId]/website/editor/_components/details-bound-field.tsx",
+        "dashboard/[eventId]/website/editor/_components/drafts-as-you-go.tsx",
         "dashboard/[eventId]/website/editor/_components/editor-shell.tsx",
         "dashboard/[eventId]/website/editor/_components/element-preview.ts",
         "dashboard/[eventId]/website/editor/_components/element-sheet.tsx",
@@ -9028,6 +9036,7 @@
         "uploadHeroPhoto"
       ],
       "blocks": [
+        "ArtDirectionPick",
         "BackgroundEffect",
         "BackgroundField",
         "BufferedCanvasFrame",
@@ -9044,6 +9053,7 @@
         "ColourWell",
         "DetailsBoundField",
         "DetailsFactSceneContext.Provider",
+        "DraftsAsYouGo",
         "DressCodeFields",
         "DressCodePanel",
         "EditorialPanel",
@@ -9091,6 +9101,7 @@
         "LaunchStdButton",
         "Link",
         "LoveStoryChaptersPanel",
+        "MagicMovePick",
         "MainBackgroundPanel",
         "MakerHalfSheet",
         "MakerHeroPanel",
@@ -9457,8 +9468,11 @@
         "dev/details-lab/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "labDraft"
+      ],
       "blocks": [
+        "ColorsPanel",
         "DetailsItemKey",
         "DetailsPieceButton",
         "FontPick",
@@ -9470,6 +9484,31 @@
         "MakerLookPages",
         "MakerState",
         "Stand"
+      ]
+    },
+    "/dev/guests-lab": {
+      "files": [
+        "dev/guests-lab/page.tsx"
+      ],
+      "destinations": [
+        "/dev/guests-lab",
+        "/dev/guests-lab?part=notices"
+      ],
+      "actions": [],
+      "blocks": [
+        "AddDoors",
+        "AddGuestSheet",
+        "BottomDock",
+        "DockStandIn",
+        "GuestCardBody",
+        "GuestRow",
+        "GuestsPhoneMenu",
+        "GuestsViewSwitcher",
+        "HomePillNav",
+        "NotificationsList",
+        "OpenAddGuestButton",
+        "RosterSort",
+        "RosterTabs"
       ]
     },
     "/dev/hero-lab": {

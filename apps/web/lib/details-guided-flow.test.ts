@@ -337,13 +337,14 @@ test('(6) a step is its item, one at a time: the heading, the narrowed navigator
   assert.match(html, /data-details-mode="guided"/);
   assert.match(html, /data-details-guide-top=""/, 'no progress line');
   assert.match(html, /data-details-guide-head="names"/, 'no step heading');
-  assert.match(html, /Shows on your page, your invitation, every print and every pass\./);
+  // 🚫 No "where it shows" caption under the step (owner, live iPhone test 2026-10-05).
+  assert.doesNotMatch(html, /Shows on your page, your invitation, every print and every pass\./, 'a caption came back under the step');
   assert.match(html, /NAMES-BODY/, 'the step does not show its item’s own picture');
   assert.match(html, /data-details-guide-next=""/);
   assert.match(html, /data-details-guide-skip=""/);
   // 📱 …in the step's half sheet over the live page (`MakerHalfSheet`), titled by the step.
   assert.match(html, /data-half-sheet="half"/, 'the step is not the half sheet');
-  assert.match(html, /data-details-guide-sheet=""/);
+  assert.match(html, /data-half-sheet-lead=""/, 'the step ▾ is not the sheet’s header');
   assert.match(html, /Save the Date · 1 of 3/, 'the step does not say where it sits in its stage');
   // One item, no pieces → the navigator steps aside; every editor is still mounted.
   assert.doesNotMatch(html, /aria-label="Details — what to edit"/, 'the whole navigator shows in the flow');
@@ -354,12 +355,13 @@ test('(6) a step is its item, one at a time: the heading, the narrowed navigator
   assert.match(all, /data-details-guide-open=""/, 'All items has no way back into What’s left');
 });
 
-test('(6) a Ready screen hides the items — never unmounts them — and offers Apply', async () => {
+test('(6) a Ready screen hides the items — never unmounts them — and leaves Apply to the bar', async () => {
   const html = await paint({ entry: { kind: 'ready', round: 'save_the_date' } }, 'names');
   assert.match(html, /data-details-guide-ready="save_the_date"/);
   assert.match(html, /data-details-row="" hidden=""/, 'the items are not hidden on the Ready screen');
   for (const k of ['names', 'date', 'theme', 'address']) assert.match(html, new RegExp(`data-stub-editor="${k}"`), `${k}’s editor was unmounted on Ready`);
-  assert.match(html, /data-details-guide-apply="save_the_date"/);
+  // ✓ ONE Apply (owner 2026-10-05: two Apply buttons on "Almost ready") — the bar's, never the screen's own.
+  assert.doesNotMatch(html, /data-details-guide-apply=/, 'the Ready screen grew a second Apply');
   assert.match(html, /data-details-guide-ready-step="names"[^>]*data-state="left"/, 'the Ready list does not say what is left');
   assert.match(html, /Almost ready/, 'a stage with a step left claims it is ready');
   assert.match(html, /data-details-guide-stages=""/, 'a Ready screen has no way back to the stages');

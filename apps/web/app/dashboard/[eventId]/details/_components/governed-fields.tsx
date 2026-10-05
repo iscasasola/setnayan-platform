@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Check, Lock, Pencil, AlertTriangle, X } from 'lucide-react';
@@ -214,8 +214,13 @@ export function GovernedFields({
   );
   const shows = (f: EditableField) => !only || only.includes(f);
   const labelOf = (f: EditableField) => labels?.[f] ?? FIELD_LABEL[f];
-  const [open, setOpen] = useState<EditableField | null>(null);
-  const [proposed, setProposed] = useState('');
+  /* ✍ EMBEDDED (a step of the Maker's guided flow, owner 2026-10-05: no Save
+     button in a step): the one row is open from the start and a pick is sent
+     on its own — the booked-supplier check still runs first, and a clash still
+     asks "Apply anyway". */
+  const autoRow: EditableField | null = embedded && only?.length === 1 ? only[0]! : null;
+  const [open, setOpen] = useState<EditableField | null>(autoRow);
+  const [proposed, setProposed] = useState(autoRow === 'date' ? (dateValue ?? '') : '');
   const [phase, setPhase] = useState<'edit' | 'confirm'>('edit');
   const [conflicts, setConflicts] = useState<ConflictService[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -275,8 +280,9 @@ export function GovernedFields({
     setSavedField(null);
   }
 
-  function close() {
-    setOpen(null);
+  function close(reset = false) {
+    setOpen(autoRow);
+    if (reset && autoRow) setProposed(currentValueFor(autoRow));
     setPhase('edit');
     setConflicts([]);
     setError(null);
@@ -404,6 +410,18 @@ export function GovernedFields({
       setPhase('confirm');
     });
   }
+
+  /* ✍ Embedded: a changed value is checked and drafted on its own, after a pause. */
+  const autoSave = useRef(checkAndSave);
+  autoSave.current = checkAndSave;
+  useEffect(() => {
+    if (!autoRow || open !== autoRow || phase !== 'edit') return;
+    const value = proposed.trim();
+    if (value === '' || value === currentValueFor(autoRow)) return;
+    const t = window.setTimeout(() => autoSave.current(), 900);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the row's own value is read fresh each change
+  }, [proposed, open, phase]);
 
   function removeConflict(vendorId: string) {
     if (!open) return;
@@ -680,7 +698,7 @@ export function GovernedFields({
       ) : null}
 
       {/* Shared editor footer — appears under whichever row is open. */}
-      {open ? (
+      {open && (!autoRow || phase === 'confirm' || error) ? (
         <div className="space-y-3 rounded-xl border border-ink/10 bg-paper p-3.5">
           {phase === 'confirm' ? (
             <div className="space-y-2.5">
@@ -751,7 +769,7 @@ export function GovernedFields({
                 </button>
                 <button
                   type="button"
-                  onClick={close}
+                  onClick={() => close(true)}
                   disabled={pending}
                   className="inline-flex items-center justify-center rounded-xl border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
                 >
@@ -764,6 +782,8 @@ export function GovernedFields({
               {/* The field-specific input renders inside the open EditableRow
                   above; this footer holds the actions for both phases. */}
               {error ? <ErrorNote message={error} /> : null}
+              {/* ✍ Embedded: no Save — the pick is sent on its own. */}
+              {autoRow ? null : (
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -785,13 +805,14 @@ export function GovernedFields({
                 </button>
                 <button
                   type="button"
-                  onClick={close}
+                  onClick={() => close(true)}
                   disabled={pending}
                   className="inline-flex items-center justify-center rounded-xl border border-ink/15 px-4 py-2 text-sm font-medium text-ink/70 transition-colors hover:bg-cream disabled:opacity-60"
                 >
                   Cancel
                 </button>
               </div>
+              )}
             </div>
           )}
         </div>

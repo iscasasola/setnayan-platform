@@ -211,6 +211,8 @@ export function MakerShell({
   const [detailsItem, setDetailsItem] = useState<DetailsItemKey | null>(() => movedSelection(initialSelection).item);
   /* 📱 Each door press opens the item's editor sheet on a phone (`MakerState.detailsDoor`). */
   const [detailsDoor, setDetailsDoor] = useState(0);
+  /* 🏷 The guided flow's one title while it is on screen (`MakerState.guideTitle`). */
+  const [guideTitle, setGuideTitle] = useState<string | null>(null);
   const [selection, setSelection] = useState<MakerSelection>(() => movedSelection(initialSelection).selection);
   const [lookPages, setLookPages] = useState<MakerLookPages | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
@@ -430,6 +432,8 @@ export function MakerShell({
       detailsItem,
       setDetailsItem,
       detailsDoor,
+      guideTitle,
+      setGuideTitle,
       lookPages,
       setLookPages,
       factEditors,
@@ -445,7 +449,7 @@ export function MakerShell({
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -480,7 +484,8 @@ export function MakerShell({
     openPage: openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : null,
   });
   /* 📱 Frame G's top line names the stage — or the Maker page that covers it. */
-  const openStageWord = openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : openDoor === 'rsvp-stage' ? 'RSVP' : null;
+  /* 🏷 In the guided flow: ONE title per stage (owner 2026-10-05) — the stage being walked, never Look/Event Details by turns. */
+  const openStageWord = (openDoor === 'look' || openDoor === 'details') && guideTitle ? guideTitle : openDoor === 'look' ? MAKER_LOOK_LABEL : openDoor === 'details' ? MAKER_DETAILS_LABEL : openDoor === 'prints' ? MAKER_PRINTS_LABEL : openDoor === 'rsvp-stage' ? 'RSVP' : null;
   /* ＋ Add a scene is a STAGE tool — never on a page (owner 2026-09-28: *"cannot
      see the scenes. and it should only show on stages."*). */
   const stageAdd = makerAddShowsOn(selection) ? addScene : null;

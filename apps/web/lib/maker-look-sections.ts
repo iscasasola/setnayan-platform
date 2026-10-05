@@ -52,11 +52,3 @@ export const LOOK_ROW_OF: Readonly<Record<Exclude<LookSection, 'theme'>, string>
 export function isLookRow(key: string | null | undefined): boolean {
   return typeof key === 'string' && (Object.values(LOOK_ROW_OF) as string[]).includes(key);
 }
-
-/**
- * The one line under the Palette dropdown — WHERE it shows. The palette style
- * draws only the Dress code scene's "Our colours" (and, on a guest's own
- * Welcome, the colours their role wears); it never recolours the page, so a
- * pick with no visible change on the Welcome canvas is expected, and said.
- */
-export const PALETTE_STYLES_LINE = 'Styles “Our colours” in the Dress code scene, and each guest’s own colours.';

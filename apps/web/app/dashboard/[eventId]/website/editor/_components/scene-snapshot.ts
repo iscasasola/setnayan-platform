@@ -9,7 +9,7 @@
  * owns. Nothing is fetched: the copy points at the URLs the canvas loaded.
  */
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
-import type { TileAncestor, TileAttr, TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
+import type { TileAncestor, TileAttr, TileGround, TileHead, TileSnapshot } from '@/lib/maker-tile-preview';
 
 function attrsOf(el: Element): TileAttr[] {
   return Array.from(el.attributes, (a) => [a.name, a.value] as const);
@@ -25,7 +25,35 @@ export function readTileHead(doc: Document): TileHead {
     seen.add(html);
     styles.push(html);
   });
-  return { htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), styles };
+  return { htmlAttrs: attrsOf(doc.documentElement), bodyAttrs: attrsOf(doc.body), styles, grounds: readGrounds(doc) };
+}
+
+/**
+ * 🌄 The page's ground layers (`[data-guest-ground]`, the theme's backdrop) —
+ * each a static copy inside its own ancestors. Without them a tile copied a
+ * scene that floats over the backdrop onto bare white (`TileGround`).
+ */
+function readGrounds(doc: Document): TileGround[] {
+  return Array.from(doc.querySelectorAll<HTMLElement>('[data-guest-ground]'), (g) => {
+    const copy = staticCopy(g);
+    copy.removeAttribute('data-snm-root');
+    /* 🎞 A backdrop's loop is drawn as its still. MEASURED: a `<video>` in the
+       script-less tile document wears the browser's own controls (▶ 0:00) — a
+       document without scripts gets them forced on — across every tile's foot. */
+    copy.querySelectorAll('video').forEach((v) => {
+      const poster = v.getAttribute('poster');
+      if (!poster) {
+        v.remove();
+        return;
+      }
+      const still = doc.createElement('img');
+      still.src = poster;
+      still.alt = '';
+      if (v.getAttribute('class')) still.setAttribute('class', v.getAttribute('class')!);
+      v.replaceWith(still);
+    });
+    return { chain: chainOf(g), html: copy.outerHTML };
+  });
 }
 
 /**

@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import Link from 'next/link';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
@@ -41,13 +42,14 @@ import { ShortcutLine } from '../_components/shortcut-line';
 import {
   REENTRY_PARAM,
   isLinkPreviewFetch,
+  passHeldKind,
   isUrlSecretShaped,
   passHopMissFault,
   reentryRedeemPath,
   type PassHopHeld,
   type PassHopMissRule,
 } from '@/lib/guest-pass-hop';
-import { mintReentryCode } from '@/lib/guest-reentry.server';
+import { ensureTileReentryCode, mintReentryCode } from '@/lib/guest-reentry.server';
 import { GUEST_SESSION_COOKIE_NAME, readGuestSession } from '@/lib/guest-session';
 import { isInAppWebview } from '@/lib/guest-one-path';
 import { recordFault } from '@/lib/telemetry/fault-log';
@@ -112,10 +114,18 @@ export async function generateMetadata({ params, searchParams }: Props) {
  * on iPhone keeps its OWN cookies, so the couple's tile opened as a stranger
  * and asked "Get inside" again. The thank-you (after a Yes — the only screen
  * that offers the shortcut, `ShortcutLine`) names a manifest whose start
- * address carries a SHORT-LIVED, SINGLE-USE re-entry code — server-issued,
- * stored hashed, spent once by `/{slug}/redeem?k=` for the guest's NORMAL pass
+ * address carries a SHORT-LIVED, SINGLE-USE re-entry code — stored hashed,
+ * spent once by `/{slug}/redeem?k=` for the guest's NORMAL pass
  * (lib/guest-reentry.server.ts). Never the pass token, never an account.
  * Anyone else — no key, not attending — gets the plain manifest.
+ *
+ * 🔁 ONE CODE PER GUEST PER DAY (2026-10-04, train-g audit: a code was minted
+ * on EVERY render). The code is the day's derived one, and its row is written
+ * at most ONCE a day (`ensureTileReentryCode`). 🔒 A code is named only once
+ * its row is STORED (train-g review): a code whose write failed would start the
+ * tile at a dead exchange — a stranger again — so a failed write names none.
+ * The metadata and the page body share ONE call per request (`tileCodeOnce`),
+ * so whichever runs first writes the row and both name the same answer.
  */
 async function tileReentryCodeFor(eventId: string): Promise<string | null> {
   const session = await readGuestSessionForEvent(eventId).catch(() => null);
@@ -128,16 +138,34 @@ async function tileReentryCodeFor(eventId: string): Promise<string | null> {
     .is('deleted_at', null)
     .maybeSingle();
   if (landingReplyOf(row?.rsvp_status as string | null | undefined) !== 'yes') return null;
-  return mintReentryCode({ eventId, guestId: session.guest_id, purpose: 'tile' });
+  return tileCodeOnce(eventId, session.guest_id);
+}
+
+/** Today's STORED tile code (or null), once per request — React's `cache`. */
+const tileCodeOnce = cache((eventId: string, guestId: string) => ensureTileReentryCode({ eventId, guestId }));
+
+/**
+ * 🤖 A LINK-PREVIEW FETCHER CARRYING `?k=` (a chat app previewing a pasted
+ * landing address) is answered IN PLACE — a 200, no redirect to the redeem — so
+ * it never spends the guest's single-use code nor takes a pass (2026-10-04,
+ * train-g audit; the personal-link branch of `app/[slug]/page.tsx` is the same
+ * rule). The redeem refuses a fetcher too, so this link cannot spend it either.
+ * A robot reads only the metadata, so this is no door of its own (no `<main>`).
+ */
+function LinkPreviewAnswer({ href }: { href: string }) {
+  return (
+    <div className="px-4 py-10 text-center">
+      <a href={href} rel="nofollow" className="underline underline-offset-4">
+        Open your invitation
+      </a>
+    </div>
+  );
 }
 
 /** What the phone held when the landing could not open — a KIND, never a value. */
 async function heldKind(eventId: string): Promise<PassHopHeld> {
-  const raw = (await cookies()).get(GUEST_SESSION_COOKIE_NAME)?.value;
-  if (!raw) return 'none';
-  const pass = await readGuestSession();
-  if (!pass) return 'revoked';
-  return pass.event_id === eventId ? 'this-event' : 'other-event';
+  const cookiePresent = Boolean((await cookies()).get(GUEST_SESSION_COOKIE_NAME)?.value);
+  return passHeldKind({ cookiePresent, pass: cookiePresent ? await readGuestSession() : null, eventId });
 }
 
 /**
@@ -245,11 +273,15 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
   // account holds (`readGuestSessionForEvent` never answers for another event).
   const session = canvas ? null : await readGuestSessionForEvent(event.event_id as string);
   const carriedCode = isUrlSecretShaped(search.k);
+  // 🔁 No pass in THIS browser, but the address carries the landing's
+  // re-entry code (a chat app's "Open in Safari" opens the address bar):
+  // spend it once at the redeem, which writes the pass and comes back here.
+  // 🤖 …but a link-preview FETCHER is answered in place (`LinkPreviewAnswer`).
   if (!canvas && (!session || session.event_id !== event.event_id)) {
-    // 🔁 No pass in THIS browser, but the address carries the landing's
-    // re-entry code (a chat app's "Open in Safari" opens the address bar):
-    // spend it once at the redeem, which writes the pass and comes back here.
-    if (carriedCode) redirect(reentryRedeemPath(home, search.k!, 'landing'));
+    if (carriedCode) {
+      if (isLinkPreviewFetch((await headers()).get('user-agent'))) return <LinkPreviewAnswer href={reentryRedeemPath(home, search.k!, 'landing')} />;
+      redirect(reentryRedeemPath(home, search.k!, 'landing'));
+    }
     return leaveForTheHub(home, event.event_id as string, 'enter:no-key', false);
   }
 
@@ -441,6 +473,12 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
      full after, none after a No) · How to use it · Open the invitation.
      Every rule is lib/guest-landing.ts, executed by its test. */
   const reply = landingReplyOf(status);
+  /* 📲 The tile's code for today — the SAME call the metadata makes
+     (`tileCodeOnce`), so its row is stored before the page is done. Only after
+     a Yes, where the ShortcutLine is offered; never on the Maker canvas. */
+  if (!canvas && reply === 'yes') {
+    await tileCodeOnce(event.event_id as string, guest.guest_id as string);
+  }
   const ticket = landingTicketOf({ reply, eligibility: passCard, isPlusOne: Boolean(guest.plus_one_of_guest_id) });
   const seatDay = ticketShowsTable({
     eventDate: event.event_date as string | null,

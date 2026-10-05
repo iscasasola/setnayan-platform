@@ -989,7 +989,7 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       finished={finished}
       hasJoinLink={Boolean(joinUrl)}
       shareMenu={joinUrl ? <ShareDropdown joinUrl={joinUrl} eventId={eventId} /> : null}
-      viewSwitch={<GuestsViewSwitcher eventId={eventId} active={gview} search={search} />}
+      viewSwitch={<GuestsViewSwitcher eventId={eventId} active={gview} search={search} bare />}
     />
   );
 

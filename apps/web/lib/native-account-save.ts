@@ -30,6 +30,7 @@
  * plain browser ignores; the request's own user-agent must ALSO pass the gate.
  */
 import { classifyShell, oauthGate } from '@/lib/oauth-shell-gate';
+import { isSafeNext } from '@/lib/safe-next';
 
 /** The hidden field the native Save form carries ("1"). */
 export const NATIVE_SAVE_FIELD = 'native_sign_in';
@@ -78,14 +79,13 @@ export function nativeSaveHandOff(input: {
   return { native: input.method, next: input.next };
 }
 
-/** Narrow an action's return value to a hand-off (anything else: nothing to do). */
+/**
+ * Narrow an action's return value to a hand-off (anything else: nothing to do).
+ * Its `next` is judged by THE ONE where-next rule (`isSafeNext`, lib/safe-next.ts)
+ * — never a second, weaker prefix check of its own (2026-10-04, train-g audit:
+ * `/\\evil.com` and `/\t/evil.com` passed "starts with `/`, not `//`").
+ */
 export function isNativeSaveHandOff(value: unknown): value is NativeSaveHandOff {
   const v = value as { native?: unknown; next?: unknown } | null | undefined;
-  return (
-    !!v &&
-    (v.native === 'apple' || v.native === 'google') &&
-    typeof v.next === 'string' &&
-    v.next.startsWith('/') &&
-    !v.next.startsWith('//')
-  );
+  return !!v && (v.native === 'apple' || v.native === 'google') && isSafeNext(v.next);
 }

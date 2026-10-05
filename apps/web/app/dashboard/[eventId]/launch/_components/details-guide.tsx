@@ -3,8 +3,7 @@
 import { formatCount } from '@/lib/format-number';
 import Link from 'next/link';
 import { useEffect, useState, type ReactNode } from 'react';
-import { Check, ChevronLeft, ChevronRight, Send } from 'lucide-react';
-import { pressMakerApply, type MakerApplyOutcome } from '../../website/_components/maker-press-apply';
+import { ChevronLeft, ChevronRight, Send } from 'lucide-react';
 import { ProfileShareButton } from '@/app/_components/profile-share-button';
 import { PreviewStageLink } from './maker-play-menu';
 import { useMaker } from './maker-context';
@@ -28,8 +27,8 @@ import {
  *     `PickMenu`: every step of every stage with ✓ / ○, any one picked any time
  *     — owner: *"they can still pick a step anytime?"*), and "All items", the
  *     grouped navigator one tap away;
- *   · the step's heading — its stage, its name, and where it shows in plain
- *     words;
+ *   · the step's heading — its stage and its name (no "where it shows" line
+ *     since 2026-10-05: no captions; the step data still carries `shows`);
  *   · each stage's Ready screen — the stage's steps ✓ / ○, and its real action
  *     beside Apply: Preview · Share (the Save the Date), Send invitations (the
  *     Guest list's own invite flow), Apply (the bar's ONE Apply);
@@ -67,7 +66,15 @@ export type DetailsGuide = {
   tour?: ReactNode;
 };
 
-/** A step's heading: its stage, its name, where it shows. `bare` — the title is the sheet's own (the phone's half sheet). */
+/**
+ * A step's heading: its stage and its name. `bare` (the phone's half sheet) —
+ * the stage and the step are the sheet's own step ▾, so only the setup's 🔓
+ * line is left, and with none there is no heading at all.
+ *
+ * No "where it shows" line under it (owner, live iPhone test 2026-10-05: no
+ * captions — "The look of your whole Event Hub and every print." sat between
+ * the header and the field). A step's place shows on the page beside it.
+ */
 export function GuideHead({
   step,
   roundTitle,
@@ -82,14 +89,16 @@ export function GuideHead({
   compact: boolean;
   bare?: boolean;
 }) {
+  if (bare && !step.unlocks) return null;
   const eyebrow = `${roundTitle}${step.optional ? ' · optional' : ''}${itemLabel && step.items.length > 1 ? ` · ${itemLabel}` : ''}`;
   return (
     <header data-details-guide-head={step.key} className={compact ? 'flex shrink-0 flex-col gap-0.5 px-4 pb-1 pt-2.5 sm:px-6' : 'flex flex-col gap-0.5'}>
-      <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{eyebrow}</p>
-      {bare ? null : <h2 className={compact ? 'font-serif text-lg text-ink' : 'font-serif text-2xl text-ink'}>{step.title}</h2>}
-      <p className="text-[13px] text-ink/65" data-details-guide-shows="">
-        {step.shows}
-      </p>
+      {bare ? null : (
+        <>
+          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">{eyebrow}</p>
+          <h2 className={compact ? 'font-serif text-lg text-ink' : 'font-serif text-2xl text-ink'}>{step.title}</h2>
+        </>
+      )}
       {/* 🔓 The setup's line under every step — what filling it in turns on (filled in, never a paywall). */}
       {step.unlocks ? (
         <p
@@ -103,13 +112,6 @@ export function GuideHead({
     </header>
   );
 }
-
-const APPLY_SAID: Record<MakerApplyOutcome, string | null> = {
-  applying: 'Applying — guests see it in a moment.',
-  'pro-sheet': null,
-  nothing: 'Nothing new to apply — guests already see this.',
-  busy: 'Still working on the last one — try again in a moment.',
-};
 
 /** A stage's Ready screen: what is set, what is not, and the stage's own action beside Apply. */
 export function GuideReady({
@@ -127,16 +129,10 @@ export function GuideReady({
   const steps = stageSteps(plan, round);
   const links = plan.links.filter((l) => l.stages.includes(round));
   const left = steps.filter((s) => s.state === 'left' && !s.optional).length + links.filter((l) => l.state === 'left').length;
-  const [said, setSaid] = useState<string | null>(null);
   /* The preview link reads the window (phone → same view), so it is drawn only
      once mounted in the browser — a Ready screen can be the first paint. */
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  useEffect(() => setSaid(null), [round]);
-  const apply = () => {
-    const outcome = pressMakerApply();
-    setSaid(outcome === null ? 'Apply is at the top right.' : APPLY_SAID[outcome]);
-  };
   const quiet =
     'sn-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-ink/15 bg-white px-4 text-[14px] font-semibold text-ink hover:bg-ink/[0.04]';
   return (
@@ -152,7 +148,7 @@ export function GuideReady({
           <p className="text-[14px] text-ink/75" data-details-guide-ready-line="">
             {left ? (
               <>
-                {formatCount(left)} {left === 1 ? 'thing is' : 'things are'} still to do — or Apply what is set now.
+                {formatCount(left)} {left === 1 ? 'thing is' : 'things are'} still to do — or ✓ Apply what is set now.
               </>
             ) : (
               <>
@@ -208,7 +204,6 @@ export function GuideReady({
             </li>
           ))}
         </ul>
-        <p className="text-[12.5px] text-ink/60">Guests see what is set once you apply. Anything not yet stays yours until you fill it.</p>
         <div className="flex flex-wrap items-center gap-2">
           {round === 'save_the_date' ? (
             <>
@@ -239,24 +234,9 @@ export function GuideReady({
               Send invitations
             </Link>
           ) : null}
-          <button
-            type="button"
-            onClick={apply}
-            data-details-guide-apply={round}
-            className="sn-press inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full bg-ink px-6 text-[15px] font-semibold text-cream hover:bg-ink/90"
-          >
-            <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-            Apply
-          </button>
+          {/* ✓ ONE Apply (owner 2026-10-05: "two Apply buttons") — the bar's own,
+              top right, with its count. This screen has none of its own. */}
         </div>
-        {round === 'save_the_date' && !actions.shareUrl ? (
-          <p className="text-[12.5px] text-ink/60">Choose your Event Hub address under All items to share it.</p>
-        ) : null}
-        {said ? (
-          <p role="status" className="text-[13px] font-medium text-ink/75" data-details-guide-applied="">
-            {said}
-          </p>
-        ) : null}
         {/* 🗂 Then progress per stage: back to "Which stage do you want ready?". */}
         <button
           type="button"

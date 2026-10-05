@@ -211,7 +211,8 @@ test('D · the desktop column never scrolls sideways — its ⓘ bubbles are hel
   // Measured in a browser at 1309 wide: without this the 168px column held
   // 314px of scrollable width (each closed bubble is 18rem), and focus or
   // scrollIntoView slid it left, clipping every label. With it: 168 = 168.
-  const ol = /<ol ref=\{setNavList\} className="([^"]+)"/.exec(SHELL)?.[1];
+  // (a template since 2026-10-05: the phone strip's own rule, `MAKER_STRIP_PHONE`, leads it)
+  const ol = /<ol ref=\{setNavList\} className=(?:"([^"]+)"|\{`([^`]+)`\})/.exec(SHELL)?.slice(1).find(Boolean);
   assert.ok(ol, 'the navigator list moved — re-anchor this test');
   assert.match(ol, /lg:overflow-x-hidden/);
   assert.match(ol, /lg:\[&_\.sn-tip\]:max-w-\[calc\(var\(--maker-nav-w\)-2rem\)\]/, 'a tooltip wider than the column makes it scroll sideways');

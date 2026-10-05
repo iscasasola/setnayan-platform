@@ -124,25 +124,18 @@ export function SpecialMessageField({
         placeholder="A heartfelt note to everyone joining you…"
         className="rounded-md border border-ink/15 bg-white px-3 py-2 text-sm text-ink"
       />
-      <p className="text-xs text-ink/60" data-details-bound-note="">
-        Every scene that shows your message follows this. A scene you changed “just here” keeps its own words until
-        you tap ↺ Use your message on it.
-      </p>
-      <div className="flex flex-wrap items-center gap-3">
-        {eventId ? (
-          <span role="status" className="text-xs text-ink/60" data-special-save-state={state}>
-            {state === 'saving' ? 'Saving…' : state === 'saved' ? 'Saved to your draft' : 'Saves as you type'}
-          </span>
-        ) : (
+      {/* ✍ It saves as it is typed — no caption, no status line under the box
+          (owner 2026-10-05: no captions under controls; the ✓ Apply count rising
+          is the "saved"). Outside the Maker (no draft door) the form posts. */}
+      {eventId ? (
+        <span hidden data-special-save-state={state} />
+      ) : (
+        <div className="flex flex-wrap items-center gap-3">
           <button type="submit" className="button-secondary text-sm">
             Save message
           </button>
-        )}
-        {/* The approved stage drawing's own line (blueprint Part 3c): it is DRAFTED. */}
-        <span className="text-xs text-ink/55" data-details-drafted-note="">
-          Drafted — Apply puts it live.
-        </span>
-      </div>
+        </div>
+      )}
       {said ? (
         <p role="alert" className="text-xs text-terracotta-700">
           {said}

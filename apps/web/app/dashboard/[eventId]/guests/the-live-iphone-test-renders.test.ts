@@ -183,7 +183,8 @@ test('⑦ the warning names what goes with them, in page — Delete and Cancel',
 
 test('⑦ an ACCEPTED guest’s card offers Delete in its ⋯; the couple’s does not', async () => {
   const accepted = await paintCard({ rsvp_status: 'attending' }, { withMenu: true });
-  assert.match(accepted, /data-guest-delete=""[^>]*>Delete guest</, 'an attending guest’s card has no Delete');
+  // Each ⋯ line leads with its icon (owner 2026-10-04), so an <svg> may sit before the words.
+  assert.match(accepted, /data-guest-delete=""[^>]*>(?:<svg[\s\S]*?<\/svg>)?Delete guest</, 'an attending guest’s card has no Delete');
   const couple = await paintCard({ role: 'bride', rsvp_status: 'attending' }, { withMenu: true });
   assert.doesNotMatch(couple, /data-guest-delete=""/, 'the couple’s card offers a Delete that can only fail');
 });

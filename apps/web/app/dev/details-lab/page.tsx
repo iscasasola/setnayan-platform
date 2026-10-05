@@ -23,7 +23,7 @@
 import { notFound } from 'next/navigation';
 import { MakerDetails, detailsFactEditors } from '@/app/dashboard/[eventId]/launch/_components/maker-details';
 import { LookLab } from './look-lab';
-import { INVITE_THEMES, pickableInviteThemes } from '@/lib/invite-themes';
+import { pickableInviteThemes } from '@/lib/invite-themes';
 import { formatFor, parsePrintDetails } from '@/lib/print-pieces';
 import { detailsItemFor } from '@/lib/maker-details-items';
 import { parseGuideParam } from '@/lib/details-guided-flow';
@@ -118,7 +118,6 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
           storeShell: false,
           suggested: 'vintage',
           sampleVersion: null,
-          blurbs: Object.fromEntries(themes.map((t) => [t.id, INVITE_THEMES[t.id].blurb])),
           posters: {},
           tour: false,
           chosen: !fresh,

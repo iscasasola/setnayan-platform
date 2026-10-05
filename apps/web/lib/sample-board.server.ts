@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { loadHostMembership } from '@/app/[slug]/_lib/loaders';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { boardIsTheCouples } from '@/lib/mood-board-palette-set';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * 🎨 WHICH BOARD THE GALLERY'S SAMPLE WEARS — read on the server, never typed
@@ -34,7 +35,12 @@ export async function sampleBoardFor(search: {
   const admin = createAdminClient();
   if (!(await loadHostMembership(admin, eventId, viewer.id).catch(() => false))) return null;
   const { data, error } = await admin.from('events').select('role_palette').eq('event_id', eventId).maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    // Unread: the sample wears each theme's own colours, and the reason is recorded.
+    logQueryError('sample-board.read', error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
+  if (!data) return null;
   const board = (data as { role_palette?: unknown }).role_palette;
   return boardIsTheCouples(board) ? sanitizeRolePalette(board) : null;
 }

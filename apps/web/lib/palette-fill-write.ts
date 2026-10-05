@@ -20,6 +20,7 @@
  * Takes the couple's own session client (the Mood Board page's own writer).
  */
 import { boardIsTheCouples, boardWithFill } from '@/lib/mood-board-palette-set';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /** The slice of a Supabase query builder this write needs — narrow, so a test can stand in for it. */
 export type PaletteFillFilter = {
@@ -63,9 +64,15 @@ export async function writePaletteFill(
           .containedBy('role_palette', read as Record<string, unknown>);
   const { data, error } = await asRead.select('event_id');
   if (!error && Array.isArray(data) && data.length > 0) return { ok: true, wrote: true };
+  if (error) logQueryError('palette-fill-write.update', error, { event_id: eventId }, 'graceful_degrade');
 
   // Zero rows (or a refusal): what is on the board now?
   const { data: now, error: nowErr } = await client.from('events').select('role_palette').eq('event_id', eventId).maybeSingle();
-  if (!nowErr && now && boardIsTheCouples(now.role_palette)) return { ok: true, wrote: false };
+  if (nowErr) {
+    // The board cannot be read back: the fill is unproven — "Press Apply again", and the reason is recorded.
+    logQueryError('palette-fill-write.reread', nowErr, { event_id: eventId }, 'graceful_degrade');
+    return { ok: false };
+  }
+  if (now && boardIsTheCouples(now.role_palette)) return { ok: true, wrote: false };
   return { ok: false };
 }

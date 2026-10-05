@@ -346,7 +346,7 @@ export function HubDraftToolbar({
     }
     if (j.kind === 'look') {
       /* 🎨 Look — theme, background, font and colours (`lib/maker-look-sections.ts`). */
-      maker.setDetailsItem?.('theme');
+      (maker.openDetailsItem ?? maker.setDetailsItem)?.('theme');
       maker.select({ kind: 'tool', key: 'details' });
     } else if (j.kind === 'row') maker.select({ kind: 'row', key: j.key });
     else maker.select({ kind: 'tool', key: j.key });

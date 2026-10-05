@@ -681,7 +681,7 @@ export function MakerWork({
   /* The first selection comes from the address (a save lands back here with
      `?scene=` or `?open=`). After that the shell's state owns it. */
   const seeded = useRef(false);
-  const setMakerItem = maker?.setDetailsItem;
+  const setMakerItem = maker?.openDetailsItem ?? maker?.setDetailsItem;
   useEffect(() => {
     if (seeded.current || !select) return;
     seeded.current = true;
@@ -963,8 +963,8 @@ export function MakerWork({
   /* 🗓 A tapped schedule MOMENT: the Schedule is a whole page (its rail and its
      inspector) — too big for this panel — so Details › Schedule opens with that
      moment selected (`schedule-focus.ts`). */
-  const openDetailsItemRef = useRef(maker?.setDetailsItem);
-  openDetailsItemRef.current = maker?.setDetailsItem;
+  const openDetailsItemRef = useRef(maker?.openDetailsItem ?? maker?.setDetailsItem);
+  openDetailsItemRef.current = maker?.openDetailsItem ?? maker?.setDetailsItem;
   const factEditorFor = (item: DetailsItemKey, sceneKey: string | null): ReactNode => {
     const node = factEditors?.[item];
     if (!node) return null;

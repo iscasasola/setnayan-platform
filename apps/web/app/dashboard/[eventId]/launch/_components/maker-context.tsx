@@ -98,6 +98,18 @@ export type MakerState = {
   /** Answer a Look visit ONCE: true the first time it is asked for `n`, false after. */
   takeLookVisit?: (n: number) => boolean;
   /**
+   * 🗓 A door that names ONE item (a schedule moment tapped on the canvas, the
+   * couple's mark, Page ▾'s story): Details opens ON that item, never on the
+   * guided flow's stage list (owner 2026-10-06, "why do i jump here when i
+   * tried to tap on the schedule"). Sets `detailsItem` and counts the visit
+   * (`itemVisit`), which `details-workspace.tsx` answers ONCE, like `lookVisit`.
+   * `setDetailsItem` alone is a report, never a door. Optional.
+   */
+  openDetailsItem?: (key: DetailsItemKey) => void;
+  itemVisit?: number;
+  /** Answer an item visit ONCE: true the first time it is asked for `n`, false after. */
+  takeItemVisit?: (n: number) => boolean;
+  /**
    * 🏷 THE GUIDED FLOW'S ONE TITLE (owner 2026-10-05: the bar flipped between
    * "Look" and "Event Details" inside one stage). While "Finish your Event Hub"
    * is on screen, Details names what it is on — the stage being walked ("Save

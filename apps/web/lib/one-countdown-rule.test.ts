@@ -132,4 +132,11 @@ test('5 · the guest page and Home print the shared rule — countdown, scene te
   assert.doesNotMatch(dash, /`\$\{daysOut\} days to go`/, 'the dashboard prints the calendar count as "days to go" again');
   assert.doesNotMatch(dash, /<CountUp value=\{daysOut\}/, 'the focal counts up to the calendar count again');
   assert.match(dash, /daysToGo\?\.kind === 'days' \? daysToGo\.days : daysOut/);
+  // The guest page's checklist ("N days to <date>") sits beside the countdown tile.
+  const body = stripComments(readFileSync(join(process.cwd(), 'app/[slug]/_components/site-body.tsx'), 'utf8'));
+  assert.match(body, /daysLeft=\{\(\(\) => \{\s*const left = daysToGo\(event\.event_date, eventTzForDay, Date\.now\(\)\);/);
+  // The events list's card.
+  const launcher = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/(launcher)/page.tsx'), 'utf8'));
+  assert.doesNotMatch(launcher, /`\$\{days\} days to go`/, 'the event card prints the calendar count again');
+  assert.match(launcher, /`\$\{left\.days\} \$\{left\.days === 1 \? 'day' : 'days'\} to go`/);
 });

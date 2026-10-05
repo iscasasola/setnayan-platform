@@ -134,6 +134,10 @@ test('4 · a page WITHOUT tabs asks the same rule for the Me it hands GuestHubBa
   assert.match(slot, /^\s*meLeadsWithReply\(\{/, 'the non-tabbed Me ignores the reply rule (it used to be meSlotFor(null))');
   assert.match(slot, /replyOpen: rsvpReplyOpen\(\{/, 'the non-tabbed Me must ask the plan’s own reply-sheet gate');
   assert.match(slot, /resolveArrivalAction\(\{/);
+  // The same inputs SiteBody's plan reads.
+  assert.match(slot, /openBrowse: Boolean\(\(event as \{ website_open_browse\?: boolean \| null \}\)\.website_open_browse\)/);
+  assert.match(slot, /widgets,\s*openBrowse:[\s\S]*?phasesEnabled,\s*lifecyclePhase,/);
+  assert.match(slot, /rsvpStatus: guest\.rsvp_status/);
   assert.match(page, /meSlot=\{guestPageTabbed \? null : meSlot\}/);
   // …and that gate IS the plan's — both branches of resolveSiteBodyPlan ask it.
   const plan = read('lib/site-body-plan.ts');

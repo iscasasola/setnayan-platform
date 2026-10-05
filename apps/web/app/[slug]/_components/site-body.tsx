@@ -1,6 +1,7 @@
 import { Fragment, isValidElement } from 'react';
 import Link from 'next/link';
 import { watchLiveOccasion } from '@/lib/watch-live-occasion';
+import { daysToGo } from '@/lib/countdown-target';
 import { actionOpensReply, meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
@@ -29,7 +30,6 @@ import { saveAttendedVendorAction, submitRsvp } from '../actions';
 import { joinEventAction } from '@/app/join/[eventId]/actions';
 import { GuestChecklist } from './guest-checklist';
 import { guestChecklistItems } from '../_lib/guest-checklist-facts';
-import { daysUntil } from '@/lib/guest-checklist';
 import { ScheduleWidget } from './schedule-widget';
 import { TeaCeremonyCard } from './tea-ceremony-card';
 import { dressRiteOf, isChineseWedding } from '@/lib/chinese-wedding';
@@ -2519,7 +2519,13 @@ export async function SiteBody({
               initialTicks={g.checklist.ticks}
               readFailed={g.checklist.readFailed}
               save={submitRsvp.bind(null, event.event_id, guest.guest_id)}
-              daysLeft={daysUntil({ eventDate: event.event_date, today: manilaToday() })}
+              /* 🔢 The countdown's own rule (`daysToGo`): whole days of real
+                 time left, so this never reads a day more than the countdown
+                 tile beside it. On the eve and the day it draws no number. */
+              daysLeft={(() => {
+                const left = daysToGo(event.event_date, eventTzForDay, Date.now());
+                return left?.kind === 'days' ? left.days : null;
+              })()}
               dateLabel={event.event_date ? formatEventDate(event.event_date) : null}
             />
           ) : null}

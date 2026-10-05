@@ -2237,7 +2237,7 @@ export async function EventDashboard({
                         : daysOut < 0
                           ? Math.abs(daysOut)
                           : daysToGo?.kind === 'tomorrow'
-                            ? 'Tomorrow'
+                            ? <span className="whitespace-nowrap text-[30px]">Tomorrow</span>
                             : <CountUp value={daysToGo?.kind === 'days' ? daysToGo.days : daysOut} delayMs={700} />}
                   </b>
                   <span

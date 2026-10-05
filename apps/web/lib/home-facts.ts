@@ -99,9 +99,9 @@ export function homeFacts(input: {
       ? null
       : // 🔢 The event's zone, else Manila — the countdown's own fallback
         // (`countdownTargetMs`), never the server's clock (UTC on Vercel).
-        daysUntil(input.eventDate, input.timezone ?? DEFAULT_EVENT_TZ, input.now);
+        daysUntil(input.eventDate, input.timezone || DEFAULT_EVENT_TZ, input.now);
   const toGo =
-    daysOut === null ? null : daysToGo(input.eventDate, input.timezone ?? DEFAULT_EVENT_TZ, (input.now ?? new Date()).getTime());
+    daysOut === null ? null : daysToGo(input.eventDate, input.timezone || DEFAULT_EVENT_TZ, (input.now ?? new Date()).getTime());
   return {
     daysOut,
     daysToGo: toGo,

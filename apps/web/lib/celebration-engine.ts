@@ -405,14 +405,21 @@ export class CelebrationPlayer {
     this.canvas.dataset.celebrateState = 'playing';
     return new Promise<CelebrationResult>((resolve) => {
       this.settle = resolve;
-      const t0 = performance.now();
-      let last = t0;
+      /* The clock starts at the FIRST frame, so a late first frame (a busy
+         page) starts the effect from its beginning rather than mid-way. */
+      let t0 = -1;
+      let last = 0;
+      const begun = performance.now();
       /* ⏱ The watchdog: the effect ENDS on the clock even if frames stop. */
       this.wd = setTimeout(() => {
-        if (this.playing && this.sys === sys) this.finish({ kind, frames: this.frames, seconds: (performance.now() - t0) / 1000, watchdog: true });
+        if (this.playing && this.sys === sys) this.finish({ kind, frames: this.frames, seconds: (performance.now() - begun) / 1000, watchdog: true });
       }, (sys.duration + WATCHDOG_GRACE_SECONDS) * 1000);
       const tick = (now: number) => {
         if (!this.playing || this.sys !== sys) return;
+        if (t0 < 0) {
+          t0 = now;
+          last = now;
+        }
         const t = (now - t0) / 1000;
         const dt = Math.min(0.05, (now - last) / 1000);
         last = now;

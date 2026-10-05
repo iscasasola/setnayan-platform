@@ -43,6 +43,7 @@ import {
   canvasWithoutFacet,
   planHubDraftApply,
   rsvpAskFreePart,
+  rsvpAskFreePartMoves,
   type CanvasFacetGroup,
   type CanvasLookFacet,
   type HubDraftEventColumn,
@@ -234,8 +235,15 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
           item.column === 'love_story'
             ? null
             : item.column === 'rsvp_ask_config'
-              ? /* 🎉 Taking the celebration off keeps the RSVP's drafted words and switches. */
-                { events: { rsvp_ask_config: rsvpAskFreePart(live.events.rsvp_ask_config ?? null, item.value) } }
+              ? /* 🎉 Taking the celebration off keeps the RSVP's drafted words and
+                   switches — or, when nothing else was drafted, puts back live. */
+                {
+                  events: {
+                    rsvp_ask_config: rsvpAskFreePartMoves(live.events.rsvp_ask_config ?? null, item.value)
+                      ? rsvpAskFreePart(live.events.rsvp_ask_config ?? null, item.value)
+                      : (live.events.rsvp_ask_config ?? null),
+                  },
+                }
               : { events: { [item.column]: live.events[item.column] ?? null } },
       });
       continue;

@@ -121,3 +121,12 @@ export function withoutJustReplied(href: string): string | null {
   url.searchParams.delete(JUST_REPLIED_PARAM);
   return `${url.pathname}${url.search}${url.hash}`;
 }
+
+/**
+ * Does the guest page mount the effect's canvas at all? Only for a guest who
+ * just said yes to a pick — or on the Maker's sample, which waits to be told.
+ * None, and a reload with no fresh yes, mount nothing (and fetch no engine).
+ */
+export function celebrationCanvasShown(input: { kind: RsvpCelebration; play: boolean; listen: boolean }): boolean {
+  return input.listen || (input.play && input.kind !== 'none');
+}

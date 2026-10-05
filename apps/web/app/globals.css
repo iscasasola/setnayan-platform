@@ -4229,7 +4229,9 @@ html.dark {
 .rsvp-form fieldset:has(:checked) [data-rsvp-answer]:not(:has(:checked)) {
   background-color: transparent;
   color: rgb(var(--color-ink) / 0.7);
-  --tw-ring-color: rgb(var(--color-ink) / 0.3);
+  /* One plain outline for every answer style — the reply card's ring and the
+     question style's tinted pill (which has no ring) alike. */
+  box-shadow: inset 0 0 0 1.5px rgb(var(--color-ink) / 0.3);
 }
 [data-hub-btn-paint] [data-rsvp-answer]:has(:checked) {
   background-color: var(--hub-btn-solid);

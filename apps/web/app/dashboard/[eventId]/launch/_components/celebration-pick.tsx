@@ -108,19 +108,23 @@ function CelebrationMini({ kind, colours }: { kind: RsvpCelebration; colours: re
     if (kind === 'none') return;
     let alive = true;
     let player: CelebrationPlayer | null = null;
-    void import(/* webpackChunkName: "celebration-engine" */ '@/lib/celebration-engine').then(({ CelebrationPlayer }) => {
-      if (!alive || !ref.current) return;
-      player = new CelebrationPlayer(ref.current);
-      const r = ref.current.getBoundingClientRect();
-      const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      void player.play(kind, {
-        colours,
-        reduced,
-        loop: true,
-        scale: 0.42,
-        rect: { x: r.width * 0.22, y: r.height * 0.3, w: r.width * 0.56, h: r.height * 0.4 },
+    void import(/* webpackChunkName: "celebration-engine" */ '@/lib/celebration-engine')
+      .then(({ CelebrationPlayer }) => {
+        if (!alive || !ref.current) return;
+        player = new CelebrationPlayer(ref.current);
+        const r = ref.current.getBoundingClientRect();
+        const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        void player.play(kind, {
+          colours,
+          /* Reduced motion: one still picture of the pick, never a loop. */
+          ...(reduced ? { freezeAt: 0.9 } : { loop: true }),
+          scale: 0.42,
+          rect: { x: r.width * 0.22, y: r.height * 0.3, w: r.width * 0.56, h: r.height * 0.4 },
+        });
+      })
+      .catch(() => {
+        /* no preview — the row still names the pick */
       });
-    });
     return () => {
       alive = false;
       player?.stop();

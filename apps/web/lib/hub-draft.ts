@@ -1296,6 +1296,17 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       };
       return key(live) === key(next) ? refChange('same', 'same') : refChange('live', 'drafted');
     }
+    case 'rsvp_ask_config': {
+      // ⚙🎉 Compared as every reader reads it — through the sanitizer, key order
+      // ignored (jsonb hands keys back in its own order), and NULL ≡ {} (both
+      // "nothing changed yet") — so re-saving what is live is no change on the
+      // Apply count.
+      const key = (v: unknown) => {
+        const k = canonicalJson(sanitizeRsvpAskConfig(v));
+        return k === '{}' ? null : k;
+      };
+      return refChange(key(live), key(next));
+    }
     case 'papic_on':
     case 'gifts_on': {
       // On until someone says No: never answered and Yes are the same event.

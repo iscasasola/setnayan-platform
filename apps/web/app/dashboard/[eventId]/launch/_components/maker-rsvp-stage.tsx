@@ -151,6 +151,7 @@ export function MakerRsvpStage({
     win.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_CELEBRATE_MESSAGE, kind: pick }, window.location.origin);
   }, []);
   const sceneNow = useRef<RsvpStageScene>('form');
+  const readyPlayed = useRef(new WeakSet<HTMLIFrameElement>());
 
   /* A word tapped on the canvas: its scene, then its box. */
   const openWordField = useCallback((bridgeKey: string) => {
@@ -187,7 +188,12 @@ export function MakerRsvpStage({
       if (!from) return;
       if (d.t === 'rsvpReady') {
         post(from);
-        if (from === frames.current.thanks && sceneNow.current === 'thanks') celebrate();
+        /* The When yes frame plays its pick the FIRST time it is ready — a later
+           reload of the same frame (a Maker refresh) does not replay it. */
+        if (from === frames.current.thanks && sceneNow.current === 'thanks' && !readyPlayed.current.has(from)) {
+          readyPlayed.current.add(from);
+          celebrate();
+        }
       }
       if (d.t === 'rsvpEdit' && typeof d.key === 'string') openWordField(d.key);
     };

@@ -1,8 +1,15 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { RSVP_BRIDGE_SOURCE } from '@/lib/rsvp-stage-shared';
-import { RSVP_CELEBRATE_MESSAGE, isRsvpCelebration, withoutJustReplied, type RsvpCelebration } from '@/lib/rsvp-celebration';
+import {
+  RSVP_CELEBRATE_MESSAGE,
+  celebrationCanvasShown,
+  isRsvpCelebration,
+  withoutJustReplied,
+  type RsvpCelebration,
+} from '@/lib/rsvp-celebration';
 import type { CelebrationPlayer, CelebrationRect } from '@/lib/celebration-engine';
 
 /**
@@ -12,12 +19,15 @@ import type { CelebrationPlayer, CelebrationRect } from '@/lib/celebration-engin
  *
  *   · A guest who JUST said yes (`/{slug}/invite/enter?rsvp=ok`, the reply's
  *     own return) sees the couple's pick play ONCE (~2–3 s) as the thank-you
- *     appears, then clear itself. The `?rsvp=ok` is taken off the address the
- *     moment it starts, so a reload of the same thank-you never plays it again —
- *     only a fresh reply does (we never nag).
+ *     appears, then clear itself. The `?rsvp=ok` is taken off the address once
+ *     it has ENDED, so a reload of the same thank-you never plays it again —
+ *     only a fresh reply does (we never nag). Not before: the guest-reply
+ *     funnel's "ticket" step (`lib/telemetry/flows.ts`) reads that flag from
+ *     the address a moment after the page lands.
  *   · One full-screen canvas over the page (on a desktop the effect spans the
  *     whole screen), never a tap target (`pointer-events: none`), hidden from
- *     screen readers. Sparklers shimmer around the guest's NAME only.
+ *     screen readers, portalled to `<body>` so no ancestor's transform or
+ *     stacking can box it in. Sparklers shimmer around the guest's NAME only.
  *   · `prefers-reduced-motion` → one calm wash instead. A watchdog ends it even
  *     if frames stop (`CelebrationPlayer`).
  *   · None draws nothing: no canvas is mounted and no engine code is fetched.
@@ -51,25 +61,33 @@ export function WhenYesCelebration({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const player = useRef<CelebrationPlayer | null>(null);
+  /* The canvas is portalled to <body>, so it exists only after mount (no SSR flash). */
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const shown = celebrationCanvasShown({ kind, play, listen });
 
   useEffect(() => {
+    if (!mounted || !shown) return;
     let alive = true;
+    const loadEngine = () =>
+      import(/* webpackChunkName: "celebration-engine" */ '@/lib/celebration-engine').catch(() => null);
     const start = async (pick: RsvpCelebration) => {
-      const canvas = canvasRef.current;
-      if (!canvas || pick === 'none') {
+      if (!canvasRef.current || pick === 'none') {
         player.current?.stop();
-        return;
+        return null;
       }
-      const { CelebrationPlayer } = await import(/* webpackChunkName: "celebration-engine" */ '@/lib/celebration-engine');
-      if (!alive || !canvasRef.current) return;
-      player.current ??= new CelebrationPlayer(canvasRef.current);
+      const engine = await loadEngine();
+      if (!engine || !alive || !canvasRef.current) return null;
+      player.current ??= new engine.CelebrationPlayer(canvasRef.current);
       const reduced = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      void player.current.play(pick, { colours, reduced, rect: nameRect(name ?? null), freezeAt });
+      return player.current.play(pick, { colours, reduced, rect: nameRect(name ?? null), freezeAt });
     };
 
     if (play && kind !== 'none') {
-      forgetJustReplied();
-      void start(kind);
+      /* Once it has ENDED (or could not start), the flag leaves the address. */
+      void start(kind).finally(() => {
+        if (alive) forgetJustReplied();
+      });
     }
 
     if (!listen) {
@@ -80,10 +98,11 @@ export function WhenYesCelebration({
     }
     /* On the Maker's canvas the engine is fetched as the page opens, so the
        couple's first pick plays at the tap, not after a download. */
-    void import(/* webpackChunkName: "celebration-engine" */ '@/lib/celebration-engine');
+    void loadEngine();
     const origin = window.location.origin;
     const onMessage = (e: MessageEvent) => {
-      if (e.origin !== origin) return;
+      // Only the Maker that framed this page may ask.
+      if (e.origin !== origin || e.source !== window.parent) return;
       const d = e.data as { source?: unknown; t?: unknown; kind?: unknown } | null;
       if (!d || d.source !== RSVP_BRIDGE_SOURCE || d.t !== RSVP_CELEBRATE_MESSAGE || !isRsvpCelebration(d.kind)) return;
       void start(d.kind);
@@ -96,16 +115,17 @@ export function WhenYesCelebration({
     };
     // `colours` is a server-drawn list; its identity is stable for the page's life.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, play, listen, name, freezeAt]);
+  }, [mounted, shown, kind, play, listen, name, freezeAt]);
 
-  if (!listen && (kind === 'none' || !play)) return null;
-  return (
+  if (!shown || !mounted) return null;
+  return createPortal(
     <canvas
       ref={canvasRef}
       aria-hidden="true"
       data-when-yes-fx={kind}
       className="pointer-events-none fixed inset-0 z-[60] h-full w-full"
-    />
+    />,
+    document.body,
   );
 }
 

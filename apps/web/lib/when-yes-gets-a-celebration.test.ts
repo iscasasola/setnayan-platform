@@ -10,7 +10,8 @@
  *       it and HOLDS it without Event Hub Pro, while the words drafted beside it
  *       still go live; with Pro it goes live; back to None is always free.
  *   3 · THE GUEST — plays ONCE: only after a fresh yes (`?rsvp=ok`), the flag
- *       is taken off the address so a reload never replays it; None draws
+ *       is taken off the address once it has ended (the reply funnel reads it
+ *       first) so a reload never replays it; None draws
  *       nothing; the engine ends and CLEARS on its own clock, and its watchdog
  *       ends it even when frames stop.
  *   4 · THE MAKER — ONE PickMenu (never a pill row), drafted through the
@@ -26,6 +27,7 @@ import { stripComments } from './strip-comments';
 import { readRsvpCelebration, sanitizeRsvpAskConfig } from './rsvp-ask';
 import {
   RSVP_CELEBRATION_ORDER,
+  celebrationCanvasShown,
   celebrationColours,
   celebrationDraftIsPro,
   withoutJustReplied,
@@ -141,7 +143,13 @@ test('plays only after a fresh yes, and the flag leaves the address so a reload 
   assert.match(mount, /listen=\{canvas\}/);
 
   const comp = code('app/[slug]/_components/when-yes-celebration.tsx');
-  assert.match(comp, /if \(play && kind !== 'none'\) \{\s*forgetJustReplied\(\);/, 'the flag is forgotten as it starts');
+  assert.match(
+    comp,
+    /if \(play && kind !== 'none'\) \{[\s\S]{0,160}?void start\(kind\)\.finally\(\(\) => \{\s*if \(alive\) forgetJustReplied\(\);/,
+    'the flag is forgotten once the effect has ended — after the reply funnel has read it',
+  );
+  assert.match(comp, /e\.source !== window\.parent/, 'only the framing Maker may ask it to play');
+  assert.match(comp, /createPortal\(/, 'portalled to <body>');
   assert.match(comp, /pointer-events-none fixed inset-0/, 'one full-screen canvas, never a tap target');
   assert.match(comp, /prefers-reduced-motion: reduce/);
   assert.match(comp, /import\([^)]*'@\/lib\/celebration-engine'\)/, 'the engine is fetched only when there is something to play');
@@ -149,13 +157,32 @@ test('plays only after a fresh yes, and the flag leaves the address so a reload 
 });
 
 test('None draws nothing — no canvas, no engine; a pick after a yes draws one canvas', () => {
-  const none = renderToStaticMarkup(React.createElement(WhenYesCelebration, { kind: 'none', colours: [], play: true }));
-  assert.equal(none, '');
-  const notJustReplied = renderToStaticMarkup(React.createElement(WhenYesCelebration, { kind: 'confetti', colours: [], play: false }));
-  assert.equal(notJustReplied, '', 'a reload (no fresh yes) draws nothing');
-  const yes = renderToStaticMarkup(React.createElement(WhenYesCelebration, { kind: 'confetti', colours: [], play: true }));
-  assert.match(yes, /<canvas[^>]*aria-hidden="true"[^>]*data-when-yes-fx="confetti"/);
-  assert.doesNotMatch(yes, /celebrat|website/i, 'guest-facing markup never says it');
+  assert.equal(celebrationCanvasShown({ kind: 'none', play: true, listen: false }), false);
+  assert.equal(celebrationCanvasShown({ kind: 'confetti', play: false, listen: false }), false, 'a reload (no fresh yes) draws nothing');
+  assert.equal(celebrationCanvasShown({ kind: 'confetti', play: true, listen: false }), true);
+  assert.equal(celebrationCanvasShown({ kind: 'none', play: false, listen: true }), true, 'the Maker sample waits to be told');
+  // The server render of every case is empty — the canvas is portalled after mount, so nothing flashes.
+  for (const props of [
+    { kind: 'none' as const, colours: [], play: true },
+    { kind: 'confetti' as const, colours: [], play: true },
+  ]) {
+    const html = renderToStaticMarkup(React.createElement(WhenYesCelebration, props));
+    assert.equal(html, '');
+  }
+  const comp = code('app/[slug]/_components/when-yes-celebration.tsx');
+  assert.match(comp, /const shown = celebrationCanvasShown\(\{ kind, play, listen \}\);/);
+  assert.match(comp, /if \(!shown \|\| !mounted\) return null;/);
+  // Guest-facing words: the canvas is the ONLY thing it draws — aria-hidden, no text at all.
+  const jsx = /createPortal\(([\s\S]*?)document\.body/.exec(comp)?.[1] ?? '';
+  assert.match(jsx, /<canvas[\s\S]*aria-hidden="true"[\s\S]*\/>/);
+  assert.doesNotMatch(jsx.replace(/data-when-yes-fx=\{kind\}/, ''), /celebrat|website/i, 'guest-facing markup never says it');
+});
+
+test('re-saving what is live is no change on the Apply count (key order, NULL ≡ {})', () => {
+  assert.equal(summarizeHubDraft(draftOf({}), live(null), false).changeCount, 0);
+  assert.equal(summarizeHubDraft(draftOf({ words: { thanksHeading: 'Hi' }, meal: false }), live({ meal: false, words: { thanksHeading: 'Hi' } }), false).changeCount, 0);
+  const effect = hubDraftProEffects(draftOf({ celebration: 'petals' }), live(null), false)[0]!;
+  assert.deepEqual(effect.remove, { events: { rsvp_ask_config: null } }, 'nothing else drafted — Remove puts back live');
 });
 
 /* A canvas the engine can draw on in Node — records clears and fills. */

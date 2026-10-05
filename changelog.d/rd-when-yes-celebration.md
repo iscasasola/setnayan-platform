@@ -16,7 +16,8 @@ any words or switches drafted beside it still go live. Back to None is always fr
   sheet (`hub-draft-change-lines.ts`) and the Pro sheet (`hub-pro-effects.ts`).
 - **Guest** (`/{slug}/invite/enter`, `WhenYesCelebration`): after a fresh YES
   (`?rsvp=ok`) the effect plays ONCE (2.3–3 s) and clears itself; the flag is taken
-  off the address as it starts, so a reload never replays it. One full-screen canvas
+  off the address once it has ended (after the guest-reply funnel's "ticket" step has
+  read it), so a reload never replays it. One full-screen canvas portalled to `<body>`
   (`pointer-events: none`), the Mood Board's colours, Sparklers around the guest's
   name only, reduced motion → one calm wash, and a clock watchdog ends it even if
   frames stop. None mounts nothing. The engine (`lib/celebration-engine.ts`, ported
@@ -24,7 +25,9 @@ any words or switches drafted beside it still go live. Back to None is always fr
 - **RSVP answers:** the tapped answer fills with the page's own button colour (the
   host's Look › Buttons choice still wins), and the other goes plain — CSS only, no
   new setting (`app/globals.css`, `.rsvp-form [data-rsvp-answer]`).
-- Guarded by `lib/when-yes-gets-a-celebration.test.ts` (12 tests, each fence
+- `rsvp_ask_config` is now compared canonically on the Apply count (sanitized, key
+  order ignored, NULL ≡ {}), so re-saving what is live is no phantom change.
+- Guarded by `lib/when-yes-gets-a-celebration.test.ts` (13 tests, each fence
   sabotage-verified red → green).
 
 SPEC IMPACT: Implements DECISION_LOG 2026-10-06 '"WHEN YES" GETS A CELEBRATION (PRO)'

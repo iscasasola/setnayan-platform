@@ -19,6 +19,7 @@
  *
  * Takes the couple's own session client (the Mood Board page's own writer).
  */
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { boardIsTheCouples, boardWithFill } from '@/lib/mood-board-palette-set';
 
 /** The slice of a Supabase query builder this write needs — narrow, so a test can stand in for it. */
@@ -62,10 +63,12 @@ export async function writePaletteFill(
           .contains('role_palette', read as Record<string, unknown>)
           .containedBy('role_palette', read as Record<string, unknown>);
   const { data, error } = await asRead.select('event_id');
+  if (error) logQueryError('writePaletteFill.write', error, { event_id: eventId });
   if (!error && Array.isArray(data) && data.length > 0) return { ok: true, wrote: true };
 
   // Zero rows (or a refusal): what is on the board now?
   const { data: now, error: nowErr } = await client.from('events').select('role_palette').eq('event_id', eventId).maybeSingle();
+  if (nowErr) logQueryError('writePaletteFill.reread', nowErr, { event_id: eventId });
   if (!nowErr && now && boardIsTheCouples(now.role_palette)) return { ok: true, wrote: false };
   return { ok: false };
 }

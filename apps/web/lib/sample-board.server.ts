@@ -2,6 +2,7 @@ import 'server-only';
 
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { loadHostMembership } from '@/app/[slug]/_lib/loaders';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { boardIsTheCouples } from '@/lib/mood-board-palette-set';
@@ -34,6 +35,7 @@ export async function sampleBoardFor(search: {
   const admin = createAdminClient();
   if (!(await loadHostMembership(admin, eventId, viewer.id).catch(() => false))) return null;
   const { data, error } = await admin.from('events').select('role_palette').eq('event_id', eventId).maybeSingle();
+  if (error) logQueryError('sampleBoardFor.read', error, { event_id: eventId });
   if (error || !data) return null;
   const board = (data as { role_palette?: unknown }).role_palette;
   return boardIsTheCouples(board) ? sanitizeRolePalette(board) : null;

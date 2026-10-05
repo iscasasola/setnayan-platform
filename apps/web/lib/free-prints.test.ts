@@ -51,7 +51,7 @@ test('every free print is REACHABLE from Details (Prints & Tickets folded in), o
   assert.ok(start > 0 && end > start, 'the free group is its own part, before the invitation set');
   assert.ok(ws.indexOf('data-prints-free-group', start) < end, 'the free group marks its pictures');
   const group = ws.slice(start, end);
-  assert.match(group, /freePrints\(eventId, slug\)\.map\(/, 'the section renders the whole list — no entry is picked out');
+  assert.match(group, /freePrints\(eventId, slug, stamps\)\.map\(/, 'the section renders the whole list — no entry is picked out');
   assert.match(group, /fp\.saves\.map\(/, 'every save of every entry gets a button');
   assert.match(group, /src=\{fp\.preview\}/, 'every entry shows its real preview');
   assert.doesNotMatch(group, /access\.|ownsPro|storeShell|offerPro|printReady/, 'nothing in the free group asks about Pro or the store shell');
@@ -60,7 +60,7 @@ test('every free print is REACHABLE from Details (Prints & Tickets folded in), o
   assert.doesNotMatch(before, /\{\s*(access\.|ownsPro|storeShell|!storeShell)[^}]*&&\s*\(/, 'the free group is not rendered conditionally');
   // …and Details draws EVERY entry as an item — navigator, picture, saves — with no condition.
   const details = read('app/dashboard/[eventId]/launch/_components/maker-details.tsx');
-  assert.match(details, /const free = freePrintParts\(eventId, slug\);/);
+  assert.match(details, /const free = freePrintParts\(eventId, slug, prints\);/);
   assert.match(details, /\.\.\.free\.map\(\(f\) => f\.key\)\]/, 'every free print is an item of the navigator');
   assert.match(details, /for \(const f of free\) bodies\[f\.key\] = f\.body;/, 'every free print has its picture');
   assert.match(details, /for \(const f of free\) \{\s*editors\[f\.key\] =/, 'every free print has its saves');

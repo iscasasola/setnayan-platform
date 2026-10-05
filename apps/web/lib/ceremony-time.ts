@@ -44,6 +44,10 @@ export const PRINT_DRAFTED_KEYS = [
   // 🎨 The Mood Board colours a theme pick fills (owner 2026-10-05) — the
   // print wears them (`themeColours`), so its address names them too.
   'role_palette',
+  // 🔳 The QR look the couple is trying (`updateQrStyle`, `style_preferences.qr`)
+  // — every code on a preview wears it (`qrLookForHostDraft`, owner 2026-10-06:
+  // "i changed the QR Code style, why did the QR codes not change?").
+  'style_preferences',
 ] as const;
 
 /** The draft's printed keys only — null when the draft holds none of them. */

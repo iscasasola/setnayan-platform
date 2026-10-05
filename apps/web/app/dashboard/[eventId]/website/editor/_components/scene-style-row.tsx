@@ -106,7 +106,9 @@ export function SceneStyleCanvasRow({
   eventType: string | null;
   draftAction: ElementDraftAction;
 }) {
-  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction);
+  /* 🖼 A style is a different component — the bridge cannot draw it, so the
+     pick is redrawn on the canvas in place (`redraw`), never by a Maker render. */
+  const { shown, save, pending, error } = useSceneCanvas(eventId, widgetType, canvas, draftAction, undefined, { redraw: true });
   const type = sceneStyleTypeOfWidget(widgetType);
   const options = sceneStyleOptions(type, stage, eventType);
   const layout = resolveSceneStyle(type, stage, shown.style, eventType);
@@ -177,8 +179,14 @@ export function PaletteLookCanvasRow({
   /** The couple's Mood Board colours — the dropdown's thumbnails. */
   colours: readonly string[];
 }) {
-  const { shown, save, pending, error } = useSceneCanvas(eventId, 'dress_code', canvas, draftAction, (next) =>
-    noteDraftedCanvas('dress_code', next, canvas),
+  const { shown, save, pending, error } = useSceneCanvas(
+    eventId,
+    'dress_code',
+    canvas,
+    draftAction,
+    (next) => noteDraftedCanvas('dress_code', next, canvas),
+    /* 🖼 The look is redrawn on the page in place — never a Maker render that resets it. */
+    { redraw: true },
   );
   const layout = resolveSceneStyle('dress_code', 'rsvp', shown.style, eventType);
   if (colours.length === 0 || !layoutDrawsPaletteLook(layout)) return null;

@@ -149,7 +149,7 @@ test('4 · every page tile opens its page — this stage’s at once, an empty L
   const tiles = between(shell, 'const storyEditor =', ': () => pickPage(o.key),');
   assert.match(tiles, /pk\.page === 'story'/, 'the empty Love Story tile is not recognised');
   assert.match(tiles, /disabled: Boolean\(o\.disabledNote\) && !storyEditor/, 'an empty Love Story tile is still dead');
-  assert.match(tiles, /setDetailsItem\('love-story'\)/, 'the empty Love Story tile does not open its editor');
+  assert.match(tiles, /(?:openDetailsItem|setDetailsItem)\('love-story'\)/, 'the empty Love Story tile does not open its editor');
 });
 
 /** Every .ts/.tsx under app/ and lib/ (tests and node_modules aside). */

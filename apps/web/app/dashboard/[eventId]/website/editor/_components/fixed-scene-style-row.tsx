@@ -14,7 +14,7 @@ import { useState, useTransition } from 'react';
 
 import type { FixedStyleScene } from '@/lib/fixed-scene-styles';
 import type { HubStage } from '@/lib/hub-canvas';
-import { makerSave } from '@/lib/maker-refresh';
+import { makerNeedsRender, makerRedrawSave } from '@/lib/maker-refresh';
 import { resolveSceneStyle, sceneStyleOptions } from '@/lib/scene-styles';
 import { recommendedStageSceneStyle } from '@/lib/scene-styles-stages';
 
@@ -60,7 +60,11 @@ export function FixedSceneStyleRow({
             const fd = new FormData();
             fd.set('intent', 'save');
             fd.set('patch', JSON.stringify({ fixedStyles: { [scene]: id } }));
-            const r = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
+            /* 🖼 Redrawn on the canvas in place once it lands (`makerRedrawSave`);
+               the Maker's own props (this row's `picked`) still catch up with
+               one render at the end of the burst — the canvas keeps its page. */
+            const r = await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh());
+            if (r.ok) makerNeedsRender();
             if (!r.ok) {
               setShown(picked);
               setError(r.error);

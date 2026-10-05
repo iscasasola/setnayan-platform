@@ -1,6 +1,13 @@
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
+import { CountdownWidget } from '@/app/[slug]/_components/countdown';
+import { EditorBridge } from '@/app/[slug]/_components/editor-bridge';
+import { HUB_STAGES, type HubStage } from '@/lib/hub-canvas';
+import { sceneStyleOfRow, paletteLookOfRow } from '@/lib/scene-style-of-row';
+import { SpecialMessageWidget } from '@/app/[slug]/_components/special-message-widget';
+import { MakerWelcomeGiftsEmpty } from '@/app/[slug]/_components/maker-guest-scenes';
+import { MakerEmptyScene } from '@/app/[slug]/_components/maker-empty-scene';
 
 /**
  * /dev/maker-lab/guest — the Maker lab's CANVAS stand-in: maria-and-jose's
@@ -32,6 +39,20 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         tryOn: true,
       })
     : null;
+  /* 🎨 The lab's drafted scene canvases (`lab_widgets`, the lab's save
+     stand-in) — each scene drawn below wears its drafted Style through the
+     REAL resolver (`sceneStyleOfRow`) and the REAL widget, as the guest page does. */
+  let drafted: Record<string, unknown> = {};
+  try {
+    drafted = JSON.parse(decodeURIComponent((await cookies()).get('lab_widgets')?.value ?? '{}')) as Record<string, unknown>;
+  } catch {
+    drafted = {};
+  }
+  /* ⏱ A `lab_slow` cookie: the canvas page takes as long as production's to arrive. */
+  if ((await cookies()).get('lab_slow')?.value === '1') await new Promise((r) => setTimeout(r, 2500));
+  const stage: HubStage | null = (HUB_STAGES as readonly string[]).includes(phase) ? (phase as HubStage) : null;
+  const rowOf = (type: string) => ({ widget_type: type, config_json: { canvas: drafted[type] ?? {} } });
+  const mark = (key: string) => <span hidden data-maker-section={key} />;
   if (rsvp) {
     return (
       <main className="min-h-dvh bg-[#FBF9F5] px-5 py-6 text-ink">
@@ -78,6 +99,43 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
       <section className="border-t border-ink/10 px-4 py-8">
         <p className="font-serif text-lg">Guest&rsquo;s ticket</p>
       </section>
+      {mark('w:countdown')}
+      <section data-lab-scene="countdown" className="border-t border-ink/10 px-4 py-8">
+        <CountdownWidget targetIso="2026-12-12" timeZone="Asia/Manila" sceneStyle={sceneStyleOfRow(rowOf('countdown'), stage, 'wedding')} />
+      </section>
+      {/* 🔤 Three of the page's eyebrows, as the real scenes draw them — inside the
+          editorial scope the guest page wears (`.sn-editorial`). */}
+      <div className="sn-editorial">
+        {mark('f:gifts')}
+        <div data-lab-scene="gifts" className="border-t border-ink/10 px-4 py-8 text-left">
+          <MakerWelcomeGiftsEmpty />
+        </div>
+        {mark('w:our_love_story')}
+        <div data-lab-scene="our_love_story" className="border-t border-ink/10 px-4 py-8">
+          <MakerEmptyScene type="our_love_story" />
+        </div>
+        {mark('w:special_message')}
+        <div data-lab-scene="special_message" className="border-t border-ink/10 px-4 py-8 text-left">
+          <SpecialMessageWidget
+            text="We cannot wait to celebrate with you."
+            signedBy="Maria & Jose"
+            sceneStyle={sceneStyleOfRow(rowOf('special_message'), stage, 'wedding')}
+          />
+        </div>
+        {mark('w:dress_code')}
+        {/* 🎨 Dress code's palette LOOK (`canvas.palette`), read through the real
+            resolver; the lab stands in for the widget's drawing with its name. */}
+        <section data-lab-scene="dress_code" className="border-t border-ink/10 px-4 py-16">
+          <p className="pahina-eyebrow">
+            <span>Dress code</span>
+          </p>
+          <p className="mt-3 font-serif text-2xl" data-lab-palette={paletteLookOfRow(rowOf('dress_code'))}>
+            Palette look: {paletteLookOfRow(rowOf('dress_code'))}
+          </p>
+        </section>
+      </div>
+      {/* The Maker's two-way bridge, as the real canvas mounts it — its `ready` swaps a buffered frame in. */}
+      {sp.editor === '1' ? <EditorBridge /> : null}
     </main>
   );
 }

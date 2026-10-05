@@ -1,7 +1,8 @@
 'use client';
 
 import { LOVE_STORY_PREVIEW_T as LOVE_STORY_PREVIEW, SCHEDULE_PREVIEW_T as SCHEDULE_PREVIEW, applyLoveStoryPreview, applySchedulePreview } from '@/lib/maker-live-preview-apply';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
   HUB_ELEMENT_FIELDS,
@@ -54,6 +55,8 @@ import { createCanvasBringUp } from './canvas-bring-up';
  *   parent → frame  { source:'setnayan-editor', t:'sceneBg',  scenes:[{ key, classes, vars }] }
  *   parent → frame  { source:'setnayan-editor', t:'sceneShow', key, shown }
  *   frame  → parent { source:'setnayan-site',   t:'ready',    order, bar }
+ *   parent → frame  { source:'setnayan-editor', t:'refresh' } — 🖼 a pick the bridge cannot draw
+ *                    was saved: the page re-renders itself in place (`router.refresh()`)
  *   parent → frame  { source:'setnayan-editor', t:'settle', forget? } — 📱 the Maker's last editing
  *                    surface closed: the page goes back to where it rested, or (`forget`, a
  *                    canvas tap ended it) stays put (`canvas-bring-up.ts`)
@@ -417,6 +420,10 @@ function flash(el: HTMLElement) {
 }
 
 export function EditorBridge() {
+  /* 🖼 `refresh` — the Maker's page re-renders ITSELF, in place (below). */
+  const router = useRouter();
+  const routerRef = useRef(router);
+  routerRef.current = router;
   useEffect(() => {
     const origin = window.location.origin;
     const cleanups: Array<() => void> = [];
@@ -570,6 +577,16 @@ export function EditorBridge() {
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== origin) return;
       const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
+      /* 🖼 A PICK THE BRIDGE CANNOT DRAW HAS BEEN SAVED (a scene's Style, a
+         palette look, a box redrawn — `makerRedrawSave`): this page renders
+         again from the server, IN PLACE — `router.refresh()` keeps this
+         document, its scroll and the section in view (owner 2026-10-06: the
+         Countdown kept its four boxes; a palette pick reset the page to the
+         cover). Never a reload: that is what lost the place. */
+      if (data && data.source === 'setnayan-editor' && data.t === 'refresh') {
+        routerRef.current.refresh();
+        return;
+      }
       if (data && data.source === 'setnayan-editor' && data.t === 'sceneBg') {
         /* ⚡ A SCENE'S BACKGROUND, ON THE CANVAS NOW (`scene-bg-preview.ts`) —
            one scene, or every scene of the stage. The Maker computed each

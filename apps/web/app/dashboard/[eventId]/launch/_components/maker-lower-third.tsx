@@ -346,8 +346,12 @@ export function MakerLowerThird({
           inert={menuOpen ? undefined : true}
           data-lt-menu=""
           data-menu-id={menuId}
-          className={`absolute inset-0 z-10 overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-2 pb-6 pt-2 ring-1 ring-ink/10 transition-transform duration-[260ms] ease-out motion-reduce:transition-none ${
-            menuOpen ? 'translate-y-0' : 'translate-y-[104%]'
+          className={`absolute inset-0 z-10 overflow-y-auto overscroll-contain rounded-t-2xl bg-white px-2 pb-6 pt-2 ring-1 ring-ink/10 transition-[transform,visibility] duration-[260ms] ease-out motion-reduce:transition-none ${
+            /* 🙈 Shut = INVISIBLE, not only slid down: on the guided flow's short row the
+               sheet's 104% lands inside the iPhone's home-bar padding and peeked out under
+               the Menu button (owner, live iPhone 2026-10-06, "Something is peeking from the
+               bottom"). `visibility` flips after the slide, so the close still animates. */
+            menuOpen ? 'visible translate-y-0' : 'invisible translate-y-[104%]'
           }`}
         >
           <button

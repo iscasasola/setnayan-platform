@@ -349,8 +349,9 @@ export function overlayPostEventDraftJson(
 
 /**
  * The block of the run a scene moves with, or null when its place is fixed
- * (the cover, Before the day, Were you there?, By the Numbers and the pinned
- * close). Every chapter moves with the chapters block — the day's chapters
+ * (the cover, Before the day, By the Numbers and the pinned close — and Were
+ * you there?, which is never dragged on its own: it is drawn right after the
+ * film, wherever the film is, `draftToScenes`). Every chapter moves with the chapters block — the day's chapters
  * stay in the order they happened.
  */
 export function postEventRunKey(sceneKey: string): string | null {

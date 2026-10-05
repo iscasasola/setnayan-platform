@@ -626,11 +626,11 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   assert.match(client, /background=\{shownBackground\}/, 'the studio preview paints the veil while guests see the theme');
   assert.match(action, /if \(data\.backgroundFollowsTheme === true\) \{[\s\S]{0,260}patch\.std_background = stdFollowTheme\(/, 'the studio cannot hand the film back to the theme');
 
-  // The Theme step: one line, while the film keeps its own pick; a tap writes the DRAFT.
+  // The Look step: one line under Background, while the film keeps its own pick; a tap writes the DRAFT.
+  // ("Same as theme" until 2026-10-05 — in Look there is no theme to name any more; the film follows the Event Hub.)
   const { FilmFollowsTheme } = await import(`../${L}/film-follows-theme`);
-  const { MakerThemeMenu } = await import(`../${L}/maker-theme-picker`);
   const line = renderToStaticMarkup(React.createElement(FilmFollowsTheme, { eventId: 'e' }));
-  assert.match(line, /Your Save the Date film keeps its own background ·[\s\S]*<button[^>]*>Same as theme<\/button>/);
+  assert.match(line, /Your Save the Date film keeps its own background ·[\s\S]*<button[^>]*>Same as the Event Hub<\/button>/);
   const picker2 = read(`${L}/film-follows-theme.tsx`);
   assert.match(picker2, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ std_background: stdFollowTheme\(legibility\) \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'the tap does not go into the draft (with the film\'s Readability)');
 
@@ -655,10 +655,9 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   const store = read('lib/hub-draft-store.ts');
   const forget = store.slice(store.indexOf('export async function forgetDraftedEventColumn'), store.indexOf('/** Where a form\'s draft save goes back'));
   assert.match(forget, /delete events\[column\];\s*await writeHubDraft\(supabase, eventId, \{ \.\.\.draft, events: /, 'the drafted column is not taken out of the draft');
-  assert.ok(MakerThemeMenu);
   const details = read(`${L}/maker-details.tsx`);
   assert.match(details, /const filmLine = theme\.filmOwnBackground \? <FilmFollowsTheme eventId=\{eventId\} legibility=\{theme\.filmLegibility\} \/> : null;/);
-  assert.match(details, /<MakerThemeMenu [^>]*filmLine=\{filmLine\}/);
+  assert.match(details, /theme: <LookPanel filmLine=\{filmLine\} \/>,/, 'the film line is not under Look');
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(page, /'std_background' in draftedEvents\s*\? draftedEvents\.std_background/, 'the line ignores the draft (it would come back after a tap)');
   assert.match(page, /filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme\(filmBackgroundRead\),/, 'a film following the theme (with a kept Readability) is offered "Same as theme" again');

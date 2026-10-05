@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "69b551efef",
+  "generatedFromRef": "ad42d696bf",
   "routeCount": 428,
   "destinations": 947,
-  "actions": 669,
-  "blocks": 5512,
+  "actions": 670,
+  "blocks": 5509,
   "routes": {
     "/": {
       "files": [
@@ -5732,7 +5732,6 @@
         "LockedRow",
         "MakerHalfSheet",
         "MakerRsvpSettings",
-        "MakerThemeMenu",
         "OneOpenScope",
         "PageMasthead",
         "PaxSettingsCard",
@@ -5752,8 +5751,7 @@
         "SpecialMessageField",
         "SubmitButton",
         "Suspense",
-        "T",
-        "ThemePickProvider"
+        "T"
       ]
     },
     "/dashboard/[eventId]/details/@field/(.)field/[row]": {
@@ -6599,8 +6597,6 @@
         "HubSavesImmediately",
         "HubSectionCanvas",
         "HubStage",
-        "ISeg",
-        "ISegmented",
         "Icon",
         "IconBtn",
         "IconPill",
@@ -6648,8 +6644,6 @@
         "MakerSelection",
         "MakerShell",
         "MakerState",
-        "MakerThemeGallery",
-        "MakerThemeMenu",
         "MakerTool",
         "MakerTour",
         "MarchMaker",
@@ -9549,10 +9543,15 @@
         "dev/maker-lab/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "formDraft"
+      ],
       "blocks": [
+        "ButtonsLookRow",
+        "ColorsPanel",
         "HubDraftActionResult",
         "HubDraftToolbar",
+        "MainBackgroundPanel",
         "MakerLabShell",
         "MakerRsvpStage",
         "MakerShell",

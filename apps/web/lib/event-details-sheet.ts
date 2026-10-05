@@ -80,7 +80,9 @@ export const EVENT_DETAILS_MAP: ReadonlyArray<{ asked: string; question: string;
   { asked: 'A6', question: 'About how many guests?', fact: 'estimate', section: 'guests' },
   { asked: 'A7', question: 'About how much is your budget?', fact: 'budget-target', section: 'budget' },
   { asked: 'A-Hub', question: 'Cover photo', fact: 'cover', section: 'look' },
-  { asked: 'A-Hub', question: 'Theme', fact: 'theme', section: 'look' },
+  // (A-Hub "Theme" left 2026-10-05 — DECISION_LOG "THEMES ARE REPLACED BY THREE
+  // DIRECT GLOBAL SETTINGS": a couple no longer picks a theme; its Look is the
+  // Background, Colours, Fonts and Buttons rows here.)
   { asked: 'A-Hub', question: 'Colours', fact: 'colours', section: 'look' },
   { asked: 'A-Hub', question: 'Fonts', fact: 'fonts', section: 'look' },
   { asked: 'A-Hub', question: 'Music', fact: 'music', section: 'look' },

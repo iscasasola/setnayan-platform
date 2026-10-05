@@ -52,13 +52,13 @@ test('A · the bar has the RSVP stage between Save the Date and the Invitation',
   assert.equal(makerPagePick('rsvp-stage')?.kind, 'rsvp', 'picking RSVP opens its own page');
 });
 
-test('A · three scenes — the form, after they submit, when they decline — each on the real guest page', () => {
+test('A · three scenes — RSVP form, When yes, When no (owner 2026-10-05) — each on the real guest page', () => {
   assert.deepEqual(
     RSVP_STAGE_SCENES.map((s) => [s.key, s.label]),
     [
-      ['form', 'RSVP'],
-      ['thanks', 'After they submit'],
-      ['decline', 'When they decline'],
+      ['form', 'RSVP form'],
+      ['thanks', 'When yes'],
+      ['decline', 'When no'],
     ],
   );
   assert.equal(rsvpStageCanvasSrc('/ana-and-ben', 'form'), '/ana-and-ben/invite/reply?editor=1');

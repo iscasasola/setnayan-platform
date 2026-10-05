@@ -27,9 +27,9 @@ import {
   type RailGroup,
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, normalizeThemeId, themeBackgroundName } from '@/lib/invite-themes';
 import { boardSiteColours, buttonFallback, dressedTheme, themeColours } from '@/lib/theme-colours';
-import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
+import { hubMainGround, hubMovingBackgroundIds, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
 import { hubButtonPage } from '@/lib/hub-buttons';
@@ -676,8 +676,8 @@ export default async function WebsiteEditorPage({
      that half. */
   const colorsProLocked = draftedRowLockedIf(
     Boolean(
-      (event as { site_font_key?: string | null }).site_font_key ||
-        (event as { site_magic_traveller?: string | null }).site_magic_traveller ||
+      // (The font left this grandfather 2026-10-05 — it is free, so it cannot unlock the Pro half.)
+      (event as { site_magic_traveller?: string | null }).site_magic_traveller ||
         event.site_art_direction === 'candlelight',
     ),
   );
@@ -783,15 +783,15 @@ export default async function WebsiteEditorPage({
               {
                 key: 'main-background',
                 label: 'Behind every scene',
-                blurb: 'Your hero behind every scene — the theme’s colours follow it.',
+                blurb: 'A moving background, your hero, your own photo or just the colour.',
                 href: `${base}/launch?open=main-background`,
                 status: isHubMainOwn(mainNow)
                   ? done(mainNow.kind === 'snippet' ? 'Your clip' : 'Your photo')
                   : isHubMainChoice(mainNow)
-                    ? done(mainNow.ground === 'none' ? 'Just the colour' : 'Theme’s own')
-                    : draftedHero.photoRef
+                    ? done(mainNow.ground === 'loop' || (mainNow.ground === 'theme' && INVITE_THEMES[mainThemeId]?.media) ? 'Moving background' : 'Just the colour')
+                    : draftedHero.photoRef && mainThemeId !== 'house'
                       ? done('Your hero')
-                      : todo('Theme’s own'),
+                      : todo(INVITE_THEMES[mainThemeId]?.media ? 'Moving background' : 'Just the colour'),
                 pro: true,
                 locked: false,
                 panel: (
@@ -812,10 +812,15 @@ export default async function WebsiteEditorPage({
                       overrideStillUrl={mainOverrideStillUrl}
                       drafted={mainDrafted}
                       ownsPro={ownsPro}
-                      /* 🖼 The four choices (owner 2026-09-29): the theme's own
-                         (its public still), the hero, the SAME pictures a
-                         scene's Upload media offers, and none. */
-                      themeStillUrl={resolveThemeGround(mainThemeId, { ownColours: false })?.poster ?? null}
+                      /* 🖼 The choices (owner 2026-09-29; 2026-10-05): a moving
+                         background of ours (each loop's public still), the hero,
+                         the SAME pictures a scene's Upload media offers, and the
+                         colour alone. */
+                      loops={hubMovingBackgroundIds().map((id) => ({
+                        id,
+                        name: themeBackgroundName(id),
+                        stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
+                      }))}
                       photoChoices={photoChoices}
                       videoChoice={videoChoice}
                       sceneUploads={sceneUploads}
@@ -828,13 +833,16 @@ export default async function WebsiteEditorPage({
         /* 🔤 FONT · 🎨 COLOURS — two sections of the one Look panel
            (`lib/maker-look-sections.ts`, owner 2026-10-02): the SAME
            `ColorsPanel` and the same `updateSiteColors` door, drawn as two
-           parts so Look reads Theme · Background · Font · Colours. */
+           parts so Look reads Background · Font · Colours · Buttons.
+           🆓 The font is FREE (owner 2026-10-05, DECISION_LOG "THEMES ARE
+           REPLACED BY THREE DIRECT GLOBAL SETTINGS": *"Colors, and Fonts are
+           all free"*) — no ◆, never locked, never asked for at Apply. */
         {
           key: 'font',
           label: 'Font',
           blurb: 'One typeface for your whole Event Hub.',
           href: `${w}/colors`,
-          pro: true,
+          pro: false,
           locked: false,
           panel: (
             <ColorsPanel
@@ -842,9 +850,6 @@ export default async function WebsiteEditorPage({
               eventId={eventId}
               rowKey="font"
               part="font"
-              proLocked={colorsProLocked}
-              proLock={lockPanel('Typeface')}
-              proMark={proMark}
               themeId={currentThemeId}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
@@ -858,7 +863,8 @@ export default async function WebsiteEditorPage({
           label: 'Colours',
           blurb: 'Your page colour.',
           href: `${w}/colors`,
-          pro: true,
+          /* 🆓 Colours are free (2026-10-05); Candlelight keeps its own ◆ on its control. */
+          pro: false,
           locked: false,
           panel: (
             <>

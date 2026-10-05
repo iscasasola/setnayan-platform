@@ -150,10 +150,12 @@ test('💎 the BUTTON colour is free too (owner 2026-09-28) — a free-look colu
   assert.ok(!(HUB_LOOK_EVENT_COLUMNS as readonly string[]).includes('site_button_color'));
 });
 
-test('face, art direction and magic move stay Pro', () => {
+test('art direction and magic move stay Pro; the face is FREE (2026-10-05)', () => {
   const free = (next: Partial<Next>) =>
     lookWriteAllowed(false, siteLookChange(STORED, { ...UNTOUCHED, ...next }));
-  assert.equal(free({ font: 'cormorant' }), false);
+  // 🆓 Owner 2026-10-05, DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT
+  // GLOBAL SETTINGS": *"Colors, and Fonts are all free"*.
+  assert.equal(free({ font: 'cormorant' }), true, 'a free couple is refused a face');
   assert.equal(free({ magic: 'monogram' }), false);
   assert.equal(free({ art: 'candlelight' }), false);
   // Daylight IS the page we write — choosing it adds nothing.
@@ -162,15 +164,11 @@ test('face, art direction and magic move stay Pro', () => {
   const held = { font: 'cormorant', magic: 'monogram', art: 'candlelight' };
   assert.equal(siteLookChange(held, { ...held }), 'none');
   assert.equal(siteLookChange(held, { font: null, magic: null, art: 'daylight' }), 'remove');
-  assert.equal(siteLookChange(held, { ...UNTOUCHED, font: 'playfair' }), 'change');
-  for (const c of [
-    'site_font_key',
-    'site_art_direction',
-    'site_magic_traveller',
-    'rsvp_backdrop',
-  ]) {
+  assert.equal(siteLookChange(held, { ...UNTOUCHED, font: 'playfair' }), 'none', 'a face change counts as a Pro look change');
+  for (const c of ['site_art_direction', 'site_magic_traveller', 'rsvp_backdrop']) {
     assert.equal(hubColumnKind(c), 'look', c);
   }
+  assert.equal(hubColumnKind('site_font_key'), 'free-look', 'the face is not a free look column');
 });
 
 test('canvas: motion is a subset of look, and "has motion" reads only motion keys', () => {

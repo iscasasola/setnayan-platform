@@ -714,6 +714,31 @@ export async function EditorialContent({
     })
     .filter((h): h is { title: string; timecode: string } => h !== null);
 
+  /* 📑 "Were you there?" — drawn by the spine's own code (its anchors are the
+     minutes the spine placed), alone, right after the film in the run below.
+     🔗 It MUST be handed the same `data` · `facts` · `sheets` as the spine
+     above, or its index anchors point at minutes the page did not place. The
+     spine's layout runs twice for this (pure arithmetic over the chapters,
+     on the server) — the price of not keeping a second copy of that layout. */
+  const youScene = (
+    <StorySpine
+      you="only"
+      makerMarkers={makerMarkers}
+      data={data}
+      facts={spineFacts}
+      words={w}
+      viewer={viewer}
+      isSample={isSample}
+      stages={stages}
+      eventId={eventId}
+      own={own}
+      sheets={sheets}
+      storyCard={storyCard}
+      monogram={null}
+      actions={null}
+    />
+  );
+
   return (
     <div
       data-story-light
@@ -756,6 +781,7 @@ export async function EditorialContent({
       <StorySpine
         coverScene={coverScene}
         hideRoad={Boolean(coverScene && roadScene)}
+        you="none"
         makerMarkers={makerMarkers}
         data={data}
         facts={spineFacts}
@@ -1173,8 +1199,20 @@ export async function EditorialContent({
             const col = id ? byId.get(id) : undefined;
             if (!col) {
               const node = nodes[k as EditorialOrderKey];
-              // The film block stamps its two scenes' markers itself.
-              const scene = k === 'watchFilm' ? null : postEventSceneKeyForBlock(k as EditorialOrderKey);
+              // 📑 "Were you there?" follows the film (owner 2026-10-05,
+              // DECISION_LOG "APPROVED — EVERY GUEST PAGE'S DEFAULT SECTION
+              // ORDER") — wherever the couple's order puts the film; the
+              // navigator lists it there too (`draftToScenes`).
+              if (k === 'watchFilm') {
+                // The film block stamps its two scenes' markers itself.
+                return (
+                  <Fragment key={k}>
+                    {node}
+                    {youScene}
+                  </Fragment>
+                );
+              }
+              const scene = postEventSceneKeyForBlock(k as EditorialOrderKey);
               return node && makerMarkers && scene ? (
                 <Fragment key={k}>
                   {marker(scene)}

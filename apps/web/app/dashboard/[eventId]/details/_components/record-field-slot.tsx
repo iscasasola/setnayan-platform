@@ -77,8 +77,6 @@ export async function RecordFieldSlot({ eventId, row: rawRow }: { eventId: strin
 function fieldTitle(editor: RecordEditorKey, profile: Awaited<ReturnType<typeof resolveProfileByEvent>>): string {
   const words = eventWordsFromProfile(profile);
   switch (editor) {
-    case 'theme':
-      return 'Theme';
     case 'font':
       return 'Font';
     case 'colours':

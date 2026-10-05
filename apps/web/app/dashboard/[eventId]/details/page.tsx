@@ -494,7 +494,7 @@ export default async function EventDetailsPage({
 
   /* 📁 Each fold's one line on the phone — built from its own rows' values. */
   const summary: Record<RecordGroupKey, string> = {
-    looks: foldSummary([proRead.ok ? theme.name : null, headingFont, mainColours.length > 0 ? `${mainColours.length} colours` : null, buttons]),
+    looks: foldSummary([headingFont, mainColours.length > 0 ? `${mainColours.length} colours` : null, buttons]),
     works: foldSummary([
       getIn.value,
       guestsReply ? (questions.length > 1 ? questions.slice(1).join(', ') : null) : null,
@@ -566,7 +566,6 @@ export default async function EventDetailsPage({
         {/* ══ HOW IT LOOKS ══ */}
         <RecordFold group="looks" title={groupTitle('looks')} summary={summary.looks} recordHref={record}>
           <Section k="look" titled={false}>
-            <Row row="theme" fact="theme" label="Theme" value={proRead.ok ? theme.name : COULD_NOT_LOAD} open={opens('theme')} record={record} waiting={waiting('invite_theme')} />
             <Row
               row="fonts"
               fact="fonts"

@@ -17,7 +17,7 @@ export function mainGroundChoice(input: {
   /** The stored value follows THIS hero photo. */
   followsHero: boolean;
   heroPhotoRef: string | null;
-}): 'theme' | 'hero' | 'media' | 'none' {
+}): 'theme' | 'loop' | 'hero' | 'media' | 'none' {
   const { current, choosingMedia } = input;
   if (choosingMedia || isHubMainOwn(current)) return 'media';
   if (isHubMainChoice(current)) return current.ground;

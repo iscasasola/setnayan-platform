@@ -214,7 +214,7 @@ test('a photo or snippet the Maker has no URL for is never guessed — that pick
 
 /* ═══ 5 · THE WIRING ═══ */
 
-test('the row decides with backgroundPickRedrawsBox and tells the shell both ways; the shell releases on it', () => {
+test('the row decides with backgroundPickRedrawsBox and tells the shell both ways; a box change is redrawn in place', () => {
   const row = read('app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx');
   const save = row.slice(row.indexOf('const save = ('), row.indexOf('const put = '));
   // 🎞 …or a clip goes on / comes off (the bridge draws no <video>), 2026-09-28.
@@ -223,9 +223,13 @@ test('the row decides with backgroundPickRedrawsBox and tells the shell both way
   assert.match(save, /if \(!res\.ok\) \{[\s\S]*onSaving\?\.\(before, redrawsBox\);/, 'a refused save tells the shell the same answer');
   // The URLs the row hands it are the couple's own uploads — the same map the server reads.
   assert.match(row, /const mediaUrls: Record<string, string> = Object\.fromEntries\(\[\s*\.\.\.photoChoices\.map/);
+  // …and a box change is saved so the canvas redraws itself once it lands.
+  assert.match(save, /redrawsBox\s*\?\s*makerRedrawSave\(/, 'a box change must redraw the canvas in place');
   const shell = read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
   const bg = shell.slice(shell.indexOf('<SceneBackgroundRow'), shell.indexOf('/>', shell.indexOf('<SceneBackgroundRow')));
-  assert.match(bg, /onSaving=\{\(canvases, redrawsBox\) => \{\s*if \(redrawsBox\) \{\s*releaseCanvas\(\);\s*return;\s*\}\s*canvasHold\.current = holdChange\(/);
+  // 🖼 2026-10-06: a box change is HELD too — the row saves it with `makerRedrawSave`
+  // and the canvas redraws itself in place (`a-style-pick-redraws-the-canvas-in-place.test.ts`).
+  assert.match(bg, /onSaving=\{\(canvases\) => \{[\s\S]*?canvasHold\.current = holdChange\(/);
   // The function asks the server's own answer, never a second rule.
   const preview = read('app/dashboard/[eventId]/website/editor/_components/element-preview.ts');
   const fn = preview.slice(preview.indexOf('export function backgroundPickRedrawsBox'), preview.indexOf('export function canvasesFingerprint'));

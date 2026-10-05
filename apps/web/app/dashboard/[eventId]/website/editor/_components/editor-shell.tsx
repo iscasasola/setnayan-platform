@@ -50,7 +50,7 @@ import {
   sceneDrawEffect,
   type CanvasHold,
 } from './element-preview';
-import { HUB_DRAFT_BAR_FIELD, makerNeedsRender, makerSave, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
+import { CANVAS_REFRESH_MESSAGE, HUB_DRAFT_BAR_FIELD, MAKER_CANVAS_REDRAW_EVENT, makerNeedsRender, makerSave, makerUnheldSavesInFlight, requestMakerRefresh, MAKER_UNHELD_WRITE_EVENT } from '@/lib/maker-refresh';
 import { draftedCanvasOr, noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { announceMakerSave } from '@/lib/maker-save-status';
 import { movedOrder, optimisticStageList, sameOrder, stageOrderPatch } from '@/lib/maker-reorder';
@@ -669,6 +669,28 @@ export function MakerWork({
     };
     window.addEventListener(MAKER_UNHELD_WRITE_EVENT, release);
     return () => window.removeEventListener(MAKER_UNHELD_WRITE_EVENT, release);
+  }, []);
+  /* 🖼 A PICK THE BRIDGE CANNOT DRAW (a style, a palette look, a box redrawn)
+     has landed: every frame this canvas shows — the stage and its warm stages —
+     re-renders ITSELF in place (`CANVAS_REFRESH_MESSAGE` → the bridge's
+     `router.refresh()`): the same frame, the same scroll, one render of the
+     page alone. The hold then covers any Maker render that follows, so it never
+     reloads the canvas on top of that. */
+  useEffect(() => {
+    const redraw = () => {
+      /* An unheld write still on its way owes the canvas a reload; a hold now
+         would keep the page its render must replace. Refresh in place only. */
+      if (makerUnheldSavesInFlight() === 0) canvasHold.current = holdChange(
+        canvasHold.current,
+        { canvases: drawnCanvases(), order: canvasOrderRef.current },
+        { canvases: drawnCanvases() },
+        Date.now(),
+      );
+      broadcastToCanvasRef.current(CANVAS_REFRESH_MESSAGE);
+    };
+    window.addEventListener(MAKER_CANVAS_REDRAW_EVENT, redraw);
+    return () => window.removeEventListener(MAKER_CANVAS_REDRAW_EVENT, redraw);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reads refs only
   }, []);
   /* The sheet closed: its last save's refresh may still land (a few seconds),
      then the hold ends — a later write elsewhere must reload the canvas. */
@@ -1858,16 +1880,14 @@ export function MakerWork({
                    brings is held (`onSaving` below), never reloaded. */
                 postToCanvas(message);
               }}
-              onSaving={(canvases, redrawsBox) => {
+              onSaving={(canvases) => {
                 /* 🖼 A pick that changes who draws the box — a widget's own card
                    on or off (`backgroundPickRedrawsBox`) — is NOT on the canvas:
                    the bridge paints the frame, never the card (owner 2026-09-28,
-                   "No background" on the Countdown kept its pink card). Release,
-                   so the save's render reloads the canvas, buffered, as before. */
-                if (redrawsBox) {
-                  releaseCanvas();
-                  return;
-                }
+                   "No background" on the Countdown kept its pink card). It is
+                   held all the same: the row saves it with `makerRedrawSave`,
+                   and the canvas redraws ITSELF in place once it lands
+                   (`MAKER_CANVAS_REDRAW_EVENT` below) — no Maker render. */
                 canvasHold.current = holdChange(
                   canvasHold.current,
                   { canvases: drawnCanvases(), order: canvasOrder },

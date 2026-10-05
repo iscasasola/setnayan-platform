@@ -24,5 +24,6 @@ test('only the guest page imports the editing bridge — the Maker imports maker
   })
     .split('\n')
     .filter((f) => f && !/\.test\.tsx?$/.test(f));
-  assert.deepEqual(hits, ['app/[slug]/_components/site-body.tsx'], `these import the bridge:\n  ${hits.join('\n  ')}`);
+  // The dev Maker lab's canvas stand-in is a guest page of its own (dev-only, 404 in production).
+  assert.deepEqual(hits, ['app/[slug]/_components/site-body.tsx', 'app/dev/maker-lab/guest/page.tsx'], `these import the bridge:\n  ${hits.join('\n  ')}`);
 });

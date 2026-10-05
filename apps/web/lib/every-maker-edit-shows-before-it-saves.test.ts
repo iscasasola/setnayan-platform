@@ -210,8 +210,9 @@ function drawsFirst(call: ts.Node, handler: ts.Node, starters: Set<string>): boo
   return drew;
 }
 
+/** `makerSave`, or `makerRedrawSave` — the held save whose pick the canvas redraws in place (it runs `makerSave`). */
 function isMakerSave(n: ts.Node): n is ts.CallExpression {
-  return ts.isCallExpression(n) && ts.isIdentifier(n.expression) && n.expression.text === 'makerSave';
+  return ts.isCallExpression(n) && ts.isIdentifier(n.expression) && (n.expression.text === 'makerSave' || n.expression.text === 'makerRedrawSave');
 }
 const within = (node: ts.Node, outer: ts.Node) => {
   for (let p: ts.Node | undefined = node; p; p = p.parent) if (p === outer) return true;

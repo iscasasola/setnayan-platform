@@ -13,6 +13,7 @@ import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_component
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
+import type { HubSectionCanvas } from '@/lib/hub-canvas';
 
 /**
  * The Maker lab's client half (`page.tsx` says what is real): the real shell,
@@ -38,9 +39,38 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   } catch {
     /* not a Background patch */
   }
+  /* 🎨 …and a scene's canvas (its Style, its palette look) rides `lab_widgets`,
+     which the lab's page reads back as the "server" canvases and its canvas
+     (`./guest`) draws — so a pick reaches the canvas through the SAME refresh
+     and hold a real save goes through. */
+  try {
+    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { widgets?: Record<string, { canvas?: unknown }> };
+    const held = labWidgetsFromCookie();
+    let changed = false;
+    for (const [type, w] of Object.entries(patch.widgets ?? {})) {
+      if (w && typeof w === 'object' && 'canvas' in w) {
+        held[type] = w.canvas ?? {};
+        changed = true;
+      }
+    }
+    if (changed) document.cookie = `lab_widgets=${encodeURIComponent(JSON.stringify(held))}; path=/; SameSite=Lax`;
+  } catch {
+    /* not a scene patch */
+  }
   labChanges += 1;
+  /* ⏱ `?slow=1`: a save takes as long as production's (~1.5 s), so a race can show. */
+  if (new URLSearchParams(window.location.search).get('slow') === '1') await new Promise((r) => setTimeout(r, 1500));
   const s = labSummary(labChanges);
   return { ok: true, intent: 'save', applied: 0, held: [], bar: { free: s, owned: s, proEffects: [], priceLabel: null } } as HubDraftActionResult;
+}
+function labWidgetsFromCookie(): Record<string, unknown> {
+  const raw = document.cookie.split('; ').find((c) => c.startsWith('lab_widgets='))?.slice('lab_widgets='.length);
+  try {
+    const v = raw ? (JSON.parse(decodeURIComponent(raw)) as unknown) : null;
+    return v && typeof v === 'object' ? (v as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
 }
 const noop = async () => {};
 const formNoop = async () => {};
@@ -52,6 +82,8 @@ export function MakerLabShell({
   details,
   loops = [],
   openDetails = false,
+  canvases = {},
+  renderStamp = 'lab',
 }: {
   eventId: string;
   scenes: MakerScene[];
@@ -59,6 +91,10 @@ export function MakerLabShell({
   details: ReactNode;
   loops?: readonly MovingBackgroundOption[];
   openDetails?: boolean;
+  /** The lab's "server" canvases — what its draft holds (`lab_widgets`), read on every render. */
+  canvases?: Record<string, HubSectionCanvas>;
+  /** Moves with every render of the lab page, as the real Maker's does (`String(Date.now())`). */
+  renderStamp?: string;
 }) {
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(
@@ -128,7 +164,7 @@ export function MakerLabShell({
       tourSlides={[]}
       firstVisit={false}
       completeTourAction={noop}
-      renderStamp="lab"
+      renderStamp={renderStamp}
       more={null}
       applySlot={<HubDraftToolbar eventId={eventId} summary={labSummary(0)} storeShell={false} priceLabel={null} proHref={null} />}
       details={{ page: details, controls: null }}
@@ -154,12 +190,13 @@ export function MakerLabShell({
         revealStages={['save_the_date']}
         madeOnce={{ hero: stand('The names & date design'), reveal: stand('The reveal — its controls'), logo: stand('The logo studio') }}
         elementEditing={{
-          canvases: {},
+          canvases,
           palette: { ink: '#2C2A29', heading: '#2C2A29', accent: '#A9834B', muted: '#8A8580', surface: '#FBF9F5' },
           draftAction: labDraft,
         }}
         sceneFormat={{
-          colorChoices: [],
+          /* maria-and-jose's Classic colours — Look › Colours › Palette needs some to show. */
+          colorChoices: ['#A9834B', '#2C2A29', '#C7A27C', '#E8D9C5'],
           photoChoices: [],
           videoChoice: null,
           mediaHref: '/dev/maker-lab',

@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
+import { CANVAS_REFRESH_MESSAGE, MAKER_CANVAS_REDRAW_EVENT } from '@/lib/maker-refresh';
 import { BufferedCanvasFrame } from '../../website/editor/_components/buffered-canvas-frame';
 import { MAKER_PAGE_TITLE, type MakerPageKey } from '@/lib/maker-made-once-pages';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
@@ -120,34 +121,79 @@ export function MakerPage({
  * loads behind the page on screen and takes its place once ready
  * (`BufferedCanvasFrame`, the stage canvas's own mechanism — not a second one).
  * A different page (`src`) is a different group, so it still swaps at once.
+ *
+ * 🖼 AND A SAVE NEVER RESETS THE PAGE (owner 2026-10-06, live: *"When i change
+ * palette style it still resets the page"*). A buffered swap still mounted a
+ * NEW document for every Maker render — the page loaded from the top, its
+ * cover first, and the couple lost Dress code. Now `frameKey` names the PAGE
+ * only, and a Maker render (`refreshOn`) or a redrawn pick
+ * (`MAKER_CANVAS_REDRAW_EVENT`) asks the page shown to re-render ITSELF, in
+ * place (`CANVAS_REFRESH_MESSAGE` → the bridge's `router.refresh()`): the same
+ * document, the same scroll, the same section. A page with no bridge to ask
+ * (it never said `ready`) is loaded again behind, as before.
  */
 export function MakerPageFrame({
   src,
   title,
   device,
   frameKey,
+  refreshOn,
   frameRef,
   onShown,
 }: {
   src: string;
   title: string;
   device: 'desktop' | 'phone';
+  /** The PAGE this frame shows — never a render stamp (that is `refreshOn`). */
   frameKey: string;
+  /** Moves with every Maker render (`maker.renderStamp`): the page re-renders in place. */
+  refreshOn?: string;
   frameRef?: MutableRefObject<HTMLIFrameElement | null>;
   /** The frame now shown (the canvas guard re-attaches to it). */
   onShown?: (key: string) => void;
 }) {
   const ownRef = useRef<HTMLIFrameElement | null>(null);
   const loadingRef = useRef<Window | null>(null);
+  const shownRef = frameRef ?? ownRef;
+  /** Frames whose page has a bridge that answers `refresh` (it said `ready`). */
+  const bridged = useRef(new WeakSet<MessageEventSource>());
+  /** A page with no bridge is loaded again — the old way — under a new key. */
+  const [reload, setReload] = useState(0);
+  const refreshInPlace = useRef(() => {});
+  refreshInPlace.current = () => {
+    const w = shownRef.current?.contentWindow ?? null;
+    if (w && bridged.current.has(w)) w.postMessage(CANVAS_REFRESH_MESSAGE, window.location.origin);
+    else setReload((n) => n + 1);
+  };
+  useEffect(() => {
+    const onReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || !event.source) return;
+      const data = event.data as { source?: string; t?: string } | null;
+      if (data && data.source === 'setnayan-site' && data.t === 'ready') bridged.current.add(event.source);
+    };
+    const onRedraw = () => refreshInPlace.current();
+    window.addEventListener('message', onReady);
+    window.addEventListener(MAKER_CANVAS_REDRAW_EVENT, onRedraw);
+    return () => {
+      window.removeEventListener('message', onReady);
+      window.removeEventListener(MAKER_CANVAS_REDRAW_EVENT, onRedraw);
+    };
+  }, []);
+  const lastRefresh = useRef(refreshOn);
+  useEffect(() => {
+    if (refreshOn === undefined || lastRefresh.current === refreshOn) return;
+    lastRefresh.current = refreshOn;
+    refreshInPlace.current();
+  }, [refreshOn]);
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center bg-[radial-gradient(120%_90%_at_50%_0%,rgba(203,167,102,.10),transparent_60%)] px-2 py-2 lg:px-6 lg:pb-5 lg:pt-4">
       <BufferedCanvasFrame
-        frameKey={frameKey}
+        frameKey={`${frameKey}:${reload}`}
         group={src}
         src={src}
         title={title}
         pageFrame
-        frameRef={frameRef ?? ownRef}
+        frameRef={shownRef}
         loadingRef={loadingRef}
         anchorKey={() => null}
         onShown={(key) => onShown?.(key)}
@@ -223,7 +269,8 @@ export function MakerRsvpCanvas({
         src={replied ? repliedSrc : questionsSrc}
         title={replied ? 'After a guest replies' : 'Your RSVP questions'}
         device="phone"
-        frameKey={`rsvp:${replied ? 'replied' : 'questions'}:${stamp}`}
+        frameKey={`rsvp:${replied ? 'replied' : 'questions'}`}
+        refreshOn={stamp}
       />
     </div>
   );

@@ -7,7 +7,7 @@ import { FileUpload } from '@/app/_components/file-upload';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
-import { HUB_DRAFT_BAR_FIELD, makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
 import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { MAKER_MAX_CLIP_SECONDS, makeMakerVideoDurationValidator } from '@/lib/maker-media-limits';
 import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
@@ -266,7 +266,13 @@ export function SceneBackgroundRow({
       fd.set('patch', JSON.stringify(patch));
       /* ⚡ No Maker render follows a held pick — the Apply count comes back with the save. */
       fd.set(HUB_DRAFT_BAR_FIELD, '1');
-      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true }).catch(
+      /* 🖼 A pick that changes who draws the box (or a clip coming or going) is
+         NOT drawn by the bridge: it is redrawn on the canvas in place once it
+         lands (`makerRedrawSave`) — never a whole-Maker render. */
+      const res = await (redrawsBox
+        ? makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
+        : makerSave(() => draftAction(eventId, fd), () => router.refresh(), { held: true })
+      ).catch(
         () => ({ ok: false as const, intent: 'save' as const, error: 'That change could not be saved. Please try again.' }),
       );
       if (!res.ok) {

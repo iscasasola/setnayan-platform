@@ -2,7 +2,8 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, useTransition } from 'react';
-import { makerSave } from '@/lib/maker-refresh';
+import { HUB_DRAFT_BAR_FIELD, makerRedrawSave, makerSave } from '@/lib/maker-refresh';
+import { noteDraftedCanvas } from '@/lib/maker-draft-store';
 import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import type { ElementDraftAction } from './element-sheet';
 
@@ -24,6 +25,14 @@ export function useSceneCanvas(
   draftAction: ElementDraftAction,
   /** Told the canvas just written, before it is sent (the Maker's own copy — `noteDraftedCanvas`). */
   onWrote?: (next: HubSectionCanvas) => void,
+  /**
+   * 🖼 A pick the bridge cannot draw — a scene's Style, a palette look, the
+   * Venue map switch: saved HELD and the canvas pages redrawn IN PLACE once it
+   * lands (`makerRedrawSave`), never through a whole-Maker render. The Maker
+   * keeps its own copy of the canvas (`noteDraftedCanvas`) in place of the
+   * render it no longer waits for.
+   */
+  opts: { redraw?: boolean } = {},
 ) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -42,14 +51,19 @@ export function useSceneCanvas(
     const next = sanitizeHubCanvas({ canvas: draft });
     latest.current = next;
     setShown(next);
-    onWrote?.(next);
+    if (onWrote) onWrote(next);
+    else if (opts.redraw) noteDraftedCanvas(widgetType, next, canvas);
     setError(null);
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');
       fd.set('patch', JSON.stringify({ widgets: { [widgetType]: { canvas: next } } }));
-      // One refresh after the last save in flight (`lib/maker-refresh.ts`).
-      const res = await makerSave(() => draftAction(eventId, fd), () => router.refresh());
+      /* A held save owes no Maker render — the Apply · Undo · Restore count comes back with it. */
+      if (opts.redraw) fd.set(HUB_DRAFT_BAR_FIELD, '1');
+      const res = opts.redraw
+        ? await makerRedrawSave(() => draftAction(eventId, fd), () => router.refresh())
+        : // One refresh after the last save in flight (`lib/maker-refresh.ts`).
+          await makerSave(() => draftAction(eventId, fd), () => router.refresh());
       if (!res.ok) setError(res.error);
     });
   };

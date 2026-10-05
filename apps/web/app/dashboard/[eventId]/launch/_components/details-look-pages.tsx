@@ -273,7 +273,8 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
         ? `${look.publicLandingUrl}?phase=${maker.stage}&editor=1${picked ? `&theme=${encodeURIComponent(picked)}` : ''}`
         : null
       : makerPageCanvasSrc(look.publicLandingUrl, item, maker.stage, { revealStage });
-  const frameKey = `${item}:${src}:${maker.renderStamp}`;
+  /* 🖼 The PAGE only — a Maker render re-renders it in place (`refreshOn`), never a new frame. */
+  const frameKey = `${item}:${src}`;
   const showing = maker.selection?.kind === 'tool' && maker.selection.key === 'details' && maker.detailsItem === item;
 
   /* ▶ "Play this scene" — only while this item is the one showing. */
@@ -328,14 +329,14 @@ function LookFrame({ item }: { item: Exclude<LookPageKey, 'logo'> }) {
       {maker.device === 'both' ? (
         <div className="flex min-h-0 flex-1 flex-row gap-2" data-details-look-both="">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <MakerPageFrame src={src} title={`${title} — desktop`} device="desktop" frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
+            <MakerPageFrame src={src} title={`${title} — desktop`} device="desktop" frameKey={frameKey} refreshOn={maker.renderStamp} frameRef={frameRef} onShown={setShownKey} />
           </div>
           <div className="flex min-h-0 w-[min(460px,40%)] shrink-0 flex-col">
-            <MakerPageFrame src={src} title={`${title} — phone`} device="phone" frameKey={`${frameKey}:phone`} />
+            <MakerPageFrame src={src} title={`${title} — phone`} device="phone" frameKey={`${frameKey}:phone`} refreshOn={maker.renderStamp} />
           </div>
         </div>
       ) : (
-        <MakerPageFrame src={src} title={title} device={maker.device} frameKey={frameKey} frameRef={frameRef} onShown={setShownKey} />
+        <MakerPageFrame src={src} title={title} device={maker.device} frameKey={frameKey} refreshOn={maker.renderStamp} frameRef={frameRef} onShown={setShownKey} />
       )}
       <CanvasStaysOnThePage
         frameRef={frameRef}
@@ -380,7 +381,7 @@ export function StageStepPreview({ body, coverUrl = null }: { body: GuidedStepBo
   }
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-guided-step-body={body.kind}>
-      <MakerPageFrame src={src} title="Your page, as guests will see it" device="phone" frameKey={`step:${src}:${maker.renderStamp}`} />
+      <MakerPageFrame src={src} title="Your page, as guests will see it" device="phone" frameKey={`step:${src}`} refreshOn={maker.renderStamp} />
     </div>
   );
 }

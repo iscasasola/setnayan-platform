@@ -289,10 +289,22 @@ export function makerWritesPending(key?: string): number {
  */
 export function makerSave<T>(send: () => Promise<T>, refresh: () => void, options: MakerSaveOptions<T> = {}): Promise<T> {
   if (!options.held) announceUnheldWrite();
-  return shared.save(send, refresh, options.ok, Boolean(options.held)).then((result) => {
-    announceDraftBar(result);
-    return result;
-  });
+  if (!options.held) unheldInFlight += 1;
+  return shared
+    .save(send, refresh, options.ok, Boolean(options.held))
+    .finally(() => {
+      if (!options.held) unheldInFlight -= 1;
+    })
+    .then((result) => {
+      announceDraftBar(result);
+      return result;
+    });
+}
+
+/** Unheld saves still on their way — their render must reload the canvas, so no redraw may hold it meanwhile. */
+let unheldInFlight = 0;
+export function makerUnheldSavesInFlight(): number {
+  return unheldInFlight;
 }
 
 /**
@@ -353,4 +365,79 @@ function announceDraftBar(result: unknown): void {
   const bar = (result as { bar?: unknown }).bar;
   if (!bar || typeof bar !== 'object') return;
   window.dispatchEvent(new CustomEvent(MAKER_DRAFT_BAR_EVENT, { detail: bar }));
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   🖼 A PICK THE BRIDGE CANNOT DRAW IS REDRAWN IN PLACE — never by a whole-Maker render
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Owner, live on iPhone 2026-10-06: Countdown › Format › Style → "Big number",
+ * and the canvas kept the four boxes. A scene's STYLE (and a palette look, a
+ * fixed part's style, a background that changes who draws the card) is a
+ * different component, so the bridge cannot draw it; the save was UNHELD, and
+ * the only way it reached the canvas was the whole-Maker render it owed — on
+ * production the save, then a 3–6 s Maker render, then the canvas page loading
+ * behind — about ten seconds of nothing, measured in the lab with production's
+ * latencies (`/dev/maker-lab?slow=1`). And every Maker render mounted a NEW
+ * frame for each page frame (`MakerPageFrame` keyed on the render stamp), so a
+ * palette pick on Look "reset the page" to the cover.
+ *
+ * 🔑 NOW such a save is HELD (no Maker render is owed for it — the Maker keeps
+ * its own copy, `lib/maker-draft-store.ts`), and once the LAST one in flight
+ * lands the Maker asks every page it shows to re-render ITSELF, in place
+ * (`MAKER_CANVAS_REDRAW_EVENT` → `{ t: 'refresh' }` → the bridge's
+ * `router.refresh()`): one render of the canvas page alone, the same frame, the
+ * same scroll, the same section in view.
+ */
+export const MAKER_CANVAS_REDRAW_EVENT = 'setnayan:maker-canvas-redraw';
+
+/** The message every Maker page frame's bridge answers with a refresh in place (`editor-bridge.tsx`). */
+export const CANVAS_REFRESH_MESSAGE = { source: 'setnayan-editor', t: 'refresh' } as const;
+
+export type CanvasRedrawer = {
+  /** Run one save; once it and every other redraw save in flight have landed, redraw once (if any succeeded). */
+  save<T>(send: () => Promise<T>, ok?: (result: T) => boolean): Promise<T>;
+  inFlight(): number;
+};
+
+/** The pure core — `maker-refresh.test.ts` drives it with a fake `redraw`. */
+export function createCanvasRedrawer(redraw: () => void): CanvasRedrawer {
+  let inFlight = 0;
+  let owed = false;
+  return {
+    async save(send, ok = okOf) {
+      inFlight += 1;
+      try {
+        const result = await send();
+        if (ok(result)) owed = true;
+        return result;
+      } finally {
+        inFlight -= 1;
+        if (inFlight === 0 && owed) {
+          owed = false;
+          redraw();
+        }
+      }
+    },
+    inFlight: () => inFlight,
+  };
+}
+
+/** Ask every page the Maker shows (the canvas and its warm stages, Look's page) to re-render in place. */
+export function requestCanvasRedraw(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(MAKER_CANVAS_REDRAW_EVENT));
+}
+
+const redrawer = createCanvasRedrawer(requestCanvasRedraw);
+
+/**
+ * 🖼 A save the bridge cannot draw (a style, a palette look, a background that
+ * changes who draws the card): HELD — no whole-Maker render — and the pages
+ * redraw in place once the last such save lands. `refresh` is the caller's
+ * `router.refresh` (it still ends any unheld write in the same burst).
+ */
+export function makerRedrawSave<T>(send: () => Promise<T>, refresh: () => void, ok?: (result: T) => boolean): Promise<T> {
+  return redrawer.save(() => makerSave(send, refresh, { held: true, ok }), ok);
 }

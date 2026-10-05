@@ -80,8 +80,10 @@ test('the march maker posts no form — a form action reloads the page', () => {
 test('a refusal reaches the RENDER, not just a live region', () => {
   // 🔑 The reason used to travel as `?error=<sentence>` through a page load.
   // Returned-and-dropped would be worse: the move would simply appear not to happen.
-  assert.match(MAKER, /say\(\{ said: r\.reason, undo: null, before: null, refused: true \}\)/, 'a refused step is not said');
-  assert.match(MAKER, /setMine\(null\);\s*say\(\{ said: r\.reason/, 'a refused step is said but the drop stays drawn');
+  assert.match(MAKER, /say\(\{ said: landed > 0 \? partly\(r\.reason\) : r\.reason, undo: null, before: null, refused: true \}\)/, 'a refused step is not said');
+  assert.match(MAKER, /setMine\(null\);\s*say\(\{ said: landed > 0/, 'a refused step is said but the drop stays drawn');
+  // Half a move is never reported as "nothing was changed".
+  assert.match(MAKER, /Part of the move was saved/);
   assert.match(MAKER, /\{toast\.said\}/, 'the reason is stored and never drawn');
   assert.match(MAKER, /role="status"/, 'the reason is drawn with nothing to announce it');
 });

@@ -160,7 +160,8 @@ test('no typed wedding word in the Your event editors and parts', () => {
 test('the march reads ONE order: the invitation’s, The Entourage card’s, the panel’s', () => {
   // 🚶 The march reads the invitation's own loader, in its march form (the couple's sides too, owner 2026-10-06).
   assert.match(LOAD, /loadEntourage\(admin, eventId, undefined, true\)/, 'the march maker reads the invitation’s own loader');
-  assert.match(LOAD, /export function marchSections\(groups: readonly EntourageGroup\[\]\)/);
+  assert.match(LOAD, /sections: marchSections\(groups\)/, 'the maker is not handed the march the loader read');
+  assert.match(read('lib/march-sections.ts'), /export function marchSections\(groups: readonly EntourageGroup\[\]\): MarchSection\[\]/);
   const loaders = read('app/[slug]/_lib/loaders.ts');
   assert.match(loaders, /return buildEntourage\(\s*\(data \?\? \[\]\) as EntourageGuestRow\[\],\s*await loadEntourageSectionOrder\(admin, eventId\),/);
   // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)

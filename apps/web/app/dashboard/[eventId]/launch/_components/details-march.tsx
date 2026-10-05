@@ -64,6 +64,9 @@ export type MarchSectionData = MarchSection;
 const DID_NOT_GO = 'That did not go through — nothing was changed.';
 // no-card-ok: a NAME you drag (a pressable chip), not a container — its edge is what the finger picks up.
 const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col justify-center rounded-lg border px-2.5 py-1.5 transition-[box-shadow,opacity] duration-150 [-webkit-touch-callout:none]'; // no-card-ok: a draggable name chip
+/** A refusal after part of the same move was saved. */
+const partly = (reason: string) =>
+  `${reason.replace(/\s*[—-]\s*nothing was changed\.?$/i, '.').replace(/\.\.$/, '.')} Part of the move was saved — the march shows where everyone is now.`;
 const LAB_SAVED: MarchResult = { ok: true, written: 1 };
 const LONG_PRESS_MS = 250;
 const SETTLE_MS = 240;
@@ -101,6 +104,14 @@ type Drag = {
 type Toast = { said: string; undo: MarchStep[] | null; before: MarchSection[] | null; refused?: boolean };
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+/** The scroller's visible top and bottom — clamped to the screen (a tall box may run past it). */
+function edgesOf(el: HTMLElement): [number, number] {
+  const page = el === document.scrollingElement || el === document.documentElement;
+  if (page) return [0, window.innerHeight];
+  const r = el.getBoundingClientRect();
+  return [Math.max(0, r.top), Math.min(window.innerHeight, r.bottom)];
+}
 
 /** The nearest box that scrolls the march — the body column, else the page. */
 function scrollerOf(el: HTMLElement): HTMLElement {
@@ -176,9 +187,11 @@ export function MarchMaker({
       setMine(next);
       say(said);
       const mineEra = era.current;
+      let landed = 0;
       for (const step of steps) {
         inFlight.current += 1;
-        chain.current = chain.current.then(async () => {
+        chain.current = chain.current
+          .then(async () => {
           try {
             if (era.current !== mineEra) return;
             // The lab draws the drop and sends nothing; a thrown action is said in plain words.
@@ -186,16 +199,20 @@ export function MarchMaker({
               () => (lab ? Promise.resolve(LAB_SAVED) : callStep(eventId, step).catch(() => ({ ok: false as const, reason: DID_NOT_GO }))),
               requestMakerRefresh,
             );
-            if (!r.ok && era.current === mineEra) {
+            if (r.ok) landed += 1;
+            else if (era.current === mineEra) {
               era.current += 1;
               flip.current = measure();
               setMine(null);
-              say({ said: r.reason, undo: null, before: null, refused: true });
+              // Half a move is not "nothing changed": say what stands (the refresh draws it).
+              say({ said: landed > 0 ? partly(r.reason) : r.reason, undo: null, before: null, refused: true });
             }
           } finally {
             inFlight.current -= 1;
           }
-        });
+          })
+          // A save that throws must never wedge the queue (every later step would wait forever).
+          .catch(() => {});
       }
     },
     [eventId, lab, say],
@@ -214,7 +231,7 @@ export function MarchMaker({
   );
 
   const undo = () => {
-    if (!toast?.undo || !toast.before) return;
+    if (!toast?.undo?.length || !toast.before) return;
     commit(toast.before, toast.undo, { said: 'Put back', undo: null, before: null });
   };
 
@@ -227,6 +244,11 @@ export function MarchMaker({
     const was = flip.current;
     flip.current = null;
     const quiet = reduced();
+    // Where the ghost lands — measured BEFORE the re-flow animations shift the boxes.
+    const land = landing.current;
+    landing.current = null;
+    const home = land ? root.current?.querySelector<HTMLElement>(`[data-march-flip="${CSS.escape(land.key)}"]`) : null;
+    const homeAt = home?.getBoundingClientRect() ?? null;
     if (was && !quiet) {
       root.current?.querySelectorAll<HTMLElement>('[data-march-flip]').forEach((el) => {
         const b = was.get(el.dataset.marchFlip!);
@@ -241,18 +263,18 @@ export function MarchMaker({
         el.animate([{ transform: `translate(${dx}px,${dy}px)` }, { transform: 'none' }], { duration: SETTLE_MS, easing: 'cubic-bezier(.16,1,.3,1)' });
       });
     }
-    const land = landing.current;
     if (!land) return;
-    landing.current = null;
-    const home = root.current?.querySelector<HTMLElement>(`[data-march-flip="${CSS.escape(land.key)}"]`);
+    let once = false;
     const done = () => {
+      if (once) return;
+      once = true;
       land.ghost.remove();
-      setLifted(null);
+      // Only clear the dim if no newer drag has lifted something since.
+      setLifted((k) => (k === land.key && !drag.current ? null : k));
     };
-    if (!home || quiet) return done();
-    const r = home.getBoundingClientRect();
+    if (!homeAt || quiet) return done();
     const anim = land.ghost.animate(
-      [{ transform: land.ghost.style.transform, opacity: 1 }, { transform: `translate(${r.left}px,${r.top}px)`, opacity: 0.2 }],
+      [{ transform: land.ghost.style.transform, opacity: 1 }, { transform: `translate(${homeAt.left}px,${homeAt.top}px)`, opacity: 0.2 }],
       { duration: 220, easing: 'cubic-bezier(.16,1,.3,1)', fill: 'forwards' },
     );
     anim.onfinish = done;
@@ -262,16 +284,16 @@ export function MarchMaker({
 
   /* ── the drag ─────────────────────────────────────────────────────────── */
   const drag = useRef<Drag | null>(null);
-  const pending = useRef<{ el: HTMLElement; source: MarchSource; key: string; x: number; y: number; touch: boolean; timer: ReturnType<typeof setTimeout> | null } | null>(null);
+  const pending = useRef<{ el: HTMLElement; source: MarchSource; key: string; x: number; y: number; touch: boolean; pid: number; timer: ReturnType<typeof setTimeout> | null } | null>(null);
   const raf = useRef(0);
   const target = useRef<string | null>(null);
   const [, redraw] = useState(0);
   /* The window listeners are stable wrappers around the latest handlers. */
   const onMoveRef = useRef<(e: PointerEvent) => void>(() => {});
-  const onUpRef = useRef<() => void>(() => {});
+  const onUpRef = useRef<(e?: PointerEvent) => void>(() => {});
   const onCancelRef = useRef<() => void>(() => {});
   const moveL = useRef((e: PointerEvent) => onMoveRef.current(e));
-  const upL = useRef(() => onUpRef.current());
+  const upL = useRef((e: PointerEvent) => onUpRef.current(e));
   const cancelL = useRef(() => onCancelRef.current());
 
   /** What the finger is over: a drop zone (a name, an empty spot, a gap), or the nearest gap in its section. */
@@ -324,19 +346,20 @@ export function MarchMaker({
     window.removeEventListener('pointercancel', cancelL.current);
   }, []);
 
+  /* The latest hit-test (it reads the march as drawn NOW, not as it was at the lift). */
+  const hitRef = useRef(hit);
+  hitRef.current = hit;
   const loop = useCallback(() => {
     const d = drag.current;
     if (!d) return;
     if (d.dir) {
-      const page = d.scroller === document.scrollingElement || d.scroller === document.documentElement;
-      const top = page ? 0 : d.scroller.getBoundingClientRect().top;
-      const bottom = page ? window.innerHeight : d.scroller.getBoundingClientRect().bottom;
+      const [top, bottom] = edgesOf(d.scroller);
       const dist = d.dir < 0 ? top + EDGE_PX - d.y : d.y - (bottom - EDGE_PX);
       d.scroller.scrollTop += d.dir * Math.min(18, 4 + dist / 4);
-      hit(d);
+      hitRef.current(d);
     }
     raf.current = requestAnimationFrame(loop);
-  }, [hit]);
+  }, []);
 
   const lift = useCallback(
     (x: number, y: number) => {
@@ -378,7 +401,8 @@ export function MarchMaker({
   const onMove = useCallback(
     (e: PointerEvent) => {
       const p = pending.current;
-      if (!p) return;
+      // One finger drags; a second one is ignored.
+      if (!p || e.pointerId !== p.pid) return;
       if (!drag.current) {
         const moved = Math.hypot(e.clientX - p.x, e.clientY - p.y);
         if (p.touch) {
@@ -395,15 +419,14 @@ export function MarchMaker({
       d.y = e.clientY;
       d.ghost.style.transform = `translate(${d.x - d.ox}px,${d.y - d.oy}px) scale(1.03)`;
       hit(d);
-      const page = d.scroller === document.scrollingElement || d.scroller === document.documentElement;
-      const top = page ? 0 : d.scroller.getBoundingClientRect().top;
-      const bottom = page ? window.innerHeight : d.scroller.getBoundingClientRect().bottom;
+      const [top, bottom] = edgesOf(d.scroller);
       d.dir = d.y < top + EDGE_PX && d.y > top - 40 ? -1 : d.y > bottom - EDGE_PX && d.y < bottom + 40 ? 1 : 0;
     },
     [hit, lift, stopAll],
   );
 
-  const onUp = useCallback(() => {
+  const onUp = useCallback((e?: PointerEvent) => {
+    if (e && pending.current && e.pointerId !== pending.current.pid) return;
     const d = drag.current;
     stopAll();
     if (!d) return;
@@ -444,7 +467,7 @@ export function MarchMaker({
     if (!source) return;
     const key = source.kind === 'name' ? source.id : `walk:${source.lead}`;
     const touch = e.pointerType !== 'mouse';
-    pending.current = { el, source, key, x: e.clientX, y: e.clientY, touch, timer: null };
+    pending.current = { el, source, key, x: e.clientX, y: e.clientY, touch, pid: e.pointerId, timer: null };
     if (touch) pending.current.timer = setTimeout(() => lift(e.clientX, e.clientY), LONG_PRESS_MS);
     window.addEventListener('pointermove', moveL.current, { passive: false });
     window.addEventListener('pointerup', upL.current);
@@ -466,6 +489,12 @@ export function MarchMaker({
     const up = upL.current;
     const cancel = cancelL.current;
     return () => {
+      // Leaving mid-drag (a Skip, a navigation): no ghost left on the page, no loop left running.
+      cancelAnimationFrame(raf.current);
+      if (pending.current?.timer) clearTimeout(pending.current.timer);
+      pending.current = null;
+      drag.current?.ghost.remove();
+      drag.current = null;
       box?.removeEventListener('touchmove', block);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
@@ -476,6 +505,7 @@ export function MarchMaker({
   /** ⌨ The same drops, from the keyboard. */
   const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
     const el = e.target as HTMLElement;
+    if (el.closest('[data-march-toast]')) return;
     if (e.key === 'Escape' && held) {
       e.preventDefault();
       setHeld(null);
@@ -537,6 +567,13 @@ export function MarchMaker({
       aria-label="Wedding March — drag a name to move it"
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
+      /* ♿ A screen reader's "activate" is a click with no pointer (detail 0):
+         the same pick-up and drop as Space. A mouse drags instead. */
+      onClick={(e) => {
+        if (e.detail !== 0 || (e.target as HTMLElement).closest('[data-march-toast]')) return;
+        if (!(e.target as HTMLElement).closest('[data-march-drag],[data-march-drop]')) return;
+        onKeyDown({ ...e, key: ' ', target: e.target, preventDefault: () => e.preventDefault() } as unknown as ReactKeyboardEvent<HTMLElement>);
+      }}
       onContextMenu={(e) => {
         if ((e.target as HTMLElement).closest('[data-march-drag]')) e.preventDefault();
       }}
@@ -602,6 +639,7 @@ export function MarchMaker({
                           role="button"
                           aria-pressed={held?.key === p.id}
                           data-march-side={c === 0 ? 'left' : 'right'}
+                          aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}`}
                           className={`${NAME_CHIP} ${
                             p.tag ? 'border-terracotta-700/60 bg-white' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
                           } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${held?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${ring(zone)}`}

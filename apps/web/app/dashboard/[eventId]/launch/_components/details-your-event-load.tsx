@@ -9,10 +9,7 @@ import { fetchEventVendors } from '@/lib/vendors';
 import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese-specialist-nudge';
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
-import type { MarchSectionData } from './details-march';
-import type { MarchPerson } from '@/lib/march-drag';
-import { guestRoleLabel } from '@/lib/guests';
-import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
+import { marchSections } from '@/lib/march-sections';
 import { readYourEventFacts } from './details-your-event-facts';
 import { loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
@@ -196,28 +193,3 @@ const RECEPTION_COLUMNS = {
   lng: 'venue_longitude',
 } as const;
 
-/**
- * 🚶 The march as the maker draws it (owner 2026-10-06, "THE WEDDING MARCH ITEM IS
- * A DRAG-AND-DROP MARCH MAKER"): every section and walk in walking order —
- * the invitation's own builder in its march form (`{ march: true }`), with the
- * couple's sides in their place — each walk its [left, right]. Which drop may go
- * where is asked of `lib/march-moves.ts` on the client (`lib/march-drag.ts`) and
- * again by each action before it writes.
- */
-export function marchSections(groups: readonly EntourageGroup[]): MarchSectionData[] {
-  const person = (p: EntouragePerson | null, names: EntourageGroup['names']): MarchPerson | null =>
-    p
-      ? {
-          id: p.id ?? '',
-          name: p.name,
-          role: p.role,
-          // The two people the event is for wear their word (the march's only role line).
-          tag: p.role === 'groom' || p.role === 'bride' ? guestRoleLabel(p.role, names) : null,
-        }
-      : null;
-  return groups.map((g) => ({
-    key: g.key,
-    label: g.label,
-    rows: g.rows.map((row) => [person(row[0], g.names), person(row[1], g.names)] as const),
-  }));
-}

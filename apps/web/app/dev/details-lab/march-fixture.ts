@@ -7,7 +7,7 @@
  * would: `buildEntourage(…, { march: true })` → `marchSections`.
  */
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
-import { marchSections } from '@/app/dashboard/[eventId]/launch/_components/details-your-event-load';
+import { marchSections } from '@/lib/march-sections';
 
 type Row = [id: string, prefix: string | null, first: string, last: string, role: string, walk?: number, place?: number];
 

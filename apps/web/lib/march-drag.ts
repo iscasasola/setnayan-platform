@@ -36,8 +36,11 @@ import type { GuestRole } from '@/lib/guests';
 import { columnOfRole, type EntourageRow } from '@/lib/entourage';
 import { joinVerdict, swapVerdict } from '@/lib/march-moves';
 
-/** One person as the maker draws them. `tag` names the groom / the bride. */
-export type MarchPerson = { id: string; name: string; role: string; tag?: string | null };
+/**
+ * One person as the maker draws them. `tag` names the groom / the bride.
+ * `tied`: their walk's other person stands in ANOTHER section (`marchSections`).
+ */
+export type MarchPerson = { id: string; name: string; role: string; tag?: string | null; tied?: boolean };
 /** One walk: [left, right] — either may be empty. */
 export type MarchRow = readonly [MarchPerson | null, MarchPerson | null];
 export type MarchSection = { key: string; label: string; rows: readonly MarchRow[] };
@@ -172,6 +175,19 @@ const order = (section: string, rows: readonly MarchRow[]): MarchStep => ({
 });
 
 /**
+ * 🔗 Before a section's order is written, every TIED walk in it is split: the
+ * order write carries a whole walk to its new number, so a walk whose other
+ * person stands in another section would move THEM too, somewhere nobody
+ * dropped them. Splitting changes nothing on screen — a tied person is already
+ * drawn walking alone here.
+ */
+function untie(sec: MarchSection, steps: MarchStep[]): MarchStep[] {
+  if (!steps.some((s) => s.kind === 'order' && s.section === sec.key)) return steps;
+  const tied = sec.rows.flat().filter((p): p is MarchPerson => Boolean(p?.tied));
+  return [...tied.map((p): MarchStep => ({ kind: 'unpair', section: sec.key, guest: p.id })), ...steps];
+}
+
+/**
  * The steps that take one section from `from` back to `to` — Undo. Only the
  * shipped moves: split the walks `to` does not have, join the ones it does,
  * then set the order. A swap undoes itself and is handled by the caller.
@@ -230,7 +246,7 @@ export function planDrop(
     return {
       ok: true,
       next,
-      steps: [order(sec.key, rows)],
+      steps: untie(sec, [order(sec.key, rows)]),
       said: `${who} now walk${moved![0] && moved![1] ? '' : 's'} at step ${stepOf(next, s, at)}`,
       undo: [order(sec.key, sec.rows)],
     };
@@ -291,7 +307,7 @@ export function planDrop(
     return {
       ok: true,
       next,
-      steps: [order(sec.key, rows)],
+      steps: untie(sec, [order(sec.key, rows)]),
       said: `${A} now walks at step ${stepOf(next, a.s, at)}`,
       undo: [order(sec.key, sec.rows)],
     };
@@ -307,7 +323,7 @@ export function planDrop(
   return {
     ok: true,
     next,
-    steps,
+    steps: untie(sec, steps),
     said: behind
       ? `${A} walks alone, right behind ${mate.name}`
       : i === a.r

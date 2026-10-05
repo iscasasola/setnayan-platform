@@ -173,6 +173,15 @@ type GroupSpec = {
    * where it walks: first or LAST, whatever order the printed sections are in.
    */
   marchOnly?: { at: 'first' | 'last' };
+  /**
+   * 🚶 Print the group's ROLE order before its walks' order (owner 2026-10-06).
+   * "Parents" is walked in two march sections — the groom's side FIRST, the
+   * bride's side LAST — so its print can never put the bride's parents first:
+   * each side keeps the order its own march section gives it. Without this a
+   * reorder on one side (which hands a never-placed groom a fresh, highest walk
+   * number) could flip the printed Parents.
+   */
+  roleFirst?: true;
   /** A one-role group whose heading IS that role's plural ("Flower Girls"): the couple's `many` replaces it. */
   headingIsRole?: boolean;
 };
@@ -199,7 +208,7 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     so the swap below is the whole change, and nothing in the component decides
     it.
   */
-  { key: 'parents', label: 'Parents', roles: ['groom_parents', 'bride_parents'] },
+  { key: 'parents', label: 'Parents', roles: ['groom_parents', 'bride_parents'], roleFirst: true },
   /*
     ⚖ OWNER 2026-09-20. Immediate family PUBLISHES for the first time. These two
     roles existed in the dashboard from the start and appeared in NO group here,
@@ -833,6 +842,11 @@ function orderLines(
     return null;
   };
   return [...lines].sort((x, y) => {
+    if (spec.roleFirst) {
+      const rx = rolePos(x);
+      const ry = rolePos(y);
+      if (rx !== ry) return rx - ry;
+    }
     const px = placedAt(x);
     const py = placedAt(y);
     if (px !== null && py !== null && px !== py) return px - py;

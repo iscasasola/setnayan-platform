@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildEntourage, entourageLines, type EntourageGuestRow } from '@/lib/entourage';
+import { marchSections } from '@/lib/march-sections';
 import { keyTarget, planDrop, readSource, readTarget, type MarchSection, type MarchStep } from '@/lib/march-drag';
 
 /*
@@ -46,13 +47,9 @@ function fixture(): G[] {
   ];
 }
 
-/** The march as the maker receives it — the printer's own march groups. */
+/** The march as the maker receives it — the printer's own march groups, through `marchSections`. */
 function sectionsOf(rows: readonly G[]): MarchSection[] {
-  return buildEntourage(rows, null, {}, undefined, { march: true }).map((g) => ({
-    key: g.key,
-    label: g.label,
-    rows: g.rows.map((r) => [r[0] ? { id: r[0].id!, name: r[0].name, role: r[0].role } : null, r[1] ? { id: r[1].id!, name: r[1].name, role: r[1].role } : null] as const),
-  }));
+  return marchSections(buildEntourage(rows, null, {}, undefined, { march: true }));
 }
 const shape = (ss: readonly MarchSection[]) => ss.map((s) => `${s.key}: ${s.rows.map((r) => `[${r[0]?.id ?? '-'} ${r[1]?.id ?? '-'}]`).join(' ')}`);
 
@@ -75,8 +72,10 @@ function serverDoes(rows: G[], step: MarchStep): G[] {
       if (old !== null && !claimed.includes(old)) { claimed.push(old); return old; }
       return null;
     });
+    // The section's own numbers, lowest first, then fresh ones above every walk — line i takes the i-th.
     const pool = [...claimed].sort((x, y) => x - y);
-    const news = olds.map((o) => (o !== null ? pool.shift()! : ++max));
+    for (const o of olds) if (o === null) pool.push(++max);
+    const news = olds.map((_, i) => pool[i]!);
     const before = new Map([...m].map(([k, v]) => [k, v ? { ...v } : null]));
     for (const [id, s] of before) {
       const i = olds.findIndex((o) => o !== null && s?.walk_no === o);
@@ -251,4 +250,33 @@ test('⌨ the keyboard moves a held name or walk one step — out of its pair fi
   assert.deepEqual(keyTarget(s, { kind: 'name', id: 'gmom' }, -1), { kind: 'gap', section: 'groom_side', index: 0 });
   // Nowhere above the first walk.
   assert.equal(keyTarget(s, { kind: 'name', id: 'rb' }, -1), null);
+});
+
+test('🔑 the printed Parents keep the groom’s side first, whatever the march numbers say', () => {
+  // The groom has no walk yet; dragging him ahead of his parents hands THEM a fresh, highest number.
+  const { after } = drop(fixture(), { kind: 'name', id: 'groom' }, { kind: 'gap', section: 'groom_side', index: 0 });
+  assert.deepEqual(shape([after[0]!]), ['groom_side: [groom -] [gdad gmom]']);
+  let rows = fixture();
+  for (const step of planDrop(sectionsOf(rows), { kind: 'name', id: 'groom' }, { kind: 'gap', section: 'groom_side', index: 0 })!.ok ? (planDrop(sectionsOf(rows), { kind: 'name', id: 'groom' }, { kind: 'gap', section: 'groom_side', index: 0 }) as { steps: MarchStep[] }).steps : []) rows = serverDoes(rows, step);
+  const parents = buildEntourage(rows).find((g) => g.key === 'parents')!;
+  assert.deepEqual(parents.rows.map((r) => r.map((p) => p?.id ?? null)), [['gdad', 'gmom'], ['bmom', 'bdad']], 'the bride’s parents print first');
+});
+
+test('🔗 a walk that spans two sections is split before a reorder — the other side never moves', () => {
+  // The groom's father walks with the bride's mother (one walk, two march sections).
+  const rows = fixture().map((g) =>
+    g.guest_id === 'gdad' ? { ...g, march: at(0, 0) } : g.guest_id === 'bmom' ? { ...g, march: at(0, 1) } : g.guest_id === 'gmom' ? { ...g, march: at(1, 0) } : g,
+  );
+  const s = sectionsOf(rows);
+  const groomSide = s.find((x) => x.key === 'groom_side')!;
+  assert.ok(groomSide.rows.flat().find((p) => p?.id === 'gdad')?.tied, 'the tie is not seen');
+  const { plan, after } = drop(rows, { kind: 'name', id: 'groom' }, { kind: 'gap', section: 'groom_side', index: 0 });
+  assert.equal(plan.steps[0]!.kind, 'unpair', 'the tied walk is not split first');
+  assert.deepEqual(shape([after.at(-1)!]), shape([s.at(-1)!]), 'the bride’s side moved');
+});
+
+test('one person, one place — a second role does not draw them twice', () => {
+  const rows = fixture().map((g) => (g.guest_id === 'rb' ? { ...g, extra_roles: ['candle_sponsor'] } : g));
+  const ids = sectionsOf(rows).flatMap((x) => x.rows.flat()).filter(Boolean).map((p) => p!.id);
+  assert.equal(ids.filter((id) => id === 'rb').length, 1);
 });

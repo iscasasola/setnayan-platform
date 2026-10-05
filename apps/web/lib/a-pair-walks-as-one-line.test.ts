@@ -213,10 +213,7 @@ const MAKER = readFileSync(
   join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'details-march.tsx'),
   'utf8',
 );
-const MARCH_LOAD = readFileSync(
-  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'details-your-event-load.tsx'),
-  'utf8',
-);
+const MARCH_LOAD = readFileSync(join(process.cwd(), 'lib', 'march-sections.ts'), 'utf8');
 
 test('🔑 the arranging is reachable WITHOUT knowing to filter first — every section is drawn', () => {
   /*
@@ -224,7 +221,9 @@ test('🔑 the arranging is reachable WITHOUT knowing to filter first — every 
     so on the default view the one place to arrange the processional did not
     exist. The maker draws EVERY section the march has — nothing filters it.
   */
-  assert.match(stripComments(MARCH_LOAD), /return groups\.map\(\(g\) => \(\{/, 'the march maker draws only some sections');
+  assert.match(stripComments(MARCH_LOAD), /return groups\s*\.map\(\(g, gi\) => \(\{/, 'the march maker draws only some sections');
+  // The one filter drops a section left EMPTY (everyone in it is drawn elsewhere) — never a role or a view.
+  assert.deepEqual([...stripComments(MARCH_LOAD).matchAll(/\.filter\(\(sec\) => ([^)]*)\)/g)].map((m) => m[1]), ['sec.rows.length > 0']);
   assert.match(stripComments(MAKER), /\{shown\.map\(\(sec\) => \(/, 'the maker no longer draws every section it is handed');
 });
 

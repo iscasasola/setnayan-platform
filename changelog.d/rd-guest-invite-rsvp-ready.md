@@ -29,15 +29,20 @@ Five defects the controller found live on maria-and-jose at 375 px (2026-10-05 w
    stage opens the reply page for a sample unreplied guest
    (`/[slug]/invite/reply?preview=draft`, the Maker's host-only canvas door).
    Guard: `lib/owner-ribbon-speaks-the-makers-stages.test.ts`.
-5. **One countdown rule.** Details' countdown read 67 days while Home read "68
-   days to go". `countdownReading` (lib/countdown-target.ts) counts Days the way
-   Home and the scene template do — calendar days in the event's zone, today
-   included — and Hours · Mins · Secs count down what is left of today; Home
-   falls back to Manila (never the server's UTC) when an event has no zone.
-   Guard: `lib/one-countdown-rule.test.ts`.
+5. **One countdown rule, never false.** Details' countdown read 67 days while Home
+   read "68 days to go". Ruling (controller, 2026-10-05): ONE rule — whole days of
+   real time left to the start of the day in the event's zone (Manila when it has
+   none). `countdownReading` (lib/countdown-target.ts) keeps the four tiles exact
+   (67 d 12 h 42 m); `daysToGo` gives Home the same number ("67 days to go"), then
+   "Tomorrow" and "Today" at the end. It also drives Home's focal number and chip,
+   the guest page's checklist ("N days to <date>"), the hub's big-number scene
+   template and the events-list card. Home's sentences still branch on the calendar
+   day (`daysOut`). Guard: `lib/one-countdown-rule.test.ts`.
+6. **A page without tabs** (Me drawn by `GuestHubBar`) asks the same reply-first
+   rule, through `rsvpReplyOpen` (lib/site-body-plan.ts) — now the one rule both
+   branches of `plan.rsvpShouldRender` use.
 
 SPEC IMPACT: None — implements the 2026-10-04 "ONE WORD: EVENT" row, the
 "Post Event" stage vocabulary, and the setup's own promise that the Love Story
-page "opens with the first chapter you fill". Build call for the owner: the
-countdown's Days tile now counts calendar days (today included), so on the eve
-it reads "1 day" beside the hours left in that day.
+page "opens with the first chapter you fill". Not changed (a Maker
+file): the Maker's own preview count (`website/editor/page.tsx`, `Math.ceil`).

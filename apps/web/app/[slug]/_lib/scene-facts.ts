@@ -45,7 +45,7 @@ export function sceneFactsFor(event: EventRow, opts: { solemn: boolean; now?: nu
 
   // 🔢 The countdown's own rule (`daysToGo`): whole days of real time left in the
   // venue's zone, then "Tomorrow" / "Today" — never a day more than is left.
-  let daysToGo: number | null = null;
+  let wholeDays: number | null = null;
   let dayWord: 'Tomorrow' | 'Today' | null = null;
   // A solemn event (the funeral) never counts down — the countdown widget's own rule.
   if (!opts.solemn) {
@@ -57,12 +57,12 @@ export function sceneFactsFor(event: EventRow, opts: { solemn: boolean; now?: nu
       ),
       opts.now ?? Date.now(),
     );
-    if (left?.kind === 'days') daysToGo = left.days;
+    if (left?.kind === 'days') wholeDays = left.days;
     else if (left?.kind === 'tomorrow') {
-      daysToGo = 1;
+      wholeDays = 1;
       dayWord = 'Tomorrow';
     } else if (left?.kind === 'today') {
-      daysToGo = 0;
+      wholeDays = 0;
       dayWord = 'Today';
     }
   }
@@ -83,7 +83,7 @@ export function sceneFactsFor(event: EventRow, opts: { solemn: boolean; now?: nu
   return {
     names,
     monogram,
-    daysToGo,
+    daysToGo: wholeDays,
     dayWord,
     specialMessage: (e.special_message ?? '').trim() || null,
     milestones,

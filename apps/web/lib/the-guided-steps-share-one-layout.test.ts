@@ -352,13 +352,40 @@ test('(17) The Day: ONE "Happening now", and "event" — never "celebration" —
   assert.match(read('app/[slug]/_components/site-body.tsx'), /dayOfPhase === 'live' && plan\.spotlight\?\.kind !== 'watch_live' \?/, 'the masthead pill doubles the live card again');
 });
 
-test('(18) the Seat plan step: the tool’s head is its controls only, and the room overview keeps its edges', () => {
+test('(18) the Seat plan step: the tool’s head is its controls only, and the room overview keeps every wall label whole — on every view', async () => {
   const phone = read('app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx');
   assert.match(phone, /text-ink group-data-\[details-mode=guided\]\/ws:hidden">Seat plan<\/h2>/, 'the tool’s title shows above the step');
   assert.match(phone, /data-seat-plan-status="" className="[^"]*group-data-\[details-mode=guided\]\/ws:hidden"/, 'the status line shows above the step');
   const editor = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
-  assert.match(editor, /const ROOM_OVERVIEW_ZOOM = 0\.9;/);
-  assert.match(editor, /const z = ROOM_OVERVIEW_ZOOM;\s*applyView\(z, rect \?/, 'the overview fills the canvas edge to edge again (labels at the walls cut)');
+  assert.match(
+    editor,
+    /const z = roomOverviewZoom\(box, \[\.\.\.world\.querySelectorAll\('\*'\)\]\.map\(\(el\) => el\.getBoundingClientRect\(\)\)\);\s*applyView\(z, \{ x: \(box\.width \* \(1 - z\)\) \/ 2, y: \(box\.height \* \(1 - z\)\) \/ 2 \}\);/,
+    'the overview fills the canvas edge to edge again (labels at the walls cut)',
+  );
+  assert.match(editor, /if \(!venueScaled \|\| view !== 'plan'\) return;/, 'the overview is measured with no plan on screen');
+  assert.match(editor, /\}, \[venueScaled, view\]\);/, 'opening the plan from the List shows the room cut at the walls');
+  assert.doesNotMatch(editor, /ROOM_OVERVIEW_ZOOM/, 'a guessed constant came back');
+
+  // Measured on maria-and-jose's own room (normal page, 375 × 812): a 347 × 521 canvas,
+  // wall labels reaching 28px past both walls at zoom 1 — every one whole after.
+  const { roomOverviewZoom } = await import('./seat-plan-overview');
+  const canvas = { left: 14, top: 200, right: 361, bottom: 721 };
+  const W = 347;
+  const labels = [
+    { left: 14 - 28, top: 306, right: 14 - 28 + 90, bottom: 322 },
+    { left: 361 - 62, top: 295, right: 361 + 28, bottom: 311 },
+    { left: 0, top: 0, right: 0, bottom: 0 }, // a hidden layer — not a label past a wall
+    { left: 14, top: 200, right: 361, bottom: 721 }, // the walls themselves
+  ];
+  const z = roomOverviewZoom(canvas, labels);
+  assert.ok(z < 0.9, `a fixed 0.9 still cut the labels; measured zoom ${z}`);
+  const m = (W * (1 - z)) / 2;
+  for (const l of labels.slice(0, 2)) {
+    const left = canvas.left + m + z * (l.left - canvas.left);
+    const right = canvas.left + m + z * (l.right - canvas.left);
+    assert.ok(left >= canvas.left && right <= canvas.right, `a wall label is still cut at zoom ${z}`);
+  }
+  assert.equal(roomOverviewZoom(canvas, [{ left: 40, top: 300, right: 120, bottom: 316 }]), 1, 'nothing past a wall: the room as large as it fits');
 });
 
 test('(19) Skip goes to the VERY next screen — a link step (the guests’ names) is a screen of the walk', async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
+import { roomOverviewZoom } from '@/lib/seat-plan-overview';
 
 // useLayoutEffect on the server is a no-op + warns; fall back to useEffect there.
 const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect;
@@ -234,9 +235,6 @@ const TABLE_KIND_WORD: Record<TableShapeHint, string> = {
 
 // Room-size presets: ROOM_PRESETS (lib/seat-plan-details.ts) — the phone's status
 // line and the A3 print name the room from the same list.
-
-/** The whole-room overview's zoom — a margin around the room, so the floor's labels at the walls are never cut. */
-const ROOM_OVERVIEW_ZOOM = 0.9;
 
 export type SeatingGuest = {
   guest_id: string;
@@ -3961,16 +3959,27 @@ export function SeatingEditor({
   // Reset to a clean whole-room overview (zoom 1, no pan) whenever to-scale mode
   // toggles — the height-capped canvas then shows every table at once. The
   // couple zooms in (smooth pan, or Fit) to work on individual tables.
-  /* 📐 The overview keeps a margin (owner, live walk 2026-10-05: the floor's
-     own labels at the walls were cut — "OTO BOOTH", "CAKE T"): the room at
-     ROOM_OVERVIEW_ZOOM, centred, so a label at the edge stays whole. */
+  /* 📐 The overview keeps every label whole (owner, live walk 2026-10-05: the
+     floor's own labels at the walls were cut — "OTO BOOTH", "CAKE T"; measured
+     on the normal page too, so it is every view's, not the guided step's): the
+     room at zoom 1, then zoomed out — centred — by exactly what the labels past
+     a wall need (`roomOverviewZoom`, lib/seat-plan-overview.ts). Also when the
+     plan comes into view (a phone opens on the List), so the canvas is there
+     to measure. */
   useEffect(() => {
-    if (!venueScaled) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    const z = ROOM_OVERVIEW_ZOOM;
-    applyView(z, rect ? { x: (rect.width * (1 - z)) / 2, y: (rect.height * (1 - z)) / 2 } : { x: 0, y: 0 });
+    if (!venueScaled || view !== 'plan') return;
+    const frame = requestAnimationFrame(() => {
+      const canvas = canvasRef.current;
+      const world = worldRef.current;
+      if (!canvas || !world) return;
+      applyView(1, { x: 0, y: 0 });
+      const box = canvas.getBoundingClientRect();
+      const z = roomOverviewZoom(box, [...world.querySelectorAll('*')].map((el) => el.getBoundingClientRect()));
+      applyView(z, { x: (box.width * (1 - z)) / 2, y: (box.height * (1 - z)) / 2 });
+    });
+    return () => cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [venueScaled]);
+  }, [venueScaled, view]);
 
   // Free (no room size) mode: the board auto-grows as tables are added, so
   // auto-fit to keep them all framed at comfortable spacing. Fires on the

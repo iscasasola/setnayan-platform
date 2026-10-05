@@ -76,6 +76,14 @@ import { CelebrationPick } from './celebration-pick';
  * `attending` is not a row — the owner's own list marks it "always on, not
  * switchable" — so it is drawn as a fixed line, never a switch.
  */
+/** 🎉 What the When yes Celebration needs from the launch page (`CelebrationPick`). */
+export type CelebrationInputs = {
+  /** Event Hub Pro, as measured for this event. */
+  ownsPro: boolean;
+  /** The Mood Board's colours (`celebrationColours`). */
+  colours: readonly string[];
+};
+
 export function MakerRsvpSettings({
   eventId,
   current,
@@ -95,7 +103,7 @@ export function MakerRsvpSettings({
    * scene draws it: the measured Pro entitlement and the shell (for its ◆ marks
    * and whether it is shown at all) and the Mood Board's colours (its previews).
    */
-  celebration?: { ownsPro: boolean; storeShell: boolean; colours: readonly string[] };
+  celebration?: CelebrationInputs & { storeShell: boolean };
   /** The draft save — `hubDraftAction`; the dev lab (`/dev/rsvp-stage-lab`) hands in its own to measure. */
   draftAction?: typeof hubDraftAction;
   /** The reply-by save — `updatePaxSettings`; the dev lab hands in its own. */

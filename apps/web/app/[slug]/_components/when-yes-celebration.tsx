@@ -70,7 +70,7 @@ export function WhenYesCelebration({
     if (!mounted || !shown) return;
     let alive = true;
     const loadEngine = () =>
-      import(/* webpackChunkName: "celebration-engine" */ '@/lib/celebration-engine').catch(() => null);
+      import('@/lib/celebration-engine').catch(() => null);
     const start = async (pick: RsvpCelebration) => {
       if (!canvasRef.current || pick === 'none') {
         player.current?.stop();

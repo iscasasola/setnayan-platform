@@ -78,8 +78,7 @@ export function MakerLabShell({
       frameSrc: (scene) => `/dev/maker-lab/guest?rsvp=${scene}`,
       draftAction: labDraft as never,
       replyByAction: formNoop as never,
-      ownsPro: false,
-      celebrationColours: celebrationColours(['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2']),
+      celebration: { ownsPro: false, colours: celebrationColours(['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2']) },
     }),
     [eventId],
   );

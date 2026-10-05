@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import type { PickOption } from '../../website/editor/_components/pick-menu-types';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
+import { PaidMark } from '@/app/_components/paid-mark';
 import {
   RSVP_CELEBRATE_EVENT,
   RSVP_CELEBRATION_LABEL,
@@ -65,8 +66,10 @@ export function CelebrationPick({
           chevron right — and the list it opens is as wide as the row, so a
           preview, a name and its ◆ always fit at 375 px. */}
       <div className="relative">
-        <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 z-[1] -translate-y-1/2 text-[13px] font-medium text-ink/65">
-          {RSVP_CELEBRATION_LABEL}
+        <span className="pointer-events-none absolute left-3.5 top-1/2 z-[1] flex -translate-y-1/2 items-center gap-1.5 text-[13px] font-medium text-ink/65">
+          <span aria-hidden>{RSVP_CELEBRATION_LABEL}</span>
+          {/* ◆ PRO while tried, the diamond once owned — information, never a lock. */}
+          {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
         </span>
         <PickMenu
           label={RSVP_CELEBRATION_LABEL}
@@ -74,7 +77,7 @@ export function CelebrationPick({
           value={value}
           buttonText={shown}
           options={options}
-          className="min-h-11 w-full justify-end pl-28 ring-1 ring-ink/10"
+          className="min-h-11 w-full justify-end pl-40 ring-1 ring-ink/10"
           onPick={(key) => {
             if (!isRsvpCelebration(key)) return;
             if (key !== value) onPick(key);
@@ -108,7 +111,7 @@ function CelebrationMini({ kind, colours }: { kind: RsvpCelebration; colours: re
     if (kind === 'none') return;
     let alive = true;
     let player: CelebrationPlayer | null = null;
-    void import(/* webpackChunkName: "celebration-engine" */ '@/lib/celebration-engine')
+    void import('@/lib/celebration-engine')
       .then(({ CelebrationPlayer }) => {
         if (!alive || !ref.current) return;
         player = new CelebrationPlayer(ref.current);

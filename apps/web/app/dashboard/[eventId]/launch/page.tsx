@@ -1348,8 +1348,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
             /* 🎉 When yes's Celebration ▾ — its ◆ marks ask the SAME measured
                Pro the QR look asks (`printPro`); its previews wear the board. */
-            ownsPro={printPro}
-            celebrationColours={celebrationColours(boardSwatches(printEvent.role_palette))}
+            celebration={{ ownsPro: printPro, colours: celebrationColours(boardSwatches(printEvent.role_palette)) }}
           />
         );
       }

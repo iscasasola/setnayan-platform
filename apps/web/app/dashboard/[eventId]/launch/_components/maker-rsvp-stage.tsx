@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
 import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART } from './maker-lower-third';
 import { MakerPage } from './maker-page';
-import { MakerRsvpSettings } from './maker-rsvp-ask';
+import { MakerRsvpSettings, type CelebrationInputs } from './maker-rsvp-ask';
 import { useMaker } from './maker-context';
 import type { RsvpAskConfig, RsvpWordKey } from '@/lib/rsvp-ask';
 import type { HubSectionCanvas } from '@/lib/hub-canvas';
@@ -22,7 +22,6 @@ import {
   type RsvpStageScene,
 } from '@/lib/rsvp-stage';
 import {
-  CELEBRATION_HOUSE_COLOURS,
   RSVP_CELEBRATE_EVENT,
   RSVP_CELEBRATE_MESSAGE,
   isRsvpCelebration,
@@ -79,13 +78,14 @@ export function MakerRsvpStage({
   frameSrc,
   draftAction,
   replyByAction,
-  ownsPro = false,
-  celebrationColours = CELEBRATION_HOUSE_COLOURS,
+  celebration,
 }: {
-  /** 🎉 Event Hub Pro, as measured for this event — the When yes Celebration's ◆ marks. */
-  ownsPro?: boolean;
-  /** 🎉 The Mood Board's colours, for the Celebration's previews (`celebrationColours`). */
-  celebrationColours?: readonly string[];
+  /**
+   * 🎉 The When yes Celebration's inputs, measured by the launch page — Event
+   * Hub Pro (its ◆ marks) and the Mood Board's colours (its previews) — handed
+   * through to the panel, which draws the mark (`CelebrationPick`).
+   */
+  celebration?: CelebrationInputs;
   /** The dev lab only (`/dev/rsvp-stage-lab`): its own frames and saves, to measure the stage without a sign-in. */
   frameSrc?: (scene: RsvpStageScene) => string | null;
   draftAction?: ComponentProps<typeof MakerRsvpSettings>['draftAction'];
@@ -332,7 +332,7 @@ export function MakerRsvpStage({
               replyByFallback={replyByFallback}
               draftAction={draftAction}
               replyByAction={replyByAction}
-              celebration={{ ownsPro, storeShell: maker?.storeShell ?? false, colours: celebrationColours }}
+              celebration={celebration ? { ...celebration, storeShell: maker?.storeShell ?? false } : undefined}
             />
           </>
         }

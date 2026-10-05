@@ -4,7 +4,9 @@
  * production 2026-10-06: guest rows with role bride / groom and no walk yet)
  * with an entourage of the size and titles a real one has (the prototype's
  * names). Built by the REAL builder, so the lab draws exactly what the Maker
- * would: `buildEntourage(…, { march: true })` → `marchSections`.
+ * would: `buildEntourage(…, { march: true })` → `marchSections`. (The honour
+ * pair here is a best_man; a best_woman stands in the same column and walks the
+ * same way — `honour`'s sides in lib/entourage.ts.)
  */
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
 import { marchSections } from '@/lib/march-sections';

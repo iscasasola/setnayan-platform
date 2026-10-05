@@ -144,7 +144,7 @@ export function MarchMaker({
   const [over, setOver] = useState<{ zone: string; ok: boolean } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
   /* ⌨ What the keyboard is holding, and what it last did (said aloud). */
-  const [held, setHeld] = useState<{ source: MarchSource; key: string; name: string } | null>(null);
+  const [carried, setCarried] = useState<{ source: MarchSource; key: string; name: string } | null>(null);
   const [heard, setHeard] = useState('');
   const refocus = useRef<string | null>(null);
 
@@ -506,21 +506,21 @@ export function MarchMaker({
   const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
     const el = e.target as HTMLElement;
     if (el.closest('[data-march-toast]')) return;
-    if (e.key === 'Escape' && held) {
+    if (e.key === 'Escape' && carried) {
       e.preventDefault();
-      setHeld(null);
-      setHeard(`${held.name} put back — nothing moved.`);
+      setCarried(null);
+      setHeard(`${carried.name} put back — nothing moved.`);
       return;
     }
     if (e.key === ' ' || e.key === 'Enter') {
-      if (held) {
+      if (carried) {
         e.preventDefault();
         const zone = el.closest<HTMLElement>('[data-march-drop]')?.dataset.marchDrop;
-        const plan = zone ? planDrop(shown, held.source, readTarget(zone)!) : null;
-        setHeld(null);
-        refocus.current = held.key;
+        const plan = zone ? planDrop(shown, carried.source, readTarget(zone)!) : null;
+        setCarried(null);
+        refocus.current = carried.key;
         if (plan) run(plan);
-        setHeard(plan ? (plan.ok ? plan.said : plan.reason) : `${held.name} put back — nothing moved.`);
+        setHeard(plan ? (plan.ok ? plan.said : plan.reason) : `${carried.name} put back — nothing moved.`);
         return;
       }
       const from = el.closest<HTMLElement>('[data-march-drag]');
@@ -528,18 +528,18 @@ export function MarchMaker({
       if (!from || !source) return;
       e.preventDefault();
       const name = from.dataset.marchName ?? '';
-      setHeld({ source, key: from.dataset.marchKey ?? '', name });
+      setCarried({ source, key: from.dataset.marchKey ?? '', name });
       setHeard(`${name} picked up. Space on a name or an empty spot puts them there; arrow keys move them a walk; Escape puts them back.`);
       return;
     }
-    if (held && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+    if (carried && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
-      const to = keyTarget(shown, held.source, e.key === 'ArrowUp' ? -1 : 1);
-      const plan = to ? planDrop(shown, held.source, to) : null;
-      refocus.current = held.key;
+      const to = keyTarget(shown, carried.source, e.key === 'ArrowUp' ? -1 : 1);
+      const plan = to ? planDrop(shown, carried.source, to) : null;
+      refocus.current = carried.key;
       if (plan) run(plan);
-      setHeard(plan ? (plan.ok ? plan.said : plan.reason) : `${held.name} cannot go further.`);
-      // Still held: ↑ / ↓ again keeps moving it (a name keeps its id; a walk moved by ↑ / ↓ keeps its lead).
+      setHeard(plan ? (plan.ok ? plan.said : plan.reason) : `${carried.name} cannot go further.`);
+      // Still carried: ↑ / ↓ again keeps moving it (a name keeps its id; a walk moved by ↑ / ↓ keeps its lead).
     }
   };
 
@@ -617,7 +617,7 @@ export function MarchMaker({
                     data-march-name={row.filter((x) => x !== null).map((x) => x!.name).join(' and ')}
                     tabIndex={0}
                     role="button"
-                    aria-pressed={held?.key === walkKey}
+                    aria-pressed={carried?.key === walkKey}
                     aria-label={`Step ${step} — drag to move this walk`}
                     className="flex min-h-11 cursor-grab touch-pan-y select-none items-center justify-center font-serif text-xl text-terracotta-800 [-webkit-touch-callout:none]"
                   >
@@ -637,12 +637,12 @@ export function MarchMaker({
                           data-march-name={p.name}
                           tabIndex={p.id ? 0 : undefined}
                           role="button"
-                          aria-pressed={held?.key === p.id}
+                          aria-pressed={carried?.key === p.id}
                           data-march-side={c === 0 ? 'left' : 'right'}
                           aria-label={`${p.name}${p.tag ? `, ${p.tag}` : ''} — step ${step}, ${c === 0 ? 'left' : 'right'}`}
                           className={`${NAME_CHIP} ${
                             p.tag ? 'border-terracotta-700/60 bg-white' : 'border-terracotta-700/20 bg-terracotta-700/[0.06]'
-                          } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${held?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${ring(zone)}`}
+                          } ${lifted === p.id ? 'border-dashed opacity-30' : ''}${carried?.key === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}${ring(zone)}`}
                         >
                           <span className="font-serif text-[15.5px] leading-tight text-ink [overflow-wrap:anywhere]">{p.name}</span>
                           {p.tag ? (
@@ -657,14 +657,14 @@ export function MarchMaker({
                       <div
                         key={`empty-${c}`}
                         data-march-drop={anchor?.id ? zone : undefined}
-                        tabIndex={anchor?.id && held ? 0 : undefined}
+                        tabIndex={anchor?.id && carried ? 0 : undefined}
                         role={anchor?.id ? 'button' : undefined}
                         aria-label={anchor ? `Walk beside ${anchor.name}` : undefined}
                         className={`flex min-h-11 items-center justify-center rounded-lg border-[1.5px] border-dashed px-2 text-center text-[11px] leading-tight transition-colors ${
                           dragging ? 'border-terracotta-700/40 text-terracotta-800' : 'border-ink/15 text-ink/50'
                         }${ring(zone)}`}
                       >
-                        {dragging || held ? 'walk together' : 'walks alone'}
+                        {dragging || carried ? 'walk together' : 'walks alone'}
                       </div>
                     );
                   })}

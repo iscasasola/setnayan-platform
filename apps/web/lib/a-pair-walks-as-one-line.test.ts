@@ -258,7 +258,7 @@ test('a held name answers the keyboard, and says what it did', () => {
     ['grab with Space', /e\.key === ' '/],
     ['move with arrows', /e\.key === 'ArrowUp' \|\| e\.key === 'ArrowDown'/],
     ['cancel with Escape', /e\.key === 'Escape'/],
-    ['announce its state', /aria-pressed=\{held\?\.key === p\.id\}/],
+    ['announce its state', /aria-pressed=\{carried\?\.key === p\.id\}/],
     ['announce the move', /aria-live="polite"/],
   ] as const) {
     assert.match(code, re, `the march maker cannot ${what}`);

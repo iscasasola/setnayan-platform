@@ -78,6 +78,9 @@ export function WhenYesCelebration({
         player.current?.stop();
       };
     }
+    /* On the Maker's canvas the engine is fetched as the page opens, so the
+       couple's first pick plays at the tap, not after a download. */
+    void import(/* webpackChunkName: "celebration-engine" */ '@/lib/celebration-engine');
     const origin = window.location.origin;
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== origin) return;

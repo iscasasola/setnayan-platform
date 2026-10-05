@@ -185,7 +185,7 @@ function fakeCanvas() {
   return { canvas: canvas as unknown as HTMLCanvasElement, calls };
 }
 
-test('the engine plays once, ends on its own clock and leaves the canvas cleared', async () => {
+test('the engine plays once, ends on its own clock and leaves the canvas cleared', { timeout: 8_000 }, async () => {
   const g = globalThis as unknown as { requestAnimationFrame?: unknown; cancelAnimationFrame?: unknown };
   g.requestAnimationFrame = (cb: (t: number) => void) => setTimeout(() => cb(performance.now()), 16);
   g.cancelAnimationFrame = (id: ReturnType<typeof setTimeout>) => clearTimeout(id);
@@ -204,7 +204,7 @@ test('the engine plays once, ends on its own clock and leaves the canvas cleared
   assert.equal(none.frames, 0, 'None draws nothing');
 });
 
-test('the watchdog ends it even if frames stop (a hidden tab)', async () => {
+test('the watchdog ends it even if frames stop (a hidden tab)', { timeout: 8_000 }, async () => {
   const g = globalThis as unknown as { requestAnimationFrame?: unknown; cancelAnimationFrame?: unknown };
   g.requestAnimationFrame = () => 0; // frames never come
   g.cancelAnimationFrame = () => {};

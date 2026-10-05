@@ -4219,10 +4219,12 @@ html.dark {
 .rsvp-form [data-rsvp-answer]:has(:checked) {
   background-color: rgb(var(--color-mulberry));
   color: rgb(var(--color-cream));
+  --tw-ring-color: rgb(var(--color-mulberry));
 }
 :where([data-door-action]) .rsvp-form [data-rsvp-answer]:has(:checked) {
   background-color: var(--door-action);
   color: var(--door-action-label);
+  --tw-ring-color: var(--door-action);
 }
 .rsvp-form fieldset:has(:checked) [data-rsvp-answer]:not(:has(:checked)) {
   background-color: transparent;

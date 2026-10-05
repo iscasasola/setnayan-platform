@@ -331,9 +331,7 @@ export function MakerRsvpSettings({
               ? 'What a guest sees right after they say yes — with their Digital tickets under it.'
               : 'What a guest sees after they say they can’t come.'}
           </p>
-          {wordRows}
-          <p className="text-xs text-ink/60">Type {'{name}'} and each guest sees their own name.</p>
-          {/* 🎉 Celebration ▾ — When yes only; drafted in the same one object
+          {/* 🎉 Celebration ▾ — When yes only, FIRST (the prototype's panel opens on it); drafted in the same one object
               (None is stored as no key, so picking it back is no change). */}
           {scene === 'thanks' && celebration ? (
             <CelebrationPick
@@ -346,6 +344,8 @@ export function MakerRsvpSettings({
               }
             />
           ) : null}
+          {wordRows}
+          <p className="text-xs text-ink/60">Type {'{name}'} and each guest sees their own name.</p>
           {drafted || newest.current > 0 ? <DraftNote /> : null}
           {status}
         </div>

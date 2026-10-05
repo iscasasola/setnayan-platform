@@ -61,15 +61,20 @@ export function CelebrationPick({
   }));
   return (
     <div className="flex flex-col gap-2" data-rsvp-setting="celebration">
-      {/* Label and dropdown on ONE row, like every other step (owner 2026-10-05). */}
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        <p className="text-sm font-semibold text-ink">{RSVP_CELEBRATION_LABEL}</p>
+      {/* ONE full-width row, the prototype's: the label left, the pick and its
+          chevron right — and the list it opens is as wide as the row, so a
+          preview, a name and its ◆ always fit at 375 px. */}
+      <div className="relative">
+        <span aria-hidden className="pointer-events-none absolute left-3.5 top-1/2 z-[1] -translate-y-1/2 text-[13px] font-medium text-ink/65">
+          {RSVP_CELEBRATION_LABEL}
+        </span>
         <PickMenu
           label={RSVP_CELEBRATION_LABEL}
           dataAttr="data-rsvp-celebration-pick"
           value={value}
           buttonText={shown}
           options={options}
+          className="min-h-11 w-full justify-end pl-28 ring-1 ring-ink/10"
           onPick={(key) => {
             if (!isRsvpCelebration(key)) return;
             if (key !== value) onPick(key);

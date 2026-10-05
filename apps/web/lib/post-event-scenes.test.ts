@@ -229,9 +229,11 @@ test('GOLDEN: converting the published editorial keeps its headline and lead, by
 test('draftToScenes follows the saved order and the switches — the page’s own order', () => {
   const rows = draftToScenes({ ...PUBLISHED_SHAPE, sections: { ...PUBLISHED_SHAPE.sections, kwento: false } }, ['ch-1', 'ch-2']);
   assert.deepEqual(rows.map((r) => r.key), [
-    'cover', 'before', 'you', 'numbers',
+    'cover', 'before', 'numbers',
     'ch-1', 'ch-2', 'wishes', 'asked',
-    'gallery', 'vendors', 'wall', 'film', 'videos', 'said', 'powered', 'loved',
+    // 📑 "Were you there?" follows the film wherever the couple's order puts it
+    // (owner 2026-10-05) — the couple's own order is otherwise untouched.
+    'gallery', 'vendors', 'wall', 'film', 'videos', 'you', 'said', 'powered', 'loved',
     // guestColumns and the 2026-09-29 blocks were not in the saved order → they
     // append in the canonical order, exactly as `resolveSectionOrder` does
     'letters', 'seating', 'entourage', 'beforeAfter',
@@ -241,6 +243,17 @@ test('draftToScenes follows the saved order and the switches — the page’s ow
   assert.equal(rows.find((r) => r.key === 'gallery')!.hidden, false);
   // A malformed draft reads as everything on, default order.
   assert.ok(draftToScenes('nope').every((r) => !r.hidden));
+});
+
+test('📑 the DEFAULT order is the approved one (owner 2026-10-05) — a couple who never arranged it', () => {
+  // DECISION_LOG 2026-10-05 "APPROVED — EVERY GUEST PAGE'S DEFAULT SECTION ORDER".
+  assert.deepEqual(draftToScenes({}).map((r) => r.key), [
+    'cover', 'before', 'numbers', 'chapters',
+    'gallery', 'film', 'videos', 'you',
+    'wishes', 'asked', 'letters',
+    'seating', 'vendors', 'entourage', 'wall', 'said', 'powered', 'loved', 'beforeAfter',
+    'couple', 'song', 'next',
+  ]);
 });
 
 test('the navigator list numbers only what guests meet; skipped and hidden rows say so', () => {

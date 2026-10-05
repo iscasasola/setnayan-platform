@@ -168,7 +168,7 @@ import { placeCardName } from '@/lib/formal-name';
 import { HubSceneRuns } from './hub-scene-runs';
 import { heroDesignOf } from '@/lib/hero-design';
 import { heroCanvasOf } from '../_lib/hero-design-of';
-import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet } from '@/lib/maker-scene-list';
+import { makerDayPartsOn, makerDrawsEmpty, widgetsGuestsMeet, type MakerDayPartPlace } from '@/lib/maker-scene-list';
 import { stageShowsEntourage } from '@/lib/stage-scenes';
 import { sceneBoundTextOf } from '@/lib/details-bound';
 import { MakerGuestScenes } from './maker-guest-scenes';
@@ -1428,6 +1428,26 @@ export async function SiteBody({
       </HubScenes>
     );
     const publicWidgetNodes = sceneNodes(detailsSceneList);
+    /* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest: a
+       stand-in for each part a guest meets as their own (their table, their
+       photos) or only once it happens (a message, a stream), so the couple can
+       tap it and pick its style. Same list, same order, same places as the
+       navigator (`makerDayPartsOn`): before the stage's sections, right after
+       them, or after the entourage. */
+    const makerDayStandIns = (place: MakerDayPartPlace) =>
+      isMakerCanvas
+        ? makerDayPartsOn(pageStage, place).map((part) => (
+            <Fragment key={part}>
+              {makerMark(`f:${part}`)}
+              <MakerDayPartStandIn
+                part={part as Exclude<FixedStyleScene, 'entourage'>}
+                styleName={
+                  sceneStylesOn(part, pageStage, event.event_type).find((st) => st.id === fixedStyle(part as FixedStyleScene))?.name ?? null
+                }
+              />
+            </Fragment>
+          ))
+        : null;
     // Task #13 — day-of-mode badge surfaces to public-landing viewers too so a
     // guest at the venue without a session cookie still sees "happening now".
     // ONE "Happening now" (owner 2026-10-05: it showed twice, overlapping the
@@ -1897,6 +1917,7 @@ export async function SiteBody({
                 />
               </div>
             )) : null}
+            {makerDayStandIns('before')}
             {group(scenesTab, plan.openBrowse ? (
               // Open-browse Details — always present so the tab is never dead:
               // event-level facts (the anonymous event_details variant — §5.10),
@@ -1925,6 +1946,8 @@ export async function SiteBody({
               </section>
             ) : null)}
 
+            {makerDayStandIns('after')}
+
             {/* THE ENTOURAGE — under Details, never a sixth tab (owner ruling
                 2026-09-14). Its own anchor so the couple can link straight at
                 it; no slot, so `_lib/site-nav.ts`'s five-slot budget is
@@ -1936,24 +1959,7 @@ export async function SiteBody({
                 working for old links, it just isn't linked from here. */}
             {group(scenesTab, stageShowsEntourage(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} /> : null)}
 
-            {/* 🎨 THE DAY'S OWN PARTS — the Maker's canvas only, never a guest:
-                a stand-in for each part a guest meets as their own (their
-                table, their photos) or only once it happens (a message, a
-                stream), so the couple can tap it and pick its style. Same list,
-                same order as the navigator (`makerDayPartsOn`). */}
-            {isMakerCanvas
-              ? makerDayPartsOn(pageStage).map((part) => (
-                  <Fragment key={part}>
-                    {makerMark(`f:${part}`)}
-                    <MakerDayPartStandIn
-                      part={part as Exclude<FixedStyleScene, 'entourage'>}
-                      styleName={
-                        sceneStylesOn(part, pageStage, event.event_type).find((st) => st.id === fixedStyle(part as FixedStyleScene))?.name ?? null
-                      }
-                    />
-                  </Fragment>
-                ))
-              : null}
+            {makerDayStandIns('last')}
 
             {/* Our Story — the couple's love story on the run-up paths (rsvp/event).
                 The normal body only renders pre-event (STD + editorial are separate

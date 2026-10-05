@@ -155,12 +155,14 @@ test('order: one place at a time, in the run; fixed scenes do not move; chapters
   assert.equal(postEventMove(a, 'cover', 1), null);
   assert.equal(postEventMove(a, 'ch-1', -1), null, 'the first of the run cannot go earlier');
   const later = postEventMove(a, 'ch-2', 1)!;
-  assert.deepEqual(later.sectionOrder!.slice(0, 2), ['kwento', 'chapters']);
+  // The chapters' neighbour in the default run is the gallery (owner 2026-10-05:
+  // gallery and film come up right after the chapters).
+  assert.deepEqual(later.sectionOrder!.slice(0, 2), ['gallery', 'chapters']);
   // Moving back to the default stores nothing — the workroom's own rule (a
   // story with a column of their own is never "default": its place is kept).
   const plain = arr({ sections: {} });
   const there = postEventMove(plain, 'ch-2', 1)!;
-  const back = postEventMove(withPostEventDraft(plain, there), 'wishes', 1)!;
+  const back = postEventMove(withPostEventDraft(plain, there), 'gallery', 1)!;
   assert.equal(back.sectionOrder, null);
   // The workroom's own column keeps its place in the run through a move.
   const withCol = arr({ ...LIVE_STORY, sectionOrder: ['custom:dogs1', 'chapters'] });

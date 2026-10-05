@@ -125,9 +125,16 @@ test('1 · the navigator lists EVERY scene the canvas binds, in canvas order', (
   console.log(`  canvas binds ${bound.length} · navigator lists ${rows.length}`);
   assert.equal(rows.length, bound.length, 'the navigator must list as many scenes as the canvas binds');
   assert.deepEqual(rows.map((r) => r.key), bound, 'in the canvas order');
-  // the tabs are HEADERS: each tab that holds scenes heads its first one, once
+  // the tabs are HEADERS: every RUN of one tab's scenes is headed by that tab
+  // (owner 2026-10-05 — a tab the list comes back to is headed again, so the
+  // Invitation's Details resumes under "Details" after Our Love Story, never
+  // under "Story")
   const headers = rows.filter((r) => r.header).map((r) => r.header!.label);
-  assert.deepEqual(headers, tabs.filter((t) => t.tiles.length > 0).map((t) => t.label));
+  const runs = keys
+    .map((k) => tabs.find((t) => t.tiles.includes(k))!.label)
+    .filter((label, i, all) => i === 0 || all[i - 1] !== label);
+  assert.deepEqual(headers, runs);
+  for (const t of tabs.filter((tab) => tab.tiles.length > 0)) assert.ok(headers.includes(t.label), `${t.label} heads its scenes`);
 });
 
 test('1 · SOURCE: the shell draws every row — no tab filter survives', () => {

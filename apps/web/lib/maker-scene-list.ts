@@ -197,24 +197,44 @@ export const MAKER_FIXED_LABEL: Record<MakerFixedKey, { label: string; why: stri
 };
 
 /**
- * 🎨 THE DAY'S OWN PARTS — on the stages where guests meet them. Listed after
- * the entourage, in the order the Maker's canvas draws their stand-ins
- * (`maker-fixed-parts.tsx`), so the navigator and the canvas stay one list.
+ * 🎨 THE DAY'S OWN PARTS — on the stages where guests meet them, each at its
+ * `place` among the stage's sections, in the order the Maker's canvas draws
+ * their stand-ins (`maker-fixed-parts.tsx`), so the navigator and the canvas
+ * stay one list.
+ *
+ *   · `before` — before the stage's own scenes;
+ *   · `after`  — right after the stage's own scenes, before the entourage;
+ *   · `last`   — after the entourage.
+ *
+ * 📑 THE DAY'S DEFAULT ORDER (owner 2026-10-05, DECISION_LOG "APPROVED — EVERY
+ * GUEST PAGE'S DEFAULT SECTION ORDER"): Live + Announcements first, then find
+ * your seat · schedule · venue, then photo moments · your photos · photos of
+ * you, then the entourage. The announcement leads the live hub because a guest
+ * meets it at the very top of the page (`app/[slug]/layout.tsx`). The day's
+ * scenes between them keep `STAGE_SCENES.event`'s order — or the couple's own,
+ * once they drag (`config_json.stage_order`); these parts are fixed around them.
  */
-export const MAKER_DAY_PARTS: ReadonlyArray<{ key: MakerFixedKey; stages: readonly LifecyclePhase[] }> = [
-  { key: 'announcements', stages: ['rsvp', 'event'] },
-  /* 📱 In the order of The Day's tabs (owner 2026-09-30, Live · Welcome ·
-     Camera · Gallery · Me): the live hub is Live's, the guest's table is their
-     Welcome's, their photos are the Gallery's — so the navigator's tab headers
-     fall between them, never across them (`lib/maker-navigator-tabs.ts`). */
-  { key: 'live_hub', stages: ['event'] },
-  { key: 'find_your_seat', stages: ['event'] },
-  { key: 'photos_of_you', stages: ['event'] },
+export type MakerDayPartPlace = 'before' | 'after' | 'last';
+
+export const MAKER_DAY_PARTS: ReadonlyArray<{ key: MakerFixedKey; stages: readonly LifecyclePhase[]; place: MakerDayPartPlace }> = [
+  { key: 'announcements', stages: ['event'], place: 'before' },
+  { key: 'live_hub', stages: ['event'], place: 'before' },
+  { key: 'find_your_seat', stages: ['event'], place: 'before' },
+  { key: 'photos_of_you', stages: ['event'], place: 'after' },
+  /* The Invitation's announcement stays where it stood, after the entourage. */
+  { key: 'announcements', stages: ['rsvp'], place: 'last' },
 ];
 
-/** The day's parts this stage lists — the canvas draws exactly these, in this order. */
-export function makerDayPartsOn(stage: LifecyclePhase): MakerFixedKey[] {
-  return MAKER_DAY_PARTS.filter((p) => p.stages.includes(stage)).map((p) => p.key);
+const DAY_PART_PLACES: readonly MakerDayPartPlace[] = ['before', 'after', 'last'];
+
+/**
+ * The day's parts this stage lists — the canvas draws exactly these, in this
+ * order. With `place`, only the ones at that place; without, all of them in
+ * the order they are drawn (`before`, then `after`, then `last`).
+ */
+export function makerDayPartsOn(stage: LifecyclePhase, place?: MakerDayPartPlace): MakerFixedKey[] {
+  const places = place ? [place] : DAY_PART_PLACES;
+  return places.flatMap((pl) => MAKER_DAY_PARTS.filter((p) => p.place === pl && p.stages.includes(stage)).map((p) => p.key));
 }
 
 /**
@@ -595,14 +615,20 @@ export function makerStageList(input: MakerStageInput): MakerStageList {
     }
   }
 
+  // 🎨 The day's own parts, where the normal body draws them — each at its
+  // place among the sections, exactly where the Maker's canvas draws its
+  // stand-in (`MAKER_DAY_PARTS`).
+  const dayParts = (place: MakerDayPartPlace) => {
+    if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage, place)) shown.push(fixed(k));
+  };
+  dayParts('before');
   for (const w of drawable) {
     if (!drawn.has(w.widget_id)) shown.push(sceneTile(w));
   }
+  dayParts('after');
   // The entourage is not the Save the Date's job (`STAGE_FIXED`).
   if (input.hasEntourage && stageShowsEntourage(stage)) shown.push(fixed('entourage'));
-  // 🎨 The day's own parts, where the normal body draws them (their stand-ins sit
-  // right after the entourage on the Maker's canvas).
-  if (input.dayParts && plan.body === 'normal') for (const k of makerDayPartsOn(stage)) shown.push(fixed(k));
+  dayParts('last');
   // 📖 The page draws the love story ONCE (site-body `storySceneShown`): with the
   // "Our love story" scene on the page, the prose section is not drawn.
   if (

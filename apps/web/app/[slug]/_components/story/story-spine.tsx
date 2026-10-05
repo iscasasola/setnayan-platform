@@ -143,6 +143,7 @@ export function StorySpine({
   makerMarkers = false,
   coverScene = null,
   hideRoad = false,
+  you = 'here',
 }: {
   data: EditorialData;
   facts: StorySpineFacts;
@@ -201,6 +202,12 @@ export function StorySpine({
    * second time. False → the shipped road, unchanged.
    */
   hideRoad?: boolean;
+  /**
+   * 📑 Where "Were you there?" is drawn: `here` (in the spine, after the
+   * index), `none` (not in the spine), or `only` (the scene alone — the story
+   * page draws it right after the film).
+   */
+  you?: 'here' | 'none' | 'only';
 }): ReactElement {
   // A sample carries no audience and exists to be read — the same exemption the
   // shipped gate and `redactStoryLayers` both make, for the same reason.
@@ -705,6 +712,54 @@ export function StorySpine({
       };
     });
 
+  /*
+    ════ WERE YOU THERE? ═════════════════════════════════════════════════════
+    `01` §3.7. One person's own account, resolved from their signed Papic
+    session. 🔒 There is no name field, for anyone, ever.
+
+    📑 It follows the film (owner 2026-10-05, DECISION_LOG "APPROVED — EVERY
+    GUEST PAGE'S DEFAULT SECTION ORDER"): the story page draws the spine with
+    `you="none"` and draws this scene alone (`you="only"`) right after the film
+    in its run (`editorial-content.tsx`). It is built here because its anchors
+    are the minutes this spine placed.
+  */
+  const youScene = (
+    <>
+      {makerMarkers ? <span hidden data-maker-section="p:you" /> : null}
+      <OpenUpScene
+        kind="you"
+        className={you === 'only' ? 'mt-14' : 'mx-auto mt-14 max-w-5xl px-4 min-[1100px]:max-w-6xl'}
+        title="Were you there?"
+        eyebrow={own.signedIn ? 'Your own day' : 'For the people who were there'}
+        openLabel={own.signedIn ? 'Open your day' : 'What this is'}
+        preview={
+          <span className="block border-t-2 border-ink pt-4">
+            <span className="block font-condensed text-[clamp(1.9rem,6vw,3rem)] font-black uppercase leading-[0.9] tracking-tight">
+              Were you there?
+            </span>
+            <span className="mt-2 block max-w-[46ch] text-[15px] leading-relaxed text-ink/70">
+              {own.signedIn
+                ? 'Your own account of the day — the minutes you are in, what you shot and what you said.'
+                : 'This part is only for the people who were there, each on their own Papic link. There is nothing to type.'}
+            </span>
+          </span>
+        }
+      >
+        <WereYouThere
+          own={own}
+          anchors={anchors}
+          windowMs={windowMs}
+          eventId={eventId}
+          occasion={words.occasion}
+          host={words.host}
+          storyCard={storyCard}
+        />
+      </OpenUpScene>
+    </>
+  );
+
+  if (you === 'only') return youScene;
+
   return (
     <div className="sn-story">
       {/* ═══════════ COVER ═══════════ */}
@@ -923,36 +978,7 @@ export function StorySpine({
       {/* 🔓 OPEN-UP (Event Hub Maker Phase 8): one line in the flow; their own
           day opens full screen and closes back here. The body is the shipped
           panel, unchanged — still no name field, for anyone. */}
-      {makerMarkers ? <span hidden data-maker-section="p:you" /> : null}
-      <OpenUpScene
-        kind="you"
-        className="mx-auto mt-14 max-w-5xl px-4 min-[1100px]:max-w-6xl"
-        title="Were you there?"
-        eyebrow={own.signedIn ? 'Your own day' : 'For the people who were there'}
-        openLabel={own.signedIn ? 'Open your day' : 'What this is'}
-        preview={
-          <span className="block border-t-2 border-ink pt-4">
-            <span className="block font-condensed text-[clamp(1.9rem,6vw,3rem)] font-black uppercase leading-[0.9] tracking-tight">
-              Were you there?
-            </span>
-            <span className="mt-2 block max-w-[46ch] text-[15px] leading-relaxed text-ink/70">
-              {own.signedIn
-                ? 'Your own account of the day — the minutes you are in, what you shot and what you said.'
-                : 'This part is only for the people who were there, each on their own Papic link. There is nothing to type.'}
-            </span>
-          </span>
-        }
-      >
-        <WereYouThere
-          own={own}
-          anchors={anchors}
-          windowMs={windowMs}
-          eventId={eventId}
-          occasion={words.occasion}
-          host={words.host}
-          storyCard={storyCard}
-        />
-      </OpenUpScene>
+      {you === 'here' ? youScene : null}
 
       {/*
         THE LIGHT. It renders nothing — it writes three custom properties on the

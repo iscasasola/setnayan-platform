@@ -25,12 +25,14 @@ import {
 /**
  * 🧰 THE RSVP'S THREE SCREENS AS THE LOWER THIRD'S PARTS (owner 2026-10-05,
  * frame 6: *"on RSVP there is the RSVP, when yes, when no"*) — the shipped
- * screens (`RSVP_STAGE_SCENES`), named as a tile and captioned in his words.
+ * screens (`RSVP_STAGE_SCENES`), each tile titled in his words.
  */
 const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }> = {
-  form: { label: 'RSVP form', caption: 'The form' },
-  thanks: { label: 'After they submit', caption: 'When yes' },
-  decline: { label: 'When they decline', caption: 'When no' },
+  /* 📑 The titles the owner approved (2026-10-05): RSVP form · When yes · When
+     no. Each caption says what the screen is, never the title again. */
+  form: { label: 'RSVP form', caption: 'Their reply' },
+  thanks: { label: 'When yes', caption: 'The thank-you' },
+  decline: { label: 'When no', caption: 'Can’t come' },
 };
 
 /**
@@ -38,7 +40,7 @@ const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }
  * (owner 2026-09-30, DECISION_LOG "THE MAKER RE-PLAN…" and "RE-PLAN
  * REVISIONS…"). The Maker's three parts, like every stage:
  *
- *   LEFT   the scenes — 1 RSVP · 2 After they submit · 3 When they decline;
+ *   LEFT   the scenes — 1 RSVP form · 2 When yes · 3 When no;
  *   MIDDLE the REAL guest page for that scene, drawn for a SAMPLE guest in the
  *          canvas (`rsvpStageCanvasSrc` — `?editor=1`, host-verified; no real
  *          guest is read or written);

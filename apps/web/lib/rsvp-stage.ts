@@ -11,8 +11,8 @@
  * (host-verified `?editor=1` — never a real guest, nothing written):
  *
  *   1 · RSVP               — the form (`/{slug}/invite/reply`), one-question mode included;
- *   2 · After they submit  — the attending thank-you (`/{slug}/invite/enter?as=attending`);
- *   3 · When they decline  — its own screen (`/{slug}/invite/enter?as=declined`).
+ *   2 · When yes  — the attending thank-you (`/{slug}/invite/enter?as=attending`);
+ *   3 · When no   — its own screen (`/{slug}/invite/enter?as=declined`).
  *
  * ⚡ EVERY EDIT IS ON THE CANVAS BEFORE IT SAVES (owner 2026-09-30: *"make sure
  * what we rebuild is fast and realtime and changes instantly"*). The panel
@@ -43,9 +43,11 @@ export type RsvpStageScene = 'form' | 'thanks' | 'decline';
 
 /** The three scenes, in the order a guest meets them — the navigator's list. */
 export const RSVP_STAGE_SCENES: ReadonlyArray<{ key: RsvpStageScene; label: string; sub: string }> = [
-  { key: 'form', label: 'RSVP', sub: 'The form your guests fill in' },
-  { key: 'thanks', label: 'After they submit', sub: 'The thank-you, with their Digital tickets' },
-  { key: 'decline', label: 'When they decline', sub: 'What a guest who can’t come sees' },
+  /* 📑 Named as the owner approved them (2026-10-05, DECISION_LOG "APPROVED —
+     EVERY GUEST PAGE'S DEFAULT SECTION ORDER"): RSVP form · When yes · When no. */
+  { key: 'form', label: 'RSVP form', sub: 'The form your guests fill in' },
+  { key: 'thanks', label: 'When yes', sub: 'The thank-you, with their Digital tickets' },
+  { key: 'decline', label: 'When no', sub: 'What a guest who can’t come sees' },
 ];
 
 export function isRsvpStageScene(v: unknown): v is RsvpStageScene {

@@ -28,7 +28,7 @@ function usePick(parents: readonly PersonPiece[], hosts: readonly HostPiece[], p
   /* 🔢 ONE TRUTH: the step opens on what is in place. Where the invitation
      prints parents, they ARE its hosts (owner, live walk 2026-10-05) — no
      collaborator account is ever a row here — so with none it opens on the add,
-     saying so ("No parents on the invitation yet."). */
+     which says so itself (`ParentCards`: "No parents on your guest list yet."). */
   const first = parentsOffered ? (parents[0]?.key ?? hosts[0]?.key ?? ADD) : (hosts[0]?.key ?? null);
   // Part 3's ONE piece mechanism (`details-go.tsx`), under the item's own key.
   const [pick, setPick] = useDetailsPiece('parents');
@@ -109,15 +109,8 @@ export function PeopleControls({
   add: ReactNode;
 }) {
   const [pick] = usePick(parents, hosts, parentsOffered);
-  if (pick === ADD) {
-    return (
-      <section data-people-controls="add" className="flex flex-col gap-2">
-        {/* None yet: the step says so, and the add is right here. */}
-        {parents.length === 0 ? <p className="text-sm text-ink/70" data-people-none="">No parents on the invitation yet.</p> : null}
-        {add}
-      </section>
-    );
-  }
+  // None yet: the add says so itself ("No parents on your guest list yet.") and is right here.
+  if (pick === ADD) return <section data-people-controls="add">{add}</section>;
   const host = hosts.find((h) => h.key === pick);
   if (host) {
     return (

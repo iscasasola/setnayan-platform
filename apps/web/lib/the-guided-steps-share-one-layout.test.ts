@@ -317,7 +317,10 @@ test('(11) Parents & hosts shows the people the INVITATION names — never a das
   const controls = renderToStaticMarkup(
     React.createElement(PeopleControls, { parents: [], hosts: [], parentsOffered: true, cards: {}, add: React.createElement('i', { 'data-stub-add': '' }) }),
   );
-  assert.match(controls, /data-people-none="">No parents on the invitation yet\.<\/p><i data-stub-add=""/, 'with no parents the step does not say so, or the add is not right there');
+  assert.match(controls, /data-people-controls="add"><i data-stub-add=""/, 'with no parents the step does not open on the add');
+  // The add says there are none itself — one line, not two.
+  assert.match(read(`${L}/parent-cards.tsx`), /No parents on your guest list yet\./, 'with no parents the step no longer says so');
+  assert.doesNotMatch(people, /No parents on the invitation yet/, 'a second "none yet" line came back above the add');
   const pieces = renderToStaticMarkup(React.createElement(PeoplePieces, { parents: [], hosts: [], parentsOffered: true }));
   assert.doesNotMatch(pieces, /Host|@/, 'an empty Hosts heading (or an email) shows in the step');
 });

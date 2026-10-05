@@ -1,4 +1,5 @@
 import { PASS_ANCHOR } from '@/lib/arrival-action';
+import { LANDING_WORDS } from '@/lib/guest-landing';
 import { PASS_CARD_ROUTE, PASS_CARD_WORDS, passCardLine, type PassCardEligibility } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
 import { GuestCodeKeepers } from './guest-code-keepers';
@@ -23,6 +24,8 @@ import { TicketPicture } from './ticket-picture';
  *
  * STATES — `passCardEligibility`, reused, never re-decided:
  *   pass       → the ticket, "Save my ticket", "Show this at the door."
+ *                …unless `replyHref` is set (a reply still owed): then the one
+ *                "Reply to the invitation" button, and the ticket after a Yes.
  *   awaiting   → the SAME route draws the "Request pending" ticket for this
  *                guest's own session (`decidePassCardAccess` → `pending`),
  *                with the prototype's own line (REQUEST_WORDS.sentUnlocks).
@@ -38,10 +41,19 @@ export function GuestTicket({
   name,
   invitationUrl,
   src = PASS_CARD_ROUTE,
+  replyHref = null,
 }: {
   state: PassCardEligibility;
   name: string;
   invitationUrl: string;
+  /**
+   * ✉ REPLY FIRST (`meLeadsWithReply`, lib/arrival-action.ts): set for a guest
+   * who has not replied yet. Me then leads with the one reply button — the
+   * page's own reply sheet — and the ticket appears after a Yes, as the
+   * invitation promised ("your ticket is ready once you do"). The section keeps
+   * `PASS_ANCHOR`, so no second door to the code ("My QR") opens beside it.
+   */
+  replyHref?: string | null;
   /**
    * 👁 SEE AS (PR-10): the Maker's sample guest has no session for the guest
    * ticket route, so its picture is the host's own ticket preview
@@ -50,6 +62,15 @@ export function GuestTicket({
   src?: string;
 }) {
   if (state === 'none') return null;
+  if (state === 'pass' && replyHref) {
+    return (
+      <section id={PASS_ANCHOR} data-guest-ticket="reply-first" className="scroll-mt-6">
+        <a href={replyHref} data-me-reply="" className="button-primary flex w-full">
+          {LANDING_WORDS.reply}
+        </a>
+      </section>
+    );
+  }
   if (state === 'cannotCome') {
     return (
       <section id={PASS_ANCHOR} data-guest-ticket="cannotCome" className="scroll-mt-6 text-center">

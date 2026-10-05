@@ -89,7 +89,7 @@ test('event-type aware: the name and the word the event type uses', () => {
   assert.equal(inviteEventPhrase({ eventWord: 'debut' }), 'our debut');
   assert.equal(inviteEventPhrase({ eventWord: 'debut' }, 'guest'), 'the debut');
   // Nothing known → still a sentence.
-  assert.equal(inviteEventPhrase({}), 'our celebration');
+  assert.equal(inviteEventPhrase({}), 'our event'); // "event", never "celebration" (DECISION_LOG 2026-10-04)
 });
 
 test('a wake is written in the solemn register — no "!", no 💌, no "invited"', () => {

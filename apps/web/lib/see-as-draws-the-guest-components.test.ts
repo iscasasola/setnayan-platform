@@ -87,7 +87,8 @@ test('1 · ONE preview mechanism: the host ribbon’s Preview ▾ offers the sam
   assert.deepEqual(model.seeAsLinks.map((l) => l.label), ['You', ...SEE_AS.map((s) => s.label)]);
   assert.deepEqual(model.seeAsLinks.map((l) => l.href), ['/mj?phase=rsvp', ...SEE_AS.map((s) => `/mj?phase=rsvp&as=${s.key}`)]);
   assert.deepEqual(model.seeAsLinks.filter((l) => l.active).map((l) => l.key), ['declined']);
-  assert.ok(model.phaseLinks.every((l) => l.href.endsWith('&as=declined')), 'a stage pick drops whose eyes the page is drawn with');
+  // (The RSVP stage is the reply page, always drawn for a guest who has not replied — it takes no `as`.)
+  assert.ok(model.phaseLinks.filter((l) => l.phase !== 'rsvp-stage').every((l) => l.href.endsWith('&as=declined')), 'a stage pick drops whose eyes the page is drawn with');
   assert.equal(model.editorLabel, 'Edit your Event Hub');
   const menu = read('app/[slug]/_components/owner-phase-menu.tsx');
   assert.equal((menu.match(/<PickMenu\b/g) ?? []).length, 1, 'the ribbon’s preview is not ONE dropdown');

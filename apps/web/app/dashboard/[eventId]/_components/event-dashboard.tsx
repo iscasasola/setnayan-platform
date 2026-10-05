@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { DaysToGo } from '@/lib/countdown-target';
 import { notFound, redirect } from 'next/navigation';
 import { EventScene } from '@/app/dashboard/(launcher)/_components/event-scene';
 import { resolveEventPoster } from '@/lib/event-poster.server';
@@ -230,6 +231,7 @@ export async function EventDashboard({
   canViewPapicCounts = false,
   only,
   daysOut,
+  daysToGo = null,
   guestStats,
   guardMoney = null,
 }: {
@@ -297,6 +299,9 @@ export async function EventDashboard({
    * `daysOut` is null for a date that is only a month / a year (no countdown).
    */
   daysOut: number | null;
+  /** 🔢 What the countdown SAYS (`homeFacts().daysToGo`, the countdown's own
+   *  rule): `daysOut` decides the sentences, this is the number printed. */
+  daysToGo?: DaysToGo | null;
   guestStats: GuestStats;
   /**
    * The couple's resolved money, read once by the page (lib/budget-live-read.ts)
@@ -2231,7 +2236,9 @@ export async function EventDashboard({
                         ? 'Today'
                         : daysOut < 0
                           ? Math.abs(daysOut)
-                          : <CountUp value={daysOut} delayMs={700} />}
+                          : daysToGo?.kind === 'tomorrow'
+                            ? <span className="whitespace-nowrap text-[30px]">Tomorrow</span>
+                            : <CountUp value={daysToGo?.kind === 'days' ? daysToGo.days : daysOut} delayMs={700} />}
                   </b>
                   <span
                     className="text-[13px] font-semibold"
@@ -2243,7 +2250,11 @@ export async function EventDashboard({
                         ? Math.abs(daysOut) === 1
                           ? 'day ago'
                           : 'days ago'
-                        : 'days to go'}
+                        : daysToGo?.kind === 'tomorrow'
+                          ? 'is the day'
+                          : daysToGo?.kind === 'days' && daysToGo.days === 1
+                            ? 'day to go'
+                            : 'days to go'}
                   </span>
                 </div>
               ) : (
@@ -2278,7 +2289,11 @@ export async function EventDashboard({
                         className="rounded-full px-3 py-1 text-xs font-semibold"
                         style={focalChipStyle}
                       >
-                        {daysOut === 0 ? 'Today is the day' : `${daysOut} days to go`}
+                        {daysOut === 0
+                          ? 'Today is the day'
+                          : daysToGo?.kind === 'tomorrow'
+                            ? 'Tomorrow is the day'
+                            : `${daysToGo?.kind === 'days' ? daysToGo.days : daysOut} days to go`}
                       </span>
                     ) : null}
                     {/* D-6 · THE FRACTION IS GONE — IT WAS THE BAR'S NUMBER

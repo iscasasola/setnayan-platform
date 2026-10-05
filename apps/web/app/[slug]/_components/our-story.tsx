@@ -15,6 +15,8 @@
  * real field. Renders nothing when there's no story to tell.
  */
 
+import { loveStoryScenes } from '@/lib/love-story-moments';
+
 type Milestone = {
   year?: string | number | null;
   title?: string | null;
@@ -98,6 +100,24 @@ export function ourStoryRenders(loveStory: unknown): boolean {
   const story = (loveStory ?? null) as LoveStoryInput;
   if (!story || typeof story !== 'object') return false;
   return composeOurStory(story).length > 0 || cleanMilestones(story.milestones).length > 0;
+}
+
+/**
+ * 📖 DOES THE "Our Love Story" TAB HAVE A CHAPTER TO LAND ON? (controller walk
+ * 2026-10-05, live on maria-and-jose: the tab showed to guests with nothing on
+ * it but the footer's "See you soon." — its `love_story` is `{}`, and the menu
+ * asked `Boolean(event.love_story)`, which is true for an empty object.) The
+ * setup already promises the rule: *"the Our Love Story page — it opens with the
+ * first chapter you fill"* (`lib/hub-setup-steps.ts`).
+ *
+ * Asked with the SAME predicates the tab's page draws with, so the tab and its
+ * page can never disagree: with the couple's "Our love story" scene on the
+ * page, that scene IS the story (`OurLoveStoryWidget` draws nothing without a
+ * visible moment — `loveStoryScenes`); without it, the prose `OurStory` stands
+ * in and draws nothing without a told beat (`ourStoryRenders`).
+ */
+export function storyTabHasChapter(loveStory: unknown, sceneOnPage: boolean): boolean {
+  return sceneOnPage ? loveStoryScenes(loveStory).length > 0 : ourStoryRenders(loveStory);
 }
 
 function cleanMilestones(raw: Milestone[] | null | undefined): Milestone[] {

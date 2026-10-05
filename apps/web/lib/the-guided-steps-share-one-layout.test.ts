@@ -297,10 +297,12 @@ test('(11) Parents & hosts opens on what is in place — a host before "Add a pa
 
 test('(12) opening a step is never dirty; the Mood Board steps show the board, with no note and no downloads in the sheet', () => {
   const top = read(`${L}/details-guide-top.tsx`);
-  assert.match(top, /if \(touched && !touched\.has\(el\)\) continue;/, 'an untouched field can read as unsaved again');
+  assert.match(top, /if \(touched && !fieldTouched\(touched, el\)\) continue;/, 'an untouched field can read as unsaved again');
   const ws = read(`${L}/details-workspace.tsx`);
-  assert.match(ws, /hasUnsavedEdits\(scopes, touchedRef\.current\)/, 'the step asks about fields nobody touched');
-  assert.match(ws, /if \(e\.isTrusted\) touchedRef\.current\.add\(t\);/, 'a field a tool fills itself counts as touched');
+  assert.match(ws, /hasUnsavedEdits\(stepScopesOf\(rootRef\.current, stepHere\.items\), touchRef\.current\.fields\)/, 'the step asks about fields nobody touched');
+  // A field a tool fills itself is not the couple's touch (behaviour: (22)).
+  assert.match(ws, /noteTouch\(touchRef\.current, e\);/);
+  assert.match(read('lib/guided-step-touch.ts'), /if \(!e\.isTrusted\) return false;/, 'a field a tool fills itself counts as touched');
   for (const key of ['colours', 'wear'] as const) assert.equal(guidedStepBody(key, 'rsvp').kind, 'own', key);
   const mb = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
   assert.match(mb, /className="contents group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-note-wrap=""/, 'the board’s note shows in the step');
@@ -405,4 +407,73 @@ test('(21) every watch-live surface says "event" — the live card, the camera p
     said += src.match(/(Watch the|broadcast of the) \$\{watchLiveOccasion\(occasion\)\}/g)?.length ?? 0;
   }
   assert.equal(said, 5, `watch-live lines said through the one mapping: ${said}`);
+});
+
+test('(22) touch a field → Skip asks; open only → Skip goes — a custom picker and a remounted field count', async () => {
+  const T = await import('./guided-step-touch');
+  const field = (name: string) => ({ tagName: 'INPUT', name, id: '' });
+  const leaveOn = (touch: ReturnType<typeof T.newStepTouch>, via: 'skip' | 'next', unsaved = false) =>
+    T.leaveAsks({ via, unsaved, touched: touch.any });
+
+  // OPEN ONLY: the step draws, a tool fills a field on its own (untrusted), the couple taps nothing.
+  const opened = T.newStepTouch();
+  T.noteTouch(opened, { type: 'input', isTrusted: false, target: field('dress_code') });
+  T.noteTouch(opened, { type: 'click', isTrusted: true, target: { tagName: 'BUTTON', closest: () => null } });
+  assert.equal(leaveOn(opened, 'skip'), null, 'opening a step and skipping asked "you changed something"');
+
+  // TYPED in a native field → Skip asks.
+  const typed = T.newStepTouch();
+  T.noteTouch(typed, { type: 'input', isTrusted: true, target: field('dress_code') });
+  assert.equal(leaveOn(typed, 'skip'), 'skip', 'a keystroke then Skip went on without asking');
+  assert.equal(leaveOn(typed, 'next'), null, 'Next after a change that saved asks for nothing');
+  // …and the field REMOUNTED (a new element, the same name) is still the field they typed in.
+  assert.ok(T.fieldTouched(typed.fields, field('dress_code')), 'a remounted field lost its touch');
+  assert.ok(!T.fieldTouched(typed.fields, field('other')));
+
+  // A CUSTOM PICKER: the one dropdown — its list portalled to <body>, outside the
+  // step — belongs to the button that opened it, which IS in the step.
+  const trigger = { tagName: 'BUTTON', closest: () => null };
+  const doc = { querySelector: (sel: string) => (sel === '[aria-controls="pick-1"]' ? trigger : null) };
+  const option = {
+    tagName: 'BUTTON',
+    closest: (sel: string) => (sel.includes('listbox') ? { getAttribute: () => 'pick-1' } : sel.includes('role="option"') ? {} : null),
+  };
+  assert.equal(T.touchOrigin(option, doc), trigger, 'a pick in the portalled list is not its button\'s');
+  assert.equal(T.touchOrigin(trigger, doc), trigger);
+  const picked = T.newStepTouch();
+  T.noteTouch(picked, { type: 'click', isTrusted: true, target: option });
+  assert.equal(leaveOn(picked, 'skip'), 'skip', 'a pick in the one dropdown then Skip went on without asking');
+  // A picker's own announcement — a real event.
+  const told = T.newStepTouch();
+  const button = new EventTarget();
+  button.addEventListener(T.MAKER_TOUCH_EVENT, (e) => T.noteTouch(told, e));
+  T.announceMakerTouch(button);
+  assert.equal(leaveOn(told, 'skip'), 'skip');
+  // A segmented control / switch: a trusted press on a choice.
+  const pressed = T.newStepTouch();
+  T.noteTouch(pressed, { type: 'click', isTrusted: true, target: { tagName: 'BUTTON', closest: (sel: string) => (sel.includes('aria-pressed') ? {} : null) } });
+  assert.equal(leaveOn(pressed, 'skip'), 'skip', 'a segmented pick then Skip went on without asking');
+  // A field still unsaved asks on every way out.
+  assert.equal(leaveOn(opened, 'next', true), 'unsaved');
+
+  // The foot says which question it is asking.
+  const { GuideFoot } = await import(`../${L}/details-guide`);
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const noop = () => {};
+  const foot = (warning: 'skip' | 'unsaved' | null) =>
+    renderToStaticMarkup(React.createElement(GuideFoot, { onBack: null, onSkip: noop, onNext: noop, warning, onKeepEditing: noop, onGoAnyway: noop }));
+  assert.match(foot('skip'), /data-details-guide-unsaved="skip"[\s\S]*You changed something on this step\.[\s\S]*Skip anyway/);
+  assert.match(foot('unsaved'), /isn’t saved yet[\s\S]*Go on without saving/);
+  assert.doesNotMatch(foot(null), /data-details-guide-unsaved/);
+
+  // Wired: the workspace hears the pickers, and Skip says it is Skip.
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /const kinds = \['input', 'change', 'click', MAKER_TOUCH_EVENT\];/, 'the step no longer hears the custom pickers');
+  assert.equal(ws.match(/move\(skipScreen\(plan!?, at\), 'skip'\)/g)?.length, 3, 'a Skip button no longer says it is Skip');
+  assert.match(ws, /leaveAsks\(\{ via, unsaved: hasUnsavedEdits\(/);
+  assert.match(ws, /const t = touchOrigin\(e\.target, document\);/, 'a pick in the one dropdown\'s portalled list is outside the step again');
+  // The one dropdown's list names its button while open — what `touchOrigin` follows.
+  const pm = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
+  assert.match(pm, /aria-controls=\{open \? listId : undefined\}/);
+  assert.match(pm, /id=\{listId\}\s*role="listbox"/);
 });

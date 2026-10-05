@@ -308,21 +308,27 @@ export function GuideFoot({
   onBack: (() => void) | null;
   onSkip: (() => void) | null;
   onNext: (() => void) | null;
-  /** Next found typing here that is not saved yet. */
-  warning: boolean;
+  /**
+   * Leaving asked first (`leaveAsks`, lib/guided-step-touch.ts): `unsaved` — a
+   * field here differs from what it was drawn with; `skip` — Skip, from a step
+   * the couple changed something on. Null: nothing to ask.
+   */
+  warning: 'unsaved' | 'skip' | null;
   onKeepEditing: () => void;
   onGoAnyway: () => void;
 }) {
   return (
     <div data-details-guide-foot="" className="shrink-0 border-t border-ink/10 bg-cream px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 sm:px-4">
       {warning ? (
-        <div role="alert" data-details-guide-unsaved="" className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-terracotta-50 px-3 py-2 text-[13px] text-terracotta-800">
-          <span className="basis-full">You changed something here that isn’t saved yet.</span>
+        <div role="alert" data-details-guide-unsaved={warning} className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-terracotta-50 px-3 py-2 text-[13px] text-terracotta-800">
+          <span className="basis-full">
+            {warning === 'skip' ? 'You changed something on this step.' : 'You changed something here that isn’t saved yet.'}
+          </span>
           <button type="button" onClick={onKeepEditing} className="sn-press min-h-10 rounded-full bg-white px-3 font-semibold text-ink">
             Keep editing
           </button>
           <button type="button" onClick={onGoAnyway} className="sn-press min-h-10 rounded-full px-3 font-semibold underline underline-offset-2">
-            Go on without saving
+            {warning === 'skip' ? 'Skip anyway' : 'Go on without saving'}
           </button>
         </div>
       ) : null}

@@ -49,5 +49,5 @@ test('a step’s HALF SHEET holds the step ▾, the step’s heading, its field 
   // The unsaved-typing question is asked at the step's own foot, in its sheet — never out of sight.
   const move = WORKSPACE.slice(WORKSPACE.indexOf('const move = '), WORKSPACE.indexOf('const pickStage = '));
   assert.match(move, /setUnsavedTo\(to\);\s*return;/);
-  assert.match(sheet, /warning=\{unsavedTo !== null\}/, 'the unsaved question is asked where a phone cannot see it');
+  assert.match(sheet, /warning=\{unsavedTo !== null \? askKind : null\}/, 'the unsaved question is asked where a phone cannot see it');
 });

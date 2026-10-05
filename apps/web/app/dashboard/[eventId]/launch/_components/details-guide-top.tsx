@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { fieldTouched } from '@/lib/guided-step-touch';
 import { PickMenu, type PickOption } from '../../website/editor/_components/pick-menu';
 import {
   progressLabel,
@@ -171,7 +172,7 @@ export function WhatsLeftDoor({ label, onOpen }: { label: string; onOpen: () => 
  * a false alarm); a <select> whose drawn choice is unknown is skipped for the
  * same reason. It only ever ASKS — "Go on without saving" is always there.
  */
-export function hasUnsavedEdits(scopes: ReadonlyArray<Element | null>, touched?: ReadonlySet<Element>): boolean {
+export function hasUnsavedEdits(scopes: ReadonlyArray<Element | null>, touched?: ReadonlySet<unknown>): boolean {
   for (const scope of scopes) {
     if (!scope) continue;
     for (const el of scope.querySelectorAll('input, textarea, select')) {
@@ -179,7 +180,9 @@ export function hasUnsavedEdits(scopes: ReadonlyArray<Element | null>, touched?:
          "You changed something…" though nothing was touched — a field a tool
          fills on its own after it draws). Only a field the couple typed in or
          picked in, on this step, can be unsaved. */
-      if (touched && !touched.has(el)) continue;
+      // A field is the couple's by element OR by name — a field that remounted
+      // after their first keystroke is still the field they typed in.
+      if (touched && !fieldTouched(touched, el)) continue;
       if (el instanceof HTMLInputElement) {
         if (el.disabled || ['hidden', 'submit', 'button', 'reset', 'file', 'image'].includes(el.type)) continue;
         if (el.type === 'checkbox' || el.type === 'radio') {

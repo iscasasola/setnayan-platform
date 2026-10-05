@@ -289,10 +289,28 @@ test('(10) one count: Event Details\' number IS the Maker\'s number — totals t
   assert.match(home, /readGuidedPlan\(/, 'Event Details counts some other way');
 });
 
-test('(11) Parents & hosts opens on what is in place — a host before "Add a parent" — so the step agrees with its ✓ set', () => {
+test('(11) Parents & hosts shows the people the INVITATION names — never a dashboard co-host account, and says so when there are none', async () => {
   const people = read(`${L}/details-people.tsx`);
-  assert.match(people, /const first = parentsOffered \? \(parents\[0\]\?\.key \?\? hosts\[0\]\?\.key \?\? ADD\)/, 'the step opens on "Add a parent" beside a host already in place');
   assert.doesNotMatch(people, /A host’s number comes from their own account/, 'a caption came back under the host');
+  // A collaborator account (maria-and-jose: one "wedding planner external", 0 parents) is never a row where parents print…
+  const parts = read(`${L}/details-your-event-parts.tsx`);
+  assert.match(parts, /const hostPieces: HostPiece\[\] = offered \? \[\] : hosts\.map\(/, 'a co-host account is listed among the invitation\'s hosts again');
+  // …and never counts the step "set".
+  const facts = read(`${L}/details-your-event-facts.ts`);
+  assert.match(facts, /hostCount: parentsOffered\(kind\) \? 0 : hostCount,/, 'a co-host account counts the Parents step done again');
+  const { yourEventDone } = await import('./details-your-event');
+  const base = { names: ['a', 'b'] as const, date: { value: null, dayPrecise: false }, venueCount: 0, marchLines: 0 };
+  assert.equal(yourEventDone('parents', { ...base, parentCount: 0, hostCount: 0 }), false);
+  assert.equal(yourEventDone('parents', { ...base, parentCount: 1, hostCount: 0 }), true);
+  // maria-and-jose's shape, drawn: no parents, the co-host filtered out → the step says so, with the add right there.
+  const { PeopleControls, PeoplePieces } = await import(`../${L}/details-people`);
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const controls = renderToStaticMarkup(
+    React.createElement(PeopleControls, { parents: [], hosts: [], parentsOffered: true, cards: {}, add: React.createElement('i', { 'data-stub-add': '' }) }),
+  );
+  assert.match(controls, /data-people-none="">No parents on the invitation yet\.<\/p><i data-stub-add=""/, 'with no parents the step does not say so, or the add is not right there');
+  const pieces = renderToStaticMarkup(React.createElement(PeoplePieces, { parents: [], hosts: [], parentsOffered: true }));
+  assert.doesNotMatch(pieces, /Host|@/, 'an empty Hosts heading (or an email) shows in the step');
 });
 
 test('(12) opening a step is never dirty; the Mood Board steps show the board, with no note and no downloads in the sheet', () => {

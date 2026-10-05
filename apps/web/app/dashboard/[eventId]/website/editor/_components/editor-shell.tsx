@@ -81,6 +81,7 @@ import {
 } from '@/lib/maker-selection';
 import { PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
 import { makerTicketSrc } from '@/lib/pass-design-save';
+import { TicketPlaceholder } from '@/app/_components/ticket-placeholder';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
   HUB_ELEMENT_LABEL,
@@ -489,6 +490,8 @@ export function MakerWork({
   const elementRef = useRef<ElementTarget | null>(null);
   elementRef.current = elementTarget;
   const elementEditingOn = Boolean(elementEditing);
+  const elementEditingRef = useRef(elementEditingOn);
+  elementEditingRef.current = elementEditingOn;
   const selectionKey = canvasKeyOfSelection(selection, scenes);
   useEffect(() => {
     if (elementRef.current && elementRef.current.key !== selectionKey) setElementTarget(null);
@@ -500,6 +503,8 @@ export function MakerWork({
      on a desktop it selects the scene too (on a phone nothing rises over the
      keyboard). */
   const [typeStart, setTypeStart] = useState<TypeStart | null>(null);
+  /** 🧰 This typing's rows sit inside the part's tools (a phone), never floating. */
+  const [typeInline, setTypeInline] = useState(false);
   const typeRef = useRef<TypeStart | null>(null);
   typeRef.current = typeStart;
   useEffect(() => {
@@ -509,11 +514,23 @@ export function MakerWork({
       if (d?.source === 'setnayan-site' && d.t === 'edit') setTypeStart(null);
       const start = readTypeStart(event.data, event.source, Date.now());
       if (!start) return;
+      /* 🧰 A PHONE: ONE tap on a part opens ITS tools in the lower third — the
+         navigator folds left, Text · Motion · Arrange — and the words are still
+         typed right there on the page (owner 2026-10-05, the lower third
+         approved). The type bar's rows sit inside the Text tools; nothing floats. */
+      if (window.innerWidth < 1024 && elementEditingRef.current && isHubElementKey(start.el)) {
+        sheetDo({ t: 'tapPart', target: { key: start.key, widgetType: start.key === 'f:hero' ? 'hero' : start.key.slice(2), el: start.el, range: null } });
+        sheetDo({ t: 'section', section: 'text' });
+        setTypeInline(true);
+        setTypeStart(start);
+        return;
+      }
       setElementTarget(null);
       if (window.innerWidth >= 1024) {
         const picked = selectionForCanvasKey(start.key, scenes);
         if (picked) select?.(picked);
       }
+      setTypeInline(false);
       setTypeStart(start);
     };
     window.addEventListener('message', onType);
@@ -523,6 +540,17 @@ export function MakerWork({
     (typeStart?.source as Window | null)?.postMessage({ source: 'setnayan-editor', t: 'typeStop' }, window.location.origin);
     setTypeStart(null);
   };
+  /* 🧰 …and on a phone the typing lives as long as THAT part's tools: × , a tap
+     off the part, ‹ › to another part or a tile ends it too. */
+  const endTypingRef = useRef(endTyping);
+  endTypingRef.current = endTyping;
+  useEffect(() => {
+    const t = typeRef.current;
+    if (!t || window.innerWidth >= 1024) return;
+    if (!elementTarget || elementTarget.key !== t.key || elementTarget.el !== t.el) endTypingRef.current();
+  }, [elementTarget]);
+  /* The Text tools' slot the phone's type rows are drawn into (`TypeBar` `inline`). */
+  const [typeSlot, setTypeSlot] = useState<HTMLElement | null>(null);
   /* 📱 THE PAGE GOES BACK WHEN THE LAST EDIT CLOSES (`canvas-bring-up.ts`). A
      part brought up for the keyboard or its sheet is put back by ONE rule, here,
      whichever way the edit ends — Done, ✕, Escape, a tap outside, a tile, Page ▾,
@@ -759,6 +787,8 @@ export function MakerWork({
   /* Each pick tries again — a failure is said for the look it happened to, never carried over. */
   useEffect(() => setTicketFailed(null), [ticketDesign]);
   const ticketOn = selection?.kind === 'row' && selection.key === `f:${MAKER_FIXED_TICKET}`;
+  /** The ticket picture that has LOADED (its address) — until then a phone shows its placeholder. */
+  const [ticketLoaded, setTicketLoaded] = useState<string | null>(null);
   /* 🎨 LOGO · HERO · REVEAL LIVE IN DETAILS (Details part 3, DECISION_LOG
      2026-09-28 "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"). This page
      still BUILDS them — every read and bound action they always had — and
@@ -1048,6 +1078,18 @@ export function MakerWork({
         postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
         // 🖥📱 Both: the other pane brings the same scene into view.
         postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: data.key }, event.source);
+        return;
+      }
+      /* 🪪 THE COUPLE'S MARK OPENS THE LOGO MAKER, in place (owner 2026-10-05,
+         live: "clicking the logo does not open the Logo Maker") — Details' Logo,
+         its studio on the page and its panels in the tools (a phone's lower
+         third, a desktop's right column). Its size and motion stay one ‹ › away
+         from the other parts. Nothing is written by opening it. */
+      if (data.key === 'f:hero' && data.el === 'mark' && select) {
+        setElementTarget(null);
+        postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
+        // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
+        select({ kind: 'tool', key: 'logo' });
         return;
       }
       const moment = (data as { moment?: unknown }).moment;
@@ -1684,6 +1726,26 @@ export function MakerWork({
   /* ↕ A drop the server has not drawn yet is shown AS DROPPED (`lib/maker-reorder.ts`). */
   const override = orderOverride && orderOverride.stage === stage ? orderOverride.order : null;
   const list = optimisticStageList(stageLists[stage], override);
+  /* 🎟 THE TICKET IS ASKED FOR BEFORE IT IS SHOWN (owner 2026-10-05: ~8 s of an
+     empty page). The server draws it on demand, so on a phone the picture is
+     requested once the stage that holds the Guest's ticket scene is on screen —
+     the Maker opened on it, or the stage picked — quietly, after the page's
+     own load; the scene then reads it from the browser's cache (60 s, then
+     stale-while-revalidate). One ask per picture per visit. */
+  const ticketInStage = list.shown.some((t) => t.kind === 'fixed' && t.fixed === MAKER_FIXED_TICKET);
+  const ticketAsked = useRef(new Set<string>());
+  useEffect(() => {
+    if (!ticketInStage || !canvasSrc || window.innerWidth >= 1024) return;
+    const src = makerTicketSrc(eventId, ticketDesign);
+    if (ticketAsked.current.has(src)) return;
+    const id = window.setTimeout(() => {
+      ticketAsked.current.add(src);
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = src;
+    }, 1200);
+    return () => window.clearTimeout(id);
+  }, [ticketInStage, canvasSrc, eventId, ticketDesign]);
   /* ↕ The STAGE's whole list — what a move on this stage swaps in. */
   const fullOrder = override ?? fullOrders[stage];
   const sceneById = new Map(scenes.map((s) => [s.id, s]));
@@ -1949,7 +2011,11 @@ export function MakerWork({
   useEffect(() => {
     if (!pageJump || pageJump.stage !== stage) return;
     if (jumpWaits.current?.n !== pageJump.n) jumpWaits.current = { n: pageJump.n, bar: pageJump.sameStage ? null : canvasBar };
-    if (!canvasBar || canvasBar === jumpWaits.current.bar) return;
+    /* 📄 A page of THIS stage jumps now — its canvas is already loaded, and a
+       canvas that draws no bar (the menu off, the lab's stand-in) handed none to
+       wait for: the tile did nothing (owner, live 2026-10-05). Another stage
+       waits for ITS canvas's bar. */
+    if (!pageJump.sameStage && (!canvasBar || canvasBar === jumpWaits.current.bar)) return;
     const page = pagesRef.current.find((p) => p.key === pageJump.key);
     clearPageJump?.();
     if (page) jumpRef.current(page);
@@ -2600,21 +2666,40 @@ export function MakerWork({
         {ticketOn && canvasSrc ? (
           <div
             data-maker-ticket-view={ticketDesign}
-            className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4"
+            /* A phone sizes the ticket by whichever side binds (`cq*` units), so its box is always 3:4. */
+            className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4 max-lg:[container-type:size]"
           >
             {ticketFailed === ticketDesign ? (
               <p role="alert" data-maker-ticket-failed="" className="m-auto max-w-xs px-4 text-center text-sm text-terracotta-700">
                 The ticket could not be drawn just now. Nothing was changed — please try again in a moment.
               </p>
             ) : (
-              /* eslint-disable-next-line @next/next/no-img-element -- a same-origin SVG from our print route */
-              <img
-                key={ticketDesign}
-                src={makerTicketSrc(eventId, ticketDesign)}
-                alt={`${PASS_CARD_DESIGN_LABEL[ticketDesign]} ${PASS_CARD_WORDS.noun}`}
-                onError={() => setTicketFailed(ticketDesign)}
-                className="h-auto max-h-full w-auto max-w-full rounded-md bg-white object-contain shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] lg:max-h-[calc(100%-2rem)]"
-              />
+              /* 🎟 NEVER BLANK WHITE (owner 2026-10-05, live at 375: ~8 s of an
+                 empty page before the ticket drew). On a phone the ticket's own
+                 3:4 shape — a QR mark — holds the page at once, UNDER the
+                 picture, which fades in once it has LOADED (the guest card's
+                 placeholder, one component). The desktop draws as it did. */
+              <span data-maker-ticket-box="" className="relative aspect-[3/4] w-[min(100cqw,75cqh)] lg:contents">
+                <span className="lg:hidden">
+                  <TicketPlaceholder name={null} waiting={ticketLoaded !== makerTicketSrc(eventId, ticketDesign)} size="stage" />
+                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element -- a same-origin SVG from our print route */}
+                <img
+                  key={ticketDesign}
+                  ref={(img) => {
+                    // A picture already in the cache can finish before onLoad is attached.
+                    if (img?.complete && img.naturalWidth > 0) setTicketLoaded(img.getAttribute('src'));
+                  }}
+                  src={makerTicketSrc(eventId, ticketDesign)}
+                  alt={`${PASS_CARD_DESIGN_LABEL[ticketDesign]} ${PASS_CARD_WORDS.noun}`}
+                  onLoad={(e) => setTicketLoaded(e.currentTarget.getAttribute('src'))}
+                  onError={() => setTicketFailed(ticketDesign)}
+                  data-maker-ticket-img={ticketLoaded === makerTicketSrc(eventId, ticketDesign) ? 'loaded' : 'loading'}
+                  className={`absolute inset-0 h-full w-full rounded-md bg-white object-contain shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-opacity duration-300 motion-reduce:transition-none lg:static lg:h-auto lg:max-h-[calc(100%-2rem)] lg:w-auto lg:max-w-full lg:opacity-100 ${
+                    ticketLoaded === makerTicketSrc(eventId, ticketDesign) ? 'opacity-100' : 'opacity-0'
+                  }`}
+                />
+              </span>
             )}
           </div>
         ) : null}
@@ -2692,6 +2777,7 @@ export function MakerWork({
             scheduleSnapshots(600);
           }}
           onClose={endTyping}
+          inline={typeInline ? { slot: typeSlot } : null}
           onStyle={() => {
             const { key, el } = typeStart;
             endTyping();
@@ -2719,9 +2805,11 @@ export function MakerWork({
           /* 🎞 A Post Event scene's part: saved into the story's looks, and its
              own words edited right here (no "Edit in … ↗"). */
           {...(() => {
+            /* 🧰 A phone typing this part: the type rows' place, at the top of its Text tools. */
+            const typeRows = typeInline && typeStart ? <div ref={setTypeSlot} data-type-slot="" /> : null;
             const peScene = postEventSceneOfScope(elementTarget.widgetType);
             const pe = navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent : null;
-            if (!peScene || !pe) return {};
+            if (!peScene || !pe) return typeRows ? { wordsSlot: typeRows } : {};
             // 🎨 The style it is drawn in, resolved on the server (`postEvent.styles`).
             const drawn = pe.styles[peScene] ?? null;
             const words = drawn ? postEventWordParts(peScene, drawn) : [];

@@ -204,7 +204,7 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
   const shellSrc = read(`${L}/maker-shell.tsx`);
   // Page ▾'s stages → the menu's Stages; its pages → a stage's PARTS (`pickPage`).
   assert.match(shellSrc, /const ltStages = MAKER_PAGE_STAGES\.filter/);
-  assert.match(shellSrc, /onPick: \(\) => pickPage\(o\.key\),/, 'a stage’s pages are not its parts');
+  assert.match(shellSrc, /\(\) => pickPage\(o\.key\),/, 'a stage’s pages are not its parts');
   // Look → Theme · Event Details → Details (the same doors, on the navigator).
   assert.match(shellSrc, /if \(key === 'theme'\) return openDoorOnNavigator\('look'\);/);
   assert.match(shellSrc, /if \(key === 'details'\) return openDoorOnNavigator\('details'\);/);

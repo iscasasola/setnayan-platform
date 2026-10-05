@@ -69,25 +69,28 @@ export function touchOrigin(target: unknown, doc: Doc | null): unknown {
   return doc.querySelector(`[aria-controls="${id}"]`) ?? target;
 }
 
-/** The mark beside a control that writes LIVE (`HubSavesImmediately` — "Guests see this right away"). */
-export const LIVE_MARK = '[data-hub-saves-immediately]';
+/**
+ * The opt-in a control that WRITES LIVE carries — the Wedding March order and
+ * Reply by (owner 2026-10-05: they stay instant, and say "Guests see this right
+ * away"). ON THE CONTROL'S OWN BLOCK, never inferred from the "Guests see this
+ * right away" mark: that mark also sits beside forms with a Save of their own
+ * (the parent add, the words blocks, the print menu), and typing a parent's name
+ * there and pressing Skip would lose it with no question (review 2026-10-05).
+ */
+export const WRITES_LIVE_ATTR = 'data-writes-live';
 
-type NodeLike = { parentElement?: NodeLike | null; querySelector?: (sel: string) => unknown };
+type NodeLike = { parentElement?: NodeLike | null; hasAttribute?: (name: string) => boolean };
 
 /**
- * Does this touch land on a control that WRITES LIVE — the Wedding March order,
- * Reply by (owner 2026-10-05: they stay instant, and say "Guests see this right
- * away")? Such a change is already saved the moment it is made, so it never
- * makes the step "changed" — asking "Skip anyway?" after it is the false
- * warning the owner already rejected. A control writes live when the block it
- * sits in carries the live mark: the nearest ancestor BELOW the step's own root
- * that holds a `LIVE_MARK` (the step's root itself never counts — a step that
- * mixes a live control and a drafted field keeps the drafted one dirty-able).
+ * Does this touch land on a control that writes live? Such a change is saved the
+ * moment it is made, so it never makes the step "changed" — asking "Skip
+ * anyway?" after it is the false warning the owner already rejected. True only
+ * inside a block that opted in (`WRITES_LIVE_ATTR`) below the step's own root.
  */
 export function writesLive(target: unknown, stepRoot: unknown): boolean {
   let el = target as NodeLike | null;
   while (el && el !== stepRoot) {
-    if (typeof el.querySelector === 'function' && el.querySelector(LIVE_MARK)) return true;
+    if (typeof el.hasAttribute === 'function' && el.hasAttribute(WRITES_LIVE_ATTR)) return true;
     el = el.parentElement ?? null;
   }
   return false;

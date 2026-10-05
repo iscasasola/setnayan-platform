@@ -515,23 +515,29 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
 
   // ⚡ AN INSTANT-SAVE CONTROL NEVER MAKES THE STEP "CHANGED" (owner: the March
   // order and Reply by write live and say "Guests see this right away").
-  // The step's tree: its root, a live block (the mark + the March's arrows), a drafted block.
-  const mark = {};
-  const root: Record<string, unknown> = { querySelector: (sel: string) => (sel === T.LIVE_MARK ? mark : null), parentElement: null };
-  const liveBlock = { querySelector: (sel: string) => (sel === T.LIVE_MARK ? mark : null), parentElement: root };
-  const marchArrow = { tagName: 'BUTTON', querySelector: () => null, parentElement: liveBlock, closest: (sel: string) => (sel.includes('aria-pressed') ? {} : null) };
-  const draftedBlock = { querySelector: () => null, parentElement: root };
-  const draftedField = { tagName: 'INPUT', name: 'special_message', id: '', querySelector: () => null, parentElement: draftedBlock };
+  // The step's tree: its root; the March's block (opted in); the parent add form, which ALSO
+  // carries the "Guests see this right away" mark beside its own Save — but did not opt in.
+  const el = (attrs: string[], parent: unknown, extra: Record<string, unknown> = {}) => ({
+    hasAttribute: (n: string) => attrs.includes(n),
+    parentElement: parent,
+    ...extra,
+  });
+  const root = el([], null);
+  const liveBlock = el([T.WRITES_LIVE_ATTR], root);
+  const marchArrow = el([], liveBlock, { tagName: 'BUTTON', closest: (sel: string) => (sel.includes('aria-pressed') ? {} : null) });
+  const addForm = el(['data-hub-saves-immediately'], root);
+  const parentName = el([], addForm, { tagName: 'INPUT', name: 'first_name', id: '' });
   const march = T.newStepTouch();
   T.noteStepTouch(march, { type: 'click', isTrusted: true, target: marchArrow }, marchArrow, root);
   assert.equal(leaveOn(march, 'skip'), null, 'moving the Wedding March then Skip asked "Skip anyway?" — it is already saved');
-  const drafted = T.newStepTouch();
-  T.noteStepTouch(drafted, { type: 'input', isTrusted: true, target: draftedField }, draftedField, root);
-  assert.equal(leaveOn(drafted, 'skip'), 'skip', 'a drafted field changed, then Skip went on without asking');
-  // The step's own root holding a live mark does not make every field in it live.
-  assert.equal(T.writesLive(draftedField, root), false);
-  T.noteStepTouch(drafted, { type: 'input', isTrusted: true, target: draftedField }, draftedField, null);
+  const typed2 = T.newStepTouch();
+  T.noteStepTouch(typed2, { type: 'input', isTrusted: true, target: parentName }, parentName, root);
+  assert.equal(leaveOn(typed2, 'skip'), 'skip', 'a parent\'s name typed into the add form, then Skip, went on with no question — the name is lost');
+  assert.equal(T.writesLive(parentName, root), false, 'the "Guests see this right away" mark exempts a form with its own Save');
   assert.equal(T.writesLive(marchArrow, root), true);
+  // Only the two instant writers opt in.
+  const optedIn = ['details-march.tsx', 'maker-rsvp-ask.tsx'].map((f) => (read(`${L}/${f}`).match(/data-writes-live=""/g) ?? []).length);
+  assert.deepEqual(optedIn, [2, 1], `the live opt-in moved: ${optedIn}`);
 
   // The foot says which question it is asking.
   const { GuideFoot } = await import(`../${L}/details-guide`);
@@ -550,9 +556,10 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   assert.match(ws, /leaveAsks\(\{ via, unsaved: hasUnsavedEdits\(/);
   assert.match(ws, /const t = touchOrigin\(e\.target, document\);/, 'a pick in the one dropdown\'s portalled list is outside the step again');
   assert.match(ws, /noteStepTouch\(touchRef\.current, e, t, stepScopesOf\(rootRef\.current, items\)\.find\(\(sc\) => sc\.contains\(t\)\) \?\? null\);/, 'the step notes touches some other way — a live control can mark it changed again');
-  // The two instant-save steps carry the live mark the rule keys on.
-  for (const f of [`${L}/details-march.tsx`, `${L}/maker-rsvp-ask.tsx`]) assert.match(read(f), /<HubSavesImmediately \/>/);
-  assert.match(read('app/dashboard/[eventId]/website/_components/hub-draft-field.tsx'), /data-hub-saves-immediately=""/);
+  const touchSrc = read('lib/guided-step-touch.ts');
+  const live = touchSrc.slice(touchSrc.indexOf('export function writesLive'), touchSrc.indexOf('/** The couple\'s own change?'));
+  assert.ok(live.includes('WRITES_LIVE_ATTR'), 'anti-vacuity: writesLive not found');
+  assert.doesNotMatch(live, /querySelector|saves-immediately/, 'the live exemption is inferred from a mark again, not the control\'s own opt-in');
   // The one dropdown's list names its button while open — what `touchOrigin` follows.
   const pm = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
   assert.match(pm, /aria-controls=\{open \? listId : undefined\}/);

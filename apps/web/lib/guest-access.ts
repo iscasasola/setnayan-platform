@@ -43,6 +43,23 @@ export function accessWordFor(state: Pick<GuestAccessState, 'level' | 'lock'>): 
   return state.lock === 'creator' ? CREATOR_WORD : ACCESS_LEVEL_LABEL[state.level];
 }
 
+/**
+ * WHICH GUEST ROWS ARE THE CREATOR'S OWN — two ways, one answer (owner
+ * 2026-10-04): the row the creator's MEMBERSHIP holds (`event_members.guest_id`
+ * — the onboarding link, the backfill, "This is me"), or the row whose person
+ * record the creator's account claimed (the older, email-derived signal).
+ * Either alone is enough; a name-only row linked by "This is me" has no person
+ * of theirs, so reading only the person would call the creator a Co-host.
+ */
+export function creatorGuestIds(input: {
+  creators: ReadonlyArray<{ user_id: string; guest_id: string | null }>;
+  rowsOfCreatorPersons: ReadonlyArray<string>;
+}): Set<string> {
+  const out = new Set<string>(input.rowsOfCreatorPersons);
+  for (const c of input.creators) if (c.guest_id) out.add(c.guest_id);
+  return out;
+}
+
 /** event_moderators.role_subtype written for each level. */
 export const ACCESS_SEAT_KIND: Readonly<Record<Exclude<GuestAccessLevel, 'none'>, string>> = {
   co_host: 'co_host',

@@ -20,7 +20,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { creatorCoupleRowId, offersThisIsMe } from './creator-couple-row';
-import { accessTag, accessWordFor, accessNote, guestAccessState } from './guest-access';
+import { accessTag, accessWordFor, accessNote, creatorGuestIds, guestAccessState } from './guest-access';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...p: string[]) => stripComments(readFileSync(join(WEB, ...p), 'utf8'));
@@ -36,7 +36,7 @@ test('① the creator holds the row they said they are — and nobody else is gu
 
 test('② "This is me" is offered only to a host holding no row, on a free couple row', () => {
   const yes = {
-    viewerIsHost: true,
+    viewerIsCreator: true,
     viewerHoldsARow: false,
     rowIsCouple: true,
     rowIsLinked: false,
@@ -45,7 +45,7 @@ test('② "This is me" is offered only to a host holding no row, on a free coupl
   };
   assert.equal(offersThisIsMe(yes), true);
   for (const [k, v] of [
-    ['viewerIsHost', false],
+    ['viewerIsCreator', false],
     ['viewerHoldsARow', true],
     ['rowIsCouple', false],
     ['rowIsLinked', true],
@@ -68,6 +68,24 @@ test('③ the creator reads "Host", a chosen co-host reads "Co-host"', () => {
   });
   assert.equal(accessWordFor(cohost), 'Co-host');
   assert.equal(accessTag(cohost), 'Co-host');
+});
+
+test('③b the creator\'s row is the one their MEMBERSHIP holds, even with no person of theirs', () => {
+  // A name-only row linked by "This is me": no person record of theirs.
+  const viaMembership = creatorGuestIds({ creators: [{ user_id: 'u1', guest_id: 'g-row' }], rowsOfCreatorPersons: [] });
+  assert.ok(viaMembership.has('g-row'), 'a membership-only link is not recognised as the creator\'s row');
+  const state = guestAccessState({ seat: null, guestRole: 'groom', isCreator: viaMembership.has('g-row') });
+  assert.equal(state.lock, 'creator');
+  assert.equal(accessWordFor(state), 'Host');
+  // The older person signal still counts; an unlinked creator adds nothing.
+  const viaPerson = creatorGuestIds({ creators: [{ user_id: 'u1', guest_id: null }], rowsOfCreatorPersons: ['p-row'] });
+  assert.deepEqual([...viaPerson], ['p-row']);
+  // Both readers of "is this the creator's row" ask the one rule.
+  const server = read('lib', 'guest-access.server.ts');
+  assert.match(server, /select\('user_id, guest_id'\)/, 'loadGuestAccessMap no longer reads the creator\'s linked row');
+  assert.match(server, /creatorGuestIds\(/, 'loadGuestAccessMap decides the creator\'s row by its own rule again');
+  const setter = read('app', 'dashboard', '[eventId]', 'guests', '[guestId]', 'access-actions.ts');
+  assert.match(setter, /creatorGuestIds\(/, 'setGuestAccess decides the creator\'s row by its own rule again');
 });
 
 test('④ wiring: onboarding links the creator, the card offers one "This is me", every word goes through accessWordFor', () => {
@@ -109,6 +127,13 @@ test('④ wiring: onboarding links the creator, the card offers one "This is me"
   }
   const people = read('lib', 'people-with-access.ts');
   assert.match(people, /roleWord: h\.isCreator \? CREATOR_WORD : 'Co-host'/, 'People with access calls the creator a Co-host again');
+  // A wrong "This is me" is undoable: Unlink on the creator's own row lets go
+  // of the row and KEEPS the membership (never deletes the creator's event).
+  const unlink = read('lib', 'seat-unlink.ts');
+  const creatorBranch = unlink.slice(unlink.indexOf("binding.joined_via === 'created_event'"));
+  assert.ok(unlink.includes("binding.joined_via === 'created_event'"), 'Unlink no longer recognises the creator\'s own row');
+  assert.match(creatorBranch.slice(0, 500), /\.update\(\{ guest_id: null, role: null \}\)/, 'Unlink on the creator\'s row no longer just lets go of the row');
+  assert.doesNotMatch(creatorBranch.slice(0, 500), /\.delete\(\)/, 'Unlink deletes the creator\'s membership');
   const dash = read('app', 'dashboard', '[eventId]', '_components', 'event-dashboard.tsx');
   assert.match(dash, /creatorIds\.has\(m\.user_id\) \? CREATOR_WORD : modRoleLabel\(m\)/, 'the Hosts card calls the creator by their seat word again');
 });

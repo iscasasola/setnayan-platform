@@ -23,8 +23,11 @@
 --       nothing to do.
 --
 --   2 · "THIS IS ME" (the in-app fallback). `claim_my_couple_row(event, guest)`
---       — a host (a `couple` member of the event) whose own membership holds
---       no row attaches it to an unlinked bride / groom row of that event.
+--       — the event's CREATOR (a `couple` member with joined_via
+--       'created_event') whose own membership holds no row attaches it to an
+--       unlinked bride / groom row of that event. An invited co-host is
+--       refused: their own row reaches them through their invitation, and a
+--       co-host must never be able to take the bride's or groom's row.
 --       SECURITY DEFINER with every check explicit inside it; returns a word
 --       ('linked' or why not), never raises for a refusal.
 --
@@ -105,16 +108,17 @@ BEGIN
     RETURN 'not_signed_in';
   END IF;
 
-  -- A HOST of this event: a `couple` member. Their own membership must hold no
-  -- row yet — one account, one row.
+  -- The CREATOR of this event: a `couple` member who made it. Their own
+  -- membership must hold no row yet — one account, one row.
   SELECT em.id, em.guest_id INTO v_member_id, v_member_guest
   FROM public.event_members em
   WHERE em.event_id = p_event_id
     AND em.user_id = v_uid
     AND em.member_type = 'couple'
+    AND em.joined_via = 'created_event'
   FOR UPDATE;
   IF v_member_id IS NULL THEN
-    RETURN 'not_a_host';
+    RETURN 'not_the_creator';
   END IF;
   IF v_member_guest IS NOT NULL THEN
     IF v_member_guest = p_guest_id THEN
@@ -163,7 +167,8 @@ REVOKE ALL ON FUNCTION public.claim_my_couple_row(uuid, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.claim_my_couple_row(uuid, uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.claim_my_couple_row(uuid, uuid) IS
-  'Owner 2026-10-04: "This is me" on a host''s own unlinked couple row. A couple member of the event '
-  'whose membership holds no row attaches it to an unlinked, live bride/groom row of that event whose '
-  'person record is not another account''s. Returns linked | already_yours | you_hold_another_row | '
-  'not_signed_in | not_a_host | not_a_couple_row | already_linked | someone_else.';
+  'Owner 2026-10-04: "This is me" on the creator''s own unlinked couple row. The event''s creator '
+  '(couple member, joined_via created_event) whose membership holds no row attaches it to an unlinked, '
+  'live bride/groom row of that event whose person record is not another account''s. Returns linked | '
+  'already_yours | you_hold_another_row | not_signed_in | not_the_creator | not_a_couple_row | '
+  'already_linked | someone_else.';

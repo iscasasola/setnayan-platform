@@ -894,9 +894,9 @@ async function newGuestQr(eventId: string, guestId: string, requestedReturn: str
 }
 
 /**
- * 🪪 "THIS IS ME" (owner 2026-10-04) — a host attaches their own membership to
- * an unlinked bride / groom row. Every check lives in the database
- * (`claim_my_couple_row`: a couple member of this event, holding no row; a
+ * 🪪 "THIS IS ME" (owner 2026-10-04) — the event's creator attaches their own
+ * membership to an unlinked bride / groom row. Every check lives in the
+ * database (`claim_my_couple_row`: the creator of this event, holding no row; a
  * live couple row of this event nobody holds and no other account's person
  * owns), called AS the session so `auth.uid()` is the person who tapped.
  * A refusal comes back as a word and lands on the card as a sentence.
@@ -912,6 +912,8 @@ async function thisIsMe(eventId: string, guestId: string, requestedReturn: strin
   const word = typeof data === 'string' ? data : null;
   revalidatePath(`/dashboard/${eventId}/guests`);
   revalidatePath(`/dashboard/${eventId}/guests/${guestId}`);
+  revalidatePath(`/dashboard/${eventId}/details`);
+  revalidatePath(`/dashboard/${eventId}`);
   if (error || !word) {
     if (error) console.error('[supabase-error] guests/[guestId]/actions.ts · rpc:claim_my_couple_row', error);
     redirect(`${back}${join}error=this_is_me_failed`);
@@ -977,7 +979,7 @@ export async function releaseGuestClaim(
   // ▦ "New QR" from the card's ⋯ (owner 2026-09-30, frame E): rides this door
   // too (+0 exports) — rotate the key ONLY; the guest stays linked.
   if (formData.get('new_qr') === '1') return newGuestQr(eventId, guestId, String(formData.get('return_to') ?? ''));
-  // 🪪 "This is me" on a host's own unlinked bride / groom row (owner
+  // 🪪 "This is me" on the creator's own unlinked bride / groom row (owner
   // 2026-10-04) rides this door too (+0 exports) — claim_my_couple_row.
   if (formData.get('this_is_me') === '1') return thisIsMe(eventId, guestId, String(formData.get('return_to') ?? ''));
 

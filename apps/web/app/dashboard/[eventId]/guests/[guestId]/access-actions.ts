@@ -31,6 +31,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   ACCESS_SEAT_KIND,
+  creatorGuestIds,
   guestAccessState,
   type GuestAccessLevel,
   type GuestAccessState,
@@ -108,7 +109,7 @@ export async function setGuestAccess(
     first_name: string;
   };
 
-  const isCreator = await guestIsCreator(admin, eventId, g.person_id);
+  const isCreator = await guestIsCreator(admin, eventId, g.guest_id, g.person_id);
   if (isCreator) {
     return { ok: false, error: 'The person who created the event is always the host.' };
   }
@@ -212,24 +213,29 @@ export async function setGuestAccess(
   };
 }
 
-/** Is this guest row the event creator's own? (Their person record is theirs.) */
+/**
+ * Is this guest row the event creator's own? Their membership holds it, or its
+ * person record is theirs — `creatorGuestIds`, the one rule the card reads too.
+ */
 async function guestIsCreator(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
+  guestId: string,
   personId: string | null,
 ): Promise<boolean> {
-  if (!personId) return false;
   const [{ data: person }, { data: creators }] = await Promise.all([
-    admin.from('people').select('claimed_by_user_id').eq('person_id', personId).maybeSingle(),
+    personId
+      ? admin.from('people').select('claimed_by_user_id').eq('person_id', personId).maybeSingle()
+      : Promise.resolve({ data: null }),
     admin
       .from('event_members')
-      .select('user_id')
+      .select('user_id, guest_id')
       .eq('event_id', eventId)
       .eq('member_type', 'couple')
       .eq('joined_via', 'created_event'),
   ]);
+  const list = (creators ?? []) as { user_id: string; guest_id: string | null }[];
   const claimer = (person as { claimed_by_user_id: string | null } | null)?.claimed_by_user_id;
-  return Boolean(
-    claimer && (creators ?? []).some((c) => (c as { user_id: string }).user_id === claimer),
-  );
+  const personIsCreators = Boolean(claimer && list.some((c) => c.user_id === claimer));
+  return creatorGuestIds({ creators: list, rowsOfCreatorPersons: personIsCreators ? [guestId] : [] }).has(guestId);
 }

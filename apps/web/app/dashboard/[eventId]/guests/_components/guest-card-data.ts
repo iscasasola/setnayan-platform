@@ -93,7 +93,7 @@ export type GuestCardData = {
   /** The viewer is a co-host, so the Access dropdown is theirs to change. */
   canManageAccess: boolean;
   /**
-   * 🪪 "This is me" (owner 2026-10-04): the viewer is a host who holds no row,
+   * 🪪 "This is me" (owner 2026-10-04): the viewer CREATED the event and holds no row,
    * and this is a live, unlinked bride / groom row no other account owns.
    * False on any doubt — the database (`claim_my_couple_row`) re-checks it all.
    */
@@ -313,7 +313,7 @@ export async function loadGuestCard(
       if (!viewerId) return null;
       const { data: me, error: meError } = await supabase
         .from('event_members')
-        .select('member_type, guest_id')
+        .select('member_type, guest_id, joined_via')
         .eq('event_id', eventId)
         .eq('user_id', viewerId)
         .eq('member_type', 'couple')
@@ -323,7 +323,8 @@ export async function loadGuestCard(
       if (meError) {
         logQueryError('loadGuestCard.canManageAccess', meError, { eventId, guestId }, 'graceful_degrade');
       }
-      return me ? { holdsRow: Boolean((me as { guest_id: string | null }).guest_id) } : null;
+      const m = me as { guest_id: string | null; joined_via: string | null } | null;
+      return m ? { holdsRow: Boolean(m.guest_id), isCreator: m.joined_via === 'created_event' } : null;
     })(),
     guest.plus_one_of_guest_id
       ? (async () => {
@@ -344,9 +345,13 @@ export async function loadGuestCard(
 
   // Who holds this row — read only for the couple (another account's email) —
   // and, beside it (never behind it), 🪪 the two facts "This is me" needs, read
-  // only on a host's couple row while the host holds no row.
+  // only on a couple row while the viewer is the creator holding no row.
   const askThisIsMe =
-    viewerMembership !== null && !viewerMembership.holdsRow && isCouple && guest.passed_away !== true;
+    viewerMembership !== null &&
+    viewerMembership.isCreator &&
+    !viewerMembership.holdsRow &&
+    isCouple &&
+    guest.passed_away !== true;
   const [linkedAccount, rowFacts] = canManageAccess
     ? await Promise.all([
         readSeatAccount(eventId, guest.guest_id),
@@ -357,7 +362,7 @@ export async function loadGuestCard(
   const thisIsMe =
     rowFacts !== null &&
     offersThisIsMe({
-      viewerIsHost: canManageAccess,
+      viewerIsCreator: viewerMembership?.isCreator === true,
       viewerHoldsARow: viewerMembership?.holdsRow ?? true,
       rowIsCouple: isCouple,
       rowIsLinked: rowFacts.linked || linkedAccount !== null,

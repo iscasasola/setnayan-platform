@@ -200,6 +200,51 @@ test('backfill: a row whose person another account owns is never taken, even on 
   assert.equal((await heldBy(ev, owner))?.guest_id, null, 'another account\'s person → not the creator\'s row');
 });
 
+test('backfill: the claimed-person signal alone links (no email, a different name)', async () => {
+  const owner = await newUser('person-only@creator.test', 'Profile', 'Name');
+  const ev = await newEvent('person-only', owner);
+  const groom = await newGuest(ev, 'Nick', 'Name', 'groom');
+  await newGuest(ev, 'Other', 'Person', 'bride');
+  const p = await db.query<{ person_id: string }>(`SELECT person_id FROM public.people WHERE claimed_by_user_id = $1`, [owner]);
+  await db.query(`UPDATE public.guests SET person_id = $2 WHERE guest_id = $1`, [groom, p.rows[0]!.person_id]);
+  await runBackfill();
+  assert.equal((await heldBy(ev, owner))?.guest_id, groom, 'the row whose person the creator claimed is theirs');
+});
+
+test('backfill: a soft-deleted or passed-away row is never linked', async () => {
+  const owner = await newUser('gone@creator.test', 'Gone', 'Row');
+  const ev = await newEvent('gone', owner);
+  const deleted = await newGuest(ev, 'Gone', 'Row', 'groom');
+  await db.query(`UPDATE public.guests SET deleted_at = now() WHERE guest_id = $1`, [deleted]);
+  await runBackfill();
+  assert.equal((await heldBy(ev, owner))?.guest_id, null, 'a deleted row is not the creator\'s');
+
+  const owner2 = await newUser('passed@creator.test', 'Lolo', 'Row');
+  const ev2 = await newEvent('passed', owner2);
+  const passed = await newGuest(ev2, 'Lolo', 'Row', 'bride');
+  await db.query(`UPDATE public.guests SET passed_away = true WHERE guest_id = $1`, [passed]);
+  await runBackfill();
+  assert.equal((await heldBy(ev2, owner2))?.guest_id, null, 'a passed-away row is not the creator\'s');
+});
+
+test('backfill: two creators matching one row → neither is linked (and the migration never trips the unique index)', async () => {
+  // Two creators who share a name (a parent and child, say): one row named so
+  // is each creator's only match — and it belongs to neither account's person.
+  const a = await newUser('two-a@creator.test', 'Ben', 'Dos');
+  const b = await newUser('two-b@creator.test', 'Ben', 'Dos');
+  const ev = await newEvent('two-creators', a);
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type, joined_via)
+     VALUES ($1, $2, 'couple', 'created_event')`,
+    [ev, b],
+  );
+  const row = await newGuest(ev, 'Ben', 'Dos', 'groom');
+  await db.query(`UPDATE public.guests SET person_id = NULL WHERE guest_id = $1`, [row]);
+  await runBackfill();
+  assert.equal((await heldBy(ev, a))?.guest_id, null);
+  assert.equal((await heldBy(ev, b))?.guest_id, null);
+});
+
 // ── 2 · "This is me" ────────────────────────────────────────────────────────
 
 test('"This is me": a host links their own membership to an unlinked couple row', async () => {
@@ -235,7 +280,27 @@ test('"This is me" refuses: not a host · not a couple row · another event\'s r
     [ev, guestUser, friendOfGuest],
   );
 
-  assert.equal(await claimAs(guestUser, ev, groom), 'not_a_host', 'a guest member cannot claim a couple row');
+  assert.equal(await claimAs(guestUser, ev, groom), 'not_the_creator', 'a guest member cannot claim a couple row');
+
+  // An INVITED co-host (couple, joined_via 'invited') is not the creator.
+  const cohost = await newUser('ref-cohost@creator.test');
+  await db.query(
+    `INSERT INTO public.event_members (event_id, user_id, member_type, joined_via)
+     VALUES ($1, $2, 'couple', 'invited')`,
+    [ev, cohost],
+  );
+  assert.equal(await claimAs(cohost, ev, groom), 'not_the_creator', 'a co-host must never take the bride\'s or groom\'s row');
+  assert.equal((await heldBy(ev, cohost))?.guest_id, null);
+
+  // A soft-deleted or passed-away couple row is not claimable.
+  const otherHost2 = await newUser('ref-gone@creator.test');
+  const evGone = await newEvent('refusals-gone', otherHost2);
+  const goneRow = await newGuest(evGone, 'X', 'Row', 'groom');
+  await db.query(`UPDATE public.guests SET deleted_at = now() WHERE guest_id = $1`, [goneRow]);
+  assert.equal(await claimAs(otherHost2, evGone, goneRow), 'not_a_couple_row', 'a deleted row');
+  const passedRow = await newGuest(evGone, 'Y', 'Row', 'bride');
+  await db.query(`UPDATE public.guests SET passed_away = true WHERE guest_id = $1`, [passedRow]);
+  assert.equal(await claimAs(otherHost2, evGone, passedRow), 'not_a_couple_row', 'a passed-away row');
   assert.equal(await claimAs(host, ev, friend), 'not_a_couple_row', 'only bride / groom rows');
 
   const otherHost = await newUser('ref-other@creator.test');

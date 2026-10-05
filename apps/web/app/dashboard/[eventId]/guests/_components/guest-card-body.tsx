@@ -464,8 +464,8 @@ export function GuestCardBody({
                   .filter(Boolean)
                   .join(' · ') || '—'}
               </p>
-              {/* 🪪 A host's own unlinked bride / groom row (owner 2026-10-04):
-                  one action, in place — it attaches the host's membership to
+              {/* 🪪 The creator's own unlinked bride / groom row (owner 2026-10-04):
+                  one action, in place — it attaches the creator's membership to
                   this row (claim_my_couple_row re-checks everything). */}
               {offersThisIsMe ? (
                 <form action={releaseAction} data-this-is-me="">

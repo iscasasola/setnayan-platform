@@ -245,6 +245,26 @@ export function cinematicRevealPlays(input: {
   return phasesEnabled && revealStageChosen(input.revealStages, lifecyclePhase) && mayShowStdFilm;
 }
 
+/**
+ * ✉ IS THE REPLY ON THIS PAGE? — `plan.rsvpShouldRender`, as its own pure rule
+ * so page.tsx can ask it for the Me it hands `GuestHubBar` on a page without
+ * tabs (where SiteBody's answer cannot reach), and get the SAME answer the body
+ * renders the reply sheet with. Verbatim the two branches it replaced:
+ * open-browse → the RSVP widget's terminal state is 'active'; otherwise → the
+ * widget is visible and (phases on) in this phase.
+ */
+export function rsvpReplyOpen(input: {
+  widgets: readonly InvitationWidgetRow[];
+  openBrowse: boolean;
+  phasesEnabled: boolean;
+  lifecyclePhase: LifecyclePhase;
+}): boolean {
+  const shown = widgetShouldRender(widgetByType(input.widgets, 'rsvp'));
+  return input.openBrowse
+    ? shown && resolveWidgetTerminalState('rsvp', input.lifecyclePhase) === 'active'
+    : shown && (!input.phasesEnabled || widgetInPhase('rsvp', input.lifecyclePhase));
+}
+
 export function resolveSiteBodyPlan(input: {
   identity: SiteIdentityKind;
   phasesEnabled: boolean;
@@ -374,9 +394,7 @@ export function resolveSiteBodyPlan(input: {
     qrCardShouldRender = widgetShouldRender(widgetByType(widgets, 'qr_card'));
     // RSVP: open form while its terminal state is 'active'; the post-event
     // 'closed' card is PR8 copy, so exclude it here (correct-but-incomplete).
-    rsvpShouldRender =
-      widgetShouldRender(widgetByType(widgets, 'rsvp')) &&
-      resolveWidgetTerminalState('rsvp', lifecyclePhase) === 'active';
+    rsvpShouldRender = rsvpReplyOpen({ widgets, openBrowse, phasesEnabled, lifecyclePhase });
     // Guest tree: widened list under the GUEST audience (sees guests_only).
     hideableInOrder = openBrowseWidgetsInOrder({
       widgets,
@@ -417,9 +435,7 @@ export function resolveSiteBodyPlan(input: {
     qrCardShouldRender =
       widgetShouldRender(widgetByType(widgets, 'qr_card')) &&
       (!phasesEnabled || widgetInPhase('qr_card', lifecyclePhase));
-    rsvpShouldRender =
-      widgetShouldRender(widgetByType(widgets, 'rsvp')) &&
-      (!phasesEnabled || widgetInPhase('rsvp', lifecyclePhase));
+    rsvpShouldRender = rsvpReplyOpen({ widgets, openBrowse, phasesEnabled, lifecyclePhase });
     hideableInOrder = visibleHideableWidgets(widgets).filter(
       (w) => !phasesEnabled || widgetInPhase(w.widget_type, lifecyclePhase),
     );

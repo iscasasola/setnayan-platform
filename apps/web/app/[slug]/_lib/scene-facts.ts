@@ -1,4 +1,4 @@
-import { countdownTargetMs } from '@/lib/countdown-target';
+import { daysToGo as daysToGoRule } from '@/lib/countdown-target';
 import { eventTimezoneFromCoords } from '@/lib/event-timezone.server';
 import { resolveMonogram } from '@/lib/monogram';
 import type { SceneFacts } from '../_components/scene-template';
@@ -43,19 +43,27 @@ export function sceneFactsFor(event: EventRow, opts: { solemn: boolean; now?: nu
       }).text || null
     : null;
 
+  // 🔢 The countdown's own rule (`daysToGo`): whole days of real time left in the
+  // venue's zone, then "Tomorrow" / "Today" — never a day more than is left.
   let daysToGo: number | null = null;
+  let dayWord: 'Tomorrow' | 'Today' | null = null;
   // A solemn event (the funeral) never counts down — the countdown widget's own rule.
   if (!opts.solemn) {
-    const target = countdownTargetMs(
+    const left = daysToGoRule(
       (e as { event_date?: string | null }).event_date ?? null,
       eventTimezoneFromCoords(
         (e as { venue_latitude?: number | null }).venue_latitude ?? null,
         (e as { venue_longitude?: number | null }).venue_longitude ?? null,
       ),
+      opts.now ?? Date.now(),
     );
-    if (target !== null) {
-      const days = Math.ceil((target - (opts.now ?? Date.now())) / 86_400_000);
-      daysToGo = days >= 0 ? days : null;
+    if (left?.kind === 'days') daysToGo = left.days;
+    else if (left?.kind === 'tomorrow') {
+      daysToGo = 1;
+      dayWord = 'Tomorrow';
+    } else if (left?.kind === 'today') {
+      daysToGo = 0;
+      dayWord = 'Today';
     }
   }
 
@@ -76,6 +84,7 @@ export function sceneFactsFor(event: EventRow, opts: { solemn: boolean; now?: nu
     names,
     monogram,
     daysToGo,
+    dayWord,
     specialMessage: (e.special_message ?? '').trim() || null,
     milestones,
   };

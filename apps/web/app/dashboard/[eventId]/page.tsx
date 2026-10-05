@@ -879,6 +879,7 @@ export default async function EventHomePage({
                 lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
                 daysOut={facts.daysOut}
+                daysToGo={facts.daysToGo}
                 guestStats={facts.guestStats}
                 guardMoney={guardMoney}
               />
@@ -924,6 +925,7 @@ export default async function EventHomePage({
                 lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
                 daysOut={facts.daysOut}
+                daysToGo={facts.daysToGo}
                 guestStats={facts.guestStats}
                 guardMoney={guardMoney}
               />
@@ -951,6 +953,7 @@ export default async function EventHomePage({
                 lifecyclePhase={lifecyclePhase}
                 canViewPapicCounts={canViewPapicCounts}
                 daysOut={facts.daysOut}
+                daysToGo={facts.daysToGo}
                 guestStats={facts.guestStats}
                 guardMoney={guardMoney}
                 only="whatsnext"

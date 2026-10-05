@@ -133,7 +133,9 @@ export function HomeFirstScreen({
       {/* ③ THREE NUMBERS — "—" when unread, never 0. */}
       <div className="grid grid-cols-3 gap-2" data-home-numbers>
         <div className="sn-glass-bare rounded-xl px-2 py-3 text-center">
-          <p className="font-display text-[26px] leading-none text-ink">{days.value}</p>
+          {/* "Tomorrow" / "Today" (`glanceDaysToGo`) are words, not a number —
+              a size that fits a third of a 375 px row without wrapping. */}
+          <p className={`font-display ${/^[\d,—]+$/.test(days.value) ? 'text-[26px]' : 'text-[19px]'} leading-none text-ink`}>{days.value}</p>
           <p className="mt-1 text-[11.5px] text-ink/55">{days.label}</p>
         </div>
         <div className="sn-glass-bare rounded-xl px-2 py-3 text-center">

@@ -49,6 +49,8 @@ import { inviteReplyPath } from '@/lib/invite-arrival';
 import { LANDING_OPEN_PARAM, LANDING_OPEN_VALUE } from '@/lib/guest-landing';
 import { checklistShows, sanitizeTicks, type ChecklistKey } from '@/lib/guest-checklist';
 import { manilaToday } from '@/lib/std-views';
+import { meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
+import { rsvpReplyOpen } from '@/lib/site-body-plan';
 import { cookies } from 'next/headers';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
@@ -1953,7 +1955,29 @@ async function InvitationBody({
     />
     </>
   );
-  const meSlot = meSlotFor(null);
+  // ✉ A PAGE WITHOUT TABS hands Me to `GuestHubBar` (below), where SiteBody's
+  // answer cannot reach — so the same rule is asked here, from the same two
+  // facts: the page's one action (`resolveArrivalAction`) and the plan's own
+  // reply-sheet gate (`rsvpReplyOpen`, what `plan.rsvpShouldRender` is).
+  const meSlot = meSlotFor(
+    meLeadsWithReply({
+      action: resolveArrivalAction({
+        slug: event.slug ?? slug,
+        rsvpStatus: guest.rsvp_status,
+        eventDate: event.event_date,
+        today: manilaToday(),
+      }),
+      replyOpen: rsvpReplyOpen({
+        widgets,
+        openBrowse: Boolean((event as { website_open_browse?: boolean | null }).website_open_browse),
+        phasesEnabled,
+        lifecyclePhase,
+      }),
+      isPlusOne: Boolean(guest.plus_one_of_guest_id),
+    })
+      ? `#${REPLY_SHEET_ANCHOR}`
+      : null,
+  );
 
   /* 📱 EACH TAB ITS OWN PAGE (owner 2026-09-30) — on the Invitation and The
      Day a guest's page is tabs, and Me is one of them: the SAME section

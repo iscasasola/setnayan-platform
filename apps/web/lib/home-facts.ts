@@ -16,6 +16,7 @@
  */
 import { eventDateToEpoch } from '@/lib/day-of-mode';
 import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
+import { daysToGo, type DaysToGo } from '@/lib/countdown-target';
 import type { GuestStats } from '@/lib/guests';
 import { glanceCount, glanceDays, glanceMoney } from '@/lib/home-first-screen';
 
@@ -52,8 +53,13 @@ export function daysUntil(
 export type HomeMoneyRead = { paid: number; owing: number } | null | 'hidden';
 
 export type HomeFacts = {
-  /** Whole days to a FIRM day; null when the date is only a month / a year, or absent. */
+  /** Whole CALENDAR days to a FIRM day (0 = the day, negative = past) — what Home's
+   *  sentences branch on; null when the date is only a month / a year, or absent.
+   *  ⚠ Never PRINT it as "N days to go": print `daysToGo` (the countdown's rule). */
   daysOut: number | null;
+  /** 🔢 What Home SAYS — the countdown's own rule (`daysToGo`, lib/countdown-target.ts):
+   *  whole days of real time left, "Tomorrow", "Today". Null with no firm day. */
+  daysToGo: DaysToGo | null;
   /** The guest head-counts the first screen and the dashboard share. */
   guestStats: GuestStats;
   days: { value: string; label: string };
@@ -64,6 +70,19 @@ export type HomeFacts = {
   /** `null` = the viewer may not see the budget (no line at all); "—" figures = not measured. */
   money: { paid: string; owing: string } | null;
 };
+
+/**
+ * The first screen's days tile, from the ONE rule (`daysToGo`): "67 · days to
+ * go", then "Tomorrow · is the day", "Today · is the day". Past and unanchored
+ * days keep `glanceDays`' own answers.
+ */
+export function glanceDaysToGo(r: DaysToGo | null): { value: string; label: string } {
+  if (r === null) return glanceDays(null);
+  if (r.kind === 'today') return { value: 'Today', label: 'is the day' };
+  if (r.kind === 'tomorrow') return { value: 'Tomorrow', label: 'is the day' };
+  if (r.kind === 'past') return glanceDays(-r.daysAgo);
+  return glanceDays(r.days);
+}
 
 export function homeFacts(input: {
   eventDate: string | null;
@@ -81,10 +100,13 @@ export function homeFacts(input: {
       : // 🔢 The event's zone, else Manila — the countdown's own fallback
         // (`countdownTargetMs`), never the server's clock (UTC on Vercel).
         daysUntil(input.eventDate, input.timezone ?? DEFAULT_EVENT_TZ, input.now);
+  const toGo =
+    daysOut === null ? null : daysToGo(input.eventDate, input.timezone ?? DEFAULT_EVENT_TZ, (input.now ?? new Date()).getTime());
   return {
     daysOut,
+    daysToGo: toGo,
     guestStats: guests.stats,
-    days: glanceDays(daysOut),
+    days: glanceDaysToGo(toGo),
     coming: glanceCount(guests.stats.attending, guests.measured),
     noReply: glanceCount(guests.stats.pending, guests.measured),
     noReplyWaiting: guests.measured && guests.stats.pending > 0,

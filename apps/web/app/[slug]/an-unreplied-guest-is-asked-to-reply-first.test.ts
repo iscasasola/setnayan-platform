@@ -127,3 +127,23 @@ test('3 · the wiring: SiteBody decides from its plan; page.tsx hands it to both
   // Both Me sections are the function form, so the answer reaches them.
   assert.equal((page.match(/\(\{ replyHref \}: \{ replyHref: string \| null \}\) => \(/g) ?? []).length, 2);
 });
+
+test('4 · a page WITHOUT tabs asks the same rule for the Me it hands GuestHubBar', async () => {
+  const page = read('app/[slug]/page.tsx');
+  const slot = /const meSlot = meSlotFor\(([\s\S]*?)\n  \);/.exec(page)?.[1] ?? '';
+  assert.match(slot, /meLeadsWithReply\(\{/, 'the non-tabbed Me ignores the reply rule (it used to be meSlotFor(null))');
+  assert.match(slot, /replyOpen: rsvpReplyOpen\(\{/, 'the non-tabbed Me must ask the plan’s own reply-sheet gate');
+  assert.match(slot, /resolveArrivalAction\(\{/);
+  assert.match(page, /meSlot=\{guestPageTabbed \? null : meSlot\}/);
+  // …and that gate IS the plan's — both branches of resolveSiteBodyPlan ask it.
+  const plan = read('lib/site-body-plan.ts');
+  assert.equal(
+    (plan.match(/rsvpShouldRender = rsvpReplyOpen\(\{ widgets, openBrowse, phasesEnabled, lifecyclePhase \}\);/g) ?? []).length,
+    2,
+    'plan.rsvpShouldRender and the non-tabbed Me must be one rule',
+  );
+  const { rsvpReplyOpen } = await import('@/lib/site-body-plan');
+  const rsvp = { widget_type: 'rsvp', is_visible: true, is_always_on: true } as never;
+  // maria-and-jose: RSVP row visible + always on, open-browse on, the Invitation stage.
+  assert.equal(rsvpReplyOpen({ widgets: [rsvp], openBrowse: true, phasesEnabled: true, lifecyclePhase: 'rsvp' }), true);
+});

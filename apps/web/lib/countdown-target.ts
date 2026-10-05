@@ -70,32 +70,63 @@ const DAY_MS = 86_400_000;
 export type CountdownReading = { days: number; hours: number; minutes: number; seconds: number; isPast: boolean };
 
 /**
- * 🔢 ONE RULE FOR "DAYS TO GO" (controller walk 2026-10-05, live on
- * maria-and-jose: the Details countdown read **67** days while Home read **"68
- * days to go"** for the same day, in the same zone).
- *
- * Home (`daysUntil`, lib/home-facts.ts) and the hub's own scene template
- * (`sceneFacts`, `Math.ceil`) count CALENDAR days in the event's zone — today
- * counts as a day to go, so on 5 Oct a 12 Dec event is 68 days away and on the
- * eve it is 1, never 0 ("Today is the day" is the day itself). The countdown
- * used `Math.floor` of the time left to the day's start, which is one less every
- * moment except midnight. It now counts its Days the same way — `Math.ceil` of
- * the time to the day's start, in the event's zone (`countdownTargetMs`), which
- * IS the calendar count — and its Hours · Mins · Secs count down what is left
- * of today, so the Days tile ticks over at the zone's midnight, exactly when
- * Home's number does. `one-countdown-rule.test.ts` holds the three equal.
+ * 🔢 THE COUNTDOWN IS NEVER FALSE (controller, 2026-10-05, after the walk on
+ * maria-and-jose found Details reading 67 days and Home "68 days to go"). Its
+ * four tiles are the real time left to the start of the day in the event's zone
+ * (`countdownTargetMs`, Manila fallback): whole days, then hours, minutes and
+ * seconds — 67 d 12 h 42 m on 5 Oct at 11:18 for a 12 Dec wedding, which is
+ * exactly what is left. Home says the same number (`daysToGo` below).
  *
  * Pure (both instants passed in) so a test can walk every hour of a day.
  */
 export function countdownReading(targetMs: number, nowMs: number): CountdownReading {
   const ms = targetMs - nowMs;
   if (ms <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true };
-  const rest = ms % DAY_MS;
   return {
-    days: Math.ceil(ms / DAY_MS),
-    hours: Math.floor(rest / 3_600_000),
-    minutes: Math.floor((rest % 3_600_000) / 60_000),
-    seconds: Math.floor((rest % 60_000) / 1000),
+    days: Math.floor(ms / DAY_MS),
+    hours: Math.floor((ms % DAY_MS) / 3_600_000),
+    minutes: Math.floor((ms % 3_600_000) / 60_000),
+    seconds: Math.floor((ms % 60_000) / 1000),
     isPast: false,
   };
+}
+
+/** Days to go, in words a person says — the ONE rule Home and the countdown share. */
+export type DaysToGo =
+  | { kind: 'days'; days: number }
+  | { kind: 'tomorrow' }
+  | { kind: 'today' }
+  | { kind: 'past'; daysAgo: number };
+
+/** `YYYY-MM-DD` of an instant, in `tz`. */
+function dayIn(tz: string, ms: number): string {
+  return new Date(ms).toLocaleDateString('en-CA', { timeZone: tz });
+}
+
+/**
+ * 🔢 ONE RULE FOR "DAYS TO GO" — whole days of REAL time left to the start of
+ * the event's day, in its zone (Manila when it has none): the same number as
+ * the countdown's Days tile (`countdownReading`), so the two never disagree and
+ * neither is ever more than the time that is actually left. At the end it says
+ * what a person says — "Tomorrow" on the day before (the calendar day after
+ * today is the event's), "Today" on the day itself — rather than "0 days".
+ *
+ * Null when the date cannot be anchored (no countdown beats a wrong one).
+ */
+export function daysToGo(
+  eventDate: string | null | undefined,
+  tz: string | null | undefined,
+  nowMs: number,
+): DaysToGo | null {
+  const zone = tz || DEFAULT_EVENT_TZ;
+  const target = countdownTargetMs(eventDate, zone);
+  if (target === null) return null;
+  const eventDay = dayIn(zone, target);
+  const today = dayIn(zone, nowMs);
+  const utc = (d: string) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)) - 1, Number(d.slice(8, 10)));
+  const calendar = Math.round((utc(eventDay) - utc(today)) / DAY_MS);
+  if (calendar < 0) return { kind: 'past', daysAgo: -calendar };
+  if (calendar === 0) return { kind: 'today' };
+  if (calendar === 1) return { kind: 'tomorrow' };
+  return { kind: 'days', days: countdownReading(target, nowMs).days };
 }

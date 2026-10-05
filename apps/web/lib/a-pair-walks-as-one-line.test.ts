@@ -207,77 +207,62 @@ test('⛔ reordering the processional cannot touch a chair', () => {
 
 // ── ⚖ "where is the arranging? why do you not build it?" (owner 2026-09-20) ──
 
-const PANEL = readFileSync(
-  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'entourage-order-panel.tsx'),
+/* 🚶 2026-10-06: the ↑↓ panel and its drag layer were retired; the Wedding March
+   is the drag maker. The PROPERTIES these held stay held — on the maker. */
+const MAKER = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'details-march.tsx'),
   'utf8',
 );
-const DRAG = readFileSync(
-  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', '_components', 'walking-order-lines.tsx'),
+const MARCH_LOAD = readFileSync(
+  join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'details-your-event-load.tsx'),
   'utf8',
 );
 
-test('🔑 the arranging is reachable WITHOUT knowing to filter first', () => {
+test('🔑 the arranging is reachable WITHOUT knowing to filter first — every section is drawn', () => {
   /*
     It was built and it was hidden: the panel rendered only under a role filter,
     so on the default view the one place to arrange the processional did not
-    exist. From where the owner was standing that is the same as not built.
+    exist. The maker draws EVERY section the march has — nothing filters it.
   */
-  const { printedGroupsForView } = require('../app/dashboard/[eventId]/guests/_components/entourage-order-panel') as {
-    printedGroupsForView: (v: string) => string[];
-  };
-  assert.ok(printedGroupsForView('all').length > 1, '"All" offers no group to arrange');
-  assert.ok(printedGroupsForView('').length > 1, 'an empty view offers no group to arrange');
-  assert.deepEqual(
-    printedGroupsForView('principal_sponsors'),
-    ['principal_sponsors'],
-    'a role view no longer narrows to its own group',
-  );
+  assert.match(stripComments(MARCH_LOAD), /return groups\.map\(\(g\) => \(\{/, 'the march maker draws only some sections');
+  assert.match(stripComments(MAKER), /\{shown\.map\(\(sec\) => \(/, 'the maker no longer draws every section it is handed');
 });
 
-test('the panel heads each group with its printed NAME, not a raw key', () => {
-  // A first draft rendered `key.replace(/_/g, ' ')` — "principal sponsors",
-  // lower case, which is a key with its underscores knocked out, not a heading.
-  // (Since 2026-09-30 through `headingOf`, which also hands over the couple's own role words.)
-  assert.match(PANEL, /entourageGroupLabel\(key(, roleNames, rows)?\)/, 'the panel is printing a raw group key');
+test('the maker heads each section with its printed NAME, not a raw key', () => {
+  // A first draft rendered `key.replace(/_/g, ' ')` — a key, not a heading.
+  // The heading is `buildEntourage`'s (`groupHeading`, the couple's own role words).
+  assert.match(stripComments(MARCH_LOAD), /label: g\.label,/, 'the march section is not the printed heading');
+  assert.match(stripComments(MAKER), /\{sec\.label\}/, 'the maker prints something other than the heading');
+  assert.doesNotMatch(stripComments(MAKER), /\.replace\(\/_\/g/, 'the maker prints a raw key');
 });
 
-test('⚖ drag is ADDITIONAL — the buttons remain the always-available path', () => {
+test('⚖ the drag works on a phone AND without a pointer — and no buttons are drawn for it (owner 2026-10-06)', () => {
   /*
-    The arrows are still the path that works on a phone, by keyboard and under
-    assistive tech, and the drag layer still never replaces them — it hides its
-    own handle below `sm`.
-
-    ⚖ 2026-09-23: they are no longer `<form action={serverAction}>` in the
-    PANEL; they are buttons inside the island. A form action redirects, which is
-    a 303 — the owner's "the whole screen refreshes… it goes back up and does
-    not stay on where we are editing". What that gave up is the no-JavaScript
-    path, and `the-march-moves-without-a-reload.test.ts` records why that was
-    never a path anybody could finish a processional through. What this pins is
-    unchanged: BOTH arrows exist, beside the drag, at every width.
-
-    🪤 Tag boundaries: `<MoveArrow` is a substring of `<MoveArrowX`, so a bare
-    match passes a renamed mount. A substring is not a mount.
+    The arrows were the always-available path. The owner retired them for this
+    item ("no need to the toolbar. we can just drag the names"), so the paths
+    they guaranteed must live in the drag itself: a long-press lifts on touch
+    (a plain swipe still scrolls), and the keyboard can do every drop.
   */
-  assert.equal(
-    (DRAG.match(/<MoveArrow[\s/>]/g) ?? []).length,
-    2,
-    'expected both always-available arrows (up and down) beside every line',
-  );
-  assert.match(PANEL, /<WalkingOrderLines[\s/>]/, 'the drag layer is not mounted');
-  assert.match(DRAG, /hidden[^"]*sm:inline-flex/, 'the drag handle is offered on touch');
+  const code = stripComments(MAKER);
+  assert.match(code, /const LONG_PRESS_MS = 250;/, 'touch no longer lifts on a long-press');
+  assert.match(code, /pointerType !== 'mouse'/, 'touch and mouse are no longer told apart');
+  assert.match(code, /touch-pan-y/, 'a name blocks the page scroll before it is lifted');
+  assert.match(code, /onKeyDown=\{onKeyDown\}/, 'the keyboard path is not mounted');
+  assert.doesNotMatch(code, /ArrowUp aria-hidden|<button[^>]*>\s*Walk (earlier|later)/, 'the ↑↓ buttons are back');
 });
 
-test('a drag handle answers the keyboard, and says what it did', () => {
+test('a held name answers the keyboard, and says what it did', () => {
   // 🔑 A handle that only drags is a control half the room cannot use — and a
   // reorder nobody can hear is indistinguishable from a dead one.
+  const code = stripComments(MAKER);
   for (const [what, re] of [
     ['grab with Space', /e\.key === ' '/],
-    ['move with arrows', /ArrowUp|ArrowDown/],
+    ['move with arrows', /e\.key === 'ArrowUp' \|\| e\.key === 'ArrowDown'/],
     ['cancel with Escape', /e\.key === 'Escape'/],
-    ['announce its state', /aria-pressed=\{held\}/],
+    ['announce its state', /aria-pressed=\{held\?\.key === p\.id\}/],
     ['announce the move', /aria-live="polite"/],
   ] as const) {
-    assert.match(DRAG, re, `the drag handle cannot ${what}`);
+    assert.match(code, re, `the march maker cannot ${what}`);
   }
 });
 
@@ -337,17 +322,25 @@ test('🔑 there is a LABELLED way in — the march is an item of Details › Yo
   assert.ok(!rosterDoors({ eventId: 'E', view: 'list', finished: false, hasJoinLink: true }).tabs.some((d) => /walk|march/i.test(d.key)));
 });
 
-test('the walking order is laid out in the three parts, never a whole page dropped in', () => {
-  // LEFT the sections and lines · MIDDLE the aisle · RIGHT the picked line's controls
-  // (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS").
+test('🚶 the Wedding March is ONE item whose page is the drag maker — never a list of its names (owner 2026-10-06)', () => {
+  /*
+    Owner: "i don't need this to expand the names. the wedding march should just
+    be the drag drop … wedding march maker." The three-part list (lines as
+    navigator pieces, the aisle, a line's ↑↓ controls) is retired for this item.
+  */
+  assert.match(MARCH_UI, /export function MarchMaker\(/, 'the march maker is gone');
   for (const part of ['MarchPieces', 'MarchAisleFocus', 'MarchControls']) {
-    assert.match(MARCH_UI, new RegExp(`export function ${part}\\(`), `${part} is gone`);
+    assert.doesNotMatch(MARCH_UI, new RegExp(`export function ${part}\\(`), `${part} is back — the item expands into its lines again`);
   }
-  // The Guest list no longer draws it, and the Maker draws the shipped panel once
-  // (a picked SECTION shows its own slice of it).
+  const PARTS = stripComments(readFileSync(join(LAUNCH, 'details-your-event-parts.tsx'), 'utf8'));
+  assert.doesNotMatch(PARTS, /march:\s*<MarchPieces|\bMarchPieces\b/, 'the navigator lists the march’s lines again');
+  assert.match(PARTS, /march: <MarchMaker eventId=\{eventId\} sections=\{input\.march\.sections\}/, 'the item’s page is not the maker');
+  // No toolbar, no buttons, no ↑↓ in the maker — a drag of a name is the only edit.
+  // (The keyboard's ↑ / ↓ keys move a HELD name — they are keys, not drawn arrows.)
+  assert.doesNotMatch(MARCH_UI, /<ArrowUp|<ArrowDown|Walk earlier|Walk later|PickMenu|<button[^>]*>\s*(Move|Swap|Pair|Add)\b/);
+  // The Guest list does not draw the march, and neither does the Maker any more (its arrows are retired).
   assert.doesNotMatch(stripComments(PAGE), /<EntourageOrderPanel/, 'the Guest list draws the march again');
-  assert.equal((LOAD.match(/<EntourageOrderPanel/g) ?? []).length, 1);
-  assert.match(MARCH_UI, /\[data-march-section\]:not\(\[data-march-section="\$\{key\}"\]\)\{display:none\}/);
+  assert.equal((LOAD.match(/<EntourageOrderPanel/g) ?? []).length, 0, 'the ↑↓ panel is back in the Maker');
 });
 
 test('⚖ a move keeps you where you made it', () => {
@@ -362,7 +355,8 @@ test('⚖ a move keeps you where you made it', () => {
     );
     assert.doesNotMatch(code, /\bredirect\s*\(/, `${file} navigates away from the view the move was made in`);
   }
-  assert.match(MARCH_UI, /makerSave\(send, requestMakerRefresh\)/);
+  assert.match(MARCH_UI, /await makerSave\(\s*\(\) => \(lab \? Promise\.resolve\(LAB_SAVED\) : callStep\(eventId, step\)/);
+  assert.match(MARCH_UI, /requestMakerRefresh,\s*\);/);
 });
 
 test("⚖ the owner's word is the ONLY word the couple sees", () => {
@@ -371,11 +365,9 @@ test("⚖ the owner's word is the ONLY word the couple sees", () => {
     panel's own heading both say it; "Walking order" is never the name.
   */
   assert.equal(yourEventLabel('march', WEDDING_KIND), 'Wedding March');
-  const copy = stripComments(PANEL);
-  assert.match(copy, /Wedding March/, "the panel heading does not use the owner's word");
-  for (const [what, src] of [['the panel', copy], ['the Details march', MARCH_UI]] as const) {
-    assert.ok(!/>\s*Walking order/.test(src), `${what} still titles it "Walking order"`);
-  }
+  // 🚶 Since 2026-10-06 the maker is the march's only screen; it names itself in the owner's word.
+  assert.match(MARCH_UI, /Wedding March/, "the march maker does not use the owner's word");
+  assert.ok(!/>\s*Walking order/.test(MARCH_UI), 'the march maker titles it "Walking order"');
 });
 
 test('🔑 a celebration with no processional is not offered one', () => {

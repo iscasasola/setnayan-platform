@@ -81,11 +81,8 @@ export const MAKER_TOOLS: readonly MakerTool[] = [
     label: 'Seat plan',
     load: () => import(/* webpackChunkName: "maker-seating" */ '../../seating/_components/seating-lazy').then(warmDynamicExports),
   },
-  {
-    key: 'maker:march',
-    label: 'The march',
-    load: () => import(/* webpackChunkName: "maker-details" */ '../../guests/_components/entourage-lazy').then(warmDynamicExports),
-  },
+  /* (The march's ↑↓ panel left on 2026-10-06 — the Wedding March is the drag maker,
+     `details-march.tsx`, warmed with the Details pieces above.) */
   /* The Logo studio turns typed words into outlines with opentype.js — loaded by
      `maker-logo.tsx` when a word is drawn. The library only, never a font file
      or anything the couple uploaded. */

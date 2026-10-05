@@ -20,9 +20,7 @@ import type { HostPiece, PersonPiece } from './details-people';
 import {
   DateBody,
   DateEditor,
-  MarchAisleFocus,
-  MarchControls,
-  MarchPieces,
+  MarchMaker,
   NamesEditor,
   NameStylePicker,
   OneNameEditor,
@@ -46,11 +44,14 @@ import { DEFAULT_NAME_STYLE, type NameStyle } from '@/lib/name-style';
  * type (`lib/details-your-event.ts`) — nothing here names a wedding.
  *
  * 🧩 THE THREE PARTS (DECISION_LOG "A TOOL MOVED INTO THE MAKER IS REBUILT INTO
- * THE THREE PARTS"): the march and Parents & hosts list their pieces on the
- * left (`details-march.tsx`, `details-people.tsx`); the date finder puts the
- * candidate days in the middle and the picked day on the right
- * (`details-date-finder.tsx`). The march's moves are the Guest list's own
- * actions; its sections open the Guest list's own panel, one section showing.
+ * THE THREE PARTS"): Parents & hosts list their pieces on the left
+ * (`details-people.tsx`); the date finder puts the candidate days in the middle
+ * and the picked day on the right (`details-date-finder.tsx`).
+ *
+ * 🚶 THE WEDDING MARCH IS ONE ITEM, NOT A LIST (owner 2026-10-06: *"i don't need
+ * this to expand the names"*). It has no pieces in the navigator; its
+ * page is the march maker (`details-march.tsx` — drag the names), and beside it
+ * The Entourage card shows what prints.
  */
 export type YourEventInput = {
   kind: YourEventKind;
@@ -79,8 +80,12 @@ export type YourEventInput = {
     ceremonyTime?: string | null;
   };
   venues: { resolved: readonly EventVenue[]; slots: readonly VenueSlot[]; city: string | null };
-  /** The walking order, as the invitation prints it — its sections and lines, each line's moves already asked of the rule. */
-  march: { sections: readonly MarchSectionData[]; panel: ReactNode };
+  /** 🚶 The march as the maker draws it — its sections and walks, the couple's sides included (`marchSections`). */
+  march: {
+    sections: readonly MarchSectionData[];
+    /** The dev Maker lab only (`/dev/maker-lab`): the drags are drawn, never sent. */
+    lab?: boolean;
+  };
 };
 
 type NavRow = Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode };
@@ -113,6 +118,8 @@ export function yourEventParts({
   pieces: Partial<Record<EventItemKey, ReactNode>>;
 } {
   const { kind, facts } = input;
+  /* 🚶 Every walk the maker draws — the couple's and their parents' included. */
+  const marchWalks = input.march.sections.reduce((n, sec) => n + sec.rows.length, 0);
   const keys = yourEventPresentKeys(kind, input.names !== null || input.oneName != null);
   const sub: Record<EventItemKey, string | undefined> = {
     names: input.oneName
@@ -126,7 +133,7 @@ export function yourEventParts({
         ? `${parents.length} parent${parents.length === 1 ? '' : 's'}`
         : 'No parents yet'
       : `${hosts.length} host${hosts.length === 1 ? '' : 's'}`,
-    march: facts.marchLines ? `${facts.marchLines} line${facts.marchLines === 1 ? '' : 's'} · walking order` : 'Nobody walks yet',
+    march: marchWalks ? `${marchWalks} walk${marchWalks === 1 ? '' : 's'}` : 'Nobody walks yet',
   };
   const rows: Partial<Record<EventItemKey, NavRow>> = {};
   for (const k of keys) {
@@ -167,12 +174,8 @@ export function yourEventParts({
         finer={<PrintPieceBody input={prints} piece="details" />}
       />
     ),
-    march: (
-      <div className="flex flex-wrap items-start justify-center gap-6">
-        <MarchAisleFocus sections={input.march.sections} />
-        <PrintPieceBody input={prints} piece="entourage" />
-      </div>
-    ),
+    /* 🚶 The page IS the maker (drag the names) — the body on a phone, the middle on a desk. */
+    march: <MarchMaker eventId={eventId} sections={input.march.sections} lab={input.march.lab === true} />,
   };
 
   const editors: Partial<Record<EventItemKey, ReactNode>> = {
@@ -189,22 +192,15 @@ export function yourEventParts({
         add={<ParentCards eventId={eventId} parents={parents} />}
       />
     ),
-    march:
-      facts.marchLines === 0 ? (
-        <p className="text-sm text-ink/65">
-          Nobody walks yet. Give a guest a role on their guest card — a sponsor, a bearer, the honour attendants —
-          and they appear here in walking order.
-        </p>
-      ) : (
-        <MarchControls eventId={eventId} sections={input.march.sections} sectionPanel={input.march.panel} />
-      ),
+    /* What prints — The Entourage card, redrawn after each burst of moves. */
+    march: <PrintPieceBody input={prints} piece="entourage" />,
   };
 
   /* 🧩 The tools' own pieces on the left (DECISION_LOG "A TOOL MOVED INTO THE
      MAKER IS REBUILT INTO THE THREE PARTS"). */
   const pieces: Partial<Record<EventItemKey, ReactNode>> = {
     parents: <PeoplePieces parents={people} hosts={hostPieces} parentsOffered={offered} />,
-    ...(facts.marchLines > 0 ? { march: <MarchPieces sections={input.march.sections} /> } : {}),
+    // 🚶 No `march` here: the Wedding March never expands into its names (owner 2026-10-06).
   };
   return { keys, rows, bodies, editors, pieces };
 }

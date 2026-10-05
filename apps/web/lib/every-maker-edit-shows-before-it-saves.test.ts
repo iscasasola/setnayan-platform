@@ -86,10 +86,6 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
   'launch/_components/parent-cards.tsx › add':
     'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
-  'launch/_components/details-march.tsx › leaveBlank':
-    'OPEN (Details, Builder K) — "Leave the other side blank" unpairs LIVE and the line changes only when the server answers. Reported 2026-09-29.',
-  'launch/_components/details-march.tsx › run':
-    'OPEN (Details, Builder K) — a walking-order move writes LIVE ("Saves immediately") and the line moves only when the server answers. Reported 2026-09-29.',
 };
 
 /** `router.refresh()` outside `makerSave`, and why. */

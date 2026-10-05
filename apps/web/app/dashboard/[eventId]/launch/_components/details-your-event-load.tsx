@@ -1,5 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { dateDisplayOf, marchOffered, yourEventDateLabel } from '@/lib/details-your-event';
+import { dateDisplayOf, yourEventDateLabel } from '@/lib/details-your-event';
 import { VENUE_ROLE_LABEL, type VenueSlotKey } from '@/lib/event-venues';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
@@ -7,12 +7,12 @@ import { getConfirmedVendorCount } from '@/lib/events';
 import { buildScheduleMatrix, schedulePicksFromVendors, type ScheduleMatrix } from '@/lib/schedule-matrix';
 import { fetchEventVendors } from '@/lib/vendors';
 import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese-specialist-nudge';
-import { EntourageOrderPanel } from '../../guests/_components/entourage-order-panel';
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
-import type { MarchSectionData, MarchSlotData } from './details-march';
-import { roleLabel, type EntourageGroup } from '@/lib/entourage';
-import { joinersFor, swapsFor } from '@/lib/march-moves';
+import type { MarchSectionData } from './details-march';
+import type { MarchPerson } from '@/lib/march-drag';
+import { guestRoleLabel } from '@/lib/guests';
+import type { EntourageGroup, EntouragePerson } from '@/lib/entourage';
 import { readYourEventFacts } from './details-your-event-facts';
 import { loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
@@ -178,7 +178,6 @@ export async function loadYourEvent({
     },
     march: {
       sections: marchSections(groups),
-      panel: marchOffered(kind) ? <EntourageOrderPanel eventId={eventId} view="all" /> : null,
     },
   };
 }
@@ -198,43 +197,27 @@ const RECEPTION_COLUMNS = {
 } as const;
 
 /**
- * The march as the three parts need it: every section and line in walking
- * order (`buildEntourage`'s — the invitation's), each cell's moves asked of
- * `lib/march-moves.ts` here on the server — the rule the actions ask again
- * before they write (as the Guest list panel's `slotFor` does).
+ * 🚶 The march as the maker draws it (owner 2026-10-06, "THE WEDDING MARCH ITEM IS
+ * A DRAG-AND-DROP MARCH MAKER"): every section and walk in walking order —
+ * the invitation's own builder in its march form (`{ march: true }`), with the
+ * couple's sides in their place — each walk its [left, right]. Which drop may go
+ * where is asked of `lib/march-moves.ts` on the client (`lib/march-drag.ts`) and
+ * again by each action before it writes.
  */
 export function marchSections(groups: readonly EntourageGroup[]): MarchSectionData[] {
-  let step = 0;
+  const person = (p: EntouragePerson | null, names: EntourageGroup['names']): MarchPerson | null =>
+    p
+      ? {
+          id: p.id ?? '',
+          name: p.name,
+          role: p.role,
+          // The two people the event is for wear their word (the march's only role line).
+          tag: p.role === 'groom' || p.role === 'bride' ? guestRoleLabel(p.role, names) : null,
+        }
+      : null;
   return groups.map((g) => ({
     key: g.key,
     label: g.label,
-    lines: g.rows.map((row, i) => {
-      step += 1;
-      const slot = (c: 0 | 1): MarchSlotData => {
-        const half = row[c];
-        if (half) {
-          return {
-            kind: 'name',
-            id: half.id ?? '',
-            name: half.name,
-            role: roleLabel(half.role, g.names),
-            swapWith: half.id ? swapsFor(g.rows, g.key, half.id) : [],
-          };
-        }
-        const anchor = row[c === 0 ? 1 : 0];
-        return {
-          kind: 'empty',
-          anchorId: anchor?.id ?? '',
-          anchorName: anchor?.name ?? '',
-          joiners: anchor?.id ? joinersFor(g.rows, g.key, anchor.id) : [],
-        };
-      };
-      return {
-        leadId: row[0]?.id ?? row[1]?.id ?? `${g.key}-${i}`,
-        label: row.filter((p) => p !== null).map((p) => p!.name).join(' and '),
-        step,
-        slots: [slot(0), slot(1)] as [MarchSlotData, MarchSlotData],
-      };
-    }),
+    rows: g.rows.map((row) => [person(row[0], g.names), person(row[1], g.names)] as const),
   }));
 }

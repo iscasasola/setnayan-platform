@@ -164,11 +164,35 @@ type GroupSpec = {
   unusual?: readonly GuestRole[];
   /** In the heading, a renamed role reads as its word for SEVERAL (`many`) or for ONE. */
   headingForm?: 'one' | 'many';
+  /**
+   * 🚶 A SECTION OF THE WEDDING MARCH ONLY — never printed (owner 2026-10-06:
+   * *"wedding march handles everyone including the groom and the bride … and
+   * the parents"*). The Maker's march maker draws it (the builder with `{ march:
+   * true }`); the invitation, The Entourage card and every public read never
+   * see it, so `ENTOURAGE_ROLES` — the published fence — is unchanged. `at` says
+   * where it walks: first or LAST, whatever order the printed sections are in.
+   */
+  marchOnly?: { at: 'first' | 'last' };
   /** A one-role group whose heading IS that role's plural ("Flower Girls"): the couple's `many` replaces it. */
   headingIsRole?: boolean;
 };
 
 const GROUPS: ReadonlyArray<GroupSpec> = [
+  /*
+    🚶 OWNER 2026-10-06 — THE MARCH IS EVERYONE WHO WALKS: "the groom (and his
+    parents) … the bride (and her parents) — the bride LAST." The couple are guest
+    rows (`role` 'groom' / 'bride', the singleton roles), so the march reads them
+    like anyone else; their walks live in `march_walks` like anyone else's. In
+    the MARCH these two sections take the place of "Parents" (each parent walks
+    with their own child's side); the PRINTED list keeps "Parents" and never
+    names the couple (they are the masthead — `plainGuestNames`).
+  */
+  {
+    key: 'groom_side',
+    label: 'The Groom & his parents',
+    roles: ['groom_parents', 'groom'],
+    marchOnly: { at: 'first' },
+  },
   /*
     ⚖ OWNER 2026-09-20: the groom's parents print FIRST. This group's `roles`
     order IS the printed order — `buildEntourage` walks `spec.roles` outermost —
@@ -326,7 +350,22 @@ const GROUPS: ReadonlyArray<GroupSpec> = [
     label: 'The Nikah',
     roles: ['wali', 'witness', 'imam', 'wakil'],
   },
+  {
+    key: 'bride_side',
+    label: 'The Bride & her parents',
+    roles: ['bride_parents', 'bride'],
+    marchOnly: { at: 'last' },
+  },
 ];
+
+/** The printed groups — what the invitation, the card and every public read know. */
+const PRINTED = GROUPS.filter((g) => !g.marchOnly);
+/** The march's own sections (the couple's sides). */
+const MARCH_ONLY = GROUPS.filter((g) => g.marchOnly);
+/** Printed groups the march draws inside the couple's sides instead ("Parents"). */
+const MARCH_REPLACED = new Set(
+  PRINTED.filter((g) => g.roles.every((r) => MARCH_ONLY.some((m) => m.roles.includes(r)))).map((g) => g.key),
+);
 
 /**
  * The words beside each name. Singular, because it sits next to ONE person —
@@ -609,7 +648,10 @@ export const ENTOURAGE_COLUMNS =
 export const ENTOURAGE_COUPLE_FIELDS = 'plus_one_of_guest_id, couple_with_guest_id';
 
 /** Every role the invitation publishes — the fence, as a set, for the reader. */
-export const ENTOURAGE_ROLES: readonly GuestRole[] = GROUPS.flatMap((g) => [...g.roles]);
+export const ENTOURAGE_ROLES: readonly GuestRole[] = PRINTED.flatMap((g) => [...g.roles]);
+
+/** Everyone the Wedding MARCH reads — the published roles + the couple (`marchOnly`). */
+export const MARCH_ROLES: readonly GuestRole[] = [...new Set(GROUPS.flatMap((g) => [...g.roles]))];
 
 /** One `march_walks` row, as a guest read embeds it. */
 export type MarchSpot = { walk_no: number; place_in_walk?: number | null };
@@ -837,9 +879,9 @@ export function entourageLines(
 
 /**
  * A section's lines in the DEFAULT order — the group's role order, then
- * surname — whatever their walks say. The Reset link writes this order back as
- * the section's walk numbers (`clearEntourageOrder`); who walks with whom is
- * kept, only the order is handed back.
+ * surname — whatever their walks say. A Reset would write this order back as
+ * the section's walk numbers, keeping who walks with whom (the panel's Reset was
+ * retired with it on 2026-10-06; the drag maker's Undo hands back one move).
  */
 export function defaultLineOrder(lines: readonly EntourageRow[], groupKey: string): EntourageRow[] {
   const spec = GROUPS.find((g) => g.key === groupKey);
@@ -855,11 +897,14 @@ export function linesAreArranged(lines: readonly EntourageRow[], groupKey: strin
 }
 
 /** Every printed group key, in printing order. */
-export const ENTOURAGE_GROUP_KEYS: readonly string[] = GROUPS.map((g) => g.key);
+export const ENTOURAGE_GROUP_KEYS: readonly string[] = PRINTED.map((g) => g.key);
+
+/** Every section a march move may name — the printed groups + the march's own (`readMarchLines`). */
+export const MARCH_GROUP_KEYS: readonly string[] = GROUPS.map((g) => g.key);
 
 /** Every printed group's key and heading, in printing order. */
 export const ENTOURAGE_GROUP_LIST: ReadonlyArray<{ key: string; label: string }> =
-  GROUPS.map((g) => ({ key: g.key, label: g.label }));
+  PRINTED.map((g) => ({ key: g.key, label: g.label }));
 
 /**
  * The heading the invitation prints above a group — never a raw key.
@@ -882,7 +927,7 @@ export function entourageGroupLabel(
 
 /** Which printed group a role belongs to, or null when it never prints. */
 export function entourageGroupOfRole(role: string): string | null {
-  return GROUPS.find((g) => (g.roles as readonly string[]).includes(role))?.key ?? null;
+  return PRINTED.find((g) => (g.roles as readonly string[]).includes(role))?.key ?? null;
 }
 
 /**
@@ -999,6 +1044,24 @@ export function orderedGroupKeys(saved?: readonly string[] | null): string[] {
   return out;
 }
 
+/**
+ * 🚶 THE MARCH'S SECTION ORDER — the printed order (the couple's own, else the
+ * built-in), with the couple's sides in their place: the groom's side FIRST, the
+ * bride's side LAST, and the printed groups they stand in for ("Parents") not
+ * drawn twice. Owner 2026-10-06: *"Groom + his parents first, bride + her
+ * parents last."*
+ */
+export function marchGroupKeys(saved?: readonly string[] | null): string[] {
+  const middle = orderedGroupKeys(saved).filter((k) => !MARCH_REPLACED.has(k));
+  const at = (where: 'first' | 'last') => MARCH_ONLY.filter((g) => g.marchOnly!.at === where).map((g) => g.key);
+  return [...at('first'), ...middle, ...at('last')];
+}
+
+/** Is this section the march's own (never printed)? */
+export function isMarchOnlyGroup(key: string): boolean {
+  return MARCH_ONLY.some((g) => g.key === key);
+}
+
 /** Has the couple arranged the sections themselves? (Drives the Reset control.) */
 export function sectionsAreArranged(saved?: readonly string[] | null): boolean {
   const mine = orderedGroupKeys(saved);
@@ -1013,10 +1076,12 @@ export function buildEntourage(
   names?: RoleNames | null,
   /** `events.print_details.name_style` — the event's Name style (owner 2026-09-30). Omitted → Full. */
   style?: NameStyle,
+  /** 🚶 The Maker's march: the couple's sides too (`marchGroupKeys`). Omitted → what prints. */
+  opts?: { march?: boolean },
 ): EntourageGroup[] {
   const groups: EntourageGroup[] = [];
   const byKey = new Map(GROUPS.map((g) => [g.key, g]));
-  for (const key of orderedGroupKeys(sectionOrder)) {
+  for (const key of opts?.march ? marchGroupKeys(sectionOrder) : orderedGroupKeys(sectionOrder)) {
     const spec = byKey.get(key)!;
     // The SAME function the dashboard reorders with — see `entourageLines`.
     const built = entourageLines(rows, spec.key, style);

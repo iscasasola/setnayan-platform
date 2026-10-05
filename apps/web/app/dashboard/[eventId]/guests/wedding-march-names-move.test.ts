@@ -43,26 +43,27 @@ test('🔒 the server asks the rule AGAIN before it writes — a picker is not a
   }
 });
 
-test('the panel hands the island its answers — computed from the same rule on the server', () => {
-  const panel = read('_components', 'entourage-order-panel.tsx');
-  assert.match(panel, /slots: \[slotFor\(lines, key, line, 0\), slotFor\(lines, key, line, 1\)\]/, 'the lines no longer carry their moves');
-  assert.match(panel, /swapWith: swapsFor\(lines, groupKey, half\.id\)/);
-  assert.match(panel, /joiners: anchor\?\.id \? joinersFor\(lines, groupKey, anchor\.id\) : \[\]/);
+test('the maker asks the SAME rule the server asks — before it draws a drop', () => {
+  // 🚶 2026-10-06: the drag maker predicts each drop on the client; the "may it go
+  // there?" is `lib/march-moves.ts`, the rule each action asks again before it writes.
+  const plan = stripComments(readFileSync(join(process.cwd(), 'lib', 'march-drag.ts'), 'utf8'));
+  assert.match(plan, /import \{ joinVerdict, swapVerdict \} from '@\/lib\/march-moves';/);
+  assert.match(plan, /const verdict = swapVerdict\(asLines\(sec\.rows\), sec\.key, source\.id, target\.id\);\s*if \(!verdict\.ok\) return no\(verdict\.reason\);/);
+  assert.match(plan, /const verdict = joinVerdict\(asLines\(sec\.rows\), sec\.key, target\.anchor, source\.id\);\s*if \(!verdict\.ok\) return no\(verdict\.reason\);/);
 });
 
-test('a NAME drag never turns into a LINE drag', () => {
-  // Without stopPropagation the row's own dragstart also fires, overwrites the
-  // payload, and "swap these two names" silently reorders two lines instead.
-  const island = read('_components', 'walking-order-lines.tsx');
-  const start = island.indexOf('onDragStart={(e) => {\n        if (slot.kind !== \'name\') return;');
-  assert.ok(start > -1, 'the name cell no longer starts its own drag');
-  const body = island.slice(start, island.indexOf('}}', start));
-  const stop = body.indexOf('e.stopPropagation()');
-  const set = body.indexOf('e.dataTransfer.setData(NAME_TYPE');
-  assert.ok(stop > -1 && set > stop, 'a name drag bubbles to the row');
-  // And every cell of every line is a MarchCell — count the mount, not the name.
-  assert.equal((island.match(/<MarchCell\b/g) ?? []).length, 1, 'expected exactly one MarchCell mount (inside the per-cell map)');
-  assert.match(island, /\(\[0, 1\] as const\)\.map\(\(c\) => \(\s*<MarchCell\b/, 'MarchCell is not rendered for both cells');
+test('a NAME drag never turns into a WALK drag', () => {
+  // "Swap these two names" must never silently reorder two walks instead: the
+  // source is the INNERMOST draggable under the finger, a walk is dragged only by
+  // its step number, and a walk lands only in a gap.
+  const maker = stripComments(
+    readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'launch', '_components', 'details-march.tsx'), 'utf8'),
+  );
+  assert.match(maker, /const el = \(e\.target as HTMLElement\)\.closest<HTMLElement>\('\[data-march-drag\]'\);/);
+  assert.equal((maker.match(/data-march-drag=\{`walk\|/g) ?? []).length, 1, 'a walk can be lifted from somewhere other than its number');
+  assert.match(maker, /data-march-drag=\{p\.id \? `name\|\$\{p\.id\}` : undefined\}/, 'a name chip does not lift the name');
+  const plan = stripComments(readFileSync(join(process.cwd(), 'lib', 'march-drag.ts'), 'utf8'));
+  assert.match(plan, /if \(source\.kind === 'walk'\) \{\s*if \(target\.kind !== 'gap'\) return null;/, 'a walk can land on a name');
 });
 
 test('every printed entourage follows the couple’s section order', () => {
@@ -72,7 +73,9 @@ test('every printed entourage follows the couple’s section order', () => {
   const hits = execFileSync('git', ['grep', '-n', '-F', 'buildEntourage(', '--', 'app', 'lib'], { encoding: 'utf8' })
     .split('\n')
     .filter(Boolean)
-    .filter((l) => !/\.test\.tsx?:/.test(l) && !/export function buildEntourage\(/.test(l));
+    .filter((l) => !/\.test\.tsx?:/.test(l) && !/export function buildEntourage\(/.test(l))
+    // The dev labs (`app/dev/*`, 404 in production) build fixtures, not a couple's march.
+    .filter((l) => !l.startsWith('app/dev/'));
   assert.ok(hits.length >= 2, `expected the two public readers, found ${hits.length}: ${hits.join(' | ')}`);
   for (const hit of hits) {
     const [file] = hit.split(':');

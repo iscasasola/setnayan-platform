@@ -368,7 +368,8 @@ test('(13) Reply by: one date line, the date in the field, one date format', () 
 });
 
 test('(14) the March has no caption in the step; the cover has no "made once" line; the cover’s dropdown says the step’s word', () => {
-  assert.match(read('app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx'), /group-data-\[details-mode=guided\]\/ws:hidden" data-march-caption=""/, 'the march’s caption shows in the step');
+  // 🚶 Since 2026-10-06 the march is the drag maker, which carries no caption at all.
+  assert.doesNotMatch(read(`${L}/details-march.tsx`), /<figcaption|data-march-caption/, 'the march’s caption came back');
   assert.doesNotMatch(read(`${L}/maker-made-once.tsx`), /Made once, shown everywhere/, 'the cover’s caption came back');
   assert.match(read(`${L}/details-workspace.tsx`), /current=\{pieceLabels\[selected\]\?\.\[pieceMap\[selected\] \?\? ''\] \?\? stepHere\.title\}/, 'the step’s dropdown says the item’s word ("Hero")');
 });
@@ -552,7 +553,8 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   assert.equal(T.writesLive(marchArrow, root), true);
   // Only the two instant writers opt in.
   const optedIn = ['details-march.tsx', 'maker-rsvp-ask.tsx'].map((f) => (read(`${L}/${f}`).match(/data-writes-live=""/g) ?? []).length);
-  assert.deepEqual(optedIn, [2, 1], `the live opt-in moved: ${optedIn}`);
+  // (The march's two controls became ONE drag maker on 2026-10-06 — one opt-in, on its root.)
+  assert.deepEqual(optedIn, [1, 1], `the live opt-in moved: ${optedIn}`);
 
   // The foot says which question it is asking.
   const { GuideFoot } = await import(`../${L}/details-guide`);

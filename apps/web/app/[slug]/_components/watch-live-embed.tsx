@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { parseYouTubeVideoId, youTubeEmbedUrl } from '@/lib/panood-watch';
 import type { GuestWatchState } from '@/lib/live-watch-state';
+import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 
 /** Exported so the mutation-test guard can assert on the exact value. */
 export const WATCH_POLL_INTERVAL_MS = 30_000;
@@ -45,7 +46,7 @@ export function WatchLiveEmbed({
   initialWatchUrl,
   initialEmbedUrl,
   facebookUrl,
-  occasion = 'celebration',
+  occasion = 'event',
 }: {
   slug: string;
   initialWatchUrl: string | null;
@@ -102,7 +103,7 @@ export function WatchLiveEmbed({
 
   return (
     <section
-      aria-label={`Watch the ${occasion} live`}
+      aria-label={`Watch the ${watchLiveOccasion(occasion)} live`}
       className="overflow-hidden rounded-2xl border-2 border-terracotta/40 bg-ink shadow-sm"
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">
@@ -135,7 +136,7 @@ export function WatchLiveEmbed({
       </div>
       <div className="aspect-video w-full">
         <iframe
-          title={`Live broadcast of the ${occasion}`}
+          title={`Live broadcast of the ${watchLiveOccasion(occasion)}`}
           src={embedUrl}
           className="h-full w-full border-0"
           allow="autoplay; encrypted-media; picture-in-picture"

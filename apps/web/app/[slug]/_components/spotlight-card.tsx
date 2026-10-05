@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import type { HomeSpotlight } from '@/lib/site-body-plan';
 import { SITE_MENU_ANCHORS } from '../_lib/site-menu';
+import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 
 /**
  * Home's one signature spotlight under open-browse (OPEN-BROWSE PR7 — council
@@ -70,7 +71,7 @@ function spotlightContent(
       return {
         eyebrow: 'Happening now',
         // "event", never "celebration" (owner 2026-10-05); a funeral keeps its own word.
-        title: `Watch the ${occasion === 'celebration' ? 'event' : occasion} live`,
+        title: `Watch the ${watchLiveOccasion(occasion)} live`,
         href: `#${SITE_MENU_ANCHORS.gallery}`,
       };
     // std_film / countdown / editorial_cover are full-body moments — no card.

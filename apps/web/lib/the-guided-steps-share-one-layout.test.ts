@@ -365,3 +365,20 @@ test('(20) a control that writes live says so plainly: "Guests see this right aw
     assert.match(read(f), /<HubSavesImmediately\b/, `${f} still says it writes live (owner: they stay instant)`);
   }
 });
+
+test('(21) every watch-live surface says "event" — the live card, the camera picker, the embed, the Facebook card', async () => {
+  const { watchLiveOccasion } = await import('./watch-live-occasion');
+  assert.equal(watchLiveOccasion('celebration'), 'event');
+  assert.equal(watchLiveOccasion(undefined), 'event');
+  assert.equal(watchLiveOccasion('gathering'), 'gathering', 'a funeral keeps its own word');
+  const S = 'app/[slug]/_components';
+  let said = 0;
+  for (const f of ['watch-live-embed', 'roam-watch-picker', 'watch-live-block', 'spotlight-card']) {
+    const src = read(`${S}/${f}.tsx`);
+    // (spotlight-card's own default also words its RSVP line — not a watch-live string.)
+    if (f !== 'spotlight-card') assert.doesNotMatch(src, /occasion = 'celebration'/, `${f}: the default word is "celebration" again`);
+    assert.doesNotMatch(src, /(Watch the|broadcast of the) \$\{occasion\}/, `${f}: prints the raw occasion word on a watch-live line`);
+    said += src.match(/(Watch the|broadcast of the) \$\{watchLiveOccasion\(occasion\)\}/g)?.length ?? 0;
+  }
+  assert.equal(said, 5, `watch-live lines said through the one mapping: ${said}`);
+});

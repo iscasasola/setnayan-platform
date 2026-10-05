@@ -29,6 +29,7 @@ import {
 import { youTubeEmbedUrl } from '@/lib/panood-watch';
 import type { GuestPickCamera } from '@/lib/live-studio-guest-pick';
 import { GuestCameraPlayer } from './guest-camera-player';
+import { watchLiveOccasion } from '@/lib/watch-live-occasion';
 
 // The picker's current channel: the directed Main Stage ('main'), or one specific
 // guest camera (its zoneIndex). Main Stage is channel 1 — the default landing.
@@ -56,7 +57,7 @@ export function RoamWatchPicker({
   guestCameras = [],
   mainEmbedUrl = null,
   mainWatchUrl = null,
-  occasion = 'celebration',
+  occasion = 'event',
 }: {
   manifest: RoamManifest;
   /** Required for side cameras; omitted on the pre-Wave-10 render path. */
@@ -137,7 +138,7 @@ export function RoamWatchPicker({
 
   return (
     <section
-      aria-label={`Watch the ${occasion} live — choose your camera`}
+      aria-label={`Watch the ${watchLiveOccasion(occasion)} live — choose your camera`}
       className="overflow-hidden rounded-2xl border-2 border-terracotta/40 bg-ink shadow-sm"
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">

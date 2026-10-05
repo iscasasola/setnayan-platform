@@ -1,7 +1,7 @@
 /**
  * march-sections.ts — the Wedding March as the maker draws it (pure; server-side).
  *
- * Built from `buildEntourage(…, { march: true })` groups — the invitation's own
+ * Built from the march form (`{ march: true }`) of the invitation's own
  * builder, with the couple's sides in their place. Kept apart from
  * `lib/march-drag.ts` (which the client imports) so the role words it reads do
  * not ride into the Maker's bundle.

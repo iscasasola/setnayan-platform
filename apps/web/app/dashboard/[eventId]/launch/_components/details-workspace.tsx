@@ -2,7 +2,7 @@
 
 import { formatCount } from '@/lib/format-number';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, ChevronUp } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import {
   GUIDE_PARAM,
@@ -27,13 +27,16 @@ import { GuideTop, WhatsLeftDoor, hasUnsavedEdits } from './details-guide-top';
 import type { PrintField } from '@/lib/print-layout';
 import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
-import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
 import { MAKER_TOUCH_EVENT, leaveAsks, newStepTouch, noteStepTouch, touchOrigin, type StepTouch } from '@/lib/guided-step-touch';
 import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
 import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
-import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
-import { MakerHalfSheet, SheetGrip, SheetScrim } from './maker-sheet';
+import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
+import { MakerHalfSheet } from './maker-sheet';
+import { useMaker, useMakerTool } from './maker-context';
+import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
+import { makerDoorOf } from './maker-bar';
+import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
 import { SheetSections } from './sheet-sections';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
@@ -105,12 +108,11 @@ export type DetailsNavGroup = { key: string; label: string; items: DetailsNavIte
  * pressing on the dimmed part will go back to the main screen"*; the approved
  * phone layout, frames G/I of `prototypes/maker_in_four_2026-09-30_fable.html`).
  * Under `lg` the body fills everything between the Maker's two bars, and:
- *   · the editor is a BOTTOM SHEET over the dimmed page (`SheetScrim` ·
- *     `SheetGrip`, `maker-sheet.tsx`), capped so the dimmed page keeps ≥ 55%
- *     (`lib/maker-phone-room.ts`). Its one header row is the item's name and
- *     ONE dropdown — the other items here and the item's own sections (what the
- *     navigator strip held). A door (Look · Event Details · Prints) opens it;
- *     shut, an "Edit" chip on the page opens it again;
+ *   · 🧰 since 2026-10-05 (the owner's lower third) the items are the Maker's
+ *     lower-third NAVIGATOR's tiles and the picked item's editor is a TOOL of
+ *     the lower third (`MAKER_LT_TOOL`, `useMakerTool`) — never a sheet over
+ *     the page. Its one header row is ONE dropdown — the other items here and
+ *     the item's own sections;
  *   · the guided flow's progress ("Finish · 9 of 20") is ONE button in the
  *     sheet's header — never a chip floating over the page — and opens "Which
  *     stage do you want ready?"; in the flow it is the step sheet's own ▾ line.
@@ -181,7 +183,9 @@ export function DetailsWorkspace({
   /* 📱 The editor sheet: opened by a door (`MakerState.detailsDoor`), a tap on the
      page, the Edit chip, or a step picked — never on its own (the page shows clean). */
   const door = maker?.detailsDoor ?? 0;
-  const [sheetOpen, setSheetOpen] = useState(door > 0);
+  /* In the lower third (a phone) a mount never opens the tool: Theme · Details ·
+     Prints land on their navigator, and only a door pressed WHILE mounted opens it. */
+  const [sheetOpen, setSheetOpen] = useState(() => door > 0 && !maker?.lowerThird);
   const lastDoor = useRef(door);
   useEffect(() => {
     if (door === lastDoor.current) return;
@@ -205,11 +209,12 @@ export function DetailsWorkspace({
     }),
     [pieceMap],
   );
-  /* 🎨 LOOK IS ITS PANEL (owner 2026-10-02, `lib/maker-look-sections.ts`): on a
-     phone, opening Look opens its sheet over the couple's page — never a closed
-     handle reading "Theme" alone. */
+  /* 🎨 LOOK IS ITS PANEL (owner 2026-10-02, `lib/maker-look-sections.ts`): opening
+     Look opens its panel — never a closed handle reading "Theme" alone. In the
+     Maker's lower third (a phone, 2026-10-05) Theme lands on its NAVIGATOR like
+     every pick, and the Theme tile opens the panel. */
   useEffect(() => {
-    if (selected === 'theme') setSheetOpen(true);
+    if (selected === 'theme' && !window.matchMedia('(max-width: 1023.98px)').matches) setSheetOpen(true);
   }, [selected]);
   const editorRef = useRef<HTMLDivElement>(null);
   const navRef = useRef<HTMLOListElement>(null);
@@ -236,6 +241,20 @@ export function DetailsWorkspace({
   const [stepKey, setStepKey] = useState<GuidedStepKey | null>(entry?.kind === 'step' ? entry.step : null);
   /** Next (or any move) found unsaved typing here: where it was going. */
   const [unsavedTo, setUnsavedTo] = useState<GuidedScreen | null>(null);
+  /* 🎨 LOOK OPENS THE LOOK TOOLS (owner 2026-10-05: a press of Look landed on
+     the guided flow's stage list). Each opening of Look is counted by the Maker
+     (`lookVisit`) and ANSWERED ONCE (`takeLookVisit` — a later mount of this
+     page, through Details or a jump, never replays it): this visit leaves the
+     flow's screens for the Look item. Not remembered: the next door into the
+     flow still opens it. */
+  const lookVisit = maker?.lookVisit ?? 0;
+  const takeLookVisit = maker?.takeLookVisit;
+  useEffect(() => {
+    if (!lookVisit || !takeLookVisit?.(lookVisit)) return;
+    setMode('all');
+    setPane(null);
+    setUnsavedTo(null);
+  }, [lookVisit, takeLookVisit]);
   const pickedStep = plan && stepKey ? stepOf(plan, stepKey) : null;
   const pieceHere = pieceMap[selected] ?? null;
   const stepHere = plan
@@ -430,6 +449,90 @@ export function DetailsWorkspace({
   }, [selected, tellMaker, guideAddr]);
   const layout = detailsItemLayout(selected);
 
+  /* 🧰 THE LOWER THIRD (phone, owner 2026-10-05): this page's items are its
+     NAVIGATOR's tiles — Look's under Theme, the prints under Settings › Prints,
+     the rest under Details — and the picked item's editor is its TOOL. */
+  const allItemsSheet = sheetOpen && !(mode === 'guided' && plan !== null) && layout !== 'whole';
+  /* 🎨 The Look section a Theme tile opened (Theme · Background · Font · Colours · Buttons). */
+  const [lookAt, setLookAt] = useState<LookSection | null>(null);
+  useMakerTool(allItemsSheet, {
+    key: `details:${selected}`,
+    name: selected === 'theme' && lookAt ? LOOK_SECTION_LABEL[lookAt] : current.label,
+    close: () => setSheetOpen(false),
+  });
+  const setLtWhere = maker?.setLtWhere;
+  useEffect(() => {
+    setLtWhere?.(current.label);
+  }, [setLtWhere, current.label]);
+  useEffect(() => () => setLtWhere?.(null), [setLtWhere]);
+  /* The navigator lists the items of the door the picked item belongs to (Theme →
+     Look's, Details → the event's, Prints → the prints') — a jump to another
+     item (Look → the address) moves the lower third's pick with it. */
+  const ltDoor = makerDoorOf(selected);
+  const ltNav = maker?.ltNav ?? null;
+  /* 🎨 Theme's PARTS first (frame 6: "Theme → Look · Fonts · Colours"): the Look
+     panel's own sections (`LOOK_SECTIONS`); a tile opens the panel at it. Then
+     the other Look items (Mood Board · Logo · …), each its own editor. */
+  const themeParts = ltDoor === 'look' && items.some((i) => i.key === 'theme') ? LOOK_SECTIONS : [];
+  useEffect(() => {
+    if (!lookAt || !sheetOpen || selected !== 'theme') return;
+    const id = window.requestAnimationFrame(() =>
+      editorRef.current?.querySelector(`[data-look-section="${lookAt}"]`)?.scrollIntoView({ block: 'start' }),
+    );
+    return () => window.cancelAnimationFrame(id);
+  }, [lookAt, sheetOpen, selected]);
+  const ltTiles = ltNav ? (
+    <IntoLowerThird to={ltNav}>
+          {themeParts.map((key) => {
+            const on = selected === 'theme' && sheetOpen && lookAt === key;
+            return (
+              <button
+                key={`look:${key}`}
+                type="button"
+                data-lt-tile={`look:${key}`}
+                data-lt-group="look"
+                aria-pressed={on}
+                onClick={() => {
+                  select('theme');
+                  setLookAt(key);
+                  setSheetOpen(true);
+                }}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PART} ${on ? LOWER_THIRD_TILE_ON : ''}`}
+              >
+                <span className="flex min-h-0 flex-1 items-center justify-center px-1.5 text-center text-[12.5px] font-semibold leading-tight text-ink">{LOOK_SECTION_LABEL[key]}</span>
+              </button>
+            );
+          })}
+          {themeParts.length > 0 ? <span aria-hidden className="my-4 w-px shrink-0 bg-ink/15" /> : null}
+          {items
+            .filter((i) => makerDoorOf(i.key) === ltDoor && !(themeParts.length > 0 && i.key === 'theme'))
+            .map((i) => (
+              <button
+                key={i.key}
+                type="button"
+                data-lt-tile={`details:${i.key}`}
+                data-lt-group="details"
+                aria-pressed={i.key === selected}
+                onClick={() => {
+                  select(i.key);
+                  setSheetOpen(true);
+                }}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PLAIN} ${i.key === selected ? LOWER_THIRD_TILE_ON : ''}`}
+              >
+                <span className="relative flex min-h-0 flex-1 items-center justify-center text-ink/75">
+                  <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-cream ring-1 ring-ink/10">{i.icon}</span>
+                  {i.done ? (
+                    <span aria-label="Done" className="absolute right-2 top-2 inline-flex h-4 w-4 items-center justify-center rounded-full bg-success-700 text-white">
+                      <Check aria-hidden className="h-2.5 w-2.5" strokeWidth={3} />
+                    </span>
+                  ) : null}
+                </span>
+                <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] font-semibold text-ink">{i.label}</span>
+              </button>
+            ))}
+    </IntoLowerThird>
+  ) : null;
+
   /* 🚪 One field, two doors: a fact drawn in two items is one value (part 2b). */
   useSameFieldDoors();
 
@@ -512,22 +615,12 @@ export function DetailsWorkspace({
               The items' own pictures step aside — hidden, never unmounted. The
               frame ends where the sheet begins, so the part shown is never under it. */}
           {stagePreviewed && stepBody ? (
-            <div className="flex min-h-0 flex-1 flex-col pb-[calc(45dvh-104px)] lg:hidden" data-guided-step-preview={stepBody.kind}>
+            /* The page ends where the lower third begins — the step's tool is IN it, never over the page. */
+            <div className="flex min-h-0 flex-1 flex-col lg:hidden" data-guided-step-preview={stepBody.kind}>
               <StageStepPreview body={stepBody} coverUrl={coverUrl} />
             </div>
           ) : null}
-          {/* 📱 The editor, shut: one chip on the page opens it again (never a strip). */}
-          {!sheetOpen && !stepSheet && layout !== 'whole' ? (
-            <button
-              type="button"
-              data-details-edit-chip=""
-              onClick={() => setSheetOpen(true)}
-              className="sn-press absolute bottom-3 left-1/2 z-10 inline-flex min-h-11 -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full bg-ink px-4 text-[14px] font-semibold text-cream shadow-lg lg:hidden"
-            >
-              {current.panelLabel ?? `Edit · ${current.label}`}
-              <ChevronUp aria-hidden className="h-4 w-4" />
-            </button>
-          ) : null}
+          {/* 📱 The editor opens from the lower third's tiles — no chip floats over the page. */}
           <div
             className={`${layout === 'flow' ? 'mx-auto flex w-full max-w-4xl flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'} ${stagePreviewed ? 'max-lg:hidden' : ''}`}
           >
@@ -718,16 +811,13 @@ export function DetailsWorkspace({
              unmounted, so every other item's fields still post. */
           hidden={layout === 'whole'}
           className={`order-3 ${layout === 'whole' ? 'hidden' : 'flex'} min-h-0 shrink-0 flex-col border-ink/10 bg-cream lg:static lg:max-h-none lg:w-[360px] lg:border-l ${
-            /* 📱 A bottom sheet over the dimmed page; the dimmed page keeps ≥ 55% (`lib/maker-phone-room.ts`). */
-            sheetOpen
-              ? `max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-30 max-lg:rounded-t-3xl max-lg:shadow-[0_-18px_40px_-24px_rgba(30,26,18,.5)] ${MAKER_PHONE_PANEL_CAP}`
-              : 'max-lg:hidden'
+            /* 📱 A TOOL of the lower third (owner 2026-10-05): over it, beside the
+               column that names it — never over the page. */
+            sheetOpen ? MAKER_LT_TOOL : 'max-lg:hidden'
           }`}
         >
-          {/* 📱 The sheet's top: the grip (tap or drag down closes), then ONE header row. */}
-          <SheetGrip onClose={() => setSheetOpen(false)} />
-          <div className="flex shrink-0 items-center gap-2 px-4 pb-1 lg:hidden" data-details-sheet-head="">
-            <p className="min-w-0 truncate text-[15px] font-semibold text-ink">{current.panelLabel ?? current.label}</p>
+          {/* 📱 ONE header row: the setup's progress and the item's sections — its name is the column's. */}
+          <div className="flex shrink-0 items-center gap-2 px-3 pb-1 pt-2 lg:hidden" data-details-sheet-head="">
             {/* 🧭 The setup's progress lives HERE, in the sheet's header — never a chip floating
                 over the page (it covered the page's own header line, 2026-10-04 at 375 px).
                 In the flow it is the step sheet's own ▾ line (`GuideTop`). */}
@@ -753,8 +843,7 @@ export function DetailsWorkspace({
           {editorsBody(false)}
         </aside>
         )}
-        {/* 📱 The dimmed page behind an open sheet — a tap on it goes back to the page. (The step's half sheet leaves the page live.) */}
-        {sheetOpen && !stepSheet && layout !== 'whole' ? <SheetScrim onClose={() => setSheetOpen(false)} /> : null}
+        {ltTiles}
       </div>
       {/* 🗂 The flow's other screens — the stage picker, a stage's Before we start, its Ready screen. */}
       {plan && at?.kind === 'stages' ? <StagePicker plan={plan} onPick={pickStage} initial={walk} /> : null}

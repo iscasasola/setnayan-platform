@@ -27,6 +27,7 @@ import {
   canvasLookFacets,
   hubDraftCountedChanges,
   planHubDraftApply,
+  printDetailsKeysChanged,
   type CanvasFacetGroup,
   type HubDraftChangeLine,
   type HubDraftEventColumn,
@@ -37,6 +38,7 @@ import {
 import { postEventItemLabel } from '@/lib/post-event-draft';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { seededTheme } from '@/lib/theme-colours';
+import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -142,6 +144,13 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
       if (item.column === 'role_palette') {
         const from = seededTheme(item.value);
         return { place: 'Mood Board', what: from ? `Colours from ${INVITE_THEMES[from].name}` : 'Colours' };
+      }
+      /* 🎫 The drafted print settings say WHICH one moved — the ticket style is
+         the Guest's ticket's, the name style Event Details'. */
+      if (item.column === 'print_details') {
+        const keys = printDetailsKeysChanged(live.events.print_details, item.value);
+        if (keys.length === 1 && keys[0] === 'pass_design') return { place: "Guest's ticket", what: PASS_CARD_WORDS.style };
+        if (keys.length === 2) return { place: DETAILS, what: `Name style, ${PASS_CARD_WORDS.style}` };
       }
       return HUB_DRAFT_EVENT_PLACE[item.column];
     }

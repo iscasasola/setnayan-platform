@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { PickMenu } from '../../website/editor/_components/pick-menu';
+import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART } from './maker-lower-third';
 import { MakerPage } from './maker-page';
 import { MakerRsvpSettings } from './maker-rsvp-ask';
 import { useMaker } from './maker-context';
@@ -21,6 +21,17 @@ import {
   rsvpWordBridgeKey,
   type RsvpStageScene,
 } from '@/lib/rsvp-stage';
+
+/**
+ * 🧰 THE RSVP'S THREE SCREENS AS THE LOWER THIRD'S PARTS (owner 2026-10-05,
+ * frame 6: *"on RSVP there is the RSVP, when yes, when no"*) — the shipped
+ * screens (`RSVP_STAGE_SCENES`), named as a tile and captioned in his words.
+ */
+const RSVP_STAGE_TILE: Record<RsvpStageScene, { label: string; caption: string }> = {
+  form: { label: 'RSVP form', caption: 'The form' },
+  thanks: { label: 'After they submit', caption: 'When yes' },
+  decline: { label: 'When they decline', caption: 'When no' },
+};
 
 /**
  * 🗳 THE RSVP STAGE — the Maker's stage between Save the Date and Invitation
@@ -75,6 +86,14 @@ export function MakerRsvpStage({
 }) {
   const maker = useMaker();
   const [scene, setScene] = useState<RsvpStageScene>('form');
+  /* 📱 The screen's controls, opened by its tile in the lower third. */
+  const [controlsOpen, setControlsOpen] = useState(false);
+  /* "Where you are" says the screen on show. */
+  const setLtWhere = maker?.setLtWhere;
+  useEffect(() => {
+    setLtWhere?.(RSVP_STAGE_TILE[scene].label);
+  }, [setLtWhere, scene]);
+  useEffect(() => () => setLtWhere?.(null), [setLtWhere]);
   /* Each scene's frame is loaded the first time it is shown, then kept. */
   const [opened, setOpened] = useState<ReadonlySet<RsvpStageScene>>(() => new Set(['form']));
   const frames = useRef<Partial<Record<RsvpStageScene, HTMLIFrameElement | null>>>({});
@@ -111,6 +130,7 @@ export function MakerRsvpStage({
       (RSVP_SCENE_WORDS[s] as readonly string[]).includes(key),
     );
     if (owner) setScene(owner);
+    setControlsOpen(true);
     window.setTimeout(() => {
       const box =
         key === 'reply-by'
@@ -181,15 +201,33 @@ export function MakerRsvpStage({
         ))}
       </nav>
       <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex shrink-0 justify-center px-2 pt-2 lg:hidden">
-          <PickMenu
-            label="RSVP scene"
-            dataAttr="data-rsvp-stage-scene-pick"
-            value={scene}
-            options={RSVP_STAGE_SCENES.map((s, i) => ({ key: s.key, label: `${i + 1} · ${s.label}` }))}
-            onPick={(key) => pick(key as RsvpStageScene)}
-          />
-        </div>
+        {/* 📱 The three screens are the lower third's tiles; a tile opens its controls there. */}
+        {maker?.ltNav ? (
+          <IntoLowerThird to={maker.ltNav}>
+            {RSVP_STAGE_SCENES.map((s) => (
+              <button
+                key={s.key}
+                type="button"
+                data-lt-tile={`rsvp:${s.key}`}
+                data-lt-group="rsvp"
+                data-rsvp-stage-scene-tile={s.key}
+                aria-pressed={scene === s.key}
+                onClick={() => {
+                  pick(s.key);
+                  setControlsOpen(true);
+                }}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PART} ${scene === s.key ? LOWER_THIRD_TILE_ON : ''}`}
+              >
+                <span className="flex min-h-0 flex-1 items-center justify-center px-1.5 text-center text-[12.5px] font-semibold leading-tight text-ink">
+                  {RSVP_STAGE_TILE[s.key].label}
+                </span>
+                <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] text-ink/65">
+                  {RSVP_STAGE_TILE[s.key].caption}
+                </span>
+              </button>
+            ))}
+          </IntoLowerThird>
+        ) : null}
         {/* MIDDLE — the guest's page, one frame per scene visited, kept. */}
         <div className="relative flex min-h-0 flex-1 items-stretch justify-center px-2 py-2 lg:px-6 lg:pb-5 lg:pt-4">
           {RSVP_STAGE_SCENES.filter((s) => opened.has(s.key)).map((s) => (
@@ -221,10 +259,14 @@ export function MakerRsvpStage({
     <div className="flex h-full min-h-0 w-full flex-1 flex-col" data-rsvp-stage={scene}>
       <MakerPage
         pageKey="rsvp-page"
+        open={controlsOpen}
+        onOpenChange={setControlsOpen}
+        toolName={RSVP_STAGE_TILE[scene].label}
         page={page}
         controls={
           <>
-            <p className="px-1 text-[13px] font-semibold text-ink/70" data-rsvp-stage-scene-title="">
+            {/* The desktop's title — on a phone the lower third's column names the screen. */}
+            <p className="hidden px-1 text-[13px] font-semibold text-ink/70 lg:block" data-rsvp-stage-scene-title="">
               Scene {RSVP_STAGE_SCENES.indexOf(sceneMeta) + 1} · {sceneMeta.label}
             </p>
             <MakerRsvpSettings

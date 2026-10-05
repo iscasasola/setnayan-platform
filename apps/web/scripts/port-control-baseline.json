@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "545ecd3e9",
-  "routeCount": 426,
-  "destinations": 948,
+  "generatedFromRef": "3ef98ae74",
+  "routeCount": 428,
+  "destinations": 947,
   "actions": 669,
-  "blocks": 5502,
+  "blocks": 5518,
   "routes": {
     "/": {
       "files": [
@@ -6038,6 +6038,7 @@
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
+        "HTMLImageElement",
         "HTMLInputElement",
         "HTMLSpanElement",
         "HTMLTableRowElement",
@@ -6129,6 +6130,7 @@
         "Tab",
         "TargetMeter",
         "TeamSideSelect",
+        "TicketPlaceholder",
         "TicketThumb",
         "TierHeader",
         "Toggle",
@@ -6460,12 +6462,14 @@
         "dashboard/[eventId]/launch/_components/film-follows-theme.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
+        "dashboard/[eventId]/launch/_components/icon-pill.tsx",
         "dashboard/[eventId]/launch/_components/lazy-slot.tsx",
         "dashboard/[eventId]/launch/_components/maker-bar.ts",
         "dashboard/[eventId]/launch/_components/maker-context.tsx",
         "dashboard/[eventId]/launch/_components/maker-details.tsx",
         "dashboard/[eventId]/launch/_components/maker-hero-design.tsx",
         "dashboard/[eventId]/launch/_components/maker-logo.tsx",
+        "dashboard/[eventId]/launch/_components/maker-lower-third.tsx",
         "dashboard/[eventId]/launch/_components/maker-made-once.tsx",
         "dashboard/[eventId]/launch/_components/maker-page.tsx",
         "dashboard/[eventId]/launch/_components/maker-play-menu.tsx",
@@ -6609,9 +6613,11 @@
         "ISegmented",
         "Icon",
         "IconBtn",
+        "IconPill",
         "Image",
         "InMakerLiveStoryPanel",
         "InfoTip",
+        "IntoLowerThird",
         "ItemPieces",
         "K",
         "KindIcon",
@@ -6624,18 +6630,22 @@
         "LogoLayer",
         "LookFrame",
         "LookPanel",
+        "LookSection",
         "LoveStoryPieceFocus",
+        "LowerThirdTileButton",
         "MadeOnce",
         "MakerAddScene",
         "MakerContext.Provider",
         "MakerDetails",
         "MakerDevice",
         "MakerDraftDoor",
+        "MakerEventBar",
         "MakerGuestPagesReport",
         "MakerHalfSheet",
         "MakerHeroDesignPicker",
         "MakerLogoDoor",
         "MakerLookPages",
+        "MakerLowerThird",
         "MakerPage",
         "MakerPageFrame",
         "MakerPageJump",
@@ -6650,6 +6660,7 @@
         "MakerState",
         "MakerThemeGallery",
         "MakerThemeMenu",
+        "MakerTool",
         "MakerTour",
         "MarchAisleFocus",
         "MarchControls",
@@ -6719,9 +6730,7 @@
         "SeeAs",
         "Segmented",
         "SetupStage",
-        "SheetGrip",
         "SheetHead",
-        "SheetScrim",
         "SheetSections",
         "ShutDoor",
         "SiteStage",
@@ -8939,6 +8948,7 @@
         "HubDraftActionResult",
         "HubDraftBarLive",
         "HubDraftToolbar",
+        "IconPill",
         "InfoTip",
         "Link",
         "MakerPressApplyDetail",
@@ -9013,7 +9023,6 @@
       ],
       "destinations": [
         "/api/website/qr[seg]",
-        "/dashboard/[seg]/[seg]",
         "/dashboard/[seg]/launch",
         "/dashboard/[seg]/launch?scene=[seg]",
         "/dashboard/[seg]/schedule?view=event-day",
@@ -9074,7 +9083,6 @@
         "HTMLElement",
         "HTMLFormElement",
         "HTMLIFrameElement",
-        "HTMLOListElement",
         "HTMLSpanElement",
         "HTMLTextAreaElement",
         "HTMLUListElement",
@@ -9098,6 +9106,7 @@
         "InfoTip",
         "Inspector",
         "InspectorTabs",
+        "IntoLowerThird",
         "JoinerRow",
         "K",
         "LaunchPhasePanel",
@@ -9131,6 +9140,8 @@
         "PartTab",
         "PartTextTab",
         "PartWordsRow",
+        "PassCardDesign",
+        "PassCardDesignPicker",
         "PhotoMomentsEditor",
         "PhotoMomentsPanel",
         "PhotoTile",
@@ -9163,7 +9174,6 @@
         "SchedulePeekPanel",
         "SectionColourChoices",
         "SectionsPanel",
-        "SheetGrip",
         "SiteChromePanel",
         "Slider",
         "StdLeadSwitch",
@@ -9467,6 +9477,7 @@
     },
     "/dev/details-lab": {
       "files": [
+        "dev/details-lab/details-lab-node.tsx",
         "dev/details-lab/look-lab.tsx",
         "dev/details-lab/page.tsx"
       ],
@@ -9504,6 +9515,7 @@
         "BottomDock",
         "DockStandIn",
         "GuestCardBody",
+        "GuestListMultiselect",
         "GuestRow",
         "GuestsPhoneMenu",
         "GuestsViewSwitcher",
@@ -9539,6 +9551,30 @@
       "blocks": [
         "HomeFirstScreen"
       ]
+    },
+    "/dev/maker-lab": {
+      "files": [
+        "dev/maker-lab/maker-lab-shell.tsx",
+        "dev/maker-lab/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "HubDraftActionResult",
+        "HubDraftToolbar",
+        "MakerLabShell",
+        "MakerRsvpStage",
+        "MakerShell",
+        "MakerWork"
+      ]
+    },
+    "/dev/maker-lab/guest": {
+      "files": [
+        "dev/maker-lab/guest/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/dev/schedule-lab": {
       "files": [

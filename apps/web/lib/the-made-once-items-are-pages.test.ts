@@ -268,7 +268,7 @@ test('Details renders as a page in the Maker’s body, not a layer of its own', 
   // The ⋯ sheet is the only dialog in the shell, and it is shut.
   const dialogs = html.match(/role="dialog"/g) ?? [];
   assert.equal(dialogs.length, 1, 'only the ⋯ sheet is a dialog');
-  assert.match(html, /<div hidden="" class="absolute inset-0 z-40">/, 'and the ⋯ sheet is shut');
+  assert.match(html, /<div hidden="" class="lg:absolute lg:inset-0 lg:z-40">/, 'and the ⋯ sheet is shut');
 });
 
 test('Love Story: Our Love Story is the body, and a moment is added and edited IN PLACE', () => {

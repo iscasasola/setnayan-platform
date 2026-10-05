@@ -409,3 +409,19 @@ export function makerViewToggle(shown: MakerDevice): MakerDevice {
 export function isMakerDevice(value: unknown): value is MakerDevice {
   return value === 'desktop' || value === 'phone' || value === 'both';
 }
+
+/**
+ * 🎨 EACH OPENING OF LOOK IS ANSWERED ONCE (owner 2026-10-05: Look opens the Look
+ * tools, never the guided flow's stage list). The Maker counts the openings
+ * (`lookVisit`); Event Details asks this taker whether a count is new before it
+ * leaves the flow — so a later mount of Details (through the Details door, or a
+ * jump) never replays an old Look visit. Pure, so a test holds it.
+ */
+export function lookVisitTaker(): (n: number) => boolean {
+  let taken = 0;
+  return (n) => {
+    if (n <= taken) return false;
+    taken = n;
+    return true;
+  };
+}

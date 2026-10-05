@@ -8,9 +8,10 @@
  *
  * Executed over every stage × every page that can cover it (none · Look ·
  * Event Details · Prints) × the RSVP stage open or not, with the real guest
- * pages of each stage (`makerGuestPages`), for both bars:
- *   · phone bottom bar — Page ▾ (`pageText`) · Look · Event Details;
- *   · top bar (desktop) — ‹ Exit · Page ▾ (`buttonText`) · Look · Event Details · Undo · Preview · Apply.
+ * pages of each stage (`makerGuestPages`), for the desktop's top bar —
+ * ✕ Exit · Page ▾ (`buttonText`) · Look · Event Details · Undo · Preview · Apply.
+ * (Since 2026-10-05 a phone has no bottom bar: the lower third's menu ▾ names
+ * the pick and "where you are" its part — `maker-lower-third.tsx`.)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -46,9 +47,7 @@ test('no two buttons of either Maker bar share a label — on every stage, whate
       for (const rsvpOpen of [false, true]) {
         for (const shown of [null, ...pagesOf(stage).map((p) => p.key)]) {
           const m = makerPageMenu({ stage, rsvpOpen, liveStage: null, pagesOf, shownPage: shown, hasWork: true, openPage });
-          const phone = [m.pageText, MAKER_LOOK_LABEL, MAKER_DETAILS_LABEL];
           const top = ['Exit', m.buttonText, MAKER_LOOK_LABEL, MAKER_DETAILS_LABEL, 'Undo', 'Preview', 'Apply'];
-          assert.deepEqual(dupes(phone), [], `phone bar on ${stage} (${openPage ?? 'the stage'}): ${phone.join(' · ')}`);
           assert.deepEqual(dupes(top), [], `top bar on ${stage} (${openPage ?? 'the stage'}): ${top.join(' · ')}`);
           checked++;
         }
@@ -67,8 +66,8 @@ test('the exact bar seen live: Event Details open → "Page ▾ · Look · Event
   assert.equal(makerPageMenu({ stage: 'rsvp', rsvpOpen: false, liveStage: null, pagesOf, shownPage: 'welcome', hasWork: true }).pageText, 'Welcome');
 });
 
-test('the shell draws both bars from those values — Page ▾ from the menu, the doors from their labels', () => {
+test('the shell draws the bar from those values — Page ▾ from the menu, the doors from their labels; a phone has no bottom bar', () => {
   assert.match(SHELL, /dataAttr="data-maker-page-menu"\s+value=\{page\.value\}\s+buttonText=\{page\.buttonText\}/);
-  assert.match(SHELL, /dataAttr="data-maker-page-menu-phone"\s+value=\{page\.value\}\s+buttonText=\{page\.pageText\}/);
+  assert.doesNotMatch(SHELL, /data-maker-page-menu-phone|data-maker-bottom-bar/, 'the phone’s bottom bar is back — the lower third replaced it');
   assert.match(SHELL, /openPage: openDoor === 'look' \? MAKER_LOOK_LABEL : openDoor === 'details' \? MAKER_DETAILS_LABEL/);
 });

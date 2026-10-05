@@ -16,6 +16,8 @@ import {
   MAKER_PRINTS_LABEL,
   MAKER_TOUR_KEY,
   isMakerDevice,
+  isMakerShellPage,
+  lookVisitTaker,
   isStagePhase,
   makerOpenTool,
   makerPageAction,
@@ -78,6 +80,13 @@ import { announceUnheldWrite } from '@/lib/maker-refresh';
 import { VIEW_AS_FREE_LABEL } from '@/lib/view-as-free';
 import { ViewAsFreeKeeper, ViewAsFreeStrip, useViewAsFreeToggle } from './view-as-free';
 import { OneOpenScope, useOneOpen } from '@/lib/one-open';
+import { ICON_PILL_EXIT, IconPill } from './icon-pill';
+import { LOWER_THIRD_GLOBAL_ICON, MakerLowerThird, type LowerThirdPick, type LowerThirdTile } from './maker-lower-third';
+import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
+import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
+import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
+import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-context';
+import { Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -211,11 +220,21 @@ export function MakerShell({
   const [detailsItem, setDetailsItem] = useState<DetailsItemKey | null>(() => movedSelection(initialSelection).item);
   /* 📱 Each door press opens the item's editor sheet on a phone (`MakerState.detailsDoor`). */
   const [detailsDoor, setDetailsDoor] = useState(0);
+  /* 🎨 Each time Look is opened — a door press, or Theme picked in the lower third. */
+  const [lookVisit, setLookVisit] = useState(0);
+  const takeLookVisit = useMemo(() => lookVisitTaker(), []);
   /* 🏷 The guided flow's one title while it is on screen (`MakerState.guideTitle`). */
   const [guideTitle, setGuideTitle] = useState<string | null>(null);
   const [selection, setSelection] = useState<MakerSelection>(() => movedSelection(initialSelection).selection);
   const [lookPages, setLookPages] = useState<MakerLookPages | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
+  /* 🧰 THE LOWER THIRD (phone): the tool open in it, its navigator's slot, the
+     canvas's Event Bar as the work area registered it, and Settings picked. */
+  const [tool, setTool] = useState<MakerTool | null>(null);
+  const [ltSlot, setLtSlot] = useState<HTMLElement | null>(null);
+  const [eventBar, setEventBar] = useState<MakerEventBar | null>(null);
+  const [settingsOn, setSettingsOn] = useState(false);
+  const phone = !wide;
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
   const [tour, setTour] = useState(false);
   /* 👁 SEE AS ▾ (PR-10) — the canvas as a sample guest, or null for the couple's
@@ -413,6 +432,38 @@ export function MakerShell({
     </ToolMenu>
   );
 
+  const openDoor = selection?.kind === 'tool' ? makerOpenTool(selection.key, detailsItem) : null;
+  /* 🧰 THE LOWER THIRD'S PICK (phone) — one of the menu's two groups: a stage,
+     or Theme · Settings · Details (Look · Event Details · Prints are those). */
+  /* The door the open Details page is on IS its item's (`makerDoorOf`): a jump to
+     another item (Look → the address) moves the pick with it. */
+  const doorShown: MakerDoor | null =
+    selection?.kind === 'tool' && selection.key === 'details' && (openDoor === 'look' || openDoor === 'details' || openDoor === 'prints')
+      ? openDoor
+      : null;
+  const ltPick: LowerThirdPick =
+    selection?.kind === 'tool' && selection.key === 'rsvp-stage'
+      ? RSVP_STAGE_KEY
+      : doorShown === 'look'
+        ? 'theme'
+        : doorShown === 'details'
+          ? 'details'
+          : doorShown === 'prints' || settingsOn
+            ? 'settings'
+            : stage;
+  /* The navigator's slot is handed to the layer on screen — none for Settings'
+     own rows (the lower third draws them), except Prints, whose pieces follow;
+     none on a desktop (its columns). */
+  const ltNav = phone && (ltPick !== 'settings' || doorShown === 'prints') ? ltSlot : null;
+  /* Settings stays the pick only while nothing else is: a scene, a part or a
+     stage picked (on the page or anywhere) leaves it. */
+  useEffect(() => {
+    if (selection && !(selection.kind === 'tool' && selection.key === 'details')) setSettingsOn(false);
+  }, [selection]);
+  useEffect(() => setSettingsOn(false), [stage]);
+  /* The part on screen, as the layer on screen says it ("RSVP form", "Names"). */
+  const [ltWhere, setLtWhere] = useState<string | null>(null);
+
   const value = useMemo<MakerState>(
     () => ({
       eventId,
@@ -432,6 +483,8 @@ export function MakerShell({
       detailsItem,
       setDetailsItem,
       detailsDoor,
+      lookVisit,
+      takeLookVisit,
       guideTitle,
       setGuideTitle,
       lookPages,
@@ -446,16 +499,22 @@ export function MakerShell({
       previewMenu,
       draft,
       setDraft,
+      tool,
+      setTool,
+      lowerThird: phone,
+      ltNav,
+      eventBar,
+      setEventBar,
+      setLtWhere,
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
      (`makerPressDoor`). Exactly one wears the highlight (`makerOpenTool`), and
      pressing the open one closes it: the page under it comes back. */
-  const openDoor = selection?.kind === 'tool' ? makerOpenTool(selection.key, detailsItem) : null;
   const pressDoor = (key: MakerDoor) => {
     if (!hasWork) return;
     if (openDoor === key) {
@@ -463,7 +522,17 @@ export function MakerShell({
       return;
     }
     setDetailsItem(makerPressDoor({ detailsItem }, key).detailsItem);
+    if (key === 'look') setLookVisit((n) => n + 1);
     setDetailsDoor((n) => n + 1);
+    select({ kind: 'tool', key: 'details' });
+  };
+  /* 🧰 The lower third opens Look or Event Details on its NAVIGATOR — the
+     page and its parts as tiles; a tile opens its editor (owner 2026-10-05,
+     frame 6: "one menu, then parts, then scenes"). The same door, no sheet yet. */
+  const openDoorOnNavigator = (key: MakerDoor) => {
+    if (!hasWork || openDoor === key) return;
+    setDetailsItem(makerPressDoor({ detailsItem }, key).detailsItem);
+    if (key === 'look') setLookVisit((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
 
@@ -527,6 +596,91 @@ export function MakerShell({
     setStage(pick.stage);
   };
 
+  /* ══ 🧰 THE LOWER THIRD (phone) — the menu, the pick, the navigator ══
+     (owner 2026-10-05, "approve": `maker_lower_third_interactive_2026-10-05_fable.html`). */
+  const ltGlobal = [
+    ...(hasWork ? [{ key: 'theme', label: 'Theme', icon: LOWER_THIRD_GLOBAL_ICON.theme }] : []),
+    { key: 'settings', label: 'Settings', icon: LOWER_THIRD_GLOBAL_ICON.settings },
+    ...(hasWork ? [{ key: 'details', label: 'Details', icon: LOWER_THIRD_GLOBAL_ICON.details }] : []),
+  ];
+  const ltStages = MAKER_PAGE_STAGES.filter((s) => hasWork || s !== RSVP_STAGE_KEY).map((s) => ({
+    key: s,
+    label: makerStageLabel(s),
+    ...(s === liveStage ? { dot: true } : {}),
+  }));
+  const ltPickLabel = ltGlobal.find((g) => g.key === ltPick)?.label ?? makerStageLabel(ltPick as LifecyclePhase | typeof RSVP_STAGE_KEY);
+  const onLtPick = (key: string) => {
+    if (key === 'settings') {
+      setSettingsOn(true);
+      if (selection?.kind === 'tool') select(null);
+      return;
+    }
+    setSettingsOn(false);
+    if (key === 'theme') return openDoorOnNavigator('look');
+    if (key === 'details') return openDoorOnNavigator('details');
+    if (key === RSVP_STAGE_KEY) {
+      if (hasWork) select({ kind: 'tool', key: 'rsvp-stage' });
+      return;
+    }
+    if (isStagePhase(key)) {
+      if (selection) select(null);
+      setStage(key);
+    }
+  };
+  /* The pick's own tiles: a stage's PAGES (the guest bar's, as Page ▾ listed
+     them), or Settings' rows — the hub-wide switches and acts that lived in Page ▾. */
+  const ltParts: LowerThirdTile[] =
+    ltPick === 'settings'
+      ? [
+          ...(eventBar
+            ? [{ key: 'event-bar', label: 'Event Bar', icon: <PanelsTopLeft aria-hidden className="h-5 w-5" strokeWidth={1.75} />, toggle: true, on: eventBar.on, onPick: eventBar.toggle }]
+            : []),
+          { key: 'who', label: 'Who can view', icon: <Users aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: moreOpen, onPick: () => setMoreOpen(true) },
+          ...(hasWork
+            ? [{ key: 'prints', label: MAKER_PRINTS_LABEL, icon: <Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: openDoor === 'prints', onPick: () => openDoorOnNavigator('prints') }]
+            : []),
+          ...(draft
+            ? [{
+                key: 'restore',
+                label: 'Restore what guests see',
+                icon: <Undo aria-hidden className="h-5 w-5" strokeWidth={1.75} />,
+                on: false,
+                disabled: !draft.canRestore,
+                note: draft.canRestore ? undefined : 'Guests already see this.',
+                onPick: () => draft.canRestore && draft.restore(),
+              }]
+            : []),
+          ...(hasWork && applySlot !== null
+            ? [{ key: 'reset', label: 'Reset this stage…', icon: <RotateCcw aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: false, onPick: () => window.dispatchEvent(new Event(MAKER_OPEN_RESET_EVENT)) }]
+            : []),
+          { key: 'about', label: 'About the Maker', icon: <Info aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: tour, onPick: () => setTour(true) },
+        ]
+      : isStagePhase(ltPick)
+        ? page.options
+            .filter((o) => {
+              const pk = makerPagePick(o.key);
+              return pk?.kind === 'page' && pk.stage === stage;
+            })
+            .map((o) => ({
+              key: o.key,
+              label: o.label,
+              on: o.key === page.value,
+              disabled: Boolean(o.disabledNote),
+              note: o.disabledNote,
+              onPick: () => pickPage(o.key),
+            }))
+        : [];
+  /* "Where you are": the part on screen — the page of a stage, or what the layer says. */
+  const ltWhereWords = isStagePhase(ltPick) ? page.pageText : ltPick === 'settings' ? 'Your Event Hub' : (ltWhere ?? ltPickLabel);
+  /* 🏷 THE TOP LINE — the screen you are on (owner 2026-10-05: "RSVP · RSVP
+     form"): the pick and its part — the tool open, else the part on screen —
+     or, in the guided flow, its one title (the stage being walked). */
+  const screenLabel = (() => {
+    const head = guideTitle && (openDoor === 'look' || openDoor === 'details') ? (openStageWord ?? ltPickLabel) : ltPickLabel;
+    const part = tool?.name ?? ltWhereWords;
+    return part && part !== head ? `${head} · ${part}` : head;
+  })();
+
   /* ▶ The stage as guests meet it — page-only, with the host's DRAFT
      (`?preview=draft`, host-verified on the page; `app/[slug]/_lib/editor-canvas.ts`). */
   const playHref = slug ? `/${slug}?phase=${stage}&preview=draft` : null;
@@ -538,49 +692,55 @@ export function MakerShell({
     (selection?.kind === 'tool' && selection.key === 'details' && (detailsItem === 'hero' || detailsItem === 'reveal'));
   const bothView = makerViewOptions(wide).find((o) => o.key === 'both') ?? null;
 
-  /* 🎨 LOOK · 🗂 EVENT DETAILS — drawn in the top bar on a desktop and in the
-     phone's bottom bar (owner 2026-10-02, frame G: "where a thumb can reach"). */
-  const doors = (where: 'top' | 'bottom') =>
-    (['look', 'details'] as const).map((door) => {
-      const label = door === 'look' ? MAKER_LOOK_LABEL : MAKER_DETAILS_LABEL;
-      const icon =
-        door === 'look' ? (
-          <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        ) : (
-          <List aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-        );
-      const place = where === 'top' ? 'hidden md:inline-flex' : `justify-center max-md:px-2 max-md:text-[13px] ${door === 'look' ? MAKER_BAR_PHONE.look : MAKER_BAR_PHONE.details}`;
-      if (!hasWork) {
-        return (
-          <span key={door} className={where === 'top' ? 'hidden md:inline-flex' : 'flex justify-center'}>
-            <ShutDoor label={label} note={`Only ${theHost} can open this part of the Event Hub Maker.`} tool={door}>
-              {icon}
-              {label}
-            </ShutDoor>
-          </span>
-        );
-      }
-      const on = openDoor === door;
-      return (
-        <button
-          key={door}
-          type="button"
-          data-maker-tool={door}
-          data-bar-item={where === 'bottom' ? label : undefined}
-          aria-pressed={on}
-          onClick={() => pressDoor(door)}
-          className={`${MAKER_DOOR_BUTTON} ${place} ${on ? 'bg-ink text-cream' : 'bg-white/70 text-ink hover:bg-white'}`}
-        >
-          {where === 'top' ? icon : null}
-          {label}
-        </button>
+  /* 🎨 LOOK · 🗂 EVENT DETAILS — the desktop's top bar (on a phone: the lower
+     third's Theme and Details, owner 2026-10-05). */
+  const doors = (['look', 'details'] as const).map((door) => {
+    const label = door === 'look' ? MAKER_LOOK_LABEL : MAKER_DETAILS_LABEL;
+    const icon =
+      door === 'look' ? (
+        <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+      ) : (
+        <List aria-hidden className="h-4 w-4" strokeWidth={1.75} />
       );
-    });
+    if (!hasWork) {
+      return (
+        <span key={door} className="hidden lg:inline-flex">
+          <ShutDoor label={label} note={`Only ${theHost} can open this part of the Event Hub Maker.`} tool={door}>
+            {icon}
+            {label}
+          </ShutDoor>
+        </span>
+      );
+    }
+    const on = openDoor === door;
+    return (
+      <button
+        key={door}
+        type="button"
+        data-maker-tool={door}
+        aria-pressed={on}
+        onClick={() => pressDoor(door)}
+        className={`${MAKER_DOOR_BUTTON} hidden lg:inline-flex ${on ? 'bg-ink text-cream' : 'bg-white/70 text-ink hover:bg-white'}`}
+      >
+        {icon}
+        {label}
+      </button>
+    );
+  });
 
   /* 👁 PREVIEW'S ROWS — how the page is SEEN (owner 2026-10-04): See as ·
      Phone / Desktop · Both · Scenes · Play this scene · Preview the stage. What
      ⋯ held besides moved to Page ▾ (`makerPageActions`) — nothing is lost
      (`the-toolbar-is-the-maker-in-four.test.ts`). */
+  /* 👁 ON A SETUP SCREEN THE PREVIEW IS SEEN (owner 2026-10-05: the eye "did
+     nothing" there). Event Details and the RSVP stage COVER the canvas, so a
+     view picked under them changed a page nobody could see: a pick that changes
+     how the page is seen (See as · Phone / Desktop · Both) also puts the stage
+     back on screen, drawn that way. */
+  const coveringPage = selection?.kind === 'tool' && isMakerShellPage(selection.key);
+  const seeTheStage = () => {
+    if (coveringPage) select(null);
+  };
   const previewRows = (close: () => void) => (
         <>
           {/* 👁 SEE AS ▾ (PR-10, owner 2026-10-04 — it was "See it as…", a role's
@@ -591,11 +751,11 @@ export function MakerShell({
           {hasWork ? (
             <div className="contents lg:hidden" data-maker-see-as-rows="">
               <MenuHeading>See as</MenuHeading>
-              <MenuItem on={seeAs === null} onClick={() => { setSeeAs(null); close(); }}>
+              <MenuItem on={seeAs === null} onClick={() => { setSeeAs(null); seeTheStage(); close(); }}>
                 {SEE_AS_EDITING.label}
               </MenuItem>
               {SEE_AS.map((s) => (
-                <MenuItem key={s.key} on={seeAs === s.key} note={s.note ?? undefined} onClick={() => { setSeeAs(s.key); close(); }}>
+                <MenuItem key={s.key} on={seeAs === s.key} note={s.note ?? undefined} onClick={() => { setSeeAs(s.key); seeTheStage(); close(); }}>
                   {s.label}
                 </MenuItem>
               ))}
@@ -604,12 +764,12 @@ export function MakerShell({
           {/* 👁 Internal accounts only — see `view-as-free.tsx`. */}
           {viewAsFree ? <ViewAsFreeRow on={viewAsFree.on} close={close} /> : null}
           {/* 🖥📱 Phone / Desktop — one toggle (`makerViewToggle`). */}
-          <MenuItem on={shownDevice === 'phone'} onClick={() => { setDevice(makerViewToggle(shownDevice)); close(); }}>
+          <MenuItem on={shownDevice === 'phone'} onClick={() => { setDevice(makerViewToggle(shownDevice)); seeTheStage(); close(); }}>
             <span data-maker-tool-row="view">{shownDevice === 'phone' ? 'Phone — tap for the desktop' : 'Show it on a phone'}</span>
           </MenuItem>
           {/* 🖥📱 Both — the phone and the desktop side by side, from 1024 px. */}
           {bothView ? (
-            <MenuItem on={device === 'both'} onClick={() => { setDevice(device === 'both' ? 'desktop' : 'both'); close(); }}>
+            <MenuItem on={device === 'both'} onClick={() => { setDevice(device === 'both' ? 'desktop' : 'both'); seeTheStage(); close(); }}>
               Phone and desktop
             </MenuItem>
           ) : null}
@@ -668,6 +828,8 @@ export function MakerShell({
            (the effect above). Held by lib/the-maker-keeps-the-page-on-a-phone.test.ts. */
         className="fixed inset-x-0 top-0 z-[80] flex h-[100dvh] flex-col bg-cream text-ink"
         data-maker-shell=""
+        /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`). */
+        style={{ ['--maker-lt-h' as string]: MAKER_LT_HEIGHT }}
         aria-label="Event Hub Maker"
         role="region"
       >
@@ -689,33 +851,40 @@ export function MakerShell({
              the canvas there. */
           data-phone-chrome="bar"
           data-phone-chrome-name="the toolbar"
-          className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-md:h-[52px] md:gap-1.5 md:px-2.5"
+          className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-x-1 px-2 py-1 max-lg:h-[52px] lg:gap-1.5 lg:px-2.5"
         >
-          {/* ‹ EXIT — a 44 px icon (owner 2026-10-04, *"exit icon"*); the draft is kept. */}
-          <Link
-            href={`/dashboard/${eventId}`}
-            aria-label="Exit"
-            title="Exit — your draft is kept"
-            data-maker-tool="exit"
-            data-bar-item="Exit"
-            className={`${MAKER_BAR_ICON} ${MAKER_BAR_PHONE.exit}`}
-          >
-            <ChevronLeft aria-hidden className="h-6 w-6" strokeWidth={2} />
-          </Link>
+          {/* ✕ EXIT — red, its OWN pill (owner 2026-10-05: *"exit on the left side is
+              red with an X icon"* — "‹" read as back one step); the draft is kept. */}
+          <IconPill tone="exit">
+            <Link
+              href={`/dashboard/${eventId}`}
+              aria-label="Exit"
+              title="Exit — your draft is kept"
+              data-maker-tool="exit"
+              data-bar-item="Exit"
+              className={`${ICON_PILL_EXIT} ${MAKER_BAR_PHONE.exit}`}
+            >
+              <X aria-hidden className="h-5 w-5 lg:hidden" strokeWidth={2.4} />
+              {/* 🖥 A desktop keeps its ‹ this round. */}
+              <ChevronLeft aria-hidden className="hidden h-6 w-6 lg:block" strokeWidth={2} />
+            </Link>
+          </IconPill>
 
-          {/* 📱 Frame G: the stage you are on — "Invitation · as a guest sees it" (or the page that covers it). */}
+          {/* 📱 THE SCREEN YOU ARE ON (owner 2026-10-05: "RSVP · When yes") — the
+              stage and its page ("Invitation · Welcome"), or the Maker page that
+              covers it; one line that truncates. */}
           <p
             data-bar-item="Stage"
             data-bar-fill=""
-            className={`flex min-w-0 flex-1 items-baseline gap-1 truncate px-1 text-[13.5px] font-semibold text-ink md:hidden ${MAKER_BAR_PHONE.stage}`}
+            data-maker-screen-label=""
+            className={`min-w-0 flex-1 truncate px-1 text-[13.5px] font-semibold text-ink lg:hidden ${MAKER_BAR_PHONE.stage}`}
           >
-            <span className="truncate">{openStageWord ?? PUBLIC_STAGE_LABELS[stage]}</span>
-            {openStageWord ? null : <span className="truncate font-normal text-ink/55">· as a guest sees it</span>}
+            {screenLabel}
           </p>
 
-          {/* 📄 PAGE ▾ — ONE dropdown: the stages, each with its guest pages.
-              On a phone it is the bottom bar's (frame G). */}
-          <div className={`flex min-w-0 flex-1 md:max-w-[20rem] md:flex-none ${MAKER_BAR_PHONE.pageTop}`} data-maker-tool="page">
+          {/* 📄 PAGE ▾ — ONE dropdown: the stages, each with its guest pages. A
+              desktop's; on a phone the lower third's menu and navigator are. */}
+          <div className={`flex min-w-0 flex-1 lg:max-w-[20rem] lg:flex-none ${MAKER_BAR_PHONE.pageTop}`} data-maker-tool="page">
             <PickMenu
               label="Page"
               dataAttr="data-maker-page-menu"
@@ -723,16 +892,16 @@ export function MakerShell({
               buttonText={page.buttonText}
               options={pageOptions}
               onPick={pickPage}
-              className="w-full md:w-auto"
+              className="w-full lg:w-auto"
             />
           </div>
 
           {/* 🎨 LOOK · 🗂 DETAILS — the two doors a first-timer needs, in words.
-              On a desktop here; on a phone in the bottom bar (`doors('bottom')`). */}
-          {doors('top')}
+              On a desktop here; on a phone they are the lower third's Theme and Details. */}
+          {doors}
 
           {/* The desktop's gap between the doors and the draft (a phone has no room for one). */}
-          <i aria-hidden className="hidden flex-1 md:block" />
+          <i aria-hidden className="hidden flex-1 lg:block" />
 
           {/* 💾 ↶ UNDO · 👁 PREVIEW · ✓ APPLY — the draft bar (`applySlot`), mounted
               once, draws the Preview menu between its two (owner 2026-10-04).
@@ -742,7 +911,7 @@ export function MakerShell({
               {applySlot}
             </div>
           ) : (
-            previewMenu
+            <IconPill label="Preview">{previewMenu}</IconPill>
           )}
           {/* ➖ The tools' download, as a thin line along the bar's foot (owner 2026-10-02). */}
           <MakerPreloadLine progress={preload} />
@@ -802,30 +971,22 @@ export function MakerShell({
           ) : null}
         </div>
 
-        {/* ══ 📱 THE PHONE'S BOTTOM BAR ══ — frame G of
-            prototypes/maker_in_four_2026-09-30_fable.html: Page ▾ · Look · Event
-            Details, where a thumb can reach. Apply moved up beside Undo
-            (owner 2026-10-04). One row, over the bottom safe area. */}
-        <nav
-          aria-label="Maker tools"
-          data-maker-bottom-bar=""
-          data-phone-chrome="bottom"
-          data-phone-chrome-name="the bottom bar"
-          className="sn-glass-bare relative z-20 flex shrink-0 flex-nowrap items-center gap-1 border-t border-ink/10 px-2 pb-[max(4px,env(safe-area-inset-bottom))] pt-1 max-md:h-[calc(52px+env(safe-area-inset-bottom))] md:hidden"
-        >
-          <div className={`flex min-w-0 flex-1 ${MAKER_BAR_PHONE.page}`} data-bar-item="Page" data-bar-fill="">
-            <PickMenu
-              label="Page"
-              dataAttr="data-maker-page-menu-phone"
-              value={page.value}
-              buttonText={page.pageText}
-              options={pageOptions}
-              onPick={pickPage}
-              className="w-full"
-            />
-          </div>
-          {doors('bottom')}
-        </nav>
+        {/* ══ 🧰 THE LOWER THIRD ══ (phone) — where you are · the navigator; a tool
+            open folds them into the left column and takes the rest. It REPLACES
+            the bottom bar (Page ▾ · Look · Event Details) and the canvas's
+            floating Event Bar switch (owner 2026-10-05, "approve"). */}
+        <MakerLowerThird
+          pick={ltPick}
+          pickLabel={ltPickLabel}
+          where={ltWhereWords}
+          global={ltGlobal}
+          stages={ltStages}
+          onPick={onLtPick}
+          parts={ltParts}
+          tool={phone ? tool : null}
+          setNav={setLtSlot}
+          stepTiles={ltNav !== null}
+        />
 
         {/* ══ YOUR EVENT HUB · THE SHEET ══ (Page ▾ › the address · who can view) Kept mounted (hidden when shut) so the work area
             can portal the address rows into it. */}
@@ -1074,26 +1235,36 @@ function MenuHeading({ children }: { children: ReactNode }) {
 }
 
 function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => void; children: ReactNode }) {
-  /* It says aria-modal, so it manages focus: in, trapped, restored, Esc
-     closes (the house `useModalA11y`, `modal-a11y-adoption.test.ts`). */
+  /* On a desktop it is a side sheet that says aria-modal, so it manages focus:
+     in, trapped, restored, Esc closes (the house `useModalA11y`,
+     `modal-a11y-adoption.test.ts`). On a phone it is a tool of the lower third
+     — not modal: the column beside it names it and closes it. */
   const sheetRef = useRef<HTMLElement>(null);
-  useModalA11y({ open, onClose, containerRef: sheetRef });
+  const wide = useIsDesktop('lg');
+  useModalA11y({ open: open && wide, onClose, containerRef: sheetRef });
+  /* 🧰 On a phone it is a TOOL of the lower third (Settings › Who can view) —
+     the column names it and closes it; nothing opens over the page. */
+  useMakerTool(open, { key: 'more', name: 'Your Event Hub', close: onClose });
   return (
-    <div hidden={!open} className="absolute inset-0 z-40">
+    <div hidden={!open} className="lg:absolute lg:inset-0 lg:z-40">
       <button
         type="button"
         aria-label="Close"
         onClick={onClose}
-        className="absolute inset-0 h-full w-full cursor-default bg-ink/25 backdrop-blur-[2px]"
+        /* The dimmed page behind the desktop's side sheet — a desktop's only. */
+        className="hidden h-full w-full cursor-default bg-ink/25 backdrop-blur-[2px] lg:absolute lg:inset-0 lg:block"
       />
       <aside
         ref={sheetRef}
+        hidden={!open}
+        /* A dialog on every width; modal (its focus trap) on a desktop only. */
         role="dialog"
-        aria-modal="true"
+        aria-modal={wide ? true : undefined}
         aria-label="Your Event Hub"
-        className="sn-glass-bare absolute inset-x-0 bottom-0 max-h-[88dvh] overflow-y-auto rounded-t-3xl bg-cream p-4 md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-[min(560px,92vw)] md:rounded-none md:p-6"
+        data-phone-chrome="panel"
+        className={`overflow-y-auto bg-cream p-3 lg:absolute lg:inset-y-0 lg:right-0 lg:w-[min(560px,92vw)] lg:p-6 ${MAKER_LT_TOOL}`}
       >
-        <div className="mb-3 flex items-center justify-between gap-2">
+        <div className="mb-3 hidden items-center justify-between gap-2 lg:flex">
           <p className="font-serif text-xl text-ink">Your Event Hub</p>
           <button
             type="button"

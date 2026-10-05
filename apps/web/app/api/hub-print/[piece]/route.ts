@@ -314,8 +314,17 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
       return pdfResponse(bytes, fileName(set.event.slug, 'passes', set.theme), false, await printInputsVersion(eventId).catch(() => null));
     }
     if (mode === 'screen') {
-      const view = layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece) });
-      const svg = renderPrintSvg(view, set.images, { compact: true });
+      /* 🎫 THE REAL TICKET (owner 2026-10-05, "isn't this the digital pass?"):
+         `pass_guest=first` draws the first guest who is coming — their name and
+         their own QR — instead of the stand-in, for the Maker's Guest's ticket
+         scene. One guest is read (`limit: 1`); none yet → the stand-in. */
+      const guestPass =
+        piece === 'pass' && url.searchParams.get('pass_guest') === 'first'
+          ? await loadGuestPasses(set, { width: 360, limit: 1, ticketsOnly: true }).catch(() => null)
+          : null;
+      const firstPass = guestPass?.passes[0];
+      const view = layoutPieceView(piece as PrintSetKey, { ...input, format: formatParam(piece), ...(firstPass ? { pass: firstPass } : {}) });
+      const svg = renderPrintSvg(view, firstPass ? { ...set.images, ...guestPass!.images } : set.images, { compact: true });
       return new NextResponse(svg, {
         status: 200,
         // ⚡ A VERSIONED ADDRESS IS IMMUTABLE (owner 2026-09-28: the
@@ -395,7 +404,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
  */
 export async function POST(req: Request, ctx: { params: Promise<{ piece: string }> }) {
   const { piece } = await ctx.params;
-  if (piece !== 'words' && piece !== 'menu' && piece !== 'pass-design' && piece !== 'poster-photo' && piece !== 'name-style') return new NextResponse('Not found.', { status: 404 });
+  if (piece !== 'words' && piece !== 'menu' && piece !== 'poster-photo' && piece !== 'name-style') return new NextResponse('Not found.', { status: 404 });
 
   // A form post from another site carries no Origin of ours.
   const origin = req.headers.get('origin');
@@ -418,22 +427,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ piece: string 
   }
   const stored = parsePrintDetails(current.print_details);
 
-  // 🎫 THE PASS CARD'S LOOK (owner 2026-09-29: three designs, "event pass for
-  // digital downloads approved") — the couple's ONE pick, saved immediately like
-  // the menu and the words: it drives the picture every guest saves, their
-  // "Save all passes", the couple's zip and the Phone card print. Everything
-  // else in `print_details` is carried over untouched. Answers JSON — the
-  // picker swaps its preview at once and only reports a refusal.
-  if (piece === 'pass-design') {
-    const asked = String(form.get('design') ?? '');
-    if (!(PASS_CARD_DESIGNS as readonly string[]).includes(asked)) return NextResponse.json({ ok: false }, { status: 400 });
-    const { error } = await admin
-      .from('events')
-      .update({ print_details: serializePrintDetails({ ...stored, passDesign: passCardDesignFrom(asked) }) })
-      .eq('event_id', eventId);
-    if (error) logQueryError('hub-print.pass-design', error, { event_id: eventId }, 'graceful_degrade');
-    return NextResponse.json({ ok: !error }, { status: error ? 500 : 200 });
-  }
+  // 🎫 THE PASS CARD'S LOOK IS NOT WRITTEN HERE ANY MORE (owner 2026-10-02 Q7,
+  // "the pass look waits for Apply"; built 2026-10-05): the Ticket style ▾ saves
+  // to the Event Hub DRAFT (`passDesignDraftPatch`, lib/pass-design-save.ts) and
+  // Apply merges it into `print_details` (`hub-draft-actions.ts`). A post here
+  // naming `pass-design` is refused above ("Not found.") and writes nothing.
 
   // 🔤 THE EVENT'S NAME STYLE (owner 2026-09-30, DECISION_LOG "THE COUPLE
   // PICKS A NAME STYLE") — Full · Middle initial · Surname first, the Maker's

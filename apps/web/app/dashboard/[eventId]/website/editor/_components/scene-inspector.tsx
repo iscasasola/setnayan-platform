@@ -3,7 +3,7 @@
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, makerProUsable, paidMarkLabel } from '@/lib/paid-mark';
 import { useSceneCanvas } from './use-scene-canvas';
-import { ArrowDown, ArrowUp, Lock, PencilLine, Play } from 'lucide-react';
+import { ArrowDown, ArrowUp, Lock, Play } from 'lucide-react';
 import {
   HUB_ARRANGEMENTS,
   HUB_ARRANGEMENT_LABEL,
@@ -30,6 +30,7 @@ import {
 import { HUB_ELEMENT_LABEL, type HubElementKey } from '@/lib/element-style';
 import type { ElementDraftAction } from './element-sheet';
 import { IButton, IHint, IReset, IRow, ISection, ISeg, ISegmented } from './inspector-kit';
+import { PickMenu } from './pick-menu';
 import { MotionFxRows } from './motion-fx-rows';
 import type { MotionFx } from '@/lib/motion-effects';
 
@@ -401,45 +402,31 @@ export function SceneArrangeTab({
 /* ── CONTENT · THE SCENE'S PARTS ────────────────────────────────────────── */
 
 /**
- * "This scene's words are its parts. Tap one on the scene, or pick it here — it
- * opens the part's toolbar." The same sheet a tap on the part opens.
+ * The scene's parts — ONE dropdown (owner 2026-10-05: a set of choices is a
+ * dropdown, and no caption under it). A pick opens the same sheet a tap on the
+ * part on the page opens.
  */
 export function SceneParts({
   keys,
   onElement,
-  onOpenHero,
 }: {
   keys: readonly HubElementKey[];
   onElement: (el: HubElementKey) => void;
-  onOpenHero?: () => void;
 }) {
   /* 💎 No Pro mark here any more (owner 2026-09-28): styling a part is free —
      colour, size, the Text rows — and only its Font ▾ and Animate wear the
      mark, inside the part's own sheet. */
   return (
-    <div data-scene-parts="" className="pt-1">
-      <IHint>
-        This scene’s words are its parts. Tap one on the scene, or pick it here — it opens the part’s toolbar.
-      </IHint>
-      <div className="flex flex-wrap gap-1.5 pb-2">
-        {keys.map((k) => (
-          <button
-            key={k}
-            type="button"
-            data-maker-element={k}
-            onClick={() => onElement(k)}
-            className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink/5 px-3.5 text-[13px] font-semibold text-ink/80 transition-colors duration-sn-control ease-sn hover:bg-ink/10 lg:min-h-9"
-          >
-            {HUB_ELEMENT_LABEL[k]}
-          </button>
-        ))}
-      </div>
-      {onOpenHero ? (
-        <IButton onClick={onOpenHero} data="open-hero">
-          <PencilLine aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Open the Hero editor
-        </IButton>
-      ) : null}
+    <div data-scene-parts="" className="flex flex-wrap items-center gap-x-3 gap-y-1 pb-2 pt-1">
+      <span className="text-[13px] font-semibold text-ink">Part</span>
+      <PickMenu
+        label="Part"
+        dataAttr="data-scene-part-pick"
+        value={null}
+        buttonText="Pick a part"
+        options={keys.map((k) => ({ key: k, label: HUB_ELEMENT_LABEL[k] }))}
+        onPick={(k) => onElement(k as HubElementKey)}
+      />
     </div>
   );
 }

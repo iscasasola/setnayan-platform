@@ -140,6 +140,7 @@ import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
 import { ENTOURAGE_COLUMNS, ENTOURAGE_ROLES } from '@/lib/entourage';
 import { formatEventDate } from '@/lib/events';
 import { nameStyleOfPrintDetails, type NameParts } from '@/lib/name-style';
+import { passCardDesignFrom } from '@/lib/pass-card';
 import { splitStoredName } from '@/lib/details-your-event';
 
 /* No `metadata` of its own: opened directly this page only forwards, and inside
@@ -1551,6 +1552,8 @@ export default async function WebsiteEditorPage({
         heroPhoto: Boolean(heroRef || videoRef),
         fixedStyles,
         names: { style: nameStyleOfPrintDetails(drafted.print_details), person: nameExample },
+        /* 🎫 The Ticket style being edited — drafted over live (owner Q7 2026-10-02: it waits for Apply). */
+        ticketStyle: passCardDesignFrom((drafted.print_details as { pass_design?: unknown } | null | undefined)?.pass_design),
       }}
       rows={rows}
       ownsPro={ownsPro}

@@ -109,5 +109,6 @@ test('🔒 opening, dragging, peeking and collapsing NEVER write — no action, 
   assert.match(read(SHEET), /elementSheetStep\(st, ev\)/, 'the half sheet runs its own reducer — it must run the part sheet’s');
   assert.doesNotMatch(read(SHEET), /function \w*[Rr]educer\b/, 'a second sheet reducer grew back in maker-sheet.tsx');
   const imports = [...read(SHEET).matchAll(/from '([^']+)'/g)].map((m) => m[1]).sort();
-  assert.deepEqual(imports, ['@/lib/element-sheet-state', 'lucide-react', 'react'], 'the sheet imports something new — check it cannot write');
+  // 🧰 The lower third's geometry and its registry (2026-10-05) — both draw-time only (`maker-context.tsx` holds no write).
+  assert.deepEqual(imports, ['./maker-context', '@/lib/element-sheet-state', '@/lib/maker-phone-room', 'lucide-react', 'react'], 'the sheet imports something new — check it cannot write');
 });

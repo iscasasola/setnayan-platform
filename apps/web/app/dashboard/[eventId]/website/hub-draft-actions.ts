@@ -56,6 +56,7 @@ import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ensureFreePapicOneCameraAdmin } from '@/lib/papic-one';
 import { parsePrintDetails, serializePrintDetails } from '@/lib/print-pieces';
 import { nameStyleFrom } from '@/lib/name-style';
+import { passCardDesignFrom } from '@/lib/pass-card';
 import { datePickClash } from '@/lib/date-clash.server';
 import { requireHostMembershipOrThrow } from '@/lib/host-gate';
 import { lookProAllows } from '@/lib/hub-look-gate';
@@ -503,16 +504,18 @@ export async function hubDraftAction(
        it — after the host check (top) and the Pro gate (`planHubDraftApply`). */
     const qrWrite = 'style_preferences' in eventsPatch ? (eventsPatch.style_preferences as Record<string, unknown>) : undefined;
     delete eventsPatch.style_preferences;
-    /* 🔤 THE NAME STYLE LEAVES THE SESSION UPDATE TOO. The draft holds
-       `{ name_style }` only; `print_details` also carries the prints' opening
-       line, menu, pass card look and poster photo, so the style is MERGED into
+    /* 🔤🎫 THE NAME STYLE AND THE TICKET STYLE LEAVE THE SESSION UPDATE TOO. The
+       draft holds `{ name_style?, pass_design? }` only; `print_details` also
+       carries the prints' opening line, menu and poster photo, so each held key is MERGED into
        the blob as it stands at write time — through the admin client, exactly
        as its live writer (`POST /api/hub-print/name-style`) always wrote it
        (`authenticated` holds no UPDATE grant on the column) — after the host
        check (top) and with every other key carried untouched. */
-    const nameStyleWrite = 'print_details' in eventsPatch
-      ? nameStyleFrom((eventsPatch.print_details as Record<string, unknown> | null)?.name_style)
-      : undefined;
+    const draftedPrint = 'print_details' in eventsPatch ? ((eventsPatch.print_details as Record<string, unknown> | null) ?? {}) : null;
+    const nameStyleWrite = draftedPrint && 'name_style' in draftedPrint ? nameStyleFrom(draftedPrint.name_style) : undefined;
+    /* 🎫 THE TICKET STYLE (owner 2026-10-02 Q7, "the pass look waits for Apply"):
+       drafted beside the name style, merged the same way — only when held. */
+    const passDesignWrite = draftedPrint && 'pass_design' in draftedPrint ? passCardDesignFrom(draftedPrint.pass_design) : undefined;
     delete eventsPatch.print_details;
     /* 🎵 The song's companions, as `updateSiteChrome` stamps them: where it came
        from, and off when there is no song to play. */
@@ -620,7 +623,7 @@ export async function hubDraftAction(
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }
-    if (nameStyleWrite !== undefined) {
+    if (nameStyleWrite !== undefined || passDesignWrite !== undefined) {
       const admin = createAdminClient();
       const { data: pdRow, error: pdErr } = await admin
         .from('events')
@@ -633,7 +636,13 @@ export async function hubDraftAction(
       const stored = parsePrintDetails(pdRow.print_details);
       const { data: pdRows, error: pdWriteErr } = await admin
         .from('events')
-        .update({ print_details: serializePrintDetails({ ...stored, nameStyle: nameStyleWrite }) })
+        .update({
+          print_details: serializePrintDetails({
+            ...stored,
+            ...(nameStyleWrite !== undefined ? { nameStyle: nameStyleWrite } : {}),
+            ...(passDesignWrite !== undefined ? { passDesign: passDesignWrite } : {}),
+          }),
+        })
         .eq('event_id', eventId)
         .select('event_id');
       if (pdWriteErr || !Array.isArray(pdRows) || pdRows.length === 0) {

@@ -517,10 +517,14 @@ export function TypeBar(p: TypeBarProps) {
     const r = session.rect;
     const partTop = box.top + r.top * box.scale;
     const partBottom = partTop + r.height * box.scale;
-    let top = partTop - h - 8;
-    if (top < vTop + 4) top = Math.min(partBottom + 8, vTop + vH - h - 4);
+    /* 🧰 On a phone the bar sits in the LOWER THIRD (owner 2026-10-05: "all tools
+       can only reside on the thumb area") — the foot of what is visible, just
+       above the keyboard — never over the page. A desktop keeps it by the words. */
+    const onPhone = window.innerWidth < 1024;
+    let top = onPhone ? vTop + vH - h - 6 : partTop - h - 8;
+    if (!onPhone && top < vTop + 4) top = Math.min(partBottom + 8, vTop + vH - h - 4);
     const mid = box.left + (r.left + r.width / 2) * box.scale;
-    const left = Math.max(8, Math.min(window.innerWidth - w - 8, mid - w / 2));
+    const left = onPhone ? 8 : Math.max(8, Math.min(window.innerWidth - w - 8, mid - w / 2));
     setAt((prev) => (prev && prev.top === top && prev.left === left ? prev : { top, left }));
   }, [session.rect, session.vw, session.source, tick]);
 

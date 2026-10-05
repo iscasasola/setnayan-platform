@@ -168,7 +168,8 @@ test('5 · the screen SVG is smaller and draws the same shapes', () => {
   // Only the Maker's on-screen answer asks for it — the sample raster does not.
   const route = stripComments(readFileSync(join(WEB, 'app/api/hub-print/[piece]/route.ts'), 'utf8'));
   // (The view is laid out once and handed over: its tappable boxes ride beside it — `the-print-only-words-are-tappable.test.ts`.)
-  assert.match(route, /const view = layoutPieceView\(piece as PrintSetKey, \{ \.\.\.input, format: formatParam\(piece\) \}\);\s*const svg = renderPrintSvg\(view, set\.images, \{ compact: true \}\)/);
+  // (🎫 2026-10-05: the Guest's ticket scene may ask for the first coming guest's own pass — `pass_guest=first`.)
+  assert.match(route, /const view = layoutPieceView\(piece as PrintSetKey, \{ \.\.\.input, format: formatParam\(piece\), \.\.\.\(firstPass \? \{ pass: firstPass \} : \{\}\) \}\);\s*const svg = renderPrintSvg\(view, firstPass \? \{ \.\.\.set\.images, \.\.\.guestPass!\.images \} : set\.images, \{ compact: true \}\)/);
   // The print file never passes through here.
   const pdf = readFileSync(join(WEB, 'lib/print-render-pdf.ts'), 'utf8');
   assert.doesNotMatch(pdf, /compactScreenPath|print-render-svg/);

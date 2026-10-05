@@ -671,3 +671,20 @@ export function guidedPlanFromFacts(input: {
   }
   return buildGuidedPlan(items, { solemn: input.ctx.solemn, parentsOffered: input.parentsOffered }, input.setup ?? null);
 }
+
+/**
+ * 🎨 Has the couple made ANY Look choice? (the guided Look step's "done").
+ * A value that is present and not empty counts; clearing one back to the
+ * default does not. Pure — exported for its test.
+ */
+export function lookChosen(f: {
+  theme: unknown;
+  bg: unknown;
+  font: unknown;
+  buttonColour: unknown;
+  buttonStyle: unknown;
+  background: boolean;
+}): boolean {
+  const set = (v: unknown) => v !== null && v !== undefined && v !== '';
+  return f.background || [f.theme, f.bg, f.font, f.buttonColour, f.buttonStyle].some(set);
+}

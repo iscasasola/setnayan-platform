@@ -435,14 +435,17 @@ export function MainBackgroundPanel({
             stored as it always was (`ground: 'theme'`), so nothing a couple
             already had becomes a charge; any other loop is Event Hub Pro. */}
         {loops.length > 0 ? (
+          /* 📱 The name on its own line and the dropdown FULL WIDTH under it
+             (owner 2026-10-05, 375 px: "Modern / gallery / walls" wrapped) — the
+             list opens as wide as its button, so every name sits on one row. */
           <div
-            className={`flex min-h-11 w-full flex-wrap items-center gap-2 rounded-md px-3 py-2 ${
+            className={`flex w-full flex-col gap-1.5 rounded-md px-3 py-2 ${
               choice === 'theme' || choice === 'loop' ? 'bg-ink text-cream' : 'bg-white text-ink'
             }`}
             data-main-ground-source="loop"
             aria-current={choice === 'theme' || choice === 'loop' ? 'true' : undefined}
           >
-            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-semibold">
+            <span className="flex min-h-7 items-center gap-1.5 text-[13px] font-semibold">
               Moving background
               {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" tone="current" /> : null}
             </span>
@@ -468,7 +471,7 @@ export function MainBackgroundPanel({
                 );
               }}
               dataAttr="data-main-ground-loop-pick"
-              className="max-w-[60%] text-ink"
+              className="w-full justify-between text-ink"
             />
           </div>
         ) : null}

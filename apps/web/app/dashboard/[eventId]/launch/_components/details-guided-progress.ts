@@ -8,6 +8,8 @@ import { resolveMoments } from '@/lib/love-story-moments';
 import { parsePrintDetails } from '@/lib/print-pieces';
 import { hasPalette, parentGuestsForEvent, readPrintEvent, readRsvpHosts, type PrintEventRow } from '@/lib/print-set.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { lookChosen } from '@/lib/details-guided-flow';
+import { hubMainGround } from '@/lib/hub-canvas';
 import {
   FREE_PRINT_KEYS,
   LOOK_ITEM_KEYS,
@@ -140,6 +142,10 @@ export async function countSetupGuests(admin: SupabaseClient, eventId: string): 
 type GuidedEventRow = Pick<
   PrintEventRow,
   | 'invite_theme'
+  | 'site_bg_color'
+  | 'site_button_color'
+  | 'site_button_style'
+  | 'site_font_key'
   | 'role_palette'
   | 'monogram_custom_svg'
   | 'monogram_uploaded_svg'
@@ -169,6 +175,8 @@ export function guidedFactsFrom(input: {
   scheduleMoments: number | null;
   /** 🪑 The Seat plan is arranged (a guest is seated) — never whether guests can see it; null when unread, absent where no seat plan was read. */
   seatPlanArranged?: boolean | null;
+  /** 🖼 A Look › Background choice is stored on the hero row (`config_json.main`), drafted over live. Absent = not read. */
+  backgroundChosen?: boolean;
 }): GuidedDoneFacts & {
   /** The Love Story as edited — null when it could not be read (Details then says so). */
   story: Record<string, unknown> | null;
@@ -192,7 +200,19 @@ export function guidedFactsFrom(input: {
     story,
     yourEvent: input.yourEvent?.facts ?? null,
     kind: input.yourEvent?.kind ?? null,
-    themeChosen: themeSaved !== null && themeSaved !== undefined,
+    /* 🎨 THE LOOK STEP IS DONE ONCE ANY LOOK CHOICE IS MADE (2026-10-05, DECISION_LOG
+       "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS"): a couple no longer
+       picks a theme, so a saved theme alone can no longer be the only way to
+       finish it. A Background, a font, a page colour or a button choice — saved
+       live or in the draft — answers it; a theme saved before still does. */
+    themeChosen: lookChosen({
+      theme: themeSaved,
+      bg: col('site_bg_color'),
+      font: col('site_font_key'),
+      buttonColour: col('site_button_color'),
+      buttonStyle: col('site_button_style'),
+      background: input.backgroundChosen === true,
+    }),
     palette: hasPalette(input.event.role_palette),
     /* 🗂 The onboarding's answers are obeyed here (owner 2026-10-02, lib/event-answers.ts):
        "Yes, make one" keeps the Logo step open until a logo exists, "No, use our
@@ -210,6 +230,27 @@ export function guidedFactsFrom(input: {
       scheduleMoments: input.scheduleMoments,
     }),
   };
+}
+
+/**
+ * 🖼 Is a Look › Background choice stored — in the draft (`widgets.hero.main`)
+ * or live (the hero row's `config_json.main`)? One read, both callers (the
+ * Maker and Home), so their Look ✓ cannot disagree. A refused read says
+ * "not chosen" (the step stays open — never a false ✓).
+ */
+export async function readBackgroundChosen(admin: SupabaseClient, eventId: string, draftedMain: unknown): Promise<boolean> {
+  if (draftedMain !== undefined) return draftedMain !== null;
+  const { data, error } = await admin
+    .from('invitation_widgets')
+    .select('config_json')
+    .eq('event_id', eventId)
+    .eq('widget_type', 'hero')
+    .maybeSingle();
+  if (error) {
+    logQueryError('GuidedLook.backgroundChosen', error, { event_id: eventId }, 'graceful_degrade');
+    return false;
+  }
+  return hubMainGround((data as { config_json?: unknown } | null)?.config_json) !== null;
 }
 
 /** The items the Maker's Details draws that a guided step can show. */
@@ -269,13 +310,19 @@ export async function readGuidedPlan({
     scheduleRows?: readonly SetupScheduleBlock[] | null;
   };
 }): Promise<{ plan: GuidedPlan; setupOffered: boolean } | null> {
+  /* 🖼 The draft's Look › Background (the hero row's `main`), caught from the same draft read. */
+  let draftedMain: unknown = undefined;
   const [event, hosts, parents, drafted, scheduleRes, seatDoorRes] = await Promise.all([
     pre?.event !== undefined ? pre.event : readPrintEvent(admin, eventId),
     pre?.hosts ?? readRsvpHosts(eventId),
     pre?.parents ?? parentGuestsForEvent(eventId),
     pre?.drafted ??
       readHubDraft(supabase, eventId)
-        .then((dr) => (dr ? (dr.events as Record<string, unknown>) : {}))
+        .then((dr) => {
+          const hero = dr?.widgets.hero as { main?: unknown } | undefined;
+          if (hero && 'main' in hero) draftedMain = hero.main ?? null;
+          return dr ? (dr.events as Record<string, unknown>) : {};
+        })
         .catch((e: unknown) => {
           console.error('[hub-draft] home could not read the draft:', e instanceof Error ? e.message : e);
           return {} as Record<string, unknown>;
@@ -311,6 +358,7 @@ export async function readGuidedPlan({
     storyApplies,
     scheduleMoments: scheduleRows ? scheduleRows.length : null,
     seatPlanArranged: seatDoorRes.error ? null : (seatDoorRes.count ?? 0) > 0,
+    backgroundChosen: await readBackgroundChosen(admin, eventId, draftedMain),
   });
   /* 🧭 The setup round — only where it is drawn (a wedding), and only then its
      two extra reads (the reply-by date, the guests' count). */

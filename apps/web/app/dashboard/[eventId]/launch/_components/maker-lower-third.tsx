@@ -223,12 +223,21 @@ export function MakerLowerThird({
                 data-lt-column-name=""
                 onClick={tool.close}
                 aria-label={`${tool.name} — back to the navigator`}
-                className="sn-press flex w-full flex-col items-center gap-1 rounded-xl px-0.5 py-1"
+                className="sn-press flex w-full flex-col items-center gap-1 rounded-xl px-0 py-1"
               >
                 <span aria-hidden className="flex h-10 w-10 items-center justify-center rounded-lg bg-white font-serif text-[15px] text-ink ring-1 ring-ink/10">
                   {tool.name.slice(0, 1)}
                 </span>
-                <span className="line-clamp-2 w-full break-words text-center text-[10.5px] font-semibold leading-tight text-ink">{tool.name}</span>
+                {/* ✂ NEVER A MID-WORD BREAK (owner 2026-10-05: "Backgro / und"): words
+                    stay whole, and a long single word ("Background") is set a
+                    size smaller so it fits the column on one line. */}
+                <span
+                  className={`line-clamp-2 w-full text-center font-semibold leading-tight tracking-[-0.02em] text-ink [overflow-wrap:normal] [word-break:keep-all] ${
+                    longestWord(tool.name) > 8 ? 'text-[9px]' : 'text-[10.5px]'
+                  }`}
+                >
+                  {tool.name}
+                </span>
               </button>
               <span className="flex">
                 <button
@@ -410,4 +419,9 @@ export function stepTileIn(tiles: ReadonlyArray<{ group: string; on: boolean; of
     if (!tiles[i]!.off) return i;
   }
   return null;
+}
+
+/** The longest word in a label, in characters — a long one is set smaller rather than broken. */
+function longestWord(label: string): number {
+  return Math.max(0, ...label.split(/\s+/).map((w) => w.length));
 }

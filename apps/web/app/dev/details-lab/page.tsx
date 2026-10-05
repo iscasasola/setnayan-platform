@@ -63,6 +63,12 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
   /* 🪜 The guided flow (part 5): Your event on fixtures, so its first steps are real items. */
   const guideAddr = parseGuideParam(one('guide'));
   const fresh = one('fresh') === '1';
+  /* 🧪 `?shape=mj` — maria-and-jose's REAL shape (read-only SQL, 2026-10-05):
+     first names only, the date set, Cyber Neon in the draft over a live
+     Classic, no parent but one host, nothing else filled in, and the setup's
+     facts (no guests yet) — so the counts, the Parents step and the guests'
+     names step behave as they did on the owner's live walk. */
+  const mj = one('shape') === 'mj';
   const words = eventWordsFromProfile(profile);
   const yourEvent: YourEventInput | null = guideAddr
     ? {
@@ -71,17 +77,19 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
           offeredRoles: resolveRoleSet(profile.roleSetKey).offeredRoles,
         },
         facts: {
-          names: fresh ? ['', ''] : ['Claire', 'Indalecio'],
-          date: { value: fresh ? null : '2026-12-18', dayPrecise: !fresh },
-          venueCount: fresh ? 0 : 1,
-          parentCount: fresh ? 0 : 2,
+          names: mj ? ['Maria', 'Jose'] : fresh ? ['', ''] : ['Claire', 'Indalecio'],
+          date: { value: mj ? '2026-12-12' : fresh ? null : '2026-12-18', dayPrecise: mj || !fresh },
+          venueCount: fresh || mj ? 0 : 1,
+          parentCount: fresh || mj ? 0 : 2,
           hostCount: 1,
           marchLines: 0,
         },
         names: hasTwoNamedPeople(profile)
           ? {
               people: ['Bride', 'Groom'],
-              initial: fresh
+              initial: mj
+                ? [{ first: 'Maria', last: '' }, { first: 'Jose', last: '' }]
+                : fresh
                 ? [{ first: '', last: '' }, { first: '', last: '' }]
                 : [{ first: 'Claire', last: 'Buanhog' }, { first: 'Indalecio', last: 'Casasola' }],
               wholeForm: null,
@@ -113,14 +121,14 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         qrStyleAction={updateQrStyle.bind(null, EVENT)}
         theme={{
           themes: themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier })),
-          current: 'house',
+          current: mj ? 'cyber' : 'house',
           ownsPro: pro,
           storeShell: false,
           suggested: 'vintage',
           sampleVersion: null,
           posters: {},
           tour: false,
-          chosen: !fresh,
+          chosen: mj || !fresh,
         }}
         prints={{
           eventId: EVENT,
@@ -134,10 +142,14 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         menu={{ saved: [], caterer: [], suggestions: [], flash: null }}
         stored={stored}
         hosts={[{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]}
-        parents={[
-          { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola', card: null },
-          { guestId: null, name: 'Mrs. Milagros Buanhog', card: null },
-        ]}
+        parents={
+          mj
+            ? []
+            : [
+                { guestId: null, name: 'Atty. Eufrocina M. Sacdalan-Casasola', card: null },
+                { guestId: null, name: 'Mrs. Milagros Buanhog', card: null },
+              ]
+        }
         pabuyaMessage={pabuyaMessage}
         specialMessage={specialMessage}
         facts={facts}
@@ -153,7 +165,28 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         yourEvent={yourEvent}
         guide={
           guideAddr
-            ? { open: true, address: guideAddr, itemNamed: Boolean(one('item')), guideNamed: true, tour: null }
+            ? {
+                open: true,
+                address: guideAddr,
+                itemNamed: Boolean(one('item')),
+                guideNamed: true,
+                tour: null,
+                ...(mj
+                  ? {
+                      setup: {
+                        guestList: true,
+                        arrival: false,
+                        venuesLocked: { ceremony: false, reception: false },
+                        venuesNamed: { ceremony: false, reception: false },
+                        loveStoryMoments: 0,
+                        wear: false,
+                        replyBy: false,
+                        guests: 0,
+                      },
+                      guestsHref: `/dashboard/${EVENT}/guests?import=1`,
+                    }
+                  : {}),
+              }
             : null
         }
         look={

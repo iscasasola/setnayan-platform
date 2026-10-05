@@ -5,7 +5,7 @@ import { getHostUserId } from '@/lib/host-gate';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { loadGuestPasses, loadPrintSet, printInputsVersion, printOwnsPro, printThemeFor, readPrintEvent } from '@/lib/print-set.server';
 import { PRINT_VERSION_HEADER } from '@/lib/printed-stamp';
-import { resolveEventQrLook } from '@/lib/qr-look.server';
+import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
 import { layoutPasses, layoutPieceDocs, layoutPieceView, layoutQrCodes, type PrintDoc, type PrintImages, type PrintSetData } from '@/lib/print-layout';
 import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import { layoutGuestRegistry, registryDate, registryRows } from '@/lib/print-guest-registry';
@@ -194,13 +194,28 @@ export async function GET(req: Request, ctx: { params: Promise<{ piece: string }
     let images: PrintImages = {};
     let subject: string;
     if (piece === 'qr-codes') {
+      /* 💾 THE MAKER'S THUMBNAIL WEARS THE DRAFTED QR LOOK (owner 2026-10-06: "i
+         changed the QR Code style, why did the QR codes not change?"). Only the
+         on-screen picture whose address names the draft (`draft=<hash>`,
+         `lib/free-prints.ts`), read through the host's own session after the
+         host gate above. The saved PDF is always drawn from what is live. */
+      const sheetDraft: HubDraftEvents | null =
+        thumb && url.searchParams.get('draft')
+          ? await readHubDraft(await createClient(), eventId)
+              .then((d) => printDraftOf(d?.events as Record<string, unknown> | undefined))
+              .catch((err) => {
+                // The thumbnail then shows the live look — said in the logs, not silently.
+                logQueryError('hub-print.qr-codes.draft', err, { eventId }, 'graceful_degrade');
+                return null;
+              })
+          : null;
       const set = {
         event,
         appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
         ownerSlug: await resolveEventOwnerSlug(admin, eventId).catch(() => null),
         // The free QR sheet wears the event's look too — the Setnayan mark, or
         // the couple's own on Event Hub Pro (lib/qr-look.ts).
-        qrLook: await resolveEventQrLook(admin, eventId, event),
+        qrLook: qrLookForHostDraft(event, sheetDraft) ?? (await resolveEventQrLook(admin, eventId, event)),
       };
       const loaded = await loadGuestPasses(set, { width: thumb ? 160 : 420, limit: thumb ? 12 : undefined });
       if (!loaded.measured) return new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 });

@@ -49,8 +49,21 @@ export type FreePrint = {
   saves: FreePrintSave[];
 };
 
-export function freePrints(eventId: string, slug: string | null): FreePrint[] {
+/**
+ * 💾 What names a preview's picture — so a changed picture is a new address
+ * and the Maker's thumbnail actually refreshes. Both come from the Maker
+ * (`PrintsInput`): `version` hashes what is live (`printInputsVersion`),
+ * `draft` hashes the host's drafted keys a preview draws (`PRINT_DRAFTED_KEYS`
+ * — the QR look among them). Only PREVIEWS carry them; a save never does, so
+ * a saved file is always drawn from what is live.
+ */
+export type FreePrintStamps = { version?: string | null; draft?: string | null };
+
+export function freePrints(eventId: string, slug: string | null, stamps: FreePrintStamps = {}): FreePrint[] {
   const e = encodeURIComponent(eventId);
+  const v = stamps.version ? `&v=${encodeURIComponent(stamps.version)}` : '';
+  const draft = stamps.draft ? `&draft=${encodeURIComponent(stamps.draft)}` : '';
+  const both = [stamps.version, stamps.draft].filter(Boolean).join('.');
   const out: FreePrint[] = [
     {
       key: 'guest-registry',
@@ -63,7 +76,8 @@ export function freePrints(eventId: string, slug: string | null): FreePrint[] {
       key: 'qr-codes',
       label: 'Guest QR codes',
       blurb: 'Every guest’s own QR with their name, twelve to an A4 page.',
-      preview: `/api/hub-print/qr-codes?event=${e}&mode=screen`,
+      // The thumbnail wears the drafted QR look (`draft=`); the PDF is live.
+      preview: `/api/hub-print/qr-codes?event=${e}&mode=screen${v}${draft}`,
       saves: [{ label: 'Save PDF', href: `/api/hub-print/qr-codes?event=${e}`, file: printFileName(slug, 'qr-codes') }],
     },
     {
@@ -101,7 +115,9 @@ export function freePrints(eventId: string, slug: string | null): FreePrint[] {
       key: 'event-qr',
       label: 'Event QR',
       blurb: 'One code that opens your Event Hub — for a welcome sign, a table card or a screen.',
-      preview: `/api/website/qr/${s}`,
+      // `draft=1`: the QR look the host is trying (host-only, never cached),
+      // `v=` names it — the same picture as the code beside the address.
+      preview: `/api/website/qr/${s}?draft=1${both ? `&v=${encodeURIComponent(both)}` : ''}`,
       saves: [{ label: 'Save image', href: `/api/website/qr/${s}`, file: printFileName(slug, 'event-qr', 'png') }],
     });
   }

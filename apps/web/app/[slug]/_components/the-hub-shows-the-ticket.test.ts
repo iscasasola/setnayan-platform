@@ -170,7 +170,10 @@ test('the ticket draws THIS guest’s code, in the event’s own look', () => {
   assert.match(kit, /qrLook: \{ \.\.\.set\.qrLook, dark: '#111111', light: '#FFFFFF' \}/, 'shape, pattern and centre must survive; only the ink is forced');
   // The event's look is the couple's own (free → Setnayan centre, Pro → theirs).
   const set = stripComments(readFileSync(join(HERE, '..', '..', '..', 'lib', 'print-set.server.ts'), 'utf8'));
-  assert.match(set, /const qrLook = await resolveEventQrLook\(admin, eventId, event\);/);
+  // A drafted QR look is drawn only when a DRAFT is handed in (the Maker's preview,
+  // `qrLookForHostDraft`); the guest's ticket kit never hands one in.
+  assert.match(set, /const qrLook = qrLookForHostDraft\(liveEvent, draft\) \?\? \(await resolveEventQrLook\(admin, eventId, event\)\);/);
+  assert.doesNotMatch(kit, /loadPrintSet\(eventId, \{[^}]*\}\s*,/, 'the guest’s ticket was drawn from the host’s draft');
   // …and the code opens that guest: the page hands `?invite=` to redeem, which
   // finds the ONE row holding that token, in this event.
   const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));

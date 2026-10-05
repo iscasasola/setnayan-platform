@@ -34,8 +34,9 @@ import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MakerHalfSheet } from './maker-sheet';
 import { useMaker, useMakerTool } from './maker-context';
+import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
 import { makerDoorOf } from './maker-bar';
-import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON } from './maker-lower-third';
+import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
 import { SheetSections } from './sheet-sections';
 
 /** `DetailsItemModel` (`lib/maker-details-items.ts`) plus its small picture. */
@@ -449,7 +450,13 @@ export function DetailsWorkspace({
      NAVIGATOR's tiles — Look's under Theme, the prints under Settings › Prints,
      the rest under Details — and the picked item's editor is its TOOL. */
   const allItemsSheet = sheetOpen && !(mode === 'guided' && plan !== null) && layout !== 'whole';
-  useMakerTool(allItemsSheet, { key: `details:${selected}`, name: current.label, close: () => setSheetOpen(false) });
+  /* 🎨 The Look section a Theme tile opened (Theme · Background · Font · Colours · Buttons). */
+  const [lookAt, setLookAt] = useState<LookSection | null>(null);
+  useMakerTool(allItemsSheet, {
+    key: `details:${selected}`,
+    name: selected === 'theme' && lookAt ? LOOK_SECTION_LABEL[lookAt] : current.label,
+    close: () => setSheetOpen(false),
+  });
   const setLtWhere = maker?.setLtWhere;
   useEffect(() => {
     setLtWhere?.(current.label);
@@ -472,10 +479,41 @@ export function DetailsWorkspace({
     lastLtDoor.current = ltDoor;
     if (ltNav) setSheetOpen(false);
   }, [ltDoor, ltNav]);
+  /* 🎨 Theme's PARTS first (frame 6: "Theme → Look · Fonts · Colours"): the Look
+     panel's own sections (`LOOK_SECTIONS`); a tile opens the panel at it. Then
+     the other Look items (Mood Board · Logo · …), each its own editor. */
+  const themeParts = ltDoor === 'look' && items.some((i) => i.key === 'theme') ? LOOK_SECTIONS : [];
+  useEffect(() => {
+    if (!lookAt || !sheetOpen || selected !== 'theme') return;
+    const id = window.requestAnimationFrame(() =>
+      editorRef.current?.querySelector(`[data-look-section="${lookAt}"]`)?.scrollIntoView({ block: 'start' }),
+    );
+    return () => window.cancelAnimationFrame(id);
+  }, [lookAt, sheetOpen, selected]);
   const ltTiles = ltNav ? (
     <IntoLowerThird to={ltNav}>
+          {themeParts.map((key) => {
+            const on = selected === 'theme' && sheetOpen && lookAt === key;
+            return (
+              <button
+                key={`look:${key}`}
+                type="button"
+                data-lt-tile={`look:${key}`}
+                aria-pressed={on}
+                onClick={() => {
+                  select('theme');
+                  setLookAt(key);
+                  setSheetOpen(true);
+                }}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PART} ${on ? LOWER_THIRD_TILE_ON : ''}`}
+              >
+                <span className="flex min-h-0 flex-1 items-center justify-center px-1.5 text-center text-[12.5px] font-semibold leading-tight text-ink">{LOOK_SECTION_LABEL[key]}</span>
+              </button>
+            );
+          })}
+          {themeParts.length > 0 ? <span aria-hidden className="my-4 w-px shrink-0 bg-ink/15" /> : null}
           {items
-            .filter((i) => makerDoorOf(i.key) === ltDoor)
+            .filter((i) => makerDoorOf(i.key) === ltDoor && !(themeParts.length > 0 && i.key === 'theme'))
             .map((i) => (
               <button
                 key={i.key}
@@ -486,7 +524,7 @@ export function DetailsWorkspace({
                   select(i.key);
                   setSheetOpen(true);
                 }}
-                className={`${LOWER_THIRD_TILE} ${i.key === selected ? LOWER_THIRD_TILE_ON : ''}`}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PLAIN} ${i.key === selected ? LOWER_THIRD_TILE_ON : ''}`}
               >
                 <span className="relative flex min-h-0 flex-1 items-center justify-center text-ink/75">
                   <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-cream ring-1 ring-ink/10">{i.icon}</span>

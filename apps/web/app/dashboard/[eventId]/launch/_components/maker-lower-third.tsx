@@ -256,7 +256,8 @@ export function MakerLowerThird({
               <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform duration-[240ms] motion-reduce:transition-none ${menuOpen ? 'rotate-180' : ''}`} strokeWidth={2.2} />
             </button>
             <p className="min-w-0 flex-1 truncate pl-1 text-[15px] font-semibold text-ink" data-lt-where-words="">
-              {where}
+              {/* Never the menu's word twice ("Theme ▾ Theme"). */}
+              {where === pickLabel ? '' : where}
             </p>
           </div>
           <div
@@ -325,7 +326,7 @@ export function LowerThirdTileButton({ tile, part = false }: { tile: LowerThirdT
       data-lt-tile={tile.key}
       title={tile.note}
       onClick={tile.disabled ? undefined : tile.onPick}
-      className={`${LOWER_THIRD_TILE} ${part ? 'bg-gild/10 ring-gild/40' : ''} ${tile.on ? LOWER_THIRD_TILE_ON : ''} ${tile.disabled ? 'opacity-50' : ''}`}
+      className={`${LOWER_THIRD_TILE} ${part ? LOWER_THIRD_TILE_PART : LOWER_THIRD_TILE_PLAIN} ${tile.on ? LOWER_THIRD_TILE_ON : ''} ${tile.disabled ? 'opacity-50' : ''}`}
     >
       <span className="flex min-h-0 flex-1 items-center justify-center px-1.5 text-center text-[12.5px] font-semibold leading-tight text-ink">
         {tile.icon ? <span className="flex flex-col items-center gap-1.5 text-ink/75">{tile.icon}<span className="text-ink">{tile.label}</span></span> : tile.label}
@@ -339,11 +340,15 @@ export function LowerThirdTileButton({ tile, part = false }: { tile: LowerThirdT
   );
 }
 
-/** A navigator tile's shape — every layer's tiles wear it, so the navigator reads as one row. */
+/** A navigator tile's shape — every layer's tiles wear it, so the navigator reads as one row. With ONE tone below. */
 export const LOWER_THIRD_TILE =
-  'sn-press flex h-full w-24 shrink-0 flex-col overflow-hidden rounded-[14px] bg-white ring-1 ring-ink/10 transition-shadow duration-sn-control ease-sn';
+  'sn-press flex h-full w-24 shrink-0 flex-col overflow-hidden rounded-xl ring-1 transition-shadow duration-sn-control ease-sn';
+/** A scene or an item: white. */
+export const LOWER_THIRD_TILE_PLAIN = 'bg-white ring-ink/10';
+/** A PART of the pick (a stage's page, the RSVP's screens, Theme's sections): the gold wash (frame 6). */
+export const LOWER_THIRD_TILE_PART = 'bg-gild/10 ring-gild/40';
 /** The tile that is on: the Setnayan terracotta ring. */
-export const LOWER_THIRD_TILE_ON = '!ring-2 !ring-mulberry';
+export const LOWER_THIRD_TILE_ON = 'ring-2 !ring-mulberry';
 
 /**
  * 🧭 A layer's navigator tiles: into the lower third's slot when the Maker hands

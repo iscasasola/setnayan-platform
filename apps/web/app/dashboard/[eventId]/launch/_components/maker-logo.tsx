@@ -1,7 +1,7 @@
 'use client';
 
 import { useMaker, useMakerTool } from './maker-context';
-import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON } from './maker-lower-third';
+import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { makerSave } from '@/lib/maker-refresh';
 import { useRouter } from 'next/navigation';
@@ -834,7 +834,7 @@ export function MakerLogoDoor({
                 aria-pressed={sheet === t.key}
                 disabled={t.disabled}
                 onClick={() => setSheet(t.key)}
-                className={`${LOWER_THIRD_TILE} ${sheet === t.key ? LOWER_THIRD_TILE_ON : ''} disabled:opacity-50`}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PLAIN} ${sheet === t.key ? LOWER_THIRD_TILE_ON : ''} disabled:opacity-50`}
               >
                 <span className="flex min-h-0 flex-1 items-center justify-center text-ink/75">{t.icon}</span>
                 <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] font-semibold text-ink">{t.label}</span>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON } from './maker-lower-third';
+import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART } from './maker-lower-third';
 import { MakerPage } from './maker-page';
 import { MakerRsvpSettings } from './maker-rsvp-ask';
 import { useMaker } from './maker-context';
@@ -215,7 +215,7 @@ export function MakerRsvpStage({
                   pick(s.key);
                   setControlsOpen(true);
                 }}
-                className={`${LOWER_THIRD_TILE} bg-gild/10 ring-gild/40 ${scene === s.key ? LOWER_THIRD_TILE_ON : ''}`}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PART} ${scene === s.key ? LOWER_THIRD_TILE_ON : ''}`}
               >
                 <span className="flex min-h-0 flex-1 items-center justify-center px-1.5 text-center text-[12.5px] font-semibold leading-tight text-ink">
                   {RSVP_STAGE_TILE[s.key].label}

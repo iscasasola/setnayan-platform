@@ -754,6 +754,8 @@ export function MakerWork({
   const [ticketShown, setTicketShown] = useState<PassCardDesign | null>(null);
   useEffect(() => setTicketShown(null), [ticketSaved]);
   const ticketDesign = ticketShown ?? ticketSaved;
+  /* A ticket that could not be drawn SAYS so — never an empty page that reads like no ticket. */
+  const [ticketFailed, setTicketFailed] = useState<PassCardDesign | null>(null);
   const ticketOn = selection?.kind === 'row' && selection.key === `f:${MAKER_FIXED_TICKET}`;
   /* 🎨 LOGO · HERO · REVEAL LIVE IN DETAILS (Details part 3, DECISION_LOG
      2026-09-28 "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"). This page
@@ -2593,15 +2595,22 @@ export function MakerWork({
         {ticketOn && canvasSrc ? (
           <div
             data-maker-ticket-view={ticketDesign}
-            className="absolute inset-0 z-10 flex items-start justify-center overflow-hidden bg-cream px-4 pt-4 lg:items-center lg:pt-0"
+            className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4"
           >
-            {/* eslint-disable-next-line @next/next/no-img-element -- a same-origin SVG from our print route */}
-            <img
-              key={ticketDesign}
-              src={makerTicketSrc(eventId, ticketDesign)}
-              alt={`${PASS_CARD_DESIGN_LABEL[ticketDesign]} ${PASS_CARD_WORDS.noun}`}
-              className="h-auto max-h-[calc(55dvh-76px)] w-auto max-w-full rounded-md bg-white object-contain shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] lg:max-h-[calc(100%-2rem)]"
-            />
+            {ticketFailed === ticketDesign ? (
+              <p role="alert" data-maker-ticket-failed="" className="m-auto max-w-xs px-4 text-center text-sm text-terracotta-700">
+                The ticket could not be drawn just now. Nothing was changed — please try again in a moment.
+              </p>
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element -- a same-origin SVG from our print route */
+              <img
+                key={ticketDesign}
+                src={makerTicketSrc(eventId, ticketDesign)}
+                alt={`${PASS_CARD_DESIGN_LABEL[ticketDesign]} ${PASS_CARD_WORDS.noun}`}
+                onError={() => setTicketFailed(ticketDesign)}
+                className="h-auto max-h-full w-auto max-w-full rounded-md bg-white object-contain shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] lg:max-h-[calc(100%-2rem)]"
+              />
+            )}
           </div>
         ) : null}
         {/* 🖥📱 Both was picked but the room cannot hold two readable frames —

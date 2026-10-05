@@ -515,7 +515,8 @@ test('the lab page loads bookings the way the finalization panel does', () => {
     join(REPO, 'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx'),
     'utf8',
   );
-  const SELECT = "'vendor_id, vendor_name, shop:vendor_profiles ( services )'";
+  // The booked shop's key is NAMED (PGRST201 — two keys reach vendor_profiles; `the-maker-live-walk-holds.test.ts`).
+  const SELECT = "'vendor_id, vendor_name, shop:vendor_profiles!event_vendors_marketplace_vendor_id_fkey ( services )'";
   assert.ok(panel.includes(SELECT), 'premise: the finalization panel selects this shape');
   assert.ok(page.includes(SELECT), 'the lab must read bookings with the SAME select');
   // Same status filter, or the two surfaces disagree the first time a status is

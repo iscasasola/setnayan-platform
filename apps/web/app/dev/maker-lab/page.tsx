@@ -121,6 +121,7 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
         name: themeBackgroundName(id),
         stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
       }))}
+      openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
     />
   );
 }

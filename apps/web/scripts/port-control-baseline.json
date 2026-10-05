@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "15b89a351",
+  "generatedFromRef": "b9956018d",
   "routeCount": 428,
   "destinations": 947,
-  "actions": 669,
-  "blocks": 5512,
+  "actions": 670,
+  "blocks": 5516,
   "routes": {
     "/": {
       "files": [
@@ -9178,6 +9178,7 @@
         "T",
         "TextPanel",
         "Thumb",
+        "TicketPlaceholder",
         "TileHead",
         "ToolsResizeHandle",
         "TypeBar",
@@ -9552,10 +9553,15 @@
         "dev/maker-lab/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "formDraft"
+      ],
       "blocks": [
+        "ButtonsLookRow",
+        "ColorsPanel",
         "HubDraftActionResult",
         "HubDraftToolbar",
+        "MainBackgroundPanel",
         "MakerLabShell",
         "MakerRsvpStage",
         "MakerShell",

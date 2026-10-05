@@ -95,6 +95,20 @@ const shared = createDraftedCanvases(
 /** A Maker panel wrote this scene's canvas (on the canvas already; its save may still be on its way). */
 export function noteDraftedCanvas(type: string, canvas: HubSectionCanvas, server: HubSectionCanvas | null | undefined): void {
   shared.note(type, canvas, server);
+  for (const hear of hearers) hear(type);
+}
+
+/**
+ * 👂 Told each time a panel notes a scene canvas — so a panel open BESIDE
+ * another writer of the same canvas builds on its words, never on its own stale
+ * copy (a phone's part tools stay open while the words are typed in place).
+ */
+const hearers = new Set<(type: string) => void>();
+export function hearDraftedCanvas(hear: (type: string) => void): () => void {
+  hearers.add(hear);
+  return () => {
+    hearers.delete(hear);
+  };
 }
 
 /** The scene canvas to build the next pick on — the Maker's own while it is newer than `server`. */

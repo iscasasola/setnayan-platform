@@ -77,6 +77,7 @@ export function MakerLowerThird({
   tool,
   setNav,
   stepTiles,
+  bare = false,
 }: {
   pick: LowerThirdPick;
   /** The menu button's words ("RSVP"). */
@@ -94,6 +95,13 @@ export function MakerLowerThird({
   setNav: (el: HTMLElement | null) => void;
   /** Show the layer's slot (a stage's scenes, Details' items, the RSVP screens). */
   stepTiles: boolean;
+  /**
+   * 🪜 The guided flow shows a screen of its own on the page (owner 2026-10-05:
+   * its stage picker sat over Theme's navigator — two things at once): only the
+   * menu button is drawn, in one short row, and the page takes the rest. The
+   * menu still opens to its full height; a step's own sheet (a tool) still folds it.
+   */
+  bare?: boolean;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useOneOpen(menuOpen, setMenuOpen);
@@ -129,6 +137,10 @@ export function MakerLowerThird({
       if (!was) opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       // A ‹ › step keeps focus on the stepper, so a keyboard can press › again.
       else if (document.activeElement instanceof HTMLElement && document.activeElement.closest('[data-lt-step]')) return;
+      /* ✍ A caret on the PAGE (a part tapped to type in place — its tools open
+         with it): focus stays there, or the words would lose their caret and
+         the phone its keyboard. */
+      if (document.activeElement instanceof HTMLIFrameElement) return;
       const panel = [...document.querySelectorAll<HTMLElement>('[data-phone-chrome="panel"]')].find((el) => el.getClientRects().length > 0);
       if (!panel || panel.contains(document.activeElement)) return;
       if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '-1');
@@ -168,6 +180,8 @@ export function MakerLowerThird({
     if (at !== null) tiles[at]!.click();
   };
   const prev = tool ? (tool.step ? tool.step.prev : () => stepTile(-1)) : null;
+  /** Only the menu button, in one short row (the guided flow's own screen; no tool, the menu shut). */
+  const short = bare && !tool && !menuOpen;
   const next = tool ? (tool.step ? tool.step.next : () => stepTile(1)) : null;
 
   const pickRow = (r: LowerThirdMenuRow) => {
@@ -204,8 +218,9 @@ export function MakerLowerThird({
       data-lt-tool={tool ? tool.key : undefined}
       data-phone-chrome="bottom"
       data-phone-chrome-name="the lower third"
+      data-lt-bare={short ? '' : undefined}
       /* In the shell's flow, under the page — the page ends where it begins. */
-      className="relative z-20 flex h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))] shrink-0 flex-col overflow-hidden border-t border-ink/10 bg-cream pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className={`relative z-20 flex ${short ? 'h-auto' : 'h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))]'} shrink-0 flex-col overflow-hidden border-t border-ink/10 bg-cream pb-[env(safe-area-inset-bottom)] lg:hidden`}
     >
       <div className="relative flex min-h-0 flex-1 gap-2 p-1 pt-2">
         {/* ══ THE COLUMN A TOOL LEAVES — name · ‹ › · × ══ */}
@@ -296,10 +311,11 @@ export function MakerLowerThird({
               }`}
             >
               <List aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
-              <span className="max-w-[9rem] truncate">{pickLabel}</span>
+              {/* The guided flow's own screen: the menu by its own name, never an item's. */}
+              <span className="max-w-[9rem] truncate">{bare && !tool ? 'Menu' : pickLabel}</span>
               <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform duration-[240ms] motion-reduce:transition-none ${menuOpen ? 'rotate-180' : ''}`} strokeWidth={2.2} />
             </button>
-            <p className="min-w-0 flex-1 truncate pl-1 text-[15px] font-semibold text-ink" data-lt-where-words="">
+            <p className={`min-w-0 flex-1 truncate pl-1 text-[15px] font-semibold text-ink ${short ? 'invisible' : ''}`} data-lt-where-words="">
               {/* Never the menu's word twice ("Theme ▾ Theme"). */}
               {where === pickLabel ? '' : where}
             </p>
@@ -310,7 +326,8 @@ export function MakerLowerThird({
             aria-label="Navigator"
             data-lt-navigator=""
             /* One sideways row that never scrolls down; a closed (i) note takes no room (`MAKER_STRIP_PHONE`). */
-            className={`${MAKER_STRIP_PHONE} flex min-h-0 flex-1 items-stretch gap-2.5 overflow-x-auto overflow-y-hidden px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
+            aria-hidden={short || undefined}
+            className={`${MAKER_STRIP_PHONE} ${short ? 'hidden' : 'flex'} min-h-0 flex-1 items-stretch gap-2.5 overflow-x-auto overflow-y-hidden px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
           >
             {parts.map((t) => (
               <LowerThirdTileButton key={t.key} tile={t} part />

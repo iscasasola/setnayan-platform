@@ -46,7 +46,6 @@ events.seating_autoplace_enabled	# first run 2026-10-02 · host app · a screen 
 events.seating_group_adjacency	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.share_budget_band	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.site_art_direction	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
-events.site_bg_color	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.site_magic_traveller	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.std_film_accent_hex	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.std_film_date	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits

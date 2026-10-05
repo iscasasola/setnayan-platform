@@ -15,6 +15,7 @@ import { DeleteGuestFlow } from './guest-delete';
 import { useInspectorContext } from '@/app/_components/inspector/inspector-column';
 import { useRouter } from 'next/navigation';
 import { useOneOpen } from '@/lib/one-open';
+import { TicketPlaceholder } from '@/app/_components/ticket-placeholder';
 
 /**
  * guest-ticket-parts.tsx — the top of the guest card, and the ⋯ every Invite
@@ -183,29 +184,6 @@ export function GuestTicketThumb({
           )
         : null}
     </>
-  );
-}
-
-/**
- * The ticket while its picture is still being drawn: the ticket's own shape —
- * a cream card, a band at the top, their name, a QR mark — so the box reads as
- * "their ticket, on its way", never as an empty white rectangle. It stays
- * UNDER the picture once it arrives (the opaque ticket covers it), so the
- * fade-in never passes through an empty box; only the pulse stops.
- */
-function TicketPlaceholder({ name, waiting }: { name: string; waiting: boolean }) {
-  return (
-    <span
-      aria-hidden
-      className="absolute inset-0 flex flex-col items-center overflow-hidden rounded-lg bg-cream shadow-[0_6px_18px_-10px_rgba(30,26,18,.45)] ring-1 ring-ink/10"
-      data-guest-ticket-waiting={waiting ? '' : undefined}
-    >
-      <span className="block h-[18%] w-full bg-ink/[0.06]" />
-      <span className="mt-2 line-clamp-2 px-1.5 text-center font-display text-[11px] leading-tight text-ink/70">
-        {name}
-      </span>
-      <QrCode className={`mt-auto mb-3 h-7 w-7 text-ink/25${waiting ? ' animate-pulse' : ''}`} strokeWidth={1.5} />
-    </span>
   );
 }
 

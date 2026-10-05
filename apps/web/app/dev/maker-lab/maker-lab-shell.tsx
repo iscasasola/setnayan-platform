@@ -51,12 +51,14 @@ export function MakerLabShell({
   navigator,
   details,
   loops = [],
+  openDetails = false,
 }: {
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
   details: ReactNode;
   loops?: readonly MovingBackgroundOption[];
+  openDetails?: boolean;
 }) {
   const stand = (name: string) => <div data-lab-stand={name} className="rounded-md bg-white/70 p-3 text-[13px] text-ink/60">{name}</div>;
   const rsvpProps = useMemo<ComponentProps<typeof MakerRsvpStage>>(
@@ -120,6 +122,8 @@ export function MakerLabShell({
       slug="dev/maker-lab/guest"
       liveStage="rsvp"
       initialStage="rsvp"
+      /* `?tool=details` / `?guide=…` open on Details (the guided flow), as the real Maker does. */
+      initialSelection={openDetails ? { kind: 'tool', key: 'details' } : null}
       storeShell={false}
       tourSlides={[]}
       firstVisit={false}

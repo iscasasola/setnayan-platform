@@ -1,4 +1,6 @@
 import { notFound } from 'next/navigation';
+import { cookies } from 'next/headers';
+import { sanitizeHubCanvas, type HubSectionCanvas } from '@/lib/hub-canvas';
 import { buildMakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
 import { makerSceneLabel } from '@/lib/maker-scene-list';
 import { resolveWeddingOnlyParts } from '@/lib/wedding-only-parts';
@@ -48,6 +50,8 @@ const MJ_ROWS: ReadonlyArray<[WidgetType, boolean]> = [
 export default async function MakerLabPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
+  /* ⏱ `?slow=1`: a whole-Maker render takes as long as production's (3–6 s). */
+  if (sp.slow === '1') await new Promise((r) => setTimeout(r, 4000));
   const now = '2026-10-05T00:00:00Z';
   const rows: InvitationWidgetRow[] = MJ_ROWS.map(([type, alwaysOn], i) => ({
     widget_id: `w-${type}`,
@@ -100,6 +104,17 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
     },
     photoUrls: {},
   });
+  /* 🎨 The lab's draft of each scene's canvas (`lab_widgets`, set by the lab's
+     save stand-in) — the "server" canvases every render hands the work area. */
+  let drafted: Record<string, unknown> = {};
+  try {
+    drafted = JSON.parse(decodeURIComponent((await cookies()).get('lab_widgets')?.value ?? '{}')) as Record<string, unknown>;
+  } catch {
+    drafted = {};
+  }
+  const canvases: Record<string, HubSectionCanvas> = Object.fromEntries(
+    rows.map((r) => [r.widget_type, sanitizeHubCanvas({ canvas: drafted[r.widget_type] ?? {} })]),
+  );
   const scenes = rows.map((r) => ({
     id: r.widget_id,
     type: r.widget_type,
@@ -122,6 +137,9 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
         stillUrl: resolveThemeGround(id, { ownColours: false })?.poster ?? null,
       }))}
       openDetails={sp.tool === 'details' || typeof sp.guide === 'string'}
+      canvases={canvases}
+      /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
+      renderStamp={String(Date.now())}
     />
   );
 }

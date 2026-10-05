@@ -31,6 +31,15 @@ import { STEP_OWN_BODY, guidedStepBody, stagePageSrc } from './guided-step-layou
 import { phoneHeightPx } from './maker-phone-room';
 
 (globalThis as unknown as { React: unknown }).React = React;
+// The studio's picker reaches a `server-only` module through its uploader — a no-op here.
+{
+  const Mod = require('node:module');
+  const load = Mod._load;
+  Mod._load = function (request: string, ...rest: unknown[]) {
+    if (request === 'server-only' || request === 'client-only') return {};
+    return load.call(this, request, ...rest);
+  };
+}
 
 const WEB = join(__dirname, '..');
 const L = 'app/dashboard/[eventId]/launch/_components';
@@ -545,4 +554,66 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   const pm = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
   assert.match(pm, /aria-controls=\{open \? listId : undefined\}/);
   assert.match(pm, /id=\{listId\}\s*role="listbox"/);
+});
+
+test('(23) "Same as theme": first in the film\'s background picker and the default; one line under Theme hands the film back, into the draft', async () => {
+  // The draft holds ONE value for the film's background: null, the film following the theme.
+  const D = await import('./hub-draft');
+  assert.ok(D.isHubDraftEventColumn('std_background'), 'the film cannot be handed back into the draft');
+  assert.equal(D.sanitizeHubDraftEventValue('std_background', null), null);
+  assert.equal(D.sanitizeHubDraftEventValue('std_background', { kind: 'plain', value: '#000000' }), undefined, 'a background of the film\'s own is drafted — it is picked in the studio, live');
+  assert.notEqual(D.eventColumnChange('std_background', { kind: 'plain', value: '#e8d9bd' }, null), 'same', 'handing the film back reads as no change at Apply');
+  assert.ok(D.HUB_DRAFT_EVENT_LABEL.std_background, 'Apply cannot name the change');
+  // The film's background is a Pro look to ADD or CHANGE; handing it back to the theme is a removal — free.
+  const handBack = D.eventColumnChange('std_background', { kind: 'plain', value: '#e8d9bd' }, null);
+  assert.equal(D.eventItemIsPro('std_background', null, handBack, { kind: 'plain', value: '#e8d9bd' }), false, 'following the theme is held as Pro at Apply');
+
+  // The studio: "Same as theme" is the FIRST choice, pressed when nothing of the film's own is stored.
+  const { StdBackgroundPicker } = await import('../app/dashboard/[eventId]/_components/std-background-picker');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const noop = () => {};
+  const picker = (follows: boolean) =>
+    renderToStaticMarkup(
+      React.createElement(StdBackgroundPicker, {
+        value: { kind: 'plain', value: '#f3ece1' },
+        onChange: noop,
+        eventId: 'e',
+        onUpload: noop,
+        followsTheme: follows,
+        onFollowTheme: noop,
+        themeCanvas: '#0b0a12',
+      }),
+    );
+  const on = picker(true);
+  assert.ok(on.indexOf('Same as theme') > 0 && on.indexOf('Same as theme') < on.indexOf('Plain colour'), '"Same as theme" is not the first choice');
+  assert.match(on, /aria-pressed="true"[^>]*data-std-bg-follows-theme=""/);
+  assert.doesNotMatch(on, /aria-label="Background colour #f3ece1" aria-pressed="true"/, 'a colour of its own reads as chosen while the film follows the theme');
+  assert.match(picker(false), /aria-pressed="false"[^>]*data-std-bg-follows-theme=""/);
+  const studio = read('app/dashboard/[eventId]/studio/save-the-date/page.tsx');
+  assert.match(studio, /const stdFollowsTheme = event\?\.std_background === null \|\| event\?\.std_background === undefined;/, 'a new event does not start on "Same as theme"');
+  assert.match(studio, /themeCanvas=\{themeCanvas\}/);
+  const client = read('app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx');
+  assert.match(client, /backgroundFollowsTheme: followsTheme,/, 'the studio does not save "Same as theme"');
+  assert.match(client, /background=\{shownBackground\}/, 'the studio preview paints the veil while guests see the theme');
+  const action = read('app/dashboard/[eventId]/studio/save-the-date/actions.ts');
+  assert.match(action, /if \(data\.backgroundFollowsTheme === true\) \{\s*patch\.std_background = null;/, 'the studio cannot clear the film\'s own background');
+
+  // The Theme step: one line, while the film keeps its own pick; a tap writes the DRAFT.
+  const { FilmFollowsTheme } = await import(`../${L}/film-follows-theme`);
+  const { MakerThemeMenu } = await import(`../${L}/maker-theme-picker`);
+  const line = renderToStaticMarkup(React.createElement(FilmFollowsTheme, { eventId: 'e' }));
+  assert.match(line, /Your Save the Date film keeps its own background ·[\s\S]*<button[^>]*>Same as theme<\/button>/);
+  const picker2 = read(`${L}/film-follows-theme.tsx`);
+  assert.match(picker2, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ std_background: null \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'the tap does not go into the draft');
+  assert.ok(MakerThemeMenu);
+  const details = read(`${L}/maker-details.tsx`);
+  assert.match(details, /const filmLine = theme\.filmOwnBackground \? <FilmFollowsTheme eventId=\{eventId\} \/> : null;/);
+  assert.match(details, /<MakerThemeMenu [^>]*filmLine=\{filmLine\}/);
+  const page = read('app/dashboard/[eventId]/launch/page.tsx');
+  assert.match(page, /filmOwnBackground:\s*mayShowStdFilm &&\s*\('std_background' in draftedEvents/, 'the line ignores the draft (it would come back after a tap)');
+});
+
+test('(24) the Invitation page\'s sign-off reads on every theme — never the light gold over a moving ground', () => {
+  const shell = read('app/[slug]/_components/invitation-shell.tsx');
+  assert.match(shell, /data-shell-sign-off=""\s*className=\{`font-pahina text-lg italic \$\{\s*backdrop \? 'text-cream\/90' : 'text-terracotta-700'\s*\}`\}/, '"See you soon." is the light gold again');
 });

@@ -45,6 +45,7 @@ import { makerProMark, paidMarkLabel } from '@/lib/paid-mark';
 import type { StoredQrStyle } from '@/lib/qr-look';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { MakerThemeGallery, MakerThemeMenu, ThemePickProvider } from './maker-theme-picker';
+import { FilmFollowsTheme } from './film-follows-theme';
 import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
@@ -205,6 +206,8 @@ export type MakerDetailsProps = {
     tour: boolean;
     /** The couple has chosen a theme (saved or drafted) — the item's "done". */
     chosen: boolean;
+    /** 🎞 The Save the Date film keeps a background of its own (draft over live) — Theme offers "Same as theme". */
+    filmOwnBackground?: boolean;
     /** They wear their own page colour, button colour or typeface (`hasOwnLook`) — re-tapping the current theme hands it back. */
     ownLook?: boolean;
   };
@@ -746,6 +749,8 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* ✍ The two print-only words — each ONE field in two doors (its Words item
      and its print's switch), posting through the print words form. */
   const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
+  /* 🎞 Under Theme, only while the Save the Date film keeps a background of its own. */
+  const filmLine = theme.filmOwnBackground ? <FilmFollowsTheme eventId={eventId} /> : null;
   const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
   const printsOn = (piece: PrintSetKey) => (
     <p className="text-xs text-ink/60">
@@ -754,7 +759,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
     /* 🎨 LOOK IS ONE PANEL — Theme · Background · Font · Colours (`lib/maker-look-sections.ts`). */
-    theme: <LookPanel theme={<MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} />} />,
+    theme: <LookPanel theme={<MakerThemeMenu themes={theme.themes} ownsPro={theme.ownsPro} storeShell={theme.storeShell} filmLine={filmLine} />} />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */

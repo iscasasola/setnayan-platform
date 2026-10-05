@@ -84,6 +84,10 @@ type Props = {
   initialEffects: RevealEffects;
   /** The couple's saved Step-1 background (resolved; defaults to plain). */
   initialBackground: StdBackground;
+  /** 🎞 Nothing of the film's own is stored — it follows the theme ("Same as theme"). */
+  initialFollowsTheme?: boolean;
+  /** The Event Hub theme's canvas — what "Same as theme" paints. */
+  themeCanvas?: string | null;
   /** Presigned URL for the saved upload background (if kind === 'upload'). */
   initialUploadUrl?: string | null;
   /** The couple's saved Step-3 media choice (resolved; defaults to gallery). */
@@ -155,6 +159,8 @@ export function StdBuilderClient({
   initialRevealTemplate,
   initialEffects,
   initialBackground,
+  initialFollowsTheme = false,
+  themeCanvas = null,
   initialUploadUrl,
   initialMedia,
   initialNsfwStatus,
@@ -242,11 +248,22 @@ export function StdBuilderClient({
   const [background, setBackground] = useState<StdBackground>(initialBackground);
   // Presigned URL for an uploaded background (kind === 'upload') — drives the preview.
   const [uploadUrl, setUploadUrl] = useState<string | null>(initialUploadUrl ?? null);
+  // 🎞 "Same as theme": the film wears the theme until a background of its own is picked.
+  const [followsTheme, setFollowsTheme] = useState(initialFollowsTheme);
   const pickBackground = (bg: StdBackground) => {
     // Keep the chosen legibility when the background itself changes.
     setBackground({ ...bg, legibility: bg.legibility ?? background.legibility ?? 'auto' });
+    setFollowsTheme(false);
     if (result !== 'idle') setResult('idle');
   };
+  const followTheme = () => {
+    setFollowsTheme(true);
+    if (result !== 'idle') setResult('idle');
+  };
+  /* What the film plays over, as guests will see it — the theme's own colour
+     while it follows the theme (`stdFilmBackground`, the guest page's rule). */
+  const shownBackground: StdBackground =
+    followsTheme && themeCanvas ? { kind: 'plain', value: themeCanvas, legibility: background.legibility ?? 'auto' } : background;
   const setLegibility = (legibility: StdLegibility) => {
     setBackground((b) => ({ ...b, legibility }));
     if (result !== 'idle') setResult('idle');
@@ -441,6 +458,7 @@ export function StdBuilderClient({
             filmAccentColor: accentColor,
             revealEffects: effects,
             background,
+            backgroundFollowsTheme: followsTheme,
             media,
             siteMusicKey,
           }),
@@ -483,6 +501,9 @@ export function StdBuilderClient({
             uploadUrl={uploadUrl}
             onUpload={handleUpload}
             uploadLock={uploadLock('photo')}
+            followsTheme={followsTheme}
+            onFollowTheme={followTheme}
+            themeCanvas={themeCanvas}
           />
 
           {/* Step 1 (cont.) · Readability — veil + text tone so the names always
@@ -948,11 +969,11 @@ export function StdBuilderClient({
             <DeviceFrame device={device}>
               {/* layer 0 — the Step-1 background, behind everything */}
               <StdBackgroundLayer
-                background={background}
+                background={shownBackground}
                 imageUrl={
-                  background.kind === 'realistic'
-                    ? realisticBgSrc(background.value)
-                    : background.kind === 'upload'
+                  shownBackground.kind === 'realistic'
+                    ? realisticBgSrc(shownBackground.value)
+                    : shownBackground.kind === 'upload'
                       ? uploadUrl
                       : null
                 }
@@ -966,7 +987,7 @@ export function StdBuilderClient({
                   preview
                   fill
                   transparent
-                  tone={resolveStdLegibility(background).tone}
+                  tone={resolveStdLegibility(shownBackground).tone}
                   lockup={lockup}
                   accentHex={accentColor ?? initialAccentDefault}
                   animatedMonogram={animatedMonogram ?? false}

@@ -287,9 +287,14 @@ export function InvitationShell({
           backdrop ? 'border-t border-cream/15' : 'border-t border-ink/10'
         }`}
       >
+        {/* 🔤 Not `text-gild` (live walk 2026-10-05, Cyber Neon on maria-and-jose):
+            the light gold vanished on a light page over the theme's moving
+            ground. `terracotta-700` is every theme's own deepest accent — white
+            on Cyber Neon, a deep gold on a Mood-Board page. */}
         <p
+          data-shell-sign-off=""
           className={`font-pahina text-lg italic ${
-            backdrop ? 'text-cream/90' : 'text-gild'
+            backdrop ? 'text-cream/90' : 'text-terracotta-700'
           }`}
         >
           See you soon.

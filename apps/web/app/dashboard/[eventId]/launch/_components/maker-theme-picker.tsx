@@ -390,10 +390,13 @@ export function MakerThemeMenu({
   themes,
   ownsPro,
   storeShell,
+  filmLine = null,
 }: {
   themes: ThemeTile[];
   ownsPro: boolean;
   storeShell: boolean;
+  /** 🎞 The one line under Theme while the Save the Date film keeps its own background (`FilmFollowsTheme`). */
+  filmLine?: ReactNode;
 }) {
   const { picked, error, pick } = usePick();
   const shown = tilesShown(themes, { ownsPro, storeShell, current: picked });
@@ -413,6 +416,7 @@ export function MakerThemeMenu({
           onPick={pick}
         />
       </div>
+      {filmLine}
       {error ? (
         <p role="alert" className="text-xs text-danger-800">
           {error}
@@ -421,3 +425,4 @@ export function MakerThemeMenu({
     </div>
   );
 }
+

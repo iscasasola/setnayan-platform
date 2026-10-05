@@ -170,6 +170,10 @@ export async function saveAllStdContent(
     filmAccentColor?: string | null;
     revealEffects?: RevealEffects | null;
     background?: StdBackground | null;
+    /** 🎞 "Same as theme" (owner 2026-10-05): the film hands its background back
+     *  to the Event Hub theme — `std_background` is cleared and the film paints
+     *  the theme's canvas (`stdFilmBackground`). Wins over `background`. */
+    backgroundFollowsTheme?: boolean;
     media?: StdMedia | null;
     /** A newly-uploaded song r2 ref. Persists to the SINGLE-SOURCE site music
      *  (events.site_bg_music_*) — the STD film reuses the couple's site song.
@@ -221,7 +225,7 @@ export async function saveAllStdContent(
      never gated. Refused BEFORE anything is written, with a code the builder
      turns into a sentence — never a generic "error". */
   const wantsBg =
-    data.background !== undefined && data.background !== null
+    data.background !== undefined && data.background !== null && data.backgroundFollowsTheme !== true
       ? resolveStdBackground(data.background)
       : null;
   const wantsMedia =
@@ -317,7 +321,10 @@ export async function saveAllStdContent(
     patch.std_reveal_effects = incomingEffects;
   }
   // Step-1 background choice — validated to {kind, value}.
-  if (data.background !== undefined && data.background !== null) {
+  if (data.backgroundFollowsTheme === true) {
+    // 🎞 Same as theme — nothing of the film's own; the theme paints it.
+    patch.std_background = null;
+  } else if (data.background !== undefined && data.background !== null) {
     const bg = resolveStdBackground(data.background);
     // SEC-1: an 'upload' background carries a client-supplied r2:// ref that is
     // presigned LATER — by lib/std-bg-image.ts and by the PUBLIC wedding-site

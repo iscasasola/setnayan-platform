@@ -32,13 +32,33 @@ type Props = {
   /** When set, shown IN PLACE of the uploader — the couple's own photo is Event
    *  Hub Pro (owner 2026-09-24). Our backgrounds above stay selectable. */
   uploadLock?: React.ReactNode;
+  /**
+   * 🎞 "Same as theme" — the FIRST choice and every new event's default (owner
+   * 2026-10-05): the film wears the Event Hub theme's own colour (`themeCanvas`)
+   * until the couple picks a background of its own. Omit both to hide it.
+   */
+  followsTheme?: boolean;
+  onFollowTheme?: () => void;
+  /** The theme's canvas colour — the swatch the choice shows. */
+  themeCanvas?: string | null;
 };
 
 const tile =
   'relative flex items-center justify-center overflow-hidden rounded-md border transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta';
 
-export function StdBackgroundPicker({ value, onChange, eventId, uploadUrl, onUpload, uploadLock }: Props) {
-  const sel = (kind: StdBackground['kind'], v: string) => value.kind === kind && value.value === v;
+export function StdBackgroundPicker({
+  value,
+  onChange,
+  eventId,
+  uploadUrl,
+  onUpload,
+  uploadLock,
+  followsTheme,
+  onFollowTheme,
+  themeCanvas,
+}: Props) {
+  // While the film follows the theme, none of its own backgrounds is the chosen one.
+  const sel = (kind: StdBackground['kind'], v: string) => !followsTheme && value.kind === kind && value.value === v;
 
   return (
     <section className="space-y-4">
@@ -53,6 +73,23 @@ export function StdBackgroundPicker({ value, onChange, eventId, uploadUrl, onUpl
           your names and details float on top.
         </p>
       </div>
+
+      {/* 🎞 Same as theme — first, and the default. */}
+      {onFollowTheme ? (
+        <button
+          type="button"
+          aria-pressed={Boolean(followsTheme)}
+          onClick={onFollowTheme}
+          data-std-bg-follows-theme=""
+          className={`flex min-h-11 w-full items-center gap-3 rounded-md border px-3 text-left text-sm ${
+            followsTheme ? 'border-terracotta ring-2 ring-terracotta/40' : 'border-ink/15'
+          }`}
+        >
+          <span aria-hidden className="h-7 w-7 shrink-0 rounded-full border border-ink/20" style={{ backgroundColor: themeCanvas ?? undefined }} />
+          <span className="flex-1 font-medium text-ink">Same as theme</span>
+          {followsTheme ? <Check aria-hidden className="h-4 w-4 text-terracotta" strokeWidth={2.5} /> : null}
+        </button>
+      ) : null}
 
       {/* Plain colour */}
       <div className="space-y-2">

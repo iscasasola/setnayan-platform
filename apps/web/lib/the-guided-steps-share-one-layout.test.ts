@@ -250,7 +250,7 @@ test('(8) a server-made editor sits in a keyed slot — never an unkeyed child (
 test('(9) the Theme step opens the Save the Date page PAST its film — the part the theme dresses (the film wears its own background)', () => {
   const body = guidedStepBody('theme', 'save_the_date');
   assert.equal(body.kind === 'page' && body.anchor, '#std-after-film', 'the Theme step opens on the film, which never wears the theme');
-  assert.match(read('app/[slug]/_components/std-film-handoff.tsx'), /<div id="std-after-film" className=/, 'the page has no place past the film to open on');
+  assert.match(read('app/[slug]/_components/std-film-handoff.tsx'), /<span id="std-after-film" aria-hidden className="block" \/>\s*<div className="mx-auto w-full max-w-3xl/, 'the page has no place past the film to open on');
 });
 
 test('(10) one count: the Maker wears the step states Home and Event Details count from', () => {

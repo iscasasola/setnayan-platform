@@ -104,6 +104,7 @@ import { GuestHelperAccess } from './_components/guest-helper-access';
 import { GuestsPhoneMenu } from './_components/guests-phone-menu';
 import { PhoneShowPick } from './_components/phone-show-pick';
 import { quickAddTips } from '@/lib/quick-add-tips';
+import { tableWords } from '@/lib/table-words';
 import { AddGuestSheet, OpenAddGuestButton, OpenAddGuestTextButton } from './_components/add-guest-sheet';
 
 export const metadata = { title: 'Guests' };
@@ -752,8 +753,8 @@ export default async function GuestsPage({ params, searchParams }: Props) {
     rsvpLabel: (g) => RSVP_LABELS[g.rsvp_status],
     seatLabel: (g) => {
       const seat = seatByGuest[g.guest_id];
-      if (seat?.placed) return `Table ${seat.placed}`;
-      if (seat?.suggested) return `Suggested ${seat.suggested}`;
+      if (seat?.placed) return tableWords(seat.placed);
+      if (seat?.suggested) return `Suggested ${tableWords(seat.suggested)}`;
       return null;
     },
     seatRank: (g) => seatSortRank(g, seatByGuest),

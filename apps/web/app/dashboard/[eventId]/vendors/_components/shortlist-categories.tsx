@@ -324,10 +324,10 @@ const SLCAT_CSS = `
    block:'start'. Flush at the top of the viewport tucks the row UNDER the
    sticky chrome, so each anchor carries its own clearance instead:
 
-     • MOBILE (<1024px) — ServicesTakeover hides '.shell-topbar' outright
-       ('@media (max-width:1023px){.shell-topbar{display:none}}'), so nothing is
-       pinned at the top of this page. 14px is breathing room from the viewport
-       edge, not a clearance. (The bottom chrome — CustomerBottomNav +
+     • MOBILE (<1024px) — the shared top bar is back on this page (owner
+       2026-10-05; it used to be hidden here) and it REVEALS on an upward
+       scroll, so the anchor clears the bar's own measured height ('--fd-bar')
+       plus 14px of breathing room. (The bottom chrome — CustomerBottomNav +
        CustomerSectionSubnav — sits BELOW the landed row and so cannot cover it;
        the takeover already reserves its height with its own bottom padding.)
      • DESKTOP (≥1024px) — '.shell-topbar' is 'sticky top-0' and REVEALS on an
@@ -337,7 +337,7 @@ const SLCAT_CSS = `
 
    Attribute selectors, not '.cat'/'.fold', so this only ever applies to the
    rows that actually carry an anchor. */
-.slcat [id^="slfold-"],.slcat [id^="sltile-"]{scroll-margin-top:14px}
+.slcat [id^="slfold-"],.slcat [id^="sltile-"]{scroll-margin-top:calc(var(--fd-bar,56px) + 14px)}
 @media (min-width:1024px){.slcat [id^="slfold-"],.slcat [id^="sltile-"]{scroll-margin-top:96px}}
 .slcat .cat-head{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;background:transparent;border:0;cursor:pointer;padding:10px 4px;font:inherit;text-align:left;min-height:42px}
 /* Leaf row LEFT — icon + name. The icon is a bare glyph (no disc): the folder

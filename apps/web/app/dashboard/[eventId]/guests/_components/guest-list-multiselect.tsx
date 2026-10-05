@@ -122,6 +122,7 @@ import {
 } from '@/lib/roster-arrangement';
 import { formatCount } from '@/lib/format-number';
 import { invitationLinkOn } from '@/lib/invitation-link';
+import { tableWords } from '@/lib/table-words';
 
 type SectionGroup = RoleGroup | 'guest';
 
@@ -1071,8 +1072,8 @@ export function GuestListMultiselect({
       rsvpLabel: (g) => RSVP_LABELS[g.rsvp_status],
       seatLabel: (g) => {
         const seat = seatByGuest[g.guest_id];
-        if (seat?.placed) return `Table ${seat.placed}`;
-        if (seat?.suggested) return `Suggested ${seat.suggested}`;
+        if (seat?.placed) return tableWords(seat.placed);
+        if (seat?.suggested) return `Suggested ${tableWords(seat.suggested)}`;
         return null;
       },
       // Ordering by seat needs the TIER, not the label — see the ctx docblock.
@@ -1567,7 +1568,7 @@ function RosterBulkBar({
             label="Set table"
             value={null}
             buttonText="Set table"
-            options={[{ key: '', label: 'No table' }, ...tables.map((t) => ({ key: t.tableId, label: tableWord(t.label) }))]}
+            options={[{ key: '', label: 'No table' }, ...tables.map((t) => ({ key: t.tableId, label: tableWords(t.label) }))]}
             onPick={(key) => apply('table', key || 'none')}
             dataAttr="data-bulk-set-table"
           />
@@ -1612,11 +1613,6 @@ function RosterBulkBar({
       </Sheet>
     </div>
   );
-}
-
-/** "7" → "Table 7"; a table the couple named stays as named. */
-function tableWord(label: string): string {
-  return /^\d+$/.test(label.trim()) ? `Table ${label.trim()}` : label;
 }
 
 
@@ -1750,7 +1746,8 @@ function MobileListRow({
   const seatLabel = usePlaceholderLabel(guest.guest_id);
   const shownName = seatLabel ?? guestFullName(guest) ?? guestDisplayName(guest);
   const bringer = guest.plus_one_of_guest_id ? (nameById[guest.plus_one_of_guest_id] ?? null) : null;
-  const table = seat?.placed && guest.rsvp_status !== 'declined' ? `Table ${seat.placed}` : null;
+  // One "Table" word: a couple's "Sweetheart Table" is printed as named (lib/table-words.ts).
+  const table = seat?.placed && guest.rsvp_status !== 'declined' ? tableWords(seat.placed) : null;
 
   // Long-press any row to start selecting (frame C). A plain tap then ticks.
   const press = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1850,7 +1847,17 @@ function MobileListRow({
             </p>
           ) : (
             <div className="m-no-scrollbar -mx-0.5 mt-0.5 overflow-x-auto px-0.5 text-xs text-ink/55">
-              <div className="flex w-max items-center gap-1.5">
+              {/* ✂ The TABLE never runs off the card (owner 2026-10-05,
+                  maria-and-jose at 375 px: "Table Sweetheart Table" was cut off
+                  at the card's edge — "truncate gracefully or wrap"). The
+                  editors keep their words whole in a group that never shrinks.
+                  The table name stays on the line when it fits (the couple's
+                  "· Sweetheart Table"); when it does not — a sponsor's
+                  "Principal Sponsor (Ninong)" leaves it ~13 px — it moves
+                  under the line, whole, and only a name wider than the card
+                  ends in "…". Measured on the lab copy of the event's roster. */}
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                <span className="flex shrink-0 items-center gap-1.5">
                 {bringer ? <span data-plus-one-of="">+1 of {bringer.split(/\s+/)[0]}</span> : null}
                 <RoleChipEditor eventId={eventId} guest={guest} roleSections={bulkRoleSections}>
                   <RoleTexts guest={guest} palette={palette} />
@@ -1870,7 +1877,12 @@ function MobileListRow({
                     · <PlusOneSeatsSummary count={plusOneSeats(guest)} seats={extraSeats} />
                   </span>
                 ) : null}
-                {table ? <span className="whitespace-nowrap">· {table}</span> : null}
+                </span>
+                {table ? (
+                  <span className="min-w-0 max-w-full truncate" title={table} data-row-table="">
+                    · {table}
+                  </span>
+                ) : null}
               </div>
             </div>
           )}

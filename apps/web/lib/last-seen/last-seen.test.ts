@@ -143,7 +143,15 @@ test('2 · money is never kept — a peso figure or a data-money part never reac
     '<div><p>Budget ₱<!-- -->930,000</p><p>Paid ₱12,500.50 · ₱1.2M · PHP 499</p>' +
     '<p aria-label="Still owing ₱8,000">Maria Santos</p></div>';
   assert.equal(saveLastSeen(storage, { userId: ANA, eventId: EVENT, page: 'home', url: HOME, html: withMoney }), true);
-  const stored = Object.values(storage.dump()).join('\n');
+  // Every stored field except `savedAt`: a millisecond clock (e.g. 1791149928869)
+  // can itself contain "499", so scanning the raw record failed at random.
+  const stored = Object.values(storage.dump())
+    .map((raw) => {
+      if (!raw.startsWith('{')) return raw; // the store's owner key is a plain id
+      const { savedAt: _clock, ...rest } = JSON.parse(raw) as Record<string, unknown>;
+      return JSON.stringify(rest);
+    })
+    .join('\n');
   assert.doesNotMatch(stored, /₱|PHP\s?\d|930|12,500|1\.2M|499|8,000/, 'no figure survives, split by React or not');
   assert.match(stored, /Maria Santos/, 'the rest of the page is kept');
 

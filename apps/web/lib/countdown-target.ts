@@ -62,3 +62,40 @@ export function countdownTargetMs(
   const t = new Date(raw).getTime();
   return Number.isFinite(t) ? t : null;
 }
+
+/** One day, in milliseconds. */
+const DAY_MS = 86_400_000;
+
+/** What the countdown reads at one instant. */
+export type CountdownReading = { days: number; hours: number; minutes: number; seconds: number; isPast: boolean };
+
+/**
+ * 🔢 ONE RULE FOR "DAYS TO GO" (controller walk 2026-10-05, live on
+ * maria-and-jose: the Details countdown read **67** days while Home read **"68
+ * days to go"** for the same day, in the same zone).
+ *
+ * Home (`daysUntil`, lib/home-facts.ts) and the hub's own scene template
+ * (`sceneFacts`, `Math.ceil`) count CALENDAR days in the event's zone — today
+ * counts as a day to go, so on 5 Oct a 12 Dec event is 68 days away and on the
+ * eve it is 1, never 0 ("Today is the day" is the day itself). The countdown
+ * used `Math.floor` of the time left to the day's start, which is one less every
+ * moment except midnight. It now counts its Days the same way — `Math.ceil` of
+ * the time to the day's start, in the event's zone (`countdownTargetMs`), which
+ * IS the calendar count — and its Hours · Mins · Secs count down what is left
+ * of today, so the Days tile ticks over at the zone's midnight, exactly when
+ * Home's number does. `one-countdown-rule.test.ts` holds the three equal.
+ *
+ * Pure (both instants passed in) so a test can walk every hour of a day.
+ */
+export function countdownReading(targetMs: number, nowMs: number): CountdownReading {
+  const ms = targetMs - nowMs;
+  if (ms <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true };
+  const rest = ms % DAY_MS;
+  return {
+    days: Math.ceil(ms / DAY_MS),
+    hours: Math.floor(rest / 3_600_000),
+    minutes: Math.floor((rest % 3_600_000) / 60_000),
+    seconds: Math.floor((rest % 60_000) / 1000),
+    isPast: false,
+  };
+}

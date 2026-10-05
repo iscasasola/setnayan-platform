@@ -56,7 +56,9 @@ function spotlightContent(
     case 'rsvp':
       return {
         eyebrow: 'Your invitation',
-        title: `RSVP for the ${occasion}`,
+        // "event", never "celebration" — the name of the thing (owner
+        // 2026-10-04, DECISION_LOG "ONE WORD: EVENT"; fits a wake too).
+        title: 'RSVP for the event',
         // The reply sheet's anchor — Me is the guest's ticket and no longer raises it.
         href: '#your-details',
       };

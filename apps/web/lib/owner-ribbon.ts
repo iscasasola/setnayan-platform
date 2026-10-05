@@ -29,6 +29,8 @@ import { viewerIsEventHost } from '@/app/[slug]/_lib/site-identity';
 import type { OwnerCapability } from '@/app/[slug]/_lib/site-identity';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import { SEE_AS, SEE_AS_PARAM, SEE_AS_YOU, type SeeAs } from '@/lib/see-as';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { RSVP_STAGE_KEY, RSVP_STAGE_LABEL } from '@/lib/rsvp-stage-shared';
 
 /**
  * The four lifecycle phases, in the order the site lives through them — the
@@ -44,17 +46,33 @@ export const OWNER_RIBBON_PHASES = [
   'editorial',
 ] as const satisfies readonly LifecyclePhase[];
 
-/** Short human labels for the phase links. Deliberately terse — this is a
- *  discreet ribbon, not a nav bar. */
-const PHASE_LABELS: Record<LifecyclePhase, string> = {
-  save_the_date: 'Save the Date',
-  rsvp: 'Invitation',
-  event: 'The Day',
-  editorial: 'After',
-};
+/**
+ * 🧭 ONE STAGE VOCABULARY (controller walk 2026-10-05, live on maria-and-jose:
+ * this menu listed Save the Date · Invitation · The Day · **After**, while the
+ * Maker's Page ▾ and the setup's "Which stage do you want ready?" list Save the
+ * Date · **RSVP** · Invitation · The Day · **Post Event**). The ribbon now
+ * lists the Maker's five, in the Maker's order and words —
+ * `PUBLIC_STAGE_LABELS` for the four lifecycle stages and `RSVP_STAGE_LABEL`
+ * for the RSVP stage, which (as in the Maker) is a page, not a phase: its
+ * link opens the reply page the guest fills in, drawn for a sample guest who
+ * has not replied (`/[slug]/invite/reply?preview=draft` — the same host-only
+ * door the Maker's RSVP canvas uses; a guest sending `?preview=` gets the
+ * ordinary page). `owner-ribbon-speaks-the-makers-stages.test.ts` holds the
+ * list equal to the Maker's `MAKER_PAGE_STAGES`.
+ */
+export type OwnerRibbonStage = LifecyclePhase | typeof RSVP_STAGE_KEY;
+
+/** The five, in the order the one link lives through them — RSVP between Save the Date and the Invitation. */
+export const OWNER_RIBBON_STAGES: readonly OwnerRibbonStage[] = OWNER_RIBBON_PHASES.flatMap(
+  (p): OwnerRibbonStage[] => (p === 'save_the_date' ? [p, RSVP_STAGE_KEY] : [p]),
+);
+
+export function ownerRibbonStageLabel(stage: OwnerRibbonStage): string {
+  return stage === RSVP_STAGE_KEY ? RSVP_STAGE_LABEL : PUBLIC_STAGE_LABELS[stage];
+}
 
 export type OwnerRibbonPhaseLink = {
-  phase: LifecyclePhase;
+  phase: OwnerRibbonStage;
   label: string;
   /** `/[slug]?phase=<phase>` — a link the host can ALREADY follow today
    *  (page.tsx authorises `?phase=` on host membership); the ribbon only makes
@@ -84,7 +102,7 @@ export type OwnerRibbonModel = {
    *  which door it opens is a decision and every decision here is tested. */
   editorLabel: string;
   /**
-   * The four phase-preview links, or an EMPTY array when the lifecycle engine
+   * The five stage links (`OWNER_RIBBON_STAGES`), or an EMPTY array when the lifecycle engine
    * is off for this event (`phasesEnabled === false`). Empty rather than
    * disabled-looking chips, because with the engine off `?phase=` is a no-op:
    * page.tsx only honours the override when `phasesEnabled` is true, so
@@ -159,11 +177,16 @@ export function buildOwnerRibbon(input: {
     // "Event Hub", never "website" or "site" (the owner's word rule, 2026-09-24).
     editorLabel: maySiteEdit ? 'Edit your Event Hub' : 'Open the planning desk',
     phaseLinks: phasesEnabled
-      ? OWNER_RIBBON_PHASES.map((phase) => ({
+      ? OWNER_RIBBON_STAGES.map((phase) => ({
           phase,
-          label: PHASE_LABELS[phase],
-          // A stage pick keeps whose eyes the page is drawn with.
-          href: `${base}?phase=${phase}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}`,
+          label: ownerRibbonStageLabel(phase),
+          href:
+            phase === RSVP_STAGE_KEY
+              ? // The reply page, for a sample guest who has not replied.
+                `${base}/invite/reply?preview=draft`
+              : // A stage pick keeps whose eyes the page is drawn with.
+                `${base}?phase=${phase}${seeAs ? `&${SEE_AS_PARAM}=${seeAs}` : ''}`,
+          // The ribbon is drawn on the Event Hub, never on the reply page.
           active: phase === lifecyclePhase,
         }))
       : [],

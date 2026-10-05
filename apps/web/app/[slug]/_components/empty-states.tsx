@@ -89,7 +89,7 @@ export function FindModeCard({
   const heading = pastTense
     ? 'Were you a guest?'
     : reason === 'wrong_event'
-      ? `That invite is for a different ${occasion}`
+      ? 'That invite is for a different event'
       : reason === 'invalid_invite'
         ? 'We couldn’t find that invitation'
         : 'Have an invitation?';

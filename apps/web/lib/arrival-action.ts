@@ -85,6 +85,29 @@ export function actionOpensReply(action: ArrivalAction | null): boolean {
 }
 
 /**
+ * ✉ ME LEADS WITH THE REPLY FOR A GUEST WHO HAS NOT REPLIED (controller walk
+ * 2026-10-05, live on maria-and-jose: the invite says *"Please reply below —
+ * your ticket is ready once you do"*, and an unreplied guest's Me showed the
+ * ticket, "Show this at the door" and "Save my ticket" — and nothing asking them
+ * to reply). The landing page already holds this rule (`landingTicketOf`: the
+ * ticket is full only after a Yes); Me now follows it.
+ *
+ * True only when the page's one action is the ASK (a reply still owed, before
+ * the day) AND the reply sheet is on the page to open (`replyOpen` =
+ * `plan.rsvpShouldRender`), so the button can never point at nothing. On the
+ * day the action is "Show your ticket", so an unreplied guest who turns up
+ * keeps their ticket at the door. A plus-one keeps theirs too: their bringer
+ * holds the seat, exactly as the landing shows it full (`landingTicketOf`).
+ */
+export function meLeadsWithReply(input: {
+  action: ArrivalAction | null;
+  replyOpen: boolean;
+  isPlusOne?: boolean;
+}): boolean {
+  return input.replyOpen && !input.isPlusOne && input.action?.kind === 'ask';
+}
+
+/**
  * Resolve the one action. Returns null for a reader we have nothing specific to
  * say to — an anonymous visitor keeps the page's existing public call to action
  * rather than being given a second, weaker one.

@@ -4,7 +4,7 @@ import { useEventWords, WORDS_AS_SHIPPED } from './event-words-provider';
 
 import { useEffect, useState } from 'react';
 
-import { countdownTargetMs } from '@/lib/countdown-target';
+import { countdownReading, countdownTargetMs, type CountdownReading } from '@/lib/countdown-target';
 import { sceneCardClass, sceneCardTileClass } from '@/lib/scene-card-look';
 import { CountdownBigNumber, CountdownCalendar } from './countdown-styles';
 
@@ -59,17 +59,11 @@ type Props = {
   sceneStyle?: string | null;
 };
 
-type Remaining = { days: number; hours: number; minutes: number; seconds: number; isPast: boolean };
+type Remaining = CountdownReading;
 
+/** 🔢 Home's rule for the days (`countdownReading`, lib/countdown-target.ts) — never a second copy. */
 function compute(target: number): Remaining {
-  const now = Date.now();
-  const ms = target - now;
-  if (ms <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0, isPast: true };
-  const days = Math.floor(ms / 86_400_000);
-  const hours = Math.floor((ms % 86_400_000) / 3_600_000);
-  const minutes = Math.floor((ms % 3_600_000) / 60_000);
-  const seconds = Math.floor((ms % 60_000) / 1000);
-  return { days, hours, minutes, seconds, isPast: false };
+  return countdownReading(target, Date.now());
 }
 
 export function CountdownWidget({ targetIso, timeZone, bare = false, sceneStyle = null }: Props) {

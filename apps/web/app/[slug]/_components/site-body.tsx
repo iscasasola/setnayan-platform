@@ -1,6 +1,6 @@
 import { Fragment, isValidElement } from 'react';
 import Link from 'next/link';
-import { actionOpensReply, resolveArrivalAction } from '@/lib/arrival-action';
+import { actionOpensReply, meLeadsWithReply, REPLY_SHEET_ANCHOR, resolveArrivalAction } from '@/lib/arrival-action';
 import { PASS_CARD_ROUTE } from '@/lib/pass-card';
 import { manilaToday } from '@/lib/std-views';
 import { ArrivalActionRow } from './arrival-action';
@@ -93,7 +93,7 @@ import {
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
 import { type StdBackground } from '@/lib/std-backgrounds';
 import { defaultInvitationLaunchIso } from '@/lib/save-the-date-content';
-import { OurStory } from './our-story';
+import { OurStory, storyTabHasChapter } from './our-story';
 import { HubShell } from './hub/hub-shell';
 import { DayDirections } from './day-directions';
 import {
@@ -470,8 +470,13 @@ type SiteBodyProps = {
    * section GuestHubBar draws below the page otherwise (`GuestMeSection`). On a
    * tabbed page it is a tab like the others, so it sits INSIDE the page's column
    * rather than under its closing footer. Null everywhere else.
+   *
+   * ✉ A FUNCTION when page.tsx needs the page's answer to "does Me lead with
+   * the reply?" (`meLeadsWithReply`) — the reply sheet's gate is the plan this
+   * body resolves, so the body asks once and hands the answer down rather than
+   * page.tsx re-deriving the plan.
    */
-  meSection?: React.ReactNode;
+  meSection?: React.ReactNode | ((me: { replyHref: string | null }) => React.ReactNode);
   /**
    * 👁 SEE AS ▾ (PR-10, owner 2026-10-04) — the Maker's canvas drawn as a SAMPLE
    * viewer (page.tsx `resolveSampleViewer`, verified host + `?editor=1` only):
@@ -1369,10 +1374,12 @@ export async function SiteBody({
       // 🔴 THE OWNER SAW THIS ONE: a Story tab on a seven-year-old's birthday.
       // The love story is wedding-by-nature — it asks how the two of them met,
       // and a type with no two people has no answer.
+      // 📖 …and only once there is a chapter to land on (`storyTabHasChapter`):
+      // open-browse no longer draws it empty — `{}` read as a story.
       story:
         weddingOnly.love_story &&
         bodyRenders &&
-        (plan.openBrowse || Boolean(event.love_story)),
+        storyTabHasChapter(event.love_story, storySceneShown),
       // "Gallery" = the live photo wall ON THE DAY (the livestream is a separate
       // concern) and the recap's own photo run AFTER it. Two different sections
       // in two different phases, one tab — which is what a guest coming back the
@@ -1981,7 +1988,7 @@ export async function SiteBody({
             <div className="rounded-2xl border border-ink/10 bg-white/70 px-6 py-8 text-center shadow-sm">
               <p className="font-serif text-lg text-ink">You&rsquo;re the host</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-ink/60">
-                You don&rsquo;t need an invitation to your own {clientWords.occasion}. Guests
+                You don&rsquo;t need an invitation to your own event. Guests
                 who open their personal link see their greeting, seat and RSVP in this spot.
               </p>
             </div>
@@ -2150,7 +2157,8 @@ export async function SiteBody({
     const menuSections = {
       details: guestBodyRenders && detailsSceneList.length > 0,
       // A type with no two people has no love story (same gate as the public page).
-      story: weddingOnly.love_story && guestBodyRenders && Boolean(event.love_story),
+      // …and only once there is a chapter to land on (`storyTabHasChapter`).
+      story: weddingOnly.love_story && guestBodyRenders && storyTabHasChapter(event.love_story, storySceneShown),
       // "Gallery" = the live photo wall on the day (mirrors the LiveWallBlock
       // gate below), the recap's photo run after it. A guest's own "photos of
       // you" strip is deliberately NOT a third answer: it closes with the
@@ -3205,7 +3213,17 @@ export async function SiteBody({
             GuestTicket (page.tsx), never a Maker-only twin. */}
         {tabs.on || sampleViewer !== null ? group('me', (
           <div data-me-stage="" className={`mx-auto w-full ${PLATE} space-y-12 px-4`}>
-            {meSection}
+            {typeof meSection === 'function'
+              ? meSection({
+                  replyHref: meLeadsWithReply({
+                    action: arrivalAction,
+                    replyOpen: plan.rsvpShouldRender,
+                    isPlusOne: Boolean(guest.plus_one_of_guest_id),
+                  })
+                    ? `#${REPLY_SHEET_ANCHOR}`
+                    : null,
+                })
+              : meSection}
             {guest.photo_source === 'selfie' ? (
               <FaceDataNotice eventId={event.event_id} guestId={guest.guest_id} />
             ) : null}

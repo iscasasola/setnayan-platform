@@ -15,6 +15,7 @@
  * `glanceMoney`), never 0 — the rule of `lib/guests-read-is-honest.test.ts`.
  */
 import { eventDateToEpoch } from '@/lib/day-of-mode';
+import { DEFAULT_EVENT_TZ } from '@/lib/schedule';
 import type { GuestStats } from '@/lib/guests';
 import { glanceCount, glanceDays, glanceMoney } from '@/lib/home-first-screen';
 
@@ -77,7 +78,9 @@ export function homeFacts(input: {
   const daysOut =
     input.precision === 'month' || input.precision === 'year'
       ? null
-      : daysUntil(input.eventDate, input.timezone ?? undefined, input.now);
+      : // 🔢 The event's zone, else Manila — the countdown's own fallback
+        // (`countdownTargetMs`), never the server's clock (UTC on Vercel).
+        daysUntil(input.eventDate, input.timezone ?? DEFAULT_EVENT_TZ, input.now);
   return {
     daysOut,
     guestStats: guests.stats,

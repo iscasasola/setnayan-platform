@@ -23,3 +23,5 @@
   - Each was sabotaged red → green.
 
 SPEC IMPACT: None. This applies the 2026-10-05 DECISION_LOG row ("consistency-first owner calls") and the controller's relayed walk notes.
+
+- Review fix (controller): a studio save that re-posts an UNCHANGED film background no longer forgets a drafted "Same as theme" — only a real change supersedes it (`lib/std-background-changed.ts`, behavioural test + sabotage).

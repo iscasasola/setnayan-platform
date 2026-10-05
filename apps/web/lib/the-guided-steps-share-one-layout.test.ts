@@ -645,7 +645,7 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   // 🧹 A LIVE PICK IN THE STUDIO SUPERSEDES A "SAME AS THEME" DRAFTED EARLIER — Apply puts nothing stale back.
   assert.match(
     action,
-    /const \{ error \} = await supabase\.from\('events'\)\.update\(patch\)\.eq\('event_id', eventId\);\s*if \(error\) return \{ ok: false, error: 'db-error' \};\s*(\/\/[^\n]*\n\s*)*if \('std_background' in patch\) await forgetDraftedEventColumn\(supabase, eventId, 'std_background'\);/,
+    /const \{ error \} = await supabase\.from\('events'\)\.update\(patch\)\.eq\('event_id', eventId\);\s*if \(error\) return \{ ok: false, error: 'db-error' \};\s*(\/\/[^\n]*\n\s*)*if \('std_background' in patch && stdBackgroundChanged\(bgBefore, patch\.std_background\)\) \{\s*await forgetDraftedEventColumn\(supabase, eventId, 'std_background'\);/,
     'a studio pick leaves an older drafted film value for Apply to put back',
   );
   const store = read('lib/hub-draft-store.ts');

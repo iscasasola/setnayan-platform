@@ -2,6 +2,7 @@
 
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { forgetDraftedEventColumn } from '@/lib/hub-draft-store';
+import { stdBackgroundChanged } from '@/lib/std-background-changed';
 import { readVenueChoices, VENUE_CHOICES_KEY, type VenueChoice, type VenueSlotKey } from '@/lib/event-venues';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -450,11 +451,25 @@ export async function saveAllStdContent(
     patch.site_bg_music_enabled = true;
   }
 
+  // The live film background BEFORE this save — the studio posts `background`
+  // on every save, so only a real change may forget a drafted one (below).
+  let bgBefore: unknown = null;
+  if ('std_background' in patch) {
+    const { data: bgRow } = await supabase
+      .from('events')
+      .select('std_background')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    bgBefore = (bgRow as Record<string, unknown> | null)?.std_background ?? null;
+  }
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
   if (error) return { ok: false, error: 'db-error' };
-  // 🧹 The film's background just went LIVE — a "Same as theme" drafted earlier
-  // must not put itself back over it at Apply (`forgetDraftedEventColumn`).
-  if ('std_background' in patch) await forgetDraftedEventColumn(supabase, eventId, 'std_background');
+  // 🧹 The film's background just CHANGED live — a "Same as theme" drafted
+  // earlier must not put itself back over it at Apply. An untouched background
+  // (a venue-only save) keeps the drafted choice (`stdBackgroundChanged`).
+  if ('std_background' in patch && stdBackgroundChanged(bgBefore, patch.std_background)) {
+    await forgetDraftedEventColumn(supabase, eventId, 'std_background');
+  }
 
   if (data.venueChoice) {
     const slot = data.venueChoice.slot;

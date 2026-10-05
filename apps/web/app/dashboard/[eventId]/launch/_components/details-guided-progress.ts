@@ -247,33 +247,55 @@ export async function readGuidedPlan({
   supabase,
   admin,
   eventId,
+  pre,
 }: {
   supabase: SupabaseClient;
   admin: SupabaseClient;
   eventId: string;
+  /**
+   * ⚡ What the caller ALREADY read, from the very same functions (the Maker's
+   * page reads all of these for its own rows) — handed in so the plan costs no
+   * second read of them. Each one given skips exactly its own read; the plan is
+   * still derived here, in one place, so Home, Event Details and the Maker
+   * cannot count differently (review 2026-10-05).
+   */
+  pre?: {
+    event?: PrintEventRow | null;
+    hosts?: ReadonlyArray<unknown>;
+    parents?: ReadonlyArray<unknown>;
+    /** The draft's event columns — `{}` when the draft could not be read. */
+    drafted?: Record<string, unknown>;
+    /** The top-level schedule rows; `null` = the read was refused. */
+    scheduleRows?: readonly SetupScheduleBlock[] | null;
+  };
 }): Promise<{ plan: GuidedPlan; setupOffered: boolean } | null> {
   const [event, hosts, parents, drafted, scheduleRes, seatDoorRes] = await Promise.all([
-    readPrintEvent(admin, eventId),
-    readRsvpHosts(eventId),
-    parentGuestsForEvent(eventId),
-    readHubDraft(supabase, eventId)
-      .then((dr) => (dr ? (dr.events as Record<string, unknown>) : {}))
-      .catch((e: unknown) => {
-        console.error('[hub-draft] home could not read the draft:', e instanceof Error ? e.message : e);
-        return {} as Record<string, unknown>;
-      }),
-    supabase
-      .from('event_schedule_blocks')
-      .select('block_type, is_public, parent_block_id')
-      .eq('event_id', eventId)
-      .is('parent_block_id', null),
+    pre?.event !== undefined ? pre.event : readPrintEvent(admin, eventId),
+    pre?.hosts ?? readRsvpHosts(eventId),
+    pre?.parents ?? parentGuestsForEvent(eventId),
+    pre?.drafted ??
+      readHubDraft(supabase, eventId)
+        .then((dr) => (dr ? (dr.events as Record<string, unknown>) : {}))
+        .catch((e: unknown) => {
+          console.error('[hub-draft] home could not read the draft:', e instanceof Error ? e.message : e);
+          return {} as Record<string, unknown>;
+        }),
+    pre?.scheduleRows !== undefined
+      ? { data: pre.scheduleRows, error: pre.scheduleRows === null ? ({ message: 'read by the caller' } as const) : null }
+      : supabase
+          .from('event_schedule_blocks')
+          .select('block_type, is_public, parent_block_id')
+          .eq('event_id', eventId)
+          .is('parent_block_id', null),
     // 🪑 Is the seat plan ARRANGED (a guest seated)? The same count the Maker's
     // Seat plan row reads — never whether guests can see it yet.
     supabase.from('event_seat_assignments').select('guest_id', { count: 'exact', head: true }).eq('event_id', eventId),
   ]);
   if (seatDoorRes.error) logQueryError('HomeGuide.seatArranged', seatDoorRes.error, { event_id: eventId }, 'graceful_degrade');
   if (!event) return null;
-  if (scheduleRes.error) logQueryError('HomeGuide.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
+  if (scheduleRes.error && pre?.scheduleRows === undefined) {
+    logQueryError('HomeGuide.scheduleMoments', scheduleRes.error, { event_id: eventId }, 'graceful_degrade');
+  }
   const [profile, ye] = await Promise.all([
     resolveProfile(event.event_type ?? '').catch(() => GENERIC_PROFILE),
     readYourEventFacts({ admin, eventId, parentCount: parents.length, hostCount: hosts.length, drafted }),

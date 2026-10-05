@@ -13,7 +13,8 @@ import { readRememberedRequest } from '@/lib/request-key.server';
 import { REQUEST_TICKET_ROUTE } from '@/lib/request-ticket';
 import { CopyMyLink } from '../_components/copy-my-link';
 import { TicketRow } from '../_components/ticket-row';
-import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, loadInviteLook } from '../invite/_lib/load-invite-look';
+import { INVITE_LOOK_COLUMNS, INVITE_MARK_COLUMNS, doorMarkFor, loadInviteLook } from '../invite/_lib/load-invite-look';
+import { hubDoorSkin } from '../invite/_components/hub-door-skin';
 
 export const metadata = { title: 'Your request', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -70,6 +71,12 @@ export default async function RequestPage({ params, searchParams }: Props) {
   // never "the couple" to a family at a wake (eventWordsForEvent).
   const hosts = ((event.display_name as string | null) ?? '').trim() || (await eventWordsForEvent(event.event_id as string)).TheOrganizer;
   const look = await loadInviteLook(event);
+  /* 🎨 THE EVENT'S THEME, NOT THE BARE DOOR (owner 2026-10-05: the guest's
+     reply pages wear the event's theme). A Pro door theme brings its own skin;
+     every other theme had none, and the bare door's \`bg-cream\` painted over
+     the ground this page's layout already wears. The RSVP's own skin instead —
+     the couple's mark, nothing painted behind the card. */
+  const skin = look.skin ?? hubDoorSkin(doorMarkFor(event));
   const meta = joinDoorMeta({
     event_date: event.event_date as string | null,
     event_date_precision: event.event_date_precision as string | null,
@@ -89,7 +96,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
   // E · declined — one kind line, nothing private, no dead end.
   if (key.state.kind === 'declined') {
     return (
-      <DoorShell eyebrow={key.name} title={REQUEST_WORDS.declined} sub={REQUEST_WORDS.declinedSub(hosts)} meta={meta} skin={look.skin}>
+      <DoorShell brand="foot" eyebrow={key.name} title={REQUEST_WORDS.declined} sub={REQUEST_WORDS.declinedSub(hosts)} meta={meta} skin={skin}>
         <div data-request-state="declined" className="space-y-6">
           <p className="text-sm text-ink/75">{REQUEST_WORDS.declinedThanks}</p>
           {back}
@@ -109,6 +116,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
   if (search.sent === '1') {
     return (
       <DoorShell
+        brand="foot"
         eyebrow={
           <span className="inline-flex items-center gap-1.5">
             <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> {hosts}
@@ -117,7 +125,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
         title={REQUEST_WORDS.sentTitle}
         sub={`${REQUEST_WORDS.sentSub(hosts)} ${REQUEST_WORDS.sentUnlocks}`}
         meta={meta}
-        skin={look.skin}
+        skin={skin}
       >
         <div data-request-state="sent" className="space-y-6">
           <section className="space-y-2">
@@ -138,11 +146,12 @@ export default async function RequestPage({ params, searchParams }: Props) {
   // C · reopened while pending — calm, nothing private.
   return (
     <DoorShell
+      brand="foot"
       eyebrow={key.name}
       title={REQUEST_WORDS.waiting}
       sub={REQUEST_WORDS.waitingSub(hosts)}
       meta={meta}
-      skin={look.skin}
+      skin={skin}
     >
       <div data-request-state="waiting" className="space-y-6">
         <p className="flex items-start gap-2 text-sm text-ink/75">

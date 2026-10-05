@@ -74,7 +74,7 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
-import { resolveStdBackground, realisticBgSrc } from '@/lib/std-backgrounds';
+import { resolveStdBackground, realisticBgSrc, stdFilmBackground } from '@/lib/std-backgrounds';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
@@ -662,7 +662,11 @@ export const loadMedia = cache(
 
     // Step-1 Save-the-Date background (events.std_background). Realistic → the
     // public scene src; upload → a presigned R2 url; plain/paper → no image.
-    const stdBackground = resolveStdBackground(event.std_background);
+    // 🎨 Unpicked → the THEME's paper (owner 2026-10-05, `stdFilmBackground`); picked → the couple's own.
+    const stdBackground =
+      event.std_background === null || event.std_background === undefined
+        ? stdFilmBackground(null, INVITE_THEMES[(await resolveHubTheme(event).catch(() => null))?.theme ?? 'house']?.palette.canvas ?? null)
+        : resolveStdBackground(event.std_background);
     const stdBackgroundUrl =
       stdBackground.kind === 'realistic'
         ? realisticBgSrc(stdBackground.value)

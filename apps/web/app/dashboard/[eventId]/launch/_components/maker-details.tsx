@@ -97,6 +97,7 @@ import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from './detai
 import type { DetailsGuide } from './details-guide';
 import {
   buildGuidedPlan,
+  oneCountPlan,
   firstOpenScreen,
   guidedItemDone,
   stepOfItem,
@@ -104,6 +105,7 @@ import {
   type GuideAddress,
   type GuidedDoneFacts,
   type GuidedScreen,
+  type GuidedPlan,
 } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
 import { hubSetupRound, type HubSetupFacts } from '@/lib/hub-setup-steps';
@@ -303,6 +305,13 @@ export type MakerDetailsProps = {
      * pages ask — so the three doors say the same numbers.
      */
     doneFacts?: GuidedDoneFacts;
+    /**
+     * 🔢 The plan Home and Event Details count from (`readGuidedPlan`, read by
+     * the launch page) — given, the walk is THAT plan's steps, links and states
+     * (`oneCountPlan`), so the picker, the Ready screen and Event Details say
+     * the same numbers, totals included.
+     */
+    shared?: GuidedPlan | null;
   } | null;
   /**
    * 🗂 THE ONBOARDING'S ANSWERS, CHANGED HERE (owner 2026-10-02, DECISION_LOG
@@ -523,7 +532,7 @@ export function MakerDetails(props: MakerDetailsProps) {
 
   /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
   const doneFacts = props.guide?.doneFacts ?? null;
-  const plan = props.guide
+  const rawPlan = props.guide
     ? buildGuidedPlan(
         groups.flatMap((g) => g.items).map((i) => (doneFacts ? { ...i, done: guidedItemDone(i.key, doneFacts) ?? i.done } : i)),
         { solemn: eventContext.solemn, parentsOffered: props.yourEvent ? parentsOffered(props.yourEvent.kind) : switches.parents },
@@ -531,6 +540,9 @@ export function MakerDetails(props: MakerDetailsProps) {
         props.guide.setup ? hubSetupRound(props.guide.setup, new Set(groups.flatMap((g) => g.items.map((i) => i.key)))) : null,
       )
     : null;
+  /* 🔢 One count: the plan Home and Event Details count from (`readGuidedPlan`) —
+     its steps AND its states, so the totals are its totals too (`oneCountPlan`). */
+  const plan = rawPlan ? oneCountPlan(props.guide?.shared, rawPlan) : null;
   /* 🗂 WHERE THE FLOW OPENS (PR-2, by stage): every door — Home's card, the
      once-offer, What's left, a plain landing on an unfinished event — opens
      "Which stage do you want ready?"; an address that names a stage opens that

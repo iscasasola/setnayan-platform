@@ -103,12 +103,26 @@ export function IHint({ children, data }: { children: ReactNode; data?: string }
 }
 
 /** A segmented control (Pages' pill group). */
+/** The segmented control's track — shared by `ISegmented` and any segmented row of LINKS (`/schedule`'s views). */
+export const I_SEGMENTED_CLASS = 'flex min-w-0 flex-wrap gap-0.5 rounded-lg bg-ink/[0.06] p-0.5';
+
+/**
+ * One segment's look, on or off — `ISeg`'s, exported so a segment that must stay
+ * a LINK (a view with its own address: open in a new tab, deep link, Back) wears
+ * exactly the same control instead of a second one.
+ */
+export function iSegClass(on: boolean, tone: 'plain' | 'wine' = 'plain'): string {
+  return `sn-press inline-flex min-h-11 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-8 ${
+    on ? (tone === 'wine' ? 'bg-mulberry text-white shadow-sm' : 'bg-white text-ink shadow-sm') : 'text-ink/60 hover:text-ink'
+  }`;
+}
+
 export function ISegmented({ children, label, grow = true }: { children: ReactNode; label?: string; grow?: boolean }) {
   return (
     <div
       role="group"
       aria-label={label}
-      className={`flex min-w-0 flex-wrap gap-0.5 rounded-lg bg-ink/[0.06] p-0.5 ${grow ? 'flex-1' : ''}`}
+      className={`${I_SEGMENTED_CLASS} ${grow ? 'flex-1' : ''}`}
     >
       {children}
     </div>
@@ -143,9 +157,7 @@ export function ISeg({
       title={title}
       data-seg={data}
       onClick={onClick}
-      className={`sn-press inline-flex min-h-11 flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-lg px-2.5 text-[12.5px] font-semibold transition-colors duration-sn-control ease-sn disabled:cursor-not-allowed disabled:opacity-40 lg:min-h-8 ${
-        on ? (tone === 'wine' ? 'bg-mulberry text-white shadow-sm' : 'bg-white text-ink shadow-sm') : 'text-ink/60 hover:text-ink'
-      } ${className}`}
+      className={`${iSegClass(on, tone)} ${className}`}
     >
       {children}
     </button>

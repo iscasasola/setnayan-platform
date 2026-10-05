@@ -241,7 +241,7 @@ test('🚪 the Maker\'s What\'s left walks the setup in the stages that show it 
   assert.deepEqual(before.links, []);
 });
 
-test('🚪 only the guests\' names left: the Invitation opens on its Ready screen, which links to the import', () => {
+test('🚪 only the guests\' names left: the Invitation opens on that step\'s own screen, which links to the import', () => {
   const facts: HubSetupFacts = {
     ...FRESH,
     arrival: true,
@@ -252,10 +252,12 @@ test('🚪 only the guests\' names left: the Invitation opens on its Ready scree
   };
   const all = new Set<DetailsItemKey>([...AFTER_A, 'venues', 'love-story', 'schedule', 'logo', 'parents', 'march', 'special-message']);
   const plan = buildGuidedPlan(items((k) => (all.has(k) ? true : undefined)), WORDS, hubSetupRound(facts, ALL_ITEMS));
-  assert.deepEqual(firstOpenScreen(plan, 'rsvp'), { kind: 'ready', round: 'rsvp' });
+  // 2026-10-05 (owner: Skip jumped past it): the guests' names is a screen of the walk.
+  assert.deepEqual(firstOpenScreen(plan, 'rsvp'), { kind: 'link', link: 'guests', round: 'rsvp' });
   assert.equal(setupProgress(plan).next, 'rsvp');
   const ready = code(`${D}/launch/_components/details-guide.tsx`);
   assert.match(ready, /href=\{actions\.guestsHref\}/);
+  assert.match(code(`${D}/launch/_components/details-workspace.tsx`), /href=\{guide\?\.actions\.guestsHref \?\? null\}/, 'the link step’s screen does not open the import');
   assert.match(code(`${D}/launch/page.tsx`), /guestsHref: hubSetupGuestsHref\(eventId\)/);
 });
 

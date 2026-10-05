@@ -275,6 +275,7 @@ export default async function InviteReplyPage({ params, searchParams }: Props) {
     <GuestLookScope {...lookScopeProps(hub.look)}>
       {hub.ground}
       <DoorShell
+        brand="foot"
         eyebrow="You’re invited"
         title={(event.display_name as string | null) || guestName}
         meta={joinDoorMeta({

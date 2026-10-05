@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Route, CalendarRange, CalendarClock } from 'lucide-react';
+import { I_SEGMENTED_CLASS, iSegClass } from '../../website/editor/_components/inspector-kit';
 
 /**
  * ScheduleModeToggle — the segmented control at the top of /schedule that
@@ -20,9 +21,20 @@ import { Route, CalendarRange, CalendarClock } from 'lucide-react';
  *
  * `prepCount` / `journeyCount` let those segments show a small count badge so
  * the couple knows there's something there before they tap.
+ *
+ * 🎚 THE ONE SEGMENTED CONTROL (DECISION_LOG 2026-10-04 "ONE SEGMENTED CONTROL
+ * FOR SECTIONS, ACROSS THE APP"; owner, live walk 2026-10-05: this was a pill
+ * row behind the guided Schedule step) — the `ISegmented` track and `ISeg`'s
+ * look, the chosen segment in Setnayan wine — kept as LINKS (above).
  */
 
 type Mode = 'journey' | 'preparation' | 'event-day';
+
+const VIEWS: { mode: Mode; label: string; Icon: typeof Route }[] = [
+  { mode: 'journey', label: 'Journey', Icon: Route },
+  { mode: 'preparation', label: 'Preparation', Icon: CalendarRange },
+  { mode: 'event-day', label: 'Event Day', Icon: CalendarClock },
+];
 
 export function ScheduleModeToggle({
   active,
@@ -36,79 +48,47 @@ export function ScheduleModeToggle({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  /* 🔗 EACH VIEW IS A LINK (review 2026-10-05): a view has its own address, so
+     it opens in a new tab, deep-links and comes back on Back — the segmented
+     control's LOOK (\`iSegClass\`, the one \`ISeg\` wears), never its button. */
   function hrefFor(mode: Mode): string {
     const params = new URLSearchParams(searchParams.toString());
     params.set('view', mode);
     return `${pathname}?${params.toString()}`;
   }
 
-  return (
-    <div
-      role="tablist"
-      aria-label="Schedule view"
-      className="sn-seg w-full max-w-md sm:w-auto"
-    >
-      <Segment
-        key={`journey-${active === 'journey'}`}
-        href={hrefFor('journey')}
-        isActive={active === 'journey'}
-        Icon={Route}
-        label="Journey"
-        badge={journeyCount > 0 ? journeyCount : undefined}
-      />
-      <Segment
-        key={`preparation-${active === 'preparation'}`}
-        href={hrefFor('preparation')}
-        isActive={active === 'preparation'}
-        Icon={CalendarRange}
-        label="Preparation"
-        badge={prepCount > 0 ? prepCount : undefined}
-      />
-      <Segment
-        key={`event-day-${active === 'event-day'}`}
-        href={hrefFor('event-day')}
-        isActive={active === 'event-day'}
-        Icon={CalendarClock}
-        label="Event Day"
-      />
-    </div>
-  );
-}
+  const counts: Partial<Record<Mode, number>> = { journey: journeyCount, preparation: prepCount };
 
-function Segment({
-  href,
-  isActive,
-  Icon,
-  label,
-  badge,
-}: {
-  href: string;
-  isActive: boolean;
-  Icon: typeof CalendarRange;
-  label: string;
-  badge?: number;
-}) {
   return (
-    <Link
-      href={href}
-      role="tab"
-      aria-selected={isActive}
-      scroll={false}
-      className={`sn-seg-item gap-2 text-sm font-medium sm:flex-none sm:px-4${
-        isActive ? ' sn-bounce' : ''
-      }`}
-    >
-      <Icon aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-      <span>{label}</span>
-      {badge !== undefined ? (
-        <span
-          className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none ${
-            isActive ? 'bg-ink/10 text-ink' : 'bg-terracotta/15 text-terracotta'
-          }`}
-        >
-          {badge}
-        </span>
-      ) : null}
-    </Link>
+    <nav aria-label="Schedule view" className="w-full max-w-md sm:w-auto" data-schedule-view-switch="">
+      <div className={I_SEGMENTED_CLASS}>
+        {VIEWS.map(({ mode, label, Icon }) => {
+          const on = mode === active;
+          const n = counts[mode] ?? 0;
+          return (
+            <Link
+              key={mode}
+              href={hrefFor(mode)}
+              scroll={false}
+              aria-current={on ? 'page' : undefined}
+              data-seg={`schedule-view-${mode}`}
+              className={iSegClass(on, 'wine')}
+            >
+              <Icon aria-hidden className="h-4 w-4 max-sm:hidden" strokeWidth={1.75} />
+              {label}
+              {n > 0 ? (
+                <span
+                  className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1.5 py-0.5 font-mono text-[10px] leading-none ${
+                    on ? 'bg-white/25 text-white' : 'bg-terracotta/15 text-terracotta'
+                  }`}
+                >
+                  {n}
+                </span>
+              ) : null}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

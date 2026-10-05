@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "e51da8d5e",
+  "generatedFromRef": "335aa7706",
   "routeCount": 428,
   "destinations": 947,
   "actions": 670,
-  "blocks": 5516,
+  "blocks": 5522,
   "routes": {
     "/": {
       "files": [
@@ -6662,6 +6662,7 @@
         "MarchResult",
         "MenuHeading",
         "MenuItem",
+        "MessageEventSource",
         "MiniTour",
         "MonthPick",
         "MoodBoardMakerBody",
@@ -9574,7 +9575,13 @@
       ],
       "destinations": [],
       "actions": [],
-      "blocks": []
+      "blocks": [
+        "CountdownWidget",
+        "EditorBridge",
+        "MakerEmptyScene",
+        "MakerWelcomeGiftsEmpty",
+        "SpecialMessageWidget"
+      ]
     },
     "/dev/schedule-lab": {
       "files": [

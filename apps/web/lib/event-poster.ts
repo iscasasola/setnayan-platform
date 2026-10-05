@@ -57,7 +57,7 @@ import type { EventWords } from '@/app/[slug]/_lib/event-words';
 import { splitCoupleNames } from '@/app/[slug]/_components/pahina-masthead';
 import { relativeLuminance } from '@/lib/booth-studio';
 import { hubLegibility, hubLegibilityVars } from '@/lib/hub-legibility';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
 
 export type PosterKind = 'quiet' | 'photo' | 'theme' | 'deep' | 'moon' | 'invitation';
 
@@ -147,6 +147,13 @@ export function posterFor(input: {
   backgroundSrc?: string | null;
   /** `resolveThemeGround(theme).poster` — the theme's still, or null (Classic). */
   themeStillSrc?: string | null;
+  /**
+   * 🎨 The theme's colours as the Mood Board dresses them (`themeColours`,
+   * `lib/theme-colours.ts`, owner 2026-10-05) — the poster's veil and ink are
+   * measured on these. Absent = the theme's own (no board). Handed in, not
+   * imported, so the resolver stays out of this module's client importers.
+   */
+  colours?: InviteTheme['palette'];
 }): EventPosterFacts {
   const card = invitationCard({ words: input.words, firstStartAt: null });
   const split = splitCoupleNames(input.displayName, input.words.twoPeople);
@@ -169,7 +176,8 @@ export function posterFor(input: {
   if (card === null) {
     return { ...base, kind: 'quiet', dark: false, venue: input.venueName?.trim() || null };
   }
-  const theme = INVITE_THEMES[input.theme] ?? INVITE_THEMES.house;
+  const own = INVITE_THEMES[input.theme] ?? INVITE_THEMES.house;
+  const theme = input.colours ? { ...own, palette: input.colours } : own;
   const photo = input.heroSrc
     ? { src: input.heroSrc, ground: 'hero' as const }
     : input.backgroundSrc

@@ -25,10 +25,10 @@ export type HostPiece = { key: string; label: string; contact: string | null };
 const ADD = 'add';
 
 function usePick(parents: readonly PersonPiece[], hosts: readonly HostPiece[], parentsOffered: boolean) {
-  /* 🔢 ONE TRUTH (owner 2026-10-05): the step counts "set" when a parent OR a
-     host is in place (`yourEventDone`), so it opens on what is in place — a host
-     when there is no parent yet — never on "Add a parent" beside a ✓ set.
-     Adding a parent is the dropdown's own row. */
+  /* 🔢 ONE TRUTH: the step opens on what is in place. Where the invitation
+     prints parents, they ARE its hosts (owner, live walk 2026-10-05) — no
+     collaborator account is ever a row here — so with none it opens on the add,
+     which says so itself (`ParentCards`: "No parents on your guest list yet."). */
   const first = parentsOffered ? (parents[0]?.key ?? hosts[0]?.key ?? ADD) : (hosts[0]?.key ?? null);
   // Part 3's ONE piece mechanism (`details-go.tsx`), under the item's own key.
   const [pick, setPick] = useDetailsPiece('parents');
@@ -56,10 +56,12 @@ export function PeoplePieces({ parents, hosts, parentsOffered }: { parents: read
           {row(ADD, '+ Add a parent')}
         </div>
       ) : null}
-      <div className="contents" data-people-piece="hosts">
-        {heading('Hosts')}
-        {hosts.map((h) => row(h.key, h.label, 'Host'))}
-      </div>
+      {hosts.length ? (
+        <div className="contents" data-people-piece="hosts">
+          {heading('Hosts')}
+          {hosts.map((h) => row(h.key, h.label, 'Host'))}
+        </div>
+      ) : null}
     </>
   );
 }
@@ -107,6 +109,7 @@ export function PeopleControls({
   add: ReactNode;
 }) {
   const [pick] = usePick(parents, hosts, parentsOffered);
+  // None yet: the add says so itself ("No parents on your guest list yet.") and is right here.
   if (pick === ADD) return <section data-people-controls="add">{add}</section>;
   const host = hosts.find((h) => h.key === pick);
   if (host) {

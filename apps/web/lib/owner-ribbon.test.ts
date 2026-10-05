@@ -78,7 +78,8 @@ test('owner ribbon: a null capability stays null in every lifecycle phase', () =
 
 test('owner ribbon: a verified capability for THIS event yields a model', () => {
   const model = must(build());
-  assert.equal(model.phaseLinks.length, 4);
+  // The Maker's five: Save the Date · RSVP · Invitation · The Day · Post Event.
+  assert.equal(model.phaseLinks.length, 5);
 });
 
 test("owner ribbon: a capability for ANOTHER event is not honoured here", () => {
@@ -101,16 +102,17 @@ test('owner ribbon: editor link points at the event website editor', () => {
 
 // ── 3. Phase links: the four real values, correctly marked ─────────────────
 
-test('owner ribbon: phase links cover the four real ?phase= values in order', () => {
+test('owner ribbon: stage links cover the four real ?phase= values and the RSVP stage, in order', () => {
   const model = must(build());
   assert.deepEqual(
     model.phaseLinks.map((l) => l.phase),
-    ['save_the_date', 'rsvp', 'event', 'editorial'],
+    ['save_the_date', 'rsvp-stage', 'rsvp', 'event', 'editorial'],
   );
   assert.deepEqual(
     model.phaseLinks.map((l) => l.href),
     [
       `/${SLUG}?phase=save_the_date`,
+      `/${SLUG}/invite/reply?preview=draft`,
       `/${SLUG}?phase=rsvp`,
       `/${SLUG}?phase=event`,
       `/${SLUG}?phase=editorial`,

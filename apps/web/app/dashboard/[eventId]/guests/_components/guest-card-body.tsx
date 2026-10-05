@@ -53,6 +53,7 @@ import { ACCESS_LEVEL_LABEL, accessTag } from '@/lib/guest-access';
 import type { GuestCardData } from './guest-card-data';
 import { inviteGuestByEmailAction, releaseGuestClaim, updateGuest } from '../[guestId]/actions';
 import { invitationLinkOn } from '@/lib/invitation-link';
+import { tableWords } from '@/lib/table-words';
 
 /**
  * guest-card-body.tsx — ONE card per guest: the personal QR AND every editable
@@ -143,10 +144,6 @@ export function guestCardReply(guest: Pick<GuestCardData['guest'], 'role' | 'rsv
   return `${guest.rsvp_status === 'attending' ? '✓ ' : ''}${CARD_RSVP_WORDS[guest.rsvp_status]}`;
 }
 
-/** "7" → "Table 7"; a table the couple named ("Sponsors") stays as named. */
-function tableWords(label: string): string {
-  return /^\d+$/.test(label.trim()) ? `Table ${label.trim()}` : label;
-}
 
 export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   missing_name: 'Please enter both first and last name.',

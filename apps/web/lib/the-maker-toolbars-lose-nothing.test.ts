@@ -104,7 +104,8 @@ const STRIP: ReadonlyArray<readonly [string, keyof typeof HOME, readonly string[
   ['Into the next section — Scroll · Scrub · Auto-scroll + Speed', 'scene', ['Into the next scene', 'HUB_TRANSITIONS', 'HUB_AUTO_SPEEDS']],
   ['Reset how it moves (free)', 'scene', ['Reset how it moves']],
   ['Layout (a scene of their own)', 'scene', ['HUB_ARRANGEMENTS', 'label="Layout"']],
-  ['Style a part: Label · Heading · Words', 'scene', ['data-maker-element={k}', 'Open the Hero editor']],
+  // 🔽 One dropdown of parts since 2026-10-05 (owner: a set of choices is a dropdown); "Open the Hero editor" is gone — the words are typed on the page.
+  ['Style a part: Label · Heading · Words', 'scene', ['dataAttr="data-scene-part-pick"', 'onElement(k as HubElementKey)']],
   // ── Part sheet (element-sheet.tsx → part-inspector.tsx) ──
   ['Font ▾ (Event Hub font, then the one font dropdown’s shelves)', 'part', ['lead="Event Hub font"', '<FontPick']],
   ['Colour swatches + "+" + "Hard to read here"', 'part', ['<ColourWell', 'Hard to read here']],

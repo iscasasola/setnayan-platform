@@ -82,16 +82,16 @@ const WEB = join(__dirname, '..');
 const E = 'app/dashboard/[eventId]/website/editor/_components';
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-test('the Maker drives the sheet through the one reducer, and the canvas reports a stray tap', () => {
+test('the Maker drives the part sheet through the one reducer, and a stray tap on the canvas FINISHES it (the lower third)', () => {
   const SHELL = read(`${E}/editor-shell.tsx`);
   assert.match(SHELL, /useReducer\([\s\S]{0,200}elementSheetStep\(st, ev\)/);
-  assert.match(SHELL, /sheetDo\(\{ t: 'tapOutside' \}\)/);
   assert.match(SHELL, /sheetDo\(\{ t: 'tapPart', target:/);
-  for (const ev of ['dragDown', 'restore', 'close', 'section']) assert.match(SHELL, new RegExp(`sheetDo\\(\\{ t: '${ev}'`), `${ev} is not wired`);
+  for (const ev of ['close', 'section']) assert.match(SHELL, new RegExp(`sheetDo\\(\\{ t: '${ev}'`), `${ev} is not wired`);
+  // 🧰 Since 2026-10-05 the part's tools are the lower third's: no fold, no slim bar — a tap on the empty page closes them.
+  assert.doesNotMatch(SHELL, /sheetDo\(\{ t: '(?:tapOutside|dragDown|restore)'/, 'the part sheet folds to a slim bar again');
   assert.match(read('app/[slug]/_components/editor-bridge.tsx'), /t: 'tapOutside'/);
   const SHEET = read(`${E}/element-sheet.tsx`);
-  assert.match(SHEET, /<SheetGrip onClose=\{onCollapse \?\? onClose\} \/>/, 'the handle does not fold the sheet');
-  assert.doesNotMatch(SHEET, /<SheetScrim/, 'a scrim over the canvas would swallow the tap on another part');
+  assert.doesNotMatch(SHEET, /<Sheet(?:Grip|Scrim)\b/, 'a grip or a scrim is back on the part sheet');
 });
 
 const ROUTER = { refresh() {}, push() {}, replace() {}, back() {}, forward() {}, prefetch() {} };
@@ -131,12 +131,10 @@ test('▣ the part sheet has exactly ONE segmented control — Text · Motion ·
   assert.match(html, /data-part-tab="animate"/, 'the Motion section is not the one shown');
 });
 
-test('📱 folded: a slim bar "Names · Motion ▴" and the sheet kept (hidden on a phone), never unmounted', async () => {
-  const html = await sheet({ section: 'animate', collapsed: true, onRestore: () => {} });
-  assert.match(html, /data-element-sheet-bar=""[^>]*>[\s\S]*?Names · Motion[\s\S]*?▴/);
-  assert.match(html, /<aside[^>]*class="max-lg:hidden /, 'the sheet is not kept, folded');
-  const openHtml = await sheet({ section: 'animate' });
-  assert.doesNotMatch(openHtml, /data-element-sheet-bar/);
+test('🧰 the part sheet is a TOOL of the lower third — over it, beside the column, never folded', async () => {
+  const html = await sheet({ section: 'animate' });
+  assert.doesNotMatch(html, /data-element-sheet-bar/, 'the part sheet’s slim bar is back');
+  assert.match(html, /<aside[^>]*class="[^"]*max-lg:h-\[calc\(var\(--maker-lt-h\)-8px\)\]/, 'the part sheet is not sized to the lower third');
 });
 
 /* ── ▁ THE HALF SHEET'S MOVES (PR-0, 2026-10-04) — the scene sheet runs this same

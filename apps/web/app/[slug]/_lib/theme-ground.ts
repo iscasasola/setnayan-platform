@@ -58,11 +58,17 @@ export function resolveThemeGround(
      * stays on-brand only when it passes).
      */
     ownColours: boolean;
+    /**
+     * 🎨 The theme's colours as the Mood Board dresses them (`themeColours`,
+     * owner 2026-10-05) — the veil over the loop is measured with these inks.
+     * Absent = the theme's own (no board, or only the still is wanted).
+     */
+    colours?: (typeof INVITE_THEMES)[InviteThemeId]['palette'];
   },
 ): ThemeGround | null {
   const t = INVITE_THEMES[theme];
   if (!t.media) return null;
-  const legible = hubLegibility(t, { kind: 'theme' });
+  const legible = hubLegibility(input.colours ? { ...t, palette: input.colours } : t, { kind: 'theme' });
   return {
     loop: publicUrl(t.media.loop),
     poster: publicUrl(t.media.poster),

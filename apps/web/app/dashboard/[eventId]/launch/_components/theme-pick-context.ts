@@ -13,6 +13,13 @@ export type ThemePick = {
   pending: boolean;
   error: string | null;
   pick: (id: string) => void;
+  /**
+   * 🎨 The board the theme samples wear (`sampleBoardQuery`): `palette=none`
+   * (each theme in its own colours), `board=<event>&bv=…` (the couple's own
+   * board, read on the server for its host), or null where the provider was
+   * not told (the sample's own board).
+   */
+  samplePalette: string | null;
 };
 
 export const ThemePickContext = createContext<ThemePick | null>(null);

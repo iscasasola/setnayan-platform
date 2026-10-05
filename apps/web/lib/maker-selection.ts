@@ -22,7 +22,6 @@ import {
   MAKER_FIXED_LABEL,
   MAKER_FIXED_SOURCE,
   MAKER_FIXED_TOOL,
-  MAKER_TOOL_EDITOR_NAME,
   type MakerFixedKey,
   type MakerTile,
 } from '@/lib/maker-scene-list';
@@ -94,24 +93,38 @@ export function tileIsSelected(tile: MakerTile, selection: MakerSelection): bool
 }
 
 /**
- * What a fixed scene's panel says — never empty. `tool` is the workspace its
- * button opens; `source` is where its content comes from when it has none.
+ * ✋ SCENES EDITED IN PLACE — owner 2026-10-05, on the Names & date sheet's
+ * "This scene is made in the Hero editor" + "Open Hero editor": no go-elsewhere
+ * button and no "Hero" word. Its words are typed on the page and its parts
+ * styled from the page (a tap on the part, or the sheet's one Part ▾), so its
+ * panel carries no line — only its Style and its parts.
+ */
+export const MAKER_FIXED_IN_PLACE: readonly MakerFixedKey[] = ['hero'];
+
+/**
+ * 🎫 THE GUEST'S TICKET SHOWS ITSELF (owner 2026-10-05, *"isn't this the digital
+ * pass? … where is the customization"*): its sheet draws the real ticket and ONE
+ * Ticket style ▾ — no sentence, no "Open your guest list →".
+ */
+export const MAKER_FIXED_TICKET: MakerFixedKey = 'pass';
+
+/**
+ * What a fixed scene's panel says — never empty. `tool` is the editor it is made
+ * in, drawn IN the panel (owner 2026-10-05, *"each scene and setting must be
+ * there and not links. editing should be on the actual tool thirds"*): no
+ * "Open … editor" button any more. `source` is where its content comes from
+ * when it has none to edit here — said, never linked.
  */
 export function fixedScenePanel(fixed: MakerFixedKey): {
   label: string;
   line: string;
   tool: 'hero' | 'reveal' | 'post-event' | 'love-story' | 'rsvp-page' | null;
-  /** "Open Hero editor" — the ONE control that leaves the stage. */
-  button: string | null;
   source: (typeof MAKER_FIXED_SOURCE)[MakerFixedKey] | null;
 } {
-  const tool = MAKER_FIXED_TOOL[fixed] ?? null;
-  const editor = tool ? MAKER_TOOL_EDITOR_NAME[tool] : null;
   return {
     label: MAKER_FIXED_LABEL[fixed].label,
-    line: editor ? `This scene is made in the ${editor} editor.` : MAKER_FIXED_LABEL[fixed].why,
-    tool,
-    button: editor ? `Open ${editor} editor` : null,
+    line: MAKER_FIXED_IN_PLACE.includes(fixed) ? '' : MAKER_FIXED_LABEL[fixed].why,
+    tool: MAKER_FIXED_TOOL[fixed] ?? null,
     source: MAKER_FIXED_SOURCE[fixed] ?? null,
   };
 }

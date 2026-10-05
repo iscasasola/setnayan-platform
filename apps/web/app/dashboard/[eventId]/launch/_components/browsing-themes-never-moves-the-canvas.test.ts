@@ -81,7 +81,8 @@ test('1 · an entry is the SAMPLE page + theme= — never a couple’s canvas do
   // The picker never builds a couple's address at all.
   const picker = read(PICKER);
   assert.doesNotMatch(picker, /makerThemeTileSrc|editor=1|home\b/, 'the gallery reaches for the couple’s own page again');
-  assert.match(picker, /sampleHubTileSrc\(t\.id\)/);
+  // 🎨 …wearing the couple's board (`sampleBoardQuery`, 2026-10-05) — still only the sample page.
+  assert.match(picker, /sampleHubTileSrc\(t\.id, samplePalette\)/);
 });
 
 // ═══ 2 · the guest page's side ═══════════════════════════════════════════
@@ -118,7 +119,7 @@ test('2b · a tile NEVER mounts the click-to-edit bridge', () => {
 
 test('2c · the tile wears the theme through the ONE gate — the fence still answers', () => {
   const page = read('[slug]/page.tsx');
-  assert.match(page, /\{ \.\.\.draftedEvent, invite_theme: triedTheme, theme_try_on: true \}/);
+  assert.match(page, /\.\.\.draftedEvent,\s*invite_theme: triedTheme,\s*theme_try_on: true,/);
   assert.match(page, /triedTheme \|\| \(hostDraft && HUB_DRAFT_LOOK_COLUMNS\.some/, 'a tile is not re-dressed');
   const look = read('[slug]/_lib/hub-look.ts');
   assert.match(look, /const ownsPro = owned \|\| event\.theme_try_on === true;/);
@@ -158,7 +159,7 @@ test('3c · nothing happens on hover or scroll — only a pick writes, and it wr
   assert.equal(calls.length, 1, 'the picker writes from more than one place');
   const pickFn = src.slice(src.indexOf('const pick = '), src.indexOf('return (', src.indexOf('const pick = ')));
   assert.match(pickFn, /fd\.set\('intent', 'save'\)/, 'a pick is not a draft save');
-  assert.match(pickFn, /JSON\.stringify\(\{ events: \{ invite_theme: id, \.\.\.THEME_OWN_LOOK_RESET \} \}\)/);
+  assert.match(pickFn, /JSON\.stringify\(\{ events: \{ invite_theme: id, \.\.\.THEME_OWN_LOOK_RESET, \.\.\.\(seed \? \{ role_palette: seed \} : \{\}\) \} \}\)/);
   assert.match(pickFn, /makerSave\(\(\) => hubDraftAction\(eventId, fd\), requestMakerRefresh\)/, 'a pick does not land the Details way');
   // Two click handlers: the pick, and the ⤢ that only LOOKS (it opens the preview, never a pick).
   const clicks = [...src.matchAll(/onClick=\{([^}]*\})?[^}]*\}/g)].map((m) => m[0]);
@@ -236,7 +237,7 @@ test('5 · the full-screen preview is an overlay with a way back — Exit previe
   assert.match(src, /onClick=\{\(\) => \{\s*onUse\(\);\s*exit\(\);\s*\}\}/);
   assert.doesNotMatch(src, /hubDraftAction|makerSave|invite_theme/, 'the preview writes on its own');
   // It shows the SAMPLE, sandboxed.
-  assert.match(src, /src=\{sampleHubTileSrc\(theme\.id\)\}/);
+  assert.match(src, /src=\{sampleHubTileSrc\(theme\.id, samplePalette\)\}/);
   assert.match(src, /sandbox="allow-scripts allow-same-origin"/);
   // …and it is an overlay: the gallery (and its scroll) stays mounted underneath.
   const picker = read(PICKER);

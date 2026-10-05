@@ -227,7 +227,9 @@ test('the Save-the-Date background reaches the poster: read by both callers, han
   assert.match(server, /backgroundSrc:\s*look\?\.photo/, 'the resolver stopped handing the gated background to posterFor');
   assert.match(server, /resolveThemeGround\(/, 'the resolver stopped reading the theme still from the hub ground');
   const launcher = readFileSync(join(web, 'app/dashboard/(launcher)/page.tsx'), 'utf8');
-  assert.match(launcher, /\.select\('event_id, invite_theme, std_background'\)/, 'the board stopped reading the background');
+  assert.match(launcher, /\.select\('event_id, invite_theme, std_background(?:, role_palette)?'\)/, 'the board stopped reading the background');
+  // 🎨 …and the Mood Board, which the poster's veil and ink follow (2026-10-05).
+  assert.match(launcher, /role_palette: saved\.get\(e\.event_id\)\?\.role_palette \?\? null/, 'the board stopped handing the Mood Board to the poster');
   const maker = readFileSync(join(web, 'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx'), 'utf8');
   assert.match(maker, /const EVENT_SELECT =\s*'[^']*\bstd_background\b/, 'the Maker’s poster preview stopped reading the background');
 });

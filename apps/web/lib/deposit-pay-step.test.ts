@@ -194,7 +194,7 @@ test('after Lock, the couple has a next step on the Vendors page', () => {
     /<DepositLine\s+step=\{depositStepByVendorId\?\.get\(r\.vendorId\)\}\s+href=\{depositStepHref\(eventId, r\.vendorId\)\}/,
     'the locked row no longer carries the deposit step',
   );
-  assert.match(locked, /'Pay your first payment'/);
+  assert.match(locked, /'Make your first payment'/);
   const page = read(VENDORS_PAGE);
   assert.match(page, /depositStepByVendorId=\{depositStepByVendorId\}/, 'the page never passes it');
   assert.match(page, /filter\(\(v\) => v\.status === 'contracted'\)/, 'the deposit ask widened past contracted');

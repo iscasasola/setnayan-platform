@@ -77,7 +77,10 @@ import {
   selectionForCanvasKey,
   selectionForTile,
   tileIsSelected,
+  MAKER_FIXED_TICKET,
 } from '@/lib/maker-selection';
+import { PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
+import { makerTicketSrc } from '@/lib/pass-design-save';
 import {
   HUB_ELEMENT_EXCLUDED_WIDGETS,
   HUB_ELEMENT_LABEL,
@@ -98,7 +101,8 @@ import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { DetailsBoundField, ElementSheet, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
+import { IntoLowerThird } from '../../../launch/_components/maker-lower-third';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';
 import { MAKER_STRIP_PHONE } from '@/lib/maker-phone-room';
@@ -299,6 +303,8 @@ export function MakerWork({
     fixedStyles?: FixedSceneStyles;
     /** ✍ The hero names' Wording ▾ — the event's Name style and one of the couple's own names to show it in. */
     names?: { style: NameStyle; person: NameParts | null };
+    /** 🎫 The guest's Ticket style — the drafted one when the draft holds it, else live (`print_details.pass_design`). */
+    ticketStyle?: PassCardDesign;
   } | null;
   /**
    * 🔗 DETAILS IS THE SOURCE (owner 2026-09-25) — Details' values (drafted over
@@ -482,8 +488,6 @@ export function MakerWork({
   );
   const elementRef = useRef<ElementTarget | null>(null);
   elementRef.current = elementTarget;
-  const sheetFolded = useRef(false);
-  sheetFolded.current = sheet.collapsed;
   const elementEditingOn = Boolean(elementEditing);
   const selectionKey = canvasKeyOfSelection(selection, scenes);
   useEffect(() => {
@@ -743,6 +747,18 @@ export function MakerWork({
      back (`&bars=1`) so the couple can check nothing sits under them — never
      the host's own chrome. Owner 2026-09-25: *"add a switch to show or hide"*. */
   const [guestBars, setGuestBars] = useState(false);
+  /* 🎫 THE GUEST'S TICKET, DRAWN FOR REAL (owner 2026-10-05): with its scene
+     selected the page shows the first coming guest's ticket in the look being
+     edited — every Ticket style ▾ pick at once, before its draft save lands. */
+  const ticketSaved: PassCardDesign = sceneFormat?.ticketStyle ?? PASS_CARD_DESIGNS[0];
+  const [ticketShown, setTicketShown] = useState<PassCardDesign | null>(null);
+  useEffect(() => setTicketShown(null), [ticketSaved]);
+  const ticketDesign = ticketShown ?? ticketSaved;
+  /* A ticket that could not be drawn SAYS so — never an empty page that reads like no ticket. */
+  const [ticketFailed, setTicketFailed] = useState<PassCardDesign | null>(null);
+  /* Each pick tries again — a failure is said for the look it happened to, never carried over. */
+  useEffect(() => setTicketFailed(null), [ticketDesign]);
+  const ticketOn = selection?.kind === 'row' && selection.key === `f:${MAKER_FIXED_TICKET}`;
   /* 🎨 LOGO · HERO · REVEAL LIVE IN DETAILS (Details part 3, DECISION_LOG
      2026-09-28 "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"). This page
      still BUILDS them — every read and bound action they always had — and
@@ -820,6 +836,16 @@ export function MakerWork({
       }
       return next;
     });
+  /* 🖼 THE EVENT BAR IS SETTINGS' TILE ON A PHONE (owner 2026-10-05, "approve"):
+     the switch no longer floats under the canvas there — it is registered with
+     the Maker, and the lower third's Settings draws it. */
+  const setEventBar = maker?.setEventBar;
+  const toggleRef = useRef(toggleGuestBars);
+  toggleRef.current = toggleGuestBars;
+  useEffect(() => {
+    setEventBar?.(publicLandingUrl ? { on: guestBars, toggle: () => toggleRef.current() } : null);
+  }, [setEventBar, guestBars, publicLandingUrl]);
+  useEffect(() => () => setEventBar?.(null), [setEventBar]);
   /* 👁 SEE AS ▾ (PR-10) — the SAME canvas address, drawn as a sample guest:
      `?as=<state>` (lib/see-as.ts `SEE_AS_PARAM`). The draft, the
      bridge and the stage are unchanged; only who the page is drawn for. */
@@ -993,19 +1019,13 @@ export function MakerWork({
       if (data?.source === 'setnayan-site' && (data.t === 'edit' || data.t === 'tapOutside') && (elementRef.current || typeRef.current)) {
         endedByCanvasTap.current = true;
       }
-      /* 📱 THE PART SHEET ON A PHONE (owner 2026-10-04, `lib/element-sheet-state.ts`):
-         a tap on the canvas that hits no part folds the open sheet to its bar
-         and does nothing else; once folded, the next such tap goes through
-         (the sheet closes, the tap selects what it hit). The part stays
-         outlined while the sheet is only folded. */
+      /* 🧰 THE PART'S TOOLS ON A PHONE ARE THE LOWER THIRD'S (owner 2026-10-05,
+         "approve"): a tap on the canvas that hits no part CLOSES them — the
+         navigator comes back — and the tap goes on to select what it hit. */
       const phoneSheet = window.innerWidth < 1024 && elementRef.current !== null;
       if (data?.source === 'setnayan-site' && phoneSheet && (data.t === 'tapOutside' || (data.t === 'edit' && !isHubElementKey(data.el)))) {
         const was = elementRef.current!;
-        sheetDo({ t: 'tapOutside' });
-        if (!sheetFolded.current) {
-          postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: was.key, el: was.el });
-          return;
-        }
+        sheetDo({ t: 'close' });
         postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: was.key, el: null });
       }
       if (!data || data.source !== 'setnayan-site' || data.t !== 'edit' || typeof data.key !== 'string') return;
@@ -1135,7 +1155,15 @@ export function MakerWork({
      once; `performance.measure('maker-tile-snapshots')` records its cost. */
   const [tileHead, setTileHead] = useState<TileHead | null>(null);
   const [tileSnaps, setTileSnaps] = useState<Record<string, TileSnapshot>>({});
-  const [navList, setNavList] = useState<HTMLOListElement | null>(null);
+  const [navList, setNavList] = useState<HTMLElement | null>(null);
+  /* 🧰 ON A PHONE THE SCENES ARE THE LOWER THIRD'S NAVIGATOR (owner 2026-10-05,
+     "approve"): the Maker hands its slot (`ltNav`) and the tiles are drawn
+     there, after the stage's pages; the lower third's row is then the strip's
+     scroller. A desktop keeps its column. */
+  const ltNav = maker?.ltNav ?? null;
+  useEffect(() => {
+    if (ltNav) setNavList(ltNav.parentElement);
+  }, [ltNav]);
   /** [tile key, the canvas marker its section sits behind], per shown tile. */
   const tileKeysRef = useRef<ReadonlyArray<readonly [string, string]>>([]);
   const snapTimer = useRef<number | null>(null);
@@ -1981,7 +2009,8 @@ export function MakerWork({
       <nav
         aria-label="Scenes"
         style={{ ['--maker-nav-w' as string]: `${navWidth}px` }}
-        className={`relative order-2 shrink-0 bg-cream/80 lg:order-1 lg:w-[var(--maker-nav-w)] ${
+        /* A phone's scenes are the lower third's (`IntoLowerThird` below) — the column is a desktop's. */
+        className={`relative order-2 shrink-0 bg-cream/80 max-lg:hidden lg:order-1 lg:w-[var(--maker-nav-w)] ${
           navOpen ? '' : 'lg:hidden'
         }`}
       >
@@ -1991,7 +2020,8 @@ export function MakerWork({
             an 18rem box, so a 168px column held 314px of scrollable width, and
             `overflow-x: hidden` still lets focus and scrollIntoView scroll it.
             The bubbles are held to the column's own width here. */}
-        <ol ref={setNavList} className={`${MAKER_STRIP_PHONE} flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4 lg:[&_.sn-tip]:max-w-[calc(var(--maker-nav-w)-2rem)]`}>
+        <ol ref={ltNav ? undefined : setNavList} className={`${MAKER_STRIP_PHONE} flex gap-2 overflow-x-auto px-3 py-2 [scrollbar-width:none] lg:h-full lg:flex-col lg:gap-0 lg:overflow-y-auto lg:overflow-x-hidden lg:px-3 lg:py-4 lg:[&_.sn-tip]:max-w-[calc(var(--maker-nav-w)-2rem)]`}>
+          <IntoLowerThird to={ltNav}>
           {/* 🧭 THE STAGE'S MENU — the tabs a guest sees on this stage, never a
               generic "Main". Each lists its own scenes; a tab that opens a page of
               its own (Camera, Join, Watch) says so. The look behind every scene
@@ -2145,7 +2175,8 @@ export function MakerWork({
                         Desktop, a tall phone on Phone — and the eye sits on it. */}
                     <div
                       className={`relative ${
-                        device === 'phone' ? 'aspect-[9/19.5] w-16 lg:w-[46%]' : 'aspect-[16/10] w-28 lg:w-full'
+                        /* 📱 In the lower third every tile is one size (96 × 104) — the row never scrolls down. */
+                        device === 'phone' ? 'max-lg:h-[104px] max-lg:w-24 lg:aspect-[9/19.5] lg:w-[46%]' : 'max-lg:h-[104px] max-lg:w-24 lg:aspect-[16/10] lg:w-full'
                       }`}
                     >
                     {/* 🖼 WHAT THE TILE SHOWS — the section as the canvas drew it
@@ -2168,6 +2199,9 @@ export function MakerWork({
                     </span>
                     <button
                       type="button"
+                      /* 🧰 A tile of the lower third's navigator — ‹ › step scene to scene. */
+                      data-lt-tile={tile.key}
+                      data-lt-group="scenes"
                       data-maker-scene={tile.kind === 'scene' ? tile.type : undefined}
                       data-maker-fixed={tile.kind === 'fixed' ? tile.fixed : undefined}
                       data-maker-post-event={tile.kind === 'post-event' ? tile.scene : undefined}
@@ -2245,17 +2279,8 @@ export function MakerWork({
                     {tile.kind === 'fixed' ? (
                       <InfoTip className="min-w-0 max-w-full" label={tile.label} align="start" labelClassName="min-w-0 line-clamp-2 break-words pt-1 text-[11px] font-semibold leading-tight text-ink/70">
                         {tile.why}
-                        {MAKER_FIXED_SOURCE[tile.fixed] ? (
-                          <span className="mt-1.5 block">
-                            {MAKER_FIXED_SOURCE[tile.fixed]!.text}{' '}
-                            <Link
-                              href={`/dashboard/${eventId}/${MAKER_FIXED_SOURCE[tile.fixed]!.page}`}
-                              className="font-semibold underline underline-offset-2"
-                            >
-                              {MAKER_FIXED_SOURCE[tile.fixed]!.link} →
-                            </Link>
-                          </span>
-                        ) : null}
+                        {/* Where it comes from — said, never a link out of the Maker (owner 2026-10-05). */}
+                        {MAKER_FIXED_SOURCE[tile.fixed] ? <span className="mt-1.5 block">{MAKER_FIXED_SOURCE[tile.fixed]!.text}</span> : null}
                       </InfoTip>
                     ) : tile.kind === 'post-event' ? (
                       <InfoTip className="min-w-0 max-w-full"
@@ -2426,6 +2451,7 @@ export function MakerWork({
               </span>
             ) : null}
           </li>
+          </IntoLowerThird>
         </ol>
         {/* the edge you drag to make the navigator wider or narrower */}
         <span
@@ -2568,6 +2594,30 @@ export function MakerWork({
             Set your Event Hub address (⋯ in the toolbar) to see your page here.
           </p>
         )}
+        {/* 🎫 The Guest's ticket scene: the REAL ticket on the page — the first
+            coming guest's name and QR (`pass_guest=first`), in the look the
+            Ticket style ▾ below holds. The canvas stays loaded underneath. */}
+        {ticketOn && canvasSrc ? (
+          <div
+            data-maker-ticket-view={ticketDesign}
+            className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4"
+          >
+            {ticketFailed === ticketDesign ? (
+              <p role="alert" data-maker-ticket-failed="" className="m-auto max-w-xs px-4 text-center text-sm text-terracotta-700">
+                The ticket could not be drawn just now. Nothing was changed — please try again in a moment.
+              </p>
+            ) : (
+              /* eslint-disable-next-line @next/next/no-img-element -- a same-origin SVG from our print route */
+              <img
+                key={ticketDesign}
+                src={makerTicketSrc(eventId, ticketDesign)}
+                alt={`${PASS_CARD_DESIGN_LABEL[ticketDesign]} ${PASS_CARD_WORDS.noun}`}
+                onError={() => setTicketFailed(ticketDesign)}
+                className="h-auto max-h-full w-auto max-w-full rounded-md bg-white object-contain shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] lg:max-h-[calc(100%-2rem)]"
+              />
+            )}
+          </div>
+        ) : null}
         {/* 🖥📱 Both was picked but the room cannot hold two readable frames —
             Desktop is drawn, and the couple is told why the phone is gone. */}
         {bothTooNarrow ? (
@@ -2580,7 +2630,8 @@ export function MakerWork({
             right of the canvas, BELOW the page and
             never over it. */}
         {publicLandingUrl ? (
-          <div className="flex w-full shrink-0 items-center justify-end gap-1 pt-1.5">
+          /* A desktop's — on a phone it is Settings' Event Bar tile (registered above). */
+          <div className="flex w-full shrink-0 items-center justify-end gap-1 pt-1.5 max-lg:hidden">
             <button
               type="button"
               role="switch"
@@ -2594,9 +2645,12 @@ export function MakerWork({
             >
               <PanelsTopLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
             </button>
-            <InfoTip label="Event Bar" align="end" labelClassName="text-[12px] font-semibold text-ink/70">
-              See this stage&rsquo;s own top and bottom bars, as guests see them, over the slide you are editing.
-            </InfoTip>
+            {/* 🚫 NO (i) NOTE (owner 2026-10-05): its bubble floated, unbacked, over
+                the scene tiles and could not be closed from the page. The switch's
+                own visible word says what it is. */}
+            <span aria-hidden data-maker-guest-bars-label="" className="text-[12px] font-semibold text-ink/70">
+              Event Bar
+            </span>
           </div>
         ) : null}
         {/* 🪞 The canvas only ever shows the couple's page. A link that leads
@@ -2708,7 +2762,8 @@ export function MakerWork({
                 ? (list.shown.find((t) => t.kind === 'post-event' && postEventElementScope(t.scene) === elementTarget.widgetType)?.label ?? undefined)
                 : (scenes.find((sc) => sc.type === elementTarget.widgetType)?.label ?? undefined)
           }
-          onOpenHero={elementTarget.widgetType === 'hero' ? () => select?.({ kind: 'tool', key: 'hero' }) : undefined}
+          /* ✋ No "Open the Hero editor" from a part (owner 2026-10-05): the names
+             and date are made in place — `onOpenHero` is not handed in. */
           usedColours={usedColours}
           onPreview={(message) => {
             broadcastToCanvas(message);
@@ -2725,9 +2780,6 @@ export function MakerWork({
             postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: elementTarget.key, el: null });
             sheetDo({ t: 'close' });
           }}
-          collapsed={sheet.collapsed}
-          onCollapse={() => sheetDo({ t: 'dragDown' })}
-          onRestore={() => sheetDo({ t: 'restore' })}
           section={sheet.section}
           onSection={(section) => sheetDo({ t: 'section', section })}
         />
@@ -2896,7 +2948,6 @@ export function MakerWork({
           onClose={() => select?.(null)}
           onReveal={() => scrollPreviewTo(selectedKeyRef.current ?? undefined)}
           onTab={(tab) => selectedScene && select?.({ kind: 'scene', id: selectedScene.id, tab })}
-          onOpenTool={(key) => select?.({ kind: 'tool', key })}
           fixedFact={
             selection.kind === 'row' && selection.key.startsWith('f:')
               ? (() => {
@@ -2906,6 +2957,18 @@ export function MakerWork({
               : null
           }
           heroParts={heroParts}
+          ticketPanel={
+            ticketOn ? (
+              <PassCardDesignPicker
+                key={ticketSaved}
+                eventId={eventId}
+                saved={ticketSaved}
+                preview={false}
+                onShown={setTicketShown}
+                previews={Object.fromEntries(PASS_CARD_DESIGNS.map((d) => [d, makerTicketSrc(eventId, d)])) as Record<PassCardDesign, string>}
+              />
+            ) : null
+          }
           resize={toolsResize}
           onElement={
             elementEditing && selectionKey
@@ -3189,8 +3252,10 @@ function MoreExtras({
 }
 
 /**
- * 🔤 THE SCENE'S PARTS, EACH A BUTTON — the same element sheet a tap on the
- * part in the canvas opens (font · colour · size · animation, #6019).
+ * 🔤 THE SCENE'S PARTS — ONE dropdown (owner 2026-10-05: the row of eight pills
+ * is a set of choices, and a set of choices is a dropdown). A pick opens the
+ * same part sheet a tap on the part on the page opens (font · colour · size ·
+ * animation, #6019) — the page itself is the other way in.
  */
 function ElementButtons({
   keys,
@@ -3200,25 +3265,16 @@ function ElementButtons({
   onElement: (el: HubElementKey) => void;
 }) {
   return (
-    <div className="px-1 pt-1" data-maker-element-buttons="">
-      <p className="text-[12px] font-semibold text-ink/60">
-        <InfoTip label="Style a part" align="start">
-          Its own font, colour, size and animation — or tap the part on the page.
-        </InfoTip>
-      </p>
-      <div className="mt-1.5 flex flex-wrap gap-1.5">
-        {keys.map((k) => (
-          <button
-            key={k}
-            type="button"
-            data-maker-element={k}
-            onClick={() => onElement(k)}
-            className="sn-press inline-flex min-h-10 items-center rounded-full bg-ink/5 px-3.5 text-[13px] font-semibold text-ink/80 transition-colors duration-300 ease-in-out hover:bg-ink/10"
-          >
-            {HUB_ELEMENT_LABEL[k]}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pt-1" data-maker-element-buttons="">
+      <span className="text-[13px] font-semibold text-ink">Part</span>
+      <PickMenu
+        label="Part"
+        dataAttr="data-maker-element-pick"
+        value={null}
+        buttonText="Pick a part"
+        options={keys.map((k) => ({ key: k, label: HUB_ELEMENT_LABEL[k] }))}
+        onPick={(k) => onElement(k as HubElementKey)}
+      />
     </div>
   );
 }
@@ -3239,12 +3295,14 @@ function Inspector({
   onClose,
   onReveal,
   onTab,
-  onOpenTool,
   onElement,
   fixedFact = null,
+  ticketPanel = null,
   heroParts = HUB_HERO_ELEMENT_KEYS,
   resize,
 }: {
+  /** 🎫 The Guest's ticket scene's ONE control — Ticket style ▾ (the ticket itself is drawn on the page). */
+  ticketPanel?: ReactNode;
   /** ✍ A fixed scene whose words are a Details fact (the story): that item's own editor. */
   fixedFact?: ReactNode;
   /** 🔤 The parts this hero draws (`heroPartsFor`) — its "Style a part" buttons. */
@@ -3256,8 +3314,6 @@ function Inspector({
   /** 🔗 A scene bound to a Details fact: its Content is this field, which asks
    *  "everywhere or just here" (`details-bound-field.tsx`). */
   contentBound?: ReactNode;
-  /** Open a fixed scene's workspace (Hero, Reveal, Love Story, Post Event). */
-  onOpenTool: (key: 'hero' | 'reveal' | 'love-story' | 'post-event' | 'rsvp-page' | 'details') => void;
   /** 🔤 Open one element's sheet (font · colour · size · animation) — null where not offered. */
   onElement: ((el: HubElementKey) => void) | null;
   madeOnce: Partial<Record<MadeOnceKey, ReactNode>> | null;
@@ -3356,33 +3412,32 @@ function Inspector({
       );
   } else if (selection.kind === 'row' && fixedOfKey(selection.key)) {
     /* 🔒 A FIXED SCENE'S PANEL (`lib/maker-selection.ts`) — never blank: what
-       it is, its workspace as a button when it has one, or in one line where
+       it is, its editor IN the panel when it has one (owner 2026-10-05: "each
+       scene and setting must be there and not links"), or in one line where
        its content comes from; and for the names and date, its parts to style. */
     const fixed = fixedOfKey(selection.key)!;
     const f = fixedScenePanel(fixed);
+    /* The editor it is made in, right here: the Reveal's controls, Post Event's
+       rows. (The love story and the RSVP arrive as their Details fact, `fixedFact`.) */
+    const toolHere: ReactNode =
+      f.tool === 'reveal'
+        ? (madeOnce?.reveal ?? null)
+        : f.tool === 'post-event'
+          ? (TOOL_ROWS['post-event'] ?? []).filter((k) => rows[k]).map((k) => <RowBlock key={k} row={rows[k]!} />)
+          : null;
     body = (
       <section className="space-y-3 px-1" data-maker-fixed-panel={fixed}>
         {/* 🎨 Its Style first — the same one row every scene wears. */}
         {fixedStylePanel}
-        {fixedFact ? null : <p className="text-[13px] text-ink/75">{f.line}</p>}
+        {/* 🎫 The Guest's ticket: its Ticket style ▾ and nothing to read. */}
+        {fixed === MAKER_FIXED_TICKET && ticketPanel ? ticketPanel : null}
+        {fixedFact || toolHere || !f.line || (fixed === MAKER_FIXED_TICKET && ticketPanel) ? null : <p className="text-[13px] text-ink/75">{f.line}</p>}
         {fixedFact}
-        {!fixedFact && f.tool && f.button ? (
-          <button
-            type="button"
-            data-maker-open-editor={f.tool}
-            onClick={() => onOpenTool(f.tool!)}
-            className="sn-press inline-flex min-h-11 items-center gap-1.5 rounded-full bg-ink px-5 text-sm font-semibold text-cream transition-colors duration-300 ease-in-out hover:bg-ink/90"
-          >
-            <PencilLine aria-hidden className="h-4 w-4" strokeWidth={2} />
-            {f.button}
-          </button>
-        ) : null}
-        {f.source ? (
-          <p className="text-[13px] text-ink/75">
-            {f.source.text}{' '}
-            <Link href={`/dashboard/${eventId}/${f.source.page}`} className="font-semibold underline underline-offset-2">
-              {f.source.link} →
-            </Link>
+        {fixedFact ? null : toolHere}
+        {/* Where its content comes from — SAID, never a link out of the Maker. */}
+        {f.source && !(fixed === MAKER_FIXED_TICKET && ticketPanel) ? (
+          <p className="text-[13px] text-ink/75" data-maker-fixed-source={fixed}>
+            {f.source.text}
           </p>
         ) : null}
         {fixed === 'hero' && onElement ? <ElementButtons keys={heroParts} onElement={onElement} /> : null}

@@ -14,69 +14,20 @@ import {
   type ElementSheetEvent,
   type ElementSheetState,
 } from '@/lib/element-sheet-state';
+import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
+import { useMaker, useMakerTool } from './maker-context';
 
 /** A drag shorter than this is a tap, not a drag; past `HALF_SHEET_DRAG_PX` it changes the size. */
 const HALF_SHEET_TAP_PX = 6;
 const HALF_SHEET_DRAG_PX = 40;
 
 /**
- * 📱 THE MAKER'S PHONE SHEET — owner, live phone test 2026-10-02: *"dim the
- * negative space so they know it is a pop up and pressing on the dimmed part
- * will go back to the main screen"* (the approved phone layout, frame G/I of
- * `prototypes/maker_in_four_2026-09-30_fable.html`).
- *
- * Every Maker editor on a phone is a BOTTOM SHEET over a DIMMED page:
- *   · `SheetScrim` — ink at 40% over the page (the top bar stays live, so
- *     Apply is always in reach); a tap on it closes the sheet. Nothing is dimmed
- *     while no sheet is open — the scrim is drawn only with an open sheet.
- *   · `SheetGrip` — the handle at the sheet's top: a tap, or a drag down,
- *     closes it.
- * The sheet itself wears the room cap (`MAKER_PHONE_PANEL_CAP`,
- * lib/maker-phone-room.ts), so the dimmed page keeps ≥ 55% of the visible
- * height. Phone only (`lg:hidden`): a desktop's panels sit beside the page.
+ * 📱 THE MAKER'S PHONE SHEET. Since 2026-10-05 (the owner's lower third:
+ * *"all tools can only reside on the thumb area / lower third"* → *"approve"*)
+ * every Maker editor on a phone is a TOOL of the lower third — over it, beside
+ * the column that names it and closes it (`MAKER_LT_TOOL`, `useMakerTool`) —
+ * and the page above is never dimmed. The old scrim and grip are gone.
  */
-
-/** The dimmed page behind an open sheet, below the top bar (52 px — `MAKER_PHONE_BAR_PX`). */
-export function SheetScrim({ onClose }: { onClose: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-label="Close and go back to the page"
-      data-sheet-scrim=""
-      onClick={onClose}
-      className="fixed inset-x-0 bottom-0 top-[52px] z-[29] cursor-default bg-ink/40 lg:hidden"
-    />
-  );
-}
-
-/** The grab handle: a tap or a drag down closes the sheet. */
-export function SheetGrip({ onClose }: { onClose: () => void }) {
-  const from = useRef<number | null>(null);
-  return (
-    <button
-      type="button"
-      aria-label="Close"
-      data-sheet-grip=""
-      onPointerDown={(e) => {
-        from.current = e.clientY;
-      }}
-      onPointerUp={(e) => {
-        const start = from.current;
-        from.current = null;
-        if (start === null) return;
-        const dy = e.clientY - start;
-        if (dy > 24 || Math.abs(dy) < 6) onClose();
-      }}
-      onClick={(e) => {
-        // A keyboard press (no pointer) closes too.
-        if (e.detail === 0) onClose();
-      }}
-      className="flex h-6 w-full shrink-0 touch-none items-center justify-center lg:hidden"
-    >
-      <span aria-hidden className="h-1 w-10 rounded-full bg-ink/20" />
-    </button>
-  );
-}
 
 /** A phone, by the Maker's own breakpoint (`lg`): the half sheet's moves are the phone's. */
 function onPhone(): boolean {
@@ -155,6 +106,12 @@ export function MakerHalfSheet({
   restOn?: string | null;
   children: ReactNode;
 }) {
+  /* 🧰 IN THE MAKER the half sheet is a TOOL of the lower third on a phone
+     (owner 2026-10-05, "approve"): it sits over the lower third, right of the
+     column that names it and closes it — no grip, no Peek, no slim bar, never
+     raised over the page. Elsewhere (Event Details' record rows) it keeps its
+     half-sheet moves. */
+  const inMaker = useMaker() !== null;
   const [state, dispatch] = useReducer(
     (st: ElementSheetState<string>, ev: ElementSheetEvent<string>) => elementSheetStep(st, ev),
     ELEMENT_SHEET_CLOSED as ElementSheetState<string>,
@@ -168,12 +125,15 @@ export function MakerHalfSheet({
      the next one goes through and closes (the reducer's `tapOutside`). Phone only. */
   const foldedRef = useRef(state.collapsed);
   foldedRef.current = state.collapsed;
+  const inMakerRef = useRef(inMaker);
+  inMakerRef.current = inMaker;
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || !isCanvasTapOutside(e.data) || !onPhone()) return;
-      if (foldedRef.current) closeRef.current();
+      /* In the Maker a tap on the empty page closes the tool — the navigator comes back. */
+      if (foldedRef.current || inMakerRef.current) closeRef.current();
       else dispatch({ t: 'tapOutside' });
     };
     window.addEventListener('message', onMessage);
@@ -217,11 +177,46 @@ export function MakerHalfSheet({
     dispatch({ t: 'close' });
     onClose();
   };
+  useMakerTool(inMaker && Boolean(state.target), { key: `sheet:${label}`, name: title, close });
 
   /* 🚫 CLOSED IS NOT DRAWN (live dead end, 2026-10-04): a sheet with nothing
      selected has no aside, no slim bar and no hit area — never an empty glass
      panel lying over the Maker's bottom bar. */
   if (!state.target) return null;
+
+  /* 🧰 The Maker's lower third: the tool, and nothing that floats. */
+  if (inMaker) {
+    return (
+      <aside
+        aria-label={label}
+        data-phone-chrome="panel"
+        data-half-sheet="tool"
+        style={style}
+        className={`sn-glass-bare flex min-h-0 flex-col ${MAKER_LT_TOOL} ${desktopClassName}`}
+      >
+        {beforeGrip}
+        <div className={`${head ? 'flex' : 'hidden lg:flex'} items-center gap-2 px-3 pt-2 lg:px-4 lg:pt-3`} data-half-sheet-head="">
+          {head ? (
+            <div className="flex min-w-0 flex-1 items-center lg:hidden" data-half-sheet-lead="">
+              {head}
+            </div>
+          ) : null}
+          {/* The title and × are the desktop's — on a phone the lower third's column names it and closes it. */}
+          <p className="hidden min-w-0 flex-1 truncate font-serif text-lg text-ink lg:block">{title}</p>
+          <button
+            type="button"
+            onClick={close}
+            aria-label={closeLabel}
+            data-half-sheet-close=""
+            className="sn-press hidden h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink lg:inline-flex"
+          >
+            <X aria-hidden className="h-4 w-4" strokeWidth={2} />
+          </button>
+        </div>
+        {children}
+      </aside>
+    );
+  }
 
   const slim = state.collapsed;
   const size = slim ? 'slim' : state.raised ? 'up' : 'half';

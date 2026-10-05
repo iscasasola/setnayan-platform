@@ -13,8 +13,8 @@ import type { HubDraftActionResult } from '@/lib/hub-draft';
 import { ToolsResizeHandle, type ToolsResize } from './tools-resize';
 import { findMakerSection } from '@/app/[slug]/_components/maker-section-find';
 import { scrollToClearSheet } from '@/lib/part-above-sheet';
-import { SheetGrip } from '../../../launch/_components/maker-sheet';
-import { SLIM_BAR_SEAT } from '@/lib/element-sheet-state';
+import { useMakerTool } from '../../../launch/_components/maker-context';
+import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import {
   HUB_ELEMENT_LABEL,
   HUB_ELEMENT_RUN_KEYS,
@@ -148,27 +148,13 @@ export function ElementSheet({
   parts,
   onPart,
   sceneLabel,
-  onOpenHero,
   usedColours = [],
   hideLocked = false,
   saveCanvasWith,
   wordsSlot = null,
-  collapsed = false,
-  onCollapse,
-  onRestore,
   section,
   onSection,
 }: {
-  /**
-   * 📱 Folded to the slim bar at the bottom (owner 2026-10-04 — a tap on the
-   * canvas outside the part collapses the sheet; `lib/element-sheet-state.ts`).
-   * The sheet stays MOUNTED, so its section and every pick are kept.
-   */
-  collapsed?: boolean;
-  /** The handle dragged down: fold to the bar (the Maker owns the state). Absent = the handle closes. */
-  onCollapse?: () => void;
-  /** The bar tapped: open again, as it was. */
-  onRestore?: () => void;
   /** Text · Motion · Arrange, held by the Maker so it survives a switch to another part. */
   section?: PartTab;
   onSection?: (section: PartTab) => void;
@@ -188,8 +174,6 @@ export function ElementSheet({
   onPart?: (el: HubElementKey) => void;
   /** "Names & date" — the scene the part is on, beside the title. */
   sceneLabel?: string;
-  /** The hero's parts: their words are written in the Hero editor. */
-  onOpenHero?: () => void;
   /** Colours this Event Hub already uses — the synced half of "Saved colours". */
   usedColours?: readonly string[];
   /** The tools column's width and drag handle, shared with the inspector (desktop). */
@@ -358,6 +342,16 @@ export function ElementSheet({
   /* 📱 The part being edited stays in sight ABOVE the sheet on a phone
      (owner 2026-10-02) — the canvas scrolls it into the band still showing. */
   const sheetRef = useRef<HTMLElement>(null);
+  /* 🧰 The lower third's column names the part; ‹ › step to the scene's other parts. */
+  const at = parts && onPart ? parts.indexOf(target.el) : -1;
+  const prevPart = at > 0 ? parts![at - 1]! : null;
+  const nextPart = at >= 0 && at < parts!.length - 1 ? parts![at + 1]! : null;
+  useMakerTool(true, {
+    key: `part:${target.key}:${target.el}`,
+    name: HUB_ELEMENT_LABEL[target.el],
+    close: onClose,
+    step: { prev: prevPart && onPart ? () => onPart(prevPart) : null, next: nextPart && onPart ? () => onPart(nextPart) : null },
+  });
   useEffect(() => {
     if (!window.matchMedia('(max-width: 1023px)').matches) return;
     const id = window.requestAnimationFrame(() => {
@@ -369,24 +363,9 @@ export function ElementSheet({
 
   return (
     <>
-    {/* 📱 NO DIMMED PAGE behind the part's sheet (owner 2026-10-04): the canvas
-        stays live, so a tap on another part switches the sheet to it and a tap
-        anywhere else folds it to the bar below (`lib/element-sheet-state.ts`). */}
-    {collapsed ? (
-      <button
-        type="button"
-        data-element-sheet-bar=""
-        onClick={onRestore}
-        aria-label={`Open ${HUB_ELEMENT_LABEL[target.el]} · ${tabs.find((t) => t.key === tab)?.label ?? 'Text'} again`}
-        /* ▁ On a phone it rests ON TOP of the Maker's bottom bar, never over it (`SLIM_BAR_SEAT`). */
-        className={`sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex min-h-[52px] items-center justify-between gap-2 rounded-t-2xl px-4 pb-[env(safe-area-inset-bottom)] text-[14px] font-semibold text-ink ${SLIM_BAR_SEAT} lg:hidden`}
-      >
-        <span className="min-w-0 truncate">
-          {HUB_ELEMENT_LABEL[target.el]} · {tabs.find((t) => t.key === tab)?.label ?? 'Text'}
-        </span>
-        <span aria-hidden>▴</span>
-      </button>
-    ) : null}
+    {/* 🧰 THE PART'S TOOLS ARE THE LOWER THIRD'S on a phone (owner 2026-10-05,
+        "approve"): over the lower third, beside the column that names the part
+        (‹ › steps to its neighbours, × finishes); the page above stays live. */}
     <aside
       ref={sheetRef}
       data-phone-chrome="panel"
@@ -395,15 +374,16 @@ export function ElementSheet({
       data-maker-element-sheet={target.el}
       style={resize ? { ['--maker-tools-w' as string]: `${resize.width}px` } : undefined}
       onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
+        // One close: the lower third's own Escape sees it was taken (`defaultPrevented`). A dropdown inside keeps it.
+        if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[aria-haspopup][aria-expanded="true"]')) return;
+        e.preventDefault();
+        onClose();
       }}
-      /* 📱 The bar + this ≤ 45% of a phone (`MAKER_PHONE_PANEL_CAP`, lib/maker-phone-room.ts). */
-      className={`${collapsed ? 'max-lg:hidden ' : ''}sn-glass-bare fixed inset-x-0 bottom-0 z-30 flex max-lg:max-h-[calc(45dvh-52px)] flex-col rounded-t-3xl pb-[max(env(safe-area-inset-bottom),12px)] lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none`}
+      className={`sn-glass-bare flex min-h-0 flex-col ${MAKER_LT_TOOL} lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none lg:pb-3`}
     >
       {resize ? <ToolsResizeHandle onPointerDown={resize.onPointerDown} /> : null}
-      {/* 📱 The handle folds the sheet to the bar; × closes it. */}
-      <SheetGrip onClose={onCollapse ?? onClose} />
-      <div className="flex items-center gap-2 px-4 pt-2">
+      {/* The title, (i) and × are the desktop's — on a phone the lower third's column names the part and closes it. */}
+      <div className="hidden items-center gap-2 px-4 pt-2 lg:flex">
         <p id={titleId} className="min-w-0 flex-1 truncate font-serif text-lg text-ink">
           Part
           {sceneLabel ? (
@@ -425,12 +405,15 @@ export function ElementSheet({
         </button>
       </div>
 
-      <div className="px-4">
-        {parts && parts.length > 1 && onPart ? (
-          <PartPicker parts={parts} value={target.el} onPick={onPart} />
-        ) : (
-          <p className="py-2 text-[13px] font-semibold text-ink">{HUB_ELEMENT_LABEL[target.el]}</p>
-        )}
+      <div className="px-3 lg:px-4">
+        {/* Part ▾ — a desktop's; on a phone the column's ‹ › step through the parts. */}
+        <div className="hidden lg:block">
+          {parts && parts.length > 1 && onPart ? (
+            <PartPicker parts={parts} value={target.el} onPick={onPart} />
+          ) : (
+            <p className="py-2 text-[13px] font-semibold text-ink">{HUB_ELEMENT_LABEL[target.el]}</p>
+          )}
+        </div>
         {/* ✍ "Whole part / this selection" — above the tabs while letters are selected. */}
         {target.range && HUB_ELEMENT_RUN_KEYS.includes(target.el) ? (
           <div className="py-2" data-element-range="">
@@ -498,7 +481,6 @@ export function ElementSheet({
             el={target.el}
             hidden={Boolean(style.hidden)}
             setHidden={(h) => choose('hidden', h ? true : null)}
-            onOpenHero={onOpenHero}
           />
         )}
         {error ? (

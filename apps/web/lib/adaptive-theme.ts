@@ -391,6 +391,8 @@ export function adaptiveThemeVars(
     ...(accent
       ? {
           '--color-gild': accent,
+          // …and its words: a nested scope must never inherit a stale text gild (2026-10-05).
+          '--color-gild-text': accent,
           '--color-terracotta': accent,
           '--color-terracotta-600': accent,
           '--color-terracotta-700': accent,

@@ -3,10 +3,13 @@
 import { useRef, useState, useTransition } from 'react';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { PASS_CARD_DESIGNS, PASS_CARD_DESIGN_LABEL, PASS_CARD_WORDS, type PassCardDesign } from '@/lib/pass-card';
+import { passDesignDraftPatch } from '@/lib/pass-design-save';
+import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PrintPreview } from './print-preview';
 
 /**
- * 🎫 THE PASS CARD'S LOOK — ONE dropdown (Classic · Ticket · Photo poster) and
+ * 🎫 THE TICKET STYLE — ONE dropdown (Classic · Ticket · Photo poster) and
  * the card drawn large beside it (owner 2026-09-29: "event pass for digital
  * downloads approved"; the controller: "on our toolbar, there is a way to
  * navigate the designs"). The pattern is `MakerHeroDesignPicker`'s: the shared
@@ -14,21 +17,34 @@ import { PrintPreview } from './print-preview';
  * already warm), the latest pick held in a REF so two quick picks never save
  * out of order.
  *
- * 💾 SAVED THE WAY EVERY PRINTS CHOICE IS SAVED — immediately, through the
- * prints' own door (`POST /api/hub-print/pass-design`, the sibling of `words`
- * and `menu`, writing `events.print_details.pass_design`). Prints do not ride
- * the Event Hub draft / Apply. One pick drives every card: the picture a guest
- * saves, their "Save all", the couple's zip and the Phone card print.
+ * 💾 A PICK WAITS FOR APPLY (owner 2026-10-02 Q7, *"the pass look waits for
+ * Apply"*; built 2026-10-05): saved into the Event Hub DRAFT
+ * (`passDesignDraftPatch` → `events.print_details` as `{ pass_design }`), never
+ * the live row — guests' cards, their "Save all", the couple's zip and the
+ * Phone card print keep the live look until the couple presses Apply, which
+ * merges it into `print_details.pass_design` (`hub-draft-actions.ts`). The
+ * old live door (`POST /api/hub-print/pass-design`) is gone.
+ *
+ * Drawn in two places, one component: the Guest's ticket scene's sheet (the
+ * dropdown alone — the ticket is drawn on the page above it, `preview={false}`,
+ * `onShown` tells the page which) and Prints (dropdown + picture).
  */
 export function PassCardDesignPicker({
   eventId,
   saved,
   previews,
+  preview = true,
+  onShown,
 }: {
   eventId: string;
+  /** The look the couple is editing — the drafted one when the draft holds it, else the live one. */
   saved: PassCardDesign;
   /** The card drawn in each look — `/api/hub-print/pass?…&pass_format=phone-card&pass_design=<key>`. */
   previews: Readonly<Record<PassCardDesign, string>>;
+  /** Draw the card beside the dropdown (Prints). Off where the page above already draws it (the Guest's ticket scene). */
+  preview?: boolean;
+  /** The look on screen — every pick at once, and a refused one put back. */
+  onShown?: (design: PassCardDesign) => void;
 }) {
   const [shown, setShown] = useState<PassCardDesign>(saved);
   const [error, setError] = useState<string | null>(null);
@@ -41,12 +57,13 @@ export function PassCardDesignPicker({
     if (!design || design === latest.current) return;
     latest.current = design;
     setShown(design);
+    onShown?.(design);
     setError(null);
     start(async () => {
       const fd = new FormData();
-      fd.set('event_id', eventId);
-      fd.set('design', design);
-      const ok = await fetch('/api/hub-print/pass-design', { method: 'POST', body: fd, headers: { accept: 'application/json' } })
+      fd.set('intent', 'save');
+      fd.set('patch', JSON.stringify(passDesignDraftPatch(design)));
+      const ok = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh)
         .then((r) => r.ok)
         .catch(() => false);
       if (ok) {
@@ -57,6 +74,7 @@ export function PassCardDesignPicker({
       if (latest.current === design) {
         latest.current = stored.current;
         setShown(stored.current);
+        onShown?.(stored.current);
         setError('That style did not save — please try again.');
       }
     });
@@ -74,14 +92,16 @@ export function PassCardDesignPicker({
           dataAttr="data-pass-card-design-pick"
         />
       </div>
-      <div className="w-full max-w-[240px]">
-        <PrintPreview
-          src={previews[shown]}
-          alt={`${PASS_CARD_DESIGN_LABEL[shown]} ${PASS_CARD_WORDS.noun}`}
-          label={PASS_CARD_WORDS.noun}
-          prefetch={PASS_CARD_DESIGNS.filter((d) => d !== shown).map((d) => previews[d])}
-        />
-      </div>
+      {preview ? (
+        <div className="w-full max-w-[240px]">
+          <PrintPreview
+            src={previews[shown]}
+            alt={`${PASS_CARD_DESIGN_LABEL[shown]} ${PASS_CARD_WORDS.noun}`}
+            label={PASS_CARD_WORDS.noun}
+            prefetch={PASS_CARD_DESIGNS.filter((d) => d !== shown).map((d) => previews[d])}
+          />
+        </div>
+      ) : null}
       {error ? (
         <p role="alert" className="text-[12.5px] text-terracotta-700">
           {error}

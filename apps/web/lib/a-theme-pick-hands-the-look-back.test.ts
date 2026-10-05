@@ -81,7 +81,8 @@ test('an event with no overrides changes nothing but the theme at Apply', () => 
 test('by source: the picker is the one writer, sends the reset in the SAME patch, and never touches the hero background', () => {
   const src = stripComments(readFileSync(join(WEB, PICKER), 'utf8'));
   assert.equal([...src.matchAll(/hubDraftAction\(/g)].length, 1);
-  assert.match(src, /JSON\.stringify\(\{ events: \{ invite_theme: id, \.\.\.THEME_OWN_LOOK_RESET \} \}\)/);
+  // 🎨 …and, onto an EMPTY Mood Board only, the theme's colours in the same patch (owner 2026-10-05).
+  assert.match(src, /JSON\.stringify\(\{ events: \{ invite_theme: id, \.\.\.THEME_OWN_LOOK_RESET, \.\.\.\(seed \? \{ role_palette: seed \} : \{\}\) \} \}\)/);
   assert.doesNotMatch(src, /widgets:\s*\{/, 'a theme pick reaches into a scene');
   const lib = stripComments(readFileSync(join(WEB, 'lib/theme-own-look.ts'), 'utf8'));
   assert.doesNotMatch(lib, /import /, 'the Maker’s bundle is at its ceiling — this file takes no imports');

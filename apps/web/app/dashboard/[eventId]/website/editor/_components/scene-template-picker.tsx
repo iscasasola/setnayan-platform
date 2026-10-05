@@ -172,7 +172,8 @@ export function SceneTemplatePicker({
           type="button"
           aria-label="Close the templates"
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-[90] cursor-default bg-ink/30"
+          /* A tap on the page closes it; on a phone the page is not dimmed — the templates sit in the lower third. */
+          className="fixed inset-0 z-[90] cursor-default bg-ink/30 max-lg:bg-transparent"
         />
       ) : null}
       {open ? (
@@ -181,9 +182,9 @@ export function SceneTemplatePicker({
           aria-label={`${heading} ${stageLabel}`}
           className={
             overlay
-              ? /* 📱 A bottom sheet on a phone (rounded top, from the bottom
-                   edge, the page still peeking above); a panel from sm up. */
-                'fixed inset-x-0 bottom-0 top-auto z-[91] mx-auto max-h-[85dvh] max-w-3xl overflow-y-auto rounded-t-3xl border border-ink/10 bg-cream p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-lg sm:inset-x-6 sm:bottom-3 sm:top-16 sm:max-h-none sm:rounded-md'
+              ? /* 🧰 On a phone: IN the Maker's lower third (owner 2026-10-05), never
+                   over the page; a panel from lg up. */
+                'fixed z-[91] mx-auto max-w-3xl overflow-y-auto bg-cream p-3 shadow-lg ring-1 ring-ink/10 max-lg:inset-x-1 max-lg:bottom-[calc(env(safe-area-inset-bottom)+4px)] max-lg:top-auto max-lg:h-[calc(var(--maker-lt-h,45dvh)-8px)] max-lg:rounded-2xl lg:inset-x-6 lg:bottom-3 lg:top-16 lg:rounded-md'
               : 'mt-2 rounded-md border border-ink/10 bg-cream p-3 shadow-sm'
           }
         >

@@ -140,7 +140,8 @@ test('days to go moves when today moves — and when the date does', async () =>
       { today: '2026-10-02', date: '2027-04-20' },
       { today: '2026-10-03', date: '2027-04-20' },
     ],
-    expect: ['200', '199'],
+    // 12:00 Manila → whole days of REAL time left (the countdown's rule, one-countdown-rule.test.ts).
+    expect: ['199', '198'],
   });
   await assertOutputMoves({
     what: 'Home · days to go, two events',
@@ -150,7 +151,7 @@ test('days to go moves when today moves — and when the date does', async () =>
       { today: '2026-10-02', date: '2026-12-01' },
       { today: '2026-10-02', date: '2027-04-20' },
     ],
-    expect: ['60', '200'],
+    expect: ['59', '199'],
   });
 });
 

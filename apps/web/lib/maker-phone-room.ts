@@ -1,21 +1,21 @@
 /**
  * 📱 THE PAGE KEEPS MOST OF A PHONE — THE MAKER'S ROOM RULE (owner, live iPhone
- * test 2026-10-02, the headline finding: *"the screen is too clumped, not much
- * space to work on"*).
+ * test 2026-10-02: *"the screen is too clumped, not much space to work on"*;
+ * 2026-10-05: *"we only maximize the height on the lower third. and all tools
+ * can only reside on the thumb area / lower third"* → *"approve"*).
  *
- * At 390 × 844 and 375 × 667, with ANY Maker panel or sheet open:
+ * On a phone the Maker is three zones, in this order and no other:
  *
- *   · the page preview keeps at least 55% of the screen's height;
- *   · the top bar + the sheet + any strip take at most 45% together;
- *   · one panel shows at a time.
+ *   TOP NAV      52 px — ✕ · the screen you are on · [↺ | 👁] · ✓
+ *   WORKSPACE    the page, full width — nothing editable opens over it
+ *   LOWER THIRD  `MAKER_LT_HEIGHT` — where you are · the navigator, or a tool
  *
- * Every piece of the Maker's phone chrome DECLARES its phone height in its own
- * classes — a fixed `max-md:h-[Npx]` / `max-lg:h-[Npx]` for a bar or a strip, a
- * cap for a panel — and wears `data-phone-chrome="bar|strip|panel"`. The cap a
- * panel wears is one of the two below: what is left of 45% after the bar (and,
- * in the guided flow, after its one line). `lib/the-maker-keeps-the-page-on-a-phone.test.ts`
- * renders each panel and adds up what is visible with `phoneChromeHeight`;
- * a panel whose height is not declared fails it.
+ * At 390 × 844 and 375 × 667 the page keeps at least 55% of the height, with or
+ * without a tool open, because a tool opens INSIDE the lower third
+ * (`MAKER_LT_TOOL`) — never over the page, never dimming it. Every piece of
+ * phone chrome DECLARES its phone height in its own classes and wears
+ * `data-phone-chrome="bar|bottom|panel"`; `lib/the-maker-keeps-the-page-on-a-phone.test.ts`
+ * renders each and adds them up.
  */
 
 export const MAKER_PHONE_VIEWPORTS = [
@@ -28,37 +28,19 @@ export const MAKER_PREVIEW_MIN_SHARE = 0.55;
 
 /** The toolbar on a phone: ONE 44 px row, 4 px padding above and below (owner 2026-10-02: one row, Apply always in it). */
 export const MAKER_PHONE_BAR_PX = 52;
-/** The guided flow's one line (progress · step ▾ · ‹ › · All items). */
-export const MAKER_PHONE_GUIDE_LINE_PX = 52;
-
-/* The two panel caps — whole Tailwind class strings, so the stylesheet is built
-   from them (`tailwind.config` scans lib/). Bar + cap (+ line) = 45dvh. */
-/** A panel or sheet under the bar alone. */
-export const MAKER_PHONE_PANEL_CAP = 'max-lg:max-h-[calc(45dvh-52px)]';
-/** A panel under the bar AND the guided flow's line. */
-export const MAKER_PHONE_GUIDED_PANEL_CAP = 'max-lg:max-h-[calc(45dvh-104px)]';
 
 /*
- * 📏 THE PHONE'S TWO BARS — frame G ("Phone — the preview is the screen") of
- * `prototypes/maker_in_four_2026-09-30_fable.html`, as rearranged by the owner on
- * 2026-10-04 (PR-0 of the Maker rearrangement): fix 5 of "FOUR FIXES BEFORE
- * BUILD" put Undo beside Apply; then *"that can be a preview icon?"* (⋯ → 👁)
- * and *"apply icon · undo icon · exit icon"*:
+ * 📏 THE TOP NAV — ONE ROW AT 375 PX (owner 2026-10-05, the keynote chrome):
  *
- *   TOP     ‹ Exit · the stage you are on ("Invitation · as a guest sees it")
- *           · ↶ Undo · 👁 Preview · ✓ Apply (n) — every button a 44 × 44 icon
- *           with its name (`MAKER_BAR_ICON`); Apply's first tap opens the Apply
- *           sheet, and only its labelled Apply publishes.
- *   BOTTOM  Page ▾ (the page: "Welcome ▾") · Look · Event Details.
+ *   ✕ Exit (red, its own pill) · the screen you are on ("RSVP · RSVP form",
+ *   truncates) · [ ↺ Undo | 👁 Preview ] (one shared pill) · ✓ Apply (green,
+ *   its own pill, the count) — every button a 44 × 44 icon with its name
+ *   (`MAKER_BAR_ICON`); Apply's first tap opens the Apply sheet, and only its
+ *   labelled Apply publishes.
  *
- * Apply sits up top beside Undo: one place per control, and in reach while a
- * half sheet (`MakerHalfSheet`, lib/element-sheet-state.ts) covers the bottom of the screen.
- *
- * One row each at 375 px: each item declares its phone width (`w-[…]`, or
- * `min-w-[…]` for the one that takes what is left); `lib/the-maker-keeps-the-page-on-a-phone.test.ts`
- * adds each row up and fails a row over 375, a word its button cannot hold, or
- * a bar button under 44 px or without a name.
- * (Details wears its current name, "Event Details" — tracker d15.)
+ * Each item declares its phone width (`w-[…]`, or `min-w-[…]` for the one that
+ * takes what is left); `lib/the-maker-keeps-the-page-on-a-phone.test.ts` adds
+ * the row up and fails it over 375, or a bar button under 44 px or unnamed.
  */
 export const MAKER_BAR_PHONE = {
   /* top */
@@ -67,12 +49,8 @@ export const MAKER_BAR_PHONE = {
   undoTop: 'max-md:w-11',
   preview: 'max-md:w-11',
   applyTop: 'max-md:w-11',
-  /** The bar's own Page ▾ — on a phone it is the bottom bar's. */
-  pageTop: 'max-md:hidden',
-  /* bottom */
-  page: 'max-md:min-w-[100px]',
-  look: 'max-md:w-[48px]',
-  details: 'max-md:w-[118px]',
+  /** The bar's own Page ▾ — a desktop's; on a phone the lower third's menu and navigator are. */
+  pageTop: 'max-lg:hidden',
 } as const;
 
 /**
@@ -81,14 +59,13 @@ export const MAKER_BAR_PHONE = {
  */
 export const MAKER_BAR_ICON =
   'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink aria-expanded:bg-ink/[0.09] disabled:cursor-not-allowed disabled:text-ink/35 disabled:hover:bg-transparent';
-/** ✓ Apply: the one filled button — a wine circle (`bg-mulberry`, the house primary). */
+/**
+ * ✓ Apply: the one filled button — a GREEN circle, its own pill, on a phone
+ * (owner 2026-10-05: *"apply should show a green color?"*); a desktop keeps
+ * the wine circle (`bg-mulberry`, the house primary) this round.
+ */
 export const MAKER_BAR_APPLY =
-  'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream transition-colors duration-sn-control ease-sn hover:bg-mulberry-600 disabled:cursor-not-allowed disabled:bg-ink/10 disabled:text-ink/40 disabled:hover:bg-ink/10';
-/** The phone's bottom bar: one 52 px row (+ the bottom safe area, which is the phone's, not the page's). */
-export const MAKER_PHONE_BOTTOM_BAR_PX = 52;
-/** A word on a phone bar: 13 px, 8 px each side. */
-export const MAKER_BAR_PHONE_WORD_PX = 13;
-export const MAKER_BAR_PHONE_PAD_PX = 8;
+  'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream transition-colors duration-sn-control ease-sn hover:bg-mulberry-600 max-lg:bg-success-600 max-lg:hover:bg-success-700 disabled:cursor-not-allowed disabled:bg-ink/10 disabled:text-ink/40 disabled:hover:bg-ink/10';
 /** Each bar's gap between items, and its side padding, on a phone. */
 export const MAKER_BAR_PHONE_GAP_PX = 4;
 export const MAKER_BAR_PHONE_SIDE_PX = 8;
@@ -114,6 +91,36 @@ export const MAKER_BAR_PHONE_SIDE_PX = 8;
  */
 export const MAKER_STRIP_PHONE = 'max-lg:overflow-y-hidden max-lg:[&_.sn-tip:not([data-open=true])]:hidden';
 
+/*
+ * 🧰 THE LOWER THIRD — every phone editing tool lives here (owner, 2026-10-05:
+ * *"we only maximize the height on the lower third. and all tools can only
+ * reside on the thumb area/ lower third"* → *"approve"* of
+ * `prototypes/maker_lower_third_interactive_2026-10-05_fable.html`).
+ *
+ *   TOP NAV      ✕ · the screen you are on · [↺ | 👁] · ✓          (52 px)
+ *   WORKSPACE    the page, full width — nothing editable opens over it
+ *   LOWER THIRD  where you are (menu ▾ + the pick) · the navigator   (`MAKER_LT_HEIGHT`)
+ *                — or, with a tool open, the collapsed column + the tool
+ *
+ * The shell sets `--maker-lt-h` (`MAKER_LT_HEIGHT`) and draws the lower third
+ * in its flow, under the workspace. A tool is `fixed` over the lower third,
+ * right of the collapsed column (`MAKER_LT_TOOL`): at 375 px it is 311 px wide.
+ * Phone only (`max-lg:`) — the desktop keeps its columns.
+ */
+/** The lower third's height, the home indicator's room added by the shell. */
+export const MAKER_LT_HEIGHT = 'clamp(216px,30dvh,236px)';
+/** `MAKER_LT_HEIGHT` in px at a phone's visible height — the guard's arithmetic, the same three numbers. */
+export function makerLtHeightPx(viewportH: number): number {
+  return Math.min(236, Math.max(216, 0.3 * viewportH));
+}
+/** The collapsed column a tool leaves on the left: the tool's name, ‹ ›, ×. */
+export const MAKER_LT_COLUMN_PX = 52;
+/** A tool's width at the narrowest phone, at least (owner: "make sure it doesn't feel too cramped"). */
+export const MAKER_LT_TOOL_MIN_PX = 300;
+/** A tool in the lower third: fixed over it, 60 px from the left (column 52 + 4 + 4), 4 px from the right. */
+export const MAKER_LT_TOOL =
+  'max-lg:fixed max-lg:left-[60px] max-lg:right-1 max-lg:top-auto max-lg:bottom-[calc(env(safe-area-inset-bottom)+4px)] max-lg:z-30 max-lg:h-[calc(var(--maker-lt-h)-8px)] max-lg:max-h-none max-lg:w-auto max-lg:rounded-2xl max-lg:bg-cream max-lg:shadow-none max-lg:ring-1 max-lg:ring-ink/10';
+
 /* ─── the measuring half (pure — for the guard) ─────────────────────────── */
 
 const PHONE_PREFIXES = ['max-md:', 'max-lg:', 'max-sm:'];
@@ -131,8 +138,12 @@ export function hiddenOnPhone(classes: string): boolean {
 
 /** One length token → px at this viewport height (null when it is not a length this guard reads). */
 function lengthPx(v: string, viewportH: number): number | null {
+  // 🧰 The lower third and what sits in it (\`--maker-lt-h\`, \`MAKER_LT_HEIGHT\`).
+  if (v === 'calc(var(--maker-lt-h)+env(safe-area-inset-bottom))') return makerLtHeightPx(viewportH);
+  let m = /^calc\(var\(--maker-lt-h\)-(\d+)px\)$/.exec(v);
+  if (m) return makerLtHeightPx(viewportH) - Number(m[1]);
   // A bar over the phone's own safe area: the inset is the device's, not the page's.
-  let m = /^calc\((\d+)px\+env\(safe-area-inset-[a-z]+\)\)$/.exec(v);
+  m = /^calc\((\d+)px\+env\(safe-area-inset-[a-z]+\)\)$/.exec(v);
   if (m) return Number(m[1]);
   m = /^calc\((\d+(?:\.\d+)?)dvh-(\d+)px\)$/.exec(v);
   if (m) return (Number(m[1]) * viewportH) / 100 - Number(m[2]);

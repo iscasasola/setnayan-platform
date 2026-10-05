@@ -80,6 +80,12 @@ export const SAMPLE_PRINT_PIECES = ['invitation', 'details', 'pass'] as const;
  * — `lib/print-sample-door.server.ts`): the same picture for every couple,
  * `public` and immutable by `v` (the sample's print-inputs hash).
  */
-export function samplePrintSrc(piece: (typeof SAMPLE_PRINT_PIECES)[number], theme: string, version: string | null): string {
-  return `/api/hub-print/${piece}?sample=1&mode=screen&theme=${encodeURIComponent(theme)}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
+export function samplePrintSrc(
+  piece: (typeof SAMPLE_PRINT_PIECES)[number],
+  theme: string,
+  version: string | null,
+  /** 🎨 The sample's board, as `sampleBoardQuery` wrote it (`palette=none` · `board=…&bv=…`); absent = the sample's own. */
+  board: string | null = null,
+): string {
+  return `/api/hub-print/${piece}?sample=1&mode=screen&theme=${encodeURIComponent(theme)}${board ? `&${board}` : ''}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
 }

@@ -1,6 +1,8 @@
 'use server';
 
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { forgetDraftedEventColumn } from '@/lib/hub-draft-store';
+import { stdBackgroundChanged } from '@/lib/std-background-changed';
 import { readVenueChoices, VENUE_CHOICES_KEY, type VenueChoice, type VenueSlotKey } from '@/lib/event-venues';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -16,7 +18,7 @@ import {
   revealTemplateWriteAllowed,
 } from '@/lib/reveal-access';
 import { eventOwnsStdOpenings } from '@/lib/std-openings';
-import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
+import { resolveStdBackground, type StdBackground, stdFollowTheme } from '@/lib/std-backgrounds';
 import {
   resolveStdMedia,
   resolveStdNsfwVerdict,
@@ -170,6 +172,10 @@ export async function saveAllStdContent(
     filmAccentColor?: string | null;
     revealEffects?: RevealEffects | null;
     background?: StdBackground | null;
+    /** 🎞 "Same as theme" (owner 2026-10-05): the film hands its background back
+     *  to the Event Hub theme — `std_background` is cleared and the film paints
+     *  the theme's canvas (`stdFilmBackground`). Wins over `background`. */
+    backgroundFollowsTheme?: boolean;
     media?: StdMedia | null;
     /** A newly-uploaded song r2 ref. Persists to the SINGLE-SOURCE site music
      *  (events.site_bg_music_*) — the STD film reuses the couple's site song.
@@ -221,7 +227,7 @@ export async function saveAllStdContent(
      never gated. Refused BEFORE anything is written, with a code the builder
      turns into a sentence — never a generic "error". */
   const wantsBg =
-    data.background !== undefined && data.background !== null
+    data.background !== undefined && data.background !== null && data.backgroundFollowsTheme !== true
       ? resolveStdBackground(data.background)
       : null;
   const wantsMedia =
@@ -317,7 +323,11 @@ export async function saveAllStdContent(
     patch.std_reveal_effects = incomingEffects;
   }
   // Step-1 background choice — validated to {kind, value}.
-  if (data.background !== undefined && data.background !== null) {
+  if (data.backgroundFollowsTheme === true) {
+    // 🎞 Same as theme — nothing of the film's own; the theme paints it, and the
+    // couple's Readability (Lighten / Darken) is kept (`stdFollowTheme`).
+    patch.std_background = stdFollowTheme(data.background?.legibility ?? null);
+  } else if (data.background !== undefined && data.background !== null) {
     const bg = resolveStdBackground(data.background);
     // SEC-1: an 'upload' background carries a client-supplied r2:// ref that is
     // presigned LATER — by lib/std-bg-image.ts and by the PUBLIC wedding-site
@@ -441,8 +451,25 @@ export async function saveAllStdContent(
     patch.site_bg_music_enabled = true;
   }
 
+  // The live film background BEFORE this save — the studio posts `background`
+  // on every save, so only a real change may forget a drafted one (below).
+  let bgBefore: unknown = null;
+  if ('std_background' in patch) {
+    const { data: bgRow } = await supabase
+      .from('events')
+      .select('std_background')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    bgBefore = (bgRow as Record<string, unknown> | null)?.std_background ?? null;
+  }
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
   if (error) return { ok: false, error: 'db-error' };
+  // 🧹 The film's background just CHANGED live — a "Same as theme" drafted
+  // earlier must not put itself back over it at Apply. An untouched background
+  // (a venue-only save) keeps the drafted choice (`stdBackgroundChanged`).
+  if ('std_background' in patch && stdBackgroundChanged(bgBefore, patch.std_background)) {
+    await forgetDraftedEventColumn(supabase, eventId, 'std_background');
+  }
 
   if (data.venueChoice) {
     const slot = data.venueChoice.slot;

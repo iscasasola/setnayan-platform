@@ -8,6 +8,7 @@ import { guestMainGround } from '@/lib/guest-main-ground';
 import { websiteProActiveFor } from './hub-look';
 import type { HeroEventInput } from '@/lib/event-hero';
 import { adaptiveThemeVars, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
+import { dressedTheme } from '@/lib/theme-colours';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { MainGround, MainGroundNone } from '../_components/main-ground';
@@ -62,7 +63,7 @@ export async function mainGroundLayerFor({
   theme: InviteThemeId;
   /** The hero row's `config_json` (draft-overlaid for the host's canvas). */
   heroConfig: unknown;
-  event: HeroEventInput & { event_id: string; site_button_color?: unknown };
+  event: HeroEventInput & { event_id: string; site_button_color?: unknown; role_palette?: unknown };
   viewerIsHost: boolean;
   /** Refs the caller already signed, so a ref is never signed twice. */
   signed?: Record<string, string>;
@@ -82,7 +83,8 @@ export async function mainGroundLayerFor({
   // The ONE answer to "what is behind the event", shared with Discover's card.
   const mainGround = guestMainGround(theme, ownsPro, heroConfig, event);
   if (mainGround) {
-    const adaptive = resolveAdaptiveTheme(INVITE_THEMES[theme], mainGround.tint);
+    // 🎨 Measured on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
+    const adaptive = resolveAdaptiveTheme(dressedTheme(theme, event.role_palette), mainGround.tint);
     const sign = async (ref: string | null) =>
       ref ? (signed[ref] ?? (await displayUrlForStoredAsset(siteMediaServeRef(ref)))) : null;
     const [still, clip] = await Promise.all([

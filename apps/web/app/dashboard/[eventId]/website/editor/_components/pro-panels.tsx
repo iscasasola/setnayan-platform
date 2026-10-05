@@ -255,7 +255,7 @@ export function ColorsPanel({
 }
 
 /** The theme's own page and button colours — what a page with no Mood Board wears. */
-function themeColours(themeId: string) {
+function themeOwnColours(themeId: string) {
   const theme = INVITE_THEMES[(themeId in INVITE_THEMES ? themeId : LEGACY_THEME_ALIASES[themeId] ?? 'house') as InviteThemeId];
   return { theme, background: theme.palette.canvas, buttons: theme.palette.accent };
 }
@@ -281,7 +281,7 @@ function ButtonColourField({
   themeId: string;
 }) {
   const [hex, setHex] = useState<string>(defaultValue ?? '');
-  const fallback = moodBoard?.buttons ?? themeColours(themeId).buttons;
+  const fallback = moodBoard?.buttons ?? themeOwnColours(themeId).buttons;
   const unsetLabel = moodBoard ? 'From your Mood Board' : 'From your theme';
   return (
     <div data-button-colour-field="">
@@ -335,7 +335,7 @@ function BackgroundField({
   moodBoard: { background: string; buttons: string; swatches: string[] } | null;
 }) {
   const stored = parseSiteBackground(value);
-  const { theme, background: themeGround } = themeColours(themeId);
+  const { theme, background: themeGround } = themeOwnColours(themeId);
 
   const [hex, setHex] = useState<string>(stored ? (stored.kind === 'plain' ? stored.hex : stored.ombre.base) : '');
   const [effect, setEffect] = useState<BackgroundEffect>(stored?.kind === 'ombre' ? stored.ombre.shape : 'plain');

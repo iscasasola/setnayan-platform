@@ -3,7 +3,7 @@ import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
 import { loadEntourage } from '@/app/[slug]/_lib/loaders';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
-import { peopleLabels, splitStoredName } from '@/lib/details-your-event';
+import { parentsOffered, peopleLabels, splitStoredName } from '@/lib/details-your-event';
 import { loadVenueBookings, resolveEventVenues } from '@/lib/event-venues';
 import { resolveProfile, resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import type { EventDatePrecision } from '@/lib/events';
@@ -141,7 +141,12 @@ export async function readYourEventFacts({
       date: { value: row.event_date, dayPrecise: precision === 'day' },
       venueCount: venues.length,
       parentCount,
-      hostCount,
+      /* 👪 THE INVITATION'S HOSTS ARE ITS PARENTS (owner, live walk 2026-10-05:
+         the step showed "Ana & Marco · wedding planner external · <email>" — a
+         dashboard co-host account, not a person the invitation names). Where the
+         type prints parents, only they count; a collaborator account never makes
+         the step "set". A type without parents keeps its Kindly-reply host. */
+      hostCount: parentsOffered(kind) ? 0 : hostCount,
       marchLines,
     },
   };

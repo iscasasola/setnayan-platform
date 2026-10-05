@@ -68,7 +68,8 @@ export function CopyMyLink({
         type="button"
         onClick={async () => setState((await copyText(link)) ? 'done' : 'failed')}
         className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full px-5 text-sm font-semibold transition ${
-          state === 'done' ? 'bg-gild text-ink' : 'bg-ink text-cream hover:bg-ink/90'
+          // "Copied ✓" on the cards' own surface — the page ink always reads there; the gild is its ring.
+          state === 'done' ? 'bg-paper-deep text-ink ring-1 ring-gild' : 'bg-ink text-cream hover:bg-ink/90'
         }`}
       >
         {state === 'done' ? (

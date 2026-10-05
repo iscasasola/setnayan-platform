@@ -27,6 +27,7 @@ import {
   canvasLookFacets,
   hubDraftCountedChanges,
   planHubDraftApply,
+  printDetailsKeysChanged,
   type CanvasFacetGroup,
   type HubDraftChangeLine,
   type HubDraftEventColumn,
@@ -35,6 +36,9 @@ import {
   type HubLiveState,
 } from '@/lib/hub-draft';
 import { postEventItemLabel } from '@/lib/post-event-draft';
+import { INVITE_THEMES } from '@/lib/invite-themes';
+import { seededTheme } from '@/lib/theme-colours';
+import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -47,6 +51,8 @@ const DETAILS = 'Event Details';
  */
 export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string; what: string }> = {
   invite_theme: { place: LOOK, what: LOOK_SECTION_LABEL.theme },
+  // 🎨 Named with the theme it came from — "Mood Board · Colours from Cyber Neon" (`hubDraftChangePlace`).
+  role_palette: { place: 'Mood Board', what: 'Colours' },
   site_art_direction: { place: LOOK, what: 'Candlelight' },
   site_font_key: { place: LOOK, what: LOOK_SECTION_LABEL.font },
   site_bg_color: { place: LOOK, what: LOOK_SECTION_LABEL.colours },
@@ -61,6 +67,7 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   rsvp_ask_config: { place: 'RSVP', what: 'What you ask your guests' },
   std_reveal_template: { place: 'Save the Date', what: 'Reveal' },
   std_reveal_effects: { place: 'Save the Date', what: 'Reveal effects' },
+  std_background: { place: 'Save the Date', what: 'Film background' },
   reveal_stages: { place: 'Save the Date', what: 'Where the reveal plays' },
   monogram_custom_svg: { place: 'Logo', what: 'Your logo' },
   monogram_studio_config: { place: 'Logo', what: 'Design' },
@@ -131,8 +138,22 @@ function canvasWhat(liveConfig: unknown, next: unknown): string {
 /** One draft item → where · what. Exhaustive over the item kinds and widget fields. */
 export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { place: string; what: string } {
   switch (item.kind) {
-    case 'event':
+    case 'event': {
+      /* 🎨 A theme's colours placed on an empty Mood Board (owner 2026-10-05)
+         say which theme they came from — "Mood Board · Colours from Cyber Neon". */
+      if (item.column === 'role_palette') {
+        const from = seededTheme(item.value);
+        return { place: 'Mood Board', what: from ? `Colours from ${INVITE_THEMES[from].name}` : 'Colours' };
+      }
+      /* 🎫 The drafted print settings say WHICH one moved — the ticket style is
+         the Guest's ticket's, the name style Event Details'. */
+      if (item.column === 'print_details') {
+        const keys = printDetailsKeysChanged(live.events.print_details, item.value);
+        if (keys.length === 1 && keys[0] === 'pass_design') return { place: "Guest's ticket", what: PASS_CARD_WORDS.style };
+        if (keys.length === 2) return { place: DETAILS, what: `Name style, ${PASS_CARD_WORDS.style}` };
+      }
       return HUB_DRAFT_EVENT_PLACE[item.column];
+    }
     case 'editorial': {
       // "Post Event · which scenes show" → Post Event · Which scenes show.
       const [place, ...rest] = postEventItemLabel(item.item).split(' · ');

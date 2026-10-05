@@ -247,7 +247,7 @@ export function IReset({ onClick, children, data }: { onClick: () => void; child
   );
 }
 
-/** A plain secondary button (Preview, Open the Hero editor, Move up …). */
+/** A plain secondary button (Preview, Move up …). */
 export function IButton({
   onClick,
   children,

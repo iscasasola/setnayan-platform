@@ -9,7 +9,7 @@ import { extractPosterFrame } from '../../../_components/std-media-picker';
 import { hubDraftAction } from '../../hub-draft-actions';
 import { CALMER_CLIP_SCRIM, measureFrame, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
-import { INVITE_THEMES, themeBackgroundName, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, themeBackgroundName, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
@@ -252,10 +252,17 @@ export function MainBackgroundPanel({
   videoChoice = null,
   sceneUploads = [],
   mediaUsedBytes,
+  colours,
 }: {
   eventId: string;
   /** The couple's saved theme. Classic has no moving background at all. */
   themeId: InviteThemeId;
+  /**
+   * 🎨 The theme's colours as the Mood Board dresses them — `themeColours`
+   * (`lib/theme-colours.ts`), asked on the server with the drafted board. The
+   * adaptive tint and its legibility are measured on THESE (owner 2026-10-05).
+   */
+  colours: InviteTheme['palette'];
   /** The stored Main background as the preview shows it — the draft over live. */
   current: HubMainGround | null;
   /** The hero (the draft over live): its photo ref and a URL for it. */
@@ -281,7 +288,7 @@ export function MainBackgroundPanel({
   const [choosingMedia, setChoosingMedia] = useState(false);
   const measuring = useRef<Promise<Measured | null> | null>(null);
 
-  const theme = INVITE_THEMES[themeId];
+  const theme = useMemo(() => ({ ...INVITE_THEMES[themeId], palette: colours }), [themeId, colours]);
   const own: HubMainOwn | null = isHubMainOwn(current) ? current : null;
   const follow = current && isHubMainFollow(current) && current.of === hero.photoRef ? current : null;
   const tint = own?.tint ?? follow?.tint ?? null;

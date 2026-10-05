@@ -87,7 +87,8 @@ test('(2) a Buttons choice reaches the rendered Reply button’s CSS', async () 
   assert.match(select, /\bsite_button_color\b/);
   const from = loaders.slice(loaders.indexOf('export function guestLookFrom'));
   assert.match(from, /resolveHubButtons\(\{\s*style: event\.site_button_style,\s*colour: event\.site_button_color,/);
-  assert.match(from, /page: hubButtonPage\(theme, painted\)/, 'the buttons are not measured against the painted page');
+  // 🎨 …on the theme as the Mood Board dresses it (`dressedTheme`, 2026-10-05).
+  assert.match(from, /page: hubButtonPage\(dressed, painted\)/, 'the buttons are not measured against the painted page');
   assert.match(from, /vars: painted,\s*buttons,/, 'the look leaves the loader without its buttons');
 
   // b · the one translation hands the scope both attributes and the custom properties.

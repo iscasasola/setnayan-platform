@@ -41,9 +41,9 @@ import {
 } from '@/lib/entourage';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { dressedTheme, paletteColourVars, themeColours } from '@/lib/theme-colours';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import type { InviteTheme, InviteThemeId } from '@/lib/invite-themes';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
 import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
@@ -74,7 +74,7 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
-import { resolveStdBackground, realisticBgSrc, stdFilmBackground } from '@/lib/std-backgrounds';
+import { resolveStdBackground, realisticBgSrc, stdFilmBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
@@ -120,7 +120,6 @@ import type {
   LiveWallData,
   WatchLiveData,
 } from './types';
-import { sanitizeRolePalette } from '@/lib/mood-board';
 
 /** The service-role Supabase client the orchestrator creates once per request
  *  and threads into every loader — a stable per-request reference, so it is a
@@ -198,6 +197,8 @@ export type GuestLook = {
   accent: string;
   /** Mood-board palette with the Pro colours and face layered on top, or null. */
   vars: Record<string, string> | null;
+  /** 🎨 The worn theme's colours as the Mood Board dresses them (`themeColours`) — for what is measured, not painted. */
+  colours: InviteTheme['palette'];
   /**
    * 🌈 The couple's OMBRÉ (`lib/ombre.ts`), as the `background-image` the
    * page's paper paints in place of the theme's loop — or null for a plain
@@ -266,7 +267,11 @@ export function guestLookFrom(
   proActive: boolean,
 ): GuestLook {
 
-  const palette = buildSitePaletteVars(sanitizeRolePalette(event.role_palette));
+  /* 🎨 THE MOOD BOARD PALETTE DRESSES THE THEME (owner 2026-10-05, DECISION_LOG
+     "THE MOOD BOARD PALETTE IS THE PRIORITY") — through the ONE resolver every
+     picture of a theme reads (`lib/theme-colours.ts`), so the Maker's tiles and
+     the prints cannot paint a colour this page does not. */
+  const palette = paletteColourVars(event.role_palette, hub.theme);
   const pro = proSiteVarsFor(event, proActive, hub.theme);
   // Byte-safety, as the shell always had it: with no Pro colours the bag IS the
   // palette's; with some, they are spread over it (the couple's own pick wins).
@@ -282,9 +287,11 @@ export function guestLookFrom(
      ground the couple chose. The CSS itself travels as `ombre` for the scope's
      paper to paint in place of the theme's loop. */
   const background = parseSiteBackground(event.site_bg_color);
+  // 🎨 Every measurement below is made on the theme as the Mood Board dresses it.
+  const dressed = dressedTheme(hub.theme, event.role_palette);
   let ombre: string | null = null;
   if (background?.kind === 'ombre') {
-    const look = ombreLook(INVITE_THEMES[hub.theme], background.ombre);
+    const look = ombreLook(dressed, background.ombre);
     ombre = look.css;
     vars = { ...(vars ?? {}), ...look.vars };
   }
@@ -297,12 +304,11 @@ export function guestLookFrom(
      palette → the couple's colours → ombré), so an Outline is drawn only where
      its colour reads on that paper and those plates, and a fill's label is the
      legibility rule's. Free: no entitlement is read. */
-  const theme = INVITE_THEMES[hub.theme] ?? INVITE_THEMES.house;
   const buttons = resolveHubButtons({
     style: event.site_button_style,
     colour: event.site_button_color,
-    theme,
-    page: hubButtonPage(theme, painted),
+    theme: dressed,
+    page: hubButtonPage(dressed, painted),
   });
 
   return {
@@ -311,6 +317,7 @@ export function guestLookFrom(
     accent: hub.accent,
     vars: painted,
     buttons,
+    colours: dressed.palette,
     ombre,
   };
 }
@@ -662,10 +669,16 @@ export const loadMedia = cache(
 
     // Step-1 Save-the-Date background (events.std_background). Realistic → the
     // public scene src; upload → a presigned R2 url; plain/paper → no image.
-    // 🎨 Unpicked → the THEME's paper (owner 2026-10-05, `stdFilmBackground`); picked → the couple's own.
+    // 🎨 Unpicked → the THEME's paper (owner 2026-10-05, `stdFilmBackground`) —
+    // as the Mood Board palette dresses it (the same day's "THE MOOD BOARD
+    // PALETTE IS THE PRIORITY", `themeColours`); picked → the couple's own.
     const stdBackground =
-      event.std_background === null || event.std_background === undefined
-        ? stdFilmBackground(null, INVITE_THEMES[(await resolveHubTheme(event).catch(() => null))?.theme ?? 'house']?.palette.canvas ?? null)
+      // …keeping the couple's Readability while it follows (`stdFollowTheme`).
+      stdFollowsTheme(event.std_background)
+        ? stdFilmBackground(
+            event.std_background,
+            themeColours((await resolveHubTheme(event).catch(() => null))?.theme ?? 'house', event.role_palette).colours.canvas,
+          )
         : resolveStdBackground(event.std_background);
     const stdBackgroundUrl =
       stdBackground.kind === 'realistic'

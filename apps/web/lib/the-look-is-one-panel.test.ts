@@ -125,8 +125,8 @@ test('(2) the Look item mounts the one panel, and its body is the couple’s own
   // …wearing the theme being picked, at the tap (`theme=`, owner 2026-10-05: the page drew Classic under a Cyber Neon pick).
   assert.match(pages, /item === 'look'\s*\?\s*look\.publicLandingUrl\s*\?\s*`\$\{look\.publicLandingUrl\}\?phase=\$\{maker\.stage\}&editor=1\$\{picked \? `&theme=\$\{encodeURIComponent\(picked\)\}` : ''\}`/);
   assert.match(pages, /view === 'page' \? \(\s*<DetailsLookBody item="look" \/>/, 'the page is not what Look shows first');
-  // On a phone, opening Look opens its sheet.
-  assert.match(read(`${L}/details-workspace.tsx`), /if \(selected === 'theme'\) setSheetOpen\(true\);/);
+  // On a desktop, opening Look opens its panel; on a phone Theme lands on the lower third's navigator and its tile opens it (2026-10-05).
+  assert.match(read(`${L}/details-workspace.tsx`), /if \(selected === 'theme' && !window\.matchMedia\('\(max-width: 1023\.98px\)'\)\.matches\) setSheetOpen\(true\);/);
 });
 
 /* ── (3) moved, not copied ────────────────────────────────────────────── */

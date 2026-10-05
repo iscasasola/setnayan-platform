@@ -199,3 +199,13 @@ test('6 · the Apply sheet opens ABOVE the Maker — never behind it (owner: "pr
   assert.match(bar, /createPortal\(\s*<ApplyProSheet[\s\S]*?document\.body/, 'the Apply sheet is no longer portalled to <body> — re-check its stacking');
   assert.ok(zOf(sheetCls) > zOf(shellCls), `the Apply sheet (z ${zOf(sheetCls)}) opens behind the Maker (z ${zOf(shellCls)})`);
 });
+
+test('7 · a tap on the couple’s mark opens the Logo Maker in place — never its size sheet, never a link', () => {
+  const shell = read(`${E}/editor-shell.tsx`);
+  const tap = between(shell, "if (data.key === 'f:hero' && data.el === 'mark' && select) {", 'return;\n      }');
+  assert.match(tap, /select\(\{ kind: 'tool', key: 'logo' \}\)/, 'the mark does not open the Logo Maker in the Maker');
+  assert.match(tap, /setElementTarget\(null\)/, 'the mark’s size sheet still opens over the Logo Maker');
+  assert.doesNotMatch(tap, /href|router\.push|location/, 'the mark links out of the Maker');
+  // …and it is decided BEFORE the generic part tap that would open the size sheet.
+  assert.ok(shell.indexOf("data.el === 'mark' && select") < shell.indexOf("sheetDo({ t: 'tapPart', target: { key: data.key, widgetType, el, range: null } })"), 'the part sheet answers the mark first');
+});

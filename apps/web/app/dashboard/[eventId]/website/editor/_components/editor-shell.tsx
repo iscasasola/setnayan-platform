@@ -1080,6 +1080,18 @@ export function MakerWork({
         postToShownCanvases({ source: 'setnayan-editor', t: 'scrollTo', key: data.key }, event.source);
         return;
       }
+      /* 🪪 THE COUPLE'S MARK OPENS THE LOGO MAKER, in place (owner 2026-10-05,
+         live: "clicking the logo does not open the Logo Maker") — Details' Logo,
+         its studio on the page and its panels in the tools (a phone's lower
+         third, a desktop's right column). Its size and motion stay one ‹ › away
+         from the other parts. Nothing is written by opening it. */
+      if (data.key === 'f:hero' && data.el === 'mark' && select) {
+        setElementTarget(null);
+        postToShownCanvases({ source: 'setnayan-editor', t: 'markEl', key: data.key, el: null });
+        // The made-once Logo is Details' item now: the shell moves the pick there (`movedSelection`).
+        select({ kind: 'tool', key: 'logo' });
+        return;
+      }
       const moment = (data as { moment?: unknown }).moment;
       if (data.key === 'w:schedule' && typeof moment === 'string' && moment && openDetailsItemRef.current) {
         setElementTarget(null);

@@ -145,7 +145,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
     // list simply reads as "you have not booked anybody who does this".
     supabase
       .from('event_vendors')
-      .select('vendor_id, vendor_name, shop:vendor_profiles ( services )')
+      .select('vendor_id, vendor_name, shop:vendor_profiles!event_vendors_marketplace_vendor_id_fkey ( services )')
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
   ]);

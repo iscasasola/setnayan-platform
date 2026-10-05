@@ -80,6 +80,7 @@ export function MakerHalfSheet({
   beforeGrip = null,
   head = null,
   restOn,
+  tool = true,
   children,
 }: {
   /** The sheet's accessible name (the aside's `aria-label`). */
@@ -104,6 +105,8 @@ export function MakerHalfSheet({
   head?: ReactNode;
   /** When this changes, a sheet dragged up comes back to half (each guided step opens at rest). */
   restOn?: string | null;
+  /** 🧰 Fold the lower third for it (a phone) — false while the sheet is not drawn there (the guided flow's picker). */
+  tool?: boolean;
   children: ReactNode;
 }) {
   /* 🧰 IN THE MAKER the half sheet is a TOOL of the lower third on a phone
@@ -177,7 +180,7 @@ export function MakerHalfSheet({
     dispatch({ t: 'close' });
     onClose();
   };
-  useMakerTool(inMaker && Boolean(state.target), { key: `sheet:${label}`, name: title, close });
+  useMakerTool(inMaker && tool && Boolean(state.target), { key: `sheet:${label}`, name: title, close });
 
   /* 🚫 CLOSED IS NOT DRAWN (live dead end, 2026-10-04): a sheet with nothing
      selected has no aside, no slim bar and no hit area — never an empty glass

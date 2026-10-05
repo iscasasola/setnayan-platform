@@ -481,6 +481,13 @@ export async function hubDraftAction(
        the wedding fence above — the same order `setInviteTheme` kept. */
     const themeWrite = 'invite_theme' in eventsPatch ? eventsPatch.invite_theme : undefined;
     delete eventsPatch.invite_theme;
+    /* 🎨 THE BOARD'S FILL LEAVES THE SESSION UPDATE TOO — written after the
+       theme it came from (owner 2026-10-05, "THE MOOD BOARD PALETTE IS THE
+       PRIORITY"), and only if the board still holds what this Apply read: a
+       board the couple painted between the read and now is never overwritten. */
+    const paletteWrite = 'role_palette' in eventsPatch ? eventsPatch.role_palette : undefined;
+    const paletteRead = live.events.role_palette ?? null;
+    delete eventsPatch.role_palette;
     /* 🕒 THE CEREMONY TIME IS NOT AN `events` COLUMN — it is the Schedule's
        Ceremony block, placed below (`placeCeremonyBlock`) once the date the
        block stands on has been written. */
@@ -642,6 +649,21 @@ export async function hubDraftAction(
         .select('event_id');
       if (themeErr || !Array.isArray(themeRows) || themeRows.length === 0) {
         // Anything written above stays; the draft is untouched, so Apply again finishes it.
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+    if (paletteWrite !== undefined) {
+      /* Conditional on the board as read: NULL, the empty board, or the earlier
+         theme's fill — never a board the couple painted (the plan already
+         refuses one; this closes the window between that read and this write).
+         The couple's own session, the Mood Board page's own writer. Zero rows =
+         the board changed under us: nothing is written, and that is correct. */
+      const board = supabase.from('events').update({ role_palette: paletteWrite }).eq('event_id', eventId);
+      const { error: paletteErr } = await (paletteRead === null
+        ? board.is('role_palette', null)
+        : board.eq('role_palette', JSON.stringify(paletteRead))
+      ).select('event_id');
+      if (paletteErr) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }

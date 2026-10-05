@@ -24,6 +24,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HUB_THEMES, INVITE_THEMES } from '@/lib/invite-themes';
 import {
+  boardIsTheCouples,
   paletteColourVars,
   paletteFromSampleParam,
   samplePaletteParam,
@@ -36,6 +37,7 @@ import { printLookFor } from '@/lib/print-pieces';
 import {
   eventColumnChange,
   overlayHubDraftEvent,
+  planHubDraftApply,
   sanitizeHubDraftEventValue,
 } from '@/lib/hub-draft';
 import { hubDraftChangePlace } from '@/lib/hub-draft-change-lines';
@@ -76,18 +78,47 @@ test('no palette → every theme wears its own colours, and the page paints noth
 test('a Mood Board palette → EVERY theme wears the same colours, and the pictures agree with the page', () => {
   const page = buildSitePaletteVars(MARIA)!;
   for (const t of HUB_THEMES) {
-    const vars = paletteColourVars(MARIA, t.id);
-    assert.deepEqual(vars, page, `${t.id}: the guest page wears the board's derivation, unchanged`);
+    const vars = paletteColourVars(MARIA, t.id)!;
+    for (const [k, v] of Object.entries(page)) assert.equal(vars[k], v, `${t.id} ${k}: the board's derivation, unchanged`);
     const { source, colours } = themeColours(t.id, MARIA);
     assert.equal(source, 'palette', t.id);
     // The tile's ground, words and accent ARE the page's paper, ink and eyebrow.
-    assert.equal(ch(colours.canvas), vars!['--color-cream'], `${t.id} canvas`);
-    assert.equal(ch(colours.ink), vars!['--color-ink'], `${t.id} ink`);
-    assert.equal(ch(colours.accent), vars!['--color-terracotta'], `${t.id} accent`);
+    assert.equal(ch(colours.canvas), vars['--color-cream'], `${t.id} canvas`);
+    assert.equal(ch(colours.ink), vars['--color-ink'], `${t.id} ink`);
+    assert.equal(ch(colours.accent), vars['--color-terracotta'], `${t.id} accent`);
+    // …and the theme's own `--hub-*` hexes speak the board too, never the theme.
+    for (const k of ['canvas', 'surface', 'ink', 'muted', 'accent', 'heading'] as const) {
+      assert.equal(vars[`--hub-${k}`], colours[k], `${t.id} --hub-${k}`);
+    }
+    assert.equal(vars['--hub-accent-ink'], colours.accentInk);
   }
   // The live proof's case: Cyber Neon under maria-and-jose's board is LIGHT.
   assert.equal(themeColours('cyber', MARIA).colours.canvas, '#fbfbfa');
   assert.notEqual(themeColours('cyber', MARIA).colours.canvas, INVITE_THEMES.cyber.palette.canvas);
+});
+
+test('owner: "when mood board theme palette changes, then the theme will adjust accordingly" — every picture re-dresses, every address moves', () => {
+  // The couple edits two colours on their board: the near-white paper warms, the gold turns rose.
+  const SWAP: Record<string, string> = { '#FBFBFA': '#FFF5EE', '#C5A059': '#A63D57' };
+  const edited = Object.fromEntries(Object.entries(MARIA).map(([k, v]) => [k, v.map((c) => SWAP[c] ?? c)]));
+  for (const t of HUB_THEMES) {
+    const before = themeColours(t.id, MARIA).colours;
+    const after = themeColours(t.id, edited).colours;
+    assert.notEqual(after.canvas, before.canvas, `${t.id}: the tile/print paper did not follow the board`);
+    assert.notEqual(after.accent, before.accent, `${t.id}: the tile/print accent did not follow the board`);
+    assert.equal(ch(after.canvas), paletteColourVars(edited, t.id)!['--color-cream'], `${t.id}: page and tile disagree after the edit`);
+    assert.equal(printLookFor(t.id, themeColours(t.id, edited)).paper, after.canvas, `${t.id}: the print did not follow`);
+  }
+  // No stale picture: the gallery's sample address IS the swatches…
+  assert.notEqual(samplePaletteParam(edited), samplePaletteParam(MARIA), 'a sample page/print URL survives a board edit — it would be served stale');
+  // …the couple's print preview address names the event row it is drawn from (role_palette included)…
+  const set = read('lib/print-set.server.ts');
+  assert.match(set, /'event_id, display_name, event_type, [^']*\brole_palette\b[^']*'/, 'the print row (and so its preview hash) no longer reads the board');
+  assert.match(set, /printPreviewVersion\(\{ event, inputs, qrLook \}\)/, 'the print preview hash no longer covers the event row');
+  // …a drafted fill is named in the preview's draft address…
+  assert.match(read('lib/ceremony-time.ts'), /PRINT_DRAFTED_KEYS = \[[\s\S]*?'role_palette'[\s\S]*?\] as const/);
+  // …and the scene tiles re-copy when the canvas scope's inline colours change (the chain is compared).
+  assert.match(read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx'), /JSON\.stringify\(old\.chain\) === JSON\.stringify\(v\.chain\)/);
 });
 
 test("a theme's seed IS that theme's colours — on itself byte-identical, on every other theme its own page block", () => {
@@ -138,24 +169,34 @@ test("the gallery's sample param round-trips the couple's swatches, says 'none' 
   for (const bad of [undefined, null, '', 'red', 'FBFBFA.zzzzzz', '<script>', 'FBFBFA,C5A059']) {
     assert.equal(paletteFromSampleParam(bad as string | null | undefined), undefined, String(bad));
   }
-  const seedBack = paletteFromSampleParam(samplePaletteParam(themeSeedPalette('cyber')));
-  assert.equal(seededTheme(seedBack), 'cyber', 'a seeded board survives the trip');
+  // A theme-filled board is refilled by the next pick, so each sample shows its own colours.
+  assert.equal(samplePaletteParam(themeSeedPalette('cyber')), 'none');
 });
 
-test('the draft takes a theme’s colours only onto an EMPTY board, never clears one, and names where they came from', () => {
+test('the draft fills a board that is not the couple’s, refills a theme-filled one, never touches a painted one, and names the theme', () => {
   const seed = themeSeedPalette('cyber');
+  const velvet = themeSeedPalette('velvet');
   assert.deepEqual(sanitizeHubDraftEventValue('role_palette', seed), seed);
+  assert.deepEqual(sanitizeHubDraftEventValue('role_palette', { reception: [...seed.reception].reverse() }), seed, 'a seed in any order is that seed');
   assert.equal(sanitizeHubDraftEventValue('role_palette', null), undefined, 'the board is never cleared from the draft');
   assert.equal(sanitizeHubDraftEventValue('role_palette', MARIA), undefined, 'only a theme seed is draftable');
+  assert.equal(sanitizeHubDraftEventValue('role_palette', { reception: ['#123456'] }), undefined, 'colours no theme writes are refused');
   assert.equal(sanitizeHubDraftEventValue('role_palette', { reception: ['#FFF'] }), undefined);
   assert.equal(sanitizeHubDraftEventValue('role_palette', { reception: Array(6).fill('#FFFFFF') }), undefined);
 
+  assert.equal(boardIsTheCouples(null), false);
+  assert.equal(boardIsTheCouples(seed), false, 'a theme-filled board is still the theme’s (owner: "New theme refills them")');
+  assert.equal(boardIsTheCouples(MARIA), true);
+
   assert.equal(eventColumnChange('role_palette', null, seed), 'add');
   assert.equal(eventColumnChange('role_palette', {}, seed), 'add');
-  assert.equal(eventColumnChange('role_palette', MARIA, seed), 'none', 'a board with colours is never replaced');
+  assert.equal(eventColumnChange('role_palette', velvet, seed), 'change', 'a theme-filled board is refilled');
+  assert.equal(eventColumnChange('role_palette', seed, seed), 'none');
+  assert.equal(eventColumnChange('role_palette', MARIA, seed), 'none', 'a painted board is never replaced');
 
   const draft = { events: { role_palette: seed, invite_theme: 'cyber' }, widgets: {} };
   assert.deepEqual(overlayHubDraftEvent({ role_palette: null }, draft).role_palette, seed, 'an empty board shows the fill');
+  assert.deepEqual(overlayHubDraftEvent({ role_palette: velvet }, draft).role_palette, seed, 'a theme-filled board shows the refill');
   assert.deepEqual(overlayHubDraftEvent({ role_palette: MARIA }, draft).role_palette, MARIA, 'a painted board wins');
 
   const place = hubDraftChangePlace(
@@ -163,6 +204,26 @@ test('the draft takes a theme’s colours only onto an EMPTY board, never clears
     { events: {}, widgets: [] } as unknown as Parameters<typeof hubDraftChangePlace>[1],
   );
   assert.deepEqual(place, { place: 'Mood Board', what: 'Colours from Cyber Neon' });
+});
+
+test('a held Pro theme holds its colours with it at Apply; a free theme applies both', () => {
+  const live = { events: { invite_theme: null, role_palette: null }, widgets: [] } as unknown as Parameters<typeof planHubDraftApply>[1];
+  const pro = HUB_THEMES.find((t) => t.tier === 'pro' && t.ready)!;
+  const held = planHubDraftApply({ events: { invite_theme: pro.id, role_palette: themeSeedPalette(pro.id) }, widgets: {} }, live, false);
+  const cols = (items: typeof held.apply) => items.flatMap((i) => (i.kind === 'event' ? [i.column] : []));
+  assert.deepEqual(cols(held.apply), [], `${pro.id} without Pro: nothing applies`);
+  assert.deepEqual(cols(held.refused).sort(), ['invite_theme', 'role_palette'], 'the colours are held WITH the theme');
+  assert.deepEqual(held.remaining.events.role_palette, themeSeedPalette(pro.id), 'the held colours stay drafted');
+  const owned = planHubDraftApply({ events: { invite_theme: pro.id, role_palette: themeSeedPalette(pro.id) }, widgets: {} }, live, true);
+  assert.deepEqual(cols(owned.apply).sort(), ['invite_theme', 'role_palette']);
+  const free = HUB_THEMES.find((t) => t.tier === 'free' && t.id !== 'house')!;
+  const plan = planHubDraftApply({ events: { invite_theme: free.id, role_palette: themeSeedPalette(free.id) }, widgets: {} }, live, false);
+  assert.deepEqual(cols(plan.apply).sort(), ['invite_theme', 'role_palette']);
+  // …and Apply writes the fill conditionally on the board it read — never over a board painted since.
+  const act = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
+  assert.match(act, /board\.is\('role_palette', null\)/);
+  assert.match(act, /board\.eq\('role_palette', JSON\.stringify\(paletteRead\)\)/);
+  assert.match(act, /delete eventsPatch\.role_palette;/);
 });
 
 /* ── wiring: every theme preview asks the ONE resolver ──────────────────── */
@@ -185,6 +246,11 @@ test("the Maker's scene tiles take their colours from the resolver, with the boa
   assert.match(tint, /themeColours\(currentThemeId,\s*\(drafted as \{ role_palette\?: unknown \}\)\.role_palette\)/, 'the tile tint asks themeColours with the drafted board');
   assert.doesNotMatch(tint, RAW_THEME_COLOUR, 'the tile tint reads a theme palette around the resolver');
   assert.doesNotMatch(tint, /INVITE_THEMES/, 'the tile tint reads the theme registry around the resolver');
+  // The element editor's theme colours and the Love Story scrapbook's `--ls-*` vars ask it too.
+  const element = region(read(file), 'elementEditing={{', 'draftAction:', file);
+  assert.match(element, /themeColours\(currentThemeId,\s*\(drafted as \{ role_palette\?: unknown \}\)\.role_palette\)/);
+  const story = read('app/dashboard/[eventId]/website/our-story/page.tsx');
+  assert.match(story, /const p = themeColours\(theme\.id, board\)\.colours;/);
   // The miniature itself draws only what it is handed.
   const shell = read('app/dashboard/[eventId]/website/editor/_components/editor-shell.tsx');
   assert.doesNotMatch(shell, /INVITE_THEMES/, 'editor-shell paints a tile from the theme registry');
@@ -219,19 +285,24 @@ test("the theme gallery's samples — page, prints and full-screen preview — w
   const ov = [...overlay.matchAll(/\bsampleHubTileSrc\(([^)]*)\)/g)];
   assert.ok(ov.length >= 1);
   for (const [all] of ov) assert.match(all, /samplePalette\)$/, `${all} — the preview drawn without the couple's palette`);
+  // An empty (or theme-filled) board keeps the static stills — each theme's own colours, captured with `none`.
+  assert.match(picker, /samplePalette && samplePalette !== 'none' \? null : themeStillSrc\(id\)/);
+  assert.match(read('scripts/capture-theme-samples.ts'), /sampleHubTileSrc\(id, 'none'\)/);
   // …and the sample door + the sample page read it.
   assert.match(read('lib/print-sample-door.server.ts'), /paletteFromSampleParam\(url\.searchParams\.get\('palette'\)\)/);
   assert.match(read('app/[slug]/page.tsx'), /paletteFromSampleParam\(search\.palette\)/);
   // The provider is told by the Maker, from the LIVE board.
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(launch, /samplePalette: samplePaletteParam\(printEvent\.role_palette\)/);
-  assert.match(launch, /seeds: paletteIsSet\(printEvent\.role_palette\) \? null : themeSeedPalettes\(\)/);
+  assert.match(launch, /seeds: boardIsTheCouples\(printEvent\.role_palette\) \? null : themeSeedPalettes\(\)/);
 });
 
 /**
  * 🧹 THE SWEEP — no file in the Maker, the guest components or the print path
- * reads a theme's colours around the resolver. Each exception is the
- * NO-PALETTE branch only, named with why.
+ * reads a theme's colours around the resolver: not a field (`.palette.canvas`),
+ * not the whole palette into a variable (`const p = theme.palette`,
+ * `INVITE_THEMES[id]?.palette ?? …`), not destructured (`{ palette } = theme`).
+ * Each exception is ONE LINE, named by an anchor on it, with why — never a file.
  */
 const SWEEP_ROOTS = [
   'app/dashboard/[eventId]/launch',
@@ -241,16 +312,26 @@ const SWEEP_ROOTS = [
   'app/[slug]/_lib',
   'app/api/hub-print',
 ];
-const SWEEP_ALLOWED: Record<string, string> = {
-  // The Colors panel's "Theme's" choice — what a page with NO Mood Board wears;
-  // with a board the panel shows `moodBoardSiteColours` instead.
-  'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx': 'the no-palette default of the Colors panel',
-  // The button-colour swatches' fallback, used only when the board has no swatches.
-  'app/dashboard/[eventId]/website/editor/page.tsx': 'button swatches when the board is empty',
-  'app/dashboard/[eventId]/details/_components/record-editor.tsx': 'button swatches when the board is empty',
-  // The page's own legibility over the couple's colours (`pinPlateInk`) — it
-  // reads the theme's INKS as candidates, never as the page's colours.
-  'app/[slug]/_lib/pro-site-vars.ts': 'plate-ink candidates, not the page colours',
+const THEME_COLOUR_READS = [
+  RAW_THEME_COLOUR,
+  /INVITE_THEMES\[[^\]]*\]\??\.palette\b/,
+  /\b(?:theme|t|worn|seed|pal)\??\.palette\b(?!\s*:)/,
+  /\{[^}]*\bpalette\b[^}]*\}\s*=\s*(?:INVITE_THEMES|theme\b|t\b)/,
+];
+const SWEEP_ALLOWED_LINES: Record<string, Record<string, string>> = {
+  'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx': {
+    // The Colors panel's fallback — used only when `moodBoard` (the board, via `boardSiteColours`) is null: no palette.
+    'return { theme, background: theme.palette.canvas, buttons: theme.palette.accent };': 'no-palette default of the Colors panel',
+  },
+  'app/[slug]/_lib/pro-site-vars.ts': {
+    // The plate's ink — the theme's INKS as legibility candidates, never the page's colours.
+    "proSiteVars['--color-ink-on-plate'] = channels(theme.palette.ink);": 'plate ink pinned under the couple’s own background',
+    "vars['--color-paper-deep'] ?? channels(theme.palette.surface)": 'plate paper when no layer painted one',
+    "vars['--color-ink-on-plate'] ?? channels(theme.palette.ink)": 'plate ink when no layer named one',
+    'channels(theme.palette.ink),': 'plate-ink candidate',
+    'channels(theme.palette.darkInk),': 'plate-ink candidate',
+    'channels(theme.palette.lightInk),': 'plate-ink candidate',
+  },
 };
 
 function walk(dir: string, out: string[] = []): string[] {
@@ -265,20 +346,27 @@ function walk(dir: string, out: string[] = []): string[] {
 
 test('the sweep: nothing in the Maker, guest components or print door reads a theme’s colours around the resolver', () => {
   const offenders: string[] = [];
+  const used = new Set<string>();
   let scanned = 0;
   for (const root of SWEEP_ROOTS) {
     for (const f of walk(root)) {
       scanned += 1;
-      const src = read(f);
-      if (!RAW_THEME_COLOUR.test(src)) continue;
       const rel = relative(WEB, join(WEB, f));
-      if (!(rel in SWEEP_ALLOWED)) offenders.push(rel);
+      const allowed = SWEEP_ALLOWED_LINES[rel] ?? {};
+      read(f).split('\n').forEach((line, i) => {
+        if (!THEME_COLOUR_READS.some((re) => re.test(line))) return;
+        const anchor = Object.keys(allowed).find((a) => line.includes(a));
+        if (anchor) used.add(`${rel}::${anchor}`);
+        else offenders.push(`${rel}:${i + 1}: ${line.trim()}`);
+      });
     }
   }
   assert.ok(scanned > 100, `scanned only ${scanned} files — the sweep's roots moved`);
   assert.deepEqual(offenders, [], `theme colours read around lib/theme-colours.ts:\n${offenders.join('\n')}`);
-  // Every exception still exists and still needs to be one (a stale entry hides the next offender).
-  for (const f of Object.keys(SWEEP_ALLOWED)) assert.match(read(f), RAW_THEME_COLOUR, `${f} no longer reads a theme colour — drop its exception`);
+  // Every exception still matches a line (a stale entry hides the next offender).
+  for (const [f, anchors] of Object.entries(SWEEP_ALLOWED_LINES)) {
+    for (const a of Object.keys(anchors)) assert.ok(used.has(`${f}::${a}`), `${f}: "${a}" no longer reads a theme colour — drop its exception`);
+  }
 });
 
 test('every theme in the one order has a seed nobody else shares', () => {

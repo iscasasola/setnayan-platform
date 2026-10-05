@@ -40,11 +40,11 @@
  * components are handed its answers as props rather than importing it.
  */
 import { HUB_THEMES, INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
-import { buildSitePaletteVars } from '@/lib/site-palette';
+import { buildSitePaletteVars, moodBoardSiteColours } from '@/lib/site-palette';
 import { channels, hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { compositeOver, contrastRatio, relativeLuminance } from '@/lib/hub-legibility';
 import { PALETTE_LIMITS, PALETTE_ORDER, sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
-import { SEED_PALETTE_MAX, paletteIsSet } from '@/lib/mood-board-palette-set';
+import { boardIsTheCouples, paletteIsSet, seededTheme, themeSeedPalette } from '@/lib/mood-board-palette-set';
 
 /** A theme's colours — the registry's palette shape (`INVITE_THEMES[id].palette`). */
 export type ThemePaletteColours = InviteTheme['palette'];
@@ -68,40 +68,11 @@ function swatchesOf(palette: unknown): string[] {
   return [...seen];
 }
 
-export { paletteIsSet };
-
-/** The colours a theme writes into an empty Mood Board — its five page colours. */
-function seedHexes(t: InviteTheme): string[] {
-  const p = t.palette;
-  return [...new Set([p.canvas, p.surface, p.ink, p.accent, p.heading].map((h) => h.toUpperCase()))];
-}
-
-/**
- * 🌱 A THEME'S COLOURS AS A MOOD BOARD PALETTE — what a pick writes when the
- * board is empty. The five go into `reception` (the board's five "main
- * colours", `PALETTE_LIMITS.reception`), so the Mood Board shows them as the
- * couple's majors and every role derives from them as it would from any pick.
- */
-export function themeSeedPalette(id: InviteThemeId): RolePalette {
-  return { reception: seedHexes(INVITE_THEMES[id]).slice(0, SEED_PALETTE_MAX) };
-}
+export { boardIsTheCouples, paletteIsSet, seededTheme, themeSeedPalette };
 
 /** Every theme's seed, keyed by id — handed to the Maker's picker as plain data. */
 export function themeSeedPalettes(): Record<string, RolePalette> {
   return Object.fromEntries(HUB_THEMES.map((t) => [t.id, themeSeedPalette(t.id)]));
-}
-
-/** A set of colours as one comparable key — order never matters. */
-function colourSetKey(hexes: readonly string[]): string {
-  return [...hexes].sort().join(',');
-}
-
-/** The theme whose seed this palette IS (same colours, nothing else), or null. */
-export function seededTheme(palette: unknown): InviteThemeId | null {
-  const have = swatchesOf(palette);
-  if (have.length === 0) return null;
-  const key = colourSetKey(have);
-  return HUB_THEMES.find((t) => colourSetKey(seedHexes(t).slice(0, SEED_PALETTE_MAX)) === key)?.id ?? null;
 }
 
 /** The colour half of a theme's generated page block (`globals.css` "THE TEN THEMES ON THE PAGE"). */
@@ -141,7 +112,22 @@ export function paletteColourVars(palette: unknown, worn: InviteThemeId): Record
   if (!paletteIsSet(palette)) return null;
   const seed = seededTheme(palette);
   if (seed) return seed === worn ? null : themeBlockVars(INVITE_THEMES[seed]);
-  return buildSitePaletteVars(sanitizeRolePalette(palette));
+  const vars = buildSitePaletteVars(sanitizeRolePalette(palette));
+  if (!vars) return null;
+  /* The theme's own `--hub-*` hexes (its material, its plates, its accent
+     text) would otherwise still speak the theme's colours under the board's
+     paper — they take the board's, from the same derivation the tiles read. */
+  const c = boardColours(vars, INVITE_THEMES[worn] ?? INVITE_THEMES.house);
+  return {
+    ...vars,
+    '--hub-canvas': c.canvas,
+    '--hub-surface': c.surface,
+    '--hub-ink': c.ink,
+    '--hub-muted': c.muted,
+    '--hub-accent': c.accent,
+    '--hub-accent-ink': c.accentInk,
+    '--hub-heading': c.heading,
+  };
 }
 
 const hexOf = (ch: string | undefined, fallback: string): string => {
@@ -163,27 +149,56 @@ export function themeColours(themeId: InviteThemeId, palette: unknown): ThemeCol
   if (seed) return { source: seed === worn.id ? 'theme' : 'palette', colours: INVITE_THEMES[seed].palette };
   const vars = buildSitePaletteVars(sanitizeRolePalette(palette));
   if (!vars) return { source: 'theme', colours: worn.palette };
+  return { source: 'palette', colours: boardColours(vars, worn) };
+}
+
+/** A couple's own board, as hexes in the theme palette's shape — read from the page's own vars. */
+function boardColours(vars: Record<string, string>, worn: InviteTheme): ThemePaletteColours {
   const canvas = hexOf(vars['--color-cream'], worn.palette.canvas);
   const ink = hexOf(vars['--color-ink'], worn.palette.ink);
   const accent = hexOf(vars['--color-terracotta'], worn.palette.accent);
   const cta = hexOf(vars['--color-mulberry'], accent);
   const [lightInk, darkInk] = relativeLuminance(canvas) >= relativeLuminance(ink) ? [canvas, ink] : [ink, canvas];
   return {
-    source: 'palette',
-    colours: {
-      canvas,
-      surface: hexOf(vars['--color-paper-deep'], canvas),
-      ink,
-      // The page's muted words are `text-ink/60` — the same blend, as a colour.
-      muted: compositeOver(ink, 0.6, canvas),
-      accent,
-      // A word set on the accent: whichever of the page's two inks reads on it.
-      accentInk: contrastRatio(lightInk, cta) >= contrastRatio(darkInk, cta) ? lightInk : darkInk,
-      heading: accent,
-      lightInk,
-      darkInk,
-    },
+    canvas,
+    surface: hexOf(vars['--color-paper-deep'], canvas),
+    ink,
+    // The page's muted words are `text-ink/60` — the same blend, as a colour.
+    muted: compositeOver(ink, 0.6, canvas),
+    accent,
+    // A word set on the accent: whichever of the page's two inks reads on it.
+    accentInk: contrastRatio(lightInk, cta) >= contrastRatio(darkInk, cta) ? lightInk : darkInk,
+    heading: accent,
+    lightInk,
+    darkInk,
   };
+}
+
+/**
+ * 🎨 THE COLORS PANEL'S "MOOD BOARD" CHOICE — the page background and button
+ * colour the board gives, plus its swatches; null = no board. A theme-filled
+ * board answers that theme's own page (its paper, its button), the same as
+ * the page wears it — never the near-white the generic derivation draws.
+ */
+export function boardSiteColours(
+  palette: unknown,
+): { background: string; buttons: string; swatches: string[] } | null {
+  if (!paletteIsSet(palette)) return null;
+  const seed = seededTheme(palette);
+  if (seed) {
+    const t = INVITE_THEMES[seed];
+    return {
+      background: t.palette.canvas,
+      buttons: hubThemePageTokens(t).cta,
+      swatches: themeSeedPalette(seed).reception.map((h) => h.toLowerCase()),
+    };
+  }
+  return moodBoardSiteColours(sanitizeRolePalette(palette));
+}
+
+/** The button-colour choices offered when the board holds no swatches — the page's own four. */
+export function buttonFallback(c: ThemePaletteColours): string[] {
+  return [c.accent, c.heading, c.ink, c.muted];
 }
 
 /* ── THE SAMPLE GALLERY'S PALETTE ────────────────────────────────────────────
@@ -198,8 +213,14 @@ export function themeColours(themeId: InviteThemeId, palette: unknown): ThemeCol
 /** Most swatches a sample param carries — every key's cap, summed, is far more than any board holds. */
 const SAMPLE_PARAM_MAX = 24;
 
-/** `none`, or the couple's swatches as `RRGGBB.RRGGBB…` (no `#`, URL-safe). */
+/**
+ * `none`, or the couple's swatches as `RRGGBB.RRGGBB…` (no `#`, URL-safe). A
+ * board a theme filled is `none` too: a pick would refill it with the picked
+ * theme's own colours, so each sample shows exactly that. The swatches ARE the
+ * address — an edited board is a new URL, so no sample is served stale.
+ */
 export function samplePaletteParam(palette: unknown): string {
+  if (!boardIsTheCouples(palette)) return 'none';
   const s = swatchesOf(palette).slice(0, SAMPLE_PARAM_MAX);
   return s.length === 0 ? 'none' : s.map((h) => h.slice(1)).join('.');
 }

@@ -58,7 +58,8 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 2 });
     for (const id of ids) {
-      const res = await page.goto(`${BASE}${sampleHubTileSrc(id)}`, { waitUntil: 'networkidle' });
+      // 🎨 `none`: each theme in its OWN colours — what the gallery shows an empty board (2026-10-05).
+      const res = await page.goto(`${BASE}${sampleHubTileSrc(id, 'none')}`, { waitUntil: 'networkidle' });
       if (!res || !res.ok()) throw new Error(`${SAMPLE_HUB_PATH} in ${id} answered ${res?.status()} — nothing written.`);
       await page.waitForTimeout(1500); // the hero's entrance settles
       const shot = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: W, height: H } });

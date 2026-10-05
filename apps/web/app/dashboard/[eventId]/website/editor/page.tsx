@@ -28,7 +28,7 @@ import {
 } from './_components/editor-shell';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { INVITE_THEMES, normalizeThemeId } from '@/lib/invite-themes';
-import { themeColours } from '@/lib/theme-colours';
+import { boardSiteColours, buttonFallback, themeColours } from '@/lib/theme-colours';
 import { hubMainGround, isHubMainChoice, isHubMainOwn, sanitizeHubCanvas } from '@/lib/hub-canvas';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { guestLookFrom, type EventShellRow } from '@/app/[slug]/_lib/loaders';
@@ -91,7 +91,7 @@ import { parseRsvpBackdropConfig, SPATIAL_THEMES } from '@/lib/spatial-backdrop'
 import { updateOurStory } from '../our-story/actions';
 import type { LoveStoryBlob } from '../our-story/_components/story-fields';
 import { loveStoryRowStatus } from '../our-story/_components/love-story-status';
-import { moodBoardSiteColours, paletteSwatches } from '@/lib/site-palette';
+import { paletteSwatches } from '@/lib/site-palette';
 import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { updateDressCode } from '../../studio/mood-board/dress-code-actions';
 import { foldEventRoles, normalizeDressCodeConfig } from '../../studio/mood-board/_components/dress-code-fields';
@@ -875,9 +875,7 @@ export default async function WebsiteEditorPage({
               themeId={currentThemeId}
               /* 🎨 Blank = the Mood Board's colours — shown AS those colours
                  (owner 2026-09-27: "mood board palettes did not update"). */
-              moodBoard={moodBoardSiteColours(
-                sanitizeRolePalette((event as { role_palette?: unknown }).role_palette),
-              )}
+              moodBoard={boardSiteColours((drafted as { role_palette?: unknown }).role_palette)}
               bgColor={(drafted.site_bg_color as string | null) ?? null}
               buttonColor={(drafted.site_button_color as string | null) ?? null}
               artDirection={
@@ -907,7 +905,7 @@ export default async function WebsiteEditorPage({
             { theme: currentThemeId, accent: '#000000', monogram: '' },
             true,
           );
-          const swatches = moodBoardSiteColours(sanitizeRolePalette((event as { role_palette?: unknown }).role_palette))?.swatches ?? [];
+          const swatches = boardSiteColours((drafted as { role_palette?: unknown }).role_palette)?.swatches ?? [];
           return {
             key: 'buttons',
             label: 'Buttons',
@@ -921,7 +919,7 @@ export default async function WebsiteEditorPage({
                 page={hubButtonPage(theme, pageLook.vars)}
                 style={(drafted as { site_button_style?: string | null }).site_button_style ?? null}
                 colour={(drafted.site_button_color as string | null) ?? null}
-                palette={swatches.length > 0 ? swatches : [theme.palette.accent, theme.palette.heading, theme.palette.ink, theme.palette.muted]}
+                palette={swatches.length > 0 ? swatches : buttonFallback(themeColours(currentThemeId, (drafted as { role_palette?: unknown }).role_palette).colours)}
               />
             ),
           };
@@ -1494,8 +1492,10 @@ export default async function WebsiteEditorPage({
       }}
       elementEditing={{
         canvases: elementCanvases,
+        /* 🎨 The element editor's "theme colours" are the page's — the Mood
+           Board over the theme (`themeColours`, owner 2026-10-05). */
         palette: (() => {
-          const pal = INVITE_THEMES[currentThemeId as keyof typeof INVITE_THEMES]?.palette ?? INVITE_THEMES.house.palette;
+          const { colours: pal } = themeColours(currentThemeId, (drafted as { role_palette?: unknown }).role_palette);
           return { ink: pal.ink, heading: pal.heading, accent: pal.accent, muted: pal.muted, surface: pal.surface };
         })(),
         draftAction: hubDraftAction,

@@ -228,11 +228,11 @@ export function MakerThemeGallery({
   const [loading, setLoading] = useState<string | null>(null);
   const order = shown.map((t) => t.id);
   const orderKey = order.join(',');
-  /* 🎨 A still is the sample in ITS OWN board's colours, so it stands only
-     while the provider names no palette; told one (the couple's, or `none`),
-     every entry is the live sample wearing it (owner 2026-10-05, "THE MOOD
-     BOARD PALETTE IS THE PRIORITY"). */
-  const stillOf = (id: string) => (samplePalette ? null : themeStillSrc(id));
+  /* 🎨 A still is each theme in its OWN colours (captured with `palette=none`,
+     `scripts/capture-theme-samples.ts`) — exactly what an empty board shows.
+     A couple with a board of their own sees every entry as the live sample
+     wearing it (owner 2026-10-05, "THE MOOD BOARD PALETTE IS THE PRIORITY"). */
+  const stillOf = (id: string) => (samplePalette && samplePalette !== 'none' ? null : themeStillSrc(id));
   const live = shown.filter((t) => !stillOf(t.id)).map((t) => t.id);
   const liveKey = live.join(',');
 

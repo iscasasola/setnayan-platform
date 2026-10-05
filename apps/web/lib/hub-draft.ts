@@ -141,7 +141,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
-import { paletteIsSet, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
+import { boardIsTheCouples, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
 import type { DateClash } from '@/lib/date-fits-booked';
@@ -334,9 +334,12 @@ export const HUB_DRAFT_LOOK_COLUMNS = [
   // 🎨 THE MOOD BOARD PALETTE A THEME PICK FILLS (owner 2026-10-05, "THE MOOD
   // BOARD PALETTE IS THE PRIORITY": *"If the mood board does not have a
   // palette, use our original theme and place it on the moodboard's
-  // palette"*). Only ever a theme's own colours (`sanitizeSeedPalette`), only
-  // onto an EMPTY board: a board that has colours is never overwritten — not
-  // overlaid on the canvas, not counted, not applied (`eventColumnChange`).
+  // palette"*). Only ever a real theme's own colours (`sanitizeSeedPalette`),
+  // only onto a board that is not the couple's (empty, or written by an
+  // earlier pick — re-seedable): a board the couple painted is never
+  // overwritten — not overlaid on the canvas, not counted, not applied
+  // (`boardIsTheCouples`). It shares its theme's fate at Apply: a held Pro
+  // theme holds its colours with it (`planHubDraftApply`).
   'role_palette',
 ] as const;
 
@@ -1027,10 +1030,10 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   const picks = draft.fixedStyles && Object.keys(draft.fixedStyles).length > 0 ? draft.fixedStyles : null;
   if (Object.keys(draft.events).length === 0 && !picks) return row;
   const out: Record<string, unknown> = { ...row, ...draft.events };
-  /* 🎨 A Mood Board that HAS colours wins over a theme's drafted fill — the
-     board was painted after the pick, and the owner's rule is "the priority
-     palette will always be based on the mood board". */
-  if ('role_palette' in draft.events && paletteIsSet(row.role_palette)) out.role_palette = row.role_palette;
+  /* 🎨 A Mood Board the couple PAINTED wins over a theme's drafted fill — the
+     owner's rule is "the priority palette will always be based on the mood
+     board". (A theme-written board is re-seeded by the next pick.) */
+  if ('role_palette' in draft.events && boardIsTheCouples(row.role_palette)) out.role_palette = row.role_palette;
   /* 🔳 The drafted QR look is laid INTO the live blob — the blob's other keys
      (onboarding answers the page may read) are never overlaid away. */
   if ('style_preferences' in draft.events) {
@@ -1241,10 +1244,14 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       return refChange(said(live), said(next));
     }
     case 'role_palette': {
-      // 🎨 Only onto an EMPTY board: one with colours is the couple's own and
-      // is never replaced by a theme's (the draft's fill is then nothing).
-      if (paletteIsSet(live)) return 'none';
-      return refChange(null, paletteIsSet(next) ? JSON.stringify(next) : null);
+      // 🎨 Never over a board the couple painted (the draft's fill is then
+      // nothing); an empty or theme-written board takes the picked theme's.
+      if (boardIsTheCouples(live)) return 'none';
+      const seedKey = (v: unknown) => {
+        const seed = sanitizeSeedPalette(v);
+        return seed ? seed.reception.join(',') : null;
+      };
+      return refChange(seedKey(live), seedKey(next));
     }
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
@@ -1879,6 +1886,13 @@ export function planHubDraftApply(
         });
       }
     }
+  }
+  /* 🎨 A THEME'S COLOURS SHARE THE THEME'S FATE. The board's fill is the
+     picked theme's; a Pro theme held at Apply holds its colours with it, or the
+     live page would wear the held theme's colours under the theme it kept. */
+  if (refused.some((i) => i.kind === 'event' && i.column === 'invite_theme')) {
+    const at = apply.findIndex((i) => i.kind === 'event' && i.column === 'role_palette');
+    if (at >= 0) refused.push(...apply.splice(at, 1));
   }
   const remaining: HubDraftState = { events: {}, widgets: {} };
   for (const item of refused) {

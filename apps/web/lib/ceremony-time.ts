@@ -41,6 +41,9 @@ export const PRINT_DRAFTED_KEYS = [
   HUB_DRAFT_CEREMONY_TIME,
   'std_film_ceremony_name',
   'std_film_venue_name',
+  // 🎨 The Mood Board colours a theme pick fills (owner 2026-10-05) — the
+  // print wears them (`themeColours`), so its address names them too.
+  'role_palette',
 ] as const;
 
 /** The draft's printed keys only — null when the draft holds none of them. */

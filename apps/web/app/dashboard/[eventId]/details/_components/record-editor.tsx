@@ -8,7 +8,6 @@ import { INVITE_THEMES, normalizeThemeId, pickableInviteThemes, resolveInviteThe
 import { hasOwnLook } from '@/lib/theme-own-look';
 import { hubButtonPage } from '@/lib/hub-buttons';
 import { makerProMark } from '@/lib/paid-mark';
-import { moodBoardSiteColours } from '@/lib/site-palette';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { overlayHubDraftEvent, type HubDraft } from '@/lib/hub-draft';
 import { resolveReplyBy, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
@@ -16,7 +15,7 @@ import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { formatPhp } from '@/lib/php';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { recordFieldHref, type RecordEditorKey } from '@/lib/event-details-record';
-import { paletteIsSet, themeSeedPalettes } from '@/lib/theme-colours';
+import { boardIsTheCouples, boardSiteColours, buttonFallback, themeColours, themeSeedPalettes } from '@/lib/theme-colours';
 import { MakerThemeMenu, ThemePickProvider } from '../../launch/_components/maker-theme-picker';
 import { ButtonsLookRow, ColorsPanel, MakerRsvpSettings, ProLockPanel, SpecialMessageField } from '../../launch/_components/details-lazy';
 import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from '../../launch/_components/details-answers-parts';
@@ -96,8 +95,8 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
             eventId={eventId}
             current={current}
             ownLook={hasOwnLook(live, draft?.events as Record<string, unknown> | undefined)}
-            /* 🎨 An empty Mood Board takes the picked theme's colours (owner 2026-10-05). */
-            seeds={paletteIsSet(live.role_palette) ? null : themeSeedPalettes()}
+            /* 🎨 A board that is not the couple's own takes the picked theme's colours (owner 2026-10-05). */
+            seeds={boardIsTheCouples(live.role_palette) ? null : themeSeedPalettes()}
           >
             <MakerThemeMenu
               themes={themes.map((t) => ({ id: t.id, name: t.name, tier: t.tier }))}
@@ -108,18 +107,19 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
         );
       }
       const themeId = normalizeThemeId(drafted.invite_theme) ?? 'house';
-      const palette = sanitizeRolePalette(live.role_palette);
+      // 🎨 The board as the couple is editing it — a theme's drafted fill included (2026-10-05).
+      const palette = sanitizeRolePalette(drafted.role_palette);
       if (editor === 'buttons') {
         /* 🔘 Look › Buttons — measured against the page as it paints, the
            host's own colour left out so "Theme’s" shows the page without it
            (the work area's own composition). */
         const theme = INVITE_THEMES[themeId];
         const pageLook = guestLookFrom(
-          { ...drafted, role_palette: live.role_palette, site_button_color: null, site_button_style: null } as unknown as EventShellRow,
+          { ...drafted, site_button_color: null, site_button_style: null } as unknown as EventShellRow,
           { theme: themeId, accent: '#000000', monogram: '' },
           true,
         );
-        const swatches = moodBoardSiteColours(palette)?.swatches ?? [];
+        const swatches = boardSiteColours(palette)?.swatches ?? [];
         return (
           <ButtonsLookRow
             eventId={eventId}
@@ -127,7 +127,7 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
             page={hubButtonPage(theme, pageLook.vars)}
             style={(drafted.site_button_style as string | null) ?? null}
             colour={(drafted.site_button_color as string | null) ?? null}
-            palette={swatches.length > 0 ? swatches : [theme.palette.accent, theme.palette.heading, theme.palette.ink, theme.palette.muted]}
+            palette={swatches.length > 0 ? swatches : buttonFallback(themeColours(themeId, drafted.role_palette).colours)}
           />
         );
       }
@@ -153,7 +153,7 @@ export async function RecordEditor({ editor, ctx }: { editor: RecordEditorKey; c
           proLock={lockPanel(editor === 'font' ? 'Typeface' : 'Candlelight and motion')}
           proMark={makerProMark({ owns: ctx.ownsPro, storeShell: ctx.storeShell })}
           themeId={themeId}
-          moodBoard={editor === 'colours' ? moodBoardSiteColours(palette) : undefined}
+          moodBoard={editor === 'colours' ? boardSiteColours(palette) : undefined}
           bgColor={(drafted.site_bg_color as string | null) ?? null}
           buttonColor={(drafted.site_button_color as string | null) ?? null}
           artDirection={(drafted.site_art_direction as 'daylight' | 'candlelight' | null) ?? null}

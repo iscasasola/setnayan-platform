@@ -131,7 +131,7 @@ test('3 · the wiring: SiteBody decides from its plan; page.tsx hands it to both
 test('4 · a page WITHOUT tabs asks the same rule for the Me it hands GuestHubBar', async () => {
   const page = read('app/[slug]/page.tsx');
   const slot = /const meSlot = meSlotFor\(([\s\S]*?)\n  \);/.exec(page)?.[1] ?? '';
-  assert.match(slot, /meLeadsWithReply\(\{/, 'the non-tabbed Me ignores the reply rule (it used to be meSlotFor(null))');
+  assert.match(slot, /^\s*meLeadsWithReply\(\{/, 'the non-tabbed Me ignores the reply rule (it used to be meSlotFor(null))');
   assert.match(slot, /replyOpen: rsvpReplyOpen\(\{/, 'the non-tabbed Me must ask the plan’s own reply-sheet gate');
   assert.match(slot, /resolveArrivalAction\(\{/);
   assert.match(page, /meSlot=\{guestPageTabbed \? null : meSlot\}/);

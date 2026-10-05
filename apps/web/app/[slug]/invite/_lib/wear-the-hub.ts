@@ -73,6 +73,7 @@ export async function wearTheHub(
       heroConfig,
       event: row,
       viewerIsHost,
+      tryOn: hostDraft !== null,
     });
     return { look, ground, heroConfig };
   } catch {

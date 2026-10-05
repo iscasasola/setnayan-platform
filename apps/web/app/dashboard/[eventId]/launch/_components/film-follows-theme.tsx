@@ -13,7 +13,7 @@ import { stdFollowTheme, type StdLegibility } from '@/lib/std-backgrounds';
  * hands the film back to the theme, INTO THE DRAFT (`std_background: null`, the
  * only value the draft holds for it): Undo steps it back, Apply puts it live.
  *
- * Drawn under Theme only while the film has a pick of its own. Its own file: the
+ * Drawn under Look › Background only while the film has a pick of its own. Its own file: the
  * theme picker is the theme's ONE writer (`a-theme-pick-hands-the-look-back`).
  * The tap is drawn first (the line goes), then saved; a refusal puts it back.
  */
@@ -53,7 +53,7 @@ export function FilmFollowsTheme({
         onClick={follow}
         className="sn-press inline-flex min-h-11 items-center font-semibold text-ink underline underline-offset-2"
       >
-        Same as theme
+        Same as the Event Hub
       </button>
       {error ? (
         <span role="alert" className="basis-full text-xs text-danger-800">

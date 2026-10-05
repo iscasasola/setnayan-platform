@@ -9,13 +9,14 @@ import { extractPosterFrame } from '../../../_components/std-media-picker';
 import { hubDraftAction } from '../../hub-draft-actions';
 import { CALMER_CLIP_SCRIM, measureFrame, resolveAdaptiveTheme } from '@/lib/adaptive-theme';
 import { hubThemePageTokens } from '@/lib/hub-theme-tokens';
-import { INVITE_THEMES, themeBackgroundName, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
+import { INVITE_THEMES, type InviteTheme, type InviteThemeId } from '@/lib/invite-themes';
 import { PaidMark } from '@/app/_components/paid-mark';
 import { makerProMark, paidMarkLabel, type PaidMarkState } from '@/lib/paid-mark';
 import {
   HUB_MEDIA_MOTIONS,
   HUB_MEDIA_MOTION_LABEL,
   isHubMainFollow,
+  isHubMainLoop,
   isHubMainOwn,
   type HubMainGround,
   type HubMainOwn,
@@ -60,6 +61,9 @@ import { MakerMediaMeter } from '@/app/_components/maker-media-meter';
  * nobody looked at.
  */
 
+/** One moving background of ours, as the dropdown lists it (built on the server). */
+export type MovingBackgroundOption = { id: InviteThemeId; name: string; stillUrl: string | null };
+
 const IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm'];
 
@@ -86,11 +90,11 @@ async function readFrame(blob: Blob): Promise<string[]> {
   }
 }
 
-async function saveMain(eventId: string, main: HubMainGround | null) {
+async function saveMain(eventId: string, main: HubMainGround | null, draft: typeof hubDraftAction = hubDraftAction) {
   const fd = new FormData();
   fd.set('intent', 'save');
   fd.set('patch', JSON.stringify({ widgets: { hero: { main } } }));
-  return hubDraftAction(eventId, fd);
+  return draft(eventId, fd);
 }
 
 
@@ -164,8 +168,8 @@ export function HeroFrameSync({
   if (state === 'failed') {
     return (
       <p role="alert" className="text-[12px] text-terracotta-700" data-hero-frame-sync="failed">
-        We could not read your hero photo&rsquo;s colours, so the theme&rsquo;s own background stays behind your scenes
-        for now. Re-open this panel to try again.
+        We could not read your hero photo&rsquo;s colours, so your background stays as it is for now. Re-open this panel
+        to try again.
       </p>
     );
   }
@@ -247,12 +251,13 @@ export function MainBackgroundPanel({
   overrideStillUrl,
   drafted,
   ownsPro,
-  themeStillUrl = null,
+  loops = [],
   photoChoices = [],
   videoChoice = null,
   sceneUploads = [],
   mediaUsedBytes,
   colours,
+  draftAction = hubDraftAction,
 }: {
   eventId: string;
   /** The couple's saved theme. Classic has no moving background at all. */
@@ -272,14 +277,19 @@ export function MainBackgroundPanel({
   /** The draft holds a different Main background from what guests see. */
   drafted: boolean;
   ownsPro: boolean;
-  /** The theme's own still (its public poster), for the "theme's background" choice. */
-  themeStillUrl?: string | null;
+  /**
+   * 🎞 MOVING BACKGROUNDS — every shipped loop of ours (`hubMovingBackgroundIds`),
+   * each by its picture-able name and public still, built on the server.
+   */
+  loops?: readonly MovingBackgroundOption[];
   /** 🖼 The SAME pictures a scene's Upload media offers (`scene-background-row.tsx`). */
   photoChoices?: readonly { ref: string; url: string }[];
   videoChoice?: { ref: string; url: string; poster?: string | null } | null;
   sceneUploads?: readonly SceneUpload[];
   /** 💾 The event's settled `couple_media_bytes` — the 100 MB meter under the upload. Absent = no meter. */
   mediaUsedBytes?: number;
+  /** The draft door — `hubDraftAction` (the default); the dev Maker lab hands its own stand-in so no write leaves it. */
+  draftAction?: typeof hubDraftAction;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -292,11 +302,23 @@ export function MainBackgroundPanel({
   const own: HubMainOwn | null = isHubMainOwn(current) ? current : null;
   const follow = current && isHubMainFollow(current) && current.of === hero.photoRef ? current : null;
   const tint = own?.tint ?? follow?.tint ?? null;
-  /* 🖼 THE FOUR CHOICES (owner 2026-09-29, "THE MAIN BACKGROUND OFFERS EVERY
-     CHOICE"): the theme's own · same as my hero · upload media · none. Nothing
-     stored = the hero when there is a hero photo (it is being measured), else
-     the theme's own — so the theme's loop is a CHOICE, never forced. */
-  const choice = mainGroundChoice({ current, choosingMedia, followsHero: Boolean(follow), heroPhotoRef: hero.photoRef });
+  /* 🖼 THE CHOICES (owner 2026-09-29, "THE MAIN BACKGROUND OFFERS EVERY
+     CHOICE"; 2026-10-05 "THEMES ARE REPLACED BY THREE DIRECT GLOBAL
+     SETTINGS"): a moving background ◆ · same as my hero ◆ · upload media ◆ ·
+     just the colour. Nothing stored = the hero when there is a hero photo (it
+     is being measured), else the loop the page already wears.
+     🧱 CLASSIC IS PLAIN PAPER: its page never draws a hero or an upload
+     (`heroMayBePageGround`), so only a moving background or the colour is
+     offered — and its stored default reads as the colour. */
+  const plain = themeId === 'house';
+  const stored = mainGroundChoice({ current, choosingMedia, followsHero: Boolean(follow), heroPhotoRef: hero.photoRef });
+  const choice = plain && stored !== 'loop' ? 'none' : stored;
+  /* The loop on screen: the one picked, else (the default) the page's own. */
+  const loopNow: InviteThemeId | null = isHubMainLoop(current)
+    ? current.loop
+    : choice === 'theme' && INVITE_THEMES[themeId]?.media
+      ? themeId
+      : null;
   const proMark = makerProMark({ owns: ownsPro, storeShell: false });
 
   const adaptive = useMemo(() => (tint ? resolveAdaptiveTheme(theme, tint) : null), [tint, theme]);
@@ -311,7 +333,7 @@ export function MainBackgroundPanel({
     start(async () => {
       setError(null);
       try {
-        const r = await makerSave(() => saveMain(eventId, main), () => router.refresh());
+        const r = await makerSave(() => saveMain(eventId, main, draftAction), () => router.refresh());
         if (!r.ok) setError(r.error);
         else after?.();
       } catch {
@@ -396,18 +418,6 @@ export function MainBackgroundPanel({
     })();
   };
 
-  if (themeId === 'house') {
-    return (
-      <section className="rounded-md bg-white/70 px-3 py-3" data-maker-main-background="">
-        <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
-        <p className="mt-0.5 text-[12.5px] text-ink/65">
-          Classic is plain paper by design, with nothing behind your scenes. Pick another theme to put its background,
-          your hero or your own photo behind every scene.
-        </p>
-      </section>
-    );
-  }
-
   const noun = own?.kind === 'snippet' ? 'video' : 'photo';
   const themeTokens = hubThemePageTokens(theme);
   const thumb = own ? overrideStillUrl : hero.photoUrl;
@@ -419,17 +429,51 @@ export function MainBackgroundPanel({
       <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
 
       <div className="flex flex-col gap-1.5" role="group" aria-label="What is behind every scene">
-        <Choice
-          on={choice === 'theme'}
-          label={themeBackgroundName(themeId)}
-          thumb={themeStillUrl}
-          disabled={pending}
-          data={{ 'data-main-ground-source': 'theme' }}
-          onClick={() => {
-            setChoosingMedia(false);
-            save({ ground: 'theme' }, 'Your background could not be changed. Please try again.');
-          }}
-        />
+        {/* 🎞 MOVING BACKGROUNDS ◆ — every loop of ours, ONE dropdown (owner: any
+            set of choices is a dropdown). A pick changes ONLY what is behind
+            the scenes — never the fonts or colours. The page's own loop is
+            stored as it always was (`ground: 'theme'`), so nothing a couple
+            already had becomes a charge; any other loop is Event Hub Pro. */}
+        {loops.length > 0 ? (
+          <div
+            className={`flex min-h-11 w-full flex-wrap items-center gap-2 rounded-md px-3 py-2 ${
+              choice === 'theme' || choice === 'loop' ? 'bg-ink text-cream' : 'bg-white text-ink'
+            }`}
+            data-main-ground-source="loop"
+            aria-current={choice === 'theme' || choice === 'loop' ? 'true' : undefined}
+          >
+            <span className="flex min-w-0 flex-1 items-center gap-1.5 text-[13px] font-semibold">
+              Moving background
+              {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" tone="current" /> : null}
+            </span>
+            <PickMenu
+              label="Moving background"
+              value={choice === 'theme' || choice === 'loop' ? loopNow : null}
+              buttonText={choice === 'theme' || choice === 'loop' ? undefined : 'Pick one'}
+              options={loops.map((l) => ({
+                key: l.id,
+                label: l.name,
+                ...(l.stillUrl ? { thumb: l.stillUrl } : {}),
+                ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
+                  ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
+                  : {}),
+              }))}
+              onPick={(k) => {
+                const id = loops.find((l) => l.id === k)?.id;
+                if (!id) return;
+                setChoosingMedia(false);
+                save(
+                  id === themeId ? { ground: 'theme' } : { ground: 'loop', loop: id },
+                  'Your background could not be changed. Please try again.',
+                );
+              }}
+              dataAttr="data-main-ground-loop-pick"
+              className="max-w-[60%] text-ink"
+            />
+          </div>
+        ) : null}
+        {plain ? null : (
+        <>
         <Choice
           on={choice === 'hero'}
           label="Same as my hero"
@@ -453,9 +497,11 @@ export function MainBackgroundPanel({
           onClick={() => setChoosingMedia(true)}
           keepEnabled
         />
+        </>
+        )}
         <Choice
           on={choice === 'none'}
-          label="None — just the colour"
+          label="Just the colour"
           disabled={pending}
           data={{ 'data-main-ground-source': 'none' }}
           onClick={() => {
@@ -588,7 +634,7 @@ export function MainBackgroundPanel({
             <Choice
               key={String(value)}
               on={tint.match === value}
-              label={value ? `Match my ${own ? noun : 'photo'}’s colours` : 'Keep the theme’s colours'}
+              label={value ? `Match my ${own ? noun : 'photo'}’s colours` : 'Keep my colours'}
               disabled={pending}
               data={{ 'data-main-ground-match': value ? 'on' : 'off' }}
               onClick={() =>
@@ -608,7 +654,7 @@ export function MainBackgroundPanel({
               </>
             ) : (
               <span className="text-[12px] text-ink/60">
-                This has no strong colour to follow, so the theme keeps its own.
+                This has no strong colour to follow, so your colours stay as they are.
               </span>
             )}
           </div>

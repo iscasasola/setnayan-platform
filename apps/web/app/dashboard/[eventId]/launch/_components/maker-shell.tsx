@@ -599,7 +599,7 @@ export function MakerShell({
   /* ══ 🧰 THE LOWER THIRD (phone) — the menu, the pick, the navigator ══
      (owner 2026-10-05, "approve": `maker_lower_third_interactive_2026-10-05_fable.html`). */
   const ltGlobal = [
-    ...(hasWork ? [{ key: 'theme', label: 'Theme', icon: LOWER_THIRD_GLOBAL_ICON.theme }] : []),
+    ...(hasWork ? [{ key: 'theme', label: 'Look', icon: LOWER_THIRD_GLOBAL_ICON.theme }] : []),
     { key: 'settings', label: 'Settings', icon: LOWER_THIRD_GLOBAL_ICON.settings },
     ...(hasWork ? [{ key: 'details', label: 'Details', icon: LOWER_THIRD_GLOBAL_ICON.details }] : []),
   ];

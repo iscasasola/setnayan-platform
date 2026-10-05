@@ -686,6 +686,8 @@ export async function SiteBody({
     event,
     viewerIsHost,
     signed: canvasMediaUrls,
+    // 🎞 A moving background tried in the draft shows on the host's own canvas (verified host only).
+    tryOn: isEditorCanvas,
   });
   // 🖼 The guest's own bars (header + tab bar): everywhere but the Maker's
   // canvas, and in the canvas only when its "Guest bars" switch is on. In the
@@ -3369,8 +3371,10 @@ export async function SiteBody({
       hubTheme={hubLook.theme}
       /* 🌈 An ombré is painted by the layout's paper (draft-overlaid for the
          host's canvas, since `event` is the overlaid row) — the shell leaves
-         its opaque paper off for it, Classic included. */
-      ownGround={isOmbreValue(event.site_bg_color)}
+         its opaque paper off for it, Classic included — and for any Main
+         background layer (a moving background of ours can sit under
+         Classic since 2026-10-05), or that layer would be painted over. */
+      ownGround={isOmbreValue(event.site_bg_color) || mainGroundLayer !== null}
       backdrop={backdrop}
       fullBleed={plan.fullBleed}
       editorCanvas={!showGuestBars}

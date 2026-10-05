@@ -130,7 +130,7 @@ export const GUIDED_STEPS: readonly StepDef[] = [
     title: 'Date & time',
     shows: (w) => (w.solemn ? 'Shows on your page and every print.' : 'Shows on your page, the countdown and every print.'),
   },
-  { key: 'theme', items: ['theme'], title: 'Theme', shows: () => 'The look of your whole Event Hub and every print.' },
+  { key: 'theme', items: ['theme'], title: 'Look', shows: () => 'The background, font and colours of your whole Event Hub and every print.' },
   { key: 'logo', items: ['logo'], title: 'Your logo', shows: () => 'On your page, in the centre of your QR code and on your prints.' },
   {
     key: 'hero',

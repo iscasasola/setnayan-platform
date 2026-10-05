@@ -168,7 +168,8 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
     'Photo background · Countdown',
     'Theme · Luxe',
     'Transition · Schedule',
-    'Typeface · Whole Event Hub',
+    // 🆓 'Typeface · Whole Event Hub' left this list 2026-10-05 — the font is free
+    // ("Colors, and Fonts are all free"); the draft still holds it, Apply writes it.
   ]);
   // Never a free change: the background colour and the part's colour are not named.
   assert.ok(!lines.some((l) => /colour|color/i.test(l)), 'a free colour is named as Pro');
@@ -187,6 +188,25 @@ test('3 · the Apply sheet lists exactly the Pro effects the draft holds — by 
     stages: font.jump && font.jump.kind === 'scene' ? font.jump.stages : [],
     fixed: 'hero',
   });
+});
+
+test('3 · a moving background of ours is Event Hub Pro — named at Apply, taken off alone; the colour alone is free', () => {
+  // Owner 2026-10-05 (DECISION_LOG "THEMES ARE REPLACED BY THREE DIRECT GLOBAL
+  // SETTINGS"): *"pick our animated loop background"* is paid; a colour is free.
+  const loop = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { main: { ground: 'loop', loop: 'velvet' } } } });
+  const effects = hubDraftProEffects(loop, LIVE, false);
+  assert.deepEqual(effects.map(hubProEffectLine), ['Moving background · Behind every scene'], 'a moving background is not asked for at Apply');
+  assert.deepEqual(effects[0]!.jump, { kind: 'look' }, '"Go to" does not open Look');
+  assert.equal(planHubDraftApply(mergeHubDraft(loop, effects[0]!.remove!), LIVE, false).refused.length, 0, 'Remove left the loop in the draft');
+  assert.deepEqual(hubDraftProEffects(loop, LIVE, true), [], 'an owning couple is asked to pay for a loop');
+  // Just the colour — and the page's own loop as it always was — stay free.
+  for (const main of [{ ground: 'none' }, { ground: 'theme' }] as const) {
+    const d = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { main } } });
+    assert.equal(planHubDraftApply(d, LIVE, false).refused.length, 0, `${main.ground} is held as Pro`);
+  }
+  // A font of their own is free too.
+  const face = mergeHubDraft(emptyHubDraft(), { events: { site_font_key: 'cinzel' } });
+  assert.equal(planHubDraftApply(face, LIVE, false).refused.length, 0, 'the font is held as Pro');
 });
 
 test('3 · one source: no Pro effect named for an owning couple, and none once the plan refuses nothing', () => {

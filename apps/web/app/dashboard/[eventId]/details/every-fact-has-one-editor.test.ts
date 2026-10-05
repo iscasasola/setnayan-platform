@@ -59,7 +59,6 @@ const EDITOR = read(`${D}/_components/record-editor.tsx`);
  * component" is a fact about two files, not a name that merely matches.
  */
 const SAME_AS_THE_MAKER: Record<RecordEditorKey, { defined: string; maker: string; mount: RegExp }> = {
-  theme: { defined: `${L}/maker-theme-picker.tsx`, maker: `${L}/maker-details.tsx`, mount: /<MakerThemeMenu\b/ },
   font: { defined: 'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx', maker: 'app/dashboard/[eventId]/website/editor/page.tsx', mount: /<ColorsPanel\b[\s\S]{0,200}?part="font"/ },
   colours: { defined: 'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx', maker: 'app/dashboard/[eventId]/website/editor/page.tsx', mount: /<ColorsPanel\b[\s\S]{0,200}?part="colours"/ },
   buttons: { defined: 'app/dashboard/[eventId]/website/editor/_components/buttons-look-row.tsx', maker: 'app/dashboard/[eventId]/website/editor/page.tsx', mount: /<ButtonsLookRow\b/ },
@@ -79,7 +78,6 @@ const SAME_AS_THE_MAKER: Record<RecordEditorKey, { defined: string; maker: strin
 
 /** How the record reaches each editor: the component itself, or the Maker's own builder of it. */
 const RECORD_REACHES: Record<RecordEditorKey, RegExp> = {
-  theme: /<MakerThemeMenu\b/,
   font: /<ColorsPanel\b/,
   colours: /<ColorsPanel\b/,
   buttons: /<ButtonsLookRow\b/,
@@ -121,7 +119,11 @@ test('every studio row opens its studio, and is named as one', () => {
 
 test('each editor the record opens IS the Maker’s — defined once, mounted by the Maker, reached by the record', () => {
   const keys = Object.keys(RECORD_EDITOR_COMPONENT) as RecordEditorKey[];
-  assert.equal(keys.length, 15, 'the editor list changed — re-read it against the study');
+  // 14 since 2026-10-05: the Theme row left with the theme pick (DECISION_LOG
+  // "THEMES ARE REPLACED BY THREE DIRECT GLOBAL SETTINGS") — Font, Colours and
+  // Buttons stay, each the Maker's own editor.
+  assert.equal(keys.length, 14, 'the editor list changed — re-read it against the study');
+  assert.ok(!('theme' in RECORD_EDITOR_COMPONENT), 'a theme picker came back to Event Details — a couple no longer picks a theme');
   for (const key of keys) {
     const name = RECORD_EDITOR_COMPONENT[key];
     const where = SAME_AS_THE_MAKER[key];
@@ -159,7 +161,7 @@ test('only the parts another flow owns carry a quiet "Open … ›" link', () =>
 });
 
 test('opening a row writes nothing — a GET to its field, and nothing on that path writes', () => {
-  assert.equal(recordFieldHref('E1', 'theme'), '/dashboard/E1/details/field/theme');
+  assert.equal(recordFieldHref('E1', 'fonts'), '/dashboard/E1/details/field/fonts');
   assert.equal(recordRowOfPath('/dashboard/E1/details/field/reply-by'), 'reply-by');
   assert.equal(recordRowOfPath('/dashboard/E1/details'), null);
   assert.equal(parseRecordRow('not-a-row'), null, 'an address that names no row opens nothing');

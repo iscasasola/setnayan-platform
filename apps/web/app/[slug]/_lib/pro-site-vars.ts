@@ -36,8 +36,8 @@ function channels(hex: string): string {
  * "Free: … bg colour") — it used to be gated behind `proWatermarkHidden` along
  * with everything else here, so a free couple's saved `site_bg_color` was
  * silently never painted for a guest. The BUTTON colour joined it 2026-09-28
- * (the free-vs-Pro redraw). The couple's font and (elsewhere) Candlelight /
- * magic move stay Pro-only, unchanged below.
+ * (the free-vs-Pro redraw), and the couple's FONT on 2026-10-05 ("Colors, and
+ * Fonts are all free"). Candlelight / magic move (elsewhere) stay Pro-only.
  *
  * 🔑 TEXT COLOUR ADAPTS TO THE COUPLE'S OWN BACKGROUND TOO (lib/hub-legibility.ts
  * — owner 2026-09-25: *"did you already make the font color adapt also based
@@ -94,8 +94,8 @@ export function proSiteVarsFor(
     }
   }
 
-  // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG, BEHIND THE PRO GATE (the
-  // button colour shared this gate until 2026-09-28). `hubFontVars` contributes `--pahina-face` / `--font-display`, which
+  // 🔤 THE COUPLE'S OWN TYPEFACE RIDES THE SAME BAG (behind the Pro gate until
+  // 2026-10-05; the button colour shared that gate until 2026-09-28). `hubFontVars` contributes `--pahina-face` / `--font-display`, which
   // `globals.css` and `tailwind.config.ts` already read; a theme's MATERIAL
   // (its colour tokens) is untouched, because a theme carries colour and this
   // carries type. One bag rather than two: it is delivered to the same
@@ -104,9 +104,12 @@ export function proSiteVarsFor(
   // ⛔ An unset face contributes `{}`, so a couple who never chose one gets
   // markup byte-identical to before this existed — and `null` still means
   // "add no style attribute at all".
-  if (proWatermarkHidden) {
-    Object.assign(proSiteVars, hubFontVars(event.site_font_key));
-  }
+  // 🆓 FREE SINCE 2026-10-05 (owner, DECISION_LOG "THEMES ARE REPLACED BY THREE
+  // DIRECT GLOBAL SETTINGS": *"Colors, and Fonts are all free"*): the couple's
+  // face paints for every event, Pro or not. `proWatermarkHidden` no longer
+  // gates anything in this bag.
+  void proWatermarkHidden;
+  Object.assign(proSiteVars, hubFontVars(event.site_font_key));
 
   return Object.keys(proSiteVars).length > 0 ? proSiteVars : null;
 }

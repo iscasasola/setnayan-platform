@@ -576,17 +576,17 @@ export const TOURS: Record<TourKey, TourDefinition> = {
   customer_adaptive_theme_v1: {
     key: 'customer_adaptive_theme_v1',
     label: 'Behind every scene',
-    blurb: 'Your hero goes behind every scene, and the theme follows its colours.',
+    blurb: 'Your hero goes behind every scene, and your buttons follow its colours.',
     slides: [
       {
         Icon: Palette,
         title: 'Your hero, behind every scene',
-        body: 'The photo you put on your hero also sits behind every scene &mdash; change it once, in Hero, and it changes everywhere. Your theme&rsquo;s buttons and accents take on its colours, while the lettering and ornaments stay your theme&rsquo;s.',
+        body: 'The photo you put on your hero also sits behind every scene &mdash; change it once, in Hero, and it changes everywhere. Your buttons and accents take on its colours, while the lettering stays as you set it.',
       },
       {
         Icon: CheckCircle2,
         title: 'Your words always read',
-        body: 'We check the photo and lay a soft veil so every word stays easy to read. You can keep the theme&rsquo;s own colours any time, or put a different clip or photo behind the page.',
+        body: 'We check the photo and lay a soft veil so every word stays easy to read. You can keep your own colours any time, or put a moving background, a different clip or a photo behind the page.',
       },
       {
         Icon: Sparkles,

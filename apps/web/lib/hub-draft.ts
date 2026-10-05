@@ -62,6 +62,7 @@
  *           GALLERY row alone `std_lead`, the Save the Date's Film · Photos pick;
  *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
  */
+import { sanitizeStdFollowTheme } from './std-backgrounds';
 import {
   sanitizeFixedSceneStylesDraft,
   stylePreferencesWithDraftedStyles,
@@ -499,6 +500,11 @@ export const HUB_DRAFT_EVENT_READ_COLUMNS = [
   'rsvp_ask_config',
   'reveal_stages',
   'std_reveal_effects',
+  // 🎞 THE FILM HANDED BACK TO THE THEME (owner, live walk 2026-10-05: "Same as
+  // theme", a tap on the Theme step, into the draft). The draft holds ONE value
+  // for it — `null`, the film following the theme (`stdFilmBackground`); a
+  // background of the film's own is picked in the Save the Date studio, live.
+  'std_background',
   // 🎨 THE COLOURS AND FACE (the Maker's Colors panel · `updateSiteColors`).
   // Painted by `app/[slug]/layout.tsx`, which cannot see `?editor=1` — so the
   // host canvas re-wears the look from the OVERLAID row inside the page
@@ -671,6 +677,10 @@ export function sanitizeHubDraftEventValue(
       return sanitizeRevealStages(raw);
     case 'std_reveal_effects':
       return raw && typeof raw === 'object' && !Array.isArray(raw) ? resolveRevealEffects(raw) : undefined;
+    // 🎞 Only "Same as theme" is ever drafted — `null`, handled above, or the
+    // follow object that keeps the couple's Readability (`stdFollowTheme`).
+    case 'std_background':
+      return sanitizeStdFollowTheme(raw) ?? undefined;
     // 🎨 `updateSiteColors`' own parses — a malformed value is dropped, never repaired.
     case 'site_bg_color': {
       // 🌈 Plain hex OR an encoded ombré (`lib/ombre.ts`) — the ONE reader of
@@ -1194,6 +1204,9 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
     case 'monogram_custom_svg':
     case 'monogram_studio_config':
       return refChange(asText(live), asText(next));
+    case 'std_background':
+      // A film background of its own → following the theme is a removal.
+      return refChange(live === null || live === undefined ? null : asText(live), next === null || next === undefined ? null : asText(next));
     case 'reveal_stages': {
       // Compared as the page reads it: NULL (never chosen) and an explicit
       // Save-the-Date-only are the same page, so choosing that is not a change.
@@ -1293,6 +1306,9 @@ export function eventItemIsPro(
   live: unknown = null,
 ): boolean {
   if (change !== 'add' && change !== 'change') return false;
+  // 🎞 The draft only ever holds "Same as theme" for the film (with or without
+  // the couple's Readability) — handing the film back to the theme is never Pro.
+  if (column === 'std_background') return false;
   if (column === 'std_reveal_template') {
     return !revealTemplateWriteAllowed(typeof value === 'string' ? value : null, false);
   }
@@ -2158,6 +2174,7 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   monogram_studio_config: 'Your logo design',
   reveal_stages: 'Where your reveal plays',
   std_reveal_effects: 'Your reveal’s effects',
+  std_background: 'Your Save the Date film’s background',
   site_bg_color: 'Your background colour',
   site_button_color: 'Your button colour',
   site_art_direction: 'Candlelight',

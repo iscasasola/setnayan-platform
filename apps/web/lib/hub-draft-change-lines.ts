@@ -61,6 +61,7 @@ export const HUB_DRAFT_EVENT_PLACE: Record<HubDraftEventColumn, { place: string;
   rsvp_ask_config: { place: 'RSVP', what: 'What you ask your guests' },
   std_reveal_template: { place: 'Save the Date', what: 'Reveal' },
   std_reveal_effects: { place: 'Save the Date', what: 'Reveal effects' },
+  std_background: { place: 'Save the Date', what: 'Film background' },
   reveal_stages: { place: 'Save the Date', what: 'Where the reveal plays' },
   monogram_custom_svg: { place: 'Logo', what: 'Your logo' },
   monogram_studio_config: { place: 'Logo', what: 'Design' },

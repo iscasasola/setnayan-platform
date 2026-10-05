@@ -120,12 +120,12 @@ export function yourEventParts({
       : [facts.names[0], facts.names[1]].filter((n) => n.trim()).join(' · ') || 'Not set yet',
     date: input.date.dateDisplay ?? 'Not set yet',
     venues: input.venues.resolved.map((v) => v.name).filter(Boolean).join(' · ') || 'Not set yet',
-    parents: [
-      parentsOffered(kind) ? `${parents.length} parent${parents.length === 1 ? '' : 's'}` : null,
-      `${hosts.length} host${hosts.length === 1 ? '' : 's'}`,
-    ]
-      .filter(Boolean)
-      .join(' · '),
+    // 👪 What the invitation prints: its parents — never a collaborator account (see `hostPieces`).
+    parents: parentsOffered(kind)
+      ? parents.length
+        ? `${parents.length} parent${parents.length === 1 ? '' : 's'}`
+        : 'No parents yet'
+      : `${hosts.length} host${hosts.length === 1 ? '' : 's'}`,
     march: facts.marchLines ? `${facts.marchLines} line${facts.marchLines === 1 ? '' : 's'} · walking order` : 'Nobody walks yet',
   };
   const rows: Partial<Record<EventItemKey, NavRow>> = {};
@@ -138,7 +138,10 @@ export function yourEventParts({
   const people: PersonPiece[] = offered ? parents.map((p, i) => ({ key: `p:${p.guestId ?? i}`, name: p.name })) : [];
   const cards: Record<string, ReactNode> = {};
   if (offered) parents.forEach((p, i) => (cards[`p:${p.guestId ?? i}`] = p.card));
-  const hostPieces: HostPiece[] = hosts.map((h) => ({ key: `h:${h.moderatorId}`, label: h.label, contact: h.contact }));
+  /* 👪 Where the invitation prints parents, THEY are its hosts (owner, live walk
+     2026-10-05): a dashboard co-host / planner account — and its email — is
+     never listed here. Only a type with no parents keeps its Kindly-reply host. */
+  const hostPieces: HostPiece[] = offered ? [] : hosts.map((h) => ({ key: `h:${h.moderatorId}`, label: h.label, contact: h.contact }));
 
   const invitation = <PrintPieceBody input={prints} piece="invitation" />;
   const bodies: Partial<Record<EventItemKey, ReactNode>> = {

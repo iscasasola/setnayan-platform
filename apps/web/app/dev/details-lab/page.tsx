@@ -65,7 +65,8 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
   const fresh = one('fresh') === '1';
   /* 🧪 `?shape=mj` — maria-and-jose's REAL shape (read-only SQL, 2026-10-05):
      first names only, the date set, Cyber Neon in the draft over a live
-     Classic, no parent but one host, nothing else filled in, and the setup's
+     Classic, no parent but one co-host ACCOUNT (a planner — never listed as the
+     invitation's host), the film's own background picked, nothing else filled in, and the setup's
      facts (no guests yet) — so the counts, the Parents step and the guests'
      names step behave as they did on the owner's live walk. */
   const mj = one('shape') === 'mj';
@@ -81,7 +82,8 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
           date: { value: mj ? '2026-12-12' : fresh ? null : '2026-12-18', dayPrecise: mj || !fresh },
           venueCount: fresh || mj ? 0 : 1,
           parentCount: fresh || mj ? 0 : 2,
-          hostCount: 1,
+          // Where the invitation prints parents a co-host account never counts (`readYourEventFacts`).
+          hostCount: mj ? 0 : 1,
           marchLines: 0,
         },
         names: hasTwoNamedPeople(profile)
@@ -129,6 +131,8 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
           posters: {},
           tour: false,
           chosen: mj || !fresh,
+          // maria-and-jose's film keeps a picked background (plain #e8d9bd).
+          filmOwnBackground: mj,
         }}
         prints={{
           eventId: EVENT,
@@ -141,7 +145,11 @@ export default async function DetailsLabPage({ searchParams }: { searchParams: P
         }}
         menu={{ saved: [], caterer: [], suggestions: [], flash: null }}
         stored={stored}
-        hosts={[{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]}
+        hosts={
+          mj
+            ? [{ moderatorId: 'm1', label: 'Ana & Marco · wedding planner external', contact: 'testnayan1@test.com' }]
+            : [{ moderatorId: 'm1', label: 'Claire', contact: '0917 555 0101' }]
+        }
         parents={
           mj
             ? []

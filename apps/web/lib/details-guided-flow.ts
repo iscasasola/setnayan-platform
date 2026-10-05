@@ -153,8 +153,13 @@ export const GUIDED_STEPS: readonly StepDef[] = [
   {
     key: 'parents',
     items: ['parents'],
+    /* 👪 OPTIONAL, like the Love Story (review 2026-10-05): where the invitation
+       prints parents, only they count — a co-host account never does — and a
+       couple with none to list could otherwise never finish the stage. An
+       optional step never holds its stage open; adding a parent still ticks it. */
+    optional: true,
     title: (label) => label,
-    shows: (w) => (w.parentsOffered ? 'Parents show on your invitation. Hosts are who guests reply to.' : 'Hosts are who guests reply to.'),
+    shows: (w) => (w.parentsOffered ? 'Optional — the parents your invitation names.' : 'Optional — who guests reply to.'),
   },
   { key: 'march', items: ['march'], title: (label) => label, shows: () => 'Who walks, and in what order — on your invitation and The Entourage card.' },
   { key: 'colours', items: ['mood-board'], title: 'Your colours', shows: () => 'Your palette — on your cards, your QR code and what your suppliers see.' },

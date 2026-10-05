@@ -738,7 +738,7 @@ function LiveReplyByField({
     })();
   };
   return (
-    <div className="flex flex-col gap-1.5" data-reply-by-field="live">
+    <div className="flex flex-col gap-1.5" data-reply-by-field="live" data-writes-live="">
       {shown ? (
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="text-base font-semibold text-ink" data-reply-by={shown}>

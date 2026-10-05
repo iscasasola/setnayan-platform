@@ -162,7 +162,7 @@ export function MarchControls({
   if (pick.startsWith(SECTION)) {
     const key = pick.slice(SECTION.length);
     return (
-      <section data-march-section-controls={key} className="flex flex-col gap-2">
+      <section data-march-section-controls={key} data-writes-live="" className="flex flex-col gap-2">
         <HubSavesImmediately />
         {/* The shipped panel, one section showing: its arrows, its swaps, its
             section moves and its Reset — the same island the Guest list used. */}
@@ -215,7 +215,7 @@ export function MarchControls({
   };
 
   return (
-    <section data-march-line-controls={line.leadId} className="flex flex-col gap-3">
+    <section data-march-line-controls={line.leadId} data-writes-live="" className="flex flex-col gap-3">
       <div>
         <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-ink/55">
           {section.label} · step {line.step}

@@ -55,6 +55,11 @@ test('1 · brand="foot": no wordmark above the card, one "Made with Setnayan" li
   assert.ok(made > foot.indexOf('THE-FORM'), '"Made with Setnayan" sits above the card, not at the foot');
   assert.match(foot.slice(made), /<a[^>]*href="\/"[^>]*>Made with Setnayan<\/a>/, 'the foot line no longer leads home');
   assert.equal(foot.match(/Made with Setnayan/g)?.length, 1);
+  // Legible on any ground: 12px (the guest floor), on the card's own paper.
+  const line = foot.slice(foot.lastIndexOf('<p', made), foot.indexOf('</p>', made));
+  assert.match(line, /class="mt-4 text-center text-xs"/, 'the foot line fell under the 12px legibility floor');
+  assert.match(line, /bg-surface\/90[^"]*text-ink\/75/, 'the foot line sits bare on the ground — unreadable on a photo or a dark theme');
+  assert.doesNotMatch(line, /text-\[\d+(?:\.\d+)?px\]/);
 
   const ours = renderToStaticMarkup(React.createElement(DoorShell, { title: 'Sign in' }));
   assert.match(ours, /aria-label="Setnayan home"/, 'Setnayan\'s own doors lost the way home');

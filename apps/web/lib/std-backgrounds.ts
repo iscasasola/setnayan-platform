@@ -249,8 +249,40 @@ export function resolveStdBackground(raw: unknown, fallbackColor = DEFAULT_PLAIN
  * couple picked themselves is theirs and stays.
  */
 export function stdFilmBackground(raw: unknown, themeCanvas: string | null): StdBackground {
-  if ((raw === null || raw === undefined) && themeCanvas && /^#[0-9a-fA-F]{3,8}$/.test(themeCanvas)) {
-    return { kind: 'plain', value: themeCanvas, legibility: 'auto' };
+  if (stdFollowsTheme(raw) && themeCanvas && /^#[0-9a-fA-F]{3,8}$/.test(themeCanvas)) {
+    return { kind: 'plain', value: themeCanvas, legibility: stdFollowLegibility(raw) };
   }
   return resolveStdBackground(raw);
+}
+
+/**
+ * 🎞 "SAME AS THEME", KEEPING THE COUPLE'S READABILITY (review 2026-10-05: the
+ * film's Lighten / Darken was dropped the moment it followed the theme). Stored
+ * as `null` when Readability is Auto — every new event — and as
+ * `{ follow: 'theme', legibility }` when the couple chose Lighten or Darken.
+ * Either way the film paints the theme's canvas; only the readability travels.
+ */
+export type StdFollowTheme = { follow: 'theme'; legibility: Exclude<StdLegibility, 'auto'> };
+
+/** The stored value for "Same as theme" with this readability — `null` for Auto. */
+export function stdFollowTheme(legibility: StdLegibility | null | undefined): StdFollowTheme | null {
+  return legibility === 'lighten' || legibility === 'darken' ? { follow: 'theme', legibility } : null;
+}
+
+/** Does the film follow the theme (nothing of its own stored)? */
+export function stdFollowsTheme(raw: unknown): boolean {
+  return raw === null || raw === undefined || (typeof raw === 'object' && (raw as Record<string, unknown>).follow === 'theme');
+}
+
+/** The readability the couple kept while following the theme ('auto' when none). */
+export function stdFollowLegibility(raw: unknown): StdLegibility {
+  const l = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).legibility : null;
+  return l === 'lighten' || l === 'darken' ? l : 'auto';
+}
+
+/** A posted "Same as theme" value, through its one shape: `null`, the follow object, or unusable (`undefined`). */
+export function sanitizeStdFollowTheme(raw: unknown): StdFollowTheme | null | undefined {
+  if (raw === null) return null;
+  if (!stdFollowsTheme(raw) || raw === undefined) return undefined;
+  return stdFollowTheme(stdFollowLegibility(raw));
 }

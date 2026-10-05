@@ -495,9 +495,9 @@ export async function hubDraftAction(
        it — after the host check (top) and the Pro gate (`planHubDraftApply`). */
     const qrWrite = 'style_preferences' in eventsPatch ? (eventsPatch.style_preferences as Record<string, unknown>) : undefined;
     delete eventsPatch.style_preferences;
-    /* 🔤 THE NAME STYLE LEAVES THE SESSION UPDATE TOO. The draft holds
-       `{ name_style }` only; `print_details` also carries the prints' opening
-       line, menu, pass card look and poster photo, so the style is MERGED into
+    /* 🔤🎫 THE NAME STYLE AND THE TICKET STYLE LEAVE THE SESSION UPDATE TOO. The
+       draft holds `{ name_style?, pass_design? }` only; `print_details` also
+       carries the prints' opening line, menu and poster photo, so each held key is MERGED into
        the blob as it stands at write time — through the admin client, exactly
        as its live writer (`POST /api/hub-print/name-style`) always wrote it
        (`authenticated` holds no UPDATE grant on the column) — after the host

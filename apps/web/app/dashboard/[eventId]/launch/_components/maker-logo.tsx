@@ -831,6 +831,7 @@ export function MakerLogoDoor({
                 key={t.key}
                 type="button"
                 data-lt-tile={`logo:${t.key}`}
+                data-lt-group="logo"
                 aria-pressed={sheet === t.key}
                 disabled={t.disabled}
                 onClick={() => setSheet(t.key)}

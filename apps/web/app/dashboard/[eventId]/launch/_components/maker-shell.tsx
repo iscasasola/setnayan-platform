@@ -4,7 +4,7 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { Check, Eye, List, Palette, X } from 'lucide-react';
+import { Check, ChevronLeft, Eye, List, Palette, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import type { TourSlideView } from '@/app/_components/tour-slide-view';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -17,6 +17,7 @@ import {
   MAKER_TOUR_KEY,
   isMakerDevice,
   isMakerShellPage,
+  lookVisitTaker,
   isStagePhase,
   makerOpenTool,
   makerPageAction,
@@ -219,11 +220,9 @@ export function MakerShell({
   const [detailsItem, setDetailsItem] = useState<DetailsItemKey | null>(() => movedSelection(initialSelection).item);
   /* 📱 Each door press opens the item's editor sheet on a phone (`MakerState.detailsDoor`). */
   const [detailsDoor, setDetailsDoor] = useState(0);
-  /* 🎨 Which door that press was — Look opens the Look tools DIRECTLY, never the
-     guided flow's stage list (owner 2026-10-05; `details-workspace.tsx` reads it). */
-  const [detailsDoorKind, setDetailsDoorKind] = useState<MakerDoor | null>(null);
   /* 🎨 Each time Look is opened — a door press, or Theme picked in the lower third. */
   const [lookVisit, setLookVisit] = useState(0);
+  const takeLookVisit = useMemo(() => lookVisitTaker(), []);
   /* 🏷 The guided flow's one title while it is on screen (`MakerState.guideTitle`). */
   const [guideTitle, setGuideTitle] = useState<string | null>(null);
   const [selection, setSelection] = useState<MakerSelection>(() => movedSelection(initialSelection).selection);
@@ -436,11 +435,11 @@ export function MakerShell({
   const openDoor = selection?.kind === 'tool' ? makerOpenTool(selection.key, detailsItem) : null;
   /* 🧰 THE LOWER THIRD'S PICK (phone) — one of the menu's two groups: a stage,
      or Theme · Settings · Details (Look · Event Details · Prints are those). */
-  /* The door the open Details page came through — or, restored from the tab's
-     memory, the one its item belongs to. */
+  /* The door the open Details page is on IS its item's (`makerDoorOf`): a jump to
+     another item (Look → the address) moves the pick with it. */
   const doorShown: MakerDoor | null =
-    selection?.kind === 'tool' && selection.key === 'details'
-      ? (detailsDoorKind ?? (openDoor === 'look' || openDoor === 'details' || openDoor === 'prints' ? openDoor : null))
+    selection?.kind === 'tool' && selection.key === 'details' && (openDoor === 'look' || openDoor === 'details' || openDoor === 'prints')
+      ? openDoor
       : null;
   const ltPick: LowerThirdPick =
     selection?.kind === 'tool' && selection.key === 'rsvp-stage'
@@ -452,9 +451,16 @@ export function MakerShell({
           : doorShown === 'prints' || settingsOn
             ? 'settings'
             : stage;
-  /* The navigator's slot is handed to the layer on screen — none for Settings,
-     whose rows the lower third draws itself; none on a desktop (its columns). */
-  const ltNav = phone && ltPick !== 'settings' ? ltSlot : null;
+  /* The navigator's slot is handed to the layer on screen — none for Settings'
+     own rows (the lower third draws them), except Prints, whose pieces follow;
+     none on a desktop (its columns). */
+  const ltNav = phone && (ltPick !== 'settings' || doorShown === 'prints') ? ltSlot : null;
+  /* Settings stays the pick only while nothing else is: a scene, a part or a
+     stage picked (on the page or anywhere) leaves it. */
+  useEffect(() => {
+    if (selection && !(selection.kind === 'tool' && selection.key === 'details')) setSettingsOn(false);
+  }, [selection]);
+  useEffect(() => setSettingsOn(false), [stage]);
   /* The part on screen, as the layer on screen says it ("RSVP form", "Names"). */
   const [ltWhere, setLtWhere] = useState<string | null>(null);
 
@@ -477,8 +483,8 @@ export function MakerShell({
       detailsItem,
       setDetailsItem,
       detailsDoor,
-      detailsDoorKind: doorShown ?? detailsDoorKind,
       lookVisit,
+      takeLookVisit,
       guideTitle,
       setGuideTitle,
       lookPages,
@@ -495,6 +501,7 @@ export function MakerShell({
       setDraft,
       tool,
       setTool,
+      lowerThird: phone,
       ltNav,
       eventBar,
       setEventBar,
@@ -502,7 +509,7 @@ export function MakerShell({
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, detailsDoorKind, doorShown, lookVisit, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft, tool, ltNav, eventBar],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -515,7 +522,6 @@ export function MakerShell({
       return;
     }
     setDetailsItem(makerPressDoor({ detailsItem }, key).detailsItem);
-    setDetailsDoorKind(key);
     if (key === 'look') setLookVisit((n) => n + 1);
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
@@ -524,9 +530,7 @@ export function MakerShell({
      page and its parts as tiles; a tile opens its editor (owner 2026-10-05,
      frame 6: "one menu, then parts, then scenes"). The same door, no sheet yet. */
   const openDoorOnNavigator = (key: MakerDoor) => {
-    if (!hasWork) return;
-    setDetailsDoorKind(key);
-    if (openDoor === key) return;
+    if (!hasWork || openDoor === key) return;
     setDetailsItem(makerPressDoor({ detailsItem }, key).detailsItem);
     if (key === 'look') setLookVisit((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
@@ -823,9 +827,9 @@ export function MakerShell({
            `100vh`/`inset-0`'s full height; the keyboard is `visualViewport`'s
            (the effect above). Held by lib/the-maker-keeps-the-page-on-a-phone.test.ts. */
         className="fixed inset-x-0 top-0 z-[80] flex h-[100dvh] flex-col bg-cream text-ink"
+        data-maker-shell=""
         /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`). */
         style={{ ['--maker-lt-h' as string]: MAKER_LT_HEIGHT }}
-        data-maker-shell=""
         aria-label="Event Hub Maker"
         role="region"
       >
@@ -860,7 +864,9 @@ export function MakerShell({
               data-bar-item="Exit"
               className={`${ICON_PILL_EXIT} ${MAKER_BAR_PHONE.exit}`}
             >
-              <X aria-hidden className="h-5 w-5" strokeWidth={2.4} />
+              <X aria-hidden className="h-5 w-5 lg:hidden" strokeWidth={2.4} />
+              {/* 🖥 A desktop keeps its ‹ this round. */}
+              <ChevronLeft aria-hidden className="hidden h-6 w-6 lg:block" strokeWidth={2} />
             </Link>
           </IconPill>
 
@@ -1251,8 +1257,9 @@ function MoreSheet({ open, onClose, children }: { open: boolean; onClose: () => 
       <aside
         ref={sheetRef}
         hidden={!open}
-        /* A dialog on every width; its focus trap is a desktop's (above). */
+        /* A dialog on every width; modal (its focus trap) on a desktop only. */
         role="dialog"
+        aria-modal={wide ? true : undefined}
         aria-label="Your Event Hub"
         data-phone-chrome="panel"
         className={`overflow-y-auto bg-cream p-3 lg:absolute lg:inset-y-0 lg:right-0 lg:w-[min(560px,92vw)] lg:p-6 ${MAKER_LT_TOOL}`}

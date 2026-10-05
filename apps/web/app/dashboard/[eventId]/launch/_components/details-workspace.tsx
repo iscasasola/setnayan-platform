@@ -240,19 +240,19 @@ export function DetailsWorkspace({
   /** Next (or any move) found unsaved typing here: where it was going. */
   const [unsavedTo, setUnsavedTo] = useState<GuidedScreen | null>(null);
   /* 🎨 LOOK OPENS THE LOOK TOOLS (owner 2026-10-05: a press of Look landed on
-     the guided flow's stage list). A Look press — counted by the Maker
-     (`detailsDoor` + `detailsDoorKind`) — leaves the flow's screens for this
-     visit: the Look item and its panel, nothing in between. Not remembered: the
-     next door into the flow still opens it. */
+     the guided flow's stage list). Each opening of Look is counted by the Maker
+     (`lookVisit`) and ANSWERED ONCE (`takeLookVisit` — a later mount of this
+     page, through Details or a jump, never replays it): this visit leaves the
+     flow's screens for the Look item. Not remembered: the next door into the
+     flow still opens it. */
   const lookVisit = maker?.lookVisit ?? 0;
-  const lastLookVisit = useRef(0);
+  const takeLookVisit = maker?.takeLookVisit;
   useEffect(() => {
-    if (!lookVisit || lookVisit === lastLookVisit.current) return;
-    lastLookVisit.current = lookVisit;
+    if (!lookVisit || !takeLookVisit?.(lookVisit)) return;
     setMode('all');
     setPane(null);
     setUnsavedTo(null);
-  }, [lookVisit]);
+  }, [lookVisit, takeLookVisit]);
   const pickedStep = plan && stepKey ? stepOf(plan, stepKey) : null;
   const pieceHere = pieceMap[selected] ?? null;
   const stepHere = plan
@@ -462,23 +462,11 @@ export function DetailsWorkspace({
     setLtWhere?.(current.label);
   }, [setLtWhere, current.label]);
   useEffect(() => () => setLtWhere?.(null), [setLtWhere]);
-  const ltDoor = maker?.detailsDoorKind ?? 'details';
+  /* The navigator lists the items of the door the picked item belongs to (Theme →
+     Look's, Details → the event's, Prints → the prints') — a jump to another
+     item (Look → the address) moves the lower third's pick with it. */
+  const ltDoor = makerDoorOf(selected);
   const ltNav = maker?.ltNav ?? null;
-  /* The page opens on an item of the door it came through (Theme → Look's,
-     Details → the event's, Prints → the prints'): the first one there is when
-     the item asked for is not on this event's list. */
-  const firstOfDoor = items.find((i) => makerDoorOf(i.key) === ltDoor)?.key ?? null;
-  useEffect(() => {
-    if (ltNav && firstOfDoor && makerDoorOf(selected) !== ltDoor) select(firstOfDoor);
-  }, [ltNav, ltDoor, firstOfDoor, selected, select]);
-  /* Another door (Theme → Details in the lower third's menu) lands on its
-     navigator, not on the last door's open tool. */
-  const lastLtDoor = useRef(ltDoor);
-  useEffect(() => {
-    if (lastLtDoor.current === ltDoor) return;
-    lastLtDoor.current = ltDoor;
-    if (ltNav) setSheetOpen(false);
-  }, [ltDoor, ltNav]);
   /* 🎨 Theme's PARTS first (frame 6: "Theme → Look · Fonts · Colours"): the Look
      panel's own sections (`LOOK_SECTIONS`); a tile opens the panel at it. Then
      the other Look items (Mood Board · Logo · …), each its own editor. */
@@ -499,6 +487,7 @@ export function DetailsWorkspace({
                 key={`look:${key}`}
                 type="button"
                 data-lt-tile={`look:${key}`}
+                data-lt-group="look"
                 aria-pressed={on}
                 onClick={() => {
                   select('theme');
@@ -519,6 +508,7 @@ export function DetailsWorkspace({
                 key={i.key}
                 type="button"
                 data-lt-tile={`details:${i.key}`}
+                data-lt-group="details"
                 aria-pressed={i.key === selected}
                 onClick={() => {
                   select(i.key);

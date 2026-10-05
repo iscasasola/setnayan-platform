@@ -235,7 +235,8 @@ for (const state of STATES) {
     const tool = panels[0]!;
     // 🧰 IN the lower third, right of the column — never over the page.
     for (const t of MAKER_LT_TOOL.split(' ')) assert.ok(tool.classes.split(/\s+/).includes(t), `${tool.label} is not a lower-third tool — it lacks ${t}`);
-    assert.ok(375 - 60 - 4 >= MAKER_LT_TOOL_MIN_PX, 'a tool is under 300 px wide at 375');
+    const left = Number(/max-lg:left-\[(\d+)px\]/.exec(tool.classes)?.[1]);
+    assert.ok(375 - left - 4 >= MAKER_LT_TOOL_MIN_PX, `${tool.label} is ${375 - left - 4} px wide at 375 — under ${MAKER_LT_TOOL_MIN_PX}`);
     for (const { width, height } of MAKER_PHONE_VIEWPORTS) {
       const lt = makerLtHeightPx(height);
       const px = phoneHeightPx(tool.classes, height);

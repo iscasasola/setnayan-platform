@@ -209,6 +209,7 @@ export function MakerRsvpStage({
                 key={s.key}
                 type="button"
                 data-lt-tile={`rsvp:${s.key}`}
+                data-lt-group="rsvp"
                 data-rsvp-stage-scene-tile={s.key}
                 aria-pressed={scene === s.key}
                 onClick={() => {

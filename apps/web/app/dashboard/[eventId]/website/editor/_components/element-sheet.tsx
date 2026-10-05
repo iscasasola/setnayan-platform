@@ -374,7 +374,10 @@ export function ElementSheet({
       data-maker-element-sheet={target.el}
       style={resize ? { ['--maker-tools-w' as string]: `${resize.width}px` } : undefined}
       onKeyDown={(e) => {
-        if (e.key === 'Escape') onClose();
+        // One close: the lower third's own Escape sees it was taken (`defaultPrevented`). A dropdown inside keeps it.
+        if (e.key !== 'Escape' || e.defaultPrevented || document.querySelector('[aria-haspopup][aria-expanded="true"]')) return;
+        e.preventDefault();
+        onClose();
       }}
       className={`sn-glass-bare flex min-h-0 flex-col ${MAKER_LT_TOOL} lg:relative lg:z-auto lg:order-3 lg:max-h-none lg:w-[var(--maker-tools-w,340px)] lg:shrink-0 lg:rounded-none lg:pb-3`}
     >

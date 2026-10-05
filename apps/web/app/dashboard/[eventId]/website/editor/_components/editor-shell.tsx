@@ -756,6 +756,8 @@ export function MakerWork({
   const ticketDesign = ticketShown ?? ticketSaved;
   /* A ticket that could not be drawn SAYS so — never an empty page that reads like no ticket. */
   const [ticketFailed, setTicketFailed] = useState<PassCardDesign | null>(null);
+  /* Each pick tries again — a failure is said for the look it happened to, never carried over. */
+  useEffect(() => setTicketFailed(null), [ticketDesign]);
   const ticketOn = selection?.kind === 'row' && selection.key === `f:${MAKER_FIXED_TICKET}`;
   /* 🎨 LOGO · HERO · REVEAL LIVE IN DETAILS (Details part 3, DECISION_LOG
      2026-09-28 "OPTION B — EVERYTHING MADE ONCE LIVES IN DETAILS"). This page
@@ -2197,6 +2199,9 @@ export function MakerWork({
                     </span>
                     <button
                       type="button"
+                      /* 🧰 A tile of the lower third's navigator — ‹ › step scene to scene. */
+                      data-lt-tile={tile.key}
+                      data-lt-group="scenes"
                       data-maker-scene={tile.kind === 'scene' ? tile.type : undefined}
                       data-maker-fixed={tile.kind === 'fixed' ? tile.fixed : undefined}
                       data-maker-post-event={tile.kind === 'post-event' ? tile.scene : undefined}

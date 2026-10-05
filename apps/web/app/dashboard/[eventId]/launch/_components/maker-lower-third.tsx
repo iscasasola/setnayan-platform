@@ -99,16 +99,46 @@ export function MakerLowerThird({
   const menuId = useOneOpen(menuOpen, setMenuOpen);
   const rootRef = useRef<HTMLElement>(null);
   const navRef = useRef<HTMLDivElement>(null);
-  /* A tool opening closes the menu (one open at a time); Escape finishes the tool. */
+  /* A tool opening closes the menu (one open at a time); Escape finishes the
+     tool — but only the INNERMOST thing open closes: a dropdown or menu open
+     inside it (any `aria-haspopup` control still expanded) or a handler that
+     already took the key (`defaultPrevented`) keeps the tool open. */
   useEffect(() => {
     if (!tool) return;
     setMenuOpen(false);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !e.defaultPrevented) tool.close();
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if (document.querySelector('[aria-haspopup][aria-expanded="true"]')) return;
+      e.preventDefault();
+      tool.close();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [tool]);
+  /* ♿ Focus moves INTO the tool when it opens (its panel, never a field — a
+     phone would raise its keyboard) and back to what opened it when it closes. */
+  const toolKey = tool?.key ?? null;
+  const opener = useRef<HTMLElement | null>(null);
+  const lastKey = useRef<string | null>(null);
+  useEffect(() => {
+    const was = lastKey.current;
+    lastKey.current = toolKey;
+    // In the commit that shows it: the tool's panel is already on the page (it registered from its own effect).
+    if (toolKey) {
+      // What opened the first tool (a tile, a part on the page) — kept across ‹ › steps.
+      if (!was) opener.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const panel = [...document.querySelectorAll<HTMLElement>('[data-phone-chrome="panel"]')].find((el) => el.getClientRects().length > 0);
+      if (!panel || panel.contains(document.activeElement)) return;
+      if (!panel.hasAttribute('tabindex')) panel.setAttribute('tabindex', '-1');
+      panel.focus({ preventScroll: true });
+      return;
+    }
+    if (!was) return;
+    const back = opener.current;
+    opener.current = null;
+    if (back && back !== document.body && back.isConnected && back.getClientRects().length > 0) back.focus({ preventScroll: true });
+    else rootRef.current?.querySelector<HTMLElement>('[data-lt-menu-button]')?.focus({ preventScroll: true });
+  }, [toolKey]);
   /* The menu closes on Escape and on a tap outside it. */
   useEffect(() => {
     if (!menuOpen) return;
@@ -125,12 +155,15 @@ export function MakerLowerThird({
   }, [menuOpen]);
 
   /* ‹ › — the tool's own steps, else the navigator's tiles: the one after (or
-     before) the tile that is on. The tiles stay mounted under the column. */
+     before) the tile that is on, in ITS group (scene → scene, never into the
+     stage's pages). The tiles stay mounted under the column. */
   const stepTile = (dir: -1 | 1) => {
-    const tiles = [...(navRef.current?.querySelectorAll<HTMLElement>('[data-lt-tile]:not([aria-disabled="true"])') ?? [])];
-    const at = tiles.findIndex((t) => t.getAttribute('aria-pressed') === 'true');
-    const next = at < 0 ? null : tiles[at + dir];
-    next?.click();
+    const tiles = [...(navRef.current?.querySelectorAll<HTMLElement>('[data-lt-tile]') ?? [])];
+    const at = stepTileIn(
+      tiles.map((t) => ({ group: t.dataset.ltGroup ?? '', on: t.getAttribute('aria-pressed') === 'true', off: t.getAttribute('aria-disabled') === 'true' || (t as HTMLButtonElement).disabled === true })),
+      dir,
+    );
+    if (at !== null) tiles[at]!.click();
   };
   const prev = tool ? (tool.step ? tool.step.prev : () => stepTile(-1)) : null;
   const next = tool ? (tool.step ? tool.step.next : () => stepTile(1)) : null;
@@ -315,7 +348,7 @@ export function MakerLowerThird({
 }
 
 /** One navigator tile — a part of the pick (gold) or a row of Settings. A layer's own tiles wear the same classes (`LOWER_THIRD_TILE`). */
-export function LowerThirdTileButton({ tile, part = false }: { tile: LowerThirdTile; part?: boolean }) {
+export function LowerThirdTileButton({ tile, part = false, group = part ? 'parts' : 'tiles' }: { tile: LowerThirdTile; part?: boolean; group?: string }) {
   return (
     <button
       type="button"
@@ -324,6 +357,7 @@ export function LowerThirdTileButton({ tile, part = false }: { tile: LowerThirdT
       aria-pressed={tile.toggle ? undefined : tile.on}
       aria-disabled={tile.disabled || undefined}
       data-lt-tile={tile.key}
+      data-lt-group={group}
       title={tile.note}
       onClick={tile.disabled ? undefined : tile.onPick}
       className={`${LOWER_THIRD_TILE} ${part ? LOWER_THIRD_TILE_PART : LOWER_THIRD_TILE_PLAIN} ${tile.on ? LOWER_THIRD_TILE_ON : ''} ${tile.disabled ? 'opacity-50' : ''}`}
@@ -356,4 +390,22 @@ export const LOWER_THIRD_TILE_ON = 'ring-2 !ring-mulberry';
  */
 export function IntoLowerThird({ to, children }: { to: HTMLElement | null | undefined; children: ReactNode }) {
   return to ? createPortal(children, to) : <>{children}</>;
+}
+
+/**
+ * ‹ › over the navigator: the index of the tile one step from the one that is on,
+ * within the SAME group (`data-lt-group`), skipping tiles that are off — null at
+ * either end, or with nothing on. Pure, so a test holds it.
+ */
+export function stepTileIn(tiles: ReadonlyArray<{ group: string; on: boolean; off: boolean }>, dir: -1 | 1): number | null {
+  /* The tile the tool belongs to: a scene's (or an item's) before the pick's
+     part that is on with it (the page on screen stays on while a scene is open). */
+  const own = tiles.findIndex((t) => t.on && t.group !== 'parts');
+  const at = own >= 0 ? own : tiles.findIndex((t) => t.on);
+  if (at < 0) return null;
+  for (let i = at + dir; i >= 0 && i < tiles.length; i += dir) {
+    if (tiles[i]!.group !== tiles[at]!.group) continue;
+    if (!tiles[i]!.off) return i;
+  }
+  return null;
 }

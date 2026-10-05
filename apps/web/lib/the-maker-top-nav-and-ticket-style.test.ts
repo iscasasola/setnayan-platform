@@ -122,9 +122,12 @@ test('2a · ✕ Exit is red, an X, its own pill — "‹" never again', async ()
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
   const exit = /<span data-icon-pill="exit"[^>]*><a\b[^>]*data-maker-tool="exit"[^>]*>([\s\S]*?)<\/a><\/span>/.exec(header);
   assert.ok(exit, 'Exit is not its own pill');
-  assert.match(exit[0], /\bbg-\[#B3261E\]/, 'Exit is not red');
+  assert.match(exit[0], /\bmax-lg:bg-\[#B3261E\]/, 'Exit is not red on a phone');
+  assert.doesNotMatch(exit[0], /(?:^|\s)bg-\[#B3261E\]/, 'the red leaks onto a desktop');
   assert.match(exit[1]!, /lucide-x\b/, 'Exit is not an X');
-  assert.doesNotMatch(header, /lucide-chevron-left/, 'the "‹" (back one step) is back on the bar');
+  // 🖥 A desktop keeps its ‹ this round — shown only from lg, the X only under it.
+  assert.match(exit[1]!, /lucide-x h-5 w-5 lg:hidden/, 'the X shows on a desktop');
+  assert.match(exit[1]!, /lucide-chevron-left hidden h-6 w-6 lg:block/, 'the desktop lost its ‹');
 });
 
 test('2b · the bar names the screen you are on — "Invitation · Welcome", never "as a guest sees it"', async () => {
@@ -137,21 +140,29 @@ test('2c · [ ↺ Undo | 👁 Preview ] share ONE pill; ✓ Apply is its own GRE
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
   assert.match(bar, /<IconPill label="Undo and preview">\s*<DraftButton\s+label="Undo"[\s\S]*?\{maker\?\.previewMenu \?\? null\}\s*<\/IconPill>/, 'Undo and Preview are not one shared pill');
   assert.match(bar, /<IconPill tone="apply">\s*<span className="relative inline-flex" data-maker-apply="">/, 'Apply is not its own pill');
-  assert.match(MAKER_BAR_APPLY, /\bbg-success-600\b/, 'Apply is not green');
+  assert.match(MAKER_BAR_APPLY, /\bmax-lg:bg-success-600\b/, 'Apply is not green on a phone');
+  assert.match(MAKER_BAR_APPLY, /(?:^|\s)bg-mulberry(?:\s|$)/, 'the desktop’s Apply is no longer the wine circle');
   // With no draft bar (a viewer with nothing to draft) Preview still sits in a pill.
   const header = (await shell()).split('<header')[1]!.split('</header>')[0]!;
-  assert.match(header, /<span role="group" aria-label="Preview" data-icon-pill="shared"[^>]*><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/);
+  assert.match(header, /<span role="group" aria-label="Preview" data-icon-pill="shared" class="[^"]*max-lg:bg-ink\/\[0\.06\][^"]*"><span class="relative inline-flex shrink-0"><button[^>]*data-maker-tool="preview"/, 'the pill grounds the desktop’s bar');
 });
 
 /* ══ 3 · LOOK OPENS THE LOOK TOOLS ══════════════════════════════════════════ */
 
-test('3 · Look (a press on a desktop, Theme in the lower third) leaves the guided flow’s screens for the Look tools', () => {
+test('3 · each opening of Look is answered ONCE — a later mount of Details never replays it (behaviour)', async () => {
+  const { lookVisitTaker } = await import(`../${L}/maker-bar`);
+  const take = lookVisitTaker();
+  assert.equal(take(0), false, 'no Look visit yet, but Details left the flow');
+  assert.equal(take(1), true, 'a Look press was not answered');
+  assert.equal(take(1), false, 'a remount of Details (the Details door, a jump) replayed the old Look visit');
+  assert.equal(take(2), true, 'the next Look press was not answered');
+  // The Maker counts a press (desktop) and Theme (the lower third); Details asks the taker, then leaves the flow.
   const shellSrc = read(`${L}/maker-shell.tsx`);
-  assert.match(shellSrc, /setDetailsDoorKind\(key\);\s*if \(key === 'look'\) setLookVisit\(\(n\) => n \+ 1\);\s*setDetailsDoor\(\(n\) => n \+ 1\);/, 'a Look press no longer counts a Look visit');
-  assert.match(shellSrc, /const openDoorOnNavigator = \(key: MakerDoor\) => \{[\s\S]{0,300}if \(key === 'look'\) setLookVisit\(\(n\) => n \+ 1\);/, 'Theme in the lower third does not count a Look visit');
+  assert.match(shellSrc, /const takeLookVisit = useMemo\(\(\) => lookVisitTaker\(\), \[\]\);/);
+  assert.equal((shellSrc.match(/if \(key === 'look'\) setLookVisit\(\(n\) => n \+ 1\);/g) ?? []).length, 2, 'a Look door does not count its visit');
   const ws = read(`${L}/details-workspace.tsx`);
-  const effect = /const lookVisit = maker\?\.lookVisit \?\? 0;[\s\S]*?useEffect\(\(\) => \{([\s\S]*?)\}, \[lookVisit\]\);/.exec(ws);
-  assert.ok(effect, 'Details does not answer a Look visit');
+  const effect = /useEffect\(\(\) => \{\s*if \(!lookVisit \|\| !takeLookVisit\?\.\(lookVisit\)\) return;([\s\S]*?)\}, \[lookVisit, takeLookVisit\]\);/.exec(ws);
+  assert.ok(effect, 'Details does not ask the taker before leaving the flow');
   assert.match(effect[1]!, /setMode\('all'\);/, 'a Look visit stays in the guided flow');
   assert.match(effect[1]!, /setPane\(null\);/, 'a Look visit lands on the stage list');
 });

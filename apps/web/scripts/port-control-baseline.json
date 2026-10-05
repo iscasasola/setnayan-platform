@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "5789e2892",
+  "generatedFromRef": "c0485b889",
   "routeCount": 428,
   "destinations": 947,
   "actions": 669,
-  "blocks": 5515,
+  "blocks": 5514,
   "routes": {
     "/": {
       "files": [
@@ -6634,7 +6634,6 @@
         "MakerContext.Provider",
         "MakerDetails",
         "MakerDevice",
-        "MakerDoor",
         "MakerDraftDoor",
         "MakerEventBar",
         "MakerGuestPagesReport",

@@ -90,13 +90,13 @@ export type MakerState = {
    */
   detailsDoor?: number;
   /**
-   * 🎨 WHICH door that last press was. Look opens the Look tools DIRECTLY
-   * (owner 2026-10-05 — it opened the guided flow's stage list): Details leaves
-   * the flow's screens for a Look press (`details-workspace.tsx`). Optional.
+   * 🎨 Counts each opening of Look (a door press, or Theme in the lower third).
+   * Look opens the Look tools DIRECTLY, never the guided flow's stage list
+   * (owner 2026-10-05) — `details-workspace.tsx` answers it. Optional.
    */
-  detailsDoorKind?: 'look' | 'details' | 'prints' | null;
-  /** 🎨 Counts each opening of Look (a door press, or Theme in the lower third) — Details answers it. */
   lookVisit?: number;
+  /** Answer a Look visit ONCE: true the first time it is asked for `n`, false after. */
+  takeLookVisit?: (n: number) => boolean;
   /**
    * 🏷 THE GUIDED FLOW'S ONE TITLE (owner 2026-10-05: the bar flipped between
    * "Look" and "Event Details" inside one stage). While "Finish your Event Hub"
@@ -150,6 +150,8 @@ export type MakerState = {
    * tool's name, ‹ › and × — while the tool takes the rest. Optional.
    */
   tool?: MakerTool | null;
+  /** The lower third is on (a phone, < lg) — tools register only then; a desktop keeps its columns. */
+  lowerThird?: boolean;
   setTool?: (next: MakerTool | null | ((cur: MakerTool | null) => MakerTool | null)) => void;
   /**
    * 🧭 The lower third's NAVIGATOR (phone): the layer on screen draws its own
@@ -182,7 +184,7 @@ export type MakerTool = {
  */
 export function useMakerTool(open: boolean, tool: MakerTool): void {
   const maker = useContext(MakerContext);
-  const setTool = maker?.setTool;
+  const setTool = maker?.lowerThird ? maker.setTool : undefined;
   const ref = useRef(tool);
   ref.current = tool;
   const { key, name } = tool;

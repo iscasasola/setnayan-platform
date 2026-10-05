@@ -155,15 +155,40 @@ test('3 · a tool open folds the menu and the navigator into the left column —
   // …and at rest the rows carry NO transform (a transformed box would hold every fixed child).
   const rest = /<div\b[^>]*data-lt-rows=""[^>]*>/.exec(await lowerThird({}))![0];
   assert.doesNotMatch(rest, /translate-x/, 'the navigator wears a transform at rest');
-  // The tool's width at 375: left 60 (column 52 + 4 + 4), right 4.
-  assert.match(MAKER_LT_TOOL, /max-lg:left-\[60px\]/);
-  assert.match(MAKER_LT_TOOL, /max-lg:right-1\b/);
-  assert.ok(375 - (MAKER_LT_COLUMN_PX + 8) - 4 >= MAKER_LT_TOOL_MIN_PX, 'the tool is under 300 px at 375');
+  // The tool's width at 375, READ from its classes: right of the column (its left
+  // offset clears the column's 52 px), 4 px from the right edge.
+  const left = Number(/max-lg:left-\[(\d+)px\]/.exec(MAKER_LT_TOOL)?.[1]);
+  const right = /max-lg:right-1\b/.test(MAKER_LT_TOOL) ? 4 : NaN;
+  assert.ok(left >= MAKER_LT_COLUMN_PX + 4, `the tool (left ${left}) sits over the column (${MAKER_LT_COLUMN_PX} px)`);
+  assert.ok(375 - left - right >= MAKER_LT_TOOL_MIN_PX, `the tool is ${375 - left - right} px at 375 — under ${MAKER_LT_TOOL_MIN_PX}`);
   // 200–280 ms, instant under Reduce Motion.
   const src = read(`${L}/maker-lower-third.tsx`);
   for (const m of src.matchAll(/duration-\[(\d+)ms\]/g)) assert.ok(Number(m[1]) >= 200 && Number(m[1]) <= 280, `a ${m[1]} ms move`);
   assert.ok((src.match(/motion-reduce:transition-none/g) ?? []).length >= 3, 'a move is not instant under Reduce Motion');
   assert.equal(closed, 0, 'drawing the column closed the tool');
+});
+
+test('3 · ‹ › step within the tile’s own group — scene to scene, never into the stage’s pages; off tiles skipped (behaviour)', async () => {
+  const { stepTileIn } = await import(`../${L}/maker-lower-third`);
+  const row = [
+    { group: 'parts', on: true, off: false }, // Welcome — the page on screen stays on while a scene is open
+    { group: 'parts', on: false, off: false }, // Details
+    { group: 'scenes', on: true, off: false }, // Names & date — open
+    { group: 'scenes', on: false, off: true }, // a scene that is off
+    { group: 'scenes', on: false, off: false }, // Personal greeting
+  ];
+  assert.equal(stepTileIn(row, 1), 4, '› did not skip the off scene to the next one');
+  assert.equal(stepTileIn(row, -1), null, '‹ from the first scene stepped into the stage’s pages');
+  assert.equal(stepTileIn(row.map((t) => ({ ...t, on: false })), 1), null, 'a step with nothing open moved');
+  // With only a part on (a page's own tool), ‹ › walk the parts.
+  assert.equal(stepTileIn(row.map((t, i) => ({ ...t, on: i === 0 })), 1), 1);
+  // Every layer's tiles say their group — the scene strip's included, so a scene sheet’s ‹ › work.
+  const work = read(`${E}/editor-shell.tsx`);
+  assert.match(work, /data-lt-tile=\{tile\.key\}\s*data-lt-group="scenes"/, 'a scene tile is not a tile of the navigator — the scene sheet’s ‹ › do nothing');
+  for (const [file, group] of [[`${L}/details-workspace.tsx`, 'details'], [`${L}/details-workspace.tsx`, 'look'], [`${L}/maker-rsvp-stage.tsx`, 'rsvp'], [`${L}/maker-logo.tsx`, 'logo']] as const) {
+    assert.match(read(file), new RegExp(`data-lt-group="${group}"`), `${file}: its tiles have no group`);
+  }
+  assert.match(read(`${L}/maker-lower-third.tsx`), /data-lt-group=\{group\}/);
 });
 
 test('3 · the part tapped on the page is a tool: the part sheet registers, and ‹ › step to its scene’s other parts', () => {
@@ -208,18 +233,84 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
   assert.match(read(`${L}/maker-logo.tsx`), /<IntoLowerThird to=\{ltNav\}>/);
 });
 
+test('4 · a jump to another item (Look → the address, the Mood Board, the love story) moves the pick with it — never snaps back', () => {
+  // The door IS the item's (`makerDoorOf`) — on the navigator and on the menu alike.
+  assert.equal(makerDoorOf('theme'), 'look');
+  assert.equal(makerDoorOf('mood-board'), 'look');
+  assert.equal(makerDoorOf('address'), 'details');
+  assert.equal(makerDoorOf('love-story'), 'details');
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /const ltDoor = makerDoorOf\(selected\);/, 'the navigator lists another door’s items than the picked one’s');
+  assert.doesNotMatch(ws, /firstOfDoor|select\(firstOf/, 'a jump is snapped back to the first item of the old door');
+  const shellSrc = read(`${L}/maker-shell.tsx`);
+  assert.match(shellSrc, /const doorShown: MakerDoor \| null =\s*selection\?\.kind === 'tool' && selection\.key === 'details' && \(openDoor === 'look' \|\| openDoor === 'details' \|\| openDoor === 'prints'\)\s*\? openDoor/, 'the menu’s pick does not follow the item on screen');
+  assert.doesNotMatch(shellSrc, /detailsDoorKind/, 'a remembered door overrides the item on screen again');
+});
+
 /* ══ 5 · NO TOOL OF THE LOWER THIRD LINKS OUT ═══════════════════════════════ */
 
-test('5 · no href to another page and no router push from the lower third, a scene’s sheet or a tile’s note', () => {
-  const lt = read(`${L}/maker-lower-third.tsx`);
-  assert.doesNotMatch(lt, /\bhref=|<Link\b|router\.|location\.(?:href|assign)|window\.open/, 'the lower third links out');
+/**
+ * The links out of the Maker that are still in its tools — each owner-listed
+ * (DECISION_LOG 2026-10-05 "BUILT — THE MAKER'S THREE ZONES": "NOT YET IN THE
+ * LOWER THIRD"). A NEW one fails this; moving one into the lower third means
+ * lowering its count here.
+ */
+const KNOWN_LINK_OUTS: Record<string, { count: number; why: string }> = {
+  [`${L}/details-guide.tsx`]: { count: 3, why: 'the guided step "Your guests’ names" (→ guest list import), Send, a link step’s one way in' },
+  [`${L}/maker-prints.tsx`]: { count: 3, why: '#print-menu (in page) · the Pro unlock · the 3D seat plan' },
+  [`${L}/maker-details.tsx`]: { count: 1, why: 'Gifts → E-Gifts' },
+  [`${L}/details-date-clash.tsx`]: { count: 1, why: 'a clashing supplier’s thread' },
+};
+const TOOL_FILES = [
+  `${L}/maker-lower-third.tsx`,
+  `${L}/maker-shell.tsx`,
+  `${L}/details-workspace.tsx`,
+  `${L}/details-look-pages.tsx`,
+  `${L}/maker-logo.tsx`,
+  `${L}/maker-page.tsx`,
+  `${L}/maker-sheet.tsx`,
+  `${L}/maker-rsvp-stage.tsx`,
+  `${L}/maker-rsvp-ask.tsx`,
+  `${L}/details-your-event.tsx`,
+  `${L}/details-your-event-parts.tsx`,
+  `${E}/element-sheet.tsx`,
+  `${E}/part-inspector.tsx`,
+  `${E}/scene-inspector.tsx`,
+  `${E}/media-panels.tsx`,
+  ...Object.keys(KNOWN_LINK_OUTS),
+];
+/** Links to another page: a <Link>, an <a href> that is not a download, a router push or a location write. */
+function linkOuts(src: string): number {
+  const links = (src.match(/<Link\b/g) ?? []).length;
+  const anchors = [...src.matchAll(/<a\b[^>]*>/g)].filter((m) => /\bhref=/.test(m[0]) && !/\bdownload\b/.test(m[0])).length;
+  const pushes = (src.match(/router\.(?:push|replace)\(|location\.(?:href\s*=|assign\()|window\.open\(/g) ?? []).length;
+  return links + anchors + pushes;
+}
+
+test('5 · no tool of the lower third links out of the Maker — the known few are listed, a new one fails', () => {
+  let scanned = 0;
+  for (const file of TOOL_FILES) {
+    const src = read(file);
+    assert.ok(src.length > 400, `${file} scanned nearly empty`);
+    scanned += 1;
+    const known = KNOWN_LINK_OUTS[file]?.count ?? 0;
+    const seen = linkOuts(src) - (file.endsWith('maker-shell.tsx') ? 1 : 0); // ✕ Exit is the Maker's one way out, in the top nav
+    assert.equal(seen, known, `${file}: ${seen} link(s) out of the Maker, ${known} known${KNOWN_LINK_OUTS[file] ? ` (${KNOWN_LINK_OUTS[file]!.why})` : ''}`);
+  }
+  assert.ok(scanned >= 15, 'the scan is blind');
+  // The scene sheet and the navigator's notes — in the work area.
   const work = read(`${E}/editor-shell.tsx`);
   const inspector = work.slice(work.indexOf('function Inspector('), work.indexOf('function makerSelectionKey('));
   assert.ok(inspector.length > 2000, 'the scene sheet was not found — this scan is blind');
-  assert.doesNotMatch(inspector, /<Link\b|href=\{`\/dashboard|router\.(?:push|replace)|onOpenTool/, 'a scene sheet links out of the Maker');
+  assert.equal(linkOuts(inspector), 0, 'a scene sheet links out of the Maker');
+  assert.doesNotMatch(inspector, /onOpenTool/);
   const nav = work.slice(work.indexOf('aria-label="Scenes"'), work.indexOf('aria-label="Preview"'));
   assert.ok(nav.length > 2000, 'the navigator was not found — this scan is blind');
-  assert.doesNotMatch(nav, /<Link\b|href=\{`\/dashboard/, 'a tile’s note links out of the Maker');
+  assert.equal(linkOuts(nav), 0, 'a tile’s note links out of the Maker');
+  // Settings › Who can view (the "Your Event Hub" tool): its rows, portalled from the work area — the Pro unlock only.
+  const more = work.slice(work.indexOf('function MoreExtras('), work.indexOf('\n}\n', work.indexOf('function MoreExtras(')));
+  assert.ok(more.length > 400, 'the Your Event Hub rows were not found — this scan is blind');
+  assert.equal(linkOuts(more), 1, 'the Your Event Hub tool links out beyond its Pro unlock');
   // The fixed scenes' "where it comes from" is said, never linked.
   assert.match(inspector, /data-maker-fixed-source=\{fixed\}>\s*\{f\.source\.text\}\s*<\/p>/);
 });

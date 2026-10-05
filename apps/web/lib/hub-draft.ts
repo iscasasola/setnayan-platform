@@ -401,12 +401,13 @@ export const HUB_DRAFT_GALLERY_MAX = 24;
  * names' Wording ▾ or Details' Name style ▾:
  *
  *   · `print_details` — the event's settings JSON (`lib/print-pieces.ts`), but
- *     the draft holds ONE KEY of it: `{ name_style }`, and nothing else. The
- *     blob's other keys (the opening line, the menu, the pass card look, the
- *     poster photo) are the prints' own and are never drafted, never overlaid
- *     away and never written by Apply, which MERGES the drafted style into the
- *     blob as it stands at write time (`hub-draft-actions.ts`) — the same
- *     posture as `style_preferences` drafted as `{ qr }` only.
+ *     the draft holds at most TWO KEYS of it: `{ name_style, pass_design }` (the
+ *     ticket style, since 2026-10-05 — owner Q7 2026-10-02). The blob's other
+ *     keys (the opening line, the menu, the poster photo) are the prints' own
+ *     and are never drafted, never overlaid away and never written by Apply,
+ *     which MERGES the drafted keys into the blob as it stands at write time
+ *     (`hub-draft-actions.ts`) — the same posture as `style_preferences`
+ *     drafted as `{ qr }` only.
  */
 export const HUB_DRAFT_FACT_COLUMNS = [
   'display_name',
@@ -463,7 +464,7 @@ export const HUB_DRAFT_CEREMONY_TIME = 'ceremony_time' as const;
  */
 export const HUB_DRAFT_ANSWER_COLUMNS = ['papic_on', 'gifts_on', 'logo_wanted', 'cover_photo_wanted'] as const;
 
-/** The one key of `print_details` a draft may hold. */
+/** The name-style key of `print_details` a draft may hold (the ticket style is `HUB_DRAFT_PASS_DESIGN_KEY`). */
 export const HUB_DRAFT_PRINT_DETAILS_KEY = 'name_style';
 /**
  * 🎫 …and the guest's TICKET STYLE (owner 2026-10-02 Q7, *"the pass look waits
@@ -492,7 +493,7 @@ export const HUB_DRAFT_FACT_GROUP: Readonly<
   ceremony_time: 'ceremony-time',
 };
 
-/** The typed facts a draft counts once each: the names, the date, the name style, the venues, the ceremony time. */
+/** The typed facts a draft counts once each: the names, the date, the name style (and, in the same blob, the ticket style), the venues, the ceremony time. */
 export type HubDraftFact = 'names' | 'date' | 'name-style' | 'venues' | 'ceremony-time';
 
 /** The draft's `events` keys that ARE `events` columns — what a live read selects. */
@@ -2253,7 +2254,16 @@ export const FIXED_STYLE_LABEL: Record<FixedStyleScene, string> = {
 
 /** A sentence-ready name for one draft key. */
 export function hubDraftItemLabel(item: HubDraftItem, sectionLabel: (t: WidgetType) => string): string {
-  if (item.kind === 'event') return HUB_DRAFT_EVENT_LABEL[item.column];
+  if (item.kind === 'event') {
+    // 🎫 The drafted print settings say which one they hold — the ticket style, the name style or both.
+    if (item.column === 'print_details' && isPlainObject(item.value)) {
+      const pass = HUB_DRAFT_PASS_DESIGN_KEY in item.value;
+      const name = HUB_DRAFT_PRINT_DETAILS_KEY in item.value;
+      if (pass && !name) return 'Your ticket style';
+      if (pass && name) return 'Your name style and ticket style';
+    }
+    return HUB_DRAFT_EVENT_LABEL[item.column];
+  }
   if (item.kind === 'editorial') return postEventItemLabel(item.item);
   if (item.kind === 'fixed-style') return `${FIXED_STYLE_LABEL[item.scene]} · its style`;
   if (item.field === 'main') return 'Behind every scene';

@@ -59,9 +59,13 @@ export const MAKER_BAR_PHONE = {
  */
 export const MAKER_BAR_ICON =
   'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink aria-expanded:bg-ink/[0.09] disabled:cursor-not-allowed disabled:text-ink/35 disabled:hover:bg-transparent';
-/** ✓ Apply: the one filled button — a GREEN circle, its own pill (owner 2026-10-05: *"apply should show a green color?"*). */
+/**
+ * ✓ Apply: the one filled button — a GREEN circle, its own pill, on a phone
+ * (owner 2026-10-05: *"apply should show a green color?"*); a desktop keeps
+ * the wine circle (`bg-mulberry`, the house primary) this round.
+ */
 export const MAKER_BAR_APPLY =
-  'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-success-600 text-cream transition-colors duration-sn-control ease-sn hover:bg-success-700 disabled:cursor-not-allowed disabled:bg-ink/10 disabled:text-ink/40 disabled:hover:bg-ink/10';
+  'sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-mulberry text-cream transition-colors duration-sn-control ease-sn hover:bg-mulberry-600 max-lg:bg-success-600 max-lg:hover:bg-success-700 disabled:cursor-not-allowed disabled:bg-ink/10 disabled:text-ink/40 disabled:hover:bg-ink/10';
 /** Each bar's gap between items, and its side padding, on a phone. */
 export const MAKER_BAR_PHONE_GAP_PX = 4;
 export const MAKER_BAR_PHONE_SIDE_PX = 8;

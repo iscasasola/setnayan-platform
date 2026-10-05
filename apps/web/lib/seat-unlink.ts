@@ -21,9 +21,11 @@ import { isAdminProfile } from '@/lib/admin/admin-predicate';
  *      key dies with it (`readGuestSession` checks the token on every read).
  *   2. DELETES ONE ROW: `event_members` WHERE this event, THAT account,
  *      `member_type = 'guest'`, THIS guest_id. Never a couple membership —
- *      the creator's own has no guest_id, and an account holding the row as a
- *      live Co-host / helper (member_type couple / coordinator) is REFUSED
- *      with `holds_access` so the couple removes the Access first.
+ *      an account holding the row as a live Co-host / helper (member_type
+ *      couple / coordinator) is REFUSED with `holds_access` so the couple
+ *      removes the Access first. The ONE exception is the creator's own row
+ *      (2026-10-04, "This is me"): their membership is KEPT and only lets go
+ *      of the row (`guest_id` → NULL), so a wrong "This is me" is undoable.
  *   3. UNDOES WHAT THAT ACCOUNT WROTE ON THE ROW — and only that: `person_id`
  *      when it is that account's own person (the `link_guest_to_account_person`
  *      trigger put it there), `email` when it is that account's address. The
@@ -84,12 +86,28 @@ export async function unlinkSeatFromAccount(
 
   const { data: binding, error: bindErr } = await admin
     .from('event_members')
-    .select('id, user_id, member_type')
+    .select('id, user_id, member_type, joined_via')
     .eq('event_id', eventId)
     .eq('guest_id', guestId)
     .maybeSingle();
   if (bindErr) return { ok: false, reason: 'failed' };
   if (!binding?.user_id) return { ok: false, reason: 'nothing_linked' };
+  // 🪪 THE CREATOR'S OWN ROW (owner 2026-10-04 — "This is me", or the link the
+  // onboarding made). Undone by letting go of the row ONLY: the membership
+  // stays (it is their event), `guest_id` / `role` go back to empty, and the
+  // card offers "This is me" again. No key to rotate — no link was used.
+  if (binding.member_type === 'couple' && binding.joined_via === 'created_event') {
+    const { error: releaseErr } = await admin
+      .from('event_members')
+      .update({ guest_id: null, role: null })
+      .eq('id', binding.id as number)
+      .eq('event_id', eventId)
+      .eq('member_type', 'couple')
+      .eq('guest_id', guestId);
+    if (releaseErr) return { ok: false, reason: 'failed' };
+    const { data: account } = await admin.from('users').select('email').eq('user_id', binding.user_id as string).maybeSingle();
+    return { ok: true, accountEmail: ((account?.email as string | null) ?? '').trim() || null };
+  }
   // A live Co-host / helper through this row: the membership is no longer a
   // guest's, and deleting it would take their dashboard with it. The couple
   // removes the Access first (which returns it to 'guest'), then unlinks.

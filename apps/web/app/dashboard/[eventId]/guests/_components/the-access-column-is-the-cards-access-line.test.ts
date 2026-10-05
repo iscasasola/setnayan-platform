@@ -77,7 +77,8 @@ test('the cell and the card’s line SHOW Access and link to its one home — th
   for (const [name, src] of [['the cell', CELL], ['the card line', CARD_LINE]] as const) {
     assert.doesNotMatch(src, /setGuestAccess/, `${name} sets Access again — People with access is its one home`);
     assert.doesNotMatch(src, /<PickMenu\b/, `${name} draws a dropdown again — it only shows the word`);
-    assert.match(src, /\bACCESS_LEVEL_LABEL\b/, `${name} uses its own words for the three levels`);
+    // `accessWordFor` is ACCESS_LEVEL_LABEL plus the creator's "Host" (owner 2026-10-04).
+    assert.match(src, /\baccessWordFor\(/, `${name} uses its own words for the three levels`);
   }
   assert.match(CELL, /peopleWithAccessHref\(eventId\)/, 'the cell lost its door to People with access');
   assert.match(CARD_LINE, /<ChangeAccessLink\b/, 'the card line lost its door to People with access');

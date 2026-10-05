@@ -140,6 +140,7 @@ function cardData(g: GuestRow, isCouple: boolean): GuestCardData {
     recordedAt: null,
     access: null,
     canManageAccess: true,
+    offersThisIsMe: false,
     nameLinked: false,
     linkedAccount: null,
     profileName: null,

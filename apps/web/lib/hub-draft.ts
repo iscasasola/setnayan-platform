@@ -143,6 +143,7 @@ import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
+import { PASS_CARD_DESIGNS, passCardDesignFrom } from '@/lib/pass-card';
 import type { DateClash } from '@/lib/date-fits-booked';
 
 /** The form field that sends an existing Event Hub writer's save to the draft. */
@@ -464,6 +465,14 @@ export const HUB_DRAFT_ANSWER_COLUMNS = ['papic_on', 'gifts_on', 'logo_wanted', 
 
 /** The one key of `print_details` a draft may hold. */
 export const HUB_DRAFT_PRINT_DETAILS_KEY = 'name_style';
+/**
+ * 🎫 …and the guest's TICKET STYLE (owner 2026-10-02 Q7, *"the pass look waits
+ * for Apply"*; built 2026-10-05 with the Maker's three zones): Classic · Ticket ·
+ * Photo poster, picked in the Guest's ticket scene (or Prints). The draft holds
+ * it beside the name style — `{ name_style?, pass_design? }` — and Apply merges
+ * only the keys it holds into the blob as it stands at write time.
+ */
+export const HUB_DRAFT_PASS_DESIGN_KEY = 'pass_design';
 
 /**
  * Apply counts a fact ONCE however many columns carry it (the prototype, frame
@@ -776,9 +785,12 @@ export function sanitizeHubDraftEventValue(
     case 'print_details': {
       if (!isPlainObject(raw)) return undefined;
       const style = raw[HUB_DRAFT_PRINT_DETAILS_KEY];
-      return typeof style === 'string' && (NAME_STYLES as readonly string[]).includes(style)
-        ? { [HUB_DRAFT_PRINT_DETAILS_KEY]: style }
-        : undefined;
+      const pass = raw[HUB_DRAFT_PASS_DESIGN_KEY];
+      const out: Record<string, string> = {};
+      if (typeof style === 'string' && (NAME_STYLES as readonly string[]).includes(style)) out[HUB_DRAFT_PRINT_DETAILS_KEY] = style;
+      // 🎫 The ticket style — one of the three looks, else dropped (never repaired).
+      if (typeof pass === 'string' && (PASS_CARD_DESIGNS as readonly string[]).includes(pass)) out[HUB_DRAFT_PASS_DESIGN_KEY] = pass;
+      return Object.keys(out).length > 0 ? out : undefined;
     }
   }
 }
@@ -966,7 +978,13 @@ const stateOf = (d: HubDraftState): HubDraftState => ({
 export function mergeHubDraft(current: HubDraft, patch: HubDraftPatch): HubDraft {
   const clean = sanitizeState(patch);
   const next = stateOf(current);
-  for (const [col, v] of Object.entries(clean.events)) next.events[col as HubDraftEventColumn] = v;
+  for (const [col, v] of Object.entries(clean.events)) {
+    // 🎫 The two drafted print settings merge KEY BY KEY — a ticket style pick
+    // never forgets a drafted name style, nor the other way round.
+    const prev = next.events[col as HubDraftEventColumn];
+    next.events[col as HubDraftEventColumn] =
+      col === 'print_details' && isPlainObject(prev) && isPlainObject(v) ? { ...prev, ...v } : v;
+  }
   for (const [type, w] of Object.entries(clean.widgets)) {
     const prev = next.widgets[type as WidgetType] ?? {};
     next.widgets[type as WidgetType] = {
@@ -1173,6 +1191,26 @@ export type HubDraftItem =
 const asText = (v: unknown): string | null =>
   v === null || v === undefined ? null : typeof v === 'string' ? v : JSON.stringify(v);
 
+/** One drafted `print_details` key, as the prints read it. */
+function printDetailsValue(v: unknown, key: typeof HUB_DRAFT_PRINT_DETAILS_KEY | typeof HUB_DRAFT_PASS_DESIGN_KEY): string {
+  if (key === HUB_DRAFT_PRINT_DETAILS_KEY) return nameStyleOfPrintDetails(v);
+  return passCardDesignFrom(isPlainObject(v) ? v[HUB_DRAFT_PASS_DESIGN_KEY] : undefined);
+}
+
+/**
+ * 🎫🔤 Which of the drafted `print_details` keys (`name_style` · `pass_design`)
+ * would CHANGE what is live — only the keys the draft holds are asked.
+ */
+export function printDetailsKeysChanged(
+  live: unknown,
+  next: unknown,
+): Array<typeof HUB_DRAFT_PRINT_DETAILS_KEY | typeof HUB_DRAFT_PASS_DESIGN_KEY> {
+  if (!isPlainObject(next)) return [];
+  return ([HUB_DRAFT_PRINT_DETAILS_KEY, HUB_DRAFT_PASS_DESIGN_KEY] as const).filter(
+    (key) => key in next && printDetailsValue(live, key) !== printDetailsValue(next, key),
+  );
+}
+
 /** One `events` column: what the draft's value does to what is live. */
 export function eventColumnChange(column: HubDraftEventColumn, live: unknown, next: unknown): LookChange {
   switch (column) {
@@ -1258,9 +1296,12 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       return refChange(at(live), at(next));
     }
     case 'print_details': {
-      // Only the Name style is compared — and as the prints read it: absent is Full.
-      const style = (v: unknown) => nameStyleOfPrintDetails(v);
-      return style(live) === style(next) ? refChange('same', 'same') : refChange(style(live), style(next));
+      // Only the keys the draft HOLDS are compared — each as the prints read it
+      // (an absent name style is Full, an absent ticket style Classic).
+      const k = printDetailsKeysChanged(live, next);
+      const was = k.map((key) => printDetailsValue(live, key)).join('|');
+      const now = k.map((key) => printDetailsValue(next, key)).join('|');
+      return k.length === 0 ? refChange('same', 'same') : refChange(was, now);
     }
     case 'invite_theme': {
       // Compared as guests meet it: never chosen and Classic are the same page,

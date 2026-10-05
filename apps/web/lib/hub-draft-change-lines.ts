@@ -27,6 +27,7 @@ import {
   canvasLookFacets,
   hubDraftCountedChanges,
   planHubDraftApply,
+  printDetailsKeysChanged,
   type CanvasFacetGroup,
   type HubDraftChangeLine,
   type HubDraftEventColumn,
@@ -35,6 +36,7 @@ import {
   type HubLiveState,
 } from '@/lib/hub-draft';
 import { postEventItemLabel } from '@/lib/post-event-draft';
+import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -131,8 +133,16 @@ function canvasWhat(liveConfig: unknown, next: unknown): string {
 /** One draft item → where · what. Exhaustive over the item kinds and widget fields. */
 export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { place: string; what: string } {
   switch (item.kind) {
-    case 'event':
+    case 'event': {
+      /* 🎫 The drafted print settings say WHICH one moved — the ticket style is
+         the Guest's ticket's, the name style Event Details'. */
+      if (item.column === 'print_details') {
+        const keys = printDetailsKeysChanged(live.events.print_details, item.value);
+        if (keys.length === 1 && keys[0] === 'pass_design') return { place: "Guest's ticket", what: PASS_CARD_WORDS.style };
+        if (keys.length === 2) return { place: DETAILS, what: `Name style, ${PASS_CARD_WORDS.style}` };
+      }
       return HUB_DRAFT_EVENT_PLACE[item.column];
+    }
     case 'editorial': {
       // "Post Event · which scenes show" → Post Event · Which scenes show.
       const [place, ...rest] = postEventItemLabel(item.item).split(' · ');

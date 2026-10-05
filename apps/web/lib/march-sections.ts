@@ -6,7 +6,7 @@
  * `lib/march-drag.ts` (which the client imports) so the role words it reads do
  * not ride into the Maker's bundle.
  */
-import { columnOfRole, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
+import { columnOfRole, ENTOURAGE_GROUP_KEYS, entourageGroupOfRole, isMarchOnlyGroup, orderedGroupKeys, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
 import { guestRoleLabel } from '@/lib/guests';
 import type { MarchPerson, MarchSection } from '@/lib/march-drag';
 
@@ -74,4 +74,26 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSection[]
       rows: kept[gi]!.map((row) => [person(row[0], row, g.names), person(row[1], row, g.names)] as const),
     }))
     .filter((sec) => sec.rows.length > 0);
+}
+
+/**
+ * The PRINTED groups that have someone in them, in the saved order — the list
+ * `moveEntourageSection` steps through (its `readAllGroups` visible keys). Read
+ * from the march's own groups: a printed group is there by its key; one the
+ * march draws inside the couple's sides (Parents) is there when anyone in those
+ * sides holds its role.
+ */
+export function printedSectionOrder(groups: readonly EntourageGroup[], saved: readonly string[] | null): string[] {
+  const present = new Set<string>();
+  for (const g of groups) {
+    if (!isMarchOnlyGroup(g.key)) {
+      if (g.rows.length) present.add(g.key);
+      continue;
+    }
+    for (const row of g.rows) for (const p of row) {
+      const k = p ? entourageGroupOfRole(p.role) : null;
+      if (k && ENTOURAGE_GROUP_KEYS.includes(k)) present.add(k);
+    }
+  }
+  return orderedGroupKeys(saved).filter((k) => present.has(k));
 }

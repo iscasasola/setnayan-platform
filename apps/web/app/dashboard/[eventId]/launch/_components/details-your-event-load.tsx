@@ -9,9 +9,9 @@ import { fetchEventVendors } from '@/lib/vendors';
 import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese-specialist-nudge';
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
-import { marchSections } from '@/lib/march-sections';
+import { marchSections, printedSectionOrder } from '@/lib/march-sections';
 import { readYourEventFacts } from './details-your-event-facts';
-import { loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
+import { loadEntourageSectionOrder, loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
 import { coord } from '@/lib/event-venues';
 import { readLiveCeremonyTime } from '@/lib/ceremony-time.server';
@@ -50,11 +50,13 @@ export async function loadYourEvent({
   /** 🏛 The draft's Venue-scene card choices — the venues are shown as drafted. */
   draftedVenue?: unknown;
 }): Promise<YourEventInput | null> {
-  const [base, confirmedVendorCount, nameStyle, liveCeremonyTime] = await Promise.all([
+  const [base, confirmedVendorCount, nameStyle, liveCeremonyTime, savedSections] = await Promise.all([
     readYourEventFacts({ admin, eventId, parentCount, hostCount, drafted, draftedVenue }),
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
     // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
     loadEventNameStyle(admin, eventId),
+    // 🚶 The section order the march's header drag steps through (the same cached read the entourage uses).
+    loadEntourageSectionOrder(admin, eventId),
     // 🕒 The Schedule's Ceremony start (owner 2026-10-04) — unread is "none yet", never a guess written back.
     readLiveCeremonyTime(admin, eventId).catch(() => null),
   ]);
@@ -175,6 +177,7 @@ export async function loadYourEvent({
     },
     march: {
       sections: marchSections(groups),
+      printed: printedSectionOrder(groups, savedSections),
     },
   };
 }

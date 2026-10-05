@@ -9,7 +9,7 @@
  * same way — `honour`'s sides in lib/entourage.ts.)
  */
 import { buildEntourage, type EntourageGuestRow } from '@/lib/entourage';
-import { marchSections } from '@/lib/march-sections';
+import { marchSections, printedSectionOrder } from '@/lib/march-sections';
 
 type Row = [id: string, prefix: string | null, first: string, last: string, role: string, walk?: number, place?: number];
 
@@ -63,5 +63,6 @@ export function labMarchSections() {
     extra_roles: [],
     march: typeof walk === 'number' ? { walk_no: walk, place_in_walk: place ?? 0 } : null,
   }));
-  return marchSections(buildEntourage(rows, null, {}, undefined, { march: true }));
+  const groups = buildEntourage(rows, null, {}, undefined, { march: true });
+  return { sections: marchSections(groups), printed: printedSectionOrder(groups, null) };
 }

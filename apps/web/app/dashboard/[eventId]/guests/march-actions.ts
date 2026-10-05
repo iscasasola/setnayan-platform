@@ -40,12 +40,21 @@
  * ⛔ Touches no chair. The seat plan is a different ordering on purpose.
  */
 
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireHostMembership } from '@/lib/host-gate';
 import {
+  MARCH_READ_FAILED,
   pinLineOrder,
   readMarchLines,
   revalidateMarch,
 } from '@/lib/entourage-write';
-import { joinVerdict, swapVerdict } from '@/lib/march-moves';
+import {
+  ENTOURAGE_COLUMNS,
+  entourageLines,
+  orderedGroupKeys,
+  type EntourageGuestRow,
+} from '@/lib/entourage';
+import { joinVerdict, nextSectionOrder, swapVerdict } from '@/lib/march-moves';
 import type { MarchResult } from '@/lib/march-result';
 
 /** Someone takes the empty place beside `anchorId`. */
@@ -105,10 +114,67 @@ export async function swapEntouragePlaces(
 }
 
 /* ── SECTIONS ──────────────────────────────────────────────────────────────
- * 🚶 2026-10-06: `moveEntourageSection` / `resetEntourageSections` were the ↑↓
- * section controls of the walking-order panel, retired with it when the
- * Wedding March became the drag maker (`launch/_components/details-march.tsx`).
- * An uncalled `'use server'` export is still a live HTTP endpoint, so they went
- * with their only caller. `events.entourage_section_order` still PRINTS
- * (`orderedGroupKeys`); it has no editor until the owner asks for one.
+ * ⚖ Owner 2026-09-21: *"we should be able to arrange the parents, immediate
+ * family and other roles and modify its sequence."*
+ *
+ * 🚶 2026-10-06: the march maker moves a whole section by dragging its HEADER
+ * (`lib/march-drag.ts` `planSectionDrop` — one `moveEntourageSection` step per
+ * place it passes, the same rule `nextSectionOrder` the server asks), and puts
+ * the built-in order back with one line ("Default order") → `resetEntourageSections`.
+ * (The walking-order panel that first called these was retired that day.)
+ *
+ * The order is one per-event value, `events.entourage_section_order`, read by
+ * the invitation through `orderedGroupKeys`. It is written with the admin
+ * client after `requireHostMembership` — the column has no session UPDATE
+ * grant on purpose (see its migration).
  */
+
+export async function moveEntourageSection(
+  eventId: string,
+  groupKey: string,
+  direction: 'up' | 'down',
+): Promise<MarchResult> {
+  await requireHostMembership(eventId);
+  const read = await readAllGroups(eventId);
+  if (!read.ok) return read;
+  const next = nextSectionOrder(read.full, read.visible, groupKey, direction);
+  // Nowhere to go is not an error — the first section has nothing above it.
+  if (!next) return { ok: true, written: 0 };
+  return writeSectionOrder(eventId, next);
+}
+
+export async function resetEntourageSections(eventId: string): Promise<MarchResult> {
+  await requireHostMembership(eventId);
+  return writeSectionOrder(eventId, null);
+}
+
+async function readAllGroups(
+  eventId: string,
+): Promise<{ ok: true; full: string[]; visible: Set<string> } | { ok: false; reason: string }> {
+  const admin = createAdminClient();
+  const [{ data: ev, error: evErr }, { data: rows, error: rowsErr }] = await Promise.all([
+    admin.from('events').select('entourage_section_order').eq('event_id', eventId).maybeSingle(),
+    admin.from('guests').select(ENTOURAGE_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
+  ]);
+  if (evErr || rowsErr || !ev) return { ok: false, reason: MARCH_READ_FAILED };
+
+  const saved = (ev as { entourage_section_order: string[] | null }).entourage_section_order;
+  const all = (rows ?? []) as EntourageGuestRow[];
+  const full = orderedGroupKeys(saved);
+  return { ok: true, full, visible: new Set(full.filter((k) => entourageLines(all, k).length > 0)) };
+}
+
+async function writeSectionOrder(eventId: string, order: string[] | null): Promise<MarchResult> {
+  const admin = createAdminClient();
+  // A zero-row UPDATE returns no error — count the rows, or "saved" is a guess.
+  const { data, error } = await admin
+    .from('events')
+    .update({ entourage_section_order: order })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error || !data || data.length === 0) {
+    return { ok: false, reason: 'The new section order was not saved — nothing was changed.' };
+  }
+  await revalidateMarch(eventId);
+  return { ok: true, written: data.length };
+}

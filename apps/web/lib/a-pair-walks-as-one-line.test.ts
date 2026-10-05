@@ -224,7 +224,8 @@ test('🔑 the arranging is reachable WITHOUT knowing to filter first — every 
   assert.match(stripComments(MARCH_LOAD), /return groups\s*\.map\(\(g, gi\) => \(\{/, 'the march maker draws only some sections');
   // The one filter drops a section left EMPTY (everyone in it is drawn elsewhere) — never a role or a view.
   assert.deepEqual([...stripComments(MARCH_LOAD).matchAll(/\.filter\(\(sec\) => ([^)]*)\)/g)].map((m) => m[1]), ['sec.rows.length > 0']);
-  assert.match(stripComments(MAKER), /\{shown\.map\(\(sec\) => \(/, 'the maker no longer draws every section it is handed');
+  assert.match(stripComments(MAKER), /\{shown\.map\(\(sec\) => \{/, 'the maker no longer draws every section it is handed');
+  assert.doesNotMatch(stripComments(MAKER), /shown\.filter\(/, 'the maker filters the sections it is handed');
 });
 
 test('the maker heads each section with its printed NAME, not a raw key', () => {
@@ -248,6 +249,23 @@ test('⚖ the drag works on a phone AND without a pointer — and no buttons are
   assert.match(code, /touch-pan-y/, 'a name blocks the page scroll before it is lifted');
   assert.match(code, /onKeyDown=\{onKeyDown\}/, 'the keyboard path is not mounted');
   assert.doesNotMatch(code, /ArrowUp aria-hidden|<button[^>]*>\s*Walk (earlier|later)/, 'the ↑↓ buttons are back');
+});
+
+test('🚶 a whole SECTION moves by dragging its header — never the groom’s or the bride’s side (controller 2026-10-06)', () => {
+  /*
+    Retiring the ↑↓ panel removed the only way to reorder sections; the drag
+    maker carries it now, through the SAME shipped writers.
+  */
+  const code = stripComments(MAKER);
+  assert.match(code, /case 'section':\s*return moveEntourageSection\(eventId, step\.section, step\.direction\);/, 'a header drag does not reach moveEntourageSection');
+  assert.match(code, /case 'sections-default':\s*return resetEntourageSections\(eventId\);/, 'the usual order cannot be put back');
+  assert.match(code, /const fixed = isMarchOnlyGroup\(sec\.key\);/);
+  assert.match(code, /data-march-drag=\{fixed \? undefined : `section\|\$\{sec\.key\}`\}/, 'a header is not draggable, or the couple’s sides are');
+  // One line, shown only when the order was changed — not a toolbar.
+  assert.match(code, /\{sectionsMoved\(shownPrinted\) \? \(/);
+  const actions = stripComments(readFileSync(join(process.cwd(), 'app', 'dashboard', '[eventId]', 'guests', 'march-actions.ts'), 'utf8'));
+  assert.match(actions, /export async function moveEntourageSection\(/);
+  assert.match(actions, /export async function resetEntourageSections\(/);
 });
 
 test('a held name answers the keyboard, and says what it did', () => {

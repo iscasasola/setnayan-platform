@@ -83,6 +83,8 @@ export type YourEventInput = {
   /** 🚶 The march as the maker draws it — its sections and walks, the couple's sides included (`marchSections`). */
   march: {
     sections: readonly MarchSectionData[];
+    /** The printed sections with someone in them, in the saved order (`printedSectionOrder`) — what a header drag steps through. */
+    printed?: readonly string[];
     /** The dev Maker lab only (`/dev/maker-lab`): the drags are drawn, never sent. */
     lab?: boolean;
   };
@@ -175,7 +177,7 @@ export function yourEventParts({
       />
     ),
     /* 🚶 The page IS the maker (drag the names) — the body on a phone, the middle on a desk. */
-    march: <MarchMaker eventId={eventId} sections={input.march.sections} lab={input.march.lab === true} />,
+    march: <MarchMaker eventId={eventId} sections={input.march.sections} printed={input.march.printed ?? []} lab={input.march.lab === true} />,
   };
 
   const editors: Partial<Record<EventItemKey, ReactNode>> = {

@@ -8,6 +8,7 @@ events.anchor_date	# first run 2026-10-02 · host app · a screen saves an event
 events.anchor_kind	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.ceremony_sub_type	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.ceremony_venue_address	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
+events.entourage_section_order	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.face_tagging_declined_by_couple	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.gender_separation	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits
 events.is_mixed_ceremony	# first run 2026-10-02 · host app · a screen saves an event answer that Event Details neither shows nor edits

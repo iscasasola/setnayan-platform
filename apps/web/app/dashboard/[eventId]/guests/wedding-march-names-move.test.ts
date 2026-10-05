@@ -47,7 +47,7 @@ test('the maker asks the SAME rule the server asks — before it draws a drop', 
   // 🚶 2026-10-06: the drag maker predicts each drop on the client; the "may it go
   // there?" is `lib/march-moves.ts`, the rule each action asks again before it writes.
   const plan = stripComments(readFileSync(join(process.cwd(), 'lib', 'march-drag.ts'), 'utf8'));
-  assert.match(plan, /import \{ joinVerdict, swapVerdict \} from '@\/lib\/march-moves';/);
+  assert.match(plan, /import \{ joinVerdict, nextSectionOrder, swapVerdict \} from '@\/lib\/march-moves';/);
   assert.match(plan, /const verdict = swapVerdict\(asLines\(sec\.rows\), sec\.key, source\.id, target\.id\);\s*if \(!verdict\.ok\) return no\(verdict\.reason\);/);
   assert.match(plan, /const verdict = joinVerdict\(asLines\(sec\.rows\), sec\.key, target\.anchor, source\.id\);\s*if \(!verdict\.ok\) return no\(verdict\.reason\);/);
 });

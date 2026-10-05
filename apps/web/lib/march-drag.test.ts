@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildEntourage, entourageLines, type EntourageGuestRow } from '@/lib/entourage';
-import { marchSections } from '@/lib/march-sections';
-import { keyTarget, planDrop, readSource, readTarget, type MarchSection, type MarchStep } from '@/lib/march-drag';
+import { marchSections, printedSectionOrder } from '@/lib/march-sections';
+import { ENTOURAGE_GROUP_KEYS, entourageLines, orderedGroupKeys } from '@/lib/entourage';
+import { nextSectionOrder } from '@/lib/march-moves';
+import { keyTarget, planMove, planSectionsDefault, sectionsMoved, planDrop, readSource, readTarget, type MarchSection, type MarchStep } from '@/lib/march-drag';
 
 /*
  * ⚖ Owner 2026-10-06 — the Wedding March is a drag-and-drop maker. Each drag is
@@ -279,4 +281,88 @@ test('one person, one place — a second role does not draw them twice', () => {
   const rows = fixture().map((g) => (g.guest_id === 'rb' ? { ...g, extra_roles: ['candle_sponsor'] } : g));
   const ids = sectionsOf(rows).flatMap((x) => x.rows.flat()).filter(Boolean).map((p) => p!.id);
   assert.equal(ids.filter((id) => id === 'rb').length, 1);
+});
+
+/* ── SECTIONS — drag a header (controller 2026-10-06: "restore section reordering the drag way") ── */
+
+/** `moveEntourageSection` / `resetEntourageSections`, replayed exactly: `readAllGroups` + `nextSectionOrder`. */
+function serverSections(rows: readonly G[], saved: string[] | null, step: MarchStep): string[] | null {
+  if (step.kind === 'sections-default') return null;
+  assert.equal(step.kind, 'section');
+  if (step.kind !== 'section') return saved;
+  const full = orderedGroupKeys(saved);
+  const visible = new Set(full.filter((k) => entourageLines(rows, k).length > 0));
+  return nextSectionOrder(full, visible, step.section, step.direction) ?? full;
+}
+const marchOf = (rows: readonly G[], saved: string[] | null) => {
+  const groups = buildEntourage(rows, saved, {}, undefined, { march: true });
+  return { sections: marchSections(groups), printed: printedSectionOrder(groups, saved) };
+};
+const keysOf = (ss: readonly MarchSection[]) => ss.map((x) => x.key);
+
+function dropSection(saved: string[] | null, from: string, to: string) {
+  const rows = fixture();
+  const before = marchOf(rows, saved);
+  const plan = planMove(before.sections, before.printed, { kind: 'section', key: from }, { kind: 'section', key: to });
+  assert.ok(plan && plan.ok, `refused: ${plan && !plan.ok ? plan.reason : 'no move'}`);
+  let after = saved;
+  for (const step of plan.steps) after = serverSections(rows, after, step);
+  const now = marchOf(rows, after);
+  assert.deepEqual(keysOf(plan.sections), keysOf(now.sections), 'the drop showed a section order the march does not have');
+  assert.deepEqual(plan.printed, now.printed, 'the predicted saved order is not the one written');
+  let undone = after;
+  for (const step of plan.undo) undone = serverSections(rows, undone, step);
+  assert.deepEqual(keysOf(marchOf(rows, undone).sections), keysOf(before.sections), 'Undo did not put the sections back');
+  assert.deepEqual(marchOf(rows, undone).printed, before.printed, 'Undo did not put the printed order back');
+  return { plan, now };
+}
+
+test('🚶 a section dragged by its header moves whole — the groom’s side stays first, the bride’s last', () => {
+  const { plan, now } = dropSection(null, 'bearers', 'principal_sponsors');
+  assert.deepEqual(keysOf(now.sections), ['groom_side', 'bearers', 'principal_sponsors', 'secondary_sponsors', 'bride_side']);
+  assert.ok(plan.steps.every((s) => s.kind === 'section'), 'a section move used something other than moveEntourageSection');
+  assert.equal(plan.steps.length, 2);
+  assert.equal(plan.said, 'Bearers now walk before Principal Sponsors');
+  // The printed Parents never moved — the drag stopped once the march order was right.
+  assert.equal(now.printed[0], 'parents');
+  // Down, too.
+  const down = dropSection(null, 'principal_sponsors', 'bearers');
+  assert.deepEqual(keysOf(down.now.sections), ['groom_side', 'secondary_sponsors', 'bearers', 'principal_sponsors', 'bride_side']);
+  // From an arranged order where Parents sits between them, it passes Parents only because it must.
+  dropSection(['principal_sponsors', 'parents', 'bearers', 'secondary_sponsors'], 'bearers', 'principal_sponsors');
+});
+
+test('the couple’s sides never move and nothing lands before or after them', () => {
+  const m = marchOf(fixture(), null);
+  const into = planMove(m.sections, m.printed, { kind: 'section', key: 'bearers' }, { kind: 'section', key: 'groom_side' });
+  assert.ok(into && !into.ok && /always walk first/.test(into.reason));
+  const last = planMove(m.sections, m.printed, { kind: 'section', key: 'bearers' }, { kind: 'section', key: 'bride_side' });
+  assert.ok(last && !last.ok && /always walk last/.test(last.reason));
+  // A section never lands on a name or in a gap, and a name never on a header.
+  assert.equal(planMove(m.sections, m.printed, { kind: 'section', key: 'bearers' }, { kind: 'gap', section: 'bearers', index: 0 }), null);
+  assert.equal(planMove(m.sections, m.printed, { kind: 'name', id: 'rb' }, { kind: 'section', key: 'bearers' }), null);
+});
+
+test('one line puts the usual order back (resetEntourageSections), and Undo puts yours back', () => {
+  const rows = fixture();
+  const saved = ['bearers', 'parents', 'secondary_sponsors', 'principal_sponsors'];
+  const m = marchOf(rows, saved);
+  assert.equal(sectionsMoved(m.printed), true);
+  assert.equal(sectionsMoved(marchOf(rows, null).printed), false, 'the line shows on the usual order');
+  const plan = planSectionsDefault(m.sections, m.printed)!;
+  assert.ok(plan.ok);
+  assert.deepEqual(plan.steps, [{ kind: 'sections-default' }]);
+  let after: string[] | null = saved;
+  for (const step of plan.steps) after = serverSections(rows, after, step);
+  assert.deepEqual(keysOf(plan.sections), keysOf(marchOf(rows, after).sections));
+  let undone = after;
+  for (const step of plan.undo) undone = serverSections(rows, undone, step);
+  assert.deepEqual(marchOf(rows, undone).printed, m.printed, 'Undo of the usual order lost the couple’s order');
+  assert.equal(ENTOURAGE_GROUP_KEYS[0], 'parents');
+});
+
+test('⌨ a held header moves one section with the arrow keys', () => {
+  const m = marchOf(fixture(), null);
+  assert.deepEqual(keyTarget(m.sections, { kind: 'section', key: 'bearers' }, -1), { kind: 'section', key: 'secondary_sponsors' });
+  assert.equal(keyTarget(m.sections, { kind: 'section', key: 'principal_sponsors' }, -1), null, 'it can rise above the groom’s side');
 });

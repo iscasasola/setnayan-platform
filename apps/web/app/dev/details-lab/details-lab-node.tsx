@@ -109,7 +109,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           nudge: null,
         },
         venues: { resolved: [], slots: [], city: null },
-        march: marchLab ? { sections: labMarchSections(), lab: true } : { sections: [] },
+        march: marchLab ? { ...labMarchSections(), lab: true } : { sections: [] },
       }
     : null;
   const needsDb = (what: string) => <p className="p-6 text-sm text-ink/60">{what} is read from the database — open it in the Maker.</p>;

@@ -33,8 +33,8 @@
  * Pure: no React, no I/O — `march-drag.test.ts` drives every gesture.
  */
 import type { GuestRole } from '@/lib/guests';
-import { columnOfRole, type EntourageRow } from '@/lib/entourage';
-import { joinVerdict, swapVerdict } from '@/lib/march-moves';
+import { columnOfRole, ENTOURAGE_GROUP_KEYS, isMarchOnlyGroup, type EntourageRow } from '@/lib/entourage';
+import { joinVerdict, nextSectionOrder, swapVerdict } from '@/lib/march-moves';
 
 /**
  * One person as the maker draws them. `tag` names the groom / the bride.
@@ -49,7 +49,9 @@ export type MarchSection = { key: string; label: string; rows: readonly MarchRow
 export type MarchSource =
   | { kind: 'name'; id: string }
   /** A whole walk, by its step number. */
-  | { kind: 'walk'; section: string; lead: string };
+  | { kind: 'walk'; section: string; lead: string }
+  /** A whole section, by its header (never the groom's or the bride's side). */
+  | { kind: 'section'; key: string };
 
 /** Where it was dropped. */
 export type MarchTarget =
@@ -57,14 +59,20 @@ export type MarchTarget =
   /** The empty spot beside someone walking alone. */
   | { kind: 'beside'; anchor: string }
   /** The gap before row `index` of a section (`index` = rows.length → after the last). */
-  | { kind: 'gap'; section: string; index: number };
+  | { kind: 'gap'; section: string; index: number }
+  /** Another section's header — the dragged section takes its place. */
+  | { kind: 'section'; key: string };
 
 /** One call of a shipped march action. */
 export type MarchStep =
   | { kind: 'swap'; section: string; a: string; b: string }
   | { kind: 'join'; section: string; anchor: string; joiner: string }
   | { kind: 'unpair'; section: string; guest: string }
-  | { kind: 'order'; section: string; leads: string[] };
+  | { kind: 'order'; section: string; leads: string[] }
+  /** One step of a whole section (`moveEntourageSection`). */
+  | { kind: 'section'; section: string; direction: 'up' | 'down' }
+  /** The built-in section order back (`resetEntourageSections`). */
+  | { kind: 'sections-default' };
 
 export type MarchPlan =
   | { ok: true; next: MarchSection[]; steps: MarchStep[]; said: string; undo: MarchStep[] }
@@ -229,6 +237,7 @@ export function planDrop(
   source: MarchSource,
   target: MarchTarget,
 ): MarchPlan | null {
+  if (source.kind === 'section' || target.kind === 'section') return null; // `planSectionDrop`
   if (source.kind === 'walk') {
     if (target.kind !== 'gap') return null;
     const s = sections.findIndex((x) => x.key === source.section);
@@ -340,6 +349,7 @@ export function readTarget(v: string | undefined | null): MarchTarget | null {
   if (kind === 'name' && x) return { kind: 'name', id: x };
   if (kind === 'beside' && x) return { kind: 'beside', anchor: x };
   if (kind === 'gap' && x && y !== undefined && /^\d+$/.test(y)) return { kind: 'gap', section: x, index: Number(y) };
+  if (kind === 'section' && x) return { kind: 'section', key: x };
   return null;
 }
 
@@ -349,6 +359,7 @@ export function readSource(v: string | undefined | null): MarchSource | null {
   const [kind, x, y] = v.split('|');
   if (kind === 'name' && x) return { kind: 'name', id: x };
   if (kind === 'walk' && x && y) return { kind: 'walk', section: x, lead: y };
+  if (kind === 'section' && x) return { kind: 'section', key: x };
   return null;
 }
 
@@ -358,6 +369,11 @@ export function readSource(v: string | undefined | null): MarchSource | null {
  * before / right behind its pair: it walks alone). Null at either end.
  */
 export function keyTarget(sections: readonly MarchSection[], source: MarchSource, dir: -1 | 1): MarchTarget | null {
+  if (source.kind === 'section') {
+    const keys = movable(sections);
+    const to = keys[keys.indexOf(source.key) + dir];
+    return to ? { kind: 'section', key: to } : null;
+  }
   let s = -1;
   let r = -1;
   let paired = false;
@@ -377,4 +393,121 @@ export function keyTarget(sections: readonly MarchSection[], source: MarchSource
   const index = paired ? (dir < 0 ? r : r + 1) : dir < 0 ? r - 1 : r + 2;
   if (index < 0 || index > n) return null;
   return { kind: 'gap', section: sections[s]!.key, index };
+}
+
+/* ── SECTIONS — drag a header (owner/controller 2026-10-06) ─────────────────
+ * The section order is ONE per-event value (`events.entourage_section_order`)
+ * over the PRINTED groups; the march draws them between the groom's side
+ * (always first) and the bride's side (always last). Its only writer moves one
+ * section one place among the printed groups that have someone in them
+ * (`moveEntourageSection` → `nextSectionOrder`) — so a drag is planned as the
+ * run of those single steps, simulated with that SAME rule.
+ *
+ * `printed` is the printed groups with someone in them, in the saved order —
+ * exactly the list the action reads (`readAllGroups`' visible keys).
+ */
+
+export type SectionPlan =
+  | { ok: true; sections: MarchSection[]; printed: string[]; steps: MarchStep[]; said: string; undo: MarchStep[] }
+  | { ok: false; reason: string };
+
+/**
+ * The single-section steps that make `printed`, read through `want`'s keys,
+ * come out in `want`'s order. Insertion order: each key in turn rises until it
+ * stands where `want` puts it — passing a printed group the march does not draw
+ * (Parents) only when it must.
+ */
+export function sectionSteps(printed: readonly string[], want: readonly string[]): { steps: MarchStep[]; printed: string[] } {
+  const keep = new Set(want);
+  let cur = [...printed];
+  const steps: MarchStep[] = [];
+  const seen = (order: readonly string[]) => order.filter((k) => keep.has(k));
+  for (const [i, key] of want.entries()) {
+    for (let guard = 0; guard < cur.length * cur.length; guard++) {
+      const at = seen(cur).indexOf(key);
+      if (at === -1 || at <= i) break;
+      const next = nextSectionOrder(cur, new Set(cur), key, 'up');
+      if (!next) break;
+      cur = next;
+      steps.push({ kind: 'section', section: key, direction: 'up' });
+    }
+  }
+  return { steps, printed: cur };
+}
+
+const movable = (sections: readonly MarchSection[]) => sections.filter((x) => !isMarchOnlyGroup(x.key)).map((x) => x.key);
+const inOrder = (sections: readonly MarchSection[], keys: readonly string[]): MarchSection[] => {
+  const byKey = new Map(sections.map((x) => [x.key, x]));
+  const middle = keys.map((k) => byKey.get(k)!).filter(Boolean);
+  const first = sections.filter((x) => isMarchOnlyGroup(x.key) && sections.indexOf(x) === 0);
+  const last = sections.filter((x) => isMarchOnlyGroup(x.key) && !first.includes(x));
+  return [...first, ...middle, ...last];
+};
+
+/** Drop section `from` on section `to`'s header: it takes that place (before it going up, after it going down). */
+export function planSectionDrop(
+  sections: readonly MarchSection[],
+  printed: readonly string[],
+  from: string,
+  to: string,
+): SectionPlan | null {
+  if (from === to) return null;
+  const label = (k: string) => sections.find((x) => x.key === k)?.label ?? k;
+  if (isMarchOnlyGroup(to)) {
+    const first = sections[0]?.key === to;
+    return { ok: false, reason: `${label(to)} always walk${first ? ' first' : ' last'} — move ${label(from)} between them.` };
+  }
+  const keys = movable(sections);
+  const a = keys.indexOf(from);
+  const b = keys.indexOf(to);
+  if (a === -1 || b === -1) return null;
+  const want = [...keys];
+  want.splice(a, 1);
+  want.splice(b, 0, from);
+  const { steps, printed: next } = sectionSteps(printed, want);
+  if (steps.length === 0) return null;
+  return {
+    ok: true,
+    sections: inOrder(sections, want),
+    printed: next,
+    steps,
+    said: `${label(from)} now walk${a > b ? ' before' : ' after'} ${label(to)}`,
+    undo: sectionSteps(next, printed).steps,
+  };
+}
+
+/** Is the saved order anything but the built-in one? (Shows the one-line "Default order".) */
+export function sectionsMoved(printed: readonly string[]): boolean {
+  const built = ENTOURAGE_GROUP_KEYS.filter((k) => printed.includes(k));
+  return built.some((k, i) => k !== printed[i]);
+}
+
+/** "Default order" — the built-in section order back (`resetEntourageSections`), undone step by step. */
+export function planSectionsDefault(sections: readonly MarchSection[], printed: readonly string[]): SectionPlan | null {
+  if (!sectionsMoved(printed)) return null;
+  const built = ENTOURAGE_GROUP_KEYS.filter((k) => printed.includes(k));
+  return {
+    ok: true,
+    sections: inOrder(sections, built.filter((k) => movable(sections).includes(k))),
+    printed: built,
+    steps: [{ kind: 'sections-default' }],
+    said: 'The sections are back in their usual order',
+    undo: sectionSteps(built, printed).steps,
+  };
+}
+
+/** Any drop, as one shape: what the march looks like after it, the steps, the words, the Undo. */
+export type MarchMove = SectionPlan;
+
+export function planMove(
+  sections: readonly MarchSection[],
+  printed: readonly string[],
+  source: MarchSource,
+  target: MarchTarget,
+): MarchMove | null {
+  if (source.kind === 'section') return target.kind === 'section' ? planSectionDrop(sections, printed, source.key, target.key) : null;
+  const p = planDrop(sections, source, target);
+  if (!p) return null;
+  if (!p.ok) return p;
+  return { ok: true, sections: p.next, printed: [...printed], steps: p.steps, said: p.said, undo: p.undo };
 }

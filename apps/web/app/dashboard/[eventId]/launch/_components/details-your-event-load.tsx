@@ -55,10 +55,10 @@ export async function loadYourEvent({
     getConfirmedVendorCount(supabase, eventId).catch(() => 0),
     // 🔤 The Name style ▾ under the Names (owner 2026-09-30) — the same cached read the entourage uses.
     loadEventNameStyle(admin, eventId),
-    // 🚶 The section order the march's header drag steps through (the same cached read the entourage uses).
-    loadEntourageSectionOrder(admin, eventId),
     // 🕒 The Schedule's Ceremony start (owner 2026-10-04) — unread is "none yet", never a guess written back.
     readLiveCeremonyTime(admin, eventId).catch(() => null),
+    // 🚶 The section order the march's header drag steps through (the same cached read the entourage uses).
+    loadEntourageSectionOrder(admin, eventId),
   ]);
   const ceremonyTime =
     drafted && typeof drafted.ceremony_time === 'string' ? drafted.ceremony_time : liveCeremonyTime;

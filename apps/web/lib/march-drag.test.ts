@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildEntourage, entourageLines, type EntourageGuestRow } from '@/lib/entourage';
 import { marchSections, printedSectionOrder } from '@/lib/march-sections';
-import { ENTOURAGE_GROUP_KEYS, entourageLines, orderedGroupKeys } from '@/lib/entourage';
+import { ENTOURAGE_GROUP_KEYS, orderedGroupKeys } from '@/lib/entourage';
 import { nextSectionOrder } from '@/lib/march-moves';
 import { keyTarget, planMove, planSectionsDefault, sectionsMoved, planDrop, readSource, readTarget, type MarchSection, type MarchStep } from '@/lib/march-drag';
 
@@ -57,6 +57,7 @@ const shape = (ss: readonly MarchSection[]) => ss.map((s) => `${s.key}: ${s.rows
 
 /* ── the SQL functions, replayed ───────────────────────────────────────── */
 function serverDoes(rows: G[], step: MarchStep): G[] {
+  if (step.kind === 'section' || step.kind === 'sections-default') return rows; // `serverSections`
   const m = new Map(rows.map((g) => [g.guest_id, g.march ? { ...(g.march as Spot) } : null]));
   const spot = (id: string) => m.get(id) ?? null;
   const lines = () => entourageLines(rows.map((g) => ({ ...g, march: m.get(g.guest_id) })), step.section);

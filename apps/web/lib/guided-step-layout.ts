@@ -26,6 +26,8 @@
  * could not show it being made:
  *   · Your logo  → the logo itself, as it is drawn (no editor guide lines);
  *   · Seat plan  → the floor plan the guests are seated on;
+ *   · Your colours · What everyone wears → the Mood Board, where the palette
+ *     and the dress code are made (the page shows only their result);
  *   · Schedule (and the guests' arrival) → the day's rail, where a moment is
  *     picked, dragged and resized — the page shows the day, not the rail;
  *   · Cover photo → the cover photo itself (the page lays the invitation card
@@ -53,7 +55,7 @@ export type GuidedStepBody =
   | { kind: 'cover'; phase: LifecyclePhase };
 
 /** Steps whose subject exists only in its own tool (see the docblock). */
-export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan', 'schedule', 'arrive'];
+export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan', 'schedule', 'arrive', 'colours', 'wear'];
 
 /**
  * Where on the stage's page each step's part sits — the section ids every
@@ -61,6 +63,9 @@ export const STEP_OWN_BODY: readonly GuidedStepKey[] = ['logo', 'seat-plan', 'sc
  * not named here is at the top (the hero: names · date · theme · cover).
  */
 const STEP_ANCHOR: Partial<Record<GuidedStepKey, string>> = {
+  /* 🎨 The Theme step opens at the TOP, film included: a film whose couple never
+     picked a background wears the theme's paper (`stdFilmBackground`, owner
+     2026-10-05), so the theme shows from the first slide. */
   'love-story': '#site-story',
   venues: '#site-details',
   parents: '#site-entourage',

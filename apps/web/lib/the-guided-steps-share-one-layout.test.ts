@@ -244,3 +244,263 @@ test('(8) a server-made editor sits in a keyed slot — never an unkeyed child (
   assert.match(ws, /<Fragment key="persistent">\{persistent\}<\/Fragment>/, 'the persistent part is an unkeyed child beside the editors');
   assert.match(ws, /<Fragment key="body">\{bodies\[i\.key\] \?\? null\}<\/Fragment>/);
 });
+
+/* ══ ROUND 2 — the owner's live walk on maria-and-jose, 2026-10-05 ══════════ */
+
+test('(9) the Save the Date film follows the theme unless the couple picked its background — so the Theme step opens at the top, film included', async () => {
+  const body = guidedStepBody('theme', 'save_the_date');
+  assert.equal(body.kind === 'page' && body.anchor, '', 'the Theme step skips the film again');
+  const { stdFilmBackground, resolveStdBackground } = await import('./std-backgrounds');
+  // Never picked → the theme's paper; picked → the couple's own, untouched.
+  assert.deepEqual(stdFilmBackground(null, '#0b0a12'), { kind: 'plain', value: '#0b0a12', legibility: 'auto' });
+  assert.deepEqual(stdFilmBackground(undefined, '#0b0a12'), { kind: 'plain', value: '#0b0a12', legibility: 'auto' });
+  const picked = { kind: 'plain', value: '#e8d9bd', legibility: 'auto' };
+  assert.deepEqual(stdFilmBackground(picked, '#0b0a12'), resolveStdBackground(picked), 'a background the couple picked was overridden');
+  const loaders = read('app/[slug]/_lib/loaders.ts');
+  assert.match(loaders, /event\.std_background === null \|\| event\.std_background === undefined\s*\? stdFilmBackground\(null, INVITE_THEMES\[/, 'the guest page does not dress an unpicked film in the theme');
+});
+
+test('(10) one count: Event Details\' number IS the Maker\'s number — totals too — and the read costs no second pass', async () => {
+  const { oneCountPlan, buildGuidedPlan: build } = await import('./details-guided-flow');
+  const { setupProgress } = await import('./stage-setup');
+  const items = (keys: readonly string[], done: (k: string) => boolean) =>
+    keys.map((k) => ({ key: k, label: k, done: done(k) })) as GuidedItem[];
+  // The SAME event, two derivations that disagree: Event Details (`readGuidedPlan`)
+  // counts the seat plan and sees the names done; the Maker's own rows lack the
+  // seat plan and see the date done.
+  const shared = build(items(ITEMS, (k) => k === 'names' || k === 'theme'), { solemn: false, parentsOffered: true });
+  const local = build(items(ITEMS.filter((k) => k !== 'seating'), (k) => k === 'date'), { solemn: false, parentsOffered: true });
+  assert.notDeepEqual(setupProgress(local), setupProgress(shared), 'anti-vacuity: the fixture must disagree before the fix');
+  const maker = oneCountPlan(shared, local);
+  assert.deepEqual(setupProgress(maker), setupProgress(shared), 'the Maker and Event Details give different totals for one event');
+  for (const r of SETUP_STAGES) assert.deepEqual(stageProgress(maker, r), stageProgress(shared, r), `${r}: the stage counts differ`);
+  assert.equal(oneCountPlan(null, local), local, 'without the shared read the Maker keeps its own plan');
+
+  const page = read('app/dashboard/[eventId]/launch/page.tsx');
+  // ⚡ Started beside the page's reads with what it already read — never re-read, never serial.
+  assert.match(page, /const sharedPlanP = readGuidedPlan\(\{[\s\S]{0,120}pre: \{ event: printEvent, hosts: rsvpHosts, parents: printParents, drafted: draftedEvents, scheduleRows: scheduleMoments \}/, 'the Maker re-reads what it already has');
+  assert.equal(page.match(/readGuidedPlan\(/g)?.length, 1, 'a second read of the plan');
+  assert.match(page, /const sharedPlan = await sharedPlanP;/);
+  assert.ok(page.indexOf('const sharedPlanP') < page.indexOf('const mayShowStdFilm'), 'the plan read starts after the page\'s other reads, not beside them');
+  assert.match(page, /shared: sharedPlan \? sharedPlan\.plan : null,/);
+  const details = read(`${L}/maker-details.tsx`);
+  assert.match(details, /const plan = rawPlan \? oneCountPlan\(props\.guide\?\.shared, rawPlan\) : null;/, 'the Maker counts its own way again');
+  const home = read('app/dashboard/[eventId]/_components/details-guide-home-card.tsx');
+  assert.match(home, /readGuidedPlan\(/, 'Event Details counts some other way');
+});
+
+test('(11) Parents & hosts opens on what is in place — a host before "Add a parent" — so the step agrees with its ✓ set', () => {
+  const people = read(`${L}/details-people.tsx`);
+  assert.match(people, /const first = parentsOffered \? \(parents\[0\]\?\.key \?\? hosts\[0\]\?\.key \?\? ADD\)/, 'the step opens on "Add a parent" beside a host already in place');
+  assert.doesNotMatch(people, /A host’s number comes from their own account/, 'a caption came back under the host');
+});
+
+test('(12) opening a step is never dirty; the Mood Board steps show the board, with no note and no downloads in the sheet', () => {
+  const top = read(`${L}/details-guide-top.tsx`);
+  assert.match(top, /if \(touched && !fieldTouched\(touched, el\)\) continue;/, 'an untouched field can read as unsaved again');
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /hasUnsavedEdits\(stepScopesOf\(rootRef\.current, stepHere\.items\), touchRef\.current\.fields\)/, 'the step asks about fields nobody touched');
+  // A field a tool fills itself is not the couple's touch (behaviour: (22)).
+  assert.match(ws, /noteTouch\(touchRef\.current, e\);/);
+  assert.match(read('lib/guided-step-touch.ts'), /if \(!e\.isTrusted\) return false;/, 'a field a tool fills itself counts as touched');
+  for (const key of ['colours', 'wear'] as const) assert.equal(guidedStepBody(key, 'rsvp').kind, 'own', key);
+  const mb = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
+  assert.match(mb, /className="contents group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-note-wrap=""/, 'the board’s note shows in the step');
+  assert.match(mb, /group-data-\[details-mode=guided\]\/ws:hidden" data-mood-board-exports=""/, 'the downloads show in the step');
+});
+
+test('(13) Reply by: one date line, the date in the field, one date format', () => {
+  const ask = read(`${L}/maker-rsvp-ask.tsx`);
+  const at = ask.lastIndexOf('data-rsvp-setting="reply-by"');
+  const block = ask.slice(at, ask.indexOf('</DetailsPieceOnly>', at));
+  assert.ok(block.length > 50, 'anti-vacuity: the reply-by block was not found');
+  assert.doesNotMatch(block, /Set your event date first|formatDay\(replyBy\.date\)/, 'the date is said twice again');
+  assert.match(block, /fallback=\{replyByFallback \?\? \(replyBy\?\.isDefault \? replyBy\.date : null\)\}/);
+  assert.match(ask, /value=\{value \|\| fallback \|\| ''\}/, 'the field is empty while a date is in force');
+  assert.match(ask, /toLocaleDateString\('en-US', \{\s*day: 'numeric',\s*month: 'long',/, 'not the Maker’s one date format');
+  // Both RSVP panels (Details' settings and the RSVP stage) are handed the default the field shows.
+  assert.equal((read('app/dashboard/[eventId]/launch/page.tsx').match(/replyByFallback=\{resolveReplyBy\(\{ deadline: null, eventDate: printEvent\.event_date \}\)\?\.date \?\? null\}/g) ?? []).length, 2);
+});
+
+test('(14) the March has no caption in the step; the cover has no "made once" line; the cover’s dropdown says the step’s word', () => {
+  assert.match(read('app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx'), /group-data-\[details-mode=guided\]\/ws:hidden" data-march-caption=""/, 'the march’s caption shows in the step');
+  assert.doesNotMatch(read(`${L}/maker-made-once.tsx`), /Made once, shown everywhere/, 'the cover’s caption came back');
+  assert.match(read(`${L}/details-workspace.tsx`), /current=\{pieceLabels\[selected\]\?\.\[pieceMap\[selected\] \?\? ''\] \?\? stepHere\.title\}/, 'the step’s dropdown says the item’s word ("Hero")');
+});
+
+test('(15) How guests get in: label and dropdown on ONE row', () => {
+  assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="who-can-rsvp">/);
+});
+
+test('(16) the Schedule’s Journey · Preparation · Event Day wears the one segmented control — and each view stays a LINK', () => {
+  const t = read('app/dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx');
+  assert.match(t, /className=\{I_SEGMENTED_CLASS\}/, 'the views lost the segmented track');
+  assert.match(t, /className=\{iSegClass\(on, 'wine'\)\}/, 'the views lost the segment look');
+  assert.match(t, /<Link\b[\s\S]{0,120}href=\{hrefFor\(mode\)\}[\s\S]{0,120}aria-current=\{on \? 'page' : undefined\}/, 'a view is no longer a link with a current page');
+  assert.doesNotMatch(t, /<button|router\.(replace|push)|onClick=/, 'a view went back to a button — no new tab, no deep link');
+  assert.doesNotMatch(t, /sn-seg-item|role="tab"/, 'the old pill row came back');
+  const kit = read('app/dashboard/[eventId]/website/editor/_components/inspector-kit.tsx');
+  assert.match(kit, /className=\{`\$\{iSegClass\(on, tone\)\} \$\{className\}`\}/, 'ISeg and the links no longer share one look');
+});
+
+test('(17) The Day: ONE "Happening now", and "event" — never "celebration" — on the live card', async () => {
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { SpotlightCard } = await import('../app/[slug]/_components/spotlight-card');
+  const html = renderToStaticMarkup(React.createElement(SpotlightCard, { spotlight: { kind: 'watch_live' } as never }));
+  assert.match(html, /Watch the event live/, 'the live card says something else');
+  assert.doesNotMatch(html, /celebration/);
+  assert.match(read('app/[slug]/_components/site-body.tsx'), /dayOfPhase === 'live' && plan\.spotlight\?\.kind !== 'watch_live' \?/, 'the masthead pill doubles the live card again');
+});
+
+test('(18) the Seat plan step: the tool’s head is its controls only, and the room overview keeps every wall label whole — on every view', async () => {
+  const phone = read('app/dashboard/[eventId]/seating/_components/seat-plan-phone.tsx');
+  assert.match(phone, /text-ink group-data-\[details-mode=guided\]\/ws:hidden">Seat plan<\/h2>/, 'the tool’s title shows above the step');
+  assert.match(phone, /data-seat-plan-status="" className="[^"]*group-data-\[details-mode=guided\]\/ws:hidden"/, 'the status line shows above the step');
+  const editor = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  assert.match(
+    editor,
+    /const z = roomOverviewZoom\(box, \[\.\.\.world\.querySelectorAll\('\*'\)\]\.map\(\(el\) => el\.getBoundingClientRect\(\)\)\);\s*applyView\(z, \{ x: \(box\.width \* \(1 - z\)\) \/ 2, y: \(box\.height \* \(1 - z\)\) \/ 2 \}\);/,
+    'the overview fills the canvas edge to edge again (labels at the walls cut)',
+  );
+  assert.match(editor, /if \(!venueScaled \|\| view !== 'plan'\) return;/, 'the overview is measured with no plan on screen');
+  assert.match(editor, /\}, \[venueScaled, view\]\);/, 'opening the plan from the List shows the room cut at the walls');
+  assert.doesNotMatch(editor, /ROOM_OVERVIEW_ZOOM/, 'a guessed constant came back');
+
+  // Measured on maria-and-jose's own room (normal page, 375 × 812): a 347 × 521 canvas,
+  // wall labels reaching 28px past both walls at zoom 1 — every one whole after.
+  const { roomOverviewZoom } = await import('./seat-plan-overview');
+  const canvas = { left: 14, top: 200, right: 361, bottom: 721 };
+  const W = 347;
+  const labels = [
+    { left: 14 - 28, top: 306, right: 14 - 28 + 90, bottom: 322 },
+    { left: 361 - 62, top: 295, right: 361 + 28, bottom: 311 },
+    { left: 0, top: 0, right: 0, bottom: 0 }, // a hidden layer — not a label past a wall
+    { left: 14, top: 200, right: 361, bottom: 721 }, // the walls themselves
+  ];
+  const z = roomOverviewZoom(canvas, labels);
+  assert.ok(z < 0.9, `a fixed 0.9 still cut the labels; measured zoom ${z}`);
+  const m = (W * (1 - z)) / 2;
+  for (const l of labels.slice(0, 2)) {
+    const left = canvas.left + m + z * (l.left - canvas.left);
+    const right = canvas.left + m + z * (l.right - canvas.left);
+    assert.ok(left >= canvas.left && right <= canvas.right, `a wall label is still cut at zoom ${z}`);
+  }
+  assert.equal(roomOverviewZoom(canvas, [{ left: 40, top: 300, right: 120, bottom: 316 }]), 1, 'nothing past a wall: the room as large as it fits');
+});
+
+test('(19) Skip goes to the VERY next screen — a link step (the guests’ names) is a screen of the walk', async () => {
+  const { hubSetupRound } = await import('./hub-setup-steps');
+  const { skipScreen, nextScreen, guidedScreens, stageSteps, progressLabel } = await import('./details-guided-flow');
+  const keys = ['names', 'date', 'theme', 'logo', 'hero', 'love-story', 'venues', 'schedule', 'parents', 'march', 'mood-board', 'special-message', 'rsvp'];
+  const nav = keys.map((k) => ({ key: k, label: k, done: false }));
+  const facts = { guestList: true, arrival: false, venuesLocked: { ceremony: false, reception: false }, venuesNamed: { ceremony: false, reception: false }, loveStoryMoments: 0, wear: false, replyBy: false, guests: 0 };
+  const p = buildGuidedPlan(nav as GuidedItem[], { solemn: false, parentsOffered: true }, hubSetupRound(facts, new Set(keys)));
+  const round = p.rounds.find((r) => p.links.some((l) => l.stages.includes(r)));
+  assert.ok(round, 'anti-vacuity: no stage carries a link step');
+  const last = stageSteps(p, round!).at(-1)!;
+  const link = p.links.find((l) => l.stages.includes(round!))!;
+  const at = { kind: 'step', step: last.key, round: round! } as const;
+  assert.deepEqual(skipScreen(p, at), { kind: 'link', link: link.key, round }, 'Skip from the last step jumps past the guests’ names');
+  assert.deepEqual(nextScreen(p, at), { kind: 'link', link: link.key, round });
+  assert.ok(guidedScreens(p, round!).some((sc) => sc.kind === 'link'), 'the link step is not a screen');
+  const total = stageSteps(p, round!).length + p.links.filter((l) => l.stages.includes(round!)).length;
+  assert.match(progressLabel(p, { kind: 'link', link: link.key, round: round! }), new RegExp(`${total} of ${total}$`), 'the link step is not counted in its place');
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /\{plan && at\?\.kind === 'link' \? \(\s*<GuideLinkScreen/, 'the link screen is not drawn');
+});
+
+test('(20) a control that writes live says so plainly: "Guests see this right away" — the March order and Reply by included', () => {
+  const field = read('app/dashboard/[eventId]/website/_components/hub-draft-field.tsx');
+  assert.match(field, /export const HUB_LIVE_WORDS = 'Guests see this right away';/);
+  assert.match(field, /<InfoTip label=\{HUB_LIVE_WORDS\}/, 'the live mark shows the plain words, not "Saves immediately"');
+  assert.doesNotMatch(field, /['">]Saves immediately/, 'the old words are gone from the mark');
+  for (const f of [`${L}/details-march.tsx`, `${L}/maker-rsvp-ask.tsx`]) {
+    assert.match(read(f), /<HubSavesImmediately\b/, `${f} still says it writes live (owner: they stay instant)`);
+  }
+});
+
+test('(21) every watch-live surface says "event" — the live card, the camera picker, the embed, the Facebook card', async () => {
+  const { watchLiveOccasion } = await import('./watch-live-occasion');
+  assert.equal(watchLiveOccasion('celebration'), 'event');
+  assert.equal(watchLiveOccasion(undefined), 'event');
+  assert.equal(watchLiveOccasion('gathering'), 'gathering', 'a funeral keeps its own word');
+  const S = 'app/[slug]/_components';
+  let said = 0;
+  for (const f of ['watch-live-embed', 'roam-watch-picker', 'watch-live-block', 'spotlight-card']) {
+    const src = read(`${S}/${f}.tsx`);
+    // (spotlight-card's own default also words its RSVP line — not a watch-live string.)
+    if (f !== 'spotlight-card') assert.doesNotMatch(src, /occasion = 'celebration'/, `${f}: the default word is "celebration" again`);
+    assert.doesNotMatch(src, /(Watch the|broadcast of the) \$\{occasion\}/, `${f}: prints the raw occasion word on a watch-live line`);
+    said += src.match(/(Watch the|broadcast of the) \$\{watchLiveOccasion\(occasion\)\}/g)?.length ?? 0;
+  }
+  assert.equal(said, 5, `watch-live lines said through the one mapping: ${said}`);
+});
+
+test('(22) touch a field → Skip asks; open only → Skip goes — a custom picker and a remounted field count', async () => {
+  const T = await import('./guided-step-touch');
+  const field = (name: string) => ({ tagName: 'INPUT', name, id: '' });
+  const leaveOn = (touch: ReturnType<typeof T.newStepTouch>, via: 'skip' | 'next', unsaved = false) =>
+    T.leaveAsks({ via, unsaved, touched: touch.any });
+
+  // OPEN ONLY: the step draws, a tool fills a field on its own (untrusted), the couple taps nothing.
+  const opened = T.newStepTouch();
+  T.noteTouch(opened, { type: 'input', isTrusted: false, target: field('dress_code') });
+  T.noteTouch(opened, { type: 'click', isTrusted: true, target: { tagName: 'BUTTON', closest: () => null } });
+  assert.equal(leaveOn(opened, 'skip'), null, 'opening a step and skipping asked "you changed something"');
+
+  // TYPED in a native field → Skip asks.
+  const typed = T.newStepTouch();
+  T.noteTouch(typed, { type: 'input', isTrusted: true, target: field('dress_code') });
+  assert.equal(leaveOn(typed, 'skip'), 'skip', 'a keystroke then Skip went on without asking');
+  assert.equal(leaveOn(typed, 'next'), null, 'Next after a change that saved asks for nothing');
+  // …and the field REMOUNTED (a new element, the same name) is still the field they typed in.
+  assert.ok(T.fieldTouched(typed.fields, field('dress_code')), 'a remounted field lost its touch');
+  assert.ok(!T.fieldTouched(typed.fields, field('other')));
+
+  // A CUSTOM PICKER: the one dropdown — its list portalled to <body>, outside the
+  // step — belongs to the button that opened it, which IS in the step.
+  const trigger = { tagName: 'BUTTON', closest: () => null };
+  const doc = { querySelector: (sel: string) => (sel === '[aria-controls="pick-1"]' ? trigger : null) };
+  const option = {
+    tagName: 'BUTTON',
+    closest: (sel: string) => (sel.includes('listbox') ? { getAttribute: () => 'pick-1' } : sel.includes('role="option"') ? {} : null),
+  };
+  assert.equal(T.touchOrigin(option, doc), trigger, 'a pick in the portalled list is not its button\'s');
+  assert.equal(T.touchOrigin(trigger, doc), trigger);
+  const picked = T.newStepTouch();
+  T.noteTouch(picked, { type: 'click', isTrusted: true, target: option });
+  assert.equal(leaveOn(picked, 'skip'), 'skip', 'a pick in the one dropdown then Skip went on without asking');
+  // A picker's own announcement — a real event.
+  const told = T.newStepTouch();
+  const button = new EventTarget();
+  button.addEventListener(T.MAKER_TOUCH_EVENT, (e) => T.noteTouch(told, e));
+  T.announceMakerTouch(button);
+  assert.equal(leaveOn(told, 'skip'), 'skip');
+  // A segmented control / switch: a trusted press on a choice.
+  const pressed = T.newStepTouch();
+  T.noteTouch(pressed, { type: 'click', isTrusted: true, target: { tagName: 'BUTTON', closest: (sel: string) => (sel.includes('aria-pressed') ? {} : null) } });
+  assert.equal(leaveOn(pressed, 'skip'), 'skip', 'a segmented pick then Skip went on without asking');
+  // A field still unsaved asks on every way out.
+  assert.equal(leaveOn(opened, 'next', true), 'unsaved');
+
+  // The foot says which question it is asking.
+  const { GuideFoot } = await import(`../${L}/details-guide`);
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const noop = () => {};
+  const foot = (warning: 'skip' | 'unsaved' | null) =>
+    renderToStaticMarkup(React.createElement(GuideFoot, { onBack: null, onSkip: noop, onNext: noop, warning, onKeepEditing: noop, onGoAnyway: noop }));
+  assert.match(foot('skip'), /data-details-guide-unsaved="skip"[\s\S]*You changed something on this step\.[\s\S]*Skip anyway/);
+  assert.match(foot('unsaved'), /isn’t saved yet[\s\S]*Go on without saving/);
+  assert.doesNotMatch(foot(null), /data-details-guide-unsaved/);
+
+  // Wired: the workspace hears the pickers, and Skip says it is Skip.
+  const ws = read(`${L}/details-workspace.tsx`);
+  assert.match(ws, /const kinds = \['input', 'change', 'click', MAKER_TOUCH_EVENT\];/, 'the step no longer hears the custom pickers');
+  assert.equal(ws.match(/move\(skipScreen\(plan!?, at\), 'skip'\)/g)?.length, 3, 'a Skip button no longer says it is Skip');
+  assert.match(ws, /leaveAsks\(\{ via, unsaved: hasUnsavedEdits\(/);
+  assert.match(ws, /const t = touchOrigin\(e\.target, document\);/, 'a pick in the one dropdown\'s portalled list is outside the step again');
+  // The one dropdown's list names its button while open — what `touchOrigin` follows.
+  const pm = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
+  assert.match(pm, /aria-controls=\{open \? listId : undefined\}/);
+  assert.match(pm, /id=\{listId\}\s*role="listbox"/);
+});

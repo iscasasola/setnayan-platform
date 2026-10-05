@@ -273,7 +273,8 @@ export function MakerRsvpSettings({
      it; only Your info sets it. */
   const getInNow = readGuestsGetIn(local);
   const getIn = (
-    <section className="flex flex-col gap-2" data-rsvp-setting="who-can-rsvp">
+    /* Label and dropdown on ONE row, like every other step (owner 2026-10-05). */
+    <section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="who-can-rsvp">
       <p className="flex items-center gap-1.5 text-sm font-semibold text-ink">
         {GUESTS_GET_IN_LABEL}
       </p>
@@ -432,18 +433,16 @@ export function MakerRsvpSettings({
       {/* ── Reply by — typed right here (no link out) ── */}
       <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
         <p className="text-sm font-semibold text-ink">Reply by</p>
-        {replyBy ? (
-          <p className="flex flex-wrap items-baseline gap-x-2">
-            <span className="text-base font-semibold text-ink" data-reply-by={replyBy.date}>
-              {formatDay(replyBy.date)}
-            </span>
-            <span className="text-sm text-ink/60">{replyBy.isDefault ? '· 30 days before' : '· your date'}</span>
-          </p>
-        ) : (
-          <p className="text-sm text-ink/60">Set your event date first.</p>
-        )}
+        {/* ONE line for the date — the field's own (owner 2026-10-05: the date
+            showed twice, once with "Set your event date first."). */}
         {replyByOwn ? (
-          <ReplyByField eventId={eventId} own={replyByOwn.deadline} pricingMode={replyByOwn.pricingMode} fallback={replyByFallback} action={replyByAction} />
+          <ReplyByField
+            eventId={eventId}
+            own={replyByOwn.deadline}
+            pricingMode={replyByOwn.pricingMode}
+            fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
+            action={replyByAction}
+          />
         ) : (
           <p role="alert" className="text-[13px] text-terracotta-700">
             We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
@@ -601,7 +600,8 @@ function WordField({
 function formatDay(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number);
   if (!y || !m || !d) return ymd;
-  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-GB', {
+  /* ONE date format across the Maker — "December 12, 2026" (owner 2026-10-05). */
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
@@ -752,7 +752,7 @@ function LiveReplyByField({
       <div className="flex flex-wrap items-center gap-2">
         <input
           type="date"
-          value={value}
+          value={value || fallback || ''}
           onChange={(e) => pick(e.target.value)}
           aria-label="Reply by — your own date"
           className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-sm text-ink"

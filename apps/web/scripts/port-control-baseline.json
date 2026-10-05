@@ -1,5 +1,5 @@
 {
-  "generatedFromRef": "6b462f5ff6",
+  "generatedFromRef": "45b8ca326",
   "routeCount": 426,
   "destinations": 948,
   "actions": 669,
@@ -6578,6 +6578,7 @@
         "GuestCardBody",
         "GuideFoot",
         "GuideHead",
+        "GuideLinkScreen",
         "GuideReady",
         "GuideTop",
         "GuidedRound",
@@ -7244,7 +7245,6 @@
         "ScheduleBlockType",
         "ScheduleDay",
         "ScheduleModeToggle",
-        "Segment",
         "SentList",
         "Sheet",
         "SheetHead",

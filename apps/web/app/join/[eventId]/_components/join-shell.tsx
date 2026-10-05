@@ -31,6 +31,7 @@ export function JoinShell({
   event,
   steps,
   skin,
+  brand,
   children,
 }: {
   event: JoinShellEvent;
@@ -41,6 +42,8 @@ export function JoinShell({
   steps?: DoorStep[];
   /** The invite link's theme skin (app/[slug]/invite/_themes). Omit for the bare door. */
   skin?: DoorSkin;
+  /** `'foot'` on the couple's own `/[slug]/invite` (DoorShell `brand`). */
+  brand?: 'top' | 'foot';
   children: React.ReactNode;
 }) {
   return (
@@ -50,6 +53,7 @@ export function JoinShell({
       meta={event ? joinDoorMeta(event) : undefined}
       steps={steps}
       skin={skin}
+      brand={brand}
     >
       {children}
     </DoorShell>

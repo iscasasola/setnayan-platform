@@ -178,7 +178,8 @@ export async function EntourageOrderPanel({
         <h2 className="font-mono text-[11px] uppercase tracking-[0.12em] text-ink/55">
           Wedding March
         </h2>
-        <p className="text-xs text-ink/55">
+        {/* In the Maker's guided flow: no caption under the march (owner 2026-10-05). */}
+        <p className="text-xs text-ink/55 group-data-[details-mode=guided]/ws:hidden" data-march-caption="">
           The order your invitation prints them in. A pair is one line.{' '}
           {anyPlaced
             ? 'You have arranged these yourself.'

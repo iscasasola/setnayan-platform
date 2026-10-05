@@ -240,6 +240,9 @@ export type GuidedScreen =
   | { kind: 'stages' }
   | { kind: 'before'; round: GuidedRound }
   | { kind: 'step'; step: GuidedStepKey; round: GuidedRound }
+  /** 🧭 A setup step with no item of its own (the guests' names) — a screen of
+   *  the walk like every step (owner 2026-10-05: Skip jumped past it to Ready). */
+  | { kind: 'link'; link: HubSetupStepKey; round: GuidedRound }
   | { kind: 'ready'; round: GuidedRound };
 
 export type GuidedPlan = {
@@ -350,6 +353,25 @@ export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords
   return { steps, links, rounds, roundWords };
 }
 
+/**
+ * 🔢 ONE COUNT — the plan the Maker walks, when Home and Event Details' read
+ * (`readGuidedPlan`) is in hand: ITS steps, links and states — which steps
+ * exist, so every "n of m" (`setupProgress`, `stageProgress`) is that read's
+ * number, not only its ticks (review 2026-10-05: overriding states by key left
+ * the TOTALS to the Maker's own item list). Only the words are the Maker's own,
+ * where it draws the same step (its row labels name the step). Without the
+ * shared read, the Maker's own plan, as before.
+ */
+export function oneCountPlan(shared: GuidedPlan | null | undefined, local: GuidedPlan): GuidedPlan {
+  if (!shared) return local;
+  const title = new Map<string, string>([...local.steps, ...local.links].map((s) => [s.key, s.title]));
+  return {
+    ...shared,
+    steps: shared.steps.map((s) => ({ ...s, title: title.get(s.key) || s.title })),
+    links: shared.links.map((l) => ({ ...l, title: title.get(l.key) || l.title })),
+  };
+}
+
 /** A stage's name, as a line reads it: "Save the Date". */
 export function roundName(plan: Pick<GuidedPlan, 'roundWords'>, round: GuidedRound): string {
   return plan.roundWords[round].title;
@@ -365,11 +387,17 @@ export function stageSteps(plan: Pick<GuidedPlan, 'steps'>, round: GuidedRound):
   return plan.steps.filter((s) => s.stages.includes(round));
 }
 
-/** Every screen of one stage, in order: Before we start, its steps, its Ready screen. */
+/** A stage's link steps (the guests' names) — counted with it, walked after its steps. */
+export function stageLinks(plan: Pick<GuidedPlan, 'links'>, round: GuidedRound): GuidedLinkStep[] {
+  return plan.links.filter((l) => l.stages.includes(round));
+}
+
+/** Every screen of one stage, in order: Before we start, its steps, its link steps, its Ready screen. */
 export function guidedScreens(plan: GuidedPlan, round: GuidedRound): GuidedScreen[] {
   return [
     { kind: 'before', round },
     ...stageSteps(plan, round).map((s): GuidedScreen => ({ kind: 'step', step: s.key, round })),
+    ...stageLinks(plan, round).map((l): GuidedScreen => ({ kind: 'link', link: l.key, round })),
     { kind: 'ready', round },
   ];
 }
@@ -377,6 +405,7 @@ export function guidedScreens(plan: GuidedPlan, round: GuidedRound): GuidedScree
 function sameScreen(a: GuidedScreen, b: GuidedScreen): boolean {
   if (a.kind === 'stages' || b.kind === 'stages') return a.kind === b.kind;
   if (a.kind === 'step') return b.kind === 'step' && a.step === b.step && a.round === b.round;
+  if (a.kind === 'link') return b.kind === 'link' && a.link === b.link && a.round === b.round;
   return a.kind === b.kind && a.round === b.round;
 }
 
@@ -414,6 +443,7 @@ export function nextScreen(plan: GuidedPlan, at: GuidedScreen): GuidedScreen | n
   for (let j = i + 1; j < all.length; j++) {
     const s = all[j]!;
     if (s.kind === 'ready' || (s.kind === 'step' && stepOf(plan, s.step)?.state !== 'done')) return s;
+    if (s.kind === 'link' && plan.links.find((l) => l.key === s.link)?.state !== 'done') return s;
   }
   return null;
 }
@@ -447,7 +477,9 @@ export function isUnfinished(plan: GuidedPlan): boolean {
 export function firstOpenScreen(plan: GuidedPlan, round: GuidedRound): GuidedScreen {
   const mine = stageSteps(plan, round);
   const left = mine.find((s) => s.state === 'left' && !s.optional) ?? mine.find((s) => s.state === 'left');
-  return left ? { kind: 'step', step: left.key, round } : { kind: 'ready', round };
+  if (left) return { kind: 'step', step: left.key, round };
+  const link = stageLinks(plan, round).find((l) => l.state === 'left');
+  return link ? { kind: 'link', link: link.key, round } : { kind: 'ready', round };
 }
 
 /**
@@ -472,6 +504,10 @@ export function progressLabel(plan: GuidedPlan, at: GuidedScreen): string {
   if (at.kind === 'ready') return `${lead} · Apply`;
   if (at.kind === 'before') return `${lead} · Before we start`;
   const mine = stageSteps(plan, at.round);
+  if (at.kind === 'link') {
+    const j = stageLinks(plan, at.round).findIndex((l) => l.key === at.link);
+    return j < 0 ? lead : `${lead} · ${formatCount(mine.length + j + 1)} of ${formatCount(stageCount(plan, at.round))}`;
+  }
   const i = mine.findIndex((s) => s.key === at.step);
   if (i < 0) return lead;
   return `${lead} · ${formatCount(i + 1)} of ${formatCount(stageCount(plan, at.round))}`;
@@ -480,6 +516,11 @@ export function progressLabel(plan: GuidedPlan, at: GuidedScreen): string {
 /** How far along the bar is — this screen's place in its stage, 0–1. */
 export function progressShare(plan: GuidedPlan, at: GuidedScreen): number {
   if (at.kind === 'ready') return 1;
+  if (at.kind === 'link') {
+    const total = stageCount(plan, at.round);
+    const j = stageLinks(plan, at.round).findIndex((l) => l.key === at.link);
+    return total === 0 ? 0 : (stageSteps(plan, at.round).length + j + 1) / total;
+  }
   if (at.kind !== 'step') return 0;
   const mine = stageSteps(plan, at.round);
   const i = mine.findIndex((s) => s.key === at.step);
@@ -516,6 +557,7 @@ export function guideParamOf(at: GuidedScreen): string {
     case 'stages':
       return '1';
     case 'step':
+    case 'link':
       return `walk-${at.round}`;
     default:
       return `${at.kind}-${at.round}`;

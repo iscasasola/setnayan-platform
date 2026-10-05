@@ -565,7 +565,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
       <GuestLookScope {...lookScopeProps(hub.look)}>
         {hub.ground}
         <InAppBar handoff={inApp} />
-        <DoorShell eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
+        <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
           {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
           <LandingPreReply
             message={message}
@@ -592,7 +592,7 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
       {hub.ground}
       {/* 1b · INSIDE MESSENGER — a thin bar of ours at the very top, never over the page. */}
       <InAppBar handoff={inApp} />
-      <DoorShell eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
+      <DoorShell brand="foot" eyebrow={justIn ? REQUEST_WORDS.inTitle : undefined} title={title} sub={justIn ? REQUEST_WORDS.inSub(hosts, null) : (inviteLine ?? undefined)} skin={skin}>
         {/* 🎟 5 · A NEW OR CHANGED TICKET POPS UP FIRST, WITH SAVE — once per version. */}
         {ticket === 'full' && !canvas ? (
           <TicketPopup

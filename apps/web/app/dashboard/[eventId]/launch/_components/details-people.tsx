@@ -25,7 +25,11 @@ export type HostPiece = { key: string; label: string; contact: string | null };
 const ADD = 'add';
 
 function usePick(parents: readonly PersonPiece[], hosts: readonly HostPiece[], parentsOffered: boolean) {
-  const first = parentsOffered ? (parents[0]?.key ?? ADD) : (hosts[0]?.key ?? null);
+  /* 🔢 ONE TRUTH (owner 2026-10-05): the step counts "set" when a parent OR a
+     host is in place (`yourEventDone`), so it opens on what is in place — a host
+     when there is no parent yet — never on "Add a parent" beside a ✓ set.
+     Adding a parent is the dropdown's own row. */
+  const first = parentsOffered ? (parents[0]?.key ?? hosts[0]?.key ?? ADD) : (hosts[0]?.key ?? null);
   // Part 3's ONE piece mechanism (`details-go.tsx`), under the item's own key.
   const [pick, setPick] = useDetailsPiece('parents');
   const known = pick === ADD ? parentsOffered : parents.some((p) => p.key === pick) || hosts.some((h) => h.key === pick);
@@ -110,7 +114,6 @@ export function PeopleControls({
       <section data-people-controls="host" className="flex flex-col gap-1.5">
         <p className="font-serif text-lg text-ink">{host.label}</p>
         <p className="text-sm text-ink/70">{host.contact ?? 'No number on their account yet.'}</p>
-        <p className="text-xs text-ink/55">A host’s number comes from their own account, so it is always the one they use.</p>
       </section>
     );
   }

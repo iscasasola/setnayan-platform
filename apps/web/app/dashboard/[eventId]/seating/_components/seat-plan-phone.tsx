@@ -123,9 +123,12 @@ export function PhoneSeatPlanHead({
   ];
   return (
     <div data-seat-plan-phone-head="" className="flex shrink-0 flex-col gap-2 border-b border-ink/10 bg-cream px-4 pb-3 pt-2">
+      {/* 🪜 In the Maker's guided flow the step ▾ already names it: no title, no
+          count, no status line — the tool's head is its controls only (owner
+          2026-10-05: "crowded above the sheet"). */}
       <div className="flex items-center gap-2">
-        <h2 className="min-w-0 truncate font-display text-[26px] leading-tight text-ink">Seat plan</h2>
-        <span data-seat-plan-count="" className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[11px] tabular-nums text-ink/60">
+        <h2 className="min-w-0 truncate font-display text-[26px] leading-tight text-ink group-data-[details-mode=guided]/ws:hidden">Seat plan</h2>
+        <span data-seat-plan-count="" className="shrink-0 rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[11px] tabular-nums text-ink/60 group-data-[details-mode=guided]/ws:hidden">
           {countLabel}
         </span>
         <span className="flex-1" />
@@ -139,7 +142,7 @@ export function PhoneSeatPlanHead({
           {more}
         </Pop>
       </div>
-      <p data-seat-plan-status="" className="text-[12.5px] leading-snug text-ink/60">
+      <p data-seat-plan-status="" className="text-[12.5px] leading-snug text-ink/60 group-data-[details-mode=guided]/ws:hidden">
         {status}
       </p>
       {toast ? (
@@ -201,7 +204,7 @@ export function PhoneSeatPlanHead({
 export function PhoneSeatPlanFoot({ room, onOpen3D }: { room: string; onOpen3D: (() => void) | null }) {
   return (
     <div data-seat-plan-phone-foot="" className="flex shrink-0 flex-col gap-2 border-t border-ink/10 bg-cream px-4 py-2">
-      <p className="flex items-center justify-between gap-2 text-[11px] text-ink/55">
+      <p className="flex items-center justify-between gap-2 text-[11px] text-ink/55 group-data-[details-mode=guided]/ws:hidden">
         <span className="min-w-0 truncate">{room}</span>
         <span className="shrink-0">pinch to zoom · tap a table</span>
       </p>

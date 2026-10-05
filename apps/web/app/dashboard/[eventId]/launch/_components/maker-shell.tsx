@@ -223,6 +223,14 @@ export function MakerShell({
   /* 🎨 Each time Look is opened — a door press, or Theme picked in the lower third. */
   const [lookVisit, setLookVisit] = useState(0);
   const takeLookVisit = useMemo(() => lookVisitTaker(), []);
+  /* 🗓 Each door that names ONE item (a schedule moment tapped, the couple's mark,
+     Page ▾'s story) — Details opens ON it, never on the guided flow's stage list. */
+  const [itemVisit, setItemVisit] = useState(0);
+  const takeItemVisit = useMemo(() => lookVisitTaker(), []);
+  const openDetailsItem = useCallback((key: DetailsItemKey) => {
+    setDetailsItem(key);
+    setItemVisit((n) => n + 1);
+  }, []);
   /* 🏷 The guided flow's one title while it is on screen (`MakerState.guideTitle`). */
   const [guideTitle, setGuideTitle] = useState<string | null>(null);
   /* 🧰 …and whether that flow is on a screen of its own (the picker, a Ready screen) — the lower third is then only its menu. */
@@ -415,9 +423,9 @@ export function MakerShell({
 
   const select = useCallback((next: MakerSelection) => {
     const moved = movedSelection(next);
-    if (moved.item) setDetailsItem(moved.item);
+    if (moved.item) openDetailsItem(moved.item);
     setSelection(moved.selection);
-  }, []);
+  }, [openDetailsItem]);
   /* ＋ ADD A SCENE — registered by the work area (`MakerAddScene`); Page ▾'s row is
      drawn from it below. */
   const [addScene, setAddScene] = useState<MakerAddScene | null>(null);
@@ -487,6 +495,9 @@ export function MakerShell({
       detailsDoor,
       lookVisit,
       takeLookVisit,
+      openDetailsItem,
+      itemVisit,
+      takeItemVisit,
       guideTitle,
       setGuideTitle,
       setGuideBare,
@@ -512,7 +523,7 @@ export function MakerShell({
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -678,7 +689,7 @@ export function MakerShell({
                 note: storyEditor ? undefined : o.disabledNote,
                 onPick: storyEditor
                   ? () => {
-                      setDetailsItem('love-story');
+                      openDetailsItem('love-story');
                       setDetailsDoor((n) => n + 1);
                       select({ kind: 'tool', key: 'details' });
                     }

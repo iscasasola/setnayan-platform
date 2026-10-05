@@ -212,5 +212,5 @@ test('(5) Apply’s "Go to" for the theme, the background, the font and the colo
   assert.match(fx, /what: 'Theme', [^\n]*jump: \{ kind: 'look' \}/);
   assert.doesNotMatch(fx, /kind: 'row', key: 'colors'|kind: 'main'/, 'a jump still opens an old place');
   const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
-  assert.match(bar, /if \(j\.kind === 'look'\) \{[\s\S]*?setDetailsItem\?\.\('theme'\);\s*maker\.select\(\{ kind: 'tool', key: 'details' \}\);/);
+  assert.match(bar, /if \(j\.kind === 'look'\) \{[\s\S]*?setDetailsItem\)?\?\.\('theme'\);\s*maker\.select\(\{ kind: 'tool', key: 'details' \}\);/);
 });

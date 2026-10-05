@@ -255,6 +255,18 @@ export function DetailsWorkspace({
     setPane(null);
     setUnsavedTo(null);
   }, [lookVisit, takeLookVisit]);
+  /* 🗓 A DOOR THAT NAMES ONE ITEM OPENS THAT ITEM (owner 2026-10-06, a tapped
+     schedule moment landed on "Which stage do you want ready?"): this page mounts
+     fresh for it, on the flow's screen the server chose for a plain landing — so
+     the visit (`openDetailsItem`, answered once) leaves the flow for the item. */
+  const itemVisit = maker?.itemVisit ?? 0;
+  const takeItemVisit = maker?.takeItemVisit;
+  useEffect(() => {
+    if (!itemVisit || !takeItemVisit?.(itemVisit)) return;
+    setMode('all');
+    setPane(null);
+    setUnsavedTo(null);
+  }, [itemVisit, takeItemVisit]);
   const pickedStep = plan && stepKey ? stepOf(plan, stepKey) : null;
   const pieceHere = pieceMap[selected] ?? null;
   const stepHere = plan
@@ -451,7 +463,15 @@ export function DetailsWorkspace({
       // 🪜 The flow rides in the address too (`?guide=1` / `?guide=ready-2`), so a reload lands back in it.
       if (guideAddr) url.searchParams.set(GUIDE_PARAM, guideAddr);
       else url.searchParams.delete(GUIDE_PARAM);
-      window.history.replaceState(window.history.state, '', url);
+      /* 🔑 `null`, NEVER `window.history.state` (owner 2026-10-06: Auto arrange
+         landed on "Which stage do you want ready?"). Next's own entry carries
+         `__NA`, and Next IGNORES a replaceState that carries it — so the router
+         kept the landing address (`/launch`, no item) while the bar showed this
+         one: every save re-rendered the page AT THE LANDING (the address bar
+         snapped back to it) and the next reload or remount opened the flow's
+         stage list. With `null` Next hears the address (it copies its own
+         state in) and a save, a refresh or a reload stays on this item. */
+      window.history.replaceState(null, '', url);
     } catch {
       /* the address is a convenience; the page works without it */
     }

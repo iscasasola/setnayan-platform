@@ -42,6 +42,7 @@ import {
   canvasLookFacets,
   canvasWithoutFacet,
   planHubDraftApply,
+  rsvpAskFreePart,
   type CanvasFacetGroup,
   type CanvasLookFacet,
   type HubDraftEventColumn,
@@ -50,6 +51,8 @@ import {
   type HubDraftState,
   type HubLiveState,
 } from '@/lib/hub-draft';
+import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
 import { HUB_ELEMENT_PRO_FIELDS } from '@/lib/hub-look-pro';
 import { postEventArrangementOf, sceneLooksFreePart, type PostEventSceneLooks } from '@/lib/post-event-draft';
 import { POST_EVENT_SCENE_TYPE_LABEL, postEventSceneTypeOf } from '@/lib/post-event-styles';
@@ -159,6 +162,13 @@ function eventEffect(
       return { what: 'Your photos', where: 'Photos you add', jump: { kind: 'row', key: 'gallery' } };
     case 'style_preferences':
       return { what: 'QR look', where: 'Your QR code', jump: { kind: 'tool', key: 'details' } };
+    // 🎉 The When yes celebration (owner 2026-10-06) — named by the pick.
+    case 'rsvp_ask_config':
+      return {
+        what: `${RSVP_CELEBRATION_LABEL} · ${RSVP_CELEBRATION_NAME[readCelebrationKey(sanitizeRsvpAskConfig(value))]}`,
+        where: 'RSVP · When yes',
+        jump: null,
+      };
     default:
       return { what: 'Pro look', where: 'Event Hub', jump: null };
   }
@@ -220,7 +230,13 @@ export function hubDraftProEffects(draft: HubDraftState, live: HubLiveState, own
         // A Love Story's moments are words and photos in one value — putting the
         // live one back would throw the words away too, so it is never "removed"
         // from here; "Go to" opens the Love Story, where a photo comes off alone.
-        remove: item.column === 'love_story' ? null : { events: { [item.column]: live.events[item.column] ?? null } },
+        remove:
+          item.column === 'love_story'
+            ? null
+            : item.column === 'rsvp_ask_config'
+              ? /* 🎉 Taking the celebration off keeps the RSVP's drafted words and switches. */
+                { events: { rsvp_ask_config: rsvpAskFreePart(live.events.rsvp_ask_config ?? null, item.value) } }
+              : { events: { [item.column]: live.events[item.column] ?? null } },
       });
       continue;
     }

@@ -39,6 +39,8 @@ import {
   readGuestsGetIn,
 } from '@/lib/who-can-reply';
 import { formatCount } from '@/lib/format-number';
+import { readCelebrationKey, type RsvpCelebration } from '@/lib/rsvp-celebration';
+import { CelebrationPick } from './celebration-pick';
 
 /**
  * THE RSVP PAGE'S CONTROLS — the Maker's own RSVP page (guest pathway brief
@@ -86,7 +88,14 @@ export function MakerRsvpSettings({
   replyByFallback = null,
   draftAction = hubDraftAction,
   replyByAction = updatePaxSettings,
+  celebration,
 }: {
+  /**
+   * 🎉 THE WHEN YES CELEBRATION (owner 2026-10-06) — only the stage's When yes
+   * scene draws it: the measured Pro entitlement and the shell (for its ◆ marks
+   * and whether it is shown at all) and the Mood Board's colours (its previews).
+   */
+  celebration?: { ownsPro: boolean; storeShell: boolean; colours: readonly string[] };
   /** The draft save — `hubDraftAction`; the dev lab (`/dev/rsvp-stage-lab`) hands in its own to measure. */
   draftAction?: typeof hubDraftAction;
   /** The reply-by save — `updatePaxSettings`; the dev lab hands in its own. */
@@ -324,6 +333,19 @@ export function MakerRsvpSettings({
           </p>
           {wordRows}
           <p className="text-xs text-ink/60">Type {'{name}'} and each guest sees their own name.</p>
+          {/* 🎉 Celebration ▾ — When yes only; drafted in the same one object
+              (None is stored as no key, so picking it back is no change). */}
+          {scene === 'thanks' && celebration ? (
+            <CelebrationPick
+              value={readCelebrationKey(local)}
+              ownsPro={celebration.ownsPro}
+              storeShell={celebration.storeShell}
+              colours={celebration.colours}
+              onPick={(next: RsvpCelebration) =>
+                save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)
+              }
+            />
+          ) : null}
           {drafted || newest.current > 0 ? <DraftNote /> : null}
           {status}
         </div>

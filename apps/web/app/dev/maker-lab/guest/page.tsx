@@ -1,6 +1,11 @@
 import { notFound } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { mainGroundLayerFor } from '@/app/[slug]/_lib/main-ground-layer';
+import { WhenYesCelebration } from '@/app/[slug]/_components/when-yes-celebration';
+import { celebrationColours, isRsvpCelebration } from '@/lib/rsvp-celebration';
+
+/** maria-and-jose's board stand-in — Oxblood & olive, the prototype's first palette. */
+const LAB_BOARD = ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'];
 
 /**
  * /dev/maker-lab/guest — the Maker lab's CANVAS stand-in: maria-and-jose's
@@ -12,6 +17,11 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
   if (process.env.NODE_ENV === 'production') notFound();
   const sp = await searchParams;
   const rsvp = typeof sp.rsvp === 'string' ? sp.rsvp : null;
+  /* 🎉 `?play=<pick>` plays the When yes celebration as a guest who just said
+     yes (`&freeze=<s>` holds one still frame for a screenshot); without it the
+     thank-you listens to the Maker, as the real one does on the stage. */
+  const play = typeof sp.play === 'string' && isRsvpCelebration(sp.play) ? sp.play : null;
+  const freeze = typeof sp.freeze === 'string' && Number.isFinite(Number(sp.freeze)) ? Number(sp.freeze) : undefined;
   const phase = typeof sp.phase === 'string' ? sp.phase : 'rsvp';
   /* 🎞 The lab's drafted Main background (a cookie the lab's draft stand-in
      sets), drawn by the REAL guest layer — `mainGroundLayerFor`, on the host's
@@ -40,15 +50,37 @@ export default async function MakerLabGuestPage({ searchParams }: { searchParams
         <p className="mt-0.5 text-[11px] uppercase tracking-[0.14em] text-ink/60">Saturday, December 12, 2026</p>
         <p className="mt-4 text-sm">Teresita Aquino</p>
         {rsvp === 'form' ? (
-          <>
-            <p className="mt-4 font-serif text-2xl">Will you celebrate with us?</p>
-            <div className="mt-3 flex gap-2">
-              <span className="flex-1 rounded-full bg-ink py-2 text-center text-sm text-cream">Yes, with joy</span>
-              <span className="flex-1 rounded-full border border-ink py-2 text-center text-sm">Sadly, no</span>
-            </div>
-          </>
+          /* The reply card's own answer markup (`rsvp-widget.tsx`): the tapped
+             answer fills with the page's button colour, the other goes plain. */
+          <form className="rsvp-form mt-4">
+            <fieldset className="space-y-2">
+              <legend className="mb-3 font-serif text-2xl">Will you celebrate with us?</legend>
+              {(['Yes, with joy', 'Sadly, no'] as const).map((label, i) => (
+                <label
+                  key={label}
+                  data-rsvp-answer=""
+                  className="flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-white px-5 text-sm font-medium leading-tight text-ink ring-[1.5px] ring-ink transition-colors has-[:checked]:bg-ink has-[:checked]:text-cream"
+                >
+                  <input type="radio" name="rsvp_status" value={i === 0 ? 'attending' : 'declined'} className="sr-only" />
+                  {label}
+                </label>
+              ))}
+            </fieldset>
+          </form>
         ) : rsvp === 'thanks' ? (
-          <p className="mt-6 font-serif text-2xl">Thank you — see you there!</p>
+          <>
+            <p className="mt-6 font-serif text-2xl" data-landing-heading="">
+              See you there, Teresita
+            </p>
+            <WhenYesCelebration
+              kind={play ?? 'none'}
+              colours={celebrationColours(LAB_BOARD)}
+              play={play !== null}
+              name="Teresita"
+              listen={play === null}
+              freezeAt={freeze}
+            />
+          </>
         ) : (
           <p className="mt-6 font-serif text-2xl italic text-ink/70">We will miss you.</p>
         )}

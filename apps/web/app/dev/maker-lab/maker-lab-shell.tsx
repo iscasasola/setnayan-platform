@@ -13,6 +13,7 @@ import { ColorsPanel } from '@/app/dashboard/[eventId]/website/editor/_component
 import { ButtonsLookRow } from '@/app/dashboard/[eventId]/website/editor/_components/buttons-look-row';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { hubButtonPage } from '@/lib/hub-buttons';
+import { celebrationColours, celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 
 /**
  * The Maker lab's client half (`page.tsx` says what is real): the real shell,
@@ -22,8 +23,10 @@ import { hubButtonPage } from '@/lib/hub-buttons';
  * browser.
  */
 let labChanges = 0;
-function labSummary(n: number): HubDraftSummary {
-  return { hasChanges: n > 0, changeCount: n, proCount: 0, canUndo: n > 0, changes: [] };
+/** 🎉 A Pro celebration drafted in the lab — the bar's ◆ follows it, as the real summary would. */
+let labPro = 0;
+function labSummary(n: number, pro = 0): HubDraftSummary {
+  return { hasChanges: n > 0, changeCount: n, proCount: pro, canUndo: n > 0, changes: [] };
 }
 async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionResult> {
   const w = window as unknown as { __labDrafts?: Array<Record<string, string>> };
@@ -31,7 +34,8 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
   /* 🎞 The lab's "draft": a Look › Background pick rides a cookie the lab's
      canvas (`./guest`) reads on its next load — the browser only, no database. */
   try {
-    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { widgets?: { hero?: { main?: unknown } } };
+    const patch = JSON.parse(String(fd.get('patch') ?? '{}')) as { widgets?: { hero?: { main?: unknown } }; events?: { rsvp_ask_config?: unknown } };
+    if (patch.events && 'rsvp_ask_config' in patch.events) labPro = celebrationDraftIsPro(null, patch.events.rsvp_ask_config) ? 1 : 0;
     if (patch.widgets?.hero && 'main' in patch.widgets.hero) {
       document.cookie = `lab_main=${encodeURIComponent(JSON.stringify(patch.widgets.hero.main ?? null))}; path=/; SameSite=Lax`;
     }
@@ -39,7 +43,7 @@ async function labDraft(_eventId: string, fd: FormData): Promise<HubDraftActionR
     /* not a Background patch */
   }
   labChanges += 1;
-  const s = labSummary(labChanges);
+  const s = labSummary(labChanges, labPro);
   return { ok: true, intent: 'save', applied: 0, held: [], bar: { free: s, owned: s, proEffects: [], priceLabel: null } } as HubDraftActionResult;
 }
 const noop = async () => {};
@@ -74,6 +78,8 @@ export function MakerLabShell({
       frameSrc: (scene) => `/dev/maker-lab/guest?rsvp=${scene}`,
       draftAction: labDraft as never,
       replyByAction: formNoop as never,
+      ownsPro: false,
+      celebrationColours: celebrationColours(['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2']),
     }),
     [eventId],
   );

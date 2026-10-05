@@ -57,6 +57,8 @@ import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { MakerRsvpCanvas } from './_components/maker-page';
 /* ⚡ Loads when Details › RSVP is opened — never with the Maker (`details-lazy.tsx`). */
 import { MakerRsvpSettings, MakerRsvpStage } from './_components/details-lazy';
+import { celebrationColours } from '@/lib/rsvp-celebration';
+import { boardSwatches } from '@/lib/mood-board-palette-set';
 import OurStoryEditorPage from '../website/our-story/page';
 import CoupleSchedulePage from '../schedule/page';
 import CoupleSeatingPage from '../seating/page';
@@ -1344,6 +1346,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                   }
             }
             replyByFallback={resolveReplyBy({ deadline: null, eventDate: printEvent.event_date })?.date ?? null}
+            /* 🎉 When yes's Celebration ▾ — its ◆ marks ask the SAME measured
+               Pro the QR look asks (`printPro`); its previews wear the board. */
+            ownsPro={printPro}
+            celebrationColours={celebrationColours(boardSwatches(printEvent.role_palette))}
           />
         );
       }

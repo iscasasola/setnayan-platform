@@ -4208,6 +4208,27 @@ html.dark {
 [data-hub-btn-paint] [data-arrival-action] a.bg-mulberry:hover {
   background-color: var(--hub-btn-hover);
 }
+/* 🔘 THE TAPPED ANSWER FILLS, THE OTHER GOES PLAIN (owner 2026-10-06, DECISION_LOG
+   '"WHEN YES" GETS A CELEBRATION (PRO)': "the tapped answer fills with the Look ›
+   Buttons colour, the other goes plain — no separate colour setting"). With no
+   Buttons choice the picked answer wears the page's OWN button pair — the one an
+   unpainted `.button-primary` ("Send my reply") wears, never a stray ink — and on
+   a door that carries the couple's action colour, that colour. A host's Buttons
+   choice (`[data-hub-btn-paint]`, below) still wins: same weight, later.
+   Once an answer is picked, the other one is a plain outline. */
+.rsvp-form [data-rsvp-answer]:has(:checked) {
+  background-color: rgb(var(--color-mulberry));
+  color: rgb(var(--color-cream));
+}
+:where([data-door-action]) .rsvp-form [data-rsvp-answer]:has(:checked) {
+  background-color: var(--door-action);
+  color: var(--door-action-label);
+}
+.rsvp-form fieldset:has(:checked) [data-rsvp-answer]:not(:has(:checked)) {
+  background-color: transparent;
+  color: rgb(var(--color-ink) / 0.7);
+  --tw-ring-color: rgb(var(--color-ink) / 0.3);
+}
 [data-hub-btn-paint] [data-rsvp-answer]:has(:checked) {
   background-color: var(--hub-btn-solid);
   color: var(--hub-btn-solid-label);

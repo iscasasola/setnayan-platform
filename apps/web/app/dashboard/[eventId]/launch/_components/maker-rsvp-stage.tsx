@@ -21,6 +21,14 @@ import {
   rsvpWordBridgeKey,
   type RsvpStageScene,
 } from '@/lib/rsvp-stage';
+import {
+  CELEBRATION_HOUSE_COLOURS,
+  RSVP_CELEBRATE_EVENT,
+  RSVP_CELEBRATE_MESSAGE,
+  isRsvpCelebration,
+  readCelebrationKey,
+  type RsvpCelebration,
+} from '@/lib/rsvp-celebration';
 
 /**
  * 🧰 THE RSVP'S THREE SCREENS AS THE LOWER THIRD'S PARTS (owner 2026-10-05,
@@ -71,7 +79,13 @@ export function MakerRsvpStage({
   frameSrc,
   draftAction,
   replyByAction,
+  ownsPro = false,
+  celebrationColours = CELEBRATION_HOUSE_COLOURS,
 }: {
+  /** 🎉 Event Hub Pro, as measured for this event — the When yes Celebration's ◆ marks. */
+  ownsPro?: boolean;
+  /** 🎉 The Mood Board's colours, for the Celebration's previews (`celebrationColours`). */
+  celebrationColours?: readonly string[];
   /** The dev lab only (`/dev/rsvp-stage-lab`): its own frames and saves, to measure the stage without a sign-in. */
   frameSrc?: (scene: RsvpStageScene) => string | null;
   draftAction?: ComponentProps<typeof MakerRsvpSettings>['draftAction'];
@@ -125,6 +139,19 @@ export function MakerRsvpStage({
     for (const f of Object.values(frames.current)) post(f);
   }, [post]);
 
+  /* 🎉 THE WHEN YES CELEBRATION, PLAYED ON THE PAGE (owner 2026-10-06): a pick
+     in Celebration ▾, "Play it again", or opening the When yes scene asks the
+     thank-you frame to play the pick once (`when-yes-celebration.tsx`). */
+  const serverConfig = useRef(current);
+  serverConfig.current = current;
+  const celebrate = useCallback((kind?: RsvpCelebration) => {
+    const win = frames.current.thanks?.contentWindow;
+    if (!win) return;
+    const pick = kind ?? readCelebrationKey(latest.current ?? serverConfig.current);
+    win.postMessage({ source: RSVP_BRIDGE_SOURCE, t: RSVP_CELEBRATE_MESSAGE, kind: pick }, window.location.origin);
+  }, []);
+  const sceneNow = useRef<RsvpStageScene>('form');
+
   /* A word tapped on the canvas: its scene, then its box. */
   const openWordField = useCallback((bridgeKey: string) => {
     const key = bridgeKey.replace(/^rsvp:/, '') as RsvpWordKey | 'reply-by';
@@ -158,18 +185,34 @@ export function MakerRsvpStage({
       if (!d || d.source !== RSVP_SITE_SOURCE) return;
       const from = Object.values(frames.current).find((f) => f?.contentWindow === e.source);
       if (!from) return;
-      if (d.t === 'rsvpReady') post(from);
+      if (d.t === 'rsvpReady') {
+        post(from);
+        if (from === frames.current.thanks && sceneNow.current === 'thanks') celebrate();
+      }
       if (d.t === 'rsvpEdit' && typeof d.key === 'string') openWordField(d.key);
+    };
+    const onCelebrate = (e: Event) => {
+      const kind = (e as CustomEvent<{ kind?: unknown }>).detail?.kind;
+      if (isRsvpCelebration(kind)) celebrate(kind);
     };
     window.addEventListener(RSVP_PREVIEW_EVENT, onPreview);
     window.addEventListener(RSVP_REPLY_BY_EVENT, onReplyBy);
+    window.addEventListener(RSVP_CELEBRATE_EVENT, onCelebrate);
     window.addEventListener('message', onMessage);
     return () => {
       window.removeEventListener(RSVP_PREVIEW_EVENT, onPreview);
       window.removeEventListener(RSVP_REPLY_BY_EVENT, onReplyBy);
+      window.removeEventListener(RSVP_CELEBRATE_EVENT, onCelebrate);
       window.removeEventListener('message', onMessage);
     };
-  }, [post, postAll, openWordField]);
+  }, [post, postAll, openWordField, celebrate]);
+
+  /* Opening the When yes scene plays its pick (a frame already loaded; a new
+     one plays on its `rsvpReady`, above). */
+  useEffect(() => {
+    sceneNow.current = scene;
+    if (scene === 'thanks') celebrate();
+  }, [scene, celebrate]);
 
   const pick = (next: RsvpStageScene) => {
     setScene(next);
@@ -283,6 +326,7 @@ export function MakerRsvpStage({
               replyByFallback={replyByFallback}
               draftAction={draftAction}
               replyByAction={replyByAction}
+              celebration={{ ownsPro, storeShell: maker?.storeShell ?? false, colours: celebrationColours }}
             />
           </>
         }

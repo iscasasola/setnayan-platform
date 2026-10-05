@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "1d7e6f256",
+  "generatedFromRef": "4b17818dd",
   "routeCount": 428,
   "destinations": 947,
   "actions": 670,
-  "blocks": 5516,
+  "blocks": 5522,
   "routes": {
     "/": {
       "files": [
@@ -952,6 +952,7 @@
         "[slug]/_components/watch-live-embed.tsx",
         "[slug]/_components/what-to-bring-styles.tsx",
         "[slug]/_components/what-to-bring-widget.tsx",
+        "[slug]/_components/when-yes-celebration.tsx",
         "[slug]/_components/your-guests.tsx",
         "[slug]/_components/your-photos-widget.tsx",
         "[slug]/_components/your-seat-block.tsx",
@@ -1053,6 +1054,7 @@
         "CaptureTile",
         "CapturesByHour",
         "CelebrantItem",
+        "CelebrationPlayer",
         "Cell",
         "ChallengeBanner",
         "ChallengeCountdown",
@@ -1616,7 +1618,8 @@
         "SaveToAccount",
         "ShortcutLine",
         "TicketPicture",
-        "TicketPopup"
+        "TicketPopup",
+        "WhenYesCelebration"
       ]
     },
     "/[slug]/invite/reply": {
@@ -6424,6 +6427,7 @@
     },
     "/dashboard/[eventId]/launch": {
       "files": [
+        "dashboard/[eventId]/launch/_components/celebration-pick.tsx",
         "dashboard/[eventId]/launch/_components/details-answers-parts.tsx",
         "dashboard/[eventId]/launch/_components/details-answers.tsx",
         "dashboard/[eventId]/launch/_components/details-city-pick.tsx",
@@ -6523,6 +6527,8 @@
         "BufferedCanvasFrame",
         "CanvasStaysOnThePage",
         "CategoryLine",
+        "CelebrationMini",
+        "CelebrationPick",
         "CeremonyTimeEditor",
         "ChangedSincePrinted",
         "ChineseSpecialistNudge",
@@ -6580,6 +6586,7 @@
         "GuidedStepKey",
         "HTMLAnchorElement",
         "HTMLButtonElement",
+        "HTMLCanvasElement",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLIFrameElement",
@@ -9571,7 +9578,8 @@
         "EditorBridge",
         "MakerEmptyScene",
         "MakerWelcomeGiftsEmpty",
-        "SpecialMessageWidget"
+        "SpecialMessageWidget",
+        "WhenYesCelebration"
       ]
     },
     "/dev/schedule-lab": {

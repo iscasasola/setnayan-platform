@@ -20,11 +20,19 @@ link, was linked to hers.
   resolves — `cale-ice`, the Groom row ↔ the owner's account (email, person and
   name all agree); every other creator has zero matches and is left alone.
   Applied ONLY by the pipeline.
-- **"This is me"** — on a host's own unlinked bride/groom row, one action in
-  place on the card (in the status line under "Their ticket"), riding the
+- **"This is me"** — on the CREATOR's own unlinked bride/groom row, one action
+  in place on the card (in the status line under "Their ticket"), riding the
   release door (+0 server actions) into the new SECURITY DEFINER RPC
-  `claim_my_couple_row(event, guest)`: a `couple` member holding no row; a live
-  couple row of that event nobody holds and no other account's person owns.
+  `claim_my_couple_row(event, guest)`: the event's creator (couple member,
+  `joined_via = 'created_event'`) holding no row; a live couple row of that
+  event nobody holds and no other account's person owns. An invited co-host is
+  refused (a co-host must never take the bride's or groom's row). A wrong pick
+  is undoable: Unlink on the creator's own row clears `guest_id` and keeps the
+  membership (`lib/seat-unlink.ts`).
+- **The creator's row** is now the row their membership holds OR the row whose
+  person they claimed (`creatorGuestIds`), in both `loadGuestAccessMap` and
+  `setGuestAccess` — so a name-only row linked by "This is me" reads Host and
+  its Access stays locked.
   Refusals come back as words and land on the card as sentences. `authenticated`
   only (exposure baseline +1 line, regenerated with its generator).
 - **"Host", not "Co-host"** — `accessWordFor` / `CREATOR_WORD` in

@@ -480,6 +480,20 @@ test('the measurers are handed the dressed theme at every picture call site', ()
   assert.equal(dressedTheme('cyber', null), INVITE_THEMES.cyber, 'no board: the registry entry itself');
 });
 
+test('every scope that sets the ornament gild also sets the WORDS gild — a nested scope never inherits a stale one', () => {
+  const sets = (src: string) => [...src.matchAll(/'--color-gild':\s*([^,\n]+)/g)].length;
+  const setsText = (src: string) => [...src.matchAll(/'--color-gild-text':\s*([^,\n]+)/g)].length;
+  for (const f of ['lib/adaptive-theme.ts', 'lib/theme-colours.ts', 'lib/site-palette.ts']) {
+    const src = read(f);
+    assert.ok(sets(src) > 0, `${f} no longer sets --color-gild — this check went vacuous`);
+    assert.equal(setsText(src), sets(src), `${f}: a scope sets --color-gild without --color-gild-text`);
+  }
+  const css = read('app/globals.css');
+  const candle = css.slice(css.indexOf("[data-art='candlelight'] {"), css.indexOf('}', css.indexOf("[data-art='candlelight'] {")));
+  assert.match(candle, /--color-gild:/);
+  assert.match(candle, /--color-gild-text:/, 'Candlelight sets the ornament gild but not its words');
+});
+
 test('every theme in the one order has a seed nobody else shares', () => {
   const seen = new Set<string>();
   for (const t of HUB_THEMES) {

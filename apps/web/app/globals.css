@@ -3236,6 +3236,7 @@ html.dark {
   --color-cream: 24 22 20; /* legacy slot follows paper */
   --color-veil: 44 39 34; /* the wash reads as candle-glow, not fog */
   --color-gild: 201 163 106; /* brightened so the metallic still reads on black */
+  --color-gild-text: 201 163 106; /* its words too — never a palette's light-page text gild on black */
 }
 [data-art='candlelight'] .pahina-grain::before {
   /* grain has to work HARDER on dark stock and must not multiply to mud */

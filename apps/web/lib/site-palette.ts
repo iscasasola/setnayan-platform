@@ -146,11 +146,19 @@ export function buildSitePaletteVars(
   // Neutral → paper. Missing: a genuinely near-white main/ceremony colour, else alabaster.
   const lightest = [...pool].sort((a, b) => luminance(b) - luminance(a))[0]!;
   const paper = slot(MAIN_SLOT.neutral) ?? (luminance(lightest) >= 0.82 ? lightest : DEFAULTS.paper);
+  // ⚠ BEST-EFFORT ON A MID-GREY PAPER (about #777–#999): neither a dark nor a
+  // light ink clears 4.5 at the faint `ink/65` step there; the strongest ink is
+  // used and every role is moved as far as it goes. Light and dark papers always clear.
+
+  /* Every colour is measured as it will be WRITTEN — rounded to whole
+     channels (`channels()`), so a role that clears 4.5 here clears it on the
+     page (no 4.47 after rounding). */
+  const whole = (c: RGB): RGB => ({ r: Math.round(c.r), g: Math.round(c.g), b: Math.round(c.b) });
 
   /* 📏 THE BAR EVERY WORD CLEARS — the repo's own (`plateInkReads`,
      `app/[slug]/_lib/pro-site-vars.ts`): AA 4.5 at the FAINTEST step the guest
      pages set words (`text-ink/65`), on the paper AND on the cards. */
-  const readsMuted = (ink: RGB, bg: RGB) => contrast(blend(bg, ink, PLATE_MUTED_ALPHA_BAR), bg) >= PLATE_MIN_CONTRAST_BAR;
+  const readsMuted = (ink: RGB, bg: RGB) => contrast(whole(blend(bg, ink, PLATE_MUTED_ALPHA_BAR)), bg) >= PLATE_MIN_CONTRAST_BAR;
   // Supporting → the cards and sections (the plates).
   const supporting = slot(MAIN_SLOT.supporting);
   // Ink is computed, never a slot: the first candidate that reads muted on the
@@ -167,16 +175,16 @@ export function buildSitePaletteVars(
   // one is softened to a tint of itself.
   let plate = supporting ?? darken(paper, 0.04);
   const from = plate;
-  for (let t = 0.05; t <= 1.0001 && !readsMuted(ink, plate); t += 0.05) plate = blend(from, paper, t);
+  for (let t = 0.05; t <= 1.0001 && !readsMuted(ink, plate); t += 0.05) plate = whole(blend(from, paper, t));
 
   /* Every COLOURED word reads on BOTH grounds it meets — the paper and the
      cards — moved away from them (darker on a light page, lighter on a dark
      one), so no card needs a second token. */
   const lightPage = luminance(paper) > 0.18;
   const readableOnBoth = (c: RGB, target: number): RGB => {
-    let out = c;
+    let out = whole(c);
     for (let i = 0; i < 40 && Math.min(contrast(out, paper), contrast(out, plate)) < target; i++) {
-      out = lightPage ? darken(out, 0.06) : lighten(out, 0.08);
+      out = whole(lightPage ? darken(out, 0.06) : lighten(out, 0.08));
     }
     return out;
   };

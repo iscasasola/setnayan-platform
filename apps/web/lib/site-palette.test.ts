@@ -257,3 +257,31 @@ test('THE BAR (controller 2026-10-05): every TEXT role reads on the paper AND on
     assert.equal(v['--color-gild'], `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`, `${name}: the ornaments were pulled`);
   }
 });
+
+test('FUZZ (seeded): a few hundred boards, light and dark Neutral — every text role clears the bar AS WRITTEN (rounded channels)', async () => {
+  const { plateInkReads, contrastOf } = await import('@/app/[slug]/_lib/pro-site-vars');
+  let seed = 0x5e7a1;
+  const rnd = () => ((seed = (Math.imul(seed, 1103515245) + 12345) >>> 0) / 2 ** 32);
+  const hex = (r: number, g: number, b: number) => `#${[r, g, b].map((n) => Math.round(n).toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+  const any = () => hex(rnd() * 255, rnd() * 255, rnd() * 255);
+  let checked = 0;
+  for (let i = 0; i < 400; i++) {
+    const dark = i % 2 === 1;
+    // A light Neutral (≥ #D8 per channel) or a dark one (≤ #30) — mid-grey is best-effort by design.
+    const n = dark ? hex(rnd() * 48, rnd() * 48, rnd() * 48) : hex(216 + rnd() * 39, 216 + rnd() * 39, 216 + rnd() * 39);
+    const v = buildSitePaletteVars({ reception: [any(), any(), any(), n, any()] })!;
+    const paper = v['--color-cream']!;
+    const plate = v['--color-paper-deep']!;
+    for (const g of [paper, plate]) {
+      assert.ok(plateInkReads(v['--color-ink']!, g), `board ${i}: ink /65 ${contrastOf(v['--color-ink']!, g).toFixed(2)}`);
+      for (const k of ['--color-terracotta', '--color-mulberry', '--color-gild-text'] as const) {
+        assert.ok(contrastOf(v[k]!, g) >= 4.5, `board ${i} (${dark ? 'dark' : 'light'}): ${k} ${contrastOf(v[k]!, g).toFixed(3)}`);
+      }
+      assert.ok(contrastOf(v['--hub-heading']!, g) >= 3, `board ${i}: heading`);
+    }
+    assert.ok(plateInkReads(v['--color-ink-on-plate']!, plate), `board ${i}: card ink`);
+    assert.ok(contrastOf(paper, v['--color-mulberry']!) >= 4.5, `board ${i}: button label ${contrastOf(paper, v['--color-mulberry']!).toFixed(3)}`);
+    checked += 1;
+  }
+  assert.equal(checked, 400);
+});

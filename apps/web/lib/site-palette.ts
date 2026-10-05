@@ -174,8 +174,11 @@ export function buildSitePaletteVars(
   for (let t = 0.05; supporting && t <= 1.0001 && contrast(ink, plate) < 4.5; t += 0.05) plate = blend(supporting, paper, t);
   // Dominant → headings and large blocks — readable as large text (AA-large) on the paper.
   const heading = ensureReadable(slot(MAIN_SLOT.dominant) ?? accentBase, paper, 3);
-  // Accent 2 → ornaments and dividers. Decor only — no contrast floor.
-  const gild = slot(MAIN_SLOT.accent2) ?? gildFromPool(pool);
+  // Accent 2 → ornaments and dividers. It also sets WORDS (`text-gild`: the
+  // "and" between the names, small italic lines) — measured on maria-and-jose,
+  // a raw Accent 2 drew "and" at 1.2:1 — so it is moved until it reads (AA 4.5).
+  const accent2 = slot(MAIN_SLOT.accent2);
+  const gild = accent2 ? ensureReadable(accent2, paper, 4.5) : gildFromPool(pool);
   const veilBoard: RolePalette = { reception: pool.map(toHex) };
   const away = (c: RGB, amount: number) => (luminance(paper) > 0.18 ? darken(c, amount) : lighten(c, amount));
 

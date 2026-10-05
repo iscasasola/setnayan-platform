@@ -165,7 +165,9 @@ test('THE 5 MAIN COLOURS (owner 2026-10-05): each slot does its one job, and att
   const v = buildSitePaletteVars(board)!;
   assert.deepEqual(chanToRgb(v['--color-cream']!), { r: 0xf7, g: 0xf2, b: 0xea }, 'Neutral is the paper');
   assert.deepEqual(chanToRgb(v['--color-paper-deep']!), { r: 0xe8, g: 0xdc, b: 0xc8 }, 'Supporting is the cards');
-  assert.deepEqual(chanToRgb(v['--color-gild']!), { r: 0xb0, g: 0x8d, b: 0x57 }, 'Accent 2 is the ornaments');
+  // Accent 2 is the ornaments — kept in hue, moved only as far as its words need to read.
+  const gild = chanToRgb(v['--color-gild']!);
+  assert.ok(gild.r > gild.b && gild.r <= 0xb0, 'Accent 2 (a gold) is the ornaments, darkened at most');
   const button = chanToRgb(v['--color-mulberry']!);
   const link = chanToRgb(v['--color-terracotta']!);
   const near = (c: { r: number; g: number; b: number }, hex: string) => {
@@ -204,4 +206,11 @@ test('hover steps move away from the paper — lighter on a dark page', () => {
   assert.ok(lum(chanToRgb(dark['--color-mulberry-600']!)) > lum(chanToRgb(dark['--color-mulberry']!)), 'a hover on a dark page went darker');
   const light = buildSitePaletteVars({ reception: ['#2E4A3F', '#E8DCC8', '#8A3B52', '#F7F2EA', '#B08D57'] })!;
   assert.ok(lum(chanToRgb(light['--color-mulberry-600']!)) < lum(chanToRgb(light['--color-mulberry']!)));
+});
+
+test("Accent 2 sets words too (the \"and\" between the names): it always reads on the paper — maria-and-jose's real board", () => {
+  // Measured live 2026-10-05: #D8C7B0 on #C9A9A6 = 1.2:1, the "and" all but gone.
+  const maria = { reception: ['#FBFBFA', '#C5A059', '#9CA98B', '#C9A9A6', '#D8C7B0'] };
+  const v = buildSitePaletteVars(maria)!;
+  assert.ok(contrast(v['--color-gild']!, v['--color-cream']!) >= 4.5, `gild on paper ${contrast(v['--color-gild']!, v['--color-cream']!).toFixed(2)}`);
 });

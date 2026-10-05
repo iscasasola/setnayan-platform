@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { hubDraftAction } from '../../website/hub-draft-actions';
+import { stdFollowTheme, type StdLegibility } from '@/lib/std-backgrounds';
 
 /**
  * 🎞 "YOUR SAVE THE DATE FILM KEEPS ITS OWN BACKGROUND · SAME AS THEME" (owner,
@@ -16,7 +17,14 @@ import { hubDraftAction } from '../../website/hub-draft-actions';
  * theme picker is the theme's ONE writer (`a-theme-pick-hands-the-look-back`).
  * The tap is drawn first (the line goes), then saved; a refusal puts it back.
  */
-export function FilmFollowsTheme({ eventId }: { eventId: string }) {
+export function FilmFollowsTheme({
+  eventId,
+  legibility = 'auto',
+}: {
+  eventId: string;
+  /** The film's Readability today — kept when it follows the theme (`stdFollowTheme`). */
+  legibility?: StdLegibility;
+}) {
   const [hidden, setHidden] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [, start] = useTransition();
@@ -27,7 +35,7 @@ export function FilmFollowsTheme({ eventId }: { eventId: string }) {
     start(async () => {
       const fd = new FormData();
       fd.set('intent', 'save');
-      fd.set('patch', JSON.stringify({ events: { std_background: null } }));
+      fd.set('patch', JSON.stringify({ events: { std_background: stdFollowTheme(legibility) } }));
       const r = await makerSave(() => hubDraftAction(eventId, fd), requestMakerRefresh).catch(
         () => ({ ok: false as const, error: 'That did not save. Please try again.' }),
       );

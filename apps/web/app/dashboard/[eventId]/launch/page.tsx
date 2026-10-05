@@ -1,4 +1,5 @@
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { resolveStdBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
@@ -1120,6 +1121,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          Details count from (\`readGuidedPlan\`) — handed this page's own reads so
          it repeats none of them, and left running beside the rest of the page;
          awaited only where the guide is drawn. */
+      /* 🎞 The film's background as the couple is editing it — the draft's, else
+         live (`undefined` = unreadable: no "Same as theme" line is offered). */
+      const filmBackgroundRead: unknown =
+        'std_background' in draftedEvents
+          ? draftedEvents.std_background
+          : feelRes.error
+            ? undefined
+            : ((feelRes.data as { std_background?: unknown } | null)?.std_background ?? null);
       const sharedPlanP = readGuidedPlan({
         supabase,
         admin: printAdmin,
@@ -1525,11 +1534,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               /* 🎞 The film keeps a background of its own (draft over live) — Theme
                  then offers "Same as theme" (owner, live walk 2026-10-05). Only
                  where the type has the film at all. */
-              filmOwnBackground:
-                mayShowStdFilm &&
-                ('std_background' in draftedEvents
-                  ? draftedEvents.std_background != null
-                  : !feelRes.error && (feelRes.data as { std_background?: unknown } | null)?.std_background != null),
+              filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme(filmBackgroundRead),
+              filmLegibility: resolveStdBackground(filmBackgroundRead).legibility ?? 'auto',
               // The look they set themselves (draft over live) — a re-tap of the current theme hands it back.
               ownLook: hasOwnLook(feelRes.data as Record<string, unknown> | null, draftedEvents),
             }}

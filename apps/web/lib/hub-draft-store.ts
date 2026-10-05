@@ -137,6 +137,27 @@ export async function writeHubDraft(
   }
 }
 
+/**
+ * 🧹 A LIVE WRITE SUPERSEDES THE SAME FACT DRAFTED EARLIER (review 2026-10-05:
+ * "Same as theme" drafted on the Theme step, then a background picked in the
+ * Save the Date studio — which writes LIVE — and Apply put the older drafted
+ * value back over the newer pick). The studio calls this after its write lands:
+ * the column leaves the draft (its Undo history untouched), so Apply has nothing
+ * stale to put back. Best-effort — a draft that cannot be read or written leaves
+ * the live write standing, and is logged.
+ */
+export async function forgetDraftedEventColumn(supabase: SessionClient, eventId: string, column: HubDraftEventColumn): Promise<void> {
+  try {
+    const draft = await readHubDraft(supabase, eventId);
+    if (!draft || !(column in draft.events)) return;
+    const events = { ...draft.events } as Record<string, unknown>;
+    delete events[column];
+    await writeHubDraft(supabase, eventId, { ...draft, events: events as HubDraft['events'] });
+  } catch (e) {
+    console.error(`[hub-draft] could not forget the drafted ${column}:`, e instanceof Error ? e.message : e);
+  }
+}
+
 /** Where a form's draft save goes back to when it did NOT land. */
 export type HubDraftBounce = { formData: FormData; fallback: string };
 

@@ -62,6 +62,7 @@
  *           GALLERY row alone `std_lead`, the Save the Date's Film · Photos pick;
  *           both live in `config_json` and both are free (`lib/stage-scenes.ts`).
  */
+import { sanitizeStdFollowTheme } from './std-backgrounds';
 import {
   sanitizeFixedSceneStylesDraft,
   stylePreferencesWithDraftedStyles,
@@ -676,9 +677,10 @@ export function sanitizeHubDraftEventValue(
       return sanitizeRevealStages(raw);
     case 'std_reveal_effects':
       return raw && typeof raw === 'object' && !Array.isArray(raw) ? resolveRevealEffects(raw) : undefined;
-    // 🎞 Only "Same as theme" (`null`, handled above) is ever drafted.
+    // 🎞 Only "Same as theme" is ever drafted — `null`, handled above, or the
+    // follow object that keeps the couple's Readability (`stdFollowTheme`).
     case 'std_background':
-      return undefined;
+      return sanitizeStdFollowTheme(raw) ?? undefined;
     // 🎨 `updateSiteColors`' own parses — a malformed value is dropped, never repaired.
     case 'site_bg_color': {
       // 🌈 Plain hex OR an encoded ombré (`lib/ombre.ts`) — the ONE reader of
@@ -1304,6 +1306,9 @@ export function eventItemIsPro(
   live: unknown = null,
 ): boolean {
   if (change !== 'add' && change !== 'change') return false;
+  // 🎞 The draft only ever holds "Same as theme" for the film (with or without
+  // the couple's Readability) — handing the film back to the theme is never Pro.
+  if (column === 'std_background') return false;
   if (column === 'std_reveal_template') {
     return !revealTemplateWriteAllowed(typeof value === 'string' ? value : null, false);
   }

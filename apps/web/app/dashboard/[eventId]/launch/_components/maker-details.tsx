@@ -208,6 +208,8 @@ export type MakerDetailsProps = {
     chosen: boolean;
     /** 🎞 The Save the Date film keeps a background of its own (draft over live) — Theme offers "Same as theme". */
     filmOwnBackground?: boolean;
+    /** …and its Readability, kept when it follows the theme. */
+    filmLegibility?: 'auto' | 'lighten' | 'darken';
     /** They wear their own page colour, button colour or typeface (`hasOwnLook`) — re-tapping the current theme hands it back. */
     ownLook?: boolean;
   };
@@ -750,7 +752,7 @@ export function MakerDetails(props: MakerDetailsProps) {
      and its print's switch), posting through the print words form. */
   const openingLine = <OpeningLineField initial={stored.openingLine} form={WORDS_FORM} titled={false} />;
   /* 🎞 Under Theme, only while the Save the Date film keeps a background of its own. */
-  const filmLine = theme.filmOwnBackground ? <FilmFollowsTheme eventId={eventId} /> : null;
+  const filmLine = theme.filmOwnBackground ? <FilmFollowsTheme eventId={eventId} legibility={theme.filmLegibility} /> : null;
   const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
   const printsOn = (piece: PrintSetKey) => (
     <p className="text-xs text-ink/60">

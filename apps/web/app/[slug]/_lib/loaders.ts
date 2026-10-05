@@ -74,7 +74,7 @@ import { isGuestNowTriggerEnabled } from '@/lib/guest-now-trigger';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayUrlForStdBackground } from '@/lib/std-bg-image';
 import { siteMediaServeRef, siteMediaServeRefs } from '@/lib/site-media-ref';
-import { resolveStdBackground, realisticBgSrc, stdFilmBackground } from '@/lib/std-backgrounds';
+import { resolveStdBackground, realisticBgSrc, stdFilmBackground, stdFollowsTheme } from '@/lib/std-backgrounds';
 import { resolveHero } from '@/lib/event-hero';
 import { resolveStdMedia, stdVideoNeedsGrandfatherHeal } from '@/lib/std-media';
 import { loadStdNsfwVerdict, stdVideoServeUrls } from '@/lib/std-video-gate';
@@ -664,8 +664,9 @@ export const loadMedia = cache(
     // public scene src; upload → a presigned R2 url; plain/paper → no image.
     // 🎨 Unpicked → the THEME's paper (owner 2026-10-05, `stdFilmBackground`); picked → the couple's own.
     const stdBackground =
-      event.std_background === null || event.std_background === undefined
-        ? stdFilmBackground(null, INVITE_THEMES[(await resolveHubTheme(event).catch(() => null))?.theme ?? 'house']?.palette.canvas ?? null)
+      // …keeping the couple's Readability while it follows (`stdFollowTheme`).
+      stdFollowsTheme(event.std_background)
+        ? stdFilmBackground(event.std_background, INVITE_THEMES[(await resolveHubTheme(event).catch(() => null))?.theme ?? 'house']?.palette.canvas ?? null)
         : resolveStdBackground(event.std_background);
     const stdBackgroundUrl =
       stdBackground.kind === 'realistic'

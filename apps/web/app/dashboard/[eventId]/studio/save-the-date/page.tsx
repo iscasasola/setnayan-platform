@@ -27,7 +27,7 @@ import { resolveMonogram } from '@/lib/monogram';
 import { type StdLockup } from '@/app/[slug]/_components/save-the-date-film';
 import { resolveStdTheme } from '@/lib/std-themes';
 import { resolveRevealEffects } from '@/lib/std-reveal-effects';
-import { resolveStdBackground } from '@/lib/std-backgrounds';
+import { resolveStdBackground, stdFollowLegibility, stdFollowsTheme } from '@/lib/std-backgrounds';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { resolveHubTheme } from '@/app/[slug]/_lib/hub-look';
 import { resolveStdMedia, stdNsfwDisplayStatus, stdVideoNeedsScreen } from '@/lib/std-media';
@@ -183,12 +183,16 @@ export default async function SaveTheDatePage({ params }: Props) {
   const chosenTemplate = coerceTemplate(event?.std_reveal_template);
   const themeId = resolveStdTheme(event?.std_theme);
   const effects = resolveRevealEffects(event?.std_reveal_effects);
-  const stdBackground = resolveStdBackground(event?.std_background, veilColor);
+  const stdFollows = stdFollowsTheme(event?.std_background);
+  // While it follows the theme, the Readability the couple kept rides on the picker's state.
+  const stdBackground = stdFollows
+    ? { ...resolveStdBackground(null, veilColor), legibility: stdFollowLegibility(event?.std_background) }
+    : resolveStdBackground(event?.std_background, veilColor);
   /* 🎞 SAME AS THEME (owner 2026-10-05): with nothing of its own stored, the film
      wears the Event Hub theme's canvas — the guest page's rule
      (`stdFilmBackground`, app/[slug]/_lib/loaders.ts), so the preview here shows
      what guests see, never the Mood Board veil. */
-  const stdFollowsTheme = event?.std_background === null || event?.std_background === undefined;
+  const stdFollowsThemeNow = stdFollows;
   const themeCanvas =
     INVITE_THEMES[
       (await resolveHubTheme({ event_id: eventId, display_name: event?.display_name ?? null, invite_theme: event?.invite_theme ?? null }).catch(() => null))
@@ -545,7 +549,7 @@ export default async function SaveTheDatePage({ params }: Props) {
         initialRevealTemplate={chosenTemplate}
         initialEffects={effects}
         initialBackground={stdBackground}
-        initialFollowsTheme={stdFollowsTheme}
+        initialFollowsTheme={stdFollowsThemeNow}
         themeCanvas={themeCanvas}
         initialUploadUrl={stdBackgroundUploadUrl}
         initialMedia={stdMedia}

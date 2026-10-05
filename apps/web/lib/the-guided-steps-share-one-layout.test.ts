@@ -266,7 +266,7 @@ test('(9) the Save the Date film follows the theme unless the couple picked its 
   const picked = { kind: 'plain', value: '#e8d9bd', legibility: 'auto' };
   assert.deepEqual(stdFilmBackground(picked, '#0b0a12'), resolveStdBackground(picked), 'a background the couple picked was overridden');
   const loaders = read('app/[slug]/_lib/loaders.ts');
-  assert.match(loaders, /event\.std_background === null \|\| event\.std_background === undefined\s*\? stdFilmBackground\(null, INVITE_THEMES\[/, 'the guest page does not dress an unpicked film in the theme');
+  assert.match(loaders, /stdFollowsTheme\(event\.std_background\)\s*\? stdFilmBackground\(event\.std_background, INVITE_THEMES\[/, 'the guest page does not dress an unpicked film in the theme');
 });
 
 test('(10) one count: Event Details\' number IS the Maker\'s number — totals too — and the read costs no second pass', async () => {
@@ -585,6 +585,7 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   assert.ok(D.isHubDraftEventColumn('std_background'), 'the film cannot be handed back into the draft');
   assert.equal(D.sanitizeHubDraftEventValue('std_background', null), null);
   assert.equal(D.sanitizeHubDraftEventValue('std_background', { kind: 'plain', value: '#000000' }), undefined, 'a background of the film\'s own is drafted — it is picked in the studio, live');
+  const action = read('app/dashboard/[eventId]/studio/save-the-date/actions.ts');
   assert.notEqual(D.eventColumnChange('std_background', { kind: 'plain', value: '#e8d9bd' }, null), 'same', 'handing the film back reads as no change at Apply');
   assert.ok(D.HUB_DRAFT_EVENT_LABEL.std_background, 'Apply cannot name the change');
   // The film's background is a Pro look to ADD or CHANGE; handing it back to the theme is a removal — free.
@@ -613,13 +614,13 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   assert.doesNotMatch(on, /aria-label="Background colour #f3ece1" aria-pressed="true"/, 'a colour of its own reads as chosen while the film follows the theme');
   assert.match(picker(false), /aria-pressed="false"[^>]*data-std-bg-follows-theme=""/);
   const studio = read('app/dashboard/[eventId]/studio/save-the-date/page.tsx');
-  assert.match(studio, /const stdFollowsTheme = event\?\.std_background === null \|\| event\?\.std_background === undefined;/, 'a new event does not start on "Same as theme"');
+  assert.match(studio, /const stdFollows = stdFollowsTheme\(event\?\.std_background\);/, 'a new event does not start on "Same as theme"');
+  assert.match(studio, /initialFollowsTheme=\{stdFollowsThemeNow\}/);
   assert.match(studio, /themeCanvas=\{themeCanvas\}/);
   const client = read('app/dashboard/[eventId]/studio/save-the-date/_components/StdBuilderClient.tsx');
   assert.match(client, /backgroundFollowsTheme: followsTheme,/, 'the studio does not save "Same as theme"');
   assert.match(client, /background=\{shownBackground\}/, 'the studio preview paints the veil while guests see the theme');
-  const action = read('app/dashboard/[eventId]/studio/save-the-date/actions.ts');
-  assert.match(action, /if \(data\.backgroundFollowsTheme === true\) \{\s*patch\.std_background = null;/, 'the studio cannot clear the film\'s own background');
+  assert.match(action, /if \(data\.backgroundFollowsTheme === true\) \{[\s\S]{0,260}patch\.std_background = stdFollowTheme\(/, 'the studio cannot hand the film back to the theme');
 
   // The Theme step: one line, while the film keeps its own pick; a tap writes the DRAFT.
   const { FilmFollowsTheme } = await import(`../${L}/film-follows-theme`);
@@ -627,13 +628,36 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   const line = renderToStaticMarkup(React.createElement(FilmFollowsTheme, { eventId: 'e' }));
   assert.match(line, /Your Save the Date film keeps its own background ·[\s\S]*<button[^>]*>Same as theme<\/button>/);
   const picker2 = read(`${L}/film-follows-theme.tsx`);
-  assert.match(picker2, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ std_background: null \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'the tap does not go into the draft');
+  assert.match(picker2, /fd\.set\('patch', JSON\.stringify\(\{ events: \{ std_background: stdFollowTheme\(legibility\) \} \}\)\);\s*const r = await makerSave\(\(\) => hubDraftAction\(eventId, fd\)/, 'the tap does not go into the draft (with the film\'s Readability)');
+
+  // 🔤 THE COUPLE'S READABILITY SURVIVES "SAME AS THEME" (review 2026-10-05).
+  const B = await import('./std-backgrounds');
+  assert.equal(B.stdFollowTheme('auto'), null, 'Auto is stored as nothing, like every new event');
+  const dark = B.stdFollowTheme('darken');
+  assert.deepEqual(dark, { follow: 'theme', legibility: 'darken' });
+  assert.deepEqual(B.stdFilmBackground(dark, '#0b0a12'), { kind: 'plain', value: '#0b0a12', legibility: 'darken' }, 'guests lose the couple\'s Darken when the film follows the theme');
+  assert.ok(B.stdFollowsTheme(dark) && B.stdFollowsTheme(null) && !B.stdFollowsTheme({ kind: 'plain', value: '#e8d9bd' }));
+  assert.deepEqual(D.sanitizeHubDraftEventValue('std_background', dark), dark, 'the draft drops the Readability kept with "Same as theme"');
+  const keepDark = D.eventColumnChange('std_background', { kind: 'plain', value: '#e8d9bd', legibility: 'darken' }, dark);
+  assert.equal(D.eventItemIsPro('std_background', dark, keepDark, { kind: 'plain', value: '#e8d9bd' }), false, '"Same as theme" with Darken is held as Pro');
+  assert.match(action, /patch\.std_background = stdFollowTheme\(data\.background\?\.legibility \?\? null\);/, 'the studio drops the Readability when the film follows the theme');
+
+  // 🧹 A LIVE PICK IN THE STUDIO SUPERSEDES A "SAME AS THEME" DRAFTED EARLIER — Apply puts nothing stale back.
+  assert.match(
+    action,
+    /const \{ error \} = await supabase\.from\('events'\)\.update\(patch\)\.eq\('event_id', eventId\);\s*if \(error\) return \{ ok: false, error: 'db-error' \};\s*(\/\/[^\n]*\n\s*)*if \('std_background' in patch\) await forgetDraftedEventColumn\(supabase, eventId, 'std_background'\);/,
+    'a studio pick leaves an older drafted film value for Apply to put back',
+  );
+  const store = read('lib/hub-draft-store.ts');
+  const forget = store.slice(store.indexOf('export async function forgetDraftedEventColumn'), store.indexOf('/** Where a form\'s draft save goes back'));
+  assert.match(forget, /delete events\[column\];\s*await writeHubDraft\(supabase, eventId, \{ \.\.\.draft, events: /, 'the drafted column is not taken out of the draft');
   assert.ok(MakerThemeMenu);
   const details = read(`${L}/maker-details.tsx`);
-  assert.match(details, /const filmLine = theme\.filmOwnBackground \? <FilmFollowsTheme eventId=\{eventId\} \/> : null;/);
+  assert.match(details, /const filmLine = theme\.filmOwnBackground \? <FilmFollowsTheme eventId=\{eventId\} legibility=\{theme\.filmLegibility\} \/> : null;/);
   assert.match(details, /<MakerThemeMenu [^>]*filmLine=\{filmLine\}/);
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /filmOwnBackground:\s*mayShowStdFilm &&\s*\('std_background' in draftedEvents/, 'the line ignores the draft (it would come back after a tap)');
+  assert.match(page, /'std_background' in draftedEvents\s*\? draftedEvents\.std_background/, 'the line ignores the draft (it would come back after a tap)');
+  assert.match(page, /filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme\(filmBackgroundRead\),/, 'a film following the theme (with a kept Readability) is offered "Same as theme" again');
 });
 
 test('(24) the Invitation page\'s sign-off reads on every theme — never the light gold over a moving ground', () => {

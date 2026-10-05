@@ -1,6 +1,7 @@
 'use server';
 
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { forgetDraftedEventColumn } from '@/lib/hub-draft-store';
 import { readVenueChoices, VENUE_CHOICES_KEY, type VenueChoice, type VenueSlotKey } from '@/lib/event-venues';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -16,7 +17,7 @@ import {
   revealTemplateWriteAllowed,
 } from '@/lib/reveal-access';
 import { eventOwnsStdOpenings } from '@/lib/std-openings';
-import { resolveStdBackground, type StdBackground } from '@/lib/std-backgrounds';
+import { resolveStdBackground, type StdBackground, stdFollowTheme } from '@/lib/std-backgrounds';
 import {
   resolveStdMedia,
   resolveStdNsfwVerdict,
@@ -322,8 +323,9 @@ export async function saveAllStdContent(
   }
   // Step-1 background choice — validated to {kind, value}.
   if (data.backgroundFollowsTheme === true) {
-    // 🎞 Same as theme — nothing of the film's own; the theme paints it.
-    patch.std_background = null;
+    // 🎞 Same as theme — nothing of the film's own; the theme paints it, and the
+    // couple's Readability (Lighten / Darken) is kept (`stdFollowTheme`).
+    patch.std_background = stdFollowTheme(data.background?.legibility ?? null);
   } else if (data.background !== undefined && data.background !== null) {
     const bg = resolveStdBackground(data.background);
     // SEC-1: an 'upload' background carries a client-supplied r2:// ref that is
@@ -450,6 +452,9 @@ export async function saveAllStdContent(
 
   const { error } = await supabase.from('events').update(patch).eq('event_id', eventId);
   if (error) return { ok: false, error: 'db-error' };
+  // 🧹 The film's background just went LIVE — a "Same as theme" drafted earlier
+  // must not put itself back over it at Apply (`forgetDraftedEventColumn`).
+  if ('std_background' in patch) await forgetDraftedEventColumn(supabase, eventId, 'std_background');
 
   if (data.venueChoice) {
     const slot = data.venueChoice.slot;

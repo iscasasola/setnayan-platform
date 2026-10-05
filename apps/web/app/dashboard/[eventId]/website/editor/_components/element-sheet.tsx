@@ -234,6 +234,8 @@ export function ElementSheet({
   const serverRef = useRef(serverCanvas);
   /** True while THIS sheet notes its own canvas — not another writer's. */
   const ownNote = useRef(false);
+  /** Another writer moved the canvas since this sheet's last pick (its later write carries the pick). */
+  const heardOther = useRef(false);
   serverRef.current = serverCanvas;
   useEffect(
     () =>
@@ -242,9 +244,12 @@ export function ElementSheet({
         const now = draftedCanvasOr(type, serverRef.current);
         if (now === latest.current) return;
         latest.current = now;
+        heardOther.current = true;
         // The other writer answers for its own save (and puts its words back if refused).
         if (inflight.current === 0) saved.current = now;
-        setStyle(now.elements?.[target.el] ?? {});
+        const part = now.elements?.[target.el] ?? {};
+        // A keystroke that changed nothing this sheet shows draws nothing.
+        setStyle((was) => (JSON.stringify(was) === JSON.stringify(part) ? was : part));
       }),
     [target.widgetType, target.el],
   );
@@ -267,6 +272,7 @@ export function ElementSheet({
 
   const commit = (elements: HubSectionCanvas['elements'] | null, choice?: string) => {
     if (choice) lastChoice.current = choice;
+    heardOther.current = false;
     const what = lastChoice.current;
     const before = latest.current;
     const next: HubSectionCanvas = { ...before };
@@ -315,6 +321,9 @@ export function ElementSheet({
           noteDraftedCanvas(target.widgetType, back, serverCanvas);
           ownNote.current = false;
         }
+        /* Words typed beside the sheet since this pick went out carry it in their
+           own later write: nothing was put back, so nothing is said to have failed. */
+        if (!back && heardOther.current) return;
         setError(refusedChoiceWords(target.el, what, res.error || null));
         return;
       }

@@ -74,6 +74,24 @@ import { nameStyleDraftPatch } from '@/lib/name-style-save';
  * part's own sheet; Hide is that part's own show/hide on its scene's canvas.
  */
 type TypeSession = TypeStart;
+/** The fields this bar writes on a part — a refusal puts back only these. */
+const TYPE_BAR_FIELDS = ['word', 'format', 'hidden'] as const;
+/** `now`, with `el`'s own fields (`TYPE_BAR_FIELDS`) as `from` has them. */
+function withOwnFieldsFrom(now: HubSectionCanvas, from: HubSectionCanvas, el: HubElementKey): HubSectionCanvas {
+  const part: Record<string, unknown> = { ...(now.elements?.[el] ?? {}) };
+  const was = (from.elements?.[el] ?? {}) as Record<string, unknown>;
+  for (const f of TYPE_BAR_FIELDS) {
+    if (was[f] === undefined) delete part[f];
+    else part[f] = was[f];
+  }
+  const elements = { ...(now.elements ?? {}) } as Record<string, unknown>;
+  if (Object.keys(part).length) elements[el] = part;
+  else delete elements[el];
+  const next: HubSectionCanvas = { ...now };
+  if (Object.keys(elements).length) next.elements = elements as HubSectionCanvas['elements'];
+  else delete next.elements;
+  return next;
+}
 /** The draft save every change the bar makes goes through — the hero's canvas, or the names. */
 async function saveDraft(draftAction: ElementDraftAction, eventId: string, patch: HubDraftPatch) {
   const fd = new FormData();
@@ -261,8 +279,10 @@ export function TypeBar(p: TypeBarProps) {
         saved.current = next;
       },
       (reason) => {
-        /* ↩ Refused: the page, the Maker's copy and the hold go back — and it is said. */
-        const back = saved.current;
+        /* ↩ Refused: the page, the Maker's copy and the hold go back — and it is said.
+           Only what THIS bar writes (the part's words, format, show/hide) goes
+           back: a pick the part's tools made beside it (a phone) is kept. */
+        const back = withOwnFieldsFrom(draftedCanvasOr('hero', props.current.heroCanvas), saved.current, el);
         noteDraftedCanvas('hero', back, props.current.heroCanvas);
         props.current.onSaving('hero', back);
         lay(next, back, null);

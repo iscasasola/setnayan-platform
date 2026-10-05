@@ -303,7 +303,7 @@ export function MakerLowerThird({
             >
               <List aria-hidden className="h-[18px] w-[18px]" strokeWidth={2} />
               {/* The guided flow's own screen: the menu by its own name, never an item's. */}
-              <span className="max-w-[9rem] truncate">{short ? 'Menu' : pickLabel}</span>
+              <span className="max-w-[9rem] truncate">{bare && !tool ? 'Menu' : pickLabel}</span>
               <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform duration-[240ms] motion-reduce:transition-none ${menuOpen ? 'rotate-180' : ''}`} strokeWidth={2.2} />
             </button>
             <p className={`min-w-0 flex-1 truncate pl-1 text-[15px] font-semibold text-ink ${short ? 'invisible' : ''}`} data-lt-where-words="">

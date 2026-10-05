@@ -2666,7 +2666,8 @@ export function MakerWork({
         {ticketOn && canvasSrc ? (
           <div
             data-maker-ticket-view={ticketDesign}
-            className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4"
+            /* A phone sizes the ticket by whichever side binds (`cq*` units), so its box is always 3:4. */
+            className="absolute inset-0 z-10 flex items-center justify-center overflow-hidden bg-cream p-4 max-lg:[container-type:size]"
           >
             {ticketFailed === ticketDesign ? (
               <p role="alert" data-maker-ticket-failed="" className="m-auto max-w-xs px-4 text-center text-sm text-terracotta-700">
@@ -2678,7 +2679,7 @@ export function MakerWork({
                  3:4 shape — a QR mark — holds the page at once, UNDER the
                  picture, which fades in once it has LOADED (the guest card's
                  placeholder, one component). The desktop draws as it did. */
-              <span data-maker-ticket-box="" className="relative aspect-[3/4] h-full max-w-full lg:contents">
+              <span data-maker-ticket-box="" className="relative aspect-[3/4] w-[min(100cqw,75cqh)] lg:contents">
                 <span className="lg:hidden">
                   <TicketPlaceholder name={null} waiting={ticketLoaded !== makerTicketSrc(eventId, ticketDesign)} size="stage" />
                 </span>

@@ -310,11 +310,15 @@ test('(15) How guests get in: label and dropdown on ONE row', () => {
   assert.match(read(`${L}/maker-rsvp-ask.tsx`), /<section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="who-can-rsvp">/);
 });
 
-test('(16) the Schedule’s Journey · Preparation · Event Day is the one segmented control', () => {
+test('(16) the Schedule’s Journey · Preparation · Event Day wears the one segmented control — and each view stays a LINK', () => {
   const t = read('app/dashboard/[eventId]/schedule/_components/schedule-mode-toggle.tsx');
-  assert.match(t, /<ISegmented label="Schedule view">/, 'a pill row came back');
-  assert.equal((t.match(/<ISeg tone="wine"/g) ?? []).length, 3);
-  assert.doesNotMatch(t, /sn-seg-item|role="tab"/);
+  assert.match(t, /className=\{I_SEGMENTED_CLASS\}/, 'the views lost the segmented track');
+  assert.match(t, /className=\{iSegClass\(on, 'wine'\)\}/, 'the views lost the segment look');
+  assert.match(t, /<Link\b[\s\S]{0,120}href=\{hrefFor\(mode\)\}[\s\S]{0,120}aria-current=\{on \? 'page' : undefined\}/, 'a view is no longer a link with a current page');
+  assert.doesNotMatch(t, /<button|router\.(replace|push)|onClick=/, 'a view went back to a button — no new tab, no deep link');
+  assert.doesNotMatch(t, /sn-seg-item|role="tab"/, 'the old pill row came back');
+  const kit = read('app/dashboard/[eventId]/website/editor/_components/inspector-kit.tsx');
+  assert.match(kit, /className=\{`\$\{iSegClass\(on, tone\)\} \$\{className\}`\}/, 'ISeg and the links no longer share one look');
 });
 
 test('(17) The Day: ONE "Happening now", and "event" — never "celebration" — on the live card', async () => {

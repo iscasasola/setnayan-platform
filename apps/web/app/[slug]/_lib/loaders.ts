@@ -41,9 +41,9 @@ import {
 } from '@/lib/entourage';
 import { resolveMonogram } from '@/lib/monogram';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
-import { paletteColourVars, themeColours } from '@/lib/theme-colours';
+import { dressedTheme, paletteColourVars, themeColours } from '@/lib/theme-colours';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
-import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
+import type { InviteTheme, InviteThemeId } from '@/lib/invite-themes';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
 import { hubButtonPage, resolveHubButtons, type HubButtonsLook } from '@/lib/hub-buttons';
 import { pinPlateInk, proSiteVarsFor } from './pro-site-vars';
@@ -197,6 +197,8 @@ export type GuestLook = {
   accent: string;
   /** Mood-board palette with the Pro colours and face layered on top, or null. */
   vars: Record<string, string> | null;
+  /** 🎨 The worn theme's colours as the Mood Board dresses them (`themeColours`) — for what is measured, not painted. */
+  colours: InviteTheme['palette'];
   /**
    * 🌈 The couple's OMBRÉ (`lib/ombre.ts`), as the `background-image` the
    * page's paper paints in place of the theme's loop — or null for a plain
@@ -285,9 +287,11 @@ export function guestLookFrom(
      ground the couple chose. The CSS itself travels as `ombre` for the scope's
      paper to paint in place of the theme's loop. */
   const background = parseSiteBackground(event.site_bg_color);
+  // 🎨 Every measurement below is made on the theme as the Mood Board dresses it.
+  const dressed = dressedTheme(hub.theme, event.role_palette);
   let ombre: string | null = null;
   if (background?.kind === 'ombre') {
-    const look = ombreLook(INVITE_THEMES[hub.theme], background.ombre);
+    const look = ombreLook(dressed, background.ombre);
     ombre = look.css;
     vars = { ...(vars ?? {}), ...look.vars };
   }
@@ -300,12 +304,11 @@ export function guestLookFrom(
      palette → the couple's colours → ombré), so an Outline is drawn only where
      its colour reads on that paper and those plates, and a fill's label is the
      legibility rule's. Free: no entitlement is read. */
-  const theme = INVITE_THEMES[hub.theme] ?? INVITE_THEMES.house;
   const buttons = resolveHubButtons({
     style: event.site_button_style,
     colour: event.site_button_color,
-    theme,
-    page: hubButtonPage(theme, painted),
+    theme: dressed,
+    page: hubButtonPage(dressed, painted),
   });
 
   return {
@@ -314,6 +317,7 @@ export function guestLookFrom(
     accent: hub.accent,
     vars: painted,
     buttons,
+    colours: dressed.palette,
     ombre,
   };
 }

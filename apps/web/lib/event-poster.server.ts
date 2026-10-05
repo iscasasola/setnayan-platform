@@ -4,6 +4,7 @@ import { eventWordsFor } from '@/app/[slug]/_lib/event-words';
 import { resolveHubLook } from '@/app/[slug]/_lib/hub-look';
 import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import { posterFor, type EventPosterFacts } from '@/lib/event-poster';
+import { themeColours } from '@/lib/theme-colours';
 
 /**
  * THE ONE POSTER RESOLVER — an event's hero, as a 3:4 poster.
@@ -60,6 +61,13 @@ export type PosterEvent = {
    * 2026-09-29 owner report. `null` is an honest "none / not read".
    */
   std_background: unknown;
+  /**
+   * 🎨 `events.role_palette`, raw — REQUIRED for the same reason: the poster's
+   * veil and ink follow the Mood Board (owner 2026-10-05, "THE MOOD BOARD
+   * PALETTE IS THE PRIORITY"), and a caller that forgets it would silently draw
+   * the theme's own colours. `null` = no board / not read.
+   */
+  role_palette: unknown;
 };
 
 export async function resolveEventPoster(
@@ -92,5 +100,6 @@ export async function resolveEventPoster(
     heroSrc,
     backgroundSrc: look?.photo ?? null,
     themeStillSrc: resolveThemeGround(theme, { ownColours: false })?.poster ?? null,
+    colours: themeColours(theme, event.role_palette).colours,
   });
 }

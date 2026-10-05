@@ -44,7 +44,7 @@ export function ThemePreviewOverlay({
   picked: boolean;
   onUse: () => void;
   onClose: () => void;
-  /** 🎨 The palette the sample wears — the gallery's (`samplePaletteParam`). */
+  /** 🎨 The palette the sample wears — the gallery's (`sampleBoardQuery`). */
   samplePalette?: string | null;
 }) {
   const ref = useRef<HTMLDivElement>(null);

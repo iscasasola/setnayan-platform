@@ -43,7 +43,7 @@ import { HUB_THEMES, INVITE_THEMES, type InviteTheme, type InviteThemeId } from 
 import { buildSitePaletteVars, moodBoardSiteColours } from '@/lib/site-palette';
 import { channels, hubThemePageTokens } from '@/lib/hub-theme-tokens';
 import { compositeOver, contrastRatio, relativeLuminance } from '@/lib/hub-legibility';
-import { PALETTE_LIMITS, PALETTE_ORDER, sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
+import { PALETTE_ORDER, sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { boardIsTheCouples, paletteIsSet, seededTheme, themeSeedPalette } from '@/lib/mood-board-palette-set';
 
 /** A theme's colours — the registry's palette shape (`INVITE_THEMES[id].palette`). */
@@ -157,6 +157,7 @@ function boardColours(vars: Record<string, string>, worn: InviteTheme): ThemePal
   const canvas = hexOf(vars['--color-cream'], worn.palette.canvas);
   const ink = hexOf(vars['--color-ink'], worn.palette.ink);
   const accent = hexOf(vars['--color-terracotta'], worn.palette.accent);
+  const heading = HEX.test(vars['--hub-heading'] ?? '') ? vars['--hub-heading']! : accent;
   const cta = hexOf(vars['--color-mulberry'], accent);
   const [lightInk, darkInk] = relativeLuminance(canvas) >= relativeLuminance(ink) ? [canvas, ink] : [ink, canvas];
   return {
@@ -168,7 +169,7 @@ function boardColours(vars: Record<string, string>, worn: InviteTheme): ThemePal
     accent,
     // A word set on the accent: whichever of the page's two inks reads on it.
     accentInk: contrastRatio(lightInk, cta) >= contrastRatio(darkInk, cta) ? lightInk : darkInk,
-    heading: accent,
+    heading,
     lightInk,
     darkInk,
   };
@@ -196,6 +197,19 @@ export function boardSiteColours(
   return moodBoardSiteColours(sanitizeRolePalette(palette));
 }
 
+/**
+ * 🎨 THE THEME AS THE BOARD DRESSES IT — the registry entry with its palette
+ * swapped for `themeColours`' answer: layout, type, motion and media stay the
+ * theme's, colour is the board's. Every function that measures a theme
+ * (`hubLegibility`, `resolveAdaptiveTheme`, `hubThemePageTokens`) is handed
+ * THIS, never `INVITE_THEMES[id]`, wherever it paints a picture of the page.
+ */
+export function dressedTheme(themeId: InviteThemeId, palette: unknown): InviteTheme {
+  const t = INVITE_THEMES[themeId] ?? INVITE_THEMES.house;
+  const { source, colours } = themeColours(t.id, palette);
+  return source === 'theme' && colours === t.palette ? t : { ...t, palette: colours };
+}
+
 /** The button-colour choices offered when the board holds no swatches — the page's own four. */
 export function buttonFallback(c: ThemePaletteColours): string[] {
   return [c.accent, c.heading, c.ink, c.muted];
@@ -204,46 +218,27 @@ export function buttonFallback(c: ThemePaletteColours): string[] {
 /* ── THE SAMPLE GALLERY'S PALETTE ────────────────────────────────────────────
    The Details theme gallery shows the curated SAMPLE Event Hub in each theme
    (`lib/theme-sample-stills.ts`). By the rule above it must show each theme in
-   the COUPLE's colours — so the gallery tells the sample page and the sample
-   print door which palette to wear: the couple's swatches, or `none` (no
-   palette: each theme in its own colours, which a pick would then write). Only
-   the sample answers it (`app/[slug]/page.tsx`, `lib/print-sample-door.server.ts`);
-   a palette is colours, never a name or a word. */
+   the COUPLE's colours. The sample page and the sample print door are public,
+   so the address never carries colours: it names one of a small fixed set
+   (`lib/sample-board.server.ts` reads it) — `palette=none` (each theme in its
+   own colours: an empty or theme-filled board, which the next pick refills),
+   or `board=<the couple's event>` (that board, for its signed-in host only),
+   with `bv=` a hash of the board so an edit is a new address (no stale
+   picture in any cache). */
 
-/** Most swatches a sample param carries — every key's cap, summed, is far more than any board holds. */
-const SAMPLE_PARAM_MAX = 24;
-
-/**
- * `none`, or the couple's swatches as `RRGGBB.RRGGBB…` (no `#`, URL-safe). A
- * board a theme filled is `none` too: a pick would refill it with the picked
- * theme's own colours, so each sample shows exactly that. The swatches ARE the
- * address — an edited board is a new URL, so no sample is served stale.
- */
-export function samplePaletteParam(palette: unknown): string {
-  if (!boardIsTheCouples(palette)) return 'none';
-  const s = swatchesOf(palette).slice(0, SAMPLE_PARAM_MAX);
-  return s.length === 0 ? 'none' : s.map((h) => h.slice(1)).join('.');
+/** A short, stable hash of the board's colours — the sample address's version. */
+function boardVersion(palette: unknown): string {
+  let h = 0x811c9dc5;
+  for (const ch of [...swatchesOf(palette)].sort().join(',')) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(36);
 }
 
-/**
- * The sample's palette from its param: a palette, `null` for `none`, or
- * `undefined` when absent or malformed (the sample keeps its own). The swatches
- * are laid into the board's keys in order, each up to its cap, so the pool —
- * the only thing either resolver reads — round-trips exactly.
- */
-export function paletteFromSampleParam(raw: string | null | undefined): RolePalette | null | undefined {
-  if (raw === 'none') return null;
-  if (typeof raw !== 'string' || raw.length === 0) return undefined;
-  const parts = raw.split('.').slice(0, SAMPLE_PARAM_MAX);
-  if (!parts.every((p) => /^[0-9a-f]{6}$/i.test(p))) return undefined;
-  const hexes = parts.map((p) => `#${p.toUpperCase()}`);
-  const out: Record<string, string[]> = {};
-  let i = 0;
-  for (const key of PALETTE_ORDER) {
-    if (i >= hexes.length) break;
-    const take = hexes.slice(i, i + PALETTE_LIMITS[key].max);
-    out[key] = take;
-    i += take.length;
-  }
-  return sanitizeRolePalette(out);
+/** The sample's query: `palette=none`, or `board=<eventId>&bv=<hash>` for a board the couple made. */
+export function sampleBoardQuery(palette: unknown, eventId: string): string {
+  return boardIsTheCouples(palette)
+    ? `board=${encodeURIComponent(eventId)}&bv=${boardVersion(palette)}`
+    : 'palette=none';
 }

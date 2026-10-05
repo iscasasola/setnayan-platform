@@ -7,17 +7,13 @@
  * (InvitationShell's `<main>`) — no component refactor. The override VALUES are
  * space-separated RGB channels (e.g. `92 37 66`), matching the `:root` defaults.
  *
- * The job here is the contrast-safe MAPPING: a mood-board palette is chosen to
- * look beautiful as decor, NOT to be legible UI. We map it to UI roles with a
- * WCAG-AA floor so a guest never meets an unreadable page:
- *   - accent (terracotta family) ← the boldest palette color, darkened until it
- *     reads as text on the page (AA 4.5)
- *   - cta (mulberry family)      ← a deep palette color, darkened until light
- *     button text reads on it (AA 4.5 vs white)
- *   - paper (cream)              ← a near-white palette color for a subtle tint,
- *     else the safe default
- *   - ink (text)                 ← kept the safe obsidian default (always dark →
- *     always high-contrast on a light page); themed text is a later refinement
+ * The job here is the contrast-safe MAPPING. Since 2026-10-05 it reads the
+ * board's FIVE MAIN COLOURS BY POSITION (`MAIN_SLOT`, owner-approved "THE 5
+ * MAIN COLOURS, ONE JOB EACH") — Neutral = paper, Supporting = cards, Accent =
+ * buttons/links, Dominant = headings, Accent 2 = ornaments — with every word
+ * computed for legibility (AA) on what it sits on. A missing slot falls back
+ * to the old derivation for that token only, from the main + ceremony colours;
+ * attire palettes never dress the page.
  *
  * Returns null when the palette is absent/too thin to theme — the caller then
  * injects nothing and the global Clean-Editorial defaults apply (current look).
@@ -84,7 +80,8 @@ function ensureContrast(color: RGB, bg: RGB, target: number): RGB {
 }
 
 // Roles richest-first, so the "boldest" pick leans on the reception/ceremony
-// aesthetic before the role-specific accents.
+// aesthetic before the role-specific accents. (Still the order of the full
+// pool `palettePool` walks for the reveal's seal and veil.)
 const POOL_ORDER: PaletteKey[] = [
   'reception',
   'ceremony',
@@ -95,6 +92,53 @@ const POOL_ORDER: PaletteKey[] = [
 ];
 
 /**
+ * 🎨 THE FIVE MAIN COLOURS, ONE JOB EACH (owner 2026-10-05, DECISION_LOG "THE 5
+ * MAIN COLOURS, ONE JOB EACH" — *"Approve"*). The Mood Board's main palette
+ * (`reception`) is read BY POSITION, never pooled and guessed:
+ *   [0] Dominant   → headings / large blocks (`--hub-heading`)
+ *   [1] Supporting → cards / sections (`--color-paper-deep`, the plates)
+ *   [2] Accent     → buttons / links (`--color-terracotta*`, `--color-mulberry*`)
+ *   [3] Neutral    → the page's paper (`--color-cream`)
+ *   [4] Accent 2   → ornaments / dividers (`--color-gild`)
+ * Text is always COMPUTED for legibility on what it sits on. A missing slot
+ * falls back to the old derivation for that token only — and that fallback
+ * pools only the main and ceremony colours: the ATTIRE palettes (bride,
+ * groom, the entourage, guests) never colour the Event Hub.
+ */
+export const MAIN_SLOT = { dominant: 0, supporting: 1, accent: 2, neutral: 3, accent2: 4 } as const;
+
+/** The board's colours that may dress the Event Hub — main first, then the ceremony's. Never attire. */
+function hubPool(palette: RolePalette): RGB[] {
+  const seen = new Set<string>();
+  const pool: RGB[] = [];
+  for (const key of ['reception', 'ceremony'] as const) {
+    for (const hex of palette[key] ?? []) {
+      const up = hex.toUpperCase();
+      const rgb = hexToRgb(up);
+      if (rgb && !seen.has(up)) {
+        seen.add(up);
+        pool.push(rgb);
+      }
+    }
+  }
+  return pool;
+}
+
+/** Move `color` until it clears `target` against `bg`: darker on a light ground, lighter on a dark one. */
+function ensureReadable(color: RGB, bg: RGB, target: number): RGB {
+  if (luminance(bg) > 0.18) return ensureContrast(color, bg, target);
+  let c = color;
+  for (let i = 0; i < 24 && contrast(c, bg) < target; i++) c = lighten(c, 0.1);
+  return c;
+}
+
+/** The readable text colour on `bg` — the safe obsidian, or near-white on a dark ground. */
+function inkOn(bg: RGB): RGB {
+  const light: RGB = { r: 250, g: 250, b: 248 };
+  return contrast(DEFAULTS.ink, bg) >= contrast(light, bg) ? DEFAULTS.ink : light;
+}
+
+/**
  * Build the `--color-*` overrides for the couple-site subtree, or null when the
  * palette can't safely theme the page.
  */
@@ -102,48 +146,32 @@ export function buildSitePaletteVars(
   palette: RolePalette | null | undefined,
 ): Record<string, string> | null {
   if (!palette) return null;
-
-  const seen = new Set<string>();
-  const pool: RGB[] = [];
-  const pushHex = (hex: string) => {
-    const up = hex.toUpperCase();
-    if (seen.has(up)) return;
-    const rgb = hexToRgb(up);
-    if (rgb) {
-      seen.add(up);
-      pool.push(rgb);
-    }
-  };
-  for (const key of POOL_ORDER) (palette[key] ?? []).forEach(pushHex);
-  for (const key of Object.keys(palette) as PaletteKey[]) {
-    // Guard non-array values (taxonomy v2's `room_dressing` object) — this loop
-    // walks arbitrary keys, and only color keys hold arrays.
-    const v = palette[key];
-    if (!POOL_ORDER.includes(key) && Array.isArray(v)) v.forEach(pushHex);
-  }
+  const pool = hubPool(palette);
   if (pool.length === 0) return null;
+  const main = (palette.reception ?? []).map((h) => hexToRgb(h));
+  const slot = (i: number): RGB | null => main[i] ?? null;
 
-  // Paper: subtle tint only when the palette has a genuinely near-white color;
-  // otherwise the safe alabaster default.
+  // Neutral → paper. Missing: a genuinely near-white main/ceremony colour, else alabaster.
   const lightest = [...pool].sort((a, b) => luminance(b) - luminance(a))[0]!;
-  const paper = luminance(lightest) >= 0.82 ? lightest : DEFAULTS.paper;
+  const paper = slot(MAIN_SLOT.neutral) ?? (luminance(lightest) >= 0.82 ? lightest : DEFAULTS.paper);
+  // Ink is computed, never a slot: the readable text on the paper.
+  const ink = inkOn(paper);
 
-  // Ink stays the safe obsidian — always dark, so contrast on any light page is high.
-  const ink = DEFAULTS.ink;
+  // Accent → links (as text on the paper, AA) and buttons (their label is the paper, AA).
+  const colorful = [...pool].filter((c) => chroma(c) >= 0.12).sort((a, b) => chroma(b) - chroma(a));
+  const accentBase = slot(MAIN_SLOT.accent) ?? colorful[0] ?? DEFAULTS.accent;
+  const accent = ensureReadable(accentBase, paper, 4.5);
+  const deepColorful = colorful.filter((c) => contrast(c, WHITE) >= 3).sort((a, b) => luminance(a) - luminance(b));
+  const ctaBase = slot(MAIN_SLOT.accent) ?? deepColorful[0] ?? accentBase;
+  const cta = ensureReadable(ctaBase, paper, 4.5);
 
-  // Accent: the most colorful palette color, made readable as text on the paper.
-  const colorful = [...pool]
-    .filter((c) => chroma(c) >= 0.12)
-    .sort((a, b) => chroma(b) - chroma(a));
-  const accentBase = colorful[0] ?? DEFAULTS.accent;
-  const accent = ensureContrast(accentBase, paper, 4.5);
-
-  // CTA: a deep colorful color that carries light button text (AA vs white).
-  const deepColorful = colorful
-    .filter((c) => contrast(c, WHITE) >= 3)
-    .sort((a, b) => luminance(a) - luminance(b));
-  const ctaBase = deepColorful[0] ?? accentBase;
-  const cta = ensureContrast(ctaBase, WHITE, 4.5);
+  // Supporting → the cards and sections (the plates); their words computed on them.
+  const plate = slot(MAIN_SLOT.supporting) ?? darken(paper, 0.04);
+  // Dominant → headings and large blocks — readable as large text (AA-large) on the paper.
+  const heading = ensureReadable(slot(MAIN_SLOT.dominant) ?? accentBase, paper, 3);
+  // Accent 2 → ornaments and dividers. Decor only — no contrast floor.
+  const gild = slot(MAIN_SLOT.accent2) ?? gildFromPool(pool);
+  const veilBoard: RolePalette = { reception: pool.map(toHex) };
 
   return {
     '--color-cream': channels(paper),
@@ -154,12 +182,13 @@ export function buildSitePaletteVars(
     '--color-mulberry': channels(cta),
     '--color-mulberry-600': channels(darken(cta, 0.15)),
     '--color-mulberry-700': channels(darken(cta, 0.28)),
-    // Pahina material tokens (design 2026-07-25 §4). Decor-only roles — none
-    // carries body text, so no WCAG remap. Root fallbacks live in globals.css
-    // so palette-less events (this fn returns null) get the same three tokens.
-    '--color-gild': channels(gildFromPool(pool)),
-    '--color-paper-deep': channels(darken(paper, 0.04)),
-    '--color-veil': channels(hexToRgb(veilColorFromPalette(palette)) ?? PAHINA_VEIL_FALLBACK),
+    // Pahina material tokens (design 2026-07-25 §4). Root fallbacks live in
+    // globals.css so palette-less events (this fn returns null) get the same three tokens.
+    '--color-gild': channels(gild),
+    '--color-paper-deep': channels(plate),
+    '--color-ink-on-plate': channels(inkOn(plate)),
+    '--color-veil': channels(hexToRgb(veilColorFromPalette(veilBoard)) ?? PAHINA_VEIL_FALLBACK),
+    '--hub-heading': toHex(heading),
   };
 }
 

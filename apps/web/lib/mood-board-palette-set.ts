@@ -40,10 +40,16 @@ export function paletteIsSet(palette: unknown): boolean {
 /** The most colours a theme writes into an empty board — the board's five main colours. */
 export const SEED_PALETTE_MAX = 5;
 
-/** The colours a theme writes into an empty Mood Board — its five page colours. */
+/**
+ * The colours a theme writes into an empty Mood Board — its page colours in the
+ * board's FIVE MAIN SLOTS (`MAIN_SLOT`, lib/site-palette.ts — "THE 5 MAIN
+ * COLOURS, ONE JOB EACH"): Dominant = its heading, Supporting = its surface,
+ * Accent = its accent, Neutral = its canvas, Accent 2 = its muted. Positions are
+ * kept (a repeated colour stays in both slots), so the board reads by slot.
+ */
 function seedHexes(t: InviteTheme): string[] {
   const p = t.palette;
-  return [...new Set([p.canvas, p.surface, p.ink, p.accent, p.heading].map((h) => h.toUpperCase()))].slice(0, SEED_PALETTE_MAX);
+  return [p.heading, p.surface, p.accent, p.canvas, p.muted].map((h) => h.toUpperCase()).slice(0, SEED_PALETTE_MAX);
 }
 
 /**
@@ -61,21 +67,63 @@ function colourSetKey(hexes: readonly string[]): string {
   return [...hexes].sort().join(',');
 }
 
-/** The theme whose seed this palette IS (the same colours, nothing else), or null. */
+/** The palette's colour lists (`#rrggbb` arrays), by key — its other keys (room dressing, bookkeeping) aside. */
+function colourLists(palette: unknown): Record<string, string[]> {
+  if (!palette || typeof palette !== 'object' || Array.isArray(palette)) return {};
+  const out: Record<string, string[]> = {};
+  for (const [k, v] of Object.entries(palette as Record<string, unknown>)) {
+    if (!Array.isArray(v)) continue;
+    const hexes = v.filter((c): c is string => typeof c === 'string' && HEX.test(c));
+    if (hexes.length > 0) out[k] = hexes.map((c) => c.toUpperCase());
+  }
+  return out;
+}
+
+/**
+ * The theme whose COLOURS this palette is — its only colour list is the main
+ * colours (`reception`), and they are exactly that theme's seed — or null.
+ * Read for COLOUR: the board's other, non-colour keys do not change what it
+ * paints. (Whether a pick may WRITE it is `boardIsTheCouples`, stricter.)
+ */
 export function seededTheme(palette: unknown): InviteThemeId | null {
-  const have = boardSwatches(palette);
-  if (have.length === 0) return null;
-  const key = colourSetKey(have);
+  const lists = colourLists(palette);
+  const keys = Object.keys(lists);
+  if (keys.length !== 1 || keys[0] !== 'reception') return null;
+  const key = colourSetKey(lists.reception!);
   return HUB_THEMES.find((t) => colourSetKey(seedHexes(t)) === key)?.id ?? null;
 }
 
 /**
- * 🔒 THE COUPLE HAS PAINTED THE BOARD THEMSELVES — it has colours and they are
- * not a theme's seed. Only then is a pick forbidden to write it; an empty board
- * or a theme-written one is (re-)seeded by the next pick.
+ * 🌱 THEME-WRITTEN, STRUCTURALLY: the board is a non-empty `reception` equal to
+ * a theme's seed and NOTHING else — no room dressing, no custom roles, no
+ * touched roles, no other list. Only such a board is refilled by the next pick
+ * (owner 2026-10-05: *"New theme refills them"*).
+ */
+export function themeWroteBoard(palette: unknown): boolean {
+  if (!palette || typeof palette !== 'object' || Array.isArray(palette)) return false;
+  const keys = Object.keys(palette as Record<string, unknown>);
+  return keys.length === 1 && keys[0] === 'reception' && seededTheme(palette) !== null;
+}
+
+/**
+ * 🔒 THE COUPLE MADE THIS BOARD — it has colours and it is not, structurally,
+ * a theme's fill. A pick then never writes it: not overlaid, counted or applied.
+ * An empty board or a theme-written one is (re-)filled by the next pick.
  */
 export function boardIsTheCouples(palette: unknown): boolean {
-  return paletteIsSet(palette) && seededTheme(palette) === null;
+  return paletteIsSet(palette) && !themeWroteBoard(palette);
+}
+
+/**
+ * What a pick's fill makes of the board it lands on: the board AS IT IS, with
+ * its main colours (`reception`) replaced by the theme's — never the column
+ * replaced (an empty board's room dressing and bookkeeping are kept). Null when
+ * the board is the couple's: then nothing is written.
+ */
+export function boardWithFill(board: unknown, seed: { reception: string[] }): Record<string, unknown> | null {
+  if (boardIsTheCouples(board)) return null;
+  const base = board && typeof board === 'object' && !Array.isArray(board) ? (board as Record<string, unknown>) : {};
+  return { ...base, reception: [...seed.reception] };
 }
 
 /**

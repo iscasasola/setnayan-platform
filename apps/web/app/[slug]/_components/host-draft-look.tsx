@@ -32,7 +32,7 @@ export function lookScopeProps(look: GuestLook | null) {
     Setnayan's own public theme art, so it may be drawn on every page — the
     private landing included — and it is resolved once, not per page.
   */
-  const ground = look?.theme ? resolveThemeGround(look.theme, { ownColours: Boolean(look.vars) }) : null;
+  const ground = look?.theme ? resolveThemeGround(look.theme, { ownColours: Boolean(look.vars), colours: look.colours }) : null;
   return {
     theme: look?.theme ?? null,
     art: look?.art ?? null,

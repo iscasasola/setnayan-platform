@@ -36,7 +36,7 @@ import { join } from 'node:path';
 
 import { INVITE_THEMES, INVITE_THEME_IDS, type InviteThemeId } from '@/lib/invite-themes';
 import { buildSitePaletteVars } from '@/lib/site-palette';
-import { paletteColourVars } from '@/lib/theme-colours';
+import { dressedTheme, paletteColourVars } from '@/lib/theme-colours';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { ombreLook, parseSiteBackground } from '@/lib/ombre';
 import {
@@ -87,7 +87,7 @@ function look(themeId: InviteThemeId, event: Record<string, unknown>, proActive:
   const pro = proSiteVarsFor(event, proActive, themeId);
   let vars = pro ? { ...(palette ?? {}), ...pro } : palette;
   const bg = parseSiteBackground(event.site_bg_color);
-  if (bg?.kind === 'ombre') vars = { ...(vars ?? {}), ...ombreLook(INVITE_THEMES[themeId], bg.ombre).vars };
+  if (bg?.kind === 'ombre') vars = { ...(vars ?? {}), ...ombreLook(dressedTheme(themeId, event.role_palette), bg.ombre).vars };
   return vars && Object.keys(vars).length > 0 ? pinPlateInk(vars, themeId) : null;
 }
 
@@ -139,7 +139,9 @@ test('every venue word reads (≥ 4.5 : 1) on every theme × every colour source
 });
 
 test('the measured failure is reproduced without the pin (the guard can see the bug)', () => {
-  const raw = buildSitePaletteVars(sanitizeRolePalette(PINK_BOARD))!;
+  // Since the 5 main colours (2026-10-05) the board names its own plate ink; the
+  // bug is reproduced as it shipped — a layer that repaints the plate and names none.
+  const { ['--color-ink-on-plate']: _named, ...raw } = buildSitePaletteVars(sanitizeRolePalette(PINK_BOARD))!;
   const { plate, plateInk } = cascade('velvet', raw);
   assert.ok(contrastOf(plateInk, plate) < 2, `velvet + a light palette should reproduce the invisible name (got ${contrastOf(plateInk, plate).toFixed(2)})`);
   const fixed = cascade('velvet', pinPlateInk(raw, 'velvet'));
@@ -147,7 +149,8 @@ test('the measured failure is reproduced without the pin (the guard can see the 
 });
 
 test('an event whose plate already reads is served byte-identical vars', () => {
-  const raw = buildSitePaletteVars(sanitizeRolePalette(PINK_BOARD))!;
+  // A board whose Supporting colour (the plates, 2026-10-05) is a near-white.
+  const raw = buildSitePaletteVars(sanitizeRolePalette({ reception: ['#C97B4B', '#F4EEE6', '#A9B89E', '#FAF7F2'] }))!;
   assert.equal(pinPlateInk(raw, 'house'), raw);
 });
 
@@ -160,7 +163,7 @@ test('guestLookFrom spreads palette → the couple’s colours → ombré, and p
     // 🎨 The board through the ONE resolver since 2026-10-05 (`lib/theme-colours.ts`).
     at(/paletteColourVars\(event\.role_palette, hub\.theme\)/),
     at(/proSiteVarsFor\(event, proActive, hub\.theme\)/),
-    at(/ombreLook\(INVITE_THEMES\[hub\.theme\]/),
+    at(/ombreLook\(dressed, background\.ombre\)/),
     // 🔘 Since Look › Buttons (2026-10-04) the pinned bag is named `painted` — the
     // buttons are measured against it — and returned as the look's `vars`.
     at(/const painted = vars && Object\.keys\(vars\)\.length > 0 \? pinPlateInk\(vars, hub\.theme\) : null/),

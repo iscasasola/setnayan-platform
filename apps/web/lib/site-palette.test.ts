@@ -72,8 +72,11 @@ test('Pahina: gild warms toward metallic on a warm palette (not the raw swatch)'
   assert.ok(r <= 201 && r >= 176, 'red channel between swatch and gold target');
 });
 
-test('Pahina: paper-deep is a hair darker than paper', () => {
-  const vars = buildSitePaletteVars({ reception: ['#C97B4B', '#824A2A', '#FAF7F2'] });
+test('Pahina: the plates are the Supporting colour (slot 2); with none, a hair darker than paper', () => {
+  // 🎨 THE 5 MAIN COLOURS, ONE JOB EACH (owner 2026-10-05): Supporting → cards / sections.
+  const slotted = buildSitePaletteVars({ reception: ['#C97B4B', '#824A2A', '#A9B89E', '#FAF7F2', '#B08D57'] })!;
+  assert.deepEqual(chanToRgb(slotted['--color-paper-deep']!), { r: 0x82, g: 0x4a, b: 0x2a });
+  const vars = buildSitePaletteVars({ reception: ['#FAF7F2'] });
   assert.ok(vars);
   const paper = chanToRgb(vars!['--color-cream']!);
   const deep = chanToRgb(vars!['--color-paper-deep']!);
@@ -145,3 +148,38 @@ function chanFromHex(hex: string): { r: number; g: number; b: number } {
   const n = parseInt(hex.slice(1), 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
+
+test('THE 5 MAIN COLOURS (owner 2026-10-05): each slot does its one job, and attire never dresses the Event Hub', () => {
+  // Dominant · Supporting · Accent · Neutral · Accent 2.
+  const board = {
+    reception: ['#2E4A3F', '#E8DCC8', '#8A3B52', '#F7F2EA', '#B08D57'],
+    // The most saturated colour on the board is a bridesmaid's — it must NOT become the button.
+    bridesmaids: ['#00E5FF'],
+    guest: ['#FF00AA'],
+    bride: ['#FF2200'],
+  };
+  const v = buildSitePaletteVars(board)!;
+  assert.deepEqual(chanToRgb(v['--color-cream']!), { r: 0xf7, g: 0xf2, b: 0xea }, 'Neutral is the paper');
+  assert.deepEqual(chanToRgb(v['--color-paper-deep']!), { r: 0xe8, g: 0xdc, b: 0xc8 }, 'Supporting is the cards');
+  assert.deepEqual(chanToRgb(v['--color-gild']!), { r: 0xb0, g: 0x8d, b: 0x57 }, 'Accent 2 is the ornaments');
+  const button = chanToRgb(v['--color-mulberry']!);
+  const link = chanToRgb(v['--color-terracotta']!);
+  const near = (c: { r: number; g: number; b: number }, hex: string) => {
+    const n = parseInt(hex.slice(1), 16);
+    return Math.abs(c.r - ((n >> 16) & 255)) + Math.abs(c.g - ((n >> 8) & 255)) + Math.abs(c.b - (n & 255));
+  };
+  assert.ok(near(button, '#8A3B52') < near(button, '#00E5FF'), 'the button is the Accent, not the bridesmaids’ colour');
+  assert.ok(near(link, '#8A3B52') < 60, 'links are the Accent (only darkened for contrast)');
+  for (const hex of ['#00E5FF', '#FF00AA', '#FF2200']) {
+    for (const [k, val] of Object.entries(v)) {
+      if (k.startsWith('--color-')) assert.ok(near(chanToRgb(val), hex) > 40, `${k} took an attire colour ${hex}`);
+    }
+  }
+  // Text is computed: every word reads on what it sits on.
+  assert.ok(contrast(v['--color-ink']!, v['--color-cream']!) >= 4.5);
+  assert.ok(contrast(v['--color-terracotta']!, v['--color-cream']!) >= 4.5);
+  assert.ok(contrast(v['--color-cream']!, v['--color-mulberry']!) >= 4.5, 'the button label (the paper) reads on the button');
+  assert.ok(contrast(v['--color-ink-on-plate']!, v['--color-paper-deep']!) >= 4.5, 'card words read on the Supporting colour');
+  // A board with ONLY attire colours does not dress the page at all.
+  assert.equal(buildSitePaletteVars({ bridesmaids: ['#00E5FF'], guest: ['#FF00AA'] }), null);
+});

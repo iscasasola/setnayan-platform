@@ -121,7 +121,7 @@ export function ThemePickProvider({
    * the board has colours, and a pick never touches them.
    */
   seeds?: Record<string, unknown> | null;
-  /** The palette the gallery's samples wear (`samplePaletteParam`). */
+  /** The palette the gallery's samples wear (`sampleBoardQuery`). */
   samplePalette?: string | null;
   children: ReactNode;
 }) {
@@ -232,7 +232,7 @@ export function MakerThemeGallery({
      `scripts/capture-theme-samples.ts`) — exactly what an empty board shows.
      A couple with a board of their own sees every entry as the live sample
      wearing it (owner 2026-10-05, "THE MOOD BOARD PALETTE IS THE PRIORITY"). */
-  const stillOf = (id: string) => (samplePalette && samplePalette !== 'none' ? null : themeStillSrc(id));
+  const stillOf = (id: string) => (samplePalette && samplePalette !== 'palette=none' ? null : themeStillSrc(id));
   const live = shown.filter((t) => !stillOf(t.id)).map((t) => t.id);
   const liveKey = live.join(',');
 

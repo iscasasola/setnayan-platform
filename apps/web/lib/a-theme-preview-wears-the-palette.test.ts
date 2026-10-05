@@ -25,9 +25,9 @@ import { fileURLToPath } from 'node:url';
 import { HUB_THEMES, INVITE_THEMES } from '@/lib/invite-themes';
 import {
   boardIsTheCouples,
+  dressedTheme,
   paletteColourVars,
-  paletteFromSampleParam,
-  samplePaletteParam,
+  sampleBoardQuery,
   seededTheme,
   themeColours,
   themeSeedPalette,
@@ -41,6 +41,9 @@ import {
   sanitizeHubDraftEventValue,
 } from '@/lib/hub-draft';
 import { hubDraftChangePlace } from '@/lib/hub-draft-change-lines';
+import { boardWithFill } from '@/lib/mood-board-palette-set';
+import { writePaletteFill } from '@/lib/palette-fill-write';
+import { THEME_STILL_CAPTURE_TAG } from '@/lib/theme-sample-stills-hash';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
@@ -92,14 +95,15 @@ test('a Mood Board palette → EVERY theme wears the same colours, and the pictu
     }
     assert.equal(vars['--hub-accent-ink'], colours.accentInk);
   }
-  // The live proof's case: Cyber Neon under maria-and-jose's board is LIGHT.
-  assert.equal(themeColours('cyber', MARIA).colours.canvas, '#fbfbfa');
+  // The live proof's case: Cyber Neon under maria-and-jose's board wears its
+  // Neutral (main slot 4, "THE 5 MAIN COLOURS") — light, never Cyber Neon's night.
+  assert.equal(themeColours('cyber', MARIA).colours.canvas, '#c9a9a6');
   assert.notEqual(themeColours('cyber', MARIA).colours.canvas, INVITE_THEMES.cyber.palette.canvas);
 });
 
 test('owner: "when mood board theme palette changes, then the theme will adjust accordingly" — every picture re-dresses, every address moves', () => {
-  // The couple edits two colours on their board: the near-white paper warms, the gold turns rose.
-  const SWAP: Record<string, string> = { '#FBFBFA': '#FFF5EE', '#C5A059': '#A63D57' };
+  // The couple edits two of their main colours: the Neutral (paper) and the Accent (buttons, links).
+  const SWAP: Record<string, string> = { '#C9A9A6': '#FFF5EE', '#9CA98B': '#A63D57' };
   const edited = Object.fromEntries(Object.entries(MARIA).map(([k, v]) => [k, v.map((c) => SWAP[c] ?? c)]));
   for (const t of HUB_THEMES) {
     const before = themeColours(t.id, MARIA).colours;
@@ -110,7 +114,7 @@ test('owner: "when mood board theme palette changes, then the theme will adjust 
     assert.equal(printLookFor(t.id, themeColours(t.id, edited)).paper, after.canvas, `${t.id}: the print did not follow`);
   }
   // No stale picture: the gallery's sample address IS the swatches…
-  assert.notEqual(samplePaletteParam(edited), samplePaletteParam(MARIA), 'a sample page/print URL survives a board edit — it would be served stale');
+  assert.notEqual(sampleBoardQuery(edited, 'e1'), sampleBoardQuery(MARIA, 'e1'), 'a sample page/print URL survives a board edit — it would be served stale');
   // …the couple's print preview address names the event row it is drawn from (role_palette included)…
   const set = read('lib/print-set.server.ts');
   assert.match(set, /'event_id, display_name, event_type, [^']*\brole_palette\b[^']*'/, 'the print row (and so its preview hash) no longer reads the board');
@@ -149,7 +153,7 @@ test('the prints wear the same answer — palette paper, palette ink, a paper ve
     const own = printLookFor(t.id);
     assert.equal(own.paper, t.palette.canvas, `${t.id} without a palette prints in its own colours`);
     const dressed = printLookFor(t.id, themeColours(t.id, MARIA));
-    assert.equal(dressed.paper, '#fbfbfa', `${t.id} prints on the board's paper`);
+    assert.equal(dressed.paper, '#c9a9a6', `${t.id} prints on the board's paper (its Neutral)`);
     assert.equal(dressed.ink, themeColours(t.id, MARIA).colours.ink, `${t.id} ink`);
     if (dressed.still === 'full') {
       assert.ok(dressed.scrim && dressed.scrim.color === dressed.paper && dressed.scrim.opacity >= 0.8, `${t.id}: a full still is veiled in the paper`);
@@ -157,20 +161,22 @@ test('the prints wear the same answer — palette paper, palette ink, a paper ve
   }
 });
 
-test("the gallery's sample param round-trips the couple's swatches, says 'none' for an empty board, and refuses anything else", () => {
-  assert.equal(samplePaletteParam(null), 'none');
-  assert.equal(samplePaletteParam({}), 'none');
-  const p = samplePaletteParam(MARIA);
-  assert.match(p, /^[0-9A-F]{6}(\.[0-9A-F]{6})*$/);
-  const back = paletteFromSampleParam(p)!;
-  assert.deepEqual(buildSitePaletteVars(back), buildSitePaletteVars(MARIA), 'the sample wears exactly the couple’s page colours');
-  for (const t of HUB_THEMES) assert.deepEqual(themeColours(t.id, back), themeColours(t.id, MARIA));
-  assert.equal(paletteFromSampleParam('none'), null);
-  for (const bad of [undefined, null, '', 'red', 'FBFBFA.zzzzzz', '<script>', 'FBFBFA,C5A059']) {
-    assert.equal(paletteFromSampleParam(bad as string | null | undefined), undefined, String(bad));
-  }
-  // A theme-filled board is refilled by the next pick, so each sample shows its own colours.
-  assert.equal(samplePaletteParam(themeSeedPalette('cyber')), 'none');
+test("the gallery's sample address never carries colours — one of a fixed set, read on the server, moved by every edit", () => {
+  const EID = '947e7bab-893d-454d-b4c5-0a6e23f36009';
+  assert.equal(sampleBoardQuery(null, EID), 'palette=none');
+  assert.equal(sampleBoardQuery({}, EID), 'palette=none');
+  assert.equal(sampleBoardQuery(themeSeedPalette('cyber'), EID), 'palette=none', 'a theme-filled board is refilled by a pick: each theme in its own colours');
+  const q = sampleBoardQuery(MARIA, EID);
+  assert.match(q, new RegExp(`^board=${EID}&bv=[0-9a-z]+$`));
+  assert.doesNotMatch(q, /[0-9A-F]{6}/, 'colours in the public address');
+  // The server reads it: only `none`, or the named event's board for its signed-in host.
+  const door = read('lib/sample-board.server.ts');
+  assert.match(door, /if \(search\.palette === 'none'\) return null;/);
+  assert.match(door, /const viewer = await getCurrentUser\(\)/);
+  assert.match(door, /if \(!viewer\) return null;/);
+  assert.match(door, /loadHostMembership\(admin, eventId, viewer\.id\)/);
+  assert.match(door, /return boardIsTheCouples\(board\) \? sanitizeRolePalette\(board\) : null;/);
+  assert.doesNotMatch(door, /searchParams\.get\('palette'\)[^;]*#/, 'colours parsed from the request');
 });
 
 test('the draft fills a board that is not the couple’s, refills a theme-filled one, never touches a painted one, and names the theme', () => {
@@ -187,6 +193,13 @@ test('the draft fills a board that is not the couple’s, refills a theme-filled
   assert.equal(boardIsTheCouples(null), false);
   assert.equal(boardIsTheCouples(seed), false, 'a theme-filled board is still the theme’s (owner: "New theme refills them")');
   assert.equal(boardIsTheCouples(MARIA), true);
+  // Theme-written is STRUCTURAL: the seed and nothing else. Anything the couple added makes it theirs.
+  for (const extra of [{ room_dressing: { florals: '#ffffff' } }, { touched_roles: ['bride'] }, { custom_roles: [] }, { bride: ['#123456'] }]) {
+    assert.equal(boardIsTheCouples({ ...seed, ...extra }), true, `seed + ${Object.keys(extra)[0]} is the couple's`);
+  }
+  // A fill MERGES into the board it lands on — an empty board's room dressing is kept.
+  assert.deepEqual(boardWithFill({ room_dressing: { florals: 'x' } }, seed), { room_dressing: { florals: 'x' }, reception: seed.reception });
+  assert.equal(boardWithFill(MARIA, seed), null, 'a board the couple made is never filled');
 
   assert.equal(eventColumnChange('role_palette', null, seed), 'add');
   assert.equal(eventColumnChange('role_palette', {}, seed), 'add');
@@ -198,6 +211,11 @@ test('the draft fills a board that is not the couple’s, refills a theme-filled
   assert.deepEqual(overlayHubDraftEvent({ role_palette: null }, draft).role_palette, seed, 'an empty board shows the fill');
   assert.deepEqual(overlayHubDraftEvent({ role_palette: velvet }, draft).role_palette, seed, 'a theme-filled board shows the refill');
   assert.deepEqual(overlayHubDraftEvent({ role_palette: MARIA }, draft).role_palette, MARIA, 'a painted board wins');
+  assert.deepEqual(
+    overlayHubDraftEvent({ role_palette: { room_dressing: { florals: 'x' } } }, draft).role_palette,
+    { room_dressing: { florals: 'x' }, reception: seed.reception },
+    'the canvas shows the fill as Apply will land it — merged',
+  );
 
   const place = hubDraftChangePlace(
     { kind: 'event', column: 'role_palette', value: seed, change: 'add', pro: false } as Parameters<typeof hubDraftChangePlace>[0],
@@ -219,11 +237,56 @@ test('a held Pro theme holds its colours with it at Apply; a free theme applies 
   const free = HUB_THEMES.find((t) => t.tier === 'free' && t.id !== 'house')!;
   const plan = planHubDraftApply({ events: { invite_theme: free.id, role_palette: themeSeedPalette(free.id) }, widgets: {} }, live, false);
   assert.deepEqual(cols(plan.apply).sort(), ['invite_theme', 'role_palette']);
-  // …and Apply writes the fill conditionally on the board it read — never over a board painted since.
+  // …and Apply writes it through the one compare-and-swap (exercised below), out of the session UPDATE.
   const act = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(act, /board\.is\('role_palette', null\)/);
-  assert.match(act, /board\.eq\('role_palette', JSON\.stringify\(paletteRead\)\)/);
   assert.match(act, /delete eventsPatch\.role_palette;/);
+  assert.match(act, /await writePaletteFill\(supabase as unknown as PaletteFillClient, eventId, paletteRead, seed\)/);
+});
+
+/** A stand-in session: records the UPDATE's filters, answers rows/no rows, and a re-read. */
+function fakeClient(opts: { rows: number; error?: unknown; now?: unknown }) {
+  const calls: Array<[string, ...unknown[]]> = [];
+  const filter = {
+    is: (c: string, v: unknown) => (calls.push(['is', c, v]), filter),
+    contains: (c: string, v: unknown) => (calls.push(['contains', c, v]), filter),
+    containedBy: (c: string, v: unknown) => (calls.push(['containedBy', c, v]), filter),
+    select: async () => ({ data: Array.from({ length: opts.rows }, () => ({ event_id: 'e' })), error: opts.error ?? null }),
+  };
+  const client = {
+    from: () => ({
+      update: (patch: unknown) => (calls.push(['update', patch]), { eq: () => filter }),
+      select: () => ({ eq: () => ({ maybeSingle: async () => (calls.push(['reread']), { data: { role_palette: opts.now }, error: null }) }) }),
+    }),
+  };
+  return { client: client as unknown as Parameters<typeof writePaletteFill>[0], calls };
+}
+
+test("Apply's fill: a merge, a compare-and-swap on the board as read, rows counted — never over the couple's board", async () => {
+  const seed = themeSeedPalette('cyber');
+  // An empty board (NULL): `IS NULL`, the seed written.
+  let f = fakeClient({ rows: 1 });
+  assert.deepEqual(await writePaletteFill(f.client, 'e', null, seed), { ok: true, wrote: true });
+  assert.deepEqual(f.calls[0], ['update', { role_palette: { reception: seed.reception } }]);
+  assert.deepEqual(f.calls[1], ['is', 'role_palette', null]);
+  // A board with only room dressing: merged, matched by containment both ways — never a string compare.
+  const dressed = { room_dressing: { florals: 'x' } };
+  f = fakeClient({ rows: 1 });
+  await writePaletteFill(f.client, 'e', dressed, seed);
+  assert.deepEqual(f.calls[0], ['update', { role_palette: { ...dressed, reception: seed.reception } }]);
+  assert.deepEqual(f.calls.slice(1, 3), [['contains', 'role_palette', dressed], ['containedBy', 'role_palette', dressed]]);
+  // The board was painted between the read and the write: zero rows, re-read, it is theirs → success, nothing written.
+  f = fakeClient({ rows: 0, now: MARIA });
+  assert.deepEqual(await writePaletteFill(f.client, 'e', null, seed), { ok: true, wrote: false });
+  assert.ok(f.calls.some(([k]) => k === 'reread'), 'zero rows were not re-read');
+  // Zero rows and the board is still not theirs → the write did not land: Apply again.
+  f = fakeClient({ rows: 0, now: null });
+  assert.deepEqual(await writePaletteFill(f.client, 'e', null, seed), { ok: false });
+  f = fakeClient({ rows: 0, error: { message: 'refused' }, now: themeSeedPalette('velvet') });
+  assert.deepEqual(await writePaletteFill(f.client, 'e', themeSeedPalette('velvet'), seed), { ok: false });
+  // The board as read is the couple's: nothing is even attempted.
+  f = fakeClient({ rows: 1 });
+  assert.deepEqual(await writePaletteFill(f.client, 'e', MARIA, seed), { ok: true, wrote: false });
+  assert.equal(f.calls.length, 0);
 });
 
 /* ── wiring: every theme preview asks the ONE resolver ──────────────────── */
@@ -286,14 +349,16 @@ test("the theme gallery's samples — page, prints and full-screen preview — w
   assert.ok(ov.length >= 1);
   for (const [all] of ov) assert.match(all, /samplePalette\)$/, `${all} — the preview drawn without the couple's palette`);
   // An empty (or theme-filled) board keeps the static stills — each theme's own colours, captured with `none`.
-  assert.match(picker, /samplePalette && samplePalette !== 'none' \? null : themeStillSrc\(id\)/);
-  assert.match(read('scripts/capture-theme-samples.ts'), /sampleHubTileSrc\(id, 'none'\)/);
+  assert.match(picker, /samplePalette && samplePalette !== 'palette=none' \? null : themeStillSrc\(id\)/);
+  assert.match(read('scripts/capture-theme-samples.ts'), /sampleHubTileSrc\(id, THEME_STILL_CAPTURE_TAG\)/);
+  assert.equal(THEME_STILL_CAPTURE_TAG, 'palette=none', 'the stills are each theme in its own colours');
   // …and the sample door + the sample page read it.
-  assert.match(read('lib/print-sample-door.server.ts'), /paletteFromSampleParam\(url\.searchParams\.get\('palette'\)\)/);
-  assert.match(read('app/[slug]/page.tsx'), /paletteFromSampleParam\(search\.palette\)/);
+  assert.match(read('lib/print-sample-door.server.ts'), /await sampleBoardFor\(\{ palette: url\.searchParams\.get\('palette'\), board \}\)/);
+  assert.match(read('lib/print-sample-door.server.ts'), /'cache-control': board \? 'private, max-age=3600'/, 'a couple’s board in a shared cache');
+  assert.match(read('app/[slug]/page.tsx'), /await sampleBoardFor\(search\)/);
   // The provider is told by the Maker, from the LIVE board.
   const launch = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(launch, /samplePalette: samplePaletteParam\(printEvent\.role_palette\)/);
+  assert.match(launch, /samplePalette: sampleBoardQuery\(printEvent\.role_palette, eventId\)/);
   assert.match(launch, /seeds: boardIsTheCouples\(printEvent\.role_palette\) \? null : themeSeedPalettes\(\)/);
 });
 
@@ -311,18 +376,42 @@ const SWEEP_ROOTS = [
   'app/[slug]/_components',
   'app/[slug]/_lib',
   'app/api/hub-print',
+  'app/_components',
+  'lib',
+  'scripts',
 ];
+/** The resolver itself — the one place a theme's own colours are the answer. */
+const RESOLVER_FILES = new Set(['lib/theme-colours.ts', 'lib/mood-board-palette-set.ts']);
 const THEME_COLOUR_READS = [
   RAW_THEME_COLOUR,
+  // The whole palette off the registry, however it is spelled after.
   /INVITE_THEMES\[[^\]]*\]\??\.palette\b/,
-  /\b(?:theme|t|worn|seed|pal)\??\.palette\b(?!\s*:)/,
-  /\{[^}]*\bpalette\b[^}]*\}\s*=\s*(?:INVITE_THEMES|theme\b|t\b)/,
+  // Any theme-shaped object's palette into a variable / an expression (not a `palette:` key).
+  /\b(?:theme|t|worn|seed|pal|own|tile|entry)\??\.palette\b(?!\s*:)/,
+  // Destructured.
+  /\{[^}]*\bpalette\b[^}]*\}\s*=\s*(?:INVITE_THEMES|theme\b|t\b|worn\b)/,
 ];
 const SWEEP_ALLOWED_LINES: Record<string, Record<string, string>> = {
   'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx': {
     // The Colors panel's fallback — used only when `moodBoard` (the board, via `boardSiteColours`) is null: no palette.
     'return { theme, background: theme.palette.canvas, buttons: theme.palette.accent };': 'no-palette default of the Colors panel',
   },
+  // ── Functions OF the theme they are handed. Every picture call site hands them
+  //    the theme as the board dresses it (`dressedTheme` / `colours`) — asserted
+  //    in "the measurers are handed the dressed theme" below.
+  'lib/hub-theme-tokens.ts': { 'const p = theme.palette;': 'page tokens of the theme it is handed' },
+  'lib/hub-legibility.ts': { 'const { palette } = theme;': 'legibility of the theme it is handed' },
+  'lib/adaptive-theme.ts': {
+    'const metal = oklchOfHex(theme.palette.accent);': 'tint of the theme it is handed',
+    'const inks = [theme.palette.accentInk, theme.palette.lightInk, theme.palette.darkInk];': 'tint of the theme it is handed',
+  },
+  'lib/ombre.ts': { "'--color-ink-on-plate': hexChannels(theme.palette.ink),": 'ombré legibility of the theme it is handed' },
+  'lib/hub-buttons.ts': {
+    "?? (house ? HOUSE_PAPER : theme.palette.canvas);": 'buttons measured on the theme it is handed, when no layer painted a paper',
+    "?? (house ? HOUSE_PLATE : theme.palette.surface);": 'buttons measured on the theme it is handed, when no layer painted a plate',
+  },
+  // The no-board answer, when a caller hands no dressed colours (the print set always does).
+  'lib/print-pieces.ts': { "dressed: ThemeColours = { source: 'theme', colours: INVITE_THEMES[theme].palette },": 'no-board default' },
   'app/[slug]/_lib/pro-site-vars.ts': {
     // The plate's ink — the theme's INKS as legibility candidates, never the page's colours.
     "proSiteVars['--color-ink-on-plate'] = channels(theme.palette.ink);": 'plate ink pinned under the couple’s own background',
@@ -349,9 +438,10 @@ test('the sweep: nothing in the Maker, guest components or print door reads a th
   const used = new Set<string>();
   let scanned = 0;
   for (const root of SWEEP_ROOTS) {
-    for (const f of walk(root)) {
+    walk(root).forEach((f) => {
       scanned += 1;
       const rel = relative(WEB, join(WEB, f));
+      if (RESOLVER_FILES.has(rel)) return;
       const allowed = SWEEP_ALLOWED_LINES[rel] ?? {};
       read(f).split('\n').forEach((line, i) => {
         if (!THEME_COLOUR_READS.some((re) => re.test(line))) return;
@@ -359,7 +449,7 @@ test('the sweep: nothing in the Maker, guest components or print door reads a th
         if (anchor) used.add(`${rel}::${anchor}`);
         else offenders.push(`${rel}:${i + 1}: ${line.trim()}`);
       });
-    }
+    });
   }
   assert.ok(scanned > 100, `scanned only ${scanned} files — the sweep's roots moved`);
   assert.deepEqual(offenders, [], `theme colours read around lib/theme-colours.ts:\n${offenders.join('\n')}`);
@@ -367,6 +457,24 @@ test('the sweep: nothing in the Maker, guest components or print door reads a th
   for (const [f, anchors] of Object.entries(SWEEP_ALLOWED_LINES)) {
     for (const a of Object.keys(anchors)) assert.ok(used.has(`${f}::${a}`), `${f}: "${a}" no longer reads a theme colour — drop its exception`);
   }
+});
+
+test('the measurers are handed the dressed theme at every picture call site', () => {
+  assert.match(read('app/[slug]/_lib/main-ground-layer.tsx'), /resolveAdaptiveTheme\(dressedTheme\(theme, event\.role_palette\), mainGround\.tint\)/);
+  const panel = read('app/dashboard/[eventId]/website/editor/_components/main-background-panel.tsx');
+  assert.match(panel, /const theme = useMemo\(\(\) => \(\{ \.\.\.INVITE_THEMES\[themeId\], palette: colours \}\), \[themeId, colours\]\);/);
+  assert.match(read('app/dashboard/[eventId]/website/editor/page.tsx'), /colours=\{themeColours\(mainThemeId, \(drafted as \{ role_palette\?: unknown \}\)\.role_palette\)\.colours\}/);
+  assert.match(read('lib/event-poster.server.ts'), /colours: themeColours\(theme, event\.role_palette\)\.colours,/);
+  assert.match(read('lib/event-poster.ts'), /const theme = input\.colours \? \{ \.\.\.own, palette: input\.colours \} : own;/);
+  assert.match(read('app/[slug]/_lib/theme-ground.ts'), /hubLegibility\(input\.colours \? \{ \.\.\.t, palette: input\.colours \} : t, \{ kind: 'theme' \}\)/);
+  assert.match(read('app/[slug]/_components/host-draft-look.tsx'), /resolveThemeGround\(look\.theme, \{ ownColours: Boolean\(look\.vars\), colours: look\.colours \}\)/);
+  const loaders = read('app/[slug]/_lib/loaders.ts');
+  assert.match(loaders, /const dressed = dressedTheme\(hub\.theme, event\.role_palette\);/);
+  assert.match(loaders, /ombreLook\(dressed, background\.ombre\)/);
+  assert.match(loaders, /page: hubButtonPage\(dressed, painted\)/);
+  // …and a board does reach them: Cyber Neon dressed in maria's board is light.
+  assert.equal(dressedTheme('cyber', MARIA).palette.canvas, '#c9a9a6');
+  assert.equal(dressedTheme('cyber', null), INVITE_THEMES.cyber, 'no board: the registry entry itself');
 });
 
 test('every theme in the one order has a seed nobody else shares', () => {

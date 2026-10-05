@@ -141,7 +141,7 @@ import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
-import { boardIsTheCouples, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
+import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
 import type { DateClash } from '@/lib/date-fits-booked';
@@ -1033,7 +1033,11 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
   /* 🎨 A Mood Board the couple PAINTED wins over a theme's drafted fill — the
      owner's rule is "the priority palette will always be based on the mood
      board". (A theme-written board is re-seeded by the next pick.) */
-  if ('role_palette' in draft.events && boardIsTheCouples(row.role_palette)) out.role_palette = row.role_palette;
+  if ('role_palette' in draft.events) {
+    const seed = sanitizeSeedPalette(draft.events.role_palette);
+    // The fill lands as Apply lands it: the board's main colours replaced, nothing else (`boardWithFill`).
+    out.role_palette = (seed && boardWithFill(row.role_palette, seed)) ?? row.role_palette;
+  }
   /* 🔳 The drafted QR look is laid INTO the live blob — the blob's other keys
      (onboarding answers the page may read) are never overlaid away. */
   if ('style_preferences' in draft.events) {

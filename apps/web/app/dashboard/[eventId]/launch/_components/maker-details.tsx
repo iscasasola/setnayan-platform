@@ -209,7 +209,7 @@ export type MakerDetailsProps = {
     ownLook?: boolean;
     /** 🎨 Every theme's colours as a palette — only while the Mood Board has none (`ThemePickProvider`). */
     seeds?: Record<string, unknown> | null;
-    /** 🎨 The palette the gallery's samples wear (`samplePaletteParam`). */
+    /** 🎨 The palette the gallery's samples wear (`sampleBoardQuery`). */
     samplePalette?: string | null;
   };
   /** The couple's own prints, in the theme being edited. */

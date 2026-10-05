@@ -800,6 +800,7 @@ export default async function WebsiteEditorPage({
                     <MainBackgroundPanel
                       eventId={eventId}
                       themeId={mainThemeId}
+                      colours={themeColours(mainThemeId, (drafted as { role_palette?: unknown }).role_palette).colours}
                       current={mainNow}
                       hero={{
                         photoRef: draftedHero.photoRef,

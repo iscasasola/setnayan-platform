@@ -90,6 +90,8 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
+import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-write';
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
 import { hubDraftProEffects } from '@/lib/hub-pro-effects';
 import { HUB_MAIN_GROUND_KEY, isHubMainOwn, sanitizeHubCanvas, type HubMainGround, type HubMainOwn, type HubSectionCanvas } from '@/lib/hub-canvas';
@@ -483,8 +485,8 @@ export async function hubDraftAction(
     delete eventsPatch.invite_theme;
     /* 🎨 THE BOARD'S FILL LEAVES THE SESSION UPDATE TOO — written after the
        theme it came from (owner 2026-10-05, "THE MOOD BOARD PALETTE IS THE
-       PRIORITY"), and only if the board still holds what this Apply read: a
-       board the couple painted between the read and now is never overwritten. */
+       PRIORITY"), merged into the board and only while it still holds what this
+       Apply read (`writePaletteFill`). */
     const paletteWrite = 'role_palette' in eventsPatch ? eventsPatch.role_palette : undefined;
     const paletteRead = live.events.role_palette ?? null;
     delete eventsPatch.role_palette;
@@ -653,17 +655,12 @@ export async function hubDraftAction(
       }
     }
     if (paletteWrite !== undefined) {
-      /* Conditional on the board as read: NULL, the empty board, or the earlier
-         theme's fill — never a board the couple painted (the plan already
-         refuses one; this closes the window between that read and this write).
-         The couple's own session, the Mood Board page's own writer. Zero rows =
-         the board changed under us: nothing is written, and that is correct. */
-      const board = supabase.from('events').update({ role_palette: paletteWrite }).eq('event_id', eventId);
-      const { error: paletteErr } = await (paletteRead === null
-        ? board.is('role_palette', null)
-        : board.eq('role_palette', JSON.stringify(paletteRead))
-      ).select('event_id');
-      if (paletteErr) {
+      /* Compare-and-swap on the board as read, the fill MERGED into it, and the
+         rows counted (`writePaletteFill`): never over a board the couple made,
+         even one painted between the read and now. */
+      const seed = sanitizeSeedPalette(paletteWrite);
+      const filled = seed ? await writePaletteFill(supabase as unknown as PaletteFillClient, eventId, paletteRead, seed) : { ok: true };
+      if (!filled.ok) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }

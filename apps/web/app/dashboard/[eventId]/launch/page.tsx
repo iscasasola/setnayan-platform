@@ -88,7 +88,7 @@ import { GuestCardBody } from '../guests/_components/guest-card-body';
 import { fetchInvitationBase, loadGuestCard } from '../guests/_components/guest-card-data';
 import { qrLookChoicesFromRow } from '@/lib/qr-look.server';
 import { updateQrStyle } from './qr-look-actions';
-import { boardIsTheCouples, samplePaletteParam, themeSeedPalettes } from '@/lib/theme-colours';
+import { boardIsTheCouples, sampleBoardQuery, themeSeedPalettes } from '@/lib/theme-colours';
 import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, readMenuSources, readPrintEvent, readRsvpHosts } from '@/lib/print-set.server';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
@@ -1531,7 +1531,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
                  owner: "New theme refills them"; a board the couple painted
                  dresses every sample and is never written by a pick. */
               seeds: boardIsTheCouples(printEvent.role_palette) ? null : themeSeedPalettes(),
-              samplePalette: samplePaletteParam(printEvent.role_palette),
+              samplePalette: sampleBoardQuery(printEvent.role_palette, eventId),
             }}
             prints={prints}
             menu={{

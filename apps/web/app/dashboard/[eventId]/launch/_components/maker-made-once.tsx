@@ -61,7 +61,7 @@ import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
  */
 
 const EVENT_SELECT =
-  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_reveal_template, reveal_stages, std_reveal_effects, monogram_custom_svg, monogram_studio_config, monogram_uploaded_svg';
+  'event_id, display_name, event_date, venue_name, event_type, monogram_text, monogram_color, invite_theme, std_background, role_palette, landing_page_hero_image_url, landing_page_hero_video_r2_key, std_reveal_template, reveal_stages, std_reveal_effects, monogram_custom_svg, monogram_studio_config, monogram_uploaded_svg';
 
 type MadeOnceRow = {
   event_id: string;
@@ -73,6 +73,7 @@ type MadeOnceRow = {
   monogram_color: string | null;
   invite_theme: string | null;
   std_background: unknown;
+  role_palette: unknown;
   landing_page_hero_image_url: string | null;
   landing_page_hero_video_r2_key: string | null;
   std_reveal_template: string | null;
@@ -160,6 +161,7 @@ export async function MakerHeroPanel({
       monogram_color: drafted.monogram_color,
       invite_theme: drafted.invite_theme,
       std_background: drafted.std_background,
+      role_palette: drafted.role_palette,
     },
     heroSrc,
   ).catch(() => null);

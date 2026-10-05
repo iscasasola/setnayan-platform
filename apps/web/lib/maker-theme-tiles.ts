@@ -84,8 +84,8 @@ export function samplePrintSrc(
   piece: (typeof SAMPLE_PRINT_PIECES)[number],
   theme: string,
   version: string | null,
-  /** 🎨 The couple's palette as `samplePaletteParam` wrote it (`none` = no palette); absent = the sample's own. */
-  palette: string | null = null,
+  /** 🎨 The sample's board, as `sampleBoardQuery` wrote it (`palette=none` · `board=…&bv=…`); absent = the sample's own. */
+  board: string | null = null,
 ): string {
-  return `/api/hub-print/${piece}?sample=1&mode=screen&theme=${encodeURIComponent(theme)}${palette ? `&palette=${encodeURIComponent(palette)}` : ''}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
+  return `/api/hub-print/${piece}?sample=1&mode=screen&theme=${encodeURIComponent(theme)}${board ? `&${board}` : ''}${version ? `&v=${encodeURIComponent(version)}` : ''}`;
 }

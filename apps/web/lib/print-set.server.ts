@@ -24,7 +24,7 @@ import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { themeColours } from '@/lib/theme-colours';
 import { buildEventLandingUrl, renderEventLandingQrPng, renderInvitationQrPng } from '@/lib/qr';
 import type { QrLook } from '@/lib/qr-look';
-import { resolveEventQrLook } from '@/lib/qr-look.server';
+import { qrLookForHostDraft, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { blocksWithDraftedCeremony } from '@/lib/ceremony-time';
@@ -670,7 +670,9 @@ export async function loadPrintSet(
   // The look every code on this set wears (lib/qr-look.ts): the Setnayan mark
   // for a free event, the couple's own logo · shape · pattern · ink for Pro.
   // Resolved once, here, so the corner QR and every guest pass agree.
-  const qrLook = await resolveEventQrLook(admin, eventId, event);
+  // 💾 On the Maker's preview (a `draft` was handed in) a drafted QR look is the
+  // one drawn, as the event QR beside the address draws it (`qrLookForHostDraft`).
+  const qrLook = qrLookForHostDraft(liveEvent, draft) ?? (await resolveEventQrLook(admin, eventId, event));
 
   let hasEventQr = false;
   if (opts.withEventQr !== false && event.slug) {

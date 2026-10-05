@@ -449,7 +449,7 @@ export function MakerDetails(props: MakerDetailsProps) {
   // ⭕ The plate follows the code (owner 2026-09-30): a round code sits on a round plate.
   // The plate WRAPS the picture rather than clipping it, so a code drawn square still shows whole.
   const qrPlate = qr.style.shape === 'circle' ? ' rounded-full' : '';
-  const free = freePrintParts(eventId, slug);
+  const free = freePrintParts(eventId, slug, prints);
   const save = <SaveWords />;
   /* 🗓 Your event (part 2a) — its rows, bodies and editors (`details-your-event-parts.tsx`). */
   const ye = props.yourEvent ? yourEventParts({ eventId, input: props.yourEvent, prints, parents, hosts }) : null;

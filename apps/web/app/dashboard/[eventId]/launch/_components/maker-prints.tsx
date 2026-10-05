@@ -383,8 +383,14 @@ export function PassCardsPanel({ input }: { input: PrintsInput }) {
  * entry is an item: its first page in the body, its saves on the right. The
  * whole list, never an entry picked out (`free-prints.test.ts`).
  */
-export function freePrintParts(eventId: string, slug: string | null): Array<{ key: FreePrint['key']; label: string; body: React.ReactNode; editor: React.ReactNode }> {
-  return freePrints(eventId, slug).map((fp) => ({
+export function freePrintParts(
+  eventId: string,
+  slug: string | null,
+  /** 💾 The previews' names — the live hash and the draft's (`FreePrintStamps`), so a QR look being tried shows on the sheet. */
+  input?: Pick<PrintsInput, 'previewVersion' | 'draftVersion'>,
+): Array<{ key: FreePrint['key']; label: string; body: React.ReactNode; editor: React.ReactNode }> {
+  const stamps = { version: input?.previewVersion ?? null, draft: input?.draftVersion ?? null };
+  return freePrints(eventId, slug, stamps).map((fp) => ({
     key: fp.key,
     label: fp.label,
     body: (

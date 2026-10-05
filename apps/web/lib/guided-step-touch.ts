@@ -21,7 +21,9 @@
  * with no byte added to `PickMenu`, which is held under its inline size
  * (`pick-menu-stays-inline.test.ts`). A field is remembered by its NAME (or id),
  * so a remount is the same field. Opening a step changes nothing: a tool that
- * fills a field on its own fires no trusted event and announces nothing.
+ * fills a field on its own fires no trusted event and announces nothing — and
+ * a control that writes LIVE (`writesLive`) is saved as it changes, so it never
+ * makes the step "changed" either.
  *
  * Pure where it decides (`isCouplesTouch`, `leaveAsks`), so it is tested with
  * plain objects — there is no DOM in this repo's unit runner.
@@ -67,6 +69,30 @@ export function touchOrigin(target: unknown, doc: Doc | null): unknown {
   return doc.querySelector(`[aria-controls="${id}"]`) ?? target;
 }
 
+/** The mark beside a control that writes LIVE (`HubSavesImmediately` — "Guests see this right away"). */
+export const LIVE_MARK = '[data-hub-saves-immediately]';
+
+type NodeLike = { parentElement?: NodeLike | null; querySelector?: (sel: string) => unknown };
+
+/**
+ * Does this touch land on a control that WRITES LIVE — the Wedding March order,
+ * Reply by (owner 2026-10-05: they stay instant, and say "Guests see this right
+ * away")? Such a change is already saved the moment it is made, so it never
+ * makes the step "changed" — asking "Skip anyway?" after it is the false
+ * warning the owner already rejected. A control writes live when the block it
+ * sits in carries the live mark: the nearest ancestor BELOW the step's own root
+ * that holds a `LIVE_MARK` (the step's root itself never counts — a step that
+ * mixes a live control and a drafted field keeps the drafted one dirty-able).
+ */
+export function writesLive(target: unknown, stepRoot: unknown): boolean {
+  let el = target as NodeLike | null;
+  while (el && el !== stepRoot) {
+    if (typeof el.querySelector === 'function' && el.querySelector(LIVE_MARK)) return true;
+    el = el.parentElement ?? null;
+  }
+  return false;
+}
+
 /** The couple's own change? (Never a tool's fill: untrusted events are not the couple.) */
 export function isCouplesTouch(e: TouchEventLike): boolean {
   if (e.type === MAKER_TOUCH_EVENT) return true;
@@ -103,6 +129,16 @@ export function noteTouch(touch: StepTouch, e: TouchEventLike): void {
     const k = fieldKey(e.target);
     if (k) touch.fields.add(k);
   }
+}
+
+/**
+ * The step's listener, whole: a touch at `origin` (already `touchOrigin`'d) is
+ * noted only when it is inside the step (`scope`) and not on a control that
+ * writes live. What the workspace runs on every input / change / click.
+ */
+export function noteStepTouch(touch: StepTouch, e: TouchEventLike, origin: unknown, scope: unknown | null): void {
+  if (!scope || writesLive(origin, scope)) return;
+  noteTouch(touch, e);
 }
 
 /** Was this field (or one with its name) changed by the couple on this step? */

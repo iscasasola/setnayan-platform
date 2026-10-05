@@ -351,12 +351,15 @@ export function DoorShell({
 
           {children ? <div className="mt-4 space-y-4 sm:mt-6">{children}</div> : null}
         </div>
-        {/* The couple's page: the way home is one small line UNDER the card. */}
+        {/* The couple's page: the way home is one small line UNDER the card —
+            on the card's own paper (`bg-surface`, the theme's), so the words
+            read on any ground the page wears: a dark theme, a photo, an ombré.
+            12px: the guest legibility floor. */}
         {brand === 'foot' ? (
-          <p className="mt-4 text-center text-[11px] text-ink/55" data-door-made-with="">
+          <p className="mt-4 text-center text-xs" data-door-made-with="">
             <Link
               href="/"
-              className="rounded-sm underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
+              className="inline-flex min-h-8 items-center rounded-full bg-surface/90 px-3 text-ink/75 underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mulberry"
             >
               Made with Setnayan
             </Link>

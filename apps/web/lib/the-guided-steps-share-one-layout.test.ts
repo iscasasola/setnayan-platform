@@ -301,7 +301,7 @@ test('(12) opening a step is never dirty; the Mood Board steps show the board, w
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /hasUnsavedEdits\(stepScopesOf\(rootRef\.current, stepHere\.items\), touchRef\.current\.fields\)/, 'the step asks about fields nobody touched');
   // A field a tool fills itself is not the couple's touch (behaviour: (22)).
-  assert.match(ws, /noteTouch\(touchRef\.current, e\);/);
+  assert.match(ws, /noteStepTouch\(touchRef\.current, e,/);
   assert.match(read('lib/guided-step-touch.ts'), /if \(!e\.isTrusted\) return false;/, 'a field a tool fills itself counts as touched');
   for (const key of ['colours', 'wear'] as const) assert.equal(guidedStepBody(key, 'rsvp').kind, 'own', key);
   const mb = read('app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx');
@@ -483,6 +483,26 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   // A field still unsaved asks on every way out.
   assert.equal(leaveOn(opened, 'next', true), 'unsaved');
 
+  // ⚡ AN INSTANT-SAVE CONTROL NEVER MAKES THE STEP "CHANGED" (owner: the March
+  // order and Reply by write live and say "Guests see this right away").
+  // The step's tree: its root, a live block (the mark + the March's arrows), a drafted block.
+  const mark = {};
+  const root: Record<string, unknown> = { querySelector: (sel: string) => (sel === T.LIVE_MARK ? mark : null), parentElement: null };
+  const liveBlock = { querySelector: (sel: string) => (sel === T.LIVE_MARK ? mark : null), parentElement: root };
+  const marchArrow = { tagName: 'BUTTON', querySelector: () => null, parentElement: liveBlock, closest: (sel: string) => (sel.includes('aria-pressed') ? {} : null) };
+  const draftedBlock = { querySelector: () => null, parentElement: root };
+  const draftedField = { tagName: 'INPUT', name: 'special_message', id: '', querySelector: () => null, parentElement: draftedBlock };
+  const march = T.newStepTouch();
+  T.noteStepTouch(march, { type: 'click', isTrusted: true, target: marchArrow }, marchArrow, root);
+  assert.equal(leaveOn(march, 'skip'), null, 'moving the Wedding March then Skip asked "Skip anyway?" — it is already saved');
+  const drafted = T.newStepTouch();
+  T.noteStepTouch(drafted, { type: 'input', isTrusted: true, target: draftedField }, draftedField, root);
+  assert.equal(leaveOn(drafted, 'skip'), 'skip', 'a drafted field changed, then Skip went on without asking');
+  // The step's own root holding a live mark does not make every field in it live.
+  assert.equal(T.writesLive(draftedField, root), false);
+  T.noteStepTouch(drafted, { type: 'input', isTrusted: true, target: draftedField }, draftedField, null);
+  assert.equal(T.writesLive(marchArrow, root), true);
+
   // The foot says which question it is asking.
   const { GuideFoot } = await import(`../${L}/details-guide`);
   const { renderToStaticMarkup } = await import('react-dom/server');
@@ -499,6 +519,10 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   assert.equal(ws.match(/move\(skipScreen\(plan!?, at\), 'skip'\)/g)?.length, 3, 'a Skip button no longer says it is Skip');
   assert.match(ws, /leaveAsks\(\{ via, unsaved: hasUnsavedEdits\(/);
   assert.match(ws, /const t = touchOrigin\(e\.target, document\);/, 'a pick in the one dropdown\'s portalled list is outside the step again');
+  assert.match(ws, /noteStepTouch\(touchRef\.current, e, t, stepScopesOf\(rootRef\.current, items\)\.find\(\(sc\) => sc\.contains\(t\)\) \?\? null\);/, 'the step notes touches some other way — a live control can mark it changed again');
+  // The two instant-save steps carry the live mark the rule keys on.
+  for (const f of [`${L}/details-march.tsx`, `${L}/maker-rsvp-ask.tsx`]) assert.match(read(f), /<HubSavesImmediately \/>/);
+  assert.match(read('app/dashboard/[eventId]/website/_components/hub-draft-field.tsx'), /data-hub-saves-immediately=""/);
   // The one dropdown's list names its button while open — what `touchOrigin` follows.
   const pm = read('app/dashboard/[eventId]/website/editor/_components/pick-menu.tsx');
   assert.match(pm, /aria-controls=\{open \? listId : undefined\}/);

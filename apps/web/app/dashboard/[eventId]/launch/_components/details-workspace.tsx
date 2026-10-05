@@ -29,7 +29,7 @@ import { DetailsTapContext, PRINT_FIELD_INPUT } from './details-tap';
 import { DetailsPieceContext, DetailsSelectContext, type DetailsPieces } from './details-go';
 import { useMaker } from './maker-context';
 import { useSameFieldDoors } from './same-field';
-import { MAKER_TOUCH_EVENT, leaveAsks, newStepTouch, noteTouch, touchOrigin, type StepTouch } from '@/lib/guided-step-touch';
+import { MAKER_TOUCH_EVENT, leaveAsks, newStepTouch, noteStepTouch, touchOrigin, type StepTouch } from '@/lib/guided-step-touch';
 import { BeforeWeStartScreen, GuideFoot, GuideHead, GuideLinkScreen, GuideReady, StagePicker, StageStepPreview, StepBackground } from './details-lazy';
 import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
 import { MAKER_PHONE_PANEL_CAP } from '@/lib/maker-phone-room';
@@ -335,8 +335,9 @@ export function DetailsWorkspace({
     const note = (e: Event) => {
       // A pick in the one dropdown's list (portalled to <body>) is its button's.
       const t = touchOrigin(e.target, document);
-      if (!(t instanceof Node) || !stepScopesOf(rootRef.current, items).some((sc) => sc.contains(t))) return;
-      noteTouch(touchRef.current, e);
+      if (!(t instanceof Node)) return;
+      // A control that writes live (the March order, Reply by) is saved as it changes — never a change to ask about.
+      noteStepTouch(touchRef.current, e, t, stepScopesOf(rootRef.current, items).find((sc) => sc.contains(t)) ?? null);
     };
     const kinds = ['input', 'change', 'click', MAKER_TOUCH_EVENT];
     for (const k of kinds) document.addEventListener(k, note, true);

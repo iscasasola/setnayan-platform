@@ -183,3 +183,19 @@ test('5 · no read of event_vendors embeds vendor_profiles without naming the ke
   assert.match(mb, /blockerMessage: bookedUnread \? BOOKED_SUPPLIERS_UNREAD/, 'a refused supplier read still reads as nothing booked');
   assert.match(mb, /logQueryError\('moodBoard\.bookedSuppliers'/, 'a refused supplier read is not logged');
 });
+
+test('6 · the Apply sheet opens ABOVE the Maker — never behind it (owner: "pressing Apply showed nothing")', () => {
+  /* The sheet is portalled to <body> (a glass ancestor would trap `fixed`), so it
+     stacks against the Maker's own fixed shell — and at z-50 it opened, focus and
+     all, BEHIND the shell's z-[80]: a tap on ✓ did nothing anyone could see. */
+  const zOf = (cls: string) => Number(/\bz-\[?(\d+)\]?/.exec(cls)?.[1] ?? NaN);
+  const shell = read(`${L}/maker-shell.tsx`);
+  const shellCls = /className="(fixed inset-x-0 top-0 z-\[\d+\][^"]*)"/.exec(shell)?.[1] ?? '';
+  assert.ok(shellCls, 'the Maker shell’s fixed root moved — re-anchor this guard');
+  const sheet = read('app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx');
+  const sheetCls = /className="(fixed inset-0 z-[^"]*)"/.exec(sheet)?.[1] ?? '';
+  assert.ok(sheetCls, 'the Apply sheet’s fixed root moved — re-anchor this guard');
+  const bar = read('app/dashboard/[eventId]/website/_components/hub-draft-bar.tsx');
+  assert.match(bar, /createPortal\(\s*<ApplyProSheet[\s\S]*?document\.body/, 'the Apply sheet is no longer portalled to <body> — re-check its stacking');
+  assert.ok(zOf(sheetCls) > zOf(shellCls), `the Apply sheet (z ${zOf(sheetCls)}) opens behind the Maker (z ${zOf(shellCls)})`);
+});

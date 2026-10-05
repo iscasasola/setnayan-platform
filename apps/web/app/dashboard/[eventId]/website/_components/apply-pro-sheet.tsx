@@ -92,7 +92,7 @@ export function ApplyProSheet({
   useModalA11y({ open: true, onClose, containerRef: dialogRef });
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 lg:items-center"
+      className="fixed inset-0 z-[90] flex items-end justify-center bg-ink/30 lg:items-center"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

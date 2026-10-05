@@ -68,6 +68,7 @@ const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col ju
 const partly = (reason: string) =>
   `${reason.replace(/\s*[—-]\s*nothing was changed\.?$/i, '.').replace(/\.\.$/, '.')} Part of the move was saved — the march shows where everyone is now.`;
 const LAB_SAVED: MarchResult = { ok: true, written: 1 };
+const LAB_NO_RENDER = () => {};
 const LONG_PRESS_MS = 250;
 const SETTLE_MS = 240;
 const EDGE_PX = 56;
@@ -197,7 +198,8 @@ export function MarchMaker({
             // The lab draws the drop and sends nothing; a thrown action is said in plain words.
             const r: MarchResult = await makerSave(
               () => (lab ? Promise.resolve(LAB_SAVED) : callStep(eventId, step).catch(() => ({ ok: false as const, reason: DID_NOT_GO }))),
-              requestMakerRefresh,
+              // The lab has no server march to come back, so it asks for no render either.
+              lab ? LAB_NO_RENDER : requestMakerRefresh,
             );
             if (r.ok) landed += 1;
             else if (era.current === mineEra) {
@@ -578,7 +580,7 @@ export function MarchMaker({
         if ((e.target as HTMLElement).closest('[data-march-drag]')) e.preventDefault();
       }}
       onDragStart={(e) => e.preventDefault()}
-      className={`mx-auto flex w-full max-w-2xl flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
+      className={`mx-auto flex w-full max-w-2xl select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
         <p className="text-xs text-ink/60" data-march-count="">
@@ -682,11 +684,12 @@ export function MarchMaker({
         <div
           role="status"
           data-march-toast={toast.refused ? 'refused' : 'done'}
-          className="fixed inset-x-3 bottom-[calc(var(--maker-lt-h,0px)+12px)] z-40 mx-auto flex max-w-md items-center gap-3 rounded-xl bg-ink px-3.5 py-2.5 text-sm text-cream shadow-lg lg:bottom-4"
+          /* The toast never blocks a name under it — only its Undo takes a tap. */
+          className="pointer-events-none fixed inset-x-3 bottom-[calc(var(--maker-lt-h,0px)+12px)] z-40 mx-auto flex max-w-md select-none items-center gap-3 rounded-xl bg-ink px-3.5 py-2.5 text-sm text-cream shadow-lg lg:bottom-4"
         >
           <span className="min-w-0 flex-1">{toast.said}</span>
           {toast.undo ? (
-            <button type="button" onClick={undo} data-march-undo="" className="min-h-9 shrink-0 rounded-full bg-cream/15 px-3.5 text-sm font-semibold">
+            <button type="button" onClick={undo} data-march-undo="" className="pointer-events-auto min-h-9 shrink-0 rounded-full bg-cream/15 px-3.5 text-sm font-semibold">
               Undo
             </button>
           ) : null}

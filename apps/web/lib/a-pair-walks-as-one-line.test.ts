@@ -355,7 +355,7 @@ test('⚖ a move keeps you where you made it', () => {
     assert.doesNotMatch(code, /\bredirect\s*\(/, `${file} navigates away from the view the move was made in`);
   }
   assert.match(MARCH_UI, /await makerSave\(\s*\(\) => \(lab \? Promise\.resolve\(LAB_SAVED\) : callStep\(eventId, step\)/);
-  assert.match(MARCH_UI, /requestMakerRefresh,\s*\);/);
+  assert.match(MARCH_UI, /lab \? LAB_NO_RENDER : requestMakerRefresh,\s*\);/);
 });
 
 test("⚖ the owner's word is the ONLY word the couple sees", () => {

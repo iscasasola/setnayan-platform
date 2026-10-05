@@ -260,13 +260,33 @@ test('(9) the Save the Date film follows the theme unless the couple picked its 
   assert.match(loaders, /event\.std_background === null \|\| event\.std_background === undefined\s*\? stdFilmBackground\(null, INVITE_THEMES\[/, 'the guest page does not dress an unpicked film in the theme');
 });
 
-test('(10) one count: the Maker wears the step states Home and Event Details count from', () => {
+test('(10) one count: Event Details\' number IS the Maker\'s number — totals too — and the read costs no second pass', async () => {
+  const { oneCountPlan, buildGuidedPlan: build } = await import('./details-guided-flow');
+  const { setupProgress } = await import('./stage-setup');
+  const items = (keys: readonly string[], done: (k: string) => boolean) =>
+    keys.map((k) => ({ key: k, label: k, done: done(k) })) as GuidedItem[];
+  // The SAME event, two derivations that disagree: Event Details (`readGuidedPlan`)
+  // counts the seat plan and sees the names done; the Maker's own rows lack the
+  // seat plan and see the date done.
+  const shared = build(items(ITEMS, (k) => k === 'names' || k === 'theme'), { solemn: false, parentsOffered: true });
+  const local = build(items(ITEMS.filter((k) => k !== 'seating'), (k) => k === 'date'), { solemn: false, parentsOffered: true });
+  assert.notDeepEqual(setupProgress(local), setupProgress(shared), 'anti-vacuity: the fixture must disagree before the fix');
+  const maker = oneCountPlan(shared, local);
+  assert.deepEqual(setupProgress(maker), setupProgress(shared), 'the Maker and Event Details give different totals for one event');
+  for (const r of SETUP_STAGES) assert.deepEqual(stageProgress(maker, r), stageProgress(shared, r), `${r}: the stage counts differ`);
+  assert.equal(oneCountPlan(null, local), local, 'without the shared read the Maker keeps its own plan');
+
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
-  assert.match(page, /const sharedPlan = await readGuidedPlan\(\{ supabase, admin: printAdmin, eventId \}\)/, 'the Maker no longer reads the shared plan');
-  assert.match(page, /shared: sharedPlan\s*\?/);
+  // ⚡ Started beside the page's reads with what it already read — never re-read, never serial.
+  assert.match(page, /const sharedPlanP = readGuidedPlan\(\{[\s\S]{0,120}pre: \{ event: printEvent, hosts: rsvpHosts, parents: printParents, drafted: draftedEvents, scheduleRows: scheduleMoments \}/, 'the Maker re-reads what it already has');
+  assert.equal(page.match(/readGuidedPlan\(/g)?.length, 1, 'a second read of the plan');
+  assert.match(page, /const sharedPlan = await sharedPlanP;/);
+  assert.ok(page.indexOf('const sharedPlanP') < page.indexOf('const mayShowStdFilm'), 'the plan read starts after the page\'s other reads, not beside them');
+  assert.match(page, /shared: sharedPlan \? sharedPlan\.plan : null,/);
   const details = read(`${L}/maker-details.tsx`);
-  assert.match(details, /steps: rawPlan\.steps\.map\(\(st\) => \(sharedStates\.steps\[st\.key\] \? \{ \.\.\.st, state: sharedStates\.steps\[st\.key\]! \} : st\)\)/, 'the Maker counts its own way again');
-  assert.match(details, /links: rawPlan\.links\.map\(/);
+  assert.match(details, /const plan = rawPlan \? oneCountPlan\(props\.guide\?\.shared, rawPlan\) : null;/, 'the Maker counts its own way again');
+  const home = read('app/dashboard/[eventId]/_components/details-guide-home-card.tsx');
+  assert.match(home, /readGuidedPlan\(/, 'Event Details counts some other way');
 });
 
 test('(11) Parents & hosts opens on what is in place — a host before "Add a parent" — so the step agrees with its ✓ set', () => {

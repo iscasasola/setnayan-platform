@@ -353,6 +353,25 @@ export function buildGuidedPlan(items: readonly GuidedItem[], words: GuidedWords
   return { steps, links, rounds, roundWords };
 }
 
+/**
+ * 🔢 ONE COUNT — the plan the Maker walks, when Home and Event Details' read
+ * (`readGuidedPlan`) is in hand: ITS steps, links and states — which steps
+ * exist, so every "n of m" (`setupProgress`, `stageProgress`) is that read's
+ * number, not only its ticks (review 2026-10-05: overriding states by key left
+ * the TOTALS to the Maker's own item list). Only the words are the Maker's own,
+ * where it draws the same step (its row labels name the step). Without the
+ * shared read, the Maker's own plan, as before.
+ */
+export function oneCountPlan(shared: GuidedPlan | null | undefined, local: GuidedPlan): GuidedPlan {
+  if (!shared) return local;
+  const title = new Map<string, string>([...local.steps, ...local.links].map((s) => [s.key, s.title]));
+  return {
+    ...shared,
+    steps: shared.steps.map((s) => ({ ...s, title: title.get(s.key) || s.title })),
+    links: shared.links.map((l) => ({ ...l, title: title.get(l.key) || l.title })),
+  };
+}
+
 /** A stage's name, as a line reads it: "Save the Date". */
 export function roundName(plan: Pick<GuidedPlan, 'roundWords'>, round: GuidedRound): string {
   return plan.roundWords[round].title;

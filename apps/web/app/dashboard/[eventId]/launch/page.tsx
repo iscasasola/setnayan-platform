@@ -1114,6 +1114,18 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       } catch (e) {
         console.error('[hub-draft] details could not read the draft:', e instanceof Error ? e.message : e);
       }
+      /* 🔢 ONE COUNT, STARTED NOW (owner 2026-10-05: "10 of 18" here, "9 of 18"
+         on Event Details; review 2026-10-05: it ran serially, re-reading what
+         this page had just read, on every refresh). The plan Home and Event
+         Details count from (\`readGuidedPlan\`) — handed this page's own reads so
+         it repeats none of them, and left running beside the rest of the page;
+         awaited only where the guide is drawn. */
+      const sharedPlanP = readGuidedPlan({
+        supabase,
+        admin: printAdmin,
+        eventId,
+        pre: { event: printEvent, hosts: rsvpHosts, parents: printParents, drafted: draftedEvents, scheduleRows: scheduleMoments },
+      }).catch(() => null);
       /* Each column "as the couple is editing it" (the draft's, else live) for the
          Look's ✓ is `guidedFactsFrom` below — one derivation, shared with the
          guided flow's decision to open (Details part 5). */
@@ -1369,10 +1381,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         // 🪑 Done = ARRANGED (a guest seated), never "guests can see it".
         seatPlanArranged: seatPlan ? (seatPlan.seated === null ? null : seatPlan.seated > 0) : undefined,
       });
-      /* 🔢 ONE COUNT (owner 2026-10-05, still "10 of 18" here and "9 of 18" on
-         Event Details): the flow's step states come from the SAME read Home and
-         Event Details count with (`readGuidedPlan`) — one function, one answer. */
-      const sharedPlan = await readGuidedPlan({ supabase, admin: printAdmin, eventId }).catch(() => null);
+      const sharedPlan = await sharedPlanP;
       /* 🖼 The cover photo itself — what the guided cover step shows behind its
          sheet (owner 2026-10-05: the page lays the invitation card over it).
          Drafted over live, signed the way the hero panel signs it. */
@@ -1492,12 +1501,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
               guestsHref: hubSetupGuestsHref(eventId),
               // 🔢 One count: the facts Home and Event Details count from.
               doneFacts: guided,
-              shared: sharedPlan
-                ? {
-                    steps: Object.fromEntries(sharedPlan.plan.steps.map((st) => [st.key, st.state])),
-                    links: Object.fromEntries(sharedPlan.plan.links.map((l) => [l.key, l.state])),
-                  }
-                : null,
+              shared: sharedPlan ? sharedPlan.plan : null,
             }}
             eventId={eventId}
             slug={printEvent.slug}

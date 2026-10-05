@@ -97,6 +97,7 @@ import { answerParts, coverAnswer, logoAnswer, type AnswersInput } from './detai
 import type { DetailsGuide } from './details-guide';
 import {
   buildGuidedPlan,
+  oneCountPlan,
   firstOpenScreen,
   guidedItemDone,
   stepOfItem,
@@ -104,7 +105,7 @@ import {
   type GuideAddress,
   type GuidedDoneFacts,
   type GuidedScreen,
-  type GuidedStepState,
+  type GuidedPlan,
 } from '@/lib/details-guided-flow';
 import { parentsOffered } from '@/lib/details-your-event';
 import { hubSetupRound, type HubSetupFacts } from '@/lib/hub-setup-steps';
@@ -305,11 +306,12 @@ export type MakerDetailsProps = {
      */
     doneFacts?: GuidedDoneFacts;
     /**
-     * 🔢 The step states Home and Event Details count from (`readGuidedPlan`,
-     * read by the launch page) — given, every step and link wears THAT state,
-     * so the picker, the Ready screen and Event Details say the same numbers.
+     * 🔢 The plan Home and Event Details count from (`readGuidedPlan`, read by
+     * the launch page) — given, the walk is THAT plan's steps, links and states
+     * (`oneCountPlan`), so the picker, the Ready screen and Event Details say
+     * the same numbers, totals included.
      */
-    shared?: { steps: Record<string, GuidedStepState>; links: Record<string, GuidedStepState> } | null;
+    shared?: GuidedPlan | null;
   } | null;
   /**
    * 🗂 THE ONBOARDING'S ANSWERS, CHANGED HERE (owner 2026-10-02, DECISION_LOG
@@ -538,15 +540,9 @@ export function MakerDetails(props: MakerDetailsProps) {
         props.guide.setup ? hubSetupRound(props.guide.setup, new Set(groups.flatMap((g) => g.items.map((i) => i.key)))) : null,
       )
     : null;
-  /* 🔢 One count: the shared states win (`readGuidedPlan`, the Home / Event Details read). */
-  const sharedStates = props.guide?.shared ?? null;
-  const plan = rawPlan && sharedStates
-    ? {
-        ...rawPlan,
-        steps: rawPlan.steps.map((st) => (sharedStates.steps[st.key] ? { ...st, state: sharedStates.steps[st.key]! } : st)),
-        links: rawPlan.links.map((l) => (sharedStates.links[l.key] ? { ...l, state: sharedStates.links[l.key]! } : l)),
-      }
-    : rawPlan;
+  /* 🔢 One count: the plan Home and Event Details count from (`readGuidedPlan`) —
+     its steps AND its states, so the totals are its totals too (`oneCountPlan`). */
+  const plan = rawPlan ? oneCountPlan(props.guide?.shared, rawPlan) : null;
   /* 🗂 WHERE THE FLOW OPENS (PR-2, by stage): every door — Home's card, the
      once-offer, What's left, a plain landing on an unfinished event — opens
      "Which stage do you want ready?"; an address that names a stage opens that

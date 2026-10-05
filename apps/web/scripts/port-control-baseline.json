@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "45b8ca326",
+  "generatedFromRef": "7fdcdd2af",
   "routeCount": 426,
   "destinations": 948,
   "actions": 669,
-  "blocks": 5500,
+  "blocks": 5502,
   "routes": {
     "/": {
       "files": [
@@ -6457,6 +6457,7 @@
         "dashboard/[eventId]/launch/_components/details-your-event-load.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event-parts.tsx",
         "dashboard/[eventId]/launch/_components/details-your-event.tsx",
+        "dashboard/[eventId]/launch/_components/film-follows-theme.tsx",
         "dashboard/[eventId]/launch/_components/hub-pro-offer.tsx",
         "dashboard/[eventId]/launch/_components/hub-stage.tsx",
         "dashboard/[eventId]/launch/_components/lazy-slot.tsx",
@@ -6568,6 +6569,7 @@
         "Face",
         "Field",
         "FileUpload",
+        "FilmFollowsTheme",
         "FindDateCandidates",
         "FindDatePicked",
         "FineTune",
@@ -6733,6 +6735,7 @@
         "StageStepPreview",
         "State",
         "StepBackground",
+        "StepTouch",
         "StoredQrStyle",
         "StoryPanel",
         "Suspense",

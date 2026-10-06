@@ -25,7 +25,8 @@ shipped Maker renders as before.
 Shipped bugs fixed (plan §3 "FOLDED IN"), for every couple:
 - **▶ Play / Preview replays the motion the couple chose** — the canvas ran one generic fade for every pick
   while the scene's own arrival stayed bound to the scroll; now the scene's own keyframe and each part's
-  own Build in replay on time (`scene-replay.ts`, `globals.css` "PLAY REPLAYS THE CHOSEN MOTION").
+  own Build in replay on time (`scene-replay.ts`, `globals.css` "PLAY REPLAYS THE CHOSEN MOTION", inside the
+  same motion gates guests' pages use — where a browser draws no scene motion, Play shows none either).
 - The scene Animate's pill rows (How it moves · Timing · Parts · Into the next scene · Speed) are dropdowns —
   "Cinematic" no longer clips.
 - The RSVP form's three styles are reachable (its row now has a Style, and the reply page draws the pick);

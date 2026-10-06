@@ -95,7 +95,7 @@ import {
 import { PaidMark } from '@/app/_components/paid-mark';
 import { paidMarkLabel } from '@/lib/paid-mark';
 import { InspectorTabs } from './inspector-kit';
-import { SCENE_TABS, SceneAnimateTab, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
+import { SCENE_TABS, SceneArrangeTab, SceneLayoutRow, SceneParts, type SceneTab } from './scene-inspector';
 import { FixedSceneStyleRow, PaletteLookCanvasRow, PostEventScenePanel, PostEventWordsField, SceneStyleCanvasRow } from './scene-styles-lazy';
 import { postEventStatusWord, postEventTileLabel, postEventTileNote, type PostEventTile } from './post-event-tile-words';
 import { isFixedStyleScene, type FixedSceneStyles } from '@/lib/fixed-scene-styles';
@@ -103,7 +103,7 @@ import { postEventSetElements } from '@/lib/post-event-draft';
 import { postEventElementScope, postEventSceneOfScope, postEventWordParts } from '@/lib/post-event-styles';
 import type { SceneUpload } from './scene-background-row';
 /* ⚡ A scene's background row loads when a scene is edited — never with the Maker (`details-lazy.tsx`). */
-import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
+import { DetailsBoundField, ElementSheet, PassCardDesignPicker, SceneAnimateTab, SceneBackgroundRow, TypeBar } from '../../../launch/_components/details-lazy';
 import { IntoLowerThird } from '../../../launch/_components/maker-lower-third';
 import { readTypeStart, type SceneTypeWords, type TypeStart } from '@/lib/hub-part-words';
 import type { NameParts, NameStyle } from '@/lib/name-style';

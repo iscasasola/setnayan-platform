@@ -6293,36 +6293,6 @@ html:has(.hub-shape-full) { overflow-x: clip; }
 @keyframes el-in-mix-p  { from { opacity: var(--el-in-o, 1); transform: var(--el-in-t, none); filter: var(--el-in-f, none); } }
 @keyframes el-out-mix   { to { opacity: var(--el-out-o, 1); transform: var(--el-out-t, none); filter: var(--el-out-f, none); } }
 
-/* ▶ PLAY REPLAYS THE CHOSEN MOTION (owner, 2026-10-06: Schedule › Animate ·
-   Editorial · follows the scroll · Fade · from the right · Grow · Blur — and
-   ▶ Preview showed none of it). The Maker's canvas puts `hub-replay` on a
-   scene's frame for ONE arrival (`app/[slug]/_components/scene-replay.ts`): its
-   OWN keyframe (`--hub-in-kf`), on TIME instead of the scroll — whole, or part
-   after part — and the bridge restarts it from its first frame. Outside the
-   `animation-timeline` support gate on purpose: a time-based replay needs none.
-   Specificity is doubled to out-rank the timed and scrubbed rules below; a part
-   with motion of its own keeps its own rule (it replays its own In). Behind the
-   reduced-motion gate, like every other motion here. */
-@media (prefers-reduced-motion: no-preference) {
-  .hub-canvas.hub-replay.hub-replay.hub-seq-whole > .hub-canvas-body,
-  .hub-canvas.hub-replay.hub-replay.hub-seq-parts > .hub-canvas-body > * > * {
-    animation-name: var(--hub-in-kf, none);
-    animation-duration: var(--hub-duration, 1.1s);
-    animation-timing-function: var(--hub-ease, ease-out);
-    animation-delay: 0s;
-    animation-fill-mode: both;
-    animation-timeline: auto;
-    animation-range: normal;
-  }
-  .hub-canvas.hub-replay.hub-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(2) { animation-delay: calc(var(--hub-stagger, 0.12s) * 1); }
-  .hub-canvas.hub-replay.hub-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { animation-delay: calc(var(--hub-stagger, 0.12s) * 2); }
-  .hub-canvas.hub-replay.hub-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { animation-delay: calc(var(--hub-stagger, 0.12s) * 3); }
-  .hub-canvas.hub-replay.hub-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { animation-delay: calc(var(--hub-stagger, 0.12s) * 4); }
-  .hub-canvas.hub-replay.hub-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger, 0.12s) * 5); }
-  .hub-canvas.hub-replay.hub-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger, 0.12s) * 6); }
-  .hub-canvas.hub-replay.hub-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 8) { animation-delay: calc(var(--hub-stagger, 0.12s) * 7); }
-}
-
 /* ⬚ PICKMENU GRID — Move ▾ opens a 3×3 grid of arrows (owner 2026-10-04:
    "drop down shows the 3x3 grid?" → yes). `PickMenu` stamps `data-pick-grid`
    on its list; the cells are its ordinary options, laid out here: 44px
@@ -7325,6 +7295,34 @@ html:has(.hub-shape-full) { overflow-x: clip; }
         cursor: pointer;
       }
     }
+    /* ▶ PLAY REPLAYS THE CHOSEN MOTION (owner, 2026-10-06: Schedule › Animate ·
+       Editorial · follows the scroll · Fade · from the right · Grow · Blur — and
+       ▶ Preview showed none of it). The Maker's canvas marks a scene's frame
+       `sn-replay` for ONE arrival (`app/[slug]/_components/scene-replay.ts` — an
+       editor class, never the guest contract's): its OWN keyframe (`--hub-in-kf`),
+       on TIME instead of the scroll — whole, or part after part — and the bridge
+       restarts it from its first frame. Inside these gates like every binding:
+       where a guest's browser draws no scene motion, Play shows none either.
+       Specificity is doubled and the rules come last, so they out-rank the timed
+       and scrubbed rules above; a part with motion of its own keeps its own rule
+       (it replays its own In). */
+    .hub-canvas.sn-replay.sn-replay.hub-seq-whole > .hub-canvas-body,
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > * {
+      animation-name: var(--hub-in-kf, none);
+      animation-duration: var(--hub-duration, 1.1s);
+      animation-timing-function: var(--hub-ease, ease-out);
+      animation-delay: 0s;
+      animation-fill-mode: both;
+      animation-timeline: auto;
+      animation-range: normal;
+    }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(2) { animation-delay: calc(var(--hub-stagger, 0.12s) * 1); }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(3) { animation-delay: calc(var(--hub-stagger, 0.12s) * 2); }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(4) { animation-delay: calc(var(--hub-stagger, 0.12s) * 3); }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(5) { animation-delay: calc(var(--hub-stagger, 0.12s) * 4); }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(6) { animation-delay: calc(var(--hub-stagger, 0.12s) * 5); }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(7) { animation-delay: calc(var(--hub-stagger, 0.12s) * 6); }
+    .hub-canvas.sn-replay.sn-replay.hub-seq-parts > .hub-canvas-body > * > *:nth-child(n + 8) { animation-delay: calc(var(--hub-stagger, 0.12s) * 7); }
   }
 }
 

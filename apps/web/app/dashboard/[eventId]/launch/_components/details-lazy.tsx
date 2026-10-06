@@ -136,6 +136,8 @@ export const StageStepPreview = dynamic(() => import(/* webpackChunkName: "maker
 /* ── The stage editor's background controls (#6135): shown when Main or a scene is edited ── */
 export const MainBackgroundPanel = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.MainBackgroundPanel), { loading: SlotRows });
 export const HeroFrameSync = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/main-background-panel').then((m) => m.HeroFrameSync), { loading: SlotNone });
+/* 🎬 A scene's Animate tab — loaded when it first opens, never in the Maker's first load. */
+export const SceneAnimateTab = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-animate-tab').then((m) => m.SceneAnimateTab), { loading: SlotRows });
 export const SceneBackgroundRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ '../../website/editor/_components/scene-background-row').then((m) => m.SceneBackgroundRow), { loading: SlotRows });
 /* 🥗 …and the Main look's Colours panel and the Pro rows' locked panel (rd/maker-diet,
    2026-09-30): each draws only when its row is opened — "Main" and a Pro row are

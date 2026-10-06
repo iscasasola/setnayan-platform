@@ -15,22 +15,24 @@
  * the only thing the couple saw was the stand-in — identical for Calm, Editorial
  * and Cinematic. A control whose preview cannot show what it chose.
  *
- * ✅ WHAT PLAYS NOW. The scene's frame wears `hub-replay` for one arrival
- * (`globals.css`, "PLAY REPLAYS THE CHOSEN MOTION"): its OWN keyframe, on TIME
+ * ✅ WHAT PLAYS NOW. The scene's frame wears `sn-replay` (an editor class,
+ * never the guest contract's) for one arrival (`globals.css`, "PLAY REPLAYS THE
+ * CHOSEN MOTION", inside the same motion gates as every binding): its OWN keyframe, on TIME
  * rather than on the scroll, whole or part after part as the scene arrives —
  * restarted from its first frame (`getAnimations` → cancel → play, the browser's
  * own restart). Every part with motion of its own replays its own In
  * (`replayPart`, the bridge's `replayElementIn` — the `-p` twin). The class
  * comes off after the longest arrival, and the page is the page again.
  *
- * Reduced motion: the rules sit behind `prefers-reduced-motion: no-preference`,
- * so nothing moves and the caller flashes the section instead.
+ * Reduced motion, or a browser without scroll-driven animations (where guests
+ * see no scene motion either): the rules do not apply, nothing restarts, and
+ * the caller flashes the section instead.
  *
  * DOM-shaped but not DOM-bound (duck-typed), so a test can drive it.
  */
 
 /** The class the frame wears for one replay (`globals.css`). */
-export const SCENE_REPLAY_CLASS = 'hub-replay';
+export const SCENE_REPLAY_CLASS = 'sn-replay';
 /** Long enough for the slowest arrival: 1.1s + seven staggers of 0.12s, and a margin. */
 export const SCENE_REPLAY_MS = 2600;
 

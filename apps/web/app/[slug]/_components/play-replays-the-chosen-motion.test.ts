@@ -4,11 +4,11 @@
  * — and ▶ Preview showed none of it). `scene-replay.ts` says why.
  *
  *   1. A scene's play restarts its OWN arrivals (`hub-in-*`, `el-in-*`), never
- *      its departures, and wears `hub-replay` for one arrival.
+ *      its departures, and wears `sn-replay` for one arrival.
  *   2. A part's Build in really changes what it renders on Play: its arrival is
  *      swapped to the `-p` twin, the browser's only CSS restart.
- *   3. The replay rule binds `--hub-in-kf` on TIME and is outside the
- *      `animation-timeline` support gate.
+ *   3. The replay rule binds `--hub-in-kf` on TIME, inside BOTH motion gates
+ *      (where a guest's browser draws no scene motion, Play shows none either).
  *   4. The canvas's `play` uses it — the generic stand-in fade is gone.
  *
  * Sabotage: make `replaySceneIn` or `replayElementIn` a no-op → 1/2 go red.
@@ -78,14 +78,15 @@ test("a part's Build in changes its rendered motion state on Play (the -p twin)"
   }
 });
 
-test('the replay rule binds the chosen keyframe on time, outside the support gate', () => {
+test('the replay rule binds the chosen keyframe on time, inside both motion gates', () => {
   const css = readFileSync(join(WEB, 'app', 'globals.css'), 'utf8');
-  const at = css.indexOf('.hub-canvas.hub-replay.hub-replay.hub-seq-whole > .hub-canvas-body');
+  const at = css.indexOf('.hub-canvas.sn-replay.sn-replay.hub-seq-whole > .hub-canvas-body');
   assert.ok(at > 0, 'the replay rule exists');
   const rule = css.slice(at, css.indexOf('}', at));
   assert.match(rule, /animation-name:\s*var\(--hub-in-kf/);
   assert.match(rule, /animation-timeline:\s*auto/);
-  /* Every `@supports (animation-timeline: view())` block, start to its matching brace — the rule is in none. */
+  /* The block it sits in, by brace matching: the `@supports (animation-timeline: view())` gate holds it. */
+  let inside = false;
   for (let g = css.indexOf('@supports (animation-timeline: view())'); g >= 0; g = css.indexOf('@supports (animation-timeline: view())', g + 1)) {
     let i = css.indexOf('{', g);
     let depth = 0;
@@ -93,8 +94,9 @@ test('the replay rule binds the chosen keyframe on time, outside the support gat
       if (css[i] === '{') depth++;
       else if (css[i] === '}' && --depth === 0) break;
     }
-    assert.ok(!(at > g && at < i), 'the replay rule is not inside the animation-timeline support gate');
+    if (at > g && at < i && css.slice(g, at).includes('prefers-reduced-motion: no-preference')) inside = true;
   }
+  assert.ok(inside, 'the replay rule is inside the support gate and the reduced-motion gate');
 });
 
 test("the canvas's play replays the chosen motion — the stand-in fade is gone", () => {

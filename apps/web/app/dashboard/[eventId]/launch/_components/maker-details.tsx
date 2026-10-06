@@ -19,6 +19,9 @@ import {
   Link2,
   Mail,
   MailCheck,
+  Music,
+  Type,
+  Paintbrush,
   MessageSquareText,
   MailOpen,
   PanelTop,
@@ -50,6 +53,7 @@ import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
   LOOK_ITEM_KEYS,
+  LOOK_SECTION_ITEM_KEYS,
   RSVP_PIECES,
   STORY_ITEM_KEYS,
   WORDS_ITEM_KEYS,
@@ -63,6 +67,7 @@ import {
   type DetailsItemModel,
   type EventItemKey,
   type LookItemKey,
+  type LookSectionItemKey,
   type StoryItemKey,
   type WordsItemKey,
 } from '@/lib/maker-details-items';
@@ -84,6 +89,7 @@ import {
   ScheduleSlots,
   SpecialMessageField,
 } from './details-lazy';
+import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
@@ -477,6 +483,11 @@ export function MakerDetails(props: MakerDetailsProps) {
       if (k === 'hero' && coverA?.sub) return { ...row, sub: coverA.sub };
       return row;
     }
+    if ((LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(k)) {
+      /* 🎨 Background · Colours · Font · Music — each the Look panel on its own
+         section(s) (owner 2026-10-06, "EVENT DETAILS IS REBUILT"). */
+      return lookSectionRow(k as LookSectionItemKey, theme.chosen);
+    }
     if (k === 'theme') {
       /* 🎨 The Look item (its key stays `theme` — addresses and the guided flow
          name it; the couple never reads it): Background · Font · Colours ·
@@ -528,11 +539,13 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
   const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
     key: g.group,
     label: g.label,
     items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
+    ...(g.form ? { form: true as const } : {}),
+    ...(g.hidden ? { hidden: true as const } : {}),
   }));
 
   /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
@@ -746,6 +759,10 @@ export function MakerDetails(props: MakerDetailsProps) {
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
     /* 🎨 LOOK IS ONE PANEL — Background · Font · Colours · Buttons (`lib/maker-look-sections.ts`). */
     theme: <LookPanel filmLine={filmLine} />,
+    background: <LookPanel filmLine={filmLine} sections={LOOK_ITEM_SECTIONS.background} />,
+    colours: <LookPanel sections={LOOK_ITEM_SECTIONS.colours} />,
+    font: <LookPanel sections={LOOK_ITEM_SECTIONS.font} />,
+    music: <LookPanel sections={LOOK_ITEM_SECTIONS.music} />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */
@@ -943,6 +960,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         initial={startItem}
         guide={guide}
         coverUrl={props.coverUrl ?? null}
+        /* 🖼 Background · Colours · Font · Music show the ONE page the whole Look shows. */
+        bodyAlias={{ background: 'theme', colours: 'theme', font: 'theme', music: 'theme' }}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{
@@ -1027,7 +1046,8 @@ function lookLabel(
       };
     case 'hero':
       return {
-        label: 'Hero',
+        /* "Cover page" (owner 2026-10-06) — the guest's first screen; never "Hero". */
+        label: 'Cover page',
         done: look.heroDone,
         usedOn: look.heroOn,
         icon: <PanelTop aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
@@ -1039,6 +1059,21 @@ function lookLabel(
         usedOn: look.revealOn,
         icon: <MailOpen aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
       };
+  }
+}
+
+/** 🎨 A Look section's row (owner 2026-10-06): plain words, its own small glyph. */
+function lookSectionRow(k: LookSectionItemKey, chosen: boolean): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } {
+  const icon = { className: 'h-4 w-4', strokeWidth: 1.75, 'aria-hidden': true } as const;
+  switch (k) {
+    case 'background':
+      return { label: 'Background', sub: 'A colour, a moving background or your own photo', done: chosen, usedOn: ['every stage'], icon: <ImageIcon {...icon} /> };
+    case 'colours':
+      return { label: 'Colours', sub: 'Page · text · buttons', usedOn: ['every stage', 'every print'], icon: <Paintbrush {...icon} /> };
+    case 'font':
+      return { label: 'Font', usedOn: ['every stage', 'every print'], icon: <Type {...icon} /> };
+    case 'music':
+      return { label: 'Music', sub: 'On or off · the song', usedOn: ['every stage'], icon: <Music {...icon} /> };
   }
 }
 

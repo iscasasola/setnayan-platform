@@ -29,14 +29,10 @@ import {
   type MarchOut,
   type MarchSection,
   type MarchSource,
-  type MarchStep,
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
-import { setEntourageLineOrder } from '../../guests/entourage-order-actions';
-import { joinEntourageLine, moveEntourageSection, resetEntourageSections, setMarchWalking, swapEntouragePlaces } from '../../guests/march-actions';
+import type { HubDraftPatch } from '@/lib/hub-draft';
 import { MarchTray } from './details-march-tray';
-import { unpairGuestAction } from '../../guests/pair-actions';
-import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 
 /**
  * THE WEDDING MARCH MAKER — drag the names (owner 2026-10-06, DECISION_LOG "THE
@@ -51,9 +47,9 @@ import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
  *
  * What each drop means, and which SHIPPED action carries it, is
  * `lib/march-drag.ts` (pure, tested gesture by gesture). This file only lifts,
- * hit-tests, draws the drop at once, and sends the steps in order through
- * `makerSave` — one refresh per burst. A refused step puts the march back as
- * the server has it and says why.
+ * hit-tests, draws the drop at once, and DRAFTS the drop's steps through
+ * `makerSave` — one refresh per burst. A draft save that does not land puts
+ * the march back as the draft has it and says why.
  *
  * 📱 Touch: a long-press (~250 ms) lifts a name, so a plain swipe still
  * scrolls; the list auto-scrolls near its edges. Desktop: a 4 px drag lifts.
@@ -64,9 +60,14 @@ import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
  * ⚖ Pairs are NOT couples ("A WALK AND A COUPLE ARE INDEPENDENT"): nothing here
  * says one. The word is "walk alone", never "solo".
  *
- * ⏱ IT WRITES LIVE (the march is not part of the Event Hub draft): it says so
- * with `HubSavesImmediately`, and `data-writes-live` tells the guided flow's
- * Skip that nothing is left unsaved.
+ * ⏳ IT WAITS FOR APPLY (owner 2026-10-06, *"Wait for apply"* — reversing the
+ * 2026-10-05 "keep instant"): a drop is a hub-draft `save` carrying the drop's
+ * steps (`march`, added after the ones already drafted — `lib/march-draft.ts`).
+ * Guests see nothing until ✓ Apply, which replays every drafted step through
+ * the shipped march actions (`guests/march-step.ts`). The march drawn here is
+ * the live one with the drafted moves laid on (`replayMarch`, in the loader).
+ * Opening the march writes nothing. Undo on the toast takes the last drafted
+ * move back off (`marchUndo`); the toolbar's ↺ Undo steps the draft back too.
  */
 
 export type MarchSectionData = MarchSection;
@@ -75,9 +76,6 @@ export type MarchSectionData = MarchSection;
 const DID_NOT_GO = 'That did not go through — nothing was changed.';
 // no-card-ok: a NAME you drag (a pressable chip), not a container — its edge is what the finger picks up.
 const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col justify-center rounded-lg border px-2.5 py-1.5 transition-[box-shadow,opacity] duration-150 [-webkit-touch-callout:none]'; // no-card-ok: a draggable name chip
-/** A refusal after part of the same move was saved. */
-const partly = (reason: string) =>
-  `${reason.replace(/\s*[—-]\s*nothing was changed\.?$/i, '.').replace(/\.\.$/, '.')} Part of the move was saved — the march shows where everyone is now.`;
 const LAB_SAVED: MarchResult = { ok: true, written: 1 };
 /* Stable empties: a fresh `[]` default every render would look like a new march from the server each time. */
 const NO_NAMES: readonly string[] = [];
@@ -87,27 +85,23 @@ const LONG_PRESS_MS = 250;
 const SETTLE_MS = 240;
 const EDGE_PX = 56;
 
-/** One shipped action per step — the only door to the server from this maker. */
-async function callStep(eventId: string, step: MarchStep): Promise<MarchResult> {
-  switch (step.kind) {
-    case 'swap':
-      return swapEntouragePlaces(eventId, step.section, step.a, step.b);
-    case 'join':
-      return joinEntourageLine(eventId, step.section, step.anchor, step.joiner);
-    case 'order':
-      return setEntourageLineOrder(eventId, step.section, step.leads);
-    case 'section':
-      return moveEntourageSection(eventId, step.section, step.direction);
-    case 'sections-default':
-      return resetEntourageSections(eventId);
-    case 'walking':
-      return setMarchWalking(eventId, step.guest, step.walks);
-    case 'unpair':
-      /* "they walk alone, right behind it" — the Guest list's own unpair, in place
-         (a refusal is THROWN in this mode; the catch below says it). */
-      await unpairGuestAction(eventId, step.guest, 'in-place');
-      return { ok: true, written: 1 };
-  }
+/** What one drop puts in the draft: its steps, after the drafted ones — or the last drafted move back off. */
+type MarchDraftPatch = Pick<HubDraftPatch, 'march' | 'marchUndo'>;
+
+/**
+ * The ONE door to the server from this maker: the Event Hub draft's own save
+ * (`hubDraftAction` intent=save). It never touches the march guests see — Apply
+ * does, through the shipped march actions.
+ */
+async function draftStep(eventId: string, patch: MarchDraftPatch): Promise<MarchResult> {
+  const fd = new FormData();
+  fd.set('intent', 'save');
+  fd.set('patch', JSON.stringify(patch));
+  /* Loaded at the first drop, not with the march: opening the march draws it and
+     reaches for no server door at all (and its render needs no server module). */
+  const { hubDraftAction } = await import('../../website/hub-draft-actions');
+  const r = await hubDraftAction(eventId, fd);
+  return r.ok ? { ok: true, written: 1 } : { ok: false, reason: r.error };
 }
 
 type Drag = {
@@ -124,7 +118,7 @@ type Drag = {
 
 /** What the maker shows: the walks, the printed sections' saved order (what a header drag steps through), the tray. */
 type Shown = { sections: MarchSection[]; printed: string[]; out: MarchOut[] };
-type Toast = { said: string; undo: MarchStep[] | null; before: Shown | null; refused?: boolean };
+type Toast = { said: string; undo: boolean; before: Shown | null; refused?: boolean };
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
@@ -153,7 +147,26 @@ type MarchMakerProps = {
   /** 🚶 The "Not walking" tray (`marchTray`); null = it could not be read. */
   out?: readonly MarchOut[] | null;
   lab?: boolean;
+  /** 🚶 The Event Hub draft could not be read — the drafted moves are unknown, so nothing may be dragged. */
+  draftUnread?: boolean;
 };
+
+/** The one line the march draws when it cannot be shown — with Retry, which draws it again from the server's copy. */
+function CouldNotLoad({ onRetry }: { onRetry: () => void }) {
+  return (
+    <p role="alert" data-march-failed="" className="mx-auto max-w-md text-sm text-ink/70">
+      The march couldn’t load —{' '}
+      <button
+        type="button"
+        data-march-retry=""
+        onClick={onRetry}
+        className="min-h-9 font-semibold text-terracotta-800 underline underline-offset-2"
+      >
+        Retry
+      </button>
+    </p>
+  );
+}
 
 /**
  * 🧯 THE MARCH FAILS ALONE (controller 2026-10-06, after the owner's Maker went to
@@ -175,20 +188,12 @@ export class MarchBoundary extends Component<{ children: ReactNode }, { failed: 
   override render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <p role="alert" data-march-failed="" className="mx-auto max-w-md text-sm text-ink/70">
-        The march couldn’t load —{' '}
-        <button
-          type="button"
-          data-march-retry=""
-          onClick={() => {
-            this.setState({ failed: false });
-            requestMakerRefresh();
-          }}
-          className="min-h-9 font-semibold text-terracotta-800 underline underline-offset-2"
-        >
-          Retry
-        </button>
-      </p>
+      <CouldNotLoad
+        onRetry={() => {
+          this.setState({ failed: false });
+          requestMakerRefresh();
+        }}
+      />
     );
   }
 }
@@ -199,6 +204,9 @@ export class MarchBoundary extends Component<{ children: ReactNode }, { failed: 
  * walked on fixture data with no database. Inside its own boundary (`MarchBoundary`).
  */
 export function MarchMaker(props: MarchMakerProps) {
+  /* 🚶 An unread draft is said, never drawn as a march with no drafted moves:
+     a drop planned on it would be laid after moves the couple cannot see. */
+  if (props.draftUnread) return <CouldNotLoad onRetry={requestMakerRefresh} />;
   return (
     <MarchBoundary>
       <MarchMakerBody {...props} />
@@ -275,44 +283,40 @@ function MarchMakerBody({
   };
 
   /**
-   * Show `next` NOW, then send `steps` one after another (each re-reads the
-   * march on the server, so they may not overlap). A refusal ends the burst:
-   * what is still queued is dropped and the march goes back to the server's.
+   * Show `next` NOW, then put the drop in the DRAFT (`patch`) — one save per
+   * drop, one after another, so the moves land in the order they were made. A
+   * save that does not land ends the burst: what is still queued is dropped and
+   * the march goes back to the draft's.
    */
   const commit = useCallback(
-    (next: Shown, steps: readonly MarchStep[], said: Toast) => {
+    (next: Shown, patch: MarchDraftPatch, said: Toast) => {
       flip.current = measure();
       setMine(next);
       say(said);
       const mineEra = era.current;
-      let landed = 0;
-      for (const step of steps) {
-        inFlight.current += 1;
-        chain.current = chain.current
-          .then(async () => {
+      inFlight.current += 1;
+      chain.current = chain.current
+        .then(async () => {
           try {
             if (era.current !== mineEra) return;
-            // The lab draws the drop and sends nothing; a thrown action is said in plain words.
+            // The lab draws the drop and drafts nothing; a thrown save is said in plain words.
             const r: MarchResult = await makerSave(
-              () => (lab ? Promise.resolve(LAB_SAVED) : callStep(eventId, step).catch(() => ({ ok: false as const, reason: DID_NOT_GO }))),
+              () => (lab ? Promise.resolve(LAB_SAVED) : draftStep(eventId, patch).catch(() => ({ ok: false as const, reason: DID_NOT_GO }))),
               // The lab has no server march to come back, so it asks for no render either.
               lab ? LAB_NO_RENDER : requestMakerRefresh,
             );
-            if (r.ok) landed += 1;
-            else if (era.current === mineEra) {
+            if (!r.ok && era.current === mineEra) {
               era.current += 1;
               flip.current = measure();
               setMine(null);
-              // Half a move is not "nothing changed": say what stands (the refresh draws it).
-              say({ said: landed > 0 ? partly(r.reason) : r.reason, undo: null, before: null, refused: true });
+              say({ said: r.reason, undo: false, before: null, refused: true });
             }
           } finally {
             inFlight.current -= 1;
           }
-          })
-          // A save that throws must never wedge the queue (every later step would wait forever).
-          .catch(() => {});
-      }
+        })
+        // A save that throws must never wedge the queue (every later drop would wait forever).
+        .catch(() => {});
     },
     [eventId, lab, say],
   );
@@ -321,21 +325,23 @@ function MarchMakerBody({
     (plan: MarchMove | null) => {
       if (!plan) return;
       if (!plan.ok) {
-        say({ said: plan.reason, undo: null, before: null, refused: true });
+        say({ said: plan.reason, undo: false, before: null, refused: true });
         return;
       }
-      commit({ sections: plan.sections, printed: plan.printed, out: plan.out ?? shownOut }, plan.steps, {
+      commit({ sections: plan.sections, printed: plan.printed, out: plan.out ?? shownOut }, { march: [plan.steps] }, {
         said: plan.said,
-        undo: plan.undo,
+        undo: true,
         before: { sections: shown, printed: shownPrinted, out: shownOut },
       });
     },
     [commit, say, shown, shownPrinted, shownOut],
   );
 
+  /* Undo: the last drafted move comes back off the draft — nothing is sent to the
+     march guests see, so there is nothing to reverse there. */
   const undo = () => {
-    if (!toast?.undo?.length || !toast.before) return;
-    commit(toast.before, toast.undo, { said: 'Put back', undo: null, before: null });
+    if (!toast?.undo || !toast.before) return;
+    commit(toast.before, { marchUndo: true }, { said: 'Put back', undo: false, before: null });
   };
 
   /* ── the re-flow (FLIP) and the ghost's landing, after the drop is drawn ── */
@@ -709,7 +715,6 @@ function MarchMakerBody({
     <section
       ref={root}
       data-march-maker=""
-      data-writes-live=""
       aria-label="Wedding March — drag a name to move it"
       onPointerDown={onPointerDown}
       onKeyDown={onKeyDown}
@@ -726,12 +731,9 @@ function MarchMakerBody({
       onDragStart={(e) => e.preventDefault()}
       className={`mx-auto flex w-full max-w-2xl select-none flex-col pb-6 ${dragging ? 'cursor-grabbing' : ''}`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
-        <p className="text-xs text-ink/60" data-march-count="">
-          {walks} walk{walks === 1 ? '' : 's'} · {people} walking
-        </p>
-        <HubSavesImmediately />
-      </div>
+      <p className="px-1 pb-1 text-xs text-ink/60" data-march-count="">
+        {walks} walk{walks === 1 ? '' : 's'} · {people} walking
+      </p>
       <div aria-hidden className="grid grid-cols-[2rem_1fr_1fr] gap-1.5 px-1.5 pt-1 font-mono text-[10px] uppercase tracking-[0.2em] text-terracotta-800">
         <span />
         <span className="text-center">Left</span>

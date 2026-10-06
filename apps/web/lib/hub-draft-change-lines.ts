@@ -42,6 +42,7 @@ import { seededTheme } from '@/lib/theme-colours';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
+import { MARCH_DRAFT_PLACE, marchChangesWord } from '@/lib/march-draft';
 
 const LOOK = 'Look';
 /** The toolbar's Event Details (`MAKER_DETAILS_LABEL`, launch/_components/maker-bar.ts). */
@@ -176,6 +177,10 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
     }
     case 'fixed-style':
       return { place: FIXED_STYLE_LABEL[item.scene], what: 'Style' };
+    /* 🚶 The Wedding March's drafted moves, ONE line (owner 2026-10-06, "Wait for
+       apply"): "Wedding March · 3 changes" — one per drop the couple made. */
+    case 'march':
+      return { place: MARCH_DRAFT_PLACE, what: marchChangesWord(item.value.length) };
     case 'widget': {
       const place = scenePlace(item.widgetType);
       switch (item.field) {

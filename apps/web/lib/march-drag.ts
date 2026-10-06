@@ -548,7 +548,8 @@ function planOut(sections: readonly MarchSection[], out: readonly MarchOut[], id
     ok: true,
     sections: next,
     printed: [],
-    out: [...out, { ...p, section: sec.key, sectionLabel: sec.label }],
+    // First in the tray: the name just dropped is the one most likely dragged back.
+    out: [{ ...p, section: sec.key, sectionLabel: sec.label }, ...out],
     steps: [{ kind: 'walking', section: sec.key, guest: id, walks: false }],
     said: `${p.name} is not walking${mate ? ` · ${mate.name} now walks alone` : ''}`,
     // Back in, then the section exactly as it was (they come back unplaced, at its end).

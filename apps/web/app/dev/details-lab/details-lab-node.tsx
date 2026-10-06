@@ -14,7 +14,7 @@
  *
  *   ?item=invitation      open on one item (default: Theme, as a cold open)
  *   ?item=march           the Wedding March maker on fixtures — drags drawn, never sent
- *                         (+ `&shape=owner`: the owner-shaped march, 45 walks · 80 walking)
+ *                         (+ `&march=owner`: the owner-shaped march, 45 walks · 80 walking)
  *   ?pro=1                a couple with Event Hub Pro
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
@@ -110,7 +110,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           nudge: null,
         },
         venues: { resolved: [], slots: [], city: null },
-        march: marchLab ? { ...labMarchSections(one('shape')), lab: true } : { sections: [] },
+        march: marchLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
       }
     : null;
   const needsDb = (what: string) => <p className="p-6 text-sm text-ink/60">{what} is read from the database — open it in the Maker.</p>;

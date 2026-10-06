@@ -60,7 +60,7 @@ const LAB_OUT = new Set(['p38', 'p35', 'p20']);
 const sideOf = (role: string): string => (role.startsWith('groom') ? 'groom' : role.startsWith('bride') ? 'bride' : 'both');
 
 /**
- * `?shape=owner` — a march the shape of the owner's own event (45 walks · 80
+ * `?march=owner` — a march the shape of the owner's own event (45 walks · 80
  * walking, `lib/march-owner-shape.fixture.ts`) with six people in the tray;
  * otherwise maria-and-jose's couple + entourage with three.
  */

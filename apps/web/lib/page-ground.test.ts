@@ -18,17 +18,18 @@ import { stripComments } from './strip-comments';
 const WEB = join(__dirname, '..');
 const read = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-test('the hero may be the page ground on a Pro theme, or on a free one the event owns Pro for — never Classic', () => {
+test('the hero may be the page ground on a Pro theme, or on any free one — Classic included — the event owns Pro for', () => {
   const pro = INVITE_THEME_IDS.filter((t) => INVITE_THEMES[t].tier === 'pro');
   assert.ok(pro.length >= 1 && pro.length < INVITE_THEME_IDS.length, 'precondition: both tiers exist');
   for (const t of INVITE_THEME_IDS) {
-    const classic = t === 'house';
-    // Without the unlock: a Pro theme only (it resolved, so ownership is decided upstream).
-    assert.equal(heroMayBePageGround(t, false), INVITE_THEMES[t].tier === 'pro', `${t} without Pro`);
-    // With it (owner 2026-09-29, "yes"): every theme but Classic.
-    assert.equal(heroMayBePageGround(t, true), !classic, `${t} with Pro`);
+    // Without the unlock: a Pro theme with its own loop only (it resolved, so ownership is decided upstream).
+    assert.equal(heroMayBePageGround(t, false), INVITE_THEMES[t].tier === 'pro' && Boolean(INVITE_THEMES[t].media), `${t} without Pro`);
+    // With it (owner 2026-09-29, "yes"): every theme — Classic too since 2026-10-06
+    // (DECISION_LOG "EVENT DETAILS IS REBUILT": the Classic "no photo or video" rule is dropped).
+    assert.equal(heroMayBePageGround(t, true), true, `${t} with Pro`);
   }
-  assert.equal(heroMayBePageGround('house', true), false, 'Classic never wears the hero as its ground');
+  assert.equal(heroMayBePageGround('house', true), true, 'Classic with Pro may wear its own photo/video');
+  assert.equal(heroMayBePageGround('house', false), false, 'Classic without Pro shows Pro media');
   assert.equal(heroMayBePageGround(null, true), false);
   assert.equal(heroMayBePageGround(undefined, true), false);
 });

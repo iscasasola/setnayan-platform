@@ -324,14 +324,16 @@ const BIRTHDAY_KIND = {
   offeredRoles: ['guest', 'host', 'vip', 'family', 'helper'],
 };
 
-test('🔑 there is a LABELLED way in — the march is an item of Details › Your event', () => {
+test('🔑 there is a LABELLED way in — the march is an item of Details › Story & plans', () => {
   /*
     The panel once had no entry point at all (a role filter only), then a tab
     on the Guest list. Owner 2026-09-29: its home is the Maker — the navigator
-    item, in the owner's word. Executed, not grepped.
+    item, in the owner's word. Executed, not grepped. Since 2026-10-06 ("EVENT
+    DETAILS IS REBUILT") it is the first of the items with an editor of their
+    own — Story & plans — and it holds Parents & hosts too.
   */
-  const group = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event');
-  assert.ok(group?.keys.includes('march'), 'Details › Your event has no march');
+  const group = DETAILS_ITEM_GROUPS.find((g) => g.group === 'story');
+  assert.ok(group?.keys.includes('march'), 'Details › Story & plans has no march');
   assert.equal(yourEventLabel('march', WEDDING_KIND), 'Wedding March', 'the item has no readable label');
   assert.equal(detailsItemHref('E', 'march'), '/dashboard/E/launch?tool=details&item=march');
   // An old Guest list link lands on it.

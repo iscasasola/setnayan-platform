@@ -73,20 +73,44 @@ const WORD: Record<LookPageKey, string> = { logo: 'Logo', hero: 'hero', reveal: 
  * arrived SAYS so. `filmLine` (the Save the Date film's "Same as the Event Hub")
  * sits under Background, the ground it hands the film back to.
  */
-export function LookPanel({ filmLine = null }: { filmLine?: ReactNode }) {
+export function LookPanel({
+  filmLine = null,
+  sections = LOOK_SECTIONS,
+  item,
+}: {
+  filmLine?: ReactNode;
+  sections?: readonly LookSection[];
+  /**
+   * 🔑 ONE MOUNT OF EACH CONTROL (review 2026-10-06): the whole Look (`theme`) and
+   * Background · Colours · Font · Music draw the SAME registered nodes — mounted
+   * twice they would hold two states and two on-open measurements. Named, a
+   * panel draws only while its item is the one open in the Maker.
+   */
+  item?: string;
+}) {
   const maker = useMaker();
   const look = maker?.lookPages?.look ?? null;
   const late = useLate(Boolean(look));
+  if (item && maker && maker.detailsItem !== item) return null;
   const of = (k: LookSection): ReactNode =>
     !look ? null : k === 'colours' ? (look.colours || look.palette ? <>{look.colours}{look.palette}</> : null) : (look[k] ?? null);
+  /* 🗂 Never a blank panel (owner 2026-10-06): a section this event does not offer says so in one line. */
+  if (look && sections.every((k) => !of(k))) {
+    return (
+      <p className="text-sm text-ink/70" data-look-panel-empty={sections.join(' ')}>
+        Nothing to set here for this event.
+      </p>
+    );
+  }
   return (
-    <div data-look-panel="" className="flex flex-col gap-5">
-      {LOOK_SECTIONS.map((k, i) => {
+    <div data-look-panel={sections.length === LOOK_SECTIONS.length ? '' : sections.join(' ')} className="flex flex-col gap-5">
+      {sections.map((k, i) => {
         const node = of(k);
         if (look && !node) return null;
         return (
           <section key={k} data-look-section={k} className={`flex flex-col gap-2${i > 0 ? ' border-t border-ink/10 pt-4' : ''}`}>
-            <h3 className="text-[15px] font-semibold text-ink">{LOOK_SECTION_LABEL[k]}</h3>
+            {/* One section alone is named by its item's row — no second heading. */}
+            {sections.length > 1 ? <h3 className="text-[15px] font-semibold text-ink">{LOOK_SECTION_LABEL[k]}</h3> : null}
             {node ??
               (late ? (
                 <p role="alert" className="text-sm text-terracotta-700" data-look-section-failed={k}>

@@ -1506,7 +1506,6 @@ const CANVAS_KEY_GROUP: Record<string, CanvasFacetGroup> = {
 
 /** A part's Pro field → the group it is named by. */
 const ELEMENT_FIELD_GROUP: Record<(typeof HUB_ELEMENT_PRO_FIELDS)[number], CanvasFacetGroup> = {
-  font: 'font',
   motion: 'part-motion',
 };
 
@@ -1544,12 +1543,7 @@ export function canvasLookFacets(live: HubSectionCanvas, next: HubSectionCanvas)
         change: refChange(asText(live.elements?.[element]?.[field]), asText(next.elements?.[element]?.[field])),
       });
     }
-    out.push({
-      key: `el:${element}:runs`,
-      group: 'font',
-      element,
-      change: refChange(runFonts(live.elements?.[element]), runFonts(next.elements?.[element])),
-    });
+    /* 🔤 A text run's font is FREE since 2026-10-06 (the part's font too) — no facet. */
   }
   /* 🎬 A TEMPLATE SCENE'S PICTURES AND CLIP PLAYBACK (Maker Phase 5) — the same
      line `saveCustomSection` draws live (`lib/scene-writes.ts`): putting a

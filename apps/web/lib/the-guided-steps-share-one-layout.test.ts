@@ -657,7 +657,9 @@ test('(23) "Same as theme": first in the film\'s background picker and the defau
   assert.match(forget, /delete events\[column\];\s*await writeHubDraft\(supabase, eventId, \{ \.\.\.draft, events: /, 'the drafted column is not taken out of the draft');
   const details = read(`${L}/maker-details.tsx`);
   assert.match(details, /const filmLine = theme\.filmOwnBackground \? <FilmFollowsTheme eventId=\{eventId\} legibility=\{theme\.filmLegibility\} \/> : null;/);
-  assert.match(details, /theme: <LookPanel filmLine=\{filmLine\} \/>,/, 'the film line is not under Look');
+  // 2026-10-06: the whole Look (`theme`) and its Background row each carry the film line (one mount at a time — `item=`).
+  assert.match(details, /theme: <LookPanel filmLine=\{filmLine\} item="theme" \/>,/, 'the film line is not under Look');
+  assert.match(details, /background: <LookPanel filmLine=\{filmLine\} sections=\{LOOK_ITEM_SECTIONS\.background\} item="background" \/>,/, 'the film line is not under Look › Background');
   const page = read('app/dashboard/[eventId]/launch/page.tsx');
   assert.match(page, /'std_background' in draftedEvents\s*\? draftedEvents\.std_background/, 'the line ignores the draft (it would come back after a tap)');
   assert.match(page, /filmOwnBackground: mayShowStdFilm && filmBackgroundRead !== undefined && !stdFollowsTheme\(filmBackgroundRead\),/, 'a film following the theme (with a kept Readability) is offered "Same as theme" again');

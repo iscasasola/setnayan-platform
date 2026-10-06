@@ -337,7 +337,8 @@ function postEventEffects(drafted: PostEventSceneLooks | null, live: HubLiveStat
         else backed[field] = free[field];
         out.push({
           id: `pe:${key}:${part}:${field}`,
-          what: field === 'font' ? 'Font' : 'Animation',
+          // A part's font is free since 2026-10-06 — its motion is the one Pro field.
+          what: 'Animation',
           where: `${HUB_ELEMENT_LABEL[part]} on ${where}`,
           jump: { kind: 'row', key: `p:${key === 'chapters' ? 'ch-1' : key}` },
           remove: {

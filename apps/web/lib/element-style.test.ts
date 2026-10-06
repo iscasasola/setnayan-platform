@@ -218,15 +218,15 @@ const LIVE: HubLiveState = {
   ],
 };
 
-test('a free couple may TRY a part’s own FONT — Apply holds it back; a Pro couple has it written', () => {
-  // 💎 2026-09-28 redraw: the font is still Pro (owner's line did not cover it).
+test('a part’s own FONT is FREE — Apply writes it for every couple (owner 2026-10-06)', () => {
+  // 🔤 2026-10-06 ("EVENT DETAILS IS REBUILT": *"font on a single part is FREE"*) — was Pro since 2026-09-28.
   const draft = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { font: 'script' } } } } },
   });
   const free = planHubDraftApply(draft, LIVE, false);
-  assert.equal(free.apply.length, 0, 'nothing unpaid reaches the live page');
-  assert.equal(free.refused.length, 1);
-  assert.equal(free.refused[0]!.kind === 'widget' && free.refused[0]!.field, 'canvas');
+  assert.equal(free.refused.length, 0, 'a part’s font was held as Pro');
+  assert.equal(free.apply.length, 1, 'a free couple’s font did not reach the live page');
+  assert.equal(free.apply[0]!.kind === 'widget' && free.apply[0]!.field, 'canvas');
   const pro = planHubDraftApply(draft, LIVE, true);
   assert.equal(pro.apply.length, 1);
 });

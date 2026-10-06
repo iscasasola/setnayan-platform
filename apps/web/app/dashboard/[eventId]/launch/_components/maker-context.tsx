@@ -263,6 +263,8 @@ export type MakerLookPages = {
     palette: ReactNode | null;
     /** 🔘 Look › Buttons — Shape · Fill · Colour (owner 2026-10-04). */
     buttons?: ReactNode | null;
+    /** 🎵 Look › Music — the work area's own Music row (on/off · song · tap to play), moved whole (owner 2026-10-06). */
+    music?: ReactNode | null;
   } | null;
   /** The Reveal's settings: play it, its fine-tune, where it plays (the RIGHT column). */
   reveal: ReactNode | null;

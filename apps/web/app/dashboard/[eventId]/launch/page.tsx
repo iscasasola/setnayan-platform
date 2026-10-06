@@ -96,7 +96,10 @@ import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, 
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
-import { fetchEgiftMethods } from '@/lib/egift';
+import { fetchEgiftMethods, isPabuyaPublicRouteEnabled, readEgiftMethods } from '@/lib/egift';
+import { HubSavesImmediately } from '../website/_components/hub-draft-field';
+// ⚡ Through the lazy stand-in — never the manager's own module (the Maker's first-load budget).
+import { PabuyaManager } from './_components/details-lazy';
 import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
 import { printStoryChapters } from '@/lib/love-story-moments';
 import { passCardDesignFrom, passCardsZipFileNameOf } from '@/lib/pass-card';
@@ -1038,6 +1041,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
   if (hasWork) {
     const printAdmin = createAdminClient();
+    /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
+    const egiftAllP = readEgiftMethods(supabase, eventId);
+    const egiftVisibilityP = supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle();
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
@@ -1163,6 +1169,57 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */
       const detailsProfile = await resolveProfile(printEvent.event_type ?? '').catch(() => GENERIC_PROFILE);
+      /* 🎁 E-GIFTS, IN PLACE (owner 2026-10-06, "EVENT DETAILS IS REBUILT": "Give
+         details: where you will receive egifts and the complete details"): the
+         E-Gifts page's OWN manager — every method (shown and hidden), read through
+         the couple's client exactly as that page reads it — drawn in the Your
+         event form under "Accept gifts?". It writes live, as it always has. */
+      const egiftManager = await (async () => {
+        const [{ methods: all, read }, chrome] = await Promise.all([egiftAllP, egiftVisibilityP]);
+        if (chrome.error) logQueryError('LaunchPage.egiftChrome', chrome.error, { event_id: eventId }, 'graceful_degrade');
+        /* A refused read is SAID — never "no methods yet" with an add form under it. */
+        if (!read) {
+          return (
+            <p role="alert" className="text-sm text-terracotta-700" data-details-egifts-failed="">
+              Your gift details could not be read just now. Nothing was changed — please reopen this in a moment.
+            </p>
+          );
+        }
+        const row = (chrome.data ?? null) as { landing_page_visibility: string | null } | null;
+        const words = eventWordsFromProfile(detailsProfile);
+        const qrDisplayUrls: Record<string, string> = {};
+        for (const m of all) if (m.qr_r2_key && m.qrDisplayUrl) qrDisplayUrls[m.qr_r2_key] = m.qrDisplayUrl;
+        return (
+          <>
+          {/* The E-Gifts page's own writes — live, and said so (the thank-you beside it is too). */}
+          <HubSavesImmediately />
+          <PabuyaManager
+            eventId={eventId}
+            /* The preview's heading reads "E-Gifts for <the organizer word>" here — this
+               page reads no name it does not need (`the-controller-wires-what-it-measured`). */
+            coupleName={null}
+            organizerPossessive={words.theOrganizerPossessive}
+            theOrganizer={words.theOrganizer}
+            slug={printEvent.slug}
+            visibility={row?.landing_page_visibility ?? null}
+            eventWasRead={row !== null}
+            publicRouteEnabled={isPabuyaPublicRouteEnabled()}
+            initialMethods={all.map((m) => ({
+              egift_method_id: m.egift_method_id,
+              method_kind: m.method_kind,
+              label: m.label,
+              account_name: m.account_name,
+              handle: m.handle,
+              qr_r2_key: m.qr_r2_key,
+              note: m.note,
+              is_enabled: m.is_enabled,
+              qrDisplayUrl: m.qrDisplayUrl,
+            }))}
+            qrDisplayUrls={qrDisplayUrls}
+          />
+          </>
+        );
+      })();
       const themes = pickableInviteThemes();
       /* 🖨 THE COUPLE'S OWN PRINTS, folded in from Prints & Tickets (owner
          2026-09-28: "1 fold prints and tickets into details") — drawn in the
@@ -1604,6 +1661,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             })()}
             hasPalette={guided.palette}
             hasGifts={egifts.length > 0}
+            egiftManager={egiftManager}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
             stamp={String(Date.now())}
             eventContext={eventContext}

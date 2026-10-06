@@ -230,8 +230,12 @@ export const HUB_CANVAS_LOOK_KEYS = [
  * `lib/free-vs-pro-redrawn.test.ts`, so a new field has to be placed on one side
  * on purpose rather than drifting to whichever the comparison forgot.
  */
-export const HUB_ELEMENT_PRO_FIELDS = ['font', 'motion'] as const;
+/* 🔤 FONT ON A SINGLE PART IS FREE (owner 2026-10-06, DECISION_LOG "EVENT DETAILS
+   IS REBUILT": *"font on a single part is FREE too"*) — like the page's own font
+   (2026-10-05). Only a part's MOTION stays Pro. */
+export const HUB_ELEMENT_PRO_FIELDS = ['motion'] as const;
 export const HUB_ELEMENT_FREE_FIELDS = [
+  'font',
   'color',
   'size',
   'weight',
@@ -245,8 +249,8 @@ export const HUB_ELEMENT_FREE_FIELDS = [
   // 🗓 How the date and the time are written (Format ▾, tap-to-type) — words, free.
   'format',
 ] as const;
-/** A run's own fields: only its font is Pro. */
-export const HUB_RUN_PRO_FIELDS = ['font'] as const;
+/** A run's own fields: none is Pro since 2026-10-06 (a run's font is free, like the part's). */
+export const HUB_RUN_PRO_FIELDS = [] as const;
 
 /** The motion subset — what "Reset how it moves" takes off. */
 export const HUB_CANVAS_MOTION_KEYS = [

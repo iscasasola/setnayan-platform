@@ -3,7 +3,7 @@
 import { formatCount } from '@/lib/format-number';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check } from 'lucide-react';
-import { detailsItemLayout, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
+import { detailsItemLayout, detailsLtSection, groupOfItemSafe, type DetailsItemKey, type DetailsItemModel } from '@/lib/maker-details-items';
 import {
   GUIDE_PARAM,
   backScreen,
@@ -34,8 +34,6 @@ import { GUIDED_FLOW_TITLE, guidedStepBody } from '@/lib/guided-step-layout';
 import { MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MakerHalfSheet } from './maker-sheet';
 import { useMaker, useMakerTool } from './maker-context';
-import { LOOK_SECTIONS, LOOK_SECTION_LABEL, type LookSection } from '@/lib/maker-look-sections';
-import { makerDoorOf } from './maker-bar';
 import { IntoLowerThird, LOWER_THIRD_TILE, LOWER_THIRD_TILE_ON, LOWER_THIRD_TILE_PART, LOWER_THIRD_TILE_PLAIN } from './maker-lower-third';
 import { SheetSections } from './sheet-sections';
 
@@ -47,7 +45,44 @@ export type DetailsNavItem = DetailsItemModel & {
   panelLabel?: string;
 };
 
-export type DetailsNavGroup = { key: string; label: string; items: DetailsNavItem[] };
+export type DetailsNavGroup = {
+  key: string;
+  label: string;
+  items: DetailsNavItem[];
+  /** 🗂 ONE row in the list ("Your event"); picking it shows every item's editor, one under the other (owner 2026-10-06). */
+  form?: true;
+  /** Present (the guided flow and old addresses open them) but never a row of the list. */
+  hidden?: true;
+};
+
+/**
+ * 🗂 THE LIST AS IT IS DRAWN (owner 2026-10-06, "EVENT DETAILS IS REBUILT"): a
+ * hidden group draws no rows; a form group draws ONE row — named by the group,
+ * keyed by the item showing (else its first), so a press keeps the field in view.
+ * Pure, so a test holds it.
+ */
+export function detailsListGroups(groups: readonly DetailsNavGroup[], selected: DetailsItemKey): DetailsNavGroup[] {
+  return groups
+    .filter((g) => !g.hidden && g.items.length > 0)
+    .map((g) => {
+      if (!g.form) return g;
+      const on = g.items.find((i) => i.key === selected) ?? g.items[0]!;
+      const row: DetailsNavItem = {
+        key: on.key,
+        group: g.items[0]!.group,
+        label: g.label,
+        sub: g.items.map((i) => i.label).join(' · '),
+        icon: g.items[0]!.icon,
+        ...(g.items.every((i) => i.done !== undefined) ? { done: g.items.every((i) => i.done) } : {}),
+      };
+      return { ...g, items: [row] };
+    });
+}
+
+/** The form group an item belongs to, or null. */
+export function formGroupOf(groups: readonly DetailsNavGroup[], key: DetailsItemKey): DetailsNavGroup | null {
+  return groups.find((g) => g.form && g.items.some((i) => i.key === key)) ?? null;
+}
 
 /**
  * THE DETAILS PAGE WEARS THE MAKER'S THREE COLUMNS (owner 2026-09-28, verbatim:
@@ -150,7 +185,14 @@ export function DetailsWorkspace({
   pieces = {},
   guide = null,
   coverUrl = null,
+  bodyAlias = {},
 }: {
+  /**
+   * 🖼 Items that SHARE another item's picture (owner 2026-10-06: Background ·
+   * Colours · Font · Music each show the couple's own page — ONE frame, the
+   * whole Look's, never four). Key → the item whose body it shows.
+   */
+  bodyAlias?: Partial<Record<DetailsItemKey, DetailsItemKey>>;
   /** 🖼 The couple's cover photo (drafted over live, signed) — what the cover step shows behind its sheet. */
   coverUrl?: string | null;
   /** 🪜 The guided "What's left" (Details part 5); null = the navigator only (the lab without it). */
@@ -174,7 +216,15 @@ export function DetailsWorkspace({
   const maker = useMaker();
   /* The Maker's word wins when it names one of these items (a door elsewhere
      in the Maker asked for it); otherwise the page's own pick. */
-  const asked = maker?.detailsItem && items.some((i) => i.key === maker.detailsItem) ? maker.detailsItem : null;
+  /* 🗂 A door that names an item this event does not draw (a birthday's Love
+     Story) lands on the first item of that item's group that it does. */
+  const asked = (() => {
+    const k = maker?.detailsItem;
+    if (!k) return null;
+    if (items.some((i) => i.key === k)) return k;
+    const g = groups.find((x) => x.key === groupOfItemSafe(k));
+    return g && !g.hidden ? (g.items[0]?.key ?? null) : null;
+  })();
   const [own, setOwn] = useState<DetailsItemKey>(first);
   const selected = asked ?? own;
   const [visited, setVisited] = useState<ReadonlySet<DetailsItemKey>>(() => new Set([first]));
@@ -439,7 +489,16 @@ export function DetailsWorkspace({
   const navGroups: DetailsNavGroup[] =
     guidedOn && stepHere
       ? [{ key: 'step', label: stepHere.title, items: items.filter((i) => stepHere.items.includes(i.key)) }]
-      : groups;
+      : detailsListGroups(groups, selected);
+  /* 🗂 "Your event" is ONE form (owner 2026-10-06): in the list, its items' editors show one under the other. */
+  const formGroup = guidedOn ? null : formGroupOf(groups, selected);
+  const formKeys: ReadonlySet<DetailsItemKey> = new Set(formGroup?.items.map((i) => i.key) ?? []);
+  const showsEditor = (k: DetailsItemKey) => k === selected || formKeys.has(k);
+  const shownLabel = formGroup?.label ?? current.label;
+  const bodyOf = (k: DetailsItemKey): DetailsItemKey => bodyAlias[k] ?? k;
+  const bodyShown = (k: DetailsItemKey) => bodyOf(selected) === k;
+  /* The shared picture is named by the item showing ("Colours"), never its owner's ("Look"). */
+  const bodyLabel = (i: DetailsNavItem) => (i.key === selected ? i.label : current.label);
   const showNav = !guidedOn || (!onPane && (navGroups[0]!.items.length > 1 || Boolean(pieces[selected])));
   /* 📱 In the flow the editor is the step's HALF SHEET (`MakerHalfSheet`); in All items, the sheet over the dimmed page. */
   const stepSheet = mode === 'guided' && plan !== null;
@@ -483,72 +542,41 @@ export function DetailsWorkspace({
      NAVIGATOR's tiles — Look's under Theme, the prints under Settings › Prints,
      the rest under Details — and the picked item's editor is its TOOL. */
   const allItemsSheet = sheetOpen && !(mode === 'guided' && plan !== null) && layout !== 'whole';
-  /* 🎨 The Look section a Look tile opened (Background · Font · Colours · Buttons). */
-  const [lookAt, setLookAt] = useState<LookSection | null>(null);
   useMakerTool(allItemsSheet, {
     key: `details:${selected}`,
-    name: selected === 'theme' && lookAt ? LOOK_SECTION_LABEL[lookAt] : current.label,
+    name: shownLabel,
     close: () => setSheetOpen(false),
   });
   const setLtWhere = maker?.setLtWhere;
   useEffect(() => {
-    setLtWhere?.(current.label);
-  }, [setLtWhere, current.label]);
+    setLtWhere?.(shownLabel);
+  }, [setLtWhere, shownLabel]);
   useEffect(() => () => setLtWhere?.(null), [setLtWhere]);
-  /* The navigator lists the items of the door the picked item belongs to (Theme →
-     Look's, Details → the event's, Prints → the prints') — a jump to another
-     item (Look → the address) moves the lower third's pick with it. */
-  const ltDoor = makerDoorOf(selected);
+  /* The navigator lists the items of the picked item's part of the list (Look's,
+     Story & plans', Your event's one form, the prints) — a jump to another item
+     (a Look tile → the address) moves the lower third's pick with it. */
   const ltNav = maker?.ltNav ?? null;
-  /* 🎨 Look's PARTS first: the Look panel's own sections (`LOOK_SECTIONS` —
-     Background · Font · Colours · Buttons; no Theme since 2026-10-05); a tile
-     opens the panel at it. Then the other Look items (Mood Board · Logo · …),
-     each its own editor. */
-  const themeParts = ltDoor === 'look' && items.some((i) => i.key === 'theme') ? LOOK_SECTIONS : [];
-  useEffect(() => {
-    if (!lookAt || !sheetOpen || selected !== 'theme') return;
-    const id = window.requestAnimationFrame(() =>
-      editorRef.current?.querySelector(`[data-look-section="${lookAt}"]`)?.scrollIntoView({ block: 'start' }),
-    );
-    return () => window.cancelAnimationFrame(id);
-  }, [lookAt, sheetOpen, selected]);
+  const ltSection = (k: DetailsItemKey) => detailsLtSection(k);
+  const here = ltSection(selected);
   const ltTiles = ltNav ? (
     <IntoLowerThird to={ltNav}>
-          {themeParts.map((key) => {
-            const on = selected === 'theme' && sheetOpen && lookAt === key;
-            return (
-              <button
-                key={`look:${key}`}
-                type="button"
-                data-lt-tile={`look:${key}`}
-                data-lt-group="look"
-                aria-pressed={on}
-                onClick={() => {
-                  select('theme');
-                  setLookAt(key);
-                  setSheetOpen(true);
-                }}
-                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PART} ${on ? LOWER_THIRD_TILE_ON : ''}`}
-              >
-                <span className="flex min-h-0 flex-1 items-center justify-center px-1.5 text-center text-[12.5px] font-semibold leading-tight text-ink">{LOOK_SECTION_LABEL[key]}</span>
-              </button>
-            );
-          })}
-          {themeParts.length > 0 ? <span aria-hidden className="my-4 w-px shrink-0 bg-ink/15" /> : null}
-          {items
-            .filter((i) => makerDoorOf(i.key) === ltDoor && !(themeParts.length > 0 && i.key === 'theme'))
-            .map((i) => (
+          {detailsListGroups(groups, selected)
+            .flatMap((g) => g.items)
+            .filter((i) => ltSection(i.key) === here)
+            .map((i) => {
+              const on = i.key === selected || (formKeys.has(i.key) && formKeys.has(selected));
+              return (
               <button
                 key={i.key}
                 type="button"
                 data-lt-tile={`details:${i.key}`}
                 data-lt-group="details"
-                aria-pressed={i.key === selected}
+                aria-pressed={on}
                 onClick={() => {
                   select(i.key);
                   setSheetOpen(true);
                 }}
-                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PLAIN} ${i.key === selected ? LOWER_THIRD_TILE_ON : ''}`}
+                className={`${LOWER_THIRD_TILE} ${LOWER_THIRD_TILE_PLAIN} ${on ? LOWER_THIRD_TILE_ON : ''}`}
               >
                 <span className="relative flex min-h-0 flex-1 items-center justify-center text-ink/75">
                   <span className="inline-flex h-10 w-10 items-center justify-center overflow-hidden rounded-lg bg-cream ring-1 ring-ink/10">{i.icon}</span>
@@ -560,7 +588,8 @@ export function DetailsWorkspace({
                 </span>
                 <span className="block w-full truncate border-t border-ink/10 px-1 py-1.5 text-center text-[11.5px] font-semibold text-ink">{i.label}</span>
               </button>
-            ))}
+              );
+            })}
     </IntoLowerThird>
   ) : null;
 
@@ -589,6 +618,21 @@ export function DetailsWorkspace({
     }, 60);
   }, [selected]);
 
+  /* 🗂 A door that names one field of the Your event form (an old `?item=date`, a
+     fact tapped on a stage) brings THAT field into view — by scrolling the
+     editor column only, never `scrollIntoView` (it would scroll the Maker too). */
+  const formAt = formGroup ? selected : null;
+  useEffect(() => {
+    if (!formAt || !sheetOpenOrDesk()) return;
+    const id = window.requestAnimationFrame(() => {
+      const box = editorRef.current;
+      const el = box?.querySelector<HTMLElement>(`[data-details-editor="${formAt}"]`);
+      if (!box || !el) return;
+      box.scrollTop += el.getBoundingClientRect().top - box.getBoundingClientRect().top - 8;
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [formAt, sheetOpen]);
+
   /** Every item's editor — all mounted, the picked one shown (`hidden` never unmounts: a hidden field still posts). */
   const editorsBody = (whole: boolean) => (
     <div
@@ -599,7 +643,15 @@ export function DetailsWorkspace({
       }`}
     >
       {items.map((i) => (
-        <div key={i.key} hidden={i.key !== selected} data-details-editor={i.key} className={i.key !== selected ? 'hidden' : 'flex flex-col gap-3'}>
+        <div
+          key={i.key}
+          hidden={!showsEditor(i.key)}
+          data-details-editor={i.key}
+          data-details-form-field={formKeys.has(i.key) ? '' : undefined}
+          className={!showsEditor(i.key) ? 'hidden' : `flex flex-col gap-3${formKeys.has(i.key) && i.key !== formGroup?.items[0]?.key ? ' border-t border-ink/10 pt-4' : ''}`}
+        >
+          {/* 🗂 In the Your event form each field is named — the list's row is the form's. */}
+          {formKeys.has(i.key) ? <h3 className="text-[15px] font-semibold text-ink" data-details-form-heading={i.key}>{i.label}</h3> : null}
           {/* A server-made editor arrives as a lazy client reference — keyed, so it is
               never an unkeyed child beside the cover step's background (React's key check;
               the dev badge's "1 Issue" on every Maker screen, 2026-10-05). */}
@@ -655,30 +707,30 @@ export function DetailsWorkspace({
           <div
             className={`${layout === 'flow' ? 'mx-auto flex w-full max-w-4xl flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'} ${stagePreviewed ? 'max-lg:hidden' : ''}`}
           >
-            {items.map((i) =>
-              visited.has(i.key) || i.key === selected ? (
+            {items.filter((i) => !bodyAlias[i.key]).map((i) =>
+              [...visited].some((v) => bodyOf(v) === i.key) || bodyShown(i.key) ? (
                 <div
                   key={i.key}
-                  hidden={i.key !== selected}
+                  hidden={!bodyShown(i.key)}
                   data-details-body-item={i.key}
                   /* 🔑 `hidden` AND no display class when hidden: Tailwind's `flex` beats
                      the attribute's display:none, and every item would show at once. */
                   className={
-                    i.key !== selected ? 'hidden' : detailsItemLayout(i.key) === 'flow' ? 'flex flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'
+                    !bodyShown(i.key) ? 'hidden' : detailsItemLayout(i.key) === 'flow' ? 'flex flex-col gap-4' : 'flex min-h-0 flex-1 flex-col'
                   }
                 >
-                  {guidedOn && stepHere && i.key === selected ? (
+                  {guidedOn && stepHere && bodyShown(i.key) ? (
                     /* 🪜 In the flow: the step's round, its name, where it shows — plain words.
                        📱 On a phone these live only in the guide's sheet. */
                     <div data-details-guide-head-wrap="" className="hidden lg:contents">
-                      <GuideHead step={stepHere} roundTitle={roundName(plan!, walking!)} itemLabel={i.label} compact={detailsItemLayout(i.key) !== 'flow'} />
+                      <GuideHead step={stepHere} roundTitle={roundName(plan!, walking!)} itemLabel={bodyLabel(i)} compact={detailsItemLayout(i.key) !== 'flow'} />
                     </div>
                   ) : detailsItemLayout(i.key) === 'flow' ? (
                     <header className="flex flex-col gap-0.5">
                       <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
                         {groups.find((g) => g.items.some((x) => x.key === i.key))?.label}
                       </p>
-                      <h2 className="font-serif text-2xl text-ink">{i.label}</h2>
+                      <h2 className="font-serif text-2xl text-ink">{bodyLabel(i)}</h2>
                       {i.usedOn?.length ? (
                         <p className="text-xs text-ink/60" data-details-used-on={i.key}>
                           Used on {i.usedOn.join(' · ')}
@@ -688,7 +740,7 @@ export function DetailsWorkspace({
                   ) : (
                     /* A page that moved in keeps its room: one line, not a masthead. */
                     <header className="flex shrink-0 flex-wrap items-baseline gap-x-2 px-4 pb-1 pt-2.5 sm:px-6">
-                      <h2 className="font-serif text-lg text-ink">{i.label}</h2>
+                      <h2 className="font-serif text-lg text-ink">{bodyLabel(i)}</h2>
                       {i.usedOn?.length ? (
                         <p className="text-xs text-ink/60" data-details-used-on={i.key}>
                           Used on {i.usedOn.join(' · ')}
@@ -837,7 +889,7 @@ export function DetailsWorkspace({
           </MakerHalfSheet>
         ) : (
         <aside
-          aria-label={`${current.label} — edit`}
+          aria-label={`${shownLabel} — edit`}
           data-details-editor-panel=""
           data-phone-chrome="panel"
           data-open={sheetOpen ? '' : undefined}
@@ -871,10 +923,11 @@ export function DetailsWorkspace({
               selected={selected}
               onPick={select}
               pieces={pieces[selected] ?? null}
-              current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? null}
+              /* A hidden item (no row of its own) and the Your event form name themselves. */
+              current={pieceLabels[selected]?.[pieceMap[selected] ?? ''] ?? shownLabel}
             />
           </div>
-          <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{current.panelLabel ?? current.label}</p>
+          <p className="hidden px-4 pt-4 font-serif text-lg text-ink lg:block">{formGroup ? formGroup.label : (current.panelLabel ?? current.label)}</p>
           {editorsBody(false)}
         </aside>
         )}
@@ -923,4 +976,9 @@ export function DetailsWorkspace({
       </DetailsSelectContext.Provider>
     </DetailsTapContext.Provider>
   );
+}
+
+/** The editor column is on screen: a desk always draws it; a phone only while its tool is open (the scroll waits for it). */
+function sheetOpenOrDesk(): boolean {
+  return typeof window !== 'undefined' && (!window.matchMedia('(max-width: 1023.98px)').matches || document.querySelector('[data-details-editor-panel][data-open]') !== null);
 }

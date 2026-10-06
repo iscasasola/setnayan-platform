@@ -159,10 +159,11 @@ test('2 · the owner’s page, stage by stage — fixed sections included, in th
   // guest" (owner 2026-09-27): the greeting, the pass, the RSVP — whichever the
   // page gives a guest on that stage.
   // 🏠 …then the Invitation's Welcome page (owner 2026-09-30): the guest's
-  // look, the Reminders (which leave Details for it) and E-Gifts.
+  // look and E-Gifts. 🎒 What to bring is Details' since 2026-10-06 — after the
+  // dress code, before the entourage.
   assert.deepEqual(keys('rsvp'), [
-    'f:hero', 'f:greeting', 'f:pass', 'f:rsvp', 'f:look', 'w:what_to_bring', 'f:gifts',
-    'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule', 'w:venue_map', 'w:dress_code', 'f:entourage',
+    'f:hero', 'f:greeting', 'f:pass', 'f:rsvp', 'f:look', 'f:gifts',
+    'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule', 'w:venue_map', 'w:dress_code', 'w:what_to_bring', 'f:entourage',
   ]);
   assert.deepEqual(keys('event'), ['f:hero', 'f:pass', 'w:schedule', 'w:venue_map', 'w:photo_moments', 'f:entourage']);
   assert.deepEqual(keys('editorial'), [
@@ -170,7 +171,7 @@ test('2 · the owner’s page, stage by stage — fixed sections included, in th
   ]);
   const empties = (stage: LifecyclePhase) =>
     makerStageList({ ...OWNER, stage }).shown.flatMap((t) => (t.kind === 'scene' && t.empty ? [t.type] : []));
-  assert.deepEqual(empties('rsvp'), ['what_to_bring', 'special_message', 'our_love_story']);
+  assert.deepEqual(empties('rsvp'), ['special_message', 'our_love_story', 'what_to_bring']);
 });
 
 test('2b · the navigator is NOT the same twelve on every stage', () => {
@@ -225,8 +226,8 @@ test('4 · a reorder moves the navigator exactly as it moves the page', () => {
   moved.splice(moved.indexOf('schedule'), 0, 'venue_map');
   const list = makerStageList({ ...OWNER, widgets: rows(moved), stage: 'rsvp' });
   const scenes = list.shown.flatMap((t) => (t.kind === 'scene' ? [t.type] : []));
-  // (Reminders leads — it is on the Welcome page, before Details.)
-  assert.deepEqual(scenes.slice(4, 6), ['schedule', 'venue_map'], 'the stage keeps its own order');
+  // (What to bring no longer leads — it is a Details scene since 2026-10-06, after the dress code.)
+  assert.deepEqual(scenes.slice(3, 5), ['schedule', 'venue_map'], 'the stage keeps its own order');
   assert.deepEqual(scenes.filter((t) => t.startsWith('custom_')), ['custom_2', 'custom_1'], 'the couple’s own scenes keep theirs');
   // …and the page draws the same order (the navigator IS the plan).
   const plan = resolveSiteBodyPlan({

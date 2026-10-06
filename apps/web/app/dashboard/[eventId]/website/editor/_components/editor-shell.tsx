@@ -235,7 +235,10 @@ const TOOL_ROWS: Record<string, string[]> = {
 // background, the font and the colours MOVED into Look (owner 2026-10-02,
 // tracker f40 — `lib/maker-look-sections.ts`); an old `?open=` naming one of
 // them opens Look (`isLookRow`).
-const MAIN_ROWS = ['music', 'backdrop'];
+/* 🎵 MUSIC (owner 2026-10-06, DECISION_LOG "EVENT DETAILS IS REBUILT"): the old
+   "Music and backdrop" is Music alone — "backdrop" is dropped (Look › Background
+   covers it); it is also Event Details › Look › Music (`MakerLookPages.look.music`). */
+const MAIN_ROWS = ['music'];
 
 /** The canvas's "Event Bar" switch (was "Guest bars"), remembered for this browser session. */
 const GUEST_BARS_KEY = 'setnayan:maker-guest-bars';
@@ -826,6 +829,7 @@ export function MakerWork({
   const fontNode = rows[LOOK_ROW_OF.font]?.node ?? null;
   const coloursNode = rows[LOOK_ROW_OF.colours]?.node ?? null;
   const buttonsNode = rows[LOOK_ROW_OF.buttons]?.node ?? null;
+  const musicNode = rows[LOOK_ROW_OF.music]?.node ?? null;
   const hasDressCode = scenes.some((sc) => sc.type === 'dress_code');
   const revealStagesKey = revealStages.join();
   const twoPeopleOff = sceneFormat?.twoPeople === false;
@@ -865,11 +869,12 @@ export function MakerWork({
             />
           ) : null,
         buttons: buttonsNode,
+        music: musicNode,
       },
     });
     // `sceneFormat` and `eventId` come with the same render as `elementEditing`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
+  }, [setLookPages, madeOnce, backgroundNode, fontNode, coloursNode, buttonsNode, musicNode, hasDressCode, revealStagesKey, publicLandingUrl, elementEditing, twoPeopleOff, ownsPro]);
   useEffect(() => () => setLookPages?.(null), [setLookPages]);
   useEffect(() => {
     try {
@@ -2129,8 +2134,8 @@ export function MakerWork({
               type="button"
               onClick={() => select?.({ kind: 'main' })}
               aria-pressed={selection?.kind === 'main'}
-              aria-label="Music and the invitation backdrop"
-              title="Music and the invitation backdrop"
+              aria-label="Music"
+              title="Music"
               className={`sn-press inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-sn-control ease-sn ${
                 selection?.kind === 'main' ? 'bg-ink text-cream' : 'bg-white/70 text-ink/75 hover:bg-white'
               }`}
@@ -3458,7 +3463,7 @@ function Inspector({
       : selection.kind === 'post-event'
         ? (postEventTile?.label ?? 'Post Event')
       : selection.kind === 'main'
-        ? 'Music and backdrop'
+        ? 'Music'
         : selection.kind === 'tool'
           ? { logo: 'Logo', hero: 'Hero', reveal: 'Reveal', 'love-story': 'Love Story', 'post-event': 'Post Event', details: 'Event Details', 'rsvp-page': 'RSVP', 'rsvp-stage': 'RSVP' }[selection.key]
           : fixedOfKey(selection.key)
@@ -3557,6 +3562,8 @@ function Inspector({
         {MAIN_ROWS.filter((k) => rows[k]).map((k) => (
           <RowBlock key={k} row={rows[k]!} />
         ))}
+        {/* Never a blank panel — one line when there is nothing to set. */}
+        {MAIN_ROWS.every((k) => !rows[k]) ? <p className="px-1 text-[13px] text-ink/70">No music to set for this event.</p> : null}
       </>
     );
   } else {

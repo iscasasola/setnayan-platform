@@ -37,7 +37,10 @@
  * lower third and the desktop's right panel both draw THIS list — one set of
  * choices, two layouts.
  */
-export const LOOK_SECTIONS = ['background', 'font', 'colours', 'buttons'] as const;
+/* 🗂 2026-10-06 (owner, "EVENT DETAILS IS REBUILT"): Background · Colours · Font ·
+   Music — each also an item of Event Details' Look group (`LOOK_ITEM_SECTIONS`);
+   Buttons rides with Colours (the button colour is one of the colours). */
+export const LOOK_SECTIONS = ['background', 'colours', 'buttons', 'font', 'music'] as const;
 export type LookSection = (typeof LOOK_SECTIONS)[number];
 
 export const LOOK_SECTION_LABEL: Record<LookSection, string> = {
@@ -45,6 +48,15 @@ export const LOOK_SECTION_LABEL: Record<LookSection, string> = {
   font: 'Font',
   colours: 'Colours',
   buttons: 'Buttons',
+  music: 'Music',
+};
+
+/** Event Details' Look items and the panel sections each opens (owner 2026-10-06). */
+export const LOOK_ITEM_SECTIONS: Readonly<Record<'background' | 'colours' | 'font' | 'music', readonly LookSection[]>> = {
+  background: ['background'],
+  colours: ['colours', 'buttons'],
+  font: ['font'],
+  music: ['music'],
 };
 
 /**
@@ -56,6 +68,7 @@ export const LOOK_ROW_OF: Readonly<Record<LookSection, string>> = {
   font: 'font',
   colours: 'colors',
   buttons: 'buttons',
+  music: 'music',
 };
 
 export function isLookRow(key: string | null | undefined): boolean {

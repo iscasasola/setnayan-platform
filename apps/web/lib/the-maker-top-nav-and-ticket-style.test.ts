@@ -159,7 +159,9 @@ test('3 · each opening of Look is answered ONCE — a later mount of Details ne
   // The Maker counts a press (desktop) and Theme (the lower third); Details asks the taker, then leaves the flow.
   const shellSrc = read(`${L}/maker-shell.tsx`);
   assert.match(shellSrc, /const takeLookVisit = useMemo\(\(\) => lookVisitTaker\(\), \[\]\);/);
-  assert.equal((shellSrc.match(/if \(key === 'look'\) setLookVisit\(\(n\) => n \+ 1\);/g) ?? []).length, 2, 'a Look door does not count its visit');
+  // A Look press (the tour's last slide) and the lower third's Look part (2026-10-06: `openSection('look')`).
+  assert.equal((shellSrc.match(/if \(key === 'look'\) setLookVisit\(\(n\) => n \+ 1\);/g) ?? []).length, 1, 'a Look door does not count its visit');
+  assert.equal((shellSrc.match(/if \(sec === 'look'\) setLookVisit\(\(n\) => n \+ 1\);/g) ?? []).length, 1, 'the lower third’s Look does not count its visit');
   const ws = read(`${L}/details-workspace.tsx`);
   const effect = /useEffect\(\(\) => \{\s*if \(!lookVisit \|\| !takeLookVisit\?\.\(lookVisit\)\) return;([\s\S]*?)\}, \[lookVisit, takeLookVisit\]\);/.exec(ws);
   assert.ok(effect, 'Details does not ask the taker before leaving the flow');

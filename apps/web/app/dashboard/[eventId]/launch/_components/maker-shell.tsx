@@ -4,7 +4,7 @@ import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
-import { Check, ChevronLeft, Eye, List, Palette, X } from 'lucide-react';
+import { Check, ChevronLeft, Eye, List, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
 import type { TourSlideView } from '@/app/_components/tour-slide-view';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -42,7 +42,7 @@ import {
   type MakerSelection,
   type MakerState,
 } from './maker-context';
-import { movedPageItem, type DetailsItemKey } from '@/lib/maker-details-items';
+import { DETAILS_FIRST_ITEM, DETAILS_LT_SECTION_FIRST, detailsLtSection, movedPageItem, type DetailsItemKey, type DetailsLtSection } from '@/lib/maker-details-items';
 import { makerGuestPages } from '@/lib/maker-guest-pages';
 import { SEE_AS, SEE_AS_EDITING, type SeeAs } from '@/lib/see-as';
 import { MakerTour } from './maker-tour';
@@ -86,7 +86,7 @@ import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-context';
-import { Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
+import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
 
 /**
  * THE EVENT HUB MAKER — the full-screen shell (Phase 1 of
@@ -451,20 +451,20 @@ export function MakerShell({
     selection?.kind === 'tool' && selection.key === 'details' && (openDoor === 'look' || openDoor === 'details' || openDoor === 'prints')
       ? openDoor
       : null;
+  /* 🗂 Event Details' parts, as the menu names them (owner 2026-10-06): Look ·
+     Story & plans · Your event · Prints — the list's own groups, in its order. */
   const ltPick: LowerThirdPick =
     selection?.kind === 'tool' && selection.key === 'rsvp-stage'
       ? RSVP_STAGE_KEY
-      : doorShown === 'look'
-        ? 'theme'
-        : doorShown === 'details'
-          ? 'details'
-          : doorShown === 'prints' || settingsOn
-            ? 'settings'
-            : stage;
+      : doorShown
+        ? LT_PICK_OF_SECTION[detailsLtSection(detailsItem ?? DETAILS_FIRST_ITEM)]
+        : settingsOn
+          ? 'settings'
+          : stage;
   /* The navigator's slot is handed to the layer on screen — none for Settings'
      own rows (the lower third draws them), except Prints, whose pieces follow;
      none on a desktop (its columns). */
-  const ltNav = phone && (ltPick !== 'settings' || doorShown === 'prints') ? ltSlot : null;
+  const ltNav = phone && ltPick !== 'settings' ? ltSlot : null;
   /* Settings stays the pick only while nothing else is: a scene, a part or a
      stage picked (on the page or anywhere) leaves it. */
   useEffect(() => {
@@ -540,15 +540,6 @@ export function MakerShell({
     setDetailsDoor((n) => n + 1);
     select({ kind: 'tool', key: 'details' });
   };
-  /* 🧰 The lower third opens Look or Event Details on its NAVIGATOR — the
-     page and its parts as tiles; a tile opens its editor (owner 2026-10-05,
-     frame 6: "one menu, then parts, then scenes"). The same door, no sheet yet. */
-  const openDoorOnNavigator = (key: MakerDoor) => {
-    if (!hasWork || openDoor === key) return;
-    setDetailsItem(makerPressDoor({ detailsItem }, key).detailsItem);
-    if (key === 'look') setLookVisit((n) => n + 1);
-    select({ kind: 'tool', key: 'details' });
-  };
 
   /* 📄 PAGE ▾ — the stages, each with its guest pages (`makerPageMenu`). The
      stage on screen lists what the work area reported (its empty pages say
@@ -612,11 +603,28 @@ export function MakerShell({
 
   /* ══ 🧰 THE LOWER THIRD (phone) — the menu, the pick, the navigator ══
      (owner 2026-10-05, "approve": `maker_lower_third_interactive_2026-10-05_fable.html`). */
+  /* 🗂 GLOBAL SETTINGS MIRRORS EVENT DETAILS (owner 2026-10-06): its parts, in the
+     list's order — Look · Story & plans · Your event · Prints — then Settings. A
+     pick opens Event Details on that part; its items are the navigator's tiles. */
   const ltGlobal = [
-    ...(hasWork ? [{ key: 'theme', label: 'Look', icon: LOWER_THIRD_GLOBAL_ICON.theme }] : []),
+    ...(hasWork
+      ? [
+          { key: 'theme', label: 'Look', icon: LOWER_THIRD_GLOBAL_ICON.theme },
+          { key: 'story', label: 'Story & plans', icon: <BookOpen aria-hidden className="h-5 w-5" strokeWidth={1.75} /> },
+          { key: 'details', label: 'Your event', icon: <ClipboardList aria-hidden className="h-5 w-5" strokeWidth={1.75} /> },
+          { key: 'prints', label: MAKER_PRINTS_LABEL, icon: <Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} /> },
+        ]
+      : []),
     { key: 'settings', label: 'Settings', icon: LOWER_THIRD_GLOBAL_ICON.settings },
-    ...(hasWork ? [{ key: 'details', label: 'Details', icon: LOWER_THIRD_GLOBAL_ICON.details }] : []),
   ];
+  /* Open Event Details on one part — on the item the couple is on when it is that part's. */
+  const openSection = (sec: DetailsLtSection) => {
+    if (!hasWork) return;
+    const at = detailsItem && detailsLtSection(detailsItem) === sec ? detailsItem : DETAILS_LT_SECTION_FIRST[sec];
+    setDetailsItem(at);
+    if (sec === 'look') setLookVisit((n) => n + 1);
+    select({ kind: 'tool', key: 'details' });
+  };
   const ltStages = MAKER_PAGE_STAGES.filter((s) => hasWork || s !== RSVP_STAGE_KEY).map((s) => ({
     key: s,
     label: makerStageLabel(s),
@@ -630,8 +638,8 @@ export function MakerShell({
       return;
     }
     setSettingsOn(false);
-    if (key === 'theme') return openDoorOnNavigator('look');
-    if (key === 'details') return openDoorOnNavigator('details');
+    const sec = SECTION_OF_LT_PICK[key];
+    if (sec) return openSection(sec);
     if (key === RSVP_STAGE_KEY) {
       if (hasWork) select({ kind: 'tool', key: 'rsvp-stage' });
       return;
@@ -651,7 +659,7 @@ export function MakerShell({
             : []),
           { key: 'who', label: 'Who can view', icon: <Users aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: moreOpen, onPick: () => setMoreOpen(true) },
           ...(hasWork
-            ? [{ key: 'prints', label: MAKER_PRINTS_LABEL, icon: <Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: openDoor === 'prints', onPick: () => openDoorOnNavigator('prints') }]
+            ? [{ key: 'prints', label: MAKER_PRINTS_LABEL, icon: <Printer aria-hidden className="h-5 w-5" strokeWidth={1.75} />, on: openDoor === 'prints', onPick: () => openSection('prints') }]
             : []),
           ...(draft
             ? [{
@@ -705,6 +713,11 @@ export function MakerShell({
   const screenLabel = (() => {
     const head = guideTitle && (openDoor === 'look' || openDoor === 'details') ? (openStageWord ?? ltPickLabel) : ltPickLabel;
     const part = tool?.name ?? ltWhereWords;
+    /* ✂ THE LABEL FITS (controller sweep 2026-10-06: "Wedding Ma…", "Finish your Event
+       Hub · …"): inside Event Details the bar names the ITEM alone — the menu below
+       already says which part of the list it is; a stage keeps "Stage · page". */
+    // The guided flow names its stage alone (owner 2026-10-05, "ONE title per stage").
+    if (doorShown) return guideTitle ? head : part || head;
     return part && part !== head ? `${head} · ${part}` : head;
   })();
 
@@ -721,14 +734,10 @@ export function MakerShell({
 
   /* 🎨 LOOK · 🗂 EVENT DETAILS — the desktop's top bar (on a phone: the lower
      third's Theme and Details, owner 2026-10-05). */
-  const doors = (['look', 'details'] as const).map((door) => {
-    const label = door === 'look' ? MAKER_LOOK_LABEL : MAKER_DETAILS_LABEL;
-    const icon =
-      door === 'look' ? (
-        <Palette aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-      ) : (
-        <List aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-      );
+  /* 🗂 ONE button, "Event Details" (owner 2026-10-06) — the Look chip is gone; its items head the list. */
+  const doors = (['details'] as const).map((door) => {
+    const label = MAKER_DETAILS_LABEL;
+    const icon = <List aria-hidden className="h-4 w-4" strokeWidth={1.75} />;
     if (!hasWork) {
       return (
         <span key={door} className="hidden lg:inline-flex">
@@ -1045,6 +1054,10 @@ export function MakerShell({
     </MakerContext.Provider>
   );
 }
+
+/** The lower third's menu row for each part of Event Details' list, and back. */
+const LT_PICK_OF_SECTION: Record<DetailsLtSection, string> = { look: 'theme', story: 'story', event: 'details', prints: 'prints' };
+const SECTION_OF_LT_PICK: Record<string, DetailsLtSection | undefined> = { theme: 'look', story: 'story', details: 'event', prints: 'prints' };
 
 /**
  * A door that is shut to this viewer (a coordinator: Look and Details are the

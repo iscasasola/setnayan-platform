@@ -17,6 +17,11 @@
  *
  *     ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply (n)
  *
+ * 🗂 2026-10-06 (DECISION_LOG "EVENT DETAILS IS REBUILT: ONE BUTTON…"): the Look
+ * chip is gone — ONE "Event Details" button; its list opens with the Look group:
+ *
+ *     ‹ Exit · Page ▾ · Event Details · ↶ Undo · 👁 Preview · ✓ Apply (n)
+ *
  *   ⋯ is gone and NOTHING it held is lost: See as · Phone / Desktop · Both ·
  *   Scenes · Play · Preview the stage are 👁 Preview's rows; Add a scene ·
  *   Reset this stage · Prints · Restore · the address · who can view · About
@@ -122,16 +127,16 @@ const toolsOf = (html: string) => [...headerOf(html).matchAll(/data-maker-tool="
 
 /* ── 1 · the bar is exactly the approved items, in order ─────────────────── */
 
-test('the rendered toolbar is EXACTLY ‹ Exit · Page ▾ · Look · Event Details · ↶ Undo · 👁 Preview · ✓ Apply — nothing else', async () => {
-  assert.deepEqual([...MAKER_TOOLBAR], ['exit', 'page', 'look', 'details', 'undo', 'preview', 'apply']);
+test('the rendered toolbar is EXACTLY ‹ Exit · Page ▾ · Event Details · ↶ Undo · 👁 Preview · ✓ Apply — nothing else', async () => {
+  assert.deepEqual([...MAKER_TOOLBAR], ['exit', 'page', 'details', 'undo', 'preview', 'apply']);
   const html = await paint();
   assert.deepEqual(toolsOf(html), [...MAKER_TOOLBAR], 'a control joined or left the top level of the Maker');
   // ONE dropdown in the bar, and it is Page ▾.
   const header = headerOf(html);
   assert.equal((header.match(/aria-haspopup="listbox"/g) ?? []).length, 1, 'the bar holds one dropdown');
   assert.match(header, /data-maker-page-menu=""/);
-  // The words a first-timer reads.
-  assert.match(header, />Look</);
+  // The words a first-timer reads — one button, no Look chip.
+  assert.doesNotMatch(header, />Look</, 'the Look chip came back');
   assert.match(header, new RegExp(`>${MAKER_DETAILS_LABEL}<`));
   assert.match(header, /aria-label="Page: Invitation › Welcome"/, 'Page ▾ says the stage › the page');
 });
@@ -145,11 +150,11 @@ test('the four stage names are not a top-level row — they live inside Page ▾
   assert.doesNotMatch(header, /data-maker-bar-item|data-maker-place-pick|data-maker-divider/, 'the stage row is back');
 });
 
-test('a viewer with no work (a coordinator): the same bar without the draft, Look and Details saying why they are shut', async () => {
+test('a viewer with no work (a coordinator): the same bar without the draft, Event Details saying why it is shut', async () => {
   const html = await paint({ hasWork: false });
-  assert.deepEqual(toolsOf(html), ['exit', 'page', 'look', 'details', 'preview']);
+  assert.deepEqual(toolsOf(html), ['exit', 'page', 'details', 'preview']);
   const header = headerOf(html);
-  assert.equal((header.match(/Only the host can open this part of the Event Hub Maker\./g) ?? []).length, 2);
+  assert.equal((header.match(/Only the host can open this part of the Event Hub Maker\./g) ?? []).length, 1);
   assert.doesNotMatch(header, /data-maker-tool="(look|details)"[^>]*aria-pressed/, 'a shut door is drawn as a working one');
 });
 
@@ -271,12 +276,13 @@ test('a pick names one place; a page with nothing to arrange says so; the RSVP s
 
 /* ── 4 · Look · Details · Prints — three doors, one page, one highlight ─── */
 
-test('Look, Details and Page ▾ › Prints each open the ONE Details page on their part; exactly one is highlighted', () => {
-  assert.equal(makerDoorOf('theme'), 'look');
-  for (const k of ['mood-board', 'logo', 'hero', 'reveal']) assert.equal(makerDoorOf(k), 'look', k);
+test('Event Details and Page ▾ › Prints each open the ONE Details page on their part; exactly one is highlighted', () => {
+  /* 🗂 2026-10-06: a Look item is Event Details' — 'look' is only a way IN (a tour). */
+  assert.equal(makerDoorOf('theme'), 'details');
+  for (const k of ['background', 'mood-board', 'logo', 'hero', 'reveal']) assert.equal(makerDoorOf(k), 'details', k);
   for (const k of PRINTS_ITEM_KEYS) assert.equal(makerDoorOf(k), 'prints', k);
   for (const k of ['names', 'date', 'venues', 'love-story', 'address']) assert.equal(makerDoorOf(k), 'details', k);
-  assert.equal(makerOpenTool('details', 'logo'), 'look');
+  assert.equal(makerOpenTool('details', 'logo'), 'details');
   assert.equal(makerOpenTool('details', 'invitation'), 'prints');
   assert.equal(makerOpenTool('details', 'names'), 'details');
   assert.equal(makerOpenTool(null, 'names'), null, 'a stage is open — no door is');
@@ -286,27 +292,28 @@ test('Look, Details and Page ▾ › Prints each open the ONE Details page on th
     const next = makerPressDoor(state, door);
     assert.equal(next.selectedTool, 'details', `${door}: a page of its own`);
     state = next;
-    assert.equal(makerOpenTool('details', state.detailsItem), door, `${door} pressed, another door lit`);
+    assert.equal(makerOpenTool('details', state.detailsItem), door === 'look' ? 'details' : door, `${door} pressed, another door lit`);
   };
   press('details');
-  assert.equal(state.detailsItem, DETAILS_FACTS_FIRST, 'Details opens on the facts');
+  assert.equal(state.detailsItem, 'background', 'Event Details opens on its first row, Background');
   press('look');
-  assert.equal(state.detailsItem, 'theme', 'Look opens on the Theme');
+  assert.equal(state.detailsItem, 'background', 'the Look way in opens on Background');
   press('prints');
   assert.equal(state.detailsItem, DETAILS_FIRST_PRINT);
   assert.ok(isPrintsItem(state.detailsItem));
   press('details');
-  assert.equal(state.detailsItem, DETAILS_FACTS_FIRST, 'Details after Prints stayed on a print');
+  assert.equal(state.detailsItem, 'background', 'Details after Prints stayed on a print');
+  assert.equal(DETAILS_FACTS_FIRST, 'names', 'the Your event form no longer starts with the Event Name');
   // A Details item the couple was on is kept.
   assert.equal(makerPressDoor({ detailsItem: 'love-story' }, 'details').detailsItem, 'love-story');
   assert.equal(makerPressDoor({ detailsItem: 'hero' }, 'look').detailsItem, 'hero');
 });
 
-test('on the render: Look lit on a Look item, Details lit on a fact — never both', async () => {
+test('on the render: Event Details lit on any of its items — and no Look chip', async () => {
   const pressed = (html: string) =>
     [...headerOf(html).matchAll(/data-maker-tool="(look|details)" aria-pressed="(true|false)"/g)].map((m) => `${m[1]}=${m[2]}`);
-  assert.deepEqual(pressed(await paint()), ['look=false', 'details=false'], 'a door is lit with nothing open');
-  assert.deepEqual(pressed(await paint({ selection: { kind: 'tool', key: 'logo' } })), ['look=true', 'details=false']);
+  assert.deepEqual(pressed(await paint()), ['details=false'], 'a door is lit with nothing open');
+  assert.deepEqual(pressed(await paint({ selection: { kind: 'tool', key: 'logo' } })), ['details=true']);
   const det = await paint({ selection: { kind: 'tool', key: 'details' } });
   assert.match(det, /data-maker-page="details"/, 'Details did not open its page');
   // The shell presses a door through the same reducer, and the open door closes on a second press.

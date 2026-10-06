@@ -33,7 +33,7 @@ import {
 import type { StudioTileKey } from '@/lib/studio-tiles';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { NavSlotKey } from '@/app/[slug]/_lib/site-nav';
-import { MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
+import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker-context';
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
@@ -180,19 +180,44 @@ export function StageTools({
   /* ── the panel's height: half the screen while a part's tools are open ── */
   const open = openTool !== null && !typing && !playing;
   useEffect(() => {
-    onPx(open ? stagePanelOpenPx(window.innerHeight) : null);
-  }, [open, onPx]);
+    /* ▶ The whole stage plays on the whole screen: the panel folds away entirely. */
+    onPx(playing ? 0 : open ? stagePanelOpenPx(window.innerHeight) : null);
+  }, [open, playing, onPx]);
   useEffect(() => () => onPx(null), [onPx]);
+  /* Risen to half the screen, the page above is shorter: the picked part is brought back into view there. */
+  const pickedKey = picked ? MAKER_PARTS[picked].canvas : null;
+  useEffect(() => {
+    if (!open || !pickedKey || rsvpOpen) return;
+    const t = window.setTimeout(() => postToCanvas({ source: 'setnayan-editor', t: 'scrollTo', key: pickedKey }), STAGE_PANEL_MS + 60);
+    return () => window.clearTimeout(t);
+  }, [open, pickedKey, rsvpOpen]);
   /* Its tools closed (×, a tap on nothing): nothing is picked. */
   useEffect(() => {
-    if (openTool === null) setPicked(null);
+    if (openTool !== null) return;
+    /* One tool handing over to another (the part's sheet → the scene's) is not a close. */
+    const t = window.setTimeout(() => setPicked(null), 400);
+    return () => window.clearTimeout(t);
   }, [openTool]);
 
   /* ── asking the work area ── */
-  const askTool = useCallback((t: MakerPartTool) => {
+  const askTool = useCallback((t: MakerPartTool, k: MakerPartKey | null) => {
     /* After the work area has drawn the pick (two frames: its state, then its render). */
-    window.requestAnimationFrame(() => window.requestAnimationFrame(() => window.dispatchEvent(new CustomEvent(MAKER_STAGE_TOOL_EVENT, { detail: t }))));
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(() => {
+        /* Text and Animate are a PART's own: one part of a bigger section (the names, the date)
+           opens its own sheet — the shipped door the Apply sheet's "Go to" uses. */
+        const def = k ? MAKER_PARTS[k] : null;
+        if (t !== 'style' && def?.canvas && def.el && !rsvpOpenRef.current) {
+          window.dispatchEvent(
+            new CustomEvent(MAKER_OPEN_PART_EVENT, { detail: { key: def.canvas, widgetType: def.canvas === 'f:hero' ? 'hero' : def.canvas.slice(2), el: def.el } }),
+          );
+        }
+        window.dispatchEvent(new CustomEvent(MAKER_STAGE_TOOL_EVENT, { detail: t }));
+      }),
+    );
   }, []);
+  const rsvpOpenRef = useRef(rsvpOpen);
+  rsvpOpenRef.current = rsvpOpen;
   const toolRef = useRef(tool);
   toolRef.current = tool;
   const pickPart = useCallback(
@@ -207,7 +232,7 @@ export function StageTools({
       if (!def.canvas) return;
       /* 🔑 The canvas's own message — the same selection a tap on the page makes. */
       window.postMessage({ source: 'setnayan-site', t: 'edit', key: def.canvas, ...(def.el ? { el: def.el } : {}) }, window.location.origin);
-      askTool(toolRef.current);
+      askTool(toolRef.current, k);
     },
     [askTool, rsvpOpen, screen],
   );
@@ -221,8 +246,9 @@ export function StageTools({
       const d = e.data as { source?: unknown; t?: unknown; key?: unknown; el?: unknown; phase?: unknown } | null;
       if (d?.source !== 'setnayan-site') return;
       if (d.t === 'edit' && typeof d.key === 'string') {
-        setPicked(makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null));
-        askTool(toolRef.current);
+        const k = makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null);
+        setPicked(k);
+        askTool(toolRef.current, k);
       } else if (d.t === 'type' && d.phase === 'start') setTyping(true);
       else if (d.t === 'playDone') setPlaying(false);
     };
@@ -257,7 +283,13 @@ export function StageTools({
   const pendingStep = useRef<1 | -1 | null>(null);
   const step = useCallback(
     (dir: 1 | -1) => {
-      const r = makerStepPart({ parts, at: picked, pages: pages.map((p) => p.key), page: shownPage, dir });
+      /* The page the picked part is ON — the canvas may have scrolled the page the bar names. */
+      const home =
+        picked && !parts.includes(picked) && !rsvpOpen
+          ? (pages.find((p) => makerPartsTappable(stage, p.key, present).includes(picked))?.key ?? shownPage)
+          : shownPage;
+      const here = home === shownPage ? parts : makerPartsTappable(stage, home, present);
+      const r = makerStepPart({ parts: here, at: picked, pages: pages.map((p) => p.key), page: home, dir });
       if (!r) return;
       if (r.part) return pickPart(r.part);
       pendingStep.current = dir;
@@ -266,7 +298,7 @@ export function StageTools({
         document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${r.page}"]`)?.click();
       } else onPickPage(makerPageValue(stage, r.page));
     },
-    [onPickPage, pages, parts, pickPart, picked, rsvpOpen, shownPage, stage],
+    [onPickPage, pages, parts, pickPart, picked, present, rsvpOpen, shownPage, stage],
   );
   /* The next page is on screen and its parts are read: pick its first (or, going back, its last). */
   useEffect(() => {
@@ -357,7 +389,7 @@ export function StageTools({
   const pickTool = (t: MakerPartTool) => {
     setTool(t);
     if (!picked && parts[0]) return pickPart(parts[0]);
-    askTool(t);
+    askTool(t, picked);
   };
   const away = typing || playing;
   const shellEl = typeof document === 'undefined' ? null : document.querySelector<HTMLElement>('[data-maker-shell]');
@@ -472,7 +504,7 @@ export function StageTools({
                 </button>
               );
             })}
-            {parts.length === 0 ? <p className="px-1 py-3 text-[13px] text-ink/60">Nothing on this page to style yet.</p> : null}
+            {parts.length === 0 && present.size > 0 ? <p className="px-1 py-3 text-[13px] text-ink/60">Nothing on this page to style yet.</p> : null}
           </div>
         </>
       )}
@@ -484,7 +516,8 @@ export function StageTools({
               aria-label="The guest's pages"
               data-stage-guest-bar=""
               className="absolute inset-x-0 z-[25] flex border-t border-ink/10 bg-cream/95 px-1 lg:hidden"
-              style={{ bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom))' }}
+              /* It rides the panel's rise and fall (the same 240 ms), never across it. */
+              style={{ bottom: 'calc(var(--maker-lt-h) + env(safe-area-inset-bottom))', transition: `bottom ${STAGE_PANEL_MS}ms ease-out` }}
             >
               {pages.map((p) => {
                 const Icon = rsvpOpen ? null : (GUEST_PAGE_ICON[p.key as NavSlotKey] ?? null);

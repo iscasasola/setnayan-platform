@@ -589,9 +589,15 @@ export function EditorBridge() {
     /** ▶ The whole stage, scene after scene — the parent hears `playDone` when it ends. */
     const stage = (() => {
       let timer: number | null = null;
-      const tapStops = (e: Event) => {
+      /* The tap that stops is only a stop — its click never selects the scene under it. */
+      const swallow = (e: Event) => {
         e.preventDefault();
         e.stopPropagation();
+      };
+      const tapStops = (e: Event) => {
+        swallow(e);
+        document.addEventListener('click', swallow, { capture: true, once: true });
+        window.setTimeout(() => document.removeEventListener('click', swallow, true), 600);
         stop(true);
       };
       const stop = (tell: boolean) => {

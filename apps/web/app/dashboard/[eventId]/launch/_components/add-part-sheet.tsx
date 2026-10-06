@@ -102,12 +102,14 @@ function partBox(canvas: string, el?: string | null): { top: number; left: numbe
   return { top: fr.top + r.top * k, left: fr.left + r.left * k, width: r.width * k, height: r.height * k };
 }
 
-/** The page's visible band: under the frame's top, above the lower third. */
+/** The page's visible band: under the frame's top, above the guest's tab bar and the lower third. */
 function visibleBand(): { top: number; bottom: number } {
   const fr = document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.getBoundingClientRect();
   const lt = document.querySelector('[data-maker-lower-third]')?.getBoundingClientRect();
+  /* The guest's tab bar is drawn over the foot of the page (`stage-tools.tsx`). */
+  const bar = document.querySelector('[data-stage-guest-bar]')?.getBoundingClientRect();
   const top = fr ? fr.top : 0;
-  const bottom = Math.min(fr ? fr.bottom : window.innerHeight, lt ? lt.top : window.innerHeight);
+  const bottom = Math.min(fr ? fr.bottom : window.innerHeight, lt ? lt.top : window.innerHeight, bar && bar.height > 0 ? bar.top : window.innerHeight);
   return { top, bottom };
 }
 
@@ -132,7 +134,8 @@ const EDGE_BTN =
 /**
  * THE PICKED PART'S EDGES — ＋ on its top and bottom, the grip, 🗑. Drawn over
  * the canvas at the part's own place, following the page as it scrolls; kept
- * inside the visible band. `picked` null: nothing is drawn.
+ * inside the visible band. `picked` null: nothing is drawn. Layered just over
+ * the Maker shell (z-80) and under every sheet (the picker z-90, `MakerSheet` z-95).
  */
 export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: MakerPartKey | null }) {
   const canvas = picked && picked !== 'reveal' ? makerPartCanvasOn(stage, picked) : null;
@@ -203,8 +206,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
 
   /* ── ↕ the grip ── */
   const dragRef = useRef<{ y0: number; targets: Array<{ key: string; id: string; mid: number; top: number; bottom: number }> } | null>(null);
-  const targetAt = (y: number) => {
-    const d = dragRef.current;
+  const targetAt = (d: typeof dragRef.current, y: number) => {
     if (!d || d.targets.length === 0) return null;
     for (const t of d.targets) if (y < t.mid) return { t, where: 'above' as const };
     return { t: d.targets[d.targets.length - 1]!, where: 'below' as const };
@@ -214,7 +216,11 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
     if (!o || !canMove || !canvas) return;
     e.preventDefault();
     e.stopPropagation();
-    e.currentTarget.setPointerCapture?.(e.pointerId);
+    try {
+      e.currentTarget.setPointerCapture?.(e.pointerId);
+    } catch {
+      /* a pointer the browser no longer tracks — the drag still follows the button's own events */
+    }
     const targets: Array<{ key: string; id: string; mid: number; top: number; bottom: number }> = [];
     for (const t of o.list.shown) {
       const key = t.kind === 'post-event' ? t.anchor : t.key;
@@ -232,7 +238,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
   const onGripMove = (e: React.PointerEvent<HTMLButtonElement>) => {
     const d = dragRef.current;
     if (!d) return;
-    const at = targetAt(e.clientY);
+    const at = targetAt(d, e.clientY);
     setDrag({ dy: e.clientY - d.y0, line: at ? (at.where === 'above' ? at.t.top : at.t.bottom) : null });
   };
   const onGripUp = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -240,7 +246,7 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
     dragRef.current = null;
     setDrag(null);
     if (!d || Math.abs(e.clientY - d.y0) < 8) return;
-    const at = targetAt(e.clientY);
+    const at = targetAt(d, e.clientY);
     const o = askPartOps();
     if (!at || !o) return;
     if (mv.kind === 'scene') {
@@ -316,11 +322,13 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
   const band = typeof window === 'undefined' ? null : visibleBand();
   const clampY = (y: number) => (band ? Math.max(band.top + 26, Math.min(band.bottom - 26, y)) : y);
 
-  if (!picked || picked === 'reveal' || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
+  /* What just happened is said even once the part is let go (a move re-renders the page). */
+  const edges = Boolean(picked && picked !== 'reveal' && box);
   return createPortal(
     <>
-      {box ? (
-        <div aria-hidden={drag ? true : undefined} data-part-edges={picked} className="pointer-events-none fixed inset-0 z-[30] lg:hidden">
+      {edges && box ? (
+        <div aria-hidden={drag ? true : undefined} data-part-edges={picked} className="pointer-events-none fixed inset-0 z-[86] lg:hidden">
           {/* The part's outline (it follows a drag). */}
           <div
             className="absolute rounded-md ring-2 ring-mulberry"
@@ -387,12 +395,12 @@ export function PartEdits({ stage, picked }: { stage: MakerStageKey; picked: Mak
         </div>
       ) : null}
       {toast && !error ? (
-        <p role="status" data-part-toast="" className="pointer-events-none fixed inset-x-3 top-16 z-[31] mx-auto w-fit max-w-[calc(100%-24px)] truncate rounded-full bg-ink px-4 py-2 text-[13px] font-semibold text-cream shadow lg:hidden">
+        <p role="status" data-part-toast="" className="pointer-events-none fixed inset-x-3 top-16 z-[87] mx-auto w-fit max-w-[calc(100%-24px)] truncate rounded-full bg-ink px-4 py-2 text-[13px] font-semibold text-cream shadow lg:hidden">
           {toast}
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="fixed inset-x-3 top-16 z-[31] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-terracotta-700 shadow lg:hidden">
+        <p role="alert" className="fixed inset-x-3 top-16 z-[87] rounded-xl bg-white px-3 py-2 text-[13px] font-semibold text-terracotta-700 shadow lg:hidden">
           {error}
         </p>
       ) : null}

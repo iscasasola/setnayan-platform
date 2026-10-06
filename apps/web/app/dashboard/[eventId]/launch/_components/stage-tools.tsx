@@ -469,7 +469,7 @@ export function StageTools({
                 title={MAKER_PART_TOOL_LABEL[t]}
                 data-stage-tool={t}
                 onClick={() => pickTool(t)}
-                className={STAGE_TOOL_BUTTON}
+                className={`${STAGE_TOOL_BUTTON} disabled:opacity-30`}
               >
                 {t === 'style' ? (
                   <Brush aria-hidden className="h-[18px] w-[18px]" strokeWidth={1.9} />

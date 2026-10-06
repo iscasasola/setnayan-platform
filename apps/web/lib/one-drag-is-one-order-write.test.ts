@@ -53,6 +53,8 @@ test('the grip calls the work area’s move ONCE per drop — the one-save draft
   assert.equal((drop.match(/\bo\.move\(/g) ?? []).length, 1, 'one move per drop');
   assert.doesNotMatch(drop, /\bfor\s*\(|\bwhile\s*\(|forEach/, 'never one write per place');
   assert.doesNotMatch(drop, /moveWidget(Up|Down)/, 'never the form-post chain');
+  /* The drop reads the drag it captured — the ref is cleared first (a phone check caught a drop that read the cleared ref and moved nothing). */
+  assert.match(drop, /const at = targetAt\(d, e\.clientY\)/, 'the drop’s target is read from the captured drag');
   /* …and that move IS the navigator's one-save move. */
   const shell = read(SHELL);
   const lent = shell.slice(shell.indexOf('partOps.current = {'), shell.indexOf('window.addEventListener(MAKER_PART_OPS_EVENT'));

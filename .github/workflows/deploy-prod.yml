@@ -191,6 +191,15 @@ jobs:
       - name: Checkout
         if: steps.gate.outputs.enabled == 'true'
         uses: actions/checkout@v4
+        with:
+          # ⚠ The default checkout is ONE commit and NO tags — `deployed-prod` was never
+          # in the clone, so "Is there anything new to publish?" always failed OPEN and
+          # every 4-hourly run rebuilt unchanged code. Each rebuild is a new deployment,
+          # and an open Maker tab still on the old one crashed on its next request
+          # (owner, live iPhone 2026-10-06 09:23: "Something on our end didn't work"
+          # after the 09:15 no-change run). Full history + tags make the marker real.
+          fetch-depth: 0
+          fetch-tags: true
 
       - name: Install Supabase CLI
         if: steps.gate.outputs.enabled == 'true'

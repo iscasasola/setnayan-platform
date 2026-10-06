@@ -130,6 +130,9 @@ import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 import { planMyselfOn } from '@/lib/plan-myself';
+import { makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
+import { studioTiles, type StudioTileModel } from '@/lib/studio-tiles';
+import { yourEventLabel } from '@/lib/details-your-event';
 
 // ⭐ THE ONLY SURFACE THAT MAY DECLARE THIS NAME (owner ruling 2026-09-02 —
 // "if it is the same then adjust"). `/website` wore `title: 'Event Hub'` too
@@ -1039,6 +1042,13 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   /* ✍ The Details items' own editors — ONE set, drawn by Details and by the
      stage's inspector when a fact is tapped there (`detailsFactEditors`). */
   let factEditors: Partial<Record<DetailsItemKey, ReactNode>> = {};
+  /* 🧭 THE NEW MAKER — "Stages | Studio" (owner 2026-10-06; plan
+     `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md` PR 1): ON for the
+     flag, or for an internal viewer (the reading View-as-free already made), and
+     only where there is work. The ONE place it is decided — `MakerShell` is handed
+     the boolean, and Studio's tiles are built only while it is on. */
+  const stagesStudio = hasWork && makerStagesStudioEnabled({ internal: freeSwitch.offered });
+  let studio: { tiles: StudioTileModel[] } | null = null;
   if (hasWork) {
     const printAdmin = createAdminClient();
     /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
@@ -1492,6 +1502,21 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           guests: mayReadGuestList ? await countSetupGuests(printAdmin, eventId) : null,
         });
       }
+      /* 🗂 STUDIO'S TILES — their ✓ / Missing from the SAME facts the rows above read
+         (`guided`, the setup's reply-by, the seat counts, the E-Gifts manager's own read). */
+      if (stagesStudio) {
+        const gifts = await egiftAllP;
+        studio = {
+          tiles: studioTiles({
+            facts: guided,
+            setup: setupFacts,
+            giftMethods: gifts.read ? gifts.methods.filter((m) => m.is_enabled).length : null,
+            seat: seatPlan ? { tables: seatPlan.tables, seated: seatPlan.seated } : null,
+            offered: (item) => (item === 'seating' ? seatPlan !== null : item === 'rsvp' ? rsvpItem !== null : detailsItemApplies(item, eventContext)),
+            marchLabel: yourEvent ? yourEventLabel('march', yourEvent.kind) : undefined,
+          }),
+        };
+      }
       const guidedPresentHere = guidedPresent({
         yourEvent: yourEvent ? { kind: yourEvent.kind, namesWritable: yourEvent.names !== null } : null,
         storyApplies: detailsItemApplies('love-story', eventContext),
@@ -1753,6 +1778,8 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          where the work area is the editor — a coordinator has nothing to draft. */
       applySlot={hasWork ? <HubDraftDock eventId={eventId} saveError={one(search.draft_error)} /> : null}
       viewAsFree={freeSwitch.offered ? { on: freeSwitch.on } : null}
+      stagesStudio={stagesStudio}
+      studio={studio}
       /* Who Details is for, in the event type's own words (a coordinator is told
          why it is shut) — `EventWords`, never a typed "couple". */
       theHost={eventWordsFromProfile(await resolveProfileByEvent(eventId)).theHost}

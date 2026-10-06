@@ -159,3 +159,15 @@ export const BeforeWeStartScreen = dynamic(() => import(/* webpackChunkName: "ma
 /* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
+
+/* ── 🧭 The new Maker's own chrome (owner 2026-10-06, `makerStagesStudioEnabled`) — Stages | Studio, Studio's
+   home and its Tool ▾ row, the grab handle, the one bottom sheet. Drawn only while the new Maker is on, so none
+   of it is in the Maker's first load (`scripts/check-maker-js-budget.mjs`); warmed at idle with the rest. ── */
+export const StudioSideSwitch = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioSideSwitch), {
+  loading: () => <span aria-hidden className="block h-11 w-full rounded-lg bg-ink/[0.06]" />,
+});
+export const StudioToolMenu = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolMenu), { loading: SlotButton });
+export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioToolRow), { loading: SlotNone });
+export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
+export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
+export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });

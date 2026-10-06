@@ -41,6 +41,24 @@ export const MAKER_TOOLBAR = ['exit', 'page', 'details', 'undo', 'preview', 'app
 export type MakerToolbarItem = (typeof MAKER_TOOLBAR)[number];
 
 /**
+ * 🧭 THE NEW MAKER'S TOP NAV — a PHONE's, behind `makerStagesStudioEnabled`
+ * (owner 2026-10-06: *"studio, will have the same top nav, but a different
+ * approach on the 10 studio pages"*; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md`
+ * PR 1, prototype `maker_two_dropdowns_owner_wireframe_2026-10-06_fable.html`):
+ *
+ *     ✕ Exit · Stages | Studio · ↺ Undo · ✓ Apply (n)
+ *
+ * `side` is ONE `ISegmented` (sections = one segmented control, INTERACTION_RULES
+ * §8). No Page ▾, no Event Details, no 👁 Preview on this list — the stage ▾
+ * lives in the lower third, Studio's tools on its home, and ▶ Play joins the
+ * lower third in a later PR. A desktop keeps `MAKER_TOOLBAR` this round; with
+ * the flag off every width does. Held by `lib/maker-stages-studio-ships-dark.test.ts`.
+ */
+export const MAKER_TOOLBAR_STAGES_STUDIO = ['exit', 'side', 'undo', 'apply'] as const;
+export type MakerSide = 'stages' | 'studio';
+export const MAKER_SIDE_LABEL: Record<MakerSide, string> = { stages: 'Stages', studio: 'Studio' };
+
+/**
  * The Maker's door into the event's facts. "Your info" RETIRED as a name
  * (owner 2026-10-02, tracker answer d15: *"Event Details" everywhere*) — the
  * Maker and Event Home now say the same words for the same record.

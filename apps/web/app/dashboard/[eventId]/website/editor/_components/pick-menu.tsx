@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { useContext, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as KE } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
-import { fontRowClass, groupHeadClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
+import { PickSheetContext, fontRowClass, groupHeadClass, pickButtonClass, pickOpensAsSheet, pickOptionClass, pickRuns, placePickList, type PickListPlacement } from './pick-menu-place';
 import type { PickMenuProps, PickOption } from './pick-menu-types';
 
 export type { PickOption, PickMenuProps } from './pick-menu-types';
@@ -30,6 +30,8 @@ export function PickMenu({
   const listId = useId();
   const current = options.find((o) => o.key === value) ?? null;
   const isOn = (key: string) => (picked ? picked.includes(key) : key === value);
+  const sheet = useContext(PickSheetContext);
+  const asSheet = pickOpensAsSheet(Boolean(sheet), typeof window === 'undefined' ? 1e4 : window.innerWidth);
 
   const place = () => {
     const r = btnRef.current?.getBoundingClientRect();
@@ -96,6 +98,51 @@ export function PickMenu({
     items[(i + dir + items.length) % items.length]?.focus();
   };
 
+  const onKeys = (e: KE) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      move(e.key === 'ArrowDown' ? 1 : -1);
+    }
+  };
+  const rows = (
+    <>
+      {pickRuns(options).map((run, ri) =>
+        run.group === null ? (
+          run.options.map(renderOption)
+        ) : (
+          <li
+            key={`group:${run.group}`}
+            role="group"
+            aria-label={run.group}
+            data-pick-group={run.group}
+            className={ri > 0 ? 'mt-1 border-t border-ink/10 pt-1' : ''}
+          >
+            <p aria-hidden className={groupHeadClass(stickyGroups)}>
+              {run.group}
+            </p>
+            <ul role="none">{run.options.map(renderOption)}</ul>
+          </li>
+        ),
+      )}
+      {picked ? (
+        <li role="none" className="mt-1 border-t border-ink/10 pt-1">
+          <button
+            type="button"
+            data-pick-done=""
+            onClick={() => {
+              setOpen(false);
+              btnRef.current?.focus();
+            }}
+            className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
+          >
+            <span>Tick as many as apply.</span>
+            <span className="font-semibold text-ink">Done ✓</span>
+          </button>
+        </li>
+      ) : null}
+    </>
+  );
+
   return (
     <>
       <button
@@ -107,9 +154,7 @@ export function PickMenu({
         aria-controls={open ? listId : undefined}
         {...(dataAttr ? { [dataAttr]: '' } : {})}
         onClick={() => setOpen((o) => !o)}
-        className={`sn-press inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${
-          compact ? 'min-h-7 px-2 text-xs' : 'min-h-10 px-3 text-[13px]'
-        } ${className}`}
+        className={`${pickButtonClass(compact)} ${className}`}
       >
         {current?.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
         {current?.icon ? <span aria-hidden className="inline-flex shrink-0">{current.icon}</span> : null}
@@ -118,7 +163,7 @@ export function PickMenu({
         </span>
         <ChevronDown aria-hidden className={`h-3.5 w-3.5 shrink-0 transition-transform duration-300 ${open ? 'rotate-180' : ''}`} strokeWidth={2} />
       </button>
-      {open && at
+      {open && at && !asSheet
         ? createPortal(
             <ul
               ref={listRef}
@@ -126,58 +171,27 @@ export function PickMenu({
               role="listbox"
               aria-label={label}
               aria-multiselectable={picked ? true : undefined}
-              onKeyDown={(e) => {
-                if (e.key === 'ArrowDown') {
-                  e.preventDefault();
-                  move(1);
-                } else if (e.key === 'ArrowUp') {
-                  e.preventDefault();
-                  move(-1);
-                }
-              }}
+              onKeyDown={onKeys}
               style={{ position: 'fixed', top: at.top, left: at.left, minWidth: at.minWidth, maxHeight: at.maxHeight }}
               data-pick-side={at.side}
               data-pick-grid={grid || undefined}
               className="sn-glass-bare z-[95] overflow-y-auto overscroll-contain rounded-2xl p-1.5 shadow-[0_18px_40px_-18px_rgba(30,26,18,.45)]"
             >
-              {pickRuns(options).map((run, ri) =>
-                run.group === null ? (
-                  run.options.map(renderOption)
-                ) : (
-                  <li
-                    key={`group:${run.group}`}
-                    role="group"
-                    aria-label={run.group}
-                    data-pick-group={run.group}
-                    className={ri > 0 ? 'mt-1 border-t border-ink/10 pt-1' : ''}
-                  >
-                    <p aria-hidden className={groupHeadClass(stickyGroups)}>
-                      {run.group}
-                    </p>
-                    <ul role="none">{run.options.map(renderOption)}</ul>
-                  </li>
-                ),
-              )}
-              {picked ? (
-                <li role="none" className="mt-1 border-t border-ink/10 pt-1">
-                  <button
-                    type="button"
-                    data-pick-done=""
-                    onClick={() => {
-                      setOpen(false);
-                      btnRef.current?.focus();
-                    }}
-                    className="flex min-h-11 w-full items-center justify-between rounded-xl px-3 text-left text-[13px] text-ink/60 hover:bg-ink/5"
-                  >
-                    <span>Tick as many as apply.</span>
-                    <span className="font-semibold text-ink">Done ✓</span>
-                  </button>
-                </li>
-              ) : null}
+              {rows}
             </ul>,
             document.body,
           )
-        : null}
+        : open && sheet && asSheet
+          ? sheet({
+              label,
+              onClose: () => setOpen(false),
+              children: (
+                <ul ref={listRef} id={listId} role="listbox" aria-label={label} aria-multiselectable={picked ? true : undefined} onKeyDown={onKeys} data-pick-side="sheet" className="p-0.5">
+                  {rows}
+                </ul>
+              ),
+            })
+          : null}
     </>
   );
 
@@ -194,9 +208,7 @@ export function PickMenu({
             if (!picked) setOpen(false);
             onPick(o.key);
           }}
-          className={`flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-300 ease-in-out disabled:cursor-default disabled:text-ink/40 ${
-            o.hint || o.preview ? 'py-2' : ''
-          } ${!picked && o.key === value ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'}`}
+          className={pickOptionClass(Boolean(o.hint || o.preview), !picked && o.key === value)}
         >
           {o.dot ? <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-terracotta" /> : null}
           {o.thumb ? (

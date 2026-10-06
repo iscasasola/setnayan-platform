@@ -14,7 +14,6 @@ import {
   makerPartQuietRow,
   makerPartSource,
   makerPartsOnPage,
-  makerPartsTappable,
   makerStepPart,
   type MakerPartKey,
   type MakerPartTool,
@@ -37,6 +36,9 @@ import { MAKER_OPEN_PART_EVENT, MAKER_STAGE_TOOL_EVENT, useMaker } from './maker
 import { MAKER_PLAY_SCENE_EVENT } from './maker-play-menu';
 import { makerPagePick, makerPageValue, makerStageLabel } from './maker-bar';
 import { StageItemMenu, type StagePageOption } from './stage-item-menu';
+/* ＋ ↕ 🗑 🎭 PR 3 — the part's edges, the ＋ sheet, the one confirm, the Reveal part (same lazy chunk). */
+import { PartEdits, RevealPartTools, RevealPlay, revealStageOf } from './add-part-sheet';
+import { makerPartLabelOn, makerPartOfCanvas, makerPartsWithAdded } from '@/lib/maker-part-groups';
 
 /**
  * 🎬 THE STAGES PANEL — the new Maker's lower third on the Stages side (owner
@@ -159,9 +161,20 @@ export function StageTools({
     const pk = makerPagePick(value);
     return pk?.kind === 'page' && pk.stage === stage && pk.page ? pk.page : (pages[0]?.key ?? null);
   })();
+  /* 🎭 The Reveal leads Save the Date, Invitation › Welcome and The Day › Live — never drawn
+     on the editing canvas (it plays over the cover), so its tile is the page map's own. ＋ A
+     part the couple ADDED is a tile of the page it was added to (`makerPartsWithAdded`). */
+  const revealStage = rsvpOpen ? null : revealStageOf(stage);
+  const tappableOn = useCallback(
+    (page: string | null): MakerPartKey[] => {
+      const drawnHere = makerPartsWithAdded({ stage, page, pages: pages.map((p) => p.key), drawn: [...present] });
+      return revealStage && page && makerPartsOnPage(stage, page)[0] === 'reveal' ? ['reveal', ...drawnHere] : drawnHere;
+    },
+    [pages, present, revealStage, stage],
+  );
   const parts = useMemo(
-    () => (rsvpOpen ? [...makerPartsOnPage(RSVP_STAGE_KEY, screen)] : makerPartsTappable(stage, shownPage, present)),
-    [rsvpOpen, screen, stage, shownPage, present],
+    () => (rsvpOpen ? [...makerPartsOnPage(RSVP_STAGE_KEY, screen)] : tappableOn(shownPage)),
+    [rsvpOpen, screen, shownPage, tappableOn],
   );
   const pageLabel = pages.find((p) => p.key === shownPage)?.label ?? null;
 
@@ -178,7 +191,10 @@ export function StageTools({
   }, [stage, shownPage]);
 
   /* ── the panel's height: half the screen while a part's tools are open ── */
-  const open = openTool !== null && !typing && !playing;
+  /* 🎭 The Reveal's tools are this panel's own (no work-area tool opens for it). */
+  const revealOpen = picked === 'reveal' && revealStage !== null;
+  const [revealPlaying, setRevealPlaying] = useState(false);
+  const open = (openTool !== null || revealOpen) && !typing && !playing;
   useEffect(() => {
     /* ▶ The whole stage plays on the whole screen: the panel folds away entirely. */
     onPx(playing ? 0 : open ? stagePanelOpenPx(window.innerHeight) : null);
@@ -194,8 +210,9 @@ export function StageTools({
   /* Its tools closed (×, a tap on nothing): nothing is picked. */
   useEffect(() => {
     if (openTool !== null) return;
-    /* One tool handing over to another (the part's sheet → the scene's) is not a close. */
-    const t = window.setTimeout(() => setPicked(null), 400);
+    /* One tool handing over to another (the part's sheet → the scene's) is not a close —
+       nor is the Reveal, whose tools are this panel's own. */
+    const t = window.setTimeout(() => setPicked((p) => (p === 'reveal' ? p : null)), 400);
     return () => window.clearTimeout(t);
   }, [openTool]);
 
@@ -216,6 +233,8 @@ export function StageTools({
       }),
     );
   }, []);
+  const openToolRef = useRef(openTool);
+  openToolRef.current = openTool;
   const rsvpOpenRef = useRef(rsvpOpen);
   rsvpOpenRef.current = rsvpOpen;
   const toolRef = useRef(tool);
@@ -223,6 +242,11 @@ export function StageTools({
   const pickPart = useCallback(
     (k: MakerPartKey) => {
       setPicked(k);
+      if (k === 'reveal') {
+        /* 🎭 Its tools are drawn here; whatever the work area had open folds. */
+        openToolRef.current?.close();
+        return;
+      }
       if (rsvpOpen) {
         /* The RSVP stage's screens carry their own controls (`maker-rsvp-stage.tsx`). */
         document.querySelector<HTMLElement>(`[data-rsvp-stage-scene-tile="${screen}"]`)?.click();
@@ -246,7 +270,9 @@ export function StageTools({
       const d = e.data as { source?: unknown; t?: unknown; key?: unknown; el?: unknown; phase?: unknown } | null;
       if (d?.source !== 'setnayan-site') return;
       if (d.t === 'edit' && typeof d.key === 'string') {
-        const k = makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null);
+        const k =
+          makerPartOfTap(where.current.stageKey, where.current.shownPage, d.key, typeof d.el === 'string' ? d.el : null) ??
+          makerPartOfCanvas(where.current.stageKey, d.key);
         setPicked(k);
         askTool(toolRef.current, k);
       } else if (d.t === 'type' && d.phase === 'start') setTyping(true);
@@ -286,9 +312,9 @@ export function StageTools({
       /* The page the picked part is ON — the canvas may have scrolled the page the bar names. */
       const home =
         picked && !parts.includes(picked) && !rsvpOpen
-          ? (pages.find((p) => makerPartsTappable(stage, p.key, present).includes(picked))?.key ?? shownPage)
+          ? (pages.find((p) => tappableOn(p.key).includes(picked))?.key ?? shownPage)
           : shownPage;
-      const here = home === shownPage ? parts : makerPartsTappable(stage, home, present);
+      const here = home === shownPage ? parts : tappableOn(home);
       const r = makerStepPart({ parts: here, at: picked, pages: pages.map((p) => p.key), page: home, dir });
       if (!r) return;
       if (r.part) return pickPart(r.part);
@@ -298,7 +324,7 @@ export function StageTools({
         document.querySelector<HTMLElement>(`[data-rsvp-stage-scene="${r.page}"]`)?.click();
       } else onPickPage(makerPageValue(stage, r.page));
     },
-    [onPickPage, pages, parts, pickPart, picked, present, rsvpOpen, shownPage, stage],
+    [onPickPage, pages, parts, pickPart, picked, rsvpOpen, shownPage, stage, tappableOn],
   );
   /* The next page is on screen and its parts are read: pick its first (or, going back, its last). */
   useEffect(() => {
@@ -346,6 +372,8 @@ export function StageTools({
   }, []);
   const play = () => {
     if (playing) return stopPlay();
+    /* 🎭 ▶ on the Reveal: it plays over the cover, once, as a guest meets it. */
+    if (picked === 'reveal' && revealStage) return setRevealPlaying(true);
     const def = picked ? MAKER_PARTS[picked] : null;
     if (def?.canvas && def.el) return postToCanvas({ source: 'setnayan-editor', t: 'playEl', key: def.canvas, el: def.el });
     if (def?.canvas) return window.dispatchEvent(new Event(MAKER_PLAY_SCENE_EVENT));
@@ -388,6 +416,7 @@ export function StageTools({
 
   const pickTool = (t: MakerPartTool) => {
     setTool(t);
+    if (picked === 'reveal') return;
     if (!picked && parts[0]) return pickPart(parts[0]);
     askTool(t, picked);
   };
@@ -434,7 +463,8 @@ export function StageTools({
               <button
                 key={t}
                 type="button"
-                aria-pressed={open && tool === t}
+                aria-pressed={open && (revealOpen ? t === 'style' : tool === t)}
+                disabled={revealOpen && t !== 'style'}
                 aria-label={MAKER_PART_TOOL_LABEL[t]}
                 title={MAKER_PART_TOOL_LABEL[t]}
                 data-stage-tool={t}
@@ -456,7 +486,7 @@ export function StageTools({
           {playing ? <Square aria-hidden className="h-4 w-4" strokeWidth={2.2} /> : <Play aria-hidden className="h-4 w-4" strokeWidth={2.2} />}
         </button>
         {open ? (
-          <button type="button" aria-label="Close the tools" data-stage-close="" onClick={() => openTool?.close()} className={STAGE_ICON_BUTTON}>
+          <button type="button" aria-label="Close the tools" data-stage-close="" onClick={() => (revealOpen ? setPicked(null) : openTool?.close())} className={STAGE_ICON_BUTTON}>
             <X aria-hidden className="h-4 w-4" strokeWidth={2.2} />
           </button>
         ) : null}
@@ -499,7 +529,7 @@ export function StageTools({
               const tag = src.kind === 'info' ? 'Info' : src.kind === 'studio' ? 'Studio' : src.kind === 'supplier' ? 'Suppliers' : null;
               return (
                 <button key={k} type="button" aria-pressed={picked === k} data-stage-part={k} onClick={() => pickPart(k)} className={STAGE_PART_TILE}>
-                  <span className="line-clamp-2 text-[12.5px] font-semibold leading-tight text-ink">{MAKER_PARTS[k].label}</span>
+                  <span className="line-clamp-2 text-[12.5px] font-semibold leading-tight text-ink">{makerPartLabelOn(stageKey, k)}</span>
                   {tag ? <span className="text-[10.5px] text-ink/50">{tag}</span> : null}
                 </button>
               );
@@ -508,6 +538,12 @@ export function StageTools({
           </div>
         </>
       )}
+
+      {/* ══ 🎭 THE REVEAL'S TOOLS — its kinds, Extras ▾, Arrange › Hidden on this stage ══ */}
+      {open && revealOpen && revealStage ? <RevealPartTools stage={revealStage} /> : null}
+      {revealPlaying && revealStage ? <RevealPlay stage={revealStage} onDone={() => setRevealPlaying(false)} /> : null}
+      {/* ══ ＋ ↕ 🗑 — on the picked part's edges, over the page ══ */}
+      <PartEdits stage={stageKey} picked={open && !rsvpOpen && !revealOpen ? picked : null} />
 
       {/* ══ THE GUEST'S TAB BAR, at the foot of the page preview ══ */}
       {shellEl && pages.length > 1 && !away

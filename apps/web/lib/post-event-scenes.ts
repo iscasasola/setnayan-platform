@@ -359,6 +359,21 @@ const FIXED: Record<string, Def> = {
   },
 };
 
+/** What comes next — the back cover the couple announces; absent until they choose it. */
+const NEXT_NAME = 'What comes next';
+
+/**
+ * 🏷 EVERY SCENE'S SHIPPED NAME, by its key — the names the navigator prints.
+ * The Maker's ＋ sheet lists the Post Event scenes by THESE words
+ * (`lib/maker-part-groups.ts`, DECISION_LOG 2026-10-06 "POST EVENT: EVERY
+ * SHIPPED AUTO SCENE CAN BE ADDED"), never retyped. The day's chapters are
+ * named per day and are not here.
+ */
+export const POST_EVENT_SCENE_NAMES: Readonly<Record<string, string>> = {
+  ...Object.fromEntries(Object.values(FIXED).map((d) => [d.key, d.name] as const)),
+  next: NEXT_NAME,
+};
+
 /** The reorderable block → the scene that lives in it. `chapters` expands into one scene per chapter. */
 const SCENE_FOR_BLOCK: Record<Exclude<EditorialOrderKey, 'chapters'>, keyof typeof FIXED> = {
   kwento: 'wishes',
@@ -473,8 +488,8 @@ export function compilePostEventScenes(
     build(FIXED.couple!, s, day),
     build(FIXED.song!, s, day),
     s.whatsNext
-      ? { key: 'next', name: 'What comes next', template: 10, source: s.whatsNext, status: 'auto', note: null, count: null, open: null, pin: 'after', block: null, switch: null }
-      : { key: 'next', name: 'What comes next', template: 10, source: '—', status: 'optional', note: 'Absent until you choose what comes next', count: null, open: null, pin: 'after', block: null, switch: null },
+      ? { key: 'next', name: NEXT_NAME, template: 10, source: s.whatsNext, status: 'auto', note: null, count: null, open: null, pin: 'after', block: null, switch: null }
+      : { key: 'next', name: NEXT_NAME, template: 10, source: '—', status: 'optional', note: 'Absent until you choose what comes next', count: null, open: null, pin: 'after', block: null, switch: null },
   ];
   return { version: POST_EVENT_SCENES_VERSION, generatedAt, scenes };
 }

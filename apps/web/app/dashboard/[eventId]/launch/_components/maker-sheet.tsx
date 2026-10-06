@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useReducer, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import {
   ELEMENT_SHEET_CLOSED,
@@ -397,8 +396,9 @@ export function HalfSheetSlimBar({
  * 🔒 NOTHING HERE WRITES — it only draws what it is handed.
  */
 export function MakerSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
-  if (typeof document === 'undefined') return null;
-  return createPortal(
+  /* Fixed to the screen — so whoever draws it puts it on <body> (the shell's `makerPickSheet` portals it):
+     inside a glass panel a `fixed` box is held by the panel's backdrop filter. */
+  return (
     <div data-maker-sheet="" className="fixed inset-0 z-[95] lg:hidden">
       <button type="button" aria-label="Close" data-maker-sheet-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-ink/20" />
       <div
@@ -410,7 +410,6 @@ export function MakerSheet({ label, onClose, children }: { label: string; onClos
         <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

@@ -113,6 +113,7 @@ const CONVERTED: ReadonlyArray<readonly [string, readonly string[]]> = [
   ['lib/invitation-widgets.ts', ['WEBSITE_PHASES_ENABLED']],
   ['lib/live-studio-pool-only.ts', ['NEXT_PUBLIC_LIVE_STUDIO_POOL_ONLY']],
   ['lib/live-studio-roam.ts', ['NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED']],
+  ['lib/maker-stages-studio-flag.ts', ['NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED']],
   ['lib/nav-registry-defaults.ts', ['NEXT_PUBLIC_SUITE']],
   ['lib/onboarding-v2-brief-flag.ts', ['NEXT_PUBLIC_ONBOARDING_V2_BRIEF_ENABLED']],
   ['lib/package-authoring-flag.ts', ['NEXT_PUBLIC_PACKAGE_AUTHORING']],

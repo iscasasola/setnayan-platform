@@ -3,6 +3,7 @@
 import type { ComponentType } from 'react';
 import { Armchair, CalendarClock, ClipboardList, Footprints, Gem, Gift, Heart, Palette, Printer, Reply, Shirt } from 'lucide-react';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * 🗂 THE STUDIO HOME — the new Maker's Studio side opens on its tiles (owner
@@ -45,7 +46,7 @@ export function StudioHome({ tiles, onOpen }: { tiles: readonly StudioTileModel[
       <div className="flex items-baseline justify-between px-1 pb-3">
         <h2 className="font-serif text-[26px] font-medium text-ink">Studio</h2>
         <p className="text-[12.5px] font-semibold text-success-700" data-studio-ready="">
-          {ready} of {tiles.length} ready
+          {formatCount(ready)} of {formatCount(tiles.length)} ready
         </p>
       </div>
       <ul className="grid grid-cols-2 gap-2.5">

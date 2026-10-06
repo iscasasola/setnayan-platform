@@ -3,6 +3,7 @@
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { GUEST_PAGE_ICON } from '../../website/editor/_components/page-pick';
 import Link from 'next/link';
+import { createPortal } from 'react-dom';
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentType, type ReactNode } from 'react';
 import { Check, ChevronLeft, Eye, List, X } from 'lucide-react';
 import type { TourKey } from '@/lib/tours';
@@ -143,11 +144,20 @@ import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo,
 const NO_FACT_EDITORS: Partial<Record<DetailsItemKey, ReactNode>> = {};
 
 /** ▁ The new Maker's one bottom sheet, handed to every `PickMenu` inside it (`PickSheetContext`). */
-const makerPickSheet: PickSheet = ({ label, onClose, children }) => (
-  <MakerSheet label={label} onClose={onClose}>
-    {children}
-  </MakerSheet>
-);
+const makerPickSheet: PickSheet = ({ label, onClose, children }) =>
+  typeof document === 'undefined'
+    ? null
+    : createPortal(
+        <MakerSheet label={label} onClose={onClose}>
+          {children}
+        </MakerSheet>,
+        document.body,
+      );
+
+/** The sheet handed down only when the new Maker is on — a plain call, never a component, so the shipped tree is unchanged. */
+function withPickSheet(on: boolean, children: ReactNode): ReactNode {
+  return on ? <PickSheetContext.Provider value={makerPickSheet}>{children}</PickSheetContext.Provider> : children;
+}
 
 /** Look and Details — words a first-timer reads, on every width (design frames A and G). */
 const MAKER_DOOR_BUTTON =
@@ -942,7 +952,11 @@ export function MakerShell({
 
   return (
     <MakerContext.Provider value={value}>
-      <PickSheetContext.Provider value={stagesStudio ? makerPickSheet : null}>
+      {/* ▁ The new Maker's one bottom sheet for every PickMenu inside it — only when it is on, so the
+          shipped Maker's tree (and every id React derives from it) is exactly as it was. */}
+      {withPickSheet(
+        stagesStudio,
+        <>
       {/* An inline <style>, not a CSS import: unit tests load these modules.
           ① The scroll lock. ② 🪤 MEASURED IN THE BROWSER: the layout's
           `.sn-vt-page` carries `view-transition-name`, which makes it a
@@ -1075,33 +1089,6 @@ export function MakerShell({
         {/* ⏱ The switch ends when the Maker does (unmount · pagehide). */}
         {viewAsFree?.on ? <ViewAsFreeKeeper /> : null}
 
-        {/* 🧭 A STUDIO TOOL, FULL SCREEN — its slim row: Tool ▾ (the eleven, one sheet), and ✓ Done
-            where the top nav is hidden. Tapping Studio returns to the tiles — no "‹ Studio" here. */}
-        {studioFull && studioTile ? (
-          <div data-maker-studio-row="" className="flex h-[52px] shrink-0 items-center gap-2 border-b border-ink/10 bg-cream px-2 lg:hidden">
-            <PickMenu
-              label="Studio tool"
-              dataAttr="data-maker-studio-tool"
-              value={studioTile.key}
-              buttonText={studioTile.short}
-              options={studioOptions}
-              onPick={(k) => openStudio(k as StudioTileKey)}
-              className="!min-h-11 ring-1 ring-ink/10"
-            />
-            {studioTile.immersive ? (
-              <button
-                type="button"
-                data-maker-studio-done=""
-                onClick={() => pickSide('studio')}
-                className="sn-press ml-auto inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-success-600 px-4 text-[13.5px] font-bold text-cream hover:bg-success-700"
-              >
-                <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
-                Done
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
         {/* ══ 2 · 3 · 4 · THE WORK AREA ══ */}
         <div className="relative min-h-0 flex-1">
           {children}
@@ -1122,7 +1109,7 @@ export function MakerShell({
               a page in the body, never a dialog. Look, Details and Page ▾ › Prints
               all open THIS one page, on their own part. */}
           {hasWork && selection?.kind === 'tool' && selection.key === 'details' ? (
-            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-details-layer="">
+            <div className={`absolute inset-0 z-30 flex bg-cream${studioFull ? ' max-lg:top-[52px]' : ''}`} data-maker-details-layer="">
               <MakerPage
                 pageKey="details"
                 page={
@@ -1140,7 +1127,19 @@ export function MakerShell({
           {/* 🗳 THE RSVP STAGE — Page ▾ › RSVP (owner 2026-09-30 re-plan), drawn
               like Details: it covers the work area, the editor keeps its state
               underneath. Picking another page puts that stage back. */}
-          {/* 🗂 STUDIO'S HOME — its tiles cover the page (`studio-home.tsx`, loaded when first opened). */}
+          {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-stage' ? (
+            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
+              {rsvpStage ?? (
+                <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
+                  Your RSVP could not be loaded just now. Nothing was changed — please reopen this in a moment.
+                </p>
+              )}
+            </div>
+          ) : null}
+          {/* 🧭 THE NEW MAKER'S STUDIO, over the work area (appended last, so the shipped Maker's tree is
+              unchanged): its HOME of tiles (`studio-home.tsx`, loaded when first opened), or — a tool open
+              full screen — that tool's slim row: Tool ▾ (the eleven, one sheet), and ✓ Done where the top
+              nav is hidden. Tapping Studio returns to the tiles; there is no "‹ Studio" here. */}
           {studioHomeOn ? (
             <div className="absolute inset-0 z-30 flex flex-col bg-cream" data-maker-studio-layer="">
               {studio ? (
@@ -1151,14 +1150,28 @@ export function MakerShell({
                 </p>
               )}
             </div>
-          ) : null}
-          {hasWork && selection?.kind === 'tool' && selection.key === 'rsvp-stage' ? (
-            <div className="absolute inset-0 z-30 flex bg-cream" data-maker-rsvp-layer="">
-              {rsvpStage ?? (
-                <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
-                  Your RSVP could not be loaded just now. Nothing was changed — please reopen this in a moment.
-                </p>
-              )}
+          ) : studioFull && studioTile ? (
+            <div data-maker-studio-row="" className="absolute inset-x-0 top-0 z-40 flex h-[52px] items-center gap-2 border-b border-ink/10 bg-cream px-2 lg:hidden">
+              <PickMenu
+                label="Studio tool"
+                dataAttr="data-maker-studio-tool"
+                value={studioTile.key}
+                buttonText={studioTile.short}
+                options={studioOptions}
+                onPick={(k) => openStudio(k as StudioTileKey)}
+                className="!min-h-11 ring-1 ring-ink/10"
+              />
+              {studioTile.immersive ? (
+                <button
+                  type="button"
+                  data-maker-studio-done=""
+                  onClick={() => pickSide('studio')}
+                  className="sn-press ml-auto inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-success-600 px-4 text-[13.5px] font-bold text-cream hover:bg-success-700"
+                >
+                  <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
+                  Done
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -1169,10 +1182,11 @@ export function MakerShell({
             floating Event Bar switch (owner 2026-10-05, "approve"). */}
         {/* 🧭 Studio's home and a full-screen Studio tool draw no lower third — the tool's editor
             rests at half the screen instead (room kept for it below), the Logo studio carries its own. */}
-        {studioFull && studioTile && detailsItemLayout(studioTile.item) !== 'whole' ? (
-          <div aria-hidden data-maker-studio-room="" className="h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))] shrink-0 lg:hidden" />
-        ) : null}
-        {studioCovers ? null : (
+        {studioCovers ? (
+          studioFull && studioTile && detailsItemLayout(studioTile.item) !== 'whole' ? (
+            <div aria-hidden data-maker-studio-room="" className="h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))] shrink-0 lg:hidden" />
+          ) : null
+        ) : (
         <MakerLowerThird
           itemMenu={ltItemMenu}
           resize={ss ? { px: ltPx, onPx: setLtPx } : null}
@@ -1216,7 +1230,8 @@ export function MakerShell({
           />
         ) : null}
       </div>
-      </PickSheetContext.Provider>
+        </>,
+      )}
     </MakerContext.Provider>
   );
 }

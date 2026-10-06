@@ -36,6 +36,7 @@ import { updateEventSlug } from '@/app/dashboard/[eventId]/invitation/actions';
 import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions';
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
 import { labMarchSections } from './march-fixture';
+import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-ask';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -73,7 +74,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
   const words = eventWordsFromProfile(profile);
   /* 🚶 `?item=march` — the Wedding March maker on maria-and-jose's couple + a full entourage (`march-fixture.ts`). */
   const marchLab = one('item') === 'march';
-  const yourEvent: YourEventInput | null = guideAddr || marchLab
+  /* 🧭 `?studio=1` — the new Maker's Studio tools on fixtures (`MakerDetails`'s `studio`). */
+  const studioLab = one('studio') === '1';
+  const yourEvent: YourEventInput | null = guideAddr || marchLab || studioLab
     ? {
         kind: {
           words: { twoPeople: hasTwoNamedPeople(profile), solemn: words.solemn, eventWord: words.eventWord },
@@ -109,7 +112,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           matrix: Promise.resolve(null),
           nudge: null,
         },
-        venues: { resolved: [], slots: [], city: null },
+        venues: studioLab
+          ? { resolved: [{ role: 'reception', name: 'The Garden at Tagaytay', address: 'Tagaytay City' } as never], slots: [], city: null }
+          : { resolved: [], slots: [], city: null },
         march: marchLab ? { ...labMarchSections(one('march')), lab: true } : { sections: [] },
       }
     : null;
@@ -163,9 +168,42 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
         facts={facts}
         loveStory={{ book: needsDb('The Love Story'), moments: 0 }}
         schedule={{ page: needsDb('The schedule'), moments: null, pieces: [] }}
-        rsvp={{ page: needsDb('The guest’s RSVP'), settings: needsDb('The RSVP settings') }}
+        rsvp={{
+          page: needsDb('The guest’s RSVP'),
+          settings: studioLab ? (
+            <MakerRsvpSettings
+              eventId={EVENT}
+              studio
+              current={{}}
+              drafted={false}
+              replyBy={{ date: 'November 12, 2026', isDefault: true }}
+              replyByOwn={{ deadline: null, pricingMode: 'realtime' }}
+              requests={{ count: 0, list: null }}
+              celebration={{ ownsPro: pro, storeShell: false, colours: ['#5B1A22', '#6B7A3A', '#E0A52B', '#8E2E3C', '#F2C8C2'] }}
+            />
+          ) : (
+            needsDb('The RSVP settings')
+          ),
+        }}
+        studio={
+          studioLab
+            ? {
+                hub: { visibility: 'unlisted', pinned: null, openBrowse: false, launched: false, scheduledAt: null },
+                egiftMethods: [
+                  { egift_method_id: 'g1', method_kind: 'gcash', label: 'GCash', account_name: 'Maria Santos', handle: '0917 555 0101', qr_r2_key: null, note: null, is_enabled: true, qrDisplayUrl: null },
+                ],
+                whatToBring: 'Your invitation QR · a jacket for the garden',
+                livePath: '/maria-and-jose',
+              }
+            : null
+        }
         hasPalette={!fresh}
         hasGifts={false}
+        answers={
+          studioLab
+            ? { solemn: false, twoPeople: true, giftsMode: 'gifts', papic: { offered: false, value: null }, gifts: { offered: true, value: true }, logo: null, cover: null }
+            : null
+        }
         flash={null}
         stamp="lab"
         initialItem={detailsItemFor({ tool: 'details', item: one('item') })}

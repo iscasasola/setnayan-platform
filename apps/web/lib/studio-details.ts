@@ -95,6 +95,8 @@ export function studioFullScreenCss(): string {
     `${form}{--maker-lt-h:${UNDER_THE_ROWS}}` +
     `${form} [data-details-body],${form} [data-details-sheet-head]{display:none}` +
     `${page} [data-details-editor-panel]{display:none}` +
+    /* 🌄 Look: its one bar (Background · Colours · Fonts · Music) is the section picker — no second ▾ above it. */
+    '[data-details-editor-panel]:has([data-details-editor]:not([hidden]) [data-studio-look-bar]) [data-details-sheet-head]{display:none}' +
     `[data-maker-studio-full]:has([data-details-workspace]${on([...STUDIO_FORM_ITEMS, ...STUDIO_PAGE_ITEMS])}) [data-maker-studio-room]{display:none}` +
     '}'
   );

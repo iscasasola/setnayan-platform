@@ -6,7 +6,7 @@ import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
 import { saveEgiftMethod, setEgiftMethodEnabled } from '../../pabuya/actions';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
-import { HUB_LIVE_WORDS, HubSavesImmediately } from '../../website/_components/hub-draft-field';
+import { HUB_LIVE_WORDS } from '../../website/_components/hub-draft-field';
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { setLaunchPhase, setOpenBrowse } from '../../website/editor/actions';
 import { updateLandingPageVisibility } from '../../website/privacy/actions';
@@ -364,7 +364,7 @@ export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slu
   };
   return (
     <div data-studio-hub="" className="flex flex-col">
-      <HubSavesImmediately />
+      {/* "Guests see this right away" is said once, by the address right above (its own `HubSavesImmediately`). */}
       <HubRow label="Go live" data="go-live">
         <LaunchStdButton eventId={eventId} slug={slug} initialLaunched={hub.launched} initialScheduledAt={hub.scheduledAt} />
       </HubRow>

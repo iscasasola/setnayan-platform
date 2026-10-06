@@ -28,7 +28,8 @@ export const WHICH_VERSION_LABEL = 'Which version guests see';
 /** The six choices, in the prototype's order and words (the four phases keep the shipped labels). */
 export const WHICH_VERSION_OPTIONS: ReadonlyArray<{ key: WhichVersion; label: string; hint?: string }> = [
   { key: 'auto', label: 'Automatic', hint: 'Follows the date' },
-  ...LAUNCH_PHASE_CHOICES.map((c) => ({ key: c.key as WhichVersion, label: c.label, hint: c.hint })),
+  /* The shipped labels and lines — "event", never "celebration" (owner 2026-10-04). */
+  ...LAUNCH_PHASE_CHOICES.map((c) => ({ key: c.key as WhichVersion, label: c.label, hint: c.hint.replace(/\bcelebration\b/g, 'event') })),
   { key: 'all', label: 'All of them', hint: 'Guests can open every page' },
 ];
 

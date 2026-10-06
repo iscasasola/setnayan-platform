@@ -2,6 +2,7 @@
 
 import { useMemo, type ComponentProps, type ReactNode } from 'react';
 import { MakerShell } from '@/app/dashboard/[eventId]/launch/_components/maker-shell';
+import type { StudioTileModel } from '@/lib/studio-tiles';
 import { MakerRsvpStage } from '@/app/dashboard/[eventId]/launch/_components/maker-rsvp-stage';
 import { MakerWork, type MakerScene } from '@/app/dashboard/[eventId]/website/editor/_components/editor-shell';
 import type { MakerNavigatorData } from '@/app/dashboard/[eventId]/website/editor/_components/maker-navigator-data';
@@ -88,7 +89,12 @@ export function MakerLabShell({
   openDetails = false,
   canvases = {},
   renderStamp = 'lab',
+  stagesStudio = false,
+  studio = null,
 }: {
+  /** 🧭 `?studio=1` — the new Maker ("Stages | Studio"), with its tiles. */
+  stagesStudio?: boolean;
+  studio?: { tiles: readonly StudioTileModel[] } | null;
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
@@ -176,6 +182,8 @@ export function MakerLabShell({
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork
       theHost="the couple"
+      stagesStudio={stagesStudio}
+      studio={studio}
     >
       <MakerWork
         eventId={eventId}

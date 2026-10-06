@@ -19,7 +19,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REVEAL_STAGE_CHOICES, revealOnlyOnTheFirstPage, revealStagesWith, type RevealStage } from './reveal-stages';
-import { revealEffectsWithExtra, revealExtraOf, revealExtrasFor, type RevealEffects } from './std-reveal-effects';
+import { revealEffectsWithExtra, revealExtraOf, revealExtrasFor } from './reveal-extras';
+import type { RevealEffects } from './std-reveal-effects';
 import { MAKER_STAGE_PAGES } from './maker-parts';
 
 const WEB = join(__dirname, '..');

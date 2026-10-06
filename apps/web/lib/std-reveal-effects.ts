@@ -268,30 +268,3 @@ export function tuneRevealLooks(
   });
   return { veil: merged.veil, effects: merged.effects };
 }
-
-/* ═══════════════════════════════════════════════════════════════════════════
-   ✨ EXTRAS ▾ — the new Maker's Reveal part (owner 2026-10-06: "Extras ▾ None ·
-   Butterflies · Falling petals"). The SAME two switches the fine-tune draws,
-   as one dropdown, offering only what the chosen opening's engine draws: an
-   envelope lets butterflies out, the doors and the veil let petals fall
-   (`maker-reveal.tsx` `FineTune`). Nothing new is stored.
-   ═══════════════════════════════════════════════════════════════════════════ */
-export type RevealExtra = 'none' | 'butterflies' | 'petals';
-export const REVEAL_EXTRA_LABEL: Record<RevealExtra, string> = { none: 'None', butterflies: 'Butterflies', petals: 'Falling petals' };
-
-/** The extras an opening's engine draws, "None" first. */
-export function revealExtrasFor(opening: string): RevealExtra[] {
-  return ENVELOPE_OPENINGS.has(opening) ? ['none', 'butterflies'] : ['none', 'petals'];
-}
-
-/** What Extras ▾ shows for these effects on this opening. */
-export function revealExtraOf(effects: RevealEffects, opening: string): RevealExtra {
-  if (ENVELOPE_OPENINGS.has(opening)) return effects.butterflies ? 'butterflies' : 'none';
-  return effects.petals ? 'petals' : 'none';
-}
-
-/** The effects with one extra picked — only that opening's own switch moves. */
-export function revealEffectsWithExtra(effects: RevealEffects, opening: string, extra: RevealExtra): RevealEffects {
-  if (ENVELOPE_OPENINGS.has(opening)) return { ...effects, butterflies: extra === 'butterflies' };
-  return { ...effects, petals: extra === 'petals' };
-}

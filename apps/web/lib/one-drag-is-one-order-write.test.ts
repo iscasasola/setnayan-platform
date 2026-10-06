@@ -58,7 +58,7 @@ test('the grip calls the work area’s move ONCE per drop — the one-save draft
   /* …and that move IS the navigator's one-save move. */
   const shell = read(SHELL);
   const lent = shell.slice(shell.indexOf('partOps.current = {'), shell.indexOf('window.addEventListener(MAKER_PART_OPS_EVENT'));
-  assert.match(lent, /\n\s+move,\n/, 'the work area lends its own `move`');
+  assert.match(lent, /[{,]\s*move\s*,/, 'the work area lends its own `move`');
   const move = shell.slice(shell.indexOf('const move = (id: string, delta: number)'), shell.indexOf('/** One step of a chain'));
   assert.match(move, /stageOrderPatch\(order/, 'the whole stage’s order, one patch');
   assert.match(move, /fd\.set\('intent', 'save'\)/, 'to the draft');

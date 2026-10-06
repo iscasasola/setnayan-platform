@@ -7,11 +7,8 @@ import { Check, Play } from 'lucide-react';
 import { hubDraftAction } from '../../website/hub-draft-actions';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { REVEAL_STAGE_CHOICES, revealStagesWith, type RevealStage } from '@/lib/reveal-stages';
+import { REVEAL_EXTRA_LABEL, revealEffectsWithExtra, revealExtraOf, revealExtrasFor } from '@/lib/reveal-extras';
 import {
-  REVEAL_EXTRA_LABEL,
-  revealEffectsWithExtra,
-  revealExtraOf,
-  revealExtrasFor,
   revealTuneKnobsFor,
   type RevealEffects,
   type RevealTuneHouse,

@@ -2,7 +2,8 @@ import type { ReactNode } from 'react';
 import type { LifecyclePhase } from '@/lib/invitation-widgets';
 import type { MakerStageList } from '@/lib/maker-scene-list';
 import type { PostEventArrangement } from '@/lib/post-event-draft';
-import type { MakerScene } from '../../website/editor/_components/editor-shell';
+import type { ComponentProps } from 'react';
+import type { MakerScene, MakerWork } from '../../website/editor/_components/editor-shell';
 import type { ElementDraftAction } from '../../website/editor/_components/element-sheet';
 
 /**
@@ -11,15 +12,40 @@ import type { ElementDraftAction } from '../../website/editor/_components/elemen
  * that changes them live in the work area (`editor-shell.tsx` `MakerWork`): the
  * navigator's eye, its one-save move (`lib/maker-reorder.ts`), the shipped
  * Remove for good, the "+ Add a scene" form. The Stages panel ASKS for them —
- * `window.dispatchEvent(new CustomEvent(MAKER_PART_OPS_EVENT, { detail: (ops) => … }))`
- * — and the work area answers with the current ones, so a part edit is never a
- * second door to the same fact.
+ * `window.dispatchEvent(new CustomEvent(MAKER_PART_OPS_EVENT, { detail: (raw) => … }))`
+ * — and the work area answers with the current ones (`MakerPartRaw`, read into
+ * `MakerPartOps` by the lazy sheet), so a part edit is never a second door to
+ * the same fact.
  *
  * Types and one string only: nothing here rides the Maker's first load.
  */
 export const MAKER_PART_OPS_EVENT = 'maker:part-ops';
 
 type FormAction = (formData: FormData) => void | Promise<void>;
+type WorkProps = ComponentProps<typeof MakerWork>;
+
+/**
+ * What the work area hands over, RAW — its own values and writes, nothing
+ * computed (the work area is in the Maker's first load; the reading of them,
+ * `partOpsOf` in `add-part-sheet.tsx`, is lazy).
+ */
+export type MakerPartRaw = {
+  eventId: string;
+  stage: LifecyclePhase;
+  list: MakerStageList;
+  fullOrder: readonly string[];
+  afterLastShown: string | null;
+  scenes: readonly MakerScene[];
+  move: (id: string, delta: number) => void;
+  eyeWrite: (scene: MakerScene) => void;
+  sceneRemovers: Readonly<Record<string, ReactNode>>;
+  navigator: WorkProps['navigator'];
+  elementEditing: WorkProps['elementEditing'];
+  addScene: WorkProps['addScene'];
+  postEventPresets: WorkProps['postEventPresets'];
+  sceneFacts: WorkProps['sceneFacts'];
+  onPickTemplate: () => void;
+};
 
 export type MakerPartOps = {
   eventId: string;

@@ -25,13 +25,14 @@ import {
 } from '@/lib/maker-part-groups';
 import { postEventRun, postEventShow, type PostEventDraft } from '@/lib/post-event-draft';
 import { POST_EVENT_WAITING } from '@/lib/post-event-scenes';
-import { swapsForDrop, type MakerTile } from '@/lib/maker-scene-list';
+import { stageTakesOwnScenes, swapsForDrop, type MakerTile } from '@/lib/maker-scene-list';
 import type { RevealStage } from '@/lib/reveal-stages';
 import { STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
 import { SceneTemplatePicker } from '../../website/editor/_components/scene-template-picker';
 import { MakerSheet } from './stages-studio-parts';
 import { MakerRevealStageContext } from './maker-reveal';
-import { MAKER_PART_OPS_EVENT, type MakerPartOps } from './maker-part-ops';
+import { MAKER_PART_OPS_EVENT, type MakerPartOps, type MakerPartRaw } from './maker-part-ops';
+import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
 import { useMaker } from './maker-context';
 
 /**
@@ -64,11 +65,52 @@ function postToCanvas(message: unknown) {
   document.querySelector<HTMLIFrameElement>(SHOWN_FRAME)?.contentWindow?.postMessage(message, window.location.origin);
 }
 
+/** The work area's raw values read into the edits' terms (here, lazy — never in the Maker's first load). */
+export function partOpsOf(raw: MakerPartRaw): MakerPartOps {
+  const { stage, addScene, postEventPresets: pe } = raw;
+  const byId = new Map(raw.scenes.map((sc) => [sc.id, sc] as const));
+  const nav = raw.navigator.postEvent;
+  return {
+    eventId: raw.eventId,
+    stage,
+    list: raw.list,
+    fullOrder: raw.fullOrder,
+    afterLastShown: raw.afterLastShown,
+    scenes: raw.scenes,
+    move: raw.move,
+    eye: (id) => {
+      const sc = byId.get(id);
+      if (sc) raw.eyeWrite(sc);
+    },
+    removers: raw.sceneRemovers,
+    postEvent: nav && nav !== 'unreadable' ? nav.arrangement : null,
+    draftAction: raw.elementEditing?.draftAction ?? null,
+    /* "+ Add a scene" exactly as the navigator offers it (`editor-shell.tsx` `setAddScene`). */
+    addOwn:
+      stage === 'editorial' && pe
+        ? { action: pe.action, returnTo: pe.returnTo, stageLabel: PUBLIC_STAGE_LABELS.editorial, heading: 'Add a scene ·', tried: !pe.ownsPro, presets: pe }
+        : !stageTakesOwnScenes(stage) || !addScene
+          ? null
+          : 'action' in addScene
+            ? {
+                action: addScene.action,
+                returnTo: addScene.returnTo,
+                stageLabel: stage === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[stage],
+                heading: 'Add a scene to',
+                tried: addScene.tried === true,
+                tour: addScene.tour,
+                facts: raw.sceneFacts ?? null,
+              }
+            : { note: addScene.note },
+    onPickTemplate: raw.onPickTemplate,
+  };
+}
+
 /** The work area's writes, now (synchronous: the work area answers inside the dispatch). */
 export function askPartOps(): MakerPartOps | null {
-  let got: MakerPartOps | null = null;
-  window.dispatchEvent(new CustomEvent(MAKER_PART_OPS_EVENT, { detail: (ops: MakerPartOps) => (got = ops) }));
-  return got;
+  let got: MakerPartRaw | null = null;
+  window.dispatchEvent(new CustomEvent(MAKER_PART_OPS_EVENT, { detail: (raw: MakerPartRaw) => (got = raw) }));
+  return got ? partOpsOf(got) : null;
 }
 
 /** The canvas keys the page DREW (a section with height), in page order — what is "on this page". */

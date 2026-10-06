@@ -23,7 +23,7 @@ import {
   type MakerSelection,
 } from '../../../launch/_components/maker-context';
 import { MAKER_PLAY_SCENE_EVENT } from '../../../launch/_components/maker-play-menu';
-import { MAKER_PART_OPS_EVENT, type MakerPartOps } from '../../../launch/_components/maker-part-ops';
+import { MAKER_PART_OPS_EVENT, type MakerPartRaw } from '../../../launch/_components/maker-part-ops';
 import { isMakerShellPage, type MakerShellPage } from '../../../launch/_components/maker-bar';
 import { HubDraftField } from '../../_components/hub-draft-field';
 import { SceneTemplatePicker } from './scene-template-picker';
@@ -1810,37 +1810,10 @@ export function MakerWork({
   const afterLastShown = lastShown ? (fullOrder[fullOrder.indexOf(lastShown) + 1] ?? null) : null;
   /* ＋ ↕ 🗑 THE NEW MAKER'S PART EDITS (`add-part-sheet.tsx`, lazy) ask THIS work area for its
      own writes — the eye, the one-save move, Remove for good, "+ Add a scene" (`maker-part-ops.ts`). */
-  const partOps = useRef<MakerPartOps | null>(null);
-  partOps.current = {
-    eventId,
-    stage,
-    list,
-    fullOrder,
-    afterLastShown,
-    scenes,
-    move,
-    eye: (id) => {
-      const sc = sceneById.get(id);
-      if (sc) eyeWrite(sc);
-    },
-    removers: sceneRemovers,
-    postEvent: navigator.postEvent && navigator.postEvent !== 'unreadable' ? navigator.postEvent.arrangement : null,
-    draftAction: elementEditing?.draftAction ?? null,
-    addOwn:
-      stage === 'editorial' && postEventPresets
-        ? { action: postEventPresets.action, returnTo: postEventPresets.returnTo, stageLabel: PUBLIC_STAGE_LABELS.editorial, heading: 'Add a scene ·', tried: !postEventPresets.ownsPro, presets: postEventPresets }
-        : !stageTakesOwnScenes(stage) || !addScene
-          ? null
-          : 'action' in addScene
-            ? { action: addScene.action, returnTo: addScene.returnTo, stageLabel: stage === 'rsvp' ? `the ${PUBLIC_STAGE_LABELS.rsvp}` : PUBLIC_STAGE_LABELS[stage], heading: 'Add a scene to', tried: addScene.tried === true, tour: addScene.tour, facts: sceneFacts }
-            : { note: addScene.note },
-    onPickTemplate,
-  };
+  const partOps = useRef<MakerPartRaw | null>(null);
+  partOps.current = { eventId, stage, list, fullOrder, afterLastShown, scenes, move, eyeWrite, sceneRemovers, navigator, elementEditing, addScene, postEventPresets, sceneFacts, onPickTemplate };
   useEffect(() => {
-    const ask = (e: Event) => {
-      const reply = (e as CustomEvent<unknown>).detail;
-      if (typeof reply === 'function' && partOps.current) (reply as (ops: MakerPartOps) => void)(partOps.current);
-    };
+    const ask = (e: Event) => (e as CustomEvent<(raw: MakerPartRaw) => void>).detail?.(partOps.current!);
     window.addEventListener(MAKER_PART_OPS_EVENT, ask);
     return () => window.removeEventListener(MAKER_PART_OPS_EVENT, ask);
   }, []);

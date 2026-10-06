@@ -30,3 +30,5 @@ Brief: controller 2026-10-06 — the phone lower third under the Wedding March I
 - Crash PR #6379 (rd/march-crash-fix) open, draft, do-not-auto-merge; its commits are cherry-picked here.
 - NEXT after this PR: PR 2 "drafted march" (owner "Wait for apply") — every march step (incl. walking) drafted via the
   hub draft; Apply writes through the same actions; remove HubSavesImmediately from the march.
+- PR #6380 (this branch) opened DRAFT, do-not-auto-merge. Weekly usage 93% at 10:15 PHT — PR 2 (drafted march) NOT started.
+- Pending when this was written: full unit suite run, Sonnet review findings (fix medium+), CI checks on #6379/#6380.

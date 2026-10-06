@@ -84,6 +84,8 @@ const WAITS_ON_PURPOSE: Record<string, string> = {
     'Not a tap — the Main background reads the hero photo’s colours by itself and saves them.',
   'website/editor/_components/main-background-panel.tsx › save':
     'OPEN — scene/main backgrounds belong to Builder H; reported 2026-09-29 (the choice waits on the save). Remove this line when it is drawn first.',
+  'launch/_components/studio-tools.tsx › saveHandle':
+    'Studio › E-Gifts (2026-10-07): a way to give\'s number and name — what the couple typed IS the visible change (the inputs\' own state, and "What guests see" redraws from it as they type); this is the save on leaving the field.',
   'launch/_components/parent-cards.tsx › add':
     'OPEN (Details, Builder K) — adding a parent creates a guest row and its card needs the server\'s new guest id; nothing shows until it lands. Reported 2026-09-29.',
 };

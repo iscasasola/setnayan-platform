@@ -1,10 +1,11 @@
 import { cache } from 'react';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
 import {
   isMissingRelationError,
   logQueryError,
 } from '@/lib/supabase/error-detect';
 import { anInvitationStillOnTheList } from '@/lib/event-board';
+import { isTransientReadError, schemaBlipError, withSchemaRetry } from '@/lib/read-retry';
 
 export type EventRow = {
   event_id: string;
@@ -152,6 +153,52 @@ export const fetchUserEvents = cache(async (
   userId: string,
   memberType?: EventWithRole['member_type'],
 ): Promise<EventWithRole[]> => {
+  const { events, error } = await readUserEvents(supabase, userId, memberType);
+  if (error) return logUserEventsDegrade(error, userId, memberType);
+  return events;
+});
+
+/**
+ * `fetchUserEvents`, except that a schema-cache BLIP which outlasted the retry
+ * window THROWS `SchemaBlipError` instead of degrading to `[]` — for the
+ * surfaces where an empty list becomes a redirect or a "nothing here" (Home,
+ * EventLayout's guest door). Every other error degrades exactly as
+ * `fetchUserEvents` does. Same cached read, so calling both costs one trip.
+ * 🛡 lib/read-retry.test.ts.
+ */
+export async function fetchUserEventsOrReconnect(
+  supabase: SupabaseClient,
+  userId: string,
+  memberType?: EventWithRole['member_type'],
+): Promise<EventWithRole[]> {
+  const { events, error, status } = await readUserEvents(supabase, userId, memberType);
+  if (error && isTransientReadError(error, status)) {
+    logQueryError('fetchUserEvents', error, { user_id: userId, member_type: memberType ?? null }, 'will_throw');
+    throw schemaBlipError('fetchUserEvents', error);
+  }
+  if (error) return logUserEventsDegrade(error, userId, memberType);
+  return events;
+}
+
+/**
+ * The one read behind both. A schema-cache blip is retried for a few seconds
+ * (`withSchemaRetry`) before anyone decides what its failure means.
+ */
+const readUserEvents = cache(async (
+  supabase: SupabaseClient,
+  userId: string,
+  memberType?: EventWithRole['member_type'],
+): Promise<{ events: EventWithRole[]; error: PostgrestError | null; status: number | null }> => {
+  const { data, error, status } = await withSchemaRetry(() => buildUserEventsQuery(supabase, userId, memberType));
+  if (error) return { events: [], error, status: status ?? null };
+  return { events: shapeUserEvents(data), error: null, status: status ?? null };
+});
+
+function buildUserEventsQuery(
+  supabase: SupabaseClient,
+  userId: string,
+  memberType?: EventWithRole['member_type'],
+) {
   let query = supabase
     .from('event_members')
     .select(
@@ -192,47 +239,23 @@ export const fetchUserEvents = cache(async (
   // Account auto-surface (#7b): hide events the guest opted OUT of — a "no"
   // (declined or left) stamps event_members.hidden_at. Normal memberships have
   // hidden_at NULL, so this only ever filters opted-out auto-surfaced rows.
-  query = query.is('hidden_at', null);
+  return query.is('hidden_at', null);
+}
 
-  const { data, error } = await query;
-  if (error) {
-    // Graceful-degrade on missing-relation — this query is load-bearing
-    // for the entire /dashboard/[eventId]/* layout (it powers the event
-    // switcher). A missing column (e.g. `monogram_text` added 2026-05-13
-    // — pushed long ago — but parallel risk for any future events table
-    // ADD COLUMN) would crash every authenticated dashboard page, not
-    // just the surface that triggered it. Empty switcher list is the
-    // safer fallback than a hard crash; the current event still renders
-    // via the parent layout's separate `.from('events').single()` query.
-    if (isMissingRelationError(error)) {
-      logQueryError(
-        'fetchUserEvents',
-        error,
-        { user_id: userId, member_type: memberType ?? null },
-        'graceful_degrade',
-      );
-      return [];
-    }
-    // 6th-pass hotfix 2026-05-23 — collapse to graceful-degrade-always.
-    //
-    // PR #404 (3rd pass) had this branch RE-THROW for "real bugs" (RLS
-    // denial / auth expiry / network failure), with structured Sentry
-    // context preserved before the throw. Sweep #1 of the 5-way parallel
-    // investigation traced Sentry digest 3284377371 to THIS specific
-    // throw — the layout-level `fetchUserEvents` on a Promise.all that
-    // bubbles to the same error.tsx as any page-level throw, crashing
-    // EVERY /dashboard/[eventId]/* surface (guests page included).
-    //
-    // PR #416 (5th pass) collapsed `fetchGuestsByEvent` to graceful-
-    // degrade-always but left this layout-level throw intact — owner
-    // hit digest 3284377371 again as predicted.
-    //
-    // The pragmatic move after 5 passes: empty event switcher >
-    // crashed event-scoped tree. The layout's separate single-event
-    // SELECT still works to render the current event; only the switcher
-    // dropdown's "other events" list becomes empty when this fires.
-    // The structured Sentry breadcrumb still surfaces the root cause
-    // for follow-up triage.
+function logUserEventsDegrade(
+  error: PostgrestError,
+  userId: string,
+  memberType?: EventWithRole['member_type'],
+): EventWithRole[] {
+  // Graceful-degrade on missing-relation — this query is load-bearing
+  // for the entire /dashboard/[eventId]/* layout (it powers the event
+  // switcher). A missing column (e.g. `monogram_text` added 2026-05-13
+  // — pushed long ago — but parallel risk for any future events table
+  // ADD COLUMN) would crash every authenticated dashboard page, not
+  // just the surface that triggered it. Empty switcher list is the
+  // safer fallback than a hard crash; the current event still renders
+  // via the parent layout's separate `.from('events').single()` query.
+  if (isMissingRelationError(error)) {
     logQueryError(
       'fetchUserEvents',
       error,
@@ -241,7 +264,36 @@ export const fetchUserEvents = cache(async (
     );
     return [];
   }
+  // 6th-pass hotfix 2026-05-23 — collapse to graceful-degrade-always.
+  //
+  // PR #404 (3rd pass) had this branch RE-THROW for "real bugs" (RLS
+  // denial / auth expiry / network failure), with structured Sentry
+  // context preserved before the throw. Sweep #1 of the 5-way parallel
+  // investigation traced Sentry digest 3284377371 to THIS specific
+  // throw — the layout-level `fetchUserEvents` on a Promise.all that
+  // bubbles to the same error.tsx as any page-level throw, crashing
+  // EVERY /dashboard/[eventId]/* surface (guests page included).
+  //
+  // PR #416 (5th pass) collapsed `fetchGuestsByEvent` to graceful-
+  // degrade-always but left this layout-level throw intact — owner
+  // hit digest 3284377371 again as predicted.
+  //
+  // The pragmatic move after 5 passes: empty event switcher >
+  // crashed event-scoped tree. The layout's separate single-event
+  // SELECT still works to render the current event; only the switcher
+  // dropdown's "other events" list becomes empty when this fires.
+  // The structured Sentry breadcrumb still surfaces the root cause
+  // for follow-up triage.
+  logQueryError(
+    'fetchUserEvents',
+    error,
+    { user_id: userId, member_type: memberType ?? null },
+    'graceful_degrade',
+  );
+  return [];
+}
 
+function shapeUserEvents(data: unknown): EventWithRole[] {
   const rows = (data ?? []) as unknown as MembershipQueryRow[];
 
   const events: EventWithRole[] = rows
@@ -275,7 +327,7 @@ export const fetchUserEvents = cache(async (
     });
 
   return events;
-});
+}
 
 // Post-wedding grace window before an event flips to "expired" on the
 // event-switcher carousel and on per-feature App Store-detail surfaces.

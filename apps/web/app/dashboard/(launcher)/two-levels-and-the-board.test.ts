@@ -731,7 +731,7 @@ test('the launcher asks for the invited memberships at all', () => {
   // by scanning an invitation QR is INVISIBLE to them — which is how it shipped.
   assert.match(
     launcher(),
-    /fetchUserEvents\(supabase, user\.id, 'guest'\)/,
+    /fetchUserEvents(?:OrReconnect)?\(supabase, user\.id, 'guest'\)/,
     'The launcher no longer reads guest memberships, so an invited event can never ' +
       'appear on the board.',
   );

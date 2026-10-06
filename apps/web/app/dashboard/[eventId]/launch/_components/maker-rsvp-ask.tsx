@@ -97,7 +97,16 @@ export function MakerRsvpSettings({
   draftAction = hubDraftAction,
   replyByAction = updatePaxSettings,
   celebration,
+  studio = false,
 }: {
+  /**
+   * 🧭 STUDIO › RSVP (the new Maker, `makerStagesStudioEnabled` — owner 2026-10-06,
+   * DECISION_LOG "'ASK ONE BY ONE' IS HOW THE GUEST'S RSVP ASKS"): the same
+   * settings, drawn as the prototype's full-screen tool — Reply by · How guests
+   * answer ▾ · Words · What the reply asks · Celebration ▾ ◆. "How guests get in"
+   * is NOT here (Event Setup). False — every couple today — draws it as shipped.
+   */
+  studio?: boolean;
   /**
    * 🎉 THE WHEN YES CELEBRATION (owner 2026-10-06) — only the stage's When yes
    * scene draws it: the measured Pro entitlement and the shell (for its ◆ marks
@@ -417,6 +426,85 @@ export function MakerRsvpSettings({
     );
   }
 
+  /* ══ 🧭 STUDIO › RSVP — the prototype's tool (`studio`), over the SAME saves ══ */
+  if (studio) {
+    const words = local.words ?? {};
+    return (
+      <div className="flex flex-col gap-5 px-1" data-studio-rsvp="">
+        <section className="flex flex-col gap-1" data-rsvp-setting="reply-by">
+          <p className="text-sm font-semibold text-ink">Reply by</p>
+          {replyByOwn ? (
+            <ReplyByField
+              eventId={eventId}
+              own={replyByOwn.deadline}
+              pricingMode={replyByOwn.pricingMode}
+              fallback={replyByFallback ?? (replyBy?.isDefault ? replyBy.date : null)}
+              action={replyByAction}
+            />
+          ) : (
+            <p role="alert" className="text-[13px] text-terracotta-700">
+              We couldn&rsquo;t read your reply-by date just now, so it can&rsquo;t be changed here. Nothing was changed.
+            </p>
+          )}
+        </section>
+        {/* ❓ How guests answer ▾ — ONE dropdown over the shipped `oneAtATime` (drafted, counted on ✓). */}
+        <section className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1" data-rsvp-setting="how-guests-answer">
+          <p className="text-sm font-semibold text-ink">{HOW_GUESTS_ANSWER_LABEL}</p>
+          <PickMenu
+            label={HOW_GUESTS_ANSWER_LABEL}
+            dataAttr="data-rsvp-answer-pick"
+            value={oneAtATime ? 'one' : 'all'}
+            buttonText={howGuestsAnswerLabel(oneAtATime)}
+            options={HOW_GUESTS_ANSWER_OPTIONS}
+            onPick={(value) => {
+              const next = value === 'one';
+              if (next !== oneAtATime) save({ oneAtATime: next }, `“${HOW_GUESTS_ANSWER_LABEL}”`);
+            }}
+          />
+        </section>
+        <section className="flex flex-col gap-3" data-rsvp-setting="answers">
+          <p className="text-sm font-semibold text-ink">Words</p>
+          {RSVP_SCENE_WORDS.form.map((key) => (
+            <WordField
+              key={key}
+              wordKey={key}
+              value={words[key] ?? ''}
+              placeholder={rsvpAnswerWord(null, key as 'attending' | 'declined', solemn)}
+              lines={RSVP_WORD_LINES[key][solemn ? 'solemn' : 'celebrate']}
+              onChange={(text) => saveWord(key, text)}
+            />
+          ))}
+        </section>
+        <section className="flex flex-col gap-1" data-made-once="rsvp-ask">
+          <p className="text-sm font-semibold text-ink">What the reply asks</p>
+          <div className="flex min-h-11 items-center justify-between gap-3 border-b border-ink/5 py-2 text-sm text-ink/55">
+            <span>Attending</span>
+            <span className="text-xs">always</span>
+          </div>
+          <div className="flex flex-col">
+            {RSVP_ASK_FIELDS.map((field) => (
+              <Switch key={field} label={<>{RSVP_ASK_LABEL[field]}</>} on={rsvpAsks(local, field)} onChange={(v) => save({ [field]: v })} />
+            ))}
+          </div>
+        </section>
+        {celebration ? (
+          <CelebrationPick
+            value={readCelebrationKey(local)}
+            ownsPro={celebration.ownsPro}
+            storeShell={celebration.storeShell}
+            colours={celebration.colours}
+            onPick={(next: RsvpCelebration) => save({ celebration: next === 'none' ? undefined : next }, `“Celebration”`)}
+          />
+        ) : null}
+        {error ? (
+          <p role="alert" className="text-[13px] text-terracotta-700">
+            {error}
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5 px-1" data-made-once="rsvp-page">
       <DetailsPieceOnly item="rsvp" piece="questions">
@@ -515,6 +603,20 @@ export function MakerRsvpSettings({
 }
 
 /** The setting a refused save put back, as the couple reads it on this page. */
+/**
+ * ❓ HOW GUESTS ANSWER ▾ (owner 2026-10-06: *"on RSVP, it can show all the questions or the
+ * data to fill like a form or ask one by one"*) — ONE dropdown, two choices, over the ONE
+ * shipped key `rsvp_ask_config.oneAtATime` (`readOneAtATime`). No second setting.
+ */
+export const HOW_GUESTS_ANSWER_LABEL = 'How guests answer';
+export const HOW_GUESTS_ANSWER_OPTIONS = [
+  { key: 'all', label: 'All at once', hint: 'Every question on one page, like a form' },
+  { key: 'one', label: 'One by one', hint: 'One question per screen · Next › Send' },
+] as const;
+export function howGuestsAnswerLabel(oneAtATime: boolean): string {
+  return HOW_GUESTS_ANSWER_OPTIONS[oneAtATime ? 1 : 0].label;
+}
+
 function rsvpSettingName(patch: RsvpAskConfig): string {
   if ('oneAtATime' in patch) return '“Ask one question at a time”';
   if ('whoCanRsvp' in patch) return `“${GUESTS_GET_IN_LABEL}”`;

@@ -87,7 +87,7 @@ test('🔒 the event layout sends a guest member to the hub (eventBoardHref) BEF
   assert.ok(refusal > at, 'the 404 fires before the guest is sent to the hub');
   const branch = layout.slice(at, refusal);
   assert.match(branch, /eventBoardHref\(seat\)/, 'the hub address is built by hand, not by the one resolver');
-  assert.match(branch, /fetchUserEvents\(supabase, user\.id, 'guest'\)/, 'the address is not read from the person’s own invited events');
+  assert.match(branch, /fetchUserEvents(?:OrReconnect)?\(supabase, user\.id, 'guest'\)/, 'the address is not read from the person’s own invited events');
   assert.doesNotMatch(branch, /from\('events'\)/, 'the event row is read before a non-member is refused');
   assert.match(branch, /if \(hub\) redirect\(hub\);/, 'a guest still lands on "not found"');
   // and it sits AFTER the host + co-host admission, so neither is ever redirected

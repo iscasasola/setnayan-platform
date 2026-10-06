@@ -42,7 +42,12 @@ export const MAKER_ROUTE = '/dashboard/[eventId]/launch';
 // passes and a heavy import (a chart library, a second copy of a studio) fails
 // at the PR that adds it.
 export const MAKER_FIRST_LOAD_MEASURED_KB = 481.5;
-export const MAX_MAKER_FIRST_LOAD_GZIP = 505 * 1024;
+// RAISED 2026-10-07 505 → 507 KB (owner, verbatim: "raise to 507"; DECISION_LOG
+// "MAKER FIRST-LOAD BUDGET RAISED TO 507 KB"). Measured: main after the Stages |
+// Studio frame (#6386) = 505.0 KB; the Studio editors PR (#6388) = 505.2 KB, its
+// whole cost one lazy stand-in (+56 B) and webpack runtime (+57 B). Every
+// remaining Stages | Studio PR adds such a lazy door, so ~2 KB, once.
+export const MAX_MAKER_FIRST_LOAD_GZIP = 507 * 1024;
 
 /** The manifest entries a cold open of `route` loads: its page and every layout/loading above it. */
 export function firstLoadEntries(pages, route) {

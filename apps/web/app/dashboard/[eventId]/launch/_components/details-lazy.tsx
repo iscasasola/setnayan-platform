@@ -171,3 +171,8 @@ export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-de
 export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
 export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
 export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });
+
+/* ── 🧭 The new Maker's Studio tools (owner 2026-10-06, plan PR 4 — `MakerDetails`'s `studio`): ONE stand-in for
+   every piece (`StudioTool`'s `part`) — each stand-in is bytes in the Maker's first load. Drawn only while the new
+   Maker is on. ── */
+export const StudioTool = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioTool), { loading: SlotRows });

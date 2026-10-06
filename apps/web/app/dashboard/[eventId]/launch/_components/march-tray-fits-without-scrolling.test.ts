@@ -129,6 +129,10 @@ test('under the march: no step line, no Back · Skip · Next, no Entourage card 
   assert.match(ws, /useEffect\(\(\) => \{\s*if \(marchHere\) setSheetOpen\(true\);\s*\}, \[marchHere\]\);/);
 
   const parts = read(`${DIR}details-your-event-parts.tsx`);
-  assert.match(parts, /march: <div data-march-tray-slot="" className="flex min-h-0 flex-1 flex-col" \/>/);
+  // The march's panel holds the tray slot first (Parents & hosts may follow it, owner 2026-10-06) — never the Entourage card.
+  const marchPart = parts.slice(parts.lastIndexOf('march: ('), parts.lastIndexOf('march: (') + 900); // the PANEL's part (the first is the maker)
+  assert.ok(marchPart.length > 0, 'anti-vacuity: the march part was not found');
+  assert.match(marchPart, /<div data-march-tray-slot="" className="flex min-h-0 flex-1 flex-col" \/>/);
+  assert.doesNotMatch(marchPart, /PrintPieceBody/, 'the march panel draws the Entourage card again');
   assert.doesNotMatch(parts, /piece="entourage"/, 'the Entourage card is back in the march');
 });

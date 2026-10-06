@@ -93,6 +93,9 @@ function ErrorLine({ error }: { error: string | null }) {
 
 /* ── ANIMATE ────────────────────────────────────────────────────────────── */
 
+/** A dropdown that takes its row (the part inspector's own row class). */
+const ROW_PICK = 'min-h-11 min-w-0 flex-1 lg:min-h-9';
+
 export function SceneAnimateTab({
   eventId,
   widgetType,
@@ -155,35 +158,32 @@ export function SceneAnimateTab({
           {mark ? <PaidMark state={mark} label={paidMarkLabel(mark, 'Event Hub Pro')} size="xs" /> : null}
         </span>
       </ISection>
-      <IRow wrap data="scene-preset">
-        <ISegmented label="How it moves">
-          <ISeg on={!preset} onClick={() => save((c) => { delete c.preset; })}>
-            Auto
-          </ISeg>
-          {HUB_MOTION_PRESETS.map((p) => (
-            <ISeg key={p} on={preset === p} onClick={() => save((c) => { c.preset = p; })}>
-              {HUB_MOTION_PRESET_LABEL[p]}
-            </ISeg>
-          ))}
-        </ISegmented>
+      {/* ▾ ONE dropdown, never a pill row (owner: any set of choices is a dropdown) —
+          five pills clipped "Cinematic" in the phone's tool (handoff NEXT BUILDS 3). */}
+      <IRow data="scene-preset">
+        <PickMenu
+          label="How it moves"
+          dataAttr="data-scene-preset"
+          value={preset ?? 'auto'}
+          options={[{ key: 'auto', label: 'Auto' }, ...HUB_MOTION_PRESETS.map((p) => ({ key: p, label: HUB_MOTION_PRESET_LABEL[p] }))]}
+          onPick={(k) => save((c) => { if (k === 'auto') delete c.preset; else c.preset = k; })}
+          className={ROW_PICK}
+        />
       </IRow>
       <IHint>Auto follows the theme. The rest sets how this scene’s parts arrive.</IHint>
 
       {/* The fine-tune rows that shipped under a preset — kept, one step down. */}
       {preset ? (
         <>
-          <IRow label="Timing" wrap data="scene-timing">
-            <ISegmented label="Timing">
-              {(['auto', 'time', 'scrub'] as const).map((t) => (
-                <ISeg
-                  key={t}
-                  on={t === 'auto' ? !shown.timeline : shown.timeline === t}
-                  onClick={() => save((c) => { if (t === 'auto') delete c.timeline; else c.timeline = t; })}
-                >
-                  {t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t]}
-                </ISeg>
-              ))}
-            </ISegmented>
+          <IRow label="Timing" data="scene-timing">
+            <PickMenu
+              label="Timing"
+              dataAttr="data-scene-timing"
+              value={shown.timeline ?? 'auto'}
+              options={(['auto', 'time', 'scrub'] as const).map((t) => ({ key: t, label: t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t] }))}
+              onPick={(t) => save((c) => { if (t === 'auto') delete c.timeline; else c.timeline = t; })}
+              className={ROW_PICK}
+            />
           </IRow>
           {/* 🎛 The same four effects as a part (owner 2026-10-04: "scenes share
               the vocabulary") — Fade · Move ▾ (the arrow grid, 8 directions) ·
@@ -207,14 +207,15 @@ export function SceneAnimateTab({
               </IReset>
             ) : null}
           </div>
-          <IRow label="Parts" wrap data="scene-sequence">
-            <ISegmented label="How its parts arrive">
-              {(['auto', 'together', 'one_after_another'] as const).map((q) => (
-                <ISeg key={q} on={q === 'auto' ? !shown.sequence : shown.sequence === q} onClick={() => save((c) => { if (q === 'auto') delete c.sequence; else c.sequence = q; })}>
-                  {q === 'auto' ? 'Auto' : HUB_SEQUENCE_LABEL[q]}
-                </ISeg>
-              ))}
-            </ISegmented>
+          <IRow label="Parts" data="scene-sequence">
+            <PickMenu
+              label="How its parts arrive"
+              dataAttr="data-scene-sequence"
+              value={shown.sequence ?? 'auto'}
+              options={(['auto', 'together', 'one_after_another'] as const).map((q) => ({ key: q, label: q === 'auto' ? 'Auto' : HUB_SEQUENCE_LABEL[q] }))}
+              onPick={(q) => save((c) => { if (q === 'auto') delete c.sequence; else c.sequence = q; })}
+              className={ROW_PICK}
+            />
           </IRow>
         </>
       ) : null}
@@ -229,24 +230,26 @@ export function SceneAnimateTab({
         <IHint data="last-scene">The last scene — nothing comes after it, so there is no move to set.</IHint>
       ) : (
         <>
-          <IRow wrap data="scene-transition">
-            <ISegmented label="Into the next scene">
-              {HUB_TRANSITIONS.map((t) => (
-                <ISeg key={t} on={transition === t} title={HUB_TRANSITION_HINT[t]} onClick={() => setTransition(t, null)}>
-                  {HUB_TRANSITION_LABEL[t]}
-                </ISeg>
-              ))}
-            </ISegmented>
+          <IRow data="scene-transition">
+            <PickMenu
+              label="Into the next scene"
+              dataAttr="data-scene-transition"
+              value={transition}
+              options={HUB_TRANSITIONS.map((t) => ({ key: t, label: HUB_TRANSITION_LABEL[t], hint: HUB_TRANSITION_HINT[t] }))}
+              onPick={(t) => setTransition(t, null)}
+              className={ROW_PICK}
+            />
           </IRow>
           {transition === 'auto' ? (
             <IRow label="Speed" data="scene-speed">
-              <ISegmented label="Speed">
-                {HUB_AUTO_SPEEDS.map((v) => (
-                  <ISeg key={v} on={speed === v} onClick={() => setTransition('auto', v)}>
-                    {HUB_AUTO_SPEED_LABEL[v]}
-                  </ISeg>
-                ))}
-              </ISegmented>
+              <PickMenu
+                label="Speed"
+                dataAttr="data-scene-speed"
+                value={speed}
+                options={HUB_AUTO_SPEEDS.map((v) => ({ key: v, label: HUB_AUTO_SPEED_LABEL[v] }))}
+                onPick={(v) => setTransition('auto', v)}
+                className={ROW_PICK}
+              />
             </IRow>
           ) : null}
           {transition !== 'scroll' ? <IHint>{HUB_TRANSITION_HINT[transition]}</IHint> : null}

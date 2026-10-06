@@ -140,6 +140,8 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       canvases={canvases}
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
+      /* 🧭 `?ss=1` — the new Maker (Stages | Studio), for a phone check without a sign-in. */
+      stagesStudio={sp.ss === '1'}
     />
   );
 }

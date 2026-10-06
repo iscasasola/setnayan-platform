@@ -171,3 +171,6 @@ export const StudioToolRow = dynamic(() => import(/* webpackChunkName: "maker-de
 export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.StudioCover), { loading: SlotFill });
 export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
 export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });
+/* 🎬 The new Maker's Stages panel (`stage-tools.tsx`: the stage ▾ with its pages, Style | Text | Animate, ▶,
+   the page's parts, swipe) — lazy like the rest of its chrome, never in the Maker's first load. */
+export const StageTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-tools').then((m) => m.StageTools), { loading: SlotFill });

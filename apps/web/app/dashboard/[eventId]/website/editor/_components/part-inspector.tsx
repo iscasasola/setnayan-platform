@@ -119,7 +119,17 @@ export function PartTextTab({
   onPreviewColour,
   fontMark = null,
   hideFont = false,
+  threeControls = false,
 }: {
+  /**
+   * 🔤 THE NEW MAKER'S TEXT TOOL (`makerStagesStudioEnabled`): exactly Font ·
+   * Colour · Size (`MAKER_PART_TEXT_TOOLS`, `lib/maker-parts.ts`) — owner
+   * 2026-10-06 *"no"* to Weight, Bold/Italic/Underline, line and letter
+   * spacing (DECISION_LOG "TEXT STYLING STAYS THREE CONTROLS"). The words are
+   * typed on the page, and Alignment is Style › Arrange's. False — every couple
+   * today — draws every shipped row.
+   */
+  threeControls?: boolean;
   /** 💎 Font ▾ is Event Hub Pro — its `<PaidMark>`, or null (none to draw). */
   fontMark?: ReactNode;
   /** The store shell, not owned: a Pro row is hidden, never shown locked. */
@@ -143,7 +153,8 @@ export function PartTextTab({
   onPreviewColour?: (hex: string) => void;
 }) {
   const fields = HUB_ELEMENT_FIELDS[el];
-  const has = (f: HubElementField) => fields.includes(f) && (!onRange || f === 'font' || f === 'color' || f === 'size');
+  const has = (f: HubElementField) =>
+    fields.includes(f) && (!onRange || f === 'font' || f === 'color' || f === 'size') && (!threeControls || f === 'font' || f === 'color' || f === 'size');
   const faceInfo = face.font ? HUB_FONT_FACES[face.font] : null;
   const weights = faceInfo ? HUB_ELEMENT_WEIGHTS.filter((w) => faceInfo.weights.includes(w)) : [];
   const bold = face.font ? hubFontBoldWeight(face.font) : 700;
@@ -491,7 +502,14 @@ export function PartAnimateTab({
   onPreview,
   resetMotion,
   proMark = null,
+  buildWords = false,
 }: {
+  /**
+   * 🎬 The new Maker (`makerStagesStudioEnabled`) names the three steps as the
+   * owner did — Build in · Action · Build out (`MAKER_PART_ANIMATE_STEPS`). The
+   * rows under each are the same.
+   */
+  buildWords?: boolean;
   /** 💎 How a part moves is Event Hub Pro — its `<PaidMark>`, or null (none to draw). */
   proMark?: ReactNode;
   motion: HubElementMotion;
@@ -516,7 +534,7 @@ export function PartAnimateTab({
         </p>
       ) : null}
       <div data-motion-step="in">
-        <ISection>Comes in</ISection>
+        <ISection>{buildWords ? 'Build in' : 'Comes in'}</ISection>
         <MotionFxRows end="in" fx={motion.in} onChange={(fx) => moveTo('in', fx)} />
         {inOn ? (
           <div data-part-timed="">
@@ -538,7 +556,7 @@ export function PartAnimateTab({
         ) : null}
       </div>
       <div data-motion-step="during">
-        <ISection>While on screen</ISection>
+        <ISection>{buildWords ? 'Action' : 'While on screen'}</ISection>
         {/* In and During play TOGETHER — choosing one never clears the other. */}
         <IRow label="During" data="during">
           <PickMenu
@@ -554,7 +572,7 @@ export function PartAnimateTab({
       {/* A part that plays once has no Out — it stays. */}
       {scroll ? (
         <div data-motion-step="out">
-          <ISection>Goes out</ISection>
+          <ISection>{buildWords ? 'Build out' : 'Goes out'}</ISection>
           <MotionFxRows end="out" fx={motion.out} onChange={(fx) => moveTo('out', fx)} />
           {outOn ? (
             <MotionSpeedRow data="out-speed" label="How fast it goes out" value={motion.outSpeed} onPick={(v) => moveTo('outSpeed', v)} />

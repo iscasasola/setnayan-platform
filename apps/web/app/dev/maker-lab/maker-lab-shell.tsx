@@ -88,7 +88,10 @@ export function MakerLabShell({
   openDetails = false,
   canvases = {},
   renderStamp = 'lab',
+  stagesStudio = false,
 }: {
+  /** 🧭 `?ss=1`: the new Maker — Stages | Studio (`makerStagesStudioEnabled`), as an internal viewer sees it. */
+  stagesStudio?: boolean;
   eventId: string;
   scenes: MakerScene[];
   navigator: MakerNavigatorData;
@@ -176,6 +179,7 @@ export function MakerLabShell({
       rsvpStage={<MakerRsvpStage {...rsvpProps} />}
       hasWork
       theHost="the couple"
+      stagesStudio={stagesStudio}
     >
       <MakerWork
         eventId={eventId}

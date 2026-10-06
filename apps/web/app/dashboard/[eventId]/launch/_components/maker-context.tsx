@@ -178,7 +178,22 @@ export type MakerState = {
   setEventBar?: (next: MakerEventBar | null) => void;
   /** 🏷 The part on screen, in the layer's own words ("RSVP form", "Names") — the lower third's "where you are" and the top line. */
   setLtWhere?: (words: string | null) => void;
+  /**
+   * 🧭 THE NEW MAKER — "Stages | Studio" on a phone (`makerStagesStudioEnabled`,
+   * resolved once by the launch page). A part's tools read it: Text is Font ·
+   * Colour · Size, Animate's steps are Build in · Action · Build out, and the
+   * panel's Style | Text | Animate picks the section (`stage-tools.tsx`).
+   * Absent/false: the shipped Maker, exactly.
+   */
+  stagesStudio?: boolean;
 };
+
+/**
+ * 🧭 The new Maker's Style | Text | Animate (`stage-tools.tsx`) asks the work area
+ * to show that tool for what is picked — `detail` is the tool. The work area
+ * (`editor-shell.tsx`) answers; nothing is written.
+ */
+export const MAKER_STAGE_TOOL_EVENT = 'maker:stage-tool';
 
 /** The canvas's Event Bar: the stage's own guest bars over the slide, on or off. */
 export type MakerEventBar = { on: boolean; toggle: () => void };

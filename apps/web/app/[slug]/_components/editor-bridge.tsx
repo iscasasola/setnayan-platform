@@ -32,6 +32,7 @@ import { applyPartRuns, applySceneRuns, type RunsDoc } from './part-runs';
 import { applySceneCardPreview } from '@/lib/scene-card-look';
 import { createCanvasTyping, markSceneWords, readSceneTypeWords, sceneTypeField, typeablePart } from './type-in-place-canvas';
 import { createCanvasBringUp } from './canvas-bring-up';
+import { replaySceneIn } from './scene-replay';
 
 /**
  * EditorBridge — the guest site's half of the unified-editor two-way sync
@@ -45,7 +46,9 @@ import { createCanvasBringUp } from './canvas-bring-up';
  * Protocol (both directions verify `event.origin === window.location.origin`;
  * the editor iframe is same-origin by construction):
  *   parent → frame  { source:'setnayan-editor', t:'scrollTo', key }
- *   parent → frame  { source:'setnayan-editor', t:'play',     key }
+ *   parent → frame  { source:'setnayan-editor', t:'play',     key } — replays the scene's CHOSEN arrival (`scene-replay.ts`)
+ *   parent → frame  { source:'setnayan-editor', t:'playStage' } / { t:'playStop' } — ▶ the whole stage, scene by scene
+ *   frame  → parent { source:'setnayan-site',   t:'playDone' } — the stage's play ended (its end, a tap, or Stop)
  *   parent → frame  { source:'setnayan-editor', t:'markEl',   key, el }
  *   frame  → parent { source:'setnayan-site',   t:'edit',     key, el?, moment? }
  *   frame  → parent { source:'setnayan-site',   t:'select',   key, el, start, end, of, text, whole }
@@ -380,14 +383,15 @@ export function applyElementPreview(
  * `-p` twin (and back on the next Play); a part that follows the scroll plays
  * on the clock for this one replay. False when the part has no In to play.
  */
-export function replayElementIn(part: HTMLElement): boolean {
+export function replayElementIn(part: HTMLElement, scroll = true): boolean {
   const names = getComputedStyle(part).animationName.split(',').map((n) => n.trim());
   const i = names.findIndex((n) => n.startsWith('el-in-'));
   if (i < 0) return false;
   names[i] = names[i]!.endsWith('-p') ? names[i]!.slice(0, -2) : `${names[i]}-p`;
   const prevOutline = part.style.outline;
   part.style.outline = 'none';
-  part.scrollIntoView({ behavior: 'auto', block: 'center' });
+  /* A scene replaying all its parts brings the SCENE into view once (`replaySceneIn`). */
+  if (scroll) part.scrollIntoView({ behavior: 'auto', block: 'center' });
   const timelines = getComputedStyle(part).getPropertyValue('animation-timeline');
   if (timelines && timelines.includes('view')) {
     part.style.setProperty('animation-timeline', timelines.split(',').map(() => 'auto').join(', '));
@@ -574,6 +578,47 @@ export function EditorBridge() {
     });
 
     // ── Maker → canvas: scroll to a tile, or play its entrance in place ──────
+    /** One scene's chosen arrival, replayed (`replaySceneIn`); 0 = nothing moved. */
+    const playScene = (section: HTMLElement): number =>
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+        ? 0
+        : replaySceneIn(section as never, {
+            replayPart: (part) => replayElementIn(part as unknown as HTMLElement, false),
+            later: (fn, ms) => window.setTimeout(fn, ms),
+          });
+    /** ▶ The whole stage, scene after scene — the parent hears `playDone` when it ends. */
+    const stage = (() => {
+      let timer: number | null = null;
+      const tapStops = (e: Event) => {
+        e.preventDefault();
+        e.stopPropagation();
+        stop(true);
+      };
+      const stop = (tell: boolean) => {
+        const was = timer !== null;
+        if (timer !== null) window.clearTimeout(timer);
+        timer = null;
+        document.removeEventListener('pointerdown', tapStops, true);
+        if (was && tell) window.parent?.postMessage({ source: 'setnayan-site', t: 'playDone' }, origin);
+      };
+      const start = () => {
+        const scenes = [...document.querySelectorAll('[data-maker-section]')]
+          .map((m) => sectionAfter(m))
+          .filter((x): x is HTMLElement => Boolean(x) && (x as HTMLElement).getClientRects().length > 0);
+        let i = 0;
+        const next = () => {
+          const sc = scenes[i++];
+          if (!sc) return stop(true);
+          sc.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          playScene(sc);
+          timer = window.setTimeout(next, 1700);
+        };
+        document.addEventListener('pointerdown', tapStops, true);
+        timer = window.setTimeout(next, 0);
+      };
+      cleanups.push(() => stop(false));
+      return { start, stop };
+    })();
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== origin) return;
       const data = event.data as { source?: string; t?: string; key?: string; el?: unknown } | null;
@@ -653,6 +698,14 @@ export function EditorBridge() {
           { source: 'setnayan-site', t: 'typeHereFound', phase: new URLSearchParams(window.location.search).get('phase'), found },
           origin,
         );
+        return;
+      }
+      if (data && data.source === 'setnayan-editor' && (data.t === 'playStage' || data.t === 'playStop')) {
+        /* ▶ THE WHOLE STAGE (the new Maker's ▶ with nothing picked, `stage-tools.tsx`):
+           each scene in turn, brought into view and replaying its own arrival; a
+           tap anywhere on the page, or `playStop`, ends it. */
+        stage.stop(false);
+        if (data.t === 'playStage') stage.start();
         return;
       }
       if (!data || data.source !== 'setnayan-editor' || typeof data.key !== 'string') return;
@@ -752,20 +805,11 @@ export function EditorBridge() {
         flash(el);
       } else if (data.t === 'play') {
         // ▶ PLAY THIS SCENE — in place, in the canvas: bring it into view, then
-        // replay its entrance and let it come to rest. Reduced motion: a flash.
+        // replay the arrival the couple CHOSE — the scene's own and each part's
+        // (`scene-replay.ts`), never a stand-in. Reduced motion, or nothing
+        // chosen to move: a flash.
         el.scrollIntoView({ behavior: 'auto', block: 'center' });
-        const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (reduce || typeof el.animate !== 'function') {
-          flash(el);
-          return;
-        }
-        el.animate(
-          [
-            { opacity: 0, transform: 'translateY(22px) scale(.985)' },
-            { opacity: 1, transform: 'none' },
-          ],
-          { duration: 900, easing: 'cubic-bezier(.2,.7,.2,1)' },
-        );
+        if (playScene(el) === 0) flash(el);
       }
     };
     window.addEventListener('message', onMessage);

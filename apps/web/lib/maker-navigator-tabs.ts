@@ -69,9 +69,10 @@ export function anchorOfTile(tileKey: string, day = false): (typeof PAGE_ANCHOR_
   if (day) return dayAnchorOfTile(tileKey);
   if (tileKey === 'f:story' || tileKey === 'w:our_love_story') return 'story';
   // 🏠 The Invitation's Welcome page (owner 2026-09-30, `lib/invitation-welcome.ts`):
-  // the guest's look, the couple's Reminders and E-Gifts sit under Welcome — the
-  // page's first tab, anchor `home` — not under Details.
-  if (tileKey === 'f:look' || tileKey === 'f:gifts' || tileKey === 'w:what_to_bring') return 'home';
+  // the guest's look and E-Gifts sit under Welcome — the page's first tab, anchor
+  // `home`. 🎒 What to bring is Details' since 2026-10-06 (after Dress code, before
+  // the Entourage) — the `w:` rule below files it there.
+  if (tileKey === 'f:look' || tileKey === 'f:gifts') return 'home';
   if (tileKey === 'f:entourage' || tileKey.startsWith('w:')) return 'details';
   // 🎨 The Invitation's announcement stands after the entourage (`MAKER_DAY_PARTS`).
   if (['f:announcements', 'f:find_your_seat', 'f:live_hub', 'f:photos_of_you'].includes(tileKey)) return 'details';

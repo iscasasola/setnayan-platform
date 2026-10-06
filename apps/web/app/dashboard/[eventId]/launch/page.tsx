@@ -96,7 +96,8 @@ import { parentGuestsForEvent, printInputsVersion, printOwnsPro, printThemeFor, 
 import { printPreviewVersion } from '@/lib/print-preview-cache';
 import { printDraftOf } from '@/lib/ceremony-time';
 import { updateSpecialMessage } from '../website/special-message/actions';
-import { fetchEgiftMethods } from '@/lib/egift';
+import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { PabuyaManager } from '../pabuya/_components/pabuya-manager';
 import { formatFor, parsePrintDetails, storyHasMoments } from '@/lib/print-pieces';
 import { printStoryChapters } from '@/lib/love-story-moments';
 import { passCardDesignFrom, passCardsZipFileNameOf } from '@/lib/pass-card';
@@ -1163,6 +1164,46 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
          "THE PLAN ADAPTS TO EVERY EVENT TYPE — BUILT IN, NOT BOLTED ON"). An
          unreadable profile is the generic one — never a wedding. */
       const detailsProfile = await resolveProfile(printEvent.event_type ?? '').catch(() => GENERIC_PROFILE);
+      /* 🎁 E-GIFTS, IN PLACE (owner 2026-10-06, "EVENT DETAILS IS REBUILT": "Give
+         details: where you will receive egifts and the complete details"): the
+         E-Gifts page's OWN manager — every method (shown and hidden), read through
+         the couple's client exactly as that page reads it — drawn in the Your
+         event form under "Accept gifts?". It writes live, as it always has. */
+      const egiftManager = await (async () => {
+        const [all, chrome] = await Promise.all([
+          fetchEgiftMethods(supabase, eventId),
+          supabase.from('events').select('display_name, landing_page_visibility').eq('event_id', eventId).maybeSingle(),
+        ]);
+        if (chrome.error) logQueryError('LaunchPage.egiftChrome', chrome.error, { event_id: eventId }, 'graceful_degrade');
+        const row = (chrome.data ?? null) as { display_name: string | null; landing_page_visibility: string | null } | null;
+        const words = eventWordsFromProfile(detailsProfile);
+        const qrDisplayUrls: Record<string, string> = {};
+        for (const m of all) if (m.qr_r2_key && m.qrDisplayUrl) qrDisplayUrls[m.qr_r2_key] = m.qrDisplayUrl;
+        return (
+          <PabuyaManager
+            eventId={eventId}
+            coupleName={row?.display_name ?? null}
+            organizerPossessive={words.theOrganizerPossessive}
+            theOrganizer={words.theOrganizer}
+            slug={printEvent.slug}
+            visibility={row?.landing_page_visibility ?? null}
+            eventWasRead={row !== null}
+            publicRouteEnabled={isPabuyaPublicRouteEnabled()}
+            initialMethods={all.map((m) => ({
+              egift_method_id: m.egift_method_id,
+              method_kind: m.method_kind,
+              label: m.label,
+              account_name: m.account_name,
+              handle: m.handle,
+              qr_r2_key: m.qr_r2_key,
+              note: m.note,
+              is_enabled: m.is_enabled,
+              qrDisplayUrl: m.qrDisplayUrl,
+            }))}
+            qrDisplayUrls={qrDisplayUrls}
+          />
+        );
+      })();
       const themes = pickableInviteThemes();
       /* 🖨 THE COUPLE'S OWN PRINTS, folded in from Prints & Tickets (owner
          2026-09-28: "1 fold prints and tickets into details") — drawn in the
@@ -1604,6 +1645,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             })()}
             hasPalette={guided.palette}
             hasGifts={egifts.length > 0}
+            egiftManager={egiftManager}
             flash={one(search.print_saved) ? 'saved' : one(search.print_error) ? 'error' : null}
             stamp={String(Date.now())}
             eventContext={eventContext}

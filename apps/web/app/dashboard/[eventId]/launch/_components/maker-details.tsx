@@ -233,6 +233,12 @@ export type MakerDetailsProps = {
   specialMessage: string | null;
   hasPalette: boolean;
   hasGifts: boolean;
+  /**
+   * 🎁 The E-Gifts page's own manager — where gifts are received, with their
+   * complete details — drawn under "Accept gifts?" in the Your event form (owner
+   * 2026-10-06). Built by the launch page; absent in the lab.
+   */
+  egiftManager?: ReactNode;
   /** ✍ `detailsFactEditors(…)` — the SAME nodes the stage's inspector shows for a tapped fact. */
   facts: Partial<Record<DetailsItemKey, ReactNode>>;
   /** 💌 Love Story, moved whole: the scrapbook page (its picture). Null = not this type. `moments` null = unread. */
@@ -471,7 +477,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     const yeRow = ye?.rows[k as EventItemKey];
     if (yeRow) return yeRow;
     const apRow = ap.rows[k as AnswerItemKey];
-    if (apRow) return apRow;
+    /* 🎁 In the Your event form the gifts field is "E-Gifts" (owner 2026-10-06); the question is its picker's label. */
+    if (apRow) return k === 'gifts' ? { ...apRow, label: 'E-Gifts' } : apRow;
     if (k === 'seating') return seatPlanRow(seatPlan);
     if (k === 'plan-myself') {
       return { label: PLAN_MYSELF_LABEL, sub: planMyselfSub(props.planMyself?.on ?? null), icon: <Hand aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
@@ -646,9 +653,6 @@ export function MakerDetails(props: MakerDetailsProps) {
           Your QR code
           {qrMark ? <PaidMark state={qrMark} label={paidMarkLabel(qrMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" /> : null}
         </p>
-        <div className="w-full max-w-md">
-          <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
-        </div>
         {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} /> : null}
       </section>
     ),
@@ -774,6 +778,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     ),
     qr: (
       <div className="flex flex-col gap-1">
+        {/* 🗂 QR Code settings — Shape · Pattern · Colour, a field of the Your event form (owner 2026-10-06). */}
+        <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
         <p className="text-xs text-ink/60">
           {qr.ownsPro
             ? 'Your logo sits in the centre of every guest QR. Its shape, pattern and colour are under the code.'
@@ -937,6 +943,15 @@ export function MakerDetails(props: MakerDetailsProps) {
   if (logoA) editors.logo = logoA.node;
   if (ye) Object.assign(editors, ye.editors);
   Object.assign(editors, ap.editors);
+  /* 🎁 E-Gifts: the answer, then where gifts are received and their details — in place, never a link. */
+  if (editors.gifts && props.egiftManager) {
+    editors.gifts = (
+      <div className="flex flex-col gap-3" data-details-egifts="">
+        {editors.gifts}
+        <div data-details-egift-manager="">{props.egiftManager}</div>
+      </div>
+    );
+  }
   /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
   if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
   /* 🙋 Plan it myself — what the help is (middle), the one switch (right). */

@@ -88,7 +88,7 @@ test('Save the Date — unchanged', () => {
   assert.deepEqual(lists()('save_the_date'), ['f:film', ...OPENING, 'w:countdown', 'w:our_love_story']);
 });
 
-test('Invitation — the RSVP right under the names; the Details run ends dress code → entourage', () => {
+test('Invitation — the RSVP right under the names; the Details run ends dress code → what to bring → entourage', () => {
   // ✅ ANSWERED (owner 2026-10-05, DECISION_LOG): the RSVP stays RIGHT UNDER
   // THE NAMES, where it is live — after the masthead and the guest's own
   // greeting and ticket, before everything else. The Welcome follows the reply
@@ -96,11 +96,13 @@ test('Invitation — the RSVP right under the names; the Details run ends dress 
   // (`lib/invitation-welcome.ts`) — so Reminders is drawn above Details.
   const inv = lists()('rsvp');
   assert.equal(inv.indexOf('f:rsvp'), 3, `the RSVP is right under the names: ${inv.join(' · ')}`);
+  // 🎒 2026-10-06 ("'WHAT TO BRING' JOINS THE PREPARE GROUP"): What to bring left
+  // the Welcome — it follows Dress code on Details, before the Entourage.
   assert.deepEqual(inv, [
     ...OPENING,
     // the Welcome, after the reply
-    'f:look', 'w:what_to_bring', 'f:gifts',
-    'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule', 'w:venue_map', 'w:dress_code',
+    'f:look', 'f:gifts',
+    'w:countdown', 'w:special_message', 'w:our_love_story', 'w:schedule', 'w:venue_map', 'w:dress_code', 'w:what_to_bring',
     'f:entourage', 'f:announcements',
   ]);
 });

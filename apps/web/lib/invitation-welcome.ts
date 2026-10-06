@@ -72,9 +72,11 @@ export function welcomeParts(input: WelcomeInput): WelcomePart[] {
   if (input.stage !== 'rsvp' || !input.bodyNormal) return [];
   const out: WelcomePart[] = [];
   if (input.scenes.includes('dress_code') && (input.identified || input.maker)) out.push('look');
-  if (input.scenes.includes('what_to_bring') && (input.maker || (input.reminders ?? '').trim().length > 0)) {
-    out.push('reminders');
-  }
+  /* 🎒 WHAT TO BRING LEFT THE INVITATION'S WELCOME (owner 2026-10-06, DECISION_LOG
+     "'WHEN YES' GETS A CELEBRATION · 'WHAT TO BRING' JOINS THE PREPARE GROUP"):
+     it is drawn on the Details page, right after Dress code and before the
+     Entourage — when & where → dress code → what to bring, read together. The
+     Day's Welcome keeps its reminders line (`welcomePartsOnTheDay`). */
   if (welcomeCarriesGifts(input)) out.push('gifts');
   return out;
 }

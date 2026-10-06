@@ -29,10 +29,16 @@ import { planMyselfOn, planMyselfSub } from '@/lib/plan-myself';
 const HERE = import.meta.dirname;
 const read = (p: string) => stripComments(readFileSync(join(HERE, p), 'utf8'));
 
-test('1 · it is an item of Your event (just before the Seat plan, which stays last), offered to every type', () => {
+test('1 · it LEFT the Maker for the event’s Settings (owner 2026-10-06) — the same switch, on the Event Details page', () => {
+  /* 🗂 "EVENT DETAILS IS REBUILT": Plan it myself → the event's Settings on the
+     dashboard. Still an item (an old address opens it), never a list row. */
   const event = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
-  assert.equal(event.label, 'Your event');
-  assert.deepEqual(event.keys.slice(-2), ['plan-myself', 'seating']);
+  assert.ok(!(event.keys as readonly string[]).includes('plan-myself'), 'Plan it myself is back in the Your event form');
+  const elsewhere = DETAILS_ITEM_GROUPS.find((g) => g.group === 'elsewhere')!;
+  assert.ok(elsewhere.hidden && elsewhere.keys.includes('plan-myself'));
+  const page = read('../../details/page.tsx');
+  assert.match(page, /<PlanMyselfSwitch eventId=\{eventId\} on=\{planMyselfOn\(typeof e\.planning_mode === 'string' \? e\.planning_mode : null\)\} \/>/, 'the event’s Settings do not draw the switch');
+  assert.match(page, /'setnayan_ai_active, planning_mode,/, 'the page does not read planning_mode — the switch would be drawn from a guess');
   // No type gate: an empty applies-rule means every celebration gets it.
   const ctx = { profile: { enabledSurfaces: [], terminology: {}, roleSetKey: 'x' } } as never;
   assert.equal(detailsItemApplies('plan-myself', ctx), true);

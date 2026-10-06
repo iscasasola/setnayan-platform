@@ -76,17 +76,37 @@ export async function readMarchLines(
     return { ok: false, reason: 'That part of the entourage does not exist.' };
   }
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from('guests')
-    .select(ENTOURAGE_COLUMNS)
-    .eq('event_id', eventId)
-    .is('deleted_at', null);
-  if (error) return { ok: false, reason: MARCH_READ_FAILED };
+  const [{ data, error }, tray] = await Promise.all([
+    supabase.from('guests').select(ENTOURAGE_COLUMNS).eq('event_id', eventId).is('deleted_at', null),
+    readNotWalking(supabase, eventId),
+  ]);
+  // 🚶 Unread "Not walking" is NOT "nobody is out": a move against a march that
+  // might hold people who do not walk is refused, never guessed.
+  if (error || !tray) return { ok: false, reason: MARCH_READ_FAILED };
   return {
     ok: true,
     supabase,
-    lines: entourageLines((data ?? []) as EntourageGuestRow[], groupKey),
+    lines: entourageLines(walkersOf((data ?? []) as EntourageGuestRow[], tray), groupKey),
   };
+}
+
+/**
+ * 🚶 The "Not walking" tray (owner 2026-10-06, `march_not_walking`): the guest
+ * ids that do not walk, or null when the read failed (never an empty set — an
+ * unread tray would put everyone back in the march).
+ */
+export async function readNotWalking(
+  supabase: { from: SupabaseServerClient['from'] },
+  eventId: string,
+): Promise<Set<string> | null> {
+  const { data, error } = await supabase.from('march_not_walking').select('guest_id').eq('event_id', eventId);
+  if (error) return null;
+  return new Set(((data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
+}
+
+/** The rows that walk — the WALKING ORDER's read; a print never filters (their role still prints). */
+export function walkersOf<T extends { guest_id?: string | null }>(rows: readonly T[], out: ReadonlySet<string>): T[] {
+  return out.size === 0 ? [...rows] : rows.filter((r) => !r.guest_id || !out.has(r.guest_id));
 }
 
 /**

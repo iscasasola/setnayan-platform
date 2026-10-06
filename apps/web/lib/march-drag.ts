@@ -40,7 +40,21 @@ import { joinVerdict, nextSectionOrder, swapVerdict } from '@/lib/march-moves';
  * One person as the maker draws them. `tag` names the groom / the bride.
  * `tied`: their walk's other person stands in ANOTHER section (`marchSections`).
  */
-export type MarchPerson = { id: string; name: string; role: string; tag?: string | null; tied?: boolean };
+export type MarchPerson = {
+  id: string;
+  name: string;
+  role: string;
+  tag?: string | null;
+  tied?: boolean;
+  /** `guests.side` ('groom' · 'bride' · 'both') — which side of the aisle they walk on (`walkSideOf`). */
+  side?: string | null;
+};
+/**
+ * 🚶 Someone in the "Not walking" tray (owner 2026-10-06, `march_not_walking`):
+ * a role, no walk. `section` is the march section their role puts them in — where
+ * a drag back into the march lands them.
+ */
+export type MarchOut = MarchPerson & { section: string; sectionLabel: string };
 /** One walk: [left, right] — either may be empty. */
 export type MarchRow = readonly [MarchPerson | null, MarchPerson | null];
 export type MarchSection = { key: string; label: string; rows: readonly MarchRow[] };
@@ -51,7 +65,9 @@ export type MarchSource =
   /** A whole walk, by its step number. */
   | { kind: 'walk'; section: string; lead: string }
   /** A whole section, by its header (never the groom's or the bride's side). */
-  | { kind: 'section'; key: string };
+  | { kind: 'section'; key: string }
+  /** 🚶 A name in the "Not walking" tray. */
+  | { kind: 'out'; id: string };
 
 /** Where it was dropped. */
 export type MarchTarget =
@@ -61,7 +77,9 @@ export type MarchTarget =
   /** The gap before row `index` of a section (`index` = rows.length → after the last). */
   | { kind: 'gap'; section: string; index: number }
   /** Another section's header — the dragged section takes its place. */
-  | { kind: 'section'; key: string };
+  | { kind: 'section'; key: string }
+  /** 🚶 The "Not walking" tray — anywhere on it. */
+  | { kind: 'tray' };
 
 /** One call of a shipped march action. */
 export type MarchStep =
@@ -72,7 +90,9 @@ export type MarchStep =
   /** One step of a whole section (`moveEntourageSection`). */
   | { kind: 'section'; section: string; direction: 'up' | 'down' }
   /** The built-in section order back (`resetEntourageSections`). */
-  | { kind: 'sections-default' };
+  | { kind: 'sections-default' }
+  /** 🚶 Into (`walks: false`) or out of (`walks: true`) the "Not walking" tray (`setMarchWalking`). */
+  | { kind: 'walking'; section: string; guest: string; walks: boolean };
 
 export type MarchPlan =
   | { ok: true; next: MarchSection[]; steps: MarchStep[]; said: string; undo: MarchStep[] }
@@ -238,6 +258,7 @@ export function planDrop(
   target: MarchTarget,
 ): MarchPlan | null {
   if (source.kind === 'section' || target.kind === 'section') return null; // `planSectionDrop`
+  if (source.kind === 'out' || target.kind === 'tray') return null; // `planTray`
   if (source.kind === 'walk') {
     if (target.kind !== 'gap') return null;
     const s = sections.findIndex((x) => x.key === source.section);
@@ -350,6 +371,7 @@ export function readTarget(v: string | undefined | null): MarchTarget | null {
   if (kind === 'beside' && x) return { kind: 'beside', anchor: x };
   if (kind === 'gap' && x && y !== undefined && /^\d+$/.test(y)) return { kind: 'gap', section: x, index: Number(y) };
   if (kind === 'section' && x) return { kind: 'section', key: x };
+  if (kind === 'tray') return { kind: 'tray' };
   return null;
 }
 
@@ -360,6 +382,7 @@ export function readSource(v: string | undefined | null): MarchSource | null {
   if (kind === 'name' && x) return { kind: 'name', id: x };
   if (kind === 'walk' && x && y) return { kind: 'walk', section: x, lead: y };
   if (kind === 'section' && x) return { kind: 'section', key: x };
+  if (kind === 'out' && x) return { kind: 'out', id: x };
   return null;
 }
 
@@ -369,6 +392,7 @@ export function readSource(v: string | undefined | null): MarchSource | null {
  * before / right behind its pair: it walks alone). Null at either end.
  */
 export function keyTarget(sections: readonly MarchSection[], source: MarchSource, dir: -1 | 1): MarchTarget | null {
+  if (source.kind === 'out') return null;
   if (source.kind === 'section') {
     const keys = movable(sections);
     const to = keys[keys.indexOf(source.key) + dir];
@@ -496,18 +520,155 @@ export function planSectionsDefault(sections: readonly MarchSection[], printed: 
   };
 }
 
+/* ── THE "NOT WALKING" TRAY (owner 2026-10-06) ─────────────────────────────
+ * *"Just show screen for those not added or will not walk the isle."*
+ *   drag a name onto the tray          → they do not walk; a walk-mate walks alone   setMarchWalking(false)
+ *   drag a tray name into its section  → they walk again, where it was dropped        setMarchWalking(true)
+ *       (a gap or a name: that place — beside a lone walker: with them)               + setEntourageLineOrder / joinEntourageLine
+ *   … anywhere else in the march       → at the end of their own section (their role decides it)
+ * The couple always walk: the groom and the bride never go to the tray.
+ */
+
+/** Out of the march: the march without them, the steps, the Undo. */
+function planOut(sections: readonly MarchSection[], out: readonly MarchOut[], id: string): MarchMove | null {
+  const a = locate(sections, id);
+  if (!a) return null;
+  const sec = sections[a.s]!;
+  const p = a.person;
+  if (p.role === 'groom' || p.role === 'bride') return { ok: false, reason: `${p.name} walks in every march — the ${p.role} always walks.` };
+  const row = sec.rows[a.r]!;
+  const mate = partnerOf(row, id);
+  const rows = [...sec.rows];
+  const rest = without(sec.key, row, id);
+  if (rest) rows.splice(a.r, 1, rest);
+  else rows.splice(a.r, 1);
+  const next = rows.length ? withRows(sections, a.s, rows) : sections.filter((_, i) => i !== a.s);
+  const back: MarchStep = { kind: 'walking', section: sec.key, guest: id, walks: true };
+  return {
+    ok: true,
+    sections: next,
+    printed: [],
+    out: [...out, { ...p, section: sec.key, sectionLabel: sec.label }],
+    steps: [{ kind: 'walking', section: sec.key, guest: id, walks: false }],
+    said: `${p.name} is not walking${mate ? ` · ${mate.name} now walks alone` : ''}`,
+    // Back in, then the section exactly as it was (they come back unplaced, at its end).
+    undo: [back, ...restoreSteps(sec.key, [...rows, alone(sec.key, p)], sec.rows)],
+  };
+}
+
+/** Back into the march from the tray. */
+function planIn(sections: readonly MarchSection[], out: readonly MarchOut[], id: string, target: MarchTarget): MarchMove | null {
+  const o = out.find((x) => x.id === id);
+  if (!o || target.kind === 'tray') return null;
+  const person: MarchPerson = { id: o.id, name: o.name, role: o.role, tag: o.tag ?? null, side: o.side ?? null };
+  let s = sections.findIndex((x) => x.key === o.section);
+  let base = sections;
+  if (s === -1) {
+    // Their section has nobody walking yet: it comes back with them, before the bride's side (the server draws its true place).
+    const last = sections.length > 0 && isMarchOnlyGroup(sections[sections.length - 1]!.key) && sections.length > 1 ? sections.length - 1 : sections.length;
+    base = [...sections.slice(0, last), { key: o.section, label: o.sectionLabel, rows: [] }, ...sections.slice(last)];
+    s = last;
+  }
+  const sec = base[s]!;
+  const restOut = out.filter((x) => x.id !== id);
+  const steps: MarchStep[] = [{ kind: 'walking', section: sec.key, guest: id, walks: true }];
+  const undo: MarchStep[] = [{ kind: 'walking', section: sec.key, guest: id, walks: false }];
+  const at = (rows: MarchRow[], said: string, more: MarchStep[]): MarchMove => ({
+    ok: true,
+    sections: withRows(base, s, rows),
+    printed: [],
+    out: restOut,
+    steps: [...steps, ...untie(sec, more)],
+    said,
+    undo,
+  });
+  const inOwn =
+    (target.kind === 'gap' && target.section === sec.key) ||
+    (target.kind === 'name' && sec.rows.some((r) => r.some((p) => p?.id === target.id))) ||
+    (target.kind === 'beside' && sec.rows.some((r) => r.some((p) => p?.id === target.anchor)));
+  if (inOwn && target.kind === 'beside') {
+    // Walks WITH the lone walker — the server's join, asked of the same rule on the march with them back in.
+    const withMe: MarchSection = { ...sec, rows: [...sec.rows, alone(sec.key, person)] };
+    const verdict = joinVerdict(asLines(withMe.rows), sec.key, target.anchor, id);
+    if (!verdict.ok) return { ok: false, reason: verdict.reason };
+    const anchor = locate([sec], target.anchor)!.person;
+    return at([...simulateJoin(withMe, target.anchor, id).rows], `${o.name} walks with ${anchor.name}`, [
+      { kind: 'join', section: sec.key, anchor: target.anchor, joiner: id },
+    ]);
+  }
+  const index = !inOwn
+    ? sec.rows.length
+    : target.kind === 'gap'
+      ? target.index
+      : sec.rows.findIndex((r) => r.some((p) => p?.id === (target as { id: string }).id));
+  const rows = [...sec.rows];
+  rows.splice(index, 0, alone(sec.key, person));
+  const next = withRows(base, s, rows);
+  return at(
+    rows,
+    inOwn ? `${o.name} added · walks alone at step ${stepOf(next, s, index)}` : `${o.name} added to ${sec.label} · walks alone at its end`,
+    [order(sec.key, rows)],
+  );
+}
+
 /** Any drop, as one shape: what the march looks like after it, the steps, the words, the Undo. */
-export type MarchMove = SectionPlan;
+export type MarchMove =
+  | { ok: true; sections: MarchSection[]; printed: string[]; out?: MarchOut[]; steps: MarchStep[]; said: string; undo: MarchStep[] }
+  | { ok: false; reason: string };
 
 export function planMove(
   sections: readonly MarchSection[],
   printed: readonly string[],
   source: MarchSource,
   target: MarchTarget,
+  /** 🚶 The "Not walking" tray as drawn now. */
+  out: readonly MarchOut[] = [],
 ): MarchMove | null {
   if (source.kind === 'section') return target.kind === 'section' ? planSectionDrop(sections, printed, source.key, target.key) : null;
+  if (source.kind === 'out') {
+    const p = planIn(sections, out, source.id, target);
+    return p && p.ok ? { ...p, printed: [...printed] } : p;
+  }
+  if (target.kind === 'tray') {
+    if (source.kind !== 'name') return null;
+    const p = planOut(sections, out, source.id);
+    return p && p.ok ? { ...p, printed: [...printed] } : p;
+  }
   const p = planDrop(sections, source, target);
   if (!p) return null;
   if (!p.ok) return p;
   return { ok: true, sections: p.next, printed: [...printed], steps: p.steps, said: p.said, undo: p.undo };
+}
+
+/* ── WHICH SIDE OF THE AISLE (owner 2026-10-06) ───────────────────────────
+ * *"Walk side ninong left ninang right"* · *"Brides crew should be on right and
+ * grooms crew on the left."* DERIVED, never stored: sponsors by role (Ninong
+ * LEFT, Ninang RIGHT); the crew by side — the groom's crew (best man, best
+ * woman, groomsmen) LEFT, the bride's crew (maid / matron of honor,
+ * bridesmaids) RIGHT; anyone else by their guest side (the bride's → RIGHT,
+ * the groom's → LEFT); everyone else LEFT. When both people of a walk land on
+ * one side, the first keeps theirs and the partner takes the other.
+ *
+ * 🔑 THE MARCH'S PICTURE ONLY. Who walks with whom, and in what order, is the
+ * printer's (`pairUp`) — and every plan above reasons on that; this lays each
+ * walk's two names across the aisle when the maker DRAWS it. The printed card
+ * keeps its own columns.
+ */
+const LEFT_ROLES = new Set(['principal_sponsor_ninong', 'principal_sponsor', 'best_man', 'best_woman', 'groomsman']);
+const RIGHT_ROLES = new Set(['principal_sponsor_ninang', 'maid_of_honor', 'matron_of_honor', 'bridesmaid']);
+
+export function walkSideOf(p: Pick<MarchPerson, 'role' | 'side'>): 0 | 1 {
+  if (LEFT_ROLES.has(p.role)) return 0;
+  if (RIGHT_ROLES.has(p.role)) return 1;
+  return p.side === 'bride' ? 1 : 0;
+}
+
+/** One walk laid across the aisle by `walkSideOf`. */
+export function acrossTheAisle(row: MarchRow): MarchRow {
+  const [x, y] = row[0] && row[1] ? [row[0], row[1]] : [row[0] ?? row[1], null];
+  if (!x) return row;
+  const cx = walkSideOf(x);
+  if (!y) return cx === 0 ? [x, null] : [null, x];
+  // Different sides: each on their own. The same side: the first keeps it, the partner takes the other.
+  return cx === 0 ? [x, y] : [y, x];
 }

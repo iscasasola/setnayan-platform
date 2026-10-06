@@ -9,7 +9,7 @@ import { fetchEventVendors } from '@/lib/vendors';
 import { ChineseSpecialistNudge } from '../../date-selection/_components/chinese-specialist-nudge';
 import type { YourEventInput } from './details-your-event-parts';
 import type { VenueSlot } from './details-your-event';
-import { marchSections, printedSectionOrder } from '@/lib/march-sections';
+import { marchSections, marchTray, printedSectionOrder } from '@/lib/march-sections';
 import { readYourEventFacts } from './details-your-event-facts';
 import { loadEntourageSectionOrder, loadEventNameStyle } from '@/app/[slug]/_lib/loaders';
 import { nameStyleOfPrintDetails } from '@/lib/name-style';
@@ -66,7 +66,7 @@ export async function loadYourEvent({
      "in event hub maker will only take effect when pressed apply"). */
   const shownNameStyle = drafted && 'print_details' in drafted ? nameStyleOfPrintDetails(drafted.print_details) : nameStyle;
   if (!base) return null;
-  const { row, words, kind, precision, bookings, groups, venues, people, chinese, namesWritable } = base;
+  const { row, words, kind, precision, bookings, groups, notWalking, venues, people, chinese, namesWritable } = base;
   const [a, b] = base.names;
 
   // The shipped Find your date's own read — the couple's suppliers against the days considered.
@@ -177,7 +177,10 @@ export async function loadYourEvent({
     },
     march: {
       sections: marchSections(groups),
-      printed: printedSectionOrder(groups, savedSections),
+      // A section whose people are all in the tray still prints — it is still a step the header drag passes.
+      printed: printedSectionOrder([...groups, ...(notWalking ?? [])], savedSections),
+      // 🚶 The "Not walking" tray; null = it could not be read (said, never drawn as empty).
+      out: notWalking ? marchTray(notWalking) : null,
     },
   };
 }

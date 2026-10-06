@@ -79,6 +79,8 @@ export type EntouragePerson = {
    * typed is the only honest source, and without one nothing is guessed.
    */
   parentWord?: 'father' | 'mother' | null;
+  /** `guests.side`, when the read asked for it (the march's walk side — `marchSideOf`). */
+  side?: string | null;
 };
 
 /**
@@ -696,6 +698,12 @@ export type EntourageGuestRow = {
   extra_roles?: readonly string[] | null;
   /** `guests.invited_to_blocks` — a ceremony-only sponsor still walks. */
   invited_to_blocks?: readonly string[] | null;
+  /**
+   * `guests.side` ('groom' · 'bride' · 'both') — read by the Wedding MARCH only
+   * (its walk side, owner 2026-10-06 "Brides crew should be on right and grooms
+   * crew on the left"); never asked by a print, which keeps its own columns.
+   */
+  side?: string | null;
 };
 
 /**
@@ -992,6 +1000,7 @@ function peopleForSpec(
         ceremonyOnly: isCeremonyOnly(row),
         sortKey: sortKeyOf(row, name),
         parentWord: parentWordOf(row),
+        ...(row.side !== undefined ? { side: row.side } : {}),
       });
     }
   }

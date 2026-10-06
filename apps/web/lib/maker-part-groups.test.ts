@@ -9,8 +9,8 @@
  * Live Photo Wall · What They Said · Before & After · Song · What comes next —
  * and "Photos of you" takes its shipped name, Were you there?
  *
- * Sabotage (seen red): rename one shipped scene in `lib/post-event-scenes.ts`
- * (e.g. `name: 'Song'` → `'Our song'`), or point a part at an invented key.
+ * Sabotage (seen red): rename one shipped scene in `lib/post-event-scene-names.ts`
+ * (e.g. `song: 'Song'` → `'Our song'`), or point a part at an invented key.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -27,7 +27,8 @@ import {
   makerPartsWithAdded,
   makerPostEventSceneOf,
 } from './maker-part-groups';
-import { compilePostEventScenes, POST_EVENT_SCENE_NAMES, type PostEventSources } from './post-event-scenes';
+import { compilePostEventScenes, type PostEventSources } from './post-event-scenes';
+import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
 import { CUSTOM_SECTION_TYPES } from './custom-sections';
 
 /** The owner's nine, verbatim from the DECISION_LOG row. */

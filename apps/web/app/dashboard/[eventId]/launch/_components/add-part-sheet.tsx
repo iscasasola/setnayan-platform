@@ -24,7 +24,6 @@ import {
   type MakerPartAddPath,
 } from '@/lib/maker-part-groups';
 import { postEventRun, postEventShow, type PostEventDraft } from '@/lib/post-event-draft';
-import { POST_EVENT_WAITING } from '@/lib/post-event-scenes';
 import { stageTakesOwnScenes, swapsForDrop, type MakerTile } from '@/lib/maker-scene-list';
 import type { RevealStage } from '@/lib/reveal-stages';
 import { STAGE_SHEET_ROW } from '@/lib/maker-stage-room';
@@ -532,7 +531,7 @@ function AddPartSheet({
       const tile = scene ? ops.list.shown.find((t) => t.kind === 'post-event' && t.scene === scene) : null;
       if (!tile || tile.kind !== 'post-event') return null;
       if (tile.hidden && tile.switchKey) return { kind: 'add' };
-      return tile.drawn ? null : { kind: 'waiting', note: tile.note ?? POST_EVENT_WAITING[tile.scene] ?? 'It shows once it has something in it.' };
+      return tile.drawn ? null : { kind: 'waiting', note: tile.note ?? 'It shows once it has something in it.' };
     },
   });
   const own = ops?.addOwn ?? null;

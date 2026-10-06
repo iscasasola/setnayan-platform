@@ -54,7 +54,7 @@
 import type { HubElementKey } from './element-style';
 import type { HubStage } from './hub-canvas';
 import { RSVP_STAGE_KEY } from './rsvp-stage-shared';
-import { POST_EVENT_SCENE_NAMES } from './post-event-scenes';
+import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
 
 /* ── the three tools ──────────────────────────────────────────────────────── */
 

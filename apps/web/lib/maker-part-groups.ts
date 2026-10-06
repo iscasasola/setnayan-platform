@@ -34,7 +34,7 @@ import { CUSTOM_SECTION_TYPES } from './custom-sections';
 import { formatCount } from './format-number';
 import { MAKER_PARTS, makerPartsOnPage, type MakerPartKey, type MakerStageKey } from './maker-parts';
 import { swapsForDrop } from './maker-scene-list';
-import { POST_EVENT_SCENE_NAMES } from './post-event-scenes';
+import { POST_EVENT_SCENE_NAMES } from './post-event-scene-names';
 import { postEventMove, type PostEventArrangement, type PostEventDraft } from './post-event-draft';
 
 /* ── the groups (prototype `PART_GROUPS`) ─────────────────────────────────── */

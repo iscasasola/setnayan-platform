@@ -72,6 +72,19 @@ type FlagSpec = {
 
 const FLAGS: FlagSpec[] = [
   {
+    // 🧭 The new Event Hub Maker, "Stages | Studio" (owner 2026-10-06; plan
+    // EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md PR 1). Registered
+    // the day it shipped dark. Also on for an internal viewer — handed in.
+    env: 'NEXT_PUBLIC_MAKER_STAGES_STUDIO_ENABLED',
+    helper: 'lib/maker-stages-studio-flag.ts',
+    fn: 'makerStagesStudioEnabled',
+    // The ONE place it is decided; the shell is handed the boolean.
+    gates: ['app/dashboard/[eventId]/launch/page.tsx'],
+    // Take the decision as a prop / input, never ask it themselves.
+    pureCores: ['app/dashboard/[eventId]/launch/_components/maker-shell.tsx', 'lib/studio-tiles.ts'],
+    locals: ['stagesStudio'],
+  },
+  {
     env: 'NEXT_PUBLIC_EXPLORE_REPLAN_ENABLED',
     helper: 'lib/explore-replan-flag.ts',
     fn: 'isExploreReplanEnabled',

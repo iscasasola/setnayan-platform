@@ -78,6 +78,8 @@ export function MakerLowerThird({
   setNav,
   stepTiles,
   bare = false,
+  itemMenu = null,
+  grab = null,
 }: {
   pick: LowerThirdPick;
   /** The menu button's words ("RSVP"). */
@@ -102,6 +104,16 @@ export function MakerLowerThird({
    * menu still opens to its full height; a step's own sheet (a tool) still folds it.
    */
   bare?: boolean;
+  /**
+   * 🧭 THE NEW MAKER (`makerStagesStudioEnabled`): the menu is ONE item ▾ — a
+   * `PickMenu` of the side's items (Stages: the five stages; Studio › Look: the
+   * eleven tools), its pill the short name, opening as the one bottom sheet.
+   * It takes the menu button's place; the two-group sheet is not drawn. Null:
+   * the shipped menu.
+   */
+  itemMenu?: ReactNode;
+  /** ↕ The new Maker's grab handle on the top edge (`LowerThirdGrab`, loaded with Studio's parts) — null: none. */
+  grab?: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useOneOpen(menuOpen, setMenuOpen);
@@ -222,7 +234,8 @@ export function MakerLowerThird({
       /* In the shell's flow, under the page — the page ends where it begins. */
       className={`relative z-20 flex ${short ? 'h-auto' : 'h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))]'} shrink-0 flex-col overflow-hidden border-t border-ink/10 bg-cream pb-[env(safe-area-inset-bottom)] lg:hidden`}
     >
-      <div className="relative flex min-h-0 flex-1 gap-2 p-1 pt-2">
+      {grab}
+      <div className={`relative flex min-h-0 flex-1 gap-2 p-1 ${grab ? 'pt-0' : 'pt-2'}`}>
         {/* ══ THE COLUMN A TOOL LEAVES — name · ‹ › · × ══ */}
         <div
           data-lt-column=""
@@ -300,6 +313,7 @@ export function MakerLowerThird({
           }`}
         >
           <div className="flex h-11 shrink-0 items-center gap-2 px-1" data-lt-where="">
+            {itemMenu ?? (
             <button
               type="button"
               aria-haspopup="menu"
@@ -315,6 +329,7 @@ export function MakerLowerThird({
               <span className="max-w-[9rem] truncate">{bare && !tool ? 'Menu' : pickLabel}</span>
               <ChevronDown aria-hidden className={`h-3.5 w-3.5 transition-transform duration-[240ms] motion-reduce:transition-none ${menuOpen ? 'rotate-180' : ''}`} strokeWidth={2.2} />
             </button>
+            )}
             <p className={`min-w-0 flex-1 truncate pl-1 text-[15px] font-semibold text-ink ${short ? 'invisible' : ''}`} data-lt-where-words="">
               {/* Never the menu's word twice ("Theme ▾ Theme"). */}
               {where === pickLabel ? '' : where}
@@ -338,7 +353,8 @@ export function MakerLowerThird({
           </div>
         </div>
 
-        {/* ══ THE MENU — a sheet INSIDE the lower third, two groups ══ */}
+        {/* ══ THE MENU — a sheet INSIDE the lower third, two groups ══ (the shipped Maker's; the new one's is its item ▾) */}
+        {itemMenu ? null : (
         <div
           role="menu"
           aria-label="Menu"
@@ -374,6 +390,7 @@ export function MakerLowerThird({
             </div>
           </div>
         </div>
+        )}
       </div>
     </section>
   );

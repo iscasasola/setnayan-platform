@@ -186,6 +186,7 @@ test('💎 no padlock on any Maker Pro control — the diamond is the only Pro s
     'app/dashboard/[eventId]/website/editor/_components/pro-panels.tsx',
     'app/dashboard/[eventId]/website/editor/_components/scene-background-row.tsx',
     'app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx',
+    'app/dashboard/[eventId]/website/editor/_components/scene-animate-tab.tsx',
     'app/dashboard/[eventId]/website/editor/_components/scene-slots-panel.tsx',
     'app/dashboard/[eventId]/website/editor/_components/sections-panel.tsx',
   ];

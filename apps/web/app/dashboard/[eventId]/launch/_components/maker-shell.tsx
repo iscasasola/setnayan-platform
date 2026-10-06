@@ -90,7 +90,7 @@ import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-contex
 import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
 /* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
-import { LowerThirdGrab, MakerSheet, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
+import { LowerThirdGrab, MakerSheet, StageTools, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
 import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
@@ -578,10 +578,11 @@ export function MakerShell({
       eventBar,
       setEventBar,
       setLtWhere,
+      stagesStudio: ss,
     }),
     // `previewMenu` is a fresh node each render — its rows are read when it opens.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers],
+    [eventId, stage, shownDevice, navOpen, selection, select, moreOpen, renderStamp, storeShell, seeAs, addScene, detailsItem, detailsDoor, lookVisit, itemVisit, guideTitle, lookPages, factEditors, guestPages, pageJump, clearPageJump, draft, tool, phone, ltNav, eventBar, studioCovers, ss],
   );
 
   /* 🚪 LOOK · DETAILS · PAGE ▾ › PRINTS — three doors into the one Details page
@@ -1136,7 +1137,8 @@ export function MakerShell({
         ) : (
         <MakerLowerThird
           itemMenu={ltItemMenu}
-          grab={ss ? <LowerThirdGrab px={ltPx} onPx={setLtPx} /> : null}
+          /* 🎬 Stages: the stage ▾ · Style | Text | Animate · ▶ panel takes the lower third (`stage-tools.tsx`). */
+          grab={ss ? side === 'stages' ? <StageTools stage={stage} rsvpOpen={ltPick === RSVP_STAGE_KEY} options={page.options} value={page.value} onPickPage={pickPage} onOpenStudio={openStudio} suppliersHref={`/dashboard/${eventId}/vendors`} onPx={setLtPx} /> : <LowerThirdGrab px={ltPx} onPx={setLtPx} /> : null}
           pick={ltPick}
           pickLabel={ltPickLabel}
           where={ltWhereWords}

@@ -18,7 +18,7 @@ Brief: controller 2026-10-06 — the phone lower third under the Wedding March I
   (loadMarch) + readMarchLines (the actions' fresh read) drop non-walkers.
 
 ## Steps
-- [ ] migration + Ugat
+- [x] migration + Ugat (20271265555437_march_not_walking.sql; tests/db/march-not-walking.db.test.ts green)
 - [ ] server action + readers
 - [ ] march-drag tray plans + tests
 - [ ] tray UI (portal into editor slot) + "+N more" sheet

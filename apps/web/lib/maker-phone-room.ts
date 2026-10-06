@@ -51,6 +51,8 @@ export const MAKER_BAR_PHONE = {
   applyTop: 'max-md:w-11',
   /** The bar's own Page ▾ — a desktop's; on a phone the lower third's menu and navigator are. */
   pageTop: 'max-lg:hidden',
+  /** The new Maker's one Stages | Studio segmented control (`makerStagesStudioEnabled`) — it takes what is left of the row. */
+  side: 'max-md:min-w-[150px]',
 } as const;
 
 /**
@@ -113,6 +115,49 @@ export const MAKER_LT_HEIGHT = 'clamp(216px,30dvh,236px)';
 export function makerLtHeightPx(viewportH: number): number {
   return Math.min(236, Math.max(216, 0.3 * viewportH));
 }
+/*
+ * ↕ THE LOWER THIRD CAN BE RESIZED (owner, live iPhone 2026-10-06: *"Also the
+ * lower third screen can be resized up to lower half of the screen. Drag the
+ * edge to resize"* — DECISION_LOG "THE LOWER THIRD CAN BE RESIZED"). The new
+ * Maker only (`makerStagesStudioEnabled`): a grab handle on its top edge drags
+ * it between its default (`MAKER_LT_HEIGHT`) and the LOWER HALF of the screen
+ * (`MAKER_LT_HALF`), never more; a tap on the handle toggles default ↔ half.
+ * The size is remembered per device as a SHARE of the screen (a convenience in
+ * localStorage, `MAKER_LT_SIZE_KEY`), so a rotated phone re-clamps it. A Studio
+ * tool drawn full screen rests its editor at `MAKER_LT_HALF` too.
+ * The shipped Maker keeps `MAKER_LT_HEIGHT` and no handle.
+ */
+/** The most the lower third may take — the lower half of the screen. */
+export const MAKER_LT_HALF = '50dvh';
+export const MAKER_LT_HALF_SHARE = 0.5;
+/** Where a device remembers its size (the share of the screen's height). */
+export const MAKER_LT_SIZE_KEY = 'sn-maker-lt-share';
+/** A drag shorter than this is a tap on the handle. */
+export const MAKER_LT_TAP_PX = 6;
+
+/** The lower third's height for a dragged-to `px`, kept between its default and half the screen. */
+export function makerLtClampPx(px: number, viewportH: number): number {
+  const min = makerLtHeightPx(viewportH);
+  const max = Math.max(min, MAKER_LT_HALF_SHARE * viewportH);
+  return Math.round(Math.min(max, Math.max(min, px)));
+}
+
+/** A tap on the handle: at (or past) the middle it goes back to the default, else up to half. */
+export function makerLtTapPx(currentPx: number | null, viewportH: number): number {
+  const min = Math.round(makerLtHeightPx(viewportH));
+  const max = makerLtClampPx(Number.POSITIVE_INFINITY, viewportH);
+  const at = currentPx ?? min;
+  return at >= (min + max) / 2 ? min : max;
+}
+
+/** A remembered share, read back for this screen — null when nothing (or nothing sane) is kept. */
+export function makerLtStoredPx(raw: string | null, viewportH: number): number | null {
+  if (raw === null) return null;
+  const share = Number(raw);
+  if (!Number.isFinite(share) || share <= 0 || share > 1) return null;
+  return makerLtClampPx(share * viewportH, viewportH);
+}
+
 /** The collapsed column a tool leaves on the left: the tool's name, ‹ ›, ×. */
 export const MAKER_LT_COLUMN_PX = 52;
 /** A tool's width at the narrowest phone, at least (owner: "make sure it doesn't feel too cramped"). */

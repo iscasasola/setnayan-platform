@@ -20,6 +20,8 @@
  * All figures are CSS pixels in viewport coordinates (getBoundingClientRect).
  */
 
+import { createContext, type ReactNode } from 'react';
+
 /** Gap between the button and the list. */
 export const PICK_LIST_GAP = 6;
 /** Distance the list always keeps from every screen edge. */
@@ -104,4 +106,32 @@ export function groupHeadClass(sticky: boolean): string {
 /** A font row is `content-visibility: auto` — see the notes in `pick-menu-types.ts`. */
 export function fontRowClass(fontFamily: string | undefined): string | undefined {
   return fontFamily ? '[contain-intrinsic-size:auto_44px] [content-visibility:auto]' : undefined;
+}
+
+/**
+ * ▁ ON A PHONE IN THE NEW MAKER A LIST OPENS AS THE ONE BOTTOM SHEET (owner
+ * 2026-10-06: every pop-up opens from the bottom; `MakerSheet`, launch/_components/maker-sheet.tsx).
+ * The shell hands the sheet down (`PickSheetContext`) only while
+ * `makerStagesStudioEnabled` is on; with none handed — every other page, and
+ * the shipped Maker — a list opens where `placePickList` puts it, as before.
+ */
+export type PickSheet = (p: { label: string; onClose: () => void; children: ReactNode }) => ReactNode;
+export const PickSheetContext = createContext<PickSheet | null>(null);
+/** The list goes into the sheet: one was handed down, and the screen is a phone's (< lg). */
+export function pickOpensAsSheet(sheet: boolean, viewportWidth: number): boolean {
+  return sheet && viewportWidth < 1024;
+}
+
+/** The ▾ button. */
+export function pickButtonClass(compact: boolean): string {
+  return `sn-press inline-flex min-w-0 max-w-full items-center gap-1.5 whitespace-nowrap rounded-full bg-white/70 font-semibold text-ink transition-colors duration-300 ease-in-out hover:bg-white ${
+    compact ? 'min-h-7 px-2 text-xs' : 'min-h-10 px-3 text-[13px]'
+  }`;
+}
+
+/** One option's row — `chosen` is the single-pick value (filled ink). */
+export function pickOptionClass(roomy: boolean, chosen: boolean): string {
+  return `flex min-h-11 w-full items-center gap-2 rounded-xl px-3 text-left text-[14px] transition-colors duration-300 ease-in-out disabled:cursor-default disabled:text-ink/40 ${
+    roomy ? 'py-2' : ''
+  } ${chosen ? 'bg-ink text-cream' : 'text-ink hover:bg-ink/5'}`;
 }

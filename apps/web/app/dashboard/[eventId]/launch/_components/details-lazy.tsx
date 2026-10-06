@@ -159,3 +159,6 @@ export const BeforeWeStartScreen = dynamic(() => import(/* webpackChunkName: "ma
 /* ── The Look (Logo · Reveal — the pages the work area hands in) ─────────── */
 export const MakerLogoDoor = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-logo').then((m) => m.MakerLogoDoor), { loading: SlotFill });
 export const MakerRevealPicker = dynamic(() => import(/* webpackChunkName: "maker-details" */ './maker-reveal').then((m) => m.MakerRevealPicker), { loading: SlotRows });
+
+/* ── 🗂 The new Maker's Studio home (owner 2026-10-06, `makerStagesStudioEnabled`) — drawn only once Studio is opened ── */
+export const StudioHome = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-home').then((m) => m.StudioHome), { loading: SlotFill });

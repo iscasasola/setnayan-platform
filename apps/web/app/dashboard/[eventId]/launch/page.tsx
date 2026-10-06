@@ -18,6 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { isTransientReadError, schemaBlipError, withSchemaRetry } from '@/lib/read-retry';
 import { getCurrentUser } from '@/lib/auth';
 import { eventPapicActive } from '@/lib/papic-seats';
 import { GENERIC_PROFILE, profileSetup, resolveProfile, resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
@@ -271,12 +272,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const { data: membership, error: membershipError } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // 🔁 A schema-cache blip retries, and one that outlasts it throws (the browser
+  // shows "Reconnecting…") — never the redirect below. lib/read-retry.ts.
+  const { data: membership, error: membershipError, status: membershipStatus } = await withSchemaRetry(() =>
+    supabase.from('event_members').select('member_type').eq('event_id', eventId).eq('user_id', user.id).maybeSingle(),
+  );
+  if (isTransientReadError(membershipError, membershipStatus)) throw schemaBlipError('LaunchPage.membership', membershipError);
   if (membershipError) {
     logQueryError(
       'LaunchPage.membership',

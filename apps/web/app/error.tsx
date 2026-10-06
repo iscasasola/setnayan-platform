@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import {
   isDeploymentSkewError,
@@ -11,6 +11,8 @@ import {
   reloadForStaleBundle,
 } from '@/lib/stale-bundle';
 import Link from 'next/link';
+import { isSchemaBlip } from '@/lib/read-retry';
+import { Reconnecting } from '@/app/_components/reconnecting';
 
 // Root error boundary — brand-voice per feedback_setnayan_no_dev_text_post_launch
 // lock. Next.js auto-mounts this for any unhandled exception in a route segment.
@@ -27,6 +29,12 @@ type Props = {
 };
 
 export default function RootError({ error, reset }: Props) {
+  // 🔁 A DATABASE SCHEMA-CACHE BLIP IS NOT A CRASH (2026-10-07). A deploy that
+  // carries a migration makes reads answer PGRST002 for 20 s – 1 min; the
+  // server retries a few seconds and then throws `SchemaBlipError`, whose
+  // digest arrives here. Show "Reconnecting…" and refresh a few times; only
+  // once that is spent does the message below appear. lib/read-retry.ts.
+  const [reconnectSpent, setReconnectSpent] = useState(false);
   useEffect(() => {
     // ── A STALE OPEN TAB IS NOT A CRASH ──────────────────────────────────────
     // We deploy on every merge, and a page already open keeps asking for the
@@ -71,6 +79,10 @@ export default function RootError({ error, reset }: Props) {
       .then((m) => m.reportCrash(error, 'root'))
       .catch(() => {});
   }, [error]);
+
+  if (isSchemaBlip(error) && !reconnectSpent) {
+    return <Reconnecting reset={reset} onGiveUp={() => setReconnectSpent(true)} />;
+  }
 
   return (
     <main className="min-h-screen bg-cream text-ink flex items-center justify-center px-6 py-16">

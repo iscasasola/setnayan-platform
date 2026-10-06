@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "506a6fc67",
+  "generatedFromRef": "766e226fe",
   "routeCount": 428,
   "destinations": 947,
   "actions": 670,
-  "blocks": 5535,
+  "blocks": 5539,
   "routes": {
     "/": {
       "files": [
@@ -6492,6 +6492,7 @@
         "dashboard/[eventId]/launch/_components/soft-post.tsx",
         "dashboard/[eventId]/launch/_components/special-message-field.tsx",
         "dashboard/[eventId]/launch/_components/stage-picker.tsx",
+        "dashboard/[eventId]/launch/_components/stages-studio-parts.tsx",
         "dashboard/[eventId]/launch/_components/studio-home.tsx",
         "dashboard/[eventId]/launch/_components/theme-pick-context.ts",
         "dashboard/[eventId]/launch/_components/theme-preview-overlay.tsx",
@@ -6750,8 +6751,12 @@
         "StepTouch",
         "StoredQrStyle",
         "StoryPanel",
+        "StudioCover",
         "StudioHome",
+        "StudioSideSwitch",
         "StudioTileKey",
+        "StudioToolMenu",
+        "StudioToolRow",
         "Suspense",
         "Switch",
         "SwitchRow",

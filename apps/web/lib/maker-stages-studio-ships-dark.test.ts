@@ -133,17 +133,21 @@ test('3 · the new chrome is unreachable with the flag off — Studio is a lazy 
   assert.match(shell, /const studioOn = ss && side === 'studio';/);
   assert.match(shell, /const studioHomeOn = studioOn && studioAt === 'home';/);
   assert.match(shell, /const studioTile = studioOn && /);
-  assert.equal((shell.match(/<StudioHome\b/g) ?? []).length, 1);
-  assert.match(shell, /\{studioHomeOn \? \(\s*<div[^>]*data-maker-studio-layer=""[^>]*>\s*\{studio \? \(\s*<StudioHome/, 'Studio\'s home is drawn outside its flag-gated door');
+  assert.equal((shell.match(/<StudioCover\b/g) ?? []).length, 1);
+  assert.match(shell, /\{studioHomeOn \? \(\s*<StudioCover\b/, 'Studio\'s home is drawn outside its flag-gated door');
+  assert.match(shell, /\) : studioFull && studioTile \? \(\s*<StudioToolRow\b/, 'a Studio tool\'s row is drawn outside its flag-gated door');
   assert.match(shell, /const ltItemMenu = !ss \? null :/, 'the item ▾ is drawn without the flag');
-  assert.match(shell, /resize=\{ss \? \{ px: ltPx, onPx: setLtPx \} : null\}/, 'the grab handle is drawn without the flag');
+  assert.match(shell, /grab=\{ss \? <LowerThirdGrab px=\{ltPx\} onPx=\{setLtPx\} \/> : null\}/, 'the grab handle is drawn without the flag');
+  assert.match(shell, /<StudioSideSwitch side=\{side\} onPick=\{pickSide\} \/>/);
   assert.match(shell, /\{stagesStudio \? \(\s*(?:\/\*[\s\S]*?\*\/\s*)?<div data-maker-tool="side"/, 'Stages | Studio is drawn without the flag');
   assert.match(shell, /withPickSheet\(\s*stagesStudio,/, 'the one bottom sheet is handed down without the flag');
-  // Studio's home is never in a static import — only the lazy stand-in loads it.
+  // The new chrome is never in a static import of the Maker — only the lazy stand-ins load it.
   const lazy = read(`${L}/details-lazy.tsx`);
-  assert.match(lazy, /export const StudioHome = dynamic\(\(\) => import\(\s*'\.\/studio-home'\)/);
-  for (const f of [`${L}/maker-shell.tsx`, 'app/dashboard/[eventId]/launch/page.tsx', `${L}/maker-details.tsx`]) {
-    assert.doesNotMatch(read(f), /from '\.\/(?:_components\/)?studio-home'/, `${f} imports Studio's home statically — it would ride the Maker's first load`);
+  for (const name of ['StudioSideSwitch', 'StudioToolMenu', 'StudioToolRow', 'StudioCover', 'LowerThirdGrab', 'MakerSheet']) {
+    assert.match(lazy, new RegExp(`export const ${name} = dynamic\\(\\(\\) => import\\(\\s*'\\./stages-studio-parts'\\)`), `${name} is not a lazy piece`);
+  }
+  for (const f of [`${L}/maker-shell.tsx`, `${L}/maker-lower-third.tsx`, 'app/dashboard/[eventId]/launch/page.tsx', `${L}/maker-details.tsx`]) {
+    assert.doesNotMatch(read(f), /from '\.\/(?:_components\/)?(?:studio-home|stages-studio-parts)'/, `${f} imports the new chrome statically — it would ride the Maker's first load`);
   }
 });
 
@@ -160,9 +164,14 @@ test('4 · flag ON: a phone\'s bar is ✕ · Stages | Studio · ↺ · ✓ — P
   assert.deepEqual([...desktopOnly].sort(), ['details', 'page', 'preview'], 'a desktop-only tool shows on a phone in the new Maker');
   const phone = toolsOf(html).filter((t) => !desktopOnly.has(t!));
   assert.deepEqual(phone, [...MAKER_TOOLBAR_STAGES_STUDIO]);
-  assert.match(header, /aria-label="Stages or Studio"[\s\S]*?>Stages<\/button>[\s\S]*?>Studio<\/button>/, 'Stages | Studio is not one segmented control');
-  assert.match(html, /data-lt-grab=""/, 'the lower third has no grab handle');
   assert.match(html, /data-lt-item-menu=""/, 'the lower third has no item ▾');
+  // The lazy pieces, drawn as they arrive: ONE segmented control, and the handle.
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const parts = await import(`../${L}/stages-studio-parts`);
+  const seg = renderToStaticMarkup(React.createElement(parts.StudioSideSwitch, { side: 'studio', onPick: () => {} }));
+  assert.match(seg, /aria-label="Stages or Studio"[\s\S]*?aria-pressed="false"[^>]*>Stages<\/button>[\s\S]*?aria-pressed="true"[^>]*>Studio<\/button>/, 'Stages | Studio is not one segmented control');
+  assert.equal((seg.match(/role="group"/g) ?? []).length, 1);
+  assert.match(renderToStaticMarkup(React.createElement(parts.LowerThirdGrab, { px: null, onPx: () => {} })), /data-lt-grab=""/, 'the lower third has no grab handle');
   assert.doesNotMatch(html, /data-lt-menu-group=/, 'the two-group menu is still drawn beside the item ▾');
 });
 

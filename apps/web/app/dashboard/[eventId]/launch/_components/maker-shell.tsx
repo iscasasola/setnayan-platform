@@ -87,13 +87,11 @@ import { MAKER_LT_HEIGHT, MAKER_LT_TOOL } from '@/lib/maker-phone-room';
 import { MAKER_PAGE_STAGES, makerStageLabel } from './maker-bar';
 import { RSVP_STAGE_KEY } from '@/lib/rsvp-stage-shared';
 import { useMakerTool, type MakerEventBar, type MakerTool } from './maker-context';
-import { MAKER_SIDE_LABEL, type MakerSide } from './maker-bar';
-import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
+import type { MakerSide } from './maker-bar';
 import { PickSheetContext, type PickSheet } from '../../website/editor/_components/pick-menu-place';
-import type { PickOption } from '../../website/editor/_components/pick-menu-types';
-import { MakerSheet } from './maker-sheet';
-import { StudioHome } from './details-lazy';
-import { MAKER_LT_HALF, MAKER_LT_SIZE_KEY, makerLtStoredPx } from '@/lib/maker-phone-room';
+/* 🧭 The new Maker's own chrome — lazy, so the shipped Maker's first load carries none of it. */
+import { LowerThirdGrab, MakerSheet, StudioCover, StudioSideSwitch, StudioToolMenu, StudioToolRow } from './details-lazy';
+import { MAKER_LT_HALF } from '@/lib/maker-phone-room';
 import { detailsItemLayout } from '@/lib/maker-details-items';
 import type { StudioTileKey, StudioTileModel } from '@/lib/studio-tiles';
 import { BookOpen, ClipboardList, Info, PanelsTopLeft, Printer, RotateCcw, Undo, Users } from 'lucide-react';
@@ -302,15 +300,6 @@ export function MakerShell({
   const studioImmersive = studioFull && studioTile!.immersive;
   /** Studio covers the page and the lower third (its home, or a full-screen tool). */
   const studioCovers = studioHomeOn || studioFull;
-  /* ↕ The size this device remembers (a convenience — none kept, or none readable, is the default). */
-  useEffect(() => {
-    if (!stagesStudio) return;
-    try {
-      setLtPx(makerLtStoredPx(window.localStorage.getItem(MAKER_LT_SIZE_KEY), window.innerHeight));
-    } catch {
-      /* private mode / blocked storage: the default height */
-    }
-  }, [stagesStudio]);
   /* 🎓 About the Maker (Page ▾) replays the short tour — never on a first open. */
   const [tour, setTour] = useState(false);
   /* 👁 SEE AS ▾ (PR-10) — the canvas as a sample guest, or null for the couple's
@@ -736,23 +725,16 @@ export function MakerShell({
     if (selection && (next === 'studio' || side === 'studio')) select(null);
     setSide(next);
   };
-  /** The eleven tools as ONE dropdown — Studio › Look's item ▾ and a tool's Tool ▾ (each opens as the one sheet). */
-  const studioOptions: PickOption[] = (studio?.tiles ?? []).map((t) => ({
-    key: t.key,
-    label: t.label,
-    hint: t.status,
-    ...(t.done === true ? { trail: { text: '✓', tone: 'ok' as const, label: 'Ready' } } : t.done === false ? { trail: { text: 'Missing', tone: 'left' as const } } : {}),
-  }));
   /** The lower third's ONE item ▾ (owner 2026-10-06): the five stages — or, in Studio › Look, the eleven tools. */
   const ltItemMenu = !ss ? null : studioOn ? (
-    <PickMenu label="Studio tool" dataAttr="data-lt-item-menu" value="look" buttonText="Look" options={studioOptions} onPick={(k) => openStudio(k as StudioTileKey)} className="!min-h-11 shrink-0 ring-1 ring-ink/10" />
+    <StudioToolMenu tiles={studio?.tiles ?? []} value="look" onOpen={openStudio} dataAttr="data-lt-item-menu" />
   ) : (
     <PickMenu
       label="Stage"
       dataAttr="data-lt-item-menu"
       value={ltPick}
       buttonText={ltPickLabel}
-      options={ltStages.map((st) => ({ key: st.key, label: st.label, ...(st.dot ? { dot: true } : {}) }))}
+      options={ltStages}
       onPick={onLtPick}
       className="!min-h-11 shrink-0 ring-1 ring-ink/10"
     />
@@ -1030,13 +1012,7 @@ export function MakerShell({
           {stagesStudio ? (
             /* 🧭 THE NEW MAKER: ONE segmented control, Stages | Studio, where the screen's name was. */
             <div data-maker-tool="side" data-bar-item="Stages or Studio" data-bar-fill="" className={`flex min-w-0 flex-1 px-1 lg:hidden ${MAKER_BAR_PHONE.side}`}>
-              <ISegmented label="Stages or Studio">
-                {(['stages', 'studio'] as const).map((k) => (
-                  <ISeg key={k} tone="wine" on={side === k} data={k} onClick={() => pickSide(k)}>
-                    {MAKER_SIDE_LABEL[k]}
-                  </ISeg>
-                ))}
-              </ISegmented>
+              <StudioSideSwitch side={side} onPick={pickSide} />
             </div>
           ) : (
           <p
@@ -1141,38 +1117,9 @@ export function MakerShell({
               full screen — that tool's slim row: Tool ▾ (the eleven, one sheet), and ✓ Done where the top
               nav is hidden. Tapping Studio returns to the tiles; there is no "‹ Studio" here. */}
           {studioHomeOn ? (
-            <div className="absolute inset-0 z-30 flex flex-col bg-cream" data-maker-studio-layer="">
-              {studio ? (
-                <StudioHome tiles={studio.tiles} onOpen={openStudio} />
-              ) : (
-                <p role="alert" className="m-auto max-w-sm px-4 text-center text-sm text-terracotta-700">
-                  Studio could not be loaded just now. Nothing was changed — please reopen this in a moment.
-                </p>
-              )}
-            </div>
+            <StudioCover tiles={studio?.tiles ?? null} onOpen={openStudio} />
           ) : studioFull && studioTile ? (
-            <div data-maker-studio-row="" className="absolute inset-x-0 top-0 z-40 flex h-[52px] items-center gap-2 border-b border-ink/10 bg-cream px-2 lg:hidden">
-              <PickMenu
-                label="Studio tool"
-                dataAttr="data-maker-studio-tool"
-                value={studioTile.key}
-                buttonText={studioTile.short}
-                options={studioOptions}
-                onPick={(k) => openStudio(k as StudioTileKey)}
-                className="!min-h-11 ring-1 ring-ink/10"
-              />
-              {studioTile.immersive ? (
-                <button
-                  type="button"
-                  data-maker-studio-done=""
-                  onClick={() => pickSide('studio')}
-                  className="sn-press ml-auto inline-flex h-11 shrink-0 items-center gap-1.5 rounded-full bg-success-600 px-4 text-[13.5px] font-bold text-cream hover:bg-success-700"
-                >
-                  <Check aria-hidden className="h-4 w-4" strokeWidth={2.6} />
-                  Done
-                </button>
-              ) : null}
-            </div>
+            <StudioToolRow tile={studioTile} tiles={studio?.tiles ?? []} onOpen={openStudio} onDone={() => pickSide('studio')} />
           ) : null}
         </div>
 
@@ -1189,7 +1136,7 @@ export function MakerShell({
         ) : (
         <MakerLowerThird
           itemMenu={ltItemMenu}
-          resize={ss ? { px: ltPx, onPx: setLtPx } : null}
+          grab={ss ? <LowerThirdGrab px={ltPx} onPx={setLtPx} /> : null}
           pick={ltPick}
           pickLabel={ltPickLabel}
           where={ltWhereWords}

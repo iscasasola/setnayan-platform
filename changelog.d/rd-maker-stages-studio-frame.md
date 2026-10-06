@@ -17,10 +17,10 @@ screen can be resized up to lower half of the screen. Drag the edge to resize"*.
   (`maker-bar.ts` `MAKER_TOOLBAR_STAGES_STUDIO`); no Page ▾ / Event Details / 👁 on a phone.
 - **The lower third** drags from its top edge between `MAKER_LT_HEIGHT` and half the screen
   (`MAKER_LT_HALF`), a tap toggles, the size is remembered on the device
-  (`lib/maker-phone-room.ts` `makerLtClampPx` · `makerLtTapPx` · `makerLtStoredPx`). Its
+  (`lib/maker-lt-size.ts` `makerLtClampPx` · `makerLtTapPx` · `makerLtStoredPx`; `MAKER_LT_HALF` in `lib/maker-phone-room.ts`). Its
   two-group menu becomes ONE item ▾ (`PickMenu`): the five stages — or, in Studio › Look,
   the eleven tools.
-- **One bottom sheet** (`maker-sheet.tsx` `MakerSheet`) — every `PickMenu` inside the new
+- **One bottom sheet** (`MakerSheet`) — every `PickMenu` inside the new
   Maker opens into it on a phone (`pick-menu-place.ts` `PickSheetContext`,
   `pickOpensAsSheet`). Elsewhere a list opens exactly where it did.
 - **Studio's home** — `lib/studio-tiles.ts` (eleven tiles: Info · Look · Logo · Mood Board &
@@ -31,6 +31,10 @@ screen can be resized up to lower half of the screen. Drag the edge to resize"*.
   Details item full screen under a slim Tool ▾ row; Look stays in the lower third; Wedding
   March and Seat plan hide the top nav and show ✓ Done; the seat plan is the shipped one,
   unchanged. Tapping Studio again returns to the tiles.
+- **The Maker's first load carries none of the new chrome:** Stages | Studio, the grab handle, the
+  sheet, Studio's home and its Tool ▾ row are `stages-studio-parts.tsx`, loaded through `details-lazy.tsx`
+  (the `maker-details` chunk, warmed at idle). Measured locally: Maker first load 504.9KB of 505KB,
+  shared bundle 201.3KB of 202KB, `/` First Load 212 kB — no budget raised.
 - **Flag OFF:** the shipped Maker — its render measured byte-identical to `origin/main` in
   eight states (React ids included). Desktop unchanged either way.
 

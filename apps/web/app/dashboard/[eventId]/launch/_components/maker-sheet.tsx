@@ -381,35 +381,3 @@ export function HalfSheetSlimBar({
     </div>
   );
 }
-
-/**
- * ▁ THE ONE BOTTOM SHEET — every pop-up of the new Maker on a phone (owner
- * 2026-10-06: every pop-up opens from the bottom; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md`
- * PR 1, prototype `#pmenu .menu`). One shape for all of them — the stage ▾,
- * Studio's Tool ▾ and every `PickMenu` the Maker draws (`PickSheetContext`,
- * handed down by the shell while `makerStagesStudioEnabled` is on): the full
- * width at the foot of the screen, a grabber, its name in small capitals, rows
- * that scroll inside it (never past 62% of the screen), and the page dimmed
- * behind it — a tap there closes it. Phone only (`lg:hidden`); a desktop keeps
- * each list where it opens.
- *
- * 🔒 NOTHING HERE WRITES — it only draws what it is handed.
- */
-export function MakerSheet({ label, onClose, children }: { label: string; onClose: () => void; children: ReactNode }) {
-  /* Fixed to the screen — so whoever draws it puts it on <body> (the shell's `makerPickSheet` portals it):
-     inside a glass panel a `fixed` box is held by the panel's backdrop filter. */
-  return (
-    <div data-maker-sheet="" className="fixed inset-0 z-[95] lg:hidden">
-      <button type="button" aria-label="Close" data-maker-sheet-scrim="" onClick={onClose} className="absolute inset-0 h-full w-full cursor-default bg-ink/20" />
-      <div
-        role="dialog"
-        aria-label={label}
-        className="absolute inset-x-0 bottom-0 flex max-h-[62dvh] flex-col rounded-t-3xl bg-white px-2 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-1 shadow-[0_-18px_40px_-18px_rgba(30,26,18,.45)] ring-1 ring-ink/10"
-      >
-        <span aria-hidden className="mx-auto mb-1.5 mt-1 h-1 w-10 shrink-0 rounded-full bg-ink/15" />
-        <p className="shrink-0 px-3 pb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">{label}</p>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">{children}</div>
-      </div>
-    </div>
-  );
-}

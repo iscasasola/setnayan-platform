@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
-import { MAKER_LT_SIZE_KEY, MAKER_LT_TAP_PX, MAKER_STRIP_PHONE, makerLtClampPx, makerLtTapPx } from '@/lib/maker-phone-room';
+import { MAKER_STRIP_PHONE } from '@/lib/maker-phone-room';
 import { Check, ChevronDown, ChevronLeft, ChevronRight, List, Palette, Settings2, X } from 'lucide-react';
 import { useOneOpen } from '@/lib/one-open';
 import type { MakerTool } from './maker-context';
@@ -79,7 +79,7 @@ export function MakerLowerThird({
   stepTiles,
   bare = false,
   itemMenu = null,
-  resize = null,
+  grab = null,
 }: {
   pick: LowerThirdPick;
   /** The menu button's words ("RSVP"). */
@@ -112,8 +112,8 @@ export function MakerLowerThird({
    * the shipped menu.
    */
   itemMenu?: ReactNode;
-  /** ↕ The new Maker's grab handle on the top edge — the height it is dragged to (px), or null for the default. */
-  resize?: { px: number | null; onPx: (px: number | null) => void } | null;
+  /** ↕ The new Maker's grab handle on the top edge (`LowerThirdGrab`, loaded with Studio's parts) — null: none. */
+  grab?: ReactNode;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuId = useOneOpen(menuOpen, setMenuOpen);
@@ -234,8 +234,8 @@ export function MakerLowerThird({
       /* In the shell's flow, under the page — the page ends where it begins. */
       className={`relative z-20 flex ${short ? 'h-auto' : 'h-[calc(var(--maker-lt-h)+env(safe-area-inset-bottom))]'} shrink-0 flex-col overflow-hidden border-t border-ink/10 bg-cream pb-[env(safe-area-inset-bottom)] lg:hidden`}
     >
-      {resize ? <LowerThirdGrab px={resize.px} onPx={resize.onPx} box={rootRef} /> : null}
-      <div className={`relative flex min-h-0 flex-1 gap-2 p-1 ${resize ? 'pt-0' : 'pt-2'}`}>
+      {grab}
+      <div className={`relative flex min-h-0 flex-1 gap-2 p-1 ${grab ? 'pt-0' : 'pt-2'}`}>
         {/* ══ THE COLUMN A TOOL LEAVES — name · ‹ › · × ══ */}
         <div
           data-lt-column=""
@@ -393,72 +393,6 @@ export function MakerLowerThird({
         )}
       </div>
     </section>
-  );
-}
-
-/**
- * ↕ THE GRAB HANDLE — the new Maker's lower third resizes (owner, live iPhone
- * 2026-10-06: *"Also the lower third screen can be resized up to lower half of
- * the screen. Drag the edge to resize"*). Drag its top edge between the default
- * height and half the screen (`makerLtClampPx`); a tap toggles default ↔ half
- * (`makerLtTapPx`); the size is remembered on this device as a share of the
- * screen (a convenience — lost, it opens at the default). Arrow keys step it.
- * Nothing here writes to the event.
- */
-function LowerThirdGrab({ px, onPx, box }: { px: number | null; onPx: (px: number | null) => void; box: RefObject<HTMLElement | null> }) {
-  const from = useRef<{ y: number; h: number } | null>(null);
-  const [dragging, setDragging] = useState(false);
-  const vh = () => window.innerHeight;
-  const now = () => px ?? box.current?.getBoundingClientRect().height ?? null;
-  const keep = (next: number) => {
-    onPx(next);
-    try {
-      window.localStorage.setItem(MAKER_LT_SIZE_KEY, String(next / vh()));
-    } catch {
-      /* private mode / blocked storage: the size simply is not remembered */
-    }
-  };
-  return (
-    <button
-      type="button"
-      aria-label="Resize the tools — drag, or tap for half the screen"
-      data-lt-grab=""
-      onPointerDown={(e) => {
-        const h = now();
-        if (h === null) return;
-        from.current = { y: e.clientY, h };
-        setDragging(true);
-        e.currentTarget.setPointerCapture?.(e.pointerId);
-      }}
-      onPointerMove={(e) => {
-        const f = from.current;
-        if (f && Math.abs(e.clientY - f.y) >= MAKER_LT_TAP_PX) onPx(makerLtClampPx(f.h + (f.y - e.clientY), vh()));
-      }}
-      onPointerUp={(e) => {
-        const f = from.current;
-        from.current = null;
-        setDragging(false);
-        if (!f) return;
-        keep(Math.abs(e.clientY - f.y) < MAKER_LT_TAP_PX ? makerLtTapPx(px, vh()) : makerLtClampPx(f.h + (f.y - e.clientY), vh()));
-      }}
-      onPointerCancel={() => {
-        from.current = null;
-        setDragging(false);
-      }}
-      onKeyDown={(e) => {
-        const h = now();
-        if (h === null || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
-        e.preventDefault();
-        keep(makerLtClampPx(h + (e.key === 'ArrowUp' ? 40 : -40), vh()));
-      }}
-      onClick={(e) => {
-        // A keyboard press (no pointer): default ⇄ half.
-        if (e.detail === 0) keep(makerLtTapPx(px, vh()));
-      }}
-      className="flex h-6 w-full shrink-0 touch-none items-center justify-center"
-    >
-      <span aria-hidden className={`h-[5px] rounded-full transition-[width,background-color] duration-150 ${dragging ? 'w-14 bg-gild' : 'w-11 bg-ink/20'}`} />
-    </button>
   );
 }
 

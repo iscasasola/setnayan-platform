@@ -429,89 +429,61 @@ export function MainBackgroundPanel({
     <section className="flex flex-col gap-3 rounded-md bg-white/70 px-3 py-3" data-maker-main-background="">
       <p className="text-[14px] font-semibold text-ink">Behind every scene</p>
 
-      <div className="flex flex-col gap-1.5" role="group" aria-label="What is behind every scene">
-        {/* 🎞 MOVING BACKGROUNDS ◆ — every loop of ours, ONE dropdown (owner: any
-            set of choices is a dropdown). A pick changes ONLY what is behind
-            the scenes — never the fonts or colours. The page's own loop is
-            stored as it always was (`ground: 'theme'`), so nothing a couple
-            already had becomes a charge; any other loop is Event Hub Pro. */}
-        {loops.length > 0 ? (
-          /* 📱 The name on its own line and the dropdown FULL WIDTH under it
-             (owner 2026-10-05, 375 px: "Modern / gallery / walls" wrapped) — the
-             list opens as wide as its button, so every name sits on one row. */
-          <div
-            className={`flex w-full flex-col gap-1.5 rounded-md px-3 py-2 ${
-              choice === 'theme' || choice === 'loop' ? 'bg-ink text-cream' : 'bg-white text-ink'
-            }`}
-            data-main-ground-source="loop"
-            aria-current={choice === 'theme' || choice === 'loop' ? 'true' : undefined}
-          >
-            <span className="flex min-h-7 items-center gap-1.5 text-[13px] font-semibold">
-              Moving background
-              {proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" tone="current" /> : null}
-            </span>
-            <PickMenu
-              label="Moving background"
-              value={choice === 'theme' || choice === 'loop' ? loopNow : null}
-              buttonText={choice === 'theme' || choice === 'loop' ? undefined : 'Pick one'}
-              options={loops.map((l) => ({
-                key: l.id,
-                label: l.name,
-                ...(l.stillUrl ? { thumb: l.stillUrl } : {}),
-                ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
-                  ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
-                  : {}),
-              }))}
-              onPick={(k) => {
-                const id = loops.find((l) => l.id === k)?.id;
-                if (!id) return;
-                setChoosingMedia(false);
-                save(
-                  id === themeId ? { ground: 'theme' } : { ground: 'loop', loop: id },
-                  'Your background could not be changed. Please try again.',
-                );
-              }}
-              dataAttr="data-main-ground-loop-pick"
-              className="w-full justify-between text-ink"
-            />
-          </div>
-        ) : null}
-        {/* "Same as my hero" follows a MEASURED hero (`HeroFrameSync`), which Classic never
-            runs (it would write on open) — so Classic offers its own upload, not the follow. */}
-        {themeId === 'house' ? null : (
-        <Choice
-          on={choice === 'hero'}
-          label="Same as my hero"
-          note={hero.photoRef ? undefined : 'Your hero is the written card — add a hero photo in Hero first.'}
-          thumb={hero.photoUrl}
-          mark={proMark}
-          disabled={pending || !hero.photoRef}
-          data={{ 'data-main-ground-source': 'hero' }}
-          onClick={() => {
+      {/* 🧭 ONE DROPDOWN (owner rule "any set of choices is a dropdown"; controller sweep
+          2026-10-06: the stack of Moving background · Same as my hero · Upload media ·
+          Just the colour read as a pill column). Every choice it held is a row of it:
+          each shipped loop (◆) under "Moving background", then the couple's own photo or
+          video (◆), then the plain colour (free). A pick does exactly what its row did. */}
+      <div className="flex flex-col gap-1.5" data-main-ground-source={choice} data-main-ground-choices="">
+        <PickMenu
+          label="Behind every scene"
+          value={choice === 'theme' || choice === 'loop' ? (loopNow ?? null) : `src:${choice}`}
+          options={[
+            ...loops.map((l) => ({
+              key: l.id,
+              label: l.name,
+              group: 'Moving background',
+              ...(l.stillUrl ? { thumb: l.stillUrl } : {}),
+              ...(proMark && !(l.id === themeId && INVITE_THEMES[themeId]?.tier === 'free')
+                ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } }
+                : {}),
+            })),
+            /* "Same as my hero" follows a MEASURED hero (`HeroFrameSync`), which Classic never
+               runs (it would write on open) — so Classic offers its own upload, not the follow. */
+            ...(themeId === 'house'
+              ? []
+              : [{
+                  key: 'src:hero',
+                  label: 'Same as my hero',
+                  group: 'Your own',
+                  ...(hero.photoUrl ? { thumb: hero.photoUrl } : {}),
+                  ...(hero.photoRef ? {} : { disabledNote: 'add a hero photo first' }),
+                  ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
+                }]),
+            {
+              key: 'src:media',
+              label: 'Upload media',
+              group: 'Your own',
+              ...(own && overrideStillUrl ? { thumb: overrideStillUrl } : {}),
+              ...(proMark ? { trail: { text: '◆', tone: 'muted' as const, label: 'Event Hub Pro' } } : {}),
+            },
+            { key: 'src:none', label: 'Just the colour', group: 'Plain' },
+          ]}
+          onPick={(k) => {
+            if (pending) return;
+            if (k === 'src:media') return setChoosingMedia(true);
             setChoosingMedia(false);
-            save(null, 'Your background could not be changed. Please try again.');
+            if (k === 'src:hero') return save(null, 'Your background could not be changed. Please try again.');
+            if (k === 'src:none') return save({ ground: 'none' }, 'Your background could not be changed. Please try again.');
+            const id = loops.find((l) => l.id === k)?.id;
+            if (!id) return;
+            save(
+              id === themeId ? { ground: 'theme' } : { ground: 'loop', loop: id },
+              'Your background could not be changed. Please try again.',
+            );
           }}
-        />
-        )}
-        <Choice
-          on={choice === 'media'}
-          label="Upload media"
-          thumb={own ? overrideStillUrl : null}
-          mark={proMark}
-          disabled={pending}
-          data={{ 'data-main-ground-source': 'own' }}
-          onClick={() => setChoosingMedia(true)}
-          keepEnabled
-        />
-        <Choice
-          on={choice === 'none'}
-          label="Just the colour"
-          disabled={pending}
-          data={{ 'data-main-ground-source': 'none' }}
-          onClick={() => {
-            setChoosingMedia(false);
-            save({ ground: 'none' }, 'Your background could not be changed. Please try again.');
-          }}
+          dataAttr="data-main-ground-loop-pick"
+          className="w-full justify-between text-ink"
         />
       </div>
       {choice === 'hero' && hero.photoRef ? (

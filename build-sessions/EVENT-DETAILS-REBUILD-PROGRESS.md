@@ -97,7 +97,7 @@ Builder rules: setnayan-handoff-src/BUILDER-RULES-2026-10-04.md. Worktree: ~/Doc
       `screenLabel` in maker-shell (`if (doorShown) return guideTitle ? head : part || head`).
 - [ ] (1b) ellipsis only at a word boundary; desktop "Invitation › Details" label vs Schedule panel mismatch (Page ▾
       while a Details fact is tapped on a stage) — not yet traced.
-- [ ] (2) choice sets as ONE PickMenu: Look › Background's Choice stack ("Moving background · Same as my hero · Upload
+- [~] (2) choice sets as ONE PickMenu: ✅ Look › Background is ONE PickMenu now ("Behind every scene ▾": loops · Same as my hero · Upload media · Just the colour; guard sabotaged red→green). ⏭ still: the "Match my colours / Keep my colours" pair (Choice), Look › Background's old Choice stack ("Moving background · Same as my hero · Upload
       media · Just the colour" in `main-background-panel.tsx`), Colours page tiles (Plain/Dawn/Diagonal/Glow, in
       `pro-panels.tsx` ColorsPanel), Background tile grid ("Upload media PRO" overflows), "Your page / All themes" toggle
       (grep it; may already be gone with the theme gallery).

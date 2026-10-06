@@ -104,21 +104,26 @@ test('3 · the Maker offers a moving background ◆ · same as my hero · Upload
   // loop in ONE dropdown, picked on its own, never the theme's fonts/colours.
   const panel = read(PANEL);
   const comp = panel.slice(panel.indexOf('export function MainBackgroundPanel'));
-  assert.match(comp, /data-main-ground-source="loop"/, 'the moving background choice is drawn');
-  for (const source of ['hero', 'own', 'none']) {
-    assert.match(comp, new RegExp(`'data-main-ground-source': '${source}'`), `the ${source} choice is drawn`);
+  // 🧭 ONE DROPDOWN since 2026-10-06 (controller sweep; owner rule "any set of choices is a dropdown"):
+  // every loop under "Moving background", then Same as my hero · Upload media, then Just the colour.
+  assert.match(comp, /<PickMenu\s+label="Behind every scene"[\s\S]*?options=\{\[\s*\.\.\.loops\.map\(/, 'the choices are not ONE dropdown');
+  for (const key of ['src:hero', 'src:media', 'src:none']) {
+    assert.match(comp, new RegExp(`key: '${key}'`), `the ${key} choice is not a row of the dropdown`);
   }
-  assert.match(comp, /<PickMenu\s+label="Moving background"[\s\S]*?options=\{loops\.map\(/, 'the loops are ONE dropdown');
+  assert.match(comp, /group: 'Moving background'/);
+  assert.doesNotMatch(comp, /<Choice\s+on=\{choice === '(hero|media|none)'\}/, 'a background choice is a button again (a pill stack)');
   // 🎞 By a name you can picture (owner 2026-09-29, OWNER ANSWERS (11)) — "Luxe chandeliers", built on the server.
   const page = read('app/dashboard/[eventId]/website/editor/page.tsx');
   assert.match(page, /loops=\{hubMovingBackgroundIds\(\)\.map\(\(id\) => \(\{\s*id,\s*name: themeBackgroundName\(id\),/, 'a loop is not named by its picture-able name');
-  assert.match(comp, /label="Just the colour"/);
+  assert.match(comp, /label: 'Just the colour'/);
   // The page's own loop stays the stored choice it always was (nothing a couple had becomes a charge); any other is a loop of ours.
   assert.match(comp, /id === themeId \? \{ ground: 'theme' \} : \{ ground: 'loop', loop: id \}/, 'a loop pick is not a stored choice');
   assert.match(comp, /save\(\{ ground: 'none' \}/, 'none is a stored choice — the loop can be turned off');
   // The loop is never forced: only "Same as my hero" can be unavailable (no hero photo), never None or Upload.
-  const noneBtn = comp.slice(comp.indexOf("'data-main-ground-source': 'none'") - 200, comp.indexOf("'data-main-ground-source': 'none'"));
-  assert.match(noneBtn, /disabled=\{pending\}/, 'None is always available');
+  const noneRow = comp.slice(comp.indexOf("key: 'src:none'"), comp.indexOf("key: 'src:none'") + 120);
+  assert.ok(noneRow.length > 20 && !/disabledNote/.test(noneRow), 'None is always available');
+  const uploadRow = comp.slice(comp.indexOf("key: 'src:media'"), comp.indexOf("key: 'src:none'"));
+  assert.ok(!/disabledNote/.test(uploadRow), 'Upload is always available');
   assert.doesNotMatch(comp, /Pick another theme/, 'no "go pick a theme" dead end — a couple no longer picks one');
   assert.doesNotMatch(comp, /Your hero is the written invitation card, so .* own background stays behind your scenes/, 'the forced-loop note is gone');
 });

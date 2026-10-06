@@ -43,6 +43,8 @@ export type InspirationItem = {
    * keeps rendering and simply names nobody rather than guessing.
    */
   credit?: string | null;
+  /** The photo's own sampled colours (`sampled_hex_1…6`) — Studio reads each part's palette from them. */
+  swatches?: string[];
 };
 
 type Props = {

@@ -1761,12 +1761,12 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
             look={{
               moodBoard: (
                 <Suspense fallback={<p className="py-6 text-sm text-ink/60">Opening your Mood Board…</p>}>
-                  <MoodBoardMakerBody eventId={eventId} />
+                  <MoodBoardMakerBody eventId={eventId} studio={stagesStudio} />
                 </Suspense>
               ),
               moodBoardControls: (
                 <Suspense fallback={<p className="text-sm text-ink/60">Opening your Mood Board…</p>}>
-                  <MoodBoardMakerControls eventId={eventId} />
+                  <MoodBoardMakerControls eventId={eventId} studio={stagesStudio} />
                 </Suspense>
               ),
               logoDone: guided.logo,

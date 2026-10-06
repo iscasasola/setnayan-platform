@@ -42,6 +42,8 @@
  */
 
 import { MOODBOARD_SLOT_KEYS, type MoodboardSlotKey } from './moodboard-slots';
+import { GALLERY_FROM, cleanGallerySearch, isGalleryFromKey, type GalleryFromKey } from './inspiration-slots';
+import { resolveRegion } from './region-source';
 import { WEDDING_TILE_LABEL, type WeddingTile } from './taxonomy';
 import { canonicalServicesForTile } from './vendor-counts';
 
@@ -190,6 +192,16 @@ export type GalleryQuery = {
   slotKey: MoodboardSlotKey;
   limit: number;
   offset: number;
+  /**
+   * 🔍 Studio's "Search ideas ›" (owner 2026-10-06, DECISION_LOG "EACH MOOD
+   * BOARD PART CAN SEARCH SUPPLIERS' PHOTOS"): the search words, the trades the
+   * photo's shop must offer (From ▾ — canonical service keys, derived from the
+   * tiles server-side), and the shop's region (Near ▾ — a PSGC code). Each is
+   * ABSENT unless asked; the cap above is the same whatever is asked.
+   */
+  q?: string;
+  fromServices?: string[];
+  near?: string;
 };
 
 /**
@@ -200,6 +212,9 @@ export function normalizeGalleryQuery(input: {
   slotKey?: unknown;
   limit?: unknown;
   offset?: unknown;
+  q?: unknown;
+  from?: unknown;
+  near?: unknown;
 }): GalleryQuery | null {
   const slotKey = input.slotKey;
   if (typeof slotKey !== 'string') return null;
@@ -216,7 +231,26 @@ export function normalizeGalleryQuery(input: {
     ? Math.min(GALLERY_MAX_OFFSET, Math.max(0, Math.floor(rawOffset)))
     : 0;
 
-  return { slotKey: slotKey as MoodboardSlotKey, limit, offset };
+  const out: GalleryQuery = { slotKey: slotKey as MoodboardSlotKey, limit, offset };
+  const q = cleanGallerySearch(input.q);
+  if (q) out.q = q;
+  if (isGalleryFromKey(input.from) && input.from !== 'everyone') {
+    const services = galleryFromServices(input.from);
+    if (services.length > 0) out.fromServices = services;
+  }
+  if (typeof input.near === 'string' && input.near) {
+    const region = resolveRegion(input.near);
+    if (region?.psgc_code) out.near = region.psgc_code;
+  }
+  return out;
+}
+
+/** From ▾ as the shop's canonical services — DERIVED from the option's taxonomy tiles, never restated. */
+export function galleryFromServices(from: GalleryFromKey): string[] {
+  const option = GALLERY_FROM.find((f) => f.key === from);
+  const out = new Set<string>();
+  for (const tile of option?.tiles ?? []) for (const c of canonicalServicesForTile(tile)) out.add(c);
+  return [...out];
 }
 
 /** One browsable supplier photo, already credited server-side. */
@@ -229,6 +263,8 @@ export type GalleryAsset = {
   credit: string;
   /** So a couple can walk from the photo to the shop. */
   vendorProfileId: string;
+  /** The shop's public page (`/v/<slug>`) — Studio's "Shop ›"; null when the shop has no address yet. */
+  shopSlug: string | null;
   /** The 6 sampled colours written onto the board row when this is picked. */
   swatches: string[];
   /**
@@ -283,7 +319,7 @@ export type RawGalleryRow = {
   storage_path: string;
   vendor_profile_id: string | null;
   /** The embedded shop. `null` when RLS refused it — see GalleryPage.withheld. */
-  shop: { business_name: string | null; services: string[] | null } | null;
+  shop: { business_name: string | null; services: string[] | null; business_slug?: string | null } | null;
   ranges: ReadonlyArray<{ slot_id: number; sampled_hex: string }>;
   /** The generated column, not `source_event_id` — see GalleryAsset.isEventLinked. */
   is_event_linked: boolean | null;
@@ -323,6 +359,7 @@ export function shapeGalleryPage(
       label: row.label?.trim() ?? '',
       credit: creditLine(shopName, tradeLabelForCredit(slot, row.shop?.services ?? null)),
       vendorProfileId,
+      shopSlug: row.shop?.business_slug?.trim() || null,
       swatches: Array.from({ length: 6 }, (_, i) => hexes[i % hexes.length]!),
       isEventLinked: row.is_event_linked === true,
     });

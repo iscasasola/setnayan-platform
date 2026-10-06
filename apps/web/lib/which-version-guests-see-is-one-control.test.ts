@@ -50,8 +50,8 @@ test('3 · Studio › Info draws ONE dropdown over the shipped actions — no se
   assert.ok(hub.length > 200, 'StudioHubSettings moved — re-read this guard');
   assert.equal((hub.match(/<PickMenu\b/g) ?? []).length, 2, 'Your Event Hub is Who can view ▾ and Which version ▾ — one dropdown each');
   assert.equal((hub.match(/options=\{WHICH_VERSION_OPTIONS\}/g) ?? []).length, 1);
-  assert.match(hub, /await setOpenBrowse\(/, 'All of them no longer writes the shipped open_browse');
-  assert.match(hub, /await setLaunchPhase\(/, 'the pick no longer writes the shipped launch_mode');
+  assert.match(hub, /setOpenBrowse\(stayForm\(eventId, \{ open_browse:/, 'All of them no longer writes the shipped open_browse');
+  assert.match(hub, /setLaunchPhase\(stayForm\(eventId, \{ launch_phase: writes\.launchPhase \}\)\)/, 'the pick no longer writes the shipped launch_mode');
   assert.match(tools, /import \{ setLaunchPhase, setOpenBrowse \} from '\.\.\/\.\.\/website\/editor\/actions';/);
   assert.doesNotMatch(hub, /Open browsing|OpenBrowsePanel|open-browse/i, 'a separate Open browsing control is drawn behind the flag');
   const studioSwitches = [...hub.matchAll(/<StudioSwitch\b[^>]*label="([^"]+)"/g)].map((m) => m[1]);

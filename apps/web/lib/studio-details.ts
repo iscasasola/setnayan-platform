@@ -27,7 +27,7 @@ export const STUDIO_GIFT_ITEMS: readonly DetailsItemKey[] = ['gifts', 'thank-you
 export const STUDIO_PRINT_GROUPS = ['set', 'day', 'download'] as const;
 
 /** Said under the read-only Date and Venue (DECISION_LOG 2026-10-06 "DATE AND VENUE LIVE IN SUPPLIERS"). */
-export const STUDIO_SUPPLIERS_LINE = 'Set when you lock your venue in Suppliers';
+export const STUDIO_SUPPLIERS_LINE = 'Set when you book your venue in Suppliers';
 
 type Group<I extends { key: DetailsItemKey }> = { key: string; label: string; items: I[]; form?: true; hidden?: true };
 

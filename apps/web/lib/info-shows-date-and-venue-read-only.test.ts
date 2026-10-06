@@ -49,7 +49,7 @@ test('2 · the fact, rendered: its words and the Suppliers line, and no field at
     const html = renderToStaticMarkup(React.createElement(tools.StudioReadOnlyFact, { value, line: STUDIO_SUPPLIERS_LINE, data: 'date' }));
     assert.match(html, /data-studio-read-only="date"/);
     assert.ok(html.includes(value ?? 'Not set yet'));
-    assert.ok(html.includes('Set when you lock your venue in Suppliers'));
+    assert.ok(html.includes('Set when you book your venue in Suppliers'));
     assert.doesNotMatch(html, /<input|<select|<textarea|<button|contenteditable/i, 'the read-only date carries a field');
   }
 });

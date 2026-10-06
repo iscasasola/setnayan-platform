@@ -1,7 +1,7 @@
 'use client';
 
 import { useContext, useEffect, useId, useState, useTransition, type ReactNode } from 'react';
-import { requestMakerRefresh } from '@/lib/maker-refresh';
+import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { EGIFT_KIND_META, type EgiftMethodKind } from '@/lib/egift-kinds';
 import { PabuyaCardList } from '@/app/_components/pabuya/pabuya-card-list';
 import { saveEgiftMethod, setEgiftMethodEnabled } from '../../pabuya/actions';
@@ -173,7 +173,7 @@ export function StudioEgifts({
     setRows((r) => ({ ...r, [kind]: { ...r[kind], on } }));
     if (!before.id) return; // nothing to show or hide until its account is typed
     start(async () => {
-      const res = await setEgiftMethodEnabled(fd({ egift_method_id: before.id!, is_enabled: on ? 'true' : 'false' }));
+      const res = await makerSave(() => setEgiftMethodEnabled(fd({ egift_method_id: before.id!, is_enabled: on ? 'true' : 'false' })), requestMakerRefresh);
       if (!res.ok) {
         setRows((r) => ({ ...r, [kind]: before }));
         setError(res.error);
@@ -187,7 +187,7 @@ export function StudioEgifts({
     if (!original && row.handle.trim() === '') return;
     setError(null);
     start(async () => {
-      const res = await saveEgiftMethod(
+      const res = await makerSave(() => saveEgiftMethod(
         fd({
           ...(original ? { egift_method_id: original.egift_method_id } : {}),
           method_kind: kind,
@@ -197,9 +197,8 @@ export function StudioEgifts({
           note: original?.note ?? '',
           qr_r2_key: original?.qr_r2_key ?? '',
         }),
-      );
+      ), requestMakerRefresh);
       if (!res.ok) setError(res.error);
-      else if (!original) requestMakerRefresh();
     });
   };
   const seen = STUDIO_GIFT_KINDS.filter((k) => rows[k].on && rows[k].handle.trim()).map((k) => ({
@@ -334,7 +333,7 @@ export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slu
     setError(null);
     start(async () => {
       try {
-        await updateLandingPageVisibility(stayForm(eventId, { visibility: next }));
+        await makerSave(() => updateLandingPageVisibility(stayForm(eventId, { visibility: next })), requestMakerRefresh, { ok: () => true });
       } catch {
         setWho(before);
         setError('“Who can view” did not save, so it is back as it was. Please try again.');
@@ -350,9 +349,9 @@ export function StudioHubSettings({ eventId, slug, hub }: { eventId: string; slu
     setError(null);
     start(async () => {
       try {
-        if (writes.openBrowse !== null) await setOpenBrowse(stayForm(eventId, { open_browse: writes.openBrowse }));
+        if (writes.openBrowse !== null) await makerSave(() => setOpenBrowse(stayForm(eventId, { open_browse: writes.openBrowse! })), requestMakerRefresh, { ok: () => true });
         // Last: it lands back on this address (its redirect), with both columns written.
-        await setLaunchPhase(stayForm(eventId, { launch_phase: writes.launchPhase }));
+        await makerSave(() => setLaunchPhase(stayForm(eventId, { launch_phase: writes.launchPhase })), requestMakerRefresh, { ok: () => true });
       } catch (e) {
         /* A redirect is how a shipped action says "done" — it is not a failure. */
         if (e instanceof Error && /NEXT_REDIRECT/.test(e.message)) throw e;

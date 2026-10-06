@@ -193,7 +193,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
                   { egift_method_id: 'g1', method_kind: 'gcash', label: 'GCash', account_name: 'Maria Santos', handle: '0917 555 0101', qr_r2_key: null, note: null, is_enabled: true, qrDisplayUrl: null },
                 ],
                 whatToBring: 'Your invitation QR · a jacket for the garden',
-                livePath: '/maria-and-jose',
+                livePath: null,
               }
             : null
         }

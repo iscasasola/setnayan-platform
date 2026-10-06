@@ -28,6 +28,38 @@ export const OUT_CHIP =
   'inline-flex min-h-11 max-w-full cursor-grab touch-pan-y select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
 
 /**
+ * The fit itself, on the box as the browser laid it out: every chip shown; if
+ * any spills past the box's bottom, "+N more" is shown and chips are set aside
+ * from the END until it and every chip before it fit. Exported for its test
+ * (`march-tray-fits-without-scrolling.test.ts`), which lays chips out the way
+ * `flex-wrap` does.
+ */
+export function fitChips(el: HTMLElement): number {
+  const chips = [...el.querySelectorAll<HTMLElement>('[data-tray-chip]')];
+  const more = el.querySelector<HTMLElement>('[data-tray-more]');
+  if (!more) return 0;
+  for (const c of chips) c.style.display = '';
+  more.style.display = 'none';
+  const limit = () => el.getBoundingClientRect().bottom + 0.5;
+  const spills = (n: HTMLElement) => n.getBoundingClientRect().bottom > limit();
+  if (!chips.some(spills)) {
+    el.dataset.trayHidden = '0';
+    return 0;
+  }
+  more.style.display = '';
+  let hidden = 0;
+  for (let i = chips.length - 1; i >= 0; i--) {
+    chips[i]!.style.display = 'none';
+    hidden += 1;
+    more.textContent = `+${hidden} more`;
+    more.setAttribute('aria-label', `${hidden} more not walking — show everyone`);
+    if (!spills(more) && !chips.slice(0, i).some(spills)) break;
+  }
+  el.dataset.trayHidden = String(hidden);
+  return hidden;
+}
+
+/**
  * Fit the chips to the box — in the DOM, in one pass, no render loop: every chip
  * is drawn; the ones that do not fit are set aside (`display: none`) from the
  * end, and "+N more" takes the last place, saying how many. Run after layout,
@@ -38,32 +70,7 @@ function useFit(box: React.RefObject<HTMLElement | null>, key: string): void {
   useLayoutEffect(() => {
     const el = box.current;
     if (!el) return;
-    const fit = () => {
-      const chips = [...el.querySelectorAll<HTMLElement>('[data-tray-chip]')];
-      const more = el.querySelector<HTMLElement>('[data-tray-more]');
-      if (!more) return;
-      for (const c of chips) c.style.display = '';
-      more.style.display = 'none';
-      const limit = () => el.getBoundingClientRect().bottom + 0.5;
-      const spills = (n: HTMLElement) => n.getBoundingClientRect().bottom > limit();
-      if (!chips.some(spills)) {
-        el.dataset.trayHidden = '0';
-        return;
-      }
-      more.style.display = '';
-      let hidden = 0;
-      const say = () => {
-        more.textContent = `+${hidden} more`;
-        more.setAttribute('aria-label', `${hidden} more not walking — show everyone`);
-      };
-      for (let i = chips.length - 1; i >= 0; i--) {
-        chips[i]!.style.display = 'none';
-        hidden += 1;
-        say();
-        if (!spills(more) && !chips.slice(0, i).some(spills)) break;
-      }
-      el.dataset.trayHidden = String(hidden);
-    };
+    const fit = () => fitChips(el);
     fit();
     const ro = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => fit());
     ro?.observe(el);
@@ -163,7 +170,7 @@ export function MarchTray({
       )}
       {all && typeof document !== 'undefined'
         ? createPortal(
-            <div data-march-tray-sheet="" className="fixed inset-0 z-50 flex flex-col justify-end">
+            <div data-march-tray-sheet="" className="fixed inset-0 z-[95] flex flex-col justify-end">
               <button type="button" aria-label="Close the list" onClick={() => setAll(false)} className="absolute inset-0 bg-ink/30" />
               <div
                 role="dialog"

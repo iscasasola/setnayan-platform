@@ -24,7 +24,8 @@ import { YearMomentsStrip } from './_components/year-moments-strip';
 import { IncomingRequests } from './_components/incoming-requests';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchUserEvents, type EventWithRole } from '@/lib/events';
+import { fetchUserEvents, fetchUserEventsOrReconnect, type EventWithRole } from '@/lib/events';
+import { rethrowIfSchemaBlip } from '@/lib/read-retry';
 import {
   canWriteStoryFor,
   daysUntilEventDay,
@@ -236,9 +237,13 @@ export default async function LauncherPage({
   // JWT/trigger commit for ~1-2s right after a Google / Facebook OAuth callback.
   // Every query graceful-degrades with a safe default so the page renders the
   // launcher instead of flashing the global error boundary.
+  // 🔁 EXCEPT A SCHEMA-CACHE BLIP: an empty board here is a redirect away
+  // (create-event) or a "nothing yet", so a blip that outlasted the retry
+  // window is RE-THROWN, and the browser shows "Reconnecting…". lib/read-retry.ts.
   const [organiserEvents, invitedEvents, helpingEvents, roles, communities] =
     await Promise.all([
-      fetchUserEvents(supabase, user.id, 'couple').catch((err: unknown) => {
+      fetchUserEventsOrReconnect(supabase, user.id, 'couple').catch((err: unknown) => {
+        rethrowIfSchemaBlip(err);
         logQueryError(
           'Launcher (fetchUserEvents threw)',
           err instanceof Error ? err : new Error(String(err)),
@@ -258,7 +263,8 @@ export default async function LauncherPage({
       // on every error including RLS denial, so `[]` cannot be told apart from
       // "none" — the board therefore states what the shelves are FOR and never
       // that you have no invitations.
-      fetchUserEvents(supabase, user.id, 'guest').catch((err: unknown) => {
+      fetchUserEventsOrReconnect(supabase, user.id, 'guest').catch((err: unknown) => {
+        rethrowIfSchemaBlip(err);
         logQueryError(
           'Launcher (fetchUserEvents guest threw)',
           err instanceof Error ? err : new Error(String(err)),
@@ -271,7 +277,8 @@ export default async function LauncherPage({
       // `coordinator`, minted only alongside a live seat). Until 2026-09-29 the
       // board never asked for these, so a helper's event was on no board at all.
       // Same no-count rule as the invited read above.
-      fetchUserEvents(supabase, user.id, 'coordinator').catch((err: unknown) => {
+      fetchUserEventsOrReconnect(supabase, user.id, 'coordinator').catch((err: unknown) => {
+        rethrowIfSchemaBlip(err);
         logQueryError(
           'Launcher (fetchUserEvents coordinator threw)',
           err instanceof Error ? err : new Error(String(err)),

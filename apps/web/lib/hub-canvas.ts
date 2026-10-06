@@ -1239,8 +1239,73 @@ export function hubSlotClipStillRefs(
    field shape, one fence, the public bucket only. */
 export const HUB_MAIN_GROUND_KEY = 'main';
 
+/* 🌄 THE MAIN BACKGROUND'S EXTRAS (owner 2026-10-06 DECISION_LOG "STUDIO › LOOK IS
+   THE GLOBAL LOOK — … THE MAIN BACKGROUND IS THE RICHEST BACKGROUND IN THE
+   MAKER"; approved 2026-10-07 "THE MISSING FIELDS ARE APPROVED"): Pattern ▾ ·
+   Focus ▾ · Blur ▾ · Shade ▾, each stored ON the main background it changes —
+   never a second store, never a migration (it is the hero row's `config_json`).
+   Every one is optional: ABSENT is today's page (no pattern, centred, sharp,
+   "As is"). Free — a pattern, a crop or a veil is design, never media. */
+
+/** Pattern ▾ — drawn in the page's ink over the Background colour. */
+export const HUB_MAIN_PATTERNS = ['lines', 'dots', 'lace', 'grid'] as const;
+export type HubMainPatternKey = (typeof HUB_MAIN_PATTERNS)[number];
+export const HUB_MAIN_PATTERN_LABEL: Readonly<Record<HubMainPatternKey, string>> = {
+  lines: 'Fine lines',
+  dots: 'Dots',
+  lace: 'Lace',
+  grid: 'Grid',
+};
+
+/** Blur ▾ — None (absent) · Soft · Strong; for a photo, a clip or a moving background. */
+export const HUB_MAIN_BLURS = ['soft', 'strong'] as const;
+export type HubMainBlur = (typeof HUB_MAIN_BLURS)[number];
+
+/** Focus ▾ — Centre (absent) · Top · Bottom; which part of a PHOTO stays in view. */
+export const HUB_MAIN_FOCUSES = ['top', 'bottom'] as const;
+export type HubMainFocus = (typeof HUB_MAIN_FOCUSES)[number];
+
+/**
+ * Shade ▾ — Darker · Dark · As is · Light · Lighter. THE vocabulary (re-exported
+ * by `lib/main-ground-shade.ts`, which owns what each step DOES — a veil that
+ * never takes the words under the contrast floor). 'as-is' is never stored.
+ */
+export const HUB_MAIN_SHADES = ['darker', 'dark', 'as-is', 'light', 'lighter'] as const;
+export type HubMainShade = (typeof HUB_MAIN_SHADES)[number];
+
+/** The extras a footage ground carries. */
+export type HubMainLook = { shade?: Exclude<HubMainShade, 'as-is'>; blur?: HubMainBlur; focus?: HubMainFocus };
+
+function readMainLook(src: Record<string, unknown>, allow: { focus: boolean }): HubMainLook {
+  const out: HubMainLook = {};
+  if (typeof src.shade === 'string' && src.shade !== 'as-is' && (HUB_MAIN_SHADES as readonly string[]).includes(src.shade)) {
+    out.shade = src.shade as Exclude<HubMainShade, 'as-is'>;
+  }
+  if (typeof src.blur === 'string' && (HUB_MAIN_BLURS as readonly string[]).includes(src.blur)) out.blur = src.blur as HubMainBlur;
+  if (allow.focus && typeof src.focus === 'string' && (HUB_MAIN_FOCUSES as readonly string[]).includes(src.focus)) {
+    out.focus = src.focus as HubMainFocus;
+  }
+  return out;
+}
+
+/** The extras of a stored main background (none for a colour, a pattern or the theme's own). */
+export function hubMainLook(m: HubMainGround | null | undefined): HubMainLook {
+  if (!m || ('ground' in m && m.ground !== 'loop')) return {};
+  const { shade, blur, focus } = m as HubMainLook;
+  return { ...(shade ? { shade } : {}), ...(blur ? { blur } : {}), ...(focus ? { focus } : {}) };
+}
+
+/** Can this main background take Shade · Blur (footage), and Focus (a photo)? */
+export function hubMainTakes(m: HubMainGround | null | undefined): { shade: boolean; blur: boolean; focus: boolean } {
+  if (!m) return { shade: false, blur: false, focus: false };
+  if ('follow' in m) return { shade: true, blur: true, focus: true };
+  if ('media' in m) return { shade: true, blur: true, focus: m.kind === 'photo' };
+  if (m.ground === 'loop') return { shade: true, blur: true, focus: false };
+  return { shade: false, blur: false, focus: false };
+}
+
 /** The default: the Main background follows the hero; this is the tint read off the hero's photo. */
-export type HubMainFollow = {
+export type HubMainFollow = HubMainLook & {
   follow: 'hero';
   /** The hero photo the frame was measured from. The tint applies only while this IS the hero. */
   of: string;
@@ -1248,7 +1313,7 @@ export type HubMainFollow = {
 };
 
 /** An explicit override — the couple's own clip or photo instead of their hero. */
-export type HubMainOwn = {
+export type HubMainOwn = HubMainLook & {
   /** A photo, or a short muted clip (`snippet`) — never a colour; that is `site_bg_color`. */
   kind: 'photo' | 'snippet';
   /** The photo, or the clip. */
@@ -1279,7 +1344,15 @@ export type HubMainOwn = {
  *   · `none`  — NO picture and NO loop: just the Background colour.
  * Both are free (taking media down never costs anything).
  */
-export type HubMainChoice = { ground: 'theme' | 'none' } | HubMainLoop;
+export type HubMainChoice = { ground: 'theme' | 'none' } | HubMainLoop | HubMainPattern;
+
+/**
+ * 🧵 A PATTERN — Fine lines · Dots · Lace · Grid, drawn in the page's ink over
+ * the Background colour (owner 2026-10-06 "STUDIO › LOOK IS THE GLOBAL LOOK";
+ * stored 2026-10-07). No picture and no loop — like "Just the colour", with a
+ * pattern on it. Free.
+ */
+export type HubMainPattern = { ground: 'pattern'; pattern: HubMainPatternKey };
 
 /**
  * 🎞 A MOVING BACKGROUND — one of Setnayan's own animated loops, picked on its
@@ -1291,7 +1364,7 @@ export type HubMainChoice = { ground: 'theme' | 'none' } | HubMainLoop;
  * animated loop background"* is paid): tried free in the draft, asked at Apply,
  * drawn for guests only while the event owns Event Hub Pro.
  */
-export type HubMainLoop = { ground: 'loop'; loop: InviteThemeId };
+export type HubMainLoop = HubMainLook & { ground: 'loop'; loop: InviteThemeId };
 
 /** The themes whose loop may be picked as a moving background — every shipped theme that has one, in THE one theme order (`INVITE_THEME_IDS`). */
 export function hubMovingBackgroundIds(): InviteThemeId[] {
@@ -1326,13 +1399,18 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   if (src.follow === 'hero') {
     const of = hubMediaRef(src.of);
     const tint = sanitizeHubTint(src.tint);
-    return of && tint ? { follow: 'hero', of, tint } : null;
+    return of && tint ? { follow: 'hero', of, tint, ...readMainLook(src, { focus: true }) } : null;
   }
   if (src.ground === 'theme' || src.ground === 'none') return { ground: src.ground };
+  if (src.ground === 'pattern') {
+    return typeof src.pattern === 'string' && (HUB_MAIN_PATTERNS as readonly string[]).includes(src.pattern)
+      ? { ground: 'pattern', pattern: src.pattern as HubMainPatternKey }
+      : null;
+  }
   if (src.ground === 'loop') {
     // Only a shipped theme that HAS a loop — anything else is dropped, never guessed.
     return isInviteThemeId(src.loop) && INVITE_THEMES[src.loop].media && INVITE_THEMES[src.loop].ready
-      ? { ground: 'loop', loop: src.loop }
+      ? { ground: 'loop', loop: src.loop, ...readMainLook(src, { focus: false }) }
       : null;
   }
   const media = hubMediaRef(src.media);
@@ -1343,7 +1421,7 @@ export function sanitizeHubMainGround(raw: unknown): HubMainGround | null {
   const tint = sanitizeHubTint(src.tint);
   if (tint) out.tint = tint;
   if (src.motion === 'parallax' && out.kind === 'photo') out.motion = 'parallax';
-  return out;
+  return { ...out, ...readMainLook(src, { focus: out.kind === 'photo' }) };
 }
 
 /** The Main background stored on a row's `config_json` (the hero row's), or null. */
@@ -1373,6 +1451,8 @@ export type ResolvedMainGround = {
   tint: HubTint | null;
   /** 🌄 Parallax on the couple's own photo. */
   parallax?: boolean;
+  /** 🌄 Shade · Blur · Focus (owner 2026-10-06/07) — absent = as it always was. */
+  look?: HubMainLook;
 };
 
 /**
@@ -1407,6 +1487,7 @@ export function resolveMainGround(
       guestClipRef: main.kind === 'snippet' ? guestClipGate(main.media) : null,
       tint: main.tint ?? null,
       ...(main.motion === 'parallax' ? { parallax: true } : {}),
+      ...withLook(main),
     };
   }
   if (!hero.photoRef || !main || main.of !== hero.photoRef) return null;
@@ -1416,5 +1497,11 @@ export function resolveMainGround(
     clipRef: hero.videoRef,
     guestClipRef: hero.videoRef ? guestClipGate(hero.videoRef) : null,
     tint: main.tint,
+    ...withLook(main),
   };
+}
+
+function withLook(m: HubMainGround): { look?: HubMainLook } {
+  const look = hubMainLook(m);
+  return Object.keys(look).length > 0 ? { look } : {};
 }

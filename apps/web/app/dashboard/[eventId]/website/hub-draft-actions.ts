@@ -77,6 +77,7 @@ import {
   type SectionContentEvent,
 } from '@/lib/website-section-content';
 import {
+  HUB_DRAFT_MAIN_COLOURS,
   HUB_DRAFT_SAVE_FAILED_MESSAGE,
   HUB_DRAFT_TOO_LARGE_MESSAGE,
   HubDraftTooLargeError,
@@ -97,6 +98,7 @@ import {
   type HubDraftState,
 } from '@/lib/hub-draft';
 import { hubDraftBarAfterSave, readHubDraft, readHubLiveState, writeHubDraft } from '@/lib/hub-draft-store';
+import { boardWithMainColours, sanitizeMainColourDraft } from '@/lib/main-colours';
 import { sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { writePaletteFill, type PaletteFillClient } from '@/lib/palette-fill-write';
 import { HUB_DRAFT_BAR_FIELD } from '@/lib/maker-refresh';
@@ -510,6 +512,11 @@ export async function hubDraftAction(
        block stands on has been written. */
     const ceremonyTimeWrite = typeof eventsPatch.ceremony_time === 'string' ? eventsPatch.ceremony_time : undefined;
     delete eventsPatch.ceremony_time;
+    /* 🎨 ONE MAIN COLOUR IS NOT AN \`events\` COLUMN either — the drafted slots of
+       the Mood Board's five main colours, laid INTO the board as it stands at
+       write time (below, after the theme's fill), every other key kept. */
+    const mainColoursWrite = HUB_DRAFT_MAIN_COLOURS in eventsPatch ? sanitizeMainColourDraft(eventsPatch[HUB_DRAFT_MAIN_COLOURS]) : undefined;
+    delete eventsPatch[HUB_DRAFT_MAIN_COLOURS];
     const dateWritten = 'event_date' in eventsPatch;
     /* 🔳 THE QR LOOK LEAVES THE SESSION UPDATE TOO. The draft holds `{ qr }`
        only; `style_preferences` also carries the couple's onboarding answers,
@@ -684,6 +691,28 @@ export async function hubDraftAction(
       const seed = sanitizeSeedPalette(paletteWrite);
       const filled = seed ? await writePaletteFill(supabase as unknown as PaletteFillClient, eventId, paletteRead, seed) : { ok: true };
       if (!filled.ok) {
+        return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
+      }
+    }
+    if (mainColoursWrite) {
+      /* 🎨 Read the board NOW (a fill just above, or a Mood Board edit since the
+         draft was made, must not be undone), lay the drafted slots into its main
+         colours, and count the row — a zero-row write is not "applied". The
+         couple's own session, as the Mood Board writes it. */
+      const { data: boardRow, error: boardErr } = await supabase
+        .from('events')
+        .select('role_palette, invite_theme')
+        .eq('event_id', eventId)
+        .maybeSingle();
+      const board = boardRow as { role_palette?: unknown; invite_theme?: unknown } | null;
+      const { data: colourRows, error: colourErr } = boardErr || !board
+        ? { data: null, error: boardErr ?? new Error('no row') }
+        : await supabase
+            .from('events')
+            .update({ role_palette: boardWithMainColours(board.role_palette, mainColoursWrite, board.invite_theme) })
+            .eq('event_id', eventId)
+            .select('event_id');
+      if (colourErr || !Array.isArray(colourRows) || colourRows.length === 0) {
         return { ok: false, intent, error: 'Some changes could not be applied. Press Apply again to finish.' };
       }
     }

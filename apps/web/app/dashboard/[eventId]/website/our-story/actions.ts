@@ -136,7 +136,7 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
    writes live, like `updateOurStory` always has. Phase 4's upload path + 100 MB
    meter take over the photo input when they land; clips wait on them. */
 
-const MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'pick'] as const;
+const MOMENT_INTENTS = ['add', 'edit', 'delete', 'arrange', 'order', 'pick'] as const;
 type MomentIntent = (typeof MOMENT_INTENTS)[number];
 
 /* add · edit · delete · arrange are applied by `applyMomentIntent`

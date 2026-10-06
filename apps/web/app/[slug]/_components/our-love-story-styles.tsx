@@ -67,6 +67,8 @@ export function LoveStoryYears({
           {current.when ? `${current.when} · ` : ''}
           {current.chapterLabel}
         </p>
+        {/* 📖 The moment's title (owner 2026-10-07), when it has one. */}
+        {current.title ? <h3 data-love-title="" className="mt-2 font-pahina text-2xl leading-tight text-ink">{current.title}</h3> : null}
         <p className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{current.line}</p>
         {current.place ? <p className="mt-1 text-sm leading-relaxed text-ink/65">{current.place}</p> : null}
       </article>

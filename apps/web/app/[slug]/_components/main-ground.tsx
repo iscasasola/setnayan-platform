@@ -1,4 +1,5 @@
 import type { AdaptiveTheme } from '@/lib/adaptive-theme';
+import type { HubMainBlur, HubMainFocus, HubMainPatternKey } from '@/lib/hub-canvas';
 import { SceneClip } from './scene-clip';
 
 /**
@@ -47,6 +48,9 @@ export function MainGround({
   adaptive,
   vars,
   parallax = false,
+  veil = null,
+  blur = null,
+  focus = null,
 }: {
   /** The photo, or the clip's still — a signed URL. */
   still: string | null;
@@ -61,8 +65,22 @@ export function MainGround({
    * it with the PAGE's scroll (this layer is fixed, so its own box never moves).
    */
   parallax?: boolean;
+  /**
+   * 🌗 Shade ▾ (owner 2026-10-06/07) — the veil `mainGroundShade` measured: the
+   * page's ink (Darker · Dark) or paper (Light · Lighter) at a strength never
+   * below what readability needs. Null = As is: the measured paper scrim.
+   */
+  veil?: { color: string; opacity: number } | null;
+  /** 🌫 Blur ▾ — Soft · Strong; null = sharp. */
+  blur?: HubMainBlur | null;
+  /** 🎯 Focus ▾ — which part of a photo stays in view; null = the centre. */
+  focus?: HubMainFocus | null;
 }) {
   if (!still && !clip) return null;
+  const position = focus === 'top' ? 'center top' : focus === 'bottom' ? 'center bottom' : 'center';
+  /* A blur's soft edge would show the page through it — the footage is drawn a
+     little larger, so the edge falls outside the screen. */
+  const blurStyle = blur ? { filter: `blur(${blur === 'strong' ? 14 : 5}px)`, transform: 'scale(1.08)' } : {};
   const declarations = Object.entries(vars)
     .map(([k, v]) => `${k}:${v} !important;`)
     .join('');
@@ -80,8 +98,8 @@ export function MainGround({
       >
         {still ? (
           <div
-            className="absolute inset-0 bg-cover bg-center"
-            style={{ backgroundImage: `url(${JSON.stringify(still)})` }}
+            className="absolute inset-0 bg-cover"
+            style={{ backgroundImage: `url(${JSON.stringify(still)})`, backgroundPosition: position, ...blurStyle }}
             {...(parallax && !clip ? { 'data-pahina-parallax': 'page' } : {})}
           />
         ) : null}
@@ -90,21 +108,32 @@ export function MainGround({
              on screen and in front), held invisible until it is MOVING, so the
              still above is the first paint and stays whenever the clip cannot
              play — reduced motion, Save-Data, iOS Low Power Mode, a dead link. */
-          <SceneClip
+          <div className="absolute inset-0" style={blurStyle}>
+            <SceneClip
             src={clip}
             poster={still}
             play="loop"
             open="inplace"
             label=""
-            className="absolute inset-0 h-full w-full object-cover"
-            revealOnPlay
-          />
+            className={`absolute inset-0 h-full w-full object-cover ${focus === 'top' ? 'object-top' : focus === 'bottom' ? 'object-bottom' : ''}`}
+              revealOnPlay
+            />
+          </div>
         ) : null}
-        <div
-          data-main-ground-scrim=""
-          className="absolute inset-0"
-          style={{ backgroundColor: `rgb(var(--color-cream) / ${adaptive.scrim.toFixed(2)})` }}
-        />
+        {veil ? (
+          <div
+            data-main-ground-scrim=""
+            data-main-ground-shade=""
+            className="absolute inset-0"
+            style={{ backgroundColor: veil.color, opacity: Number(veil.opacity.toFixed(2)) }}
+          />
+        ) : (
+          <div
+            data-main-ground-scrim=""
+            className="absolute inset-0"
+            style={{ backgroundColor: `rgb(var(--color-cream) / ${adaptive.scrim.toFixed(2)})` }}
+          />
+        )}
       </div>
     </>
   );
@@ -121,5 +150,45 @@ export function MainGroundNone() {
     <style data-main-ground-none="">
       {'[data-guest-ground] [data-theme-loop],[data-guest-ground] [data-theme-poster]{display:none}'}
     </style>
+  );
+}
+
+/**
+ * 🧵 A PATTERN ON THE BACKGROUND COLOUR (owner 2026-10-06/07, Studio › Look ›
+ * Pattern ▾): Fine lines · Dots · Lace · Grid, drawn in the page's ink at a
+ * whisper over the colour (the layout's paper shows through) — never a picture,
+ * so nothing to sign and nothing to measure: the words sit on the colour as
+ * they always did. The theme's loop is switched off, as for "Just the colour".
+ */
+const PATTERN_CSS: Readonly<Record<HubMainPatternKey, { image: string; size: string }>> = {
+  lines: { image: 'repeating-linear-gradient(135deg, rgb(var(--color-ink) / 0.07) 0 1px, transparent 1px 9px)', size: 'auto' },
+  dots: { image: 'radial-gradient(rgb(var(--color-ink) / 0.10) 1.2px, transparent 1.6px)', size: '16px 16px' },
+  lace: {
+    image:
+      'radial-gradient(circle at 50% 0, transparent 7px, rgb(var(--color-ink) / 0.08) 7.5px 8.5px, transparent 9px), radial-gradient(rgb(var(--color-ink) / 0.08) 1px, transparent 1.5px)',
+    size: '18px 12px, 18px 12px',
+  },
+  grid: {
+    image: 'linear-gradient(rgb(var(--color-ink) / 0.06) 1px, transparent 1px), linear-gradient(90deg, rgb(var(--color-ink) / 0.06) 1px, transparent 1px)',
+    size: '22px 22px',
+  },
+};
+
+export function MainGroundPattern({ pattern, hideLoop }: { pattern: HubMainPatternKey; hideLoop: boolean }) {
+  const p = PATTERN_CSS[pattern];
+  return (
+    <>
+      {hideLoop ? (
+        <style data-main-ground-none="">
+          {'[data-guest-ground] [data-theme-loop],[data-guest-ground] [data-theme-poster]{display:none}'}
+        </style>
+      ) : null}
+      <div
+        aria-hidden
+        data-main-ground-pattern={pattern}
+        className="pointer-events-none fixed inset-0 -z-10"
+        style={{ backgroundImage: p.image, backgroundSize: p.size }}
+      />
+    </>
   );
 }

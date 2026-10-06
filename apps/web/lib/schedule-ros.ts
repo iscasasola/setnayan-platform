@@ -29,6 +29,7 @@
  */
 
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isForEveryone } from './schedule-audience';
 
 // P2 activation moved to the admin Data Privacy control board
 // (`coordinator_run_of_show`). This module is pulled into a client bundle
@@ -87,6 +88,8 @@ export type RosFilterBlock = {
   block_id: string;
   parent_block_id: string | null;
   is_public: boolean;
+  /** 👥 For ▾ — NULL/absent = Everyone (`lib/schedule-audience.ts`). */
+  audience?: string | null;
 };
 
 export type RosAudience =
@@ -130,7 +133,8 @@ export function filterBlocksForAudience<T extends RosFilterBlock>(
     case 'couple':
       return [...blocks];
     case 'guest':
-      return blocks.filter((b) => b.is_public);
+      // 👥 …and only the Everyone moments: a role's moment is its Arrive by (For ▾).
+      return blocks.filter((b) => b.is_public && isForEveryone(b));
     case 'vendor': {
       const tagged = new Set<string>();
       for (const b of blocks) {

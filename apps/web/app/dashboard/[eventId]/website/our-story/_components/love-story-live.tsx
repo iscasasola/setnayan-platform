@@ -15,6 +15,7 @@ import { LoveStoryBook, type LoveStoryBookProps } from './love-story-book';
 import { LoveStoryChaptersPanel } from './love-story-chapters-panel';
 import type { LoveStoryBlob } from './story-fields';
 import { HubDraftField } from '../../_components/hub-draft-field';
+import { useMaker } from '../../../launch/_components/maker-context';
 
 /**
  * ⚡ OUR LOVE STORY, INSTANT IN THE EVENT HUB MAKER.
@@ -198,6 +199,7 @@ const INTENT_WHAT: Record<LocalMomentIntent, string> = {
   edit: 'That moment',
   delete: 'Removing that moment',
   arrange: 'Showing or hiding that moment',
+  order: 'The new order',
 };
 
 /**
@@ -211,6 +213,8 @@ export function LiveLoveStoryBook({
   ...book
 }: Omit<LoveStoryBookProps, 'moments' | 'since'> & { story: LoveStoryBlob; draftAction?: DraftAction }) {
   const story = useLiveLoveStory(server);
+  /* 🧭 The new Maker's Studio draws the moments as cards to drag (`makerStagesStudioEnabled`). */
+  const studio = useMaker()?.stagesStudio === true;
   const moments = resolveMoments(story);
   const years = moments.map((m) => m.date?.y).filter((y): y is number => typeof y === 'number');
   const serverAction = book.action;
@@ -244,7 +248,7 @@ export function LiveLoveStoryBook({
   return (
     <>
       <RefusalLine className="mb-2 text-sm text-terracotta-700" />
-      <LoveStoryBook {...book} moments={moments} since={years.length ? Math.min(...years) : null} action={action} />
+      <LoveStoryBook {...book} studio={studio} moments={moments} since={years.length ? Math.min(...years) : null} action={action} />
     </>
   );
 }

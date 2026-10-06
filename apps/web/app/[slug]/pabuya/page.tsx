@@ -1,4 +1,5 @@
 import { RoomFooter } from '../_components/room-footer';
+import { giftRegistryHref } from '@/lib/gift-registry';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import { cache } from 'react';
 import Link from 'next/link';
@@ -45,7 +46,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on',
+      'event_id, slug, display_name, event_type, role_palette, invite_theme, std_background, monogram_text, monogram_color, site_button_color, landing_page_visibility, pabuya_message, gifts_on, gift_registry_url',
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -58,6 +59,7 @@ const fetchEvent = cache(async (slug: string) => {
     landing_page_visibility: string | null;
     pabuya_message: string | null;
     gifts_on?: boolean | null;
+    gift_registry_url?: string | null;
   } | null;
 });
 
@@ -209,6 +211,7 @@ export default async function PabuyaPublicPage({
   // The event's own name when it has one; otherwise that word.
   const hostName = event.display_name ?? words.theOrganizer;
 
+  const registryHref = giftRegistryHref(event.gift_registry_url);
   return (
     <main className="min-h-dvh bg-cream text-ink">
       <header className="border-b border-ink/10 bg-cream/95 backdrop-blur">
@@ -280,6 +283,17 @@ export default async function PabuyaPublicPage({
           </p>
         ) : null}
 
+        {/* 🔗 THE REGISTRY (owner 2026-10-07, Studio › E-Gifts › "Paste a link to your
+            registry"): one quiet link when the couple set one — http(s) only, read
+            through the same rule its writer used (`giftRegistryHref`). */}
+        {registryHref ? (
+          <p data-gift-registry="" className="mx-auto mb-8 max-w-prose text-center text-[15px]">
+            <a href={registryHref} target="_blank" rel="noopener noreferrer nofollow" className="font-semibold text-ink underline underline-offset-4">
+              Our gift registry ↗
+            </a>
+          </p>
+        ) : null}
+
         {cards.length > 0 ? (
           <>
             <PabuyaCardList methods={cards} />
@@ -294,7 +308,7 @@ export default async function PabuyaPublicPage({
               </p>
             ) : null}
           </>
-        ) : (
+        ) : registryHref ? null : (
           <p className="rounded-2xl border border-dashed border-ink/20 bg-cream/60 px-4 py-10 text-center text-sm text-ink/60">
             {hostName} hasn&rsquo;t set up e-gifts yet. Check back soon — or
             visit their page in the meantime.

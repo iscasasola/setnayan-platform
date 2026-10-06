@@ -75,7 +75,7 @@ const fetchEvent = cache(async (slug: string) => {
   const { data } = await admin
     .from('events')
     .select(
-      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}, role_palette, style_preferences`,
+      `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}, role_palette, style_preferences, qr_shown`,
     )
     .ilike('slug', slug)
     .maybeSingle();
@@ -295,11 +295,14 @@ export default async function EditorialPrintPage({
   // failure just drops the code, never the sheet.
   const storyUrl = `${SITE_URL}/${event.slug ?? slug}`;
   let qrSvg = '';
-  try {
-    const look = await resolveEventQrLook(createAdminClient(), event.event_id, event);
-    qrSvg = await renderStyledUrlQrSvg(storyUrl, look, 240);
-  } catch {
-    qrSvg = '';
+  // 🔳 The couple switched the event QR OFF (Info › Your Event Hub › QR, owner 2026-10-07).
+  if ((event as { qr_shown?: boolean | null }).qr_shown !== false) {
+    try {
+      const look = await resolveEventQrLook(createAdminClient(), event.event_id, event);
+      qrSvg = await renderStyledUrlQrSvg(storyUrl, look, 240);
+    } catch {
+      qrSvg = '';
+    }
   }
 
   /*

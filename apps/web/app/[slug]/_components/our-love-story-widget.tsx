@@ -94,6 +94,8 @@ export function OurLoveStoryWidget({
                 ))}
               </div>
             ) : null}
+            {/* 📖 The moment's title (owner 2026-10-07), when it has one. */}
+            {s.title ? <h3 data-love-title="" className="mt-2 font-pahina text-2xl leading-tight text-ink">{s.title}</h3> : null}
             <p data-love-line="" className="mt-2 whitespace-pre-line font-pahina text-xl font-light leading-snug text-ink">{s.line}</p>
             <p data-love-place="" hidden={!s.place} className="mt-1 text-sm leading-relaxed text-ink/65">
               {s.place ?? ''}

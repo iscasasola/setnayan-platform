@@ -148,6 +148,7 @@ import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
+import { boardWithMainColours, mainColoursChanged, sanitizeMainColourDraft } from '@/lib/main-colours';
 import { boardIsTheCouples, boardWithFill, sanitizeSeedPalette } from '@/lib/mood-board-palette-set';
 import { cleanDisplayName, cleanPersonName } from '@/lib/typed-names';
 import { NAME_STYLES, nameStyleOfPrintDetails } from '@/lib/name-style';
@@ -482,7 +483,20 @@ export const HUB_DRAFT_CEREMONY_TIME = 'ceremony_time' as const;
  * grant for `authenticated`, migration 20271260666366), and turning Papic ON
  * arms its free grants there (`hub-draft-actions.ts`).
  */
-export const HUB_DRAFT_ANSWER_COLUMNS = ['papic_on', 'gifts_on', 'logo_wanted', 'cover_photo_wanted'] as const;
+export const HUB_DRAFT_ANSWER_COLUMNS = ['papic_on', 'gifts_on', 'logo_wanted', 'cover_photo_wanted', 'qr_shown'] as const;
+/* 🔳 `qr_shown` — Info › Your Event Hub › QR on/off (owner 2026-10-07, "THE
+   MISSING FIELDS ARE APPROVED"; migration 20271265788160): false hides the event
+   QR from the prints and the guest page; NULL/true = shown. A yes or a no, like
+   the answers above, drafted and never Pro. */
+
+/**
+ * 🎨 ONE MAIN COLOUR, EDITED ON ITS OWN (owner 2026-10-06/07, Studio › Look ›
+ * Colours — "one palette, not a copy"). NOT an `events` column: the drafted
+ * slots of the Mood Board's five main colours (`lib/main-colours.ts`), laid INTO
+ * `role_palette.reception` by the host's canvas (`overlayHubDraftEvent`) and by
+ * Apply, every other key of the board kept. Never Pro (a colour is free).
+ */
+export const HUB_DRAFT_MAIN_COLOURS = 'main_colours' as const;
 
 /** The name-style key of `print_details` a draft may hold (the ticket style is `HUB_DRAFT_PASS_DESIGN_KEY`). */
 export const HUB_DRAFT_PRINT_DETAILS_KEY = 'name_style';
@@ -555,7 +569,7 @@ export const HUB_DRAFT_EVENT_READ_COLUMNS = [
 ] as const;
 
 /** Every key the draft's `events` may hold: the columns, and 🕒 the ceremony time (owner 2026-10-04). */
-export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME] as const;
+export const HUB_DRAFT_EVENT_COLUMNS = [...HUB_DRAFT_EVENT_READ_COLUMNS, HUB_DRAFT_CEREMONY_TIME, HUB_DRAFT_MAIN_COLOURS] as const;
 
 /** The largest logo a draft accepts — `saveStudioAction`'s own cap. */
 export const HUB_DRAFT_LOGO_MAX_BYTES = 400_000;
@@ -693,7 +707,7 @@ export function sanitizeHubDraftEventValue(
   // ceremony time is moved, never erased, from here.
   // 🎨 …and the Mood Board palette is only ever FILLED from here, never cleared.
   if (raw === null)
-    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette'
+    return column === 'display_name' || column === 'event_date_precision' || column === 'ceremony_time' || column === 'role_palette' || column === 'main_colours'
       ? undefined
       : null;
   switch (column) {
@@ -744,6 +758,9 @@ export function sanitizeHubDraftEventValue(
     // 🎨 A theme's own colours as the board's main colours — nothing else.
     case 'role_palette':
       return sanitizeSeedPalette(raw);
+    // 🎨 One (or more) of the five main colours, by slot — `#RRGGBB` each.
+    case 'main_colours':
+      return sanitizeMainColourDraft(raw);
     // 🎨 The theme — only a live id of a SHIPPED theme (`setInviteTheme`'s old
     // rule: `isInviteThemeId` + `ready`). A retired alias is never written.
     case 'invite_theme':
@@ -787,6 +804,7 @@ export function sanitizeHubDraftEventValue(
     case 'gifts_on':
     case 'logo_wanted':
     case 'cover_photo_wanted':
+    case 'qr_shown':
       return typeof raw === 'boolean' ? raw : undefined;
     // ⚙ WHAT DO YOU WANT TO ASK YOUR GUESTS? — through the SAME sanitizer the
     // guest render and `submitRsvp` read: unknown keys and non-boolean values
@@ -1099,6 +1117,13 @@ export function overlayHubDraftEvent<T extends Record<string, unknown>>(
     // The fill lands as Apply lands it: the board's main colours replaced, nothing else (`boardWithFill`).
     out.role_palette = (seed && boardWithFill(row.role_palette, seed)) ?? row.role_palette;
   }
+  /* 🎨 ONE MAIN COLOUR (Studio › Look › Colours): the drafted slots laid INTO the
+     board's main colours — over the fill above, every other key kept. Not a column. */
+  delete out[HUB_DRAFT_MAIN_COLOURS];
+  if (HUB_DRAFT_MAIN_COLOURS in draft.events) {
+    const slots = sanitizeMainColourDraft(draft.events[HUB_DRAFT_MAIN_COLOURS]);
+    if (slots) out.role_palette = boardWithMainColours(out.role_palette, slots, out.invite_theme);
+  }
   /* 🔳 The drafted QR look is laid INTO the live blob — the blob's other keys
      (onboarding answers the page may read) are never overlaid away. */
   if ('style_preferences' in draft.events) {
@@ -1347,7 +1372,8 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       return refChange(key(live), key(next));
     }
     case 'papic_on':
-    case 'gifts_on': {
+    case 'gifts_on':
+    case 'qr_shown': {
       // On until someone says No: never answered and Yes are the same event.
       const on = (v: unknown) => (v === false ? 'off' : 'on');
       return on(live) === on(next) ? refChange('same', 'same') : refChange(on(live), on(next));
@@ -1367,6 +1393,9 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
       };
       return refChange(seedKey(live), seedKey(next));
     }
+    case 'main_colours':
+      // 🎨 Only the slots the draft HOLDS, against the five the page wears live.
+      return mainColoursChanged(live, next) ? 'change' : 'none';
     case 'site_art_direction': {
       // Exactly as `siteLookChange` reads it: only Candlelight is a choice;
       // Daylight and "never chosen" are the same page.
@@ -2418,6 +2447,8 @@ export const HUB_DRAFT_EVENT_LABEL: Record<HubDraftEventColumn, string> = {
   gifts_on: 'Gifts',
   logo_wanted: 'Do you want a logo',
   cover_photo_wanted: 'Your event photo',
+  qr_shown: 'Your event QR',
+  main_colours: 'Your colours',
 };
 
 /** A sentence-ready name for each fixed part whose style is drafted. */

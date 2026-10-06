@@ -1,5 +1,6 @@
 'use server';
 
+import { cleanGiftRegistryUrl, GIFT_REGISTRY_URL_ERROR } from '@/lib/gift-registry';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -508,12 +509,23 @@ export async function savePabuyaMessage(
     return { ok: false, error: 'Missing event reference. Please refresh.' };
   }
 
-  const message = cleanPabuyaMessage(str(formData, 'pabuya_message'));
+  /* 🔗 THE REGISTRY LINK rides this same write (owner 2026-10-07, "THE MISSING
+     FIELDS ARE APPROVED" — Studio › E-Gifts › "Paste a link to your registry").
+     Each field is written only when the form CARRIES it, so the message box
+     never clears a link and the link box never clears the message. */
+  const patch: { pabuya_message?: string | null; gift_registry_url?: string | null } = {};
+  if (formData.has('pabuya_message')) patch.pabuya_message = cleanPabuyaMessage(str(formData, 'pabuya_message'));
+  if (formData.has('gift_registry_url')) {
+    const link = cleanGiftRegistryUrl(formData.get('gift_registry_url'));
+    if (link === undefined) return { ok: false, error: GIFT_REGISTRY_URL_ERROR };
+    patch.gift_registry_url = link;
+  }
+  if (Object.keys(patch).length === 0) return { ok: false, error: 'Nothing to save. Please try again.' };
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('events')
-    .update({ pabuya_message: message })
+    .update(patch)
     .eq('event_id', eventId)
     .select('event_id');
 

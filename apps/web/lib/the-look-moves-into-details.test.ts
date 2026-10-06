@@ -65,11 +65,14 @@ const MB = 'app/dashboard/[eventId]/studio/mood-board';
 
 /* ── (1) the Look ─────────────────────────────────────────────────────── */
 
-test('(1) the Look is Theme · Mood Board · Logo · Hero · Reveal, in the owner’s order', () => {
+test('(1) the Look is Background · Colours · Font · Music · Mood Board · Logo · Cover page · Reveal, in the owner’s order', () => {
+  /* 🗂 2026-10-06 ("EVENT DETAILS IS REBUILT"): the Look's own sections are rows;
+     `theme` (the whole panel) stays an item, hidden — the guided Look step's. */
   const look = DETAILS_ITEM_GROUPS.find((g) => g.group === 'look')!;
-  assert.deepEqual([...look.keys], ['theme', 'mood-board', 'logo', 'hero', 'reveal']);
+  assert.deepEqual([...look.keys], ['background', 'colours', 'font', 'music', 'mood-board', 'logo', 'hero', 'reveal']);
   assert.deepEqual([...LOOK_ITEM_KEYS], ['mood-board', 'logo', 'hero', 'reveal']);
-  assert.equal(DETAILS_ITEM_KEYS[0], 'theme', 'Theme is still the first item and the cold open');
+  assert.equal(DETAILS_ITEM_KEYS[0], 'background', 'Background is the first item and the cold open');
+  assert.ok(DETAILS_ITEM_GROUPS.find((g) => g.group === 'elsewhere')?.keys.includes('theme'), 'the whole Look is no longer addressable');
   assert.equal(new Set(DETAILS_ITEM_KEYS).size, DETAILS_ITEM_KEYS.length, 'one key names two items');
 });
 
@@ -153,9 +156,9 @@ test('(2) a door that still says "open the Hero" opens Details — the shell tur
     assert.match(html, /data-maker-page="details"/, `${key}: Details did not open`);
     assert.match(html, /data-stub="details-page"/, `${key}: Details' page is not drawn`);
     assert.doesNotMatch(html, new RegExp(`data-maker-page="${key}"`), `${key}: still opened as a page of its own`);
-    // One highlight, on Look — Logo, Hero and Reveal are the Look's part of Details (the Maker in 4).
-    assert.match(html, /data-maker-tool="look"[^>]*aria-pressed="true"/, `${key}: Look is not the highlighted door`);
-    assert.match(html, /data-maker-tool="details"[^>]*aria-pressed="false"/, `${key}: two doors are highlighted`);
+    // ONE door since 2026-10-06 ("EVENT DETAILS IS REBUILT"): Event Details, highlighted — no Look chip.
+    assert.match(html, /data-maker-tool="details"[^>]*aria-pressed="true"/, `${key}: Event Details is not the highlighted door`);
+    assert.doesNotMatch(html, /data-maker-tool="look"/, `${key}: the Look chip came back`);
   }
   // Every door goes through that one turn: the context's `select`, the address and the tab's memory.
   const shell = read(`${L}/maker-shell.tsx`);
@@ -335,7 +338,7 @@ test('(6) a birthday and a wake get the whole Look — and Page ▾ names the sa
   const { makerPageMenu } = await import(`../${L}/maker-bar`);
   for (const p of [BIRTHDAY, WAKE_PROFILE, WEDDING_PROFILE]) {
     const look = detailsNavigatorKeys(ctx(p), ALL).find((g) => g.group === 'look');
-    assert.deepEqual(look?.keys, ['theme', ...LOOK_ITEM_KEYS], `${p.eventType}: the Look lost an item`);
+    assert.deepEqual(look?.keys, ['background', 'colours', 'font', 'music', ...LOOK_ITEM_KEYS], `${p.eventType}: the Look lost an item`);
   }
   assert.equal(ctx(WAKE_PROFILE).solemn, true, 'the wake fixture is not the solemn register');
   // Page ▾ (the Maker in 4) names the stages in their ONE vocabulary

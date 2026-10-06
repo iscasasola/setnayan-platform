@@ -45,10 +45,11 @@ const ctx = (profile: EventTypeProfile) => ({ profile, solemn: false });
 
 /* ── the item ─────────────────────────────────────────────────────────────── */
 
-test('Seat plan is the last item of Your event, drawn as a filled middle part', () => {
+test('Seat plan is the last item of Story & plans, drawn as a filled middle part', () => {
   assert.ok(isDetailsItemKey('seating'));
-  const event = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
-  assert.equal(event.keys.at(-1), 'seating', 'the Seat plan is not the last item of Your event');
+  /* 🗂 2026-10-06 ("EVENT DETAILS IS REBUILT"): an item with an editor of its own — Story & plans' last. */
+  const story = DETAILS_ITEM_GROUPS.find((g) => g.group === 'story')!;
+  assert.equal(story.keys.at(-1), 'seating', 'the Seat plan is not the last item of Story & plans');
   assert.equal(detailsItemLayout('seating'), 'fill', 'the plan must fill the middle part (its guests are the right one)');
   assert.equal(detailsDoorHref('E', 'seating', { seat: 'list' }), '/dashboard/E/launch?tool=details&item=seating&seat=list');
 });

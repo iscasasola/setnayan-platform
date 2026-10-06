@@ -55,12 +55,12 @@ test('a wedding shows all five, in the navigator’s order, in the “Your event
   assert.equal(yourEventLabel('parents', WEDDING), 'Parents & hosts');
   assert.deepEqual(peopleLabels(WEDDING_PROFILE.terminology.personA, WEDDING_PROFILE.terminology.personB), ['Bride', 'Groom']);
   const group = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
-  // …then Your info's answers (owner 2026-10-02, "EVERY ANSWER … LIVES IN EVENT
-  // DETAILS": Event settings · Photos from guests · Gifts), then Plan it myself
-  // (owner 2026-10-02, tracker d4 — `plan-it-myself-is-one-switch.test.ts`),
-  // then the Seat plan, last (Details part 4 — its own rule,
-  // `the-seat-plan-moves-into-details.test.ts`).
-  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'parents', 'march', 'papic', 'gifts', 'plan-myself', 'seating']);
+  // 🗂 2026-10-06 ("EVENT DETAILS IS REBUILT"): Your event is ONE form — Event
+  // Name · Date · Venue · E-Gifts (with the thank-you) · Opening Line · Special
+  // Message · Event Hub Address · QR. The march (holding Parents & hosts) and
+  // the Seat plan are Story & plans' — items with an editor of their own.
+  assert.deepEqual([...group.keys], ['names', 'date', 'venues', 'gifts', 'thank-you', 'opening-line', 'special-message', 'address', 'qr']);
+  assert.equal(group.form, true);
 });
 
 for (const [name, kind] of NON_WEDDINGS) {
@@ -70,7 +70,8 @@ for (const [name, kind] of NON_WEDDINGS) {
     assert.ok(!parentsOffered(kind) && !marchOffered(kind));
     // ONE name (owner 2026-09-29, "yes to all 4") — never a two-name box.
     assert.deepEqual(items, ['names', 'date', 'venues', 'parents']);
-    assert.equal(yourEventLabel('names', kind), 'Name');
+    // "Event Name", never "Name"/"Names" (owner 2026-10-06) — the event's name, for every type.
+    assert.equal(yourEventLabel('names', kind), 'Event Name');
     const said = [
       ...items.map((k) => yourEventLabel(k, kind)),
       ...items.flatMap((k) => yourEventUsedOn(k, kind)),

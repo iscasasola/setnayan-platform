@@ -48,8 +48,8 @@ test('ONE item shows at a time — a hidden item carries no display class that w
   const html = renderToStaticMarkup(
     React.createElement(DetailsWorkspace, {
       groups: [{ key: 'hub', label: 'Your Event Hub', items: [
-        { key: 'address', group: 'hub', label: 'Address', icon: null },
-        { key: 'qr', group: 'hub', label: 'QR code', icon: null },
+        { key: 'address', group: 'event', label: 'Address', icon: null },
+        { key: 'qr', group: 'event', label: 'QR code', icon: null },
       ] }],
       bodies: { address: 'ADDRESS-BODY', qr: 'QR-BODY' },
       editors: { address: 'ADDRESS-EDITOR', qr: 'QR-EDITOR' },
@@ -61,4 +61,49 @@ test('ONE item shows at a time — a hidden item carries no display class that w
   assert.match(editor('qr'), /hidden=""/, 'an item not picked is showing');
   assert.match(editor('qr'), /class="hidden"/, 'a hidden item keeps a display class that overrides `hidden`');
   assert.doesNotMatch(html, /QR-BODY/, 'a body not yet opened was drawn');
+});
+
+test('🗂 Your event is ONE form: one row in the list, every field’s editor shown one under the other, named (owner 2026-10-06)', async () => {
+  const React = (await import('react')).default;
+  (globalThis as unknown as { React: unknown }).React = React;
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { DetailsWorkspace, detailsListGroups } = await import('../app/dashboard/[eventId]/launch/_components/details-workspace');
+  const groups = [
+    { key: 'look', label: 'Look', items: [{ key: 'background' as const, group: 'look' as const, label: 'Background', icon: null }] },
+    {
+      key: 'event',
+      label: 'Your event',
+      form: true as const,
+      items: [
+        { key: 'names' as const, group: 'event' as const, label: 'Event Name', icon: null },
+        { key: 'date' as const, group: 'event' as const, label: 'Date', icon: null },
+        { key: 'qr' as const, group: 'event' as const, label: 'QR code', icon: null },
+      ],
+    },
+    { key: 'elsewhere', label: 'Elsewhere', hidden: true as const, items: [{ key: 'papic' as const, group: 'elsewhere' as const, label: 'Photos', icon: null }] },
+  ];
+  // The list: Look's row, ONE "Your event" row keyed by the field showing, and no hidden row.
+  const list = detailsListGroups(groups, 'date');
+  assert.deepEqual(list.map((g) => g.key), ['look', 'event']);
+  assert.deepEqual(list[1]!.items.map((i) => [i.key, i.label]), [['date', 'Your event']]);
+  const html = renderToStaticMarkup(
+    React.createElement(DetailsWorkspace, {
+      groups,
+      bodies: { names: 'N-BODY', date: 'D-BODY', qr: 'Q-BODY', background: 'B-BODY', papic: 'P-BODY' },
+      editors: { names: 'NAMES-EDITOR', date: 'DATE-EDITOR', qr: 'QR-EDITOR', background: 'BG-EDITOR', papic: 'PAPIC-EDITOR' },
+      initial: 'date',
+    }),
+  );
+  const shown = (k: string) => {
+    const tag = new RegExp(`<div[^>]*data-details-editor="${k}"[^>]*>`).exec(html)?.[0] ?? '';
+    assert.ok(tag, `anti-vacuity: no editor wrapper for ${k}`);
+    return !/hidden=""/.test(tag);
+  };
+  for (const k of ['names', 'date', 'qr']) assert.ok(shown(k), `${k} is not shown in the Your event form`);
+  assert.ok(!shown('background') && !shown('papic'), 'an item outside the form shows with it');
+  for (const label of ['Event Name', 'Date', 'QR code']) assert.match(html, new RegExp(`data-details-form-heading="[a-z]+"[^>]*>${label}<`), `${label} is not named in the form`);
+  // Hidden items stay MOUNTED (their fields still post) but are never a list row.
+  assert.match(html, /PAPIC-EDITOR/);
+  assert.doesNotMatch(html, /data-details-nav-item="papic"/, 'a hidden item is drawn as a row');
+  // Sabotage (2026-10-06): dropping `formKeys.has(k)` from `showsEditor` turned this red ("names is not shown…").
 });

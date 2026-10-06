@@ -248,7 +248,12 @@ test('each answer is a Maker draft: kept as a yes or a no, never Pro, named on t
 
 test('Your info carries the rows, and every row writes its own column through the one draft door', () => {
   const event = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
-  for (const k of ['papic', 'gifts'] as const) assert.ok(event.keys.includes(k), `Your event lost the ${k} row`);
+  /* 🗂 2026-10-06 ("EVENT DETAILS IS REBUILT"): Gifts is a field of the Your event
+     form (E-Gifts); Photos from guests left the list for The Day — still an item
+     (the guided flow's step opens it), never a row. */
+  assert.ok(event.keys.includes('gifts'), 'Your event lost the gifts row');
+  const elsewhere = DETAILS_ITEM_GROUPS.find((g) => g.group === 'elsewhere')!;
+  assert.ok(elsewhere.hidden && elsewhere.keys.includes('papic'), 'Photos from guests is no longer addressable');
   // Event settings LEFT the Maker (2026-10-02): its editors save live, and nothing
   // in the Maker may take effect before Apply. They live on the Event Details page.
   assert.ok(!(event.keys as readonly string[]).includes('settings'), 'Event settings is back in the Maker — it saves live, not at Apply');

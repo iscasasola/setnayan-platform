@@ -25,6 +25,8 @@ import {
   type WhichVersion,
 } from '@/lib/which-version-guests-see';
 import { useMaker } from './maker-context';
+import { TextPanel } from '../../website/editor/_components/text-panel';
+import { updateWhatToBring } from '../../website/what-to-bring/actions';
 import { DetailsSelectContext } from './details-go';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
 import { LOOK_SECTION_ITEM_KEYS, type LookSectionItemKey } from '@/lib/maker-details-items';
@@ -503,4 +505,53 @@ export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
       ) : null}
     </div>
   );
+}
+
+/* ── ONE door for the lazy stand-in (`details-lazy.tsx` `StudioTool`) ────── */
+
+/** ✍ What to bring — its own drafted column (`what_to_bring`), the Event Hub's Reminders box, in place. */
+function StudioWhatToBring({ eventId, value }: { eventId: string; value: string | null }) {
+  return (
+    <div className="flex flex-col gap-2 border-t border-ink/10 pt-4" data-studio-what-to-bring="">
+      <TextPanel
+        action={updateWhatToBring.bind(null, eventId)}
+        eventId={eventId}
+        rowKey="what-to-bring"
+        name="note"
+        label="What to bring"
+        maxLength={600}
+        placeholder="e.g. your invitation QR, a jacket for the garden"
+        defaultValue={value ?? ''}
+        previewKey="w:what_to_bring"
+      />
+    </div>
+  );
+}
+
+export type StudioToolProps =
+  | ({ part: 'hub' } & Parameters<typeof StudioHubSettings>[0])
+  | ({ part: 'fact' } & Parameters<typeof StudioReadOnlyFact>[0])
+  | ({ part: 'qr' } & Parameters<typeof StudioQrActions>[0])
+  | { part: 'quiet' }
+  | ({ part: 'gifts' } & Parameters<typeof StudioEgifts>[0])
+  | ({ part: 'look' } & Parameters<typeof StudioLookBar>[0])
+  | ({ part: 'bring' } & Parameters<typeof StudioWhatToBring>[0]);
+
+export function StudioTool(props: StudioToolProps) {
+  switch (props.part) {
+    case 'hub':
+      return <StudioHubSettings {...props} />;
+    case 'fact':
+      return <StudioReadOnlyFact {...props} />;
+    case 'qr':
+      return <StudioQrActions {...props} />;
+    case 'quiet':
+      return <StudioQuietRows />;
+    case 'gifts':
+      return <StudioEgifts {...props} />;
+    case 'look':
+      return <StudioLookBar {...props} />;
+    case 'bring':
+      return <StudioWhatToBring {...props} />;
+  }
 }

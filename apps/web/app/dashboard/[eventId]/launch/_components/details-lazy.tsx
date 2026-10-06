@@ -172,12 +172,7 @@ export const StudioCover = dynamic(() => import(/* webpackChunkName: "maker-deta
 export const LowerThirdGrab = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.LowerThirdGrab), { loading: SlotNone });
 export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stages-studio-parts').then((m) => m.MakerSheet), { loading: SlotNone });
 
-/* ── 🧭 The new Maker's Studio tools (owner 2026-10-06, plan PR 4 — `MakerDetails`'s `studio`): Info's Your Event
-   Hub rows, its read-only Date and Venue, the QR's Copy · Share · Download, the quiet rows, E-Gifts' ways to give.
-   Drawn only while the new Maker is on; never in the Maker's first load. ── */
-export const StudioHubSettings = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioHubSettings), { loading: SlotRows });
-export const StudioReadOnlyFact = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioReadOnlyFact), { loading: SlotRows });
-export const StudioQrActions = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioQrActions), { loading: SlotNone });
-export const StudioQuietRows = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioQuietRows), { loading: SlotNone });
-export const StudioEgifts = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioEgifts), { loading: SlotRows });
-export const StudioLookBar = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioLookBar), { loading: SlotButton });
+/* ── 🧭 The new Maker's Studio tools (owner 2026-10-06, plan PR 4 — `MakerDetails`'s `studio`): ONE stand-in for
+   every piece (`StudioTool`'s `part`) — each stand-in is bytes in the Maker's first load. Drawn only while the new
+   Maker is on. ── */
+export const StudioTool = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioTool), { loading: SlotRows });

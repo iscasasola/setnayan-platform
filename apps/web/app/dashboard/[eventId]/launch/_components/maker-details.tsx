@@ -91,11 +91,9 @@ import {
 } from './details-lazy';
 import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 /* 🧭 The new Maker's Studio tools (`studio`) — lazy, so the shipped Maker's first load carries none of them. */
-import { StudioEgifts, StudioHubSettings, StudioLookBar, StudioQrActions, StudioQuietRows, StudioReadOnlyFact } from './details-lazy';
+import { StudioTool } from './details-lazy';
 import type { StudioHubFacts } from './studio-tools';
 import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
-import { TextPanel } from '../../website/editor/_components/text-panel';
-import { updateWhatToBring } from '../../website/what-to-bring/actions';
 import { studioDetailsGroups, studioFullScreenCss, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
@@ -1001,7 +999,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     const yeIn = props.yourEvent ?? null;
     /* 📍 Date and Venue are read-only — set in Suppliers (DECISION_LOG "DATE AND VENUE LIVE IN SUPPLIERS"). */
     if (yeIn && editors.date) {
-      editors.date = <StudioReadOnlyFact value={yeIn.date.dateDisplay} line={STUDIO_SUPPLIERS_LINE} data="date" />;
+      editors.date = <StudioTool part="fact" value={yeIn.date.dateDisplay} line={STUDIO_SUPPLIERS_LINE} data="date" />;
     }
     if (yeIn && editors.venues) {
       const two = yeIn.venues.resolved.length > 1;
@@ -1009,26 +1007,14 @@ export function MakerDetails(props: MakerDetailsProps) {
         .filter((v) => v.name)
         .map((v) => (two ? `${VENUE_ROLE_LABEL[v.role]} · ${v.name}` : v.name!))
         .join('\n');
-      editors.venues = <StudioReadOnlyFact value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
+      editors.venues = <StudioTool part="fact" value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
     }
     /* ✍ What to bring — its own drafted column (`what_to_bring`), the Event Hub's Reminders box, in place. */
     if (editors['special-message'] !== undefined) {
       editors['special-message'] = (
         <div className="flex flex-col gap-4">
           {editors['special-message']}
-          <div className="flex flex-col gap-2 border-t border-ink/10 pt-4" data-studio-what-to-bring="">
-            <TextPanel
-              action={updateWhatToBring.bind(null, eventId)}
-              eventId={eventId}
-              rowKey="what-to-bring"
-              name="note"
-              label="What to bring"
-              maxLength={600}
-              placeholder="e.g. your invitation QR, a jacket for the garden"
-              defaultValue={st.whatToBring ?? ''}
-              previewKey="w:what_to_bring"
-            />
-          </div>
+          <StudioTool part="bring" eventId={eventId} value={st.whatToBring} />
         </div>
       );
     }
@@ -1036,15 +1022,15 @@ export function MakerDetails(props: MakerDetailsProps) {
     editors.address = (
       <div className="flex flex-col gap-3">
         {editors.address}
-        <StudioHubSettings eventId={eventId} slug={slug} hub={st.hub} />
+        <StudioTool part="hub" eventId={eventId} slug={slug} hub={st.hub} />
       </div>
     );
     /* 🔳 The QR — Shape · Pattern · Colour, then Copy · Share · Download, then the quiet rows. */
     editors.qr = (
       <div className="flex flex-col gap-1">
         <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
-        <StudioQrActions slug={slug} path={st.livePath} />
-        <StudioQuietRows />
+        <StudioTool part="qr" slug={slug} path={st.livePath} />
+        <StudioTool part="quiet" />
       </div>
     );
     /* 🖨 The NFC spot is a Finer Details switch here (it still posts with every words Save). */
@@ -1058,7 +1044,7 @@ export function MakerDetails(props: MakerDetailsProps) {
     for (const k of LOOK_SECTION_ITEM_KEYS) {
       editors[k] = (
         <>
-          <StudioLookBar item={k} />
+          <StudioTool part="look" item={k} />
           {editors[k]}
         </>
       );
@@ -1068,7 +1054,7 @@ export function MakerDetails(props: MakerDetailsProps) {
       editors.gifts = (
         <div className="flex flex-col gap-3" data-details-egifts="">
           {ap.editors.gifts}
-          <StudioEgifts eventId={eventId} methods={st.egiftMethods} />
+          <StudioTool part="gifts" eventId={eventId} methods={st.egiftMethods} />
         </div>
       );
     }

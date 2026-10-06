@@ -44,7 +44,9 @@ import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 /**
  * May the couple's own hero photo/video be laid under this theme?
  *
- *   · Classic — never, whoever owns what (*"classic has no photo or video"*);
+ *   · Classic — like any free theme: only when the event OWNS Event Hub Pro
+ *     (owner 2026-10-06, DECISION_LOG "EVENT DETAILS IS REBUILT": the old
+ *     Classic "no photo or video" rule is DROPPED — own photo/video ◆ for everyone);
  *   · a PRO theme — yes: the caller hands the theme `resolveInviteTheme`
  *     answered, which is only ever a Pro theme when the unlock is held (or the
  *     host is trying it on), so ownership is already decided;
@@ -58,19 +60,23 @@ import { INVITE_THEMES, type InviteThemeId } from '@/lib/invite-themes';
 export function heroMayBePageGround(theme: InviteThemeId | null | undefined, ownsPro: boolean): boolean {
   if (!theme) return false;
   const t = INVITE_THEMES[theme];
-  if (!t || !t.media) return false; // Classic: plain colour, no photo or video.
-  return t.tier === 'pro' || ownsPro;
+  if (!t) return false;
+  // A Pro theme reached the caller only with the unlock held (or tried on).
+  if (t.media && t.tier === 'pro') return true;
+  // Every free theme — Classic included since 2026-10-06 — needs the event to own Pro.
+  return ownsPro;
 }
 
 /**
  * Does answering `heroMayBePageGround` for this theme need the ownership read?
- * Only a free theme with a loop — so a Classic or Pro-theme page pays no extra
- * query. Callers use it to skip the read, never to decide the answer.
+ * Every free theme (Classic included since 2026-10-06) — so only a Pro-theme
+ * page pays no extra query. Callers use it to skip the read, never to decide the answer.
  */
 export function heroGroundNeedsOwnership(theme: InviteThemeId | null | undefined): boolean {
   if (!theme) return false;
   const t = INVITE_THEMES[theme];
-  return Boolean(t && t.media && t.tier === 'free');
+  // Every theme but a Pro theme with its own loop — Classic included (2026-10-06).
+  return Boolean(t && !(t.media && t.tier === 'pro'));
 }
 
 export type PageGroundFacts = {

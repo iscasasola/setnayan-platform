@@ -307,12 +307,12 @@ export function MainBackgroundPanel({
      SETTINGS"): a moving background ◆ · same as my hero ◆ · upload media ◆ ·
      just the colour. Nothing stored = the hero when there is a hero photo (it
      is being measured), else the loop the page already wears.
-     🧱 CLASSIC IS PLAIN PAPER: its page never draws a hero or an upload
-     (`heroMayBePageGround`), so only a moving background or the colour is
-     offered — and its stored default reads as the colour. */
-  const plain = themeId === 'house';
+     🧱 CLASSIC IS NO LONGER PLAIN PAPER (owner 2026-10-06, DECISION_LOG "EVENT
+     DETAILS IS REBUILT": the Classic "no photo or video" rule is dropped — own
+     photo/video ◆ for everyone): every choice is offered on every theme. Its
+     STORED default still reads as the colour (Classic never measured a hero). */
   const stored = mainGroundChoice({ current, choosingMedia, followsHero: Boolean(follow), heroPhotoRef: hero.photoRef });
-  const choice = plain && stored !== 'loop' ? 'none' : stored;
+  const choice = themeId === 'house' && stored === 'theme' ? 'none' : stored;
   /* The loop on screen: the one picked, else (the default) the page's own. */
   const loopNow: InviteThemeId | null = isHubMainLoop(current)
     ? current.loop
@@ -475,8 +475,9 @@ export function MainBackgroundPanel({
             />
           </div>
         ) : null}
-        {plain ? null : (
-        <>
+        {/* "Same as my hero" follows a MEASURED hero (`HeroFrameSync`), which Classic never
+            runs (it would write on open) — so Classic offers its own upload, not the follow. */}
+        {themeId === 'house' ? null : (
         <Choice
           on={choice === 'hero'}
           label="Same as my hero"
@@ -490,6 +491,7 @@ export function MainBackgroundPanel({
             save(null, 'Your background could not be changed. Please try again.');
           }}
         />
+        )}
         <Choice
           on={choice === 'media'}
           label="Upload media"
@@ -500,8 +502,6 @@ export function MainBackgroundPanel({
           onClick={() => setChoosingMedia(true)}
           keepEnabled
         />
-        </>
-        )}
         <Choice
           on={choice === 'none'}
           label="Just the colour"

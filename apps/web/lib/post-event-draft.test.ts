@@ -194,7 +194,7 @@ test('words: a part’s own line, or back to the words written from the day', ()
   assert.deepEqual(Object.keys(ch.sceneLooks!), ['chapters']);
 });
 
-test('Pro at Apply: a part’s own font is held for a free couple — its colour, the style and the words go live', () => {
+test('a part’s own font is FREE at Apply — it goes live with its colour, the style and the words', () => {
   const a = arr();
   const drafted = patchOf(
     postEventSetElements(
@@ -205,41 +205,16 @@ test('Pro at Apply: a part’s own font is held for a free couple — its colour
   );
   assert.equal(drafted.sceneLooks!.numbers!.elements?.heading?.font, 'playfair', 'a real Event Hub font is kept');
   const draft = mergeHubDraft(emptyHubDraft(), { editorial: drafted });
+  /* 🔤 2026-10-06 (owner, "EVENT DETAILS IS REBUILT": *"font on a single part is
+     FREE"*): the part's font goes live with its colour and style — nothing held. */
   const free = planHubDraftApply(draft, live(), false);
-  {
-    assert.equal(free.refused.length, 1, 'the font is held');
-    assert.equal(free.refused[0]!.kind, 'editorial');
-    const freePart = free.apply.find((i) => i.kind === 'editorial' && i.freePart);
-    assert.ok(freePart, 'the free part is applied beside it');
-    const value = (freePart as { item: { value: Record<string, { style?: string; elements?: { heading?: { font?: string; color?: string } } }> } }).item.value;
-    assert.equal(value.numbers!.style, 'receipt');
-    assert.equal(value.numbers!.elements?.heading?.color, '#123456');
-    assert.equal(value.numbers!.elements?.heading?.font, undefined, 'the Pro font never leaks through the free part');
-    assert.deepEqual(free.remaining.editorial?.sceneLooks, drafted.sceneLooks, 'the whole drafted look stays for after Pro');
-    assert.equal(summarizeHubDraft(draft, live(), false).changeCount, 1, 'one change, not two');
-  }
-  const pro = planHubDraftApply(draft, live(), true);
-  assert.equal(pro.refused.length, 0);
-  assert.deepEqual(hubDraftWriteTables(pro.apply), ['event_editorial']);
-  // The free part alone is never Pro.
+  assert.equal(free.refused.length, 0, 'a part’s font was held as Pro');
+  assert.deepEqual(hubDraftWriteTables(free.apply), ['event_editorial']);
   const liveLooks = arr().sceneLooks;
   const fp = sceneLooksFreePart(liveLooks, drafted.sceneLooks!);
-  assert.equal(fp.numbers?.elements?.heading?.font, undefined);
-
-  // 💎 The Apply sheet (#6091) names it by part and scene, and "Remove" takes
-  // exactly that font off — the colour and the style stay drafted.
-  const effects = hubDraftProEffects(draft, live(), false);
-  assert.deepEqual(
-    effects.map((e) => [e.id, e.what, e.where]),
-    [['pe:numbers:heading:font', 'Font', 'Heading on Statistics']],
-    'the sheet names the held font by part and scene',
-  );
-  assert.deepEqual(effects[0]!.jump, { kind: 'row', key: 'p:numbers' });
-  const removed = mergeHubDraft(draft, effects[0]!.remove!);
-  assert.equal(planHubDraftApply(removed, live(), false).refused.length, 0, 'removing it leaves nothing held');
-  assert.equal(removed.editorial?.sceneLooks?.numbers?.elements?.heading?.color, '#123456', 'only the font came off');
-  assert.equal(removed.editorial?.sceneLooks?.numbers?.style, 'receipt');
-  assert.deepEqual(hubDraftProEffects(draft, live(), true), [], 'an owning couple is asked nothing');
+  assert.equal(fp.numbers?.elements?.heading?.font, 'playfair', 'the free part dropped the (free) font');
+  assert.equal(fp.numbers?.elements?.heading?.color, '#123456');
+  assert.deepEqual(hubDraftProEffects(draft, live(), false), [], 'the Apply sheet asks for a free font');
 });
 
 test('show / hide and order are FREE at Apply — a free couple’s apply', () => {

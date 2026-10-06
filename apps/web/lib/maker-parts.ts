@@ -163,13 +163,17 @@ export type MakerInfoField = (typeof MAKER_INFO_FIELDS)[number];
  *              (`lib/hub-part-words.ts` — `names`, `eyebrow`); null = not typed on
  *              the page yet (its part is not drawn by the canvas yet)
  *   sameField  the ONE key every Info door of it carries (`data-same-field`,
- *              `same-field.ts`) — always the field itself; null = Studio › Info's
- *              door is PR 4's (`EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN` §3)
+ *              `same-field.ts`) — always the field itself; null = Studio › Info
+ *              draws no door holding that one value yet (PR 4 merged without a
+ *              field for the title, the countdown line, the greeting or the
+ *              yes / no notes). The Event Name's door is the one-person name
+ *              box (`details-your-event.tsx` `OneNameEditor`); two people type
+ *              two names, which are not one value.
  *
  * Held by `lib/the-typing-door-is-the-info-door.test.ts`.
  */
 export const MAKER_INFO_DOORS: Readonly<Record<MakerInfoField, { page: string | null; sameField: string | null }>> = {
-  display_name: { page: 'names', sameField: null },
+  display_name: { page: 'names', sameField: 'display_name' },
   title: { page: 'eyebrow', sameField: null },
   special_message: { page: 'message', sameField: 'special_message' },
   what_to_bring: { page: 'reminders', sameField: 'what_to_bring' },

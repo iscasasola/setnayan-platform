@@ -176,3 +176,8 @@ export const MakerSheet = dynamic(() => import(/* webpackChunkName: "maker-detai
 /* 🎬 The new Maker's Stages panel (`stage-tools.tsx`: the stage ▾ with its pages, Style | Text | Animate, ▶,
    the page's parts, swipe) — lazy like the rest of its chrome, never in the Maker's first load. */
 export const StageTools = dynamic(() => import(/* webpackChunkName: "maker-details" */ './stage-tools').then((m) => m.StageTools), { loading: SlotFill });
+
+/* ── 🧭 The new Maker's Studio tools (owner 2026-10-06, plan PR 4 — `MakerDetails`'s `studio`): ONE stand-in for
+   every piece (`StudioTool`'s `part`) — each stand-in is bytes in the Maker's first load. Drawn only while the new
+   Maker is on. ── */
+export const StudioTool = dynamic(() => import(/* webpackChunkName: "maker-details" */ './studio-tools').then((m) => m.StudioTool), { loading: SlotRows });

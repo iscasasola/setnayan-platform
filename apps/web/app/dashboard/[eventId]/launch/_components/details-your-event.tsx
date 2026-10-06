@@ -261,6 +261,8 @@ export function OneNameEditor({ eventId, initial }: { eventId: string; initial: 
           maxLength={80}
           autoCapitalize="words"
           aria-label="Name, as guests read it"
+          /* 🔗 The Event Name the page types into too (`lib/maker-parts.ts` `info:display_name`) — one value. */
+          data-same-field="display_name"
           className="min-h-11 rounded-md border border-ink/15 bg-white px-3 text-[16px] text-ink"
         />
       </label>

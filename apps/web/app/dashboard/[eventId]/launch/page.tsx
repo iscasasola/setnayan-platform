@@ -132,6 +132,8 @@ import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, viewAsFreeSwitch } from '@/lib/view-as-free.server';
 import { planMyselfOn } from '@/lib/plan-myself';
 import { makerStagesStudioEnabled } from '@/lib/maker-stages-studio-flag';
+import { manualLaunchPhase } from '@/lib/invitation-widgets';
+import { publicEventPath } from '@/lib/public-event-url';
 import { studioTiles, type StudioTileModel } from '@/lib/studio-tiles';
 import { yourEventLabel } from '@/lib/details-your-event';
 
@@ -1055,6 +1057,14 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     /* 🎁 Started beside the reads below, awaited where the E-Gifts field is built. */
     const egiftAllP = readEgiftMethods(supabase, eventId);
     const egiftVisibilityP = supabase.from('events').select('landing_page_visibility').eq('event_id', eventId).maybeSingle();
+    /* 🧭 Studio › Info's Your Event Hub rows and What to bring — read only while the new Maker is on. */
+    const studioHubP = stagesStudio
+      ? supabase
+          .from('events')
+          .select('slug, landing_page_visibility, launch_mode, manual_phase, website_open_browse, std_launched_at, scheduled_launch_at, what_to_bring')
+          .eq('event_id', eventId)
+          .maybeSingle()
+      : null;
     const [printEvent, printPro, rsvpHosts, printParents, egifts, printInputs, sampleVersion, feelRes, storyLiveRes, scheduleRes, announceOn] = await Promise.all([
       readPrintEvent(printAdmin, eventId),
       printOwnsPro(eventId),
@@ -1347,6 +1357,10 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
         settings: (
           <MakerRsvpSettings
             eventId={eventId}
+            /* 🧭 Studio › RSVP — the prototype's tool, over the same saves (new Maker only). */
+            {...(stagesStudio
+              ? { studio: true, celebration: { ownsPro: printPro, storeShell, colours: celebrationColours(boardSwatches(printEvent.role_palette)) } }
+              : {})}
             current={rsvpAsk}
             drafted={rsvpAskDrafted}
             /* The couple's own deadline wins and is never overwritten; unset,
@@ -1585,9 +1599,51 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
           />
         </Suspense>
       ) : null;
+      /* 🧭 STUDIO (the new Maker only) — Info's Your Event Hub facts and What to bring, E-Gifts' methods. A
+         refused read is said by the form, never a guessed "Private" or an empty gift list. */
+      const studioDetails = studioHubP
+        ? await (async () => {
+            const [hubRes, gifts] = await Promise.all([studioHubP, egiftAllP]);
+            if (hubRes.error) logQueryError('LaunchPage.studioHub', hubRes.error, { event_id: eventId }, 'graceful_degrade');
+            const row = hubRes.error ? null : (hubRes.data as Record<string, unknown> | null);
+            const visibility = row?.landing_page_visibility;
+            const hubSlug = typeof row?.slug === 'string' ? row.slug : null;
+            return {
+              hub: row
+                ? {
+                    visibility: (visibility === 'public' || visibility === 'unlisted' ? visibility : 'private') as 'public' | 'unlisted' | 'private',
+                    /* `manualLaunchPhase` answers only the four pinnable phases (or null). */
+                    pinned: manualLaunchPhase(row.launch_mode as string | null, row.manual_phase as string | null) as 'save_the_date' | 'rsvp' | 'event' | 'editorial' | null,
+                    openBrowse: row.website_open_browse === true,
+                    launched: Boolean(row.std_launched_at) || visibility === 'public',
+                    scheduledAt: typeof row.scheduled_launch_at === 'string' ? row.scheduled_launch_at : null,
+                  }
+                : null,
+              egiftMethods: gifts.read
+                ? gifts.methods.map((m) => ({
+                    egift_method_id: m.egift_method_id,
+                    method_kind: m.method_kind,
+                    label: m.label,
+                    account_name: m.account_name,
+                    handle: m.handle,
+                    qr_r2_key: m.qr_r2_key,
+                    note: m.note,
+                    is_enabled: m.is_enabled,
+                    qrDisplayUrl: m.qrDisplayUrl,
+                  }))
+                : null,
+              whatToBring:
+                'what_to_bring' in draftedEvents
+                  ? ((draftedEvents.what_to_bring as string | null) ?? null)
+                  : ((row?.what_to_bring as string | null | undefined) ?? null),
+              livePath: hubSlug ? publicEventPath(hubSlug) : null,
+            };
+          })()
+        : null;
       details = {
         page: (
           <MakerDetails
+            studio={studioDetails}
             coverUrl={coverUrl}
             yourEvent={yourEvent}
             seatPlan={seatPlan}

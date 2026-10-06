@@ -61,6 +61,7 @@ test('where the page types a field, the shipped writer writes that column — to
 test("where Studio › Info's door ships, it carries the same key", () => {
   assert.equal(SAME_FIELD_ATTR, 'data-same-field');
   const where: Record<string, string> = {
+    display_name: 'app/dashboard/[eventId]/launch/_components/details-your-event.tsx',
     special_message: 'app/dashboard/[eventId]/launch/_components/special-message-field.tsx',
     what_to_bring: 'app/dashboard/[eventId]/website/editor/page.tsx',
     opening_line: 'app/dashboard/[eventId]/launch/_components/opening-line-field.tsx',

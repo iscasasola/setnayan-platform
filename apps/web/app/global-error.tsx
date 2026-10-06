@@ -4,8 +4,10 @@ import { useEffect } from 'react';
 
 import {
   isDeploymentSkewError,
+  isInterruptedRequestError,
   isStaleBundleError,
   reloadForDeploymentSkew,
+  reloadForInterruptedRequest,
   reloadForStaleBundle,
 } from '@/lib/stale-bundle';
 
@@ -46,6 +48,12 @@ export default function GlobalError({ error, reset }: Props) {
         if (reloadForDeploymentSkew(window.sessionStorage, () => window.location.reload(), error)) return;
       } else if (isStaleBundleError(error)) {
         if (reloadForStaleBundle(window.sessionStorage, () => window.location.reload())) return;
+      } else if (isInterruptedRequestError(error)) {
+        // A request the phone cut off (lib/stale-bundle.ts's fourth shape — "Load failed",
+        // 2026-10-06): one reload, and never into an offline page.
+        const reload = () => window.location.reload();
+        const whenOnline = (go: () => void) => window.addEventListener('online', go, { once: true });
+        if (reloadForInterruptedRequest(window.sessionStorage, reload, navigator.onLine !== false, whenOnline)) return;
       }
     }
     if (process.env.NODE_ENV === 'development') {

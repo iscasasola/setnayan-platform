@@ -353,7 +353,7 @@ test('🚶 the Wedding March is ONE item whose page is the drag maker — never 
   }
   const PARTS = stripComments(readFileSync(join(LAUNCH, 'details-your-event-parts.tsx'), 'utf8'));
   assert.doesNotMatch(PARTS, /march:\s*<MarchPieces|\bMarchPieces\b/, 'the navigator lists the march’s lines again');
-  assert.match(PARTS, /march: <MarchMaker eventId=\{eventId\} sections=\{input\.march\.sections\}/, 'the item’s page is not the maker');
+  assert.match(PARTS, /march: \(\s*<MarchMaker\s+eventId=\{eventId\}\s+sections=\{input\.march\.sections\}/, 'the item’s page is not the maker');
   // No toolbar, no buttons, no ↑↓ in the maker — a drag of a name is the only edit.
   // (The keyboard's ↑ / ↓ keys move a HELD name — they are keys, not drawn arrows.)
   assert.doesNotMatch(MARCH_UI, /<ArrowUp|<ArrowDown|Walk earlier|Walk later|PickMenu|<button[^>]*>\s*(Move|Swap|Pair|Add)\b/);

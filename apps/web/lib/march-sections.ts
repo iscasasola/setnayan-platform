@@ -8,7 +8,7 @@
  */
 import { columnOfRole, ENTOURAGE_GROUP_KEYS, entourageGroupOfRole, isMarchOnlyGroup, orderedGroupKeys, type EntourageGroup, type EntouragePerson } from '@/lib/entourage';
 import { guestRoleLabel } from '@/lib/guests';
-import type { MarchPerson, MarchSection } from '@/lib/march-drag';
+import type { MarchOut, MarchPerson, MarchSection } from '@/lib/march-drag';
 
 /**
  * 🚶 The march as the maker draws it (owner 2026-10-06, "THE WEDDING MARCH ITEM IS
@@ -65,6 +65,7 @@ export function marchSections(groups: readonly EntourageGroup[]): MarchSection[]
           // The two people the event is for wear their word (the march's only role line).
           tag: p.role === 'groom' || p.role === 'bride' ? guestRoleLabel(p.role, names) : null,
           ...(tied(p, row) ? { tied: true } : {}),
+          ...(p.side ? { side: p.side } : {}),
         }
       : null;
   return groups
@@ -96,4 +97,18 @@ export function printedSectionOrder(groups: readonly EntourageGroup[], saved: re
     }
   }
   return orderedGroupKeys(saved).filter((k) => present.has(k));
+}
+
+/**
+ * 🚶 The "Not walking" tray (owner 2026-10-06): the people with a role who do
+ * not walk, each ONCE, with the march section their role puts them in — built
+ * by the same builder as the march (`{ march: true }`), so a person's section in
+ * the tray is the section they come back to.
+ */
+export function marchTray(groups: readonly EntourageGroup[]): MarchOut[] {
+  return marchSections(groups).flatMap((sec) =>
+    sec.rows.flatMap((row) =>
+      row.filter((p): p is MarchPerson => p !== null && p.id !== '').map((p) => ({ ...p, tied: undefined, section: sec.key, sectionLabel: sec.label })),
+    ),
+  );
 }

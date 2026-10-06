@@ -1,17 +1,23 @@
 'use client';
 
 import {
+  Component,
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
+import { reportCrash } from '@/lib/telemetry/report-crash';
 import { isMarchOnlyGroup } from '@/lib/entourage';
 import {
+  acrossTheAisle,
   keyTarget,
   leadOf,
   planMove,
@@ -20,13 +26,15 @@ import {
   sectionsMoved,
   readTarget,
   type MarchMove,
+  type MarchOut,
   type MarchSection,
   type MarchSource,
   type MarchStep,
 } from '@/lib/march-drag';
 import type { MarchResult } from '@/lib/march-result';
 import { setEntourageLineOrder } from '../../guests/entourage-order-actions';
-import { joinEntourageLine, moveEntourageSection, resetEntourageSections, swapEntouragePlaces } from '../../guests/march-actions';
+import { joinEntourageLine, moveEntourageSection, resetEntourageSections, setMarchWalking, swapEntouragePlaces } from '../../guests/march-actions';
+import { MarchTray } from './details-march-tray';
 import { unpairGuestAction } from '../../guests/pair-actions';
 import { HubSavesImmediately } from '../../website/_components/hub-draft-field';
 
@@ -71,6 +79,9 @@ const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col ju
 const partly = (reason: string) =>
   `${reason.replace(/\s*[—-]\s*nothing was changed\.?$/i, '.').replace(/\.\.$/, '.')} Part of the move was saved — the march shows where everyone is now.`;
 const LAB_SAVED: MarchResult = { ok: true, written: 1 };
+/* Stable empties: a fresh `[]` default every render would look like a new march from the server each time. */
+const NO_NAMES: readonly string[] = [];
+const NO_OUT: readonly MarchOut[] = [];
 const LAB_NO_RENDER = () => {};
 const LONG_PRESS_MS = 250;
 const SETTLE_MS = 240;
@@ -89,6 +100,8 @@ async function callStep(eventId: string, step: MarchStep): Promise<MarchResult> 
       return moveEntourageSection(eventId, step.section, step.direction);
     case 'sections-default':
       return resetEntourageSections(eventId);
+    case 'walking':
+      return setMarchWalking(eventId, step.guest, step.walks);
     case 'unpair':
       /* "they walk alone, right behind it" — the Guest list's own unpair, in place
          (a refusal is THROWN in this mode; the catch below says it). */
@@ -109,8 +122,8 @@ type Drag = {
   dir: number;
 };
 
-/** What the maker shows: the walks, and the printed sections' saved order (what a header drag steps through). */
-type Shown = { sections: MarchSection[]; printed: string[] };
+/** What the maker shows: the walks, the printed sections' saved order (what a header drag steps through), the tray. */
+type Shown = { sections: MarchSection[]; printed: string[]; out: MarchOut[] };
 type Toast = { said: string; undo: MarchStep[] | null; before: Shown | null; refused?: boolean };
 
 const reduced = () => typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
@@ -132,28 +145,99 @@ function scrollerOf(el: HTMLElement): HTMLElement {
   return (document.scrollingElement as HTMLElement) ?? document.documentElement;
 }
 
-/**
- * The march maker — the Wedding March item's page (Details › Your event).
- * `lab` (the dev Maker lab only): the steps are not sent, so the gestures can be
- * walked on fixture data with no database.
- */
-export function MarchMaker({
-  eventId,
-  sections,
-  printed = [],
-  lab = false,
-}: {
+type MarchMakerProps = {
   eventId: string;
   sections: readonly MarchSection[];
   /** The printed sections with someone in them, in the saved order (`printedSectionOrder`). */
   printed?: readonly string[];
+  /** 🚶 The "Not walking" tray (`marchTray`); null = it could not be read. */
+  out?: readonly MarchOut[] | null;
   lab?: boolean;
-}) {
+};
+
+/**
+ * 🧯 THE MARCH FAILS ALONE (controller 2026-10-06, after the owner's Maker went to
+ * the root crash card on the march — "Something on our end didn't work"). A
+ * throw inside the march draws ONE line in its own place — "The march couldn't
+ * load — Retry" — and every other part of the Maker stays where it was. Retry
+ * draws the march again from the server's copy (`requestMakerRefresh`). The
+ * failure is still recorded (`reportCrash`, boundary "march"), so a quiet
+ * fallback never becomes a silent one.
+ */
+export class MarchBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+  override componentDidCatch(error: Error): void {
+    reportCrash(error, 'march');
+  }
+  override render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <p role="alert" data-march-failed="" className="mx-auto max-w-md text-sm text-ink/70">
+        The march couldn’t load —{' '}
+        <button
+          type="button"
+          data-march-retry=""
+          onClick={() => {
+            this.setState({ failed: false });
+            requestMakerRefresh();
+          }}
+          className="min-h-9 font-semibold text-terracotta-800 underline underline-offset-2"
+        >
+          Retry
+        </button>
+      </p>
+    );
+  }
+}
+
+/**
+ * The march maker — the Wedding March item's page (Details › Your event).
+ * `lab` (the dev Maker lab only): the steps are not sent, so the gestures can be
+ * walked on fixture data with no database. Inside its own boundary (`MarchBoundary`).
+ */
+export function MarchMaker(props: MarchMakerProps) {
+  return (
+    <MarchBoundary>
+      <MarchMakerBody {...props} />
+    </MarchBoundary>
+  );
+}
+
+function MarchMakerBody({
+  eventId,
+  sections,
+  printed = NO_NAMES,
+  out = NO_OUT,
+  lab = false,
+}: MarchMakerProps) {
   /* The drop, drawn before the server answers; null = the server's march. */
   const [mine, setMine] = useState<Shown | null>(null);
   const shown = mine?.sections ?? (sections as MarchSection[]);
   const shownPrinted = mine?.printed ?? (printed as string[]);
-  const anyone = shown.length > 0;
+  const outUnread = out === null;
+  const shownOut = useMemo(() => mine?.out ?? ((out ?? []) as MarchOut[]), [mine, out]);
+  const anyone = shown.length > 0 || shownOut.length > 0;
+  /* 🚶 THE TRAY LIVES IN THE EDITOR'S PLACE (owner 2026-10-06): the phone's lower
+     third, the desk's right panel — `MarchTraySlot`, which the march's editor is.
+     Drawn there through a portal, so it is still THIS maker: one state, one drag. */
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  /* The slot moves: the guided step's sheet and All items' panel are different
+     parents, and a closed sheet drops it. Found again whenever the workspace's
+     tree changes — never a portal into a detached node. */
+  useEffect(() => {
+    const find = () => {
+      const el = document.querySelector<HTMLElement>('[data-march-tray-slot]');
+      setSlot((was) => (was === el ? was : el));
+    };
+    find();
+    const scope = root.current?.closest('[data-details-workspace]') ?? document.body;
+    const mo = new MutationObserver(find);
+    mo.observe(scope, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [anyone]);
   const [lifted, setLifted] = useState<string | null>(null);
   const [over, setOver] = useState<{ zone: string; ok: boolean } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -174,7 +258,7 @@ export function MarchMaker({
      more of this burst is still on its way. */
   useEffect(() => {
     if (inFlight.current === 0) setMine(null);
-  }, [sections, printed]);
+  }, [sections, printed, out]);
 
   const say = useCallback((t: Toast | null) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
@@ -240,13 +324,13 @@ export function MarchMaker({
         say({ said: plan.reason, undo: null, before: null, refused: true });
         return;
       }
-      commit({ sections: plan.sections, printed: plan.printed }, plan.steps, {
+      commit({ sections: plan.sections, printed: plan.printed, out: plan.out ?? shownOut }, plan.steps, {
         said: plan.said,
         undo: plan.undo,
-        before: { sections: shown, printed: shownPrinted },
+        before: { sections: shown, printed: shownPrinted, out: shownOut },
       });
     },
-    [commit, say, shown, shownPrinted],
+    [commit, say, shown, shownPrinted, shownOut],
   );
 
   const undo = () => {
@@ -327,19 +411,34 @@ export function MarchMaker({
   const upL = useRef((e: PointerEvent) => onUpRef.current(e));
   const cancelL = useRef(() => onCancelRef.current());
 
-  /** What the finger is over: a drop zone (a name, an empty spot, a gap), or the nearest gap in its section. */
+  /** Is this element the maker's — the march, its tray, or the tray's full list? */
+  const within = useCallback(
+    (el: Element | null) =>
+      Boolean(el && (root.current?.contains(el) || slot?.contains(el) || el.closest('[data-march-tray-sheet]'))),
+    [slot],
+  );
+
+  /** What the finger is over: a drop zone (a name, an empty spot, a gap, the tray), or the nearest gap in its section. */
   const hit = useCallback(
     (d: Drag) => {
       const box = root.current;
       if (!box) return;
       let zone: string | null = null;
       for (const el of document.elementsFromPoint(d.x, d.y)) {
-        if (!box.contains(el)) continue;
+        if (!within(el)) continue;
         const z = (el as HTMLElement).closest<HTMLElement>('[data-march-drop]');
-        // A walk lands only in a gap; a section only on a section's header; a name anywhere else.
+        // A walk lands only in a gap; a section only on a section's header; a name anywhere but a header;
+        // a tray name anywhere in the march (its role decides where it lands).
         const kind = z?.dataset.marchDrop?.split('|')[0];
-        const fits = d.source.kind === 'name' ? kind !== 'section' : d.source.kind === 'walk' ? kind === 'gap' : kind === 'section';
-        if (z && box.contains(z) && fits) {
+        const fits =
+          d.source.kind === 'name'
+            ? kind !== 'section'
+            : d.source.kind === 'out'
+              ? kind !== 'section' && kind !== 'tray'
+              : d.source.kind === 'walk'
+                ? kind === 'gap'
+                : kind === 'section';
+        if (z && within(z) && fits) {
           zone = z.dataset.marchDrop!;
           break;
         }
@@ -365,13 +464,14 @@ export function MarchMaker({
           break;
         }
       }
-      const plan = zone ? planMove(shown, shownPrinted, d.source, readTarget(zone)!) : null;
+      const to = zone ? readTarget(zone) : null;
+      const plan = to ? planMove(shown, shownPrinted, d.source, to, shownOut) : null;
       const next = plan ? zone : null;
       if (next === target.current) return;
       target.current = next;
       setOver(next && plan ? { zone: next, ok: plan.ok } : null);
     },
-    [shown, shownPrinted],
+    [shown, shownPrinted, shownOut, within],
   );
 
   const stopAll = useCallback(() => {
@@ -423,7 +523,9 @@ export function MarchMaker({
       });
       ghost.dataset.marchGhost = '';
       document.body.appendChild(ghost);
-      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller: scrollerOf(p.el), dir: 0 };
+      // A tray name scrolls the MARCH near its edges (the tray itself never scrolls).
+      const scroller = p.source.kind === 'out' && root.current ? scrollerOf(root.current) : scrollerOf(p.el);
+      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller, dir: 0 };
       ghost.style.transform = `translate(${x - drag.current.ox}px,${y - drag.current.oy}px) scale(1.03)`;
       setLifted(p.key);
       try {
@@ -472,12 +574,13 @@ export function MarchMaker({
     const zone = target.current;
     target.current = null;
     setOver(null);
-    const plan = zone ? planMove(shown, shownPrinted, d.source, readTarget(zone)!) : null;
+    const to = zone ? readTarget(zone) : null;
+    const plan = to ? planMove(shown, shownPrinted, d.source, to, shownOut) : null;
     landing.current = { ghost: d.ghost, key: d.key };
     if (plan) run(plan);
     // Nowhere to go: one more paint, and the ghost settles back where it came from.
     else redraw((n) => n + 1);
-  }, [run, shown, shownPrinted, stopAll]);
+  }, [run, shown, shownPrinted, shownOut, stopAll]);
 
   const onCancel = useCallback(() => {
     const d = drag.current;
@@ -500,10 +603,11 @@ export function MarchMaker({
   const onPointerDown = (e: ReactPointerEvent<HTMLElement>) => {
     if (e.button !== 0 || drag.current || pending.current) return;
     const el = (e.target as HTMLElement).closest<HTMLElement>('[data-march-drag]');
-    if (!el || !root.current?.contains(el)) return;
+    if (!el || !within(el)) return;
     const source = readSource(el.dataset.marchDrag);
     if (!source) return;
-    const key = source.kind === 'name' ? source.id : source.kind === 'walk' ? `walk:${source.lead}` : `section:${source.key}`;
+    const key =
+      source.kind === 'name' || source.kind === 'out' ? source.id : source.kind === 'walk' ? `walk:${source.lead}` : `section:${source.key}`;
     const touch = e.pointerType !== 'mouse';
     pending.current = { el, source, key, x: e.clientX, y: e.clientY, touch, pid: e.pointerId, timer: null };
     if (touch) pending.current.timer = setTimeout(() => lift(e.clientX, e.clientY), LONG_PRESS_MS);
@@ -523,6 +627,8 @@ export function MarchMaker({
       if (drag.current) e.preventDefault();
     };
     box?.addEventListener('touchmove', block, { passive: false });
+    // The tray too: a drag that starts on a tray chip is a touch whose first target is in the slot.
+    slot?.addEventListener('touchmove', block, { passive: false });
     const move = moveL.current;
     const up = upL.current;
     const cancel = cancelL.current;
@@ -534,12 +640,13 @@ export function MarchMaker({
       drag.current?.ghost.remove();
       drag.current = null;
       box?.removeEventListener('touchmove', block);
+      slot?.removeEventListener('touchmove', block);
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', cancel);
     };
-    // Re-attached when the maker first has someone to draw (the empty state has no root).
-  }, [anyone]);
+    // Re-attached when the maker first has someone to draw (the empty state has no root), and when the tray's slot is found.
+  }, [anyone, slot]);
   /** ⌨ The same drops, from the keyboard. */
   const onKeyDown = (e: ReactKeyboardEvent<HTMLElement>) => {
     const el = e.target as HTMLElement;
@@ -554,7 +661,8 @@ export function MarchMaker({
       if (carried) {
         e.preventDefault();
         const zone = el.closest<HTMLElement>('[data-march-drop]')?.dataset.marchDrop;
-        const plan = zone ? planMove(shown, shownPrinted, carried.source, readTarget(zone)!) : null;
+        const to = zone ? readTarget(zone) : null;
+        const plan = to ? planMove(shown, shownPrinted, carried.source, to, shownOut) : null;
         setCarried(null);
         refocus.current = carried.key;
         if (plan) run(plan);
@@ -573,7 +681,7 @@ export function MarchMaker({
     if (carried && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
       e.preventDefault();
       const to = keyTarget(shown, carried.source, e.key === 'ArrowUp' ? -1 : 1);
-      const plan = to ? planMove(shown, shownPrinted, carried.source, to) : null;
+      const plan = to ? planMove(shown, shownPrinted, carried.source, to, shownOut) : null;
       refocus.current = carried.key;
       if (plan) run(plan);
       setHeard(plan ? (plan.ok ? plan.said : plan.reason) : `${carried.name} cannot go further.`);
@@ -629,6 +737,17 @@ export function MarchMaker({
         <span className="text-center">Left</span>
         <span className="text-center">Right</span>
       </div>
+      {shown.length === 0 ? (
+        /* Nobody walks yet, but the tray holds people: the whole march is where they land. */
+        <div
+          data-march-drop="gap|*|0"
+          className={`mt-3 flex min-h-24 items-center justify-center rounded-xl border-[1.5px] border-dashed px-4 text-center text-sm ${
+            over?.zone === 'gap|*|0' ? 'border-terracotta-700 text-terracotta-800' : 'border-ink/15 text-ink/55'
+          }`}
+        >
+          Drag a name here from Not walking.
+        </div>
+      ) : null}
       {shown.map((sec) => {
         /* 🚶 A section moves by dragging its HEADER — every one but the groom's
            side (always first) and the bride's (always last). */
@@ -659,6 +778,9 @@ export function MarchMaker({
             step += 1;
             const lead = leadOf(row);
             const walkKey = `walk:${lead}`;
+            /* 🚶 Drawn across the aisle by role and side (owner 2026-10-06 — Ninong left,
+               Ninang right; the groom's crew left, the bride's right): `acrossTheAisle`. */
+            const laid = acrossTheAisle(row);
             return (
               <div key={lead || i} className="flex flex-col">
                 <div
@@ -679,7 +801,7 @@ export function MarchMaker({
                     {step}
                   </span>
                   {[0, 1].map((c) => {
-                    const p = row[c as 0 | 1];
+                    const p = laid[c as 0 | 1];
                     if (p) {
                       const zone = `name|${p.id}`;
                       return (
@@ -706,7 +828,7 @@ export function MarchMaker({
                         </div>
                       );
                     }
-                    const anchor = row[c === 0 ? 1 : 0];
+                    const anchor = laid[c === 0 ? 1 : 0];
                     const zone = `beside|${anchor?.id ?? ''}`;
                     return (
                       <div
@@ -742,6 +864,18 @@ export function MarchMaker({
           Put the sections back in their usual order
         </button>
       ) : null}
+      {slot
+        ? createPortal(
+            <MarchTray
+              out={shownOut}
+              unread={outUnread && !mine}
+              lifted={lifted}
+              over={over?.zone === 'tray' ? over.ok : null}
+              carried={carried?.key ?? null}
+            />,
+            slot,
+          )
+        : null}
       <p aria-live="polite" className="sr-only" data-march-heard="">
         {heard}
       </p>

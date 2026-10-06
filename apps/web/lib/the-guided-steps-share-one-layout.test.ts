@@ -86,6 +86,16 @@ test('(1) every step of every stage: half sheet, ONE header row, the field, the 
       const html = await paintStep(s.key, round, s.items[0]!);
       const sheet = sheetOf(html);
       const where = `${s.key} on ${round}`;
+      /* 🚶 THE ONE EXCEPTION (owner, live iPhone 2026-10-06): under the Wedding March the lower third is
+         the "Not walking" tray ONLY — no step ▾, no Back · Skip · Next in the sheet; the march's own foot
+         follows its last walk (`march-tray-fits-without-scrolling.test.ts` holds the rest). */
+      if (s.key === 'march') {
+        assert.doesNotMatch(sheet, /data-details-guide-steps=""/, `${where}: the step ▾ is over the march's tray`);
+        assert.doesNotMatch(sheet, /data-details-guide-foot-sheet=""/, `${where}: Back · Skip · Next are under the march`);
+        assert.match(html, /data-march-guide-foot=""/, `${where}: the flow cannot go on from the march`);
+        walked++;
+        continue;
+      }
       // Half, at rest.
       const aside = sheet.slice(0, sheet.indexOf('>') + 1);
       assert.match(aside, /data-half-sheet="half"/, `${where}: not at half`);
@@ -226,7 +236,7 @@ test('(6) the logo step: "Do you want a logo?" is in its sheet; the logo shows w
   assert.match(details, /max-lg:group-data-\[details-mode=guided\]\/ws:hidden" data-details-logo-strip=""/, 'the answer strip still shows over the logo in the flow');
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /className="group\/ws flex h-full/, 'the workspace no longer names the group the tools dress by');
-  assert.match(ws, /\{editorsBody\(false\)\}\s*\{at\?\.kind === 'step' \? \(/, 'a step whose item draws its own tools hides its field');
+  assert.match(ws, /\{editorsBody\(false\)\}\s*(\{\s*(\/\*[\s\S]*?\*\/)?\s*\}\s*)?\{at\?\.kind === 'step'( && !marchHere)? \? \(/, 'a step whose item draws its own tools hides its field');
   const logo = read(`${L}/maker-logo.tsx`);
   assert.match(logo, /data-logo-guides=""\s*className="group-data-\[details-mode=guided\]\/ws:hidden"/, 'the editor guide lines show in the flow');
   assert.match(logo, /max-lg:group-data-\[details-mode=guided\]\/ws:max-w-\[min\(100%,calc\(55dvh-8rem\)\)\]/, 'the logo is not fitted above the sheet');
@@ -569,7 +579,8 @@ test('(22) touch a field → Skip asks; open only → Skip goes — a custom pic
   // Wired: the workspace hears the pickers, and Skip says it is Skip.
   const ws = read(`${L}/details-workspace.tsx`);
   assert.match(ws, /const kinds = \['input', 'change', 'click', MAKER_TOUCH_EVENT\];/, 'the step no longer hears the custom pickers');
-  assert.equal(ws.match(/move\(skipScreen\(plan!?, at\), 'skip'\)/g)?.length, 3, 'a Skip button no longer says it is Skip');
+  // (4 since 2026-10-06: the march's own foot, after its last walk — its lower third is the tray.)
+  assert.equal(ws.match(/move\(skipScreen\(plan!?, at\), 'skip'\)/g)?.length, 4, 'a Skip button no longer says it is Skip');
   assert.match(ws, /leaveAsks\(\{ via, unsaved: hasUnsavedEdits\(/);
   assert.match(ws, /const t = touchOrigin\(e\.target, document\);/, 'a pick in the one dropdown\'s portalled list is outside the step again');
   assert.match(ws, /noteStepTouch\(touchRef\.current, e, t, stepScopesOf\(rootRef\.current, items\)\.find\(\(sc\) => sc\.contains\(t\)\) \?\? null\);/, 'the step notes touches some other way — a live control can mark it changed again');

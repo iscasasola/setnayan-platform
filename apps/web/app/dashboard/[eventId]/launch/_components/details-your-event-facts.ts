@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { eventWordsFromProfile } from '@/app/[slug]/_lib/event-words';
-import { loadEntourage } from '@/app/[slug]/_lib/loaders';
+import { loadMarch } from '@/app/[slug]/_lib/loaders';
 import { ENTOURAGE_ROLES } from '@/lib/entourage';
 import { baziBirthDataEnabled } from '@/lib/bazi-birthdata';
 import { isChineseWedding } from '@/lib/chinese-wedding';
@@ -99,13 +99,15 @@ export async function readYourEventFacts({
     if (drafted && c in drafted) (row as Record<string, unknown>)[c] = drafted[c];
   }
 
-  const [profile, roleSet, bookings, groups] = await Promise.all([
+  const [profile, roleSet, bookings, march] = await Promise.all([
     resolveProfile(row.event_type ?? 'wedding'),
     resolveRoleSetForEvent(eventId),
     loadVenueBookings(admin, eventId, draftedVenue ?? undefined),
-    /* 🚶 The march as the maker draws it — the couple's sides too (owner 2026-10-06). */
-    loadEntourage(admin, eventId, undefined, true),
+    /* 🚶 The march as the maker draws it — the couple's sides too, and the
+       "Not walking" tray beside it (owner 2026-10-06). */
+    loadMarch(admin, eventId),
   ]);
+  const groups = march.walking;
   const words = eventWordsFromProfile(profile);
   const kind = { words, offeredRoles: roleSet.offeredRoles };
 
@@ -135,6 +137,8 @@ export async function readYourEventFacts({
     precision,
     bookings,
     groups,
+    /** 🚶 The "Not walking" tray, built like the march; null = unread (never "nobody"). */
+    notWalking: march.out,
     venues,
     people,
     chinese,

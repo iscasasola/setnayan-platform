@@ -44,7 +44,13 @@ const namesOf = (line: readonly (EntouragePerson | null)[]): string =>
  */
 export function marchPlaceOf(groups: readonly EntourageGroup[], guestId: string | null | undefined): MarchPlace | null {
   if (!guestId) return null;
-  const lines = groups.flatMap((g) => g.rows);
+  /* 🚶 The "Not walking" tray (owner 2026-10-06): a person there still prints
+     under their role, but is no place in the walking ORDER — never "You walk
+     Nth", never counted, never the one somebody walks after. */
+  const lines = groups
+    .flatMap((g) => g.rows)
+    .map((line) => line.map((p) => (p && p.notWalking ? null : p)) as unknown as typeof line)
+    .filter((line) => line.some((p) => p !== null));
   const at = lines.findIndex((line) => line.some((p) => p?.id === guestId));
   if (at === -1) return null;
   const line = lines[at]!;

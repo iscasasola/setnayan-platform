@@ -244,3 +244,66 @@ export function reloadForDeploymentSkew(
   }
   return reloadForStaleBundle(storage, reload);
 }
+
+/**
+ * ── A FOURTH SHAPE: A REQUEST THE PHONE CUT OFF (2026-10-06) ────────────────
+ *
+ * Incident: the owner's Maker, on his iPhone, on the Wedding March — the root
+ * crash card at 01:17Z. He did nothing: he left the tab and came back. The
+ * Problems list (`app_telemetry_logs`, PAGE_CRASH) recorded the ONE line:
+ *
+ *     TypeError: Load failed
+ *
+ * That is Safari's wording for a `fetch` that never finished — the request was
+ * cut (a tab sent to the background suspends its connections; a deploy landed
+ * at 01:15Z while a march save was still streaming its reply; the network
+ * dropped). Two minutes earlier the same tab logged a march save with "no
+ * answer after 15s" (BUTTON_TIMEOUT, `joinEntourageLine`). A Server Action's
+ * reply carries the re-rendered page whenever the action revalidates — and the
+ * march's do — so when the stream is cut mid-reply, the half-read page throws
+ * the transport error INTO RENDERING, and the nearest boundary is the root.
+ *
+ * 🔑 NOTHING IS WRONG WITH THE EVENT, AND THE PERSON IS TOLD THE OPPOSITE. The
+ * write had either landed or not; a reload shows which. Same remedy as the
+ * three shapes above, the same ONE-per-session budget.
+ *
+ * ⚠ MATCHED EXACTLY, NEVER AS A SUBSTRING. These are the WHOLE messages each
+ * engine gives a `fetch` that failed at the network — a `TypeError` with
+ * nothing else in it. An application bug does not produce them; a message that
+ * merely contains "failed to fetch" (a failed dynamic import, which is a stale
+ * SCRIPT) is the first shape's, not this one's.
+ */
+const INTERRUPTED_REQUEST_MESSAGES = [
+  /^load failed\.?$/i, // Safari
+  /^failed to fetch\.?$/i, // Chromium
+  /^networkerror when attempting to fetch resource\.?$/i, // Firefox
+  /^the network connection was lost\.?$/i, // Safari, mid-stream
+];
+
+export function isInterruptedRequestError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const e = error as { name?: unknown; message?: unknown };
+  if (e.name !== 'TypeError') return false;
+  const message = typeof e.message === 'string' ? e.message.trim() : '';
+  return INTERRUPTED_REQUEST_MESSAGES.some((p) => p.test(message));
+}
+
+/**
+ * Reload once for a cut-off request — but not into an offline page: when the
+ * browser says it is offline, the reload waits for it to be back (`whenOnline`).
+ * Shares `STALE_RELOAD_KEY`'s one-per-session budget; the marker is written
+ * before anything waits, so a second failure while waiting cannot queue a
+ * second reload.
+ */
+export function reloadForInterruptedRequest(
+  storage: Pick<Storage, 'getItem' | 'setItem'>,
+  reload: () => void,
+  online: boolean,
+  whenOnline: (go: () => void) => void,
+): boolean {
+  if (storage.getItem(STALE_RELOAD_KEY)) return false;
+  storage.setItem(STALE_RELOAD_KEY, '1');
+  if (online) reload();
+  else whenOnline(reload);
+  return true;
+}

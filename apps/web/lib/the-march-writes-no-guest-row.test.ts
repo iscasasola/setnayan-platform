@@ -30,7 +30,8 @@ const WRITERS = [
 ];
 
 /** The march's own SQL functions — each writes `march_walks` only. */
-const MARCH_RPCS = new Set(['join_entourage_line', 'swap_entourage_places', 'set_entourage_order', 'unpair_guest']);
+// + the "Not walking" tray's one writer (2026-10-06) — `march_not_walking` / `march_walks` only, never a guest row.
+const MARCH_RPCS = new Set(['join_entourage_line', 'swap_entourage_places', 'set_entourage_order', 'unpair_guest', 'set_march_walking']);
 
 test('the march’s writers never write a guest row', () => {
   for (const file of WRITERS) {

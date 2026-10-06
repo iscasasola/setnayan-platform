@@ -15,6 +15,7 @@ import {
 } from '@/lib/details-your-event';
 import type { VenueSlot } from './details-your-event';
 import type { MarchSectionData } from './details-march';
+import type { MarchOut } from '@/lib/march-drag';
 import type { HostPiece, PersonPiece } from './details-people';
 /* ⚡ Your event's editors and pictures load when Details is opened — never with the Maker (`details-lazy.tsx`). */
 import {
@@ -85,6 +86,8 @@ export type YourEventInput = {
     sections: readonly MarchSectionData[];
     /** The printed sections with someone in them, in the saved order (`printedSectionOrder`) — what a header drag steps through. */
     printed?: readonly string[];
+    /** 🚶 The "Not walking" tray (`marchTray`); null = it could not be read. */
+    out?: readonly MarchOut[] | null;
     /** The dev Maker lab only (`/dev/maker-lab`): the drags are drawn, never sent. */
     lab?: boolean;
   };
@@ -177,7 +180,15 @@ export function yourEventParts({
       />
     ),
     /* 🚶 The page IS the maker (drag the names) — the body on a phone, the middle on a desk. */
-    march: <MarchMaker eventId={eventId} sections={input.march.sections} printed={input.march.printed ?? []} lab={input.march.lab === true} />,
+    march: (
+      <MarchMaker
+        eventId={eventId}
+        sections={input.march.sections}
+        printed={input.march.printed ?? []}
+        out={input.march.out === undefined ? [] : input.march.out}
+        lab={input.march.lab === true}
+      />
+    ),
   };
 
   const editors: Partial<Record<EventItemKey, ReactNode>> = {
@@ -194,13 +205,14 @@ export function yourEventParts({
         add={<ParentCards eventId={eventId} parents={parents} />}
       />
     ),
-    /* What prints — The Entourage card, redrawn after each burst of moves —
-       and 👪 PARENTS & HOSTS, held by the march now (owner 2026-10-06, "EVENT
-       DETAILS IS REBUILT": parents walk). The SAME list + add the Parents item
-       and the Invitation's switch draw (`ParentCards`), in place. */
+    /* 🚶 The "Not walking" tray's place — the phone's lower third, the desk's right
+       panel (owner 2026-10-06). The maker draws the tray INTO it (one state, one drag).
+       No Entourage card here: owner, *"No need to show the pdf file."* — and 👪
+       PARENTS & HOSTS, held by the march now (owner 2026-10-06, "EVENT DETAILS IS
+       REBUILT": parents walk), under it (`ParentCards`), in place. */
     march: (
-      <div className="flex flex-col gap-4">
-        <PrintPieceBody input={prints} piece="entourage" />
+      <div className="flex min-h-0 flex-1 flex-col gap-4">
+        <div data-march-tray-slot="" className="flex min-h-0 flex-1 flex-col" />
         {offered ? (
           <section data-march-parents="" className="flex flex-col gap-2 border-t border-ink/10 pt-4">
             <h3 className="text-[15px] font-semibold text-ink">{yourEventLabel('parents', kind)}</h3>

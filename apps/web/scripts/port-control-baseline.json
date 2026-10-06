@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "aaa938899",
+  "generatedFromRef": "c8a4e024f",
   "routeCount": 428,
   "destinations": 947,
   "actions": 670,
-  "blocks": 5523,
+  "blocks": 5526,
   "routes": {
     "/": {
       "files": [
@@ -6440,6 +6440,7 @@
         "dashboard/[eventId]/launch/_components/details-guided-progress.ts",
         "dashboard/[eventId]/launch/_components/details-lazy.tsx",
         "dashboard/[eventId]/launch/_components/details-look-pages.tsx",
+        "dashboard/[eventId]/launch/_components/details-march-tray.tsx",
         "dashboard/[eventId]/launch/_components/details-march.tsx",
         "dashboard/[eventId]/launch/_components/details-people.tsx",
         "dashboard/[eventId]/launch/_components/details-piece.tsx",
@@ -6653,8 +6654,11 @@
         "MakerState",
         "MakerTool",
         "MakerTour",
+        "MarchBoundary",
         "MarchMaker",
+        "MarchMakerBody",
         "MarchResult",
+        "MarchTray",
         "MenuHeading",
         "MenuItem",
         "MessageEventSource",

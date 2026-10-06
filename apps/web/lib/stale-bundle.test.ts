@@ -6,8 +6,10 @@ import { join } from 'node:path';
 import {
   DEPLOYMENT_SKEW_FAILURE_KEY,
   isDeploymentSkewError,
+  isInterruptedRequestError,
   isStaleBundleError,
   reloadForDeploymentSkew,
+  reloadForInterruptedRequest,
   reloadForStaleBundle,
   STALE_RELOAD_KEY,
 } from './stale-bundle';
@@ -279,5 +281,59 @@ test('both boundaries check deployment skew BEFORE the generic stale-bundle chec
       src.indexOf('isDeploymentSkewError(error)') < src.indexOf('isStaleBundleError(error)'),
       `${f} checks the generic shape before the specific one`,
     );
+  }
+});
+
+/* ── THE FOURTH SHAPE: a request the phone cut off (2026-10-06) ─────────── */
+
+test('THE OWNER\'S CRASH: Safari\'s "Load failed" is a cut-off request, not a crash', () => {
+  // The one line the Problems list recorded for the owner's Wedding March crash
+  // card (PAGE_CRASH, 2026-10-06 01:17Z, build ce5240d) — he had left the tab.
+  assert.ok(isInterruptedRequestError(new TypeError('Load failed')));
+  assert.ok(isInterruptedRequestError(new TypeError('Failed to fetch')), 'Chromium');
+  assert.ok(isInterruptedRequestError(new TypeError('NetworkError when attempting to fetch resource.')), 'Firefox');
+  assert.ok(isInterruptedRequestError(new TypeError('The network connection was lost.')), 'Safari mid-stream');
+});
+
+test('a cut-off request is matched EXACTLY — a real bug that mentions it is not', () => {
+  for (const real of [
+    new Error('Load failed'), // not a TypeError: not what fetch throws
+    new TypeError('Image load failed for /x.jpg'),
+    new TypeError('Font load failed'),
+    new TypeError('Failed to fetch dynamically imported module: /_next/x.js'), // the first shape, not this one
+    new TypeError("Cannot read properties of undefined (reading 'rows')"),
+    new TypeError('failed to fetch the guest list: permission denied'),
+  ]) {
+    assert.equal(isInterruptedRequestError(real), false, `"${real.message}" must reach a human`);
+  }
+  assert.equal(isInterruptedRequestError(null), false);
+  assert.equal(isInterruptedRequestError('Load failed'), false, 'a bare string is not an error');
+});
+
+test('a cut-off request reloads once — online at once, offline only when back online', () => {
+  const s = fakeStorage();
+  let reloads = 0;
+  assert.equal(reloadForInterruptedRequest(s, () => (reloads += 1), true, () => assert.fail('online: no wait')), true);
+  assert.equal(reloads, 1);
+  // …and never twice in a session (shared with the other shapes' budget).
+  assert.equal(reloadForInterruptedRequest(s, () => (reloads += 1), true, () => {}), false);
+  assert.equal(reloadForStaleBundle(s, () => (reloads += 1)), false, 'one budget for every shape');
+  assert.equal(reloads, 1);
+
+  const off = fakeStorage();
+  let waiting: (() => void) | null = null;
+  let offReloads = 0;
+  assert.equal(reloadForInterruptedRequest(off, () => (offReloads += 1), false, (go) => (waiting = go)), true);
+  assert.equal(offReloads, 0, 'never reloads into an offline page');
+  assert.equal(off.getItem(STALE_RELOAD_KEY), '1', 'the budget is spent BEFORE it waits');
+  assert.equal(reloadForInterruptedRequest(off, () => (offReloads += 1), false, (go) => (waiting = go)), false);
+  (waiting as unknown as () => void)();
+  assert.equal(offReloads, 1);
+});
+
+test('both root boundaries handle the cut-off request', () => {
+  for (const f of ['app/error.tsx', 'app/global-error.tsx']) {
+    const src = readFileSync(join(process.cwd(), f), 'utf8');
+    assert.match(src, /isInterruptedRequestError\(error\)[\s\S]{0,600}reloadForInterruptedRequest\(/, f);
   }
 });

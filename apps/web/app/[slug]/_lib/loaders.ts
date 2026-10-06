@@ -1916,12 +1916,13 @@ export const loadEntourage = cache(
     admin: AdminClient,
     eventId: string,
     nameStyle?: NameStyle,
-    /* 🚶 The Maker's Wedding March only (owner 2026-10-06): the couple and their
-       sides too (`MARCH_ROLES`, built with `{ march: true }`). Never set
-       by a public read — what prints is unchanged. */
-    march?: boolean,
   ): Promise<EntourageGroup[]> => {
-    const roles = march ? MARCH_ROLES : ENTOURAGE_ROLES;
+    const roles = ENTOURAGE_ROLES;
+    /* 🚶 Who is in the march's "Not walking" tray (owner 2026-10-06): they still
+       PRINT under their role — only the walking order ("You walk Nth",
+       `marchPlaceOf`) leaves them out. Unread → nobody marked (they print either way). */
+    // Started NOW (a query builder only runs when awaited), beside the guests read — never a serial round-trip.
+    const trayRead = Promise.resolve(admin.from('march_not_walking').select('guest_id').eq('event_id', eventId));
     const { data, error } = await admin
       .from('guests')
       /*
@@ -1962,12 +1963,62 @@ export const loadEntourage = cache(
       logQueryError('loadEntourage', error, { event_id: eventId }, 'graceful_degrade');
       return [];
     }
+    const tray = await trayRead;
+    if (tray.error) logQueryError('loadEntourage tray', tray.error, { event_id: eventId }, 'graceful_degrade');
+    const out = new Set(((tray.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
     return buildEntourage(
-      (data ?? []) as EntourageGuestRow[],
+      ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),
       await loadEntourageSectionOrder(admin, eventId),
       await loadEventRoleNames(admin, eventId),
       nameStyle ?? (await loadEventNameStyle(admin, eventId)),
-      march ? { march: true } : undefined,
     );
+  },
+);
+
+/**
+ * 🚶 THE MAKER'S WEDDING MARCH (owner 2026-10-06) — never a public read.
+ *
+ * `walking`: everyone who walks, the couple and their sides too (`MARCH_ROLES`,
+ * built with `{ march: true }`), each with `guests.side` for their walk side.
+ * `out`: the "Not walking" tray (`march_not_walking`) built the same way —
+ * people with a role who do not walk; null when the tray could not be read
+ * (never "nobody": an unread tray must not look like an empty one).
+ *
+ * 🔑 What PRINTS is `loadEntourage` above, unchanged: a person in the tray still
+ * prints under their role — only the walking order leaves them out.
+ */
+export const loadMarch = cache(
+  async (
+    admin: AdminClient,
+    eventId: string,
+  ): Promise<{ walking: EntourageGroup[]; out: EntourageGroup[] | null }> => {
+    const roles = MARCH_ROLES;
+    const [guestRes, trayRes] = await Promise.all([
+      admin
+        .from('guests')
+        .select(`${ENTOURAGE_COLUMNS}, side`)
+        .eq('event_id', eventId)
+        .is('deleted_at', null)
+        .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`),
+      admin.from('march_not_walking').select('guest_id').eq('event_id', eventId),
+    ]);
+    if (guestRes.error) {
+      logQueryError('loadMarch', guestRes.error, { event_id: eventId }, 'graceful_degrade');
+      return { walking: [], out: null };
+    }
+    if (trayRes.error) logQueryError('loadMarch tray', trayRes.error, { event_id: eventId }, 'graceful_degrade');
+    const outIds = trayRes.error ? null : new Set(((trayRes.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
+    const rows = (guestRes.data ?? []) as EntourageGuestRow[];
+    const [order, names, style] = await Promise.all([
+      loadEntourageSectionOrder(admin, eventId),
+      loadEventRoleNames(admin, eventId),
+      loadEventNameStyle(admin, eventId),
+    ]);
+    const build = (these: EntourageGuestRow[]) => buildEntourage(these, order, names, style, { march: true });
+    if (!outIds) return { walking: build(rows), out: null };
+    return {
+      walking: build(rows.filter((r) => !r.guest_id || !outIds.has(r.guest_id))),
+      out: build(rows.filter((r) => r.guest_id && outIds.has(r.guest_id))),
+    };
   },
 );

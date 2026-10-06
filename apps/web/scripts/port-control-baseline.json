@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "c30275c51",
+  "generatedFromRef": "7c3b33b12",
   "routeCount": 428,
   "destinations": 948,
   "actions": 670,
-  "blocks": 5554,
+  "blocks": 5556,
   "routes": {
     "/": {
       "files": [
@@ -6769,8 +6769,10 @@
         "StudioSideSwitch",
         "StudioSwitch",
         "StudioTileKey",
+        "StudioTool",
         "StudioToolMenu",
         "StudioToolRow",
+        "StudioWhatToBring",
         "Suspense",
         "Switch",
         "SwitchRow",

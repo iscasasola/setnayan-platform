@@ -75,7 +75,8 @@ function capital(s: string): string {
 export function yourEventLabel(key: EventItemKey, kind: YourEventKind): string {
   switch (key) {
     case 'names':
-      return kind.words.twoPeople ? 'Names' : 'Name';
+      // "Event Name", never "Names" (owner 2026-10-06, "EVENT DETAILS IS REBUILT").
+      return 'Event Name';
     case 'date':
       return 'Date';
     case 'venues':

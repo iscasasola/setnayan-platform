@@ -194,8 +194,21 @@ export function yourEventParts({
         add={<ParentCards eventId={eventId} parents={parents} />}
       />
     ),
-    /* What prints — The Entourage card, redrawn after each burst of moves. */
-    march: <PrintPieceBody input={prints} piece="entourage" />,
+    /* What prints — The Entourage card, redrawn after each burst of moves —
+       and 👪 PARENTS & HOSTS, held by the march now (owner 2026-10-06, "EVENT
+       DETAILS IS REBUILT": parents walk). The SAME list + add the Parents item
+       and the Invitation's switch draw (`ParentCards`), in place. */
+    march: (
+      <div className="flex flex-col gap-4">
+        <PrintPieceBody input={prints} piece="entourage" />
+        {offered ? (
+          <section data-march-parents="" className="flex flex-col gap-2 border-t border-ink/10 pt-4">
+            <h3 className="text-[15px] font-semibold text-ink">{yourEventLabel('parents', kind)}</h3>
+            <ParentCards eventId={eventId} parents={parents} />
+          </section>
+        ) : null}
+      </div>
+    ),
   };
 
   /* 🧩 The tools' own pieces on the left (DECISION_LOG "A TOOL MOVED INTO THE

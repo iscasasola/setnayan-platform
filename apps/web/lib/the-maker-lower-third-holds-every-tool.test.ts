@@ -185,7 +185,8 @@ test('3 · ‹ › step within the tile’s own group — scene to scene, never 
   // Every layer's tiles say their group — the scene strip's included, so a scene sheet’s ‹ › work.
   const work = read(`${E}/editor-shell.tsx`);
   assert.match(work, /data-lt-tile=\{tile\.key\}\s*data-lt-group="scenes"/, 'a scene tile is not a tile of the navigator — the scene sheet’s ‹ › do nothing');
-  for (const [file, group] of [[`${L}/details-workspace.tsx`, 'details'], [`${L}/details-workspace.tsx`, 'look'], [`${L}/maker-rsvp-stage.tsx`, 'rsvp'], [`${L}/maker-logo.tsx`, 'logo']] as const) {
+  /* 🗂 2026-10-06: Look's sections are Event Details items (one 'details' group of tiles), no 'look' parts. */
+  for (const [file, group] of [[`${L}/details-workspace.tsx`, 'details'], [`${L}/maker-rsvp-stage.tsx`, 'rsvp'], [`${L}/maker-logo.tsx`, 'logo']] as const) {
     assert.match(read(file), new RegExp(`data-lt-group="${group}"`), `${file}: its tiles have no group`);
   }
   assert.match(read(`${L}/maker-lower-third.tsx`), /data-lt-group=\{group\}/);
@@ -205,15 +206,16 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
   // Page ▾'s stages → the menu's Stages; its pages → a stage's PARTS (`pickPage`).
   assert.match(shellSrc, /const ltStages = MAKER_PAGE_STAGES\.filter/);
   assert.match(shellSrc, /\(\) => pickPage\(o\.key\),/, 'a stage’s pages are not its parts');
-  // Look → Theme · Event Details → Details (the same doors, on the navigator).
-  assert.match(shellSrc, /if \(key === 'theme'\) return openDoorOnNavigator\('look'\);/);
-  assert.match(shellSrc, /if \(key === 'details'\) return openDoorOnNavigator\('details'\);/);
+  // 🗂 Global settings MIRRORS Event Details (owner 2026-10-06): Look · Story & plans ·
+  // Your event · Prints — each opens Event Details on that part, on the navigator.
+  assert.match(shellSrc, /const sec = SECTION_OF_LT_PICK\[key\];\s*if \(sec\) return openSection\(sec\);/);
+  assert.match(shellSrc, /const SECTION_OF_LT_PICK: Record<string, DetailsLtSection \| undefined> = \{ theme: 'look', story: 'story', details: 'event', prints: 'prints' \};/);
   // Page ▾'s other rows and the canvas's Event Bar → Settings.
   const settings = shellSrc.slice(shellSrc.indexOf("ltPick === 'settings'"), shellSrc.indexOf(': isStagePhase(ltPick)'));
   const DOORS: Array<[string, RegExp]> = [
     ['Event Bar', /key: 'event-bar'[\s\S]*?toggle: true, on: eventBar\.on, onPick: eventBar\.toggle/],
     ['Who can view', /key: 'who'[\s\S]*?onPick: \(\) => setMoreOpen\(true\)/],
-    ['Prints', /key: 'prints'[\s\S]*?openDoorOnNavigator\('prints'\)/],
+    ['Prints', /key: 'prints'[\s\S]*?openSection\('prints'\)/],
     ['Restore what guests see', /key: 'restore'[\s\S]*?draft\.restore\(\)/],
     ['Reset this stage…', /key: 'reset'[\s\S]*?new Event\(MAKER_OPEN_RESET_EVENT\)/],
     ['About the Maker', /key: 'about'[\s\S]*?setTour\(true\)/],
@@ -235,12 +237,14 @@ test('4 · every control the bottom bar, Page ▾ and the floating Event Bar hel
 
 test('4 · a jump to another item (Look → the address, the Mood Board, the love story) moves the pick with it — never snaps back', () => {
   // The door IS the item's (`makerDoorOf`) — on the navigator and on the menu alike.
-  assert.equal(makerDoorOf('theme'), 'look');
-  assert.equal(makerDoorOf('mood-board'), 'look');
+  // 🗂 ONE door since 2026-10-06: a Look item is Event Details'.
+  assert.equal(makerDoorOf('theme'), 'details');
+  assert.equal(makerDoorOf('mood-board'), 'details');
+  assert.equal(makerDoorOf('pass'), 'prints');
   assert.equal(makerDoorOf('address'), 'details');
   assert.equal(makerDoorOf('love-story'), 'details');
   const ws = read(`${L}/details-workspace.tsx`);
-  assert.match(ws, /const ltDoor = makerDoorOf\(selected\);/, 'the navigator lists another door’s items than the picked one’s');
+  assert.match(ws, /const here = ltSection\(selected\);/, 'the navigator lists another part’s items than the picked one’s');
   assert.doesNotMatch(ws, /firstOfDoor|select\(firstOf/, 'a jump is snapped back to the first item of the old door');
   const shellSrc = read(`${L}/maker-shell.tsx`);
   assert.match(shellSrc, /const doorShown: MakerDoor \| null =\s*selection\?\.kind === 'tool' && selection\.key === 'details' && \(openDoor === 'look' \|\| openDoor === 'details' \|\| openDoor === 'prints'\)\s*\? openDoor/, 'the menu’s pick does not follow the item on screen');
@@ -350,9 +354,12 @@ test('🔑 6 · after Settings › Prints, a later Theme/Details mount lands on 
   assert.equal(panelOpen(await mount({ detailsDoor: 1, lowerThird: false })), true, 'anti-vacuity: the desktop door no longer opens');
   // …and the lower third's Prints tile opens on the NAVIGATOR (its print tiles), never as a door press.
   const shell = read(`${L}/maker-shell.tsx`);
-  const prints = shell.slice(shell.indexOf("key: 'prints', label: MAKER_PRINTS_LABEL"));
-  assert.match(prints.slice(0, 300), /onPick: \(\) => openDoorOnNavigator\('prints'\)/, 'the Prints tile presses a door again');
-  const nav = shell.slice(shell.indexOf('const openDoorOnNavigator'), shell.indexOf('const openDoorOnNavigator') + 400);
+  /* Settings' own Prints tile (the menu's Prints row, 2026-10-06, has no onPick of its own). */
+  const settingsRows = shell.slice(shell.indexOf("ltPick === 'settings'"));
+  const prints = settingsRows.slice(settingsRows.indexOf("key: 'prints', label: MAKER_PRINTS_LABEL"));
+  assert.match(prints.slice(0, 300), /onPick: \(\) => openSection\('prints'\)/, 'the Prints tile presses a door again');
+  const nav = shell.slice(shell.indexOf('const openSection'), shell.indexOf('const openSection') + 400);
+  assert.ok(nav.includes("select({ kind: 'tool', key: 'details' })"), 'anti-vacuity: openSection was not found');
   assert.doesNotMatch(nav, /setDetailsDoor/, 'opening on the navigator moved the door count');
 });
 

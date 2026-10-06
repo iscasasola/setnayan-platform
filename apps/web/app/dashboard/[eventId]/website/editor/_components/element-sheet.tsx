@@ -264,7 +264,8 @@ export function ElementSheet({
      owned. In the store shell a couple without Pro is not shown them at all. */
   const proMark = makerProMark({ owns: ownsPro, storeShell: hideLocked });
   const hidePro = hideLocked && !ownsPro;
-  const fontMark = proMark ? <PaidMark state={proMark} label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" /> : null;
+  /* 🔤 A part's Font ▾ is FREE since 2026-10-06 (owner, "EVENT DETAILS IS REBUILT") — no mark, never hidden. */
+  const fontMark = null;
   const animateMark = proMark ? (
     <PaidMark state={proMark} text="Event Hub Pro" label={paidMarkLabel(proMark, 'Event Hub Pro')} size="xs" />
   ) : null;
@@ -427,7 +428,7 @@ export function ElementSheet({
         <InfoTip label="" ariaLabel="About this part" align="end">
           Changes this part only — the rest keeps the Event Hub&rsquo;s look. Until you choose, it wears the
           Event Hub font and colour and moves with its scene.
-          {ownsPro || hidePro ? '' : ' Font and animation come with Event Hub Pro — try them here; they go live when you Apply with it.'}
+          {ownsPro || hidePro ? '' : ' Animation comes with Event Hub Pro — try it here; it goes live when you Apply with it.'}
         </InfoTip>
         <button
           type="button"
@@ -494,7 +495,7 @@ export function ElementSheet({
               eventId={eventId}
               onPreviewColour={previewColour}
               fontMark={fontMark}
-              hideFont={hidePro}
+              hideFont={false}
             />
             {range && run ? (
               <div className="py-1.5">

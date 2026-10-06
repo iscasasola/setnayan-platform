@@ -19,6 +19,9 @@ import {
   Link2,
   Mail,
   MailCheck,
+  Music,
+  Type,
+  Paintbrush,
   MessageSquareText,
   MailOpen,
   PanelTop,
@@ -50,6 +53,7 @@ import type { ThemeTile } from '@/lib/maker-theme-tiles';
 import type { UpdateQrStyleResult } from '../qr-look-actions';
 import {
   LOOK_ITEM_KEYS,
+  LOOK_SECTION_ITEM_KEYS,
   RSVP_PIECES,
   STORY_ITEM_KEYS,
   WORDS_ITEM_KEYS,
@@ -63,6 +67,7 @@ import {
   type DetailsItemModel,
   type EventItemKey,
   type LookItemKey,
+  type LookSectionItemKey,
   type StoryItemKey,
   type WordsItemKey,
 } from '@/lib/maker-details-items';
@@ -84,6 +89,7 @@ import {
   ScheduleSlots,
   SpecialMessageField,
 } from './details-lazy';
+import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
@@ -227,6 +233,12 @@ export type MakerDetailsProps = {
   specialMessage: string | null;
   hasPalette: boolean;
   hasGifts: boolean;
+  /**
+   * 🎁 The E-Gifts page's own manager — where gifts are received, with their
+   * complete details — drawn under "Accept gifts?" in the Your event form (owner
+   * 2026-10-06). Built by the launch page; absent in the lab.
+   */
+  egiftManager?: ReactNode;
   /** ✍ `detailsFactEditors(…)` — the SAME nodes the stage's inspector shows for a tapped fact. */
   facts: Partial<Record<DetailsItemKey, ReactNode>>;
   /** 💌 Love Story, moved whole: the scrapbook page (its picture). Null = not this type. `moments` null = unread. */
@@ -465,7 +477,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     const yeRow = ye?.rows[k as EventItemKey];
     if (yeRow) return yeRow;
     const apRow = ap.rows[k as AnswerItemKey];
-    if (apRow) return apRow;
+    /* 🎁 In the Your event form the gifts field is "E-Gifts" (owner 2026-10-06); the question is its picker's label. */
+    if (apRow) return k === 'gifts' ? { ...apRow, label: 'E-Gifts' } : apRow;
     if (k === 'seating') return seatPlanRow(seatPlan);
     if (k === 'plan-myself') {
       return { label: PLAN_MYSELF_LABEL, sub: planMyselfSub(props.planMyself?.on ?? null), icon: <Hand aria-hidden className="h-4 w-4" strokeWidth={1.75} /> };
@@ -476,6 +489,11 @@ export function MakerDetails(props: MakerDetailsProps) {
       if (k === 'logo' && logoA?.sub) return { ...row, sub: logoA.sub };
       if (k === 'hero' && coverA?.sub) return { ...row, sub: coverA.sub };
       return row;
+    }
+    if ((LOOK_SECTION_ITEM_KEYS as readonly string[]).includes(k)) {
+      /* 🎨 Background · Colours · Font · Music — each the Look panel on its own
+         section(s) (owner 2026-10-06, "EVENT DETAILS IS REBUILT"). */
+      return lookSectionRow(k as LookSectionItemKey, theme.chosen);
     }
     if (k === 'theme') {
       /* 🎨 The Look item (its key stays `theme` — addresses and the guided flow
@@ -528,12 +546,25 @@ export function MakerDetails(props: MakerDetailsProps) {
     ...(schedule ? (['schedule'] as const) : []),
     ...(rsvp ? (['rsvp'] as const) : []),
   ];
-  const present = new Set<DetailsItemKey>(['theme', ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
-  const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => ({
-    key: g.group,
-    label: g.label,
-    items: g.keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
-  }));
+  const present = new Set<DetailsItemKey>(['theme', ...LOOK_SECTION_ITEM_KEYS, ...(look ? LOOK_ITEM_KEYS : []), ...(ye?.keys ?? []), ...ap.keys, ...(seatPlan ? (['seating'] as const) : []), ...(props.planMyself ? (['plan-myself'] as const) : []), 'address', 'qr', 'download', ...WORDS_ITEM_KEYS, ...storyPresent, ...PRINT_SET_KEYS, ...free.map((f) => f.key)]);
+  /* 👪 Where the type prints no parents (a birthday, a wake), "Hosts" has no march to
+     live in — it is the last field of the Your event form instead (review 2026-10-06). */
+  const hostsInForm = props.yourEvent ? !parentsOffered(props.yourEvent.kind) : !switches.parents;
+  const groups: DetailsNavGroup[] = detailsNavigatorKeys(eventContext, present).map((g) => {
+    const keys =
+      hostsInForm && g.group === 'event' && present.has('parents')
+        ? [...g.keys, 'parents' as const]
+        : hostsInForm && g.group === 'elsewhere'
+          ? g.keys.filter((k) => k !== 'parents')
+          : g.keys;
+    return {
+      key: g.group,
+      label: g.label,
+      items: keys.map((k) => ({ key: k, group: g.group, ...labelOf(k) })),
+      ...(g.form ? { form: true as const } : {}),
+      ...(g.hidden ? { hidden: true as const } : {}),
+    };
+  });
 
   /* ══ 🪜 WHAT'S LEFT — the guided flow over these very rows ══ */
   const doneFacts = props.guide?.doneFacts ?? null;
@@ -633,9 +664,6 @@ export function MakerDetails(props: MakerDetailsProps) {
           Your QR code
           {qrMark ? <PaidMark state={qrMark} label={paidMarkLabel(qrMark, 'Event Hub Pro')} text="Event Hub Pro" size="xs" /> : null}
         </p>
-        <div className="w-full max-w-md">
-          <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
-        </div>
         {theme.tour ? <MiniTour tourKey="customer_pro_qr_v1" storeShell={qr.storeShell} /> : null}
       </section>
     ),
@@ -745,7 +773,11 @@ export function MakerDetails(props: MakerDetailsProps) {
   );
   const editors: Partial<Record<DetailsItemKey, ReactNode>> = {
     /* 🎨 LOOK IS ONE PANEL — Background · Font · Colours · Buttons (`lib/maker-look-sections.ts`). */
-    theme: <LookPanel filmLine={filmLine} />,
+    theme: <LookPanel filmLine={filmLine} item="theme" />,
+    background: <LookPanel filmLine={filmLine} sections={LOOK_ITEM_SECTIONS.background} item="background" />,
+    colours: <LookPanel sections={LOOK_ITEM_SECTIONS.colours} item="colours" />,
+    font: <LookPanel sections={LOOK_ITEM_SECTIONS.font} item="font" />,
+    music: <LookPanel sections={LOOK_ITEM_SECTIONS.music} item="music" />,
     /* ── Your Event Hub address — the one place it is edited (owner: "Add the
        slug to details"). The shipped SlugField: 3–32 characters, live
        availability, old links forward. ── */
@@ -757,6 +789,8 @@ export function MakerDetails(props: MakerDetailsProps) {
     ),
     qr: (
       <div className="flex flex-col gap-1">
+        {/* 🗂 QR Code settings — Shape · Pattern · Colour, a field of the Your event form (owner 2026-10-06). */}
+        <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
         <p className="text-xs text-ink/60">
           {qr.ownsPro
             ? 'Your logo sits in the centre of every guest QR. Its shape, pattern and colour are under the code.'
@@ -920,6 +954,15 @@ export function MakerDetails(props: MakerDetailsProps) {
   if (logoA) editors.logo = logoA.node;
   if (ye) Object.assign(editors, ye.editors);
   Object.assign(editors, ap.editors);
+  /* 🎁 E-Gifts: the answer, then where gifts are received and their details — in place, never a link. */
+  if (editors.gifts && props.egiftManager) {
+    editors.gifts = (
+      <div className="flex flex-col gap-3" data-details-egifts="">
+        {editors.gifts}
+        <div data-details-egift-manager="">{props.egiftManager}</div>
+      </div>
+    );
+  }
   /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
   if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
   /* 🙋 Plan it myself — what the help is (middle), the one switch (right). */
@@ -943,6 +986,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         initial={startItem}
         guide={guide}
         coverUrl={props.coverUrl ?? null}
+        /* 🖼 Background · Colours · Font · Music show the ONE page the whole Look shows. */
+        bodyAlias={{ background: 'theme', colours: 'theme', font: 'theme', music: 'theme' }}
         /* 🧩 Each moved tool's pieces, in the navigator (DECISION_LOG "A TOOL
            MOVED INTO THE MAKER IS REBUILT INTO THE THREE PARTS"). */
         pieces={{
@@ -1027,7 +1072,8 @@ function lookLabel(
       };
     case 'hero':
       return {
-        label: 'Hero',
+        /* "Cover page" (owner 2026-10-06) — the guest's first screen; never "Hero". */
+        label: 'Cover page',
         done: look.heroDone,
         usedOn: look.heroOn,
         icon: <PanelTop aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
@@ -1039,6 +1085,21 @@ function lookLabel(
         usedOn: look.revealOn,
         icon: <MailOpen aria-hidden className="h-4 w-4" strokeWidth={1.75} />,
       };
+  }
+}
+
+/** 🎨 A Look section's row (owner 2026-10-06): plain words, its own small glyph. */
+function lookSectionRow(k: LookSectionItemKey, chosen: boolean): Omit<DetailsItemModel, 'key' | 'group'> & { icon: ReactNode } {
+  const icon = { className: 'h-4 w-4', strokeWidth: 1.75, 'aria-hidden': true } as const;
+  switch (k) {
+    case 'background':
+      return { label: 'Background', sub: 'A colour, a moving background or your own photo', done: chosen, usedOn: ['every stage'], icon: <ImageIcon {...icon} /> };
+    case 'colours':
+      return { label: 'Colours', sub: 'Page · text · buttons', usedOn: ['every stage', 'every print'], icon: <Paintbrush {...icon} /> };
+    case 'font':
+      return { label: 'Font', usedOn: ['every stage', 'every print'], icon: <Type {...icon} /> };
+    case 'music':
+      return { label: 'Music', sub: 'On or off · the song', usedOn: ['every stage'], icon: <Music {...icon} /> };
   }
 }
 

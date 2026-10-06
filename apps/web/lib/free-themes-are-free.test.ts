@@ -194,9 +194,11 @@ test('5a · on Modern / Cyber Neon: Pro owner → own photo; free couple → the
     // Absent ownership fails closed.
     assert.equal(pageGround({ theme: id, ombre: false, heroGround: true }).heroOnTop, false);
   }
-  // Classic: never, owner or not. A Pro theme: already ownership-gated upstream.
-  assert.equal(heroMayBePageGround('house', true), false, 'Classic wore a photo');
-  assert.equal(heroGroundNeedsOwnership('house'), false);
+  // Classic: like any free theme since 2026-10-06 (the "no photo or video" rule is dropped) — Pro owners only.
+  // A Pro theme: already ownership-gated upstream.
+  assert.equal(heroMayBePageGround('house', true), true, 'a Pro owner on Classic lost their own background');
+  assert.equal(heroMayBePageGround('house', false), false, 'a free couple on Classic shows Pro media');
+  assert.equal(heroGroundNeedsOwnership('house'), true, 'Classic’s ownership read is skipped');
   assert.equal(heroGroundNeedsOwnership('abaca'), false, 'a Pro-theme page pays an ownership read it never needs');
   assert.equal(heroMayBePageGround('abaca', false), true);
 });

@@ -10,8 +10,8 @@
  * The couple's Main background — their hero by default, or their own "different
  * clip or photo" (`resolveMainGround`) — is EVENT HUB PRO media, laid only where
  * the page-ground rule allows it (`heroMayBePageGround`): a Pro theme, or a free
- * theme with a loop while the event owns Event Hub Pro; Classic NEVER ("classic
- * has no photo or video"), whatever the Maker stored.
+ * theme (Classic included — the old "no photo or video" rule was dropped
+ * 2026-10-06) while the event owns Event Hub Pro.
  *
  * Pure. The caller hands in the theme (`resolveHubTheme`'s answer), the
  * ownership (`websiteProActiveFor`, read only where `heroGroundNeedsOwnership`

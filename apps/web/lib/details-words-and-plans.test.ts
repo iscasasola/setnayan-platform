@@ -66,10 +66,20 @@ const SHELL = 'app/dashboard/[eventId]/website/editor/_components/editor-shell.t
 /* ── 1 · the items, and the old doors ─────────────────────────────────── */
 
 test('Words and Story & plans are Details rows, in the owner’s order', () => {
-  const words = DETAILS_ITEM_GROUPS.find((g) => g.group === 'words')!;
+  /* 🗂 2026-10-06 ("EVENT DETAILS IS REBUILT"): the words are fields of the ONE
+     Your event form (Kindly reply left for the RSVP stage); Story & plans holds
+     the items with an editor of their own (RSVP left for the RSVP stage). */
+  const event = DETAILS_ITEM_GROUPS.find((g) => g.group === 'event')!;
   const story = DETAILS_ITEM_GROUPS.find((g) => g.group === 'story')!;
-  assert.deepEqual([...words.keys], ['special-message', 'thank-you', 'opening-line', 'kindly-reply']);
-  assert.deepEqual([...story.keys], ['love-story', 'schedule', 'rsvp']);
+  const elsewhere = DETAILS_ITEM_GROUPS.find((g) => g.group === 'elsewhere')!;
+  assert.equal(event.form, true, 'Your event is one form');
+  assert.deepEqual(
+    [...event.keys].filter((k) => ['special-message', 'thank-you', 'opening-line'].includes(k)),
+    ['thank-you', 'opening-line', 'special-message'],
+  );
+  assert.deepEqual([...story.keys], ['march', 'love-story', 'schedule', 'seating']);
+  assert.equal(elsewhere.hidden, true);
+  assert.ok(elsewhere.keys.includes('kindly-reply') && elsewhere.keys.includes('rsvp'), 'Kindly reply and RSVP stay addressable');
   assert.equal(new Set(DETAILS_ITEM_KEYS).size, DETAILS_ITEM_KEYS.length, 'one key names two items');
 });
 

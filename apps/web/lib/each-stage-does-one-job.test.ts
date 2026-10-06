@@ -57,9 +57,9 @@ const keys = (stage: LifecyclePhase, over: Partial<MakerStageInput> = {}) =>
    your_photos are each guest's own), so the table read by the canvas is: */
 const CANVAS_TABLE: Record<LifecyclePhase, WidgetType[]> = {
   save_the_date: ['countdown', 'our_love_story'], // the gallery is the film's while a film plays (see below)
-  // 🏠 Reminders (`what_to_bring`) lead: they are on the Welcome page, after the
-  // reply and before Details (owner 2026-09-30 — `lib/invitation-welcome.ts`).
-  rsvp: ['what_to_bring', 'countdown', 'special_message', 'our_love_story', 'schedule', 'venue_map', 'dress_code'],
+  // 🎒 What to bring is a Details scene since 2026-10-06 — right after the dress
+  // code (owner, "'WHAT TO BRING' JOINS THE PREPARE GROUP"); it no longer leads.
+  rsvp: ['countdown', 'special_message', 'our_love_story', 'schedule', 'venue_map', 'dress_code', 'what_to_bring'],
   event: ['schedule', 'venue_map', 'photo_moments'],
   editorial: ['our_love_story', 'our_photos', 'special_message'],
 };

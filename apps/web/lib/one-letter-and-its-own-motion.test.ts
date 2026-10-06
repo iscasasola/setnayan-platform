@@ -209,7 +209,7 @@ test('✍ the canvas measures offsets in the SAME text the guest page cuts — a
   assert.match(BRIDGE, /if \(!HUB_ELEMENT_RUN_KEYS\.includes\(el\)\) return null;/);
 });
 
-test('Pro · a run or a motion is Pro at Apply; taking one off is free', () => {
+test('Pro · a motion is Pro at Apply (a run’s font is free since 2026-10-06); taking one off is free', () => {
   const widget = (config: unknown): InvitationWidgetRow => ({
     widget_id: 'w-hero', event_id: 'e1', widget_type: 'hero', display_order: 1, is_visible: true,
     is_always_on: true, tier: 'basic', config_json: config, created_at: '', updated_at: '', mode: 'auto',
@@ -218,7 +218,7 @@ test('Pro · a run or a motion is Pro at Apply; taking one off is free', () => {
   const withRun = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { runs: [{ start: 0, end: 1, font: 'script' }], of: hubTextHash(NAMES_TEXT) } } } } },
   });
-  assert.equal(planHubDraftApply(withRun, live, false).refused.length, 1, 'a free couple applied a run');
+  assert.equal(planHubDraftApply(withRun, live, false).refused.length, 0, 'a run’s font was held as Pro (free since 2026-10-06)');
   const withMotion = mergeHubDraft(emptyHubDraft(), { widgets: { hero: { canvas: { elements: { names: { motion: { in: { fade: true, move: 'below' } } } } } } } });
   assert.equal(planHubDraftApply(withMotion, live, false).refused.length, 1, 'a free couple applied a motion');
   const liveRun: HubLiveState = { events: {}, widgets: [widget({ canvas: { elements: { names: { motion: { in: 'rise' } } } } })] };

@@ -62,17 +62,20 @@ const SET: WelcomeInput = {
 
 /* ══ 1 · DECISION ═══════════════════════════════════════════════════════════ */
 
-test('1 · a guest whose couple set all three meets their look, then Reminders, then E-Gifts', () => {
-  assert.deepEqual(welcomeParts(SET), ['look', 'reminders', 'gifts']);
+/* 🎒 2026-10-06 (owner, DECISION_LOG "'WHAT TO BRING' JOINS THE PREPARE GROUP"):
+   What to bring LEFT the Invitation's Welcome — it is a Details scene, after
+   Dress code and before the Entourage. The Day's Welcome keeps its reminders. */
+test('1 · a guest meets their look, then E-Gifts — What to bring is Details’ now', () => {
+  assert.deepEqual(welcomeParts(SET), ['look', 'gifts']);
 });
 
 test('1 · nothing empty: no reminders written → no Reminders; no gift method → no E-Gifts', () => {
   assert.deepEqual(welcomeParts({ ...SET, reminders: '   ' }), ['look', 'gifts']);
   assert.deepEqual(welcomeParts({ ...SET, reminders: null, giftHref: null }), ['look']);
-  // a couple who hid the dress code and the reminders scene, and set no gifts: Welcome holds nothing
+  // a couple who hid the dress code, and set no gifts: Welcome holds nothing
   assert.deepEqual(welcomeParts({ ...SET, scenes: ['countdown'], giftHref: null }), []);
   // a stranger has no role to dress for
-  assert.deepEqual(welcomeParts({ ...SET, identified: false }), ['reminders', 'gifts']);
+  assert.deepEqual(welcomeParts({ ...SET, identified: false }), ['gifts']);
 });
 
 test('1 · Welcome (this rule) is the Invitation’s — not the Save the Date, the Day or after it', () => {
@@ -95,22 +98,26 @@ test('1 · Welcome (this rule) is the Invitation’s — not the Save the Date, 
 test('1 · the Maker draws every place, filled or not, so the couple can fill it', () => {
   assert.deepEqual(
     welcomeParts({ ...SET, identified: false, reminders: null, giftHref: null, maker: true }),
-    ['look', 'reminders', 'gifts'],
+    ['look', 'gifts'],
   );
 });
 
-test('1 · Reminders leave Details for Welcome; the dress code stays on Details for everyone', () => {
+test('1 · What to bring stays on Details — right after Dress code, before the Entourage', async () => {
   const rows = SET.scenes.map((t) => ({ widget_type: t }));
   const left = scenesLeftForDetails(rows, welcomeParts(SET)).map((w) => w.widget_type);
-  assert.ok(!left.includes('what_to_bring'), 'Reminders drawn twice');
+  assert.ok(left.includes('what_to_bring'), 'What to bring left Details again');
   assert.ok(left.includes('dress_code'), 'everyone’s palette must stay on Details');
-  // when Welcome does not carry them, Details keeps them where they were
-  const kept = scenesLeftForDetails(rows, welcomeParts({ ...SET, reminders: '' })).map((w) => w.widget_type);
-  assert.ok(kept.includes('what_to_bring'));
+  // The default order: dress code, then what to bring — and the entourage is drawn after every scene.
+  const { STAGE_SCENES } = await import('./stage-scenes');
+  const inv = STAGE_SCENES.rsvp as readonly string[];
+  assert.equal(inv.indexOf('what_to_bring'), inv.indexOf('dress_code') + 1, 'What to bring is not right after Dress code');
 });
 
-test('1 · the Maker’s navigator files the three under Welcome (anchor home), never under Details', () => {
-  for (const k of ['f:look', 'w:what_to_bring', 'f:gifts']) assert.equal(anchorOfTile(k), 'home', k);
+test('1 · the Maker’s navigator files the look and E-Gifts under Welcome, What to bring under Details', () => {
+  for (const k of ['f:look', 'f:gifts']) assert.equal(anchorOfTile(k), 'home', k);
+  assert.equal(anchorOfTile('w:what_to_bring'), 'details', 'What to bring is filed under Welcome again');
+  // The Day keeps its reminders on its Welcome.
+  assert.equal(anchorOfTile('w:what_to_bring', true), 'home');
   assert.equal(anchorOfTile('w:dress_code'), 'details', 'everyone’s dress code stays a Details scene');
 });
 
@@ -149,8 +156,8 @@ async function welcome(props: Record<string, unknown>): Promise<string> {
   );
 }
 
-test('2 · the page carries the three in order: their look · Reminders · E-Gifts', async () => {
-  const html = await welcome({ parts: welcomeParts(SET) });
+test('2 · the section draws the three in order when asked (The Day’s Welcome): their look · Reminders · E-Gifts', async () => {
+  const html = await welcome({ parts: ['look', 'reminders', 'gifts'] });
   const at = (needle: string) => {
     const i = html.indexOf(needle);
     assert.ok(i >= 0, `missing on the Welcome page: ${needle}`);

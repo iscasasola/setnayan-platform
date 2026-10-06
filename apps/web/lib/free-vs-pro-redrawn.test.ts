@@ -78,7 +78,9 @@ test('every HubElementStyle field is placed on exactly one side — Pro or free'
   for (const f of HUB_ELEMENT_PRO_FIELDS) {
     assert.ok(!(HUB_ELEMENT_FREE_FIELDS as readonly string[]).includes(f), `${f} is both Pro and free`);
   }
-  assert.deepEqual([...HUB_ELEMENT_PRO_FIELDS], ['font', 'motion'], 'only font and motion stay Pro');
+  // 🔤 2026-10-06 (owner, "EVENT DETAILS IS REBUILT"): font on a single part is FREE — only motion stays Pro.
+  assert.deepEqual([...HUB_ELEMENT_PRO_FIELDS], ['motion'], 'only motion stays Pro');
+  assert.ok((HUB_ELEMENT_FREE_FIELDS as readonly string[]).includes('font'), 'a part’s font is not free');
 });
 
 /* ── 2 · the server: every free field applies for a couple without Pro ──── */
@@ -106,15 +108,15 @@ test('💎 every free part field is WRITTEN at Apply for a couple without Pro', 
   }
 });
 
-test('💎 font and motion are still HELD for a couple without Pro, and written for one with it', () => {
-  for (const style of [{ font: 'script' }, { motion: { in: 'rise' } }] as HubElementStyle[]) {
-    const d = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: style } } } } });
-    assert.equal(planHubDraftApply(d, LIVE, false).refused.length, 1, `${JSON.stringify(style)} leaked through for free`);
-    assert.equal(planHubDraftApply(d, LIVE, true).refused.length, 0, `${JSON.stringify(style)} held from a Pro couple`);
-  }
+test('💎 motion is still HELD for a couple without Pro, and written for one with it — a part’s font goes through free', () => {
+  const motion = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: { motion: { in: 'rise' } } as HubElementStyle } } } } });
+  assert.equal(planHubDraftApply(motion, LIVE, false).refused.length, 1, 'motion leaked through for free');
+  assert.equal(planHubDraftApply(motion, LIVE, true).refused.length, 0, 'motion held from a Pro couple');
+  const font = mergeHubDraft(emptyHubDraft(), { widgets: { schedule: { canvas: { elements: { heading: { font: 'script' } as HubElementStyle } } } } });
+  assert.equal(planHubDraftApply(font, LIVE, false).refused.length, 0, 'a part’s font was held as Pro (it is free since 2026-10-06)');
 });
 
-test('💎 inside a run of letters, colour and size are free and only the font is Pro', () => {
+test('💎 inside a run of letters, colour, size and font are all free (font since 2026-10-06)', () => {
   const of = hubTextHash('Maria & Jose');
   const colourRun = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { runs: [{ start: 0, end: 1, color: '#8a1c2b', size: 120 }], of } as HubElementStyle } } } },
@@ -123,24 +125,24 @@ test('💎 inside a run of letters, colour and size are free and only the font i
   const fontRun = mergeHubDraft(emptyHubDraft(), {
     widgets: { hero: { canvas: { elements: { names: { runs: [{ start: 0, end: 1, font: 'script' }], of } as HubElementStyle } } } },
   });
-  assert.equal(planHubDraftApply(fontRun, LIVE, false).refused.length, 1, 'a letter in its own font went through free');
+  assert.equal(planHubDraftApply(fontRun, LIVE, false).refused.length, 0, 'a letter in its own font was held as Pro');
 });
 
 /* ── 3 · a held scene still gets its free edits ──────────────────────────── */
 
-test('💎 colour + font on one part: the colour goes live, the font stays in the draft', () => {
+test('💎 colour + motion on one part: the colour goes live, the motion stays in the draft', () => {
   const d = mergeHubDraft(emptyHubDraft(), {
-    widgets: { schedule: { canvas: { elements: { heading: { color: '#8a1c2b', font: 'script' } } } } },
+    widgets: { schedule: { canvas: { elements: { heading: { color: '#8a1c2b', motion: { in: 'rise' } } as HubElementStyle } } } },
   });
   const plan = planHubDraftApply(d, LIVE, false);
-  assert.equal(plan.refused.length, 1, 'the font must be held');
+  assert.equal(plan.refused.length, 1, 'the motion must be held');
   const written = plan.apply.find((i): i is Extract<typeof i, { kind: 'widget' }> => i.kind === 'widget' && i.field === 'canvas');
-  assert.ok(written, 'the free colour was held along with the Pro font — "colour is free" was a lie here');
+  assert.ok(written, 'the free colour was held along with the Pro motion — "colour is free" was a lie here');
   const canvas = written.value as HubSectionCanvas;
   assert.equal(canvas.elements?.heading?.color, '#8a1c2b', 'the colour did not reach the write');
-  assert.equal(canvas.elements?.heading?.font, undefined, 'the Pro font leaked into the free write');
+  assert.equal(canvas.elements?.heading?.motion, undefined, 'the Pro motion leaked into the free write');
   const kept = plan.remaining.widgets.schedule?.canvas as HubSectionCanvas;
-  assert.equal(kept.elements?.heading?.font, 'script', 'the font was dropped from the draft instead of held');
+  assert.ok(kept.elements?.heading?.motion?.in, 'the motion was dropped from the draft instead of held');
   // One scene, one change on the Apply bar — not two.
   const draft = { ...d, v: 1 as const, history: [] };
   assert.equal(summarizeHubDraft(draft as never, LIVE, false).changeCount, 1);
@@ -200,17 +202,18 @@ test('💎 the button colour is free on every side: gate, Apply, guest render, p
 
 /* ── 5 · the Maker's marks sit only on the Pro rows ───────────────────────── */
 
-test('💎 the part sheet marks Font ▾ and Animate — not the whole part', () => {
+test('💎 the part sheet marks Animate only — Font ▾ is free (2026-10-06), and never the whole part', () => {
   const sheet = code('app/dashboard/[eventId]/website/editor/_components/element-sheet.tsx');
   const title = sheet.slice(sheet.indexOf('id={titleId}'), sheet.indexOf('</p>', sheet.indexOf('id={titleId}')));
   assert.ok(title.length > 20, 'the sheet title was not found — the scan is blind');
   assert.doesNotMatch(title, /PaidMark|Pro/, 'the whole part sheet still wears one Pro mark');
-  // The sheet draws exactly two marks — Font ▾ and Animate — and hands them down.
-  assert.equal((sheet.match(/<PaidMark/g) ?? []).length, 2, 'the sheet draws a mark on something that is free');
-  assert.match(sheet, /fontMark=\{fontMark\}/);
+  // The sheet draws exactly ONE mark — Animate — and hands it down; Font ▾ carries none.
+  assert.equal((sheet.match(/<PaidMark/g) ?? []).length, 1, 'the sheet draws a mark on something that is free');
+  assert.match(sheet, /const fontMark = null;/, 'Font ▾ wears a Pro mark again');
+  assert.match(sheet, /hideFont=\{false\}/, 'Font ▾ is hidden from a couple without Pro again');
   assert.match(sheet, /<PartAnimateTab\s+proMark=\{animateMark\}/);
   const rows = code('app/dashboard/[eventId]/website/editor/_components/part-inspector.tsx');
-  assert.match(rows, /fontMark \? \(/, 'Font ▾ lost its mark');
+  assert.match(rows, /fontMark \? \(/, 'the inspector can no longer carry a mark on Font ▾ (none is handed today)');
   assert.match(rows, /data-part-animate-pro/, 'Animate lost its mark');
   assert.doesNotMatch(rows, /<PaidMark/, 'a Text row draws its own padlock');
   const parts = code('app/dashboard/[eventId]/website/editor/_components/scene-inspector.tsx');

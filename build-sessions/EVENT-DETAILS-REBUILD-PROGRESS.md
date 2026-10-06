@@ -92,6 +92,16 @@ Builder rules: setnayan-handoff-src/BUILDER-RULES-2026-10-04.md. Worktree: ~/Doc
 - Lab note: a hydration id mismatch (Love Story InfoTip useId) shows as the dev "1 Issue" badge in the lab — not
   traced to this branch; check on main before chasing.
 
+- CI: bundle size was over (507.9 vs 505KB gz) because the launch page imported PabuyaManager eagerly → now via
+  `details-lazy.tsx` (fixed 8b2fa451d, bundle check green). One unit guard (the-guided-steps-share-one-layout (23))
+  re-pointed in f4b584978. "native encoder tests" shows FAIL only as "skipped" after a unit failure.
+
+## NEXT SESSION — resume here
+1. Watch PR #6377 checks on the head; fix any red from logs.
+2. Step 4 (cover frame + global background + Darker↔Lighter incl. the page header, controller (3)).
+3. Step 5 (Reveal as first scene per stage with show/hide; over the cover only).
+4. Kindly reply as an RSVP-stage part; controller (1b), (2) remaining choice sets, (5) Retry on failure rows.
+
 ## Controller sweep 2026-10-06 (folded in — track here)
 - [x] (1a) top-nav label inside Event Details = the item name alone (guided flow = its stage title alone) —
       `screenLabel` in maker-shell (`if (doorShown) return guideTitle ? head : part || head`).

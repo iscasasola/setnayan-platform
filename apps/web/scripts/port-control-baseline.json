@@ -1,9 +1,9 @@
 {
-  "generatedFromRef": "4b17818dd",
+  "generatedFromRef": "cce602558",
   "routeCount": 428,
   "destinations": 947,
   "actions": 670,
-  "blocks": 5522,
+  "blocks": 5523,
   "routes": {
     "/": {
       "files": [
@@ -5740,6 +5740,7 @@
         "PaxSettingsCard",
         "PeopleWithAccess",
         "PickMenu",
+        "PlanMyselfSwitch",
         "ProLockPanel",
         "PutAwayCard",
         "ReactNode",
@@ -6623,7 +6624,6 @@
         "LogoLayer",
         "LookFrame",
         "LookPanel",
-        "LookSection",
         "LoveStoryPieceFocus",
         "LowerThirdTileButton",
         "MadeOnce",
@@ -6671,6 +6671,7 @@
         "OneOpenScope",
         "OpeningLineField",
         "OurStoryEditorPage",
+        "PabuyaManager",
         "PabuyaMessageEditor",
         "PageMasthead",
         "PaidMark",

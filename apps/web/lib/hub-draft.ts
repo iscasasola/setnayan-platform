@@ -140,6 +140,7 @@ import { sanitizeHubButtonStyle } from '@/lib/hub-buttons';
 import { OMBRE_IS_PRO, encodeSiteBackground, isOmbreValue, parseSiteBackground } from '@/lib/ombre';
 import { MOMENT_MAX, momentCapRefusal, readMoment, resolveMoments, type LoveStoryMoment } from '@/lib/love-story-moments';
 import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { celebrationDraftIsPro } from '@/lib/rsvp-celebration';
 import { resolveReturnTo } from '@/lib/editor-return';
 import type { HubProEffectView } from '@/lib/hub-pro-effects';
 import { INVITE_THEMES, isInviteThemeId, normalizeThemeId } from '@/lib/invite-themes';
@@ -1182,6 +1183,12 @@ export type HubDraftItem =
       change: LookChange;
       /** Would this write need Event Hub Pro for a couple without it? */
       pro: boolean;
+      /**
+       * 🎉 Set only on the FREE PART of a held RSVP config (`rsvpAskFreePart`) —
+       * its words and switches, with the live celebration kept. The whole drafted
+       * config is also in `refused`, which reports it and keeps it drafted.
+       */
+      freePart?: true;
     }
   | {
       kind: 'widget';
@@ -1288,6 +1295,17 @@ export function eventColumnChange(column: HubDraftEventColumn, live: unknown, ne
         return JSON.stringify(reveal);
       };
       return key(live) === key(next) ? refChange('same', 'same') : refChange('live', 'drafted');
+    }
+    case 'rsvp_ask_config': {
+      // ⚙🎉 Compared as every reader reads it — through the sanitizer, key order
+      // ignored (jsonb hands keys back in its own order), and NULL ≡ {} (both
+      // "nothing changed yet") — so re-saving what is live is no change on the
+      // Apply count.
+      const key = (v: unknown) => {
+        const k = canonicalJson(sanitizeRsvpAskConfig(v));
+        return k === '{}' ? null : k;
+      };
+      return refChange(key(live), key(next));
     }
     case 'papic_on':
     case 'gifts_on': {
@@ -1405,6 +1423,11 @@ export function eventItemIsPro(
   // 🎵 Switching the couple's EXISTING song on or off is free (`updateSiteChrome`);
   // only a new or different song is Pro — that is `site_bg_music_r2_key`.
   if (column === 'site_bg_music_enabled') return false;
+  // 🎉 The When yes celebration (owner 2026-10-06): adding or changing an
+  // effect is Event Hub Pro; the RSVP's words, switches and going back to None
+  // never are — so the WHOLE config is Pro only while it carries a new effect
+  // (and Apply still writes its free part — `rsvpAskFreePart`).
+  if (column === 'rsvp_ask_config') return celebrationDraftIsPro(live, value);
   // 🔳 The QR's shape · pattern · colour are Event Hub Pro (`updateQrStyle`);
   // going back to the plain code is a removal, which is free.
   if (column === 'style_preferences') return true;
@@ -1907,6 +1930,36 @@ export type HubDraftApplyPlan = {
 };
 
 /**
+ * 🎉 The FREE PART of a drafted RSVP config: everything the couple drafted,
+ * with the celebration put back to what is live (absent when live has none).
+ */
+export function rsvpAskFreePart(live: unknown, drafted: unknown): Record<string, unknown> {
+  const next = { ...sanitizeRsvpAskConfig(drafted) } as Record<string, unknown>;
+  const liveConfig = sanitizeRsvpAskConfig(live);
+  if (liveConfig.celebration !== undefined) next.celebration = liveConfig.celebration;
+  else delete next.celebration;
+  return next;
+}
+
+/** Did anything BESIDES the celebration move between live and the draft? */
+export function rsvpAskFreePartMoves(live: unknown, drafted: unknown): boolean {
+  return canonicalJson(rsvpAskFreePart(live, drafted)) !== canonicalJson(sanitizeRsvpAskConfig(live));
+}
+
+/** Key-order-free JSON (jsonb hands keys back in its own order). */
+function canonicalJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(canonicalJson).join(',')}]`;
+  if (v && typeof v === 'object') {
+    const o = v as Record<string, unknown>;
+    return `{${Object.keys(o)
+      .sort()
+      .map((k) => `${JSON.stringify(k)}:${canonicalJson(o[k])}`)
+      .join(',')}}`;
+  }
+  return JSON.stringify(v ?? null);
+}
+
+/**
  * THE GATE, as a plan. `ownsPro` is measured by the caller (admin-client SKU
  * read, `lookProAllows`); this decides with the one rule, `lookWriteAllowed`.
  * Nothing here can let a Pro key through for a couple who does not own Pro.
@@ -1932,6 +1985,15 @@ export function planHubDraftApply(
       const free = canvasFreePart(liveCanvas, (item.value as HubSectionCanvas | null) ?? {});
       if (JSON.stringify(free) !== JSON.stringify(liveCanvas)) {
         apply.push({ ...item, value: free, change: canvasLookChange(liveCanvas, free), pro: false, freePart: true });
+      }
+    }
+    /* 🎉 A held RSVP config still gets its free edits: the words and switches
+       drafted beside a Pro celebration are written now, with the LIVE
+       celebration kept; the whole drafted config stays in the draft (below). */
+    if (!allowed && item.kind === 'event' && item.column === 'rsvp_ask_config') {
+      const liveConfig = live.events.rsvp_ask_config ?? null;
+      if (rsvpAskFreePartMoves(liveConfig, item.value)) {
+        apply.push({ kind: 'event', column: 'rsvp_ask_config', value: rsvpAskFreePart(liveConfig, item.value), change: 'change', pro: false, freePart: true });
       }
     }
     /* 💎 …and a held Post Event look gets its free edits the same way — its
@@ -2118,7 +2180,7 @@ export function hubDraftCountedChanges(plan: HubDraftApplyPlan): Array<{ item: H
   const facts = new Set<string>();
   const out: Array<{ item: HubDraftItem; held: boolean }> = [];
   const walk = [
-    ...plan.apply.filter((i) => !(i.kind !== 'event' && i.freePart)).map((item) => ({ item, held: false })),
+    ...plan.apply.filter((i) => !i.freePart).map((item) => ({ item, held: false })),
     ...plan.refused.map((item) => ({ item, held: true })),
   ];
   for (const c of walk) {

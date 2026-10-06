@@ -28,6 +28,7 @@ import {
   hubDraftCountedChanges,
   planHubDraftApply,
   printDetailsKeysChanged,
+  rsvpAskFreePartMoves,
   type CanvasFacetGroup,
   type HubDraftChangeLine,
   type HubDraftEventColumn,
@@ -38,6 +39,8 @@ import {
 import { postEventItemLabel } from '@/lib/post-event-draft';
 import { INVITE_THEMES } from '@/lib/invite-themes';
 import { seededTheme } from '@/lib/theme-colours';
+import { sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
+import { RSVP_CELEBRATION_LABEL, RSVP_CELEBRATION_NAME, readCelebrationKey } from '@/lib/rsvp-celebration';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 
 const LOOK = 'Look';
@@ -151,6 +154,17 @@ export function hubDraftChangePlace(item: HubDraftItem, live: HubLiveState): { p
         const keys = printDetailsKeysChanged(live.events.print_details, item.value);
         if (keys.length === 1 && keys[0] === 'pass_design') return { place: "Guest's ticket", what: PASS_CARD_WORDS.style };
         if (keys.length === 2) return { place: DETAILS, what: `Name style, ${PASS_CARD_WORDS.style}` };
+      }
+      /* 🎉 The When yes celebration is NAMED at Apply (owner 2026-10-06):
+         "RSVP · Celebration · Confetti" — with the RSVP's other edits beside it
+         when they moved too. */
+      if (item.column === 'rsvp_ask_config') {
+        const liveConfig = live.events.rsvp_ask_config ?? null;
+        const to = readCelebrationKey(sanitizeRsvpAskConfig(item.value));
+        if (to !== readCelebrationKey(sanitizeRsvpAskConfig(liveConfig))) {
+          const pick = `${RSVP_CELEBRATION_LABEL} · ${RSVP_CELEBRATION_NAME[to]}`;
+          return { place: 'RSVP', what: rsvpAskFreePartMoves(liveConfig, item.value) ? `${HUB_DRAFT_EVENT_PLACE.rsvp_ask_config.what}, ${pick}` : pick };
+        }
       }
       return HUB_DRAFT_EVENT_PLACE[item.column];
     }

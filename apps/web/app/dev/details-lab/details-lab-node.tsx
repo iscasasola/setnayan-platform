@@ -13,6 +13,7 @@
  * signed in), and the sample's pictures need the sample row.
  *
  *   ?item=invitation      open on one item (default: Theme, as a cold open)
+ *   ?item=march           the Wedding March maker on fixtures — drags drawn, never sent
  *   ?pro=1                a couple with Event Hub Pro
  *   ?look=1               the Look (part 3): Mood Board, Logo, Hero, Reveal — stand-ins
  *                         for the work area's pages, so the layout can be checked
@@ -33,6 +34,7 @@ import { GENERIC_PROFILE, WAKE_PROFILE, WEDDING_PROFILE } from '@/lib/event-type
 import { updateEventSlug } from '@/app/dashboard/[eventId]/invitation/actions';
 import { updateQrStyle } from '@/app/dashboard/[eventId]/launch/qr-look-actions';
 import { updateSpecialMessage } from '@/app/dashboard/[eventId]/website/special-message/actions';
+import { labMarchSections } from './march-fixture';
 
 const EVENT = '00000000-0000-4000-8000-000000000000';
 
@@ -68,7 +70,9 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
      names step behave as they did on the owner's live walk. */
   const mj = one('shape') === 'mj';
   const words = eventWordsFromProfile(profile);
-  const yourEvent: YourEventInput | null = guideAddr
+  /* 🚶 `?item=march` — the Wedding March maker on maria-and-jose's couple + a full entourage (`march-fixture.ts`). */
+  const marchLab = one('item') === 'march';
+  const yourEvent: YourEventInput | null = guideAddr || marchLab
     ? {
         kind: {
           words: { twoPeople: hasTwoNamedPeople(profile), solemn: words.solemn, eventWord: words.eventWord },
@@ -81,7 +85,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           parentCount: fresh || mj ? 0 : 2,
           // Where the invitation prints parents a co-host account never counts (`readYourEventFacts`).
           hostCount: mj ? 0 : 1,
-          marchLines: 0,
+          marchLines: marchLab ? 1 : 0,
         },
         names: hasTwoNamedPeople(profile)
           ? {
@@ -105,7 +109,7 @@ export function detailsLabNode(sp: Record<string, string | string[] | undefined>
           nudge: null,
         },
         venues: { resolved: [], slots: [], city: null },
-        march: { sections: [], panel: null },
+        march: marchLab ? { ...labMarchSections(), lab: true } : { sections: [] },
       }
     : null;
   const needsDb = (what: string) => <p className="p-6 text-sm text-ink/60">{what} is read from the database — open it in the Maker.</p>;

@@ -158,13 +158,17 @@ test('no typed wedding word in the Your event editors and parts', () => {
 });
 
 test('the march reads ONE order: the invitation’s, The Entourage card’s, the panel’s', () => {
-  assert.match(LOAD, /loadEntourage\(admin, eventId\)/, 'the aisle reads the invitation’s own loader');
-  assert.match(LOAD, /<EntourageOrderPanel eventId=\{eventId\} view="all" \/>/, 'the order list is the shipped Guest list panel, moved in whole');
+  // 🚶 The march reads the invitation's own loader, in its march form (the couple's sides too, owner 2026-10-06).
+  assert.match(LOAD, /loadEntourage\(admin, eventId, undefined, true\)/, 'the march maker reads the invitation’s own loader');
+  assert.match(LOAD, /sections: marchSections\(groups\)/, 'the maker is not handed the march the loader read');
+  assert.match(read('lib/march-sections.ts'), /export function marchSections\(groups: readonly EntourageGroup\[\]\): MarchSection\[\]/);
   const loaders = read('app/[slug]/_lib/loaders.ts');
   assert.match(loaders, /return buildEntourage\(\s*\(data \?\? \[\]\) as EntourageGuestRow\[\],\s*await loadEntourageSectionOrder\(admin, eventId\),/);
   // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)
   assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)(, names(, style)?)?\)/);
-  assert.match(read('app/dashboard/[eventId]/guests/_components/entourage-order-panel.tsx'), /orderedGroupKeys\(savedSections\)[\s\S]*?entourageLines\(rows, key\)/);
+  // The maker's sections follow the couple's own section order — the printed one, the couple's sides in their place.
+  assert.match(read('lib/entourage.ts'), /export function marchGroupKeys\(saved\?: readonly string\[\] \| null\): string\[\] \{\s*const middle = orderedGroupKeys\(saved\)/);
+  assert.match(read('lib/entourage.ts'), /opts\?\.march \? marchGroupKeys\(sectionOrder\) : orderedGroupKeys\(sectionOrder\)/);
   // The guest's own line is built from the same groups the section prints.
   const body = read('app/[slug]/_components/site-body.tsx');
   assert.match(body, /marchPlace=\{isMakerCanvas \? null : marchPlaceOf\(entourage, guest\?\.guest_id\)\}/);
@@ -174,7 +178,7 @@ test('the march reads ONE order: the invitation’s, The Entourage card’s, the
   assert.match(dress, /\{mine \|\| march \? \(/, 'a walker with no outfit line still gets the panel');
 });
 
-test('"Leave the other side blank" happens IN PLACE — the Guest list’s own unpair, no navigation', () => {
+test('walking alone (a name dragged out of its pair) happens IN PLACE — the Guest list’s own unpair, no navigation', () => {
   const actions = read('app/dashboard/[eventId]/guests/pair-actions.ts');
   const unpair = actions.slice(actions.indexOf('export async function unpairGuestAction('));
   assert.match(unpair, /const inPlace = mode === 'in-place';/);
@@ -184,8 +188,8 @@ test('"Leave the other side blank" happens IN PLACE — the Guest list’s own u
   // The Maker calls that same action, through the Maker's one refresh.
   const march = read(`${L}details-march.tsx`);
   assert.match(march, /import \{ unpairGuestAction \} from '\.\.\/\.\.\/guests\/pair-actions';/);
-  assert.match(march, /await unpairGuestAction\(eventId, pairIds\[0\]!, 'in-place'\);/);
-  assert.match(march, /Leave the other side blank/);
+  // 🚶 Since 2026-10-06 a name dragged out of its pair splits it: the same action, in place.
+  assert.match(march, /await unpairGuestAction\(eventId, step\.guest, 'in-place'\);/);
   // …and the Guest list's rows no longer offer it at all (owner 2026-09-30:
   // "walks with" lives only in the Maker's Wedding March).
   const roster = read('app/dashboard/[eventId]/guests/_components/guest-list-multiselect.tsx');

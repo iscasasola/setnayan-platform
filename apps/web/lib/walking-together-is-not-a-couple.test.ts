@@ -163,9 +163,12 @@ test('⛔ the Maker’s Wedding March sets NO couple — no tick, no writer (own
   assert.doesNotMatch(load, /\bisCouple\b|couple:/, 'the march loader computes a couple again');
   const action = stripComments(read('app/dashboard/[eventId]/guests/pair-actions.ts'));
   assert.doesNotMatch(action, /setWalkingPairCouple|couple_with_guest_id/, 'the retired couple writer is back');
-  // Anti-vacuity: the march's own controls are still there.
-  assert.match(march, /Walks with…/);
-  assert.match(march, /Trade places with…/);
+  // Anti-vacuity: the march's own moves are still there — a drag of a name (owner 2026-10-06).
+  assert.match(march, /data-march-drop=\{zone\}/);
+  const said = stripComments(read('lib/march-drag.ts'));
+  assert.match(said, /traded places/);
+  assert.match(said, /walks with \$\{b\.person\.name\}/);
+  assert.doesNotMatch(said, /\bcouple\b|They(?:’|')re a couple/i, 'the drag maker says couple');
 });
 
 test('"walks with" is not on a Guest list row or the guest card — neither shown nor edited', () => {

@@ -31,7 +31,10 @@ import { GuestLookScope } from '../../_components/guest-look-scope';
 import { lookScopeProps } from '../../_components/host-draft-look';
 import { eventAnimatedMonogramActive } from '@/lib/animated-monogram';
 import { markAnimationSwitchedOff } from '@/lib/monogram-studio-shared';
-import { guestReplyBy, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
+import { guestReplyBy, readRsvpCelebration, readRsvpWords, todayYmd } from '@/lib/rsvp-ask';
+import { JUST_REPLIED_VALUE, celebrationColours } from '@/lib/rsvp-celebration';
+import { boardSwatches } from '@/lib/mood-board-palette-set';
+import { WhenYesCelebration } from '../../_components/when-yes-celebration';
 import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { rsvpWordBridgeKey } from '@/lib/rsvp-stage-shared';
 import { RsvpCanvasBridge } from '../../_components/rsvp-canvas-bridge';
@@ -607,6 +610,18 @@ export default async function InviteEnterPage({ params, searchParams }: Props) {
         {saved ? <DoorNotice kind={saved.kind}>{saved.text}</DoorNotice> : null}
         {canvas && wordKeys ? (
           <RsvpCanvasBridge inertButtons />
+        ) : null}
+        {/* 🎉 WHEN YES — the couple's celebration, ONCE, as a guest who just
+            said yes sees this (owner 2026-10-06). On the Maker's sample it plays
+            when the Maker says so; None draws nothing. */}
+        {reply === 'yes' ? (
+          <WhenYesCelebration
+            kind={readRsvpCelebration(event.rsvp_ask_config)}
+            colours={celebrationColours(boardSwatches((event as { role_palette?: unknown }).role_palette))}
+            play={!canvas && search.rsvp === JUST_REPLIED_VALUE}
+            name={firstName}
+            listen={canvas}
+          />
         ) : null}
 
         {/* 1 · THE COUPLE'S MESSAGE — name as given (frame 1). After a Yes, the

@@ -117,6 +117,12 @@ export async function swapEntouragePlaces(
  * ⚖ Owner 2026-09-21: *"we should be able to arrange the parents, immediate
  * family and other roles and modify its sequence."*
  *
+ * 🚶 2026-10-06: the march maker moves a whole section by dragging its HEADER
+ * (`lib/march-drag.ts` `planSectionDrop` — one `moveEntourageSection` step per
+ * place it passes, the same rule `nextSectionOrder` the server asks), and puts
+ * the built-in order back with one line ("Default order") → `resetEntourageSections`.
+ * (The walking-order panel that first called these was retired that day.)
+ *
  * The order is one per-event value, `events.entourage_section_order`, read by
  * the invitation through `orderedGroupKeys`. It is written with the admin
  * client after `requireHostMembership` — the column has no session UPDATE

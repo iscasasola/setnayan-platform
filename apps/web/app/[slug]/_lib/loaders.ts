@@ -36,6 +36,7 @@ import {
   ENTOURAGE_COLUMNS,
   ENTOURAGE_COUPLE_FIELDS,
   ENTOURAGE_ROLES,
+  MARCH_ROLES,
   type EntourageGroup,
   type EntourageGuestRow,
 } from '@/lib/entourage';
@@ -1911,7 +1912,16 @@ export const loadEventNameStyle = cache(
 export const loadEntourage = cache(
   /* `nameStyle` — the host's DRAFTED style, for the Maker's canvas only (owner
      2026-10-01); absent = the style the event has live. */
-  async (admin: AdminClient, eventId: string, nameStyle?: NameStyle): Promise<EntourageGroup[]> => {
+  async (
+    admin: AdminClient,
+    eventId: string,
+    nameStyle?: NameStyle,
+    /* 🚶 The Maker's Wedding March only (owner 2026-10-06): the couple and their
+       sides too (`MARCH_ROLES`, built with `{ march: true }`). Never set
+       by a public read — what prints is unchanged. */
+    march?: boolean,
+  ): Promise<EntourageGroup[]> => {
+    const roles = march ? MARCH_ROLES : ENTOURAGE_ROLES;
     const { data, error } = await admin
       .from('guests')
       /*
@@ -1947,9 +1957,7 @@ export const loadEntourage = cache(
         alone dropped exactly the people the couple went out of their way to
         mark, and the page would have looked correct while doing it.
       */
-      .or(
-        `role.in.(${ENTOURAGE_ROLES.join(',')}),extra_roles.ov.{${ENTOURAGE_ROLES.join(',')}}`,
-      );
+      .or(`role.in.(${roles.join(',')}),extra_roles.ov.{${roles.join(',')}}`);
     if (error) {
       logQueryError('loadEntourage', error, { event_id: eventId }, 'graceful_degrade');
       return [];
@@ -1959,6 +1967,7 @@ export const loadEntourage = cache(
       await loadEntourageSectionOrder(admin, eventId),
       await loadEventRoleNames(admin, eventId),
       nameStyle ?? (await loadEventNameStyle(admin, eventId)),
+      march ? { march: true } : undefined,
     );
   },
 );

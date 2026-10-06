@@ -25,7 +25,7 @@ import type { MarchOut } from '@/lib/march-drag';
 
 export const OUT_CHIP =
   // no-card-ok: a NAME you drag (a pressable chip), not a container.
-  'inline-flex min-h-11 max-w-full cursor-grab touch-pan-y select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
+  'inline-flex min-h-11 max-w-full cursor-grab select-none items-center rounded-full border border-ink/15 bg-white px-3 text-[13.5px] leading-tight text-ink [-webkit-touch-callout:none] [overflow-wrap:anywhere]';
 
 /**
  * The fit itself, on the box as the browser laid it out: every chip shown; if
@@ -107,11 +107,17 @@ export function MarchTray({
   // Re-fit whenever the names change (a drop in or out of the tray).
   useFit(box, out.map((p) => p.id).join('|'));
   const [all, setAll] = useState(false);
-  // Lifting a chip out of the sheet puts the march back in view.
+  /* Lifting a chip out of the sheet puts the march back in view: the sheet steps
+     aside while the name is held (still mounted — the touch keeps its target, or
+     the browser would take the gesture back), and closes once it is put down. */
+  const held = useRef<string | null>(null);
   useEffect(() => {
-    if (all && lifted) setAll(false);
+    if (all && held.current && !lifted) setAll(false);
+    held.current = lifted;
   }, [all, lifted]);
-  const drawChip = (p: MarchOut) => (
+  /* In the full list a chip takes the touch itself (`touch-none`): a long-press lifts it with no
+     browser pan to win the gesture; a swipe on the gaps still scrolls the list. */
+  const drawChip = (p: MarchOut, inSheet = false) => (
       <span
         key={p.id}
         data-tray-chip=""
@@ -122,7 +128,7 @@ export function MarchTray({
         role="button"
         aria-pressed={carried === p.id}
         aria-label={`${p.name}, not walking — ${p.sectionLabel}. Drag into the march to add.`}
-        className={`${OUT_CHIP}${lifted === p.id ? ' border-dashed opacity-30' : ''}${carried === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}`}
+        className={`${OUT_CHIP}${inSheet ? ' touch-none' : ' touch-pan-y'}${lifted === p.id ? ' border-dashed opacity-30' : ''}${carried === p.id ? ' ring-2 ring-ink ring-offset-1' : ''}`}
       >
         {p.name}
       </span>
@@ -157,7 +163,7 @@ export function MarchTray({
         </p>
       ) : (
         <div ref={box} data-march-tray-chips="" className="flex min-h-0 flex-1 flex-wrap content-start gap-1.5 overflow-hidden">
-          {out.map(drawChip)}
+          {out.map((p) => drawChip(p))}
           {/* Its words and whether it shows are the fit's (`useFit`) — it knows how many were set aside. */}
           <button
             type="button"
@@ -170,7 +176,10 @@ export function MarchTray({
       )}
       {all && typeof document !== 'undefined'
         ? createPortal(
-            <div data-march-tray-sheet="" className="fixed inset-0 z-[95] flex flex-col justify-end">
+            <div
+              data-march-tray-sheet=""
+              className={`fixed inset-0 z-[95] flex flex-col justify-end ${lifted ? 'pointer-events-none invisible' : ''}`}
+            >
               <button type="button" aria-label="Close the list" onClick={() => setAll(false)} className="absolute inset-0 bg-ink/30" />
               <div
                 role="dialog"
@@ -188,8 +197,11 @@ export function MarchTray({
                     <X aria-hidden className="h-4 w-4" strokeWidth={2} />
                   </button>
                 </div>
-                <div data-march-tray-all="" className="flex min-h-0 flex-wrap content-start gap-1.5 overflow-y-auto overscroll-contain px-4 pb-2">
-                  {out.map(drawChip)}
+                <div
+                  data-march-tray-all=""
+                  className="flex min-h-0 flex-wrap content-start gap-1.5 overflow-y-auto overscroll-contain px-4 pb-2"
+                >
+                  {out.map((p) => drawChip(p, true))}
                 </div>
               </div>
             </div>,

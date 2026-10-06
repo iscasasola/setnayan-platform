@@ -1921,7 +1921,8 @@ export const loadEntourage = cache(
     /* 🚶 Who is in the march's "Not walking" tray (owner 2026-10-06): they still
        PRINT under their role — only the walking order ("You walk Nth",
        `marchPlaceOf`) leaves them out. Unread → nobody marked (they print either way). */
-    const trayRead = admin.from('march_not_walking').select('guest_id').eq('event_id', eventId);
+    // Started NOW (a query builder only runs when awaited), beside the guests read — never a serial round-trip.
+    const trayRead = Promise.resolve(admin.from('march_not_walking').select('guest_id').eq('event_id', eventId));
     const { data, error } = await admin
       .from('guests')
       /*

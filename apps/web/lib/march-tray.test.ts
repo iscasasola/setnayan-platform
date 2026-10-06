@@ -134,3 +134,10 @@ test('"You walk Nth" leaves a person who does not walk out of the walking ORDER 
   assert.equal(marchPlaceOf(printed, 'rb')!.total, all);
   assert.doesNotMatch(marchPlaceOf(printed, 'rb')!.after ?? '', /Vince|Sofia/);
 });
+
+test('Undo of "not walking" always writes the section order — they come back unplaced, where the server sorts them', () => {
+  // The ring bearer is the LAST walk of Bearers: the predicted "back at the end" already matches, yet the order is still written.
+  const plan = planMove(walking(), [], { kind: 'name', id: 'rb' }, { kind: 'tray' }, tray());
+  assert.ok(plan && plan.ok);
+  assert.equal(plan.undo.at(-1)!.kind, 'order', 'Undo trusts the server to put them back where they were');
+});

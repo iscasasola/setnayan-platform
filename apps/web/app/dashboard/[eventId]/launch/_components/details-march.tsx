@@ -224,16 +224,20 @@ function MarchMakerBody({
      third, the desk's right panel — `MarchTraySlot`, which the march's editor is.
      Drawn there through a portal, so it is still THIS maker: one state, one drag. */
   const [slot, setSlot] = useState<HTMLElement | null>(null);
+  /* The slot moves: the guided step's sheet and All items' panel are different
+     parents, and a closed sheet drops it. Found again whenever the workspace's
+     tree changes — never a portal into a detached node. */
   useEffect(() => {
-    let raf = 0;
     const find = () => {
       const el = document.querySelector<HTMLElement>('[data-march-tray-slot]');
-      if (el) setSlot(el);
-      else raf = requestAnimationFrame(find);
+      setSlot((was) => (was === el ? was : el));
     };
     find();
-    return () => cancelAnimationFrame(raf);
-  }, []);
+    const scope = root.current?.closest('[data-details-workspace]') ?? document.body;
+    const mo = new MutationObserver(find);
+    mo.observe(scope, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [anyone]);
   const [lifted, setLifted] = useState<string | null>(null);
   const [over, setOver] = useState<{ zone: string; ok: boolean } | null>(null);
   const [toast, setToast] = useState<Toast | null>(null);
@@ -519,7 +523,9 @@ function MarchMakerBody({
       });
       ghost.dataset.marchGhost = '';
       document.body.appendChild(ghost);
-      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller: scrollerOf(p.el), dir: 0 };
+      // A tray name scrolls the MARCH near its edges (the tray itself never scrolls).
+      const scroller = p.source.kind === 'out' && root.current ? scrollerOf(root.current) : scrollerOf(p.el);
+      drag.current = { source: p.source, key: p.key, ghost, ox: x - r.left, oy: y - r.top, x, y, scroller, dir: 0 };
       ghost.style.transform = `translate(${x - drag.current.ox}px,${y - drag.current.oy}px) scale(1.03)`;
       setLifted(p.key);
       try {

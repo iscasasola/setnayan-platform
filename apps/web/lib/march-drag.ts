@@ -529,6 +529,11 @@ export function planSectionsDefault(sections: readonly MarchSection[], printed: 
  * The couple always walk: the groom and the bride never go to the tray.
  */
 
+/** `steps`, ending with the section's order written as `rows` (unless they already do). */
+function withOrder(key: string, steps: MarchStep[], rows: readonly MarchRow[]): MarchStep[] {
+  return steps.some((x) => x.kind === 'order' && x.section === key) ? steps : [...steps, order(key, rows)];
+}
+
 /** Out of the march: the march without them, the steps, the Undo. */
 function planOut(sections: readonly MarchSection[], out: readonly MarchOut[], id: string): MarchMove | null {
   const a = locate(sections, id);
@@ -552,8 +557,9 @@ function planOut(sections: readonly MarchSection[], out: readonly MarchOut[], id
     out: [{ ...p, section: sec.key, sectionLabel: sec.label }, ...out],
     steps: [{ kind: 'walking', section: sec.key, guest: id, walks: false }],
     said: `${p.name} is not walking${mate ? ` · ${mate.name} now walks alone` : ''}`,
-    // Back in, then the section exactly as it was (they come back unplaced, at its end).
-    undo: [back, ...restoreSteps(sec.key, [...rows, alone(sec.key, p)], sec.rows)],
+    // Back in, then the section exactly as it was. They come back UNPLACED — where the server sorts
+    // them among other unplaced lines nobody can predict — so the order is always written.
+    undo: [back, ...withOrder(sec.key, restoreSteps(sec.key, [...rows, alone(sec.key, p)], sec.rows), sec.rows)],
   };
 }
 

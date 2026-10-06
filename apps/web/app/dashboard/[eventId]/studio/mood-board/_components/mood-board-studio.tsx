@@ -204,7 +204,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
   const pickRole = (key: PaletteKey, label: string, hex: string) =>
     commit(withRoleColours(palette, key, [...roleColours(key), hex]), `${label} — colour added.`);
 
-  const useAuto = (s: AutoSuggestion) => {
+  const takeAuto = (s: AutoSuggestion) => {
     setSheet(null);
     commit(withAutoPalette(palette, s.five), `${s.name} — your five main colours are filled. Change any by hand.`);
   };
@@ -278,7 +278,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
     fd.set('slot_position', String(pos));
     void removeMoodboardSlot(fd);
   };
-  const useSlotPalette = (slot: StudioInspirationSlot, colours: string[]) => {
+  const applySlotPalette = (slot: StudioInspirationSlot, colours: string[]) => {
     const t = slot.target;
     if (t.kind === 'florals') {
       if (props.frozenDressing.includes('florals')) return said('Your florist has agreed the flowers — ask them to reopen it first.');
@@ -402,7 +402,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
       {tab === 'colours' ? (
         <div className="flex flex-col" data-mood-board-colours="">
           {openChanges.map((c) => (
-            <div key={c.id} className="mb-2 flex flex-col gap-1 rounded-2xl bg-gold-50 px-3 py-2.5" data-colour-change={c.id}>
+            <div key={c.id} className="mb-2 flex flex-col gap-1 py-2" data-colour-change={c.id}>
               <b className="text-[13.5px] text-ink">{c.who} suggested a change</b>
               <span className="flex items-center gap-1.5 text-[12.5px] text-ink/75">
                 {c.what} ·
@@ -469,7 +469,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                           type="button"
                           aria-label={`Add a colour for ${row.label}`}
                           onClick={() => setSheet({ kind: 'picker', target: { kind: 'role', key: row.paletteKey!, label: row.label } })}
-                          className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-mulberry ring-1 ring-dashed ring-ink/25"
+                          className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-mulberry ring-1 ring-ink/25"
                         >
                           <Plus aria-hidden className="h-4 w-4" />
                         </button>
@@ -556,7 +556,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
                         ))}
                       </span>
                       {slot.useLabel ? (
-                        <button type="button" onClick={() => useSlotPalette(slot, slotPalette)} className="sn-press ml-auto min-h-11 rounded-full bg-ink/5 px-3 text-[12px] font-semibold text-ink" data-mood-board-use-slot={slot.slotKey}>
+                        <button type="button" onClick={() => applySlotPalette(slot, slotPalette)} className="sn-press ml-auto min-h-11 rounded-full bg-ink/5 px-3 text-[12px] font-semibold text-ink" data-mood-board-use-slot={slot.slotKey}>
                           {slot.useLabel}
                         </button>
                       ) : null}
@@ -593,7 +593,7 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
           })()
         : null}
       {sheet?.kind === 'auto' ? (
-        <AutoPaletteSheet suggestions={[...(photoFive ? [{ name: 'From your photos', five: photoFive, best: true as const }] : []), ...props.autoThemes.map((t) => ({ name: t.name, five: t.five }))]} onUse={useAuto} onClose={() => setSheet(null)} />
+        <AutoPaletteSheet suggestions={[...(photoFive ? [{ name: 'From your photos', five: photoFive, best: true as const }] : []), ...props.autoThemes.map((t) => ({ name: t.name, five: t.five }))]} onUse={takeAuto} onClose={() => setSheet(null)} />
       ) : null}
       {sheet?.kind === 'browse' ? (
         <StudioSheet label={`Ideas for ${sheet.slot.label}`} onClose={() => setSheet(null)}>
@@ -624,19 +624,18 @@ export function MoodBoardStudio(props: MoodBoardStudioProps) {
 
 function Heading({ title, tip }: { title: string; tip: string }) {
   return (
-    <p className="flex items-center gap-1 px-1 pb-1 pt-4 text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">
-      {title}
-      <InfoTip label={title} ariaLabel={`About ${title}`}>
+    <div className="px-1 pb-1 pt-4">
+      <InfoTip label={title} ariaLabel={`About ${title}`} align="start" labelClassName="text-[12px] font-semibold uppercase tracking-[0.08em] text-ink/55">
         {tip}
       </InfoTip>
-    </p>
+    </div>
   );
 }
 
 function ColourRow({ hex, name, line, trail, onTap, data, disabled = false }: { hex: string; name: string; line: string; trail?: string; onTap?: () => void; data: string; disabled?: boolean }) {
   const body = (
     <>
-      <span aria-hidden className="h-8 w-8 shrink-0 rounded-lg border border-ink/15" style={{ background: hex }} />
+      <span aria-hidden className="h-8 w-8 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: hex }} />
       <span className="flex min-w-0 flex-1 flex-col">
         <b className="text-[14px] font-semibold text-ink">{name}</b>
         <small className="truncate text-[11.5px] text-ink/55">{line}</small>
@@ -667,7 +666,7 @@ function Strip({ colours }: { colours: readonly string[] }) {
   return (
     <span className="flex gap-1.5" aria-hidden>
       {colours.map((c, i) => (
-        <i key={i} className="h-11 flex-1 rounded-lg border border-ink/10" style={{ background: c }} />
+        <i key={i} className="h-11 flex-1 rounded-md ring-1 ring-inset ring-ink/10" style={{ background: c }} />
       ))}
     </span>
   );
@@ -678,7 +677,7 @@ function Figure({ colour }: { colour: string }) {
   return (
     <span aria-hidden className="relative h-[72px] w-[46px] shrink-0">
       <span className="absolute left-[15px] top-0 h-4 w-4 rounded-full bg-[#E9D9C8]" />
-      <span className="absolute left-[6px] top-[18px] h-[54px] w-[34px] rounded-t-[14px] rounded-b-[4px] border border-ink/10" style={{ background: colour }} />
+      <span className="absolute left-[6px] top-[18px] h-[54px] w-[34px] rounded-t-2xl rounded-b-sm ring-1 ring-inset ring-ink/10" style={{ background: colour }} />
     </span>
   );
 }

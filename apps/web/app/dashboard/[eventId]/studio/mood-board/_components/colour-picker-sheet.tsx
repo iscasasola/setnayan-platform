@@ -61,7 +61,7 @@ export function ColourPickerSheet({
       <div className="flex flex-col gap-3 px-2 pb-2" data-colour-picker="">
         <p className="-mt-1 text-[12px] text-ink/60">{job}</p>
         <div className="flex items-center gap-3">
-          <span aria-hidden className="h-11 w-11 shrink-0 rounded-xl border border-ink/15" style={{ background: current }} />
+          <span aria-hidden className="h-11 w-11 shrink-0 rounded-full ring-1 ring-inset ring-ink/15" style={{ background: current }} />
           <span className="font-mono text-[14px] text-ink">{current.toUpperCase()}</span>
           <small className="text-[11px] text-ink/50">now</small>
         </div>
@@ -88,7 +88,7 @@ export function ColourPickerSheet({
             maxLength={7}
             onChange={(e) => setCode(e.target.value)}
             aria-label="Colour code"
-            className="min-h-11 min-w-0 flex-1 rounded-xl border border-ink/15 px-3 font-mono text-[15px] text-ink"
+            className="min-h-11 min-w-0 flex-1 rounded-full bg-ink/5 px-4 font-mono text-[15px] text-ink"
           />
           <button
             type="button"

@@ -116,5 +116,6 @@ export function cleanGallerySearch(raw: unknown): string | null {
 export function photoTag(credit: string | null | undefined): string | null {
   if (!credit) return 'Yours';
   const i = credit.lastIndexOf(' · ');
-  return i >= 0 ? credit.slice(i + 3) : null;
+  /* "Stylist / Decorator" → "Stylist": a tag on a photo is one short word. */
+  return i >= 0 ? (credit.slice(i + 3).split(' / ')[0] ?? null) : null;
 }

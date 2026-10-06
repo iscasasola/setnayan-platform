@@ -42,7 +42,7 @@ export function AutoPaletteSheet({
             </span>
             <span className="flex gap-1.5" aria-hidden>
               {s.five.map((c, i) => (
-                <i key={i} className="h-8 flex-1 rounded-lg border border-ink/10" style={{ background: c }} />
+                <i key={i} className="h-8 flex-1 rounded-md ring-1 ring-inset ring-ink/10" style={{ background: c }} />
               ))}
             </span>
           </button>

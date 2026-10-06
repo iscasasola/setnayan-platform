@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Component,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -8,6 +9,7 @@ import {
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type ReactNode,
 } from 'react';
 import { makerSave, requestMakerRefresh } from '@/lib/maker-refresh';
 import { isMarchOnlyGroup } from '@/lib/entourage';
@@ -132,23 +134,71 @@ function scrollerOf(el: HTMLElement): HTMLElement {
   return (document.scrollingElement as HTMLElement) ?? document.documentElement;
 }
 
-/**
- * The march maker — the Wedding March item's page (Details › Your event).
- * `lab` (the dev Maker lab only): the steps are not sent, so the gestures can be
- * walked on fixture data with no database.
- */
-export function MarchMaker({
-  eventId,
-  sections,
-  printed = [],
-  lab = false,
-}: {
+type MarchMakerProps = {
   eventId: string;
   sections: readonly MarchSection[];
   /** The printed sections with someone in them, in the saved order (`printedSectionOrder`). */
   printed?: readonly string[];
   lab?: boolean;
-}) {
+};
+
+/**
+ * 🧯 THE MARCH FAILS ALONE (controller 2026-10-06, after the owner's Maker went to
+ * the root crash card on the march — "Something on our end didn't work"). A
+ * throw inside the march draws ONE line in its own place — "The march couldn't
+ * load — Retry" — and every other part of the Maker stays where it was. Retry
+ * draws the march again from the server's copy (`requestMakerRefresh`). The
+ * failure is still recorded (`reportCrash`, boundary "march"), so a quiet
+ * fallback never becomes a silent one.
+ */
+export class MarchBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  override state = { failed: false };
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+  override componentDidCatch(error: Error): void {
+    void import('@/lib/telemetry/report-crash').then((m) => m.reportCrash(error, 'march')).catch(() => {});
+  }
+  override render() {
+    if (!this.state.failed) return this.props.children;
+    return (
+      <p role="alert" data-march-failed="" className="mx-auto max-w-md text-sm text-ink/70">
+        The march couldn’t load —{' '}
+        <button
+          type="button"
+          data-march-retry=""
+          onClick={() => {
+            this.setState({ failed: false });
+            requestMakerRefresh();
+          }}
+          className="min-h-9 font-semibold text-terracotta-800 underline underline-offset-2"
+        >
+          Retry
+        </button>
+      </p>
+    );
+  }
+}
+
+/**
+ * The march maker — the Wedding March item's page (Details › Your event).
+ * `lab` (the dev Maker lab only): the steps are not sent, so the gestures can be
+ * walked on fixture data with no database. Inside its own boundary (`MarchBoundary`).
+ */
+export function MarchMaker(props: MarchMakerProps) {
+  return (
+    <MarchBoundary>
+      <MarchMakerBody {...props} />
+    </MarchBoundary>
+  );
+}
+
+function MarchMakerBody({
+  eventId,
+  sections,
+  printed = [],
+  lab = false,
+}: MarchMakerProps) {
   /* The drop, drawn before the server answers; null = the server's march. */
   const [mine, setMine] = useState<Shown | null>(null);
   const shown = mine?.sections ?? (sections as MarchSection[]);

@@ -79,8 +79,14 @@ export type EntouragePerson = {
    * typed is the only honest source, and without one nothing is guessed.
    */
   parentWord?: 'father' | 'mother' | null;
-  /** `guests.side`, when the read asked for it (the march's walk side — `marchSideOf`). */
+  /** `guests.side`, when the read asked for it (the march's walk side — `walkSideOf`). */
   side?: string | null;
+  /**
+   * 🚶 In the march's "Not walking" tray (`march_not_walking`, owner 2026-10-06).
+   * They still PRINT under their role — every print ignores this; only the
+   * walking ORDER (`marchPlaceOf`, "You walk Nth") leaves them out.
+   */
+  notWalking?: true;
 };
 
 /**
@@ -704,6 +710,8 @@ export type EntourageGuestRow = {
    * crew on the left"); never asked by a print, which keeps its own columns.
    */
   side?: string | null;
+  /** 🚶 Marked by the reader that asked `march_not_walking` — see `EntouragePerson.notWalking`. */
+  not_walking?: boolean;
 };
 
 /**
@@ -1001,6 +1009,7 @@ function peopleForSpec(
         sortKey: sortKeyOf(row, name),
         parentWord: parentWordOf(row),
         ...(row.side !== undefined ? { side: row.side } : {}),
+        ...(row.not_walking ? { notWalking: true as const } : {}),
       });
     }
   }

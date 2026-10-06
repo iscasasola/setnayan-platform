@@ -159,11 +159,14 @@ test('no typed wedding word in the Your event editors and parts', () => {
 
 test('the march reads ONE order: the invitation’s, The Entourage card’s, the panel’s', () => {
   // 🚶 The march reads the invitation's own loader, in its march form (the couple's sides too, owner 2026-10-06).
-  assert.match(LOAD, /loadEntourage\(admin, eventId, undefined, true\)/, 'the march maker reads the invitation’s own loader');
+  // (Since 2026-10-06 its own read beside the invitation's — the "Not walking" tray rides with it — built by the SAME builder.)
+  assert.match(LOAD, /loadMarch\(admin, eventId\)/, 'the march maker reads the march loader');
+  assert.match(read('app/[slug]/_lib/loaders.ts'), /buildEntourage\(these, order, names, style, \{ march: true \}\)/, 'the march is not the invitation’s builder');
   assert.match(LOAD, /sections: marchSections\(groups\)/, 'the maker is not handed the march the loader read');
   assert.match(read('lib/march-sections.ts'), /export function marchSections\(groups: readonly EntourageGroup\[\]\): MarchSection\[\]/);
   const loaders = read('app/[slug]/_lib/loaders.ts');
-  assert.match(loaders, /return buildEntourage\(\s*\(data \?\? \[\]\) as EntourageGuestRow\[\],\s*await loadEntourageSectionOrder\(admin, eventId\),/);
+  // (The rows carry the "Not walking" mark since 2026-10-06 — a mark only the walking order reads; the ORDER argument is unchanged.)
+  assert.match(loaders, /return buildEntourage\(\s*\(\(data \?\? \[\]\) as EntourageGuestRow\[\]\)\.map\([^\n]*not_walking: true[^\n]*\),\s*await loadEntourageSectionOrder\(admin, eventId\),/);
   // (+ the couple's role words since 2026-09-30 — words only, the ORDER argument is unchanged.)
   assert.match(read('lib/print-set.server.ts'), /buildEntourage\(rows, await loadEntourageSectionOrder\(admin, eventId\)(, names(, style)?)?\)/);
   // The maker's sections follow the couple's own section order — the printed one, the couple's sides in their place.

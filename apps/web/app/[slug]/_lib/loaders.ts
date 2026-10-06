@@ -1918,6 +1918,10 @@ export const loadEntourage = cache(
     nameStyle?: NameStyle,
   ): Promise<EntourageGroup[]> => {
     const roles = ENTOURAGE_ROLES;
+    /* 🚶 Who is in the march's "Not walking" tray (owner 2026-10-06): they still
+       PRINT under their role — only the walking order ("You walk Nth",
+       `marchPlaceOf`) leaves them out. Unread → nobody marked (they print either way). */
+    const trayRead = admin.from('march_not_walking').select('guest_id').eq('event_id', eventId);
     const { data, error } = await admin
       .from('guests')
       /*
@@ -1958,8 +1962,11 @@ export const loadEntourage = cache(
       logQueryError('loadEntourage', error, { event_id: eventId }, 'graceful_degrade');
       return [];
     }
+    const tray = await trayRead;
+    if (tray.error) logQueryError('loadEntourage tray', tray.error, { event_id: eventId }, 'graceful_degrade');
+    const out = new Set(((tray.data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
     return buildEntourage(
-      (data ?? []) as EntourageGuestRow[],
+      ((data ?? []) as EntourageGuestRow[]).map((r) => (r.guest_id && out.has(r.guest_id) ? { ...r, not_walking: true } : r)),
       await loadEntourageSectionOrder(admin, eventId),
       await loadEventRoleNames(admin, eventId),
       nameStyle ?? (await loadEventNameStyle(admin, eventId)),

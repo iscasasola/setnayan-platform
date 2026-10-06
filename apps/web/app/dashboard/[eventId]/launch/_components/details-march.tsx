@@ -79,6 +79,9 @@ const NAME_CHIP = 'flex min-h-11 cursor-grab touch-pan-y select-none flex-col ju
 const partly = (reason: string) =>
   `${reason.replace(/\s*[—-]\s*nothing was changed\.?$/i, '.').replace(/\.\.$/, '.')} Part of the move was saved — the march shows where everyone is now.`;
 const LAB_SAVED: MarchResult = { ok: true, written: 1 };
+/* Stable empties: a fresh `[]` default every render would look like a new march from the server each time. */
+const NO_NAMES: readonly string[] = [];
+const NO_OUT: readonly MarchOut[] = [];
 const LAB_NO_RENDER = () => {};
 const LONG_PRESS_MS = 250;
 const SETTLE_MS = 240;
@@ -206,8 +209,8 @@ export function MarchMaker(props: MarchMakerProps) {
 function MarchMakerBody({
   eventId,
   sections,
-  printed = [],
-  out = [],
+  printed = NO_NAMES,
+  out = NO_OUT,
   lab = false,
 }: MarchMakerProps) {
   /* The drop, drawn before the server answers; null = the server's march. */

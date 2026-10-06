@@ -90,11 +90,17 @@ import {
   SpecialMessageField,
 } from './details-lazy';
 import { LOOK_ITEM_SECTIONS } from '@/lib/maker-look-sections';
+/* 🧭 The new Maker's Studio tools (`studio`) — lazy, so the shipped Maker's first load carries none of them. */
+import { StudioTool } from './details-lazy';
+import type { StudioHubFacts } from './studio-tools';
+import type { ManagerMethod } from '../../pabuya/_components/pabuya-manager';
+import { studioDetailsGroups, studioFullScreenCss, STUDIO_SUPPLIERS_LINE } from '@/lib/studio-details';
 import { MoodBoardPieces } from '../../studio/mood-board/_components/mood-board-parts';
 import { ItemPieces } from './details-piece';
 import { DetailsGoTo } from './details-go';
 import { yourEventParts, type YourEventInput } from './details-your-event-parts';
 import { PUBLIC_STAGE_LABELS } from '@/lib/public-site-stage-labels';
+import { VENUE_ROLE_LABEL } from '@/lib/event-venues';
 import { SeatPlanSlot } from '../../seating/_components/seat-plan-slots';
 import { DetailsWorkspace, type DetailsNavGroup } from './details-workspace';
 import { PlanMyselfBody, PlanMyselfSwitch } from './plan-myself';
@@ -189,6 +195,24 @@ import {
 const WORDS_FORM = 'details-print-words';
 
 export type MakerDetailsProps = {
+  /**
+   * 🧭 THE NEW MAKER'S STUDIO (`makerStagesStudioEnabled`, decided once by the
+   * launch page; plan `EVENT_HUB_MAKER_STAGES_STUDIO_BUILD_PLAN_2026-10-06.md`
+   * PR 4): the Studio tools redrawn to the prototype over the SAME editors —
+   * Info is one form (Date and Venue read-only, from Suppliers; Your Event Hub;
+   * the quiet rows), E-Gifts and Prints are forms of their own. Null/absent —
+   * every couple today — draws Details exactly as shipped.
+   */
+  studio?: {
+    /** Your Event Hub's facts; null = they could not be read (said, never guessed). */
+    hub: StudioHubFacts | null;
+    /** Every E-Gifts method, as the manager reads them; null = could not be read. */
+    egiftMethods: ManagerMethod[] | null;
+    /** What to bring (`events.what_to_bring`, drafted over live). */
+    whatToBring: string | null;
+    /** The live address's path (`publicEventPath`) — the QR's Copy · Share · Download. */
+    livePath: string | null;
+  } | null;
   eventId: string;
   slug: string | null;
   /** `updateEventSlug` bound to this event (the one writer, `findSlugConflict` behind it). */
@@ -766,6 +790,17 @@ export function MakerDetails(props: MakerDetailsProps) {
   /* 🎞 Under Look › Background, only while the Save the Date film keeps a background of its own. */
   const filmLine = theme.filmOwnBackground ? <FilmFollowsTheme eventId={eventId} legibility={theme.filmLegibility} /> : null;
   const kindlyReply = <KindlyReplyField hosts={hosts} choice={replyChoice} manual={stored.rsvp?.kind === 'manual' ? stored.rsvp.text : ''} />;
+  /* The NFC spot rides the print words form — ONE switch, drawn under the QR (or, in the new Maker's
+     Studio, among the Finer Details switches: Info's QR is the Event Hub's, Prints holds what prints). */
+  const nfcToggle = (
+    <Toggle
+      form={WORDS_FORM}
+      name="inc_nfc"
+      label="Add an NFC sticker spot"
+      on={inc.nfc}
+      tip="Use 25 mm round NFC stickers (NTAG213/215). Write your Event Hub link to them first. The spot prints beside the QR — on the calling card it takes the corner; where a format has no room for both, the QR stays and the spot is left off."
+    />
+  );
   const printsOn = (piece: PrintSetKey) => (
     <p className="text-xs text-ink/60">
       Prints on {PRINT_PIECES[piece].label} while its switch is on.
@@ -797,13 +832,7 @@ export function MakerDetails(props: MakerDetailsProps) {
             : 'Every guest QR carries the Setnayan mark in the centre. Try your logo, shape, pattern and colour here — they go live when you Apply with Event Hub Pro.'}
         </p>
         {qrAlways}
-        <Toggle
-          form={WORDS_FORM}
-          name="inc_nfc"
-          label="Add an NFC sticker spot"
-          on={inc.nfc}
-          tip="Use 25 mm round NFC stickers (NTAG213/215). Write your Event Hub link to them first. The spot prints beside the QR — on the calling card it takes the corner; where a format has no room for both, the QR stays and the spot is left off."
-        />
+        {nfcToggle}
         {save}
       </div>
     ),
@@ -963,6 +992,73 @@ export function MakerDetails(props: MakerDetailsProps) {
       </div>
     );
   }
+  /* ══ 🧭 THE NEW MAKER'S STUDIO (`studio`) — Info · E-Gifts · Prints as the prototype draws them,
+     over the SAME editors (owner 2026-10-06; plan PR 4). Nothing here writes anything new. ══ */
+  if (props.studio) {
+    const st = props.studio;
+    const yeIn = props.yourEvent ?? null;
+    /* 📍 Date and Venue are read-only — set in Suppliers (DECISION_LOG "DATE AND VENUE LIVE IN SUPPLIERS"). */
+    if (yeIn && editors.date) {
+      editors.date = <StudioTool part="fact" value={yeIn.date.dateDisplay} line={STUDIO_SUPPLIERS_LINE} data="date" />;
+    }
+    if (yeIn && editors.venues) {
+      const two = yeIn.venues.resolved.length > 1;
+      const names = yeIn.venues.resolved
+        .filter((v) => v.name)
+        .map((v) => (two ? `${VENUE_ROLE_LABEL[v.role]} · ${v.name}` : v.name!))
+        .join('\n');
+      editors.venues = <StudioTool part="fact" value={names || null} line={STUDIO_SUPPLIERS_LINE} data="venues" />;
+    }
+    /* ✍ What to bring — its own drafted column (`what_to_bring`), the Event Hub's Reminders box, in place. */
+    if (editors['special-message'] !== undefined) {
+      editors['special-message'] = (
+        <div className="flex flex-col gap-4">
+          {editors['special-message']}
+          <StudioTool part="bring" eventId={eventId} value={st.whatToBring} />
+        </div>
+      );
+    }
+    /* 🌐 Your Event Hub — under its address: Go live · Who can view · Which version guests see · Event Bar. */
+    editors.address = (
+      <div className="flex flex-col gap-3">
+        {editors.address}
+        <StudioTool part="hub" eventId={eventId} slug={slug} hub={st.hub} />
+      </div>
+    );
+    /* 🔳 The QR — Shape · Pattern · Colour, then Copy · Share · Download, then the quiet rows. */
+    editors.qr = (
+      <div className="flex flex-col gap-1">
+        <QrLookControls eventId={eventId} ownsPro={qr.ownsPro} storeShell={qr.storeShell} style={qr.style} inks={qr.inks} action={qrStyleAction} />
+        <StudioTool part="qr" slug={slug} path={st.livePath} />
+        <StudioTool part="quiet" />
+      </div>
+    );
+    /* 🖨 The NFC spot is a Finer Details switch here (it still posts with every words Save). */
+    editors.details = (
+      <>
+        {editors.details}
+        {nfcToggle}
+      </>
+    );
+    /* 🌄 Look — ONE bar over the four sections (Background · Colours · Fonts · Music), the same editors under it. */
+    for (const k of LOOK_SECTION_ITEM_KEYS) {
+      editors[k] = (
+        <>
+          <StudioTool part="look" item={k} />
+          {editors[k]}
+        </>
+      );
+    }
+    /* 🎁 E-Gifts — the answer, then one switch per way to give with its field (the manager's own writes). */
+    if (editors.gifts && st.egiftMethods) {
+      editors.gifts = (
+        <div className="flex flex-col gap-3" data-details-egifts="">
+          {ap.editors.gifts}
+          <StudioTool part="gifts" eventId={eventId} methods={st.egiftMethods} />
+        </div>
+      );
+    }
+  }
   /* 🪑 The seat plan's right part is its guests — the editor draws them here. */
   if (seatPlan) editors.seating = <SeatPlanSlot name="guests" className="flex flex-col" />;
   /* 🙋 Plan it myself — what the help is (middle), the one switch (right). */
@@ -980,7 +1076,8 @@ export function MakerDetails(props: MakerDetailsProps) {
       samplePalette={theme.samplePalette ?? null}
     >
       <DetailsWorkspace
-        groups={groups}
+        /* 🧭 The new Maker's Studio: Info · E-Gifts · Prints are forms of their own (`lib/studio-details.ts`). */
+        groups={props.studio ? studioDetailsGroups(groups) : groups}
         bodies={bodies}
         editors={editors}
         initial={startItem}
@@ -1013,6 +1110,8 @@ export function MakerDetails(props: MakerDetailsProps) {
         }}
         persistent={
           <>
+            {/* 📱 The new Maker's Studio tools fill the phone's screen (`studioFullScreenCss`) — CSS, no script. */}
+            {props.studio ? <style>{studioFullScreenCss()}</style> : null}
             {flash === 'saved' ? (
               <p role="status" className="rounded-md border border-success-300/60 bg-success-50 px-4 py-2 text-sm text-success-800">
                 Saved.

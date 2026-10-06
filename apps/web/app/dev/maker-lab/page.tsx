@@ -11,6 +11,7 @@ import { resolveThemeGround } from '@/app/[slug]/_lib/theme-ground';
 import type { InvitationWidgetRow, WidgetType } from '@/lib/invitation-widgets';
 import { detailsLabNode } from '../details-lab/details-lab-node';
 import { MakerLabShell } from './maker-lab-shell';
+import { STUDIO_TILE_KEYS, STUDIO_TILES } from '@/lib/studio-tiles';
 
 /**
  * /dev/maker-lab — THE WHOLE MAKER on maria-and-jose's REAL SHAPE, with no
@@ -140,6 +141,23 @@ export default async function MakerLabPage({ searchParams }: { searchParams: Pro
       canvases={canvases}
       /* Moves with every render, as the real Maker's stamp does — a save's refresh reaches the canvas. */
       renderStamp={String(Date.now())}
+      /* 🧭 `?studio=1` — the new Maker on the lab's fixtures (no ✓ claimed: nothing was measured here). */
+      stagesStudio={sp.studio === '1'}
+      studio={
+        sp.studio === '1'
+          ? {
+              tiles: STUDIO_TILE_KEYS.map((key) => ({
+                key,
+                label: STUDIO_TILES[key].label,
+                short: STUDIO_TILES[key].short,
+                item: STUDIO_TILES[key].item,
+                immersive: STUDIO_TILES[key].immersive === true,
+                done: undefined,
+                status: STUDIO_TILES[key].sub,
+              })),
+            }
+          : null
+      }
     />
   );
 }

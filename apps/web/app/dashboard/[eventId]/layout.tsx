@@ -8,7 +8,8 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { eventBoardHref } from '@/lib/event-board';
-import { fetchUserEvents } from '@/lib/events';
+import { fetchUserEventsOrReconnect } from '@/lib/events';
+import { isTransientReadError, rethrowIfSchemaBlip, schemaBlipError, withSchemaRetry } from '@/lib/read-retry';
 import { getDashboardShell } from '@/lib/dashboard-shell';
 import { countUnreadMessages } from '@/lib/chat';
 import { countGuestsByEvent } from '@/lib/guests';
@@ -96,12 +97,22 @@ export default async function EventLayout({ children, params }: Props) {
   const supabase = await createClient();
 
   // Authorization (per acceptance criterion: 404 for non-couples).
-  const { data: membership, error: membershipError } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .maybeSingle();
+  // 🔁 A schema-cache BLIP is retried, and one that outlasts the window throws
+  // `SchemaBlipError` (the browser shows "Reconnecting…") — it must never reach
+  // the `notFound()` below as "you are not a member". lib/read-retry.ts.
+  const { data: membership, error: membershipError, status: membershipStatus } =
+    await withSchemaRetry(() =>
+      supabase
+        .from('event_members')
+        .select('member_type')
+        .eq('event_id', eventId)
+        .eq('user_id', user.id)
+        .maybeSingle(),
+    );
+  if (isTransientReadError(membershipError, membershipStatus)) {
+    logQueryError('EventLayout (event_members)', membershipError, { event_id: eventId, user_id: user.id }, 'will_throw');
+    throw schemaBlipError('EventLayout (event_members)', membershipError);
+  }
 
   // Log silent RLS / network errors so the next "user can't reach their
   // own dashboard" mystery shows up in Sentry with the exact reason
@@ -122,14 +133,21 @@ export default async function EventLayout({ children, params }: Props) {
     // the 0048 invite system finally going live. Data access is enforced
     // per-area by the moderator RLS policies (migration 20261129000000);
     // the layout only answers "may they see this event's shell at all".
-    const { data: moderator, error: moderatorError } = await supabase
-      .from('event_moderators')
-      .select('moderator_id')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .not('accepted_at', 'is', null)
-      .is('removed_at', null)
-      .maybeSingle();
+    const { data: moderator, error: moderatorError, status: moderatorStatus } =
+      await withSchemaRetry(() =>
+        supabase
+          .from('event_moderators')
+          .select('moderator_id')
+          .eq('event_id', eventId)
+          .eq('user_id', user.id)
+          .not('accepted_at', 'is', null)
+          .is('removed_at', null)
+          .maybeSingle(),
+      );
+    if (isTransientReadError(moderatorError, moderatorStatus)) {
+      logQueryError('EventLayout (event_moderators)', moderatorError, { event_id: eventId, user_id: user.id }, 'will_throw');
+      throw schemaBlipError('EventLayout (event_moderators)', moderatorError);
+    }
     if (moderatorError) {
       logQueryError(
         'EventLayout (event_moderators)',
@@ -152,7 +170,10 @@ export default async function EventLayout({ children, params }: Props) {
     // of the event row here, so nobody who is not on its guest list reaches
     // any event data before the refusal below.
     if (!moderator && membership?.member_type === 'guest') {
-      const invited = await fetchUserEvents(supabase, user.id, 'guest').catch(() => []);
+      const invited = await fetchUserEventsOrReconnect(supabase, user.id, 'guest').catch((err: unknown) => {
+        rethrowIfSchemaBlip(err);
+        return [];
+      });
       const seat = invited.find((e) => e.event_id === eventId);
       const hub = seat ? eventBoardHref(seat) : null;
       if (hub) redirect(hub);
@@ -207,11 +228,9 @@ export default async function EventLayout({ children, params }: Props) {
     try {
       const fullSelect =
         'event_id, public_id, display_name, event_date, archived, event_type, slug, monogram_text, monogram_color, monogram_frame_key, monogram_font_key, monogram_style, monogram_custom_svg, monogram_uploaded_svg, cleared_at, timezone, event_end_date, community_id';
-      const fullRes = await supabase
-        .from('events')
-        .select(fullSelect)
-        .eq('event_id', eventId)
-        .maybeSingle();
+      const fullRes = await withSchemaRetry(() =>
+        supabase.from('events').select(fullSelect).eq('event_id', eventId).maybeSingle(),
+      );
       if (
         fullRes.error &&
         /column .* does not exist|undefined_column|42703/i.test(
@@ -372,6 +391,10 @@ export default async function EventLayout({ children, params }: Props) {
       { event_id: eventId, user_id: user.id },
       'graceful_degrade',
     );
+  }
+  // 🔁 A blip that outlasted the retry is NOT "no such event" — never 404 on it.
+  if (isTransientReadError(eventRes.error, 'status' in eventRes ? eventRes.status : null)) {
+    throw schemaBlipError('EventLayout (events)', eventRes.error);
   }
   const event = eventRes.data;
   if (!event) notFound();

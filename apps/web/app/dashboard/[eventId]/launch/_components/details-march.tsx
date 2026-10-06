@@ -5,6 +5,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -214,7 +215,7 @@ function MarchMakerBody({
   const shown = mine?.sections ?? (sections as MarchSection[]);
   const shownPrinted = mine?.printed ?? (printed as string[]);
   const outUnread = out === null;
-  const shownOut = mine?.out ?? ((out ?? []) as MarchOut[]);
+  const shownOut = useMemo(() => mine?.out ?? ((out ?? []) as MarchOut[]), [mine, out]);
   const anyone = shown.length > 0 || shownOut.length > 0;
   /* 🚶 THE TRAY LIVES IN THE EDITOR'S PLACE (owner 2026-10-06): the phone's lower
      third, the desk's right panel — `MarchTraySlot`, which the march's editor is.

@@ -20,8 +20,13 @@ Brief: controller 2026-10-06 — the phone lower third under the Wedding March I
 ## Steps
 - [x] migration + Ugat (20271265555437_march_not_walking.sql; tests/db/march-not-walking.db.test.ts green)
 - [x] server action + readers (loadMarch, readMarchLines skips tray, setMarchWalking, marchPlaceOf skips non-walkers)
-- [ ] march-drag tray plans + tests
-- [ ] tray UI (portal into editor slot) + "+N more" sheet
-- [ ] workspace: no guided chrome / no PDF under march; guided Next/Skip moved to end of march body (phone)
-- [ ] lab fixtures (mj + owner-shaped 45 walks / 80 walking), screenshots 375/390/1440
+- [x] march-drag tray plans + tests
+- [x] tray UI (portal into editor slot) + "+N more" sheet
+- [x] workspace: no guided chrome / no PDF under march; guided Next/Skip moved to end of march body (phone)
+- [x] lab fixtures (?march=owner), screenshots 375/390/1440 (local, build-sessions/march-tray-shots, untracked)
 - [ ] guards, tests, changelog, PR
+
+## Status 2026-10-06 ~10:20
+- Crash PR #6379 (rd/march-crash-fix) open, draft, do-not-auto-merge; its commits are cherry-picked here.
+- NEXT after this PR: PR 2 "drafted march" (owner "Wait for apply") — every march step (incl. walking) drafted via the
+  hub draft; Apply writes through the same actions; remove HubSavesImmediately from the march.

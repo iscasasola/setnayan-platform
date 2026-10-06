@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 6606
+# facts: 6613
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     567
-#   col       4827
-#   policy    943
+#   tpriv     568
+#   col       4830
+#   policy    945
 #   view      8
-#   func      257
+#   func      258
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -267,6 +267,7 @@ tpriv	public.live_studio_roam_zones|anon	SIUD
 tpriv	public.live_studio_roam_zones|authenticated	SIUD
 tpriv	public.manpower_gigs|authenticated	SIUD
 tpriv	public.manual_payment_logs|authenticated	SIUD
+tpriv	public.march_not_walking|authenticated	SID
 tpriv	public.march_walks|authenticated	SIUD
 tpriv	public.market_funnel_bands|authenticated	SIUD
 tpriv	public.market_price_bands|anon	SIUD
@@ -2718,6 +2719,9 @@ col	public.manual_payment_logs.id	anon=- authenticated=SIU
 col	public.manual_payment_logs.items_ordered	anon=- authenticated=SIU
 col	public.manual_payment_logs.payment_status	anon=- authenticated=SIU
 col	public.manual_payment_logs.reference_number	anon=- authenticated=SIU
+col	public.march_not_walking.created_at	anon=- authenticated=SI
+col	public.march_not_walking.event_id	anon=- authenticated=SI
+col	public.march_not_walking.guest_id	anon=- authenticated=SI
 col	public.march_walks.created_at	anon=- authenticated=SIU
 col	public.march_walks.event_id	anon=- authenticated=SIU
 col	public.march_walks.guest_id	anon=- authenticated=SIU
@@ -5861,6 +5865,8 @@ policy	public.manpower_gigs|manpower_gigs_host_posts_open	mode=PERMISSIVE cmd=IN
 policy	public.manpower_gigs|manpower_gigs_host_reads_own_event	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT event_members.event_id FROM event_members WHERE ((event_members.user_id = auth.uid()) AND (event_members.member_type = 'couple'::member_type)))) check=NULL
 policy	public.manpower_gigs|manpower_gigs_team_admin	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.manpower_gigs|manpower_gigs_vendor_reads_own	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = auth.uid()))) check=NULL
+policy	public.march_not_walking|march_not_walking_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin() OR (moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin() OR (moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text))
+policy	public.march_not_walking|march_not_walking_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'guest_list'::text) IS NOT NULL) check=NULL
 policy	public.march_walks|march_walks_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin() OR (moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text)) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR is_admin() OR (moderator_area_level(event_id, 'guest_list'::text) = 'edit'::text))
 policy	public.march_walks|march_walks_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(moderator_area_level(event_id, 'guest_list'::text) IS NOT NULL) check=NULL
 policy	public.market_price_bands|market_price_bands_admin_write	mode=PERMISSIVE cmd=ALL roles=PUBLIC using=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.is_internal OR u.is_team_member OR (u.account_type = 'admin'::account_type))))) check=(EXISTS ( SELECT 1 FROM users u WHERE ((u.user_id = auth.uid()) AND (u.is_internal OR u.is_team_member OR (u.account_type = 'admin'::account_type)))))
@@ -6555,6 +6561,7 @@ func	public.rotate_guest_qr_token(p_guest_id uuid, p_actor_kind text, p_reason t
 func	public.service_card_records(p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.set_coordinator_colour_access(p_event_id uuid, p_user_id uuid, p_domain text, p_active boolean)	secdef=yes exec=authenticated search_path=public
 func	public.set_entourage_order(p_event_id uuid, p_guest_ids uuid[], p_orders integer[])	secdef=no exec=authenticated search_path=public, pg_temp
+func	public.set_march_walking(p_event_id uuid, p_guest_id uuid, p_walks boolean)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.set_service_slot_day_capacity(p_slot_id uuid, p_reserved_date date, p_seats integer)	secdef=yes exec=authenticated search_path=public
 func	public.set_vendor_calendar_day_state(p_vendor_profile_id uuid, p_pool_id uuid, p_state_date date, p_day_state text, p_note text)	secdef=yes exec=anon,authenticated search_path=public
 func	public.set_vendor_colour_access(p_event_id uuid, p_vendor_id uuid, p_active boolean)	secdef=yes exec=authenticated search_path=public

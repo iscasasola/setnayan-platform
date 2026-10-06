@@ -47,6 +47,7 @@ import {
   type EntourageRow,
 } from '@/lib/entourage';
 import type { MarchResult } from '@/lib/march-result';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -100,7 +101,11 @@ export async function readNotWalking(
   eventId: string,
 ): Promise<Set<string> | null> {
   const { data, error } = await supabase.from('march_not_walking').select('guest_id').eq('event_id', eventId);
-  if (error) return null;
+  if (error) {
+    // Recorded, then refused by the caller in words (MARCH_READ_FAILED) — never read as "nobody".
+    logQueryError('readNotWalking', error, { event_id: eventId }, 'graceful_degrade');
+    return null;
+  }
   return new Set(((data ?? []) as Array<{ guest_id: string }>).map((r) => r.guest_id));
 }
 
